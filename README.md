@@ -1,4 +1,5 @@
-raw-jit-executor
+RAW: Just-In-Time Executor
 ================
 
-The JIT executor of RAW, a prototype in situ DBMS employing Just-In-Time operators
+The executor of RAW, a prototype in situ DBMS employing Just-In-Time operators.
+
