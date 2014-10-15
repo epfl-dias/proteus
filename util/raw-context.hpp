@@ -87,10 +87,13 @@ public:
 	ConstantInt* createInt64(int val);
 	ConstantInt* createTrue();
 	ConstantInt* createFalse();
-	//Stub
+
 	Type* CreateCustomType(char* typeName);
-	StructType* CreateCustomStruct(std::vector<Type*> innerTypes);
+	StructType* CreateJSMNStruct();
+	PointerType* CreateJSMNStructPtr();
 	StructType* CreateJSONPosStruct();
+	StructType* CreateCustomStruct(std::vector<Type*> innerTypes);
+	Value* getStructElem(AllocaInst* mem_struct, int elemNo);
 	Value* CreateGlobalString(char* str);
 	PointerType* getPointerType(Type* type);
 
@@ -105,6 +108,8 @@ public:
 				BasicBlock** else_block, BasicBlock* insert_before = NULL);
 
 	Value* CastPtrToLlvmPtr(PointerType* type, const void* ptr);
+	Value* getArrayElem(AllocaInst* mem_ptr, PointerType* type, Value* offset);
+
 	//Not used atm
 	void CodegenMemcpy(Value* dst, Value* src, int size);
 
@@ -132,6 +137,8 @@ extern "C" double putchari(int X);
 /// printd - printf that takes a double prints it as "%f\n", returning 0.
 extern "C" int printi(int X);
 
+extern "C" int printi64(size_t X);
+
 extern "C" int printFloat(double X);
 
 extern "C" int printc(char* X);
@@ -151,5 +158,7 @@ extern "C" JSONObject getJSONPositions(char* jsonName, int attrNo);
 extern "C" int getJSONInt(char* jsonName, int attrNo);
 
 extern "C" double getJSONDouble(char* jsonName, int attrNo);
+
+extern "C" int compareTokenString(const char* buf, int start, int end, const char* candidate);
 
 #endif /* RAW_CONTEXT_HPP_ */

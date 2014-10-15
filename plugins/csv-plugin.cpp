@@ -528,7 +528,9 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 		case INT:
 			readAsIntLLVM(attrName,*variableBindings,atoi_,debugChar,debugInt);
 			break;
-		case COLLECTION:
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR) << "[CSV PLUGIN: ] CSV files do not contain collections";
 			throw runtime_error(string("[CSV PLUGIN: ] CSV files do not contain collections"));
 		case RECORD:

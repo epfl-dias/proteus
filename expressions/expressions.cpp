@@ -153,7 +153,9 @@ Value* ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
-		case COLLECTION:
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
 		case RECORD:
@@ -186,7 +188,9 @@ Value* ExpressionGeneratorVisitor::visit(expressions::NeExpression *e) {
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
-		case COLLECTION:
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
 		case RECORD:
@@ -219,7 +223,9 @@ Value* ExpressionGeneratorVisitor::visit(expressions::GeExpression *e) {
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
-		case COLLECTION:
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
 		case RECORD:
@@ -252,7 +258,9 @@ Value* ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
-		case COLLECTION:
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
 		case RECORD:
@@ -285,7 +293,9 @@ Value* ExpressionGeneratorVisitor::visit(expressions::LeExpression *e) {
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
-		case COLLECTION:
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
 		case RECORD:
@@ -318,7 +328,9 @@ Value* ExpressionGeneratorVisitor::visit(expressions::LtExpression *e) {
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
-		case COLLECTION:
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
 		case RECORD:
@@ -351,7 +363,9 @@ Value* ExpressionGeneratorVisitor::visit(expressions::AddExpression *e) {
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
-		case COLLECTION:
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
 		case RECORD:
@@ -384,7 +398,9 @@ Value* ExpressionGeneratorVisitor::visit(expressions::SubExpression *e) {
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
-		case COLLECTION:
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
 		case RECORD:
@@ -417,7 +433,9 @@ Value* ExpressionGeneratorVisitor::visit(expressions::MultExpression *e) {
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
-		case COLLECTION:
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
 		case RECORD:
@@ -450,7 +468,9 @@ Value* ExpressionGeneratorVisitor::visit(expressions::DivExpression *e) {
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
-		case COLLECTION:
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
 		case RECORD:

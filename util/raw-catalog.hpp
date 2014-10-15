@@ -93,14 +93,29 @@ public:
 	}
 
 	void setJSONHelper(string fileName, JSONHelper* helper)	{
-		if( jsonFiles[fileName] != NULL)
+		if(jsonFiles[fileName] != NULL)
 		{
-			throw runtime_error(string("Catalog already contains a helper class for ")+fileName);
+			LOG(WARNING) << "Catalog already contains a helper class for " << fileName;
 		}
-		else
-		{
-			jsonFiles[fileName] = helper;
+		jsonFiles[fileName] = helper;
+
+	}
+
+	void registerFileJSON(string fileName, ExpressionType* type) {
+		map<string, ExpressionType*>::iterator it = jsonTypeCatalog.find(fileName);
+		if(it == jsonTypeCatalog.end())	{
+			LOG(WARNING) << "Catalog already contains the type of " << fileName;
 		}
+		jsonTypeCatalog[fileName] = type;
+	}
+
+	ExpressionType* getTypeJSON(string fileName) {
+		map<string, ExpressionType*>::iterator it = jsonTypeCatalog.find(fileName);
+		if(it == jsonTypeCatalog.end())	{
+			LOG(ERROR) << "Catalog does not contain the type of " << fileName;
+			throw runtime_error(string("Catalog does not contain the type of ")+fileName);
+		}
+		return it->second;
 	}
 
 	void clear();
@@ -109,6 +124,9 @@ private:
 	std::map<string,multimap<int,void*>*> intHTs;
 
 	std::map<string,JSONHelper*> jsonFiles;
+
+	map<string, ExpressionType*> jsonTypeCatalog;
+
 	/**
 	 * Reason for this: The hashtables we populate (intHTs etc) are created a priori.
 	 * Therefore, the 'values' need to be void* to accommodate any kind of 'tuples'

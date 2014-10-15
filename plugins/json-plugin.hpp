@@ -23,6 +23,8 @@
 
 #include "plugins/plugins.hpp"
 
+namespace semi_index	{
+
 class JSONPlugin	: public Plugin {
 public:
 	JSONPlugin(RawContext* const context, string& file, vector<RecordAttribute*>* fieldsToSelect, vector<RecordAttribute*>* fieldsToProject);
@@ -31,6 +33,8 @@ public:
 	void generate(const RawOperator& producer);
 	void finish();
 	virtual string& getName() { return fname; }
+
+
 
 private:
 	JSONHelper* helper;
@@ -46,3 +50,5 @@ private:
 	//Assumes a semi-index has been pre-built during construction of JSONHelper
 	void scanJSON(const RawOperator& producer, Function* debug);
 };
+
+}

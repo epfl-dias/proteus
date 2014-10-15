@@ -62,6 +62,10 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 
+//#JSON
+#define JSMN_STRICT
+#include "jsmn/jsmn.h"
+
 //Handling conflict between Mongo and Google logger
 #include "mongodb/db/jsobj.h"
 #include "mongodb/db/json.h"
@@ -70,6 +74,8 @@
 //Must be placed before glog include
 //#define GOOGLE_STRIP_LOG 1
 #include <glog/logging.h>
+
+#define DEBUG
 
 #define KB 1024
 #define MB (1024*KB)

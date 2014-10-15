@@ -30,6 +30,7 @@
 #include "operators/root.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-plugin.hpp"
+#include "plugins/json-jsmn-plugin.hpp"
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
@@ -37,6 +38,8 @@
 void scanCSV();
 void selectQueryJSON();
 void joinQueryRelational();
+void scanJsmnInterpreted();
+void scanJsmn();
 
 int main(int argc, char* argv[])
 {
@@ -49,7 +52,71 @@ int main(int argc, char* argv[])
 	scanCSV();
 	joinQueryRelational();
 	selectQueryJSON();
+	scanJsmnInterpreted();
+	scanJsmn();
+}
 
+void scanJsmnInterpreted()	{
+	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
+
+	string fname = string("jsmn.json");
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	IntType attrType = IntType();
+	RecordAttribute attr = RecordAttribute(1,attrName,&attrType);
+	RecordAttribute attr2 = RecordAttribute(2,attrName2,&attrType);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname , &documentType);
+
+	list<string> path;
+	path.insert(path.begin(),attrName2);
+	list<ExpressionType*> types;
+	types.insert(types.begin(),&attrType);
+	pg.scanObjectsInterpreted(path,types);
+
+	pg.finish();
+}
+
+void scanJsmn()	{
+	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
+
+	string fname = string("jsmn.json");
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	IntType attrType = IntType();
+	RecordAttribute attr = RecordAttribute(1,attrName,&attrType);
+	RecordAttribute attr2 = RecordAttribute(2,attrName2,&attrType);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname , &documentType);
+	Scan scan = Scan(&ctx,pg);
+
+	//ROOT
+	Root rootOp = Root(&scan);
+	scan.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	RawCatalog& catalog = RawCatalog::getInstance();
+	catalog.clear();
 }
 
 void scanCSV()	{
@@ -119,7 +186,7 @@ void selectQueryJSON()	{
 	whichFields.push_back(attr1);
 	whichFields.push_back(attr2);
 
-	JSONPlugin* pg = new JSONPlugin(&ctx, filename, &whichFields,&whichFields);
+	semi_index::JSONPlugin* pg = new semi_index::JSONPlugin(&ctx, filename, &whichFields,&whichFields);
 	Scan scan = Scan(&ctx,*pg);
 
 

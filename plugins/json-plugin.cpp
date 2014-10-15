@@ -23,6 +23,8 @@
 
 #include "plugins/json-plugin.hpp"
 
+namespace semi_index	{
+
 JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		vector<RecordAttribute*>* fieldsToSelect,
 		vector<RecordAttribute*>* fieldsToProject) :
@@ -55,7 +57,7 @@ void JSONPlugin::scanJSON(const RawOperator& producer, Function* debug) {
 							&jsonScanCond, &jsonScanBody, &jsonScanInc,	&jsonScanEnd);
 
 	JSONHelper* helper = this->helper;
-		int attsNo = helper->getAttsNo();
+	int attsNo = helper->getAttsNo();
 	int nameSize = (helper->getFileNameStr()).size() + 1;
 	char* filename_noconst = (char *) alloca(nameSize);
 	memcpy(filename_noconst, helper->getFileName(), nameSize);
@@ -124,7 +126,9 @@ void JSONPlugin::scanJSON(const RawOperator& producer, Function* debug) {
 				jsonPrimitiveScan = context->getFunction("getJSONInt");
 				resultType = Type::getInt32Ty(llvmContext);
 				break;
-			case COLLECTION:
+			case BAG:
+			case LIST:
+			case SET:
 				throw runtime_error(string("Only primitive types should qualify here: ")
 								           + (*it)->getType());
 			case RECORD:
@@ -167,3 +171,5 @@ void JSONPlugin::generate(const RawOperator& producer) {
 }
 
 JSONPlugin::~JSONPlugin() {}
+
+}

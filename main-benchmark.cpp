@@ -73,7 +73,7 @@ int main()
 	whichFields.push_back(attr1);
 	whichFields.push_back(attr2);
 
-	JSONPlugin* pg = new JSONPlugin(&context, filename, &whichFields,&whichFields);
+	semi_index::JSONPlugin* pg = new semi_index::JSONPlugin(&context, filename, &whichFields,&whichFields);
 	Scan scan = Scan(&context, *pg);
 
 	//ROOT

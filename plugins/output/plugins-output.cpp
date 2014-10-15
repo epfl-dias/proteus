@@ -66,7 +66,9 @@ Type* OutputPlugin::chooseType(ExpressionType* exprType, Type* currType, materia
 
 	switch(exprType->getTypeID())
 	{
-	case COLLECTION:
+	case BAG:
+	case SET:
+	case LIST:
 		LOG(ERROR) << "[OUTPUT PG: ] DEALING WITH COLLECTION TYPE - NOT SUPPORTED YET";
 		throw runtime_error(string("[OUTPUT PG: ] DEALING WITH COLLECTION TYPE - NOT SUPPORTED YET"));
 		break;

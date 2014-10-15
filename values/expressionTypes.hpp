@@ -36,56 +36,85 @@ using std::list;
 using std::stringstream;
 
 
-enum typeID	{BOOL, STRING, FLOAT, INT, COLLECTION, RECORD};
+enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET };
 
 class ExpressionType {
 public:
-	virtual string getType() = 0;
-	virtual typeID getTypeID() = 0;
-	virtual ~ExpressionType() { }
+	virtual string getType()   const = 0;
+	virtual typeID getTypeID() const = 0;
+	virtual ~ExpressionType()  {}
 	virtual bool isPrimitive() = 0;
 };
 
 class PrimitiveType : public ExpressionType	{};
 
-
 class BoolType : public PrimitiveType {
 public:
-	string getType() {return string("Bool");}
-	typeID getTypeID()	{return BOOL;}
-	bool isPrimitive() {return true;}
+	string getType() 	const 	{ return string("Bool"); }
+	typeID getTypeID() 	const	{ return BOOL; }
+	bool isPrimitive()			{ return true; }
 };
+
 class StringType : public PrimitiveType {
 public:
-	string getType() {return string("String");}
-	typeID getTypeID()	{return STRING;}
-	bool isPrimitive() {return true;}
+	string getType() 	const	{ return string("String"); }
+	typeID getTypeID() 	const	{ return STRING; }
+	bool isPrimitive() 			{ return true; }
 };
+
 class FloatType : public PrimitiveType {
 public:
-	string getType() {return string("Float");}
-	typeID getTypeID()	{return FLOAT;}
-	bool isPrimitive() {return true;}
+	string getType() 	const 	{ return string("Float"); }
+	typeID getTypeID()	const	{ return FLOAT; }
+	bool isPrimitive() 			{ return true; }
 };
+
 class IntType : public PrimitiveType {
 public:
-	string getType() {return string("Int");}
-	typeID getTypeID()	{return INT;}
-	bool isPrimitive() {return true;}
+	string getType() 	const 	{ return string("Int"); }
+	typeID getTypeID()	const	{ return INT; }
+	bool isPrimitive() 			{ return true; }
 };
 
-//TODO missing constructor
 class CollectionType : public ExpressionType	{
 public:
-	string getType() {
-		return string("CollectionType(")+type->getType()+string(")");
-	};
-	typeID getTypeID()	{return COLLECTION;}
-	bool isPrimitive() {return false;}
-	~CollectionType() { };
-private:
-	ExpressionType* type;
+	CollectionType(	const ExpressionType& type) :
+		type(type)									{}
+	virtual string getType() 	const				{ return string("CollectionType(")+type.getType()+string(")"); }
+	virtual typeID getTypeID() 	const = 0;
+	virtual bool isPrimitive() 						{ return false; }
+	const ExpressionType& getNestedType() const		{ return type; }
+	virtual ~CollectionType() 						{}
 
+private:
+	const ExpressionType& type;
+};
+
+class ListType : public CollectionType	{
+public:
+	ListType(const ExpressionType& type) : CollectionType(type)	{}
+	string getType() 	const									{ return string("ListType(")+this->getNestedType().getType()+string(")"); }
+	typeID getTypeID() 	const									{ return LIST; }
+	bool isPrimitive() 											{ return false; }
+	~ListType() 												{}
+};
+
+class BagType : public CollectionType	{
+public:
+	BagType(const ExpressionType& type) : CollectionType(type)	{}
+	string getType() 	const									{ return string("BagType(")+this->getNestedType().getType()+string(")"); }
+	typeID getTypeID() 	const									{ return BAG; }
+	bool isPrimitive() 											{ return false; }
+	~BagType() 													{}
+};
+
+class SetType : public CollectionType	{
+public:
+	SetType(const ExpressionType& type) : CollectionType(type)	{}
+	string getType() 	const									{ return string("SetType(")+this->getNestedType().getType()+string(")"); }
+	typeID getTypeID()	const									{ return SET; }
+	bool isPrimitive() 											{ return false; }
+	~SetType() 													{}
 };
 
 
@@ -95,9 +124,9 @@ public:
 	RecordAttribute(int no, string name_, ExpressionType* type_)
 		: attrNo(no), name(name_), type(type_), projected(false) 	{}
 
-	string getType() 												{ return name +" "+type->getType(); };
-	ExpressionType* getOriginalType() 								{	return type; }
-	string getName()												{ return name;	}
+	string getType() const											{ return name +" "+type->getType(); }
+	ExpressionType* getOriginalType() 								{ return type; }
+	string getName()												{ return name; }
 	//CONVENTION: Fields requested can be 1-2-3-etc.
 	int getAttrNo()													{ return attrNo; }
 	void setProjected()												{ projected = true; }
@@ -116,7 +145,7 @@ public:
 
 	RecordType(list<RecordAttribute*>& args_) : args(args_) {}
 
-	string getType() {
+	string getType() const {
 		stringstream ss;
 		ss<<"Record(";
 		int count = 0;
@@ -131,11 +160,11 @@ public:
 		ss<<")";
 		return ss.str();
 	}
-	typeID getTypeID()	{ return RECORD; }
-	std::list<RecordAttribute*>& getArgs() { return args;}
-	int getArgsNo() {return args.size();}
-	bool isPrimitive() {return false;}
-	~RecordType() { };
+	typeID getTypeID()	const					{ return RECORD; }
+	std::list<RecordAttribute*>& getArgs() 		{ return args; }
+	int getArgsNo() 							{ return args.size(); }
+	bool isPrimitive() 							{ return false; }
+	~RecordType() 								{}
 
 private:
 	list<RecordAttribute*>& args;
@@ -149,7 +178,6 @@ public:
 	virtual void visit(BoolType type) = 0;
 	virtual void visit(FloatType type) = 0;
 	virtual void visit(StringType type) = 0;
-	virtual void visit(CollectionType type) = 0;
 	virtual void visit(RecordType type) = 0;
 	virtual ~ExprTypeVisitor();
 };

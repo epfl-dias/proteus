@@ -90,7 +90,9 @@ void RawContext::prepareFunction(Function *F) {
 	TheBuilder->CreateRet(TheBuilder->getInt32(114));
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
+#ifdef DEBUG
 	//F->dump();
+#endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
 
@@ -133,9 +135,6 @@ Function* const RawContext::getFunction(std::string funcName) const {
 	}
 	return it->second;
 }
-
-
-
 
 void RawContext::CodegenMemcpy(Value* dst, Value* src, int size) {
 	LLVMContext& ctx = *llvmContext;
@@ -207,6 +206,23 @@ Value* RawContext::CastPtrToLlvmPtr(PointerType* type, const void* ptr) {
 	return llvmPtr;
 }
 
+Value* RawContext::getArrayElem(AllocaInst* mem_ptr, PointerType* type, Value* offset)	{
+	LLVMContext& ctx = *llvmContext;
+
+	Value* val_ptr = TheBuilder->CreateLoad(mem_ptr, "mem_ptr");
+	Value* shiftedPtr = TheBuilder->CreateInBoundsGEP(val_ptr, offset);
+	Value* val_shifted = TheBuilder->CreateLoad(shiftedPtr,"val_shifted");
+	return val_shifted;
+}
+
+Value* RawContext::getStructElem(AllocaInst* mem_struct, int elemNo)	{
+	std::vector<Value*> idxList {createInt32(0),createInt32(elemNo)};
+	//Shift in struct ptr
+	Value* mem_struct_shifted = TheBuilder->CreateGEP(mem_struct, idxList);
+	Value* val_struct_shifted =  TheBuilder->CreateLoad(mem_struct_shifted);
+	return val_struct_shifted;
+}
+
 //Similar to utility function from Impala
 void RawContext::CreateIfElseBlocks(Function* fn, const string& if_label,
 		const string& else_label, BasicBlock** if_block, BasicBlock** else_block,
@@ -262,6 +278,24 @@ StructType* RawContext::CreateJSONPosStruct() {
 	return CreateCustomStruct(json_pos_types);
 }
 
+PointerType* RawContext::CreateJSMNStructPtr()	{
+	LLVMContext& ctx = *llvmContext;
+	Type* jsmnStructType = CreateJSMNStruct();
+	PointerType* ptr_jsmnStructType = PointerType::get(jsmnStructType,0);
+	return ptr_jsmnStructType;
+}
+
+StructType* RawContext::CreateJSMNStruct() {
+	LLVMContext& ctx = *llvmContext;
+	llvm::Type* int64_type = Type::getInt32Ty(ctx);
+	std::vector<Type*> jsmn_pos_types;
+	jsmn_pos_types.push_back(int64_type);
+	jsmn_pos_types.push_back(int64_type);
+	jsmn_pos_types.push_back(int64_type);
+	jsmn_pos_types.push_back(int64_type);
+	return CreateCustomStruct(jsmn_pos_types);
+}
+
 //Remember to add these functions as extern in .hpp too!
 extern "C" double putchari(int X) {
 	putchar((char) X);
@@ -279,7 +313,7 @@ int printFloat(double X) {
 	return 0;
 }
 
-size_t printi64(size_t X) {
+int printi64(size_t X) {
 	printf("[printi64:] Generated code called %ld\n", X);
 	return 0;
 }
@@ -496,6 +530,16 @@ double getJSONDouble(char* jsonName, int attrNo) {
 	return parsedFloat;
 }
 
+int compareTokenString(const char* buf, int start, int end, const char* candidate)	{
+	//	int len = end - start;
+	//	char* tmp = (char*) malloc(len+1);
+	//	strncpy(tmp,buf+start,len);
+	//	tmp[len] = '\0';
+	//	printf("Comparing %s with %s\n",tmp,candidate);
+	return (strncmp(buf + start, candidate, end - start) == 0 \
+			&& strlen(candidate) == end - start);
+}
+
 //Provide support for some extern functions
 void RawContext::registerFunction(const char* funcName, Function* func)	{
 	availableFunctions[funcName] = func;
@@ -518,20 +562,31 @@ void registerFunctions(RawContext& context)	{
 	std::vector<Type*> Ints64(1,int64_type);
 	std::vector<Type*> Floats(1,double_type);
 
+	std::vector<Type*> ArgsCmpTokens;
+	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),char_ptr_type);
+	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),int_type);
+	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),int_type);
+	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),char_ptr_type);
+
 	FunctionType *FTint = FunctionType::get(Type::getInt32Ty(ctx), Ints, false);
 	FunctionType *FTint64 = FunctionType::get(Type::getInt32Ty(ctx), Ints64, false);
 	FunctionType *FTcharPtr = FunctionType::get(Type::getInt32Ty(ctx), Ints8, false);
 	FunctionType *FTatof = FunctionType::get(double_type, Ints8, false);
 	FunctionType *FTprintFloat_ = FunctionType::get(int_type, Floats, false);
+	FunctionType *FTcompareTokenString_ = FunctionType::get(int_type, ArgsCmpTokens, false);
 
 	Function *putchari_ = Function::Create(FTint, Function::ExternalLinkage, "putchari", TheModule);
 	Function *printi_ = Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
-	Function *printi64_ = Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
+	Function *printi64_ = Function::Create(FTint64, Function::ExternalLinkage,"printi64", TheModule);
 	Function *printc_ = Function::Create(FTcharPtr, Function::ExternalLinkage,"printc", TheModule);
 
 	Function *atoi_ = Function::Create(FTcharPtr, Function::ExternalLinkage,"atoi", TheModule);
 	Function *atof_ = Function::Create(FTatof, Function::ExternalLinkage,"atof", TheModule);
 	Function *printFloat_ = Function::Create(FTprintFloat_, Function::ExternalLinkage, "printFloat", TheModule);
+
+	Function *compareTokenString_ = Function::Create(FTcompareTokenString_,
+			Function::ExternalLinkage, "compareTokenString", TheModule);
+	compareTokenString_->addFnAttr(llvm::Attribute::AlwaysInline);
 
 	//Memcpy - not used yet
 	llvm::PointerType* ptr_type = PointerType::get((Type::getInt8Ty(ctx)), 0);
@@ -595,6 +650,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("getJSONPositions", get_json_value_);
 	context.registerFunction("getJSONInt", get_json_int_);
 	context.registerFunction("getJSONDouble", get_json_double_);
+	context.registerFunction("compareTokenString", compareTokenString_);
 }
 
 

@@ -6,7 +6,8 @@
 CC = clang #gcc
 CPP = clang++ #g++ 
 
-CCOPT = -g -O3
+CCOPT = -g 
+#-O3
 CCFLAGS = -c $(CCOPT) 
 
 #Assumes gtest has been built in the home directory of the user
@@ -16,8 +17,9 @@ GTEST_DIR = $(USER_DIR)/gtest-1.7.0
 LLVMOPT =`llvm-config --cppflags`
 LLVMJIT =`llvm-config --cppflags --ldflags --libs core jit native` -rdynamic
 LDFLAGS = -L$(HOME)/lib -L./semi_index/semi_index/ -L./semi_index/succinct/ -L./semi_index/3rd_party/mongodb/ \
-	      -L./semi_index/3rd_party/jsoncpp/ \
-		  -lboost_system -lboost_iostreams -lboost_thread -lboost_filesystem -lsemi_index -lsuccinct -ljsoncpp -lmongodblib -lglog
+	      -L. -L./semi_index/3rd_party/jsoncpp/ \
+		  -lboost_system -lboost_iostreams -lboost_thread -lboost_filesystem -lsemi_index -lsuccinct -ljsoncpp -lmongodblib -lglog \
+		  -ljsmn
 
 #LDFLAGS = -lpthread -lm -ldl -ljit -lrt
 
@@ -30,7 +32,7 @@ LDFLAGS = -L$(HOME)/lib -L./semi_index/semi_index/ -L./semi_index/succinct/ -L./
 # Set Google Test's header directory as a system directory, such that
 # the compiler doesn't generate warnings in Google Test headers.
 # -isystem $(GTEST_DIR)/include are relevant for the google testing framework
-CPPFLAGS = -I$(HOME)/include -I. -I./util/ -I./plugins/ -I./semi_index/ -I./semi_index/semi_index/ -I./semi_index/3rd_party/ -std=c++11 -isystem $(GTEST_DIR)/include -I$(GTEST_DIR)
+CPPFLAGS = -I$(HOME)/include -I. -I./util/ -I./plugins/ -I./semi_index/ -I./jsmn/ -I./semi_index/semi_index/ -I./semi_index/3rd_party/ -std=c++11 -isystem $(GTEST_DIR)/include -I$(GTEST_DIR)
 
 # Flags passed to the C++ compiler.
 CXXFLAGS += -g -pthread
@@ -43,9 +45,10 @@ GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
 RMOBJS = main util/raw-catalog.o util/raw-context.o plugins/object/plugins-llvm.o expressions/binary-operators.o \
 		 expressions/expressions.o  values/expressionTypes.o  \
 		 operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o \
-		 plugins/csv-plugin.o plugins/json-plugin.o \
+		 plugins/csv-plugin.o plugins/json-plugin.o plugins/json-jsmn-plugin.o \
 		 plugins/output/plugins-output.o plugins/helpers.o common/common.o tests/test1.o tests-relational.o gtest_main.o gtest-all.o \
-		 tests-operators.o tests-sailors.o benchmark tests-sailors tests-operators gtest_main.a
+		 tests-operators.o tests-sailors.o benchmark tests-sailors tests-operators gtest_main.a \
+		 jsmn/jsmn.o libjmn.a 
 
 all: main #util/raw-catalog.o util/raw-context.o 
 
@@ -63,6 +66,9 @@ plugins/csv-plugin.o: plugins/csv-plugin.cpp
 	${CPP} ${CCFLAGS} ${CPPFLAGS} $(CXXFLAGS) ${LLVMOPT} $^ -o $@
 
 plugins/json-plugin.o: plugins/json-plugin.cpp
+	${CPP} ${CCFLAGS} ${CPPFLAGS} $(CXXFLAGS) ${LLVMOPT} $^ -o $@
+
+plugins/json-jsmn-plugin.o: plugins/json-jsmn-plugin.cpp
 	${CPP} ${CCFLAGS} ${CPPFLAGS} $(CXXFLAGS) ${LLVMOPT} $^ -o $@
 
 plugins/output/plugins-output.o: plugins/output/plugins-output.cpp
@@ -98,13 +104,19 @@ expressions/binary-operators.o: expressions/binary-operators.cpp
 expressions/expressions.o: expressions/expressions.cpp
 	${CPP} ${CCFLAGS} ${CPPFLAGS} $(CXXFLAGS) ${LLVMOPT} $^ -o $@
 
-main: main.cpp common/common.o values/expressionTypes.o plugins/helpers.o plugins/csv-plugin.o plugins/json-plugin.o plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  
+libjsmn.a: jsmn/jsmn.o
+	$(AR) rc $@ $^
+
+jsmn/jsmn.o: jsmn/jsmn.c jsmn/jsmn.h
+	$(CC) -c $(CFLAGS) $< -o $@
+
+main: main.cpp libjsmn.a common/common.o values/expressionTypes.o plugins/helpers.o plugins/csv-plugin.o plugins/json-plugin.o plugins/json-jsmn-plugin.o plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  
 	${CPP} ${CCOPT} ${CPPFLAGS} $(CXXFLAGS) $^ ${LLVMJIT} -o $@ ${LDFLAGS}
 
 #relational: main-relational.cpp common/common.o values/expressionTypes.o plugins/helpers.o plugins/output/plugins-output.o  plugins/object/plugins-llvm.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  
 #	${CPP} ${CCOPT} ${CPPFLAGS} $(CXXFLAGS) $^ ${LLVMJIT} -o $@ ${LDFLAGS}
 
-benchmark: main-benchmark.cpp common/common.o values/expressionTypes.o plugins/helpers.o plugins/csv-plugin.o plugins/json-plugin.o plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  
+benchmark: main-benchmark.cpp libjsmn.a common/common.o values/expressionTypes.o plugins/helpers.o plugins/csv-plugin.o plugins/json-plugin.o plugins/json-jsmn-plugin.o plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  
 	${CPP} ${CCOPT} ${CPPFLAGS} $(CXXFLAGS) $^ ${LLVMJIT} -o $@ ${LDFLAGS}
 clean:
 	rm -rf ${RMOBJS}
@@ -142,14 +154,14 @@ gtest_main.a : gtest-all.o gtest_main.o
 #sample1.o : $(USER_DIR)/sample1.cc $(USER_DIR)/sample1.h $(GTEST_HEADERS)
 #	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/sample1.cc
 
-tests-operators.o : tests/tests-operators.cpp $(GTEST_HEADERS)
+tests-operators.o : tests/tests-operators.cpp $(GTEST_HEADERS) 
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) ${LLVMOPT} -c tests/tests-operators.cpp 
 
-tests-operators : tests-operators.o gtest_main.a common/common.o values/expressionTypes.o plugins/helpers.o plugins/csv-plugin.o plugins/json-plugin.o plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  
+tests-operators : tests-operators.o gtest_main.a libjsmn.a common/common.o values/expressionTypes.o plugins/helpers.o plugins/csv-plugin.o plugins/json-plugin.o plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) -lpthread $^ ${LLVMJIT} -o $@ ${LDFLAGS}
 
 tests-sailors.o : tests/tests-sailors.cpp $(GTEST_HEADERS)
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) ${LLVMOPT} -c tests/tests-sailors.cpp 
 
-tests-sailors : tests-sailors.o gtest_main.a common/common.o values/expressionTypes.o plugins/helpers.o plugins/csv-plugin.o plugins/json-plugin.o plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  
+tests-sailors : tests-sailors.o gtest_main.a libjsmn.a common/common.o values/expressionTypes.o plugins/helpers.o plugins/csv-plugin.o plugins/json-plugin.o plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) -lpthread $^ ${LLVMJIT} -o $@ ${LDFLAGS}

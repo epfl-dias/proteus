@@ -40,7 +40,7 @@ public:
 	void setParent(RawOperator* parent)				{ this->parent = parent; }
 	RawOperator* const getParent() const			{ return parent; }
 	//Overloaded operator used in checks for children of Join op. More complex cases may require different handling
-	bool operator == (const RawOperator& i) const 	{ if(this != &i) LOG(INFO) << "NOT EQUAL OPERATORS"<<this<<" vs "<<&i; return this == &i; }
+	bool operator == (const RawOperator& i) const 	{ /*if(this != &i) LOG(INFO) << "NOT EQUAL OPERATORS"<<this<<" vs "<<&i;*/ return this == &i; }
 	virtual void produce() const = 0;
 	virtual void consume(RawContext* const context, const OperatorState& childState) const = 0;
 
