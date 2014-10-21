@@ -119,17 +119,15 @@ TEST(Relational, SPJ) {
 	whichFields.push_back(attr2);
 
 	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
-
 	Scan scan = Scan(&ctx, *pg);
-
 
 	//SELECT
 	string argName = filename+"_"+string("att1");
-	expressions::Expression* lhs = new expressions::InputArgument(new IntType(),2,argName);
+	expressions::Expression* lhsArg = new expressions::InputArgument(new IntType(),2);
+	expressions::Expression* lhs = new expressions::RecordProjection(new IntType(),lhsArg,argName.c_str());
 	expressions::Expression* rhs = new expressions::IntConstant(555);
 	expressions::Expression* predicate = new expressions::GtExpression(new BoolType(),lhs,rhs);
-
-	Select sel = Select(predicate,&scan);
+	Select sel = Select(predicate,&scan,pg);
 	scan.setParent(&sel);
 
 
@@ -154,8 +152,12 @@ TEST(Relational, SPJ) {
 	//JOIN
 	string argName2 = filename2+"_"+string("att2");
 	string argName_ = filename+"_"+string("att2");
-	expressions::InputArgument* left = new expressions::InputArgument(new IntType(),2,argName_);
-	expressions::InputArgument* right = new expressions::InputArgument(new IntType(),2,argName2);
+
+	expressions::Expression* leftArg = new expressions::InputArgument(intType,0);
+	expressions::Expression* left = new expressions::RecordProjection(intType,leftArg,argName_.c_str());
+	expressions::Expression* rightArg = new expressions::InputArgument(intType,1);
+	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,argName2.c_str());
+
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
 
 	vector<materialization_mode> outputModes;
@@ -163,7 +165,7 @@ TEST(Relational, SPJ) {
 	outputModes.insert(outputModes.begin(),EAGER);
 	Materializer* mat = new Materializer(whichFields,outputModes);
 
-	Join join = Join(joinPred,sel,scan2, "join1", *mat);
+	Join join = Join(joinPred,sel,scan2, "join1", *mat, pg, pg2);
 	sel.setParent(&join);
 	scan2.setParent(&join);
 
@@ -171,8 +173,8 @@ TEST(Relational, SPJ) {
 	//PRINT
 	string argNameProj = filename+"_"+string("att1");
 	Function* debugInt = ctx.getFunction("printi");
-	expressions::InputArgument* argProj = new expressions::InputArgument(new IntType(),1,argNameProj);
-	Print printOpProj = Print(debugInt,argProj,&join);
+	expressions::RecordProjection* argProj = new expressions::RecordProjection(new IntType(),leftArg,argNameProj.c_str());
+	Print printOpProj = Print(debugInt,argProj,&join,pg);
 	join.setParent(&printOpProj);
 
 

@@ -38,9 +38,8 @@ public:
 	void init();
 	void generate(const RawOperator& producer);
 	void finish();
-	//XXX DEBUG purposes - REMOVE ONCE STABLE
-	void readAsIntLLVM_(std::string& attName);
-	void skipLLVM_();
+	AllocaInst* readPath(Bindings bindings, const char* pathVar);
+	AllocaInst* readValue(AllocaInst* mem_value, const ExpressionType* type);
 
 private:
 	string& fname;
@@ -49,6 +48,7 @@ private:
 	char *buf;
 	//XXX Will remove as soon as skip(), skipDelim() etc become deprecated
 	off_t pos;
+
 	//Schema info provided
 	RecordType& rec;
 	vector<RecordAttribute*>& wantedFields;
@@ -64,7 +64,6 @@ private:
 	const char* bufVar;// = "fileBuffer";
 	const char* fsizeVar;// = "fileSize";
 
-	//Not used in code generation atm. Might prove useful if we generate in more coarse-grained manner
 	void skip();
 	inline size_t skipDelim(size_t pos, char* buf, char delim);
 	int readAsInt();
@@ -78,5 +77,9 @@ private:
 	//Generates a for loop that performs the file scan
 	//No assumption on auxiliary structures yet
 	void scanCSV(const RawOperator& producer, Function* debug);
+
+	//XXX DEBUG purposes - REMOVE ONCE STABLE
+	void readAsIntLLVM_(std::string& attName);
+	void skipLLVM_();
 
 };

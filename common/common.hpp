@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <string>
+#include <sstream>
 #include <stdexcept>
 
 //LLVM Includes
@@ -88,6 +89,7 @@ using std::pair;
 using std::cout;
 using std::multimap;
 using std::list;
+using std::stringstream;
 
 using namespace llvm;
 

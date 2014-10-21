@@ -212,12 +212,13 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)	{
 	 */
 	Builder->SetInsertPoint(jsonScanBody);
 
-	//	//This will be the insertion point for the rest of the code
 	//	//Triggering parent
-	//	OperatorState* state = new OperatorState(producer, *variableBindings);
-	//	RawOperator* const opParent = producer.getParent();
-	//	opParent->consume(context,*state);
-	readPath(val_offset,"b");
+	(*variableBindings)[activeTuple] = mem_tokenOffset;
+	OperatorState* state = new OperatorState(producer, *variableBindings);
+	RawOperator* const opParent = producer.getParent();
+	opParent->consume(context,*state);
+
+	//readPath(val_offset,"b");
 
 	skipToEnd();
 
@@ -358,10 +359,12 @@ int JSONPlugin::readPathInterpreted(int parentToken, list<string> path)	{
 			}
 		}
 	}
-	return -1;
+	return -1;//(nil)
 }
 
-void JSONPlugin::readPath(Value* parentTokenNo, char* path)	{
+
+//AllocaInst* JSONPlugin::readPath(const OperatorState& state, char* path)	{
+AllocaInst* JSONPlugin::readPath(Bindings wrappedBindings, const char* path)	{
 	//Only objects are relevant to path expressions
 	//These types of validation should be applied as high as possible
 	//Still, probably unavoidable here
@@ -371,6 +374,7 @@ void JSONPlugin::readPath(Value* parentTokenNo, char* path)	{
 	//		throw runtime_error(msg);
 	//	}
 
+	const OperatorState& state = *(wrappedBindings.state);
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
@@ -378,12 +382,29 @@ void JSONPlugin::readPath(Value* parentTokenNo, char* path)	{
 	Function* F = context->getGlobalFunction();
 	PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
 
-	AllocaInst* mem_tokens = NamedValuesJSON[var_tokenPtr];
+	//Get relevant token number
+	const map<std::string, AllocaInst*>& bindings = state.getBindings();
+	map<std::string, AllocaInst*>::const_iterator it = bindings.find(activeTuple);
+	if(it == bindings.end())	{
+		string error_msg = "[JSONPlugin - jsmn: ] Current tuple binding not found";
+		LOG(ERROR) << error_msg;
+		throw runtime_error(error_msg);
+	}
+	AllocaInst* mem_parentTokenNo = it->second;
+	Value* parentTokenNo = Builder->CreateLoad(mem_parentTokenNo);
 
-	AllocaInst* mem_tokens_parent_shifted = context->CreateEntryBlockAlloca(F,std::string(var_tokenPtr),context->CreateJSMNStruct());
+	//Preparing default return value
+	AllocaInst* mem_return = context->CreateEntryBlockAlloca(F, std::string("pathReturn"),
+					int64Type);
+	Builder->CreateStore(Builder->getInt64(-1),mem_return);
+
+	AllocaInst* mem_tokens = NamedValuesJSON[var_tokenPtr];
+	AllocaInst* mem_tokens_parent_shifted = context->CreateEntryBlockAlloca(F,
+			std::string(var_tokenPtr), context->CreateJSMNStruct());
 	Value* token_parent = context->getArrayElem(mem_tokens, ptr_jsmnStructType, parentTokenNo);
 	Builder->CreateStore(token_parent,mem_tokens_parent_shifted);
 	Value* token_parent_end = context->getStructElem(mem_tokens_parent_shifted,2);
+
 	/**
 	 * LOOP BLOCKS
 	 */
@@ -397,7 +418,8 @@ void JSONPlugin::readPath(Value* parentTokenNo, char* path)	{
 
 	Value *val_1 = Builder->getInt64(1);
 	Value *val_i = Builder->CreateAdd(parentTokenNo, val_1);
-	AllocaInst* mem_i = context->CreateEntryBlockAlloca(F,std::string("tmp_i"),int64Type);
+	AllocaInst* mem_i = context->CreateEntryBlockAlloca(F, std::string("tmp_i"),
+			int64Type);
 	Builder->CreateStore(val_i,mem_i);
 	Builder->CreateBr(tokenSkipCond);
 
@@ -407,7 +429,8 @@ void JSONPlugin::readPath(Value* parentTokenNo, char* path)	{
 
 	Builder->SetInsertPoint(tokenSkipCond);
 	val_i = Builder->CreateLoad(mem_i);
-	AllocaInst* mem_tokens_i_shifted = context->CreateEntryBlockAlloca(F,std::string(var_tokenPtr),context->CreateJSMNStruct());
+	AllocaInst* mem_tokens_i_shifted = context->CreateEntryBlockAlloca(F,
+			std::string(var_tokenPtr), context->CreateJSMNStruct());
 	Value* token_i = context->getArrayElem(mem_tokens, ptr_jsmnStructType, val_i);
 	Builder->CreateStore(token_i,mem_tokens_i_shifted);
 
@@ -433,7 +456,12 @@ void JSONPlugin::readPath(Value* parentTokenNo, char* path)	{
 								&ifBlock, &elseBlock,tokenSkipInc);
 
 	Value* token_i_start = context->getStructElem(mem_tokens_i_shifted,1);
-	Value* globalStr = context->CreateGlobalString(path);
+
+	int len = strlen(path) + 1;
+	char* pathCopy = (char*) malloc(len*sizeof(char));
+	strcpy(pathCopy,path);
+	pathCopy[len] = '\0';
+	Value* globalStr = context->CreateGlobalString(pathCopy);
 	Value* buf = Builder->CreateLoad(NamedValuesJSON[var_buf]);
 	//Preparing custom 'strcmp'
 	std::vector<Value*> argsV;
@@ -452,18 +480,24 @@ void JSONPlugin::readPath(Value* parentTokenNo, char* path)	{
 	 * TOKEN_PRINT(tokens[i+1]);
 	 */
 	Builder->SetInsertPoint(ifBlock);
-#ifdef DEBUG
+
 	Value* val_i_1 = Builder->CreateAdd(val_i , val_1);
-	AllocaInst* mem_tokens_i_1_shifted = context->CreateEntryBlockAlloca(F,std::string(var_tokenPtr),context->CreateJSMNStruct());
+	AllocaInst* mem_tokens_i_1_shifted = context->CreateEntryBlockAlloca(F,
+			std::string(var_tokenPtr), context->CreateJSMNStruct());
 	Value* token_i_1 = context->getArrayElem(mem_tokens, ptr_jsmnStructType, val_i_1);
 	Builder->CreateStore(token_i_1,mem_tokens_i_1_shifted);
 	Value* token_i_1_start = context->getStructElem(mem_tokens_i_1_shifted,1);
 
-	argsV.clear();
-	argsV.push_back(token_i_1_start);
-	Function* debugInt = context->getFunction("printi");
-	Builder->CreateCall(debugInt, argsV);
-#endif
+	//Storing return value (i+1)
+	Builder->CreateStore(val_i_1, mem_return);
+
+	#ifdef DEBUG
+	//	argsV.clear();
+	//	argsV.push_back(token_i_1_start);
+	//	Function* debugInt = context->getFunction("printi");
+	//	Builder->CreateCall(debugInt, argsV);
+	#endif
+
 	Builder->CreateBr(tokenSkipEnd);
 
 	/**
@@ -498,8 +532,147 @@ void JSONPlugin::readPath(Value* parentTokenNo, char* path)	{
 	 */
 	Builder->SetInsertPoint(tokenSkipEnd);
 	LOG(INFO) << "[Scan - JSON: ] End of readPath()";
+	return mem_return;
 }
 
+AllocaInst* JSONPlugin::readValue(AllocaInst* mem_value, const ExpressionType* type)	{
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int8Type = Type::getInt8Ty(llvmContext);
+	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+	PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
+
+	std::vector<Value*> ArgsV;
+	Value* tokenNo = Builder->CreateLoad(mem_value);
+
+	AllocaInst* mem_tokens = NamedValuesJSON[var_tokenPtr];
+	AllocaInst* mem_tokens_shifted = context->CreateEntryBlockAlloca(F,
+			std::string(var_tokenPtr), context->CreateJSMNStruct());
+	Value* token = context->getArrayElem(mem_tokens, ptr_jsmnStructType, tokenNo);
+	Builder->CreateStore(token,mem_tokens_shifted);
+	Value* token_start = context->getStructElem(mem_tokens_shifted,1);
+	Value* token_end = context->getStructElem(mem_tokens_shifted,2);
+
+	Value* bufPtr = Builder->CreateLoad(NamedValuesJSON[var_buf]);
+	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, token_start);
+
+	Function* conversionFunc = NULL;
+
+	AllocaInst* mem_convertedValue = NULL;
+	Value* convertedValue = NULL;
+	string error_msg;
+	switch (type->getTypeID()) {
+	case STRING:
+	case RECORD:
+	case LIST: {
+		mem_convertedValue = context->CreateEntryBlockAlloca(F,
+				std::string("existingObject"), mem_value->getAllocatedType());
+		break;
+	}
+	case SET: {
+		error_msg = string("[JSON Plugin - jsmn: ]: SET datatype cannot occur");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(string(error_msg));
+	}
+	case BAG: {
+		error_msg = string("[JSON Plugin - jsmn: ]: BAG datatype cannot occur");
+		LOG(ERROR)<< error_msg;
+	}
+	throw runtime_error(string(error_msg));
+	case BOOL: {
+		mem_convertedValue = context->CreateEntryBlockAlloca(F,
+				std::string("convertedBool"), int8Type);
+		break;
+	}
+	case FLOAT: {
+		mem_convertedValue = context->CreateEntryBlockAlloca(F,
+				std::string("convertedFloat"), doubleType);
+		break;
+	}
+	case INT: {
+		mem_convertedValue = context->CreateEntryBlockAlloca(F,
+				std::string("convertedInt"), int32Type);
+		break;}
+	default: {
+		error_msg = string("[JSON Plugin - jsmn: ]: Unknown expression type");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(string(error_msg));
+	}
+	}
+
+	/**
+	 * Return (nil) for cases path was not found
+	 */
+	BasicBlock *ifBlock, *elseBlock, *endBlock;
+	endBlock = BasicBlock::Create(llvmContext, "afterReadValue", F);
+	context->CreateIfElseBlocks(context->getGlobalFunction(), "ifPath", "elsePathNullEq",
+									&ifBlock, &elseBlock,endBlock);
+	Value* minus_1 = context->createInt64(-1);
+	Value *cond = Builder->CreateICmpNE(tokenNo,minus_1);
+	Builder->CreateCondBr(cond,ifBlock,elseBlock);
+
+	/**
+	 * IF BLOCK (tokenNo != -1)
+	 */
+	Builder->SetInsertPoint(ifBlock);
+	switch (type->getTypeID()) {
+	case STRING:
+		//For now, passing 'object' (tokenNo actually) along
+	case RECORD:
+		//Object
+	case LIST:
+		//Array
+		Builder->CreateStore(tokenNo, mem_convertedValue);
+		break;
+	case BOOL: {
+		ArgsV.push_back(bufPtr);
+		ArgsV.push_back(token_start);
+		ArgsV.push_back(token_end);
+		conversionFunc = context->getFunction("convertBoolean");
+		convertedValue = Builder->CreateCall(conversionFunc, ArgsV,
+				"convertBoolean");
+		Builder->CreateStore(convertedValue, mem_convertedValue);
+		break;
+	}
+	case FLOAT: {
+		conversionFunc = context->getFunction("atof");
+		ArgsV.push_back(bufShiftedPtr);
+		convertedValue = Builder->CreateCall(conversionFunc, ArgsV, "atof");
+		Builder->CreateStore(convertedValue, mem_convertedValue);
+		break;
+	}
+	case INT: {
+		conversionFunc = context->getFunction("atoi");
+		ArgsV.push_back(bufShiftedPtr);
+		convertedValue = Builder->CreateCall(conversionFunc, ArgsV, "atoi");
+		Builder->CreateStore(convertedValue, mem_convertedValue);
+		break;
+	}
+	default: {
+		error_msg = string("[JSON Plugin - jsmn: ]: Unknown expression type");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(string(error_msg));
+	}
+	}
+	Builder->CreateBr(endBlock);
+
+	/**
+	 * ELSE BLOCK
+	 * return "(nil)" --> LLVM Undef value atm
+	 */
+	Builder->SetInsertPoint(elseBlock);
+	Value* undefValue = UndefValue::get(mem_convertedValue->getAllocatedType());
+	Builder->CreateStore(undefValue, mem_convertedValue);
+	Builder->CreateBr(endBlock);
+
+	Builder->SetInsertPoint(endBlock);
+
+	return mem_convertedValue;
+}
 
 void JSONPlugin::readValueInterpreted(int tokenNo, const ExpressionType* type) {
 	string error_msg;
@@ -562,252 +735,3 @@ JSONPlugin::~JSONPlugin() {
 }
 
 }
-
-//
-////Only objects are relevant to path expressions after all
-//int JSONPlugin::locateObject(int parentToken, string key)	{
-//	for(int i = parentToken; tokens[i].end <= tokens[parentToken].end; i++)	{
-//		if(tokens[i].type == JSMN_OBJECT)	{
-//			printf("Object indeed\n");
-//			jsmntok_t objName = tokens[i+1];
-//			if(TOKEN_STRING(buf,objName,key.c_str()))	{
-//				//next one is the one I need
-//				printf("Found???");
-//				TOKEN_PRINT(tokens[i+2]);
-//				return i+2;
-//			}
-//		}
-//	}
-//	//Not found
-//	return -1;
-//}
-//
-//void JSONPlugin::loop(string key)	{
-//
-//	//Equivalent of scan csv rows
-//	int i = 1;
-//	for (i = 1; tokens[i].start != 0; )	{
-//
-//		//We want token i to be one of the 'outermost' objects
-//		int curr = i;
-//		printf("Which token? %d\n",i);
-//		TOKEN_PRINT(tokens[i]);
-//
-//		//'Pipelined' function here
-//		locateObject(i, key);
-//
-//		//Equivalent of 'skipToEnd'
-//		while(tokens[i].start < tokens[curr].end && tokens[i].start != 0)	{
-//			i++;
-//			//printf("Which token and pos? %d %d\n",i,tokens[i].start);
-//		}
-//	}
-////	printf("Which token? %d\n",i);
-////	TOKEN_PRINT(tokens[i]);
-//
-//
-//
-////	for (int i = 1; tokens[i].end < tokens[0].end; i++) {
-////			if (tokens[i].type == JSMN_STRING || tokens[i].type == JSMN_PRIMITIVE) {
-////				printf("%.*s\n", tokens[i].end - tokens[i].start, buf + tokens[i].start);
-////			} else if (tokens[i].type == JSMN_ARRAY) {
-////				printf("[%d elems]\n", tokens[i].size);
-////			} else if (tokens[i].type == JSMN_OBJECT) {
-////				printf("{%d elems}\n", tokens[i].size);
-////			} else {
-////				TOKEN_PRINT(tokens[i]);
-////			}
-////		}
-//
-//}
-
-//int JSMNPlugin::calculateTokensPerItem(const ExpressionType& expr)	{
-//	string error_msg;
-//	int parentSize = tokens[0].size;
-//	switch (schema->getTypeID()) {
-//		case BOOL:
-//		case STRING:
-//		case FLOAT:
-//		case INT:
-//		case RECORD:
-//		case BAG:
-//			error_msg = string(
-//					"Outermost element cannot be of type " + schema->getType());
-//			LOG(ERROR)<< error_msg;
-//			throw runtime_error(string(error_msg));
-//		case SET:
-//			//object
-//		case LIST:
-//			//array
-//			return calculateTokens_(((SetType)expr).getNestedType());
-//	}
-//}
-//
-////Generic
-//int JSMNPlugin::calculateTokens_(const ExpressionType& expr)	{
-//	string error_msg;
-//		int parentSize = tokens[0].size;
-//		switch (schema->getTypeID()) {
-//			case BOOL: return 1;
-//			case STRING: return 1;
-//			case FLOAT: return 1;
-//			case INT: return 1;
-//			case RECORD:
-//				int sum = 0;
-//				for(list<RecordAttribute*>::iterator it = ((RecordType)expr).getArgs().begin();
-//					it != ((RecordType)expr).getArgs().end();
-//					it++)	{
-//					sum += 1; //The key of the attribute
-//					sum += calculateTokens_(*(*it)->getOriginalType());
-//				}
-//				return sum;
-//			case LIST:
-//				//array
-//
-//			case BAG:
-//			case SET:
-//				error_msg = string("JSON inner elements cannot be of type " + schema->getType());
-//				LOG(ERROR)<< error_msg;
-//				throw runtime_error(string(error_msg));
-//			}
-//}
-
-
-
-
-
-//JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
-//		vector<RecordAttribute*>* fieldsToSelect,
-//		vector<RecordAttribute*>* fieldsToProject) :
-//		attsToProject(fieldsToSelect), attsToSelect(fieldsToProject), context(context), fname(fname) {
-//
-//	helper = new JSONHelper(fname, fieldsToSelect, fieldsToProject);
-//	RawCatalog& catalog = RawCatalog::getInstance();
-//	catalog.setJSONHelper(fname,helper);
-//}
-//
-//void JSONPlugin::init() {}
-//
-//void JSONPlugin::scanJSON(const RawOperator& producer, Function* debug) {
-//
-//	//Prepare
-//	LLVMContext& llvmContext = context->getLLVMContext();
-//	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-//	Type* int64Type = Type::getInt64Ty(llvmContext);
-//	IRBuilder<>* Builder = context->getBuilder();
-//
-//	//Get the entry block
-//	Function *TheFunction = Builder->GetInsertBlock()->getParent();
-//
-//	//Container for the variable bindings
-//	std::map<std::string, AllocaInst*>* variableBindings = new std::map<std::string, AllocaInst*>();
-//
-//	//Loop through results (if any)
-//	BasicBlock *jsonScanCond, *jsonScanBody, *jsonScanInc, *jsonScanEnd;
-//	context->CreateForLoop("jsonScanCond", "jsonScanBody", "jsonScanInc","jsonScanEnd",
-//							&jsonScanCond, &jsonScanBody, &jsonScanInc,	&jsonScanEnd);
-//
-//	JSONHelper* helper = this->helper;
-//		int attsNo = helper->getAttsNo();
-//	int nameSize = (helper->getFileNameStr()).size() + 1;
-//	char* filename_noconst = (char *) alloca(nameSize);
-//	memcpy(filename_noconst, helper->getFileName(), nameSize);
-//	Value* filenameLLVM = context->CreateGlobalString(filename_noconst);
-//	std::vector<Value*> ArgsV;
-//
-//	//Flushing code in Entry Block
-//	Builder->CreateBr(jsonScanCond);
-//
-//	//Condition! --> while (!(cursor == json_semi_index::cursor()))
-//	//Prepare eof function arguments
-//	Builder->SetInsertPoint(jsonScanCond);
-//	ArgsV.clear();
-//	ArgsV.push_back(filenameLLVM);
-//	Function* endCond = context->getFunction("eofJSON");
-//	Value* endCheck = Builder->CreateCall(endCond, ArgsV/*,"eofJSON"*/);
-//	Value* falseLLVM = context->createFalse();
-//	ICmpInst* eof_cmp = new ICmpInst(*jsonScanCond, ICmpInst::ICMP_EQ, endCheck,
-//			falseLLVM, "cmpJSONEnd");
-//	BranchInst::Create(jsonScanBody, jsonScanEnd, eof_cmp, jsonScanCond);
-//
-//	//BODY
-//	Builder->SetInsertPoint(jsonScanBody);
-//	std::set<RecordAttribute *, bool (*)(RecordAttribute *, RecordAttribute *)>* allAtts =
-//			helper->getAllAtts();
-//
-//	int i = 0;
-//	for (std::set<RecordAttribute*>::iterator it = allAtts->begin(); it != allAtts->end(); it++) {
-//		ArgsV.clear();
-//		ExpressionType* type = (*it)->getOriginalType();
-//		Value* currAttrNo = context->createInt32(i++);
-//		ArgsV.push_back(filenameLLVM);
-//		ArgsV.push_back(currAttrNo);
-//		string currAttrName = (*it)->getName();
-//
-//		if ((*it)->isProjected() && !(type->isPrimitive())) {
-//			Function* jsonObjectScan = context->getFunction("getJSONPositions");
-//			LOG(INFO) << "[Scan - JSON: ] Non-primitive datatype " << currAttrName
-//					  << " requested from " << helper->getFileNameStr();
-//
-//			//Preparing JSON struct
-//			Value* positionStructs = Builder->CreateCall(jsonObjectScan, ArgsV);
-//			Type* jsonStructType = context->CreateJSONPosStruct();
-//			AllocaInst *Alloca = context->CreateEntryBlockAlloca(TheFunction,
-//					"currJSONResult", jsonStructType);
-//			Builder->CreateStore(positionStructs, Alloca);
-//			(*variableBindings)[currAttrName] = Alloca;
-//		} else {
-//			Value* result;
-//			Type* resultType;
-//			Function* jsonPrimitiveScan;
-//			LOG(INFO) << "[Scan - JSON: ] Primitive datatype " << currAttrName
-//					  << " requested from " << helper->getFileNameStr();
-//			switch (type->getTypeID()) {
-//			case BOOL:
-//				throw runtime_error(string("Not Supported Yet: ") + (*it)->getType());
-//			case STRING:
-//				jsonPrimitiveScan = context->getFunction("getJSONPositions");
-//				resultType = context->CreateJSONPosStruct();
-//				break;
-//			case FLOAT:
-//				jsonPrimitiveScan = context->getFunction("getJSONDouble");
-//				resultType = Type::getDoubleTy(llvmContext);
-//				break;
-//			case INT:
-//				jsonPrimitiveScan = context->getFunction("getJSONInt");
-//				resultType = Type::getInt32Ty(llvmContext);
-//				break;
-//			case COLLECTION:
-//				throw runtime_error(string("Only primitive types should qualify here: ")
-//								           + (*it)->getType());
-//			case RECORD:
-//				throw runtime_error(string("Only primitive types should qualify here: ")
-//								           + (*it)->getType());
-//			default:
-//				throw runtime_error(string("Unknown type: ") + (*it)->getType());
-//			}
-//
-//			result = Builder->CreateCall(jsonPrimitiveScan, ArgsV);
-//			AllocaInst *Alloca = context->CreateEntryBlockAlloca(TheFunction,"currJSONResult", resultType);
-//			Builder->CreateStore(result, Alloca);
-//			(*variableBindings)[currAttrName] = Alloca;
-//		}
-//	}
-//
-//	Builder->CreateBr(jsonScanInc);
-//	Builder->SetInsertPoint(jsonScanInc);
-//
-//
-//	//Triggering parent
-//	OperatorState* state = new OperatorState(producer, *variableBindings);
-//	RawOperator* const opParent = producer.getParent();
-//	opParent->consume(context,*state);
-//
-//	// Block for.inc (scan_inc)
-//	Builder->CreateBr(jsonScanCond);
-//
-//	// Block for.end (label_for_end)
-//	Builder->SetInsertPoint(jsonScanEnd);
-//	LOG(INFO) << "[Scan - JSON: ] End of scan code @ plugin";
-//}
-//

@@ -161,4 +161,6 @@ extern "C" double getJSONDouble(char* jsonName, int attrNo);
 
 extern "C" int compareTokenString(const char* buf, int start, int end, const char* candidate);
 
+extern "C" bool convertBoolean(const char* buf, int start, int end);
+
 #endif /* RAW_CONTEXT_HPP_ */

@@ -59,6 +59,27 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		// Creating and Populating Payload Struct
 		int offset = 0; //offset inside the struct (+current field manipulated)
 		std::vector<Type*>* materializedTypes = pg->getMaterializedTypes();
+
+		//Materializing activeTuple
+		AllocaInst* mem_activeTuple = NULL;
+		{
+			std::map<string, AllocaInst*>::const_iterator memSearch = bindings.find(activeTuple);
+			if(memSearch != bindings.end())	{
+				mem_activeTuple = memSearch->second;
+				Value* val_activeTuple = TheBuilder->CreateLoad(mem_activeTuple);
+				std::vector<Value*> idxList {context->createInt32(0),context->createInt32(offset)};
+				//Shift in struct ptr
+				Value* structPtr = TheBuilder->CreateGEP(Alloca, idxList);
+				TheBuilder->CreateStore(val_activeTuple,structPtr);
+				//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
+				offset+=1;
+			}	else	{
+				string error_msg = string("[Join: ] Could not find tuple information");
+				LOG(ERROR) << error_msg;
+				throw runtime_error(error_msg);
+			}
+		}
+
 		const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
 		for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!=wantedFields.end(); ++it)
 		{
@@ -77,7 +98,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 
 		//PREPARE KEY
 		expressions::Expression* leftKeyExpr = this->pred->getLeftOperand();
-		ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
+		ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState, getLeftPlugin());
 		Value* leftKey = leftKeyExpr->accept(exprGenerator);
 
 
@@ -117,7 +138,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 
 		//PREPARE KEY
 		expressions::Expression* rightKeyExpr = this->pred->getRightOperand();
-		ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
+		ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState, getRightPlugin());
 		Value* rightKey = rightKeyExpr->accept(exprGenerator);
 		int typeIdx = RawCatalog::getInstance().getTypeIndex(string(this->htName));
 		Value* idx = context->createInt32(typeIdx);
@@ -203,7 +224,21 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		unsigned elemNo = str->getNumElements();
 		LOG(INFO) << "[JOIN: ] Elements in result struct: "<<elemNo;
 		std::map<std::string, AllocaInst*>* allJoinBindings = new std::map<std::string, AllocaInst*>();
+
+
 		int i = 0;
+		//Retrieving activeTuple
+		AllocaInst *mem_activeTuple = NULL;
+		{
+			mem_activeTuple = context->CreateEntryBlockAlloca(TheFunction,"mem_activeTuple",str->getElementType(i));
+			std::vector<Value*> idxList {context->createInt32(0),context->createInt32(i)};
+			GetElementPtrInst* elem_ptr = GetElementPtrInst::Create(result_cast, idxList, "ptr_activeTuple", loopBody);
+			LoadInst* field = new LoadInst(elem_ptr,activeTuple, false, loopBody);
+			StoreInst* store_field = new StoreInst(field, mem_activeTuple, false, loopBody);
+			i++;
+			(*allJoinBindings)[activeTuple] = mem_activeTuple;
+		}
+
 		const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
 		for(std::vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!= wantedFields.end(); ++it) {
 			string currField = (*it)->getName();

@@ -35,11 +35,14 @@
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 
-void scanCSV();
-void selectQueryJSON();
-void joinQueryRelational();
-void scanJsmnInterpreted();
 void scanJsmn();
+void selectionJsmn();
+
+void scanCSV();
+void selectionCSV();
+void joinQueryRelational();
+
+void scanJsmnInterpreted();
 
 int main(int argc, char* argv[])
 {
@@ -49,11 +52,13 @@ int main(int argc, char* argv[])
 	LOG(INFO) << "Object-based operators";
 	LOG(INFO) << "Executing selection query";
 
-	scanCSV();
 	joinQueryRelational();
-	selectQueryJSON();
-	scanJsmnInterpreted();
+
+//	scanJsmnInterpreted();
 	scanJsmn();
+	scanCSV();
+	selectionJsmn();
+	selectionCSV();
 }
 
 void scanJsmnInterpreted()	{
@@ -119,6 +124,57 @@ void scanJsmn()	{
 	catalog.clear();
 }
 
+void selectionJsmn()	{
+	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
+
+	string fname = string("jsmn.json");
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	IntType attrType = IntType();
+	RecordAttribute attr = RecordAttribute(1,attrName,&attrType);
+	RecordAttribute attr2 = RecordAttribute(2,attrName2,&attrType);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname , &documentType);
+	Scan scan = Scan(&ctx,pg);
+
+	//SELECT
+	string argName = attrName2;
+	expressions::Expression* lhsArg = new expressions::InputArgument(&attrType,0);
+	expressions::Expression* lhs = new expressions::RecordProjection(&attrType,lhsArg,argName.c_str());
+	expressions::Expression* rhs = new expressions::IntConstant(5);
+
+	expressions::Expression* predicate = new expressions::GtExpression(new BoolType(),lhs,rhs);
+
+	Select sel = Select(predicate,&scan,&pg);
+	scan.setParent(&sel);
+
+	//PRINT
+	Function* debugInt = ctx.getFunction("printi");
+	expressions::RecordProjection* proj = new expressions::RecordProjection(&attrType,lhsArg,argName.c_str());
+	Print printOp = Print(debugInt,proj,&sel,&pg);
+	sel.setParent(&printOp);
+
+	//ROOT
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	RawCatalog& catalog = RawCatalog::getInstance();
+	catalog.clear();
+}
+
 void scanCSV()	{
 
 	RawContext ctx = RawContext("testFunction-ScanCSV");
@@ -163,47 +219,50 @@ void scanCSV()	{
 	catalog.clear();
 }
 
+void selectionCSV()	{
 
-void selectQueryJSON()	{
-
-	RawContext ctx = RawContext("testFunction-ScanJSON");
+	RawContext ctx = RawContext("testFunction-ScanCSV");
 
 	//SCAN1
-	string filename = string("example.json");
-	PrimitiveType* intType = new IntType();//PrimitiveType(Int);
-	PrimitiveType* stringType = new StringType();//PrimitiveType(Int);
-	string field1 = string("id");
-	RecordAttribute* attr1 = new RecordAttribute(1,field1,intType);
-	RecordAttribute* attr2 = new RecordAttribute(2,string("type"),stringType);
+	string filename = string("inputs/sailors.csv");
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* floatType = new FloatType();
+	PrimitiveType* stringType = new StringType();
+	RecordAttribute* sid = new RecordAttribute(1,filename+"_"+string("sid"),intType);
+	RecordAttribute* sname = new RecordAttribute(2,filename+"_"+string("sname"),stringType);
+	RecordAttribute* rating = new RecordAttribute(3,filename+"_"+string("rating"),intType);
+	RecordAttribute* age = new RecordAttribute(3,filename+"_"+string("age"),floatType);
 
 	list<RecordAttribute*> attrList;
-	attrList.push_back(attr1);
-	attrList.push_back(attr2);
+	attrList.push_back(sid);
+	attrList.push_back(sname);
+	attrList.push_back(rating);
+	attrList.push_back(age);
 
 	RecordType rec1 = RecordType(attrList);
 
 	vector<RecordAttribute*> whichFields;
-	whichFields.push_back(attr1);
-	whichFields.push_back(attr2);
+	whichFields.push_back(sid);
+	whichFields.push_back(age);
 
-	semi_index::JSONPlugin* pg = new semi_index::JSONPlugin(&ctx, filename, &whichFields,&whichFields);
+	CSVPlugin* pg = new CSVPlugin(&ctx,filename, rec1, whichFields);
 	Scan scan = Scan(&ctx,*pg);
 
-
 	//SELECT
-	string argName = field1;
-	expressions::Expression* lhs = new expressions::InputArgument(new IntType(),1,argName);
-	expressions::Expression* rhs = new expressions::IntConstant(5);
+	string argName = filename+"_"+string("sid");
+	expressions::Expression* lhsArg = new expressions::InputArgument(intType,0);
+	expressions::Expression* lhs = new expressions::RecordProjection(intType,lhsArg,argName.c_str());
+	expressions::Expression* rhs = new expressions::IntConstant(40);
 	expressions::Expression* predicate = new expressions::GtExpression(new BoolType(),lhs,rhs);
 
-	Select sel = Select(predicate,&scan);
+	Select sel = Select(predicate,&scan,pg);
 	scan.setParent(&sel);
 
-
 	//PRINT
-	Function* debugInt = ctx.getFunction("printi");
-	expressions::InputArgument* arg = new expressions::InputArgument(new IntType(),1,field1);
-	Print printOp = Print(debugInt,arg,&sel);
+	Function* debugFloat = ctx.getFunction("printFloat");
+	string argNameProj = filename+"_"+string("age");
+	expressions::RecordProjection* proj = new expressions::RecordProjection(floatType,lhsArg,argNameProj.c_str());
+	Print printOp = Print(debugFloat,proj,&sel,pg);
 	sel.setParent(&printOp);
 
 
@@ -221,13 +280,14 @@ void selectQueryJSON()	{
 	catalog.clear();
 }
 
+
 void joinQueryRelational()	{
 	RawContext ctx = RawContext("testFunction-JoinCSV");
 
 
 	//SCAN1
 	string filename = string("inputs/input.csv");
-	PrimitiveType* intType = new IntType();//PrimitiveType(Int);
+	PrimitiveType* intType = new IntType();
 	RecordAttribute* attr1 = new RecordAttribute(1,filename+"_"+string("att1"),intType);
 	RecordAttribute* attr2 = new RecordAttribute(2,filename+"_"+string("att2"),intType);
 	RecordAttribute* attr3 = new RecordAttribute(3,filename+"_"+string("att3"),intType);
@@ -247,12 +307,13 @@ void joinQueryRelational()	{
 
 	//SELECT
 	string argName = filename+"_"+string("att1");
-	expressions::Expression* lhs = new expressions::InputArgument(new IntType(),2,argName);
+	expressions::Expression* lhsArg = new expressions::InputArgument(intType,0);
+	expressions::Expression* lhs = new expressions::RecordProjection(intType,lhsArg,argName.c_str());
 	expressions::Expression* rhs = new expressions::IntConstant(555);
 	expressions::Expression* predicate = new expressions::GtExpression(new BoolType(),lhs,rhs);
-
-	Select sel = Select(predicate,&scan);
+	Select sel = Select(predicate,&scan,pg);
 	scan.setParent(&sel);
+
 	LOG(INFO)<<"Left: "<<&sel;
 
 
@@ -280,30 +341,30 @@ void joinQueryRelational()	{
 	//JOIN
 	string argName_ = filename+"_"+string("att2");
 	string argName2 = filename2+"_"+string("att2");
-	expressions::InputArgument* left = new expressions::InputArgument(new IntType(),2,argName_);
-	expressions::InputArgument* right = new expressions::InputArgument(new IntType(),2,argName2);
+	expressions::Expression* leftArg = new expressions::InputArgument(intType,0);
+	expressions::Expression* left = new expressions::RecordProjection(intType,leftArg,argName_.c_str());
+	expressions::Expression* rightArg = new expressions::InputArgument(intType,1);
+	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,argName2.c_str());
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(),EAGER);
 	outputModes.insert(outputModes.begin(),EAGER);
 	Materializer* mat = new Materializer(whichFields,outputModes);
 
-	Join join = Join(joinPred,sel,scan2, "join1", *mat);
+	Join join = Join(joinPred,sel,scan2, "join1", *mat, pg,pg2);
 	sel.setParent(&join);
 	scan2.setParent(&join);
 
-
 	//PRINT
-	string argNameProj = filename+"_"+string("att1");
 	Function* debugInt = ctx.getFunction("printi");
-	expressions::InputArgument* argProj = new expressions::InputArgument(new IntType(),1,argNameProj);
-	Print printOpProj = Print(debugInt,argProj,&join);
-	join.setParent(&printOpProj);
-
+	string argNameProj = filename+"_"+string("att1");
+	expressions::RecordProjection* proj = new expressions::RecordProjection(new IntType(),leftArg,argNameProj.c_str());
+	Print printOp = Print(debugInt,proj,&join,pg);
+	join.setParent(&printOp);
 
 	//ROOT
-	Root rootOp = Root(&printOpProj);
-	printOpProj.setParent(&rootOp);
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
 	rootOp.produce();
 
 	//Run function

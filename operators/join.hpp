@@ -22,11 +22,17 @@
 */
 
 #include "operators/operators.hpp"
+#include "expressions/expressions-generator.hpp"
+
 
 class Join : public BinaryRawOperator {
 public:
-	Join(expressions::BinaryExpression* predicate, const RawOperator& leftChild, const RawOperator& rightChild, char* htName, const Materializer& mat)
-		: BinaryRawOperator(leftChild, rightChild), pred(predicate), htName(htName), mat(mat)	 		{}
+	Join(expressions::BinaryExpression* predicate, const RawOperator& leftChild,
+			const RawOperator& rightChild, char* htName,
+			const Materializer& mat, Plugin* const leftPlugin,
+			Plugin* const rightPlugin) :
+			BinaryRawOperator(leftChild, rightChild, leftPlugin, rightPlugin), pred(
+					predicate), htName(htName), mat(mat) 												{}
 	virtual ~Join() 																					{ LOG(INFO)<<"Collapsing Join operator"; }
 	virtual void produce() const;
 	virtual void consume(RawContext* const context, const OperatorState& childState) const;

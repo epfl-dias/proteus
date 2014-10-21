@@ -34,6 +34,22 @@ OutputPlugin::OutputPlugin(RawContext* const context, const Materializer& materi
 	materializedTypes = new std::vector<Type*>();
 	int payload_type_size = 0;
 
+
+	//Always materializing the 'active tuple' pointer
+	{
+		std::map<string, AllocaInst*>::const_iterator itSearch = currentBindings.find(activeTuple);
+		if(itSearch != currentBindings.end())
+		{
+			Type* currType = itSearch->second->getAllocatedType();
+			materializedTypes->push_back(currType);
+			payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
+		}	else	{
+			string error_msg = string("[Output Plugin: ] Could not find tuple information");
+			LOG(ERROR) << error_msg;
+			throw runtime_error(error_msg);
+		}
+	}
+
 	int attrNo=0;
 	for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it != wantedFields.end(); it++)	{
 		string bindingName = (*it)->getName();

@@ -85,6 +85,30 @@ void CSVPlugin::generate(const RawOperator &producer) {
 	return scanCSV(producer, context->getGlobalFunction());
 }
 
+/**
+ * The work of readPath() and readValue() has been taken care of scanCSV()
+ */
+AllocaInst* CSVPlugin::readPath(Bindings bindings, const char* pathVar)	{
+	AllocaInst* mem_projection;
+	{
+		const OperatorState* state = bindings.state;
+		const std::map<std::string, AllocaInst*>& csvProjections = state->getBindings();
+		std::map<std::string, AllocaInst*>::const_iterator it;
+		it = csvProjections.find(pathVar);
+			if (it == csvProjections.end()) {
+				string error_msg = string("[CSV plugin - readPath ]: Unknown variable name ")+pathVar;
+				LOG(ERROR) << error_msg;
+				throw runtime_error(error_msg);
+			}
+		mem_projection = it->second;
+	}
+	return mem_projection;
+}
+
+AllocaInst* CSVPlugin::readValue(AllocaInst* mem_value, const ExpressionType* type)	{
+	return mem_value;
+}
+
 void CSVPlugin::finish()	{
 	close(fd);
 	munmap(buf,fsize);
@@ -486,6 +510,11 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 
 	// Start insertion in LoopBB.
 	Builder->SetInsertPoint(LoopBB);
+
+	//Get the starting position of each record and pass it along.
+	//More general/lazy CSV plugins will only perform this action,
+	//instead of eagerly converting fields
+	(*variableBindings)[activeTuple] = pos;
 
 	//	BYTECODE
 	//	for.body:                                         ; preds = %for.cond

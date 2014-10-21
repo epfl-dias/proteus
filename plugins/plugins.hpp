@@ -30,17 +30,31 @@
 #include "operators/operators.hpp"
 #include "operators/operator-state.hpp"
 
+//Used by all plugins
+static const std::string activeTuple = "activeTuple";
 
+/**
+ * In principle, every readPath() method should deal with a record.
+ * For some formats/plugins, however, (e.g. CSV) projection pushdown makes significant
+ * difference in performance.
+ */
+typedef struct Bindings	{
+	const OperatorState* state;
+	const Value* record;
+} Bindings;
 
 /**********************************/
 /*  The abstract part of plug-ins */
 /**********************************/
 class Plugin {
 public:
-	virtual ~Plugin() { LOG(INFO) << "Collapsing plug-in"; }
-	virtual string& getName() = 0;
-	virtual void init() = 0;
-	virtual void finish() = 0;
-	virtual void generate(const RawOperator& producer) = 0;
+	virtual 			~Plugin() 														{ LOG(INFO) << "[PLUGIN: ] Collapsing plug-in"; }
+	virtual 			string& getName() 												= 0;
+	virtual void 		init() 															= 0;
+	virtual void 		finish() 														= 0;
+	virtual void 		generate(const RawOperator& producer) 							= 0;
+//	virtual AllocaInst* readPath(const OperatorState& state, char* pathVar) 			= 0;
+	virtual AllocaInst* readPath(Bindings wrappedBindings, const char* pathVar)			= 0;
+	virtual AllocaInst*	readValue(AllocaInst* mem_value, const ExpressionType* type) 	= 0;
 };
 #endif /* PLUGINS_LLVM_HPP_ */

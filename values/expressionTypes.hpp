@@ -24,17 +24,7 @@
 #ifndef EXPRESSIONTYPES_HPP_
 #define EXPRESSIONTYPES_HPP_
 
-#include <iostream>
-#include <stdexcept>
-#include <list>
-#include <sstream>
-
-using std::cout;
-using std::runtime_error;
-using std::string;
-using std::list;
-using std::stringstream;
-
+#include "common/common.hpp"
 
 enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET };
 

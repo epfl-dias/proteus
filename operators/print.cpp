@@ -28,24 +28,29 @@ void Print::produce() const { getChild()->produce(); }
 void Print::consume (RawContext* const context, const OperatorState& childState) const {
 
 	const std::map<std::string, AllocaInst*>& activeVars = childState.getBindings();
-	LOG(INFO) << "[Print:] Printing variable " << arg->getArgName();
+	LOG(INFO) << "[Print:] Printing variable " << arg->getProjectionName();
 
 	//Load argument of print
-	std::map<std::string, AllocaInst*>::const_iterator it;
-	it = activeVars.find(arg->getArgName());
-	if( it == activeVars.end())	{
-			throw runtime_error(string("Unknown variable name: ")+arg->getArgName());
+	AllocaInst* mem_value = NULL;
+	{
+		std::map<std::string, AllocaInst*>::const_iterator it;
+		it = activeVars.find(activeTuple);
+		if(it == activeVars.end())	{
+			string error_msg = string("[PrintOp: ] Wrong handling of active tuple");
+			LOG(ERROR) << error_msg;
+			throw runtime_error(error_msg);
+		}
+		mem_value = it->second;
 	}
-	AllocaInst* argMem = it->second;
-	IRBuilder<>* TheBuilder = context->getBuilder();
-	BasicBlock* codeSpot = TheBuilder->GetInsertBlock();
-	LoadInst* loadResult = TheBuilder->CreateLoad(argMem, codeSpot);
+	//Generate condition
+	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState, getInputPlugin());
+	Value* toPrint = arg->accept(exprGenerator);
 
 	//Call print
+	IRBuilder<>* TheBuilder = context->getBuilder();
 	std::vector<Value*> ArgsV;
-	ArgsV.clear();
-	ArgsV.push_back(loadResult);
-	TheBuilder->CreateCall(this->print, ArgsV,"printi");
+	ArgsV.push_back(toPrint);
+	TheBuilder->CreateCall(print, ArgsV,"printi");
 
 	//Trigger parent
 	OperatorState *newState = new OperatorState(*this, childState.getBindings());

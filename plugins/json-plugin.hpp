@@ -21,6 +21,9 @@
 	RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#ifndef JSON_SEMI_INDEX_PLUGIN_HPP_
+#define JSON_SEMI_INDEX_PLUGIN_HPP_
+
 #include "plugins/plugins.hpp"
 
 namespace semi_index	{
@@ -32,10 +35,12 @@ public:
 	void init();
 	void generate(const RawOperator& producer);
 	void finish();
+
+	//FIXME
+	AllocaInst* readPath(Bindings wrappedBindings, const char* pathVar) 		{ return NULL; }
+	AllocaInst*	readValue(AllocaInst* mem_value, const ExpressionType* type)	{ return NULL; }
+
 	virtual string& getName() { return fname; }
-
-
-
 private:
 	JSONHelper* helper;
 	vector<RecordAttribute*>* attsToSelect;
@@ -52,3 +57,5 @@ private:
 };
 
 }
+
+#endif /* JSON_SEMI_INDEX_PLUGIN_HPP_ */

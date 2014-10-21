@@ -91,7 +91,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-	//F->dump();
+//	F->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -244,7 +244,6 @@ Value* RawContext::CreateGlobalString(char* str) {
 			/*Name=*/".str");
 
 	Constant *tmpHTname = ConstantDataArray::getString(ctx, str,true);
-	std::cout << tmpHTname->getType()->isPtrOrPtrVectorTy() << std::endl;
 	PointerType* charPtrType = PointerType::get(IntegerType::get(ctx, 8), 0);
 	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, std::string("htName"), charPtrType);
 
@@ -540,6 +539,18 @@ int compareTokenString(const char* buf, int start, int end, const char* candidat
 			&& strlen(candidate) == end - start);
 }
 
+bool convertBoolean(const char* buf, int start, int end)	{
+	if (compareTokenString(buf, start, end, "true") == 1) {
+		return true;
+	} else if (compareTokenString(buf, start, end, "false") == 0) {
+		return false;
+	} else {
+		string error_msg = string("[convertBoolean: Error - unknown input]");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+}
+
 //Provide support for some extern functions
 void RawContext::registerFunction(const char* funcName, Function* func)	{
 	availableFunctions[funcName] = func;
@@ -568,12 +579,18 @@ void registerFunctions(RawContext& context)	{
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),int_type);
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),char_ptr_type);
 
+	std::vector<Type*> ArgsConvBoolean;
+	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),char_ptr_type);
+	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int_type);
+	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int_type);
+
 	FunctionType *FTint = FunctionType::get(Type::getInt32Ty(ctx), Ints, false);
 	FunctionType *FTint64 = FunctionType::get(Type::getInt32Ty(ctx), Ints64, false);
 	FunctionType *FTcharPtr = FunctionType::get(Type::getInt32Ty(ctx), Ints8, false);
 	FunctionType *FTatof = FunctionType::get(double_type, Ints8, false);
 	FunctionType *FTprintFloat_ = FunctionType::get(int_type, Floats, false);
 	FunctionType *FTcompareTokenString_ = FunctionType::get(int_type, ArgsCmpTokens, false);
+	FunctionType *FTconvertBoolean_ = FunctionType::get(int8_bool_type, ArgsConvBoolean, false);
 
 	Function *putchari_ = Function::Create(FTint, Function::ExternalLinkage, "putchari", TheModule);
 	Function *printi_ = Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
@@ -587,6 +604,10 @@ void registerFunctions(RawContext& context)	{
 	Function *compareTokenString_ = Function::Create(FTcompareTokenString_,
 			Function::ExternalLinkage, "compareTokenString", TheModule);
 	compareTokenString_->addFnAttr(llvm::Attribute::AlwaysInline);
+
+	Function *convertBoolean_ = Function::Create(FTconvertBoolean_,
+				Function::ExternalLinkage, "convertBoolean", TheModule);
+	convertBoolean_->addFnAttr(llvm::Attribute::AlwaysInline);
 
 	//Memcpy - not used yet
 	llvm::PointerType* ptr_type = PointerType::get((Type::getInt8Ty(ctx)), 0);
@@ -651,6 +672,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("getJSONInt", get_json_int_);
 	context.registerFunction("getJSONDouble", get_json_double_);
 	context.registerFunction("compareTokenString", compareTokenString_);
+	context.registerFunction("convertBoolean", convertBoolean_);
 }
 
 

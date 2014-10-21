@@ -28,30 +28,6 @@
 
 namespace jsmn	{
 
-//class JSONPlugin	: public Plugin {
-//public:
-//	JSONPlugin(RawContext* const context, string& file, vector<RecordAttribute*>* fieldsToSelect, vector<RecordAttribute*>* fieldsToProject);
-//	~JSONPlugin();
-//	void init();
-//	void generate(const RawOperator& producer);
-//	void finish();
-//	virtual string& getName() { return fname; }
-//
-//private:
-//	JSONHelper* helper;
-//	vector<RecordAttribute*>* attsToSelect;
-//	vector<RecordAttribute*>* attsToProject;
-//	string& fname;
-//
-//	//Code-generation-related
-//	//Used to store memory positions of offset, buf and filesize in the generated code
-//	std::map<std::string, AllocaInst*> NamedValuesJSON;
-//	RawContext* const context;
-//
-//	//Assumes a semi-index has been pre-built during construction of JSONHelper
-//	void scanJSON(const RawOperator& producer, Function* debug);
-//};
-
 /**
  * JSON's basic types are:
  * Number: A signed decimal number that may contain a fractional part and may use exponential E notation.
@@ -82,19 +58,18 @@ class JSONPlugin : public Plugin	{
 public:
 	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema);
 	~JSONPlugin();
-	void init()										{}
+	void init()															{}
 	void generate(const RawOperator& producer);
 	void finish();
-	string& getName() 								{ return fname; }
+	string& getName() 													{ return fname; }
 
+	//1-1 correspondence with 'RecordProjection' expression
+	AllocaInst* readPath(Bindings wrappedBindings, const char* pathVar);
+	AllocaInst*	readValue(AllocaInst* mem_value, const ExpressionType* type);
 
 	void scanObjects(const RawOperator& producer, Function* debug);
 	void scanObjectsInterpreted(list<string> path, list<ExpressionType*> types);
-
 	int readPathInterpreted(int parentToken, list<string> path);
-	//1-1 correspondence with 'RecordProjection' expression
-	void readPath(Value* parentTokenNo, char* pathVar);
-
 	void readValueInterpreted(int tokenNo, const ExpressionType* type);
 
 private:
