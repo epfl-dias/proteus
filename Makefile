@@ -161,11 +161,11 @@ gtest_main.a : gtest-all.o gtest_main.o
 tests-operators.o : tests/tests-operators.cpp $(GTEST_HEADERS) 
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) ${LLVMOPT} -c tests/tests-operators.cpp 
 
-tests-operators : tests-operators.o gtest_main.a libjsmn.a common/common.o values/expressionTypes.o plugins/helpers.o plugins/csv-plugin.o plugins/json-plugin.o plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  expressions/expressions-generator.o
+tests-operators : tests-operators.o gtest_main.a libjsmn.a common/common.o values/expressionTypes.o plugins/helpers.o plugins/csv-plugin.o plugins/json-plugin.o plugins/json-jsmn-plugin.o plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  expressions/expressions-generator.o
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) -lpthread $^ ${LLVMJIT} -o $@ ${LDFLAGS}
 
 tests-sailors.o : tests/tests-sailors.cpp $(GTEST_HEADERS)
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) ${LLVMOPT} -c tests/tests-sailors.cpp 
 
-tests-sailors : tests-sailors.o gtest_main.a libjsmn.a common/common.o values/expressionTypes.o plugins/helpers.o plugins/csv-plugin.o plugins/json-plugin.o plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  expressions/expressions-generator.o
+tests-sailors : tests-sailors.o gtest_main.a libjsmn.a common/common.o values/expressionTypes.o plugins/helpers.o plugins/csv-plugin.o plugins/json-plugin.o plugins/json-jsmn-plugin.o plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o expressions/expressions.o  expressions/expressions-generator.o
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) -lpthread $^ ${LLVMJIT} -o $@ ${LDFLAGS}
