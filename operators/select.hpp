@@ -27,8 +27,8 @@
 
 class Select : public UnaryRawOperator {
 public:
-	Select(expressions::Expression* expr, RawOperator* const child, Plugin* const inputPlugin) :
-		  UnaryRawOperator(child, inputPlugin), expr(expr) 				{}
+	Select(expressions::Expression* expr, RawOperator* const child) :
+		  UnaryRawOperator(child), expr(expr) 							{}
 	virtual ~Select() 													{ LOG(INFO) << "Collapsing selection operator"; }
 
 	virtual void produce() const;

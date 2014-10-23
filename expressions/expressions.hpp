@@ -27,6 +27,7 @@
 #include "operators/operators.hpp"
 #include "operators/operator-state.hpp"
 #include "util/raw-context.hpp"
+#include "util/raw-catalog.hpp"
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
 
@@ -124,16 +125,54 @@ private:
 
 class RecordProjection : public Expression	{
 public:
-	RecordProjection(ExpressionType* type, Expression* expr, const char* name)	:
-		Expression(type), expr(expr), name(name)	{}
+//	RecordProjection(ExpressionType* type, Expression* expr, const char* name)	:
+//		Expression(type), expr(expr), name(name)	{}
+	RecordProjection(ExpressionType* type, Expression* expr, const RecordAttribute& attribute)	:
+			Expression(type), expr(expr), attribute(attribute)	{}
 	~RecordProjection()								{}
 
 	Expression* getExpr()							{ return expr; }
-	const char*	getProjectionName()					{ return name; }
+	string getOriginalRelationName()				{ return attribute.getRelationName(); }
+	string getProjectionName()						{ return attribute.getAttrName(); }
 	Value* accept(ExprVisitor &v);
 private:
 	Expression* expr;
-	const char* name;
+	const RecordAttribute& attribute;
+};
+
+class AttributeConstruction	{
+public:
+	AttributeConstruction(const string& name, Expression* expr) :
+			name(name), expr(expr) 									{}
+	~AttributeConstruction()										{}
+private:
+	const string& name;
+	Expression* expr;
+};
+
+class RecordConstruction : public Expression	{
+public:
+	RecordConstruction(ExpressionType* type,
+			const list<AttributeConstruction>& atts) :
+			Expression(type), atts(atts) 							{}
+	~RecordConstruction()											{}
+
+	Value* accept(ExprVisitor &v);
+private:
+	const list<AttributeConstruction>& atts;
+};
+
+class IfThenElse : public Expression	{
+public:
+	IfThenElse(ExpressionType* type, Expression* expr1, Expression* expr2, Expression* expr3) :
+			Expression(type), expr1(expr1), expr2(expr2), expr3(expr3)			{}
+	~IfThenElse()																{}
+
+	Value* accept(ExprVisitor &v);
+private:
+	Expression *expr1;
+	Expression *expr2;
+	Expression *expr3;
 };
 
 class BinaryExpression : public Expression	{

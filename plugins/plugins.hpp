@@ -26,12 +26,12 @@
 
 #include "common/common.hpp"
 #include "util/raw-context.hpp"
-#include "util/raw-catalog.hpp"
 #include "operators/operators.hpp"
 #include "operators/operator-state.hpp"
 
 //Used by all plugins
-static const std::string activeTuple = "activeTuple";
+//static const std::string activeTuple = "activeTuple";
+static const string activeLoop = "activeTuple";
 
 /**
  * In principle, every readPath() method should deal with a record.

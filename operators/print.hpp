@@ -26,9 +26,9 @@
 
 class Print : public UnaryRawOperator {
 public:
-	Print(Function* debug, expressions::RecordProjection* arg, RawOperator* const child, Plugin* const plugin)
-		: UnaryRawOperator(child,plugin), arg(arg), print(debug) {}
-	virtual ~Print() { LOG(INFO) << "Collapsing print operator"; }
+	Print(Function* debug, expressions::RecordProjection* arg, RawOperator* const child)
+		: UnaryRawOperator(child), arg(arg), print(debug) 			{}
+	virtual ~Print() 												{ LOG(INFO) << "Collapsing print operator"; }
 
 	virtual void produce() const;
 	virtual void consume(RawContext* const context, const OperatorState& childState) const;

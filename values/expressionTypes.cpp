@@ -26,6 +26,3 @@
 bool recordComparator (RecordAttribute* x, RecordAttribute* y) {
 	return (x->getAttrNo() < y->getAttrNo());
 }
-
-
-

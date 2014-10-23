@@ -49,7 +49,7 @@ void JSONPlugin::scanJSON(const RawOperator& producer, Function* debug) {
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
 	//Container for the variable bindings
-	std::map<std::string, AllocaInst*>* variableBindings = new std::map<std::string, AllocaInst*>();
+	map<RecordAttribute, AllocaInst*>* variableBindings = new map<RecordAttribute, AllocaInst*>();
 
 	//Loop through results (if any)
 	BasicBlock *jsonScanCond, *jsonScanBody, *jsonScanInc, *jsonScanEnd;
@@ -104,7 +104,7 @@ void JSONPlugin::scanJSON(const RawOperator& producer, Function* debug) {
 			AllocaInst *Alloca = context->CreateEntryBlockAlloca(TheFunction,
 					"currJSONResult", jsonStructType);
 			Builder->CreateStore(positionStructs, Alloca);
-			(*variableBindings)[currAttrName] = Alloca;
+			(*variableBindings)[*(*it)] = Alloca;
 		} else {
 			Value* result;
 			Type* resultType;
@@ -141,7 +141,7 @@ void JSONPlugin::scanJSON(const RawOperator& producer, Function* debug) {
 			result = Builder->CreateCall(jsonPrimitiveScan, ArgsV);
 			AllocaInst *Alloca = context->CreateEntryBlockAlloca(TheFunction,"currJSONResult", resultType);
 			Builder->CreateStore(result, Alloca);
-			(*variableBindings)[currAttrName] = Alloca;
+			(*variableBindings)[*(*it)] = Alloca;
 		}
 	}
 

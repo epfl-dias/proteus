@@ -25,25 +25,26 @@
 #define OPERATOR_STATE_HPP_
 
 #include "operators/operators.hpp"
-#include "util/raw-context.hpp"
+#include "values/expressionTypes.hpp"
 
 //Forward declaration
 class RawOperator;
 
 class OperatorState {
 public:
-	OperatorState(const RawOperator& producer,const std::map<std::string, AllocaInst*>& vars)
-		: producer(producer), activeVariables(vars) {}
-	OperatorState(const OperatorState &opState)
-		: producer(opState.producer), activeVariables(opState.activeVariables) {
-		LOG(INFO) << "[Operator State: ] Copy Constructor";
-	}
+	OperatorState(const RawOperator& producer,
+			const map<RecordAttribute, AllocaInst*>& vars) :
+			producer(producer), activeVariables(vars)			{}
+	OperatorState(const OperatorState &opState) :
+			producer(opState.producer),
+			activeVariables(opState.activeVariables)			{ LOG(INFO)<< "[Operator State: ] Copy Constructor"; }
 
-	const std::map<std::string, AllocaInst*>& getBindings() const { return activeVariables;	}
-	const RawOperator& getProducer() const { return producer; }
+	const map<RecordAttribute, AllocaInst*>& getBindings() 	const 	{ return activeVariables; }
+	const RawOperator& getProducer() 					const 	{ return producer; }
 private:
 	const RawOperator& producer;
 	//Variable bindings produced by operator and provided to its parent
-	const std::map<std::string, AllocaInst*>& activeVariables;
+	//const map<string, AllocaInst*>& activeVariables;
+	const map<RecordAttribute, AllocaInst*>& activeVariables;
 };
 #endif /* OPERATOR_STATE_HPP_ */

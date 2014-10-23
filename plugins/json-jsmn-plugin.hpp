@@ -25,6 +25,7 @@
 #define JSON_JSMN_PLUGIN_HPP_
 
 #include "plugins/plugins.hpp"
+#include "util/raw-catalog.hpp"
 
 namespace jsmn	{
 

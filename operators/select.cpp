@@ -35,7 +35,7 @@ void Select::generate(RawContext* const context, const OperatorState& childState
 	LLVMContext& llvmContext = context->getLLVMContext();
 
 	//Generate condition
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState, getInputPlugin());
+	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
 	Value* condition = this->expr->accept(exprGenerator);
 
 	//Get entry point

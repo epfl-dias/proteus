@@ -27,14 +27,16 @@ void Print::produce() const { getChild()->produce(); }
 
 void Print::consume (RawContext* const context, const OperatorState& childState) const {
 
-	const std::map<std::string, AllocaInst*>& activeVars = childState.getBindings();
+	const map<RecordAttribute, AllocaInst*>& activeVars = childState.getBindings();
 	LOG(INFO) << "[Print:] Printing variable " << arg->getProjectionName();
 
 	//Load argument of print
 	AllocaInst* mem_value = NULL;
 	{
-		std::map<std::string, AllocaInst*>::const_iterator it;
-		it = activeVars.find(activeTuple);
+		string relName = arg->getOriginalRelationName();
+		RecordAttribute attr = RecordAttribute(relName,activeLoop);
+		map<RecordAttribute, AllocaInst*>::const_iterator it;
+		it = activeVars.find(attr);
 		if(it == activeVars.end())	{
 			string error_msg = string("[PrintOp: ] Wrong handling of active tuple");
 			LOG(ERROR) << error_msg;
@@ -43,7 +45,7 @@ void Print::consume (RawContext* const context, const OperatorState& childState)
 		mem_value = it->second;
 	}
 	//Generate condition
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState, getInputPlugin());
+	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
 	Value* toPrint = arg->accept(exprGenerator);
 
 	//Call print

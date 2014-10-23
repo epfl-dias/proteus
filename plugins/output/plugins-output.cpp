@@ -24,40 +24,40 @@
 #include "plugins/output/plugins-output.hpp"
 
 Materializer::Materializer(const vector<RecordAttribute*>& wantedFields, const vector<materialization_mode>& outputMode)
-	: wantedFields(wantedFields), outputMode(outputMode) {}
+	: wantedFields(wantedFields), outputMode(outputMode), tupleIdentifiers(0) {}
 
-OutputPlugin::OutputPlugin(RawContext* const context, const Materializer& materializer, const std::map<string, AllocaInst*>& bindings )
+OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer, const map<RecordAttribute, AllocaInst*>& bindings )
 	: context(context), materializer(materializer), currentBindings(bindings)	{
 
 	const vector<RecordAttribute*>& wantedFields = materializer.getWantedFields();
 	// Declare our result (value) type
-	materializedTypes = new std::vector<Type*>();
+	materializedTypes = new vector<Type*>();
 	int payload_type_size = 0;
-
-
-	//Always materializing the 'active tuple' pointer
+	int tupleIdentifiers = 0;
+	//Always materializing the 'active tuples' pointer
+	AllocaInst* mem_activeTuple = NULL;
 	{
-		std::map<string, AllocaInst*>::const_iterator itSearch = currentBindings.find(activeTuple);
-		if(itSearch != currentBindings.end())
-		{
-			Type* currType = itSearch->second->getAllocatedType();
-			materializedTypes->push_back(currType);
-			payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
-		}	else	{
-			string error_msg = string("[Output Plugin: ] Could not find tuple information");
-			LOG(ERROR) << error_msg;
-			throw runtime_error(error_msg);
+		map<RecordAttribute, AllocaInst*>::const_iterator memSearch;
+		for (memSearch = currentBindings.begin(); memSearch != currentBindings.end(); memSearch++) {
+			RecordAttribute currAttr = memSearch->first;
+			if (currAttr.getAttrName() == activeLoop) {
+				Type* currType = memSearch->second->getAllocatedType();
+				materializedTypes->push_back(currType);
+				payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
+				tupleIdentifiers++;
+				materializer.addTupleIdentifier(currAttr);
+			}
 		}
 	}
 
+
 	int attrNo=0;
 	for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it != wantedFields.end(); it++)	{
-		string bindingName = (*it)->getName();
-		std::map<string, AllocaInst*>::const_iterator itSearch = currentBindings.find(bindingName);
+		map<RecordAttribute, AllocaInst*>::const_iterator itSearch = currentBindings.find(*(*it));
 		//Field needed
 		if(itSearch != currentBindings.end())
 		{
-			LOG(INFO)<<"[MATERIALIZER: ] PART OF PAYLOAD: "<<bindingName;
+			LOG(INFO)<<"[MATERIALIZER: ] PART OF PAYLOAD: "<<(*it)->getAttrName();
 			materialization_mode mode = (materializer.getOutputMode()).at(attrNo++);
 			//gather datatypes
 			Type* currType = itSearch->second->getAllocatedType();
@@ -65,8 +65,9 @@ OutputPlugin::OutputPlugin(RawContext* const context, const Materializer& materi
 			materializedTypes->push_back(requestedType);
 			payload_type_size += (requestedType->getPrimitiveSizeInBits() / 8);
 		} else {
-			LOG(ERROR) << "[OUTPUT PG: ] INPUT ERROR AT OPERATOR - UNKNOWN WANTED FIELD "<<bindingName;
-			throw runtime_error(string("[OUTPUT PG: ] INPUT ERROR AT OPERATOR - UNKNOWN WANTED FIELD "+bindingName));
+			string error_msg = string("[OUTPUT PG: ] INPUT ERROR AT OPERATOR - UNKNOWN WANTED FIELD ") + (*it)->getAttrName();
+			LOG(ERROR) << error_msg;
+			throw runtime_error(error_msg);
 		}
 	}
 	LOG(INFO)<<"[OUTPUT PLUGIN: ] Size of tuple (payload): "<<payload_type_size;
@@ -78,7 +79,7 @@ OutputPlugin::OutputPlugin(RawContext* const context, const Materializer& materi
 
 //TODO Many more cases to cater for
 //Current most relevant example: JSONObject
-Type* OutputPlugin::chooseType(ExpressionType* exprType, Type* currType, materialization_mode mode)	{
+Type* OutputPlugin::chooseType(const ExpressionType* exprType, Type* currType, materialization_mode mode)	{
 
 	switch(exprType->getTypeID())
 	{

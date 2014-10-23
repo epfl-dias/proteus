@@ -54,36 +54,27 @@ private:
 class UnaryRawOperator : public RawOperator {
 public:
 	UnaryRawOperator(RawOperator* const child) :
-			RawOperator(), child(child), inputPlugin(NULL) 						{}
-	UnaryRawOperator(RawOperator* const child, Plugin* const inputPlugin) :
-			RawOperator(), child(child), inputPlugin(inputPlugin) 				{}
+			RawOperator(), child(child) 										{}
 	virtual ~UnaryRawOperator() 												{ LOG(INFO) << "Collapsing unary operator"; }
+
 	RawOperator* const getChild() 		const									{ return child; }
-	Plugin* 	 const getInputPlugin() const									{ return inputPlugin; }
 private:
 	RawOperator* const child;
-	Plugin* 	 const inputPlugin;
 };
 
 class BinaryRawOperator : public RawOperator {
 public:
 	BinaryRawOperator(const RawOperator& leftChild,	const RawOperator& rightChild) :
-			RawOperator(), leftChild(leftChild), rightChild(rightChild),
-			leftPlugin(NULL), rightPlugin(NULL) 						{}
+			RawOperator(), leftChild(leftChild), rightChild(rightChild) 						{}
 	BinaryRawOperator(const RawOperator& leftChild, const RawOperator& rightChild,
 			Plugin* const leftPlugin, Plugin* const rightPlugin) :
-			RawOperator(), leftChild(leftChild), rightChild(rightChild),
-			leftPlugin(leftPlugin), rightPlugin(rightPlugin) 			{}
+			RawOperator(), leftChild(leftChild), rightChild(rightChild)	{}
 	virtual ~BinaryRawOperator() 										{ LOG(INFO) << "Collapsing binary operator"; }
 	const RawOperator& getLeftChild() const								{ return leftChild; }
 	const RawOperator& getRightChild() const							{ return rightChild; }
-	Plugin* const getLeftPlugin() const									{ return leftPlugin; }
-	Plugin* const getRightPlugin() const								{ return rightPlugin; }
 private:
 	const RawOperator& leftChild;
 	const RawOperator& rightChild;
-	Plugin* const leftPlugin;
-	Plugin* const rightPlugin;
 };
 
 #endif /* OPERATORS_HPP_ */

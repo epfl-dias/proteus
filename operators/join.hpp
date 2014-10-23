@@ -29,18 +29,17 @@ class Join : public BinaryRawOperator {
 public:
 	Join(expressions::BinaryExpression* predicate, const RawOperator& leftChild,
 			const RawOperator& rightChild, char* htName,
-			const Materializer& mat, Plugin* const leftPlugin,
-			Plugin* const rightPlugin) :
-			BinaryRawOperator(leftChild, rightChild, leftPlugin, rightPlugin), pred(
-					predicate), htName(htName), mat(mat) 												{}
+			Materializer& mat) :
+			BinaryRawOperator(leftChild, rightChild),
+			pred(predicate), htName(htName), mat(mat)	 												{}
 	virtual ~Join() 																					{ LOG(INFO)<<"Collapsing Join operator"; }
 	virtual void produce() const;
 	virtual void consume(RawContext* const context, const OperatorState& childState) const;
-	const Materializer& getMaterializer() const															{ return mat; }
+	Materializer& getMaterializer()		 																{ return mat; }
 private:
 	char* htName;
-	std::vector<string> leftFields;
+	vector<string> leftFields;
 	OperatorState* generate(RawOperator* op,  OperatorState* childState);
 	expressions::BinaryExpression* pred;
-	const Materializer& mat;
+	Materializer& mat;
 };

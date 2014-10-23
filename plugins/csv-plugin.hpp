@@ -57,7 +57,7 @@ private:
 	 * Code-generation-related
 	 */
 	//Used to store memory positions of offset, buf and filesize in the generated code
-	std::map<std::string, AllocaInst*> NamedValuesCSV;
+	map<string, AllocaInst*> NamedValuesCSV;
 	RawContext* const context;
 
 	const char* posVar;// = "offset";
@@ -72,14 +72,10 @@ private:
 	//Used to generate code
 	void skipDelimLLVM(Value* delim,Function* debugChar, Function* debugInt);
 	void skipLLVM(Function* debugChar);
-	void readAsIntLLVM(std::string& attName, std::map<std::string, AllocaInst*>& variables, Function* atoi_,Function* debugChar,Function* debugInt);
-	void readAsFloatLLVM(std::string& attName, std::map<std::string, AllocaInst*>& variables, Function* atof_,Function* debugChar,Function* debugFloat);
+	void readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables, Function* atoi_,Function* debugChar,Function* debugInt);
+	void readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables, Function* atof_,Function* debugChar,Function* debugFloat);
 	//Generates a for loop that performs the file scan
 	//No assumption on auxiliary structures yet
 	void scanCSV(const RawOperator& producer, Function* debug);
-
-	//XXX DEBUG purposes - REMOVE ONCE STABLE
-	void readAsIntLLVM_(std::string& attName);
-	void skipLLVM_();
 
 };

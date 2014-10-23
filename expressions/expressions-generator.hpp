@@ -32,12 +32,10 @@
 class ExpressionGeneratorVisitor: public ExprVisitor
 {
 public:
-	//TODO remove once readPath() and readValue() have been incorporated fully
-	ExpressionGeneratorVisitor(RawContext* const context, const OperatorState& currState)
-		: context(context) , currState(currState), plugin(NULL) 	{}
 	ExpressionGeneratorVisitor(RawContext* const context,
-			const OperatorState& currState, Plugin* const plugin) :
-			context(context), currState(currState), plugin(plugin) {}
+			const OperatorState& currState) :
+			context(context), currState(currState),
+			activeRelation("")								{}
 	Value* visit(expressions::IntConstant *e);
 	Value* visit(expressions::FloatConstant *e);
 	Value* visit(expressions::BoolConstant *e);
@@ -55,10 +53,33 @@ public:
 	Value* visit(expressions::MultExpression *e);
 	Value* visit(expressions::DivExpression *e);
 
+	/**
+	 * STUBS
+	 */
+	Value* visit(expressions::RecordConstruction *e) {
+		string error_msg = string("[ExpressionGeneratorVisitor]: Not implemented yet");
+		LOG(ERROR) << error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	Value* visit(expressions::IfThenElse *e) {
+		string error_msg = string("[ExpressionGeneratorVisitor]: Not implemented yet");
+		LOG(ERROR) << error_msg;
+		throw runtime_error(error_msg);
+	}
+	/**
+	 *
+	 */
+
+	void setActiveRelation(string relName)		{ activeRelation = relName; }
+	string getActiveRelation(string relName)	{ return activeRelation; }
 private:
 	RawContext* const context;
 	const OperatorState& currState;
-	Plugin* const plugin;
+
+//	Plugin* const activePlugin;
+	string activeRelation;
+
 };
 
 #endif /* EXPRESSIONS_VISITOR_HPP_ */

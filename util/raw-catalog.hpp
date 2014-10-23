@@ -2,10 +2,29 @@
 #define RAW_CATALOG_HPP_
 
 #include "common/common.hpp"
+#include "plugins/plugins.hpp"
 #include "plugins/helpers.hpp"
+
+//Forward Declaration
+class Plugin;
 
 using namespace llvm;
 
+//typedef struct RawAttribute	{
+//	string relName;
+//	string attrName;
+//} RawAttribute;
+//
+//bool operator < (const RawAttribute &l, const RawAttribute &r) {
+//	if(l.relName == r.relName)
+//	{
+//		return l.attrName < r.attrName;
+//	}	else	{
+//		return l.relName < r.relName;
+//	}
+//}
+
+//FIXME no need to be a singleton (I think)
 class RawCatalog
 {
 public:
@@ -75,14 +94,6 @@ public:
 		return uniqueTableId;
 	}
 
-	BasicBlock* getJoinInsertionPoint()	{
-		return joinInsertionPoint;
-	}
-
-	void setJoinInsertionPoint(BasicBlock* bb)	{
-		joinInsertionPoint = bb;
-	}
-
 	JSONHelper* getJSONHelper(char* fileName)	{
 		std::map<std::string, JSONHelper*>::iterator it;
 		it = jsonFiles.find(fileName);
@@ -118,13 +129,30 @@ public:
 		return it->second;
 	}
 
+	void registerPlugin(string fileName, Plugin* pg)	{
+		map<string, Plugin*>::iterator it = plugins.find(fileName);
+		if(it == plugins.end())	{
+			LOG(WARNING) << "Catalog already contains the plugin of " << fileName;
+		}
+		plugins[fileName] = pg;
+	}
+
+	Plugin* getPlugin(string fileName)	{
+		map<string, Plugin*>::iterator it = plugins.find(fileName);
+		if(it == plugins.end())	{
+			string error_msg = string("Catalog does not contain the plugin of ") + fileName;
+			LOG(ERROR) << error_msg;
+			throw runtime_error(error_msg);
+		}
+		return it->second;
+	}
+
 	void clear();
 
 private:
-	std::map<string,multimap<int,void*>*> intHTs;
-
-	std::map<string,JSONHelper*> jsonFiles;
-
+	map<string,Plugin*> plugins;
+	map<string,multimap<int,void*>*> intHTs;
+	map<string,JSONHelper*> jsonFiles;
 	map<string, ExpressionType*> jsonTypeCatalog;
 
 	/**
@@ -132,7 +160,7 @@ private:
 	 * Therefore, the 'values' need to be void* to accommodate any kind of 'tuples'
 	 * XXX [Actually, is there a more flexible way to handle this? Templates or sth??]
 	 */
-	std::map<string,int> resultTypes;
+	map<string,int> resultTypes;
 
 	int uniqueTableId;
 	int maxTables;

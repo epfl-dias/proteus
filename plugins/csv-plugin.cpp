@@ -92,9 +92,10 @@ AllocaInst* CSVPlugin::readPath(Bindings bindings, const char* pathVar)	{
 	AllocaInst* mem_projection;
 	{
 		const OperatorState* state = bindings.state;
-		const std::map<std::string, AllocaInst*>& csvProjections = state->getBindings();
-		std::map<std::string, AllocaInst*>::const_iterator it;
-		it = csvProjections.find(pathVar);
+		const map<RecordAttribute, AllocaInst*>& csvProjections = state->getBindings();
+		RecordAttribute tmpKey = RecordAttribute(fname,pathVar);
+		map<RecordAttribute, AllocaInst*>::const_iterator it;
+		it = csvProjections.find(tmpKey);
 			if (it == csvProjections.end()) {
 				string error_msg = string("[CSV plugin - readPath ]: Unknown variable name ")+pathVar;
 				LOG(ERROR) << error_msg;
@@ -331,7 +332,7 @@ void CSVPlugin::skipLLVM(Function* debug)
 }
 
 
-void CSVPlugin::readAsIntLLVM(std::string& attName, std::map<std::string, AllocaInst*>& variables, Function* atoi_,Function* debugChar,Function* debugInt)
+void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables, Function* atoi_,Function* debugChar,Function* debugInt)
 {
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -384,7 +385,7 @@ void CSVPlugin::readAsIntLLVM(std::string& attName, std::map<std::string, Alloca
 	variables[attName] = Alloca;
 }
 
-void CSVPlugin::readAsFloatLLVM(std::string& attName, std::map<std::string, AllocaInst*>& variables, Function* atof_,Function* debugChar,Function* debugFloat)
+void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables, Function* atof_,Function* debugChar,Function* debugFloat)
 {
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -446,7 +447,7 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 	IRBuilder<>* Builder = context->getBuilder();
 
 	//Container for the variable bindings
-	std::map<std::string, AllocaInst*>* variableBindings = new std::map<std::string, AllocaInst*>();
+	map<RecordAttribute, AllocaInst*>* variableBindings = new map<RecordAttribute, AllocaInst*>();
 
 	//Fetch value from symbol table
 	AllocaInst* pos;
@@ -514,7 +515,8 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 	//Get the starting position of each record and pass it along.
 	//More general/lazy CSV plugins will only perform this action,
 	//instead of eagerly converting fields
-	(*variableBindings)[activeTuple] = pos;
+	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
+	(*variableBindings)[tupleIdentifier] = pos;
 
 	//	BYTECODE
 	//	for.body:                                         ; preds = %for.cond
@@ -544,6 +546,7 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 		}
 
 		std::string attrName = (*it)->getName();
+		RecordAttribute attr = *(*it);
 		switch ((*it)->getOriginalType()->getTypeID()) {
 		case BOOL:
 			LOG(ERROR)<< "[CSV PLUGIN: ] Booleans not supported yet";
@@ -552,10 +555,10 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 			LOG(ERROR) << "[CSV PLUGIN: ] String datatypes not supported yet";
 			throw runtime_error(string("[CSV PLUGIN: ] String datatypes not supported yet"));
 		case FLOAT:
-			readAsFloatLLVM(attrName,*variableBindings,atof_,debugChar,debugFloat);
+			readAsFloatLLVM(attr,*variableBindings,atof_,debugChar,debugFloat);
 			break;
 		case INT:
-			readAsIntLLVM(attrName,*variableBindings,atoi_,debugChar,debugInt);
+			readAsIntLLVM(attr,*variableBindings,atoi_,debugChar,debugInt);
 			break;
 		case BAG:
 		case LIST:
@@ -606,19 +609,6 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 	//	Finish up with end (the AfterLoop)
 	// 	Any new code will be inserted in AfterBB.
 	Builder->SetInsertPoint(AfterBB);
-}
-
-void CSVPlugin::readAsIntLLVM_(std::string& attName) {
-	std::map<std::string, AllocaInst*>* variableBindings = new std::map<std::string, AllocaInst*>();
-	Function* atoi_ = context->getFunction("atoi");
-	Function* debugChar = context->getFunction("printc");
-	Function* debugInt = context->getFunction("printi");
-	readAsIntLLVM(attName,*variableBindings,atoi_,debugChar,debugInt);
-}
-
-void CSVPlugin::skipLLVM_() {
-	Function* debugChar = context->getFunction("printc");
-	skipLLVM(debugChar);
 }
 
 int CSVPlugin::readAsInt() {

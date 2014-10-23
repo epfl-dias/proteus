@@ -110,25 +110,50 @@ public:
 
 class RecordAttribute	{
 public:
+	RecordAttribute() : attrNo(-1), projected(false), type(NULL), relName(""), attrName("")	{}
+	RecordAttribute(const int& no, const string& relName, const string& attrName, const ExpressionType* const type)
+		: attrNo(no), relName(relName), attrName(attrName), type(type), projected(false) 	{}
 
-	RecordAttribute(int no, string name_, ExpressionType* type_)
-		: attrNo(no), name(name_), type(type_), projected(false) 	{}
+	//Constructor used strictly for comparisons in maps
+	RecordAttribute(string relName, string attrName)
+			: attrNo(-1), relName(relName), attrName(attrName), type(NULL), projected(false) 	{}
 
-	string getType() const											{ return name +" "+type->getType(); }
-	ExpressionType* getOriginalType() 								{ return type; }
-	string getName()												{ return name; }
+	string getType() const											{ return attrName +" "+type->getType(); }
+	const ExpressionType* getOriginalType() const					{ return type; }
+	string getName()												{ return attrName; }
+	string getRelationName() 				const					{ return relName; }
+	string getAttrName() 					const					{ return attrName; }
 	//CONVENTION: Fields requested can be 1-2-3-etc.
 	int getAttrNo()													{ return attrNo; }
 	void setProjected()												{ projected = true; }
 	bool isProjected()												{ return projected; }
+
+//	bool operator < (const RecordAttribute &l, const RecordAttribute &r) {
+//		if(l.relName == r.relName)
+//		{
+//			return l.attrName < r.attrName;
+//		}	else	{
+//			return l.relName < r.relName;
+//		}
+//	}
+
 private:
-	string name;
-	ExpressionType* type;
+	string relName;
+	string attrName;
+	const ExpressionType* const type;
 	int attrNo;
 	bool projected;
+
 };
 
 bool recordComparator (RecordAttribute* x, RecordAttribute* y);
+inline bool operator<(const RecordAttribute& l, const RecordAttribute& r) {
+		if (l.getRelationName() == r.getRelationName()) {
+			return l.getAttrName() < r.getAttrName();
+		} else {
+			return l.getRelationName() < r.getRelationName();
+		}
+};
 
 class RecordType : public ExpressionType	{
 public:

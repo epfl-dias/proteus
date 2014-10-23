@@ -41,48 +41,68 @@ Value* ExpressionGeneratorVisitor::visit(expressions::StringConstant *e) {
 }
 
 Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
-	const std::map<std::string, AllocaInst*>& activeVars = currState.getBindings();
-
-	std::map<std::string, AllocaInst*>::const_iterator it;
-	it = activeVars.find(activeTuple);
-	if (it == activeVars.end()) {
-		string error_msg = string("[Expression Generator: ] Could not find tuple information");
-		LOG(ERROR) << error_msg;
- 		throw runtime_error(error_msg);
-	}
-	AllocaInst* argMem = it->second;
 	IRBuilder<>* const TheBuilder = context->getBuilder();
+	AllocaInst* argMem = NULL;
+	{
+		const map<RecordAttribute, AllocaInst*>& activeVars = currState.getBindings();
+		map<RecordAttribute, AllocaInst*>::const_iterator it;
+
+		//A previous visitor has indicated with relation is relevant
+		if(activeRelation != "")	{
+			RecordAttribute relevantAttr = RecordAttribute(activeRelation,activeLoop);
+			it = activeVars.find(relevantAttr);
+
+			if (it == activeVars.end()) {
+				string error_msg = string("[Expression Generator: ] Could not find tuple information");
+				LOG(ERROR) << error_msg;
+			 	throw runtime_error(error_msg);
+			}	else	{
+				argMem = it->second;
+			}
+		}	else	{
+			LOG(INFO) << "[Expression Generator: ] No active relation found - Non-record case";
+			int relationsCount = 0;
+			for(it = activeVars.begin(); it != activeVars.end(); it++)	{
+				RecordAttribute currAttr = it->first;
+				if(currAttr.getRelationName() == activeRelation && currAttr.getAttrName() == activeLoop)	{
+					cout<<"Found "<<currAttr.getRelationName()<< " "<<currAttr.getAttrName()<<endl;
+					argMem = it->second;
+					relationsCount++;
+				}
+			}
+			if (!relationsCount) {
+				string error_msg =
+						string(
+								"[Expression Generator: ] Could not find tuple information");
+				LOG(ERROR)<< error_msg;
+				throw runtime_error(error_msg);
+			} else if (relationsCount > 1) {
+				string error_msg =
+						string(
+								"[Expression Generator: ] Could not distinguish appropriate bindings");
+				LOG(ERROR)<< error_msg;
+				throw runtime_error(error_msg);
+			}
+		}
+	}
 	return TheBuilder->CreateLoad(argMem);
 }
-//Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
-//	const std::map<std::string, AllocaInst*>& activeVars = currState.getBindings();
-//
-//	//	for (std::map<std::string, AllocaInst*>::const_iterator it =
-//	//			activeVars.begin(); it != activeVars.end(); it++) {
-//	//		LOG(INFO) << "[Input Argument: ] Binding " << it->first;
-//	//	}
-//
-//	std::map<std::string, AllocaInst*>::const_iterator it;
-//	it = activeVars.find(e->getArgName());
-//	if (it == activeVars.end()) {
-//		throw runtime_error(string("Unknown variable name: ") + e->getArgName());
-//	}
-//	AllocaInst* argMem = it->second;
-//	IRBuilder<>* const TheBuilder = context->getBuilder();
-//	return TheBuilder->CreateLoad(argMem);
-//}
 
 Value* ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
+	RawCatalog& catalog = RawCatalog::getInstance();
 	IRBuilder<>* const TheBuilder = context->getBuilder();
+	activeRelation = e->getOriginalRelationName();
 	Value* record = e->getExpr()->accept(*this);
-
+	Plugin* plugin = catalog.getPlugin(activeRelation);
+	//Resetting activeRelation here would break nested-record-projections
+	//activeRelation = "";
 	if(plugin == NULL)	{
 		string error_msg = string("[Expression Generator: ] No plugin provided");
 		LOG(ERROR) << error_msg;
 		throw runtime_error(error_msg);
 	}	else	{
 		Bindings bindings = { &currState, record };
-		AllocaInst* mem_path = plugin->readPath(bindings, e->getProjectionName());
+		AllocaInst* mem_path = plugin->readPath(bindings, e->getProjectionName().c_str());
 		AllocaInst* mem_val = plugin->readValue(mem_path, e->getExpressionType());
 		return TheBuilder->CreateLoad(mem_val);
 	}

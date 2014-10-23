@@ -28,4 +28,5 @@ void RawCatalog::clear()	{
 	jsonFiles.clear();
 	jsonTypeCatalog.clear();
 	resultTypes.clear();
+	plugins.clear();
 }

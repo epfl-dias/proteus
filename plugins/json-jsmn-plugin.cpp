@@ -156,7 +156,7 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)	{
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
 	//Container for the variable bindings
-	std::map<std::string, AllocaInst*>* variableBindings = new std::map<std::string, AllocaInst*>();
+	map<RecordAttribute, AllocaInst*>* variableBindings = new map<RecordAttribute, AllocaInst*>();
 
 	/**
 	 * Loop through results (if any)
@@ -212,8 +212,9 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)	{
 	 */
 	Builder->SetInsertPoint(jsonScanBody);
 
-	//	//Triggering parent
-	(*variableBindings)[activeTuple] = mem_tokenOffset;
+	//Triggering parent
+	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
+	(*variableBindings)[tupleIdentifier] = mem_tokenOffset;
 	OperatorState* state = new OperatorState(producer, *variableBindings);
 	RawOperator* const opParent = producer.getParent();
 	opParent->consume(context,*state);
@@ -383,8 +384,9 @@ AllocaInst* JSONPlugin::readPath(Bindings wrappedBindings, const char* path)	{
 	PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
 
 	//Get relevant token number
-	const map<std::string, AllocaInst*>& bindings = state.getBindings();
-	map<std::string, AllocaInst*>::const_iterator it = bindings.find(activeTuple);
+	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
+	const map<RecordAttribute, AllocaInst*>& bindings = state.getBindings();
+	map<RecordAttribute, AllocaInst*>::const_iterator it = bindings.find(tupleIdentifier);
 	if(it == bindings.end())	{
 		string error_msg = "[JSONPlugin - jsmn: ] Current tuple binding not found";
 		LOG(ERROR) << error_msg;
