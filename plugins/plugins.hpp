@@ -53,8 +53,19 @@ public:
 	virtual void 		init() 															= 0;
 	virtual void 		finish() 														= 0;
 	virtual void 		generate(const RawOperator& producer) 							= 0;
-//	virtual AllocaInst* readPath(const OperatorState& state, char* pathVar) 			= 0;
-	virtual AllocaInst* readPath(Bindings wrappedBindings, const char* pathVar)			= 0;
+	/**
+	 * @param activeRelation Which relation's activeTuple is to be processed.
+	 * 						 Does not have to be a native one
+	 * 						 Relevant example:
+	 * 						 for ( e <- employees, w <- employees.children ) yield ...
+	 * 						 Active tuple at some point will be the one of "employees.children"
+	 */
+	virtual AllocaInst* readPath(string activeRelation,
+			Bindings wrappedBindings, const char* pathVar) 								= 0;
 	virtual AllocaInst*	readValue(AllocaInst* mem_value, const ExpressionType* type) 	= 0;
+
+	virtual AllocaInst* initCollectionUnnest(Value* val_parentObject) = 0;
+	virtual Value* collectionHasNext(Value* val_parentObject, AllocaInst* mem_currentChild) = 0;
+	virtual AllocaInst* collectionGetNext(AllocaInst* mem_currentChild) = 0;
 };
 #endif /* PLUGINS_LLVM_HPP_ */

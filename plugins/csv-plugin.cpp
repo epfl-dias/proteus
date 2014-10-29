@@ -88,7 +88,7 @@ void CSVPlugin::generate(const RawOperator &producer) {
 /**
  * The work of readPath() and readValue() has been taken care of scanCSV()
  */
-AllocaInst* CSVPlugin::readPath(Bindings bindings, const char* pathVar)	{
+AllocaInst* CSVPlugin::readPath(string activeRelation, Bindings bindings, const char* pathVar)	{
 	AllocaInst* mem_projection;
 	{
 		const OperatorState* state = bindings.state;

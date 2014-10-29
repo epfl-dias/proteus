@@ -91,7 +91,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-//	F->dump();
+	//F->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);

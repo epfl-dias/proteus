@@ -26,6 +26,7 @@
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "operators/join.hpp"
+#include "operators/unnest.hpp"
 #include "operators/print.hpp"
 #include "operators/root.hpp"
 #include "plugins/csv-plugin.hpp"
@@ -41,9 +42,12 @@ void scanCSV();
 void selectionCSV();
 void joinQueryRelational();
 
+void unnestJsmn();
 void recordProjectionsJSON();
 
 void scanJsmnInterpreted();
+void unnestJsmnInterpreted();
+void unnestJsmnChildrenInterpreted();
 
 int main(int argc, char* argv[])
 {
@@ -53,12 +57,210 @@ int main(int argc, char* argv[])
 	LOG(INFO) << "Object-based operators";
 	LOG(INFO) << "Executing selection query";
 
-	scanCSV();
-	selectionCSV();
-	joinQueryRelational();
-	scanJsmn();
-	selectionJsmn();
-	recordProjectionsJSON();
+//	scanCSV();
+//	selectionCSV();
+//	joinQueryRelational();
+//	scanJsmn();
+//	selectionJsmn();
+//	recordProjectionsJSON();
+
+	//scanJsmnInterpreted();
+//	unnestJsmnChildrenInterpreted();
+
+	unnestJsmn();
+}
+
+void unnestJsmnInterpreted()	{
+	RawContext ctx = RawContext("testFunction-unnestJSON-jsmn");
+
+	string fname = string("inputs/jsmnDeeperObjects.json");
+
+	IntType intType = IntType();
+	string c1Name = string("c1");
+	RecordAttribute c1 = RecordAttribute(1, fname, c1Name, &intType);
+	string c2Name = string("c2");
+	RecordAttribute c2 = RecordAttribute(2, fname, c2Name, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&c1);
+	attsNested.push_back(&c2);
+	RecordType nested = RecordType(attsNested);
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	string attrName3 = string("c");
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &intType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &intType);
+	RecordAttribute attr3 = RecordAttribute(3, fname, attrName3, &nested);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+
+	list<string> path;
+	path.insert(path.begin(), attrName3);
+	pg.unnestObjectsInterpreted(path);
+
+	pg.finish();
+}
+
+void scanJsmnInterpreted()	{
+	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
+
+	string fname = string("jsmn.json");
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	IntType attrType = IntType();
+	RecordAttribute attr = RecordAttribute(1,fname,attrName,&attrType);
+	RecordAttribute attr2 = RecordAttribute(2,fname,attrName2,&attrType);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname , &documentType);
+
+	list<string> path;
+	path.insert(path.begin(),attrName2);
+	list<ExpressionType*> types;
+	types.insert(types.begin(),&attrType);
+	pg.scanObjectsInterpreted(path,types);
+
+	pg.finish();
+}
+
+void unnestJsmnChildrenInterpreted()	{
+	RawContext ctx = RawContext("testFunction-unnestJSON");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/employees.json");
+
+	IntType intType = IntType();
+	StringType stringType = StringType();
+
+	string childName = string("name");
+	RecordAttribute child1 = RecordAttribute(1, fname, childName, &stringType);
+	string childAge = string("age");
+	RecordAttribute child2 = RecordAttribute(1, fname, childAge, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&child1);
+	RecordType nested = RecordType(attsNested);
+	ListType nestedCollection = ListType(nested);
+
+	string empName = string("name");
+	RecordAttribute emp1 = RecordAttribute(1, fname, empName, &stringType);
+	string empAge = string("age");
+	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &intType);
+	string empChildren = string("children");
+	RecordAttribute emp3 = RecordAttribute(3, fname, empChildren, &nestedCollection);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&emp1);
+	atts.push_back(&emp2);
+	atts.push_back(&emp3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+
+	list<string> path;
+	path.insert(path.begin(), empChildren);
+	pg.unnestObjectsInterpreted(path);
+
+	pg.finish();
+}
+
+void unnestJsmn()	{
+
+	RawContext ctx = RawContext("testFunction-unnestJSON");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/employees.json");
+
+	IntType intType = IntType();
+	StringType stringType = StringType();
+
+	string childName = string("name");
+	RecordAttribute child1 = RecordAttribute(1, fname, childName, &stringType);
+	string childAge = string("age");
+	RecordAttribute child2 = RecordAttribute(1, fname, childAge, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&child1);
+	RecordType nested = RecordType(attsNested);
+	ListType nestedCollection = ListType(nested);
+
+	string empName = string("name");
+	RecordAttribute emp1 = RecordAttribute(1, fname, empName, &stringType);
+	string empAge = string("age");
+	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &intType);
+	string empChildren = string("children");
+	RecordAttribute emp3 = RecordAttribute(3, fname, empChildren, &nestedCollection);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&emp1);
+	atts.push_back(&emp2);
+	atts.push_back(&emp3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname,&pg);
+	Scan scan = Scan(&ctx,pg);
+
+	expressions::Expression* inputArg = new expressions::InputArgument(&inner, 0);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(&stringType,inputArg,emp3);
+	string nestedName = "c";
+	Path path = Path(nestedName,proj);
+
+	expressions::Expression* lhs = new expressions::BoolConstant(true);
+	expressions::Expression* rhs = new expressions::BoolConstant(true);
+	expressions::Expression* predicate = new expressions::EqExpression(new BoolType(),lhs,rhs);
+
+	Unnest unnestOp = Unnest(predicate,path,&scan);
+	scan.setParent(&unnestOp);
+
+	//New record type:
+	string originalRecordName = "e";
+	RecordAttribute recPrev = RecordAttribute(1, fname, originalRecordName, &inner);
+	RecordAttribute recUnnested = RecordAttribute(2, fname, nestedName, &nested);
+	list<RecordAttribute*> attsUnnested = list<RecordAttribute*>();
+	attsUnnested.push_back(&recPrev);
+	attsUnnested.push_back(&recUnnested);
+	RecordType unnestedType = RecordType(attsUnnested);
+
+//	//PRINT
+	Function* debugInt = ctx.getFunction("printi");
+	expressions::Expression* nestedArg = new expressions::InputArgument(&unnestedType, 0);
+
+	RecordAttribute toPrint = RecordAttribute(-1,
+			fname+"."+empChildren,
+			childAge,
+			&intType);
+
+	expressions::RecordProjection* projToPrint = new expressions::RecordProjection(&intType,nestedArg,toPrint);
+	Print printOp = Print(debugInt,projToPrint,&unnestOp);
+	unnestOp.setParent(&printOp);
+
+	//ROOT
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
 }
 
 void scanCSV()	{
@@ -260,35 +462,6 @@ void joinQueryRelational()	{
 	catalog.clear();
 }
 
-//void scanJsmnInterpreted()	{
-//	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
-//
-//	string fname = string("jsmn.json");
-//
-//	string attrName = string("a");
-//	string attrName2 = string("b");
-//	IntType attrType = IntType();
-//	RecordAttribute attr = RecordAttribute(1,attrName,&attrType);
-//	RecordAttribute attr2 = RecordAttribute(2,attrName2,&attrType);
-//
-//	list<RecordAttribute*> atts = list<RecordAttribute*>();
-//	atts.push_back(&attr);
-//	atts.push_back(&attr2);
-//
-//	RecordType inner = RecordType(atts);
-//	ListType documentType = ListType(inner);
-//
-//	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname , &documentType);
-//
-//	list<string> path;
-//	path.insert(path.begin(),attrName2);
-//	list<ExpressionType*> types;
-//	types.insert(types.begin(),&attrType);
-//	pg.scanObjectsInterpreted(path,types);
-//
-//	pg.finish();
-//}
-//
 void scanJsmn()	{
 	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
 	RawCatalog& catalog = RawCatalog::getInstance();

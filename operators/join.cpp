@@ -225,7 +225,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		map<RecordAttribute, AllocaInst*>* allJoinBindings = new map<RecordAttribute, AllocaInst*>();
 
 
-		int i;
+		int i = 0;
 		//Retrieving activeTuple(s) from HT
 		AllocaInst *mem_activeTuple = NULL;
 		const vector<RecordAttribute>& tuplesIdentifiers = mat.getTupleIdentifiers();

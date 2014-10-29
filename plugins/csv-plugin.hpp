@@ -38,8 +38,25 @@ public:
 	void init();
 	void generate(const RawOperator& producer);
 	void finish();
-	AllocaInst* readPath(Bindings bindings, const char* pathVar);
+	AllocaInst* readPath(string activeRelation, Bindings bindings, const char* pathVar);
 	AllocaInst* readValue(AllocaInst* mem_value, const ExpressionType* type);
+
+	AllocaInst* initCollectionUnnest(Value* val_parentObject) {
+		string error_msg = "[CSVPlugin: ] CSV files do not contain collections";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	Value* collectionHasNext(Value* val_parentObject,
+			AllocaInst* mem_currentChild) {
+		string error_msg = "[CSVPlugin: ] CSV files do not contain collections";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	AllocaInst* collectionGetNext(AllocaInst* mem_currentChild) {
+		string error_msg = "[CSVPlugin: ] CSV files do not contain collections";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
 
 private:
 	string& fname;

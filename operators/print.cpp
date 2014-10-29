@@ -27,8 +27,20 @@ void Print::produce() const { getChild()->produce(); }
 
 void Print::consume (RawContext* const context, const OperatorState& childState) const {
 
+	IRBuilder<>* TheBuilder = context->getBuilder();
+	std::vector<Value*> ArgsV;
+
 	const map<RecordAttribute, AllocaInst*>& activeVars = childState.getBindings();
 	LOG(INFO) << "[Print:] Printing variable " << arg->getProjectionName();
+
+	map<RecordAttribute, AllocaInst*>::const_iterator it = activeVars.begin();
+	for(; it != activeVars.end(); it++)	{
+		RecordAttribute attr = it->first;
+		cout << "Original relname: " << attr.getOriginalRelationName() << endl;
+		cout << "Current relname: " << attr.getRelationName() << endl;
+		cout << "Attribute name: " << attr.getAttrName() << endl;
+		cout << "---" << endl;
+	}
 
 	//Load argument of print
 	AllocaInst* mem_value = NULL;
@@ -44,13 +56,21 @@ void Print::consume (RawContext* const context, const OperatorState& childState)
 		}
 		mem_value = it->second;
 	}
+
+#ifdef DEBUG
+//		Value* value = TheBuilder->CreateLoad(mem_value);
+//		ArgsV.push_back(value);
+//		Function* debugInt = context->getFunction("printi64");
+//		TheBuilder->CreateCall(debugInt, ArgsV);
+#endif
+
 	//Generate condition
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
 	Value* toPrint = arg->accept(exprGenerator);
 
 	//Call print
-	IRBuilder<>* TheBuilder = context->getBuilder();
-	std::vector<Value*> ArgsV;
+
+	ArgsV.clear();
 	ArgsV.push_back(toPrint);
 	TheBuilder->CreateCall(print, ArgsV,"printi");
 

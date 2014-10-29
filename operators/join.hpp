@@ -38,7 +38,6 @@ public:
 	Materializer& getMaterializer()		 																{ return mat; }
 private:
 	char* htName;
-	vector<string> leftFields;
 	OperatorState* generate(RawOperator* op,  OperatorState* childState);
 	expressions::BinaryExpression* pred;
 	Materializer& mat;

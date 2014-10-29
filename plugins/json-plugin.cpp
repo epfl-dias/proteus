@@ -87,7 +87,7 @@ void JSONPlugin::scanJSON(const RawOperator& producer, Function* debug) {
 	int i = 0;
 	for (std::set<RecordAttribute*>::iterator it = allAtts->begin(); it != allAtts->end(); it++) {
 		ArgsV.clear();
-		ExpressionType* type = (*it)->getOriginalType();
+		const ExpressionType* type = (*it)->getOriginalType();
 		Value* currAttrNo = context->createInt32(i++);
 		ArgsV.push_back(filenameLLVM);
 		ArgsV.push_back(currAttrNo);

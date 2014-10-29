@@ -37,6 +37,8 @@ class ExprVisitor; //Forward declaration
 //Using a namespace to avoid conflicts with LLVM namespace
 namespace expressions
 {
+enum ExpressionId	{CONSTANT, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY};
+
 class Expression	{
 public:
 	Expression(ExpressionType* type) : type(type)	{}
@@ -44,6 +46,7 @@ public:
 
 	ExpressionType* getExpressionType()				{ return type; }
 	virtual Value* accept(ExprVisitor &v) = 0;
+	virtual ExpressionId getTypeId() = 0;
 private:
 	ExpressionType* type;
 };
@@ -62,6 +65,7 @@ public:
 
 	int getVal()									{ return val; }
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return CONSTANT; }
 private:
 	int val;
 };
@@ -74,6 +78,7 @@ public:
 
 	bool getVal()									{ return val; }
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return CONSTANT; }
 private:
 	bool val;
 };
@@ -87,6 +92,7 @@ public:
 	double getVal()									{ return val; }
 
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return CONSTANT; }
 private:
 	double val;
 };
@@ -99,19 +105,20 @@ public:
 
 	string& getVal()								{ return val; }
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return CONSTANT; }
 private:
 	string& val;
 };
 
 class InputArgument	: public Expression	{
 public:
-	//FIXME remove name from constructor
 	InputArgument(ExpressionType* type,int argNo)
 		: Expression(type), argNo(argNo)						{}
 	~InputArgument()											{}
 
 	int getArgNo()												{ return argNo; }
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()									{ return ARGUMENT; }
 private:
 	/**
 	 * ArgumentNo is meant to represent e.g. the left or right child of a Join,
@@ -125,16 +132,16 @@ private:
 
 class RecordProjection : public Expression	{
 public:
-//	RecordProjection(ExpressionType* type, Expression* expr, const char* name)	:
-//		Expression(type), expr(expr), name(name)	{}
 	RecordProjection(ExpressionType* type, Expression* expr, const RecordAttribute& attribute)	:
 			Expression(type), expr(expr), attribute(attribute)	{}
 	~RecordProjection()								{}
 
 	Expression* getExpr()							{ return expr; }
-	string getOriginalRelationName()				{ return attribute.getRelationName(); }
-	string getProjectionName()						{ return attribute.getAttrName(); }
-	Value* accept(ExprVisitor &v);
+	string 	getOriginalRelationName() const			{ return attribute.getOriginalRelationName(); }
+	string 	getRelationName() const			{ return attribute.getRelationName(); }
+	string  getProjectionName()						{ return attribute.getAttrName(); }
+	Value*  accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return RECORD_PROJECTION; }
 private:
 	Expression* expr;
 	const RecordAttribute& attribute;
@@ -158,6 +165,7 @@ public:
 	~RecordConstruction()											{}
 
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()										{ return RECORD_CONSTRUCTION; }
 private:
 	const list<AttributeConstruction>& atts;
 };
@@ -169,6 +177,7 @@ public:
 	~IfThenElse()																{}
 
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()													{ return IF_THEN_ELSE; }
 private:
 	Expression *expr1;
 	Expression *expr2;
@@ -184,6 +193,7 @@ public:
 	expressions::BinaryOperator* getOp()						{ return op; }
 
 	virtual Value* accept(ExprVisitor &v) = 0;
+	virtual ExpressionId getTypeId()							{ return BINARY; }
 	~BinaryExpression() = 0;
 private:
 	Expression* lhs;
@@ -198,6 +208,7 @@ public:
 	~EqExpression()									{}
 
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return BINARY; }
 };
 
 class NeExpression : public BinaryExpression	{
@@ -207,6 +218,7 @@ public:
 	~NeExpression()									{}
 
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return BINARY; }
 };
 
 class GeExpression : public BinaryExpression	{
@@ -216,6 +228,7 @@ public:
 	~GeExpression()									{}
 
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return BINARY; }
 };
 
 class GtExpression : public BinaryExpression	{
@@ -234,6 +247,7 @@ public:
 	~LeExpression()									{}
 
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return BINARY; }
 };
 
 class LtExpression : public BinaryExpression	{
@@ -243,6 +257,7 @@ public:
 	~LtExpression()									{}
 
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return BINARY; }
 };
 
 class AddExpression : public BinaryExpression	{
@@ -252,6 +267,7 @@ public:
 	~AddExpression()								{}
 
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return BINARY; }
 };
 
 class SubExpression : public BinaryExpression	{
@@ -261,6 +277,7 @@ public:
 	~SubExpression()								{}
 
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return BINARY; }
 };
 
 class MultExpression : public BinaryExpression	{
@@ -270,6 +287,7 @@ public:
 	~MultExpression()								{}
 
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return BINARY; }
 };
 
 class DivExpression : public BinaryExpression	{
@@ -279,6 +297,7 @@ public:
 	~DivExpression()								{}
 
 	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return BINARY; }
 };
 
 }

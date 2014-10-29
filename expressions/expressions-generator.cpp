@@ -51,7 +51,6 @@ Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 		if(activeRelation != "")	{
 			RecordAttribute relevantAttr = RecordAttribute(activeRelation,activeLoop);
 			it = activeVars.find(relevantAttr);
-
 			if (it == activeVars.end()) {
 				string error_msg = string("[Expression Generator: ] Could not find tuple information");
 				LOG(ERROR) << error_msg;
@@ -65,7 +64,7 @@ Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 			for(it = activeVars.begin(); it != activeVars.end(); it++)	{
 				RecordAttribute currAttr = it->first;
 				if(currAttr.getRelationName() == activeRelation && currAttr.getAttrName() == activeLoop)	{
-					cout<<"Found "<<currAttr.getRelationName()<< " "<<currAttr.getAttrName()<<endl;
+					//cout << "Found " << currAttr.getRelationName() << " " << currAttr.getAttrName() << endl;
 					argMem = it->second;
 					relationsCount++;
 				}
@@ -102,7 +101,7 @@ Value* ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		throw runtime_error(error_msg);
 	}	else	{
 		Bindings bindings = { &currState, record };
-		AllocaInst* mem_path = plugin->readPath(bindings, e->getProjectionName().c_str());
+		AllocaInst* mem_path = plugin->readPath(activeRelation, bindings, e->getProjectionName().c_str());
 		AllocaInst* mem_val = plugin->readValue(mem_path, e->getExpressionType());
 		return TheBuilder->CreateLoad(mem_val);
 	}

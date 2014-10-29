@@ -33,7 +33,7 @@ public:
 	virtual string getType()   const = 0;
 	virtual typeID getTypeID() const = 0;
 	virtual ~ExpressionType()  {}
-	virtual bool isPrimitive() = 0;
+	virtual bool isPrimitive() const = 0;
 };
 
 class PrimitiveType : public ExpressionType	{};
@@ -42,28 +42,28 @@ class BoolType : public PrimitiveType {
 public:
 	string getType() 	const 	{ return string("Bool"); }
 	typeID getTypeID() 	const	{ return BOOL; }
-	bool isPrimitive()			{ return true; }
+	bool isPrimitive()	const	{ return true; }
 };
 
 class StringType : public PrimitiveType {
 public:
 	string getType() 	const	{ return string("String"); }
 	typeID getTypeID() 	const	{ return STRING; }
-	bool isPrimitive() 			{ return true; }
+	bool isPrimitive() 	const	{ return true; }
 };
 
 class FloatType : public PrimitiveType {
 public:
 	string getType() 	const 	{ return string("Float"); }
 	typeID getTypeID()	const	{ return FLOAT; }
-	bool isPrimitive() 			{ return true; }
+	bool isPrimitive() 	const	{ return true; }
 };
 
 class IntType : public PrimitiveType {
 public:
 	string getType() 	const 	{ return string("Int"); }
 	typeID getTypeID()	const	{ return INT; }
-	bool isPrimitive() 			{ return true; }
+	bool isPrimitive() 	const	{ return true; }
 };
 
 class CollectionType : public ExpressionType	{
@@ -72,7 +72,7 @@ public:
 		type(type)									{}
 	virtual string getType() 	const				{ return string("CollectionType(")+type.getType()+string(")"); }
 	virtual typeID getTypeID() 	const = 0;
-	virtual bool isPrimitive() 						{ return false; }
+	virtual bool isPrimitive() 	const				{ return false; }
 	const ExpressionType& getNestedType() const		{ return type; }
 	virtual ~CollectionType() 						{}
 
@@ -85,7 +85,7 @@ public:
 	ListType(const ExpressionType& type) : CollectionType(type)	{}
 	string getType() 	const									{ return string("ListType(")+this->getNestedType().getType()+string(")"); }
 	typeID getTypeID() 	const									{ return LIST; }
-	bool isPrimitive() 											{ return false; }
+	bool isPrimitive() 	const									{ return false; }
 	~ListType() 												{}
 };
 
@@ -94,7 +94,7 @@ public:
 	BagType(const ExpressionType& type) : CollectionType(type)	{}
 	string getType() 	const									{ return string("BagType(")+this->getNestedType().getType()+string(")"); }
 	typeID getTypeID() 	const									{ return BAG; }
-	bool isPrimitive() 											{ return false; }
+	bool isPrimitive() 	const									{ return false; }
 	~BagType() 													{}
 };
 
@@ -103,7 +103,7 @@ public:
 	SetType(const ExpressionType& type) : CollectionType(type)	{}
 	string getType() 	const									{ return string("SetType(")+this->getNestedType().getType()+string(")"); }
 	typeID getTypeID()	const									{ return SET; }
-	bool isPrimitive() 											{ return false; }
+	bool isPrimitive() 	const									{ return false; }
 	~SetType() 													{}
 };
 
@@ -112,7 +112,9 @@ class RecordAttribute	{
 public:
 	RecordAttribute() : attrNo(-1), projected(false), type(NULL), relName(""), attrName("")	{}
 	RecordAttribute(const int& no, const string& relName, const string& attrName, const ExpressionType* const type)
-		: attrNo(no), relName(relName), attrName(attrName), type(type), projected(false) 	{}
+		: attrNo(no), relName(relName), originalRelName(relName), attrName(attrName), type(type), projected(false) 	{}
+	RecordAttribute(const int& no, const string& originalRelName, const string& relName, const string& attrName, const ExpressionType* const type)
+			: attrNo(no), relName(relName), originalRelName(originalRelName), attrName(attrName), type(type), projected(false) 	{}
 
 	//Constructor used strictly for comparisons in maps
 	RecordAttribute(string relName, string attrName)
@@ -122,24 +124,17 @@ public:
 	const ExpressionType* getOriginalType() const					{ return type; }
 	string getName()												{ return attrName; }
 	string getRelationName() 				const					{ return relName; }
+	string getOriginalRelationName() 		const					{ return originalRelName; }
 	string getAttrName() 					const					{ return attrName; }
 	//CONVENTION: Fields requested can be 1-2-3-etc.
 	int getAttrNo()													{ return attrNo; }
 	void setProjected()												{ projected = true; }
 	bool isProjected()												{ return projected; }
 
-//	bool operator < (const RecordAttribute &l, const RecordAttribute &r) {
-//		if(l.relName == r.relName)
-//		{
-//			return l.attrName < r.attrName;
-//		}	else	{
-//			return l.relName < r.relName;
-//		}
-//	}
-
 private:
 	string relName;
 	string attrName;
+	string originalRelName;
 	const ExpressionType* const type;
 	int attrNo;
 	bool projected;
@@ -178,7 +173,7 @@ public:
 	typeID getTypeID()	const					{ return RECORD; }
 	std::list<RecordAttribute*>& getArgs() 		{ return args; }
 	int getArgsNo() 							{ return args.size(); }
-	bool isPrimitive() 							{ return false; }
+	bool isPrimitive() 	const					{ return false; }
 	~RecordType() 								{}
 
 private:
