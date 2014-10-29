@@ -348,7 +348,6 @@ AllocaInst* JSONPlugin::collectionGetNext(AllocaInst* mem_currentToken)	{
 	val_i_contents = Builder->CreateLoad(mem_i_contents);
 	Builder->CreateStore(val_i_contents, mem_currentToken);
 
-
 	return mem_tokenToReturn;
 }
 

@@ -34,13 +34,16 @@ void Print::consume (RawContext* const context, const OperatorState& childState)
 	LOG(INFO) << "[Print:] Printing variable " << arg->getProjectionName();
 
 	map<RecordAttribute, AllocaInst*>::const_iterator it = activeVars.begin();
-	for(; it != activeVars.end(); it++)	{
-		RecordAttribute attr = it->first;
-		cout << "Original relname: " << attr.getOriginalRelationName() << endl;
-		cout << "Current relname: " << attr.getRelationName() << endl;
-		cout << "Attribute name: " << attr.getAttrName() << endl;
-		cout << "---" << endl;
-	}
+
+#ifdef DEBUG
+//	for(; it != activeVars.end(); it++)	{
+//		RecordAttribute attr = it->first;
+//		cout << "Original relname: " << attr.getOriginalRelationName() << endl;
+//		cout << "Current relname: " << attr.getRelationName() << endl;
+//		cout << "Attribute name: " << attr.getAttrName() << endl;
+//		cout << "---" << endl;
+//	}
+#endif
 
 	//Load argument of print
 	AllocaInst* mem_value = NULL;

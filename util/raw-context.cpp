@@ -86,12 +86,12 @@ AllocaInst* const RawContext::CreateEntryBlockAlloca(Function *TheFunction,
 
 void RawContext::prepareFunction(Function *F) {
 
-	//XXX Have a (tmp) return value for now at this point
+	//FIXME Have a (tmp) return value for now at this point
 	TheBuilder->CreateRet(TheBuilder->getInt32(114));
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-	//F->dump();
+//	F->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);

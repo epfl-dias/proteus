@@ -35,10 +35,6 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-	//Generate condition
-	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, childState);
-	Value* condition = pred->accept(predExprGenerator);
-
 	//Generate path. Value returned must be a collection
 	ExpressionGeneratorVisitor pathExprGenerator = ExpressionGeneratorVisitor(context, childState);
 	expressions::RecordProjection* pathProj = path.get();
@@ -53,7 +49,6 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 	BasicBlock *loopCond, *loopBody, *loopInc, *loopEnd;
 	context->CreateForLoop("unnestChildLoopCond","unnestChildLoopBody","unnestChildLoopInc","unnestChildLoopEnd",
 							&loopCond,&loopBody,&loopInc,&loopEnd);
-
 	/**
 	 * ENTRY:
 	 * init the vars used by the plugin
@@ -68,46 +63,53 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 
 	Builder->SetInsertPoint(loopBody);
 	AllocaInst* nestedValueItem =  pg->collectionGetNext(mem_currentObjId);
-	/**
-	 * EVALUATE PREDICATE
-	 * IF QUALIFYING:
-	 * CALL NEXT OPERATOR, ADDING nestedValueItem binding
-	 *
-	 */
+	//Preparing call to parent
 	map<RecordAttribute, AllocaInst*>* unnestBindings = new map<RecordAttribute, AllocaInst*>(childState.getBindings());
 	RawCatalog& catalog = RawCatalog::getInstance();
-	cout << "Getting plugin of " << path.toString() << endl;
+	LOG(INFO) << "[Unnest: ] Registering plugin of "<< path.toString();
 	catalog.registerPlugin(path.toString(),pg);
 
-
+	//attrNo does not make a difference
 	RecordAttribute unnestedAttr = RecordAttribute(2,
 			path.toString(),
-			path.toString(),
-			activeLoop,//path.getNestedName(),
+			activeLoop,
 			pathProj->getExpressionType());
-//	RecordAttribute unnestedAttr = RecordAttribute(-1,
-//				pathProj->getOriginalRelationName(),
-//				path.toString(),
-//				activeLoop,
-//				pathProj->getExpressionType());
 
-	//Triggering parent
-//	(*unnestBindings)[unnestedAttr] = nestedValueItem;
-	(*unnestBindings).insert(std::pair<RecordAttribute,AllocaInst*>(unnestedAttr,nestedValueItem));
+	(*unnestBindings)[unnestedAttr] = nestedValueItem;
 	OperatorState* newState = new OperatorState(*this,*unnestBindings);
-	getParent()->consume(context, *newState);
 
+	/**
+	 * Predicate Evaluation:
+	 */
+	BasicBlock *ifBlock, *elseBlock;
+	context->CreateIfElseBlocks(context->getGlobalFunction(), "ifUnnestCond", "elseUnnestCond",
+									&ifBlock, &elseBlock,loopInc);
+
+	//Generate condition
+	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, *newState);
+	Value* condition = pred->accept(predExprGenerator);
+	Builder->CreateCondBr(condition,ifBlock,elseBlock);
+
+	/*
+	 * IF BLOCK
+	 * CALL NEXT OPERATOR, ADDING nestedValueItem binding
+	 */
+	Builder->SetInsertPoint(ifBlock);
+	//Triggering parent
+	getParent()->consume(context, *newState);
 	Builder->CreateBr(loopInc);
+
+	/**
+	 * ELSE BLOCK
+	 * Just branch to the INC part of unnest loop
+	 */
+	Builder->SetInsertPoint(elseBlock);
+	Builder->CreateBr(loopInc);
+
 	Builder->SetInsertPoint(loopInc);
 	Builder->CreateBr(loopCond);
 
 	Builder->SetInsertPoint(loopEnd);
-
-
-//	TheBuilder->CreateBr(MergeBB);
-//
-//	TheFunction->getBasicBlockList().push_back(MergeBB);
-//	TheBuilder->SetInsertPoint(MergeBB);
 }
 
 string Path::toString() {

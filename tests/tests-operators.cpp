@@ -34,6 +34,7 @@
 #include "operators/print.hpp"
 #include "operators/root.hpp"
 #include "operators/join.hpp"
+#include "operators/unnest.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "values/expressionTypes.hpp"
@@ -264,6 +265,190 @@ TEST(Hierarchical, TwoProjections) {
 
 	EXPECT_TRUE(true);
 }
+
+TEST(Hierarchical, Unnest) {
+	RawContext ctx = RawContext("testFunction-unnestJSON");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/employees.json");
+
+	IntType intType = IntType();
+	StringType stringType = StringType();
+
+	string childName = string("name");
+	RecordAttribute child1 = RecordAttribute(1, fname, childName, &stringType);
+	string childAge = string("age");
+	RecordAttribute child2 = RecordAttribute(1, fname, childAge, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&child1);
+	RecordType nested = RecordType(attsNested);
+	ListType nestedCollection = ListType(nested);
+
+	string empName = string("name");
+	RecordAttribute emp1 = RecordAttribute(1, fname, empName, &stringType);
+	string empAge = string("age");
+	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &intType);
+	string empChildren = string("children");
+	RecordAttribute emp3 = RecordAttribute(3, fname, empChildren,
+			&nestedCollection);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&emp1);
+	atts.push_back(&emp2);
+	atts.push_back(&emp3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	expressions::Expression* inputArg = new expressions::InputArgument(&inner,
+			0);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(
+			&stringType, inputArg, emp3);
+	string nestedName = "c";
+	Path path = Path(nestedName, proj);
+
+	expressions::Expression* lhs = new expressions::BoolConstant(true);
+	expressions::Expression* rhs = new expressions::BoolConstant(true);
+	expressions::Expression* predicate = new expressions::EqExpression(
+			new BoolType(), lhs, rhs);
+
+	Unnest unnestOp = Unnest(predicate, path, &scan);
+	scan.setParent(&unnestOp);
+
+	//New record type:
+	string originalRecordName = "e";
+	RecordAttribute recPrev = RecordAttribute(1, fname, originalRecordName,
+			&inner);
+	RecordAttribute recUnnested = RecordAttribute(2, fname, nestedName,
+			&nested);
+	list<RecordAttribute*> attsUnnested = list<RecordAttribute*>();
+	attsUnnested.push_back(&recPrev);
+	attsUnnested.push_back(&recUnnested);
+	RecordType unnestedType = RecordType(attsUnnested);
+
+	//PRINT
+	Function* debugInt = ctx.getFunction("printi");
+	expressions::Expression* nestedArg = new expressions::InputArgument(
+			&unnestedType, 0);
+
+	RecordAttribute toPrint = RecordAttribute(-1, fname + "." + empChildren,
+			childAge, &intType);
+
+	expressions::RecordProjection* projToPrint =
+			new expressions::RecordProjection(&intType, nestedArg, toPrint);
+	Print printOp = Print(debugInt, projToPrint, &unnestOp);
+	unnestOp.setParent(&printOp);
+
+	//ROOT
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+
+	EXPECT_TRUE(true);
+}
+
+TEST(Hierarchical, UnnestFiltering) {
+	RawContext ctx = RawContext("testFunction-unnestJSON");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/employees.json");
+
+	IntType intType = IntType();
+	StringType stringType = StringType();
+
+	string childName = string("name");
+	RecordAttribute child1 = RecordAttribute(1, fname, childName, &stringType);
+	string childAge = string("age");
+	RecordAttribute child2 = RecordAttribute(1, fname, childAge, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&child1);
+	RecordType nested = RecordType(attsNested);
+	ListType nestedCollection = ListType(nested);
+
+	string empName = string("name");
+	RecordAttribute emp1 = RecordAttribute(1, fname, empName, &stringType);
+	string empAge = string("age");
+	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &intType);
+	string empChildren = string("children");
+	RecordAttribute emp3 = RecordAttribute(3, fname, empChildren,
+			&nestedCollection);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&emp1);
+	atts.push_back(&emp2);
+	atts.push_back(&emp3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	/**
+	 * UNNEST
+	 */
+	expressions::Expression* inputArg = new expressions::InputArgument(&inner,
+			0);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(
+			&stringType, inputArg, emp3);
+	string nestedName = "c";
+	Path path = Path(nestedName, proj);
+
+	//New record type as the result of unnest:
+	string originalRecordName = "e";
+	RecordAttribute recPrev = RecordAttribute(1, fname, originalRecordName,
+			&inner);
+	RecordAttribute recUnnested = RecordAttribute(2, fname, nestedName,
+			&nested);
+	list<RecordAttribute*> attsUnnested = list<RecordAttribute*>();
+	attsUnnested.push_back(&recPrev);
+	attsUnnested.push_back(&recUnnested);
+	RecordType unnestedType = RecordType(attsUnnested);
+	expressions::Expression* nestedArg = new expressions::InputArgument(
+			&unnestedType, 0);
+	RecordAttribute toFilter = RecordAttribute(-1, fname + "." + empChildren,
+			childAge, &intType);
+	expressions::RecordProjection* projToFilter =
+			new expressions::RecordProjection(&intType, nestedArg, toFilter);
+	expressions::Expression* lhs = projToFilter;
+	expressions::Expression* rhs = new expressions::IntConstant(20);
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
+
+	Unnest unnestOp = Unnest(predicate, path, &scan);
+	scan.setParent(&unnestOp);
+
+	//PRINT
+	Function* debugInt = ctx.getFunction("printi");
+	Print printOp = Print(debugInt, projToFilter, &unnestOp);
+	unnestOp.setParent(&printOp);
+
+	//ROOT
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+
+	EXPECT_TRUE(true);
+}
+
+
 
 // Step 3. Call RUN_ALL_TESTS() in main().
 //
