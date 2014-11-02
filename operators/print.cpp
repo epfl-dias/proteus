@@ -75,7 +75,7 @@ void Print::consume (RawContext* const context, const OperatorState& childState)
 
 	ArgsV.clear();
 	ArgsV.push_back(toPrint);
-	TheBuilder->CreateCall(print, ArgsV,"printi");
+	TheBuilder->CreateCall(print, ArgsV);
 
 	//Trigger parent
 	OperatorState *newState = new OperatorState(*this, childState.getBindings());

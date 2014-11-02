@@ -136,6 +136,7 @@ private:
 	string attrName;
 	string originalRelName;
 	const ExpressionType* const type;
+	//Atm, used by eager CSV plugin (for the native relations)
 	int attrNo;
 	bool projected;
 

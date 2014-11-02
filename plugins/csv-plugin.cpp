@@ -232,7 +232,7 @@ void CSVPlugin::skipDelimLLVM(Value* delim,Function* debugChar, Function* debugI
 
 }
 
-void CSVPlugin::skipLLVM(Function* debug)
+void CSVPlugin::skipLLVM()
 {
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -331,6 +331,101 @@ void CSVPlugin::skipLLVM(Function* debug)
 	Builder->CreateStore(finalVar, NamedValuesCSV[posVar]);
 }
 
+/*FIXME Simplify generated code:
+ *		No need for an 'inc' block
+ *		Similar refactoring to be done allover code
+ *		Note: The optimization passes may do this automatically!
+ */
+void CSVPlugin::getFieldEndLLVM()
+{
+	//Prepare
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Value* delimInner = ConstantInt::get(llvmContext, APInt(8,';'));
+	Value* delimEnd = ConstantInt::get(llvmContext, APInt(8,'\n'));
+
+	//Fetch values from symbol table
+	AllocaInst* pos;
+	{
+		std::map<std::string, AllocaInst*>::iterator it;
+		it = NamedValuesCSV.find(posVar);
+		if (it == NamedValuesCSV.end()) {
+			throw runtime_error(string("Unknown variable name: ") + posVar);
+		}
+		pos = it->second;
+	}
+	AllocaInst* buf;
+	{
+		std::map<std::string, AllocaInst*>::iterator it;
+		it = NamedValuesCSV.find(bufVar);
+		if (it == NamedValuesCSV.end()) {
+			throw runtime_error(string("Unknown variable name: ") + bufVar);
+		}
+		buf = it->second;
+	}
+	AllocaInst* fsizePtr;
+	{
+		std::map<std::string, AllocaInst*>::iterator it;
+		it = NamedValuesCSV.find(fsizeVar);
+		if (it == NamedValuesCSV.end()) {
+			throw runtime_error(string("Unknown variable name: ") + fsizeVar);
+		}
+		fsizePtr = it->second;
+	}
+	//Since we are the ones dictating what is flushed, file size should never have to be used in a check
+
+	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	// Create an alloca for the variable in the entry block.
+	AllocaInst *Alloca = context->CreateEntryBlockAlloca(TheFunction, "cur_pos",int64Type);
+	Value* fsizeVal = Builder->CreateLoad(fsizePtr, "file_size");
+	// Store the current pos value into the alloca, so that loop starts from appropriate point.
+	// Redundant store / loads will be simplified by opt.pass
+	Value* toInit = Builder->CreateLoad(pos, "start_pos");
+	Builder->CreateStore(toInit, Alloca);
+
+	BasicBlock *fieldCond, *fieldBody, *fieldInc,
+			*fieldEnd;
+	context->CreateForLoop("fieldCond", "fieldBody",
+			"fieldInc", "fieldEnd", &fieldCond,
+			&fieldBody, &fieldInc, &fieldEnd);
+
+	Builder->CreateBr(fieldCond);
+	Builder->SetInsertPoint(fieldCond);
+	Value *StepVal= Builder->getInt64(1);
+	// Compute the end condition. More complex in this scenario (3 ands)
+	Value* index = Builder->CreateLoad(Alloca);
+	Value* lhsPtr = Builder->CreateLoad(buf, "bufPtr");
+	Value* lhsShiftedPtr = Builder->CreateInBoundsGEP(lhsPtr, index);
+	//equivalent to buf[pos]
+	Value* lhs_ = Builder->CreateLoad(lhsShiftedPtr,"bufVal");
+	//Only difference between skip() and skipDelim()!!!
+	Value* rhs1 = delimInner;
+	Value* rhs2 = delimEnd;
+	Value *EndCond1 = Builder->CreateICmpNE(lhs_,rhs1);
+	Value *EndCond2 = Builder->CreateICmpNE(lhs_,rhs2);
+	Value *EndCond3 = Builder->CreateICmpSLT(Builder->CreateLoad(Alloca),fsizeVal);
+	Value *EndCond_ = Builder->CreateAnd(EndCond1,EndCond2);
+	Value *EndCond  = Builder->CreateAnd(EndCond_,EndCond3);
+	Builder->CreateCondBr(EndCond, fieldBody, fieldEnd);
+
+	Builder->SetInsertPoint(fieldBody);
+	// Reload, increment, and restore the alloca.  This handles the case where
+	// the body of the loop mutates the variable.
+	Value *CurVar = Builder->CreateLoad(Alloca);
+	Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "new_pos");
+	Builder->CreateStore(NextVar, Alloca);
+	Builder->CreateBr(fieldInc);	
+	
+	Builder->SetInsertPoint(fieldInc);
+	Builder->CreateBr(fieldCond);
+
+	Builder->SetInsertPoint(fieldEnd);
+	//'return' pos value
+	Value *finalVar = Builder->CreateLoad(Alloca);
+	Builder->CreateStore(finalVar, NamedValuesCSV[posVar]);
+}
 
 void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables, Function* atoi_,Function* debugChar,Function* debugInt)
 {
@@ -363,7 +458,7 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, Allo
 	}
 
 	Value* start = Builder->CreateLoad(pos, "start_pos_atoi");
-	skipLLVM(debugChar);
+	skipLLVM();
 	//index must be different than start!
 	Value* index = Builder->CreateLoad(pos, "end_pos_atoi");
 	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
@@ -383,6 +478,56 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, Allo
 	//Debug
 	//Builder->CreateCall(debugInt, ArgsV, "printi");
 	variables[attName] = Alloca;
+}
+
+void CSVPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables)	{
+	//Prepare
+	LLVMContext& llvmContext = context->getLLVMContext();
+	IRBuilder<>* Builder = context->getBuilder();
+	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+
+	//Fetch values from symbol table
+	AllocaInst* pos;
+	{
+		std::map<std::string, AllocaInst*>::iterator it;
+		it = NamedValuesCSV.find(posVar);
+		if (it == NamedValuesCSV.end()) {
+			throw runtime_error(string("Unknown variable name: ") + posVar);
+		}
+		pos = it->second;
+	}
+	AllocaInst* buf;
+	{
+		std::map<std::string, AllocaInst*>::iterator it;
+		it = NamedValuesCSV.find(bufVar);
+		if (it == NamedValuesCSV.end()) {
+			throw runtime_error(string("Unknown variable name: ") + bufVar);
+		}
+		buf = it->second;
+	}
+	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
+	Value* start = Builder->CreateLoad(pos, "start_pos_atob");
+	//skipLLVM();
+	getFieldEndLLVM();
+	//index must be different than start!
+	Value* index = Builder->CreateLoad(pos, "end_pos_atob");
+	//Must increase offset by 1 now 
+	//(uniform behavior with other skip methods)
+	Value *val_1 = Builder->getInt64(1);
+	Value* pos_inc = Builder->CreateAdd(index,val_1);
+	Builder->CreateStore(pos_inc, pos);
+
+	std::vector<Value*> ArgsV;
+	ArgsV.push_back(bufPtr);
+	ArgsV.push_back(start);
+	ArgsV.push_back(index);
+	Function* conversionFunc = context->getFunction("convertBoolean64");
+
+	Value* convertedValue = Builder->CreateCall(conversionFunc, ArgsV,"convertBoolean64");
+	AllocaInst *mem_convertedValue = context->CreateEntryBlockAlloca(TheFunction, "currResult", int1Type);
+	Builder->CreateStore(convertedValue,mem_convertedValue);
+	variables[attName] = mem_convertedValue;
 }
 
 void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables, Function* atof_,Function* debugChar,Function* debugFloat)
@@ -418,7 +563,7 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, Al
 	}
 
 	Value* start = Builder->CreateLoad(pos, "start_pos_atoi");
-	skipLLVM(debugChar);
+	skipLLVM();
 	//index must be different than start!
 	Value* index = Builder->CreateLoad(pos, "end_pos_atoi");
 	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
@@ -431,10 +576,11 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, Al
 	Builder->CreateStore(parsedFloat,Alloca);
 	LOG(INFO) << "[READ FLOAT: ] Atof Successful";
 
-	ArgsV.clear();
-	ArgsV.push_back(parsedFloat);
-	//Debug
-	//Builder->CreateCall(debugFloat, ArgsV, "printf");
+#ifdef DEBUG
+//	ArgsV.clear();
+//	ArgsV.push_back(parsedFloat);
+//	Builder->CreateCall(debugFloat, ArgsV, "printf");
+#endif
 	variables[attName] = Alloca;
 }
 
@@ -505,6 +651,7 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 
 	// Create the "AFTER LOOP" block and insert it.
 	BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "scanEnd", TheFunction);
+	context->setEndingBlock(AfterBB);
 
 	// Insert the conditional branch into the end of CondBB.
 	Builder->CreateCondBr(cond, LoopBB, AfterBB);
@@ -549,8 +696,8 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 		RecordAttribute attr = *(*it);
 		switch ((*it)->getOriginalType()->getTypeID()) {
 		case BOOL:
-			LOG(ERROR)<< "[CSV PLUGIN: ] Booleans not supported yet";
-			throw runtime_error(string("[CSV PLUGIN: ] Booleans not supported yet"));
+			readAsBooleanLLVM(attr,*variableBindings);
+			break;
 		case STRING:
 			LOG(ERROR) << "[CSV PLUGIN: ] String datatypes not supported yet";
 			throw runtime_error(string("[CSV PLUGIN: ] String datatypes not supported yet"));

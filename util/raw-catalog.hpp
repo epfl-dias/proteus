@@ -147,6 +147,17 @@ public:
 		return it->second;
 	}
 
+	map<int,Value*>* getReduceHT()	{
+		if(reduceSetHT == NULL)	{
+			string error_msg = string("[Catalog: ] HT to be used in Reduce not initialized");
+			LOG(ERROR) << error_msg;
+			throw runtime_error(error_msg);
+		}
+		return reduceSetHT;
+	}
+
+	void setReduceHT(map<int,Value*> *reduceSetHT)	{ this->reduceSetHT = reduceSetHT; }
+
 	void clear();
 
 private:
@@ -154,6 +165,8 @@ private:
 	map<string,multimap<int,void*>*> intHTs;
 	map<string,JSONHelper*> jsonFiles;
 	map<string, ExpressionType*> jsonTypeCatalog;
+	//Initialized by Reduce() if accumulator type is set
+	map<int,Value*> *reduceSetHT;
 
 	/**
 	 * Reason for this: The hashtables we populate (intHTs etc) are created a priori.
@@ -170,12 +183,13 @@ private:
 	//Position 0 not used, so that we can use it to perform containment checks when using tableTypes
 	Type** tableTypes;
 	//Is maxTables enough????
-	RawCatalog()	: uniqueTableId(1) , maxTables(1000), joinInsertionPoint(NULL) {
+	RawCatalog()	: uniqueTableId(1) , maxTables(1000), joinInsertionPoint(NULL), reduceSetHT(NULL) {
 		tableTypes = new Type*[maxTables];
 	}
-	~RawCatalog()
-	{
-
+	~RawCatalog() {
+		if(reduceSetHT != NULL)	{
+			delete reduceSetHT;
+		}
 	}
 
 	//Not implementing; RawCatalog is a singleton

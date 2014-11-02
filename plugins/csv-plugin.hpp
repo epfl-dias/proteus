@@ -88,9 +88,12 @@ private:
 
 	//Used to generate code
 	void skipDelimLLVM(Value* delim,Function* debugChar, Function* debugInt);
-	void skipLLVM(Function* debugChar);
+	void skipLLVM();
+	void getFieldEndLLVM();
 	void readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables, Function* atoi_,Function* debugChar,Function* debugInt);
 	void readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables, Function* atof_,Function* debugChar,Function* debugFloat);
+	void readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables);
+
 	//Generates a for loop that performs the file scan
 	//No assumption on auxiliary structures yet
 	void scanCSV(const RawOperator& producer, Function* debug);

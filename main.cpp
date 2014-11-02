@@ -29,6 +29,7 @@
 #include "operators/unnest.hpp"
 #include "operators/print.hpp"
 #include "operators/root.hpp"
+#include "operators/reduce.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "values/expressionTypes.hpp"
@@ -50,6 +51,11 @@ void unnestJsmnInterpreted();
 void unnestJsmnChildrenInterpreted();
 void unnestJsmnFiltering();
 
+void reduceNumeric();
+void reduceBoolean();
+void scanCSVBoolean();
+
+
 
 int main(int argc, char* argv[])
 {
@@ -59,18 +65,22 @@ int main(int argc, char* argv[])
 	LOG(INFO) << "Object-based operators";
 	LOG(INFO) << "Executing selection query";
 
-//	scanCSV();
-//	selectionCSV();
-//	joinQueryRelational();
-//	scanJsmn();
-//	selectionJsmn();
-//	recordProjectionsJSON();
+	//	scanCSV();
+	//	selectionCSV();
+	//	joinQueryRelational();
+	//	scanJsmn();
+	//	selectionJsmn();
+	//	recordProjectionsJSON();
 
 	//scanJsmnInterpreted();
-//	unnestJsmnChildrenInterpreted();
+	//unnestJsmnChildrenInterpreted();
 
 	//unnestJsmn();
-	unnestJsmnFiltering();
+	//unnestJsmnFiltering();
+	reduceNumeric();
+
+	//scanCSVBoolean();
+	reduceBoolean();
 }
 
 void unnestJsmnInterpreted()	{
@@ -345,7 +355,6 @@ void unnestJsmnFiltering()	{
 
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
-
 	pg.finish();
 	catalog.clear();
 }
@@ -706,5 +715,155 @@ void recordProjectionsJSON()	{
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	pg.finish();
+	catalog.clear();
+}
+
+void reduceNumeric()	{
+	RawContext ctx = RawContext("reduceNumeric");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	//SCAN1
+	string filename = string("inputs/sailors.csv");
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* floatType = new FloatType();
+	PrimitiveType* stringType = new StringType();
+	RecordAttribute* sid = new RecordAttribute(1,filename, string("sid"),intType);
+	RecordAttribute* sname = new RecordAttribute(2,filename, string("sname"),stringType);
+	RecordAttribute* rating = new RecordAttribute(3,filename, string("rating"),intType);
+	RecordAttribute* age = new RecordAttribute(4,filename, string("age"),floatType);
+
+	list<RecordAttribute*> attrList;
+	attrList.push_back(sid);
+	attrList.push_back(sname);
+	attrList.push_back(rating);
+	attrList.push_back(age);
+
+	RecordType rec1 = RecordType(attrList);
+
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(sid);
+	whichFields.push_back(age);
+
+	CSVPlugin* pg = new CSVPlugin(&ctx,filename, rec1, whichFields);
+	catalog.registerPlugin(filename,pg);
+	Scan scan = Scan(&ctx,*pg);
+
+	/**
+	 * REDUCE
+	 */
+	expressions::Expression* arg = new expressions::InputArgument(&rec1,0);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(intType,arg,*sid);
+
+	expressions::Expression* lhs = new expressions::RecordProjection(floatType,arg,*age);
+	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
+	expressions::Expression* predicate = new expressions::GtExpression(new BoolType(),lhs,rhs);
+//	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scan, &ctx);
+//	Reduce reduce = Reduce(MULTIPLY, outputExpr, predicate, &scan, &ctx);
+	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg->finish();
+	catalog.clear();
+}
+
+void scanCSVBoolean()	{
+	RawContext ctx = RawContext("ScanCSVBoolean");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	//SCAN1
+	string filename = string("inputs/bills.csv");
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* boolType = new BoolType();
+	PrimitiveType* stringType = new StringType();
+	RecordAttribute* category = new RecordAttribute(1,filename,string("category"),stringType);
+	RecordAttribute* amount = new RecordAttribute(2,filename,string("amount"),intType);
+	RecordAttribute* isPaid = new RecordAttribute(3,filename,string("isPaid"),boolType);
+
+	list<RecordAttribute*> attrList;
+	attrList.push_back(category);
+	attrList.push_back(amount);
+	attrList.push_back(isPaid);
+
+	RecordType rec1 = RecordType(attrList);
+
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(isPaid);
+
+	CSVPlugin* pg = new CSVPlugin(&ctx,filename, rec1, whichFields);
+	catalog.registerPlugin(filename,pg);
+	Scan scan = Scan(&ctx,*pg);
+
+	//PRINT
+	Function* debugBoolean = ctx.getFunction("printBoolean");
+	expressions::Expression* arg = new expressions::InputArgument(&rec1, 0);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(boolType,arg,*isPaid);
+	Print printOp = Print(debugBoolean,proj,&scan);
+	scan.setParent(&printOp);
+
+
+	//ROOT
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pg->finish();
+	catalog.clear();
+}
+
+void reduceBoolean()	{
+	RawContext ctx = RawContext("reduceAnd");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	//SCAN1
+	string filename = string("inputs/bills.csv");
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* boolType = new BoolType();
+	PrimitiveType* stringType = new StringType();
+	RecordAttribute* category = new RecordAttribute(1,filename,string("category"),stringType);
+	RecordAttribute* amount = new RecordAttribute(2,filename,string("amount"),intType);
+	RecordAttribute* isPaid = new RecordAttribute(3,filename,string("isPaid"),boolType);
+
+	list<RecordAttribute*> attrList;
+	attrList.push_back(category);
+	attrList.push_back(amount);
+	attrList.push_back(isPaid);
+
+	RecordType rec1 = RecordType(attrList);
+
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(amount);
+	whichFields.push_back(isPaid);
+
+	CSVPlugin* pg = new CSVPlugin(&ctx,filename, rec1, whichFields);
+	catalog.registerPlugin(filename,pg);
+	Scan scan = Scan(&ctx,*pg);
+
+	/**
+	 * REDUCE
+	 */
+	expressions::Expression* arg = new expressions::InputArgument(&rec1,0);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(boolType,arg,*isPaid);
+
+	expressions::Expression* lhs = new expressions::RecordProjection(intType,arg,*amount);
+	expressions::Expression* rhs = new expressions::IntConstant(1400);
+	expressions::Expression* predicate = new expressions::GtExpression(new BoolType(),lhs,rhs);
+	Reduce reduce = Reduce(AND, outputExpr, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg->finish();
 	catalog.clear();
 }

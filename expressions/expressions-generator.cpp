@@ -71,14 +71,12 @@ Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 			}
 			if (!relationsCount) {
 				string error_msg =
-						string(
-								"[Expression Generator: ] Could not find tuple information");
+						string("[Expression Generator: ] Could not find tuple information");
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			} else if (relationsCount > 1) {
 				string error_msg =
-						string(
-								"[Expression Generator: ] Could not distinguish appropriate bindings");
+						string("[Expression Generator: ] Could not distinguish appropriate bindings");
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			}
@@ -225,7 +223,15 @@ Value* ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
 		case INT:
 			return TheBuilder->CreateICmpSGT(left, right);
 		case FLOAT:
+		{
+#ifdef DEBUG
+		std::vector<Value*> ArgsV;
+		Function* debugFloat = context->getFunction("printFloat");
+		ArgsV.push_back(left);
+		TheBuilder->CreateCall(debugFloat, ArgsV);
+#endif
 			return TheBuilder->CreateFCmpOGT(left, right);
+		}
 		case BOOL:
 			return TheBuilder->CreateICmpSGT(left, right);
 		case STRING:

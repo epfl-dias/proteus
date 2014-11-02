@@ -445,6 +445,7 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)	{
 	 * for (int i = 1; tokens[i].start != 0; )
 	 */
 	BasicBlock *jsonScanCond, *jsonScanBody, *jsonScanInc, *jsonScanEnd;
+	context->setEndingBlock(jsonScanEnd);
 	context->CreateForLoop("jsonScanCond", "jsonScanBody", "jsonScanInc","jsonScanEnd",
 							&jsonScanCond, &jsonScanBody, &jsonScanInc,	&jsonScanEnd);
 

@@ -30,6 +30,7 @@ RawContext::RawContext(const string& moduleName) {
 	TheFPM = 0;
 	TheExecutionEngine = 0;
 	TheFunction = 0;
+	codeEnd = NULL;
 	availableFunctions = std::map<std::string, Function*>();
 
 	InitializeNativeTarget();
@@ -37,7 +38,8 @@ RawContext::RawContext(const string& moduleName) {
 
 	// Create the JIT.  This takes ownership of the module.
 	std::string ErrStr;
-	TheExecutionEngine = EngineBuilder(TheModule).setErrorStr(&ErrStr).create();
+	TheExecutionEngine = 
+		EngineBuilder(TheModule).setErrorStr(&ErrStr).create();
 	if (!TheExecutionEngine) {
 		fprintf(stderr, "Could not create ExecutionEngine: %s\n",
 				ErrStr.c_str());
@@ -68,20 +70,14 @@ RawContext::RawContext(const string& moduleName) {
 	std::vector<Type*> Ints(1,int_type);
 	FunctionType *FT = FunctionType::get(Type::getInt32Ty(ctx),Ints, false);
 	registerFunctions(*this);
-	Function *F = Function::Create(FT, Function::ExternalLinkage, moduleName, TheModule);
+	Function *F = Function::Create(FT, Function::ExternalLinkage, 
+		moduleName, TheModule);
 
 	//Setting the 'global' function
 	TheFunction = F;
 	// Create a new basic block to start insertion into.
 	BasicBlock *BB = BasicBlock::Create(ctx, "entry", F);
 	TheBuilder->SetInsertPoint(BB);
-}
-
-AllocaInst* const RawContext::CreateEntryBlockAlloca(Function *TheFunction,
-		const std::string &VarName, Type* varType) const {
-	IRBuilder<> TmpBuilder(&TheFunction->getEntryBlock(),
-			TheFunction->getEntryBlock().begin());
-	return TmpBuilder.CreateAlloca(varType, 0, VarName.c_str());
 }
 
 void RawContext::prepareFunction(Function *F) {
@@ -91,7 +87,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-//	F->dump();
+	//getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -108,7 +104,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	TheFPM = 0;
 	//Dump to see final form
-	//F->dump();
+	//	F->dump();
 }
 
 void* RawContext::jit(Function* F) {
@@ -117,16 +113,6 @@ void* RawContext::jit(Function* F) {
 	return TheExecutionEngine->getPointerToFunction(F);
 }
 
-Function* const RawContext::getGlobalFunction() const {
-	return TheFunction;
-}
-
-Module* const RawContext::getModule() const {
-	return TheModule;
-}
-IRBuilder<>* const RawContext::getBuilder() const {
-	return TheBuilder;
-}
 Function* const RawContext::getFunction(std::string funcName) const {
 	std::map<std::string, Function*>::const_iterator it;
 	it = availableFunctions.find(funcName);
@@ -186,19 +172,6 @@ ConstantInt* RawContext::createFalse() {
 	return ConstantInt::get(ctx, APInt(8, 0));
 }
 
-void RawContext::CreateForLoop(const string& cond, const string& body,
-		const string& inc, const string& end, BasicBlock** cond_block,
-		BasicBlock** body_block, BasicBlock** inc_block, BasicBlock** end_block,
-		BasicBlock* insert_before) {
-
-	Function* fn = TheFunction;
-	LLVMContext& ctx = *llvmContext;
-	*cond_block = BasicBlock::Create(ctx, string(cond), fn,	insert_before);
-	*body_block = BasicBlock::Create(ctx, string(body), fn,	insert_before);
-	*inc_block = BasicBlock::Create(ctx, string(inc), fn, insert_before);
-	*end_block = BasicBlock::Create(ctx, string(end), fn, insert_before);
-}
-
 Value* RawContext::CastPtrToLlvmPtr(PointerType* type, const void* ptr) {
 	LLVMContext& ctx = *llvmContext;
 	Constant* const_int = ConstantInt::get(Type::getInt64Ty(ctx),(uint64_t) ptr);
@@ -223,13 +196,37 @@ Value* RawContext::getStructElem(AllocaInst* mem_struct, int elemNo)	{
 	return val_struct_shifted;
 }
 
-//Similar to utility function from Impala
+void RawContext::CreateForLoop(const string& cond, const string& body,
+		const string& inc, const string& end, BasicBlock** cond_block,
+		BasicBlock** body_block, BasicBlock** inc_block, BasicBlock** end_block,
+		BasicBlock* insert_before) {
+	Function* fn = TheFunction;
+	LLVMContext& ctx = *llvmContext;
+	*cond_block = BasicBlock::Create(ctx, string(cond), fn,	insert_before);
+	*body_block = BasicBlock::Create(ctx, string(body), fn,	insert_before);
+	*inc_block = BasicBlock::Create(ctx, string(inc), fn, insert_before);
+	*end_block = BasicBlock::Create(ctx, string(end), fn, insert_before);
+}
+
 void RawContext::CreateIfElseBlocks(Function* fn, const string& if_label,
 		const string& else_label, BasicBlock** if_block, BasicBlock** else_block,
 		BasicBlock* insert_before) {
 	LLVMContext& ctx = *llvmContext;
 	*if_block = BasicBlock::Create(ctx, if_label, fn, insert_before);
 	*else_block = BasicBlock::Create(ctx, else_label, fn, insert_before);
+}
+
+void RawContext::CreateIfBlock(Function* fn, const string& if_label,
+		BasicBlock** if_block, BasicBlock* insert_before) {
+	LLVMContext& ctx = *llvmContext;
+	*if_block = BasicBlock::Create(ctx, if_label, fn, insert_before);
+}
+
+AllocaInst* RawContext::CreateEntryBlockAlloca(Function *TheFunction,
+		const std::string &VarName, Type* varType) {
+	IRBuilder<> TmpBuilder(&TheFunction->getEntryBlock(),
+			TheFunction->getEntryBlock().begin());
+	return TmpBuilder.CreateAlloca(varType, 0, VarName.c_str());
 }
 
 Value* RawContext::CreateGlobalString(char* str) {
@@ -518,36 +515,66 @@ double getJSONDouble(char* jsonName, int attrNo) {
 	double parsedFloat;
 	if (accessor.is_valid) {
 		json_semi_index::accessor::range_t r = accessor.get_range();
-		//		obj.pos = (size_t) (line + r.first);
-		//		obj.end = r.second - r.first;
 		parsedFloat = atof((line + r.first));
 		LOG(INFO) << "[SCAN - JSON: ] PARSED FLOAT " << parsedFloat;
 	} else {
-		//fwrite("null", 4, 1, stdout);
 		throw runtime_error(string("Missing field! - Must handle this case better later on"));
 	}
 	return parsedFloat;
 }
 
 int compareTokenString(const char* buf, int start, int end, const char* candidate)	{
-	//	int len = end - start;
-	//	char* tmp = (char*) malloc(len+1);
-	//	strncpy(tmp,buf+start,len);
-	//	tmp[len] = '\0';
-	//	printf("Comparing %s with %s\n",tmp,candidate);
+	return (strncmp(buf + start, candidate, end - start) == 0 \
+			&& strlen(candidate) == end - start);
+}
+
+int compareTokenString64(const char* buf, size_t start, size_t end, const char* candidate)	{
+	// printf("strcmp? %d\n",strncmp(buf + start, candidate, end - start));
+	// printf("strlen? %d %d\n",strlen(candidate), end - start);
+	// printf("End + Start? %d %d\n",end , start);
 	return (strncmp(buf + start, candidate, end - start) == 0 \
 			&& strlen(candidate) == end - start);
 }
 
 bool convertBoolean(const char* buf, int start, int end)	{
-	if (compareTokenString(buf, start, end, "true") == 1) {
+	if (compareTokenString(buf, start, end, "true") == 1
+			|| compareTokenString(buf, start, end, "TRUE") == 1) {
 		return true;
-	} else if (compareTokenString(buf, start, end, "false") == 0) {
+	} else if (compareTokenString(buf, start, end, "false") == 1
+			|| compareTokenString(buf, start, end, "FALSE") == 1) {
 		return false;
 	} else {
 		string error_msg = string("[convertBoolean: Error - unknown input]");
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
+	}
+}
+
+bool convertBoolean64(const char* buf, size_t start, size_t end)	{
+	// cout << "Start: " << start << " End: " << end << endl;
+	// 	while(end - start != 0)	{
+	// 	cout << buf[start] << "-";
+	// 	start++;
+	// 	}
+	// cout << endl;
+	if (compareTokenString64(buf, start, end, "true") == 1
+			|| compareTokenString64(buf, start, end, "TRUE") == 1) {
+		return true;
+	} else if (compareTokenString64(buf, start, end, "false") == 1
+			|| compareTokenString64(buf, start, end, "FALSE") == 1) {
+		return false;
+	} else {
+		string error_msg = string("[convertBoolean64: Error - unknown input]");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+}
+
+void printBoolean(bool in)	{
+	if(in)	{
+		printf("True\n");
+	}	else	{
+		printf("False\n");
 	}
 }
 
@@ -560,15 +587,19 @@ void registerFunctions(RawContext& context)	{
 	LLVMContext& ctx = context.getLLVMContext();
 	Module* const TheModule = context.getModule();
 
-	llvm::Type* int8_bool_type = Type::getInt8Ty(ctx);
+	llvm::Type* int1_bool_type = Type::getInt1Ty(ctx);
+	llvm::Type* int8_type = Type::getInt8Ty(ctx);
 	llvm::Type* int_type = Type::getInt32Ty(ctx);
 	llvm::Type* int64_type = Type::getInt64Ty(ctx);
 	llvm::Type* void_type = Type::getVoidTy(ctx);
 	llvm::Type* double_type = Type::getDoubleTy(ctx);
-	llvm::PointerType* void_ptr_type = PointerType::get(int8_bool_type, 0);
-	llvm::PointerType* char_ptr_type = PointerType::get(int8_bool_type, 0);
+	llvm::PointerType* void_ptr_type = PointerType::get(int8_type, 0);
+	llvm::PointerType* char_ptr_type = PointerType::get(int8_type, 0);
 
-	std::vector<Type*> Ints8(1,Type::getInt8PtrTy(ctx));
+
+	std::vector<Type*> Ints8Ptr(1,Type::getInt8PtrTy(ctx));
+	std::vector<Type*> Ints8(1,int8_type);
+	std::vector<Type*> Ints1(1,int1_bool_type);
 	std::vector<Type*> Ints(1,int_type);
 	std::vector<Type*> Ints64(1,int64_type);
 	std::vector<Type*> Floats(1,double_type);
@@ -580,19 +611,26 @@ void registerFunctions(RawContext& context)	{
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),char_ptr_type);
 
 	std::vector<Type*> ArgsConvBoolean;
+	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int_type);
+	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int_type);
 	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),char_ptr_type);
-	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int_type);
-	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int_type);
+
+	std::vector<Type*> ArgsConvBoolean64;
+	ArgsConvBoolean64.insert(ArgsConvBoolean64.begin(),int64_type);
+	ArgsConvBoolean64.insert(ArgsConvBoolean64.begin(),int64_type);
+	ArgsConvBoolean64.insert(ArgsConvBoolean64.begin(),char_ptr_type);
 
 	FunctionType *FTint = FunctionType::get(Type::getInt32Ty(ctx), Ints, false);
 	FunctionType *FTint64 = FunctionType::get(Type::getInt32Ty(ctx), Ints64, false);
-	FunctionType *FTcharPtr = FunctionType::get(Type::getInt32Ty(ctx), Ints8, false);
-	FunctionType *FTatof = FunctionType::get(double_type, Ints8, false);
+	FunctionType *FTcharPtr = FunctionType::get(Type::getInt32Ty(ctx), Ints8Ptr, false);
+	FunctionType *FTatof = FunctionType::get(double_type, Ints8Ptr, false);
 	FunctionType *FTprintFloat_ = FunctionType::get(int_type, Floats, false);
 	FunctionType *FTcompareTokenString_ = FunctionType::get(int_type, ArgsCmpTokens, false);
-	FunctionType *FTconvertBoolean_ = FunctionType::get(int8_bool_type, ArgsConvBoolean, false);
+	FunctionType *FTconvertBoolean_ = FunctionType::get(int1_bool_type, ArgsConvBoolean, false);
+	FunctionType *FTconvertBoolean64_ = FunctionType::get(int1_bool_type, ArgsConvBoolean64, false);
+	FunctionType *FTprintBoolean_ = FunctionType::get(void_type, Ints1, false);
 
-	Function *putchari_ = Function::Create(FTint, Function::ExternalLinkage, "putchari", TheModule);
+
 	Function *printi_ = Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
 	Function *printi64_ = Function::Create(FTint64, Function::ExternalLinkage,"printi64", TheModule);
 	Function *printc_ = Function::Create(FTcharPtr, Function::ExternalLinkage,"printc", TheModule);
@@ -600,6 +638,8 @@ void registerFunctions(RawContext& context)	{
 	Function *atoi_ = Function::Create(FTcharPtr, Function::ExternalLinkage,"atoi", TheModule);
 	Function *atof_ = Function::Create(FTatof, Function::ExternalLinkage,"atof", TheModule);
 	Function *printFloat_ = Function::Create(FTprintFloat_, Function::ExternalLinkage, "printFloat", TheModule);
+	Function *printBoolean_ = Function::Create(FTprintBoolean_, Function::ExternalLinkage, "printBoolean", TheModule);
+
 
 	Function *compareTokenString_ = Function::Create(FTcompareTokenString_,
 			Function::ExternalLinkage, "compareTokenString", TheModule);
@@ -609,9 +649,12 @@ void registerFunctions(RawContext& context)	{
 				Function::ExternalLinkage, "convertBoolean", TheModule);
 	convertBoolean_->addFnAttr(llvm::Attribute::AlwaysInline);
 
+	Function *convertBoolean64_ = Function::Create(FTconvertBoolean64_,
+					Function::ExternalLinkage, "convertBoolean64", TheModule);
+	convertBoolean64_->addFnAttr(llvm::Attribute::AlwaysInline);
+
 	//Memcpy - not used yet
-	llvm::PointerType* ptr_type = PointerType::get((Type::getInt8Ty(ctx)), 0);
-	Type* types[] = { ptr_type, ptr_type, Type::getInt32Ty(ctx) };
+	Type* types[] = { void_ptr_type, void_ptr_type, Type::getInt32Ty(ctx) };
 	Function* memcpy_ = Intrinsic::getDeclaration(TheModule, Intrinsic::memcpy, types);
 	if (memcpy_ == NULL) {
 		throw runtime_error(string("Could not find memcpy intrinsic"));
@@ -633,7 +676,7 @@ void registerFunctions(RawContext& context)	{
 
 	//eof
 	Type* eof_json_types[] = { char_ptr_type };
-	FunctionType *FTeof_json = FunctionType::get(int8_bool_type, eof_json_types, false);
+	FunctionType *FTeof_json = FunctionType::get(int8_type, eof_json_types, false);
 	Function* eof_json_ = Function::Create(FTeof_json, Function::ExternalLinkage, "eofJSON", TheModule);
 	eof_json_->addFnAttr(llvm::Attribute::AlwaysInline);
 
@@ -657,10 +700,10 @@ void registerFunctions(RawContext& context)	{
 	Function* get_json_double_ = Function::Create(FTget_json_double_, Function::ExternalLinkage, "getJSONDouble", TheModule);
 	get_json_double_->addFnAttr(llvm::Attribute::AlwaysInline);
 
-	context.registerFunction("putchari", putchari_);
 	context.registerFunction("printi", printi_);
 	context.registerFunction("printi64", printi64_);
 	context.registerFunction("printFloat", printFloat_);
+	context.registerFunction("printBoolean", printBoolean_);
 	context.registerFunction("printc", printc_);
 	context.registerFunction("atoi", atoi_);
 	context.registerFunction("atof", atof_);
@@ -673,6 +716,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("getJSONDouble", get_json_double_);
 	context.registerFunction("compareTokenString", compareTokenString_);
 	context.registerFunction("convertBoolean", convertBoolean_);
+	context.registerFunction("convertBoolean64", convertBoolean64_);
 }
 
 

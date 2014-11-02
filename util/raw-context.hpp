@@ -72,16 +72,12 @@ public:
 	void prepareFunction(Function *F);
 	void* jit(Function* F);
 
-	AllocaInst* const CreateEntryBlockAlloca(Function *TheFunction,
-											 const std::string &VarName,
-											 Type* varType) const;
+	ExecutionEngine* getExecEngine() 						{ return TheExecutionEngine; }
 
-	ExecutionEngine* getExecEngine() { return TheExecutionEngine; }
-
-	Function* const getGlobalFunction() const;
-	Module* const getModule() const;
-	IRBuilder<>* const getBuilder() const;
-	Function* const getFunction(std::string funcName) const;
+	Function* const getGlobalFunction() 		 const		{ return TheFunction; }
+	Module* const getModule() 					 const 		{ return TheModule; }
+	IRBuilder<>* const getBuilder() 			 const 		{ return TheBuilder; }
+	Function* const getFunction(string funcName) const;
 
 	ConstantInt* createInt32(int val);
 	ConstantInt* createInt64(int val);
@@ -98,6 +94,9 @@ public:
 	PointerType* getPointerType(Type* type);
 
 	//Utility functions, similar to ones from Impala
+	AllocaInst* CreateEntryBlockAlloca(Function *TheFunction,
+												 const std::string &VarName,
+												 Type* varType);
 	void CreateForLoop(const string& cond, const string& body,
 				const string& inc, const string& end, BasicBlock** cond_block,
 				BasicBlock** body_block, BasicBlock** inc_block,
@@ -106,7 +105,9 @@ public:
 	void CreateIfElseBlocks(Function* fn, const string& if_name,
 				const string& else_name, BasicBlock** if_block,
 				BasicBlock** else_block, BasicBlock* insert_before = NULL);
-
+	void CreateIfBlock(Function* fn, const string& if_name,
+			BasicBlock** if_block,
+			BasicBlock* insert_before = NULL);
 	Value* CastPtrToLlvmPtr(PointerType* type, const void* ptr);
 	Value* getArrayElem(AllocaInst* mem_ptr, PointerType* type, Value* offset);
 
@@ -114,6 +115,8 @@ public:
 	void CodegenMemcpy(Value* dst, Value* src, int size);
 
 	void registerFunction(const char*, Function*);
+	BasicBlock* getEndingBlock()							{ return codeEnd; }
+	void setEndingBlock(BasicBlock* codeEnd)				{ this->codeEnd = codeEnd; }
 private:
 	LLVMContext *llvmContext;
 	Module *TheModule;
@@ -124,17 +127,16 @@ private:
 	ExecutionEngine *TheExecutionEngine;
 	Function* TheFunction;
 	std::map<std::string, Function*> availableFunctions;
+	//
+	BasicBlock* codeEnd;
 };
 
+int compareTokenString64(const char* buf, size_t start, size_t end, const char* candidate);
 void registerFunctions(RawContext& context);
 //===----------------------------------------------------------------------===//
 // "Library" functions that can be "extern'd" from user code.
 //===----------------------------------------------------------------------===//
 
-/// putchard - putchar that takes a double and returns 0.
-extern "C" double putchari(int X);
-
-/// printd - printf that takes a double prints it as "%f\n", returning 0.
 extern "C" int printi(int X);
 
 extern "C" int printi64(size_t X);
@@ -142,6 +144,8 @@ extern "C" int printi64(size_t X);
 extern "C" int printFloat(double X);
 
 extern "C" int printc(char* X);
+
+extern "C" void printBoolean(bool X);
 
 extern "C" int atoi_llvm(const char* X);
 
@@ -162,5 +166,7 @@ extern "C" double getJSONDouble(char* jsonName, int attrNo);
 extern "C" int compareTokenString(const char* buf, int start, int end, const char* candidate);
 
 extern "C" bool convertBoolean(const char* buf, int start, int end);
+
+extern "C" bool convertBoolean64(const char* buf, size_t start, size_t end);
 
 #endif /* RAW_CONTEXT_HPP_ */

@@ -53,6 +53,7 @@ void JSONPlugin::scanJSON(const RawOperator& producer, Function* debug) {
 
 	//Loop through results (if any)
 	BasicBlock *jsonScanCond, *jsonScanBody, *jsonScanInc, *jsonScanEnd;
+	context->setEndingBlock(jsonScanEnd);
 	context->CreateForLoop("jsonScanCond", "jsonScanBody", "jsonScanInc","jsonScanEnd",
 							&jsonScanCond, &jsonScanBody, &jsonScanInc,	&jsonScanEnd);
 
