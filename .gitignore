@@ -49,3 +49,8 @@ target/
 
 #VTune
 r00*
+
+#Large mock test files
+inputs/CIDR15
+clinical*.csv
+genetic*.csv

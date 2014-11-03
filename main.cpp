@@ -55,7 +55,8 @@ void reduceNumeric();
 void reduceBoolean();
 void scanCSVBoolean();
 
-
+void cidrQuery3();
+void cidrQueryCount();
 
 int main(int argc, char* argv[])
 {
@@ -77,10 +78,13 @@ int main(int argc, char* argv[])
 
 	//unnestJsmn();
 	//unnestJsmnFiltering();
-	reduceNumeric();
 
 	//scanCSVBoolean();
-	reduceBoolean();
+	//reduceNumeric();
+	//reduceBoolean();
+
+//	cidrQuery3();
+	cidrQueryCount();
 }
 
 void unnestJsmnInterpreted()	{
@@ -865,5 +869,216 @@ void reduceBoolean()	{
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	pg->finish();
+	catalog.clear();
+}
+
+/**
+ * SELECT COUNT(*)
+ * FROM clinical, genetic
+ * WHERE clinical.rid = genetic_part1.iid AND age > 50;
+ */
+void cidrQuery3()	{
+
+	bool shortRun = false;
+	string filenameClinical = string("inputs/CIDR15/clinical.csv");
+	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
+	if(shortRun)	{
+		filenameClinical = string("inputs/CIDR15/clinical10.csv");
+		filenameGenetic = string("inputs/CIDR15/genetic10.csv");
+	}
+
+	RawContext ctx = RawContext("CIDR-Query3");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* stringType = new StringType();
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* doubleType = new FloatType();
+
+	/**
+	 * SCAN1 (The smallest relation)
+	 */
+	ifstream fsClinicalSchema("inputs/CIDR15/attrs_clinical_vertical.csv");
+	string line2;
+	int fieldCount2 = 0;
+	list<RecordAttribute*> attrListClinical;
+
+	while (getline(fsClinicalSchema, line2)) {
+		RecordAttribute* attr = NULL;
+		if (fieldCount2 < 2) {
+			attr = new RecordAttribute(fieldCount2 + 1, filenameClinical, line2,
+					intType);
+		} else if (fieldCount2 >= 4) {
+			attr = new RecordAttribute(fieldCount2 + 1, filenameClinical, line2,
+					doubleType);
+		} else {
+			attr = new RecordAttribute(fieldCount2 + 1, filenameClinical, line2,
+					stringType);
+		}
+		attrListClinical.push_back(attr);
+		fieldCount2++;
+	}
+	RecordType recClinical = RecordType(attrListClinical);
+	vector<RecordAttribute*> whichFieldsClinical;
+	RecordAttribute* rid = new RecordAttribute(1, filenameClinical, "RID",
+			intType);
+	RecordAttribute* age = new RecordAttribute(1, filenameClinical, "Age",
+				intType);
+	whichFieldsClinical.push_back(rid);
+	whichFieldsClinical.push_back(age);
+
+	CSVPlugin* pgClinical = new CSVPlugin(&ctx, filenameClinical, recClinical,
+			whichFieldsClinical);
+	catalog.registerPlugin(filenameClinical, pgClinical);
+	Scan scanClinical = Scan(&ctx, *pgClinical);
+
+
+	//SELECT
+	expressions::Expression* argClinical = new expressions::InputArgument(&recClinical,0);
+	expressions::RecordProjection* clinicalAge = new expressions::RecordProjection(intType,argClinical,*age);
+	expressions::Expression* rhs = new expressions::IntConstant(50);
+	expressions::Expression* selPredicate = new expressions::GtExpression(new BoolType(),clinicalAge,rhs);
+	Select selClinical = Select(selPredicate,&scanClinical);
+	scanClinical.setParent(&selClinical);
+
+	/**
+	 * SCAN2 (The smallest relation)
+	 */
+	ifstream fsGeneticSchema("inputs/CIDR15/attrs_genetic_vertical.csv");
+	string line;
+	int fieldCount = 0;
+	list<RecordAttribute*> attrListGenetic;
+	while (getline(fsGeneticSchema, line)) {
+		RecordAttribute* attr = NULL;
+		if (fieldCount != 0) {
+			attr = new RecordAttribute(fieldCount + 1, filenameGenetic, line,
+					intType);
+		} else {
+			attr = new RecordAttribute(fieldCount + 1, filenameGenetic, line,
+					stringType);
+		}
+		attrListGenetic.push_back(attr);
+		fieldCount++;
+	}
+
+	RecordType recGenetic = RecordType(attrListGenetic);
+	vector<RecordAttribute*> whichFieldsGenetic;
+	RecordAttribute* iid = new RecordAttribute(2, filenameGenetic, "IID",
+			intType);
+	whichFieldsGenetic.push_back(iid);
+
+	CSVPlugin* pgGenetic = new CSVPlugin(&ctx, filenameGenetic, recGenetic,
+			whichFieldsGenetic);
+	catalog.registerPlugin(filenameGenetic, pgGenetic);
+	Scan scanGenetic = Scan(&ctx, *pgGenetic);
+
+	/**
+	 *  JOIN
+	 */
+	expressions::RecordProjection* argClinicalProj = new expressions::RecordProjection(intType,argClinical,*rid);
+	expressions::Expression* argGenetic = new expressions::InputArgument(&recGenetic,0);
+	expressions::RecordProjection* argGeneticProj = new expressions::RecordProjection(intType,argGenetic,*iid);
+
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),argClinicalProj,argGeneticProj);
+	vector<materialization_mode> outputModes;
+	outputModes.insert(outputModes.begin(),EAGER);
+	outputModes.insert(outputModes.begin(),EAGER);
+	Materializer* mat = new Materializer(whichFieldsClinical,outputModes);
+
+	Join join = Join(joinPred,selClinical,scanGenetic, "joinPatients", *mat);
+	selClinical.setParent(&join);
+	scanGenetic.setParent(&join);
+
+	//	//PRINT
+	//	Function* debugInt = ctx.getFunction("printi");
+	//	Print printOp = Print(debugInt,argClinicalProj,&join);
+	//	join.setParent(&printOp);
+	//
+	//	//ROOT
+	//	Root rootOp = Root(&printOp);
+	//	printOp.setParent(&rootOp);
+	//	rootOp.produce();
+
+	/**
+	 * REDUCE
+	 * (COUNT)
+	 */
+	expressions::Expression* outputExpr = new expressions::IntConstant(1);
+	expressions::Expression* val_true = new expressions::BoolConstant(1);
+	expressions::Expression* predicate = new expressions::EqExpression(new BoolType(),val_true,val_true);
+	Reduce reduce = Reduce(SUM, outputExpr, predicate, &join, &ctx);
+	join.setParent(&reduce);
+
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pgGenetic->finish();
+	pgClinical->finish();
+	catalog.clear();
+}
+
+void cidrQueryCount()	{
+
+	bool shortRun = false;
+	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
+	if(shortRun)	{
+		filenameGenetic = string("inputs/CIDR15/genetic10.csv");
+	}
+
+	RawContext ctx = RawContext("CIDR-Query3");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* stringType = new StringType();
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* doubleType = new FloatType();
+
+	/**
+	 * SCAN2
+	 */
+	ifstream fsGeneticSchema("inputs/CIDR15/attrs_genetic_vertical.csv");
+	string line;
+	int fieldCount = 0;
+	list<RecordAttribute*> attrListGenetic;
+	while (getline(fsGeneticSchema, line)) {
+		RecordAttribute* attr = NULL;
+		if (fieldCount != 0) {
+			attr = new RecordAttribute(fieldCount + 1, filenameGenetic, line,
+					intType);
+		} else {
+			attr = new RecordAttribute(fieldCount + 1, filenameGenetic, line,
+					stringType);
+		}
+		attrListGenetic.push_back(attr);
+		fieldCount++;
+	}
+
+	RecordType recGenetic = RecordType(attrListGenetic);
+	vector<RecordAttribute*> whichFieldsGenetic;
+	RecordAttribute* iid = new RecordAttribute(2, filenameGenetic, "IID",
+			intType);
+	whichFieldsGenetic.push_back(iid);
+
+	CSVPlugin* pgGenetic = new CSVPlugin(&ctx, filenameGenetic, recGenetic,
+			whichFieldsGenetic);
+	catalog.registerPlugin(filenameGenetic, pgGenetic);
+	Scan scanGenetic = Scan(&ctx, *pgGenetic);
+
+	/**
+	 * REDUCE
+	 * (COUNT)
+	 */
+	expressions::Expression* outputExpr = new expressions::IntConstant(1);
+	expressions::Expression* val_true = new expressions::BoolConstant(1);
+	expressions::Expression* predicate = new expressions::EqExpression(new BoolType(),val_true,val_true);
+	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scanGenetic, &ctx);
+	scanGenetic.setParent(&reduce);
+
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pgGenetic->finish();
 	catalog.clear();
 }

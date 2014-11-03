@@ -56,7 +56,7 @@ public:
 
 	RawContext(const string& moduleName);
 	~RawContext() {
-		LOG(WARNING) << "[RawContext: ] Hollow Destructor";
+		LOG(WARNING) << "[RawContext: ] Destructor";
 		//XXX Has to be done in an appropriate sequence - segfaults otherwise
 			delete TheBuilder;
 //			delete TheFPM;

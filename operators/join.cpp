@@ -67,7 +67,6 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 			for(memSearch = bindings.begin(); memSearch != bindings.end(); memSearch++)	{
 				RecordAttribute currAttr = memSearch->first;
 				if(currAttr.getAttrName() == activeLoop)	{
-					printf("'Active Loop' found!\n");
 					mem_activeTuple = memSearch->second;
 					Value* val_activeTuple = TheBuilder->CreateLoad(mem_activeTuple);
 					//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET

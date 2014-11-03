@@ -529,9 +529,6 @@ int compareTokenString(const char* buf, int start, int end, const char* candidat
 }
 
 int compareTokenString64(const char* buf, size_t start, size_t end, const char* candidate)	{
-	// printf("strcmp? %d\n",strncmp(buf + start, candidate, end - start));
-	// printf("strlen? %d %d\n",strlen(candidate), end - start);
-	// printf("End + Start? %d %d\n",end , start);
 	return (strncmp(buf + start, candidate, end - start) == 0 \
 			&& strlen(candidate) == end - start);
 }
@@ -551,12 +548,6 @@ bool convertBoolean(const char* buf, int start, int end)	{
 }
 
 bool convertBoolean64(const char* buf, size_t start, size_t end)	{
-	// cout << "Start: " << start << " End: " << end << endl;
-	// 	while(end - start != 0)	{
-	// 	cout << buf[start] << "-";
-	// 	start++;
-	// 	}
-	// cout << endl;
 	if (compareTokenString64(buf, start, end, "true") == 1
 			|| compareTokenString64(buf, start, end, "TRUE") == 1) {
 		return true;

@@ -225,10 +225,10 @@ Value* ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
 		case FLOAT:
 		{
 #ifdef DEBUG
-		std::vector<Value*> ArgsV;
-		Function* debugFloat = context->getFunction("printFloat");
-		ArgsV.push_back(left);
-		TheBuilder->CreateCall(debugFloat, ArgsV);
+//		std::vector<Value*> ArgsV;
+//		Function* debugFloat = context->getFunction("printFloat");
+//		ArgsV.push_back(left);
+//		TheBuilder->CreateCall(debugFloat, ArgsV);
 #endif
 			return TheBuilder->CreateFCmpOGT(left, right);
 		}
