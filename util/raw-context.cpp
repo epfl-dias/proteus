@@ -87,7 +87,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-	//getModule()->dump();
+	getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -611,9 +611,14 @@ void registerFunctions(RawContext& context)	{
 	ArgsConvBoolean64.insert(ArgsConvBoolean64.begin(),int64_type);
 	ArgsConvBoolean64.insert(ArgsConvBoolean64.begin(),char_ptr_type);
 
+	std::vector<Type*> ArgsAtois;
+	ArgsAtois.insert(ArgsAtois.begin(),int_type);
+	ArgsAtois.insert(ArgsAtois.begin(),char_ptr_type);
+
 	FunctionType *FTint = FunctionType::get(Type::getInt32Ty(ctx), Ints, false);
 	FunctionType *FTint64 = FunctionType::get(Type::getInt32Ty(ctx), Ints64, false);
 	FunctionType *FTcharPtr = FunctionType::get(Type::getInt32Ty(ctx), Ints8Ptr, false);
+	FunctionType *FTatois = FunctionType::get(int_type, ArgsAtois, false);
 	FunctionType *FTatof = FunctionType::get(double_type, Ints8Ptr, false);
 	FunctionType *FTprintFloat_ = FunctionType::get(int_type, Floats, false);
 	FunctionType *FTcompareTokenString_ = FunctionType::get(int_type, ArgsCmpTokens, false);
@@ -627,6 +632,9 @@ void registerFunctions(RawContext& context)	{
 	Function *printc_ = Function::Create(FTcharPtr, Function::ExternalLinkage,"printc", TheModule);
 
 	Function *atoi_ = Function::Create(FTcharPtr, Function::ExternalLinkage,"atoi", TheModule);
+	Function *atois_ = Function::Create(FTatois, Function::ExternalLinkage,"atois", TheModule);
+	atois_->addFnAttr(llvm::Attribute::AlwaysInline);
+
 	Function *atof_ = Function::Create(FTatof, Function::ExternalLinkage,"atof", TheModule);
 	Function *printFloat_ = Function::Create(FTprintFloat_, Function::ExternalLinkage, "printFloat", TheModule);
 	Function *printBoolean_ = Function::Create(FTprintBoolean_, Function::ExternalLinkage, "printBoolean", TheModule);
@@ -697,6 +705,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("printBoolean", printBoolean_);
 	context.registerFunction("printc", printc_);
 	context.registerFunction("atoi", atoi_);
+	context.registerFunction("atois", atois_);
 	context.registerFunction("atof", atof_);
 	context.registerFunction("memcpy", memcpy_);
 	context.registerFunction("insertInt", insertIntKeyToHT_);
@@ -710,5 +719,116 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("convertBoolean64", convertBoolean64_);
 }
 
+inline int atoi1(const char *buf) {
+	return  (buf[0] - '0');
+}
 
+inline int atoi2(const char *buf) {
+	return  ((buf[0] - '0') * 10) + \
+			(buf[1] - '0');
+}
+
+inline int atoi3(const char *buf) {
+	return  ((buf[0] - '0') * 100) + \
+			((buf[1] - '0') * 10) + \
+			(buf[2] - '0');
+}
+
+inline int atoi4(const char *buf) {
+	return  ((buf[0] - '0') * 1000) + \
+			((buf[1] - '0') * 100) + \
+			((buf[2] - '0') * 10) + \
+			(buf[3] - '0');
+}
+
+inline int atoi5(const char *buf) {
+	return  ((buf[0] - '0') * 10000) + \
+			((buf[1] - '0') * 1000) + \
+			((buf[2] - '0') * 100) + \
+			((buf[3] - '0') * 10) + \
+			(buf[4] - '0');
+}
+
+inline int atoi6(const char *buf) {
+	return  ((buf[0] - '0') * 100000) + \
+			((buf[1] - '0') * 10000) + \
+			((buf[2] - '0') * 1000) + \
+			((buf[3] - '0') * 100) + \
+			((buf[4] - '0') * 10) + \
+			(buf[5] - '0');
+}
+
+inline int atoi7(const char *buf) {
+	return  ((buf[0] - '0') * 1000000) + \
+			((buf[1] - '0') * 100000) + \
+			((buf[2] - '0') * 10000) + \
+			((buf[3] - '0') * 1000) + \
+			((buf[4] - '0') * 100) + \
+			((buf[5] - '0') * 10) + \
+			(buf[6] - '0');
+}
+
+inline int atoi8(const char *buf) {
+	return  ((buf[0] - '0') * 10000000) + \
+			((buf[1] - '0') * 1000000) + \
+			((buf[2] - '0') * 100000) + \
+			((buf[3] - '0') * 10000) + \
+			((buf[4] - '0') * 1000) + \
+			((buf[5] - '0') * 100) + \
+			((buf[6] - '0') * 10) + \
+			(buf[7] - '0');
+}
+
+inline int atoi9(const char *buf) {
+	return  ((buf[0] - '0') * 100000000) + \
+			((buf[1] - '0') * 10000000) + \
+			((buf[2] - '0') * 1000000) + \
+			((buf[3] - '0') * 100000) + \
+			((buf[4] - '0') * 10000) + \
+			((buf[5] - '0') * 1000) + \
+			((buf[6] - '0') * 100) + \
+			((buf[7] - '0') * 10) + \
+			(buf[8] - '0');
+}
+
+inline int atoi10(const char *buf) {
+	return  ((buf[0] - '0') * 1000000000) + \
+			((buf[1] - '0') * 100000000) + \
+			((buf[2] - '0') * 10000000) + \
+			((buf[3] - '0') * 1000000) + \
+			((buf[4] - '0') * 100000) + \
+			((buf[5] - '0') * 10000) + \
+			((buf[6] - '0') * 1000) + \
+			((buf[7] - '0') * 100) + \
+			((buf[8] - '0') * 10) + \
+			(buf[9] - '0');
+}
+
+inline int atois(const char *buf, int len) {
+	switch (len) {
+	case 1:
+		return atoi1(buf);
+	case 2:
+		return atoi2(buf);
+	case 3:
+		return atoi3(buf);
+	case 4:
+		return atoi4(buf);
+	case 5:
+		return atoi5(buf);
+	case 6:
+		return atoi6(buf);
+	case 7:
+		return atoi7(buf);
+	case 8:
+		return atoi8(buf);
+	case 9:
+		return atoi9(buf);
+	case 10:
+		return atoi10(buf);
+	default:
+		LOG(ERROR) << "[ATOIS: ] Invalid Size " << len;
+		throw runtime_error(string("[ATOIS: ] Invalid Size "));
+	}
+}
 

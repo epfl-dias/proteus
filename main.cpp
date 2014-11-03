@@ -83,7 +83,7 @@ int main(int argc, char* argv[])
 	//reduceNumeric();
 	//reduceBoolean();
 
-//	cidrQuery3();
+	cidrQuery3();
 	cidrQueryCount();
 }
 
@@ -879,7 +879,7 @@ void reduceBoolean()	{
  */
 void cidrQuery3()	{
 
-	bool shortRun = false;
+	bool shortRun = true;
 	string filenameClinical = string("inputs/CIDR15/clinical.csv");
 	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
 	if(shortRun)	{
@@ -1051,6 +1051,7 @@ void cidrQueryCount()	{
 		attrListGenetic.push_back(attr);
 		fieldCount++;
 	}
+	printf("Schema Ingested\n");
 
 	RecordType recGenetic = RecordType(attrListGenetic);
 	vector<RecordAttribute*> whichFieldsGenetic;
@@ -1073,10 +1074,13 @@ void cidrQueryCount()	{
 	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scanGenetic, &ctx);
 	scanGenetic.setParent(&reduce);
 
-	reduce.produce();
-
 	//Run function
+	struct timespec t0, t1;
+	clock_gettime(CLOCK_REALTIME, &t0);
+	reduce.produce();
 	ctx.prepareFunction(ctx.getGlobalFunction());
+	clock_gettime(CLOCK_REALTIME, &t1);
+	printf("Execution took %f seconds\n",diff(t0, t1));
 
 	//Close all open files & clear
 	pgGenetic->finish();

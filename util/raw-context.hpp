@@ -39,7 +39,6 @@
 #include "semi_index/json_semi_index.hpp"
 #include "semi_index/path_parser.hpp"
 
-#include "common/atois.hpp"
 #include "common/common.hpp"
 #include "util/raw-catalog.hpp"
 
@@ -168,5 +167,7 @@ extern "C" int compareTokenString(const char* buf, int start, int end, const cha
 extern "C" bool convertBoolean(const char* buf, int start, int end);
 
 extern "C" bool convertBoolean64(const char* buf, size_t start, size_t end);
+
+extern "C" int atois(const char* buf, int len);
 
 #endif /* RAW_CONTEXT_HPP_ */
