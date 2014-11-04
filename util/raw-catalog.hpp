@@ -3,26 +3,12 @@
 
 #include "common/common.hpp"
 #include "plugins/plugins.hpp"
-#include "plugins/helpers.hpp"
+#include "values/expressionTypes.hpp"
 
 //Forward Declaration
 class Plugin;
 
 using namespace llvm;
-
-//typedef struct RawAttribute	{
-//	string relName;
-//	string attrName;
-//} RawAttribute;
-//
-//bool operator < (const RawAttribute &l, const RawAttribute &r) {
-//	if(l.relName == r.relName)
-//	{
-//		return l.attrName < r.attrName;
-//	}	else	{
-//		return l.relName < r.relName;
-//	}
-//}
 
 //FIXME no need to be a singleton (I think)
 class RawCatalog
@@ -94,24 +80,6 @@ public:
 		return uniqueTableId;
 	}
 
-	JSONHelper* getJSONHelper(char* fileName)	{
-		std::map<std::string, JSONHelper*>::iterator it;
-		it = jsonFiles.find(fileName);
-		if (it == jsonFiles.end()) {
-			throw runtime_error(string("Catalog contains no information about JSON file ")+fileName);
-		}
-		return it->second;
-	}
-
-	void setJSONHelper(string fileName, JSONHelper* helper)	{
-		if(jsonFiles[fileName] != NULL)
-		{
-			LOG(WARNING) << "Catalog already contains a helper class for " << fileName;
-		}
-		jsonFiles[fileName] = helper;
-
-	}
-
 	void registerFileJSON(string fileName, ExpressionType* type) {
 		map<string, ExpressionType*>::iterator it = jsonTypeCatalog.find(fileName);
 		if(it == jsonTypeCatalog.end())	{
@@ -163,7 +131,6 @@ public:
 private:
 	map<string,Plugin*> plugins;
 	map<string,multimap<int,void*>*> intHTs;
-	map<string,JSONHelper*> jsonFiles;
 	map<string, ExpressionType*> jsonTypeCatalog;
 	//Initialized by Reduce() if accumulator type is set
 	map<int,Value*> *reduceSetHT;

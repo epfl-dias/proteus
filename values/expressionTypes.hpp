@@ -111,9 +111,9 @@ public:
 class RecordAttribute	{
 public:
 	RecordAttribute() : attrNo(-1), projected(false), type(NULL), relName(""), attrName("")	{}
-	RecordAttribute(const int& no, const string& relName, const string& attrName, const ExpressionType* const type)
+	RecordAttribute(const int& no, const string& relName, const string& attrName, const ExpressionType* type)
 		: attrNo(no), relName(relName), originalRelName(relName), attrName(attrName), type(type), projected(false) 	{}
-	RecordAttribute(const int& no, const string& originalRelName, const string& relName, const string& attrName, const ExpressionType* const type)
+	RecordAttribute(const int& no, const string& originalRelName, const string& relName, const string& attrName, const ExpressionType* type)
 			: attrNo(no), relName(relName), originalRelName(originalRelName), attrName(attrName), type(type), projected(false) 	{}
 
 	//Constructor used strictly for comparisons in maps
@@ -135,7 +135,7 @@ private:
 	string relName;
 	string attrName;
 	string originalRelName;
-	const ExpressionType* const type;
+	const ExpressionType* type;
 	//Atm, used by eager CSV plugin (for the native relations)
 	int attrNo;
 	bool projected;

@@ -70,7 +70,9 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 					mem_activeTuple = memSearch->second;
 					Value* val_activeTuple = TheBuilder->CreateLoad(mem_activeTuple);
 					//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
-					std::vector<Value*> idxList {context->createInt32(0),context->createInt32(offsetInStruct++)};
+					vector<Value*> idxList = vector<Value*>();
+					idxList.push_back(context->createInt32(0));
+					idxList.push_back(context->createInt32(offsetInStruct++));
 					//Shift in struct ptr
 					Value* structPtr = TheBuilder->CreateGEP(Alloca, idxList);
 					TheBuilder->CreateStore(val_activeTuple,structPtr);
@@ -87,7 +89,9 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 			//FIXME FIX THE NECESSARY CONVERSIONS HERE
 			Value* currVal = TheBuilder->CreateLoad(currValMem);
 			Value* valToMaterialize = pg->convert(currVal->getType(),materializedTypes->at(offsetInWanted),currVal);
-			std::vector<Value*> idxList {context->createInt32(0),context->createInt32(offsetInStruct)};
+			vector<Value*> idxList = vector<Value*>();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(offsetInStruct));
 			//Shift in struct ptr
 			Value* structPtr = TheBuilder->CreateGEP(Alloca, idxList);
 			TheBuilder->CreateStore(valToMaterialize,structPtr);
@@ -230,7 +234,9 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		const vector<RecordAttribute>& tuplesIdentifiers = mat.getTupleIdentifiers();
 		for(vector<RecordAttribute>::const_iterator it = tuplesIdentifiers.begin(); it!=tuplesIdentifiers.end(); it++)	{
 			mem_activeTuple = context->CreateEntryBlockAlloca(TheFunction,"mem_activeTuple",str->getElementType(i));
-			std::vector<Value*> idxList {context->createInt32(0),context->createInt32(i)};
+			vector<Value*> idxList = vector<Value*>();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(i));
 			GetElementPtrInst* elem_ptr = GetElementPtrInst::Create(result_cast, idxList, "ptr_activeTuple", loopBody);
 			stringstream ss;
 			ss<<activeLoop;
@@ -246,7 +252,9 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		for(std::vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!= wantedFields.end(); ++it) {
 			string currField = (*it)->getName();
 			AllocaInst *memForField = context->CreateEntryBlockAlloca(TheFunction,currField+"mem",str->getElementType(i));
-			std::vector<Value*> idxList {context->createInt32(0),context->createInt32(i)};
+			vector<Value*> idxList = vector<Value*>();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(i));
 			GetElementPtrInst* elem_ptr = GetElementPtrInst::Create(result_cast, idxList, currField+"ptr", loopBody);
 			LoadInst* field = new LoadInst(elem_ptr,currField, false, loopBody);
 			StoreInst* store_field = new StoreInst(field, memForField, false, loopBody);

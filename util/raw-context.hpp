@@ -35,17 +35,17 @@
 #ifndef RAW_CONTEXT_HPP_
 #define RAW_CONTEXT_HPP_
 
-#include "jsoncpp/json/json.h"
-#include "semi_index/json_semi_index.hpp"
-#include "semi_index/path_parser.hpp"
+//#include "jsoncpp/json/json.h"
+//#include "semi_index/json_semi_index.hpp"
+//#include "semi_index/path_parser.hpp"
 
 #include "common/common.hpp"
 #include "util/raw-catalog.hpp"
 
-using json::path::path_element_t;
-using json::path::path_t;
-using json::path::path_list_t;
-using semi_index::json_semi_index;
+//using json::path::path_element_t;
+//using json::path::path_t;
+//using json::path::path_list_t;
+//using semi_index::json_semi_index;
 
 //Forward Declaration
 class JSONObject;
@@ -154,13 +154,13 @@ extern "C" void insertIntKeyToHT(char* HTname, int key, void* value,
 extern "C"
 void** probeIntHT(char* HTname, int key, int typeIndex);
 
-extern "C" bool eofJSON(char* jsonName);
-
-extern "C" JSONObject getJSONPositions(char* jsonName, int attrNo);
-
-extern "C" int getJSONInt(char* jsonName, int attrNo);
-
-extern "C" double getJSONDouble(char* jsonName, int attrNo);
+//extern "C" bool eofJSON(char* jsonName);
+//
+//extern "C" JSONObject getJSONPositions(char* jsonName, int attrNo);
+//
+//extern "C" int getJSONInt(char* jsonName, int attrNo);
+//
+//extern "C" double getJSONDouble(char* jsonName, int attrNo);
 
 extern "C" int compareTokenString(const char* buf, int start, int end, const char* candidate);
 

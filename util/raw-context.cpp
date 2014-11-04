@@ -189,7 +189,9 @@ Value* RawContext::getArrayElem(AllocaInst* mem_ptr, PointerType* type, Value* o
 }
 
 Value* RawContext::getStructElem(AllocaInst* mem_struct, int elemNo)	{
-	std::vector<Value*> idxList {createInt32(0),createInt32(elemNo)};
+	vector<Value*> idxList = vector<Value*>();
+	idxList.push_back(createInt32(0));
+	idxList.push_back(createInt32(elemNo));
 	//Shift in struct ptr
 	Value* mem_struct_shifted = TheBuilder->CreateGEP(mem_struct, idxList);
 	Value* val_struct_shifted =  TheBuilder->CreateLoad(mem_struct_shifted);
@@ -244,8 +246,10 @@ Value* RawContext::CreateGlobalString(char* str) {
 	PointerType* charPtrType = PointerType::get(IntegerType::get(ctx, 8), 0);
 	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, std::string("htName"), charPtrType);
 
-	std::vector<Value*> idxList { createInt32(0), createInt32(0) };
-		Constant* shifted = ConstantExpr::getGetElementPtr(gvar_array__str,idxList);
+	vector<Value*> idxList = vector<Value*>();
+	idxList.push_back(createInt32(0));
+	idxList.push_back(createInt32(0));
+	Constant* shifted = ConstantExpr::getGetElementPtr(gvar_array__str,idxList);
 	gvar_array__str->setInitializer(tmpHTname);
 
 
@@ -374,153 +378,6 @@ void** probeIntHT(char* HTname, int key, int typeIndex) {
 		curr++;
 	}
 	return bindings;
-}
-
-bool eofJSON(char* jsonName) {
-	RawCatalog& catalog = RawCatalog::getInstance();
-	JSONHelper* helper = catalog.getJSONHelper(jsonName);
-	json_semi_index::cursor* cursor = helper->getCursor();
-
-	//TODO Don't forget to delete cursors!! Not here probably, find a way to GC at the end
-	json_semi_index::cursor* nextCursor = helper->getNextCursor();
-
-	//json_semi_index::cursor cursor = helper->getIndex().get_cursor();
-	//std::cout<<"EOF CHECK "<<(*cursor == json_semi_index::cursor())<<std::endl;
-	bool eofCheck = (*nextCursor == json_semi_index::cursor());
-	//std::cout<<"EOF CHECK "<<eofCheck<<std::endl;
-
-	if (!eofCheck) {
-		helper->setCursor(nextCursor);
-		//		std::cout<<"Moving cursor"<<std::endl;
-		//		printf("1. Old: %ld New: %ld\n",cursor,nextCursor);
-		nextCursor = nextCursor->nextNew();
-		//		printf("New: %ld\n",nextCursor);
-		//		printf("2. Old: %ld New: %ld\n",cursor,nextCursor);
-		helper->setNextCursor(nextCursor);
-
-		//std::cout<<"Hint:"<<(*nextCursor == json_semi_index::cursor())<<std::endl;
-	}
-
-	return eofCheck;
-}
-
-JSONObject getJSONPositions(char* jsonName, int attrNo) {
-	RawCatalog& catalog = RawCatalog::getInstance();
-	JSONHelper* helper = catalog.getJSONHelper(jsonName);
-
-	//		if(attrNo >= attsNo)	{
-	//			throw runtime_error(string("Attribute No. requested from JSON file outside of scope"));
-	//		}
-	json_semi_index::cursor* cursor = helper->getCursor();
-	//	json_semi_index::cursor cursor = helper->getIndex().get_cursor();
-
-	path_t const& path = helper->getAtts()[attrNo];
-
-	//vector<RecordAttribute*> attsOrig = helper->getAttsOriginal();
-	const char* line = helper->getRawBuf() + cursor->get_offset();
-	//printf("In LLVM: %c\n",(helper->getRawBuf())[0]);
-
-	json_semi_index::accessor accessor, root = cursor->get_accessor(line);
-
-	//Needs to take place ONCE per 'tuple'!
-	//	cursor = cursor->nextNew();
-	//	helper->setCursor(cursor);
-
-	accessor = root.get_path(path);
-	JSONObject obj;
-	if (accessor.is_valid) {
-		json_semi_index::accessor::range_t r = accessor.get_range();
-//		if(attrNo == 0)
-//			std::cout<<"Hint: "<<atoi(line + r.first);
-
-		obj.pos = (size_t) (line + r.first);
-		obj.end = r.second - r.first;
-
-		//XXX Again, assuming string attribute is preceded by a whitespace!
-		//=> Must ignore whitespace, opening + closing "
-		obj.pos += 2;
-		obj.end -= 3;
-
-		//		size_t start = obj.pos + 2;
-		//		size_t end = obj.end -3;
-		//		for(int i = 0; i < end; i++)
-		//		{
-		//			printf("%c",((char*)start)[i]);
-		//		}
-		//printf(" - %ld \n",end);
-	} else {
-		LOG(ERROR) << "[getJSONPositions: ] Invalid Accessor";
-		//fwrite("null", 4, 1, stdout);
-		throw runtime_error(string("[getJSONPositions: ] Missing field! - Must handle this case better later on"));
-	}
-	//std::cout<<"GOT (SOME) JSON VALUE"<<std::endl;
-
-	return obj;
-}
-
-int getJSONInt(char* jsonName, int attrNo) {
-
-	LOG(INFO) << "[SCAN - JSON: ] READING A JSON INT VALUE FROM ATTR " << attrNo;
-	RawCatalog& catalog = RawCatalog::getInstance();
-	JSONHelper* helper = catalog.getJSONHelper(jsonName);
-	LOG(INFO) << "[SCAN - JSON: ] File: " << helper->getFileName();
-	json_semi_index::cursor* cursor = helper->getCursor();
-
-	path_t const& path = helper->getAtts()[attrNo];
-
-	const char* line = helper->getRawBuf() + cursor->get_offset();
-
-	json_semi_index::accessor accessor, root = cursor->get_accessor(line);
-	//LOG(INFO) << "[SCAN - JSON: ] Line Processed:";
-	//LOG(INFO) << line;
-	accessor = root.get_path(path);
-
-	int parsedInt;
-	if (accessor.is_valid) {
-		json_semi_index::accessor::range_t r = accessor.get_range();
-		//		obj.pos = (size_t) (line + r.first);
-		//		obj.end = r.second - r.first;
-
-		//XXX: Assumption (ours and of the author of semi-index)
-		//that in our JSON files there is one whitespace between ':' and raw integer!
-		//If it is too much, we will extend our atois appropriately
-		parsedInt = atois((line + r.first + 1), r.second - r.first - 1);
-		LOG(INFO) << "[SCAN - JSON: ] PARSED INT " << parsedInt;
-	} else {
-		//fwrite("null", 4, 1, stdout);
-		LOG(ERROR) << "[getJSONInt: ] Invalid Accessor";
-		LOG(ERROR) << "[getJSONInt: ] May be caused by missing field - Must handle this case better later on";
-		throw runtime_error(string("[getJSONInt: ] Invalid Accessor"));
-	}
-	return parsedInt;
-}
-
-double getJSONDouble(char* jsonName, int attrNo) {
-
-	LOG(INFO) << "[SCAN - JSON: ] READING A JSON FLOAT VALUE FROM ATTR "
-			<< attrNo;
-	RawCatalog& catalog = RawCatalog::getInstance();
-	JSONHelper* helper = catalog.getJSONHelper(jsonName);
-
-	json_semi_index::cursor* cursor = helper->getCursor();
-
-	path_t const& path = helper->getAtts()[attrNo];
-
-	const char* line = helper->getRawBuf() + cursor->get_offset();
-
-	json_semi_index::accessor accessor, root = cursor->get_accessor(line);
-
-	accessor = root.get_path(path);
-
-	double parsedFloat;
-	if (accessor.is_valid) {
-		json_semi_index::accessor::range_t r = accessor.get_range();
-		parsedFloat = atof((line + r.first));
-		LOG(INFO) << "[SCAN - JSON: ] PARSED FLOAT " << parsedFloat;
-	} else {
-		throw runtime_error(string("Missing field! - Must handle this case better later on"));
-	}
-	return parsedFloat;
 }
 
 int compareTokenString(const char* buf, int start, int end, const char* candidate)	{
@@ -671,34 +528,6 @@ void registerFunctions(RawContext& context)	{
 	Function* probeIntHT_ = Function::Create(FTint_probeHT,	Function::ExternalLinkage, "probeIntHT", TheModule);
 	probeIntHT_->addFnAttr(llvm::Attribute::AlwaysInline);
 
-	//JSON PLUGIN
-
-	//eof
-	Type* eof_json_types[] = { char_ptr_type };
-	FunctionType *FTeof_json = FunctionType::get(int8_type, eof_json_types, false);
-	Function* eof_json_ = Function::Create(FTeof_json, Function::ExternalLinkage, "eofJSON", TheModule);
-	eof_json_->addFnAttr(llvm::Attribute::AlwaysInline);
-
-	//getJSONPositions
-	//Should also be used for string objects
-	Type* get_json_value_types[] = { char_ptr_type, int_type };
-	StructType* jsonPosStructType = context.CreateJSONPosStruct();
-	FunctionType *FTget_json_value_ = FunctionType::get(jsonPosStructType, get_json_value_types, false);
-	Function* get_json_value_ = Function::Create(FTget_json_value_,	Function::ExternalLinkage, "getJSONPositions", TheModule);
-	get_json_value_->addFnAttr(llvm::Attribute::AlwaysInline);
-
-	//getJSONInt
-	Type* get_json_int_types[] = { char_ptr_type, int_type };
-	FunctionType *FTget_json_int_ = FunctionType::get(int_type,	get_json_int_types, false);
-	Function* get_json_int_ = Function::Create(FTget_json_int_,	Function::ExternalLinkage, "getJSONInt", TheModule);
-	get_json_int_->addFnAttr(llvm::Attribute::AlwaysInline);
-
-	//getJSONFloat
-	Type* get_json_double_types[] = { char_ptr_type, int_type };
-	FunctionType *FTget_json_double_ = FunctionType::get(double_type, get_json_double_types, false);
-	Function* get_json_double_ = Function::Create(FTget_json_double_, Function::ExternalLinkage, "getJSONDouble", TheModule);
-	get_json_double_->addFnAttr(llvm::Attribute::AlwaysInline);
-
 	context.registerFunction("printi", printi_);
 	context.registerFunction("printi64", printi64_);
 	context.registerFunction("printFloat", printFloat_);
@@ -710,10 +539,6 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("memcpy", memcpy_);
 	context.registerFunction("insertInt", insertIntKeyToHT_);
 	context.registerFunction("probeInt", probeIntHT_);
-	context.registerFunction("eofJSON", eof_json_);
-	context.registerFunction("getJSONPositions", get_json_value_);
-	context.registerFunction("getJSONInt", get_json_int_);
-	context.registerFunction("getJSONDouble", get_json_double_);
 	context.registerFunction("compareTokenString", compareTokenString_);
 	context.registerFunction("convertBoolean", convertBoolean_);
 	context.registerFunction("convertBoolean64", convertBoolean64_);
@@ -804,7 +629,7 @@ inline int atoi10(const char *buf) {
 			(buf[9] - '0');
 }
 
-inline int atois(const char *buf, int len) {
+int atois(const char *buf, int len) {
 	switch (len) {
 	case 1:
 		return atoi1(buf);

@@ -68,18 +68,12 @@
 #define JSMN_STRICT
 #include "jsmn/jsmn.h"
 
-//Handling conflict between Mongo and Google logger
-#include "mongodb/db/jsobj.h"
-#include "mongodb/db/json.h"
-#undef LOG
 //Used to remove all logging messages at compile time and not affect performance
 //Must be placed before glog include
 #undef GOOGLE_STRIP_LOG
 #undef STRIP_LOG
 #define GOOGLE_STRIP_LOG 1
 #define STRIP_LOG 1
-
-
 
 #include <glog/logging.h>
 
@@ -90,6 +84,7 @@
 
 using std::cout;
 using std::runtime_error;
+using std::vector;
 using std::string;
 using std::endl;
 using std::pair;
@@ -98,6 +93,8 @@ using std::multimap;
 using std::list;
 using std::stringstream;
 using std::fstream;
+using std::ifstream;
+using std::map;
 
 using namespace llvm;
 

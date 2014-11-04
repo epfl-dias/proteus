@@ -25,7 +25,6 @@
 
 void RawCatalog::clear()	{
 	intHTs.clear();
-	jsonFiles.clear();
 	jsonTypeCatalog.clear();
 	resultTypes.clear();
 	plugins.clear();
