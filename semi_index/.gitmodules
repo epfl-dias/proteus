@@ -1,3 +1,0 @@
-[submodule "succinct"]
-	path = succinct
-	url = git://github.com/ot/succinct
