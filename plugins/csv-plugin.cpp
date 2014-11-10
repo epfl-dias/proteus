@@ -427,59 +427,6 @@ void CSVPlugin::getFieldEndLLVM()
 	Builder->CreateStore(finalVar, NamedValuesCSV[posVar]);
 }
 
-//void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables, Function* atoi_,Function* debugChar,Function* debugInt)
-//{
-//	//Prepare
-//	LLVMContext& llvmContext = context->getLLVMContext();
-//	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-//	Type* int32Type = Type::getInt32Ty(llvmContext);
-//	Type* int64Type = Type::getInt64Ty(llvmContext);
-//	IRBuilder<>* Builder = context->getBuilder();
-//	Function *TheFunction = Builder->GetInsertBlock()->getParent();
-//
-//	//Fetch values from symbol table
-//	AllocaInst* pos;
-//	{
-//		std::map<std::string, AllocaInst*>::iterator it;
-//		it = NamedValuesCSV.find(posVar);
-//		if (it == NamedValuesCSV.end()) {
-//			throw runtime_error(string("Unknown variable name: ") + posVar);
-//		}
-//		pos = it->second;
-//	}
-//	AllocaInst* buf;
-//	{
-//		std::map<std::string, AllocaInst*>::iterator it;
-//		it = NamedValuesCSV.find(bufVar);
-//		if (it == NamedValuesCSV.end()) {
-//			throw runtime_error(string("Unknown variable name: ") + bufVar);
-//		}
-//		buf = it->second;
-//	}
-//
-//	Value* start = Builder->CreateLoad(pos, "start_pos_atoi");
-//	skipLLVM();
-//	//index must be different than start!
-//	Value* index = Builder->CreateLoad(pos, "end_pos_atoi");
-//	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
-//	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
-//
-//	std::vector<Value*> ArgsV;
-//	ArgsV.clear();
-//	ArgsV.push_back(bufShiftedPtr);
-//
-//	Value* parsedInt = Builder->CreateCall(atoi_, ArgsV, "atoi");
-//	AllocaInst *Alloca = context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
-//	Builder->CreateStore(parsedInt,Alloca);
-//	LOG(INFO) << "[READ INT: ] Atoi Successful";
-//
-//	ArgsV.clear();
-//	ArgsV.push_back(parsedInt);
-//	//Debug
-//	//Builder->CreateCall(debugInt, ArgsV, "printi");
-//	variables[attName] = Alloca;
-//}
-
 void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables, Function* atoi_,Function* debugChar,Function* debugInt)
 {
 	//Prepare

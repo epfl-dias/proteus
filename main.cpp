@@ -31,6 +31,7 @@
 #include "operators/root.hpp"
 #include "operators/reduce.hpp"
 #include "plugins/csv-plugin.hpp"
+#include "plugins/binary-row-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
@@ -58,6 +59,9 @@ void scanCSVBoolean();
 void cidrQuery3();
 void cidrQueryCount();
 
+void cidrBin();
+
+
 int main(int argc, char* argv[])
 {
 
@@ -83,8 +87,10 @@ int main(int argc, char* argv[])
 	//reduceNumeric();
 	//reduceBoolean();
 
-	cidrQuery3();
-	cidrQueryCount();
+	//cidrQuery3();
+	//cidrQueryCount();
+
+	cidrBin();
 }
 
 void unnestJsmnInterpreted()	{
@@ -879,7 +885,7 @@ void reduceBoolean()	{
  */
 void cidrQuery3()	{
 
-	bool shortRun = true;
+	bool shortRun = false;
 	string filenameClinical = string("inputs/CIDR15/clinical.csv");
 	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
 	if(shortRun)	{
@@ -1002,9 +1008,12 @@ void cidrQuery3()	{
 	 * (COUNT)
 	 */
 	expressions::Expression* outputExpr = new expressions::IntConstant(1);
+	//expressions::RecordProjection* outputExpr = new expressions::RecordProjection(intType,argClinical,*rid);
+
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* predicate = new expressions::EqExpression(new BoolType(),val_true,val_true);
 	Reduce reduce = Reduce(SUM, outputExpr, predicate, &join, &ctx);
+	//Reduce reduce = Reduce(MAX, outputExpr, predicate, &join, &ctx);
 	join.setParent(&reduce);
 
 	reduce.produce();
@@ -1084,5 +1093,58 @@ void cidrQueryCount()	{
 
 	//Close all open files & clear
 	pgGenetic->finish();
+	catalog.clear();
+}
+
+void cidrBin()	{
+
+	bool shortRun = false;
+	string filenameBin = string("inputs/CIDR15/example.bin");
+
+	RawContext ctx = RawContext("CIDR-QueryBin");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* intType = new IntType();
+
+	int fieldCount = 1;
+	list<RecordAttribute*> attrListBin;
+	while (fieldCount <= 5) {
+		RecordAttribute* attr = NULL;
+
+		stringstream ss;
+		ss << fieldCount;
+		string attrname = ss.str();
+
+		attr = new RecordAttribute(fieldCount++, filenameBin, attrname,intType);
+		attrListBin.push_back(attr);
+	}
+	printf("Schema Ingested\n");
+
+	RecordType recBin = RecordType(attrListBin);
+	vector<RecordAttribute*> whichFieldsBin;
+	RecordAttribute* iid = new RecordAttribute(2, filenameBin, "IID", intType);
+	whichFieldsBin.push_back(iid);
+
+	BinaryRowPlugin *pgBin = new BinaryRowPlugin(&ctx, filenameBin, recBin,
+			whichFieldsBin);
+	catalog.registerPlugin(filenameBin, pgBin);
+	Scan scanBin = Scan(&ctx, *pgBin);
+
+	//PRINT
+	Function* debugInt = ctx.getFunction("printi");
+	expressions::Expression* arg = new expressions::InputArgument(&recBin, 0);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(intType,arg,*iid);
+	Print printOp = Print(debugInt,proj,&scanBin);
+	scanBin.setParent(&printOp);
+
+	//ROOT
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pgBin->finish();
 	catalog.clear();
 }

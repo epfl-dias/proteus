@@ -47,7 +47,7 @@ GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
 RMOBJS = main util/raw-catalog.o util/raw-context.o plugins/object/plugins-llvm.o expressions/binary-operators.o \
 		 expressions/expressions.o  expressions/expressions-generator.o values/expressionTypes.o  \
 		 operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o \
-		 plugins/csv-plugin.o \
+		 plugins/csv-plugin.o plugins/binary-row-plugin.o \
 		 plugins/json-jsmn-plugin.o \
 		 plugins/output/plugins-output.o plugins/helpers.o common/common.o tests/test1.o tests-relational.o gtest_main.o gtest-all.o \
 		 tests-operators.o tests-sailors.o benchmark tests-sailors tests-operators gtest_main.a \
@@ -63,6 +63,9 @@ values/expressionTypes.o: values/expressionTypes.cpp
 	${CPP} ${CCFLAGS} ${CPPFLAGS} $(CXXFLAGS) ${LLVMOPT} $^ -o $@
 
 plugins/csv-plugin.o: plugins/csv-plugin.cpp
+	${CPP} ${CCFLAGS} ${CPPFLAGS} $(CXXFLAGS) ${LLVMOPT} $^ -o $@
+
+plugins/binary-row-plugin.o: plugins/binary-row-plugin.cpp
 	${CPP} ${CCFLAGS} ${CPPFLAGS} $(CXXFLAGS) ${LLVMOPT} $^ -o $@
 
 plugins/json-jsmn-plugin.o: plugins/json-jsmn-plugin.cpp
@@ -114,7 +117,7 @@ jsmn/jsmn.o: jsmn/jsmn.c jsmn/jsmn.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
 main: main.cpp libjsmn.a common/common.o values/expressionTypes.o \
-	plugins/csv-plugin.o \
+	plugins/csv-plugin.o plugins/binary-row-plugin.o \
 	plugins/json-jsmn-plugin.o plugins/output/plugins-output.o \
 	operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o operators/unnest.o \
 	operators/reduce.o \
@@ -162,7 +165,7 @@ tests-operators.o : tests/tests-operators.cpp $(GTEST_HEADERS)
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) ${LLVMOPT} -c tests/tests-operators.cpp 
 
 tests-operators : tests-operators.o gtest_main.a libjsmn.a common/common.o values/expressionTypes.o \
-					plugins/csv-plugin.o \
+					plugins/csv-plugin.o plugins/binary-row-plugin.o \
 					plugins/json-jsmn-plugin.o \
 					plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o \
 					operators/reduce.o \
@@ -174,7 +177,7 @@ tests-sailors.o : tests/tests-sailors.cpp $(GTEST_HEADERS)
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) ${LLVMOPT} -c tests/tests-sailors.cpp 
 
 tests-sailors : tests-sailors.o gtest_main.a libjsmn.a common/common.o values/expressionTypes.o \
-				plugins/csv-plugin.o \
+				plugins/csv-plugin.o plugins/binary-row-plugin.o \
 				plugins/json-jsmn-plugin.o \
 				plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o \
 				operators/reduce.o \
