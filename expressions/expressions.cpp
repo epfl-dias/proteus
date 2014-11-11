@@ -90,7 +90,11 @@ Value* MultExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* DivExpression::accept(ExprVisitor &v) {
+Value* AndExpression::accept(ExprVisitor &v) {
+	return v.visit(this);
+}
+
+Value* OrExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 

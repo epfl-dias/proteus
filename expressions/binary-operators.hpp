@@ -41,6 +41,8 @@ class Add  : public BinaryOperator {};
 class Sub  : public BinaryOperator {};
 class Mult : public BinaryOperator {};
 class Div  : public BinaryOperator {};
+class And  : public BinaryOperator {};
+class Or  : public BinaryOperator {};
 }
 
 #endif /* BINARYOPERATORS_HPP_ */

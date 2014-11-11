@@ -58,9 +58,11 @@ void scanCSVBoolean();
 
 void cidrQuery3();
 void cidrQueryCount();
+void cidrQueryWarm(int ageParam, int volParam);
 
 void cidrBin();
-
+void cidrBinStrConstant();
+void cidrBinStr();
 
 int main(int argc, char* argv[])
 {
@@ -90,7 +92,14 @@ int main(int argc, char* argv[])
 	//cidrQuery3();
 	//cidrQueryCount();
 
-	cidrBin();
+	//cidrBinStr();
+
+	//100 queries
+	for(int ageParam = 40; ageParam < 50; ageParam++)	{
+		for(int volParam = 1; volParam <= 10; volParam++)	{
+			cidrQueryWarm(ageParam,volParam);
+		}
+	}
 }
 
 void unnestJsmnInterpreted()	{
@@ -1121,8 +1130,10 @@ void cidrBin()	{
 
 	RecordType recBin = RecordType(attrListBin);
 	vector<RecordAttribute*> whichFieldsBin;
-	RecordAttribute* iid = new RecordAttribute(2, filenameBin, "IID", intType);
-	whichFieldsBin.push_back(iid);
+	RecordAttribute *field2 = new RecordAttribute(2, filenameBin, "field2", intType);
+	RecordAttribute *field4 = new RecordAttribute(4, filenameBin, "field4", intType);
+	whichFieldsBin.push_back(field2);
+	whichFieldsBin.push_back(field4);
 
 	BinaryRowPlugin *pgBin = new BinaryRowPlugin(&ctx, filenameBin, recBin,
 			whichFieldsBin);
@@ -1132,7 +1143,7 @@ void cidrBin()	{
 	//PRINT
 	Function* debugInt = ctx.getFunction("printi");
 	expressions::Expression* arg = new expressions::InputArgument(&recBin, 0);
-	expressions::RecordProjection* proj = new expressions::RecordProjection(intType,arg,*iid);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(intType,arg,*field4);
 	Print printOp = Print(debugInt,proj,&scanBin);
 	scanBin.setParent(&printOp);
 
@@ -1146,5 +1157,352 @@ void cidrBin()	{
 
 	//Close all open files & clear
 	pgBin->finish();
+	catalog.clear();
+}
+
+void cidrBinStrConstant()	{
+
+	bool shortRun = false;
+	//File schema: 5 integer fields
+	string filenameBin = string("inputs/CIDR15/example.bin");
+
+	RawContext ctx = RawContext("CIDR-QueryBinStrCons");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* intType = new IntType();
+
+	int fieldCount = 1;
+	list<RecordAttribute*> attrListBin;
+	while (fieldCount <= 5) {
+		RecordAttribute* attr = NULL;
+
+		stringstream ss;
+		ss << fieldCount;
+		string attrname = ss.str();
+
+		attr = new RecordAttribute(fieldCount++, filenameBin, attrname,intType);
+		attrListBin.push_back(attr);
+	}
+	printf("Schema Ingested\n");
+
+	RecordType recBin = RecordType(attrListBin);
+	vector<RecordAttribute*> whichFieldsBin;
+	RecordAttribute *field2 = new RecordAttribute(2, filenameBin, "field2", intType);
+	RecordAttribute *field4 = new RecordAttribute(4, filenameBin, "field4", intType);
+	whichFieldsBin.push_back(field2);
+	whichFieldsBin.push_back(field4);
+
+	BinaryRowPlugin *pgBin = new BinaryRowPlugin(&ctx, filenameBin, recBin,
+			whichFieldsBin);
+	catalog.registerPlugin(filenameBin, pgBin);
+	Scan scanBin = Scan(&ctx, *pgBin);
+
+	//SELECT
+	string const1 = string("test2");
+	string const2 = string("test2");
+	expressions::Expression* arg1str = new expressions::StringConstant(const1);
+	expressions::Expression* arg2str = new expressions::StringConstant(const2);
+	expressions::Expression* selPredicate = new expressions::EqExpression(new BoolType(),arg1str,arg2str);
+	Select selStr = Select(selPredicate,&scanBin);
+	scanBin.setParent(&selStr);
+
+	//PRINT
+	Function* debugInt = ctx.getFunction("printi");
+	expressions::Expression* arg = new expressions::InputArgument(&recBin, 0);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(intType,arg,*field4);
+	Print printOp = Print(debugInt,proj,&selStr);
+	selStr.setParent(&printOp);
+
+	//ROOT
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pgBin->finish();
+	catalog.clear();
+}
+
+void cidrBinStr()	{
+
+	bool shortRun = false;
+	//File schema: 2 integers - 1 char field of size 5 - 2 integers
+	string filenameBin = string("inputs/CIDR15/exampleStr.bin");
+
+	RawContext ctx = RawContext("CIDR-QueryBinStr");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* stringType = new StringType();
+
+	int fieldCount = 1;
+	list<RecordAttribute*> attrListBin;
+	while (fieldCount <= 5) {
+		RecordAttribute* attr = NULL;
+
+		stringstream ss;
+		ss << fieldCount;
+		string attrname = ss.str();
+		if(fieldCount != 3)	{
+			attr = new RecordAttribute(fieldCount++, filenameBin, attrname,intType);
+		}	else	{
+			attr = new RecordAttribute(fieldCount++, filenameBin, attrname,stringType);
+		}
+		attrListBin.push_back(attr);
+	}
+	printf("Schema Ingested\n");
+
+	RecordType recBin = RecordType(attrListBin);
+	vector<RecordAttribute*> whichFieldsBin;
+	RecordAttribute *field3 = new RecordAttribute(3, filenameBin, "field3", stringType);
+	RecordAttribute *field4 = new RecordAttribute(4, filenameBin, "field4", intType);
+	whichFieldsBin.push_back(field3);
+	whichFieldsBin.push_back(field4);
+
+	BinaryRowPlugin *pgBin = new BinaryRowPlugin(&ctx, filenameBin, recBin,
+			whichFieldsBin);
+	catalog.registerPlugin(filenameBin, pgBin);
+	Scan scanBin = Scan(&ctx, *pgBin);
+
+	//SELECT
+	string constStr = string("ALZHM");
+	expressions::Expression* lhsArg = new expressions::InputArgument(&recBin, 0);
+	expressions::RecordProjection* lhsProj = new expressions::RecordProjection(stringType,lhsArg,*field3);
+	expressions::Expression* arg2str = new expressions::StringConstant(constStr);
+	expressions::Expression* selPredicate = new expressions::EqExpression(new BoolType(),lhsProj,arg2str);
+	Select selStr = Select(selPredicate,&scanBin);
+	scanBin.setParent(&selStr);
+
+	//PRINT
+	Function* debugInt = ctx.getFunction("printi");
+	expressions::Expression* arg = new expressions::InputArgument(&recBin, 0);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(intType,arg,*field4);
+	Print printOp = Print(debugInt,proj,&selStr);
+	selStr.setParent(&printOp);
+
+	//ROOT
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pgBin->finish();
+	catalog.clear();
+}
+
+/**
+ * SELECT MAX(Olfactory_L_1691_Vol)
+ * FROM clinical, genetic_part1, regions_part6
+ * WHERE clinical.rid = genetic_part1.iid AND
+ *       clinical.rid = regions_part6.iid AND
+ *       age > 44 AND city = 'Lausa'      AND
+ *       genetic_part1.FID = 'ALZHM'      AND
+ *       Olfactory_L_1691_Vol <= 2;
+ */
+
+void cidrQueryWarm(int ageParam, int volParam)	{
+//	int ageParam = 44;
+//	int volParam = 2;
+
+	string filenameClinical = string("inputs/CIDR15/clinicalToConvert.bin");
+	string filenameGenetic = string("inputs/CIDR15/geneticToConvert.bin");
+	string filenameRegions = string("inputs/CIDR15/regionsToConvert.bin");
+
+	RawContext ctx = RawContext("CIDR-QueryWarm");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* stringType = new StringType();
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* doubleType = new FloatType();
+
+	/**
+	 * SCAN (Clinical)
+	 */
+	RecordAttribute *rid = new RecordAttribute(1, filenameClinical, "rid",
+			intType);
+	RecordAttribute *age = new RecordAttribute(2, filenameClinical, "age",
+			intType);
+	RecordAttribute *city = new RecordAttribute(3, filenameClinical, "city",
+			stringType);
+	list<RecordAttribute*> attrListClinical;
+	attrListClinical.push_back(rid);
+	attrListClinical.push_back(age);
+	attrListClinical.push_back(city);
+	RecordType recClinical = RecordType(attrListClinical);
+
+	vector<RecordAttribute*> whichFieldsClinical;
+	whichFieldsClinical.push_back(rid);
+	whichFieldsClinical.push_back(age);
+	whichFieldsClinical.push_back(city);
+
+	BinaryRowPlugin *pgClinical = new BinaryRowPlugin(&ctx, filenameClinical,
+			recClinical, whichFieldsClinical);
+
+	catalog.registerPlugin(filenameClinical, pgClinical);
+	Scan scanClinical = Scan(&ctx, *pgClinical);
+
+	//SELECT
+	expressions::Expression* argClinical = new expressions::InputArgument(
+			&recClinical, 0);
+	expressions::RecordProjection* clinicalAge =
+			new expressions::RecordProjection(intType, argClinical, *age);
+	expressions::Expression* rhsAge = new expressions::IntConstant(ageParam);
+	expressions::Expression* selPredicate1 = new expressions::GtExpression(
+			new BoolType(), clinicalAge, rhsAge);
+
+	expressions::RecordProjection* clinicalCity =
+			new expressions::RecordProjection(stringType, argClinical, *city);
+	string cityName = string("Lausa");
+	expressions::Expression* rhsCity = new expressions::StringConstant(
+			cityName);
+	expressions::Expression* selPredicate2 = new expressions::EqExpression(
+			new BoolType(), clinicalCity, rhsCity);
+
+	expressions::Expression* selPredicate = new expressions::AndExpression(
+			new BoolType(), selPredicate1, selPredicate2);
+
+	Select selClinical = Select(selPredicate, &scanClinical);
+	scanClinical.setParent(&selClinical);
+
+	/**
+	 * SCAN (Regions)
+	 */
+	RecordAttribute *iidRegions = new RecordAttribute(1, filenameRegions, "iid",
+			intType);
+	RecordAttribute *vol = new RecordAttribute(2, filenameRegions, "vol",
+			intType);
+	list<RecordAttribute*> attrListRegions;
+	attrListRegions.push_back(iidRegions);
+	attrListRegions.push_back(vol);
+	RecordType recRegions = RecordType(attrListRegions);
+
+	vector<RecordAttribute*> whichFieldsRegions;
+	whichFieldsRegions.push_back(iidRegions);
+	whichFieldsRegions.push_back(vol);
+
+	BinaryRowPlugin *pgRegions = new BinaryRowPlugin(&ctx, filenameRegions,
+			recRegions, whichFieldsRegions);
+
+	catalog.registerPlugin(filenameRegions, pgRegions);
+	Scan scanRegions = Scan(&ctx, *pgRegions);
+
+	//SELECT
+	expressions::Expression* argRegions = new expressions::InputArgument(
+			&recRegions, 0);
+	expressions::RecordProjection* regionsVol =
+			new expressions::RecordProjection(intType, argRegions, *vol);
+	expressions::Expression* rhsVol = new expressions::IntConstant(volParam);
+	expressions::Expression* selPredicateRegions =
+			new expressions::LeExpression(new BoolType(), regionsVol, rhsVol);
+	Select selRegions = Select(selPredicateRegions, &scanRegions);
+	scanRegions.setParent(&selRegions);
+
+	/**
+	 *  JOIN
+	 *  clinical JOIN regions
+	 */
+	expressions::RecordProjection* argClinicalId =
+			new expressions::RecordProjection(intType, argClinical, *rid);
+	expressions::RecordProjection* argRegionsId =
+			new expressions::RecordProjection(intType, argRegions, *iidRegions);
+	expressions::BinaryExpression* joinPredClinical = new expressions::EqExpression(
+			new BoolType(), argClinicalId, argRegionsId);
+	//Don't need fields from left side
+	vector<materialization_mode> outputModes;
+	vector<RecordAttribute*> whichFieldsJoin;
+	Materializer* mat = new Materializer(whichFieldsJoin, outputModes);
+
+	Join joinClinicalRegions = Join(joinPredClinical, selClinical, scanRegions,
+			"joinClinicalRegions", *mat);
+	selClinical.setParent(&joinClinicalRegions);
+	selRegions.setParent(&joinClinicalRegions);
+
+	/**
+	 * SCAN (Genetic)
+	 */
+	RecordAttribute *fid = new RecordAttribute(1, filenameGenetic, "fid",
+			stringType);
+	RecordAttribute *iid = new RecordAttribute(2, filenameGenetic, "iid",
+			intType);
+	list<RecordAttribute*> attrListGenetic;
+	attrListGenetic.push_back(fid);
+	attrListGenetic.push_back(iid);
+	RecordType recGenetic = RecordType(attrListGenetic);
+
+	vector<RecordAttribute*> whichFieldsGenetic;
+	whichFieldsGenetic.push_back(fid);
+	whichFieldsGenetic.push_back(iid);
+
+	BinaryRowPlugin *pgGenetic = new BinaryRowPlugin(&ctx, filenameGenetic,
+			recGenetic, whichFieldsGenetic);
+
+	catalog.registerPlugin(filenameGenetic, pgGenetic);
+	Scan scanGenetic = Scan(&ctx, *pgGenetic);
+
+	//SELECT
+	expressions::Expression* argGenetic = new expressions::InputArgument(&recGenetic,0);
+	expressions::RecordProjection* geneticFid = new expressions::RecordProjection(stringType,argGenetic,*fid);
+	string fidName = string("ALZHM");
+	expressions::Expression* rhsFid = new expressions::StringConstant(fidName);
+	expressions::Expression* selPredicateGenetic = new expressions::EqExpression(new BoolType(),geneticFid,rhsFid);
+	Select selGenetic = Select(selPredicateGenetic,&scanGenetic);
+	scanGenetic.setParent(&selGenetic);
+
+
+	/**
+	 *  JOIN
+	 *  intermediate JOIN genetic
+	 */
+
+	expressions::RecordProjection* argGeneticId =
+			new expressions::RecordProjection(intType, argGenetic, *iid);
+	expressions::BinaryExpression* joinPredGenetic = new expressions::EqExpression(
+				new BoolType(), argRegionsId, argGeneticId);
+	vector<materialization_mode> outputModes2;
+	outputModes2.insert(outputModes.begin(),EAGER);
+	vector<RecordAttribute*> whichFieldsJoin2;
+	whichFieldsJoin2.push_back(vol);
+	Materializer* mat2 = new Materializer(whichFieldsJoin2, outputModes2);
+
+	Join joinGenetic = Join(joinPredGenetic, joinClinicalRegions, scanGenetic,
+				"joinGenetic", *mat2);
+	joinClinicalRegions.setParent(&joinGenetic);
+	selGenetic.setParent(&joinGenetic);
+
+//	//PRINT
+//	Function* debugInt = ctx.getFunction("printi");
+//	expressions::RecordProjection* argGeneticProj =
+//			new expressions::RecordProjection(intType, argRegions, *vol);
+//
+//	Print printOp = Print(debugInt, argGeneticProj, &joinGenetic);
+//	joinGenetic.setParent(&printOp);
+//
+//	//ROOT
+//	Root rootOp = Root(&printOp);
+//	printOp.setParent(&rootOp);
+//	rootOp.produce();
+
+	/**
+	 * REDUCE
+	 * (MAX)
+	 */
+	expressions::RecordProjection* outputExpr = new expressions::RecordProjection(intType, argRegions, *vol);
+	expressions::Expression* val_true = new expressions::BoolConstant(1);
+	expressions::Expression* predicate = new expressions::EqExpression(new BoolType(),val_true,val_true);
+	Reduce reduce = Reduce(MAX, outputExpr, predicate, &joinGenetic, &ctx);
+	joinGenetic.setParent(&reduce);
+
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pgGenetic->finish();
+	pgRegions->finish();
+	pgClinical->finish();
 	catalog.clear();
 }

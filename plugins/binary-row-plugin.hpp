@@ -23,6 +23,7 @@
 
 #include "plugins/plugins.hpp"
 
+//XXX Tmp Assumption: String are of length 5!
 class BinaryRowPlugin	: public Plugin {
 public:
 
@@ -79,6 +80,7 @@ private:
 	//Used to generate code
 	void skipLLVM(Value* offset);
 	void readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables);
+	void readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables);
 	void readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables);
 	void readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables);
 

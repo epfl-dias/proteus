@@ -122,11 +122,11 @@ void BinaryRowPlugin::skipLLVM(Value* offset)
 	IRBuilder<>* Builder = context->getBuilder();
 
 #ifdef DEBUG
-		std::vector<Value*> ArgsV;
-		ArgsV.clear();
-		ArgsV.push_back(offset);
-		Function* debugInt = context->getFunction("printi64");
-		Builder->CreateCall(debugInt, ArgsV, "printi64");
+//		std::vector<Value*> ArgsV;
+//		ArgsV.clear();
+//		ArgsV.push_back(offset);
+//		Function* debugInt = context->getFunction("printi64");
+//		Builder->CreateCall(debugInt, ArgsV, "printi64");
 #endif
 
 	//Fetch values from symbol table
@@ -188,14 +188,75 @@ void BinaryRowPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute
 	Builder->CreateStore(parsedInt,Alloca);
 	LOG(INFO) << "[BINARYROW - READ INT: ] Read Successful";
 #ifdef DEBUG
-	std::vector<Value*> ArgsV;
-	ArgsV.clear();
-	ArgsV.push_back(parsedInt);
-	Function* debugInt = context->getFunction("printi");
-	Builder->CreateCall(debugInt, ArgsV, "printi");
+//	std::vector<Value*> ArgsV;
+//	ArgsV.clear();
+//	ArgsV.push_back(parsedInt);
+//	Function* debugInt = context->getFunction("printi");
+//	Builder->CreateCall(debugInt, ArgsV, "printi");
 #endif
 
 	variables[attName] = Alloca;
+}
+
+void BinaryRowPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables)
+{
+	//Prepare
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	PointerType* ptrType_int32 = PointerType::get(int32Type, 0);
+
+	IRBuilder<>* Builder = context->getBuilder();
+	Function *F = Builder->GetInsertBlock()->getParent();
+
+	//Fetch values from symbol table
+	AllocaInst *mem_pos;
+	{
+		std::map<std::string, AllocaInst*>::iterator it;
+		it = NamedValuesBinaryRow.find(posVar);
+		if (it == NamedValuesBinaryRow.end()) {
+			throw runtime_error(string("Unknown variable name: ") + posVar);
+		}
+		mem_pos = it->second;
+	}
+	Value *val_pos = Builder->CreateLoad(mem_pos);
+
+	AllocaInst* buf;
+	{
+		std::map<std::string, AllocaInst*>::iterator it;
+		it = NamedValuesBinaryRow.find(bufVar);
+		if (it == NamedValuesBinaryRow.end()) {
+			throw runtime_error(string("Unknown variable name: ") + bufVar);
+		}
+		buf = it->second;
+	}
+	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
+	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
+
+	StructType* strObjType = context->CreateStringStruct();
+	AllocaInst* mem_strObj = context->CreateEntryBlockAlloca(F, "currResult",
+				strObjType);
+
+	//Populate string object
+	Value *val_0 = context->createInt32(0);
+	Value *val_1 = context->createInt32(1);
+
+	vector<Value*> idxList = vector<Value*>();
+	idxList.push_back(val_0);
+	idxList.push_back(val_0);
+	Value* structPtr = Builder->CreateGEP(mem_strObj,idxList);
+	Builder->CreateStore(bufShiftedPtr,structPtr);
+
+	idxList.clear();
+	idxList.push_back(val_0);
+	idxList.push_back(val_1);
+	structPtr = Builder->CreateGEP(mem_strObj,idxList);
+	Builder->CreateStore(context->createInt32(5),structPtr);
+
+	LOG(INFO) << "[BINARYROW - READ STRING: ] Read Successful";
+
+	variables[attName] = mem_strObj;
 }
 
 void BinaryRowPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables)
@@ -377,11 +438,8 @@ void BinaryRowPlugin::scan(const RawOperator& producer, Function *f)
 				offset += sizeof(bool);
 				break;
 			case STRING: {
-				string error_msg =
-						string(
-								"[BINARY ROW PLUGIN: ] String (varlen) datatypes not supported");
-				LOG(ERROR)<< error_msg;
-				throw runtime_error(error_msg);
+				offset += 5 * sizeof(char);
+				break;
 			}
 			case FLOAT:
 				offset += sizeof(float);
@@ -411,46 +469,43 @@ void BinaryRowPlugin::scan(const RawOperator& producer, Function *f)
 		switch ((*it)->getOriginalType()->getTypeID()) {
 		case BOOL:
 			readAsBooleanLLVM(attr, *variableBindings);
+			offset = sizeof(bool);
 			break;
-		case STRING: {
-			string error_msg =
-					string(
-							"[BINARY ROW PLUGIN: ] String (varlen) datatypes not supported");
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(error_msg);
-		}
+		case STRING:
+			readAsStringLLVM(attr, *variableBindings);
+			offset = 5;
+			break;
 		case FLOAT:
 			readAsFloatLLVM(attr, *variableBindings);
+			offset = sizeof(float);
 			break;
 		case INT:
 			readAsIntLLVM(attr, *variableBindings);
+			offset = sizeof(int);
 			break;
 		case BAG:
 		case LIST:
 		case SET:
 			LOG(ERROR)<< "[BINARY ROW PLUGIN: ] Binary row files do not contain collections";
 			throw runtime_error(string("[BINARY ROW PLUGIN: ] Binary row files do not contain collections"));
-			case RECORD:
+		case RECORD:
 			LOG(ERROR) << "[BINARY ROW PLUGIN: ] Binary row files do not contain record-valued attributes";
 			throw runtime_error(string("[BINARY ROW PLUGIN: ] Binary row files do not contain record-valued attributes"));
-			default:
+		default:
 			LOG(ERROR) << "[BINARY ROW PLUGIN: ] Unknown datatype";
 			throw runtime_error(string("[BINARY ROW PLUGIN: ] Unknown datatype"));
 		}
+		iterSchema++;
 	}
 
-	offset = 0;
 	for (; iterSchema != args.end(); iterSchema++) {
 		switch ((*iterSchema)->getOriginalType()->getTypeID()) {
 		case BOOL:
 			offset += sizeof(bool);
 			break;
 		case STRING: {
-			string error_msg =
-					string(
-							"[BINARY ROW PLUGIN: ] String (varlen) datatypes not supported");
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(error_msg);
+			offset += 5 * sizeof(char);
+			break;
 		}
 		case FLOAT:
 			offset += sizeof(float);

@@ -300,7 +300,37 @@ public:
 	ExpressionId getTypeId()						{ return BINARY; }
 };
 
+class AndExpression : public BinaryExpression	{
+public:
+	AndExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+		BinaryExpression(type,new And(),lhs,rhs) 	{}
+	~AndExpression()								{}
+
+	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return BINARY; }
+};
+
+class OrExpression : public BinaryExpression	{
+public:
+	OrExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+		BinaryExpression(type,new Or(),lhs,rhs) 	{}
+	~OrExpression()								{}
+
+	Value* accept(ExprVisitor &v);
+	ExpressionId getTypeId()						{ return BINARY; }
+};
+
 }
+
+//class StringObject	{
+//	StringObject(const char* start, int len)
+//		: start(start), len(len)		{}
+//	const char *getStart()				{ return start; }
+//	char *getLen()						{ return len; 	}
+//private:
+//	const char* start;
+//	int len;
+//};
 
 //===----------------------------------------------------------------------===//
 // "Visitor" responsible for generating the appropriate code per Expression 'node'
@@ -324,6 +354,8 @@ public:
 	virtual Value* visit(expressions::SubExpression *e)  	= 0;
 	virtual Value* visit(expressions::MultExpression *e) 	= 0;
 	virtual Value* visit(expressions::DivExpression *e)  	= 0;
+	virtual Value* visit(expressions::AndExpression *e)  	= 0;
+	virtual Value* visit(expressions::OrExpression *e)  	= 0;
 	virtual ~ExprVisitor() {}
 };
 

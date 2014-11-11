@@ -36,8 +36,38 @@ Value* ExpressionGeneratorVisitor::visit(expressions::BoolConstant *e) {
 }
 
 Value* ExpressionGeneratorVisitor::visit(expressions::StringConstant *e) {
-	throw runtime_error(
-			string("support for string constants not implemented yet"));
+	IRBuilder<>* const TheBuilder = context->getBuilder();
+
+	char* str = new char[e->getVal().length() + 1];
+	strcpy(str,e->getVal().c_str());
+	Value* globalStr = context->CreateGlobalString(str);
+
+//	StringObject strObj;
+//	strObj.len = e->getVal().length();
+//	strObj.start = e->getVal().c_str();
+	StructType* strObjType = context->CreateStringStruct();
+
+	Function *F = context->getGlobalFunction();
+	AllocaInst* mem_strObj = context->CreateEntryBlockAlloca(F, e->getVal(),
+			strObjType);
+
+	Value *val_0 = context->createInt32(0);
+	Value *val_1 = context->createInt32(1);
+
+	vector<Value*> idxList = vector<Value*>();
+	idxList.push_back(val_0);
+	idxList.push_back(val_0);
+	Value* structPtr = TheBuilder->CreateGEP(mem_strObj,idxList);
+	TheBuilder->CreateStore(globalStr,structPtr);
+
+	idxList.clear();
+	idxList.push_back(val_0);
+	idxList.push_back(val_1);
+	structPtr = TheBuilder->CreateGEP(mem_strObj,idxList);
+	TheBuilder->CreateStore(context->createInt32(e->getVal().length()),structPtr);
+
+	Value* val_strObj = TheBuilder->CreateLoad(mem_strObj);
+	return val_strObj;
 }
 
 Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
@@ -121,9 +151,14 @@ Value* ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 			return TheBuilder->CreateFCmpOEQ(left, right);
 		case BOOL:
 			return TheBuilder->CreateICmpEQ(left, right);
-		case STRING:
-			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
-			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
+		case STRING: {
+			std::vector<Value*> ArgsV;
+			ArgsV.push_back(left);
+			ArgsV.push_back(right);
+			Function* stringEquality = context->getFunction("equalStrings");
+			return TheBuilder->CreateCall(stringEquality, ArgsV,
+					"equalStringsCall");
+		}
 		case BAG:
 		case LIST:
 		case SET:
@@ -461,6 +496,20 @@ Value* ExpressionGeneratorVisitor::visit(expressions::DivExpression *e) {
 		}
 	}
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
+}
+
+Value* ExpressionGeneratorVisitor::visit(expressions::AndExpression *e) {
+	IRBuilder<>* const TheBuilder = context->getBuilder();
+	Value* left = e->getLeftOperand()->accept(*this);
+	Value* right = e->getRightOperand()->accept(*this);
+	return TheBuilder->CreateAnd(left, right);
+}
+
+Value* ExpressionGeneratorVisitor::visit(expressions::OrExpression *e) {
+	IRBuilder<>* const TheBuilder = context->getBuilder();
+	Value* left = e->getLeftOperand()->accept(*this);
+	Value* right = e->getRightOperand()->accept(*this);
+	return TheBuilder->CreateOr(left, right);
 }
 
 

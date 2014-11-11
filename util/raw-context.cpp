@@ -87,7 +87,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-	getModule()->dump();
+	//getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -97,14 +97,22 @@ void RawContext::prepareFunction(Function *F) {
 
 	// JIT the function, returning a function pointer.
 	void *FPtr = TheExecutionEngine->getPointerToFunction(F);
+
 	int (*FP)(int) = (int (*)(int))(intptr_t)FPtr;
 
+
 	//	TheModule->dump();
-	LOG(INFO) << "Mock return value of generated function " << FP(11);
+	//Run function
+	struct timespec t0, t1;
+	clock_gettime(CLOCK_REALTIME, &t0);
+	FP(11);
+	//LOG(INFO) << "Mock return value of generated function " << FP(11);
+	clock_gettime(CLOCK_REALTIME, &t1);
+	printf("Execution took %f seconds\n",diff(t0, t1));
 
 	TheFPM = 0;
 	//Dump to see final form
-	//	F->dump();
+	//F->dump();
 }
 
 void* RawContext::jit(Function* F) {
@@ -287,13 +295,25 @@ PointerType* RawContext::CreateJSMNStructPtr()	{
 
 StructType* RawContext::CreateJSMNStruct() {
 	LLVMContext& ctx = *llvmContext;
-	llvm::Type* int64_type = Type::getInt32Ty(ctx);
+	llvm::Type* int32_type = Type::getInt32Ty(ctx);
 	std::vector<Type*> jsmn_pos_types;
-	jsmn_pos_types.push_back(int64_type);
-	jsmn_pos_types.push_back(int64_type);
-	jsmn_pos_types.push_back(int64_type);
-	jsmn_pos_types.push_back(int64_type);
+	jsmn_pos_types.push_back(int32_type);
+	jsmn_pos_types.push_back(int32_type);
+	jsmn_pos_types.push_back(int32_type);
+	jsmn_pos_types.push_back(int32_type);
 	return CreateCustomStruct(jsmn_pos_types);
+}
+
+StructType* RawContext::CreateStringStruct() {
+	LLVMContext& ctx = *llvmContext;
+	llvm::Type* int32_type = Type::getInt32Ty(ctx);
+	llvm::Type* char_type = Type::getInt8Ty(ctx);
+	PointerType* ptr_char_type = PointerType::get(char_type,0);
+	std::vector<Type*> string_obj_types;
+	string_obj_types.push_back(ptr_char_type);
+	string_obj_types.push_back(int32_type);
+
+	return CreateCustomStruct(string_obj_types);
 }
 
 //Remember to add these functions as extern in .hpp too!
@@ -378,6 +398,16 @@ void** probeIntHT(char* HTname, int key, int typeIndex) {
 		curr++;
 	}
 	return bindings;
+}
+
+bool equalStrings(StringObject obj1, StringObject obj2)	{
+	if(obj1.len != obj2.len)	{
+		return false;
+	}
+	if(strncmp(obj1.start,obj2.start,obj1.len) != 0)	{
+		return false;
+	}
+	return true;
 }
 
 int compareTokenString(const char* buf, int start, int end, const char* candidate)	{
@@ -472,6 +502,13 @@ void registerFunctions(RawContext& context)	{
 	ArgsAtois.insert(ArgsAtois.begin(),int_type);
 	ArgsAtois.insert(ArgsAtois.begin(),char_ptr_type);
 
+	std::vector<Type*> ArgsStringCmp;
+	StructType* strObjType = context.CreateStringStruct();
+	ArgsStringCmp.insert(ArgsStringCmp.begin(),strObjType);
+	ArgsStringCmp.insert(ArgsStringCmp.begin(),strObjType);
+
+
+
 	FunctionType *FTint = FunctionType::get(Type::getInt32Ty(ctx), Ints, false);
 	FunctionType *FTint64 = FunctionType::get(Type::getInt32Ty(ctx), Ints64, false);
 	FunctionType *FTcharPtr = FunctionType::get(Type::getInt32Ty(ctx), Ints8Ptr, false);
@@ -482,7 +519,7 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FTconvertBoolean_ = FunctionType::get(int1_bool_type, ArgsConvBoolean, false);
 	FunctionType *FTconvertBoolean64_ = FunctionType::get(int1_bool_type, ArgsConvBoolean64, false);
 	FunctionType *FTprintBoolean_ = FunctionType::get(void_type, Ints1, false);
-
+	FunctionType *FTcompareStrings = FunctionType::get(int1_bool_type, ArgsStringCmp, false);
 
 	Function *printi_ = Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
 	Function *printi64_ = Function::Create(FTint64, Function::ExternalLinkage,"printi64", TheModule);
@@ -500,6 +537,10 @@ void registerFunctions(RawContext& context)	{
 	Function *compareTokenString_ = Function::Create(FTcompareTokenString_,
 			Function::ExternalLinkage, "compareTokenString", TheModule);
 	compareTokenString_->addFnAttr(llvm::Attribute::AlwaysInline);
+
+	Function *stringEquality = Function::Create(FTcompareStrings,
+			Function::ExternalLinkage, "equalStrings", TheModule);
+	stringEquality->addFnAttr(llvm::Attribute::AlwaysInline);
 
 	Function *convertBoolean_ = Function::Create(FTconvertBoolean_,
 				Function::ExternalLinkage, "convertBoolean", TheModule);
@@ -542,6 +583,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("compareTokenString", compareTokenString_);
 	context.registerFunction("convertBoolean", convertBoolean_);
 	context.registerFunction("convertBoolean64", convertBoolean64_);
+	context.registerFunction("equalStrings", stringEquality);
 }
 
 inline int atoi1(const char *buf) {

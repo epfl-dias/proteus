@@ -52,6 +52,8 @@ public:
 	Value* visit(expressions::SubExpression *e);
 	Value* visit(expressions::MultExpression *e);
 	Value* visit(expressions::DivExpression *e);
+	Value* visit(expressions::AndExpression *e);
+	Value* visit(expressions::OrExpression *e);
 
 	/**
 	 * STUBS

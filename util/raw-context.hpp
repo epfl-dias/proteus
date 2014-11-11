@@ -85,6 +85,7 @@ public:
 
 	Type* CreateCustomType(char* typeName);
 	StructType* CreateJSMNStruct();
+	StructType* CreateStringStruct();
 	PointerType* CreateJSMNStructPtr();
 	StructType* CreateJSONPosStruct();
 	StructType* CreateCustomStruct(std::vector<Type*> innerTypes);
@@ -130,6 +131,11 @@ private:
 	BasicBlock* codeEnd;
 };
 
+typedef struct StringObject	{
+	char* start;
+	int len;
+} StringObject;
+
 int compareTokenString64(const char* buf, size_t start, size_t end, const char* candidate);
 void registerFunctions(RawContext& context);
 //===----------------------------------------------------------------------===//
@@ -163,6 +169,8 @@ void** probeIntHT(char* HTname, int key, int typeIndex);
 //extern "C" double getJSONDouble(char* jsonName, int attrNo);
 
 extern "C" int compareTokenString(const char* buf, int start, int end, const char* candidate);
+
+extern "C" bool equalStrings(StringObject obj1, StringObject obj2);
 
 extern "C" bool convertBoolean(const char* buf, int start, int end);
 
