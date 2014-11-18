@@ -749,12 +749,17 @@ AllocaInst* JSONPlugin::readPath(string activeRelation, Bindings wrappedBindings
 	//Storing return value (i+1)
 	Builder->CreateStore(val_i_1, mem_return);
 
-	#ifdef DEBUG
+#ifdef DEBUG
+	//	Function* debugInt = context->getFunction("printi");
+	//	argsV.clear();
+	//	Value *tmp = context->createInt32(100);
+	//	argsV.push_back(tmp);
+	//	Builder->CreateCall(debugInt, argsV);
+	//
 	//	argsV.clear();
 	//	argsV.push_back(token_i_1_start);
-	//	Function* debugInt = context->getFunction("printi");
 	//	Builder->CreateCall(debugInt, argsV);
-	#endif
+#endif
 
 	Builder->CreateBr(tokenSkipEnd);
 
@@ -882,10 +887,11 @@ AllocaInst* JSONPlugin::readValue(AllocaInst* mem_value, const ExpressionType* t
 		//For now, passing 'object' (tokenNo actually) along
 	case RECORD:
 		//Object
-	case LIST:
+	case LIST:	{
 		//Array
 		Builder->CreateStore(tokenNo, mem_convertedValue);
 		break;
+	}
 	case BOOL: {
 		ArgsV.push_back(bufPtr);
 		ArgsV.push_back(token_start);
@@ -908,6 +914,16 @@ AllocaInst* JSONPlugin::readValue(AllocaInst* mem_value, const ExpressionType* t
 		ArgsV.push_back(bufShiftedPtr);
 		convertedValue = Builder->CreateCall(conversionFunc, ArgsV, "atoi");
 		Builder->CreateStore(convertedValue, mem_convertedValue);
+#ifdef DEBUG
+//		std::vector<Value*> ArgsV;
+//		Function* debugInt = context->getFunction("printi");
+//		ArgsV.push_back(convertedValue);
+//		Builder->CreateCall(debugInt, ArgsV);
+//		ArgsV.clear();
+//		Value *tmp = context->createInt32(111);
+//		ArgsV.push_back(tmp);
+//		Builder->CreateCall(debugInt, ArgsV);
+#endif
 		break;
 	}
 	default: {
@@ -920,9 +936,16 @@ AllocaInst* JSONPlugin::readValue(AllocaInst* mem_value, const ExpressionType* t
 
 	/**
 	 * ELSE BLOCK
-	 * return "(nil)" --> LLVM Undef value atm
+	 * return "(nil)" --> FIXME LLVM Undef value atm
 	 */
 	Builder->SetInsertPoint(elseBlock);
+#ifdef DEBUG //Invalid!
+	ArgsV.clear();
+	Function* debugInt = context->getFunction("printi");
+	Value *tmp = context->createInt32(-111);
+	ArgsV.push_back(tmp);
+	Builder->CreateCall(debugInt, ArgsV);
+#endif
 	Value* undefValue = UndefValue::get(mem_convertedValue->getAllocatedType());
 	Builder->CreateStore(undefValue, mem_convertedValue);
 	Builder->CreateBr(endBlock);

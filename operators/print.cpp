@@ -50,6 +50,7 @@ void Print::consume (RawContext* const context, const OperatorState& childState)
 	{
 		string relName = arg->getOriginalRelationName();
 		RecordAttribute attr = RecordAttribute(relName,activeLoop);
+
 		map<RecordAttribute, AllocaInst*>::const_iterator it;
 		it = activeVars.find(attr);
 		if(it == activeVars.end())	{

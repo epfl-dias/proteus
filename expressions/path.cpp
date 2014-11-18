@@ -21,24 +21,28 @@
 	RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef UNNEST_HPP_
-#define UNNEST_HPP_
-
-#include "operators/operators.hpp"
-#include "expressions/expressions-generator.hpp"
 #include "expressions/path.hpp"
 
-class Unnest : public UnaryRawOperator {
-public:
-	Unnest(expressions::Expression* pred, Path& path, RawOperator* const child) :
-		  UnaryRawOperator(child), path(path), pred(pred)								 		{}
-	virtual ~Unnest() 																			{ LOG(INFO)<<"Collapsing Unnest operator"; }
-	virtual void produce() const;
-	virtual void consume(RawContext* const context, const OperatorState& childState) const;
-private:
-	void generate(RawContext* const context, const OperatorState& childState) const;
-	expressions::Expression* pred;
-	Path& path;
-};
+string Path::toString() {
+	stringstream ss;
+	ss << desugarizedPath->getRelationName();
+	expressions::Expression* currExpr = desugarizedPath;
+	list<string> projNames = list<string>();
+	while (currExpr->getTypeId() == expressions::RECORD_PROJECTION) {
+		expressions::RecordProjection* const currProj =
+				(expressions::RecordProjection*) currExpr;
+		projNames.insert(projNames.begin(),currProj->getProjectionName());
+		currExpr = currProj->getExpr();
+	}
 
-#endif /* UNNEST_HPP_ */
+	for(list<string>::iterator it = projNames.begin(); it != projNames.end(); it++)	{
+		ss << ".";
+		ss << (*it);
+	}
+
+	LOG(INFO) << "[Unnest: ] path.toString = " << ss.str();
+	return ss.str();
+}
+
+
+

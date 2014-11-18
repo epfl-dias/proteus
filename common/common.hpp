@@ -70,10 +70,10 @@
 
 //Used to remove all logging messages at compile time and not affect performance
 //Must be placed before glog include
-#undef GOOGLE_STRIP_LOG
-#undef STRIP_LOG
-#define GOOGLE_STRIP_LOG 1
-#define STRIP_LOG 1
+//#undef GOOGLE_STRIP_LOG
+//#undef STRIP_LOG
+//#define GOOGLE_STRIP_LOG 1
+//#define STRIP_LOG 1
 
 #include <glog/logging.h>
 

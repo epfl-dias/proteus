@@ -42,11 +42,7 @@ Value* ExpressionGeneratorVisitor::visit(expressions::StringConstant *e) {
 	strcpy(str,e->getVal().c_str());
 	Value* globalStr = context->CreateGlobalString(str);
 
-//	StringObject strObj;
-//	strObj.len = e->getVal().length();
-//	strObj.start = e->getVal().c_str();
 	StructType* strObjType = context->CreateStringStruct();
-
 	Function *F = context->getGlobalFunction();
 	AllocaInst* mem_strObj = context->CreateEntryBlockAlloca(F, e->getVal(),
 			strObjType);
@@ -77,12 +73,12 @@ Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 		const map<RecordAttribute, AllocaInst*>& activeVars = currState.getBindings();
 		map<RecordAttribute, AllocaInst*>::const_iterator it;
 
-		//A previous visitor has indicated with relation is relevant
+		//A previous visitor has indicated which relation is relevant
 		if(activeRelation != "")	{
 			RecordAttribute relevantAttr = RecordAttribute(activeRelation,activeLoop);
 			it = activeVars.find(relevantAttr);
 			if (it == activeVars.end()) {
-				string error_msg = string("[Expression Generator: ] Could not find tuple information");
+				string error_msg = string("[Expression Generator: ] Could not find tuple information for ") + activeRelation;
 				LOG(ERROR) << error_msg;
 			 	throw runtime_error(error_msg);
 			}	else	{
@@ -93,6 +89,9 @@ Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 			int relationsCount = 0;
 			for(it = activeVars.begin(); it != activeVars.end(); it++)	{
 				RecordAttribute currAttr = it->first;
+				cout << currAttr.getRelationName() <<" and "<< currAttr.getAttrName() << endl;
+
+				//Does 1st part of check ever get satisfied? activeRelation is empty here
 				if(currAttr.getRelationName() == activeRelation && currAttr.getAttrName() == activeLoop)	{
 					//cout << "Found " << currAttr.getRelationName() << " " << currAttr.getAttrName() << endl;
 					argMem = it->second;
@@ -100,8 +99,8 @@ Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 				}
 			}
 			if (!relationsCount) {
-				string error_msg =
-						string("[Expression Generator: ] Could not find tuple information");
+				string error_msg = string("[Expression Generator: ] Could not find tuple information");
+
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			} else if (relationsCount > 1) {
@@ -116,11 +115,12 @@ Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 }
 
 Value* ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
-	RawCatalog& catalog = RawCatalog::getInstance();
-	IRBuilder<>* const TheBuilder = context->getBuilder();
-	activeRelation = e->getOriginalRelationName();
-	Value* record = e->getExpr()->accept(*this);
-	Plugin* plugin = catalog.getPlugin(activeRelation);
+	RawCatalog& catalog 			= RawCatalog::getInstance();
+	IRBuilder<>* const TheBuilder	= context->getBuilder();
+	activeRelation 					= e->getOriginalRelationName();
+	Value* record 					= e->getExpr()->accept(*this);
+	Plugin* plugin 					= catalog.getPlugin(activeRelation);
+
 	//Resetting activeRelation here would break nested-record-projections
 	//activeRelation = "";
 	if(plugin == NULL)	{
@@ -129,10 +129,72 @@ Value* ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		throw runtime_error(error_msg);
 	}	else	{
 		Bindings bindings = { &currState, record };
-		AllocaInst* mem_path = plugin->readPath(activeRelation, bindings, e->getProjectionName().c_str());
-		AllocaInst* mem_val = plugin->readValue(mem_path, e->getExpressionType());
-		return TheBuilder->CreateLoad(mem_val);
+		AllocaInst *mem_path = NULL;
+		AllocaInst *mem_val = NULL;
+
+		if (e->getProjectionName() != activeLoop) {
+			//Path involves a projection / an object
+			mem_path = plugin->readPath(activeRelation, bindings,
+					e->getProjectionName().c_str());
+
+		} else {
+			//Path involves a primitive datatype
+			//(e.g., the result of unnesting a list of primitives)
+			RecordAttribute tupleIdentifier = RecordAttribute(activeRelation,
+					activeLoop);
+			map<RecordAttribute, AllocaInst*>::const_iterator it =
+					currState.getBindings().find(tupleIdentifier);
+			if (it == currState.getBindings().end()) {
+				string error_msg =
+						"[Expression Generator: ] Current tuple binding not found";
+				LOG(ERROR)<< error_msg;
+				throw runtime_error(error_msg);
+			}
+			mem_path = it->second;
+		}
+		mem_val = plugin->readValue(mem_path, e->getExpressionType());
+		Value *val = TheBuilder->CreateLoad(mem_val);
+
+		return val;
 	}
+}
+
+Value* ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
+	RawCatalog& catalog 			= RawCatalog::getInstance();
+	IRBuilder<>* const TheBuilder	= context->getBuilder();
+	LLVMContext& llvmContext		= context->getLLVMContext();
+	Function *F 					= TheBuilder->GetInsertBlock()->getParent();
+
+	Value* ifCond 		= e->getIfCond()->accept(*this);
+	Value* ifResult		= e->getIfResult()->accept(*this);
+	Value* elseResult 	= e->getElseResult()->accept(*this);
+
+	//Prepare result
+	AllocaInst* mem_result = context->CreateEntryBlockAlloca(F, "ifElseResult", ifResult->getType());
+
+	//Prepare blocks
+	BasicBlock *ThenBB;
+	BasicBlock *ElseBB;
+	BasicBlock *MergeBB = BasicBlock::Create(llvmContext,  "ifExprCont", F);
+	context->CreateIfElseBlocks(F,"ifExprThen","ifExprElse",&ThenBB,&ElseBB,MergeBB);
+
+	//if
+	TheBuilder->CreateCondBr(ifCond, ThenBB, ElseBB);
+
+	//then
+	TheBuilder->SetInsertPoint(ThenBB);
+	TheBuilder->CreateStore(ifResult,mem_result);
+	TheBuilder->CreateBr(MergeBB);
+
+	//else
+	TheBuilder->SetInsertPoint(ElseBB);
+	TheBuilder->CreateStore(elseResult,mem_result);
+	TheBuilder->CreateBr(MergeBB);
+
+	//cont.
+	TheBuilder->SetInsertPoint(MergeBB);
+	Value* result = TheBuilder->CreateLoad(mem_result);
+	return result;
 }
 
 Value* ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {

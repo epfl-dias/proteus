@@ -47,7 +47,7 @@ private:
 
 	void generate(RawContext* const context, const OperatorState& childState) const;
 	void generateSum(RawContext* const context, const OperatorState& childState) const;
-	void generateMult(RawContext* const context, const OperatorState& childState) const;
+	void generateMul(RawContext* const context, const OperatorState& childState) const;
 	void generateMax(RawContext* const context, const OperatorState& childState) const;
 	void generateAnd(RawContext* const context, const OperatorState& childState) const;
 	void generateOr(RawContext* const context, const OperatorState& childState) const;

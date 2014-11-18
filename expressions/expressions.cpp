@@ -51,6 +51,10 @@ Value* RecordProjection::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
+Value* IfThenElse::accept(ExprVisitor &v) {
+	return v.visit(this);
+}
+
 /**
  * The binary expressions
  */

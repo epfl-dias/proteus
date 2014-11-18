@@ -188,7 +188,7 @@ void Reduce::generate(RawContext* const context, const OperatorState& childState
 		generateSum(context, childState);
 		break;
 	case MULTIPLY:
-		generateMult(context, childState);
+		generateMul(context, childState);
 		break;
 	case MAX:
 		generateMax(context, childState);
@@ -250,6 +250,8 @@ void Reduce::generateSum(RawContext* const context, const OperatorState& childSt
 		Value* val_new = Builder->CreateAdd(val_accumulating, val_output);
 		Builder->CreateStore(val_new, mem_accumulating);
 
+		Builder->CreateBr(endBlock);
+
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
 #ifdef DEBUG
@@ -282,8 +284,7 @@ void Reduce::generateSum(RawContext* const context, const OperatorState& childSt
 		ArgsV.push_back(finalResult);
 		Builder->CreateCall(debugFloat, ArgsV);
 #endif
-		//Back to 'normal' flow
-		Builder->SetInsertPoint(ifBlock);
+
 		break;
 	}
 	default: {
@@ -294,15 +295,13 @@ void Reduce::generateSum(RawContext* const context, const OperatorState& childSt
 	}
 	}
 
-	Builder->CreateBr(endBlock);
-
 	/**
 	 * END Block
 	 */
 	Builder->SetInsertPoint(endBlock);
 }
 
-void Reduce::generateMult(RawContext* const context, const OperatorState& childState) const	{
+void Reduce::generateMul(RawContext* const context, const OperatorState& childState) const	{
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -310,7 +309,6 @@ void Reduce::generateMult(RawContext* const context, const OperatorState& childS
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, childState);
 	Value* condition = pred->accept(predExprGenerator);
-
 	/**
 	 * Predicate Evaluation:
 	 */
@@ -318,7 +316,7 @@ void Reduce::generateMult(RawContext* const context, const OperatorState& childS
 	BasicBlock *endBlock = BasicBlock::Create(llvmContext, "reduceCondEnd", TheFunction);
 	BasicBlock *ifBlock;
 	context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond",
-						&ifBlock, endBlock);
+					&ifBlock, endBlock);
 
 	/**
 	 * IF Block
@@ -336,6 +334,8 @@ void Reduce::generateMult(RawContext* const context, const OperatorState& childS
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 		Value* val_new = Builder->CreateMul(val_accumulating, val_output);
 		Builder->CreateStore(val_new, mem_accumulating);
+
+		Builder->CreateBr(endBlock);
 
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
@@ -357,8 +357,8 @@ void Reduce::generateMult(RawContext* const context, const OperatorState& childS
 		Builder->SetInsertPoint(ifBlock);
 
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* val_new = Builder->CreateFMul(val_accumulating, val_output);
-		Builder->CreateStore(val_new, mem_accumulating);
+		Value* val_new = Builder->CreateFMul(val_accumulating,val_output);
+		Builder->CreateStore(val_new,mem_accumulating);
 
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
@@ -369,8 +369,7 @@ void Reduce::generateMult(RawContext* const context, const OperatorState& childS
 		ArgsV.push_back(finalResult);
 		Builder->CreateCall(debugFloat, ArgsV);
 #endif
-		//Back to 'normal' flow
-		Builder->SetInsertPoint(ifBlock);
+
 		break;
 	}
 	default: {
@@ -380,8 +379,6 @@ void Reduce::generateMult(RawContext* const context, const OperatorState& childS
 		throw runtime_error(error_msg);
 	}
 	}
-
-	Builder->CreateBr(endBlock);
 
 	/**
 	 * END Block
@@ -431,6 +428,7 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 
 		Builder->SetInsertPoint(ifGtMaxBlock);
 		Builder->CreateStore(val_output,mem_accumulating);
+		Builder->CreateBr(endBlock);
 
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
@@ -465,6 +463,7 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 
 		Builder->SetInsertPoint(ifGtMaxBlock);
 		Builder->CreateStore(val_output, mem_accumulating);
+		Builder->CreateBr(endBlock);
 
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
@@ -476,7 +475,6 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 		Builder->CreateCall(debugFloat, ArgsV);
 #endif
 		//Back to 'normal' flow
-		Builder->SetInsertPoint(ifGtMaxBlock);
 		break;
 	}
 	default: {
@@ -487,15 +485,13 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 	}
 	}
 
-	Builder->CreateBr(endBlock);
-
 	/**
 	 * END Block
 	 */
 	Builder->SetInsertPoint(endBlock);
 }
 
-void Reduce::generateOr(RawContext* const context, const OperatorState& childState) const	{
+void Reduce::generateOr(RawContext* const context, const OperatorState& childState) const {
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -513,7 +509,7 @@ void Reduce::generateOr(RawContext* const context, const OperatorState& childSta
 			TheFunction);
 	BasicBlock *ifBlock;
 	context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond",
-						&ifBlock, endBlock);
+			&ifBlock, endBlock);
 
 	/**
 	 * IF Block
@@ -521,7 +517,6 @@ void Reduce::generateOr(RawContext* const context, const OperatorState& childSta
 	Builder->SetInsertPoint(ifBlock);
 	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(
 			context, childState);
-	Value* val_output = outputExpr->accept(outputExprGenerator);
 
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case BOOL: {
@@ -530,8 +525,12 @@ void Reduce::generateOr(RawContext* const context, const OperatorState& childSta
 		Builder->SetInsertPoint(ifBlock);
 
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
+
+		Value* val_output = outputExpr->accept(outputExprGenerator);
 		Value* val_new = Builder->CreateOr(val_accumulating, val_output);
 		Builder->CreateStore(val_new, mem_accumulating);
+
+		Builder->CreateBr(endBlock);
 
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
@@ -542,8 +541,6 @@ void Reduce::generateOr(RawContext* const context, const OperatorState& childSta
 		ArgsV.push_back(finalResult);
 		Builder->CreateCall(debugBoolean, ArgsV);
 #endif
-		//Back to 'normal' flow
-		Builder->SetInsertPoint(ifBlock);
 		break;
 	}
 	default: {
@@ -554,15 +551,13 @@ void Reduce::generateOr(RawContext* const context, const OperatorState& childSta
 	}
 	}
 
-	Builder->CreateBr(endBlock);
-
 	/**
 	 * END Block
 	 */
 	Builder->SetInsertPoint(endBlock);
 }
 
-void Reduce::generateAnd(RawContext* const context,	const OperatorState& childState) const {
+void Reduce::generateAnd(RawContext* const context, const OperatorState& childState) const {
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -580,7 +575,7 @@ void Reduce::generateAnd(RawContext* const context,	const OperatorState& childSt
 			TheFunction);
 	BasicBlock *ifBlock;
 	context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond",
-						&ifBlock, endBlock);
+			&ifBlock, endBlock);
 
 	/**
 	 * IF Block
@@ -588,7 +583,6 @@ void Reduce::generateAnd(RawContext* const context,	const OperatorState& childSt
 	Builder->SetInsertPoint(ifBlock);
 	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(
 			context, childState);
-	Value* val_output = outputExpr->accept(outputExprGenerator);
 
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case BOOL: {
@@ -597,8 +591,13 @@ void Reduce::generateAnd(RawContext* const context,	const OperatorState& childSt
 		Builder->SetInsertPoint(ifBlock);
 
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
+
+		Value* val_output = outputExpr->accept(outputExprGenerator);
 		Value* val_new = Builder->CreateAnd(val_accumulating, val_output);
 		Builder->CreateStore(val_new, mem_accumulating);
+
+		Builder->CreateBr(endBlock);
+
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
 #ifdef DEBUG
@@ -608,19 +607,15 @@ void Reduce::generateAnd(RawContext* const context,	const OperatorState& childSt
 		ArgsV.push_back(finalResult);
 		Builder->CreateCall(debugBoolean, ArgsV);
 #endif
-		//Back to 'normal' flow
-		Builder->SetInsertPoint(ifBlock);
 		break;
 	}
 	default: {
 		string error_msg = string(
-				"[Reduce: ] And accumulator operates on numerics");
+				"[Reduce: ] Or accumulator operates on numerics");
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
 	}
-
-	Builder->CreateBr(endBlock);
 
 	/**
 	 * END Block

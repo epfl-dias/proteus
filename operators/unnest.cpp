@@ -63,6 +63,19 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 
 	Builder->SetInsertPoint(loopBody);
 	AllocaInst* nestedValueItem =  pg->collectionGetNext(mem_currentObjId);
+
+	#ifdef DEBUG
+//		vector<Value*> ArgsV;
+//		Function* debugInt = context->getFunction("printi64");
+//		Value* val = Builder->CreateLoad(nestedValueItem);
+//		ArgsV.push_back(val);
+//		Builder->CreateCall(debugInt, ArgsV);
+//		ArgsV.clear();
+//		Value *tmp = context->createInt64(1000);
+//		ArgsV.push_back(tmp);
+//		Builder->CreateCall(debugInt, ArgsV);
+	#endif
+
 	//Preparing call to parent
 	map<RecordAttribute, AllocaInst*>* unnestBindings = new map<RecordAttribute, AllocaInst*>(childState.getBindings());
 	RawCatalog& catalog = RawCatalog::getInstance();
@@ -111,20 +124,3 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 
 	Builder->SetInsertPoint(loopEnd);
 }
-
-string Path::toString() {
-	stringstream ss;
-	ss << desugarizedPath->getRelationName();
-	expressions::Expression* currExpr = desugarizedPath;
-	while (currExpr->getTypeId() == expressions::RECORD_PROJECTION) {
-		expressions::RecordProjection* const currProj =
-				(expressions::RecordProjection*) currExpr;
-		ss << ".";
-		ss << currProj->getProjectionName();
-		currExpr = currProj->getExpr();
-	}
-	LOG(INFO) << "[Unnest: ] path.toString = " << ss.str();
-	return ss.str();
-}
-
-

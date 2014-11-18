@@ -54,6 +54,7 @@ public:
 	Value* visit(expressions::DivExpression *e);
 	Value* visit(expressions::AndExpression *e);
 	Value* visit(expressions::OrExpression *e);
+	Value* visit(expressions::IfThenElse *e);
 
 	/**
 	 * STUBS
@@ -64,11 +65,6 @@ public:
 		throw runtime_error(error_msg);
 	}
 
-	Value* visit(expressions::IfThenElse *e) {
-		string error_msg = string("[ExpressionGeneratorVisitor]: Not implemented yet");
-		LOG(ERROR) << error_msg;
-		throw runtime_error(error_msg);
-	}
 	/**
 	 *
 	 */
@@ -79,7 +75,6 @@ private:
 	RawContext* const context;
 	const OperatorState& currState;
 
-//	Plugin* const activePlugin;
 	string activeRelation;
 
 };

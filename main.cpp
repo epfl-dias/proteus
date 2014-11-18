@@ -27,6 +27,7 @@
 #include "operators/select.hpp"
 #include "operators/join.hpp"
 #include "operators/unnest.hpp"
+#include "operators/outer-unnest.hpp"
 #include "operators/print.hpp"
 #include "operators/root.hpp"
 #include "operators/reduce.hpp"
@@ -45,12 +46,16 @@ void selectionCSV();
 void joinQueryRelational();
 
 void unnestJsmn();
+void unnestJsmnDeeper();
+
 void recordProjectionsJSON();
 
 void scanJsmnInterpreted();
 void unnestJsmnInterpreted();
 void unnestJsmnChildrenInterpreted();
 void unnestJsmnFiltering();
+
+//void outerUnnest();
 
 void reduceNumeric();
 void reduceBoolean();
@@ -59,11 +64,11 @@ void scanCSVBoolean();
 void cidrQuery3();
 void cidrQueryCount();
 void cidrQueryWarm(int ageParam, int volParam);
-
 void cidrBin();
 void cidrBinStrConstant();
 void cidrBinStr();
 
+void ifThenElse();
 int main(int argc, char* argv[])
 {
 
@@ -89,17 +94,26 @@ int main(int argc, char* argv[])
 	//reduceNumeric();
 	//reduceBoolean();
 
+	/* This query takes a bit more time */
 	//cidrQuery3();
 	//cidrQueryCount();
 
 	//cidrBinStr();
 
+	//cidrQueryWarm(41,5);
 	//100 queries
-	for(int ageParam = 40; ageParam < 50; ageParam++)	{
-		for(int volParam = 1; volParam <= 10; volParam++)	{
-			cidrQueryWarm(ageParam,volParam);
-		}
-	}
+	//	for(int ageParam = 40; ageParam < 50; ageParam++)	{
+	//		for(int volParam = 1; volParam <= 10; volParam++)	{
+	//			cidrQueryWarm(ageParam,volParam);
+	//		}
+	//	}
+
+	//ifThenElse();
+
+//	outerUnnest();
+
+	unnestJsmn(); //Deeper();
+	unnestJsmnDeeper();
 }
 
 void unnestJsmnInterpreted()	{
@@ -250,7 +264,7 @@ void unnestJsmn()	{
 	Scan scan = Scan(&ctx,pg);
 
 	expressions::Expression* inputArg = new expressions::InputArgument(&inner, 0);
-	expressions::RecordProjection* proj = new expressions::RecordProjection(&stringType,inputArg,emp3);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(&nestedCollection,inputArg,emp3);
 	string nestedName = "c";
 	Path path = Path(nestedName,proj);
 
@@ -277,6 +291,97 @@ void unnestJsmn()	{
 	RecordAttribute toPrint = RecordAttribute(-1,
 			fname+"."+empChildren,
 			childAge,
+			&intType);
+
+	expressions::RecordProjection* projToPrint = new expressions::RecordProjection(&intType,nestedArg,toPrint);
+	Print printOp = Print(debugInt,projToPrint,&unnestOp);
+	unnestOp.setParent(&printOp);
+
+	//ROOT
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
+void unnestJsmnDeeper()	{
+	RawContext ctx = RawContext("testFunction-unnestJSON");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/employeesDeeper.json");
+
+	IntType intType = IntType();
+	StringType stringType = StringType();
+
+	/**
+	 * SCHEMA
+	 */
+	string ages = string("ages");
+	ListType childrenAgesType = ListType(intType);
+	RecordAttribute childrenAges = RecordAttribute(1, fname, ages, &childrenAgesType);
+	list<RecordAttribute*> attsChildren = list<RecordAttribute*>();
+	attsChildren.push_back(&childrenAges);
+	RecordType children = RecordType(attsChildren);
+
+	string empName = string("name");
+	RecordAttribute emp1 = RecordAttribute(1, fname, empName, &stringType);
+	string empAge = string("age");
+	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &intType);
+	string empChildren = string("children");
+	RecordAttribute emp3 = RecordAttribute(3, fname, empChildren, &children);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&emp1);
+	atts.push_back(&emp2);
+	atts.push_back(&emp3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	/**
+	 * SCAN
+	 */
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname,&pg);
+	Scan scan = Scan(&ctx,pg);
+
+	/**
+	 * UNNEST
+	 */
+	expressions::Expression* inputArg = new expressions::InputArgument(&inner, 0);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(&children,inputArg,emp3);
+	expressions::RecordProjection* projDeeper = new expressions::RecordProjection(&childrenAgesType,proj,childrenAges);
+	string nestedName = "c";
+	Path path = Path(nestedName,projDeeper);
+
+	expressions::Expression* lhs = new expressions::BoolConstant(true);
+	expressions::Expression* rhs = new expressions::BoolConstant(true);
+	expressions::Expression* predicate = new expressions::EqExpression(new BoolType(),lhs,rhs);
+
+	Unnest unnestOp = Unnest(predicate,path,&scan);
+	scan.setParent(&unnestOp);
+
+	//New record type:
+	string originalRecordName = "e";
+	RecordAttribute recPrev = RecordAttribute(1, fname, originalRecordName, &inner);
+	RecordAttribute recUnnested = RecordAttribute(2, fname, nestedName, &intType);
+	list<RecordAttribute*> attsUnnested = list<RecordAttribute*>();
+	attsUnnested.push_back(&recPrev);
+	attsUnnested.push_back(&recUnnested);
+	RecordType unnestedType = RecordType(attsUnnested);
+
+	//PRINT
+	Function* debugInt = ctx.getFunction("printi");
+	expressions::Expression* nestedArg = new expressions::InputArgument(&unnestedType, 0);
+
+	RecordAttribute toPrint = RecordAttribute(2,
+			fname+"."+empChildren+"."+ages,
+			activeLoop,
 			&intType);
 
 	expressions::RecordProjection* projToPrint = new expressions::RecordProjection(&intType,nestedArg,toPrint);
@@ -1506,3 +1611,162 @@ void cidrQueryWarm(int ageParam, int volParam)	{
 	pgClinical->finish();
 	catalog.clear();
 }
+
+void ifThenElse()	{
+	RawContext ctx = RawContext("ifThenElseExpr");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	//SCAN1
+	string filename = string("inputs/bills.csv");
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* boolType = new BoolType();
+	PrimitiveType* stringType = new StringType();
+	RecordAttribute* category = new RecordAttribute(1,filename,string("category"),stringType);
+	RecordAttribute* amount = new RecordAttribute(2,filename,string("amount"),intType);
+	RecordAttribute* isPaid = new RecordAttribute(3,filename,string("isPaid"),boolType);
+
+	list<RecordAttribute*> attrList;
+	attrList.push_back(category);
+	attrList.push_back(amount);
+	attrList.push_back(isPaid);
+
+	RecordType rec1 = RecordType(attrList);
+
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(amount);
+
+	CSVPlugin* pg = new CSVPlugin(&ctx,filename, rec1, whichFields);
+	catalog.registerPlugin(filename,pg);
+	Scan scan = Scan(&ctx,*pg);
+
+	/**
+	 * REDUCE
+	 */
+	expressions::Expression* trueCons  = new expressions::BoolConstant(true);
+	expressions::Expression* falseCons = new expressions::BoolConstant(false);
+
+	expressions::Expression* arg 	= new expressions::InputArgument(&rec1,0);
+	expressions::Expression* ifLhs  = new expressions::RecordProjection(boolType,arg,*amount);
+	expressions::Expression* ifRhs  = new expressions::IntConstant(200);
+	expressions::Expression* ifCond = new expressions::GtExpression(boolType,ifLhs,ifRhs);
+	expressions::Expression* ifElse = new expressions::IfThenElse(boolType,ifCond,trueCons,falseCons);
+
+	expressions::Expression* predicate = new expressions::EqExpression(new BoolType(),trueCons,trueCons);
+	Reduce reduce = Reduce(AND, ifElse, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg->finish();
+	catalog.clear();
+}
+
+//void outerUnnest()	{
+//
+//	RawContext ctx = RawContext("testFunction-outerUnnestJSON");
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//
+//	string fname = string("inputs/employees.json");
+//
+//	IntType intType = IntType();
+//	BoolType boolType = BoolType();
+//	StringType stringType = StringType();
+//
+//	string childName = string("name");
+//	RecordAttribute child1 = RecordAttribute(1, fname, childName, &stringType);
+//	string childAge = string("age");
+//	RecordAttribute child2 = RecordAttribute(1, fname, childAge, &intType);
+//	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+//	attsNested.push_back(&child1);
+//	RecordType nested = RecordType(attsNested);
+//	ListType nestedCollection = ListType(nested);
+//
+//	string empName = string("name");
+//	RecordAttribute emp1 = RecordAttribute(1, fname, empName, &stringType);
+//	string empAge = string("age");
+//	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &intType);
+//	string empChildren = string("children");
+//	RecordAttribute emp3 = RecordAttribute(3, fname, empChildren, &nestedCollection);
+//
+//	list<RecordAttribute*> atts = list<RecordAttribute*>();
+//	atts.push_back(&emp1);
+//	atts.push_back(&emp2);
+//	atts.push_back(&emp3);
+//
+//	RecordType inner = RecordType(atts);
+//	ListType documentType = ListType(inner);
+//
+//	/**
+//	 * SCAN
+//	 */
+//	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+//	catalog.registerPlugin(fname,&pg);
+//	Scan scan = Scan(&ctx,pg);
+//
+//	/**
+//	 * (OUTER) UNNEST
+//	 */
+//
+//	expressions::Expression* inputArg = new expressions::InputArgument(&inner, 0);
+//	expressions::RecordProjection* proj = new expressions::RecordProjection(&stringType,inputArg,emp3);
+//	string nestedName = "c";
+//	Path path = Path(nestedName,proj);
+//
+//	expressions::Expression* lhs = new expressions::BoolConstant(true);
+//	expressions::Expression* rhs = new expressions::BoolConstant(true);
+//	expressions::Expression* predicate = new expressions::EqExpression(new BoolType(),lhs,rhs);
+//
+//	OuterUnnest unnestOp = OuterUnnest(predicate,path,&scan);
+//	scan.setParent(&unnestOp);
+//
+//	//New record type:
+//	string originalRecordName = "e";
+//	RecordAttribute recPrev = RecordAttribute(1, fname, originalRecordName, &inner);
+//	RecordAttribute recUnnested = RecordAttribute(2, fname, nestedName, &nested);
+//	//RecordAttribute recAcc = RecordAttribute(2, path.toString(), originalRecordName, &inner);
+//
+////	RecordAttribute recAcc = RecordAttribute(2, fname, "acc", &nested);
+//	list<RecordAttribute*> attsUnnested = list<RecordAttribute*>();
+//	attsUnnested.push_back(&recPrev);
+//	attsUnnested.push_back(&recUnnested);
+//	RecordType unnestedType = RecordType(attsUnnested);
+//
+//
+//	//PRINT
+//	Function* debugInt = ctx.getFunction("printi");
+//	expressions::Expression* nestedArg = new expressions::InputArgument(
+//			&unnestedType, 0);
+//
+//	RecordAttribute toPrint = RecordAttribute(-1, fname + "." + empChildren,
+//			childAge, &intType);
+//
+//	expressions::RecordProjection* projToPrint =
+//			new expressions::RecordProjection(&intType, nestedArg, toPrint);
+//	Print printOp = Print(debugInt, projToPrint, &unnestOp);
+//	unnestOp.setParent(&printOp);
+//
+//	//ROOT
+//	Root rootOp = Root(&printOp);
+//	printOp.setParent(&rootOp);
+//	rootOp.produce();
+//
+//	/**
+//	 * REDUCE
+//	 */
+////	expressions::Expression* arg = new expressions::InputArgument(&unnestedType,0);
+////	expressions::Expression* outputExpr = new expressions::RecordProjection(&boolType,arg,recAcc);
+////
+////	Reduce reduce = Reduce(OR, outputExpr, predicate, &unnestOp, &ctx);
+////	unnestOp.setParent(&reduce);
+////	reduce.produce();
+//
+//
+//	//Run function
+//	ctx.prepareFunction(ctx.getGlobalFunction());
+//
+//	pg.finish();
+//	catalog.clear();
+//}

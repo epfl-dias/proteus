@@ -178,6 +178,9 @@ public:
 
 	Value* accept(ExprVisitor &v);
 	ExpressionId getTypeId()													{ return IF_THEN_ELSE; }
+	Expression* getIfCond()														{ return expr1; }
+	Expression* getIfResult()													{ return expr2; }
+	Expression* getElseResult()													{ return expr3; }
 private:
 	Expression *expr1;
 	Expression *expr2;
@@ -344,6 +347,7 @@ public:
 	virtual Value* visit(expressions::StringConstant *e) 	= 0;
 	virtual Value* visit(expressions::InputArgument *e)  	= 0;
 	virtual Value* visit(expressions::RecordProjection *e)	= 0;
+	virtual Value* visit(expressions::IfThenElse *e)  		= 0;
 	virtual Value* visit(expressions::EqExpression *e)   	= 0;
 	virtual Value* visit(expressions::NeExpression *e)   	= 0;
 	virtual Value* visit(expressions::GeExpression *e)   	= 0;
