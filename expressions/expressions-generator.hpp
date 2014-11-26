@@ -35,7 +35,11 @@ public:
 	ExpressionGeneratorVisitor(RawContext* const context,
 			const OperatorState& currState) :
 			context(context), currState(currState),
-			activeRelation("")								{}
+			activeRelation("")											{}
+	ExpressionGeneratorVisitor(RawContext* const context,
+			const OperatorState& currState, string activeRelation) :
+			context(context), currState(currState),
+			activeRelation(activeRelation)								{}
 	Value* visit(expressions::IntConstant *e);
 	Value* visit(expressions::FloatConstant *e);
 	Value* visit(expressions::BoolConstant *e);

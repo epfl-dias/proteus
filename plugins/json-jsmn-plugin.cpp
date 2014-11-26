@@ -936,17 +936,23 @@ AllocaInst* JSONPlugin::readValue(AllocaInst* mem_value, const ExpressionType* t
 
 	/**
 	 * ELSE BLOCK
-	 * return "(nil)" --> FIXME LLVM Undef value atm
+	 * return "(NULL)"
+	 * FIXME FIXME
+	 * -> What if we deal with a non-primitive type?
 	 */
 	Builder->SetInsertPoint(elseBlock);
-#ifdef DEBUG //Invalid!
+#ifdef DEBUG //Invalid / NULL!
 	ArgsV.clear();
 	Function* debugInt = context->getFunction("printi");
 	Value *tmp = context->createInt32(-111);
 	ArgsV.push_back(tmp);
 	Builder->CreateCall(debugInt, ArgsV);
 #endif
-	Value* undefValue = UndefValue::get(mem_convertedValue->getAllocatedType());
+	/*PointerType* ptr_type_v = PointerType::get(mem_convertedValue->getAllocatedType(), 0);
+	ConstantPointerNull* null_ptr_v = ConstantPointerNull::get(ptr_type_v);
+	Builder->CreateStore(null_ptr_v, mem_convertedValue);*/
+	//Value* undefValue = UndefValue::get(mem_convertedValue->getAllocatedType());
+	Value* undefValue = Constant::getNullValue(mem_convertedValue->getAllocatedType());
 	Builder->CreateStore(undefValue, mem_convertedValue);
 	Builder->CreateBr(endBlock);
 

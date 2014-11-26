@@ -87,7 +87,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-//	getModule()->dump();
+	getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -322,6 +322,14 @@ extern "C" double putchari(int X) {
 	return 0;
 }
 
+void printBoolean(bool in)	{
+	if(in)	{
+		printf("True\n");
+	}	else	{
+		printf("False\n");
+	}
+}
+
 /// printd - printf that takes a double prints it as "%f\n", returning 0.
 int printi(int X) {
 	printf("[printi:] Generated code called %d\n", X);
@@ -342,6 +350,7 @@ int printc(char* X) {
 	printf("[printc:] Generated code -- char read: %c\n", X[0]);
 	return 0;
 }
+
 
 int s(const char* X) {
 	//printf("Generated code -- char read: %c\n", X[0]);
@@ -445,14 +454,6 @@ bool convertBoolean64(const char* buf, size_t start, size_t end)	{
 		string error_msg = string("[convertBoolean64: Error - unknown input]");
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
-	}
-}
-
-void printBoolean(bool in)	{
-	if(in)	{
-		printf("True\n");
-	}	else	{
-		printf("False\n");
 	}
 }
 

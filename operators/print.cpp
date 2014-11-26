@@ -36,13 +36,13 @@ void Print::consume (RawContext* const context, const OperatorState& childState)
 	map<RecordAttribute, AllocaInst*>::const_iterator it = activeVars.begin();
 
 #ifdef DEBUG
-//	for(; it != activeVars.end(); it++)	{
-//		RecordAttribute attr = it->first;
-//		cout << "Original relname: " << attr.getOriginalRelationName() << endl;
-//		cout << "Current relname: " << attr.getRelationName() << endl;
-//		cout << "Attribute name: " << attr.getAttrName() << endl;
-//		cout << "---" << endl;
-//	}
+	for(; it != activeVars.end(); it++)	{
+		RecordAttribute attr = it->first;
+		cout << "Original relname: " << attr.getOriginalRelationName() << endl;
+		cout << "Current relname: " << attr.getRelationName() << endl;
+		cout << "Attribute name: " << attr.getAttrName() << endl;
+		cout << "---" << endl;
+	}
 #endif
 
 	//Load argument of print

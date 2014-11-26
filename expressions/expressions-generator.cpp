@@ -100,7 +100,6 @@ Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 			}
 			if (!relationsCount) {
 				string error_msg = string("[Expression Generator: ] Could not find tuple information");
-
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			} else if (relationsCount > 1) {
@@ -131,7 +130,7 @@ Value* ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		Bindings bindings = { &currState, record };
 		AllocaInst *mem_path = NULL;
 		AllocaInst *mem_val = NULL;
-
+		cout << "Active Relation: " << e->getProjectionName() << endl;
 		if (e->getProjectionName() != activeLoop) {
 			//Path involves a projection / an object
 			mem_path = plugin->readPath(activeRelation, bindings,

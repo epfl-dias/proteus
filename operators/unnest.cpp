@@ -45,7 +45,6 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 	 * 		if(condition)
 	 * 			...
 	 */
-
 	BasicBlock *loopCond, *loopBody, *loopInc, *loopEnd;
 	context->CreateForLoop("unnestChildLoopCond","unnestChildLoopBody","unnestChildLoopInc","unnestChildLoopEnd",
 							&loopCond,&loopBody,&loopInc,&loopEnd);
@@ -63,18 +62,6 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 
 	Builder->SetInsertPoint(loopBody);
 	AllocaInst* nestedValueItem =  pg->collectionGetNext(mem_currentObjId);
-
-	#ifdef DEBUG
-//		vector<Value*> ArgsV;
-//		Function* debugInt = context->getFunction("printi64");
-//		Value* val = Builder->CreateLoad(nestedValueItem);
-//		ArgsV.push_back(val);
-//		Builder->CreateCall(debugInt, ArgsV);
-//		ArgsV.clear();
-//		Value *tmp = context->createInt64(1000);
-//		ArgsV.push_back(tmp);
-//		Builder->CreateCall(debugInt, ArgsV);
-	#endif
 
 	//Preparing call to parent
 	map<RecordAttribute, AllocaInst*>* unnestBindings = new map<RecordAttribute, AllocaInst*>(childState.getBindings());
