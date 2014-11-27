@@ -40,7 +40,7 @@ static const string activeLoop = "activeTuple";
  */
 typedef struct Bindings	{
 	const OperatorState* state;
-	const Value* record;
+	const RawValue record;
 } Bindings;
 
 /**********************************/
@@ -60,12 +60,12 @@ public:
 	 * 						 for ( e <- employees, w <- employees.children ) yield ...
 	 * 						 Active tuple at some point will be the one of "employees.children"
 	 */
-	virtual AllocaInst* readPath(string activeRelation,
-			Bindings wrappedBindings, const char* pathVar) 								= 0;
-	virtual AllocaInst*	readValue(AllocaInst* mem_value, const ExpressionType* type) 	= 0;
+	virtual RawValueMemory readPath(string activeRelation,
+			Bindings wrappedBindings, const char* pathVar) 									= 0;
+	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type) 	= 0;
 
-	virtual AllocaInst* initCollectionUnnest(Value* val_parentObject) = 0;
-	virtual Value* collectionHasNext(Value* val_parentObject, AllocaInst* mem_currentChild) = 0;
-	virtual AllocaInst* collectionGetNext(AllocaInst* mem_currentChild) = 0;
+	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) = 0;
+	virtual RawValue collectionHasNext(RawValue val_parentObject, RawValueMemory mem_currentChild) = 0;
+	virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) = 0;
 };
 #endif /* PLUGINS_LLVM_HPP_ */

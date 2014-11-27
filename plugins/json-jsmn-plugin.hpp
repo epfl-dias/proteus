@@ -65,14 +65,13 @@ public:
 	string& getName() 													{ return fname; }
 
 	//1-1 correspondence with 'RecordProjection' expression
-	AllocaInst* readPath(string activeRelation, Bindings wrappedBindings, const char* pathVar);
-	AllocaInst*	readValue(AllocaInst* mem_value, const ExpressionType* type);
+	RawValueMemory readPath(string activeRelation, Bindings wrappedBindings, const char* pathVar);
+	RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
 
 	//Used by unnest
-	//AllocaInst* unnestObject(AllocaInst* mem_value, const ExpressionType* type);
-	AllocaInst* initCollectionUnnest(Value* val_parentTokenNo);
-	Value* collectionHasNext(Value* val_parentTokenNo, AllocaInst* mem_currentTokenNo);
-	AllocaInst* collectionGetNext(AllocaInst* mem_currentToken);
+	RawValueMemory initCollectionUnnest(RawValue val_parentTokenNo);
+	RawValue collectionHasNext(RawValue val_parentTokenNo, RawValueMemory mem_currentTokenNo);
+	RawValueMemory collectionGetNext(RawValueMemory mem_currentToken);
 
 	void scanObjects(const RawOperator& producer, Function* debug);
 	void scanObjectsInterpreted(list<string> path, list<ExpressionType*> types);

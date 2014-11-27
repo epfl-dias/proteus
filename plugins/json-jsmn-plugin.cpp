@@ -188,7 +188,7 @@ void JSONPlugin::unnestObjectInterpreted(int parentToken)	{
 	}
 }
 
-AllocaInst* JSONPlugin::initCollectionUnnest(Value* val_parentTokenNo)	{
+RawValueMemory JSONPlugin::initCollectionUnnest(RawValue val_parentTokenNo)	{
 	Function* F = context->getGlobalFunction();
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -197,7 +197,7 @@ AllocaInst* JSONPlugin::initCollectionUnnest(Value* val_parentTokenNo)	{
 	AllocaInst* mem_currentToken = context->CreateEntryBlockAlloca(F,
 			std::string("currentTokenUnnested"), int64Type);
 	Value* val_1 = Builder->getInt64(1);
-	Value* val_currentToken = Builder->CreateAdd(val_parentTokenNo,val_1);
+	Value* val_currentToken = Builder->CreateAdd(val_parentTokenNo.value,val_1);
 	Builder->CreateStore(val_currentToken, mem_currentToken);
 #ifdef DEBUG
 //	std::vector<Value*> ArgsV;
@@ -209,13 +209,16 @@ AllocaInst* JSONPlugin::initCollectionUnnest(Value* val_parentTokenNo)	{
 //	ArgsV.push_back(val_currentToken);
 //	Builder->CreateCall(debugInt, ArgsV);
 #endif
-	return mem_currentToken;
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = mem_currentToken;
+	mem_valWrapper.isNull = val_parentTokenNo.isNull;
+	return mem_valWrapper;
 }
 
 /**
  * tokens[i].end <= tokens[parentToken].end && tokens[i].end != 0
  */
-Value* JSONPlugin::collectionHasNext(Value* val_parentTokenNo, AllocaInst* mem_currentTokenNo)	{
+RawValue JSONPlugin::collectionHasNext(RawValue val_parentTokenNo, RawValueMemory mem_currentTokenNo)	{
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
@@ -230,11 +233,11 @@ Value* JSONPlugin::collectionHasNext(Value* val_parentTokenNo, AllocaInst* mem_c
 	AllocaInst* mem_tokens_shifted = context->CreateEntryBlockAlloca(F,
 			std::string(var_tokenPtr), context->CreateJSMNStruct());
 	Value* parentToken = context->getArrayElem(mem_tokens, ptr_jsmnStructType,
-			val_parentTokenNo);
+			val_parentTokenNo.value);
 	Builder->CreateStore(parentToken, mem_tokens_shifted);
 	Value* parent_token_end = context->getStructElem(mem_tokens_shifted, 2);
 
-	Value* val_currentTokenNo = Builder->CreateLoad(mem_currentTokenNo);
+	Value* val_currentTokenNo = Builder->CreateLoad(mem_currentTokenNo.mem);
 	Value* currentToken = context->getArrayElem(mem_tokens, ptr_jsmnStructType,
 			val_currentTokenNo);
 	Builder->CreateStore(currentToken, mem_tokens_shifted);
@@ -244,24 +247,29 @@ Value* JSONPlugin::collectionHasNext(Value* val_parentTokenNo, AllocaInst* mem_c
 	Value* endCond1 = Builder->CreateICmpSLE(current_token_end,parent_token_end);
 	Value* endCond2 = Builder->CreateICmpNE(current_token_end,val_0);
 	Value *endCond = Builder->CreateAnd(endCond1,endCond2);
+	Value *endCond_isNull = context->createFalse();
 
-	return endCond;
+	RawValue valWrapper;
+	valWrapper.value = endCond;
+	valWrapper.isNull = endCond_isNull;
+	return valWrapper;
 }
 
-AllocaInst* JSONPlugin::collectionGetNext(AllocaInst* mem_currentToken)	{
+RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentToken)	{
 	LLVMContext& llvmContext = context->getLLVMContext();
 	IRBuilder<>* Builder = context->getBuilder();
 	Type* int64Type = Type::getInt64Ty(llvmContext);
 	PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
 	Function* F = context->getGlobalFunction();
 
-	Value* currentTokenNo = Builder->CreateLoad(mem_currentToken);
+	Value* currentTokenNo = Builder->CreateLoad(mem_currentToken.mem);
 	/**
 	 * Reason for this:
 	 * Need to return 'i', but also need to increment it before returning
 	 */
 	AllocaInst* mem_tokenToReturn = context->CreateEntryBlockAlloca(F,
 				std::string("tokenToUnnest"), int64Type);
+	Value* tokenToReturn_isNull = context->createFalse();
 	Builder->CreateStore(currentTokenNo,mem_tokenToReturn);
 
 #ifdef DEBUG
@@ -346,9 +354,12 @@ AllocaInst* JSONPlugin::collectionGetNext(AllocaInst* mem_currentToken)	{
 	 */
 	Builder->SetInsertPoint(skipContentsEnd);
 	val_i_contents = Builder->CreateLoad(mem_i_contents);
-	Builder->CreateStore(val_i_contents, mem_currentToken);
+	Builder->CreateStore(val_i_contents, mem_currentToken.mem);
 
-	return mem_tokenToReturn;
+	RawValueMemory mem_wrapperVal;
+	mem_wrapperVal.mem = mem_tokenToReturn;
+	mem_wrapperVal.isNull = tokenToReturn_isNull;
+	return mem_wrapperVal;
 }
 
 int JSONPlugin::readPathInterpreted(int parentToken, list<string> path)	{
@@ -438,7 +449,7 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)	{
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
 	//Container for the variable bindings
-	map<RecordAttribute, AllocaInst*>* variableBindings = new map<RecordAttribute, AllocaInst*>();
+	map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
 
 	/**
 	 * Loop through results (if any)
@@ -497,7 +508,10 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)	{
 
 	//Triggering parent
 	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
-	(*variableBindings)[tupleIdentifier] = mem_tokenOffset;
+	RawValueMemory mem_tokenWrapper;
+	mem_tokenWrapper.mem = mem_tokenOffset;
+	mem_tokenWrapper.isNull = context->createFalse();
+	(*variableBindings)[tupleIdentifier] = mem_tokenWrapper;
 	OperatorState* state = new OperatorState(producer, *variableBindings);
 	RawOperator* const opParent = producer.getParent();
 	opParent->consume(context,*state);
@@ -617,7 +631,7 @@ void JSONPlugin::skipToEnd()	{
 	LOG(INFO) << "[Scan - JSON: ] End of skiptoEnd()";
 }
 
-AllocaInst* JSONPlugin::readPath(string activeRelation, Bindings wrappedBindings, const char* path)	{
+RawValueMemory JSONPlugin::readPath(string activeRelation, Bindings wrappedBindings, const char* path)	{
 	/**
 	 * FIXME Add an extra (generated) check here
 	 * Only objects are relevant to path expressions
@@ -641,15 +655,15 @@ AllocaInst* JSONPlugin::readPath(string activeRelation, Bindings wrappedBindings
 	//Get relevant token number
 	RecordAttribute tupleIdentifier = RecordAttribute(activeRelation,activeLoop);
 	//	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
-	const map<RecordAttribute, AllocaInst*>& bindings = state.getBindings();
-	map<RecordAttribute, AllocaInst*>::const_iterator it = bindings.find(tupleIdentifier);
+	const map<RecordAttribute, RawValueMemory>& bindings = state.getBindings();
+	map<RecordAttribute, RawValueMemory>::const_iterator it = bindings.find(tupleIdentifier);
 	if(it == bindings.end())	{
 		string error_msg = "[JSONPlugin - jsmn: ] Current tuple binding not found";
 		LOG(ERROR) << error_msg;
 		throw runtime_error(error_msg);
 	}
-	AllocaInst* mem_parentTokenNo = it->second;
-	Value* parentTokenNo = Builder->CreateLoad(mem_parentTokenNo);
+	RawValueMemory mem_parentTokenNo = it->second;
+	Value* parentTokenNo = Builder->CreateLoad(mem_parentTokenNo.mem);
 
 	//Preparing default return value
 	AllocaInst* mem_return = context->CreateEntryBlockAlloca(F, std::string("pathReturn"),
@@ -795,22 +809,27 @@ AllocaInst* JSONPlugin::readPath(string activeRelation, Bindings wrappedBindings
 	 */
 	Builder->SetInsertPoint(tokenSkipEnd);
 	LOG(INFO) << "[Scan - JSON: ] End of readPath()";
-	return mem_return;
+
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = mem_return;
+	mem_valWrapper.isNull = context->createFalse();
+	return mem_valWrapper;
 }
 
-AllocaInst* JSONPlugin::readValue(AllocaInst* mem_value, const ExpressionType* type)	{
+RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value, const ExpressionType* type)	{
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
 	Type* int32Type = Type::getInt32Ty(llvmContext);
 	Type* int8Type = Type::getInt8Ty(llvmContext);
+	Type* int1Type = Type::getInt1Ty(llvmContext);
 	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 	Function* F = context->getGlobalFunction();
 	PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
 
 	std::vector<Value*> ArgsV;
-	Value* tokenNo = Builder->CreateLoad(mem_value);
+	Value* tokenNo = Builder->CreateLoad(mem_value.mem);
 
 	AllocaInst* mem_tokens = NamedValuesJSON[var_tokenPtr];
 	AllocaInst* mem_tokens_shifted = context->CreateEntryBlockAlloca(F,
@@ -826,14 +845,18 @@ AllocaInst* JSONPlugin::readValue(AllocaInst* mem_value, const ExpressionType* t
 	Function* conversionFunc = NULL;
 
 	AllocaInst* mem_convertedValue = NULL;
+	AllocaInst* mem_convertedValue_isNull = NULL;
 	Value* convertedValue = NULL;
+
+	mem_convertedValue_isNull = context->CreateEntryBlockAlloca(F,
+					std::string("value_isNull"), int1Type);
 	string error_msg;
 	switch (type->getTypeID()) {
 	case STRING:
 	case RECORD:
 	case LIST: {
 		mem_convertedValue = context->CreateEntryBlockAlloca(F,
-				std::string("existingObject"), mem_value->getAllocatedType());
+				std::string("existingObject"), (mem_value.mem)->getAllocatedType());
 		break;
 	}
 	case SET: {
@@ -900,6 +923,7 @@ AllocaInst* JSONPlugin::readValue(AllocaInst* mem_value, const ExpressionType* t
 		convertedValue = Builder->CreateCall(conversionFunc, ArgsV,
 				"convertBoolean");
 		Builder->CreateStore(convertedValue, mem_convertedValue);
+		Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 		break;
 	}
 	case FLOAT: {
@@ -907,6 +931,7 @@ AllocaInst* JSONPlugin::readValue(AllocaInst* mem_value, const ExpressionType* t
 		ArgsV.push_back(bufShiftedPtr);
 		convertedValue = Builder->CreateCall(conversionFunc, ArgsV, "atof");
 		Builder->CreateStore(convertedValue, mem_convertedValue);
+		Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 		break;
 	}
 	case INT: {
@@ -914,6 +939,7 @@ AllocaInst* JSONPlugin::readValue(AllocaInst* mem_value, const ExpressionType* t
 		ArgsV.push_back(bufShiftedPtr);
 		convertedValue = Builder->CreateCall(conversionFunc, ArgsV, "atoi");
 		Builder->CreateStore(convertedValue, mem_convertedValue);
+		Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 #ifdef DEBUG
 //		std::vector<Value*> ArgsV;
 //		Function* debugInt = context->getFunction("printi");
@@ -954,11 +980,16 @@ AllocaInst* JSONPlugin::readValue(AllocaInst* mem_value, const ExpressionType* t
 	//Value* undefValue = UndefValue::get(mem_convertedValue->getAllocatedType());
 	Value* undefValue = Constant::getNullValue(mem_convertedValue->getAllocatedType());
 	Builder->CreateStore(undefValue, mem_convertedValue);
+	Builder->CreateStore(context->createTrue(), mem_convertedValue_isNull);
 	Builder->CreateBr(endBlock);
 
 	Builder->SetInsertPoint(endBlock);
 
-	return mem_convertedValue;
+
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = mem_convertedValue;
+	mem_valWrapper.isNull = Builder->CreateLoad(mem_convertedValue);
+	return mem_valWrapper;
 }
 
 void JSONPlugin::generate(const RawOperator& producer) {

@@ -45,7 +45,7 @@ public:
 	virtual ~Expression()							{}
 
 	ExpressionType* getExpressionType()				{ return type; }
-	virtual Value* accept(ExprVisitor &v) = 0;
+	virtual RawValue accept(ExprVisitor &v) = 0;
 	virtual ExpressionId getTypeId() = 0;
 private:
 	ExpressionType* type;
@@ -64,7 +64,7 @@ public:
 	~IntConstant()									{}
 
 	int getVal()									{ return val; }
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return CONSTANT; }
 private:
 	int val;
@@ -77,7 +77,7 @@ public:
 	~BoolConstant()									{}
 
 	bool getVal()									{ return val; }
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return CONSTANT; }
 private:
 	bool val;
@@ -91,7 +91,7 @@ public:
 
 	double getVal()									{ return val; }
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return CONSTANT; }
 private:
 	double val;
@@ -104,7 +104,7 @@ public:
 	~StringConstant()								{}
 
 	string& getVal()								{ return val; }
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return CONSTANT; }
 private:
 	string& val;
@@ -117,7 +117,7 @@ public:
 	~InputArgument()											{}
 
 	int getArgNo()												{ return argNo; }
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()									{ return ARGUMENT; }
 private:
 	/**
@@ -140,7 +140,7 @@ public:
 	string 	getOriginalRelationName() const			{ return attribute.getOriginalRelationName(); }
 	string 	getRelationName() const			{ return attribute.getRelationName(); }
 	string  getProjectionName()						{ return attribute.getAttrName(); }
-	Value*  accept(ExprVisitor &v);
+	RawValue  accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return RECORD_PROJECTION; }
 private:
 	Expression* expr;
@@ -164,7 +164,7 @@ public:
 			Expression(type), atts(atts) 							{}
 	~RecordConstruction()											{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()										{ return RECORD_CONSTRUCTION; }
 private:
 	const list<AttributeConstruction>& atts;
@@ -176,7 +176,7 @@ public:
 			Expression(type), expr1(expr1), expr2(expr2), expr3(expr3)			{}
 	~IfThenElse()																{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()													{ return IF_THEN_ELSE; }
 	Expression* getIfCond()														{ return expr1; }
 	Expression* getIfResult()													{ return expr2; }
@@ -195,7 +195,7 @@ public:
 	Expression* getRightOperand()								{ return rhs; }
 	expressions::BinaryOperator* getOp()						{ return op; }
 
-	virtual Value* accept(ExprVisitor &v) = 0;
+	virtual RawValue accept(ExprVisitor &v) = 0;
 	virtual ExpressionId getTypeId()							{ return BINARY; }
 	~BinaryExpression() = 0;
 private:
@@ -210,7 +210,7 @@ public:
 		BinaryExpression(type,new Eq(),lhs,rhs) 	{}
 	~EqExpression()									{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return BINARY; }
 };
 
@@ -220,7 +220,7 @@ public:
 		BinaryExpression(type,new Neq(),lhs,rhs) 	{}
 	~NeExpression()									{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return BINARY; }
 };
 
@@ -230,7 +230,7 @@ public:
 		BinaryExpression(type,new Ge(),lhs,rhs) 	{}
 	~GeExpression()									{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return BINARY; }
 };
 
@@ -240,7 +240,7 @@ public:
 		BinaryExpression(type,new Gt(),lhs,rhs)		{}
 	~GtExpression()									{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 };
 
 class LeExpression : public BinaryExpression	{
@@ -249,7 +249,7 @@ public:
 		BinaryExpression(type,new Le(),lhs,rhs) 	{}
 	~LeExpression()									{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return BINARY; }
 };
 
@@ -259,7 +259,7 @@ public:
 		BinaryExpression(type,new Lt(),lhs,rhs) 	{}
 	~LtExpression()									{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return BINARY; }
 };
 
@@ -269,7 +269,7 @@ public:
 		BinaryExpression(type,new Add(),lhs,rhs) 	{}
 	~AddExpression()								{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return BINARY; }
 };
 
@@ -279,7 +279,7 @@ public:
 		BinaryExpression(type,new Sub(),lhs,rhs) 	{}
 	~SubExpression()								{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return BINARY; }
 };
 
@@ -289,7 +289,7 @@ public:
 		BinaryExpression(type,new Mult(),lhs,rhs) 	{}
 	~MultExpression()								{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return BINARY; }
 };
 
@@ -299,7 +299,7 @@ public:
 		BinaryExpression(type,new Div(),lhs,rhs) 	{}
 	~DivExpression()								{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return BINARY; }
 };
 
@@ -309,7 +309,7 @@ public:
 		BinaryExpression(type,new And(),lhs,rhs) 	{}
 	~AndExpression()								{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return BINARY; }
 };
 
@@ -319,7 +319,7 @@ public:
 		BinaryExpression(type,new Or(),lhs,rhs) 	{}
 	~OrExpression()								{}
 
-	Value* accept(ExprVisitor &v);
+	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeId()						{ return BINARY; }
 };
 
@@ -341,25 +341,25 @@ public:
 class ExprVisitor
 {
 public:
-	virtual Value* visit(expressions::IntConstant *e)    	= 0;
-	virtual Value* visit(expressions::FloatConstant *e)  	= 0;
-	virtual Value* visit(expressions::BoolConstant *e)   	= 0;
-	virtual Value* visit(expressions::StringConstant *e) 	= 0;
-	virtual Value* visit(expressions::InputArgument *e)  	= 0;
-	virtual Value* visit(expressions::RecordProjection *e)	= 0;
-	virtual Value* visit(expressions::IfThenElse *e)  		= 0;
-	virtual Value* visit(expressions::EqExpression *e)   	= 0;
-	virtual Value* visit(expressions::NeExpression *e)   	= 0;
-	virtual Value* visit(expressions::GeExpression *e)   	= 0;
-	virtual Value* visit(expressions::GtExpression *e)   	= 0;
-	virtual Value* visit(expressions::LeExpression *e)   	= 0;
-	virtual Value* visit(expressions::LtExpression *e)   	= 0;
-	virtual Value* visit(expressions::AddExpression *e)  	= 0;
-	virtual Value* visit(expressions::SubExpression *e)  	= 0;
-	virtual Value* visit(expressions::MultExpression *e) 	= 0;
-	virtual Value* visit(expressions::DivExpression *e)  	= 0;
-	virtual Value* visit(expressions::AndExpression *e)  	= 0;
-	virtual Value* visit(expressions::OrExpression *e)  	= 0;
+	virtual RawValue visit(expressions::IntConstant *e)    	= 0;
+	virtual RawValue visit(expressions::FloatConstant *e)  	= 0;
+	virtual RawValue visit(expressions::BoolConstant *e)   	= 0;
+	virtual RawValue visit(expressions::StringConstant *e) 	= 0;
+	virtual RawValue visit(expressions::InputArgument *e)  	= 0;
+	virtual RawValue visit(expressions::RecordProjection *e)	= 0;
+	virtual RawValue visit(expressions::IfThenElse *e)  		= 0;
+	virtual RawValue visit(expressions::EqExpression *e)   	= 0;
+	virtual RawValue visit(expressions::NeExpression *e)   	= 0;
+	virtual RawValue visit(expressions::GeExpression *e)   	= 0;
+	virtual RawValue visit(expressions::GtExpression *e)   	= 0;
+	virtual RawValue visit(expressions::LeExpression *e)   	= 0;
+	virtual RawValue visit(expressions::LtExpression *e)   	= 0;
+	virtual RawValue visit(expressions::AddExpression *e)  	= 0;
+	virtual RawValue visit(expressions::SubExpression *e)  	= 0;
+	virtual RawValue visit(expressions::MultExpression *e) 	= 0;
+	virtual RawValue visit(expressions::DivExpression *e)  	= 0;
+	virtual RawValue visit(expressions::AndExpression *e)  	= 0;
+	virtual RawValue visit(expressions::OrExpression *e)  	= 0;
 	virtual ~ExprVisitor() {}
 };
 

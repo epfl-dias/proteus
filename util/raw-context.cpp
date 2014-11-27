@@ -172,12 +172,12 @@ ConstantInt* RawContext::createInt64(int val) {
 
 ConstantInt* RawContext::createTrue() {
 	LLVMContext& ctx = *llvmContext;
-	return ConstantInt::get(ctx, APInt(8, 1));
+	return ConstantInt::get(ctx, APInt(1, 1));
 }
 
 ConstantInt* RawContext::createFalse() {
 	LLVMContext& ctx = *llvmContext;
-	return ConstantInt::get(ctx, APInt(8, 0));
+	return ConstantInt::get(ctx, APInt(1, 0));
 }
 
 Value* RawContext::CastPtrToLlvmPtr(PointerType* type, const void* ptr) {

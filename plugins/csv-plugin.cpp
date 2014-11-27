@@ -88,25 +88,25 @@ void CSVPlugin::generate(const RawOperator &producer) {
 /**
  * The work of readPath() and readValue() has been taken care of scanCSV()
  */
-AllocaInst* CSVPlugin::readPath(string activeRelation, Bindings bindings, const char* pathVar)	{
-	AllocaInst* mem_projection;
+RawValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings, const char* pathVar)	{
+	RawValueMemory mem_valWrapper;
 	{
 		const OperatorState* state = bindings.state;
-		const map<RecordAttribute, AllocaInst*>& csvProjections = state->getBindings();
+		const map<RecordAttribute, RawValueMemory>& csvProjections = state->getBindings();
 		RecordAttribute tmpKey = RecordAttribute(fname,pathVar);
-		map<RecordAttribute, AllocaInst*>::const_iterator it;
+		map<RecordAttribute, RawValueMemory>::const_iterator it;
 		it = csvProjections.find(tmpKey);
 			if (it == csvProjections.end()) {
 				string error_msg = string("[CSV plugin - readPath ]: Unknown variable name ")+pathVar;
 				LOG(ERROR) << error_msg;
 				throw runtime_error(error_msg);
 			}
-		mem_projection = it->second;
+		mem_valWrapper = it->second;
 	}
-	return mem_projection;
+	return mem_valWrapper;
 }
 
-AllocaInst* CSVPlugin::readValue(AllocaInst* mem_value, const ExpressionType* type)	{
+RawValueMemory CSVPlugin::readValue(RawValueMemory mem_value, const ExpressionType* type)	{
 	return mem_value;
 }
 
@@ -427,7 +427,7 @@ void CSVPlugin::getFieldEndLLVM()
 	Builder->CreateStore(finalVar, NamedValuesCSV[posVar]);
 }
 
-void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables, Function* atoi_,Function* debugChar,Function* debugInt)
+void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables, Function* atoi_,Function* debugChar,Function* debugInt)
 {
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -478,18 +478,20 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, Allo
 
 	Function* atois = context->getFunction("atois");
 	Value* parsedInt = Builder->CreateCall(atois, ArgsV, "atois");
-	AllocaInst *Alloca = context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
-	Builder->CreateStore(parsedInt,Alloca);
+	AllocaInst *currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
+	Builder->CreateStore(parsedInt,currResult);
 	LOG(INFO) << "[READ INT: ] Atoi Successful";
 
 	ArgsV.clear();
 	ArgsV.push_back(parsedInt);
-	//Debug
-	//Builder->CreateCall(debugInt, ArgsV, "printi");
-	variables[attName] = Alloca;
+
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = currResult;
+	mem_valWrapper.isNull = context->createFalse();
+	variables[attName] = mem_valWrapper;
 }
 
-void CSVPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables)	{
+void CSVPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)	{
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
 	IRBuilder<>* Builder = context->getBuilder();
@@ -535,10 +537,14 @@ void CSVPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, 
 	Value* convertedValue = Builder->CreateCall(conversionFunc, ArgsV,"convertBoolean64");
 	AllocaInst *mem_convertedValue = context->CreateEntryBlockAlloca(TheFunction, "currResult", int1Type);
 	Builder->CreateStore(convertedValue,mem_convertedValue);
-	variables[attName] = mem_convertedValue;
+
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = mem_convertedValue;
+	mem_valWrapper.isNull = context->createFalse();
+	variables[attName] = mem_valWrapper;
 }
 
-void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables, Function* atof_,Function* debugChar,Function* debugFloat)
+void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables, Function* atof_,Function* debugChar,Function* debugFloat)
 {
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -580,8 +586,8 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, Al
 	ArgsV.clear();
 	ArgsV.push_back(bufShiftedPtr);
 	Value* parsedFloat = Builder->CreateCall(atof_, ArgsV, "atof");
-	AllocaInst *Alloca = context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);
-	Builder->CreateStore(parsedFloat,Alloca);
+	AllocaInst *currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);
+	Builder->CreateStore(parsedFloat,currResult);
 	LOG(INFO) << "[READ FLOAT: ] Atof Successful";
 
 #ifdef DEBUG
@@ -589,7 +595,10 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, Al
 //	ArgsV.push_back(parsedFloat);
 //	Builder->CreateCall(debugFloat, ArgsV, "printf");
 #endif
-	variables[attName] = Alloca;
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = currResult;
+	mem_valWrapper.isNull = context->createFalse();
+	variables[attName] = mem_valWrapper;
 }
 
 void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
@@ -601,7 +610,7 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 	IRBuilder<>* Builder = context->getBuilder();
 
 	//Container for the variable bindings
-	map<RecordAttribute, AllocaInst*>* variableBindings = new map<RecordAttribute, AllocaInst*>();
+	map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
 
 	//Fetch value from symbol table
 	AllocaInst* pos;
@@ -671,7 +680,11 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 	//More general/lazy CSV plugins will only perform this action,
 	//instead of eagerly converting fields
 	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
-	(*variableBindings)[tupleIdentifier] = pos;
+
+	RawValueMemory mem_posWrapper;
+	mem_posWrapper.mem = pos;
+	mem_posWrapper.isNull = context->createFalse();
+	(*variableBindings)[tupleIdentifier] = mem_posWrapper;
 
 	//	BYTECODE
 	//	for.body:                                         ; preds = %for.cond

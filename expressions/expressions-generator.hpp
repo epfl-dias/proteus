@@ -40,30 +40,31 @@ public:
 			const OperatorState& currState, string activeRelation) :
 			context(context), currState(currState),
 			activeRelation(activeRelation)								{}
-	Value* visit(expressions::IntConstant *e);
-	Value* visit(expressions::FloatConstant *e);
-	Value* visit(expressions::BoolConstant *e);
-	Value* visit(expressions::StringConstant *e);
-	Value* visit(expressions::InputArgument *e);
-	Value* visit(expressions::RecordProjection *e);
-	Value* visit(expressions::EqExpression *e);
-	Value* visit(expressions::NeExpression *e);
-	Value* visit(expressions::GeExpression *e);
-	Value* visit(expressions::GtExpression *e);
-	Value* visit(expressions::LeExpression *e);
-	Value* visit(expressions::LtExpression *e);
-	Value* visit(expressions::AddExpression *e);
-	Value* visit(expressions::SubExpression *e);
-	Value* visit(expressions::MultExpression *e);
-	Value* visit(expressions::DivExpression *e);
-	Value* visit(expressions::AndExpression *e);
-	Value* visit(expressions::OrExpression *e);
-	Value* visit(expressions::IfThenElse *e);
+	RawValue visit(expressions::IntConstant *e);
+	RawValue visit(expressions::FloatConstant *e);
+	RawValue visit(expressions::BoolConstant *e);
+	RawValue visit(expressions::StringConstant *e);
+	RawValue visit(expressions::InputArgument *e);
+	RawValue visit(expressions::RecordProjection *e);
+	RawValue visit(expressions::IfThenElse *e);
+	//XXX Do binary operators require explicit handling of NULL?
+	RawValue visit(expressions::EqExpression *e);
+	RawValue visit(expressions::NeExpression *e);
+	RawValue visit(expressions::GeExpression *e);
+	RawValue visit(expressions::GtExpression *e);
+	RawValue visit(expressions::LeExpression *e);
+	RawValue visit(expressions::LtExpression *e);
+	RawValue visit(expressions::AddExpression *e);
+	RawValue visit(expressions::SubExpression *e);
+	RawValue visit(expressions::MultExpression *e);
+	RawValue visit(expressions::DivExpression *e);
+	RawValue visit(expressions::AndExpression *e);
+	RawValue visit(expressions::OrExpression *e);
 
 	/**
 	 * STUBS
 	 */
-	Value* visit(expressions::RecordConstruction *e) {
+	RawValue visit(expressions::RecordConstruction *e) {
 		string error_msg = string("[ExpressionGeneratorVisitor]: Not implemented yet");
 		LOG(ERROR) << error_msg;
 		throw runtime_error(error_msg);

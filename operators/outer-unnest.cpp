@@ -65,17 +65,17 @@ void OuterUnnest::generate(RawContext* const context,
 
 		ExpressionGeneratorVisitor vGenerator = ExpressionGeneratorVisitor(
 				context, childState, pathProj->getOriginalRelationName());
-		Value *val_v = expr_v->accept(vGenerator);
+		RawValue val_v = expr_v->accept(vGenerator);
 
-		PointerType* ptr_type_v = PointerType::get(val_v->getType(), 0);
+		PointerType* ptr_type_v = PointerType::get((val_v.value)->getType(), 0);
 		ConstantPointerNull* null_ptr_v = ConstantPointerNull::get(ptr_type_v);
 
 		//XXX Used to get memory of a value v
 		//TODO Check if generated code simplifies it!
 		//BUG BUG BUG HERE??
 		AllocaInst* mem_tmp_v = context->CreateEntryBlockAlloca(TheFunction,
-				"mem_tmp_v", val_v->getType());
-		Builder->CreateStore(val_v, mem_tmp_v);
+				"mem_tmp_v", (val_v.value)->getType());
+		Builder->CreateStore(val_v.value, mem_tmp_v);
 
 		Value* nullCond = Builder->CreateICmpNE(mem_tmp_v, null_ptr_v);
 		Builder->CreateCondBr(nullCond, IfNotNull, ElseIsNull);
@@ -86,14 +86,14 @@ void OuterUnnest::generate(RawContext* const context,
 	 */
 	BasicBlock *loopCond, *loopBody, *loopInc, *loopEnd;
 	AllocaInst *mem_accumulating = NULL;
-	AllocaInst *nestedValueItem = NULL;
+	RawValueMemory nestedValueItem;
 	{
 		Builder->SetInsertPoint(IfNotNull);
 
 		//Generate path. Value returned must be a collection
 		ExpressionGeneratorVisitor pathExprGenerator = ExpressionGeneratorVisitor(context, childState);
 		expressions::RecordProjection* pathProj = path.get();
-		Value* nestedValueAll = pathProj->accept(pathExprGenerator);
+		RawValue nestedValueAll = pathProj->accept(pathExprGenerator);
 
 		/**
 		 * and{ not p(v,w') | v != NULL, w' <- path(v)}
@@ -116,20 +116,20 @@ void OuterUnnest::generate(RawContext* const context,
 
 		//ENTRY: init the vars used by the plugin
 		Plugin* pg = path.getRelevantPlugin();
-		AllocaInst* mem_currentObjId = pg->initCollectionUnnest(nestedValueAll);
+		RawValueMemory mem_currentObjId = pg->initCollectionUnnest(nestedValueAll);
 		Builder->CreateBr(loopCond);
 
 		Builder->SetInsertPoint(loopCond);
-		Value* endCond = pg->collectionHasNext(nestedValueAll,
+		RawValue endCond = pg->collectionHasNext(nestedValueAll,
 				mem_currentObjId);
-		Builder->CreateCondBr(endCond, loopBody, loopEnd);
+		Builder->CreateCondBr(endCond.value, loopBody, loopEnd);
 
 		Builder->SetInsertPoint(loopBody);
 		nestedValueItem = pg->collectionGetNext(mem_currentObjId);
-		type_w = nestedValueItem->getAllocatedType();
+		type_w = (nestedValueItem.mem)->getAllocatedType();
 
-		map<RecordAttribute, AllocaInst*>* unnestBindings =
-				new map<RecordAttribute, AllocaInst*>(childState.getBindings());
+		map<RecordAttribute, RawValueMemory>* unnestBindings =
+				new map<RecordAttribute, RawValueMemory>(childState.getBindings());
 		RawCatalog& catalog = RawCatalog::getInstance();
 		LOG(INFO)<< "[Outer Unnest: ] Registering plugin of "<< path.toString();
 		catalog.registerPlugin(path.toString(), pg);
@@ -146,8 +146,8 @@ void OuterUnnest::generate(RawContext* const context,
 		//Predicate Evaluation: Generate condition
 		ExpressionGeneratorVisitor predExprGenerator =
 				ExpressionGeneratorVisitor(context, *newState);
-		Value* condition = pred->accept(predExprGenerator);
-		Value* invert_condition = Builder->CreateNot(condition);
+		RawValue condition = pred->accept(predExprGenerator);
+		Value* invert_condition = Builder->CreateNot(condition.value);
 		Value* val_acc_current = Builder->CreateLoad(mem_accumulating);
 		Value* val_acc_new = Builder->CreateAnd(invert_condition,
 				val_acc_current);

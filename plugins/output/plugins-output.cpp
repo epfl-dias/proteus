@@ -26,7 +26,7 @@
 Materializer::Materializer(const vector<RecordAttribute*>& wantedFields, const vector<materialization_mode>& outputMode)
 	: wantedFields(wantedFields), outputMode(outputMode), tupleIdentifiers(0) {}
 
-OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer, const map<RecordAttribute, AllocaInst*>& bindings )
+OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer, const map<RecordAttribute, RawValueMemory>& bindings )
 	: context(context), materializer(materializer), currentBindings(bindings)	{
 
 	const vector<RecordAttribute*>& wantedFields = materializer.getWantedFields();
@@ -35,13 +35,14 @@ OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer
 	int payload_type_size = 0;
 	int tupleIdentifiers = 0;
 	//Always materializing the 'active tuples' pointer
-	AllocaInst* mem_activeTuple = NULL;
+	RawValueMemory mem_activeTuple;
 	{
-		map<RecordAttribute, AllocaInst*>::const_iterator memSearch;
+		map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+		//FIXME use 'find' instead of looping
 		for (memSearch = currentBindings.begin(); memSearch != currentBindings.end(); memSearch++) {
 			RecordAttribute currAttr = memSearch->first;
 			if (currAttr.getAttrName() == activeLoop) {
-				Type* currType = memSearch->second->getAllocatedType();
+				Type* currType = (memSearch->second).mem->getAllocatedType();
 				materializedTypes->push_back(currType);
 				payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
 				tupleIdentifiers++;
@@ -53,14 +54,14 @@ OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer
 
 	int attrNo=0;
 	for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it != wantedFields.end(); it++)	{
-		map<RecordAttribute, AllocaInst*>::const_iterator itSearch = currentBindings.find(*(*it));
+		map<RecordAttribute, RawValueMemory>::const_iterator itSearch = currentBindings.find(*(*it));
 		//Field needed
 		if(itSearch != currentBindings.end())
 		{
 			LOG(INFO)<<"[MATERIALIZER: ] PART OF PAYLOAD: "<<(*it)->getAttrName();
 			materialization_mode mode = (materializer.getOutputMode()).at(attrNo++);
 			//gather datatypes
-			Type* currType = itSearch->second->getAllocatedType();
+			Type* currType = (itSearch->second).mem->getAllocatedType();
 			Type* requestedType = chooseType((*it)->getOriginalType(),currType, mode);
 			materializedTypes->push_back(requestedType);
 			payload_type_size += (requestedType->getPrimitiveSizeInBits() / 8);

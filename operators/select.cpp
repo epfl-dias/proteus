@@ -36,7 +36,7 @@ void Select::generate(RawContext* const context, const OperatorState& childState
 
 	//Generate condition
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
-	Value* condition = this->expr->accept(exprGenerator);
+	RawValue condition = this->expr->accept(exprGenerator);
 
 	//Get entry point
 	Function *TheFunction = TheBuilder->GetInsertBlock()->getParent();
@@ -46,7 +46,7 @@ void Select::generate(RawContext* const context, const OperatorState& childState
 	BasicBlock *ThenBB = BasicBlock::Create(llvmContext, "selectionThen", TheFunction);
 	BasicBlock *MergeBB = BasicBlock::Create(llvmContext, "selectionIfCont");
 
-	TheBuilder->CreateCondBr(condition, ThenBB, MergeBB);
+	TheBuilder->CreateCondBr(condition.value, ThenBB, MergeBB);
 	TheBuilder->SetInsertPoint(ThenBB);
 
 	//Triggering parent

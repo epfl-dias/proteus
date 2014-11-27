@@ -223,7 +223,7 @@ void Reduce::generateSum(RawContext* const context, const OperatorState& childSt
 
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, childState);
-	Value* condition = pred->accept(predExprGenerator);
+	RawValue condition = pred->accept(predExprGenerator);
 	/**
 	 * Predicate Evaluation:
 	 */
@@ -238,16 +238,16 @@ void Reduce::generateSum(RawContext* const context, const OperatorState& childSt
 	 */
 	Builder->SetInsertPoint(ifBlock);
 	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(context, childState);
-	Value* val_output = outputExpr->accept(outputExprGenerator);
+	RawValue val_output = outputExpr->accept(outputExprGenerator);
 
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case INT: {
 		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition, ifBlock, endBlock);
+		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 		Builder->SetInsertPoint(ifBlock);
 
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* val_new = Builder->CreateAdd(val_accumulating, val_output);
+		Value* val_new = Builder->CreateAdd(val_accumulating, val_output.value);
 		Builder->CreateStore(val_new, mem_accumulating);
 
 		Builder->CreateBr(endBlock);
@@ -268,11 +268,11 @@ void Reduce::generateSum(RawContext* const context, const OperatorState& childSt
 	case FLOAT: {
 		Type* doubleType = Type::getDoubleTy(llvmContext);
 		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition, ifBlock, endBlock);
+		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 		Builder->SetInsertPoint(ifBlock);
 
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* val_new = Builder->CreateFAdd(val_accumulating,val_output);
+		Value* val_new = Builder->CreateFAdd(val_accumulating,val_output.value);
 		Builder->CreateStore(val_new,mem_accumulating);
 
 		//Prepare final result output
@@ -308,7 +308,7 @@ void Reduce::generateMul(RawContext* const context, const OperatorState& childSt
 
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, childState);
-	Value* condition = pred->accept(predExprGenerator);
+	RawValue condition = pred->accept(predExprGenerator);
 	/**
 	 * Predicate Evaluation:
 	 */
@@ -323,16 +323,16 @@ void Reduce::generateMul(RawContext* const context, const OperatorState& childSt
 	 */
 	Builder->SetInsertPoint(ifBlock);
 	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(context, childState);
-	Value* val_output = outputExpr->accept(outputExprGenerator);
+	RawValue val_output = outputExpr->accept(outputExprGenerator);
 
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case INT: {
 		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition, ifBlock, endBlock);
+		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 		Builder->SetInsertPoint(ifBlock);
 
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* val_new = Builder->CreateMul(val_accumulating, val_output);
+		Value* val_new = Builder->CreateMul(val_accumulating, val_output.value);
 		Builder->CreateStore(val_new, mem_accumulating);
 
 		Builder->CreateBr(endBlock);
@@ -353,11 +353,11 @@ void Reduce::generateMul(RawContext* const context, const OperatorState& childSt
 	case FLOAT: {
 		Type* doubleType = Type::getDoubleTy(llvmContext);
 		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition, ifBlock, endBlock);
+		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 		Builder->SetInsertPoint(ifBlock);
 
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* val_new = Builder->CreateFMul(val_accumulating,val_output);
+		Value* val_new = Builder->CreateFMul(val_accumulating,val_output.value);
 		Builder->CreateStore(val_new,mem_accumulating);
 
 		//Prepare final result output
@@ -393,7 +393,7 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, childState);
-	Value* condition = pred->accept(predExprGenerator);
+	RawValue condition = pred->accept(predExprGenerator);
 
 	/**
 	 * Predicate Evaluation:
@@ -409,12 +409,12 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 	 */
 	Builder->SetInsertPoint(ifBlock);
 	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(context, childState);
-	Value* val_output = outputExpr->accept(outputExprGenerator);
+	RawValue val_output = outputExpr->accept(outputExprGenerator);
 
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case INT: {
 		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition, ifBlock, endBlock);
+		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 		Builder->SetInsertPoint(ifBlock);
 
 		/**
@@ -423,11 +423,11 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 		BasicBlock* ifGtMaxBlock;
 		context->CreateIfBlock(context->getGlobalFunction(), "reduceMaxCond",&ifGtMaxBlock,endBlock);
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* maxCondition = Builder->CreateICmpSGT(val_output,val_accumulating);
+		Value* maxCondition = Builder->CreateICmpSGT(val_output.value,val_accumulating);
 		Builder->CreateCondBr(maxCondition,ifGtMaxBlock,endBlock);
 
 		Builder->SetInsertPoint(ifGtMaxBlock);
-		Builder->CreateStore(val_output,mem_accumulating);
+		Builder->CreateStore(val_output.value,mem_accumulating);
 		Builder->CreateBr(endBlock);
 
 		//Prepare final result output
@@ -448,7 +448,7 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 	case FLOAT: {
 		Type* doubleType = Type::getDoubleTy(llvmContext);
 		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition, ifBlock, endBlock);
+		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 		Builder->SetInsertPoint(ifBlock);
 
 		/**
@@ -457,12 +457,12 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 		BasicBlock* ifGtMaxBlock;
 		context->CreateIfBlock(context->getGlobalFunction(), "reduceMaxCond",&ifGtMaxBlock, endBlock);
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* maxCondition = Builder->CreateFCmpOGT(val_output,
+		Value* maxCondition = Builder->CreateFCmpOGT(val_output.value,
 				val_accumulating);
 		Builder->CreateCondBr(maxCondition, ifGtMaxBlock, endBlock);
 
 		Builder->SetInsertPoint(ifGtMaxBlock);
-		Builder->CreateStore(val_output, mem_accumulating);
+		Builder->CreateStore(val_output.value, mem_accumulating);
 		Builder->CreateBr(endBlock);
 
 		//Prepare final result output
@@ -499,7 +499,7 @@ void Reduce::generateOr(RawContext* const context, const OperatorState& childSta
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(
 			context, childState);
-	Value* condition = pred->accept(predExprGenerator);
+	RawValue condition = pred->accept(predExprGenerator);
 
 	/**
 	 * Predicate Evaluation:
@@ -521,13 +521,13 @@ void Reduce::generateOr(RawContext* const context, const OperatorState& childSta
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case BOOL: {
 		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition, ifBlock, endBlock);
+		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 		Builder->SetInsertPoint(ifBlock);
 
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-		Value* val_output = outputExpr->accept(outputExprGenerator);
-		Value* val_new = Builder->CreateOr(val_accumulating, val_output);
+		RawValue val_output = outputExpr->accept(outputExprGenerator);
+		Value* val_new = Builder->CreateOr(val_accumulating, val_output.value);
 		Builder->CreateStore(val_new, mem_accumulating);
 
 		Builder->CreateBr(endBlock);
@@ -565,7 +565,7 @@ void Reduce::generateAnd(RawContext* const context, const OperatorState& childSt
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(
 			context, childState);
-	Value* condition = pred->accept(predExprGenerator);
+	RawValue condition = pred->accept(predExprGenerator);
 
 	/**
 	 * Predicate Evaluation:
@@ -587,13 +587,13 @@ void Reduce::generateAnd(RawContext* const context, const OperatorState& childSt
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case BOOL: {
 		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition, ifBlock, endBlock);
+		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 		Builder->SetInsertPoint(ifBlock);
 
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-		Value* val_output = outputExpr->accept(outputExprGenerator);
-		Value* val_new = Builder->CreateAnd(val_accumulating, val_output);
+		RawValue val_output = outputExpr->accept(outputExprGenerator);
+		Value* val_new = Builder->CreateAnd(val_accumulating, val_output.value);
 		Builder->CreateStore(val_new, mem_accumulating);
 
 		Builder->CreateBr(endBlock);

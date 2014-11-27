@@ -38,7 +38,7 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 	//Generate path. Value returned must be a collection
 	ExpressionGeneratorVisitor pathExprGenerator = ExpressionGeneratorVisitor(context, childState);
 	expressions::RecordProjection* pathProj = path.get();
-	Value* nestedValueAll = pathProj->accept(pathExprGenerator);
+	RawValue nestedValueAll = pathProj->accept(pathExprGenerator);
 
 	/**
 	 * foreach val in nestedValue:
@@ -53,18 +53,18 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 	 * init the vars used by the plugin
 	 */
 	Plugin* pg = path.getRelevantPlugin();
-	AllocaInst* mem_currentObjId = pg->initCollectionUnnest(nestedValueAll);
+	RawValueMemory mem_currentObjId = pg->initCollectionUnnest(nestedValueAll);
 	Builder->CreateBr(loopCond);
 
 	Builder->SetInsertPoint(loopCond);
-	Value* endCond = pg->collectionHasNext(nestedValueAll,mem_currentObjId);
-	Builder->CreateCondBr(endCond, loopBody, loopEnd);
+	RawValue endCond = pg->collectionHasNext(nestedValueAll,mem_currentObjId);
+	Builder->CreateCondBr(endCond.value, loopBody, loopEnd);
 
 	Builder->SetInsertPoint(loopBody);
-	AllocaInst* nestedValueItem =  pg->collectionGetNext(mem_currentObjId);
+	RawValueMemory nestedValueItem =  pg->collectionGetNext(mem_currentObjId);
 
 	//Preparing call to parent
-	map<RecordAttribute, AllocaInst*>* unnestBindings = new map<RecordAttribute, AllocaInst*>(childState.getBindings());
+	map<RecordAttribute, RawValueMemory>* unnestBindings = new map<RecordAttribute, RawValueMemory>(childState.getBindings());
 	RawCatalog& catalog = RawCatalog::getInstance();
 	LOG(INFO) << "[Unnest: ] Registering plugin of "<< path.toString();
 	catalog.registerPlugin(path.toString(),pg);
@@ -87,8 +87,8 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, *newState);
-	Value* condition = pred->accept(predExprGenerator);
-	Builder->CreateCondBr(condition,ifBlock,elseBlock);
+	RawValue condition = pred->accept(predExprGenerator);
+	Builder->CreateCondBr(condition.value,ifBlock,elseBlock);
 
 	/*
 	 * IF BLOCK

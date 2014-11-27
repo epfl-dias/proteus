@@ -45,7 +45,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 	if(caller == getLeftChild())
 	{
 		LOG(INFO) << "[JOIN: ] Building side";
-		const map<RecordAttribute, AllocaInst*>& bindings = childState.getBindings();
+		const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
 		OutputPlugin* pg = new OutputPlugin(context, mat, bindings);
 
 		//Result type specified during output plugin construction
@@ -61,14 +61,14 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		std::vector<Type*>* materializedTypes = pg->getMaterializedTypes();
 
 		//Materializing all activeTuples met so far
-		AllocaInst* mem_activeTuple = NULL;
+		RawValueMemory mem_activeTuple;
 		{
-			map<RecordAttribute, AllocaInst*>::const_iterator memSearch;
+			map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
 			for(memSearch = bindings.begin(); memSearch != bindings.end(); memSearch++)	{
 				RecordAttribute currAttr = memSearch->first;
 				if(currAttr.getAttrName() == activeLoop)	{
 					mem_activeTuple = memSearch->second;
-					Value* val_activeTuple = TheBuilder->CreateLoad(mem_activeTuple);
+					Value* val_activeTuple = TheBuilder->CreateLoad(mem_activeTuple.mem);
 					//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
 					vector<Value*> idxList = vector<Value*>();
 					idxList.push_back(context->createInt32(0));
@@ -84,10 +84,10 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
 		for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!=wantedFields.end(); ++it)
 		{
-			map<RecordAttribute, AllocaInst*>::const_iterator memSearch = bindings.find(*(*it));
-			AllocaInst* currValMem = memSearch->second;
+			map<RecordAttribute, RawValueMemory>::const_iterator memSearch = bindings.find(*(*it));
+			RawValueMemory currValMem = memSearch->second;
 			//FIXME FIX THE NECESSARY CONVERSIONS HERE
-			Value* currVal = TheBuilder->CreateLoad(currValMem);
+			Value* currVal = TheBuilder->CreateLoad(currValMem.mem);
 			Value* valToMaterialize = pg->convert(currVal->getType(),materializedTypes->at(offsetInWanted),currVal);
 			vector<Value*> idxList = vector<Value*>();
 			idxList.push_back(context->createInt32(0));
@@ -102,7 +102,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		//PREPARE KEY
 		expressions::Expression* leftKeyExpr = this->pred->getLeftOperand();
 		ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
-		Value* leftKey = leftKeyExpr->accept(exprGenerator);
+		RawValue leftKey = leftKeyExpr->accept(exprGenerator);
 
 
 		//INSERT VALUES IN HT
@@ -113,14 +113,14 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		std::vector<Value*> ArgsV;
 		ArgsV.clear();
 		ArgsV.push_back(globalStr);
-		ArgsV.push_back(leftKey);
+		ArgsV.push_back(leftKey.value);
 		ArgsV.push_back(voidCast);
 		//Passing size as well
 		ArgsV.push_back(context->createInt32(pg->getPayloadTypeSize()));
 		Function* insert;
 
 		//Pick appropriate insertion function based on key type
-		Type* keyType = leftKey->getType();
+		Type* keyType = (leftKey.value)->getType();
 		switch(keyType->getTypeID())
 		{
 		case 	10: //IntegerTyID:
@@ -141,7 +141,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		//PREPARE KEY
 		expressions::Expression* rightKeyExpr = this->pred->getRightOperand();
 		ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
-		Value* rightKey = rightKeyExpr->accept(exprGenerator);
+		RawValue rightKey = rightKeyExpr->accept(exprGenerator);
 		int typeIdx = RawCatalog::getInstance().getTypeIndex(string(this->htName));
 		Value* idx = context->createInt32(typeIdx);
 
@@ -149,12 +149,12 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		std::vector<Value*> ArgsV;
 		ArgsV.clear();
 		ArgsV.push_back(globalStr);
-		ArgsV.push_back(rightKey);
+		ArgsV.push_back(rightKey.value);
 		ArgsV.push_back(idx);
 		Function* probe;
 
 		//Pick appropriate probing function based on key type
-		Type* keyType = rightKey->getType();
+		Type* keyType = (rightKey.value)->getType();
 		switch(keyType->getTypeID())
 		{
 		case 	10: //IntegerTyID:
@@ -225,7 +225,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		//str->dump();
 		unsigned elemNo = str->getNumElements();
 		LOG(INFO) << "[JOIN: ] Elements in result struct: "<<elemNo;
-		map<RecordAttribute, AllocaInst*>* allJoinBindings = new map<RecordAttribute, AllocaInst*>();
+		map<RecordAttribute, RawValueMemory>* allJoinBindings = new map<RecordAttribute, RawValueMemory>();
 
 
 		int i = 0;
@@ -244,7 +244,10 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 			LoadInst* field = new LoadInst(elem_ptr,ss.str(), false, loopBody);
 			StoreInst* store_field = new StoreInst(field, mem_activeTuple, false, loopBody);
 
-			(*allJoinBindings)[*it] = mem_activeTuple;
+			RawValueMemory mem_valWrapper;
+			mem_valWrapper.mem = mem_activeTuple;
+			mem_valWrapper.isNull = context->createFalse();
+			(*allJoinBindings)[*it] = mem_valWrapper;
 			i++;
 		}
 
@@ -260,13 +263,16 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 			StoreInst* store_field = new StoreInst(field, memForField, false, loopBody);
 			i++;
 
-			(*allJoinBindings)[*(*it)] = memForField;
+			RawValueMemory mem_valWrapper;
+			mem_valWrapper.mem = memForField;
+			mem_valWrapper.isNull = context->createFalse();
+			(*allJoinBindings)[*(*it)] = mem_valWrapper;
 			LOG(INFO) << "[JOIN: ] Lhs Binding name: "<<currField;
 		}
 
 		//Forwarding/pipelining bindings of rhs too
-		const map<RecordAttribute, AllocaInst*>& rhsBindings = childState.getBindings();
-		for(map<RecordAttribute, AllocaInst*>::const_iterator it = rhsBindings.begin(); it!= rhsBindings.end(); ++it) {
+		const map<RecordAttribute, RawValueMemory>& rhsBindings = childState.getBindings();
+		for(map<RecordAttribute, RawValueMemory>::const_iterator it = rhsBindings.begin(); it!= rhsBindings.end(); ++it) {
 			LOG(INFO) << "[JOIN: ] Rhs Binding name: "<<(it->first).getAttrName();
 			(*allJoinBindings).insert(*it);
 		}

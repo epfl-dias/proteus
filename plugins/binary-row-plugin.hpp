@@ -36,21 +36,21 @@ public:
 	void init();
 	void generate(const RawOperator& producer);
 	void finish();
-	AllocaInst* readPath(string activeRelation, Bindings bindings, const char* pathVar);
-	AllocaInst* readValue(AllocaInst* mem_value, const ExpressionType* type);
+	RawValueMemory readPath(string activeRelation, Bindings bindings, const char* pathVar);
+	RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
 
-	AllocaInst* initCollectionUnnest(Value* val_parentObject) {
+	RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
 		string error_msg = "[BinaryRowPlugin: ] Binary row files do not contain collections";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
-	Value* collectionHasNext(Value* val_parentObject,
-			AllocaInst* mem_currentChild) {
+	RawValue collectionHasNext(RawValue val_parentObject,
+			RawValueMemory mem_currentChild) {
 		string error_msg = "[BinaryRowPlugin: ] Binary row files do not contain collections";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
-	AllocaInst* collectionGetNext(AllocaInst* mem_currentChild) {
+	RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) {
 		string error_msg = "[BinaryRowPlugin: ] Binary row files do not contain collections";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
@@ -79,10 +79,10 @@ private:
 
 	//Used to generate code
 	void skipLLVM(Value* offset);
-	void readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables);
-	void readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables);
-	void readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables);
-	void readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables);
+	void readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
+	void readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
+	void readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
+	void readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
 
 	//Generates a for loop that performs the file scan
 	void scan(const RawOperator& producer, Function *f);

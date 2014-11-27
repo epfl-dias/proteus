@@ -23,19 +23,28 @@
 
 #include "expressions/expressions-generator.hpp"
 
-Value* ExpressionGeneratorVisitor::visit(expressions::IntConstant *e) {
-	return ConstantInt::get(context->getLLVMContext(), APInt(32, e->getVal()));
+RawValue ExpressionGeneratorVisitor::visit(expressions::IntConstant *e) {
+	RawValue valWrapper;
+	valWrapper.value = ConstantInt::get(context->getLLVMContext(), APInt(32, e->getVal()));
+	valWrapper.isNull = context->createFalse();
+	return valWrapper;
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::FloatConstant *e) {
-	return ConstantFP::get(context->getLLVMContext(), APFloat(e->getVal()));
+RawValue ExpressionGeneratorVisitor::visit(expressions::FloatConstant *e) {
+	RawValue valWrapper;
+	valWrapper.value = ConstantFP::get(context->getLLVMContext(), APFloat(e->getVal()));
+	valWrapper.isNull = context->createFalse();
+	return valWrapper;
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::BoolConstant *e) {
-	return ConstantInt::get(context->getLLVMContext(), APInt(1, e->getVal()));
+RawValue ExpressionGeneratorVisitor::visit(expressions::BoolConstant *e) {
+	RawValue valWrapper;
+	valWrapper.value = ConstantInt::get(context->getLLVMContext(), APInt(1, e->getVal()));
+	valWrapper.isNull = context->createFalse();
+	return valWrapper;
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::StringConstant *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::StringConstant *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 
 	char* str = new char[e->getVal().length() + 1];
@@ -63,15 +72,19 @@ Value* ExpressionGeneratorVisitor::visit(expressions::StringConstant *e) {
 	TheBuilder->CreateStore(context->createInt32(e->getVal().length()),structPtr);
 
 	Value* val_strObj = TheBuilder->CreateLoad(mem_strObj);
-	return val_strObj;
+	RawValue valWrapper;
+	valWrapper.value = val_strObj;
+	valWrapper.isNull = context->createFalse();
+	return valWrapper;
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 	AllocaInst* argMem = NULL;
+	Value* isNull;
 	{
-		const map<RecordAttribute, AllocaInst*>& activeVars = currState.getBindings();
-		map<RecordAttribute, AllocaInst*>::const_iterator it;
+		const map<RecordAttribute, RawValueMemory>& activeVars = currState.getBindings();
+		map<RecordAttribute, RawValueMemory>::const_iterator it;
 
 		//A previous visitor has indicated which relation is relevant
 		if(activeRelation != "")	{
@@ -82,7 +95,8 @@ Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 				LOG(ERROR) << error_msg;
 			 	throw runtime_error(error_msg);
 			}	else	{
-				argMem = it->second;
+				argMem = (it->second).mem;
+				isNull = (it->second).isNull;
 			}
 		}	else	{
 			LOG(INFO) << "[Expression Generator: ] No active relation found - Non-record case";
@@ -94,7 +108,8 @@ Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 				//Does 1st part of check ever get satisfied? activeRelation is empty here
 				if(currAttr.getRelationName() == activeRelation && currAttr.getAttrName() == activeLoop)	{
 					//cout << "Found " << currAttr.getRelationName() << " " << currAttr.getAttrName() << endl;
-					argMem = it->second;
+					argMem = (it->second).mem;
+					isNull = (it->second).isNull;
 					relationsCount++;
 				}
 			}
@@ -110,14 +125,17 @@ Value* ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 			}
 		}
 	}
-	return TheBuilder->CreateLoad(argMem);
+	RawValue valWrapper;
+	valWrapper.value = TheBuilder->CreateLoad(argMem);
+	valWrapper.isNull = context->createFalse();
+	return valWrapper;
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	activeRelation 					= e->getOriginalRelationName();
-	Value* record 					= e->getExpr()->accept(*this);
+	RawValue record					= e->getExpr()->accept(*this);
 	Plugin* plugin 					= catalog.getPlugin(activeRelation);
 
 	//Resetting activeRelation here would break nested-record-projections
@@ -128,8 +146,9 @@ Value* ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		throw runtime_error(error_msg);
 	}	else	{
 		Bindings bindings = { &currState, record };
-		AllocaInst *mem_path = NULL;
-		AllocaInst *mem_val = NULL;
+		RawValueMemory mem_path;
+		RawValueMemory mem_val;
+		Value *isNull = NULL;
 		cout << "Active Relation: " << e->getProjectionName() << endl;
 		if (e->getProjectionName() != activeLoop) {
 			//Path involves a projection / an object
@@ -141,7 +160,7 @@ Value* ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 			//(e.g., the result of unnesting a list of primitives)
 			RecordAttribute tupleIdentifier = RecordAttribute(activeRelation,
 					activeLoop);
-			map<RecordAttribute, AllocaInst*>::const_iterator it =
+			map<RecordAttribute, RawValueMemory>::const_iterator it =
 					currState.getBindings().find(tupleIdentifier);
 			if (it == currState.getBindings().end()) {
 				string error_msg =
@@ -152,24 +171,28 @@ Value* ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 			mem_path = it->second;
 		}
 		mem_val = plugin->readValue(mem_path, e->getExpressionType());
-		Value *val = TheBuilder->CreateLoad(mem_val);
+		Value *val = TheBuilder->CreateLoad(mem_val.mem);
 
-		return val;
+		RawValue valWrapper;
+		valWrapper.value = val;
+		valWrapper.isNull = mem_val.isNull;
+		return valWrapper;
 	}
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	LLVMContext& llvmContext		= context->getLLVMContext();
 	Function *F 					= TheBuilder->GetInsertBlock()->getParent();
 
-	Value* ifCond 		= e->getIfCond()->accept(*this);
-	Value* ifResult		= e->getIfResult()->accept(*this);
-	Value* elseResult 	= e->getElseResult()->accept(*this);
+	RawValue ifCond 		= e->getIfCond()->accept(*this);
+	RawValue ifResult		= e->getIfResult()->accept(*this);
+	RawValue elseResult 	= e->getElseResult()->accept(*this);
 
 	//Prepare result
-	AllocaInst* mem_result = context->CreateEntryBlockAlloca(F, "ifElseResult", ifResult->getType());
+	AllocaInst* mem_result = context->CreateEntryBlockAlloca(F, "ifElseResult", (ifResult.value)->getType());
+	AllocaInst* mem_result_isNull = context->CreateEntryBlockAlloca(F, "ifElseResultIsNull", (ifResult.isNull)->getType());
 
 	//Prepare blocks
 	BasicBlock *ThenBB;
@@ -178,47 +201,57 @@ Value* ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
 	context->CreateIfElseBlocks(F,"ifExprThen","ifExprElse",&ThenBB,&ElseBB,MergeBB);
 
 	//if
-	TheBuilder->CreateCondBr(ifCond, ThenBB, ElseBB);
+	TheBuilder->CreateCondBr(ifCond.value, ThenBB, ElseBB);
 
 	//then
 	TheBuilder->SetInsertPoint(ThenBB);
-	TheBuilder->CreateStore(ifResult,mem_result);
+	TheBuilder->CreateStore(ifResult.value,mem_result);
+	TheBuilder->CreateStore(ifResult.isNull,mem_result_isNull);
 	TheBuilder->CreateBr(MergeBB);
 
 	//else
 	TheBuilder->SetInsertPoint(ElseBB);
-	TheBuilder->CreateStore(elseResult,mem_result);
+	TheBuilder->CreateStore(elseResult.value,mem_result);
+	TheBuilder->CreateStore(elseResult.isNull,mem_result_isNull);
 	TheBuilder->CreateBr(MergeBB);
 
 	//cont.
 	TheBuilder->SetInsertPoint(MergeBB);
-	Value* result = TheBuilder->CreateLoad(mem_result);
-	return result;
+	RawValue valWrapper;
+	valWrapper.value = TheBuilder->CreateLoad(mem_result);
+	valWrapper.isNull = TheBuilder->CreateLoad(mem_result_isNull);
+
+	return valWrapper;
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Value* left = e->getLeftOperand()->accept(*this);
-	Value* right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand()->accept(*this);
+	RawValue right = e->getRightOperand()->accept(*this);
 
 	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
-
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
 		switch (id) {
 		case INT:
-			return TheBuilder->CreateICmpEQ(left, right);
+			valWrapper.value = TheBuilder->CreateICmpEQ(left.value, right.value);
+			return valWrapper;
 		case FLOAT:
-			return TheBuilder->CreateFCmpOEQ(left, right);
+			valWrapper.value = TheBuilder->CreateFCmpOEQ(left.value, right.value);
+			return valWrapper;
 		case BOOL:
-			return TheBuilder->CreateICmpEQ(left, right);
+			valWrapper.value = TheBuilder->CreateICmpEQ(left.value, right.value);
+			return valWrapper;
 		case STRING: {
 			std::vector<Value*> ArgsV;
-			ArgsV.push_back(left);
-			ArgsV.push_back(right);
+			ArgsV.push_back(left.value);
+			ArgsV.push_back(right.value);
 			Function* stringEquality = context->getFunction("equalStrings");
-			return TheBuilder->CreateCall(stringEquality, ArgsV,
+			valWrapper.value = TheBuilder->CreateCall(stringEquality, ArgsV,
 					"equalStringsCall");
+			return valWrapper;
 		}
 		case BAG:
 		case LIST:
@@ -236,22 +269,27 @@ Value* ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::NeExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::NeExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Value* left = e->getLeftOperand()->accept(*this);
-	Value* right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand()->accept(*this);
+	RawValue right = e->getRightOperand()->accept(*this);
 
 	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
 		case INT:
-			return TheBuilder->CreateICmpNE(left, right);
+			valWrapper.value = TheBuilder->CreateICmpNE(left.value, right.value);
+			return valWrapper;
 		case FLOAT:
-			return TheBuilder->CreateFCmpONE(left, right);
+			valWrapper.value = TheBuilder->CreateFCmpONE(left.value, right.value);
+			return valWrapper;
 		case BOOL:
-			return TheBuilder->CreateICmpNE(left, right);
+			valWrapper.value = TheBuilder->CreateICmpNE(left.value, right.value);
+			return valWrapper;
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
@@ -271,22 +309,27 @@ Value* ExpressionGeneratorVisitor::visit(expressions::NeExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::GeExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::GeExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Value* left = e->getLeftOperand()->accept(*this);
-	Value* right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand()->accept(*this);
+	RawValue right = e->getRightOperand()->accept(*this);
 
 	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
 		case INT:
-			return TheBuilder->CreateICmpSGE(left, right);
+			valWrapper.value = TheBuilder->CreateICmpSGE(left.value, right.value);
+			return valWrapper;
 		case FLOAT:
-			return TheBuilder->CreateFCmpOGE(left, right);
+			valWrapper.value = TheBuilder->CreateFCmpOGE(left.value, right.value);
+			return valWrapper;
 		case BOOL:
-			return TheBuilder->CreateICmpSGE(left, right);
+			valWrapper.value = TheBuilder->CreateICmpSGE(left.value, right.value);
+			return valWrapper;
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
@@ -306,30 +349,27 @@ Value* ExpressionGeneratorVisitor::visit(expressions::GeExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Value* left = e->getLeftOperand()->accept(*this);
-	Value* right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand()->accept(*this);
+	RawValue right = e->getRightOperand()->accept(*this);
 
 	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
 		case INT:
-			return TheBuilder->CreateICmpSGT(left, right);
+			valWrapper.value = TheBuilder->CreateICmpSGT(left.value, right.value);
+			return valWrapper;
 		case FLOAT:
-		{
-#ifdef DEBUG
-//		std::vector<Value*> ArgsV;
-//		Function* debugFloat = context->getFunction("printFloat");
-//		ArgsV.push_back(left);
-//		TheBuilder->CreateCall(debugFloat, ArgsV);
-#endif
-			return TheBuilder->CreateFCmpOGT(left, right);
-		}
+			valWrapper.value = TheBuilder->CreateFCmpOGT(left.value, right.value);
+			return valWrapper;
 		case BOOL:
-			return TheBuilder->CreateICmpSGT(left, right);
+			valWrapper.value = TheBuilder->CreateICmpSGT(left.value, right.value);
+			return valWrapper;
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
@@ -349,22 +389,27 @@ Value* ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::LeExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::LeExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Value* left = e->getLeftOperand()->accept(*this);
-	Value* right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand()->accept(*this);
+	RawValue right = e->getRightOperand()->accept(*this);
 
 	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
 		case INT:
-			return TheBuilder->CreateICmpSLE(left, right);
+			valWrapper.value = TheBuilder->CreateICmpSLE(left.value, right.value);
+			return valWrapper;
 		case FLOAT:
-			return TheBuilder->CreateFCmpOLE(left, right);
+			valWrapper.value = TheBuilder->CreateFCmpOLE(left.value, right.value);
+			return valWrapper;
 		case BOOL:
-			return TheBuilder->CreateICmpSLE(left, right);
+			valWrapper.value = TheBuilder->CreateICmpSLE(left.value, right.value);
+			return valWrapper;
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
@@ -384,22 +429,27 @@ Value* ExpressionGeneratorVisitor::visit(expressions::LeExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::LtExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::LtExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Value* left = e->getLeftOperand()->accept(*this);
-	Value* right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand()->accept(*this);
+	RawValue right = e->getRightOperand()->accept(*this);
 
 	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
 		case INT:
-			return TheBuilder->CreateICmpSLT(left, right);
+			valWrapper.value = TheBuilder->CreateICmpSLT(left.value, right.value);
+			return valWrapper;
 		case FLOAT:
-			return TheBuilder->CreateFCmpOLT(left, right);
+			valWrapper.value = TheBuilder->CreateFCmpOLT(left.value, right.value);
+			return valWrapper;
 		case BOOL:
-			return TheBuilder->CreateICmpSLT(left, right);
+			valWrapper.value = TheBuilder->CreateICmpSLT(left.value, right.value);
+			return valWrapper;
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
@@ -419,22 +469,27 @@ Value* ExpressionGeneratorVisitor::visit(expressions::LtExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::AddExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::AddExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Value* left = e->getLeftOperand()->accept(*this);
-	Value* right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand()->accept(*this);
+	RawValue right = e->getRightOperand()->accept(*this);
 
 	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
 		case INT:
-			return TheBuilder->CreateAdd(left, right);
+			valWrapper.value = TheBuilder->CreateAdd(left.value, right.value);
+			return valWrapper;
 		case FLOAT:
-			return TheBuilder->CreateFAdd(left, right);
+			valWrapper.value = TheBuilder->CreateFAdd(left.value, right.value);
+			return valWrapper;
 		case BOOL:
-			return TheBuilder->CreateAdd(left, right);
+			valWrapper.value = TheBuilder->CreateAdd(left.value, right.value);
+			return valWrapper;
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
@@ -454,22 +509,27 @@ Value* ExpressionGeneratorVisitor::visit(expressions::AddExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::SubExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::SubExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Value* left = e->getLeftOperand()->accept(*this);
-	Value* right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand()->accept(*this);
+	RawValue right = e->getRightOperand()->accept(*this);
 
 	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
 		case INT:
-			return TheBuilder->CreateSub(left, right);
+			valWrapper.value = TheBuilder->CreateSub(left.value, right.value);
+			return valWrapper;
 		case FLOAT:
-			return TheBuilder->CreateFSub(left, right);
+			valWrapper.value = TheBuilder->CreateFSub(left.value, right.value);
+			return valWrapper;
 		case BOOL:
-			return TheBuilder->CreateSub(left, right);
+			valWrapper.value = TheBuilder->CreateSub(left.value, right.value);
+			return valWrapper;
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
@@ -489,22 +549,27 @@ Value* ExpressionGeneratorVisitor::visit(expressions::SubExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::MultExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::MultExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Value* left = e->getLeftOperand()->accept(*this);
-	Value* right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand()->accept(*this);
+	RawValue right = e->getRightOperand()->accept(*this);
 
 	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
 		case INT:
-			return TheBuilder->CreateMul(left, right);
+			valWrapper.value = TheBuilder->CreateMul(left.value, right.value);
+			return valWrapper;
 		case FLOAT:
-			return TheBuilder->CreateFMul(left, right);
+			valWrapper.value = TheBuilder->CreateFMul(left.value, right.value);
+			return valWrapper;
 		case BOOL:
-			return TheBuilder->CreateMul(left, right);
+			valWrapper.value = TheBuilder->CreateMul(left.value, right.value);
+			return valWrapper;
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
@@ -524,22 +589,27 @@ Value* ExpressionGeneratorVisitor::visit(expressions::MultExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::DivExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::DivExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Value* left = e->getLeftOperand()->accept(*this);
-	Value* right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand()->accept(*this);
+	RawValue right = e->getRightOperand()->accept(*this);
 
 	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
 		case INT:
-			return TheBuilder->CreateSDiv(left, right);
+			valWrapper.value = TheBuilder->CreateSDiv(left.value, right.value);
+			return valWrapper;
 		case FLOAT:
-			return TheBuilder->CreateFDiv(left, right);
+			valWrapper.value = TheBuilder->CreateFDiv(left.value, right.value);
+			return valWrapper;
 		case BOOL:
-			return TheBuilder->CreateSDiv(left, right);
+			valWrapper.value = TheBuilder->CreateSDiv(left.value, right.value);
+			return valWrapper;
 		case STRING:
 			LOG(ERROR)<< "[ExpressionGeneratorVisitor]: string operations not supported yet";
 			throw runtime_error(string("[ExpressionGeneratorVisitor]: string operations not supported yet"));
@@ -559,18 +629,24 @@ Value* ExpressionGeneratorVisitor::visit(expressions::DivExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::AndExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::AndExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Value* left = e->getLeftOperand()->accept(*this);
-	Value* right = e->getRightOperand()->accept(*this);
-	return TheBuilder->CreateAnd(left, right);
+	RawValue left = e->getLeftOperand()->accept(*this);
+	RawValue right = e->getRightOperand()->accept(*this);
+	RawValue valWrapper;
+	valWrapper.isNull = context->createFalse();
+	valWrapper.value = TheBuilder->CreateAnd(left.value, right.value);
+	return valWrapper;
 }
 
-Value* ExpressionGeneratorVisitor::visit(expressions::OrExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(expressions::OrExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Value* left = e->getLeftOperand()->accept(*this);
-	Value* right = e->getRightOperand()->accept(*this);
-	return TheBuilder->CreateOr(left, right);
+		RawValue left = e->getLeftOperand()->accept(*this);
+		RawValue right = e->getRightOperand()->accept(*this);
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
+		valWrapper.value = TheBuilder->CreateOr(left.value, right.value);
+		return valWrapper;
 }
 
 

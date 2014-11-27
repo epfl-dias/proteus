@@ -30,10 +30,10 @@ void Print::consume (RawContext* const context, const OperatorState& childState)
 	IRBuilder<>* TheBuilder = context->getBuilder();
 	std::vector<Value*> ArgsV;
 
-	const map<RecordAttribute, AllocaInst*>& activeVars = childState.getBindings();
+	const map<RecordAttribute, RawValueMemory>& activeVars = childState.getBindings();
 	LOG(INFO) << "[Print:] Printing variable " << arg->getProjectionName();
 
-	map<RecordAttribute, AllocaInst*>::const_iterator it = activeVars.begin();
+	map<RecordAttribute, RawValueMemory>::const_iterator it = activeVars.begin();
 
 #ifdef DEBUG
 	for(; it != activeVars.end(); it++)	{
@@ -51,14 +51,14 @@ void Print::consume (RawContext* const context, const OperatorState& childState)
 		string relName = arg->getOriginalRelationName();
 		RecordAttribute attr = RecordAttribute(relName,activeLoop);
 
-		map<RecordAttribute, AllocaInst*>::const_iterator it;
+		map<RecordAttribute, RawValueMemory>::const_iterator it;
 		it = activeVars.find(attr);
 		if(it == activeVars.end())	{
 			string error_msg = string("[PrintOp: ] Wrong handling of active tuple");
 			LOG(ERROR) << error_msg;
 			throw runtime_error(error_msg);
 		}
-		mem_value = it->second;
+		mem_value = (it->second).mem;
 	}
 
 #ifdef DEBUG
@@ -70,12 +70,12 @@ void Print::consume (RawContext* const context, const OperatorState& childState)
 
 	//Generate condition
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
-	Value* toPrint = arg->accept(exprGenerator);
+	RawValue toPrint = arg->accept(exprGenerator);
 
 	//Call print
 
 	ArgsV.clear();
-	ArgsV.push_back(toPrint);
+	ArgsV.push_back(toPrint.value);
 	TheBuilder->CreateCall(print, ArgsV);
 
 	//Trigger parent

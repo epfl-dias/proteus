@@ -27,78 +27,78 @@ namespace expressions {
 
 BinaryExpression::~BinaryExpression() {}
 
-Value* IntConstant::accept(ExprVisitor &v) {
+RawValue IntConstant::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* FloatConstant::accept(ExprVisitor &v) {
+RawValue FloatConstant::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* BoolConstant::accept(ExprVisitor &v) {
+RawValue BoolConstant::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* StringConstant::accept(ExprVisitor &v) {
+RawValue StringConstant::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* InputArgument::accept(ExprVisitor &v) {
+RawValue InputArgument::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* RecordProjection::accept(ExprVisitor &v) {
+RawValue RecordProjection::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* IfThenElse::accept(ExprVisitor &v) {
+RawValue IfThenElse::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
 /**
  * The binary expressions
  */
-Value* EqExpression::accept(ExprVisitor &v) {
+RawValue EqExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* NeExpression::accept(ExprVisitor &v) {
+RawValue NeExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* GeExpression::accept(ExprVisitor &v) {
+RawValue GeExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* GtExpression::accept(ExprVisitor &v) {
+RawValue GtExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* LeExpression::accept(ExprVisitor &v) {
+RawValue LeExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* LtExpression::accept(ExprVisitor &v) {
+RawValue LtExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* AddExpression::accept(ExprVisitor &v) {
+RawValue AddExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* SubExpression::accept(ExprVisitor &v) {
+RawValue SubExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* MultExpression::accept(ExprVisitor &v) {
+RawValue MultExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* AndExpression::accept(ExprVisitor &v) {
+RawValue AndExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
-Value* OrExpression::accept(ExprVisitor &v) {
+RawValue OrExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 

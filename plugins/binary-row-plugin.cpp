@@ -86,15 +86,15 @@ void BinaryRowPlugin::generate(const RawOperator &producer) {
 /**
  * The work of readPath() and readValue() has been taken care of scanCSV()
  */
-AllocaInst* BinaryRowPlugin::readPath(string activeRelation, Bindings bindings, const char* pathVar)	{
-	AllocaInst* mem_projection;
+RawValueMemory BinaryRowPlugin::readPath(string activeRelation, Bindings bindings, const char* pathVar)	{
+	RawValueMemory mem_projection;
 	{
 		const OperatorState* state = bindings.state;
-		const map<RecordAttribute, AllocaInst*>& csvProjections = state->getBindings();
+		const map<RecordAttribute, RawValueMemory>& binProjections = state->getBindings();
 		RecordAttribute tmpKey = RecordAttribute(fname,pathVar);
-		map<RecordAttribute, AllocaInst*>::const_iterator it;
-		it = csvProjections.find(tmpKey);
-			if (it == csvProjections.end()) {
+		map<RecordAttribute, RawValueMemory>::const_iterator it;
+		it = binProjections.find(tmpKey);
+			if (it == binProjections.end()) {
 				string error_msg = string("[Binary Row plugin - readPath ]: Unknown variable name ")+pathVar;
 				LOG(ERROR) << error_msg;
 				throw runtime_error(error_msg);
@@ -104,7 +104,7 @@ AllocaInst* BinaryRowPlugin::readPath(string activeRelation, Bindings bindings, 
 	return mem_projection;
 }
 
-AllocaInst* BinaryRowPlugin::readValue(AllocaInst* mem_value, const ExpressionType* type)	{
+RawValueMemory BinaryRowPlugin::readValue(RawValueMemory mem_value, const ExpressionType* type)	{
 	return mem_value;
 }
 
@@ -146,7 +146,7 @@ void BinaryRowPlugin::skipLLVM(Value* offset)
 	Builder->CreateStore(val_new_pos,mem_pos);
 }
 
-void BinaryRowPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables)
+void BinaryRowPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
 {
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -184,21 +184,17 @@ void BinaryRowPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute
 	Value* mem_result = Builder->CreateBitCast(bufShiftedPtr,ptrType_int32);
 	Value *parsedInt = Builder->CreateLoad(mem_result);
 
-	AllocaInst *Alloca = context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
-	Builder->CreateStore(parsedInt,Alloca);
+	AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
+	Builder->CreateStore(parsedInt,mem_currResult);
 	LOG(INFO) << "[BINARYROW - READ INT: ] Read Successful";
-#ifdef DEBUG
-//	std::vector<Value*> ArgsV;
-//	ArgsV.clear();
-//	ArgsV.push_back(parsedInt);
-//	Function* debugInt = context->getFunction("printi");
-//	Builder->CreateCall(debugInt, ArgsV, "printi");
-#endif
 
-	variables[attName] = Alloca;
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = mem_currResult;
+	mem_valWrapper.isNull = context->createFalse();
+	variables[attName] = mem_valWrapper;
 }
 
-void BinaryRowPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables)
+void BinaryRowPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
 {
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -256,10 +252,13 @@ void BinaryRowPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttrib
 
 	LOG(INFO) << "[BINARYROW - READ STRING: ] Read Successful";
 
-	variables[attName] = mem_strObj;
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = mem_strObj;
+	mem_valWrapper.isNull = context->createFalse();
+	variables[attName] = mem_valWrapper;
 }
 
-void BinaryRowPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables)
+void BinaryRowPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
 {
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -295,14 +294,17 @@ void BinaryRowPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttri
 	Value* mem_result = Builder->CreateBitCast(bufShiftedPtr,ptrType_bool);
 	Value *parsedInt = Builder->CreateLoad(mem_result);
 
-	AllocaInst *Alloca = context->CreateEntryBlockAlloca(TheFunction, "currResult", int1Type);
-	Builder->CreateStore(parsedInt,Alloca);
+	AllocaInst *currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", int1Type);
+	Builder->CreateStore(parsedInt,currResult);
 	LOG(INFO) << "[BINARYROW - READ BOOL: ] Read Successful";
 
-	variables[attName] = Alloca;
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = currResult;
+	mem_valWrapper.isNull = context->createFalse();
+	variables[attName] = mem_valWrapper;
 }
 
-void BinaryRowPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, AllocaInst*>& variables)
+void BinaryRowPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
 {
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -338,11 +340,14 @@ void BinaryRowPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribu
 	Value* mem_result = Builder->CreateBitCast(bufShiftedPtr,ptrType_double);
 	Value *parsedInt = Builder->CreateLoad(mem_result);
 
-	AllocaInst *Alloca = context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);
-	Builder->CreateStore(parsedInt,Alloca);
+	AllocaInst *currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);
+	Builder->CreateStore(parsedInt,currResult);
 	LOG(INFO) << "[BINARYROW - READ FLOAT: ] Read Successful";
 
-	variables[attName] = Alloca;
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = currResult;
+	mem_valWrapper.isNull = context->createFalse();
+	variables[attName] = mem_valWrapper;
 }
 
 void BinaryRowPlugin::scan(const RawOperator& producer, Function *f)
@@ -354,7 +359,7 @@ void BinaryRowPlugin::scan(const RawOperator& producer, Function *f)
 	IRBuilder<>* Builder = context->getBuilder();
 
 	//Container for the variable bindings
-	map<RecordAttribute, AllocaInst*>* variableBindings = new map<RecordAttribute, AllocaInst*>();
+	map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
 
 	//Fetch value from symbol table
 	AllocaInst* pos;
@@ -411,7 +416,11 @@ void BinaryRowPlugin::scan(const RawOperator& producer, Function *f)
 	//More general/lazy plugins will only perform this action,
 	//instead of eagerly 'converting' fields
 	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
-	(*variableBindings)[tupleIdentifier] = pos;
+
+	RawValueMemory mem_posWrapper;
+	mem_posWrapper.mem = pos;
+	mem_posWrapper.isNull = context->createFalse();
+	(*variableBindings)[tupleIdentifier] = mem_posWrapper;
 
 	//	BYTECODE
 	//	for.body:                                         ; preds = %for.cond
