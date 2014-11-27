@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
 
 	//ifThenElse();
 
-//	unnestJsmn();
+	//unnestJsmn();
 //	unnestJsmnDeeper();
 
 	outerUnnest();
@@ -311,21 +311,26 @@ void unnestJsmn()	{
 	catalog.clear();
 }
 
+/**
+ * Query (approx.):
+ * for(x <- employees, y <- x.children) yield y.age
+ */
+
 void outerUnnest()	{
 
-	RawContext ctx = RawContext("testFunction-unnestJSON");
+	RawContext ctx = RawContext("testFunction-outerUnnestJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees.json");
 
-	//IntType intType = IntType();
-	FloatType floatType = FloatType();
+	IntType intType = IntType();
+	//FloatType floatType = FloatType();
 	StringType stringType = StringType();
 
 	string childName = string("name");
 	RecordAttribute child1 = RecordAttribute(1, fname, childName, &stringType);
 	string childAge = string("age");
-	RecordAttribute child2 = RecordAttribute(1, fname, childAge, &floatType);
+	RecordAttribute child2 = RecordAttribute(1, fname, childAge, &intType);
 	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
 	attsNested.push_back(&child1);
 	RecordType nested = RecordType(attsNested);
@@ -334,7 +339,7 @@ void outerUnnest()	{
 	string empName = string("name");
 	RecordAttribute emp1 = RecordAttribute(1, fname, empName, &stringType);
 	string empAge = string("age");
-	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &floatType);
+	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &intType);
 	string empChildren = string("children");
 	RecordAttribute emp3 = RecordAttribute(3, fname, empChildren,
 			&nestedCollection);
@@ -378,15 +383,16 @@ void outerUnnest()	{
 	RecordType unnestedType = RecordType(attsUnnested);
 
 	//PRINT
-	Function* debugInt = ctx.getFunction("printFloat");
+	//Function* debugInt = ctx.getFunction("printFloat");
+	Function* debugInt = ctx.getFunction("printi");
 	expressions::Expression* nestedArg = new expressions::InputArgument(
 			&unnestedType, 0);
 
 	RecordAttribute toPrint = RecordAttribute(-1, fname + "." + empChildren,
-			childAge, &floatType);
+			childAge, &intType);
 
 	expressions::RecordProjection* projToPrint =
-			new expressions::RecordProjection(&floatType, nestedArg, toPrint);
+			new expressions::RecordProjection(&intType, nestedArg, toPrint);
 	Print printOp = Print(debugInt, projToPrint, &unnestOp);
 	unnestOp.setParent(&printOp);
 
