@@ -457,6 +457,38 @@ bool convertBoolean64(const char* buf, size_t start, size_t end)	{
 	}
 }
 
+size_t hashInt(int toHash)	{
+	boost::hash<int> hasher;
+	return hasher(toHash);
+}
+
+size_t hashDouble(double toHash) {
+	boost::hash<double> hasher;
+	return hasher(toHash);
+}
+
+//XXX Copy string? Or edit in place?
+size_t hashString(char* toHash, size_t start, size_t end)	{
+	char tmp = toHash[end+1];
+	toHash[end+1] = '\0';
+	boost::hash<string> hasher;
+	size_t result = hasher(toHash);
+	toHash[end+1] = tmp;
+	return result;
+}
+
+size_t hashBoolean(bool toHash) {
+	boost::hash<bool> hasher;
+	return hasher(toHash);
+}
+
+size_t combineHashes(size_t hash1, size_t hash2) {
+	 size_t seed = 0;
+	 boost::hash_combine(seed, hash1);
+	 boost::hash_combine(seed, hash2);
+	 return seed;
+}
+
 //Provide support for some extern functions
 void RawContext::registerFunction(const char* funcName, Function* func)	{
 	availableFunctions[funcName] = func;
@@ -508,6 +540,24 @@ void registerFunctions(RawContext& context)	{
 	ArgsStringCmp.insert(ArgsStringCmp.begin(),strObjType);
 	ArgsStringCmp.insert(ArgsStringCmp.begin(),strObjType);
 
+	//Args of functions computing hash
+	std::vector<Type*> ArgsHashInt;
+	ArgsHashInt.insert(ArgsHashInt.begin(),int_type);
+
+	std::vector<Type*> ArgsHashDouble;
+	ArgsHashDouble.insert(ArgsHashDouble.begin(),double_type);
+
+	std::vector<Type*> ArgsHashString;
+	ArgsHashString.insert(ArgsHashString.begin(),int64_type);
+	ArgsHashString.insert(ArgsHashString.begin(),int64_type);
+	ArgsHashString.insert(ArgsHashString.begin(),char_ptr_type);
+
+	std::vector<Type*> ArgsHashBoolean;
+	ArgsHashBoolean.insert(ArgsHashBoolean.begin(),int1_bool_type);
+
+	std::vector<Type*> ArgsHashCombine;
+	ArgsHashCombine.insert(ArgsHashCombine.begin(),int64_type);
+	ArgsHashCombine.insert(ArgsHashCombine.begin(),int64_type);
 
 
 	FunctionType *FTint = FunctionType::get(Type::getInt32Ty(ctx), Ints, false);
@@ -521,35 +571,48 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FTconvertBoolean64_ = FunctionType::get(int1_bool_type, ArgsConvBoolean64, false);
 	FunctionType *FTprintBoolean_ = FunctionType::get(void_type, Ints1, false);
 	FunctionType *FTcompareStrings = FunctionType::get(int1_bool_type, ArgsStringCmp, false);
+	FunctionType *FThashInt = FunctionType::get(int64_type, ArgsHashInt, false);
+	FunctionType *FThashDouble = FunctionType::get(int64_type, ArgsHashDouble, false);
+	FunctionType *FThashString = FunctionType::get(int64_type, ArgsHashString, false);
+	FunctionType *FThashBoolean = FunctionType::get(int64_type, ArgsHashBoolean, false);
+	FunctionType *FThashCombine = FunctionType::get(int64_type, ArgsHashCombine, false);
 
-	Function *printi_ = Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
-	Function *printi64_ = Function::Create(FTint64, Function::ExternalLinkage,"printi64", TheModule);
-	Function *printc_ = Function::Create(FTcharPtr, Function::ExternalLinkage,"printc", TheModule);
 
-	Function *atoi_ = Function::Create(FTcharPtr, Function::ExternalLinkage,"atoi", TheModule);
-	Function *atois_ = Function::Create(FTatois, Function::ExternalLinkage,"atois", TheModule);
-	atois_->addFnAttr(llvm::Attribute::AlwaysInline);
-
-	Function *atof_ = Function::Create(FTatof, Function::ExternalLinkage,"atof", TheModule);
-	Function *printFloat_ = Function::Create(FTprintFloat_, Function::ExternalLinkage, "printFloat", TheModule);
+	Function *printi_ 		= Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
+	Function *printi64_ 	= Function::Create(FTint64, Function::ExternalLinkage,"printi64", TheModule);
+	Function *printc_ 		= Function::Create(FTcharPtr, Function::ExternalLinkage,"printc", TheModule);
+	Function *printFloat_ 	= Function::Create(FTprintFloat_, Function::ExternalLinkage, "printFloat", TheModule);
 	Function *printBoolean_ = Function::Create(FTprintBoolean_, Function::ExternalLinkage, "printBoolean", TheModule);
 
+	Function *atoi_ 	= Function::Create(FTcharPtr, Function::ExternalLinkage,"atoi", TheModule);
+	Function *atois_ 	= Function::Create(FTatois, Function::ExternalLinkage,"atois", TheModule);
+	atois_->addFnAttr(llvm::Attribute::AlwaysInline);
+	Function *atof_ 	= Function::Create(FTatof, Function::ExternalLinkage,"atof", TheModule);
 
-	Function *compareTokenString_ = Function::Create(FTcompareTokenString_,
+	Function *compareTokenString_	= Function::Create(FTcompareTokenString_,
 			Function::ExternalLinkage, "compareTokenString", TheModule);
 	compareTokenString_->addFnAttr(llvm::Attribute::AlwaysInline);
-
-	Function *stringEquality = Function::Create(FTcompareStrings,
+	Function *stringEquality 		= Function::Create(FTcompareStrings,
 			Function::ExternalLinkage, "equalStrings", TheModule);
 	stringEquality->addFnAttr(llvm::Attribute::AlwaysInline);
 
-	Function *convertBoolean_ = Function::Create(FTconvertBoolean_,
+	Function *convertBoolean_	= Function::Create(FTconvertBoolean_,
 				Function::ExternalLinkage, "convertBoolean", TheModule);
 	convertBoolean_->addFnAttr(llvm::Attribute::AlwaysInline);
-
 	Function *convertBoolean64_ = Function::Create(FTconvertBoolean64_,
 					Function::ExternalLinkage, "convertBoolean64", TheModule);
 	convertBoolean64_->addFnAttr(llvm::Attribute::AlwaysInline);
+
+	Function *hashInt_ 		= Function::Create(FThashInt, Function::ExternalLinkage,
+			"hashInt", TheModule);
+	Function *hashDouble_ 	= Function::Create(FThashDouble,
+			Function::ExternalLinkage, "hashDouble", TheModule);
+	Function *hashString_ 	= Function::Create(FThashString,
+			Function::ExternalLinkage, "hashString", TheModule);
+	Function *hashBoolean_ 	= Function::Create(FThashBoolean,
+				Function::ExternalLinkage, "hashBoolean", TheModule);
+	Function *hashCombine_ 	= Function::Create(FThashCombine,
+			Function::ExternalLinkage, "hashCombine", TheModule);
 
 	//Memcpy - not used yet
 	Type* types[] = { void_ptr_type, void_ptr_type, Type::getInt32Ty(ctx) };
@@ -585,6 +648,11 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("convertBoolean", convertBoolean_);
 	context.registerFunction("convertBoolean64", convertBoolean64_);
 	context.registerFunction("equalStrings", stringEquality);
+	context.registerFunction("hashInt", hashInt_);
+	context.registerFunction("hashDouble", hashDouble_);
+	context.registerFunction("hashString", hashString_);
+	context.registerFunction("hashBoolean", hashBoolean_);
+	context.registerFunction("hashCombine", hashCombine_);
 }
 
 inline int atoi1(const char *buf) {

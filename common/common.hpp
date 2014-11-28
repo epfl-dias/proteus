@@ -77,6 +77,8 @@
 
 #include <glog/logging.h>
 
+#include <boost/functional/hash.hpp>
+
 #define DEBUG
 
 #define KB 1024

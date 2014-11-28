@@ -96,7 +96,7 @@ int main(int argc, char* argv[])
 	//reduceNumeric();
 	//reduceBoolean();
 
-	/* This query takes a bit more time */
+	/* This query (3) takes a bit more time */
 	//cidrQuery3();
 	//cidrQueryCount();
 
@@ -113,12 +113,15 @@ int main(int argc, char* argv[])
 	//ifThenElse();
 
 	//unnestJsmn();
-//	unnestJsmnDeeper();
+	//unnestJsmnDeeper();
 
-	outerUnnest();
-
+	//outerUnnest();
 	//outerUnnestNull1();
 
+    boost::hash<int> hasher;
+    cout << hasher(15) << endl;
+    boost::hash<string> hasherStr;
+    cout << hasherStr("15") << endl;
 }
 
 void unnestJsmnInterpreted()	{

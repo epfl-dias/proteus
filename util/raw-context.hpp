@@ -152,14 +152,6 @@ extern "C" void insertIntKeyToHT(char* HTname, int key, void* value,
 extern "C"
 void** probeIntHT(char* HTname, int key, int typeIndex);
 
-//extern "C" bool eofJSON(char* jsonName);
-//
-//extern "C" JSONObject getJSONPositions(char* jsonName, int attrNo);
-//
-//extern "C" int getJSONInt(char* jsonName, int attrNo);
-//
-//extern "C" double getJSONDouble(char* jsonName, int attrNo);
-
 extern "C" int compareTokenString(const char* buf, int start, int end, const char* candidate);
 
 extern "C" bool equalStrings(StringObject obj1, StringObject obj2);
@@ -169,5 +161,15 @@ extern "C" bool convertBoolean(const char* buf, int start, int end);
 extern "C" bool convertBoolean64(const char* buf, size_t start, size_t end);
 
 extern "C" int atois(const char* buf, int len);
+
+extern "C" size_t hashInt(int toHash);
+
+extern "C" size_t hashDouble(double toHash);
+
+extern "C" size_t hashString(char* toHash, size_t start, size_t end);
+
+extern "C" size_t hashBoolean(bool toHash);
+
+extern "C" size_t combineHashes(size_t hash1, size_t hash2);
 
 #endif /* RAW_CONTEXT_HPP_ */
