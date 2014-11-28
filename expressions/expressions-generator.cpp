@@ -148,8 +148,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		Bindings bindings = { &currState, record };
 		RawValueMemory mem_path;
 		RawValueMemory mem_val;
-		Value *isNull = NULL;
-		cout << "Active Relation: " << e->getProjectionName() << endl;
+		//cout << "Active Relation: " << e->getProjectionName() << endl;
 		if (e->getProjectionName() != activeLoop) {
 			//Path involves a projection / an object
 			mem_path = plugin->readPath(activeRelation, bindings,

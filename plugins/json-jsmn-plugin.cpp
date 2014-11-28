@@ -251,6 +251,13 @@ RawValue JSONPlugin::collectionHasNext(RawValue val_parentTokenNo, RawValueMemor
 
 	RawValue valWrapper;
 	valWrapper.value = endCond;
+//#ifdef DEBUG
+//	std::vector<Value*> ArgsV;
+//	ArgsV.clear();
+//	ArgsV.push_back(endCond);
+//	Function* debugBoolean = context->getFunction("printBoolean");
+//	Builder->CreateCall(debugBoolean, ArgsV);
+//#endif
 	valWrapper.isNull = endCond_isNull;
 	return valWrapper;
 }
@@ -850,6 +857,7 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value, const ExpressionT
 
 	mem_convertedValue_isNull = context->CreateEntryBlockAlloca(F,
 					std::string("value_isNull"), int1Type);
+	Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 	string error_msg;
 	switch (type->getTypeID()) {
 	case STRING:
@@ -963,21 +971,15 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value, const ExpressionT
 	/**
 	 * ELSE BLOCK
 	 * return "(NULL)"
-	 * FIXME FIXME
-	 * -> What if we deal with a non-primitive type?
 	 */
 	Builder->SetInsertPoint(elseBlock);
 #ifdef DEBUG //Invalid / NULL!
-	ArgsV.clear();
-	Function* debugInt = context->getFunction("printi");
-	Value *tmp = context->createInt32(-111);
-	ArgsV.push_back(tmp);
-	Builder->CreateCall(debugInt, ArgsV);
+//	ArgsV.clear();
+//	Function* debugInt = context->getFunction("printi");
+//	Value *tmp = context->createInt32(-111);
+//	ArgsV.push_back(tmp);
+//	Builder->CreateCall(debugInt, ArgsV);
 #endif
-	/*PointerType* ptr_type_v = PointerType::get(mem_convertedValue->getAllocatedType(), 0);
-	ConstantPointerNull* null_ptr_v = ConstantPointerNull::get(ptr_type_v);
-	Builder->CreateStore(null_ptr_v, mem_convertedValue);*/
-	//Value* undefValue = UndefValue::get(mem_convertedValue->getAllocatedType());
 	Value* undefValue = Constant::getNullValue(mem_convertedValue->getAllocatedType());
 	Builder->CreateStore(undefValue, mem_convertedValue);
 	Builder->CreateStore(context->createTrue(), mem_convertedValue_isNull);
@@ -988,7 +990,13 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value, const ExpressionT
 
 	RawValueMemory mem_valWrapper;
 	mem_valWrapper.mem = mem_convertedValue;
-	mem_valWrapper.isNull = Builder->CreateLoad(mem_convertedValue);
+	mem_valWrapper.isNull = Builder->CreateLoad(mem_convertedValue_isNull);
+#ifdef DEBUG //Invalid / NULL!
+//	ArgsV.clear();
+//	Function* debugBoolean = context->getFunction("printBoolean");
+//	ArgsV.push_back(mem_valWrapper.isNull);
+//	Builder->CreateCall(debugBoolean, ArgsV);
+#endif
 	return mem_valWrapper;
 }
 
