@@ -21,22 +21,22 @@
 	RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef EXPRESSIONS_VISITOR_HPP_
-#define EXPRESSIONS_VISITOR_HPP_
+#ifndef EXPRESSIONS_HASHER_VISITOR_HPP_
+#define EXPRESSIONS_HASHER_VISITOR_HPP_
 
 #include "common/common.hpp"
 #include "plugins/plugins.hpp"
 //===---------------------------------------------------------------------------===//
-// "Visitor(s)" responsible for generating the appropriate code per Expression 'node'
+// "Visitor(s)" responsible for generating the appropriate hash for an Expression
 //===---------------------------------------------------------------------------===//
-class ExpressionGeneratorVisitor: public ExprVisitor
+class ExpressionHasherVisitor: public ExprVisitor
 {
 public:
-	ExpressionGeneratorVisitor(RawContext* const context,
+	ExpressionHasherVisitor(RawContext* const context,
 			const OperatorState& currState) :
 			context(context), currState(currState),
 			activeRelation("")											{}
-	ExpressionGeneratorVisitor(RawContext* const context,
+	ExpressionHasherVisitor(RawContext* const context,
 			const OperatorState& currState, string activeRelation) :
 			context(context), currState(currState),
 			activeRelation(activeRelation)								{}
@@ -70,12 +70,6 @@ public:
 		throw runtime_error(error_msg);
 	}
 
-	RawValue visit(expressions::MergeExpression *e) {
-		string error_msg = string("[ExpressionGeneratorVisitor]: Not implemented yet");
-		LOG(ERROR) << error_msg;
-		throw runtime_error(error_msg);
-	}
-
 	/**
 	 *
 	 */
@@ -90,4 +84,4 @@ private:
 
 };
 
-#endif /* EXPRESSIONS_VISITOR_HPP_ */
+#endif /* EXPRESSIONS_HASHER_VISITOR_HPP_ */

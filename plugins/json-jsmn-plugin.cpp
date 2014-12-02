@@ -118,76 +118,6 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname, ExpressionType*
 	NamedValuesJSON[var_tokenOffset] = mem_tokenOffset;
 }
 
-/*
- * Generic INTERPRETED Implementation: Simply identifies "tuples"
- * Assumption: Handles data in the form [ obj, obj, ..., obj ]
- */
-void JSONPlugin::scanObjectsInterpreted(list<string> path, list<ExpressionType*> types)	{
-	//Token[0] contains info about entire document
-	for (int i = 1; tokens[i].start != 0; )	{
-		//We want token i to be one of the 'outermost' objects
-		int curr = i;
-
-		//Work done for every 'tuple'
-		//TOKEN_PRINT(tokens[i]);
-		int neededToken = readPathInterpreted(i, path);
-		//Actually, must return (nil) in this case!!!
-		if(neededToken <= 0)	{
-			printf("(nil)\n");
-		}
-		readValueInterpreted(neededToken, types.back());
-
-		//'skipToEnd'
-		while(tokens[i].start < tokens[curr].end && tokens[i].start != 0)	{
-			i++;
-		}
-	}
-}
-
-void JSONPlugin::unnestObjectsInterpreted(list<string> path)	{
-	//Token[0] contains info about entire document
-	for (int i = 1; tokens[i].start != 0; )	{
-		//We want token i to be one of the 'outermost' objects
-		int curr = i;
-
-		//Work done for every 'tuple'
-		//TOKEN_PRINT(tokens[i]);
-		int neededToken = readPathInterpreted(i, path);
-		//Actually, must return (nil) in this case!!!
-		if(neededToken <= 0)	{
-			printf("(nil)\n");
-		}
-
-		TOKEN_PRINT(tokens[neededToken]);
-		if(tokens[neededToken].type != 2)	{
-			string error_msg = string("[JSON Plugin - jsmn: ]: Can only unnest collections!");
-			LOG(ERROR) << error_msg;
-			throw runtime_error(string(error_msg));
-		}	else	{
-			unnestObjectInterpreted(neededToken);
-		}
-		//'skipToEnd'
-		while(tokens[i].start < tokens[curr].end && tokens[i].start != 0)	{
-			i++;
-		}
-	}
-}
-
-void JSONPlugin::unnestObjectInterpreted(int parentToken)	{
-
-	int i = parentToken + 1;
-	while(tokens[i].end <= tokens[parentToken].end && tokens[i].end != 0)	{
-		cout << i <<":     ";
-		TOKEN_PRINT(tokens[i]);
-		//skip all its children
-		int i_contents = i+1;
-		while(tokens[i_contents].start <= tokens[i].end && tokens[i_contents].start != 0)	{
-			i_contents++;
-		}
-		i = i_contents;
-	}
-}
-
 RawValueMemory JSONPlugin::initCollectionUnnest(RawValue val_parentTokenNo)	{
 	Function* F = context->getGlobalFunction();
 	IRBuilder<>* Builder = context->getBuilder();
@@ -367,81 +297,6 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentToken)	{
 	mem_wrapperVal.mem = mem_tokenToReturn;
 	mem_wrapperVal.isNull = tokenToReturn_isNull;
 	return mem_wrapperVal;
-}
-
-int JSONPlugin::readPathInterpreted(int parentToken, list<string> path)	{
-	//Only objects are relevant to path expressions
-	if(tokens[parentToken].type != JSMN_OBJECT)	{
-		string msg = string("[JSON Plugin - jsmn: ]: Path traversal is only applicable to objects");
-		LOG(ERROR) << msg;
-		throw runtime_error(msg);
-	}
-	if(path.size() == 0)	{
-		string error_msg = "[JSONPlugin - jsmn: ] Path length cannot be 0";
-		LOG(ERROR) << error_msg;
-		throw runtime_error(error_msg);
-	}
-	string key = path.front();
-	for(int i = parentToken + 1; tokens[i].end <= tokens[parentToken].end; i+=2)	{
-		if(TOKEN_STRING(buf,tokens[i],key.c_str()))	{
-			//next one is the one I need
-			//printf("Found ");
-			//TOKEN_PRINT(tokens[i+1]);
-			if(path.size() == 1)	{
-				return i+1;
-			}	else	{
-				path.pop_front();
-				return readPathInterpreted(i+1 , path);
-			}
-		}
-	}
-	return -1;//(nil)
-}
-
-void JSONPlugin::readValueInterpreted(int tokenNo, const ExpressionType* type) {
-	string error_msg;
-	TOKEN_PRINT(tokens[tokenNo]);
-	switch(type->getTypeID())	{
-	case RECORD:
-		//object
-	case LIST:
-		//array
-		printf("Passing object along\n");
-		break;
-	case SET:
-		error_msg = string("[JSON Plugin - jsmn: ]: SET datatype cannot occur");
-		LOG(ERROR) << error_msg;
-		throw runtime_error(string(error_msg));
-	case BAG:
-		error_msg = string("[JSON Plugin - jsmn: ]: BAG datatype cannot occur");
-		LOG(ERROR) << error_msg;
-		throw runtime_error(string(error_msg));
-	case BOOL:
-		if(TOKEN_STRING(buf,tokens[tokenNo],"true"))	{
-			printf("Value: True!\n");
-		} else if(TOKEN_STRING(buf,tokens[tokenNo],"true")) {
-			printf("Value: False!\n");
-		} else	{
-			error_msg = string("[JSON Plugin - jsmn: ]: Error when parsing boolean");
-			LOG(ERROR) << error_msg;
-			throw runtime_error(string(error_msg));
-		}
-	case STRING:
-		printf("Passing object along\n");
-		break;
-	case FLOAT:
-		printf("Double value read: %f\n",atof(buf + tokens[tokenNo].start));
-		break;
-	case INT:
-		//Must be careful with trailing whitespaces for some item
-		//printf("Int value read: %d\n",atois(buf + tokens[tokenNo].start, tokens[tokenNo].end - tokens[tokenNo].start));
-		printf("Int value read: %d\n",atoi(buf + tokens[tokenNo].start));
-		break;
-	default:
-		error_msg = string("[JSON Plugin - jsmn: ]: Unknown expression type");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(string(error_msg));
-	}
 }
 
 void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)	{
@@ -823,6 +678,150 @@ RawValueMemory JSONPlugin::readPath(string activeRelation, Bindings wrappedBindi
 	return mem_valWrapper;
 }
 
+RawValueMemory JSONPlugin::readPathInternal(RawValueMemory mem_parentTokenNo, const char* path)	{
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+	PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
+
+	Value* parentTokenNo = Builder->CreateLoad(mem_parentTokenNo.mem);
+
+	//Preparing default return value
+	AllocaInst* mem_return = context->CreateEntryBlockAlloca(F, std::string("pathReturn"),
+					int64Type);
+	Builder->CreateStore(Builder->getInt64(-1),mem_return);
+
+	AllocaInst* mem_tokens = NamedValuesJSON[var_tokenPtr];
+	AllocaInst* mem_tokens_parent_shifted = context->CreateEntryBlockAlloca(F,
+			std::string(var_tokenPtr), context->CreateJSMNStruct());
+	Value* token_parent = context->getArrayElem(mem_tokens, ptr_jsmnStructType, parentTokenNo);
+	Builder->CreateStore(token_parent,mem_tokens_parent_shifted);
+	Value* token_parent_end = context->getStructElem(mem_tokens_parent_shifted,2);
+
+	/**
+	 * LOOP BLOCKS
+	 */
+	BasicBlock *tokenSkipCond, *tokenSkipBody, *tokenSkipInc, *tokenSkipEnd;
+	context->CreateForLoop("path_tokenSkipCond", "path_tokenSkipBody", "path_tokenSkipInc","path_tokenSkipEnd",
+							&tokenSkipCond, &tokenSkipBody, &tokenSkipInc,	&tokenSkipEnd);
+
+	/**
+	 * Entry Block:
+	 */
+
+	Value *val_1 = Builder->getInt64(1);
+	Value *val_i = Builder->CreateAdd(parentTokenNo, val_1);
+	AllocaInst* mem_i = context->CreateEntryBlockAlloca(F, std::string("tmp_i"),
+			int64Type);
+	Builder->CreateStore(val_i,mem_i);
+	Builder->CreateBr(tokenSkipCond);
+
+	/**
+	 * tokens[i].end <= tokens[parentToken].end
+	 */
+
+	Builder->SetInsertPoint(tokenSkipCond);
+	val_i = Builder->CreateLoad(mem_i);
+	AllocaInst* mem_tokens_i_shifted = context->CreateEntryBlockAlloca(F,
+			std::string(var_tokenPtr), context->CreateJSMNStruct());
+	Value* token_i = context->getArrayElem(mem_tokens, ptr_jsmnStructType, val_i);
+	Builder->CreateStore(token_i,mem_tokens_i_shifted);
+
+	// 0: jsmntype_t type;
+	// 1: int start;
+	// 2: int end;
+	// 3: int size;
+	Value* token_i_end = context->getStructElem(mem_tokens_i_shifted,2);
+	Value *endCond = Builder->CreateICmpSLE(token_i_end,token_parent_end);
+	BranchInst::Create(tokenSkipBody, tokenSkipEnd, endCond, tokenSkipCond);
+
+	/**
+	* BODY:
+	*/
+	Builder->SetInsertPoint(tokenSkipBody);
+
+	/**
+	 * IF-ELSE inside body:
+	 * if(TOKEN_STRING(buf,tokens[i],key.c_str()))
+	 */
+	BasicBlock *ifBlock, *elseBlock;
+	context->CreateIfElseBlocks(context->getGlobalFunction(), "ifTokenEq", "elseTokenEq",
+								&ifBlock, &elseBlock,tokenSkipInc);
+
+	Value* token_i_start = context->getStructElem(mem_tokens_i_shifted,1);
+
+	int len = strlen(path) + 1;
+	char* pathCopy = (char*) malloc(len*sizeof(char));
+	strcpy(pathCopy,path);
+	pathCopy[len] = '\0';
+	Value* globalStr = context->CreateGlobalString(pathCopy);
+	Value* buf = Builder->CreateLoad(NamedValuesJSON[var_buf]);
+	//Preparing custom 'strcmp'
+	std::vector<Value*> argsV;
+	argsV.push_back(buf);
+	argsV.push_back(token_i_start);
+	argsV.push_back(token_i_end);
+	argsV.push_back(globalStr);
+	Function* tokenCmp = context->getFunction("compareTokenString");
+	Value* tokenEq = Builder->CreateCall(tokenCmp, argsV);
+	Value* rhs = context->createInt32(1);
+	Value *cond  = Builder->CreateICmpEQ(tokenEq,rhs);
+	Builder->CreateCondBr(cond,ifBlock,elseBlock);
+
+	/**
+	 * IF BLOCK
+	 * TOKEN_PRINT(tokens[i+1]);
+	 */
+	Builder->SetInsertPoint(ifBlock);
+
+	Value* val_i_1 = Builder->CreateAdd(val_i , val_1);
+	AllocaInst* mem_tokens_i_1_shifted = context->CreateEntryBlockAlloca(F,
+			std::string(var_tokenPtr), context->CreateJSMNStruct());
+	Value* token_i_1 = context->getArrayElem(mem_tokens, ptr_jsmnStructType, val_i_1);
+	Builder->CreateStore(token_i_1,mem_tokens_i_1_shifted);
+	Value* token_i_1_start = context->getStructElem(mem_tokens_i_1_shifted,1);
+
+	//Storing return value (i+1)
+	Builder->CreateStore(val_i_1, mem_return);
+
+	Builder->CreateBr(tokenSkipEnd);
+
+	/**
+	 * ELSE BLOCK
+	 */
+	Builder->SetInsertPoint(elseBlock);
+	Builder->CreateBr(tokenSkipInc);
+
+	/**
+	 * (Back to LOOP)
+	 * INC:
+	 * i += 2
+	 */
+	Builder->SetInsertPoint(tokenSkipInc);
+	val_i = Builder->CreateLoad(mem_i);
+	Value* val_2 = Builder->getInt64(2);
+	Value* val_i_2 = Builder->CreateAdd(val_i , val_2);
+	Builder->CreateStore(val_i_2 , mem_i);
+
+	token_i = context->getArrayElem(mem_tokens, ptr_jsmnStructType, val_i_2);
+	Builder->CreateStore(token_i,mem_tokens_i_shifted);
+
+	Builder->CreateBr(tokenSkipCond);
+
+	/**
+	 * END:
+	 */
+	Builder->SetInsertPoint(tokenSkipEnd);
+	LOG(INFO) << "[Scan - JSON: ] End of readPathInternal()";
+
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = mem_return;
+	mem_valWrapper.isNull = context->createFalse();
+	return mem_valWrapper;
+}
+
 RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value, const ExpressionType* type)	{
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -1000,6 +999,274 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value, const ExpressionT
 	return mem_valWrapper;
 }
 
+RawValue JSONPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* type)	{
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int8Type = Type::getInt8Ty(llvmContext);
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+	PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
+
+	std::vector<Value*> ArgsV;
+	Value* tokenNo = Builder->CreateLoad(mem_value.mem);
+
+	AllocaInst* mem_tokens = NamedValuesJSON[var_tokenPtr];
+	AllocaInst* mem_tokenOffset = NamedValuesJSON[var_tokenOffset];
+
+	AllocaInst* mem_tokens_shifted = context->CreateEntryBlockAlloca(F,
+			std::string(var_tokenPtr), context->CreateJSMNStruct());
+	Value* token = context->getArrayElem(mem_tokens, ptr_jsmnStructType, tokenNo);
+	Builder->CreateStore(token,mem_tokens_shifted);
+	Value* token_start = context->getStructElem(mem_tokens_shifted,1);
+	Value* token_end = context->getStructElem(mem_tokens_shifted,2);
+
+	Value* bufPtr = Builder->CreateLoad(NamedValuesJSON[var_buf]);
+	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, token_start);
+
+	Function* conversionFunc = NULL;
+	Function* hashFunc = NULL;
+
+	AllocaInst* mem_hashedValue = NULL;
+	AllocaInst* mem_hashedValue_isNull = NULL;
+	Value* hashedValue = NULL;
+	Value* convertedValue = NULL;
+
+	mem_hashedValue = context->CreateEntryBlockAlloca(F,
+					std::string("hashValue"), int64Type);
+	mem_hashedValue_isNull = context->CreateEntryBlockAlloca(F,
+					std::string("hashvalue_isNull"), int1Type);
+	Builder->CreateStore(context->createFalse(), mem_hashedValue_isNull);
+	string error_msg;
+
+	/**
+	 * Return (nil) for cases path was not found
+	 */
+	BasicBlock *ifBlock, *elseBlock, *endBlock;
+	endBlock = BasicBlock::Create(llvmContext, "afterReadValue", F);
+	context->CreateIfElseBlocks(context->getGlobalFunction(), "ifPath", "elsePathNullEq",
+									&ifBlock, &elseBlock,endBlock);
+	Value* minus_1 = context->createInt64(-1);
+	Value *cond = Builder->CreateICmpNE(tokenNo,minus_1);
+	Builder->CreateCondBr(cond,ifBlock,elseBlock);
+
+	/**
+	 * IF BLOCK (tokenNo != -1)
+	 */
+	Builder->SetInsertPoint(ifBlock);
+	switch (type->getTypeID()) {
+	case STRING:
+		hashFunc = context->getFunction("hashStringC");
+		ArgsV.clear();
+		ArgsV.push_back(bufPtr);
+		ArgsV.push_back(token_start);
+		ArgsV.push_back(token_end);
+
+		hashedValue = Builder->CreateCall(hashFunc, ArgsV, "hashStringC");
+		Builder->CreateStore(hashedValue, mem_hashedValue);
+		Builder->CreateStore(context->createFalse(), mem_hashedValue_isNull);
+		break;
+	case RECORD: {
+		//Object
+		AllocaInst* mem_seed = context->CreateEntryBlockAlloca(F,
+				std::string("hashSeed"), int64Type);
+		Builder->CreateStore(context->createInt64(0), mem_seed);
+
+		RawValueMemory listElem;
+		listElem.mem = mem_value.mem;
+		listElem.isNull = context->createFalse();
+
+		Function *hashCombine = context->getFunction("combineHash");
+		hashedValue = context->createInt64(0);
+
+		list<RecordAttribute*>& args = ((RecordType*) type)->getArgs();
+		list<RecordAttribute*>::iterator it = args.begin();
+
+		//Not efficient -> duplicate work performed since fields are not visited incrementally
+		//BUT: Attributes might not be in sequence, so they need to be visited in a generic way
+		for(; it != args.end(); it++)	{
+			RecordAttribute* attr = *it;
+			RawValueMemory mem_path = readPathInternal(listElem,attr->getAttrName().c_str());
+
+			//CAREFUL: It's generated code that has to be stitched
+			RawValue partialHash = hashValue(mem_path,attr->getOriginalType());
+			ArgsV.clear();
+			ArgsV.push_back(hashedValue);
+			ArgsV.push_back(partialHash.value);
+			hashedValue = Builder->CreateLoad(mem_hashedValue);
+			hashedValue = Builder->CreateCall(hashCombine, ArgsV,
+					"combineHash");
+			Builder->CreateStore(hashedValue, mem_hashedValue);
+		}
+
+		Builder->CreateStore(context->createFalse(), mem_hashedValue_isNull);
+		break;
+	}
+	case LIST:	{
+		//Array
+		const ExpressionType& nestedType =
+				((CollectionType*) type)->getNestedType();
+		AllocaInst* mem_seed = context->CreateEntryBlockAlloca(F,
+				std::string("hashSeed"), int64Type);
+		Builder->CreateStore(context->createInt64(0),mem_seed);
+
+		//Initializing: i = tokenNo + 1;
+		AllocaInst* mem_tokenCnt = context->CreateEntryBlockAlloca(F,
+						std::string("tokenCnt"), int32Type);
+		Value* val_tokenCnt = Builder->CreateAdd(context->createInt32(1),tokenNo);
+		Builder->CreateStore(val_tokenCnt,mem_tokenCnt);
+
+		//while (tokens[i].start < tokens[tokenNo].end && tokens[i].start != 0)
+		Function *hashCombine = context->getFunction("combineHash");
+		hashedValue = context->createInt64(0);
+		Builder->CreateStore(hashedValue,mem_hashedValue);
+		BasicBlock *unrollCond, *unrollBody, *unrollInc, *unrollEnd;
+		context->CreateForLoop("hashListCond", "hashListBody", "hashListInc",
+				"hashListEnd", &unrollCond, &unrollBody, &unrollInc,
+				&unrollEnd);
+
+		Builder->CreateBr(unrollCond);
+		Builder->SetInsertPoint(unrollCond);
+		AllocaInst* mem_tokens_i_shifted = context->CreateEntryBlockAlloca(F,std::string(var_tokenPtr),context->CreateJSMNStruct());
+		val_tokenCnt = Builder->CreateLoad(mem_tokenCnt);
+		Value* token_i = context->getArrayElem(mem_tokens, ptr_jsmnStructType, val_tokenCnt);
+		Builder->CreateStore(token_i,mem_tokens_i_shifted);
+
+		// 0: jsmntype_t type;
+		// 1: int start;
+		// 2: int end;
+		// 3: int size;
+		Value* token_i_start = context->getStructElem(mem_tokens_i_shifted,1);
+		Value* rhs = context->createInt32(0);
+
+		Value *endCond1 = Builder->CreateICmpSLT(token_i_start,token_end);
+		Value *endCond2 = Builder->CreateICmpNE(token_i_start,rhs);
+		Value *endCond  = Builder->CreateAnd(endCond1,endCond2);
+
+		Builder->CreateCondBr(endCond,unrollBody,unrollEnd);
+		/**
+		 * BODY:
+		 * readValueEagerInterpreted(i, &nestedType);
+		 * i++
+		 */
+		Builder->SetInsertPoint(unrollBody);
+		RawValueMemory listElem;
+		listElem.mem = mem_tokenCnt;
+		listElem.isNull = context->createFalse();
+
+
+		//CAREFUL: It's generated code that has to be stitched
+		RawValue partialHash = hashValue(listElem,&nestedType);
+
+
+		ArgsV.clear();
+		ArgsV.push_back(hashedValue);
+		ArgsV.push_back(partialHash.value);
+		hashedValue = Builder->CreateLoad(mem_hashedValue);
+		hashedValue = Builder->CreateCall(hashCombine,ArgsV,"combineHash");
+		Builder->CreateStore(hashedValue,mem_hashedValue);
+
+		val_tokenCnt = Builder->CreateAdd(Builder->CreateLoad(mem_tokenCnt),
+				context->createInt32(1));
+		Builder->CreateStore(val_tokenCnt,mem_tokenCnt);
+
+		Builder->CreateBr(unrollInc);
+
+		/**
+		 * INC:
+		 * Nothing to do
+		 * (in principle, job done in body could be done here)
+		 */
+		Builder->SetInsertPoint(unrollInc);
+		Builder->CreateBr(unrollCond);
+
+		/**
+		 * END:
+		 */
+		Builder->SetInsertPoint(unrollEnd);
+
+		Builder->CreateStore(hashedValue, mem_hashedValue);
+		Builder->CreateStore(context->createFalse(), mem_hashedValue_isNull);
+		break;
+	}
+	case BOOL: {
+		conversionFunc = context->getFunction("convertBoolean");
+		ArgsV.push_back(bufPtr);
+		ArgsV.push_back(token_start);
+		ArgsV.push_back(token_end);
+		convertedValue = Builder->CreateCall(conversionFunc, ArgsV,
+				"convertBoolean");
+
+		hashFunc = context->getFunction("hashBoolean");
+		ArgsV.clear();
+		ArgsV.push_back(convertedValue);
+		hashedValue = Builder->CreateCall(conversionFunc, ArgsV, "hashBoolean");
+		Builder->CreateStore(hashedValue, mem_hashedValue);
+		Builder->CreateStore(context->createFalse(), mem_hashedValue_isNull);
+		break;
+	}
+	case FLOAT: {
+		conversionFunc = context->getFunction("atof");
+		ArgsV.push_back(bufShiftedPtr);
+		convertedValue = Builder->CreateCall(conversionFunc, ArgsV, "atof");
+
+		hashFunc = context->getFunction("hashDouble");
+		ArgsV.clear();
+		ArgsV.push_back(convertedValue);
+		hashedValue = Builder->CreateCall(conversionFunc, ArgsV, "hashDouble");
+		Builder->CreateStore(hashedValue, mem_hashedValue);
+		Builder->CreateStore(context->createFalse(), mem_hashedValue_isNull);
+		break;
+	}
+	case INT: {
+		conversionFunc = context->getFunction("atoi");
+		ArgsV.push_back(bufShiftedPtr);
+		convertedValue = Builder->CreateCall(conversionFunc, ArgsV, "atoi");
+
+		hashFunc = context->getFunction("hashInt");
+		ArgsV.clear();
+		ArgsV.push_back(convertedValue);
+		hashedValue = Builder->CreateCall(conversionFunc, ArgsV, "hashInt");
+		Builder->CreateStore(hashedValue, mem_hashedValue);
+		Builder->CreateStore(context->createFalse(), mem_hashedValue_isNull);
+		break;
+	}
+	default: {
+		error_msg = string("[JSON Plugin - jsmn: ]: Unknown expression type");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(string(error_msg));
+	}
+	}
+	Builder->CreateBr(endBlock);
+
+	/**
+	 * ELSE BLOCK
+	 * "NULL" case
+	 * TODO What should the behavior be in this case?
+	 *
+	 * c-p from Sybase manual: If the grouping column contains a null value,
+	 * that row becomes its own group in the results.
+	 * If the grouping column contains more than one null value,
+	 * the null values form a single group.
+	 */
+	Builder->SetInsertPoint(elseBlock);
+
+	Value* undefValue = Constant::getNullValue(mem_hashedValue->getAllocatedType());
+	Builder->CreateStore(undefValue, mem_hashedValue);
+	Builder->CreateStore(context->createTrue(), mem_hashedValue_isNull);
+	Builder->CreateBr(endBlock);
+
+	Builder->SetInsertPoint(endBlock);
+
+	RawValue valWrapper;
+	valWrapper.value = Builder->CreateLoad(mem_hashedValue);
+	valWrapper.isNull = Builder->CreateLoad(mem_hashedValue_isNull);
+	return valWrapper;
+}
+
 void JSONPlugin::generate(const RawOperator& producer) {
 	return scanObjects(producer, context->getGlobalFunction());
 }
@@ -1011,5 +1278,253 @@ void JSONPlugin::finish() {
 
 JSONPlugin::~JSONPlugin() {
 	delete tokens;
+}
+
+
+/**
+ * NON-CODEGEN'D FUNCTIONALITY, USED FOR TESTING
+ */
+
+/*
+ * Generic INTERPRETED Implementation: Simply identifies "tuples"
+ * Assumption: Handles data in the form [ obj, obj, ..., obj ]
+ */
+void JSONPlugin::scanObjectsInterpreted(list<string> path, list<ExpressionType*> types)	{
+	//Token[0] contains info about entire document
+	for (int i = 1; tokens[i].start != 0; )	{
+		//We want token i to be one of the 'outermost' objects
+		int curr = i;
+
+		//Work done for every 'tuple'
+		//TOKEN_PRINT(tokens[i]);
+		int neededToken = readPathInterpreted(i, path);
+		//Actually, must return (nil) in this case!!!
+		if(neededToken <= 0)	{
+			printf("(nil)\n");
+		}
+		readValueInterpreted(neededToken, types.back());
+
+		//'skipToEnd'
+		while(tokens[i].start < tokens[curr].end && tokens[i].start != 0)	{
+			i++;
+		}
+	}
+}
+
+int JSONPlugin::readPathInterpreted(int parentToken, list<string> path)	{
+	//Only objects are relevant to path expressions
+	if(tokens[parentToken].type != JSMN_OBJECT)	{
+		string msg = string("[JSON Plugin - jsmn: ]: Path traversal is only applicable to objects");
+		LOG(ERROR) << msg;
+		throw runtime_error(msg);
+	}
+	if(path.size() == 0)	{
+		string error_msg = "[JSONPlugin - jsmn: ] Path length cannot be 0";
+		LOG(ERROR) << error_msg;
+		throw runtime_error(error_msg);
+	}
+	string key = path.front();
+	for(int i = parentToken + 1; tokens[i].end <= tokens[parentToken].end; i+=2)	{
+		if(TOKEN_STRING(buf,tokens[i],key.c_str()))	{
+			//next one is the one I need
+			//printf("Found ");
+			//TOKEN_PRINT(tokens[i+1]);
+			if(path.size() == 1)	{
+				return i+1;
+			}	else	{
+				path.pop_front();
+				return readPathInterpreted(i+1 , path);
+			}
+		}
+	}
+	return -1;//(nil)
+}
+
+void JSONPlugin::readValueInterpreted(int tokenNo, const ExpressionType* type) {
+	string error_msg;
+	TOKEN_PRINT(tokens[tokenNo]);
+	switch(type->getTypeID())	{
+	case RECORD:
+		//object
+	case LIST:
+		//array
+		printf("Passing object along\n");
+		break;
+	case SET:
+		error_msg = string("[JSON Plugin - jsmn: ]: SET datatype cannot occur");
+		LOG(ERROR) << error_msg;
+		throw runtime_error(string(error_msg));
+	case BAG:
+		error_msg = string("[JSON Plugin - jsmn: ]: BAG datatype cannot occur");
+		LOG(ERROR) << error_msg;
+		throw runtime_error(string(error_msg));
+	case BOOL:
+		if(TOKEN_STRING(buf,tokens[tokenNo],"true"))	{
+			printf("Value: True!\n");
+		} else if(TOKEN_STRING(buf,tokens[tokenNo],"true")) {
+			printf("Value: False!\n");
+		} else	{
+			error_msg = string("[JSON Plugin - jsmn: ]: Error when parsing boolean");
+			LOG(ERROR) << error_msg;
+			throw runtime_error(string(error_msg));
+		}
+	case STRING:
+		printf("Passing object along\n");
+		break;
+	case FLOAT:
+		printf("Double value read: %f\n",atof(buf + tokens[tokenNo].start));
+		break;
+	case INT:
+		//Must be careful with trailing whitespaces for some item
+		//printf("Int value read: %d\n",atois(buf + tokens[tokenNo].start, tokens[tokenNo].end - tokens[tokenNo].start));
+		printf("Int value read: %d\n",atoi(buf + tokens[tokenNo].start));
+		break;
+	default:
+		error_msg = string("[JSON Plugin - jsmn: ]: Unknown expression type");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(string(error_msg));
+	}
+}
+
+void JSONPlugin::scanObjectsEagerInterpreted(list<string> path, list<ExpressionType*> types)	{
+	//Token[0] contains info about entire document
+	for (int i = 1; tokens[i].start != 0; )	{
+		//We want token i to be one of the 'outermost' objects
+		int curr = i;
+
+		//Work done for every 'tuple'
+		//TOKEN_PRINT(tokens[i]);
+		int neededToken = readPathInterpreted(i, path);
+		//Actually, must return (nil) in this case!!!
+		if(neededToken <= 0)	{
+			printf("(nil)\n");
+		}
+		readValueEagerInterpreted(neededToken, types.back());
+
+		//'skipToEnd'
+		while(tokens[i].start < tokens[curr].end && tokens[i].start != 0)	{
+			i++;
+		}
+	}
+}
+
+void JSONPlugin::readValueEagerInterpreted(int tokenNo, const ExpressionType* type) {
+	string error_msg;
+	TOKEN_PRINT(tokens[tokenNo]);
+	switch(type->getTypeID())	{
+	case RECORD:
+	{
+		list<RecordAttribute*>& args = ((RecordType*) type)->getArgs();
+		//XXX BUT ATTRIBUTES MIGHT NOT BE IN SEQUENCE!!
+//		int i = tokenNo+2;
+//		int sizeCnt = 0;
+//		list<RecordAttribute*>::iterator it = args.begin();
+//		for(; it != args.end(); it++)	{
+//			RecordAttribute *attr = *it;
+//			sizeCnt += 2;
+//			readValueEagerInterpreted(tokenNo + sizeCnt,attr->getOriginalType());
+//			//TOKEN_PRINT(tokens[tokenNo + sizeCnt]);
+//		}
+		int i = tokenNo+1;
+		map<string,RecordAttribute*>& argTypes = ((RecordType*) type)->getArgsMap();
+		while(tokens[i].start < tokens[tokenNo].end && tokens[i].start != 0)	{
+			string attrName = string(buf + tokens[i].start, tokens[i].end - tokens[i].start);
+			const ExpressionType *attrType = (argTypes[attrName])->getOriginalType();
+			i++;
+			readValueEagerInterpreted(i, attrType);
+			i++;
+		}
+		break;
+	}
+	case LIST:
+	{
+		//array
+		printf("Passing list along\n");
+		const ExpressionType& nestedType = ((CollectionType*) type)->getNestedType();
+		int i = tokenNo+1;
+		while(tokens[i].start < tokens[tokenNo].end && tokens[i].start != 0)	{
+			readValueEagerInterpreted(i, &nestedType);
+			i++;
+		}
+		break;
+	}
+	case SET:
+		error_msg = string("[JSON Plugin - jsmn: ]: SET datatype cannot occur");
+		LOG(ERROR) << error_msg;
+		throw runtime_error(string(error_msg));
+	case BAG:
+		error_msg = string("[JSON Plugin - jsmn: ]: BAG datatype cannot occur");
+		LOG(ERROR) << error_msg;
+		throw runtime_error(string(error_msg));
+	case BOOL:
+		if(TOKEN_STRING(buf,tokens[tokenNo],"true"))	{
+			printf("Value: True!\n");
+		} else if(TOKEN_STRING(buf,tokens[tokenNo],"true")) {
+			printf("Value: False!\n");
+		} else	{
+			error_msg = string("[JSON Plugin - jsmn: ]: Error when parsing boolean");
+			LOG(ERROR) << error_msg;
+			throw runtime_error(string(error_msg));
+		}
+	case STRING:
+		printf("Passing object along\n");
+		break;
+	case FLOAT:
+		printf("Double value read: %f\n",atof(buf + tokens[tokenNo].start));
+		break;
+	case INT:
+		//Must be careful with trailing whitespaces for some item
+		//printf("Int value read: %d\n",atois(buf + tokens[tokenNo].start, tokens[tokenNo].end - tokens[tokenNo].start));
+		printf("Int value read: %d\n",atoi(buf + tokens[tokenNo].start));
+		break;
+	default:
+		error_msg = string("[JSON Plugin - jsmn: ]: Unknown expression type");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(string(error_msg));
+	}
+}
+
+void JSONPlugin::unnestObjectsInterpreted(list<string> path)	{
+	//Token[0] contains info about entire document
+	for (int i = 1; tokens[i].start != 0; )	{
+		//We want token i to be one of the 'outermost' objects
+		int curr = i;
+
+		//Work done for every 'tuple'
+		//TOKEN_PRINT(tokens[i]);
+		int neededToken = readPathInterpreted(i, path);
+		//Actually, must return (nil) in this case!!!
+		if(neededToken <= 0)	{
+			printf("(nil)\n");
+		}
+
+		TOKEN_PRINT(tokens[neededToken]);
+		if(tokens[neededToken].type != 2)	{
+			string error_msg = string("[JSON Plugin - jsmn: ]: Can only unnest collections!");
+			LOG(ERROR) << error_msg;
+			throw runtime_error(string(error_msg));
+		}	else	{
+			unnestObjectInterpreted(neededToken);
+		}
+		//'skipToEnd'
+		while(tokens[i].start < tokens[curr].end && tokens[i].start != 0)	{
+			i++;
+		}
+	}
+}
+
+void JSONPlugin::unnestObjectInterpreted(int parentToken)	{
+
+	int i = parentToken + 1;
+	while(tokens[i].end <= tokens[parentToken].end && tokens[i].end != 0)	{
+		cout << i <<":     ";
+		TOKEN_PRINT(tokens[i]);
+		//skip all its children
+		int i_contents = i+1;
+		while(tokens[i_contents].start <= tokens[i].end && tokens[i_contents].start != 0)	{
+			i_contents++;
+		}
+		i = i_contents;
+	}
 }
 }

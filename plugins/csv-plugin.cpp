@@ -110,6 +110,67 @@ RawValueMemory CSVPlugin::readValue(RawValueMemory mem_value, const ExpressionTy
 	return mem_value;
 }
 
+RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* type)	{
+	IRBuilder<>* Builder = context->getBuilder();
+	switch (type->getTypeID())
+	{
+	case BOOL:
+	{
+		Function *hashBoolean = context->getFunction("hashBoolean");
+		std::vector<Value*> ArgsV;
+		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+		Value *hashResult = context->getBuilder()->CreateCall(hashBoolean,
+				ArgsV, "hashBoolean");
+
+		RawValue valWrapper;
+		valWrapper.value = hashResult;
+		valWrapper.isNull = context->createFalse();
+		return valWrapper;
+	}
+	case STRING:
+	{
+		LOG(ERROR)<< "[CSV PLUGIN: ] String datatypes not supported yet";
+		throw runtime_error(string("[CSV PLUGIN: ] String datatypes not supported yet"));
+	}
+	case FLOAT:
+	{
+		Function *hashDouble = context->getFunction("hashDouble");
+		std::vector<Value*> ArgsV;
+		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+		Value *hashResult = context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
+
+		RawValue valWrapper;
+		valWrapper.value = hashResult;
+		valWrapper.isNull = context->createFalse();
+		return valWrapper;
+	}
+	case INT:
+	{
+		Function *hashInt = context->getFunction("hashInt");
+		std::vector<Value*> ArgsV;
+		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+		Value *hashResult = context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
+
+		RawValue valWrapper;
+		valWrapper.value = hashResult;
+		valWrapper.isNull = context->createFalse();
+		return valWrapper;
+	}
+	case BAG:
+	case LIST:
+	case SET:
+	LOG(ERROR) << "[CSV PLUGIN: ] CSV files do not contain collections";
+	throw runtime_error(string("[CSV PLUGIN: ] CSV files do not contain collections"));
+	case RECORD:
+	LOG(ERROR) << "[CSV PLUGIN: ] CSV files do not contain record-valued attributes";
+	throw runtime_error(string("[CSV PLUGIN: ] CSV files do not contain record-valued attributes"));
+	default:
+	LOG(ERROR) << "[CSV PLUGIN: ] Unknown datatype";
+	throw runtime_error(string("[CSV PLUGIN: ] Unknown datatype"));
+}
+}
+
+
 void CSVPlugin::finish()	{
 	close(fd);
 	munmap(buf,fsize);

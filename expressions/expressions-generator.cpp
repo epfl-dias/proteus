@@ -99,7 +99,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 				isNull = (it->second).isNull;
 			}
 		}	else	{
-			LOG(INFO) << "[Expression Generator: ] No active relation found - Non-record case";
+			LOG(WARNING) << "[Expression Generator: ] No active relation found - Non-record case (OR e IS A TOPMOST EXPR.!)";
 			int relationsCount = 0;
 			for(it = activeVars.begin(); it != activeVars.end(); it++)	{
 				RecordAttribute currAttr = it->first;
@@ -108,6 +108,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 				//Does 1st part of check ever get satisfied? activeRelation is empty here
 				if(currAttr.getRelationName() == activeRelation && currAttr.getAttrName() == activeLoop)	{
 					//cout << "Found " << currAttr.getRelationName() << " " << currAttr.getAttrName() << endl;
+
 					argMem = (it->second).mem;
 					isNull = (it->second).isNull;
 					relationsCount++;
@@ -186,12 +187,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
 	Function *F 					= TheBuilder->GetInsertBlock()->getParent();
 
 	RawValue ifCond 		= e->getIfCond()->accept(*this);
-	RawValue ifResult		= e->getIfResult()->accept(*this);
-	RawValue elseResult 	= e->getElseResult()->accept(*this);
 
 	//Prepare result
-	AllocaInst* mem_result = context->CreateEntryBlockAlloca(F, "ifElseResult", (ifResult.value)->getType());
-	AllocaInst* mem_result_isNull = context->CreateEntryBlockAlloca(F, "ifElseResultIsNull", (ifResult.isNull)->getType());
+//	AllocaInst* mem_result = context->CreateEntryBlockAlloca(F, "ifElseResult", (ifResult.value)->getType());
+//	AllocaInst* mem_result_isNull = context->CreateEntryBlockAlloca(F, "ifElseResultIsNull", (ifResult.isNull)->getType());
+	AllocaInst* mem_result = NULL;
+	AllocaInst* mem_result_isNull = NULL;
 
 	//Prepare blocks
 	BasicBlock *ThenBB;
@@ -204,12 +205,17 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
 
 	//then
 	TheBuilder->SetInsertPoint(ThenBB);
+	RawValue ifResult = e->getIfResult()->accept(*this);
+	mem_result = context->CreateEntryBlockAlloca(F, "ifElseResult", (ifResult.value)->getType());
+	mem_result_isNull = context->CreateEntryBlockAlloca(F, "ifElseResultIsNull", (ifResult.isNull)->getType());
+
 	TheBuilder->CreateStore(ifResult.value,mem_result);
 	TheBuilder->CreateStore(ifResult.isNull,mem_result_isNull);
 	TheBuilder->CreateBr(MergeBB);
 
 	//else
 	TheBuilder->SetInsertPoint(ElseBB);
+	RawValue elseResult = e->getElseResult()->accept(*this);
 	TheBuilder->CreateStore(elseResult.value,mem_result);
 	TheBuilder->CreateStore(elseResult.isNull,mem_result_isNull);
 	TheBuilder->CreateBr(MergeBB);
@@ -243,6 +249,8 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 		case BOOL:
 			valWrapper.value = TheBuilder->CreateICmpEQ(left.value, right.value);
 			return valWrapper;
+		//XXX Does this code work if we are iterating over a json primitive array?
+		//Example: ["alpha","beta","gamma"]
 		case STRING: {
 			std::vector<Value*> ArgsV;
 			ArgsV.push_back(left.value);

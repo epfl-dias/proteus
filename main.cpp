@@ -54,10 +54,11 @@ void scanJsmnInterpreted();
 void unnestJsmnInterpreted();
 void unnestJsmnChildrenInterpreted();
 void unnestJsmnFiltering();
+void readJSONObjectInterpreted();
+void readJSONListInterpreted();
 
 void outerUnnest();
 void outerUnnestNull1();
-
 
 void reduceNumeric();
 void reduceBoolean();
@@ -71,37 +72,45 @@ void cidrBinStrConstant();
 void cidrBinStr();
 
 void ifThenElse();
+
+template <class T>
+inline void my_hash_combine(std::size_t& seed, const T& v)
+{
+    boost::hash<T> hasher;
+    seed ^= hasher(v);
+}
+
 int main(int argc, char* argv[])
 {
 
 	// Initialize Google's logging library.
 	google::InitGoogleLogging(argv[0]);
-	LOG(INFO) << "Object-based operators";
-	LOG(INFO) << "Executing selection query";
+	LOG(INFO)<< "Object-based operators";
+	LOG(INFO)<< "Executing selection query";
 
-	//	scanCSV();
-	//	selectionCSV();
-	//	joinQueryRelational();
-	//	scanJsmn();
-	//	selectionJsmn();
-	//	recordProjectionsJSON();
+	scanCSV();
+	selectionCSV();
+	joinQueryRelational();
+	scanJsmn();
+	selectionJsmn();
+	recordProjectionsJSON();
 
 	//scanJsmnInterpreted();
 	//unnestJsmnChildrenInterpreted();
+	//readJSONObjectInterpreted();
+	//readJSONListInterpreted();
 
-	//unnestJsmn();
-	//unnestJsmnFiltering();
+	unnestJsmn();
+	unnestJsmnFiltering();
 
-	//scanCSVBoolean();
-	//reduceNumeric();
-	//reduceBoolean();
+	scanCSVBoolean();
+	reduceNumeric();
+	reduceBoolean();
 
 	/* This query (3) takes a bit more time */
 	//cidrQuery3();
 	//cidrQueryCount();
-
 	//cidrBinStr();
-
 	//cidrQueryWarm(41,5);
 	//100 queries
 	//	for(int ageParam = 40; ageParam < 50; ageParam++)	{
@@ -109,19 +118,50 @@ int main(int argc, char* argv[])
 	//			cidrQueryWarm(ageParam,volParam);
 	//		}
 	//	}
+	ifThenElse();
 
-	//ifThenElse();
+	unnestJsmn();
+	unnestJsmnDeeper();
 
-	//unnestJsmn();
-	//unnestJsmnDeeper();
+	outerUnnest();
+	outerUnnestNull1();
 
-	//outerUnnest();
-	//outerUnnestNull1();
+	/**
+	 * HASHER TESTS
+	 */
+////    boost::hash<int> hasher;
+////    cout << hasher(15) << endl;
+////    boost::hash<string> hasherStr;
+////    cout << hasherStr("15") << endl;
+//
+//	boost::hash<int> hasher;
+//	size_t seed = 0;
+//
+//	boost::hash_combine(seed, 15);
+//	boost::hash_combine(seed, 20);
+//	boost::hash_combine(seed, 29);
+//	cout << "Seed 1: " << seed <<endl;
+//
+//	seed = 0;
+//	size_t seedPartial = 0;
+//	boost::hash_combine(seed, 15);
+//
+//	boost::hash_combine(seedPartial, 20);
+//	boost::hash_combine(seedPartial, 29);
+//	boost::hash_combine(seed, seedPartial);
+//	cout << "Seed 2: " << seed <<endl;
+//
+//
+//	seed = 0;
+//	my_hash_combine(seed,20);
+//	my_hash_combine(seed,25);
+//	cout << "Seed A: " << seed <<endl;
+//
+//	seed = 0;
+//	my_hash_combine(seed,25);
+//	my_hash_combine(seed,20);
+//	cout << "Seed B: " << seed <<endl;
 
-    boost::hash<int> hasher;
-    cout << hasher(15) << endl;
-    boost::hash<string> hasherStr;
-    cout << hasherStr("15") << endl;
 }
 
 void unnestJsmnInterpreted()	{
@@ -187,6 +227,82 @@ void scanJsmnInterpreted()	{
 	list<ExpressionType*> types;
 	types.insert(types.begin(),&attrType);
 	pg.scanObjectsInterpreted(path,types);
+
+	pg.finish();
+}
+
+void readJSONObjectInterpreted()	{
+	RawContext ctx = RawContext("testFunction-ReadJSONObject");
+
+	string fname = string("inputs/jsmnDeeper.json");
+
+	IntType intType = IntType();
+	string c1Name = string("c1");
+	RecordAttribute c1 = RecordAttribute(1, fname, c1Name, &intType);
+	string c2Name = string("c2");
+	RecordAttribute c2 = RecordAttribute(2, fname, c2Name, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&c1);
+	attsNested.push_back(&c2);
+	RecordType nested = RecordType(attsNested);
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	string attrName3 = string("c");
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &intType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &intType);
+	RecordAttribute attr3 = RecordAttribute(3, fname, attrName3, &nested);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+	atts.push_back(&attr3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname , &documentType);
+
+	list<string> path;
+	path.insert(path.begin(),attrName3);
+	list<ExpressionType*> types;
+	types.insert(types.begin(),&nested);
+	pg.scanObjectsEagerInterpreted(path,types);
+
+	pg.finish();
+}
+
+void readJSONListInterpreted()	{
+	RawContext ctx = RawContext("testFunction-ReadJSONObject");
+
+	string fname = string("inputs/jsmnDeeper2.json");
+
+	IntType intType = IntType();
+
+	ListType nested = ListType(intType);
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	string attrName3 = string("c");
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &intType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &intType);
+	RecordAttribute attr3 = RecordAttribute(3, fname, attrName3, &nested);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+	atts.push_back(&attr3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname , &documentType);
+
+	list<string> path;
+	path.insert(path.begin(),attrName3);
+	list<ExpressionType*> types;
+	types.insert(types.begin(),&nested);
+	pg.scanObjectsEagerInterpreted(path,types);
 
 	pg.finish();
 }

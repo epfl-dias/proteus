@@ -23,7 +23,7 @@
 
 #include "operators/reduce.hpp"
 
-Reduce::Reduce(Accumulator acc, expressions::Expression* outputExpr,
+Reduce::Reduce(Monoid acc, expressions::Expression* outputExpr,
 		expressions::Expression* pred, RawOperator* const child,
 		RawContext* context) :
 		UnaryRawOperator(child), acc(acc),

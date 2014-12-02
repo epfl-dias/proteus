@@ -67,6 +67,9 @@ public:
 	//1-1 correspondence with 'RecordProjection' expression
 	RawValueMemory readPath(string activeRelation, Bindings wrappedBindings, const char* pathVar);
 	RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
+	RawValueMemory readPathInternal(RawValueMemory mem_parentTokenNo, const char* pathVar);
+
+	RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
 
 	//Used by unnest
 	RawValueMemory initCollectionUnnest(RawValue val_parentTokenNo);
@@ -75,10 +78,12 @@ public:
 
 	void scanObjects(const RawOperator& producer, Function* debug);
 	void scanObjectsInterpreted(list<string> path, list<ExpressionType*> types);
+	void scanObjectsEagerInterpreted(list<string> path, list<ExpressionType*> types);
 	void unnestObjectsInterpreted(list<string> path);
 	void unnestObjectInterpreted(int parentToken);
 	int readPathInterpreted(int parentToken, list<string> path);
 	void readValueInterpreted(int tokenNo, const ExpressionType* type);
+	void readValueEagerInterpreted(int tokenNo, const ExpressionType* type);
 
 private:
 	string& fname;

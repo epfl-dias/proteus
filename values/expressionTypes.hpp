@@ -154,7 +154,13 @@ inline bool operator<(const RecordAttribute& l, const RecordAttribute& r) {
 class RecordType : public ExpressionType	{
 public:
 
-	RecordType(list<RecordAttribute*>& args_) : args(args_) {}
+	RecordType(list<RecordAttribute*>& args) : args(args) {
+		list<RecordAttribute*>::iterator it = args.begin();
+		for(; it != args.end(); it++)	{
+			RecordAttribute* arg = *it;
+			argsMap[arg->getAttrName()] = arg;
+		}
+	}
 
 	string getType() const {
 		stringstream ss;
@@ -172,14 +178,15 @@ public:
 		return ss.str();
 	}
 	typeID getTypeID()	const					{ return RECORD; }
-	std::list<RecordAttribute*>& getArgs() 		{ return args; }
+	list<RecordAttribute*>& getArgs() 			{ return args; }
+	map<string, RecordAttribute*>& getArgsMap()	{ return argsMap; }
 	int getArgsNo() 							{ return args.size(); }
 	bool isPrimitive() 	const					{ return false; }
 	~RecordType() 								{}
 
 private:
 	list<RecordAttribute*>& args;
-
+	map<string, RecordAttribute*> argsMap;
 };
 
 class ExprTypeVisitor

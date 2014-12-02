@@ -108,6 +108,14 @@ RawValueMemory BinaryRowPlugin::readValue(RawValueMemory mem_value, const Expres
 	return mem_value;
 }
 
+RawValue BinaryRowPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* type)	{
+	IRBuilder<>* Builder = context->getBuilder();
+	RawValue value;
+	value.isNull = mem_value.isNull;
+	value.value = Builder->CreateLoad(mem_value.mem);
+	return value;
+}
+
 void BinaryRowPlugin::finish()	{
 	close(fd);
 	munmap(buf,fsize);

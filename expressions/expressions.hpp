@@ -26,6 +26,7 @@
 
 #include "operators/operators.hpp"
 #include "operators/operator-state.hpp"
+#include "operators/monoids.hpp"
 #include "util/raw-context.hpp"
 #include "util/raw-catalog.hpp"
 #include "values/expressionTypes.hpp"
@@ -34,10 +35,10 @@
 
 class ExprVisitor; //Forward declaration
 
-//Using a namespace to avoid conflicts with LLVM namespace
+//Careful: Using a namespace to avoid conflicts with LLVM namespace
 namespace expressions
 {
-enum ExpressionId	{CONSTANT, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY};
+enum ExpressionId	{ CONSTANT, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE };
 
 class Expression	{
 public:
@@ -46,7 +47,7 @@ public:
 
 	ExpressionType* getExpressionType()				{ return type; }
 	virtual RawValue accept(ExprVisitor &v) = 0;
-	virtual ExpressionId getTypeId() = 0;
+	virtual ExpressionId getTypeID() = 0;
 private:
 	ExpressionType* type;
 };
@@ -65,7 +66,7 @@ public:
 
 	int getVal()									{ return val; }
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return CONSTANT; }
+	ExpressionId getTypeID()						{ return CONSTANT; }
 private:
 	int val;
 };
@@ -78,7 +79,7 @@ public:
 
 	bool getVal()									{ return val; }
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return CONSTANT; }
+	ExpressionId getTypeID()						{ return CONSTANT; }
 private:
 	bool val;
 };
@@ -92,7 +93,7 @@ public:
 	double getVal()									{ return val; }
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return CONSTANT; }
+	ExpressionId getTypeID()						{ return CONSTANT; }
 private:
 	double val;
 };
@@ -105,11 +106,19 @@ public:
 
 	string& getVal()								{ return val; }
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return CONSTANT; }
+	ExpressionId getTypeID()						{ return CONSTANT; }
 private:
 	string& val;
 };
 
+/*
+ * Conceptually:  What every next() call over a collection produces
+ * In the general case, it is a record.
+ * However it can be a primitive (i.e., if iterating over [1,2,3,4,5]
+ * or even a random collection - (i.e., if iterating over [1,[5,9],[{"a":1},{"a":2}]]
+ *
+ * XXX How do we specify the schema of the last expression?
+ */
 class InputArgument	: public Expression	{
 public:
 	InputArgument(ExpressionType* type,int argNo)
@@ -118,7 +127,7 @@ public:
 
 	int getArgNo()												{ return argNo; }
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()									{ return ARGUMENT; }
+	ExpressionId getTypeID()									{ return ARGUMENT; }
 private:
 	/**
 	 * ArgumentNo is meant to represent e.g. the left or right child of a Join,
@@ -141,7 +150,7 @@ public:
 	string 	getRelationName() const			{ return attribute.getRelationName(); }
 	string  getProjectionName()						{ return attribute.getAttrName(); }
 	RawValue  accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return RECORD_PROJECTION; }
+	ExpressionId getTypeID()						{ return RECORD_PROJECTION; }
 private:
 	Expression* expr;
 	const RecordAttribute& attribute;
@@ -165,7 +174,7 @@ public:
 	~RecordConstruction()											{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()										{ return RECORD_CONSTRUCTION; }
+	ExpressionId getTypeID()										{ return RECORD_CONSTRUCTION; }
 private:
 	const list<AttributeConstruction>& atts;
 };
@@ -177,7 +186,7 @@ public:
 	~IfThenElse()																{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()													{ return IF_THEN_ELSE; }
+	ExpressionId getTypeID()													{ return IF_THEN_ELSE; }
 	Expression* getIfCond()														{ return expr1; }
 	Expression* getIfResult()													{ return expr2; }
 	Expression* getElseResult()													{ return expr3; }
@@ -196,7 +205,7 @@ public:
 	expressions::BinaryOperator* getOp()						{ return op; }
 
 	virtual RawValue accept(ExprVisitor &v) = 0;
-	virtual ExpressionId getTypeId()							{ return BINARY; }
+	virtual ExpressionId getTypeID()							{ return BINARY; }
 	~BinaryExpression() = 0;
 private:
 	Expression* lhs;
@@ -211,7 +220,7 @@ public:
 	~EqExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return BINARY; }
+	ExpressionId getTypeID()						{ return BINARY; }
 };
 
 class NeExpression : public BinaryExpression	{
@@ -221,7 +230,7 @@ public:
 	~NeExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return BINARY; }
+	ExpressionId getTypeID()						{ return BINARY; }
 };
 
 class GeExpression : public BinaryExpression	{
@@ -231,7 +240,7 @@ public:
 	~GeExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return BINARY; }
+	ExpressionId getTypeID()						{ return BINARY; }
 };
 
 class GtExpression : public BinaryExpression	{
@@ -250,7 +259,7 @@ public:
 	~LeExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return BINARY; }
+	ExpressionId getTypeID()						{ return BINARY; }
 };
 
 class LtExpression : public BinaryExpression	{
@@ -260,7 +269,7 @@ public:
 	~LtExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return BINARY; }
+	ExpressionId getTypeID()						{ return BINARY; }
 };
 
 class AddExpression : public BinaryExpression	{
@@ -270,7 +279,7 @@ public:
 	~AddExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return BINARY; }
+	ExpressionId getTypeID()						{ return BINARY; }
 };
 
 class SubExpression : public BinaryExpression	{
@@ -280,7 +289,7 @@ public:
 	~SubExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return BINARY; }
+	ExpressionId getTypeID()						{ return BINARY; }
 };
 
 class MultExpression : public BinaryExpression	{
@@ -290,7 +299,7 @@ public:
 	~MultExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return BINARY; }
+	ExpressionId getTypeID()						{ return BINARY; }
 };
 
 class DivExpression : public BinaryExpression	{
@@ -300,7 +309,7 @@ public:
 	~DivExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return BINARY; }
+	ExpressionId getTypeID()						{ return BINARY; }
 };
 
 class AndExpression : public BinaryExpression	{
@@ -310,30 +319,41 @@ public:
 	~AndExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return BINARY; }
+	ExpressionId getTypeID()						{ return BINARY; }
 };
 
 class OrExpression : public BinaryExpression	{
 public:
 	OrExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
 		BinaryExpression(type,new Or(),lhs,rhs) 	{}
-	~OrExpression()								{}
+	~OrExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeId()						{ return BINARY; }
+	ExpressionId getTypeID()						{ return BINARY; }
 };
 
-}
+/**
+ * XXX Relevant to
+ * General monoid merging
+ * User-provided collections (since [1,2,3] is sugar for [1] union [2] union [3]
+ */
+class MergeExpression : public Expression	{
+public:
+	MergeExpression(ExpressionType* type, Monoid acc, Expression* lhs, Expression* rhs) :
+		Expression(type), monoidType(acc), lhs(lhs), rhs(rhs) 		{}
+	~MergeExpression()												{}
 
-//class StringObject	{
-//	StringObject(const char* start, int len)
-//		: start(start), len(len)		{}
-//	const char *getStart()				{ return start; }
-//	char *getLen()						{ return len; 	}
-//private:
-//	const char* start;
-//	int len;
-//};
+	RawValue accept(ExprVisitor &v);
+	ExpressionId getTypeID()										{ return MERGE; }
+	Monoid getMonoidType()										{ return monoidType; }
+private:
+	Monoid monoidType;
+	Expression* lhs;
+	Expression* rhs;
+};
+
+
+}
 
 //===----------------------------------------------------------------------===//
 // "Visitor" responsible for generating the appropriate code per Expression 'node'
@@ -341,25 +361,26 @@ public:
 class ExprVisitor
 {
 public:
-	virtual RawValue visit(expressions::IntConstant *e)    	= 0;
-	virtual RawValue visit(expressions::FloatConstant *e)  	= 0;
-	virtual RawValue visit(expressions::BoolConstant *e)   	= 0;
-	virtual RawValue visit(expressions::StringConstant *e) 	= 0;
-	virtual RawValue visit(expressions::InputArgument *e)  	= 0;
+	virtual RawValue visit(expressions::IntConstant *e)    		= 0;
+	virtual RawValue visit(expressions::FloatConstant *e)  		= 0;
+	virtual RawValue visit(expressions::BoolConstant *e)   		= 0;
+	virtual RawValue visit(expressions::StringConstant *e) 		= 0;
+	virtual RawValue visit(expressions::InputArgument *e)  		= 0;
 	virtual RawValue visit(expressions::RecordProjection *e)	= 0;
 	virtual RawValue visit(expressions::IfThenElse *e)  		= 0;
-	virtual RawValue visit(expressions::EqExpression *e)   	= 0;
-	virtual RawValue visit(expressions::NeExpression *e)   	= 0;
-	virtual RawValue visit(expressions::GeExpression *e)   	= 0;
-	virtual RawValue visit(expressions::GtExpression *e)   	= 0;
-	virtual RawValue visit(expressions::LeExpression *e)   	= 0;
-	virtual RawValue visit(expressions::LtExpression *e)   	= 0;
-	virtual RawValue visit(expressions::AddExpression *e)  	= 0;
-	virtual RawValue visit(expressions::SubExpression *e)  	= 0;
-	virtual RawValue visit(expressions::MultExpression *e) 	= 0;
-	virtual RawValue visit(expressions::DivExpression *e)  	= 0;
-	virtual RawValue visit(expressions::AndExpression *e)  	= 0;
-	virtual RawValue visit(expressions::OrExpression *e)  	= 0;
+	virtual RawValue visit(expressions::EqExpression *e)   		= 0;
+	virtual RawValue visit(expressions::NeExpression *e)   		= 0;
+	virtual RawValue visit(expressions::GeExpression *e)   		= 0;
+	virtual RawValue visit(expressions::GtExpression *e)   		= 0;
+	virtual RawValue visit(expressions::LeExpression *e)   		= 0;
+	virtual RawValue visit(expressions::LtExpression *e)   		= 0;
+	virtual RawValue visit(expressions::AddExpression *e)  		= 0;
+	virtual RawValue visit(expressions::SubExpression *e)  		= 0;
+	virtual RawValue visit(expressions::MultExpression *e) 		= 0;
+	virtual RawValue visit(expressions::DivExpression *e)  		= 0;
+	virtual RawValue visit(expressions::AndExpression *e)  		= 0;
+	virtual RawValue visit(expressions::OrExpression *e)  		= 0;
+	virtual RawValue visit(expressions::MergeExpression *e)  	= 0;
 	virtual ~ExprVisitor() {}
 };
 

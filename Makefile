@@ -4,9 +4,9 @@
 #LIBJIT_AR = $(LIBJIT_LIB_PATH)/libjit.a
 
 CC = clang #gcc
-CPP = clang++ #g++ 
+CPP = clang++  #g++ 
 
-CCOPT = -ggdb -O0 -fkeep-inline-functions
+CCOPT = -g -ggdb -O3 -fkeep-inline-functions -fslp-vectorize #-mllvm -debug-pass=Arguments 
 #-O3
 CCFLAGS = -c $(CCOPT) 
 
@@ -15,7 +15,7 @@ USER_DIR = $(HOME)
 GTEST_DIR = $(USER_DIR)/gtest-1.7.0
 
 LLVMOPT =`llvm-config --cppflags`
-LLVMJIT =`llvm-config --cppflags --ldflags --libs core jit native` -rdynamic
+LLVMJIT =`llvm-config --cppflags --ldflags --libs` -rdynamic #core jit native
 LDFLAGS = -L$(HOME)/lib -L. -lglog -ljsmn \
 		-lboost_system \
 		#-lboost_iostreams -lboost_thread -lboost_filesystem \

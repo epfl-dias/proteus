@@ -38,7 +38,6 @@
 #include "common/common.hpp"
 #include "util/raw-catalog.hpp"
 
-
 //Forward Declaration
 class JSONObject;
 
@@ -166,10 +165,16 @@ extern "C" size_t hashInt(int toHash);
 
 extern "C" size_t hashDouble(double toHash);
 
-extern "C" size_t hashString(char* toHash, size_t start, size_t end);
+extern "C" size_t hashStringC(char* toHash, size_t start, size_t end);
+
+extern "C" size_t hashString(string toHash);
+
+extern "C" size_t hashStringObject(StringObject obj);
 
 extern "C" size_t hashBoolean(bool toHash);
 
 extern "C" size_t combineHashes(size_t hash1, size_t hash2);
+
+extern "C" size_t combineHashesNoOrder(size_t hash1, size_t hash2);
 
 #endif /* RAW_CONTEXT_HPP_ */

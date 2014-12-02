@@ -25,12 +25,12 @@
 #define REDUCE_HPP_
 
 #include "operators/operators.hpp"
-#include "operators/accumulators.hpp"
+#include "operators/monoids.hpp"
 #include "expressions/expressions-generator.hpp"
 
 class Reduce : public UnaryRawOperator {
 public:
-	Reduce(Accumulator acc, expressions::Expression* outputExpr,
+	Reduce(Monoid acc, expressions::Expression* outputExpr,
 			expressions::Expression* pred, RawOperator* const child,
 			RawContext* context);
 	virtual ~Reduce()												{ LOG(INFO)<<"Collapsing Reduce operator"; }
@@ -40,7 +40,7 @@ public:
 private:
 	RawContext* context;
 
-	Accumulator acc;
+	Monoid acc;
 	expressions::Expression* outputExpr;
 	expressions::Expression* pred;
 	AllocaInst* mem_accumulating;

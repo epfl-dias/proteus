@@ -64,6 +64,9 @@ public:
 			Bindings wrappedBindings, const char* pathVar) 									= 0;
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type) 	= 0;
 
+	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type)		= 0;
+
+
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) = 0;
 	virtual RawValue collectionHasNext(RawValue val_parentObject, RawValueMemory mem_currentChild) = 0;
 	virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) = 0;

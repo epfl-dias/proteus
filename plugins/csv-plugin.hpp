@@ -41,6 +41,9 @@ public:
 	RawValueMemory readPath(string activeRelation, Bindings bindings, const char* pathVar);
 	RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
 
+	RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
+
+
 	RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
 		string error_msg = "[CSVPlugin: ] CSV files do not contain collections";
 		LOG(ERROR)<< error_msg;

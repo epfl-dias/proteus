@@ -46,7 +46,14 @@ RawContext::RawContext(const string& moduleName) {
 		exit(1);
 	}
 
+	PassManager mpm;
 	FunctionPassManager* OurFPM = new FunctionPassManager(TheModule);
+
+	PassManagerBuilder pmb;
+	pmb.OptLevel=0;
+	pmb.populateModulePassManager(mpm);
+	pmb.populateFunctionPassManager(*OurFPM);
+
 	// Set up the optimizer pipeline.  Start with registering info about how the
 	// target lays out data structures.
 	OurFPM->add(new DataLayout(*TheExecutionEngine->getDataLayout()));
@@ -62,6 +69,12 @@ RawContext::RawContext(const string& moduleName) {
 	OurFPM->add(createGVNPass());
 	// Simplify the control flow graph (deleting unreachable blocks, etc).
 	OurFPM->add(createCFGSimplificationPass());
+
+	mpm.add(createFunctionInliningPass());
+	mpm.add(createAlwaysInlinerPass());
+	mpm.add(createBBVectorizePass());
+	mpm.run(*TheModule);
+
 
 	OurFPM->doInitialization();
 	TheFPM = OurFPM;
@@ -87,7 +100,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-//	getModule()->dump();
+	//getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -112,7 +125,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	TheFPM = 0;
 	//Dump to see final form
-	//F->dump();
+//	F->dump();
 }
 
 void* RawContext::jit(Function* F) {
@@ -468,7 +481,7 @@ size_t hashDouble(double toHash) {
 }
 
 //XXX Copy string? Or edit in place?
-size_t hashString(char* toHash, size_t start, size_t end)	{
+size_t hashStringC(char* toHash, size_t start, size_t end)	{
 	char tmp = toHash[end+1];
 	toHash[end+1] = '\0';
 	boost::hash<string> hasher;
@@ -477,16 +490,63 @@ size_t hashString(char* toHash, size_t start, size_t end)	{
 	return result;
 }
 
+size_t hashString(string toHash)	{
+	boost::hash<string> hasher;
+	size_t result = hasher(toHash);
+	return result;
+}
+
 size_t hashBoolean(bool toHash) {
 	boost::hash<bool> hasher;
 	return hasher(toHash);
 }
 
+size_t hashStringObject(StringObject obj)	{
+	char tmp = obj.start[obj.len+1];
+	obj.start[obj.len+1] = '\0';
+	boost::hash<string> hasher;
+	size_t result = hasher(obj.start);
+	obj.start[obj.len+1] = tmp;
+	return result;
+}
+
+
+//size_t combineHashes(size_t hash1, size_t hash2) {
+//	 size_t seed = 0;
+//	 boost::hash_combine(seed, hash1);
+//	 boost::hash_combine(seed, hash2);
+//	 return seed;
+//}
+//
+//template <class T>
+//inline void hash_combine_no_order(std::size_t& seed, const T& v)
+//{
+//    boost::hash<T> hasher;
+//    seed ^= hasher(v);
+//}
+//
+//size_t combineHashesNoOrder(size_t hash1, size_t hash2) {
+//	 size_t seed = 0;
+//	 hash_combine_no_order(seed, hash1);
+//	 hash_combine_no_order(seed, hash2);
+//	 return seed;
+//}
+
 size_t combineHashes(size_t hash1, size_t hash2) {
-	 size_t seed = 0;
-	 boost::hash_combine(seed, hash1);
-	 boost::hash_combine(seed, hash2);
-	 return seed;
+	 boost::hash_combine(hash1, hash2);
+	 return hash1;
+}
+
+template <class T>
+inline void hash_combine_no_order(std::size_t& seed, const T& v)
+{
+    boost::hash<T> hasher;
+    seed ^= hasher(v);
+}
+
+size_t combineHashesNoOrder(size_t hash1, size_t hash2) {
+	 hash_combine_no_order(hash1, hash2);
+	 return hash1;
 }
 
 //Provide support for some extern functions
@@ -547,10 +607,13 @@ void registerFunctions(RawContext& context)	{
 	std::vector<Type*> ArgsHashDouble;
 	ArgsHashDouble.insert(ArgsHashDouble.begin(),double_type);
 
-	std::vector<Type*> ArgsHashString;
-	ArgsHashString.insert(ArgsHashString.begin(),int64_type);
-	ArgsHashString.insert(ArgsHashString.begin(),int64_type);
-	ArgsHashString.insert(ArgsHashString.begin(),char_ptr_type);
+	std::vector<Type*> ArgsHashStringC;
+	ArgsHashStringC.insert(ArgsHashStringC.begin(),int64_type);
+	ArgsHashStringC.insert(ArgsHashStringC.begin(),int64_type);
+	ArgsHashStringC.insert(ArgsHashStringC.begin(),char_ptr_type);
+
+	std::vector<Type*> ArgsHashStringObj;
+	ArgsHashStringObj.insert(ArgsHashStringObj.begin(),strObjType);
 
 	std::vector<Type*> ArgsHashBoolean;
 	ArgsHashBoolean.insert(ArgsHashBoolean.begin(),int1_bool_type);
@@ -573,7 +636,8 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FTcompareStrings = FunctionType::get(int1_bool_type, ArgsStringCmp, false);
 	FunctionType *FThashInt = FunctionType::get(int64_type, ArgsHashInt, false);
 	FunctionType *FThashDouble = FunctionType::get(int64_type, ArgsHashDouble, false);
-	FunctionType *FThashString = FunctionType::get(int64_type, ArgsHashString, false);
+	FunctionType *FThashStringC = FunctionType::get(int64_type, ArgsHashStringC, false);
+	FunctionType *FThashStringObj = FunctionType::get(int64_type, ArgsHashStringObj, false);
 	FunctionType *FThashBoolean = FunctionType::get(int64_type, ArgsHashBoolean, false);
 	FunctionType *FThashCombine = FunctionType::get(int64_type, ArgsHashCombine, false);
 
@@ -603,16 +667,20 @@ void registerFunctions(RawContext& context)	{
 					Function::ExternalLinkage, "convertBoolean64", TheModule);
 	convertBoolean64_->addFnAttr(llvm::Attribute::AlwaysInline);
 
-	Function *hashInt_ 		= Function::Create(FThashInt, Function::ExternalLinkage,
+	Function *hashInt_ = Function::Create(FThashInt, Function::ExternalLinkage,
 			"hashInt", TheModule);
-	Function *hashDouble_ 	= Function::Create(FThashDouble,
+	Function *hashDouble_ = Function::Create(FThashDouble,
 			Function::ExternalLinkage, "hashDouble", TheModule);
-	Function *hashString_ 	= Function::Create(FThashString,
+	Function *hashStringC_ = Function::Create(FThashStringC,
 			Function::ExternalLinkage, "hashString", TheModule);
-	Function *hashBoolean_ 	= Function::Create(FThashBoolean,
-				Function::ExternalLinkage, "hashBoolean", TheModule);
-	Function *hashCombine_ 	= Function::Create(FThashCombine,
-			Function::ExternalLinkage, "hashCombine", TheModule);
+	Function *hashStringObj_ = Function::Create(FThashStringObj,
+			Function::ExternalLinkage, "hashStringObject", TheModule);
+	Function *hashBoolean_ = Function::Create(FThashBoolean,
+			Function::ExternalLinkage, "hashBoolean", TheModule);
+	Function *hashCombine_ = Function::Create(FThashCombine,
+			Function::ExternalLinkage, "combineHashes", TheModule);
+	Function *hashCombineNoOrder_ = Function::Create(FThashCombine,
+			Function::ExternalLinkage, "combineHashesNoOrder", TheModule);
 
 	//Memcpy - not used yet
 	Type* types[] = { void_ptr_type, void_ptr_type, Type::getInt32Ty(ctx) };
@@ -650,9 +718,11 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("equalStrings", stringEquality);
 	context.registerFunction("hashInt", hashInt_);
 	context.registerFunction("hashDouble", hashDouble_);
-	context.registerFunction("hashString", hashString_);
+	context.registerFunction("hashStringC", hashStringC_);
+	context.registerFunction("hashStringObject", hashStringObj_);
 	context.registerFunction("hashBoolean", hashBoolean_);
-	context.registerFunction("hashCombine", hashCombine_);
+	context.registerFunction("combineHashes", hashCombine_);
+	context.registerFunction("combineHashesNoOrder", hashCombineNoOrder_);
 }
 
 inline int atoi1(const char *buf) {

@@ -28,7 +28,7 @@ string Path::toString() {
 	ss << desugarizedPath->getRelationName();
 	expressions::Expression* currExpr = desugarizedPath;
 	list<string> projNames = list<string>();
-	while (currExpr->getTypeId() == expressions::RECORD_PROJECTION) {
+	while (currExpr->getTypeID() == expressions::RECORD_PROJECTION) {
 		expressions::RecordProjection* const currProj =
 				(expressions::RecordProjection*) currExpr;
 		projNames.insert(projNames.begin(),currProj->getProjectionName());
