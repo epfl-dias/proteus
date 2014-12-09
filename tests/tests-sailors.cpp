@@ -135,15 +135,24 @@ TEST(Sailors, Select) {
 	catalog.registerPlugin(filename,pg);
 	Scan scan = Scan(&ctx, *pg);
 
-	//Selection
-	expressions::Expression* lhsArg = new expressions::InputArgument(new FloatType(),0);
+	/**
+	 * SELECT
+	 */
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(*sid);
+	projections.push_back(*age);
+	expressions::Expression* lhsArg = new expressions::InputArgument(new FloatType(),0,projections);
 	expressions::Expression* lhs = new expressions::RecordProjection(new FloatType(),lhsArg,*age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40);
 	expressions::Expression* predicate = new expressions::GtExpression(new BoolType(),lhs,rhs);
 	Select sel = Select(predicate,&scan);
 	scan.setParent(&sel);
 
-	//'Print' operator - used for debug purposes
+	/**
+	 * PRINT
+	 */
 	Function* debugInt = ctx.getFunction("printi");
 	expressions::RecordProjection* argProj = new expressions::RecordProjection(new IntType(),lhsArg,*sid);
 	Print printOpProj = Print(debugInt,argProj,&sel);
@@ -206,7 +215,9 @@ TEST(Sailors, JoinLeft3) {
 	RawContext ctx = RawContext("Sailors-JoinLeft3");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
-	//SCAN1
+	/**
+	 * SCAN1
+	 */
 	string filename = string("inputs/sailors.csv");
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();
@@ -233,7 +244,9 @@ TEST(Sailors, JoinLeft3) {
 
 	Scan scanSailors = Scan(&ctx, *pgSailors);
 
-	//SCAN2
+	/**
+	 * SCAN2
+	 */
 	string filename2 = string("inputs/reserves.csv");
 	RecordAttribute* sidReserves = new RecordAttribute(1,filename2,string("sid"),intType);
 	RecordAttribute* bidReserves = new RecordAttribute(2,filename2,string("bid"),intType);
@@ -252,11 +265,23 @@ TEST(Sailors, JoinLeft3) {
 	catalog.registerPlugin(filename2,pgReserves);
 	Scan scanReserves = Scan(&ctx, *pgReserves);
 
-
-	//JOIN
-	expressions::Expression* leftArg = new expressions::InputArgument(intType,0);
+	/**
+	 * JOIN
+	 */
+	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop);
+	list<RecordAttribute> projectionsL = list<RecordAttribute>();
+	projectionsL.push_back(projTupleL);
+	projectionsL.push_back(*sid);
+	projectionsL.push_back(*age);
+	expressions::Expression* leftArg = new expressions::InputArgument(intType,0,projectionsL);
 	expressions::Expression* left = new expressions::RecordProjection(intType,leftArg,*sid);
-	expressions::Expression* rightArg = new expressions::InputArgument(intType,1);
+
+	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop);
+	list<RecordAttribute> projectionsR = list<RecordAttribute>();
+	projectionsR.push_back(projTupleR);
+	projectionsR.push_back(*sidReserves);
+	projectionsR.push_back(*bidReserves);
+	expressions::Expression* rightArg = new expressions::InputArgument(intType,1,projectionsR);
 	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,*sidReserves);
 
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
@@ -290,11 +315,17 @@ TEST(Sailors, JoinLeft3) {
 	catalog.registerPlugin(filenameBoats,pgBoats);
 	Scan scanBoats = Scan(&ctx, *pgBoats);
 
-
-	//JOIN2
-	expressions::Expression* leftArg2 = new expressions::InputArgument(intType,0);
+	/**
+	 * JOIN2
+	 */
+	expressions::Expression* leftArg2 = new expressions::InputArgument(intType,0,projectionsR);
 	expressions::Expression* left2 = new expressions::RecordProjection(intType,leftArg2,*bidReserves);
-	expressions::Expression* rightArg2 = new expressions::InputArgument(intType,1);
+
+	RecordAttribute projTupleBoat = RecordAttribute(filenameBoats, activeLoop);
+	list<RecordAttribute> projectionsBoats = list<RecordAttribute>();
+	projectionsBoats.push_back(projTupleBoat);
+	projectionsBoats.push_back(*bidBoats);
+	expressions::Expression* rightArg2 = new expressions::InputArgument(intType,1,projectionsBoats);
 	expressions::Expression* right2 = new expressions::RecordProjection(intType,rightArg2,*bidBoats);
 
 	expressions::BinaryExpression* joinPred2 = new expressions::EqExpression(new BoolType(),left2,right2);
@@ -382,10 +413,21 @@ TEST(Sailors, JoinRight3) {
 
 
 	//JOIN2
-	expressions::Expression* leftArg2 = new expressions::InputArgument(intType,0);
+	RecordAttribute projTupleReserves = RecordAttribute(filename2, activeLoop);
+	list<RecordAttribute> projectionsReserves = list<RecordAttribute>();
+	projectionsReserves.push_back(projTupleReserves);
+	projectionsReserves.push_back(*sidReserves);
+	projectionsReserves.push_back(*bidReserves);
+	expressions::Expression* leftArg2 = new expressions::InputArgument(intType,0,projectionsReserves);
 	expressions::Expression* left2 = new expressions::RecordProjection(intType,leftArg2,*bidReserves);
-	expressions::Expression* rightArg2 = new expressions::InputArgument(intType,1);
+
+	RecordAttribute projTupleBoats = RecordAttribute(filenameBoats, activeLoop);
+	list<RecordAttribute> projectionsBoats = list<RecordAttribute>();
+	projectionsBoats.push_back(projTupleBoats);
+	projectionsBoats.push_back(*bidBoats);
+	expressions::Expression* rightArg2 = new expressions::InputArgument(intType,1,projectionsBoats);
 	expressions::Expression* right2 = new expressions::RecordProjection(intType,rightArg2,*bidBoats);
+
 	expressions::BinaryExpression* joinPred2 = new expressions::EqExpression(new BoolType(),left2,right2);
 	vector<materialization_mode> outputModes2;
 	outputModes2.insert(outputModes2.begin(),EAGER);
@@ -422,9 +464,19 @@ TEST(Sailors, JoinRight3) {
 
 
 	//JOIN
-	expressions::Expression* leftArg = new expressions::InputArgument(intType,0);
-	expressions::Expression* left = new expressions::RecordProjection(intType,leftArg,*sid);
-	expressions::Expression* rightArg = new expressions::InputArgument(intType,1);
+	RecordAttribute projTupleSailors = RecordAttribute(filename, activeLoop);
+	list<RecordAttribute> projectionsSailors = list<RecordAttribute>();
+	projectionsSailors.push_back(projTupleSailors);
+	projectionsSailors.push_back(*sid);
+	projectionsSailors.push_back(*age);
+	expressions::Expression* leftArg = new expressions::InputArgument(intType,
+			0, projectionsSailors);
+	expressions::Expression* left = new expressions::RecordProjection(intType,
+			leftArg, *sid);
+
+
+	//For 100% correctness, I should have a new projections list, and not just the ones from reserves
+	expressions::Expression* rightArg = new expressions::InputArgument(intType,1,projectionsReserves);
 	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,*sidReserves);
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
 	vector<materialization_mode> outputModes;
@@ -514,9 +566,24 @@ TEST(Sailors, Join) {
 	//JOIN
 	string argLeft = filename+"_"+string("sid");
 	string argRight = filename2+"_"+string("sid");
-	expressions::Expression* leftArg = new expressions::InputArgument(intType,0);
-	expressions::Expression* left = new expressions::RecordProjection(intType,leftArg,*sid);
-	expressions::Expression* rightArg = new expressions::InputArgument(intType,1);
+
+	RecordAttribute projTupleSailors = RecordAttribute(filename, activeLoop);
+	list<RecordAttribute> projectionsSailors = list<RecordAttribute>();
+	projectionsSailors.push_back(projTupleSailors);
+	projectionsSailors.push_back(*sid);
+	projectionsSailors.push_back(*age);
+	expressions::Expression* leftArg = new expressions::InputArgument(intType,
+			0, projectionsSailors);
+	expressions::Expression* left = new expressions::RecordProjection(intType,
+			leftArg, *sid);
+
+	RecordAttribute projTupleReserves = RecordAttribute(filename2, activeLoop);
+	list<RecordAttribute> projectionsReserves = list<RecordAttribute>();
+	projectionsReserves.push_back(projTupleReserves);
+	projectionsReserves.push_back(*sidReserves);
+	projectionsReserves.push_back(*bidReserves);
+	expressions::Expression* rightArg = new expressions::InputArgument(intType,
+			1, projectionsReserves);
 	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,*sidReserves);
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
 	vector<materialization_mode> outputModes;

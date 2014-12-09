@@ -109,12 +109,17 @@ TEST(Relational, SPJ) {
 	RawContext ctx = RawContext("RelationalSPJ");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
-	//SCAN1
+	/**
+	 * SCAN1
+	 */
 	string filename = string("inputs/input.csv");
-	PrimitiveType* intType = new IntType();//PrimitiveType(Int);
-	RecordAttribute* attr1 = new RecordAttribute(1,filename,string("att1"),intType);
-	RecordAttribute* attr2 = new RecordAttribute(2,filename,string("att2"),intType);
-	RecordAttribute* attr3 = new RecordAttribute(3,filename,string("att3"),intType);
+	PrimitiveType* intType = new IntType();
+	RecordAttribute* attr1 = new RecordAttribute(1, filename, string("att1"),
+			intType);
+	RecordAttribute* attr2 = new RecordAttribute(2, filename, string("att2"),
+			intType);
+	RecordAttribute* attr3 = new RecordAttribute(3, filename, string("att3"),
+			intType);
 	list<RecordAttribute*> attrList;
 	attrList.push_back(attr1);
 	attrList.push_back(attr2);
@@ -126,67 +131,97 @@ TEST(Relational, SPJ) {
 	whichFields.push_back(attr2);
 
 	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
-	catalog.registerPlugin(filename,pg);
-
+	catalog.registerPlugin(filename, pg);
 	Scan scan = Scan(&ctx, *pg);
 
-	//SELECT
-	expressions::Expression* lhsArg = new expressions::InputArgument(new IntType(),0);
-	expressions::Expression* lhs = new expressions::RecordProjection(new IntType(),lhsArg,*attr1);
+	/**
+	 * SELECT
+	 */
+	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop);
+	list<RecordAttribute> projectionsL = list<RecordAttribute>();
+	projectionsL.push_back(projTupleL);
+	projectionsL.push_back(*attr1);
+	projectionsL.push_back(*attr2);
+	expressions::Expression* lhsArg = new expressions::InputArgument(intType, 0,
+			projectionsL);
+	expressions::Expression* lhs = new expressions::RecordProjection(intType,
+			lhsArg, *attr1);
 	expressions::Expression* rhs = new expressions::IntConstant(555);
-	expressions::Expression* predicate = new expressions::GtExpression(new BoolType(),lhs,rhs);
-	Select sel = Select(predicate,&scan);
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
+	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
 
+	LOG(INFO)<<"Left: "<<&sel;
 
-	//SCAN2
+	/**
+	 * SCAN2
+	 */
 	string filename2 = string("inputs/input2.csv");
-	RecordAttribute* attr1_f2 = new RecordAttribute(1,filename2,string("att1"),intType);
-	RecordAttribute* attr2_f2 = new RecordAttribute(2,filename2,string("att2"),intType);
-	RecordAttribute* attr3_f2 = new RecordAttribute(3,filename2,string("att3"),intType);
+	RecordAttribute* attr1_f2 = new RecordAttribute(1, filename2,
+			string("att1"), intType);
+	RecordAttribute* attr2_f2 = new RecordAttribute(2, filename2,
+			string("att2"), intType);
+	RecordAttribute* attr3_f2 = new RecordAttribute(3, filename2,
+			string("att3"), intType);
+
 	list<RecordAttribute*> attrList2;
 	attrList2.push_back(attr1_f2);
 	attrList2.push_back(attr1_f2);
 	attrList2.push_back(attr1_f2);
 	RecordType rec2 = RecordType(attrList2);
+
 	vector<RecordAttribute*> whichFields2;
 	whichFields2.push_back(attr1_f2);
 	whichFields2.push_back(attr2_f2);
 
 	CSVPlugin* pg2 = new CSVPlugin(&ctx, filename2, rec2, whichFields2);
-	catalog.registerPlugin(filename2,pg2);
-
+	catalog.registerPlugin(filename2, pg2);
 	Scan scan2 = Scan(&ctx, *pg2);
+	LOG(INFO)<<"Right:"<<&scan2;
 
+	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop);
+	list<RecordAttribute> projectionsR = list<RecordAttribute>();
+	projectionsR.push_back(projTupleR);
+	projectionsR.push_back(*attr1_f2);
+	projectionsR.push_back(*attr2_f2);
 
-	//JOIN
-	expressions::Expression* leftArg = new expressions::InputArgument(intType,0);
-	expressions::Expression* left = new expressions::RecordProjection(intType,leftArg,*attr2);
-	expressions::Expression* rightArg = new expressions::InputArgument(intType,1);
-	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,*attr2_f2);
-	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
-
+	/**
+	 * JOIN
+	 */
+	expressions::Expression* leftArg = new expressions::InputArgument(intType,
+			0, projectionsL);
+	expressions::Expression* left = new expressions::RecordProjection(intType,
+			leftArg, *attr2);
+	expressions::Expression* rightArg = new expressions::InputArgument(intType,
+			1, projectionsR);
+	expressions::Expression* right = new expressions::RecordProjection(intType,
+			rightArg, *attr2_f2);
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
+			new BoolType(), left, right);
 	vector<materialization_mode> outputModes;
-	outputModes.insert(outputModes.begin(),EAGER);
-	outputModes.insert(outputModes.begin(),EAGER);
-	Materializer* mat = new Materializer(whichFields,outputModes);
+	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes.insert(outputModes.begin(), EAGER);
+	Materializer* mat = new Materializer(whichFields, outputModes);
 
-	Join join = Join(joinPred,sel,scan2, "join1", *mat);
+	Join join = Join(joinPred, sel, scan2, "join1", *mat);
 	sel.setParent(&join);
 	scan2.setParent(&join);
 
-
 	//PRINT
 	Function* debugInt = ctx.getFunction("printi");
-	expressions::RecordProjection* argProj = new expressions::RecordProjection(new IntType(),leftArg,*attr1);
-	Print printOpProj = Print(debugInt,argProj,&join);
-	join.setParent(&printOpProj);
-
+	//To be 100% correct, this proj should be over a new InputArg that only exposes the new bindings
+	expressions::RecordProjection* proj = new expressions::RecordProjection(
+			new IntType(), leftArg, *attr1);
+	Print printOp = Print(debugInt, proj, &join);
+	join.setParent(&printOp);
 
 	//ROOT
-	Root rootOp = Root(&printOpProj);
-	printOpProj.setParent(&rootOp);
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
 
+	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	//Close all open files & clear
@@ -197,7 +232,7 @@ TEST(Relational, SPJ) {
 }
 
 TEST(Hierarchical, TwoProjections) {
-	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
+	RawContext ctx = RawContext("testFunction-ScanJSON-TwoProjections");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/jsmnDeeper.json");
@@ -232,8 +267,16 @@ TEST(Hierarchical, TwoProjections) {
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 
-	//SELECT
-	expressions::Expression* lhsArg = new expressions::InputArgument(&inner, 0);
+	/**
+	 * SELECT
+	 */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(attr);
+	projections.push_back(attr2);
+	projections.push_back(attr3);
+	expressions::Expression* lhsArg = new expressions::InputArgument(&inner, 0, projections);
 	expressions::Expression* lhs_ = new expressions::RecordProjection(&nested,
 			lhsArg, attr3);
 	expressions::Expression* lhs = new expressions::RecordProjection(&intType,
@@ -306,10 +349,16 @@ TEST(Hierarchical, Unnest) {
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(proj1);
+
 	expressions::Expression* inputArg = new expressions::InputArgument(&inner,
-			0);
+			0, projections);
 	expressions::RecordProjection* proj = new expressions::RecordProjection(
-			&stringType, inputArg, emp3);
+			&nestedCollection, inputArg, emp3);
 	string nestedName = "c";
 	Path path = Path(nestedName, proj);
 
@@ -333,9 +382,12 @@ TEST(Hierarchical, Unnest) {
 	RecordType unnestedType = RecordType(attsUnnested);
 
 	//PRINT
+	//a bit redundant, but 'new record construction can, in principle, cause new aliases
+	projections.push_back(recPrev);
+	projections.push_back(recUnnested);
 	Function* debugInt = ctx.getFunction("printi");
 	expressions::Expression* nestedArg = new expressions::InputArgument(
-			&unnestedType, 0);
+			&unnestedType, 0, projections);
 
 	RecordAttribute toPrint = RecordAttribute(-1, fname + "." + empChildren,
 			childAge, &intType);
@@ -360,7 +412,7 @@ TEST(Hierarchical, Unnest) {
 }
 
 TEST(Hierarchical, UnnestDeeper) {
-	RawContext ctx = RawContext("testFunction-unnestJSON");
+	RawContext ctx = RawContext("testFunction-unnestJSONDeeper");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employeesDeeper.json");
@@ -373,7 +425,8 @@ TEST(Hierarchical, UnnestDeeper) {
 	 */
 	string ages = string("ages");
 	ListType childrenAgesType = ListType(intType);
-	RecordAttribute childrenAges = RecordAttribute(1, fname, ages, &childrenAgesType);
+	RecordAttribute childrenAges = RecordAttribute(1, fname, ages,
+			&childrenAgesType);
 	list<RecordAttribute*> attsChildren = list<RecordAttribute*>();
 	attsChildren.push_back(&childrenAges);
 	RecordType children = RecordType(attsChildren);
@@ -397,29 +450,42 @@ TEST(Hierarchical, UnnestDeeper) {
 	 * SCAN
 	 */
 	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
-	catalog.registerPlugin(fname,&pg);
-	Scan scan = Scan(&ctx,pg);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
 
 	/**
 	 * UNNEST
 	 */
-	expressions::Expression* inputArg = new expressions::InputArgument(&inner, 0);
-	expressions::RecordProjection* proj = new expressions::RecordProjection(&children,inputArg,emp3);
-	expressions::RecordProjection* projDeeper = new expressions::RecordProjection(&childrenAgesType,proj,childrenAges);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(proj1);
+
+	expressions::Expression* inputArg = new expressions::InputArgument(&inner,
+			0, projections);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(
+			&children, inputArg, emp3);
+	expressions::RecordProjection* projDeeper =
+			new expressions::RecordProjection(&childrenAgesType, proj,
+					childrenAges);
 	string nestedName = "c";
-	Path path = Path(nestedName,projDeeper);
+	Path path = Path(nestedName, projDeeper);
 
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
-	expressions::Expression* predicate = new expressions::EqExpression(new BoolType(),lhs,rhs);
+	expressions::Expression* predicate = new expressions::EqExpression(
+			new BoolType(), lhs, rhs);
 
-	Unnest unnestOp = Unnest(predicate,path,&scan);
+	Unnest unnestOp = Unnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
 
 	//New record type:
 	string originalRecordName = "e";
-	RecordAttribute recPrev = RecordAttribute(1, fname, originalRecordName, &inner);
-	RecordAttribute recUnnested = RecordAttribute(2, fname, nestedName, &intType);
+	RecordAttribute recPrev = RecordAttribute(1, fname, originalRecordName,
+			&inner);
+	RecordAttribute recUnnested = RecordAttribute(2, fname, nestedName,
+			&intType);
 	list<RecordAttribute*> attsUnnested = list<RecordAttribute*>();
 	attsUnnested.push_back(&recPrev);
 	attsUnnested.push_back(&recUnnested);
@@ -427,15 +493,17 @@ TEST(Hierarchical, UnnestDeeper) {
 
 	//PRINT
 	Function* debugInt = ctx.getFunction("printi");
-	expressions::Expression* nestedArg = new expressions::InputArgument(&unnestedType, 0);
+	projections.push_back(recPrev);
+	projections.push_back(recUnnested);
+	expressions::Expression* nestedArg = new expressions::InputArgument(
+			&unnestedType, 0, projections);
 
 	RecordAttribute toPrint = RecordAttribute(2,
-			fname+"."+empChildren+"."+ages,
-			activeLoop,
-			&intType);
+			fname + "." + empChildren + "." + ages, activeLoop, &intType);
 
-	expressions::RecordProjection* projToPrint = new expressions::RecordProjection(&intType,nestedArg,toPrint);
-	Print printOp = Print(debugInt,projToPrint,&unnestOp);
+	expressions::RecordProjection* projToPrint =
+			new expressions::RecordProjection(&intType, nestedArg, toPrint);
+	Print printOp = Print(debugInt, projToPrint, &unnestOp);
 	unnestOp.setParent(&printOp);
 
 	//ROOT
@@ -453,7 +521,7 @@ TEST(Hierarchical, UnnestDeeper) {
 }
 
 TEST(Hierarchical, UnnestFiltering) {
-	RawContext ctx = RawContext("testFunction-unnestJSON");
+	RawContext ctx = RawContext("testFunction-unnestJSONFiltering");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees.json");
@@ -493,8 +561,13 @@ TEST(Hierarchical, UnnestFiltering) {
 	/**
 	 * UNNEST
 	 */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(proj1);
 	expressions::Expression* inputArg = new expressions::InputArgument(&inner,
-			0);
+			0, projections);
 	expressions::RecordProjection* proj = new expressions::RecordProjection(
 			&stringType, inputArg, emp3);
 	string nestedName = "c";
@@ -510,8 +583,9 @@ TEST(Hierarchical, UnnestFiltering) {
 	attsUnnested.push_back(&recPrev);
 	attsUnnested.push_back(&recUnnested);
 	RecordType unnestedType = RecordType(attsUnnested);
+
 	expressions::Expression* nestedArg = new expressions::InputArgument(
-			&unnestedType, 0);
+			&unnestedType, 0, projections);
 	RecordAttribute toFilter = RecordAttribute(-1, fname + "." + empChildren,
 			childAge, &intType);
 	expressions::RecordProjection* projToFilter =
@@ -526,7 +600,14 @@ TEST(Hierarchical, UnnestFiltering) {
 
 	//PRINT
 	Function* debugInt = ctx.getFunction("printi");
-	Print printOp = Print(debugInt, projToFilter, &unnestOp);
+	projections.push_back(recPrev);
+	projections.push_back(recUnnested);
+	expressions::Expression* finalArg = new expressions::InputArgument(
+			&unnestedType, 0, projections);
+	expressions::RecordProjection* finalArgProj =
+			new expressions::RecordProjection(&intType, nestedArg, toFilter);
+
+	Print printOp = Print(debugInt, finalArgProj, &unnestOp);
 	unnestOp.setParent(&printOp);
 
 	//ROOT
@@ -536,7 +617,6 @@ TEST(Hierarchical, UnnestFiltering) {
 
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
-
 	pg.finish();
 	catalog.clear();
 
@@ -552,10 +632,14 @@ TEST(Generic, ReduceNumeric) {
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();
 	PrimitiveType* stringType = new StringType();
-	RecordAttribute* sid = new RecordAttribute(1,filename, string("sid"),intType);
-	RecordAttribute* sname = new RecordAttribute(2,filename, string("sname"),stringType);
-	RecordAttribute* rating = new RecordAttribute(3,filename, string("rating"),intType);
-	RecordAttribute* age = new RecordAttribute(4,filename, string("age"),floatType);
+	RecordAttribute* sid = new RecordAttribute(1, filename, string("sid"),
+			intType);
+	RecordAttribute* sname = new RecordAttribute(2, filename, string("sname"),
+			stringType);
+	RecordAttribute* rating = new RecordAttribute(3, filename, string("rating"),
+			intType);
+	RecordAttribute* age = new RecordAttribute(4, filename, string("age"),
+			floatType);
 
 	list<RecordAttribute*> attrList;
 	attrList.push_back(sid);
@@ -569,21 +653,31 @@ TEST(Generic, ReduceNumeric) {
 	whichFields.push_back(sid);
 	whichFields.push_back(age);
 
-	CSVPlugin* pg = new CSVPlugin(&ctx,filename, rec1, whichFields);
-	catalog.registerPlugin(filename,pg);
-	Scan scan = Scan(&ctx,*pg);
+	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
+	catalog.registerPlugin(filename, pg);
+	Scan scan = Scan(&ctx, *pg);
 
 	/**
 	 * REDUCE
 	 */
-	expressions::Expression* arg = new expressions::InputArgument(&rec1,0);
-	expressions::Expression* outputExpr = new expressions::RecordProjection(intType,arg,*sid);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(*sid);
+	projections.push_back(*age);
 
-	expressions::Expression* lhs = new expressions::RecordProjection(floatType,arg,*age);
+	expressions::Expression* arg = new expressions::InputArgument(&rec1, 0,
+			projections);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(
+			intType, arg, *sid);
+
+	expressions::Expression* lhs = new expressions::RecordProjection(floatType,
+			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
-	expressions::Expression* predicate = new expressions::GtExpression(new BoolType(),lhs,rhs);
-//	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scan, &ctx);
-//	Reduce reduce = Reduce(MULTIPLY, outputExpr, predicate, &scan, &ctx);
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
+	//	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scan, &ctx);
+	//	Reduce reduce = Reduce(MULTIPLY, outputExpr, predicate, &scan, &ctx);
 	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -594,20 +688,26 @@ TEST(Generic, ReduceNumeric) {
 
 	pg->finish();
 	catalog.clear();
+	EXPECT_TRUE(true);
 }
 
 TEST(Generic, ReduceBoolean) {
 	RawContext ctx = RawContext("reduceBoolean");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
-	//SCAN1
+	/**
+	 * SCAN
+	 */
 	string filename = string("inputs/bills.csv");
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* boolType = new BoolType();
 	PrimitiveType* stringType = new StringType();
-	RecordAttribute* category = new RecordAttribute(1,filename,string("category"),stringType);
-	RecordAttribute* amount = new RecordAttribute(2,filename,string("amount"),intType);
-	RecordAttribute* isPaid = new RecordAttribute(3,filename,string("isPaid"),boolType);
+	RecordAttribute* category = new RecordAttribute(1, filename,
+			string("category"), stringType);
+	RecordAttribute* amount = new RecordAttribute(2, filename, string("amount"),
+			intType);
+	RecordAttribute* isPaid = new RecordAttribute(3, filename, string("isPaid"),
+			boolType);
 
 	list<RecordAttribute*> attrList;
 	attrList.push_back(category);
@@ -620,19 +720,28 @@ TEST(Generic, ReduceBoolean) {
 	whichFields.push_back(amount);
 	whichFields.push_back(isPaid);
 
-	CSVPlugin* pg = new CSVPlugin(&ctx,filename, rec1, whichFields);
-	catalog.registerPlugin(filename,pg);
-	Scan scan = Scan(&ctx,*pg);
+	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
+	catalog.registerPlugin(filename, pg);
+	Scan scan = Scan(&ctx, *pg);
 
 	/**
 	 * REDUCE
 	 */
-	expressions::Expression* arg = new expressions::InputArgument(&rec1,0);
-	expressions::Expression* outputExpr = new expressions::RecordProjection(boolType,arg,*isPaid);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(*amount);
+	projections.push_back(*isPaid);
+	expressions::Expression* arg = new expressions::InputArgument(&rec1, 0,
+			projections);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(
+			boolType, arg, *isPaid);
 
-	expressions::Expression* lhs = new expressions::RecordProjection(intType,arg,*amount);
+	expressions::Expression* lhs = new expressions::RecordProjection(intType,
+			arg, *amount);
 	expressions::Expression* rhs = new expressions::IntConstant(1400);
-	expressions::Expression* predicate = new expressions::GtExpression(new BoolType(),lhs,rhs);
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
 	Reduce reduce = Reduce(AND, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -678,15 +787,21 @@ TEST(Generic, IfThenElse) {
 	/**
 	 * REDUCE
 	 */
-	expressions::Expression* trueCons = new expressions::BoolConstant(true);
-	expressions::Expression* falseCons = new expressions::BoolConstant(false);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(*amount);
 
-	expressions::Expression* arg = new expressions::InputArgument(&rec1, 0);
+	expressions::Expression* arg = new expressions::InputArgument(&rec1, 0,
+			projections);
 	expressions::Expression* ifLhs = new expressions::RecordProjection(boolType,
 			arg, *amount);
 	expressions::Expression* ifRhs = new expressions::IntConstant(200);
 	expressions::Expression* ifCond = new expressions::GtExpression(boolType,
 			ifLhs, ifRhs);
+
+	expressions::Expression* trueCons = new expressions::BoolConstant(true);
+	expressions::Expression* falseCons = new expressions::BoolConstant(false);
 	expressions::Expression* ifElse = new expressions::IfThenElse(boolType,
 			ifCond, trueCons, falseCons);
 
@@ -744,8 +859,13 @@ TEST(Hierarchical,OuterUnnest1)
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(proj1);
 	expressions::Expression* inputArg = new expressions::InputArgument(&inner,
-			0);
+			0, projections);
 	expressions::RecordProjection* proj = new expressions::RecordProjection(
 			&nestedCollection, inputArg, emp3);
 	string nestedName = "c";
@@ -771,10 +891,12 @@ TEST(Hierarchical,OuterUnnest1)
 	RecordType unnestedType = RecordType(attsUnnested);
 
 	//PRINT
-	//Function* debugInt = ctx.getFunction("printFloat");
+	//a bit redundant, but 'new record construction can, in principle, cause new aliases
+	projections.push_back(recPrev);
+	projections.push_back(recUnnested);
 	Function* debugInt = ctx.getFunction("printi");
 	expressions::Expression* nestedArg = new expressions::InputArgument(
-			&unnestedType, 0);
+			&unnestedType, 0, projections);
 
 	RecordAttribute toPrint = RecordAttribute(-1, fname + "." + empChildren,
 			childAge, &intType);

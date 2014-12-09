@@ -121,13 +121,18 @@ private:
  */
 class InputArgument	: public Expression	{
 public:
-	InputArgument(ExpressionType* type,int argNo)
-		: Expression(type), argNo(argNo)						{}
-	~InputArgument()											{}
+//	InputArgument(ExpressionType* type, int argNo)
+//		: Expression(type), argNo(argNo)								{}
+	InputArgument(ExpressionType* type, int argNo,
+			list<RecordAttribute> projections) :
+			Expression(type), argNo(argNo), projections(projections)	{}
 
-	int getArgNo()												{ return argNo; }
+	~InputArgument()													{}
+
+	int getArgNo()														{ return argNo; }
+	list<RecordAttribute> getProjections()								{ return projections; }
 	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeID()									{ return ARGUMENT; }
+	ExpressionId getTypeID()											{ return ARGUMENT; }
 private:
 	/**
 	 * ArgumentNo is meant to represent e.g. the left or right child of a Join,
@@ -137,6 +142,7 @@ private:
 	 * argNo = 1 => rhs of Join, and so on.
 	 */
 	int argNo;
+	list<RecordAttribute> projections;
 };
 
 class RecordProjection : public Expression	{
