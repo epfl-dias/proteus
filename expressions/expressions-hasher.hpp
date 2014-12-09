@@ -26,6 +26,13 @@
 
 #include "common/common.hpp"
 #include "plugins/plugins.hpp"
+#include "expressions/expressions-generator.hpp"
+
+#ifdef DEBUG
+#define DEBUG_HASH
+#endif
+
+//XXX Is a visitor pattern overkill? The HasherVisitor does not recurse
 //===---------------------------------------------------------------------------===//
 // "Visitor(s)" responsible for generating the appropriate hash for an Expression
 //===---------------------------------------------------------------------------===//
@@ -65,11 +72,16 @@ public:
 	 * STUBS
 	 */
 	RawValue visit(expressions::RecordConstruction *e) {
-		string error_msg = string("[ExpressionGeneratorVisitor]: Not implemented yet");
+		string error_msg = string("[ExpressionHasherVisitor]: Not implemented yet");
 		LOG(ERROR) << error_msg;
 		throw runtime_error(error_msg);
 	}
 
+	RawValue visit(expressions::MergeExpression *e) {
+		string error_msg = string("[ExpressionHasherVisitor]: Not implemented yet");
+		LOG(ERROR) << error_msg;
+		throw runtime_error(error_msg);
+	}
 	/**
 	 *
 	 */

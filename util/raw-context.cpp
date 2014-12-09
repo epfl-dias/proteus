@@ -355,7 +355,8 @@ int printFloat(double X) {
 }
 
 int printi64(size_t X) {
-	printf("[printi64:] Generated code called %ld\n", X);
+	printf("[printi64:] Generated code called %lu\n", X);
+	//cout <<"[printi64:] Generated code called "<< X<< endl;
 	return 0;
 }
 

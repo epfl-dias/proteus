@@ -1092,11 +1092,13 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* t
 			RawValueMemory mem_path = readPathInternal(listElem,attr->getAttrName().c_str());
 
 			//CAREFUL: It's generated code that has to be stitched
+			hashedValue = Builder->CreateLoad(mem_hashedValue);
 			RawValue partialHash = hashValue(mem_path,attr->getOriginalType());
 			ArgsV.clear();
 			ArgsV.push_back(hashedValue);
 			ArgsV.push_back(partialHash.value);
-			hashedValue = Builder->CreateLoad(mem_hashedValue);
+			//XXX Why loading now?
+			//hashedValue = Builder->CreateLoad(mem_hashedValue);
 			hashedValue = Builder->CreateCall(hashCombine, ArgsV,
 					"combineHash");
 			Builder->CreateStore(hashedValue, mem_hashedValue);

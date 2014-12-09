@@ -45,7 +45,7 @@ GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
                 $(GTEST_DIR)/include/gtest/internal/*.h
 
 RMOBJS = main util/raw-catalog.o util/raw-context.o plugins/object/plugins-llvm.o expressions/binary-operators.o \
-		 expressions/expressions.o  expressions/expressions-generator.o values/expressionTypes.o  \
+		 expressions/expressions.o  expressions/expressions-generator.o expressions/expressions-hasher.o values/expressionTypes.o  \
 		 expressions/path.o \
 		 operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o \
 		 operators/unnest.o operators/outer-unnest.o operators/reduce.o \
@@ -91,6 +91,9 @@ expressions/expressions.o: expressions/expressions.cpp
 expressions/expressions-generator.o: expressions/expressions-generator.cpp
 	${CPP} ${CCFLAGS} ${CPPFLAGS} $(CXXFLAGS) ${LLVMOPT} $^ -o $@
 
+expressions/expressions-hasher.o: expressions/expressions-hasher.cpp
+	${CPP} ${CCFLAGS} ${CPPFLAGS} $(CXXFLAGS) ${LLVMOPT} $^ -o $@
+
 expressions/path.o: expressions/path.cpp
 	${CPP} ${CCFLAGS} ${CPPFLAGS} $(CXXFLAGS) ${LLVMOPT} $^ -o $@
 
@@ -130,7 +133,8 @@ main: main.cpp libjsmn.a common/common.o values/expressionTypes.o \
 	operators/scan.o operators/select.o operators/join.o operators/print.o operators/root.o operators/unnest.o \
 	operators/reduce.o operators/outer-unnest.o \
 	util/raw-catalog.o util/raw-context.o \
-	expressions/binary-operators.o expressions/expressions.o expressions/expressions-generator.o \
+	expressions/binary-operators.o \
+	expressions/expressions.o expressions/expressions-generator.o expressions/expressions-hasher.o \
 	expressions/path.o
 	${CPP} ${CCOPT} ${CPPFLAGS} $(CXXFLAGS) $^ ${LLVMJIT} -o $@ ${LDFLAGS}
 
@@ -179,8 +183,20 @@ tests-operators : tests-operators.o gtest_main.a libjsmn.a common/common.o value
 					plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o \
 					operators/reduce.o operators/outer-unnest.o \
 					operators/root.o operators/unnest.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o \
-					expressions/expressions.o  expressions/expressions-generator.o expressions/path.o
+					expressions/expressions.o  expressions/expressions-generator.o expressions/expressions-hasher.o expressions/path.o
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) -lpthread $^ ${LLVMJIT} -o $@ ${LDFLAGS}
+
+tests-hashing.o : tests/tests-hashing.cpp $(GTEST_HEADERS) 
+	$(CPP) $(CPPFLAGS) $(CXXFLAGS) ${LLVMOPT} -c tests/tests-hashing.cpp
+
+tests-hashing : tests-hashing.o gtest_main.a libjsmn.a common/common.o values/expressionTypes.o \
+					plugins/csv-plugin.o plugins/binary-row-plugin.o \
+					plugins/json-jsmn-plugin.o \
+					plugins/output/plugins-output.o operators/scan.o operators/select.o operators/join.o operators/print.o \
+					operators/reduce.o operators/outer-unnest.o \
+					operators/root.o operators/unnest.o util/raw-catalog.o util/raw-context.o expressions/binary-operators.o \
+					expressions/expressions.o  expressions/expressions-generator.o expressions/expressions-hasher.o expressions/path.o
+	$(CPP) $(CPPFLAGS) $(CXXFLAGS) -lpthread $^ ${LLVMJIT} -o $@ ${LDFLAGS}	
 
 tests-sailors.o : tests/tests-sailors.cpp $(GTEST_HEADERS)
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) ${LLVMOPT} -c tests/tests-sailors.cpp 
@@ -192,5 +208,5 @@ tests-sailors : tests-sailors.o gtest_main.a libjsmn.a common/common.o values/ex
 				operators/reduce.o operators/outer-unnest.o \
 				operators/print.o operators/root.o operators/unnest.o util/raw-catalog.o util/raw-context.o \
 				expressions/binary-operators.o expressions/expressions.o  expressions/expressions-generator.o \
-				expressions/path.o
+				expressions/expressions-hasher.o expressions/path.o
 	$(CPP) $(CPPFLAGS) $(CXXFLAGS) -lpthread $^ ${LLVMJIT} -o $@ ${LDFLAGS}

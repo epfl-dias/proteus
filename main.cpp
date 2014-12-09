@@ -37,6 +37,7 @@
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
+#include "expressions/expressions-hasher.hpp"
 
 void scanJsmn();
 void selectionJsmn();
@@ -74,6 +75,8 @@ void cidrBinStr();
 void ifThenElse();
 
 void hashTests();
+void hashConstants();
+void hashBinaryExpressions();
 
 template<class T>
 inline void my_hash_combine(std::size_t& seed, const T& v)
@@ -102,10 +105,10 @@ int main(int argc, char* argv[])
 	//readJSONObjectInterpreted();
 	//readJSONListInterpreted();
 
-	scanCSVBoolean();
-	reduceNumeric();
-	reduceBoolean();
-	ifThenElse();
+//	scanCSVBoolean();
+//	reduceNumeric();
+//	reduceBoolean();
+//	ifThenElse();
 
 	/* This query (3) takes a bit more time */
 //	cidrQuery3();
@@ -125,6 +128,91 @@ int main(int argc, char* argv[])
 //	outerUnnest();
 //	outerUnnestNull1();
 
+//	hashConstants();
+	hashBinaryExpressions();
+
+}
+
+void hashConstants()	{
+	RawContext ctx = RawContext("HashConstants");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	Root rootOp = Root(NULL);
+	map<RecordAttribute, RawValueMemory> varPlaceholder;
+	OperatorState statePlaceholder = OperatorState(rootOp, varPlaceholder);
+	ExpressionHasherVisitor hasher = ExpressionHasherVisitor(&ctx,
+			statePlaceholder);
+
+	int inputInt = 1400;
+	double inputFloat = 1300.5;
+	bool inputBool = true;
+	string inputString = string("1400");
+
+	expressions::IntConstant* val_int = new expressions::IntConstant(inputInt);
+	hasher.visit(val_int);
+	expressions::FloatConstant* val_float = new expressions::FloatConstant(inputFloat);
+	hasher.visit(val_float);
+	expressions::BoolConstant* val_bool = new expressions::BoolConstant(inputBool);
+	hasher.visit(val_bool);
+	expressions::StringConstant* val_string = new expressions::StringConstant(inputString);
+	hasher.visit(val_string);
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Non-generated counterparts
+	boost::hash<int> hasherInt;
+	boost::hash<double> hasherFloat;
+	boost::hash<bool> hasherBool;
+	boost::hash<string> hasherString;
+
+	cout<<"[Int - not generated:] "<<hasherInt(inputInt)<<endl;
+	cout<<"[Float - not generated:] "<<hasherFloat(inputFloat)<<endl;
+	cout<<"[Float - not generated:] "<<hasherFloat(1.300500e+03)<<endl;
+
+	cout<<"[Bool - not generated:] "<<hasherBool(inputBool)<<endl;
+	cout<<"[String - not generated:] "<<hasherString(inputString)<<endl;
+}
+
+void hashBinaryExpressions()	{
+	RawContext ctx = RawContext("HashBinaryExpressions");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	Root rootOp = Root(NULL);
+	map<RecordAttribute, RawValueMemory> varPlaceholder;
+	OperatorState statePlaceholder = OperatorState(rootOp, varPlaceholder);
+	ExpressionHasherVisitor hasher = ExpressionHasherVisitor(&ctx,
+			statePlaceholder);
+
+	int inputInt = 1400;
+	double inputFloat = 1300.5;
+	bool inputBool = true;
+	string inputString = string("1400");
+
+	expressions::IntConstant* val_int = new expressions::IntConstant(inputInt);
+	expressions::FloatConstant* val_float = new expressions::FloatConstant(inputFloat);
+	expressions::BoolConstant* val_bool = new expressions::BoolConstant(inputBool);
+	expressions::StringConstant* val_string = new expressions::StringConstant(inputString);
+
+	expressions::NeExpression* bool_ne = new expressions::NeExpression(new BoolType(),val_int,val_int);
+	expressions::EqExpression* bool_eq = new expressions::EqExpression(new BoolType(),val_float,val_float);
+	expressions::AddExpression* int_add = new expressions::AddExpression(new IntType(),val_int,val_int);
+	expressions::MultExpression* float_mult = new expressions::MultExpression(new FloatType(),val_float,val_float);
+
+	hasher.visit(bool_ne);
+	hasher.visit(bool_eq);
+	hasher.visit(int_add);
+	hasher.visit(float_mult);
+
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Non-generated counterparts
+	boost::hash<int> hasherInt;
+	boost::hash<double> hasherFloat;
+	boost::hash<bool> hasherBool;
+
+	cout<<"[Bool - not generated:] " << hasherBool(inputInt != inputInt) << endl;
+	cout<<"[Bool - not generated:] " << hasherBool(inputFloat == inputFloat) << endl;
+	cout<<"[Int - not generated:] " << hasherInt(inputInt + inputInt) << endl;
+	cout<<"[Float - not generated:] "<< hasherFloat(inputFloat * inputFloat);
 }
 
 void hashTests()

@@ -86,7 +86,7 @@ private:
 
 class FloatConstant : public Constant	{
 public:
-	FloatConstant(int val) :
+	FloatConstant(double val) :
 		Constant(new FloatType()), val(val) 		{}
 	~FloatConstant()								{}
 
