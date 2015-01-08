@@ -615,6 +615,6 @@ TEST(Sailors, Join) {
 	pgSailors->finish();
 	pgReserves->finish();
 	catalog.clear();
-	EXPECT_TRUE(true);
+	EXPECT_TRUE(false);
 }
 
