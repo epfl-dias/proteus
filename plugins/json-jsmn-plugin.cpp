@@ -594,7 +594,7 @@ RawValueMemory JSONPlugin::readPath(string activeRelation, Bindings wrappedBindi
 	int len = strlen(path) + 1;
 	char* pathCopy = (char*) malloc(len*sizeof(char));
 	strcpy(pathCopy,path);
-	pathCopy[len] = '\0';
+	pathCopy[len-1] = '\0';
 	Value* globalStr = context->CreateGlobalString(pathCopy);
 	Value* buf = Builder->CreateLoad(NamedValuesJSON[var_buf]);
 	//Preparing custom 'strcmp'
