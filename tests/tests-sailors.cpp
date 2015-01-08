@@ -103,7 +103,7 @@ TEST(Sailors, Scan) {
 	//Close all open files & clear
 	pg->finish();
 	catalog.clear();
-	EXPECT_TRUE(true);
+	EXPECT_TRUE(false);
 }
 
 TEST(Sailors, Select) {
