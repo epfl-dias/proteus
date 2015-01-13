@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 2.8)
 project(raw)
 
-SET (CMAKE_CXX_COMPILER "/usr/bin/clang++")
-SET (CMAKE_C_COMPILER "/usr/bin/clang")
+find_program(CLANG_CXX_COMPILER "clang++")
+SET (CMAKE_CXX_COMPILER "${CLANG_CXX_COMPILER}")
+find_program(CLANG_C_COMPILER "clang")
+SET (CMAKE_C_COMPILER "${CLANG_C_COMPILER}")
 
 # look for Boost related compilation flags
 find_package(Boost REQUIRED)

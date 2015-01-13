@@ -1279,7 +1279,7 @@ void JSONPlugin::finish() {
 }
 
 JSONPlugin::~JSONPlugin() {
-	delete tokens;
+	delete[] tokens;
 }
 
 
