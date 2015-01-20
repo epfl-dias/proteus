@@ -20,7 +20,7 @@ execute_process(COMMAND llvm-config --includedir OUTPUT_VARIABLE LLVM_INCLUDE_DI
 execute_process(COMMAND llvm-config --ldflags OUTPUT_VARIABLE llvm_ldflags OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND llvm-config --libs OUTPUT_VARIABLE llvm_libs OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-# manually build jsmn
+# build libjsmn
 file(GLOB jsmn jsmn/*.c)
 add_library(jsmn ${jsmn})
 
@@ -32,7 +32,7 @@ file(GLOB codegen common/*.cpp util/*.cpp values/*.cpp expressions/*.cpp plugins
 add_library(codegen ${codegen})
 set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 
-# not too sure if this is not a test file in fact
+# not too sure if we should build "main", it looks like it has the same test cases as the gtests
 add_executable(rawmain main.cpp)
 set_target_properties(rawmain PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 target_link_libraries(rawmain codegen)
@@ -42,7 +42,7 @@ target_link_libraries(rawmain ${llvm_ldflags} ${llvm_libs})
 
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
-ExternalProject_Add(gtest SOURCE_DIR /usr/src/gtest PREFIX ${CMAKE_CURRENT_BINARY_DIR} INSTALL_COMMAND "")
+ExternalProject_Add(gtest SOURCE_DIR /usr/src/gtest PREFIX ${CMAKE_CURRENT_BINARY_DIR} INSTALL_COMMAND "" CMAKE_GENERATOR "Makefile")
 ExternalProject_Get_Property(gtest binary_dir)
 set(GTEST_LIBRARY ${binary_dir}/${CMAKE_FIND_LIBRARY_PREFIXES}gtest.a)
 set(GTEST_MAIN_LIBRARY ${binary_dir}/${CMAKE_FIND_LIBRARY_PREFIXES}gtest_main.a)
