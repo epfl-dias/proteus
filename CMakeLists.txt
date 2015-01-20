@@ -42,7 +42,21 @@ target_link_libraries(rawmain ${llvm_ldflags} ${llvm_libs})
 
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
-ExternalProject_Add(gtest SOURCE_DIR /usr/src/gtest PREFIX ${CMAKE_CURRENT_BINARY_DIR} INSTALL_COMMAND "" CMAKE_GENERATOR "Makefile")
+if(GTEST)
+ if(NOT EXISTS ${GTEST})
+  message(FATAL_ERROR "location " ${GTEST} " doesn't exist")
+ endif()
+else()
+ set(GTEST /usr/src/gtest)
+endif()
+
+find_path(GTEST_SRC NAMES src/gtest_main.cc PATHS ${GTEST})
+
+if(${GTEST_SRC} STREQUAL "GTEST_SRC-NOTFOUND")
+ message(FATAL_ERROR "src/gtest_main.cc not found in ${GTEST}")
+endif()
+
+ExternalProject_Add(gtest SOURCE_DIR ${GTEST_SRC} PREFIX ${CMAKE_CURRENT_BINARY_DIR} INSTALL_COMMAND "")
 ExternalProject_Get_Property(gtest binary_dir)
 set(GTEST_LIBRARY ${binary_dir}/${CMAKE_FIND_LIBRARY_PREFIXES}gtest.a)
 set(GTEST_MAIN_LIBRARY ${binary_dir}/${CMAKE_FIND_LIBRARY_PREFIXES}gtest_main.a)
