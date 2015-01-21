@@ -198,6 +198,43 @@ TEST(Hashing, BinaryExpressions)	{
 	EXPECT_TRUE(true);
 }
 
+TEST(Hashing, IfThenElse)	{
+	RawContext ctx = RawContext("HashIfThenElse");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	Root rootOp = Root(NULL);
+	map<RecordAttribute, RawValueMemory> varPlaceholder;
+	OperatorState statePlaceholder = OperatorState(rootOp, varPlaceholder);
+	ExpressionHasherVisitor hasher = ExpressionHasherVisitor(&ctx,
+			statePlaceholder);
+
+	int inputInt = 1400;
+	double inputFloat = 1300.5;
+	bool inputBool = true;
+	string inputString = string("1400");
+
+	expressions::IntConstant* val_int = new expressions::IntConstant(inputInt);
+	expressions::FloatConstant* val_float = new expressions::FloatConstant(inputFloat);
+	expressions::BoolConstant* val_bool = new expressions::BoolConstant(inputBool);
+	expressions::StringConstant* val_string = new expressions::StringConstant(inputString);
+
+	expressions::EqExpression* bool_eq = new expressions::EqExpression(new BoolType(),val_float,val_float);
+	expressions::AddExpression* int_add = new expressions::AddExpression(new IntType(),val_int,val_int);
+	expressions::SubExpression* int_sub = new expressions::SubExpression(new IntType(),val_int,val_int);
+
+	expressions::Expression* ifElse = new expressions::IfThenElse(new BoolType(),bool_eq,int_add,int_sub);
+	ifElse->accept(hasher);
+
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Non-generated counterparts
+	boost::hash<int> hasherInt;
+
+	int toHash = inputFloat == inputFloat ? inputInt + inputInt : inputInt - inputInt;
+	cout<<"[Int - not generated:] " << hasherInt(toHash) << endl;
+	EXPECT_TRUE(true);
+}
+
 
 
 // Step 3. Call RUN_ALL_TESTS() in main().

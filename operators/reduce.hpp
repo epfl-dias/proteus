@@ -28,6 +28,9 @@
 #include "operators/monoids.hpp"
 #include "expressions/expressions-generator.hpp"
 
+/**
+ * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR REDUCE OPERATOR
+ */
 class Reduce : public UnaryRawOperator {
 public:
 	Reduce(Monoid acc, expressions::Expression* outputExpr,

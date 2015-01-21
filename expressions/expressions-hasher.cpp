@@ -265,7 +265,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::IfThenElse *e) {
 	TheBuilder->SetInsertPoint(MergeBB);
 	RawValue valWrapper;
 	valWrapper.value = TheBuilder->CreateLoad(mem_hashResult);
-	valWrapper.isNull = TheBuilder->CreateLoad(context->createFalse());
+	valWrapper.isNull = context->createFalse();
 
 	return valWrapper;
 }

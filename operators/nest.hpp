@@ -28,6 +28,9 @@
 #include "expressions/expressions-generator.hpp"
 #include "expressions/path.hpp"
 
+/**
+ * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR REDUCE OPERATOR
+ */
 class Nest : public UnaryRawOperator {
 public:
 	Nest(expressions::Expression* pred, expressions::Expression* f_grouping,

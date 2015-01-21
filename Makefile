@@ -6,7 +6,7 @@
 CC = clang #gcc
 CPP = clang++  #g++ 
 
-CCOPT = -g -ggdb -O3 -fkeep-inline-functions -fslp-vectorize #-mllvm -debug-pass=Arguments 
+CCOPT = -g -ggdb #-O3 -fkeep-inline-functions -fslp-vectorize #-mllvm -debug-pass=Arguments 
 #-O3
 CCFLAGS = -c $(CCOPT) 
 
