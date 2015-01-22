@@ -26,6 +26,15 @@ add_library(jsmn ${jsmn})
 
 include_directories("${PROJECT_SOURCE_DIR}")
 
+# various dependencies (e.g., glog) may not be available through repos - esp. on the servers
+include_directories("$ENV{HOME}/include")
+set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} )
+find_library(GLOG NAMES libglog glog HINTS "$ENV{HOME}/lib")
+if(${GLOG} STREQUAL "GLOG-NOTFOUND")
+    message(FATAL_ERROR "Glog not found")
+endif()
+set(glog_ldflags "-L$ENV{HOME}/lib")
+
 
 # code generation library
 file(GLOB codegen common/*.cpp util/*.cpp values/*.cpp expressions/*.cpp plugins/*.cpp plugins/output/*.cpp operators/*.cpp)
@@ -37,7 +46,7 @@ add_executable(rawmain main.cpp)
 set_target_properties(rawmain PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 target_link_libraries(rawmain codegen)
 target_link_libraries(rawmain jsmn)
-target_link_libraries(rawmain -lglog)
+target_link_libraries(rawmain -lglog ${glog_ldflags})
 target_link_libraries(rawmain ${llvm_ldflags} ${llvm_libs})
 
 # build googletest lib using the source code provided by the ubuntu package.
@@ -46,6 +55,7 @@ if(GTEST)
  if(NOT EXISTS ${GTEST})
   message(FATAL_ERROR "location " ${GTEST} " doesn't exist")
  endif()
+ include_directories(${GTEST}/include)
 else()
  set(GTEST /usr/src/gtest)
 endif()
@@ -69,7 +79,7 @@ target_link_libraries(unit-tests codegen)
 target_link_libraries(unit-tests jsmn)
 target_link_libraries(unit-tests ${GTEST_LIBRARY})
 target_link_libraries(unit-tests ${GTEST_MAIN_LIBRARY})
-target_link_libraries(unit-tests -lglog)
+target_link_libraries(unit-tests -lglog ${glog_ldflags})
 target_link_libraries(unit-tests ${llvm_ldflags} ${llvm_libs})
 # copy data files too
 file(COPY "inputs" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
