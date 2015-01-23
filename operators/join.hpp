@@ -28,10 +28,10 @@
 class Join : public BinaryRawOperator {
 public:
 	Join(expressions::BinaryExpression* predicate, const RawOperator& leftChild,
-			const RawOperator& rightChild, char* htName,
+			const RawOperator& rightChild, char* opLabel,
 			Materializer& mat) :
 			BinaryRawOperator(leftChild, rightChild),
-			pred(predicate), htName(htName), mat(mat)	 												{}
+			pred(predicate), htName(opLabel), mat(mat)	 												{}
 	virtual ~Join() 																					{ LOG(INFO)<<"Collapsing Join operator"; }
 	virtual void produce() const;
 	virtual void consume(RawContext* const context, const OperatorState& childState) const;

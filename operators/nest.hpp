@@ -29,22 +29,38 @@
 #include "expressions/path.hpp"
 
 /**
- * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR REDUCE OPERATOR
+ * Indicative query where a nest (..and an outer join) occur:
+ * for (d <- Departments) yield set (D := d, E := for ( e <- Employees, e.dno = d.dno) yield set e)
+ *
+ * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR NEST OPERATOR (?)
  */
 class Nest : public UnaryRawOperator {
 public:
-	Nest(expressions::Expression* pred, expressions::Expression* f_grouping,
-			expressions::Expression* g_nullToZero, RawOperator* const child) :
-			UnaryRawOperator(child), f_grouping(f_grouping),
-			g_nullToZero(g_nullToZero), pred(pred)								 			{}
+	Nest(Monoid acc, expressions::Expression* outputExpr,
+		 expressions::Expression* pred, expressions::Expression* f_grouping,
+		 expressions::Expression* g_nullToZero, RawOperator* const child,
+		 char* opLabel, Materializer& mat) :
+			UnaryRawOperator(child), acc(acc), outputExpr(outputExpr),
+			f_grouping(f_grouping),	g_nullToZero(g_nullToZero),
+			pred(pred), mat(mat), htName(opLabel), context(NULL), childState(NULL)			{}
 	virtual ~Nest() 																		{ LOG(INFO)<<"Collapsing Nest operator"; }
 	virtual void produce() const;
 	virtual void consume(RawContext* const context, const OperatorState& childState) const;
+	Materializer& getMaterializer()		 													{ return mat; }
 private:
-	void generate(RawContext* const context, const OperatorState& childState) const;
+	void generateInsert(RawContext* const context, const OperatorState& childState) const;
+	void generateProbe(RawContext* const context, const OperatorState& childState) const;
+	Monoid acc;
+	expressions::Expression* outputExpr;
 	expressions::Expression* pred;
 	expressions::Expression* f_grouping;
 	expressions::Expression* g_nullToZero;
+
+	char* htName;
+	Materializer& mat;
+
+	RawContext* context;
+	OperatorState* childState;
 };
 
 #endif /* UNNEST_HPP_ */

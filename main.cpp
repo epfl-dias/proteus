@@ -124,7 +124,7 @@ int main(int argc, char* argv[])
 	//	}
 
 //	unnestJsmn();
-//	unnestJsmnDeeper();
+	unnestJsmnDeeper();
 //	unnestJsmnFiltering();
 //	outerUnnest();
 //	outerUnnestNull1();

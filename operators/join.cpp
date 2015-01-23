@@ -120,6 +120,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		Function* insert;
 
 		//Pick appropriate insertion function based on key type
+		//FIXME Key type should not matter -> Use expression hasher here, key will always be an integer
 		Type* keyType = (leftKey.value)->getType();
 		switch(keyType->getTypeID())
 		{
@@ -200,6 +201,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) c
 		LoadInst* arrayShifted = new LoadInst(ptr_arrayidx, "", false);
 		arrayShifted->setAlignment(8);
 		loopCond->getInstList().push_back(arrayShifted);
+		//Ending condition: current position in result array is NULL
 		ICmpInst* int_cmp = new ICmpInst(*loopCond, ICmpInst::ICMP_NE, arrayShifted, const_null, "cmpMatchesEnd");
 		BranchInst::Create(loopBody, loopEnd, int_cmp, loopCond);
 

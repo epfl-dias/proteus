@@ -28,6 +28,9 @@
 #include "expressions/expressions-generator.hpp"
 #include "expressions/path.hpp"
 
+/**
+ * XXX Paper comment: 'Very few ways of evaluating unnest operator -> lamdaDB only provides a nested-loop variation'
+ */
 class Unnest : public UnaryRawOperator {
 public:
 	Unnest(expressions::Expression* pred, Path& path, RawOperator* const child) :

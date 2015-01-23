@@ -24,9 +24,6 @@
 #ifndef OPERATORS_HPP_
 #define OPERATORS_HPP_
 
-#include <iostream>
-#include <stdexcept>
-
 #include "common/common.hpp"
 #include "expressions/expressions.hpp"
 #include "plugins/plugins.hpp"

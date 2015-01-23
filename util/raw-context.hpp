@@ -37,6 +37,7 @@
 
 #include "common/common.hpp"
 #include "util/raw-catalog.hpp"
+#include "memory/memory-allocator.hpp"
 
 //Forward Declaration
 class JSONObject;
@@ -101,6 +102,7 @@ public:
 			BasicBlock* insert_before = NULL);
 	Value* CastPtrToLlvmPtr(PointerType* type, const void* ptr);
 	Value* getArrayElem(AllocaInst* mem_ptr, PointerType* type, Value* offset);
+	Value* getArrayElem(Value* val_ptr, PointerType* type, Value* offset);
 
 	//Not used atm
 	void CodegenMemcpy(Value* dst, Value* src, int size);
@@ -108,6 +110,30 @@ public:
 	void registerFunction(const char*, Function*);
 	BasicBlock* getEndingBlock()							{ return codeEnd; }
 	void setEndingBlock(BasicBlock* codeEnd)				{ this->codeEnd = codeEnd; }
+
+
+	/**
+	 * Not sure the HT methods belong here
+	 */
+	//Metadata maintained per bucket.
+	//Will probably use an array of such structs per HT
+	StructType* getHashtableMetadataType()	{
+		vector<Type*> types_htMetadata = vector<Type*>();
+		Type* int64_type = Type::getInt64Ty(*llvmContext);
+		Type* keyType = int64_type;
+		Type* bucketSizeType = int64_type;
+		types_htMetadata.push_back(keyType);
+		types_htMetadata.push_back(bucketSizeType);
+		int htMetadataSize = (keyType->getPrimitiveSizeInBits() / 8);
+		htMetadataSize += (bucketSizeType->getPrimitiveSizeInBits() / 8);
+
+		//Result type specified
+		StructType *metadataType = llvm::StructType::get(*llvmContext,types_htMetadata);
+		return metadataType;
+	}
+
+
+
 private:
 	LLVMContext *llvmContext;
 	Module *TheModule;
@@ -127,6 +153,11 @@ typedef struct StringObject	{
 	int len;
 } StringObject;
 
+typedef struct HashtableBucketMetadata	{
+	size_t hashKey;
+	size_t bucketSize;
+} HashtableBucketMetadata;
+
 int compareTokenString64(const char* buf, size_t start, size_t end, const char* candidate);
 void registerFunctions(RawContext& context);
 //===----------------------------------------------------------------------===//
@@ -145,11 +176,15 @@ extern "C" void printBoolean(bool X);
 
 extern "C" int atoi_llvm(const char* X);
 
-extern "C" void insertIntKeyToHT(char* HTname, int key, void* value,
-		int type_size);
+extern "C" void insertIntKeyToHT(char* HTname, int key, void* value, int type_size);
 
-extern "C"
-void** probeIntHT(char* HTname, int key, int typeIndex);
+extern "C" void** probeIntHT(char* HTname, int key, int typeIndex);
+
+extern "C" void insertToHT(char* HTname, size_t key, void* value, int type_size);
+
+extern "C" void** probeHT(char* HTname, size_t key, int typeIndex);
+
+extern "C" void** getMetadataHT(char* HTname);
 
 extern "C" int compareTokenString(const char* buf, int start, int end, const char* candidate);
 
@@ -176,5 +211,7 @@ extern "C" size_t hashBoolean(bool toHash);
 extern "C" size_t combineHashes(size_t hash1, size_t hash2);
 
 extern "C" size_t combineHashesNoOrder(size_t hash1, size_t hash2);
+
+extern "C" void* getMemoryChunk(size_t chunkSize);
 
 #endif /* RAW_CONTEXT_HPP_ */

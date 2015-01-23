@@ -209,6 +209,14 @@ Value* RawContext::getArrayElem(AllocaInst* mem_ptr, PointerType* type, Value* o
 	return val_shifted;
 }
 
+Value* RawContext::getArrayElem(Value* val_ptr, PointerType* type, Value* offset)	{
+	LLVMContext& ctx = *llvmContext;
+
+	Value* shiftedPtr = TheBuilder->CreateInBoundsGEP(val_ptr, offset);
+	Value* val_shifted = TheBuilder->CreateLoad(shiftedPtr,"val_shifted");
+	return val_shifted;
+}
+
 Value* RawContext::getStructElem(AllocaInst* mem_struct, int elemNo)	{
 	vector<Value*> idxList = vector<Value*>();
 	idxList.push_back(createInt32(0));
@@ -371,6 +379,91 @@ int s(const char* X) {
 	return atoi(X);
 }
 
+void insertToHT(char* HTname, size_t key, void* value, int type_size) {
+	RawCatalog& catalog = RawCatalog::getInstance();
+	//still, one unneeded indirection..... is there a quicker way?
+	multimap<size_t, void*>* HT = catalog.getHashTable(string(HTname));
+
+	void* valMaterialized = malloc(type_size);
+	memcpy(valMaterialized, value, type_size);
+
+	HT->insert(std::pair<size_t, void*>(key, valMaterialized));
+
+	//	HT->insert(std::pair<int,void*>(key,value));
+	LOG(INFO) << "[Insert: ] Hash key " << key << " inserted successfully";
+
+	LOG(INFO) << "[INSERT: ] There are " << HT->count(key)
+			<< " elements with key " << key << ":";
+
+}
+
+void** probeHT(char* HTname, size_t key, int typeIndex) {
+
+	string name = string(HTname);
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	//same indirection here as above.
+	multimap<size_t, void*>* HT = catalog.getHashTable(name);
+
+	pair<multimap<size_t, void*>::iterator, std::multimap<size_t, void*>::iterator> results;
+	results = HT->equal_range(key);
+
+	void** bindings = 0;
+	int count = HT->count(key);
+	LOG(INFO) << "[PROBE:] There are " << HT->count(key)
+			<< " elements with hash key " << key;
+	if (count) {
+		//+1 used to set last position to null and know when to terminate
+		bindings = new void*[count + 1];
+		bindings[count] = NULL;
+	} else {
+		bindings = new void*[1];
+		bindings[0] = NULL;
+		return bindings;
+	}
+
+	int curr = 0;
+	for (multimap<size_t, void*>::iterator it = results.first;
+			it != results.second; ++it) {
+		bindings[curr] = it->second;
+		curr++;
+	}
+	return bindings;
+}
+
+/**
+ * TODO
+ * Obviously extremely inefficient.
+ * Once having replaced multimap for our own code,
+ * we also need to gather this metadata at build time.
+ *
+ * Examples: Number of buckets (keys) / elements in each bucket
+ */
+HashtableBucketMetadata** getMetadataHT(char* HTname)	{
+	string name = string(HTname);
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	//same indirection here as above.
+	multimap<size_t, void*>* HT = catalog.getHashTable(name);
+
+	vector<size_t> keys;
+	for (multimap<size_t, void*>::iterator it = HT->begin(), end = HT->end();
+			it != end; it = HT->upper_bound(it->first))
+	{
+		keys.push_back(it->first);
+		//cout << it->first << ' ' << it->second << endl;
+	}
+	HashtableBucketMetadata *metadata = new HashtableBucketMetadata[keys.size() + 1];
+	size_t pos = 0;
+	for(vector<size_t>::iterator it = keys.begin(); it != keys.end(); it++ , pos++)	{
+		metadata[pos].hashKey = *it;
+		metadata[pos].bucketSize = HT->count(*it);
+	}
+	metadata[pos] = NULL;
+	return metadata;
+}
+
+//TODO REPLACE
 void insertIntKeyToHT(char* HTname, int key, void* value, int type_size) {
 	RawCatalog& catalog = RawCatalog::getInstance();
 	//still, one unneeded indirection..... is there a quicker way?
@@ -389,6 +482,7 @@ void insertIntKeyToHT(char* HTname, int key, void* value, int type_size) {
 
 }
 
+//TODO REPLACE
 void** probeIntHT(char* HTname, int key, int typeIndex) {
 
 	string name = string(HTname);
@@ -550,6 +644,10 @@ size_t combineHashesNoOrder(size_t hash1, size_t hash2) {
 	 return hash1;
 }
 
+void* getMemoryChunk(size_t chunkSize)	{
+	return allocateFromRegion(chunkSize);
+}
+
 //Provide support for some extern functions
 void RawContext::registerFunction(const char* funcName, Function* func)	{
 	availableFunctions[funcName] = func;
@@ -565,9 +663,9 @@ void registerFunctions(RawContext& context)	{
 	llvm::Type* int64_type = Type::getInt64Ty(ctx);
 	llvm::Type* void_type = Type::getVoidTy(ctx);
 	llvm::Type* double_type = Type::getDoubleTy(ctx);
+
 	llvm::PointerType* void_ptr_type = PointerType::get(int8_type, 0);
 	llvm::PointerType* char_ptr_type = PointerType::get(int8_type, 0);
-
 
 	std::vector<Type*> Ints8Ptr(1,Type::getInt8PtrTy(ctx));
 	std::vector<Type*> Ints8(1,int8_type);
@@ -623,6 +721,8 @@ void registerFunctions(RawContext& context)	{
 	ArgsHashCombine.insert(ArgsHashCombine.begin(),int64_type);
 	ArgsHashCombine.insert(ArgsHashCombine.begin(),int64_type);
 
+	std::vector<Type*> ArgsMemoryChunk;
+	ArgsMemoryChunk.insert(ArgsMemoryChunk.begin(),int64_type);
 
 	FunctionType *FTint = FunctionType::get(Type::getInt32Ty(ctx), Ints, false);
 	FunctionType *FTint64 = FunctionType::get(Type::getInt32Ty(ctx), Ints64, false);
@@ -641,7 +741,7 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FThashStringObj = FunctionType::get(int64_type, ArgsHashStringObj, false);
 	FunctionType *FThashBoolean = FunctionType::get(int64_type, ArgsHashBoolean, false);
 	FunctionType *FThashCombine = FunctionType::get(int64_type, ArgsHashCombine, false);
-
+	FunctionType *FTmemoryChunk = FunctionType::get(void_ptr_type, ArgsMemoryChunk, false);
 
 	Function *printi_ 		= Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
 	Function *printi64_ 	= Function::Create(FTint64, Function::ExternalLinkage,"printi64", TheModule);
@@ -683,6 +783,9 @@ void registerFunctions(RawContext& context)	{
 	Function *hashCombineNoOrder_ = Function::Create(FThashCombine,
 			Function::ExternalLinkage, "combineHashesNoOrder", TheModule);
 
+	Function *getMemoryChunk_ = Function::Create(FTmemoryChunk,
+				Function::ExternalLinkage, "getMemoryChunk", TheModule);
+
 	//Memcpy - not used yet
 	Type* types[] = { void_ptr_type, void_ptr_type, Type::getInt32Ty(ctx) };
 	Function* memcpy_ = Intrinsic::getDeclaration(TheModule, Intrinsic::memcpy, types);
@@ -690,17 +793,39 @@ void registerFunctions(RawContext& context)	{
 		throw runtime_error(string("Could not find memcpy intrinsic"));
 	}
 
-	//HASHTABLES
+	/**
+	 * HASHTABLES
+	 */
 	//Last type is needed to capture file size. Tentative
 	Type* ht_int_types[] = { char_ptr_type, int_type, void_ptr_type, int_type };
 	FunctionType *FTintHT = FunctionType::get(void_type, ht_int_types, false);
 	Function* insertIntKeyToHT_ = Function::Create(FTintHT, Function::ExternalLinkage, "insertIntKeyToHT", TheModule);
+
+	Type* ht_types[] = { char_ptr_type, int64_type, void_ptr_type, int_type };
+	FunctionType *FT_HT = FunctionType::get(void_type, ht_types, false);
+	Function* insertToHT_ = Function::Create(FT_HT, Function::ExternalLinkage, "insertToHT", TheModule);
 
 	Type* ht_int_probe_types[] = { char_ptr_type, int_type, int_type };
 	PointerType* void_ptr_ptr_type = context.getPointerType(void_ptr_type);
 	FunctionType *FTint_probeHT = FunctionType::get(void_ptr_ptr_type, ht_int_probe_types, false);
 	Function* probeIntHT_ = Function::Create(FTint_probeHT,	Function::ExternalLinkage, "probeIntHT", TheModule);
 	probeIntHT_->addFnAttr(llvm::Attribute::AlwaysInline);
+
+	Type* ht_probe_types[] = { char_ptr_type, int64_type, int_type };
+	FunctionType *FT_probeHT = FunctionType::get(void_ptr_ptr_type, ht_probe_types, false);
+	Function* probeHT_ = Function::Create(FT_probeHT,	Function::ExternalLinkage, "probeHT", TheModule);
+	probeHT_->addFnAttr(llvm::Attribute::AlwaysInline);
+
+	Type* ht_get_metadata_types[] = { char_ptr_type };
+	StructType *metadataType = context.getHashtableMetadataType();
+	PointerType *metadataArrayType = PointerType::get(metadataType,0);
+//	FunctionType *FTget_metadata_HT = FunctionType::get(,
+//				ht_get_metadata_types, false);
+	FunctionType *FTget_metadata_HT = FunctionType::get(metadataArrayType,
+			ht_get_metadata_types, false);
+	Function* getMetadataHT_ = Function::Create(FTget_metadata_HT,
+			Function::ExternalLinkage, "getMetadataHT", TheModule);
+
 
 	context.registerFunction("printi", printi_);
 	context.registerFunction("printi64", printi64_);
@@ -713,6 +838,9 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("memcpy", memcpy_);
 	context.registerFunction("insertInt", insertIntKeyToHT_);
 	context.registerFunction("probeInt", probeIntHT_);
+	context.registerFunction("insertHT", insertToHT_);
+	context.registerFunction("probeHT", probeHT_);
+	context.registerFunction("getMetadataHT", getMetadataHT_);
 	context.registerFunction("compareTokenString", compareTokenString_);
 	context.registerFunction("convertBoolean", convertBoolean_);
 	context.registerFunction("convertBoolean64", convertBoolean64_);
@@ -724,6 +852,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("hashBoolean", hashBoolean_);
 	context.registerFunction("combineHashes", hashCombine_);
 	context.registerFunction("combineHashesNoOrder", hashCombineNoOrder_);
+	context.registerFunction("getMemoryChunk", getMemoryChunk_);
 }
 
 inline int atoi1(const char *buf) {

@@ -21,6 +21,7 @@ public:
 		return instance;
 	}
 
+	//TODO REPLACE ONCE REMOVED FROM JOIN
 	//XXX is there a more elegant way to group hashtables together?
 	multimap<int,void*>* getIntHashTable(string tableName) {
 		std::map<std::string, multimap<int,void*>*>::iterator it;
@@ -32,6 +33,20 @@ public:
 		}	else	{
 			LOG(INFO) << "HT found";
 			return intHTs[tableName];
+		}
+	}
+
+	//XXX is there a more elegant way to group hashtables together?
+	multimap<int,void*>* getHashTable(string tableName) {
+		std::map<std::string, multimap<size_t,void*>*>::iterator it;
+		it = HTs.find(tableName);
+		if (it == HTs.end()) {
+			LOG(INFO) << "Creating HT for table "<<tableName;
+			HTs[tableName] = new multimap<int,void*>();
+			return HTs[tableName];
+		}	else	{
+			LOG(INFO) << "HT found";
+			return HTs[tableName];
 		}
 	}
 
@@ -131,6 +146,7 @@ public:
 private:
 	map<string,Plugin*> plugins;
 	map<string,multimap<int,void*>*> intHTs;
+	map<string,multimap<size_t,void*>*> HTs;
 	map<string, ExpressionType*> jsonTypeCatalog;
 	//Initialized by Reduce() if accumulator type is set
 	map<int,Value*> *reduceSetHT;
