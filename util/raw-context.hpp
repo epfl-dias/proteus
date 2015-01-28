@@ -101,8 +101,8 @@ public:
 			BasicBlock** if_block,
 			BasicBlock* insert_before = NULL);
 	Value* CastPtrToLlvmPtr(PointerType* type, const void* ptr);
-	Value* getArrayElem(AllocaInst* mem_ptr, PointerType* type, Value* offset);
-	Value* getArrayElem(Value* val_ptr, PointerType* type, Value* offset);
+	Value* getArrayElem(AllocaInst* mem_ptr, Value* offset);
+	Value* getArrayElem(Value* val_ptr, Value* offset);
 
 	//Not used atm
 	void CodegenMemcpy(Value* dst, Value* src, int size);

@@ -23,7 +23,166 @@
 
 #include "operators/nest.hpp"
 
+/**
+ * Identical constructor logic with the one of Reduce
+ */
+Nest::Nest(Monoid acc, expressions::Expression* outputExpr,
+		expressions::Expression* pred, expressions::Expression* f_grouping,
+		expressions::Expression* g_nullToZero, RawOperator* const child,
+		char* opLabel, Materializer& mat) :
+		UnaryRawOperator(child), acc(acc), outputExpr(outputExpr),
+		f_grouping(f_grouping), g_nullToZero(g_nullToZero), pred(pred),
+		mat(mat), htName(opLabel), context(NULL), pg(NULL)
+{
+	IRBuilder<>* Builder = context->getBuilder();
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Function *f = Builder->GetInsertBlock()->getParent();
 
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* doubleType = Type::getDoubleTy(llvmContext);
+
+	typeID outputType = outputExpr->getExpressionType()->getTypeID();
+	switch (acc) {
+	case SUM: {
+		switch (outputType) {
+		case INT: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int32Type);
+			Value *val_zero = Builder->getInt32(0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		case FLOAT: {
+			Type* doubleType = Type::getDoubleTy(llvmContext);
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), doubleType);
+			Value *val_zero = ConstantFP::get(doubleType, 0.0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		default: {
+			string error_msg = string(
+					"[Nest: ] Sum/Multiply/Max operate on numerics");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		}
+		break;
+	}
+	case MULTIPLY: {
+		switch (outputType) {
+		case INT: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int32Type);
+			Value *val_zero = Builder->getInt32(1);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		case FLOAT: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), doubleType);
+			Value *val_zero = ConstantFP::get(doubleType, 1.0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		default: {
+			string error_msg = string(
+					"[Nest: ] Sum/Multiply/Max operate on numerics");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		}
+		break;
+	}
+	case MAX: {
+		switch (outputType) {
+		case INT: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int32Type);
+			/**
+			 * FIXME This is not the appropriate 'zero' value for integers.
+			 * It is the one for naturals
+			 */
+			Value *val_zero = Builder->getInt32(0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		case FLOAT: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), doubleType);
+			/**
+			 * FIXME This is not the appropriate 'zero' value for floats.
+			 * It is the one for naturals
+			 */
+			Value *val_zero = ConstantFP::get(doubleType, 0.0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		default: {
+			string error_msg = string(
+					"[Nest: ] Sum/Multiply/Max operate on numerics");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		}
+		break;
+	}
+	case OR:	{
+		switch (outputType) {
+		case BOOL: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int1Type);
+			Value *val_zero = Builder->getInt1(0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		default: {
+			string error_msg = string("[Nest: ] Or/And operate on booleans");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+
+		}
+		break;
+	}
+	case AND: {
+		switch (outputType) {
+		case BOOL: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int1Type);
+			Value *val_zero = Builder->getInt1(1);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		default: {
+			string error_msg = string("[Nest: ] Or/And operate on booleans");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+
+		}
+		break;
+	}
+	case UNION:
+	case BAGUNION: {
+		string error_msg = string("[Nest: ] Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	case APPEND: {
+		//XXX Reduce has some more stuff on this
+		string error_msg = string("[Nest: ] Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	default: {
+		string error_msg = string("[Nest: ] Unknown accumulator");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	}
+}
 /**
  * NOTE: This is a fully pipeline-breaking operator!
  * Once the HT has been build, execution must
@@ -32,7 +191,7 @@
  */
 void Nest::produce()	const {
 	getChild()->produce();
-	generateProbe(this->context, *childState);
+	generateProbe(this->context);
 }
 
 void Nest::consume(RawContext* const context, const OperatorState& childState) const {
@@ -41,7 +200,6 @@ void Nest::consume(RawContext* const context, const OperatorState& childState) c
 
 void Nest::generateInsert(RawContext* const context, const OperatorState& childState) const
 {
-	this->childState = childState;
 	this->context = context;
 
 	IRBuilder<>* Builder = context->getBuilder();
@@ -66,7 +224,7 @@ void Nest::generateInsert(RawContext* const context, const OperatorState& childS
 	//2. Create 'payload' --> What is to be inserted in the bucket
 	LOG(INFO) << "[NEST: ] Creating payload";
 	const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
-	OutputPlugin *pg = new OutputPlugin(context, mat, bindings);
+	pg = new OutputPlugin(context, mat, bindings);
 
 	//Result type specified during output plugin construction
 	llvm::StructType *payloadType = pg->getPayloadType();
@@ -137,8 +295,7 @@ void Nest::generateInsert(RawContext* const context, const OperatorState& childS
 	Builder->CreateCall(insert, ArgsV);
 }
 
-void Nest::generateProbe(RawContext* const context,
-		const OperatorState& childState) const
+void Nest::generateProbe(RawContext* const context) const
 {
 
 	IRBuilder<>* Builder = context->getBuilder();
@@ -147,6 +304,7 @@ void Nest::generateProbe(RawContext* const context,
 	RawCatalog& catalog = RawCatalog::getInstance();
 	std::vector<Value*> ArgsV;
 	Value* globalStr = context->CreateGlobalString(htName);
+	Type* int64_type = IntegerType::get(llvmContext, 64);
 
 	/**
 	 * STEP: Foreach key, loop through corresponding bucket.
@@ -187,8 +345,7 @@ void Nest::generateProbe(RawContext* const context,
 
 	//Condition:  current position in result array is NULL
 	Value* bucketCounter = Builder->CreateLoad(mem_bucketCounter);
-	Value* arrayShifted = context->getArrayElem(metadataArray,
-			metadataArrayType, bucketCounter);
+	Value* arrayShifted = context->getArrayElem(metadataArray, bucketCounter);
 	Value* htKeysEnd = Builder->CreateICmpNE(arrayShifted, const_null,
 			"cmpMatchesEnd");
 	Builder->CreateCondBr(htKeysEnd, loopBodyHT, loopEndHT);
@@ -196,32 +353,183 @@ void Nest::generateProbe(RawContext* const context,
 	//Body per Key
 	Builder->SetInsertPoint(loopBodyHT);
 
-	//	//3. (nested) Loop through EACH bucket chain (i.e. all results for a key)
-	//	BasicBlock *loopCondBucket, *loopBodyBucket, *loopIncBucket, *loopEndBucket;
-	//		context->CreateForLoop("LoopCondBucket","LoopBodyBucket","LoopIncBucket","LoopEndBucket",
-	//									&loopCondBucket,&loopBodyBucket,&loopIncBucket,&loopEndBucket);
+	//3. (nested) Loop through EACH bucket chain (i.e. all results for a key)
+	/**
+	 * foreach value in HT[key]:
+	 * 		...
+	 *
+	 * (Should be) very relevant to join
+	 */
+	AllocaInst* mem_metadataStruct = context->CreateEntryBlockAlloca(TheFunction,
+				"currKeyNest", metadataArrayType);
+	Builder->CreateStore(arrayShifted,mem_metadataStruct);
+	Value* currKey = context->getStructElem(mem_metadataStruct,0);
+	Value* currBucketSize = context->getStructElem(mem_metadataStruct,1);
 
-	//XXX Return type affects what we need to do here
+	//Retrieve HT[key] (Perform the actual probe)
+	vector<Value*> ArgsV;
+	ArgsV.clear();
+	ArgsV.push_back(globalStr);
+	ArgsV.push_back(currKey);
 
-	//	switch (acc) {
-	//		case SUM:
-	//		case MULTIPLY:
-	//		case MAX:
-	//		case OR:
-	//		case AND:
-	//			break;
-	//		//TODO TODO TODO
-	//		case UNION:
-	//		case BAGUNION:
-	//		case APPEND:
-	//		default: {
-	//			string error_msg = string("[Nest: ] Unknown/Unsupported accumulator");
-	//			LOG(ERROR)<< error_msg;
-	//			throw runtime_error(error_msg);
-	//		}
-	//		}
+	Function* probe = context->getFunction("probeHT");
+	Value* voidHTBindings = Builder->CreateCall(probe, ArgsV);
 
-	//Inc block
+	BasicBlock *loopCondBucket, *loopBodyBucket, *loopIncBucket, *loopEndBucket;
+	context->CreateForLoop("LoopCondBucket", "LoopBodyBucket", "LoopIncBucket",
+			"LoopEndBucket", &loopCondBucket, &loopBodyBucket, &loopIncBucket,
+			&loopEndBucket);
+
+	//Setting up entry block
+	AllocaInst* mem_valuesCounter = context->CreateEntryBlockAlloca(
+							TheFunction, "ht_val_counter", int64_type);
+	Builder->CreateStore(context->createInt64(0),mem_valuesCounter);
+	Builder->CreateBr(loopCondBucket);
+
+	//Condition: are there any more values in the bucket?
+	Builder->SetInsertPoint(loopCondBucket);
+	Value* valuesCounter = Builder->CreateLoad(mem_valuesCounter);
+	Value* cond = Builder->CreateICmpEQ(valuesCounter,currBucketSize);
+	Builder->CreateCondBr(cond,loopEndBucket,loopBodyBucket);
+
+	/**
+	 * [BODY] Time to do work per value:
+	 * -> 3a. find out what this value actually is (i.e., build OperatorState)
+	 * -> 3b. Differentiate behavior based on monoid type. Foreach, do:
+	 * ->-> evaluate predicate
+	 * ->-> compute expression
+	 * ->-> partially compute operator output
+	 */
+	Builder->SetInsertPoint(loopBodyBucket);
+
+	//3a. Loop through bindings and recreate/assemble OperatorState (i.e., deserialize)
+	Value* currValue = context->getArrayElem(voidHTBindings,valuesCounter);
+
+	//Result (payload) type and appropriate casts
+	int typeIdx = RawCatalog::getInstance().getTypeIndex(string(this->htName));
+	Value* idx = context->createInt32(typeIdx);
+	Type* structType = RawCatalog::getInstance().getTypeInternal(typeIdx);
+	PointerType* structPtrType = context->getPointerType(structType);
+	StructType* str = (llvm::StructType*) structType;
+
+	//Casting currValue from void* back to appropriate type
+	AllocaInst *mem_currValueCasted = context->CreateEntryBlockAlloca(TheFunction,"mem_currValueCasted",structPtrType);
+	Value* currValueCasted = Builder->CreateBitCast(currValue,structPtrType);
+	Builder->CreateStore(currValueCasted,mem_currValueCasted);
+
+	unsigned elemNo = str->getNumElements();
+	map<RecordAttribute, RawValueMemory>* allBucketBindings = new map<RecordAttribute, RawValueMemory>();
+	int i = 0;
+	//Retrieving activeTuple(s) from HT
+	AllocaInst *mem_activeTuple = NULL;
+	Value *activeTuple = NULL;
+	const vector<RecordAttribute>& tuplesIdentifiers = mat.getTupleIdentifiers();
+
+	for(vector<RecordAttribute>::const_iterator it = tuplesIdentifiers.begin(); it!=tuplesIdentifiers.end(); it++)	{
+		mem_activeTuple = context->CreateEntryBlockAlloca(TheFunction,"mem_activeTuple",str->getElementType(i));
+		activeTuple = context->getStructElem(mem_currValueCasted,i);
+		Builder->CreateStore(activeTuple,mem_activeTuple);
+
+		RawValueMemory mem_valWrapper;
+		mem_valWrapper.mem = mem_activeTuple;
+		mem_valWrapper.isNull = context->createFalse();
+		(*allBucketBindings)[*it] = mem_valWrapper;
+		i++;
+	}
+
+	const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
+	Value *field = NULL;
+	for(std::vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!= wantedFields.end(); ++it) {
+		string currField = (*it)->getName();
+		AllocaInst *mem_field = context->CreateEntryBlockAlloca(TheFunction,currField+"mem",str->getElementType(i));
+
+		field = context->getStructElem(mem_currValueCasted,i);
+		Builder->CreateStore(field,mem_field);
+		i++;
+
+		RawValueMemory mem_valWrapper;
+		mem_valWrapper.mem = mem_field;
+		mem_valWrapper.isNull = context->createFalse();
+		(*allBucketBindings)[*(*it)] = mem_valWrapper;
+		LOG(INFO) << "[HT Bucket Traversal: ] Binding name: "<<currField;
+	}
+	OperatorState newState = OperatorState(*this, *allBucketBindings);
+
+	switch (acc)	{
+	case SUM:
+		generateSum(context, newState);
+		break;
+	case MULTIPLY:
+//			generateMul(context, childState);
+//			break;
+	case MAX:
+//			generateMax(context, childState);
+//			break;
+	case OR:
+//			generateOr(context, childState);
+//			break;
+	case AND:
+//			generateAnd(context, childState);
+//			break;
+	case UNION:
+		//		generateUnion(context, childState);
+		//		break;
+	case BAGUNION:
+		//		generateBagUnion(context, childState);
+		//		break;
+	case APPEND:
+		//		generateAppend(context, childState);
+		//		break;
+	default:
+	{
+		string error_msg = string("[Nest: ] Unknown accumulator");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	}
+
+	/**
+	 * [INC - HT CHAIN NO.] Increase value counter in (specific) bucket
+	 * Continue inner loop
+	 */
+	Builder->CreateBr(loopIncBucket);
+	Builder->SetInsertPoint(loopIncBucket);
+
+	valuesCounter = Builder->CreateLoad(mem_valuesCounter);
+	Value* inc_valuesCounter = Builder->CreateAdd(valuesCounter,
+			context->createInt64(1));
+	Builder->CreateStore(inc_valuesCounter, mem_valuesCounter);
+
+	/**
+	* [END - HT CHAIN LOOP.] End inner loop
+	* 4. Time to produce output tuple & forward to next operator
+	*/
+	Builder->SetInsertPoint(loopEndBucket);
+
+	keyName = string(htName) + "_key";
+	RecordAttribute attr_key = RecordAttribute(htName,keyName);
+	//XXX I am forwarding the hash here!!! Does it make any sense???
+	RawValueMemory mem_keyWrapper;
+	AllocaInst* mem_key = context->CreateEntryBlockAlloca(TheFunction,
+					"mem_aggrKey", int64_type);
+	Builder->CreateLoad(currKey,mem_key);
+	mem_keyWrapper.mem = mem_key;
+	mem_keyWrapper.isNull = context->createFalse();
+	allBucketBindings[attr_key] = mem_accumulating;
+
+	aggregateName = string(htName) + "_aggr";
+	RecordAttribute attr_aggr = RecordAttribute(htName,aggregateName);
+	RawValueMemory mem_aggrWrapper;
+	mem_aggrWrapper.mem = mem_accumulating;
+	mem_aggrWrapper.isNull = context->createFalse();
+	allBucketBindings[attr_aggr] = mem_aggrWrapper;
+
+	OperatorState *groupState = new OperatorState(*this, *allBucketBindings);
+	getParent()->consume(context, *groupState);
+
+	/**
+	 * [INC - HT BUCKET NO.] Continue outer loop
+	 */
 	Builder->CreateBr(loopIncHT);
 	bucketCounter = Builder->CreateLoad(mem_bucketCounter);
 	Value *val_inc = Builder->getInt64(1);
@@ -233,10 +541,92 @@ void Nest::generateProbe(RawContext* const context,
 
 	//Ending block of buckets loop
 	Builder->SetInsertPoint(loopEndHT);
-
 }
 
+void Nest::generateSum(RawContext* const context, const OperatorState& state) const	{
+	IRBuilder<>* Builder = context->getBuilder();
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
+	//Generate condition
+	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, state);
+	RawValue condition = pred->accept(predExprGenerator);
+	/**
+	 * Predicate Evaluation:
+	 */
+	BasicBlock* entryBlock = Builder->GetInsertBlock();
+	BasicBlock *endBlock = BasicBlock::Create(llvmContext, "nestCondEnd", TheFunction);
+	BasicBlock *ifBlock;
+	context->CreateIfBlock(context->getGlobalFunction(), "nestIfCond",
+					&ifBlock, endBlock);
+
+	/**
+	 * IF Block
+	 */
+	Builder->SetInsertPoint(ifBlock);
+	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(context, state);
+	RawValue val_output = outputExpr->accept(outputExprGenerator);
+
+	switch (outputExpr->getExpressionType()->getTypeID()) {
+	case INT: {
+		Builder->SetInsertPoint(entryBlock);
+		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
+		Builder->SetInsertPoint(ifBlock);
+
+		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
+		Value* val_new = Builder->CreateAdd(val_accumulating, val_output.value);
+		Builder->CreateStore(val_new, mem_accumulating);
+
+		Builder->CreateBr(endBlock);
+
+		//Prepare final result output
+		Builder->SetInsertPoint(context->getEndingBlock());
+#ifdef DEBUG
+		std::vector<Value*> ArgsV;
+		Function* debugInt = context->getFunction("printi");
+		Value* finalResult = Builder->CreateLoad(mem_accumulating);
+		ArgsV.push_back(finalResult);
+		Builder->CreateCall(debugInt, ArgsV);
+#endif
+		//Back to 'normal' flow
+		Builder->SetInsertPoint(ifBlock);
+		break;
+	}
+	case FLOAT: {
+		Type* doubleType = Type::getDoubleTy(llvmContext);
+		Builder->SetInsertPoint(entryBlock);
+		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
+		Builder->SetInsertPoint(ifBlock);
+
+		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
+		Value* val_new = Builder->CreateFAdd(val_accumulating,val_output.value);
+		Builder->CreateStore(val_new,mem_accumulating);
+
+		//Prepare final result output
+		Builder->SetInsertPoint(context->getEndingBlock());
+#ifdef DEBUG
+		std::vector<Value*> ArgsV;
+		Function* debugFloat = context->getFunction("printFloat");
+		Value* finalResult = Builder->CreateLoad(mem_accumulating);
+		ArgsV.push_back(finalResult);
+		Builder->CreateCall(debugFloat, ArgsV);
+#endif
+
+		break;
+	}
+	default: {
+		string error_msg = string(
+				"[Nest: ] Sum accumulator operates on numerics");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	}
+
+	/**
+	 * END Block
+	 */
+	Builder->SetInsertPoint(endBlock);
+}
 
 
 

@@ -95,6 +95,10 @@ Reduce::Reduce(Monoid acc, expressions::Expression* outputExpr,
 		case INT: {
 			mem_accumulating = context->CreateEntryBlockAlloca(f,
 					string("reduce_acc"), int32Type);
+			/**
+			 * FIXME This is not the appropriate 'zero' value for integers.
+			 * It is the one for naturals
+			 */
 			Value *val_zero = Builder->getInt32(0);
 			Builder->CreateStore(val_zero, mem_accumulating);
 			break;
@@ -102,6 +106,10 @@ Reduce::Reduce(Monoid acc, expressions::Expression* outputExpr,
 		case FLOAT: {
 			mem_accumulating = context->CreateEntryBlockAlloca(f,
 					string("reduce_acc"), doubleType);
+			/**
+			 * FIXME This is not the appropriate 'zero' value for floats.
+			 * It is the one for naturals
+			 */
 			Value *val_zero = ConstantFP::get(doubleType, 0.0);
 			Builder->CreateStore(val_zero, mem_accumulating);
 			break;

@@ -200,7 +200,7 @@ Value* RawContext::CastPtrToLlvmPtr(PointerType* type, const void* ptr) {
 	return llvmPtr;
 }
 
-Value* RawContext::getArrayElem(AllocaInst* mem_ptr, PointerType* type, Value* offset)	{
+Value* RawContext::getArrayElem(AllocaInst* mem_ptr, Value* offset)	{
 	LLVMContext& ctx = *llvmContext;
 
 	Value* val_ptr = TheBuilder->CreateLoad(mem_ptr, "mem_ptr");
@@ -209,7 +209,7 @@ Value* RawContext::getArrayElem(AllocaInst* mem_ptr, PointerType* type, Value* o
 	return val_shifted;
 }
 
-Value* RawContext::getArrayElem(Value* val_ptr, PointerType* type, Value* offset)	{
+Value* RawContext::getArrayElem(Value* val_ptr, Value* offset)	{
 	LLVMContext& ctx = *llvmContext;
 
 	Value* shiftedPtr = TheBuilder->CreateInBoundsGEP(val_ptr, offset);
@@ -397,7 +397,7 @@ void insertToHT(char* HTname, size_t key, void* value, int type_size) {
 
 }
 
-void** probeHT(char* HTname, size_t key, int typeIndex) {
+void** probeHT(char* HTname, size_t key) {
 
 	string name = string(HTname);
 	RawCatalog& catalog = RawCatalog::getInstance();
@@ -811,7 +811,7 @@ void registerFunctions(RawContext& context)	{
 	Function* probeIntHT_ = Function::Create(FTint_probeHT,	Function::ExternalLinkage, "probeIntHT", TheModule);
 	probeIntHT_->addFnAttr(llvm::Attribute::AlwaysInline);
 
-	Type* ht_probe_types[] = { char_ptr_type, int64_type, int_type };
+	Type* ht_probe_types[] = { char_ptr_type, int64_type };
 	FunctionType *FT_probeHT = FunctionType::get(void_ptr_ptr_type, ht_probe_types, false);
 	Function* probeHT_ = Function::Create(FT_probeHT,	Function::ExternalLinkage, "probeHT", TheModule);
 	probeHT_->addFnAttr(llvm::Attribute::AlwaysInline);

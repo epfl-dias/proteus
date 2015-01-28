@@ -33,34 +33,45 @@
  * for (d <- Departments) yield set (D := d, E := for ( e <- Employees, e.dno = d.dno) yield set e)
  *
  * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR NEST OPERATOR (?)
+ * TODO Doesn't NEST require aliases for the two record arguments that are its results?
  */
 class Nest : public UnaryRawOperator {
 public:
 	Nest(Monoid acc, expressions::Expression* outputExpr,
 		 expressions::Expression* pred, expressions::Expression* f_grouping,
 		 expressions::Expression* g_nullToZero, RawOperator* const child,
-		 char* opLabel, Materializer& mat) :
-			UnaryRawOperator(child), acc(acc), outputExpr(outputExpr),
-			f_grouping(f_grouping),	g_nullToZero(g_nullToZero),
-			pred(pred), mat(mat), htName(opLabel), context(NULL), childState(NULL)			{}
+		 char* opLabel, Materializer& mat);
 	virtual ~Nest() 																		{ LOG(INFO)<<"Collapsing Nest operator"; }
 	virtual void produce() const;
 	virtual void consume(RawContext* const context, const OperatorState& childState) const;
 	Materializer& getMaterializer()		 													{ return mat; }
 private:
 	void generateInsert(RawContext* const context, const OperatorState& childState) const;
-	void generateProbe(RawContext* const context, const OperatorState& childState) const;
+	/**
+	 * Once HT has been fully materialized, it is time to resume execution.
+	 * Note: generateProbe (should) not require any info reg. the previous op that was called.
+	 * Any info needed is (should be) in the HT that will now be probed.
+	 */
+	void generateProbe(RawContext* const context) const;
+	void generateSum(RawContext* const context, const OperatorState& state) const;
+
 	Monoid acc;
 	expressions::Expression* outputExpr;
 	expressions::Expression* pred;
 	expressions::Expression* f_grouping;
 	expressions::Expression* g_nullToZero;
+	OutputPlugin *pg;
 
+	//Check TODO on naming above
+	string keyName;
+	string aggregateName;
+
+	AllocaInst* mem_accumulating;
 	char* htName;
 	Materializer& mat;
 
 	RawContext* context;
-	OperatorState* childState;
+//	OperatorState* childState;
 };
 
 #endif /* UNNEST_HPP_ */
