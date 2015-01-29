@@ -31,7 +31,7 @@ public:
 	virtual ~Print() 												{ LOG(INFO) << "Collapsing print operator"; }
 
 	virtual void produce() const;
-	virtual void consume(RawContext* const context, const OperatorState& childState) const;
+	virtual void consume(RawContext* const context, const OperatorState& childState);
 
 private:
 	expressions::RecordProjection* arg;

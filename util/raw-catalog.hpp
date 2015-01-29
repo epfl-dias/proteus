@@ -37,12 +37,12 @@ public:
 	}
 
 	//XXX is there a more elegant way to group hashtables together?
-	multimap<int,void*>* getHashTable(string tableName) {
+	multimap<size_t,void*>* getHashTable(string tableName) {
 		std::map<std::string, multimap<size_t,void*>*>::iterator it;
 		it = HTs.find(tableName);
 		if (it == HTs.end()) {
 			LOG(INFO) << "Creating HT for table "<<tableName;
-			HTs[tableName] = new multimap<int,void*>();
+			HTs[tableName] = new multimap<size_t,void*>();
 			return HTs[tableName];
 		}	else	{
 			LOG(INFO) << "HT found";

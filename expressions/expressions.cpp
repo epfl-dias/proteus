@@ -55,6 +55,10 @@ RawValue IfThenElse::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
+RawValue RecordConstruction::accept(ExprVisitor &v) {
+	return v.visit(this);
+}
+
 /**
  * The binary expressions
  */

@@ -25,7 +25,7 @@
 
 void Select::produce()	const { getChild()->produce(); }
 
-void Select::consume(RawContext* const context, const OperatorState& childState) const {
+void Select::consume(RawContext* const context, const OperatorState& childState) {
 	generate(context, childState);
 }
 

@@ -34,7 +34,7 @@ public:
 			pred(predicate), htName(opLabel), mat(mat)	 												{}
 	virtual ~Join() 																					{ LOG(INFO)<<"Collapsing Join operator"; }
 	virtual void produce() const;
-	virtual void consume(RawContext* const context, const OperatorState& childState) const;
+	virtual void consume(RawContext* const context, const OperatorState& childState);
 	Materializer& getMaterializer()		 																{ return mat; }
 private:
 	char* htName;

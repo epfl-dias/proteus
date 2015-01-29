@@ -25,7 +25,7 @@
 
 void Unnest::produce()	const { getChild()->produce(); }
 
-void Unnest::consume(RawContext* const context, const OperatorState& childState) const {
+void Unnest::consume(RawContext* const context, const OperatorState& childState) {
 	generate(context, childState);
 }
 

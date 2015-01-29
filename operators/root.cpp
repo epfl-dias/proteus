@@ -25,4 +25,4 @@
 
 void Root::produce() const 																{ getChild()->produce(); }
 
-void Root::consume (RawContext* const context, const OperatorState& childState) const 	{ }
+void Root::consume (RawContext* const context, const OperatorState& childState) 		{ }

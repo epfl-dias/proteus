@@ -70,12 +70,6 @@ public:
 		throw runtime_error(error_msg);
 	}
 
-	RawValue visit(expressions::MergeExpression *e) {
-		string error_msg = string("[ExpressionGeneratorVisitor]: Not implemented yet");
-		LOG(ERROR) << error_msg;
-		throw runtime_error(error_msg);
-	}
-
 	/**
 	 *
 	 */

@@ -31,6 +31,7 @@
 #include "operators/print.hpp"
 #include "operators/root.hpp"
 #include "operators/reduce.hpp"
+#include "operators/nest.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/binary-row-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
@@ -60,6 +61,7 @@ void readJSONListInterpreted();
 
 void outerUnnest();
 void outerUnnestNull1();
+void nest();
 
 void reduceNumeric();
 void reduceBoolean();
@@ -784,6 +786,132 @@ void outerUnnestNull1()
 	//ROOT
 	Root rootOp = Root(&printOp);
 	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
+/**
+ * 1st test for Nest.
+ * Not including Reduce (yet)
+ * Even not considering absence of Reduce,
+ * I don't think such a physical plan can occur through rewrites
+ */
+void nest()
+{
+	RawContext ctx = RawContext("testFunction-nestJSON");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/employees.json");
+
+	IntType intType = IntType();
+	//FloatType floatType = FloatType();
+	StringType stringType = StringType();
+
+	string childName = string("name");
+	RecordAttribute child1 = RecordAttribute(1, fname, childName, &stringType);
+	string childAge = string("age");
+	RecordAttribute child2 = RecordAttribute(1, fname, childAge, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&child1);
+	RecordType nested = RecordType(attsNested);
+	ListType nestedCollection = ListType(nested);
+
+	string empName = string("name");
+	RecordAttribute emp1 = RecordAttribute(1, fname, empName, &stringType);
+	string empAge = string("age");
+	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &intType);
+	string empChildren = string("children");
+	RecordAttribute emp3 = RecordAttribute(3, fname, empChildren,
+			&nestedCollection);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&emp1);
+	atts.push_back(&emp2);
+	atts.push_back(&emp3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(proj1);
+	expressions::Expression* inputArg = new expressions::InputArgument(&inner,
+			0, projections);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(
+			&nestedCollection, inputArg, emp3);
+	string nestedName = "c";
+	Path path = Path(nestedName, proj);
+
+	expressions::Expression* lhs = new expressions::BoolConstant(true);
+	expressions::Expression* rhs = new expressions::BoolConstant(true);
+	expressions::Expression* predicate = new expressions::EqExpression(
+			new BoolType(), lhs, rhs);
+
+	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
+	scan.setParent(&unnestOp);
+
+	//New record type:
+	string originalRecordName = "e";
+	RecordAttribute recPrev = RecordAttribute(1, fname, originalRecordName,
+			&inner);
+	RecordAttribute recUnnested = RecordAttribute(2, fname, nestedName,
+			&nested);
+	list<RecordAttribute*> attsUnnested = list<RecordAttribute*>();
+	attsUnnested.push_back(&recPrev);
+	attsUnnested.push_back(&recUnnested);
+	RecordType unnestedType = RecordType(attsUnnested);
+
+	//Output (e): SUM(children.age)
+	//Have to model nested type too
+	projections.push_back(recPrev);
+	projections.push_back(recUnnested);
+	expressions::Expression* nestedArg =
+			new expressions::InputArgument(&unnestedType, 0, projections);
+	RecordAttribute toOutput = RecordAttribute(-1, fname + "." + empChildren,
+				childAge, &intType);
+	expressions::RecordProjection* nestOutput =
+				new expressions::RecordProjection(&intType, nestedArg, toOutput);
+
+	//Predicate (p): Ready from before
+
+	//Grouping (f):
+	list<expressions::InputArgument> f;
+	expressions::InputArgument f_arg = *(expressions::InputArgument*) inputArg;
+	f.push_back(f_arg);
+	//Specified inputArg
+
+	//What to discard if null (g):
+	//Ignoring for now
+
+	//What to materialize (payload)
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(&recPrev);
+	whichFields.push_back(&recUnnested);
+
+	vector<materialization_mode> outputModes;
+	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes.insert(outputModes.begin(), EAGER);
+	Materializer* mat = new Materializer(whichFields, outputModes);
+
+	Nest nestOp = Nest(SUM, nestOutput,
+			 predicate, f,
+			 f, &unnestOp,
+			 "nest_001", *mat);
+
+	//ROOT
+	Root rootOp = Root(&nestOp);
+	nestOp.setParent(&rootOp);
 	rootOp.produce();
 
 	//Run function

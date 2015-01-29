@@ -25,7 +25,7 @@
 
 void Print::produce() const { getChild()->produce(); }
 
-void Print::consume (RawContext* const context, const OperatorState& childState) const {
+void Print::consume (RawContext* const context, const OperatorState& childState) {
 
 	IRBuilder<>* TheBuilder = context->getBuilder();
 	std::vector<Value*> ArgsV;

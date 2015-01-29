@@ -31,7 +31,7 @@ public:
 	RawOperator* const  getChild() const						{ throw runtime_error(string("Scan operator has no children")); }
 
 	virtual void produce() const;
-	virtual void consume(RawContext* const context, const OperatorState& childState) const;
+	virtual void consume(RawContext* const context, const OperatorState& childState);
 
 private:
 	RawContext* const context;

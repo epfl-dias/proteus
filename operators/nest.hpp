@@ -26,7 +26,10 @@
 
 #include "operators/operators.hpp"
 #include "expressions/expressions-generator.hpp"
+#include "expressions/expressions-hasher.hpp"
 #include "expressions/path.hpp"
+#include "expressions/expressions.hpp"
+
 
 /**
  * Indicative query where a nest (..and an outer join) occur:
@@ -38,15 +41,15 @@
 class Nest : public UnaryRawOperator {
 public:
 	Nest(Monoid acc, expressions::Expression* outputExpr,
-		 expressions::Expression* pred, expressions::Expression* f_grouping,
-		 expressions::Expression* g_nullToZero, RawOperator* const child,
+		 expressions::Expression* pred, const list<expressions::InputArgument>& f_grouping,
+		 const list<expressions::InputArgument>& g_nullToZero, RawOperator* const child,
 		 char* opLabel, Materializer& mat);
 	virtual ~Nest() 																		{ LOG(INFO)<<"Collapsing Nest operator"; }
 	virtual void produce() const;
-	virtual void consume(RawContext* const context, const OperatorState& childState) const;
+	virtual void consume(RawContext* const context, const OperatorState& childState);
 	Materializer& getMaterializer()		 													{ return mat; }
 private:
-	void generateInsert(RawContext* const context, const OperatorState& childState) const;
+	void generateInsert(RawContext* context, const OperatorState& childState);
 	/**
 	 * Once HT has been fully materialized, it is time to resume execution.
 	 * Note: generateProbe (should) not require any info reg. the previous op that was called.
@@ -59,11 +62,9 @@ private:
 	expressions::Expression* outputExpr;
 	expressions::Expression* pred;
 	expressions::Expression* f_grouping;
-	expressions::Expression* g_nullToZero;
-	OutputPlugin *pg;
+	const list<expressions::InputArgument>& g_nullToZero;
 
 	//Check TODO on naming above
-	string keyName;
 	string aggregateName;
 
 	AllocaInst* mem_accumulating;
@@ -71,7 +72,6 @@ private:
 	Materializer& mat;
 
 	RawContext* context;
-//	OperatorState* childState;
 };
 
 #endif /* UNNEST_HPP_ */

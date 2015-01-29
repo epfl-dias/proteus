@@ -32,7 +32,7 @@ public:
 	virtual ~Select() 													{ LOG(INFO) << "Collapsing selection operator"; }
 
 	virtual void produce() const;
-	virtual void consume(RawContext* const context, const OperatorState& childState) const;
+	virtual void consume(RawContext* const context, const OperatorState& childState);
 
 private:
 	expressions::Expression* expr;

@@ -37,7 +37,7 @@ public:
 		  UnaryRawOperator(child), path(path), pred(pred)								 		{}
 	virtual ~Unnest() 																			{ LOG(INFO)<<"Collapsing Unnest operator"; }
 	virtual void produce() const;
-	virtual void consume(RawContext* const context, const OperatorState& childState) const;
+	virtual void consume(RawContext* const context, const OperatorState& childState);
 private:
 	void generate(RawContext* const context, const OperatorState& childState) const;
 	expressions::Expression* pred;

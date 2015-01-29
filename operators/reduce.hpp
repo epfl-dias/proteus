@@ -39,7 +39,7 @@ public:
 	virtual ~Reduce()												{ LOG(INFO)<<"Collapsing Reduce operator"; }
 	virtual void produce() const;
 	virtual void consume(RawContext* const context,
-			const OperatorState& childState) const;
+			const OperatorState& childState);
 private:
 	RawContext* context;
 

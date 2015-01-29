@@ -45,7 +45,7 @@ public:
 	Expression(ExpressionType* type) : type(type)	{}
 	virtual ~Expression()							{}
 
-	ExpressionType* getExpressionType()				{ return type; }
+	ExpressionType* getExpressionType()	const		{ return type; }
 	virtual RawValue accept(ExprVisitor &v) = 0;
 	virtual ExpressionId getTypeID() = 0;
 private:
@@ -164,11 +164,13 @@ private:
 
 class AttributeConstruction	{
 public:
-	AttributeConstruction(const string& name, Expression* expr) :
+	AttributeConstruction(string name, Expression* expr) :
 			name(name), expr(expr) 									{}
 	~AttributeConstruction()										{}
+	string getBindingName() const									{ return name; }
+	Expression* getExpression()	const								{ return expr; }
 private:
-	const string& name;
+	string name;
 	Expression* expr;
 };
 
@@ -181,6 +183,7 @@ public:
 
 	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeID()										{ return RECORD_CONSTRUCTION; }
+	const list<AttributeConstruction>& getAtts()					{ return atts; }
 private:
 	const list<AttributeConstruction>& atts;
 };
@@ -342,21 +345,22 @@ public:
  * XXX Relevant to
  * General monoid merging
  * User-provided collections (since [1,2,3] is sugar for [1] union [2] union [3]
+ * XXX 'Decided' merge is going to be a 'meta-operator'
  */
-class MergeExpression : public Expression	{
-public:
-	MergeExpression(ExpressionType* type, Monoid acc, Expression* lhs, Expression* rhs) :
-		Expression(type), monoidType(acc), lhs(lhs), rhs(rhs) 		{}
-	~MergeExpression()												{}
-
-	RawValue accept(ExprVisitor &v);
-	ExpressionId getTypeID()										{ return MERGE; }
-	Monoid getMonoidType()										{ return monoidType; }
-private:
-	Monoid monoidType;
-	Expression* lhs;
-	Expression* rhs;
-};
+//class MergeExpression : public Expression	{
+//public:
+//	MergeExpression(ExpressionType* type, Monoid acc, Expression* lhs, Expression* rhs) :
+//		Expression(type), monoidType(acc), lhs(lhs), rhs(rhs) 		{}
+//	~MergeExpression()												{}
+//
+//	RawValue accept(ExprVisitor &v);
+//	ExpressionId getTypeID()										{ return MERGE; }
+//	Monoid getMonoidType()										{ return monoidType; }
+//private:
+//	Monoid monoidType;
+//	Expression* lhs;
+//	Expression* rhs;
+//};
 
 
 }
@@ -373,6 +377,7 @@ public:
 	virtual RawValue visit(expressions::StringConstant *e) 		= 0;
 	virtual RawValue visit(expressions::InputArgument *e)  		= 0;
 	virtual RawValue visit(expressions::RecordProjection *e)	= 0;
+	virtual RawValue visit(expressions::RecordConstruction *e)	= 0;
 	virtual RawValue visit(expressions::IfThenElse *e)  		= 0;
 	virtual RawValue visit(expressions::EqExpression *e)   		= 0;
 	virtual RawValue visit(expressions::NeExpression *e)   		= 0;
@@ -386,7 +391,7 @@ public:
 	virtual RawValue visit(expressions::DivExpression *e)  		= 0;
 	virtual RawValue visit(expressions::AndExpression *e)  		= 0;
 	virtual RawValue visit(expressions::OrExpression *e)  		= 0;
-	virtual RawValue visit(expressions::MergeExpression *e)  	= 0;
+//	virtual RawValue visit(expressions::MergeExpression *e)  	= 0;
 	virtual ~ExprVisitor() {}
 };
 

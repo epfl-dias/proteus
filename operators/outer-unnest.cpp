@@ -28,7 +28,7 @@ void OuterUnnest::produce() const {
 }
 
 void OuterUnnest::consume(RawContext* const context,
-		const OperatorState& childState) const {
+		const OperatorState& childState) {
 	generate(context, childState);
 }
 

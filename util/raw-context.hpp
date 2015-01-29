@@ -81,6 +81,10 @@ public:
 	PointerType* CreateJSMNStructPtr();
 	StructType* CreateJSONPosStruct();
 	StructType* CreateCustomStruct(std::vector<Type*> innerTypes);
+	/**
+	 * Does not involve AllocaInst, but still is a memory position
+	 */
+	Value* getStructElem(Value* mem_struct, int elemNo);
 	Value* getStructElem(AllocaInst* mem_struct, int elemNo);
 	Value* CreateGlobalString(char* str);
 	PointerType* getPointerType(Type* type);
@@ -103,6 +107,10 @@ public:
 	Value* CastPtrToLlvmPtr(PointerType* type, const void* ptr);
 	Value* getArrayElem(AllocaInst* mem_ptr, Value* offset);
 	Value* getArrayElem(Value* val_ptr, Value* offset);
+	/**
+	* Does not involve AllocaInst, but still returns a memory position
+	*/
+	Value* getArrayElemMem(Value* val_ptr, Value* offset);
 
 	//Not used atm
 	void CodegenMemcpy(Value* dst, Value* src, int size);
@@ -184,7 +192,7 @@ extern "C" void insertToHT(char* HTname, size_t key, void* value, int type_size)
 
 extern "C" void** probeHT(char* HTname, size_t key, int typeIndex);
 
-extern "C" void** getMetadataHT(char* HTname);
+extern "C" HashtableBucketMetadata* getMetadataHT(char* HTname);
 
 extern "C" int compareTokenString(const char* buf, int start, int end, const char* candidate);
 

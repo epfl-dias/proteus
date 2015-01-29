@@ -217,6 +217,23 @@ Value* RawContext::getArrayElem(Value* val_ptr, Value* offset)	{
 	return val_shifted;
 }
 
+Value* RawContext::getArrayElemMem(Value* val_ptr, Value* offset)	{
+	LLVMContext& ctx = *llvmContext;
+
+	Value* shiftedPtr = TheBuilder->CreateInBoundsGEP(val_ptr, offset);
+	return shiftedPtr;
+}
+
+Value* RawContext::getStructElem(Value* mem_struct, int elemNo)	{
+	vector<Value*> idxList = vector<Value*>();
+	idxList.push_back(createInt32(0));
+	idxList.push_back(createInt32(elemNo));
+	//Shift in struct ptr
+	Value* mem_struct_shifted = TheBuilder->CreateGEP(mem_struct, idxList);
+	Value* val_struct_shifted =  TheBuilder->CreateLoad(mem_struct_shifted);
+	return val_struct_shifted;
+}
+
 Value* RawContext::getStructElem(AllocaInst* mem_struct, int elemNo)	{
 	vector<Value*> idxList = vector<Value*>();
 	idxList.push_back(createInt32(0));
@@ -439,7 +456,7 @@ void** probeHT(char* HTname, size_t key) {
  *
  * Examples: Number of buckets (keys) / elements in each bucket
  */
-HashtableBucketMetadata** getMetadataHT(char* HTname)	{
+HashtableBucketMetadata* getMetadataHT(char* HTname)	{
 	string name = string(HTname);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
@@ -459,7 +476,8 @@ HashtableBucketMetadata** getMetadataHT(char* HTname)	{
 		metadata[pos].hashKey = *it;
 		metadata[pos].bucketSize = HT->count(*it);
 	}
-	metadata[pos] = NULL;
+	//XXX Silly stopping condition..
+	metadata[pos].bucketSize = 0;
 	return metadata;
 }
 
@@ -819,6 +837,7 @@ void registerFunctions(RawContext& context)	{
 	Type* ht_get_metadata_types[] = { char_ptr_type };
 	StructType *metadataType = context.getHashtableMetadataType();
 	PointerType *metadataArrayType = PointerType::get(metadataType,0);
+//	PointerType *ptr_metadataArrayType = PointerType::get(metadataArrayType,0);
 //	FunctionType *FTget_metadata_HT = FunctionType::get(,
 //				ht_get_metadata_types, false);
 	FunctionType *FTget_metadata_HT = FunctionType::get(metadataArrayType,

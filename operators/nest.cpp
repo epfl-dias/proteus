@@ -27,12 +27,12 @@
  * Identical constructor logic with the one of Reduce
  */
 Nest::Nest(Monoid acc, expressions::Expression* outputExpr,
-		expressions::Expression* pred, expressions::Expression* f_grouping,
-		expressions::Expression* g_nullToZero, RawOperator* const child,
+		expressions::Expression* pred, const list<expressions::InputArgument>& f_grouping,
+		const list<expressions::InputArgument>& g_nullToZero, RawOperator* const child,
 		char* opLabel, Materializer& mat) :
 		UnaryRawOperator(child), acc(acc), outputExpr(outputExpr),
-		f_grouping(f_grouping), g_nullToZero(g_nullToZero), pred(pred),
-		mat(mat), htName(opLabel), context(NULL), pg(NULL)
+		g_nullToZero(g_nullToZero), pred(pred),
+		mat(mat), htName(opLabel), context(NULL)
 {
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -42,6 +42,29 @@ Nest::Nest(Monoid acc, expressions::Expression* outputExpr,
 	Type* int32Type = Type::getInt32Ty(llvmContext);
 	Type* doubleType = Type::getDoubleTy(llvmContext);
 
+	//Prepare 'f' -> Turn it into expression (record construction)
+	list<expressions::InputArgument>::const_iterator it;
+	list<expressions::AttributeConstruction>* atts = new list<expressions::AttributeConstruction>();
+	list<RecordAttribute*> recordAtts;
+	string attrPlaceholder = string("attr_");
+	for(it = f_grouping.begin(); it != f_grouping.end(); it++)	{
+		expressions::InputArgument attrExpr = *it;
+		expressions::AttributeConstruction attr =
+				expressions::AttributeConstruction(attrPlaceholder,&attrExpr);
+		atts->push_back(attr);
+
+		//Only used as placeholder to kickstart hashing later
+		RecordAttribute* recAttr = new RecordAttribute();
+		recordAtts.push_back(recAttr);
+	}
+	RecordType *recType = new RecordType(recordAtts);
+	this->f_grouping = new expressions::RecordConstruction(recType,*atts);
+
+	//Prepare extra output binding
+	this->aggregateName += string(htName);
+	this->aggregateName += "_aggr";
+
+	//Deal with 'memory allocations' as per monoid type requested
 	typeID outputType = outputExpr->getExpressionType()->getTypeID();
 	switch (acc) {
 	case SUM: {
@@ -194,11 +217,11 @@ void Nest::produce()	const {
 	generateProbe(this->context);
 }
 
-void Nest::consume(RawContext* const context, const OperatorState& childState) const {
+void Nest::consume(RawContext* const context, const OperatorState& childState) {
 	generateInsert(context, childState);
 }
 
-void Nest::generateInsert(RawContext* const context, const OperatorState& childState) const
+void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 {
 	this->context = context;
 
@@ -215,6 +238,7 @@ void Nest::generateInsert(RawContext* const context, const OperatorState& childS
 
 	/**
 	 * TODO do null check based on g!!!
+	 * Essentially a conjunctive predicate
 	 */
 
 	//1. Compute HASH key based on grouping expression
@@ -224,7 +248,7 @@ void Nest::generateInsert(RawContext* const context, const OperatorState& childS
 	//2. Create 'payload' --> What is to be inserted in the bucket
 	LOG(INFO) << "[NEST: ] Creating payload";
 	const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
-	pg = new OutputPlugin(context, mat, bindings);
+	OutputPlugin *pg = new OutputPlugin(context, mat, bindings);
 
 	//Result type specified during output plugin construction
 	llvm::StructType *payloadType = pg->getPayloadType();
@@ -236,7 +260,7 @@ void Nest::generateInsert(RawContext* const context, const OperatorState& childS
 
 	// Creating and Populating Payload Struct
 	int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
-	std::vector<Type*>* materializedTypes = pg->getMaterializedTypes();
+	vector<Type*>* materializedTypes = pg->getMaterializedTypes();
 
 	//Storing values in struct to be materialized in HT. Two steps
 	//2a. Materializing all 'activeTuples' (i.e. positional indices) met so far
@@ -284,7 +308,7 @@ void Nest::generateInsert(RawContext* const context, const OperatorState& childS
 	Value* voidCast = Builder->CreateBitCast(mem_payload, voidType,"valueVoidCast");
 	Value* globalStr = context->CreateGlobalString(htName);
 	//Prepare hash_insert_function arguments
-	std::vector<Value*> ArgsV;
+	vector<Value*> ArgsV;
 	ArgsV.clear();
 	ArgsV.push_back(globalStr);
 	ArgsV.push_back(groupKey.value);
@@ -302,7 +326,7 @@ void Nest::generateProbe(RawContext* const context) const
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 	RawCatalog& catalog = RawCatalog::getInstance();
-	std::vector<Value*> ArgsV;
+	vector<Value*> ArgsV;
 	Value* globalStr = context->CreateGlobalString(htName);
 	Type* int64_type = IntegerType::get(llvmContext, 64);
 
@@ -336,17 +360,18 @@ void Nest::generateProbe(RawContext* const context) const
 	//Entry Block of bucket loop - Initializing counter
 	BasicBlock* codeSpot = Builder->GetInsertBlock();
 	PointerType* i8_ptr = PointerType::get(IntegerType::get(llvmContext, 8), 0);
-	ConstantPointerNull* const_null = ConstantPointerNull::get(i8_ptr);
+//	ConstantPointerNull* const_null = ConstantPointerNull::get(i8_ptr);
 	AllocaInst* mem_bucketCounter = new AllocaInst(
 			IntegerType::get(llvmContext, 64), "mem_bucketCnt", codeSpot);
 	Builder->CreateStore(context->createInt32(0), mem_bucketCounter);
 
 	Builder->CreateBr(loopCondHT);
 
-	//Condition:  current position in result array is NULL
+	//Condition:  current bucketSize in result array positions examined is set to 0
 	Value* bucketCounter = Builder->CreateLoad(mem_bucketCounter);
-	Value* arrayShifted = context->getArrayElem(metadataArray, bucketCounter);
-	Value* htKeysEnd = Builder->CreateICmpNE(arrayShifted, const_null,
+	Value* mem_arrayShifted = context->getArrayElemMem(metadataArray, bucketCounter);
+	Value* bucketSize = context->getStructElem(mem_arrayShifted,1);
+	Value* htKeysEnd = Builder->CreateICmpNE(bucketSize, context->createInt64(0),
 			"cmpMatchesEnd");
 	Builder->CreateCondBr(htKeysEnd, loopBodyHT, loopEndHT);
 
@@ -362,12 +387,12 @@ void Nest::generateProbe(RawContext* const context) const
 	 */
 	AllocaInst* mem_metadataStruct = context->CreateEntryBlockAlloca(TheFunction,
 				"currKeyNest", metadataArrayType);
+	Value* arrayShifted = Builder->CreateLoad(mem_arrayShifted);
 	Builder->CreateStore(arrayShifted,mem_metadataStruct);
 	Value* currKey = context->getStructElem(mem_metadataStruct,0);
 	Value* currBucketSize = context->getStructElem(mem_metadataStruct,1);
 
 	//Retrieve HT[key] (Perform the actual probe)
-	vector<Value*> ArgsV;
 	ArgsV.clear();
 	ArgsV.push_back(globalStr);
 	ArgsV.push_back(currKey);
@@ -439,7 +464,7 @@ void Nest::generateProbe(RawContext* const context) const
 
 	const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
 	Value *field = NULL;
-	for(std::vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!= wantedFields.end(); ++it) {
+	for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!= wantedFields.end(); ++it) {
 		string currField = (*it)->getName();
 		AllocaInst *mem_field = context->CreateEntryBlockAlloca(TheFunction,currField+"mem",str->getElementType(i));
 
@@ -506,23 +531,17 @@ void Nest::generateProbe(RawContext* const context) const
 	*/
 	Builder->SetInsertPoint(loopEndBucket);
 
-	keyName = string(htName) + "_key";
-	RecordAttribute attr_key = RecordAttribute(htName,keyName);
-	//XXX I am forwarding the hash here!!! Does it make any sense???
-	RawValueMemory mem_keyWrapper;
-	AllocaInst* mem_key = context->CreateEntryBlockAlloca(TheFunction,
-					"mem_aggrKey", int64_type);
-	Builder->CreateLoad(currKey,mem_key);
-	mem_keyWrapper.mem = mem_key;
-	mem_keyWrapper.isNull = context->createFalse();
-	allBucketBindings[attr_key] = mem_accumulating;
+	/**
+	 * FIXME
+	 * Must forward only the fields contributing in v
+	 * and the result of the aggr.
+	 */
 
-	aggregateName = string(htName) + "_aggr";
 	RecordAttribute attr_aggr = RecordAttribute(htName,aggregateName);
 	RawValueMemory mem_aggrWrapper;
 	mem_aggrWrapper.mem = mem_accumulating;
 	mem_aggrWrapper.isNull = context->createFalse();
-	allBucketBindings[attr_aggr] = mem_aggrWrapper;
+	(*allBucketBindings)[attr_aggr] = mem_aggrWrapper;
 
 	OperatorState *groupState = new OperatorState(*this, *allBucketBindings);
 	getParent()->consume(context, *groupState);
@@ -582,7 +601,7 @@ void Nest::generateSum(RawContext* const context, const OperatorState& state) co
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
 #ifdef DEBUG
-		std::vector<Value*> ArgsV;
+		vector<Value*> ArgsV;
 		Function* debugInt = context->getFunction("printi");
 		Value* finalResult = Builder->CreateLoad(mem_accumulating);
 		ArgsV.push_back(finalResult);
@@ -605,7 +624,7 @@ void Nest::generateSum(RawContext* const context, const OperatorState& state) co
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
 #ifdef DEBUG
-		std::vector<Value*> ArgsV;
+		vector<Value*> ArgsV;
 		Function* debugFloat = context->getFunction("printFloat");
 		Value* finalResult = Builder->CreateLoad(mem_accumulating);
 		ArgsV.push_back(finalResult);

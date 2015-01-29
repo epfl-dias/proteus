@@ -690,276 +690,67 @@ RawValue ExpressionHasherVisitor::visit(expressions::DivExpression *e) {
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of binary expression can only be primitive"));
 }
 
-//RawValue ExpressionHasherVisitor::visit(expressions::IfThenElse *e) {
-//	RawCatalog& catalog 			= RawCatalog::getInstance();
-//	IRBuilder<>* const TheBuilder	= context->getBuilder();
-//	LLVMContext& llvmContext		= context->getLLVMContext();
-//	Function *F 					= TheBuilder->GetInsertBlock()->getParent();
-//	Type* int64Type = Type::getInt64Ty(llvmContext);
-//
-//	Function *hashFunc = NULL;
-//	Value *hashResult = NULL;
-//	AllocaInst* mem_hashResult = context->CreateEntryBlockAlloca(F, "hashResult", int64Type);
-//
-//	//Need to evaluate, not hash!
-//	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-//	RawValue ifCond 		= e->getIfCond()->accept(exprGenerator);
-//
-////	RawValue ifResult		= e->getIfResult()->accept(*this);
-////	RawValue elseResult 	= e->getElseResult()->accept(*this);
-//
-////	//Prepare result
-////	AllocaInst* mem_result = context->CreateEntryBlockAlloca(F, "ifElseResult", (ifResult.value)->getType());
-////	AllocaInst* mem_result_isNull = context->CreateEntryBlockAlloca(F, "ifElseResultIsNull", (ifResult.isNull)->getType());
-//
-//	//Prepare blocks
-//	BasicBlock *ThenBB;
-//	BasicBlock *ElseBB;
-//	BasicBlock *MergeBB = BasicBlock::Create(llvmContext,  "ifExprCont", F);
-//	context->CreateIfElseBlocks(F,"ifExprThen","ifExprElse",&ThenBB,&ElseBB,MergeBB);
-//
-//	//if
-//	TheBuilder->CreateCondBr(ifCond.value, ThenBB, ElseBB);
-//
-//	//then
-//	TheBuilder->SetInsertPoint(ThenBB);
-////	TheBuilder->CreateStore(ifResult.value,mem_result);
-////	TheBuilder->CreateStore(ifResult.isNull,mem_result_isNull);
-//
-//	{
-//		ExpressionType *resultType = e->getExpressionType();
-//		std::vector<Value*> ArgsV;
-//		//Similar handling in other visit methods too
-//		switch (resultType->getTypeID())
-//		{
-//		case BOOL:
-//		{
-//			hashFunc = context->getFunction("hashBoolean");
-//			RawValue ifResult = e->getIfResult()->accept(exprGenerator);
-//			ArgsV.push_back(ifResult.value);
-//			hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,
-//					"hashBoolean");
-//			break;
-//		}
-//		case STRING:
-//		{
-//			hashFunc = context->getFunction("hashStringObject");
-//			RawValue ifResult = e->getIfResult()->accept(exprGenerator);
-//			ArgsV.push_back(ifResult.value);
-//			hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,
-//					"hashStringObj");
-//			break;
-//		}
-//		case FLOAT:
-//		{
-//			hashFunc = context->getFunction("hashDouble");
-//			RawValue ifResult = e->getIfResult()->accept(exprGenerator);
-//			ArgsV.push_back(ifResult.value);
-//			hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,
-//					"hashDouble");
-//			break;
-//		}
-//		case INT:
-//		{
-//			hashFunc = context->getFunction("hashInt");
-//			RawValue ifResult = e->getIfResult()->accept(exprGenerator);
-//			ArgsV.push_back(ifResult.value);
-//			hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,
-//					"hashInt");
-//			break;
-//		}
-//		/**
-//		 * XXX What happens once we introduce Record Construction too?
-//		 * Ideally, must handle transparently by using the GeneratorVisitor
-//		 * (+ whatever catalog info we maintain for the new record types)
-//		 * XXX Careful not to do double work (i.e., re-evaluate ifResult)
-//		 * Will not be an issue if first visit to Record is lazy
-//		 */
-//		case RECORD:
-//		{
-//			hashResult = e->getIfResult()->accept(*this);
-//
-////			Function *hashCombine = context->getFunction("combineHash");
-////			hashResult = context->createInt64(0);
-////			TheBuilder->CreateStore(hashResult,mem_hashResult);
-////
-////			RecordType* ifRecordType = (RecordType*) resultType;
-////			list<RecordAttribute*>& ifArgs = ifRecordType->getArgs();
-////			list<RecordAttribute*>::iterator it = ifArgs.begin();
-////			/**
-////			 * 'Trick': Launch visitor on every attribute of record.
-////			 * Create attribute expressions and trigger visitor again
-////			 */
-////
-////			//Assuming that no record exists without attributes..
-////			RecordAttribute *attr = it;
-////			expressions::RecordProjection proj =
-////					expressions::RecordProjection(attr->getOriginalType(),
-////							e->getIfResult(), *attr);
-////			for(; it < ifArgs.end(); it++)	{
-////				RecordAttribute *attr = it;
-////				expressions::RecordProjection proj =
-////						expressions::RecordProjection(attr->getOriginalType(),
-////								e->getIfResult(), *attr);
-////				RawValue partialHash = proj.accept(*this);
-////				ArgsV.clear();
-////				ArgsV.push_back(TheBuilder->CreateLoad(mem_hashResult));
-////				ArgsV.push_back(partialHash.value);
-////				hashResult = context->getBuilder()->CreateCall(hashCombine, ArgsV,
-////							"hashCombine");
-////				TheBuilder->CreateStore(hashResult,mem_hashResult);
-////			}
-////			hashResult = TheBuilder->CreateLoad(mem_hashResult);
-//			break;
-//		}
-//
-//		/**
-//		 * How can a collection result at this point?
-//		 * Option 1: Some projection
-//		 * Option 2: Input by user (-->merges)
-//		 * Option 3: ????
-//		 * Can be input argument... if input is of the form [[1,2],[3,4]]
-//		 * Can be previous if then else...
-//		 * => Examining all combinations does not scale
-//		 */
-//		//
-//		case LIST:
-//		{
-//			hashResult = e->getIfResult()->accept(*this);
-////			switch (e->getIfResult()->getTypeID())
-////			{
-////			case expressions::RECORD_PROJECTION:
-////			{
-////				//Using the 'projection' knowledge only to identify
-////				//the plugin that I need to call to hash the value in question
-////				expressions::RecordProjection* proj = (expressions::RecordProjection*) e->getIfResult;
-////				activeRelation = proj->getOriginalRelationName();
-////				Plugin* pg = catalog.getPlugin(activeRelation);
-////
-////				RawValueMemory resultMemoryWrapper;
-////				resultMemoryWrapper.mem = mem_result;
-////				resultMemoryWrapper.isNull = TheBuilder->CreateLoad(mem_result_isNull);
-////				hashResult = pg->hashValue(resultMemoryWrapper,e->getIfResult()->getExpressionType());
-////				break;
-////			}
-////			case expressions::MERGE:
-////			{
-////				string error_msg =
-////						"[Expression Hasher: ] Merging not supported yet";
-////				LOG(ERROR)<< error_msg;
-////				throw runtime_error(error_msg);
-////			}
-////			default:
-////			{
-////				string error_msg =
-////						"[Expression Hasher: ] Unexpected origin of collection";
-////				LOG(ERROR)<< error_msg;
-////				throw runtime_error(error_msg);
-////			}
-////			}
-//			break;
-//		}
-//		case BAG:
-//		{
-//			hashResult = e->getIfResult()->accept(*this);
-//			break;
-//		}
-//		case SET:
-//		{
-//			break;
-//		}
-//		default:
-//		{
-//			string error_msg = "[Expression Hasher: ] Unknown expression type";
-//			LOG(ERROR)<< error_msg;
-//			throw runtime_error(error_msg);
-//		}
-//		}
-//	}
-//	TheBuilder->CreateBr(MergeBB);
-//
-//	//else
-//	TheBuilder->SetInsertPoint(ElseBB);
-////	TheBuilder->CreateStore(elseResult.value,mem_result);
-////	TheBuilder->CreateStore(elseResult.isNull,mem_result_isNull);
-//	{
-//		ExpressionType *resultType = e->getExpressionType();
-//		std::vector<Value*> ArgsV;
-//		//Similar handling in other visit methods too
-//		switch (resultType->getTypeID())
-//		{
-//		case BOOL:
-//		{
-//			hashFunc = context->getFunction("hashBoolean");
-//			RawValue ifResult = e->getElseResult()->accept(exprGenerator);
-//			ArgsV.push_back(ifResult.value);
-//			hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,
-//					"hashBoolean");
-//			break;
-//		}
-//		case STRING:
-//		{
-//			hashFunc = context->getFunction("hashStringObject");
-//			RawValue ifResult = e->getElseResult()->accept(exprGenerator);
-//			ArgsV.push_back(ifResult.value);
-//			hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,
-//					"hashStringObj");
-//			break;
-//		}
-//		case FLOAT:
-//		{
-//			hashFunc = context->getFunction("hashDouble");
-//			RawValue ifResult = e->getIfResult()->accept(exprGenerator);
-//			ArgsV.push_back(ifResult.value);
-//			hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,
-//					"hashDouble");
-//			break;
-//		}
-//		case INT:
-//		{
-//			hashFunc = context->getFunction("hashInt");
-//			RawValue ifResult = e->getIfResult()->accept(exprGenerator);
-//			ArgsV.push_back(ifResult.value);
-//			hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,
-//					"hashInt");
-//			break;
-//		}
-//		case RECORD:
-//		{
-//			hashResult = e->getElseResult()->accept(*this);
-//			break;
-//		}
-//		case LIST:
-//		{
-//			hashResult = e->getElseResult()->accept(*this);
-//			break;
-//		}
-//		case BAG:
-//		{
-//			hashResult = e->getElseResult()->accept(*this);
-//			break;
-//		}
-//		case SET:
-//		{
-//			hashResult = e->getElseResult()->accept(*this);
-//			break;
-//		}
-//		default:
-//		{
-//			string error_msg = "[Expression Hasher: ] Unknown expression type";
-//			LOG(ERROR)<< error_msg;
-//			throw runtime_error(error_msg);
-//		}
-//		}
-//	}
-//	TheBuilder->CreateBr(MergeBB);
-//
-//	//cont.
-//	TheBuilder->SetInsertPoint(MergeBB);
-//	RawValue valWrapper;
-//	valWrapper.value = TheBuilder->CreateLoad(hashResult);
-//	valWrapper.isNull = TheBuilder->CreateLoad(context->createFalse());
-//
-//	return valWrapper;
-//}
+RawValue ExpressionHasherVisitor::visit(expressions::RecordConstruction *e) {
+
+	RawCatalog& catalog = RawCatalog::getInstance();
+	Function* const F = context->getGlobalFunction();
+	IRBuilder<>* const TheBuilder = context->getBuilder();
+	Type* int64Type = Type::getInt64Ty(context->getLLVMContext());
+	AllocaInst* argMem = NULL;
+	Value* isNull = NULL;
+
+	Function *hashCombine = context->getFunction("combineHash");
+	Value* hashedValue = context->createInt64(0);
+	std::vector<Value*> ArgsV;
+	//Initializing resulting hashed value
+	AllocaInst* mem_hashedValue = context->CreateEntryBlockAlloca(F,
+			std::string("hashValue"), int64Type);
+	TheBuilder->CreateStore(hashedValue, mem_hashedValue);
+
+	const list<expressions::AttributeConstruction> atts = e->getAtts();
+	list<expressions::AttributeConstruction>::const_iterator it;
+	for (it = atts.begin(); it != atts.end(); it++)
+	{
+		expressions::Expression* expr = (*it).getExpression();
+		RawValue partialHash = expr->accept(*this);
+
+		ArgsV.clear();
+		ArgsV.push_back(hashedValue);
+		ArgsV.push_back(partialHash.value);
+		hashedValue = TheBuilder->CreateCall(hashCombine, ArgsV,
+											"combineHash");
+		TheBuilder->CreateStore(hashedValue, mem_hashedValue);
+	}
+
+	RawValue hashValWrapper;
+	hashValWrapper.value = TheBuilder->CreateLoad(mem_hashedValue);
+	hashValWrapper.isNull = context->createFalse();
+	return hashValWrapper;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

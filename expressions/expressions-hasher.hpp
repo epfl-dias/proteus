@@ -67,24 +67,7 @@ public:
 	RawValue visit(expressions::DivExpression *e);
 	RawValue visit(expressions::AndExpression *e);
 	RawValue visit(expressions::OrExpression *e);
-
-	/**
-	 * STUBS
-	 */
-	RawValue visit(expressions::RecordConstruction *e) {
-		string error_msg = string("[ExpressionHasherVisitor]: Not implemented yet");
-		LOG(ERROR) << error_msg;
-		throw runtime_error(error_msg);
-	}
-
-	RawValue visit(expressions::MergeExpression *e) {
-		string error_msg = string("[ExpressionHasherVisitor]: Not implemented yet");
-		LOG(ERROR) << error_msg;
-		throw runtime_error(error_msg);
-	}
-	/**
-	 *
-	 */
+	RawValue visit(expressions::RecordConstruction *e);
 
 	void setActiveRelation(string relName)		{ activeRelation = relName; }
 	string getActiveRelation(string relName)	{ return activeRelation; }

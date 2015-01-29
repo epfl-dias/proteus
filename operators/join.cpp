@@ -30,7 +30,7 @@ void Join::produce() const {
 
 //TODO For now, materializing in a struct
 //Note: Pointer manipulation for this struct is not the same as char* manipulation
-void Join::consume(RawContext* const context, const OperatorState& childState) const {
+void Join::consume(RawContext* const context, const OperatorState& childState) {
 
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();

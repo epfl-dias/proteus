@@ -30,6 +30,6 @@ void Scan::produce() const {
 	LOG(INFO) << "[Scan:] End";
 }
 
-void Scan::consume(RawContext* const context, const OperatorState& childState) const {
+void Scan::consume(RawContext* const context, const OperatorState& childState) {
 	throw runtime_error(string("Scan operator cannot consume"));
 }
