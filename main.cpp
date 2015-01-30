@@ -126,15 +126,16 @@ int main(int argc, char* argv[])
 	//	}
 
 //	unnestJsmn();
-	unnestJsmnDeeper();
+//	unnestJsmnDeeper();
 //	unnestJsmnFiltering();
 //	outerUnnest();
 //	outerUnnestNull1();
 
 //	hashConstants();
 //	hashBinaryExpressions();
-	hashIfThenElse();
+//	hashIfThenElse();
 
+	reduceNumeric();
 }
 
 void hashConstants()	{
@@ -872,6 +873,9 @@ void nest()
 	attsUnnested.push_back(&recUnnested);
 	RecordType unnestedType = RecordType(attsUnnested);
 
+	/**
+	 * NEST
+	 */
 	//Output (e): SUM(children.age)
 	//Have to model nested type too
 	projections.push_back(recPrev);
@@ -895,6 +899,7 @@ void nest()
 	//Ignoring for now
 
 	//What to materialize (payload)
+	//FIXME sth materializer-related crashes -> some unknown binding
 	vector<RecordAttribute*> whichFields;
 	whichFields.push_back(&recPrev);
 	whichFields.push_back(&recUnnested);
@@ -908,6 +913,7 @@ void nest()
 			 predicate, f,
 			 f, &unnestOp,
 			 "nest_001", *mat);
+	unnestOp.setParent(&nestOp);
 
 	//ROOT
 	Root rootOp = Root(&nestOp);

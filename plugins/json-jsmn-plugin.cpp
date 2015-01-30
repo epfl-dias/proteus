@@ -1056,17 +1056,22 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* t
 	 */
 	Builder->SetInsertPoint(ifBlock);
 	switch (type->getTypeID()) {
-	case STRING:
+	case STRING:	{
 		hashFunc = context->getFunction("hashStringC");
 		ArgsV.clear();
 		ArgsV.push_back(bufPtr);
-		ArgsV.push_back(token_start);
-		ArgsV.push_back(token_end);
+		//FIXME tmp! - must make token_start and token_end datatype size_t
+		Type* int64Type = Type::getInt64Ty(llvmContext);
+		Value* token_start64 = Builder->CreateSExt(token_start,int64Type);
+		Value* token_end64 = Builder->CreateSExt(token_end,int64Type);
+		ArgsV.push_back(token_start64);
+		ArgsV.push_back(token_end64);
 
 		hashedValue = Builder->CreateCall(hashFunc, ArgsV, "hashStringC");
 		Builder->CreateStore(hashedValue, mem_hashedValue);
 		Builder->CreateStore(context->createFalse(), mem_hashedValue_isNull);
 		break;
+	}
 	case RECORD: {
 		//Object
 		AllocaInst* mem_seed = context->CreateEntryBlockAlloca(F,
@@ -1077,7 +1082,7 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* t
 		listElem.mem = mem_value.mem;
 		listElem.isNull = context->createFalse();
 
-		Function *hashCombine = context->getFunction("combineHash");
+		Function *hashCombine = context->getFunction("combineHashes");
 		hashedValue = context->createInt64(0);
 
 		list<RecordAttribute*>& args = ((RecordType*) type)->getArgs();
@@ -1098,7 +1103,7 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* t
 			//XXX Why loading now?
 			//hashedValue = Builder->CreateLoad(mem_hashedValue);
 			hashedValue = Builder->CreateCall(hashCombine, ArgsV,
-					"combineHash");
+					"combineHashes");
 			Builder->CreateStore(hashedValue, mem_hashedValue);
 		}
 
@@ -1115,12 +1120,12 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* t
 
 		//Initializing: i = tokenNo + 1;
 		AllocaInst* mem_tokenCnt = context->CreateEntryBlockAlloca(F,
-						std::string("tokenCnt"), int32Type);
-		Value* val_tokenCnt = Builder->CreateAdd(context->createInt32(1),tokenNo);
+						std::string("tokenCnt"), int64Type);
+		Value* val_tokenCnt = Builder->CreateAdd(context->createInt64(1),tokenNo);
 		Builder->CreateStore(val_tokenCnt,mem_tokenCnt);
 
 		//while (tokens[i].start < tokens[tokenNo].end && tokens[i].start != 0)
-		Function *hashCombine = context->getFunction("combineHash");
+		Function *hashCombine = context->getFunction("combineHashes");
 		hashedValue = context->createInt64(0);
 		Builder->CreateStore(hashedValue,mem_hashedValue);
 		BasicBlock *unrollCond, *unrollBody, *unrollInc, *unrollEnd;
@@ -1166,11 +1171,11 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* t
 		ArgsV.push_back(hashedValue);
 		ArgsV.push_back(partialHash.value);
 		hashedValue = Builder->CreateLoad(mem_hashedValue);
-		hashedValue = Builder->CreateCall(hashCombine,ArgsV,"combineHash");
+		hashedValue = Builder->CreateCall(hashCombine,ArgsV,"combineHashes");
 		Builder->CreateStore(hashedValue,mem_hashedValue);
 
 		val_tokenCnt = Builder->CreateAdd(Builder->CreateLoad(mem_tokenCnt),
-				context->createInt32(1));
+				context->createInt64(1));
 		Builder->CreateStore(val_tokenCnt,mem_tokenCnt);
 
 		Builder->CreateBr(unrollInc);
@@ -1229,7 +1234,7 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* t
 		hashFunc = context->getFunction("hashInt");
 		ArgsV.clear();
 		ArgsV.push_back(convertedValue);
-		hashedValue = Builder->CreateCall(conversionFunc, ArgsV, "hashInt");
+		hashedValue = Builder->CreateCall(hashFunc, ArgsV, "hashInt");
 		Builder->CreateStore(hashedValue, mem_hashedValue);
 		Builder->CreateStore(context->createFalse(), mem_hashedValue_isNull);
 		break;

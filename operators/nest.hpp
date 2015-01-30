@@ -56,7 +56,11 @@ private:
 	 * Any info needed is (should be) in the HT that will now be probed.
 	 */
 	void generateProbe(RawContext* const context) const;
-	void generateSum(RawContext* const context, const OperatorState& state) const;
+	void generateSum(RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
+	/**
+	 * We need a new accumulator for every resulting bucket of the HT
+	 */
+	AllocaInst* resetAccumulator() const;
 
 	Monoid acc;
 	expressions::Expression* outputExpr;
@@ -67,7 +71,7 @@ private:
 	//Check TODO on naming above
 	string aggregateName;
 
-	AllocaInst* mem_accumulating;
+
 	char* htName;
 	Materializer& mat;
 

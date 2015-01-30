@@ -34,23 +34,21 @@ Nest::Nest(Monoid acc, expressions::Expression* outputExpr,
 		g_nullToZero(g_nullToZero), pred(pred),
 		mat(mat), htName(opLabel), context(NULL)
 {
-	IRBuilder<>* Builder = context->getBuilder();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	Function *f = Builder->GetInsertBlock()->getParent();
-
-	Type* int1Type = Type::getInt1Ty(llvmContext);
-	Type* int32Type = Type::getInt32Ty(llvmContext);
-	Type* doubleType = Type::getDoubleTy(llvmContext);
-
 	//Prepare 'f' -> Turn it into expression (record construction)
 	list<expressions::InputArgument>::const_iterator it;
 	list<expressions::AttributeConstruction>* atts = new list<expressions::AttributeConstruction>();
 	list<RecordAttribute*> recordAtts;
 	string attrPlaceholder = string("attr_");
 	for(it = f_grouping.begin(); it != f_grouping.end(); it++)	{
-		expressions::InputArgument attrExpr = *it;
+
+		ExpressionType* type = it->getExpressionType();
+		int argNo = it->getArgNo();
+		list<RecordAttribute> projections = it->getProjections();
+		expressions::InputArgument* attrExpr =
+				new expressions::InputArgument(type, argNo, projections);
+
 		expressions::AttributeConstruction attr =
-				expressions::AttributeConstruction(attrPlaceholder,&attrExpr);
+				expressions::AttributeConstruction(attrPlaceholder,attrExpr);
 		atts->push_back(attr);
 
 		//Only used as placeholder to kickstart hashing later
@@ -64,147 +62,6 @@ Nest::Nest(Monoid acc, expressions::Expression* outputExpr,
 	this->aggregateName += string(htName);
 	this->aggregateName += "_aggr";
 
-	//Deal with 'memory allocations' as per monoid type requested
-	typeID outputType = outputExpr->getExpressionType()->getTypeID();
-	switch (acc) {
-	case SUM: {
-		switch (outputType) {
-		case INT: {
-			mem_accumulating = context->CreateEntryBlockAlloca(f,
-					string("dest_acc"), int32Type);
-			Value *val_zero = Builder->getInt32(0);
-			Builder->CreateStore(val_zero, mem_accumulating);
-			break;
-		}
-		case FLOAT: {
-			Type* doubleType = Type::getDoubleTy(llvmContext);
-			mem_accumulating = context->CreateEntryBlockAlloca(f,
-					string("dest_acc"), doubleType);
-			Value *val_zero = ConstantFP::get(doubleType, 0.0);
-			Builder->CreateStore(val_zero, mem_accumulating);
-			break;
-		}
-		default: {
-			string error_msg = string(
-					"[Nest: ] Sum/Multiply/Max operate on numerics");
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(error_msg);
-		}
-		}
-		break;
-	}
-	case MULTIPLY: {
-		switch (outputType) {
-		case INT: {
-			mem_accumulating = context->CreateEntryBlockAlloca(f,
-					string("dest_acc"), int32Type);
-			Value *val_zero = Builder->getInt32(1);
-			Builder->CreateStore(val_zero, mem_accumulating);
-			break;
-		}
-		case FLOAT: {
-			mem_accumulating = context->CreateEntryBlockAlloca(f,
-					string("dest_acc"), doubleType);
-			Value *val_zero = ConstantFP::get(doubleType, 1.0);
-			Builder->CreateStore(val_zero, mem_accumulating);
-			break;
-		}
-		default: {
-			string error_msg = string(
-					"[Nest: ] Sum/Multiply/Max operate on numerics");
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(error_msg);
-		}
-		}
-		break;
-	}
-	case MAX: {
-		switch (outputType) {
-		case INT: {
-			mem_accumulating = context->CreateEntryBlockAlloca(f,
-					string("dest_acc"), int32Type);
-			/**
-			 * FIXME This is not the appropriate 'zero' value for integers.
-			 * It is the one for naturals
-			 */
-			Value *val_zero = Builder->getInt32(0);
-			Builder->CreateStore(val_zero, mem_accumulating);
-			break;
-		}
-		case FLOAT: {
-			mem_accumulating = context->CreateEntryBlockAlloca(f,
-					string("dest_acc"), doubleType);
-			/**
-			 * FIXME This is not the appropriate 'zero' value for floats.
-			 * It is the one for naturals
-			 */
-			Value *val_zero = ConstantFP::get(doubleType, 0.0);
-			Builder->CreateStore(val_zero, mem_accumulating);
-			break;
-		}
-		default: {
-			string error_msg = string(
-					"[Nest: ] Sum/Multiply/Max operate on numerics");
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(error_msg);
-		}
-		}
-		break;
-	}
-	case OR:	{
-		switch (outputType) {
-		case BOOL: {
-			mem_accumulating = context->CreateEntryBlockAlloca(f,
-					string("dest_acc"), int1Type);
-			Value *val_zero = Builder->getInt1(0);
-			Builder->CreateStore(val_zero, mem_accumulating);
-			break;
-		}
-		default: {
-			string error_msg = string("[Nest: ] Or/And operate on booleans");
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(error_msg);
-		}
-
-		}
-		break;
-	}
-	case AND: {
-		switch (outputType) {
-		case BOOL: {
-			mem_accumulating = context->CreateEntryBlockAlloca(f,
-					string("dest_acc"), int1Type);
-			Value *val_zero = Builder->getInt1(1);
-			Builder->CreateStore(val_zero, mem_accumulating);
-			break;
-		}
-		default: {
-			string error_msg = string("[Nest: ] Or/And operate on booleans");
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(error_msg);
-		}
-
-		}
-		break;
-	}
-	case UNION:
-	case BAGUNION: {
-		string error_msg = string("[Nest: ] Not implemented yet");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
-	case APPEND: {
-		//XXX Reduce has some more stuff on this
-		string error_msg = string("[Nest: ] Not implemented yet");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
-	default: {
-		string error_msg = string("[Nest: ] Unknown accumulator");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
-	}
 }
 /**
  * NOTE: This is a fully pipeline-breaking operator!
@@ -479,10 +336,10 @@ void Nest::generateProbe(RawContext* const context) const
 		LOG(INFO) << "[HT Bucket Traversal: ] Binding name: "<<currField;
 	}
 	OperatorState newState = OperatorState(*this, *allBucketBindings);
-
+	AllocaInst *mem_accumulating = resetAccumulator();
 	switch (acc)	{
 	case SUM:
-		generateSum(context, newState);
+		generateSum(context, newState, mem_accumulating);
 		break;
 	case MULTIPLY:
 //			generateMul(context, childState);
@@ -546,6 +403,7 @@ void Nest::generateProbe(RawContext* const context) const
 	OperatorState *groupState = new OperatorState(*this, *allBucketBindings);
 	getParent()->consume(context, *groupState);
 
+
 	/**
 	 * [INC - HT BUCKET NO.] Continue outer loop
 	 */
@@ -562,7 +420,7 @@ void Nest::generateProbe(RawContext* const context) const
 	Builder->SetInsertPoint(loopEndHT);
 }
 
-void Nest::generateSum(RawContext* const context, const OperatorState& state) const	{
+void Nest::generateSum(RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const	{
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -645,6 +503,189 @@ void Nest::generateSum(RawContext* const context, const OperatorState& state) co
 	 * END Block
 	 */
 	Builder->SetInsertPoint(endBlock);
+}
+
+AllocaInst* Nest::resetAccumulator() const
+{
+	AllocaInst* mem_accumulating = NULL;
+
+	IRBuilder<>* Builder = context->getBuilder();
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Function *f = Builder->GetInsertBlock()->getParent();
+
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* doubleType = Type::getDoubleTy(llvmContext);
+
+	//Deal with 'memory allocations' as per monoid type requested
+	typeID outputType = outputExpr->getExpressionType()->getTypeID();
+	switch (acc)
+	{
+	case SUM:
+	{
+		switch (outputType)
+		{
+		case INT:
+		{
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int32Type);
+			Value *val_zero = Builder->getInt32(0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		case FLOAT:
+		{
+			Type* doubleType = Type::getDoubleTy(llvmContext);
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), doubleType);
+			Value *val_zero = ConstantFP::get(doubleType, 0.0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		default:
+		{
+			string error_msg = string(
+					"[Nest: ] Sum/Multiply/Max operate on numerics");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		}
+		break;
+	}
+	case MULTIPLY:
+	{
+		switch (outputType)
+		{
+		case INT:
+		{
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int32Type);
+			Value *val_zero = Builder->getInt32(1);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		case FLOAT:
+		{
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), doubleType);
+			Value *val_zero = ConstantFP::get(doubleType, 1.0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		default:
+		{
+			string error_msg = string(
+					"[Nest: ] Sum/Multiply/Max operate on numerics");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		}
+		break;
+	}
+	case MAX:
+	{
+		switch (outputType)
+		{
+		case INT:
+		{
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int32Type);
+			/**
+			 * FIXME This is not the appropriate 'zero' value for integers.
+			 * It is the one for naturals
+			 */
+			Value *val_zero = Builder->getInt32(0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		case FLOAT:
+		{
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), doubleType);
+			/**
+			 * FIXME This is not the appropriate 'zero' value for floats.
+			 * It is the one for naturals
+			 */
+			Value *val_zero = ConstantFP::get(doubleType, 0.0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		default:
+		{
+			string error_msg = string(
+					"[Nest: ] Sum/Multiply/Max operate on numerics");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		}
+		break;
+	}
+	case OR:
+	{
+		switch (outputType)
+		{
+		case BOOL:
+		{
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int1Type);
+			Value *val_zero = Builder->getInt1(0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		default:
+		{
+			string error_msg = string("[Nest: ] Or/And operate on booleans");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+
+		}
+		break;
+	}
+	case AND:
+	{
+		switch (outputType)
+		{
+		case BOOL:
+		{
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int1Type);
+			Value *val_zero = Builder->getInt1(1);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		default:
+		{
+			string error_msg = string("[Nest: ] Or/And operate on booleans");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+
+		}
+		break;
+	}
+	case UNION:
+	case BAGUNION:
+	{
+		string error_msg = string("[Nest: ] Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	case APPEND:
+	{
+		//XXX Reduce has some more stuff on this
+		string error_msg = string("[Nest: ] Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	default:
+	{
+		string error_msg = string("[Nest: ] Unknown accumulator");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	}
+	return mem_accumulating;
 }
 
 

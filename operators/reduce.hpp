@@ -27,6 +27,11 @@
 #include "operators/operators.hpp"
 #include "operators/monoids.hpp"
 #include "expressions/expressions-generator.hpp"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+
+using rapidjson::Writer;
+using rapidjson::StringBuffer;
 
 /**
  * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR REDUCE OPERATOR
@@ -57,6 +62,8 @@ private:
 	void generateUnion(RawContext* const context, const OperatorState& childState) const;
 	void generateBagUnion(RawContext* const context, const OperatorState& childState) const;
 	void generateAppend(RawContext* const context, const OperatorState& childState) const;
+
+	void flushResult();
 };
 
 #endif /* REDUCE_HPP_ */

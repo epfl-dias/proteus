@@ -114,10 +114,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 	Type* int64Type = Type::getInt64Ty(context->getLLVMContext());
 
-	AllocaInst* argMem = NULL;
-	Value* isNull = NULL;
-
-	Function *hashCombine = context->getFunction("combineHash");
+	Function *hashCombine = context->getFunction("combineHashes");
 	Value* hashedValue = context->createInt64(0);
 	std::vector<Value*> ArgsV;
 
@@ -145,9 +142,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 						&& currAttr.getAttrName() == activeLoop)
 				{
 					//Hash value now
-					RawValueMemory mem_activeTuple;
-					mem_activeTuple.mem = argMem;
-					mem_activeTuple.isNull = isNull;
+					RawValueMemory mem_activeTuple = itBindings->second;
 
 					Plugin* plugin = catalog.getPlugin(currAttr.getRelationName());
 					if(plugin == NULL)	{
@@ -160,12 +155,11 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 					//Does order matter?
 					//Does result of retrieving tuple1->tuple2 differ from tuple2->tuple1???
 					//(Probably should)
-					RawValue partialHash = plugin->hashValue(mem_activeTuple,it->getOriginalType());
+					RawValue partialHash = plugin->hashValue(mem_activeTuple,e->getExpressionType());
 					ArgsV.clear();
 					ArgsV.push_back(hashedValue);
 					ArgsV.push_back(partialHash.value);
-					hashedValue = TheBuilder->CreateCall(hashCombine, ArgsV,
-										"combineHash");
+					hashedValue = TheBuilder->CreateCall(hashCombine, ArgsV,"combineHashes");
 					TheBuilder->CreateStore(hashedValue, mem_hashedValue);
 					break;
 				}
@@ -699,7 +693,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordConstruction *e) {
 	AllocaInst* argMem = NULL;
 	Value* isNull = NULL;
 
-	Function *hashCombine = context->getFunction("combineHash");
+	Function *hashCombine = context->getFunction("combineHashes");
 	Value* hashedValue = context->createInt64(0);
 	std::vector<Value*> ArgsV;
 	//Initializing resulting hashed value
@@ -718,7 +712,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordConstruction *e) {
 		ArgsV.push_back(hashedValue);
 		ArgsV.push_back(partialHash.value);
 		hashedValue = TheBuilder->CreateCall(hashCombine, ArgsV,
-											"combineHash");
+											"combineHashes");
 		TheBuilder->CreateStore(hashedValue, mem_hashedValue);
 	}
 

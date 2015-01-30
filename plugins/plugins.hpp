@@ -70,5 +70,6 @@ public:
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) = 0;
 	virtual RawValue collectionHasNext(RawValue val_parentObject, RawValueMemory mem_currentChild) = 0;
 	virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) = 0;
+
 };
 #endif /* PLUGINS_LLVM_HPP_ */

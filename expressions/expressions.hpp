@@ -129,8 +129,8 @@ public:
 
 	~InputArgument()													{}
 
-	int getArgNo()														{ return argNo; }
-	list<RecordAttribute> getProjections()								{ return projections; }
+	int getArgNo() const												{ return argNo; }
+	list<RecordAttribute> getProjections() const						{ return projections; }
 	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeID()											{ return ARGUMENT; }
 private:

@@ -183,6 +183,42 @@ void Reduce::produce()	const { getChild()->produce(); }
 
 void Reduce::consume(RawContext* const context, const OperatorState& childState) {
 	generate(context, childState);
+	flushResult();
+}
+
+void Reduce::flushResult()	{
+	StringBuffer s;
+	Writer<StringBuffer> writer(s);
+	writer.StartObject();
+
+	switch (acc) {
+		case SUM:
+
+			break;
+		case MULTIPLY:
+
+			break;
+		case MAX:
+
+			break;
+		case OR:
+
+			break;
+		case AND:
+
+			break;
+		case UNION:
+		case BAGUNION:
+		case APPEND:
+		default: {
+			string error_msg = string("[Reduce: ] Unknown accumulator");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		}
+
+	writer.EndObject();
+	cout << s.GetString() << endl;
 }
 
 void Reduce::generate(RawContext* const context, const OperatorState& childState) const
