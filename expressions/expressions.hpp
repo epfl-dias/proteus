@@ -142,6 +142,11 @@ private:
 	 * argNo = 1 => rhs of Join, and so on.
 	 */
 	int argNo;
+	/**
+	 * Used as if 'slicing' a record ->
+	 * Treated as record fields
+	 * NOTE: One of them (activeLoop) is virtual
+	 */
 	list<RecordAttribute> projections;
 };
 

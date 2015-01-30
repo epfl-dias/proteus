@@ -30,7 +30,6 @@
 #include "operators/operator-state.hpp"
 
 //Used by all plugins
-//static const std::string activeTuple = "activeTuple";
 static const string activeLoop = "activeTuple";
 
 /**
@@ -66,6 +65,14 @@ public:
 
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type)		= 0;
 
+	/**
+	 * Not entirely sure which is the correct granularity for 'stuff to flush' here.
+	 * XXX Atm we only have one (JSON) serializer, later on it'll have to be an argument
+	 * XXX We probably also need sth for more isolated values
+	 */
+	virtual void flushTuple(RawValueMemory mem_value, Value* fileName) = 0;
+	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type, Value* fileName) = 0;
+	virtual void flushChunk(RawValueMemory mem_value, Value* fileName) = 0;
 
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) = 0;
 	virtual RawValue collectionHasNext(RawValue val_parentObject, RawValueMemory mem_currentChild) = 0;

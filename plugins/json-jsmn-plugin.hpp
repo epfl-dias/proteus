@@ -65,16 +65,23 @@ public:
 	string& getName() 													{ return fname; }
 
 	//1-1 correspondence with 'RecordProjection' expression
-	RawValueMemory readPath(string activeRelation, Bindings wrappedBindings, const char* pathVar);
-	RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
-	RawValueMemory readPathInternal(RawValueMemory mem_parentTokenNo, const char* pathVar);
+	virtual RawValueMemory readPath(string activeRelation, Bindings wrappedBindings, const char* pathVar);
+	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
 
-	RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
+	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
+
+	/**
+	 * VERY strong assumption (pretty much hard-coding) that we can just grab a chunk
+	 * of the input and flush it w/o caring what is the final serialization format
+	 */
+	virtual void flushTuple(RawValueMemory mem_value, Value* fileName)	{ flushChunk(mem_value, fileName); }
+	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type, Value* fileName)  { flushChunk(mem_value, fileName); }
+	virtual void flushChunk(RawValueMemory mem_value, Value* fileName);
 
 	//Used by unnest
-	RawValueMemory initCollectionUnnest(RawValue val_parentTokenNo);
-	RawValue collectionHasNext(RawValue val_parentTokenNo, RawValueMemory mem_currentTokenNo);
-	RawValueMemory collectionGetNext(RawValueMemory mem_currentToken);
+	virtual RawValueMemory initCollectionUnnest(RawValue val_parentTokenNo);
+	virtual RawValue collectionHasNext(RawValue val_parentTokenNo, RawValueMemory mem_currentTokenNo);
+	virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentToken);
 
 	void scanObjects(const RawOperator& producer, Function* debug);
 	void scanObjectsInterpreted(list<string> path, list<ExpressionType*> types);
@@ -111,6 +118,8 @@ private:
 	const char* var_tokenPtr;
 	const char* var_tokenOffset;
 	void skipToEnd();
+	RawValueMemory readPathInternal(RawValueMemory mem_parentTokenNo, const char* pathVar);
+
 };
 
 }

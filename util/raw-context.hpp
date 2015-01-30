@@ -70,8 +70,10 @@ public:
 	IRBuilder<>* const getBuilder() 			 const 		{ return TheBuilder; }
 	Function* const getFunction(string funcName) const;
 
+	ConstantInt* createInt8(char val);
 	ConstantInt* createInt32(int val);
 	ConstantInt* createInt64(int val);
+	ConstantInt* createInt64(size_t val);
 	ConstantInt* createTrue();
 	ConstantInt* createFalse();
 
@@ -87,6 +89,7 @@ public:
 	Value* getStructElem(Value* mem_struct, int elemNo);
 	Value* getStructElem(AllocaInst* mem_struct, int elemNo);
 	Value* CreateGlobalString(char* str);
+	Value* CreateGlobalString(const char* str);
 	PointerType* getPointerType(Type* type);
 
 	//Utility functions, similar to ones from Impala
@@ -204,6 +207,10 @@ extern "C" bool convertBoolean64(const char* buf, size_t start, size_t end);
 
 extern "C" int atois(const char* buf, int len);
 
+/**
+ * Hashing
+ */
+
 extern "C" size_t hashInt(int toHash);
 
 extern "C" size_t hashDouble(double toHash);
@@ -220,6 +227,33 @@ extern "C" size_t combineHashes(size_t hash1, size_t hash2);
 
 extern "C" size_t combineHashesNoOrder(size_t hash1, size_t hash2);
 
+/**
+ * Flushing data
+ */
+
+extern "C" void flushObjectStart(char* fileName);
+
+extern "C" void flushObjectEnd(char* fileName);
+
+extern "C" void flushArrayStart(char* fileName);
+
+extern "C" void flushArrayEnd(char* fileName);
+
+extern "C" void flushInt(int toFlush, char* fileName);
+
+extern "C" void flushDouble(double toFlush, char* fileName);
+
+extern "C" void flushBoolean(bool toFlush, char* fileName);
+
+extern "C" void flushStringC(char* toFlush, size_t start, size_t end, char* fileName);
+
+extern "C" void flushString(string toFlush, char* fileName);
+
+extern "C" void flushChar(char whichChar, char* fileName);
+
+/**
+ * Memory mgmt
+ */
 extern "C" void* getMemoryChunk(size_t chunkSize);
 
 #endif /* RAW_CONTEXT_HPP_ */

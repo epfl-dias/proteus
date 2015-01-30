@@ -27,11 +27,6 @@
 #include "operators/operators.hpp"
 #include "operators/monoids.hpp"
 #include "expressions/expressions-generator.hpp"
-#include "rapidjson/writer.h"
-#include "rapidjson/stringbuffer.h"
-
-using rapidjson::Writer;
-using rapidjson::StringBuffer;
 
 /**
  * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR REDUCE OPERATOR

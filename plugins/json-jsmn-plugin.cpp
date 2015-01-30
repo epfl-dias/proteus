@@ -1272,6 +1272,42 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* t
 	return valWrapper;
 }
 
+void JSONPlugin::flushChunk(RawValueMemory mem_value, Value* fileName)	{
+
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int8Type = Type::getInt8Ty(llvmContext);
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+	PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
+
+	//Preparing arguments
+	std::vector<Value*> ArgsV;
+	//buffer
+	Value* bufPtr = Builder->CreateLoad(NamedValuesJSON[var_buf]);
+	//start + end
+	Value* tokenNo = Builder->CreateLoad(mem_value.mem);
+	AllocaInst* mem_tokens = NamedValuesJSON[var_tokenPtr];
+	AllocaInst* mem_tokens_shifted = context->CreateEntryBlockAlloca(F,
+			std::string(var_tokenPtr), context->CreateJSMNStruct());
+	Value* token = context->getArrayElem(mem_tokens, tokenNo);
+	Builder->CreateStore(token,mem_tokens_shifted);
+	Value* token_start = context->getStructElem(mem_tokens_shifted,1);
+	Value* token_end = context->getStructElem(mem_tokens_shifted,2);
+	//where to flush? -> got it ready
+
+	ArgsV.push_back(bufPtr);
+	ArgsV.push_back(token_start);
+	ArgsV.push_back(token_end);
+	ArgsV.push_back(fileName);
+	Function *flushFunc = context->getFunction("flushString");
+	Builder->CreateCall(flushFunc, ArgsV, "flushString");
+}
+
 void JSONPlugin::generate(const RawOperator& producer) {
 	return scanObjects(producer, context->getGlobalFunction());
 }

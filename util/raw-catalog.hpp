@@ -5,6 +5,12 @@
 #include "plugins/plugins.hpp"
 #include "values/expressionTypes.hpp"
 
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+
+using rapidjson::Writer;
+using rapidjson::StringBuffer;
+
 //Forward Declaration
 class Plugin;
 
@@ -141,15 +147,52 @@ public:
 
 	void setReduceHT(map<int,Value*> *reduceSetHT)	{ this->reduceSetHT = reduceSetHT; }
 
+//	Writer<StringBuffer> getJSONFlusher(string fileName)
+//	{
+//		map<string, Writer<StringBuffer>>::iterator it;
+//		it = jsonFlushers.find(fileName);
+//		if (it == jsonFlushers.end())
+//		{
+//			LOG(INFO) << "Creating Writer/Flusher, flushing to " << fileName;
+//			StringBuffer s;
+//			Writer<StringBuffer> writer(s);
+//			(this->jsonFlushers)[fileName] = writer;
+//			return writer;
+//		}
+//		else
+//		{
+//			return jsonFlushers[fileName];
+//		}
+//	}
+
+	stringstream* getSerializer(string fileName)
+	{
+		map<string, stringstream*>::iterator it;
+		it = serializers.find(fileName);
+		if (it == serializers.end())
+		{
+			LOG(INFO) << "Creating Serializer, flushing to " << fileName;
+			stringstream* strBuffer = new stringstream();
+			(this->serializers)[fileName] = strBuffer;
+			return strBuffer;
+		}
+		else
+		{
+			return serializers[fileName];
+		}
+	}
+
 	void clear();
 
 private:
-	map<string,Plugin*> plugins;
-	map<string,multimap<int,void*>*> intHTs;
-	map<string,multimap<size_t,void*>*> HTs;
-	map<string, ExpressionType*> jsonTypeCatalog;
+	map<string,Plugin*> 					plugins;
+	map<string,multimap<int,void*>*> 		intHTs;
+	map<string,multimap<size_t,void*>*> 	HTs;
+	map<string, ExpressionType*> 			jsonTypeCatalog;
+//	map<string, Writer<StringBuffer>> 		jsonFlushers;
+	map<string, stringstream*> 				serializers;
 	//Initialized by Reduce() if accumulator type is set
-	map<int,Value*> *reduceSetHT;
+	map<int,Value*> 						*reduceSetHT;
 
 	/**
 	 * Reason for this: The hashtables we populate (intHTs etc) are created a priori.
@@ -176,7 +219,7 @@ private:
 	}
 
 	//Not implementing; RawCatalog is a singleton
-	RawCatalog(RawCatalog const&);              // Don't Implement.
+	RawCatalog(RawCatalog const&);     // Don't Implement.
 	void operator=(RawCatalog const&); // Don't implement
 };
 

@@ -225,7 +225,6 @@ RawValue ExpressionHasherVisitor::visit(expressions::IfThenElse *e) {
 	Function *F 					= TheBuilder->GetInsertBlock()->getParent();
 	Type* int64Type = Type::getInt64Ty(llvmContext);
 
-	Function *hashFunc = NULL;
 	RawValue hashResult;
 	AllocaInst* mem_hashResult = context->CreateEntryBlockAlloca(F, "hashResult", int64Type);
 

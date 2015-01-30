@@ -173,12 +173,22 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, int size) {
 	TheBuilder->CreateCall(memcpy_fn, args);
 }
 
+ConstantInt* RawContext::createInt8(char val) {
+	LLVMContext& ctx = *llvmContext;
+	return ConstantInt::get(ctx, APInt(8, val));
+}
+
 ConstantInt* RawContext::createInt32(int val) {
 	LLVMContext& ctx = *llvmContext;
 	return ConstantInt::get(ctx, APInt(32, val));
 }
 
 ConstantInt* RawContext::createInt64(int val) {
+	LLVMContext& ctx = *llvmContext;
+	return ConstantInt::get(ctx, APInt(64, val));
+}
+
+ConstantInt* RawContext::createInt64(size_t val) {
 	LLVMContext& ctx = *llvmContext;
 	return ConstantInt::get(ctx, APInt(64, val));
 }
@@ -278,6 +288,34 @@ AllocaInst* RawContext::CreateEntryBlockAlloca(Function *TheFunction,
 }
 
 Value* RawContext::CreateGlobalString(char* str) {
+	LLVMContext& ctx = *llvmContext;
+	ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(ctx, 8), strlen(str) + 1);
+
+	GlobalVariable* gvar_array__str = new GlobalVariable(*TheModule,
+	/*Type=*/ArrayTy_0,
+	/*isConstant=*/true,
+	/*Linkage=*/GlobalValue::PrivateLinkage,
+	/*Initializer=*/0, // has initializer, specified below
+			/*Name=*/".str");
+
+	Constant *tmpHTname = ConstantDataArray::getString(ctx, str,true);
+	PointerType* charPtrType = PointerType::get(IntegerType::get(ctx, 8), 0);
+	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, std::string("htName"), charPtrType);
+
+	vector<Value*> idxList = vector<Value*>();
+	idxList.push_back(createInt32(0));
+	idxList.push_back(createInt32(0));
+	Constant* shifted = ConstantExpr::getGetElementPtr(gvar_array__str,idxList);
+	gvar_array__str->setInitializer(tmpHTname);
+
+
+	LOG(INFO) << "[CreateGlobalString: ] " << str;
+	TheBuilder->CreateStore(shifted, AllocaName);
+	Value* globalStr = TheBuilder->CreateLoad(AllocaName);
+	return globalStr;
+}
+
+Value* RawContext::CreateGlobalString(const char* str) {
 	LLVMContext& ctx = *llvmContext;
 	ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(ctx, 8), strlen(str) + 1);
 
@@ -595,7 +633,7 @@ size_t hashDouble(double toHash) {
 
 //XXX Copy string? Or edit in place?
 size_t hashStringC(char* toHash, size_t start, size_t end)	{
-	char tmp = toHash[end+1];
+	char tmp = toHash[end + 1 - start];
 	toHash[end+1] = '\0';
 	boost::hash<string> hasher;
 	size_t result = hasher(toHash);
@@ -662,6 +700,154 @@ size_t combineHashesNoOrder(size_t hash1, size_t hash2) {
 	 return hash1;
 }
 
+/**
+ * Flushing data.
+ * Issue with standard flusher for now:
+ * Cannot 'cheat' and pass along JSON serialized data
+ * without having to first deserialize them
+ */
+//void flushInt(int toFlush, char* fileName)	{
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//	string name = string(fileName);
+//	Writer<StringBuffer> w = catalog.getJSONFlusher(name);
+//	w.Uint(toFlush);
+//}
+//
+//void flushDouble(double toFlush, char* fileName)	{
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//	string name = string(fileName);
+//	Writer<StringBuffer> w = catalog.getJSONFlusher(name);
+//	w.Double(toFlush);
+//}
+//
+//void flushBoolean(bool toFlush, char* fileName)	{
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//	string name = string(fileName);
+//	Writer<StringBuffer> w = catalog.getJSONFlusher(name);
+//	w.Bool(toFlush);
+//}
+//
+//void flushStringC(char* toFlush, size_t start, size_t end, char* fileName)	{
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//	string name = string(fileName);
+//	Writer<StringBuffer> w = catalog.getJSONFlusher(name);
+//	char tmp = toFlush[end + 1 - start];
+//	toFlush[end+1] = '\0';
+//	w.String(toFlush);
+//	toFlush[end+1] = tmp;
+//}
+//
+///**
+// * flushString: Not used atm
+// * Careful: Cannot be used from static code!
+// * It's going to be executed and flush to JSON file
+// * before actual 'query' execution
+// */
+//void flushString(string toFlush, char* fileName)	{
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//	string name = string(fileName);
+//	Writer<StringBuffer> w = catalog.getJSONFlusher(name);
+//	w.String(toFlush.c_str());
+//}
+//
+//void flushObjectStart(char* fileName)	{
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//	string name = string(fileName);
+//	Writer<StringBuffer> w = catalog.getJSONFlusher(name);
+//	w.StartObject();
+//}
+//
+//void flushArrayStart(char* fileName)	{
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//	string name = string(fileName);
+//	Writer<StringBuffer> w = catalog.getJSONFlusher(name);
+//	w.StartArray();
+//}
+//
+//void flushObjectEnd(char* fileName)	{
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//	string name = string(fileName);
+//	Writer<StringBuffer> w = catalog.getJSONFlusher(name);
+//	w.EndObject();
+//}
+//
+//void flushArrayEnd(char* fileName)	{
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//	string name = string(fileName);
+//	Writer<StringBuffer> w = catalog.getJSONFlusher(name);
+//	w.EndArray();
+//}
+
+void flushInt(int toFlush, char* fileName)	{
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream *strBuffer = catalog.getSerializer(name);
+	(*strBuffer) << toFlush;
+}
+
+void flushDouble(double toFlush, char* fileName)	{
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream *strBuffer = catalog.getSerializer(name);
+		(*strBuffer) << toFlush;
+}
+
+void flushBoolean(bool toFlush, char* fileName)	{
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream *strBuffer = catalog.getSerializer(name);
+		(*strBuffer) << toFlush;
+}
+
+void flushStringC(char* toFlush, size_t start, size_t end, char* fileName)	{
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream* strBuffer = catalog.getSerializer(name);
+	char tmp = toFlush[end + 1 - start];
+	toFlush[end+1] = '\0';
+	(*strBuffer) << toFlush;
+	toFlush[end+1] = tmp;
+}
+
+void flushObjectStart(char* fileName)	{
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream* strBuffer = catalog.getSerializer(name);
+	(*strBuffer) << "{";
+}
+
+void flushArrayStart(char* fileName)	{
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream* strBuffer = catalog.getSerializer(name);
+	(*strBuffer) << "}";
+}
+
+void flushObjectEnd(char* fileName)		{
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream* strBuffer = catalog.getSerializer(name);
+	(*strBuffer) << "[";
+}
+
+void flushArrayEnd(char* fileName)	{
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream* strBuffer = catalog.getSerializer(name);
+	(*strBuffer) << "]";
+}
+
+void flushCharacter(char whichChar, char* fileName)	{
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream* strBuffer = catalog.getSerializer(name);
+	(*strBuffer) << whichChar;
+}
+
+/**
+ * Memory mgmt
+ */
+
 void* getMemoryChunk(size_t chunkSize)	{
 	return allocateFromRegion(chunkSize);
 }
@@ -681,9 +867,9 @@ void registerFunctions(RawContext& context)	{
 	llvm::Type* int64_type = Type::getInt64Ty(ctx);
 	llvm::Type* void_type = Type::getVoidTy(ctx);
 	llvm::Type* double_type = Type::getDoubleTy(ctx);
-
 	llvm::PointerType* void_ptr_type = PointerType::get(int8_type, 0);
 	llvm::PointerType* char_ptr_type = PointerType::get(int8_type, 0);
+
 
 	std::vector<Type*> Ints8Ptr(1,Type::getInt8PtrTy(ctx));
 	std::vector<Type*> Ints8(1,int8_type);
@@ -717,7 +903,9 @@ void registerFunctions(RawContext& context)	{
 	ArgsStringCmp.insert(ArgsStringCmp.begin(),strObjType);
 	ArgsStringCmp.insert(ArgsStringCmp.begin(),strObjType);
 
-	//Args of functions computing hash
+	/**
+	 * Args of functions computing hash
+	 */
 	std::vector<Type*> ArgsHashInt;
 	ArgsHashInt.insert(ArgsHashInt.begin(),int_type);
 
@@ -739,27 +927,66 @@ void registerFunctions(RawContext& context)	{
 	ArgsHashCombine.insert(ArgsHashCombine.begin(),int64_type);
 	ArgsHashCombine.insert(ArgsHashCombine.begin(),int64_type);
 
+	/**
+	 * Args of functions computing flush
+	 */
+	std::vector<Type*> ArgsFlushInt;
+	ArgsFlushInt.insert(ArgsFlushInt.begin(),char_ptr_type);
+	ArgsFlushInt.insert(ArgsFlushInt.begin(),int_type);
+
+	std::vector<Type*> ArgsFlushDouble;
+	ArgsFlushDouble.insert(ArgsFlushDouble.begin(),char_ptr_type);
+	ArgsFlushDouble.insert(ArgsFlushDouble.begin(),double_type);
+
+	std::vector<Type*> ArgsFlushStringC;
+	ArgsFlushStringC.insert(ArgsFlushStringC.begin(),char_ptr_type);
+	ArgsFlushStringC.insert(ArgsFlushStringC.begin(),int64_type);
+	ArgsFlushStringC.insert(ArgsFlushStringC.begin(),int64_type);
+	ArgsFlushStringC.insert(ArgsFlushStringC.begin(),char_ptr_type);
+
+	std::vector<Type*> ArgsFlushBoolean;
+	ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(),int1_bool_type);
+	ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(),char_ptr_type);
+
+	std::vector<Type*> ArgsFlushStartEnd;
+	ArgsFlushStartEnd.insert(ArgsFlushStartEnd.begin(),char_ptr_type);
+
+	std::vector<Type*> ArgsFlushChar;
+	ArgsFlushChar.insert(ArgsFlushChar.begin(),char_ptr_type);
+	ArgsFlushChar.insert(ArgsFlushChar.begin(),int8_type);
+
+
 	std::vector<Type*> ArgsMemoryChunk;
 	ArgsMemoryChunk.insert(ArgsMemoryChunk.begin(),int64_type);
 
-	FunctionType *FTint = FunctionType::get(Type::getInt32Ty(ctx), Ints, false);
-	FunctionType *FTint64 = FunctionType::get(Type::getInt32Ty(ctx), Ints64, false);
-	FunctionType *FTcharPtr = FunctionType::get(Type::getInt32Ty(ctx), Ints8Ptr, false);
-	FunctionType *FTatois = FunctionType::get(int_type, ArgsAtois, false);
-	FunctionType *FTatof = FunctionType::get(double_type, Ints8Ptr, false);
-	FunctionType *FTprintFloat_ = FunctionType::get(int_type, Floats, false);
+
+
+	FunctionType *FTint = 				  FunctionType::get(Type::getInt32Ty(ctx), Ints, false);
+	FunctionType *FTint64 = 			  FunctionType::get(Type::getInt32Ty(ctx), Ints64, false);
+	FunctionType *FTcharPtr = 			  FunctionType::get(Type::getInt32Ty(ctx), Ints8Ptr, false);
+	FunctionType *FTatois = 			  FunctionType::get(int_type, ArgsAtois, false);
+	FunctionType *FTatof = 				  FunctionType::get(double_type, Ints8Ptr, false);
+	FunctionType *FTprintFloat_ = 		  FunctionType::get(int_type, Floats, false);
 	FunctionType *FTcompareTokenString_ = FunctionType::get(int_type, ArgsCmpTokens, false);
-	FunctionType *FTconvertBoolean_ = FunctionType::get(int1_bool_type, ArgsConvBoolean, false);
-	FunctionType *FTconvertBoolean64_ = FunctionType::get(int1_bool_type, ArgsConvBoolean64, false);
-	FunctionType *FTprintBoolean_ = FunctionType::get(void_type, Ints1, false);
-	FunctionType *FTcompareStrings = FunctionType::get(int1_bool_type, ArgsStringCmp, false);
-	FunctionType *FThashInt = FunctionType::get(int64_type, ArgsHashInt, false);
-	FunctionType *FThashDouble = FunctionType::get(int64_type, ArgsHashDouble, false);
-	FunctionType *FThashStringC = FunctionType::get(int64_type, ArgsHashStringC, false);
-	FunctionType *FThashStringObj = FunctionType::get(int64_type, ArgsHashStringObj, false);
-	FunctionType *FThashBoolean = FunctionType::get(int64_type, ArgsHashBoolean, false);
-	FunctionType *FThashCombine = FunctionType::get(int64_type, ArgsHashCombine, false);
-	FunctionType *FTmemoryChunk = FunctionType::get(void_ptr_type, ArgsMemoryChunk, false);
+	FunctionType *FTconvertBoolean_ = 	  FunctionType::get(int1_bool_type, ArgsConvBoolean, false);
+	FunctionType *FTconvertBoolean64_ =   FunctionType::get(int1_bool_type, ArgsConvBoolean64, false);
+	FunctionType *FTprintBoolean_ = 	  FunctionType::get(void_type, Ints1, false);
+	FunctionType *FTcompareStrings = 	  FunctionType::get(int1_bool_type, ArgsStringCmp, false);
+	FunctionType *FThashInt = 			  FunctionType::get(int64_type, ArgsHashInt, false);
+	FunctionType *FThashDouble = 		  FunctionType::get(int64_type, ArgsHashDouble, false);
+	FunctionType *FThashStringC = 		  FunctionType::get(int64_type, ArgsHashStringC, false);
+	FunctionType *FThashStringObj = 	  FunctionType::get(int64_type, ArgsHashStringObj, false);
+	FunctionType *FThashBoolean = 		  FunctionType::get(int64_type, ArgsHashBoolean, false);
+	FunctionType *FThashCombine = 		  FunctionType::get(int64_type, ArgsHashCombine, false);
+	FunctionType *FTflushInt = 			  FunctionType::get(void_type, ArgsFlushInt, false);
+	FunctionType *FTflushDouble = 		  FunctionType::get(void_type, ArgsFlushDouble, false);
+	FunctionType *FTflushStringC = 		  FunctionType::get(void_type, ArgsFlushStringC, false);
+	FunctionType *FTflushBoolean = 		  FunctionType::get(void_type, ArgsFlushBoolean, false);
+	FunctionType *FTflushStartEnd = 	  FunctionType::get(void_type, ArgsFlushStartEnd, false);
+	FunctionType *FTflushChar = 	  FunctionType::get(void_type, ArgsFlushChar, false);
+
+
+	FunctionType *FTmemoryChunk = 		  FunctionType::get(void_ptr_type, ArgsMemoryChunk, false);
 
 	Function *printi_ 		= Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
 	Function *printi64_ 	= Function::Create(FTint64, Function::ExternalLinkage,"printi64", TheModule);
@@ -786,6 +1013,9 @@ void registerFunctions(RawContext& context)	{
 					Function::ExternalLinkage, "convertBoolean64", TheModule);
 	convertBoolean64_->addFnAttr(llvm::Attribute::AlwaysInline);
 
+	/**
+	 * Hashing
+	 */
 	Function *hashInt_ = Function::Create(FThashInt, Function::ExternalLinkage,
 			"hashInt", TheModule);
 	Function *hashDouble_ = Function::Create(FThashDouble,
@@ -801,10 +1031,33 @@ void registerFunctions(RawContext& context)	{
 	Function *hashCombineNoOrder_ = Function::Create(FThashCombine,
 			Function::ExternalLinkage, "combineHashesNoOrder", TheModule);
 
+	/**
+	* Flushing
+	*/
+	Function *flushInt_ = Function::Create(FTflushInt,
+			Function::ExternalLinkage, "flushInt", TheModule);
+	Function *flushDouble_ = Function::Create(FTflushDouble,
+			Function::ExternalLinkage, "flushDouble", TheModule);
+	Function *flushStringC_ = Function::Create(FTflushStringC,
+			Function::ExternalLinkage, "flushString", TheModule);
+	Function *flushBoolean_ = Function::Create(FTflushBoolean,
+			Function::ExternalLinkage, "flushBoolean", TheModule);
+	Function *flushObjectStart_ = Function::Create(FTflushStartEnd,
+				Function::ExternalLinkage, "flushObjectStart", TheModule);
+	Function *flushArrayStart_ = Function::Create(FTflushStartEnd,
+				Function::ExternalLinkage, "flushArrayStart", TheModule);
+	Function *flushObjectEnd_ = Function::Create(FTflushStartEnd,
+				Function::ExternalLinkage, "flushObjectEnd", TheModule);
+	Function *flushArrayEnd_ = Function::Create(FTflushStartEnd,
+				Function::ExternalLinkage, "flushArrayEnd", TheModule);
+	Function *flushChar_ = Function::Create(FTflushChar,
+					Function::ExternalLinkage, "flushChar", TheModule);
+
+
 	Function *getMemoryChunk_ = Function::Create(FTmemoryChunk,
 				Function::ExternalLinkage, "getMemoryChunk", TheModule);
 
-	//Memcpy - not used yet
+	//Memcpy - not used (yet)
 	Type* types[] = { void_ptr_type, void_ptr_type, Type::getInt32Ty(ctx) };
 	Function* memcpy_ = Intrinsic::getDeclaration(TheModule, Intrinsic::memcpy, types);
 	if (memcpy_ == NULL) {
@@ -812,7 +1065,7 @@ void registerFunctions(RawContext& context)	{
 	}
 
 	/**
-	 * HASHTABLES
+	 * HASHTABLES FOR JOINS / AGGREGATIONS
 	 */
 	//Last type is needed to capture file size. Tentative
 	Type* ht_int_types[] = { char_ptr_type, int_type, void_ptr_type, int_type };
@@ -851,19 +1104,22 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("printFloat", printFloat_);
 	context.registerFunction("printBoolean", printBoolean_);
 	context.registerFunction("printc", printc_);
+
 	context.registerFunction("atoi", atoi_);
 	context.registerFunction("atois", atois_);
 	context.registerFunction("atof", atof_);
-	context.registerFunction("memcpy", memcpy_);
+
 	context.registerFunction("insertInt", insertIntKeyToHT_);
 	context.registerFunction("probeInt", probeIntHT_);
 	context.registerFunction("insertHT", insertToHT_);
 	context.registerFunction("probeHT", probeHT_);
 	context.registerFunction("getMetadataHT", getMetadataHT_);
+
 	context.registerFunction("compareTokenString", compareTokenString_);
 	context.registerFunction("convertBoolean", convertBoolean_);
 	context.registerFunction("convertBoolean64", convertBoolean64_);
 	context.registerFunction("equalStrings", stringEquality);
+
 	context.registerFunction("hashInt", hashInt_);
 	context.registerFunction("hashDouble", hashDouble_);
 	context.registerFunction("hashStringC", hashStringC_);
@@ -871,9 +1127,23 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("hashBoolean", hashBoolean_);
 	context.registerFunction("combineHashes", hashCombine_);
 	context.registerFunction("combineHashesNoOrder", hashCombineNoOrder_);
+
+	context.registerFunction("flushInt", flushInt_);
+	context.registerFunction("flushDouble", flushDouble_);
+	context.registerFunction("flushStringC", flushStringC_);
+	context.registerFunction("flushBoolean", flushBoolean_);
+	context.registerFunction("flushChar", flushChar_);
+
+	context.registerFunction("flushObjectStart", flushObjectStart_);
+	context.registerFunction("flushArrayStart", flushArrayStart_);
+	context.registerFunction("flushObjectEnd", flushObjectEnd_);
+	context.registerFunction("flushArrayEnd", flushArrayEnd_);
+
 	context.registerFunction("getMemoryChunk", getMemoryChunk_);
+	context.registerFunction("memcpy", memcpy_);
 }
 
+//'Inline' -> shouldn't it be placed in .hpp?
 inline int atoi1(const char *buf) {
 	return  (buf[0] - '0');
 }

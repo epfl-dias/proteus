@@ -38,24 +38,39 @@ public:
 	void init();
 	void generate(const RawOperator& producer);
 	void finish();
-	RawValueMemory readPath(string activeRelation, Bindings bindings, const char* pathVar);
-	RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
+	virtual RawValueMemory readPath(string activeRelation, Bindings bindings, const char* pathVar);
+	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
 
-	RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
+	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
+	virtual void flushTuple(RawValueMemory mem_value, Value* fileName) {
+		string error_msg = "[CSVPlugin: ] Flush not implemented yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
 
+	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type, Value* fileName)	{
+		string error_msg = "[CSVPlugin: ] Flush not implemented yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	virtual void flushChunk(RawValueMemory mem_value, Value* fileName)	{
+		string error_msg = "[CSVPlugin: ] Flush not implemented yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
 
-	RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
+	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
 		string error_msg = "[CSVPlugin: ] CSV files do not contain collections";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
-	RawValue collectionHasNext(RawValue val_parentObject,
+	virtual RawValue collectionHasNext(RawValue val_parentObject,
 			RawValueMemory mem_currentChild) {
 		string error_msg = "[CSVPlugin: ] CSV files do not contain collections";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
-	RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) {
+	virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) {
 		string error_msg = "[CSVPlugin: ] CSV files do not contain collections";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
