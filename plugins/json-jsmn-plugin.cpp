@@ -316,10 +316,10 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)	{
 	 * for (int i = 1; tokens[i].start != 0; )
 	 */
 	BasicBlock *jsonScanCond, *jsonScanBody, *jsonScanInc, *jsonScanEnd;
-	context->setEndingBlock(jsonScanEnd);
 	context->CreateForLoop("jsonScanCond", "jsonScanBody", "jsonScanInc","jsonScanEnd",
 							&jsonScanCond, &jsonScanBody, &jsonScanInc,	&jsonScanEnd);
-
+	context->setCurrentEntryBlock(Builder->GetInsertBlock());
+	context->setEndingBlock(jsonScanEnd);
 	/**
 	 * Entry Block: Simply jumping to condition part
 	 */
@@ -1300,12 +1300,15 @@ void JSONPlugin::flushChunk(RawValueMemory mem_value, Value* fileName)	{
 	Value* token_end = context->getStructElem(mem_tokens_shifted,2);
 	//where to flush? -> got it ready
 
+
+	Value* token_start64 = Builder->CreateSExt(token_start,int64Type);
+	Value* token_end64 = Builder->CreateSExt(token_end,int64Type);
 	ArgsV.push_back(bufPtr);
-	ArgsV.push_back(token_start);
-	ArgsV.push_back(token_end);
+	ArgsV.push_back(token_start64);
+	ArgsV.push_back(token_end64);
 	ArgsV.push_back(fileName);
-	Function *flushFunc = context->getFunction("flushString");
-	Builder->CreateCall(flushFunc, ArgsV, "flushString");
+	Function *flushFunc = context->getFunction("flushStringC");
+	Builder->CreateCall(flushFunc, ArgsV);
 }
 
 void JSONPlugin::generate(const RawOperator& producer) {

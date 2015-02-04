@@ -100,7 +100,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-	//getModule()->dump();
+	getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -799,14 +799,23 @@ void flushBoolean(bool toFlush, char* fileName)	{
 		(*strBuffer) << toFlush;
 }
 
+//FIXME Bug here
 void flushStringC(char* toFlush, size_t start, size_t end, char* fileName)	{
 	RawCatalog& catalog = RawCatalog::getInstance();
 	string name = string(fileName);
 	stringstream* strBuffer = catalog.getSerializer(name);
+	//FIXME issue with ptr arithmetic??
 	char tmp = toFlush[end + 1 - start];
 	toFlush[end+1] = '\0';
 	(*strBuffer) << toFlush;
 	toFlush[end+1] = tmp;
+}
+
+void flushStringReady(char* toFlush, char* fileName)	{
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream* strBuffer = catalog.getSerializer(name);
+	(*strBuffer) << toFlush;
 }
 
 void flushObjectStart(char* fileName)	{
@@ -944,6 +953,10 @@ void registerFunctions(RawContext& context)	{
 	ArgsFlushStringC.insert(ArgsFlushStringC.begin(),int64_type);
 	ArgsFlushStringC.insert(ArgsFlushStringC.begin(),char_ptr_type);
 
+	std::vector<Type*> ArgsFlushStringCv2;
+	ArgsFlushStringCv2.insert(ArgsFlushStringCv2.begin(),char_ptr_type);
+	ArgsFlushStringCv2.insert(ArgsFlushStringCv2.begin(),char_ptr_type);
+
 	std::vector<Type*> ArgsFlushBoolean;
 	ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(),int1_bool_type);
 	ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(),char_ptr_type);
@@ -981,6 +994,7 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FTflushInt = 			  FunctionType::get(void_type, ArgsFlushInt, false);
 	FunctionType *FTflushDouble = 		  FunctionType::get(void_type, ArgsFlushDouble, false);
 	FunctionType *FTflushStringC = 		  FunctionType::get(void_type, ArgsFlushStringC, false);
+	FunctionType *FTflushStringCv2 = 		  FunctionType::get(void_type, ArgsFlushStringCv2, false);
 	FunctionType *FTflushBoolean = 		  FunctionType::get(void_type, ArgsFlushBoolean, false);
 	FunctionType *FTflushStartEnd = 	  FunctionType::get(void_type, ArgsFlushStartEnd, false);
 	FunctionType *FTflushChar = 	  FunctionType::get(void_type, ArgsFlushChar, false);
@@ -1039,7 +1053,9 @@ void registerFunctions(RawContext& context)	{
 	Function *flushDouble_ = Function::Create(FTflushDouble,
 			Function::ExternalLinkage, "flushDouble", TheModule);
 	Function *flushStringC_ = Function::Create(FTflushStringC,
-			Function::ExternalLinkage, "flushString", TheModule);
+			Function::ExternalLinkage, "flushStringC", TheModule);
+	Function *flushStringCv2_ = Function::Create(FTflushStringCv2,
+				Function::ExternalLinkage, "flushStringReady", TheModule);
 	Function *flushBoolean_ = Function::Create(FTflushBoolean,
 			Function::ExternalLinkage, "flushBoolean", TheModule);
 	Function *flushObjectStart_ = Function::Create(FTflushStartEnd,
@@ -1131,6 +1147,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("flushInt", flushInt_);
 	context.registerFunction("flushDouble", flushDouble_);
 	context.registerFunction("flushStringC", flushStringC_);
+	context.registerFunction("flushStringCv2", flushStringCv2_);
 	context.registerFunction("flushBoolean", flushBoolean_);
 	context.registerFunction("flushChar", flushChar_);
 

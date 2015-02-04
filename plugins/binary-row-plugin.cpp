@@ -391,6 +391,7 @@ void BinaryRowPlugin::scan(const RawOperator& producer, Function *f)
 
 	//Get the ENTRY BLOCK
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
 	BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanCond", TheFunction);
 

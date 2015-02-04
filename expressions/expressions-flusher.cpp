@@ -30,7 +30,8 @@ RawValue ExpressionFlusherVisitor::visit(expressions::IntConstant *e) {
 	Value *val_int = ConstantInt::get(context->getLLVMContext(), APInt(32, e->getVal()));
 	ArgsV.push_back(val_int);
 	ArgsV.push_back(outputFileLLVM);
-	context->getBuilder()->CreateCall(flushInt, ArgsV, "hashInt");
+	context->getBuilder()->CreateCall(flushInt, ArgsV);
+	return placeholder;
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::FloatConstant *e) {
@@ -41,7 +42,9 @@ RawValue ExpressionFlusherVisitor::visit(expressions::FloatConstant *e) {
 	Value *val_double = ConstantFP::get(context->getLLVMContext(), APFloat(e->getVal()));
 	ArgsV.push_back(val_double);
 	ArgsV.push_back(outputFileLLVM);
-	context->getBuilder()->CreateCall(flushDouble, ArgsV, "flushDouble");
+	context->getBuilder()->CreateCall(flushDouble, ArgsV);
+	return placeholder;
+
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::BoolConstant *e) {
@@ -51,7 +54,9 @@ RawValue ExpressionFlusherVisitor::visit(expressions::BoolConstant *e) {
 	Value *val_boolean = ConstantInt::get(context->getLLVMContext(), APInt(1, e->getVal()));
 	ArgsV.push_back(val_boolean);
 	ArgsV.push_back(outputFileLLVM);
-	context->getBuilder()->CreateCall(flushBoolean, ArgsV, "flushBoolean");
+	context->getBuilder()->CreateCall(flushBoolean, ArgsV);
+	return placeholder;
+
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::StringConstant *e) {
@@ -70,7 +75,9 @@ RawValue ExpressionFlusherVisitor::visit(expressions::StringConstant *e) {
 	ArgsV.push_back(context->createInt64(end));
 	ArgsV.push_back(outputFileLLVM);
 
-	context->getBuilder()->CreateCall(flushStringC, ArgsV, "flushStringC");
+	context->getBuilder()->CreateCall(flushStringC, ArgsV);
+	return placeholder;
+
 }
 
 /**
@@ -93,7 +100,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::InputArgument *e)
 	list<RecordAttribute>::iterator it = projections.begin();
 
 		//Is there a case that I am doing extra work?
-	//Example: Am I hashing a value that is nested
+	//Example: Am I flushing a value that is nested
 	//in some value that I have already hashed?
 	for(; it != projections.end(); it++)	{
 		if(it->getAttrName() == activeLoop)	{
@@ -119,6 +126,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::InputArgument *e)
 			}
 		}
 	}
+	return placeholder;
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::RecordProjection *e) {
@@ -126,7 +134,11 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordProjection *e) {
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	activeRelation 					= e->getOriginalRelationName();
 
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
+	/**
+	 *  Missing connection apparently ('activeRelation')
+	*/
+	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState, activeRelation);
+
 	RawValue record					= e->getExpr()->accept(exprGenerator);
 	Plugin* plugin 					= catalog.getPlugin(activeRelation);
 
@@ -162,6 +174,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordProjection *e) {
 		}
 		plugin->flushValue(mem_path, e->getExpressionType(),outputFileLLVM);
 	}
+	return placeholder;
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::IfThenElse *e) {
@@ -170,9 +183,6 @@ RawValue ExpressionFlusherVisitor::visit(expressions::IfThenElse *e) {
 	LLVMContext& llvmContext		= context->getLLVMContext();
 	Function *F 					= TheBuilder->GetInsertBlock()->getParent();
 	Type* int64Type = Type::getInt64Ty(llvmContext);
-
-
-	AllocaInst* mem_hashResult = context->CreateEntryBlockAlloca(F, "hashResult", int64Type);
 
 	//Need to evaluate, not hash!
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
@@ -200,6 +210,8 @@ RawValue ExpressionFlusherVisitor::visit(expressions::IfThenElse *e) {
 
 	//cont.
 	TheBuilder->SetInsertPoint(MergeBB);
+	return placeholder;
+
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::EqExpression *e)	{
@@ -210,7 +222,9 @@ RawValue ExpressionFlusherVisitor::visit(expressions::EqExpression *e)	{
 	Function *flushFunc = context->getFunction("flushBoolean");
 	vector<Value*> ArgsV;
 	ArgsV.push_back(exprResult.value);
-	context->getBuilder()->CreateCall(flushFunc, ArgsV,"hashBoolean");
+	context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	return placeholder;
+
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::NeExpression *e)	{
@@ -221,7 +235,9 @@ RawValue ExpressionFlusherVisitor::visit(expressions::NeExpression *e)	{
 	Function *flushFunc = context->getFunction("flushBoolean");
 	vector<Value*> ArgsV;
 	ArgsV.push_back(exprResult.value);
-	context->getBuilder()->CreateCall(flushFunc, ArgsV,"hashBoolean");
+	context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	return placeholder;
+
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::GeExpression *e)	{
@@ -232,7 +248,8 @@ RawValue ExpressionFlusherVisitor::visit(expressions::GeExpression *e)	{
 	Function *flushFunc = context->getFunction("flushBoolean");
 	vector<Value*> ArgsV;
 	ArgsV.push_back(exprResult.value);
-	context->getBuilder()->CreateCall(flushFunc, ArgsV,"hashBoolean");
+	context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	return placeholder;
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::GtExpression *e)	{
@@ -243,7 +260,8 @@ RawValue ExpressionFlusherVisitor::visit(expressions::GtExpression *e)	{
 	Function *flushFunc = context->getFunction("flushBoolean");
 	vector<Value*> ArgsV;
 	ArgsV.push_back(exprResult.value);
-	context->getBuilder()->CreateCall(flushFunc, ArgsV,"hashBoolean");
+	context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	return placeholder;
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::LeExpression *e)	{
@@ -254,7 +272,8 @@ RawValue ExpressionFlusherVisitor::visit(expressions::LeExpression *e)	{
 	Function *flushFunc = context->getFunction("flushBoolean");
 	vector<Value*> ArgsV;
 	ArgsV.push_back(exprResult.value);
-	context->getBuilder()->CreateCall(flushFunc, ArgsV,"hashBoolean");
+	context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	return placeholder;
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::LtExpression *e)	{
@@ -265,7 +284,8 @@ RawValue ExpressionFlusherVisitor::visit(expressions::LtExpression *e)	{
 	Function *flushFunc = context->getFunction("flushBoolean");
 	vector<Value*> ArgsV;
 	ArgsV.push_back(exprResult.value);
-	context->getBuilder()->CreateCall(flushFunc, ArgsV,"hashBoolean");
+	context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	return placeholder;
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::AndExpression *e)	{
@@ -276,7 +296,8 @@ RawValue ExpressionFlusherVisitor::visit(expressions::AndExpression *e)	{
 	Function *flushFunc = context->getFunction("flushBoolean");
 	vector<Value*> ArgsV;
 	ArgsV.push_back(exprResult.value);
-	context->getBuilder()->CreateCall(flushFunc, ArgsV,"hashBoolean");
+	context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	return placeholder;
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::OrExpression *e)	{
@@ -287,7 +308,8 @@ RawValue ExpressionFlusherVisitor::visit(expressions::OrExpression *e)	{
 	Function *flushFunc = context->getFunction("flushBoolean");
 	vector<Value*> ArgsV;
 	ArgsV.push_back(exprResult.value);
-	context->getBuilder()->CreateCall(flushFunc, ArgsV,"hashBoolean");
+	context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	return placeholder;
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::AddExpression *e) {
@@ -332,7 +354,8 @@ RawValue ExpressionFlusherVisitor::visit(expressions::AddExpression *e) {
 		flushFunc = context->getFunction(instructionLabel);
 		vector<Value*> ArgsV;
 		ArgsV.push_back(exprResult.value);
-		context->getBuilder()->CreateCall(flushFunc, ArgsV,"hashBoolean");
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return placeholder;
 	}
 	throw runtime_error(string("[ExpressionFlusherVisitor]: input of binary expression can only be primitive"));
 }
@@ -379,7 +402,8 @@ RawValue ExpressionFlusherVisitor::visit(expressions::SubExpression *e) {
 		flushFunc = context->getFunction(instructionLabel);
 		vector<Value*> ArgsV;
 		ArgsV.push_back(exprResult.value);
-		context->getBuilder()->CreateCall(flushFunc, ArgsV,"flushBoolean");
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return placeholder;
 
 	}
 	throw runtime_error(string("[ExpressionFlusherVisitor]: input of binary expression can only be primitive"));
@@ -427,7 +451,8 @@ RawValue ExpressionFlusherVisitor::visit(expressions::MultExpression *e) {
 		flushFunc = context->getFunction(instructionLabel);
 		vector<Value*> ArgsV;
 		ArgsV.push_back(exprResult.value);
-		context->getBuilder()->CreateCall(flushFunc, ArgsV,"flushBoolean");
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return placeholder;
 	}
 	throw runtime_error(string("[ExpressionFlusherVisitor]: input of binary expression can only be primitive"));
 }
@@ -474,13 +499,14 @@ RawValue ExpressionFlusherVisitor::visit(expressions::DivExpression *e) {
 		flushFunc = context->getFunction(instructionLabel);
 		vector<Value*> ArgsV;
 		ArgsV.push_back(exprResult.value);
-		context->getBuilder()->CreateCall(flushFunc, ArgsV,"flushBoolean");
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return placeholder;
 	}
 	throw runtime_error(string("[ExpressionFlusherVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionFlusherVisitor::visit(expressions::RecordConstruction *e) {
-
+RawValue ExpressionFlusherVisitor::visit(expressions::RecordConstruction *e)
+{
 	RawCatalog& catalog = RawCatalog::getInstance();
 	Function* const F = context->getGlobalFunction();
 	IRBuilder<>* const TheBuilder = context->getBuilder();
@@ -489,25 +515,50 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordConstruction *e) {
 	Value* isNull = NULL;
 	char delim = ',';
 
+	Function *flushStr = context->getFunction("flushStringCv2");
 	Function *flushFunc = context->getFunction("flushChar");
 	vector<Value*> ArgsV;
 
-
 	const list<expressions::AttributeConstruction> atts = e->getAtts();
 	list<expressions::AttributeConstruction>::const_iterator it;
-	for (it = atts.begin(); it != atts.end(); )
+	//Start 'record'
+	ArgsV.push_back(context->createInt8('{'));
+	ArgsV.push_back(outputFileLLVM);
+	context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	for (it = atts.begin(); it != atts.end();)
 	{
-		expressions::Expression* expr = (*it).getExpression();
-		RawValue partialHash = expr->accept(*this);
+		//attrName
+		Value* val_attr = context->CreateGlobalString(
+				it->getBindingName().c_str());
+		ArgsV.clear();
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(outputFileLLVM);
 
+		//:
+		ArgsV.clear();
+		ArgsV.push_back(context->createInt8(':'));
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+
+		//value
+		expressions::Expression* expr = (*it).getExpression();
+		RawValue partialFlush = expr->accept(*this);
+
+		//comma, if needed
 		it++;
-		if(it != atts.end())	{
+		if (it != atts.end())
+		{
 			ArgsV.clear();
 			ArgsV.push_back(context->createInt8(delim));
 			ArgsV.push_back(outputFileLLVM);
-			context->getBuilder()->CreateCall(flushFunc, ArgsV,"flushChar");
+			context->getBuilder()->CreateCall(flushFunc, ArgsV);
 		}
 	}
+	ArgsV.clear();
+	ArgsV.push_back(context->createInt8('}'));
+	ArgsV.push_back(outputFileLLVM);
+	context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	return placeholder;
 }
 
 

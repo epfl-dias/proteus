@@ -35,6 +35,10 @@
 //===---------------------------------------------------------------------------===//
 // "Visitor(s)" responsible for eagerly evaluating and flushing an Expression
 //===---------------------------------------------------------------------------===//
+/**
+ * TODO Also need the concept of a serializer / output plugin.
+ * Atm, this flusher is 'hardcoded' to JSON logic
+ */
 class ExpressionFlusherVisitor: public ExprVisitor
 {
 public:
@@ -44,6 +48,10 @@ public:
 			activeRelation("")
 	{
 		outputFileLLVM = context->CreateGlobalString(this->outputFile);
+
+		//Only used as a token return value that is passed along by each visitor
+		placeholder.isNull = context->createTrue();
+		placeholder.value = NULL;
 	}
 	ExpressionFlusherVisitor(RawContext* const context,
 			const OperatorState& currState, char* outputFile,
@@ -77,12 +85,65 @@ public:
 
 	void setActiveRelation(string relName)		{ activeRelation = relName; }
 	string getActiveRelation(string relName)	{ return activeRelation; }
+
+	/**
+	 * TODO Push these functions to Serializer
+	 * NOTE: Hard-coded to JSON case atm
+	 */
+	void beginList()
+	{
+		Function *flushFunc = context->getFunction("flushChar");
+		vector<Value*> ArgsV;
+		//Start 'array'
+		ArgsV.push_back(context->createInt8('['));
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
+	void beginBag()
+	{
+		string error_msg = string(
+				"[ExpressionFlusherVisitor]: Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	void beginSet()
+	{
+		string error_msg = string(
+				"[ExpressionFlusherVisitor]: Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	void endList()
+	{
+		Function *flushFunc = context->getFunction("flushChar");
+		vector<Value*> ArgsV;
+		//Start 'array'
+		ArgsV.push_back(context->createInt8(']'));
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
+	void endBag()
+	{
+		string error_msg = string(
+				"[ExpressionFlusherVisitor]: Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	void endSet()
+	{
+		string error_msg = string(
+				"[ExpressionFlusherVisitor]: Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
 private:
 	RawContext* const context;
 	const OperatorState& currState;
 	char* outputFile;
 	Value* outputFileLLVM;
 
+	RawValue placeholder;
 	string activeRelation;
 
 };

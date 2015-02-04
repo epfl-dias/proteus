@@ -159,17 +159,12 @@ Reduce::Reduce(Monoid acc, expressions::Expression* outputExpr,
 		}
 		break;
 	}
-	case UNION:
-	case BAGUNION: {
+	case UNION:	break;
+	case BAGUNION:
+	case APPEND: {
 		string error_msg = string("[Reduce: ] Not implemented yet");
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
-	}
-	case APPEND: {
-		RawCatalog& catalog = RawCatalog::getInstance();
-		map<int, Value*> *reduceSetHT = new map<int, Value*>();
-		catalog.setReduceHT(reduceSetHT);
-		break;
 	}
 	default: {
 		string error_msg = string("[Reduce: ] Unknown accumulator");
@@ -182,8 +177,9 @@ Reduce::Reduce(Monoid acc, expressions::Expression* outputExpr,
 void Reduce::produce()	const { getChild()->produce(); }
 
 void Reduce::consume(RawContext* const context, const OperatorState& childState) {
+
 	generate(context, childState);
-	flushResult();
+	//flushResult();
 }
 
 void Reduce::flushResult()	{
@@ -244,8 +240,8 @@ void Reduce::generate(RawContext* const context, const OperatorState& childState
 		generateAnd(context, childState);
 		break;
 	case UNION:
-//		generateUnion(context, childState);
-//		break;
+		generateUnion(context, childState);
+		break;
 	case BAGUNION:
 //		generateBagUnion(context, childState);
 //		break;
@@ -280,23 +276,22 @@ void Reduce::generateSum(RawContext* const context, const OperatorState& childSt
 	/**
 	 * IF Block
 	 */
-	Builder->SetInsertPoint(ifBlock);
 	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(context, childState);
-	RawValue val_output = outputExpr->accept(outputExprGenerator);
+	RawValue val_output;
+	Builder->SetInsertPoint(entryBlock);
+	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
+	Builder->SetInsertPoint(ifBlock);
+	val_output = outputExpr->accept(outputExprGenerator);
+	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case INT: {
-		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
-		Builder->SetInsertPoint(ifBlock);
-
-		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 		Value* val_new = Builder->CreateAdd(val_accumulating, val_output.value);
 		Builder->CreateStore(val_new, mem_accumulating);
-
 		Builder->CreateBr(endBlock);
 
 		//Prepare final result output
+		//Important: Flush this out in overall ending block
 		Builder->SetInsertPoint(context->getEndingBlock());
 #ifdef DEBUG
 		std::vector<Value*> ArgsV;
@@ -310,14 +305,10 @@ void Reduce::generateSum(RawContext* const context, const OperatorState& childSt
 		break;
 	}
 	case FLOAT: {
-		Type* doubleType = Type::getDoubleTy(llvmContext);
-		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
-		Builder->SetInsertPoint(ifBlock);
 
-		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 		Value* val_new = Builder->CreateFAdd(val_accumulating,val_output.value);
 		Builder->CreateStore(val_new,mem_accumulating);
+		Builder->CreateBr(endBlock);
 
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
@@ -365,57 +356,51 @@ void Reduce::generateMul(RawContext* const context, const OperatorState& childSt
 	/**
 	 * IF Block
 	 */
-	Builder->SetInsertPoint(ifBlock);
 	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(context, childState);
-	RawValue val_output = outputExpr->accept(outputExprGenerator);
+	RawValue val_output;
+	Builder->SetInsertPoint(entryBlock);
+	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
+	Builder->SetInsertPoint(ifBlock);
+	val_output = outputExpr->accept(outputExprGenerator);
+	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case INT: {
-		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
-		Builder->SetInsertPoint(ifBlock);
+			Value* val_new = Builder->CreateMul(val_accumulating, val_output.value);
+			Builder->CreateStore(val_new, mem_accumulating);
+			Builder->CreateBr(endBlock);
 
-		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* val_new = Builder->CreateMul(val_accumulating, val_output.value);
-		Builder->CreateStore(val_new, mem_accumulating);
+			//Prepare final result output
+			//Important: Flush this out in overall ending block
+			Builder->SetInsertPoint(context->getEndingBlock());
+	#ifdef DEBUG
+			std::vector<Value*> ArgsV;
+			Function* debugInt = context->getFunction("printi");
+			Value* finalResult = Builder->CreateLoad(mem_accumulating);
+			ArgsV.push_back(finalResult);
+			Builder->CreateCall(debugInt, ArgsV);
+	#endif
+			//Back to 'normal' flow
+			Builder->SetInsertPoint(ifBlock);
+			break;
+		}
+		case FLOAT: {
+			Value* val_new = Builder->CreateFMul(val_accumulating,val_output.value);
+			Builder->CreateStore(val_new,mem_accumulating);
+			Builder->CreateBr(endBlock);
 
-		Builder->CreateBr(endBlock);
+			//Prepare final result output
+			Builder->SetInsertPoint(context->getEndingBlock());
+	#ifdef DEBUG
+			std::vector<Value*> ArgsV;
+			Function* debugFloat = context->getFunction("printFloat");
+			Value* finalResult = Builder->CreateLoad(mem_accumulating);
+			ArgsV.push_back(finalResult);
+			Builder->CreateCall(debugFloat, ArgsV);
+	#endif
 
-		//Prepare final result output
-		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUG
-		std::vector<Value*> ArgsV;
-		Function* debugInt = context->getFunction("printi");
-		Value* finalResult = Builder->CreateLoad(mem_accumulating);
-		ArgsV.push_back(finalResult);
-		Builder->CreateCall(debugInt, ArgsV);
-#endif
-		//Back to 'normal' flow
-		Builder->SetInsertPoint(ifBlock);
-		break;
-	}
-	case FLOAT: {
-		Type* doubleType = Type::getDoubleTy(llvmContext);
-		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
-		Builder->SetInsertPoint(ifBlock);
-
-		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* val_new = Builder->CreateFMul(val_accumulating,val_output.value);
-		Builder->CreateStore(val_new,mem_accumulating);
-
-		//Prepare final result output
-		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUG
-		std::vector<Value*> ArgsV;
-		Function* debugFloat = context->getFunction("printFloat");
-		Value* finalResult = Builder->CreateLoad(mem_accumulating);
-		ArgsV.push_back(finalResult);
-		Builder->CreateCall(debugFloat, ArgsV);
-#endif
-
-		break;
-	}
+			break;
+		}
 	default: {
 		string error_msg = string(
 				"[Reduce: ] Sum accumulator operates on numerics");
@@ -451,16 +436,15 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 	/**
 	 * IF Block
 	 */
-	Builder->SetInsertPoint(ifBlock);
 	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(context, childState);
-	RawValue val_output = outputExpr->accept(outputExprGenerator);
+	RawValue val_output;
+	Builder->SetInsertPoint(entryBlock);
+	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
+	Builder->SetInsertPoint(ifBlock);
+	val_output = outputExpr->accept(outputExprGenerator);
 
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case INT: {
-		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
-		Builder->SetInsertPoint(ifBlock);
-
 		/**
 		 * if(curr > max) max = curr;
 		 */
@@ -490,11 +474,6 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 		break;
 	}
 	case FLOAT: {
-		Type* doubleType = Type::getDoubleTy(llvmContext);
-		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
-		Builder->SetInsertPoint(ifBlock);
-
 		/**
 		 * if(curr > max) max = curr;
 		 */
@@ -558,16 +537,15 @@ void Reduce::generateOr(RawContext* const context, const OperatorState& childSta
 	/**
 	 * IF Block
 	 */
+	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(context, childState);
+	RawValue val_output;
+	Builder->SetInsertPoint(entryBlock);
+	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 	Builder->SetInsertPoint(ifBlock);
-	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(
-			context, childState);
+	val_output = outputExpr->accept(outputExprGenerator);
 
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case BOOL: {
-		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
-		Builder->SetInsertPoint(ifBlock);
-
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
 		RawValue val_output = outputExpr->accept(outputExprGenerator);
@@ -624,16 +602,18 @@ void Reduce::generateAnd(RawContext* const context, const OperatorState& childSt
 	/**
 	 * IF Block
 	 */
-	Builder->SetInsertPoint(ifBlock);
 	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(
 			context, childState);
+	RawValue val_output;
+	Builder->SetInsertPoint(entryBlock);
+	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
+	Builder->SetInsertPoint(ifBlock);
+	val_output = outputExpr->accept(outputExprGenerator);
 
-	switch (outputExpr->getExpressionType()->getTypeID()) {
-	case BOOL: {
-		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
-		Builder->SetInsertPoint(ifBlock);
-
+	switch (outputExpr->getExpressionType()->getTypeID())
+	{
+	case BOOL:
+	{
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
 		RawValue val_output = outputExpr->accept(outputExprGenerator);
@@ -668,9 +648,56 @@ void Reduce::generateAnd(RawContext* const context, const OperatorState& childSt
 }
 
 //Flush out whatever you received
-//FIXME Need 'output plugin'
+//FIXME Need 'output plugin' / 'serializer'
 void Reduce::generateUnion(RawContext* const context, const OperatorState& childState) const	{
+	IRBuilder<>* Builder = context->getBuilder();
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	//Backing up insertion block
+	BasicBlock *currBlock = Builder->GetInsertBlock();
 
+	ExpressionFlusherVisitor flusher = ExpressionFlusherVisitor(context, childState,"out.json");
+	//Preparing collection output (e.g., flushing out '{' in the case of JSON)
+	BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
+	//XXX ADD WITHOUT CRASH AND COMPLAINT ABOUT 'DOMINATION' - RELATED TO GLOBAL STRING
+//	Builder->SetInsertPoint(loopEntryBlock);
+//	Builder->SetInsertPoint(loopEntryBlock->getTerminator());
+//	flusher.beginList();
+	//Restoring
+	Builder->SetInsertPoint(currBlock);
+
+	//Generate condition
+	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, childState);
+	RawValue condition = pred->accept(predExprGenerator);
+	/**
+	 * Predicate Evaluation:
+	 */
+	BasicBlock* entryBlock = Builder->GetInsertBlock();
+	BasicBlock *endBlock = BasicBlock::Create(llvmContext, "reduceCondEnd", TheFunction);
+	BasicBlock *ifBlock;
+	context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond",
+					&ifBlock, endBlock);
+
+	/**
+	 * IF Block
+	 */
+	Builder->SetInsertPoint(entryBlock);
+	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
+
+	Builder->SetInsertPoint(ifBlock);
+	outputExpr->accept(flusher);
+
+	Builder->CreateBr(endBlock);
+
+	//Prepare final result output
+	Builder->SetInsertPoint(context->getEndingBlock());
+	//XXX ADD WITHOUT CRASH AND COMPLAINT ABOUT 'DOMINATION' - RELATED TO GLOBAL STRING
+	//flusher.endList();
+
+	/**
+	 * END Block
+	 */
+	Builder->SetInsertPoint(endBlock);
 }
 
 //Flush out whatever you received

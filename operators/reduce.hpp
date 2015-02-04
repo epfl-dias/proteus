@@ -27,6 +27,7 @@
 #include "operators/operators.hpp"
 #include "operators/monoids.hpp"
 #include "expressions/expressions-generator.hpp"
+#include "expressions/expressions-flusher.hpp"
 
 /**
  * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR REDUCE OPERATOR

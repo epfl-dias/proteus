@@ -705,6 +705,7 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 
 	//Get the ENTRY BLOCK
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
 	BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanCond", TheFunction);
 

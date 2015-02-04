@@ -121,6 +121,8 @@ public:
 	void registerFunction(const char*, Function*);
 	BasicBlock* getEndingBlock()							{ return codeEnd; }
 	void setEndingBlock(BasicBlock* codeEnd)				{ this->codeEnd = codeEnd; }
+	BasicBlock* getCurrentEntryBlock()						{ return currentCodeEntry; }
+	void setCurrentEntryBlock(BasicBlock* codeEntry)		{ this->currentCodeEntry = codeEntry; }
 
 
 	/**
@@ -155,8 +157,10 @@ private:
 	ExecutionEngine *TheExecutionEngine;
 	Function* TheFunction;
 	std::map<std::string, Function*> availableFunctions;
-	//
+	//Last (current) basic block. This changes every time a new scan is triggered
 	BasicBlock* codeEnd;
+	//Current entry basic block. This changes every time a new scan is triggered
+	BasicBlock* currentCodeEntry;
 };
 
 typedef struct StringObject	{
@@ -247,7 +251,8 @@ extern "C" void flushBoolean(bool toFlush, char* fileName);
 
 extern "C" void flushStringC(char* toFlush, size_t start, size_t end, char* fileName);
 
-extern "C" void flushString(string toFlush, char* fileName);
+//Used for pre-existing, well-formed strings (e.g. Record attributes)
+extern "C" void flushStringReady(char* toFlush, char* fileName);
 
 extern "C" void flushChar(char whichChar, char* fileName);
 

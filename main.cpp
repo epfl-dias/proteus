@@ -63,6 +63,7 @@ void outerUnnest();
 void outerUnnestNull1();
 void nest();
 
+void reduceOutput();
 void reduceNumeric();
 void reduceBoolean();
 void scanCSVBoolean();
@@ -109,8 +110,8 @@ int main(int argc, char* argv[])
 	//readJSONListInterpreted();
 
 //	scanCSVBoolean();
-//	reduceNumeric();
-//	reduceBoolean();
+	reduceNumeric();
+	reduceBoolean();
 //	ifThenElse();
 
 	/* This query (3) takes a bit more time */
@@ -135,7 +136,9 @@ int main(int argc, char* argv[])
 //	hashBinaryExpressions();
 //	hashIfThenElse();
 
-	reduceNumeric();
+//	recordProjectionsJSON();
+
+//	reduceOutput();
 }
 
 void hashConstants()	{
@@ -801,6 +804,8 @@ void outerUnnestNull1()
  * Not including Reduce (yet)
  * Even not considering absence of Reduce,
  * I don't think such a physical plan can occur through rewrites
+ *
+ * XXX Not tested
  */
 void nest()
 {
@@ -1499,6 +1504,76 @@ void selectionJsmn()
 	catalog.clear();
 }
 
+void reduceOutput()
+{
+	RawContext ctx = RawContext("testFunction-Reduce-FlushOutput");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/jsmnDeeper.json");
+
+	IntType intType = IntType();
+
+	string c1Name = string("c1");
+	RecordAttribute c1 = RecordAttribute(1, fname, c1Name, &intType);
+	string c2Name = string("c2");
+	RecordAttribute c2 = RecordAttribute(2, fname, c2Name, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&c1);
+	attsNested.push_back(&c2);
+	RecordType nested = RecordType(attsNested);
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	string attrName3 = string("c");
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &intType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &intType);
+	RecordAttribute attr3 = RecordAttribute(3, fname, attrName3, &nested);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+	atts.push_back(&attr3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	/**
+	 * SCAN
+	 */
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	/**
+	 * REDUCE
+	 */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(attr);
+	projections.push_back(attr2);
+
+	expressions::Expression* arg = new expressions::InputArgument(&inner, 0,
+			projections);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(
+			&intType, arg, attr);
+
+	expressions::Expression* lhs = new expressions::RecordProjection(&intType,
+			arg, attr2);
+	expressions::Expression* rhs = new expressions::IntConstant(43.0);
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
+	Reduce reduce = Reduce(UNION, outputExpr, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
 void recordProjectionsJSON()
 {
 	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
@@ -2022,7 +2097,7 @@ void cidrBinStr()
 void cidrQuery3()
 {
 
-	bool shortRun = false;
+	bool shortRun = true;
 	string filenameClinical = string("inputs/CIDR15/clinical.csv");
 	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
 	if (shortRun)
