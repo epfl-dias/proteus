@@ -170,6 +170,60 @@ RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* ty
 }
 }
 
+void CSVPlugin::flushValue(RawValueMemory mem_value, ExpressionType *type,
+		Value* fileName)
+{
+	IRBuilder<>* Builder = context->getBuilder();
+	Function *flushFunc;
+	Value* val_attr = Builder->CreateLoad(mem_value.mem);
+	switch (type->getTypeID())
+	{
+	case BOOL:
+	{
+		flushFunc = context->getFunction("flushBoolean");
+		std::vector<Value*> ArgsV;
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return;
+	}
+	case STRING:
+	{
+		LOG(ERROR)<< "[CSV PLUGIN: ] String datatypes not supported yet";
+		throw runtime_error(string("[CSV PLUGIN: ] String datatypes not supported yet"));
+	}
+	case FLOAT:
+	{
+		flushFunc = context->getFunction("flushDouble");
+		std::vector<Value*> ArgsV;
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc,ArgsV);
+		return;
+	}
+	case INT:
+	{
+		std::vector<Value*> ArgsV;
+		flushFunc = context->getFunction("flushInt");
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc,ArgsV);
+		return;
+	}
+	case BAG:
+	case LIST:
+	case SET:
+	LOG(ERROR) << "[CSV PLUGIN: ] CSV files do not contain collections";
+	throw runtime_error(string("[CSV PLUGIN: ] CSV files do not contain collections"));
+	case RECORD:
+	LOG(ERROR) << "[CSV PLUGIN: ] CSV files do not contain record-valued attributes";
+	throw runtime_error(string("[CSV PLUGIN: ] CSV files do not contain record-valued attributes"));
+	default:
+	LOG(ERROR) << "[CSV PLUGIN: ] Unknown datatype";
+	throw runtime_error(string("[CSV PLUGIN: ] Unknown datatype"));
+}
+}
+
 
 void CSVPlugin::finish()	{
 	close(fd);

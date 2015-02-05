@@ -814,7 +814,7 @@ void flushStringC(char* toFlush, size_t start, size_t end, char* fileName)	{
 	char tmp = toFlush[end];
 	toFlush[end] = '\0';
 	(*strBuffer) << (toFlush + start);
-	toFlush[end+1] = tmp;
+	toFlush[end] = tmp;
 }
 
 void flushStringReady(char* toFlush, char* fileName)	{

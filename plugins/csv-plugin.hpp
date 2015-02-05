@@ -42,22 +42,14 @@ public:
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
 
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
-	virtual void flushTuple(RawValueMemory mem_value, Value* fileName) {
-		string error_msg = "[CSVPlugin: ] Flush not implemented yet";
+
+	virtual void flushTuple(RawValueMemory mem_value, Value* fileName)	{
+		string error_msg = "[CSVPlugin: ] Functionality not supported yet";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
 
-	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type, Value* fileName)	{
-		string error_msg = "[CSVPlugin: ] Flush not implemented yet";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
-	virtual void flushChunk(RawValueMemory mem_value, Value* fileName)	{
-		string error_msg = "[CSVPlugin: ] Flush not implemented yet";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
+	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type, Value* fileName);
 
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
 		string error_msg = "[CSVPlugin: ] CSV files do not contain collections";

@@ -63,6 +63,7 @@ public:
 			Bindings wrappedBindings, const char* pathVar) 									= 0;
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type) 	= 0;
 
+	//Relevant for hashing visitors
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type)		= 0;
 
 	/**
@@ -70,10 +71,19 @@ public:
 	 * XXX Atm we only have one (JSON) serializer, later on it'll have to be an argument
 	 * XXX We probably also need sth for more isolated values
 	 */
+	/**
+	 * We need an intermediate internal representation to deserialize to
+	 * before serializing back.
+	 *
+	 * Example: How would one convert from CSV to JSON?
+	 * Can't just crop CSV entries and flush as JSON
+	 */
 	virtual void flushTuple(RawValueMemory mem_value, Value* fileName) = 0;
 	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type, Value* fileName) = 0;
-	virtual void flushChunk(RawValueMemory mem_value, Value* fileName) = 0;
 
+	/**
+	 * Relevant for collections' unnesting
+	 */
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) = 0;
 	virtual RawValue collectionHasNext(RawValue val_parentObject, RawValueMemory mem_currentChild) = 0;
 	virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) = 0;

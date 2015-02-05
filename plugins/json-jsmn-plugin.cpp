@@ -1292,13 +1292,16 @@ void JSONPlugin::flushChunk(RawValueMemory mem_value, Value* fileName)	{
 	//start + end
 	Value* tokenNo = Builder->CreateLoad(mem_value.mem);
 
-//#ifdef DEBUG
+#ifdef DEBUG
+//	Function* debugInt = context->getFunction("printi64");
+#endif
+#ifdef DEBUG
 //		//Which token is the appropriate one?
 //		Function* debugInt = context->getFunction("printi64");
 //		ArgsV.push_back(tokenNo);
 //		Builder->CreateCall(debugInt, ArgsV);
 //		ArgsV.clear();
-//#endif
+#endif
 
 	AllocaInst* mem_tokens = NamedValuesJSON[var_tokenPtr];
 	AllocaInst* mem_tokens_shifted = context->CreateEntryBlockAlloca(F,
@@ -1309,7 +1312,7 @@ void JSONPlugin::flushChunk(RawValueMemory mem_value, Value* fileName)	{
 	Value* token_end = context->getStructElem(mem_tokens_shifted,2);
 	//where to flush? -> got it ready
 
-//#ifdef DEBUG
+#ifdef DEBUG
 //		ArgsV.clear();
 //		debugInt = context->getFunction("printi");
 //		ArgsV.push_back(token_start);
@@ -1319,7 +1322,7 @@ void JSONPlugin::flushChunk(RawValueMemory mem_value, Value* fileName)	{
 //		ArgsV.push_back(token_end);
 //		Builder->CreateCall(debugInt, ArgsV);
 //		ArgsV.clear();
-//#endif
+#endif
 
 	Value* token_start64 = Builder->CreateSExt(token_start,int64Type);
 	Value* token_end64 = Builder->CreateSExt(token_end,int64Type);

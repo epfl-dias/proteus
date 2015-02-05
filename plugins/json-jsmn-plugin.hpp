@@ -71,12 +71,12 @@ public:
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
 
 	/**
-	 * VERY strong assumption (pretty much hard-coding) that we can just grab a chunk
+	 * XXX VERY strong JSON-specific assumption (pretty much hard-coding) that we can just grab a chunk
 	 * of the input and flush it w/o caring what is the final serialization format
 	 */
 	virtual void flushTuple(RawValueMemory mem_value, Value* fileName)	{ flushChunk(mem_value, fileName); }
 	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type, Value* fileName)  { flushChunk(mem_value, fileName); }
-	virtual void flushChunk(RawValueMemory mem_value, Value* fileName);
+	void flushChunk(RawValueMemory mem_value, Value* fileName);
 
 	//Used by unnest
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentTokenNo);
