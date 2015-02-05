@@ -145,6 +145,7 @@ public:
 		return metadataType;
 	}
 
+	Value* getMemResultCtr()	{ return mem_resultCtr; }
 
 
 private:
@@ -161,6 +162,15 @@ private:
 	BasicBlock* codeEnd;
 	//Current entry basic block. This changes every time a new scan is triggered
 	BasicBlock* currentCodeEntry;
+
+	/**
+	 * Basic stats / info to be used during codegen
+	 */
+	//XXX used to keep a counter of final output results
+	//and be utilized in actions such as flushing out delimiters
+	//NOTE: Must check whether sth similar is necessary for nested collections
+	Value* mem_resultCtr;
+
 };
 
 typedef struct StringObject	{
@@ -255,6 +265,10 @@ extern "C" void flushStringC(char* toFlush, size_t start, size_t end, char* file
 extern "C" void flushStringReady(char* toFlush, char* fileName);
 
 extern "C" void flushChar(char whichChar, char* fileName);
+
+extern "C" void flushOutput(char* fileName);
+
+extern "C" void flushDelimiter(size_t resultNo, char* fileName);
 
 /**
  * Memory mgmt

@@ -24,6 +24,7 @@
 #include "expressions/expressions-flusher.hpp"
 
 RawValue ExpressionFlusherVisitor::visit(expressions::IntConstant *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 	Function *flushInt = context->getFunction("flushInt");
 	vector<Value*> ArgsV;
@@ -35,6 +36,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::IntConstant *e) {
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::FloatConstant *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 	Value* fileName = context->CreateGlobalString(this->outputFile);
 	Function *flushDouble = context->getFunction("flushDouble");
@@ -48,6 +50,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::FloatConstant *e) {
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::BoolConstant *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 	Function *flushBoolean = context->getFunction("floatBoolean");
 	vector<Value*> ArgsV;
@@ -60,6 +63,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::BoolConstant *e) {
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::StringConstant *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 	Function *flushStringC = context->getFunction("flushStringC");
 
@@ -87,6 +91,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::StringConstant *e) {
  */
 RawValue ExpressionFlusherVisitor::visit(expressions::InputArgument *e)
 {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	Function* const F  = context->getGlobalFunction();
 	IRBuilder<>* const TheBuilder = context->getBuilder();
@@ -130,6 +135,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::InputArgument *e)
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::RecordProjection *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	activeRelation 					= e->getOriginalRelationName();
@@ -178,6 +184,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordProjection *e) {
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::IfThenElse *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	LLVMContext& llvmContext		= context->getLLVMContext();
@@ -215,6 +222,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::IfThenElse *e) {
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::EqExpression *e)	{
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 
@@ -228,6 +236,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::EqExpression *e)	{
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::NeExpression *e)	{
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 
@@ -241,6 +250,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::NeExpression *e)	{
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::GeExpression *e)	{
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 
@@ -253,6 +263,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::GeExpression *e)	{
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::GtExpression *e)	{
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 
@@ -265,6 +276,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::GtExpression *e)	{
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::LeExpression *e)	{
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 
@@ -277,6 +289,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::LeExpression *e)	{
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::LtExpression *e)	{
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 
@@ -289,6 +302,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::LtExpression *e)	{
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::AndExpression *e)	{
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 
@@ -301,6 +315,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::AndExpression *e)	{
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::OrExpression *e)	{
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 
@@ -313,6 +328,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::OrExpression *e)	{
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::AddExpression *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 	RawValue exprResult = e->accept(exprGenerator);
@@ -361,6 +377,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::AddExpression *e) {
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::SubExpression *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 	RawValue exprResult = e->accept(exprGenerator);
@@ -410,6 +427,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::SubExpression *e) {
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::MultExpression *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 	RawValue exprResult = e->accept(exprGenerator);
@@ -458,6 +476,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::MultExpression *e) {
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::DivExpression *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 	RawValue exprResult = e->accept(exprGenerator);
@@ -507,6 +526,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::DivExpression *e) {
 
 RawValue ExpressionFlusherVisitor::visit(expressions::RecordConstruction *e)
 {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	Function* const F = context->getGlobalFunction();
 	IRBuilder<>* const TheBuilder = context->getBuilder();

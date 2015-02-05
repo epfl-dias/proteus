@@ -47,11 +47,10 @@ public:
 			context(context), currState(currState), outputFile(outputFile),
 			activeRelation("")
 	{
-		outputFileLLVM = context->CreateGlobalString(this->outputFile);
-
 		//Only used as a token return value that is passed along by each visitor
 		placeholder.isNull = context->createTrue();
 		placeholder.value = NULL;
+		outputFileLLVM = NULL;
 	}
 	ExpressionFlusherVisitor(RawContext* const context,
 			const OperatorState& currState, char* outputFile,
@@ -59,7 +58,9 @@ public:
 			context(context), currState(currState), outputFile(outputFile),
 			activeRelation(activeRelation)
 	{
-		outputFileLLVM = context->CreateGlobalString(this->outputFile);
+		placeholder.isNull = context->createTrue();
+		placeholder.value = NULL;
+		outputFileLLVM = NULL;
 	}
 	RawValue visit(expressions::IntConstant *e);
 	RawValue visit(expressions::FloatConstant *e);
@@ -91,7 +92,7 @@ public:
 	 * NOTE: Hard-coded to JSON case atm
 	 */
 	void beginList()
-	{
+	{	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 		Function *flushFunc = context->getFunction("flushChar");
 		vector<Value*> ArgsV;
 		//Start 'array'
@@ -115,6 +116,7 @@ public:
 	}
 	void endList()
 	{
+		outputFileLLVM = context->CreateGlobalString(this->outputFile);
 		Function *flushFunc = context->getFunction("flushChar");
 		vector<Value*> ArgsV;
 		//Start 'array'
@@ -135,6 +137,15 @@ public:
 				"[ExpressionFlusherVisitor]: Not implemented yet");
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
+	}
+	void flushOutput()
+	{
+		outputFileLLVM = context->CreateGlobalString(this->outputFile);
+		Function *flushFunc = context->getFunction("flushOutput");
+		vector<Value*> ArgsV;
+		//Start 'array'
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
 	}
 
 private:

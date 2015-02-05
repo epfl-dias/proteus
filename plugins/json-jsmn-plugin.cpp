@@ -55,7 +55,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname, ExpressionType*
 	if (fd == -1) {
 		throw runtime_error(string("json.open"));
 	}
-	buf = (const char*) mmap(NULL, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
+	buf = (const char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE , MAP_PRIVATE, fd, 0);
 	if (buf == MAP_FAILED) {
 		throw runtime_error(string("json.mmap"));
 	}
@@ -1291,6 +1291,15 @@ void JSONPlugin::flushChunk(RawValueMemory mem_value, Value* fileName)	{
 	Value* bufPtr = Builder->CreateLoad(NamedValuesJSON[var_buf]);
 	//start + end
 	Value* tokenNo = Builder->CreateLoad(mem_value.mem);
+
+//#ifdef DEBUG
+//		//Which token is the appropriate one?
+//		Function* debugInt = context->getFunction("printi64");
+//		ArgsV.push_back(tokenNo);
+//		Builder->CreateCall(debugInt, ArgsV);
+//		ArgsV.clear();
+//#endif
+
 	AllocaInst* mem_tokens = NamedValuesJSON[var_tokenPtr];
 	AllocaInst* mem_tokens_shifted = context->CreateEntryBlockAlloca(F,
 			std::string(var_tokenPtr), context->CreateJSMNStruct());
@@ -1300,6 +1309,17 @@ void JSONPlugin::flushChunk(RawValueMemory mem_value, Value* fileName)	{
 	Value* token_end = context->getStructElem(mem_tokens_shifted,2);
 	//where to flush? -> got it ready
 
+//#ifdef DEBUG
+//		ArgsV.clear();
+//		debugInt = context->getFunction("printi");
+//		ArgsV.push_back(token_start);
+//		Builder->CreateCall(debugInt, ArgsV);
+//		ArgsV.clear();
+//
+//		ArgsV.push_back(token_end);
+//		Builder->CreateCall(debugInt, ArgsV);
+//		ArgsV.clear();
+//#endif
 
 	Value* token_start64 = Builder->CreateSExt(token_start,int64Type);
 	Value* token_end64 = Builder->CreateSExt(token_end,int64Type);

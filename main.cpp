@@ -110,8 +110,8 @@ int main(int argc, char* argv[])
 	//readJSONListInterpreted();
 
 //	scanCSVBoolean();
-	reduceNumeric();
-	reduceBoolean();
+//	reduceNumeric();
+//	reduceBoolean();
 //	ifThenElse();
 
 	/* This query (3) takes a bit more time */
@@ -138,7 +138,7 @@ int main(int argc, char* argv[])
 
 //	recordProjectionsJSON();
 
-//	reduceOutput();
+	reduceOutput();
 }
 
 void hashConstants()	{

@@ -91,6 +91,13 @@ RawContext::RawContext(const string& moduleName) {
 	// Create a new basic block to start insertion into.
 	BasicBlock *BB = BasicBlock::Create(ctx, "entry", F);
 	TheBuilder->SetInsertPoint(BB);
+
+	/**
+	 * Preparing global info to be maintained
+	 */
+	llvm::Type* int64_type = Type::getInt64Ty(ctx);
+	mem_resultCtr = this->CreateEntryBlockAlloca(F,"resultCtr",int64_type);
+	TheBuilder->CreateStore(this->createInt64(0),mem_resultCtr);
 }
 
 void RawContext::prepareFunction(Function *F) {
@@ -100,7 +107,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-	getModule()->dump();
+//	getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -300,7 +307,7 @@ Value* RawContext::CreateGlobalString(char* str) {
 
 	Constant *tmpHTname = ConstantDataArray::getString(ctx, str,true);
 	PointerType* charPtrType = PointerType::get(IntegerType::get(ctx, 8), 0);
-	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, std::string("htName"), charPtrType);
+	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, std::string("globalStr"), charPtrType);
 
 	vector<Value*> idxList = vector<Value*>();
 	idxList.push_back(createInt32(0));
@@ -328,7 +335,7 @@ Value* RawContext::CreateGlobalString(const char* str) {
 
 	Constant *tmpHTname = ConstantDataArray::getString(ctx, str,true);
 	PointerType* charPtrType = PointerType::get(IntegerType::get(ctx, 8), 0);
-	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, std::string("htName"), charPtrType);
+	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, std::string("globalStr"), charPtrType);
 
 	vector<Value*> idxList = vector<Value*>();
 	idxList.push_back(createInt32(0));
@@ -804,10 +811,9 @@ void flushStringC(char* toFlush, size_t start, size_t end, char* fileName)	{
 	RawCatalog& catalog = RawCatalog::getInstance();
 	string name = string(fileName);
 	stringstream* strBuffer = catalog.getSerializer(name);
-	//FIXME issue with ptr arithmetic??
-	char tmp = toFlush[end + 1 - start];
-	toFlush[end+1] = '\0';
-	(*strBuffer) << toFlush;
+	char tmp = toFlush[end];
+	toFlush[end] = '\0';
+	(*strBuffer) << (toFlush + start);
 	toFlush[end+1] = tmp;
 }
 
@@ -846,11 +852,27 @@ void flushArrayEnd(char* fileName)	{
 	(*strBuffer) << "]";
 }
 
-void flushCharacter(char whichChar, char* fileName)	{
+void flushChar(char whichChar, char* fileName)	{
 	RawCatalog& catalog = RawCatalog::getInstance();
 	string name = string(fileName);
 	stringstream* strBuffer = catalog.getSerializer(name);
 	(*strBuffer) << whichChar;
+}
+
+void flushDelimiter(size_t resultCtr, char whichDelim, char* fileName) {
+	RawCatalog& catalog = RawCatalog::getInstance();
+	if (likely(resultCtr > 0)) {
+		flushChar(whichDelim, fileName);
+	}
+}
+
+void flushOutput(char* fileName)	{
+	RawCatalog& catalog = RawCatalog::getInstance();
+		string name = string(fileName);
+		stringstream* strBuffer = catalog.getSerializer(name);
+		std::ofstream outFile;
+		outFile.open(fileName);
+		outFile << strBuffer->rdbuf();
 }
 
 /**
@@ -880,34 +902,34 @@ void registerFunctions(RawContext& context)	{
 	llvm::PointerType* char_ptr_type = PointerType::get(int8_type, 0);
 
 
-	std::vector<Type*> Ints8Ptr(1,Type::getInt8PtrTy(ctx));
-	std::vector<Type*> Ints8(1,int8_type);
-	std::vector<Type*> Ints1(1,int1_bool_type);
-	std::vector<Type*> Ints(1,int_type);
-	std::vector<Type*> Ints64(1,int64_type);
-	std::vector<Type*> Floats(1,double_type);
+	vector<Type*> Ints8Ptr(1,Type::getInt8PtrTy(ctx));
+	vector<Type*> Ints8(1,int8_type);
+	vector<Type*> Ints1(1,int1_bool_type);
+	vector<Type*> Ints(1,int_type);
+	vector<Type*> Ints64(1,int64_type);
+	vector<Type*> Floats(1,double_type);
 
-	std::vector<Type*> ArgsCmpTokens;
+	vector<Type*> ArgsCmpTokens;
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),char_ptr_type);
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),int_type);
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),int_type);
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),char_ptr_type);
 
-	std::vector<Type*> ArgsConvBoolean;
+	vector<Type*> ArgsConvBoolean;
 	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int_type);
 	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int_type);
 	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),char_ptr_type);
 
-	std::vector<Type*> ArgsConvBoolean64;
+	vector<Type*> ArgsConvBoolean64;
 	ArgsConvBoolean64.insert(ArgsConvBoolean64.begin(),int64_type);
 	ArgsConvBoolean64.insert(ArgsConvBoolean64.begin(),int64_type);
 	ArgsConvBoolean64.insert(ArgsConvBoolean64.begin(),char_ptr_type);
 
-	std::vector<Type*> ArgsAtois;
+	vector<Type*> ArgsAtois;
 	ArgsAtois.insert(ArgsAtois.begin(),int_type);
 	ArgsAtois.insert(ArgsAtois.begin(),char_ptr_type);
 
-	std::vector<Type*> ArgsStringCmp;
+	vector<Type*> ArgsStringCmp;
 	StructType* strObjType = context.CreateStringStruct();
 	ArgsStringCmp.insert(ArgsStringCmp.begin(),strObjType);
 	ArgsStringCmp.insert(ArgsStringCmp.begin(),strObjType);
@@ -915,62 +937,70 @@ void registerFunctions(RawContext& context)	{
 	/**
 	 * Args of functions computing hash
 	 */
-	std::vector<Type*> ArgsHashInt;
+	vector<Type*> ArgsHashInt;
 	ArgsHashInt.insert(ArgsHashInt.begin(),int_type);
 
-	std::vector<Type*> ArgsHashDouble;
+	vector<Type*> ArgsHashDouble;
 	ArgsHashDouble.insert(ArgsHashDouble.begin(),double_type);
 
-	std::vector<Type*> ArgsHashStringC;
+	vector<Type*> ArgsHashStringC;
 	ArgsHashStringC.insert(ArgsHashStringC.begin(),int64_type);
 	ArgsHashStringC.insert(ArgsHashStringC.begin(),int64_type);
 	ArgsHashStringC.insert(ArgsHashStringC.begin(),char_ptr_type);
 
-	std::vector<Type*> ArgsHashStringObj;
+	vector<Type*> ArgsHashStringObj;
 	ArgsHashStringObj.insert(ArgsHashStringObj.begin(),strObjType);
 
-	std::vector<Type*> ArgsHashBoolean;
+	vector<Type*> ArgsHashBoolean;
 	ArgsHashBoolean.insert(ArgsHashBoolean.begin(),int1_bool_type);
 
-	std::vector<Type*> ArgsHashCombine;
+	vector<Type*> ArgsHashCombine;
 	ArgsHashCombine.insert(ArgsHashCombine.begin(),int64_type);
 	ArgsHashCombine.insert(ArgsHashCombine.begin(),int64_type);
 
 	/**
 	 * Args of functions computing flush
 	 */
-	std::vector<Type*> ArgsFlushInt;
+	vector<Type*> ArgsFlushInt;
 	ArgsFlushInt.insert(ArgsFlushInt.begin(),char_ptr_type);
 	ArgsFlushInt.insert(ArgsFlushInt.begin(),int_type);
 
-	std::vector<Type*> ArgsFlushDouble;
+	vector<Type*> ArgsFlushDouble;
 	ArgsFlushDouble.insert(ArgsFlushDouble.begin(),char_ptr_type);
 	ArgsFlushDouble.insert(ArgsFlushDouble.begin(),double_type);
 
-	std::vector<Type*> ArgsFlushStringC;
+	vector<Type*> ArgsFlushStringC;
 	ArgsFlushStringC.insert(ArgsFlushStringC.begin(),char_ptr_type);
 	ArgsFlushStringC.insert(ArgsFlushStringC.begin(),int64_type);
 	ArgsFlushStringC.insert(ArgsFlushStringC.begin(),int64_type);
 	ArgsFlushStringC.insert(ArgsFlushStringC.begin(),char_ptr_type);
 
-	std::vector<Type*> ArgsFlushStringCv2;
+	vector<Type*> ArgsFlushStringCv2;
 	ArgsFlushStringCv2.insert(ArgsFlushStringCv2.begin(),char_ptr_type);
 	ArgsFlushStringCv2.insert(ArgsFlushStringCv2.begin(),char_ptr_type);
 
-	std::vector<Type*> ArgsFlushBoolean;
+	vector<Type*> ArgsFlushBoolean;
 	ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(),int1_bool_type);
 	ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(),char_ptr_type);
 
-	std::vector<Type*> ArgsFlushStartEnd;
+	vector<Type*> ArgsFlushStartEnd;
 	ArgsFlushStartEnd.insert(ArgsFlushStartEnd.begin(),char_ptr_type);
 
-	std::vector<Type*> ArgsFlushChar;
+	vector<Type*> ArgsFlushChar;
 	ArgsFlushChar.insert(ArgsFlushChar.begin(),char_ptr_type);
 	ArgsFlushChar.insert(ArgsFlushChar.begin(),int8_type);
 
+	vector<Type*> ArgsFlushDelim;
+	ArgsFlushDelim.insert(ArgsFlushDelim.begin(),char_ptr_type);
+	ArgsFlushDelim.insert(ArgsFlushDelim.begin(),int8_type);
+	ArgsFlushDelim.insert(ArgsFlushDelim.begin(),int64_type);
 
-	std::vector<Type*> ArgsMemoryChunk;
+
+	vector<Type*> ArgsMemoryChunk;
 	ArgsMemoryChunk.insert(ArgsMemoryChunk.begin(),int64_type);
+
+	vector<Type*> ArgsFlushOutput;
+	ArgsFlushOutput.insert(ArgsFlushOutput.begin(),char_ptr_type);
 
 
 
@@ -994,10 +1024,11 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FTflushInt = 			  FunctionType::get(void_type, ArgsFlushInt, false);
 	FunctionType *FTflushDouble = 		  FunctionType::get(void_type, ArgsFlushDouble, false);
 	FunctionType *FTflushStringC = 		  FunctionType::get(void_type, ArgsFlushStringC, false);
-	FunctionType *FTflushStringCv2 = 		  FunctionType::get(void_type, ArgsFlushStringCv2, false);
+	FunctionType *FTflushStringCv2 = 	  FunctionType::get(void_type, ArgsFlushStringCv2, false);
 	FunctionType *FTflushBoolean = 		  FunctionType::get(void_type, ArgsFlushBoolean, false);
 	FunctionType *FTflushStartEnd = 	  FunctionType::get(void_type, ArgsFlushStartEnd, false);
-	FunctionType *FTflushChar = 	  FunctionType::get(void_type, ArgsFlushChar, false);
+	FunctionType *FTflushChar =			  FunctionType::get(void_type, ArgsFlushChar, false);
+	FunctionType *FTflushOutput =		  FunctionType::get(void_type, ArgsFlushOutput, false);
 
 
 	FunctionType *FTmemoryChunk = 		  FunctionType::get(void_ptr_type, ArgsMemoryChunk, false);
@@ -1068,6 +1099,8 @@ void registerFunctions(RawContext& context)	{
 				Function::ExternalLinkage, "flushArrayEnd", TheModule);
 	Function *flushChar_ = Function::Create(FTflushChar,
 					Function::ExternalLinkage, "flushChar", TheModule);
+	Function *flushOutput_ = Function::Create(FTflushOutput,
+						Function::ExternalLinkage, "flushOutput", TheModule);
 
 
 	Function *getMemoryChunk_ = Function::Create(FTmemoryChunk,
@@ -1150,11 +1183,14 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("flushStringCv2", flushStringCv2_);
 	context.registerFunction("flushBoolean", flushBoolean_);
 	context.registerFunction("flushChar", flushChar_);
+	context.registerFunction("flushOutput", flushOutput_);
 
 	context.registerFunction("flushObjectStart", flushObjectStart_);
 	context.registerFunction("flushArrayStart", flushArrayStart_);
 	context.registerFunction("flushObjectEnd", flushObjectEnd_);
 	context.registerFunction("flushArrayEnd", flushArrayEnd_);
+	context.registerFunction("flushArrayEnd", flushArrayEnd_);
+
 
 	context.registerFunction("getMemoryChunk", getMemoryChunk_);
 	context.registerFunction("memcpy", memcpy_);

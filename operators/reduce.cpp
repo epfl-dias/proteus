@@ -653,22 +653,23 @@ void Reduce::generateUnion(RawContext* const context, const OperatorState& child
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	ExpressionFlusherVisitor flusher = ExpressionFlusherVisitor(context, childState,"out.json");
+
 	//Backing up insertion block
 	BasicBlock *currBlock = Builder->GetInsertBlock();
 
-	ExpressionFlusherVisitor flusher = ExpressionFlusherVisitor(context, childState,"out.json");
 	//Preparing collection output (e.g., flushing out '{' in the case of JSON)
 	BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
-	//XXX ADD WITHOUT CRASH AND COMPLAINT ABOUT 'DOMINATION' - RELATED TO GLOBAL STRING
-//	Builder->SetInsertPoint(loopEntryBlock);
-//	Builder->SetInsertPoint(loopEntryBlock->getTerminator());
-//	flusher.beginList();
+	Builder->SetInsertPoint(loopEntryBlock->getTerminator());
+	flusher.beginList();
+
 	//Restoring
 	Builder->SetInsertPoint(currBlock);
 
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, childState);
 	RawValue condition = pred->accept(predExprGenerator);
+
 	/**
 	 * Predicate Evaluation:
 	 */
@@ -685,14 +686,19 @@ void Reduce::generateUnion(RawContext* const context, const OperatorState& child
 	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
 	Builder->SetInsertPoint(ifBlock);
+
+	Value* resultCtr = Builder->CreateLoad(context->getMemResultCtr());
+
+
+	//TODO What about DELIMITERS needed?
 	outputExpr->accept(flusher);
 
 	Builder->CreateBr(endBlock);
 
-	//Prepare final result output
+	//Prepare final result output (e.g., flushing out '}' in the case of JSON)
 	Builder->SetInsertPoint(context->getEndingBlock());
-	//XXX ADD WITHOUT CRASH AND COMPLAINT ABOUT 'DOMINATION' - RELATED TO GLOBAL STRING
-	//flusher.endList();
+	flusher.endList();
+	flusher.flushOutput();
 
 	/**
 	 * END Block
@@ -701,9 +707,59 @@ void Reduce::generateUnion(RawContext* const context, const OperatorState& child
 }
 
 //Flush out whatever you received
-//FIXME Need 'output plugin'
+//FIXME Need 'output plugin' / 'serializer'
 void Reduce::generateBagUnion(RawContext* const context, const OperatorState& childState) const	{
+	IRBuilder<>* Builder = context->getBuilder();
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	ExpressionFlusherVisitor flusher = ExpressionFlusherVisitor(context, childState,"out.json");
 
+	//Backing up insertion block
+	BasicBlock *currBlock = Builder->GetInsertBlock();
+
+	//Preparing collection output (e.g., flushing out '{' in the case of JSON)
+	BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
+	Builder->SetInsertPoint(loopEntryBlock->getTerminator());
+	flusher.beginList();
+
+	//Restoring
+	Builder->SetInsertPoint(currBlock);
+
+	//Generate condition
+	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, childState);
+	RawValue condition = pred->accept(predExprGenerator);
+
+	/**
+	 * Predicate Evaluation:
+	 */
+	BasicBlock* entryBlock = Builder->GetInsertBlock();
+	BasicBlock *endBlock = BasicBlock::Create(llvmContext, "reduceCondEnd", TheFunction);
+	BasicBlock *ifBlock;
+	context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond",
+					&ifBlock, endBlock);
+
+	/**
+	 * IF Block
+	 */
+	Builder->SetInsertPoint(entryBlock);
+	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
+
+	Builder->SetInsertPoint(ifBlock);
+
+	//TODO What about DELIMITERS needed?
+	outputExpr->accept(flusher);
+
+	Builder->CreateBr(endBlock);
+
+	//Prepare final result output (e.g., flushing out '}' in the case of JSON)
+	Builder->SetInsertPoint(context->getEndingBlock());
+	flusher.endList();
+	flusher.flushOutput();
+
+	/**
+	 * END Block
+	 */
+	Builder->SetInsertPoint(endBlock);
 }
 
 //Materializes collection (in HT?)
