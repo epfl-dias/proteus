@@ -821,7 +821,9 @@ void flushStringReady(char* toFlush, char* fileName)	{
 	RawCatalog& catalog = RawCatalog::getInstance();
 	string name = string(fileName);
 	stringstream* strBuffer = catalog.getSerializer(name);
+	(*strBuffer) << "\"";
 	(*strBuffer) << toFlush;
+	(*strBuffer) << "\"";
 }
 
 void flushObjectStart(char* fileName)	{
@@ -859,7 +861,7 @@ void flushChar(char whichChar, char* fileName)	{
 	(*strBuffer) << whichChar;
 }
 
-void flushDelimiter(size_t resultCtr, char whichDelim, char* fileName) {
+void flushDelim(size_t resultCtr, char whichDelim, char* fileName) {
 	RawCatalog& catalog = RawCatalog::getInstance();
 	if (likely(resultCtr > 0)) {
 		flushChar(whichDelim, fileName);
@@ -1028,6 +1030,7 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FTflushBoolean = 		  FunctionType::get(void_type, ArgsFlushBoolean, false);
 	FunctionType *FTflushStartEnd = 	  FunctionType::get(void_type, ArgsFlushStartEnd, false);
 	FunctionType *FTflushChar =			  FunctionType::get(void_type, ArgsFlushChar, false);
+	FunctionType *FTflushDelim =			  FunctionType::get(void_type, ArgsFlushDelim, false);
 	FunctionType *FTflushOutput =		  FunctionType::get(void_type, ArgsFlushOutput, false);
 
 
@@ -1099,6 +1102,8 @@ void registerFunctions(RawContext& context)	{
 				Function::ExternalLinkage, "flushArrayEnd", TheModule);
 	Function *flushChar_ = Function::Create(FTflushChar,
 					Function::ExternalLinkage, "flushChar", TheModule);
+	Function *flushDelim_ = Function::Create(FTflushDelim,
+						Function::ExternalLinkage, "flushDelim", TheModule);
 	Function *flushOutput_ = Function::Create(FTflushOutput,
 						Function::ExternalLinkage, "flushOutput", TheModule);
 
@@ -1183,6 +1188,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("flushStringCv2", flushStringCv2_);
 	context.registerFunction("flushBoolean", flushBoolean_);
 	context.registerFunction("flushChar", flushChar_);
+	context.registerFunction("flushDelim", flushDelim_);
 	context.registerFunction("flushOutput", flushOutput_);
 
 	context.registerFunction("flushObjectStart", flushObjectStart_);

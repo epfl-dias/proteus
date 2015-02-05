@@ -63,9 +63,6 @@ void outerUnnest();
 void outerUnnestNull1();
 void nest();
 
-void reduceOutput();
-void reduceNumeric();
-void reduceBoolean();
 void scanCSVBoolean();
 
 void cidrQuery3();
@@ -77,10 +74,22 @@ void cidrBinStr();
 
 void ifThenElse();
 
+//Hashing microbenchmarks
 void hashTests();
 void hashConstants();
 void hashBinaryExpressions();
 void hashIfThenElse();
+
+
+void reduceNumeric();
+void reduceBoolean();
+
+//Producing actual output (JSON)
+//Only JSON plugin made 'flusher-aware' atm
+void reduceListObject();
+void reduceListInt();
+void reduceListRecordConstruction();
+
 
 template<class T>
 inline void my_hash_combine(std::size_t& seed, const T& v)
@@ -138,7 +147,10 @@ int main(int argc, char* argv[])
 
 //	recordProjectionsJSON();
 
-	reduceOutput();
+	//XXX: all 3 use same output file
+//	reduceListInt();
+//	reduceListObject();
+	reduceListRecordConstruction();
 }
 
 void hashConstants()	{
@@ -1504,9 +1516,9 @@ void selectionJsmn()
 	catalog.clear();
 }
 
-void reduceOutput()
+void reduceListInt()
 {
-	RawContext ctx = RawContext("testFunction-Reduce-FlushOutput");
+	RawContext ctx = RawContext("testFunction-Reduce-FlushListInt");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/jsmnDeeper.json");
@@ -1564,6 +1576,166 @@ void reduceOutput()
 	expressions::Expression* predicate = new expressions::GtExpression(
 			new BoolType(), lhs, rhs);
 	Reduce reduce = Reduce(UNION, outputExpr, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
+void reduceListObject()
+{
+	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/jsmnDeeper.json");
+
+	IntType intType = IntType();
+
+	string c1Name = string("c1");
+	RecordAttribute c1 = RecordAttribute(1, fname, c1Name, &intType);
+	string c2Name = string("c2");
+	RecordAttribute c2 = RecordAttribute(2, fname, c2Name, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&c1);
+	attsNested.push_back(&c2);
+	RecordType nested = RecordType(attsNested);
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	string attrName3 = string("c");
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &intType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &intType);
+	RecordAttribute attr3 = RecordAttribute(3, fname, attrName3, &nested);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+	atts.push_back(&attr3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	/**
+	 * SCAN
+	 */
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	/**
+	 * REDUCE
+	 */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(attr2);
+	projections.push_back(attr3);
+
+	expressions::Expression* arg = new expressions::InputArgument(&inner, 0,
+			projections);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(
+			&nested, arg, attr3);
+
+	expressions::Expression* lhs = new expressions::RecordProjection(&intType,
+			arg, attr2);
+	expressions::Expression* rhs = new expressions::IntConstant(43.0);
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
+	Reduce reduce = Reduce(UNION, outputExpr, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
+void reduceListRecordConstruction()
+{
+	RawContext ctx = RawContext("testFunction-Reduce-FlushListRecordConstruction");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/jsmnDeeper.json");
+
+	IntType intType = IntType();
+
+	string c1Name = string("c1");
+	RecordAttribute c1 = RecordAttribute(1, fname, c1Name, &intType);
+	string c2Name = string("c2");
+	RecordAttribute c2 = RecordAttribute(2, fname, c2Name, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&c1);
+	attsNested.push_back(&c2);
+	RecordType nested = RecordType(attsNested);
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	string attrName3 = string("c");
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &intType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &intType);
+	RecordAttribute attr3 = RecordAttribute(3, fname, attrName3, &nested);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+	atts.push_back(&attr3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	/**
+	 * SCAN
+	 */
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	/**
+	 * REDUCE
+	 */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(attr2);
+	projections.push_back(attr3);
+
+	expressions::Expression* arg = new expressions::InputArgument(&inner, 0,
+			projections);
+
+	//Preparing output:
+	//Preparing new record type
+	list<RecordAttribute*> newAttsTypes = list<RecordAttribute*>();
+	newAttsTypes.push_back(&attr2);
+	newAttsTypes.push_back(&attr3);
+	RecordType newRecType = RecordType(newAttsTypes);
+
+	//Preparing outputExpr (-> a new record construction!)
+	expressions::Expression* newAttrExpr1 = new expressions::RecordProjection(
+			&nested, arg, attr3);
+	expressions::Expression* newAttrExpr2 = new expressions::RecordProjection(
+				&intType, arg, attr2);
+	expressions::AttributeConstruction attrExpr1 = expressions::AttributeConstruction("scalar", newAttrExpr1);
+	expressions::AttributeConstruction attrExpr2 = expressions::AttributeConstruction("object", newAttrExpr2);
+	list<expressions::AttributeConstruction> newAtts = list<expressions::AttributeConstruction>();
+	newAtts.push_back(attrExpr1);
+	newAtts.push_back(attrExpr2);
+	expressions::RecordConstruction newRec = expressions::RecordConstruction(&newRecType,newAtts);
+
+	//Preparing predicate of reduce
+	expressions::Expression* lhs = new expressions::RecordProjection(&intType,
+			arg, attr2);
+	expressions::Expression* rhs = new expressions::IntConstant(43.0);
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
+
+	//Actual operator called
+	Reduce reduce = Reduce(UNION, &newRec, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
 	reduce.produce();

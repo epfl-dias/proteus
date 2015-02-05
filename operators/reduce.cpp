@@ -687,11 +687,18 @@ void Reduce::generateUnion(RawContext* const context, const OperatorState& child
 
 	Builder->SetInsertPoint(ifBlock);
 
-	Value* resultCtr = Builder->CreateLoad(context->getMemResultCtr());
+	//results so far
+	Value* mem_resultCtr = context->getMemResultCtr();
+	Value* resultCtr = Builder->CreateLoad(mem_resultCtr);
 
+	//flushing out delimiter (IF NEEDED)
+	flusher.flushDelim(resultCtr);
 
-	//TODO What about DELIMITERS needed?
 	outputExpr->accept(flusher);
+
+	//increase result ctr
+	Value* resultCtrInc = Builder->CreateAdd(resultCtr,context->createInt64(1));
+	Builder->CreateStore(resultCtrInc,mem_resultCtr);
 
 	Builder->CreateBr(endBlock);
 
@@ -746,8 +753,18 @@ void Reduce::generateBagUnion(RawContext* const context, const OperatorState& ch
 
 	Builder->SetInsertPoint(ifBlock);
 
-	//TODO What about DELIMITERS needed?
+	//results so far
+	Value* mem_resultCtr = context->getMemResultCtr();
+	Value* resultCtr = Builder->CreateLoad(mem_resultCtr);
+
+	//flushing out delimiter (IF NEEDED)
+	flusher.flushDelim(resultCtr);
+
 	outputExpr->accept(flusher);
+
+	//increase result ctr
+	Value* resultCtrInc = Builder->CreateAdd(resultCtr,context->createInt64(1));
+	Builder->CreateStore(resultCtrInc,mem_resultCtr);
 
 	Builder->CreateBr(endBlock);
 

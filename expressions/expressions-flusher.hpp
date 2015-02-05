@@ -147,6 +147,17 @@ public:
 		ArgsV.push_back(outputFileLLVM);
 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
 	}
+	void flushDelim(Value* resultCtr)
+	{
+		outputFileLLVM = context->CreateGlobalString(this->outputFile);
+		Function *flushFunc = context->getFunction("flushDelim");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(resultCtr);
+		//XXX JSON-specific -> Serializer business to differentiate
+		ArgsV.push_back(context->createInt8(','));
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
 
 private:
 	RawContext* const context;

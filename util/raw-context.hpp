@@ -268,7 +268,7 @@ extern "C" void flushChar(char whichChar, char* fileName);
 
 extern "C" void flushOutput(char* fileName);
 
-extern "C" void flushDelimiter(size_t resultNo, char* fileName);
+extern "C" void flushDelim(size_t resultCtr, char whichDelim, char* fileName);
 
 /**
  * Memory mgmt

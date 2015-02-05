@@ -553,6 +553,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordConstruction *e)
 		ArgsV.clear();
 		ArgsV.push_back(val_attr);
 		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushStr, ArgsV);
 
 		//:
 		ArgsV.clear();
