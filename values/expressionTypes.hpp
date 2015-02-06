@@ -131,6 +131,15 @@ public:
 	void setProjected()												{ projected = true; }
 	bool isProjected()												{ return projected; }
 
+//	bool operator==(const RecordAttribute& rhs) const
+//	{
+//	    if (getOriginalRelationName() != rhs.getOriginalRelationName())
+//	        return false;
+//	    if (getAttrName() != rhs.getAttrName())
+//	        return false;
+//	    return true;
+//	}
+
 private:
 	string relName;
 	string attrName;

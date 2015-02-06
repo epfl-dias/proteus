@@ -233,8 +233,8 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		int i = 0;
 		//Retrieving activeTuple(s) from HT
 		AllocaInst *mem_activeTuple = NULL;
-		const vector<RecordAttribute>& tuplesIdentifiers = mat.getTupleIdentifiers();
-		for(vector<RecordAttribute>::const_iterator it = tuplesIdentifiers.begin(); it!=tuplesIdentifiers.end(); it++)	{
+		const set<RecordAttribute>& tuplesIdentifiers = mat.getTupleIdentifiers();
+		for(set<RecordAttribute>::const_iterator it = tuplesIdentifiers.begin(); it!=tuplesIdentifiers.end(); it++)	{
 			mem_activeTuple = context->CreateEntryBlockAlloca(TheFunction,"mem_activeTuple",str->getElementType(i));
 			vector<Value*> idxList = vector<Value*>();
 			idxList.push_back(context->createInt32(0));

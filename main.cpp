@@ -61,7 +61,6 @@ void readJSONListInterpreted();
 
 void outerUnnest();
 void outerUnnestNull1();
-void nest();
 
 void scanCSVBoolean();
 
@@ -93,6 +92,8 @@ void reduceListRecordConstruction();
 void reduceListRecordOriginal();
 //Does not work yet - need explicit deserialization / serialization
 void reduceListRecordOriginalCSV();
+
+void nest();
 
 
 template<class T>
@@ -152,12 +153,14 @@ int main(int argc, char* argv[])
 //	recordProjectionsJSON();
 
 	//XXX: all these use same output file
-//	reduceListInt();
-//	reduceListObject();
-//	reduceListRecordConstruction();
-//	reduceListIntCSV();
+	reduceListInt();
+	reduceListObject();
+	reduceListRecordConstruction();
+	reduceListIntCSV();
 	reduceListRecordOriginal();
 
+	outerUnnest();
+//	nest();
 }
 
 void hashConstants()	{
@@ -824,7 +827,7 @@ void outerUnnestNull1()
  * Even not considering absence of Reduce,
  * I don't think such a physical plan can occur through rewrites
  *
- * XXX Not tested
+ * XXX Not working / tested
  */
 void nest()
 {
@@ -862,10 +865,16 @@ void nest()
 	RecordType inner = RecordType(atts);
 	ListType documentType = ListType(inner);
 
+	/**
+	 * SCAN
+	 */
 	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 
+	/**
+	 * OUTER UNNEST
+	 */
 	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
 	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
 	list<RecordAttribute> projections = list<RecordAttribute>();
@@ -887,6 +896,8 @@ void nest()
 	scan.setParent(&unnestOp);
 
 	//New record type:
+	//XXX Makes no sense to come up with new bindingNames w/o having a way to eval. them
+	//and ADD them in existing bindings!!!
 	string originalRecordName = "e";
 	RecordAttribute recPrev = RecordAttribute(1, fname, originalRecordName,
 			&inner);
@@ -923,14 +934,10 @@ void nest()
 	//Ignoring for now
 
 	//What to materialize (payload)
-	//FIXME sth materializer-related crashes -> some unknown binding
+	//just currently active tuple ids should be enough
 	vector<RecordAttribute*> whichFields;
-	whichFields.push_back(&recPrev);
-	whichFields.push_back(&recUnnested);
 
 	vector<materialization_mode> outputModes;
-	outputModes.insert(outputModes.begin(), EAGER);
-	outputModes.insert(outputModes.begin(), EAGER);
 	Materializer* mat = new Materializer(whichFields, outputModes);
 
 	Nest nestOp = Nest(SUM, nestOutput,

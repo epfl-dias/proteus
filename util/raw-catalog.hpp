@@ -92,7 +92,13 @@ public:
 			tableTypes[idx] = type;
 		}
 		else	{
-			throw runtime_error(string("Info in catalog already exists for table ")+tableName);
+			/**
+			 * Not an error any more.
+			 * Reason: Some operators (e.g. outerNull) duplicate code after them
+			 * => Some utility functions end up being called twice
+			 */
+			LOG(INFO) << "Info in catalog already exists for table "<<tableName;
+//			throw runtime_error(string("Info in catalog already exists for table ")+tableName);
 		}
 	}
 

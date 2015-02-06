@@ -44,29 +44,40 @@ class Materializer {
 
 public:
 	Materializer(const vector<RecordAttribute*>& whichFields,
+//			const vector<expressions::Expression*>& wantedExpressions,
 			const vector<materialization_mode>& outputMode_);
 	~Materializer() {
 	}
 
+//	const vector<RecordAttribute*>& getWantedExpressions() const {
+//			return wantedExpressions;
+//	}
 	const vector<RecordAttribute*>& getWantedFields() const {
 		return wantedFields;
 	}
 	const vector<materialization_mode>& getOutputMode() const {
 		return outputMode;
 	}
-//	int getMaterializedTuplesNo() const								{ return tupleIdentifiers; }
-//	void setMaterializedTuplesNo(int tupleIdentifiers)				{ this->tupleIdentifiers = tupleIdentifiers; }
 	void addTupleIdentifier(RecordAttribute attr) {
-		tupleIdentifiers.push_back(attr);
+		tupleIdentifiers.insert(attr);
+		//XXX There is obviously a better way to remove duplicates
+//		tupleIdentifiers.erase(unique(tupleIdentifiers.begin(), tupleIdentifiers.end()), tupleIdentifiers.end());
 	}
-	const vector<RecordAttribute>& getTupleIdentifiers() const {
+	const set<RecordAttribute>& getTupleIdentifiers() const {
 		return tupleIdentifiers;
 	}
 private:
+	/**
+	 *  XXX At some point, might Need expressions to (re-)evaluate bindings that
+	   have not been eagerly evaluated.
+	 */
+	 //	const vector<expressions::Expression*>& wantedExpressions;
+
+
 	const vector<RecordAttribute*>& wantedFields;
 	const vector<materialization_mode>& outputMode;
 	//int tupleIdentifiers;
-	vector<RecordAttribute> tupleIdentifiers;
+	set<RecordAttribute> tupleIdentifiers;
 };
 
 class OutputPlugin {

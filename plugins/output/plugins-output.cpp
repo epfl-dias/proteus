@@ -23,12 +23,20 @@
 
 #include "plugins/output/plugins-output.hpp"
 
-Materializer::Materializer(const vector<RecordAttribute*>& wantedFields, const vector<materialization_mode>& outputMode)
-	: wantedFields(wantedFields), outputMode(outputMode), tupleIdentifiers(0) {}
+Materializer::Materializer(const vector<RecordAttribute*>& wantedFields,
+//		const vector<expressions::Expression*>& wantedExpressions,
+		const vector<materialization_mode>& outputMode) :
+//		wantedExpressions(wantedExpressions),
+		wantedFields(wantedFields), outputMode(outputMode)
+{
+}
 
 OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer, const map<RecordAttribute, RawValueMemory>& bindings )
 	: context(context), materializer(materializer), currentBindings(bindings)	{
 
+	/**
+	 * TODO PAYLOAD SIZE IS NOT A DECISION TO BE MADE BY THE PLUGIN
+	 */
 	const vector<RecordAttribute*>& wantedFields = materializer.getWantedFields();
 	// Declare our result (value) type
 	materializedTypes = new vector<Type*>();
@@ -40,7 +48,9 @@ OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer
 		map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
 		//FIXME use 'find' instead of looping
 		for (memSearch = currentBindings.begin(); memSearch != currentBindings.end(); memSearch++) {
+
 			RecordAttribute currAttr = memSearch->first;
+			//cout << "HINT: " << currAttr.getOriginalRelationName() << "_" << currAttr.getName() << endl;
 			if (currAttr.getAttrName() == activeLoop) {
 				Type* currType = (memSearch->second).mem->getAllocatedType();
 				materializedTypes->push_back(currType);
@@ -50,9 +60,12 @@ OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer
 			}
 		}
 	}
-
-
 	int attrNo=0;
+	/**
+	 * XXX
+	 * What if fields not materialized (yet)? This will crash w/o cause
+	 * Atm, that's always the case when dealing with e.g. JSON that is lazily materialized
+	 */
 	for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it != wantedFields.end(); it++)	{
 		map<RecordAttribute, RawValueMemory>::const_iterator itSearch = currentBindings.find(*(*it));
 		//Field needed
@@ -65,7 +78,9 @@ OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer
 			Type* requestedType = chooseType((*it)->getOriginalType(),currType, mode);
 			materializedTypes->push_back(requestedType);
 			payload_type_size += (requestedType->getPrimitiveSizeInBits() / 8);
-		} else {
+		}
+		/*Commented because of previous comment */
+		else {
 			string error_msg = string("[OUTPUT PG: ] INPUT ERROR AT OPERATOR - UNKNOWN WANTED FIELD ") + (*it)->getAttrName();
 			LOG(ERROR) << error_msg;
 			throw runtime_error(error_msg);
@@ -76,7 +91,7 @@ OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer
 	//Result type specified
 	payloadType = llvm::StructType::get(context->getLLVMContext(),*materializedTypes);
 	payloadTypeSize = payload_type_size;
-};
+}
 
 //TODO Many more cases to cater for
 //Current most relevant example: JSONObject

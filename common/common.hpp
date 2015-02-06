@@ -39,6 +39,7 @@
 #include <string>
 #include <sstream>
 #include <stdexcept>
+#include <set>
 
 //LLVM Includes
 #include "llvm/Analysis/Passes.h"
@@ -94,6 +95,7 @@ using std::cout;
 using std::runtime_error;
 using std::vector;
 using std::string;
+using std::set;
 using std::endl;
 using std::pair;
 using std::cout;

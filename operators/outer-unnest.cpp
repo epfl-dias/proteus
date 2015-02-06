@@ -201,6 +201,7 @@ void OuterUnnest::generate(RawContext* const context,
 		valWrapper.isNull = context->createTrue();
 
 		(*unnestBindings)[unnestedAttr] = valWrapper;
+		cout << "In unnest: " << unnestedAttr.getOriginalRelationName() << "_" << unnestedAttr.getName() << endl;
 		OperatorState *newStateNull = new OperatorState(*this,*unnestBindings);
 
 		//Triggering parent
@@ -238,7 +239,7 @@ void OuterUnnest::generate(RawContext* const context,
 					RecordAttribute, RawValueMemory>(childState.getBindings());
 
 			(*unnestBindings2)[unnestedAttr] = nestedValueItem2;
-
+			cout << "In unnest: " << unnestedAttr.getOriginalRelationName() << "_" << unnestedAttr.getName() << endl;
 
 			OperatorState* newState2 = new OperatorState(*this,*unnestBindings2);
 

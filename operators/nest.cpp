@@ -146,10 +146,33 @@ void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 	for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!=wantedFields.end(); ++it)
 	{
 		map<RecordAttribute, RawValueMemory>::const_iterator memSearch = bindings.find(*(*it));
-		RawValueMemory currValMem = memSearch->second;
+
+		Value* llvmCurrVal = NULL;
+		if (memSearch != bindings.end())
+		{
+			RawValueMemory currValMem = memSearch->second;
+			llvmCurrVal = Builder->CreateLoad(currValMem.mem);
+		}
+		else
+		{
+//			/* Not in bindings yet => must actively materialize
+//			   This code would be relevant if materializer also
+//			   supported 'expressions to be materialized 	*/
+//			cout << "Must actively materialize field now" << endl;
+//			const vector<expressions::Expression*>& wantedExpressions =
+//					mat.getWantedExpressions();
+//			expressions::Expression* currExpr = wantedExpressions.at(offsetInWanted);
+//			ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
+//			RawValue currVal = currExpr->accept(exprGenerator);
+//			llvmCurrVal = currVal.value;
+
+			string error_msg = string("[NEST: ] Binding not found") + (*it)->getAttrName();
+			LOG(ERROR) << error_msg;
+			throw runtime_error(error_msg);
+		}
+
 		//FIXME FIX THE NECESSARY CONVERSIONS HERE
-		Value* currVal = Builder->CreateLoad(currValMem.mem);
-		Value* valToMaterialize = pg->convert(currVal->getType(),materializedTypes->at(offsetInWanted),currVal);
+		Value* valToMaterialize = pg->convert(llvmCurrVal->getType(),materializedTypes->at(offsetInWanted),llvmCurrVal);
 		vector<Value*> idxList = vector<Value*>();
 		idxList.push_back(context->createInt32(0));
 		idxList.push_back(context->createInt32(offsetInStruct));
@@ -220,10 +243,10 @@ void Nest::generateProbe(RawContext* const context) const
 //	ConstantPointerNull* const_null = ConstantPointerNull::get(i8_ptr);
 	AllocaInst* mem_bucketCounter = new AllocaInst(
 			IntegerType::get(llvmContext, 64), "mem_bucketCnt", codeSpot);
-	Builder->CreateStore(context->createInt32(0), mem_bucketCounter);
-
+	Builder->CreateStore(context->createInt64(0), mem_bucketCounter);
 	Builder->CreateBr(loopCondHT);
 
+	Builder->SetInsertPoint(loopCondHT);
 	//Condition:  current bucketSize in result array positions examined is set to 0
 	Value* bucketCounter = Builder->CreateLoad(mem_bucketCounter);
 	Value* mem_arrayShifted = context->getArrayElemMem(metadataArray, bucketCounter);
@@ -243,8 +266,9 @@ void Nest::generateProbe(RawContext* const context) const
 	 * (Should be) very relevant to join
 	 */
 	AllocaInst* mem_metadataStruct = context->CreateEntryBlockAlloca(TheFunction,
-				"currKeyNest", metadataArrayType);
+				"currKeyNest", metadataType);
 	Value* arrayShifted = Builder->CreateLoad(mem_arrayShifted);
+
 	Builder->CreateStore(arrayShifted,mem_metadataStruct);
 	Value* currKey = context->getStructElem(mem_metadataStruct,0);
 	Value* currBucketSize = context->getStructElem(mem_metadataStruct,1);
@@ -305,11 +329,11 @@ void Nest::generateProbe(RawContext* const context) const
 	//Retrieving activeTuple(s) from HT
 	AllocaInst *mem_activeTuple = NULL;
 	Value *activeTuple = NULL;
-	const vector<RecordAttribute>& tuplesIdentifiers = mat.getTupleIdentifiers();
-
-	for(vector<RecordAttribute>::const_iterator it = tuplesIdentifiers.begin(); it!=tuplesIdentifiers.end(); it++)	{
+	const set<RecordAttribute>& tuplesIdentifiers = mat.getTupleIdentifiers();
+	for(set<RecordAttribute>::const_iterator it = tuplesIdentifiers.begin(); it!=tuplesIdentifiers.end(); it++)	{
 		mem_activeTuple = context->CreateEntryBlockAlloca(TheFunction,"mem_activeTuple",str->getElementType(i));
-		activeTuple = context->getStructElem(mem_currValueCasted,i);
+		Value* currValueCasted = Builder->CreateLoad(mem_currValueCasted);
+		activeTuple = context->getStructElem(currValueCasted,i);
 		Builder->CreateStore(activeTuple,mem_activeTuple);
 
 		RawValueMemory mem_valWrapper;
@@ -337,6 +361,15 @@ void Nest::generateProbe(RawContext* const context) const
 	}
 	OperatorState newState = OperatorState(*this, *allBucketBindings);
 	AllocaInst *mem_accumulating = resetAccumulator();
+
+#ifdef DEBUG
+//	cout << "[Nest ] Bindings after probing HT:" << endl;
+//	map<RecordAttribute, RawValueMemory>::const_iterator itt = (*allBucketBindings).begin();
+//	for( ; itt != (*allBucketBindings).end(); itt++)	{
+//		cout << "Active att " << itt->first.getOriginalRelationName() << " - " << itt->first.getAttrName() << endl;
+//	}
+#endif
+
 	switch (acc)	{
 	case SUM:
 		generateSum(context, newState, mem_accumulating);
@@ -381,6 +414,7 @@ void Nest::generateProbe(RawContext* const context) const
 	Value* inc_valuesCounter = Builder->CreateAdd(valuesCounter,
 			context->createInt64(1));
 	Builder->CreateStore(inc_valuesCounter, mem_valuesCounter);
+	Builder->CreateBr(loopCondBucket);
 
 	/**
 	* [END - HT CHAIN LOOP.] End inner loop
@@ -407,11 +441,12 @@ void Nest::generateProbe(RawContext* const context) const
 	/**
 	 * [INC - HT BUCKET NO.] Continue outer loop
 	 */
-	Builder->CreateBr(loopIncHT);
 	bucketCounter = Builder->CreateLoad(mem_bucketCounter);
 	Value *val_inc = Builder->getInt64(1);
 	Value* val_new = Builder->CreateAdd(bucketCounter, val_inc);
 	Builder->CreateStore(val_new, mem_bucketCounter);
+	Builder->CreateBr(loopIncHT);
+
 
 	Builder->SetInsertPoint(loopIncHT);
 	Builder->CreateBr(loopCondHT);
@@ -442,6 +477,7 @@ void Nest::generateSum(RawContext* const context, const OperatorState& state, Al
 	 */
 	Builder->SetInsertPoint(ifBlock);
 	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(context, state);
+
 	RawValue val_output = outputExpr->accept(outputExprGenerator);
 
 	switch (outputExpr->getExpressionType()->getTypeID()) {
@@ -457,7 +493,8 @@ void Nest::generateSum(RawContext* const context, const OperatorState& state, Al
 		Builder->CreateBr(endBlock);
 
 		//Prepare final result output
-		Builder->SetInsertPoint(context->getEndingBlock());
+		//XXX entirely wrong point
+		Builder->SetInsertPoint(endBlock);
 #ifdef DEBUG
 		vector<Value*> ArgsV;
 		Function* debugInt = context->getFunction("printi");
