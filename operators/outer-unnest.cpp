@@ -23,12 +23,14 @@
 
 #include "operators/outer-unnest.hpp"
 
-void OuterUnnest::produce() const {
+void OuterUnnest::produce() const
+{
 	getChild()->produce();
 }
 
 void OuterUnnest::consume(RawContext* const context,
-		const OperatorState& childState) {
+		const OperatorState& childState)
+{
 	generate(context, childState);
 }
 
@@ -39,22 +41,24 @@ void OuterUnnest::consume(RawContext* const context,
  * 			  		else { w' | w' <- path(v), p(v,w') }
  */
 void OuterUnnest::generate(RawContext* const context,
-		const OperatorState& childState) const {
+		const OperatorState& childState) const
+{
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 	Type* boolType = Type::getInt1Ty(llvmContext);
 	Type* type_w = NULL;
+	vector<Value*> ArgsV;
 
 	/**
-	 *  Preparing if(v != NULL)
+	 *  Preparing if(v != NULL) condition
 	 */
 	BasicBlock *IfNotNull;
-	BasicBlock *ElseIsNull = BasicBlock::Create(llvmContext, "else_null",
+	BasicBlock *ElseMerge = BasicBlock::Create(llvmContext, "unnest_merge",
 			TheFunction);
 	{
 		context->CreateIfBlock(TheFunction, "if_notNull", &IfNotNull,
-				ElseIsNull);
+				ElseMerge);
 
 		//Retrieving v using the projection -> Keeping v out of v.w
 		expressions::RecordProjection* pathProj = path.get();
@@ -66,8 +70,9 @@ void OuterUnnest::generate(RawContext* const context,
 		RawValue val_v = expr_v->accept(vGenerator);
 		Value* val_v_isNull = val_v.isNull;
 
-		Value* nullCond = Builder->CreateICmpNE(val_v_isNull, context->createTrue());
-		Builder->CreateCondBr(nullCond, IfNotNull, ElseIsNull);
+		Value* nullCond = Builder->CreateICmpNE(val_v_isNull,
+				context->createTrue());
+		Builder->CreateCondBr(nullCond, IfNotNull, ElseMerge);
 	}
 
 	/**
@@ -81,7 +86,8 @@ void OuterUnnest::generate(RawContext* const context,
 		Builder->SetInsertPoint(IfNotNull);
 
 		//Generate path. Value returned must be a collection
-		ExpressionGeneratorVisitor pathExprGenerator = ExpressionGeneratorVisitor(context, childState);
+		ExpressionGeneratorVisitor pathExprGenerator =
+				ExpressionGeneratorVisitor(context, childState);
 		expressions::RecordProjection* pathProj = path.get();
 
 		RawValue nestedValueAll = pathProj->accept(pathExprGenerator);
@@ -99,19 +105,19 @@ void OuterUnnest::generate(RawContext* const context,
 		 * 		acc = acc AND not(if(condition))
 		 * 			...
 		 */
-		mem_accumulating = context->CreateEntryBlockAlloca(
-				TheFunction, "mem_acc", boolType);
+		mem_accumulating = context->CreateEntryBlockAlloca(TheFunction,
+				"mem_acc", boolType);
 		Value *val_zero = Builder->getInt1(1);
 		Builder->CreateStore(val_zero, mem_accumulating);
 
 		//w' <- path(v)
-		context->CreateForLoop("outUnnestLoopCond",
-				"outUnnestLoopBody", "outUnnestLoopInc",
-				"outUnnestLoopEnd", &loopCond, &loopBody, &loopInc,
-				&loopEnd);
+		context->CreateForLoop("outUnnestLoopCond", "outUnnestLoopBody",
+				"outUnnestLoopInc", "outUnnestLoopEnd", &loopCond, &loopBody,
+				&loopInc, &loopEnd);
 
 		//ENTRY: init the vars used by the plugin
-		RawValueMemory mem_currentObjId = pg->initCollectionUnnest(nestedValueAll);
+		RawValueMemory mem_currentObjId = pg->initCollectionUnnest(
+				nestedValueAll);
 		Builder->CreateBr(loopCond);
 
 		Builder->SetInsertPoint(loopCond);
@@ -119,7 +125,7 @@ void OuterUnnest::generate(RawContext* const context,
 		RawValue hasNext = pg->collectionHasNext(nestedValueAll,
 				mem_currentObjId);
 		//FIXME Can (..should?) break in two checks: if(!isNull) { if(hasNext) ... }
-		Value* endCond = Builder->CreateAnd(isNotNullCond,hasNext.value);
+		Value* endCond = Builder->CreateAnd(isNotNullCond, hasNext.value);
 		Builder->CreateCondBr(endCond, loopBody, loopEnd);
 
 		Builder->SetInsertPoint(loopBody);
@@ -127,17 +133,15 @@ void OuterUnnest::generate(RawContext* const context,
 		nestedValueItem = pg->collectionGetNext(mem_currentObjId);
 		type_w = (nestedValueItem.mem)->getAllocatedType();
 
-		map<RecordAttribute, RawValueMemory>* unnestBindings =
-				new map<RecordAttribute, RawValueMemory>(childState.getBindings());
+		map<RecordAttribute, RawValueMemory>* unnestBindings = new map<
+				RecordAttribute, RawValueMemory>(childState.getBindings());
 		RawCatalog& catalog = RawCatalog::getInstance();
 		LOG(INFO)<< "[Outer Unnest: ] Registering plugin of "<< path.toString();
 		catalog.registerPlugin(path.toString(), pg);
 
 		//attrNo does not make a difference
-		RecordAttribute unnestedAttr = RecordAttribute(2,
-				path.toString(),
-				activeLoop,
-				pathProj->getExpressionType());
+		RecordAttribute unnestedAttr = RecordAttribute(2, path.toString(),
+				activeLoop, pathProj->getExpressionType());
 
 		(*unnestBindings)[unnestedAttr] = nestedValueItem;
 		OperatorState* newState = new OperatorState(*this, *unnestBindings);
@@ -178,35 +182,37 @@ void OuterUnnest::generate(RawContext* const context,
 	Builder->SetInsertPoint(loopEnd);
 	BasicBlock *ifOuterNull, *elseOuterNotNull;
 
-	context->CreateIfElseBlocks(context->getGlobalFunction(), "ifOuterUnnestNull", "elseOuterNotNull",
-										&ifOuterNull, &elseOuterNotNull);
+	context->CreateIfElseBlocks(context->getGlobalFunction(),
+			"ifOuterUnnestNull", "elseOuterNotNull", &ifOuterNull,
+			&elseOuterNotNull);
 
 	Value* ifCond = Builder->CreateLoad(mem_accumulating);
-	Builder->CreateCondBr(ifCond,ifOuterNull,elseOuterNotNull);
+	Builder->CreateCondBr(ifCond, ifOuterNull, elseOuterNotNull);
 
 	//attrNo does not make a difference
 	RecordAttribute unnestedAttr = RecordAttribute(2, path.toString(),
 			activeLoop, path.get()->getExpressionType());
-	map<RecordAttribute, RawValueMemory>* unnestBindings =
-							new map<RecordAttribute, RawValueMemory>(childState.getBindings());
+	map<RecordAttribute, RawValueMemory>* unnestBindings = new map<
+			RecordAttribute, RawValueMemory>(childState.getBindings());
 	//'if' --> NULL
 	{
 		Builder->SetInsertPoint(ifOuterNull);
 		Value* undefValue = Constant::getNullValue(type_w);
 		RawValueMemory valWrapper;
 		AllocaInst* mem_undefValue = context->CreateEntryBlockAlloca(
-						TheFunction, "val_undef", type_w);
-		Builder->CreateStore(undefValue,mem_undefValue);
+				TheFunction, "val_undef", type_w);
+		Builder->CreateStore(undefValue, mem_undefValue);
 		valWrapper.mem = mem_undefValue;
 		valWrapper.isNull = context->createTrue();
 
 		(*unnestBindings)[unnestedAttr] = valWrapper;
-		cout << "In unnest: " << unnestedAttr.getOriginalRelationName() << "_" << unnestedAttr.getName() << endl;
-		OperatorState *newStateNull = new OperatorState(*this,*unnestBindings);
+//		cout << "In unnest: " << unnestedAttr.getOriginalRelationName() << "_"
+//				<< unnestedAttr.getName() << endl;
+		OperatorState *newStateNull = new OperatorState(*this, *unnestBindings);
 
 		//Triggering parent
 		getParent()->consume(context, *newStateNull);
-		Builder->CreateBr(ElseIsNull);
+		Builder->CreateBr(ElseMerge);
 	}
 
 	//'else - outerNotNull'
@@ -215,46 +221,54 @@ void OuterUnnest::generate(RawContext* const context,
 		//XXX Same as unnest!
 		//foreach val in nestedValue: if(condition) ...
 		BasicBlock *loopCond2, *loopBody2, *loopInc2, *loopEnd2;
-		context->CreateForLoop("unnestChildLoopCond2","unnestChildLoopBody2","unnestChildLoopInc2","unnestChildLoopEnd2",
-							&loopCond2,&loopBody2,&loopInc2,&loopEnd2);
+		context->CreateForLoop("unnestChildLoopCond2", "unnestChildLoopBody2",
+				"unnestChildLoopInc2", "unnestChildLoopEnd2", &loopCond2,
+				&loopBody2, &loopInc2, &loopEnd2);
 		/**
 		 * ENTRY:
 		 * init the vars used by the plugin
 		 */
-		ExpressionGeneratorVisitor pathExprGenerator = ExpressionGeneratorVisitor(context, childState);
+		ExpressionGeneratorVisitor pathExprGenerator =
+				ExpressionGeneratorVisitor(context, childState);
 		RawValue nestedValueAll = path.get()->accept(pathExprGenerator);
-		RawValueMemory mem_currentObjId2 = pg->initCollectionUnnest(nestedValueAll);
+		RawValueMemory mem_currentObjId2 = pg->initCollectionUnnest(
+				nestedValueAll);
 		Builder->CreateBr(loopCond2);
 
 		Builder->SetInsertPoint(loopCond2);
-		RawValue endCond = pg->collectionHasNext(nestedValueAll,mem_currentObjId2);
+		RawValue endCond = pg->collectionHasNext(nestedValueAll,
+				mem_currentObjId2);
 		Builder->CreateCondBr(endCond.value, loopBody2, loopEnd2);
 
 		//body
 		{
 			Builder->SetInsertPoint(loopBody2);
-			RawValueMemory nestedValueItem2 =  pg->collectionGetNext(mem_currentObjId2);
+			RawValueMemory nestedValueItem2 = pg->collectionGetNext(
+					mem_currentObjId2);
 			//Preparing call to parent
 			map<RecordAttribute, RawValueMemory>* unnestBindings2 = new map<
 					RecordAttribute, RawValueMemory>(childState.getBindings());
 
 			(*unnestBindings2)[unnestedAttr] = nestedValueItem2;
-			cout << "In unnest: " << unnestedAttr.getOriginalRelationName() << "_" << unnestedAttr.getName() << endl;
+			cout << "In unnest: " << unnestedAttr.getOriginalRelationName()
+					<< "_" << unnestedAttr.getName() << endl;
 
-			OperatorState* newState2 = new OperatorState(*this,*unnestBindings2);
-
+			OperatorState* newState2 = new OperatorState(*this,
+					*unnestBindings2);
 
 			/**
 			 * Predicate Evaluation:
 			 */
 			BasicBlock *ifBlock, *elseBlock;
-			context->CreateIfElseBlocks(context->getGlobalFunction(), "ifOuterUnnestCond", "elseOuterUnnestCond",
-									&ifBlock, &elseBlock,loopInc2);
+			context->CreateIfElseBlocks(context->getGlobalFunction(),
+					"ifOuterUnnestCond", "elseOuterUnnestCond", &ifBlock,
+					&elseBlock, loopInc2);
 
 			//Generate condition
-			ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, *newState2);
+			ExpressionGeneratorVisitor predExprGenerator =
+					ExpressionGeneratorVisitor(context, *newState2);
 			RawValue condition2 = pred->accept(predExprGenerator);
-			Builder->CreateCondBr(condition2.value,ifBlock,elseBlock);
+			Builder->CreateCondBr(condition2.value, ifBlock, elseBlock);
 
 			/*
 			 * IF BLOCK
@@ -284,7 +298,7 @@ void OuterUnnest::generate(RawContext* const context,
 
 		{
 			Builder->SetInsertPoint(loopEnd2);
-			Builder->CreateBr(ElseIsNull);
+			Builder->CreateBr(ElseMerge);
 		}
 	}
 
@@ -292,5 +306,5 @@ void OuterUnnest::generate(RawContext* const context,
 	 * else -> What to do?
 	 * 		-> Nothing; just keep the insert point there
 	 */
-	Builder->SetInsertPoint(ElseIsNull);
+	Builder->SetInsertPoint(ElseMerge);
 }

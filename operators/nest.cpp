@@ -71,6 +71,7 @@ Nest::Nest(Monoid acc, expressions::Expression* outputExpr,
  */
 void Nest::produce()	const {
 	getChild()->produce();
+
 	generateProbe(this->context);
 }
 
@@ -78,6 +79,10 @@ void Nest::consume(RawContext* const context, const OperatorState& childState) {
 	generateInsert(context, childState);
 }
 
+/**
+ * This function will be launched twice, since both outer unnest + join
+ * cause two code paths to be generated.
+ */
 void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 {
 	this->context = context;
@@ -86,6 +91,15 @@ void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 	RawCatalog& catalog = RawCatalog::getInstance();
+	vector<Value*> ArgsV;
+	Function* debugInt = context->getFunction("printi");
+
+#ifdef DEBUG
+//	ArgsV.clear();
+//	ArgsV.push_back(context->createInt32(-6));
+//	Builder->CreateCall(debugInt, ArgsV);
+//	ArgsV.clear();
+#endif
 
 	/**
 	 * STEP: Perform aggregation. Create buckets and fill them up IF g satisfied
@@ -99,6 +113,9 @@ void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 	 */
 
 	//1. Compute HASH key based on grouping expression
+	/**
+	 * XXX sth gets screwed up in f_grouping for the 6th entry
+	 */
 	ExpressionHasherVisitor aggrExprGenerator = ExpressionHasherVisitor(context, childState);
 	RawValue groupKey = f_grouping->accept(aggrExprGenerator);
 
@@ -118,6 +135,8 @@ void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 	// Creating and Populating Payload Struct
 	int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
 	vector<Type*>* materializedTypes = pg->getMaterializedTypes();
+
+
 
 	//Storing values in struct to be materialized in HT. Two steps
 	//2a. Materializing all 'activeTuples' (i.e. positional indices) met so far
@@ -183,12 +202,13 @@ void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 		offsetInWanted++;
 	}
 
+
+
 	//3. Inserting payload in HT
 	PointerType* voidType = PointerType::get(IntegerType::get(llvmContext, 8), 0);
 	Value* voidCast = Builder->CreateBitCast(mem_payload, voidType,"valueVoidCast");
 	Value* globalStr = context->CreateGlobalString(htName);
 	//Prepare hash_insert_function arguments
-	vector<Value*> ArgsV;
 	ArgsV.clear();
 	ArgsV.push_back(globalStr);
 	ArgsV.push_back(groupKey.value);
@@ -197,11 +217,16 @@ void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 	ArgsV.push_back(context->createInt32(pg->getPayloadTypeSize()));
 	Function* insert = context->getFunction("insertHT");
 	Builder->CreateCall(insert, ArgsV);
+#ifdef DEBUG
+//			ArgsV.clear();
+//			ArgsV.push_back(context->createInt32(-7));
+//			Builder->CreateCall(debugInt, ArgsV);
+//			ArgsV.clear();
+#endif
 }
 
 void Nest::generateProbe(RawContext* const context) const
 {
-
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -209,6 +234,13 @@ void Nest::generateProbe(RawContext* const context) const
 	vector<Value*> ArgsV;
 	Value* globalStr = context->CreateGlobalString(htName);
 	Type* int64_type = IntegerType::get(llvmContext, 64);
+
+	/**
+	 * Start injecting code at previous 'ending' point
+	 * Must also update what is considered the ending point
+	 * (-> loopEndHT)
+	 */
+	Builder->SetInsertPoint(context->getEndingBlock());
 
 	/**
 	 * STEP: Foreach key, loop through corresponding bucket.
@@ -237,6 +269,7 @@ void Nest::generateProbe(RawContext* const context) const
 	BasicBlock *loopCondHT, *loopBodyHT, *loopIncHT, *loopEndHT;
 	context->CreateForLoop("LoopCondHT", "LoopBodyHT", "LoopIncHT", "LoopEndHT",
 			&loopCondHT, &loopBodyHT, &loopIncHT, &loopEndHT);
+	context->setEndingBlock(loopEndHT);
 	//Entry Block of bucket loop - Initializing counter
 	BasicBlock* codeSpot = Builder->GetInsertBlock();
 	PointerType* i8_ptr = PointerType::get(IntegerType::get(llvmContext, 8), 0);
@@ -433,6 +466,17 @@ void Nest::generateProbe(RawContext* const context) const
 	mem_aggrWrapper.mem = mem_accumulating;
 	mem_aggrWrapper.isNull = context->createFalse();
 	(*allBucketBindings)[attr_aggr] = mem_aggrWrapper;
+//#ifdef DEBUG
+//		ArgsV.clear();
+//		Function* debugInt64 = context->getFunction("printi");
+//		Value* finalResult = Builder->CreateLoad(mem_accumulating);
+//		ArgsV.push_back(finalResult);
+//		Builder->CreateCall(debugInt64, ArgsV);
+//		ArgsV.clear();
+//		ArgsV.push_back(context->createInt32(-7));
+//		Builder->CreateCall(debugInt64, ArgsV);
+//		ArgsV.clear();
+//#endif
 
 	OperatorState *groupState = new OperatorState(*this, *allBucketBindings);
 	getParent()->consume(context, *groupState);
@@ -473,59 +517,41 @@ void Nest::generateSum(RawContext* const context, const OperatorState& state, Al
 					&ifBlock, endBlock);
 
 	/**
-	 * IF Block
+	 * IF(pred) Block
 	 */
-	Builder->SetInsertPoint(ifBlock);
 	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(context, state);
+	RawValue val_output;
+	Builder->SetInsertPoint(entryBlock);
+	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
-	RawValue val_output = outputExpr->accept(outputExprGenerator);
+	Builder->SetInsertPoint(ifBlock);
+	val_output = outputExpr->accept(outputExprGenerator);
+	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
+	/**
+	 * TODO
+	 */
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case INT: {
-		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
-		Builder->SetInsertPoint(ifBlock);
-
-		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 		Value* val_new = Builder->CreateAdd(val_accumulating, val_output.value);
 		Builder->CreateStore(val_new, mem_accumulating);
-
 		Builder->CreateBr(endBlock);
-
-		//Prepare final result output
-		//XXX entirely wrong point
-		Builder->SetInsertPoint(endBlock);
 #ifdef DEBUG
-		vector<Value*> ArgsV;
-		Function* debugInt = context->getFunction("printi");
-		Value* finalResult = Builder->CreateLoad(mem_accumulating);
-		ArgsV.push_back(finalResult);
-		Builder->CreateCall(debugInt, ArgsV);
+//		Builder->SetInsertPoint(endBlock);
+//		vector<Value*> ArgsV;
+//		Function* debugInt = context->getFunction("printi");
+//		Value* finalResult = Builder->CreateLoad(mem_accumulating);
+//		ArgsV.push_back(finalResult);
+//		Builder->CreateCall(debugInt, ArgsV);
+//		//Back to 'normal' flow
+//		Builder->SetInsertPoint(ifBlock);
 #endif
-		//Back to 'normal' flow
-		Builder->SetInsertPoint(ifBlock);
 		break;
 	}
 	case FLOAT: {
-		Type* doubleType = Type::getDoubleTy(llvmContext);
-		Builder->SetInsertPoint(entryBlock);
-		Builder->CreateCondBr(condition.value, ifBlock, endBlock);
-		Builder->SetInsertPoint(ifBlock);
-
-		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* val_new = Builder->CreateFAdd(val_accumulating,val_output.value);
-		Builder->CreateStore(val_new,mem_accumulating);
-
-		//Prepare final result output
-		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUG
-		vector<Value*> ArgsV;
-		Function* debugFloat = context->getFunction("printFloat");
-		Value* finalResult = Builder->CreateLoad(mem_accumulating);
-		ArgsV.push_back(finalResult);
-		Builder->CreateCall(debugFloat, ArgsV);
-#endif
-
+		Value* val_new = Builder->CreateFAdd(val_accumulating, val_output.value);
+		Builder->CreateStore(val_new, mem_accumulating);
+		Builder->CreateBr(endBlock);
 		break;
 	}
 	default: {

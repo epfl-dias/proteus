@@ -117,6 +117,7 @@ private:
 	const char* var_buf;
 	const char* var_tokenPtr;
 	const char* var_tokenOffset;
+	const char* var_tokenOffsetHash; //Needed to guide hashing process
 	void skipToEnd();
 	RawValueMemory readPathInternal(RawValueMemory mem_parentTokenNo, const char* pathVar);
 

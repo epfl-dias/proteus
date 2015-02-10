@@ -207,7 +207,7 @@ extern "C" void** probeIntHT(char* HTname, int key, int typeIndex);
 
 extern "C" void insertToHT(char* HTname, size_t key, void* value, int type_size);
 
-extern "C" void** probeHT(char* HTname, size_t key, int typeIndex);
+extern "C" void** probeHT(char* HTname, size_t key);
 
 extern "C" HashtableBucketMetadata* getMetadataHT(char* HTname);
 
@@ -231,7 +231,8 @@ extern "C" size_t hashDouble(double toHash);
 
 extern "C" size_t hashStringC(char* toHash, size_t start, size_t end);
 
-extern "C" size_t hashString(string toHash);
+//extern "C" size_t hashString(string toHash);
+size_t hashString(string toHash);
 
 extern "C" size_t hashStringObject(StringObject obj);
 

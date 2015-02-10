@@ -116,7 +116,8 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 
 	Function *hashCombine = context->getFunction("combineHashes");
 	Value* hashedValue = context->createInt64(0);
-	std::vector<Value*> ArgsV;
+	Function* debugInt = context->getFunction("printi");
+	vector<Value*> ArgsV;
 
 	const map<RecordAttribute, RawValueMemory>& activeVars =
 					currState.getBindings();
@@ -132,6 +133,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 	//Is there a case that I am doing extra work?
 	//Example: Am I hashing a value that is nested
 	//in some value that I have already hashed?
+
 	for(; it != projections.end(); it++)	{
 		if(it->getAttrName() == activeLoop)	{
 			map<RecordAttribute, RawValueMemory>::const_iterator itBindings;
@@ -155,11 +157,13 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 					//Does order matter?
 					//Does result of retrieving tuple1->tuple2 differ from tuple2->tuple1???
 					//(Probably should)
-					RawValue partialHash = plugin->hashValue(mem_activeTuple,e->getExpressionType());
+					RawValue partialHash = plugin->hashValue(mem_activeTuple,
+							e->getExpressionType());
 					ArgsV.clear();
 					ArgsV.push_back(hashedValue);
 					ArgsV.push_back(partialHash.value);
-					hashedValue = TheBuilder->CreateCall(hashCombine, ArgsV,"combineHashes");
+
+					hashedValue = TheBuilder->CreateCall(hashCombine, ArgsV,"combineHashesRes");
 					TheBuilder->CreateStore(hashedValue, mem_hashedValue);
 					break;
 				}
@@ -711,7 +715,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordConstruction *e) {
 		ArgsV.push_back(hashedValue);
 		ArgsV.push_back(partialHash.value);
 		hashedValue = TheBuilder->CreateCall(hashCombine, ArgsV,
-											"combineHashes");
+											"combineHashesRes");
 		TheBuilder->CreateStore(hashedValue, mem_hashedValue);
 	}
 

@@ -159,8 +159,8 @@ int main(int argc, char* argv[])
 	reduceListIntCSV();
 	reduceListRecordOriginal();
 
-	outerUnnest();
-//	nest();
+//	outerUnnest();
+	nest();
 }
 
 void hashConstants()	{
@@ -846,6 +846,7 @@ void nest()
 	RecordAttribute child2 = RecordAttribute(1, fname, childAge, &intType);
 	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
 	attsNested.push_back(&child1);
+	attsNested.push_back(&child2);
 	RecordType nested = RecordType(attsNested);
 	ListType nestedCollection = ListType(nested);
 

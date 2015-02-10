@@ -107,7 +107,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-	getModule()->dump();
+//	getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -425,7 +425,12 @@ int printFloat(double X) {
 }
 
 int printi64(size_t X) {
-	printf("[printi64:] Generated code called %lu\n", X);
+	printf("[printi64:] Debugging int64, not size_t: %ld\n", X);
+
+//	printf("[printi64:] Generated code called %lu\n", X);
+
+	//This is the appropriate one...
+//	printf("[printi64:] Generated code called %zu\n", X);
 	//cout <<"[printi64:] Generated code called "<< X<< endl;
 	return 0;
 }
@@ -591,6 +596,8 @@ bool equalStrings(StringObject obj1, StringObject obj2)	{
 }
 
 int compareTokenString(const char* buf, int start, int end, const char* candidate)	{
+//	cout << "Candidate?? " << candidate << endl;
+//	cout << "Buf?" << start << " " << end << endl;
 	return (strncmp(buf + start, candidate, end - start) == 0 \
 			&& strlen(candidate) == end - start);
 }
@@ -638,19 +645,19 @@ size_t hashDouble(double toHash) {
 	return hasher(toHash);
 }
 
-//XXX Copy string? Or edit in place?
-size_t hashStringC(char* toHash, size_t start, size_t end)	{
-	char tmp = toHash[end + 1 - start];
-	toHash[end+1] = '\0';
-	boost::hash<string> hasher;
-	size_t result = hasher(toHash);
-	toHash[end+1] = tmp;
-	return result;
-}
-
 size_t hashString(string toHash)	{
 	boost::hash<string> hasher;
 	size_t result = hasher(toHash);
+	return result;
+}
+
+//XXX Copy string? Or edit in place?
+size_t hashStringC(char* toHash, size_t start, size_t end)	{
+	char tmp = toHash[end];
+	toHash[end] = '\0';
+	boost::hash<string> hasher;
+	size_t result = hasher(toHash + start);
+	toHash[end] = tmp;
 	return result;
 }
 
@@ -1069,7 +1076,7 @@ void registerFunctions(RawContext& context)	{
 	Function *hashDouble_ = Function::Create(FThashDouble,
 			Function::ExternalLinkage, "hashDouble", TheModule);
 	Function *hashStringC_ = Function::Create(FThashStringC,
-			Function::ExternalLinkage, "hashString", TheModule);
+			Function::ExternalLinkage, "hashStringC", TheModule);
 	Function *hashStringObj_ = Function::Create(FThashStringObj,
 			Function::ExternalLinkage, "hashStringObject", TheModule);
 	Function *hashBoolean_ = Function::Create(FThashBoolean,

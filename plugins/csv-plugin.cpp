@@ -761,7 +761,7 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 	context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
-	BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanCond", TheFunction);
+	BasicBlock *CondBB = BasicBlock::Create(llvmContext, "csvScanCond", TheFunction);
 
 	// Insert an explicit fall through from the current (entry) block to the CondBB.
 	Builder->CreateBr(CondBB);
@@ -780,10 +780,10 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 	Value *cond = Builder->CreateICmpSLT(lhs,rhs);
 
 	// Make the new basic block for the loop header (BODY), inserting after current block.
-	BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "scanBody", TheFunction);
+	BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "csvScanBody", TheFunction);
 
 	// Create the "AFTER LOOP" block and insert it.
-	BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "scanEnd", TheFunction);
+	BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "csvScanEnd", TheFunction);
 	context->setEndingBlock(AfterBB);
 
 	// Insert the conditional branch into the end of CondBB.
