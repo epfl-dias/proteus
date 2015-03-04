@@ -52,6 +52,7 @@ void OuterUnnest::generate(RawContext* const context,
 
 	/**
 	 *  Preparing if(v != NULL) condition
+	 *  XXX This check is (sort-of) an 'early stopping' condition
 	 */
 	BasicBlock *IfNotNull;
 	BasicBlock *ElseMerge = BasicBlock::Create(llvmContext, "unnest_merge",
@@ -77,6 +78,8 @@ void OuterUnnest::generate(RawContext* const context,
 
 	/**
 	 * if( v != NULL )
+	 * FIXME After this point on, there is no reason to
+	 * (re-)check for v being NULL..
 	 */
 	BasicBlock *loopCond, *loopBody, *loopInc, *loopEnd;
 	AllocaInst *mem_accumulating = NULL;
@@ -161,7 +164,6 @@ void OuterUnnest::generate(RawContext* const context,
 		Builder->CreateBr(loopInc);
 	}
 
-	//else -> v == NULL
 	//Just branch to the INC part of unnest loop
 	{
 		Builder->SetInsertPoint(loopInc);

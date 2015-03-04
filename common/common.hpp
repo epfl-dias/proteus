@@ -36,6 +36,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
+#include <cfloat>
 #include <string>
 #include <sstream>
 #include <stdexcept>
