@@ -291,7 +291,8 @@ TEST(Sailors, JoinLeft3) {
 	outputModes.insert(outputModes.begin(),EAGER);
 	Materializer* mat = new Materializer(whichFields,outputModes);
 
-	Join join = Join(joinPred,scanSailors,scanReserves,"join1",*mat);
+	char joinLabel[] = "join1";
+	Join join = Join(joinPred,scanSailors,scanReserves,joinLabel,*mat);
 	scanSailors.setParent(&join);
 	scanReserves.setParent(&join);
 
@@ -334,7 +335,8 @@ TEST(Sailors, JoinLeft3) {
 	outputModes2.insert(outputModes2.begin(),EAGER);
 	Materializer* mat2 = new Materializer(whichFields2,outputModes2);
 
-	Join join2 = Join(joinPred2,join,scanBoats, "join2", *mat2);
+	char joinLabel2[] = "join2";
+	Join join2 = Join(joinPred2,join,scanBoats, joinLabel2, *mat2);
 	join.setParent(&join2);
 	scanBoats.setParent(&join2);
 
@@ -434,7 +436,8 @@ TEST(Sailors, JoinRight3) {
 	outputModes2.insert(outputModes2.begin(),EAGER);
 	Materializer* mat2 = new Materializer(whichFields2,outputModes2);
 
-	Join join2 = Join(joinPred2,scanReserves,scanBoats, "join2", *mat2);
+	char joinLabel2[] = "join2";
+	Join join2 = Join(joinPred2,scanReserves,scanBoats, joinLabel2, *mat2);
 	scanReserves.setParent(&join2);
 	scanBoats.setParent(&join2);
 
@@ -484,7 +487,8 @@ TEST(Sailors, JoinRight3) {
 	outputModes.insert(outputModes.begin(),EAGER);
 	Materializer* mat = new Materializer(whichFields,outputModes);
 
-	Join join = Join(joinPred,scanSailors,join2, "join1", *mat);
+	char joinLabel[] = "join1";
+	Join join = Join(joinPred,scanSailors,join2, joinLabel, *mat);
 	scanSailors.setParent(&join);
 	join2.setParent(&join);
 
@@ -591,7 +595,8 @@ TEST(Sailors, Join) {
 	outputModes.insert(outputModes.begin(),EAGER);
 	Materializer* mat = new Materializer(whichFields,outputModes);
 
-	Join join = Join(joinPred,scanSailors,scanReserves, "join1", *mat);
+	char joinLabel[] = "join1";
+	Join join = Join(joinPred,scanSailors,scanReserves, joinLabel, *mat);
 	scanSailors.setParent(&join);
 	scanReserves.setParent(&join);
 

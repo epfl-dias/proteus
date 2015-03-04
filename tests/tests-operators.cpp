@@ -204,7 +204,8 @@ TEST(Relational, SPJ) {
 	outputModes.insert(outputModes.begin(), EAGER);
 	Materializer* mat = new Materializer(whichFields, outputModes);
 
-	Join join = Join(joinPred, sel, scan2, "join1", *mat);
+	char joinLabel[] = "join1";
+	Join join = Join(joinPred, sel, scan2, joinLabel, *mat);
 	sel.setParent(&join);
 	scan2.setParent(&join);
 

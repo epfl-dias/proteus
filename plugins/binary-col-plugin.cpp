@@ -57,7 +57,7 @@ BinaryColPlugin::BinaryColPlugin(RawContext* const context, string& fnamePrefix,
 	vector<RecordAttribute*>::iterator it;
 	int cnt = 0;
 	for(it = wantedFields.begin(); it != wantedFields.end(); it++)	{
-		string fileName = fnamePrefix + "." + (*it)->attrName;
+		string fileName = fnamePrefix + "." + (*it)->getAttrName();
 		LOG(INFO) << "[BinaryColPlugin: ] " << fnamePrefix;
 
 		struct stat statbuf;
@@ -121,8 +121,8 @@ void BinaryColPlugin::init()	{
 
 		//Allocating memory for each field / column involved
 		string attrName = (*it)->getAttrName();
-		string currPosVar = string(posVar) + "." + attrName();
-		string currBufVar = string(bufVar) + "." + attrName();
+		string currPosVar = string(posVar) + "." + attrName;
+		string currBufVar = string(bufVar) + "." + attrName;
 
 		AllocaInst *offsetMem = context->CreateEntryBlockAlloca(F,currPosVar,int64Type);
 		AllocaInst *bufMem = context->CreateEntryBlockAlloca(F,currBufVar,charPtrType);
@@ -164,7 +164,7 @@ void BinaryColPlugin::init()	{
 }
 
 void BinaryColPlugin::generate(const RawOperator &producer) {
-	return scan(producer, context->getGlobalFunction());
+	return scan(producer);
 }
 
 /**
@@ -216,7 +216,7 @@ void BinaryColPlugin::finish()	{
 	}
 }
 
-void BinaryColPlugin::skipLLVM(string attName, Value* offset)
+void BinaryColPlugin::skipLLVM(RecordAttribute attName, Value* offset)
 {
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -228,7 +228,8 @@ void BinaryColPlugin::skipLLVM(string attName, Value* offset)
 	AllocaInst* mem_pos;
 	{
 		map<string, AllocaInst*>::iterator it;
-		string currPosVar = posVar + "." + attName;
+		string posVarStr = string(posVar);
+		string currPosVar = posVarStr + "." + attName.getAttrName();
 		it = NamedValuesBinaryCol.find(currPosVar);
 		if (it == NamedValuesBinaryCol.end()) {
 			throw runtime_error(string("Unknown variable name: ") + currPosVar);
@@ -236,25 +237,52 @@ void BinaryColPlugin::skipLLVM(string attName, Value* offset)
 		mem_pos = it->second;
 	}
 
-	//Necessary because it's the itemCtr that affects the scan loop
-	AllocaInst* mem_itemCtr;
-	{
-		map<string, AllocaInst*>::iterator it;
-		it = NamedValuesBinaryCol.find(itemCtrVar);
-		if (it == NamedValuesBinaryCol.end()) {
-			throw runtime_error(string("Unknown variable name: ") + itemCtrVar);
-		}
-		mem_itemCtr = it->second;
-	}
+//	//Necessary because it's the itemCtr that affects the scan loop
+//	AllocaInst* mem_itemCtr;
+//	{
+//		map<string, AllocaInst*>::iterator it;
+//		it = NamedValuesBinaryCol.find(itemCtrVar);
+//		if (it == NamedValuesBinaryCol.end()) {
+//			throw runtime_error(string("Unknown variable name: ") + itemCtrVar);
+//		}
+//		mem_itemCtr = it->second;
+//	}
 
 	//Increment and store back
 	Value* val_curr_pos = Builder->CreateLoad(mem_pos);
 	Value* val_new_pos = Builder->CreateAdd(val_curr_pos,offset);
 	Builder->CreateStore(val_new_pos,mem_pos);
 
+//	Value* val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
+//	Value* val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr,context->createInt64(1));
+//	Builder->CreateStore(val_new_itemCtr,mem_itemCtr);
+}
+
+void BinaryColPlugin::nextEntry()	{
+
+	//Prepare
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+
+	//Necessary because it's the itemCtr that affects the scan loop
+	AllocaInst* mem_itemCtr;
+	{
+		map<string, AllocaInst*>::iterator it;
+		it = NamedValuesBinaryCol.find(itemCtrVar);
+		if (it == NamedValuesBinaryCol.end())
+		{
+			throw runtime_error(string("Unknown variable name: ") + itemCtrVar);
+		}
+		mem_itemCtr = it->second;
+	}
+
+	//Increment and store back
 	Value* val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
-	Value* val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr,context->createInt64(1));
-	Builder->CreateStore(val_new_itemCtr,mem_itemCtr);
+	Value* val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr,
+			context->createInt64(1));
+	Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
 }
 
 void BinaryColPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
@@ -269,8 +297,11 @@ void BinaryColPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute
 	IRBuilder<>* Builder = context->getBuilder();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-	string currPosVar = posVar + "." + attName;
-	string currBufVar = bufVar + "." + attName;
+
+	string posVarStr = string(posVar);
+	string currPosVar = posVarStr + "." + attName.getAttrName();
+	string bufVarStr = string(bufVar);
+	string currBufVar = bufVarStr + "." + attName.getAttrName();
 
 	//Fetch values from symbol table
 	AllocaInst *mem_pos;
@@ -319,8 +350,10 @@ void BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName, map<RecordAttribu
 	IRBuilder<>* Builder = context->getBuilder();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-	string currPosVar = posVar + "." + attName;
-	string currBufVar = bufVar + "." + attName;
+	string posVarStr = string(posVar);
+	string currPosVar = posVarStr + "." + attName.getAttrName();
+	string bufVarStr = string(bufVar);
+	string currBufVar = bufVarStr + "." + attName.getAttrName();
 
 	//Fetch values from symbol table
 	AllocaInst *mem_pos;
@@ -369,8 +402,10 @@ Value* BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName)
 	IRBuilder<>* Builder = context->getBuilder();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-	string currPosVar = posVar + "." + attName;
-	string currBufVar = bufVar + "." + attName;
+	string posVarStr = string(posVar);
+	string currPosVar = posVarStr + "." + attName.getAttrName();
+	string bufVarStr = string(bufVar);
+	string currBufVar = bufVarStr + "." + attName.getAttrName();
 
 	//Fetch values from symbol table
 	AllocaInst *mem_pos;
@@ -481,8 +516,10 @@ void BinaryColPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttri
 	IRBuilder<>* Builder = context->getBuilder();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-	string currPosVar = posVar + "." + attName;
-	string currBufVar = bufVar + "." + attName;
+	string posVarStr = string(posVar);
+	string currPosVar = posVarStr + "." + attName.getAttrName();
+	string bufVarStr = string(bufVar);
+	string currBufVar = bufVarStr + "." + attName.getAttrName();
 
 	//Fetch values from symbol table
 	AllocaInst *mem_pos;
@@ -530,8 +567,10 @@ void BinaryColPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribu
 	IRBuilder<>* Builder = context->getBuilder();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-	string currPosVar = posVar + "." + attName;
-	string currBufVar = bufVar + "." + attName;
+	string posVarStr = string(posVar);
+	string currPosVar = posVarStr + "." + attName.getAttrName();
+	string bufVarStr = string(bufVar);
+	string currBufVar = bufVarStr + "." + attName.getAttrName();
 
 	//Fetch values from symbol table
 	AllocaInst *mem_pos;
@@ -569,7 +608,7 @@ void BinaryColPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribu
 	variables[attName] = mem_valWrapper;
 }
 
-void BinaryColPlugin::scan(const RawOperator& producer, Function *f)
+void BinaryColPlugin::scan(const RawOperator& producer)
 {
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -579,28 +618,35 @@ void BinaryColPlugin::scan(const RawOperator& producer, Function *f)
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
 
+	string bufVarStr = string(bufVar);
 	vector<RecordAttribute*>::iterator it;
 	Value* val_size = NULL;
 	//Reminder: Every column starts with an entry of its size
 	for(it = wantedFields.begin(); it != wantedFields.end(); it++)	{
 
-		string currBufVar = bufVar + "." + (*it)->getAttrName();
+		string currBufVar = bufVarStr + "." + (*it)->getAttrName();
 		RecordAttribute *attr = *it;
 
 		if(it == wantedFields.begin())	{
 			val_size = readAsInt64LLVM(*attr);
+#ifdef DEBUG
+		std::vector<Value*> ArgsV;
+		ArgsV.clear();
+		ArgsV.push_back(val_size);
+		Function* debugInt = context->getFunction("printi64");
+		Builder->CreateCall(debugInt, ArgsV, "printi64");
+#endif
 		}
 
 		//Move all buffer pointers to the actual data
 		Value* val_offset = context->createInt64(sizeof(size_t));
-		skipLLVM((*it)->getAttrName(), val_offset);
+		skipLLVM(*attr, val_offset);
 	}
 
 	//Container for the variable bindings
 	map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
 
 	//Get the ENTRY BLOCK
-	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 	context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
 	BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanCond", TheFunction);
@@ -616,7 +662,7 @@ void BinaryColPlugin::scan(const RawOperator& producer, Function *f)
 	 */
 	AllocaInst *mem_itemCtr = NamedValuesBinaryCol[itemCtrVar];
 	Value *lhs = Builder->CreateLoad(mem_itemCtr);
-	Value *rhs = Builder->CreateLoad(val_size);
+	Value *rhs = val_size;
 	Value *cond = Builder->CreateICmpSLT(lhs,rhs);
 
 	// Make the new basic block for the loop header (BODY), inserting after current block.
@@ -696,8 +742,9 @@ void BinaryColPlugin::scan(const RawOperator& producer, Function *f)
 
 		//Move to next position
 		Value* val_offset = context->createInt64(offset);
-		skipLLVM(attr.getAttrName(), val_offset);
+		skipLLVM(attr, val_offset);
 	}
+	nextEntry();
 
 	// Make the new basic block for the increment, inserting after current block.
 	BasicBlock *IncBB = BasicBlock::Create(llvmContext, "scanInc", TheFunction);

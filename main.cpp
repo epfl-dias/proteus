@@ -34,6 +34,7 @@
 #include "operators/nest.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/binary-row-plugin.hpp"
+#include "plugins/binary-col-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
@@ -95,6 +96,10 @@ void reduceListRecordOriginalCSV();
 
 void nest();
 
+//Extra plugins
+void columnarQueryCount();
+void columnarQuerySum();
+
 
 template<class T>
 inline void my_hash_combine(std::size_t& seed, const T& v)
@@ -153,14 +158,17 @@ int main(int argc, char* argv[])
 //	recordProjectionsJSON();
 
 	//XXX: all these use same output file
-	reduceListInt();
-	reduceListObject();
-	reduceListRecordConstruction();
-	reduceListIntCSV();
-	reduceListRecordOriginal();
+//	reduceListInt();
+//	reduceListObject();
+//	reduceListRecordConstruction();
+//	reduceListIntCSV();
+//	reduceListRecordOriginal();
 
 //	outerUnnest();
-	nest();
+//	nest();
+
+	columnarQueryCount();
+	columnarQuerySum();
 }
 
 void hashConstants()	{
@@ -941,10 +949,11 @@ void nest()
 	vector<materialization_mode> outputModes;
 	Materializer* mat = new Materializer(whichFields, outputModes);
 
+	char nestLabel[] = "nest_001";
 	Nest nestOp = Nest(SUM, nestOutput,
 			 predicate, f,
 			 f, &unnestOp,
-			 "nest_001", *mat);
+			 nestLabel, *mat);
 	unnestOp.setParent(&nestOp);
 
 	//ROOT
@@ -1399,7 +1408,8 @@ void joinQueryRelational()
 	outputModes.insert(outputModes.begin(), EAGER);
 	Materializer* mat = new Materializer(whichFields, outputModes);
 
-	Join join = Join(joinPred, sel, scan2, "join1", *mat);
+	char joinLabel[] = "join1";
+	Join join = Join(joinPred, sel, scan2, joinLabel, *mat);
 	sel.setParent(&join);
 	scan2.setParent(&join);
 
@@ -2623,7 +2633,8 @@ void cidrQuery3()
 	outputModes.insert(outputModes.begin(), EAGER);
 	Materializer* mat = new Materializer(whichFieldsClinical, outputModes);
 
-	Join join = Join(joinPred, selClinical, scanGenetic, "joinPatients", *mat);
+	char joinLabel[] = "joinPatients";
+	Join join = Join(joinPred, selClinical, scanGenetic, joinLabel, *mat);
 	selClinical.setParent(&join);
 	scanGenetic.setParent(&join);
 
@@ -2878,8 +2889,9 @@ void cidrQueryWarm(int ageParam, int volParam)
 	vector<RecordAttribute*> whichFieldsJoin;
 	Materializer* mat = new Materializer(whichFieldsJoin, outputModes);
 
+	char joinLabel[] = "joinClinicalRegions";
 	Join joinClinicalRegions = Join(joinPredClinical, selClinical, scanRegions,
-			"joinClinicalRegions", *mat);
+			joinLabel, *mat);
 	selClinical.setParent(&joinClinicalRegions);
 	selRegions.setParent(&joinClinicalRegions);
 
@@ -2941,8 +2953,9 @@ void cidrQueryWarm(int ageParam, int volParam)
 	whichFieldsJoin2.push_back(vol);
 	Materializer* mat2 = new Materializer(whichFieldsJoin2, outputModes2);
 
+	char joinLabel2[] = "joinGenetic";
 	Join joinGenetic = Join(joinPredGenetic, joinClinicalRegions, scanGenetic,
-			"joinGenetic", *mat2);
+			joinLabel2, *mat2);
 	joinClinicalRegions.setParent(&joinGenetic);
 	selGenetic.setParent(&joinGenetic);
 
@@ -3037,5 +3050,122 @@ void ifThenElse()	{
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	pg->finish();
+	catalog.clear();
+}
+
+void columnarQueryCount()
+{
+
+	string filenamePrefix = string("inputs/CIDR15/regionsToConvert");
+
+	RawContext ctx = RawContext("columnar-count");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* stringType = new StringType();
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* doubleType = new FloatType();
+
+	string line;
+	int fieldCount = 0;
+	list<RecordAttribute*> attrListRegions;
+
+	RecordAttribute *pid, *rid;
+	pid = new RecordAttribute(++fieldCount, filenamePrefix, "pid",intType);
+	rid = new RecordAttribute(++fieldCount, filenamePrefix, "rid",intType);
+	attrListRegions.push_back(pid);
+	attrListRegions.push_back(rid);
+
+	RecordType recRegions = RecordType(attrListRegions);
+	vector<RecordAttribute*> whichFieldsRegions;
+
+	whichFieldsRegions.push_back(pid);
+	whichFieldsRegions.push_back(rid);
+
+	BinaryColPlugin *pgRegions = new BinaryColPlugin(&ctx, filenamePrefix, recRegions,
+			whichFieldsRegions);
+	catalog.registerPlugin(filenamePrefix, pgRegions);
+	Scan scanGenetic = Scan(&ctx, *pgRegions);
+
+	/**
+	 * REDUCE
+	 * (COUNT)
+	 */
+	expressions::Expression* outputExpr = new expressions::IntConstant(1);
+	expressions::Expression* val_true = new expressions::BoolConstant(1);
+	expressions::Expression* predicate = new expressions::EqExpression(
+			new BoolType(), val_true, val_true);
+	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scanGenetic, &ctx);
+	scanGenetic.setParent(&reduce);
+
+	//Run function
+	struct timespec t0, t1;
+	clock_gettime(CLOCK_REALTIME, &t0);
+	reduce.produce();
+	ctx.prepareFunction(ctx.getGlobalFunction());
+	clock_gettime(CLOCK_REALTIME, &t1);
+	printf("Execution took %f seconds\n", diff(t0, t1));
+
+	//Close all open files & clear
+	pgRegions->finish();
+	catalog.clear();
+}
+
+void columnarQuerySum()
+{
+
+	string filenamePrefix = string("inputs/CIDR15/regionsToConvert");
+
+	RawContext ctx = RawContext("columnar-count");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* stringType = new StringType();
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* doubleType = new FloatType();
+
+	string line;
+	int fieldCount = 0;
+	list<RecordAttribute*> attrListRegions;
+
+	RecordAttribute *pid, *rid;
+	pid = new RecordAttribute(++fieldCount, filenamePrefix, "pid",intType);
+	rid = new RecordAttribute(++fieldCount, filenamePrefix, "rid",intType);
+	attrListRegions.push_back(pid);
+	attrListRegions.push_back(rid);
+
+	RecordType recRegions = RecordType(attrListRegions);
+	vector<RecordAttribute*> whichFieldsRegions;
+
+	whichFieldsRegions.push_back(pid);
+	whichFieldsRegions.push_back(rid);
+
+	BinaryColPlugin *pgRegions = new BinaryColPlugin(&ctx, filenamePrefix, recRegions,
+			whichFieldsRegions);
+	catalog.registerPlugin(filenamePrefix, pgRegions);
+	Scan scanGenetic = Scan(&ctx, *pgRegions);
+
+	/**
+	 * REDUCE
+	 * (SUM)
+	 */
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(*pid);
+	projections.push_back(*rid);
+	expressions::Expression* arg 	= new expressions::InputArgument(&recRegions,0,projections);
+	expressions::Expression* projRid  = new expressions::RecordProjection(intType,arg,*rid);
+
+	expressions::Expression* val_true = new expressions::BoolConstant(1);
+	expressions::Expression* predicate = new expressions::EqExpression(
+			new BoolType(), val_true, val_true);
+	Reduce reduce = Reduce(SUM, projRid, predicate, &scanGenetic, &ctx);
+	scanGenetic.setParent(&reduce);
+
+	//Run function
+	struct timespec t0, t1;
+	clock_gettime(CLOCK_REALTIME, &t0);
+	reduce.produce();
+	ctx.prepareFunction(ctx.getGlobalFunction());
+	clock_gettime(CLOCK_REALTIME, &t1);
+	printf("Execution took %f seconds\n", diff(t0, t1));
+
+	//Close all open files & clear
+	pgRegions->finish();
 	catalog.clear();
 }

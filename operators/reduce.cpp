@@ -651,7 +651,9 @@ void Reduce::generateUnion(RawContext* const context, const OperatorState& child
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
-	ExpressionFlusherVisitor flusher = ExpressionFlusherVisitor(context, childState,"out.json");
+
+	char outFilename[] = "out.json";
+	ExpressionFlusherVisitor flusher = ExpressionFlusherVisitor(context, childState,outFilename);
 
 	//Backing up insertion block
 	BasicBlock *currBlock = Builder->GetInsertBlock();
@@ -717,7 +719,8 @@ void Reduce::generateBagUnion(RawContext* const context, const OperatorState& ch
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
-	ExpressionFlusherVisitor flusher = ExpressionFlusherVisitor(context, childState,"out.json");
+	char outFilename[] = "out.json";
+	ExpressionFlusherVisitor flusher = ExpressionFlusherVisitor(context, childState,outFilename);
 
 	//Backing up insertion block
 	BasicBlock *currBlock = Builder->GetInsertBlock();

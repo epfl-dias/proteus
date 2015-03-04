@@ -128,7 +128,8 @@ private:
 	const char* itemCtrVar; // = "itemCtr";
 
 	//Used to generate code
-	void skipLLVM(string attName, Value *offset);
+	void skipLLVM(RecordAttribute attName, Value *offset);
+	void nextEntry();
 	void readAsInt64LLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
 	Value* readAsInt64LLVM(RecordAttribute attName);
 	void readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
@@ -137,5 +138,5 @@ private:
 	void readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
 
 	//Generates a for loop that performs the file scan
-	void scan(const RawOperator& producer, Function *f);
+	void scan(const RawOperator& producer);
 };
