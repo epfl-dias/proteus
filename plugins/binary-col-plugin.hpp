@@ -118,13 +118,14 @@ private:
 	 * Code-generation-related
 	 */
 	//Used to store memory positions of offset, buf and filesize in the generated code
-	map<string, AllocaInst*> NamedValuesBinaryRow;
+	map<string, AllocaInst*> NamedValuesBinaryCol;
 	RawContext* const context;
 
 	const char* posVar;		// = "offset";
 	const char* bufVar;		// = "fileBuffer";
 	const char* fsizeVar;	// = "fileSize";
 	const char* sizeVar;	// = "size";
+	const char* itemCtrVar; // = "itemCtr";
 
 	//Used to generate code
 	void skipLLVM(string attName, Value *offset);

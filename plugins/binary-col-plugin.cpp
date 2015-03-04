@@ -25,7 +25,7 @@
 
 BinaryColPlugin::BinaryColPlugin(RawContext* const context, string& fnamePrefix, RecordType& rec, vector<RecordAttribute*>& whichFields)
 	: fnamePrefix(fnamePrefix), rec(rec), wantedFields(whichFields), context(context),
-	  posVar("offset"), bufVar("buf"), fsizeVar("fileSize"), sizeVar("size") {
+	  posVar("offset"), bufVar("buf"), fsizeVar("fileSize"), sizeVar("size"), itemCtrVar("itemCtr") {
 
 	int fieldsNumber = wantedFields.size();
 	if(fieldsNumber <= 0)	{
@@ -108,6 +108,7 @@ void BinaryColPlugin::init()	{
 	Function* F = context->getGlobalFunction();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 
 	vector<RecordAttribute*>::iterator it;
@@ -123,12 +124,12 @@ void BinaryColPlugin::init()	{
 		string currPosVar = string(posVar) + "." + attrName();
 		string currBufVar = string(bufVar) + "." + attrName();
 
-		AllocaInst *offsetMem = context->CreateEntryBlockAlloca(F,currPosVar,Type::getInt64Ty(llvmContext));
+		AllocaInst *offsetMem = context->CreateEntryBlockAlloca(F,currPosVar,int64Type);
 		AllocaInst *bufMem = context->CreateEntryBlockAlloca(F,currBufVar,charPtrType);
 
 		Value* offsetVal = Builder->getInt64(0);
 		Builder->CreateStore(offsetVal,offsetMem);
-		NamedValuesBinaryRow[currPosVar] = offsetMem;
+		NamedValuesBinaryCol[currPosVar] = offsetMem;
 
 		//Typical way to pass a pointer via the LLVM API
 		AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(F,string("mem_bufPtr"),charPtrType);
@@ -136,7 +137,7 @@ void BinaryColPlugin::init()	{
 		//i8*
 		Value* unshiftedPtr = Builder->CreateIntToPtr(val_bufPtr,charPtrType);
 		Builder->CreateStore(unshiftedPtr,bufMem);
-		NamedValuesBinaryRow[currBufVar] = bufMem;
+		NamedValuesBinaryCol[currBufVar] = bufMem;
 
 		if(wantedFields.at(cnt)->getOriginalType()->getTypeID() == STRING)	{
 			char *dictBuf = (char*) mmap(NULL, colFilesize[cnt], PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd[cnt], 0);
@@ -151,11 +152,16 @@ void BinaryColPlugin::init()	{
 			//i8*
 			Value* unshiftedPtr = Builder->CreateIntToPtr(val_dictPtr,charPtrType);
 			Builder->CreateStore(unshiftedPtr,dictMem);
-			NamedValuesBinaryRow[currDictVar] = bufMem;
+			NamedValuesBinaryCol[currDictVar] = bufMem;
 		}
 	}
+	//Global item counter
+	Value* val_itemCtr = context->createInt64(0);
+	AllocaInst *mem_itemCtr = context->CreateEntryBlockAlloca(F, itemCtrVar, int64Type);
+	Builder->CreateStore(val_itemCtr,mem_itemCtr);
+	NamedValuesBinaryCol[itemCtrVar] = mem_itemCtr;
 
-};
+}
 
 void BinaryColPlugin::generate(const RawOperator &producer) {
 	return scan(producer, context->getGlobalFunction());
@@ -223,17 +229,32 @@ void BinaryColPlugin::skipLLVM(string attName, Value* offset)
 	{
 		map<string, AllocaInst*>::iterator it;
 		string currPosVar = posVar + "." + attName;
-		it = NamedValuesBinaryRow.find(currPosVar);
-		if (it == NamedValuesBinaryRow.end()) {
+		it = NamedValuesBinaryCol.find(currPosVar);
+		if (it == NamedValuesBinaryCol.end()) {
 			throw runtime_error(string("Unknown variable name: ") + currPosVar);
 		}
 		mem_pos = it->second;
+	}
+
+	//Necessary because it's the itemCtr that affects the scan loop
+	AllocaInst* mem_itemCtr;
+	{
+		map<string, AllocaInst*>::iterator it;
+		it = NamedValuesBinaryCol.find(itemCtrVar);
+		if (it == NamedValuesBinaryCol.end()) {
+			throw runtime_error(string("Unknown variable name: ") + itemCtrVar);
+		}
+		mem_itemCtr = it->second;
 	}
 
 	//Increment and store back
 	Value* val_curr_pos = Builder->CreateLoad(mem_pos);
 	Value* val_new_pos = Builder->CreateAdd(val_curr_pos,offset);
 	Builder->CreateStore(val_new_pos,mem_pos);
+
+	Value* val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
+	Value* val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr,context->createInt64(1));
+	Builder->CreateStore(val_new_itemCtr,mem_itemCtr);
 }
 
 void BinaryColPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
@@ -255,8 +276,8 @@ void BinaryColPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute
 	AllocaInst *mem_pos;
 	{
 		map<std::string, AllocaInst*>::iterator it;
-		it = NamedValuesBinaryRow.find(currPosVar);
-		if (it == NamedValuesBinaryRow.end()) {
+		it = NamedValuesBinaryCol.find(currPosVar);
+		if (it == NamedValuesBinaryCol.end()) {
 			throw runtime_error(string("Unknown variable name: ") + currPosVar);
 		}
 		mem_pos = it->second;
@@ -266,8 +287,8 @@ void BinaryColPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute
 	AllocaInst* buf;
 	{
 		map<string, AllocaInst*>::iterator it;
-		it = NamedValuesBinaryRow.find(currBufVar);
-		if (it == NamedValuesBinaryRow.end()) {
+		it = NamedValuesBinaryCol.find(currBufVar);
+		if (it == NamedValuesBinaryCol.end()) {
 			throw runtime_error(string("Unknown variable name: ") + currBufVar);
 		}
 		buf = it->second;
@@ -305,8 +326,8 @@ void BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName, map<RecordAttribu
 	AllocaInst *mem_pos;
 	{
 		map<std::string, AllocaInst*>::iterator it;
-		it = NamedValuesBinaryRow.find(currPosVar);
-		if (it == NamedValuesBinaryRow.end()) {
+		it = NamedValuesBinaryCol.find(currPosVar);
+		if (it == NamedValuesBinaryCol.end()) {
 			throw runtime_error(string("Unknown variable name: ") + currPosVar);
 		}
 		mem_pos = it->second;
@@ -316,8 +337,8 @@ void BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName, map<RecordAttribu
 	AllocaInst* buf;
 	{
 		map<string, AllocaInst*>::iterator it;
-		it = NamedValuesBinaryRow.find(currBufVar);
-		if (it == NamedValuesBinaryRow.end()) {
+		it = NamedValuesBinaryCol.find(currBufVar);
+		if (it == NamedValuesBinaryCol.end()) {
 			throw runtime_error(string("Unknown variable name: ") + currBufVar);
 		}
 		buf = it->second;
@@ -355,8 +376,8 @@ Value* BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName)
 	AllocaInst *mem_pos;
 	{
 		map<std::string, AllocaInst*>::iterator it;
-		it = NamedValuesBinaryRow.find(currPosVar);
-		if (it == NamedValuesBinaryRow.end()) {
+		it = NamedValuesBinaryCol.find(currPosVar);
+		if (it == NamedValuesBinaryCol.end()) {
 			throw runtime_error(string("Unknown variable name: ") + currPosVar);
 		}
 		mem_pos = it->second;
@@ -366,8 +387,8 @@ Value* BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName)
 	AllocaInst* buf;
 	{
 		map<string, AllocaInst*>::iterator it;
-		it = NamedValuesBinaryRow.find(currBufVar);
-		if (it == NamedValuesBinaryRow.end()) {
+		it = NamedValuesBinaryCol.find(currBufVar);
+		if (it == NamedValuesBinaryCol.end()) {
 			throw runtime_error(string("Unknown variable name: ") + currBufVar);
 		}
 		buf = it->second;
@@ -467,8 +488,8 @@ void BinaryColPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttri
 	AllocaInst *mem_pos;
 	{
 		map<std::string, AllocaInst*>::iterator it;
-		it = NamedValuesBinaryRow.find(currPosVar);
-		if (it == NamedValuesBinaryRow.end()) {
+		it = NamedValuesBinaryCol.find(currPosVar);
+		if (it == NamedValuesBinaryCol.end()) {
 			throw runtime_error(string("Unknown variable name: ") + currPosVar);
 		}
 		mem_pos = it->second;
@@ -478,8 +499,8 @@ void BinaryColPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttri
 	AllocaInst* buf;
 	{
 		map<std::string, AllocaInst*>::iterator it;
-		it = NamedValuesBinaryRow.find(currBufVar);
-		if (it == NamedValuesBinaryRow.end()) {
+		it = NamedValuesBinaryCol.find(currBufVar);
+		if (it == NamedValuesBinaryCol.end()) {
 			throw runtime_error(string("Unknown variable name: ") + currBufVar);
 		}
 		buf = it->second;
@@ -516,8 +537,8 @@ void BinaryColPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribu
 	AllocaInst *mem_pos;
 	{
 		map<string, AllocaInst*>::iterator it;
-		it = NamedValuesBinaryRow.find(currPosVar);
-		if (it == NamedValuesBinaryRow.end()) {
+		it = NamedValuesBinaryCol.find(currPosVar);
+		if (it == NamedValuesBinaryCol.end()) {
 			throw runtime_error(string("Unknown variable name: ") + currPosVar);
 		}
 		mem_pos = it->second;
@@ -527,8 +548,8 @@ void BinaryColPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribu
 	AllocaInst* buf;
 	{
 		map<string, AllocaInst*>::iterator it;
-		it = NamedValuesBinaryRow.find(currBufVar);
-		if (it == NamedValuesBinaryRow.end()) {
+		it = NamedValuesBinaryCol.find(currBufVar);
+		if (it == NamedValuesBinaryCol.end()) {
 			throw runtime_error(string("Unknown variable name: ") + currBufVar);
 		}
 		buf = it->second;
@@ -557,10 +578,6 @@ void BinaryColPlugin::scan(const RawOperator& producer, Function *f)
 
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
-
-	Value* val_itemCtr = context->createInt64(0);
-	AllocaInst *mem_itemCtr = context->CreateEntryBlockAlloca(TheFunction, "itemCtr", int64Type);
-	Builder->CreateStore(val_itemCtr,mem_itemCtr);
 
 	vector<RecordAttribute*>::iterator it;
 	Value* val_size = NULL;
@@ -597,8 +614,9 @@ void BinaryColPlugin::scan(const RawOperator& producer, Function *f)
 	 * Equivalent:
 	 * while(itemCtr < size)
 	 */
-	Value* lhs = Builder->CreateLoad(mem_itemCtr);
-	Value* rhs = Builder->CreateLoad(val_size);
+	AllocaInst *mem_itemCtr = NamedValuesBinaryCol[itemCtrVar];
+	Value *lhs = Builder->CreateLoad(mem_itemCtr);
+	Value *rhs = Builder->CreateLoad(val_size);
 	Value *cond = Builder->CreateICmpSLT(lhs,rhs);
 
 	// Make the new basic block for the loop header (BODY), inserting after current block.
@@ -625,7 +643,7 @@ void BinaryColPlugin::scan(const RawOperator& producer, Function *f)
 	mem_posWrapper.isNull = context->createFalse();
 	(*variableBindings)[tupleIdentifier] = mem_posWrapper;
 
-	//FIXME FIXME FIXME Actual Work (Loop through attributes etc.)
+	//Actual Work (Loop through attributes etc.)
 	int cur_col = 0;
 
 	int lastFieldNo = -1;
@@ -634,44 +652,10 @@ void BinaryColPlugin::scan(const RawOperator& producer, Function *f)
 	Function* debugInt 		= context->getFunction("printi");
 	Function* debugFloat 	= context->getFunction("printFloat");
 
-	size_t offset = 0;
 	list<RecordAttribute*>& args = rec.getArgs();
-	list<RecordAttribute*>::iterator iterSchema = args.begin();
 	for (vector<RecordAttribute*>::iterator it = wantedFields.begin(); it != wantedFields.end(); it++)	{
 		RecordAttribute attr = *(*it);
-
-		for (; (*iterSchema)->getAttrNo() < attr.getAttrNo(); iterSchema++) {
-			switch ((*iterSchema)->getOriginalType()->getTypeID()) {
-			case BOOL:
-				offset += sizeof(bool);
-				break;
-			case STRING: {
-				offset += 5 * sizeof(char);
-				break;
-			}
-			case FLOAT:
-				offset += sizeof(float);
-				break;
-			case INT:
-				offset += sizeof(int);
-				break;
-			case BAG:
-			case LIST:
-			case SET:
-				LOG(ERROR)<< "[BINARY ROW PLUGIN: ] Binary row files do not contain collections";
-				throw runtime_error(string("[BINARY ROW PLUGIN: ] Binary row files do not contain collections"));
-				case RECORD:
-				LOG(ERROR) << "[BINARY ROW PLUGIN: ] Binary row files do not contain record-valued attributes";
-				throw runtime_error(string("[BINARY ROW PLUGIN: ] Binary row files do not contain record-valued attributes"));
-				default:
-				LOG(ERROR) << "[BINARY ROW PLUGIN: ] Unknown datatype";
-				throw runtime_error(string("[BINARY ROW PLUGIN: ] Unknown datatype"));
-			}
-		}
-
-		//Move to appropriate position for reading
-		Value* val_offset = context->createInt64(offset);
-		//skipLLVM(val_offset);
+		size_t offset = 0;
 
 		//Read wanted field
 		switch ((*it)->getOriginalType()->getTypeID()) {
@@ -680,9 +664,15 @@ void BinaryColPlugin::scan(const RawOperator& producer, Function *f)
 			offset = sizeof(bool);
 			break;
 		case STRING:
-			readAsStringLLVM(attr, *variableBindings);
-			offset = 5;
-			break;
+		{
+			string error_msg = "[BINARY COL PLUGIN: ] No strings yet";
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+
+			//readAsStringLLVM(attr, *variableBindings);
+			//offset = 5;
+			//break;
+		}
 		case FLOAT:
 			readAsFloatLLVM(attr, *variableBindings);
 			offset = sizeof(float);
@@ -694,51 +684,19 @@ void BinaryColPlugin::scan(const RawOperator& producer, Function *f)
 		case BAG:
 		case LIST:
 		case SET:
-			LOG(ERROR)<< "[BINARY ROW PLUGIN: ] Binary row files do not contain collections";
-			throw runtime_error(string("[BINARY ROW PLUGIN: ] Binary row files do not contain collections"));
+			LOG(ERROR)<< "[BINARY COL PLUGIN: ] Binary col files do not contain collections";
+			throw runtime_error(string("[BINARY COL PLUGIN: ] Binary col files do not contain collections"));
 		case RECORD:
-			LOG(ERROR) << "[BINARY ROW PLUGIN: ] Binary row files do not contain record-valued attributes";
-			throw runtime_error(string("[BINARY ROW PLUGIN: ] Binary row files do not contain record-valued attributes"));
+			LOG(ERROR) << "[BINARY COL PLUGIN: ] Binary col files do not contain record-valued attributes";
+			throw runtime_error(string("[BINARY COL PLUGIN: ] Binary col files do not contain record-valued attributes"));
 		default:
-			LOG(ERROR) << "[BINARY ROW PLUGIN: ] Unknown datatype";
-			throw runtime_error(string("[BINARY ROW PLUGIN: ] Unknown datatype"));
+			LOG(ERROR) << "[BINARY COL PLUGIN: ] Unknown datatype";
+			throw runtime_error(string("[BINARY COL PLUGIN: ] Unknown datatype"));
 		}
-		iterSchema++;
-	}
 
-	for (; iterSchema != args.end(); iterSchema++) {
-		switch ((*iterSchema)->getOriginalType()->getTypeID()) {
-		case BOOL:
-			offset += sizeof(bool);
-			break;
-		case STRING: {
-			offset += 5 * sizeof(char);
-			break;
-		}
-		case FLOAT:
-			offset += sizeof(float);
-			break;
-		case INT:
-			offset += sizeof(int);
-			break;
-		case BAG:
-		case LIST:
-		case SET:
-			LOG(ERROR)<< "[BINARY ROW PLUGIN: ] Binary row files do not contain collections";
-			throw runtime_error(string("[CSV PLUGIN: ] Binary row files do not contain collections"));
-			case RECORD:
-			LOG(ERROR) << "[BINARY ROW PLUGIN: ] Binary row files do not contain record-valued attributes";
-			throw runtime_error(string("[CSV PLUGIN: ] Binary row files do not contain record-valued attributes"));
-			default:
-			LOG(ERROR) << "[BINARY ROW PLUGIN: ] Unknown datatype";
-			throw runtime_error(string("[BINARY ROW PLUGIN: ] Unknown datatype"));
-		}
-	}
-
-	if(offset)	{
-		//Move to appropriate position for start of 'newline'
+		//Move to next position
 		Value* val_offset = context->createInt64(offset);
-		//skipLLVM(val_offset);
+		skipLLVM(attr.getAttrName(), val_offset);
 	}
 
 	// Make the new basic block for the increment, inserting after current block.
