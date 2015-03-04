@@ -281,6 +281,12 @@ void Reduce::generateSum(RawContext* const context, const OperatorState& childSt
 
 	Builder->SetInsertPoint(ifBlock);
 	val_output = outputExpr->accept(outputExprGenerator);
+#ifdef DEBUG
+//		std::vector<Value*> ArgsV_;
+//		Function* debugInt = context->getFunction("printi");
+//		ArgsV_.push_back(val_output.value);
+//		Builder->CreateCall(debugInt, ArgsV_);
+#endif
 	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case INT: {

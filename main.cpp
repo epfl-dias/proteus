@@ -167,7 +167,7 @@ int main(int argc, char* argv[])
 //	outerUnnest();
 //	nest();
 
-	columnarQueryCount();
+//	columnarQueryCount();
 	columnarQuerySum();
 }
 
@@ -3083,7 +3083,7 @@ void columnarQueryCount()
 	BinaryColPlugin *pgRegions = new BinaryColPlugin(&ctx, filenamePrefix, recRegions,
 			whichFieldsRegions);
 	catalog.registerPlugin(filenamePrefix, pgRegions);
-	Scan scanGenetic = Scan(&ctx, *pgRegions);
+	Scan scanRegions = Scan(&ctx, *pgRegions);
 
 	/**
 	 * REDUCE
@@ -3093,8 +3093,8 @@ void columnarQueryCount()
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* predicate = new expressions::EqExpression(
 			new BoolType(), val_true, val_true);
-	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scanGenetic, &ctx);
-	scanGenetic.setParent(&reduce);
+	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scanRegions, &ctx);
+	scanRegions.setParent(&reduce);
 
 	//Run function
 	struct timespec t0, t1;
@@ -3121,12 +3121,12 @@ void columnarQuerySum()
 	PrimitiveType* doubleType = new FloatType();
 
 	string line;
-	int fieldCount = 0;
+	int fieldCount = 1;
 	list<RecordAttribute*> attrListRegions;
 
 	RecordAttribute *pid, *rid;
-	pid = new RecordAttribute(++fieldCount, filenamePrefix, "pid",intType);
-	rid = new RecordAttribute(++fieldCount, filenamePrefix, "rid",intType);
+	pid = new RecordAttribute(fieldCount++, filenamePrefix, "rid",intType);
+	rid = new RecordAttribute(fieldCount, filenamePrefix, "pid",intType);
 	attrListRegions.push_back(pid);
 	attrListRegions.push_back(rid);
 
@@ -3139,23 +3139,25 @@ void columnarQuerySum()
 	BinaryColPlugin *pgRegions = new BinaryColPlugin(&ctx, filenamePrefix, recRegions,
 			whichFieldsRegions);
 	catalog.registerPlugin(filenamePrefix, pgRegions);
-	Scan scanGenetic = Scan(&ctx, *pgRegions);
+	Scan scanRegions = Scan(&ctx, *pgRegions);
 
 	/**
 	 * REDUCE
 	 * (SUM)
 	 */
 	list<RecordAttribute> projections = list<RecordAttribute>();
+	RecordAttribute projTupleRegions = RecordAttribute(filenamePrefix,activeLoop);
+	projections.push_back(projTupleRegions);
 	projections.push_back(*pid);
 	projections.push_back(*rid);
 	expressions::Expression* arg 	= new expressions::InputArgument(&recRegions,0,projections);
-	expressions::Expression* projRid  = new expressions::RecordProjection(intType,arg,*rid);
+	expressions::Expression* projRid  = new expressions::RecordProjection(intType,arg,*pid);
 
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* predicate = new expressions::EqExpression(
 			new BoolType(), val_true, val_true);
-	Reduce reduce = Reduce(SUM, projRid, predicate, &scanGenetic, &ctx);
-	scanGenetic.setParent(&reduce);
+	Reduce reduce = Reduce(SUM, projRid, predicate, &scanRegions, &ctx);
+	scanRegions.setParent(&reduce);
 
 	//Run function
 	struct timespec t0, t1;

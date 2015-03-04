@@ -56,9 +56,9 @@ BinaryColPlugin::BinaryColPlugin(RawContext* const context, string& fnamePrefix,
 
 	vector<RecordAttribute*>::iterator it;
 	int cnt = 0;
+	LOG(INFO) << "[BinaryColPlugin: ] " << fnamePrefix;
 	for(it = wantedFields.begin(); it != wantedFields.end(); it++)	{
 		string fileName = fnamePrefix + "." + (*it)->getAttrName();
-		LOG(INFO) << "[BinaryColPlugin: ] " << fnamePrefix;
 
 		struct stat statbuf;
 		const char* name_c = fileName.c_str();
@@ -154,6 +154,7 @@ void BinaryColPlugin::init()	{
 			Builder->CreateStore(unshiftedPtr,dictMem);
 			NamedValuesBinaryCol[currDictVar] = bufMem;
 		}
+		cnt++;
 	}
 	//Global item counter
 	Value* val_itemCtr = context->createInt64(0);
@@ -213,6 +214,7 @@ void BinaryColPlugin::finish()	{
 			close(dictionaryFd);
 			munmap(dictionariesBuf[cnt], dictionaryFilesizes[cnt]);
 		}
+		cnt++;
 	}
 }
 
@@ -337,6 +339,14 @@ void BinaryColPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute
 	mem_valWrapper.mem = mem_currResult;
 	mem_valWrapper.isNull = context->createFalse();
 	variables[attName] = mem_valWrapper;
+
+#ifdef DEBUG
+//		vector<Value*> ArgsV;
+//		ArgsV.clear();
+//		ArgsV.push_back(parsedInt);
+//		Function* debugInt = context->getFunction("printi");
+//		Builder->CreateCall(debugInt, ArgsV, "printi");
+#endif
 }
 
 void BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
@@ -690,15 +700,10 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 	(*variableBindings)[tupleIdentifier] = mem_posWrapper;
 
 	//Actual Work (Loop through attributes etc.)
-	int cur_col = 0;
-
-	int lastFieldNo = -1;
-
 	Function* debugChar 	= context->getFunction("printc");
 	Function* debugInt 		= context->getFunction("printi");
 	Function* debugFloat 	= context->getFunction("printFloat");
 
-	list<RecordAttribute*>& args = rec.getArgs();
 	for (vector<RecordAttribute*>::iterator it = wantedFields.begin(); it != wantedFields.end(); it++)	{
 		RecordAttribute attr = *(*it);
 		size_t offset = 0;
