@@ -44,7 +44,10 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 	const RawOperator& caller = childState.getProducer();
 	if(caller == getLeftChild())
 	{
+
+#ifdef DEBUG
 		LOG(INFO) << "[JOIN: ] Building side";
+#endif
 		const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
 		OutputPlugin* pg = new OutputPlugin(context, mat, bindings);
 
@@ -138,7 +141,11 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 	}
 	else
 	{
+
+#ifdef DEBUG
 		LOG(INFO) << "[JOIN: ] Probing side";
+#endif
+
 		//PREPARE KEY
 		expressions::Expression* rightKeyExpr = this->pred->getRightOperand();
 		ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
@@ -269,17 +276,24 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 			mem_valWrapper.mem = memForField;
 			mem_valWrapper.isNull = context->createFalse();
 			(*allJoinBindings)[*(*it)] = mem_valWrapper;
+
+#ifdef DEBUG
 			LOG(INFO) << "[JOIN: ] Lhs Binding name: "<<currField;
+#endif
 		}
 
 		//Forwarding/pipelining bindings of rhs too
 		const map<RecordAttribute, RawValueMemory>& rhsBindings = childState.getBindings();
 		for(map<RecordAttribute, RawValueMemory>::const_iterator it = rhsBindings.begin(); it!= rhsBindings.end(); ++it) {
+#ifdef DEBUG
 			LOG(INFO) << "[JOIN: ] Rhs Binding name: "<<(it->first).getAttrName();
+#endif
 			(*allJoinBindings).insert(*it);
 		}
-		LOG(INFO) << "[JOIN: ] Number of all join bindings: "<<allJoinBindings->size();
 
+#ifdef DEBUG
+		LOG(INFO) << "[JOIN: ] Number of all join bindings: "<<allJoinBindings->size();
+#endif
 		//TRIGGER PARENT
 		TheBuilder->SetInsertPoint(loopBody);
 		OperatorState* newState = new OperatorState(*this, *allJoinBindings);

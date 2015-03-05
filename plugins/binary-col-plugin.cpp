@@ -66,7 +66,7 @@ BinaryColPlugin::BinaryColPlugin(RawContext* const context, string& fnamePrefix,
 		colFilesize[cnt] = statbuf.st_size;
 		fd[cnt] = open(name_c, O_RDONLY);
 		if (fd[cnt] == -1) {
-			string error_msg = string("[Binary Col Plugin]: Opening column failed");
+			string error_msg = string("[Binary Col Plugin]: Opening column failed -> "+fileName);
 			LOG(ERROR)<< error_msg;
 			throw runtime_error(error_msg);
 		}
@@ -645,6 +645,7 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 		ArgsV.push_back(val_size);
 		Function* debugInt = context->getFunction("printi64");
 		Builder->CreateCall(debugInt, ArgsV, "printi64");
+		Builder->CreateCall(debugInt, ArgsV, "printi64");
 #endif
 		}
 
@@ -700,10 +701,6 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 	(*variableBindings)[tupleIdentifier] = mem_posWrapper;
 
 	//Actual Work (Loop through attributes etc.)
-	Function* debugChar 	= context->getFunction("printc");
-	Function* debugInt 		= context->getFunction("printi");
-	Function* debugFloat 	= context->getFunction("printFloat");
-
 	for (vector<RecordAttribute*>::iterator it = wantedFields.begin(); it != wantedFields.end(); it++)	{
 		RecordAttribute attr = *(*it);
 		size_t offset = 0;

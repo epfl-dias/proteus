@@ -27,13 +27,14 @@ add_library(jsmn ${jsmn})
 include_directories("${PROJECT_SOURCE_DIR}")
 
 # various dependencies (e.g., glog) may not be available through repos - esp. on the servers
-include_directories("$ENV{HOME}/include")
+#include_directories("$ENV{HOME}/include" "/cloud_store/manosk/vida-engine/include/")
+include_directories("$ENV{HOME}/include" "/cloud_store/manosk/vida-engine/include/")
 set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} )
-find_library(GLOG NAMES libglog glog HINTS "$ENV{HOME}/lib")
+find_library(GLOG NAMES libglog glog HINTS "$ENV{HOME}/lib" PATHS "/cloud_store/manosk/vida-engine/lib")
 if(${GLOG} STREQUAL "GLOG-NOTFOUND")
-    message(FATAL_ERROR "Glog not found")
+    message(FATAL_ERROR "Glog not found!")
 endif()
-set(glog_ldflags "-L$ENV{HOME}/lib")
+set(glog_ldflags "-L$ENV{HOME}/lib" "-L/cloud_store/manosk/vida-engine/lib")
 
 
 # code generation library

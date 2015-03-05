@@ -100,6 +100,14 @@ void nest();
 void columnarQueryCount();
 void columnarQuerySum();
 
+/**
+ * Benchmarking against a colstore
+ */
+void columnarMax1();
+void columnarMax2();
+void columnarMax3();
+void columnarJoin1();
+
 
 template<class T>
 inline void my_hash_combine(std::size_t& seed, const T& v)
@@ -168,7 +176,16 @@ int main(int argc, char* argv[])
 //	nest();
 
 //	columnarQueryCount();
-	columnarQuerySum();
+//	columnarQuerySum();
+
+//	cout << "Max 1: " << endl;
+//	columnarMax1();
+//	cout << "Max 2: " << endl;
+//	columnarMax2();
+//	cout << "Max 3: " << endl;
+//	columnarMax3();
+	cout << "Join 1: " << endl;
+	columnarJoin1();
 }
 
 void hashConstants()	{
@@ -3111,7 +3128,6 @@ void columnarQueryCount()
 
 void columnarQuerySum()
 {
-
 	string filenamePrefix = string("inputs/CIDR15/regionsToConvert");
 
 	RawContext ctx = RawContext("columnar-count");
@@ -3169,5 +3185,429 @@ void columnarQuerySum()
 
 	//Close all open files & clear
 	pgRegions->finish();
+	catalog.clear();
+}
+
+void columnarMax1()
+{
+	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
+
+	RawContext ctx = RawContext("columnarMax1");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* intType = new IntType();
+
+	string line;
+	int fieldCount = 1;
+	list<RecordAttribute*> attrListRegions;
+
+	ostringstream sstream;
+	RecordAttribute *toProject = NULL;
+	for(int i = 1; i <= 30; i++)	{
+		sstream.str("");
+		sstream << "field" << fieldCount;
+		RecordAttribute *field_i = new RecordAttribute(fieldCount, filenamePrefix,sstream.str().c_str(),intType);
+		attrListRegions.push_back(field_i);
+
+		if(fieldCount == 10)	{
+			toProject = field_i;
+		}
+		fieldCount++;
+	}
+
+	RecordType recRegions = RecordType(attrListRegions);
+	vector<RecordAttribute*> whichFieldsRegions;
+
+	whichFieldsRegions.push_back(toProject);
+
+	BinaryColPlugin *pgRegions = new BinaryColPlugin(&ctx, filenamePrefix, recRegions,
+			whichFieldsRegions);
+	catalog.registerPlugin(filenamePrefix, pgRegions);
+	Scan scanRegions = Scan(&ctx, *pgRegions);
+
+	/**
+	 * REDUCE
+	 * (MAX)
+	 */
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	RecordAttribute projTupleRegions = RecordAttribute(filenamePrefix,activeLoop);
+	projections.push_back(projTupleRegions);
+	projections.push_back(*toProject);
+	expressions::Expression* arg 	= new expressions::InputArgument(&recRegions,0,projections);
+	expressions::Expression* projRid  = new expressions::RecordProjection(intType,arg,*toProject);
+
+	expressions::Expression* val_true = new expressions::BoolConstant(1);
+	expressions::Expression* predicate = new expressions::EqExpression(
+			new BoolType(), val_true, val_true);
+	Reduce reduce = Reduce(MAX, projRid, predicate, &scanRegions, &ctx);
+	scanRegions.setParent(&reduce);
+
+	//Run function
+	struct timespec t0, t1;
+	clock_gettime(CLOCK_REALTIME, &t0);
+	reduce.produce();
+	ctx.prepareFunction(ctx.getGlobalFunction());
+	clock_gettime(CLOCK_REALTIME, &t1);
+	printf("Execution took %f seconds\n", diff(t0, t1));
+
+	//Close all open files & clear
+	pgRegions->finish();
+	catalog.clear();
+}
+
+void columnarMax2()
+{
+	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
+
+	RawContext ctx = RawContext("columnarMax2");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* intType = new IntType();
+
+	string line;
+	int fieldCount = 1;
+	list<RecordAttribute*> attrListRegions;
+
+	ostringstream sstream;
+	RecordAttribute *selectProj = NULL;
+	RecordAttribute *toProject = NULL;
+	for(int i = 1; i <= 30; i++)	{
+		sstream.str("");
+		sstream << "field" << fieldCount;
+		RecordAttribute *field_i = new RecordAttribute(fieldCount, filenamePrefix,sstream.str().c_str(),intType);
+		attrListRegions.push_back(field_i);
+
+		if(fieldCount == 10)	{
+			toProject = field_i;
+		}
+
+		if(fieldCount == 20)	{
+			selectProj = field_i;
+		}
+		fieldCount++;
+	}
+
+	RecordType recInts = RecordType(attrListRegions);
+	vector<RecordAttribute*> whichFields;
+
+	whichFields.push_back(toProject);
+	whichFields.push_back(selectProj);
+
+	BinaryColPlugin *pgColumnar = new BinaryColPlugin(&ctx, filenamePrefix, recInts,
+			whichFields);
+	catalog.registerPlugin(filenamePrefix, pgColumnar);
+	Scan scan = Scan(&ctx, *pgColumnar);
+
+	/**
+	 * "SELECT"
+	 */
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(*toProject);
+	projections.push_back(*selectProj);
+
+	expressions::Expression* lhsArg = new expressions::InputArgument(&recInts, 0,
+		projections);
+	expressions::Expression* lhs = new expressions::RecordProjection(intType,
+		lhsArg, *selectProj);
+	expressions::Expression* rhs = new expressions::IntConstant(100000000);
+	expressions::Expression* predicate = new expressions::LtExpression(
+		new BoolType(), lhs, rhs);
+
+	/**
+	 * REDUCE
+	 * (MAX)
+	 */
+
+	expressions::Expression* proj  = new expressions::RecordProjection(intType,lhsArg,*toProject);
+
+	Reduce reduce = Reduce(MAX, proj, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	//Run function
+	struct timespec t0, t1;
+	clock_gettime(CLOCK_REALTIME, &t0);
+	reduce.produce();
+	ctx.prepareFunction(ctx.getGlobalFunction());
+	clock_gettime(CLOCK_REALTIME, &t1);
+	printf("Execution took %f seconds\n", diff(t0, t1));
+
+	//Close all open files & clear
+	pgColumnar->finish();
+	catalog.clear();
+}
+
+void columnarMax3()
+{
+	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
+
+	RawContext ctx = RawContext("columnarMax3");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* intType = new IntType();
+
+	string line;
+	int fieldCount = 1;
+	list<RecordAttribute*> attrListRegions;
+
+	ostringstream sstream;
+	RecordAttribute *selectProj1 = NULL;
+	RecordAttribute *selectProj2 = NULL;
+	RecordAttribute *toProject = NULL;
+	for(int i = 1; i <= 30; i++)	{
+		sstream.str("");
+		sstream << "field" << fieldCount;
+		RecordAttribute *field_i = new RecordAttribute(fieldCount, filenamePrefix,sstream.str().c_str(),intType);
+		attrListRegions.push_back(field_i);
+
+		if(fieldCount == 10)	{
+			toProject = field_i;
+		}
+
+		if(fieldCount == 15)	{
+			selectProj2 = field_i;
+		}
+
+		if(fieldCount == 20)	{
+			selectProj1 = field_i;
+		}
+		fieldCount++;
+	}
+
+	RecordType recInts = RecordType(attrListRegions);
+	vector<RecordAttribute*> whichFields;
+
+	whichFields.push_back(toProject);
+	whichFields.push_back(selectProj1);
+	whichFields.push_back(selectProj2);
+
+	BinaryColPlugin *pgColumnar = new BinaryColPlugin(&ctx, filenamePrefix, recInts,
+			whichFields);
+	catalog.registerPlugin(filenamePrefix, pgColumnar);
+	Scan scan = Scan(&ctx, *pgColumnar);
+
+	/**
+	 * "SELECT"
+	 */
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(*toProject);
+	projections.push_back(*selectProj1);
+	projections.push_back(*selectProj2);
+
+	expressions::Expression* lhsArg = new expressions::InputArgument(&recInts, 0,
+		projections);
+	expressions::Expression* lhs1 = new expressions::RecordProjection(intType,
+		lhsArg, *selectProj1);
+	expressions::Expression* rhs1 = new expressions::IntConstant(100000000);
+	expressions::Expression* predicate1 = new expressions::LtExpression(
+		new BoolType(), lhs1, rhs1);
+
+	expressions::Expression* lhs2 = new expressions::RecordProjection(intType,
+			lhsArg, *selectProj2);
+	expressions::Expression* rhs2a = new expressions::IntConstant(200000000);
+	expressions::Expression* predicate2a = new expressions::LtExpression(
+			new BoolType(), lhs2, rhs2a);
+
+	expressions::Expression* rhs2b = new expressions::IntConstant(100000000);
+	expressions::Expression* predicate2b = new expressions::GtExpression(
+				new BoolType(), lhs2, rhs2b);
+
+	expressions::Expression* predicate2 = new expressions::AndExpression(
+					new BoolType(), predicate2a, predicate2b);
+	expressions::Expression* predicate = new expressions::AndExpression(
+						new BoolType(), predicate1, predicate2);
+	/**
+	 * REDUCE
+	 * (MAX)
+	 */
+
+	expressions::Expression* proj  = new expressions::RecordProjection(intType,lhsArg,*toProject);
+
+	Reduce reduce = Reduce(MAX, proj, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	//Run function
+	struct timespec t0, t1;
+	clock_gettime(CLOCK_REALTIME, &t0);
+	reduce.produce();
+	ctx.prepareFunction(ctx.getGlobalFunction());
+	clock_gettime(CLOCK_REALTIME, &t1);
+	printf("Execution took %f seconds\n", diff(t0, t1));
+
+	//Close all open files & clear
+	pgColumnar->finish();
+	catalog.clear();
+}
+
+void columnarJoin1()
+{
+	RawContext ctx = RawContext("columnarJoin1");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* intType = new IntType();
+
+//	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
+//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/500m-30cols-fixed");
+
+	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100-30cols-fixed");
+	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/500-30cols-fixed");
+
+	/**
+	 * SCAN1
+	 */
+
+	int fieldCount = 1;
+	list<RecordAttribute*> attrListLeft;
+
+	ostringstream sstream;
+	RecordAttribute *selectProjLeft1 = NULL;
+	RecordAttribute *selectProjLeft2 = NULL;
+	RecordAttribute *toProjectLeft = NULL;
+	for (int i = 1; i <= 30; i++)
+	{
+		sstream.str("");
+		sstream << "field" << fieldCount;
+		RecordAttribute *field_i = new RecordAttribute(fieldCount,
+				filenamePrefixLeft, sstream.str().c_str(), intType);
+		attrListLeft.push_back(field_i);
+
+		if (fieldCount == 10)
+		{
+			toProjectLeft = field_i;
+		}
+
+//		if (fieldCount == 15)
+//		{
+//			selectProj2 = field_i;
+//		}
+
+		if (fieldCount == 20)
+		{
+			selectProjLeft1 = field_i;
+		}
+		fieldCount++;
+	}
+
+	RecordType recIntsLeft = RecordType(attrListLeft);
+	vector<RecordAttribute*> whichFieldsLeft;
+
+	whichFieldsLeft.push_back(toProjectLeft);
+	whichFieldsLeft.push_back(selectProjLeft1);
+//	whichFieldsLeft.push_back(selectProjLeft2);
+
+	BinaryColPlugin *pgColumnarLeft = new BinaryColPlugin(&ctx, filenamePrefixLeft,
+			recIntsLeft, whichFieldsLeft);
+	catalog.registerPlugin(filenamePrefixLeft, pgColumnarLeft);
+	Scan scanLeft = Scan(&ctx, *pgColumnarLeft);
+
+	/**
+	 * SELECT
+	 */
+	list<RecordAttribute> projectionsLeft = list<RecordAttribute>();
+	projectionsLeft.push_back(*toProjectLeft);
+	projectionsLeft.push_back(*selectProjLeft1);
+
+	expressions::Expression* lhsArg = new expressions::InputArgument(&recIntsLeft, 0,
+		projectionsLeft);
+	expressions::Expression* lhs = new expressions::RecordProjection(intType,
+		lhsArg, *selectProjLeft1);
+	expressions::Expression* rhs = new expressions::IntConstant(100000000);
+	expressions::Expression* predicate = new expressions::LtExpression(
+		new BoolType(), lhs, rhs);
+	Select sel = Select(predicate, &scanLeft);
+	scanLeft.setParent(&sel);
+
+	LOG(INFO)<<"Left: "<<&sel;
+
+	/**
+	 * SCAN2
+	 */
+
+	fieldCount = 1;
+	list<RecordAttribute*> attrListRight;
+
+	RecordAttribute *selectProjRight1 = NULL;
+	RecordAttribute *selectProjRight2 = NULL;
+	RecordAttribute *toProjectRight = NULL;
+	for (int i = 1; i <= 30; i++)
+	{
+		sstream.str("");
+		sstream << "field" << fieldCount;
+		RecordAttribute *field_i = new RecordAttribute(fieldCount,
+				filenamePrefixRight, sstream.str().c_str(), intType);
+		attrListRight.push_back(field_i);
+
+		if (fieldCount == 10)
+		{
+			toProjectRight = field_i;
+		}
+
+		//		if (fieldCount == 15)
+		//		{
+		//			selectProj2 = field_i;
+		//		}
+
+		if (fieldCount == 20)
+		{
+			selectProjRight1 = field_i;
+		}
+		fieldCount++;
+	}
+
+	RecordType recIntsRight = RecordType(attrListRight);
+	vector<RecordAttribute*> whichFieldsRight;
+
+	whichFieldsRight.push_back(toProjectRight);
+	whichFieldsRight.push_back(selectProjRight1);
+	//	whichFields.push_back(selectProjRight2);
+
+	BinaryColPlugin *pgColumnarRight = new BinaryColPlugin(&ctx,
+			filenamePrefixRight, recIntsRight, whichFieldsRight);
+	catalog.registerPlugin(filenamePrefixRight, pgColumnarRight);
+	Scan scanRight = Scan(&ctx, *pgColumnarRight);
+
+	list<RecordAttribute> projectionsRight = list<RecordAttribute>();
+	projectionsRight.push_back(*toProjectRight);
+	projectionsRight.push_back(*selectProjRight1);
+
+	/**
+	 * JOIN
+	 */
+	expressions::Expression* leftJoinArg = new expressions::InputArgument(intType,
+			0, projectionsLeft);
+	expressions::Expression* left = new expressions::RecordProjection(intType,
+			leftJoinArg, *toProjectLeft);
+	expressions::Expression* rightJoinArg = new expressions::InputArgument(intType,
+			1, projectionsRight);
+	expressions::Expression* right = new expressions::RecordProjection(intType,
+			rightJoinArg, *toProjectRight);
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
+			new BoolType(), left, right);
+	vector<materialization_mode> outputModes;
+	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes.insert(outputModes.begin(), EAGER);
+	Materializer* mat = new Materializer(whichFieldsLeft, outputModes);
+
+	char joinLabel[] = "join1";
+	Join join = Join(joinPred, sel, scanRight, joinLabel, *mat);
+	sel.setParent(&join);
+	scanRight.setParent(&join);
+
+	/**
+	 * REDUCE
+	 * (MAX)
+	 */
+
+	expressions::RecordProjection* outputExpr =
+		new expressions::RecordProjection(intType, rightJoinArg, *selectProjLeft1);
+	expressions::Expression* val_true = new expressions::BoolConstant(1);
+	expressions::Expression* reducePredicate = new expressions::EqExpression(
+		new BoolType(), val_true, val_true);
+	Reduce reduce = Reduce(MAX, outputExpr, reducePredicate, &join, &ctx);
+	join.setParent(&reduce);
+
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pgColumnarLeft->finish();
+	pgColumnarRight->finish();
 	catalog.clear();
 }

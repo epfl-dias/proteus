@@ -103,6 +103,7 @@ using std::cout;
 using std::multimap;
 using std::list;
 using std::stringstream;
+using std::ostringstream;
 using std::fstream;
 using std::ifstream;
 using std::map;

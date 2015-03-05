@@ -28,23 +28,27 @@ public:
 	}
 
 	//TODO REPLACE ONCE REMOVED FROM JOIN
-	//XXX is there a more elegant way to group hashtables together?
+	//TODO NEED a more elegant way to group hashtables together - array?
 	multimap<int,void*>* getIntHashTable(string tableName) {
-		std::map<std::string, multimap<int,void*>*>::iterator it;
+		map<string, multimap<int,void*>*>::iterator it;
 		it = intHTs.find(tableName);
 		if (it == intHTs.end()) {
-			LOG(INFO) << "Creating HT for table "<<tableName;
+#ifdef DEBUG
+			LOG(INFO) << "Creating HT for table "<< tableName;
+#endif
 			intHTs[tableName] = new multimap<int,void*>();
 			return intHTs[tableName];
 		}	else	{
-			LOG(INFO) << "HT found";
+#ifdef DEBUG
+			LOG(INFO) << "HT found for " << tableName;
+#endif
 			return intHTs[tableName];
 		}
 	}
 
-	//XXX is there a more elegant way to group hashtables together?
+	//TODO NEED a more elegant way to group hashtables together - array?
 	multimap<size_t,void*>* getHashTable(string tableName) {
-		std::map<std::string, multimap<size_t,void*>*>::iterator it;
+		map<string, multimap<size_t,void*>*>::iterator it;
 		it = HTs.find(tableName);
 		if (it == HTs.end()) {
 			LOG(INFO) << "Creating HT for table "<<tableName;
@@ -72,7 +76,7 @@ public:
 		std::map<std::string, int>::iterator it;
 		it = resultTypes.find(tableName);
 		if (it == resultTypes.end()) {
-			LOG(ERROR) << "Info in catalog does not exist for table "<<tableName;
+			LOG(ERROR) << "Info in catalog does not exist for table " << tableName;
 			throw runtime_error(string("Info in catalog does not exist for table ")+tableName);
 		}	else	{
 			int idx = resultTypes[tableName];
@@ -97,7 +101,7 @@ public:
 			 * Reason: Some operators (e.g. outerNull) duplicate code after them
 			 * => Some utility functions end up being called twice
 			 */
-			LOG(INFO) << "Info in catalog already exists for table "<<tableName;
+			LOG(INFO) << "Info in catalog already exists for table " << tableName;
 //			throw runtime_error(string("Info in catalog already exists for table ")+tableName);
 		}
 	}

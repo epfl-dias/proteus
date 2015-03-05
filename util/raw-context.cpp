@@ -128,7 +128,7 @@ void RawContext::prepareFunction(Function *F) {
 	FP(11);
 	//LOG(INFO) << "Mock return value of generated function " << FP(11);
 	clock_gettime(CLOCK_REALTIME, &t1);
-	printf("Execution took %f seconds\n",diff(t0, t1));
+	printf("(Already compiled) Execution took %f seconds\n",diff(t0, t1));
 
 	TheFPM = 0;
 	//Dump to see final form
@@ -543,10 +543,12 @@ void insertIntKeyToHT(char* HTname, int key, void* value, int type_size) {
 	HT->insert(std::pair<int, void*>(key, valMaterialized));
 
 	//	HT->insert(std::pair<int,void*>(key,value));
+#ifdef DEBUG
 	LOG(INFO) << "[Insert: ] Integer key " << key << " inserted successfully";
 
 	LOG(INFO) << "[INSERT: ] There are " << HT->count(key)
 			<< " elements with key " << key << ":";
+#endif
 
 }
 
@@ -559,13 +561,12 @@ void** probeIntHT(char* HTname, int key, int typeIndex) {
 	//same indirection here as above.
 	multimap<int, void*>* HT = catalog.getIntHashTable(name);
 
-	pair<multimap<int, void*>::iterator, std::multimap<int, void*>::iterator> results;
+	pair<multimap<int, void*>::iterator, multimap<int, void*>::iterator> results;
 	results = HT->equal_range(key);
 
 	void** bindings = 0;
 	int count = HT->count(key);
-	LOG(INFO) << "[PROBE INT:] There are " << HT->count(key)
-			<< " elements with key " << key;
+
 	if (count) {
 		//+1 used to set last position to null and know when to terminate
 		bindings = new void*[count + 1];
@@ -582,6 +583,10 @@ void** probeIntHT(char* HTname, int key, int typeIndex) {
 		bindings[curr] = it->second;
 		curr++;
 	}
+#ifdef DEBUG
+	LOG(INFO) << "[PROBE INT:] There are " << HT->count(key)
+			<< " elements with key " << key;
+#endif
 	return bindings;
 }
 
