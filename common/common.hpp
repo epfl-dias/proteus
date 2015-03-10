@@ -105,6 +105,7 @@ using std::list;
 using std::stringstream;
 using std::ostringstream;
 using std::fstream;
+using std::ofstream;
 using std::ifstream;
 using std::map;
 

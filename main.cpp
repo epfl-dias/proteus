@@ -175,7 +175,7 @@ int main(int argc, char* argv[])
 //	outerUnnest();
 //	nest();
 
-//	columnarQueryCount();
+	columnarQueryCount();
 //	columnarQuerySum();
 
 //	cout << "Max 1: " << endl;
@@ -184,8 +184,8 @@ int main(int argc, char* argv[])
 //	columnarMax2();
 //	cout << "Max 3: " << endl;
 //	columnarMax3();
-	cout << "Join 1: " << endl;
-	columnarJoin1();
+//	cout << "Join 1: " << endl;
+//	columnarJoin1();
 }
 
 void hashConstants()	{
@@ -3336,7 +3336,7 @@ void columnarMax2()
 
 void columnarMax3()
 {
-	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
+	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/500m-30cols-fixed");
 
 	RawContext ctx = RawContext("columnarMax3");
 	RawCatalog& catalog = RawCatalog::getInstance();
@@ -3442,7 +3442,7 @@ void columnarJoin1()
 	PrimitiveType* intType = new IntType();
 
 //	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
-//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/500m-30cols-fixed");
+//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
 
 	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100-30cols-fixed");
 	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/500-30cols-fixed");

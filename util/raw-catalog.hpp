@@ -29,21 +29,27 @@ public:
 
 	//TODO REPLACE ONCE REMOVED FROM JOIN
 	//TODO NEED a more elegant way to group hashtables together - array?
-	multimap<int,void*>* getIntHashTable(string tableName) {
-		map<string, multimap<int,void*>*>::iterator it;
-		it = intHTs.find(tableName);
-		if (it == intHTs.end()) {
-#ifdef DEBUG
-			LOG(INFO) << "Creating HT for table "<< tableName;
-#endif
-			intHTs[tableName] = new multimap<int,void*>();
-			return intHTs[tableName];
+	int getIntHashTableID(string tableName) {
+
+		map<string,int>::iterator it;
+		it = htIdentifiers.find(tableName);
+
+		if(it != htIdentifiers.end())	{
+			cout << "HT for label " << tableName << " found" << endl;
+			return it->second;
 		}	else	{
-#ifdef DEBUG
-			LOG(INFO) << "HT found for " << tableName;
-#endif
-			return intHTs[tableName];
+			cout << "NEW HT for label " << tableName << endl;
+			int newIdentifier = intHashtables.size();
+			multimap<int,void*>* newHT = new multimap<int,void*>();
+			intHashtables.push_back(newHT);
+			htIdentifiers[tableName] = newIdentifier;
+			return newIdentifier;
 		}
+	}
+
+	multimap<int,void*>* getIntHashTable(int tableID)	{
+
+		return intHashtables[tableID];
 	}
 
 	//TODO NEED a more elegant way to group hashtables together - array?
@@ -56,7 +62,7 @@ public:
 			return HTs[tableName];
 		}	else	{
 			LOG(INFO) << "HT found";
-			return HTs[tableName];
+			return it->second;
 		}
 	}
 
@@ -196,8 +202,12 @@ public:
 
 private:
 	map<string,Plugin*> 					plugins;
-	map<string,multimap<int,void*>*> 		intHTs;
+	map<string,int>							htIdentifiers;
+
+	vector<multimap<int,void*>*>			intHashtables;
+//	map<string,multimap<int,void*>*> 		intHTs;
 	map<string,multimap<size_t,void*>*> 	HTs;
+
 	map<string, ExpressionType*> 			jsonTypeCatalog;
 //	map<string, Writer<StringBuffer>> 		jsonFlushers;
 	map<string, stringstream*> 				serializers;

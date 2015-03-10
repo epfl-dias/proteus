@@ -31,13 +31,13 @@ RawContext::RawContext(const string& moduleName) {
 	TheExecutionEngine = 0;
 	TheFunction = 0;
 	codeEnd = NULL;
-	availableFunctions = std::map<std::string, Function*>();
+	availableFunctions = map<string, Function*>();
 
 	InitializeNativeTarget();
 	TheModule = new Module(moduleName, ctx);
 
 	// Create the JIT.  This takes ownership of the module.
-	std::string ErrStr;
+	string ErrStr;
 	TheExecutionEngine = 
 		EngineBuilder(TheModule).setErrorStr(&ErrStr).create();
 	if (!TheExecutionEngine) {
@@ -70,6 +70,11 @@ RawContext::RawContext(const string& moduleName) {
 	// Simplify the control flow graph (deleting unreachable blocks, etc).
 	OurFPM->add(createCFGSimplificationPass());
 
+	/*
+	 * Extra passes to attempt
+	 * -> heavyweight inlining
+	 * -> vectorization
+	 */
 	mpm.add(createFunctionInliningPass());
 	mpm.add(createAlwaysInlinerPass());
 	mpm.add(createBBVectorizePass());
@@ -80,7 +85,7 @@ RawContext::RawContext(const string& moduleName) {
 	TheFPM = OurFPM;
 
 	llvm::Type* int_type = Type::getInt32Ty(ctx);
-	std::vector<Type*> Ints(1,int_type);
+	vector<Type*> Ints(1,int_type);
 	FunctionType *FT = FunctionType::get(Type::getInt32Ty(ctx),Ints, false);
 	registerFunctions(*this);
 	Function *F = Function::Create(FT, Function::ExternalLinkage, 
@@ -141,8 +146,8 @@ void* RawContext::jit(Function* F) {
 	return TheExecutionEngine->getPointerToFunction(F);
 }
 
-Function* const RawContext::getFunction(std::string funcName) const {
-	std::map<std::string, Function*>::const_iterator it;
+Function* const RawContext::getFunction(string funcName) const {
+	map<string, Function*>::const_iterator it;
 	it = availableFunctions.find(funcName);
 	if (it == availableFunctions.end()) {
 			throw runtime_error(string("Unknown function name: ") + funcName);
@@ -288,7 +293,7 @@ void RawContext::CreateIfBlock(Function* fn, const string& if_label,
 }
 
 AllocaInst* RawContext::CreateEntryBlockAlloca(Function *TheFunction,
-		const std::string &VarName, Type* varType) {
+		const string &VarName, Type* varType) {
 	IRBuilder<> TmpBuilder(&TheFunction->getEntryBlock(),
 			TheFunction->getEntryBlock().begin());
 	return TmpBuilder.CreateAlloca(varType, 0, VarName.c_str());
@@ -307,7 +312,7 @@ Value* RawContext::CreateGlobalString(char* str) {
 
 	Constant *tmpHTname = ConstantDataArray::getString(ctx, str,true);
 	PointerType* charPtrType = PointerType::get(IntegerType::get(ctx, 8), 0);
-	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, std::string("globalStr"), charPtrType);
+	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, string("globalStr"), charPtrType);
 
 	vector<Value*> idxList = vector<Value*>();
 	idxList.push_back(createInt32(0));
@@ -335,7 +340,7 @@ Value* RawContext::CreateGlobalString(const char* str) {
 
 	Constant *tmpHTname = ConstantDataArray::getString(ctx, str,true);
 	PointerType* charPtrType = PointerType::get(IntegerType::get(ctx, 8), 0);
-	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, std::string("globalStr"), charPtrType);
+	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, string("globalStr"), charPtrType);
 
 	vector<Value*> idxList = vector<Value*>();
 	idxList.push_back(createInt32(0));
@@ -354,7 +359,7 @@ PointerType* RawContext::getPointerType(Type* type) {
 	return PointerType::get(type, 0);
 }
 
-StructType* RawContext::CreateCustomStruct(std::vector<Type*> innerTypes) {
+StructType* RawContext::CreateCustomStruct(vector<Type*> innerTypes) {
 	LLVMContext& ctx = *llvmContext;
 	llvm::StructType* valueType = llvm::StructType::get(ctx,innerTypes);
 	return valueType;
@@ -363,7 +368,7 @@ StructType* RawContext::CreateCustomStruct(std::vector<Type*> innerTypes) {
 StructType* RawContext::CreateJSONPosStruct() {
 	LLVMContext& ctx = *llvmContext;
 	llvm::Type* int64_type = Type::getInt64Ty(ctx);
-	std::vector<Type*> json_pos_types;
+	vector<Type*> json_pos_types;
 	json_pos_types.push_back(int64_type);
 	json_pos_types.push_back(int64_type);
 	return CreateCustomStruct(json_pos_types);
@@ -379,7 +384,7 @@ PointerType* RawContext::CreateJSMNStructPtr()	{
 StructType* RawContext::CreateJSMNStruct() {
 	LLVMContext& ctx = *llvmContext;
 	llvm::Type* int32_type = Type::getInt32Ty(ctx);
-	std::vector<Type*> jsmn_pos_types;
+	vector<Type*> jsmn_pos_types;
 	jsmn_pos_types.push_back(int32_type);
 	jsmn_pos_types.push_back(int32_type);
 	jsmn_pos_types.push_back(int32_type);
@@ -392,7 +397,7 @@ StructType* RawContext::CreateStringStruct() {
 	llvm::Type* int32_type = Type::getInt32Ty(ctx);
 	llvm::Type* char_type = Type::getInt8Ty(ctx);
 	PointerType* ptr_char_type = PointerType::get(char_type,0);
-	std::vector<Type*> string_obj_types;
+	vector<Type*> string_obj_types;
 	string_obj_types.push_back(ptr_char_type);
 	string_obj_types.push_back(int32_type);
 
@@ -454,9 +459,9 @@ void insertToHT(char* HTname, size_t key, void* value, int type_size) {
 	void* valMaterialized = malloc(type_size);
 	memcpy(valMaterialized, value, type_size);
 
-	HT->insert(std::pair<size_t, void*>(key, valMaterialized));
+	HT->insert(pair<size_t, void*>(key, valMaterialized));
 
-	//	HT->insert(std::pair<int,void*>(key,value));
+	//	HT->insert(pair<int,void*>(key,value));
 	LOG(INFO) << "[Insert: ] Hash key " << key << " inserted successfully";
 
 	LOG(INFO) << "[INSERT: ] There are " << HT->count(key)
@@ -472,7 +477,7 @@ void** probeHT(char* HTname, size_t key) {
 	//same indirection here as above.
 	multimap<size_t, void*>* HT = catalog.getHashTable(name);
 
-	pair<multimap<size_t, void*>::iterator, std::multimap<size_t, void*>::iterator> results;
+	pair<multimap<size_t, void*>::iterator, multimap<size_t, void*>::iterator> results;
 	results = HT->equal_range(key);
 
 	void** bindings = 0;
@@ -532,34 +537,93 @@ HashtableBucketMetadata* getMetadataHT(char* HTname)	{
 }
 
 //TODO REPLACE
-void insertIntKeyToHT(char* HTname, int key, void* value, int type_size) {
+//void insertIntKeyToHT(char* HTname, int key, void* value, int type_size) {
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//	//still, one unneeded indirection..... is there a quicker way?
+//	multimap<int, void*>* HT = catalog.getIntHashTable(string(HTname));
+//
+//	void* valMaterialized = malloc(type_size);
+//	memcpy(valMaterialized, value, type_size);
+//
+//	HT->insert(pair<int, void*>(key, valMaterialized));
+//
+//	//	HT->insert(pair<int,void*>(key,value));
+//#ifdef DEBUG
+//	LOG(INFO) << "[Insert: ] Integer key " << key << " inserted successfully";
+//
+//	LOG(INFO) << "[INSERT: ] There are " << HT->count(key)
+//			<< " elements with key " << key << ":";
+//#endif
+//
+//}
+//
+////TODO REPLACE
+//void** probeIntHT(char* HTname, int key, int typeIndex) {
+//
+////	string name = string(HTname);
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//
+//	//same indirection here as above.
+//	multimap<int, void*>* HT = catalog.getIntHashTable(string(HTname));
+//
+//	pair<multimap<int, void*>::iterator, multimap<int, void*>::iterator> results;
+//	results = HT->equal_range(key);
+//
+//	void** bindings = 0;
+//	int count = HT->count(key);
+//
+//	if (count) {
+//		//+1 used to set last position to null and know when to terminate
+//		bindings = new void*[count + 1];
+//		bindings[count] = NULL;
+//	} else {
+//		bindings = new void*[1];
+//		bindings[0] = NULL;
+//		return bindings;
+//	}
+//
+//	int curr = 0;
+//	for (multimap<int, void*>::iterator it = results.first;
+//			it != results.second; ++it) {
+//		bindings[curr] = it->second;
+//		curr++;
+//	}
+//#ifdef DEBUG
+//	LOG(INFO) << "[PROBE INT:] There are " << HT->count(key)
+//			<< " elements with key " << key;
+//#endif
+//	return bindings;
+//}
+
+void insertIntKeyToHT(int htIdentifier, int key, void* value, int type_size) {
 	RawCatalog& catalog = RawCatalog::getInstance();
 	//still, one unneeded indirection..... is there a quicker way?
-	multimap<int, void*>* HT = catalog.getIntHashTable(string(HTname));
+	multimap<int, void*>* HT = catalog.getIntHashTable(htIdentifier);
 
 	void* valMaterialized = malloc(type_size);
+	//FIXME obviously expensive, but probably cannot be helped
 	memcpy(valMaterialized, value, type_size);
 
-	HT->insert(std::pair<int, void*>(key, valMaterialized));
+	HT->insert(pair<int, void*>(key, valMaterialized));
+//	cout << "INSERTED KEY " << key << endl;
 
-	//	HT->insert(std::pair<int,void*>(key,value));
 #ifdef DEBUG
-	LOG(INFO) << "[Insert: ] Integer key " << key << " inserted successfully";
-
-	LOG(INFO) << "[INSERT: ] There are " << HT->count(key)
-			<< " elements with key " << key << ":";
+//	LOG(INFO) << "[Insert: ] Integer key " << key << " inserted successfully";
+//
+//	LOG(INFO) << "[INSERT: ] There are " << HT->count(key)
+//			<< " elements with key " << key << ":";
 #endif
 
 }
 
 //TODO REPLACE
-void** probeIntHT(char* HTname, int key, int typeIndex) {
+void** probeIntHT(int htIdentifier, int key, int typeIndex) {
 
-	string name = string(HTname);
+//	string name = string(HTname);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//same indirection here as above.
-	multimap<int, void*>* HT = catalog.getIntHashTable(name);
+	multimap<int, void*>* HT = catalog.getIntHashTable(htIdentifier);
 
 	pair<multimap<int, void*>::iterator, multimap<int, void*>::iterator> results;
 	results = HT->equal_range(key);
@@ -689,7 +753,7 @@ size_t hashStringObject(StringObject obj)	{
 //}
 //
 //template <class T>
-//inline void hash_combine_no_order(std::size_t& seed, const T& v)
+//inline void hash_combine_no_order(size_t& seed, const T& v)
 //{
 //    boost::hash<T> hasher;
 //    seed ^= hasher(v);
@@ -708,7 +772,7 @@ size_t combineHashes(size_t hash1, size_t hash2) {
 }
 
 template <class T>
-inline void hash_combine_no_order(std::size_t& seed, const T& v)
+inline void hash_combine_no_order(size_t& seed, const T& v)
 {
     boost::hash<T> hasher;
     seed ^= hasher(v);
@@ -884,7 +948,7 @@ void flushOutput(char* fileName)	{
 	RawCatalog& catalog = RawCatalog::getInstance();
 		string name = string(fileName);
 		stringstream* strBuffer = catalog.getSerializer(name);
-		std::ofstream outFile;
+		ofstream outFile;
 		outFile.open(fileName);
 		outFile << strBuffer->rdbuf();
 }
@@ -1134,7 +1198,7 @@ void registerFunctions(RawContext& context)	{
 	 * HASHTABLES FOR JOINS / AGGREGATIONS
 	 */
 	//Last type is needed to capture file size. Tentative
-	Type* ht_int_types[] = { char_ptr_type, int_type, void_ptr_type, int_type };
+	Type* ht_int_types[] = { int_type, int_type, void_ptr_type, int_type };
 	FunctionType *FTintHT = FunctionType::get(void_type, ht_int_types, false);
 	Function* insertIntKeyToHT_ = Function::Create(FTintHT, Function::ExternalLinkage, "insertIntKeyToHT", TheModule);
 
@@ -1142,7 +1206,7 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FT_HT = FunctionType::get(void_type, ht_types, false);
 	Function* insertToHT_ = Function::Create(FT_HT, Function::ExternalLinkage, "insertToHT", TheModule);
 
-	Type* ht_int_probe_types[] = { char_ptr_type, int_type, int_type };
+	Type* ht_int_probe_types[] = { int_type, int_type, int_type };
 	PointerType* void_ptr_ptr_type = context.getPointerType(void_ptr_type);
 	FunctionType *FTint_probeHT = FunctionType::get(void_ptr_ptr_type, ht_int_probe_types, false);
 	Function* probeIntHT_ = Function::Create(FTint_probeHT,	Function::ExternalLinkage, "probeIntHT", TheModule);

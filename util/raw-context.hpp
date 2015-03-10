@@ -147,7 +147,6 @@ public:
 
 	Value* getMemResultCtr()	{ return mem_resultCtr; }
 
-
 private:
 	LLVMContext *llvmContext;
 	Module *TheModule;
@@ -170,6 +169,9 @@ private:
 	//and be utilized in actions such as flushing out delimiters
 	//NOTE: Must check whether sth similar is necessary for nested collections
 	Value* mem_resultCtr;
+
+
+
 
 };
 
@@ -201,9 +203,9 @@ extern "C" void printBoolean(bool X);
 
 extern "C" int atoi_llvm(const char* X);
 
-extern "C" void insertIntKeyToHT(char* HTname, int key, void* value, int type_size);
+extern "C" void insertIntKeyToHT(int htIdentifier, int key, void* value, int type_size);
 
-extern "C" void** probeIntHT(char* HTname, int key, int typeIndex);
+extern "C" void** probeIntHT(int htIdentifier, int key, int typeIndex);
 
 extern "C" void insertToHT(char* HTname, size_t key, void* value, int type_size);
 

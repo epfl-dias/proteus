@@ -36,10 +36,17 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 	LLVMContext& llvmContext = context->getLLVMContext();
 	RawCatalog& catalog = RawCatalog::getInstance();
 	Function* TheFunction = context->getGlobalFunction();
-	IRBuilder<>* TheBuilder = context->getBuilder();
+	IRBuilder<>* Builder = context->getBuilder();
+
 	//Name of hashtable: Used from both sides of the join
-	Value* globalStr = context->CreateGlobalString(htName);
+	//Value* globalStr = context->CreateGlobalString(htName);
+	//ID of hashtable: Used from both sides of the join
+	int idHashtable = catalog.getIntHashTableID(htName);
+	Value *val_idHashtable = context->createInt32(idHashtable);
+
 	llvm::StructType* payloadType;
+	Function* debugInt = context->getFunction("printi");
+	Function* debugInt64 = context->getFunction("printi64");
 
 	const RawOperator& caller = childState.getProducer();
 	if(caller == getLeftChild())
@@ -71,14 +78,14 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 				RecordAttribute currAttr = memSearch->first;
 				if(currAttr.getAttrName() == activeLoop)	{
 					mem_activeTuple = memSearch->second;
-					Value* val_activeTuple = TheBuilder->CreateLoad(mem_activeTuple.mem);
+					Value* val_activeTuple = Builder->CreateLoad(mem_activeTuple.mem);
 					//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
 					vector<Value*> idxList = vector<Value*>();
 					idxList.push_back(context->createInt32(0));
 					idxList.push_back(context->createInt32(offsetInStruct++));
 					//Shift in struct ptr
-					Value* structPtr = TheBuilder->CreateGEP(Alloca, idxList);
-					TheBuilder->CreateStore(val_activeTuple,structPtr);
+					Value* structPtr = Builder->CreateGEP(Alloca, idxList);
+					Builder->CreateStore(val_activeTuple,structPtr);
 				}
 			}
 		}
@@ -90,14 +97,14 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 			map<RecordAttribute, RawValueMemory>::const_iterator memSearch = bindings.find(*(*it));
 			RawValueMemory currValMem = memSearch->second;
 			//FIXME FIX THE NECESSARY CONVERSIONS HERE
-			Value* currVal = TheBuilder->CreateLoad(currValMem.mem);
+			Value* currVal = Builder->CreateLoad(currValMem.mem);
 			Value* valToMaterialize = pg->convert(currVal->getType(),materializedTypes->at(offsetInWanted),currVal);
 			vector<Value*> idxList = vector<Value*>();
 			idxList.push_back(context->createInt32(0));
 			idxList.push_back(context->createInt32(offsetInStruct));
 			//Shift in struct ptr
-			Value* structPtr = TheBuilder->CreateGEP(Alloca, idxList);
-			TheBuilder->CreateStore(valToMaterialize,structPtr);
+			Value* structPtr = Builder->CreateGEP(Alloca, idxList);
+			Builder->CreateStore(valToMaterialize,structPtr);
 			offsetInStruct++;
 			offsetInWanted++;
 		}
@@ -111,11 +118,11 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		//INSERT VALUES IN HT
 		//Not sure whether I need to store these args in memory as well
 		PointerType* voidType = PointerType::get(IntegerType::get(llvmContext, 8), 0);
-		Value* voidCast = TheBuilder->CreateBitCast(Alloca, voidType,"valueVoidCast");
+		Value* voidCast = Builder->CreateBitCast(Alloca, voidType,"valueVoidCast");
 		//Prepare hash_insert_function arguments
 		std::vector<Value*> ArgsV;
 		ArgsV.clear();
-		ArgsV.push_back(globalStr);
+		ArgsV.push_back(val_idHashtable);
 		ArgsV.push_back(leftKey.value);
 		ArgsV.push_back(voidCast);
 		//Passing size as well
@@ -137,7 +144,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 			throw runtime_error(string("Type of key for join not supported (yet)!!"));
 		default:	throw runtime_error(string("Type of key for join not supported!!"));
 		}
-		TheBuilder->CreateCall(insert, ArgsV/*,"insertInt"*/);
+		Builder->CreateCall(insert, ArgsV/*,"insertInt"*/);
 	}
 	else
 	{
@@ -156,7 +163,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		//Prepare hash_probe_function arguments
 		std::vector<Value*> ArgsV;
 		ArgsV.clear();
-		ArgsV.push_back(globalStr);
+		ArgsV.push_back(val_idHashtable);
 		ArgsV.push_back(rightKey.value);
 		ArgsV.push_back(idx);
 		Function* probe;
@@ -175,8 +182,19 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 			throw runtime_error(string("Type of key for join not supported (yet)!!"));
 		default:	throw runtime_error(string("Type of key for join not supported!!"));
 		}
-		Value* voidJoinBindings = TheBuilder->CreateCall(probe, ArgsV/*,"probeInt"*/);
-
+		#ifdef DEBUG
+			vector<Value*> ArgsV0;
+			ArgsV0.clear();
+			ArgsV0.push_back(context->createInt32(0));
+			Builder->CreateCall(debugInt, ArgsV0, "printi");
+		#endif
+		Value* voidJoinBindings = Builder->CreateCall(probe, ArgsV/*,"probeInt"*/);
+		#ifdef DEBUG
+			vector<Value*> ArgsV1;
+			ArgsV1.clear();
+			ArgsV1.push_back(context->createInt32(1));
+			Builder->CreateCall(debugInt, ArgsV1, "printi");
+		#endif
 
 		//LOOP THROUGH RESULTS (IF ANY)
 
@@ -189,12 +207,12 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		PointerType* i8_ptr = PointerType::get(IntegerType::get(llvmContext, 8), 0);
 		ConstantPointerNull* const_null = ConstantPointerNull::get(i8_ptr);
 
-		BasicBlock* codeSpot = TheBuilder->GetInsertBlock();
+		BasicBlock* codeSpot = Builder->GetInsertBlock();
 		AllocaInst* ptr_i = new AllocaInst(IntegerType::get(llvmContext, 32), "i_mem",codeSpot);
 		ptr_i->setAlignment(4);
 		StoreInst* store_i = new StoreInst(context->createInt32(0), ptr_i, false,codeSpot);
 		store_i->setAlignment(4);
-		TheBuilder->CreateBr(loopCond);
+		Builder->CreateBr(loopCond);
 
 		//CONDITION OF RESULT LOOP
 		LoadInst* load_cnt = new LoadInst(ptr_i, "", false);
@@ -235,7 +253,6 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		unsigned elemNo = str->getNumElements();
 		LOG(INFO) << "[JOIN: ] Elements in result struct: "<<elemNo;
 		map<RecordAttribute, RawValueMemory>* allJoinBindings = new map<RecordAttribute, RawValueMemory>();
-
 
 		int i = 0;
 		//Retrieving activeTuple(s) from HT
@@ -281,7 +298,6 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 			LOG(INFO) << "[JOIN: ] Lhs Binding name: "<<currField;
 #endif
 		}
-
 		//Forwarding/pipelining bindings of rhs too
 		const map<RecordAttribute, RawValueMemory>& rhsBindings = childState.getBindings();
 		for(map<RecordAttribute, RawValueMemory>::const_iterator it = rhsBindings.begin(); it!= rhsBindings.end(); ++it) {
@@ -295,11 +311,12 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		LOG(INFO) << "[JOIN: ] Number of all join bindings: "<<allJoinBindings->size();
 #endif
 		//TRIGGER PARENT
-		TheBuilder->SetInsertPoint(loopBody);
+		Builder->SetInsertPoint(loopBody);
+
 		OperatorState* newState = new OperatorState(*this, *allJoinBindings);
 		getParent()->consume(context, *newState);
 
-		TheBuilder->CreateBr(loopInc);
+		Builder->CreateBr(loopInc);
 
 		// Block for.inc (label_for_inc)
 		LoadInst* cnt_curr = new LoadInst(ptr_i, "", false, loopInc);
@@ -310,7 +327,12 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 
 		BranchInst::Create(loopCond, loopInc);
 
-		TheBuilder->SetInsertPoint(loopEnd);
+		Builder->SetInsertPoint(loopEnd);
+#ifdef DEBUG
+		vector<Value*> ArgsV2;
+		ArgsV2.push_back(context->createInt32(2));
+		Builder->CreateCall(debugInt, ArgsV2);
+#endif
 	}
 };
 
