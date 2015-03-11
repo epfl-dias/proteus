@@ -31,23 +31,30 @@ Materializer::Materializer(const vector<RecordAttribute*>& wantedFields,
 {
 }
 
-OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer, const map<RecordAttribute, RawValueMemory>& bindings )
-	: context(context), materializer(materializer), currentBindings(bindings)	{
+OutputPlugin::OutputPlugin(RawContext* const context,
+		Materializer& materializer,
+		const map<RecordAttribute, RawValueMemory>& bindings) :
+		context(context), materializer(materializer), currentBindings(bindings) {
 
 	/**
-	 * TODO PAYLOAD SIZE IS NOT A DECISION TO BE MADE BY THE PLUGIN
+	 * TODO
+	 * PAYLOAD SIZE IS NOT A DECISION TO BE MADE BY THE PLUGIN
+	 * THE OUTPUT PLUGIN SHOULD BE THE ONE ENFORCING THE DECISION
 	 */
 	const vector<RecordAttribute*>& wantedFields = materializer.getWantedFields();
 	// Declare our result (value) type
 	materializedTypes = new vector<Type*>();
 	int payload_type_size = 0;
+	identifiersTypeSize = 0;
 	int tupleIdentifiers = 0;
+	isComplex = false;
 	//Always materializing the 'active tuples' pointer
 	RawValueMemory mem_activeTuple;
 	{
 		map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
 		//FIXME use 'find' instead of looping
-		for (memSearch = currentBindings.begin(); memSearch != currentBindings.end(); memSearch++) {
+		for (memSearch = currentBindings.begin();
+				memSearch != currentBindings.end(); memSearch++) {
 
 			RecordAttribute currAttr = memSearch->first;
 			//cout << "HINT: " << currAttr.getOriginalRelationName() << "_" << currAttr.getName() << endl;
@@ -55,11 +62,13 @@ OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer
 				Type* currType = (memSearch->second).mem->getAllocatedType();
 				materializedTypes->push_back(currType);
 				payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
+				cout << "Active Tuple Size "<< (currType->getPrimitiveSizeInBits() / 8) << endl;
 				tupleIdentifiers++;
 				materializer.addTupleIdentifier(currAttr);
 			}
 		}
 	}
+	identifiersTypeSize = payload_type_size;
 	int attrNo=0;
 	/**
 	 * XXX
@@ -77,7 +86,17 @@ OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer
 			Type* currType = (itSearch->second).mem->getAllocatedType();
 			Type* requestedType = chooseType((*it)->getOriginalType(),currType, mode);
 			materializedTypes->push_back(requestedType);
-			payload_type_size += (requestedType->getPrimitiveSizeInBits() / 8);
+			int fieldSize = requestedType->getPrimitiveSizeInBits() / 8;
+			fieldSizes.push_back(fieldSize);
+			payload_type_size += fieldSize;
+			cout << "Field Size "<< fieldSize << endl;
+			typeID id = itSearch->first.getOriginalType()->getTypeID();
+			switch(id) {
+				case BOOL:
+				case INT:
+				case FLOAT: isComplex = false; break;
+				default: isComplex = true;
+			}
 		}
 		/*Commented because of previous comment */
 		else {
@@ -91,6 +110,52 @@ OutputPlugin::OutputPlugin(RawContext* const context, Materializer& materializer
 	//Result type specified
 	payloadType = llvm::StructType::get(context->getLLVMContext(),*materializedTypes);
 	payloadTypeSize = payload_type_size;
+	cout << "Payload Size "<< payloadTypeSize << endl;
+}
+
+Value* OutputPlugin::getRuntimePayloadTypeSize() {
+
+	RawCatalog& catalog = RawCatalog::getInstance();
+	Value *val_size = context->createInt32(0);
+	IRBuilder<>* Builder = context->getBuilder();
+	RawValueMemory mem_activeTuple;
+
+	//Pre-computed 'activeLoop' variables
+	val_size = context->createInt32(identifiersTypeSize);
+
+	int attrNo = 0;
+	const vector<RecordAttribute*>& wantedFields =
+			materializer.getWantedFields();
+	vector<RecordAttribute*>::const_iterator it = wantedFields.begin();
+	for (; it != wantedFields.end(); it++) {
+		map<RecordAttribute, RawValueMemory>::const_iterator itSearch =
+				currentBindings.find(*(*it));
+		//Field needed
+		if (itSearch != currentBindings.end()) {
+			materialization_mode mode = (materializer.getOutputMode()).at(attrNo);
+			Value *val_attr_size = NULL;
+			if (mode == EAGER) {
+				RecordAttribute currAttr = itSearch->first;
+				Plugin* inputPg = catalog.getPlugin(
+						currAttr.getOriginalRelationName());
+				val_attr_size = inputPg->getValueSize(itSearch->second,
+						currAttr.getOriginalType());
+				val_size = Builder->CreateAdd(val_size, val_attr_size);
+			} else {
+				//Pre-computed
+				val_attr_size = context->createInt32(fieldSizes.at(attrNo));
+			}
+			val_size = Builder->CreateAdd(val_size, val_attr_size);
+			attrNo++;
+		} else {
+			string error_msg =
+					string("[OUTPUT PG: ] UNKNOWN WANTED FIELD ")
+					+ (*it)->getAttrName();
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+	}
+	return val_size;
 }
 
 //TODO Many more cases to cater for

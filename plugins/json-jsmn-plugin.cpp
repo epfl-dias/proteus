@@ -936,53 +936,48 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 			std::string("value_isNull"), int1Type);
 	Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 	string error_msg;
-	switch (type->getTypeID())
-	{
-	case STRING:
-	case RECORD:
-	case LIST:
-	{
-		mem_convertedValue = context->CreateEntryBlockAlloca(F,
-				std::string("existingObject"),
-				(mem_value.mem)->getAllocatedType());
-		break;
-	}
-	case SET:
-	{
-		error_msg = string("[JSON Plugin - jsmn: ]: SET datatype cannot occur");
-		LOG(ERROR)<< error_msg;
+	switch (type->getTypeID()) {
+		case STRING:
+		case RECORD:
+		case LIST: {
+			mem_convertedValue = context->CreateEntryBlockAlloca(F,
+					string("existingObject"), (mem_value.mem)->getAllocatedType());
+			break;
+		}
+		case SET: {
+			error_msg = string("[JSON Plugin - jsmn: ]: SET datatype cannot occur");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(string(error_msg));
+		}
+		case BAG: {
+			error_msg = string("[JSON Plugin - jsmn: ]: BAG datatype cannot occur");
+			LOG(ERROR)<< error_msg;
+		}
 		throw runtime_error(string(error_msg));
+		case BOOL:
+		{
+			mem_convertedValue = context->CreateEntryBlockAlloca(F,
+					string("convertedBool"), int8Type);
+			break;
+		}
+		case FLOAT:
+		{
+			mem_convertedValue = context->CreateEntryBlockAlloca(F,
+					string("convertedFloat"), doubleType);
+			break;
+		}
+		case INT:
+		{
+			mem_convertedValue = context->CreateEntryBlockAlloca(F,
+					string("convertedInt"), int32Type);
+			break;}
+		default:
+		{
+			error_msg = string("[JSON Plugin - jsmn: ]: Unknown expression type");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(string(error_msg));
+		}
 	}
-	case BAG:
-	{
-		error_msg = string("[JSON Plugin - jsmn: ]: BAG datatype cannot occur");
-		LOG(ERROR)<< error_msg;
-	}
-	throw runtime_error(string(error_msg));
-	case BOOL:
-	{
-		mem_convertedValue = context->CreateEntryBlockAlloca(F,
-				string("convertedBool"), int8Type);
-		break;
-	}
-	case FLOAT:
-	{
-		mem_convertedValue = context->CreateEntryBlockAlloca(F,
-				string("convertedFloat"), doubleType);
-		break;
-	}
-	case INT:
-	{
-		mem_convertedValue = context->CreateEntryBlockAlloca(F,
-				string("convertedInt"), int32Type);
-		break;}
-	default:
-	{
-		error_msg = string("[JSON Plugin - jsmn: ]: Unknown expression type");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(string(error_msg));
-	}
-}
 
 /**
  * Return (nil) for cases path was not found
@@ -1616,6 +1611,50 @@ void JSONPlugin::finish()
 {
 	close(fd);
 	munmap((void*) buf, fsize);
+}
+
+Value* JSONPlugin::getValueSize(RawValueMemory mem_value,
+		const ExpressionType* type) {
+	switch (type->getTypeID()) {
+	case BOOL:
+	case INT:
+	case FLOAT: {
+		Type *explicitType = (mem_value.mem)->getAllocatedType();
+		return context->createInt32(explicitType->getPrimitiveSizeInBits() / 8);
+	}
+	case STRING:
+	case BAG:
+	case LIST:
+	case SET:
+	case RECORD: {
+		IRBuilder<>* Builder = context->getBuilder();
+		Function* F = context->getGlobalFunction();
+		/* mem_value contains the address of a tokenNo */
+		/* Must return tokens[tokenNo].end - tokens[tokenNo].start */
+
+		AllocaInst* mem_tokens = NamedValuesJSON[var_tokenPtr];
+		Value* val_offset = Builder->CreateLoad(mem_value.mem);
+
+		PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
+		AllocaInst* mem_tokens_shifted = context->CreateEntryBlockAlloca(F,
+					string(var_tokenPtr), context->CreateJSMNStruct());
+		Value* token_i = context->getArrayElem(mem_tokens, val_offset);
+		Builder->CreateStore(token_i, mem_tokens_shifted);
+		// 0: jsmntype_t type;
+		// 1: int start;
+		// 2: int end;
+		// 3: int size;
+		Value* token_i_start = context->getStructElem(mem_tokens_shifted, 1);
+		Value* token_i_end = context->getStructElem(mem_tokens_shifted, 2);
+		return Builder->CreateSub(token_i_end,token_i_start);
+	}
+	default: {
+		string error_msg = string("[JSON Plugin]: Unknown datatype");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	}
 }
 
 JSONPlugin::~JSONPlugin()

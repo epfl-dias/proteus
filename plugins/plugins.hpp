@@ -88,5 +88,11 @@ public:
 	virtual RawValue collectionHasNext(RawValue val_parentObject, RawValueMemory mem_currentChild) = 0;
 	virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) = 0;
 
+	/**
+	 * Relevant when needed to materialize EAGERLY.
+	 * Otherwise, allocated type info suffices
+	 */
+	virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type) = 0;
+
 };
 #endif /* PLUGINS_LLVM_HPP_ */

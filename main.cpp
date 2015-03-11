@@ -26,6 +26,7 @@
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "operators/join.hpp"
+#include "operators/radix-join.hpp"
 #include "operators/unnest.hpp"
 #include "operators/outer-unnest.hpp"
 #include "operators/print.hpp"
@@ -108,6 +109,11 @@ void columnarMax2();
 void columnarMax3();
 void columnarJoin1();
 
+/**
+ * Radix join
+ */
+void joinQueryRelationalRadix();
+
 
 template<class T>
 inline void my_hash_combine(std::size_t& seed, const T& v)
@@ -175,7 +181,7 @@ int main(int argc, char* argv[])
 //	outerUnnest();
 //	nest();
 
-	columnarQueryCount();
+//	columnarQueryCount();
 //	columnarQuerySum();
 
 //	cout << "Max 1: " << endl;
@@ -186,6 +192,9 @@ int main(int argc, char* argv[])
 //	columnarMax3();
 //	cout << "Join 1: " << endl;
 //	columnarJoin1();
+
+	joinQueryRelationalRadix();
+
 }
 
 void hashConstants()	{
@@ -1428,6 +1437,125 @@ void joinQueryRelational()
 	char joinLabel[] = "join1";
 	Join join = Join(joinPred, sel, scan2, joinLabel, *mat);
 	sel.setParent(&join);
+	scan2.setParent(&join);
+
+	//PRINT
+	Function* debugInt = ctx.getFunction("printi");
+	//To be 100% correct, this proj should be over a new InputArg that only exposes the new bindings
+	expressions::RecordProjection* proj = new expressions::RecordProjection(
+			new IntType(), leftArg, *attr1);
+	Print printOp = Print(debugInt, proj, &join);
+	join.setParent(&printOp);
+
+	//ROOT
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pg->finish();
+	pg2->finish();
+	catalog.clear();
+}
+
+void joinQueryRelationalRadix()
+{
+	RawContext ctx = RawContext("testFunction-RadixJoinCSV");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	/**
+	 * SCAN1
+	 */
+	string filename = string("inputs/input.csv");
+	PrimitiveType* intType = new IntType();
+	RecordAttribute* attr1 = new RecordAttribute(1, filename, string("att1"),
+			intType);
+	RecordAttribute* attr2 = new RecordAttribute(2, filename, string("att2"),
+			intType);
+	RecordAttribute* attr3 = new RecordAttribute(3, filename, string("att3"),
+			intType);
+	list<RecordAttribute*> attrList;
+	attrList.push_back(attr1);
+	attrList.push_back(attr2);
+	attrList.push_back(attr3);
+
+	RecordType rec1 = RecordType(attrList);
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(attr1);
+	whichFields.push_back(attr2);
+
+	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
+	catalog.registerPlugin(filename, pg);
+	Scan scan = Scan(&ctx, *pg);
+
+	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop);
+	list<RecordAttribute> projectionsL = list<RecordAttribute>();
+	projectionsL.push_back(projTupleL);
+	projectionsL.push_back(*attr1);
+	projectionsL.push_back(*attr2);
+
+	/**
+	 * SCAN2
+	 */
+	string filename2 = string("inputs/input2.csv");
+	RecordAttribute* attr1_f2 = new RecordAttribute(1, filename2,
+			string("att1"), intType);
+	RecordAttribute* attr2_f2 = new RecordAttribute(2, filename2,
+			string("att2"), intType);
+	RecordAttribute* attr3_f2 = new RecordAttribute(3, filename2,
+			string("att3"), intType);
+
+	list<RecordAttribute*> attrList2;
+	attrList2.push_back(attr1_f2);
+	attrList2.push_back(attr1_f2);
+	attrList2.push_back(attr1_f2);
+	RecordType rec2 = RecordType(attrList2);
+
+	vector<RecordAttribute*> whichFields2;
+	whichFields2.push_back(attr1_f2);
+	whichFields2.push_back(attr2_f2);
+
+	CSVPlugin* pg2 = new CSVPlugin(&ctx, filename2, rec2, whichFields2);
+	catalog.registerPlugin(filename2, pg2);
+	Scan scan2 = Scan(&ctx, *pg2);
+	LOG(INFO)<<"Right:"<<&scan2;
+
+	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop);
+	list<RecordAttribute> projectionsR = list<RecordAttribute>();
+	projectionsR.push_back(projTupleR);
+	projectionsR.push_back(*attr1_f2);
+	projectionsR.push_back(*attr2_f2);
+
+	/**
+	 * JOIN
+	 */
+	expressions::Expression* leftArg = new expressions::InputArgument(intType,
+			0, projectionsL);
+	expressions::Expression* left = new expressions::RecordProjection(intType,
+			leftArg, *attr2);
+	expressions::Expression* rightArg = new expressions::InputArgument(intType,
+			1, projectionsR);
+	expressions::Expression* right = new expressions::RecordProjection(intType,
+			rightArg, *attr2_f2);
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
+			new BoolType(), left, right);
+	vector<materialization_mode> outputModes;
+	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes.insert(outputModes.begin(), EAGER);
+	Materializer* matLeft = new Materializer(whichFields, outputModes);
+
+	outputModes.clear();
+	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes.insert(outputModes.begin(), EAGER);
+	Materializer* matRight = new Materializer(whichFields2, outputModes);
+
+	char joinLabel[] = "radixJoin1";
+	RadixJoin join = RadixJoin(joinPred, scan, scan2, &ctx, joinLabel, *matLeft, *matRight);
+	scan.setParent(&join);
 	scan2.setParent(&join);
 
 	//PRINT

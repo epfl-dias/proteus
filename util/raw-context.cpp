@@ -112,7 +112,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-//	getModule()->dump();
+	getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -961,6 +961,10 @@ void* getMemoryChunk(size_t chunkSize)	{
 	return allocateFromRegion(chunkSize);
 }
 
+void* increaseMemoryChunk(void* chunk, size_t chunkSize)	{
+	return increaseRegion(chunk, chunkSize);
+}
+
 //Provide support for some extern functions
 void RawContext::registerFunction(const char* funcName, Function* func)	{
 	availableFunctions[funcName] = func;
@@ -1076,6 +1080,9 @@ void registerFunctions(RawContext& context)	{
 
 	vector<Type*> ArgsMemoryChunk;
 	ArgsMemoryChunk.insert(ArgsMemoryChunk.begin(),int64_type);
+	vector<Type*> ArgsIncrMemoryChunk;
+	ArgsIncrMemoryChunk.insert(ArgsIncrMemoryChunk.begin(),int64_type);
+	ArgsIncrMemoryChunk.insert(ArgsIncrMemoryChunk.begin(),void_ptr_type);
 
 	vector<Type*> ArgsFlushOutput;
 	ArgsFlushOutput.insert(ArgsFlushOutput.begin(),char_ptr_type);
@@ -1106,11 +1113,12 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FTflushBoolean = 		  FunctionType::get(void_type, ArgsFlushBoolean, false);
 	FunctionType *FTflushStartEnd = 	  FunctionType::get(void_type, ArgsFlushStartEnd, false);
 	FunctionType *FTflushChar =			  FunctionType::get(void_type, ArgsFlushChar, false);
-	FunctionType *FTflushDelim =			  FunctionType::get(void_type, ArgsFlushDelim, false);
+	FunctionType *FTflushDelim =		  FunctionType::get(void_type, ArgsFlushDelim, false);
 	FunctionType *FTflushOutput =		  FunctionType::get(void_type, ArgsFlushOutput, false);
 
 
 	FunctionType *FTmemoryChunk = 		  FunctionType::get(void_ptr_type, ArgsMemoryChunk, false);
+	FunctionType *FTincrMemoryChunk =	  FunctionType::get(void_ptr_type, ArgsIncrMemoryChunk, false);
 
 	Function *printi_ 		= Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
 	Function *printi64_ 	= Function::Create(FTint64, Function::ExternalLinkage,"printi64", TheModule);
@@ -1183,9 +1191,11 @@ void registerFunctions(RawContext& context)	{
 	Function *flushOutput_ = Function::Create(FTflushOutput,
 						Function::ExternalLinkage, "flushOutput", TheModule);
 
-
+	/* Memory Management */
 	Function *getMemoryChunk_ = Function::Create(FTmemoryChunk,
 				Function::ExternalLinkage, "getMemoryChunk", TheModule);
+	Function *increaseMemoryChunk_ = Function::Create(FTincrMemoryChunk,
+					Function::ExternalLinkage, "increaseMemoryChunk", TheModule);
 
 	//Memcpy - not used (yet)
 	Type* types[] = { void_ptr_type, void_ptr_type, Type::getInt32Ty(ctx) };
@@ -1275,6 +1285,7 @@ void registerFunctions(RawContext& context)	{
 
 
 	context.registerFunction("getMemoryChunk", getMemoryChunk_);
+	context.registerFunction("increaseMemoryChunk", increaseMemoryChunk_);
 	context.registerFunction("memcpy", memcpy_);
 }
 

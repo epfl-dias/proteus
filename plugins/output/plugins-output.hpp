@@ -90,9 +90,22 @@ public:
 	llvm::StructType* getPayloadType() {
 		return payloadType;
 	}
+
+	bool hasComplexTypes()	{
+		return isComplex;
+	}
+
+	/* static - not to be used with eager modes */
 	int getPayloadTypeSize() {
 		return payloadTypeSize;
 	}
+
+	/**
+	 * To be used when we consider eagerly materializing
+	 * collections, strings, etc.
+	 */
+	Value* getRuntimePayloadTypeSize();
+
 	const map<RecordAttribute, RawValueMemory>& getBindings() const {
 		return currentBindings;
 	}
@@ -109,8 +122,18 @@ private:
 	RawContext* const context;
 	const map<RecordAttribute, RawValueMemory>& currentBindings;
 	llvm::StructType* payloadType;
-	std::vector<Type*>* materializedTypes;
+	vector<Type*>* materializedTypes;
+
+
+	/* Report whether payload comprises only scalars (or not) */
+	bool isComplex;
+	/* Accumulated size of the various tuple identifiers */
+	int identifiersTypeSize;
+	/* Static computation of size in case of late materialization */
+	/* Size per-binding, and total size */
+	vector<int> fieldSizes;
 	int payloadTypeSize;
+
 	Type* chooseType(const ExpressionType* exprType, Type* currType,
 			materialization_mode mode);
 };

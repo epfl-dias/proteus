@@ -94,6 +94,8 @@ public:
 		throw runtime_error(error_msg);
 	}
 
+	virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);
+
 private:
 	//Schema info provided
 	RecordType& rec;

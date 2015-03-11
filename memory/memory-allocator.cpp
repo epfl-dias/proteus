@@ -33,5 +33,10 @@ void* allocateFromRegion(size_t regionSize)	{
 	return arenaChunk;
 }
 
-
+void* increaseRegion(void* region, size_t currSize)	{
+	currSize <<= 1;
+	region = realloc(region, currSize);
+	assert(region != NULL);
+	return region;
+}
 

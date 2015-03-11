@@ -68,6 +68,8 @@ public:
 		throw runtime_error(error_msg);
 	}
 
+	virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);
+
 private:
 	string& fname;
 	off_t fsize;

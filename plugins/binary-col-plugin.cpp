@@ -218,6 +218,44 @@ void BinaryColPlugin::finish()	{
 	}
 }
 
+Value* BinaryColPlugin::getValueSize(RawValueMemory mem_value,
+		const ExpressionType* type) {
+	switch (type->getTypeID()) {
+	case BOOL:
+	case INT:
+	case FLOAT: {
+		Type *explicitType = (mem_value.mem)->getAllocatedType();
+		return context->createInt32(explicitType->getPrimitiveSizeInBits() / 8);
+	}
+	case STRING: {
+		string error_msg = string(
+				"[Binary Col Plugin]: Strings not supported yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	case BAG:
+	case LIST:
+	case SET: {
+		string error_msg = string(
+				"[Binary Col Plugin]: Cannot contain collections");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	case RECORD: {
+		string error_msg = string(
+				"[Binary Col Plugin]: Cannot contain records");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	default: {
+		string error_msg = string("[Binary Col Plugin]: Unknown datatype");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	}
+}
+
 void BinaryColPlugin::skipLLVM(RecordAttribute attName, Value* offset)
 {
 	//Prepare
@@ -768,3 +806,5 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 	// 	Any new code will be inserted in AfterBB.
 	Builder->SetInsertPoint(AfterBB);
 }
+
+

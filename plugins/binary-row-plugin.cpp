@@ -121,6 +121,44 @@ void BinaryRowPlugin::finish()	{
 	munmap(buf,fsize);
 }
 
+Value* BinaryRowPlugin::getValueSize(RawValueMemory mem_value,
+		const ExpressionType* type) {
+	switch (type->getTypeID()) {
+	case BOOL:
+	case INT:
+	case FLOAT: {
+		Type *explicitType = (mem_value.mem)->getAllocatedType();
+		return context->createInt32(explicitType->getPrimitiveSizeInBits() / 8);
+	}
+	case STRING: {
+		string error_msg = string(
+				"[Binary Row Plugin]: Strings not supported yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	case BAG:
+	case LIST:
+	case SET: {
+		string error_msg = string(
+				"[Binary Row Plugin]: Cannot contain collections");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	case RECORD: {
+		string error_msg = string(
+				"[Binary Row Plugin]: Cannot contain records");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	default: {
+		string error_msg = string("[Binary Row Plugin]: Unknown datatype");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	}
+}
+
 void BinaryRowPlugin::skipLLVM(Value* offset)
 {
 	//Prepare

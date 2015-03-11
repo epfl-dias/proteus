@@ -78,6 +78,8 @@ public:
 	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type, Value* fileName)  { flushChunk(mem_value, fileName); }
 	void flushChunk(RawValueMemory mem_value, Value* fileName);
 
+	virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);
+
 	//Used by unnest
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentTokenNo);
 	virtual RawValue collectionHasNext(RawValue val_parentTokenNo, RawValueMemory mem_currentTokenNo);
@@ -100,7 +102,7 @@ private:
 
 	//Code-generation-related
 	//Used to store memory positions of offset, buf and filesize in the generated code
-	std::map<std::string, AllocaInst*> NamedValuesJSON;
+	map<string, AllocaInst*> NamedValuesJSON;
 	RawContext* const context;
 
 	//Assumption (1) applies here

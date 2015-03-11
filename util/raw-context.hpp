@@ -53,7 +53,7 @@ public:
 //			delete TheFPM;
 //			delete TheExecutionEngine;
 //			delete TheFunction;
-			delete llvmContext;
+//			delete llvmContext;
 			//delete TheFunction;
 	}
 	LLVMContext& getLLVMContext() {
@@ -277,5 +277,6 @@ extern "C" void flushDelim(size_t resultCtr, char whichDelim, char* fileName);
  * Memory mgmt
  */
 extern "C" void* getMemoryChunk(size_t chunkSize);
+extern "C" void* increaseMemoryChunk(void* chunk, size_t chunkSize);
 
 #endif /* RAW_CONTEXT_HPP_ */
