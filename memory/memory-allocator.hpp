@@ -26,9 +26,9 @@
 
 #include "common/common.hpp"
 
-//(mock) memory arena interface
 void* allocateFromRegion(size_t regionSize);
-void* increaseRegion(void* region, size_t currSize);
+void* increaseRegion(void *region, size_t currSize);
+void freeRegion(void *region);
 
 //TODO also move HT manipulation here
 

@@ -1578,6 +1578,7 @@ void joinQueryRelationalRadix()
 	pg->finish();
 	pg2->finish();
 	catalog.clear();
+	cout << "End of execution" << endl;
 }
 
 void scanJsmn()

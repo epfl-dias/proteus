@@ -62,7 +62,7 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 				Type* currType = (memSearch->second).mem->getAllocatedType();
 				materializedTypes->push_back(currType);
 				payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
-				cout << "Active Tuple Size "<< (currType->getPrimitiveSizeInBits() / 8) << endl;
+				//cout << "Active Tuple Size "<< (currType->getPrimitiveSizeInBits() / 8) << endl;
 				tupleIdentifiers++;
 				materializer.addTupleIdentifier(currAttr);
 			}
@@ -89,7 +89,7 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 			int fieldSize = requestedType->getPrimitiveSizeInBits() / 8;
 			fieldSizes.push_back(fieldSize);
 			payload_type_size += fieldSize;
-			cout << "Field Size "<< fieldSize << endl;
+			//cout << "Field Size "<< fieldSize << endl;
 			typeID id = itSearch->first.getOriginalType()->getTypeID();
 			switch(id) {
 				case BOOL:
@@ -110,7 +110,7 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 	//Result type specified
 	payloadType = llvm::StructType::get(context->getLLVMContext(),*materializedTypes);
 	payloadTypeSize = payload_type_size;
-	cout << "Payload Size "<< payloadTypeSize << endl;
+//	cout << "Payload Size "<< payloadTypeSize << endl;
 }
 
 Value* OutputPlugin::getRuntimePayloadTypeSize() {

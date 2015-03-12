@@ -24,7 +24,8 @@
 #include "memory/memory-allocator.hpp"
 
 void* allocateFromRegion(size_t regionSize)	{
-	char* arenaChunk = new char[regionSize];
+//	char* arenaChunk = new char[regionSize];
+	char* arenaChunk = (char*) calloc(regionSize,sizeof(char));
 	if(arenaChunk == NULL)	{
 		string error_msg = string("[Memory Allocator: ] new() failed");
 		LOG(ERROR) << error_msg;
@@ -35,8 +36,45 @@ void* allocateFromRegion(size_t regionSize)	{
 
 void* increaseRegion(void* region, size_t currSize)	{
 	currSize <<= 1;
-	region = realloc(region, currSize);
-	assert(region != NULL);
-	return region;
+//	cout << "Doubling Arena to " << currSize << endl;
+	/* Very Hardcoded */
+//	int peek = *(int*)region;
+//	cout << "Peek a boo " << peek << endl;
+
+
+	void* newRegion = realloc(region, currSize);
+	if(newRegion != NULL)	{
+		region = newRegion;
+//		cout << "Doubled Arena" << endl;
+//		peek = *(int*)((char*)region+20);
+//
+//		size_t peek2 = *(size_t*)((char*)region+sizeof(int));
+//		int peek3 = *(int*)((char*)region+12);
+//		int peek4 = *(int*)((char*)region+16);
+//		size_t peek5 = *(size_t*)((char*)region+24);
+//		cout << "Peek a boo2 " << peek2 << " " << peek3 << " " << peek4 << " " << peek << " " << peek5 << endl;
+		return region;
+	}
+	else
+	{
+		free(region);
+		string error_msg = string("[Memory Allocator: ] realloc() failed");
+		LOG(ERROR) << error_msg;
+		throw runtime_error(error_msg);
+	}
+
+
+
+
+}
+
+void freeRegion(void* region)	{
+//	size_t peek2 = *(size_t*)((char*)region+sizeof(int));
+//			int peek3 = *(int*)((char*)region+12);
+//			int peek4 = *(int*)((char*)region+16);
+//			int peek = *(int*)((char*)region+20);
+//			size_t peek5 = *(size_t*)((char*)region+24);
+//			cout << "Peek a boo2 " << peek2 << " " << peek3 << " " << peek4 << " " << peek << " " << peek5 << endl;
+	free(region);
 }
 

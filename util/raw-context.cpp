@@ -112,7 +112,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-	getModule()->dump();
+//	getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -965,6 +965,10 @@ void* increaseMemoryChunk(void* chunk, size_t chunkSize)	{
 	return increaseRegion(chunk, chunkSize);
 }
 
+void releaseMemoryChunk(void* chunk)	{
+	return freeRegion(chunk);
+}
+
 //Provide support for some extern functions
 void RawContext::registerFunction(const char* funcName, Function* func)	{
 	availableFunctions[funcName] = func;
@@ -1083,6 +1087,8 @@ void registerFunctions(RawContext& context)	{
 	vector<Type*> ArgsIncrMemoryChunk;
 	ArgsIncrMemoryChunk.insert(ArgsIncrMemoryChunk.begin(),int64_type);
 	ArgsIncrMemoryChunk.insert(ArgsIncrMemoryChunk.begin(),void_ptr_type);
+	vector<Type*> ArgsRelMemoryChunk;
+	ArgsRelMemoryChunk.insert(ArgsRelMemoryChunk.begin(),void_ptr_type);
 
 	vector<Type*> ArgsFlushOutput;
 	ArgsFlushOutput.insert(ArgsFlushOutput.begin(),char_ptr_type);
@@ -1119,6 +1125,7 @@ void registerFunctions(RawContext& context)	{
 
 	FunctionType *FTmemoryChunk = 		  FunctionType::get(void_ptr_type, ArgsMemoryChunk, false);
 	FunctionType *FTincrMemoryChunk =	  FunctionType::get(void_ptr_type, ArgsIncrMemoryChunk, false);
+	FunctionType *FTreleaseMemoryChunk =  FunctionType::get(void_type, ArgsRelMemoryChunk, false);
 
 	Function *printi_ 		= Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
 	Function *printi64_ 	= Function::Create(FTint64, Function::ExternalLinkage,"printi64", TheModule);
@@ -1196,6 +1203,8 @@ void registerFunctions(RawContext& context)	{
 				Function::ExternalLinkage, "getMemoryChunk", TheModule);
 	Function *increaseMemoryChunk_ = Function::Create(FTincrMemoryChunk,
 					Function::ExternalLinkage, "increaseMemoryChunk", TheModule);
+	Function *releaseMemoryChunk_ = Function::Create(FTreleaseMemoryChunk,
+						Function::ExternalLinkage, "releaseMemoryChunk", TheModule);
 
 	//Memcpy - not used (yet)
 	Type* types[] = { void_ptr_type, void_ptr_type, Type::getInt32Ty(ctx) };
@@ -1286,6 +1295,7 @@ void registerFunctions(RawContext& context)	{
 
 	context.registerFunction("getMemoryChunk", getMemoryChunk_);
 	context.registerFunction("increaseMemoryChunk", increaseMemoryChunk_);
+	context.registerFunction("releaseMemoryChunk", releaseMemoryChunk_);
 	context.registerFunction("memcpy", memcpy_);
 }
 

@@ -65,9 +65,7 @@ public:
 			const RawOperator& leftChild, const RawOperator& rightChild,
 			RawContext* const context, char* opLabel, Materializer& matLeft,
 			Materializer& matRight);
-	virtual ~RadixJoin() {
-		LOG(INFO)<<"Collapsing RadixJoin operator";
-	}
+	virtual ~RadixJoin() ;
 	virtual void produce() const;
 	virtual void consume(RawContext* const context,
 			const OperatorState& childState);
@@ -76,6 +74,7 @@ public:
 private:
 	OperatorState* generate(RawOperator* op, OperatorState* childState);
 
+	void freeArenas() const;
 	struct relationBuf relR;
 	struct relationBuf relS;
 
@@ -83,6 +82,11 @@ private:
 	struct kvBuf htS;
 
 	HT *HT_per_cluster;
+
+	char *relationR;
+	char *relationS;
+	char *kvR;
+	char *kvS;
 
 	string htLabel;
 	RawContext* const context;
