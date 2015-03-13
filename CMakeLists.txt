@@ -38,7 +38,7 @@ set(glog_ldflags "-L$ENV{HOME}/lib" "-L/cloud_store/manosk/vida-engine/lib")
 
 
 # code generation library
-file(GLOB codegen common/*.cpp util/*.cpp values/*.cpp expressions/*.cpp plugins/*.cpp plugins/output/*.cpp operators/*.cpp memory/*.cpp)
+file(GLOB codegen common/*.cpp util/*.cpp util/joins/*.cpp values/*.cpp expressions/*.cpp plugins/*.cpp plugins/output/*.cpp operators/*.cpp memory/*.cpp)
 add_library(codegen ${codegen})
 set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 

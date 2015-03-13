@@ -1,4 +1,4 @@
-#include "radix-join.hpp"
+#include "util/joins/radix-join.hpp"
 
 /* #define RADIX_HASH(V)  ((V>>7)^(V>>13)^(V>>21)^V) */
 #define HASH_BIT_MODULO(K, MASK, NBITS) (((K) & MASK) >> NBITS)
@@ -138,6 +138,61 @@ radix_cluster_nopadding(relation_t * outRel, relation_t * inRel, int R, int D)
     free(tuples_per_cluster);
 }
 
+void
+radix_cluster_nopadding(tuple_t * outTuples, tuple_t * inTuples, size_t num_tuples, int R, int D)
+{
+    tuple_t ** dst;
+    tuple_t * input;
+    /* tuple_t ** dst_end; */
+    uint32_t * tuples_per_cluster;
+    uint32_t i;
+    uint32_t offset;
+    const uint32_t M = ((1 << D) - 1) << R;
+    const uint32_t fanOut = 1 << D;
+    const uint32_t ntuples = num_tuples;
+
+    tuples_per_cluster = (uint32_t*)calloc(fanOut, sizeof(uint32_t));
+    /* the following are fixed size when D is same for all the passes,
+       and can be re-used from call to call. Allocating in this function
+       just in case D differs from call to call. */
+    dst     = (tuple_t**)malloc(sizeof(tuple_t*)*fanOut);
+    /* dst_end = (tuple_t**)malloc(sizeof(tuple_t*)*fanOut); */
+
+    input = inTuples;
+    /* count tuples per cluster */
+    for( i=0; i < ntuples; i++ ){
+        uint32_t idx = (uint32_t)(HASH_BIT_MODULO(input->key, M, R));
+        tuples_per_cluster[idx]++;
+        input++;
+    }
+
+    offset = 0;
+    /* determine the start and end of each cluster depending on the counts. */
+    for ( i=0; i < fanOut; i++ ) {
+        dst[i]      = outTuples + offset;
+        offset     += tuples_per_cluster[i];
+        /* dst_end[i]  = outRel->tuples + offset; */
+    }
+
+    input = inTuples;
+    /* copy tuples to their corresponding clusters at appropriate offsets */
+    for( i=0; i < ntuples; i++ ){
+        uint32_t idx   = (uint32_t)(HASH_BIT_MODULO(input->key, M, R));
+        *dst[idx] = *input;
+        ++dst[idx];
+        input++;
+        /* we pre-compute the start and end of each cluster, so the following
+           check is unnecessary */
+        /* if(++dst[idx] >= dst_end[idx]) */
+        /*     REALLOCATE(dst[idx], dst_end[idx]); */
+    }
+
+    /* clean up temp */
+    /* free(dst_end); */
+    free(dst);
+    free(tuples_per_cluster);
+}
+
 /**
  *  This algorithm builds the hashtable using the bucket chaining idea and used
  *  in PRO implementation. Join between given two relations is evaluated using
@@ -177,6 +232,26 @@ void bucket_chaining_join_prepare(const relation_t * const R, HT * ht)	{
     }
 }
 
+void bucket_chaining_join_prepare(const tuple_t * const tuplesR, size_t num_tuples, HT * ht)	{
+    const uint32_t numR = num_tuples;
+    uint32_t N = numR;
+    int64_t matches = 0;
+
+    NEXT_POW_2(N);
+    /* N <<= 1; */
+    const uint32_t MASK = (N-1) << (NUM_RADIX_BITS);
+    ht->mask = MASK;
+    ht->next   = (int*) malloc(sizeof(int) * numR);
+    ht->bucket = (int*) calloc(N, sizeof(int));
+
+    const tuple_t * const Rtuples = tuplesR;
+    for(uint32_t i=0; i < numR; ){
+        uint32_t idx = HASH_BIT_MODULO(tuplesR[i].key, MASK, NUM_RADIX_BITS);
+        (ht->next)[i]      = (ht->bucket)[idx];
+        (ht->bucket)[idx]  = ++i;     /* we start pos's from 1 instead of 0 */
+    }
+}
+
 /**
  * Used in the context of RJStepwise
  * (when S side is partitioned)
@@ -208,6 +283,36 @@ void bucket_chaining_join_finish(HT * ht)
 	/* clean up temp */
 	free(ht->bucket);
 	free(ht->next);
+}
+
+/**
+ * @param num_tuples size of input relation
+ * @param inTuples	 ht entries of relation - not actual data
+ *
+ * @return item count per cluster defined
+ */
+int *partitionHT(size_t num_tuples, tuple_t *inTuples)	{
+
+	size_t sz = num_tuples * sizeof(tuple_t) + RELATION_PADDING;
+	tuple_t* outTuples = (tuple_t*) malloc(sz);
+
+	/* apply radix-clustering on relation for pass-1 */
+	radix_cluster_nopadding(outTuples, inTuples, num_tuples, 0, NUM_RADIX_BITS/NUM_PASSES);
+
+	/* apply radix-clustering for pass-2 */
+	radix_cluster_nopadding(inTuples, outTuples, num_tuples,
+	                            NUM_RADIX_BITS/NUM_PASSES,
+	                            NUM_RADIX_BITS-(NUM_RADIX_BITS/NUM_PASSES));
+	free(outTuples);
+
+	int * count_per_cluster = (int*) calloc((1 << NUM_RADIX_BITS), sizeof(int));
+
+	/* compute number of tuples per cluster */
+	for (int i = 0; i < num_tuples; i++) {
+		uint32_t idx = (inTuples[i].key) & ((1 << NUM_RADIX_BITS) - 1);
+		count_per_cluster[idx]++;
+	}
+	return count_per_cluster;
 }
 
 int64_t

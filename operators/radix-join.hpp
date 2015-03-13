@@ -33,7 +33,7 @@ typedef struct htEntry	{
 
 struct relationBuf	{
 	/* Mem layout:
-	 * Pairs of (size_t key, arbitrary - defined at runtime - payload)
+	 * Consecutive <payload> chunks - payload type defined at runtime
 	 */
 	AllocaInst *mem_relation;
 	/* Size in bytes */
@@ -46,7 +46,7 @@ struct relationBuf	{
 
 struct kvBuf	{
 	/* Mem layout:
-	 * Pairs of (void *keyPtr, void *payloadPtr)
+	 * Pairs of (int32 key, void *payloadPtr)
 	 */
 	AllocaInst *mem_kv;
 	/* Size in bytes */
@@ -74,14 +74,24 @@ public:
 private:
 	OperatorState* generate(RawOperator* op, OperatorState* childState);
 
+	void runRadix() const;
+	Value *radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const;
+
 	void freeArenas() const;
 	struct relationBuf relR;
 	struct relationBuf relS;
+
+	/* What the keyType is */
+	/* XXX int32 FOR NOW   */
+	/* If it is not int32 to begin with, hash it to make it so */
+	Type *keyType;
+	StructType *htEntryType;
 
 	struct kvBuf htR;
 	struct kvBuf htS;
 
 	HT *HT_per_cluster;
+	StructType *htClusterType;
 
 	char *relationR;
 	char *relationS;

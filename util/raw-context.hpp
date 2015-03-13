@@ -37,6 +37,7 @@
 
 #include "common/common.hpp"
 #include "util/raw-catalog.hpp"
+#include "util/joins/radix-join.hpp"
 #include "memory/memory-allocator.hpp"
 
 //Forward Declaration
@@ -49,7 +50,7 @@ public:
 	~RawContext() {
 		LOG(WARNING) << "[RawContext: ] Destructor";
 		//XXX Has to be done in an appropriate sequence - segfaults otherwise
-			delete TheBuilder;
+			delete Builder;
 //			delete TheFPM;
 //			delete TheExecutionEngine;
 //			delete TheFunction;
@@ -67,7 +68,7 @@ public:
 
 	Function* const getGlobalFunction() 		 const		{ return TheFunction; }
 	Module* const getModule() 					 const 		{ return TheModule; }
-	IRBuilder<>* const getBuilder() 			 const 		{ return TheBuilder; }
+	IRBuilder<>* const getBuilder() 			 const 		{ return Builder; }
 	Function* const getFunction(string funcName) const;
 
 	ConstantInt* createInt8(char val);
@@ -150,7 +151,7 @@ public:
 private:
 	LLVMContext *llvmContext;
 	Module *TheModule;
-	IRBuilder<> *TheBuilder;
+	IRBuilder<> *Builder;
 	//Used to include optimization passes
 	FunctionPassManager *TheFPM;
 	//JIT Driver
@@ -243,6 +244,15 @@ extern "C" size_t hashBoolean(bool toHash);
 extern "C" size_t combineHashes(size_t hash1, size_t hash2);
 
 extern "C" size_t combineHashesNoOrder(size_t hash1, size_t hash2);
+
+/**
+ * Radix hashing
+ */
+
+extern "C" int *partitionHTLLVM(size_t num_tuples, tuple_t *inTuples);
+extern "C" void bucket_chaining_join_prepareLLVM(const tuple_t * const tuplesR,
+		size_t num_tuples, HT * ht);
+
 
 /**
  * Flushing data

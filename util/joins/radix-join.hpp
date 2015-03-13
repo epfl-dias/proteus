@@ -1,10 +1,10 @@
-#ifndef RADIX_JOIN_HPP_
-#define RADIX_JOIN_HPP_
+#ifndef RADIX_JOIN_STATIC_HPP_
+#define RADIX_JOIN_STATIC_HPP_
 
 #include "common/common.hpp"
-#include "types.h" /* relation_t */
-#include "prj_params.h"
-#include "rdtsc.h"
+#include "util/joins/types.h" /* relation_t */
+#include "util/joins/prj_params.h"
+#include "util/joins/rdtsc.h"
 
 typedef struct HT	{
 	int *bucket;
@@ -27,4 +27,16 @@ typedef struct HT	{
  */
 int64_t
 RJStepwise(relation_t * relR, relation_t * relS);
-#endif /* RADIX_JOIN_HPP_ */
+
+/**
+ * Splitting functionality in chunks to be called from generated code
+ */
+int *
+partitionHT(size_t num_tuples, tuple_t *inTuples);
+
+void
+bucket_chaining_join_prepare(const tuple_t * const tuplesR, size_t num_tuples,
+		HT * ht);
+
+
+#endif /* RADIX_JOIN_STATIC_HPP_ */

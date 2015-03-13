@@ -26,7 +26,7 @@
 RawContext::RawContext(const string& moduleName) {
 	llvmContext = new LLVMContext();
 	LLVMContext& ctx = *llvmContext;
-	TheBuilder = new IRBuilder<>(ctx);
+	Builder = new IRBuilder<>(ctx);
 	TheFPM = 0;
 	TheExecutionEngine = 0;
 	TheFunction = 0;
@@ -95,24 +95,24 @@ RawContext::RawContext(const string& moduleName) {
 	TheFunction = F;
 	// Create a new basic block to start insertion into.
 	BasicBlock *BB = BasicBlock::Create(ctx, "entry", F);
-	TheBuilder->SetInsertPoint(BB);
+	Builder->SetInsertPoint(BB);
 
 	/**
 	 * Preparing global info to be maintained
 	 */
 	llvm::Type* int64_type = Type::getInt64Ty(ctx);
 	mem_resultCtr = this->CreateEntryBlockAlloca(F,"resultCtr",int64_type);
-	TheBuilder->CreateStore(this->createInt64(0),mem_resultCtr);
+	Builder->CreateStore(this->createInt64(0),mem_resultCtr);
 }
 
 void RawContext::prepareFunction(Function *F) {
 
 	//FIXME Have a (tmp) return value for now at this point
-	TheBuilder->CreateRet(TheBuilder->getInt32(114));
+	Builder->CreateRet(Builder->getInt32(114));
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-//	getModule()->dump();
+	getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -167,8 +167,8 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, int size) {
 	Value* size_ = ConstantInt::get(ctx, APInt(32, size));
 	Value* zero = ConstantInt::get(ctx, APInt(32, 0));
 
-	dst = TheBuilder->CreateBitCast(dst, ptr_type);
-	src = TheBuilder->CreateBitCast(src, ptr_type);
+	dst = Builder->CreateBitCast(dst, ptr_type);
+	src = Builder->CreateBitCast(src, ptr_type);
 
 	// Get intrinsic function.
 	Function* memcpy_fn = availableFunctions[string("memcpy")];
@@ -182,7 +182,7 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, int size) {
 	Type* intType = Type::getInt32Ty(ctx);
 	Value* args[] = { dst, src, size_, zero, false_value_  // is_volatile.
 			};
-	TheBuilder->CreateCall(memcpy_fn, args);
+	Builder->CreateCall(memcpy_fn, args);
 }
 
 ConstantInt* RawContext::createInt8(char val) {
@@ -225,24 +225,24 @@ Value* RawContext::CastPtrToLlvmPtr(PointerType* type, const void* ptr) {
 Value* RawContext::getArrayElem(AllocaInst* mem_ptr, Value* offset)	{
 	LLVMContext& ctx = *llvmContext;
 
-	Value* val_ptr = TheBuilder->CreateLoad(mem_ptr, "mem_ptr");
-	Value* shiftedPtr = TheBuilder->CreateInBoundsGEP(val_ptr, offset);
-	Value* val_shifted = TheBuilder->CreateLoad(shiftedPtr,"val_shifted");
+	Value* val_ptr = Builder->CreateLoad(mem_ptr, "mem_ptr");
+	Value* shiftedPtr = Builder->CreateInBoundsGEP(val_ptr, offset);
+	Value* val_shifted = Builder->CreateLoad(shiftedPtr,"val_shifted");
 	return val_shifted;
 }
 
 Value* RawContext::getArrayElem(Value* val_ptr, Value* offset)	{
 	LLVMContext& ctx = *llvmContext;
 
-	Value* shiftedPtr = TheBuilder->CreateInBoundsGEP(val_ptr, offset);
-	Value* val_shifted = TheBuilder->CreateLoad(shiftedPtr,"val_shifted");
+	Value* shiftedPtr = Builder->CreateInBoundsGEP(val_ptr, offset);
+	Value* val_shifted = Builder->CreateLoad(shiftedPtr,"val_shifted");
 	return val_shifted;
 }
 
 Value* RawContext::getArrayElemMem(Value* val_ptr, Value* offset)	{
 	LLVMContext& ctx = *llvmContext;
 
-	Value* shiftedPtr = TheBuilder->CreateInBoundsGEP(val_ptr, offset);
+	Value* shiftedPtr = Builder->CreateInBoundsGEP(val_ptr, offset);
 	return shiftedPtr;
 }
 
@@ -251,8 +251,8 @@ Value* RawContext::getStructElem(Value* mem_struct, int elemNo)	{
 	idxList.push_back(createInt32(0));
 	idxList.push_back(createInt32(elemNo));
 	//Shift in struct ptr
-	Value* mem_struct_shifted = TheBuilder->CreateGEP(mem_struct, idxList);
-	Value* val_struct_shifted =  TheBuilder->CreateLoad(mem_struct_shifted);
+	Value* mem_struct_shifted = Builder->CreateGEP(mem_struct, idxList);
+	Value* val_struct_shifted =  Builder->CreateLoad(mem_struct_shifted);
 	return val_struct_shifted;
 }
 
@@ -261,8 +261,8 @@ Value* RawContext::getStructElem(AllocaInst* mem_struct, int elemNo)	{
 	idxList.push_back(createInt32(0));
 	idxList.push_back(createInt32(elemNo));
 	//Shift in struct ptr
-	Value* mem_struct_shifted = TheBuilder->CreateGEP(mem_struct, idxList);
-	Value* val_struct_shifted =  TheBuilder->CreateLoad(mem_struct_shifted);
+	Value* mem_struct_shifted = Builder->CreateGEP(mem_struct, idxList);
+	Value* val_struct_shifted =  Builder->CreateLoad(mem_struct_shifted);
 	return val_struct_shifted;
 }
 
@@ -322,8 +322,8 @@ Value* RawContext::CreateGlobalString(char* str) {
 
 
 	LOG(INFO) << "[CreateGlobalString: ] " << str;
-	TheBuilder->CreateStore(shifted, AllocaName);
-	Value* globalStr = TheBuilder->CreateLoad(AllocaName);
+	Builder->CreateStore(shifted, AllocaName);
+	Value* globalStr = Builder->CreateLoad(AllocaName);
 	return globalStr;
 }
 
@@ -350,8 +350,8 @@ Value* RawContext::CreateGlobalString(const char* str) {
 
 
 	LOG(INFO) << "[CreateGlobalString: ] " << str;
-	TheBuilder->CreateStore(shifted, AllocaName);
-	Value* globalStr = TheBuilder->CreateLoad(AllocaName);
+	Builder->CreateStore(shifted, AllocaName);
+	Value* globalStr = Builder->CreateLoad(AllocaName);
 	return globalStr;
 }
 
@@ -784,6 +784,20 @@ size_t combineHashesNoOrder(size_t hash1, size_t hash2) {
 }
 
 /**
+ * Radix chunks of functionality
+ */
+int *partitionHTLLVM(size_t num_tuples, tuple_t *inTuples)	{
+	return partitionHT(num_tuples, inTuples);
+}
+
+/* TODO Add links */
+void bucket_chaining_join_prepareLLVM(const tuple_t * const tuplesR,
+		size_t num_tuples, HT * ht) {
+	bucket_chaining_join_prepare(tuplesR, num_tuples, ht);
+}
+
+
+/**
  * Flushing data.
  * Issue with standard flusher for now:
  * Cannot 'cheat' and pass along JSON serialized data
@@ -978,32 +992,32 @@ void registerFunctions(RawContext& context)	{
 	LLVMContext& ctx = context.getLLVMContext();
 	Module* const TheModule = context.getModule();
 
-	llvm::Type* int1_bool_type = Type::getInt1Ty(ctx);
-	llvm::Type* int8_type = Type::getInt8Ty(ctx);
-	llvm::Type* int_type = Type::getInt32Ty(ctx);
-	llvm::Type* int64_type = Type::getInt64Ty(ctx);
-	llvm::Type* void_type = Type::getVoidTy(ctx);
-	llvm::Type* double_type = Type::getDoubleTy(ctx);
-	llvm::PointerType* void_ptr_type = PointerType::get(int8_type, 0);
-	llvm::PointerType* char_ptr_type = PointerType::get(int8_type, 0);
-
+	Type* int1_bool_type = Type::getInt1Ty(ctx);
+	Type* int8_type = Type::getInt8Ty(ctx);
+	Type* int32_type = Type::getInt32Ty(ctx);
+	Type* int64_type = Type::getInt64Ty(ctx);
+	Type* void_type = Type::getVoidTy(ctx);
+	Type* double_type = Type::getDoubleTy(ctx);
+	PointerType* void_ptr_type = PointerType::get(int8_type, 0);
+	PointerType* char_ptr_type = PointerType::get(int8_type, 0);
+	PointerType* int32_ptr_type = PointerType::get(int32_type, 0);
 
 	vector<Type*> Ints8Ptr(1,Type::getInt8PtrTy(ctx));
 	vector<Type*> Ints8(1,int8_type);
 	vector<Type*> Ints1(1,int1_bool_type);
-	vector<Type*> Ints(1,int_type);
+	vector<Type*> Ints(1,int32_type);
 	vector<Type*> Ints64(1,int64_type);
 	vector<Type*> Floats(1,double_type);
 
 	vector<Type*> ArgsCmpTokens;
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),char_ptr_type);
-	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),int_type);
-	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),int_type);
+	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),int32_type);
+	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),int32_type);
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),char_ptr_type);
 
 	vector<Type*> ArgsConvBoolean;
-	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int_type);
-	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int_type);
+	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int32_type);
+	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int32_type);
 	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),char_ptr_type);
 
 	vector<Type*> ArgsConvBoolean64;
@@ -1012,7 +1026,7 @@ void registerFunctions(RawContext& context)	{
 	ArgsConvBoolean64.insert(ArgsConvBoolean64.begin(),char_ptr_type);
 
 	vector<Type*> ArgsAtois;
-	ArgsAtois.insert(ArgsAtois.begin(),int_type);
+	ArgsAtois.insert(ArgsAtois.begin(),int32_type);
 	ArgsAtois.insert(ArgsAtois.begin(),char_ptr_type);
 
 	vector<Type*> ArgsStringCmp;
@@ -1024,7 +1038,7 @@ void registerFunctions(RawContext& context)	{
 	 * Args of functions computing hash
 	 */
 	vector<Type*> ArgsHashInt;
-	ArgsHashInt.insert(ArgsHashInt.begin(),int_type);
+	ArgsHashInt.insert(ArgsHashInt.begin(),int32_type);
 
 	vector<Type*> ArgsHashDouble;
 	ArgsHashDouble.insert(ArgsHashDouble.begin(),double_type);
@@ -1049,7 +1063,7 @@ void registerFunctions(RawContext& context)	{
 	 */
 	vector<Type*> ArgsFlushInt;
 	ArgsFlushInt.insert(ArgsFlushInt.begin(),char_ptr_type);
-	ArgsFlushInt.insert(ArgsFlushInt.begin(),int_type);
+	ArgsFlushInt.insert(ArgsFlushInt.begin(),int32_type);
 
 	vector<Type*> ArgsFlushDouble;
 	ArgsFlushDouble.insert(ArgsFlushDouble.begin(),char_ptr_type);
@@ -1093,15 +1107,13 @@ void registerFunctions(RawContext& context)	{
 	vector<Type*> ArgsFlushOutput;
 	ArgsFlushOutput.insert(ArgsFlushOutput.begin(),char_ptr_type);
 
-
-
 	FunctionType *FTint = 				  FunctionType::get(Type::getInt32Ty(ctx), Ints, false);
 	FunctionType *FTint64 = 			  FunctionType::get(Type::getInt32Ty(ctx), Ints64, false);
 	FunctionType *FTcharPtr = 			  FunctionType::get(Type::getInt32Ty(ctx), Ints8Ptr, false);
-	FunctionType *FTatois = 			  FunctionType::get(int_type, ArgsAtois, false);
+	FunctionType *FTatois = 			  FunctionType::get(int32_type, ArgsAtois, false);
 	FunctionType *FTatof = 				  FunctionType::get(double_type, Ints8Ptr, false);
-	FunctionType *FTprintFloat_ = 		  FunctionType::get(int_type, Floats, false);
-	FunctionType *FTcompareTokenString_ = FunctionType::get(int_type, ArgsCmpTokens, false);
+	FunctionType *FTprintFloat_ = 		  FunctionType::get(int32_type, Floats, false);
+	FunctionType *FTcompareTokenString_ = FunctionType::get(int32_type, ArgsCmpTokens, false);
 	FunctionType *FTconvertBoolean_ = 	  FunctionType::get(int1_bool_type, ArgsConvBoolean, false);
 	FunctionType *FTconvertBoolean64_ =   FunctionType::get(int1_bool_type, ArgsConvBoolean64, false);
 	FunctionType *FTprintBoolean_ = 	  FunctionType::get(void_type, Ints1, false);
@@ -1217,15 +1229,15 @@ void registerFunctions(RawContext& context)	{
 	 * HASHTABLES FOR JOINS / AGGREGATIONS
 	 */
 	//Last type is needed to capture file size. Tentative
-	Type* ht_int_types[] = { int_type, int_type, void_ptr_type, int_type };
+	Type* ht_int_types[] = { int32_type, int32_type, void_ptr_type, int32_type };
 	FunctionType *FTintHT = FunctionType::get(void_type, ht_int_types, false);
 	Function* insertIntKeyToHT_ = Function::Create(FTintHT, Function::ExternalLinkage, "insertIntKeyToHT", TheModule);
 
-	Type* ht_types[] = { char_ptr_type, int64_type, void_ptr_type, int_type };
+	Type* ht_types[] = { char_ptr_type, int64_type, void_ptr_type, int32_type };
 	FunctionType *FT_HT = FunctionType::get(void_type, ht_types, false);
 	Function* insertToHT_ = Function::Create(FT_HT, Function::ExternalLinkage, "insertToHT", TheModule);
 
-	Type* ht_int_probe_types[] = { int_type, int_type, int_type };
+	Type* ht_int_probe_types[] = { int32_type, int32_type, int32_type };
 	PointerType* void_ptr_ptr_type = context.getPointerType(void_ptr_type);
 	FunctionType *FTint_probeHT = FunctionType::get(void_ptr_ptr_type, ht_int_probe_types, false);
 	Function* probeIntHT_ = Function::Create(FTint_probeHT,	Function::ExternalLinkage, "probeIntHT", TheModule);
@@ -1239,14 +1251,26 @@ void registerFunctions(RawContext& context)	{
 	Type* ht_get_metadata_types[] = { char_ptr_type };
 	StructType *metadataType = context.getHashtableMetadataType();
 	PointerType *metadataArrayType = PointerType::get(metadataType,0);
-//	PointerType *ptr_metadataArrayType = PointerType::get(metadataArrayType,0);
-//	FunctionType *FTget_metadata_HT = FunctionType::get(,
-//				ht_get_metadata_types, false);
 	FunctionType *FTget_metadata_HT = FunctionType::get(metadataArrayType,
 			ht_get_metadata_types, false);
 	Function* getMetadataHT_ = Function::Create(FTget_metadata_HT,
 			Function::ExternalLinkage, "getMetadataHT", TheModule);
 
+	/**
+	 * Radix
+	 */
+	/* What the type of HT entries is */
+	/* (int32, void*) */
+	vector<Type*> htEntryMembers;
+	htEntryMembers.push_back(int32_type);
+	htEntryMembers.push_back(void_ptr_type);
+	StructType *htEntryType = StructType::get(ctx,htEntryMembers);
+	PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
+
+	Type* radix_partition_types[] = { int64_type, htEntryPtrType };
+	FunctionType *FTradix_partition = FunctionType::get(int32_ptr_type, radix_partition_types, false);
+	Function *radix_partition = Function::Create(FTradix_partition,
+							Function::ExternalLinkage, "partitionHTLLVM", TheModule);
 
 	context.registerFunction("printi", printi_);
 	context.registerFunction("printi64", printi64_);
@@ -1292,11 +1316,12 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("flushArrayEnd", flushArrayEnd_);
 	context.registerFunction("flushArrayEnd", flushArrayEnd_);
 
-
 	context.registerFunction("getMemoryChunk", getMemoryChunk_);
 	context.registerFunction("increaseMemoryChunk", increaseMemoryChunk_);
 	context.registerFunction("releaseMemoryChunk", releaseMemoryChunk_);
 	context.registerFunction("memcpy", memcpy_);
+
+	context.registerFunction("partitionHT",radix_partition);
 }
 
 //'Inline' -> shouldn't it be placed in .hpp?
