@@ -264,11 +264,11 @@ void RadixJoin::runRadix() const	{
 
 		/* tmpR.tuples = relR->tuples + r; */
 		Value *val_htR = Builder->CreateLoad(htR.mem_kv);
-		Value* htRshifted = Builder->CreateInBoundsGEP(val_htR, val_r_i_count);
+		Value* htRshiftedPtr = Builder->CreateInBoundsGEP(val_htR, val_r_i_count);
 
 		/* tmpS.tuples = relS->tuples + s; */
 		Value *val_htS = Builder->CreateLoad(htS.mem_kv);
-		Value* htSshifted = Builder->CreateInBoundsGEP(val_htS, val_s_i_count);
+		Value* htSshiftedPtr = Builder->CreateInBoundsGEP(val_htS, val_s_i_count);
 
 		/* r += R_count_per_cluster[i];
 		 * s += S_count_per_cluster[i];
@@ -281,13 +281,269 @@ void RadixJoin::runRadix() const	{
 		Builder->CreateStore(val_sCount,mem_sCount);
 
 		/* bucket_chaining_join_prepare(&tmpR, &(HT_per_cluster[i])); */
-		/* TODO !!*/
-//		Function *partitionHT = context->getFunction("partitionHT");
-//			vector<Value*> ArgsPartition;
-//			Value *val_tuplesNo = Builder->CreateLoad(rel.mem_tuplesNo);
-//			Value *val_ht 		= Builder->CreateLoad(ht.mem_kv);
-//			ArgsPartition.push_back(val_tuplesNo);
-//			ArgsPartition.push_back(val_ht);
+		Function *bucketChainingPrepare = context->getFunction("bucketChainingPrepare");
+		//Address of tmpR
+//		PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
+//		AllocaInst* mem_htRShifted = Builder->CreateAlloca(htEntryPtrType,0,"mem_tmpR");
+//		Builder->CreateStore(htRshiftedPtr,mem_htRShifted);
+
+		PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
+		Value *val_htPerClusterShiftedPtr = Builder->CreateInBoundsGEP(
+				val_htPerCluster, val_clusterCount);
+		//Address of HT_per_cluster[i]
+//		AllocaInst* mem_htPerClusterShiftedPtr = Builder->CreateAlloca(
+//				htClusterPtrType, 0, "mem_HT_per_cluster_i");
+//		Builder->CreateStore(val_htPerClusterShiftedPtr,mem_htPerClusterShiftedPtr);
+		//Prepare args and call function
+		vector<Value*> Args;
+		Args.push_back(htRshiftedPtr);
+		Args.push_back(val_rCount);
+		Args.push_back(val_htPerClusterShiftedPtr);
+		Builder->CreateCall(bucketChainingPrepare, Args);
+
+		/* Loop over S cluster (tmpS) and use its tuples to probe HTs */
+		BasicBlock *sLoopCond, *sLoopBody, *sLoopInc, *sLoopEnd;
+		context->CreateForLoop("sLoopCond", "sLoopBody", "sLoopInc", "sLoopEnd",
+				&sLoopCond, &sLoopBody, &sLoopInc, &sLoopEnd);
+		{
+			AllocaInst *mem_j = Builder->CreateAlloca(int32_type, 0, "j_cnt");
+			Builder->CreateStore(val_zero, mem_j);
+			/* Loop Condition */
+			Builder->CreateBr(sLoopCond);
+			Builder->SetInsertPoint(sLoopCond);
+			Value *val_j = Builder->CreateLoad(mem_j);
+			val_cond = Builder->CreateICmpSLE(val_j,val_sCount);
+			Builder->CreateCondBr(val_cond, sLoopBody, sLoopEnd);
+
+			Builder->SetInsertPoint(sLoopBody);
+
+			/*
+			 * Break the following in pieces:
+			 * result += bucket_chaining_join_probe(&tmpR,
+			 *			&(HT_per_cluster[i]), &(tmpS.tuples[j]));
+			 */
+
+			/* uint32_t idx = HASH_BIT_MODULO(s->key, ht->mask, NUM_RADIX_BITS); */
+			Value *val_num_radix_bits = context->createInt32(NUM_RADIX_BITS);
+			Value *val_mask = context->getStructElem(val_htPerClusterShiftedPtr,2);
+			//Get key of current s tuple (tmpS[j]
+			Value *htSshiftedPtr_j = Builder->CreateInBoundsGEP(htSshiftedPtr, val_j);
+//			Value *tuple_s_j = Builder->CreateLoad(htSshiftedPtr_j);
+			Value *val_key_s_j = context->getStructElem(htSshiftedPtr_j,0);
+			Value *val_idx = Builder->CreateBinOp(Instruction::And,val_key_s_j,val_mask);
+			val_idx = Builder->CreateAShr(val_idx,val_num_radix_bits);
+
+			/**
+			 * Checking actual hits (when applicable)
+			 * for(int hit = (ht->bucket)[idx]; hit > 0; hit = (ht->next)[hit-1])
+			 */
+			BasicBlock *hitLoopCond, *hitLoopBody, *hitLoopInc, *hitLoopEnd;
+			context->CreateForLoop("hitLoopCond", "hitLoopBody", "hitLoopInc",
+					"hitLoopEnd", &hitLoopCond, &hitLoopBody, &hitLoopInc,
+					&hitLoopEnd);
+
+			{
+				AllocaInst *mem_hit = Builder->CreateAlloca(int32_type, 0, "hit");
+				//(ht->bucket)
+				Value *val_bucket = context->getStructElem(val_htPerClusterShiftedPtr,0);
+				//(ht->bucket)[idx]
+				Value *val_bucket_idx = context->getArrayElem(val_bucket,val_idx);
+
+				Builder->CreateStore(val_bucket_idx, mem_hit);
+				Builder->CreateBr(hitLoopCond);
+				/* 1. Loop Condition */
+				Builder->SetInsertPoint(hitLoopCond);
+				Value *val_hit = Builder->CreateLoad(mem_hit);
+				val_cond = Builder->CreateICmpSLT(val_hit,val_zero);
+				Builder->CreateCondBr(val_cond,hitLoopBody,hitLoopEnd);
+
+				/* 2. Body */
+				Builder->SetInsertPoint(hitLoopBody);
+
+				/* if (s->key == Rtuples[hit - 1].key) */
+				BasicBlock *ifKeyMatch;
+				context->CreateIfBlock(context->getGlobalFunction(), "htMatchIfCond",
+									&ifKeyMatch, hitLoopInc);
+				{
+					//Rtuples[hit - 1]
+					Value *val_idx_dec = Builder->CreateSub(val_hit,val_one);
+					Value *htRshiftedPtr_hit = Builder->CreateInBoundsGEP(htRshiftedPtr, val_idx_dec);
+					//Rtuples[hit - 1].key
+					Value *val_key_r = context->getStructElem(htRshiftedPtr_hit,0);
+					//Condition
+					val_cond = Builder->CreateICmpEQ(val_key_s_j,val_key_r);
+					Builder->CreateCondBr(val_cond,ifKeyMatch,hitLoopInc);
+
+					Builder->SetInsertPoint(ifKeyMatch);
+
+					/**
+					 * -> RECONSTRUCT RESULTS
+					 * -> CALL PARENT
+					 */
+					map<RecordAttribute, RawValueMemory>* allJoinBindings =
+							new map<RecordAttribute, RawValueMemory>();
+
+					/* Payloads: void* */
+					Value *val_payload_r_void = context->getStructElem(htRshiftedPtr_hit,1);
+					Value *val_payload_s_void = context->getStructElem(htSshiftedPtr_j,1);
+
+					/* Cast payload */
+					PointerType *rPayloadPtrType = PointerType::get(rPayloadType,0);
+					PointerType *sPayloadPtrType = PointerType::get(sPayloadType,0);
+					Value *mem_payload_r = Builder->CreateBitCast(val_payload_r_void,rPayloadPtrType);
+					Value *val_payload_r = Builder->CreateLoad(mem_payload_r);
+					Value *mem_payload_s = Builder->CreateBitCast(val_payload_s_void,sPayloadPtrType);
+					Value *val_payload_s = Builder->CreateLoad(mem_payload_s);
+
+					/* LEFT SIDE (RELATION R)*/
+					//Retrieving activeTuple(s) from HT
+					{
+						AllocaInst *mem_activeTuple = NULL;
+						int i = 0;
+						const set<RecordAttribute>& tuplesIdentifiers =
+								matLeft.getTupleIdentifiers();
+						set<RecordAttribute>::const_iterator it =
+								tuplesIdentifiers.begin();
+						for (; it != tuplesIdentifiers.end(); it++) {
+							mem_activeTuple = Builder->CreateAlloca(
+									rPayloadType->getElementType(i), 0,
+									"mem_activeTuple");
+							vector<Value*> idxList = vector<Value*>();
+							idxList.push_back(context->createInt32(0));
+							idxList.push_back(context->createInt32(i));
+
+							Value *elem_ptr = Builder->CreateGEP(mem_payload_r,
+									idxList);
+							Value *val_activeTuple = Builder->CreateLoad(
+									elem_ptr);
+							Builder->CreateStore(val_activeTuple,
+									mem_activeTuple);
+
+							RawValueMemory mem_valWrapper;
+							mem_valWrapper.mem = mem_activeTuple;
+							mem_valWrapper.isNull = context->createFalse();
+							(*allJoinBindings)[*it] = mem_valWrapper;
+							i++;
+						}
+
+						AllocaInst *mem_field = NULL;
+						const vector<RecordAttribute*>& wantedFields =
+								matLeft.getWantedFields();
+						vector<RecordAttribute*>::const_iterator it2 =
+								wantedFields.begin();
+						for (; it2 != wantedFields.end(); it2++) {
+							string currField = (*it2)->getName();
+							mem_field = Builder->CreateAlloca(
+									rPayloadType->getElementType(i), 0,
+									"mem_" + currField);
+							vector<Value*> idxList = vector<Value*>();
+							idxList.push_back(context->createInt32(0));
+							idxList.push_back(context->createInt32(i));
+
+							Value *elem_ptr = Builder->CreateGEP(mem_payload_r,
+									idxList);
+							Value *val_field = Builder->CreateLoad(elem_ptr);
+							Builder->CreateStore(val_field, mem_field);
+
+							RawValueMemory mem_valWrapper;
+							mem_valWrapper.mem = mem_field;
+							mem_valWrapper.isNull = context->createFalse();
+							(*allJoinBindings)[*(*it2)] = mem_valWrapper;
+
+						}
+					}
+
+					/* RIGHT SIDE (RELATION S) */
+					{
+						AllocaInst *mem_activeTuple = NULL;
+						int i = 0;
+						const set<RecordAttribute>& tuplesIdentifiers =
+								matRight.getTupleIdentifiers();
+						set<RecordAttribute>::const_iterator it =
+								tuplesIdentifiers.begin();
+						for (; it != tuplesIdentifiers.end(); it++) {
+							mem_activeTuple = Builder->CreateAlloca(
+									sPayloadType->getElementType(i), 0,
+									"mem_activeTuple");
+							vector<Value*> idxList = vector<Value*>();
+							idxList.push_back(context->createInt32(0));
+							idxList.push_back(context->createInt32(i));
+
+							Value *elem_ptr = Builder->CreateGEP(mem_payload_s,
+									idxList);
+							Value *val_activeTuple = Builder->CreateLoad(
+									elem_ptr);
+							Builder->CreateStore(val_activeTuple,
+									mem_activeTuple);
+
+							RawValueMemory mem_valWrapper;
+							mem_valWrapper.mem = mem_activeTuple;
+							mem_valWrapper.isNull = context->createFalse();
+							(*allJoinBindings)[*it] = mem_valWrapper;
+							i++;
+						}
+
+						AllocaInst *mem_field = NULL;
+						const vector<RecordAttribute*>& wantedFields =
+								matRight.getWantedFields();
+						vector<RecordAttribute*>::const_iterator it2 =
+								wantedFields.begin();
+						for (; it2 != wantedFields.end(); it2++) {
+							string currField = (*it2)->getName();
+							mem_field = Builder->CreateAlloca(
+									sPayloadType->getElementType(i), 0,
+									"mem_" + currField);
+							vector<Value*> idxList = vector<Value*>();
+							idxList.push_back(context->createInt32(0));
+							idxList.push_back(context->createInt32(i));
+
+							Value *elem_ptr = Builder->CreateGEP(mem_payload_r,
+									idxList);
+							Value *val_field = Builder->CreateLoad(elem_ptr);
+							Builder->CreateStore(val_field, mem_field);
+
+							RawValueMemory mem_valWrapper;
+							mem_valWrapper.mem = mem_field;
+							mem_valWrapper.isNull = context->createFalse();
+							(*allJoinBindings)[*(*it2)] = mem_valWrapper;
+
+						}
+					}
+
+					/* Trigger Parent */
+					OperatorState* newState = new OperatorState(*this, *allJoinBindings);
+					getParent()->consume(context, *newState);
+
+					Builder->CreateBr(hitLoopInc);
+				}
+
+				/* 3. Inc: hit = (ht->next)[hit-1]) */
+				Builder->SetInsertPoint(hitLoopInc);
+				//(ht->next)
+				Value *val_next = context->getStructElem(val_htPerClusterShiftedPtr,1);
+				val_idx = Builder->CreateSub(val_hit,val_one);
+				//(ht->next)[hit-1])
+				val_hit = context->getArrayElem(val_next,val_idx);
+				Builder->CreateStore(val_hit,mem_hit);
+				Builder->CreateBr(hitLoopCond);
+
+				/* 4. End */
+				Builder->SetInsertPoint(hitLoopEnd);
+			}
+
+
+
+			Builder->CreateBr(sLoopInc);
+
+			Builder->SetInsertPoint(sLoopInc);
+			val_j = Builder->CreateLoad(mem_j);
+			val_j = Builder->CreateAdd(val_j,val_one);
+			Builder->CreateStore(val_j,mem_j);
+			Builder->CreateBr(sLoopCond);
+
+			Builder->SetInsertPoint(sLoopEnd);
+
+		}
 
 
 		Builder->CreateBr(loopInc);
@@ -382,6 +638,8 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 
 		/* Result type specified during output plugin construction */
 		payloadType = pg->getPayloadType();
+		rPayloadType = payloadType;
+
 		Value *val_payloadSize;
 
 		if(pg->hasComplexTypes())	{
@@ -617,6 +875,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 
 		/* Result type specified during output plugin construction */
 		payloadType = pg->getPayloadType();
+		sPayloadType = payloadType;
 		Value *val_payloadSize;
 
 		if(pg->hasComplexTypes()) {

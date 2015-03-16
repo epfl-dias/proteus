@@ -251,7 +251,7 @@ extern "C" size_t combineHashesNoOrder(size_t hash1, size_t hash2);
 
 extern "C" int *partitionHTLLVM(size_t num_tuples, tuple_t *inTuples);
 extern "C" void bucket_chaining_join_prepareLLVM(const tuple_t * const tuplesR,
-		size_t num_tuples, HT * ht);
+		int num_tuples, HT * ht);
 
 
 /**

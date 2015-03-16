@@ -93,6 +93,9 @@ private:
 	HT *HT_per_cluster;
 	StructType *htClusterType;
 
+	StructType *rPayloadType;
+	StructType *sPayloadType;
+
 	char *relationR;
 	char *relationS;
 	char *kvR;

@@ -232,7 +232,7 @@ void bucket_chaining_join_prepare(const relation_t * const R, HT * ht)	{
     }
 }
 
-void bucket_chaining_join_prepare(const tuple_t * const tuplesR, size_t num_tuples, HT * ht)	{
+void bucket_chaining_join_prepare(const tuple_t * const tuplesR, int num_tuples, HT * ht)	{
     const uint32_t numR = num_tuples;
     uint32_t N = numR;
     int64_t matches = 0;

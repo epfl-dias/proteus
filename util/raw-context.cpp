@@ -790,9 +790,8 @@ int *partitionHTLLVM(size_t num_tuples, tuple_t *inTuples)	{
 	return partitionHT(num_tuples, inTuples);
 }
 
-/* TODO Add links */
 void bucket_chaining_join_prepareLLVM(const tuple_t * const tuplesR,
-		size_t num_tuples, HT * ht) {
+		int num_tuples, HT * ht) {
 	bucket_chaining_join_prepare(tuplesR, num_tuples, ht);
 }
 
@@ -1272,6 +1271,27 @@ void registerFunctions(RawContext& context)	{
 	Function *radix_partition = Function::Create(FTradix_partition,
 							Function::ExternalLinkage, "partitionHTLLVM", TheModule);
 
+	/* What the type of HT buckets is */
+	vector<Type*> htBucketMembers;
+	//int *bucket;
+	htBucketMembers.push_back(int32_ptr_type);
+	//int *next;
+	htBucketMembers.push_back(int32_ptr_type);
+	//uint32_t mask;
+	htBucketMembers.push_back(int32_type);
+	//int count;
+	htBucketMembers.push_back(int32_type);
+	StructType *htBucketType = StructType::get(ctx, htBucketMembers);
+	PointerType *htBucketPtrType = PointerType::get(htBucketType, 0);
+
+	Type* bucket_chaining_join_prepare_types[] = { htEntryPtrType, int32_type,
+			htBucketPtrType };
+	FunctionType *FTbucket_chaining_join_prepare = FunctionType::get(void_type,
+			bucket_chaining_join_prepare_types, false);
+	Function *bucket_chaining_join_prepare = Function::Create(
+			FTbucket_chaining_join_prepare, Function::ExternalLinkage,
+			"bucket_chaining_join_prepareLLVM", TheModule);
+
 	context.registerFunction("printi", printi_);
 	context.registerFunction("printi64", printi64_);
 	context.registerFunction("printFloat", printFloat_);
@@ -1322,6 +1342,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("memcpy", memcpy_);
 
 	context.registerFunction("partitionHT",radix_partition);
+	context.registerFunction("bucketChainingPrepare",bucket_chaining_join_prepare);
 }
 
 //'Inline' -> shouldn't it be placed in .hpp?

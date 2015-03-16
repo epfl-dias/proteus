@@ -35,7 +35,7 @@ int *
 partitionHT(size_t num_tuples, tuple_t *inTuples);
 
 void
-bucket_chaining_join_prepare(const tuple_t * const tuplesR, size_t num_tuples,
+bucket_chaining_join_prepare(const tuple_t * const tuplesR, int num_tuples,
 		HT * ht);
 
 
