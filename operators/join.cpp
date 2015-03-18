@@ -278,7 +278,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		}
 
 		const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
-		for(std::vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!= wantedFields.end(); ++it) {
+		for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!= wantedFields.end(); ++it) {
 			string currField = (*it)->getName();
 			AllocaInst *memForField = context->CreateEntryBlockAlloca(TheFunction,currField+"mem",str->getElementType(i));
 			vector<Value*> idxList = vector<Value*>();

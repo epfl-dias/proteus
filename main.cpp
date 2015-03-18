@@ -1563,6 +1563,7 @@ void joinQueryRelationalRadix()
 	//To be 100% correct, this proj should be over a new InputArg that only exposes the new bindings
 	expressions::RecordProjection* proj = new expressions::RecordProjection(
 			new IntType(), leftArg, *attr1);
+
 	Print printOp = Print(debugInt, proj, &join);
 	join.setParent(&printOp);
 

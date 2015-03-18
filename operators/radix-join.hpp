@@ -27,7 +27,7 @@
 
 
 typedef struct htEntry	{
-	void *keyPtr;
+	int key;
 	void *valuePtr;
 } htEntry;
 

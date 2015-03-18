@@ -283,6 +283,9 @@ extern "C" void flushOutput(char* fileName);
 
 extern "C" void flushDelim(size_t resultCtr, char whichDelim, char* fileName);
 
+//Temp func
+extern "C" void debug(void* buff);
+
 /**
  * Memory mgmt
  */

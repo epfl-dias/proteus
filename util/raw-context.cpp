@@ -112,7 +112,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUG
-	getModule()->dump();
+//	getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -957,6 +957,15 @@ void flushDelim(size_t resultCtr, char whichDelim, char* fileName) {
 	}
 }
 
+void debug(void* buff)	{
+	char *buf = (char*) buff;
+	size_t activeTuple = *(size_t*) buf;
+	int val = *(int*)(buf + sizeof(size_t));
+	int val2 = *(int*)(buf + sizeof(int) + sizeof(size_t));
+	cout << "Peek: " << activeTuple << " " << val << " " << val2 << endl;
+	cout << "Address: " << buff << endl;
+}
+
 void flushOutput(char* fileName)	{
 	RawCatalog& catalog = RawCatalog::getInstance();
 		string name = string(fileName);
@@ -1182,6 +1191,15 @@ void registerFunctions(RawContext& context)	{
 			Function::ExternalLinkage, "combineHashesNoOrder", TheModule);
 
 	/**
+	 * Debug (TMP)
+	 */
+	vector<Type*> ArgsDebug;
+	ArgsDebug.insert(ArgsDebug.begin(),void_ptr_type);
+	FunctionType *FTdebug = FunctionType::get(void_type, ArgsDebug, false);
+	Function *debug_ = Function::Create(FTdebug, Function::ExternalLinkage,
+				"debug", TheModule);
+
+	/**
 	* Flushing
 	*/
 	Function *flushInt_ = Function::Create(FTflushInt,
@@ -1343,6 +1361,9 @@ void registerFunctions(RawContext& context)	{
 
 	context.registerFunction("partitionHT",radix_partition);
 	context.registerFunction("bucketChainingPrepare",bucket_chaining_join_prepare);
+
+	//XXX TEMP!!
+	context.registerFunction("debug",debug_);
 }
 
 //'Inline' -> shouldn't it be placed in .hpp?

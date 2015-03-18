@@ -63,8 +63,8 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 	PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
 
 	/* Arbitrary initial buffer sizes */
-	size_t sizeR = 30; //1000;
-	size_t sizeS = 30; //1000;
+	size_t sizeR = 1000; //30; //1000;
+	size_t sizeS = 1000; //1000;
 	Value *val_sizeR = context->createInt64(sizeR);
 	Value *val_sizeS = context->createInt64(sizeS);
 
@@ -95,7 +95,7 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 			context->CreateEntryBlockAlloca(F,string("offsetRelS"),int64_type);
 	relationS = (char*) getMemoryChunk(sizeS);
 	Value *val_relationS = context->CastPtrToLlvmPtr(char_ptr_type, relationS);
-	Builder->CreateStore(val_relationR,relS.mem_relation);
+	Builder->CreateStore(val_relationS,relS.mem_relation);
 	Builder->CreateStore(zero,relS.mem_tuplesNo);
 	Builder->CreateStore(zero,relS.mem_offset);
 	Builder->CreateStore(val_sizeS,relS.mem_size);
@@ -191,6 +191,8 @@ void RadixJoin::runRadix() const	{
 	Function *F = context->getGlobalFunction();
 	IRBuilder<> *Builder = context->getBuilder();
 
+	Function* debugInt = context->getFunction("printi");
+
 	Type *int32_type = Type::getInt32Ty(llvmContext);
 	Value *val_zero = context->createInt32(0);
 	Value *val_one = context->createInt32(1);
@@ -257,49 +259,56 @@ void RadixJoin::runRadix() const	{
 		Value *val_cond_1 = Builder->CreateICmpSGT(val_r_i_count,val_zero);
 		Value *val_cond_2 = Builder->CreateICmpSGT(val_s_i_count,val_zero);
 		val_cond = Builder->CreateAnd(val_cond_1,val_cond_2);
+
 		Builder->CreateCondBr(val_cond,ifBlock,elseBlock);
 
 		/* If clusters non-empty */
 		Builder->SetInsertPoint(ifBlock);
 
+		Value *val_rCount = Builder->CreateLoad(mem_rCount);
+		Value *val_sCount = Builder->CreateLoad(mem_sCount);
+#ifdef DEBUG
+//		vector<Value*> ArgsV0;
+//		ArgsV0.push_back(context->createInt32(222));
+//		Builder->CreateCall(debugInt,ArgsV0);
+//
+//		ArgsV0.clear();
+//		ArgsV0.push_back(val_clusterCount);
+//		Builder->CreateCall(debugInt,ArgsV0);
+#endif
+
+
 		/* tmpR.tuples = relR->tuples + r; */
 		Value *val_htR = Builder->CreateLoad(htR.mem_kv);
-		Value* htRshiftedPtr = Builder->CreateInBoundsGEP(val_htR, val_r_i_count);
+		Value* htRshiftedPtr = Builder->CreateInBoundsGEP(val_htR, val_rCount);
 
 		/* tmpS.tuples = relS->tuples + s; */
 		Value *val_htS = Builder->CreateLoad(htS.mem_kv);
-		Value* htSshiftedPtr = Builder->CreateInBoundsGEP(val_htS, val_s_i_count);
-
-		/* r += R_count_per_cluster[i];
-		 * s += S_count_per_cluster[i];
-		 */
-		Value *val_rCount = Builder->CreateLoad(mem_rCount);
-		Value *val_sCount = Builder->CreateLoad(mem_sCount);
-		val_rCount = Builder->CreateAdd(val_rCount,val_r_i_count);
-		val_sCount = Builder->CreateAdd(val_sCount,val_s_i_count);
-		Builder->CreateStore(val_rCount,mem_rCount);
-		Builder->CreateStore(val_sCount,mem_sCount);
+		Value* htSshiftedPtr = Builder->CreateInBoundsGEP(val_htS, val_sCount);
 
 		/* bucket_chaining_join_prepare(&tmpR, &(HT_per_cluster[i])); */
 		Function *bucketChainingPrepare = context->getFunction("bucketChainingPrepare");
-		//Address of tmpR
-//		PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
-//		AllocaInst* mem_htRShifted = Builder->CreateAlloca(htEntryPtrType,0,"mem_tmpR");
-//		Builder->CreateStore(htRshiftedPtr,mem_htRShifted);
 
 		PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
 		Value *val_htPerClusterShiftedPtr = Builder->CreateInBoundsGEP(
 				val_htPerCluster, val_clusterCount);
-		//Address of HT_per_cluster[i]
-//		AllocaInst* mem_htPerClusterShiftedPtr = Builder->CreateAlloca(
-//				htClusterPtrType, 0, "mem_HT_per_cluster_i");
-//		Builder->CreateStore(val_htPerClusterShiftedPtr,mem_htPerClusterShiftedPtr);
+
 		//Prepare args and call function
 		vector<Value*> Args;
 		Args.push_back(htRshiftedPtr);
-		Args.push_back(val_rCount);
+		Args.push_back(val_r_i_count);
 		Args.push_back(val_htPerClusterShiftedPtr);
 		Builder->CreateCall(bucketChainingPrepare, Args);
+
+		/*
+		 * r += R_count_per_cluster[i];
+		 * s += S_count_per_cluster[i];
+		 */
+		val_rCount = Builder->CreateAdd(val_rCount, val_r_i_count);
+		val_sCount = Builder->CreateAdd(val_sCount, val_s_i_count);
+		Builder->CreateStore(val_rCount, mem_rCount);
+		Builder->CreateStore(val_sCount,mem_sCount);
+
 
 		/* Loop over S cluster (tmpS) and use its tuples to probe HTs */
 		BasicBlock *sLoopCond, *sLoopBody, *sLoopInc, *sLoopEnd;
@@ -313,6 +322,7 @@ void RadixJoin::runRadix() const	{
 			Builder->SetInsertPoint(sLoopCond);
 			Value *val_j = Builder->CreateLoad(mem_j);
 			val_cond = Builder->CreateICmpSLE(val_j,val_sCount);
+
 			Builder->CreateCondBr(val_cond, sLoopBody, sLoopEnd);
 
 			Builder->SetInsertPoint(sLoopBody);
@@ -326,7 +336,7 @@ void RadixJoin::runRadix() const	{
 			/* uint32_t idx = HASH_BIT_MODULO(s->key, ht->mask, NUM_RADIX_BITS); */
 			Value *val_num_radix_bits = context->createInt32(NUM_RADIX_BITS);
 			Value *val_mask = context->getStructElem(val_htPerClusterShiftedPtr,2);
-			//Get key of current s tuple (tmpS[j]
+			//Get key of current s tuple (tmpS[j])
 			Value *htSshiftedPtr_j = Builder->CreateInBoundsGEP(htSshiftedPtr, val_j);
 //			Value *tuple_s_j = Builder->CreateLoad(htSshiftedPtr_j);
 			Value *val_key_s_j = context->getStructElem(htSshiftedPtr_j,0);
@@ -354,7 +364,7 @@ void RadixJoin::runRadix() const	{
 				/* 1. Loop Condition */
 				Builder->SetInsertPoint(hitLoopCond);
 				Value *val_hit = Builder->CreateLoad(mem_hit);
-				val_cond = Builder->CreateICmpSLT(val_hit,val_zero);
+				val_cond = Builder->CreateICmpSGT(val_hit,val_zero);
 				Builder->CreateCondBr(val_cond,hitLoopBody,hitLoopEnd);
 
 				/* 2. Body */
@@ -365,17 +375,31 @@ void RadixJoin::runRadix() const	{
 				context->CreateIfBlock(context->getGlobalFunction(), "htMatchIfCond",
 									&ifKeyMatch, hitLoopInc);
 				{
+
 					//Rtuples[hit - 1]
 					Value *val_idx_dec = Builder->CreateSub(val_hit,val_one);
 					Value *htRshiftedPtr_hit = Builder->CreateInBoundsGEP(htRshiftedPtr, val_idx_dec);
 					//Rtuples[hit - 1].key
 					Value *val_key_r = context->getStructElem(htRshiftedPtr_hit,0);
+
 					//Condition
 					val_cond = Builder->CreateICmpEQ(val_key_s_j,val_key_r);
 					Builder->CreateCondBr(val_cond,ifKeyMatch,hitLoopInc);
 
 					Builder->SetInsertPoint(ifKeyMatch);
-
+#ifdef DEBUG
+//					vector<Value*> ArgsV;
+//					ArgsV.push_back(val_key_s_j);
+//					Builder->CreateCall(debugInt, ArgsV);
+//
+//					ArgsV.clear();
+//					ArgsV.push_back(context->createInt32(1001));
+//					Builder->CreateCall(debugInt, ArgsV);
+//
+//					ArgsV.clear();
+//					ArgsV.push_back(val_key_r);
+//					Builder->CreateCall(debugInt, ArgsV);
+#endif
 					/**
 					 * -> RECONSTRUCT RESULTS
 					 * -> CALL PARENT
@@ -448,6 +472,16 @@ void RadixJoin::runRadix() const	{
 							RawValueMemory mem_valWrapper;
 							mem_valWrapper.mem = mem_field;
 							mem_valWrapper.isNull = context->createFalse();
+
+#ifdef DEBUG
+//							vector<Value*> ArgsV;
+//							ArgsV.push_back(context->createInt32(1111));
+//							Builder->CreateCall(debugInt, ArgsV);
+//							ArgsV.clear();
+//							ArgsV.push_back(Builder->CreateLoad(mem_field));
+//							Builder->CreateCall(debugInt, ArgsV);
+#endif
+
 							(*allJoinBindings)[*(*it2)] = mem_valWrapper;
 
 						}
@@ -567,6 +601,11 @@ void RadixJoin::runRadix() const	{
 	Builder->SetInsertPoint(loopInc);
 	val_clusterCount = Builder->CreateLoad(mem_clusterCount);
 	val_clusterCount = Builder->CreateAdd(val_clusterCount,val_one);
+//#ifdef DEBUG
+//		vector<Value*> ArgsV0;
+//		ArgsV0.push_back(val_clusterCount);
+//		Builder->CreateCall(debugInt,ArgsV0);
+//#endif
 	Builder->CreateStore(val_clusterCount, mem_clusterCount);
 
 	Builder->CreateBr(loopCond);
@@ -612,6 +651,8 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 	IRBuilder<> *Builder = context->getBuilder();
 	Function *debugInt = context->getFunction("printi");
 	Function *debugInt64 = context->getFunction("printi64");
+	Function *debug = context->getFunction("debug");
+
 
 	PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
 	Type *int8_type = Type::getInt8Ty(llvmContext);
@@ -646,7 +687,6 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			val_payloadSize = pg->getRuntimePayloadTypeSize();
 		}	else	{
 			val_payloadSize = context->createInt64(pg->getPayloadTypeSize());
-//			cout << "Left Payload: " << pg->getPayloadTypeSize()  << endl;
 		}
 
 		/* Registering payload type of HT in RAW CATALOG */
@@ -670,6 +710,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		Value *offsetInArena = Builder->CreateLoad(relR.mem_offset);
 		Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,val_payloadSize);
 		Value *arenaSize = Builder->CreateLoad(relR.mem_size);
+		Value* val_tuplesNo = Builder->CreateLoad(relR.mem_tuplesNo);
 
 		/* if(offsetInArena + payloadSize >= arenaSize) */
 		BasicBlock* entryBlock = Builder->GetInsertBlock();
@@ -703,6 +744,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 
 		/* Repeat load - realloc() might have occurred */
 		val_arena = Builder->CreateLoad(relR.mem_relation);
+		val_size = Builder->CreateLoad(relR.mem_size);
 
 		/* STORING PAYLOAD */
 		/* 1. arena += (offset) */
@@ -734,7 +776,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 					Value* mem_payloadCast = Builder->CreateLoad(mem_payloadCastPtr);
 					Value* structPtr = Builder->CreateGEP(mem_payloadCast, idxList);
 					Builder->CreateStore(val_activeTuple,structPtr);
-
+//					Builder->CreateStore(mem_payloadCast,mem_payloadCastPtr);
 					offsetInStruct++;
 				}
 			}
@@ -749,6 +791,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			//FIXME FIX THE NECESSARY CONVERSIONS HERE
 			Value* currVal = Builder->CreateLoad(currValMem.mem);
 			Value* valToMaterialize = pg->convert(currVal->getType(),materializedTypes->at(offsetInWanted),currVal);
+
 			vector<Value*> idxList = vector<Value*>();
 			idxList.push_back(context->createInt32(0));
 			idxList.push_back(context->createInt32(offsetInStruct));
@@ -761,12 +804,12 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			offsetInStruct++;
 			offsetInWanted++;
 		}
-
-		/* 4. Increment counts */
-		Builder->CreateStore(offsetPlusPayload,relR.mem_offset);
-		Value* val_tuplesNo = Builder->CreateLoad(relR.mem_tuplesNo);
-		val_tuplesNo = Builder->CreateAdd(val_tuplesNo,context->createInt64(1));
-		Builder->CreateStore(val_tuplesNo,relR.mem_tuplesNo);
+#ifdef DEBUG
+//		//Correct results here
+//		vector<Value*> ArgsV0;
+//		ArgsV0.push_back(ptr_arenaShifted);
+//		Builder->CreateCall(debug,ArgsV0);
+#endif
 
 		/* CONSTRUCT HTENTRY PAIR   	  */
 		/* (int32 key, void* payloadPtr)  */
@@ -792,10 +835,8 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		Value *offsetInHT = Builder->CreateLoad(htR.mem_offset);
 		int voidPtrSize = void_ptr_type->getPrimitiveSizeInBits() / 8;
 		Value *val_voidPtrSize = context->createInt64(voidPtrSize);
-		Value *offsetPlusKey = Builder->CreateAdd(offsetInArena,val_keySize64);
-
-		Value *offsetPlusKeyPtr = Builder->CreateAdd(offsetInHT,val_voidPtrSize);
-		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKeyPtr,val_voidPtrSize);
+		Value *offsetPlusKey = Builder->CreateAdd(offsetInHT,val_keySize64);
+		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKey,val_voidPtrSize);
 		Value *htSize = Builder->CreateLoad(htR.mem_size);
 		offsetCond = Builder->CreateICmpSGE(offsetPlusPayloadPtr, htSize);
 
@@ -830,7 +871,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		val_ht = Builder->CreateLoad(htR.mem_kv);
 
 		/* 1. kv += offset */
-		Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht,offsetInHT);
+		Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht,val_tuplesNo);
 
 		/* 2. htEntry* kv_cast = (htEntry)* kv */
 		Value *cast_kvShifted =
@@ -857,11 +898,23 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		idxList.push_back(context->createInt32(offsetInStruct));
 		structPtr = Builder->CreateGEP(mem_htEntryCast, idxList);
 
-		Value *cast_payload = Builder->CreateBitCast(mem_payloadCastPtr,void_ptr_type);
-		Builder->CreateStore(cast_payload,structPtr);
+//		Value *cast_payload = Builder->CreateBitCast(mem_payloadCastPtr,void_ptr_type);
+//		Builder->CreateStore(cast_payload,structPtr);
+		Builder->CreateStore(ptr_arenaShifted,structPtr);
 
-		/* 4. Increment counts */
+
+#ifdef DEBUG
+		vector<Value*> ArgsV0;
+		ArgsV0.clear();
+		ArgsV0.push_back(ptr_arenaShifted);
+		Builder->CreateCall(debug,ArgsV0);
+#endif
+
+		/* 4. Increment counts - both Rel and HT */
+		Builder->CreateStore(offsetPlusPayload,relR.mem_offset);
 		Builder->CreateStore(offsetPlusPayloadPtr,htR.mem_offset);
+		val_tuplesNo = Builder->CreateAdd(val_tuplesNo,context->createInt64(1));
+		Builder->CreateStore(val_tuplesNo,relR.mem_tuplesNo);
 		Builder->CreateStore(val_tuplesNo,htR.mem_tuplesNo);
 	}
 	else
@@ -876,6 +929,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		/* Result type specified during output plugin construction */
 		payloadType = pg->getPayloadType();
 		sPayloadType = payloadType;
+
 		Value *val_payloadSize;
 
 		if(pg->hasComplexTypes()) {
@@ -901,10 +955,11 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		 * do it ONCE on the pre-allocated buffer
 		 */
 
-		Value *val_arena = Builder->CreateLoad(relR.mem_relation);
-		Value *offsetInArena = Builder->CreateLoad(relR.mem_offset);
+		Value *val_arena = Builder->CreateLoad(relS.mem_relation);
+		Value *offsetInArena = Builder->CreateLoad(relS.mem_offset);
 		Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,val_payloadSize);
-		Value *arenaSize = Builder->CreateLoad(relR.mem_size);
+		Value *arenaSize = Builder->CreateLoad(relS.mem_size);
+		Value* val_tuplesNo = Builder->CreateLoad(relS.mem_tuplesNo);
 
 		/* if(offsetInArena + payloadSize >= arenaSize) */
 		BasicBlock* entryBlock = Builder->GetInsertBlock();
@@ -920,24 +975,24 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 
 		vector<Value*> ArgsRealloc;
 		Function* reallocLLVM = context->getFunction("increaseMemoryChunk");
-		AllocaInst* mem_arena_void = Builder->CreateAlloca(void_ptr_type,0,"voidArenaPtr");
+		AllocaInst* mem_arena_void = Builder->CreateAlloca(void_ptr_type,0,"voidArenaPtrS");
 		Builder->CreateStore(val_arena,mem_arena_void);
 		Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
 		ArgsRealloc.push_back(val_arena_void);
 		ArgsRealloc.push_back(arenaSize);
 		Value* val_newArenaVoidPtr = Builder->CreateCall(reallocLLVM, ArgsRealloc);
 
-		Builder->CreateStore(val_newArenaVoidPtr,relR.mem_relation);
-		Value* val_size = Builder->CreateLoad(relR.mem_size);
+		Builder->CreateStore(val_newArenaVoidPtr,relS.mem_relation);
+		Value* val_size = Builder->CreateLoad(relS.mem_size);
 		val_size = Builder->CreateMul(val_size,context->createInt64(2));
-		Builder->CreateStore(val_size,relR.mem_size);
+		Builder->CreateStore(val_size,relS.mem_size);
 		Builder->CreateBr(endBlockArenaFull);
 
 		/* 'Normal' flow again */
 		Builder->SetInsertPoint(endBlockArenaFull);
 
 		/* Repeat load - realloc() might have occurred */
-		val_arena = Builder->CreateLoad(relR.mem_relation);
+		val_arena = Builder->CreateLoad(relS.mem_relation);
 
 		/* STORING PAYLOAD */
 		/* 1. arena += (offset) */
@@ -997,12 +1052,6 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			offsetInWanted++;
 		}
 
-		/* 4. Increment counts */
-		Builder->CreateStore(offsetPlusPayload,relR.mem_offset);
-		Value* val_tuplesNo = Builder->CreateLoad(relR.mem_tuplesNo);
-		val_tuplesNo = Builder->CreateAdd(val_tuplesNo,context->createInt64(1));
-		Builder->CreateStore(val_tuplesNo,relR.mem_tuplesNo);
-
 		/* CONSTRUCT HTENTRY PAIR   	  */
 		/* (int32 key, void* payloadPtr)  */
 		/* Prepare key */
@@ -1010,6 +1059,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
 		RawValue rightKey = rightKeyExpr->accept(exprGenerator);
 		Type* keyType = (rightKey.value)->getType();
+
 		//10: IntegerTyID
 		if(keyType->getTypeID() != 10) {
 			string error_msg = "Only INT32 keys considered atm";
@@ -1027,10 +1077,8 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		Value *offsetInHT = Builder->CreateLoad(htS.mem_offset);
 		int voidPtrSize = void_ptr_type->getPrimitiveSizeInBits() / 8;
 		Value *val_voidPtrSize = context->createInt64(voidPtrSize);
-		Value *offsetPlusKey = Builder->CreateAdd(offsetInArena,val_keySize64);
-
-		Value *offsetPlusKeyPtr = Builder->CreateAdd(offsetInHT,val_voidPtrSize);
-		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKeyPtr,val_voidPtrSize);
+		Value *offsetPlusKey = Builder->CreateAdd(offsetInHT,val_keySize64);
+		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKey,val_voidPtrSize);
 		Value *htSize = Builder->CreateLoad(htS.mem_size);
 		offsetCond = Builder->CreateICmpSGE(offsetPlusPayloadPtr, htSize);
 
@@ -1065,7 +1113,8 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		val_ht = Builder->CreateLoad(htS.mem_kv);
 
 		/* 1. kv += offset */
-		Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht,offsetInHT);
+//		Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht,offsetInHT);
+		Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht,val_tuplesNo);
 
 		/* 2. htEntry* kv_cast = (htEntry)* kv */
 		Value *cast_kvShifted =
@@ -1092,12 +1141,25 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		idxList.push_back(context->createInt32(offsetInStruct));
 		structPtr = Builder->CreateGEP(mem_htEntryCast, idxList);
 
-		Value *cast_payload = Builder->CreateBitCast(mem_payloadCastPtr,void_ptr_type);
-		Builder->CreateStore(cast_payload,structPtr);
+		//		Value *cast_payload = Builder->CreateBitCast(mem_payloadCastPtr,void_ptr_type);
+		//		Builder->CreateStore(cast_payload,structPtr);
+		Builder->CreateStore(ptr_arenaShifted,structPtr);
 
-		/* 4. Increment counts */
+
+#ifdef DEBUG
+		vector<Value*> ArgsV0;
+		ArgsV0.clear();
+		ArgsV0.push_back(ptr_arenaShifted);
+		Builder->CreateCall(debug,ArgsV0);
+#endif
+
+		/* 4. Increment counts - both Rel and HT */
+		Builder->CreateStore(offsetPlusPayload,relS.mem_offset);
 		Builder->CreateStore(offsetPlusPayloadPtr,htS.mem_offset);
+		val_tuplesNo = Builder->CreateAdd(val_tuplesNo,context->createInt64(1));
+		Builder->CreateStore(val_tuplesNo,relS.mem_tuplesNo);
 		Builder->CreateStore(val_tuplesNo,htS.mem_tuplesNo);
+
 	}
 };
 
