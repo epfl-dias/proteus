@@ -36,16 +36,13 @@ void* allocateFromRegion(size_t regionSize)	{
 
 void* increaseRegion(void* region, size_t currSize)	{
 	currSize <<= 1;
-//	cout << "Doubling Arena to " << currSize << endl;
 	/* Very Hardcoded */
-//	int peek = *(int*)region;
-//	cout << "Peek a boo " << peek << endl;
 
-
+	cout << "About to double arena to " << currSize << endl;
 	void* newRegion = realloc(region, currSize);
 	if(newRegion != NULL)	{
-		region = newRegion;
-		cout << "Doubled Arena" << endl;
+		//region = newRegion;
+		cout << "Doubled Arena to " << currSize << endl;
 //		peek = *(int*)((char*)region+20);
 //
 //		size_t peek2 = *(size_t*)((char*)region+sizeof(int));
@@ -53,7 +50,7 @@ void* increaseRegion(void* region, size_t currSize)	{
 //		int peek4 = *(int*)((char*)region+16);
 //		size_t peek5 = *(size_t*)((char*)region+24);
 //		cout << "Peek a boo2 " << peek2 << " " << peek3 << " " << peek4 << " " << peek << " " << peek5 << endl;
-		return region;
+		return newRegion;
 	}
 	else
 	{
@@ -69,12 +66,6 @@ void* increaseRegion(void* region, size_t currSize)	{
 }
 
 void freeRegion(void* region)	{
-//	size_t peek2 = *(size_t*)((char*)region+sizeof(int));
-//			int peek3 = *(int*)((char*)region+12);
-//			int peek4 = *(int*)((char*)region+16);
-//			int peek = *(int*)((char*)region+20);
-//			size_t peek5 = *(size_t*)((char*)region+24);
-//			cout << "Peek a boo2 " << peek2 << " " << peek3 << " " << peek4 << " " << peek << " " << peek5 << endl;
 	free(region);
 }
 

@@ -7,7 +7,7 @@
 #include "util/joins/rdtsc.h"
 
 #ifdef DEBUG
-#define DEBUGRADIX
+//#define DEBUGRADIX
 #endif
 
 typedef struct HT	{
