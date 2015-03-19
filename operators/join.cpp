@@ -182,19 +182,8 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 			throw runtime_error(string("Type of key for join not supported (yet)!!"));
 		default:	throw runtime_error(string("Type of key for join not supported!!"));
 		}
-		#ifdef DEBUG
-			vector<Value*> ArgsV0;
-			ArgsV0.clear();
-			ArgsV0.push_back(context->createInt32(0));
-			Builder->CreateCall(debugInt, ArgsV0, "printi");
-		#endif
+
 		Value* voidJoinBindings = Builder->CreateCall(probe, ArgsV/*,"probeInt"*/);
-		#ifdef DEBUG
-			vector<Value*> ArgsV1;
-			ArgsV1.clear();
-			ArgsV1.push_back(context->createInt32(1));
-			Builder->CreateCall(debugInt, ArgsV1, "printi");
-		#endif
 
 		//LOOP THROUGH RESULTS (IF ANY)
 
@@ -328,11 +317,6 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		BranchInst::Create(loopCond, loopInc);
 
 		Builder->SetInsertPoint(loopEnd);
-#ifdef DEBUG
-		vector<Value*> ArgsV2;
-		ArgsV2.push_back(context->createInt32(2));
-		Builder->CreateCall(debugInt, ArgsV2);
-#endif
 	}
 };
 

@@ -63,8 +63,8 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 	PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
 
 	/* Arbitrary initial buffer sizes */
-	size_t sizeR = 30; //1000; //30; //1000;
-	size_t sizeS = 30; //1000; //1000;
+	size_t sizeR = 1000000;//0; //30; //1000;
+	size_t sizeS = 1000000;//0; //1000;
 	Value *val_sizeR = context->createInt64(sizeR);
 	Value *val_sizeS = context->createInt64(sizeS);
 
@@ -226,6 +226,9 @@ void RadixJoin::runRadix() const	{
 	Value *val_htPerCluster =
 			context->CastPtrToLlvmPtr(htClusterPtrType, HT_per_cluster);
 
+	AllocaInst *mem_probesNo = Builder->CreateAlloca(int32_type,0,"mem_counter");
+	Builder->CreateStore(val_zero,mem_probesNo);
+
 	/**
 	 * ACTUAL PROBES
 	 */
@@ -237,6 +240,7 @@ void RadixJoin::runRadix() const	{
 	context->CreateForLoop("clusterLoopCond", "clusterLoopBody",
 			"clusterLoopInc", "clusterLoopEnd", &loopCond, &loopBody, &loopInc,
 			&loopEnd);
+	context->setEndingBlock(loopEnd);
 
 	/* 1. Loop Condition - Unsigned integers operation */
 	Builder->CreateBr(loopCond);
@@ -272,7 +276,7 @@ void RadixJoin::runRadix() const	{
 
 		Value *val_rCount = Builder->CreateLoad(mem_rCount);
 		Value *val_sCount = Builder->CreateLoad(mem_sCount);
-#ifdef DEBUG
+#ifdef DEBUGRADIX
 //		vector<Value*> ArgsV0;
 //		ArgsV0.push_back(context->createInt32(222));
 //		Builder->CreateCall(debugInt,ArgsV0);
@@ -322,16 +326,30 @@ void RadixJoin::runRadix() const	{
 		{
 			AllocaInst *mem_j = Builder->CreateAlloca(int32_type, 0, "j_cnt");
 			Builder->CreateStore(val_zero, mem_j);
-			/* Loop Condition */
 			Builder->CreateBr(sLoopCond);
+
+			/* Loop Condition */
 			Builder->SetInsertPoint(sLoopCond);
 			Value *val_j = Builder->CreateLoad(mem_j);
-			val_cond = Builder->CreateICmpSLE(val_j,val_sCount);
+
+			val_cond = Builder->CreateICmpSLE(val_j,val_s_i_count);
 
 			Builder->CreateCondBr(val_cond, sLoopBody, sLoopEnd);
 
 			Builder->SetInsertPoint(sLoopBody);
-
+#ifdef DEBUGRADIX
+//			Value *val_probesNo = Builder->CreateLoad(mem_probesNo);
+//			val_probesNo = Builder->CreateAdd(val_probesNo, val_one);
+//			Builder->CreateStore(val_probesNo,mem_probesNo);
+//
+//			vector<Value*> ArgsV0;
+//			ArgsV0.push_back(val_j);
+//			Builder->CreateCall(debugInt,ArgsV0);
+//
+//			ArgsV0.clear();
+//			ArgsV0.push_back(val_sCount);
+//			Builder->CreateCall(debugInt,ArgsV0);
+#endif
 			/*
 			 * Break the following in pieces:
 			 * result += bucket_chaining_join_probe(&tmpR,
@@ -392,6 +410,21 @@ void RadixJoin::runRadix() const	{
 
 					Builder->SetInsertPoint(ifKeyMatch);
 
+
+#ifdef DEBUGRADIX
+					/* Printing key(s) */
+//					vector<Value*> ArgsV;
+//					ArgsV.push_back(val_key_s_j);
+//					Builder->CreateCall(debugInt, ArgsV);
+
+//					ArgsV.clear();
+//					ArgsV.push_back(context->createInt32(1111));
+//					Builder->CreateCall(debugInt, ArgsV);
+
+//					ArgsV.clear();
+//					ArgsV.push_back(val_key_r);
+//					Builder->CreateCall(debugInt, ArgsV);
+#endif
 					/**
 					 * -> RECONSTRUCT RESULTS
 					 * -> CALL PARENT
@@ -480,7 +513,7 @@ void RadixJoin::runRadix() const	{
 							mem_valWrapper.mem = mem_field;
 							mem_valWrapper.isNull = context->createFalse();
 
-#ifdef DEBUG
+#ifdef DEBUGRADIX
 //							vector<Value*> ArgsV;
 //							ArgsV.push_back(context->createInt32(1111));
 //							Builder->CreateCall(debugInt, ArgsV);
@@ -583,7 +616,6 @@ void RadixJoin::runRadix() const	{
 			Builder->CreateBr(sLoopCond);
 
 			Builder->SetInsertPoint(sLoopEnd);
-
 		}
 
 
@@ -665,7 +697,6 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 	Type *int8_type = Type::getInt8Ty(llvmContext);
 	PointerType *void_ptr_type = PointerType::get(int8_type, 0);
 	Type *int64_type = Type::getInt64Ty(llvmContext);
-	Type *int32_type = Type::getInt32Ty(llvmContext);
 
 	int keySize = keyType->getPrimitiveSizeInBits() / 8;
 	Value* val_keySize = context->createInt32(keySize);
@@ -924,6 +955,13 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		val_tuplesNo = Builder->CreateAdd(val_tuplesNo,context->createInt64(1));
 		Builder->CreateStore(val_tuplesNo,relR.mem_tuplesNo);
 		Builder->CreateStore(val_tuplesNo,htR.mem_tuplesNo);
+
+//#ifdef DEBUG
+//					/* Printing key(s) */
+//					vector<Value*> ArgsV;
+//					ArgsV.push_back(leftKey.value);
+//					Builder->CreateCall(debugInt, ArgsV);
+//#endif
 	}
 	else
 	{

@@ -45,7 +45,7 @@ void* increaseRegion(void* region, size_t currSize)	{
 	void* newRegion = realloc(region, currSize);
 	if(newRegion != NULL)	{
 		region = newRegion;
-//		cout << "Doubled Arena" << endl;
+		cout << "Doubled Arena" << endl;
 //		peek = *(int*)((char*)region+20);
 //
 //		size_t peek2 = *(size_t*)((char*)region+sizeof(int));

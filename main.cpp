@@ -113,6 +113,7 @@ void columnarJoin1();
  * Radix join
  */
 void joinQueryRelationalRadix();
+void cidrQuery3Radix();
 
 
 template<class T>
@@ -193,7 +194,9 @@ int main(int argc, char* argv[])
 //	cout << "Join 1: " << endl;
 //	columnarJoin1();
 
-	joinQueryRelationalRadix();
+//	joinQueryRelationalRadix();
+//	cidrQuery3();
+	cidrQuery3Radix();
 
 }
 
@@ -2646,13 +2649,13 @@ void cidrBinStr()
 void cidrQuery3()
 {
 
-	bool shortRun = true;
+	bool shortRun = false;
 	string filenameClinical = string("inputs/CIDR15/clinical.csv");
 	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
 	if (shortRun)
 	{
-		filenameClinical = string("inputs/CIDR15/clinical10.csv");
-		filenameGenetic = string("inputs/CIDR15/genetic10.csv");
+		filenameClinical = string("inputs/CIDR15/clinical10000.csv");
+		filenameGenetic = string("inputs/CIDR15/genetic10000.csv");
 	}
 
 	RawContext ctx = RawContext("CIDR-Query3");
@@ -2794,6 +2797,177 @@ void cidrQuery3()
 	//	Root rootOp = Root(&printOp);
 	//	printOp.setParent(&rootOp);
 	//	rootOp.produce();
+
+	/**
+	 * REDUCE
+	 * (COUNT)
+	 */
+	expressions::Expression* outputExpr = new expressions::IntConstant(1);
+	//expressions::RecordProjection* outputExpr = new expressions::RecordProjection(intType,argClinical,*rid);
+
+	expressions::Expression* val_true = new expressions::BoolConstant(1);
+	expressions::Expression* predicate = new expressions::EqExpression(
+			new BoolType(), val_true, val_true);
+	Reduce reduce = Reduce(SUM, outputExpr, predicate, &join, &ctx);
+//	Reduce reduce = Reduce(MAX, outputExpr, predicate, &join, &ctx);
+	join.setParent(&reduce);
+
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pgGenetic->finish();
+	pgClinical->finish();
+	catalog.clear();
+}
+
+void cidrQuery3Radix()
+{
+
+	bool shortRun = false;
+	string filenameClinical = string("inputs/CIDR15/clinical.csv");
+	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
+	if (shortRun)
+	{
+		filenameClinical = string("inputs/CIDR15/clinical10000.csv");
+		filenameGenetic = string("inputs/CIDR15/genetic10000.csv");
+	}
+
+	RawContext ctx = RawContext("CIDR-Query3");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* stringType = new StringType();
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* doubleType = new FloatType();
+
+	/**
+	 * SCAN1
+	 */
+	ifstream fsClinicalSchema("inputs/CIDR15/attrs_clinical_vertical.csv");
+	string line2;
+	int fieldCount2 = 0;
+	list<RecordAttribute*> attrListClinical;
+
+	while (getline(fsClinicalSchema, line2))
+	{
+		RecordAttribute* attr = NULL;
+		if (fieldCount2 < 2)
+		{
+			attr = new RecordAttribute(fieldCount2 + 1, filenameClinical, line2,
+					intType);
+		}
+		else if (fieldCount2 >= 4)
+		{
+			attr = new RecordAttribute(fieldCount2 + 1, filenameClinical, line2,
+					doubleType);
+		}
+		else
+		{
+			attr = new RecordAttribute(fieldCount2 + 1, filenameClinical, line2,
+					stringType);
+		}
+		attrListClinical.push_back(attr);
+		fieldCount2++;
+	}
+	RecordType recClinical = RecordType(attrListClinical);
+	vector<RecordAttribute*> whichFieldsClinical;
+	RecordAttribute* rid = new RecordAttribute(1, filenameClinical, "RID",
+			intType);
+	RecordAttribute* age = new RecordAttribute(1, filenameClinical, "Age",
+			intType);
+	whichFieldsClinical.push_back(rid);
+	whichFieldsClinical.push_back(age);
+
+	CSVPlugin* pgClinical = new CSVPlugin(&ctx, filenameClinical, recClinical,
+			whichFieldsClinical);
+	catalog.registerPlugin(filenameClinical, pgClinical);
+	Scan scanClinical = Scan(&ctx, *pgClinical);
+
+	//SELECT
+	RecordAttribute projTupleClinical = RecordAttribute(filenameClinical,
+			activeLoop);
+	list<RecordAttribute> projectionsClinical = list<RecordAttribute>();
+	projectionsClinical.push_back(projTupleClinical);
+	projectionsClinical.push_back(*rid);
+	projectionsClinical.push_back(*age);
+
+	expressions::Expression* argClinical = new expressions::InputArgument(
+			&recClinical, 0, projectionsClinical);
+	expressions::RecordProjection* clinicalAge =
+			new expressions::RecordProjection(intType, argClinical, *age);
+	expressions::Expression* rhs = new expressions::IntConstant(50);
+	expressions::Expression* selPredicate = new expressions::GtExpression(
+			new BoolType(), clinicalAge, rhs);
+	Select selClinical = Select(selPredicate, &scanClinical);
+	scanClinical.setParent(&selClinical);
+
+	/**
+	 * SCAN2
+	 */
+	ifstream fsGeneticSchema("inputs/CIDR15/attrs_genetic_vertical.csv");
+	string line;
+	int fieldCount = 0;
+	list<RecordAttribute*> attrListGenetic;
+	while (getline(fsGeneticSchema, line))
+	{
+		RecordAttribute* attr = NULL;
+		if (fieldCount != 0)
+		{
+			attr = new RecordAttribute(fieldCount + 1, filenameGenetic, line,
+					intType);
+		}
+		else
+		{
+			attr = new RecordAttribute(fieldCount + 1, filenameGenetic, line,
+					stringType);
+		}
+		attrListGenetic.push_back(attr);
+		fieldCount++;
+	}
+
+	RecordType recGenetic = RecordType(attrListGenetic);
+	vector<RecordAttribute*> whichFieldsGenetic;
+	RecordAttribute* iid = new RecordAttribute(2, filenameGenetic, "IID",
+			intType);
+	whichFieldsGenetic.push_back(iid);
+
+	CSVPlugin* pgGenetic = new CSVPlugin(&ctx, filenameGenetic, recGenetic,
+			whichFieldsGenetic);
+	catalog.registerPlugin(filenameGenetic, pgGenetic);
+	Scan scanGenetic = Scan(&ctx, *pgGenetic);
+
+	/**
+	 *  JOIN
+	 */
+	expressions::RecordProjection* argClinicalProj =
+			new expressions::RecordProjection(intType, argClinical, *rid);
+
+	RecordAttribute projTupleGenetic = RecordAttribute(filenameGenetic,
+			activeLoop);
+	list<RecordAttribute> projectionsGenetic = list<RecordAttribute>();
+	projectionsGenetic.push_back(projTupleGenetic);
+	projectionsGenetic.push_back(*iid);
+	expressions::Expression* argGenetic = new expressions::InputArgument(
+			&recGenetic, 0, projectionsGenetic);
+	expressions::RecordProjection* argGeneticProj =
+			new expressions::RecordProjection(intType, argGenetic, *iid);
+
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
+			new BoolType(), argClinicalProj, argGeneticProj);
+	vector<materialization_mode> outputModes;
+	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes.insert(outputModes.begin(), EAGER);
+	Materializer* matLeft = new Materializer(whichFieldsClinical, outputModes);
+
+	vector<materialization_mode> outputModesGenetic;
+	outputModesGenetic.insert(outputModesGenetic.begin(), EAGER);
+	Materializer* matRight = new Materializer(whichFieldsGenetic, outputModesGenetic);
+
+	char joinLabel[] = "joinPatients";
+	RadixJoin join = RadixJoin(joinPred, selClinical, scanGenetic, &ctx, joinLabel, *matLeft, *matRight);
+	selClinical.setParent(&join);
+	scanGenetic.setParent(&join);
 
 	/**
 	 * REDUCE

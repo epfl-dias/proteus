@@ -175,10 +175,15 @@ radix_cluster_nopadding(tuple_t * outTuples, tuple_t * inTuples, size_t num_tupl
     }
 
     input = inTuples;
+    int cnt = 0;
     /* copy tuples to their corresponding clusters at appropriate offsets */
     for( i=0; i < ntuples; i++ ){
     	uint32_t idx   = (uint32_t)(HASH_BIT_MODULO(input->key, M, R));
 //    	cout << "[radix_cluster_nopadding: ] cluster: "<< idx <<" key? " << input->key << endl;
+//        if(R!=0)	{
+//        	cout << input->key << endl;
+//        	cnt++;
+//        }
         *dst[idx] = *input;
         ++dst[idx];
         input++;
@@ -188,6 +193,8 @@ radix_cluster_nopadding(tuple_t * outTuples, tuple_t * inTuples, size_t num_tupl
         /*     REALLOCATE(dst[idx], dst_end[idx]); */
 
     }
+//    if(R!=0)
+//    	cout << "How many tuples? " << cnt << endl;
     /* clean up temp */
     /* free(dst_end); */
     free(dst);
@@ -230,6 +237,7 @@ void bucket_chaining_join_prepare(const relation_t * const R, HT * ht)	{
         uint32_t idx = HASH_BIT_MODULO(R->tuples[i].key, MASK, NUM_RADIX_BITS);
         (ht->next)[i]      = (ht->bucket)[idx];
         (ht->bucket)[idx]  = ++i;     /* we start pos's from 1 instead of 0 */
+
     }
 }
 
@@ -244,10 +252,11 @@ void bucket_chaining_join_prepare(const tuple_t * const tuplesR, int num_tuples,
     ht->mask = MASK;
     ht->next   = (int*) malloc(sizeof(int) * numR);
     ht->bucket = (int*) calloc(N, sizeof(int));
-
+    //cout << "[PREPARING]: " << endl;
     const tuple_t * const Rtuples = tuplesR;
     for(uint32_t i=0; i < numR; ){
         uint32_t idx = HASH_BIT_MODULO(tuplesR[i].key, MASK, NUM_RADIX_BITS);
+        //cout << "[K]: " << tuplesR[i].key << " [V]: " << tuplesR[i].payload << endl;
         (ht->next)[i]      = (ht->bucket)[idx];
         (ht->bucket)[idx]  = ++i;     /* we start pos's from 1 instead of 0 */
     }

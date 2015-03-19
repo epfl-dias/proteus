@@ -6,6 +6,10 @@
 #include "util/joins/prj_params.h"
 #include "util/joins/rdtsc.h"
 
+#ifdef DEBUG
+#define DEBUGRADIX
+#endif
+
 typedef struct HT	{
 	int *bucket;
 	int *next;
