@@ -162,18 +162,6 @@ radix_cluster_nopadding(tuple_t * outTuples, tuple_t * inTuples, size_t num_tupl
     /* count tuples per cluster */
     for( i=0; i < ntuples; i++ ){
     	uint32_t idx = (uint32_t)(HASH_BIT_MODULO(input->key, M, R));
-
-    	{
-    		char *buf = (char*) input->payload;
-    		size_t activeTuple = *(size_t*) buf;
-    		int val = *(int*)(buf + sizeof(size_t));
-    		int val2 = *(int*)(buf + sizeof(int) + sizeof(size_t));
-    		cout << "K: " <<input->key << " V: " <<
-    				activeTuple << " " << val << " " << val2 << endl;
-    		cout << "Address: " << input->payload << endl;
-    	}
-
-
     	tuples_per_cluster[idx]++;
         input++;
     }

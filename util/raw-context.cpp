@@ -1280,7 +1280,7 @@ void registerFunctions(RawContext& context)	{
 	/* (int32, void*) */
 	vector<Type*> htEntryMembers;
 	htEntryMembers.push_back(int32_type);
-	htEntryMembers.push_back(void_ptr_type);
+	htEntryMembers.push_back(int64_type);
 	StructType *htEntryType = StructType::get(ctx,htEntryMembers);
 	PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
 

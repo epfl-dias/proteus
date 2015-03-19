@@ -25,10 +25,10 @@
 #include "expressions/expressions-generator.hpp"
 #include "util/joins/radix-join.hpp"
 
-
+/* valuePtr is relative to the payloadBuffer! */
 typedef struct htEntry	{
 	int key;
-	void *valuePtr;
+	size_t valuePtr;
 } htEntry;
 
 struct relationBuf	{
@@ -46,7 +46,7 @@ struct relationBuf	{
 
 struct kvBuf	{
 	/* Mem layout:
-	 * Pairs of (int32 key, void *payloadPtr)
+	 * Pairs of (int32 key, size_t payloadPtr)
 	 */
 	AllocaInst *mem_kv;
 	/* Size in bytes */
