@@ -38,11 +38,11 @@ void* increaseRegion(void* region, size_t currSize)	{
 	currSize <<= 1;
 	/* Very Hardcoded */
 
-	cout << "About to double arena to " << currSize << endl;
+//	cout << "About to double arena to " << currSize << endl;
 	void* newRegion = realloc(region, currSize);
 	if(newRegion != NULL)	{
 		//region = newRegion;
-		cout << "Doubled Arena to " << currSize << endl;
+//		cout << "Doubled Arena to " << currSize << endl;
 //		peek = *(int*)((char*)region+20);
 //
 //		size_t peek2 = *(size_t*)((char*)region+sizeof(int));

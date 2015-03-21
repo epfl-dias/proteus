@@ -196,7 +196,7 @@ int main(int argc, char* argv[])
 //	cout << "Join 1: " << endl;
 //	columnarJoin1();
 
-	joinQueryRelationalRadix();
+//	joinQueryRelationalRadix();
 	cidrQuery3();
 	cidrQuery3Radix();
 
@@ -2651,13 +2651,13 @@ void cidrBinStr()
 void cidrQuery3()
 {
 
-	bool shortRun = false;
+	bool shortRun = true;
 	string filenameClinical = string("inputs/CIDR15/clinical.csv");
 	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
 	if (shortRun)
 	{
-		filenameClinical = string("inputs/CIDR15/clinical10000.csv");
-		filenameGenetic = string("inputs/CIDR15/genetic10000.csv");
+		filenameClinical = string("inputs/CIDR15/clinical5000.csv");
+		filenameGenetic = string("inputs/CIDR15/genetic5000.csv");
 	}
 
 	RawContext ctx = RawContext("CIDR-Query3");
@@ -2828,13 +2828,13 @@ void cidrQuery3()
 void cidrQuery3Radix()
 {
 
-	bool shortRun = false;
+	bool shortRun = true;
 	string filenameClinical = string("inputs/CIDR15/clinical.csv");
 	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
 	if (shortRun)
 	{
-		filenameClinical = string("inputs/CIDR15/clinical10000.csv");
-		filenameGenetic = string("inputs/CIDR15/genetic10000.csv");
+		filenameClinical = string("inputs/CIDR15/clinical5000.csv");
+		filenameGenetic = string("inputs/CIDR15/genetic5000.csv");
 	}
 
 	RawContext ctx = RawContext("CIDR-Query3");
