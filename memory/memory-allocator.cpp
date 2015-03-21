@@ -24,7 +24,6 @@
 #include "memory/memory-allocator.hpp"
 
 void* allocateFromRegion(size_t regionSize)	{
-//	char* arenaChunk = new char[regionSize];
 	char* arenaChunk = (char*) calloc(regionSize,sizeof(char));
 	if(arenaChunk == NULL)	{
 		string error_msg = string("[Memory Allocator: ] new() failed");
@@ -38,11 +37,11 @@ void* increaseRegion(void* region, size_t currSize)	{
 	currSize <<= 1;
 	/* Very Hardcoded */
 
-	cout << "About to double arena to " << currSize << endl;
+//	cout << "About to double "<< region << " arena to " << currSize << endl;
 	void* newRegion = realloc(region, currSize);
 	if(newRegion != NULL)	{
 		//region = newRegion;
-		cout << "Doubled Arena to " << currSize << endl;
+//		cout << "Doubled Arena to " << currSize << endl;
 //		peek = *(int*)((char*)region+20);
 //
 //		size_t peek2 = *(size_t*)((char*)region+sizeof(int));
@@ -59,10 +58,6 @@ void* increaseRegion(void* region, size_t currSize)	{
 		LOG(ERROR) << error_msg;
 		throw runtime_error(error_msg);
 	}
-
-
-
-
 }
 
 void freeRegion(void* region)	{

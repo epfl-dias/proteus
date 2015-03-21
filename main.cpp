@@ -196,8 +196,8 @@ int main(int argc, char* argv[])
 //	cout << "Join 1: " << endl;
 //	columnarJoin1();
 
-	joinQueryRelationalRadix();
-	cidrQuery3();
+//	joinQueryRelationalRadix();
+//	cidrQuery3();
 	cidrQuery3Radix();
 
 }
@@ -2828,7 +2828,7 @@ void cidrQuery3()
 void cidrQuery3Radix()
 {
 
-	bool shortRun = false;
+	bool shortRun = true;
 	string filenameClinical = string("inputs/CIDR15/clinical.csv");
 	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
 	if (shortRun)
