@@ -59,14 +59,14 @@ void RadixJoin::freeArenas() const	{
 
 	val_arena = Builder->CreateLoad(htR.mem_kv);
 	ArgsFree.clear();
-	Value *payload_r_void = Builder->CreateBitCast(val_arena, void_ptr_type);
-	ArgsFree.push_back(payload_r_void);
+//	Value *payload_r_void = Builder->CreateBitCast(val_arena, void_ptr_type);
+	ArgsFree.push_back(val_arena);
 	Builder->CreateCall(freeLLVM, ArgsFree);
 
 	val_arena = Builder->CreateLoad(htS.mem_kv);
 	ArgsFree.clear();
-	Value *payload_s_void = Builder->CreateBitCast(val_arena, void_ptr_type);
-	ArgsFree.push_back(payload_s_void);
+//	Value *payload_s_void = Builder->CreateBitCast(val_arena, void_ptr_type);
+	ArgsFree.push_back(val_arena);
 	Builder->CreateCall(freeLLVM, ArgsFree);
 }
 
@@ -81,6 +81,7 @@ void RadixJoin::runRadix() const	{
 	Function* debugInt64 = context->getFunction("printi64");
 
 	Type *int32_type = Type::getInt32Ty(llvmContext);
+	PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
 	Value *val_zero = context->createInt32(0);
 	Value *val_one = context->createInt32(1);
 #ifdef DEBUG
@@ -98,6 +99,11 @@ void RadixJoin::runRadix() const	{
 		ArgsV0.push_back(context->createInt32(666));
 		Builder->CreateCall(debugInt,ArgsV0);
 #endif
+
+	Value *val_htR_char = Builder->CreateLoad(htR.mem_kv);
+	Value *val_htR = Builder->CreateBitCast(val_htR_char, htEntryPtrType);
+	Value *val_htS_char = Builder->CreateLoad(htS.mem_kv);
+	Value *val_htS = Builder->CreateBitCast(val_htS_char, htEntryPtrType);
 
 	AllocaInst *mem_rCount =
 				Builder->CreateAlloca(int32_type,0,"rCount");
@@ -177,13 +183,10 @@ void RadixJoin::runRadix() const	{
 //		Builder->CreateCall(debugInt,ArgsV0);
 #endif
 
-
 		/* tmpR.tuples = relR->tuples + r; */
-		Value *val_htR = Builder->CreateLoad(htR.mem_kv);
 		Value* htRshiftedPtr = Builder->CreateInBoundsGEP(val_htR, val_rCount);
 
 		/* tmpS.tuples = relS->tuples + s; */
-		Value *val_htS = Builder->CreateLoad(htS.mem_kv);
 		Value* htSshiftedPtr = Builder->CreateInBoundsGEP(val_htS, val_sCount);
 
 		/* bucket_chaining_join_prepare(&tmpR, &(HT_per_cluster[i])); */
@@ -714,10 +717,10 @@ void RadixJoin::produce() const {
 	getLeftChild().produce();
 	getRightChild().produce();
 
-//	runRadix();
+	runRadix();
 
 	/* Free Arenas */
-//	this->freeArenas();
+	this->freeArenas();
 }
 
 /**
