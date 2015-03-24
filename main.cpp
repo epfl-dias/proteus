@@ -194,11 +194,11 @@ int main(int argc, char* argv[])
 //	cout << "Max 3: " << endl;
 //	columnarMax3();
 //	cout << "Join 1: " << endl;
-//	columnarJoin1();
+	columnarJoin1();
 
 //	joinQueryRelationalRadix();
-	cidrQuery3();
-	cidrQuery3Radix();
+//	cidrQuery3();
+//	cidrQuery3Radix();
 
 }
 
@@ -2651,7 +2651,7 @@ void cidrBinStr()
 void cidrQuery3()
 {
 
-	bool shortRun = true;
+	bool shortRun = false;
 	string filenameClinical = string("inputs/CIDR15/clinical.csv");
 	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
 	if (shortRun)
@@ -2828,7 +2828,7 @@ void cidrQuery3()
 void cidrQuery3Radix()
 {
 
-	bool shortRun = true;
+	bool shortRun = false;
 	string filenameClinical = string("inputs/CIDR15/clinical.csv");
 	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
 	if (shortRun)
@@ -3917,9 +3917,15 @@ void columnarJoin1()
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
 
-	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
-	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
+	/* Segfault */
+//	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
+//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
 
+	/* Works */
+	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed-shuffled");
+	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed");
+
+	/* Works */
 //	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100-30cols-fixed");
 //	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/500-30cols-fixed");
 
@@ -3964,7 +3970,6 @@ void columnarJoin1()
 
 	whichFieldsLeft.push_back(toProjectLeft);
 	whichFieldsLeft.push_back(selectProjLeft1);
-//	whichFieldsLeft.push_back(selectProjLeft2);
 
 	BinaryColPlugin *pgColumnarLeft = new BinaryColPlugin(&ctx, filenamePrefixLeft,
 			recIntsLeft, whichFieldsLeft);
@@ -4030,7 +4035,6 @@ void columnarJoin1()
 
 	whichFieldsRight.push_back(toProjectRight);
 	whichFieldsRight.push_back(selectProjRight1);
-	//	whichFields.push_back(selectProjRight2);
 
 	BinaryColPlugin *pgColumnarRight = new BinaryColPlugin(&ctx,
 			filenamePrefixRight, recIntsRight, whichFieldsRight);
@@ -4056,8 +4060,10 @@ void columnarJoin1()
 			new BoolType(), left, right);
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(), EAGER);
-	outputModes.insert(outputModes.begin(), EAGER);
-	Materializer* matLeft = new Materializer(whichFieldsLeft, outputModes);
+	vector<RecordAttribute*> whichFieldsLeft2;
+	whichFieldsLeft2.push_back(toProjectLeft);
+//	outputModes.insert(outputModes.begin(), EAGER);
+	Materializer* matLeft = new Materializer(whichFieldsLeft2, outputModes);
 
 	vector<materialization_mode> outputModes2;
 	outputModes2.insert(outputModes2.begin(), EAGER);
@@ -4075,11 +4081,19 @@ void columnarJoin1()
 	 */
 
 	expressions::RecordProjection* outputExpr =
-		new expressions::RecordProjection(intType, rightJoinArg, *selectProjLeft1);
+		new expressions::RecordProjection(intType, rightJoinArg, *selectProjRight1);
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* reducePredicate = new expressions::EqExpression(
 		new BoolType(), val_true, val_true);
 	Reduce reduce = Reduce(MAX, outputExpr, reducePredicate, &join, &ctx);
+
+//	/* Count */
+//	expressions::Expression* outputExpr = new expressions::IntConstant(1);
+//	expressions::Expression* val_true = new expressions::BoolConstant(1);
+//	expressions::Expression* reducePredicate = new expressions::EqExpression(
+//		new BoolType(), val_true, val_true);
+//	Reduce reduce = Reduce(SUM, outputExpr, reducePredicate, &join, &ctx);
+
 	join.setParent(&reduce);
 
 	reduce.produce();

@@ -30,10 +30,12 @@ void* allocateFromRegion(size_t regionSize)	{
 		LOG(ERROR) << error_msg;
 		throw runtime_error(error_msg);
 	}
+	cout << "Region Allocated" << endl;
 	return arenaChunk;
 }
 
 void* increaseRegion(void* region, size_t currSize)	{
+	cout << "Realloc()" << endl;
 	currSize <<= 1;
 	void* newRegion = realloc(region, currSize);
 	if(newRegion != NULL)	{
