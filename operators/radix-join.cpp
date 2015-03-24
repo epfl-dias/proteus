@@ -745,10 +745,12 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 	Type *int32_type = Type::getInt32Ty(llvmContext);
 
 	//XXX Not sure yet whether this is the answer
-	int padding = 4;
-	int keySize = (keyType->getPrimitiveSizeInBits() / 8) + padding;
-	Value* val_keySize = context->createInt32(keySize);
-	Value* val_keySize64 = context->createInt64(keySize);
+//	int padding = 4;
+//	int keySize = (keyType->getPrimitiveSizeInBits() / 8) + padding;
+//	Value* val_keySize = context->createInt32(keySize);
+//	Value *val_keySize = ConstantExpr::getSizeOf(rPayloadType);
+//	Value* val_keySize64 = context->createInt64(keySize);
+	Value *kvSize = ConstantExpr::getSizeOf(htEntryType);
 
 	/* What (ht* + payload) points to: TBD */
 	StructType *payloadType;
@@ -927,12 +929,14 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		val_ht->setAlignment(8);
 
 		Value *offsetInHT = Builder->CreateLoad(htR.mem_offset);
-		Value *offsetPlusKey = Builder->CreateAdd(offsetInHT,val_keySize64);
-		int payloadPtrSize = sizeof(size_t);
-		Value *val_payloadPtrSize = context->createInt64(payloadPtrSize);
-		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKey,val_payloadPtrSize);
+//		Value *offsetPlusKey = Builder->CreateAdd(offsetInHT,val_keySize64);
+//		int payloadPtrSize = sizeof(size_t);
+//		Value *val_payloadPtrSize = context->createInt64(payloadPtrSize);
+//		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKey,val_payloadPtrSize);
+		Value *offsetPlusKVPair = Builder->CreateAdd(offsetInHT,kvSize);
+
 		Value *htSize = Builder->CreateLoad(htR.mem_size);
-		offsetCond = Builder->CreateICmpSGE(offsetPlusPayloadPtr, htSize);
+		offsetCond = Builder->CreateICmpSGE(offsetPlusKVPair, htSize);
 
 		Builder->CreateCondBr(offsetCond,ifHTFull,endBlockHTFull);
 
@@ -991,7 +995,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 
 		/* 4. Increment counts - both Rel and HT */
 		Builder->CreateStore(offsetPlusPayload,relR.mem_offset);
-		Builder->CreateStore(offsetPlusPayloadPtr,htR.mem_offset);
+		Builder->CreateStore(offsetPlusKVPair,htR.mem_offset);
 		val_tuplesNo = Builder->CreateAdd(val_tuplesNo,context->createInt64(1));
 		Builder->CreateStore(val_tuplesNo,relR.mem_tuplesNo);
 		Builder->CreateStore(val_tuplesNo,htR.mem_tuplesNo);
@@ -1147,12 +1151,13 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		val_ht->setAlignment(8);
 
 		Value *offsetInHT = Builder->CreateLoad(htS.mem_offset);
-		Value *offsetPlusKey = Builder->CreateAdd(offsetInHT,val_keySize64);
-		int payloadPtrSize = sizeof(size_t);
-		Value *val_payloadPtrSize = context->createInt64(payloadPtrSize);
-		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKey,val_payloadPtrSize);
+//		Value *offsetPlusKey = Builder->CreateAdd(offsetInHT,val_keySize64);
+//		int payloadPtrSize = sizeof(size_t);
+//		Value *val_payloadPtrSize = context->createInt64(payloadPtrSize);
+//		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKey,val_payloadPtrSize);
+		Value *offsetPlusKVPair = Builder->CreateAdd(offsetInHT,kvSize);
 		Value *htSize = Builder->CreateLoad(htS.mem_size);
-		offsetCond = Builder->CreateICmpSGE(offsetPlusPayloadPtr, htSize);
+		offsetCond = Builder->CreateICmpSGE(offsetPlusKVPair, htSize);
 
 		Builder->CreateCondBr(offsetCond,ifHTFull,endBlockHTFull);
 
@@ -1210,7 +1215,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 
 		/* 4. Increment counts - both Rel and HT */
 		Builder->CreateStore(offsetPlusPayload,relS.mem_offset);
-		Builder->CreateStore(offsetPlusPayloadPtr,htS.mem_offset);
+		Builder->CreateStore(offsetPlusKVPair,htS.mem_offset);
 		val_tuplesNo = Builder->CreateAdd(val_tuplesNo,context->createInt64(1));
 		Builder->CreateStore(val_tuplesNo,relS.mem_tuplesNo);
 		Builder->CreateStore(val_tuplesNo,htS.mem_tuplesNo);
