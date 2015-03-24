@@ -385,6 +385,7 @@ void RadixJoin::runRadix() const	{
 			Builder->CreateCondBr(val_cond, sLoopBody, sLoopEnd);
 
 			Builder->SetInsertPoint(sLoopBody);
+
 #ifdef DEBUGRADIX
 //			Value *val_probesNo = Builder->CreateLoad(mem_probesNo);
 //			val_probesNo = Builder->CreateAdd(val_probesNo, val_one);
@@ -461,9 +462,9 @@ void RadixJoin::runRadix() const	{
 
 #ifdef DEBUGRADIX
 					/* Printing key(s) */
-					vector<Value*> ArgsV;
-					ArgsV.push_back(val_key_s_j);
-					Builder->CreateCall(debugInt, ArgsV);
+//					vector<Value*> ArgsV;
+//					ArgsV.push_back(val_key_s_j);
+//					Builder->CreateCall(debugInt, ArgsV);
 
 //					ArgsV.clear();
 //					ArgsV.push_back(context->createInt32(1111));
@@ -517,9 +518,9 @@ void RadixJoin::runRadix() const	{
 						set<RecordAttribute>::const_iterator it =
 								tuplesIdentifiers.begin();
 						for (; it != tuplesIdentifiers.end(); it++) {
-							mem_activeTuple = Builder->CreateAlloca(
-									rPayloadType->getElementType(i), 0,
-									"mem_activeTuple");
+							mem_activeTuple = context->CreateEntryBlockAlloca(F,
+									"mem_activeTuple",
+									rPayloadType->getElementType(i));
 							vector<Value*> idxList = vector<Value*>();
 							idxList.push_back(context->createInt32(0));
 							idxList.push_back(context->createInt32(i));
@@ -528,8 +529,9 @@ void RadixJoin::runRadix() const	{
 									idxList);
 							Value *val_activeTuple = Builder->CreateLoad(
 									elem_ptr);
-							Builder->CreateStore(val_activeTuple,
-									mem_activeTuple);
+							StoreInst *store_activeTuple = Builder->CreateStore(
+									val_activeTuple, mem_activeTuple);
+							store_activeTuple->setAlignment(8);
 
 							RawValueMemory mem_valWrapper;
 							mem_valWrapper.mem = mem_activeTuple;
@@ -545,9 +547,10 @@ void RadixJoin::runRadix() const	{
 								wantedFields.begin();
 						for (; it2 != wantedFields.end(); it2++) {
 							string currField = (*it2)->getName();
-							mem_field = Builder->CreateAlloca(
-									rPayloadType->getElementType(i), 0,
-									"mem_" + currField);
+
+							mem_field = context->CreateEntryBlockAlloca(F,
+									"mem_" + currField,
+									rPayloadType->getElementType(i));
 							vector<Value*> idxList = vector<Value*>();
 							idxList.push_back(context->createInt32(0));
 							idxList.push_back(context->createInt32(i));
@@ -571,12 +574,13 @@ void RadixJoin::runRadix() const	{
 #endif
 
 							(*allJoinBindings)[*(*it2)] = mem_valWrapper;
-
+							i++;
 						}
 					}
 
 					/* RIGHT SIDE (RELATION S) */
 					{
+						//XXX Issue here
 						AllocaInst *mem_activeTuple = NULL;
 						int i = 0;
 						const set<RecordAttribute>& tuplesIdentifiers =
@@ -584,9 +588,9 @@ void RadixJoin::runRadix() const	{
 						set<RecordAttribute>::const_iterator it =
 								tuplesIdentifiers.begin();
 						for (; it != tuplesIdentifiers.end(); it++) {
-							mem_activeTuple = Builder->CreateAlloca(
-									sPayloadType->getElementType(i), 0,
-									"mem_activeTuple");
+							mem_activeTuple = context->CreateEntryBlockAlloca(F,
+									"mem_activeTuple",
+									sPayloadType->getElementType(i));
 							vector<Value*> idxList = vector<Value*>();
 							idxList.push_back(context->createInt32(0));
 							idxList.push_back(context->createInt32(i));
@@ -595,8 +599,9 @@ void RadixJoin::runRadix() const	{
 									idxList);
 							Value *val_activeTuple = Builder->CreateLoad(
 									elem_ptr);
-							Builder->CreateStore(val_activeTuple,
-									mem_activeTuple);
+							StoreInst *store_activeTuple = Builder->CreateStore(
+									val_activeTuple, mem_activeTuple);
+							store_activeTuple->setAlignment(8);
 
 							RawValueMemory mem_valWrapper;
 							mem_valWrapper.mem = mem_activeTuple;
@@ -612,9 +617,9 @@ void RadixJoin::runRadix() const	{
 								wantedFields.begin();
 						for (; it2 != wantedFields.end(); it2++) {
 							string currField = (*it2)->getName();
-							mem_field = Builder->CreateAlloca(
-									sPayloadType->getElementType(i), 0,
-									"mem_" + currField);
+							mem_field = context->CreateEntryBlockAlloca(F,
+									"mem_" + currField,
+									sPayloadType->getElementType(i));
 							vector<Value*> idxList = vector<Value*>();
 							idxList.push_back(context->createInt32(0));
 							idxList.push_back(context->createInt32(i));
@@ -627,6 +632,14 @@ void RadixJoin::runRadix() const	{
 							RawValueMemory mem_valWrapper;
 							mem_valWrapper.mem = mem_field;
 							mem_valWrapper.isNull = context->createFalse();
+#ifdef DEBUGRADIX
+//							vector<Value*> ArgsV;
+//							ArgsV.push_back(context->createInt32(1112));
+//							Builder->CreateCall(debugInt, ArgsV);
+//							ArgsV.clear();
+//							ArgsV.push_back(Builder->CreateLoad(mem_field));
+//							Builder->CreateCall(debugInt, ArgsV);
+#endif
 							(*allJoinBindings)[*(*it2)] = mem_valWrapper;
 							i++;
 						}

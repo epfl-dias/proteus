@@ -127,7 +127,7 @@ Value* BinaryRowPlugin::getValueSize(RawValueMemory mem_value,
 	case BOOL:
 	case INT:
 	case FLOAT: {
-		Type *explicitType = (mem_value.mem)->getAllocatedType();
+		Type *explicitType = (mem_value.mem)->getType();
 		return context->createInt32(explicitType->getPrimitiveSizeInBits() / 8);
 	}
 	case STRING: {

@@ -194,11 +194,11 @@ int main(int argc, char* argv[])
 //	cout << "Max 3: " << endl;
 //	columnarMax3();
 //	cout << "Join 1: " << endl;
-	columnarJoin1();
-
+//	columnarJoin1();
+//
 //	joinQueryRelationalRadix();
-//	cidrQuery3();
-//	cidrQuery3Radix();
+	cidrQuery3();
+	cidrQuery3Radix();
 
 }
 
@@ -3730,6 +3730,9 @@ void columnarMax1()
 	catalog.clear();
 }
 
+/* SELECT max(field10)
+ * FROM csv_100m_30col_fixed
+ * WHERE field20 < 100000000; */
 void columnarMax2()
 {
 	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
@@ -3918,12 +3921,12 @@ void columnarJoin1()
 	PrimitiveType* intType = new IntType();
 
 	/* Segfault */
-//	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
-//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
+	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
+	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
 
 	/* Works */
-	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed-shuffled");
-	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed");
+//	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed-shuffled");
+//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed");
 
 	/* Works */
 //	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100-30cols-fixed");
