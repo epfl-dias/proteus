@@ -176,7 +176,7 @@ RawValueMemory BinaryColPlugin::readPath(string activeRelation, Bindings binding
 	{
 		const OperatorState* state = bindings.state;
 		const map<RecordAttribute, RawValueMemory>& binProjections = state->getBindings();
-		//TODO Make sure that using fnamePrefix in this search does not cause issues
+		//XXX Make sure that using fnamePrefix in this search does not cause issues
 		RecordAttribute tmpKey = RecordAttribute(fnamePrefix,pathVar);
 		map<RecordAttribute, RawValueMemory>::const_iterator it;
 		it = binProjections.find(tmpKey);
@@ -190,6 +190,7 @@ RawValueMemory BinaryColPlugin::readPath(string activeRelation, Bindings binding
 	return mem_projection;
 }
 
+/* FIXME Differentiate between operations that need the code and the ones needing the materialized string */
 RawValueMemory BinaryColPlugin::readValue(RawValueMemory mem_value, const ExpressionType* type)	{
 	return mem_value;
 }
@@ -277,25 +278,11 @@ void BinaryColPlugin::skipLLVM(RecordAttribute attName, Value* offset)
 		mem_pos = it->second;
 	}
 
-//	//Necessary because it's the itemCtr that affects the scan loop
-//	AllocaInst* mem_itemCtr;
-//	{
-//		map<string, AllocaInst*>::iterator it;
-//		it = NamedValuesBinaryCol.find(itemCtrVar);
-//		if (it == NamedValuesBinaryCol.end()) {
-//			throw runtime_error(string("Unknown variable name: ") + itemCtrVar);
-//		}
-//		mem_itemCtr = it->second;
-//	}
-
 	//Increment and store back
 	Value* val_curr_pos = Builder->CreateLoad(mem_pos);
 	Value* val_new_pos = Builder->CreateAdd(val_curr_pos,offset);
 	Builder->CreateStore(val_new_pos,mem_pos);
 
-//	Value* val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
-//	Value* val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr,context->createInt64(1));
-//	Builder->CreateStore(val_new_itemCtr,mem_itemCtr);
 }
 
 void BinaryColPlugin::nextEntry()	{
@@ -325,6 +312,7 @@ void BinaryColPlugin::nextEntry()	{
 	Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
 }
 
+/* Operates over int*! */
 void BinaryColPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
 {
 	//Prepare
@@ -366,8 +354,7 @@ void BinaryColPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute
 	}
 	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
 	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-	Value* mem_result = Builder->CreateBitCast(bufShiftedPtr,ptrType_int32);
-	Value *parsedInt = Builder->CreateLoad(mem_result);
+	Value *parsedInt = Builder->CreateLoad(bufShiftedPtr);
 
 	AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
 	Builder->CreateStore(parsedInt,mem_currResult);
@@ -378,7 +365,7 @@ void BinaryColPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute
 	mem_valWrapper.isNull = context->createFalse();
 	variables[attName] = mem_valWrapper;
 
-#ifdef DEBUG
+#ifdef DEBUGBINCOL
 //		vector<Value*> ArgsV;
 //		ArgsV.clear();
 //		ArgsV.push_back(parsedInt);
@@ -387,6 +374,7 @@ void BinaryColPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute
 #endif
 }
 
+/* Operates over char*! */
 void BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
 {
 	//Prepare
@@ -439,6 +427,7 @@ void BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName, map<RecordAttribu
 	variables[attName] = mem_valWrapper;
 }
 
+/* Operates over char*! */
 Value* BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName)
 {
 	//Prepare
@@ -485,73 +474,14 @@ Value* BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName)
 }
 
 
-//TODO TODO TODO Needs to use dictionary
+/*
+ * FIXME Needs to be aware of dictionary (?).
+ * Probably readValue() is the appropriate place for this.
+ * I think forwarding the dict. code (int32) is sufficient here.
+ */
 void BinaryColPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
 {
-	string error_msg = string("[Binary Col Plugin]: Strings not supported yet");
-	LOG(ERROR) << error_msg;
-	throw runtime_error(error_msg);
-
-//	//Prepare
-//	LLVMContext& llvmContext = context->getLLVMContext();
-//	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-//	Type* int32Type = Type::getInt32Ty(llvmContext);
-//	Type* int64Type = Type::getInt64Ty(llvmContext);
-//	PointerType* ptrType_int32 = PointerType::get(int32Type, 0);
-//
-//	IRBuilder<>* Builder = context->getBuilder();
-//	Function *F = Builder->GetInsertBlock()->getParent();
-//
-//	//Fetch values from symbol table
-//	AllocaInst *mem_pos;
-//	{
-//		std::map<std::string, AllocaInst*>::iterator it;
-//		it = NamedValuesBinaryRow.find(posVar);
-//		if (it == NamedValuesBinaryRow.end()) {
-//			throw runtime_error(string("Unknown variable name: ") + posVar);
-//		}
-//		mem_pos = it->second;
-//	}
-//	Value *val_pos = Builder->CreateLoad(mem_pos);
-//
-//	AllocaInst* buf;
-//	{
-//		std::map<std::string, AllocaInst*>::iterator it;
-//		it = NamedValuesBinaryRow.find(bufVar);
-//		if (it == NamedValuesBinaryRow.end()) {
-//			throw runtime_error(string("Unknown variable name: ") + bufVar);
-//		}
-//		buf = it->second;
-//	}
-//	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
-//	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-//
-//	StructType* strObjType = context->CreateStringStruct();
-//	AllocaInst* mem_strObj = context->CreateEntryBlockAlloca(F, "currResult",
-//				strObjType);
-//
-//	//Populate string object
-//	Value *val_0 = context->createInt32(0);
-//	Value *val_1 = context->createInt32(1);
-//
-//	vector<Value*> idxList = vector<Value*>();
-//	idxList.push_back(val_0);
-//	idxList.push_back(val_0);
-//	Value* structPtr = Builder->CreateGEP(mem_strObj,idxList);
-//	Builder->CreateStore(bufShiftedPtr,structPtr);
-//
-//	idxList.clear();
-//	idxList.push_back(val_0);
-//	idxList.push_back(val_1);
-//	structPtr = Builder->CreateGEP(mem_strObj,idxList);
-//	Builder->CreateStore(context->createInt32(5),structPtr);
-//
-//	LOG(INFO) << "[BINARYROW - READ STRING: ] Read Successful";
-//
-//	RawValueMemory mem_valWrapper;
-//	mem_valWrapper.mem = mem_strObj;
-//	mem_valWrapper.isNull = context->createFalse();
-//	variables[attName] = mem_valWrapper;
+	readAsIntLLVM(attName, variables);
 }
 
 void BinaryColPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
@@ -592,8 +522,7 @@ void BinaryColPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttri
 	}
 	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
 	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-	Value* mem_result = Builder->CreateBitCast(bufShiftedPtr,ptrType_bool);
-	Value *parsedInt = Builder->CreateLoad(mem_result);
+	Value *parsedInt = Builder->CreateLoad(bufShiftedPtr);
 
 	AllocaInst *currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", int1Type);
 	Builder->CreateStore(parsedInt,currResult);
@@ -643,8 +572,7 @@ void BinaryColPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribu
 	}
 	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
 	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-	Value* mem_result = Builder->CreateBitCast(bufShiftedPtr,ptrType_double);
-	Value *parsedInt = Builder->CreateLoad(mem_result);
+	Value *parsedInt = Builder->CreateLoad(bufShiftedPtr);
 
 	AllocaInst *currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);
 	Builder->CreateStore(parsedInt,currResult);
@@ -656,12 +584,107 @@ void BinaryColPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribu
 	variables[attName] = mem_valWrapper;
 }
 
+void BinaryColPlugin::prepareArray(RecordAttribute attName)	{
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* floatPtrType = Type::getFloatPtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32PtrType = Type::getInt32PtrTy(llvmContext);
+	Type* int8PtrType = Type::getInt8PtrTy(llvmContext);
+
+	IRBuilder<>* Builder = context->getBuilder();
+	Function *F = Builder->GetInsertBlock()->getParent();
+
+	string posVarStr = string(posVar);
+	string currPosVar = posVarStr + "." + attName.getAttrName();
+	string bufVarStr = string(bufVar);
+	string currBufVar = bufVarStr + "." + attName.getAttrName();
+
+	/* Code equivalent to skip(size_t) */
+	Value* val_offset = context->createInt64(sizeof(size_t));
+	AllocaInst* mem_pos;
+	{
+		map<string, AllocaInst*>::iterator it;
+		string posVarStr = string(posVar);
+		string currPosVar = posVarStr + "." + attName.getAttrName();
+		it = NamedValuesBinaryCol.find(currPosVar);
+		if (it == NamedValuesBinaryCol.end()) {
+			throw runtime_error(string("Unknown variable name: ") + currPosVar);
+		}
+		mem_pos = it->second;
+	}
+
+	//Increment and store back
+	Value* val_curr_pos = Builder->CreateLoad(mem_pos);
+	Value* val_new_pos = Builder->CreateAdd(val_curr_pos,val_offset);
+	/* Not storing this 'offset' - we want the cast buffer to
+	 * conceptually start from 0 */
+	//	Builder->CreateStore(val_new_pos,mem_pos);
+
+	/* Get relevant char* rawBuf */
+	AllocaInst* buf;
+	{
+		map<string, AllocaInst*>::iterator it;
+		it = NamedValuesBinaryCol.find(currBufVar);
+		if (it == NamedValuesBinaryCol.end()) {
+			throw runtime_error(string("Unknown variable name: ") + currBufVar);
+		}
+		buf = it->second;
+	}
+	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
+	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_new_pos);
+
+	/* Cast to appropriate form */
+	typeID id = attName.getOriginalType()->getTypeID();
+	switch (id) {
+	case BOOL: {
+		//No need to do sth - char* and int8* are interchangeable
+		break;
+	}
+	case FLOAT: {
+		AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(F,
+				string("mem_bufPtr"), floatPtrType);
+		Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, floatPtrType);
+		Builder->CreateStore(val_bufPtr, mem_bufPtr);
+		NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
+		break;
+	}
+	case INT: {
+		AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(F,
+				string("mem_bufPtr"), int32PtrType);
+		Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, int32PtrType);
+		Builder->CreateStore(val_bufPtr, mem_bufPtr);
+		NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
+		break;
+	}
+	case STRING: {
+		/* String representation comprises the code and the dictionary
+		 * Codes are (will be) int32, so can again treat like int32* */
+		AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(F,
+				string("mem_bufPtr"), int32PtrType);
+		Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, int32PtrType);
+		Builder->CreateStore(val_bufPtr, mem_bufPtr);
+		NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
+		break;
+	}
+	case RECORD:
+	case LIST:
+	case BAG:
+	case SET:
+	default: {
+		string error_msg = string("[Binary Col PG: ] Unsupported Record");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	}
+}
+
 void BinaryColPlugin::scan(const RawOperator& producer)
 {
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
 	IRBuilder<>* Builder = context->getBuilder();
-	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	Function *F = Builder->GetInsertBlock()->getParent();
 
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
@@ -678,8 +701,7 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 		if(it == wantedFields.begin())	{
 			val_size = readAsInt64LLVM(*attr);
 #ifdef DEBUG
-		std::vector<Value*> ArgsV;
-		ArgsV.clear();
+		vector<Value*> ArgsV;
 		ArgsV.push_back(val_size);
 		Function* debugInt = context->getFunction("printi64");
 		Builder->CreateCall(debugInt, ArgsV, "printi64");
@@ -687,9 +709,12 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 #endif
 		}
 
-		//Move all buffer pointers to the actual data
-		Value* val_offset = context->createInt64(sizeof(size_t));
-		skipLLVM(*attr, val_offset);
+		/* Move all buffer pointers to the actual data
+		 * and cast appropriately
+		 */
+//		Value* val_offset = context->createInt64(sizeof(size_t));
+//		skipLLVM(*attr, val_offset);
+		prepareArray(*attr);
 	}
 
 	//Container for the variable bindings
@@ -698,7 +723,7 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 	//Get the ENTRY BLOCK
 	context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
-	BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanCond", TheFunction);
+	BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanCond", F);
 
 	// Insert an explicit fall through from the current (entry) block to the CondBB.
 	Builder->CreateBr(CondBB);
@@ -715,10 +740,10 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 	Value *cond = Builder->CreateICmpSLT(lhs,rhs);
 
 	// Make the new basic block for the loop header (BODY), inserting after current block.
-	BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "scanBody", TheFunction);
+	BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "scanBody", F);
 
 	// Create the "AFTER LOOP" block and insert it.
-	BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "scanEnd", TheFunction);
+	BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "scanEnd", F);
 	context->setEndingBlock(AfterBB);
 
 	// Insert the conditional branch into the end of CondBB.
@@ -743,29 +768,27 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 		RecordAttribute attr = *(*it);
 		size_t offset = 0;
 
-		//Read wanted field
+		/* Read wanted field.
+		 * Reminder: Primitive, scalar types have the (raw) buffer
+		 * already cast to appr. type*/
 		switch ((*it)->getOriginalType()->getTypeID()) {
 		case BOOL:
 			readAsBooleanLLVM(attr, *variableBindings);
-			offset = sizeof(bool);
+			offset = 1;
 			break;
 		case STRING:
 		{
-			string error_msg = "[BINARY COL PLUGIN: ] No strings yet";
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(error_msg);
-
-			//readAsStringLLVM(attr, *variableBindings);
-			//offset = 5;
-			//break;
+			readAsStringLLVM(attr, *variableBindings);
+			offset = 1;
+			break;
 		}
 		case FLOAT:
 			readAsFloatLLVM(attr, *variableBindings);
-			offset = sizeof(float);
+			offset = 1;
 			break;
 		case INT:
 			readAsIntLLVM(attr, *variableBindings);
-			offset = sizeof(int);
+			offset = 1;
 			break;
 		case BAG:
 		case LIST:
@@ -787,7 +810,7 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 	nextEntry();
 
 	// Make the new basic block for the increment, inserting after current block.
-	BasicBlock *IncBB = BasicBlock::Create(llvmContext, "scanInc", TheFunction);
+	BasicBlock *IncBB = BasicBlock::Create(llvmContext, "scanInc", F);
 
 	// Insert an explicit fall through from the current (body) block to IncBB.
 	Builder->CreateBr(IncBB);

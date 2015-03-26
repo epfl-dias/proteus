@@ -187,6 +187,13 @@ int main(int argc, char* argv[])
 //	columnarQueryCount();
 //	columnarQuerySum();
 
+
+//
+//	joinQueryRelationalRadix();
+//	cidrQuery3();
+//	cidrQuery3Radix();
+
+	/* Large-scale: To be run on server */
 //	cout << "Max 1: " << endl;
 	columnarMax1();
 //	cout << "Max 2: " << endl;
@@ -195,11 +202,6 @@ int main(int argc, char* argv[])
 	columnarMax3();
 //	cout << "Join 1: " << endl;
 //	columnarJoin1();
-//
-//	joinQueryRelationalRadix();
-//	cidrQuery3();
-//	cidrQuery3Radix();
-
 }
 
 void hashConstants()	{
@@ -3664,6 +3666,13 @@ void columnarQuerySum()
 	catalog.clear();
 }
 
+/**
+  SELECT MAX(field10)
+  FROM csv_100m_30col_fixed;
+ */
+
+/* Result: 999999994 */
+
 void columnarMax1()
 {
 	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
@@ -3731,8 +3740,10 @@ void columnarMax1()
 }
 
 /* SELECT max(field10)
- * FROM csv_100m_30col_fixed
- * WHERE field20 < 100000000; */
+   FROM csv_100m_30col_fixed
+   WHERE field20 < 100000000; */
+
+/* Result: 999999994 */
 void columnarMax2()
 {
 	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
@@ -3813,6 +3824,12 @@ void columnarMax2()
 	catalog.clear();
 }
 
+/* SELECT max(field10)
+   FROM csv_100m_30col_fixed
+   WHERE field20 < 100000000
+   AND (field15 < 200000000 AND field15 > 100000000); */
+
+/* Result: 999998187 */
 void columnarMax3()
 {
 	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/500m-30cols-fixed");

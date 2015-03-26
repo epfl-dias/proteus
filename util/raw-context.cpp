@@ -54,6 +54,7 @@ RawContext::RawContext(const string& moduleName) {
 	pmb.populateModulePassManager(mpm);
 	pmb.populateFunctionPassManager(*OurFPM);
 
+	/* OPTIMIZER PIPELINE */
 	// Set up the optimizer pipeline.  Start with registering info about how the
 	// target lays out data structures.
 	OurFPM->add(new DataLayout(*TheExecutionEngine->getDataLayout()));
@@ -61,7 +62,7 @@ RawContext::RawContext(const string& moduleName) {
 	OurFPM->add(createBasicAliasAnalysisPass());
 	// Promote allocas to registers.
 	OurFPM->add(createPromoteMemoryToRegisterPass());
-	// Do simple "peephole" optimizations and bit-twiddling optzns.
+	//Do simple "peephole" optimizations and bit-twiddling optzns.
 	OurFPM->add(createInstructionCombiningPass());
 	// Reassociate expressions.
 	OurFPM->add(createReassociatePass());
@@ -69,18 +70,19 @@ RawContext::RawContext(const string& moduleName) {
 	OurFPM->add(createGVNPass());
 	// Simplify the control flow graph (deleting unreachable blocks, etc).
 	OurFPM->add(createCFGSimplificationPass());
+	// Aggressive Dead Code Elimination. Make sure work takes place
+	OurFPM->add(createAggressiveDCEPass());
 
-	/*
-	 * Extra passes to attempt
-	 * -> heavyweight inlining
-	 * -> vectorization
-	 */
+
+	//	 * Extra passes to attempt
+	//	 * -> heavyweight inlining
+	//	 * -> vectorization
+	//	 */
 	mpm.add(createFunctionInliningPass());
 	mpm.add(createAlwaysInlinerPass());
 	mpm.add(createBBVectorizePass());
+
 	mpm.run(*TheModule);
-
-
 	OurFPM->doInitialization();
 	TheFPM = OurFPM;
 
@@ -111,9 +113,9 @@ void RawContext::prepareFunction(Function *F) {
 	Builder->CreateRet(Builder->getInt32(114));
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
-//#ifdef DEBUG
+#ifdef DEBUGCTX
 	getModule()->dump();
-//#endif
+#endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
 
@@ -136,8 +138,11 @@ void RawContext::prepareFunction(Function *F) {
 	printf("(Already compiled) Execution took %f seconds\n",diff(t0, t1));
 
 	TheFPM = 0;
-	//Dump to see final form
+	//Dump to see final (optimized) form
+#ifdef DEBUGCTX
 	F->dump();
+#endif
+
 }
 
 void* RawContext::jit(Function* F) {

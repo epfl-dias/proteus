@@ -29,6 +29,10 @@
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-flusher.hpp"
 
+//#ifdef DEBUG
+#define DEBUGREDUCE
+//#endif
+
 /**
  * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR REDUCE OPERATOR
  * ADD 'SERIALIZER' SUPPORT IN ALL CASES, NOT ONLY LIST/BAG AS NOW

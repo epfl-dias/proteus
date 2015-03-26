@@ -40,6 +40,10 @@
 #include "util/joins/radix-join.hpp"
 #include "memory/memory-allocator.hpp"
 
+//#ifdef DEBUG
+//#define DEBUGCTX
+//#endif
+
 //Forward Declaration
 class JSONObject;
 

@@ -297,8 +297,8 @@ void Reduce::generateSum(RawContext* const context, const OperatorState& childSt
 		//Prepare final result output
 		//Important: Flush this out in overall ending block
 		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUG
-		std::vector<Value*> ArgsV;
+#ifdef DEBUGREDUCE
+		vector<Value*> ArgsV;
 		Function* debugInt = context->getFunction("printi");
 		Value* finalResult = Builder->CreateLoad(mem_accumulating);
 		ArgsV.push_back(finalResult);
@@ -316,8 +316,8 @@ void Reduce::generateSum(RawContext* const context, const OperatorState& childSt
 
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUG
-		std::vector<Value*> ArgsV;
+#ifdef DEBUGREDUCE
+		vector<Value*> ArgsV;
 		Function* debugFloat = context->getFunction("printFloat");
 		Value* finalResult = Builder->CreateLoad(mem_accumulating);
 		ArgsV.push_back(finalResult);
@@ -377,8 +377,8 @@ void Reduce::generateMul(RawContext* const context, const OperatorState& childSt
 			//Prepare final result output
 			//Important: Flush this out in overall ending block
 			Builder->SetInsertPoint(context->getEndingBlock());
-	#ifdef DEBUG
-			std::vector<Value*> ArgsV;
+	#ifdef DEBUGREDUCE
+			vector<Value*> ArgsV;
 			Function* debugInt = context->getFunction("printi");
 			Value* finalResult = Builder->CreateLoad(mem_accumulating);
 			ArgsV.push_back(finalResult);
@@ -395,8 +395,8 @@ void Reduce::generateMul(RawContext* const context, const OperatorState& childSt
 
 			//Prepare final result output
 			Builder->SetInsertPoint(context->getEndingBlock());
-	#ifdef DEBUG
-			std::vector<Value*> ArgsV;
+	#ifdef DEBUGREDUCE
+			vector<Value*> ArgsV;
 			Function* debugFloat = context->getFunction("printFloat");
 			Value* finalResult = Builder->CreateLoad(mem_accumulating);
 			ArgsV.push_back(finalResult);
@@ -464,8 +464,8 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUG
-		std::vector<Value*> ArgsV;
+#ifdef DEBUGREDUCE
+		vector<Value*> ArgsV;
 		Function* debugInt = context->getFunction("printi");
 		Value* finalResult = Builder->CreateLoad(mem_accumulating);
 		ArgsV.push_back(finalResult);
@@ -494,7 +494,7 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUG
+#ifdef DEBUGREDUCE
 		std::vector<Value*> ArgsV;
 		Function* debugFloat = context->getFunction("printFloat");
 		Value* finalResult = Builder->CreateLoad(mem_accumulating);
@@ -560,7 +560,7 @@ void Reduce::generateOr(RawContext* const context, const OperatorState& childSta
 
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUG
+#ifdef DEBUGREDUCE
 		std::vector<Value*> ArgsV;
 		Function* debugBoolean = context->getFunction("printBoolean");
 		Value* finalResult = Builder->CreateLoad(mem_accumulating);
@@ -628,7 +628,7 @@ void Reduce::generateAnd(RawContext* const context, const OperatorState& childSt
 
 		//Prepare final result output
 		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUG
+#ifdef DEBUGREDUCE
 		std::vector<Value*> ArgsV;
 		Function* debugBoolean = context->getFunction("printBoolean");
 		Value* finalResult = Builder->CreateLoad(mem_accumulating);
