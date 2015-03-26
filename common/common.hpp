@@ -75,16 +75,18 @@
 
 //Used to remove all logging messages at compile time and not affect performance
 //Must be placed before glog include
-//#undef GOOGLE_STRIP_LOG
-//#undef STRIP_LOG
-//#define GOOGLE_STRIP_LOG 1
-//#define STRIP_LOG 1
+/*Setting GOOGLE_STRIP_LOG to 1 or greater removes all log messages associated with VLOGs
+ * as well as INFO log statements. Setting it to two removes WARNING log statements too. */
+#undef GOOGLE_STRIP_LOG
+#undef STRIP_LOG
+#define GOOGLE_STRIP_LOG 2
+#define STRIP_LOG 2
 
 #include <glog/logging.h>
 
 #include <boost/functional/hash.hpp>
 
-#define DEBUG
+//#define DEBUG
 
 #define KB 1024
 #define MB (1024*KB)

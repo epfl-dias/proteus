@@ -111,9 +111,9 @@ void RawContext::prepareFunction(Function *F) {
 	Builder->CreateRet(Builder->getInt32(114));
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
-#ifdef DEBUG
-//	getModule()->dump();
-#endif
+//#ifdef DEBUG
+	getModule()->dump();
+//#endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
 
@@ -137,7 +137,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	TheFPM = 0;
 	//Dump to see final form
-//	F->dump();
+	F->dump();
 }
 
 void* RawContext::jit(Function* F) {

@@ -188,17 +188,17 @@ int main(int argc, char* argv[])
 //	columnarQuerySum();
 
 //	cout << "Max 1: " << endl;
-//	columnarMax1();
+	columnarMax1();
 //	cout << "Max 2: " << endl;
-//	columnarMax2();
+	columnarMax2();
 //	cout << "Max 3: " << endl;
-//	columnarMax3();
+	columnarMax3();
 //	cout << "Join 1: " << endl;
 //	columnarJoin1();
 //
 //	joinQueryRelationalRadix();
-	cidrQuery3();
-	cidrQuery3Radix();
+//	cidrQuery3();
+//	cidrQuery3Radix();
 
 }
 
