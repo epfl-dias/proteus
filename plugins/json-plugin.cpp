@@ -239,6 +239,7 @@ RawValue JSONPlugin::collectionHasNext(RawValue parentTokenId,
 	Value *val_parentTokenId = parentTokenId.value;
 	AllocaInst *mem_parentTokenId = context->CreateEntryBlockAlloca(F,
 			"mem_parentTokenTmp", val_parentTokenId->getType());
+	Builder->CreateStore(val_parentTokenId,mem_parentTokenId);
 	Value *val_offset = context->getStructElem(mem_parentTokenId, 0);
 	Value *val_rowId = context->getStructElem(mem_parentTokenId, 1);
 	Value *val_parentTokenNo = context->getStructElem(mem_parentTokenId, 2);
@@ -256,45 +257,212 @@ RawValue JSONPlugin::collectionHasNext(RawValue parentTokenId,
 			val_parentTokenNo);
 	Builder->CreateStore(parentToken, mem_tokens_shifted);
 	Value* parent_token_end_rel = context->getStructElem(mem_tokens_shifted, 2);
-	Value* parent_token_end_rel64 =
-					Builder->CreateSExt(parent_token_end_rel,int64Type);
-	Value* parent_token_end = Builder->CreateAdd(parent_token_end_rel64,val_offset);
+//	Value* parent_token_end_rel64 =
+//					Builder->CreateSExt(parent_token_end_rel,int64Type);
+//	Value* parent_token_end = Builder->CreateAdd(parent_token_end_rel64,val_offset);
 
 	/* Current Token */
 	/* Offset is the same as the one of parent */
-	ArgsV.clear();
 	Value *val_currentTokenNo = context->getStructElem(mem_currentTokenId.mem, 2);
 
 	Value* currentToken = context->getArrayElem(mem_tokens, val_currentTokenNo);
 	Builder->CreateStore(currentToken, mem_tokens_shifted);
-	Value* current_token_end_rel = context->getStructElem(mem_tokens_shifted,
-			2);
-	Value* current_token_end_rel64 = Builder->CreateSExt(current_token_end_rel,
-			int64Type);
-	Value* current_token_end = Builder->CreateAdd(current_token_end_rel64,
-			val_offset);
+	Value* current_token_end_rel =
+			context->getStructElem(mem_tokens_shifted,2);
+//	Value* current_token_end_rel64 = Builder->CreateSExt(current_token_end_rel,
+//			int64Type);
+//	Value* current_token_end = Builder->CreateAdd(current_token_end_rel64,
+//			val_offset);
 
-	Value *val_0 = Builder->getInt64(0);
-	Value* endCond1 = Builder->CreateICmpSLE(current_token_end,
-			parent_token_end);
-	Value* endCond2 = Builder->CreateICmpNE(current_token_end, val_0);
+	Value *val_0 = Builder->getInt32(0);
+	Value* endCond1 = Builder->CreateICmpSLE(current_token_end_rel,
+			parent_token_end_rel);
+	Value* endCond2 = Builder->CreateICmpNE(current_token_end_rel, val_0);
 	Value *endCond = Builder->CreateAnd(endCond1, endCond2);
 	Value *endCond_isNull = context->createFalse();
 
-	RawValue valWrapper;
-	valWrapper.value = endCond;
+
 #ifdef DEBUGJSON
-	{
-	vector<Value*> ArgsV;
-	ArgsV.clear();
-	ArgsV.push_back(endCond);
-	Function* debugBoolean = context->getFunction("printBoolean");
-	Builder->CreateCall(debugBoolean, ArgsV);
-	}
+//	{
+//	vector<Value*> ArgsV;
+//	ArgsV.clear();
+//	Value *test = Builder->CreateNot(endCond);
+//	ArgsV.push_back(endCond);
+//	Function* debugBoolean = context->getFunction("printBoolean");
+//	Builder->CreateCall(debugBoolean, ArgsV);
+//	}
 #endif
+	RawValue valWrapper;
+	valWrapper.value  = endCond;
 	valWrapper.isNull = endCond_isNull;
 	return valWrapper;
 }
+
+//RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentTokenId)
+//{
+//	LLVMContext& llvmContext = context->getLLVMContext();
+//	IRBuilder<>* Builder = context->getBuilder();
+//	Type* int64Type = Type::getInt64Ty(llvmContext);
+//	PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
+//	Function* F = context->getGlobalFunction();
+//	vector<Value*> ArgsV;
+//	Function* debugInt = context->getFunction("printi");
+//	Function* debugInt64 = context->getFunction("printi64");
+//
+//	Value* val_currentTokenId = Builder->CreateLoad(mem_currentTokenId.mem);
+//	Value *val_offset = context->getStructElem(mem_currentTokenId.mem, 0);
+//	Value *val_rowId = context->getStructElem(mem_currentTokenId.mem, 1);
+//	Value *val_currentTokenNo = context->getStructElem(mem_currentTokenId.mem, 2);
+//#ifdef DEBUGJSON
+//	{
+//		//Printing the active token that will be forwarded
+//		vector<Value*> ArgsV;
+//		ArgsV.clear();
+//		ArgsV.push_back(val_currentTokenNo);
+//		Function* debugInt = context->getFunction("printi64");
+//		Builder->CreateCall(debugInt, ArgsV);
+//	}
+//#endif
+//	Type *idType = (mem_currentTokenId.mem)->getAllocatedType();
+//	AllocaInst *mem_tokenToReturnId =
+//				context->CreateEntryBlockAlloca(F,"mem_NestedToken",idType);
+//	/**
+//	 * Reason for this:
+//	 * Need to return 'i', but also need to increment it before returning
+//	 */
+//	Builder->CreateStore(val_currentTokenId,mem_tokenToReturnId);
+//
+//	/**
+//	 * int i_contents = i+1;
+//	 * while(tokens[i_contents].start <= tokens[i].end && tokens[i_contents].start != 0)	{
+//	 *			i_contents++;
+//	 *	}
+//	 *	i = i_contents;
+//	 */
+//	BasicBlock *skipContentsCond, *skipContentsBody, *skipContentsInc,
+//			*skipContentsEnd;
+//	context->CreateForLoop("skipContentsCond", "skipContentsBody",
+//			"skipContentsInc", "skipContentsEnd", &skipContentsCond,
+//			&skipContentsBody, &skipContentsInc, &skipContentsEnd);
+//	/**
+//	 * Entry Block:
+//	 * int i_contents = i+1;
+//	 */
+//	Value *val_1 = Builder->getInt64(1);
+//	AllocaInst* mem_i_contents = context->CreateEntryBlockAlloca(F,
+//				string("i_contents"), int64Type);
+//	Value *val_i_contents = Builder->CreateAdd(val_currentTokenNo, val_1);
+//	Builder->CreateStore(val_i_contents, mem_i_contents);
+//	Builder->CreateBr(skipContentsCond);
+//
+//	/**
+//	 * tokens[i_contents].start <= tokens[i].end && tokens[i_contents].start != 0
+//	 */
+//	Builder->SetInsertPoint(skipContentsCond);
+//	//Prepare tokens[i_contents].start
+//	Value *val_0 = Builder->getInt32(0);
+//	val_i_contents = Builder->CreateLoad(mem_i_contents);
+//
+//	//tokens**
+//	Value *val_token2DArray = Builder->CreateLoad(mem_tokenArray);
+//	//shifted tokens**
+//	Value *mem_tokenArrayShift = Builder->CreateInBoundsGEP(val_token2DArray,
+//			val_rowId);
+//	//tokens*
+//	Value *mem_tokens = Builder->CreateLoad(mem_tokenArrayShift);
+//
+//	AllocaInst* mem_tokens_i_contents_shifted = context->CreateEntryBlockAlloca(
+//			F, string(var_tokenPtr), context->CreateJSMNStruct());
+//	Value* token_i_contents = context->getArrayElem(mem_tokens, val_i_contents);
+//	Builder->CreateStore(token_i_contents, mem_tokens_i_contents_shifted);
+//	Value* token_i_contents_start_rel = context->getStructElem(
+//			mem_tokens_i_contents_shifted, 1);
+////	Value* token_i_contents_start_rel64 = Builder->CreateSExt(token_i_contents_start_rel,int64Type);
+////	Value* token_i_contents_start = Builder->CreateAdd(token_i_contents_start_rel64,val_offset);
+//
+//	//Prepare tokens[i].end
+//	AllocaInst* mem_tokens_i_shifted = context->CreateEntryBlockAlloca(F,
+//			string(var_tokenPtr), context->CreateJSMNStruct());
+//	Value* token_i = context->getArrayElem(mem_tokens, val_currentTokenNo);
+//	Builder->CreateStore(token_i, mem_tokens_i_shifted);
+//	Value* token_i_end_rel = context->getStructElem(mem_tokens_i_shifted, 2);
+////	Value* token_i_end_rel64 = Builder->CreateSExt(token_i_end_rel,int64Type);
+////	Value* token_i_end = Builder->CreateAdd(token_i_end_rel64,val_offset);
+//
+//	//Prepare condition
+//	Value* endCond1 = Builder->CreateICmpSLE(token_i_contents_start_rel,
+//			token_i_end_rel);
+//	Value* endCond2 = Builder->CreateICmpNE(token_i_contents_start_rel, val_0);
+//	Value *endCond = Builder->CreateAnd(endCond1, endCond2);
+//	BranchInst::Create(skipContentsBody, skipContentsEnd, endCond,
+//			skipContentsCond);
+//
+//	/**
+//	 * BODY:
+//	 * i_contents++;
+//	 */
+//	Builder->SetInsertPoint(skipContentsBody);
+//	Value* val_i_contents_1 = Builder->CreateAdd(val_i_contents, val_1);
+//	Builder->CreateStore(val_i_contents_1, mem_i_contents);
+//	val_i_contents = Builder->CreateLoad(mem_i_contents);
+//	Builder->CreateBr(skipContentsInc);
+//
+//	/**
+//	 * INC:
+//	 * Nothing to do
+//	 */
+//	Builder->SetInsertPoint(skipContentsInc);
+//	Builder->CreateBr(skipContentsCond);
+//
+//	/**
+//	 * END:
+//	 * i = i_contents;
+//	 */
+//	Builder->SetInsertPoint(skipContentsEnd);
+//	val_i_contents = Builder->CreateLoad(mem_i_contents);
+//
+//	/* rowId and offset still the same */
+////	AllocaInst *mem_tmp = context->CreateEntryBlockAlloca(F,"mem_unnest_inc",idType);
+//	vector<Value*> idxList = vector<Value*>();
+////	idxList.push_back(context->createInt32(0));
+////	idxList.push_back(context->createInt32(0));
+////	//Shift in struct ptr
+////	Value* structPtr = Builder->CreateGEP(mem_tmp, idxList);
+////	StoreInst *store_offset = Builder->CreateStore(val_offset,structPtr);
+//////
+////	idxList.clear();
+////	idxList.push_back(context->createInt32(0));
+////	idxList.push_back(context->createInt32(1));
+////	//Shift in struct ptr
+////	structPtr = Builder->CreateGEP(mem_tmp, idxList);
+////	StoreInst *store_rowId = Builder->CreateStore(val_rowId,structPtr);
+////
+//	idxList.clear();
+//	idxList.push_back(context->createInt32(0));
+//	idxList.push_back(context->createInt32(2));
+//	//Shift in struct ptr
+//	Value *structPtr = Builder->CreateGEP(mem_currentTokenId.mem, idxList);
+//	StoreInst *store_tokenNo = Builder->CreateStore(val_i_contents,structPtr);
+//
+////	Value *val_tmp = Builder->CreateLoad(mem_tmp);
+////	Builder->CreateStore(val_tmp, mem_tokenToReturnId);
+//
+//#ifdef DEBUGJSON
+//	{
+//		//Printing the active token that will be forwarded
+//		vector<Value*> ArgsV;
+//		ArgsV.clear();
+//		ArgsV.push_back(val_i_contents);
+//		Value *val_currentTokenNo = context->getStructElem(mem_currentTokenId.mem, 2);
+//		Function* debugInt = context->getFunction("printi64");
+//		Builder->CreateCall(debugInt, ArgsV);
+//	}
+//#endif
+//	RawValueMemory mem_newTokenIdWrap;
+//	mem_newTokenIdWrap.mem = mem_tokenToReturnId;
+//	mem_newTokenIdWrap.isNull = context->createFalse();
+//	return mem_newTokenIdWrap;
+//}
 
 RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentTokenId)
 {
@@ -307,21 +475,16 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentTokenId)
 	Function* debugInt = context->getFunction("printi");
 	Function* debugInt64 = context->getFunction("printi64");
 
-//	Value* val_currentTokenId = Builder->CreateLoad(mem_currentTokenId.mem);
+	Value* val_currentTokenId = Builder->CreateLoad(mem_currentTokenId.mem);
 	Value *val_offset = context->getStructElem(mem_currentTokenId.mem, 0);
 	Value *val_rowId = context->getStructElem(mem_currentTokenId.mem, 1);
 	Value *val_currentTokenNo = context->getStructElem(mem_currentTokenId.mem, 2);
 
-#ifdef DEBUGJSON
-	{
-	//Printing the active token that will be forwarded
-	vector<Value*> ArgsV;
-	ArgsV.clear();
-	ArgsV.push_back(val_currentTokenNo);
-	Function* debugInt = context->getFunction("printi64");
-	Builder->CreateCall(debugInt, ArgsV);
-	}
-#endif
+	Type *idType = (mem_currentTokenId.mem)->getAllocatedType();
+	AllocaInst* mem_tokenToReturn = context->CreateEntryBlockAlloca(F,
+				std::string("tokenToUnnest"), idType);
+	Value* tokenToReturn_isNull = context->createFalse();
+	Builder->CreateStore(val_currentTokenId, mem_tokenToReturn);
 
 	/**
 	 * int i_contents = i+1;
@@ -351,7 +514,7 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentTokenId)
 	 */
 	Builder->SetInsertPoint(skipContentsCond);
 	//Prepare tokens[i_contents].start
-	Value *val_0 = Builder->getInt64(0);
+	Value *val_0 = Builder->getInt32(0);
 	val_i_contents = Builder->CreateLoad(mem_i_contents);
 
 	//tokens**
@@ -368,22 +531,18 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentTokenId)
 	Builder->CreateStore(token_i_contents, mem_tokens_i_contents_shifted);
 	Value* token_i_contents_start_rel = context->getStructElem(
 			mem_tokens_i_contents_shifted, 1);
-	Value* token_i_contents_start_rel64 = Builder->CreateSExt(token_i_contents_start_rel,int64Type);
-	Value* token_i_contents_start = Builder->CreateAdd(token_i_contents_start_rel64,val_offset);
 
 	//Prepare tokens[i].end
 	AllocaInst* mem_tokens_i_shifted = context->CreateEntryBlockAlloca(F,
-			std::string(var_tokenPtr), context->CreateJSMNStruct());
+			string(var_tokenPtr), context->CreateJSMNStruct());
 	Value* token_i = context->getArrayElem(mem_tokens, val_currentTokenNo);
 	Builder->CreateStore(token_i, mem_tokens_i_shifted);
 	Value* token_i_end_rel = context->getStructElem(mem_tokens_i_shifted, 2);
-	Value* token_i_end_rel64 = Builder->CreateSExt(token_i_end_rel,int64Type);
-	Value* token_i_end = Builder->CreateAdd(token_i_end_rel64,val_offset);
 
 	//Prepare condition
-	Value* endCond1 = Builder->CreateICmpSLE(token_i_contents_start,
-			token_i_end);
-	Value* endCond2 = Builder->CreateICmpNE(token_i_contents_start, val_0);
+	Value* endCond1 = Builder->CreateICmpSLE(token_i_contents_start_rel,
+			token_i_end_rel);
+	Value* endCond2 = Builder->CreateICmpNE(token_i_contents_start_rel, val_0);
 	Value *endCond = Builder->CreateAnd(endCond1, endCond2);
 	BranchInst::Create(skipContentsBody, skipContentsEnd, endCond,
 			skipContentsCond);
@@ -419,18 +578,12 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentTokenId)
 	idxList.push_back(context->createInt32(2));
 	//Shift in struct ptr
 	Value* structPtr = Builder->CreateGEP(mem_currentTokenId.mem, idxList);
-	StoreInst *store_offset = Builder->CreateStore(val_i_contents,structPtr);
+	StoreInst *store_tokenId = Builder->CreateStore(val_i_contents,structPtr);
 
-#ifdef DEBUG
-//	ArgsV.clear();
-//	ArgsV.push_back(context->createInt32(-33));
-//	Builder->CreateCall(debugInt, ArgsV);
-//	ArgsV.clear();
-//	ArgsV.push_back(Builder->CreateLoad(mem_tokenToReturn));
-//	Builder->CreateCall(debugInt64, ArgsV);
-//	ArgsV.clear();
-#endif
-	return mem_currentTokenId;
+	RawValueMemory mem_wrapperVal;
+	mem_wrapperVal.mem = mem_tokenToReturn;
+	mem_wrapperVal.isNull = tokenToReturn_isNull;
+	return mem_wrapperVal;
 }
 
 void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
@@ -522,8 +675,9 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop);
 	RawValueMemory mem_tokenWrapper;
 
-	/* Struct forwarded: (offsetInFile, rowId)*/
+	/* Struct forwarded: (offsetInFile, rowId, tokenNo)*/
 	vector<Type*> tokenIdMembers;
+	tokenIdMembers.push_back(int64Type);
 	tokenIdMembers.push_back(int64Type);
 	tokenIdMembers.push_back(int64Type);
 
@@ -542,6 +696,12 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	idxList.push_back(context->createInt32(1));
 	structPtr = Builder->CreateGEP(mem_tokenId, idxList);
 	StoreInst *store_rowId = Builder->CreateStore(val_lineCnt,structPtr);
+
+	idxList.clear();
+	idxList.push_back(context->createInt32(0));
+	idxList.push_back(context->createInt32(2));
+	structPtr = Builder->CreateGEP(mem_tokenId, idxList);
+	StoreInst *store_tokenNo = Builder->CreateStore(val_zero,structPtr);
 
 	mem_tokenWrapper.mem = mem_tokenId;
 	mem_tokenWrapper.isNull = context->createFalse();
@@ -684,7 +844,7 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 	 *	}
 	 */
 
-	Value *val_zero = context->createInt64(0);
+//	Value *val_zero = context->createInt64(0);
 	const OperatorState& state = *(wrappedBindings.state);
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -713,8 +873,7 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 
 	Value* val_offset = context->getStructElem(mem_tokenIdWrapper.mem, 0);
 	Value* val_rowId = context->getStructElem(mem_tokenIdWrapper.mem, 1);
-
-	Value* parentTokenNo = val_zero;
+	Value* parentTokenNo = context->getStructElem(mem_tokenIdWrapper.mem, 2);
 
 	//Preparing default return value (i.e., path not found)
 	AllocaInst* mem_return = context->CreateEntryBlockAlloca(F,
@@ -735,9 +894,9 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 	Builder->CreateStore(token_parent, mem_tokens_parent_shifted);
 	Value* token_parent_end_rel =
 			context->getStructElem(mem_tokens_parent_shifted,2);
-	Value* token_parent_end_rel64 =
-				Builder->CreateSExt(token_parent_end_rel,int64Type);
-	Value* token_parent_end = Builder->CreateAdd(token_parent_end_rel64,val_offset);
+//	Value* token_parent_end_rel64 =
+//				Builder->CreateSExt(token_parent_end_rel,int64Type);
+//	Value* token_parent_end = Builder->CreateAdd(token_parent_end_rel64,val_offset);
 #ifdef DEBUGJSON
 //	{
 //	vector<Value*> ArgsV;
@@ -794,7 +953,7 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 	Value* token_i_end_rel = context->getStructElem(mem_tokens_i_shifted, 2);
 	Value* token_i_end_rel64 = Builder->CreateSExt(token_i_end_rel,int64Type);
 	Value* token_i_end = Builder->CreateAdd(token_i_end_rel64,val_offset);
-	Value *endCond = Builder->CreateICmpSLE(token_i_end, token_parent_end);
+	Value *endCond = Builder->CreateICmpSLE(token_i_end_rel, token_parent_end_rel);
 	BranchInst::Create(tokenSkipBody, tokenSkipEnd, endCond, tokenSkipCond);
 
 	/**
@@ -846,16 +1005,18 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 	//Storing return value (i+1)
 	Builder->CreateStore(val_i_1, mem_return);
 
-#ifdef DEBUG
-	//	Function* debugInt = context->getFunction("printi");
-	//	argsV.clear();
-	//	Value *tmp = context->createInt32(100);
-	//	argsV.push_back(tmp);
-	//	Builder->CreateCall(debugInt, argsV);
-	//
-	//	argsV.clear();
-	//	argsV.push_back(token_i_1_start);
-	//	Builder->CreateCall(debugInt, argsV);
+#ifdef DEBUGJSON
+//		Function* debugInt = context->getFunction("printi");
+//		argsV.clear();
+//		Value *tmp = context->createInt32(100);
+//		argsV.push_back(tmp);
+//		Builder->CreateCall(debugInt, argsV);
+//
+//		argsV.clear();
+//		Value* token_i_1_start =
+//				context->getStructElem(mem_tokens_i_1_shifted, 1);
+//		argsV.push_back(token_i_1_start);
+//		Builder->CreateCall(debugInt, argsV);
 #endif
 
 	Builder->CreateBr(tokenSkipEnd);
@@ -927,7 +1088,6 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 RawValueMemory JSONPlugin::readPathInternal(RawValueMemory mem_parentTokenId,
 		const char* path)
 {
-	Value *val_zero = context->createInt64(0);
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
@@ -940,8 +1100,7 @@ RawValueMemory JSONPlugin::readPathInternal(RawValueMemory mem_parentTokenId,
 
 	Value* val_offset = context->getStructElem(mem_parentTokenId.mem, 0);
 	Value* val_rowId = context->getStructElem(mem_parentTokenId.mem, 1);
-
-	Value* parentTokenNo = val_zero;
+	Value* parentTokenNo = context->getStructElem(mem_parentTokenId.mem, 2);
 
 	//Preparing default return value (i.e., path not found)
 	AllocaInst* mem_return = context->CreateEntryBlockAlloca(F,
@@ -1164,8 +1323,8 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 		case STRING:
 		case RECORD:
 		case LIST: {
-//			mem_convertedValue = context->CreateEntryBlockAlloca(F,
-//					string("existingObject"), (mem_value.mem)->getAllocatedType());
+			mem_convertedValue = context->CreateEntryBlockAlloca(F,
+					string("existingObject"), (mem_value.mem)->getAllocatedType());
 			break;
 		}
 		case SET: {
@@ -1231,10 +1390,10 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 		/* rowId and offset still the same */
 		vector<Value*> idxList = vector<Value*>();
 		idxList.push_back(context->createInt32(0));
-		idxList.push_back(context->createInt32(0));
+		idxList.push_back(context->createInt32(2));
 		//Shift in struct ptr
 		Value* structPtr = Builder->CreateGEP(mem_value.mem, idxList);
-		StoreInst *store_offset = Builder->CreateStore(val_offset,structPtr);
+		StoreInst *store_offset = Builder->CreateStore(tokenNo,structPtr);
 		//Array
 		mem_convertedValue = mem_value.mem;
 		break;

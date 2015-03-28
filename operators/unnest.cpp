@@ -58,30 +58,53 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 
 	Builder->SetInsertPoint(loopCond);
 	RawValue endCond = pg->collectionHasNext(nestedValueAll,mem_currentObjId);
+	Value *val_hasNext = endCond.value;
 #ifdef DEBUGUNNEST
 	{
 	//Printing the active token that will be forwarded
 	vector<Value*> ArgsV;
 	ArgsV.clear();
-	ArgsV.push_back(endCond.value);
+	ArgsV.push_back(val_hasNext);
 	Function* debugBoolean = context->getFunction("printBoolean");
 	Builder->CreateCall(debugBoolean, ArgsV);
 	}
 #endif
-	Builder->CreateCondBr(endCond.value, loopBody, loopEnd);
+	Builder->CreateCondBr(val_hasNext, loopBody, loopEnd);
 
 	Builder->SetInsertPoint(loopBody);
 #ifdef DEBUGUNNEST
-	{
+//	{
+//	//Printing the active token that will be forwarded
+//	vector<Value*> ArgsV;
+//	ArgsV.clear();
+//	ArgsV.push_back(context->createInt64(111));
+//	Function* debugInt = context->getFunction("printi64");
+//	Builder->CreateCall(debugInt, ArgsV);
+//	}
+#endif
+	RawValueMemory nestedValueItem =  pg->collectionGetNext(mem_currentObjId);
+#ifdef DEBUGUNNEST
+	{	Function* debugInt = context->getFunction("printi64");
+
+		Value* val_currentTokenId = Builder->CreateLoad(nestedValueItem.mem);
+		Value *val_offset = context->getStructElem(nestedValueItem.mem, 0);
+		Value *val_rowId = context->getStructElem(nestedValueItem.mem, 1);
+		Value *val_currentTokenNo = context->getStructElem(nestedValueItem.mem, 2);
 	//Printing the active token that will be forwarded
 	vector<Value*> ArgsV;
 	ArgsV.clear();
-	ArgsV.push_back(context->createInt64(111));
-	Function* debugInt = context->getFunction("printi64");
+	ArgsV.push_back(val_offset);
+	Builder->CreateCall(debugInt, ArgsV);
+
+	ArgsV.clear();
+	ArgsV.push_back(val_rowId);
+	Builder->CreateCall(debugInt, ArgsV);
+
+	ArgsV.clear();
+	ArgsV.push_back(val_currentTokenNo);
 	Builder->CreateCall(debugInt, ArgsV);
 	}
 #endif
-	RawValueMemory nestedValueItem =  pg->collectionGetNext(mem_currentObjId);
 
 	//Preparing call to parent
 	map<RecordAttribute, RawValueMemory>* unnestBindings = new map<RecordAttribute, RawValueMemory>(childState.getBindings());
@@ -130,4 +153,14 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 	Builder->CreateBr(loopCond);
 
 	Builder->SetInsertPoint(loopEnd);
+#ifdef DEBUGUNNEST
+	{
+	//Printing the active token that will be forwarded
+	vector<Value*> ArgsV;
+	ArgsV.clear();
+	ArgsV.push_back(context->createInt64(222));
+	Function* debugInt = context->getFunction("printi64");
+	Builder->CreateCall(debugInt, ArgsV);
+	}
+#endif
 }

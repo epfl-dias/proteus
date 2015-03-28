@@ -188,13 +188,13 @@ RawValue JSONPlugin::collectionHasNext(RawValue val_parentTokenNo,
 
 	RawValue valWrapper;
 	valWrapper.value = endCond;
-#ifdef DEBUG
-//	std::vector<Value*> ArgsV;
-//	ArgsV.clear();
-//	ArgsV.push_back(endCond);
-//	Function* debugBoolean = context->getFunction("printBoolean");
-//	Builder->CreateCall(debugBoolean, ArgsV);
-#endif
+//#ifdef DEBUG
+	vector<Value*> ArgsV;
+	ArgsV.clear();
+	ArgsV.push_back(endCond);
+	Function* debugBoolean = context->getFunction("printBoolean");
+	Builder->CreateCall(debugBoolean, ArgsV);
+//#endif
 	valWrapper.isNull = endCond_isNull;
 	return valWrapper;
 }
@@ -247,7 +247,7 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentToken)
 	 */
 	Value *val_1 = Builder->getInt64(1);
 	AllocaInst* mem_i_contents = context->CreateEntryBlockAlloca(F,
-			std::string("i_contents"), int64Type);
+				string("i_contents"), int64Type);
 	Value *val_i_contents = Builder->CreateAdd(currentTokenNo, val_1);
 	Builder->CreateStore(val_i_contents, mem_i_contents);
 	Builder->CreateBr(skipContentsCond);
@@ -269,7 +269,7 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentToken)
 
 	//Prepare tokens[i].end
 	AllocaInst* mem_tokens_i_shifted = context->CreateEntryBlockAlloca(F,
-			std::string(var_tokenPtr), context->CreateJSMNStruct());
+			string(var_tokenPtr), context->CreateJSMNStruct());
 	Value* token_i = context->getArrayElem(mem_tokens, currentTokenNo);
 	Builder->CreateStore(token_i, mem_tokens_i_shifted);
 	Value* token_i_end = context->getStructElem(mem_tokens_i_shifted, 2);
@@ -311,13 +311,13 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentToken)
 	mem_wrapperVal.mem = mem_tokenToReturn;
 	mem_wrapperVal.isNull = tokenToReturn_isNull;
 #ifdef DEBUG
-//	ArgsV.clear();
-//	ArgsV.push_back(context->createInt32(-33));
-//	Builder->CreateCall(debugInt, ArgsV);
-//	ArgsV.clear();
-//	ArgsV.push_back(Builder->CreateLoad(mem_tokenToReturn));
-//	Builder->CreateCall(debugInt64, ArgsV);
-//	ArgsV.clear();
+	{
+		vector<Value*> ArgsV;
+		ArgsV.clear();
+		ArgsV.push_back(val_i_contents);
+		Function* debugInt = context->getFunction("printi64");
+		Builder->CreateCall(debugInt, ArgsV);
+	}
 #endif
 	return mem_wrapperVal;
 }

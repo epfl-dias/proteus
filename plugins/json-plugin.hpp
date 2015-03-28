@@ -85,7 +85,7 @@ public:
 
 	//Used by unnest
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentTokenNo);
-	virtual RawValue collectionHasNext(RawValue val_parentTokenNo, RawValueMemory mem_currentTokenNo);
+	virtual RawValue collectionHasNext(RawValue parentTokenId, RawValueMemory mem_currentTokenId);
 	virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentToken);
 
 	void scanObjects(const RawOperator& producer, Function* debug);

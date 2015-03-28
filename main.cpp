@@ -211,9 +211,10 @@ int main(int argc, char* argv[])
 //	int point = newlineAVX("soulis\nkoula\ngoula",strlen("soulis\nkoula\ngoula"));
 //	cout << "Newline at " << point << endl;
 
-//	scanJSONFlat();
-//	selectionJSONFlat();
+	scanJSONFlat();
+	selectionJSONFlat();
 	unnestJSONFlat();
+//	unnestJsmn();
 }
 
 void hashConstants()	{

@@ -618,6 +618,8 @@ int compareTokenString(const char* buf, int start, int end, const char* candidat
 }
 
 int compareTokenString64(const char* buf, size_t start, size_t end, const char* candidate)	{
+//	cout << "Start? " << start << endl;
+//	cout << "End? " << end << endl;
 	return (strncmp(buf + start, candidate, end - start) == 0 \
 			&& strlen(candidate) == end - start);
 }
