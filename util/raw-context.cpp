@@ -73,14 +73,13 @@ RawContext::RawContext(const string& moduleName) {
 	// Aggressive Dead Code Elimination. Make sure work takes place
 	OurFPM->add(createAggressiveDCEPass());
 
-
-	//	 * Extra passes to attempt
-	//	 * -> heavyweight inlining
-	//	 * -> vectorization
-	//	 */
+	/* Inlining: Not sure it works */
 	mpm.add(createFunctionInliningPass());
 	mpm.add(createAlwaysInlinerPass());
+	/* Vectorization */
 	mpm.add(createBBVectorizePass());
+	mpm.add(createLoopVectorizePass());
+	mpm.add(createSLPVectorizerPass());
 
 	mpm.run(*TheModule);
 	OurFPM->doInitialization();
@@ -114,7 +113,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUGCTX
-	getModule()->dump();
+//	getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -140,7 +139,7 @@ void RawContext::prepareFunction(Function *F) {
 	TheFPM = 0;
 	//Dump to see final (optimized) form
 #ifdef DEBUGCTX
-	F->dump();
+//	F->dump();
 #endif
 
 }
@@ -451,10 +450,10 @@ int printc(char* X) {
 }
 
 
-int s(const char* X) {
-	//printf("Generated code -- char read: %c\n", X[0]);
-	return atoi(X);
-}
+//int s(const char* X) {
+//	//printf("Generated code -- char read: %c\n", X[0]);
+//	return atoi(X);
+//}
 
 void insertToHT(char* HTname, size_t key, void* value, int type_size) {
 	RawCatalog& catalog = RawCatalog::getInstance();
@@ -541,65 +540,7 @@ HashtableBucketMetadata* getMetadataHT(char* HTname)	{
 	return metadata;
 }
 
-//TODO REPLACE
-//void insertIntKeyToHT(char* HTname, int key, void* value, int type_size) {
-//	RawCatalog& catalog = RawCatalog::getInstance();
-//	//still, one unneeded indirection..... is there a quicker way?
-//	multimap<int, void*>* HT = catalog.getIntHashTable(string(HTname));
-//
-//	void* valMaterialized = malloc(type_size);
-//	memcpy(valMaterialized, value, type_size);
-//
-//	HT->insert(pair<int, void*>(key, valMaterialized));
-//
-//	//	HT->insert(pair<int,void*>(key,value));
-//#ifdef DEBUG
-//	LOG(INFO) << "[Insert: ] Integer key " << key << " inserted successfully";
-//
-//	LOG(INFO) << "[INSERT: ] There are " << HT->count(key)
-//			<< " elements with key " << key << ":";
-//#endif
-//
-//}
-//
-////TODO REPLACE
-//void** probeIntHT(char* HTname, int key, int typeIndex) {
-//
-////	string name = string(HTname);
-//	RawCatalog& catalog = RawCatalog::getInstance();
-//
-//	//same indirection here as above.
-//	multimap<int, void*>* HT = catalog.getIntHashTable(string(HTname));
-//
-//	pair<multimap<int, void*>::iterator, multimap<int, void*>::iterator> results;
-//	results = HT->equal_range(key);
-//
-//	void** bindings = 0;
-//	int count = HT->count(key);
-//
-//	if (count) {
-//		//+1 used to set last position to null and know when to terminate
-//		bindings = new void*[count + 1];
-//		bindings[count] = NULL;
-//	} else {
-//		bindings = new void*[1];
-//		bindings[0] = NULL;
-//		return bindings;
-//	}
-//
-//	int curr = 0;
-//	for (multimap<int, void*>::iterator it = results.first;
-//			it != results.second; ++it) {
-//		bindings[curr] = it->second;
-//		curr++;
-//	}
-//#ifdef DEBUG
-//	LOG(INFO) << "[PROBE INT:] There are " << HT->count(key)
-//			<< " elements with key " << key;
-//#endif
-//	return bindings;
-//}
-
+/* Deprecated */
 void insertIntKeyToHT(int htIdentifier, int key, void* value, int type_size) {
 	RawCatalog& catalog = RawCatalog::getInstance();
 	//still, one unneeded indirection..... is there a quicker way?
@@ -621,7 +562,7 @@ void insertIntKeyToHT(int htIdentifier, int key, void* value, int type_size) {
 
 }
 
-//TODO REPLACE
+/* Deprecated */
 void** probeIntHT(int htIdentifier, int key, int typeIndex) {
 
 //	string name = string(HTname);
@@ -962,15 +903,6 @@ void flushDelim(size_t resultCtr, char whichDelim, char* fileName) {
 	}
 }
 
-void debug(void* buff)	{
-	char *buf = (char*) buff;
-	size_t activeTuple = *(size_t*) buf;
-	int val = *(int*)(buf + sizeof(size_t));
-	int val2 = *(int*)(buf + sizeof(int) + sizeof(size_t));
-	cout << "Peek: " << activeTuple << " " << val << " " << val2 << endl;
-	cout << "Address: " << buff << endl;
-}
-
 void flushOutput(char* fileName)	{
 	RawCatalog& catalog = RawCatalog::getInstance();
 		string name = string(fileName);
@@ -995,6 +927,120 @@ void* increaseMemoryChunk(void* chunk, size_t chunkSize)	{
 void releaseMemoryChunk(void* chunk)	{
 	return freeRegion(chunk);
 }
+
+/**
+ * Parsing
+ */
+/*
+ * Return position of \n
+ * Code from
+ * https://www.klittlepage.com/2013/12/10/accelerated-fix-processing-via-avx2-vector-instructions/
+ */
+/*
+As we're looking for simple, single character needles (newlines) we can use bitmasking to
+search in lieu of SSE 4.2 string comparison functions. This simple
+implementation splits a 256 bit AVX register into eight 32-bit words. Whenever
+a word is non-zero (any bits are set within the word) a linear scan identifies
+the position of the matching character within the 32-bit word.
+*/
+//__attribute__((always_inline))
+//inline
+size_t newlineAVX(const char* const target, size_t targetLength) {
+	char nl = '\n';
+#ifdef	__AVX2__
+	//cout << "AVX mode ON" << endl;
+	__m256i soh = _mm256_set1_epi8(0x1);
+	__m256i eq = _mm256_set1_epi8(nl);
+	size_t strIdx = 0;
+	int sohCount = 0;
+	int eqCount = 0;
+	union {
+		__m256i v;
+		char c[32];
+	}testVec;
+	union {
+		__m256i v;
+		uint32_t l[8];
+	}mask;
+
+	if(targetLength >= 32) {
+		for(; strIdx <= targetLength - 32; strIdx += 32) {
+			testVec.v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(
+							target + strIdx));
+			mask.v = _mm256_or_si256(
+					_mm256_cmpeq_epi8(testVec.v, soh),
+					_mm256_cmpeq_epi8(testVec.v, eq));
+			for(int i = 0; i < 8; ++i) {
+				if(0 != mask.l[i]) {
+					for(int j = 0; j < 4; ++j) {
+						char c = testVec.c[4 * i + j];
+						if(nl == c) {
+							return 4 * i + j;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	for(; strIdx < targetLength; ++strIdx) {
+		const char c = target[strIdx];
+		if(nl == c) {
+			return strIdx;
+		}
+	}
+
+	string error_msg = string("No newline found");
+	LOG(ERROR)<< error_msg;
+#endif
+
+#ifndef __AVX2__
+	cout << "Careful: Non-AVX parsing" << endl;
+	int i = 0;
+	while(target[i] != nl && i < targetLength)	{
+		i++;
+	}
+//	if(i == targetLength && target[i] != nl)	{
+//		string error_msg = string("No newline found");
+//			LOG(ERROR)<< error_msg;
+//	}
+//	cout << "Newline / End of line at pos " << i << endl;
+	return i;
+#endif
+
+}
+
+void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size_t line)	{
+
+	int error_code;
+	jsmn_parser p;
+	/* Should be enough for single-line JSON */
+	int MAXTOKENS = 1000;
+
+	//Populating our json 'positional index'
+	jsmntok_t* tokenArray = (jsmntok_t*) calloc(MAXTOKENS,sizeof(jsmntok_t));
+	if(tokens == NULL)
+	{
+		throw runtime_error(string("new() of tokens failed"));
+	}
+
+	jsmn_init(&p);
+	char* bufShift = buf + start;
+	char eol = buf[end];
+	buf[end] = '\0';
+//	printf("About to parse %s\n",bufShift);
+//	printf("Which line? %d\n",line);
+	error_code = jsmn_parse(&p, bufShift, end - start, tokenArray, MAXTOKENS);
+	buf[end] = eol;
+	if(error_code < 0)
+	{
+		string msg = "Json (JSMN) plugin failure: ";
+		LOG(ERROR) << msg << error_code;
+		throw runtime_error(msg);
+	}
+	tokens[line] = tokenArray;
+}
+
 
 //Provide support for some extern functions
 void RawContext::registerFunction(const char* funcName, Function* func)	{
@@ -1027,6 +1073,12 @@ void registerFunctions(RawContext& context)	{
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),int32_type);
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),int32_type);
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),char_ptr_type);
+
+	vector<Type*> ArgsCmpTokens64;
+	ArgsCmpTokens64.insert(ArgsCmpTokens64.begin(), char_ptr_type);
+	ArgsCmpTokens64.insert(ArgsCmpTokens64.begin(), int64_type);
+	ArgsCmpTokens64.insert(ArgsCmpTokens64.begin(), int64_type);
+	ArgsCmpTokens64.insert(ArgsCmpTokens64.begin(), char_ptr_type);
 
 	vector<Type*> ArgsConvBoolean;
 	ArgsConvBoolean.insert(ArgsConvBoolean.begin(),int32_type);
@@ -1127,6 +1179,7 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FTatof = 				  FunctionType::get(double_type, Ints8Ptr, false);
 	FunctionType *FTprintFloat_ = 		  FunctionType::get(int32_type, Floats, false);
 	FunctionType *FTcompareTokenString_ = FunctionType::get(int32_type, ArgsCmpTokens, false);
+	FunctionType *FTcompareTokenString64_ = FunctionType::get(int32_type, ArgsCmpTokens64, false);
 	FunctionType *FTconvertBoolean_ = 	  FunctionType::get(int1_bool_type, ArgsConvBoolean, false);
 	FunctionType *FTconvertBoolean64_ =   FunctionType::get(int1_bool_type, ArgsConvBoolean64, false);
 	FunctionType *FTprintBoolean_ = 	  FunctionType::get(void_type, Ints1, false);
@@ -1166,6 +1219,8 @@ void registerFunctions(RawContext& context)	{
 	Function *compareTokenString_	= Function::Create(FTcompareTokenString_,
 			Function::ExternalLinkage, "compareTokenString", TheModule);
 	compareTokenString_->addFnAttr(llvm::Attribute::AlwaysInline);
+	Function *compareTokenString64_	= Function::Create(FTcompareTokenString64_,
+				Function::ExternalLinkage, "compareTokenString64", TheModule);
 	Function *stringEquality 		= Function::Create(FTcompareStrings,
 			Function::ExternalLinkage, "equalStrings", TheModule);
 	stringEquality->addFnAttr(llvm::Attribute::AlwaysInline);
@@ -1315,6 +1370,33 @@ void registerFunctions(RawContext& context)	{
 			FTbucket_chaining_join_prepare, Function::ExternalLinkage,
 			"bucket_chaining_join_prepareLLVM", TheModule);
 
+	/**
+	 * Parsing
+	 */
+	Type* newline_types[] = { char_ptr_type , int64_type };
+	FunctionType *FT_newline = FunctionType::get(int64_type, newline_types, false);
+	Function *newline = Function::Create(FT_newline, Function::ExternalLinkage,
+			"newlineAVX", TheModule);
+	/* Does not make a difference... */
+	newline->addFnAttr(llvm::Attribute::AlwaysInline);
+
+	vector<Type*> tokenMembers;
+	tokenMembers.push_back(int32_type);
+	tokenMembers.push_back(int32_type);
+	tokenMembers.push_back(int32_type);
+	tokenMembers.push_back(int32_type);
+	StructType *tokenType = StructType::get(ctx,tokenMembers);
+
+	PointerType *tokenPtrType = PointerType::get(tokenType, 0);
+	PointerType *token2DPtrType = PointerType::get(tokenPtrType, 0);
+	Type* parse_line_json_types[] = { char_ptr_type, int64_type, int64_type,
+			token2DPtrType, int64_type };
+	FunctionType *FT_parse_line_json =
+			FunctionType::get(void_type, parse_line_json_types, false);
+	Function *parse_line_json = Function::Create(FT_parse_line_json,
+			Function::ExternalLinkage, "parseLineJSON", TheModule);
+
+
 	context.registerFunction("printi", printi_);
 	context.registerFunction("printi64", printi64_);
 	context.registerFunction("printFloat", printFloat_);
@@ -1332,6 +1414,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("getMetadataHT", getMetadataHT_);
 
 	context.registerFunction("compareTokenString", compareTokenString_);
+	context.registerFunction("compareTokenString64", compareTokenString64_);
 	context.registerFunction("convertBoolean", convertBoolean_);
 	context.registerFunction("convertBoolean64", convertBoolean64_);
 	context.registerFunction("equalStrings", stringEquality);
@@ -1367,8 +1450,9 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("partitionHT",radix_partition);
 	context.registerFunction("bucketChainingPrepare",bucket_chaining_join_prepare);
 
-	//XXX TEMP!!
-	context.registerFunction("debug",debug_);
+	context.registerFunction("newline",newline);
+	context.registerFunction("parseLineJSON",parse_line_json);
+
 }
 
 //'Inline' -> shouldn't it be placed in .hpp?

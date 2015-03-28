@@ -37,6 +37,7 @@
 #include "plugins/binary-row-plugin.hpp"
 #include "plugins/binary-col-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
+#include "plugins/json-plugin.hpp"
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
@@ -44,12 +45,16 @@
 
 void scanJsmn();
 void selectionJsmn();
+void scanJSONFlat();
+void selectionJSONFlat();
+
 
 void scanCSV();
 void selectionCSV();
 void joinQueryRelational();
 
 void unnestJsmn();
+void unnestJSONFlat();
 void unnestJsmnDeeper();
 
 void recordProjectionsJSON();
@@ -195,13 +200,20 @@ int main(int argc, char* argv[])
 
 	/* Large-scale: To be run on server */
 //	cout << "Max 1: " << endl;
-	columnarMax1();
+//	columnarMax1();
 //	cout << "Max 2: " << endl;
-	columnarMax2();
+//	columnarMax2();
 //	cout << "Max 3: " << endl;
-	columnarMax3();
+//	columnarMax3();
 //	cout << "Join 1: " << endl;
 //	columnarJoin1();
+
+//	int point = newlineAVX("soulis\nkoula\ngoula",strlen("soulis\nkoula\ngoula"));
+//	cout << "Newline at " << point << endl;
+
+//	scanJSONFlat();
+//	selectionJSONFlat();
+	unnestJSONFlat();
 }
 
 void hashConstants()	{
@@ -587,6 +599,106 @@ void unnestJsmn()
 	ListType documentType = ListType(inner);
 
 	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(proj1);
+
+	expressions::Expression* inputArg = new expressions::InputArgument(&inner,
+			0, projections);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(
+			&nestedCollection, inputArg, emp3);
+	string nestedName = "c";
+	Path path = Path(nestedName, proj);
+
+	expressions::Expression* lhs = new expressions::BoolConstant(true);
+	expressions::Expression* rhs = new expressions::BoolConstant(true);
+	expressions::Expression* predicate = new expressions::EqExpression(
+			new BoolType(), lhs, rhs);
+
+	Unnest unnestOp = Unnest(predicate, path, &scan);
+	scan.setParent(&unnestOp);
+
+	//New record type:
+	string originalRecordName = "e";
+	RecordAttribute recPrev = RecordAttribute(1, fname, originalRecordName,
+			&inner);
+	RecordAttribute recUnnested = RecordAttribute(2, fname, nestedName,
+			&nested);
+	list<RecordAttribute*> attsUnnested = list<RecordAttribute*>();
+	attsUnnested.push_back(&recPrev);
+	attsUnnested.push_back(&recUnnested);
+	RecordType unnestedType = RecordType(attsUnnested);
+
+	//PRINT
+	//a bit redundant, but 'new record construction can, in principle, cause new aliases
+	projections.push_back(recPrev);
+	projections.push_back(recUnnested);
+	Function* debugInt = ctx.getFunction("printi");
+	expressions::Expression* nestedArg = new expressions::InputArgument(
+			&unnestedType, 0, projections);
+
+	RecordAttribute toPrint = RecordAttribute(-1, fname + "." + empChildren,
+			childAge, &intType);
+
+	expressions::RecordProjection* projToPrint =
+			new expressions::RecordProjection(&intType, nestedArg, toPrint);
+	Print printOp = Print(debugInt, projToPrint, &unnestOp);
+	unnestOp.setParent(&printOp);
+
+	//ROOT
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
+void unnestJSONFlat()
+{
+
+	RawContext ctx = RawContext("testFunction-unnestJSONFlat");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/json/employees-flat.json");
+
+	IntType intType = IntType();
+	StringType stringType = StringType();
+
+	string childName = string("name");
+	RecordAttribute child1 = RecordAttribute(1, fname, childName, &stringType);
+	string childAge = string("age");
+	RecordAttribute child2 = RecordAttribute(1, fname, childAge, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&child1);
+	RecordType nested = RecordType(attsNested);
+	ListType nestedCollection = ListType(nested);
+
+	string empName = string("name");
+	RecordAttribute emp1 = RecordAttribute(1, fname, empName, &stringType);
+	string empAge = string("age");
+	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &intType);
+	string empChildren = string("children");
+	RecordAttribute emp3 = RecordAttribute(3, fname, empChildren,
+			&nestedCollection);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&emp1);
+	atts.push_back(&emp2);
+	atts.push_back(&emp3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname, &documentType);
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 
@@ -1626,6 +1738,44 @@ void scanJsmn()
 	catalog.clear();
 }
 
+void scanJSONFlat()
+{
+	RawContext ctx = RawContext("testFunction-ScanJSON-flat");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/json/jsmn-flat.json");
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	IntType attrType = IntType();
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &attrType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &attrType);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsonPipelined::JSONPlugin pg =
+			jsonPipelined::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname, &pg);
+
+	Scan scan = Scan(&ctx, pg);
+
+	//ROOT
+	Root rootOp = Root(&scan);
+	scan.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
 void selectionJsmn()
 {
 	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
@@ -1647,6 +1797,75 @@ void selectionJsmn()
 	ListType documentType = ListType(inner);
 
 	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname, &pg);
+
+	Scan scan = Scan(&ctx, pg);
+
+	/**
+	 * SELECT
+	 */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(attr);
+	projections.push_back(attr2);
+
+	expressions::Expression* lhsArg = new expressions::InputArgument(&attrType,
+			0, projections);
+	expressions::Expression* lhs = new expressions::RecordProjection(&attrType,
+			lhsArg, attr2);
+	expressions::Expression* rhs = new expressions::IntConstant(5);
+
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
+
+	Select sel = Select(predicate, &scan);
+	scan.setParent(&sel);
+
+	/**
+	 * PRINT
+	 */
+	Function* debugInt = ctx.getFunction("printi");
+	expressions::RecordProjection* proj = new expressions::RecordProjection(
+			&attrType, lhsArg, attr);
+	Print printOp = Print(debugInt, proj, &sel);
+	sel.setParent(&printOp);
+
+	/**
+	 * ROOT
+	 */
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
+void selectionJSONFlat()
+{
+	RawContext ctx = RawContext("testFunction-ScanJSON-flat");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/json/jsmn-flat.json");
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	IntType attrType = IntType();
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &attrType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &attrType);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname, &documentType);
 	catalog.registerPlugin(fname, &pg);
 
 	Scan scan = Scan(&ctx, pg);
@@ -3825,7 +4044,7 @@ void columnarMax2()
 }
 
 /* SELECT max(field10)
-   FROM csv_100m_30col_fixed
+   FROM csv_500m_30col_fixed
    WHERE field20 < 100000000
    AND (field15 < 200000000 AND field15 > 100000000); */
 

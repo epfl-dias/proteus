@@ -36,6 +36,9 @@ if(${GLOG} STREQUAL "GLOG-NOTFOUND")
 endif()
 set(glog_ldflags "-L$ENV{HOME}/lib" "-L/cloud_store/manosk/vida-engine/lib")
 
+SET(GCC_COMPILE_FLAGS "-march=core-avx2 -msse4 -O3 -ftree-vectorize -march=native -mtune=native -g  -fno-omit-frame-pointer")
+SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COMPILE_FLAGS}" )
+#add_definitions(${GCC_COMPILE_FLAGS})
 
 # code generation library
 file(GLOB codegen common/*.cpp util/*.cpp util/joins/*.cpp values/*.cpp expressions/*.cpp plugins/*.cpp plugins/output/*.cpp operators/*.cpp memory/*.cpp)

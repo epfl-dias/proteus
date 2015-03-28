@@ -28,6 +28,7 @@
 #include "expressions/expressions-generator.hpp"
 #include "expressions/path.hpp"
 
+#define DEBUGUNNEST
 /**
  * XXX Paper comment: 'Very few ways of evaluating unnest operator -> lamdaDB only provides a nested-loop variation'
  */
