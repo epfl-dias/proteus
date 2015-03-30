@@ -57,10 +57,15 @@ namespace jsonPipelined	{
  * 1. Each row contains A JSON OBJECT.
  * 	  This is the format that the majority of (db) vendors require
  * 	  when working with JSON
+ * 2. FIXME Currently constructs PM from scratch, in pipelined fashion.
+ * 	  Need one more plugin (or one more constructor), taking the PM as granted
  */
 class JSONPlugin : public Plugin	{
 public:
+	/* XXX Do NOT use this constructor with large inputs until realloc() is implemented for lines */
 	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema);
+	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint);
+	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint, jsmntok_t **tokens);
 	~JSONPlugin();
 	void init()															{}
 	void generate(const RawOperator& producer);
@@ -97,6 +102,14 @@ public:
 	void readValueInterpreted(int tokenNo, const ExpressionType* type);
 	void readValueEagerInterpreted(int tokenNo, const ExpressionType* type);
 
+	jsmntok_t** getTokens()	{ return tokens; }
+//	void freeTokens() {
+//		for(int i = 0; i < lines; i++)	{
+//			free(tokens[i]);
+//		}
+//		free(tokens);
+//	}
+
 private:
 	string& fname;
 	size_t fsize;
@@ -104,6 +117,9 @@ private:
 	const char* buf;
 
 	StructType *tokenType;
+
+	/* Specify whether the tokens array will be provided to the PG */
+	bool cache;
 	/* 1-D array of tokens PER ROW => 2D */
 	jsmntok_t **tokens;
 	char *tokenBuf;

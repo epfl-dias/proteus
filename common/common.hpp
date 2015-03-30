@@ -71,6 +71,8 @@
 
 //#JSON
 #define JSMN_STRICT
+//
+//#define JSON_TIGHT
 #include "jsmn/jsmn.h"
 
 //Used to remove all logging messages at compile time and not affect performance

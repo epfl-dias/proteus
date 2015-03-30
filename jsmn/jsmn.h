@@ -34,6 +34,7 @@ typedef enum {
  * @param		start	start position in JSON data string
  * @param		end		end position in JSON data string
  */
+#ifndef JSON_TIGHT
 typedef struct {
 	jsmntype_t type;
 	int start;
@@ -43,6 +44,23 @@ typedef struct {
 	int parent;
 #endif
 } jsmntok_t;
+#endif
+
+#ifdef JSON_TIGHT
+typedef struct {
+	char type;
+	char start;
+	char end;
+	char size;
+} jsmntok_t;
+
+//typedef struct {
+//	char type;
+//	short start;
+//	short end;
+//	short size;
+//} jsmntok_t;
+#endif
 
 /**
  * JSON parser. Contains an array of token blocks available. Also stores

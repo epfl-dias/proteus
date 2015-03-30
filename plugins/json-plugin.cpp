@@ -42,6 +42,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		context(context), fname(fname), schema(schema), var_buf("bufPtr"), var_tokenPtr(
 				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash")
 {
+	cache = false;
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32_type = Type::getInt32Ty(llvmContext);
 	Type* int64_type = Type::getInt64Ty(llvmContext);
@@ -84,66 +85,170 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	/* TODO Realloc will (eventually) take care of potential requests for resize */
 	lines = 1000;
 
-	vector<Type*> tokenMembers;
-	tokenMembers.push_back(int32_type);
-	tokenMembers.push_back(int32_type);
-	tokenMembers.push_back(int32_type);
-	tokenMembers.push_back(int32_type);
-	tokenType = StructType::get(context->getLLVMContext(),tokenMembers);
+//	vector<Type*> tokenMembers;
+//	tokenMembers.push_back(int32_type);
+//	tokenMembers.push_back(int32_type);
+//	tokenMembers.push_back(int32_type);
+//	tokenMembers.push_back(int32_type);
+//	tokenType = StructType::get(context->getLLVMContext(),tokenMembers);
+	tokenType = context->CreateJSMNStruct();
+
 
 	PointerType *tokenPtrType = PointerType::get(tokenType,0);
 	PointerType *token2DPtrType = PointerType::get(tokenPtrType,0);
 
 	tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
+	if (tokenBuf == NULL) {
+		string msg = string("[JSON Plugin: ]: Failed to allocate token arena");
+		LOG(ERROR)<< msg;
+		throw runtime_error(msg);
+	}
+	tokens = (jsmntok_t**) tokenBuf;
 	mem_tokenArray = context->CreateEntryBlockAlloca(F,"jsTokenArray",token2DPtrType);
 	Value *cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, tokenBuf);
 	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
 
+}
 
-	//Tokenizing
-//	int error_code;
-//	jsmn_parser p;
+JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
+		ExpressionType* schema, size_t linehint) :
+		context(context), fname(fname), schema(schema), var_buf("bufPtr"), var_tokenPtr(
+				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash")
+{
+	cache = false;
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* int32_type = Type::getInt32Ty(llvmContext);
+	Type* int64_type = Type::getInt64Ty(llvmContext);
 
-	//FIXME This needs to take place FOREACH LINE
-	//Populating our json 'positional index'
-//	tokens = new jsmntok_t[MAXTOKENS];
-//	if(tokens == NULL)
-//	{
-//		throw runtime_error(string("new() of tokens failed"));
-//	}
-//	for(int i = 0; i < MAXTOKENS; i++)
-//	{
-//		tokens[i].start = 0;
-//		tokens[i].end = 0;
-//		tokens[i].size = 0;
-//	}
-//
-//	jsmn_init(&p);
-//	error_code = jsmn_parse(&p, buf, strlen(buf), tokens, MAXTOKENS);
-//	if(error_code < 0)
-//	{
-//		string msg = "Json (JSMN) plugin failure: ";
-//		LOG(ERROR) << msg << error_code;
-//		throw runtime_error(msg);
-//	}
+	//Memory mapping etc
+	LOG(INFO)<< "[JSONPlugin - jsmn: ] " << fname;
+	struct stat statbuf;
+	const char* name_c = fname.c_str();
+	stat(name_c, &statbuf);
+	fsize = statbuf.st_size;
+	fd = open(name_c, O_RDONLY);
+	if (fd == -1)
+	{
+		throw runtime_error(string("json.open"));
+	}
+	buf = (const char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE , MAP_PRIVATE, fd, 0);
+	if (buf == MAP_FAILED)
+	{
+		throw runtime_error(string("json.mmap"));
+	}
+
+	//Retrieving schema - not needed yet
+	RawCatalog& catalog = RawCatalog::getInstance();
+	catalog.registerFileJSON(fname,schema);
+
+	//Preparing structures and variables for codegen part
+	Function* F = context->getGlobalFunction();
+	IRBuilder<>* Builder = context->getBuilder();
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+
+	//Buffer holding the entire JSON document
+	AllocaInst *mem_buf = context->CreateEntryBlockAlloca(F,string("jsFilePtr"),charPtrType);
+	Value* val_buf_i64 = ConstantInt::get(llvmContext, APInt(64,((uint64_t)buf)));
+	//i8*
+	Value* val_buf = Builder->CreateIntToPtr(val_buf_i64,charPtrType);
+	Builder->CreateStore(val_buf,mem_buf);
+	NamedValuesJSON[var_buf] = mem_buf;
+
+	lines = linehint;
+
+//	vector<Type*> tokenMembers;
+//	tokenMembers.push_back(int32_type);
+//	tokenMembers.push_back(int32_type);
+//	tokenMembers.push_back(int32_type);
+//	tokenMembers.push_back(int32_type);
+//	tokenType = StructType::get(context->getLLVMContext(),tokenMembers);
+
+	tokenType = context->CreateJSMNStruct();
+	PointerType *tokenPtrType = PointerType::get(tokenType,0);
+	PointerType *token2DPtrType = PointerType::get(tokenPtrType,0);
+
+	tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
+	if (tokenBuf == NULL) {
+		string msg = string("[JSON Plugin: ]: Failed to allocate token arena");
+		LOG(ERROR)<< msg;
+		throw runtime_error(msg);
+	}
+	tokens = (jsmntok_t**) tokenBuf;
+	mem_tokenArray = context->CreateEntryBlockAlloca(F,"jsTokenArray",token2DPtrType);
+	Value *cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, tokenBuf);
+	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
+}
+
+JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
+		ExpressionType* schema, size_t linehint, jsmntok_t **tokens) :
+		context(context), fname(fname), schema(schema), var_buf("bufPtr"), var_tokenPtr(
+				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash")
+{
+	cache = true;
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* int32_type = Type::getInt32Ty(llvmContext);
+	Type* int64_type = Type::getInt64Ty(llvmContext);
+
+	//Memory mapping etc
+	LOG(INFO)<< "[JSONPlugin - jsmn: ] " << fname;
+	struct stat statbuf;
+	const char* name_c = fname.c_str();
+	stat(name_c, &statbuf);
+	fsize = statbuf.st_size;
+	fd = open(name_c, O_RDONLY);
+	if (fd == -1)
+	{
+		throw runtime_error(string("json.open"));
+	}
+	buf = (const char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE , MAP_PRIVATE, fd, 0);
+	if (buf == MAP_FAILED)
+	{
+		throw runtime_error(string("json.mmap"));
+	}
+
+	//Retrieving schema - not needed yet
+	RawCatalog& catalog = RawCatalog::getInstance();
+	catalog.registerFileJSON(fname,schema);
+
+	//Preparing structures and variables for codegen part
+	Function* F = context->getGlobalFunction();
+	IRBuilder<>* Builder = context->getBuilder();
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+
+	//Buffer holding the entire JSON document
+	AllocaInst *mem_buf = context->CreateEntryBlockAlloca(F,string("jsFilePtr"),charPtrType);
+	Value* val_buf_i64 = ConstantInt::get(llvmContext, APInt(64,((uint64_t)buf)));
+	//i8*
+	Value* val_buf = Builder->CreateIntToPtr(val_buf_i64,charPtrType);
+	Builder->CreateStore(val_buf,mem_buf);
+	NamedValuesJSON[var_buf] = mem_buf;
+
+	lines = linehint;
+
+//	vector<Type*> tokenMembers;
+//	tokenMembers.push_back(int32_type);
+//	tokenMembers.push_back(int32_type);
+//	tokenMembers.push_back(int32_type);
+//	tokenMembers.push_back(int32_type);
+//	tokenType = StructType::get(context->getLLVMContext(),tokenMembers);
+	tokenType = context->CreateJSMNStruct();
 
 
-	//FIXME This needs to take place FOREACH LINE
-	//The array of tokens
-//	PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
-//	AllocaInst *mem_tokenPtr = context->CreateEntryBlockAlloca(F,std::string(var_tokenPtr),ptr_jsmnStructType);
-//	Value* ptrVal = ConstantInt::get(llvmContext, APInt(64,((uint64_t)tokens)));
-//	//i8*
-//	Value* unshiftedPtr = Builder->CreateIntToPtr(ptrVal,ptr_jsmnStructType);
-//	Builder->CreateStore(unshiftedPtr,mem_tokenPtr);
-//	NamedValuesJSON[var_tokenPtr] = mem_tokenPtr;
 
-	//FIXME This needs to take place FOREACH LINE
-//	AllocaInst *mem_tokenOffset = context->CreateEntryBlockAlloca(F,std::string(var_tokenOffset),int64Type);
-//	//0 represents the entire JSON document
-//	Value* offsetVal = Builder->getInt64(1);
-//	Builder->CreateStore(offsetVal,mem_tokenOffset);
-//	NamedValuesJSON[var_tokenOffset] = mem_tokenOffset;
+	PointerType *tokenPtrType = PointerType::get(tokenType,0);
+	PointerType *token2DPtrType = PointerType::get(tokenPtrType,0);
+
+	/* XXX */
+	this->tokens = tokens;
+	tokenBuf = NULL;
+
+	mem_tokenArray = context->CreateEntryBlockAlloca(F,"jsTokenArray",token2DPtrType);
+	Value *cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, this->tokens);
+	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
+
+
 }
 
 RawValueMemory JSONPlugin::initCollectionUnnest(RawValue parentTokenId)
@@ -620,15 +725,17 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	 * 2. Parse JSON object in line -> Store in token_t *pm[i] -> Func
 	 * 3. Fwd activeLoop: (i,0) to parent
 	 */
-	BasicBlock *loopCond, *loopBody, *loopInc, *loopEnd;
-	context->CreateForLoop("jsonLoopCond", "jsonLoopBody", "jsonLoopInc",
-			"jsonLoopEnd", &loopCond, &loopBody, &loopInc, &loopEnd);
+	BasicBlock *jsonScanCond, *jsonScanBody, *jsonScanInc, *jsonScanEnd;
+	context->CreateForLoop("jsonScanCond", "jsonScanBody", "jsonScanInc",
+			"jsonScanEnd", &jsonScanCond, &jsonScanBody, &jsonScanInc, &jsonScanEnd);
+	context->setCurrentEntryBlock(Builder->GetInsertBlock());
+	context->setEndingBlock(jsonScanEnd);
 	vector<Value*> ArgsV;
 
 
 	/* while( offset != length ) */
-	Builder->CreateBr(loopCond);
-	Builder->SetInsertPoint(loopCond);
+	Builder->CreateBr(jsonScanCond);
+	Builder->SetInsertPoint(jsonScanCond);
 
 	Value *val_offset = Builder->CreateLoad(mem_offset);
 	Value *cond = Builder->CreateICmpSLT(val_offset,val_fsize);
@@ -641,16 +748,17 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 //	ArgsV.push_back(val_fsize);
 //	Builder->CreateCall(debugInt64, ArgsV);
 //#endif
-	Builder->CreateCondBr(cond,loopBody,loopEnd);
+	Builder->CreateCondBr(cond,jsonScanBody,jsonScanEnd);
 
 	/* Body */
-	Builder->SetInsertPoint(loopBody);
+	Builder->SetInsertPoint(jsonScanBody);
 
 	Value *val_shiftedBuf = Builder->CreateInBoundsGEP(val_buf, val_offset);
 	Value *val_len = Builder->CreateSub(val_fsize,val_offset);
 
 	/* Find newline -> AVX */
-	/* XXX Don't know if it's worth the function call */
+	/* Is it worth the function call?
+	 * Y, there are some savings, even for short(ish) entries */
 	ArgsV.clear();
 	ArgsV.push_back(val_shiftedBuf);
 	ArgsV.push_back(val_fsize);
@@ -661,15 +769,17 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 			val_offset);
 
 	/* Parse line into JSON */
-	Value *val_tokenArray = Builder->CreateLoad(mem_tokenArray);
 	Value *val_lineCnt = Builder->CreateLoad(mem_lineCnt);
-	ArgsV.clear();
-	ArgsV.push_back(val_buf);
-	ArgsV.push_back(val_offset);
-	ArgsV.push_back(idx_newlineAbsolute);
-	ArgsV.push_back(val_tokenArray);
-	ArgsV.push_back(val_lineCnt);
-	Builder->CreateCall(parseLineJSON, ArgsV);
+	if(!cache)	{
+		Value *val_tokenArray = Builder->CreateLoad(mem_tokenArray);
+		ArgsV.clear();
+		ArgsV.push_back(val_buf);
+		ArgsV.push_back(val_offset);
+		ArgsV.push_back(idx_newlineAbsolute);
+		ArgsV.push_back(val_tokenArray);
+		ArgsV.push_back(val_lineCnt);
+		Builder->CreateCall(parseLineJSON, ArgsV);
+	}
 
 	/* Triggering Parent */
 	RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop);
@@ -714,17 +824,17 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	idx_newlineAbsolute = Builder->CreateAdd(idx_newlineAbsolute, val_one);
 
 
-	Builder->CreateBr(loopInc);
+	Builder->CreateBr(jsonScanInc);
 
 	/* Inc */
-	Builder->SetInsertPoint(loopInc);
+	Builder->SetInsertPoint(jsonScanInc);
 	Builder->CreateStore(idx_newlineAbsolute,mem_offset);
 
 	val_lineCnt = Builder->CreateAdd(val_lineCnt,val_one);
 	Builder->CreateStore(val_lineCnt,mem_lineCnt);
-	Builder->CreateBr(loopCond);
+	Builder->CreateBr(jsonScanCond);
 
-	Builder->SetInsertPoint(loopEnd);
+	Builder->SetInsertPoint(jsonScanEnd);
 
 
 
@@ -890,6 +1000,7 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 
 	AllocaInst* mem_tokens_parent_shifted = context->CreateEntryBlockAlloca(F,
 			string(var_tokenPtr), context->CreateJSMNStruct());
+
 	Value* token_parent = context->getArrayElem(mem_tokens, parentTokenNo);
 	Builder->CreateStore(token_parent, mem_tokens_parent_shifted);
 	Value* token_parent_end_rel =
@@ -941,8 +1052,10 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 
 	Builder->SetInsertPoint(tokenSkipCond);
 	val_i = Builder->CreateLoad(mem_i);
+
 	AllocaInst* mem_tokens_i_shifted = context->CreateEntryBlockAlloca(F,
-			std::string(var_tokenPtr), context->CreateJSMNStruct());
+					string(var_tokenPtr), context->CreateJSMNStruct());
+
 	Value* token_i = context->getArrayElem(mem_tokens, val_i);
 	Builder->CreateStore(token_i, mem_tokens_i_shifted);
 
@@ -999,6 +1112,7 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 	Value* val_i_1 = Builder->CreateAdd(val_i, val_1);
 	AllocaInst* mem_tokens_i_1_shifted = context->CreateEntryBlockAlloca(F,
 			std::string(var_tokenPtr), context->CreateJSMNStruct());
+
 	Value* token_i_1 = context->getArrayElem(mem_tokens, val_i_1);
 	Builder->CreateStore(token_i_1, mem_tokens_i_1_shifted);
 
@@ -1846,9 +1960,9 @@ void JSONPlugin::flushChunk(RawValueMemory mem_value, Value* fileName)
 	Value* tokenNo = context->getStructElem(mem_value.mem, 2);
 
 	//tokens**
-	Value *mem_tokenArray = Builder->CreateLoad(mem_tokenArray);
+	Value *val_token2DArray = Builder->CreateLoad(mem_tokenArray);
 	//shifted tokens**
-	Value *mem_tokenArrayShift = Builder->CreateInBoundsGEP(mem_tokenArray,
+	Value *mem_tokenArrayShift = Builder->CreateInBoundsGEP(val_token2DArray,
 			val_rowId);
 	//tokens*
 	Value *mem_tokens = Builder->CreateLoad(mem_tokenArrayShift);

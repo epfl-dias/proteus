@@ -388,11 +388,21 @@ PointerType* RawContext::CreateJSMNStructPtr()	{
 StructType* RawContext::CreateJSMNStruct() {
 	LLVMContext& ctx = *llvmContext;
 	llvm::Type* int32_type = Type::getInt32Ty(ctx);
+	llvm::Type* int8_type = Type::getInt8Ty(ctx);
+#ifndef JSON_TIGHT
 	vector<Type*> jsmn_pos_types;
 	jsmn_pos_types.push_back(int32_type);
 	jsmn_pos_types.push_back(int32_type);
 	jsmn_pos_types.push_back(int32_type);
 	jsmn_pos_types.push_back(int32_type);
+#endif
+#ifdef JSON_TIGHT
+	vector<Type*> jsmn_pos_types;
+	jsmn_pos_types.push_back(int8_type);
+	jsmn_pos_types.push_back(int8_type);
+	jsmn_pos_types.push_back(int8_type);
+	jsmn_pos_types.push_back(int8_type);
+#endif
 	return CreateCustomStruct(jsmn_pos_types);
 }
 
@@ -937,6 +947,8 @@ void releaseMemoryChunk(void* chunk)	{
  * Return position of \n
  * Code from
  * https://www.klittlepage.com/2013/12/10/accelerated-fix-processing-via-avx2-vector-instructions/
+ *
+ * XXX Assumption: all lines of file end with \n
  */
 /*
 As we're looking for simple, single character needles (newlines) we can use bitmasking to
@@ -950,12 +962,9 @@ the position of the matching character within the 32-bit word.
 size_t newlineAVX(const char* const target, size_t targetLength) {
 	char nl = '\n';
 #ifdef	__AVX2__
-	//cout << "AVX mode ON" << endl;
-	__m256i soh = _mm256_set1_epi8(0x1);
+//	cout << "AVX mode ON" << endl;
 	__m256i eq = _mm256_set1_epi8(nl);
 	size_t strIdx = 0;
-	int sohCount = 0;
-	int eqCount = 0;
 	union {
 		__m256i v;
 		char c[32];
@@ -969,15 +978,14 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 		for(; strIdx <= targetLength - 32; strIdx += 32) {
 			testVec.v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(
 							target + strIdx));
-			mask.v = _mm256_or_si256(
-					_mm256_cmpeq_epi8(testVec.v, soh),
-					_mm256_cmpeq_epi8(testVec.v, eq));
+			mask.v = _mm256_cmpeq_epi8(testVec.v, eq);
 			for(int i = 0; i < 8; ++i) {
 				if(0 != mask.l[i]) {
 					for(int j = 0; j < 4; ++j) {
 						char c = testVec.c[4 * i + j];
 						if(nl == c) {
-							return 4 * i + j;
+//							cout << "1. NL at pos (" << strIdx << "+" << 4*i+j << ")" << endl;
+							return strIdx + 4 * i + j;
 						}
 					}
 				}
@@ -988,6 +996,7 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 	for(; strIdx < targetLength; ++strIdx) {
 		const char c = target[strIdx];
 		if(nl == c) {
+//			cout << "2. NL at pos " << strIdx << endl;
 			return strIdx;
 		}
 	}
@@ -995,9 +1004,8 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 	string error_msg = string("No newline found");
 	LOG(ERROR)<< error_msg;
 #endif
-
 #ifndef __AVX2__
-	cout << "Careful: Non-AVX parsing" << endl;
+	//cout << "Careful: Non-AVX parsing" << endl;
 	int i = 0;
 	while(target[i] != nl && i < targetLength)	{
 		i++;
@@ -1016,8 +1024,8 @@ void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size
 
 	int error_code;
 	jsmn_parser p;
-	/* Should be enough for single-line JSON */
-	int MAXTOKENS = 1000;
+	/* Should be enough for single-line JSON (?) */
+	int MAXTOKENS = 20;
 
 	//Populating our json 'positional index'
 	jsmntok_t* tokenArray = (jsmntok_t*) calloc(MAXTOKENS,sizeof(jsmntok_t));
@@ -1030,7 +1038,7 @@ void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size
 	char* bufShift = buf + start;
 	char eol = buf[end];
 	buf[end] = '\0';
-//	printf("About to parse %s\n",bufShift);
+//	printf("JSON Raw Input: %s\n",bufShift);
 //	printf("Which line? %d\n",line);
 	error_code = jsmn_parse(&p, bufShift, end - start, tokenArray, MAXTOKENS);
 	buf[end] = eol;
@@ -1382,12 +1390,14 @@ void registerFunctions(RawContext& context)	{
 	/* Does not make a difference... */
 	newline->addFnAttr(llvm::Attribute::AlwaysInline);
 
-	vector<Type*> tokenMembers;
-	tokenMembers.push_back(int32_type);
-	tokenMembers.push_back(int32_type);
-	tokenMembers.push_back(int32_type);
-	tokenMembers.push_back(int32_type);
-	StructType *tokenType = StructType::get(ctx,tokenMembers);
+//	vector<Type*> tokenMembers;
+//	tokenMembers.push_back(int32_type);
+//	tokenMembers.push_back(int32_type);
+//	tokenMembers.push_back(int32_type);
+//	tokenMembers.push_back(int32_type);
+//	StructType *tokenType = StructType::get(ctx,tokenMembers);
+	StructType *tokenType = context.CreateJSMNStruct();
+
 
 	PointerType *tokenPtrType = PointerType::get(tokenType, 0);
 	PointerType *token2DPtrType = PointerType::get(tokenPtrType, 0);

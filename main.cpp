@@ -43,18 +43,23 @@
 #include "expressions/expressions.hpp"
 #include "expressions/expressions-hasher.hpp"
 
-void scanJsmn();
-void selectionJsmn();
+/* New JSON pg */
 void scanJSONFlat();
 void selectionJSONFlat();
+void unnestJSONFlat();
+void reduceListObjectFlat();
+void reduceJSONMaxFlat(bool longRun);
+void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname, jsmntok_t** tokens);
+void reduceJSONDeeperMaxFlat(bool longRun);
 
+void scanJsmn();
+void selectionJsmn();
 
 void scanCSV();
 void selectionCSV();
 void joinQueryRelational();
 
 void unnestJsmn();
-void unnestJSONFlat();
 void unnestJsmnDeeper();
 
 void recordProjectionsJSON();
@@ -211,10 +216,16 @@ int main(int argc, char* argv[])
 //	int point = newlineAVX("soulis\nkoula\ngoula",strlen("soulis\nkoula\ngoula"));
 //	cout << "Newline at " << point << endl;
 
-	scanJSONFlat();
-	selectionJSONFlat();
-	unnestJSONFlat();
-//	unnestJsmn();
+/* New JSON pg. Work. */
+//	scanJSONFlat();
+//	selectionJSONFlat();
+//	unnestJSONFlat();
+//	reduceListObjectFlat();
+	reduceJSONMaxFlat(false);
+
+//	reduceJSONDeeperMaxFlat(true);
+
+
 }
 
 void hashConstants()	{
@@ -2118,6 +2129,333 @@ void reduceListObject()
 	pg.finish();
 	catalog.clear();
 }
+
+void reduceListObjectFlat()
+{
+	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/json/jsmnDeeper-flat.json");
+
+	IntType intType = IntType();
+
+	string c1Name = string("c1");
+	RecordAttribute c1 = RecordAttribute(1, fname, c1Name, &intType);
+	string c2Name = string("c2");
+	RecordAttribute c2 = RecordAttribute(2, fname, c2Name, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&c1);
+	attsNested.push_back(&c2);
+	RecordType nested = RecordType(attsNested);
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	string attrName3 = string("c");
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &intType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &intType);
+	RecordAttribute attr3 = RecordAttribute(3, fname, attrName3, &nested);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+	atts.push_back(&attr3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	/**
+	 * SCAN
+	 */
+	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	/**
+	 * REDUCE
+	 */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(attr2);
+	projections.push_back(attr3);
+
+	expressions::Expression* arg = new expressions::InputArgument(&inner, 0,
+			projections);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(
+			&nested, arg, attr3);
+
+	expressions::Expression* lhs = new expressions::RecordProjection(&intType,
+			arg, attr2);
+	expressions::Expression* rhs = new expressions::IntConstant(43.0);
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
+	Reduce reduce = Reduce(UNION, outputExpr, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
+/* SELECT MAX(obj.b) FROM jsonFile obj WHERE obj.b  > 43 */
+void reduceJSONMaxFlat(bool longRun)
+{
+	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname;
+	size_t lineHint;
+	if (!longRun) {
+		fname = string("inputs/json/jsmnDeeper-flat.json");
+		lineHint = 10;
+	} else {
+		fname = string("inputs/json/jsmnDeeper-flat1k.json");
+		lineHint = 1000;
+
+//		fname = string("inputs/json/jsmnDeeper-flat100k.json");
+//		lineHint = 100000;
+
+//		fname = string("inputs/json/jsmnDeeper-flat1m.json");
+//		lineHint = 1000000;
+
+//		fname = string("inputs/json/jsmnDeeper-flat100m.json");
+//		lineHint = 100000000;
+
+		fname = string("inputs/json/jsmnDeeper-flat200m.json");
+		lineHint = 200000000;
+	}
+	cout << "Input: " << fname << endl;
+
+	IntType intType = IntType();
+
+	string c1Name = string("c1");
+	RecordAttribute c1 = RecordAttribute(1, fname, c1Name, &intType);
+	string c2Name = string("c2");
+	RecordAttribute c2 = RecordAttribute(2, fname, c2Name, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&c1);
+	attsNested.push_back(&c2);
+	RecordType nested = RecordType(attsNested);
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	string attrName3 = string("c");
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &intType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &intType);
+	RecordAttribute attr3 = RecordAttribute(3, fname, attrName3, &nested);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+	atts.push_back(&attr3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	/**
+	 * SCAN
+	 */
+	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
+			&documentType, lineHint);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	/**
+	 * REDUCE
+	 */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(attr2);
+	projections.push_back(attr3);
+
+	expressions::Expression* arg = new expressions::InputArgument(&inner, 0,
+			projections);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(
+			&intType, arg, attr2);
+
+	expressions::Expression* lhs = new expressions::RecordProjection(&intType,
+			arg, attr2);
+	expressions::Expression* rhs = new expressions::IntConstant(43.0);
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
+	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	/**
+	 * CALL 2nd QUERY
+	 */
+	reduceJSONMaxFlatCached(longRun, lineHint, fname, pg.getTokens());
+
+	pg.finish();
+	catalog.clear();
+}
+
+void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname, jsmntok_t** tokens)
+{
+	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	cout << "Input: " << fname << endl;
+
+	IntType intType = IntType();
+
+	string c1Name = string("c1");
+	RecordAttribute c1 = RecordAttribute(1, fname, c1Name, &intType);
+	string c2Name = string("c2");
+	RecordAttribute c2 = RecordAttribute(2, fname, c2Name, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&c1);
+	attsNested.push_back(&c2);
+	RecordType nested = RecordType(attsNested);
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	string attrName3 = string("c");
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &intType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &intType);
+	RecordAttribute attr3 = RecordAttribute(3, fname, attrName3, &nested);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+	atts.push_back(&attr3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	/**
+	 * SCAN
+	 */
+	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
+			&documentType, lineHint, tokens);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	/**
+	 * REDUCE
+	 */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(attr2);
+	projections.push_back(attr3);
+
+	expressions::Expression* arg = new expressions::InputArgument(&inner, 0,
+			projections);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(
+			&intType, arg, attr2);
+
+	expressions::Expression* lhs = new expressions::RecordProjection(&intType,
+			arg, attr2);
+	expressions::Expression* rhs = new expressions::IntConstant(43.0);
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
+	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
+/* SELECT MAX(obj.c.c2) FROM jsonFile obj WHERE obj.b  > 43 */
+void reduceJSONDeeperMaxFlat(bool longRun)
+{
+	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname;
+	size_t lineHint;
+	if (!longRun) {
+		fname = string("inputs/json/jsmnDeeper-flat.json");
+		lineHint = 10;
+	} else {
+//		fname = string("inputs/json/jsmnDeeper-flat1m.json");
+//		lineHint = 1000000;
+
+		fname = string("inputs/json/jsmnDeeper-flat100m.json");
+		lineHint = 100000000;
+	}
+	cout << "Input: " << fname << endl;
+
+	IntType intType = IntType();
+
+	string c1Name = string("c1");
+	RecordAttribute c1 = RecordAttribute(1, fname, c1Name, &intType);
+	string c2Name = string("c2");
+	RecordAttribute c2 = RecordAttribute(2, fname, c2Name, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&c1);
+	attsNested.push_back(&c2);
+	RecordType nested = RecordType(attsNested);
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	string attrName3 = string("c");
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &intType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &intType);
+	RecordAttribute attr3 = RecordAttribute(3, fname, attrName3, &nested);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+	atts.push_back(&attr3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	/**
+	 * SCAN
+	 */
+	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
+			&documentType, lineHint);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	/**
+	 * REDUCE
+	 */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(attr2);
+	projections.push_back(attr3);
+
+	expressions::Expression* arg = new expressions::InputArgument(&inner, 0,
+			projections);
+	expressions::Expression* outputExpr_ = new expressions::RecordProjection(
+			&nested, arg, attr3);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(
+				&intType, outputExpr_, c2);
+
+	expressions::Expression* lhs = new expressions::RecordProjection(&intType,
+			arg, attr2);
+	expressions::Expression* rhs = new expressions::IntConstant(43.0);
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
+	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
+
 
 void reduceListRecordConstruction()
 {
