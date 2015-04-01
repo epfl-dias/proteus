@@ -266,7 +266,7 @@ jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 			return JSMN_ERROR_PART;
 		}
 	}
-
+//	printf("[jsmn: ] %d to %d\n",tokens[0].start,tokens[0].end);
 	return count;
 }
 

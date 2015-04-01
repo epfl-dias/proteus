@@ -34,6 +34,8 @@ typedef enum {
  * @param		start	start position in JSON data string
  * @param		end		end position in JSON data string
  */
+#define JSON_TIGHT
+
 #ifndef JSON_TIGHT
 typedef struct {
 	jsmntype_t type;
@@ -46,19 +48,22 @@ typedef struct {
 } jsmntok_t;
 #endif
 
+/* NOTE: Changes affect RawContext::CreateJSMNStruct()*/
 #ifdef JSON_TIGHT
 typedef struct {
 	char type;
-	char start;
-	char end;
+	short start;
+	short end;
 	char size;
 } jsmntok_t;
 
+/* Super tight cases
+ * NOT applicable to TPC-H (tuple length ~ 350) */
 //typedef struct {
 //	char type;
-//	short start;
-//	short end;
-//	short size;
+//	char start;
+//	char end;
+//	char size;
 //} jsmntok_t;
 #endif
 

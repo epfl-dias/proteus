@@ -339,6 +339,13 @@ RawValue JSONPlugin::collectionHasNext(RawValue parentTokenId,
 	Function* F = context->getGlobalFunction();
 	PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
 
+#ifndef JSON_TIGHT
+	Value *val_0 = Builder->getInt32(0);
+#endif
+#ifdef JSON_TIGHT
+	Value *val_0 = Builder->getInt16(0);
+#endif
+
 	/* Parent Token */
 	vector<Value*> ArgsV;
 	Value *val_parentTokenId = parentTokenId.value;
@@ -379,7 +386,6 @@ RawValue JSONPlugin::collectionHasNext(RawValue parentTokenId,
 //	Value* current_token_end = Builder->CreateAdd(current_token_end_rel64,
 //			val_offset);
 
-	Value *val_0 = Builder->getInt32(0);
 	Value* endCond1 = Builder->CreateICmpSLE(current_token_end_rel,
 			parent_token_end_rel);
 	Value* endCond2 = Builder->CreateICmpNE(current_token_end_rel, val_0);
@@ -580,6 +586,13 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentTokenId)
 	Function* debugInt = context->getFunction("printi");
 	Function* debugInt64 = context->getFunction("printi64");
 
+#ifndef JSON_TIGHT
+	Value *val_0 = Builder->getInt32(0);
+#endif
+#ifdef JSON_TIGHT
+	Value *val_0 = Builder->getInt16(0);
+#endif
+
 	Value* val_currentTokenId = Builder->CreateLoad(mem_currentTokenId.mem);
 	Value *val_offset = context->getStructElem(mem_currentTokenId.mem, 0);
 	Value *val_rowId = context->getStructElem(mem_currentTokenId.mem, 1);
@@ -619,7 +632,6 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentTokenId)
 	 */
 	Builder->SetInsertPoint(skipContentsCond);
 	//Prepare tokens[i_contents].start
-	Value *val_0 = Builder->getInt32(0);
 	val_i_contents = Builder->CreateLoad(mem_i_contents);
 
 	//tokens**
@@ -1535,6 +1547,7 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 	}
 	case INT:
 	{
+		/* FIXME change atoi to codegen'ed version */
 		conversionFunc = context->getFunction("atoi");
 		ArgsV.push_back(bufShiftedPtr);
 		convertedValue = Builder->CreateCall(conversionFunc, ArgsV, "atoi");

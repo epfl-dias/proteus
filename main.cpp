@@ -221,9 +221,9 @@ int main(int argc, char* argv[])
 //	selectionJSONFlat();
 //	unnestJSONFlat();
 //	reduceListObjectFlat();
-	reduceJSONMaxFlat(false);
+//	reduceJSONMaxFlat(false);
 
-//	reduceJSONDeeperMaxFlat(true);
+	reduceJSONDeeperMaxFlat(false);
 
 
 }

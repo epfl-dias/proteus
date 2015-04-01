@@ -389,6 +389,7 @@ StructType* RawContext::CreateJSMNStruct() {
 	LLVMContext& ctx = *llvmContext;
 	llvm::Type* int32_type = Type::getInt32Ty(ctx);
 	llvm::Type* int8_type = Type::getInt8Ty(ctx);
+	llvm::Type* int16_type = Type::getInt16Ty(ctx);
 #ifndef JSON_TIGHT
 	vector<Type*> jsmn_pos_types;
 	jsmn_pos_types.push_back(int32_type);
@@ -399,8 +400,8 @@ StructType* RawContext::CreateJSMNStruct() {
 #ifdef JSON_TIGHT
 	vector<Type*> jsmn_pos_types;
 	jsmn_pos_types.push_back(int8_type);
-	jsmn_pos_types.push_back(int8_type);
-	jsmn_pos_types.push_back(int8_type);
+	jsmn_pos_types.push_back(int16_type);
+	jsmn_pos_types.push_back(int16_type);
 	jsmn_pos_types.push_back(int8_type);
 #endif
 	return CreateCustomStruct(jsmn_pos_types);
@@ -1049,6 +1050,7 @@ void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size
 		throw runtime_error(msg);
 	}
 	tokens[line] = tokenArray;
+//	cout << "[parseLineJSON: ] " << tokenArray[0].start << " to " << tokenArray[0].end << endl;
 }
 
 

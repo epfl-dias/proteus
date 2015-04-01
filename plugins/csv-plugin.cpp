@@ -880,6 +880,7 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 			readAsFloatLLVM(attr,*variableBindings,atof_,debugChar,debugFloat);
 			break;
 		case INT:
+			/* FIXME Need codegen'd atoi - avoid function call */
 			readAsIntLLVM(attr,*variableBindings,atoi_,debugChar,debugInt);
 			break;
 		case BAG:
