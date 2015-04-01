@@ -25,6 +25,7 @@
 #define JSON_PLUGIN_HPP_
 
 #include "plugins/plugins.hpp"
+#include "util/atois.hpp"
 #include "util/raw-catalog.hpp"
 
 #define DEBUGJSON

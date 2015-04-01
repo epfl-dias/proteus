@@ -281,7 +281,7 @@ void Reduce::generateSum(RawContext* const context, const OperatorState& childSt
 
 	Builder->SetInsertPoint(ifBlock);
 	val_output = outputExpr->accept(outputExprGenerator);
-#ifdef DEBUG
+#ifdef DEBUGREDUCE
 //		std::vector<Value*> ArgsV_;
 //		Function* debugInt = context->getFunction("printi");
 //		ArgsV_.push_back(val_output.value);

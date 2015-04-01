@@ -60,9 +60,9 @@ void CSVPlugin::init()	{
 	IRBuilder<>* Builder = context->getBuilder();
 
 	//Allocating memory
-	AllocaInst *offsetMem = context->CreateEntryBlockAlloca(F,std::string(posVar),Type::getInt64Ty(llvmContext));
-	AllocaInst *bufMem = context->CreateEntryBlockAlloca(F,std::string(bufVar),charPtrType);
-	AllocaInst *fsizeMem = context->CreateEntryBlockAlloca(F,std::string(fsizeVar),Type::getInt64Ty(llvmContext));
+	AllocaInst *offsetMem = context->CreateEntryBlockAlloca(F,string(posVar),Type::getInt64Ty(llvmContext));
+	AllocaInst *bufMem = context->CreateEntryBlockAlloca(F,string(bufVar),charPtrType);
+	AllocaInst *fsizeMem = context->CreateEntryBlockAlloca(F,string(fsizeVar),Type::getInt64Ty(llvmContext));
 	Value* offsetVal = Builder->getInt64(0);
 	Builder->CreateStore(offsetVal,offsetMem);
 	NamedValuesCSV[posVar] = offsetMem;
@@ -72,7 +72,7 @@ void CSVPlugin::init()	{
 	NamedValuesCSV[fsizeVar] = fsizeMem;
 
 	//Typical way to pass a pointer via the LLVM API
-	AllocaInst *AllocaPtr = context->CreateEntryBlockAlloca(F,std::string("charPtr"),charPtrType);
+	AllocaInst *AllocaPtr = context->CreateEntryBlockAlloca(F,string("charPtr"),charPtrType);
 	Value* ptrVal = ConstantInt::get(llvmContext, APInt(64,((uint64_t)buf)));
 	//i8*
 	Value* unshiftedPtr = Builder->CreateIntToPtr(ptrVal,charPtrType);

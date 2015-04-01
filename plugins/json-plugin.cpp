@@ -1548,14 +1548,18 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 	case INT:
 	{
 		/* FIXME change atoi to codegen'ed version */
-		conversionFunc = context->getFunction("atoi");
-		ArgsV.push_back(bufShiftedPtr);
-		convertedValue = Builder->CreateCall(conversionFunc, ArgsV, "atoi");
-		Builder->CreateStore(convertedValue, mem_convertedValue);
+//		conversionFunc = context->getFunction("atoi");
+//		ArgsV.push_back(bufShiftedPtr);
+//		convertedValue = Builder->CreateCall(conversionFunc, ArgsV, "atoi");
+//		Builder->CreateStore(convertedValue, mem_convertedValue);
+		Value *val_len = Builder->CreateSub(token_end,token_start);
+		Value *val_len32 = Builder->CreateTrunc(val_len,int32Type);
+		atois(bufShiftedPtr,val_len32,mem_convertedValue,context);
 		Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 #ifdef DEBUGJSON
 //		vector<Value*> ArgsV;
 //		Function* debugInt = context->getFunction("printi");
+//		convertedValue = Builder->CreateLoad(mem_convertedValue);
 //		ArgsV.push_back(convertedValue);
 //		Builder->CreateCall(debugInt, ArgsV);
 //		ArgsV.clear();
