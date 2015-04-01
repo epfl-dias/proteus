@@ -32,6 +32,7 @@
 #include "operators/print.hpp"
 #include "operators/root.hpp"
 #include "operators/reduce.hpp"
+#include "operators/reduce-nopred.hpp"
 #include "operators/nest.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/binary-row-plugin.hpp"
@@ -96,11 +97,14 @@ void hashIfThenElse();
 
 
 void reduceNumeric();
+void reduceNoPredSum();
+void reduceNoPredMax();
 void reduceBoolean();
 
 //Producing actual output (JSON)
 //Only JSON plugin made 'flusher-aware' atm
 void reduceListObject();
+void reduceNoPredListObject();
 void reduceListInt();
 void reduceListIntCSV();
 void reduceListRecordConstruction();
@@ -226,9 +230,14 @@ int main(int argc, char* argv[])
 //	reduceListObjectFlat();
 	reduceJSONMaxFlat(false);
 
-//	reduceJSONDeeperMaxFlat(false);
+	reduceJSONDeeperMaxFlat(false);
 
 //	atoiCSV();
+
+	/* Simplified Reduce */
+//	reduceNoPredListObject();
+//	reduceNoPredSum();
+//	reduceNoPredMax();
 }
 
 void hashConstants()	{
@@ -2188,6 +2197,71 @@ void reduceListObject()
 	catalog.clear();
 }
 
+void reduceNoPredListObject()
+{
+	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/jsmnDeeper.json");
+
+	IntType intType = IntType();
+
+	string c1Name = string("c1");
+	RecordAttribute c1 = RecordAttribute(1, fname, c1Name, &intType);
+	string c2Name = string("c2");
+	RecordAttribute c2 = RecordAttribute(2, fname, c2Name, &intType);
+	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
+	attsNested.push_back(&c1);
+	attsNested.push_back(&c2);
+	RecordType nested = RecordType(attsNested);
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	string attrName3 = string("c");
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &intType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &intType);
+	RecordAttribute attr3 = RecordAttribute(3, fname, attrName3, &nested);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+	atts.push_back(&attr3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	/**
+	 * SCAN
+	 */
+	jsmn::JSONPlugin pg = jsmn::JSONPlugin(&ctx, fname, &documentType);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	/**
+	 * REDUCE (No Pred)
+	 */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(attr2);
+	projections.push_back(attr3);
+
+	expressions::Expression* arg = new expressions::InputArgument(&inner, 0,
+			projections);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(
+			&nested, arg, attr3);
+
+	ReduceNoPred reduce = ReduceNoPred(UNION, outputExpr, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
 void reduceListObjectFlat()
 {
 	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
@@ -2270,8 +2344,8 @@ void reduceJSONMaxFlat(bool longRun)
 		fname = string("inputs/json/jsmnDeeper-flat.json");
 		lineHint = 10;
 	} else {
-		fname = string("inputs/json/jsmnDeeper-flat1k.json");
-		lineHint = 1000;
+//		fname = string("inputs/json/jsmnDeeper-flat1k.json");
+//		lineHint = 1000;
 
 //		fname = string("inputs/json/jsmnDeeper-flat100k.json");
 //		lineHint = 100000;
@@ -2279,11 +2353,11 @@ void reduceJSONMaxFlat(bool longRun)
 //		fname = string("inputs/json/jsmnDeeper-flat1m.json");
 //		lineHint = 1000000;
 
-//		fname = string("inputs/json/jsmnDeeper-flat100m.json");
-//		lineHint = 100000000;
+		fname = string("inputs/json/jsmnDeeper-flat100m.json");
+		lineHint = 100000000;
 
-		fname = string("inputs/json/jsmnDeeper-flat200m.json");
-		lineHint = 200000000;
+//		fname = string("inputs/json/jsmnDeeper-flat200m.json");
+//		lineHint = 200000000;
 	}
 	cout << "Input: " << fname << endl;
 
@@ -2887,6 +2961,128 @@ void reduceNumeric()
 //	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scan, &ctx);
 //	Reduce reduce = Reduce(MULTIPLY, outputExpr, predicate, &scan, &ctx);
 	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg->finish();
+	catalog.clear();
+}
+
+void reduceNoPredMax()
+{
+	RawContext ctx = RawContext("reduceNoPredNumeric");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	//SCAN1
+	string filename = string("inputs/sailors.csv");
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* floatType = new FloatType();
+	PrimitiveType* stringType = new StringType();
+	RecordAttribute* sid = new RecordAttribute(1, filename, string("sid"),
+			intType);
+	RecordAttribute* sname = new RecordAttribute(2, filename, string("sname"),
+			stringType);
+	RecordAttribute* rating = new RecordAttribute(3, filename, string("rating"),
+			intType);
+	RecordAttribute* age = new RecordAttribute(4, filename, string("age"),
+			floatType);
+
+	list<RecordAttribute*> attrList;
+	attrList.push_back(sid);
+	attrList.push_back(sname);
+	attrList.push_back(rating);
+	attrList.push_back(age);
+
+	RecordType rec1 = RecordType(attrList);
+
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(sid);
+	whichFields.push_back(age);
+
+	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
+	catalog.registerPlugin(filename, pg);
+	Scan scan = Scan(&ctx, *pg);
+
+	/**
+	 * REDUCE
+	 */
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(*sid);
+	projections.push_back(*age);
+
+	expressions::Expression* arg = new expressions::InputArgument(&rec1, 0,
+			projections);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(
+			intType, arg, *sid);
+
+	ReduceNoPred reduce = ReduceNoPred(MAX, outputExpr, &scan, &ctx);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg->finish();
+	catalog.clear();
+}
+
+void reduceNoPredSum()
+{
+	RawContext ctx = RawContext("reduceNoPredNumeric");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	//SCAN1
+	string filename = string("inputs/sailors.csv");
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* floatType = new FloatType();
+	PrimitiveType* stringType = new StringType();
+	RecordAttribute* sid = new RecordAttribute(1, filename, string("sid"),
+			intType);
+	RecordAttribute* sname = new RecordAttribute(2, filename, string("sname"),
+			stringType);
+	RecordAttribute* rating = new RecordAttribute(3, filename, string("rating"),
+			intType);
+	RecordAttribute* age = new RecordAttribute(4, filename, string("age"),
+			floatType);
+
+	list<RecordAttribute*> attrList;
+	attrList.push_back(sid);
+	attrList.push_back(sname);
+	attrList.push_back(rating);
+	attrList.push_back(age);
+
+	RecordType rec1 = RecordType(attrList);
+
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(sid);
+	whichFields.push_back(age);
+
+	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
+	catalog.registerPlugin(filename, pg);
+	Scan scan = Scan(&ctx, *pg);
+
+	/**
+	 * REDUCE
+	 */
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(*sid);
+	projections.push_back(*age);
+
+	expressions::Expression* arg = new expressions::InputArgument(&rec1, 0,
+			projections);
+	expressions::Expression* outputExpr = new expressions::RecordProjection(
+			intType, arg, *sid);
+
+	ReduceNoPred reduce = ReduceNoPred(SUM, outputExpr, &scan, &ctx);
 	scan.setParent(&reduce);
 
 	reduce.produce();
