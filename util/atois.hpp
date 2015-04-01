@@ -9,6 +9,8 @@
 #define ATOIS_HPP_
 
 #include "common/common.hpp"
+#include "util/raw-context.hpp"
+
 
 void atois(Value *buf, Value* len, AllocaInst *mem_result, RawContext* const context);
 void atoi1(Value *buf, AllocaInst *mem_result, RawContext* const context);

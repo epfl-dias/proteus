@@ -52,6 +52,9 @@ void reduceJSONMaxFlat(bool longRun);
 void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname, jsmntok_t** tokens);
 void reduceJSONDeeperMaxFlat(bool longRun);
 
+/* Codegen'd atoi */
+void atoiCSV();
+
 void scanJsmn();
 void selectionJsmn();
 
@@ -223,9 +226,9 @@ int main(int argc, char* argv[])
 //	reduceListObjectFlat();
 //	reduceJSONMaxFlat(false);
 
-	reduceJSONDeeperMaxFlat(false);
+//	reduceJSONDeeperMaxFlat(false);
 
-
+	atoiCSV();
 }
 
 void hashConstants()	{
@@ -1367,6 +1370,61 @@ void scanCSV()
 	vector<RecordAttribute*> whichFields;
 	whichFields.push_back(sid);
 	whichFields.push_back(age);
+
+	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
+	catalog.registerPlugin(filename, pg);
+	Scan scan = Scan(&ctx, *pg);
+
+	/**
+	 * ROOT
+	 */
+	Root rootOp = Root(&scan);
+	scan.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pg->finish();
+	catalog.clear();
+}
+
+void atoiCSV()
+{
+	RawContext ctx = RawContext("testFunction-AtoiCSV");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	/**
+	 * SCAN
+	 */
+	string filename = string("inputs/csv/small.csv");
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* floatType = new FloatType();
+	PrimitiveType* stringType = new StringType();
+	RecordAttribute* f1 = new RecordAttribute(1, filename, string("f1"),
+			intType);
+	RecordAttribute* f2 = new RecordAttribute(2, filename, string("f2"),
+			intType);
+	RecordAttribute* f3 = new RecordAttribute(3, filename, string("f3"),
+			intType);
+	RecordAttribute* f4 = new RecordAttribute(3, filename, string("f4"),
+			intType);
+	RecordAttribute* f5 = new RecordAttribute(3, filename, string("f5"),
+				intType);
+
+	list<RecordAttribute*> attrList;
+	attrList.push_back(f1);
+	attrList.push_back(f2);
+	attrList.push_back(f3);
+	attrList.push_back(f4);
+	attrList.push_back(f5);
+
+	RecordType rec1 = RecordType(attrList);
+
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(f1);
+	whichFields.push_back(f2);
 
 	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
 	catalog.registerPlugin(filename, pg);

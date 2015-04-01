@@ -22,6 +22,7 @@
 */
 
 #include "plugins/plugins.hpp"
+#include "util/atois.hpp"
 
 class CSVPlugin	: public Plugin {
 public:
@@ -104,6 +105,7 @@ private:
 	void skipToEndLLVM();
 	void getFieldEndLLVM();
 	void readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables, Function* atoi_,Function* debugChar,Function* debugInt);
+	void readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
 	void readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables, Function* atof_,Function* debugChar,Function* debugFloat);
 	void readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
 

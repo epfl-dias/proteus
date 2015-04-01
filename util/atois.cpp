@@ -29,18 +29,18 @@ void atois(Value *buf, Value* len, AllocaInst *mem_result, RawContext* const con
 	blockLen9 	 = BasicBlock::Create(llvmContext, "blockLen9", F);
 	blockLen10 	 = BasicBlock::Create(llvmContext, "blockLen10", F);
 	defaultBlock = BasicBlock::Create(llvmContext, "defaultAtoiSwitch", F);
-	defaultBlock = BasicBlock::Create(llvmContext, "returnAtoiSwitch", F);
+	returnBlock = BasicBlock::Create(llvmContext, "returnAtoiSwitch", F);
 
 	ConstantInt *val_1  = context->createInt32(1);
-	ConstantInt *val_2  = context->createInt32(1);
-	ConstantInt *val_3  = context->createInt32(1);
-	ConstantInt *val_4  = context->createInt32(1);
-	ConstantInt *val_5  = context->createInt32(1);
-	ConstantInt *val_6  = context->createInt32(1);
-	ConstantInt *val_7  = context->createInt32(1);
-	ConstantInt *val_8  = context->createInt32(1);
-	ConstantInt *val_9  = context->createInt32(1);
-	ConstantInt *val_10 = context->createInt32(1);
+	ConstantInt *val_2  = context->createInt32(2);
+	ConstantInt *val_3  = context->createInt32(3);
+	ConstantInt *val_4  = context->createInt32(4);
+	ConstantInt *val_5  = context->createInt32(5);
+	ConstantInt *val_6  = context->createInt32(6);
+	ConstantInt *val_7  = context->createInt32(7);
+	ConstantInt *val_8  = context->createInt32(8);
+	ConstantInt *val_9  = context->createInt32(9);
+	ConstantInt *val_10 = context->createInt32(10);
 
 	SwitchInst *atoiSwitch = Builder->CreateSwitch(len, defaultBlock,10);
 	atoiSwitch->addCase(val_1,blockLen1);
@@ -93,6 +93,14 @@ void atois(Value *buf, Value* len, AllocaInst *mem_result, RawContext* const con
 	Builder->SetInsertPoint(blockLen10);
 	atoi10(buf, mem_result, context);
 	Builder->CreateBr(returnBlock);
+
+	/* Handle 'error' case */
+	Builder->SetInsertPoint(defaultBlock);
+	Value *val_error = Builder->getInt32(-1);
+	Builder->CreateRet(val_error);
+
+	/* Back to normal */
+	Builder->SetInsertPoint(returnBlock);
 }
 
 void atoi1(Value *buf, AllocaInst *mem_result, RawContext* const context) {
@@ -106,10 +114,202 @@ void atoi1(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 	IRBuilder<>* Builder = context->getBuilder();
 	Function* F = context->getGlobalFunction();
 
-	// ConstantInt *char_0 = ?
+	ConstantInt *char_0 =
+			ConstantInt::get(llvmContext, APInt(8, StringRef("97"), 10));
 	ConstantInt *val_0  = context->createInt32(0);
-	context->getArrayElem(buf,val_0);
+	Value *buf_0 = context->getArrayElem(buf,val_0);
+
+	Value *val_res = Builder->CreateSub(buf_0,char_0);
+	Value *val_res32 = Builder->CreateSExt(val_res,int32Type);
+	Builder->CreateStore(val_res32,mem_result);
 }
 
+void atoi2(Value *buf, AllocaInst *mem_result, RawContext* const context) {
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int8Type = Type::getInt8Ty(llvmContext);
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
 
+	ConstantInt *char_0 =
+			ConstantInt::get(llvmContext, APInt(8, StringRef("97"), 10));
+	ConstantInt *val_0  = context->createInt32(0);
+	Value *buf_0 = context->getArrayElem(buf,val_0);
+
+	Value *val_res = Builder->CreateSub(buf_0,char_0);
+	Value *val_res32 = Builder->CreateSExt(val_res,int32Type);
+	Builder->CreateStore(val_res32,mem_result);
+}
+
+void atoi3(Value *buf, AllocaInst *mem_result, RawContext* const context) {
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int8Type = Type::getInt8Ty(llvmContext);
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+
+	ConstantInt *char_0 =
+			ConstantInt::get(llvmContext, APInt(8, StringRef("97"), 10));
+	ConstantInt *val_0  = context->createInt32(0);
+	Value *buf_0 = context->getArrayElem(buf,val_0);
+
+	Value *val_res = Builder->CreateSub(buf_0,char_0);
+	Value *val_res32 = Builder->CreateSExt(val_res,int32Type);
+	Builder->CreateStore(val_res32,mem_result);
+}
+
+void atoi4(Value *buf, AllocaInst *mem_result, RawContext* const context) {
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int8Type = Type::getInt8Ty(llvmContext);
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+
+	ConstantInt *char_0 =
+			ConstantInt::get(llvmContext, APInt(8, StringRef("97"), 10));
+	ConstantInt *val_0  = context->createInt32(0);
+	Value *buf_0 = context->getArrayElem(buf,val_0);
+
+	Value *val_res = Builder->CreateSub(buf_0,char_0);
+	Value *val_res32 = Builder->CreateSExt(val_res,int32Type);
+	Builder->CreateStore(val_res32,mem_result);
+}
+
+void atoi5(Value *buf, AllocaInst *mem_result, RawContext* const context) {
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int8Type = Type::getInt8Ty(llvmContext);
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+
+	ConstantInt *char_0 =
+			ConstantInt::get(llvmContext, APInt(8, StringRef("97"), 10));
+	ConstantInt *val_0  = context->createInt32(0);
+	Value *buf_0 = context->getArrayElem(buf,val_0);
+
+	Value *val_res = Builder->CreateSub(buf_0,char_0);
+	Value *val_res32 = Builder->CreateSExt(val_res,int32Type);
+	Builder->CreateStore(val_res32,mem_result);
+}
+
+void atoi6(Value *buf, AllocaInst *mem_result, RawContext* const context) {
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int8Type = Type::getInt8Ty(llvmContext);
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+
+	ConstantInt *char_0 =
+			ConstantInt::get(llvmContext, APInt(8, StringRef("97"), 10));
+	ConstantInt *val_0  = context->createInt32(0);
+	Value *buf_0 = context->getArrayElem(buf,val_0);
+
+	Value *val_res = Builder->CreateSub(buf_0,char_0);
+	Value *val_res32 = Builder->CreateSExt(val_res,int32Type);
+	Builder->CreateStore(val_res32,mem_result);
+}
+
+void atoi7(Value *buf, AllocaInst *mem_result, RawContext* const context) {
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int8Type = Type::getInt8Ty(llvmContext);
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+
+	ConstantInt *char_0 =
+			ConstantInt::get(llvmContext, APInt(8, StringRef("97"), 10));
+	ConstantInt *val_0  = context->createInt32(0);
+	Value *buf_0 = context->getArrayElem(buf,val_0);
+
+	Value *val_res = Builder->CreateSub(buf_0,char_0);
+	Value *val_res32 = Builder->CreateSExt(val_res,int32Type);
+	Builder->CreateStore(val_res32,mem_result);
+}
+
+void atoi8(Value *buf, AllocaInst *mem_result, RawContext* const context) {
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int8Type = Type::getInt8Ty(llvmContext);
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+
+	ConstantInt *char_0 =
+			ConstantInt::get(llvmContext, APInt(8, StringRef("97"), 10));
+	ConstantInt *val_0  = context->createInt32(0);
+	Value *buf_0 = context->getArrayElem(buf,val_0);
+
+	Value *val_res = Builder->CreateSub(buf_0,char_0);
+	Value *val_res32 = Builder->CreateSExt(val_res,int32Type);
+	Builder->CreateStore(val_res32,mem_result);
+}
+
+void atoi9(Value *buf, AllocaInst *mem_result, RawContext* const context) {
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int8Type = Type::getInt8Ty(llvmContext);
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+
+	ConstantInt *char_0 =
+			ConstantInt::get(llvmContext, APInt(8, StringRef("97"), 10));
+	ConstantInt *val_0  = context->createInt32(0);
+	Value *buf_0 = context->getArrayElem(buf,val_0);
+
+	Value *val_res = Builder->CreateSub(buf_0,char_0);
+	Value *val_res32 = Builder->CreateSExt(val_res,int32Type);
+	Builder->CreateStore(val_res32,mem_result);
+}
+
+void atoi10(Value *buf, AllocaInst *mem_result, RawContext* const context) {
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int8Type = Type::getInt8Ty(llvmContext);
+	Type* int1Type = Type::getInt1Ty(llvmContext);
+	llvm::Type* doubleType = Type::getDoubleTy(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+
+	ConstantInt *char_0 =
+			ConstantInt::get(llvmContext, APInt(8, StringRef("97"), 10));
+	ConstantInt *val_0  = context->createInt32(0);
+	Value *buf_0 = context->getArrayElem(buf,val_0);
+
+	Value *val_res = Builder->CreateSub(buf_0,char_0);
+	Value *val_res32 = Builder->CreateSExt(val_res,int32Type);
+	Builder->CreateStore(val_res32,mem_result);
+}
 

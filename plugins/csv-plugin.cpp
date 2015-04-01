@@ -644,6 +644,68 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawV
 	variables[attName] = mem_valWrapper;
 }
 
+void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
+{
+	//Prepare
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+
+	//Fetch values from symbol table
+	AllocaInst* pos;
+	{
+		map<string, AllocaInst*>::iterator it;
+		it = NamedValuesCSV.find(posVar);
+		if (it == NamedValuesCSV.end()) {
+			throw runtime_error(string("Unknown variable name: ") + posVar);
+		}
+		pos = it->second;
+	}
+	AllocaInst* buf;
+	{
+		map<string, AllocaInst*>::iterator it;
+		it = NamedValuesCSV.find(bufVar);
+		if (it == NamedValuesCSV.end()) {
+			throw runtime_error(string("Unknown variable name: ") + bufVar);
+		}
+		buf = it->second;
+	}
+
+	Value* start = Builder->CreateLoad(pos, "start_pos_atoi");
+	getFieldEndLLVM();
+	//index must be different than start!
+	Value* index = Builder->CreateLoad(pos, "end_pos_atoi");
+	//Must increase offset by 1 now
+	//(uniform behavior with other skip methods)
+	Value *val_1 = Builder->getInt64(1);
+	Value* pos_inc = Builder->CreateAdd(index,val_1);
+	Builder->CreateStore(pos_inc, pos);
+	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
+	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
+	Value* len = Builder->CreateSub(index,start);
+	Value* len_32 = Builder->CreateTrunc(len,int32Type);
+
+//	vector<Value*> ArgsV;
+//	ArgsV.clear();
+//	ArgsV.push_back(bufShiftedPtr);
+//	ArgsV.push_back(len_32);
+
+//	Function* atois = context->getFunction("atois");
+//	Value* parsedInt = Builder->CreateCall(atois, ArgsV, "atois");
+
+	AllocaInst *mem_result = context->CreateEntryBlockAlloca(TheFunction, "nen_currIntResult", int32Type);
+	atois(bufShiftedPtr,len_32,mem_result,context);
+	LOG(INFO) << "[READ INT: ] Atoi Successful";
+
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = mem_result;
+	mem_valWrapper.isNull = context->createFalse();
+	variables[attName] = mem_valWrapper;
+}
+
 void CSVPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)	{
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -881,7 +943,8 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 			break;
 		case INT:
 			/* FIXME Need codegen'd atoi - avoid function call */
-			readAsIntLLVM(attr,*variableBindings,atoi_,debugChar,debugInt);
+//			readAsIntLLVM(attr,*variableBindings,atoi_,debugChar,debugInt);
+			readAsIntLLVM(attr,*variableBindings);
 			break;
 		case BAG:
 		case LIST:
