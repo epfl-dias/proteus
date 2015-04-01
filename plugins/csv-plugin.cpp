@@ -593,7 +593,7 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawV
 	//Fetch values from symbol table
 	AllocaInst* pos;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(posVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + posVar);
@@ -602,7 +602,7 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawV
 	}
 	AllocaInst* buf;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(bufVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + bufVar);
@@ -624,7 +624,7 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawV
 	Value* len = Builder->CreateSub(index,start);
 	Value* len_32 = Builder->CreateTrunc(len,int32Type);
 
-	std::vector<Value*> ArgsV;
+	vector<Value*> ArgsV;
 	ArgsV.clear();
 	ArgsV.push_back(bufShiftedPtr);
 	ArgsV.push_back(len_32);
@@ -654,7 +654,7 @@ void CSVPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, 
 	//Fetch values from symbol table
 	AllocaInst* pos;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(posVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + posVar);
@@ -663,7 +663,7 @@ void CSVPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, 
 	}
 	AllocaInst* buf;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(bufVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + bufVar);
