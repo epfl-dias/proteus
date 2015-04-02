@@ -24,6 +24,8 @@
 #include "plugins/plugins.hpp"
 #include "util/atois.hpp"
 
+#define DEBUGPM
+
 namespace pm {
 class CSVPlugin: public Plugin {
 public:

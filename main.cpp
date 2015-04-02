@@ -35,6 +35,7 @@
 #include "operators/reduce-nopred.hpp"
 #include "operators/nest.hpp"
 #include "plugins/csv-plugin.hpp"
+#include "plugins/csv-plugin-pm.hpp"
 #include "plugins/binary-row-plugin.hpp"
 #include "plugins/binary-col-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
@@ -52,6 +53,10 @@ void reduceListObjectFlat();
 void reduceJSONMaxFlat(bool longRun);
 void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname, jsmntok_t** tokens);
 void reduceJSONDeeperMaxFlat(bool longRun);
+
+/* New, pm-enabled CSV plugin */
+void scanCsvPM();
+void scanCsvWidePM();
 
 /* Codegen'd atoi */
 void atoiCSV();
@@ -228,11 +233,12 @@ int main(int argc, char* argv[])
 //	selectionJSONFlat();
 //	unnestJSONFlat();
 //	reduceListObjectFlat();
-	reduceJSONMaxFlat(false);
-
-	reduceJSONDeeperMaxFlat(false);
+//	reduceJSONMaxFlat(false);
+//	reduceJSONDeeperMaxFlat(false);
 
 //	atoiCSV();
+	scanCsvPM();
+	scanCsvWidePM();
 
 	/* Simplified Reduce */
 //	reduceNoPredListObject();
@@ -1365,7 +1371,7 @@ void scanCSV()
 			stringType);
 	RecordAttribute* rating = new RecordAttribute(3, filename, string("rating"),
 			intType);
-	RecordAttribute* age = new RecordAttribute(3, filename, string("age"),
+	RecordAttribute* age = new RecordAttribute(4, filename, string("age"),
 			floatType);
 
 	list<RecordAttribute*> attrList;
@@ -1381,6 +1387,112 @@ void scanCSV()
 	whichFields.push_back(age);
 
 	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
+	catalog.registerPlugin(filename, pg);
+	Scan scan = Scan(&ctx, *pg);
+
+	/**
+	 * ROOT
+	 */
+	Root rootOp = Root(&scan);
+	scan.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pg->finish();
+	catalog.clear();
+}
+
+void scanCsvPM()
+{
+	RawContext ctx = RawContext("testFunction-ScanCsvPM");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	/**
+	 * SCAN
+	 */
+	string filename = string("inputs/sailors.csv");
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* floatType = new FloatType();
+	PrimitiveType* stringType = new StringType();
+	RecordAttribute* sid = new RecordAttribute(1, filename, string("sid"),
+			intType);
+	RecordAttribute* sname = new RecordAttribute(2, filename, string("sname"),
+			stringType);
+	RecordAttribute* rating = new RecordAttribute(3, filename, string("rating"),
+			intType);
+	RecordAttribute* age = new RecordAttribute(4, filename, string("age"),
+			floatType);
+
+	list<RecordAttribute*> attrList;
+	attrList.push_back(sid);
+	attrList.push_back(sname);
+	attrList.push_back(rating);
+	attrList.push_back(age);
+
+	RecordType rec1 = RecordType(attrList);
+
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(sid);
+	whichFields.push_back(age);
+
+	/* 1 every 5 fields indexed in PM */
+	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields,10,2);
+	catalog.registerPlugin(filename, pg);
+	Scan scan = Scan(&ctx, *pg);
+
+	/**
+	 * ROOT
+	 */
+	Root rootOp = Root(&scan);
+	scan.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pg->finish();
+	catalog.clear();
+}
+
+void scanCsvWidePM()
+{
+	RawContext ctx = RawContext("testFunction-ScanCsvWidePM");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	/**
+	 * SCAN
+	 */
+	string filename = string("inputs/csv/30cols.csv");
+	PrimitiveType* intType = new IntType();
+	list<RecordAttribute*> attrList;
+	RecordAttribute *attr6, *attr10;
+
+	for(int i = 0; i < 30 ; i++)	{
+		RecordAttribute* attr = new RecordAttribute(i+1, filename, "field",
+					intType);
+		attrList.push_back(attr);
+
+		if(i == 5)	{
+			attr6 = attr;
+		}
+
+		if(i == 9)	{
+			attr10 = attr;
+		}
+	}
+
+	RecordType rec1 = RecordType(attrList);
+
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(attr6);
+	whichFields.push_back(attr10);
+
+	/* 1 every 5 fields indexed in PM */
+	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields,10,6);
 	catalog.registerPlugin(filename, pg);
 	Scan scan = Scan(&ctx, *pg);
 
@@ -1417,9 +1529,9 @@ void atoiCSV()
 			intType);
 	RecordAttribute* f3 = new RecordAttribute(3, filename, string("f3"),
 			intType);
-	RecordAttribute* f4 = new RecordAttribute(3, filename, string("f4"),
+	RecordAttribute* f4 = new RecordAttribute(4, filename, string("f4"),
 			intType);
-	RecordAttribute* f5 = new RecordAttribute(3, filename, string("f5"),
+	RecordAttribute* f5 = new RecordAttribute(5, filename, string("f5"),
 				intType);
 
 	list<RecordAttribute*> attrList;
@@ -1473,7 +1585,7 @@ void selectionCSV()
 			stringType);
 	RecordAttribute* rating = new RecordAttribute(3, filename, string("rating"),
 			intType);
-	RecordAttribute* age = new RecordAttribute(3, filename, string("age"),
+	RecordAttribute* age = new RecordAttribute(4, filename, string("age"),
 			floatType);
 
 	list<RecordAttribute*> attrList;
