@@ -240,12 +240,72 @@ int main(int argc, char* argv[])
 //	atoiCSV();
 //	scanCsvPM();
 //	scanCsvWidePM();
-	scanCsvWideUsePM();
+//	scanCsvWideUsePM();
 
 	/* Simplified Reduce */
 //	reduceNoPredListObject();
 //	reduceNoPredSum();
 //	reduceNoPredMax();
+
+	struct less_map: std::binary_function<const expressions::Expression *,
+			const expressions::Expression *, bool> {
+		bool operator()(const expressions::Expression *a,
+				const expressions::Expression *b) const {
+			return *a < *b;
+		}
+	};
+	map<expressions::Expression*,int,less_map> mapTest;
+
+	expressions::IntConstant val_int = expressions::IntConstant(88);
+	expressions::FloatConstant val_float = expressions::FloatConstant(90.4);
+	expressions::IntConstant key = expressions::IntConstant(88);
+
+	mapTest[&val_int] = 9;
+	mapTest[&val_float] = 7;
+
+	IntType intType = IntType();
+	StringType stringType = StringType();
+	string fname = "file.json";
+	string empName = string("name");
+	RecordAttribute emp1 = RecordAttribute(1, fname, empName, &stringType);
+	string empAge = string("age");
+	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &intType);
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&emp1);
+	atts.push_back(&emp2);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	expressions::Expression *inputArg = new expressions::InputArgument(&inner,
+			0, projections);
+	mapTest[inputArg] = 111;
+
+	/* 2nd Input Arg */
+	projections.push_back(projTuple);
+	expressions::Expression *inputArg2 = new expressions::InputArgument(&inner,
+				0, projections);
+	mapTest[inputArg2] = 181;
+
+
+	{
+		map<expressions::Expression*, int, less_map>::iterator it =
+				mapTest.find(&key);
+		if (it != mapTest.end()) {
+			cout << "Found! " << it->second << endl;
+		}
+	}
+
+	{
+		map<expressions::Expression*, int, less_map>::iterator it =
+				mapTest.find(inputArg2);
+		if (it != mapTest.end()) {
+			cout << "Found! " << it->second << endl;
+		}
+	}
 }
 
 void hashConstants()	{

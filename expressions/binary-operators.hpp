@@ -28,21 +28,25 @@ namespace expressions	{
 
 class BinaryOperator	{
 public:
+	enum opID {
+		EQ, NEQ, GE, GT, LE, LT, ADD, SUB, MULT, DIV, AND, OR
+	};
+	virtual opID getID() = 0;
 	virtual ~BinaryOperator() = 0;
 };
 
-class Eq   : public BinaryOperator {};
-class Neq  : public BinaryOperator {};
-class Ge   : public BinaryOperator {};
-class Gt   : public BinaryOperator {};
-class Le   : public BinaryOperator {};
-class Lt   : public BinaryOperator {};
-class Add  : public BinaryOperator {};
-class Sub  : public BinaryOperator {};
-class Mult : public BinaryOperator {};
-class Div  : public BinaryOperator {};
-class And  : public BinaryOperator {};
-class Or  : public BinaryOperator {};
+class Eq   : public BinaryOperator { opID getID() {return EQ;}};
+class Neq  : public BinaryOperator { opID getID() {return NEQ;}};
+class Ge   : public BinaryOperator { opID getID() {return GE;}};
+class Gt   : public BinaryOperator { opID getID() {return GT;}};
+class Le   : public BinaryOperator { opID getID() {return LE;}};
+class Lt   : public BinaryOperator { opID getID() {return LT;}};
+class Add  : public BinaryOperator { opID getID() {return ADD;}};
+class Sub  : public BinaryOperator { opID getID() {return SUB;}};
+class Mult : public BinaryOperator { opID getID() {return MULT;}};
+class Div  : public BinaryOperator { opID getID() {return DIV;}};
+class And  : public BinaryOperator { opID getID() {return AND;}};
+class Or   : public BinaryOperator { opID getID() {return OR;}};
 }
 
 #endif /* BINARYOPERATORS_HPP_ */

@@ -131,15 +131,6 @@ public:
 	void setProjected()												{ projected = true; }
 	bool isProjected()												{ return projected; }
 
-//	bool operator==(const RecordAttribute& rhs) const
-//	{
-//	    if (getOriginalRelationName() != rhs.getOriginalRelationName())
-//	        return false;
-//	    if (getAttrName() != rhs.getAttrName())
-//	        return false;
-//	    return true;
-//	}
-
 private:
 	string relName;
 	string attrName;
@@ -149,15 +140,6 @@ private:
 	int attrNo;
 	bool projected;
 
-};
-
-bool recordComparator (RecordAttribute* x, RecordAttribute* y);
-inline bool operator<(const RecordAttribute& l, const RecordAttribute& r) {
-		if (l.getRelationName() == r.getRelationName()) {
-			return l.getAttrName() < r.getAttrName();
-		} else {
-			return l.getRelationName() < r.getRelationName();
-		}
 };
 
 class RecordType : public ExpressionType	{
@@ -176,7 +158,7 @@ public:
 		ss<<"Record(";
 		int count = 0;
 		int size = args.size();
-		for (std::list<RecordAttribute*>::iterator it = args.begin(); it != args.end(); it++) {
+		for (list<RecordAttribute*>::iterator it = args.begin(); it != args.end(); it++) {
 			ss<<(*it)->getType();
 			count++;
 			if(count != size) {
@@ -187,7 +169,7 @@ public:
 		return ss.str();
 	}
 	typeID getTypeID()	const					{ return RECORD; }
-	list<RecordAttribute*>& getArgs() 			{ return args; }
+	list<RecordAttribute*>& getArgs() const 	{ return args; }
 	map<string, RecordAttribute*>& getArgsMap()	{ return argsMap; }
 	int getArgsNo() 							{ return args.size(); }
 	bool isPrimitive() 	const					{ return false; }
@@ -196,6 +178,7 @@ public:
 private:
 	list<RecordAttribute*>& args;
 	map<string, RecordAttribute*> argsMap;
+
 };
 
 class ExprTypeVisitor
@@ -208,5 +191,106 @@ public:
 	virtual void visit(RecordType type) = 0;
 	virtual ~ExprTypeVisitor();
 };
+
+
+/* XXX Not too sure these comparators make sense.
+ * If difference between hashed expressions boils down to this
+ * point, I am doing sth wrong. */
+inline bool operator<(const ExpressionType& l, const ExpressionType& r) {
+	cout << "Comparing GENERIC EXPRESSION TYPE" << endl;
+	return l.getType() < r.getType();
+}
+
+//inline bool operator<(const ExpressionType& l, const ExpressionType& r) {
+//	cout << "Comparing GENERIC EXPRESSION TYPE" << endl;
+//
+//	if (l.getTypeID() == r.getTypeID()) {
+//		string error_msg = string(
+//				"This operator is NOT responsible for this case!");
+//		LOG(ERROR)<< error_msg;
+//		throw runtime_error(error_msg);
+//	} else {
+//		return l.getTypeID() < r.getTypeID();
+//	}
+//	return false;
+//}
+//
+//inline bool operator<(const PrimitiveType& l, const PrimitiveType& r) {
+//	cout << "Comparing GENERIC primitive TYPE" << endl;
+//	return false;
+//}
+//
+//inline bool operator<(const IntType& l, const IntType& r) {
+//	cout << "Comparing primitive TYPE" << endl;
+//	return false;
+//}
+//
+//inline bool operator<(const FloatType& l, const FloatType& r) {
+//	cout << "Comparing primitive TYPE" << endl;
+//	return false;
+//}
+//
+//inline bool operator<(const StringType& l, const StringType& r) {
+//	cout << "Comparing primitive TYPE" << endl;
+//	return false;
+//}
+//
+//inline bool operator<(const BoolType& l, const BoolType& r) {
+//	cout << "Comparing primitive TYPE" << endl;
+//	return false;
+//}
+//
+//inline bool operator<(const CollectionType& l, const CollectionType& r) {
+//	cout << "Comparing GENERIC collection TYPE" << endl;
+//	return l.getType() < r.getType();
+//}
+////inline bool operator<(const ListType& l, const ListType& r) {
+////	cout << "Comparing collection TYPE" << endl;
+////	return l.getNestedType() < r.getNestedType();
+////}
+////inline bool operator<(const BagType& l, const BagType& r) {
+////	cout << "Comparing collection TYPE" << endl;
+////	return l.getNestedType() < r.getNestedType();
+////}
+////inline bool operator<(const SetType& l, const SetType& r) {
+////	cout << "Comparing collection TYPE" << endl;
+////	return l.getNestedType() < r.getNestedType();
+////}
+//
+bool recordComparator (RecordAttribute* x, RecordAttribute* y);
+inline bool operator<(const RecordAttribute& l, const RecordAttribute& r) {
+	if (l.getRelationName() == r.getRelationName()) {
+		return l.getAttrName() < r.getAttrName();
+	} else {
+		return l.getRelationName() < r.getRelationName();
+	}
+}
+//
+//
+//inline bool operator<(const RecordType& l, const RecordType& r) {
+//	list<RecordAttribute*>& leftArgs = l.getArgs();
+//	list<RecordAttribute*>& rightArgs = r.getArgs();
+//
+//	if (leftArgs.size() != rightArgs.size()) {
+//		return leftArgs.size() < rightArgs.size();
+//	}
+//
+//	list<RecordAttribute*>::iterator itLeftArgs = leftArgs.begin();
+//	list<RecordAttribute*>::iterator itRightArgs = rightArgs.begin();
+//
+//	while (itLeftArgs != leftArgs.end()) {
+//		RecordAttribute attrLeft = *(*itLeftArgs);
+//		RecordAttribute attrRight = *(*itRightArgs);
+//
+//		bool eqAttr = !(attrLeft < attrRight) && !(attrRight < attrLeft);
+//		if (!eqAttr) {
+//			return attrLeft < attrRight;
+//		}
+//		itLeftArgs++;
+//		itRightArgs++;
+//	}
+//	return false;
+//}
+//;
 
 #endif /* EXPRESSIONTYPES_HPP_ */

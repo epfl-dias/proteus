@@ -67,7 +67,7 @@ public:
 	}
 
 	Type* getType(string tableName)	{
-		std::map<std::string, int>::iterator it;
+		map<string, int>::iterator it;
 		it = resultTypes.find(tableName);
 		if (it == resultTypes.end()) {
 			LOG(ERROR) << "Could not locate type of table "<<tableName;
@@ -79,7 +79,7 @@ public:
 	}
 
 	int getTypeIndex(string tableName)	{
-		std::map<std::string, int>::iterator it;
+		map<string, int>::iterator it;
 		it = resultTypes.find(tableName);
 		if (it == resultTypes.end()) {
 			LOG(ERROR) << "Info in catalog does not exist for table " << tableName;
