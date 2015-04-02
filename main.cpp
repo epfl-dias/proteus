@@ -57,6 +57,7 @@ void reduceJSONDeeperMaxFlat(bool longRun);
 /* New, pm-enabled CSV plugin */
 void scanCsvPM();
 void scanCsvWidePM();
+void scanCsvWideUsePM();
 
 /* Codegen'd atoi */
 void atoiCSV();
@@ -237,8 +238,9 @@ int main(int argc, char* argv[])
 //	reduceJSONDeeperMaxFlat(false);
 
 //	atoiCSV();
-	scanCsvPM();
-	scanCsvWidePM();
+//	scanCsvPM();
+//	scanCsvWidePM();
+	scanCsvWideUsePM();
 
 	/* Simplified Reduce */
 //	reduceNoPredListObject();
@@ -1469,19 +1471,31 @@ void scanCsvWidePM()
 	string filename = string("inputs/csv/30cols.csv");
 	PrimitiveType* intType = new IntType();
 	list<RecordAttribute*> attrList;
-	RecordAttribute *attr6, *attr10;
+	RecordAttribute *attr6, *attr10, *attr19, *attr21, *attr26;
 
-	for(int i = 0; i < 30 ; i++)	{
-		RecordAttribute* attr = new RecordAttribute(i+1, filename, "field",
-					intType);
+	for (int i = 1; i <= 30; i++) {
+		RecordAttribute* attr = new RecordAttribute(i, filename, "field",
+				intType);
 		attrList.push_back(attr);
 
-		if(i == 5)	{
+		if (i == 6) {
 			attr6 = attr;
 		}
 
-		if(i == 9)	{
+		if (i == 10) {
 			attr10 = attr;
+		}
+
+		if (i == 19) {
+			attr19 = attr;
+		}
+
+		if (i == 21) {
+			attr21 = attr;
+		}
+
+		if (i == 26) {
+			attr26 = attr;
 		}
 	}
 
@@ -1490,6 +1504,9 @@ void scanCsvWidePM()
 	vector<RecordAttribute*> whichFields;
 	whichFields.push_back(attr6);
 	whichFields.push_back(attr10);
+	whichFields.push_back(attr19);
+	whichFields.push_back(attr21);
+	whichFields.push_back(attr26);
 
 	/* 1 every 5 fields indexed in PM */
 	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields,10,6);
@@ -1505,6 +1522,148 @@ void scanCsvWidePM()
 
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pg->finish();
+	catalog.clear();
+}
+
+void scanCsvWideUsePM_(size_t *newline, short **offsets)
+{
+	RawContext ctx = RawContext("testFunction-ScanCsvWideUsePM");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	/**
+	 * SCAN
+	 */
+	string filename = string("inputs/csv/30cols.csv");
+	PrimitiveType* intType = new IntType();
+	list<RecordAttribute*> attrList;
+	RecordAttribute *attr6, *attr10, *attr19, *attr21, *attr26;
+
+	for(int i = 1; i <= 30 ; i++)	{
+		RecordAttribute* attr = new RecordAttribute(i, filename, "field",
+					intType);
+		attrList.push_back(attr);
+
+		if(i == 6)	{
+			attr6 = attr;
+		}
+
+		if (i == 10) {
+			attr10 = attr;
+		}
+
+		if (i == 19) {
+			attr19 = attr;
+		}
+
+		if (i == 21) {
+			attr21 = attr;
+		}
+
+		if (i == 26) {
+			attr26 = attr;
+		}
+	}
+
+	RecordType rec1 = RecordType(attrList);
+
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(attr6);
+	whichFields.push_back(attr10);
+	whichFields.push_back(attr19);
+	whichFields.push_back(attr21);
+	whichFields.push_back(attr26);
+
+	/* 1 every 5 fields indexed in PM */
+	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields, 10,
+			6, newline, offsets);
+	catalog.registerPlugin(filename, pg);
+	Scan scan = Scan(&ctx, *pg);
+
+	/**
+	 * ROOT
+	 */
+	Root rootOp = Root(&scan);
+	scan.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pg->finish();
+	catalog.clear();
+}
+
+void scanCsvWideUsePM()
+{
+	RawContext ctx = RawContext("testFunction-ScanCsvWideBuildPM");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	/**
+	 * SCAN
+	 */
+	string filename = string("inputs/csv/30cols.csv");
+	PrimitiveType* intType = new IntType();
+	list<RecordAttribute*> attrList;
+	RecordAttribute *attr6, *attr10, *attr19, *attr21, *attr26;
+
+	for (int i = 1; i <= 30; i++) {
+		RecordAttribute* attr = new RecordAttribute(i, filename, "field",
+				intType);
+		attrList.push_back(attr);
+
+		if (i == 6) {
+			attr6 = attr;
+		}
+
+		if (i == 10) {
+			attr10 = attr;
+		}
+
+		if (i == 19) {
+			attr19 = attr;
+		}
+
+		if (i == 21) {
+			attr21 = attr;
+		}
+
+		if (i == 26) {
+			attr26 = attr;
+		}
+	}
+
+	RecordType rec1 = RecordType(attrList);
+
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(attr6);
+	whichFields.push_back(attr10);
+	whichFields.push_back(attr19);
+	whichFields.push_back(attr21);
+	whichFields.push_back(attr26);
+
+	/* 1 every 5 fields indexed in PM */
+	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields,10,6);
+	catalog.registerPlugin(filename, pg);
+	Scan scan = Scan(&ctx, *pg);
+
+	/**
+	 * ROOT
+	 */
+	Root rootOp = Root(&scan);
+	scan.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	/*
+	 * Use PM in subsequent scan
+	 */
+	scanCsvWideUsePM_(pg->getNewlinesPM(), pg->getOffsetsPM());
 
 	//Close all open files & clear
 	pg->finish();

@@ -37,6 +37,10 @@ public:
 	 */
 	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 			vector<RecordAttribute*>& whichFields, int lineHint, int policy);
+	/* PM Ready */
+	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
+				vector<RecordAttribute*>& whichFields, int lineHint, int policy,
+				size_t *newlines, short **offsets);
 	~CSVPlugin();
 	virtual string& getName() {
 		return fname;
@@ -81,6 +85,12 @@ public:
 	virtual Value* getValueSize(RawValueMemory mem_value,
 			const ExpressionType* type);
 
+	/* Export PM */
+	/* XXX I think it's the 'Caching Service' that should
+	 * be making the PM available later on */
+	short** getOffsetsPM()	{ return pm; }
+	size_t* getNewlinesPM() { return newlines; }
+
 private:
 	string& fname;
 	off_t fsize;
@@ -93,12 +103,14 @@ private:
 	/**
 	 * PM-related
 	 */
-	/* Start of each line in file */
 	int lines;
 	int policy;
+	/* Indicates whether a PM was provided at construction time*/
+	bool hasPM;
 	size_t *newlines;
 	/* All pm entries are relevant to linesStart!!! */
 	short **pm;
+
 
 	AllocaInst *mem_newlines;
 	AllocaInst *mem_pm;
@@ -117,9 +129,13 @@ private:
 
 	//Used to generate code
 	void skipDelimLLVM(Value* delim, Function* debugChar, Function* debugInt);
+	void skipDelimLLVM(Value* delim);
+	void skipDelimBackwardsLLVM(Value* delim);
 	void skipLLVM();
 	void skipToEndLLVM();
 	void getFieldEndLLVM();
+	void readField(typeID id, RecordAttribute attName,
+			map<RecordAttribute, RawValueMemory>& variables);
 	void readAsIntLLVM(RecordAttribute attName,
 			map<RecordAttribute, RawValueMemory>& variables, Function* atoi_,
 			Function* debugChar, Function* debugInt);
@@ -128,12 +144,15 @@ private:
 	void readAsFloatLLVM(RecordAttribute attName,
 			map<RecordAttribute, RawValueMemory>& variables, Function* atof_,
 			Function* debugChar, Function* debugFloat);
+	void readAsFloatLLVM(RecordAttribute attName,
+				map<RecordAttribute, RawValueMemory>& variables);
 	void readAsBooleanLLVM(RecordAttribute attName,
 			map<RecordAttribute, RawValueMemory>& variables);
 
 	//Generates a for loop that performs the file scan
 	//No assumption on auxiliary structures yet
-	void scanCSV(const RawOperator& producer);
+	void scanAndPopulatePM(const RawOperator& producer);
+	void scanPM(const RawOperator& producer);
 
 };
 

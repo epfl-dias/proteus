@@ -117,7 +117,7 @@ RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* ty
 	case BOOL:
 	{
 		Function *hashBoolean = context->getFunction("hashBoolean");
-		std::vector<Value*> ArgsV;
+		vector<Value*> ArgsV;
 		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
 		Value *hashResult = context->getBuilder()->CreateCall(hashBoolean,
 				ArgsV, "hashBoolean");
@@ -135,7 +135,7 @@ RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* ty
 	case FLOAT:
 	{
 		Function *hashDouble = context->getFunction("hashDouble");
-		std::vector<Value*> ArgsV;
+		vector<Value*> ArgsV;
 		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
 		Value *hashResult = context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
 
@@ -147,7 +147,7 @@ RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* ty
 	case INT:
 	{
 		Function *hashInt = context->getFunction("hashInt");
-		std::vector<Value*> ArgsV;
+		vector<Value*> ArgsV;
 		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
 		Value *hashResult = context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
 
@@ -181,7 +181,7 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, ExpressionType *type,
 	case BOOL:
 	{
 		flushFunc = context->getFunction("flushBoolean");
-		std::vector<Value*> ArgsV;
+		vector<Value*> ArgsV;
 		ArgsV.push_back(val_attr);
 		ArgsV.push_back(fileName);
 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
@@ -195,7 +195,7 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, ExpressionType *type,
 	case FLOAT:
 	{
 		flushFunc = context->getFunction("flushDouble");
-		std::vector<Value*> ArgsV;
+		vector<Value*> ArgsV;
 		ArgsV.push_back(val_attr);
 		ArgsV.push_back(fileName);
 		context->getBuilder()->CreateCall(flushFunc,ArgsV);
@@ -203,7 +203,7 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, ExpressionType *type,
 	}
 	case INT:
 	{
-		std::vector<Value*> ArgsV;
+		vector<Value*> ArgsV;
 		flushFunc = context->getFunction("flushInt");
 		ArgsV.push_back(val_attr);
 		ArgsV.push_back(fileName);
@@ -317,7 +317,7 @@ void CSVPlugin::skipDelimLLVM(Value* delim,Function* debugChar, Function* debugI
 	//Fetch values from symbol table
 	AllocaInst* pos;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(posVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + posVar);
@@ -326,7 +326,7 @@ void CSVPlugin::skipDelimLLVM(Value* delim,Function* debugChar, Function* debugI
 	}
 	AllocaInst* buf;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(bufVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + bufVar);
@@ -398,7 +398,7 @@ void CSVPlugin::skipLLVM()
 	//Fetch values from symbol table
 	AllocaInst* pos;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(posVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + posVar);
@@ -407,7 +407,7 @@ void CSVPlugin::skipLLVM()
 	}
 	AllocaInst* buf;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(bufVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + bufVar);
@@ -416,7 +416,7 @@ void CSVPlugin::skipLLVM()
 	}
 	AllocaInst* fsizePtr;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(fsizeVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + fsizeVar);
@@ -484,11 +484,6 @@ void CSVPlugin::skipLLVM()
 	Builder->CreateStore(finalVar, NamedValuesCSV[posVar]);
 }
 
-/*FIXME Simplify generated code:
- *		No need for an 'inc' block
- *		Similar refactoring to be done allover code
- *		Note: The optimization passes may do this automatically!
- */
 void CSVPlugin::getFieldEndLLVM()
 {
 	//Prepare
@@ -502,7 +497,7 @@ void CSVPlugin::getFieldEndLLVM()
 	//Fetch values from symbol table
 	AllocaInst* pos;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(posVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + posVar);
@@ -511,7 +506,7 @@ void CSVPlugin::getFieldEndLLVM()
 	}
 	AllocaInst* buf;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(bufVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + bufVar);
@@ -520,7 +515,7 @@ void CSVPlugin::getFieldEndLLVM()
 	}
 	AllocaInst* fsizePtr;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(fsizeVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + fsizeVar);
@@ -743,7 +738,7 @@ void CSVPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, 
 	Value* pos_inc = Builder->CreateAdd(index,val_1);
 	Builder->CreateStore(pos_inc, pos);
 
-	std::vector<Value*> ArgsV;
+	vector<Value*> ArgsV;
 	ArgsV.push_back(bufPtr);
 	ArgsV.push_back(start);
 	ArgsV.push_back(index);
@@ -774,7 +769,7 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, Ra
 	//Fetch values from symbol table
 	AllocaInst* pos;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(posVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + posVar);
@@ -783,7 +778,7 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, Ra
 	}
 	AllocaInst* buf;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(bufVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + bufVar);
@@ -797,7 +792,7 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, Ra
 	Value* index = Builder->CreateLoad(pos, "end_pos_atoi");
 	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
 	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
-	std::vector<Value*> ArgsV;
+	vector<Value*> ArgsV;
 	ArgsV.clear();
 	ArgsV.push_back(bufShiftedPtr);
 	Value* parsedFloat = Builder->CreateCall(atof_, ArgsV, "atof");
@@ -830,7 +825,7 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 	//Fetch value from symbol table
 	AllocaInst* pos;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(posVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + posVar);
@@ -839,7 +834,7 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 	}
 	AllocaInst* fsizePtr;
 	{
-		std::map<std::string, AllocaInst*>::iterator it;
+		map<string, AllocaInst*>::iterator it;
 		it = NamedValuesCSV.find(fsizeVar);
 		if (it == NamedValuesCSV.end()) {
 			throw runtime_error(string("Unknown variable name: ") + fsizeVar);
@@ -922,14 +917,14 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 		throw runtime_error(string("One of the functions needed not found!"));
 	}
 
-	for (std::vector<RecordAttribute*>::iterator it = wantedFields.begin(); it != wantedFields.end(); it++)
+	for (vector<RecordAttribute*>::iterator it = wantedFields.begin(); it != wantedFields.end(); it++)
 	{
 		int neededAttr = (*it)->getAttrNo() - 1;
 		for( ; cur_col < neededAttr; cur_col++)	{
 			skipDelimLLVM(delimInner,debugChar,debugInt);
 		}
 
-		std::string attrName = (*it)->getName();
+		string attrName = (*it)->getName();
 		RecordAttribute attr = *(*it);
 		switch ((*it)->getOriginalType()->getTypeID()) {
 		case BOOL:
