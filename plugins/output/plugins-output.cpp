@@ -31,13 +31,14 @@ Materializer::Materializer(const vector<RecordAttribute*>& wantedFields,
 {
 }
 
-//Materializer::Materializer(const vector<RecordAttribute*>& wantedFields,
-//		const vector<expressions::Expression*>& wantedExpressions,
-//		const vector<materialization_mode>& outputMode) :
-//		wantedExpressions(wantedExpressions),
-//		wantedFields(wantedFields), outputMode(outputMode)
-//{
-//}
+Materializer::Materializer(const vector<RecordAttribute*>& wantedFields,
+		const vector<expressions::Expression*>& wantedExpressions,
+		const vector<materialization_mode>& outputMode) :
+		wantedExpressions(wantedExpressions),
+		wantedFields(wantedFields), outputMode(outputMode)
+{
+
+}
 
 OutputPlugin::OutputPlugin(RawContext* const context,
 		Materializer& materializer,
@@ -56,8 +57,7 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 	identifiersTypeSize = 0;
 	int tupleIdentifiers = 0;
 	isComplex = false;
-	//Always materializing the 'active tuples' pointer
-	RawValueMemory mem_activeTuple;
+	//XXX Always materializing the 'active tuples' pointer
 	{
 		map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
 		//FIXME use 'find' instead of looping
@@ -106,7 +106,6 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 				default: isComplex = true;
 			}
 		}
-		/*Commented because of previous comment */
 		else {
 			string error_msg = string("[OUTPUT PG: ] INPUT ERROR AT OPERATOR - UNKNOWN WANTED FIELD ") + (*it)->getAttrName();
 			LOG(ERROR) << error_msg;

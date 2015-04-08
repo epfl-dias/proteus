@@ -50,7 +50,7 @@ public:
 	virtual void produce() const;
 	virtual void consume(RawContext* const context, const OperatorState& childState);
 	Materializer& getMaterializer() {return mat;}
-	virtual bool isFiltering() {return true;}
+	virtual bool isFiltering() const {return true;}
 private:
 	void generateInsert(RawContext* context, const OperatorState& childState);
 	/**

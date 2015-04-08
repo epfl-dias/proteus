@@ -143,6 +143,7 @@ void columnarJoin1();
 void joinQueryRelationalRadix();
 void cidrQuery3Radix();
 void cidrQuery3RadixMax();
+void joinQueryRelationalRadixCache();
 
 RawContext prepareContext(string moduleName)	{
 	RawContext ctx = RawContext(moduleName);
@@ -240,8 +241,7 @@ int main(int argc, char* argv[])
 
 /* New JSON pg. Work. */
 //	scanJSONFlat();
-	selectionJSONFlat();
-	selectionJSONFlat();
+//	selectionJSONFlat();
 //	unnestJSONFlat();
 //	reduceListObjectFlat();
 //	reduceJSONMaxFlat(false);
@@ -260,6 +260,8 @@ int main(int argc, char* argv[])
 
 //	expressionMap();
 //	expressionMapVertical();
+
+	joinQueryRelationalRadixCache();
 }
 
 void expressionMap()	{
@@ -2188,6 +2190,154 @@ void joinQueryRelationalRadix()
 	cout << "End of execution" << endl;
 }
 
+void joinQueryRelationalRadixCache()
+{
+	RawContext ctx = prepareContext("testFunction-RadixJoinCSV");
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	/**
+	 * SCAN1
+	 */
+	string filename = string("inputs/input.csv");
+	PrimitiveType* intType = new IntType();
+	RecordAttribute* attr1 = new RecordAttribute(1, filename, string("att1"),
+			intType);
+	RecordAttribute* attr2 = new RecordAttribute(2, filename, string("att2"),
+			intType);
+	RecordAttribute* attr3 = new RecordAttribute(3, filename, string("att3"),
+			intType);
+	list<RecordAttribute*> attrList;
+	attrList.push_back(attr1);
+	attrList.push_back(attr2);
+	attrList.push_back(attr3);
+
+	RecordType rec1 = RecordType(attrList);
+	vector<RecordAttribute*> whichFields;
+	whichFields.push_back(attr1);
+	whichFields.push_back(attr2);
+
+	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
+	catalog.registerPlugin(filename, pg);
+	Scan scan = Scan(&ctx, *pg);
+
+	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop);
+	list<RecordAttribute> projectionsL = list<RecordAttribute>();
+	projectionsL.push_back(projTupleL);
+	projectionsL.push_back(*attr1);
+	projectionsL.push_back(*attr2);
+
+	/**
+	 * SCAN2
+	 */
+	string filename2 = string("inputs/input2.csv");
+	RecordAttribute* attr1_f2 = new RecordAttribute(1, filename2,
+			string("att1_r"), intType);
+	RecordAttribute* attr2_f2 = new RecordAttribute(2, filename2,
+			string("att2_r"), intType);
+	RecordAttribute* attr3_f2 = new RecordAttribute(3, filename2,
+			string("att3_r"), intType);
+
+	list<RecordAttribute*> attrList2;
+	attrList2.push_back(attr1_f2);
+	attrList2.push_back(attr1_f2);
+	attrList2.push_back(attr1_f2);
+	RecordType rec2 = RecordType(attrList2);
+
+	vector<RecordAttribute*> whichFields2;
+	whichFields2.push_back(attr1_f2);
+	whichFields2.push_back(attr2_f2);
+
+	CSVPlugin* pg2 = new CSVPlugin(&ctx, filename2, rec2, whichFields2);
+	catalog.registerPlugin(filename2, pg2);
+	Scan scan2 = Scan(&ctx, *pg2);
+	LOG(INFO)<<"Right:"<<&scan2;
+
+	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop);
+	list<RecordAttribute> projectionsR = list<RecordAttribute>();
+	projectionsR.push_back(projTupleR);
+	projectionsR.push_back(*attr1_f2);
+	projectionsR.push_back(*attr2_f2);
+
+	/**
+	 * JOIN
+	 */
+	expressions::Expression* leftArg = new expressions::InputArgument(intType,
+			0, projectionsL);
+	expressions::Expression* left = new expressions::RecordProjection(intType,
+			leftArg, *attr2);
+	expressions::Expression* rightArg = new expressions::InputArgument(intType,
+			1, projectionsR);
+	expressions::Expression* right = new expressions::RecordProjection(intType,
+			rightArg, *attr2_f2);
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
+			new BoolType(), left, right);
+	vector<materialization_mode> outputModes;
+	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes.insert(outputModes.begin(), EAGER);
+
+	/* XXX Updated Materializer requires 'expressions to be cached'*/
+	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
+					intType, leftArg, projTupleL);
+	expressions::Expression* exprLeftMat1 = new expressions::RecordProjection(intType,
+				leftArg, *attr1);
+	expressions::Expression* exprLeftMat2 = new expressions::RecordProjection(intType,
+				leftArg, *attr2);
+	vector<expressions::Expression*> whichExpressionsLeft;
+	whichExpressionsLeft.push_back(exprLeftOID);
+	whichExpressionsLeft.push_back(exprLeftMat1);
+	whichExpressionsLeft.push_back(exprLeftMat2);
+
+	Materializer* matLeft = new Materializer(whichFields, whichExpressionsLeft, outputModes);
+
+	outputModes.clear();
+	//active loop too
+	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes.insert(outputModes.begin(), EAGER);
+
+	/* XXX Updated Materializer requires 'expressions to be cached'*/
+	expressions::Expression* exprRightOID = new expressions::RecordProjection(
+				intType, rightArg, projTupleR);
+	expressions::Expression* exprRightMat1 = new expressions::RecordProjection(
+			intType, rightArg, *attr1_f2);
+	expressions::Expression* exprRightMat2 = new expressions::RecordProjection(
+			intType, rightArg, *attr2_f2);
+	vector<expressions::Expression*> whichExpressionsRight;
+	whichExpressionsRight.push_back(exprRightOID);
+	whichExpressionsRight.push_back(exprRightMat1);
+	whichExpressionsRight.push_back(exprRightMat2);
+
+	Materializer* matRight = new Materializer(whichFields2, whichExpressionsRight, outputModes);
+
+	char joinLabel[] = "radixJoin1";
+	RadixJoin join = RadixJoin(joinPred, scan, scan2, &ctx, joinLabel, *matLeft, *matRight);
+	scan.setParent(&join);
+	scan2.setParent(&join);
+
+	//PRINT
+	Function* debugInt = ctx.getFunction("printi");
+	//To be 100% correct, this proj should be over a new InputArg that only exposes the new bindings
+	expressions::RecordProjection* proj = new expressions::RecordProjection(
+			new IntType(), leftArg, *attr1);
+
+	Print printOp = Print(debugInt, proj, &join);
+	join.setParent(&printOp);
+
+	//ROOT
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pg->finish();
+	pg2->finish();
+	catalog.clear();
+	cout << "End of execution" << endl;
+}
+
 void scanJsmn()
 {
 	RawContext ctx = prepareContext("testFunction-ScanJSON-jsmn");
@@ -4006,6 +4156,8 @@ void cidrQuery3()
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
 			new BoolType(), argClinicalProj, argGeneticProj);
 	vector<materialization_mode> outputModes;
+	//active loop too
+	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
 	Materializer* mat = new Materializer(whichFieldsClinical, outputModes);

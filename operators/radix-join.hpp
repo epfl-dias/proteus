@@ -25,6 +25,7 @@
 #include "expressions/expressions-generator.hpp"
 #include "util/joins/radix-join.hpp"
 #include "util/raw-functions.hpp"
+#include "util/raw-caching.hpp"
 
 /* valuePtr is relative to the payloadBuffer! */
 typedef struct htEntry	{
@@ -72,7 +73,7 @@ public:
 			const OperatorState& childState);
 	Materializer& getMaterializerLeft() {return matLeft;}
 	Materializer& getMaterializerRight() {return matRight;}
-	virtual bool isFiltering() {return true;}
+	virtual bool isFiltering() const {return true;}
 private:
 	OperatorState* generate(RawOperator* op, OperatorState* childState);
 

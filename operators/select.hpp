@@ -33,7 +33,7 @@ public:
 
 	virtual void produce() const;
 	virtual void consume(RawContext* const context, const OperatorState& childState);
-	virtual bool isFiltering() {return true;}
+	virtual bool isFiltering() const {return true;}
 private:
 	expressions::Expression* expr;
 	void generate(RawContext* const context, const OperatorState& childState) const;

@@ -50,7 +50,7 @@ public:
 	virtual void consume(RawContext* const context, const OperatorState& childState) = 0;
 	/* Used by caching service. Aim is finding whether data to be cached has been filtered
 	 * by some of the children operators of the plan */
-	virtual bool isFiltering() = 0;
+	virtual bool isFiltering() const = 0;
 
 private:
 	RawOperator* parent;

@@ -32,7 +32,7 @@ public:
 
 	virtual void produce() const;
 	virtual void consume(RawContext* const context, const OperatorState& childState);
-	virtual bool isFiltering() {return getChild()->isFiltering();}
+	virtual bool isFiltering() const {return getChild()->isFiltering();}
 private:
 	expressions::RecordProjection* arg;
 	Function* print;

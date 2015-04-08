@@ -203,6 +203,8 @@ TEST(Relational, SPJ) {
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
 			new BoolType(), left, right);
 	vector<materialization_mode> outputModes;
+	//Active Loop Too
+	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
 	Materializer* mat = new Materializer(whichFields, outputModes);

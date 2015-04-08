@@ -46,18 +46,18 @@ public:
 //			const vector<expressions::Expression*>& wantedExpressions,
 			const vector<materialization_mode>& outputMode_);
 
-//	Materializer(const vector<RecordAttribute*>& whichFields,
-//			const vector<expressions::Expression*>& wantedExpressions,
-//			const vector<materialization_mode>& outputMode_);
+	Materializer(const vector<RecordAttribute*>& whichFields,
+			const vector<expressions::Expression*>& wantedExpressions,
+			const vector<materialization_mode>& outputMode_);
 
 	~Materializer() {}
 
 	const vector<RecordAttribute*>& getWantedFields() const {
 			return wantedFields;
 	}
-//	const vector<expressions::Expression*>& getWantedExpressions() const {
-//		return wantedExpressions;
-//	}
+	const vector<expressions::Expression*>& getWantedExpressions() const {
+		return wantedExpressions;
+	}
 	const vector<materialization_mode>& getOutputMode() const {
 		return outputMode;
 	}
@@ -69,8 +69,9 @@ public:
 	}
 private:
 	/**
-	 *  XXX At some point, might Need expressions to (re-)evaluate bindings that
-	   have not been eagerly evaluated.
+	 *  CONVENTIONS:
+	 *  wantedExpressions include activeTuple.
+	 *  wantedFields do not!
 	 */
 	const vector<expressions::Expression*> wantedExpressions;
 

@@ -29,6 +29,15 @@
 
 using expressions::less_map;
 
+typedef struct CacheInfo {
+	StructType *objectType;
+	/* Convention:
+	 * Count begins from 1.
+	 * Zero implies we're dealing with the whole obj.
+	 * Negative implies invalid entry */
+	int structFieldNo;
+	char *payloadPtr;
+} CacheInfo;
 class CachingService
 {
 public:
@@ -40,7 +49,7 @@ public:
 	}
 
 	void registerPM(string fileName, char *payloadPtr) {
-		map<string, char *>::iterator it = pmCaches.find(fileName);
+		map<string, char*>::iterator it = pmCaches.find(fileName);
 		if (it != pmCaches.end()) {
 			LOG(WARNING)<< "PM caches already contain " << fileName;
 		}
@@ -48,7 +57,7 @@ public:
 	}
 
 	char* getPM(string fileName) {
-		map<string, char *>::iterator it = pmCaches.find(fileName);
+		map<string, char*>::iterator it = pmCaches.find(fileName);
 		if (it == pmCaches.end()) {
 			LOG(INFO)<< "No PM found for " << fileName;
 			/* NULL is a valid value (PM not found) */
@@ -57,8 +66,8 @@ public:
 		return it->second;
 	}
 
-	void registerCache(expressions::Expression* expr, char *payloadPtr, bool entireDataset) {
-		map<expressions::Expression*, char *>::iterator it = binCaches.find(
+	void registerCache(expressions::Expression* expr, CacheInfo payload, bool entireDataset) {
+		map<expressions::Expression*, CacheInfo>::iterator it = binCaches.find(
 				expr);
 		if (it != binCaches.end()) {
 			LOG(WARNING)<< "Bin. caches already contain expr " << expr->getTypeID();
@@ -67,17 +76,19 @@ public:
 		/* XXX Different degrees of 'fullness' can be placed in these methods.
 		 * BUT: Not sure if C++ side is the one deciding on them */
 		if(!itBool->second)	{
-			binCaches[expr] = payloadPtr;
+			binCaches[expr] = payload;
 			binCacheIsFull[expr] = entireDataset;
 		}
 	}
 
-	char* getCache(expressions::Expression* expr) {
-		map<expressions::Expression*, char *>::iterator it = binCaches.find(expr);
+	CacheInfo getCache(expressions::Expression* expr) {
+		map<expressions::Expression*, CacheInfo>::iterator it = binCaches.find(expr);
 		if (it == binCaches.end()) {
 			LOG(INFO)<< "No Bin Cache found for expr " << expr->getTypeID();
 			/* NULL is a valid value (Cache not found) */
-			return NULL;
+			CacheInfo invalid;
+			invalid.structFieldNo = -1;
+			return invalid;
 		}
 		return it->second;
 	}
@@ -104,7 +115,7 @@ private:
 	 * (i.e., replacing parts of the query subtree)
 	 * will only be triggered if dictated by the QO.
 	 */
-	map<expressions::Expression*, char*, less_map> binCaches;
+	map<expressions::Expression*, CacheInfo, less_map> binCaches;
 	/* Answers whether the entire dataset contributes
 	 * to the cache, or whether some operator has
 	 * filtered some objects/tuples */

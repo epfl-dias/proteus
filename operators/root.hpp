@@ -33,7 +33,7 @@ public:
 	virtual ~Root() { LOG(INFO) << "Collapsing root operator"; }
 	virtual void produce() const;
 	virtual void consume(RawContext* const context, const OperatorState& childState);
-	virtual bool isFiltering() {return getChild()->isFiltering();}
+	virtual bool isFiltering() const {return getChild()->isFiltering();}
 private:
 
 };

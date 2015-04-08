@@ -293,6 +293,8 @@ TEST(Sailors, JoinLeft3) {
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
 
 	vector<materialization_mode> outputModes;
+	//Active Loop Too
+	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(),EAGER);
 	outputModes.insert(outputModes.begin(),EAGER);
 	Materializer* mat = new Materializer(whichFields,outputModes);
@@ -337,6 +339,7 @@ TEST(Sailors, JoinLeft3) {
 
 	expressions::BinaryExpression* joinPred2 = new expressions::EqExpression(new BoolType(),left2,right2);
 	vector<materialization_mode> outputModes2;
+	//1 + activeLoop
 	outputModes2.insert(outputModes2.begin(),EAGER);
 	outputModes2.insert(outputModes2.begin(),EAGER);
 	Materializer* mat2 = new Materializer(whichFields2,outputModes2);
@@ -492,6 +495,7 @@ TEST(Sailors, JoinRight3) {
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(),EAGER);
 	outputModes.insert(outputModes.begin(),EAGER);
+	outputModes.insert(outputModes.begin(),EAGER);
 	Materializer* mat = new Materializer(whichFields,outputModes);
 
 	char joinLabel[] = "join1";
@@ -599,6 +603,7 @@ TEST(Sailors, Join) {
 	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,*sidReserves);
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
 	vector<materialization_mode> outputModes;
+	outputModes.insert(outputModes.begin(),EAGER);
 	outputModes.insert(outputModes.begin(),EAGER);
 	outputModes.insert(outputModes.begin(),EAGER);
 	Materializer* mat = new Materializer(whichFields,outputModes);

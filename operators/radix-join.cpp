@@ -96,10 +96,6 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 	Builder->CreateStore(zero,relR.mem_offset);
 	Builder->CreateStore(val_sizeR,relR.mem_size);
 
-	/* Place info in cache */
-//	aaaa
-
-
 	/* Request memory to store relation S 			*/
 	relS.mem_relation =
 			context->CreateEntryBlockAlloca(F,string("relationS"),char_ptr_type);
@@ -786,23 +782,47 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		payloadType = pg->getPayloadType();
 		rPayloadType = payloadType;
 
-		/* 1st Method to calculate size */
-//		Value *val_payloadSize;
-//		if(pg->hasComplexTypes())	{
-//			val_payloadSize = pg->getRuntimePayloadTypeSize();
-//		}	else	{
-//			val_payloadSize = context->createInt64(pg->getPayloadTypeSize());
-//		}
+		/* XXX Place info in cache */
+		{
+			CachingService& cache = CachingService::getInstance();
+			bool fullRelation = !(this->getLeftChild()).isFiltering();
+			const vector<expressions::Expression*>& expsLeft =
+					matLeft.getWantedExpressions();
+			/* Only keep for debugging */
+			const vector<RecordAttribute*>& fieldsLeft =
+					matLeft.getWantedFields();
+			vector<RecordAttribute*>::const_iterator itRec = fieldsLeft.begin();
+			/* ************************/
+			int fieldNo = 0;
+			/* Explicit OID ('activeTuple') will be field 0 */
+			if (!expsLeft.empty()) {
 
-		/* 2nd Method to calculate size */
-//		PointerType *ptr_rPayloadType = PointerType::get(rPayloadType,0);
-//		Constant* base = llvm::Constant::getNullValue(ptr_rPayloadType);
-//		Value* val_payloadSize_raw = Builder->CreateConstGEP1_32(base, 1);
-//		Value* val_payloadSize32 = Builder->CreatePointerCast(val_payloadSize_raw,int32_type);
-//		AllocaInst *mem_payloadSizeTmp = Builder->CreateAlloca(int32_type,0,"payloadSize");
-//		Builder->CreateStore(val_payloadSize32,mem_payloadSizeTmp);
-//		Value* val_payloadSizeTmp = Builder->CreateLoad(mem_payloadSizeTmp);
-//		Value* val_payloadSize = Builder->CreateSExt(val_payloadSizeTmp,int64_type);
+				/* By default, cache looks sth like custom_struct*.
+				 * Is it possible to isolate cache for just ONE of the expressions??
+				 * Group of expressions probably more palpable */
+				vector<expressions::Expression*>::const_iterator it =
+						expsLeft.begin();
+				for (; it != expsLeft.end(); it++) {
+					CacheInfo info;
+					info.objectType = rPayloadType;
+					info.structFieldNo = fieldNo;
+					info.payloadPtr = relationR;
+					cache.registerCache(*it,info,fullRelation);
+
+					if(fieldNo != 0)	{
+						cout << "Left Field Cached: " << (*itRec)->getAttrName() << endl;
+						itRec++;
+					}
+					else
+					{
+						cout << "Left Field Cached: " << activeLoop << endl;
+					}
+
+					fieldNo++;
+				}
+			}
+		}
+
 
 		/* 3rd Method to calculate size */
 		/* REMEMBER: PADDING DOES MATTER! */
@@ -1031,6 +1051,47 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		/* Result type specified during output plugin construction */
 		payloadType = pg->getPayloadType();
 		sPayloadType = payloadType;
+
+		/* XXX Place info in cache */
+		{
+			CachingService& cache = CachingService::getInstance();
+			bool fullRelation = !(this->getRightChild()).isFiltering();
+			const vector<expressions::Expression*>& expsRight =
+					matRight.getWantedExpressions();
+			/* Only keep for debugging */
+			const vector<RecordAttribute*>& fieldsRight =
+					matRight.getWantedFields();
+			vector<RecordAttribute*>::const_iterator itRec =
+					fieldsRight.begin();
+			/* ************************/
+			int fieldNo = 0;
+			/* Explicit OID ('activeTuple') will be field 0 */
+			if (!expsRight.empty()) {
+
+				/* By default, cache looks sth like custom_struct*.
+				 * Is it possible to isolate cache for just ONE of the expressions??
+				 * Group of expressions probably more palpable */
+				vector<expressions::Expression*>::const_iterator it =
+						expsRight.begin();
+				for (; it != expsRight.end(); it++) {
+					CacheInfo info;
+					info.objectType = sPayloadType;
+					info.structFieldNo = fieldNo;
+					info.payloadPtr = relationS;
+					cache.registerCache(*it, info, fullRelation);
+
+					if (fieldNo != 0) {
+						cout << "Right Field Cached: " << (*itRec)->getAttrName()
+								<< endl;
+						itRec++;
+					} else {
+						cout << "Right Field Cached: " << activeLoop << endl;
+					}
+
+					fieldNo++;
+				}
+			}
+		}
 
 		/* 3rd Method to calculate size */
 		/* REMEMBER: PADDING DOES MATTER! */
