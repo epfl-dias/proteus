@@ -25,6 +25,9 @@
 #define RAW_CACHING_HPP_
 
 #include "common/common.hpp"
+#include "expressions/expressions.hpp"
+
+using expressions::less_map;
 
 class CachingService
 {
@@ -36,13 +39,85 @@ public:
 		return instance;
 	}
 
-private:
+	void registerPM(string fileName, char *payloadPtr) {
+		map<string, char *>::iterator it = pmCaches.find(fileName);
+		if (it != pmCaches.end()) {
+			LOG(WARNING)<< "PM caches already contain " << fileName;
+		}
+		pmCaches[fileName] = payloadPtr;
+	}
 
-	CachingService();
-	~CachingService() { }
+	char* getPM(string fileName) {
+		map<string, char *>::iterator it = pmCaches.find(fileName);
+		if (it == pmCaches.end()) {
+			LOG(INFO)<< "No PM found for " << fileName;
+			/* NULL is a valid value (PM not found) */
+			return NULL;
+		}
+		return it->second;
+	}
+
+	void registerCache(expressions::Expression* expr, char *payloadPtr, bool entireDataset) {
+		map<expressions::Expression*, char *>::iterator it = binCaches.find(
+				expr);
+		if (it != binCaches.end()) {
+			LOG(WARNING)<< "Bin. caches already contain expr " << expr->getTypeID();
+		}
+		map<expressions::Expression*, bool>::iterator itBool = binCacheIsFull.find(expr);
+		/* XXX Different degrees of 'fullness' can be placed in these methods.
+		 * BUT: Not sure if C++ side is the one deciding on them */
+		if(!itBool->second)	{
+			binCaches[expr] = payloadPtr;
+			binCacheIsFull[expr] = entireDataset;
+		}
+	}
+
+	char* getCache(expressions::Expression* expr) {
+		map<expressions::Expression*, char *>::iterator it = binCaches.find(expr);
+		if (it == binCaches.end()) {
+			LOG(INFO)<< "No Bin Cache found for expr " << expr->getTypeID();
+			/* NULL is a valid value (Cache not found) */
+			return NULL;
+		}
+		return it->second;
+	}
+
+	bool getCacheIsFull(expressions::Expression* expr) {
+		map<expressions::Expression*, bool>::iterator it = binCacheIsFull.find(expr);
+		if (it == binCacheIsFull.end()) {
+			/* Should not occur - method should be used only
+			 * after establishing cache info exists */
+			string error_msg = "No Bin Cache Info found for expr ";
+			LOG(ERROR) << error_msg << expr->getTypeID();
+			throw runtime_error(error_msg);
+		}
+		return it->second;
+	}
+
+	void clear();
+
+private:
+	/*
+	 * From expressions::Expression to (cast) cache.
+	 * Binary cache only probed at time of scan.
+	 * More sophisticated / explicit uses of the cache
+	 * (i.e., replacing parts of the query subtree)
+	 * will only be triggered if dictated by the QO.
+	 */
+	map<expressions::Expression*, char*, less_map> binCaches;
+	/* Answers whether the entire dataset contributes
+	 * to the cache, or whether some operator has
+	 * filtered some objects/tuples */
+	map<expressions::Expression*, bool, less_map> binCacheIsFull;
+
+	/* From filename to (cast) PM */
+	map<string, char*> pmCaches;
+
+	CachingService()  {}
+	~CachingService() {}
 
 	//Not implementing; CachingService is a singleton
-	CachingService(CachingService const&);     // Don't Implement.
-	void operator=(CachingService const&); // Don't implement
+	CachingService(CachingService const&); // Don't Implement.
+	void operator=(CachingService const&); // Don't implement.
 };
 #endif /* RAW_CACHING_HPP_ */

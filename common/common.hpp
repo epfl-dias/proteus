@@ -121,5 +121,20 @@ void fatal(const char *err);
 
 void exception(const char *err);
 
+/**
+ * Wrappers for LLVM Value and Alloca.
+ * Maintain information such as whether the corresponding value is 'NULL'
+ * LLVM's interpretation of 'NULL' for primitive types is not sufficient
+ * (e.g., lvvm_null(int) = 0
+ */
+typedef struct RawValueMemory {
+	AllocaInst* mem;
+	Value* isNull;
+} RawValueMemory;
+
+typedef struct RawValue {
+	Value* value;
+	Value* isNull;
+} RawValue;
 
 #endif /* COMMON_HPP_ */

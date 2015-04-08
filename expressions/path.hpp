@@ -25,6 +25,7 @@
 #define PATH_HPP_
 
 #include "common/common.hpp"
+#include "util/raw-catalog.hpp"
 #include "plugins/plugins.hpp"
 
 class Path	{

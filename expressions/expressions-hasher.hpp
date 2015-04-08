@@ -26,6 +26,7 @@
 
 #include "common/common.hpp"
 #include "plugins/plugins.hpp"
+#include "util/raw-functions.hpp"
 #include "expressions/expressions-generator.hpp"
 
 #ifdef DEBUG

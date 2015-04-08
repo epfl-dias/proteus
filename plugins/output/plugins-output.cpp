@@ -31,6 +31,14 @@ Materializer::Materializer(const vector<RecordAttribute*>& wantedFields,
 {
 }
 
+//Materializer::Materializer(const vector<RecordAttribute*>& wantedFields,
+//		const vector<expressions::Expression*>& wantedExpressions,
+//		const vector<materialization_mode>& outputMode) :
+//		wantedExpressions(wantedExpressions),
+//		wantedFields(wantedFields), outputMode(outputMode)
+//{
+//}
+
 OutputPlugin::OutputPlugin(RawContext* const context,
 		Materializer& materializer,
 		const map<RecordAttribute, RawValueMemory>& bindings) :

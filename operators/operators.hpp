@@ -32,6 +32,7 @@
 
 //Fwd declaration
 class Plugin;
+class OperatorState;
 
 class RawOperator {
 public:
@@ -48,6 +49,9 @@ public:
 	 * to kickstart execution once an HT has been built
 	 */
 	virtual void consume(RawContext* const context, const OperatorState& childState) = 0;
+	/* Used by caching service. Aim is finding whether data to be cached has been filtered
+	 * by some of the children operators of the plan */
+	virtual bool isFiltering() = 0;
 
 private:
 	RawOperator* parent;
@@ -77,6 +81,24 @@ public:
 private:
 	const RawOperator& leftChild;
 	const RawOperator& rightChild;
+};
+
+class OperatorState {
+public:
+	OperatorState(const RawOperator& producer,
+			const map<RecordAttribute, RawValueMemory>& vars) :
+			producer(producer), activeVariables(vars)			{}
+	OperatorState(const OperatorState &opState) :
+			producer(opState.producer),
+			activeVariables(opState.activeVariables)			{ LOG(INFO)<< "[Operator State: ] Copy Constructor"; }
+
+	const map<RecordAttribute, RawValueMemory>& getBindings() 	const 	{ return activeVariables; }
+	const RawOperator& getProducer() 							const 	{ return producer; }
+private:
+	const RawOperator& producer;
+	//Variable bindings produced by operator and provided to its parent
+	//const map<string, AllocaInst*>& activeVariables;
+	const map<RecordAttribute, RawValueMemory>& activeVariables;
 };
 
 #endif /* OPERATORS_HPP_ */

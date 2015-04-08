@@ -29,6 +29,8 @@
 #include "gtest/gtest.h"
 
 #include "common/common.hpp"
+#include "util/raw-context.hpp"
+#include "util/raw-functions.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "operators/join.hpp"
@@ -66,6 +68,7 @@
 
 TEST(Sailors, Scan) {
 	RawContext ctx = RawContext("Sailors-Scan");
+	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -108,6 +111,7 @@ TEST(Sailors, Scan) {
 
 TEST(Sailors, Select) {
 	RawContext ctx = RawContext("Sailors-Select");
+	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -173,6 +177,7 @@ TEST(Sailors, Select) {
 
 TEST(Sailors, ScanBoats) {
 	RawContext ctx = RawContext("Sailors-ScanBoats");
+	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 
@@ -213,6 +218,7 @@ TEST(Sailors, ScanBoats) {
 
 TEST(Sailors, JoinLeft3) {
 	RawContext ctx = RawContext("Sailors-JoinLeft3");
+	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -368,6 +374,7 @@ TEST(Sailors, JoinLeft3) {
 //Just like previous one, but with permuted operators
 TEST(Sailors, JoinRight3) {
 	RawContext ctx = RawContext("Sailors-JoinRight3");
+	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	PrimitiveType* intType = new IntType();
@@ -518,6 +525,7 @@ TEST(Sailors, JoinRight3) {
 
 TEST(Sailors, Join) {
 	RawContext ctx = RawContext("Sailors-Join");
+	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1

@@ -23,10 +23,18 @@
 
 #include "plugins/plugins.hpp"
 #include "util/atois.hpp"
+#include "util/raw-caching.hpp"
+
 
 #define DEBUGPM
 
+typedef struct pmCSV {
+	size_t *newlines;
+	short **offsets;
+} pmCSV;
+
 namespace pm {
+
 class CSVPlugin: public Plugin {
 public:
 

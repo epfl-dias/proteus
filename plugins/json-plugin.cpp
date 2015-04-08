@@ -85,27 +85,45 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	/* TODO Realloc will (eventually) take care of potential requests for resize */
 	lines = 1000;
 
-//	vector<Type*> tokenMembers;
-//	tokenMembers.push_back(int32_type);
-//	tokenMembers.push_back(int32_type);
-//	tokenMembers.push_back(int32_type);
-//	tokenMembers.push_back(int32_type);
-//	tokenType = StructType::get(context->getLLVMContext(),tokenMembers);
 	tokenType = context->CreateJSMNStruct();
 
 
 	PointerType *tokenPtrType = PointerType::get(tokenType,0);
 	PointerType *token2DPtrType = PointerType::get(tokenPtrType,0);
 
-	tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
-	if (tokenBuf == NULL) {
-		string msg = string("[JSON Plugin: ]: Failed to allocate token arena");
-		LOG(ERROR)<< msg;
-		throw runtime_error(msg);
+	/* PM */
+	CachingService& cache = CachingService::getInstance();
+
+	char* pmCast = cache.getPM(fname);
+	Value *cast_tokenArray = NULL;
+	if (pmCast == NULL) {
+		cout << "NEW (JSON) PM" << endl;
+		tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
+		if (tokenBuf == NULL) {
+			string msg = string(
+					"[JSON Plugin: ]: Failed to allocate token arena");
+			LOG(ERROR)<< msg;
+			throw runtime_error(msg);
+		}
+		tokens = (jsmntok_t**) tokenBuf;
+		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
+				token2DPtrType);
+		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, tokenBuf);
+
+		/* Store PM in cache */
+		/* To be used by subsequent queries */
+		cache.registerPM(fname, tokenBuf);
+	} else {
+		cout << "(JSON) PM REUSE" << endl;
+		jsmntok_t **tokens = (jsmntok_t **) pmCast;
+		this->tokens = tokens;
+		tokenBuf = NULL;
+
+		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
+				token2DPtrType);
+		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
+				this->tokens);
 	}
-	tokens = (jsmntok_t**) tokenBuf;
-	mem_tokenArray = context->CreateEntryBlockAlloca(F,"jsTokenArray",token2DPtrType);
-	Value *cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, tokenBuf);
 	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
 
 }
@@ -157,26 +175,43 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 
 	lines = linehint;
 
-//	vector<Type*> tokenMembers;
-//	tokenMembers.push_back(int32_type);
-//	tokenMembers.push_back(int32_type);
-//	tokenMembers.push_back(int32_type);
-//	tokenMembers.push_back(int32_type);
-//	tokenType = StructType::get(context->getLLVMContext(),tokenMembers);
-
 	tokenType = context->CreateJSMNStruct();
 	PointerType *tokenPtrType = PointerType::get(tokenType,0);
 	PointerType *token2DPtrType = PointerType::get(tokenPtrType,0);
 
-	tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
-	if (tokenBuf == NULL) {
-		string msg = string("[JSON Plugin: ]: Failed to allocate token arena");
-		LOG(ERROR)<< msg;
-		throw runtime_error(msg);
+	/* PM */
+	CachingService& cache = CachingService::getInstance();
+
+	char* pmCast = cache.getPM(fname);
+	Value *cast_tokenArray = NULL;
+	if (pmCast == NULL) {
+		cout << "NEW (JSON) PM" << endl;
+		tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
+		if (tokenBuf == NULL) {
+			string msg = string(
+					"[JSON Plugin: ]: Failed to allocate token arena");
+			LOG(ERROR)<< msg;
+			throw runtime_error(msg);
+		}
+		tokens = (jsmntok_t**) tokenBuf;
+		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
+				token2DPtrType);
+		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, tokenBuf);
+
+		/* Store PM in cache */
+		/* To be used by subsequent queries */
+		cache.registerPM(fname, tokenBuf);
+	} else {
+		cout << "(JSON) PM REUSE" << endl;
+		jsmntok_t **tokens = (jsmntok_t **) pmCast;
+		this->tokens = tokens;
+		tokenBuf = NULL;
+
+		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
+				token2DPtrType);
+		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
+				this->tokens);
 	}
-	tokens = (jsmntok_t**) tokenBuf;
-	mem_tokenArray = context->CreateEntryBlockAlloca(F,"jsTokenArray",token2DPtrType);
-	Value *cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, tokenBuf);
 	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
 }
 
@@ -227,15 +262,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 
 	lines = linehint;
 
-//	vector<Type*> tokenMembers;
-//	tokenMembers.push_back(int32_type);
-//	tokenMembers.push_back(int32_type);
-//	tokenMembers.push_back(int32_type);
-//	tokenMembers.push_back(int32_type);
-//	tokenType = StructType::get(context->getLLVMContext(),tokenMembers);
 	tokenType = context->CreateJSMNStruct();
-
-
 
 	PointerType *tokenPtrType = PointerType::get(tokenType,0);
 	PointerType *token2DPtrType = PointerType::get(tokenPtrType,0);

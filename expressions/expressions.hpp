@@ -24,11 +24,11 @@
 #ifndef EXPRESSIONS_HPP_
 #define EXPRESSIONS_HPP_
 
-#include "operators/operators.hpp"
+//#include "operators/operators.hpp"
 #include "operators/operator-state.hpp"
-#include "operators/monoids.hpp"
+//#include "operators/monoids.hpp"
 #include "util/raw-context.hpp"
-#include "util/raw-catalog.hpp"
+//#include "util/raw-catalog.hpp"
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
 
@@ -38,6 +38,8 @@ class ExprVisitor; //Forward declaration
 //Careful: Using a namespace to avoid conflicts with LLVM namespace
 namespace expressions
 {
+
+
 enum ExpressionId	{ CONSTANT, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE };
 
 class Expression	{
@@ -61,6 +63,14 @@ public:
 	}
 private:
 	ExpressionType* type;
+};
+
+struct less_map: std::binary_function<const Expression *,
+		const Expression *, bool> {
+	bool operator()(const Expression *a,
+			const Expression *b) const {
+		return *a < *b;
+	}
 };
 
 class Constant : public Expression		{

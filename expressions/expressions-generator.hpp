@@ -25,6 +25,7 @@
 #define EXPRESSIONS_VISITOR_HPP_
 
 #include "common/common.hpp"
+#include "util/raw-catalog.hpp"
 #include "plugins/plugins.hpp"
 //===---------------------------------------------------------------------------===//
 // "Visitor(s)" responsible for generating the appropriate code per Expression 'node'

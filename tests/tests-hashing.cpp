@@ -29,6 +29,7 @@
 
 #include "common/common.hpp"
 #include "util/raw-context.hpp"
+#include "util/raw-functions.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "operators/print.hpp"
@@ -77,6 +78,7 @@ inline void my_hash_combine(std::size_t& seed, const T& v)
 
 TEST(Hashing, IntegerNotGenerated) {
 	RawContext ctx = RawContext("HashInt");
+	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	boost::hash<int> hasher;
@@ -112,6 +114,7 @@ TEST(Hashing, IntegerNotGenerated) {
 
 TEST(Hashing, Constants) {
 	RawContext ctx = RawContext("HashConstants");
+	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	Root rootOp = Root(NULL);
@@ -156,6 +159,7 @@ TEST(Hashing, Constants) {
 
 TEST(Hashing, BinaryExpressions)	{
 	RawContext ctx = RawContext("HashBinaryExpressions");
+	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	Root rootOp = Root(NULL);
@@ -200,6 +204,7 @@ TEST(Hashing, BinaryExpressions)	{
 
 TEST(Hashing, IfThenElse)	{
 	RawContext ctx = RawContext("HashIfThenElse");
+	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	Root rootOp = Root(NULL);

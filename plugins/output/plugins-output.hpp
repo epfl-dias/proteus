@@ -27,7 +27,6 @@
 #include "plugins/plugins.hpp"
 
 class RawContext;
-
 //TODO Refactor into multiple materializers
 /**
  * What to do with each attribute contained in the payload of a materializing operation
@@ -35,7 +34,7 @@ class RawContext;
 //Eager: Place attribute converted to its original datatype
 //Lazy: Place pointer to attribute in the raw file
 //Intermediate: Copy (unparsed) attribute and place the copy
-//Binary: Convert to consise form before placing (current example: JSON to BSON)
+//Binary: Convert to concise form before placing (current example: JSON to BSON)
 enum materialization_mode {
 	EAGER, LAZY, INTERMEDIATE, BINARY, CSV, JSON
 };
@@ -46,22 +45,24 @@ public:
 	Materializer(const vector<RecordAttribute*>& whichFields,
 //			const vector<expressions::Expression*>& wantedExpressions,
 			const vector<materialization_mode>& outputMode_);
-	~Materializer() {
-	}
 
-//	const vector<RecordAttribute*>& getWantedExpressions() const {
-//			return wantedExpressions;
-//	}
+//	Materializer(const vector<RecordAttribute*>& whichFields,
+//			const vector<expressions::Expression*>& wantedExpressions,
+//			const vector<materialization_mode>& outputMode_);
+
+	~Materializer() {}
+
 	const vector<RecordAttribute*>& getWantedFields() const {
-		return wantedFields;
+			return wantedFields;
 	}
+//	const vector<expressions::Expression*>& getWantedExpressions() const {
+//		return wantedExpressions;
+//	}
 	const vector<materialization_mode>& getOutputMode() const {
 		return outputMode;
 	}
 	void addTupleIdentifier(RecordAttribute attr) {
 		tupleIdentifiers.insert(attr);
-		//XXX There is obviously a better way to remove duplicates
-//		tupleIdentifiers.erase(unique(tupleIdentifiers.begin(), tupleIdentifiers.end()), tupleIdentifiers.end());
 	}
 	const set<RecordAttribute>& getTupleIdentifiers() const {
 		return tupleIdentifiers;
@@ -71,8 +72,7 @@ private:
 	 *  XXX At some point, might Need expressions to (re-)evaluate bindings that
 	   have not been eagerly evaluated.
 	 */
-	 //	const vector<expressions::Expression*>& wantedExpressions;
-
+	const vector<expressions::Expression*> wantedExpressions;
 
 	const vector<RecordAttribute*>& wantedFields;
 	const vector<materialization_mode>& outputMode;

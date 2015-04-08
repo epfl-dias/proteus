@@ -32,7 +32,7 @@ public:
 
 	virtual void produce() const;
 	virtual void consume(RawContext* const context, const OperatorState& childState);
-
+	virtual bool isFiltering() {return false;}
 private:
 	RawContext* const context;
 	Plugin& pg;

@@ -21,25 +21,12 @@
 	RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "operators/operators.hpp"
-#include "expressions/expressions-generator.hpp"
+#include "util/raw-caching.hpp"
+
+void CachingService::clear()	{
+	binCaches.clear();
+	binCacheIsFull.clear();
+	pmCaches.clear();
+}
 
 
-class Join : public BinaryRawOperator {
-public:
-	Join(expressions::BinaryExpression* predicate, const RawOperator& leftChild,
-			const RawOperator& rightChild, char* opLabel, Materializer& mat) :
-			BinaryRawOperator(leftChild, rightChild), pred(predicate), htName(
-					opLabel), mat(mat) {}
-	virtual ~Join() {
-		LOG(INFO)<<"Collapsing Join operator";}
-	virtual void produce() const;
-	virtual void consume(RawContext* const context, const OperatorState& childState);
-	Materializer& getMaterializer() {return mat;}
-	virtual bool isFiltering() {return true;}
-private:
-	char* htName;
-	OperatorState* generate(RawOperator* op,  OperatorState* childState);
-	expressions::BinaryExpression* pred;
-	Materializer& mat;
-};

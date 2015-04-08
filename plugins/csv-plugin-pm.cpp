@@ -24,6 +24,7 @@
 #include "plugins/csv-plugin-pm.hpp"
 
 namespace pm	{
+
 CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 		vector<RecordAttribute*>& whichFields, int lineHint, int policy) :
 		fname(fname), rec(rec), wantedFields(whichFields), context(context), posVar(
@@ -48,44 +49,68 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 	}
 
 	/* PM */
-	hasPM = false;
-	newlines = (size_t*) malloc( lines * sizeof(size_t));
-	if(newlines == NULL)	{
-		string error_msg = "[CSVPlugin: ] Malloc Failure";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
+	CachingService& cache = CachingService::getInstance();
 
-	/* -1 bc field 0 does not have to be indexed */
-	int pmFields = (rec.getArgsNo() / policy) - 1;
-	if(pmFields < 0)	{
-		string error_msg = "[CSVPlugin: ] Erroneous PM policy";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
-	LOG(INFO) << "PM will have " << pmFields << " field(s)";
-	pm = (short**) malloc(lines * sizeof(short*));
-	short *pm_ = (short*) malloc(lines * pmFields * sizeof(short));
-	for (int i = 0; i < lines; i++) {
-		pm[i] = (pm_ + i * pmFields);
-	}
+	char* pmCast = cache.getPM(fname);
+	if (pmCast == NULL) {
+		cout << "NEW (CSV) PM" << endl;
+		hasPM = false;
+		newlines = (size_t*) malloc(lines * sizeof(size_t));
+		if (newlines == NULL) {
+			string error_msg = "[CSVPlugin: ] Malloc Failure";
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
 
+		/* -1 bc field 0 does not have to be indexed */
+		int pmFields = (rec.getArgsNo() / policy) - 1;
+		if (pmFields < 0) {
+			string error_msg = "[CSVPlugin: ] Erroneous PM policy";
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		LOG(INFO)<< "PM will have " << pmFields << " field(s)";
+		pm = (short**) malloc(lines * sizeof(short*));
+		short *pm_ = (short*) malloc(lines * pmFields * sizeof(short));
+		for (int i = 0; i < lines; i++) {
+			pm[i] = (pm_ + i * pmFields);
+		}
+
+		/* Store PM in cache */
+		/* To be used by subsequent queries */
+		pmCSV *pmStruct = new pmCSV();
+		pmStruct->newlines = newlines;
+		pmStruct->offsets = pm;
+		pmCast = (char*) pmStruct;
+		cache.registerPM(fname, pmCast);
+	} else {
+		cout << "(CSV) PM REUSE" << endl;
+		hasPM = true;
+		pmCSV *pmStruct = (pmCSV*) pmCast;
+
+		this->newlines = pmStruct->newlines;
+		this->pm = pmStruct->offsets;
+	}
 	/* PM - LLVM LAND */
 	PointerType *size_tPtrType = Type::getInt64PtrTy(llvmContext);
-	mem_newlines = context->CreateEntryBlockAlloca(F,string("mem_newlines"),size_tPtrType);
-	Value *val_newlines = context->CastPtrToLlvmPtr(size_tPtrType, (char*) newlines);
-	Builder->CreateStore(val_newlines,mem_newlines);
+	mem_newlines = context->CreateEntryBlockAlloca(F, string("mem_newlines"),
+			size_tPtrType);
+	Value *val_newlines = context->CastPtrToLlvmPtr(size_tPtrType,
+			(char*) newlines);
+	Builder->CreateStore(val_newlines, mem_newlines);
 
 	Type *int16PtrType = Type::getInt16PtrTy(llvmContext);
-	PointerType *int162DPtrType = PointerType::get(int16PtrType,0);
-	mem_pm = context->CreateEntryBlockAlloca(F,string("mem_pm"),int162DPtrType);
+	PointerType *int162DPtrType = PointerType::get(int16PtrType, 0);
+	mem_pm = context->CreateEntryBlockAlloca(F, string("mem_pm"),
+			int162DPtrType);
 	Value *val_pm = context->CastPtrToLlvmPtr(int162DPtrType, (char*) pm);
-	Builder->CreateStore(val_pm,mem_pm);
+	Builder->CreateStore(val_pm, mem_pm);
 
 	Type *int32Type = Type::getInt32Ty(llvmContext);
-	mem_lineCtr = context->CreateEntryBlockAlloca(F,string("mem_lineCtr"),int32Type);
+	mem_lineCtr = context->CreateEntryBlockAlloca(F, string("mem_lineCtr"),
+			int32Type);
 	Value *val_zero = context->createInt32(0);
-	Builder->CreateStore(val_zero,mem_lineCtr);
+	Builder->CreateStore(val_zero, mem_lineCtr);
 }
 
 CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,

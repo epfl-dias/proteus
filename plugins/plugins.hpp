@@ -26,8 +26,16 @@
 
 #include "common/common.hpp"
 #include "util/raw-context.hpp"
+#include "util/raw-catalog.hpp"
 #include "operators/operators.hpp"
-#include "operators/operator-state.hpp"
+#include "expressions/expressions.hpp"
+#include "values/expressionTypes.hpp"
+
+/* Leads to incomplete type */
+class OperatorState;
+class RawOperator;
+//class RawValueMemory;
+//class RawValue;
 
 //Used by all plugins
 static const string activeLoop = "activeTuple";

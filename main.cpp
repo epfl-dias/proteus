@@ -23,6 +23,7 @@
 
 #include "common/common.hpp"
 #include "util/raw-context.hpp"
+#include "util/raw-functions.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "operators/join.hpp"
@@ -44,6 +45,7 @@
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 #include "expressions/expressions-hasher.hpp"
+#include "util/raw-caching.hpp"
 
 /* New JSON pg */
 void scanJSONFlat();
@@ -101,6 +103,9 @@ void hashConstants();
 void hashBinaryExpressions();
 void hashIfThenElse();
 
+//Expression matching microbenchmarks
+void expressionMap();
+void expressionMapVertical();
 
 void reduceNumeric();
 void reduceNoPredSum();
@@ -139,7 +144,11 @@ void joinQueryRelationalRadix();
 void cidrQuery3Radix();
 void cidrQuery3RadixMax();
 
-
+RawContext prepareContext(string moduleName)	{
+	RawContext ctx = RawContext(moduleName);
+	registerFunctions(ctx);
+	return ctx;
+}
 
 template<class T>
 inline void my_hash_combine(std::size_t& seed, const T& v)
@@ -231,7 +240,8 @@ int main(int argc, char* argv[])
 
 /* New JSON pg. Work. */
 //	scanJSONFlat();
-//	selectionJSONFlat();
+	selectionJSONFlat();
+	selectionJSONFlat();
 //	unnestJSONFlat();
 //	reduceListObjectFlat();
 //	reduceJSONMaxFlat(false);
@@ -240,6 +250,7 @@ int main(int argc, char* argv[])
 //	atoiCSV();
 //	scanCsvPM();
 //	scanCsvWidePM();
+//	scanCsvWidePM();
 //	scanCsvWideUsePM();
 
 	/* Simplified Reduce */
@@ -247,14 +258,12 @@ int main(int argc, char* argv[])
 //	reduceNoPredSum();
 //	reduceNoPredMax();
 
-	struct less_map: std::binary_function<const expressions::Expression *,
-			const expressions::Expression *, bool> {
-		bool operator()(const expressions::Expression *a,
-				const expressions::Expression *b) const {
-			return *a < *b;
-		}
-	};
-	map<expressions::Expression*,int,less_map> mapTest;
+//	expressionMap();
+//	expressionMapVertical();
+}
+
+void expressionMap()	{
+	map<expressions::Expression*, int, less_map> mapTest;
 
 	expressions::IntConstant val_int = expressions::IntConstant(88);
 	expressions::FloatConstant val_float = expressions::FloatConstant(90.4);
@@ -287,9 +296,8 @@ int main(int argc, char* argv[])
 	/* 2nd Input Arg */
 	projections.push_back(projTuple);
 	expressions::Expression *inputArg2 = new expressions::InputArgument(&inner,
-				0, projections);
+			0, projections);
 	mapTest[inputArg2] = 181;
-
 
 	{
 		map<expressions::Expression*, int, less_map>::iterator it =
@@ -308,8 +316,78 @@ int main(int argc, char* argv[])
 	}
 }
 
+void expressionMapVertical()	{
+	map<expressions::Expression*, int, less_map> mapTest;
+
+	/* Using constants as smoke test. Not to be matched */
+	expressions::IntConstant val_int = expressions::IntConstant(88);
+	expressions::FloatConstant val_float = expressions::FloatConstant(90.4);
+	mapTest[&val_int] = 9;
+	mapTest[&val_float] = 7;
+
+
+	/* Preparing an Input Argument to insert */
+	IntType intType = IntType();
+	StringType stringType = StringType();
+	string fname = "file.csv";
+	string empName = string("name");
+	RecordAttribute emp1 = RecordAttribute(1, fname, empName, &stringType);
+	string empAge = string("age");
+	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &intType);
+	string empSalary = string("salary");
+	RecordAttribute emp3 = RecordAttribute(3, fname, empSalary, &intType);
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&emp1);
+	atts.push_back(&emp2);
+	atts.push_back(&emp3);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	expressions::Expression *inputArg = new expressions::InputArgument(&inner,
+			0, projections);
+	mapTest[inputArg] = 111;
+
+	/* Also inserting the Argument's projections as standalone */
+	expressions::RecordProjection* proj1 = new expressions::RecordProjection(
+			&stringType, inputArg, emp1);
+	expressions::RecordProjection* proj2 = new expressions::RecordProjection(
+			&intType, inputArg, emp2);
+	expressions::RecordProjection* proj3 = new expressions::RecordProjection(
+			&intType, inputArg, emp3);
+	mapTest[proj1] = 112;
+	mapTest[proj2] = 113;
+	mapTest[proj3] = 114;
+
+
+	/* 2nd Input Arg as smoke test. Not to be matched */
+	projections.push_back(projTuple);
+	expressions::Expression *inputArg2 = new expressions::InputArgument(&inner,
+			0, projections);
+	mapTest[inputArg2] = 181;
+
+	{
+		map<expressions::Expression*, int, less_map>::iterator it =
+				mapTest.find(inputArg);
+		if (it != mapTest.end()) {
+			cout << "Found! " << it->second << endl;
+		}
+	}
+
+	{
+		map<expressions::Expression*, int, less_map>::iterator it =
+				mapTest.find(proj2);
+		if (it != mapTest.end()) {
+			cout << "Found! " << it->second << endl;
+		}
+	}
+}
+
 void hashConstants()	{
-	RawContext ctx = RawContext("HashConstants");
+	RawContext ctx = prepareContext("HashConstants");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	Root rootOp = Root(NULL);
@@ -348,7 +426,7 @@ void hashConstants()	{
 }
 
 void hashBinaryExpressions()	{
-	RawContext ctx = RawContext("HashBinaryExpressions");
+	RawContext ctx = prepareContext("HashBinaryExpressions");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	Root rootOp = Root(NULL);
@@ -391,7 +469,7 @@ void hashBinaryExpressions()	{
 }
 
 void hashIfThenElse()	{
-	RawContext ctx = RawContext("HashIfThenElse");
+	RawContext ctx = prepareContext("HashIfThenElse");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	Root rootOp = Root(NULL);
@@ -465,7 +543,7 @@ void hashTests()
 
 void unnestJsmnInterpreted()
 {
-	RawContext ctx = RawContext("testFunction-unnestJSON-jsmn");
+	RawContext ctx = prepareContext("testFunction-unnestJSON-jsmn");
 
 	string fname = string("inputs/jsmnDeeperObjects.json");
 
@@ -504,7 +582,7 @@ void unnestJsmnInterpreted()
 
 void scanJsmnInterpreted()
 {
-	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
+	RawContext ctx = prepareContext("testFunction-ScanJSON-jsmn");
 
 	string fname = string("jsmn.json");
 
@@ -534,7 +612,7 @@ void scanJsmnInterpreted()
 
 void readJSONObjectInterpreted()
 {
-	RawContext ctx = RawContext("testFunction-ReadJSONObject");
+	RawContext ctx = prepareContext("testFunction-ReadJSONObject");
 
 	string fname = string("inputs/jsmnDeeper.json");
 
@@ -576,7 +654,7 @@ void readJSONObjectInterpreted()
 
 void readJSONListInterpreted()
 {
-	RawContext ctx = RawContext("testFunction-ReadJSONObject");
+	RawContext ctx = prepareContext("testFunction-ReadJSONObject");
 
 	string fname = string("inputs/jsmnDeeper2.json");
 
@@ -612,7 +690,7 @@ void readJSONListInterpreted()
 
 void unnestJsmnChildrenInterpreted()
 {
-	RawContext ctx = RawContext("testFunction-unnestJSON");
+	RawContext ctx = prepareContext("testFunction-unnestJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees.json");
@@ -657,7 +735,7 @@ void unnestJsmnChildrenInterpreted()
 void unnestJsmn()
 {
 
-	RawContext ctx = RawContext("testFunction-unnestJSON");
+	RawContext ctx = prepareContext("testFunction-unnestJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees.json");
@@ -757,7 +835,7 @@ void unnestJsmn()
 void unnestJSONFlat()
 {
 
-	RawContext ctx = RawContext("testFunction-unnestJSONFlat");
+	RawContext ctx = prepareContext("testFunction-unnestJSONFlat");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/employees-flat.json");
@@ -860,7 +938,7 @@ void unnestJSONFlat()
  */
 void outerUnnest()
 {
-	RawContext ctx = RawContext("testFunction-outerUnnestJSON");
+	RawContext ctx = prepareContext("testFunction-outerUnnestJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees.json");
@@ -967,8 +1045,7 @@ void outerUnnest()
  */
 void outerUnnestNull1()
 {
-
-	RawContext ctx = RawContext("outerUnnestNull1");
+	RawContext ctx = prepareContext("outerUnnestNull1");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employeesHeterogeneous.json");
@@ -1076,7 +1153,7 @@ void outerUnnestNull1()
  */
 void nest()
 {
-	RawContext ctx = RawContext("testFunction-nestJSON");
+	RawContext ctx = prepareContext("testFunction-nestJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees.json");
@@ -1207,7 +1284,7 @@ void nest()
 
 void unnestJsmnDeeper()
 {
-	RawContext ctx = RawContext("testFunction-unnestJSONDeeper");
+	RawContext ctx = prepareContext("testFunction-unnestJSONDeeper");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employeesDeeper.json");
@@ -1315,7 +1392,7 @@ void unnestJsmnDeeper()
 
 void unnestJsmnFiltering()
 {
-	RawContext ctx = RawContext("testFunction-unnestJSONFiltering");
+	RawContext ctx = prepareContext("testFunction-unnestJSONFiltering");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees.json");
@@ -1417,7 +1494,7 @@ void unnestJsmnFiltering()
 
 void scanCSV()
 {
-	RawContext ctx = RawContext("testFunction-ScanCSV");
+	RawContext ctx = prepareContext("testFunction-ScanCSV");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -1469,7 +1546,7 @@ void scanCSV()
 
 void scanCsvPM()
 {
-	RawContext ctx = RawContext("testFunction-ScanCsvPM");
+	RawContext ctx = prepareContext("testFunction-ScanCsvPM");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -1522,7 +1599,7 @@ void scanCsvPM()
 
 void scanCsvWidePM()
 {
-	RawContext ctx = RawContext("testFunction-ScanCsvWidePM");
+	RawContext ctx = prepareContext("testFunction-ScanCsvWidePM");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -1590,7 +1667,7 @@ void scanCsvWidePM()
 
 void scanCsvWideUsePM_(size_t *newline, short **offsets)
 {
-	RawContext ctx = RawContext("testFunction-ScanCsvWideUsePM");
+	RawContext ctx = prepareContext("testFunction-ScanCsvWideUsePM");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -1659,7 +1736,7 @@ void scanCsvWideUsePM_(size_t *newline, short **offsets)
 
 void scanCsvWideUsePM()
 {
-	RawContext ctx = RawContext("testFunction-ScanCsvWideBuildPM");
+	RawContext ctx = prepareContext("testFunction-ScanCsvWideBuildPM");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -1732,7 +1809,7 @@ void scanCsvWideUsePM()
 
 void atoiCSV()
 {
-	RawContext ctx = RawContext("testFunction-AtoiCSV");
+	RawContext ctx = prepareContext("testFunction-AtoiCSV");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -1788,7 +1865,7 @@ void atoiCSV()
 void selectionCSV()
 {
 
-	RawContext ctx = RawContext("testFunction-ScanCSV");
+	RawContext ctx = prepareContext("testFunction-ScanCSV");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -1865,7 +1942,7 @@ void selectionCSV()
 
 void joinQueryRelational()
 {
-	RawContext ctx = RawContext("testFunction-JoinCSV");
+	RawContext ctx = prepareContext("testFunction-JoinCSV");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -1992,7 +2069,7 @@ void joinQueryRelational()
 
 void joinQueryRelationalRadix()
 {
-	RawContext ctx = RawContext("testFunction-RadixJoinCSV");
+	RawContext ctx = prepareContext("testFunction-RadixJoinCSV");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -2113,7 +2190,7 @@ void joinQueryRelationalRadix()
 
 void scanJsmn()
 {
-	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
+	RawContext ctx = prepareContext("testFunction-ScanJSON-jsmn");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("jsmn.json");
@@ -2150,7 +2227,7 @@ void scanJsmn()
 
 void scanJSONFlat()
 {
-	RawContext ctx = RawContext("testFunction-ScanJSON-flat");
+	RawContext ctx = prepareContext("testFunction-ScanJSON-flat");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/jsmn-flat.json");
@@ -2188,7 +2265,7 @@ void scanJSONFlat()
 
 void selectionJsmn()
 {
-	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
+	RawContext ctx = prepareContext("testFunction-ScanJSON-jsmn");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("jsmn.json");
@@ -2257,7 +2334,7 @@ void selectionJsmn()
 
 void selectionJSONFlat()
 {
-	RawContext ctx = RawContext("testFunction-ScanJSON-flat");
+	RawContext ctx = prepareContext("testFunction-SelectJSON-flat");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/jsmn-flat.json");
@@ -2326,7 +2403,7 @@ void selectionJSONFlat()
 
 void reduceListInt()
 {
-	RawContext ctx = RawContext("testFunction-Reduce-FlushListInt");
+	RawContext ctx = prepareContext("testFunction-Reduce-FlushListInt");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/jsmnDeeper.json");
@@ -2396,7 +2473,8 @@ void reduceListInt()
 
 void reduceListIntCSV()
 {
-	RawContext ctx = RawContext("testFunction-Reduce-FlushListInt");
+	RawContext ctx = prepareContext("testFunction-Reduce-FlushListInt");
+
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/sailors.csv");
@@ -2460,7 +2538,7 @@ void reduceListIntCSV()
 
 void reduceListObject()
 {
-	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
+	RawContext ctx = prepareContext("testFunction-Reduce-FlushListObject");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/jsmnDeeper.json");
@@ -2530,7 +2608,7 @@ void reduceListObject()
 
 void reduceNoPredListObject()
 {
-	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
+	RawContext ctx = prepareContext("testFunction-Reduce-FlushListObject");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/jsmnDeeper.json");
@@ -2595,7 +2673,8 @@ void reduceNoPredListObject()
 
 void reduceListObjectFlat()
 {
-	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
+	RawContext ctx = prepareContext("testFunction-Reduce-FlushListObject");
+
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/jsmnDeeper-flat.json");
@@ -2666,7 +2745,7 @@ void reduceListObjectFlat()
 /* SELECT MAX(obj.b) FROM jsonFile obj WHERE obj.b  > 43 */
 void reduceJSONMaxFlat(bool longRun)
 {
-	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
+	RawContext ctx = prepareContext("testFunction-Reduce-FlushListObject");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname;
@@ -2763,7 +2842,7 @@ void reduceJSONMaxFlat(bool longRun)
 
 void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname, jsmntok_t** tokens)
 {
-	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
+	RawContext ctx = prepareContext("testFunction-Reduce-FlushListObject");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	cout << "Input: " << fname << endl;
@@ -2835,7 +2914,7 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname, jsmntok_t
 /* SELECT MAX(obj.c.c2) FROM jsonFile obj WHERE obj.b  > 43 */
 void reduceJSONDeeperMaxFlat(bool longRun)
 {
-	RawContext ctx = RawContext("testFunction-Reduce-FlushListObject");
+	RawContext ctx = prepareContext("testFunction-Reduce-FlushListObject");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname;
@@ -2922,7 +3001,7 @@ void reduceJSONDeeperMaxFlat(bool longRun)
 
 void reduceListRecordConstruction()
 {
-	RawContext ctx = RawContext("testFunction-Reduce-FlushListRecordConstruction");
+	RawContext ctx = prepareContext("testFunction-Reduce-FlushListRecordConstruction");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/jsmnDeeper.json");
@@ -3019,7 +3098,7 @@ void reduceListRecordConstruction()
  */
 void reduceListRecordOriginal()
 {
-	RawContext ctx = RawContext("testFunction-Reduce-FlushListRecordOriginal");
+	RawContext ctx = prepareContext("testFunction-Reduce-FlushListRecordOriginal");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/jsmnDeeper.json");
@@ -3091,7 +3170,7 @@ void reduceListRecordOriginal()
 
 void reduceListRecordOriginalCSV()
 {
-	RawContext ctx = RawContext("testFunction-Reduce-FlushListRecordOriginalCSV");
+	RawContext ctx = prepareContext("testFunction-Reduce-FlushListRecordOriginalCSV");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/sailors.csv");
@@ -3153,7 +3232,7 @@ void reduceListRecordOriginalCSV()
 
 void recordProjectionsJSON()
 {
-	RawContext ctx = RawContext("testFunction-ScanJSON-jsmn");
+	RawContext ctx = prepareContext("testFunction-ScanJSON-jsmn");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/jsmnDeeper.json");
@@ -3237,7 +3316,7 @@ void recordProjectionsJSON()
 
 void reduceNumeric()
 {
-	RawContext ctx = RawContext("reduceNumeric");
+	RawContext ctx = prepareContext("reduceNumeric");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -3305,7 +3384,7 @@ void reduceNumeric()
 
 void reduceNoPredMax()
 {
-	RawContext ctx = RawContext("reduceNoPredNumeric");
+	RawContext ctx = prepareContext("reduceNoPredNumeric");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -3366,7 +3445,7 @@ void reduceNoPredMax()
 
 void reduceNoPredSum()
 {
-	RawContext ctx = RawContext("reduceNoPredNumeric");
+	RawContext ctx = prepareContext("reduceNoPredNumeric");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -3427,7 +3506,7 @@ void reduceNoPredSum()
 
 void scanCSVBoolean()
 {
-	RawContext ctx = RawContext("ScanCSVBoolean");
+	RawContext ctx = prepareContext("ScanCSVBoolean");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -3484,7 +3563,7 @@ void scanCSVBoolean()
 //
 void reduceBoolean()
 {
-	RawContext ctx = RawContext("reduceAnd");
+	RawContext ctx = prepareContext("reduceAnd");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -3552,7 +3631,7 @@ void cidrBin()
 	bool shortRun = false;
 	string filenameBin = string("inputs/CIDR15/example.bin");
 
-	RawContext ctx = RawContext("CIDR-QueryBin");
+	RawContext ctx = prepareContext("CIDR-QueryBin");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
 
@@ -3620,7 +3699,7 @@ void cidrBinStrConstant()
 	//File schema: 5 integer fields
 	string filenameBin = string("inputs/CIDR15/example.bin");
 
-	RawContext ctx = RawContext("CIDR-QueryBinStrCons");
+	RawContext ctx = prepareContext("CIDR-QueryBinStrCons");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
 
@@ -3702,7 +3781,8 @@ void cidrBinStr()
 	//File schema: 2 integers - 1 char field of size 5 - 2 integers
 	string filenameBin = string("inputs/CIDR15/exampleStr.bin");
 
-	RawContext ctx = RawContext("CIDR-QueryBinStr");
+	RawContext ctx = prepareContext("CIDR-QueryBinStr");
+
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* stringType = new StringType();
@@ -3796,7 +3876,7 @@ void cidrBinStr()
 void cidrQuery3()
 {
 
-	bool shortRun = false;
+	bool shortRun = true;
 	string filenameClinical = string("inputs/CIDR15/clinical.csv");
 	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
 	if (shortRun)
@@ -3805,7 +3885,7 @@ void cidrQuery3()
 		filenameGenetic = string("inputs/CIDR15/genetic5000.csv");
 	}
 
-	RawContext ctx = RawContext("CIDR-Query3");
+	RawContext ctx = prepareContext("CIDR-Query3");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* stringType = new StringType();
 	PrimitiveType* intType = new IntType();
@@ -3973,7 +4053,7 @@ void cidrQuery3()
 void cidrQuery3Radix()
 {
 
-	bool shortRun = false;
+	bool shortRun = true;
 	string filenameClinical = string("inputs/CIDR15/clinical.csv");
 	string filenameGenetic = string("inputs/CIDR15/genetic.csv");
 	if (shortRun)
@@ -3982,7 +4062,7 @@ void cidrQuery3Radix()
 		filenameGenetic = string("inputs/CIDR15/genetic5000.csv");
 	}
 
-	RawContext ctx = RawContext("CIDR-Query3");
+	RawContext ctx = prepareContext("CIDR-Query3");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* stringType = new StringType();
 	PrimitiveType* intType = new IntType();
@@ -4153,7 +4233,7 @@ void cidrQuery3RadixMax()
 		filenameGenetic = string("inputs/CIDR15/genetic10000.csv");
 	}
 
-	RawContext ctx = RawContext("CIDR-Query3");
+	RawContext ctx = prepareContext("CIDR-Query3");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* stringType = new StringType();
 	PrimitiveType* intType = new IntType();
@@ -4321,7 +4401,7 @@ void cidrQueryCount()
 		filenameGenetic = string("inputs/CIDR15/genetic10.csv");
 	}
 
-	RawContext ctx = RawContext("CIDR-Query3");
+	RawContext ctx = prepareContext("CIDR-Query3");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* stringType = new StringType();
 	PrimitiveType* intType = new IntType();
@@ -4406,7 +4486,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 	string filenameGenetic = string("inputs/CIDR15/geneticToConvert.bin");
 	string filenameRegions = string("inputs/CIDR15/regionsToConvert.bin");
 
-	RawContext ctx = RawContext("CIDR-QueryWarm");
+	RawContext ctx = prepareContext("CIDR-QueryWarm");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* stringType = new StringType();
 	PrimitiveType* intType = new IntType();
@@ -4635,7 +4715,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 }
 
 void ifThenElse()	{
-	RawContext ctx = RawContext("ifThenElseExpr");
+	RawContext ctx = prepareContext("ifThenElseExpr");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -4696,7 +4776,8 @@ void columnarQueryCount()
 
 	string filenamePrefix = string("inputs/CIDR15/regionsToConvert");
 
-	RawContext ctx = RawContext("columnar-count");
+	RawContext ctx = prepareContext("columnar-count");
+
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* stringType = new StringType();
 	PrimitiveType* intType = new IntType();
@@ -4751,7 +4832,8 @@ void columnarQuerySum()
 {
 	string filenamePrefix = string("inputs/CIDR15/regionsToConvert");
 
-	RawContext ctx = RawContext("columnar-count");
+	RawContext ctx = prepareContext("columnar-sum");
+
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* stringType = new StringType();
 	PrimitiveType* intType = new IntType();
@@ -4820,7 +4902,7 @@ void columnarMax1()
 {
 	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
 
-	RawContext ctx = RawContext("columnarMax1");
+	RawContext ctx = prepareContext("columnarMax1");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
 
@@ -4891,7 +4973,8 @@ void columnarMax2()
 {
 	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
 
-	RawContext ctx = RawContext("columnarMax2");
+	RawContext ctx = prepareContext("columnarMax2");
+
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
 
@@ -4977,7 +5060,7 @@ void columnarMax3()
 {
 	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/500m-30cols-fixed");
 
-	RawContext ctx = RawContext("columnarMax3");
+	RawContext ctx = prepareContext("columnarMax3");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
 
@@ -5076,7 +5159,7 @@ void columnarMax3()
 
 void columnarJoin1()
 {
-	RawContext ctx = RawContext("columnarJoin1");
+	RawContext ctx = prepareContext("columnarJoin1");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
 

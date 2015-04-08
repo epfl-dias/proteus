@@ -108,7 +108,7 @@ public:
 			 * => Some utility functions end up being called twice
 			 */
 			LOG(INFO) << "Info in catalog already exists for table " << tableName;
-//			throw runtime_error(string("Info in catalog already exists for table ")+tableName);
+			//throw runtime_error(string("Info in catalog already exists for table ")+tableName);
 		}
 	}
 
@@ -119,7 +119,7 @@ public:
 
 	void registerFileJSON(string fileName, ExpressionType* type) {
 		map<string, ExpressionType*>::iterator it = jsonTypeCatalog.find(fileName);
-		if(it == jsonTypeCatalog.end())	{
+		if(it != jsonTypeCatalog.end())	{
 			LOG(WARNING) << "Catalog already contains the type of " << fileName;
 		}
 		jsonTypeCatalog[fileName] = type;
@@ -136,7 +136,7 @@ public:
 
 	void registerPlugin(string fileName, Plugin* pg)	{
 		map<string, Plugin*>::iterator it = plugins.find(fileName);
-		if(it == plugins.end())	{
+		if(it != plugins.end())	{
 			LOG(WARNING) << "Catalog already contains the plugin of " << fileName;
 		}
 		plugins[fileName] = pg;
@@ -205,7 +205,6 @@ private:
 	map<string,int>							htIdentifiers;
 
 	vector<multimap<int,void*>*>			intHashtables;
-//	map<string,multimap<int,void*>*> 		intHTs;
 	map<string,multimap<size_t,void*>*> 	HTs;
 
 	map<string, ExpressionType*> 			jsonTypeCatalog;
@@ -224,12 +223,10 @@ private:
 	int uniqueTableId;
 	int maxTables;
 
-	BasicBlock* joinInsertionPoint;
-
 	//Position 0 not used, so that we can use it to perform containment checks when using tableTypes
 	Type** tableTypes;
 	//Is maxTables enough????
-	RawCatalog()	: uniqueTableId(1) , maxTables(1000), joinInsertionPoint(NULL), reduceSetHT(NULL) {
+	RawCatalog()	: uniqueTableId(1) , maxTables(1000), reduceSetHT(NULL) {
 		tableTypes = new Type*[maxTables];
 	}
 	~RawCatalog() {

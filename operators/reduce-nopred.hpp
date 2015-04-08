@@ -48,6 +48,7 @@ public:
 	virtual void produce() const;
 	virtual void consume(RawContext* const context,
 			const OperatorState& childState);
+	virtual bool isFiltering() {return getChild()->isFiltering();}
 private:
 	RawContext* context;
 

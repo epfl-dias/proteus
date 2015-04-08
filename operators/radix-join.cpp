@@ -64,12 +64,14 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 
 	/* Arbitrary initial buffer sizes */
 	/* No realloc will be required with these sizes for synthetic large-scale numbers */
-	size_t sizeR = 10000000000;
-	size_t sizeS = 15000000000;
+//	size_t sizeR = 10000000000;
+//	size_t sizeS = 15000000000;
 
+	size_t sizeR = 1000;
+	size_t sizeS = 1500;
 
-	//	size_t sizeR = 100000000;
-//	size_t sizeS = 100000000;
+	//size_t sizeR = 100000000;
+	//size_t sizeS = 100000000;
 
 //	Still segfaults with these
 //	size_t sizeR = 40000000000; //000;//0; //30; //1000;
@@ -93,6 +95,10 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 	Builder->CreateStore(zero,relR.mem_tuplesNo);
 	Builder->CreateStore(zero,relR.mem_offset);
 	Builder->CreateStore(val_sizeR,relR.mem_size);
+
+	/* Place info in cache */
+//	aaaa
+
 
 	/* Request memory to store relation S 			*/
 	relS.mem_relation =
@@ -580,7 +586,6 @@ void RadixJoin::runRadix() const	{
 
 					/* RIGHT SIDE (RELATION S) */
 					{
-						//XXX Issue here
 						AllocaInst *mem_activeTuple = NULL;
 						int i = 0;
 						const set<RecordAttribute>& tuplesIdentifiers =
@@ -757,7 +762,6 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 	Type *int64_type = Type::getInt64Ty(llvmContext);
 	Type *int32_type = Type::getInt32Ty(llvmContext);
 
-	//XXX Not sure yet whether this is the answer
 //	int padding = 4;
 //	int keySize = (keyType->getPrimitiveSizeInBits() / 8) + padding;
 //	Value* val_keySize = context->createInt32(keySize);

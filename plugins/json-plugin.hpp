@@ -27,6 +27,7 @@
 #include "plugins/plugins.hpp"
 #include "util/atois.hpp"
 #include "util/raw-catalog.hpp"
+#include "util/raw-caching.hpp"
 
 #define DEBUGJSON
 

@@ -24,45 +24,27 @@
 #ifndef OPERATOR_STATE_HPP_
 #define OPERATOR_STATE_HPP_
 
-#include "operators/operators.hpp"
-#include "values/expressionTypes.hpp"
+//#include "operators/operators.hpp"
+//#include "values/expressionTypes.hpp"
 
 //Forward declaration
-class RawOperator;
-
-/**
- * Wrappers for LLVM Value and Alloca.
- * Maintain information such as whether the corresponding value is 'NULL'
- * LLVM's interpretation of 'NULL' for primitive types is not sufficient
- * (e.g., lvvm_null(int) = 0
- */
-typedef struct RawValueMemory {
-	AllocaInst* mem;
-	Value* isNull;
-} RawValueMemory;
-
-typedef struct RawValue {
-	Value* value;
-	Value* isNull;
-} RawValue;
-
-
-
-class OperatorState {
-public:
-	OperatorState(const RawOperator& producer,
-			const map<RecordAttribute, RawValueMemory>& vars) :
-			producer(producer), activeVariables(vars)			{}
-	OperatorState(const OperatorState &opState) :
-			producer(opState.producer),
-			activeVariables(opState.activeVariables)			{ LOG(INFO)<< "[Operator State: ] Copy Constructor"; }
-
-	const map<RecordAttribute, RawValueMemory>& getBindings() 	const 	{ return activeVariables; }
-	const RawOperator& getProducer() 							const 	{ return producer; }
-private:
-	const RawOperator& producer;
-	//Variable bindings produced by operator and provided to its parent
-	//const map<string, AllocaInst*>& activeVariables;
-	const map<RecordAttribute, RawValueMemory>& activeVariables;
-};
+//class RawOperator;
+//
+//class OperatorState {
+//public:
+//	OperatorState(const RawOperator& producer,
+//			const map<RecordAttribute, RawValueMemory>& vars) :
+//			producer(producer), activeVariables(vars)			{}
+//	OperatorState(const OperatorState &opState) :
+//			producer(opState.producer),
+//			activeVariables(opState.activeVariables)			{ LOG(INFO)<< "[Operator State: ] Copy Constructor"; }
+//
+//	const map<RecordAttribute, RawValueMemory>& getBindings() 	const 	{ return activeVariables; }
+//	const RawOperator& getProducer() 							const 	{ return producer; }
+//private:
+//	const RawOperator& producer;
+//	//Variable bindings produced by operator and provided to its parent
+//	//const map<string, AllocaInst*>& activeVariables;
+//	const map<RecordAttribute, RawValueMemory>& activeVariables;
+//};
 #endif /* OPERATOR_STATE_HPP_ */

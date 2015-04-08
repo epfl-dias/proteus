@@ -34,7 +34,7 @@ typedef enum {
  * @param		start	start position in JSON data string
  * @param		end		end position in JSON data string
  */
-#define JSON_TIGHT
+//#define JSON_TIGHT
 
 #ifndef JSON_TIGHT
 typedef struct {
@@ -48,7 +48,7 @@ typedef struct {
 } jsmntok_t;
 #endif
 
-/* NOTE: Changes affect RawContext::CreateJSMNStruct()*/
+/* NOTE: Changes affect RawContext::CreateJSMNStruct() */
 #ifdef JSON_TIGHT
 typedef struct {
 	char type;

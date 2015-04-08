@@ -25,6 +25,7 @@
 #define _NEST_HPP_
 
 #include "operators/operators.hpp"
+#include "operators/monoids.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "expressions/path.hpp"
@@ -44,10 +45,12 @@ public:
 		 expressions::Expression* pred, const list<expressions::InputArgument>& f_grouping,
 		 const list<expressions::InputArgument>& g_nullToZero, RawOperator* const child,
 		 char* opLabel, Materializer& mat);
-	virtual ~Nest() 																		{ LOG(INFO)<<"Collapsing Nest operator"; }
+	virtual ~Nest() {
+		LOG(INFO)<<"Collapsing Nest operator";}
 	virtual void produce() const;
 	virtual void consume(RawContext* const context, const OperatorState& childState);
-	Materializer& getMaterializer()		 													{ return mat; }
+	Materializer& getMaterializer() {return mat;}
+	virtual bool isFiltering() {return true;}
 private:
 	void generateInsert(RawContext* context, const OperatorState& childState);
 	/**
