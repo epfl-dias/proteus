@@ -24,11 +24,7 @@
 #ifndef EXPRESSIONS_HPP_
 #define EXPRESSIONS_HPP_
 
-//#include "operators/operators.hpp"
-#include "operators/operator-state.hpp"
-//#include "operators/monoids.hpp"
 #include "util/raw-context.hpp"
-//#include "util/raw-catalog.hpp"
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
 

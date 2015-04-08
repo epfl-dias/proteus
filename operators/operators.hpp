@@ -28,7 +28,6 @@
 #include "expressions/expressions.hpp"
 #include "plugins/plugins.hpp"
 #include "plugins/output/plugins-output.hpp"
-#include "operators/operator-state.hpp"
 
 //Fwd declaration
 class Plugin;
