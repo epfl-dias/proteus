@@ -26,7 +26,7 @@
 namespace pm	{
 
 CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
-		vector<RecordAttribute*>& whichFields, int lineHint, int policy) :
+		vector<RecordAttribute*> whichFields, int lineHint, int policy) :
 		fname(fname), rec(rec), wantedFields(whichFields), context(context), posVar(
 				"offset"), bufVar("buf"), fsizeVar("fileSize"), lines(lineHint), policy(policy) {
 
@@ -114,7 +114,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 }
 
 CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
-		vector<RecordAttribute*>& whichFields, int lineHint, int policy,
+		vector<RecordAttribute*> whichFields, int lineHint, int policy,
 		size_t *newlines, short **offsets) :
 		fname(fname), rec(rec), wantedFields(whichFields), context(context), posVar(
 				"offset"), bufVar("buf"), fsizeVar("fileSize"), lines(lineHint), policy(policy) {
@@ -221,6 +221,7 @@ RawValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings, con
 		it = csvProjections.find(tmpKey);
 			if (it == csvProjections.end()) {
 				string error_msg = string("[CSV plugin - readPath ]: Unknown variable name ")+pathVar;
+				cout << "Nothing found in "<< csvProjections.size() << " bindings" << endl;
 				LOG(ERROR) << error_msg;
 				throw runtime_error(error_msg);
 			}
@@ -293,7 +294,7 @@ RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* ty
 }
 }
 
-void CSVPlugin::flushValue(RawValueMemory mem_value, ExpressionType *type,
+void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
 		Value* fileName)
 {
 	IRBuilder<>* Builder = context->getBuilder();
@@ -391,26 +392,6 @@ Value* CSVPlugin::getValueSize(RawValueMemory mem_value,
 	}
 }
 
-// Gist of the code generated:
-// Output this as:
-//   var = alloca double
-//   ...
-//   start = startexpr
-//   store start -> var
-//   goto loop
-// loop:
-//   ...
-//   bodyexpr
-//   ...
-// loopend:
-//   step = stepexpr
-//   endcond = endexpr
-//
-//   curvar = load var
-//   nextvar = curvar + step
-//   store nextvar -> var
-//   br endcond, loop, endloop
-// outloop:
 void CSVPlugin::skipDelimLLVM(Value* delim,Function* debugChar, Function* debugInt)
 {
 	//Prepare
@@ -1101,6 +1082,20 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawV
 	mem_valWrapper.mem = mem_result;
 	mem_valWrapper.isNull = context->createFalse();
 	variables[attName] = mem_valWrapper;
+#ifdef DEBUG
+	{
+		Function* debugInt = context->getFunction("printi");
+		vector<Value*> ArgsV;
+
+		ArgsV.push_back(Builder->CreateLoad(mem_result));
+		Builder->CreateCall(debugInt, ArgsV, "printi");
+		ArgsV.clear();
+		ArgsV.push_back(context->createInt32(1001));
+		Builder->CreateCall(debugInt, ArgsV, "printi");
+	}
+#endif
+
+	cout << "[CSV_PM: ] Stored " << attName.getAttrName() << endl;
 }
 
 void CSVPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)	{
@@ -1458,7 +1453,6 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator& producer)
 				it != wantedFields.end(); it++) {
 			int neededAttr = (*it)->getAttrNo() - 1;
 			if(i == neededAttr)	{
-				//cout << "Convert field " << i << endl;
 				string attrName = (*it)->getName();
 				RecordAttribute attr = *(*it);
 
@@ -1475,7 +1469,7 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator& producer)
 		}
 		if (!fieldNeeded) {
 			skipDelimLLVM(delimInner, debugChar, debugInt);
-			//cout << "Skip field " << i << endl;
+			cout << "Skip field " << i << endl;
 		}
 	}
 
@@ -1491,6 +1485,7 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator& producer)
 	//Triggering parent
 	OperatorState* state = new OperatorState(producer, *variableBindings);
 	RawOperator* const opParent = producer.getParent();
+//	cout << "Forwarding " << (*variableBindings).size() << endl;
 	opParent->consume(context,*state);
 	Value *val_1 = context->createInt32(1);
 	val_lineCtr = Builder->CreateAdd(val_lineCtr,val_1);
@@ -1510,6 +1505,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 	Type* int64Type = Type::getInt64Ty(llvmContext);
 	Type* int16Type = Type::getInt16Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
+	Function *F = context->getGlobalFunction();
 
 	//Util.
 	Value* delimInner = ConstantInt::get(llvmContext, APInt(8, ';'));
@@ -1538,6 +1534,14 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 		fsizePtr = it->second;
 	}
 
+	/* Materialized OID */
+	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
+
+	RawValueMemory mem_posWrapper;
+	mem_posWrapper.mem = mem_lineCtr;
+	mem_posWrapper.isNull = context->createFalse();
+	(*variableBindings)[tupleIdentifier] = mem_posWrapper;
+
 	/**
 	 * LOOP BLOCKS
 	 */
@@ -1561,56 +1565,187 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 	/* Get curr. line start */
 	Value *mem_newline = Builder->CreateGEP(val_newlines, val_lineCtr);
 	Value *val_newline = Builder->CreateLoad(mem_newline);
+	Builder->CreateStore(val_newline,mem_pos);
 	int currAttr = 0;
+
+	/* Preparing Cache Attempt*/
+	/* XXX Very silly conversion */
+	list<RecordAttribute*>::iterator attrIter = rec.getArgs().begin();
+	list<RecordAttribute> attrList;
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	attrList.push_back(projTuple);
+
+	for (vector<RecordAttribute*>::iterator it = wantedFields.begin();
+				it != wantedFields.end(); it++) {
+		attrList.push_back(*(*it));
+	}
+
+	/* Actual Work */
 	for (vector<RecordAttribute*>::iterator it = wantedFields.begin();
 			it != wantedFields.end(); it++) {
 
-		/* Determine whether to scan forwards or backwards */
-		int neededAttr = (*it)->getAttrNo() - 1;
-		int pmDistanceBefore = neededAttr % policy;
-		int pmDistanceAfter = policy - neededAttr % policy;
-		int distanceFromCurr = neededAttr - currAttr;
+		/* Create search key for caches  */
+		bool found = false;
+		{
+			expressions::InputArgument arg = expressions::InputArgument(&rec, 0,
+					attrList);
+			const ExpressionType *fieldType = (*it)->getOriginalType();
+			const RecordAttribute& thisAttr = *(*it);
+			expressions::Expression* thisField =
+					new expressions::RecordProjection(fieldType, &arg,
+							thisAttr);
+			CachingService& cache = CachingService::getInstance();
+			CacheInfo info = cache.getCache(thisField);
+			if (info.structFieldNo != -1) {
+				cout << "Field " << (*it)->getOriginalRelationName() << "."
+						<< (*it)->getAttrName() << " found!" << endl;
 
-		/* Parse from current field */
-		if (distanceFromCurr <= pmDistanceBefore
-				&& distanceFromCurr <= pmDistanceAfter) {
+				if (!cache.getCacheIsFull(thisField)) {
+					cout << "...but is not useable " << endl;
+				}
+				else
+				{
+					found = true;
+
+					int posInStruct = info.structFieldNo;
+
+					/* We already got the OID -
+					 * No need for extra work.
+					 */
+					if (posInStruct != 0) {
+						StructType *cacheType = info.objectType;
+						Value *typeSize = ConstantExpr::getSizeOf(cacheType);
+						char* rawPtr = info.payloadPtr;
+						int tmptmp = *(int*) rawPtr;
+						int tmptmp2 = *(int*) (rawPtr + 4);
+						int tmptmp3 = *(int*) (rawPtr + 8);
+						int tmptmp4 = *(int*) (rawPtr + 12);
+						cout << "Hm? " << tmptmp << " " << tmptmp2 << " "
+								<< tmptmp3 << " " << tmptmp4 << endl;
+//						Value *val_cacheIdx = Builder->CreateLoad(mem_lineCtr);
+//#ifdef DEBUGPM
+////						{
+////							vector<Value*> ArgsV;
+////							Function* debugInt = context->getFunction("printi");
+////							ArgsV.push_back(val_cacheIdx);
+////							Builder->CreateCall(debugInt, ArgsV);
+////						}
+//#endif
+//						/* Cast to appr. type */
+//						PointerType *ptr_cacheType =
+//								PointerType::get(cacheType,0);
+//						PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
+//						Type *int64Type = Type::getInt64Ty(llvmContext);
+//						/* Probably unneeded indirection... */
+//						Value *val_cachePtrRaw = context->CastPtrToLlvmPtr(
+//								charPtrType, rawPtr);
+//
+//
+////						Value *val_cacheIdx64 = Builder->CreateSExt(val_cacheIdx,int64Type);
+////						AllocaInst *mem_tmp = context->CreateEntryBlockAlloca(F,
+////								"tmpCachedField", int64Type);
+////						Builder->CreateStore(val_cacheIdx64,mem_tmp);
+//////						val_cacheIdx64->getType()->dump();
+//////						typeSize->getType()->dump();
+//////						Value *val_currOffset = Builder->CreateMul(typeSize,val_cacheIdx64);
+//
+//						Builder->CreateInBoundsGEP(val_cachePtrRaw, val_cacheIdx);
+//
+//						Value *val_cachePtr = Builder->CreateBitCast(
+//								val_cachePtrRaw, ptr_cacheType);
+//
+////						Value *val_cacheShiftedPtr = context->getArrayElemMem(
+////								val_cachePtr, val_cacheIdx);
+//						Value *val_cacheShiftedPtr = Builder->CreateInBoundsGEP(
+//								val_cachePtr, val_cacheIdx);
+////						val_cacheShiftedPtr->getType()->dump();
+//						cout << endl;
+//						cout << "Which field in struct? " << posInStruct << endl;
+//
+////						Value *val_cache = Builder->CreateLoad(val_cacheShiftedPtr);
+//						Value *val_cachedField = context->getStructElem(
+//								val_cacheShiftedPtr, posInStruct);
+//						Type *fieldType = val_cachedField->getType();
+//						fieldType->dump();
+//						cout << endl;
+//
+//						/* This Alloca should not appear in optimized code */
+//						AllocaInst *mem_cachedField =
+//								context->CreateEntryBlockAlloca(F,
+//										"tmpCachedField", fieldType);
+//						Builder->CreateStore(val_cachedField, mem_cachedField);
+//
+//						RawValueMemory mem_valWrapper;
+//						mem_valWrapper.mem = mem_cachedField;
+//						mem_valWrapper.isNull = context->createFalse();
+////						(*variableBindings)[*(*it)] = mem_valWrapper;
+//#ifdef DEBUGPM
+//						//{
+//							vector<Value*> ArgsV;
+//							Function* debugSth = context->getFunction("printi");
+//							ArgsV.push_back(val_cachedField);
+//							Builder->CreateCall(debugSth, ArgsV);
+////						ArgsV.clear();
+////						ArgsV.push_back(context->createInt32(1002));
+////						Builder->CreateCall(debugInt, ArgsV);
+//						//}
+//#endif
+					}
+
+				}
+			} else {
+				cout << "No match found for " << fname << endl;
+			}
+		}
+
+		if (!found) {
+			/* Determine whether to scan forwards or backwards */
+			int neededAttr = (*it)->getAttrNo() - 1;
+			int pmDistanceBefore = neededAttr % policy;
+			int pmDistanceAfter = policy - neededAttr % policy;
+			int distanceFromCurr = neededAttr - currAttr;
+
+			/* Parse from current field */
+			if (distanceFromCurr <= pmDistanceBefore
+					&& distanceFromCurr <= pmDistanceAfter) {
 //			cout << "To get field " << (*it)->getAttrNo()
 //					<< ", scan from current pos " << distanceFromCurr
 //					<< " fields" << endl;
 
-			/* How many fields to skip */
-			for (int i = 0; i < distanceFromCurr; i++) {
-				skipDelimLLVM(delimInner);
+				/* How many fields to skip */
+				for (int i = 0; i < distanceFromCurr; i++) {
+					skipDelimLLVM(delimInner);
+				}
+				/* Codegen: Convert Field */
+				RecordAttribute attr = *(*it);
+				typeID id = (*it)->getOriginalType()->getTypeID();
+				readField(id, attr, *variableBindings);
 			}
-			/* Codegen: Convert Field */
-			RecordAttribute attr = *(*it);
-			typeID id = (*it)->getOriginalType()->getTypeID();
-			readField(id, attr, *variableBindings);
-		}
-		/* Parse forwards */
-		else if(pmDistanceBefore <= pmDistanceAfter)
-		{
+			/* Parse forwards */
+			else if (pmDistanceBefore <= pmDistanceAfter) {
 //			cout << "To get field "<< (*it)->getAttrNo() <<
 //					", scan forward " << pmDistanceBefore
 //					<< " fields" << endl;
-			int nearbyPM = neededAttr / policy;
+				int nearbyPM = neededAttr / policy;
 //			cout << "Array Field In PM: " << nearbyPM - 1 << endl;
 
-			/* Get offset from PM */
-			Value *val_pm = Builder->CreateLoad(mem_pm);
-			Value *mem_pmRow = Builder->CreateInBoundsGEP(val_pm, val_lineCtr);
-			Value *val_pmRow = Builder->CreateLoad(mem_pmRow);
-			Value *val_pmColIdx = context->createInt32(nearbyPM - 1);
-			Value *val_pmCol =
-					Builder->CreateInBoundsGEP(val_pmRow,val_pmColIdx);
-			Value *val_pmOffset16 = Builder->CreateLoad(val_pmCol);
+				/* Get offset from PM */
+				Value *val_pm = Builder->CreateLoad(mem_pm);
+				Value *mem_pmRow = Builder->CreateInBoundsGEP(val_pm,
+						val_lineCtr);
+				Value *val_pmRow = Builder->CreateLoad(mem_pmRow);
+				Value *val_pmColIdx = context->createInt32(nearbyPM - 1);
+				Value *val_pmCol = Builder->CreateInBoundsGEP(val_pmRow,
+						val_pmColIdx);
+				Value *val_pmOffset16 = Builder->CreateLoad(val_pmCol);
 
-			Value *val_pmOffset64 = Builder->CreateSExt(val_pmOffset16,
-					int64Type);
-			Value *val_offset = Builder->CreateAdd(val_newline, val_pmOffset64);
+				Value *val_pmOffset64 = Builder->CreateSExt(val_pmOffset16,
+						int64Type);
+				Value *val_offset = Builder->CreateAdd(val_newline,
+						val_pmOffset64);
 
-			/* Set position to curr_new_line + pm_offset */
-			Builder->CreateStore(val_offset,mem_pos);
+				/* Set position to curr_new_line + pm_offset */
+				Builder->CreateStore(val_offset, mem_pos);
 #ifdef DEBUGPM
 //			{
 //				vector<Value*> ArgsV;
@@ -1619,274 +1754,88 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 //				Builder->CreateCall(debugInt64, ArgsV);
 //			}
 #endif
-			/* How many fields to skip */
-			for(int i = 0; i < pmDistanceBefore; i++)	{
-				skipDelimLLVM(delimInner);
+				/* How many fields to skip */
+				for (int i = 0; i < pmDistanceBefore; i++) {
+					skipDelimLLVM(delimInner);
+				}
+				/* Codegen: Convert Field */
+				RecordAttribute attr = *(*it);
+				typeID id = (*it)->getOriginalType()->getTypeID();
+				readField(id, attr, *variableBindings);
+
 			}
-			/* Codegen: Convert Field */
-			RecordAttribute attr = *(*it);
-		    typeID id = (*it)->getOriginalType()->getTypeID();
-			readField(id,attr,*variableBindings);
-
-
-		}
-		/* Parse backwards */
-		else
-		{
+			/* Parse backwards */
+			else {
 //			cout << "To get field "<< (*it)->getAttrNo() <<
 //								", scan backward " << pmDistanceAfter
 //								<< " fields" << endl;
-			int nearbyPM = (neededAttr / policy) + 1;
+				int nearbyPM = (neededAttr / policy) + 1;
 //			cout << "Array Field in PM: " << nearbyPM - 1 << endl;
 
-			/* Get offset from PM */
-			Value *val_pm = Builder->CreateLoad(mem_pm);
-			Value *mem_pmRow = Builder->CreateInBoundsGEP(val_pm, val_lineCtr);
-			Value *val_pmRow = Builder->CreateLoad(mem_pmRow);
-			Value *val_pmColIdx = context->createInt32(nearbyPM - 1);
-			Value *val_pmCol =
-					Builder->CreateInBoundsGEP(val_pmRow,val_pmColIdx);
-			Value *val_pmOffset16 = Builder->CreateLoad(val_pmCol);
+				/* Get offset from PM */
+				Value *val_pm = Builder->CreateLoad(mem_pm);
+				Value *mem_pmRow = Builder->CreateInBoundsGEP(val_pm,
+						val_lineCtr);
+				Value *val_pmRow = Builder->CreateLoad(mem_pmRow);
+				Value *val_pmColIdx = context->createInt32(nearbyPM - 1);
+				Value *val_pmCol = Builder->CreateInBoundsGEP(val_pmRow,
+						val_pmColIdx);
+				Value *val_pmOffset16 = Builder->CreateLoad(val_pmCol);
 
-			Value *val_pmOffset64 = Builder->CreateSExt(val_pmOffset16,
-					int64Type);
-			Value *val_offset = Builder->CreateAdd(val_newline, val_pmOffset64);
+				Value *val_pmOffset64 = Builder->CreateSExt(val_pmOffset16,
+						int64Type);
+				Value *val_offset = Builder->CreateAdd(val_newline,
+						val_pmOffset64);
 
-			/* Set position to curr_new_line + pm_offset */
-			Builder->CreateStore(val_offset, mem_pos);
+				/* Set position to curr_new_line + pm_offset */
+				Builder->CreateStore(val_offset, mem_pos);
 
-			/* How many fields to skip BACKWARDS*/
-			/* XXX Double Work: Need methods accepting start + end pos.
-			 * to exploit the fact that I found ending pos.
-			 * before even knowing the starting one */
+				/* How many fields to skip BACKWARDS*/
+				/* XXX Double Work: Need methods accepting start + end pos.
+				 * to exploit the fact that I found ending pos.
+				 * before even knowing the starting one */
 //			Value *end_pos;
-			for (int i = 0; i < pmDistanceAfter; i++) {
-				skipDelimBackwardsLLVM(delimInner);
+				for (int i = 0; i < pmDistanceAfter; i++) {
+					skipDelimBackwardsLLVM(delimInner);
 //				if(i == pmDistanceAfter - 2)	{
 //					end_pos = Builder->CreateLoad(mem_pos);
 //				}
+				}
+				/* Codegen: Convert Field */
+				RecordAttribute attr = *(*it);
+				typeID id = (*it)->getOriginalType()->getTypeID();
+				readField(id, attr, *variableBindings);
 			}
-			/* Codegen: Convert Field */
-			RecordAttribute attr = *(*it);
-			typeID id = (*it)->getOriginalType()->getTypeID();
-			readField(id, attr, *variableBindings);
-		}
 
-		/* All conversion functions actually advance field counter */
-		currAttr = neededAttr + 1;
+			/* All conversion functions actually advance field counter */
+			currAttr = neededAttr + 1;
+		}
 	}
 
 	Builder->CreateBr(pmScanInc);
 
 	/* Inc: callParent; lineCtr++ */
 	Builder->SetInsertPoint(pmScanInc);
+//	cout << "Forwarding " << (*variableBindings).size() << endl;
 	OperatorState* state = new OperatorState(producer, *variableBindings);
 	RawOperator* const opParent = producer.getParent();
 	opParent->consume(context,*state);
 	Value *val_1 = context->createInt32(1);
+	val_lineCtr = Builder->CreateLoad(mem_lineCtr);
 	val_lineCtr = Builder->CreateAdd(val_lineCtr,val_1);
 	Builder->CreateStore(val_lineCtr,mem_lineCtr);
+#ifdef DEBUG
+	{
+		vector<Value*> ArgsV;
+		Function* debugInt = context->getFunction("printi");
+		ArgsV.push_back(context->createInt32(100001));
+		Builder->CreateCall(debugInt, ArgsV);
+	}
+#endif
 	Builder->CreateBr(pmScanCond);
 
 	/* End */
 	Builder->SetInsertPoint(pmScanEnd);
 	context->setEndingBlock(pmScanEnd);
-
-//	///////// SCRATCHPAD ////////////////
-//	//Get the ENTRY BLOCK
-//	Function *TheFunction = Builder->GetInsertBlock()->getParent();
-//	context->setCurrentEntryBlock(Builder->GetInsertBlock());
-//
-//	BasicBlock *CondBB = BasicBlock::Create(llvmContext, "csvScanCond", TheFunction);
-//
-//	// Insert an explicit fall through from the current (entry) block to the CondBB.
-//	Builder->CreateBr(CondBB);
-//
-//	// Start insertion in CondBB.
-//	Builder->SetInsertPoint(CondBB);
-//	Value* lhs = Builder->CreateLoad(pos);
-//	Value* rhs = Builder->CreateLoad(fsizePtr);
-//	Value *cond = Builder->CreateICmpSLT(lhs,rhs);
-//
-//	// Make the new basic block for the loop header (BODY), inserting after current block.
-//	BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "csvScanBody", TheFunction);
-//
-//	// Create the "AFTER LOOP" block and insert it.
-//	BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "csvScanEnd", TheFunction);
-//	context->setEndingBlock(AfterBB);
-//
-//	// Insert the conditional branch into the end of CondBB.
-//	Builder->CreateCondBr(cond, LoopBB, AfterBB);
-//
-//	// Start insertion in LoopBB.
-//	Builder->SetInsertPoint(LoopBB);
-//
-//	//Get the line number and pass it along.
-//	//More general/lazy CSV plugins will only perform this action,
-//	//instead of eagerly converting fields
-//	RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop);
-//
-//	RawValueMemory mem_posWrapper;
-//	//mem_posWrapper.mem = pos;
-//	mem_posWrapper.mem = mem_lineCtr;
-//	mem_posWrapper.isNull = context->createFalse();
-//	(*variableBindings)[tupleIdentifier] = mem_posWrapper;
-//
-//	/* Actual Work (Loop through attributes etc.) */
-//	int cur_col = 0;
-//	Value* delimInner = ConstantInt::get(llvmContext, APInt(8,';'));
-//	Value* delimEnd = ConstantInt::get(llvmContext, APInt(8,'\n'));
-//	Function* atoi_ 		= context->getFunction("atoi");
-//	Function* atof_ 		= context->getFunction("atof");
-//	Function* debugChar 	= context->getFunction("printc");
-//	Function* debugInt 		= context->getFunction("printi");
-//	Function* debugFloat 	= context->getFunction("printFloat");
-//
-//	if(atoi_ == 0 || atof_ == 0 || debugChar == 0 || debugInt == 0 || debugFloat == 0) {
-//		LOG(ERROR) <<"One of the functions needed not found!";
-//		throw runtime_error(string("One of the functions needed not found!"));
-//	}
-//
-//	/* Store (current) newline position */
-//	AllocaInst* mem_pos;
-//	{
-//		map<string, AllocaInst*>::iterator it;
-//		it = NamedValuesCSV.find(posVar);
-//		if (it == NamedValuesCSV.end()) {
-//			throw runtime_error(string("Unknown variable name: ") + posVar);
-//		}
-//		mem_pos = it->second;
-//	}
-//	Value *val_posNewline = Builder->CreateLoad(mem_pos);
-//	Value *val_newlines = Builder->CreateLoad(mem_newlines);
-//	Value *val_lineCtr = Builder->CreateLoad(mem_lineCtr);
-//	Value* newlinesShifted = Builder->CreateInBoundsGEP(val_newlines, val_lineCtr);
-//	Builder->CreateStore(val_posNewline,newlinesShifted);
-//
-//	/* Loop through fields and gather info (values needed and PM offsets) */
-//	int pmFields = rec.getArgsNo() / policy;
-//	vector<int> pmFieldsNo;
-//	for(int i = 1; i < pmFields; i++)	{
-//		pmFieldsNo.push_back(i * policy);
-//	}
-//
-//	//Using it to know if a final skip is needed
-//	int lastFieldNo = 0;
-//	int pmCtr = 0;
-//	for(int i = 0; i < rec.getArgsNo(); i++)	{
-//
-//		//cout << "Considering field " << i << endl;
-//		if (pmFieldsNo.empty() && wantedFields.empty()
-//				&& lastFieldNo < rec.getArgsNo()) {
-//			skipDelimLLVM(delimEnd, debugChar, debugInt);
-//			//cout << "(All empty) Skip field " << i << endl;
-//			break;
-//		}
-//
-//		/* Check usefulness for PM */
-//		/* Field Numbers in Record expected to start from 1!! */
-//		vector<int>::iterator pmIt;
-//		pmIt = find(pmFieldsNo.begin(),pmFieldsNo.end(),i);
-//		if(pmIt != pmFieldsNo.end())	{
-//			//cout << "Place field " << i << "i.e., ( "<< i+1 << ") in PM"<<endl;
-//
-//			/* What to store: offset */
-//			AllocaInst* mem_pos;
-//			{
-//				map<string, AllocaInst*>::iterator it;
-//				it = NamedValuesCSV.find(posVar);
-//				if (it == NamedValuesCSV.end()) {
-//					string msg = string("Unknown variable name: ") + posVar;
-//					throw runtime_error(msg);
-//				}
-//				mem_pos = it->second;
-//			}
-//			Value* val_pos = Builder->CreateLoad(mem_pos);
-//			Value *val_offset = Builder->CreateSub(val_pos, val_posNewline);
-//			Value *val_offset16 = Builder->CreateTrunc(val_offset, int16Type);
-//
-//			Value *val_pm = Builder->CreateLoad(mem_pm);
-//			Value *mem_pmRow = Builder->CreateInBoundsGEP(val_pm, val_lineCtr);
-//			Value *val_pmRow = Builder->CreateLoad(mem_pmRow);
-//			Value *val_pmColIdx = context->createInt32(pmCtr);
-//			Value *val_pmCol = Builder->CreateInBoundsGEP(val_pmRow, val_pmColIdx);
-//			Builder->CreateStore(val_offset16,val_pmCol);
-//
-//			/* Control Logic */
-//			pmCtr++;
-//			pmFieldsNo.erase(pmIt);
-//		}
-//
-//		/* Check usefulness for query */
-//		vector<RecordAttribute*>::iterator it;
-//		bool fieldNeeded = false;
-//		for (it = wantedFields.begin();
-//				it != wantedFields.end(); it++) {
-//			int neededAttr = (*it)->getAttrNo() - 1;
-//			if(i == neededAttr)	{
-//				//cout << "Convert field " << i << endl;
-//				string attrName = (*it)->getName();
-//				RecordAttribute attr = *(*it);
-//
-//				/* Codegen */
-//				switch ((*it)->getOriginalType()->getTypeID()) {
-//				case BOOL: {
-//					readAsBooleanLLVM(attr, *variableBindings);
-//					break;
-//				}
-//				case STRING: {
-//					string msg = "[CSV PLUGIN: ] String datatypes not supported yet";
-//					LOG(ERROR)<< msg;
-//					throw runtime_error(msg);
-//				}
-//				case FLOAT: {
-//					readAsFloatLLVM(attr,*variableBindings,atof_,debugChar,debugFloat);
-//					break;
-//				}
-//				case INT: {
-//					readAsIntLLVM(attr,*variableBindings);
-//					break;
-//				}
-//				case BAG:
-//				case LIST:
-//				case SET: {
-//					string msg = "[CSV PLUGIN: ] CSV files do not contain collections";
-//					LOG(ERROR) << msg;
-//					throw runtime_error(msg);
-//				}
-//				case RECORD: {
-//					string msg =
-//							"[CSV PLUGIN: ] CSV files do not contain record-valued attributes";
-//					LOG(ERROR)<< msg;
-//					throw runtime_error(msg);
-//				}
-//				default: {
-//					string msg = "[CSV PLUGIN: ] Unknown datatype";
-//					LOG(ERROR) << msg;
-//					throw runtime_error(msg);
-//				}
-//				}
-//
-//				/* Control Logic */
-//				fieldNeeded = true;
-//				wantedFields.erase(it);
-//				lastFieldNo = (*it)->getAttrNo();
-//				break;
-//			}
-//		}
-//		if (!fieldNeeded) {
-//			skipDelimLLVM(delimInner, debugChar, debugInt);
-//			//cout << "Skip field " << i << endl;
-//		}
-//	}
-//
-//	// Make the new basic block for the increment, inserting after current block.
-//	BasicBlock *IncBB = BasicBlock::Create(llvmContext, "scanInc", TheFunction);
-//
-//	// Insert an explicit fall through from the current (body) block to IncBB.
-//	Builder->CreateBr(IncBB);
-//	// Start insertion in IncBB.
-//	Builder->SetInsertPoint(IncBB);
-
 }
 }

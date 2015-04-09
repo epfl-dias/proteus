@@ -226,7 +226,7 @@ void RadixJoin::produce() const {
 	runRadix();
 
 	/* Free Arenas */
-	this->freeArenas();
+	/*this->freeArenas();*/
 }
 
 void RadixJoin::runRadix() const	{
@@ -549,7 +549,6 @@ void RadixJoin::runRadix() const	{
 								wantedFields.begin();
 						for (; it2 != wantedFields.end(); it2++) {
 							string currField = (*it2)->getName();
-
 							mem_field = context->CreateEntryBlockAlloca(F,
 									"mem_" + currField,
 									rPayloadType->getElementType(i));
@@ -788,7 +787,6 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			bool fullRelation = !(this->getLeftChild()).isFiltering();
 			const vector<expressions::Expression*>& expsLeft =
 					matLeft.getWantedExpressions();
-			/* Only keep for debugging */
 			const vector<RecordAttribute*>& fieldsLeft =
 					matLeft.getWantedFields();
 			vector<RecordAttribute*>::const_iterator itRec = fieldsLeft.begin();
@@ -1063,6 +1061,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 					matRight.getWantedFields();
 			vector<RecordAttribute*>::const_iterator itRec =
 					fieldsRight.begin();
+			cout << "Right Mat. Size: "<<matRight.getWantedFields().size()<<endl;
 			/* ************************/
 			int fieldNo = 0;
 			/* Explicit OID ('activeTuple') will be field 0 */

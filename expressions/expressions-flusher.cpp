@@ -333,7 +333,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::AddExpression *e) {
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 	RawValue exprResult = e->accept(exprGenerator);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	Function *flushFunc = NULL;
 	string instructionLabel;
 
@@ -382,7 +382,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::SubExpression *e) {
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 	RawValue exprResult = e->accept(exprGenerator);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	Function *flushFunc = NULL;
 	string instructionLabel;
 
@@ -432,7 +432,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::MultExpression *e) {
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 	RawValue exprResult = e->accept(exprGenerator);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	Function *flushFunc = NULL;
 	string instructionLabel;
 
@@ -481,7 +481,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::DivExpression *e) {
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 	RawValue exprResult = e->accept(exprGenerator);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	Function *flushFunc = NULL;
 	string instructionLabel;
 

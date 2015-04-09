@@ -170,7 +170,7 @@ RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* ty
 }
 }
 
-void CSVPlugin::flushValue(RawValueMemory mem_value, ExpressionType *type,
+void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
 		Value* fileName)
 {
 	IRBuilder<>* Builder = context->getBuilder();

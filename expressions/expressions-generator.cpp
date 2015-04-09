@@ -234,7 +234,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -281,7 +281,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::NeExpression *e) {
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -321,7 +321,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::GeExpression *e) {
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -361,7 +361,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -401,7 +401,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::LeExpression *e) {
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -441,7 +441,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::LtExpression *e) {
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -481,7 +481,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::AddExpression *e) {
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -521,7 +521,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::SubExpression *e) {
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -561,7 +561,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::MultExpression *e) {
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -601,7 +601,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::DivExpression *e) {
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;

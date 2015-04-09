@@ -260,6 +260,15 @@ Value* RawContext::getStructElem(Value* mem_struct, int elemNo)	{
 	return val_struct_shifted;
 }
 
+Value* RawContext::getStructElemMem(Value* mem_struct, int elemNo)	{
+	vector<Value*> idxList = vector<Value*>();
+	idxList.push_back(createInt32(0));
+	idxList.push_back(createInt32(elemNo));
+	//Shift in struct ptr
+	Value* mem_struct_shifted = Builder->CreateGEP(mem_struct, idxList);
+	return mem_struct_shifted;
+}
+
 Value* RawContext::getStructElem(AllocaInst* mem_struct, int elemNo)	{
 	vector<Value*> idxList = vector<Value*>();
 	idxList.push_back(createInt32(0));

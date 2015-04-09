@@ -456,7 +456,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::AddExpression *e) {
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 	RawValue exprResult = e->accept(exprGenerator);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	Function *hashFunc = NULL;
 	string instructionLabel;
 
@@ -515,7 +515,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::SubExpression *e) {
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 	RawValue exprResult = e->accept(exprGenerator);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	Function *hashFunc = NULL;
 	string instructionLabel;
 
@@ -574,7 +574,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::MultExpression *e) {
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 	RawValue exprResult = e->accept(exprGenerator);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	Function *hashFunc = NULL;
 	string instructionLabel;
 
@@ -633,7 +633,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::DivExpression *e) {
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
 	RawValue exprResult = e->accept(exprGenerator);
 
-	ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
 	Function *hashFunc = NULL;
 	string instructionLabel;
 

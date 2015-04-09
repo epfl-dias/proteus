@@ -75,7 +75,7 @@ public:
 	 * of the input and flush it w/o caring what is the final serialization format
 	 */
 	virtual void flushTuple(RawValueMemory mem_value, Value* fileName)	{ flushChunk(mem_value, fileName); }
-	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type, Value* fileName)  { flushChunk(mem_value, fileName); }
+	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName)  { flushChunk(mem_value, fileName); }
 	void flushChunk(RawValueMemory mem_value, Value* fileName);
 
 	virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);

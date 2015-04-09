@@ -87,7 +87,7 @@ public:
 	 * Can't just crop CSV entries and flush as JSON
 	 */
 	virtual void flushTuple(RawValueMemory mem_value, Value* fileName) = 0;
-	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type, Value* fileName) = 0;
+	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName) = 0;
 
 	/**
 	 * Relevant for collections' unnesting

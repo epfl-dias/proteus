@@ -44,10 +44,10 @@ public:
 	 *
 	 */
 	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
-			vector<RecordAttribute*>& whichFields, int lineHint, int policy);
+			vector<RecordAttribute*> whichFields, int lineHint, int policy);
 	/* PM Ready */
 	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
-				vector<RecordAttribute*>& whichFields, int lineHint, int policy,
+				vector<RecordAttribute*> whichFields, int lineHint, int policy,
 				size_t *newlines, short **offsets);
 	~CSVPlugin();
 	virtual string& getName() {
@@ -70,7 +70,7 @@ public:
 		throw runtime_error(error_msg);
 	}
 
-	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type,
+	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type,
 			Value* fileName);
 
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
@@ -106,7 +106,7 @@ private:
 	char *buf;
 	//Schema info provided
 	RecordType& rec;
-	vector<RecordAttribute*>& wantedFields;
+	vector<RecordAttribute*> wantedFields;
 
 	/**
 	 * PM-related

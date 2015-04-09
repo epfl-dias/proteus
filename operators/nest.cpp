@@ -41,7 +41,7 @@ Nest::Nest(Monoid acc, expressions::Expression* outputExpr,
 	string attrPlaceholder = string("attr_");
 	for(it = f_grouping.begin(); it != f_grouping.end(); it++)	{
 
-		ExpressionType* type = it->getExpressionType();
+		const ExpressionType* type = it->getExpressionType();
 		int argNo = it->getArgNo();
 		list<RecordAttribute> projections = it->getProjections();
 		expressions::InputArgument* attrExpr =

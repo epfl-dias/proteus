@@ -40,10 +40,11 @@ enum ExpressionId	{ CONSTANT, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, 
 
 class Expression	{
 public:
-	Expression(ExpressionType* type) : type(type)	{}
-	virtual ~Expression()							{}
+	Expression(ExpressionType* type) : type(type)		{}
+	Expression(const ExpressionType* type) : type(type)	{}
+	virtual ~Expression()								{}
 
-	ExpressionType* getExpressionType()	const		{ return type; }
+	const ExpressionType* getExpressionType()	const		{ return type; }
 	virtual RawValue accept(ExprVisitor &v) = 0;
 	virtual ExpressionId getTypeID() const = 0;
 
@@ -58,7 +59,7 @@ public:
 		}
 	}
 private:
-	ExpressionType* type;
+	const ExpressionType* type;
 };
 
 struct less_map: std::binary_function<const Expression *,
@@ -211,7 +212,7 @@ private:
  */
 class InputArgument	: public Expression	{
 public:
-	InputArgument(ExpressionType* type, int argNo,
+	InputArgument(const ExpressionType* type, int argNo,
 			list<RecordAttribute> projections) :
 			Expression(type), argNo(argNo), projections(projections)	{}
 
@@ -222,12 +223,14 @@ public:
 	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeID() const										{ return ARGUMENT; }
 	inline bool operator<(const expressions::Expression& r) const {
+		cout << "before next thing:" << endl;
 		if (this->getTypeID() == r.getTypeID()) {
+			cout << "next thing" << endl;
 			const InputArgument& rInputArg =
 					dynamic_cast<const InputArgument&>(r);
 			/* Is it the same record? */
-			ExpressionType *lExpr = this->getExpressionType();
-			ExpressionType *rExpr = rInputArg.getExpressionType();
+			const ExpressionType *lExpr = this->getExpressionType();
+			const ExpressionType *rExpr = rInputArg.getExpressionType();
 			bool cmpExprType1 = *lExpr < *rExpr;
 			bool cmpExprType2 = *rExpr < *rExpr;
 			bool eqExprType = !cmpExprType1 && !cmpExprType2;
@@ -284,6 +287,8 @@ class RecordProjection : public Expression	{
 public:
 	RecordProjection(ExpressionType* type, Expression* expr, const RecordAttribute& attribute)	:
 			Expression(type), expr(expr), attribute(attribute)	{}
+	RecordProjection(const ExpressionType* type, Expression* expr, const RecordAttribute& attribute)	:
+				Expression(type), expr(expr), attribute(attribute)	{}
 	~RecordProjection()								{}
 
 	Expression* getExpr() const						{ return expr; }
@@ -302,7 +307,10 @@ public:
 			bool eqAttribute = !cmpAttribute1 && !cmpAttribute2;
 			/* Does this make sense? Do I need equality? */
 			if (eqAttribute) {
-				return this->getExpr() < rProj.getExpr();
+//				cout << this->getAttribute().getAttrName() << " vs " << rProj.getAttribute().getAttrName() << endl;
+//				cout << this->getAttribute().getRelationName() << " vs " << rProj.getAttribute().getRelationName() << endl;
+				//return this->getExpr() < rProj.getExpr();
+				return this->getRelationName() < rProj.getRelationName();
 			} else {
 				return cmpAttribute1;
 			}

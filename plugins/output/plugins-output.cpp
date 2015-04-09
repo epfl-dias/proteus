@@ -37,7 +37,6 @@ Materializer::Materializer(const vector<RecordAttribute*>& wantedFields,
 		wantedExpressions(wantedExpressions),
 		wantedFields(wantedFields), outputMode(outputMode)
 {
-
 }
 
 OutputPlugin::OutputPlugin(RawContext* const context,

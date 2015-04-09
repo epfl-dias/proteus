@@ -86,7 +86,7 @@ public:
 			throw runtime_error(error_msg);
 		}
 
-	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type, Value* fileName)	{
+	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName)	{
 		string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
 		LOG(ERROR) << error_msg;
 		throw runtime_error(error_msg);

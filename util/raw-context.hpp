@@ -94,6 +94,7 @@ public:
 	 */
 	Value* getStructElem(Value* mem_struct, int elemNo);
 	Value* getStructElem(AllocaInst* mem_struct, int elemNo);
+	Value* getStructElemMem(Value* mem_struct, int elemNo);
 	Value* CreateGlobalString(char* str);
 	Value* CreateGlobalString(const char* str);
 	PointerType* getPointerType(Type* type);

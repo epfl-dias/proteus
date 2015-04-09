@@ -50,7 +50,7 @@ public:
 		throw runtime_error(error_msg);
 	}
 
-	virtual void flushValue(RawValueMemory mem_value, ExpressionType *type, Value* fileName);
+	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName);
 
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
 		string error_msg = "[CSVPlugin: ] CSV files do not contain collections";

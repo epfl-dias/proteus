@@ -33,7 +33,7 @@ typedef struct CacheInfo {
 	StructType *objectType;
 	/* Convention:
 	 * Count begins from 1.
-	 * Zero implies we're dealing with the whole obj.
+	 * Zero implies we're dealing with the whole obj. (activeLoop)
 	 * Negative implies invalid entry */
 	int structFieldNo;
 	char *payloadPtr;
@@ -85,7 +85,6 @@ public:
 		map<expressions::Expression*, CacheInfo>::iterator it = binCaches.find(expr);
 		if (it == binCaches.end()) {
 			LOG(INFO)<< "No Bin Cache found for expr " << expr->getTypeID();
-			/* NULL is a valid value (Cache not found) */
 			CacheInfo invalid;
 			invalid.structFieldNo = -1;
 			return invalid;

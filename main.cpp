@@ -262,6 +262,7 @@ int main(int argc, char* argv[])
 //	expressionMapVertical();
 
 	joinQueryRelationalRadixCache();
+	joinQueryRelationalRadixCache();
 }
 
 void expressionMap()	{
@@ -2216,7 +2217,8 @@ void joinQueryRelationalRadixCache()
 	whichFields.push_back(attr1);
 	whichFields.push_back(attr2);
 
-	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
+//	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
+	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields,3,2);
 	catalog.registerPlugin(filename, pg);
 	Scan scan = Scan(&ctx, *pg);
 
@@ -2239,15 +2241,16 @@ void joinQueryRelationalRadixCache()
 
 	list<RecordAttribute*> attrList2;
 	attrList2.push_back(attr1_f2);
-	attrList2.push_back(attr1_f2);
-	attrList2.push_back(attr1_f2);
+	attrList2.push_back(attr2_f2);
+	attrList2.push_back(attr3_f2);
 	RecordType rec2 = RecordType(attrList2);
 
 	vector<RecordAttribute*> whichFields2;
 	whichFields2.push_back(attr1_f2);
 	whichFields2.push_back(attr2_f2);
 
-	CSVPlugin* pg2 = new CSVPlugin(&ctx, filename2, rec2, whichFields2);
+//	CSVPlugin* pg2 = new CSVPlugin(&ctx, filename2, rec2, whichFields2);
+	pm::CSVPlugin* pg2 = new pm::CSVPlugin(&ctx, filename2, rec2, whichFields2,2,2);
 	catalog.registerPlugin(filename2, pg2);
 	Scan scan2 = Scan(&ctx, *pg2);
 	LOG(INFO)<<"Right:"<<&scan2;
@@ -2289,11 +2292,11 @@ void joinQueryRelationalRadixCache()
 
 	Materializer* matLeft = new Materializer(whichFields, whichExpressionsLeft, outputModes);
 
-	outputModes.clear();
+	vector<materialization_mode> outputModes2;
 	//active loop too
-	outputModes.insert(outputModes.begin(), EAGER);
-	outputModes.insert(outputModes.begin(), EAGER);
-	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes2.insert(outputModes2.begin(), EAGER);
+	outputModes2.insert(outputModes2.begin(), EAGER);
+	outputModes2.insert(outputModes2.begin(), EAGER);
 
 	/* XXX Updated Materializer requires 'expressions to be cached'*/
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
@@ -2307,7 +2310,7 @@ void joinQueryRelationalRadixCache()
 	whichExpressionsRight.push_back(exprRightMat1);
 	whichExpressionsRight.push_back(exprRightMat2);
 
-	Materializer* matRight = new Materializer(whichFields2, whichExpressionsRight, outputModes);
+	Materializer* matRight = new Materializer(whichFields2, whichExpressionsRight, outputModes2);
 
 	char joinLabel[] = "radixJoin1";
 	RadixJoin join = RadixJoin(joinPred, scan, scan2, &ctx, joinLabel, *matLeft, *matRight);
