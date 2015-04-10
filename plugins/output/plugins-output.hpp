@@ -110,7 +110,7 @@ public:
 	const map<RecordAttribute, RawValueMemory>& getBindings() const {
 		return currentBindings;
 	}
-	std::vector<Type*>* getMaterializedTypes() {
+	vector<Type*>* getMaterializedTypes() {
 		return materializedTypes;
 	}
 	Value* convert(Type* currType, Type* materializedType, Value* val);

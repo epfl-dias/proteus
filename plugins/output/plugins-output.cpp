@@ -199,6 +199,11 @@ Type* OutputPlugin::chooseType(const ExpressionType* exprType, Type* currType, m
 			throw runtime_error(string("[OUTPUT PG: ] CONVERSION TO 'RAW' FORM NOT SUPPORTED (YET)"));
 		}
 		break;
+	default: {
+			string error_msg = "[OUTPUT PG: ] TYPE - NOT SUPPORTED YET";
+			LOG(ERROR) << error_msg;
+			throw runtime_error(error_msg);
+		}
 	}
 
 	return currType;

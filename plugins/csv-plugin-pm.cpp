@@ -1615,25 +1615,12 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 					 * No need for extra work.
 					 */
 					if (posInStruct != 0) {
-//						StructType *cacheType = info.objectType;
 						Type* int32Type = Type::getInt32Ty(llvmContext);
-//						vector<Type*> types;
-//						types.push_back(int32Type);
-//						types.push_back(int32Type);
-//						types.push_back(int32Type);
-//						StructType *cacheType = context->CreateCustomStruct(
-//								types);
 
 						StructType *cacheType = context->ReproduceCustomStruct(
 								info.objectTypes);
 						Value *typeSize = ConstantExpr::getSizeOf(cacheType);
 						char* rawPtr = info.payloadPtr;
-//						int tmptmp = *(int*) rawPtr;
-//						int tmptmp2 = *(int*) (rawPtr + 4);
-//						int tmptmp3 = *(int*) (rawPtr + 8);
-//						int tmptmp4 = *(int*) (rawPtr + 12);
-//						cout << "Hm? " << tmptmp << " " << tmptmp2 << " "
-//								<< tmptmp3 << " " << tmptmp4 << endl;
 						Value *val_cacheIdx = Builder->CreateLoad(mem_lineCtr);
 
 						/* Cast to appr. type */
@@ -1657,23 +1644,13 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 						mem_valWrapper.mem = mem_cachedField;
 						mem_valWrapper.isNull = context->createFalse();
 						(*variableBindings)[*(*it)] = mem_valWrapper;
-#ifdef DEBUGPM
+#ifdef DEBUG
 						{
 							vector<Value*> ArgsV;
 
 							Function* debugSth = context->getFunction("printi");
-//							AllocaInst *mem_cachedField2 =
-//									context->CreateEntryBlockAlloca(F,
-//											"tmpCachedField", int32Type);
-//							Builder->CreateStore(val_cachedField,
-//									mem_cachedField2);
-//							ArgsV.push_back(
-//									Builder->CreateLoad(mem_cachedField2));
 							ArgsV.push_back(val_cachedField);
 							Builder->CreateCall(debugSth, ArgsV);
-//						ArgsV.clear();
-//						ArgsV.push_back(context->createInt32(1002));
-//						Builder->CreateCall(debugInt, ArgsV);
 						}
 #endif
 					}

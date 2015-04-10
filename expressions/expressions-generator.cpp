@@ -84,6 +84,24 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 	AllocaInst* argMem = NULL;
 	Value* isNull;
 	{
+		/* Cache Logic */
+		/* XXX Apply in all visitors! */
+		CachingService& cache = CachingService::getInstance();
+		CacheInfo info = cache.getCache(e);
+		if (info.structFieldNo != -1) {
+			cout << "[Generator: ] Expression found!" << endl;
+
+			if (!cache.getCacheIsFull(e)) {
+				cout << "...but is not useable " << endl;
+			}
+		}
+		else
+		{
+			cout << "[Generator: ] No cache for expr of type " << e->getTypeID()
+					<< endl;
+		}
+	}
+	{
 		const map<RecordAttribute, RawValueMemory>& activeVars = currState.getBindings();
 		map<RecordAttribute, RawValueMemory>::const_iterator it;
 
@@ -141,6 +159,22 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 	RawValue record					= e->getExpr()->accept(*this);
 	Plugin* plugin 					= catalog.getPlugin(activeRelation);
 
+	{
+		/* Cache Logic */
+		/* XXX Apply in all visitors! */
+		CachingService& cache = CachingService::getInstance();
+		CacheInfo info = cache.getCache(e);
+		if (info.structFieldNo != -1) {
+			cout << "[Generator: ] Expression found!" << endl;
+
+			if (!cache.getCacheIsFull(e)) {
+				cout << "...but is not useable " << endl;
+			}
+		} else {
+			cout << "[Generator: ] No cache for expr of type " << e->getTypeID()
+					<< endl;
+		}
+	}
 	//Resetting activeRelation here would break nested-record-projections
 	//activeRelation = "";
 	if(plugin == NULL)	{

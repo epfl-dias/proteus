@@ -26,6 +26,7 @@
 
 #include "common/common.hpp"
 #include "util/raw-catalog.hpp"
+#include "util/raw-caching.hpp"
 #include "plugins/plugins.hpp"
 //===---------------------------------------------------------------------------===//
 // "Visitor(s)" responsible for generating the appropriate code per Expression 'node'
