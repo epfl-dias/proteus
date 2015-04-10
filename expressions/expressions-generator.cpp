@@ -80,6 +80,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::StringConstant *e) {
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
+	RawCatalog& catalog 			= RawCatalog::getInstance();
 	AllocaInst* argMem = NULL;
 	Value* isNull;
 	{
@@ -88,7 +89,8 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 
 		//A previous visitor has indicated which relation is relevant
 		if(activeRelation != "")	{
-			RecordAttribute relevantAttr = RecordAttribute(activeRelation,activeLoop);
+			Plugin* pg = catalog.getPlugin(activeRelation);
+			RecordAttribute relevantAttr = RecordAttribute(activeRelation,activeLoop,pg->getOIDType());
 			it = activeVars.find(relevantAttr);
 			if (it == activeVars.end()) {
 				string error_msg = string("[Expression Generator: ] Could not find tuple information for ") + activeRelation;
@@ -158,8 +160,10 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		} else {
 			//Path involves a primitive datatype
 			//(e.g., the result of unnesting a list of primitives)
+
+			Plugin* pg = catalog.getPlugin(activeRelation);
 			RecordAttribute tupleIdentifier = RecordAttribute(activeRelation,
-					activeLoop);
+					activeLoop,pg->getOIDType());
 			map<RecordAttribute, RawValueMemory>::const_iterator it =
 					currState.getBindings().find(tupleIdentifier);
 			if (it == currState.getBindings().end()) {

@@ -630,7 +630,7 @@ void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size
 	int error_code;
 	jsmn_parser p;
 	/* Should be enough for single-line JSON (?) */
-	int MAXTOKENS = 25;
+	int MAXTOKENS = 1000;
 	/* inputs/json/jsmnDeeper-flat.json : MAXTOKENS = 25 */
 
 	//Populating our json 'positional index'

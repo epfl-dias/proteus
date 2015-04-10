@@ -103,7 +103,10 @@ public:
 	int readPathInterpreted(int parentToken, list<string> path);
 	void readValueInterpreted(int tokenNo, const ExpressionType* type);
 	void readValueEagerInterpreted(int tokenNo, const ExpressionType* type);
-
+	virtual typeID getOIDSize() { return INT; }
+	virtual ExpressionType *getOIDType() {
+		return new IntType();
+	}
 	jsmntok_t** getTokens()	{ return tokens; }
 //	void freeTokens() {
 //		for(int i = 0; i < lines; i++)	{

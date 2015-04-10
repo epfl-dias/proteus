@@ -177,7 +177,7 @@ RawValueMemory BinaryColPlugin::readPath(string activeRelation, Bindings binding
 		const OperatorState* state = bindings.state;
 		const map<RecordAttribute, RawValueMemory>& binProjections = state->getBindings();
 		//XXX Make sure that using fnamePrefix in this search does not cause issues
-		RecordAttribute tmpKey = RecordAttribute(fnamePrefix,pathVar);
+		RecordAttribute tmpKey = RecordAttribute(fnamePrefix,pathVar,this->getOIDType());
 		map<RecordAttribute, RawValueMemory>::const_iterator it;
 		it = binProjections.find(tmpKey);
 			if (it == binProjections.end()) {
@@ -756,7 +756,8 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 	//More general/lazy plugins will only perform this action,
 	//instead of eagerly 'converting' fields
 	//FIXME This action corresponds to materializing the oid. Do we want this?
-	RecordAttribute tupleIdentifier = RecordAttribute(fnamePrefix,activeLoop);
+	ExpressionType *oidType = new IntType();
+	RecordAttribute tupleIdentifier = RecordAttribute(fnamePrefix,activeLoop,oidType);
 
 	RawValueMemory mem_posWrapper;
 	mem_posWrapper.mem = mem_itemCtr;

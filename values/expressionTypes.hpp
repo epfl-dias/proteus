@@ -26,7 +26,10 @@
 
 #include "common/common.hpp"
 
-enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET };
+/* Original.*/
+//enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET };
+/* Extended due to caching (for now)*/
+enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, INT64, COMPOSITE };
 
 class ExpressionType {
 public:
@@ -63,6 +66,13 @@ class IntType : public PrimitiveType {
 public:
 	string getType() 	const 	{ return string("Int"); }
 	typeID getTypeID()	const	{ return INT; }
+	bool isPrimitive() 	const	{ return true; }
+};
+
+class Int64Type : public PrimitiveType {
+public:
+	string getType() 	const 	{ return string("Int64"); }
+	typeID getTypeID()	const	{ return INT64; }
 	bool isPrimitive() 	const	{ return true; }
 };
 
@@ -116,9 +126,14 @@ public:
 	RecordAttribute(const int& no, const string& originalRelName, const string& relName, const string& attrName, const ExpressionType* type)
 			: attrNo(no), relName(relName), originalRelName(originalRelName), attrName(attrName), type(type), projected(false) 	{}
 
-	//Constructor used strictly for comparisons in maps
+	//Constructor used STRICTLY for comparisons in maps
 	RecordAttribute(string relName, string attrName)
 			: attrNo(-1), relName(relName), attrName(attrName), type(NULL), projected(false) 	{}
+
+	/* OID Type needed so that we know what we materialize
+	 * => Subsequent functions / programs use info to parse caches */
+	RecordAttribute(string relName, string attrName, const ExpressionType* type)
+			: attrNo(-1), relName(relName), attrName(attrName), type(type), projected(false) 	{}
 
 	string getType() const											{ return attrName +" "+type->getType(); }
 	const ExpressionType* getOriginalType() const					{ return type; }

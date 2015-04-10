@@ -36,6 +36,7 @@
 #define RAW_CONTEXT_HPP_
 
 #include "common/common.hpp"
+#include "values/expressionTypes.hpp"
 #include "util/joins/radix-join.hpp"
 #include "memory/memory-allocator.hpp"
 
@@ -88,7 +89,8 @@ public:
 	StructType* CreateStringStruct();
 	PointerType* CreateJSMNStructPtr();
 	StructType* CreateJSONPosStruct();
-	StructType* CreateCustomStruct(std::vector<Type*> innerTypes);
+	StructType* CreateCustomStruct(vector<Type*> innerTypes);
+	StructType* ReproduceCustomStruct(list<typeID> innerTypes);
 	/**
 	 * Does not involve AllocaInst, but still is a memory position
 	 */

@@ -46,20 +46,22 @@ void Print::consume (RawContext* const context, const OperatorState& childState)
 #endif
 
 	//Load argument of print
-	AllocaInst* mem_value = NULL;
-	{
-		string relName = arg->getOriginalRelationName();
-		RecordAttribute attr = RecordAttribute(relName,activeLoop);
-
-		map<RecordAttribute, RawValueMemory>::const_iterator it;
-		it = activeVars.find(attr);
-		if(it == activeVars.end())	{
-			string error_msg = string("[PrintOp: ] Wrong handling of active tuple");
-			LOG(ERROR) << error_msg;
-			throw runtime_error(error_msg);
-		}
-		mem_value = (it->second).mem;
-	}
+//	AllocaInst* mem_value = NULL;
+//	{
+//		string relName = arg->getOriginalRelationName();
+//		/*Active Tuple not always of same type
+//		  => Deprecated Constructor			*/
+//		RecordAttribute attr = RecordAttribute(relName,activeLoop);
+//
+//		map<RecordAttribute, RawValueMemory>::const_iterator it;
+//		it = activeVars.find(attr);
+//		if(it == activeVars.end())	{
+//			string error_msg = string("[PrintOp: ] Wrong handling of active tuple");
+//			LOG(ERROR) << error_msg;
+//			throw runtime_error(error_msg);
+//		}
+//		mem_value = (it->second).mem;
+//	}
 
 #ifdef DEBUG
 //		Value* value = TheBuilder->CreateLoad(mem_value);

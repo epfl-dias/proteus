@@ -98,6 +98,12 @@ public:
 	 * be making the PM available later on */
 	short** getOffsetsPM()	{ return pm; }
 	size_t* getNewlinesPM() { return newlines; }
+	virtual typeID getOIDSize() {
+		return INT;
+	}
+	virtual ExpressionType *getOIDType() {
+		return new IntType();
+	}
 
 private:
 	string& fname;
@@ -161,7 +167,6 @@ private:
 	//No assumption on auxiliary structures yet
 	void scanAndPopulatePM(const RawOperator& producer);
 	void scanPM(const RawOperator& producer);
-
 };
 
 }

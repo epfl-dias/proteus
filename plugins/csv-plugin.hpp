@@ -71,6 +71,12 @@ public:
 
 	virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);
 
+	virtual typeID getOIDSize() { return INT64; }
+
+	virtual ExpressionType *getOIDType() {
+		return new Int64Type();
+	}
+
 private:
 	string& fname;
 	off_t fsize;

@@ -204,8 +204,9 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 		} else {
 			//Path involves a primitive datatype
 			//(e.g., the result of unnesting a list of primitives)
+			Plugin* pg = catalog.getPlugin(activeRelation);
 			RecordAttribute tupleIdentifier = RecordAttribute(activeRelation,
-					activeLoop);
+					activeLoop, pg->getOIDType());
 			map<RecordAttribute, RawValueMemory>::const_iterator it =
 					currState.getBindings().find(tupleIdentifier);
 			if (it == currState.getBindings().end()) {

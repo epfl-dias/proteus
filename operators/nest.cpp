@@ -528,9 +528,6 @@ void Nest::generateSum(RawContext* const context, const OperatorState& state, Al
 	val_output = outputExpr->accept(outputExprGenerator);
 	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-	/**
-	 * TODO
-	 */
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case INT: {
 		Value* val_new = Builder->CreateAdd(val_accumulating, val_output.value);

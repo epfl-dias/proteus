@@ -102,5 +102,7 @@ public:
 	 */
 	virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type) = 0;
 
+	virtual typeID getOIDSize() = 0;
+	virtual ExpressionType *getOIDType() = 0;
 };
 #endif /* PLUGINS_LLVM_HPP_ */

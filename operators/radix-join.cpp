@@ -789,9 +789,21 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 					matLeft.getWantedExpressions();
 			const vector<RecordAttribute*>& fieldsLeft =
 					matLeft.getWantedFields();
+			/* Note: wantedFields do not include activeTuple */
 			vector<RecordAttribute*>::const_iterator itRec = fieldsLeft.begin();
-			/* ************************/
 			int fieldNo = 0;
+			CacheInfo info;
+			const set<RecordAttribute>& oids = matLeft.getTupleIdentifiers();
+			set<RecordAttribute>::const_iterator itOids = oids.begin();
+			for(; itOids != oids.end(); itOids++)	{
+//				cout << "OID mat'ed" << endl;
+				info.objectTypes.push_back(itOids->getOriginalType()->getTypeID());
+			}
+			for (; itRec != fieldsLeft.end(); itRec++) {
+//				cout << "Field mat'ed" << endl;
+				info.objectTypes.push_back((*itRec)->getOriginalType()->getTypeID());
+			}
+			itRec = fieldsLeft.begin();
 			/* Explicit OID ('activeTuple') will be field 0 */
 			if (!expsLeft.empty()) {
 
@@ -801,13 +813,13 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 				vector<expressions::Expression*>::const_iterator it =
 						expsLeft.begin();
 				for (; it != expsLeft.end(); it++) {
-					CacheInfo info;
-					info.objectType = rPayloadType;
+					//info.objectType = rPayloadType;
 					info.structFieldNo = fieldNo;
 					info.payloadPtr = relationR;
 					cache.registerCache(*it,info,fullRelation);
 
-					if(fieldNo != 0)	{
+					/* Having skipped OIDs */
+					if(fieldNo >= matLeft.getTupleIdentifiers().size())	{
 						cout << "Left Field Cached: " << (*itRec)->getAttrName() << endl;
 						itRec++;
 					}
@@ -1056,14 +1068,28 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			bool fullRelation = !(this->getRightChild()).isFiltering();
 			const vector<expressions::Expression*>& expsRight =
 					matRight.getWantedExpressions();
-			/* Only keep for debugging */
 			const vector<RecordAttribute*>& fieldsRight =
 					matRight.getWantedFields();
+			/* Note: wantedFields do not include activeTuple */
 			vector<RecordAttribute*>::const_iterator itRec =
 					fieldsRight.begin();
-			cout << "Right Mat. Size: "<<matRight.getWantedFields().size()<<endl;
 			/* ************************/
 			int fieldNo = 0;
+			CacheInfo info;
+
+			const set<RecordAttribute>& oids = matRight.getTupleIdentifiers();
+			set<RecordAttribute>::const_iterator itOids = oids.begin();
+			for (; itOids != oids.end(); itOids++) {
+				cout << "OID mat'ed" << endl;
+				info.objectTypes.push_back(
+						itOids->getOriginalType()->getTypeID());
+			}
+			for (; itRec != fieldsRight.end(); itRec++) {
+				cout << "Field mat'ed" << endl;
+				info.objectTypes.push_back(
+						(*itRec)->getOriginalType()->getTypeID());
+			}
+			itRec = fieldsRight.begin();
 			/* Explicit OID ('activeTuple') will be field 0 */
 			if (!expsRight.empty()) {
 
@@ -1073,15 +1099,14 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 				vector<expressions::Expression*>::const_iterator it =
 						expsRight.begin();
 				for (; it != expsRight.end(); it++) {
-					CacheInfo info;
-					info.objectType = sPayloadType;
 					info.structFieldNo = fieldNo;
 					info.payloadPtr = relationS;
 					cache.registerCache(*it, info, fullRelation);
 
-					if (fieldNo != 0) {
-						cout << "Right Field Cached: " << (*itRec)->getAttrName()
-								<< endl;
+					/* Having skipped OIDs */
+					if (fieldNo >= matRight.getTupleIdentifiers().size()) {
+						cout << "Right Field Cached: "
+								<< (*itRec)->getAttrName() << endl;
 						itRec++;
 					} else {
 						cout << "Right Field Cached: " << activeLoop << endl;

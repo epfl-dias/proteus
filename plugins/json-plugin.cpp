@@ -821,7 +821,7 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	}
 
 	/* Triggering Parent */
-	RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop);
+	RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop,this->getOIDType());
 	RawValueMemory mem_tokenWrapper;
 
 	/* Struct forwarded: (offsetInFile, rowId, tokenNo)*/
@@ -1006,7 +1006,7 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 
 	//Get relevant ROW number
 	RecordAttribute rowIdentifier = RecordAttribute(activeRelation,
-			activeLoop);
+			activeLoop,this->getOIDType());
 	const map<RecordAttribute, RawValueMemory>& bindings = state.getBindings();
 	map<RecordAttribute, RawValueMemory>::const_iterator it = bindings.find(
 			rowIdentifier);

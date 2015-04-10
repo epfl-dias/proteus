@@ -93,7 +93,7 @@ RawValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings, con
 	{
 		const OperatorState* state = bindings.state;
 		const map<RecordAttribute, RawValueMemory>& csvProjections = state->getBindings();
-		RecordAttribute tmpKey = RecordAttribute(fname,pathVar);
+		RecordAttribute tmpKey = RecordAttribute(fname,pathVar,this->getOIDType());
 		map<RecordAttribute, RawValueMemory>::const_iterator it;
 		it = csvProjections.find(tmpKey);
 			if (it == csvProjections.end()) {
@@ -890,7 +890,8 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 	//Get the starting position of each record and pass it along.
 	//More general/lazy CSV plugins will only perform this action,
 	//instead of eagerly converting fields
-	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
+	ExpressionType *oidType = new Int64Type();
+	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop,oidType);
 
 	RawValueMemory mem_posWrapper;
 	mem_posWrapper.mem = pos;

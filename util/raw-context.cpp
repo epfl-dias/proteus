@@ -378,6 +378,49 @@ StructType* RawContext::CreateCustomStruct(vector<Type*> innerTypes) {
 	return valueType;
 }
 
+StructType* RawContext::ReproduceCustomStruct(list<typeID> innerTypes) {
+	LLVMContext& ctx = *llvmContext;
+	vector<Type*> llvmTypes;
+	list<typeID>::iterator it;
+	for (it = innerTypes.begin(); it != innerTypes.end(); it++) {
+		switch (*it) {
+		case INT: {
+			Type* int32_type = Type::getInt32Ty(ctx);
+			llvmTypes.push_back(int32_type);
+			break;
+		}
+		case BOOL: {
+			Type* int1_type = Type::getInt1Ty(ctx);
+			llvmTypes.push_back(int1_type);
+			break;
+		}
+		case FLOAT: {
+			Type* float_type = Type::getDoubleTy(ctx);
+			llvmTypes.push_back(float_type);
+			break;
+		}
+		case INT64: {
+			Type* int64_type = Type::getInt64Ty(ctx);
+			llvmTypes.push_back(int64_type);
+			break;
+		}
+		case STRING:
+		case RECORD:
+		case LIST:
+		case BAG:
+		case SET:
+		case COMPOSITE:
+		default: {
+			string error_msg = "No explicit caching support for this type yet";
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		}
+	}
+	llvm::StructType* valueType = llvm::StructType::get(ctx, llvmTypes);
+	return valueType;
+}
+
 StructType* RawContext::CreateJSONPosStruct() {
 	LLVMContext& ctx = *llvmContext;
 	llvm::Type* int64_type = Type::getInt64Ty(ctx);

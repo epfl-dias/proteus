@@ -91,7 +91,7 @@ RawValueMemory BinaryRowPlugin::readPath(string activeRelation, Bindings binding
 	{
 		const OperatorState* state = bindings.state;
 		const map<RecordAttribute, RawValueMemory>& binProjections = state->getBindings();
-		RecordAttribute tmpKey = RecordAttribute(fname,pathVar);
+		RecordAttribute tmpKey = RecordAttribute(fname,pathVar,this->getOIDType());
 		map<RecordAttribute, RawValueMemory>::const_iterator it;
 		it = binProjections.find(tmpKey);
 			if (it == binProjections.end()) {
@@ -462,7 +462,8 @@ void BinaryRowPlugin::scan(const RawOperator& producer, Function *f)
 	//Get the starting position of each record and pass it along.
 	//More general/lazy plugins will only perform this action,
 	//instead of eagerly 'converting' fields
-	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
+	ExpressionType *oidType = new IntType();
+	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop,oidType);
 
 	RawValueMemory mem_posWrapper;
 	mem_posWrapper.mem = pos;

@@ -399,7 +399,8 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	Builder->SetInsertPoint(jsonScanBody);
 
 	//Triggering parent
-	RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop);
+	RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop,
+			this->getOIDType());
 	RawValueMemory mem_tokenWrapper;
 	mem_tokenWrapper.mem = mem_tokenOffset;
 	mem_tokenWrapper.isNull = context->createFalse();
@@ -559,8 +560,9 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 	vector<Value*> argsV;
 
 	//Get relevant token number
+	ExpressionType *oidType = new IntType();
 	RecordAttribute tupleIdentifier = RecordAttribute(activeRelation,
-			activeLoop);
+			activeLoop,oidType);
 	//	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
 	const map<RecordAttribute, RawValueMemory>& bindings = state.getBindings();
 	map<RecordAttribute, RawValueMemory>::const_iterator it = bindings.find(

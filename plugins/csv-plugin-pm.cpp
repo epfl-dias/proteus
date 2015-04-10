@@ -107,6 +107,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 	Builder->CreateStore(val_pm, mem_pm);
 
 	Type *int32Type = Type::getInt32Ty(llvmContext);
+	//int32Type->getTypeID();
 	mem_lineCtr = context->CreateEntryBlockAlloca(F, string("mem_lineCtr"),
 			int32Type);
 	Value *val_zero = context->createInt32(0);
@@ -216,7 +217,7 @@ RawValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings, con
 	{
 		const OperatorState* state = bindings.state;
 		const map<RecordAttribute, RawValueMemory>& csvProjections = state->getBindings();
-		RecordAttribute tmpKey = RecordAttribute(fname,pathVar);
+		RecordAttribute tmpKey = RecordAttribute(fname,pathVar,this->getOIDType());
 		map<RecordAttribute, RawValueMemory>::const_iterator it;
 		it = csvProjections.find(tmpKey);
 			if (it == csvProjections.end()) {
@@ -1340,7 +1341,8 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator& producer)
 	//Get the line number and pass it along.
 	//More general/lazy CSV plugins will only perform this action,
 	//instead of eagerly converting fields
-	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
+	ExpressionType *oidType = new IntType();
+	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop,oidType);
 
 	RawValueMemory mem_posWrapper;
 	//mem_posWrapper.mem = pos;
@@ -1535,7 +1537,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 	}
 
 	/* Materialized OID */
-	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
+	RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop,this->getOIDType());
 
 	RawValueMemory mem_posWrapper;
 	mem_posWrapper.mem = mem_lineCtr;
@@ -1572,7 +1574,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 	/* XXX Very silly conversion */
 	list<RecordAttribute*>::iterator attrIter = rec.getArgs().begin();
 	list<RecordAttribute> attrList;
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,this->getOIDType());
 	attrList.push_back(projTuple);
 
 	for (vector<RecordAttribute*>::iterator it = wantedFields.begin();
@@ -1613,83 +1615,67 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 					 * No need for extra work.
 					 */
 					if (posInStruct != 0) {
-						StructType *cacheType = info.objectType;
+//						StructType *cacheType = info.objectType;
+						Type* int32Type = Type::getInt32Ty(llvmContext);
+//						vector<Type*> types;
+//						types.push_back(int32Type);
+//						types.push_back(int32Type);
+//						types.push_back(int32Type);
+//						StructType *cacheType = context->CreateCustomStruct(
+//								types);
+
+						StructType *cacheType = context->ReproduceCustomStruct(
+								info.objectTypes);
 						Value *typeSize = ConstantExpr::getSizeOf(cacheType);
 						char* rawPtr = info.payloadPtr;
-						int tmptmp = *(int*) rawPtr;
-						int tmptmp2 = *(int*) (rawPtr + 4);
-						int tmptmp3 = *(int*) (rawPtr + 8);
-						int tmptmp4 = *(int*) (rawPtr + 12);
-						cout << "Hm? " << tmptmp << " " << tmptmp2 << " "
-								<< tmptmp3 << " " << tmptmp4 << endl;
-//						Value *val_cacheIdx = Builder->CreateLoad(mem_lineCtr);
-//#ifdef DEBUGPM
-////						{
-////							vector<Value*> ArgsV;
-////							Function* debugInt = context->getFunction("printi");
-////							ArgsV.push_back(val_cacheIdx);
-////							Builder->CreateCall(debugInt, ArgsV);
-////						}
-//#endif
-//						/* Cast to appr. type */
-//						PointerType *ptr_cacheType =
-//								PointerType::get(cacheType,0);
-//						PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
-//						Type *int64Type = Type::getInt64Ty(llvmContext);
-//						/* Probably unneeded indirection... */
-//						Value *val_cachePtrRaw = context->CastPtrToLlvmPtr(
-//								charPtrType, rawPtr);
-//
-//
-////						Value *val_cacheIdx64 = Builder->CreateSExt(val_cacheIdx,int64Type);
-////						AllocaInst *mem_tmp = context->CreateEntryBlockAlloca(F,
-////								"tmpCachedField", int64Type);
-////						Builder->CreateStore(val_cacheIdx64,mem_tmp);
-//////						val_cacheIdx64->getType()->dump();
-//////						typeSize->getType()->dump();
-//////						Value *val_currOffset = Builder->CreateMul(typeSize,val_cacheIdx64);
-//
-//						Builder->CreateInBoundsGEP(val_cachePtrRaw, val_cacheIdx);
-//
-//						Value *val_cachePtr = Builder->CreateBitCast(
-//								val_cachePtrRaw, ptr_cacheType);
-//
-////						Value *val_cacheShiftedPtr = context->getArrayElemMem(
-////								val_cachePtr, val_cacheIdx);
-//						Value *val_cacheShiftedPtr = Builder->CreateInBoundsGEP(
-//								val_cachePtr, val_cacheIdx);
-////						val_cacheShiftedPtr->getType()->dump();
-//						cout << endl;
-//						cout << "Which field in struct? " << posInStruct << endl;
-//
-////						Value *val_cache = Builder->CreateLoad(val_cacheShiftedPtr);
-//						Value *val_cachedField = context->getStructElem(
-//								val_cacheShiftedPtr, posInStruct);
-//						Type *fieldType = val_cachedField->getType();
-//						fieldType->dump();
-//						cout << endl;
-//
-//						/* This Alloca should not appear in optimized code */
-//						AllocaInst *mem_cachedField =
-//								context->CreateEntryBlockAlloca(F,
-//										"tmpCachedField", fieldType);
-//						Builder->CreateStore(val_cachedField, mem_cachedField);
-//
-//						RawValueMemory mem_valWrapper;
-//						mem_valWrapper.mem = mem_cachedField;
-//						mem_valWrapper.isNull = context->createFalse();
-////						(*variableBindings)[*(*it)] = mem_valWrapper;
-//#ifdef DEBUGPM
-//						//{
-//							vector<Value*> ArgsV;
-//							Function* debugSth = context->getFunction("printi");
-//							ArgsV.push_back(val_cachedField);
-//							Builder->CreateCall(debugSth, ArgsV);
-////						ArgsV.clear();
-////						ArgsV.push_back(context->createInt32(1002));
-////						Builder->CreateCall(debugInt, ArgsV);
-//						//}
-//#endif
+//						int tmptmp = *(int*) rawPtr;
+//						int tmptmp2 = *(int*) (rawPtr + 4);
+//						int tmptmp3 = *(int*) (rawPtr + 8);
+//						int tmptmp4 = *(int*) (rawPtr + 12);
+//						cout << "Hm? " << tmptmp << " " << tmptmp2 << " "
+//								<< tmptmp3 << " " << tmptmp4 << endl;
+						Value *val_cacheIdx = Builder->CreateLoad(mem_lineCtr);
+
+						/* Cast to appr. type */
+						PointerType *ptr_cacheType =
+								PointerType::get(cacheType,0);
+						Value *val_cachePtr = context->CastPtrToLlvmPtr(
+								ptr_cacheType, rawPtr);
+
+						Value *val_cacheShiftedPtr = context->getArrayElemMem(
+								val_cachePtr, val_cacheIdx);
+						Value *val_cachedField = context->getStructElem(
+								val_cacheShiftedPtr, posInStruct);
+						Type *fieldType = val_cachedField->getType();
+						/* This Alloca should not appear in optimized code */
+						AllocaInst *mem_cachedField =
+								context->CreateEntryBlockAlloca(F,
+										"tmpCachedField", fieldType);
+						Builder->CreateStore(val_cachedField, mem_cachedField);
+
+						RawValueMemory mem_valWrapper;
+						mem_valWrapper.mem = mem_cachedField;
+						mem_valWrapper.isNull = context->createFalse();
+						(*variableBindings)[*(*it)] = mem_valWrapper;
+#ifdef DEBUGPM
+						{
+							vector<Value*> ArgsV;
+
+							Function* debugSth = context->getFunction("printi");
+//							AllocaInst *mem_cachedField2 =
+//									context->CreateEntryBlockAlloca(F,
+//											"tmpCachedField", int32Type);
+//							Builder->CreateStore(val_cachedField,
+//									mem_cachedField2);
+//							ArgsV.push_back(
+//									Builder->CreateLoad(mem_cachedField2));
+							ArgsV.push_back(val_cachedField);
+							Builder->CreateCall(debugSth, ArgsV);
+//						ArgsV.clear();
+//						ArgsV.push_back(context->createInt32(1002));
+//						Builder->CreateCall(debugInt, ArgsV);
+						}
+#endif
 					}
 
 				}
