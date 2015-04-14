@@ -223,7 +223,6 @@ public:
 	RawValue accept(ExprVisitor &v);
 	ExpressionId getTypeID() const										{ return ARGUMENT; }
 	inline bool operator<(const expressions::Expression& r) const {
-		cout << "before next thing:" << endl;
 		if (this->getTypeID() == r.getTypeID()) {
 			cout << "next thing" << endl;
 			const InputArgument& rInputArg =
@@ -300,6 +299,7 @@ public:
 	ExpressionId getTypeID() const					{ return RECORD_PROJECTION; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
+			cout << "Record Proj Hashing" << endl;
 			const RecordProjection& rProj =
 					dynamic_cast<const RecordProjection&>(r);
 			bool cmpAttribute1 = this->getAttribute() < rProj.getAttribute();
@@ -307,12 +307,17 @@ public:
 			bool eqAttribute = !cmpAttribute1 && !cmpAttribute2;
 			/* Does this make sense? Do I need equality? */
 			if (eqAttribute) {
-//				cout << this->getAttribute().getAttrName() << " vs " << rProj.getAttribute().getAttrName() << endl;
-//				cout << this->getAttribute().getRelationName() << " vs " << rProj.getAttribute().getRelationName() << endl;
+				cout << this->getAttribute().getAttrName() << " vs " << rProj.getAttribute().getAttrName() << endl;
+				cout << this->getAttribute().getRelationName() << " vs " << rProj.getAttribute().getRelationName() << endl;
 				//return this->getExpr() < rProj.getExpr();
 				return this->getRelationName() < rProj.getRelationName();
 			} else {
-				return cmpAttribute1;
+				cout << "No record proj match "<<endl;
+				cout << this->getAttribute().getAttrName() << " vs "
+						<< rProj.getAttribute().getAttrName() << endl;
+				cout << this->getAttribute().getRelationName() << " vs " << rProj.getAttribute().getRelationName() << endl;
+//				return cmpAttribute1;
+				return cmpAttribute1 ? cmpAttribute1 : cmpAttribute2;
 			}
 		} else {
 			return this->getTypeID() < r.getTypeID();

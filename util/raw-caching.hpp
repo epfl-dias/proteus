@@ -91,7 +91,8 @@ public:
 	CacheInfo getCache(expressions::Expression* expr) {
 		map<expressions::Expression*, CacheInfo>::iterator it = binCaches.find(expr);
 		if (it == binCaches.end()) {
-			LOG(INFO)<< "No Bin Cache found for expr " << expr->getTypeID();
+			LOG(INFO)<< "No Bin Cache found for expr of type " << expr->getExpressionType()->getType();
+			//cout << "No match out of " << binCaches.size() << " entries" << endl;
 			CacheInfo invalid;
 			invalid.structFieldNo = -1;
 			return invalid;

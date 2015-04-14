@@ -323,6 +323,7 @@ void Nest::generateProbe(RawContext* const context) const
 	AllocaInst* mem_valuesCounter = context->CreateEntryBlockAlloca(
 							TheFunction, "ht_val_counter", int64_type);
 	Builder->CreateStore(context->createInt64(0),mem_valuesCounter);
+	AllocaInst *mem_accumulating = resetAccumulator();
 	Builder->CreateBr(loopCondBucket);
 
 	//Condition: are there any more values in the bucket?
@@ -393,7 +394,6 @@ void Nest::generateProbe(RawContext* const context) const
 		LOG(INFO) << "[HT Bucket Traversal: ] Binding name: "<<currField;
 	}
 	OperatorState newState = OperatorState(*this, *allBucketBindings);
-	AllocaInst *mem_accumulating = resetAccumulator();
 
 #ifdef DEBUG
 //	cout << "[Nest ] Bindings after probing HT:" << endl;
@@ -461,11 +461,22 @@ void Nest::generateProbe(RawContext* const context) const
 	 * and the result of the aggr.
 	 */
 
-	RecordAttribute attr_aggr = RecordAttribute(htName,aggregateName);
+	Plugin *htPlugin = new BinaryInternalPlugin(context,htName);
+	RecordAttribute attr_aggr = RecordAttribute(htName,aggregateName,outputExpr->getExpressionType());
+	catalog.registerPlugin(htName, htPlugin);
+	//cout << "Registering custom pg for " << htName << endl;
 	RawValueMemory mem_aggrWrapper;
 	mem_aggrWrapper.mem = mem_accumulating;
 	mem_aggrWrapper.isNull = context->createFalse();
 	(*allBucketBindings)[attr_aggr] = mem_aggrWrapper;
+
+	/* Explicit oid (i.e., bucketNo) materialization */
+	RawValueMemory mem_oidWrapper;
+	mem_oidWrapper.mem = mem_bucketCounter;
+	mem_oidWrapper.isNull = context->createFalse();
+	ExpressionType *oidType = new IntType();
+	RecordAttribute attr_oid = RecordAttribute(htName,activeLoop,oidType);
+	(*allBucketBindings)[attr_oid] = mem_oidWrapper;
 //#ifdef DEBUG
 //		ArgsV.clear();
 //		Function* debugInt64 = context->getFunction("printi");
@@ -530,10 +541,16 @@ void Nest::generateSum(RawContext* const context, const OperatorState& state, Al
 
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case INT: {
+#ifdef DEBUGNEST
+//		vector<Value*> ArgsV;
+//		Function* debugInt = context->getFunction("printi");
+//		ArgsV.push_back(val_accumulating);
+//		Builder->CreateCall(debugInt, ArgsV);
+#endif
 		Value* val_new = Builder->CreateAdd(val_accumulating, val_output.value);
 		Builder->CreateStore(val_new, mem_accumulating);
 		Builder->CreateBr(endBlock);
-#ifdef DEBUG
+#ifdef DEBUGNEST
 //		Builder->SetInsertPoint(endBlock);
 //		vector<Value*> ArgsV;
 //		Function* debugInt = context->getFunction("printi");

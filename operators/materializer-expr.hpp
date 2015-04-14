@@ -49,7 +49,6 @@ public:
 			const OperatorState& childState);
 	virtual bool isFiltering() const {return false;}
 private:
-	OperatorState* generate(RawOperator* op, OperatorState* childState);
 	void freeArenas() const;
 
 	StructType *toMatType;

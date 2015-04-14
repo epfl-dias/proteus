@@ -1632,6 +1632,64 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 	return mem_valWrapper;
 }
 
+RawValue JSONPlugin::readCachedValue(CacheInfo info,
+		const OperatorState& currState) {
+	IRBuilder<>* const Builder = context->getBuilder();
+	Function *F = context->getGlobalFunction();
+
+	/* Need OID to retrieve corresponding value from bin. cache */
+	RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop,
+			getOIDType());
+
+	map<RecordAttribute, RawValueMemory>::const_iterator it =
+			currState.getBindings().find(tupleIdentifier);
+	if (it == currState.getBindings().end()) {
+		string error_msg =
+				"[Expression Generator: ] Current tuple binding / OID not found";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	RawValueMemory mem_oidCompositeWrapper = it->second;
+
+	/*Reminder: JSON plugin's OID is composite*/
+	Value *val_oid = context->getStructElem(mem_oidCompositeWrapper.mem, 1);
+
+	StructType *cacheType = context->ReproduceCustomStruct(info.objectTypes);
+	Value *typeSize = ConstantExpr::getSizeOf(cacheType);
+	char* rawPtr = info.payloadPtr;
+	int posInStruct = info.structFieldNo;
+
+	/* Cast to appr. type */
+	PointerType *ptr_cacheType = PointerType::get(cacheType, 0);
+	Value *val_cachePtr = context->CastPtrToLlvmPtr(ptr_cacheType, rawPtr);
+
+	Value *val_cacheShiftedPtr = context->getArrayElemMem(val_cachePtr,
+			val_oid);
+	Value *val_cachedField = context->getStructElem(val_cacheShiftedPtr,
+			posInStruct);
+	Type *fieldType = val_cachedField->getType();
+
+	/* This Alloca should not appear in optimized code */
+	AllocaInst *mem_cachedField = context->CreateEntryBlockAlloca(F,
+			"tmpCachedField", fieldType);
+	Builder->CreateStore(val_cachedField, mem_cachedField);
+
+	RawValue valWrapper;
+	valWrapper.value = Builder->CreateLoad(mem_cachedField);
+	valWrapper.isNull = context->createFalse();
+#ifdef DEBUGJSON
+	{
+		/* Obviously only works to peek integer fields */
+		vector<Value*> ArgsV;
+
+		Function* debugSth = context->getFunction("printi");
+		ArgsV.push_back(val_cachedField);
+		Builder->CreateCall(debugSth, ArgsV);
+	}
+#endif
+	return valWrapper;
+}
+
 RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 		const ExpressionType* type)
 {

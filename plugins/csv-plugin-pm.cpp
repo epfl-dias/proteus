@@ -235,6 +235,61 @@ RawValueMemory CSVPlugin::readValue(RawValueMemory mem_value, const ExpressionTy
 	return mem_value;
 }
 
+RawValue CSVPlugin::readCachedValue(CacheInfo info, const OperatorState& currState)	{
+	IRBuilder<>* const Builder = context->getBuilder();
+	Function *F = context->getGlobalFunction();
+
+	/* Need OID to retrieve corresponding value from bin. cache */
+	RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop,
+			getOIDType());
+	map<RecordAttribute, RawValueMemory>::const_iterator it =
+			currState.getBindings().find(tupleIdentifier);
+	if (it == currState.getBindings().end()) {
+		string error_msg =
+				"[Expression Generator: ] Current tuple binding / OID not found";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	RawValueMemory mem_oidWrapper = it->second;
+	/* OID is a plain integer */
+	Value *val_oid = Builder->CreateLoad(mem_oidWrapper.mem);
+
+	StructType *cacheType = context->ReproduceCustomStruct(info.objectTypes);
+	Value *typeSize = ConstantExpr::getSizeOf(cacheType);
+	char* rawPtr = info.payloadPtr;
+	int posInStruct = info.structFieldNo;
+
+	/* Cast to appr. type */
+	PointerType *ptr_cacheType = PointerType::get(cacheType, 0);
+	Value *val_cachePtr = context->CastPtrToLlvmPtr(ptr_cacheType, rawPtr);
+
+	Value *val_cacheShiftedPtr = context->getArrayElemMem(val_cachePtr,
+			val_oid);
+	Value *val_cachedField = context->getStructElem(val_cacheShiftedPtr,
+			posInStruct);
+	Type *fieldType = val_cachedField->getType();
+
+	/* This Alloca should not appear in optimized code */
+	AllocaInst *mem_cachedField = context->CreateEntryBlockAlloca(F,
+			"tmpCachedField", fieldType);
+	Builder->CreateStore(val_cachedField, mem_cachedField);
+
+	RawValue valWrapper;
+	valWrapper.value = Builder->CreateLoad(mem_cachedField);
+	valWrapper.isNull = context->createFalse();
+#ifdef DEBUG
+	{
+		/* Obviously only works to peek integer fields */
+		vector<Value*> ArgsV;
+
+		Function* debugSth = context->getFunction("printi");
+		ArgsV.push_back(val_cachedField);
+		Builder->CreateCall(debugSth, ArgsV);
+	}
+#endif
+	return valWrapper;
+}
+
 RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* type)	{
 	IRBuilder<>* Builder = context->getBuilder();
 	switch (type->getTypeID())

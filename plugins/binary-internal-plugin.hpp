@@ -1,0 +1,93 @@
+/*
+	RAW -- High-performance querying over raw, never-seen-before data.
+
+							Copyright (c) 2014
+		Data Intensive Applications and Systems Labaratory (DIAS)
+				École Polytechnique Fédérale de Lausanne
+
+							All Rights Reserved.
+
+	Permission to use, copy, modify and distribute this software and
+	its documentation is hereby granted, provided that both the
+	copyright notice and this permission notice appear in all copies of
+	the software, derivative works or modified versions, and any
+	portions thereof, and that both notices appear in supporting
+	documentation.
+
+	This code is distributed in the hope that it will be useful, but
+	WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+	DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+	RESULTING FROM THE USE OF THIS SOFTWARE.
+*/
+
+#include "plugins/plugins.hpp"
+#include "util/atois.hpp"
+
+class BinaryInternalPlugin	: public Plugin {
+public:
+
+	/**
+	 * Plugin to be used for already serialized bindings.
+	 * Example: After a nesting operator has taken place.
+	 *
+	 * Why not RecordType info?
+	 * -> Because it requires declaring RecordAttributes
+	 *    -> ..but RecordAttributes require an associated plugin
+	 *    	 (chicken - egg prob.)
+	 */
+	BinaryInternalPlugin(RawContext* const context, string structName);
+	~BinaryInternalPlugin();
+	virtual string& getName() { return structName; }
+	void init();
+	void generate(const RawOperator& producer);
+	void finish();
+	virtual RawValueMemory readPath(string activeRelation, Bindings bindings, const char* pathVar);
+	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
+	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState) {
+		string error_msg = "[BinaryInternalPlugin: ] No caching support applicable";
+		LOG(ERROR) << error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
+
+	virtual void flushTuple(RawValueMemory mem_value, Value* fileName)	{
+		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName);
+
+	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
+		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	virtual RawValue collectionHasNext(RawValue val_parentObject,
+			RawValueMemory mem_currentChild) {
+		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) {
+		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);
+
+	virtual ExpressionType *getOIDType() {
+		return new IntType();
+	}
+
+private:
+	string structName;
+
+	/**
+	 * Code-generation-related
+	 */
+	RawContext* const context;
+};

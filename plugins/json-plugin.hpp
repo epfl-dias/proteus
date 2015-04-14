@@ -29,7 +29,7 @@
 #include "util/raw-catalog.hpp"
 #include "util/raw-caching.hpp"
 
-#define DEBUGJSON
+//#define DEBUGJSON
 
 namespace jsonPipelined	{
 
@@ -77,6 +77,8 @@ public:
 	//1-1 correspondence with 'RecordProjection' expression
 	virtual RawValueMemory readPath(string activeRelation, Bindings wrappedBindings, const char* pathVar);
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
+	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState);
+
 
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
 
@@ -96,19 +98,28 @@ public:
 	virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentToken);
 
 	void scanObjects(const RawOperator& producer, Function* debug);
-	void scanObjectsInterpreted(list<string> path, list<ExpressionType*> types);
-	void scanObjectsEagerInterpreted(list<string> path, list<ExpressionType*> types);
-	void unnestObjectsInterpreted(list<string> path);
-	void unnestObjectInterpreted(int parentToken);
-	int readPathInterpreted(int parentToken, list<string> path);
-	void readValueInterpreted(int tokenNo, const ExpressionType* type);
-	void readValueEagerInterpreted(int tokenNo, const ExpressionType* type);
-	virtual typeID getOIDSize() { return INT; }
+
+//	virtual typeID getOIDSize() { return INT; }
 	virtual ExpressionType *getOIDType() {
-		return new IntType();
+		Int64Type int64Type = Int64Type();
+
+		string field1 = string("offset");
+		string field2 = string("rowId");
+		string field3 = string("tokenNo");
+
+		RecordAttribute attr1 = RecordAttribute(1, fname, field1, &int64Type);
+		RecordAttribute attr2 = RecordAttribute(2, fname, field2, &int64Type);
+		RecordAttribute attr3 = RecordAttribute(2, fname, field3, &int64Type);
+		list<RecordAttribute*> atts = list<RecordAttribute*>();
+		atts.push_back(&attr1);
+		atts.push_back(&attr2);
+		atts.push_back(&attr3);
+		RecordType *inner = new RecordType(atts);
+		return inner;
 	}
 	jsmntok_t** getTokens()	{ return tokens; }
-//	void freeTokens() {
+
+	//	void freeTokens() {
 //		for(int i = 0; i < lines; i++)	{
 //			free(tokens[i]);
 //		}

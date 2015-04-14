@@ -27,6 +27,7 @@
 #include "common/common.hpp"
 #include "util/raw-context.hpp"
 #include "util/raw-catalog.hpp"
+#include "util/raw-caching.hpp"
 #include "operators/operators.hpp"
 #include "expressions/expressions.hpp"
 #include "values/expressionTypes.hpp"
@@ -70,6 +71,7 @@ public:
 	virtual RawValueMemory readPath(string activeRelation,
 			Bindings wrappedBindings, const char* pathVar) 									= 0;
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type) 	= 0;
+	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState)		= 0;
 
 	//Relevant for hashing visitors
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type)		= 0;
@@ -99,10 +101,12 @@ public:
 	/**
 	 * Relevant when needed to materialize EAGERLY.
 	 * Otherwise, allocated type info suffices
+	 *
+	 * (i.e., not used that often)
 	 */
 	virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type) = 0;
 
-	virtual typeID getOIDSize() = 0;
+//	virtual typeID getOIDSize() = 0;
 	virtual ExpressionType *getOIDType() = 0;
 };
 #endif /* PLUGINS_LLVM_HPP_ */

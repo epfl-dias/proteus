@@ -30,7 +30,9 @@
 #include "expressions/expressions-hasher.hpp"
 #include "expressions/path.hpp"
 #include "expressions/expressions.hpp"
+#include "plugins/binary-internal-plugin.hpp"
 
+#define DEBUGNEST
 
 /**
  * Indicative query where a nest (..and an outer join) occur:
@@ -81,4 +83,4 @@ private:
 	RawContext* context;
 };
 
-#endif /* UNNEST_HPP_ */
+#endif /* NEST_HPP_ */

@@ -83,24 +83,9 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 	AllocaInst* argMem = NULL;
 	Value* isNull;
-	{
-		/* Cache Logic */
-		/* XXX Apply in all visitors! */
-		CachingService& cache = CachingService::getInstance();
-		CacheInfo info = cache.getCache(e);
-		if (info.structFieldNo != -1) {
-			cout << "[Generator: ] Expression found!" << endl;
 
-			if (!cache.getCacheIsFull(e)) {
-				cout << "...but is not useable " << endl;
-			}
-		}
-		else
-		{
-			cout << "[Generator: ] No cache for expr of type " << e->getTypeID()
-					<< endl;
-		}
-	}
+	/* No caching logic here, because InputArgument generally
+	 * does not result in materializing / converting / etc. actions! */
 	{
 		const map<RecordAttribute, RawValueMemory>& activeVars = currState.getBindings();
 		map<RecordAttribute, RawValueMemory>::const_iterator it;
@@ -156,25 +141,30 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	activeRelation 					= e->getOriginalRelationName();
-	RawValue record					= e->getExpr()->accept(*this);
+
 	Plugin* plugin 					= catalog.getPlugin(activeRelation);
 
 	{
 		/* Cache Logic */
-		/* XXX Apply in all visitors! */
+		/* XXX Apply in other visitors too! */
 		CachingService& cache = CachingService::getInstance();
 		CacheInfo info = cache.getCache(e);
 		if (info.structFieldNo != -1) {
-			cout << "[Generator: ] Expression found!" << endl;
-
+			cout << "[Generator: ] Expression found for "
+					<< e->getOriginalRelationName() << "."
+					<< e->getAttribute().getAttrName() << "!" << endl;
 			if (!cache.getCacheIsFull(e)) {
 				cout << "...but is not useable " << endl;
+			} else {
+				return plugin->readCachedValue(info, currState);
 			}
 		} else {
-			cout << "[Generator: ] No cache for expr of type " << e->getTypeID()
-					<< endl;
+//			cout << "[Generator: ] No cache for expr of type " << e->getTypeID()
+//					<< endl;
 		}
 	}
+
+	RawValue record					= e->getExpr()->accept(*this);
 	//Resetting activeRelation here would break nested-record-projections
 	//activeRelation = "";
 	if(plugin == NULL)	{

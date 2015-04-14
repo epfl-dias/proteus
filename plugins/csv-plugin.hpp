@@ -41,6 +41,11 @@ public:
 	void finish();
 	virtual RawValueMemory readPath(string activeRelation, Bindings bindings, const char* pathVar);
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
+	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState) {
+		string error_msg = "[CSVPlugin: ] No caching support yet";
+		LOG(ERROR) << error_msg;
+		throw runtime_error(error_msg);
+	}
 
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
 
@@ -71,7 +76,7 @@ public:
 
 	virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);
 
-	virtual typeID getOIDSize() { return INT64; }
+//	virtual typeID getOIDSize() { return INT64; }
 
 	virtual ExpressionType *getOIDType() {
 		return new Int64Type();

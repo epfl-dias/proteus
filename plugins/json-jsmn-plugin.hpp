@@ -67,6 +67,11 @@ public:
 	//1-1 correspondence with 'RecordProjection' expression
 	virtual RawValueMemory readPath(string activeRelation, Bindings wrappedBindings, const char* pathVar);
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
+	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState) {
+		string error_msg = "[JSMNPlugin: ] No caching support yet";
+		LOG(ERROR) << error_msg;
+		throw runtime_error(error_msg);
+	}
 
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
 
@@ -93,7 +98,7 @@ public:
 	int readPathInterpreted(int parentToken, list<string> path);
 	void readValueInterpreted(int tokenNo, const ExpressionType* type);
 	void readValueEagerInterpreted(int tokenNo, const ExpressionType* type);
-	virtual typeID getOIDSize() { return INT; }
+//	virtual typeID getOIDSize() { return INT; }
 	virtual ExpressionType *getOIDType() {
 		return new IntType();
 	}

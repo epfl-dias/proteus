@@ -53,6 +53,20 @@ target_link_libraries(rawmain jsmn)
 target_link_libraries(rawmain -lglog ${glog_ldflags})
 target_link_libraries(rawmain ${llvm_ldflags} ${llvm_libs})
 
+add_executable(rawmain-caches main-caches.cpp)
+set_target_properties(rawmain-caches PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(rawmain-caches codegen)
+target_link_libraries(rawmain-caches jsmn)
+target_link_libraries(rawmain-caches -lglog ${glog_ldflags})
+target_link_libraries(rawmain-caches ${llvm_ldflags} ${llvm_libs})
+
+add_executable(rawmain-nest main-nest.cpp)
+set_target_properties(rawmain-nest PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(rawmain-nest codegen)
+target_link_libraries(rawmain-nest jsmn)
+target_link_libraries(rawmain-nest -lglog ${glog_ldflags})
+target_link_libraries(rawmain-nest ${llvm_ldflags} ${llvm_libs})
+
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
 if(GTEST)

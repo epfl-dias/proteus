@@ -84,6 +84,9 @@ private:
 
 	string activeRelation;
 
+	/* Plugins are responsible for this action */
+	//RawValue retrieveValue(CacheInfo info, Plugin *pg);
+
 };
 
 #endif /* EXPRESSIONS_VISITOR_HPP_ */

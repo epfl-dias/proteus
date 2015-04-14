@@ -207,6 +207,29 @@ void ExprMaterializer::consume(RawContext* const context, const OperatorState& c
 	Builder->CreateStore(val_tuplesNo, opBuffer.mem_tuplesNo);
 	Builder->CreateStore(val_tuplesNo,opBuffer.mem_tuplesNo);
 
+	/*
+	 * Control logic:
+	 * XXX Register in cache
+	 */
+	{
+		cout << "[Materializer:] Register in cache" << endl;
+		CachingService& cache = CachingService::getInstance();
+		bool fullRelation = !(this->getChild())->isFiltering();
+
+		CacheInfo info;
+		info.objectTypes.push_back(toMat->getExpressionType()->getTypeID());
+		info.structFieldNo = 0;
+		info.payloadPtr = rawBuffer;
+		cache.registerCache(toMat, info, fullRelation);
+	}
+
+	/* 5. Triggering parent */
+	OperatorState* newState = new OperatorState(*this,
+			childState.getBindings());
+	getParent()->consume(context, *newState);
+
+
+
 }
 
 

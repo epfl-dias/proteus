@@ -60,6 +60,7 @@ public:
 			const char* pathVar);
 	virtual RawValueMemory readValue(RawValueMemory mem_value,
 			const ExpressionType* type);
+	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState);
 
 	virtual RawValue hashValue(RawValueMemory mem_value,
 			const ExpressionType* type);
@@ -98,9 +99,9 @@ public:
 	 * be making the PM available later on */
 	short** getOffsetsPM()	{ return pm; }
 	size_t* getNewlinesPM() { return newlines; }
-	virtual typeID getOIDSize() {
-		return INT;
-	}
+//	virtual typeID getOIDSize() {
+//		return INT;
+//	}
 	virtual ExpressionType *getOIDType() {
 		return new IntType();
 	}

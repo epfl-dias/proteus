@@ -188,13 +188,13 @@ RawValue JSONPlugin::collectionHasNext(RawValue val_parentTokenNo,
 
 	RawValue valWrapper;
 	valWrapper.value = endCond;
-//#ifdef DEBUG
+#ifdef DEBUG
 	vector<Value*> ArgsV;
 	ArgsV.clear();
 	ArgsV.push_back(endCond);
 	Function* debugBoolean = context->getFunction("printBoolean");
 	Builder->CreateCall(debugBoolean, ArgsV);
-//#endif
+#endif
 	valWrapper.isNull = endCond_isNull;
 	return valWrapper;
 }
