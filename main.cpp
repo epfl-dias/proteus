@@ -47,6 +47,7 @@
 #include "expressions/expressions-hasher.hpp"
 #include "util/raw-caching.hpp"
 
+/* tests-json */
 /* New JSON pg */
 void scanJSONFlat();
 void selectionJSONFlat();
@@ -55,33 +56,46 @@ void reduceListObjectFlat();
 void reduceJSONMaxFlat(bool longRun);
 void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname, jsmntok_t** tokens);
 void reduceJSONDeeperMaxFlat(bool longRun);
+/* end of tests-json */
 
+/* tests-csv */
 /* New, pm-enabled CSV plugin */
 void scanCsvPM();
 void scanCsvWidePM();
 void scanCsvWideUsePM();
-
 /* Codegen'd atoi */
 void atoiCSV();
+/* end of tests-csv */
 
-void scanJsmn();
-void selectionJsmn();
+/* tests-hashing */
+//Hashing microbenchmarks
+void hashTests();
+void hashConstants();
+void hashBinaryExpressions();
+void hashIfThenElse();
+/* End of tests-hashing */
 
-void scanCSV();
-void selectionCSV();
-void joinQueryRelational();
 
-void unnestJsmn();
-void unnestJsmnDeeper();
-
-void recordProjectionsJSON();
-
+/* Interpreted exec - Sanity Checks */
 void scanJsmnInterpreted();
 void unnestJsmnInterpreted();
 void unnestJsmnChildrenInterpreted();
 void unnestJsmnFiltering();
 void readJSONObjectInterpreted();
 void readJSONListInterpreted();
+
+/* Deprecated Plugin */
+void scanJsmn();
+void selectionJsmn();
+void unnestJsmn();
+void unnestJsmnDeeper();
+
+
+void scanCSV();
+void selectionCSV();
+void joinQueryRelational();
+void recordProjectionsJSON();
+
 
 void outerUnnest();
 void outerUnnestNull1();
@@ -97,11 +111,7 @@ void cidrBinStr();
 
 void ifThenElse();
 
-//Hashing microbenchmarks
-void hashTests();
-void hashConstants();
-void hashBinaryExpressions();
-void hashIfThenElse();
+
 
 //Expression matching microbenchmarks
 void expressionMap();
@@ -1243,10 +1253,10 @@ void nest()
 	projections.push_back(recUnnested);
 	expressions::Expression* nestedArg =
 			new expressions::InputArgument(&unnestedType, 0, projections);
-	RecordAttribute toOutput = RecordAttribute(-1, fname + "." + empChildren,
+	RecordAttribute toAggr = RecordAttribute(-1, fname + "." + empChildren,
 				childAge, &intType);
-	expressions::RecordProjection* nestOutput =
-				new expressions::RecordProjection(&intType, nestedArg, toOutput);
+	expressions::RecordProjection* nestToAggr =
+				new expressions::RecordProjection(&intType, nestedArg, toAggr);
 
 	//Predicate (p): Ready from before
 
@@ -1267,15 +1277,26 @@ void nest()
 	Materializer* mat = new Materializer(whichFields, outputModes);
 
 	char nestLabel[] = "nest_001";
-	Nest nestOp = Nest(SUM, nestOutput,
+	Nest nestOp = Nest(SUM, nestToAggr,
 			 predicate, f,
 			 f, &unnestOp,
 			 nestLabel, *mat);
 	unnestOp.setParent(&nestOp);
 
+	//PRINT
+	Function* debugInt = ctx.getFunction("printi");
+	string aggrLabel = string(nestLabel);
+	string aggrField = string(nestLabel) + string("_aggr");
+	RecordAttribute toOutput = RecordAttribute(1, aggrLabel, aggrField,
+			&intType);
+	expressions::RecordProjection* nestOutput =
+					new expressions::RecordProjection(&intType, nestedArg, toOutput);
+	Print printOp = Print(debugInt, nestOutput, &nestOp);
+	nestOp.setParent(&printOp);
+
 	//ROOT
-	Root rootOp = Root(&nestOp);
-	nestOp.setParent(&rootOp);
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
 	rootOp.produce();
 
 	//Run function

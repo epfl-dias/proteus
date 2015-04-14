@@ -28,10 +28,11 @@ void Print::produce() const { getChild()->produce(); }
 void Print::consume (RawContext* const context, const OperatorState& childState) {
 
 	IRBuilder<>* TheBuilder = context->getBuilder();
-	std::vector<Value*> ArgsV;
+	vector<Value*> ArgsV;
 
 	const map<RecordAttribute, RawValueMemory>& activeVars = childState.getBindings();
 	LOG(INFO) << "[Print:] Printing variable " << arg->getProjectionName();
+//	cout << "[Print:] Printing variable " << arg->getRelationName() << "." << arg->getProjectionName();
 
 	map<RecordAttribute, RawValueMemory>::const_iterator it = activeVars.begin();
 

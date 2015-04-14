@@ -21,6 +21,9 @@
 	RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#ifndef BINARY_INTERNAL_PLUGIN_HPP_
+#define BINARY_INTERNAL_PLUGIN_HPP_
+
 #include "plugins/plugins.hpp"
 #include "util/atois.hpp"
 
@@ -91,3 +94,5 @@ private:
 	 */
 	RawContext* const context;
 };
+
+#endif
