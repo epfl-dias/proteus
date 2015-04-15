@@ -105,11 +105,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 			}
 		}	else	{
 			LOG(WARNING) << "[Expression Generator: ] No active relation found - Non-record case (OR e IS A TOPMOST EXPR.!)";
+			/* Have seen this occurring in Nest */
 			int relationsCount = 0;
 			for(it = activeVars.begin(); it != activeVars.end(); it++)	{
 				RecordAttribute currAttr = it->first;
 				cout << currAttr.getRelationName() <<" and "<< currAttr.getAttrName() << endl;
-
+				cout << "[Seeking "<< activeRelation << "]" << endl;
 				//Does 1st part of check ever get satisfied? activeRelation is empty here
 				if(currAttr.getRelationName() == activeRelation && currAttr.getAttrName() == activeLoop)	{
 					//cout << "Found " << currAttr.getRelationName() << " " << currAttr.getAttrName() << endl;

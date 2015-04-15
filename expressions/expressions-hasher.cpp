@@ -183,6 +183,9 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 	activeRelation 					= e->getOriginalRelationName();
 
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
+	/* Need this 'hint' before launching generator,
+	 * otherwise (potential) InputArg visitor will crash */
+	exprGenerator.setActiveRelation(activeRelation);
 	RawValue record					= e->getExpr()->accept(exprGenerator);
 	Plugin* plugin 					= catalog.getPlugin(activeRelation);
 

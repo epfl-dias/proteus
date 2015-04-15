@@ -21,8 +21,8 @@
 	RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef _NEST_OPT_HPP_
-#define _NEST_OPT_HPP_
+#ifndef _NEST_RADIX_HPP_
+#define _NEST_RADIX_HPP_
 
 #include "operators/operators.hpp"
 #include "operators/monoids.hpp"
@@ -42,14 +42,46 @@
  * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR NEST OPERATOR (?)
  * XXX  Hashing keys is not enough - also need to compare the actual keys
  */
-namespace opt {
+namespace radix {
+
+/* valuePtr is relative to the payloadBuffer! */
+typedef struct htEntry {
+	int key;
+	size_t valuePtr;
+} htEntry;
+
+struct relationBuf {
+	/* Mem layout:
+	 * Consecutive <payload> chunks - payload type defined at runtime
+	 */
+	AllocaInst *mem_relation;
+	/* Size in bytes */
+	AllocaInst *mem_tuplesNo;
+	/* Size in bytes */
+	AllocaInst *mem_size;
+	/* (Current) Offset in bytes */
+	AllocaInst *mem_offset;
+};
+
+struct kvBuf {
+	/* Mem layout:
+	 * Pairs of (int32 key, size_t payloadPtr)
+	 */
+	AllocaInst *mem_kv;
+	/* Size in bytes */
+	AllocaInst *mem_tuplesNo;
+	/* Size in bytes */
+	AllocaInst *mem_size;
+	/* (Current) Offset in bytes */
+	AllocaInst *mem_offset;
+};
 
 class Nest: public UnaryRawOperator {
 public:
-	Nest(vector<Monoid> accs, vector<expressions::Expression*> outputExprs, vector<string> aggrLabels,
-			expressions::Expression* pred,
-			const list<expressions::InputArgument>& f_grouping,
-			const list<expressions::InputArgument>& g_nullToZero,
+	Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::Expression*> outputExprs, vector<string> aggrLabels,
+			expressions::Expression *pred,
+			expressions::Expression *f_grouping,
+			expressions::Expression *g_nullToZero,
 			RawOperator* const child, char* opLabel, Materializer& mat);
 	virtual ~Nest() {
 		LOG(INFO)<<"Collapsing Nest operator";}
@@ -59,6 +91,8 @@ public:
 	virtual bool isFiltering() const {return true;}
 private:
 	void generateInsert(RawContext* context, const OperatorState& childState);
+	/* Very similar to radix join building phase! */
+	void buildHT(RawContext* context, const OperatorState& childState);
 	/**
 	 * Once HT has been fully materialized, it is time to resume execution.
 	 * Note: generateProbe (should) not require any info reg. the previous op that was called.
@@ -70,6 +104,7 @@ private:
 	void generateMax(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
 	void generateOr(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
 	void generateAnd(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
+
 	/**
 	 * We need a new accumulator for every resulting bucket of the HT
 	 */
@@ -79,14 +114,30 @@ private:
 	vector<expressions::Expression*> outputExprs;
 	expressions::Expression* pred;
 	expressions::Expression* f_grouping;
-	const list<expressions::InputArgument>& g_nullToZero;
+	expressions::Expression* g_nullToZero;
 
 	vector<string> aggregateLabels;
 
 	char* htName;
 	Materializer& mat;
-
 	RawContext* context;
+
+	/**
+	 * Relevant to radix-based HT
+	 */
+	/* What the keyType is */
+	/* XXX int32 FOR NOW   */
+	/* If it is not int32 to begin with, hash it to make it so */
+	StructType *payloadType;
+	Type *keyType;
+	StructType *htEntryType;
+	struct relationBuf relR;
+	struct kvBuf htR;
+	HT *HT_per_cluster;
+	StructType *htClusterType;
+	// Raw Buffers
+	char *relationR;
+	char *kvR;
 };
 
 }

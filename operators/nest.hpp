@@ -40,6 +40,7 @@
  *
  * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR NEST OPERATOR (?)
  * TODO Doesn't NEST require aliases for the two record arguments that are its results?
+ * XXX  Hashing keys is not enough - also need to compare the actual keys
  */
 class Nest : public UnaryRawOperator {
 public:
