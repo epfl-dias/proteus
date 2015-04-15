@@ -23,7 +23,7 @@
 
 #include "operators/operators.hpp"
 #include "expressions/expressions-generator.hpp"
-#include "util/joins/radix-join.hpp"
+#include "util/radix/joins/radix-join.hpp"
 #include "util/raw-functions.hpp"
 #include "util/raw-caching.hpp"
 

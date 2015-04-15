@@ -42,46 +42,6 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::E
 	LLVMContext& llvmContext = context->getLLVMContext();
 	IRBuilder<> *Builder = context->getBuilder();
 
-	/* Prepare 'f' -> Turn it into expression (record construction) */
-//	if(f_grouping.size() > 1)
-//	{
-//		list<expressions::InputArgument>::const_iterator it;
-//		list<expressions::AttributeConstruction>* atts = new list<
-//				expressions::AttributeConstruction>();
-//		list<RecordAttribute*> recordAtts;
-//		string attrPlaceholder = string("attr_");
-//		for (it = f_grouping.begin(); it != f_grouping.end(); it++) {
-//
-//			const ExpressionType* type = it->getExpressionType();
-//			int argNo = it->getArgNo();
-//			list<RecordAttribute> projections = it->getProjections();
-//			expressions::InputArgument* attrExpr =
-//					new expressions::InputArgument(type, argNo, projections);
-//
-//			expressions::AttributeConstruction attr =
-//					expressions::AttributeConstruction(attrPlaceholder,
-//							attrExpr);
-//			atts->push_back(attr);
-//
-//			//Only used as placeholder to kickstart hashing later
-//			RecordAttribute* recAttr = new RecordAttribute();
-//			recordAtts.push_back(recAttr);
-//		}
-//		RecordType *recType = new RecordType(recordAtts);
-//		this->f_grouping = new expressions::RecordConstruction(recType, *atts);
-//	}
-//	else if(f_grouping.size() == 1)	{
-//		/*XXX Does f() always have to include input args exclusively?? */
-//		list<expressions::InputArgument>::const_iterator it;
-//		it = f_grouping.begin();
-//		this->f_grouping = *it;
-//	}
-//	else	{
-//		string error_msg = string("[NEST: ] Erroneous f() size");
-//		LOG(ERROR)<< error_msg;
-//		throw runtime_error(error_msg);
-//	}
-
 	if (accs.size() != outputExprs.size() || accs.size() != aggrLabels.size()) {
 		string error_msg = string("[NEST: ] Erroneous constructor args");
 		LOG(ERROR)<< error_msg;
@@ -139,12 +99,12 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::E
 	Builder->CreateStore(zero, relR.mem_offset);
 	Builder->CreateStore(val_sizeR, relR.mem_size);
 
-	/* What the type of HT entries is */
-	/* (int32, size_t) */
+	/* XXX What the type of HT entries is */
+	/* (size_t, size_t) */
 	vector<Type*> htEntryMembers;
-	htEntryMembers.push_back(int32_type);
 	htEntryMembers.push_back(int64_type);
-	int htEntrySize = sizeof(int) + sizeof(size_t);
+	htEntryMembers.push_back(int64_type);
+	int htEntrySize = sizeof(size_t) + sizeof(size_t);
 	htEntryType = StructType::get(context->getLLVMContext(), htEntryMembers);
 	PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
 
@@ -525,22 +485,54 @@ void Nest::buildHT(RawContext* context, const OperatorState& childState) {
 
 	/* CONSTRUCT HTENTRY PAIR   	  */
 	/* payloadPtr: relative offset from relBuffer beginning */
-	/* (int32 key, int64 payloadPtr)  */
-	/* Prepare key */
+	/* (int64 key, int64 payloadPtr)  */
+	/*  -> BOOST HASH PRODUCES INT64!! */
+	/* Prepare key/pieces of key */
+	/* XXX Note: key will be already hashed
+	 * W/e I need to store to retrieve key will be placed in payload
+	 * (if not there already)
+	 */
 
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
+
 	ExpressionHasherVisitor aggrExprGenerator = ExpressionHasherVisitor(context,childState);
 
+	/* XXX Actually, this is work that the MATERIALIZER should do!!!
+	 * Executor should remain agnostic!!!
+	 * At the time of HT probing, we will go ahead and use
+	 * an ExpressionGeneratorVisitor accordingly (for the dot product */
+//	if(f_grouping->getTypeID() != expressions::RECORD_CONSTRUCTION)	{
+//		/* Don't need to examine key piece by piece */
+//	}
+//	else
+//	{
+//		ExpressionGeneratorVisitor exprGenerator =
+//				ExpressionGeneratorVisitor(context, childState);
+//		/*
+//		 * Need to make sure I have all that is needed to evaluate
+//		 * the Record Construction
+//		 */
+//		expressions::RecordConstruction *recCons =
+//				(expressions::RecordConstruction *) f_grouping;
+//		list<expressions::AttributeConstruction>::const_iterator it;
+//		for(it = recCons->getAtts().begin(); it != recCons->getAtts().end(); it++)	{
+//
+//			expressions::AttributeConstruction attr = *it;
+//			expressions::Expression *attrExpr = attr.getExpression();
+//			if(attrExpr->getTypeID() == expressions::RECORD_PROJECTION)
+//			{
+//
+//			}
+//			else
+//			{
+//				/* No need to do anything */
+//				/* Can recreate from activeTuple */
+//			}
+//			/* const map<RecordAttribute, RawValueMemory>& bindings =
+//			childState.getBindings();*/
+//		}
+//	}
 
-	RawValue groupKey = f_grouping->accept(aggrExprGenerator);
-	/* XXX FIXME HASH PRODUCES INT64!! */
-	Type* keyType = (groupKey.value)->getType();
-	//10: IntegerTyID
-	if (keyType->getTypeID() != 10) {
-		string error_msg = "Only INT32 keys considered atm";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
+	RawValue groupHashKey = f_grouping->accept(aggrExprGenerator);
 
 	PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
 
@@ -599,8 +591,8 @@ void Nest::buildHT(RawContext* context, const OperatorState& childState) {
 	idxList.push_back(context->createInt32(offsetInStruct));
 
 	Value* structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
-	StoreInst *store_key = Builder->CreateStore(groupKey.value, structPtr);
-	store_key->setAlignment(4);
+	StoreInst *store_key = Builder->CreateStore(groupHashKey.value, structPtr);
+	store_key->setAlignment(8); //Used to be 4
 
 	/* 2b. kv_cast->payloadPtr = &payload */
 	offsetInStruct = 1;

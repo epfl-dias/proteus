@@ -46,7 +46,7 @@ namespace radix {
 
 /* valuePtr is relative to the payloadBuffer! */
 typedef struct htEntry {
-	int key;
+	size_t key;
 	size_t valuePtr;
 } htEntry;
 

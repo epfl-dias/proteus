@@ -2,9 +2,9 @@
 #define RADIX_JOIN_STATIC_HPP_
 
 #include "common/common.hpp"
-#include "util/joins/types.h" /* relation_t */
-#include "util/joins/prj_params.h"
-#include "util/joins/rdtsc.h"
+#include "util/radix/aggregations/types.h" /* relation_t */
+#include "util/radix/prj_params.h"
+#include "util/radix/rdtsc.h"
 
 #ifdef DEBUG
 //#define DEBUGRADIX

@@ -103,17 +103,40 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 				argMem = (it->second).mem;
 				isNull = (it->second).isNull;
 			}
-		}	else	{
+		}
+		else
+		{
+			list<RecordAttribute> projections = e->getProjections();
+			list<RecordAttribute>::iterator it = projections.begin();
+
+			for (; it != projections.end(); it++) {
+				/* OID info */
+				if (it->getAttrName() == activeLoop) {
+					map<RecordAttribute, RawValueMemory>::const_iterator itBindings;
+					for (itBindings = activeVars.begin();
+							itBindings != activeVars.end(); itBindings++) {
+
+						RecordAttribute currAttr = itBindings->first;
+						if (currAttr.getRelationName() == it->getRelationName()
+								&& currAttr.getAttrName() == activeLoop) {
+							/* Found info needed! */
+							RawValueMemory mem_activeTuple = itBindings->second;
+							argMem = mem_activeTuple.mem;
+							isNull = mem_activeTuple.isNull;
+						}
+					}
+				}
+			}
+		}
+		/*else	{
 			LOG(WARNING) << "[Expression Generator: ] No active relation found - Non-record case (OR e IS A TOPMOST EXPR.!)";
-			/* Have seen this occurring in Nest */
+			 Have seen this occurring in Nest
 			int relationsCount = 0;
 			for(it = activeVars.begin(); it != activeVars.end(); it++)	{
 				RecordAttribute currAttr = it->first;
 				cout << currAttr.getRelationName() <<" and "<< currAttr.getAttrName() << endl;
-				cout << "[Seeking "<< activeRelation << "]" << endl;
-				//Does 1st part of check ever get satisfied? activeRelation is empty here
+				//XXX Does 1st part of check ever get satisfied? activeRelation is empty here
 				if(currAttr.getRelationName() == activeRelation && currAttr.getAttrName() == activeLoop)	{
-					//cout << "Found " << currAttr.getRelationName() << " " << currAttr.getAttrName() << endl;
 
 					argMem = (it->second).mem;
 					isNull = (it->second).isNull;
@@ -130,7 +153,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			}
-		}
+		}*/
 	}
 	RawValue valWrapper;
 	valWrapper.value = TheBuilder->CreateLoad(argMem);

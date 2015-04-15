@@ -127,7 +127,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 
 	//Initializing resulting hashed value
 	AllocaInst* mem_hashedValue = context->CreateEntryBlockAlloca(F,
-			std::string("hashValue"), int64Type);
+			string("hashValue"), int64Type);
 	TheBuilder->CreateStore(hashedValue, mem_hashedValue);
 
 	//Is there a case that I am doing extra work?
@@ -135,6 +135,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 	//in some value that I have already hashed?
 
 	for(; it != projections.end(); it++)	{
+		/* Explicitly looking for OID!!! */
 		if(it->getAttrName() == activeLoop)	{
 			map<RecordAttribute, RawValueMemory>::const_iterator itBindings;
 			for(itBindings = activeVars.begin(); itBindings != activeVars.end(); itBindings++)
