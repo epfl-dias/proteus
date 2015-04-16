@@ -22,6 +22,9 @@
  *
  */
 
+#ifndef TIMERS_HPP_
+#define TIMERS_HPP_
+
 #include <stdint.h>
 #include <sys/time.h>
 
@@ -59,4 +62,6 @@ static __inline__ void stopTimer(uint64_t* t) {
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

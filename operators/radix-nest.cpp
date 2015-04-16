@@ -136,11 +136,183 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::E
 void Nest::produce()	const {
 	getChild()->produce();
 
-	generateProbe(this->context);
+	//generateProbe(this->context);
+	probeHT();
 }
 
 void Nest::consume(RawContext* const context, const OperatorState& childState) {
-	generateInsert(context, childState);
+//	generateInsert(context, childState);
+	buildHT(context,childState);
+}
+
+//map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(
+//		RawContext* const context, const OperatorState& childState) {
+//
+//	/*************************************/
+//	/**
+//	 * -> RECONSTRUCT RESULTS
+//	 * -> Need to do this at this point to check key equality
+//	 */
+//	Value *htRshiftedPtr_hit = Builder->CreateInBoundsGEP(htRshiftedPtr,
+//			val_hit_idx_dec);
+//	map<RecordAttribute, RawValueMemory>* allGroupBindings = new map<
+//			RecordAttribute, RawValueMemory>();
+//
+//	/* Payloads (Relative Offsets): size_t */
+//	/* Must be added to relR / relS accordingly */
+//	Value *val_payload_r_offset = context->getStructElem(htRshiftedPtr_hit, 1);
+//
+//	/* Cast payload */
+//	PointerType *payloadPtrType = PointerType::get(payloadType, 0);
+//
+//	Value *val_relR = Builder->CreateLoad(relR.mem_relation);
+//	Value *val_ptr_payloadR = Builder->CreateInBoundsGEP(val_relR,
+//			val_payload_r_offset);
+//
+//	Value *mem_payload = Builder->CreateBitCast(val_ptr_payloadR,
+//			payloadPtrType);
+//	Value *val_payload_r = Builder->CreateLoad(mem_payload);
+//
+//	//Retrieving activeTuple(s) from HT
+//	{
+//		AllocaInst *mem_activeTuple = NULL;
+//		int i = 0;
+//		const set<RecordAttribute>& tuplesIdentifiers =
+//				mat.getTupleIdentifiers();
+//		set<RecordAttribute>::const_iterator it = tuplesIdentifiers.begin();
+//		for (; it != tuplesIdentifiers.end(); it++) {
+//			mem_activeTuple = context->CreateEntryBlockAlloca(F,
+//					"mem_activeTuple", payloadType->getElementType(i));
+//			vector<Value*> idxList = vector<Value*>();
+//			idxList.push_back(context->createInt32(0));
+//			idxList.push_back(context->createInt32(i));
+//
+//			Value *elem_ptr = Builder->CreateGEP(mem_payload, idxList);
+//			Value *val_activeTuple = Builder->CreateLoad(elem_ptr);
+//			StoreInst *store_activeTuple = Builder->CreateStore(val_activeTuple,
+//					mem_activeTuple);
+//			store_activeTuple->setAlignment(8);
+//
+//			RawValueMemory mem_valWrapper;
+//			mem_valWrapper.mem = mem_activeTuple;
+//			mem_valWrapper.isNull = context->createFalse();
+//			(*allGroupBindings)[*it] = mem_valWrapper;
+//			i++;
+//		}
+//
+//		AllocaInst *mem_field = NULL;
+//		const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
+//		vector<RecordAttribute*>::const_iterator it2 = wantedFields.begin();
+//		for (; it2 != wantedFields.end(); it2++) {
+//			string currField = (*it2)->getName();
+//			mem_field = context->CreateEntryBlockAlloca(F, "mem_" + currField,
+//					payloadType->getElementType(i));
+//			vector<Value*> idxList = vector<Value*>();
+//			idxList.push_back(context->createInt32(0));
+//			idxList.push_back(context->createInt32(i));
+//
+//			Value *elem_ptr = Builder->CreateGEP(mem_payload, idxList);
+//			Value *val_field = Builder->CreateLoad(elem_ptr);
+//			Builder->CreateStore(val_field, mem_field);
+//
+//			RawValueMemory mem_valWrapper;
+//			mem_valWrapper.mem = mem_field;
+//			mem_valWrapper.isNull = context->createFalse();
+//
+//			(*allGroupBindings)[*(*it2)] = mem_valWrapper;
+//			i++;
+//		}
+//	}
+//	/*****************************************/
+//	OperatorState* newState = new OperatorState(*this, *allGroupBindings);
+//}
+
+map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, Value *idx) const {
+
+	LLVMContext& llvmContext = context->getLLVMContext();
+	RawCatalog& catalog = RawCatalog::getInstance();
+	Function *F = context->getGlobalFunction();
+	IRBuilder<> *Builder = context->getBuilder();
+	/*************************************/
+	/**
+	 * -> RECONSTRUCT RESULTS
+	 * -> Need to do this at this point to check key equality
+	 */
+	Value *htRshiftedPtr_hit = Builder->CreateInBoundsGEP(htBuffer,
+			idx);
+	map<RecordAttribute, RawValueMemory>* allGroupBindings = new map<
+			RecordAttribute, RawValueMemory>();
+
+	/* Payloads (Relative Offsets): size_t */
+	/* Must be added to relR accordingly */
+	Value *val_payload_r_offset = context->getStructElem(htRshiftedPtr_hit, 1);
+
+	/* Cast payload */
+	PointerType *payloadPtrType = PointerType::get(payloadType, 0);
+
+	Value *val_relR = Builder->CreateLoad(relR.mem_relation);
+	Value *val_ptr_payloadR = Builder->CreateInBoundsGEP(val_relR,
+			val_payload_r_offset);
+
+	Value *mem_payload = Builder->CreateBitCast(val_ptr_payloadR,
+			payloadPtrType);
+	Value *val_payload_r = Builder->CreateLoad(mem_payload);
+
+
+	{
+		//Retrieving activeTuple(s) from HT
+		AllocaInst *mem_activeTuple = NULL;
+		int i = 0;
+		const set<RecordAttribute>& tuplesIdentifiers =
+				mat.getTupleIdentifiers();
+		set<RecordAttribute>::const_iterator it = tuplesIdentifiers.begin();
+		for (; it != tuplesIdentifiers.end(); it++) {
+			mem_activeTuple = context->CreateEntryBlockAlloca(F,
+					"mem_activeTuple", payloadType->getElementType(i));
+			vector<Value*> idxList = vector<Value*>();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(i));
+
+			Value *elem_ptr = Builder->CreateGEP(mem_payload, idxList);
+			Value *val_activeTuple = Builder->CreateLoad(elem_ptr);
+			StoreInst *store_activeTuple = Builder->CreateStore(val_activeTuple,
+					mem_activeTuple);
+			store_activeTuple->setAlignment(8);
+
+			RawValueMemory mem_valWrapper;
+			mem_valWrapper.mem = mem_activeTuple;
+			mem_valWrapper.isNull = context->createFalse();
+			(*allGroupBindings)[*it] = mem_valWrapper;
+			i++;
+		}
+
+		AllocaInst *mem_field = NULL;
+		const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
+		vector<RecordAttribute*>::const_iterator it2 = wantedFields.begin();
+		for (; it2 != wantedFields.end(); it2++) {
+			string currField = (*it2)->getName();
+			mem_field = context->CreateEntryBlockAlloca(F, "mem_" + currField,
+					payloadType->getElementType(i));
+			vector<Value*> idxList = vector<Value*>();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(i));
+
+			Value *elem_ptr = Builder->CreateGEP(mem_payload, idxList);
+			Value *val_field = Builder->CreateLoad(elem_ptr);
+			Builder->CreateStore(val_field, mem_field);
+
+			RawValueMemory mem_valWrapper;
+			mem_valWrapper.mem = mem_field;
+			mem_valWrapper.isNull = context->createFalse();
+
+			(*allGroupBindings)[*(*it2)] = mem_valWrapper;
+			i++;
+		}
+	}
+	/*****************************************/
+//	OperatorState* newState = new OperatorState(*this, *allGroupBindings);
+//	return newState;
+	return allGroupBindings;
 }
 
 /**
@@ -284,6 +456,497 @@ void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 //			Builder->CreateCall(debugInt, ArgsV);
 //			ArgsV.clear();
 #endif
+}
+void Nest::probeHT() const	{
+
+	LLVMContext& llvmContext = context->getLLVMContext();
+	RawCatalog& catalog = RawCatalog::getInstance();
+	Function *F = context->getGlobalFunction();
+	IRBuilder<> *Builder = context->getBuilder();
+
+	Function* debugInt = context->getFunction("printi");
+	Function* debugInt64 = context->getFunction("printi64");
+
+	Type *int32_type = Type::getInt32Ty(llvmContext);
+	Type *int64_type = Type::getInt64Ty(llvmContext);
+	Type *int8_type = Type::getInt8Ty(llvmContext);
+	PointerType *bool_ptr_type = PointerType::get(int8_type,0);
+	Value *val_zero = context->createInt32(0);
+	Value *val_one = context->createInt32(1);
+	Value *val_true = context->createInt8(1);
+	Value *val_false = context->createInt8(0);
+
+	/* Partition and Cluster 'R' (the corresponding htEntries) */
+	Value *clusterCountR = radix_cluster_nopadding(relR, htR);
+
+	/* Bookkeeping for next steps - not sure which ones we will end up using */
+	AllocaInst *mem_rCount = Builder->CreateAlloca(int32_type, 0, "rCount");
+	AllocaInst *mem_clusterCount = Builder->CreateAlloca(int32_type, 0,
+			"clusterCount");
+	Builder->CreateStore(val_zero, mem_rCount);
+	Builder->CreateStore(val_zero, mem_clusterCount);
+
+	uint32_t clusterNo = (1 << NUM_RADIX_BITS);
+	Value *val_clusterNo = context->createInt32(clusterNo);
+
+	Builder->CreateAlloca(htClusterType, 0, "HTimpl");
+	PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
+	Value *val_htPerCluster = context->CastPtrToLlvmPtr(htClusterPtrType,
+			HT_per_cluster);
+
+	AllocaInst *mem_probesNo = Builder->CreateAlloca(int32_type, 0,
+			"mem_counter");
+	Builder->CreateStore(val_zero, mem_probesNo);
+
+	vector<Monoid>::const_iterator itAcc;
+	vector<expressions::Expression*>::const_iterator itExpr;
+	vector<AllocaInst*> mem_accumulators;
+	/*************************************************************************/
+	/**
+	 * ACTUAL PROBES
+	 */
+
+	/* Loop through clusters */
+	/* for (i = 0; i < (1 << NUM_RADIX_BITS); i++) */
+
+	BasicBlock *loopCond, *loopBody, *loopInc, *loopEnd;
+	context->CreateForLoop("clusterLoopCond", "clusterLoopBody",
+			"clusterLoopInc", "clusterLoopEnd", &loopCond, &loopBody, &loopInc,
+			&loopEnd);
+	context->setEndingBlock(loopEnd);
+
+	/* 1. Loop Condition - Unsigned integers operation */
+	Builder->CreateBr(loopCond);
+	Builder->SetInsertPoint(loopCond);
+	Value *val_clusterCount = Builder->CreateLoad(mem_clusterCount);
+	Value *val_cond = Builder->CreateICmpULT(val_clusterCount, val_clusterNo);
+	Builder->CreateCondBr(val_cond, loopBody, loopEnd);
+
+	/* 2. Loop Body */
+	Builder->SetInsertPoint(loopBody);
+
+	/* Check cluster contents */
+	/* if (R_count_per_cluster[i] > 0)
+	 */
+	BasicBlock *ifBlock, *elseBlock;
+	context->CreateIfElseBlocks(context->getGlobalFunction(),
+			"ifNotEmptyCluster", "elseEmptyCluster", &ifBlock, &elseBlock,
+			loopInc);
+
+	{
+		/* If Condition */
+		Value *val_r_i_count = context->getArrayElem(clusterCountR,
+				val_clusterCount);
+		Value *val_cond = Builder->CreateICmpSGT(val_r_i_count, val_zero);
+
+		Builder->CreateCondBr(val_cond, ifBlock, elseBlock);
+
+		/* If clusters non-empty */
+		Builder->SetInsertPoint(ifBlock);
+		/* start index of next cluster */
+		Value *val_rCount = Builder->CreateLoad(mem_rCount);
+
+		/* tmpR.tuples = relR->tuples + r; */
+		Value *val_htR = Builder->CreateLoad(htR.mem_kv);
+		Value* htRshiftedPtr = Builder->CreateInBoundsGEP(val_htR, val_rCount);
+
+		Function *bucketChainingAggPrepare = context->getFunction(
+				"bucketChainingAggPrepare");
+
+		PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
+		Value *val_htPerClusterShiftedPtr = Builder->CreateInBoundsGEP(
+				val_htPerCluster, val_clusterCount);
+
+		//Prepare args and call function
+		vector<Value*> Args;
+		Args.push_back(htRshiftedPtr);
+		Args.push_back(val_r_i_count);
+		Args.push_back(val_htPerClusterShiftedPtr);
+		Builder->CreateCall(bucketChainingAggPrepare, Args);
+#ifdef DEBUGRADIX_NEST
+		{
+//			vector<Value*> ArgsV;
+//			ArgsV.clear();
+//			ArgsV.push_back(val_clusterCount);
+//			Builder->CreateCall(debugInt, ArgsV);
+//
+//			ArgsV.clear();
+//			ArgsV.push_back(val_r_i_count);
+//			Builder->CreateCall(debugInt, ArgsV);
+		}
+#endif
+
+		/*
+		 * r += R_count_per_cluster[i];
+		 */
+		val_rCount = Builder->CreateAdd(val_rCount, val_r_i_count);
+		Builder->CreateStore(val_rCount, mem_rCount);
+
+		/* DO WORK HERE -> Needed Cluster Found! */
+		/* Loop over R cluster (tmpR) and use its tuples to probe its own HT */
+		/* Remember: Any clustering/grouping obtained so far only used a few bits! */
+		//XXX Reduce number of visits here!
+		BasicBlock *rLoopCond, *rLoopBody, *rLoopInc, *rLoopEnd;
+		context->CreateForLoop("rLoopCond", "rLoopBody", "rLoopInc", "rLoopEnd",
+				&rLoopCond, &rLoopBody, &rLoopInc, &rLoopEnd);
+		{
+			/* ENTRY:
+			 * -> Allocate  'marked' array to know which elems have participated
+			 * -> Could be bitmap too!
+			 * bool marked[]
+			 */
+			Value *val_r_i_count64 = Builder->CreateSExt(val_r_i_count,int64_type);
+			Function *func_getMemory = context->getFunction("getMemoryChunk");
+			vector<Value*> ArgsV;
+			ArgsV.push_back(val_r_i_count64);
+			//void*
+			Value *val_array_marked = Builder->CreateCall(func_getMemory,ArgsV);
+
+			AllocaInst *mem_j = Builder->CreateAlloca(int32_type, 0, "j_cnt");
+			/* A consecutive identifier, to act as OID later on */
+			AllocaInst *mem_groupCnt = Builder->CreateAlloca(int32_type, 0, "group_cnt");
+			Builder->CreateStore(val_zero, mem_j);
+			Builder->CreateStore(val_zero, mem_groupCnt);
+			Builder->CreateBr(rLoopCond);
+
+			/* Loop Condition */
+			Builder->SetInsertPoint(rLoopCond);
+			Value *val_j = Builder->CreateLoad(mem_j);
+			Value *val_groupCnt = Builder->CreateLoad(mem_groupCnt);
+
+			val_cond = Builder->CreateICmpSLT(val_j, val_r_i_count);
+
+			Builder->CreateCondBr(val_cond, rLoopBody, rLoopEnd);
+
+			Builder->SetInsertPoint(rLoopBody);
+
+			/*
+			 * Break the following in pieces:
+			 * result += bucket_chaining_join_probe(&tmpR,
+			 *			&(HT_per_cluster[i]), &(tmpS.tuples[j]));
+			 */
+			itAcc = accs.begin();
+			itExpr = outputExprs.begin();
+			/* Prepare accumulator FOREACH outputExpr */
+			for (; itAcc != accs.end(); itAcc++, itExpr++) {
+				Monoid acc = *itAcc;
+				expressions::Expression *outputExpr = *itExpr;
+				AllocaInst *mem_accumulator = resetAccumulator(outputExpr, acc);
+				mem_accumulators.push_back(mem_accumulator);
+			}
+			/* XXX I HAVE THE HASHKEY READY!!!
+			 * NO REASON TO RE-CALC (?)!!
+			 *
+			 * BUT:*/
+			//Get key of current r tuple (tmpR[j])
+//			Value *htRshiftedPtr_j = Builder->CreateInBoundsGEP(htRshiftedPtr,
+//					val_j);
+//			Value *val_key_r_j = context->getStructElem(htRshiftedPtr_j, 0);
+//			Value *val_idx = val_key_r_j;
+
+			/* I think diff't hash causes issues with the buckets */
+			/* uint32_t idx = HASH_BIT_MODULO(s->key, ht->mask, NUM_RADIX_BITS); */
+			Value *val_num_radix_bits64 = context->createInt64(NUM_RADIX_BITS);
+			Value *val_mask =
+					context->getStructElem(val_htPerClusterShiftedPtr,2);
+			Value *val_mask64 = Builder->CreateSExt(val_mask,int64_type);
+			//Get key of current tuple (tmpR[j])
+			Value *htRshiftedPtr_j = Builder->CreateInBoundsGEP(htRshiftedPtr,
+					val_j);
+			Value *val_hashed_key_r_j = context->getStructElem(htRshiftedPtr_j, 0);
+			Value *val_idx = Builder->CreateBinOp(Instruction::And, val_hashed_key_r_j,
+					val_mask64);
+			val_idx = Builder->CreateAShr(val_idx,val_num_radix_bits64);
+
+			/* Also getting value to reassemble ACTUAL KEY when needed */
+			map<RecordAttribute, RawValueMemory> *currKeyBindings =
+					reconstructResults(htRshiftedPtr,val_j);
+			OperatorState *currKeyState =
+					new OperatorState(*this,*currKeyBindings);
+			map<RecordAttribute, RawValueMemory> *retrievedBindings;
+			/**
+			 * Checking actual hits (when applicable)
+			 * for(int hit = (ht->bucket)[idx]; hit > 0; hit = (ht->next)[hit-1])
+			 */
+			BasicBlock *hitLoopCond, *hitLoopBody, *hitLoopInc, *hitLoopEnd;
+			context->CreateForLoop("hitLoopCond", "hitLoopBody", "hitLoopInc",
+					"hitLoopEnd", &hitLoopCond, &hitLoopBody, &hitLoopInc,
+					&hitLoopEnd);
+
+			{
+				AllocaInst *mem_hit = Builder->CreateAlloca(int32_type, 0,
+						"hit");
+				//(ht->bucket)
+				Value *val_bucket = context->getStructElem(
+						val_htPerClusterShiftedPtr, 0);
+				//(ht->bucket)[idx]
+				Value *val_bucket_idx = context->getArrayElem(val_bucket,
+						val_idx);
+
+				Builder->CreateStore(val_bucket_idx, mem_hit);
+				Builder->CreateBr(hitLoopCond);
+				/* 1. Loop Condition */
+				Builder->SetInsertPoint(hitLoopCond);
+				Value *val_hit = Builder->CreateLoad(mem_hit);
+				val_cond = Builder->CreateICmpSGT(val_hit, val_zero);
+				Builder->CreateCondBr(val_cond, hitLoopBody, hitLoopEnd);
+
+				/* 2. Body */
+				Builder->SetInsertPoint(hitLoopBody);
+
+				/* XXX TIME TO CALCULATE ACTUAL KEY */
+				/* if (r->key == Rtuples[hit - 1].key) */
+				BasicBlock *ifKeyMatch;
+				context->CreateIfBlock(context->getGlobalFunction(),
+						"htMatchIfCond", &ifKeyMatch, hitLoopInc);
+				{
+					/* Must flag 'marked' array accordingly */
+					Value *val_hit_idx_dec = Builder->CreateSub(val_hit,val_one);
+
+					retrievedBindings =
+							reconstructResults(htRshiftedPtr,val_hit_idx_dec);
+					OperatorState *retrievedState = new OperatorState(*this,*retrievedBindings);
+
+					/* Condition: Checking dot equality */
+					ExpressionDotVisitor dotVisitor =
+							ExpressionDotVisitor(context,*currKeyState,*retrievedState);
+					RawValue val_condWrapper = f_grouping->acceptTandem(dotVisitor,f_grouping);
+					Value *val_cond = val_condWrapper.value;
+					//Value *val_cond = context->createTrue();
+					//val_cond = Builder->CreateICmpEQ(tmp, tmp);
+					Builder->CreateCondBr(val_cond, ifKeyMatch, hitLoopInc);
+
+					Builder->SetInsertPoint(ifKeyMatch);
+#ifdef DEBUGRADIX_NEST
+//					{
+//						/* Printing the hashKey*/
+//						vector<Value*> ArgsV;
+//						ArgsV.clear();
+//						ArgsV.push_back(val_key_r_j);
+//						Builder->CreateCall(debugInt64, ArgsV);
+//					}
+//					{
+//						/* Printing the pos. to be marked */
+//						vector<Value*> ArgsV;
+//						ArgsV.clear();
+//						ArgsV.push_back(val_hit_idx_dec);
+//						Builder->CreateCall(debugInt, ArgsV);
+//					}
+#endif
+					/* marked[hit -1] = true; */
+					Value *mem_toFlag =
+							context->getArrayElemMem(val_array_marked,val_hit_idx_dec);
+					Builder->CreateStore(val_true,mem_toFlag);
+
+					/* Time to Compute Aggs */
+					itAcc = accs.begin();
+					itExpr = outputExprs.begin();
+					vector<AllocaInst*>::const_iterator itMem =
+							mem_accumulators.begin();
+					vector<string>::const_iterator itLabels =
+							aggregateLabels.begin();
+					/* Accumulate FOREACH outputExpr */
+					for (; itAcc != accs.end();
+							itAcc++, itExpr++, itMem++, itLabels++) {
+						Monoid acc = *itAcc;
+						expressions::Expression *outputExpr = *itExpr;
+						AllocaInst *mem_accumulating = *itMem;
+						string aggregateName = *itLabels;
+
+						switch (acc) {
+						case SUM:
+							generateSum(outputExpr, context, *retrievedState,
+									mem_accumulating);
+							break;
+						case MULTIPLY:
+							generateMul(outputExpr, context, *retrievedState,
+									mem_accumulating);
+							break;
+						case MAX:
+							generateMax(outputExpr, context, *retrievedState,
+									mem_accumulating);
+							break;
+						case OR:
+							generateOr(outputExpr, context, *retrievedState,
+									mem_accumulating);
+							break;
+						case AND:
+							generateAnd(outputExpr, context, *retrievedState,
+									mem_accumulating);
+							break;
+						case UNION:
+							//		generateUnion(context, childState);
+							//		break;
+						case BAGUNION:
+							//		generateBagUnion(context, childState);
+							//		break;
+						case APPEND:
+							//		generateAppend(context, childState);
+							//		break;
+						default: {
+							string error_msg =
+									string(
+											"[Nest: ] Unknown / Still Unsupported accumulator");
+							LOG(ERROR)<< error_msg;
+							throw runtime_error(error_msg);
+						}
+						}
+
+						Plugin *htPlugin = new BinaryInternalPlugin(context,
+								htName);
+						RecordAttribute attr_aggr = RecordAttribute(htName,
+								aggregateName, outputExpr->getExpressionType());
+						catalog.registerPlugin(htName, htPlugin);
+						//cout << "Registering custom pg for " << htName << endl;
+						RawValueMemory mem_aggrWrapper;
+						mem_aggrWrapper.mem = mem_accumulating;
+						mem_aggrWrapper.isNull = context->createFalse();
+						(*retrievedBindings)[attr_aggr] = mem_aggrWrapper;
+					}
+
+					Builder->CreateBr(hitLoopInc);
+				}
+
+				/* 3. Inc: hit = (ht->next)[hit-1]) */
+				Builder->SetInsertPoint(hitLoopInc);
+				//(ht->next)
+				Value *val_next = context->getStructElem(
+						val_htPerClusterShiftedPtr, 1);
+				Value *val_hit_idx = Builder->CreateSub(val_hit, val_one);
+				//(ht->next)[hit-1])
+				val_hit = context->getArrayElem(val_next, val_hit_idx);
+				Builder->CreateStore(val_hit, mem_hit);
+				Builder->CreateBr(hitLoopCond);
+
+				/* 4. End */
+				Builder->SetInsertPoint(hitLoopEnd);
+			}
+
+			Builder->CreateBr(rLoopInc);
+			Builder->SetInsertPoint(rLoopInc);
+
+			/* No longer moving relCounter once.
+			 * -> Move until no position is marked!
+			 *
+			val_j = Builder->CreateLoad(mem_j);
+			val_j = Builder->CreateAdd(val_j, val_one);
+			Builder->CreateStore(val_j, mem_j);
+			Builder->CreateBr(rLoopCond);
+			*/
+			/*
+			 * NEW INC!
+			 * XXX callParent();
+			 * while(marked[j] == true) j++;
+			 */
+			/* Explicit OID (i.e., groupNo) materialization */
+			RawValueMemory mem_oidWrapper;
+			mem_oidWrapper.mem = mem_groupCnt;
+			mem_oidWrapper.isNull = context->createFalse();
+			ExpressionType *oidType = new IntType();
+			RecordAttribute attr_oid = RecordAttribute(htName, activeLoop,
+					oidType);
+			(*retrievedBindings)[attr_oid] = mem_oidWrapper;
+			OperatorState *retrievedState = new OperatorState(*this,*retrievedBindings);
+
+			val_groupCnt = Builder->CreateLoad(mem_groupCnt);
+			val_groupCnt = Builder->CreateAdd(val_groupCnt, val_one);
+			Builder->CreateStore(val_groupCnt, mem_groupCnt);
+
+			getParent()->consume(context, *retrievedState);
+			BasicBlock *nextUnmarkedCond, *nextUnmarkedLoopBody,
+					*nextUnmarkedLoopInc, *nextUnmarkedLoopEnd;
+			context->CreateForLoop("nextUnmarkedCond", "nextUnmarkedBody",
+					"nextUnmarkedInc", "nextUnmarkedEnd", &nextUnmarkedCond,
+					&nextUnmarkedLoopBody, &nextUnmarkedLoopInc,
+					&nextUnmarkedLoopEnd);
+			{
+				Builder->CreateBr(nextUnmarkedCond);
+				/* Create condition */
+				Builder->SetInsertPoint(nextUnmarkedCond);
+				val_j = Builder->CreateLoad(mem_j);
+				Value *mem_flag = context->getArrayElemMem(val_array_marked,
+						val_j);
+				Value *val_flag = Builder->CreateLoad(mem_flag);
+				Value *val_cond = Builder->CreateICmpEQ(val_flag, val_true);
+				Builder->CreateCondBr(val_cond,nextUnmarkedLoopBody,nextUnmarkedLoopEnd);
+
+				Builder->SetInsertPoint(nextUnmarkedLoopBody);
+				/* Nothing to do really - job done in inc block*/
+				Builder->CreateBr(nextUnmarkedLoopInc);
+
+				Builder->SetInsertPoint(nextUnmarkedLoopInc);
+				val_j = Builder->CreateLoad(mem_j);
+				val_j = Builder->CreateAdd(val_j, val_one);
+				Builder->CreateStore(val_j, mem_j);
+				Builder->CreateBr(nextUnmarkedCond);
+
+				Builder->SetInsertPoint(nextUnmarkedLoopEnd);
+			}
+			Builder->CreateBr(rLoopCond);
+			/* END OF NEW INC */
+
+
+			Builder->SetInsertPoint(rLoopEnd);
+			/* Free tmp marked array */
+			Function *func_releaseMemory = context->getFunction(
+					"releaseMemoryChunk");
+			ArgsV.clear();
+			ArgsV.push_back(val_array_marked);
+			Builder->CreateCall(func_releaseMemory, ArgsV);
+		}
+		/* END OF WORK HERE*/
+		Builder->CreateBr(loopInc);
+
+		/* If cluster is empty */
+		/*
+		 * r += R_count_per_cluster[i];
+		 */
+		Builder->SetInsertPoint(elseBlock);
+		val_rCount = Builder->CreateLoad(mem_rCount);
+		val_rCount = Builder->CreateAdd(val_rCount, val_r_i_count);
+		Builder->CreateStore(val_rCount, mem_rCount);
+		Builder->CreateBr(loopInc);
+	}
+
+	/* 3. Loop Inc. */
+	Builder->SetInsertPoint(loopInc);
+	val_clusterCount = Builder->CreateLoad(mem_clusterCount);
+	val_clusterCount = Builder->CreateAdd(val_clusterCount, val_one);
+	#ifdef DEBUGRADIX_NEST
+//			vector<Value*> ArgsV0;
+//			ArgsV0.push_back(val_clusterCount);
+//			Builder->CreateCall(debugInt,ArgsV0);
+	#endif
+	Builder->CreateStore(val_clusterCount, mem_clusterCount);
+
+	Builder->CreateBr(loopCond);
+
+	/* 4. Loop End */
+	Builder->SetInsertPoint(loopEnd);
+}
+
+/**
+ * @param rel the materialized input relation
+ * @param ht  the htEntries corresp. to the relation
+ *
+ * @return item count per resulting cluster
+ */
+Value* Nest::radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const	{
+
+	LLVMContext& llvmContext = context->getLLVMContext();
+	RawCatalog& catalog = RawCatalog::getInstance();
+	Function *F = context->getGlobalFunction();
+	IRBuilder<> *Builder = context->getBuilder();
+
+	/* Difference from radix-join */
+	Function *partitionAggHT = context->getFunction("partitionAggHT");
+	vector<Value*> ArgsPartition;
+	Value *val_tuplesNo = Builder->CreateLoad(rel.mem_tuplesNo);
+	Value *val_ht 		= Builder->CreateLoad(ht.mem_kv);
+	ArgsPartition.push_back(val_tuplesNo);
+	ArgsPartition.push_back(val_ht);
+
+	return  Builder->CreateCall(partitionAggHT, ArgsPartition);
 }
 
 void Nest::buildHT(RawContext* context, const OperatorState& childState) {
@@ -591,6 +1254,7 @@ void Nest::buildHT(RawContext* context, const OperatorState& childState) {
 	idxList.push_back(context->createInt32(offsetInStruct));
 
 	Value* structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
+	//groupHashKey.value->getType()->dump(); //i64
 	StoreInst *store_key = Builder->CreateStore(groupHashKey.value, structPtr);
 	store_key->setAlignment(8); //Used to be 4
 

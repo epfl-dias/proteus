@@ -26,6 +26,8 @@
 
 #include "util/raw-catalog.hpp"
 #include "util/raw-context.hpp"
+#include "util/radix/joins/radix-join.hpp"
+#include "util/radix/aggregations/radix-aggr.hpp"
 
 class RawContext;
 
@@ -97,10 +99,12 @@ extern "C" size_t combineHashesNoOrder(size_t hash1, size_t hash2);
  * Radix hashing
  */
 
-extern "C" int *partitionHTLLVM(size_t num_tuples, tuple_t *inTuples);
-extern "C" void bucket_chaining_join_prepareLLVM(const tuple_t * const tuplesR,
+extern "C" int *partitionHTLLVM(size_t num_tuples, joins::tuple_t *inTuples);
+extern "C" void bucket_chaining_join_prepareLLVM(const joins::tuple_t * const tuplesR,
 		int num_tuples, HT * ht);
-
+extern "C" int *partitionAggHTLLVM(size_t num_tuples, agg::tuple_t *inTuples);
+extern "C" void bucket_chaining_agg_prepareLLVM(const agg::tuple_t * const tuplesR,
+		int num_tuples, HT * ht);
 /**
  * Flushing data
  */

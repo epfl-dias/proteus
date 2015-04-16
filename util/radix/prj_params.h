@@ -53,41 +53,9 @@
 #define L1_ASSOCIATIVITY 8
 #endif
 
-/** number of tuples fitting into L1 */
-#define L1_CACHE_TUPLES (L1_CACHE_SIZE/sizeof(tuple_t))
-
-/** thresholds for skewed partitions in 3-phase parallel join */
-#ifndef SKEW_HANDLING
-#define SKEW_HANDLING 0
-#endif
-#define THRESHOLD1(NTHR) (NTHR*L1_CACHE_TUPLES)
-#define THRESHOLD2(NTHR) (NTHR*NTHR*L1_CACHE_TUPLES)
-
-/** }*/
-
-
-/** \internal some padding space is allocated for relations in order to
- *  avoid L1 conflict misses and PADDING_TUPLES is placed between 
- *  partitions in pass-1 of partitioning and SMALL_PADDING_TUPLES is placed
- *  between partitions in pass-2 of partitioning. 3 is a magic number. 
- */
-
 /* num-parts at pass-1 */
 #define FANOUT_PASS1 (1 << (NUM_RADIX_BITS/NUM_PASSES))
 /* num-parts at pass-1 */
 #define FANOUT_PASS2 (1 << (NUM_RADIX_BITS-(NUM_RADIX_BITS/NUM_PASSES)))
-
-/** 
- * Put an odd number of cache lines between partitions in pass-2:
- * Here we put 3 cache lines.
- */
-#define SMALL_PADDING_TUPLES (3 * CACHE_LINE_SIZE/sizeof(tuple_t))
-#define PADDING_TUPLES (SMALL_PADDING_TUPLES*(FANOUT_PASS2+1))
-
-/** @warning This padding must be allocated at the end of relation */
-#define RELATION_PADDING (PADDING_TUPLES*FANOUT_PASS1*sizeof(tuple_t))
-
-/** \endinternal */
-
 
 #endif /* PRJ_PARAMS_H */

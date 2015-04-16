@@ -37,7 +37,6 @@
 
 #include "common/common.hpp"
 #include "values/expressionTypes.hpp"
-#include "util/radix/joins/radix-join.hpp"
 #include "memory/memory-allocator.hpp"
 
 #include <x86intrin.h>

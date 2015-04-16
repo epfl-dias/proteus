@@ -382,7 +382,7 @@ void RadixJoin::runRadix() const	{
 			Builder->SetInsertPoint(sLoopCond);
 			Value *val_j = Builder->CreateLoad(mem_j);
 
-			val_cond = Builder->CreateICmpSLE(val_j,val_s_i_count);
+			val_cond = Builder->CreateICmpSLT(val_j,val_s_i_count);
 
 			Builder->CreateCondBr(val_cond, sLoopBody, sLoopEnd);
 

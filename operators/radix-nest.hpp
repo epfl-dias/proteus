@@ -28,11 +28,13 @@
 #include "operators/monoids.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"
+#include "expressions/expressions-dot-evaluator.hpp"
 #include "expressions/path.hpp"
 #include "expressions/expressions.hpp"
 #include "plugins/binary-internal-plugin.hpp"
+#include "util/radix/aggregations/radix-aggr.hpp"
 
-
+#define DEBUGRADIX_NEST
 /**
  * Indicative query where a nest (..and an outer join) occur:
  * for (d <- Departments) yield set (D := d, E := for ( e <- Employees, e.dno = d.dno) yield set e)
@@ -65,7 +67,7 @@ struct relationBuf {
 
 struct kvBuf {
 	/* Mem layout:
-	 * Pairs of (int32 key, size_t payloadPtr)
+	 * Pairs of (size_t key, size_t payloadPtr)
 	 */
 	AllocaInst *mem_kv;
 	/* Size in bytes */
@@ -93,6 +95,8 @@ private:
 	void generateInsert(RawContext* context, const OperatorState& childState);
 	/* Very similar to radix join building phase! */
 	void buildHT(RawContext* context, const OperatorState& childState);
+	void probeHT() const;
+	Value* radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const;
 	/**
 	 * Once HT has been fully materialized, it is time to resume execution.
 	 * Note: generateProbe (should) not require any info reg. the previous op that was called.
@@ -105,6 +109,7 @@ private:
 	void generateOr(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
 	void generateAnd(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
 
+	map<RecordAttribute, RawValueMemory>* reconstructResults(Value *htBuffer, Value *idx) const;
 	/**
 	 * We need a new accumulator for every resulting bucket of the HT
 	 */

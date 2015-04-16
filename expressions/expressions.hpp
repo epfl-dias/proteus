@@ -29,7 +29,8 @@
 #include "expressions/binary-operators.hpp"
 
 
-class ExprVisitor; //Forward declaration
+class ExprVisitor; 		 //Forward declaration
+class ExprTandemVisitor; //Forward declaration
 
 //Careful: Using a namespace to avoid conflicts with LLVM namespace
 namespace expressions
@@ -46,7 +47,9 @@ public:
 
 	const ExpressionType* getExpressionType()	const		{ return type; }
 	virtual RawValue accept(ExprVisitor &v) = 0;
+	virtual RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*) = 0;
 	virtual ExpressionId getTypeID() const = 0;
+
 
 	virtual inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -88,6 +91,7 @@ public:
 
 	int getVal() const								{ return val; }
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return CONSTANT; }
 	ConstantType getConstantType() const			{ return INT; }
 	inline bool operator<(const expressions::Expression& r) const {
@@ -120,6 +124,7 @@ public:
 
 	bool getVal() const								{ return val; }
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return CONSTANT; }
 	ConstantType getConstantType() const			{ return BOOL; }
 	inline bool operator<(const expressions::Expression& r) const {
@@ -150,6 +155,7 @@ public:
 	double getVal()	const							{ return val; }
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return CONSTANT; }
 	ConstantType getConstantType() const			{ return FLOAT; }
 	inline bool operator<(const expressions::Expression& r) const {
@@ -181,6 +187,7 @@ public:
 
 	string& getVal() const							{ return val; }
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return CONSTANT; }
 	ConstantType getConstantType() const			{ return STRING; }
 	inline bool operator<(const expressions::Expression& r) const {
@@ -221,6 +228,7 @@ public:
 	int getArgNo() const												{ return argNo; }
 	list<RecordAttribute> getProjections() const						{ return projections; }
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const										{ return ARGUMENT; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -296,6 +304,7 @@ public:
 	string  getProjectionName()						{ return attribute.getAttrName(); }
 	RecordAttribute  getAttribute() const			{ return attribute; }
 	RawValue  accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return RECORD_PROJECTION; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -349,6 +358,7 @@ public:
 	~RecordConstruction()											{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const									{ return RECORD_CONSTRUCTION; }
 	const list<AttributeConstruction>& getAtts() const				{ return atts; }
 	inline bool operator<(const expressions::Expression& r) const {
@@ -388,6 +398,7 @@ public:
 	~IfThenElse()																{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const												{ return IF_THEN_ELSE; }
 	Expression* getIfCond()	const												{ return expr1; }
 	Expression* getIfResult() const												{ return expr2; }
@@ -443,6 +454,7 @@ public:
 	expressions::BinaryOperator* getOp() const					{ return op; }
 
 	virtual RawValue accept(ExprVisitor &v) = 0;
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*) = 0;
 	virtual ExpressionId getTypeID() const						{ return BINARY; }
 	~BinaryExpression() = 0;
 	virtual inline bool operator<(const expressions::Expression& r) const {
@@ -477,6 +489,7 @@ public:
 	}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const {
 		return BINARY;
 	}
@@ -519,6 +532,7 @@ public:
 	~NeExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return BINARY; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -559,6 +573,7 @@ public:
 	~GeExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return BINARY; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -599,6 +614,7 @@ public:
 	~GtExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return BINARY; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -639,6 +655,7 @@ public:
 	~LeExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return BINARY; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -679,6 +696,7 @@ public:
 	~LtExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return BINARY; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -719,6 +737,7 @@ public:
 	~AddExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return BINARY; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -760,6 +779,7 @@ public:
 	~SubExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return BINARY; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -801,6 +821,7 @@ public:
 	~MultExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return BINARY; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -842,6 +863,7 @@ public:
 	~DivExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return BINARY; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -883,6 +905,7 @@ public:
 	~AndExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return BINARY; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -924,6 +947,7 @@ public:
 	~OrExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return BINARY; }
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
@@ -956,180 +980,6 @@ public:
 		return this->getTypeID() < r.getTypeID();
 	}
 };
-
-/**
- * XXX Relevant to
- * General monoid merging
- * User-provided collections (since [1,2,3] is sugar for [1] union [2] union [3]
- * XXX 'Decided' merge is going to be a 'meta-operator'
- */
-//class MergeExpression : public Expression	{
-//public:
-//	MergeExpression(ExpressionType* type, Monoid acc, Expression* lhs, Expression* rhs) :
-//		Expression(type), monoidType(acc), lhs(lhs), rhs(rhs) 		{}
-//	~MergeExpression()												{}
-//
-//	RawValue accept(ExprVisitor &v);
-//	ExpressionId getTypeID()										{ return MERGE; }
-//	Monoid getMonoidType()										{ return monoidType; }
-//private:
-//	Monoid monoidType;
-//	Expression* lhs;
-//	Expression* rhs;
-//};
-
-
-//===----------------------------------------------------------------------===//
-// XXX Comparators so that I can use a map of expressions
-//===----------------------------------------------------------------------===//
-
-/* XXX Not too sure these comparators make sense.
- * If difference between hashed expressions boils down to this
- * point, I am doing sth wrong. */
-//inline bool operator<(const expressions::Expression& l,
-//		const expressions::Expression& r)	{
-//	if (l.getTypeID() == r.getTypeID())	{
-//		string error_msg = string("This operator is NOT responsible for this case!");
-//		LOG(ERROR)<< error_msg;
-//		throw runtime_error(error_msg);
-//	}
-//	else
-//	{
-//		return l.getTypeID() < r.getTypeID();
-//	}
-//}
-
-//inline bool operator<(const expressions::Constant& l, const expressions::Constant& r) {
-//	return l.getConstantType() < r.getConstantType();
-//}
-//
-//inline bool operator<(const expressions::IntConstant& l, const expressions::IntConstant& r) {
-//	return l.getVal() < r.getVal();
-//}
-//
-//inline bool operator<(const expressions::FloatConstant& l, const expressions::FloatConstant& r) {
-//	return l.getVal() < r.getVal();
-//}
-//
-//inline bool operator<(const expressions::StringConstant& l, const expressions::StringConstant& r) {
-//	return l.getVal() < r.getVal();
-//}
-//
-//inline bool operator<(const expressions::BoolConstant& l, const expressions::BoolConstant& r) {
-//	return l.getVal() < r.getVal();
-//}
-//
-//inline bool operator<(const expressions::InputArgument& l,
-//		const expressions::InputArgument& r) {
-//	/* Is it the same record? */
-//	ExpressionType *lExpr = l.getExpressionType();
-//	ExpressionType *rExpr = r.getExpressionType();
-//	bool cmpExprType1 = *lExpr < *rExpr;
-//	bool cmpExprType2 = *rExpr < *rExpr;
-//	bool eqExprType = !cmpExprType1 && !cmpExprType2;
-//	/* Does this make sense? Do I need equality? */
-//	if (!eqExprType) {
-//		list<RecordAttribute> lProj = l.getProjections();
-//		list<RecordAttribute> rProj = r.getProjections();
-//		if (lProj.size() != rProj.size()) {
-//			return lProj.size() < rProj.size();
-//		}
-//
-//		list<RecordAttribute>::iterator itLeftArgs = lProj.begin();
-//		list<RecordAttribute>::iterator itRightArgs = rProj.begin();
-//
-//		while (itLeftArgs != lProj.end()) {
-//			RecordAttribute attrLeft = (*itLeftArgs);
-//			RecordAttribute attrRight = (*itRightArgs);
-//
-//			bool eqAttr = !(attrLeft < attrRight) && !(attrRight < attrLeft);
-//			if (!eqAttr) {
-//				return attrLeft < attrRight;
-//			}
-//			itLeftArgs++;
-//			itRightArgs++;
-//		}
-//		return false;
-//	} else {
-//		return cmpExprType1;
-//	}
-//}
-//
-//inline bool operator<(const expressions::RecordProjection& l,
-//		const expressions::RecordProjection& r) {
-//	bool cmpAttribute1 = l.getAttribute() < r.getAttribute();
-//	bool cmpAttribute2 = r.getAttribute() < l.getAttribute();
-//	bool eqAttribute = !cmpAttribute1 && !cmpAttribute2;
-//	/* Does this make sense? Do I need equality? */
-//	if (eqAttribute) {
-//		return l.getExpr() < r.getExpr();
-//	} else {
-//		return cmpAttribute1;
-//	}
-//}
-
-//using expressions::AttributeConstruction;
-//inline bool operator<(const expressions::RecordConstruction& l,
-//		const expressions::RecordConstruction& r) {
-//
-//	list<AttributeConstruction> lAtts = l.getAtts();
-//	list<AttributeConstruction> rAtts = r.getAtts();
-//
-//	if (lAtts.size() != rAtts.size()) {
-//		return lAtts.size() < rAtts.size();
-//	}
-//	list<AttributeConstruction>::iterator itLeft = lAtts.begin();
-//	list<AttributeConstruction>::iterator itRight = rAtts.begin();
-//
-//	while (itLeft != lAtts.end()) {
-//		if (itLeft->getExpression() != itRight->getExpression()) {
-//			return itLeft->getExpression() < itRight->getExpression();
-//		}
-//		itLeft++;
-//		itRight++;
-//	}
-//	return false;
-//}
-//
-//using expressions::Expression;
-//inline bool operator<(const expressions::IfThenElse& l,
-//		const expressions::IfThenElse& r) {
-//
-//	Expression *lCond 		= l.getIfCond();
-//	Expression *lIfResult 	= l.getIfResult();
-//	Expression *lElseResult = l.getElseResult();
-//
-//	Expression *rCond 		= r.getIfCond();
-//	Expression *rIfResult 	= r.getIfResult();
-//	Expression *rElseResult = r.getElseResult();
-//
-//	bool eqCond = !((*lCond) < (*rCond)) && !((*rCond) < (*lCond));
-//	bool eqIfResult = !((*lIfResult) < (*rIfResult))
-//			&& !((*rIfResult) < (*lIfResult));
-//	bool eqElseResult = !((*lElseResult) < (*rElseResult))
-//				&& !((*rElseResult) < (*lElseResult));
-//
-//	if(eqCond)	{
-//		if(eqIfResult)	{
-//			if(eqElseResult)	{
-//				return false;
-//			}
-//			else
-//			{
-//				return (*lElseResult) < (*rElseResult);
-//			}
-//		}
-//		else
-//		{
-//			return (*lIfResult) < (*rIfResult);
-//		}
-//	}
-//	else
-//	{
-//		return (*lCond) < (*rCond);
-//	}
-//}
-
 inline bool operator<(const expressions::BinaryExpression& l,
 		const expressions::BinaryExpression& r) {
 
@@ -1231,6 +1081,52 @@ public:
 	virtual RawValue visit(expressions::OrExpression *e)  		= 0;
 //	virtual RawValue visit(expressions::MergeExpression *e)  	= 0;
 	virtual ~ExprVisitor() {}
+};
+
+class ExprTandemVisitor
+{
+public:
+	virtual RawValue visit(expressions::IntConstant *e1,
+			expressions::IntConstant *e2) = 0;
+	virtual RawValue visit(expressions::FloatConstant *e1,
+			expressions::FloatConstant *e2) = 0;
+	virtual RawValue visit(expressions::BoolConstant *e1,
+			expressions::BoolConstant *e2) = 0;
+	virtual RawValue visit(expressions::StringConstant *e1,
+			expressions::StringConstant *e2) = 0;
+	virtual RawValue visit(expressions::InputArgument *e1,
+			expressions::InputArgument *e2) = 0;
+	virtual RawValue visit(expressions::RecordProjection *e1,
+			expressions::RecordProjection *e2) = 0;
+	virtual RawValue visit(expressions::RecordConstruction *e1,
+			expressions::RecordConstruction *e2) = 0;
+	virtual RawValue visit(expressions::IfThenElse *e1,
+			expressions::IfThenElse *e2) = 0;
+	virtual RawValue visit(expressions::EqExpression *e1,
+			expressions::EqExpression *e2) = 0;
+	virtual RawValue visit(expressions::NeExpression *e1,
+			expressions::NeExpression *e2) = 0;
+	virtual RawValue visit(expressions::GeExpression *e1,
+			expressions::GeExpression *e2) = 0;
+	virtual RawValue visit(expressions::GtExpression *e1,
+			expressions::GtExpression *e2) = 0;
+	virtual RawValue visit(expressions::LeExpression *e1,
+			expressions::LeExpression *e2) = 0;
+	virtual RawValue visit(expressions::LtExpression *e1,
+			expressions::LtExpression *e2) = 0;
+	virtual RawValue visit(expressions::AddExpression *e1,
+			expressions::AddExpression *e2) = 0;
+	virtual RawValue visit(expressions::SubExpression *e1,
+			expressions::SubExpression *e2) = 0;
+	virtual RawValue visit(expressions::MultExpression *e1,
+			expressions::MultExpression *e2) = 0;
+	virtual RawValue visit(expressions::DivExpression *e1,
+			expressions::DivExpression *e2) = 0;
+	virtual RawValue visit(expressions::AndExpression *e1,
+			expressions::AndExpression *e2) = 0;
+	virtual RawValue visit(expressions::OrExpression *e1,
+			expressions::OrExpression *e2) = 0;
+	virtual ~ExprTandemVisitor() {}
 };
 
 

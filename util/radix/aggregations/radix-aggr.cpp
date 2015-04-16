@@ -84,10 +84,10 @@
  * @param D
  */
 void
-radix_cluster_nopadding(relation_t * outRel, relation_t * inRel, int R, int D)
+radix_cluster_nopadding(agg::relation_t * outRel, agg::relation_t * inRel, int R, int D)
 {
-    tuple_t ** dst;
-    tuple_t * input;
+	agg::tuple_t ** dst;
+	agg::tuple_t * input;
     /* tuple_t ** dst_end; */
     uint32_t * tuples_per_cluster;
     uint32_t i;
@@ -100,7 +100,7 @@ radix_cluster_nopadding(relation_t * outRel, relation_t * inRel, int R, int D)
     /* the following are fixed size when D is same for all the passes,
        and can be re-used from call to call. Allocating in this function
        just in case D differs from call to call. */
-    dst     = (tuple_t**)malloc(sizeof(tuple_t*)*fanOut);
+    dst     = (agg::tuple_t**)malloc(sizeof(agg::tuple_t*)*fanOut);
     /* dst_end = (tuple_t**)malloc(sizeof(tuple_t*)*fanOut); */
 
     input = inRel->tuples;
@@ -139,10 +139,10 @@ radix_cluster_nopadding(relation_t * outRel, relation_t * inRel, int R, int D)
 }
 
 void
-radix_cluster_nopadding(tuple_t * outTuples, tuple_t * inTuples, size_t num_tuples, int R, int D)
+radix_cluster_nopadding(agg::tuple_t * outTuples, agg::tuple_t * inTuples, size_t num_tuples, int R, int D)
 {
-    tuple_t ** dst;
-    tuple_t * input;
+	agg::tuple_t ** dst;
+	agg::tuple_t * input;
     /* tuple_t ** dst_end; */
     uint32_t * tuples_per_cluster;
     uint32_t i;
@@ -155,7 +155,7 @@ radix_cluster_nopadding(tuple_t * outTuples, tuple_t * inTuples, size_t num_tupl
     /* the following are fixed size when D is same for all the passes,
        and can be re-used from call to call. Allocating in this function
        just in case D differs from call to call. */
-    dst     = (tuple_t**)malloc(sizeof(tuple_t*)*fanOut);
+    dst     = (agg::tuple_t**)malloc(sizeof(agg::tuple_t*)*fanOut);
     /* dst_end = (tuple_t**)malloc(sizeof(tuple_t*)*fanOut); */
 
     input = inTuples;
@@ -220,7 +220,7 @@ radix_cluster_nopadding(tuple_t * outTuples, tuple_t * inTuples, size_t num_tupl
  * (when S side is partitioned)
  */
 
-void bucket_chaining_join_prepare(const relation_t * const R, HT * ht)	{
+void bucket_chaining_agg_prepare(const agg::relation_t * const R, HT * ht)	{
     const uint32_t numR = R->num_tuples;
     uint32_t N = numR;
     int64_t matches = 0;
@@ -232,7 +232,7 @@ void bucket_chaining_join_prepare(const relation_t * const R, HT * ht)	{
     ht->next   = (int*) malloc(sizeof(int) * numR);
     ht->bucket = (int*) calloc(N, sizeof(int));
 
-    const tuple_t * const Rtuples = R->tuples;
+    const agg::tuple_t * const Rtuples = R->tuples;
     for(uint32_t i=0; i < numR; ){
         uint32_t idx = HASH_BIT_MODULO(R->tuples[i].key, MASK, NUM_RADIX_BITS);
         (ht->next)[i]      = (ht->bucket)[idx];
@@ -241,7 +241,7 @@ void bucket_chaining_join_prepare(const relation_t * const R, HT * ht)	{
     }
 }
 
-void bucket_chaining_join_prepare(const tuple_t * const tuplesR, int num_tuples, HT * ht)	{
+void bucket_chaining_agg_prepare(const agg::tuple_t * const tuplesR, int num_tuples, HT * ht)	{
     const uint32_t numR = num_tuples;
     uint32_t N = numR;
     int64_t matches = 0;
@@ -253,7 +253,7 @@ void bucket_chaining_join_prepare(const tuple_t * const tuplesR, int num_tuples,
     ht->next   = (int*) malloc(sizeof(int) * numR);
     ht->bucket = (int*) calloc(N, sizeof(int));
     //cout << "[PREPARING]: " << endl;
-    const tuple_t * const Rtuples = tuplesR;
+    const agg::tuple_t * const Rtuples = tuplesR;
     for(uint32_t i=0; i < numR; ){
         uint32_t idx = HASH_BIT_MODULO(tuplesR[i].key, MASK, NUM_RADIX_BITS);
         //cout << "[K]: " << tuplesR[i].key << " [V]: " << tuplesR[i].payload << endl;
@@ -267,12 +267,12 @@ void bucket_chaining_join_prepare(const tuple_t * const tuplesR, int num_tuples,
  * (when S side is partitioned)
  */
 int64_t
-bucket_chaining_join_probe(const relation_t * const R, HT * ht,
-                     const tuple_t * const s)
+bucket_chaining_agg_probe(const agg::relation_t * const R, HT * ht,
+                     const agg::tuple_t * const s)
 {
 	int64_t matches = 0;
     uint32_t idx = HASH_BIT_MODULO(s->key, ht->mask, NUM_RADIX_BITS);
-    const tuple_t * const Rtuples = R->tuples;
+    const agg::tuple_t * const Rtuples = R->tuples;
 
     for(int hit = (ht->bucket)[idx]; hit > 0; hit = (ht->next)[hit-1]){
     	if (s->key == Rtuples[hit - 1].key)
@@ -288,7 +288,7 @@ bucket_chaining_join_probe(const relation_t * const R, HT * ht,
  * Used in the context of RJStepwise
  * (when S side is partitioned)
  */
-void bucket_chaining_join_finish(HT * ht)
+void bucket_chaining_agg_finish(HT * ht)
 {
 	/* clean up temp */
 	free(ht->bucket);
@@ -301,9 +301,9 @@ void bucket_chaining_join_finish(HT * ht)
  *
  * @return item count per cluster defined
  */
-int *partitionHT(size_t num_tuples, tuple_t *inTuples)	{
-	size_t sz = num_tuples * sizeof(tuple_t) + RELATION_PADDING;
-	tuple_t* outTuples = (tuple_t*) malloc(sz);
+int *partitionHT(size_t num_tuples, agg::tuple_t *inTuples)	{
+	size_t sz = num_tuples * sizeof(agg::tuple_t) + RELATION_PADDING_AGG;
+	agg::tuple_t* outTuples = (agg::tuple_t*) malloc(sz);
 
 	/* apply radix-clustering on relation for pass-1 */
 	radix_cluster_nopadding(outTuples, inTuples, num_tuples, 0, NUM_RADIX_BITS/NUM_PASSES);
@@ -325,23 +325,23 @@ int *partitionHT(size_t num_tuples, tuple_t *inTuples)	{
 }
 
 int64_t
-RJStepwise(relation_t * relR, relation_t * relS)
+RJStepwise(agg::relation_t * relR, agg::relation_t * relS)
 {
     int64_t result = 0;
     uint32_t i;
 
-    relation_t *outRelR, *outRelS;
+    agg::relation_t *outRelR, *outRelS;
 
-    outRelR = (relation_t*) malloc(sizeof(relation_t));
-    outRelS = (relation_t*) malloc(sizeof(relation_t));
+    outRelR = (agg::relation_t*) malloc(sizeof(agg::relation_t));
+    outRelS = (agg::relation_t*) malloc(sizeof(agg::relation_t));
 
     /* allocate temporary space for partitioning */
-    size_t sz = relR->num_tuples * sizeof(tuple_t) + RELATION_PADDING;
-    outRelR->tuples     = (tuple_t*) malloc(sz);
+    size_t sz = relR->num_tuples * sizeof(agg::tuple_t) + RELATION_PADDING_AGG;
+    outRelR->tuples     = (agg::tuple_t*) malloc(sz);
     outRelR->num_tuples = relR->num_tuples;
 
-    sz = relS->num_tuples * sizeof(tuple_t) + RELATION_PADDING;
-    outRelS->tuples     = (tuple_t*) malloc(sz);
+    sz = relS->num_tuples * sizeof(agg::tuple_t) + RELATION_PADDING_AGG;
+    outRelS->tuples     = (agg::tuple_t*) malloc(sz);
     outRelS->num_tuples = relS->num_tuples;
 
     /***** do the multi-pass (2) partitioning *****/
@@ -395,7 +395,7 @@ RJStepwise(relation_t * relR, relation_t * relS)
     HT *HT_per_cluster = (HT*)calloc((1<<NUM_RADIX_BITS), sizeof(HT));
 	for (i = 0; i < (1 << NUM_RADIX_BITS); i++)
 	{
-		relation_t tmpR, tmpS;
+		agg::relation_t tmpR, tmpS;
 
 		if (R_count_per_cluster[i] > 0 && S_count_per_cluster[i] > 0)
 		{
@@ -409,15 +409,15 @@ RJStepwise(relation_t * relR, relation_t * relS)
 			s += S_count_per_cluster[i];
 
 			/* Memory Manager: Take care of HT* demands */
-			bucket_chaining_join_prepare(&tmpR, &(HT_per_cluster[i]));
+			bucket_chaining_agg_prepare(&tmpR, &(HT_per_cluster[i]));
 
 			for (int j = 0; j < tmpS.num_tuples; j++)
 			{
-				result += bucket_chaining_join_probe(&tmpR,
+				result += bucket_chaining_agg_probe(&tmpR,
 						&(HT_per_cluster[i]), &(tmpS.tuples[j]));
 			}
 
-			bucket_chaining_join_finish(&(HT_per_cluster[i]));
+			bucket_chaining_agg_finish(&(HT_per_cluster[i]));
 		}
 		else
 		{

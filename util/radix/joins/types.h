@@ -8,17 +8,17 @@
  * 
  * 
  */
-#ifndef TYPES_H
-#define TYPES_H
+#ifndef JOIN_TYPES_H
+#define JOIN_TYPES_H
 
-#include <stdint.h>
+#include "util/radix/types.h"
 
+namespace joins {
 /**
  * @defgroup Types Common Types
  * Common type definitions used by all join implementations.
  * @{
  */
-
 #ifdef KEY_8B /* 64-bit key/value, 16B tuples */
 typedef int64_t intkey_t;
 typedef int64_t value_t;
@@ -28,24 +28,22 @@ typedef int64_t value_t;
 //typedef void* value_t;
 #endif
 
-typedef struct tuple_t    tuple_t;
-typedef struct relation_t relation_t;
-
 /** Type definition for a tuple, depending on KEY_8B a tuple can be 16B or 8B */
-struct tuple_t {
-    intkey_t key;
-    value_t  payload;
-};
+typedef struct tuple_t {
+	intkey_t key;
+	value_t payload;
+} tuple_t;
 
 /**
  * Type definition for a relation. 
  * It consists of an array of tuples and a size of the relation.
  */
-struct relation_t {
-  tuple_t * tuples;
-  uint32_t  num_tuples;
-};
+typedef struct relation_t {
+	tuple_t * tuples;
+	uint32_t num_tuples;
+} relation_t;
 
 /** @} */
+}
 
 #endif /* TYPES_H */

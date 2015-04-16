@@ -1,21 +1,14 @@
-#ifndef RADIX_JOIN_STATIC_HPP_
-#define RADIX_JOIN_STATIC_HPP_
+#ifndef RADIX_AGG_STATIC_HPP_
+#define RADIX_AGG_STATIC_HPP_
 
 #include "common/common.hpp"
 #include "util/radix/aggregations/types.h" /* relation_t */
-#include "util/radix/prj_params.h"
+#include "util/radix/aggregations/prj_params.h"
 #include "util/radix/rdtsc.h"
 
 #ifdef DEBUG
 //#define DEBUGRADIX
 #endif
-
-typedef struct HT	{
-	int *bucket;
-	int *next;
-	uint32_t mask;
-	int count;
-} HT;
 
 /**
  * RJ: Radix Join.
@@ -30,17 +23,17 @@ typedef struct HT	{
  * @return number of result tuples
  */
 int64_t
-RJStepwise(relation_t * relR, relation_t * relS);
+RJStepwise(agg::relation_t * relR, agg::relation_t * relS);
 
 /**
  * Splitting functionality in chunks to be called from generated code
  */
 int *
-partitionHT(size_t num_tuples, tuple_t *inTuples);
+partitionHT(size_t num_tuples, agg::tuple_t *inTuples);
 
 void
-bucket_chaining_join_prepare(const tuple_t * const tuplesR, int num_tuples,
+bucket_chaining_agg_prepare(const agg::tuple_t * const tuplesR, int num_tuples,
 		HT * ht);
 
 
-#endif /* RADIX_JOIN_STATIC_HPP_ */
+#endif /* RADIX_AGG_STATIC_HPP_ */

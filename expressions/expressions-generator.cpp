@@ -79,7 +79,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::StringConstant *e) {
 }
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
-	IRBuilder<>* const TheBuilder = context->getBuilder();
+	IRBuilder<>* const Builder = context->getBuilder();
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 	AllocaInst* argMem = NULL;
 	Value* isNull;
@@ -155,15 +155,30 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 			}
 		}*/
 	}
+
 	RawValue valWrapper;
-	valWrapper.value = TheBuilder->CreateLoad(argMem);
+	valWrapper.value = Builder->CreateLoad(argMem);
 	valWrapper.isNull = context->createFalse();
+
+#ifdef DEBUG
+	{
+		Function* debugInt = context->getFunction("printi64");
+		vector<Value*> ArgsV;
+
+		ArgsV.push_back(valWrapper.value);
+		Builder->CreateCall(debugInt, ArgsV);
+		ArgsV.clear();
+		ArgsV.push_back(context->createInt64(100000001));
+		Builder->CreateCall(debugInt, ArgsV);
+	}
+#endif
+
 	return valWrapper;
 }
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 	RawCatalog& catalog 			= RawCatalog::getInstance();
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
+	IRBuilder<>* const Builder	= context->getBuilder();
 	activeRelation 					= e->getOriginalRelationName();
 
 	Plugin* plugin 					= catalog.getPlugin(activeRelation);
@@ -204,7 +219,6 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 			//Path involves a projection / an object
 			mem_path = plugin->readPath(activeRelation, bindings,
 					e->getProjectionName().c_str());
-
 		} else {
 			//Path involves a primitive datatype
 			//(e.g., the result of unnesting a list of primitives)
@@ -223,8 +237,27 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 			mem_path = it->second;
 		}
 		mem_val = plugin->readValue(mem_path, e->getExpressionType());
-		Value *val = TheBuilder->CreateLoad(mem_val.mem);
-
+		Value *val = Builder->CreateLoad(mem_val.mem);
+#ifdef DEBUG
+		{
+			/* Printing the pos. to be marked */
+			if(e->getProjectionName() == "age") {
+				cout << "AGE! " << endl;
+				/* Radix treats this as int64 (!) */
+				val->getType()->dump();
+				Function* debugInt = context->getFunction("printi");
+				Function* debugInt64 = context->getFunction("printi64");
+				vector<Value*> ArgsV;
+				ArgsV.clear();
+				ArgsV.push_back(val);
+				Builder->CreateCall(debugInt, ArgsV);
+			}
+			else
+			{
+				cout << "Other projection - " << e->getProjectionName() << endl;
+			}
+		}
+#endif
 		RawValue valWrapper;
 		valWrapper.value = val;
 		valWrapper.isNull = mem_val.isNull;

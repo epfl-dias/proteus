@@ -3,19 +3,12 @@
 
 #include "common/common.hpp"
 #include "util/radix/joins/types.h" /* relation_t */
-#include "util/radix/prj_params.h"
+#include "util/radix/joins/prj_params.h"
 #include "util/radix/rdtsc.h"
 
 #ifdef DEBUG
 //#define DEBUGRADIX
 #endif
-
-typedef struct HT	{
-	int *bucket;
-	int *next;
-	uint32_t mask;
-	int count;
-} HT;
 
 /**
  * RJ: Radix Join.
@@ -30,16 +23,16 @@ typedef struct HT	{
  * @return number of result tuples
  */
 int64_t
-RJStepwise(relation_t * relR, relation_t * relS);
+RJStepwise(joins::relation_t * relR, joins::relation_t * relS);
 
 /**
  * Splitting functionality in chunks to be called from generated code
  */
 int *
-partitionHT(size_t num_tuples, tuple_t *inTuples);
+partitionHT(size_t num_tuples, joins::tuple_t *inTuples);
 
 void
-bucket_chaining_join_prepare(const tuple_t * const tuplesR, int num_tuples,
+bucket_chaining_join_prepare(const joins::tuple_t * const tuplesR, int num_tuples,
 		HT * ht);
 
 

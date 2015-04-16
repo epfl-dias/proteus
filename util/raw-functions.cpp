@@ -349,13 +349,22 @@ size_t combineHashesNoOrder(size_t hash1, size_t hash2) {
 /**
  * Radix chunks of functionality
  */
-int *partitionHTLLVM(size_t num_tuples, tuple_t *inTuples)	{
+int *partitionHTLLVM(size_t num_tuples, joins::tuple_t *inTuples)	{
 	return partitionHT(num_tuples, inTuples);
 }
 
-void bucket_chaining_join_prepareLLVM(const tuple_t * const tuplesR,
+void bucket_chaining_join_prepareLLVM(const joins::tuple_t * const tuplesR,
 		int num_tuples, HT * ht) {
 	bucket_chaining_join_prepare(tuplesR, num_tuples, ht);
+}
+
+void bucket_chaining_agg_prepareLLVM(const agg::tuple_t * const tuplesR,
+		int num_tuples, HT * ht) {
+	bucket_chaining_agg_prepare(tuplesR, num_tuples, ht);
+}
+
+int *partitionAggHTLLVM(size_t num_tuples, agg::tuple_t *inTuples)	{
+	return partitionHT(num_tuples, inTuples);
 }
 
 
@@ -1061,19 +1070,6 @@ void registerFunctions(RawContext& context)	{
 	/**
 	 * Radix
 	 */
-	/* What the type of HT entries is */
-	/* (int32, void*) */
-	vector<Type*> htEntryMembers;
-	htEntryMembers.push_back(int32_type);
-	htEntryMembers.push_back(int64_type);
-	StructType *htEntryType = StructType::get(ctx,htEntryMembers);
-	PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
-
-	Type* radix_partition_types[] = { int64_type, htEntryPtrType };
-	FunctionType *FTradix_partition = FunctionType::get(int32_ptr_type, radix_partition_types, false);
-	Function *radix_partition = Function::Create(FTradix_partition,
-							Function::ExternalLinkage, "partitionHTLLVM", TheModule);
-
 	/* What the type of HT buckets is */
 	vector<Type*> htBucketMembers;
 	//int *bucket;
@@ -1087,6 +1083,20 @@ void registerFunctions(RawContext& context)	{
 	StructType *htBucketType = StructType::get(ctx, htBucketMembers);
 	PointerType *htBucketPtrType = PointerType::get(htBucketType, 0);
 
+	/* JOIN!!! */
+	/* What the type of HT entries is */
+	/* (int32, void*) */
+	vector<Type*> htEntryMembers;
+	htEntryMembers.push_back(int32_type);
+	htEntryMembers.push_back(int64_type);
+	StructType *htEntryType = StructType::get(ctx,htEntryMembers);
+	PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
+
+	Type* radix_partition_types[] = { int64_type, htEntryPtrType };
+	FunctionType *FTradix_partition = FunctionType::get(int32_ptr_type, radix_partition_types, false);
+	Function *radix_partition = Function::Create(FTradix_partition,
+							Function::ExternalLinkage, "partitionHTLLVM", TheModule);
+
 	Type* bucket_chaining_join_prepare_types[] = { htEntryPtrType, int32_type,
 			htBucketPtrType };
 	FunctionType *FTbucket_chaining_join_prepare = FunctionType::get(void_type,
@@ -1094,6 +1104,32 @@ void registerFunctions(RawContext& context)	{
 	Function *bucket_chaining_join_prepare = Function::Create(
 			FTbucket_chaining_join_prepare, Function::ExternalLinkage,
 			"bucket_chaining_join_prepareLLVM", TheModule);
+
+	/* AGGR! */
+	/* What the type of HT entries is */
+	/* (int64, void*) */
+	vector<Type*> htAggEntryMembers;
+	htAggEntryMembers.push_back(int64_type);
+	htAggEntryMembers.push_back(int64_type);
+	StructType *htAggEntryType = StructType::get(ctx,htAggEntryMembers);
+		PointerType *htAggEntryPtrType = PointerType::get(htAggEntryType, 0);
+	Type* radix_partition_agg_types[] = { int64_type, htAggEntryPtrType };
+	FunctionType *FTradix_partition_agg = FunctionType::get(int32_ptr_type,
+			radix_partition_agg_types, false);
+	Function *radix_partition_agg = Function::Create(FTradix_partition_agg,
+			Function::ExternalLinkage, "partitionAggHTLLVM", TheModule);
+
+	Type* bucket_chaining_agg_prepare_types[] = { htAggEntryPtrType, int32_type,
+			htBucketPtrType };
+	FunctionType *FTbucket_chaining_agg_prepare = FunctionType::get(void_type,
+			bucket_chaining_agg_prepare_types, false);
+	Function *bucket_chaining_agg_prepare = Function::Create(
+			FTbucket_chaining_agg_prepare, Function::ExternalLinkage,
+			"bucket_chaining_agg_prepareLLVM", TheModule);
+	/**
+	 * End of Radix
+	 */
+
 
 	/**
 	 * Parsing
@@ -1176,6 +1212,8 @@ void registerFunctions(RawContext& context)	{
 
 	context.registerFunction("partitionHT",radix_partition);
 	context.registerFunction("bucketChainingPrepare",bucket_chaining_join_prepare);
+	context.registerFunction("partitionAggHT",radix_partition_agg);
+	context.registerFunction("bucketChainingAggPrepare",bucket_chaining_agg_prepare);
 
 	context.registerFunction("newline",newline);
 	context.registerFunction("parseLineJSON",parse_line_json);

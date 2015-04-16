@@ -27,6 +27,8 @@
 #include "plugins/plugins.hpp"
 #include "util/raw-catalog.hpp"
 
+//#define DEBUGJSMN
+
 namespace jsmn	{
 
 /**

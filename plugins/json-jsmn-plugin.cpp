@@ -935,7 +935,7 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 	Value* convertedValue = NULL;
 
 	mem_convertedValue_isNull = context->CreateEntryBlockAlloca(F,
-			std::string("value_isNull"), int1Type);
+			string("value_isNull"), int1Type);
 	Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 	string error_msg;
 	switch (type->getTypeID()) {
@@ -972,6 +972,18 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 		{
 			mem_convertedValue = context->CreateEntryBlockAlloca(F,
 					string("convertedInt"), int32Type);
+#ifdef DEBUGJSMN
+//		{
+//		vector<Value*> ArgsV;
+//		Function* debugInt = context->getFunction("printi");
+//		ArgsV.push_back(Builder->CreateLoad(mem_convertedValue));
+//		Builder->CreateCall(debugInt, ArgsV);
+//		ArgsV.clear();
+//		Value *tmp = context->createInt32(1001);
+//		ArgsV.push_back(tmp);
+//		Builder->CreateCall(debugInt, ArgsV);
+//		}
+#endif
 			break;}
 		default:
 		{
@@ -1037,15 +1049,17 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 		convertedValue = Builder->CreateCall(conversionFunc, ArgsV, "atoi");
 		Builder->CreateStore(convertedValue, mem_convertedValue);
 		Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
-#ifdef DEBUG
-//		std::vector<Value*> ArgsV;
+#ifdef DEBUGJSMN
+//		{
+//		vector<Value*> ArgsV;
 //		Function* debugInt = context->getFunction("printi");
 //		ArgsV.push_back(convertedValue);
 //		Builder->CreateCall(debugInt, ArgsV);
 //		ArgsV.clear();
-//		Value *tmp = context->createInt32(111);
+//		Value *tmp = context->createInt32(1002);
 //		ArgsV.push_back(tmp);
 //		Builder->CreateCall(debugInt, ArgsV);
+//		}
 #endif
 		break;
 	}
