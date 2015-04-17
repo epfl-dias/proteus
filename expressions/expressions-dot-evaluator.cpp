@@ -72,7 +72,7 @@ RawValue ExpressionDotVisitor::visit(expressions::BoolConstant *e1,
 RawValue ExpressionDotVisitor::visit(expressions::StringConstant *e1,
 		expressions::StringConstant *e2) {
 
-	IRBuilder<>* const TheBuilder = context->getBuilder();
+	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
 			context, currState1);
@@ -83,13 +83,14 @@ RawValue ExpressionDotVisitor::visit(expressions::StringConstant *e1,
 			context, currState2);
 	RawValue right = e2->accept(exprGenerator2);
 
+	RawValue valWrapper;
 	vector<Value*> ArgsV;
 	ArgsV.push_back(left.value);
 	ArgsV.push_back(right.value);
-	Function* stringEquality = context->getFunction("equalStrings");
-	RawValue valWrapper;
-	valWrapper.value = TheBuilder->CreateCall(stringEquality, ArgsV,
-			"equalStringsCall");
+	Function* stringEquality = context->getFunction("equalStringObjs");
+	valWrapper.value = Builder->CreateCall(stringEquality, ArgsV,
+			"equalStringObjsCall");
+
 	return valWrapper;
 }
 
@@ -434,7 +435,7 @@ RawValue ExpressionDotVisitor::visit(expressions::RecordProjection *e1,
 	IRBuilder<>* const Builder = context->getBuilder();
 
 	typeID id = e1->getExpressionType()->getTypeID();
-	bool primitive =  id == INT || id == FLOAT || id == BOOL || id == INT64;
+	bool primitive =  id == INT || id == FLOAT || id == BOOL || id == INT64 || id == STRING;
 	if (primitive) {
 		const OperatorState& currState1 = currStateLeft;
 		ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -475,6 +476,16 @@ RawValue ExpressionDotVisitor::visit(expressions::RecordProjection *e1,
 		case BOOL:
 			valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
 			return valWrapper;
+		case STRING:
+		{
+			vector<Value*> ArgsV;
+			ArgsV.push_back(left.value);
+			ArgsV.push_back(right.value);
+			Function* stringEquality = context->getFunction("equalStringObjs");
+			valWrapper.value = Builder->CreateCall(stringEquality, ArgsV,
+					"equalStringObjsCall");
+			return valWrapper;
+		}
 		default:
 			LOG(ERROR)<< "[ExpressionDotVisitor]: Invalid Input";
 			throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
@@ -531,6 +542,15 @@ RawValue ExpressionDotVisitor::visit(expressions::IfThenElse *e1,
 	case BOOL:
 		valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
 		return valWrapper;
+	case STRING: {
+		vector<Value*> ArgsV;
+		ArgsV.push_back(left.value);
+		ArgsV.push_back(right.value);
+		Function* stringEquality = context->getFunction("equalStringObjs");
+		valWrapper.value = Builder->CreateCall(stringEquality, ArgsV,
+				"equalStringObjsCall");
+		return valWrapper;
+	}
 	default: {
 		string error_msg = string(
 				"[Expression Dot: ] No explicit non-primitive support yet");

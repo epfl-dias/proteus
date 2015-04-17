@@ -309,8 +309,16 @@ RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* ty
 	}
 	case STRING:
 	{
-		LOG(ERROR)<< "[CSV PLUGIN: ] String datatypes not supported yet";
-		throw runtime_error(string("[CSV PLUGIN: ] String datatypes not supported yet"));
+		Function *hashStringObj = context->getFunction("hashStringObj");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+		Value *hashResult = context->getBuilder()->CreateCall(hashStringObj,
+				ArgsV, "hashStringObj");
+
+		RawValue valWrapper;
+		valWrapper.value = hashResult;
+		valWrapper.isNull = context->createFalse();
+		return valWrapper;
 	}
 	case FLOAT:
 	{
@@ -369,8 +377,13 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
 	}
 	case STRING:
 	{
-		LOG(ERROR)<< "[CSV PLUGIN: ] String datatypes not supported yet";
-		throw runtime_error(string("[CSV PLUGIN: ] String datatypes not supported yet"));
+		/* Untested */
+		flushFunc = context->getFunction("flushStringObj");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return;
 	}
 	case FLOAT:
 	{
@@ -415,27 +428,20 @@ Value* CSVPlugin::getValueSize(RawValueMemory mem_value,
 	switch (type->getTypeID()) {
 	case BOOL:
 	case INT:
-	case FLOAT: {
-		Type *explicitType = (mem_value.mem)->getAllocatedType();
-		return context->createInt32(explicitType->getPrimitiveSizeInBits() / 8);
-	}
+	case FLOAT:
 	case STRING: {
-		string error_msg = string(
-				"[CSV Plugin]: Strings not supported yet");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
+		Type *explicitType = (mem_value.mem)->getAllocatedType();
+		return ConstantExpr::getSizeOf(explicitType);
 	}
 	case BAG:
 	case LIST:
 	case SET: {
-		string error_msg = string(
-				"[CSV Plugin]: Cannot contain collections");
+		string error_msg = string("[CSV Plugin]: Cannot contain collections");
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
 	case RECORD: {
-		string error_msg = string(
-				"[CSV Plugin]: Cannot contain records");
+		string error_msg = string("[CSV Plugin]: Cannot contain records");
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
@@ -991,9 +997,8 @@ void CSVPlugin::readField(typeID id, RecordAttribute attName,
 		break;
 	}
 	case STRING: {
-		string msg = "[CSV PLUGIN: ] String datatypes not supported yet";
-		LOG(ERROR)<< msg;
-		throw runtime_error(msg);
+		readAsStringLLVM(attName, variables);
+		break;
 	}
 	case FLOAT: {
 		readAsFloatLLVM(attName, variables);
@@ -1150,6 +1155,72 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawV
 		Builder->CreateCall(debugInt, ArgsV, "printi");
 	}
 #endif
+
+	cout << "[CSV_PM: ] Stored " << attName.getAttrName() << endl;
+}
+
+void CSVPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
+{
+	//Prepare
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function *F = Builder->GetInsertBlock()->getParent();
+
+	//Fetch values from symbol table
+	AllocaInst* mem_pos;
+	{
+		map<string, AllocaInst*>::iterator it;
+		it = NamedValuesCSV.find(posVar);
+		if (it == NamedValuesCSV.end()) {
+			throw runtime_error(string("Unknown variable name: ") + posVar);
+		}
+		mem_pos = it->second;
+	}
+	AllocaInst* buf;
+	{
+		map<string, AllocaInst*>::iterator it;
+		it = NamedValuesCSV.find(bufVar);
+		if (it == NamedValuesCSV.end()) {
+			throw runtime_error(string("Unknown variable name: ") + bufVar);
+		}
+		buf = it->second;
+	}
+
+	Value* start = Builder->CreateLoad(mem_pos, "start_pos_str");
+	Value *val_1 = Builder->getInt64(1);
+	//Also skipping opening bracket!!
+	start = Builder->CreateAdd(start,val_1);
+	getFieldEndLLVM();
+	//index must be different than start!
+	Value* index = Builder->CreateLoad(mem_pos, "end_pos_str");
+	//Must increase offset by 1 now
+	//(uniform behavior with other skip methods)
+
+	Value* pos_inc = Builder->CreateAdd(index,val_1);
+	Builder->CreateStore(pos_inc, mem_pos);
+	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
+	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
+	Value* len = Builder->CreateSub(index,start);
+	//Also removing (size of) ending bracket!!
+	len = Builder->CreateSub(len,val_1);
+	Value* len_32 = Builder->CreateTrunc(len,int32Type);
+
+	StructType *stringObjType = context->CreateStringStruct();
+	AllocaInst *mem_convertedValue = context->CreateEntryBlockAlloca(F,
+					string("ingestedString"), stringObjType);
+	Value *mem_str = context->getStructElemMem(mem_convertedValue, 0);
+	Builder->CreateStore(bufShiftedPtr, mem_str);
+
+	Value *mem_len = context->getStructElemMem(mem_convertedValue, 1);
+	Builder->CreateStore(len_32, mem_len);
+
+	RawValueMemory mem_valWrapper;
+	mem_valWrapper.mem = mem_convertedValue;
+	mem_valWrapper.isNull = context->createFalse();
+	variables[attName] = mem_valWrapper;
 
 	cout << "[CSV_PM: ] Stored " << attName.getAttrName() << endl;
 }

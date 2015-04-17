@@ -695,14 +695,26 @@ void Nest::probeHT() const	{
 				Builder->SetInsertPoint(hitLoopBody);
 
 				/* XXX TIME TO CALCULATE ACTUAL KEY */
-				/* if (r->key == Rtuples[hit - 1].key) */
+				/* Can reduce comparisons if I skip 'marked' matches */
+				BasicBlock *ifNotMarked;
 				BasicBlock *ifKeyMatch;
+				/* Must flag 'marked' array accordingly */
+				Value *val_hit_idx_dec = Builder->CreateSub(val_hit, val_one);
+				Value *mem_toFlag = context->getArrayElemMem(val_array_marked,
+											val_hit_idx_dec);
+				context->CreateIfBlock(context->getGlobalFunction(),
+						"htMatchIfCond", &ifNotMarked, hitLoopInc);
+				{
+					Value *val_flag = Builder->CreateLoad(mem_toFlag);
+					Value *val_isNotMarked = Builder->CreateICmpEQ(val_flag,val_false);
+					Builder->CreateCondBr(val_isNotMarked,ifNotMarked,hitLoopInc);
+					Builder->SetInsertPoint(ifNotMarked);
+				}
+				/* if (r->key == Rtuples[hit - 1].key) */
+
 				context->CreateIfBlock(context->getGlobalFunction(),
 						"htMatchIfCond", &ifKeyMatch, hitLoopInc);
 				{
-					/* Must flag 'marked' array accordingly */
-					Value *val_hit_idx_dec = Builder->CreateSub(val_hit,val_one);
-
 					retrievedBindings =
 							reconstructResults(htRshiftedPtr,val_hit_idx_dec);
 					OperatorState *retrievedState = new OperatorState(*this,*retrievedBindings);
@@ -734,8 +746,6 @@ void Nest::probeHT() const	{
 //					}
 #endif
 					/* marked[hit -1] = true; */
-					Value *mem_toFlag =
-							context->getArrayElemMem(val_array_marked,val_hit_idx_dec);
 					Builder->CreateStore(val_true,mem_toFlag);
 
 					/* Time to Compute Aggs */

@@ -66,7 +66,9 @@ extern "C" int compareTokenString(const char* buf, int start, int end,
 extern "C" int compareTokenString64(const char* buf, size_t start, size_t end,
 		const char* candidate);
 
-extern "C" bool equalStrings(StringObject obj1, StringObject obj2);
+extern "C" bool equalStringObjs(StringObject obj1, StringObject obj2);
+
+extern "C" bool equalStrings(char *str1, char *str2);
 
 extern "C" bool convertBoolean(const char* buf, int start, int end);
 
@@ -128,6 +130,8 @@ extern "C" void flushStringC(char* toFlush, size_t start, size_t end,
 
 //Used for pre-existing, well-formed strings (e.g. Record attributes)
 extern "C" void flushStringReady(char* toFlush, char* fileName);
+
+extern "C" void flushStringObject(StringObject toFlush, char* fileName);
 
 extern "C" void flushChar(char whichChar, char* fileName);
 

@@ -58,11 +58,10 @@ void nest();
 void nestMultipleAggs();
 /* radix::Nest */
 void nestRadixMultipleAggs();
-/* radix::Nest + key cmp. */
+/* radix::Nest: Group By name => 3 groups */
 void nestRadixFull();
-
-
-void nestRadixFullPrint();
+/* radix::Nest: Group By name, age => 4 groups */
+void nestRadixTwoKeys();
 
 RawContext prepareContext(string moduleName)	{
 	RawContext ctx = RawContext(moduleName);
@@ -71,11 +70,12 @@ RawContext prepareContext(string moduleName)	{
 }
 
 int main()	{
-	nest();
+//	nest();
 //	nestMultipleAggs();
 //	nestRadixMultipleAggs();
 
-	nestRadixFullPrint();
+	nestRadixFull();
+	nestRadixTwoKeys();
 }
 
 
@@ -84,8 +84,6 @@ int main()	{
  * Not including Reduce (yet)
  * Even not considering absence of Reduce,
  * I don't think such a physical plan can occur through rewrites
- *
- * XXX Not working / tested
  */
 void nest()
 {
@@ -667,9 +665,12 @@ void nestRadixFull()
 //	f.push_back(f_arg);
 
 	/* After (radix) */
-	expressions::RecordProjection *projAge = new expressions::RecordProjection(
-					&intType, inputArg, emp2);
-	expressions::Expression *f = projAge;
+	expressions::RecordProjection *projName = new expressions::RecordProjection(
+						&stringType, inputArg, emp1);
+	expressions::Expression *f = projName;
+//	expressions::RecordProjection *projAge = new expressions::RecordProjection(
+//					&intType, inputArg, emp2);
+//	expressions::Expression *f = projAge;
 	//Specified inputArg
 
 	//What to discard if null (g):
@@ -707,9 +708,26 @@ void nestRadixFull()
 			&unnestOp, nestLabel, *mat);
 	unnestOp.setParent(&nestOp);
 
+	//PRINT Field 1 (Max)
+	Function* debugInt = ctx.getFunction("printi");
+	RecordAttribute toOutput1 = RecordAttribute(1, aggrLabel, aggrField1,
+			&intType);
+	expressions::RecordProjection* nestOutput1 =
+			new expressions::RecordProjection(&intType, nestedArg, toOutput1);
+	Print printOp1 = Print(debugInt, nestOutput1, &nestOp);
+	nestOp.setParent(&printOp1);
+
+	//PRINT Field 2 (Sum)
+	RecordAttribute toOutput2 = RecordAttribute(2, aggrLabel, aggrField2,
+			&intType);
+	expressions::RecordProjection* nestOutput2 =
+			new expressions::RecordProjection(&intType, nestedArg, toOutput2);
+	Print printOp2 = Print(debugInt, nestOutput2, &printOp1);
+	printOp1.setParent(&printOp2);
+
 	//ROOT
-	Root rootOp = Root(&nestOp);
-	nestOp.setParent(&rootOp);
+	Root rootOp = Root(&printOp2);
+	printOp2.setParent(&rootOp);
 	rootOp.produce();
 
 	//Run function
@@ -719,9 +737,9 @@ void nestRadixFull()
 	catalog.clear();
 }
 
-void nestRadixFullPrint()
+void nestRadixTwoKeys()
 {
-	RawContext ctx = prepareContext("testFunction-nestRadixJSON");
+	RawContext ctx = prepareContext("testFunction-nestRadixJSONTwoKeys");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees-more.json");
@@ -740,18 +758,18 @@ void nestRadixFullPrint()
 	RecordType nested = RecordType(attsNested);
 	ListType nestedCollection = ListType(nested);
 
-	string empName = string("name");
-	RecordAttribute emp1 = RecordAttribute(1, fname, empName, &stringType);
-	string empAge = string("age");
-	RecordAttribute emp2 = RecordAttribute(2, fname, empAge, &intType);
-	string empChildren = string("children");
-	RecordAttribute emp3 = RecordAttribute(3, fname, empChildren,
+	string name = string("name");
+	RecordAttribute empName = RecordAttribute(1, fname, name, &stringType);
+	string age = string("age");
+	RecordAttribute empAge = RecordAttribute(2, fname, age, &intType);
+	string children = string("children");
+	RecordAttribute empChildren = RecordAttribute(3, fname, children,
 			&nestedCollection);
 
 	list<RecordAttribute*> atts = list<RecordAttribute*>();
-	atts.push_back(&emp1);
-	atts.push_back(&emp2);
-	atts.push_back(&emp3);
+	atts.push_back(&empName);
+	atts.push_back(&empAge);
+	atts.push_back(&empChildren);
 
 	RecordType inner = RecordType(atts);
 	ListType documentType = ListType(inner);
@@ -767,14 +785,14 @@ void nestRadixFullPrint()
 	 * OUTER UNNEST
 	 */
 	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute proj1 = RecordAttribute(fname, children);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
 	expressions::Expression* inputArg = new expressions::InputArgument(&inner,
 			0, projections);
 	expressions::RecordProjection* projChildren = new expressions::RecordProjection(
-			&nestedCollection, inputArg, emp3);
+			&nestedCollection, inputArg, empChildren);
 	string nestedName = "c";
 	Path path = Path(nestedName, projChildren);
 
@@ -808,7 +826,7 @@ void nestRadixFullPrint()
 	projections.push_back(recUnnested);
 	expressions::Expression* nestedArg =
 			new expressions::InputArgument(&unnestedType, 0, projections);
-	RecordAttribute toAggr = RecordAttribute(-1, fname + "." + empChildren,
+	RecordAttribute toAggr = RecordAttribute(-1, fname + "." + children,
 				childAge, &intType);
 	expressions::RecordProjection* nestToAggr =
 				new expressions::RecordProjection(&intType, nestedArg, toAggr);
@@ -823,8 +841,25 @@ void nestRadixFullPrint()
 
 	/* After (radix) */
 	expressions::RecordProjection *projAge = new expressions::RecordProjection(
-					&intType, inputArg, emp2);
-	expressions::Expression *f = projAge;
+					&intType, inputArg, empAge);
+	expressions::RecordProjection *projName = new expressions::RecordProjection(
+						&stringType, inputArg, empName);
+
+	list<RecordAttribute*> newAttsTypes = list<RecordAttribute*>();
+	newAttsTypes.push_back(&empName);
+	newAttsTypes.push_back(&empAge);
+	RecordType newRecType = RecordType(newAttsTypes);
+
+	expressions::AttributeConstruction attrExpr1 = expressions::AttributeConstruction("nameGroup", projName);
+	expressions::AttributeConstruction attrExpr2 = expressions::AttributeConstruction("ageGroup", projAge);
+	list<expressions::AttributeConstruction> newAtts = list<expressions::AttributeConstruction>();
+	newAtts.push_back(attrExpr1);
+	newAtts.push_back(attrExpr2);
+	expressions::RecordConstruction *recGroup = new expressions::RecordConstruction(&newRecType,newAtts);
+
+//	expressions::Expression *f = projAge;
+//	expressions::Expression *f = projName;
+	expressions::Expression *f = recGroup;
 	//Specified inputArg
 
 	//What to discard if null (g):
@@ -835,7 +870,7 @@ void nestRadixFullPrint()
 
 	vector<RecordAttribute*> whichFields;
 	//Not added explicitly, bc noone materialized it before
-	//whichFields.push_back(&emp2);
+	//whichFields.push_back(&empAge);
 	vector<materialization_mode> outputModes;
 	//outputModes.push_back(EAGER);
 

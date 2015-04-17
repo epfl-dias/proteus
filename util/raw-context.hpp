@@ -125,6 +125,7 @@ public:
 
 	//Not used atm
 	void CodegenMemcpy(Value* dst, Value* src, int size);
+	void CodegenMemcpy(Value* dst, Value* src, Value* size);
 
 	void registerFunction(const char*, Function*);
 	BasicBlock* getEndingBlock() {return codeEnd;}
@@ -163,7 +164,7 @@ private:
 	//JIT Driver
 	ExecutionEngine *TheExecutionEngine;
 	Function* TheFunction;
-	std::map<std::string, Function*> availableFunctions;
+	map<string, Function*> availableFunctions;
 	//Last (current) basic block. This changes every time a new scan is triggered
 	BasicBlock* codeEnd;
 	//Current entry basic block. This changes every time a new scan is triggered

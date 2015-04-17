@@ -215,7 +215,9 @@ void** probeIntHT(int htIdentifier, int key, int typeIndex) {
 	return bindings;
 }
 
-bool equalStrings(StringObject obj1, StringObject obj2)	{
+bool equalStringObjs(StringObject obj1, StringObject obj2)	{
+//	cout << obj1.start << " with len " << obj1.len << endl;
+//	cout << obj2.start << " with len " << obj2.len << endl;
 	if(obj1.len != obj2.len)	{
 		return false;
 	}
@@ -223,6 +225,10 @@ bool equalStrings(StringObject obj1, StringObject obj2)	{
 		return false;
 	}
 	return true;
+}
+
+bool equalStrings(char *str1, char *str2)	{
+	return strcmp(str1,str2) == 0;
 }
 
 int compareTokenString(const char* buf, int start, int end, const char* candidate)	{
@@ -485,6 +491,21 @@ void flushStringReady(char* toFlush, char* fileName)	{
 	(*strBuffer) << "\"";
 	(*strBuffer) << toFlush;
 	(*strBuffer) << "\"";
+}
+
+void flushStringObject(StringObject obj, char* fileName) {
+	char tmp = obj.start[obj.len + 1];
+	obj.start[obj.len + 1] = '\0';
+
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream* strBuffer = catalog.getSerializer(name);
+	(*strBuffer) << "\"";
+	(*strBuffer) << obj.start;
+	(*strBuffer) << "\"";
+
+	obj.start[obj.len + 1] = tmp;
+
 }
 
 void flushObjectStart(char* fileName)	{
@@ -791,6 +812,7 @@ void registerFunctions(RawContext& context)	{
 	Type* int64_type = Type::getInt64Ty(ctx);
 	Type* void_type = Type::getVoidTy(ctx);
 	Type* double_type = Type::getDoubleTy(ctx);
+	StructType* strObjType = context.CreateStringStruct();
 	PointerType* void_ptr_type = PointerType::get(int8_type, 0);
 	PointerType* char_ptr_type = PointerType::get(int8_type, 0);
 	PointerType* int32_ptr_type = PointerType::get(int32_type, 0);
@@ -828,10 +850,13 @@ void registerFunctions(RawContext& context)	{
 	ArgsAtois.insert(ArgsAtois.begin(),int32_type);
 	ArgsAtois.insert(ArgsAtois.begin(),char_ptr_type);
 
+	vector<Type*> ArgsStringObjCmp;
+	ArgsStringObjCmp.insert(ArgsStringObjCmp.begin(),strObjType);
+	ArgsStringObjCmp.insert(ArgsStringObjCmp.begin(),strObjType);
+
 	vector<Type*> ArgsStringCmp;
-	StructType* strObjType = context.CreateStringStruct();
-	ArgsStringCmp.insert(ArgsStringCmp.begin(),strObjType);
-	ArgsStringCmp.insert(ArgsStringCmp.begin(),strObjType);
+	ArgsStringCmp.insert(ArgsStringCmp.begin(), char_ptr_type);
+	ArgsStringCmp.insert(ArgsStringCmp.begin(),char_ptr_type);
 
 	/**
 	 * Args of functions computing hash
@@ -878,6 +903,10 @@ void registerFunctions(RawContext& context)	{
 	ArgsFlushStringCv2.insert(ArgsFlushStringCv2.begin(),char_ptr_type);
 	ArgsFlushStringCv2.insert(ArgsFlushStringCv2.begin(),char_ptr_type);
 
+	vector<Type*> ArgsFlushStringObj;
+	ArgsFlushStringObj.insert(ArgsFlushStringObj.begin(),char_ptr_type);
+	ArgsFlushStringObj.insert(ArgsFlushStringObj.begin(),strObjType);
+
 	vector<Type*> ArgsFlushBoolean;
 	ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(),int1_bool_type);
 	ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(),char_ptr_type);
@@ -917,7 +946,8 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FTconvertBoolean_ = 	  FunctionType::get(int1_bool_type, ArgsConvBoolean, false);
 	FunctionType *FTconvertBoolean64_ =   FunctionType::get(int1_bool_type, ArgsConvBoolean64, false);
 	FunctionType *FTprintBoolean_ = 	  FunctionType::get(void_type, Ints1, false);
-	FunctionType *FTcompareStrings = 	  FunctionType::get(int1_bool_type, ArgsStringCmp, false);
+	FunctionType *FTcompareStringObjs =   FunctionType::get(int1_bool_type, ArgsStringObjCmp, false);
+	FunctionType *FTcompareString	  =   FunctionType::get(int1_bool_type, ArgsStringCmp, false);
 	FunctionType *FThashInt = 			  FunctionType::get(int64_type, ArgsHashInt, false);
 	FunctionType *FThashDouble = 		  FunctionType::get(int64_type, ArgsHashDouble, false);
 	FunctionType *FThashStringC = 		  FunctionType::get(int64_type, ArgsHashStringC, false);
@@ -928,6 +958,7 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FTflushDouble = 		  FunctionType::get(void_type, ArgsFlushDouble, false);
 	FunctionType *FTflushStringC = 		  FunctionType::get(void_type, ArgsFlushStringC, false);
 	FunctionType *FTflushStringCv2 = 	  FunctionType::get(void_type, ArgsFlushStringCv2, false);
+	FunctionType *FTflushStringObj = 	  FunctionType::get(void_type, ArgsFlushStringObj, false);
 	FunctionType *FTflushBoolean = 		  FunctionType::get(void_type, ArgsFlushBoolean, false);
 	FunctionType *FTflushStartEnd = 	  FunctionType::get(void_type, ArgsFlushStartEnd, false);
 	FunctionType *FTflushChar =			  FunctionType::get(void_type, ArgsFlushChar, false);
@@ -955,7 +986,10 @@ void registerFunctions(RawContext& context)	{
 	compareTokenString_->addFnAttr(llvm::Attribute::AlwaysInline);
 	Function *compareTokenString64_	= Function::Create(FTcompareTokenString64_,
 				Function::ExternalLinkage, "compareTokenString64", TheModule);
-	Function *stringEquality 		= Function::Create(FTcompareStrings,
+	Function *stringObjEquality 		= Function::Create(FTcompareStringObjs,
+			Function::ExternalLinkage, "equalStringObjs", TheModule);
+	stringObjEquality->addFnAttr(llvm::Attribute::AlwaysInline);
+	Function *stringEquality = Function::Create(FTcompareString,
 			Function::ExternalLinkage, "equalStrings", TheModule);
 	stringEquality->addFnAttr(llvm::Attribute::AlwaysInline);
 
@@ -1004,6 +1038,8 @@ void registerFunctions(RawContext& context)	{
 			Function::ExternalLinkage, "flushStringC", TheModule);
 	Function *flushStringCv2_ = Function::Create(FTflushStringCv2,
 				Function::ExternalLinkage, "flushStringReady", TheModule);
+	Function *flushStringObj_ = Function::Create(FTflushStringObj,
+					Function::ExternalLinkage, "flushStringObject", TheModule);
 	Function *flushBoolean_ = Function::Create(FTflushBoolean,
 			Function::ExternalLinkage, "flushBoolean", TheModule);
 	Function *flushObjectStart_ = Function::Create(FTflushStartEnd,
@@ -1180,6 +1216,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("compareTokenString64", compareTokenString64_);
 	context.registerFunction("convertBoolean", convertBoolean_);
 	context.registerFunction("convertBoolean64", convertBoolean64_);
+	context.registerFunction("equalStringObjs", stringObjEquality);
 	context.registerFunction("equalStrings", stringEquality);
 
 	context.registerFunction("hashInt", hashInt_);
@@ -1194,6 +1231,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("flushDouble", flushDouble_);
 	context.registerFunction("flushStringC", flushStringC_);
 	context.registerFunction("flushStringCv2", flushStringCv2_);
+	context.registerFunction("flushStringObj", flushStringObj_);
 	context.registerFunction("flushBoolean", flushBoolean_);
 	context.registerFunction("flushChar", flushChar_);
 	context.registerFunction("flushDelim", flushDelim_);

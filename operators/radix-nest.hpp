@@ -43,6 +43,9 @@
  *
  * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR NEST OPERATOR (?)
  * XXX  Hashing keys is not enough - also need to compare the actual keys
+ *
+ * TODO Different types of (input) collections enforce different dot equality requirements!!
+ * Example: OID & 'CollectionID' (i.e., pgID) must participate in dot equality for elems for lists!!
  */
 namespace radix {
 

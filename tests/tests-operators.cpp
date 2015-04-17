@@ -579,7 +579,7 @@ TEST(Hierarchical, UnnestFiltering) {
 	expressions::Expression* inputArg = new expressions::InputArgument(&inner,
 			0, projections);
 	expressions::RecordProjection* proj = new expressions::RecordProjection(
-			&stringType, inputArg, emp3);
+			&nestedCollection, inputArg, emp3);
 	string nestedName = "c";
 	Path path = Path(nestedName, proj);
 

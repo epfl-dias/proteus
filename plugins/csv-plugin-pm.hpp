@@ -163,6 +163,9 @@ private:
 				map<RecordAttribute, RawValueMemory>& variables);
 	void readAsBooleanLLVM(RecordAttribute attName,
 			map<RecordAttribute, RawValueMemory>& variables);
+	/* Assumption: String comes bracketted */
+	void readAsStringLLVM(RecordAttribute attName,
+				map<RecordAttribute, RawValueMemory>& variables);
 
 	//Generates a for loop that performs the file scan
 	//No assumption on auxiliary structures yet

@@ -67,6 +67,13 @@ target_link_libraries(rawmain-nest jsmn)
 target_link_libraries(rawmain-nest -lglog ${glog_ldflags})
 target_link_libraries(rawmain-nest ${llvm_ldflags} ${llvm_libs})
 
+add_executable(rawmain-str main-str.cpp)
+set_target_properties(rawmain-str PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(rawmain-str codegen)
+target_link_libraries(rawmain-str jsmn)
+target_link_libraries(rawmain-str -lglog ${glog_ldflags})
+target_link_libraries(rawmain-str ${llvm_ldflags} ${llvm_libs})
+
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
 if(GTEST)

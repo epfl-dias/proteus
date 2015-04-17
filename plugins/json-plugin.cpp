@@ -897,7 +897,7 @@ void JSONPlugin::skipToEnd()
 
 	Value* val_curr = Builder->CreateLoad(mem_tokenOffset);
 	AllocaInst* mem_tokens_curr_shifted = context->CreateEntryBlockAlloca(F,
-			std::string(var_tokenPtr), context->CreateJSMNStruct());
+			string(var_tokenPtr), context->CreateJSMNStruct());
 	Value* token_curr = context->getArrayElem(mem_tokens, val_curr);
 	Builder->CreateStore(token_curr, mem_tokens_curr_shifted);
 	Value* token_curr_end = context->getStructElem(mem_tokens_curr_shifted, 2);
@@ -921,7 +921,7 @@ void JSONPlugin::skipToEnd()
 	Builder->SetInsertPoint(tokenSkipCond);
 	val_offset = Builder->CreateLoad(mem_tokenOffset);
 	AllocaInst* mem_tokens_i_shifted = context->CreateEntryBlockAlloca(F,
-			std::string(var_tokenPtr), context->CreateJSMNStruct());
+			string(var_tokenPtr), context->CreateJSMNStruct());
 	Value* token_i = context->getArrayElem(mem_tokens, val_offset);
 	Builder->CreateStore(token_i, mem_tokens_i_shifted);
 
@@ -1473,48 +1473,53 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 	Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 	string error_msg;
 	switch (type->getTypeID()) {
-		case STRING:
-		case RECORD:
-		case LIST: {
-			mem_convertedValue = context->CreateEntryBlockAlloca(F,
-					string("existingObject"), (mem_value.mem)->getAllocatedType());
-			break;
-		}
-		case SET: {
-			error_msg = string("[JSON Plugin - jsmn: ]: SET datatype cannot occur");
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(string(error_msg));
-		}
-		case BAG: {
-			error_msg = string("[JSON Plugin - jsmn: ]: BAG datatype cannot occur");
-			LOG(ERROR)<< error_msg;
-		}
-		throw runtime_error(string(error_msg));
-		case BOOL:
-		{
-			mem_convertedValue = context->CreateEntryBlockAlloca(F,
-					string("convertedBool"), int8Type);
-			break;
-		}
-		case FLOAT:
-		{
-			mem_convertedValue = context->CreateEntryBlockAlloca(F,
-					string("convertedFloat"), doubleType);
-			break;
-		}
-		case INT:
-		{
-			mem_convertedValue = context->CreateEntryBlockAlloca(F,
-					string("convertedInt"), int32Type);
-			break;
-		}
-		default:
-		{
-			error_msg = string("[JSON Plugin - jsmn: ]: Unknown expression type");
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(string(error_msg));
-		}
+	case RECORD:
+	case LIST: {
+		mem_convertedValue = context->CreateEntryBlockAlloca(F,
+				string("existingObject"), (mem_value.mem)->getAllocatedType());
+		break;
 	}
+	case SET: {
+		error_msg = string("[JSON Plugin - jsmn: ]: SET datatype cannot occur");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(string(error_msg));
+	}
+	case BAG: {
+		error_msg = string("[JSON Plugin - jsmn: ]: BAG datatype cannot occur");
+		LOG(ERROR)<< error_msg;
+	}
+	throw runtime_error(string(error_msg));
+	case BOOL:
+	{
+		mem_convertedValue = context->CreateEntryBlockAlloca(F,
+				string("convertedBool"), int8Type);
+		break;
+	}
+	case FLOAT:
+	{
+		mem_convertedValue = context->CreateEntryBlockAlloca(F,
+				string("convertedFloat"), doubleType);
+		break;
+	}
+	case INT:
+	{
+		mem_convertedValue = context->CreateEntryBlockAlloca(F,
+				string("convertedInt"), int32Type);
+		break;
+	}
+	case STRING: {
+		StructType *stringObjType = context->CreateStringStruct();
+		mem_convertedValue = context->CreateEntryBlockAlloca(F,
+				string("ingestedString"), stringObjType);
+		break;
+	}
+	default:
+	{
+		error_msg = string("[JSON Plugin - jsmn: ]: Unknown expression type");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(string(error_msg));
+	}
+}
 
 /**
  * Return (nil) for cases path was not found
@@ -1534,8 +1539,6 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 
 	switch (type->getTypeID())
 	{
-	case STRING:
-		//For now, passing 'object' (tokenNo actually) along
 	case RECORD:
 		//Object
 	case LIST:
@@ -1589,6 +1592,35 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 //		ArgsV.push_back(tmp);
 //		Builder->CreateCall(debugInt, ArgsV);
 #endif
+		break;
+	}
+	case STRING: {
+		Value *val_token = context->getArrayElem(mem_tokens, tokenNo);
+		AllocaInst* mem_token = context->CreateEntryBlockAlloca(F,
+				string(var_tokenPtr), context->CreateJSMNStruct());
+		Builder->CreateStore(val_token, mem_token);
+
+		Value *token_i_start = context->getStructElem(mem_token, 1);
+		Value *token_i_end = context->getStructElem(mem_token, 2);
+		Value *val_length = Builder->CreateSub(token_i_end, token_i_start);
+		Value *val_length64 = Builder->CreateSExt(val_length, int64Type);
+		/* Start and end offsets have taken care of op. and closing brackets*/
+
+		/* Allocate Memory */
+		//		Function *func_getMemory = context->getFunction("getMemoryChunk");
+		//		vector<Value*> ArgsV;
+		//		ArgsV.push_back(val_length64);
+		//		Value *convertedValue = Builder->CreateCall(func_getMemory,ArgsV);
+		//		context->CodegenMemcpy(convertedValue,bufShiftedPtr,val_length);
+		//		Builder->CreateStore(convertedValue, mem_convertedValue);
+		StructType *stringObjType = context->CreateStringStruct();
+		Value *mem_str = context->getStructElemMem(mem_convertedValue, 0);
+		Builder->CreateStore(bufShiftedPtr, mem_str);
+		//context->CodegenMemcpy(mem_str,bufShiftedPtr,val_length);
+		Value *mem_len = context->getStructElemMem(mem_convertedValue, 1);
+		Builder->CreateStore(val_length, mem_len);
+
+		Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 		break;
 	}
 	default:
@@ -1776,7 +1808,6 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 		hashFunc = context->getFunction("hashStringC");
 		ArgsV.clear();
 		ArgsV.push_back(bufPtr);
-		//FIXME tmp! - must make token_start and token_end datatype size_t
 		Type* int64Type = Type::getInt64Ty(llvmContext);
 		ArgsV.push_back(token_start);
 		ArgsV.push_back(token_end);

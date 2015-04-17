@@ -52,6 +52,12 @@ namespace jsonPipelined	{
  *         All keys must be strings and should be DISTINCT from each other within that object.
  *
  * null — An empty value, using the word null
+ *
+ * Token struct contents:
+ * 0: jsmntype_t type;
+ * 1: int start;
+ * 2: int end;
+ * 3: int size;
  */
 
 /**

@@ -189,6 +189,39 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, int size) {
 	Builder->CreateCall(memcpy_fn, args);
 }
 
+void RawContext::CodegenMemcpy(Value* dst, Value* src, Value* size) {
+	LLVMContext& ctx = *llvmContext;
+	// Cast src/dst to int8_t*.  If they already are, this will get optimized away
+	//  DCHECK(PointerType::classof(dst->getType()));
+	//  DCHECK(PointerType::classof(src->getType()));
+	llvm::PointerType* ptr_type;
+
+	Value* false_value_ = ConstantInt::get(ctx,
+			APInt(1, false, true));
+
+	Value* zero = ConstantInt::get(ctx, APInt(32, 0));
+
+	dst->getType()->dump();
+	cout << endl;
+	src->getType()->dump();
+//	dst = Builder->CreateBitCast(dst, ptr_type);
+//	src = Builder->CreateBitCast(src, ptr_type);
+
+	// Get intrinsic function.
+	Function* memcpy_fn = availableFunctions[string("memcpy")];
+	if (memcpy_fn == NULL) {
+		throw runtime_error(string("Could not load memcpy intrinsic"));
+	}
+
+	// The fourth argument is the alignment.  For non-zero values, the caller
+	// must guarantee that the src and dst values are aligned to that byte boundary.
+	// TODO: We should try to take advantage of this since our tuples are well aligned.
+	Type* intType = Type::getInt32Ty(ctx);
+	Value* args[] = { dst, src, size, zero, false_value_  // is_volatile.
+			};
+	Builder->CreateCall(memcpy_fn, args);
+}
+
 ConstantInt* RawContext::createInt8(char val) {
 	LLVMContext& ctx = *llvmContext;
 	return ConstantInt::get(ctx, APInt(8, val));

@@ -178,8 +178,9 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 	RawCatalog& catalog 			= RawCatalog::getInstance();
-	IRBuilder<>* const Builder	= context->getBuilder();
+	IRBuilder<>* const Builder		= context->getBuilder();
 	activeRelation 					= e->getOriginalRelationName();
+	string projName 				= e->getProjectionName();
 
 	Plugin* plugin 					= catalog.getPlugin(activeRelation);
 
@@ -337,12 +338,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 		//XXX Does this code work if we are iterating over a json primitive array?
 		//Example: ["alpha","beta","gamma"]
 		case STRING: {
-			std::vector<Value*> ArgsV;
+			vector<Value*> ArgsV;
 			ArgsV.push_back(left.value);
 			ArgsV.push_back(right.value);
-			Function* stringEquality = context->getFunction("equalStrings");
+			Function* stringEquality = context->getFunction("equalStringObjs");
 			valWrapper.value = TheBuilder->CreateCall(stringEquality, ArgsV,
-					"equalStringsCall");
+					"equalStringObjsCall");
 			return valWrapper;
 		}
 		case BAG:
