@@ -80,7 +80,7 @@ private:
 	void runRadix() const;
 	Value *radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const;
 
-//	char** findSideInCache(Materializer &mat);
+	char** findSideInCache(Materializer &mat) const;
 	void updateRelationPointers() const;
 	void freeArenas() const;
 	struct relationBuf relR;

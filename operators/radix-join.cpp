@@ -224,35 +224,35 @@ void RadixJoin::freeArenas() const	{
 }
 
 /* NULL if no exact match found, otherwise relationPtr */
-//char** RadixJoin::findSideInCache(Materializer &mat) {
-//	CachingService& cache = CachingService::getInstance();
-//	bool found = true;
-//	/* Is the relation already materialized?? */
-//
-//	const vector<expressions::Expression*>& expsLeft =
-//			mat.getWantedExpressions();
-//	if (!expsLeft.empty()) {
-//		vector<expressions::Expression*>::const_iterator it = expsLeft.begin();
-//		int failedNo = 0;
-//		CacheInfo info;
-//		for (; it != expsLeft.end(); it++) {
-//			expressions::Expression *expr = *it;
-//			info = cache.getCache(expr);
-//			if (info.structFieldNo == -1) {
-//				return NULL;
-//			}
-//			if (!cache.getCacheIsFull(expr)) {
-//				return NULL;
-//			}
-//			failedNo++;
-//		}
-//		if (found) {
-//			cout << "Relation side is READY" << endl;
-//			return info.payloadPtr;
-//		}
-//	}
-//	return NULL;
-//}
+char** RadixJoin::findSideInCache(Materializer &mat) const {
+	CachingService& cache = CachingService::getInstance();
+	bool found = true;
+	/* Is the relation already materialized?? */
+
+	const vector<expressions::Expression*>& expsLeft =
+			mat.getWantedExpressions();
+	if (!expsLeft.empty()) {
+		vector<expressions::Expression*>::const_iterator it = expsLeft.begin();
+		int failedNo = 0;
+		CacheInfo info;
+		for (; it != expsLeft.end(); it++) {
+			expressions::Expression *expr = *it;
+			info = cache.getCache(expr);
+			if (info.structFieldNo == -1) {
+				return NULL;
+			}
+			if (!cache.getCacheIsFull(expr)) {
+				return NULL;
+			}
+			failedNo++;
+		}
+		if (found) {
+			cout << "Relation side is READY" << endl;
+			return info.payloadPtr;
+		}
+	}
+	return NULL;
+}
 
 void RadixJoin::updateRelationPointers() const {
 	Function *F = context->getGlobalFunction();
@@ -272,17 +272,39 @@ void RadixJoin::updateRelationPointers() const {
 	Builder->CreateStore(val_relationS, val_ptrRelationS);
 }
 
+//void RadixJoin::produce() const {
+//	getLeftChild().produce();
+//	getRightChild().produce();
+//
+//	updateRelationPointers();
+//
+//	runRadix();
+//}
+
+
 void RadixJoin::produce() const {
+
+	char** ptr_bufferLeft = NULL;
+	if (!this->getLeftChild().isFiltering()) {
+		ptr_bufferLeft = findSideInCache(matLeft);
+	}
+//	if (ptr_bufferLeft == NULL) {
 	getLeftChild().produce();
+//	}
+
+	char** ptr_bufferRight = NULL;
+	if (!this->getLeftChild().isFiltering()) {
+		ptr_bufferRight = findSideInCache(matRight);
+	}
+//	if (ptr_bufferRight == NULL) {
 	getRightChild().produce();
-
+//	}
 	updateRelationPointers();
-
+	//Still need HTs...
+	// Should I mat. them too?
 	runRadix();
-
-	/* Free Arenas */
-	/*this->freeArenas();*/
 }
+
 
 void RadixJoin::runRadix() const	{
 
