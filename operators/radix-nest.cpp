@@ -93,6 +93,8 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::E
 	relR.mem_offset = context->CreateEntryBlockAlloca(F, string("offsetRelR"),
 			int64_type);
 	relationR = (char*) getMemoryChunk(sizeR);
+	ptr_relationR = (char**) malloc(sizeof(char*));
+	*ptr_relationR = relationR;
 	Value *val_relationR = context->CastPtrToLlvmPtr(char_ptr_type, relationR);
 	Builder->CreateStore(val_relationR, relR.mem_relation);
 	Builder->CreateStore(zero, relR.mem_tuplesNo);
@@ -133,10 +135,24 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::E
 	payloadType = NULL;
 }
 
+void Nest::updateRelationPointers() const {
+	Function *F = context->getGlobalFunction();
+	LLVMContext& llvmContext = context->getLLVMContext();
+	IRBuilder<> *Builder = context->getBuilder();
+	PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
+	PointerType *char_ptr_ptr_type = PointerType::get(char_ptr_type, 0);
+
+	Value *val_ptrRelationR = context->CastPtrToLlvmPtr(char_ptr_ptr_type,
+			ptr_relationR);
+	Value *val_relationR = Builder->CreateLoad(relR.mem_relation);
+	Builder->CreateStore(val_relationR, val_ptrRelationR);
+}
+
 void Nest::produce()	const {
 	getChild()->produce();
 
 	//generateProbe(this->context);
+	updateRelationPointers();
 	probeHT();
 }
 
@@ -1018,7 +1034,7 @@ void Nest::buildHT(RawContext* context, const OperatorState& childState) {
 			for (; it != expsLeft.end(); it++) {
 				//info.objectType = rPayloadType;
 				info.structFieldNo = fieldNo;
-				info.payloadPtr = relationR;
+				info.payloadPtr = ptr_relationR;
 				cache.registerCache(*it, info, fullRelation);
 
 				/* Having skipped OIDs */

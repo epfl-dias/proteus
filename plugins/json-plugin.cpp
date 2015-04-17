@@ -1688,7 +1688,7 @@ RawValue JSONPlugin::readCachedValue(CacheInfo info,
 
 	StructType *cacheType = context->ReproduceCustomStruct(info.objectTypes);
 	Value *typeSize = ConstantExpr::getSizeOf(cacheType);
-	char* rawPtr = info.payloadPtr;
+	char* rawPtr = *(info.payloadPtr);
 	int posInStruct = info.structFieldNo;
 
 	/* Cast to appr. type */

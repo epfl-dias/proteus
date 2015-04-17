@@ -50,10 +50,12 @@ public:
 	virtual bool isFiltering() const {return false;}
 private:
 	void freeArenas() const;
+	void updateRelationPointers() const;
 
 	StructType *toMatType;
 	struct matBuf opBuffer;
 	char *rawBuffer;
+	char **ptr_rawBuffer;
 
 	RawContext* const context;
 	expressions::Expression* toMat;

@@ -60,6 +60,8 @@ ExprMaterializer::ExprMaterializer(expressions::Expression* toMat,
 	opBuffer.mem_offset = context->CreateEntryBlockAlloca(F,
 			string("offsetRelR"), int64_type);
 	rawBuffer = (char*) getMemoryChunk(sizeBuffer);
+	ptr_rawBuffer = (char**) malloc(sizeof(char*));
+	*ptr_rawBuffer = rawBuffer;
 	Value *val_relationR = context->CastPtrToLlvmPtr(char_ptr_type, rawBuffer);
 	Builder->CreateStore(val_relationR, opBuffer.mem_buffer);
 	Builder->CreateStore(zero, opBuffer.mem_tuplesNo);
@@ -109,6 +111,19 @@ void ExprMaterializer::produce() const {
 
 	/* Free Arenas */
 	/*this->freeArenas();*/
+}
+
+void ExprMaterializer::updateRelationPointers() const {
+	Function *F = context->getGlobalFunction();
+	LLVMContext& llvmContext = context->getLLVMContext();
+	IRBuilder<> *Builder = context->getBuilder();
+	PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
+	PointerType *char_ptr_ptr_type = PointerType::get(char_ptr_type, 0);
+
+	Value *val_ptrRawBuffer = context->CastPtrToLlvmPtr(char_ptr_ptr_type,
+			ptr_rawBuffer);
+	Value *val_rawBuffer = Builder->CreateLoad(this->opBuffer.mem_buffer);
+	Builder->CreateStore(val_rawBuffer, val_ptrRawBuffer);
 }
 
 void ExprMaterializer::consume(RawContext* const context, const OperatorState& childState) {
@@ -219,7 +234,7 @@ void ExprMaterializer::consume(RawContext* const context, const OperatorState& c
 		CacheInfo info;
 		info.objectTypes.push_back(toMat->getExpressionType()->getTypeID());
 		info.structFieldNo = 0;
-		info.payloadPtr = rawBuffer;
+		info.payloadPtr = ptr_rawBuffer;
 		cache.registerCache(toMat, info, fullRelation);
 	}
 

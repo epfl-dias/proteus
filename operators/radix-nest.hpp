@@ -117,6 +117,7 @@ private:
 	 * We need a new accumulator for every resulting bucket of the HT
 	 */
 	AllocaInst* resetAccumulator(expressions::Expression* outputExpr, Monoid acc) const;
+	void updateRelationPointers() const;
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> outputExprs;
@@ -145,6 +146,7 @@ private:
 	StructType *htClusterType;
 	// Raw Buffers
 	char *relationR;
+	char **ptr_relationR;
 	char *kvR;
 };
 

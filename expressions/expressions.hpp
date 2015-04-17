@@ -307,31 +307,57 @@ public:
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 	ExpressionId getTypeID() const					{ return RECORD_PROJECTION; }
 	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			cout << "Record Proj Hashing" << endl;
-			const RecordProjection& rProj =
-					dynamic_cast<const RecordProjection&>(r);
-			bool cmpAttribute1 = this->getAttribute() < rProj.getAttribute();
-			bool cmpAttribute2 = rProj.getAttribute() < this->getAttribute();
-			bool eqAttribute = !cmpAttribute1 && !cmpAttribute2;
-			/* Does this make sense? Do I need equality? */
-			if (eqAttribute) {
-				cout << this->getAttribute().getAttrName() << " vs " << rProj.getAttribute().getAttrName() << endl;
-				cout << this->getAttribute().getRelationName() << " vs " << rProj.getAttribute().getRelationName() << endl;
-				//return this->getExpr() < rProj.getExpr();
-				return this->getRelationName() < rProj.getRelationName();
+	//		if (this->getTypeID() == r.getTypeID()) {
+	//			cout << "Record Proj Hashing" << endl;
+	//			const RecordProjection& rProj =
+	//					dynamic_cast<const RecordProjection&>(r);
+	//			bool cmpAttribute1 = this->getAttribute() < rProj.getAttribute();
+	//			bool cmpAttribute2 = rProj.getAttribute() < this->getAttribute();
+	//			bool eqAttribute = !cmpAttribute1 && !cmpAttribute2;
+	//			/* Does this make sense? Do I need equality? */
+	//			if (eqAttribute) {
+	//				cout << this->getAttribute().getAttrName() << " vs " << rProj.getAttribute().getAttrName() << endl;
+	//				cout << this->getAttribute().getRelationName() << " vs " << rProj.getAttribute().getRelationName() << endl;
+	//				//return this->getExpr() < rProj.getExpr();
+	//				return this->getRelationName() < rProj.getRelationName();
+	//			} else {
+	//				cout << "No record proj match "<<endl;
+	//				cout << this->getAttribute().getAttrName() << " vs "
+	//						<< rProj.getAttribute().getAttrName() << endl;
+	//				cout << this->getAttribute().getRelationName() << " vs " << rProj.getAttribute().getRelationName() << endl;
+	////				return cmpAttribute1;
+	//				return cmpAttribute1 ? cmpAttribute1 : cmpAttribute2;
+	//			}
+	//		} else {
+	//			return this->getTypeID() < r.getTypeID();
+	//		}
+			if (this->getTypeID() == r.getTypeID()) {
+				//cout << "Record Proj Hashing" << endl;
+				const RecordProjection& rProj =
+						dynamic_cast<const RecordProjection&>(r);
+
+				bool cmpRel1 = this->getRelationName() < rProj.getRelationName();
+				bool cmpRel2 = rProj.getRelationName() < this->getRelationName();
+				bool eqRelation = !cmpRel1 && !cmpRel2;
+				if (eqRelation) {
+					bool cmpAttribute1 = this->getAttribute()
+							< rProj.getAttribute();
+					bool cmpAttribute2 = rProj.getAttribute()
+							< this->getAttribute();
+					bool eqAttribute = !cmpAttribute1 && !cmpAttribute2;
+					if (eqAttribute) {
+						return false;
+					} else {
+						return cmpAttribute1;
+					}
+				} else {
+					return cmpRel1;
+				}
+
 			} else {
-				cout << "No record proj match "<<endl;
-				cout << this->getAttribute().getAttrName() << " vs "
-						<< rProj.getAttribute().getAttrName() << endl;
-				cout << this->getAttribute().getRelationName() << " vs " << rProj.getAttribute().getRelationName() << endl;
-//				return cmpAttribute1;
-				return cmpAttribute1 ? cmpAttribute1 : cmpAttribute2;
+				return this->getTypeID() < r.getTypeID();
 			}
-		} else {
-			return this->getTypeID() < r.getTypeID();
 		}
-	}
 private:
 	Expression* expr;
 	const RecordAttribute& attribute;

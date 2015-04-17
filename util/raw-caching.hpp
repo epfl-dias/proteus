@@ -43,7 +43,7 @@ typedef struct CacheInfo {
 	 * Zero implies we're dealing with the whole obj. (activeLoop)
 	 * Negative implies invalid entry */
 	int structFieldNo;
-	char *payloadPtr;
+	char **payloadPtr;
 } CacheInfo;
 class CachingService
 {

@@ -90,6 +90,8 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 	relR.mem_offset =
 			context->CreateEntryBlockAlloca(F,string("offsetRelR"),int64_type);
 	relationR = (char*) getMemoryChunk(sizeR);
+	ptr_relationR = (char**) malloc(sizeof(char*));
+	*ptr_relationR = relationR;
 	Value *val_relationR = context->CastPtrToLlvmPtr(char_ptr_type, relationR);
 	Builder->CreateStore(val_relationR,relR.mem_relation);
 	Builder->CreateStore(zero,relR.mem_tuplesNo);
@@ -107,6 +109,8 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 	relS.mem_offset =
 			context->CreateEntryBlockAlloca(F,string("offsetRelS"),int64_type);
 	relationS = (char*) getMemoryChunk(sizeS);
+	ptr_relationS = (char**) malloc(sizeof(char*));
+	*ptr_relationS = relationS;
 	Value *val_relationS = context->CastPtrToLlvmPtr(char_ptr_type, relationS);
 	Builder->CreateStore(val_relationS,relS.mem_relation);
 	Builder->CreateStore(zero,relS.mem_tuplesNo);
@@ -219,9 +223,60 @@ void RadixJoin::freeArenas() const	{
 	Builder->CreateCall(freeLLVM, ArgsFree);
 }
 
+/* NULL if no exact match found, otherwise relationPtr */
+//char** RadixJoin::findSideInCache(Materializer &mat) {
+//	CachingService& cache = CachingService::getInstance();
+//	bool found = true;
+//	/* Is the relation already materialized?? */
+//
+//	const vector<expressions::Expression*>& expsLeft =
+//			mat.getWantedExpressions();
+//	if (!expsLeft.empty()) {
+//		vector<expressions::Expression*>::const_iterator it = expsLeft.begin();
+//		int failedNo = 0;
+//		CacheInfo info;
+//		for (; it != expsLeft.end(); it++) {
+//			expressions::Expression *expr = *it;
+//			info = cache.getCache(expr);
+//			if (info.structFieldNo == -1) {
+//				return NULL;
+//			}
+//			if (!cache.getCacheIsFull(expr)) {
+//				return NULL;
+//			}
+//			failedNo++;
+//		}
+//		if (found) {
+//			cout << "Relation side is READY" << endl;
+//			return info.payloadPtr;
+//		}
+//	}
+//	return NULL;
+//}
+
+void RadixJoin::updateRelationPointers() const {
+	Function *F = context->getGlobalFunction();
+	LLVMContext& llvmContext = context->getLLVMContext();
+	IRBuilder<> *Builder = context->getBuilder();
+	PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
+	PointerType *char_ptr_ptr_type = PointerType::get(char_ptr_type, 0);
+
+	Value *val_ptrRelationR = context->CastPtrToLlvmPtr(char_ptr_ptr_type,
+			ptr_relationR);
+	Value *val_relationR = Builder->CreateLoad(relR.mem_relation);
+	Builder->CreateStore(val_relationR, val_ptrRelationR);
+
+	Value *val_ptrRelationS = context->CastPtrToLlvmPtr(char_ptr_ptr_type,
+			ptr_relationS);
+	Value *val_relationS = Builder->CreateLoad(relS.mem_relation);
+	Builder->CreateStore(val_relationS, val_ptrRelationS);
+}
+
 void RadixJoin::produce() const {
 	getLeftChild().produce();
 	getRightChild().produce();
+
+	updateRelationPointers();
 
 	runRadix();
 
@@ -815,7 +870,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 				for (; it != expsLeft.end(); it++) {
 					//info.objectType = rPayloadType;
 					info.structFieldNo = fieldNo;
-					info.payloadPtr = relationR;
+					info.payloadPtr = ptr_relationR;
 					cache.registerCache(*it,info,fullRelation);
 
 					/* Having skipped OIDs */
@@ -1100,7 +1155,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 						expsRight.begin();
 				for (; it != expsRight.end(); it++) {
 					info.structFieldNo = fieldNo;
-					info.payloadPtr = relationS;
+					info.payloadPtr = ptr_relationS;
 					cache.registerCache(*it, info, fullRelation);
 
 					/* Having skipped OIDs */

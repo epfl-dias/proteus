@@ -256,7 +256,7 @@ RawValue CSVPlugin::readCachedValue(CacheInfo info, const OperatorState& currSta
 
 	StructType *cacheType = context->ReproduceCustomStruct(info.objectTypes);
 	Value *typeSize = ConstantExpr::getSizeOf(cacheType);
-	char* rawPtr = info.payloadPtr;
+	char* rawPtr = *(info.payloadPtr);
 	int posInStruct = info.structFieldNo;
 
 	/* Cast to appr. type */
@@ -1746,7 +1746,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 						StructType *cacheType = context->ReproduceCustomStruct(
 								info.objectTypes);
 						Value *typeSize = ConstantExpr::getSizeOf(cacheType);
-						char* rawPtr = info.payloadPtr;
+						char* rawPtr = *(info.payloadPtr);
 						Value *val_cacheIdx = Builder->CreateLoad(mem_lineCtr);
 
 						/* Cast to appr. type */
