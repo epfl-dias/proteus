@@ -64,6 +64,17 @@ int printc(char* X) {
 	return 0;
 }
 
+void resetTime()	{
+	stopwatch_t& timer = stopwatch_t::getInstance();
+	timer.reset();
+}
+
+void calculateTime()	{
+	stopwatch_t& timer = stopwatch_t::getInstance();
+	double elapsedTime = timer.time_ms();
+	printf("Operation took %f msec\n",elapsedTime);
+}
+
 
 //int s(const char* X) {
 //	//printf("Generated code -- char read: %c\n", X[0]);
@@ -923,6 +934,8 @@ void registerFunctions(RawContext& context)	{
 	ArgsFlushDelim.insert(ArgsFlushDelim.begin(),int8_type);
 	ArgsFlushDelim.insert(ArgsFlushDelim.begin(),int64_type);
 
+	vector<Type*> ArgsFlushOutput;
+	ArgsFlushOutput.insert(ArgsFlushOutput.begin(),char_ptr_type);
 
 	vector<Type*> ArgsMemoryChunk;
 	ArgsMemoryChunk.insert(ArgsMemoryChunk.begin(),int64_type);
@@ -932,43 +945,48 @@ void registerFunctions(RawContext& context)	{
 	vector<Type*> ArgsRelMemoryChunk;
 	ArgsRelMemoryChunk.insert(ArgsRelMemoryChunk.begin(),void_ptr_type);
 
-	vector<Type*> ArgsFlushOutput;
-	ArgsFlushOutput.insert(ArgsFlushOutput.begin(),char_ptr_type);
+	/**
+	 * Args of timing functions
+	 */
+	//Empty on purpose
+	vector<Type*> ArgsTiming;
 
-	FunctionType *FTint = 				  FunctionType::get(Type::getInt32Ty(ctx), Ints, false);
-	FunctionType *FTint64 = 			  FunctionType::get(Type::getInt32Ty(ctx), Ints64, false);
-	FunctionType *FTcharPtr = 			  FunctionType::get(Type::getInt32Ty(ctx), Ints8Ptr, false);
-	FunctionType *FTatois = 			  FunctionType::get(int32_type, ArgsAtois, false);
-	FunctionType *FTatof = 				  FunctionType::get(double_type, Ints8Ptr, false);
-	FunctionType *FTprintFloat_ = 		  FunctionType::get(int32_type, Floats, false);
-	FunctionType *FTcompareTokenString_ = FunctionType::get(int32_type, ArgsCmpTokens, false);
+
+	FunctionType *FTint 				  =	FunctionType::get(Type::getInt32Ty(ctx), Ints, false);
+	FunctionType *FTint64 				  = FunctionType::get(Type::getInt32Ty(ctx), Ints64, false);
+	FunctionType *FTcharPtr 			  = FunctionType::get(Type::getInt32Ty(ctx), Ints8Ptr, false);
+	FunctionType *FTatois 				  = FunctionType::get(int32_type, ArgsAtois, false);
+	FunctionType *FTatof 				  = FunctionType::get(double_type, Ints8Ptr, false);
+	FunctionType *FTprintFloat_ 		  = FunctionType::get(int32_type, Floats, false);
+	FunctionType *FTcompareTokenString_   = FunctionType::get(int32_type, ArgsCmpTokens, false);
 	FunctionType *FTcompareTokenString64_ = FunctionType::get(int32_type, ArgsCmpTokens64, false);
-	FunctionType *FTconvertBoolean_ = 	  FunctionType::get(int1_bool_type, ArgsConvBoolean, false);
-	FunctionType *FTconvertBoolean64_ =   FunctionType::get(int1_bool_type, ArgsConvBoolean64, false);
-	FunctionType *FTprintBoolean_ = 	  FunctionType::get(void_type, Ints1, false);
-	FunctionType *FTcompareStringObjs =   FunctionType::get(int1_bool_type, ArgsStringObjCmp, false);
-	FunctionType *FTcompareString	  =   FunctionType::get(int1_bool_type, ArgsStringCmp, false);
-	FunctionType *FThashInt = 			  FunctionType::get(int64_type, ArgsHashInt, false);
-	FunctionType *FThashDouble = 		  FunctionType::get(int64_type, ArgsHashDouble, false);
-	FunctionType *FThashStringC = 		  FunctionType::get(int64_type, ArgsHashStringC, false);
-	FunctionType *FThashStringObj = 	  FunctionType::get(int64_type, ArgsHashStringObj, false);
-	FunctionType *FThashBoolean = 		  FunctionType::get(int64_type, ArgsHashBoolean, false);
-	FunctionType *FThashCombine = 		  FunctionType::get(int64_type, ArgsHashCombine, false);
-	FunctionType *FTflushInt = 			  FunctionType::get(void_type, ArgsFlushInt, false);
-	FunctionType *FTflushDouble = 		  FunctionType::get(void_type, ArgsFlushDouble, false);
-	FunctionType *FTflushStringC = 		  FunctionType::get(void_type, ArgsFlushStringC, false);
-	FunctionType *FTflushStringCv2 = 	  FunctionType::get(void_type, ArgsFlushStringCv2, false);
-	FunctionType *FTflushStringObj = 	  FunctionType::get(void_type, ArgsFlushStringObj, false);
-	FunctionType *FTflushBoolean = 		  FunctionType::get(void_type, ArgsFlushBoolean, false);
-	FunctionType *FTflushStartEnd = 	  FunctionType::get(void_type, ArgsFlushStartEnd, false);
-	FunctionType *FTflushChar =			  FunctionType::get(void_type, ArgsFlushChar, false);
-	FunctionType *FTflushDelim =		  FunctionType::get(void_type, ArgsFlushDelim, false);
-	FunctionType *FTflushOutput =		  FunctionType::get(void_type, ArgsFlushOutput, false);
+	FunctionType *FTconvertBoolean_ 	  = FunctionType::get(int1_bool_type, ArgsConvBoolean, false);
+	FunctionType *FTconvertBoolean64_ 	  = FunctionType::get(int1_bool_type, ArgsConvBoolean64, false);
+	FunctionType *FTprintBoolean_ 		  = FunctionType::get(void_type, Ints1, false);
+	FunctionType *FTcompareStringObjs 	  = FunctionType::get(int1_bool_type, ArgsStringObjCmp, false);
+	FunctionType *FTcompareString	  	  = FunctionType::get(int1_bool_type, ArgsStringCmp, false);
+	FunctionType *FThashInt 			  = FunctionType::get(int64_type, ArgsHashInt, false);
+	FunctionType *FThashDouble 			  = FunctionType::get(int64_type, ArgsHashDouble, false);
+	FunctionType *FThashStringC 		  = FunctionType::get(int64_type, ArgsHashStringC, false);
+	FunctionType *FThashStringObj 		  = FunctionType::get(int64_type, ArgsHashStringObj, false);
+	FunctionType *FThashBoolean 		  = FunctionType::get(int64_type, ArgsHashBoolean, false);
+	FunctionType *FThashCombine 		  = FunctionType::get(int64_type, ArgsHashCombine, false);
+	FunctionType *FTflushInt 			  = FunctionType::get(void_type, ArgsFlushInt, false);
+	FunctionType *FTflushDouble 		  = FunctionType::get(void_type, ArgsFlushDouble, false);
+	FunctionType *FTflushStringC 		  = FunctionType::get(void_type, ArgsFlushStringC, false);
+	FunctionType *FTflushStringCv2 		  = FunctionType::get(void_type, ArgsFlushStringCv2, false);
+	FunctionType *FTflushStringObj 		  = FunctionType::get(void_type, ArgsFlushStringObj, false);
+	FunctionType *FTflushBoolean 		  = FunctionType::get(void_type, ArgsFlushBoolean, false);
+	FunctionType *FTflushStartEnd 		  = FunctionType::get(void_type, ArgsFlushStartEnd, false);
+	FunctionType *FTflushChar 			  =	FunctionType::get(void_type, ArgsFlushChar, false);
+	FunctionType *FTflushDelim 			  =	FunctionType::get(void_type, ArgsFlushDelim, false);
+	FunctionType *FTflushOutput 		  =	FunctionType::get(void_type, ArgsFlushOutput, false);
 
+	FunctionType *FTmemoryChunk 		  = FunctionType::get(void_ptr_type, ArgsMemoryChunk, false);
+	FunctionType *FTincrMemoryChunk 	  =	FunctionType::get(void_ptr_type, ArgsIncrMemoryChunk, false);
+	FunctionType *FTreleaseMemoryChunk 	  = FunctionType::get(void_type, ArgsRelMemoryChunk, false);
 
-	FunctionType *FTmemoryChunk = 		  FunctionType::get(void_ptr_type, ArgsMemoryChunk, false);
-	FunctionType *FTincrMemoryChunk =	  FunctionType::get(void_ptr_type, ArgsIncrMemoryChunk, false);
-	FunctionType *FTreleaseMemoryChunk =  FunctionType::get(void_type, ArgsRelMemoryChunk, false);
+	FunctionType *FTtiming 			   	  = FunctionType::get(void_type, ArgsTiming, false);
 
 	Function *printi_ 		= Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
 	Function *printi64_ 	= Function::Create(FTint64, Function::ExternalLinkage,"printi64", TheModule);
@@ -1064,6 +1082,12 @@ void registerFunctions(RawContext& context)	{
 					Function::ExternalLinkage, "increaseMemoryChunk", TheModule);
 	Function *releaseMemoryChunk_ = Function::Create(FTreleaseMemoryChunk,
 						Function::ExternalLinkage, "releaseMemoryChunk", TheModule);
+
+	/* Timing */
+	Function *resetTime_ = Function::Create(FTtiming, Function::ExternalLinkage,
+			"resetTime", TheModule);
+	Function *calculateTime_ = Function::Create(FTtiming,
+			Function::ExternalLinkage, "calculateTime", TheModule);
 
 	//Memcpy - not used (yet)
 	Type* types[] = { void_ptr_type, void_ptr_type, Type::getInt32Ty(ctx) };
@@ -1247,6 +1271,9 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("increaseMemoryChunk", increaseMemoryChunk_);
 	context.registerFunction("releaseMemoryChunk", releaseMemoryChunk_);
 	context.registerFunction("memcpy", memcpy_);
+
+	context.registerFunction("resetTime", resetTime_);
+	context.registerFunction("calculateTime", calculateTime_);
 
 	context.registerFunction("partitionHT",radix_partition);
 	context.registerFunction("bucketChainingPrepare",bucket_chaining_join_prepare);

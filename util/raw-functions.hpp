@@ -26,6 +26,7 @@
 
 #include "util/raw-catalog.hpp"
 #include "util/raw-context.hpp"
+#include "util/raw-timing.hpp"
 #include "util/radix/joins/radix-join.hpp"
 #include "util/radix/aggregations/radix-aggr.hpp"
 
@@ -152,5 +153,12 @@ extern "C" void releaseMemoryChunk(void* chunk);
 extern "C" size_t newlineAVX(const char* const target, size_t targetLength);
 extern "C" void parseLineJSON(char *buf, size_t start, size_t end,
 		jsmntok_t** tokens, size_t line);
+
+/**
+ * Timing
+ */
+extern "C" void resetTime();
+
+extern "C" void calculateTime();
 
 #endif /* RAW_FUNCTIONS_HPP_ */

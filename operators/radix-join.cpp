@@ -847,6 +847,11 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 	const RawOperator& caller = childState.getProducer();
 	if(caller == getLeftChild())
 	{
+		/* Timing! */
+		Function *func_startTime = context->getFunction("resetTime");
+		//vector empty on purpose
+		vector<Value*> ArgsTime;
+		Builder->CreateCall(func_startTime,ArgsTime);
 
 #ifdef DEBUG
 		LOG(INFO)<< "[RADIX JOIN: ] Left (building) side";
@@ -1027,6 +1032,10 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			offsetInStruct++;
 			offsetInWanted++;
 		}
+		/* Timing! */
+		Function *func_endTime = context->getFunction("calculateTime");
+		//vector empty on purpose
+		Builder->CreateCall(func_endTime, ArgsTime);
 
 		/* CONSTRUCT HTENTRY PAIR   	  */
 		/* payloadPtr: relative offset from relBuffer beginning */
