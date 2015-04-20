@@ -85,6 +85,8 @@
 #define GOOGLE_STRIP_LOG 2
 #define STRIP_LOG 2
 
+#define TIMING
+
 #include <glog/logging.h>
 
 #include <boost/functional/hash.hpp>

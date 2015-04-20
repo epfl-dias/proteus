@@ -14,6 +14,11 @@
 
 /**
  *  @brief a timer (singleton) object.
+ *
+ *  XXX getInstance() does returns an unitialized object!
+ *  => Use:
+ *  Step 1. reset();
+ *  Step 2. time_ms();
  */
 class stopwatch_t {
 private:
@@ -30,7 +35,7 @@ private:
 public:
 	static stopwatch_t& getInstance() {
 		static stopwatch_t instance;
-		instance.reset();
+		//instance.reset();
 		return instance;
 	}
 

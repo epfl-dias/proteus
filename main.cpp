@@ -234,7 +234,7 @@ int main(int argc, char* argv[])
 //
 //	joinQueryRelationalRadix();
 //	cidrQuery3();
-//	cidrQuery3Radix();
+	cidrQuery3Radix();
 
 	/* Large-scale: To be run on server */
 //	cout << "Max 1: " << endl;
@@ -271,8 +271,8 @@ int main(int argc, char* argv[])
 //	expressionMap();
 //	expressionMapVertical();
 
-	joinQueryRelationalRadixCache();
-	joinQueryRelationalRadixCache();
+//	joinQueryRelationalRadixCache();
+//	joinQueryRelationalRadixCache();
 }
 
 void expressionMap()	{

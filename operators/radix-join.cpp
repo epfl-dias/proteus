@@ -67,8 +67,10 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 //	size_t sizeR = 10000000000;
 //	size_t sizeS = 15000000000;
 
-	size_t sizeR = 1000;
-	size_t sizeS = 1500;
+//	size_t sizeR = 1000;
+//	size_t sizeS = 1500;
+	size_t sizeR = 50000;
+	size_t sizeS = 50000;
 
 	//size_t sizeR = 100000000;
 	//size_t sizeS = 100000000;
@@ -283,6 +285,20 @@ void RadixJoin::updateRelationPointers() const {
 
 
 void RadixJoin::produce() const {
+	IRBuilder<> *Builder = context->getBuilder();
+	Function *func_startTime = context->getFunction("resetTime");
+	Function *func_endTime = context->getFunction("calculateTime");
+	//vector empty on purpose
+	vector<Value*> ArgsTime;
+	/**
+	 * LEFT SIDE
+	 */
+
+#ifdef TIMING
+	{
+		Builder->CreateCall(func_startTime, ArgsTime);
+	}
+#endif
 
 	char** ptr_bufferLeft = NULL;
 	if (!this->getLeftChild().isFiltering()) {
@@ -292,13 +308,33 @@ void RadixJoin::produce() const {
 	getLeftChild().produce();
 //	}
 
+#ifdef TIMING
+	{
+		Builder->CreateCall(func_endTime, ArgsTime);
+	}
+#endif
+
+	/**
+	 * RIGHT SIDE
+	 */
+#ifdef TIMING
+	{
+		Builder->CreateCall(func_startTime, ArgsTime);
+	}
+#endif
 	char** ptr_bufferRight = NULL;
-	if (!this->getLeftChild().isFiltering()) {
+	if (!this->getRightChild().isFiltering()) {
 		ptr_bufferRight = findSideInCache(matRight);
 	}
 //	if (ptr_bufferRight == NULL) {
 	getRightChild().produce();
 //	}
+#ifdef TIMING
+	{
+		Builder->CreateCall(func_endTime, ArgsTime);
+	}
+#endif
+
 	updateRelationPointers();
 	//Still need HTs...
 	// Should I mat. them too?
@@ -847,11 +883,6 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 	const RawOperator& caller = childState.getProducer();
 	if(caller == getLeftChild())
 	{
-		/* Timing! */
-		Function *func_startTime = context->getFunction("resetTime");
-		//vector empty on purpose
-		vector<Value*> ArgsTime;
-		Builder->CreateCall(func_startTime,ArgsTime);
 
 #ifdef DEBUG
 		LOG(INFO)<< "[RADIX JOIN: ] Left (building) side";
@@ -1032,10 +1063,6 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			offsetInStruct++;
 			offsetInWanted++;
 		}
-		/* Timing! */
-		Function *func_endTime = context->getFunction("calculateTime");
-		//vector empty on purpose
-		Builder->CreateCall(func_endTime, ArgsTime);
 
 		/* CONSTRUCT HTENTRY PAIR   	  */
 		/* payloadPtr: relative offset from relBuffer beginning */
