@@ -145,7 +145,18 @@ void columnarQuerySum();
 void columnarMax1();
 void columnarMax2();
 void columnarMax3();
+/*
+SELECT MAX(c2.field20)
+FROM csv_100m_30col_fixed_shuffled c1,csv_100m_30col_fixed c2
+WHERE c1.field20 < 100000000 AND c1.field10 = c2.field10;
+*/
 void columnarJoin1();
+/*
+SELECT MAX(c2.field20)
+FROM csv_100m_30col_fixed_shuffled c1,csv_100m_30col_fixed c2
+WHERE c1.field20 < 100000000 AND c1.field10 = c2.field10;
+*/
+void columnarCachedJoin1();
 
 /**
  * Radix join
@@ -234,7 +245,7 @@ int main(int argc, char* argv[])
 //
 //	joinQueryRelationalRadix();
 //	cidrQuery3();
-	cidrQuery3Radix();
+//	cidrQuery3Radix();
 
 	/* Large-scale: To be run on server */
 //	cout << "Max 1: " << endl;
@@ -244,7 +255,8 @@ int main(int argc, char* argv[])
 //	cout << "Max 3: " << endl;
 //	columnarMax3();
 //	cout << "Join 1: " << endl;
-//	columnarJoin1();
+	columnarCachedJoin1();
+	columnarCachedJoin1();
 
 //	int point = newlineAVX("soulis\nkoula\ngoula",strlen("soulis\nkoula\ngoula"));
 //	cout << "Newline at " << point << endl;
@@ -2175,13 +2187,45 @@ void joinQueryRelationalRadix()
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
-	Materializer* matLeft = new Materializer(whichFields, outputModes);
+
+	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
+			intType, leftArg, projTupleL);
+	expressions::Expression* exprLeftMat1 = new expressions::RecordProjection(
+			intType, leftArg, *attr1);
+	expressions::Expression* exprLeftMat2 = new expressions::RecordProjection(
+			intType, leftArg, *attr2);
+	vector<expressions::Expression*> whichExpressionsLeft;
+	whichExpressionsLeft.push_back(exprLeftOID);
+	whichExpressionsLeft.push_back(exprLeftMat1);
+	whichExpressionsLeft.push_back(exprLeftMat2);
+
+	vector<RecordAttribute*> whichOIDLeft;
+	whichOIDLeft.push_back(&projTupleL);
+
+	Materializer* matLeft = new Materializer(whichFields, whichExpressionsLeft,
+			whichOIDLeft, outputModes);
+
+	expressions::Expression* exprRightOID = new expressions::RecordProjection(
+			intType, rightArg, projTupleR);
+	expressions::Expression* exprRightMat1 = new expressions::RecordProjection(
+			intType, rightArg, *attr1_f2);
+	expressions::Expression* exprRightMat2 = new expressions::RecordProjection(
+			intType, rightArg, *attr2_f2);
+	vector<expressions::Expression*> whichExpressionsRight;
+	whichExpressionsRight.push_back(exprRightOID);
+	whichExpressionsRight.push_back(exprRightMat1);
+	whichExpressionsRight.push_back(exprRightMat2);
+
+	vector<RecordAttribute*> whichOIDRight;
+	whichOIDRight.push_back(&projTupleR);
 
 	outputModes.clear();
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
-	Materializer* matRight = new Materializer(whichFields2, outputModes);
+	Materializer* matRight = new Materializer(whichFields2,
+			whichExpressionsRight, whichOIDRight, outputModes);
+
 
 	char joinLabel[] = "radixJoin1";
 	RadixJoin join = RadixJoin(joinPred, scan, scan2, &ctx, joinLabel, *matLeft, *matRight);
@@ -2311,7 +2355,10 @@ void joinQueryRelationalRadixCache()
 	whichExpressionsLeft.push_back(exprLeftMat1);
 	whichExpressionsLeft.push_back(exprLeftMat2);
 
-	Materializer* matLeft = new Materializer(whichFields, whichExpressionsLeft, outputModes);
+	vector<RecordAttribute*> whichOIDLeft;
+	whichOIDLeft.push_back(&projTupleL);
+
+	Materializer* matLeft = new Materializer(whichFields, whichExpressionsLeft, whichOIDLeft, outputModes);
 
 	vector<materialization_mode> outputModes2;
 	//active loop too
@@ -2331,7 +2378,10 @@ void joinQueryRelationalRadixCache()
 	whichExpressionsRight.push_back(exprRightMat1);
 	whichExpressionsRight.push_back(exprRightMat2);
 
-	Materializer* matRight = new Materializer(whichFields2, whichExpressionsRight, outputModes2);
+	vector<RecordAttribute*> whichOIDRight;
+	whichOIDRight.push_back(&projTupleR);
+
+	Materializer* matRight = new Materializer(whichFields2, whichExpressionsRight, whichOIDRight, outputModes2);
 
 	char joinLabel[] = "radixJoin1";
 	RadixJoin join = RadixJoin(joinPred, scan, scan2, &ctx, joinLabel, *matLeft, *matRight);
@@ -4242,6 +4292,7 @@ void cidrQuery3Radix()
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* stringType = new StringType();
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 	PrimitiveType* doubleType = new FloatType();
 
 	/**
@@ -4343,6 +4394,7 @@ void cidrQuery3Radix()
 	/**
 	 *  JOIN
 	 */
+	/* Left */
 	expressions::RecordProjection* argClinicalProj =
 			new expressions::RecordProjection(intType, argClinical, *rid);
 
@@ -4361,11 +4413,35 @@ void cidrQuery3Radix()
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
-	Materializer* matLeft = new Materializer(whichFieldsClinical, outputModes);
 
-	vector<materialization_mode> outputModesGenetic;
-	outputModesGenetic.insert(outputModesGenetic.begin(), EAGER);
-	Materializer* matRight = new Materializer(whichFieldsGenetic, outputModesGenetic);
+	/* Extensions to cater for new materializer */
+	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
+			int64Type, argClinical, projTupleClinical);
+	expressions::Expression* exprLeftMat1 = new expressions::RecordProjection(
+			intType, argClinical, *rid);
+	expressions::Expression* exprLeftMat2 = new expressions::RecordProjection(
+			intType, argClinical, *age);
+	vector<expressions::Expression*> whichExpressionsLeft;
+	whichExpressionsLeft.push_back(exprLeftOID);
+	whichExpressionsLeft.push_back(exprLeftMat1);
+	whichExpressionsLeft.push_back(exprLeftMat2);
+
+	vector<RecordAttribute*> whichOIDsGenetic;
+	whichOIDsGenetic.push_back(&projTupleClinical);
+
+	Materializer* matLeft = new Materializer(whichFieldsClinical,
+			whichExpressionsLeft, whichOIDsGenetic, outputModes);
+
+	/* Right */
+	expressions::Expression* exprRightOID = new expressions::RecordProjection(
+			int64Type, argGenetic, projTupleGenetic);
+	expressions::Expression* exprRightMat1 = new expressions::RecordProjection(
+			intType, argGenetic, *iid);
+	vector<expressions::Expression*> whichExpressionsRight;
+	whichExpressionsLeft.push_back(exprRightOID);
+	whichExpressionsLeft.push_back(exprRightMat1);
+	Materializer* matRight = new Materializer(whichFieldsGenetic,
+			whichExpressionsRight, whichOIDsGenetic, outputModes);
 
 	char joinLabel[] = "joinPatients";
 	RadixJoin join = RadixJoin(joinPred, selClinical, scanGenetic, &ctx, joinLabel, *matLeft, *matRight);
@@ -4413,6 +4489,7 @@ void cidrQuery3RadixMax()
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* stringType = new StringType();
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 	PrimitiveType* doubleType = new FloatType();
 
 	/**
@@ -4514,6 +4591,7 @@ void cidrQuery3RadixMax()
 	/**
 	 *  JOIN
 	 */
+	/* Left */
 	expressions::RecordProjection* argClinicalProj =
 			new expressions::RecordProjection(intType, argClinical, *rid);
 
@@ -4532,11 +4610,38 @@ void cidrQuery3RadixMax()
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
-	Materializer* matLeft = new Materializer(whichFieldsClinical, outputModes);
+
+	/* Extensions to cater for new materializer */
+	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
+			int64Type, argClinical, projTupleClinical);
+	expressions::Expression* exprLeftMat1 = new expressions::RecordProjection(
+			intType, argClinical, *rid);
+	expressions::Expression* exprLeftMat2 = new expressions::RecordProjection(
+			intType, argClinical, *age);
+	vector<expressions::Expression*> whichExpressionsLeft;
+	whichExpressionsLeft.push_back(exprLeftOID);
+	whichExpressionsLeft.push_back(exprLeftMat1);
+	whichExpressionsLeft.push_back(exprLeftMat2);
+
+	vector<RecordAttribute*> whichOIDsGenetic;
+	whichOIDsGenetic.push_back(&projTupleClinical);
+
+	Materializer* matLeft = new Materializer(whichFieldsClinical,
+			whichExpressionsLeft, whichOIDsGenetic, outputModes);
+
+	/* Right */
+	expressions::Expression* exprRightOID = new expressions::RecordProjection(
+			int64Type, argGenetic, projTupleGenetic);
+	expressions::Expression* exprRightMat1 = new expressions::RecordProjection(
+			intType, argGenetic, *iid);
+	vector<expressions::Expression*> whichExpressionsRight;
+	whichExpressionsLeft.push_back(exprRightOID);
+	whichExpressionsLeft.push_back(exprRightMat1);
 
 	vector<materialization_mode> outputModesGenetic;
 	outputModesGenetic.insert(outputModesGenetic.begin(), EAGER);
-	Materializer* matRight = new Materializer(whichFieldsGenetic, outputModesGenetic);
+	Materializer* matRight = new Materializer(whichFieldsGenetic,
+			whichExpressionsRight, whichOIDsGenetic, outputModesGenetic);
 
 	char joinLabel[] = "joinPatients";
 	RadixJoin join = RadixJoin(joinPred, selClinical, scanGenetic, &ctx, joinLabel, *matLeft, *matRight);
@@ -5470,6 +5575,223 @@ void columnarJoin1()
 	/**
 	 * JOIN
 	 */
+	expressions::Expression* leftJoinArg = new expressions::InputArgument(
+			intType, 0, projectionsLeft);
+	expressions::Expression* left = new expressions::RecordProjection(intType,
+			leftJoinArg, *toProjectLeft);
+	expressions::Expression* rightJoinArg = new expressions::InputArgument(
+			intType, 1, projectionsRight);
+	expressions::Expression* right = new expressions::RecordProjection(intType,
+			rightJoinArg, *toProjectRight);
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
+			new BoolType(), left, right);
+	vector<materialization_mode> outputModes;
+	outputModes.insert(outputModes.begin(), EAGER);
+	vector<RecordAttribute*> whichFieldsLeft2;
+	whichFieldsLeft2.push_back(toProjectLeft);
+	//	outputModes.insert(outputModes.begin(), EAGER);
+	Materializer* matLeft = new Materializer(whichFieldsLeft2, outputModes);
+
+	/* XXX Updated Materializer requires 'expressions to be cached'!!!*/
+	RecordAttribute projTupleR = RecordAttribute(filenamePrefixRight,
+			activeLoop);
+	expressions::Expression* exprRightOID = new expressions::RecordProjection(
+			intType, rightJoinArg, projTupleR);
+	expressions::Expression* selRight = new expressions::RecordProjection(
+			intType, rightJoinArg, *selectProjRight1);
+
+	vector<expressions::Expression*> whichExpressionsRight;
+	whichExpressionsRight.push_back(exprRightOID);
+	whichExpressionsRight.push_back(selRight);
+	whichExpressionsRight.push_back(right);
+
+	/* As many as the expressions to cache (?) */
+	vector<materialization_mode> outputModes2;
+	outputModes2.insert(outputModes2.begin(), EAGER);
+	outputModes2.insert(outputModes2.begin(), EAGER);
+	outputModes2.insert(outputModes2.begin(), EAGER);
+
+	vector<RecordAttribute*> whichOIDs;
+	whichOIDs.push_back(&projTupleR);
+
+	Materializer* matRight = new Materializer(whichFieldsRight,
+			whichExpressionsRight, whichOIDs, outputModes2);
+
+	char joinLabel[] = "join1";
+	RadixJoin join = RadixJoin(joinPred, sel, scanRight, &ctx, joinLabel, *matLeft, *matRight);
+	sel.setParent(&join);
+	scanRight.setParent(&join);
+
+	/**
+	 * REDUCE
+	 * (MAX)
+	 */
+
+	expressions::RecordProjection* outputExpr =
+		new expressions::RecordProjection(intType, rightJoinArg, *selectProjRight1);
+	expressions::Expression* val_true = new expressions::BoolConstant(1);
+	expressions::Expression* reducePredicate = new expressions::EqExpression(
+		new BoolType(), val_true, val_true);
+	Reduce reduce = Reduce(MAX, outputExpr, reducePredicate, &join, &ctx);
+
+//	/* Count */
+//	expressions::Expression* outputExpr = new expressions::IntConstant(1);
+//	expressions::Expression* val_true = new expressions::BoolConstant(1);
+//	expressions::Expression* reducePredicate = new expressions::EqExpression(
+//		new BoolType(), val_true, val_true);
+//	Reduce reduce = Reduce(SUM, outputExpr, reducePredicate, &join, &ctx);
+
+	join.setParent(&reduce);
+
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pgColumnarLeft->finish();
+	pgColumnarRight->finish();
+	catalog.clear();
+}
+
+void columnarCachedJoin1()
+{
+	RawContext ctx = prepareContext("columnarJoin1");
+	RawCatalog& catalog = RawCatalog::getInstance();
+	PrimitiveType* intType = new IntType();
+
+//	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
+//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
+
+	/* Works */
+//	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed-shuffled");
+//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed");
+
+	/* Works */
+//	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100-30cols-fixed");
+//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/500-30cols-fixed");
+
+	string filenamePrefixLeft = string("inputs/synthetic/100-30cols-fixed");
+	string filenamePrefixRight = string("inputs/synthetic/500-30cols-fixed");
+	/**
+	 * SCAN1
+	 */
+
+	int fieldCount = 1;
+	list<RecordAttribute*> attrListLeft;
+
+	ostringstream sstream;
+	RecordAttribute *selectProjLeft1 = NULL;
+	RecordAttribute *selectProjLeft2 = NULL;
+	RecordAttribute *toProjectLeft = NULL;
+	for (int i = 1; i <= 30; i++)
+	{
+		sstream.str("");
+		sstream << "field" << fieldCount;
+		RecordAttribute *field_i = new RecordAttribute(fieldCount,
+				filenamePrefixLeft, sstream.str().c_str(), intType);
+		attrListLeft.push_back(field_i);
+
+		if (fieldCount == 10)
+		{
+			toProjectLeft = field_i;
+		}
+
+//		if (fieldCount == 15)
+//		{
+//			selectProj2 = field_i;
+//		}
+
+		if (fieldCount == 20)
+		{
+			selectProjLeft1 = field_i;
+		}
+		fieldCount++;
+	}
+
+	RecordType recIntsLeft = RecordType(attrListLeft);
+	vector<RecordAttribute*> whichFieldsLeft;
+
+	whichFieldsLeft.push_back(toProjectLeft);
+	whichFieldsLeft.push_back(selectProjLeft1);
+
+	BinaryColPlugin *pgColumnarLeft = new BinaryColPlugin(&ctx, filenamePrefixLeft,
+			recIntsLeft, whichFieldsLeft);
+	catalog.registerPlugin(filenamePrefixLeft, pgColumnarLeft);
+	Scan scanLeft = Scan(&ctx, *pgColumnarLeft);
+
+	/**
+	 * SELECT
+	 */
+	list<RecordAttribute> projectionsLeft = list<RecordAttribute>();
+	projectionsLeft.push_back(*toProjectLeft);
+	projectionsLeft.push_back(*selectProjLeft1);
+
+	expressions::Expression* lhsArg = new expressions::InputArgument(&recIntsLeft, 0,
+		projectionsLeft);
+	expressions::Expression* lhs = new expressions::RecordProjection(intType,
+		lhsArg, *selectProjLeft1);
+	expressions::Expression* rhs = new expressions::IntConstant(100000000);
+	expressions::Expression* predicate = new expressions::LtExpression(
+		new BoolType(), lhs, rhs);
+	Select sel = Select(predicate, &scanLeft);
+	scanLeft.setParent(&sel);
+
+	LOG(INFO)<<"Left: "<<&sel;
+
+	/**
+	 * SCAN2
+	 */
+
+	fieldCount = 1;
+	list<RecordAttribute*> attrListRight;
+
+	RecordAttribute *selectProjRight1 = NULL;
+	RecordAttribute *selectProjRight2 = NULL;
+	RecordAttribute *toProjectRight = NULL;
+	for (int i = 1; i <= 30; i++)
+	{
+		sstream.str("");
+		sstream << "field" << fieldCount;
+		RecordAttribute *field_i = new RecordAttribute(fieldCount,
+				filenamePrefixRight, sstream.str().c_str(), intType);
+		attrListRight.push_back(field_i);
+
+		if (fieldCount == 10)
+		{
+			toProjectRight = field_i;
+		}
+
+		//		if (fieldCount == 15)
+		//		{
+		//			selectProj2 = field_i;
+		//		}
+
+		if (fieldCount == 20)
+		{
+			selectProjRight1 = field_i;
+		}
+		fieldCount++;
+	}
+
+	RecordType recIntsRight = RecordType(attrListRight);
+	vector<RecordAttribute*> whichFieldsRight;
+
+	whichFieldsRight.push_back(toProjectRight);
+	whichFieldsRight.push_back(selectProjRight1);
+
+	BinaryColPlugin *pgColumnarRight = new BinaryColPlugin(&ctx,
+			filenamePrefixRight, recIntsRight, whichFieldsRight);
+	catalog.registerPlugin(filenamePrefixRight, pgColumnarRight);
+	Scan scanRight = Scan(&ctx, *pgColumnarRight);
+
+	list<RecordAttribute> projectionsRight = list<RecordAttribute>();
+	projectionsRight.push_back(*toProjectRight);
+	projectionsRight.push_back(*selectProjRight1);
+
+	/**
+	 * JOIN
+	 */
 	expressions::Expression* leftJoinArg = new expressions::InputArgument(intType,
 			0, projectionsLeft);
 	expressions::Expression* left = new expressions::RecordProjection(intType,
@@ -5487,10 +5809,29 @@ void columnarJoin1()
 //	outputModes.insert(outputModes.begin(), EAGER);
 	Materializer* matLeft = new Materializer(whichFieldsLeft2, outputModes);
 
+	/* XXX Updated Materializer requires 'expressions to be cached'!!!*/
+	RecordAttribute projTupleR = RecordAttribute(filenamePrefixRight,
+			activeLoop);
+	expressions::Expression* exprRightOID = new expressions::RecordProjection(
+			intType, rightJoinArg, projTupleR);
+	expressions::Expression* selRight = new expressions::RecordProjection(
+			intType, rightJoinArg, *selectProjRight1);
+
+	vector<expressions::Expression*> whichExpressionsRight;
+	whichExpressionsRight.push_back(exprRightOID);
+	whichExpressionsRight.push_back(selRight);
+	whichExpressionsRight.push_back(right);
+
+	/* As many as the expressions to cache (?) */
 	vector<materialization_mode> outputModes2;
 	outputModes2.insert(outputModes2.begin(), EAGER);
 	outputModes2.insert(outputModes2.begin(), EAGER);
-	Materializer* matRight = new Materializer(whichFieldsRight, outputModes2);
+	outputModes2.insert(outputModes2.begin(), EAGER);
+
+	vector<RecordAttribute*> whichOIDs;
+	whichOIDs.push_back(&projTupleR);
+
+	Materializer* matRight = new Materializer(whichFieldsRight, whichExpressionsRight, whichOIDs, outputModes2);
 
 	char joinLabel[] = "join1";
 	RadixJoin join = RadixJoin(joinPred, sel, scanRight, &ctx, joinLabel, *matLeft, *matRight);

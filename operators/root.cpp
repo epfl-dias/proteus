@@ -23,6 +23,6 @@
 
 #include "operators/root.hpp"
 
-void Root::produce() const 																{ getChild()->produce(); }
+void Root::produce() 	 																{ getChild()->produce(); }
 
 void Root::consume (RawContext* const context, const OperatorState& childState) 		{ }

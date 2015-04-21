@@ -123,6 +123,9 @@ public:
 		RecordType *inner = new RecordType(atts);
 		return inner;
 	}
+
+	virtual PluginType getPluginType() { return PGJSON; }
+
 	jsmntok_t** getTokens()	{ return tokens; }
 
 	//	void freeTokens() {

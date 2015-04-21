@@ -31,12 +31,12 @@ Materializer::Materializer(const vector<RecordAttribute*>& wantedFields,
 {
 }
 
-Materializer::Materializer(const vector<RecordAttribute*>& wantedFields,
+Materializer::Materializer(const vector<RecordAttribute*>& whichFields,
 		const vector<expressions::Expression*>& wantedExpressions,
+		vector<RecordAttribute*>& whichOIDs,
 		const vector<materialization_mode>& outputMode) :
-		wantedExpressions(wantedExpressions),
-		wantedFields(wantedFields), outputMode(outputMode)
-{
+		wantedExpressions(wantedExpressions), wantedOIDs(whichOIDs), wantedFields(
+				whichFields), outputMode(outputMode) {
 }
 
 OutputPlugin::OutputPlugin(RawContext* const context,

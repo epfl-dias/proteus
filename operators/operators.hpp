@@ -41,7 +41,7 @@ public:
 	RawOperator* const getParent() const			{ return parent; }
 	//Overloaded operator used in checks for children of Join op. More complex cases may require different handling
 	bool operator == (const RawOperator& i) const 	{ /*if(this != &i) LOG(INFO) << "NOT EQUAL OPERATORS"<<this<<" vs "<<&i;*/ return this == &i; }
-	virtual void produce() const = 0;
+	virtual void produce() = 0;
 	/**
 	 * Consume is not a const method because Nest does need to keep some state info.
 	 * RawContext needs to be passed from the consuming to the producing side
@@ -69,17 +69,19 @@ private:
 
 class BinaryRawOperator : public RawOperator {
 public:
-	BinaryRawOperator(const RawOperator& leftChild,	const RawOperator& rightChild) :
+	BinaryRawOperator(RawOperator& leftChild,	RawOperator& rightChild) :
 			RawOperator(), leftChild(leftChild), rightChild(rightChild) 						{}
-	BinaryRawOperator(const RawOperator& leftChild, const RawOperator& rightChild,
+	BinaryRawOperator(RawOperator& leftChild, RawOperator& rightChild,
 			Plugin* const leftPlugin, Plugin* const rightPlugin) :
 			RawOperator(), leftChild(leftChild), rightChild(rightChild)	{}
 	virtual ~BinaryRawOperator() 										{ LOG(INFO) << "Collapsing binary operator"; }
-	const RawOperator& getLeftChild() const								{ return leftChild; }
-	const RawOperator& getRightChild() const							{ return rightChild; }
-private:
-	const RawOperator& leftChild;
-	const RawOperator& rightChild;
+	RawOperator& getLeftChild() 									{ return leftChild; }
+	RawOperator& getRightChild() 									{ return rightChild; }
+	void setLeftChild(RawOperator& leftChild)						{ this->leftChild = leftChild; }
+	void setRightChild(RawOperator& rightChild)						{ this->rightChild = rightChild; }
+protected:
+	RawOperator& leftChild;
+	RawOperator& rightChild;
 };
 
 class OperatorState {

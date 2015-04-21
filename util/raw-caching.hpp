@@ -43,7 +43,9 @@ typedef struct CacheInfo {
 	 * Zero implies we're dealing with the whole obj. (activeLoop)
 	 * Negative implies invalid entry */
 	int structFieldNo;
+	//Pointers to facilitate LLVM storing stuff in them
 	char **payloadPtr;
+	size_t *itemCount;
 } CacheInfo;
 class CachingService
 {

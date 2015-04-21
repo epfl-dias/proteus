@@ -185,22 +185,24 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 	Plugin* plugin 					= catalog.getPlugin(activeRelation);
 
 	{
-		/* Cache Logic */
-		/* XXX Apply in other visitors too! */
-		CachingService& cache = CachingService::getInstance();
-		CacheInfo info = cache.getCache(e);
-		if (info.structFieldNo != -1) {
-			cout << "[Generator: ] Expression found for "
-					<< e->getOriginalRelationName() << "."
-					<< e->getAttribute().getAttrName() << "!" << endl;
-			if (!cache.getCacheIsFull(e)) {
-				cout << "...but is not useable " << endl;
+		if (plugin->getPluginType() != PGBINARY) {
+			/* Cache Logic */
+			/* XXX Apply in other visitors too! */
+			CachingService& cache = CachingService::getInstance();
+			CacheInfo info = cache.getCache(e);
+			if (info.structFieldNo != -1) {
+				cout << "[Generator: ] Expression found for "
+						<< e->getOriginalRelationName() << "."
+						<< e->getAttribute().getAttrName() << "!" << endl;
+				if (!cache.getCacheIsFull(e)) {
+					cout << "...but is not useable " << endl;
+				} else {
+					return plugin->readCachedValue(info, currState);
+				}
 			} else {
-				return plugin->readCachedValue(info, currState);
-			}
-		} else {
 //			cout << "[Generator: ] No cache for expr of type " << e->getTypeID()
 //					<< endl;
+			}
 		}
 	}
 

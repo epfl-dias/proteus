@@ -148,7 +148,7 @@ void Nest::updateRelationPointers() const {
 	Builder->CreateStore(val_relationR, val_ptrRelationR);
 }
 
-void Nest::produce()	const {
+void Nest::produce() {
 	getChild()->produce();
 
 	//generateProbe(this->context);
@@ -279,10 +279,12 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 		//Retrieving activeTuple(s) from HT
 		AllocaInst *mem_activeTuple = NULL;
 		int i = 0;
-		const set<RecordAttribute>& tuplesIdentifiers =
-				mat.getTupleIdentifiers();
-		set<RecordAttribute>::const_iterator it = tuplesIdentifiers.begin();
+//		const set<RecordAttribute>& tuplesIdentifiers =
+//				mat.getTupleIdentifiers();
+		const vector<RecordAttribute*>& tuplesIdentifiers = mat.getWantedOIDs();
+		vector<RecordAttribute*>::const_iterator it = tuplesIdentifiers.begin();
 		for (; it != tuplesIdentifiers.end(); it++) {
+			RecordAttribute *attr = *it;
 			mem_activeTuple = context->CreateEntryBlockAlloca(F,
 					"mem_activeTuple", payloadType->getElementType(i));
 			vector<Value*> idxList = vector<Value*>();
@@ -298,7 +300,7 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 			RawValueMemory mem_valWrapper;
 			mem_valWrapper.mem = mem_activeTuple;
 			mem_valWrapper.isNull = context->createFalse();
-			(*allGroupBindings)[*it] = mem_valWrapper;
+			(*allGroupBindings)[*attr] = mem_valWrapper;
 			i++;
 		}
 
@@ -1011,11 +1013,12 @@ void Nest::buildHT(RawContext* context, const OperatorState& childState) {
 		vector<RecordAttribute*>::const_iterator itRec = fieldsLeft.begin();
 		int fieldNo = 0;
 		CacheInfo info;
-		const set<RecordAttribute>& oids = mat.getTupleIdentifiers();
-		set<RecordAttribute>::const_iterator itOids = oids.begin();
+		const vector<RecordAttribute*>& oids = mat.getWantedOIDs();
+		vector<RecordAttribute*>::const_iterator itOids = oids.begin();
 		for (; itOids != oids.end(); itOids++) {
+			RecordAttribute *attr = *itOids;
 			//				cout << "OID mat'ed" << endl;
-			info.objectTypes.push_back(itOids->getOriginalType()->getTypeID());
+			info.objectTypes.push_back(attr->getOriginalType()->getTypeID());
 		}
 		for (; itRec != fieldsLeft.end(); itRec++) {
 			//				cout << "Field mat'ed" << endl;
@@ -1035,10 +1038,13 @@ void Nest::buildHT(RawContext* context, const OperatorState& childState) {
 				//info.objectType = rPayloadType;
 				info.structFieldNo = fieldNo;
 				info.payloadPtr = ptr_relationR;
+				//XXX Have LLVM exec. fill this up!
+				info.itemCount = new size_t[1];
+				*(info.itemCount) = 0;
 				cache.registerCache(*it, info, fullRelation);
 
 				/* Having skipped OIDs */
-				if (fieldNo >= mat.getTupleIdentifiers().size()) {
+				if (fieldNo >= mat.getWantedOIDs().size()) {
 					cout << "[Radix: ] Field Cached: "
 							<< (*itRec)->getAttrName() << endl;
 					itRec++;
@@ -1453,17 +1459,20 @@ void Nest::generateProbe(RawContext* const context) const
 	//Retrieving activeTuple(s) from HT
 	AllocaInst *mem_activeTuple = NULL;
 	Value *activeTuple = NULL;
-	const set<RecordAttribute>& tuplesIdentifiers = mat.getTupleIdentifiers();
-	for(set<RecordAttribute>::const_iterator it = tuplesIdentifiers.begin(); it!=tuplesIdentifiers.end(); it++)	{
-		mem_activeTuple = context->CreateEntryBlockAlloca(TheFunction,"mem_activeTuple",str->getElementType(i));
+	const vector<RecordAttribute*>& tuplesIdentifiers = mat.getWantedOIDs();
+	for (vector<RecordAttribute*>::const_iterator it =
+			tuplesIdentifiers.begin(); it != tuplesIdentifiers.end(); it++) {
+		RecordAttribute *attr = *it;
+		mem_activeTuple = context->CreateEntryBlockAlloca(TheFunction,
+				"mem_activeTuple", str->getElementType(i));
 		Value* currValueCasted = Builder->CreateLoad(mem_currValueCasted);
-		activeTuple = context->getStructElem(currValueCasted,i);
-		Builder->CreateStore(activeTuple,mem_activeTuple);
+		activeTuple = context->getStructElem(currValueCasted, i);
+		Builder->CreateStore(activeTuple, mem_activeTuple);
 
 		RawValueMemory mem_valWrapper;
 		mem_valWrapper.mem = mem_activeTuple;
 		mem_valWrapper.isNull = context->createFalse();
-		(*allBucketBindings)[*it] = mem_valWrapper;
+		(*allBucketBindings)[*attr] = mem_valWrapper;
 		i++;
 	}
 

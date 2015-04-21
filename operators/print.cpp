@@ -23,7 +23,7 @@
 
 #include "operators/print.hpp"
 
-void Print::produce() const { getChild()->produce(); }
+void Print::produce() { getChild()->produce(); }
 
 void Print::consume (RawContext* const context, const OperatorState& childState) {
 

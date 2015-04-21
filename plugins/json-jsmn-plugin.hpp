@@ -105,6 +105,8 @@ public:
 		return new IntType();
 	}
 
+	virtual PluginType getPluginType() { return PGJSON; }
+
 private:
 	string& fname;
 	size_t fsize;

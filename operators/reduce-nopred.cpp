@@ -171,7 +171,7 @@ ReduceNoPred::ReduceNoPred(Monoid acc, expressions::Expression* outputExpr,
 	}
 }
 
-void ReduceNoPred::produce()	const { getChild()->produce(); }
+void ReduceNoPred::produce()	{ getChild()->produce(); }
 
 void ReduceNoPred::consume(RawContext* const context, const OperatorState& childState) {
 

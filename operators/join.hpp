@@ -27,13 +27,13 @@
 
 class Join : public BinaryRawOperator {
 public:
-	Join(expressions::BinaryExpression* predicate, const RawOperator& leftChild,
-			const RawOperator& rightChild, char* opLabel, Materializer& mat) :
+	Join(expressions::BinaryExpression* predicate, RawOperator& leftChild,
+			RawOperator& rightChild, char* opLabel, Materializer& mat) :
 			BinaryRawOperator(leftChild, rightChild), pred(predicate), htName(
 					opLabel), mat(mat) {}
 	virtual ~Join() {
 		LOG(INFO)<<"Collapsing Join operator";}
-	virtual void produce() const;
+	virtual void produce();
 	virtual void consume(RawContext* const context, const OperatorState& childState);
 	Materializer& getMaterializer() {return mat;}
 	virtual bool isFiltering() const {return true;}

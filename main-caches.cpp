@@ -286,7 +286,6 @@ void joinQueryRelationalRadixCache() {
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
 
-	/* XXX Updated Materializer requires 'expressions to be cached'*/
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
 			intType, leftArg, projTupleL);
 	expressions::Expression* exprLeftMat1 = new expressions::RecordProjection(
@@ -298,16 +297,12 @@ void joinQueryRelationalRadixCache() {
 	whichExpressionsLeft.push_back(exprLeftMat1);
 	whichExpressionsLeft.push_back(exprLeftMat2);
 
+	vector<RecordAttribute*> whichOIDLeft;
+	whichOIDLeft.push_back(&projTupleL);
+
 	Materializer* matLeft = new Materializer(whichFields, whichExpressionsLeft,
-			outputModes);
+			whichOIDLeft, outputModes);
 
-	vector<materialization_mode> outputModes2;
-	//active loop too
-	outputModes2.insert(outputModes2.begin(), EAGER);
-	outputModes2.insert(outputModes2.begin(), EAGER);
-	outputModes2.insert(outputModes2.begin(), EAGER);
-
-	/* XXX Updated Materializer requires 'expressions to be cached'*/
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			intType, rightArg, projTupleR);
 	expressions::Expression* exprRightMat1 = new expressions::RecordProjection(
@@ -319,8 +314,15 @@ void joinQueryRelationalRadixCache() {
 	whichExpressionsRight.push_back(exprRightMat1);
 	whichExpressionsRight.push_back(exprRightMat2);
 
+	vector<RecordAttribute*> whichOIDRight;
+	whichOIDRight.push_back(&projTupleR);
+
+	outputModes.clear();
+	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes.insert(outputModes.begin(), EAGER);
+	outputModes.insert(outputModes.begin(), EAGER);
 	Materializer* matRight = new Materializer(whichFields2,
-			whichExpressionsRight, outputModes2);
+			whichExpressionsRight, whichOIDRight, outputModes);
 
 	char joinLabel[] = "radixJoin1";
 	RadixJoin join = RadixJoin(joinPred, scan, scan2, &ctx, joinLabel, *matLeft,

@@ -160,10 +160,20 @@ private:
 class RecordType : public ExpressionType	{
 public:
 
-	RecordType(list<RecordAttribute*>& args) : args(args) {
-		list<RecordAttribute*>::iterator it = args.begin();
+	RecordType() {}
+	RecordType(list<RecordAttribute*> args) : args(args) {
+		list<RecordAttribute*>::const_iterator it = args.begin();
 		for(; it != args.end(); it++)	{
 			RecordAttribute* arg = *it;
+			argsMap[arg->getAttrName()] = arg;
+		}
+	}
+
+	RecordType(vector<RecordAttribute*> args) {
+		vector<RecordAttribute*>::iterator it = args.begin();
+		for (; it != args.end(); it++) {
+			RecordAttribute* arg = *it;
+			this->args.push_back(arg);
 			argsMap[arg->getAttrName()] = arg;
 		}
 	}
@@ -173,7 +183,7 @@ public:
 		ss<<"Record(";
 		int count = 0;
 		int size = args.size();
-		for (list<RecordAttribute*>::iterator it = args.begin(); it != args.end(); it++) {
+		for (list<RecordAttribute*>::const_iterator it = args.begin(); it != args.end(); it++) {
 			ss<<(*it)->getType();
 			count++;
 			if(count != size) {
@@ -184,14 +194,14 @@ public:
 		return ss.str();
 	}
 	typeID getTypeID()	const					{ return RECORD; }
-	list<RecordAttribute*>& getArgs() const 	{ return args; }
+	list<RecordAttribute*> getArgs() const 	{ return args; }
 	map<string, RecordAttribute*>& getArgsMap()	{ return argsMap; }
 	int getArgsNo() 							{ return args.size(); }
 	bool isPrimitive() 	const					{ return false; }
 	~RecordType() 								{}
 
 private:
-	list<RecordAttribute*>& args;
+	list<RecordAttribute*> args;
 	map<string, RecordAttribute*> argsMap;
 
 };

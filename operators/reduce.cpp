@@ -172,7 +172,7 @@ Reduce::Reduce(Monoid acc, expressions::Expression* outputExpr,
 	}
 }
 
-void Reduce::produce()	const { getChild()->produce(); }
+void Reduce::produce()	{ getChild()->produce(); }
 
 void Reduce::consume(RawContext* const context, const OperatorState& childState) {
 

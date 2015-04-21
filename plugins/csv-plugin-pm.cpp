@@ -1696,7 +1696,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 	Builder->CreateStore(val_newline,mem_pos);
 	int currAttr = 0;
 
-	/* Preparing Cache Attempt*/
+	/* Preparing Cache Attempt */
 	/* XXX Very silly conversion */
 	list<RecordAttribute*>::iterator attrIter = rec.getArgs().begin();
 	list<RecordAttribute> attrList;

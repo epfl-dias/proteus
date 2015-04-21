@@ -44,7 +44,7 @@ public:
 	ExprMaterializer(expressions::Expression* expr, RawOperator* const child,
 			RawContext* const context, char* opLabel);
 	virtual ~ExprMaterializer();
-	virtual void produce() const;
+	virtual void produce();
 	virtual void consume(RawContext* const context,
 			const OperatorState& childState);
 	virtual bool isFiltering() const {return false;}

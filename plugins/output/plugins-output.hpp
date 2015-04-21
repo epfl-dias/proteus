@@ -25,6 +25,7 @@
 #define PLUGINS_OUTPUT_HPP_
 
 #include "plugins/plugins.hpp"
+//#include "util/raw-catalog.hpp"
 
 class RawContext;
 //TODO Refactor into multiple materializers
@@ -48,6 +49,7 @@ public:
 
 	Materializer(const vector<RecordAttribute*>& whichFields,
 			const vector<expressions::Expression*>& wantedExpressions,
+			vector<RecordAttribute*>& whichOIDs,
 			const vector<materialization_mode>& outputMode_);
 
 	~Materializer() {}
@@ -55,18 +57,39 @@ public:
 	const vector<RecordAttribute*>& getWantedFields() const {
 			return wantedFields;
 	}
+	const vector<RecordAttribute*>& getWantedOIDs() {
+//		if (wantedOIDs.size() != 0) {
+//			return wantedOIDs;
+//		} else {
+			/* HACK to avoid crashes in deprecated test cases! */
+			set<RecordAttribute>::iterator it = tupleIdentifiers.begin();
+			for (; it != tupleIdentifiers.end(); it++) {
+//				RawCatalog& catalog 			= RawCatalog::getInstance();
+//				Plugin* pg = catalog.getPlugin(it->getOriginalRelationName());
+				RecordAttribute *attr = new RecordAttribute(
+						it->getOriginalRelationName(), it->getAttrName());//, pg->getOIDType());
+				wantedOIDs.push_back(attr);
+			}
+			return wantedOIDs;
+//		}
+	}
 	const vector<expressions::Expression*>& getWantedExpressions() const {
 		return wantedExpressions;
 	}
 	const vector<materialization_mode>& getOutputMode() const {
 		return outputMode;
 	}
+
+	/* XXX Remove. OIDs are not sth to be specified
+	 * by checking bindings. It's the query plan that should
+	 * provide them */
 	void addTupleIdentifier(RecordAttribute attr) {
 		tupleIdentifiers.insert(attr);
+
 	}
-	const set<RecordAttribute>& getTupleIdentifiers() const {
-		return tupleIdentifiers;
-	}
+//	const set<RecordAttribute>& getTupleIdentifiers() const {
+//		return tupleIdentifiers;
+//	}
 private:
 	/**
 	 *  CONVENTIONS:
@@ -76,6 +99,7 @@ private:
 	const vector<expressions::Expression*> wantedExpressions;
 
 	const vector<RecordAttribute*>& wantedFields;
+	vector<RecordAttribute*> wantedOIDs;
 	const vector<materialization_mode>& outputMode;
 	//int tupleIdentifiers;
 	set<RecordAttribute> tupleIdentifiers;

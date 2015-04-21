@@ -51,6 +51,7 @@ typedef struct Bindings	{
 	const RawValue record;
 } Bindings;
 
+enum PluginType	{ PGCSV, PGJSON, PGBINARY };
 /**********************************/
 /*  The abstract part of plug-ins */
 /**********************************/
@@ -108,5 +109,6 @@ public:
 
 //	virtual typeID getOIDSize() = 0;
 	virtual ExpressionType *getOIDType() = 0;
+	virtual PluginType getPluginType() = 0;
 };
 #endif /* PLUGINS_LLVM_HPP_ */

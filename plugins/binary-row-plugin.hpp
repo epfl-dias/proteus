@@ -88,6 +88,8 @@ public:
 		return new IntType();
 	}
 
+	virtual PluginType getPluginType() { return PGBINARY; }
+
 private:
 	string& fname;
 	off_t fsize;

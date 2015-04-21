@@ -23,7 +23,7 @@
 
 #include "operators/scan.hpp"
 
-void Scan::produce() const {
+void Scan::produce() {
 	LOG(INFO) << "[Scan:] " << pg.getName();
 	pg.init();
 	pg.generate(*this);

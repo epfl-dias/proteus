@@ -22,6 +22,8 @@
  */
 
 #include "operators/operators.hpp"
+#include "operators/scan.hpp"
+#include "plugins/binary-internal-plugin.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "util/radix/joins/radix-join.hpp"
 #include "util/raw-functions.hpp"
@@ -64,11 +66,12 @@ struct kvBuf	{
 class RadixJoin: public BinaryRawOperator {
 public:
 	RadixJoin(expressions::BinaryExpression* predicate,
-			const RawOperator& leftChild, const RawOperator& rightChild,
-			RawContext* const context, char* opLabel, Materializer& matLeft,
+			RawOperator& leftChild, RawOperator& rightChild,
+			RawContext* const context, const char* opLabel, Materializer& matLeft,
 			Materializer& matRight);
 	virtual ~RadixJoin() ;
-	virtual void produce() const;
+	virtual void produce() ;
+//	void produceNoCache() ;
 	virtual void consume(RawContext* const context,
 			const OperatorState& childState);
 	Materializer& getMaterializerLeft() {return matLeft;}
@@ -80,7 +83,9 @@ private:
 	void runRadix() const;
 	Value *radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const;
 
-	char** findSideInCache(Materializer &mat) const;
+//	char** findSideInCache(Materializer &mat) const;
+	Scan* findSideInCache(Materializer &mat) const;
+	void placeInCache(Materializer &mat, bool isLeft) const;
 	void updateRelationPointers() const;
 	void freeArenas() const;
 	struct relationBuf relR;
@@ -113,4 +118,8 @@ private:
 	expressions::BinaryExpression* pred;
 	Materializer& matLeft;
 	Materializer& matRight;
+
+	/* Cache- related */
+	bool cachedLeft;
+	bool cachedRight;
 };

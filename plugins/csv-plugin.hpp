@@ -82,6 +82,8 @@ public:
 		return new Int64Type();
 	}
 
+	virtual PluginType getPluginType() { return PGCSV; }
+
 private:
 	string& fname;
 	off_t fsize;

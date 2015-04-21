@@ -49,13 +49,15 @@ public:
 	 * -> dates require more sophisticated serialization (boost?)
 	 *
 	 * EACH FILE CONTAINS A size_t COUNTER AS ITS FIRST ENTRY!
-	 * => Looping does not depends on fsize: it depends on this 'size/length'
+	 * => Looping does not depend on fsize: it depends on this 'size/length'
 	 */
 
-	BinaryColPlugin(RawContext* const context, string& fnamePrefix, RecordType& rec, vector<RecordAttribute*>& whichFields);
+	BinaryColPlugin(RawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields);
+//	BinaryColPlugin(RawContext* const context, vector<RecordAttribute*>& whichFields, vector<CacheInfo> whichCaches);
 	~BinaryColPlugin();
 	virtual string& getName() { return fnamePrefix; }
 	void init();
+//	void initCached();
 	void generate(const RawOperator& producer);
 	void finish();
 	virtual RawValueMemory readPath(string activeRelation, Bindings bindings, const char* pathVar);
@@ -110,12 +112,18 @@ public:
 		return new IntType();
 	}
 
+	virtual PluginType getPluginType() { return PGBINARY; }
+
 private:
 	//Schema info provided
-	RecordType& rec;
+	RecordType rec;
 	vector<RecordAttribute*>& wantedFields;
 
-	string& fnamePrefix;
+	/* Used when we treat the col. files as internal caches! */
+	bool isCached;
+	vector<CacheInfo> whichCaches;
+
+	string fnamePrefix;
 	off_t *colFilesize; //Size of each column
 	int *fd; //One per column
 	char **buf;
@@ -136,6 +144,8 @@ private:
 	//Used to store memory positions of offset, buf and filesize in the generated code
 	map<string, AllocaInst*> NamedValuesBinaryCol;
 	RawContext* const context;
+	//To be initialized by init(). Dictates # of loops
+	Value *val_size;
 
 	const char* posVar;		// = "offset";
 	const char* bufVar;		// = "fileBuffer";

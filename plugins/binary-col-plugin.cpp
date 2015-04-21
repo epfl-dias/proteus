@@ -23,10 +23,12 @@
 
 #include "plugins/binary-col-plugin.hpp"
 
-BinaryColPlugin::BinaryColPlugin(RawContext* const context, string& fnamePrefix, RecordType& rec, vector<RecordAttribute*>& whichFields)
+BinaryColPlugin::BinaryColPlugin(RawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields)
 	: fnamePrefix(fnamePrefix), rec(rec), wantedFields(whichFields), context(context),
 	  posVar("offset"), bufVar("buf"), fsizeVar("fileSize"), sizeVar("size"), itemCtrVar("itemCtr") {
 
+	isCached = false;
+	val_size = NULL;
 	int fieldsNumber = wantedFields.size();
 	if(fieldsNumber <= 0)	{
 		string error_msg = string("[Binary Col Plugin]: Invalid number of fields");
@@ -98,9 +100,91 @@ BinaryColPlugin::BinaryColPlugin(RawContext* const context, string& fnamePrefix,
 
 }
 
-BinaryColPlugin::~BinaryColPlugin() {
+/* No STRING yet in this mode */
+//BinaryColPlugin::BinaryColPlugin(RawContext* const context, vector<RecordAttribute*>& whichFields, vector<CacheInfo> whichCaches)
+//	: rec(rec), wantedFields(whichFields), whichCaches(whichCaches), context(context), fnamePrefix(""),
+//	  posVar("offset"), bufVar("buf"), fsizeVar("fileSize"), sizeVar("size"), itemCtrVar("itemCtr") {
+//
+//	isCached = true;
+//	val_size = NULL;
+//	int fieldsNumber = wantedFields.size();
+//	if(fieldsNumber <= 0)	{
+//		string error_msg = string("[Binary Col Plugin]: Invalid number of fields");
+//		LOG(ERROR) << error_msg;
+//		throw runtime_error(error_msg);
+//	}
+//
+//	if (whichFields.size() != whichCaches.size()) {
+//		string error_msg = string(
+//				"[Binary Col Plugin]: Failed attempt to use caches");
+//		LOG(ERROR)<< error_msg;
+//		throw runtime_error(error_msg);
+//	}
+//	vector<RecordAttribute*>::iterator it;
+//	vector<CacheInfo>::iterator itCaches;
+//	LOG(INFO) << "[BinaryColPlugin *as cache*]";
+//}
 
-}
+BinaryColPlugin::~BinaryColPlugin() {}
+
+/* No STRING yet in this mode */
+/* The constructor of a previous colPlugin has taken care of the populated buffers we need,
+ * the val. size, etc. */
+//void BinaryColPlugin::initCached()	{
+//
+//	Function* F = context->getGlobalFunction();
+//	LLVMContext& llvmContext = context->getLLVMContext();
+//	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+//	Type* int64Type = Type::getInt64Ty(llvmContext);
+//	IRBuilder<>* Builder = context->getBuilder();
+//
+//	int size = *(whichCaches.at(0).itemCount);
+//	if(size <= 0)	{
+//		string error_msg = string(
+//				"[Binary Col Plugin]: Failed attempt to use caches");
+//		LOG(ERROR)<< error_msg;
+//		throw runtime_error(error_msg);
+//	}
+//	else {
+//		val_size = context->createInt32(size);
+//	}
+//
+//	vector<CacheInfo>::iterator itCaches;
+//	vector<RecordAttribute*>::iterator it;
+//	int cnt = 0;
+//	for (it = wantedFields.begin(); it != wantedFields.end(); it++,itCaches++)	{
+//		CacheInfo info = *itCaches;
+//		buf[cnt] = *info.payloadPtr;
+//
+//		RecordAttribute *attr = *it;
+//		//Allocating memory for each field / column involved
+//		string attrName = attr->getAttrName();
+//		string currPosVar = string(posVar) + "." + attrName;
+//		string currBufVar = string(bufVar) + "." + attrName;
+//
+//		AllocaInst *offsetMem = context->CreateEntryBlockAlloca(F,currPosVar,int64Type);
+//		AllocaInst *bufMem = context->CreateEntryBlockAlloca(F,currBufVar,charPtrType);
+//
+//		Value* offsetVal = Builder->getInt64(0);
+//		Builder->CreateStore(offsetVal,offsetMem);
+//		NamedValuesBinaryCol[currPosVar] = offsetMem;
+//
+//		//Typical way to pass a pointer via the LLVM API
+//		AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(F,string("mem_bufPtr"),charPtrType);
+//		Value* val_bufPtr = ConstantInt::get(llvmContext, APInt(64,((uint64_t)buf[cnt])));
+//		//i8*
+//		Value* unshiftedPtr = Builder->CreateIntToPtr(val_bufPtr,charPtrType);
+//		Builder->CreateStore(unshiftedPtr,bufMem);
+//		NamedValuesBinaryCol[currBufVar] = bufMem;
+//
+//		cnt++;
+//	}
+//	//Global item counter
+//	Value* val_itemCtr = context->createInt64(0);
+//	AllocaInst *mem_itemCtr = context->CreateEntryBlockAlloca(F, itemCtrVar, int64Type);
+//	Builder->CreateStore(val_itemCtr,mem_itemCtr);
+//	NamedValuesBinaryCol[itemCtrVar] = mem_itemCtr;
+//}
 
 
 void BinaryColPlugin::init()	{
@@ -108,8 +192,23 @@ void BinaryColPlugin::init()	{
 	Function* F = context->getGlobalFunction();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	PointerType* int64PtrType = Type::getInt64PtrTy(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
+
+	/* XXX Very silly conversion */
+	list<RecordAttribute*>::iterator attrIter = rec.getArgs().begin();
+	list<RecordAttribute> attrList;
+	RecordAttribute projTuple = RecordAttribute(fnamePrefix, activeLoop,
+			this->getOIDType());
+	attrList.push_back(projTuple);
+	for (vector<RecordAttribute*>::iterator it = wantedFields.begin();
+			it != wantedFields.end(); it++) {
+		attrList.push_back(*(*it));
+	}
+	expressions::InputArgument arg = expressions::InputArgument(&rec, 0,
+			attrList);
+	/*******/
 
 	vector<RecordAttribute*>::iterator it;
 	int cnt = 0;
@@ -119,8 +218,9 @@ void BinaryColPlugin::init()	{
 			throw runtime_error(string("csv.mmap"));
 		}
 
+		RecordAttribute *attr = *it;
 		//Allocating memory for each field / column involved
-		string attrName = (*it)->getAttrName();
+		string attrName = attr->getAttrName();
 		string currPosVar = string(posVar) + "." + attrName;
 		string currBufVar = string(bufVar) + "." + attrName;
 
@@ -155,13 +255,65 @@ void BinaryColPlugin::init()	{
 			NamedValuesBinaryCol[currDictVar] = bufMem;
 		}
 		cnt++;
+
+		/* Deal with preparation of input arrays too */
+		string bufVarStr = string(bufVar);
+		//Reminder: Every column starts with an entry of its size
+
+
+
+		if (it == wantedFields.begin()) {
+			val_size = readAsInt64LLVM(*attr);
+#ifdef DEBUG
+			vector<Value*> ArgsV;
+			ArgsV.push_back(val_size);
+			Function* debugInt = context->getFunction("printi64");
+			Builder->CreateCall(debugInt, ArgsV, "printi64");
+			Builder->CreateCall(debugInt, ArgsV, "printi64");
+#endif
+		}
+
+		/* Move all buffer pointers to the actual data
+		 * and cast appropriately
+		 */
+		prepareArray(*attr);
+
+		{
+			/* Make columns available to caching service!
+			 * NOTE: Not 1-1 applicable in radix case
+			 * Reason: OID not explicitly materialized */
+			const ExpressionType *fieldType = (*it)->getOriginalType();
+			const RecordAttribute& thisAttr = *(*it);
+			expressions::Expression* thisField =
+					new expressions::RecordProjection(fieldType, &arg,
+							thisAttr);
+
+			/* Place info about col. in cache! */
+			cout << "[Binary Col. Plugin:] Register (bin col.) in cache" << endl;
+			CachingService& cache = CachingService::getInstance();
+			bool fullRelation = true;
+
+			CacheInfo info;
+			info.objectTypes.push_back(attr->getOriginalType()->getTypeID());
+			info.structFieldNo = 0;
+			//Skipping the offset that contains the size of the column!
+			char* ptr_rawBuffer = buf[cnt] + sizeof(size_t);
+			info.payloadPtr = &ptr_rawBuffer;
+			//MUST fill this up!
+			info.itemCount = new size_t[1];
+			Value *mem_itemCount = context->CastPtrToLlvmPtr(int64PtrType,
+					(void*) info.itemCount);
+			Builder->CreateStore(val_size, mem_itemCount);
+			cache.registerCache(thisField, info, fullRelation);
+		}
+
 	}
+	cout << "[BinaryColPlugin: ] Initialization Successful for " << fnamePrefix << endl;
 	//Global item counter
 	Value* val_itemCtr = context->createInt64(0);
 	AllocaInst *mem_itemCtr = context->CreateEntryBlockAlloca(F, itemCtrVar, int64Type);
 	Builder->CreateStore(val_itemCtr,mem_itemCtr);
 	NamedValuesBinaryCol[itemCtrVar] = mem_itemCtr;
-
 }
 
 void BinaryColPlugin::generate(const RawOperator &producer) {
@@ -688,34 +840,6 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
-
-	string bufVarStr = string(bufVar);
-	vector<RecordAttribute*>::iterator it;
-	Value* val_size = NULL;
-	//Reminder: Every column starts with an entry of its size
-	for(it = wantedFields.begin(); it != wantedFields.end(); it++)	{
-
-		string currBufVar = bufVarStr + "." + (*it)->getAttrName();
-		RecordAttribute *attr = *it;
-
-		if(it == wantedFields.begin())	{
-			val_size = readAsInt64LLVM(*attr);
-#ifdef DEBUG
-		vector<Value*> ArgsV;
-		ArgsV.push_back(val_size);
-		Function* debugInt = context->getFunction("printi64");
-		Builder->CreateCall(debugInt, ArgsV, "printi64");
-		Builder->CreateCall(debugInt, ArgsV, "printi64");
-#endif
-		}
-
-		/* Move all buffer pointers to the actual data
-		 * and cast appropriately
-		 */
-//		Value* val_offset = context->createInt64(sizeof(size_t));
-//		skipLLVM(*attr, val_offset);
-		prepareArray(*attr);
-	}
 
 	//Container for the variable bindings
 	map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();

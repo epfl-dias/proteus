@@ -23,7 +23,7 @@
 
 #include "operators/join.hpp"
 
-void Join::produce() const {
+void Join::produce() {
 	getLeftChild().produce();
 	getRightChild().produce();
 }
@@ -246,8 +246,9 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		int i = 0;
 		//Retrieving activeTuple(s) from HT
 		AllocaInst *mem_activeTuple = NULL;
-		const set<RecordAttribute>& tuplesIdentifiers = mat.getTupleIdentifiers();
-		for(set<RecordAttribute>::const_iterator it = tuplesIdentifiers.begin(); it!=tuplesIdentifiers.end(); it++)	{
+		const vector<RecordAttribute*>& tuplesIdentifiers = mat.getWantedOIDs();
+		for(vector<RecordAttribute*>::const_iterator it = tuplesIdentifiers.begin(); it!=tuplesIdentifiers.end(); it++)	{
+			RecordAttribute *attr = *it;
 			mem_activeTuple = context->CreateEntryBlockAlloca(TheFunction,"mem_activeTuple",str->getElementType(i));
 			vector<Value*> idxList = vector<Value*>();
 			idxList.push_back(context->createInt32(0));
@@ -262,7 +263,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 			RawValueMemory mem_valWrapper;
 			mem_valWrapper.mem = mem_activeTuple;
 			mem_valWrapper.isNull = context->createFalse();
-			(*allJoinBindings)[*it] = mem_valWrapper;
+			(*allJoinBindings)[*attr] = mem_valWrapper;
 			i++;
 		}
 

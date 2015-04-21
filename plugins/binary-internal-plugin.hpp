@@ -40,6 +40,11 @@ public:
 	 *    	 (chicken - egg prob.)
 	 */
 	BinaryInternalPlugin(RawContext* const context, string structName);
+	/* Radix-related atm.
+	 * Resembles BinaryRowPg */
+	BinaryInternalPlugin(RawContext* const context, RecordType rec, string structName,
+			vector<RecordAttribute*> whichOIDs, vector<RecordAttribute*> whichFields, char* rawBuffer,
+			size_t entriesNo);
 	~BinaryInternalPlugin();
 	virtual string& getName() { return structName; }
 	void init();
@@ -86,6 +91,8 @@ public:
 		return new IntType();
 	}
 
+	virtual PluginType getPluginType() { return PGBINARY; }
+
 private:
 	string structName;
 
@@ -93,6 +100,33 @@ private:
 	 * Code-generation-related
 	 */
 	RawContext* const context;
+	/* Radix-related atm */
+	void scan(const RawOperator& producer);
+	//
+	RecordType rec;
+	//Number of entries, if applicable
+	Value *val_size;
+	/* Necessary if we are to iterate over the internal caches */
+
+	vector<RecordAttribute*> fields;
+	vector<RecordAttribute*> OIDs;
+
+	Value *mem_buffer;
+	AllocaInst *mem_pos;
+
+	/* Since we allow looping over cache, we must also extract fields
+	 * while looping */
+	void skipLLVM(Value* offset);
+	void readAsIntLLVM(RecordAttribute attName,
+			map<RecordAttribute, RawValueMemory>& variables);
+	void readAsInt64LLVM(RecordAttribute attName,
+				map<RecordAttribute, RawValueMemory>& variables);
+	void readAsStringLLVM(RecordAttribute attName,
+			map<RecordAttribute, RawValueMemory>& variables);
+	void readAsFloatLLVM(RecordAttribute attName,
+			map<RecordAttribute, RawValueMemory>& variables);
+	void readAsBooleanLLVM(RecordAttribute attName,
+			map<RecordAttribute, RawValueMemory>& variables);
 };
 
 #endif

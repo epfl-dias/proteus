@@ -68,7 +68,7 @@ Nest::Nest(vector<Monoid> accs, vector<expressions::Expression*> outputExprs, ve
 
 }
 
-void Nest::produce()	const {
+void Nest::produce()	{
 	getChild()->produce();
 
 	generateProbe(this->context);
@@ -374,8 +374,11 @@ void Nest::generateProbe(RawContext* const context) const
 	//Retrieving activeTuple(s) from HT
 	AllocaInst *mem_activeTuple = NULL;
 	Value *activeTuple = NULL;
-	const set<RecordAttribute>& tuplesIdentifiers = mat.getTupleIdentifiers();
-	for(set<RecordAttribute>::const_iterator it = tuplesIdentifiers.begin(); it!=tuplesIdentifiers.end(); it++)	{
+//	const set<RecordAttribute>& tuplesIdentifiers = mat.getTupleIdentifiers();
+	const vector<RecordAttribute*>& tuplesIdentifiers = mat.getWantedOIDs();
+	for (vector<RecordAttribute*>::const_iterator it =
+			tuplesIdentifiers.begin(); it != tuplesIdentifiers.end(); it++) {
+		RecordAttribute *attr = *it;
 		mem_activeTuple = context->CreateEntryBlockAlloca(TheFunction,"mem_activeTuple",str->getElementType(i));
 		Value* currValueCasted = Builder->CreateLoad(mem_currValueCasted);
 		activeTuple = context->getStructElem(currValueCasted,i);
@@ -384,7 +387,7 @@ void Nest::generateProbe(RawContext* const context) const
 		RawValueMemory mem_valWrapper;
 		mem_valWrapper.mem = mem_activeTuple;
 		mem_valWrapper.isNull = context->createFalse();
-		(*allBucketBindings)[*it] = mem_valWrapper;
+		(*allBucketBindings)[*attr] = mem_valWrapper;
 		i++;
 	}
 

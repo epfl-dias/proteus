@@ -31,7 +31,7 @@ public:
 		  UnaryRawOperator(child), expr(expr) 							{}
 	virtual ~Select() 													{ LOG(INFO) << "Collapsing selection operator"; }
 
-	virtual void produce() const;
+	virtual void produce();
 	virtual void consume(RawContext* const context, const OperatorState& childState);
 	virtual bool isFiltering() const {return true;}
 private:

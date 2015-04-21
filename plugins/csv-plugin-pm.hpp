@@ -106,6 +106,8 @@ public:
 		return new IntType();
 	}
 
+	virtual PluginType getPluginType() { return PGCSV; }
+
 private:
 	string& fname;
 	off_t fsize;

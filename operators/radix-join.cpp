@@ -23,9 +23,13 @@
 
 #include "operators/radix-join.hpp"
 
+/**
+ * This version operates over int keys.
+ * Alternate versions would also hash the key (..as radix-nest does)
+ */
 RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
-		const RawOperator& leftChild, const RawOperator& rightChild,
-		RawContext* const context, char* opLabel, Materializer& matLeft,
+		RawOperator& leftChild, RawOperator& rightChild,
+		RawContext* const context, const char* opLabel, Materializer& matLeft,
 		Materializer& matRight) :
 		BinaryRawOperator(leftChild, rightChild), pred(predicate),
 		context(context), matLeft(matLeft), matRight(matRight), htLabel(opLabel) {
@@ -67,10 +71,10 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 //	size_t sizeR = 10000000000;
 //	size_t sizeS = 15000000000;
 
-//	size_t sizeR = 1000;
-//	size_t sizeS = 1500;
-	size_t sizeR = 50000;
-	size_t sizeS = 50000;
+	size_t sizeR = 1000;
+	size_t sizeS = 1500;
+//	size_t sizeR = 50000;
+//	size_t sizeS = 50000;
 
 	//size_t sizeR = 100000000;
 	//size_t sizeS = 100000000;
@@ -167,10 +171,12 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 	Builder->CreateStore(context->createInt64(kvSizeS),htS.mem_size);
 	Builder->CreateStore(zero, htS.mem_offset);
 
-
 	/* Defined in consume() */
 	rPayloadType = NULL;
 	sPayloadType = NULL;
+
+	/* Caches */
+	cachedLeft = cachedRight = false;
 }
 
 RadixJoin::~RadixJoin()	{
@@ -226,34 +232,161 @@ void RadixJoin::freeArenas() const	{
 }
 
 /* NULL if no exact match found, otherwise relationPtr */
-char** RadixJoin::findSideInCache(Materializer &mat) const {
+/* Note that this works only with caches produced by radix atm
+ * Expression caches can't be used verbatim */
+Scan* RadixJoin::findSideInCache(Materializer &mat) const {
 	CachingService& cache = CachingService::getInstance();
 	bool found = true;
-	/* Is the relation already materialized?? */
+	string relName;
 
-	const vector<expressions::Expression*>& expsLeft =
+	/* Is the relation already materialized?? */
+	const vector<expressions::Expression*>& exps =
 			mat.getWantedExpressions();
-	if (!expsLeft.empty()) {
-		vector<expressions::Expression*>::const_iterator it = expsLeft.begin();
+	if (!exps.empty()) {
+		vector<expressions::Expression*>::const_iterator it = exps.begin();
 		int failedNo = 0;
 		CacheInfo info;
-		for (; it != expsLeft.end(); it++) {
+		for (; it != exps.end(); it++) {
 			expressions::Expression *expr = *it;
 			info = cache.getCache(expr);
 			if (info.structFieldNo == -1) {
+				//cout << failedNo << " did not match!" << endl;
 				return NULL;
 			}
 			if (!cache.getCacheIsFull(expr)) {
+				//cout << failedNo << " did not match!" << endl;
 				return NULL;
 			}
 			failedNo++;
 		}
 		if (found) {
 			cout << "Relation side is READY" << endl;
-			return info.payloadPtr;
+			/*BinaryInternalPlugin::BinaryInternalPlugin(RawContext* const context,
+		RecordType rec, string structName, vector<RecordAttribute*> whichFields,
+		char* rawBuffer, int entriesNo)*/
+
+			const vector<RecordAttribute*>& fields = mat.getWantedFields();
+
+			const vector<RecordAttribute*>& OIDs = mat.getWantedOIDs();
+
+			RecordType rec = RecordType(fields);
+			BinaryInternalPlugin *pg = new BinaryInternalPlugin(context, rec,
+					htLabel, OIDs, fields, *(info.payloadPtr), *(info.itemCount));
+
+			Scan *newScan = new Scan(context,*pg);
+			return newScan;
+			//return info.payloadPtr;
 		}
 	}
+	cout << "No expressions to check for" << endl;
 	return NULL;
+}
+//char** RadixJoin::findSideInCache(Materializer &mat) const {
+//	CachingService& cache = CachingService::getInstance();
+//	bool found = true;
+//	/* Is the relation already materialized?? */
+//
+//	const vector<expressions::Expression*>& expsLeft =
+//			mat.getWantedExpressions();
+//	if (!expsLeft.empty()) {
+//		vector<expressions::Expression*>::const_iterator it = expsLeft.begin();
+//		int failedNo = 0;
+//		CacheInfo info;
+//		for (; it != expsLeft.end(); it++) {
+//			expressions::Expression *expr = *it;
+//			info = cache.getCache(expr);
+//			if (info.structFieldNo == -1) {
+//				return NULL;
+//			}
+//			if (!cache.getCacheIsFull(expr)) {
+//				return NULL;
+//			}
+//			failedNo++;
+//		}
+//		if (found) {
+//			cout << "Relation side is READY" << endl;
+//			return info.payloadPtr;
+//		}
+//	}
+//	return NULL;
+//}
+
+void RadixJoin::placeInCache(Materializer &mat, bool isLeft) const {
+	IRBuilder<> *Builder = context->getBuilder();
+	LLVMContext& llvmContext = context->getLLVMContext();
+	PointerType *int64PtrType = Type::getInt64PtrTy(llvmContext);
+	char** ptr_relation;
+	Value *val_tuplesNo;
+
+	if(isLeft)	{
+		ptr_relation = ptr_relationR;
+		val_tuplesNo = Builder->CreateLoad(relR.mem_tuplesNo);
+	}
+	else
+	{
+		ptr_relation = ptr_relationS;
+		val_tuplesNo = Builder->CreateLoad(relS.mem_tuplesNo);
+	}
+
+	CachingService& cache = CachingService::getInstance();
+	bool fullRelation;
+	if(isLeft)
+	{
+		fullRelation = !(this->leftChild).isFiltering();
+	}
+	else
+	{
+		fullRelation = !(this->rightChild).isFiltering();
+	}
+	const vector<expressions::Expression*>& exps =
+			mat.getWantedExpressions();
+	const vector<RecordAttribute*>& fields = mat.getWantedFields();
+	/* Note: wantedFields do not include activeTuple */
+	vector<RecordAttribute*>::const_iterator itRec = fields.begin();
+	int fieldNo = 0;
+	CacheInfo info;
+	const vector<RecordAttribute*>& oids = mat.getWantedOIDs();
+	//const set<RecordAttribute>& oids = mat.getTupleIdentifiers();
+	vector<RecordAttribute*>::const_iterator itOids = oids.begin();
+	for (; itOids != oids.end(); itOids++) {
+		RecordAttribute *attr = *itOids;
+		//				cout << "OID mat'ed" << endl;
+		info.objectTypes.push_back(attr->getOriginalType()->getTypeID());
+	}
+	for (; itRec != fields.end(); itRec++) {
+		//				cout << "Field mat'ed" << endl;
+		info.objectTypes.push_back((*itRec)->getOriginalType()->getTypeID());
+	}
+	itRec = fields.begin();
+	/* Explicit OID ('activeTuple') will be field 0 */
+	if (!exps.empty()) {
+
+		/* By default, cache looks sth like custom_struct*.
+		 * Is it possible to isolate cache for just ONE of the expressions??
+		 * Group of expressions probably more palpable */
+		vector<expressions::Expression*>::const_iterator it = exps.begin();
+		for (; it != exps.end(); it++) {
+			//info.objectType = rPayloadType;
+			info.structFieldNo = fieldNo;
+			info.payloadPtr = ptr_relation;
+			//XXX Have LLVM exec. fill this up!
+			info.itemCount = new size_t[1];
+			Value *mem_itemCount = context->CastPtrToLlvmPtr(int64PtrType,(void*)info.itemCount);
+			Builder->CreateStore(val_tuplesNo,mem_itemCount);
+			cache.registerCache(*it, info, fullRelation);
+
+			/* Having skipped OIDs */
+			if (fieldNo >= mat.getWantedOIDs().size()) {
+				cout << "Field Cached: " << (*itRec)->getAttrName()
+						<< endl;
+				itRec++;
+			} else {
+				cout << "Field Cached: " << activeLoop << endl;
+			}
+
+			fieldNo++;
+		}
+	}
 }
 
 void RadixJoin::updateRelationPointers() const {
@@ -284,62 +417,155 @@ void RadixJoin::updateRelationPointers() const {
 //}
 
 
-void RadixJoin::produce() const {
+void RadixJoin::produce() {
 	IRBuilder<> *Builder = context->getBuilder();
 	Function *func_startTime = context->getFunction("resetTime");
 	Function *func_endTime = context->getFunction("calculateTime");
 	//vector empty on purpose
 	vector<Value*> ArgsTime;
+
+	RawOperator *newChildLeft, *newChildRight;
+	newChildLeft = NULL;
+	newChildRight = NULL;
+
+	if (!this->leftChild.isFiltering()) {
+		cout << "Checking left side for caches" << endl;
+		newChildLeft = findSideInCache(matLeft);
+	}
+	if (newChildLeft == NULL) {
+		//getLeftChild().produce();
+		cout << "Traditional LEFT side" << endl;
+		getLeftChild().produce();
+	} else {
+		cout << "NEW LEFT SCAN POSSIBLE!!";
+		//this->setLeftChild(*newChildLeft);
+		cachedLeft = true;
+		this->setLeftChild(*newChildLeft);
+		newChildLeft->setParent(this);
+		newChildLeft->produce();
+	}
+
+	if (!this->rightChild.isFiltering()) {
+		cout << "Checking right side for caches" << endl;
+		newChildRight = findSideInCache(matRight);
+	}
+	if (newChildRight == NULL) {
+		//getRightChild().produce();
+		cout << "Traditional RIGHT side" << endl;
+		getRightChild().produce();
+	} else {
+		cout << "NEW RIGHT SCAN POSSIBLE!!" << endl;
+		cachedRight = true;
+		this->setRightChild(*newChildRight);
+		newChildRight->setParent(this);
+		newChildRight->produce();
+	}
+
 	/**
 	 * LEFT SIDE
 	 */
-
-#ifdef TIMING
-	{
-		Builder->CreateCall(func_startTime, ArgsTime);
-	}
-#endif
-
-	char** ptr_bufferLeft = NULL;
-	if (!this->getLeftChild().isFiltering()) {
-		ptr_bufferLeft = findSideInCache(matLeft);
-	}
-//	if (ptr_bufferLeft == NULL) {
-	getLeftChild().produce();
+//#ifdef TIMING
+//	{
+//		Builder->CreateCall(func_startTime, ArgsTime);
 //	}
-
-#ifdef TIMING
-	{
-		Builder->CreateCall(func_endTime, ArgsTime);
-	}
-#endif
-
-	/**
-	 * RIGHT SIDE
-	 */
-#ifdef TIMING
-	{
-		Builder->CreateCall(func_startTime, ArgsTime);
-	}
-#endif
-	char** ptr_bufferRight = NULL;
-	if (!this->getRightChild().isFiltering()) {
-		ptr_bufferRight = findSideInCache(matRight);
-	}
-//	if (ptr_bufferRight == NULL) {
-	getRightChild().produce();
+//#endif
+//	getLeftChild().produce();
+//#ifdef TIMING
+//	{
+//		Builder->CreateCall(func_endTime, ArgsTime);
 //	}
-#ifdef TIMING
-	{
-		Builder->CreateCall(func_endTime, ArgsTime);
-	}
-#endif
-
+//#endif
+//
+//	/**
+//	 * RIGHT SIDE
+//	 */
+//#ifdef TIMING
+//	{
+//		Builder->CreateCall(func_startTime, ArgsTime);
+//	}
+//#endif
+//	getRightChild().produce();
+//#ifdef TIMING
+//	{
+//		Builder->CreateCall(func_endTime, ArgsTime);
+//	}
+//#endif
 	updateRelationPointers();
+	/* XXX Place info in cache */
+	if (!cachedLeft) {
+		placeInCache(matLeft, true);
+	}
+	if (!cachedRight) {
+		placeInCache(matRight, false);
+	}
 	//Still need HTs...
 	// Should I mat. them too?
 	runRadix();
+
+
+//	if (!cachedLeft && !cachedRight) {
+//		/**
+//		 * LEFT SIDE
+//		 */
+//#ifdef TIMING
+//		{
+//			Builder->CreateCall(func_startTime, ArgsTime);
+//		}
+//#endif
+//		this->leftChild.produce();
+//#ifdef TIMING
+//		{
+//			Builder->CreateCall(func_endTime, ArgsTime);
+//		}
+//#endif
+//
+//		/**
+//		 * RIGHT SIDE
+//		 */
+//#ifdef TIMING
+//		{
+//			Builder->CreateCall(func_startTime, ArgsTime);
+//		}
+//#endif
+//		this->rightChild.produce();
+//#ifdef TIMING
+//		{
+//			Builder->CreateCall(func_endTime, ArgsTime);
+//		}
+//#endif
+//		updateRelationPointers();
+//		/* XXX Place info in cache */
+//		placeInCache(matLeft, true);
+//		placeInCache(matRight, false);
+//
+//		//Still need HTs...
+//		// Should I mat. them too?
+//		runRadix();
+//	} else if (cachedLeft && !cachedRight) {
+//		RadixJoin *newRadix = new RadixJoin(this->pred, *newChildLeft,
+//				this->getRightChild(), context, htLabel.c_str(), matLeft, matRight);
+//		newChildLeft->setParent(newRadix);
+//		newRadix->produceNoCache();
+//	} else if (!cachedLeft && cachedRight) {
+//		RadixJoin *newRadix = new RadixJoin(this->pred, this->getLeftChild(),
+//				*newChildRight, context, htLabel.c_str(), matLeft, matRight);
+//		newChildRight->setParent(newRadix);
+//		newRadix->produceNoCache();
+//	} else {
+//		RadixJoin *newRadix = new RadixJoin(this->pred, *newChildLeft,
+//				*newChildRight, context, htLabel.c_str(), matLeft, matRight);
+//		newChildLeft->setParent(newRadix);
+//		newChildRight->setParent(newRadix);
+//		newRadix->produceNoCache();
+//	}
+
 }
+
+//void RadixJoin::produceNoCache() {
+//	leftChild.produce();
+//	rightChild.produce();
+//	runRadix();
+//}
 
 
 void RadixJoin::runRadix() const	{
@@ -628,11 +854,14 @@ void RadixJoin::runRadix() const	{
 					{
 						AllocaInst *mem_activeTuple = NULL;
 						int i = 0;
-						const set<RecordAttribute>& tuplesIdentifiers =
-								matLeft.getTupleIdentifiers();
-						set<RecordAttribute>::const_iterator it =
+//						const set<RecordAttribute>& tuplesIdentifiers =
+//								matLeft.getTupleIdentifiers();
+						const vector<RecordAttribute*>& tuplesIdentifiers =
+								matLeft.getWantedOIDs();
+						vector<RecordAttribute*>::const_iterator it =
 								tuplesIdentifiers.begin();
 						for (; it != tuplesIdentifiers.end(); it++) {
+							RecordAttribute *attr = *it;
 							mem_activeTuple = context->CreateEntryBlockAlloca(F,
 									"mem_activeTuple",
 									rPayloadType->getElementType(i));
@@ -651,7 +880,7 @@ void RadixJoin::runRadix() const	{
 							RawValueMemory mem_valWrapper;
 							mem_valWrapper.mem = mem_activeTuple;
 							mem_valWrapper.isNull = context->createFalse();
-							(*allJoinBindings)[*it] = mem_valWrapper;
+							(*allJoinBindings)[*attr] = mem_valWrapper;
 							i++;
 						}
 
@@ -696,11 +925,14 @@ void RadixJoin::runRadix() const	{
 					{
 						AllocaInst *mem_activeTuple = NULL;
 						int i = 0;
-						const set<RecordAttribute>& tuplesIdentifiers =
-								matRight.getTupleIdentifiers();
-						set<RecordAttribute>::const_iterator it =
+//						const set<RecordAttribute>& tuplesIdentifiers =
+//								matRight.getTupleIdentifiers();
+						const vector<RecordAttribute*>& tuplesIdentifiers =
+														matRight.getWantedOIDs();
+						vector<RecordAttribute*>::const_iterator it =
 								tuplesIdentifiers.begin();
 						for (; it != tuplesIdentifiers.end(); it++) {
+							RecordAttribute *attr = *it;
 							mem_activeTuple = context->CreateEntryBlockAlloca(F,
 									"mem_activeTuple",
 									sPayloadType->getElementType(i));
@@ -719,7 +951,7 @@ void RadixJoin::runRadix() const	{
 							RawValueMemory mem_valWrapper;
 							mem_valWrapper.mem = mem_activeTuple;
 							mem_valWrapper.isNull = context->createFalse();
-							(*allJoinBindings)[*it] = mem_valWrapper;
+							(*allJoinBindings)[*attr] = mem_valWrapper;
 							i++;
 						}
 
@@ -870,11 +1102,6 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 	Type *int64_type = Type::getInt64Ty(llvmContext);
 	Type *int32_type = Type::getInt32Ty(llvmContext);
 
-//	int padding = 4;
-//	int keySize = (keyType->getPrimitiveSizeInBits() / 8) + padding;
-//	Value* val_keySize = context->createInt32(keySize);
-//	Value *val_keySize = ConstantExpr::getSizeOf(rPayloadType);
-//	Value* val_keySize64 = context->createInt64(keySize);
 	Value *kvSize = ConstantExpr::getSizeOf(htEntryType);
 
 	/* What (ht* + payload) points to: TBD */
@@ -887,278 +1114,460 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 #ifdef DEBUG
 		LOG(INFO)<< "[RADIX JOIN: ] Left (building) side";
 #endif
-		const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
-		OutputPlugin* pg = new OutputPlugin(context, matLeft, bindings);
-
-		/* Result type specified during output plugin construction */
-		payloadType = pg->getPayloadType();
-		rPayloadType = payloadType;
-
-		/* XXX Place info in cache */
+		if(!cachedLeft)
 		{
-			CachingService& cache = CachingService::getInstance();
-			bool fullRelation = !(this->getLeftChild()).isFiltering();
-			const vector<expressions::Expression*>& expsLeft =
-					matLeft.getWantedExpressions();
-			const vector<RecordAttribute*>& fieldsLeft =
+			const map<RecordAttribute, RawValueMemory>& bindings =
+					childState.getBindings();
+			OutputPlugin* pg = new OutputPlugin(context, matLeft, bindings);
+
+			/* Result type specified during output plugin construction */
+			payloadType = pg->getPayloadType();
+			rPayloadType = payloadType;
+
+			/* 3rd Method to calculate size */
+			/* REMEMBER: PADDING DOES MATTER! */
+			Value* val_payloadSize = ConstantExpr::getSizeOf(rPayloadType);
+
+			/* Registering payload type of HT in RAW CATALOG */
+			/**
+			 * Must either fix (..for fully-blocking joins)
+			 * or remove entirely
+			 */
+			//catalog.insertTableInfo(string(this->htLabel),payloadType);
+			/*
+			 * Prepare payload.
+			 * What the 'output plugin + materializer' have decided is orthogonal
+			 * to this materialization policy
+			 * (i.e., whether we keep payload with the key, or just point to it)
+			 *
+			 * Instead of allocating space for payload and then copying it again,
+			 * do it ONCE on the pre-allocated buffer
+			 */
+
+			Value *val_arena = Builder->CreateLoad(relR.mem_relation);
+			Value *offsetInArena = Builder->CreateLoad(relR.mem_offset);
+			Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,
+					val_payloadSize);
+			Value *arenaSize = Builder->CreateLoad(relR.mem_size);
+			Value* val_tuplesNo = Builder->CreateLoad(relR.mem_tuplesNo);
+
+			/* if(offsetInArena + payloadSize >= arenaSize) */
+			BasicBlock* entryBlock = Builder->GetInsertBlock();
+			BasicBlock *endBlockArenaFull = BasicBlock::Create(llvmContext,
+					"IfArenaFullEnd", F);
+			BasicBlock *ifArenaFull;
+			context->CreateIfBlock(F, "IfArenaFullCond", &ifArenaFull,
+					endBlockArenaFull);
+			Value *offsetCond = Builder->CreateICmpSGE(offsetPlusPayload,
+					arenaSize);
+
+			Builder->CreateCondBr(offsetCond, ifArenaFull, endBlockArenaFull);
+
+			/* true => realloc() */
+			Builder->SetInsertPoint(ifArenaFull);
+
+			vector<Value*> ArgsRealloc;
+			Function* reallocLLVM = context->getFunction("increaseMemoryChunk");
+			AllocaInst* mem_arena_void = Builder->CreateAlloca(void_ptr_type, 0,
+					"voidArenaPtr");
+			Builder->CreateStore(val_arena, mem_arena_void);
+			Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
+			ArgsRealloc.push_back(val_arena_void);
+			ArgsRealloc.push_back(arenaSize);
+			Value* val_newArenaVoidPtr = Builder->CreateCall(reallocLLVM,
+					ArgsRealloc);
+
+			Builder->CreateStore(val_newArenaVoidPtr, relR.mem_relation);
+			Value* val_size = Builder->CreateLoad(relR.mem_size);
+			val_size = Builder->CreateMul(val_size, context->createInt64(2));
+			Builder->CreateStore(val_size, relR.mem_size);
+			Builder->CreateBr(endBlockArenaFull);
+
+			/* 'Normal' flow again */
+			Builder->SetInsertPoint(endBlockArenaFull);
+
+			/* Repeat load - realloc() might have occurred */
+			val_arena = Builder->CreateLoad(relR.mem_relation);
+			val_size = Builder->CreateLoad(relR.mem_size);
+
+			/* XXX STORING PAYLOAD */
+			/* 1. arena += (offset) */
+			Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,
+					offsetInArena);
+
+			/* 2. Casting */
+			PointerType *ptr_payloadType = PointerType::get(payloadType, 0);
+			Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,
+					ptr_payloadType);
+
+			/* 3. Storing payload, one field at a time */
+			vector<Type*>* materializedTypes = pg->getMaterializedTypes();
+			//Storing all activeTuples met so far
+			int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
+			RawValueMemory mem_activeTuple;
+			{
+				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+				for (memSearch = bindings.begin(); memSearch != bindings.end();
+						memSearch++) {
+					RecordAttribute currAttr = memSearch->first;
+					if (currAttr.getAttrName() == activeLoop) {
+						mem_activeTuple = memSearch->second;
+						Value* val_activeTuple = Builder->CreateLoad(
+								mem_activeTuple.mem);
+						//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
+						vector<Value*> idxList = vector<Value*>();
+						idxList.push_back(context->createInt32(0));
+						idxList.push_back(context->createInt32(offsetInStruct));
+						//Shift in struct ptr
+						Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+								idxList);
+						StoreInst *store_activeTuple = Builder->CreateStore(
+								val_activeTuple, structPtr);
+						store_activeTuple->setAlignment(8);
+						offsetInStruct++;
+					}
+				}
+			}
+
+			int offsetInWanted = 0;
+			const vector<RecordAttribute*>& wantedFields =
 					matLeft.getWantedFields();
-			/* Note: wantedFields do not include activeTuple */
-			vector<RecordAttribute*>::const_iterator itRec = fieldsLeft.begin();
-			int fieldNo = 0;
-			CacheInfo info;
-			const set<RecordAttribute>& oids = matLeft.getTupleIdentifiers();
-			set<RecordAttribute>::const_iterator itOids = oids.begin();
-			for(; itOids != oids.end(); itOids++)	{
-//				cout << "OID mat'ed" << endl;
-				info.objectTypes.push_back(itOids->getOriginalType()->getTypeID());
+			for (vector<RecordAttribute*>::const_iterator it =
+					wantedFields.begin(); it != wantedFields.end(); ++it) {
+				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+						bindings.find(*(*it));
+				RawValueMemory currValMem = memSearch->second;
+				/* FIX THE NECESSARY CONVERSIONS HERE */
+				Value* currVal = Builder->CreateLoad(currValMem.mem);
+				Value* valToMaterialize = pg->convert(currVal->getType(),
+						materializedTypes->at(offsetInWanted), currVal);
+
+				vector<Value*> idxList = vector<Value*>();
+				idxList.push_back(context->createInt32(0));
+				idxList.push_back(context->createInt32(offsetInStruct));
+
+				//Shift in struct ptr
+				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+						idxList);
+
+				Builder->CreateStore(valToMaterialize, structPtr);
+				offsetInStruct++;
+				offsetInWanted++;
 			}
-			for (; itRec != fieldsLeft.end(); itRec++) {
-//				cout << "Field mat'ed" << endl;
-				info.objectTypes.push_back((*itRec)->getOriginalType()->getTypeID());
+
+			/* CONSTRUCT HTENTRY PAIR   	  */
+			/* payloadPtr: relative offset from relBuffer beginning */
+			/* (int32 key, int64 payloadPtr)  */
+			/* Prepare key */
+			expressions::Expression* leftKeyExpr = this->pred->getLeftOperand();
+			ExpressionGeneratorVisitor exprGenerator =
+					ExpressionGeneratorVisitor(context, childState);
+			RawValue leftKey = leftKeyExpr->accept(exprGenerator);
+			Type* keyType = (leftKey.value)->getType();
+			//10: IntegerTyID
+			if (keyType->getTypeID() != 10) {
+				string error_msg = "Only INT32 keys considered atm";
+				LOG(ERROR)<< error_msg;
+				throw runtime_error(error_msg);
 			}
-			itRec = fieldsLeft.begin();
-			/* Explicit OID ('activeTuple') will be field 0 */
-			if (!expsLeft.empty()) {
 
-				/* By default, cache looks sth like custom_struct*.
-				 * Is it possible to isolate cache for just ONE of the expressions??
-				 * Group of expressions probably more palpable */
-				vector<expressions::Expression*>::const_iterator it =
-						expsLeft.begin();
-				for (; it != expsLeft.end(); it++) {
-					//info.objectType = rPayloadType;
-					info.structFieldNo = fieldNo;
-					info.payloadPtr = ptr_relationR;
-					cache.registerCache(*it,info,fullRelation);
+			PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
 
-					/* Having skipped OIDs */
-					if(fieldNo >= matLeft.getTupleIdentifiers().size())	{
-						cout << "Left Field Cached: " << (*itRec)->getAttrName() << endl;
-						itRec++;
-					}
-					else
-					{
-						cout << "Left Field Cached: " << activeLoop << endl;
-					}
+			BasicBlock *endBlockHTFull = BasicBlock::Create(llvmContext,
+					"IfHTFullEnd", F);
+			BasicBlock *ifHTFull;
+			context->CreateIfBlock(F, "IfHTFullCond", &ifHTFull,
+					endBlockHTFull);
 
-					fieldNo++;
-				}
-			}
-		}
+			LoadInst *val_ht = Builder->CreateLoad(htR.mem_kv);
+			val_ht->setAlignment(8);
 
-
-		/* 3rd Method to calculate size */
-		/* REMEMBER: PADDING DOES MATTER! */
-		Value* val_payloadSize = ConstantExpr::getSizeOf(rPayloadType);
-
-		/* Registering payload type of HT in RAW CATALOG */
-		/**
-		 * Must either fix (..for fully-blocking joins)
-		 * or remove entirely
-		 */
-		//catalog.insertTableInfo(string(this->htLabel),payloadType);
-
-		/*
-		 * Prepare payload.
-		 * What the 'output plugin + materializer' have decided is orthogonal
-		 * to this materialization policy
-		 * (i.e., whether we keep payload with the key, or just point to it)
-		 *
-		 * Instead of allocating space for payload and then copying it again,
-		 * do it ONCE on the pre-allocated buffer
-		 */
-
-		Value *val_arena = Builder->CreateLoad(relR.mem_relation);
-		Value *offsetInArena = Builder->CreateLoad(relR.mem_offset);
-		Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,val_payloadSize);
-		Value *arenaSize = Builder->CreateLoad(relR.mem_size);
-		Value* val_tuplesNo = Builder->CreateLoad(relR.mem_tuplesNo);
-
-		/* if(offsetInArena + payloadSize >= arenaSize) */
-		BasicBlock* entryBlock = Builder->GetInsertBlock();
-		BasicBlock *endBlockArenaFull = BasicBlock::Create(llvmContext, "IfArenaFullEnd", F);
-		BasicBlock *ifArenaFull;
-		context->CreateIfBlock(F, "IfArenaFullCond", &ifArenaFull, endBlockArenaFull);
-		Value *offsetCond = Builder->CreateICmpSGE(offsetPlusPayload, arenaSize);
-
-		Builder->CreateCondBr(offsetCond,ifArenaFull,endBlockArenaFull);
-
-		/* true => realloc() */
-		Builder->SetInsertPoint(ifArenaFull);
-
-		vector<Value*> ArgsRealloc;
-		Function* reallocLLVM = context->getFunction("increaseMemoryChunk");
-		AllocaInst* mem_arena_void = Builder->CreateAlloca(void_ptr_type,0,"voidArenaPtr");
-		Builder->CreateStore(val_arena,mem_arena_void);
-		Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
-		ArgsRealloc.push_back(val_arena_void);
-		ArgsRealloc.push_back(arenaSize);
-		Value* val_newArenaVoidPtr = Builder->CreateCall(reallocLLVM, ArgsRealloc);
-
-		Builder->CreateStore(val_newArenaVoidPtr,relR.mem_relation);
-		Value* val_size = Builder->CreateLoad(relR.mem_size);
-		val_size = Builder->CreateMul(val_size,context->createInt64(2));
-		Builder->CreateStore(val_size,relR.mem_size);
-		Builder->CreateBr(endBlockArenaFull);
-
-		/* 'Normal' flow again */
-		Builder->SetInsertPoint(endBlockArenaFull);
-
-		/* Repeat load - realloc() might have occurred */
-		val_arena = Builder->CreateLoad(relR.mem_relation);
-		val_size = Builder->CreateLoad(relR.mem_size);
-
-		/* XXX STORING PAYLOAD */
-		/* 1. arena += (offset) */
-		Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,offsetInArena);
-
-		/* 2. Casting */
-		PointerType *ptr_payloadType = PointerType::get(payloadType,0);
-		Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,ptr_payloadType);
-
-		/* 3. Storing payload, one field at a time */
-		vector<Type*>* materializedTypes = pg->getMaterializedTypes();
-		//Storing all activeTuples met so far
-		int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
-		RawValueMemory mem_activeTuple;
-		{
-			map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
-			for(memSearch = bindings.begin(); memSearch != bindings.end(); memSearch++)	{
-				RecordAttribute currAttr = memSearch->first;
-				if(currAttr.getAttrName() == activeLoop)	{
-					mem_activeTuple = memSearch->second;
-					Value* val_activeTuple = Builder->CreateLoad(mem_activeTuple.mem);
-					//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
-					vector<Value*> idxList = vector<Value*>();
-					idxList.push_back(context->createInt32(0));
-					idxList.push_back(context->createInt32(offsetInStruct));
-					//Shift in struct ptr
-					Value* structPtr = Builder->CreateGEP(cast_arenaShifted, idxList);
-					StoreInst *store_activeTuple =
-							Builder->CreateStore(val_activeTuple,structPtr);
-					store_activeTuple->setAlignment(8);
-					offsetInStruct++;
-				}
-			}
-		}
-
-		int offsetInWanted = 0;
-		const vector<RecordAttribute*>& wantedFields = matLeft.getWantedFields();
-		for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it != wantedFields.end(); ++it)
-		{
-			map<RecordAttribute, RawValueMemory>::const_iterator memSearch = bindings.find(*(*it));
-			RawValueMemory currValMem = memSearch->second;
-			/* FIX THE NECESSARY CONVERSIONS HERE */
-			Value* currVal = Builder->CreateLoad(currValMem.mem);
-			Value* valToMaterialize = pg->convert(currVal->getType(),materializedTypes->at(offsetInWanted),currVal);
-
-			vector<Value*> idxList = vector<Value*>();
-			idxList.push_back(context->createInt32(0));
-			idxList.push_back(context->createInt32(offsetInStruct));
-
-			//Shift in struct ptr
-			Value* structPtr = Builder->CreateGEP(cast_arenaShifted, idxList);
-
-			Builder->CreateStore(valToMaterialize,structPtr);
-			offsetInStruct++;
-			offsetInWanted++;
-		}
-
-		/* CONSTRUCT HTENTRY PAIR   	  */
-		/* payloadPtr: relative offset from relBuffer beginning */
-		/* (int32 key, int64 payloadPtr)  */
-		/* Prepare key */
-		expressions::Expression* leftKeyExpr = this->pred->getLeftOperand();
-		ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
-		RawValue leftKey = leftKeyExpr->accept(exprGenerator);
-		Type* keyType = (leftKey.value)->getType();
-		//10: IntegerTyID
-		if(keyType->getTypeID() != 10) {
-			string error_msg = "Only INT32 keys considered atm";
-			LOG(ERROR) << error_msg;
-			throw runtime_error(error_msg);
-		}
-
-		PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
-
-		BasicBlock *endBlockHTFull = BasicBlock::Create(llvmContext, "IfHTFullEnd", F);
-		BasicBlock *ifHTFull;
-		context->CreateIfBlock(F, "IfHTFullCond", &ifHTFull, endBlockHTFull);
-
-		LoadInst *val_ht = Builder->CreateLoad(htR.mem_kv);
-		val_ht->setAlignment(8);
-
-		Value *offsetInHT = Builder->CreateLoad(htR.mem_offset);
+			Value *offsetInHT = Builder->CreateLoad(htR.mem_offset);
 //		Value *offsetPlusKey = Builder->CreateAdd(offsetInHT,val_keySize64);
 //		int payloadPtrSize = sizeof(size_t);
 //		Value *val_payloadPtrSize = context->createInt64(payloadPtrSize);
 //		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKey,val_payloadPtrSize);
-		Value *offsetPlusKVPair = Builder->CreateAdd(offsetInHT,kvSize);
+			Value *offsetPlusKVPair = Builder->CreateAdd(offsetInHT, kvSize);
 
-		Value *htSize = Builder->CreateLoad(htR.mem_size);
-		offsetCond = Builder->CreateICmpSGE(offsetPlusKVPair, htSize);
+			Value *htSize = Builder->CreateLoad(htR.mem_size);
+			offsetCond = Builder->CreateICmpSGE(offsetPlusKVPair, htSize);
 
-		Builder->CreateCondBr(offsetCond,ifHTFull,endBlockHTFull);
+			Builder->CreateCondBr(offsetCond, ifHTFull, endBlockHTFull);
 
-		/* true => realloc() */
-		Builder->SetInsertPoint(ifHTFull);
+			/* true => realloc() */
+			Builder->SetInsertPoint(ifHTFull);
 
-		/* Casting htEntry* to void* requires a cast */
-		Value *cast_htEntries =
-						Builder->CreateBitCast(val_ht,void_ptr_type);
-		ArgsRealloc.clear();
-		ArgsRealloc.push_back(cast_htEntries);
-		ArgsRealloc.push_back(htSize);
-		Value *val_newVoidHTPtr = Builder->CreateCall(reallocLLVM, ArgsRealloc);
+			/* Casting htEntry* to void* requires a cast */
+			Value *cast_htEntries = Builder->CreateBitCast(val_ht,
+					void_ptr_type);
+			ArgsRealloc.clear();
+			ArgsRealloc.push_back(cast_htEntries);
+			ArgsRealloc.push_back(htSize);
+			Value *val_newVoidHTPtr = Builder->CreateCall(reallocLLVM,
+					ArgsRealloc);
 
-		Value *val_newHTPtr =
-				Builder->CreateBitCast(val_newVoidHTPtr,htEntryPtrType);
-		Builder->CreateStore(val_newHTPtr,htR.mem_kv);
-		val_size = Builder->CreateLoad(htR.mem_size);
-		val_size = Builder->CreateMul(val_size,context->createInt64(2));
-		Builder->CreateStore(val_size,htR.mem_size);
-		Builder->CreateBr(endBlockHTFull);
+			Value *val_newHTPtr = Builder->CreateBitCast(val_newVoidHTPtr,
+					htEntryPtrType);
+			Builder->CreateStore(val_newHTPtr, htR.mem_kv);
+			val_size = Builder->CreateLoad(htR.mem_size);
+			val_size = Builder->CreateMul(val_size, context->createInt64(2));
+			Builder->CreateStore(val_size, htR.mem_size);
+			Builder->CreateBr(endBlockHTFull);
 
-		/* Insert ht entry in HT */
-		Builder->SetInsertPoint(endBlockHTFull);
+			/* Insert ht entry in HT */
+			Builder->SetInsertPoint(endBlockHTFull);
 
-		/* Repeat load - realloc() might have occurred */
-		val_ht = Builder->CreateLoad(htR.mem_kv);
-		val_ht->setAlignment(8);
+			/* Repeat load - realloc() might have occurred */
+			val_ht = Builder->CreateLoad(htR.mem_kv);
+			val_ht->setAlignment(8);
 
-		val_size = Builder->CreateLoad(htR.mem_size);
+			val_size = Builder->CreateLoad(htR.mem_size);
 
-		/* 1. kv += offset */
-		/* Note that we already have a htEntry ptr here */
-		Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht,val_tuplesNo);
+			/* 1. kv += offset */
+			/* Note that we already have a htEntry ptr here */
+			Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht,
+					val_tuplesNo);
 
-		/* 2a. kv_cast->keyPtr = &key */
-		offsetInStruct = 0;
-		//Shift in htEntry (struct) ptr
-		vector<Value*> idxList = vector<Value*>();
-		idxList.push_back(context->createInt32(0));
-		idxList.push_back(context->createInt32(offsetInStruct));
+			/* 2a. kv_cast->keyPtr = &key */
+			offsetInStruct = 0;
+			//Shift in htEntry (struct) ptr
+			vector<Value*> idxList = vector<Value*>();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(offsetInStruct));
 
-		Value* structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
-		StoreInst *store_key = Builder->CreateStore(leftKey.value,structPtr);
-		store_key->setAlignment(4);
+			Value* structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
+			StoreInst *store_key = Builder->CreateStore(leftKey.value,
+					structPtr);
+			store_key->setAlignment(4);
 
-		/* 2b. kv_cast->payloadPtr = &payload */
-		offsetInStruct = 1;
-		idxList.clear();
-		idxList.push_back(context->createInt32(0));
-		idxList.push_back(context->createInt32(offsetInStruct));
-		structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
+			/* 2b. kv_cast->payloadPtr = &payload */
+			offsetInStruct = 1;
+			idxList.clear();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(offsetInStruct));
+			structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
 
-		StoreInst *store_payloadPtr = Builder->CreateStore(offsetInArena,structPtr);
-		store_payloadPtr->setAlignment(8);
+			StoreInst *store_payloadPtr = Builder->CreateStore(offsetInArena,
+					structPtr);
+			store_payloadPtr->setAlignment(8);
 
-		/* 4. Increment counts - both Rel and HT */
-		Builder->CreateStore(offsetPlusPayload,relR.mem_offset);
-		Builder->CreateStore(offsetPlusKVPair,htR.mem_offset);
-		val_tuplesNo = Builder->CreateAdd(val_tuplesNo,context->createInt64(1));
-		Builder->CreateStore(val_tuplesNo,relR.mem_tuplesNo);
-		Builder->CreateStore(val_tuplesNo,htR.mem_tuplesNo);
+			/* 4. Increment counts - both Rel and HT */
+			Builder->CreateStore(offsetPlusPayload, relR.mem_offset);
+			Builder->CreateStore(offsetPlusKVPair, htR.mem_offset);
+			val_tuplesNo = Builder->CreateAdd(val_tuplesNo,
+					context->createInt64(1));
+			Builder->CreateStore(val_tuplesNo, relR.mem_tuplesNo);
+			Builder->CreateStore(val_tuplesNo, htR.mem_tuplesNo);
+		}
+		else
+		{
+			const map<RecordAttribute, RawValueMemory>& bindings =
+					childState.getBindings();
+			OutputPlugin* pg = new OutputPlugin(context, matLeft, bindings);
+
+			/* Result type specified during output plugin construction */
+			payloadType = pg->getPayloadType();
+			rPayloadType = payloadType;
+
+			/* 3rd Method to calculate size */
+			/* REMEMBER: PADDING DOES MATTER! */
+			Value* val_payloadSize = ConstantExpr::getSizeOf(rPayloadType);
+
+			/* Registering payload type of HT in RAW CATALOG */
+			/**
+			 * Must either fix (..for fully-blocking joins)
+			 * or remove entirely
+			 */
+			//catalog.insertTableInfo(string(this->htLabel),payloadType);
+			/*
+			 * Prepare payload.
+			 * What the 'output plugin + materializer' have decided is orthogonal
+			 * to this materialization policy
+			 * (i.e., whether we keep payload with the key, or just point to it)
+			 *
+			 * Instead of allocating space for payload and then copying it again,
+			 * do it ONCE on the pre-allocated buffer
+			 */
+
+			Value *val_arena = Builder->CreateLoad(relR.mem_relation);
+			Value *offsetInArena = Builder->CreateLoad(relR.mem_offset);
+			Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,
+					val_payloadSize);
+			Value *arenaSize = Builder->CreateLoad(relR.mem_size);
+			Value* val_tuplesNo = Builder->CreateLoad(relR.mem_tuplesNo);
+
+
+			/* XXX STORING PAYLOAD */
+			/* 1. arena += (offset) */
+			Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,
+					offsetInArena);
+
+			/* 2. Casting */
+			PointerType *ptr_payloadType = PointerType::get(payloadType, 0);
+			Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,
+					ptr_payloadType);
+
+			/* 3. Storing payload, one field at a time */
+			vector<Type*>* materializedTypes = pg->getMaterializedTypes();
+			//Storing all activeTuples met so far
+			int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
+			RawValueMemory mem_activeTuple;
+			{
+				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+				for (memSearch = bindings.begin(); memSearch != bindings.end();
+						memSearch++) {
+					RecordAttribute currAttr = memSearch->first;
+					if (currAttr.getAttrName() == activeLoop) {
+						mem_activeTuple = memSearch->second;
+						Value* val_activeTuple = Builder->CreateLoad(
+								mem_activeTuple.mem);
+						//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
+						vector<Value*> idxList = vector<Value*>();
+						idxList.push_back(context->createInt32(0));
+						idxList.push_back(context->createInt32(offsetInStruct));
+						//Shift in struct ptr
+						Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+								idxList);
+						StoreInst *store_activeTuple = Builder->CreateStore(
+								val_activeTuple, structPtr);
+						store_activeTuple->setAlignment(8);
+						offsetInStruct++;
+					}
+				}
+			}
+
+			int offsetInWanted = 0;
+			const vector<RecordAttribute*>& wantedFields =
+					matLeft.getWantedFields();
+			for (vector<RecordAttribute*>::const_iterator it =
+					wantedFields.begin(); it != wantedFields.end(); ++it) {
+				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+						bindings.find(*(*it));
+				RawValueMemory currValMem = memSearch->second;
+				/* FIX THE NECESSARY CONVERSIONS HERE */
+				Value* currVal = Builder->CreateLoad(currValMem.mem);
+				Value* valToMaterialize = pg->convert(currVal->getType(),
+						materializedTypes->at(offsetInWanted), currVal);
+
+				vector<Value*> idxList = vector<Value*>();
+				idxList.push_back(context->createInt32(0));
+				idxList.push_back(context->createInt32(offsetInStruct));
+
+				//Shift in struct ptr
+				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+						idxList);
+
+				Builder->CreateStore(valToMaterialize, structPtr);
+				offsetInStruct++;
+				offsetInWanted++;
+			}
+
+			/* CONSTRUCT HTENTRY PAIR   	  */
+			/* payloadPtr: relative offset from relBuffer beginning */
+			/* (int32 key, int64 payloadPtr)  */
+			/* Prepare key */
+			expressions::Expression* leftKeyExpr = this->pred->getLeftOperand();
+			ExpressionGeneratorVisitor exprGenerator =
+					ExpressionGeneratorVisitor(context, childState);
+			RawValue leftKey = leftKeyExpr->accept(exprGenerator);
+			Type* keyType = (leftKey.value)->getType();
+			//10: IntegerTyID
+			if (keyType->getTypeID() != 10) {
+				string error_msg = "Only INT32 keys considered atm";
+				LOG(ERROR)<< error_msg;
+				throw runtime_error(error_msg);
+			}
+
+			PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
+
+			BasicBlock *endBlockHTFull = BasicBlock::Create(llvmContext,
+					"IfHTFullEnd", F);
+			BasicBlock *ifHTFull;
+			context->CreateIfBlock(F, "IfHTFullCond", &ifHTFull,
+					endBlockHTFull);
+
+			LoadInst *val_ht = Builder->CreateLoad(htR.mem_kv);
+			val_ht->setAlignment(8);
+
+			Value *offsetInHT = Builder->CreateLoad(htR.mem_offset);
+			//		Value *offsetPlusKey = Builder->CreateAdd(offsetInHT,val_keySize64);
+			//		int payloadPtrSize = sizeof(size_t);
+			//		Value *val_payloadPtrSize = context->createInt64(payloadPtrSize);
+			//		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKey,val_payloadPtrSize);
+			Value *offsetPlusKVPair = Builder->CreateAdd(offsetInHT, kvSize);
+
+			Value *htSize = Builder->CreateLoad(htR.mem_size);
+			Value *offsetCond = Builder->CreateICmpSGE(offsetPlusKVPair, htSize);
+
+			Builder->CreateCondBr(offsetCond, ifHTFull, endBlockHTFull);
+
+			/* true => realloc() */
+			Builder->SetInsertPoint(ifHTFull);
+
+			/* Casting htEntry* to void* requires a cast */
+			Value *cast_htEntries = Builder->CreateBitCast(val_ht,
+					void_ptr_type);
+			vector<Value*> ArgsRealloc;
+			Function* reallocLLVM = context->getFunction("increaseMemoryChunk");
+			ArgsRealloc.clear();
+			ArgsRealloc.push_back(cast_htEntries);
+			ArgsRealloc.push_back(htSize);
+			Value *val_newVoidHTPtr = Builder->CreateCall(reallocLLVM,
+					ArgsRealloc);
+
+			Value *val_newHTPtr = Builder->CreateBitCast(val_newVoidHTPtr,
+					htEntryPtrType);
+			Builder->CreateStore(val_newHTPtr, htR.mem_kv);
+			Value *val_size = Builder->CreateLoad(htR.mem_size);
+			val_size = Builder->CreateMul(val_size, context->createInt64(2));
+			Builder->CreateStore(val_size, htR.mem_size);
+			Builder->CreateBr(endBlockHTFull);
+
+			/* Insert ht entry in HT */
+			Builder->SetInsertPoint(endBlockHTFull);
+
+			/* Repeat load - realloc() might have occurred */
+			val_ht = Builder->CreateLoad(htR.mem_kv);
+			val_ht->setAlignment(8);
+
+			val_size = Builder->CreateLoad(htR.mem_size);
+
+			/* 1. kv += offset */
+			/* Note that we already have a htEntry ptr here */
+			Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht,
+					val_tuplesNo);
+
+			/* 2a. kv_cast->keyPtr = &key */
+			offsetInStruct = 0;
+			//Shift in htEntry (struct) ptr
+			vector<Value*> idxList = vector<Value*>();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(offsetInStruct));
+
+			Value* structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
+			StoreInst *store_key = Builder->CreateStore(leftKey.value,
+					structPtr);
+			store_key->setAlignment(4);
+
+			/* 2b. kv_cast->payloadPtr = &payload */
+			offsetInStruct = 1;
+			idxList.clear();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(offsetInStruct));
+			structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
+
+			StoreInst *store_payloadPtr = Builder->CreateStore(offsetInArena,
+					structPtr);
+			store_payloadPtr->setAlignment(8);
+
+			/* 4. Increment counts - both Rel and HT */
+			Builder->CreateStore(offsetPlusPayload, relR.mem_offset);
+			Builder->CreateStore(offsetPlusKVPair, htR.mem_offset);
+			val_tuplesNo = Builder->CreateAdd(val_tuplesNo,
+					context->createInt64(1));
+			Builder->CreateStore(val_tuplesNo, relR.mem_tuplesNo);
+			Builder->CreateStore(val_tuplesNo, htR.mem_tuplesNo);
+		}
 
 	}
 	else
@@ -1167,274 +1576,455 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 #ifdef DEBUG
 		LOG(INFO)<< "[RADIX JOIN: ] Right (also building!) side";
 #endif
+		if (!cachedRight) {
+			const map<RecordAttribute, RawValueMemory>& bindings =
+					childState.getBindings();
+			OutputPlugin* pg = new OutputPlugin(context, matRight, bindings);
 
-		const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
-		OutputPlugin* pg = new OutputPlugin(context, matRight, bindings);
+			/* Result type specified during output plugin construction */
+			payloadType = pg->getPayloadType();
+			sPayloadType = payloadType;
 
-		/* Result type specified during output plugin construction */
-		payloadType = pg->getPayloadType();
-		sPayloadType = payloadType;
+			/* 3rd Method to calculate size */
+			/* REMEMBER: PADDING DOES MATTER! */
+			Value* val_payloadSize = ConstantExpr::getSizeOf(sPayloadType);
 
-		/* XXX Place info in cache */
-		{
-			CachingService& cache = CachingService::getInstance();
-			bool fullRelation = !(this->getRightChild()).isFiltering();
-			const vector<expressions::Expression*>& expsRight =
-					matRight.getWantedExpressions();
-			const vector<RecordAttribute*>& fieldsRight =
-					matRight.getWantedFields();
-			/* Note: wantedFields do not include activeTuple */
-			vector<RecordAttribute*>::const_iterator itRec =
-					fieldsRight.begin();
-			/* ************************/
-			int fieldNo = 0;
-			CacheInfo info;
+			/* Registering payload type of HT in RAW CATALOG */
+			/**
+			 * Must either fix (..for fully-blocking joins)
+			 * or remove entirely
+			 */
+			//catalog.insertTableInfo(string(this->htLabel),payloadType);
+			/*
+			 * Prepare payload.
+			 * What the 'output plugin + materializer' have decided is orthogonal
+			 * to this materialization policy
+			 * (i.e., whether we keep payload with the key, or just point to it)
+			 *
+			 * Instead of allocating space for payload and then copying it again,
+			 * do it ONCE on the pre-allocated buffer
+			 */
 
-			const set<RecordAttribute>& oids = matRight.getTupleIdentifiers();
-			set<RecordAttribute>::const_iterator itOids = oids.begin();
-			for (; itOids != oids.end(); itOids++) {
-				cout << "OID mat'ed" << endl;
-				info.objectTypes.push_back(
-						itOids->getOriginalType()->getTypeID());
-			}
-			for (; itRec != fieldsRight.end(); itRec++) {
-				cout << "Field mat'ed" << endl;
-				info.objectTypes.push_back(
-						(*itRec)->getOriginalType()->getTypeID());
-			}
-			itRec = fieldsRight.begin();
-			/* Explicit OID ('activeTuple') will be field 0 */
-			if (!expsRight.empty()) {
+			Value *val_arena = Builder->CreateLoad(relS.mem_relation);
+			Value *offsetInArena = Builder->CreateLoad(relS.mem_offset);
+			Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,
+					val_payloadSize);
+			Value *arenaSize = Builder->CreateLoad(relS.mem_size);
+			Value* val_tuplesNo = Builder->CreateLoad(relS.mem_tuplesNo);
 
-				/* By default, cache looks sth like custom_struct*.
-				 * Is it possible to isolate cache for just ONE of the expressions??
-				 * Group of expressions probably more palpable */
-				vector<expressions::Expression*>::const_iterator it =
-						expsRight.begin();
-				for (; it != expsRight.end(); it++) {
-					info.structFieldNo = fieldNo;
-					info.payloadPtr = ptr_relationS;
-					cache.registerCache(*it, info, fullRelation);
+			/* if(offsetInArena + payloadSize >= arenaSize) */
+			BasicBlock* entryBlock = Builder->GetInsertBlock();
+			BasicBlock *endBlockArenaFull = BasicBlock::Create(llvmContext,
+					"IfArenaFullEnd", F);
+			BasicBlock *ifArenaFull;
+			context->CreateIfBlock(F, "IfArenaFullCond", &ifArenaFull,
+					endBlockArenaFull);
+			Value *offsetCond = Builder->CreateICmpSGE(offsetPlusPayload,
+					arenaSize);
 
-					/* Having skipped OIDs */
-					if (fieldNo >= matRight.getTupleIdentifiers().size()) {
-						cout << "Right Field Cached: "
-								<< (*itRec)->getAttrName() << endl;
-						itRec++;
-					} else {
-						cout << "Right Field Cached: " << activeLoop << endl;
+			Builder->CreateCondBr(offsetCond, ifArenaFull, endBlockArenaFull);
+
+			/* true => realloc() */
+			Builder->SetInsertPoint(ifArenaFull);
+
+			vector<Value*> ArgsRealloc;
+			Function* reallocLLVM = context->getFunction("increaseMemoryChunk");
+			AllocaInst* mem_arena_void = Builder->CreateAlloca(void_ptr_type, 0,
+					"voidArenaPtrS");
+			Builder->CreateStore(val_arena, mem_arena_void);
+			Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
+			ArgsRealloc.push_back(val_arena_void);
+			ArgsRealloc.push_back(arenaSize);
+			Value* val_newArenaVoidPtr = Builder->CreateCall(reallocLLVM,
+					ArgsRealloc);
+
+			Builder->CreateStore(val_newArenaVoidPtr, relS.mem_relation);
+			Value* val_size = Builder->CreateLoad(relS.mem_size);
+			val_size = Builder->CreateMul(val_size, context->createInt64(2));
+			Builder->CreateStore(val_size, relS.mem_size);
+			Builder->CreateBr(endBlockArenaFull);
+
+			/* 'Normal' flow again */
+			Builder->SetInsertPoint(endBlockArenaFull);
+
+			/* Repeat load - realloc() might have occurred */
+			val_arena = Builder->CreateLoad(relS.mem_relation);
+
+			/* STORING PAYLOAD */
+			/* 1. arena += (offset) */
+			Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,
+					offsetInArena);
+
+			/* 2. Casting */
+			PointerType *ptr_payloadType = PointerType::get(payloadType, 0);
+			Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,
+					ptr_payloadType);
+
+			/* 3. Storing payload, one field at a time */
+			vector<Type*>* materializedTypes = pg->getMaterializedTypes();
+			//Storing all activeTuples met so far
+			int offsetInStruct = 0;	//offset inside the struct (+current field manipulated)
+			RawValueMemory mem_activeTuple;
+			{
+				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+				for (memSearch = bindings.begin(); memSearch != bindings.end();
+						memSearch++) {
+					RecordAttribute currAttr = memSearch->first;
+					if (currAttr.getAttrName() == activeLoop) {
+						mem_activeTuple = memSearch->second;
+						Value* val_activeTuple = Builder->CreateLoad(
+								mem_activeTuple.mem);
+						//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
+						vector<Value*> idxList = vector<Value*>();
+						idxList.push_back(context->createInt32(0));
+						idxList.push_back(context->createInt32(offsetInStruct));
+						//Shift in struct ptr
+						Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+								idxList);
+						Builder->CreateStore(val_activeTuple, structPtr);
+
+						offsetInStruct++;
 					}
-
-					fieldNo++;
 				}
 			}
-		}
 
-		/* 3rd Method to calculate size */
-		/* REMEMBER: PADDING DOES MATTER! */
-		Value* val_payloadSize = ConstantExpr::getSizeOf(sPayloadType);
-
-		/* Registering payload type of HT in RAW CATALOG */
-		/**
-		 * Must either fix (..for fully-blocking joins)
-		 * or remove entirely
-		 */
-		//catalog.insertTableInfo(string(this->htLabel),payloadType);
-		/*
-		 * Prepare payload.
-		 * What the 'output plugin + materializer' have decided is orthogonal
-		 * to this materialization policy
-		 * (i.e., whether we keep payload with the key, or just point to it)
-		 *
-		 * Instead of allocating space for payload and then copying it again,
-		 * do it ONCE on the pre-allocated buffer
-		 */
-
-		Value *val_arena = Builder->CreateLoad(relS.mem_relation);
-		Value *offsetInArena = Builder->CreateLoad(relS.mem_offset);
-		Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,val_payloadSize);
-		Value *arenaSize = Builder->CreateLoad(relS.mem_size);
-		Value* val_tuplesNo = Builder->CreateLoad(relS.mem_tuplesNo);
-
-		/* if(offsetInArena + payloadSize >= arenaSize) */
-		BasicBlock* entryBlock = Builder->GetInsertBlock();
-		BasicBlock *endBlockArenaFull = BasicBlock::Create(llvmContext, "IfArenaFullEnd", F);
-		BasicBlock *ifArenaFull;
-		context->CreateIfBlock(F, "IfArenaFullCond", &ifArenaFull, endBlockArenaFull);
-		Value *offsetCond = Builder->CreateICmpSGE(offsetPlusPayload, arenaSize);
-
-		Builder->CreateCondBr(offsetCond,ifArenaFull,endBlockArenaFull);
-
-		/* true => realloc() */
-		Builder->SetInsertPoint(ifArenaFull);
-
-		vector<Value*> ArgsRealloc;
-		Function* reallocLLVM = context->getFunction("increaseMemoryChunk");
-		AllocaInst* mem_arena_void = Builder->CreateAlloca(void_ptr_type,0,"voidArenaPtrS");
-		Builder->CreateStore(val_arena,mem_arena_void);
-		Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
-		ArgsRealloc.push_back(val_arena_void);
-		ArgsRealloc.push_back(arenaSize);
-		Value* val_newArenaVoidPtr = Builder->CreateCall(reallocLLVM, ArgsRealloc);
-
-		Builder->CreateStore(val_newArenaVoidPtr,relS.mem_relation);
-		Value* val_size = Builder->CreateLoad(relS.mem_size);
-		val_size = Builder->CreateMul(val_size,context->createInt64(2));
-		Builder->CreateStore(val_size,relS.mem_size);
-		Builder->CreateBr(endBlockArenaFull);
-
-		/* 'Normal' flow again */
-		Builder->SetInsertPoint(endBlockArenaFull);
-
-		/* Repeat load - realloc() might have occurred */
-		val_arena = Builder->CreateLoad(relS.mem_relation);
-
-		/* STORING PAYLOAD */
-		/* 1. arena += (offset) */
-		Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,offsetInArena);
-
-		/* 2. Casting */
-		PointerType *ptr_payloadType = PointerType::get(payloadType,0);
-		Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,ptr_payloadType);
-
-		/* 3. Storing payload, one field at a time */
-		vector<Type*>* materializedTypes = pg->getMaterializedTypes();
-		//Storing all activeTuples met so far
-		int offsetInStruct = 0;//offset inside the struct (+current field manipulated)
-		RawValueMemory mem_activeTuple;
-		{
-			map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
-			for(memSearch = bindings.begin(); memSearch != bindings.end(); memSearch++) {
-				RecordAttribute currAttr = memSearch->first;
-				if(currAttr.getAttrName() == activeLoop) {
-					mem_activeTuple = memSearch->second;
-					Value* val_activeTuple = Builder->CreateLoad(mem_activeTuple.mem);
-					//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
-					vector<Value*> idxList = vector<Value*>();
-					idxList.push_back(context->createInt32(0));
-					idxList.push_back(context->createInt32(offsetInStruct));
-					//Shift in struct ptr
-					Value* structPtr = Builder->CreateGEP(cast_arenaShifted, idxList);
-					Builder->CreateStore(val_activeTuple,structPtr);
-
-					offsetInStruct++;
-				}
+			int offsetInWanted = 0;
+			const vector<RecordAttribute*>& wantedFields =
+					matRight.getWantedFields();
+			for (vector<RecordAttribute*>::const_iterator it =
+					wantedFields.begin(); it != wantedFields.end(); ++it) {
+				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+						bindings.find(*(*it));
+				RawValueMemory currValMem = memSearch->second;
+				Value* currVal = Builder->CreateLoad(currValMem.mem);
+				Value* valToMaterialize = pg->convert(currVal->getType(),
+						materializedTypes->at(offsetInWanted), currVal);
+				vector<Value*> idxList = vector<Value*>();
+				idxList.push_back(context->createInt32(0));
+				idxList.push_back(context->createInt32(offsetInStruct));
+				//Shift in struct ptr
+				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+						idxList);
+				Builder->CreateStore(valToMaterialize, structPtr);
+				offsetInStruct++;
+				offsetInWanted++;
 			}
-		}
 
-		int offsetInWanted = 0;
-		const vector<RecordAttribute*>& wantedFields = matRight.getWantedFields();
-		for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it != wantedFields.end(); ++it)
-		{
-			map<RecordAttribute, RawValueMemory>::const_iterator memSearch = bindings.find(*(*it));
-			RawValueMemory currValMem = memSearch->second;
-			Value* currVal = Builder->CreateLoad(currValMem.mem);
-			Value* valToMaterialize = pg->convert(currVal->getType(),materializedTypes->at(offsetInWanted),currVal);
-			vector<Value*> idxList = vector<Value*>();
-			idxList.push_back(context->createInt32(0));
-			idxList.push_back(context->createInt32(offsetInStruct));
-			//Shift in struct ptr
-			Value* structPtr = Builder->CreateGEP(cast_arenaShifted, idxList);
-			Builder->CreateStore(valToMaterialize,structPtr);
-			offsetInStruct++;
-			offsetInWanted++;
-		}
+			/* CONSTRUCT HTENTRY PAIR   	  */
+			/* payloadPtr: relative offset from relBuffer beginning */
+			/* (int32 key, int64 payloadPtr)  */
+			/* Prepare key */
+			expressions::Expression* rightKeyExpr =
+					this->pred->getRightOperand();
+			ExpressionGeneratorVisitor exprGenerator =
+					ExpressionGeneratorVisitor(context, childState);
+			RawValue rightKey = rightKeyExpr->accept(exprGenerator);
+			Type* keyType = (rightKey.value)->getType();
 
-		/* CONSTRUCT HTENTRY PAIR   	  */
-		/* payloadPtr: relative offset from relBuffer beginning */
-		/* (int32 key, int64 payloadPtr)  */
-		/* Prepare key */
-		expressions::Expression* rightKeyExpr = this->pred->getRightOperand();
-		ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
-		RawValue rightKey = rightKeyExpr->accept(exprGenerator);
-		Type* keyType = (rightKey.value)->getType();
+			//10: IntegerTyID
+			if (keyType->getTypeID() != 10) {
+				string error_msg = "Only INT32 keys considered atm";
+				LOG(ERROR)<< error_msg;
+				throw runtime_error(error_msg);
+			}
 
-		//10: IntegerTyID
-		if(keyType->getTypeID() != 10) {
-			string error_msg = "Only INT32 keys considered atm";
-			LOG(ERROR) << error_msg;
-			throw runtime_error(error_msg);
-		}
+			PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
 
-		PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
+			BasicBlock *endBlockHTFull = BasicBlock::Create(llvmContext,
+					"IfHTFullEnd", F);
+			BasicBlock *ifHTFull;
+			context->CreateIfBlock(F, "IfHTFullCond", &ifHTFull,
+					endBlockHTFull);
 
-		BasicBlock *endBlockHTFull = BasicBlock::Create(llvmContext, "IfHTFullEnd", F);
-		BasicBlock *ifHTFull;
-		context->CreateIfBlock(F, "IfHTFullCond", &ifHTFull, endBlockHTFull);
+			LoadInst *val_ht = Builder->CreateLoad(htS.mem_kv);
+			val_ht->setAlignment(8);
 
-		LoadInst *val_ht = Builder->CreateLoad(htS.mem_kv);
-		val_ht->setAlignment(8);
-
-		Value *offsetInHT = Builder->CreateLoad(htS.mem_offset);
+			Value *offsetInHT = Builder->CreateLoad(htS.mem_offset);
 //		Value *offsetPlusKey = Builder->CreateAdd(offsetInHT,val_keySize64);
 //		int payloadPtrSize = sizeof(size_t);
 //		Value *val_payloadPtrSize = context->createInt64(payloadPtrSize);
 //		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKey,val_payloadPtrSize);
-		Value *offsetPlusKVPair = Builder->CreateAdd(offsetInHT,kvSize);
-		Value *htSize = Builder->CreateLoad(htS.mem_size);
-		offsetCond = Builder->CreateICmpSGE(offsetPlusKVPair, htSize);
+			Value *offsetPlusKVPair = Builder->CreateAdd(offsetInHT, kvSize);
+			Value *htSize = Builder->CreateLoad(htS.mem_size);
+			offsetCond = Builder->CreateICmpSGE(offsetPlusKVPair, htSize);
 
-		Builder->CreateCondBr(offsetCond,ifHTFull,endBlockHTFull);
+			Builder->CreateCondBr(offsetCond, ifHTFull, endBlockHTFull);
 
-		/* true => realloc() */
-		Builder->SetInsertPoint(ifHTFull);
+			/* true => realloc() */
+			Builder->SetInsertPoint(ifHTFull);
 
-		/* Casting htEntry* to void* requires a cast */
-		Value *cast_htEntries =
-		Builder->CreateBitCast(val_ht,void_ptr_type);
-		ArgsRealloc.clear();
-		ArgsRealloc.push_back(cast_htEntries);
-		ArgsRealloc.push_back(htSize);
-		Value *val_newVoidHTPtr = Builder->CreateCall(reallocLLVM, ArgsRealloc);
-		Value *val_newHTPtr =
-		Builder->CreateBitCast(val_newVoidHTPtr,htEntryPtrType);
-		Builder->CreateStore(val_newHTPtr,htS.mem_kv);
-		val_size = Builder->CreateLoad(htS.mem_size);
-		val_size = Builder->CreateMul(val_size,context->createInt64(2));
-		Builder->CreateStore(val_size,htS.mem_size);
-		Builder->CreateBr(endBlockHTFull);
+			/* Casting htEntry* to void* requires a cast */
+			Value *cast_htEntries = Builder->CreateBitCast(val_ht,
+					void_ptr_type);
+			ArgsRealloc.clear();
+			ArgsRealloc.push_back(cast_htEntries);
+			ArgsRealloc.push_back(htSize);
+			Value *val_newVoidHTPtr = Builder->CreateCall(reallocLLVM,
+					ArgsRealloc);
+			Value *val_newHTPtr = Builder->CreateBitCast(val_newVoidHTPtr,
+					htEntryPtrType);
+			Builder->CreateStore(val_newHTPtr, htS.mem_kv);
+			val_size = Builder->CreateLoad(htS.mem_size);
+			val_size = Builder->CreateMul(val_size, context->createInt64(2));
+			Builder->CreateStore(val_size, htS.mem_size);
+			Builder->CreateBr(endBlockHTFull);
 
-		/* Insert ht entry in HT */
-		Builder->SetInsertPoint(endBlockHTFull);
+			/* Insert ht entry in HT */
+			Builder->SetInsertPoint(endBlockHTFull);
 
-		/* Repeat load - realloc() might have occurred */
-		val_ht = Builder->CreateLoad(htS.mem_kv);
-		val_ht->setAlignment(8);
+			/* Repeat load - realloc() might have occurred */
+			val_ht = Builder->CreateLoad(htS.mem_kv);
+			val_ht->setAlignment(8);
 
-		val_size = Builder->CreateLoad(htS.mem_size);
+			val_size = Builder->CreateLoad(htS.mem_size);
 
-		/* 1. kv += offset */
-		/* Note that we already have a htEntry ptr here */
-		Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht,val_tuplesNo);
+			/* 1. kv += offset */
+			/* Note that we already have a htEntry ptr here */
+			Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht,
+					val_tuplesNo);
 
-		/* 2a. kv_cast->keyPtr = &key */
-		offsetInStruct = 0;
-		//Shift in htEntry (struct) ptr
-		vector<Value*> idxList = vector<Value*>();
-		idxList.push_back(context->createInt32(0));
-		idxList.push_back(context->createInt32(offsetInStruct));
+			/* 2a. kv_cast->keyPtr = &key */
+			offsetInStruct = 0;
+			//Shift in htEntry (struct) ptr
+			vector<Value*> idxList = vector<Value*>();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(offsetInStruct));
 
-		Value* structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
-		StoreInst *store_key = Builder->CreateStore(rightKey.value,structPtr);
-		store_key->setAlignment(4);
+			Value* structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
+			StoreInst *store_key = Builder->CreateStore(rightKey.value,
+					structPtr);
+			store_key->setAlignment(4);
 
-		/* 2b. kv_cast->payloadPtr = &payload */
-		offsetInStruct = 1;
-		idxList.clear();
-		idxList.push_back(context->createInt32(0));
-		idxList.push_back(context->createInt32(offsetInStruct));
-		structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
+			/* 2b. kv_cast->payloadPtr = &payload */
+			offsetInStruct = 1;
+			idxList.clear();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(offsetInStruct));
+			structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
 
-		StoreInst *store_payloadPtr =Builder->CreateStore(offsetInArena,structPtr);
-		store_payloadPtr->setAlignment(8);
+			StoreInst *store_payloadPtr = Builder->CreateStore(offsetInArena,
+					structPtr);
+			store_payloadPtr->setAlignment(8);
 
-		/* 4. Increment counts - both Rel and HT */
-		Builder->CreateStore(offsetPlusPayload,relS.mem_offset);
-		Builder->CreateStore(offsetPlusKVPair,htS.mem_offset);
-		val_tuplesNo = Builder->CreateAdd(val_tuplesNo,context->createInt64(1));
-		Builder->CreateStore(val_tuplesNo,relS.mem_tuplesNo);
-		Builder->CreateStore(val_tuplesNo,htS.mem_tuplesNo);
+			/* 4. Increment counts - both Rel and HT */
+			Builder->CreateStore(offsetPlusPayload, relS.mem_offset);
+			Builder->CreateStore(offsetPlusKVPair, htS.mem_offset);
+			val_tuplesNo = Builder->CreateAdd(val_tuplesNo,
+					context->createInt64(1));
+			Builder->CreateStore(val_tuplesNo, relS.mem_tuplesNo);
+			Builder->CreateStore(val_tuplesNo, htS.mem_tuplesNo);
+		}
+		else
+		{
+			const map<RecordAttribute, RawValueMemory>& bindings =
+					childState.getBindings();
+			OutputPlugin* pg = new OutputPlugin(context, matRight, bindings);
 
+			/* Result type specified during output plugin construction */
+			payloadType = pg->getPayloadType();
+			sPayloadType = payloadType;
+
+			/* 3rd Method to calculate size */
+			/* REMEMBER: PADDING DOES MATTER! */
+			Value* val_payloadSize = ConstantExpr::getSizeOf(sPayloadType);
+
+			/* Registering payload type of HT in RAW CATALOG */
+			/**
+			 * Must either fix (..for fully-blocking joins)
+			 * or remove entirely
+			 */
+			//catalog.insertTableInfo(string(this->htLabel),payloadType);
+			/*
+			 * Prepare payload.
+			 * What the 'output plugin + materializer' have decided is orthogonal
+			 * to this materialization policy
+			 * (i.e., whether we keep payload with the key, or just point to it)
+			 *
+			 * Instead of allocating space for payload and then copying it again,
+			 * do it ONCE on the pre-allocated buffer
+			 */
+
+			Value *val_arena = Builder->CreateLoad(relS.mem_relation);
+			Value *offsetInArena = Builder->CreateLoad(relS.mem_offset);
+			Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,
+					val_payloadSize);
+			Value *arenaSize = Builder->CreateLoad(relS.mem_size);
+			Value* val_tuplesNo = Builder->CreateLoad(relS.mem_tuplesNo);
+
+			/* XXX STORING PAYLOAD */
+			/* 1. arena += (offset) */
+			Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,
+					offsetInArena);
+
+			/* 2. Casting */
+			PointerType *ptr_payloadType = PointerType::get(payloadType, 0);
+			Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,
+					ptr_payloadType);
+
+			/* 3. Storing payload, one field at a time */
+			vector<Type*>* materializedTypes = pg->getMaterializedTypes();
+			//Storing all activeTuples met so far
+			int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
+			RawValueMemory mem_activeTuple;
+			{
+				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+				for (memSearch = bindings.begin(); memSearch != bindings.end();
+						memSearch++) {
+					RecordAttribute currAttr = memSearch->first;
+					if (currAttr.getAttrName() == activeLoop) {
+						mem_activeTuple = memSearch->second;
+						Value* val_activeTuple = Builder->CreateLoad(
+								mem_activeTuple.mem);
+						//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
+						vector<Value*> idxList = vector<Value*>();
+						idxList.push_back(context->createInt32(0));
+						idxList.push_back(context->createInt32(offsetInStruct));
+						//Shift in struct ptr
+						Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+								idxList);
+						StoreInst *store_activeTuple = Builder->CreateStore(
+								val_activeTuple, structPtr);
+						store_activeTuple->setAlignment(8);
+						offsetInStruct++;
+					}
+				}
+			}
+
+			int offsetInWanted = 0;
+			const vector<RecordAttribute*>& wantedFields =
+					matRight.getWantedFields();
+			for (vector<RecordAttribute*>::const_iterator it =
+					wantedFields.begin(); it != wantedFields.end(); ++it) {
+				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+						bindings.find(*(*it));
+				RawValueMemory currValMem = memSearch->second;
+				/* FIX THE NECESSARY CONVERSIONS HERE */
+				Value* currVal = Builder->CreateLoad(currValMem.mem);
+				Value* valToMaterialize = pg->convert(currVal->getType(),
+						materializedTypes->at(offsetInWanted), currVal);
+
+				vector<Value*> idxList = vector<Value*>();
+				idxList.push_back(context->createInt32(0));
+				idxList.push_back(context->createInt32(offsetInStruct));
+
+				//Shift in struct ptr
+				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+						idxList);
+
+				Builder->CreateStore(valToMaterialize, structPtr);
+				offsetInStruct++;
+				offsetInWanted++;
+			}
+
+			/* CONSTRUCT HTENTRY PAIR   	  */
+			/* payloadPtr: relative offset from relBuffer beginning */
+			/* (int32 key, int64 payloadPtr)  */
+			/* Prepare key */
+			expressions::Expression* rightKeyExpr =
+					this->pred->getRightOperand();
+			ExpressionGeneratorVisitor exprGenerator =
+					ExpressionGeneratorVisitor(context, childState);
+			RawValue rightKey = rightKeyExpr->accept(exprGenerator);
+			Type* keyType = (rightKey.value)->getType();
+			//10: IntegerTyID
+			if (keyType->getTypeID() != 10) {
+				string error_msg = "Only INT32 keys considered atm";
+				LOG(ERROR)<< error_msg;
+				throw runtime_error(error_msg);
+			}
+
+			PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
+
+			BasicBlock *endBlockHTFull = BasicBlock::Create(llvmContext,
+					"IfHTFullEnd", F);
+			BasicBlock *ifHTFull;
+			context->CreateIfBlock(F, "IfHTFullCond", &ifHTFull,
+					endBlockHTFull);
+
+			LoadInst *val_ht = Builder->CreateLoad(htS.mem_kv);
+			val_ht->setAlignment(8);
+
+			Value *offsetInHT = Builder->CreateLoad(htS.mem_offset);
+			//		Value *offsetPlusKey = Builder->CreateAdd(offsetInHT,val_keySize64);
+			//		int payloadPtrSize = sizeof(size_t);
+			//		Value *val_payloadPtrSize = context->createInt64(payloadPtrSize);
+			//		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKey,val_payloadPtrSize);
+			Value *offsetPlusKVPair = Builder->CreateAdd(offsetInHT, kvSize);
+
+			Value *htSize = Builder->CreateLoad(htS.mem_size);
+			Value *offsetCond = Builder->CreateICmpSGE(offsetPlusKVPair,
+					htSize);
+
+			Builder->CreateCondBr(offsetCond, ifHTFull, endBlockHTFull);
+
+			/* true => realloc() */
+			Builder->SetInsertPoint(ifHTFull);
+
+			/* Casting htEntry* to void* requires a cast */
+			Value *cast_htEntries = Builder->CreateBitCast(val_ht,
+					void_ptr_type);
+			vector<Value*> ArgsRealloc;
+			Function* reallocLLVM = context->getFunction("increaseMemoryChunk");
+			ArgsRealloc.clear();
+			ArgsRealloc.push_back(cast_htEntries);
+			ArgsRealloc.push_back(htSize);
+			Value *val_newVoidHTPtr = Builder->CreateCall(reallocLLVM,
+					ArgsRealloc);
+
+			Value *val_newHTPtr = Builder->CreateBitCast(val_newVoidHTPtr,
+					htEntryPtrType);
+			Builder->CreateStore(val_newHTPtr, htS.mem_kv);
+			Value *val_size = Builder->CreateLoad(htS.mem_size);
+			val_size = Builder->CreateMul(val_size, context->createInt64(2));
+			Builder->CreateStore(val_size, htS.mem_size);
+			Builder->CreateBr(endBlockHTFull);
+
+			/* Insert ht entry in HT */
+			Builder->SetInsertPoint(endBlockHTFull);
+
+			/* Repeat load - realloc() might have occurred */
+			val_ht = Builder->CreateLoad(htS.mem_kv);
+			val_ht->setAlignment(8);
+
+			val_size = Builder->CreateLoad(htS.mem_size);
+
+			/* 1. kv += offset */
+			/* Note that we already have a htEntry ptr here */
+			Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht,
+					val_tuplesNo);
+
+			/* 2a. kv_cast->keyPtr = &key */
+			offsetInStruct = 0;
+			//Shift in htEntry (struct) ptr
+			vector<Value*> idxList = vector<Value*>();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(offsetInStruct));
+
+			Value* structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
+			StoreInst *store_key = Builder->CreateStore(rightKey.value,
+					structPtr);
+			store_key->setAlignment(4);
+
+			/* 2b. kv_cast->payloadPtr = &payload */
+			offsetInStruct = 1;
+			idxList.clear();
+			idxList.push_back(context->createInt32(0));
+			idxList.push_back(context->createInt32(offsetInStruct));
+			structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
+
+			StoreInst *store_payloadPtr = Builder->CreateStore(offsetInArena,
+					structPtr);
+			store_payloadPtr->setAlignment(8);
+
+			/* 4. Increment counts - both Rel and HT */
+			Builder->CreateStore(offsetPlusPayload, relS.mem_offset);
+			Builder->CreateStore(offsetPlusKVPair, htS.mem_offset);
+			val_tuplesNo = Builder->CreateAdd(val_tuplesNo,
+					context->createInt64(1));
+			Builder->CreateStore(val_tuplesNo, relS.mem_tuplesNo);
+			Builder->CreateStore(val_tuplesNo, htS.mem_tuplesNo);
+
+		}
 	}
 };
 

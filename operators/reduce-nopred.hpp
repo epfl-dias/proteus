@@ -45,7 +45,7 @@ public:
 	ReduceNoPred(Monoid acc, expressions::Expression* outputExpr,
 			RawOperator* const child, RawContext* context);
 	virtual ~ReduceNoPred()												{ LOG(INFO)<<"Collapsing Reduce operator"; }
-	virtual void produce() const;
+	virtual void produce();
 	virtual void consume(RawContext* const context,
 			const OperatorState& childState);
 	virtual bool isFiltering() const {return getChild()->isFiltering();}

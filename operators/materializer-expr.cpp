@@ -106,7 +106,7 @@ void ExprMaterializer::freeArenas() const	{
 	Builder->CreateCall(freeLLVM, ArgsFree);
 }
 
-void ExprMaterializer::produce() const {
+void ExprMaterializer::produce() {
 	getChild()->produce();
 
 	/* Free Arenas */
@@ -235,6 +235,9 @@ void ExprMaterializer::consume(RawContext* const context, const OperatorState& c
 		info.objectTypes.push_back(toMat->getExpressionType()->getTypeID());
 		info.structFieldNo = 0;
 		info.payloadPtr = ptr_rawBuffer;
+		//XXX Have LLVM exec. fill this up!
+		info.itemCount = new size_t[1];
+		*(info.itemCount) = 0;
 		cache.registerCache(toMat, info, fullRelation);
 	}
 

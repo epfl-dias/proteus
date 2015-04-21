@@ -53,7 +53,7 @@ public:
 			RawOperator* const child, char* opLabel, Materializer& mat);
 	virtual ~Nest() {
 		LOG(INFO)<<"Collapsing Nest operator";}
-	virtual void produce() const;
+	virtual void produce();
 	virtual void consume(RawContext* const context, const OperatorState& childState);
 	Materializer& getMaterializer() {return mat;}
 	virtual bool isFiltering() const {return true;}

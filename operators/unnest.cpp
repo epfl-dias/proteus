@@ -23,7 +23,7 @@
 
 #include "operators/unnest.hpp"
 
-void Unnest::produce()	const { getChild()->produce(); }
+void Unnest::produce()	{ getChild()->produce(); }
 
 void Unnest::consume(RawContext* const context, const OperatorState& childState) {
 	generate(context, childState);

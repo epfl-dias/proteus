@@ -23,7 +23,7 @@
 
 #include "operators/outer-unnest.hpp"
 
-void OuterUnnest::produce() const
+void OuterUnnest::produce()
 {
 	getChild()->produce();
 }

@@ -1835,7 +1835,7 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 		Function *hashCombine = context->getFunction("combineHashes");
 		hashedValue = context->createInt64(0);
 
-		list<RecordAttribute*>& args = ((RecordType*) type)->getArgs();
+		list<RecordAttribute*> args = ((RecordType*) type)->getArgs();
 		list<RecordAttribute*>::iterator it = args.begin();
 
 		//Not efficient -> duplicate work performed since fields are not visited incrementally

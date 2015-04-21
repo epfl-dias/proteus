@@ -484,7 +484,7 @@ void BinaryRowPlugin::scan(const RawOperator& producer, Function *f)
 	Function* debugFloat 	= context->getFunction("printFloat");
 
 	size_t offset = 0;
-	list<RecordAttribute*>& args = rec.getArgs();
+	list<RecordAttribute*> args = rec.getArgs();
 	list<RecordAttribute*>::iterator iterSchema = args.begin();
 	for (vector<RecordAttribute*>::iterator it = wantedFields.begin(); it != wantedFields.end(); it++)	{
 		RecordAttribute attr = *(*it);

@@ -30,7 +30,7 @@ public:
 		: UnaryRawOperator(child), arg(arg), print(debug) 			{}
 	virtual ~Print() 												{ LOG(INFO) << "Collapsing print operator"; }
 
-	virtual void produce() const;
+	virtual void produce() ;
 	virtual void consume(RawContext* const context, const OperatorState& childState);
 	virtual bool isFiltering() const {return getChild()->isFiltering();}
 private:
