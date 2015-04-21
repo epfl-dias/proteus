@@ -109,7 +109,7 @@ TEST(JSON, SelectJSON) {
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr);
@@ -190,8 +190,8 @@ TEST(JSON, unnestJSON) {
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
@@ -295,7 +295,7 @@ TEST(JSON, reduceListObjectFlat) {
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -367,7 +367,7 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -461,7 +461,7 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -550,7 +550,7 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);

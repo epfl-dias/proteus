@@ -27,6 +27,8 @@
 #include "plugins/plugins.hpp"
 #include "util/atois.hpp"
 
+#define DEBUGBINCACHE
+
 class BinaryInternalPlugin	: public Plugin {
 public:
 
@@ -105,14 +107,17 @@ private:
 	//
 	RecordType rec;
 	//Number of entries, if applicable
-	Value *val_size;
+	Value *val_entriesNo;
 	/* Necessary if we are to iterate over the internal caches */
 
 	vector<RecordAttribute*> fields;
 	vector<RecordAttribute*> OIDs;
 
 	Value *mem_buffer;
+	/* Binary offset in file */
 	AllocaInst *mem_pos;
+	/* Tuple counter */
+	AllocaInst *mem_cnt;
 
 	/* Since we allow looping over cache, we must also extract fields
 	 * while looping */

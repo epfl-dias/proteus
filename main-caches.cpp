@@ -100,7 +100,7 @@ void expressionMap() {
 	RecordType inner = RecordType(atts);
 	ListType documentType = ListType(inner);
 
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, &intType);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	expressions::Expression *inputArg = new expressions::InputArgument(&inner,
@@ -157,7 +157,7 @@ void expressionMapVertical() {
 	RecordType inner = RecordType(atts);
 	ListType documentType = ListType(inner);
 
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, &intType);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	expressions::Expression *inputArg = new expressions::InputArgument(&inner,
@@ -229,7 +229,7 @@ void joinQueryRelationalRadixCache() {
 	catalog.registerPlugin(filename, pg);
 	Scan scan = Scan(&ctx, *pg);
 
-	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projectionsL = list<RecordAttribute>();
 	projectionsL.push_back(projTupleL);
 	projectionsL.push_back(*attr1);
@@ -263,7 +263,7 @@ void joinQueryRelationalRadixCache() {
 	Scan scan2 = Scan(&ctx, *pg2);
 	LOG(INFO)<<"Right:"<<&scan2;
 
-	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop);
+	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop, pg2->getOIDType());
 	list<RecordAttribute> projectionsR = list<RecordAttribute>();
 	projectionsR.push_back(projTupleR);
 	projectionsR.push_back(*attr1_f2);
@@ -383,7 +383,7 @@ void materializer()
 	 * Materialize expression(s) here
 	 * rec.b the one cached
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr);
@@ -458,7 +458,7 @@ void selectionJSONFlat()
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr);

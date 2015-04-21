@@ -84,7 +84,7 @@ private:
 	Value *radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const;
 
 //	char** findSideInCache(Materializer &mat) const;
-	Scan* findSideInCache(Materializer &mat) const;
+	Scan* findSideInCache(Materializer &mat, bool isLeft) const;
 	void placeInCache(Materializer &mat, bool isLeft) const;
 	void updateRelationPointers() const;
 	void freeArenas() const;

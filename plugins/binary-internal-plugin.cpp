@@ -27,7 +27,7 @@ BinaryInternalPlugin::BinaryInternalPlugin(RawContext* const context,
 		string structName) :
 		context(context), structName(structName)
 {
-	val_size = context->createInt64(0);
+	val_entriesNo = context->createInt64(0);
 	mem_buffer = NULL;
 	mem_pos = NULL;
 }
@@ -45,7 +45,8 @@ BinaryInternalPlugin::BinaryInternalPlugin(RawContext* const context,
 	Type *int64Type = Type::getInt64Ty(llvmContext);
 	PointerType* charPtrType = Type::getInt8PtrTy(llvmContext);
 
-	val_size = context->createInt64(entriesNo);
+	cout << "HOW MANY CACHED ENTRIES? " << entriesNo << endl;
+	val_entriesNo = context->createInt64(entriesNo);
 	int fieldsNumber = OIDs.size() + fields.size();
 	if (fieldsNumber <= 0) {
 		string error_msg = string(
@@ -58,6 +59,10 @@ BinaryInternalPlugin::BinaryInternalPlugin(RawContext* const context,
 	Value *val_buffer = context->CastPtrToLlvmPtr(charPtrType,rawBuffer);
 	Builder->CreateStore(val_buffer,mem_buffer);
 	mem_pos = context->CreateEntryBlockAlloca(F,string("currPos"),int64Type);
+	mem_cnt = context->CreateEntryBlockAlloca(F,string("currPos"),int64Type);
+	Value *val_zero = Builder->getInt64(0);
+	Builder->CreateStore(val_zero, mem_pos);
+	Builder->CreateStore(val_zero, mem_cnt);
 	cout << "Internal Binary PG creation" << endl;
 }
 
@@ -93,10 +98,6 @@ void BinaryInternalPlugin::scan(const RawOperator& producer)
 	//Container for the variable bindings
 	map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
 
-	//Fetch value from symbol table
-	Value *val_zero = Builder->getInt64(0);
-	Builder->CreateStore(val_zero,mem_pos);
-
 	//Get the ENTRY BLOCK
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 	context->setCurrentEntryBlock(Builder->GetInsertBlock());
@@ -112,8 +113,8 @@ void BinaryInternalPlugin::scan(const RawOperator& producer)
 	 * Equivalent:
 	 * while(pos < fsize)
 	 */
-	Value* lhs = Builder->CreateLoad(mem_pos);
-	Value* rhs = val_size;
+	Value* lhs = Builder->CreateLoad(mem_cnt);
+	Value* rhs = val_entriesNo;
 	Value *cond = Builder->CreateICmpSLT(lhs,rhs);
 
 	// Make the new basic block for the loop header (BODY), inserting after current block.
@@ -128,7 +129,16 @@ void BinaryInternalPlugin::scan(const RawOperator& producer)
 
 	// Start insertion in LoopBB.
 	Builder->SetInsertPoint(LoopBB);
-
+#ifdef DEBUG
+	{
+		Function* debugInt = context->getFunction("printi64");
+		vector<Value*> ArgsV;
+		Value *val_pos = Builder->CreateLoad(mem_pos);
+		ArgsV.push_back(val_pos);
+		Builder->CreateCall(debugInt, ArgsV);
+		ArgsV.clear();
+	}
+#endif
 	//Get the starting position of each record and pass it along.
 	//More general/lazy plugins will only perform this action,
 	//instead of eagerly 'converting' fields
@@ -161,26 +171,30 @@ void BinaryInternalPlugin::scan(const RawOperator& producer)
 			it++) {
 		RecordAttribute attr = *(*it);
 		switch (attr.getOriginalType()->getTypeID()) {
-		{
-			case BOOL:
+
+		case BOOL:
 			readAsBooleanLLVM(attr, *variableBindings);
 			offset = sizeof(bool);
 			break;
-			case STRING:
+		case STRING:
 			readAsStringLLVM(attr, *variableBindings);
 			offset = 5;
 			break;
-			case FLOAT:
+		case FLOAT:
 			readAsFloatLLVM(attr, *variableBindings);
 			offset = sizeof(float);
 			break;
-			case INT:
+		case INT:
 			readAsIntLLVM(attr, *variableBindings);
 			offset = sizeof(int);
 			break;
-			case BAG:
-			case LIST:
-			case SET:
+		case INT64:
+			readAsInt64LLVM(attr, *variableBindings);
+			offset = sizeof(size_t);
+			break;
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR)<< "[BinaryInternalPlugin: ] Binary row files do not contain collections";
 			throw runtime_error(
 					string(
@@ -194,33 +208,39 @@ void BinaryInternalPlugin::scan(const RawOperator& producer)
 			LOG(ERROR)<< "[BinaryInternalPlugin: ] Unknown datatype";
 			throw runtime_error(
 					string("[BinaryInternalPlugin: ] Unknown datatype"));
+
 		}
-		}
+		Value* val_offset = context->createInt64(offset);
+		skipLLVM(val_offset);
 	}
 	for (vector<RecordAttribute*>::iterator it = fields.begin();
 			it != fields.end(); it++) {
 		RecordAttribute attr = *(*it);
 		switch (attr.getOriginalType()->getTypeID()) {
-		{
-			case BOOL:
+
+		case BOOL:
 			readAsBooleanLLVM(attr, *variableBindings);
 			offset = sizeof(bool);
 			break;
-			case STRING:
+		case STRING:
 			readAsStringLLVM(attr, *variableBindings);
 			offset = 5;
 			break;
-			case FLOAT:
+		case FLOAT:
 			readAsFloatLLVM(attr, *variableBindings);
 			offset = sizeof(float);
 			break;
-			case INT:
+		case INT:
 			readAsIntLLVM(attr, *variableBindings);
 			offset = sizeof(int);
 			break;
-			case BAG:
-			case LIST:
-			case SET:
+		case INT64:
+			readAsInt64LLVM(attr, *variableBindings);
+			offset = sizeof(size_t);
+			break;
+		case BAG:
+		case LIST:
+		case SET:
 			LOG(ERROR)<< "[BinaryInternalPlugin: ] Binary row files do not contain collections";
 			throw runtime_error(
 					string(
@@ -234,8 +254,10 @@ void BinaryInternalPlugin::scan(const RawOperator& producer)
 			LOG(ERROR)<< "[BinaryInternalPlugin: ] Unknown datatype";
 			throw runtime_error(
 					string("[BinaryInternalPlugin: ] Unknown datatype"));
+
 		}
-		}
+		Value* val_offset = context->createInt64(offset);
+		skipLLVM(val_offset);
 	}
 
 
@@ -246,7 +268,10 @@ void BinaryInternalPlugin::scan(const RawOperator& producer)
 	Builder->CreateBr(IncBB);
 	// Start insertion in IncBB.
 	Builder->SetInsertPoint(IncBB);
-
+	Value *val_cnt = Builder->CreateLoad(mem_cnt);
+	Value *val_1 = Builder->getInt64(1);
+	val_cnt = Builder->CreateAdd(val_cnt,val_1);
+	Builder->CreateStore(val_cnt,mem_cnt);
 
 	//Triggering parent
 	OperatorState* state = new OperatorState(producer, *variableBindings);
@@ -487,7 +512,16 @@ void BinaryInternalPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttr
 	AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
 	Builder->CreateStore(parsedInt,mem_currResult);
 	LOG(INFO) << "[BINARYCACHE - READ INT: ] Read Successful";
+#ifdef DEBUGBINCACHE
+	{
+		Function* debugInt = context->getFunction("printi");
+		vector<Value*> ArgsV;
+		//		ArgsV.push_back(context->createInt32(-6));
+		ArgsV.push_back(parsedInt);
+		Builder->CreateCall(debugInt, ArgsV);
 
+	}
+#endif
 	RawValueMemory mem_valWrapper;
 	mem_valWrapper.mem = mem_currResult;
 	mem_valWrapper.isNull = context->createFalse();
@@ -510,7 +544,14 @@ void BinaryInternalPlugin::readAsInt64LLVM(RecordAttribute attName, map<RecordAt
 	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
 	Value* mem_result = Builder->CreateBitCast(bufShiftedPtr,ptrType_int64);
 	Value *parsedInt = Builder->CreateLoad(mem_result);
-
+#ifdef DEBUGBINCACHE
+	{
+		Function* debugInt = context->getFunction("printi64");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(parsedInt);
+		Builder->CreateCall(debugInt, ArgsV);
+	}
+#endif
 	AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", int64Type);
 	Builder->CreateStore(parsedInt,mem_currResult);
 	LOG(INFO) << "[BINARYCACHE - READ INT64: ] Read Successful";

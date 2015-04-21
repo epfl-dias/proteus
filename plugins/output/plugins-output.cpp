@@ -29,6 +29,7 @@ Materializer::Materializer(const vector<RecordAttribute*>& wantedFields,
 //		wantedExpressions(wantedExpressions),
 		wantedFields(wantedFields), outputMode(outputMode)
 {
+	oidsProvided = false;
 }
 
 Materializer::Materializer(const vector<RecordAttribute*>& whichFields,
@@ -37,6 +38,7 @@ Materializer::Materializer(const vector<RecordAttribute*>& whichFields,
 		const vector<materialization_mode>& outputMode) :
 		wantedExpressions(wantedExpressions), wantedOIDs(whichOIDs), wantedFields(
 				whichFields), outputMode(outputMode) {
+	oidsProvided = true;
 }
 
 OutputPlugin::OutputPlugin(RawContext* const context,
@@ -64,7 +66,9 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 				memSearch != currentBindings.end(); memSearch++) {
 
 			RecordAttribute currAttr = memSearch->first;
-			//cout << "HINT: " << currAttr.getOriginalRelationName() << "_" << currAttr.getName() << endl;
+//			cout << "HINT: " << currAttr.getOriginalRelationName() << " -- "
+//					<< currAttr.getRelationName() << "_" << currAttr.getName()
+//					<< endl;
 			if (currAttr.getAttrName() == activeLoop) {
 				Type* currType = (memSearch->second).mem->getAllocatedType();
 				materializedTypes->push_back(currType);

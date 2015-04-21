@@ -58,20 +58,20 @@ public:
 			return wantedFields;
 	}
 	const vector<RecordAttribute*>& getWantedOIDs() {
-//		if (wantedOIDs.size() != 0) {
-//			return wantedOIDs;
-//		} else {
+		if (oidsProvided) {
+			return wantedOIDs;
+		} else {
 			/* HACK to avoid crashes in deprecated test cases! */
+			vector<RecordAttribute*>* newOIDs = new vector<RecordAttribute*>();
 			set<RecordAttribute>::iterator it = tupleIdentifiers.begin();
 			for (; it != tupleIdentifiers.end(); it++) {
-//				RawCatalog& catalog 			= RawCatalog::getInstance();
-//				Plugin* pg = catalog.getPlugin(it->getOriginalRelationName());
 				RecordAttribute *attr = new RecordAttribute(
-						it->getOriginalRelationName(), it->getAttrName());//, pg->getOIDType());
-				wantedOIDs.push_back(attr);
+						it->getRelationName(), it->getAttrName(),
+						it->getOriginalType());
+				newOIDs->push_back(attr);
 			}
-			return wantedOIDs;
-//		}
+			return *newOIDs; //wantedOIDs;
+		}
 	}
 	const vector<expressions::Expression*>& getWantedExpressions() const {
 		return wantedExpressions;
@@ -103,6 +103,8 @@ private:
 	const vector<materialization_mode>& outputMode;
 	//int tupleIdentifiers;
 	set<RecordAttribute> tupleIdentifiers;
+
+	bool oidsProvided;
 };
 
 class OutputPlugin {

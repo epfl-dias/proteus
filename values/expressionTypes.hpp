@@ -127,13 +127,19 @@ public:
 			: attrNo(no), relName(relName), originalRelName(originalRelName), attrName(attrName), type(type), projected(false) 	{}
 
 	//Constructor used STRICTLY for comparisons in maps
-	RecordAttribute(string relName, string attrName)
-			: attrNo(-1), relName(relName), attrName(attrName), type(NULL), projected(false) 	{}
+//	RecordAttribute(string relName, string attrName)
+//			: attrNo(-1), relName(relName), attrName(attrName), type(NULL), projected(false) 	{}
 
 	/* OID Type needed so that we know what we materialize
 	 * => Subsequent functions / programs use info to parse caches */
 	RecordAttribute(string relName, string attrName, const ExpressionType* type)
-			: attrNo(-1), relName(relName), attrName(attrName), type(type), projected(false) 	{}
+			: attrNo(-1), relName(relName), attrName(attrName), type(type), projected(false) 	{
+		//cout << "RELNAME:[" << relName << "]" << endl;
+		if(relName == "")	{
+			LOG(ERROR) << "WTF";
+			throw runtime_error(string("WTF"));
+		}
+	}
 
 	string getType() const											{ return attrName +" "+type->getType(); }
 	const ExpressionType* getOriginalType() const					{ return type; }

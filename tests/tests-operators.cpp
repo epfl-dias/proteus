@@ -140,7 +140,7 @@ TEST(Relational, SPJ) {
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projectionsL = list<RecordAttribute>();
 	projectionsL.push_back(projTupleL);
 	projectionsL.push_back(*attr1);
@@ -183,7 +183,7 @@ TEST(Relational, SPJ) {
 	Scan scan2 = Scan(&ctx, *pg2);
 	LOG(INFO)<<"Right:"<<&scan2;
 
-	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop);
+	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop, pg2->getOIDType());
 	list<RecordAttribute> projectionsR = list<RecordAttribute>();
 	projectionsR.push_back(projTupleR);
 	projectionsR.push_back(*attr1_f2);
@@ -277,7 +277,7 @@ TEST(Hierarchical, TwoProjections) {
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr);
@@ -357,8 +357,8 @@ TEST(Hierarchical, Unnest) {
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
@@ -465,8 +465,8 @@ TEST(Hierarchical, UnnestDeeper) {
 	/**
 	 * UNNEST
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &children);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
@@ -571,8 +571,8 @@ TEST(Hierarchical, UnnestFiltering) {
 	/**
 	 * UNNEST
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
@@ -671,7 +671,7 @@ TEST(Generic, ReduceNumeric) {
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*sid);
@@ -739,7 +739,7 @@ TEST(Generic, ReduceBoolean) {
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*amount);
@@ -800,7 +800,7 @@ TEST(Generic, IfThenElse) {
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*amount);
@@ -873,8 +873,8 @@ TEST(Hierarchical,OuterUnnest1)
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);

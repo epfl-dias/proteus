@@ -282,9 +282,12 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 //		const set<RecordAttribute>& tuplesIdentifiers =
 //				mat.getTupleIdentifiers();
 		const vector<RecordAttribute*>& tuplesIdentifiers = mat.getWantedOIDs();
+//		cout << "How many OIDs? " << tuplesIdentifiers.size() << endl;
 		vector<RecordAttribute*>::const_iterator it = tuplesIdentifiers.begin();
 		for (; it != tuplesIdentifiers.end(); it++) {
 			RecordAttribute *attr = *it;
+//			cout << "Dealing with " << attr->getRelationName() << "_"
+//					<< attr->getAttrName() << endl;
 			mem_activeTuple = context->CreateEntryBlockAlloca(F,
 					"mem_activeTuple", payloadType->getElementType(i));
 			vector<Value*> idxList = vector<Value*>();

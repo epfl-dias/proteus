@@ -311,7 +311,7 @@ void expressionMap()	{
 	RecordType inner = RecordType(atts);
 	ListType documentType = ListType(inner);
 
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, &intType);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	expressions::Expression *inputArg = new expressions::InputArgument(&inner,
@@ -369,7 +369,7 @@ void expressionMapVertical()	{
 	RecordType inner = RecordType(atts);
 	ListType documentType = ListType(inner);
 
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, &intType);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	expressions::Expression *inputArg = new expressions::InputArgument(&inner,
@@ -797,8 +797,8 @@ void unnestJsmn()
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
@@ -897,8 +897,8 @@ void unnestJSONFlat()
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
@@ -1001,8 +1001,8 @@ void outerUnnest()
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
@@ -1108,8 +1108,8 @@ void outerUnnestNull1()
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
@@ -1223,8 +1223,8 @@ void nest()
 	/**
 	 * OUTER UNNEST
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
@@ -1364,8 +1364,8 @@ void unnestJsmnDeeper()
 	/**
 	 * UNNEST
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &children);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
@@ -1468,8 +1468,8 @@ void unnestJsmnFiltering()
 	/**
 	 * UNNEST
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
@@ -1909,6 +1909,7 @@ void selectionCSV()
 	 */
 	string filename = string("inputs/sailors.csv");
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 	PrimitiveType* floatType = new FloatType();
 	PrimitiveType* stringType = new StringType();
 	RecordAttribute* sid = new RecordAttribute(1, filename, string("sid"),
@@ -1939,7 +1940,7 @@ void selectionCSV()
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*sid);
@@ -1986,6 +1987,7 @@ void joinQueryRelational()
 	 */
 	string filename = string("inputs/input.csv");
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 	RecordAttribute* attr1 = new RecordAttribute(1, filename, string("att1"),
 			intType);
 	RecordAttribute* attr2 = new RecordAttribute(2, filename, string("att2"),
@@ -2009,7 +2011,7 @@ void joinQueryRelational()
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop,pg->getOIDType());
 	list<RecordAttribute> projectionsL = list<RecordAttribute>();
 	projectionsL.push_back(projTupleL);
 	projectionsL.push_back(*attr1);
@@ -2052,7 +2054,7 @@ void joinQueryRelational()
 	Scan scan2 = Scan(&ctx, *pg2);
 	LOG(INFO)<<"Right:"<<&scan2;
 
-	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop);
+	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop,int64Type);
 	list<RecordAttribute> projectionsR = list<RecordAttribute>();
 	projectionsR.push_back(projTupleR);
 	projectionsR.push_back(*attr1_f2);
@@ -2113,6 +2115,7 @@ void joinQueryRelationalRadix()
 	 */
 	string filename = string("inputs/input.csv");
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 	RecordAttribute* attr1 = new RecordAttribute(1, filename, string("att1"),
 			intType);
 	RecordAttribute* attr2 = new RecordAttribute(2, filename, string("att2"),
@@ -2133,7 +2136,7 @@ void joinQueryRelationalRadix()
 	catalog.registerPlugin(filename, pg);
 	Scan scan = Scan(&ctx, *pg);
 
-	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop,int64Type);
 	list<RecordAttribute> projectionsL = list<RecordAttribute>();
 	projectionsL.push_back(projTupleL);
 	projectionsL.push_back(*attr1);
@@ -2165,7 +2168,7 @@ void joinQueryRelationalRadix()
 	Scan scan2 = Scan(&ctx, *pg2);
 	LOG(INFO)<<"Right:"<<&scan2;
 
-	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop);
+	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop,int64Type);
 	list<RecordAttribute> projectionsR = list<RecordAttribute>();
 	projectionsR.push_back(projTupleR);
 	projectionsR.push_back(*attr1_f2);
@@ -2266,6 +2269,7 @@ void joinQueryRelationalRadixCache()
 	 */
 	string filename = string("inputs/input.csv");
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 	RecordAttribute* attr1 = new RecordAttribute(1, filename, string("att1"),
 			intType);
 	RecordAttribute* attr2 = new RecordAttribute(2, filename, string("att2"),
@@ -2287,7 +2291,7 @@ void joinQueryRelationalRadixCache()
 	catalog.registerPlugin(filename, pg);
 	Scan scan = Scan(&ctx, *pg);
 
-	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop,int64Type);
 	list<RecordAttribute> projectionsL = list<RecordAttribute>();
 	projectionsL.push_back(projTupleL);
 	projectionsL.push_back(*attr1);
@@ -2320,7 +2324,7 @@ void joinQueryRelationalRadixCache()
 	Scan scan2 = Scan(&ctx, *pg2);
 	LOG(INFO)<<"Right:"<<&scan2;
 
-	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop);
+	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop, int64Type);
 	list<RecordAttribute> projectionsR = list<RecordAttribute>();
 	projectionsR.push_back(projTupleR);
 	projectionsR.push_back(*attr1_f2);
@@ -2497,6 +2501,7 @@ void selectionJsmn()
 	string attrName = string("a");
 	string attrName2 = string("b");
 	IntType attrType = IntType();
+	IntType intType = IntType();
 	RecordAttribute attr = RecordAttribute(1, fname, attrName, &attrType);
 	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &attrType);
 
@@ -2515,7 +2520,7 @@ void selectionJsmn()
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, &intType);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr);
@@ -2584,7 +2589,7 @@ void selectionJSONFlat()
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, &attrType);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr);
@@ -2668,7 +2673,7 @@ void reduceListInt()
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,&intType);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr);
@@ -2703,6 +2708,7 @@ void reduceListIntCSV()
 
 	string fname = string("inputs/sailors.csv");
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 	PrimitiveType* floatType = new FloatType();
 	PrimitiveType* stringType = new StringType();
 	RecordAttribute* sid = new RecordAttribute(1, fname, string("sid"),
@@ -2733,7 +2739,7 @@ void reduceListIntCSV()
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,int64Type);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*sid);
@@ -2803,7 +2809,7 @@ void reduceListObject()
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,&intType);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -2873,7 +2879,7 @@ void reduceNoPredListObject()
 	/**
 	 * REDUCE (No Pred)
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,&intType);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -2939,7 +2945,7 @@ void reduceListObjectFlat()
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -3032,7 +3038,7 @@ void reduceJSONMaxFlat(bool longRun)
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -3108,7 +3114,7 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname, jsmntok_t
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -3192,7 +3198,7 @@ void reduceJSONDeeperMaxFlat(bool longRun)
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -3266,7 +3272,7 @@ void reduceListRecordConstruction()
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -3363,7 +3369,7 @@ void reduceListRecordOriginal()
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -3429,7 +3435,7 @@ void reduceListRecordOriginalCSV()
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*sid);
@@ -3494,7 +3500,7 @@ void recordProjectionsJSON()
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr);
@@ -3576,7 +3582,7 @@ void reduceNumeric()
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop,pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*sid);
@@ -3644,7 +3650,7 @@ void reduceNoPredMax()
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop,pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*sid);
@@ -3705,7 +3711,7 @@ void reduceNoPredSum()
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop,pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*sid);
@@ -3761,7 +3767,7 @@ void scanCSVBoolean()
 
 	//PRINT
 	Function* debugBoolean = ctx.getFunction("printBoolean");
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop,pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*isPaid);
@@ -3822,7 +3828,7 @@ void reduceBoolean()
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop,pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*amount);
@@ -3892,7 +3898,7 @@ void cidrBin()
 	//PRINT
 	Function* debugInt = ctx.getFunction("printi");
 
-	RecordAttribute projTuple = RecordAttribute(filenameBin, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filenameBin, activeLoop,pgBin->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(*field2);
 	projections.push_back(*field4);
@@ -3974,7 +3980,7 @@ void cidrBinStrConstant()
 	 */
 	Function* debugInt = ctx.getFunction("printi");
 
-	RecordAttribute projTuple = RecordAttribute(filenameBin, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filenameBin, activeLoop,pgBin->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(*field2);
 	projections.push_back(*field4);
@@ -4051,7 +4057,7 @@ void cidrBinStr()
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(filenameBin, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filenameBin, activeLoop,pgBin->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(*field3);
 	projections.push_back(*field4);
@@ -4160,7 +4166,7 @@ void cidrQuery3()
 
 	//SELECT
 	RecordAttribute projTupleClinical = RecordAttribute(filenameClinical,
-			activeLoop);
+			activeLoop,pgClinical->getOIDType());
 	list<RecordAttribute> projectionsClinical = list<RecordAttribute>();
 	projectionsClinical.push_back(projTupleClinical);
 	projectionsClinical.push_back(*rid);
@@ -4218,7 +4224,7 @@ void cidrQuery3()
 			new expressions::RecordProjection(intType, argClinical, *rid);
 
 	RecordAttribute projTupleGenetic = RecordAttribute(filenameGenetic,
-			activeLoop);
+			activeLoop,pgGenetic->getOIDType());
 	list<RecordAttribute> projectionsGenetic = list<RecordAttribute>();
 	projectionsGenetic.push_back(projTupleGenetic);
 	projectionsGenetic.push_back(*iid);
@@ -4340,7 +4346,7 @@ void cidrQuery3Radix()
 
 	//SELECT
 	RecordAttribute projTupleClinical = RecordAttribute(filenameClinical,
-			activeLoop);
+			activeLoop,pgClinical->getOIDType());
 	list<RecordAttribute> projectionsClinical = list<RecordAttribute>();
 	projectionsClinical.push_back(projTupleClinical);
 	projectionsClinical.push_back(*rid);
@@ -4399,7 +4405,7 @@ void cidrQuery3Radix()
 			new expressions::RecordProjection(intType, argClinical, *rid);
 
 	RecordAttribute projTupleGenetic = RecordAttribute(filenameGenetic,
-			activeLoop);
+			activeLoop,pgGenetic->getOIDType());
 	list<RecordAttribute> projectionsGenetic = list<RecordAttribute>();
 	projectionsGenetic.push_back(projTupleGenetic);
 	projectionsGenetic.push_back(*iid);
@@ -4537,7 +4543,7 @@ void cidrQuery3RadixMax()
 
 	//SELECT
 	RecordAttribute projTupleClinical = RecordAttribute(filenameClinical,
-			activeLoop);
+			activeLoop, pgClinical->getOIDType());
 	list<RecordAttribute> projectionsClinical = list<RecordAttribute>();
 	projectionsClinical.push_back(projTupleClinical);
 	projectionsClinical.push_back(*rid);
@@ -4596,7 +4602,7 @@ void cidrQuery3RadixMax()
 			new expressions::RecordProjection(intType, argClinical, *rid);
 
 	RecordAttribute projTupleGenetic = RecordAttribute(filenameGenetic,
-			activeLoop);
+			activeLoop,pgGenetic->getOIDType());
 	list<RecordAttribute> projectionsGenetic = list<RecordAttribute>();
 	projectionsGenetic.push_back(projTupleGenetic);
 	projectionsGenetic.push_back(*iid);
@@ -4771,6 +4777,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* stringType = new StringType();
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 	PrimitiveType* doubleType = new FloatType();
 
 	/**
@@ -4803,7 +4810,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 	 * SELECT
 	 */
 	RecordAttribute projTupleClinical = RecordAttribute(filenameClinical,
-			activeLoop);
+			activeLoop,pgClinical->getOIDType());
 	list<RecordAttribute> projectionsClinical = list<RecordAttribute>();
 	projectionsClinical.push_back(projTupleClinical);
 	projectionsClinical.push_back(*rid);
@@ -4857,7 +4864,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 	 * SELECT
 	 */
 	RecordAttribute projTupleRegions = RecordAttribute(filenameRegions,
-			activeLoop);
+			activeLoop,int64Type);
 	list<RecordAttribute> projectionsRegions = list<RecordAttribute>();
 	projectionsRegions.push_back(projTupleRegions);
 	projectionsRegions.push_back(*iidRegions);
@@ -4920,7 +4927,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 	 * SELECT
 	 */
 	RecordAttribute projTupleGenetic = RecordAttribute(filenameGenetic,
-			activeLoop);
+			activeLoop,int64Type);
 	list<RecordAttribute> projectionsGenetic = list<RecordAttribute>();
 	projectionsGenetic.push_back(projTupleGenetic);
 	projectionsGenetic.push_back(*fid);
@@ -5002,6 +5009,7 @@ void ifThenElse()	{
 	//SCAN1
 	string filename = string("inputs/bills.csv");
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 	PrimitiveType* boolType = new BoolType();
 	PrimitiveType* stringType = new StringType();
 	RecordAttribute* category = new RecordAttribute(1,filename,string("category"),stringType);
@@ -5025,7 +5033,7 @@ void ifThenElse()	{
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop,int64Type);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*amount);
@@ -5118,6 +5126,7 @@ void columnarQuerySum()
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* stringType = new StringType();
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 	PrimitiveType* doubleType = new FloatType();
 
 	string line;
@@ -5146,7 +5155,7 @@ void columnarQuerySum()
 	 * (SUM)
 	 */
 	list<RecordAttribute> projections = list<RecordAttribute>();
-	RecordAttribute projTupleRegions = RecordAttribute(filenamePrefix,activeLoop);
+	RecordAttribute projTupleRegions = RecordAttribute(filenamePrefix,activeLoop,int64Type);
 	projections.push_back(projTupleRegions);
 	projections.push_back(*pid);
 	projections.push_back(*rid);
@@ -5186,6 +5195,7 @@ void columnarMax1()
 	RawContext ctx = prepareContext("columnarMax1");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 
 	string line;
 	int fieldCount = 1;
@@ -5220,7 +5230,7 @@ void columnarMax1()
 	 * (MAX)
 	 */
 	list<RecordAttribute> projections = list<RecordAttribute>();
-	RecordAttribute projTupleRegions = RecordAttribute(filenamePrefix,activeLoop);
+	RecordAttribute projTupleRegions = RecordAttribute(filenamePrefix,activeLoop,int64Type);
 	projections.push_back(projTupleRegions);
 	projections.push_back(*toProject);
 	expressions::Expression* arg 	= new expressions::InputArgument(&recRegions,0,projections);
@@ -5443,6 +5453,7 @@ void columnarJoin1()
 	RawContext ctx = prepareContext("columnarJoin1");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 
 	/* Segfault */
 	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
@@ -5594,7 +5605,7 @@ void columnarJoin1()
 
 	/* XXX Updated Materializer requires 'expressions to be cached'!!!*/
 	RecordAttribute projTupleR = RecordAttribute(filenamePrefixRight,
-			activeLoop);
+			activeLoop,int64Type);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			intType, rightJoinArg, projTupleR);
 	expressions::Expression* selRight = new expressions::RecordProjection(
@@ -5659,6 +5670,7 @@ void columnarCachedJoin1()
 	RawContext ctx = prepareContext("columnarJoin1");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
+	PrimitiveType* int64Type = new Int64Type();
 
 //	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
 //	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
@@ -5671,8 +5683,8 @@ void columnarCachedJoin1()
 //	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100-30cols-fixed");
 //	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/500-30cols-fixed");
 
-	string filenamePrefixLeft = string("inputs/synthetic/100-30cols-fixed");
-	string filenamePrefixRight = string("inputs/synthetic/500-30cols-fixed");
+	string filenamePrefixLeft = string("inputs/synthetic/500-30cols-fixed");
+	string filenamePrefixRight = string("inputs/synthetic/100-30cols-fixed");
 	/**
 	 * SCAN1
 	 */
@@ -5811,7 +5823,7 @@ void columnarCachedJoin1()
 
 	/* XXX Updated Materializer requires 'expressions to be cached'!!!*/
 	RecordAttribute projTupleR = RecordAttribute(filenamePrefixRight,
-			activeLoop);
+			activeLoop,pgColumnarRight->getOIDType());
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			intType, rightJoinArg, projTupleR);
 	expressions::Expression* selRight = new expressions::RecordProjection(

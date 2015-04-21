@@ -104,8 +104,8 @@ TEST(JSON, Nest) {
 	/**
 	 * OUTER UNNEST
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, empChildren);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, empChildren, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);
@@ -279,8 +279,8 @@ TEST(JSON, NestTwoKeys) {
 	/**
 	 * OUTER UNNEST
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, children);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, children, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);

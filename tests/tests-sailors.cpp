@@ -142,7 +142,7 @@ TEST(Sailors, Select) {
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(filename, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(*sid);
@@ -274,7 +274,7 @@ TEST(Sailors, JoinLeft3) {
 	/**
 	 * JOIN
 	 */
-	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop, pgSailors->getOIDType());
 	list<RecordAttribute> projectionsL = list<RecordAttribute>();
 	projectionsL.push_back(projTupleL);
 	projectionsL.push_back(*sid);
@@ -282,7 +282,7 @@ TEST(Sailors, JoinLeft3) {
 	expressions::Expression* leftArg = new expressions::InputArgument(intType,0,projectionsL);
 	expressions::Expression* left = new expressions::RecordProjection(intType,leftArg,*sid);
 
-	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop);
+	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop, pgReserves->getOIDType());
 	list<RecordAttribute> projectionsR = list<RecordAttribute>();
 	projectionsR.push_back(projTupleR);
 	projectionsR.push_back(*sidReserves);
@@ -330,7 +330,7 @@ TEST(Sailors, JoinLeft3) {
 	expressions::Expression* leftArg2 = new expressions::InputArgument(intType,0,projectionsR);
 	expressions::Expression* left2 = new expressions::RecordProjection(intType,leftArg2,*bidReserves);
 
-	RecordAttribute projTupleBoat = RecordAttribute(filenameBoats, activeLoop);
+	RecordAttribute projTupleBoat = RecordAttribute(filenameBoats, activeLoop, pgBoats->getOIDType());
 	list<RecordAttribute> projectionsBoats = list<RecordAttribute>();
 	projectionsBoats.push_back(projTupleBoat);
 	projectionsBoats.push_back(*bidBoats);
@@ -425,7 +425,7 @@ TEST(Sailors, JoinRight3) {
 
 
 	//JOIN2
-	RecordAttribute projTupleReserves = RecordAttribute(filename2, activeLoop);
+	RecordAttribute projTupleReserves = RecordAttribute(filename2, activeLoop, pgReserves->getOIDType());
 	list<RecordAttribute> projectionsReserves = list<RecordAttribute>();
 	projectionsReserves.push_back(projTupleReserves);
 	projectionsReserves.push_back(*sidReserves);
@@ -433,7 +433,7 @@ TEST(Sailors, JoinRight3) {
 	expressions::Expression* leftArg2 = new expressions::InputArgument(intType,0,projectionsReserves);
 	expressions::Expression* left2 = new expressions::RecordProjection(intType,leftArg2,*bidReserves);
 
-	RecordAttribute projTupleBoats = RecordAttribute(filenameBoats, activeLoop);
+	RecordAttribute projTupleBoats = RecordAttribute(filenameBoats, activeLoop, pgBoats->getOIDType());
 	list<RecordAttribute> projectionsBoats = list<RecordAttribute>();
 	projectionsBoats.push_back(projTupleBoats);
 	projectionsBoats.push_back(*bidBoats);
@@ -477,7 +477,7 @@ TEST(Sailors, JoinRight3) {
 
 
 	//JOIN
-	RecordAttribute projTupleSailors = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTupleSailors = RecordAttribute(filename, activeLoop, pgSailors->getOIDType());
 	list<RecordAttribute> projectionsSailors = list<RecordAttribute>();
 	projectionsSailors.push_back(projTupleSailors);
 	projectionsSailors.push_back(*sid);
@@ -583,7 +583,7 @@ TEST(Sailors, Join) {
 	string argLeft = filename+"_"+string("sid");
 	string argRight = filename2+"_"+string("sid");
 
-	RecordAttribute projTupleSailors = RecordAttribute(filename, activeLoop);
+	RecordAttribute projTupleSailors = RecordAttribute(filename, activeLoop, pgSailors->getOIDType());
 	list<RecordAttribute> projectionsSailors = list<RecordAttribute>();
 	projectionsSailors.push_back(projTupleSailors);
 	projectionsSailors.push_back(*sid);
@@ -593,7 +593,7 @@ TEST(Sailors, Join) {
 	expressions::Expression* left = new expressions::RecordProjection(intType,
 			leftArg, *sid);
 
-	RecordAttribute projTupleReserves = RecordAttribute(filename2, activeLoop);
+	RecordAttribute projTupleReserves = RecordAttribute(filename2, activeLoop, pgReserves->getOIDType());
 	list<RecordAttribute> projectionsReserves = list<RecordAttribute>();
 	projectionsReserves.push_back(projTupleReserves);
 	projectionsReserves.push_back(*sidReserves);

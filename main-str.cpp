@@ -96,7 +96,7 @@ void JsmnString()	{
 	/**
 		 * SELECT
 		 */
-		RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+		RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
 		list<RecordAttribute> projections = list<RecordAttribute>();
 		projections.push_back(projTuple);
 		projections.push_back(field1);
@@ -166,7 +166,7 @@ void JsonString()	{
 	/**
 		 * SELECT
 		 */
-		RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+		RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
 		list<RecordAttribute> projections = list<RecordAttribute>();
 		projections.push_back(projTuple);
 		projections.push_back(field1);
@@ -239,7 +239,7 @@ void CsvString() {
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(field1);
@@ -328,8 +328,8 @@ void nestRadixString()
 	/**
 	 * OUTER UNNEST
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop);
-	RecordAttribute proj1 = RecordAttribute(fname, children);
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute proj1 = RecordAttribute(fname, children, &nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(proj1);

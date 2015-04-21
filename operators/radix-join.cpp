@@ -234,10 +234,15 @@ void RadixJoin::freeArenas() const	{
 /* NULL if no exact match found, otherwise relationPtr */
 /* Note that this works only with caches produced by radix atm
  * Expression caches can't be used verbatim */
-Scan* RadixJoin::findSideInCache(Materializer &mat) const {
+Scan* RadixJoin::findSideInCache(Materializer &mat, bool isLeft) const {
 	CachingService& cache = CachingService::getInstance();
 	bool found = true;
 	string relName;
+
+	Function *F = context->getGlobalFunction();
+	LLVMContext& llvmContext = context->getLLVMContext();
+	IRBuilder<> *Builder = context->getBuilder();
+	PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
 
 	/* Is the relation already materialized?? */
 	const vector<expressions::Expression*>& exps =
@@ -261,9 +266,6 @@ Scan* RadixJoin::findSideInCache(Materializer &mat) const {
 		}
 		if (found) {
 			cout << "Relation side is READY" << endl;
-			/*BinaryInternalPlugin::BinaryInternalPlugin(RawContext* const context,
-		RecordType rec, string structName, vector<RecordAttribute*> whichFields,
-		char* rawBuffer, int entriesNo)*/
 
 			const vector<RecordAttribute*>& fields = mat.getWantedFields();
 
@@ -273,6 +275,24 @@ Scan* RadixJoin::findSideInCache(Materializer &mat) const {
 			BinaryInternalPlugin *pg = new BinaryInternalPlugin(context, rec,
 					htLabel, OIDs, fields, *(info.payloadPtr), *(info.itemCount));
 
+			if(isLeft)
+			{
+				Value *val_relationR = context->CastPtrToLlvmPtr(char_ptr_type,
+						*(info.payloadPtr));
+				Value *val_size = context->createInt64(*(info.itemCount));
+
+				Builder->CreateStore(val_relationR, relR.mem_relation);
+				Builder->CreateStore(val_size, relR.mem_tuplesNo);
+			}
+			else
+			{
+				Value *val_relationS = context->CastPtrToLlvmPtr(char_ptr_type,
+						*(info.payloadPtr));
+				Value *val_size = context->createInt64(*(info.itemCount));
+
+				Builder->CreateStore(val_relationS, relS.mem_relation);
+				Builder->CreateStore(val_size, relS.mem_tuplesNo);
+			}
 			Scan *newScan = new Scan(context,*pg);
 			return newScan;
 			//return info.payloadPtr;
@@ -430,7 +450,7 @@ void RadixJoin::produce() {
 
 	if (!this->leftChild.isFiltering()) {
 		cout << "Checking left side for caches" << endl;
-		newChildLeft = findSideInCache(matLeft);
+		//newChildLeft = findSideInCache(matLeft, true);
 	}
 	if (newChildLeft == NULL) {
 		//getLeftChild().produce();
@@ -447,7 +467,7 @@ void RadixJoin::produce() {
 
 	if (!this->rightChild.isFiltering()) {
 		cout << "Checking right side for caches" << endl;
-		newChildRight = findSideInCache(matRight);
+		//newChildRight = findSideInCache(matRight, false);
 	}
 	if (newChildRight == NULL) {
 		//getRightChild().produce();
@@ -458,6 +478,9 @@ void RadixJoin::produce() {
 		cachedRight = true;
 		this->setRightChild(*newChildRight);
 		newChildRight->setParent(this);
+
+
+
 		newChildRight->produce();
 	}
 
@@ -1206,10 +1229,12 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
 			RawValueMemory mem_activeTuple;
 			{
+				cout << "ORDER OF LEFT FIELDS MATERIALIZED"<<endl;
 				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
 				for (memSearch = bindings.begin(); memSearch != bindings.end();
 						memSearch++) {
 					RecordAttribute currAttr = memSearch->first;
+					cout << currAttr.getRelationName() << "_" << currAttr.getAttrName() << endl;
 					if (currAttr.getAttrName() == activeLoop) {
 						mem_activeTuple = memSearch->second;
 						Value* val_activeTuple = Builder->CreateLoad(
@@ -1234,6 +1259,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 					matLeft.getWantedFields();
 			for (vector<RecordAttribute*>::const_iterator it =
 					wantedFields.begin(); it != wantedFields.end(); ++it) {
+				cout << (*it)->getRelationName() << "_" << (*it)->getAttrName() << endl;
 				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
 						bindings.find(*(*it));
 				RawValueMemory currValMem = memSearch->second;
@@ -1397,70 +1423,70 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			Value* val_tuplesNo = Builder->CreateLoad(relR.mem_tuplesNo);
 
 
-			/* XXX STORING PAYLOAD */
-			/* 1. arena += (offset) */
-			Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,
-					offsetInArena);
-
-			/* 2. Casting */
-			PointerType *ptr_payloadType = PointerType::get(payloadType, 0);
-			Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,
-					ptr_payloadType);
-
-			/* 3. Storing payload, one field at a time */
-			vector<Type*>* materializedTypes = pg->getMaterializedTypes();
-			//Storing all activeTuples met so far
-			int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
-			RawValueMemory mem_activeTuple;
-			{
-				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
-				for (memSearch = bindings.begin(); memSearch != bindings.end();
-						memSearch++) {
-					RecordAttribute currAttr = memSearch->first;
-					if (currAttr.getAttrName() == activeLoop) {
-						mem_activeTuple = memSearch->second;
-						Value* val_activeTuple = Builder->CreateLoad(
-								mem_activeTuple.mem);
-						//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
-						vector<Value*> idxList = vector<Value*>();
-						idxList.push_back(context->createInt32(0));
-						idxList.push_back(context->createInt32(offsetInStruct));
-						//Shift in struct ptr
-						Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
-								idxList);
-						StoreInst *store_activeTuple = Builder->CreateStore(
-								val_activeTuple, structPtr);
-						store_activeTuple->setAlignment(8);
-						offsetInStruct++;
-					}
-				}
-			}
-
-			int offsetInWanted = 0;
-			const vector<RecordAttribute*>& wantedFields =
-					matLeft.getWantedFields();
-			for (vector<RecordAttribute*>::const_iterator it =
-					wantedFields.begin(); it != wantedFields.end(); ++it) {
-				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
-						bindings.find(*(*it));
-				RawValueMemory currValMem = memSearch->second;
-				/* FIX THE NECESSARY CONVERSIONS HERE */
-				Value* currVal = Builder->CreateLoad(currValMem.mem);
-				Value* valToMaterialize = pg->convert(currVal->getType(),
-						materializedTypes->at(offsetInWanted), currVal);
-
-				vector<Value*> idxList = vector<Value*>();
-				idxList.push_back(context->createInt32(0));
-				idxList.push_back(context->createInt32(offsetInStruct));
-
-				//Shift in struct ptr
-				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
-						idxList);
-
-				Builder->CreateStore(valToMaterialize, structPtr);
-				offsetInStruct++;
-				offsetInWanted++;
-			}
+//			/* XXX STORING PAYLOAD */
+//			/* 1. arena += (offset) */
+//			Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,
+//					offsetInArena);
+//
+//			/* 2. Casting */
+//			PointerType *ptr_payloadType = PointerType::get(payloadType, 0);
+//			Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,
+//					ptr_payloadType);
+//
+//			/* 3. Storing payload, one field at a time */
+//			vector<Type*>* materializedTypes = pg->getMaterializedTypes();
+//			//Storing all activeTuples met so far
+//			int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
+//			RawValueMemory mem_activeTuple;
+//			{
+//				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+//				for (memSearch = bindings.begin(); memSearch != bindings.end();
+//						memSearch++) {
+//					RecordAttribute currAttr = memSearch->first;
+//					if (currAttr.getAttrName() == activeLoop) {
+//						mem_activeTuple = memSearch->second;
+//						Value* val_activeTuple = Builder->CreateLoad(
+//								mem_activeTuple.mem);
+//						//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
+//						vector<Value*> idxList = vector<Value*>();
+//						idxList.push_back(context->createInt32(0));
+//						idxList.push_back(context->createInt32(offsetInStruct));
+//						//Shift in struct ptr
+//						Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+//								idxList);
+//						StoreInst *store_activeTuple = Builder->CreateStore(
+//								val_activeTuple, structPtr);
+//						store_activeTuple->setAlignment(8);
+//						offsetInStruct++;
+//					}
+//				}
+//			}
+//
+//			int offsetInWanted = 0;
+//			const vector<RecordAttribute*>& wantedFields =
+//					matLeft.getWantedFields();
+//			for (vector<RecordAttribute*>::const_iterator it =
+//					wantedFields.begin(); it != wantedFields.end(); ++it) {
+//				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+//						bindings.find(*(*it));
+//				RawValueMemory currValMem = memSearch->second;
+//				/* FIX THE NECESSARY CONVERSIONS HERE */
+//				Value* currVal = Builder->CreateLoad(currValMem.mem);
+//				Value* valToMaterialize = pg->convert(currVal->getType(),
+//						materializedTypes->at(offsetInWanted), currVal);
+//
+//				vector<Value*> idxList = vector<Value*>();
+//				idxList.push_back(context->createInt32(0));
+//				idxList.push_back(context->createInt32(offsetInStruct));
+//
+//				//Shift in struct ptr
+//				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+//						idxList);
+//
+//				Builder->CreateStore(valToMaterialize, structPtr);
+//				offsetInStruct++;
+//				offsetInWanted++;
+//			}
 
 			/* CONSTRUCT HTENTRY PAIR   	  */
 			/* payloadPtr: relative offset from relBuffer beginning */
@@ -1538,7 +1564,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 					val_tuplesNo);
 
 			/* 2a. kv_cast->keyPtr = &key */
-			offsetInStruct = 0;
+			int offsetInStruct = 0;
 			//Shift in htEntry (struct) ptr
 			vector<Value*> idxList = vector<Value*>();
 			idxList.push_back(context->createInt32(0));
@@ -1666,11 +1692,13 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			int offsetInStruct = 0;	//offset inside the struct (+current field manipulated)
 			RawValueMemory mem_activeTuple;
 			{
+				cout << "ORDER OF RIGHT FIELDS MATERIALIZED"<<endl;
 				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
 				for (memSearch = bindings.begin(); memSearch != bindings.end();
 						memSearch++) {
 					RecordAttribute currAttr = memSearch->first;
 					if (currAttr.getAttrName() == activeLoop) {
+						cout << currAttr.getRelationName() << "_" << currAttr.getAttrName() << endl;
 						mem_activeTuple = memSearch->second;
 						Value* val_activeTuple = Builder->CreateLoad(
 								mem_activeTuple.mem);
@@ -1693,6 +1721,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 					matRight.getWantedFields();
 			for (vector<RecordAttribute*>::const_iterator it =
 					wantedFields.begin(); it != wantedFields.end(); ++it) {
+				cout << (*it)->getRelationName() << "___" << (*it)->getAttrName() << endl;
 				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
 						bindings.find(*(*it));
 				RawValueMemory currValMem = memSearch->second;
@@ -1851,70 +1880,70 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			Value *arenaSize = Builder->CreateLoad(relS.mem_size);
 			Value* val_tuplesNo = Builder->CreateLoad(relS.mem_tuplesNo);
 
-			/* XXX STORING PAYLOAD */
-			/* 1. arena += (offset) */
-			Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,
-					offsetInArena);
-
-			/* 2. Casting */
-			PointerType *ptr_payloadType = PointerType::get(payloadType, 0);
-			Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,
-					ptr_payloadType);
-
-			/* 3. Storing payload, one field at a time */
-			vector<Type*>* materializedTypes = pg->getMaterializedTypes();
-			//Storing all activeTuples met so far
-			int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
-			RawValueMemory mem_activeTuple;
-			{
-				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
-				for (memSearch = bindings.begin(); memSearch != bindings.end();
-						memSearch++) {
-					RecordAttribute currAttr = memSearch->first;
-					if (currAttr.getAttrName() == activeLoop) {
-						mem_activeTuple = memSearch->second;
-						Value* val_activeTuple = Builder->CreateLoad(
-								mem_activeTuple.mem);
-						//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
-						vector<Value*> idxList = vector<Value*>();
-						idxList.push_back(context->createInt32(0));
-						idxList.push_back(context->createInt32(offsetInStruct));
-						//Shift in struct ptr
-						Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
-								idxList);
-						StoreInst *store_activeTuple = Builder->CreateStore(
-								val_activeTuple, structPtr);
-						store_activeTuple->setAlignment(8);
-						offsetInStruct++;
-					}
-				}
-			}
-
-			int offsetInWanted = 0;
-			const vector<RecordAttribute*>& wantedFields =
-					matRight.getWantedFields();
-			for (vector<RecordAttribute*>::const_iterator it =
-					wantedFields.begin(); it != wantedFields.end(); ++it) {
-				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
-						bindings.find(*(*it));
-				RawValueMemory currValMem = memSearch->second;
-				/* FIX THE NECESSARY CONVERSIONS HERE */
-				Value* currVal = Builder->CreateLoad(currValMem.mem);
-				Value* valToMaterialize = pg->convert(currVal->getType(),
-						materializedTypes->at(offsetInWanted), currVal);
-
-				vector<Value*> idxList = vector<Value*>();
-				idxList.push_back(context->createInt32(0));
-				idxList.push_back(context->createInt32(offsetInStruct));
-
-				//Shift in struct ptr
-				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
-						idxList);
-
-				Builder->CreateStore(valToMaterialize, structPtr);
-				offsetInStruct++;
-				offsetInWanted++;
-			}
+//			/* XXX STORING PAYLOAD */
+//			/* 1. arena += (offset) */
+//			Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,
+//					offsetInArena);
+//
+//			/* 2. Casting */
+//			PointerType *ptr_payloadType = PointerType::get(payloadType, 0);
+//			Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,
+//					ptr_payloadType);
+//
+//			/* 3. Storing payload, one field at a time */
+//			vector<Type*>* materializedTypes = pg->getMaterializedTypes();
+//			//Storing all activeTuples met so far
+//			int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
+//			RawValueMemory mem_activeTuple;
+//			{
+//				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+//				for (memSearch = bindings.begin(); memSearch != bindings.end();
+//						memSearch++) {
+//					RecordAttribute currAttr = memSearch->first;
+//					if (currAttr.getAttrName() == activeLoop) {
+//						mem_activeTuple = memSearch->second;
+//						Value* val_activeTuple = Builder->CreateLoad(
+//								mem_activeTuple.mem);
+//						//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
+//						vector<Value*> idxList = vector<Value*>();
+//						idxList.push_back(context->createInt32(0));
+//						idxList.push_back(context->createInt32(offsetInStruct));
+//						//Shift in struct ptr
+//						Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+//								idxList);
+//						StoreInst *store_activeTuple = Builder->CreateStore(
+//								val_activeTuple, structPtr);
+//						store_activeTuple->setAlignment(8);
+//						offsetInStruct++;
+//					}
+//				}
+//			}
+//
+//			int offsetInWanted = 0;
+//			const vector<RecordAttribute*>& wantedFields =
+//					matRight.getWantedFields();
+//			for (vector<RecordAttribute*>::const_iterator it =
+//					wantedFields.begin(); it != wantedFields.end(); ++it) {
+//				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+//						bindings.find(*(*it));
+//				RawValueMemory currValMem = memSearch->second;
+//				/* FIX THE NECESSARY CONVERSIONS HERE */
+//				Value* currVal = Builder->CreateLoad(currValMem.mem);
+//				Value* valToMaterialize = pg->convert(currVal->getType(),
+//						materializedTypes->at(offsetInWanted), currVal);
+//
+//				vector<Value*> idxList = vector<Value*>();
+//				idxList.push_back(context->createInt32(0));
+//				idxList.push_back(context->createInt32(offsetInStruct));
+//
+//				//Shift in struct ptr
+//				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+//						idxList);
+//
+//				Builder->CreateStore(valToMaterialize, structPtr);
+//				offsetInStruct++;
+//				offsetInWanted++;
+//			}
 
 			/* CONSTRUCT HTENTRY PAIR   	  */
 			/* payloadPtr: relative offset from relBuffer beginning */
@@ -1932,6 +1961,18 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			}
+//			#ifdef DEBUG
+//			{
+//				Function* debugInt = context->getFunction("printi");
+//				vector<Value*> ArgsV;
+//				//		ArgsV.push_back(context->createInt32(-6));
+//				ArgsV.push_back(rightKey.value);
+//				Builder->CreateCall(debugInt, ArgsV);
+//				ArgsV.clear();
+//				ArgsV.push_back(context->createInt32(-10001));
+//				Builder->CreateCall(debugInt, ArgsV);
+//			}
+//			#endif
 
 			PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
 
@@ -1994,7 +2035,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 					val_tuplesNo);
 
 			/* 2a. kv_cast->keyPtr = &key */
-			offsetInStruct = 0;
+			int offsetInStruct = 0;
 			//Shift in htEntry (struct) ptr
 			vector<Value*> idxList = vector<Value*>();
 			idxList.push_back(context->createInt32(0));
