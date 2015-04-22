@@ -300,7 +300,7 @@ TEST(Sailors, JoinLeft3) {
 	Materializer* mat = new Materializer(whichFields,outputModes);
 
 	char joinLabel[] = "join1";
-	Join join = Join(joinPred,scanSailors,scanReserves,joinLabel,*mat);
+	Join join = Join(joinPred, &scanSailors, &scanReserves,joinLabel,*mat);
 	scanSailors.setParent(&join);
 	scanReserves.setParent(&join);
 
@@ -345,7 +345,7 @@ TEST(Sailors, JoinLeft3) {
 	Materializer* mat2 = new Materializer(whichFields2,outputModes2);
 
 	char joinLabel2[] = "join2";
-	Join join2 = Join(joinPred2,join,scanBoats, joinLabel2, *mat2);
+	Join join2 = Join(joinPred2, &join, &scanBoats, joinLabel2, *mat2);
 	join.setParent(&join2);
 	scanBoats.setParent(&join2);
 
@@ -447,7 +447,7 @@ TEST(Sailors, JoinRight3) {
 	Materializer* mat2 = new Materializer(whichFields2,outputModes2);
 
 	char joinLabel2[] = "join2";
-	Join join2 = Join(joinPred2,scanReserves,scanBoats, joinLabel2, *mat2);
+	Join join2 = Join(joinPred2, &scanReserves, &scanBoats, joinLabel2, *mat2);
 	scanReserves.setParent(&join2);
 	scanBoats.setParent(&join2);
 
@@ -499,7 +499,7 @@ TEST(Sailors, JoinRight3) {
 	Materializer* mat = new Materializer(whichFields,outputModes);
 
 	char joinLabel[] = "join1";
-	Join join = Join(joinPred,scanSailors,join2, joinLabel, *mat);
+	Join join = Join(joinPred, &scanSailors, &join2, joinLabel, *mat);
 	scanSailors.setParent(&join);
 	join2.setParent(&join);
 
@@ -609,7 +609,7 @@ TEST(Sailors, Join) {
 	Materializer* mat = new Materializer(whichFields,outputModes);
 
 	char joinLabel[] = "join1";
-	Join join = Join(joinPred,scanSailors,scanReserves, joinLabel, *mat);
+	Join join = Join(joinPred, &scanSailors, &scanReserves, joinLabel, *mat);
 	scanSailors.setParent(&join);
 	scanReserves.setParent(&join);
 

@@ -51,7 +51,7 @@ BinaryInternalPlugin::BinaryInternalPlugin(RawContext* const context,
 	payloadType = context->ReproduceCustomStruct(info.objectTypes);
 	PointerType* payloadPtrType = PointerType::get(payloadType,0);
 	char *rawBuffer = *(info.payloadPtr);
-	cout << "HOW MANY CACHED ENTRIES? " << *(info.itemCount) << endl;
+	//cout << "HOW MANY CACHED ENTRIES? " << *(info.itemCount) << endl;
 	val_entriesNo = context->createInt64(*(info.itemCount));
 	int fieldsNumber = OIDs.size() + fields.size();
 	if (fieldsNumber <= 0) {
@@ -71,7 +71,7 @@ BinaryInternalPlugin::BinaryInternalPlugin(RawContext* const context,
 	Builder->CreateStore(val_zero, mem_cnt);
 
 	val_structBufferPtr = context->CastPtrToLlvmPtr(payloadPtrType,rawBuffer);
-	cout << "Internal Binary PG creation - " << info.objectTypes.size() << " fields" << endl;
+//	cout << "Internal Binary PG creation - " << info.objectTypes.size() << " fields" << endl;
 //	payloadPtrType->dump();
 //	cout << endl;
 }
@@ -98,7 +98,7 @@ void BinaryInternalPlugin::generate(const RawOperator &producer) {
 
 void BinaryInternalPlugin::scanStruct(const RawOperator& producer)
 {
-	cout << "Internal Binary PG scan (struct)" << endl;
+	//cout << "Internal Binary PG scan (struct)" << endl;
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);

@@ -27,8 +27,8 @@
 
 class Join : public BinaryRawOperator {
 public:
-	Join(expressions::BinaryExpression* predicate, RawOperator& leftChild,
-			RawOperator& rightChild, char* opLabel, Materializer& mat) :
+	Join(expressions::BinaryExpression* predicate, RawOperator *leftChild,
+			RawOperator *rightChild, char* opLabel, Materializer& mat) :
 			BinaryRawOperator(leftChild, rightChild), pred(predicate), htName(
 					opLabel), mat(mat) {}
 	virtual ~Join() {

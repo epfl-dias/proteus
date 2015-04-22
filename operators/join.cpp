@@ -24,8 +24,8 @@
 #include "operators/join.hpp"
 
 void Join::produce() {
-	getLeftChild().produce();
-	getRightChild().produce();
+	getLeftChild()->produce();
+	getRightChild()->produce();
 }
 
 //TODO For now, materializing in a struct
@@ -49,7 +49,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 	Function* debugInt64 = context->getFunction("printi64");
 
 	const RawOperator& caller = childState.getProducer();
-	if(caller == getLeftChild())
+	if(caller == *(getLeftChild()))
 	{
 
 #ifdef DEBUG

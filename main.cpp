@@ -2079,7 +2079,7 @@ void joinQueryRelational()
 	Materializer* mat = new Materializer(whichFields, outputModes);
 
 	char joinLabel[] = "join1";
-	Join join = Join(joinPred, sel, scan2, joinLabel, *mat);
+	Join join = Join(joinPred, &sel, &scan2, joinLabel, *mat);
 	sel.setParent(&join);
 	scan2.setParent(&join);
 
@@ -2231,7 +2231,7 @@ void joinQueryRelationalRadix()
 
 
 	char joinLabel[] = "radixJoin1";
-	RadixJoin join = RadixJoin(joinPred, scan, scan2, &ctx, joinLabel, *matLeft, *matRight);
+	RadixJoin join = RadixJoin(joinPred, &scan, &scan2, &ctx, joinLabel, *matLeft, *matRight);
 	scan.setParent(&join);
 	scan2.setParent(&join);
 
@@ -2393,7 +2393,7 @@ void joinQueryRelationalRadixCache()
 			whichExpressionsRight, whichOIDRight, outputModes2);
 
 	char joinLabel[] = "radixJoin1";
-	RadixJoin join = RadixJoin(joinPred, scan, scan2, &ctx, joinLabel, *matLeft,
+	RadixJoin join = RadixJoin(joinPred, &scan, &scan2, &ctx, joinLabel, *matLeft,
 			*matRight);
 	scan.setParent(&join);
 	scan2.setParent(&join);
@@ -4249,7 +4249,7 @@ void cidrQuery3()
 	Materializer* mat = new Materializer(whichFieldsClinical, outputModes);
 
 	char joinLabel[] = "joinPatients";
-	Join join = Join(joinPred, selClinical, scanGenetic, joinLabel, *mat);
+	Join join = Join(joinPred, &selClinical, &scanGenetic, joinLabel, *mat);
 	selClinical.setParent(&join);
 	scanGenetic.setParent(&join);
 
@@ -4456,7 +4456,7 @@ void cidrQuery3Radix()
 			whichExpressionsRight, whichOIDsGenetic, outputModes);
 
 	char joinLabel[] = "joinPatients";
-	RadixJoin join = RadixJoin(joinPred, selClinical, scanGenetic, &ctx, joinLabel, *matLeft, *matRight);
+	RadixJoin join = RadixJoin(joinPred, &selClinical, &scanGenetic, &ctx, joinLabel, *matLeft, *matRight);
 	selClinical.setParent(&join);
 	scanGenetic.setParent(&join);
 
@@ -4656,7 +4656,7 @@ void cidrQuery3RadixMax()
 			whichExpressionsRight, whichOIDsGenetic, outputModesGenetic);
 
 	char joinLabel[] = "joinPatients";
-	RadixJoin join = RadixJoin(joinPred, selClinical, scanGenetic, &ctx, joinLabel, *matLeft, *matRight);
+	RadixJoin join = RadixJoin(joinPred, &selClinical, &scanGenetic, &ctx, joinLabel, *matLeft, *matRight);
 	selClinical.setParent(&join);
 	scanGenetic.setParent(&join);
 
@@ -4902,7 +4902,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 	Materializer* mat = new Materializer(whichFieldsJoin, outputModes);
 
 	char joinLabel[] = "joinClinicalRegions";
-	Join joinClinicalRegions = Join(joinPredClinical, selClinical, scanRegions,
+	Join joinClinicalRegions = Join(joinPredClinical, &selClinical, &scanRegions,
 			joinLabel, *mat);
 	selClinical.setParent(&joinClinicalRegions);
 	selRegions.setParent(&joinClinicalRegions);
@@ -4966,7 +4966,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 	Materializer* mat2 = new Materializer(whichFieldsJoin2, outputModes2);
 
 	char joinLabel2[] = "joinGenetic";
-	Join joinGenetic = Join(joinPredGenetic, joinClinicalRegions, scanGenetic,
+	Join joinGenetic = Join(joinPredGenetic, &joinClinicalRegions, &scanGenetic,
 			joinLabel2, *mat2);
 	joinClinicalRegions.setParent(&joinGenetic);
 	selGenetic.setParent(&joinGenetic);
@@ -5635,7 +5635,7 @@ void columnarJoin1()
 			whichExpressionsRight, whichOIDs, outputModes2);
 
 	char joinLabel[] = "join1";
-	RadixJoin join = RadixJoin(joinPred, sel, scanRight, &ctx, joinLabel, *matLeft, *matRight);
+	RadixJoin join = RadixJoin(joinPred, &sel, &scanRight, &ctx, joinLabel, *matLeft, *matRight);
 	sel.setParent(&join);
 	scanRight.setParent(&join);
 
@@ -5677,8 +5677,9 @@ void columnarCachedJoin1()
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
 
-//	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
-//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
+	/* Works */
+	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
+	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
 
 	/* Works */
 //	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed-shuffled");
@@ -5688,8 +5689,8 @@ void columnarCachedJoin1()
 //	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100-30cols-fixed");
 //	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/500-30cols-fixed");
 
-	string filenamePrefixLeft = string("inputs/synthetic/500-30cols-fixed");
-	string filenamePrefixRight = string("inputs/synthetic/100-30cols-fixed");
+//	string filenamePrefixLeft = string("inputs/synthetic/500-30cols-fixed");
+//	string filenamePrefixRight = string("inputs/synthetic/100-30cols-fixed");
 	/**
 	 * SCAN1
 	 */
@@ -5851,7 +5852,7 @@ void columnarCachedJoin1()
 	Materializer* matRight = new Materializer(whichFieldsRight, whichExpressionsRight, whichOIDs, outputModes2);
 
 	char joinLabel[] = "join1";
-	RadixJoin join = RadixJoin(joinPred, sel, scanRight, &ctx, joinLabel, *matLeft, *matRight);
+	RadixJoin join = RadixJoin(joinPred, &sel, &scanRight, &ctx, joinLabel, *matLeft, *matRight);
 	sel.setParent(&join);
 	scanRight.setParent(&join);
 

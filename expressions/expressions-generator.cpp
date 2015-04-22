@@ -98,12 +98,10 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 			if (it == activeVars.end()) {
 				string error_msg = string("[Expression Generator: ] Could not find tuple information for ") + activeRelation;
 				//cout << activeVars.size() << endl;
-
-				map<RecordAttribute, RawValueMemory>::const_iterator it = activeVars.begin();
-				for(; it != activeVars.end(); it++)	{
-					cout << it->first.getRelationName() << "-" << it->first.getAttrName() << endl;
-				}
-
+//				map<RecordAttribute, RawValueMemory>::const_iterator it = activeVars.begin();
+//				for(; it != activeVars.end(); it++)	{
+//					cout << it->first.getRelationName() << "-" << it->first.getAttrName() << endl;
+//				}
 				LOG(ERROR) << error_msg;
 			 	throw runtime_error(error_msg);
 			}	else	{

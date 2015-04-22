@@ -28,7 +28,7 @@
  * Alternate versions would also hash the key (..as radix-nest does)
  */
 RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
-		RawOperator& leftChild, RawOperator& rightChild,
+		RawOperator *leftChild, RawOperator *rightChild,
 		RawContext* const context, const char* opLabel, Materializer& matLeft,
 		Materializer& matRight) :
 		BinaryRawOperator(leftChild, rightChild), pred(predicate),
@@ -68,11 +68,11 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 
 	/* Arbitrary initial buffer sizes */
 	/* No realloc will be required with these sizes for synthetic large-scale numbers */
-//	size_t sizeR = 10000000000;
-//	size_t sizeS = 15000000000;
+	size_t sizeR = 10000000000;
+	size_t sizeS = 15000000000;
 
-	size_t sizeR = 1000;
-	size_t sizeS = 1500;
+//	size_t sizeR = 1000;
+//	size_t sizeS = 1500;
 //	size_t sizeR = 50000;
 //	size_t sizeS = 50000;
 
@@ -313,35 +313,6 @@ Scan* RadixJoin::findSideInCache(Materializer &mat, bool isLeft) const {
 	cout << "No expressions to check for" << endl;
 	return NULL;
 }
-//char** RadixJoin::findSideInCache(Materializer &mat) const {
-//	CachingService& cache = CachingService::getInstance();
-//	bool found = true;
-//	/* Is the relation already materialized?? */
-//
-//	const vector<expressions::Expression*>& expsLeft =
-//			mat.getWantedExpressions();
-//	if (!expsLeft.empty()) {
-//		vector<expressions::Expression*>::const_iterator it = expsLeft.begin();
-//		int failedNo = 0;
-//		CacheInfo info;
-//		for (; it != expsLeft.end(); it++) {
-//			expressions::Expression *expr = *it;
-//			info = cache.getCache(expr);
-//			if (info.structFieldNo == -1) {
-//				return NULL;
-//			}
-//			if (!cache.getCacheIsFull(expr)) {
-//				return NULL;
-//			}
-//			failedNo++;
-//		}
-//		if (found) {
-//			cout << "Relation side is READY" << endl;
-//			return info.payloadPtr;
-//		}
-//	}
-//	return NULL;
-//}
 
 void RadixJoin::placeInCache(Materializer &mat, bool isLeft) const {
 	IRBuilder<> *Builder = context->getBuilder();
@@ -359,20 +330,17 @@ void RadixJoin::placeInCache(Materializer &mat, bool isLeft) const {
 	{
 		ptr_relation = ptr_relationS;
 		val_tuplesNo = Builder->CreateLoad(relS.mem_tuplesNo);
-		cout << "RIGHT TYPE CACHED: " << endl;
-		sPayloadType->dump();
-		cout << endl;
 	}
 
 	CachingService& cache = CachingService::getInstance();
 	bool fullRelation;
 	if(isLeft)
 	{
-		fullRelation = !(this->leftChild).isFiltering();
+		fullRelation = !(this->leftChild)->isFiltering();
 	}
 	else
 	{
-		fullRelation = !(this->rightChild).isFiltering();
+		fullRelation = !(this->rightChild)->isFiltering();
 	}
 	const vector<expressions::Expression*>& exps =
 			mat.getWantedExpressions();
@@ -386,11 +354,11 @@ void RadixJoin::placeInCache(Materializer &mat, bool isLeft) const {
 	vector<RecordAttribute*>::const_iterator itOids = oids.begin();
 	for (; itOids != oids.end(); itOids++) {
 		RecordAttribute *attr = *itOids;
-		cout << "OID mat'ed" << endl;
+		//cout << "OID mat'ed" << endl;
 		info.objectTypes.push_back(attr->getOriginalType()->getTypeID());
 	}
 	for (; itRec != fields.end(); itRec++) {
-		cout << "Field mat'ed" << endl;
+		//cout << "Field mat'ed" << endl;
 		info.objectTypes.push_back((*itRec)->getOriginalType()->getTypeID());
 	}
 	itRec = fields.begin();
@@ -413,11 +381,11 @@ void RadixJoin::placeInCache(Materializer &mat, bool isLeft) const {
 
 			/* Having skipped OIDs */
 			if (fieldNo >= mat.getWantedOIDs().size()) {
-				cout << "Field Cached: " << (*itRec)->getAttrName()
-						<< endl;
+//				cout << "Field Cached: " << (*itRec)->getAttrName()
+//						<< endl;
 				itRec++;
 			} else {
-				cout << "Field Cached: " << activeLoop << endl;
+//				cout << "Field Cached: " << activeLoop << endl;
 			}
 
 			fieldNo++;
@@ -464,68 +432,40 @@ void RadixJoin::produce() {
 	newChildLeft = NULL;
 	newChildRight = NULL;
 
-	if (!this->leftChild.isFiltering()) {
-		cout << "Checking left side for caches" << endl;
+	if (!this->leftChild->isFiltering()) {
+		//cout << "Checking left side for caches" << endl;
 		newChildLeft = findSideInCache(matLeft, true);
 	}
 	if (newChildLeft == NULL) {
 		//getLeftChild().produce();
-		cout << "Traditional LEFT side" << endl;
-		getLeftChild().produce();
+		//cout << "Traditional LEFT side" << endl;
+		getLeftChild()->produce();
 	} else {
 		cout << "NEW LEFT SCAN POSSIBLE!!";
 		//this->setLeftChild(*newChildLeft);
 		cachedLeft = true;
-		this->setLeftChild(*newChildLeft);
+		this->setLeftChild(newChildLeft);
 		newChildLeft->setParent(this);
 		newChildLeft->produce();
 	}
 
-	if (!this->rightChild.isFiltering()) {
-		cout << "Checking right side for caches" << endl;
+	if (!this->rightChild->isFiltering()) {
+		//cout << "Checking right side for caches" << endl;
 		newChildRight = findSideInCache(matRight, false);
 	}
 	if (newChildRight == NULL) {
 		//getRightChild().produce();
-		cout << "Traditional RIGHT side" << endl;
-		getRightChild().produce();
+		//cout << "Traditional RIGHT side" << endl;
+		getRightChild()->produce();
 	} else {
 		cout << "NEW RIGHT SCAN POSSIBLE!!" << endl;
 		cachedRight = true;
-		this->setRightChild(*newChildRight);
+		this->setRightChild(newChildRight);
 		newChildRight->setParent(this);
 		newChildRight->produce();
 	}
 
-	/**
-	 * LEFT SIDE
-	 */
-//#ifdef TIMING
-//	{
-//		Builder->CreateCall(func_startTime, ArgsTime);
-//	}
-//#endif
-//	getLeftChild().produce();
-//#ifdef TIMING
-//	{
-//		Builder->CreateCall(func_endTime, ArgsTime);
-//	}
-//#endif
-//
-//	/**
-//	 * RIGHT SIDE
-//	 */
-//#ifdef TIMING
-//	{
-//		Builder->CreateCall(func_startTime, ArgsTime);
-//	}
-//#endif
-//	getRightChild().produce();
-//#ifdef TIMING
-//	{
-//		Builder->CreateCall(func_endTime, ArgsTime);
-//	}
-//#endif
+
 	updateRelationPointers();
 	/* XXX Place info in cache */
 	if (!cachedLeft) {
@@ -537,64 +477,6 @@ void RadixJoin::produce() {
 	//Still need HTs...
 	// Should I mat. them too?
 	runRadix();
-
-
-//	if (!cachedLeft && !cachedRight) {
-//		/**
-//		 * LEFT SIDE
-//		 */
-//#ifdef TIMING
-//		{
-//			Builder->CreateCall(func_startTime, ArgsTime);
-//		}
-//#endif
-//		this->leftChild.produce();
-//#ifdef TIMING
-//		{
-//			Builder->CreateCall(func_endTime, ArgsTime);
-//		}
-//#endif
-//
-//		/**
-//		 * RIGHT SIDE
-//		 */
-//#ifdef TIMING
-//		{
-//			Builder->CreateCall(func_startTime, ArgsTime);
-//		}
-//#endif
-//		this->rightChild.produce();
-//#ifdef TIMING
-//		{
-//			Builder->CreateCall(func_endTime, ArgsTime);
-//		}
-//#endif
-//		updateRelationPointers();
-//		/* XXX Place info in cache */
-//		placeInCache(matLeft, true);
-//		placeInCache(matRight, false);
-//
-//		//Still need HTs...
-//		// Should I mat. them too?
-//		runRadix();
-//	} else if (cachedLeft && !cachedRight) {
-//		RadixJoin *newRadix = new RadixJoin(this->pred, *newChildLeft,
-//				this->getRightChild(), context, htLabel.c_str(), matLeft, matRight);
-//		newChildLeft->setParent(newRadix);
-//		newRadix->produceNoCache();
-//	} else if (!cachedLeft && cachedRight) {
-//		RadixJoin *newRadix = new RadixJoin(this->pred, this->getLeftChild(),
-//				*newChildRight, context, htLabel.c_str(), matLeft, matRight);
-//		newChildRight->setParent(newRadix);
-//		newRadix->produceNoCache();
-//	} else {
-//		RadixJoin *newRadix = new RadixJoin(this->pred, *newChildLeft,
-//				*newChildRight, context, htLabel.c_str(), matLeft, matRight);
-//		newChildLeft->setParent(newRadix);
-//		newChildRight->setParent(newRadix);
-//		newRadix->produceNoCache();
-//	}
-
 }
 
 //void RadixJoin::produceNoCache() {
@@ -1174,7 +1056,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 	StructType *payloadType;
 
 	const RawOperator& caller = childState.getProducer();
-	if(caller == getLeftChild())
+	if(caller == *(getLeftChild()))
 	{
 
 #ifdef DEBUG
@@ -1272,12 +1154,12 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
 			RawValueMemory mem_activeTuple;
 			{
-				cout << "ORDER OF LEFT FIELDS MATERIALIZED"<<endl;
+				//cout << "ORDER OF LEFT FIELDS MATERIALIZED"<<endl;
 				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
 				for (memSearch = bindings.begin(); memSearch != bindings.end();
 						memSearch++) {
 					RecordAttribute currAttr = memSearch->first;
-					cout << currAttr.getRelationName() << "_" << currAttr.getAttrName() << endl;
+					//cout << currAttr.getRelationName() << "_" << currAttr.getAttrName() << endl;
 					if (currAttr.getAttrName() == activeLoop) {
 						mem_activeTuple = memSearch->second;
 						Value* val_activeTuple = Builder->CreateLoad(
@@ -1302,7 +1184,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 					matLeft.getWantedFields();
 			for (vector<RecordAttribute*>::const_iterator it =
 					wantedFields.begin(); it != wantedFields.end(); ++it) {
-				cout << (*it)->getRelationName() << "_" << (*it)->getAttrName() << endl;
+				//cout << (*it)->getRelationName() << "_" << (*it)->getAttrName() << endl;
 				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
 						bindings.find(*(*it));
 				RawValueMemory currValMem = memSearch->second;
@@ -1430,7 +1312,6 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		}
 		else
 		{
-			cout << "LEFT SIDE IS READY" << endl;
 			const map<RecordAttribute, RawValueMemory>& bindings =
 					childState.getBindings();
 
@@ -1712,13 +1593,13 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			int offsetInStruct = 0;	//offset inside the struct (+current field manipulated)
 			RawValueMemory mem_activeTuple;
 			{
-				cout << "ORDER OF RIGHT FIELDS MATERIALIZED"<<endl;
+				//cout << "ORDER OF RIGHT FIELDS MATERIALIZED"<<endl;
 				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
 				for (memSearch = bindings.begin(); memSearch != bindings.end();
 						memSearch++) {
 					RecordAttribute currAttr = memSearch->first;
 					if (currAttr.getAttrName() == activeLoop) {
-						cout << currAttr.getRelationName() << "_" << currAttr.getAttrName() << endl;
+						//cout << currAttr.getRelationName() << "_" << currAttr.getAttrName() << endl;
 						mem_activeTuple = memSearch->second;
 						Value* val_activeTuple = Builder->CreateLoad(
 								mem_activeTuple.mem);
@@ -1752,7 +1633,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 					matRight.getWantedFields();
 			for (vector<RecordAttribute*>::const_iterator it =
 					wantedFields.begin(); it != wantedFields.end(); ++it) {
-				cout << (*it)->getRelationName() << "___" << (*it)->getAttrName() << endl;
+				//cout << (*it)->getRelationName() << "___" << (*it)->getAttrName() << endl;
 				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
 						bindings.find(*(*it));
 				RawValueMemory currValMem = memSearch->second;
@@ -1898,7 +1779,8 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		/* RIGHT SIDE CACHED */
 		else
 		{
-			cout << "RIGHT SIDE IS READY" << endl;
+
+			//cout << "RIGHT SIDE IS READY (CACHED)" << endl;
 			const map<RecordAttribute, RawValueMemory>& bindings =
 					childState.getBindings();
 

@@ -330,7 +330,7 @@ void joinQueryRelationalRadixCache() {
 			whichExpressionsRight, whichOIDRight, outputModes2);
 
 	char joinLabel[] = "radixJoin1";
-	RadixJoin join = RadixJoin(joinPred, scan, scan2, &ctx, joinLabel, *matLeft,
+	RadixJoin join = RadixJoin(joinPred, &scan, &scan2, &ctx, joinLabel, *matLeft,
 			*matRight);
 	scan.setParent(&join);
 	scan2.setParent(&join);

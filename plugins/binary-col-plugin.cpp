@@ -309,7 +309,7 @@ void BinaryColPlugin::init()	{
 //		}
 
 	}
-	cout << "[BinaryColPlugin: ] Initialization Successful for " << fnamePrefix << endl;
+	//cout << "[BinaryColPlugin: ] Initialization Successful for " << fnamePrefix << endl;
 	//Global item counter
 	Value* val_itemCtr = context->createInt64(0);
 	AllocaInst *mem_itemCtr = context->CreateEntryBlockAlloca(F, itemCtrVar, int64Type);

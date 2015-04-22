@@ -69,7 +69,7 @@ struct kvBuf	{
 class RadixJoin: public BinaryRawOperator {
 public:
 	RadixJoin(expressions::BinaryExpression* predicate,
-			RawOperator& leftChild, RawOperator& rightChild,
+			RawOperator *leftChild, RawOperator *rightChild,
 			RawContext* const context, const char* opLabel, Materializer& matLeft,
 			Materializer& matRight);
 	virtual ~RadixJoin() ;

@@ -69,19 +69,19 @@ private:
 
 class BinaryRawOperator : public RawOperator {
 public:
-	BinaryRawOperator(RawOperator& leftChild,	RawOperator& rightChild) :
+	BinaryRawOperator(RawOperator *leftChild,	RawOperator *rightChild) :
 			RawOperator(), leftChild(leftChild), rightChild(rightChild) 						{}
-	BinaryRawOperator(RawOperator& leftChild, RawOperator& rightChild,
+	BinaryRawOperator(RawOperator *leftChild, RawOperator *rightChild,
 			Plugin* const leftPlugin, Plugin* const rightPlugin) :
 			RawOperator(), leftChild(leftChild), rightChild(rightChild)	{}
 	virtual ~BinaryRawOperator() 										{ LOG(INFO) << "Collapsing binary operator"; }
-	RawOperator& getLeftChild() 									{ return leftChild; }
-	RawOperator& getRightChild() 									{ return rightChild; }
-	void setLeftChild(RawOperator& leftChild)						{ this->leftChild = leftChild; }
-	void setRightChild(RawOperator& rightChild)						{ this->rightChild = rightChild; }
+	RawOperator* getLeftChild() 									{ return leftChild; }
+	RawOperator* getRightChild() 									{ return rightChild; }
+	void setLeftChild(RawOperator* leftChild)						{ this->leftChild = leftChild; }
+	void setRightChild(RawOperator* rightChild)						{ this->rightChild = rightChild; }
 protected:
-	RawOperator& leftChild;
-	RawOperator& rightChild;
+	RawOperator* leftChild;
+	RawOperator* rightChild;
 };
 
 class OperatorState {

@@ -210,7 +210,7 @@ TEST(Relational, SPJ) {
 	Materializer* mat = new Materializer(whichFields, outputModes);
 
 	char joinLabel[] = "join1";
-	Join join = Join(joinPred, sel, scan2, joinLabel, *mat);
+	Join join = Join(joinPred, &sel, &scan2, joinLabel, *mat);
 	sel.setParent(&join);
 	scan2.setParent(&join);
 
