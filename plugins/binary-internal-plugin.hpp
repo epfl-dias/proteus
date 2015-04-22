@@ -27,7 +27,7 @@
 #include "plugins/plugins.hpp"
 #include "util/atois.hpp"
 
-#define DEBUGBINCACHE
+//#define DEBUGBINCACHE
 
 class BinaryInternalPlugin	: public Plugin {
 public:

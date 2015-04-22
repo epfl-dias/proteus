@@ -37,7 +37,7 @@ void* allocateFromRegion(size_t regionSize)	{
 void* increaseRegion(void* region, size_t currSize)	{
 	cout << "Realloc()" << endl;
 	currSize <<= 1;
-	cout << "new size: " << currSize << endl;
+//	cout << "new size: " << currSize << endl;
 	void* newRegion = realloc(region, currSize);
 	if(newRegion != NULL)	{
 		return newRegion;

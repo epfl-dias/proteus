@@ -72,14 +72,8 @@ BinaryInternalPlugin::BinaryInternalPlugin(RawContext* const context,
 
 	val_structBufferPtr = context->CastPtrToLlvmPtr(payloadPtrType,rawBuffer);
 	cout << "Internal Binary PG creation - " << info.objectTypes.size() << " fields" << endl;
-	payloadPtrType->dump();
-	cout << endl;
-
-	/*Sneak peek in rawBuffer */
-//	size_t oid1 = *((size_t*)rawBuffer);
-//	int field10 = *((int*)(rawBuffer + sizeof(size_t)));
-//	int field20 = *((int*)(rawBuffer + sizeof(size_t) + sizeof(int)));
-//	cout << "PEEK: "<< oid1 << ", " << field10 << ", " << field20 << endl;
+//	payloadPtrType->dump();
+//	cout << endl;
 }
 
 BinaryInternalPlugin::~BinaryInternalPlugin() {}
@@ -158,6 +152,7 @@ void BinaryInternalPlugin::scanStruct(const RawOperator& producer)
 
 		AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(
 				TheFunction, "currOID", val_cachedField->getType());
+		Builder->CreateStore(val_cachedField,mem_currResult);
 		RawValueMemory mem_valWrapper;
 		mem_valWrapper.mem = mem_currResult;
 		mem_valWrapper.isNull = context->createFalse();
@@ -190,6 +185,7 @@ void BinaryInternalPlugin::scanStruct(const RawOperator& producer)
 #endif
 		AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(
 				TheFunction, "currResult", val_cachedField->getType());
+		Builder->CreateStore(val_cachedField,mem_currResult);
 		RawValueMemory mem_valWrapper;
 		mem_valWrapper.mem = mem_currResult;
 		mem_valWrapper.isNull = context->createFalse();

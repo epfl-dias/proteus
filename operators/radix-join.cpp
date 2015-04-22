@@ -466,7 +466,7 @@ void RadixJoin::produce() {
 
 	if (!this->leftChild.isFiltering()) {
 		cout << "Checking left side for caches" << endl;
-		//newChildLeft = findSideInCache(matLeft, true);
+		newChildLeft = findSideInCache(matLeft, true);
 	}
 	if (newChildLeft == NULL) {
 		//getLeftChild().produce();
@@ -483,7 +483,7 @@ void RadixJoin::produce() {
 
 	if (!this->rightChild.isFiltering()) {
 		cout << "Checking right side for caches" << endl;
-		//newChildRight = findSideInCache(matRight, false);
+		newChildRight = findSideInCache(matRight, false);
 	}
 	if (newChildRight == NULL) {
 		//getRightChild().produce();
@@ -702,13 +702,14 @@ void RadixJoin::runRadix() const	{
 		Value *val_rCount = Builder->CreateLoad(mem_rCount);
 		Value *val_sCount = Builder->CreateLoad(mem_sCount);
 #ifdef DEBUGRADIX
-//		vector<Value*> ArgsV0;
-//		ArgsV0.push_back(context->createInt32(222));
-//		Builder->CreateCall(debugInt,ArgsV0);
-//
-//		ArgsV0.clear();
-//		ArgsV0.push_back(val_clusterCount);
-//		Builder->CreateCall(debugInt,ArgsV0);
+		/* Cluster Counts */
+		vector<Value*> ArgsV0;
+		ArgsV0.push_back(context->createInt32(222));
+		Builder->CreateCall(debugInt,ArgsV0);
+
+		ArgsV0.clear();
+		ArgsV0.push_back(val_clusterCount);
+		Builder->CreateCall(debugInt,ArgsV0);
 #endif
 
 
@@ -877,7 +878,14 @@ void RadixJoin::runRadix() const	{
 							Builder->CreateInBoundsGEP(val_relR,val_payload_r_offset);
 					Value *val_ptr_payloadS =
 							Builder->CreateInBoundsGEP(val_relS,val_payload_s_offset);
-
+#ifdef DEBUGRADIX
+					{
+					/* Printing key(s) */
+					vector<Value*> ArgsV;
+					ArgsV.push_back(Builder->getInt32(500005));
+					Builder->CreateCall(debugInt, ArgsV);
+					}
+#endif
 					Value *mem_payload_r = Builder->CreateBitCast(
 							val_ptr_payloadR, rPayloadPtrType);
 					Value *val_payload_r = Builder->CreateLoad(mem_payload_r);
@@ -956,7 +964,14 @@ void RadixJoin::runRadix() const	{
 							i++;
 						}
 					}
-
+#ifdef DEBUGRADIX
+					{
+					/* Printing key(s) */
+					vector<Value*> ArgsV;
+					ArgsV.push_back(Builder->getInt32(500006));
+					Builder->CreateCall(debugInt, ArgsV);
+					}
+#endif
 					/* RIGHT SIDE (RELATION S) */
 					{
 						AllocaInst *mem_activeTuple = NULL;
@@ -989,6 +1004,14 @@ void RadixJoin::runRadix() const	{
 							mem_valWrapper.isNull = context->createFalse();
 							(*allJoinBindings)[*attr] = mem_valWrapper;
 							i++;
+#ifdef DEBUGRADIX
+							{
+								/* Printing key(s) */
+								vector<Value*> ArgsV;
+								ArgsV.push_back(val_activeTuple);
+								Builder->CreateCall(debugInt64, ArgsV);
+							}
+#endif
 						}
 
 						AllocaInst *mem_field = NULL;
@@ -1025,7 +1048,14 @@ void RadixJoin::runRadix() const	{
 							i++;
 						}
 					}
-
+#ifdef DEBUGRADIX
+					{
+					/* Printing key(s) */
+					vector<Value*> ArgsV;
+					ArgsV.push_back(Builder->getInt32(500008));
+					Builder->CreateCall(debugInt, ArgsV);
+					}
+#endif
 					/* Trigger Parent */
 					OperatorState* newState = new OperatorState(*this, *allJoinBindings);
 					getParent()->consume(context, *newState);
@@ -1400,17 +1430,51 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		}
 		else
 		{
+			cout << "LEFT SIDE IS READY" << endl;
 			const map<RecordAttribute, RawValueMemory>& bindings =
 					childState.getBindings();
+
+			/* Peek */
+			map<RecordAttribute, RawValueMemory>::const_iterator it =
+					bindings.begin();
+			for (; it != bindings.end(); it++) {
+				RecordAttribute attr = it->first;
+				RawValueMemory memWrap = it->second;
+				if (attr.getAttrName() == activeLoop) {
+#ifdef DEBUGRADIX
+					{
+						Function* debugInt = context->getFunction("printi64");
+						vector<Value*> ArgsV;
+						Value *val_oid = Builder->CreateLoad(memWrap.mem);
+						ArgsV.push_back(val_oid);
+						Builder->CreateCall(debugInt, ArgsV);
+					}
+#endif
+				} else {
+#ifdef DEBUGRADIX
+					{
+						Function* debugInt = context->getFunction("printi");
+						vector<Value*> ArgsV;
+						Value *val_oid = Builder->CreateLoad(memWrap.mem);
+						ArgsV.push_back(val_oid);
+						Builder->CreateCall(debugInt, ArgsV);
+					}
+#endif
+				}
+			}
+
 			OutputPlugin* pg = new OutputPlugin(context, matLeft, bindings);
 
 			/* Result type specified during output plugin construction */
 			payloadType = pg->getPayloadType();
 			rPayloadType = payloadType;
 
-			/* 3rd Method to calculate size */
-			/* REMEMBER: PADDING DOES MATTER! */
 			Value* val_payloadSize = ConstantExpr::getSizeOf(rPayloadType);
+
+			Value *val_arena = Builder->CreateLoad(relR.mem_relation);
+			Value *offsetInArena = Builder->CreateLoad(relR.mem_offset);
+			Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,
+					val_payloadSize);
 
 			/* Registering payload type of HT in RAW CATALOG */
 			/**
@@ -1428,84 +1492,15 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			 * do it ONCE on the pre-allocated buffer
 			 */
 
-			Value *val_arena = Builder->CreateLoad(relR.mem_relation);
-			Value *offsetInArena = Builder->CreateLoad(relR.mem_offset);
-			Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,
-					val_payloadSize);
-			Value *arenaSize = Builder->CreateLoad(relR.mem_size);
+			//			Value *val_arena = Builder->CreateLoad(relR.mem_relation);
 			Value* val_tuplesNo = Builder->CreateLoad(relR.mem_tuplesNo);
-
-
-//			/* XXX STORING PAYLOAD */
-//			/* 1. arena += (offset) */
-//			Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,
-//					offsetInArena);
-//
-//			/* 2. Casting */
-//			PointerType *ptr_payloadType = PointerType::get(payloadType, 0);
-//			Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,
-//					ptr_payloadType);
-//
-//			/* 3. Storing payload, one field at a time */
-//			vector<Type*>* materializedTypes = pg->getMaterializedTypes();
-//			//Storing all activeTuples met so far
-//			int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
-//			RawValueMemory mem_activeTuple;
-//			{
-//				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
-//				for (memSearch = bindings.begin(); memSearch != bindings.end();
-//						memSearch++) {
-//					RecordAttribute currAttr = memSearch->first;
-//					if (currAttr.getAttrName() == activeLoop) {
-//						mem_activeTuple = memSearch->second;
-//						Value* val_activeTuple = Builder->CreateLoad(
-//								mem_activeTuple.mem);
-//						//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
-//						vector<Value*> idxList = vector<Value*>();
-//						idxList.push_back(context->createInt32(0));
-//						idxList.push_back(context->createInt32(offsetInStruct));
-//						//Shift in struct ptr
-//						Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
-//								idxList);
-//						StoreInst *store_activeTuple = Builder->CreateStore(
-//								val_activeTuple, structPtr);
-//						store_activeTuple->setAlignment(8);
-//						offsetInStruct++;
-//					}
-//				}
-//			}
-//
-//			int offsetInWanted = 0;
-//			const vector<RecordAttribute*>& wantedFields =
-//					matLeft.getWantedFields();
-//			for (vector<RecordAttribute*>::const_iterator it =
-//					wantedFields.begin(); it != wantedFields.end(); ++it) {
-//				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
-//						bindings.find(*(*it));
-//				RawValueMemory currValMem = memSearch->second;
-//				/* FIX THE NECESSARY CONVERSIONS HERE */
-//				Value* currVal = Builder->CreateLoad(currValMem.mem);
-//				Value* valToMaterialize = pg->convert(currVal->getType(),
-//						materializedTypes->at(offsetInWanted), currVal);
-//
-//				vector<Value*> idxList = vector<Value*>();
-//				idxList.push_back(context->createInt32(0));
-//				idxList.push_back(context->createInt32(offsetInStruct));
-//
-//				//Shift in struct ptr
-//				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
-//						idxList);
-//
-//				Builder->CreateStore(valToMaterialize, structPtr);
-//				offsetInStruct++;
-//				offsetInWanted++;
-//			}
 
 			/* CONSTRUCT HTENTRY PAIR   	  */
 			/* payloadPtr: relative offset from relBuffer beginning */
 			/* (int32 key, int64 payloadPtr)  */
 			/* Prepare key */
-			expressions::Expression* leftKeyExpr = this->pred->getLeftOperand();
+			expressions::Expression* leftKeyExpr =
+					this->pred->getLeftOperand();
 			ExpressionGeneratorVisitor exprGenerator =
 					ExpressionGeneratorVisitor(context, childState);
 			RawValue leftKey = leftKeyExpr->accept(exprGenerator);
@@ -1516,6 +1511,18 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			}
+#ifdef DEBUGRADIX
+			{
+				Function* debugInt = context->getFunction("printi");
+				vector<Value*> ArgsV;
+				//		ArgsV.push_back(context->createInt32(-6));
+				ArgsV.push_back(leftKey.value);
+				Builder->CreateCall(debugInt, ArgsV);
+				ArgsV.clear();
+				ArgsV.push_back(context->createInt32(-10001));
+				Builder->CreateCall(debugInt, ArgsV);
+			}
+#endif
 
 			PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
 
@@ -1535,8 +1542,9 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			//		Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKey,val_payloadPtrSize);
 			Value *offsetPlusKVPair = Builder->CreateAdd(offsetInHT, kvSize);
 
-			Value *htSize = Builder->CreateLoad(htR.mem_size);
-			Value *offsetCond = Builder->CreateICmpSGE(offsetPlusKVPair, htSize);
+			Value *htRize = Builder->CreateLoad(htR.mem_size);
+			Value *offsetCond = Builder->CreateICmpSGE(offsetPlusKVPair,
+					htRize);
 
 			Builder->CreateCondBr(offsetCond, ifHTFull, endBlockHTFull);
 
@@ -1550,7 +1558,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			Function* reallocLLVM = context->getFunction("increaseMemoryChunk");
 			ArgsRealloc.clear();
 			ArgsRealloc.push_back(cast_htEntries);
-			ArgsRealloc.push_back(htSize);
+			ArgsRealloc.push_back(htRize);
 			Value *val_newVoidHTPtr = Builder->CreateCall(reallocLLVM,
 					ArgsRealloc);
 
@@ -1594,18 +1602,17 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			idxList.push_back(context->createInt32(0));
 			idxList.push_back(context->createInt32(offsetInStruct));
 			structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
-
 			StoreInst *store_payloadPtr = Builder->CreateStore(offsetInArena,
 					structPtr);
 			store_payloadPtr->setAlignment(8);
 
-			/* 4. Increment counts - both Rel and HT */
-			Builder->CreateStore(offsetPlusPayload, relR.mem_offset);
+			/* 4. Increment counts - HT */
 			Builder->CreateStore(offsetPlusKVPair, htR.mem_offset);
+			Builder->CreateStore(offsetPlusPayload, relR.mem_offset);
 			val_tuplesNo = Builder->CreateAdd(val_tuplesNo,
 					context->createInt64(1));
 			Builder->CreateStore(val_tuplesNo, relR.mem_tuplesNo);
-			Builder->CreateStore(val_tuplesNo, htR.mem_tuplesNo);
+
 		}
 
 	}
@@ -1723,7 +1730,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 						Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
 								idxList);
 						Builder->CreateStore(val_activeTuple, structPtr);
-#ifdef DEBUG
+#ifdef DEBUGRADIX
 						{
 							Function* debugInt = context->getFunction(
 									"printi64");
@@ -1759,7 +1766,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
 						idxList);
 				Builder->CreateStore(valToMaterialize, structPtr);
-#ifdef DEBUG
+#ifdef DEBUGRADIX
 				{
 					Function* debugInt = context->getFunction("printi");
 					vector<Value*> ArgsV;
@@ -1773,7 +1780,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 				offsetInWanted++;
 			}
 
-#ifdef DEBUG
+#ifdef DEBUGRADIX
 				{
 					Function* debugInt = context->getFunction("printi");
 					vector<Value*> ArgsV;
@@ -1930,9 +1937,12 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			payloadType = pg->getPayloadType();
 			sPayloadType = payloadType;
 
-			/* 3rd Method to calculate size */
-			/* REMEMBER: PADDING DOES MATTER! */
 			Value* val_payloadSize = ConstantExpr::getSizeOf(sPayloadType);
+
+			Value *val_arena = Builder->CreateLoad(relS.mem_relation);
+			Value *offsetInArena = Builder->CreateLoad(relS.mem_offset);
+			Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,
+					val_payloadSize);
 
 			/* Registering payload type of HT in RAW CATALOG */
 			/**
@@ -2060,9 +2070,13 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			idxList.push_back(context->createInt32(0));
 			idxList.push_back(context->createInt32(offsetInStruct));
 			structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
+			StoreInst *store_payloadPtr = Builder->CreateStore(offsetInArena,
+					structPtr);
+			store_payloadPtr->setAlignment(8);
 
 			/* 4. Increment counts - HT */
 			Builder->CreateStore(offsetPlusKVPair, htS.mem_offset);
+			Builder->CreateStore(offsetPlusPayload, relS.mem_offset);
 			val_tuplesNo = Builder->CreateAdd(val_tuplesNo,
 					context->createInt64(1));
 			Builder->CreateStore(val_tuplesNo, relS.mem_tuplesNo);
