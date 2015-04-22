@@ -28,15 +28,18 @@ BinaryInternalPlugin::BinaryInternalPlugin(RawContext* const context,
 		context(context), structName(structName)
 {
 	val_entriesNo = context->createInt64(0);
+	mem_cnt = NULL;
 	mem_buffer = NULL;
 	mem_pos = NULL;
+	val_structBufferPtr = NULL;
+	payloadType = NULL;
 }
 
 BinaryInternalPlugin::BinaryInternalPlugin(RawContext* const context,
 		RecordType rec, string structName,
 		vector<RecordAttribute*> wantedOIDs,
 		vector<RecordAttribute*> wantedFields,
-		char* rawBuffer, size_t entriesNo) :
+		CacheInfo info) :
 		rec(rec), structName(structName), OIDs(wantedOIDs), fields(wantedFields), context(context) {
 
 	IRBuilder<>* Builder = context->getBuilder();
@@ -45,8 +48,11 @@ BinaryInternalPlugin::BinaryInternalPlugin(RawContext* const context,
 	Type *int64Type = Type::getInt64Ty(llvmContext);
 	PointerType* charPtrType = Type::getInt8PtrTy(llvmContext);
 
-	cout << "HOW MANY CACHED ENTRIES? " << entriesNo << endl;
-	val_entriesNo = context->createInt64(entriesNo);
+	payloadType = context->ReproduceCustomStruct(info.objectTypes);
+	PointerType* payloadPtrType = PointerType::get(payloadType,0);
+	char *rawBuffer = *(info.payloadPtr);
+	cout << "HOW MANY CACHED ENTRIES? " << *(info.itemCount) << endl;
+	val_entriesNo = context->createInt64(*(info.itemCount));
 	int fieldsNumber = OIDs.size() + fields.size();
 	if (fieldsNumber <= 0) {
 		string error_msg = string(
@@ -55,15 +61,25 @@ BinaryInternalPlugin::BinaryInternalPlugin(RawContext* const context,
 		throw runtime_error(error_msg);
 	}
 
-	mem_buffer = context->CreateEntryBlockAlloca(F,string("currPos"),charPtrType);
+	mem_buffer = context->CreateEntryBlockAlloca(F,string("binBuffer"),charPtrType);
 	Value *val_buffer = context->CastPtrToLlvmPtr(charPtrType,rawBuffer);
 	Builder->CreateStore(val_buffer,mem_buffer);
 	mem_pos = context->CreateEntryBlockAlloca(F,string("currPos"),int64Type);
-	mem_cnt = context->CreateEntryBlockAlloca(F,string("currPos"),int64Type);
+	mem_cnt = context->CreateEntryBlockAlloca(F,string("currTupleNo"),int64Type);
 	Value *val_zero = Builder->getInt64(0);
 	Builder->CreateStore(val_zero, mem_pos);
 	Builder->CreateStore(val_zero, mem_cnt);
-	cout << "Internal Binary PG creation" << endl;
+
+	val_structBufferPtr = context->CastPtrToLlvmPtr(payloadPtrType,rawBuffer);
+	cout << "Internal Binary PG creation - " << info.objectTypes.size() << " fields" << endl;
+	payloadPtrType->dump();
+	cout << endl;
+
+	/*Sneak peek in rawBuffer */
+//	size_t oid1 = *((size_t*)rawBuffer);
+//	int field10 = *((int*)(rawBuffer + sizeof(size_t)));
+//	int field20 = *((int*)(rawBuffer + sizeof(size_t) + sizeof(int)));
+//	cout << "PEEK: "<< oid1 << ", " << field10 << ", " << field20 << endl;
 }
 
 BinaryInternalPlugin::~BinaryInternalPlugin() {}
@@ -82,8 +98,136 @@ void BinaryInternalPlugin::generate(const RawOperator &producer) {
 	else
 	{
 		/* Triggered by radix atm */
-		scan(producer);
+		scanStruct(producer);
 	}
+}
+
+void BinaryInternalPlugin::scanStruct(const RawOperator& producer)
+{
+	cout << "Internal Binary PG scan (struct)" << endl;
+	//Prepare
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+
+	//Container for the variable bindings
+	map<RecordAttribute, RawValueMemory>* variableBindings =
+			new map<RecordAttribute, RawValueMemory>();
+
+	//Get the ENTRY BLOCK
+	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	context->setCurrentEntryBlock(Builder->GetInsertBlock());
+
+	BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanCond", TheFunction);
+
+	// Insert an explicit fall through from the current (entry) block to the CondBB.
+	Builder->CreateBr(CondBB);
+	// Start insertion in CondBB.
+	Builder->SetInsertPoint(CondBB);
+
+	/**
+	 * while(currItemNo < itemsNo)
+	 */
+	Value* lhs = Builder->CreateLoad(mem_cnt);
+	Value* rhs = val_entriesNo;
+	Value *cond = Builder->CreateICmpSLT(lhs,rhs);
+
+	// Make the new basic block for the loop header (BODY), inserting after current block.
+	BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "scanBody", TheFunction);
+
+	// Create the "AFTER LOOP" block and insert it.
+	BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "scanEnd", TheFunction);
+	context->setEndingBlock(AfterBB);
+
+	// Insert the conditional branch into the end of CondBB.
+	Builder->CreateCondBr(cond, LoopBB, AfterBB);
+
+	// Start insertion in LoopBB.
+	Builder->SetInsertPoint(LoopBB);
+
+	Value *val_cacheShiftedPtr = context->getArrayElemMem(val_structBufferPtr,
+			lhs);
+
+	int posInStruct = 0;
+	for (vector<RecordAttribute*>::iterator it = OIDs.begin(); it != OIDs.end();
+			it++) {
+		RecordAttribute attr = *(*it);
+		Value *val_cachedField = context->getStructElem(val_cacheShiftedPtr,
+				posInStruct);
+
+		AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(
+				TheFunction, "currOID", val_cachedField->getType());
+		RawValueMemory mem_valWrapper;
+		mem_valWrapper.mem = mem_currResult;
+		mem_valWrapper.isNull = context->createFalse();
+		(*variableBindings)[attr] = mem_valWrapper;
+		posInStruct++;
+#ifdef DEBUGBINCACHE
+		{
+			Function* debugInt = context->getFunction("printi64");
+			vector<Value*> ArgsV;
+			ArgsV.push_back(val_cachedField);
+			Builder->CreateCall(debugInt, ArgsV);
+			ArgsV.clear();
+		}
+#endif
+	}
+
+	for (vector<RecordAttribute*>::iterator it = fields.begin(); it != fields.end();
+			it++) {
+		RecordAttribute attr = *(*it);
+		Value *val_cachedField = context->getStructElem(val_cacheShiftedPtr,
+				posInStruct);
+#ifdef DEBUGBINCACHE
+		{
+			Function* debugInt = context->getFunction("printi");
+			vector<Value*> ArgsV;
+			ArgsV.push_back(val_cachedField);
+			Builder->CreateCall(debugInt, ArgsV);
+			ArgsV.clear();
+		}
+#endif
+		AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(
+				TheFunction, "currResult", val_cachedField->getType());
+		RawValueMemory mem_valWrapper;
+		mem_valWrapper.mem = mem_currResult;
+		mem_valWrapper.isNull = context->createFalse();
+		(*variableBindings)[attr] = mem_valWrapper;
+		posInStruct++;
+	}
+#ifdef DEBUGBINCACHE
+		{
+			Function* debugInt = context->getFunction("printi64");
+			vector<Value*> ArgsV;
+			ArgsV.push_back(Builder->getInt64(30003));
+			Builder->CreateCall(debugInt, ArgsV);
+			ArgsV.clear();
+		}
+#endif
+
+	// Make the new basic block for the increment, inserting after current block.
+	BasicBlock *IncBB = BasicBlock::Create(llvmContext, "scanInc", TheFunction);
+
+	// Insert an explicit fall through from the current (body) block to IncBB.
+	Builder->CreateBr(IncBB);
+	// Start insertion in IncBB.
+	Builder->SetInsertPoint(IncBB);
+	Value *val_cnt = Builder->CreateLoad(mem_cnt);
+	Value *val_1 = Builder->getInt64(1);
+	val_cnt = Builder->CreateAdd(val_cnt,val_1);
+	Builder->CreateStore(val_cnt,mem_cnt);
+
+	//Triggering parent
+	OperatorState* state = new OperatorState(producer, *variableBindings);
+	RawOperator* const opParent = producer.getParent();
+	opParent->consume(context,*state);
+
+	Builder->CreateBr(CondBB);
+
+	//	Finish up with end (the AfterLoop)
+	// 	Any new code will be inserted in AfterBB.
+	Builder->SetInsertPoint(AfterBB);
 }
 
 void BinaryInternalPlugin::scan(const RawOperator& producer)
@@ -139,16 +283,16 @@ void BinaryInternalPlugin::scan(const RawOperator& producer)
 		ArgsV.clear();
 	}
 #endif
-	//Get the starting position of each record and pass it along.
-	//More general/lazy plugins will only perform this action,
-	//instead of eagerly 'converting' fields
-	ExpressionType *oidType = new IntType();
-	RecordAttribute tupleIdentifier = RecordAttribute(structName,activeLoop,oidType);
-
-	RawValueMemory mem_posWrapper;
-	mem_posWrapper.mem = mem_pos;
-	mem_posWrapper.isNull = context->createFalse();
-	(*variableBindings)[tupleIdentifier] = mem_posWrapper;
+//	//Get the starting position of each record and pass it along.
+//	//More general/lazy plugins will only perform this action,
+//	//instead of eagerly 'converting' fields
+//	ExpressionType *oidType = new IntType();
+//	RecordAttribute tupleIdentifier = RecordAttribute(structName,activeLoop,oidType);
+//
+//	RawValueMemory mem_posWrapper;
+//	mem_posWrapper.mem = mem_pos;
+//	mem_posWrapper.isNull = context->createFalse();
+//	(*variableBindings)[tupleIdentifier] = mem_posWrapper;
 
 	//	BYTECODE
 	//	for.body:                                         ; preds = %for.cond

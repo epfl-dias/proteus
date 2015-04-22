@@ -45,8 +45,7 @@ public:
 	/* Radix-related atm.
 	 * Resembles BinaryRowPg */
 	BinaryInternalPlugin(RawContext* const context, RecordType rec, string structName,
-			vector<RecordAttribute*> whichOIDs, vector<RecordAttribute*> whichFields, char* rawBuffer,
-			size_t entriesNo);
+			vector<RecordAttribute*> whichOIDs, vector<RecordAttribute*> whichFields, CacheInfo info);
 	~BinaryInternalPlugin();
 	virtual string& getName() { return structName; }
 	void init();
@@ -104,6 +103,7 @@ private:
 	RawContext* const context;
 	/* Radix-related atm */
 	void scan(const RawOperator& producer);
+	void scanStruct(const RawOperator& producer);
 	//
 	RecordType rec;
 	//Number of entries, if applicable
@@ -113,7 +113,9 @@ private:
 	vector<RecordAttribute*> fields;
 	vector<RecordAttribute*> OIDs;
 
+	StructType *payloadType;
 	Value *mem_buffer;
+	Value *val_structBufferPtr;
 	/* Binary offset in file */
 	AllocaInst *mem_pos;
 	/* Tuple counter */

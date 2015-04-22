@@ -2136,7 +2136,7 @@ void joinQueryRelationalRadix()
 	catalog.registerPlugin(filename, pg);
 	Scan scan = Scan(&ctx, *pg);
 
-	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop,int64Type);
+	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop,pg->getOIDType());
 	list<RecordAttribute> projectionsL = list<RecordAttribute>();
 	projectionsL.push_back(projTupleL);
 	projectionsL.push_back(*attr1);
@@ -2168,7 +2168,7 @@ void joinQueryRelationalRadix()
 	Scan scan2 = Scan(&ctx, *pg2);
 	LOG(INFO)<<"Right:"<<&scan2;
 
-	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop,int64Type);
+	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop,pg2->getOIDType());
 	list<RecordAttribute> projectionsR = list<RecordAttribute>();
 	projectionsR.push_back(projTupleR);
 	projectionsR.push_back(*attr1_f2);
@@ -2192,7 +2192,7 @@ void joinQueryRelationalRadix()
 	outputModes.insert(outputModes.begin(), EAGER);
 
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-			intType, leftArg, projTupleL);
+			pg->getOIDType(), leftArg, projTupleL);
 	expressions::Expression* exprLeftMat1 = new expressions::RecordProjection(
 			intType, leftArg, *attr1);
 	expressions::Expression* exprLeftMat2 = new expressions::RecordProjection(
@@ -2209,7 +2209,7 @@ void joinQueryRelationalRadix()
 			whichOIDLeft, outputModes);
 
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			intType, rightArg, projTupleR);
+			pg2->getOIDType(), rightArg, projTupleR);
 	expressions::Expression* exprRightMat1 = new expressions::RecordProjection(
 			intType, rightArg, *attr1_f2);
 	expressions::Expression* exprRightMat2 = new expressions::RecordProjection(
@@ -2269,7 +2269,6 @@ void joinQueryRelationalRadixCache()
 	 */
 	string filename = string("inputs/input.csv");
 	PrimitiveType* intType = new IntType();
-	PrimitiveType* int64Type = new Int64Type();
 	RecordAttribute* attr1 = new RecordAttribute(1, filename, string("att1"),
 			intType);
 	RecordAttribute* attr2 = new RecordAttribute(2, filename, string("att2"),
@@ -2286,13 +2285,15 @@ void joinQueryRelationalRadixCache()
 	whichFields.push_back(attr1);
 	whichFields.push_back(attr2);
 
-//	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
-	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields,3,2);
+	//	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
+	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields, 3,
+			2);
 	catalog.registerPlugin(filename, pg);
 	Scan scan = Scan(&ctx, *pg);
 
-	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop,int64Type);
-	list<RecordAttribute> projectionsL = list<RecordAttribute>();
+	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop,
+			pg->getOIDType());
+	list<RecordAttribute> projectionsL;
 	projectionsL.push_back(projTupleL);
 	projectionsL.push_back(*attr1);
 	projectionsL.push_back(*attr2);
@@ -2318,13 +2319,15 @@ void joinQueryRelationalRadixCache()
 	whichFields2.push_back(attr1_f2);
 	whichFields2.push_back(attr2_f2);
 
-//	CSVPlugin* pg2 = new CSVPlugin(&ctx, filename2, rec2, whichFields2);
-	pm::CSVPlugin* pg2 = new pm::CSVPlugin(&ctx, filename2, rec2, whichFields2,2,2);
+	//	CSVPlugin* pg2 = new CSVPlugin(&ctx, filename2, rec2, whichFields2);
+	pm::CSVPlugin* pg2 = new pm::CSVPlugin(&ctx, filename2, rec2, whichFields2,
+			2, 2);
 	catalog.registerPlugin(filename2, pg2);
 	Scan scan2 = Scan(&ctx, *pg2);
 	LOG(INFO)<<"Right:"<<&scan2;
 
-	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop, int64Type);
+	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop,
+			pg2->getOIDType());
 	list<RecordAttribute> projectionsR = list<RecordAttribute>();
 	projectionsR.push_back(projTupleR);
 	projectionsR.push_back(*attr1_f2);
@@ -2349,11 +2352,11 @@ void joinQueryRelationalRadixCache()
 
 	/* XXX Updated Materializer requires 'expressions to be cached'*/
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-					intType, leftArg, projTupleL);
-	expressions::Expression* exprLeftMat1 = new expressions::RecordProjection(intType,
-				leftArg, *attr1);
-	expressions::Expression* exprLeftMat2 = new expressions::RecordProjection(intType,
-				leftArg, *attr2);
+			pg->getOIDType(), leftArg, projTupleL);
+	expressions::Expression* exprLeftMat1 = new expressions::RecordProjection(
+			intType, leftArg, *attr1);
+	expressions::Expression* exprLeftMat2 = new expressions::RecordProjection(
+			intType, leftArg, *attr2);
 	vector<expressions::Expression*> whichExpressionsLeft;
 	whichExpressionsLeft.push_back(exprLeftOID);
 	whichExpressionsLeft.push_back(exprLeftMat1);
@@ -2362,7 +2365,8 @@ void joinQueryRelationalRadixCache()
 	vector<RecordAttribute*> whichOIDLeft;
 	whichOIDLeft.push_back(&projTupleL);
 
-	Materializer* matLeft = new Materializer(whichFields, whichExpressionsLeft, whichOIDLeft, outputModes);
+	Materializer* matLeft = new Materializer(whichFields, whichExpressionsLeft,
+			whichOIDLeft, outputModes);
 
 	vector<materialization_mode> outputModes2;
 	//active loop too
@@ -2372,7 +2376,7 @@ void joinQueryRelationalRadixCache()
 
 	/* XXX Updated Materializer requires 'expressions to be cached'*/
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-				intType, rightArg, projTupleR);
+			pg2->getOIDType(), rightArg, projTupleR);
 	expressions::Expression* exprRightMat1 = new expressions::RecordProjection(
 			intType, rightArg, *attr1_f2);
 	expressions::Expression* exprRightMat2 = new expressions::RecordProjection(
@@ -2385,10 +2389,12 @@ void joinQueryRelationalRadixCache()
 	vector<RecordAttribute*> whichOIDRight;
 	whichOIDRight.push_back(&projTupleR);
 
-	Materializer* matRight = new Materializer(whichFields2, whichExpressionsRight, whichOIDRight, outputModes2);
+	Materializer* matRight = new Materializer(whichFields2,
+			whichExpressionsRight, whichOIDRight, outputModes2);
 
 	char joinLabel[] = "radixJoin1";
-	RadixJoin join = RadixJoin(joinPred, scan, scan2, &ctx, joinLabel, *matLeft, *matRight);
+	RadixJoin join = RadixJoin(joinPred, scan, scan2, &ctx, joinLabel, *matLeft,
+			*matRight);
 	scan.setParent(&join);
 	scan2.setParent(&join);
 
@@ -5670,7 +5676,6 @@ void columnarCachedJoin1()
 	RawContext ctx = prepareContext("columnarJoin1");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType* intType = new IntType();
-	PrimitiveType* int64Type = new Int64Type();
 
 //	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
 //	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
@@ -5825,7 +5830,7 @@ void columnarCachedJoin1()
 	RecordAttribute projTupleR = RecordAttribute(filenamePrefixRight,
 			activeLoop,pgColumnarRight->getOIDType());
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			intType, rightJoinArg, projTupleR);
+			pgColumnarRight->getOIDType(), rightJoinArg, projTupleR);
 	expressions::Expression* selRight = new expressions::RecordProjection(
 			intType, rightJoinArg, *selectProjRight1);
 

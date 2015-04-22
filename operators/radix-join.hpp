@@ -29,6 +29,8 @@
 #include "util/raw-functions.hpp"
 #include "util/raw-caching.hpp"
 
+#define DEBUGRADIX
+
 /* valuePtr is relative to the payloadBuffer! */
 typedef struct htEntry	{
 	int key;
@@ -46,6 +48,7 @@ struct relationBuf	{
 	AllocaInst *mem_size;
 	/* (Current) Offset in bytes */
 	AllocaInst *mem_offset;
+	AllocaInst *mem_cachedTuplesNo;
 };
 
 struct kvBuf	{

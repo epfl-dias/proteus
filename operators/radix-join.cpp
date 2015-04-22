@@ -91,6 +91,8 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 	(relR.mem_relation)->setAlignment(8);
 	relR.mem_tuplesNo =
 			context->CreateEntryBlockAlloca(F,string("tuplesR"),int64_type);
+	relR.mem_cachedTuplesNo =
+					context->CreateEntryBlockAlloca(F,string("tuplesRcached"),int64_type);
 	relR.mem_size =
 			context->CreateEntryBlockAlloca(F,string("sizeR"),int64_type);
 	relR.mem_offset =
@@ -101,6 +103,7 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 	Value *val_relationR = context->CastPtrToLlvmPtr(char_ptr_type, relationR);
 	Builder->CreateStore(val_relationR,relR.mem_relation);
 	Builder->CreateStore(zero,relR.mem_tuplesNo);
+	Builder->CreateStore(zero,relR.mem_cachedTuplesNo);
 	Builder->CreateStore(zero,relR.mem_offset);
 	Builder->CreateStore(val_sizeR,relR.mem_size);
 
@@ -110,6 +113,8 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 	(relS.mem_relation)->setAlignment(8);
 	relS.mem_tuplesNo =
 			context->CreateEntryBlockAlloca(F,string("tuplesS"),int64_type);
+	relS.mem_cachedTuplesNo =
+				context->CreateEntryBlockAlloca(F,string("tuplesScached"),int64_type);
 	relS.mem_size =
 			context->CreateEntryBlockAlloca(F,string("sizeS"),int64_type);
 	relS.mem_offset =
@@ -120,6 +125,7 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 	Value *val_relationS = context->CastPtrToLlvmPtr(char_ptr_type, relationS);
 	Builder->CreateStore(val_relationS,relS.mem_relation);
 	Builder->CreateStore(zero,relS.mem_tuplesNo);
+	Builder->CreateStore(zero,relS.mem_cachedTuplesNo);
 	Builder->CreateStore(zero,relS.mem_offset);
 	Builder->CreateStore(val_sizeS,relS.mem_size);
 
@@ -233,7 +239,10 @@ void RadixJoin::freeArenas() const	{
 
 /* NULL if no exact match found, otherwise relationPtr */
 /* Note that this works only with caches produced by radix atm
- * Expression caches can't be used verbatim */
+ * Expression caches can't be used verbatim
+ *
+ * I think this ends up matching columns produced by binary-col-pg
+ * instead of rows produced by radix */
 Scan* RadixJoin::findSideInCache(Materializer &mat, bool isLeft) const {
 	CachingService& cache = CachingService::getInstance();
 	bool found = true;
@@ -265,7 +274,8 @@ Scan* RadixJoin::findSideInCache(Materializer &mat, bool isLeft) const {
 			failedNo++;
 		}
 		if (found) {
-			cout << "Relation side is READY" << endl;
+			cout << "Relation side with " << info.objectTypes.size()
+					<< " fields is READY" << endl;
 
 			const vector<RecordAttribute*>& fields = mat.getWantedFields();
 
@@ -273,7 +283,7 @@ Scan* RadixJoin::findSideInCache(Materializer &mat, bool isLeft) const {
 
 			RecordType rec = RecordType(fields);
 			BinaryInternalPlugin *pg = new BinaryInternalPlugin(context, rec,
-					htLabel, OIDs, fields, *(info.payloadPtr), *(info.itemCount));
+					htLabel, OIDs, fields, info);
 
 			if(isLeft)
 			{
@@ -282,7 +292,8 @@ Scan* RadixJoin::findSideInCache(Materializer &mat, bool isLeft) const {
 				Value *val_size = context->createInt64(*(info.itemCount));
 
 				Builder->CreateStore(val_relationR, relR.mem_relation);
-				Builder->CreateStore(val_size, relR.mem_tuplesNo);
+				Builder->CreateStore(val_size, relR.mem_cachedTuplesNo);
+				Builder->CreateStore(val_size, htR.mem_tuplesNo);
 			}
 			else
 			{
@@ -291,7 +302,8 @@ Scan* RadixJoin::findSideInCache(Materializer &mat, bool isLeft) const {
 				Value *val_size = context->createInt64(*(info.itemCount));
 
 				Builder->CreateStore(val_relationS, relS.mem_relation);
-				Builder->CreateStore(val_size, relS.mem_tuplesNo);
+				Builder->CreateStore(val_size, relS.mem_cachedTuplesNo);
+				Builder->CreateStore(val_size, htS.mem_tuplesNo);
 			}
 			Scan *newScan = new Scan(context,*pg);
 			return newScan;
@@ -337,6 +349,7 @@ void RadixJoin::placeInCache(Materializer &mat, bool isLeft) const {
 	PointerType *int64PtrType = Type::getInt64PtrTy(llvmContext);
 	char** ptr_relation;
 	Value *val_tuplesNo;
+	//Value *val_buffer;
 
 	if(isLeft)	{
 		ptr_relation = ptr_relationR;
@@ -346,6 +359,9 @@ void RadixJoin::placeInCache(Materializer &mat, bool isLeft) const {
 	{
 		ptr_relation = ptr_relationS;
 		val_tuplesNo = Builder->CreateLoad(relS.mem_tuplesNo);
+		cout << "RIGHT TYPE CACHED: " << endl;
+		sPayloadType->dump();
+		cout << endl;
 	}
 
 	CachingService& cache = CachingService::getInstance();
@@ -370,11 +386,11 @@ void RadixJoin::placeInCache(Materializer &mat, bool isLeft) const {
 	vector<RecordAttribute*>::const_iterator itOids = oids.begin();
 	for (; itOids != oids.end(); itOids++) {
 		RecordAttribute *attr = *itOids;
-		//				cout << "OID mat'ed" << endl;
+		cout << "OID mat'ed" << endl;
 		info.objectTypes.push_back(attr->getOriginalType()->getTypeID());
 	}
 	for (; itRec != fields.end(); itRec++) {
-		//				cout << "Field mat'ed" << endl;
+		cout << "Field mat'ed" << endl;
 		info.objectTypes.push_back((*itRec)->getOriginalType()->getTypeID());
 	}
 	itRec = fields.begin();
@@ -478,9 +494,6 @@ void RadixJoin::produce() {
 		cachedRight = true;
 		this->setRightChild(*newChildRight);
 		newChildRight->setParent(this);
-
-
-
 		newChildRight->produce();
 	}
 
@@ -1598,7 +1611,7 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 	}
 	else
 	{
-
+		/* XXX comparisons with left and right child are off */
 #ifdef DEBUG
 		LOG(INFO)<< "[RADIX JOIN: ] Right (also building!) side";
 #endif
@@ -1710,6 +1723,17 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 						Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
 								idxList);
 						Builder->CreateStore(val_activeTuple, structPtr);
+#ifdef DEBUG
+						{
+							Function* debugInt = context->getFunction(
+									"printi64");
+							vector<Value*> ArgsV;
+
+							ArgsV.push_back(val_activeTuple);
+							Builder->CreateCall(debugInt, ArgsV);
+
+						}
+#endif
 
 						offsetInStruct++;
 					}
@@ -1735,9 +1759,30 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
 						idxList);
 				Builder->CreateStore(valToMaterialize, structPtr);
+#ifdef DEBUG
+				{
+					Function* debugInt = context->getFunction("printi");
+					vector<Value*> ArgsV;
+
+					ArgsV.push_back(valToMaterialize);
+					Builder->CreateCall(debugInt, ArgsV);
+
+				}
+#endif
 				offsetInStruct++;
 				offsetInWanted++;
 			}
+
+#ifdef DEBUG
+				{
+					Function* debugInt = context->getFunction("printi");
+					vector<Value*> ArgsV;
+
+					ArgsV.push_back(Builder->getInt32(200002));
+					Builder->CreateCall(debugInt, ArgsV);
+
+				}
+#endif
 
 			/* CONSTRUCT HTENTRY PAIR   	  */
 			/* payloadPtr: relative offset from relBuffer beginning */
@@ -1843,10 +1888,42 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			Builder->CreateStore(val_tuplesNo, relS.mem_tuplesNo);
 			Builder->CreateStore(val_tuplesNo, htS.mem_tuplesNo);
 		}
+		/* RIGHT SIDE CACHED */
 		else
 		{
+			cout << "RIGHT SIDE IS READY" << endl;
 			const map<RecordAttribute, RawValueMemory>& bindings =
 					childState.getBindings();
+
+			/* Peek */
+			map<RecordAttribute,RawValueMemory>::const_iterator it = bindings.begin();
+			for(; it != bindings.end(); it++)	{
+				RecordAttribute attr = it->first;
+				RawValueMemory memWrap = it->second;
+				if (attr.getAttrName() == activeLoop) {
+#ifdef DEBUGRADIX
+					{
+						Function* debugInt = context->getFunction("printi64");
+						vector<Value*> ArgsV;
+						Value *val_oid = Builder->CreateLoad(memWrap.mem);
+						ArgsV.push_back(val_oid);
+						Builder->CreateCall(debugInt, ArgsV);
+					}
+#endif
+				} else {
+#ifdef DEBUGRADIX
+					{
+						Function* debugInt = context->getFunction("printi");
+						vector<Value*> ArgsV;
+						Value *val_oid = Builder->CreateLoad(memWrap.mem);
+						ArgsV.push_back(val_oid);
+						Builder->CreateCall(debugInt, ArgsV);
+					}
+#endif
+				}
+			}
+
+
 			OutputPlugin* pg = new OutputPlugin(context, matRight, bindings);
 
 			/* Result type specified during output plugin construction */
@@ -1873,77 +1950,8 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			 * do it ONCE on the pre-allocated buffer
 			 */
 
-			Value *val_arena = Builder->CreateLoad(relS.mem_relation);
-			Value *offsetInArena = Builder->CreateLoad(relS.mem_offset);
-			Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,
-					val_payloadSize);
-			Value *arenaSize = Builder->CreateLoad(relS.mem_size);
+//			Value *val_arena = Builder->CreateLoad(relS.mem_relation);
 			Value* val_tuplesNo = Builder->CreateLoad(relS.mem_tuplesNo);
-
-//			/* XXX STORING PAYLOAD */
-//			/* 1. arena += (offset) */
-//			Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,
-//					offsetInArena);
-//
-//			/* 2. Casting */
-//			PointerType *ptr_payloadType = PointerType::get(payloadType, 0);
-//			Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,
-//					ptr_payloadType);
-//
-//			/* 3. Storing payload, one field at a time */
-//			vector<Type*>* materializedTypes = pg->getMaterializedTypes();
-//			//Storing all activeTuples met so far
-//			int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
-//			RawValueMemory mem_activeTuple;
-//			{
-//				map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
-//				for (memSearch = bindings.begin(); memSearch != bindings.end();
-//						memSearch++) {
-//					RecordAttribute currAttr = memSearch->first;
-//					if (currAttr.getAttrName() == activeLoop) {
-//						mem_activeTuple = memSearch->second;
-//						Value* val_activeTuple = Builder->CreateLoad(
-//								mem_activeTuple.mem);
-//						//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
-//						vector<Value*> idxList = vector<Value*>();
-//						idxList.push_back(context->createInt32(0));
-//						idxList.push_back(context->createInt32(offsetInStruct));
-//						//Shift in struct ptr
-//						Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
-//								idxList);
-//						StoreInst *store_activeTuple = Builder->CreateStore(
-//								val_activeTuple, structPtr);
-//						store_activeTuple->setAlignment(8);
-//						offsetInStruct++;
-//					}
-//				}
-//			}
-//
-//			int offsetInWanted = 0;
-//			const vector<RecordAttribute*>& wantedFields =
-//					matRight.getWantedFields();
-//			for (vector<RecordAttribute*>::const_iterator it =
-//					wantedFields.begin(); it != wantedFields.end(); ++it) {
-//				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
-//						bindings.find(*(*it));
-//				RawValueMemory currValMem = memSearch->second;
-//				/* FIX THE NECESSARY CONVERSIONS HERE */
-//				Value* currVal = Builder->CreateLoad(currValMem.mem);
-//				Value* valToMaterialize = pg->convert(currVal->getType(),
-//						materializedTypes->at(offsetInWanted), currVal);
-//
-//				vector<Value*> idxList = vector<Value*>();
-//				idxList.push_back(context->createInt32(0));
-//				idxList.push_back(context->createInt32(offsetInStruct));
-//
-//				//Shift in struct ptr
-//				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
-//						idxList);
-//
-//				Builder->CreateStore(valToMaterialize, structPtr);
-//				offsetInStruct++;
-//				offsetInWanted++;
-//			}
 
 			/* CONSTRUCT HTENTRY PAIR   	  */
 			/* payloadPtr: relative offset from relBuffer beginning */
@@ -1961,18 +1969,18 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			}
-//			#ifdef DEBUG
-//			{
-//				Function* debugInt = context->getFunction("printi");
-//				vector<Value*> ArgsV;
-//				//		ArgsV.push_back(context->createInt32(-6));
-//				ArgsV.push_back(rightKey.value);
-//				Builder->CreateCall(debugInt, ArgsV);
-//				ArgsV.clear();
-//				ArgsV.push_back(context->createInt32(-10001));
-//				Builder->CreateCall(debugInt, ArgsV);
-//			}
-//			#endif
+			#ifdef DEBUGRADIX
+			{
+				Function* debugInt = context->getFunction("printi");
+				vector<Value*> ArgsV;
+				//		ArgsV.push_back(context->createInt32(-6));
+				ArgsV.push_back(rightKey.value);
+				Builder->CreateCall(debugInt, ArgsV);
+				ArgsV.clear();
+				ArgsV.push_back(context->createInt32(-10001));
+				Builder->CreateCall(debugInt, ArgsV);
+			}
+			#endif
 
 			PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
 
@@ -2053,17 +2061,11 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			idxList.push_back(context->createInt32(offsetInStruct));
 			structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
 
-			StoreInst *store_payloadPtr = Builder->CreateStore(offsetInArena,
-					structPtr);
-			store_payloadPtr->setAlignment(8);
-
-			/* 4. Increment counts - both Rel and HT */
-			Builder->CreateStore(offsetPlusPayload, relS.mem_offset);
+			/* 4. Increment counts - HT */
 			Builder->CreateStore(offsetPlusKVPair, htS.mem_offset);
 			val_tuplesNo = Builder->CreateAdd(val_tuplesNo,
 					context->createInt64(1));
 			Builder->CreateStore(val_tuplesNo, relS.mem_tuplesNo);
-			Builder->CreateStore(val_tuplesNo, htS.mem_tuplesNo);
 
 		}
 	}

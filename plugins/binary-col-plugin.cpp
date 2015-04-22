@@ -278,34 +278,35 @@ void BinaryColPlugin::init()	{
 		 */
 		prepareArray(*attr);
 
-		{
-			/* Make columns available to caching service!
-			 * NOTE: Not 1-1 applicable in radix case
-			 * Reason: OID not explicitly materialized */
-			const ExpressionType *fieldType = (*it)->getOriginalType();
-			const RecordAttribute& thisAttr = *(*it);
-			expressions::Expression* thisField =
-					new expressions::RecordProjection(fieldType, &arg,
-							thisAttr);
-
-			/* Place info about col. in cache! */
-			cout << "[Binary Col. Plugin:] Register (bin col.) in cache" << endl;
-			CachingService& cache = CachingService::getInstance();
-			bool fullRelation = true;
-
-			CacheInfo info;
-			info.objectTypes.push_back(attr->getOriginalType()->getTypeID());
-			info.structFieldNo = 0;
-			//Skipping the offset that contains the size of the column!
-			char* ptr_rawBuffer = buf[cnt] + sizeof(size_t);
-			info.payloadPtr = &ptr_rawBuffer;
-			//MUST fill this up!
-			info.itemCount = new size_t[1];
-			Value *mem_itemCount = context->CastPtrToLlvmPtr(int64PtrType,
-					(void*) info.itemCount);
-			Builder->CreateStore(val_size, mem_itemCount);
-			cache.registerCache(thisField, info, fullRelation);
-		}
+		/* What is the point of caching what is already converted and compact? */
+//		{
+//			/* Make columns available to caching service!
+//			 * NOTE: Not 1-1 applicable in radix case
+//			 * Reason: OID not explicitly materialized */
+//			const ExpressionType *fieldType = (*it)->getOriginalType();
+//			const RecordAttribute& thisAttr = *(*it);
+//			expressions::Expression* thisField =
+//					new expressions::RecordProjection(fieldType, &arg,
+//							thisAttr);
+//
+//			/* Place info about col. in cache! */
+//			cout << "[Binary Col. Plugin:] Register (bin col.) in cache" << endl;
+//			CachingService& cache = CachingService::getInstance();
+//			bool fullRelation = true;
+//
+//			CacheInfo info;
+//			info.objectTypes.push_back(attr->getOriginalType()->getTypeID());
+//			info.structFieldNo = 0;
+//			//Skipping the offset that contains the size of the column!
+//			char* ptr_rawBuffer = buf[cnt] + sizeof(size_t);
+//			info.payloadPtr = &ptr_rawBuffer;
+//			//MUST fill this up!
+//			info.itemCount = new size_t[1];
+//			Value *mem_itemCount = context->CastPtrToLlvmPtr(int64PtrType,
+//					(void*) info.itemCount);
+//			Builder->CreateStore(val_size, mem_itemCount);
+//			cache.registerCache(thisField, info, fullRelation);
+//		}
 
 	}
 	cout << "[BinaryColPlugin: ] Initialization Successful for " << fnamePrefix << endl;
@@ -880,8 +881,7 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 	//More general/lazy plugins will only perform this action,
 	//instead of eagerly 'converting' fields
 	//FIXME This action corresponds to materializing the oid. Do we want this?
-	ExpressionType *oidType = new IntType();
-	RecordAttribute tupleIdentifier = RecordAttribute(fnamePrefix,activeLoop,oidType);
+	RecordAttribute tupleIdentifier = RecordAttribute(fnamePrefix,activeLoop,this->getOIDType());
 
 	RawValueMemory mem_posWrapper;
 	mem_posWrapper.mem = mem_itemCtr;
