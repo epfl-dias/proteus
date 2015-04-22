@@ -74,6 +74,13 @@ target_link_libraries(rawmain-str jsmn)
 target_link_libraries(rawmain-str -lglog ${glog_ldflags})
 target_link_libraries(rawmain-str ${llvm_ldflags} ${llvm_libs})
 
+add_executable(rawmain-reduce main-reduce.cpp)
+set_target_properties(rawmain-reduce PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(rawmain-reduce codegen)
+target_link_libraries(rawmain-reduce jsmn)
+target_link_libraries(rawmain-reduce -lglog ${glog_ldflags})
+target_link_libraries(rawmain-reduce ${llvm_ldflags} ${llvm_libs})
+
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
 if(GTEST)
