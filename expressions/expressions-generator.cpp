@@ -194,6 +194,8 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 			/* Cache Logic */
 			/* XXX Apply in other visitors too! */
 			CachingService& cache = CachingService::getInstance();
+			cout << "LOOKING FOR STUFF FROM "<<e->getRelationName() << "."
+					<< e->getAttribute().getAttrName()<< endl;
 			CacheInfo info = cache.getCache(e);
 			if (info.structFieldNo != -1) {
 				cout << "[Generator: ] Expression found for "

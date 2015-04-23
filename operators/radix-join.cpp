@@ -68,13 +68,13 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 
 	/* Arbitrary initial buffer sizes */
 	/* No realloc will be required with these sizes for synthetic large-scale numbers */
-	size_t sizeR = 10000000000;
-	size_t sizeS = 15000000000;
+//	size_t sizeR = 10000000000;
+//	size_t sizeS = 15000000000;
 
 //	size_t sizeR = 1000;
 //	size_t sizeS = 1500;
-//	size_t sizeR = 50000;
-//	size_t sizeS = 50000;
+	size_t sizeR = 50000;
+	size_t sizeS = 50000;
 
 	//size_t sizeR = 100000000;
 	//size_t sizeS = 100000000;

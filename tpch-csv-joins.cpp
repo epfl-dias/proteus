@@ -124,10 +124,41 @@ int main()	{
 //	tpchJoin2a(datasetCatalog,3);
 //	tpchJoin2b(datasetCatalog,3);
 
-	tpchJoin3(datasetCatalog,3);
-	tpchJoin3(datasetCatalog,3);
-	tpchJoin4(datasetCatalog,4);
-	tpchJoin4(datasetCatalog,4);
+//	tpchJoin3(datasetCatalog,3);
+//	tpchJoin3(datasetCatalog,3);
+//	tpchJoin4(datasetCatalog,3);
+//	tpchJoin4(datasetCatalog,3);
+
+//	tpchJoin2b(datasetCatalog, 3);
+//	tpchJoin2b(datasetCatalog, 3);
+//	tpchJoin2a(datasetCatalog, 3);
+//	tpchJoin2a(datasetCatalog, 3);
+//
+////	/* This sequence crashes
+////	 * -> Cache related*/
+//	tpchJoin2b(datasetCatalog, 3);
+//	tpchJoin2b(datasetCatalog, 3);
+	tpchJoin2a(datasetCatalog, 3);
+	tpchJoin2a(datasetCatalog, 3);
+//	cout << "THIRD - 1" << endl;
+	tpchJoin3(datasetCatalog, 3);
+//	cout << "THIRD - 2" << endl;
+//	tpchJoin3(datasetCatalog, 3);
+
+	/* This sequence crashes
+	 * -> Cache related*/
+	//	tpchJoin2b(datasetCatalog, 3);
+	//	tpchJoin2b(datasetCatalog, 3);
+	//	tpchJoin2a(datasetCatalog, 3);
+	//	tpchJoin2a(datasetCatalog, 3);
+	//	cout << "FOURTH - 1" << endl;
+	//	tpchJoin4(datasetCatalog,3);
+	//	cout << "FOURTH - 2" << endl;
+	//	tpchJoin4(datasetCatalog,3);
+	//	cout << "THIRD - 1" << endl;
+	//	tpchJoin3(datasetCatalog, 3);
+	//	cout << "THIRD - 2" << endl;
+	//	tpchJoin3(datasetCatalog, 3);
 }
 
 void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
@@ -219,12 +250,12 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
 
 	/* explicit mention to left OID */
-	RecordAttribute projTupleL = RecordAttribute(ordersName, activeLoop,
+	RecordAttribute *projTupleL = new RecordAttribute(ordersName, activeLoop,
 			pgOrders->getOIDType());
 	vector<RecordAttribute*> OIDLeft;
-	OIDLeft.push_back(&projTupleL);
+	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-			pgOrders->getOIDType(), leftArg, projTupleL);
+			pgOrders->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprOrderkey = new expressions::RecordProjection(
 				o_orderkey->getOriginalType(), leftArg, *o_orderkey);
 	vector<expressions::Expression*> expressionsLeft;
@@ -239,12 +270,12 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 	vector<materialization_mode> outputModesRight;
 
 	/* explicit mention to right OID */
-	RecordAttribute projTupleR = RecordAttribute(lineitemName, activeLoop,
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemName, activeLoop,
 			pgLineitem->getOIDType());
 	vector<RecordAttribute*> OIDRight;
-	OIDRight.push_back(&projTupleR);
+	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			pgLineitem->getOIDType(), rightArg, projTupleR);
+			pgLineitem->getOIDType(), rightArg, *projTupleR);
 	vector<expressions::Expression*> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
@@ -366,12 +397,12 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 	vector<materialization_mode> outputModesLeft;
 
 	/* explicit mention to left OID */
-	RecordAttribute projTupleL = RecordAttribute(ordersName, activeLoop,
+	RecordAttribute *projTupleL = new RecordAttribute(ordersName, activeLoop,
 			pgOrders->getOIDType());
 	vector<RecordAttribute*> OIDLeft;
-	OIDLeft.push_back(&projTupleL);
+	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-			pgOrders->getOIDType(), leftArg, projTupleL);
+			pgOrders->getOIDType(), leftArg, *projTupleL);
 	vector<expressions::Expression*> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 
@@ -385,12 +416,12 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 	outputModesRight.insert(outputModesRight.begin(), EAGER);
 
 	/* explicit mention to right OID */
-	RecordAttribute projTupleR = RecordAttribute(lineitemName, activeLoop,
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemName, activeLoop,
 			pgLineitem->getOIDType());
 	vector<RecordAttribute*> OIDRight;
-	OIDRight.push_back(&projTupleR);
+	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			pgLineitem->getOIDType(), rightArg, projTupleR);
+			pgLineitem->getOIDType(), rightArg, *projTupleR);
 	expressions::Expression* exprOrderkey = new expressions::RecordProjection(
 			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
 	vector<expressions::Expression*> expressionsRight;
@@ -519,12 +550,12 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
 
 	/* explicit mention to left OID */
-	RecordAttribute projTupleL = RecordAttribute(ordersName, activeLoop,
+	RecordAttribute *projTupleL = new RecordAttribute(ordersName, activeLoop,
 			pgOrders->getOIDType());
 	vector<RecordAttribute*> OIDLeft;
-	OIDLeft.push_back(&projTupleL);
+	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-			pgOrders->getOIDType(), leftArg, projTupleL);
+			pgOrders->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprOrderkey = new expressions::RecordProjection(
 				o_orderkey->getOriginalType(), leftArg, *o_orderkey);
 	vector<expressions::Expression*> expressionsLeft;
@@ -539,12 +570,12 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 	vector<materialization_mode> outputModesRight;
 
 	/* explicit mention to right OID */
-	RecordAttribute projTupleR = RecordAttribute(lineitemName, activeLoop,
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemName, activeLoop,
 			pgLineitem->getOIDType());
 	vector<RecordAttribute*> OIDRight;
-	OIDRight.push_back(&projTupleR);
+	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			pgLineitem->getOIDType(), rightArg, projTupleR);
+			pgLineitem->getOIDType(), rightArg, *projTupleR);
 	vector<expressions::Expression*> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
@@ -666,12 +697,12 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 	vector<materialization_mode> outputModesLeft;
 
 	/* explicit mention to left OID */
-	RecordAttribute projTupleL = RecordAttribute(ordersName, activeLoop,
+	RecordAttribute *projTupleL = new RecordAttribute(ordersName, activeLoop,
 			pgOrders->getOIDType());
 	vector<RecordAttribute*> OIDLeft;
-	OIDLeft.push_back(&projTupleL);
+	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-			pgOrders->getOIDType(), leftArg, projTupleL);
+			pgOrders->getOIDType(), leftArg, *projTupleL);
 	vector<expressions::Expression*> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 
@@ -685,12 +716,12 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 	outputModesRight.insert(outputModesRight.begin(), EAGER);
 
 	/* explicit mention to right OID */
-	RecordAttribute projTupleR = RecordAttribute(lineitemName, activeLoop,
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemName, activeLoop,
 			pgLineitem->getOIDType());
 	vector<RecordAttribute*> OIDRight;
-	OIDRight.push_back(&projTupleR);
+	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			pgLineitem->getOIDType(), rightArg, projTupleR);
+			pgLineitem->getOIDType(), rightArg, *projTupleR);
 	expressions::Expression* exprOrderkey = new expressions::RecordProjection(
 			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
 
@@ -823,12 +854,12 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
 
 	/* explicit mention to left OID */
-	RecordAttribute projTupleL = RecordAttribute(ordersName, activeLoop,
+	RecordAttribute *projTupleL = new RecordAttribute(ordersName, activeLoop,
 			pgOrders->getOIDType());
 	vector<RecordAttribute*> OIDLeft;
-	OIDLeft.push_back(&projTupleL);
+	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-			pgOrders->getOIDType(), leftArg, projTupleL);
+			pgOrders->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprOrderkey = new expressions::RecordProjection(
 				o_orderkey->getOriginalType(), leftArg, *o_orderkey);
 	expressions::Expression* exprTotalprice = new expressions::RecordProjection(
@@ -846,12 +877,12 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 	vector<materialization_mode> outputModesRight;
 
 	/* explicit mention to right OID */
-	RecordAttribute projTupleR = RecordAttribute(lineitemName, activeLoop,
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemName, activeLoop,
 			pgLineitem->getOIDType());
 	vector<RecordAttribute*> OIDRight;
-	OIDRight.push_back(&projTupleR);
+	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			pgLineitem->getOIDType(), rightArg, projTupleR);
+			pgLineitem->getOIDType(), rightArg, *projTupleR);
 	vector<expressions::Expression*> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
@@ -983,12 +1014,12 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 	vector<materialization_mode> outputModesLeft;
 
 	/* explicit mention to left OID */
-	RecordAttribute projTupleL = RecordAttribute(ordersName, activeLoop,
+	RecordAttribute *projTupleL = new RecordAttribute(ordersName, activeLoop,
 			pgOrders->getOIDType());
 	vector<RecordAttribute*> OIDLeft;
-	OIDLeft.push_back(&projTupleL);
+	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-			pgOrders->getOIDType(), leftArg, projTupleL);
+			pgOrders->getOIDType(), leftArg, *projTupleL);
 	vector<expressions::Expression*> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 
@@ -1004,12 +1035,12 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 	outputModesRight.insert(outputModesRight.begin(), EAGER);
 
 	/* explicit mention to right OID */
-	RecordAttribute projTupleR = RecordAttribute(lineitemName, activeLoop,
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemName, activeLoop,
 			pgLineitem->getOIDType());
 	vector<RecordAttribute*> OIDRight;
-	OIDRight.push_back(&projTupleR);
+	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			pgLineitem->getOIDType(), rightArg, projTupleR);
+			pgLineitem->getOIDType(), rightArg, *projTupleR);
 	expressions::Expression* exprOrderkey = new expressions::RecordProjection(
 			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
 	expressions::Expression* exprExtendedprice = new expressions::RecordProjection(

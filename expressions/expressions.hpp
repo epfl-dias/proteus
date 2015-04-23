@@ -292,9 +292,9 @@ private:
 
 class RecordProjection : public Expression	{
 public:
-	RecordProjection(ExpressionType* type, Expression* expr, const RecordAttribute& attribute)	:
+	RecordProjection(ExpressionType* type, Expression* expr, RecordAttribute attribute)	:
 			Expression(type), expr(expr), attribute(attribute)	{}
-	RecordProjection(const ExpressionType* type, Expression* expr, const RecordAttribute& attribute)	:
+	RecordProjection(const ExpressionType* type, Expression* expr, RecordAttribute attribute)	:
 				Expression(type), expr(expr), attribute(attribute)	{}
 	~RecordProjection()								{}
 
@@ -336,6 +336,9 @@ public:
 				const RecordProjection& rProj =
 						dynamic_cast<const RecordProjection&>(r);
 
+				string n1 = this->getRelationName();
+				string n2 = rProj.getRelationName();
+
 				bool cmpRel1 = this->getRelationName() < rProj.getRelationName();
 				bool cmpRel2 = rProj.getRelationName() < this->getRelationName();
 				bool eqRelation = !cmpRel1 && !cmpRel2;
@@ -360,7 +363,7 @@ public:
 		}
 private:
 	Expression* expr;
-	const RecordAttribute& attribute;
+	RecordAttribute attribute;
 };
 
 class AttributeConstruction	{
