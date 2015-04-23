@@ -256,6 +256,7 @@ Scan* RadixJoin::findSideInCache(Materializer &mat, bool isLeft) const {
 	/* Is the relation already materialized?? */
 	const vector<expressions::Expression*>& exps =
 			mat.getWantedExpressions();
+
 	if (!exps.empty()) {
 		vector<expressions::Expression*>::const_iterator it = exps.begin();
 		int failedNo = 0;
@@ -274,6 +275,20 @@ Scan* RadixJoin::findSideInCache(Materializer &mat, bool isLeft) const {
 			failedNo++;
 		}
 		if (found) {
+			/* Also check for KEY */
+			if (isLeft) {
+				expressions::Expression *expr = this->pred->getLeftOperand();
+				info = cache.getCache(expr);
+				if (info.structFieldNo == -1) {
+					return NULL;
+				}
+			} else {
+				expressions::Expression *expr = this->pred->getRightOperand();
+				info = cache.getCache(expr);
+				if (info.structFieldNo == -1) {
+					return NULL;
+				}
+			}
 			cout << "Relation side with " << info.objectTypes.size()
 					<< " fields is READY" << endl;
 

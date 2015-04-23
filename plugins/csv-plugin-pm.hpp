@@ -45,10 +45,15 @@ public:
 	 */
 	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 			vector<RecordAttribute*> whichFields, int lineHint, int policy);
+	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
+				vector<RecordAttribute*> whichFields, char delimInner, int lineHint, int policy);
 	/* PM Ready */
 	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 				vector<RecordAttribute*> whichFields, int lineHint, int policy,
 				size_t *newlines, short **offsets);
+	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
+					vector<RecordAttribute*> whichFields, char delimInner, int lineHint, int policy,
+					size_t *newlines, short **offsets);
 	~CSVPlugin();
 	virtual string& getName() {
 		return fname;
@@ -120,6 +125,8 @@ private:
 	/**
 	 * PM-related
 	 */
+	char delimInner;
+	char delimEnd;
 	int lines;
 	int policy;
 	/* Indicates whether a PM was provided at construction time*/

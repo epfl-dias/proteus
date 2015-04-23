@@ -502,6 +502,7 @@ void Reduce::generateMax(RawContext* const context, const OperatorState& childSt
 		Builder->CreateCall(debugFloat, ArgsV);
 #endif
 		//Back to 'normal' flow
+		Builder->SetInsertPoint(ifGtMaxBlock);
 		break;
 	}
 	default: {

@@ -419,20 +419,22 @@ void ReduceNoPred::generateMax(RawContext* const context, const OperatorState& c
 		Builder->CreateBr(endBlock);
 
 		//Prepare final result output
-		Builder->SetInsertPoint(context->getEndingBlock());
 #ifdef DEBUGREDUCENOPRED
+		Builder->SetInsertPoint(context->getEndingBlock());
 		vector<Value*> ArgsV;
 		Function* debugFloat = context->getFunction("printFloat");
 		Value* finalResult = Builder->CreateLoad(mem_accumulating);
 		ArgsV.push_back(finalResult);
 		Builder->CreateCall(debugFloat, ArgsV);
+		Builder->SetInsertPoint(entryBlock);
 #endif
+
 		//Back to 'normal' flow
 		break;
 	}
 	default: {
 		string error_msg = string(
-				"[ReduceNoPred: ] Sum accumulator operates on numerics");
+				"[ReduceNoPred: ] Max accumulator operates on numerics");
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}

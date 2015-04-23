@@ -255,8 +255,8 @@ int main(int argc, char* argv[])
 //	cout << "Max 3: " << endl;
 //	columnarMax3();
 //	cout << "Join 1: " << endl;
-	columnarCachedJoin1();
-	columnarCachedJoin1();
+//	columnarCachedJoin1();
+//	columnarCachedJoin1();
 
 //	int point = newlineAVX("soulis\nkoula\ngoula",strlen("soulis\nkoula\ngoula"));
 //	cout << "Newline at " << point << endl;
@@ -270,10 +270,10 @@ int main(int argc, char* argv[])
 //	reduceJSONDeeperMaxFlat(false);
 //
 //	atoiCSV();
-//	scanCsvPM();
-//	scanCsvWidePM();
-//	scanCsvWidePM();
-//	scanCsvWideUsePM();
+	scanCsvPM();
+	scanCsvWidePM();
+	scanCsvWidePM();
+	scanCsvWideUsePM();
 
 	/* Simplified Reduce */
 //	reduceNoPredListObject();

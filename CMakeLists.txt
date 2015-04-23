@@ -81,6 +81,27 @@ target_link_libraries(rawmain-reduce jsmn)
 target_link_libraries(rawmain-reduce -lglog ${glog_ldflags})
 target_link_libraries(rawmain-reduce ${llvm_ldflags} ${llvm_libs})
 
+add_executable(tpch-csv-projections tpch-csv-projections.cpp)
+set_target_properties(tpch-csv-projections PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(tpch-csv-projections codegen)
+target_link_libraries(tpch-csv-projections jsmn)
+target_link_libraries(tpch-csv-projections -lglog ${glog_ldflags})
+target_link_libraries(tpch-csv-projections ${llvm_ldflags} ${llvm_libs})
+
+add_executable(tpch-csv-selections tpch-csv-selections.cpp)
+set_target_properties(tpch-csv-selections PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(tpch-csv-selections codegen)
+target_link_libraries(tpch-csv-selections jsmn)
+target_link_libraries(tpch-csv-selections -lglog ${glog_ldflags})
+target_link_libraries(tpch-csv-selections ${llvm_ldflags} ${llvm_libs})
+
+add_executable(tpch-csv-joins tpch-csv-joins.cpp)
+set_target_properties(tpch-csv-joins PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(tpch-csv-joins codegen)
+target_link_libraries(tpch-csv-joins jsmn)
+target_link_libraries(tpch-csv-joins -lglog ${glog_ldflags})
+target_link_libraries(tpch-csv-joins ${llvm_ldflags} ${llvm_libs})
+
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
 if(GTEST)

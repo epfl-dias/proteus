@@ -123,6 +123,10 @@ public:
 	RecordAttribute() : attrNo(-1), projected(false), type(NULL), relName(""), attrName("")	{}
 	RecordAttribute(const int& no, const string& relName, const string& attrName, const ExpressionType* type)
 		: attrNo(no), relName(relName), originalRelName(relName), attrName(attrName), type(type), projected(false) 	{}
+	RecordAttribute(const int& no, const string& relName, const char* attrName, const ExpressionType* type)
+			: attrNo(no), relName(relName), originalRelName(relName), type(type), projected(false) 	{
+		this->attrName = string(attrName);
+	}
 	RecordAttribute(const int& no, const string& originalRelName, const string& relName, const string& attrName, const ExpressionType* type)
 			: attrNo(no), relName(relName), originalRelName(originalRelName), attrName(attrName), type(type), projected(false) 	{}
 
