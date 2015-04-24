@@ -107,19 +107,19 @@ public:
 
 //	virtual typeID getOIDSize() { return INT; }
 	virtual ExpressionType *getOIDType() {
-		Int64Type int64Type = Int64Type();
+		Int64Type *int64Type = new Int64Type();
 
 		string field1 = string("offset");
 		string field2 = string("rowId");
 		string field3 = string("tokenNo");
 
-		RecordAttribute attr1 = RecordAttribute(1, fname, field1, &int64Type);
-		RecordAttribute attr2 = RecordAttribute(2, fname, field2, &int64Type);
-		RecordAttribute attr3 = RecordAttribute(2, fname, field3, &int64Type);
+		RecordAttribute *attr1 = new RecordAttribute(1, fname, field1, int64Type);
+		RecordAttribute *attr2 = new RecordAttribute(2, fname, field2, int64Type);
+		RecordAttribute *attr3 = new RecordAttribute(3, fname, field3, int64Type);
 		list<RecordAttribute*> atts = list<RecordAttribute*>();
-		atts.push_back(&attr1);
-		atts.push_back(&attr2);
-		atts.push_back(&attr3);
+		atts.push_back(attr1);
+		atts.push_back(attr2);
+		atts.push_back(attr3);
 		RecordType *inner = new RecordType(atts);
 		return inner;
 	}

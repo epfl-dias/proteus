@@ -23,19 +23,19 @@
 
 #include "plugins/output/plugins-output.hpp"
 
-Materializer::Materializer(const vector<RecordAttribute*>& wantedFields,
+Materializer::Materializer(vector<RecordAttribute*> wantedFields,
 //		const vector<expressions::Expression*>& wantedExpressions,
-		const vector<materialization_mode>& outputMode) :
+		vector<materialization_mode> outputMode) :
 //		wantedExpressions(wantedExpressions),
 		wantedFields(wantedFields), outputMode(outputMode)
 {
 	oidsProvided = false;
 }
 
-Materializer::Materializer(const vector<RecordAttribute*>& whichFields,
-		const vector<expressions::Expression*>& wantedExpressions,
-		vector<RecordAttribute*>& whichOIDs,
-		const vector<materialization_mode>& outputMode) :
+Materializer::Materializer(vector<RecordAttribute*> whichFields,
+		vector<expressions::Expression*> wantedExpressions,
+		vector<RecordAttribute*> whichOIDs,
+		vector<materialization_mode> outputMode) :
 		wantedExpressions(wantedExpressions), wantedOIDs(whichOIDs), wantedFields(
 				whichFields), outputMode(outputMode) {
 	oidsProvided = true;

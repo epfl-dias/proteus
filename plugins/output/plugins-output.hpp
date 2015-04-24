@@ -43,14 +43,14 @@ enum materialization_mode {
 class Materializer {
 
 public:
-	Materializer(const vector<RecordAttribute*>& whichFields,
+	Materializer(vector<RecordAttribute*> whichFields,
 //			const vector<expressions::Expression*>& wantedExpressions,
-			const vector<materialization_mode>& outputMode_);
+			vector<materialization_mode> outputMode_);
 
-	Materializer(const vector<RecordAttribute*>& whichFields,
-			const vector<expressions::Expression*>& wantedExpressions,
-			vector<RecordAttribute*>& whichOIDs,
-			const vector<materialization_mode>& outputMode_);
+	Materializer(vector<RecordAttribute*> whichFields,
+			vector<expressions::Expression*> wantedExpressions,
+			vector<RecordAttribute*> whichOIDs,
+			vector<materialization_mode> outputMode_);
 
 	~Materializer() {}
 
@@ -96,11 +96,11 @@ private:
 	 *  wantedExpressions include activeTuple.
 	 *  wantedFields do not!
 	 */
-	const vector<expressions::Expression*> wantedExpressions;
+	vector<expressions::Expression*> wantedExpressions;
 
-	const vector<RecordAttribute*>& wantedFields;
+	vector<RecordAttribute*> wantedFields;
 	vector<RecordAttribute*> wantedOIDs;
-	const vector<materialization_mode>& outputMode;
+	vector<materialization_mode> outputMode;
 	//int tupleIdentifiers;
 	set<RecordAttribute> tupleIdentifiers;
 

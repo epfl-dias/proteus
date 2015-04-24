@@ -120,7 +120,9 @@ public:
 
 class RecordAttribute	{
 public:
-	RecordAttribute() : attrNo(-1), projected(false), type(NULL), relName(""), attrName("")	{}
+	RecordAttribute() : attrNo(-1), projected(false), type(NULL), relName(""), attrName("")	{
+		cout << "ANONYMOUS CONSTRUCTOR!!" << endl;
+	}
 	RecordAttribute(int no, string relName, string attrName, const ExpressionType* type)
 		: attrNo(no), relName(relName), originalRelName(relName), attrName(attrName), type(type), projected(false) 	{}
 	RecordAttribute(int no, string relName, const char* attrName, const ExpressionType* type)
@@ -140,8 +142,9 @@ public:
 			: attrNo(-1), relName(relName), attrName(attrName), type(type), projected(false) 	{
 		//cout << "RELNAME:[" << relName << "]" << endl;
 		if(relName == "")	{
-			LOG(ERROR) << "WTF";
-			throw runtime_error(string("WTF"));
+			string error_msg = string("Unexpected, no-relname attribute");
+			LOG(ERROR) << error_msg;
+			throw runtime_error(error_msg);
 		}
 	}
 
@@ -151,7 +154,9 @@ public:
 //		this->projected = obj.projected;
 //	}
 
-	string getType() const											{ return attrName +" "+type->getType(); }
+	string getType() const											{
+		return attrName +" "+type->getType();
+	}
 	const ExpressionType* getOriginalType() const					{ return type; }
 	string getName()												{ return attrName; }
 	string getRelationName() 				const					{ return relName; }
@@ -210,7 +215,7 @@ public:
 		return ss.str();
 	}
 	typeID getTypeID()	const					{ return RECORD; }
-	list<RecordAttribute*> getArgs() const 	{ return args; }
+	list<RecordAttribute*> getArgs() const 		{ return args; }
 	map<string, RecordAttribute*>& getArgsMap()	{ return argsMap; }
 	int getArgsNo() 							{ return args.size(); }
 	bool isPrimitive() 	const					{ return false; }
@@ -242,62 +247,6 @@ inline bool operator<(const ExpressionType& l, const ExpressionType& r) {
 	return l.getType() < r.getType();
 }
 
-//inline bool operator<(const ExpressionType& l, const ExpressionType& r) {
-//	cout << "Comparing GENERIC EXPRESSION TYPE" << endl;
-//
-//	if (l.getTypeID() == r.getTypeID()) {
-//		string error_msg = string(
-//				"This operator is NOT responsible for this case!");
-//		LOG(ERROR)<< error_msg;
-//		throw runtime_error(error_msg);
-//	} else {
-//		return l.getTypeID() < r.getTypeID();
-//	}
-//	return false;
-//}
-//
-//inline bool operator<(const PrimitiveType& l, const PrimitiveType& r) {
-//	cout << "Comparing GENERIC primitive TYPE" << endl;
-//	return false;
-//}
-//
-//inline bool operator<(const IntType& l, const IntType& r) {
-//	cout << "Comparing primitive TYPE" << endl;
-//	return false;
-//}
-//
-//inline bool operator<(const FloatType& l, const FloatType& r) {
-//	cout << "Comparing primitive TYPE" << endl;
-//	return false;
-//}
-//
-//inline bool operator<(const StringType& l, const StringType& r) {
-//	cout << "Comparing primitive TYPE" << endl;
-//	return false;
-//}
-//
-//inline bool operator<(const BoolType& l, const BoolType& r) {
-//	cout << "Comparing primitive TYPE" << endl;
-//	return false;
-//}
-//
-//inline bool operator<(const CollectionType& l, const CollectionType& r) {
-//	cout << "Comparing GENERIC collection TYPE" << endl;
-//	return l.getType() < r.getType();
-//}
-////inline bool operator<(const ListType& l, const ListType& r) {
-////	cout << "Comparing collection TYPE" << endl;
-////	return l.getNestedType() < r.getNestedType();
-////}
-////inline bool operator<(const BagType& l, const BagType& r) {
-////	cout << "Comparing collection TYPE" << endl;
-////	return l.getNestedType() < r.getNestedType();
-////}
-////inline bool operator<(const SetType& l, const SetType& r) {
-////	cout << "Comparing collection TYPE" << endl;
-////	return l.getNestedType() < r.getNestedType();
-////}
-//
 bool recordComparator (RecordAttribute* x, RecordAttribute* y);
 inline bool operator<(const RecordAttribute& l, const RecordAttribute& r) {
 	if (l.getRelationName() == r.getRelationName()) {

@@ -61,51 +61,12 @@ typedef struct dataset	{
 void tpchSchema(map<string,dataset>& datasetCatalog);
 
 /* Numbers of lineitems per order
-   SELECT COUNT(*)
+   SELECT COUNT(*), [...]
    FROM lineitem
    WHERE l_orderkey < [X]
    GROUP BY l_orderkey < [X]
  */
 void tpchGroup(map<string,dataset> datasetCatalog, int predicate, int aggregatesNo);
-///*
-//   SELECT COUNT(*)
-//   FROM orders
-//   INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-//   AND o_orderkey < [X]
-// */
-//void tpchJoin1b(map<string,dataset> datasetCatalog, int predicate);
-//
-///*
-//   SELECT MAX(o_orderkey)
-//   FROM orders
-//   INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-//   AND l_orderkey < [X]
-// */
-//void tpchJoin2a(map<string,dataset> datasetCatalog, int predicate);
-//
-///*
-//   SELECT MAX(l_orderkey)
-//   FROM orders
-//   INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-//   AND o_orderkey < [X]
-// */
-//void tpchJoin2b(map<string,dataset> datasetCatalog, int predicate);
-//
-///*
-//   SELECT MAX(o_orderkey) , MAX(o_totalprice)
-//   FROM orders
-//   INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-//   AND l_orderkey < [X]
-// */
-//void tpchJoin3(map<string,dataset> datasetCatalog, int predicate);
-//
-///*
-//   SELECT MAX(l_orderkey) , MAX(l_extendedprice)
-//   FROM orders
-//   INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-//   AND o_orderkey < [X]
-// */
-//void tpchJoin4(map<string,dataset> datasetCatalog, int predicate);
 
 RawContext prepareContext(string moduleName)	{
 	RawContext ctx = RawContext(moduleName);

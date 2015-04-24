@@ -1745,6 +1745,7 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 	Value* tokenNo = context->getStructElem(mem_value.mem, 2);
 
 	//tokens**
+	/* FIXME FIXME Broken!! */
 	Value *mem_tokenArray = Builder->CreateLoad(mem_tokenArray);
 	//shifted tokens**
 	Value *mem_tokenArrayShift = Builder->CreateInBoundsGEP(mem_tokenArray,
