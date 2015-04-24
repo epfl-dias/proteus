@@ -27,6 +27,8 @@
 #include "common/common.hpp"
 #include "expressions/expressions.hpp"
 
+#define CACHING_ON
+
 using expressions::less_map;
 
 typedef struct CacheInfo {
@@ -76,18 +78,31 @@ public:
 	}
 
 	void registerCache(expressions::Expression* expr, CacheInfo payload, bool entireDataset) {
+#ifdef CACHING_ON
 		map<expressions::Expression*, CacheInfo>::iterator it = binCaches.find(
 				expr);
+		bool found = false;
+		map<expressions::Expression*, bool>::iterator itBool;
 		if (it != binCaches.end()) {
 			LOG(WARNING)<< "Bin. caches already contain expr " << expr->getTypeID();
+			found = true;
+			itBool = binCacheIsFull.find(expr);
 		}
-		map<expressions::Expression*, bool>::iterator itBool = binCacheIsFull.find(expr);
+
 		/* XXX Different degrees of 'fullness' can be placed in these methods.
 		 * BUT: Not sure if C++ side is the one deciding on them */
-		if(!itBool->second)	{
-			binCaches[expr] = payload;
-			binCacheIsFull[expr] = entireDataset;
+		if (found) {
+			/* Replace what is cached if
+			 * -> the new one is the full thing
+			 * -> the old one is not. */
+			if (entireDataset && !(itBool->second)) {
+				binCaches.erase(expr);
+				binCacheIsFull.erase(expr);
+				binCaches[expr] = payload;
+				binCacheIsFull[expr] = entireDataset;
+			}
 		}
+#endif
 	}
 
 	CacheInfo getCache(expressions::Expression* expr) {

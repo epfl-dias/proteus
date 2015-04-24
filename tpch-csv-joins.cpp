@@ -119,46 +119,21 @@ int main()	{
 	map<string,dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
 
-//	tpchJoin1a(datasetCatalog,2);
-//	tpchJoin1a(datasetCatalog,2);
-//	tpchJoin2a(datasetCatalog,3);
-//	tpchJoin2b(datasetCatalog,3);
+	tpchJoin1a(datasetCatalog,2);
+	tpchJoin1a(datasetCatalog,2);
+	tpchJoin2a(datasetCatalog,3);
+	tpchJoin2b(datasetCatalog,3);
 
-//	tpchJoin3(datasetCatalog,3);
-//	tpchJoin3(datasetCatalog,3);
-//	tpchJoin4(datasetCatalog,3);
-//	tpchJoin4(datasetCatalog,3);
+	tpchJoin3(datasetCatalog,3);
+	tpchJoin3(datasetCatalog,3);
+	tpchJoin4(datasetCatalog,3);
+	tpchJoin4(datasetCatalog,3);
 
 //	tpchJoin2b(datasetCatalog, 3);
 //	tpchJoin2b(datasetCatalog, 3);
 //	tpchJoin2a(datasetCatalog, 3);
 //	tpchJoin2a(datasetCatalog, 3);
-//
-////	/* This sequence crashes
-////	 * -> Cache related*/
-//	tpchJoin2b(datasetCatalog, 3);
-//	tpchJoin2b(datasetCatalog, 3);
-	tpchJoin2a(datasetCatalog, 3);
-	tpchJoin2a(datasetCatalog, 3);
-//	cout << "THIRD - 1" << endl;
-	tpchJoin3(datasetCatalog, 3);
-//	cout << "THIRD - 2" << endl;
-//	tpchJoin3(datasetCatalog, 3);
 
-	/* This sequence crashes
-	 * -> Cache related*/
-	//	tpchJoin2b(datasetCatalog, 3);
-	//	tpchJoin2b(datasetCatalog, 3);
-	//	tpchJoin2a(datasetCatalog, 3);
-	//	tpchJoin2a(datasetCatalog, 3);
-	//	cout << "FOURTH - 1" << endl;
-	//	tpchJoin4(datasetCatalog,3);
-	//	cout << "FOURTH - 2" << endl;
-	//	tpchJoin4(datasetCatalog,3);
-	//	cout << "THIRD - 1" << endl;
-	//	tpchJoin3(datasetCatalog, 3);
-	//	cout << "THIRD - 2" << endl;
-	//	tpchJoin3(datasetCatalog, 3);
 }
 
 void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
