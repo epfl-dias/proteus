@@ -102,6 +102,13 @@ target_link_libraries(tpch-csv-joins jsmn)
 target_link_libraries(tpch-csv-joins -lglog ${glog_ldflags})
 target_link_libraries(tpch-csv-joins ${llvm_ldflags} ${llvm_libs})
 
+add_executable(tpch-csv-groups tpch-csv-groups.cpp)
+set_target_properties(tpch-csv-groups PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(tpch-csv-groups codegen)
+target_link_libraries(tpch-csv-groups jsmn)
+target_link_libraries(tpch-csv-groups -lglog ${glog_ldflags})
+target_link_libraries(tpch-csv-groups ${llvm_ldflags} ${llvm_libs})
+
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
 if(GTEST)

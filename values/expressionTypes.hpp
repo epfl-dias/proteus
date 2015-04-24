@@ -145,6 +145,12 @@ public:
 		}
 	}
 
+//	RecordAttribute(const RecordAttribute& obj) : type(obj.getOriginalType()) {
+//		this->attrNo = obj.attrNo;
+//		this->relName = obj.attrName;
+//		this->projected = obj.projected;
+//	}
+
 	string getType() const											{ return attrName +" "+type->getType(); }
 	const ExpressionType* getOriginalType() const					{ return type; }
 	string getName()												{ return attrName; }

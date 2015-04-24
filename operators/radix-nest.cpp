@@ -25,7 +25,10 @@
 
 namespace radix	{
 /**
- * Identical constructor logic with the one of Reduce
+ * XXX NOTE on materializer:
+ * While in the case of JSON the OID is enough to reconstruct anything needed,
+ * the other plugins need to explicitly materialize the key constituents!
+ * They are needed for dot equality evaluation, regardless of final output expr.
  */
 Nest::Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::Expression*> outputExprs, vector<string> aggrLabels,
 		expressions::Expression *pred,
@@ -286,8 +289,8 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 		vector<RecordAttribute*>::const_iterator it = tuplesIdentifiers.begin();
 		for (; it != tuplesIdentifiers.end(); it++) {
 			RecordAttribute *attr = *it;
-//			cout << "Dealing with " << attr->getRelationName() << "_"
-//					<< attr->getAttrName() << endl;
+			cout << "Dealing with " << attr->getRelationName() << "_"
+					<< attr->getAttrName() << endl;
 			mem_activeTuple = context->CreateEntryBlockAlloca(F,
 					"mem_activeTuple", payloadType->getElementType(i));
 			vector<Value*> idxList = vector<Value*>();
@@ -311,6 +314,10 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 		const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
 		vector<RecordAttribute*>::const_iterator it2 = wantedFields.begin();
 		for (; it2 != wantedFields.end(); it2++) {
+			RecordAttribute *attr = *it2;
+			cout << "Dealing with " << attr->getRelationName() << "_"
+					<< attr->getAttrName() << endl;
+
 			string currField = (*it2)->getName();
 			mem_field = context->CreateEntryBlockAlloca(F, "mem_" + currField,
 					payloadType->getElementType(i));

@@ -66,7 +66,7 @@ void tpchSchema(map<string,dataset>& datasetCatalog);
    INNER JOIN lineitem ON (o_orderkey = l_orderkey)
    AND l_orderkey < [X]
  */
-void tpchJoin1a(map<string,dataset> datasetCatalog, int predicate);
+void tpchGroup1(map<string,dataset> datasetCatalog, int predicate);
 /*
    SELECT COUNT(*)
    FROM orders
@@ -119,8 +119,8 @@ int main()	{
 	map<string,dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
 
-	tpchJoin1a(datasetCatalog,2);
-	tpchJoin1a(datasetCatalog,2);
+	tpchGroup1(datasetCatalog,2);
+	tpchGroup1(datasetCatalog,2);
 	tpchJoin2a(datasetCatalog,3);
 	tpchJoin2b(datasetCatalog,3);
 
@@ -129,14 +129,9 @@ int main()	{
 	tpchJoin4(datasetCatalog,3);
 	tpchJoin4(datasetCatalog,3);
 
-//	tpchJoin2b(datasetCatalog, 3);
-//	tpchJoin2b(datasetCatalog, 3);
-//	tpchJoin2a(datasetCatalog, 3);
-//	tpchJoin2a(datasetCatalog, 3);
-
 }
 
-void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
+void tpchGroup1(map<string, dataset> datasetCatalog, int predicate) {
 
 	RawContext ctx = prepareContext("tpch-csv-join1a");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
