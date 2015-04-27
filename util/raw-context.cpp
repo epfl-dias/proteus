@@ -312,6 +312,16 @@ Value* RawContext::getStructElem(AllocaInst* mem_struct, int elemNo)	{
 	return val_struct_shifted;
 }
 
+void RawContext::updateStructElem(Value *toStore, Value* mem_struct,
+		int elemNo) {
+	vector<Value*> idxList = vector<Value*>();
+	idxList.push_back(createInt32(0));
+	idxList.push_back(createInt32(elemNo));
+	//Shift in struct ptr
+	Value* structPtr = Builder->CreateGEP(mem_struct, idxList);
+	Builder->CreateStore(toStore, structPtr);
+}
+
 void RawContext::CreateForLoop(const string& cond, const string& body,
 		const string& inc, const string& end, BasicBlock** cond_block,
 		BasicBlock** body_block, BasicBlock** inc_block, BasicBlock** end_block,

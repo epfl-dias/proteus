@@ -74,9 +74,9 @@ int main()	{
 	tpchSchemaJSON(datasetCatalog);
 
 	tpchGroup(datasetCatalog,0,1);
-//	tpchGroup(datasetCatalog,0,2);
-//	tpchGroup(datasetCatalog,0,3);
-//	tpchGroup(datasetCatalog,0,4);
+	tpchGroup(datasetCatalog,0,2);
+	tpchGroup(datasetCatalog,0,3);
+	tpchGroup(datasetCatalog,0,4);
 }
 
 
@@ -126,9 +126,9 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 	}
 
 	ListType *documentType = new ListType(rec);
-//	jsonPipelined::JSONPlugin *pg = new jsonPipelined::JSONPlugin(&ctx, fname,
-//			documentType, lineHint);
-	jsmn::JSONPlugin *pg = new jsmn::JSONPlugin(&ctx, fname, documentType);
+	jsonPipelined::JSONPlugin *pg = new jsonPipelined::JSONPlugin(&ctx, fname,
+			documentType, lineHint);
+//	jsmn::JSONPlugin *pg = new jsmn::JSONPlugin(&ctx, fname, documentType);
 	rawCatalog.registerPlugin(fname, pg);
 	Scan *scan = new Scan(&ctx, *pg);
 
@@ -391,7 +391,7 @@ void tpchSchemaJSON(map<string, dataset>& datasetCatalog) {
 
 	/* Lineitem */
 	/* FIXME once hash for json pg is also fixed */
-	string lineitemPath = string("inputs/tpch/json/lineitem10.jsmn");
+	string lineitemPath = string("inputs/tpch/json/lineitem10.json");
 
 	list<RecordAttribute*> attsLineitem = list<RecordAttribute*>();
 	RecordAttribute *l_orderkey = new RecordAttribute(1, lineitemPath,

@@ -67,6 +67,12 @@ namespace jsonPipelined	{
  * 	  when working with JSON
  * 2. FIXME Currently constructs PM from scratch, in pipelined fashion.
  * 	  Need one more plugin (or one more constructor), taking the PM as granted
+ * 	  (Actually, we check if a PM is already cached)
+ */
+
+/**
+ * FIXME offset can reside in a single array, much like newlines in csv_pm ->
+ * No need for it to be a part of the 'tupleIdentifier'
  */
 class JSONPlugin : public Plugin	{
 public:
@@ -161,6 +167,16 @@ private:
 	//Assumption (1) applies here
 	ExpressionType* schema;
 
+	/* Remember: token != OID */
+	StructType *getOIDLLVMType()	{
+		LLVMContext& llvmContext = context->getLLVMContext();
+		Type* int64Type = Type::getInt64Ty(llvmContext);
+		vector<Type*> tokenIdMembers;
+		tokenIdMembers.push_back(int64Type);
+		tokenIdMembers.push_back(int64Type);
+		tokenIdMembers.push_back(int64Type);
+		return StructType::get(context->getLLVMContext(),tokenIdMembers);
+	}
 
 	//Cannot implement such a function. Arrays have non-fixed number of values.
 	//Similarly, objects don't always have same number of fields

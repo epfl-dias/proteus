@@ -45,7 +45,10 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	cache = false;
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32_type = Type::getInt32Ty(llvmContext);
-	Type* int64_type = Type::getInt64Ty(llvmContext);
+	Function* F = context->getGlobalFunction();
+	IRBuilder<>* Builder = context->getBuilder();
+	//Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
 
 	//Memory mapping etc
 	LOG(INFO)<< "[JSONPlugin - jsmn: ] " << fname;
@@ -68,12 +71,6 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	RawCatalog& catalog = RawCatalog::getInstance();
 	catalog.registerFileJSON(fname,schema);
 
-	//Preparing structures and variables for codegen part
-	Function* F = context->getGlobalFunction();
-	IRBuilder<>* Builder = context->getBuilder();
-	Type* int64Type = Type::getInt64Ty(llvmContext);
-	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-
 	//Buffer holding the entire JSON document
 	AllocaInst *mem_buf = context->CreateEntryBlockAlloca(F,string("jsFilePtr"),charPtrType);
 	Value* val_buf_i64 = ConstantInt::get(llvmContext, APInt(64,((uint64_t)buf)));
@@ -86,7 +83,6 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	lines = 1000;
 
 	tokenType = context->CreateJSMNStruct();
-
 
 	PointerType *tokenPtrType = PointerType::get(tokenType,0);
 	PointerType *token2DPtrType = PointerType::get(tokenPtrType,0);
@@ -627,7 +623,7 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentTokenId)
 
 	Type *idType = (mem_currentTokenId.mem)->getAllocatedType();
 	AllocaInst* mem_tokenToReturn = context->CreateEntryBlockAlloca(F,
-				std::string("tokenToUnnest"), idType);
+				string("tokenToUnnest"), idType);
 	Value* tokenToReturn_isNull = context->createFalse();
 	Builder->CreateStore(val_currentTokenId, mem_tokenToReturn);
 
@@ -649,7 +645,7 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentTokenId)
 	 */
 	Value *val_1 = Builder->getInt64(1);
 	AllocaInst* mem_i_contents = context->CreateEntryBlockAlloca(F,
-			std::string("i_contents"), int64Type);
+			string("i_contents"), int64Type);
 	Value *val_i_contents = Builder->CreateAdd(val_currentTokenNo, val_1);
 	Builder->CreateStore(val_i_contents, mem_i_contents);
 	Builder->CreateBr(skipContentsCond);
@@ -670,7 +666,7 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentTokenId)
 	Value *mem_tokens = Builder->CreateLoad(mem_tokenArrayShift);
 
 	AllocaInst* mem_tokens_i_contents_shifted = context->CreateEntryBlockAlloca(
-			F, std::string(var_tokenPtr), context->CreateJSMNStruct());
+			F, string(var_tokenPtr), context->CreateJSMNStruct());
 	Value* token_i_contents = context->getArrayElem(mem_tokens, val_i_contents);
 	Builder->CreateStore(token_i_contents, mem_tokens_i_contents_shifted);
 	Value* token_i_contents_start_rel = context->getStructElem(
@@ -825,12 +821,13 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	RawValueMemory mem_tokenWrapper;
 
 	/* Struct forwarded: (offsetInFile, rowId, tokenNo)*/
-	vector<Type*> tokenIdMembers;
-	tokenIdMembers.push_back(int64Type);
-	tokenIdMembers.push_back(int64Type);
-	tokenIdMembers.push_back(int64Type);
+//	vector<Type*> tokenIdMembers;
+//	tokenIdMembers.push_back(int64Type);
+//	tokenIdMembers.push_back(int64Type);
+//	tokenIdMembers.push_back(int64Type);
+//	StructType *tokenIdType = StructType::get(context->getLLVMContext(),tokenIdMembers);
+	StructType *tokenIdType = this->getOIDLLVMType();
 
-	StructType *tokenIdType = StructType::get(context->getLLVMContext(),tokenIdMembers);
 	AllocaInst *mem_tokenId = context->CreateEntryBlockAlloca(F,"tokenId",tokenIdType);
 
 	vector<Value*> idxList = vector<Value*>();
@@ -954,7 +951,7 @@ void JSONPlugin::skipToEnd()
 	Builder->CreateStore(token_i_inc, mem_tokenOffset);
 
 #ifdef DEBUG
-	//std::vector<Value*> ArgsV;
+	//vector<Value*> ArgsV;
 	//ArgsV.clear();
 	//ArgsV.push_back(token_i_start);
 	//Function* debugInt = context->getFunction("printi");
@@ -1026,7 +1023,7 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 
 	//Preparing default return value (i.e., path not found)
 	AllocaInst* mem_return = context->CreateEntryBlockAlloca(F,
-			std::string("pathReturn"), int64Type);
+			string("pathReturn"), int64Type);
 	Value *minus_1 = context->createInt64(-1);
 	Builder->CreateStore(minus_1, mem_return);
 
@@ -1080,7 +1077,7 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 
 	Value *val_1 = Builder->getInt64(1);
 	Value *val_i = Builder->CreateAdd(parentTokenNo, val_1);
-	AllocaInst* mem_i = context->CreateEntryBlockAlloca(F, std::string("tmp_i"),
+	AllocaInst* mem_i = context->CreateEntryBlockAlloca(F, string("tmp_i"),
 			int64Type);
 	Builder->CreateStore(val_i, mem_i);
 	Builder->CreateBr(tokenSkipCond);
@@ -1150,7 +1147,7 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 
 	Value* val_i_1 = Builder->CreateAdd(val_i, val_1);
 	AllocaInst* mem_tokens_i_1_shifted = context->CreateEntryBlockAlloca(F,
-			std::string(var_tokenPtr), context->CreateJSMNStruct());
+			string(var_tokenPtr), context->CreateJSMNStruct());
 
 	Value* token_i_1 = context->getArrayElem(mem_tokens, val_i_1);
 	Builder->CreateStore(token_i_1, mem_tokens_i_1_shifted);
@@ -1205,12 +1202,13 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 	RawValueMemory mem_valWrapper;
 
 	/* Struct returned: (offsetInFile, rowId, tokenId)*/
-	vector<Type*> tokenIdMembers;
-	tokenIdMembers.push_back(int64Type);
-	tokenIdMembers.push_back(int64Type);
-	tokenIdMembers.push_back(int64Type);
+//	vector<Type*> tokenIdMembers;
+//	tokenIdMembers.push_back(int64Type);
+//	tokenIdMembers.push_back(int64Type);
+//	tokenIdMembers.push_back(int64Type);
+//	StructType::get(context->getLLVMContext(),tokenIdMembers);
 
-	StructType *tokenIdType = StructType::get(context->getLLVMContext(),tokenIdMembers);
+	StructType *tokenIdType = this->getOIDLLVMType();
 	AllocaInst *mem_tokenId = context->CreateEntryBlockAlloca(F,"tokenId",tokenIdType);
 
 	vector<Value*> idxList = vector<Value*>();
@@ -1257,7 +1255,7 @@ RawValueMemory JSONPlugin::readPathInternal(RawValueMemory mem_parentTokenId,
 
 	//Preparing default return value (i.e., path not found)
 	AllocaInst* mem_return = context->CreateEntryBlockAlloca(F,
-			std::string("pathReturn"), int64Type);
+			string("pathReturn"), int64Type);
 	Value *minus_1 = context->createInt64(-1);
 	Builder->CreateStore(minus_1, mem_return);
 
@@ -1293,7 +1291,7 @@ RawValueMemory JSONPlugin::readPathInternal(RawValueMemory mem_parentTokenId,
 
 	Value *val_1 = Builder->getInt64(1);
 	Value *val_i = Builder->CreateAdd(parentTokenNo, val_1);
-	AllocaInst* mem_i = context->CreateEntryBlockAlloca(F, std::string("tmp_i"),
+	AllocaInst* mem_i = context->CreateEntryBlockAlloca(F, string("tmp_i"),
 			int64Type);
 	Builder->CreateStore(val_i, mem_i);
 	Builder->CreateBr(tokenSkipCond);
@@ -1745,18 +1743,17 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 	Value* tokenNo = context->getStructElem(mem_value.mem, 2);
 
 	//tokens**
-	/* FIXME FIXME Broken!! */
-	Value *mem_tokenArray = Builder->CreateLoad(mem_tokenArray);
+	Value *val_token2DArray = Builder->CreateLoad(mem_tokenArray);
 	//shifted tokens**
-	Value *mem_tokenArrayShift = Builder->CreateInBoundsGEP(mem_tokenArray,
+	Value *mem_tokenArrayShift = Builder->CreateInBoundsGEP(val_token2DArray,
 			val_rowId);
+
 	//tokens*
 	Value *mem_tokens = Builder->CreateLoad(mem_tokenArrayShift);
 	AllocaInst* mem_tokens_shifted = context->CreateEntryBlockAlloca(F,
 			string(var_tokenPtr), context->CreateJSMNStruct());
 	Value* token = context->getArrayElem(mem_tokens, tokenNo);
 	Builder->CreateStore(token, mem_tokens_shifted);
-
 	Value* token_start_rel = context->getStructElem(mem_tokens_shifted, 1);
 	Value* token_end_rel = context->getStructElem(mem_tokens_shifted, 2);
 	Value* token_start_rel64 = Builder->CreateSExt(token_start_rel, int64Type);
@@ -1766,6 +1763,7 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 	Value* token_end = Builder->CreateAdd(token_end_rel64, val_offset);
 
 	Value* bufPtr = Builder->CreateLoad(NamedValuesJSON[var_buf]);
+
 	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, token_start);
 
 	Function* conversionFunc = NULL;
@@ -1778,9 +1776,9 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 	//Preparing hasher state
 	NamedValuesJSON[var_tokenOffsetHash] = mem_value.mem;
 	mem_hashedValue = context->CreateEntryBlockAlloca(F,
-			std::string("hashValue"), int64Type);
+			string("hashValue"), int64Type);
 	mem_hashedValue_isNull = context->CreateEntryBlockAlloca(F,
-			std::string("hashvalue_isNull"), int1Type);
+			string("hashvalue_isNull"), int1Type);
 	Builder->CreateStore(context->createFalse(), mem_hashedValue_isNull);
 	Builder->CreateStore(context->createInt64(0), mem_hashedValue);
 	string error_msg;
@@ -1819,14 +1817,16 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 
 		Value* plus_1 = context->createInt64(1);
 		Value* tokenNo_inc = Builder->CreateAdd(tokenNo,plus_1);
-		Builder->CreateStore(tokenNo_inc,NamedValuesJSON[var_tokenOffsetHash]);
+		//Updating 3rd field of (offset,row,tokenNo) struct
+		AllocaInst *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
+		context->updateStructElem(tokenNo_inc, mem_struct, 2);
 		break;
 	}
 	case RECORD:
 	{
 		//Object
 		AllocaInst* mem_seed = context->CreateEntryBlockAlloca(F,
-				std::string("hashSeed"), int64Type);
+				string("hashSeed"), int64Type);
 		Builder->CreateStore(context->createInt64(0), mem_seed);
 
 		RawValueMemory recordElem;
@@ -1870,12 +1870,12 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 		const ExpressionType& nestedType =
 				((CollectionType*) type)->getNestedType();
 		AllocaInst* mem_seed = context->CreateEntryBlockAlloca(F,
-				std::string("hashSeed"), int64Type);
+				string("hashSeed"), int64Type);
 		Builder->CreateStore(context->createInt64(0), mem_seed);
 
 		//Initializing: i = tokenNo + 1;
 		AllocaInst* mem_tokenCnt = context->CreateEntryBlockAlloca(F,
-				std::string("tokenCnt"), int64Type);
+				string("tokenCnt"), int64Type);
 		Value* val_tokenCnt = Builder->CreateAdd(context->createInt64(1),
 				tokenNo);
 		Builder->CreateStore(val_tokenCnt, mem_tokenCnt);
@@ -1937,7 +1937,10 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 
 		//new offset due to recursive application of hashedValue
 		Value *newTokenOffset = Builder->CreateLoad(NamedValuesJSON[var_tokenOffsetHash]);
-		Builder->CreateStore(newTokenOffset, mem_tokenCnt);
+//		Builder->CreateStore(newTokenOffset, mem_tokenCnt);
+		//Updating 3rd field of (offset,row,tokenNo) struct
+		AllocaInst *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
+		context->updateStructElem(newTokenOffset,mem_struct,2);
 
 		//Performing just a +1 addition would cause a lot of extra work
 		//and defeat the purpose of recursion
@@ -1983,7 +1986,9 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 
 		Value* plus_1 = context->createInt64(1);
 		Value* tokenNo_inc = Builder->CreateAdd(tokenNo,plus_1);
-		Builder->CreateStore(tokenNo_inc,NamedValuesJSON[var_tokenOffsetHash]);
+		//Updating 3rd field of (offset,row,tokenNo) struct
+		AllocaInst *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
+		context->updateStructElem(tokenNo_inc,mem_struct,2);
 		break;
 	}
 	case FLOAT:
@@ -2001,7 +2006,9 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 
 		Value* plus_1 = context->createInt64(1);
 		Value* tokenNo_inc = Builder->CreateAdd(tokenNo,plus_1);
-		Builder->CreateStore(tokenNo_inc,NamedValuesJSON[var_tokenOffsetHash]);
+		//Updating 3rd field of (offset,row,tokenNo) struct
+		AllocaInst *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
+		context->updateStructElem(tokenNo_inc,mem_struct,2);
 		break;
 	}
 	case INT:
@@ -2027,7 +2034,9 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 
 		Value* plus_1 = context->createInt64(1);
 		Value* tokenNo_inc = Builder->CreateAdd(tokenNo,plus_1);
-		Builder->CreateStore(tokenNo_inc,NamedValuesJSON[var_tokenOffsetHash]);
+		//Updating 3rd field of (offset,row,tokenNo) struct
+		AllocaInst *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
+		context->updateStructElem(tokenNo_inc,mem_struct,2);
 		break;
 	}
 	default:
@@ -2096,7 +2105,7 @@ void JSONPlugin::flushChunk(RawValueMemory mem_value, Value* fileName)
 	//tokens*
 	Value *mem_tokens = Builder->CreateLoad(mem_tokenArrayShift);
 	AllocaInst* mem_tokens_shifted = context->CreateEntryBlockAlloca(F,
-			std::string(var_tokenPtr), context->CreateJSMNStruct());
+			string(var_tokenPtr), context->CreateJSMNStruct());
 	Value* token = context->getArrayElem(mem_tokens, tokenNo);
 	Builder->CreateStore(token, mem_tokens_shifted);
 	Value* token_start_rel = context->getStructElem(mem_tokens_shifted, 1);

@@ -92,9 +92,11 @@ public:
 	StructType* ReproduceCustomStruct(list<typeID> innerTypes);
 	/**
 	 * Does not involve AllocaInst, but still is a memory position
+	 * NOTE: 1st elem of Struct is 0!!
 	 */
 	Value* getStructElem(Value* mem_struct, int elemNo);
 	Value* getStructElem(AllocaInst* mem_struct, int elemNo);
+	void updateStructElem(Value *toStore, Value* mem_struct, int elemNo);
 	Value* getStructElemMem(Value* mem_struct, int elemNo);
 	Value* CreateGlobalString(char* str);
 	Value* CreateGlobalString(const char* str);
