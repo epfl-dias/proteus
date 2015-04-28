@@ -87,7 +87,7 @@ void tpchJoin2a(map<string,dataset> datasetCatalog, int predicate);
    SELECT MAX(l_orderkey)
    FROM orders
    INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-   AND o_orderkey < [X]
+   AND l_orderkey < [X]
  */
 void tpchJoin2b(map<string,dataset> datasetCatalog, int predicate);
 
@@ -103,7 +103,7 @@ void tpchJoin3(map<string,dataset> datasetCatalog, int predicate);
    SELECT MAX(l_orderkey) , MAX(l_extendedprice)
    FROM orders
    INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-   AND o_orderkey < [X]
+   AND l_orderkey < [X]
  */
 void tpchJoin4(map<string,dataset> datasetCatalog, int predicate);
 
@@ -483,16 +483,15 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 	list<RecordAttribute> argProjectionsRight;
 	argProjectionsRight.push_back(*l_orderkey);
 	expressions::Expression* rightArg = new expressions::InputArgument(
-					&recLineitem, 1, argProjectionsRight);
+			&recLineitem, 1, argProjectionsRight);
 	expressions::Expression *lhs = new expressions::RecordProjection(
-					l_orderkey->getOriginalType(), rightArg, *l_orderkey);
-			expressions::Expression* rhs = new expressions::IntConstant(
-					predicate);
-			expressions::Expression* pred = new expressions::LtExpression(
-					new BoolType(), lhs, rhs);
+			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
+	expressions::Expression* rhs = new expressions::IntConstant(predicate);
+	expressions::Expression* pred = new expressions::LtExpression(
+			new BoolType(), lhs, rhs);
 
-			Select *sel = new Select(pred, scanLineitem);
-			scanLineitem->setParent(sel);
+	Select *sel = new Select(pred, scanLineitem);
+	scanLineitem->setParent(sel);
 
 	/**
 	 * JOIN
@@ -627,34 +626,55 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 	rawCatalog.registerPlugin(lineitemName, pgLineitem);
 	Scan *scanLineitem = new Scan(&ctx, *pgLineitem);
 
+//	/*
+//	 * SELECT on ORDERS
+//	 */
+//	list<RecordAttribute> argProjectionsLeft;
+//	argProjectionsLeft.push_back(*o_orderkey);
+//	expressions::Expression* leftArg = new expressions::InputArgument(
+//			&recOrders, 0, argProjectionsLeft);
+//	expressions::Expression *lhs = new expressions::RecordProjection(
+//			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
+//	expressions::Expression* rhs = new expressions::IntConstant(predicate);
+//	expressions::Expression* pred = new expressions::LtExpression(
+//			new BoolType(), lhs, rhs);
+//
+//	Select *sel = new Select(pred, scanOrders);
+//	scanOrders->setParent(sel);
+
 	/*
-	 * SELECT on ORDERS
+	 * SELECT on LINEITEM
 	 */
-	list<RecordAttribute> argProjectionsLeft;
-	argProjectionsLeft.push_back(*o_orderkey);
-	expressions::Expression* leftArg = new expressions::InputArgument(
-			&recOrders, 0, argProjectionsLeft);
+	list<RecordAttribute> argProjectionsRight;
+	argProjectionsRight.push_back(*l_orderkey);
+	expressions::Expression* rightArg = new expressions::InputArgument(
+			&recLineitem, 1, argProjectionsRight);
 	expressions::Expression *lhs = new expressions::RecordProjection(
-			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
+			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(predicate);
 	expressions::Expression* pred = new expressions::LtExpression(
 			new BoolType(), lhs, rhs);
 
-	Select *sel = new Select(pred, scanOrders);
-	scanOrders->setParent(sel);
+	Select *sel = new Select(pred, scanLineitem);
+	scanLineitem->setParent(sel);
 
 	/**
 	 * JOIN
 	 */
 	/* join key - orders */
+	list<RecordAttribute> argProjectionsLeft;
+	argProjectionsLeft.push_back(*o_orderkey);
+	expressions::Expression* leftArg = new expressions::InputArgument(
+				&recOrders, 0, argProjectionsLeft);
+
 	expressions::Expression* leftPred = new expressions::RecordProjection(
 			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
 
 	/* join key - lineitem */
-	list<RecordAttribute> argProjectionsRight;
-	argProjectionsRight.push_back(*l_orderkey);
-	expressions::Expression* rightArg = new expressions::InputArgument(
-			&recLineitem, 1, argProjectionsRight);
+//	list<RecordAttribute> argProjectionsRight;
+//	argProjectionsRight.push_back(*l_orderkey);
+//	expressions::Expression* rightArg = new expressions::InputArgument(
+//			&recLineitem, 1, argProjectionsRight);
 	expressions::Expression* rightPred = new expressions::RecordProjection(
 			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
 
@@ -703,11 +723,11 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoin";
-	RadixJoin *join = new RadixJoin(joinPred, sel, scanLineitem, &ctx,
+	RadixJoin *join = new RadixJoin(joinPred, scanOrders, sel, &ctx,
 			joinLabel, *matLeft, *matRight);
 
 	sel->setParent(join);
-	scanLineitem->setParent(join);
+	scanOrders->setParent(join);
 
 	/**
 	 * REDUCE
@@ -944,34 +964,55 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 	rawCatalog.registerPlugin(lineitemName, pgLineitem);
 	Scan *scanLineitem = new Scan(&ctx, *pgLineitem);
 
+	//	/*
+	//	 * SELECT on ORDERS
+	//	 */
+	//	list<RecordAttribute> argProjectionsLeft;
+	//	argProjectionsLeft.push_back(*o_orderkey);
+	//	expressions::Expression* leftArg = new expressions::InputArgument(
+	//			&recOrders, 0, argProjectionsLeft);
+	//	expressions::Expression *lhs = new expressions::RecordProjection(
+	//			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
+	//	expressions::Expression* rhs = new expressions::IntConstant(predicate);
+	//	expressions::Expression* pred = new expressions::LtExpression(
+	//			new BoolType(), lhs, rhs);
+	//
+	//	Select *sel = new Select(pred, scanOrders);
+	//	scanOrders->setParent(sel);
+
 	/*
-	 * SELECT on ORDERS
+	 * SELECT on LINEITEM
 	 */
-	list<RecordAttribute> argProjectionsLeft;
-	argProjectionsLeft.push_back(*o_orderkey);
-	expressions::Expression* leftArg = new expressions::InputArgument(
-			&recOrders, 0, argProjectionsLeft);
+	list<RecordAttribute> argProjectionsRight;
+	argProjectionsRight.push_back(*l_orderkey);
+	expressions::Expression* rightArg = new expressions::InputArgument(
+			&recLineitem, 1, argProjectionsRight);
 	expressions::Expression *lhs = new expressions::RecordProjection(
-			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
+			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(predicate);
 	expressions::Expression* pred = new expressions::LtExpression(
 			new BoolType(), lhs, rhs);
 
-	Select *sel = new Select(pred, scanOrders);
-	scanOrders->setParent(sel);
+	Select *sel = new Select(pred, scanLineitem);
+	scanLineitem->setParent(sel);
 
 	/**
 	 * JOIN
 	 */
 	/* join key - orders */
+	list<RecordAttribute> argProjectionsLeft;
+	argProjectionsLeft.push_back(*o_orderkey);
+	expressions::Expression* leftArg = new expressions::InputArgument(
+			&recOrders, 0, argProjectionsLeft);
+
 	expressions::Expression* leftPred = new expressions::RecordProjection(
 			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
 
 	/* join key - lineitem */
-	list<RecordAttribute> argProjectionsRight;
-	argProjectionsRight.push_back(*l_orderkey);
-	expressions::Expression* rightArg = new expressions::InputArgument(
-			&recLineitem, 1, argProjectionsRight);
+	//	list<RecordAttribute> argProjectionsRight;
+	//	argProjectionsRight.push_back(*l_orderkey);
+	//	expressions::Expression* rightArg = new expressions::InputArgument(
+	//			&recLineitem, 1, argProjectionsRight);
 	expressions::Expression* rightPred = new expressions::RecordProjection(
 			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
 
@@ -1024,11 +1065,11 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoin";
-	RadixJoin *join = new RadixJoin(joinPred, sel, scanLineitem, &ctx,
+	RadixJoin *join = new RadixJoin(joinPred, scanOrders, sel, &ctx,
 			joinLabel, *matLeft, *matRight);
 
+	scanOrders->setParent(join);
 	sel->setParent(join);
-	scanLineitem->setParent(join);
 
 	/**
 	 * REDUCE

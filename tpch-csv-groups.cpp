@@ -64,7 +64,7 @@ void tpchSchema(map<string,dataset>& datasetCatalog);
    SELECT COUNT(*), [...]
    FROM lineitem
    WHERE l_orderkey < [X]
-   GROUP BY l_orderkey < [X]
+   GROUP BY l_orderkey
  */
 void tpchGroup(map<string,dataset> datasetCatalog, int predicate, int aggregatesNo);
 
