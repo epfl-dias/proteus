@@ -333,11 +333,20 @@ RawValueMemory BinaryColPlugin::readPath(string activeRelation, Bindings binding
 		RecordAttribute tmpKey = RecordAttribute(fnamePrefix,pathVar,this->getOIDType());
 		map<RecordAttribute, RawValueMemory>::const_iterator it;
 		it = binProjections.find(tmpKey);
-			if (it == binProjections.end()) {
-				string error_msg = string("[Binary Col. plugin - readPath ]: Unknown variable name ")+pathVar;
-				LOG(ERROR) << error_msg;
-				throw runtime_error(error_msg);
-			}
+		if (it == binProjections.end()) {
+			string error_msg = string(
+					"[Binary Col. plugin - readPath ]: Unknown variable name ")
+					+ pathVar;
+//			for (it = binProjections.begin(); it != binProjections.end();
+//					it++) {
+//				RecordAttribute attr = it->first;
+//				cout << attr.getRelationName() << "_" << attr.getAttrName()
+//						<< endl;
+//			}
+			cout << "How many bindings? " << binProjections.size();
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
 		mem_projection = it->second;
 	}
 	return mem_projection;
@@ -346,6 +355,63 @@ RawValueMemory BinaryColPlugin::readPath(string activeRelation, Bindings binding
 /* FIXME Differentiate between operations that need the code and the ones needing the materialized string */
 RawValueMemory BinaryColPlugin::readValue(RawValueMemory mem_value, const ExpressionType* type)	{
 	return mem_value;
+}
+
+RawValue BinaryColPlugin::readCachedValue(CacheInfo info, const OperatorState& currState)	{
+	IRBuilder<>* const Builder = context->getBuilder();
+	Function *F = context->getGlobalFunction();
+
+	/* Need OID to retrieve corresponding value from bin. cache */
+	RecordAttribute tupleIdentifier = RecordAttribute(fnamePrefix, activeLoop,
+			getOIDType());
+	map<RecordAttribute, RawValueMemory>::const_iterator it =
+			currState.getBindings().find(tupleIdentifier);
+	if (it == currState.getBindings().end()) {
+		string error_msg =
+				"[Expression Generator: ] Current tuple binding / OID not found";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	RawValueMemory mem_oidWrapper = it->second;
+	/* OID is a plain integer */
+	Value *val_oid = Builder->CreateLoad(mem_oidWrapper.mem);
+
+	/* Need to find appropriate position in cache now -- should be OK(?) */
+
+	StructType *cacheType = context->ReproduceCustomStruct(info.objectTypes);
+	Value *typeSize = ConstantExpr::getSizeOf(cacheType);
+	char* rawPtr = *(info.payloadPtr);
+	int posInStruct = info.structFieldNo;
+
+	/* Cast to appr. type */
+	PointerType *ptr_cacheType = PointerType::get(cacheType, 0);
+	Value *val_cachePtr = context->CastPtrToLlvmPtr(ptr_cacheType, rawPtr);
+
+	Value *val_cacheShiftedPtr = context->getArrayElemMem(val_cachePtr,
+			val_oid);
+	Value *val_cachedField = context->getStructElem(val_cacheShiftedPtr,
+			posInStruct);
+	Type *fieldType = val_cachedField->getType();
+
+	/* This Alloca should not appear in optimized code */
+	AllocaInst *mem_cachedField = context->CreateEntryBlockAlloca(F,
+			"tmpCachedField", fieldType);
+	Builder->CreateStore(val_cachedField, mem_cachedField);
+
+	RawValue valWrapper;
+	valWrapper.value = Builder->CreateLoad(mem_cachedField);
+	valWrapper.isNull = context->createFalse();
+#ifdef DEBUG
+	{
+		/* Obviously only works to peek integer fields */
+		vector<Value*> ArgsV;
+
+		Function* debugSth = context->getFunction("printi");
+		ArgsV.push_back(val_cachedField);
+		Builder->CreateCall(debugSth, ArgsV);
+	}
+#endif
+	return valWrapper;
 }
 
 //RawValue BinaryColPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* type)	{

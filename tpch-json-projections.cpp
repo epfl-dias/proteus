@@ -81,12 +81,27 @@ int main()	{
 	tpchSchemaJSON(datasetCatalog);
 
 	int predicateVal = 3;
+	cout << "Query 0 (PM built if applicable)" << endl;
 	tpchOrderProjection1(datasetCatalog, 3);
+	cout << "---" << endl;
+	cout << "Query 1" << endl;
+	tpchOrderProjection1(datasetCatalog, 3);
+	cout << "---" << endl;
+	cout << "Query 2" << endl;
 	tpchOrderProjection2(datasetCatalog, 3);
+	cout << "---" << endl;
+	cout << "Query 3" << endl;
 	tpchOrderProjection3(datasetCatalog, 3, 1);
+	cout << "---" << endl;
+	cout << "Query 4" << endl;
 	tpchOrderProjection3(datasetCatalog, 3, 2);
+	cout << "---" << endl;
+	cout << "Query 5" << endl;
 	tpchOrderProjection3(datasetCatalog, 3, 3);
+	cout << "---" << endl;
+	cout << "Query 6" << endl;
 	tpchOrderProjection3(datasetCatalog, 3, 4);
+	cout << "---" << endl;
 
 }
 

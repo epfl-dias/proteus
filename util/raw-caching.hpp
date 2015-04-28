@@ -79,8 +79,7 @@ public:
 
 	void registerCache(expressions::Expression* expr, CacheInfo payload, bool entireDataset) {
 #ifdef CACHING_ON
-		map<expressions::Expression*, CacheInfo>::iterator it = binCaches.find(
-				expr);
+		map<expressions::Expression*, CacheInfo>::iterator it = binCaches.find(expr);
 		bool found = false;
 		map<expressions::Expression*, bool>::iterator itBool;
 		if (it != binCaches.end()) {
@@ -100,7 +99,15 @@ public:
 				binCacheIsFull.erase(expr);
 				binCaches[expr] = payload;
 				binCacheIsFull[expr] = entireDataset;
+				//cout << "Replaced in cache " << endl;
 			}
+
+		}
+		else
+		{
+			binCaches[expr] = payload;
+			binCacheIsFull[expr] = entireDataset;
+			//cout << "Registered in cache " << endl;
 		}
 #endif
 	}
@@ -108,7 +115,7 @@ public:
 	CacheInfo getCache(expressions::Expression* expr) {
 		map<expressions::Expression*, CacheInfo>::iterator it = binCaches.find(expr);
 		if (it == binCaches.end()) {
-			cout << "No match out of " << binCaches.size() << " entries" << endl;
+			//cout << "No match out of " << binCaches.size() << " entries" << endl;
 			LOG(INFO)<< "No Bin Cache found for expr of type " << expr->getExpressionType()->getType();
 			CacheInfo invalid;
 			invalid.structFieldNo = -1;

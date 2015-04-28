@@ -73,10 +73,21 @@ int main()	{
 	map<string,dataset> datasetCatalog;
 	tpchSchemaJSON(datasetCatalog);
 
-	tpchGroup(datasetCatalog,0,1);
-	tpchGroup(datasetCatalog,0,2);
-	tpchGroup(datasetCatalog,0,3);
+	cout << "Query 0 (PM + Side built if applicable)" << endl;
 	tpchGroup(datasetCatalog,0,4);
+	cout << "---" << endl;
+	cout << "Query 1 (aggr.)" << endl;
+	tpchGroup(datasetCatalog,0,1);
+	cout << "---" << endl;
+	cout << "Query 2 (aggr.)" << endl;
+	tpchGroup(datasetCatalog,0,2);
+	cout << "---" << endl;
+	cout << "Query 3 (aggr.)" << endl;
+	tpchGroup(datasetCatalog,0,3);
+	cout << "---" << endl;
+	cout << "Query 4 (aggr.)" << endl;
+	tpchGroup(datasetCatalog,0,4);
+	cout << "---" << endl;
 }
 
 

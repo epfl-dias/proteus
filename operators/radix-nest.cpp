@@ -289,8 +289,8 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 		vector<RecordAttribute*>::const_iterator it = tuplesIdentifiers.begin();
 		for (; it != tuplesIdentifiers.end(); it++) {
 			RecordAttribute *attr = *it;
-			cout << "Dealing with " << attr->getRelationName() << "_"
-					<< attr->getAttrName() << endl;
+//			cout << "Dealing with " << attr->getRelationName() << "_"
+//					<< attr->getAttrName() << endl;
 			mem_activeTuple = context->CreateEntryBlockAlloca(F,
 					"mem_activeTuple", payloadType->getElementType(i));
 			vector<Value*> idxList = vector<Value*>();
@@ -315,8 +315,8 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 		vector<RecordAttribute*>::const_iterator it2 = wantedFields.begin();
 		for (; it2 != wantedFields.end(); it2++) {
 			RecordAttribute *attr = *it2;
-			cout << "Dealing with " << attr->getRelationName() << "_"
-					<< attr->getAttrName() << endl;
+//			cout << "Dealing with " << attr->getRelationName() << "_"
+//					<< attr->getAttrName() << endl;
 
 			string currField = (*it2)->getName();
 			mem_field = context->CreateEntryBlockAlloca(F, "mem_" + currField,

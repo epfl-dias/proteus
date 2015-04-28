@@ -62,11 +62,12 @@ public:
 	void finish();
 	virtual RawValueMemory readPath(string activeRelation, Bindings bindings, const char* pathVar);
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
-	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState) {
-		string error_msg = "[BinaryColPlugin: ] No caching support should be needed";
-		LOG(ERROR) << error_msg;
-		throw runtime_error(error_msg);
-	}
+	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState);
+//	{
+//		string error_msg = "[BinaryColPlugin: ] No caching support should be needed";
+//		LOG(ERROR) << error_msg;
+//		throw runtime_error(error_msg);
+//	}
 
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
 

@@ -82,26 +82,43 @@ RawContext prepareContext(string moduleName)	{
 
 int main()	{
 
-	map<string,dataset> datasetCatalog;
+	map<string, dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
 
 	vector<int> predicates;
 	predicates.push_back(2);
-	//1 pred.
+	cout << "Query 0 (PM built if applicable)" << endl;
 	tpchOrderSelection1(datasetCatalog, predicates);
+	cout << "---" << endl;
+	//1 pred.
+	cout << "Query 1a" << endl;
+	tpchOrderSelection1(datasetCatalog, predicates);
+	cout << "---" << endl;
+	cout << "Query 1b" << endl;
 	predicates.push_back(0);
 	//2 pred.
 	tpchOrderSelection1(datasetCatalog, predicates);
+	cout << "---" << endl;
+	cout << "Query 1c" << endl;
 	predicates.push_back(0);
 	//3 pred.
 	tpchOrderSelection1(datasetCatalog, predicates);
+	cout << "---" << endl;
+	cout << "Query 1d" << endl;
 	//4 pred.
 	predicates.push_back(0);
 	tpchOrderSelection1(datasetCatalog, predicates);
 	//Variations of last execution
+	cout << "---" << endl;
+	cout << "Query 2" << endl;
 	tpchOrderSelection2(datasetCatalog, predicates);
+	cout << "---" << endl;
+	cout << "Query 3" << endl;
 	tpchOrderSelection3(datasetCatalog, predicates);
+	cout << "---" << endl;
+	cout << "Query 4" << endl;
 	tpchOrderSelection4(datasetCatalog, predicates);
+	cout << "---" << endl;
 }
 
 void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predicates)	{

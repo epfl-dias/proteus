@@ -93,7 +93,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	char* pmCast = cache.getPM(fname);
 	Value *cast_tokenArray = NULL;
 	if (pmCast == NULL) {
-		cout << "NEW (JSON) PM" << endl;
+//		cout << "NEW (JSON) PM" << endl;
 		tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
 		if (tokenBuf == NULL) {
 			string msg = string(
@@ -110,7 +110,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		/* To be used by subsequent queries */
 		cache.registerPM(fname, tokenBuf);
 	} else {
-		cout << "(JSON) PM REUSE" << endl;
+//		cout << "(JSON) PM REUSE" << endl;
 		jsmntok_t **tokens = (jsmntok_t **) pmCast;
 		this->tokens = tokens;
 		tokenBuf = NULL;
@@ -181,7 +181,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	char* pmCast = cache.getPM(fname);
 	Value *cast_tokenArray = NULL;
 	if (pmCast == NULL) {
-		cout << "NEW (JSON) PM" << endl;
+//		cout << "NEW (JSON) PM" << endl;
 		tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
 		if (tokenBuf == NULL) {
 			string msg = string(
@@ -198,7 +198,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		/* To be used by subsequent queries */
 		cache.registerPM(fname, tokenBuf);
 	} else {
-		cout << "(JSON) PM REUSE" << endl;
+//		cout << "(JSON) PM REUSE" << endl;
 		jsmntok_t **tokens = (jsmntok_t **) pmCast;
 		this->tokens = tokens;
 		tokenBuf = NULL;

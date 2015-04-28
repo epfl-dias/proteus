@@ -322,7 +322,6 @@ Scan* RadixJoin::findSideInCache(Materializer &mat, bool isLeft) const {
 			}
 			Scan *newScan = new Scan(context,*pg);
 			return newScan;
-			//return info.payloadPtr;
 		}
 	}
 	cout << "No expressions to check for" << endl;
@@ -456,7 +455,7 @@ void RadixJoin::produce() {
 		//cout << "Traditional LEFT side" << endl;
 		getLeftChild()->produce();
 	} else {
-		cout << "NEW LEFT SCAN POSSIBLE!!";
+		cout << "NEW LEFT SCAN POSSIBLE!!" << endl;
 		//this->setLeftChild(*newChildLeft);
 		cachedLeft = true;
 		this->setLeftChild(newChildLeft);

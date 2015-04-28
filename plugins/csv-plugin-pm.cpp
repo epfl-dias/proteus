@@ -55,7 +55,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 
 	char* pmCast = cache.getPM(fname);
 	if (pmCast == NULL) {
-		cout << "NEW (CSV) PM" << endl;
+		//cout << "NEW (CSV) PM" << endl;
 		hasPM = false;
 		newlines = (size_t*) malloc(lines * sizeof(size_t));
 		if (newlines == NULL) {
@@ -86,7 +86,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 		pmCast = (char*) pmStruct;
 		cache.registerPM(fname, pmCast);
 	} else {
-		cout << "(CSV) PM REUSE" << endl;
+		//cout << "(CSV) PM REUSE" << endl;
 		hasPM = true;
 		pmCSV *pmStruct = (pmCSV*) pmCast;
 
@@ -146,7 +146,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 
 	char* pmCast = cache.getPM(fname);
 	if (pmCast == NULL) {
-		cout << "NEW (CSV) PM" << endl;
+		//cout << "NEW (CSV) PM" << endl;
 		hasPM = false;
 		newlines = (size_t*) malloc(lines * sizeof(size_t));
 		if (newlines == NULL) {
@@ -177,7 +177,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 		pmCast = (char*) pmStruct;
 		cache.registerPM(fname, pmCast);
 	} else {
-		cout << "(CSV) PM REUSE" << endl;
+		//cout << "(CSV) PM REUSE" << endl;
 		hasPM = true;
 		pmCSV *pmStruct = (pmCSV*) pmCast;
 
@@ -366,12 +366,12 @@ RawValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings, con
 		it = csvProjections.find(tmpKey);
 			if (it == csvProjections.end()) {
 				string error_msg = string("[CSV plugin - readPath ]: Unknown variable name ")+pathVar;
-				cout << "Nothing found in "<< csvProjections.size() << " bindings" << endl;
-				for(it = csvProjections.begin(); it != csvProjections.end(); it++)
-				{
-					RecordAttribute attr = it->first;
-					cout << attr.getRelationName() << "_" << attr.getAttrName() << endl;
-				}
+//				cout << "Nothing found in "<< csvProjections.size() << " bindings" << endl;
+//				for(it = csvProjections.begin(); it != csvProjections.end(); it++)
+//				{
+//					RecordAttribute attr = it->first;
+//					cout << attr.getRelationName() << "_" << attr.getAttrName() << endl;
+//				}
 				LOG(ERROR) << error_msg;
 				throw runtime_error(error_msg);
 			}
@@ -1204,7 +1204,7 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawV
 	}
 #endif
 
-	cout << "[CSV_PM: ] Stored " << attName.getAttrName() << endl;
+	//cout << "[CSV_PM: ] Stored " << attName.getAttrName() << endl;
 }
 
 void CSVPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
@@ -1645,7 +1645,7 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator& producer)
 		}
 		if (!fieldNeeded) {
 			skipDelimLLVM(delimInner, debugChar, debugInt);
-			cout << "Skip field " << i << endl;
+			//cout << "Skip field " << i << endl;
 		}
 	}
 
@@ -1832,7 +1832,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 
 				}
 			} else {
-				cout << "No match found for " << fname << endl;
+				//cout << "No match found for " << fname << endl;
 			}
 		}
 
@@ -1846,9 +1846,9 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 			/* Parse from current field */
 			if (distanceFromCurr <= pmDistanceBefore
 					&& distanceFromCurr <= pmDistanceAfter) {
-			cout << "To get field " << (*it)->getAttrNo()
-					<< ", scan from current pos " << distanceFromCurr
-					<< " fields" << endl;
+//			cout << "To get field " << (*it)->getAttrNo()
+//					<< ", scan from current pos " << distanceFromCurr
+//					<< " fields" << endl;
 
 				/* How many fields to skip */
 				for (int i = 0; i < distanceFromCurr; i++) {
@@ -1861,9 +1861,9 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 			}
 			/* Parse forwards */
 			else if (pmDistanceBefore <= pmDistanceAfter) {
-				cout << "To get field " << (*it)->getAttrNo()
-						<< ", scan forward " << pmDistanceBefore << " fields"
-						<< endl;
+//				cout << "To get field " << (*it)->getAttrNo()
+//						<< ", scan forward " << pmDistanceBefore << " fields"
+//						<< endl;
 				int nearbyPM = neededAttr / policy;
 //			cout << "Array Field In PM: " << nearbyPM - 1 << endl;
 
@@ -1904,9 +1904,9 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 			}
 			/* Parse backwards */
 			else {
-			cout << "To get field "<< (*it)->getAttrNo() <<
-								", scan backward " << pmDistanceAfter
-								<< " fields" << endl;
+//			cout << "To get field "<< (*it)->getAttrNo() <<
+//								", scan backward " << pmDistanceAfter
+//								<< " fields" << endl;
 				int nearbyPM = (neededAttr / policy) + 1;
 //			cout << "Array Field in PM: " << nearbyPM - 1 << endl;
 
