@@ -348,12 +348,69 @@ RawValueMemory BinaryColPlugin::readValue(RawValueMemory mem_value, const Expres
 	return mem_value;
 }
 
-RawValue BinaryColPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* type)	{
+//RawValue BinaryColPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* type)	{
+//	IRBuilder<>* Builder = context->getBuilder();
+//	RawValue value;
+//	value.isNull = mem_value.isNull;
+//	value.value = Builder->CreateLoad(mem_value.mem);
+//	return value;
+//}
+RawValue BinaryColPlugin::hashValue(RawValueMemory mem_value,
+		const ExpressionType* type) {
 	IRBuilder<>* Builder = context->getBuilder();
-	RawValue value;
-	value.isNull = mem_value.isNull;
-	value.value = Builder->CreateLoad(mem_value.mem);
-	return value;
+	switch (type->getTypeID()) {
+	case BOOL: {
+		Function *hashBoolean = context->getFunction("hashBoolean");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+		Value *hashResult = context->getBuilder()->CreateCall(hashBoolean,
+				ArgsV, "hashBoolean");
+
+		RawValue valWrapper;
+		valWrapper.value = hashResult;
+		valWrapper.isNull = context->createFalse();
+		return valWrapper;
+	}
+	case STRING: {
+		LOG(ERROR)<< "[CSV PLUGIN: ] String datatypes not supported yet";
+		throw runtime_error(string("[CSV PLUGIN: ] String datatypes not supported yet"));
+	}
+	case FLOAT:
+	{
+		Function *hashDouble = context->getFunction("hashDouble");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+		Value *hashResult = context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
+
+		RawValue valWrapper;
+		valWrapper.value = hashResult;
+		valWrapper.isNull = context->createFalse();
+		return valWrapper;
+	}
+	case INT:
+	{
+		Function *hashInt = context->getFunction("hashInt");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+		Value *hashResult = context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
+
+		RawValue valWrapper;
+		valWrapper.value = hashResult;
+		valWrapper.isNull = context->createFalse();
+		return valWrapper;
+	}
+	case BAG:
+	case LIST:
+	case SET:
+	LOG(ERROR) << "[BinaryColPlugin: ] Cannot contain collections";
+	throw runtime_error(string("[BinaryColPlugin: ] Cannot contain collections"));
+	case RECORD:
+	LOG(ERROR) << "[BinaryColPlugin: ] Cannot contain record-valued attributes";
+	throw runtime_error(string("[BinaryColPlugin: ] Cannot contain record-valued attributes"));
+	default:
+	LOG(ERROR) << "[BinaryColPlugin: ] Unknown datatype";
+	throw runtime_error(string("[BinaryColPlugin: ] Unknown datatype"));
+}
 }
 
 void BinaryColPlugin::finish()	{
@@ -725,10 +782,10 @@ void BinaryColPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribu
 	}
 	Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
 	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-	Value *parsedInt = Builder->CreateLoad(bufShiftedPtr);
+	Value *parsedFloat = Builder->CreateLoad(bufShiftedPtr);
 
 	AllocaInst *currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);
-	Builder->CreateStore(parsedInt,currResult);
+	Builder->CreateStore(parsedFloat,currResult);
 	LOG(INFO) << "[BINARYCOL - READ FLOAT: ] Read Successful";
 
 	RawValueMemory mem_valWrapper;
@@ -740,7 +797,8 @@ void BinaryColPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribu
 void BinaryColPlugin::prepareArray(RecordAttribute attName)	{
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-	Type* floatPtrType = Type::getFloatPtrTy(llvmContext);
+//	Type* floatPtrType = Type::getFloatPtrTy(llvmContext);
+	Type* doublePtrType = Type::getDoublePtrTy(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
 	Type* int32PtrType = Type::getInt32PtrTy(llvmContext);
 	Type* int8PtrType = Type::getInt8PtrTy(llvmContext);
@@ -796,8 +854,8 @@ void BinaryColPlugin::prepareArray(RecordAttribute attName)	{
 	}
 	case FLOAT: {
 		AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(F,
-				string("mem_bufPtr"), floatPtrType);
-		Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, floatPtrType);
+				string("mem_bufPtr"), doublePtrType);
+		Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, doublePtrType);
 		Builder->CreateStore(val_bufPtr, mem_bufPtr);
 		NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
 		break;
