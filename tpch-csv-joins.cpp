@@ -135,9 +135,9 @@ int main()	{
 //	cout << "Query 1b" << endl;
 //	tpchJoin1b(datasetCatalog,2);
 //	cout << "---" << endl;
-//	cout << "Query 2a" << endl;
-//	tpchJoin2a(datasetCatalog,3);
-//	cout << "---" << endl;
+	cout << "Query 2a" << endl;
+	tpchJoin2a(datasetCatalog,3);
+	cout << "---" << endl;
 //	cout << "Query 2b" << endl;
 //	tpchJoin2b(datasetCatalog,3);
 //	cout << "---" << endl;

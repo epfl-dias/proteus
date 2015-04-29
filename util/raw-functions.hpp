@@ -39,6 +39,8 @@ void registerFunctions(RawContext& context);
 
 extern "C" int printi(int X);
 
+extern "C" int printShort(short X);
+
 extern "C" int printi64(size_t X);
 
 extern "C" int printFloat(double X);

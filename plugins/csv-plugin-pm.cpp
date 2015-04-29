@@ -1131,9 +1131,6 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawV
 	AllocaInst *currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
 	Builder->CreateStore(parsedInt,currResult);
 
-	ArgsV.clear();
-	ArgsV.push_back(parsedInt);
-
 	RawValueMemory mem_valWrapper;
 	mem_valWrapper.mem = currResult;
 	mem_valWrapper.isNull = context->createFalse();
@@ -1417,6 +1414,16 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, Ra
 	}
 
 	Value* start = Builder->CreateLoad(mem_pos, "start_pos_atof");
+#ifdef DEBUGPM
+	{
+		vector<Value*> ArgsV;
+		ArgsV.clear();
+		ArgsV.push_back(start);
+		Function* debugInt = context->getFunction("printi64");
+		Function* debugFloat = context->getFunction("printFloat");
+		Builder->CreateCall(debugInt, ArgsV, "printf");
+	}
+#endif
 	skipLLVM();
 	//index must be different than start!
 	Value* index = Builder->CreateLoad(mem_pos, "end_pos_atof");
@@ -1688,7 +1695,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 	Value* delimEnd = ConstantInt::get(llvmContext, APInt(8, this->delimEnd));
 
 	//Container for the variable bindings
-	map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
+	map<RecordAttribute, RawValueMemory> *variableBindings = new map<RecordAttribute, RawValueMemory>();
 
 	//Fetch value from symbol table
 	AllocaInst* mem_pos;
@@ -1760,7 +1767,8 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 	/* Actual Work */
 	for (vector<RecordAttribute*>::iterator it = wantedFields.begin();
 			it != wantedFields.end(); it++) {
-
+		cout << "[CSV_PM: ] Need Field " << (*it)->getOriginalRelationName() << "."
+								<< (*it)->getAttrName() << endl;
 		/* Create search key for caches  */
 		bool found = false;
 		{
@@ -1773,8 +1781,9 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 							thisAttr);
 			CachingService& cache = CachingService::getInstance();
 			CacheInfo info = cache.getCache(thisField);
+//			CacheInfo info; info.structFieldNo = -1;
 			if (info.structFieldNo != -1) {
-				cout << "Field " << (*it)->getOriginalRelationName() << "."
+				cout << "[CSV_PM: ] Field " << (*it)->getOriginalRelationName() << "."
 						<< (*it)->getAttrName() << " found!" << endl;
 
 				if (!cache.getCacheIsFull(thisField)) {
@@ -1782,22 +1791,31 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 				}
 				else
 				{
-					found = true;
-
 					int posInStruct = info.structFieldNo;
+					cout << posInStruct <<" pos. out of "<< info.objectTypes.size() << " in total" << endl;
 
 					/* We already got the OID -
 					 * No need for extra work.
 					 */
 					if (posInStruct != 0) {
+						//XXX FIXME
+//						found = true;
 						Type* int32Type = Type::getInt32Ty(llvmContext);
 
 						StructType *cacheType = context->ReproduceCustomStruct(
 								info.objectTypes);
-						Value *typeSize = ConstantExpr::getSizeOf(cacheType);
+						//Value *typeSize = ConstantExpr::getSizeOf(cacheType);
 						char* rawPtr = *(info.payloadPtr);
 						Value *val_cacheIdx = Builder->CreateLoad(mem_lineCtr);
+#ifdef DEBUG
+						{
+							vector<Value*> ArgsV;
 
+							Function* debugSth = context->getFunction("printi");
+							ArgsV.push_back(val_cacheIdx);
+							Builder->CreateCall(debugSth, ArgsV);
+						}
+#endif
 						/* Cast to appr. type */
 						PointerType *ptr_cacheType =
 								PointerType::get(cacheType,0);
@@ -1818,8 +1836,10 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 						RawValueMemory mem_valWrapper;
 						mem_valWrapper.mem = mem_cachedField;
 						mem_valWrapper.isNull = context->createFalse();
-						(*variableBindings)[*(*it)] = mem_valWrapper;
-#ifdef DEBUG
+						RecordAttribute attr = *(*it);
+						//XXX FIXME
+//						(*variableBindings)[attr] = mem_valWrapper;
+#ifdef DEBUGPM
 						{
 							vector<Value*> ArgsV;
 
@@ -1856,6 +1876,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 				}
 				/* Codegen: Convert Field */
 				RecordAttribute attr = *(*it);
+				cout << "1. Also " << attr.getAttrName() << endl;
 				typeID id = (*it)->getOriginalType()->getTypeID();
 				readField(id, attr, *variableBindings);
 			}
@@ -1884,14 +1905,15 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 
 				/* Set position to curr_new_line + pm_offset */
 				Builder->CreateStore(val_offset, mem_pos);
-#ifdef DEBUGPM
-//			{
-//				vector<Value*> ArgsV;
-//				Function* debugInt64 = context->getFunction("printi64");
-//				ArgsV.push_back(val_offset);
-//				Builder->CreateCall(debugInt64, ArgsV);
-//			}
-#endif
+//#ifdef DEBUGPM
+//				{
+//					vector<Value*> ArgsV;
+//					ArgsV.clear();
+//					ArgsV.push_back(val_pmOffset16);
+//					Function* debugInt = context->getFunction("printShort");
+//					Builder->CreateCall(debugInt, ArgsV, "printf");
+//				}
+//#endif
 				/* How many fields to skip */
 				for (int i = 0; i < pmDistanceBefore; i++) {
 					skipDelimLLVM(delimInner);
@@ -1899,16 +1921,17 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 				/* Codegen: Convert Field */
 				RecordAttribute attr = *(*it);
 				typeID id = (*it)->getOriginalType()->getTypeID();
+				cout << "2. Also " << attr.getAttrName() << endl;
 				readField(id, attr, *variableBindings);
 
 			}
 			/* Parse backwards */
 			else {
-//			cout << "To get field "<< (*it)->getAttrNo() <<
-//								", scan backward " << pmDistanceAfter
-//								<< " fields" << endl;
+				cout << "To get field " << (*it)->getAttrNo()
+						<< ", scan backward " << pmDistanceAfter << " fields"
+						<< endl;
 				int nearbyPM = (neededAttr / policy) + 1;
-//			cout << "Array Field in PM: " << nearbyPM - 1 << endl;
+				cout << "Array Field in PM: " << nearbyPM - 1 << endl;
 
 				/* Get offset from PM */
 				Value *val_pm = Builder->CreateLoad(mem_pm);
@@ -1924,7 +1947,15 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 						int64Type);
 				Value *val_offset = Builder->CreateAdd(val_newline,
 						val_pmOffset64);
-
+#ifdef DEBUGPM
+	{
+		vector<Value*> ArgsV;
+		ArgsV.clear();
+		ArgsV.push_back(val_pmOffset16);
+		Function* debugInt = context->getFunction("printShort");
+		Builder->CreateCall(debugInt, ArgsV, "printf");
+	}
+#endif
 				/* Set position to curr_new_line + pm_offset */
 				Builder->CreateStore(val_offset, mem_pos);
 
@@ -1942,6 +1973,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 				/* Codegen: Convert Field */
 				RecordAttribute attr = *(*it);
 				typeID id = (*it)->getOriginalType()->getTypeID();
+				cout << "3. Also " << attr.getAttrName() << endl;
 				readField(id, attr, *variableBindings);
 			}
 

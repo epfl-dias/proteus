@@ -43,6 +43,11 @@ int printi(int X) {
 	return 0;
 }
 
+int printShort(short X) {
+	printf("[printShort:] Generated code called %d\n", X);
+	return 0;
+}
+
 int printFloat(double X) {
 	printf("[printFloat:] Generated code called %f\n", X);
 	return 0;
@@ -819,6 +824,7 @@ void registerFunctions(RawContext& context)	{
 
 	Type* int1_bool_type = Type::getInt1Ty(ctx);
 	Type* int8_type = Type::getInt8Ty(ctx);
+	Type* int16_type = Type::getInt16Ty(ctx);
 	Type* int32_type = Type::getInt32Ty(ctx);
 	Type* int64_type = Type::getInt64Ty(ctx);
 	Type* void_type = Type::getVoidTy(ctx);
@@ -834,6 +840,7 @@ void registerFunctions(RawContext& context)	{
 	vector<Type*> Ints(1,int32_type);
 	vector<Type*> Ints64(1,int64_type);
 	vector<Type*> Floats(1,double_type);
+	vector<Type*> Shorts(1,int16_type);
 
 	vector<Type*> ArgsCmpTokens;
 	ArgsCmpTokens.insert(ArgsCmpTokens.begin(),char_ptr_type);
@@ -958,6 +965,7 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FTatois 				  = FunctionType::get(int32_type, ArgsAtois, false);
 	FunctionType *FTatof 				  = FunctionType::get(double_type, Ints8Ptr, false);
 	FunctionType *FTprintFloat_ 		  = FunctionType::get(int32_type, Floats, false);
+	FunctionType *FTprintShort_ 		  = FunctionType::get(int16_type, Shorts, false);
 	FunctionType *FTcompareTokenString_   = FunctionType::get(int32_type, ArgsCmpTokens, false);
 	FunctionType *FTcompareTokenString64_ = FunctionType::get(int32_type, ArgsCmpTokens64, false);
 	FunctionType *FTconvertBoolean_ 	  = FunctionType::get(int1_bool_type, ArgsConvBoolean, false);
@@ -992,6 +1000,7 @@ void registerFunctions(RawContext& context)	{
 	Function *printi64_ 	= Function::Create(FTint64, Function::ExternalLinkage,"printi64", TheModule);
 	Function *printc_ 		= Function::Create(FTcharPtr, Function::ExternalLinkage,"printc", TheModule);
 	Function *printFloat_ 	= Function::Create(FTprintFloat_, Function::ExternalLinkage, "printFloat", TheModule);
+	Function *printShort_ 	= Function::Create(FTprintShort_, Function::ExternalLinkage, "printShort", TheModule);
 	Function *printBoolean_ = Function::Create(FTprintBoolean_, Function::ExternalLinkage, "printBoolean", TheModule);
 
 	Function *atoi_ 	= Function::Create(FTcharPtr, Function::ExternalLinkage,"atoi", TheModule);
@@ -1223,6 +1232,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("printi", printi_);
 	context.registerFunction("printi64", printi64_);
 	context.registerFunction("printFloat", printFloat_);
+	context.registerFunction("printShort", printShort_);
 	context.registerFunction("printBoolean", printBoolean_);
 	context.registerFunction("printc", printc_);
 

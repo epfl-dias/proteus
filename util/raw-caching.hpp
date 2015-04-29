@@ -93,8 +93,17 @@ public:
 		if (found) {
 			/* Replace what is cached if
 			 * -> the new one is the full thing
-			 * -> the old one is not. */
-			if (entireDataset && !(itBool->second)) {
+			 *
+			 * This implies that the newer chunk will
+			 * replace the older one, even if the older one
+			 * is related to a 'struct' with more fields.
+			 *
+			 * This should not be the case
+			 * -> we should be running a sophisticated algo for these decisions
+			 * -> XXX This also causes us to run (all) queries in a
+			 * 	  certain sequence to emulate caching effects
+			 */
+			if (entireDataset /*&& !(itBool->second)*/) {
 				binCaches.erase(expr);
 				binCacheIsFull.erase(expr);
 				binCaches[expr] = payload;

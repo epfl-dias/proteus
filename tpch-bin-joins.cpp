@@ -114,12 +114,12 @@ RawContext prepareContext(string moduleName)	{
 }
 
 
-int main()	{
-
-	map<string,dataset> datasetCatalog;
-	tpchSchema(datasetCatalog);
-
-	/* Make sure sides are materialized */
+//int main()	{
+//
+//	map<string,dataset> datasetCatalog;
+//	tpchSchema(datasetCatalog);
+//
+//	/* Make sure sides are materialized */
 //	cout << "Query 0a (PM + Side built if applicable)" << endl;
 //	tpchJoin1a(datasetCatalog,2);
 //	cout << "---" << endl;
@@ -136,6 +136,50 @@ int main()	{
 //	cout << "Query 2a" << endl;
 //	tpchJoin2a(datasetCatalog,3);
 //	cout << "---" << endl;
+//	cout << "Query 2b" << endl;
+//	tpchJoin2b(datasetCatalog,3);
+//	cout << "---" << endl;
+//
+//	/* Make sure sides are materialized */
+//	cout << "Query 0c (Side built if applicable)" << endl;
+//	tpchJoin3(datasetCatalog, 3);
+//	cout << "---" << endl;
+//	cout << "Query 0d (Side built if applicable)" << endl;
+//	tpchJoin4(datasetCatalog, 3);
+//	cout << "---" << endl;
+//
+//	cout << "Query 3" << endl;
+//	tpchJoin3(datasetCatalog, 3);
+//	cout << "---" << endl;
+//	cout << "Query 4" << endl;
+//	tpchJoin4(datasetCatalog, 3);
+//	cout << "---" << endl;
+//}
+
+int main()	{
+
+	map<string,dataset> datasetCatalog;
+	tpchSchema(datasetCatalog);
+
+	/* Make sure sides are materialized */
+//	cout << "Query 0a (PM + Side built if applicable)" << endl;
+//	tpchJoin1a(datasetCatalog,2);
+//	tpchJoin1a(datasetCatalog,2);
+//	cout << "---" << endl;
+//	cout << "Query 0b (PM + Side built if applicable)" << endl;
+//	tpchJoin1b(datasetCatalog,2);
+//	tpchJoin1b(datasetCatalog,2);
+//	cout << "---" << endl;
+//
+//	cout << "Query 1a" << endl;
+//	tpchJoin1a(datasetCatalog,2);
+//	cout << "---" << endl;
+//	cout << "Query 1b" << endl;
+//	tpchJoin1b(datasetCatalog,2);
+//	cout << "---" << endl;
+	cout << "Query 2a" << endl;
+	tpchJoin2a(datasetCatalog,3);
+	cout << "---" << endl;
 //	cout << "Query 2b" << endl;
 //	tpchJoin2b(datasetCatalog,3);
 //	cout << "---" << endl;
