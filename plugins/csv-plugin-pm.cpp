@@ -156,7 +156,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 		}
 
 		/* -1 bc field 0 does not have to be indexed */
-		int pmFields = (rec.getArgsNo() / policy) - 1;
+		int pmFields = (rec.getArgsNo() / policy); // - 1;
 		if (pmFields < 0) {
 			string error_msg = "[CSVPlugin: ] Erroneous PM policy";
 			LOG(ERROR)<< error_msg;
@@ -1414,7 +1414,7 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, Ra
 	}
 
 	Value* start = Builder->CreateLoad(mem_pos, "start_pos_atof");
-#ifdef DEBUGPM
+#ifdef DEBUG
 	{
 		vector<Value*> ArgsV;
 		ArgsV.clear();
@@ -1565,29 +1565,29 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator& producer)
 	/* Loop through fields and gather info (values needed and PM offsets) */
 	int pmFields = rec.getArgsNo() / policy;
 	vector<int> pmFieldsNo;
-	for(int i = 1; i < pmFields; i++)	{
+	for(int i = 1; i <= pmFields; i++)	{
 		pmFieldsNo.push_back(i * policy);
 	}
 
 	//Using it to know if a final skip is needed
 	int lastFieldNo = 0;
 	int pmCtr = 0;
-	for(int i = 0; i < rec.getArgsNo(); i++)	{
+	for(int i = 1; i <= rec.getArgsNo(); i++)	{
 
-		//cout << "Considering field " << i << endl;
+		LOG(INFO) << "Considering field " << i;
 		if (pmFieldsNo.empty() && wantedFields.empty()
 				&& lastFieldNo < rec.getArgsNo()) {
 			skipDelimLLVM(delimEnd, debugChar, debugInt);
-			//cout << "(All empty) Skip field " << i << endl;
+			LOG(INFO) << "(All empty) Skip field " << i;
 			break;
 		}
 
 		/* Check usefulness for PM */
 		/* Field Numbers in Record expected to start from 1!! */
 		vector<int>::iterator pmIt;
-		pmIt = find(pmFieldsNo.begin(),pmFieldsNo.end(),i);
+		pmIt = find(pmFieldsNo.begin(),pmFieldsNo.end(),i-1);
 		if(pmIt != pmFieldsNo.end())	{
-			//cout << "Place field " << i << "i.e., ( "<< i+1 << ") in PM"<<endl;
+			cout << "Place field " << i << ") in PM"<<endl;
 
 			/* What to store: offset */
 			AllocaInst* mem_pos;
@@ -1634,9 +1634,11 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator& producer)
 		bool fieldNeeded = false;
 		for (it = wantedFields.begin();
 				it != wantedFields.end(); it++) {
-			int neededAttr = (*it)->getAttrNo() - 1;
+			int neededAttr = (*it)->getAttrNo();
 			if(i == neededAttr)	{
+
 				string attrName = (*it)->getName();
+				cout << "Parsing "<< attrName << "!!" << endl;
 				RecordAttribute attr = *(*it);
 
 				/* Codegen: Convert Field */
@@ -1651,8 +1653,16 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator& producer)
 			}
 		}
 		if (!fieldNeeded) {
-			skipDelimLLVM(delimInner, debugChar, debugInt);
-			//cout << "Skip field " << i << endl;
+			if(i != rec.getArgsNo())
+			{
+				skipDelimLLVM(delimInner, debugChar, debugInt);
+				LOG(INFO) << "Skip internal field " << i;
+			}
+			else
+			{
+				skipDelimLLVM(delimEnd, debugChar, debugInt);
+				LOG(INFO) << "Skip final field " << i;
+			}
 		}
 	}
 
@@ -1767,8 +1777,8 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 	/* Actual Work */
 	for (vector<RecordAttribute*>::iterator it = wantedFields.begin();
 			it != wantedFields.end(); it++) {
-		cout << "[CSV_PM: ] Need Field " << (*it)->getOriginalRelationName() << "."
-								<< (*it)->getAttrName() << endl;
+		// cout << "[CSV_PM: ] Need Field " << (*it)->getOriginalRelationName() << "."
+		// 						<< (*it)->getAttrName() << endl;
 		/* Create search key for caches  */
 		bool found = false;
 		{
@@ -1798,8 +1808,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 					 * No need for extra work.
 					 */
 					if (posInStruct != 0) {
-						//XXX FIXME
-//						found = true;
+						found = true;
 						Type* int32Type = Type::getInt32Ty(llvmContext);
 
 						StructType *cacheType = context->ReproduceCustomStruct(
@@ -1837,9 +1846,8 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 						mem_valWrapper.mem = mem_cachedField;
 						mem_valWrapper.isNull = context->createFalse();
 						RecordAttribute attr = *(*it);
-						//XXX FIXME
-//						(*variableBindings)[attr] = mem_valWrapper;
-#ifdef DEBUGPM
+						(*variableBindings)[attr] = mem_valWrapper;
+#ifdef DEBUG
 						{
 							vector<Value*> ArgsV;
 
@@ -1876,7 +1884,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 				}
 				/* Codegen: Convert Field */
 				RecordAttribute attr = *(*it);
-				cout << "1. Also " << attr.getAttrName() << endl;
+				// cout << "1. Also " << attr.getAttrName() << endl;
 				typeID id = (*it)->getOriginalType()->getTypeID();
 				readField(id, attr, *variableBindings);
 			}
@@ -1921,17 +1929,17 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 				/* Codegen: Convert Field */
 				RecordAttribute attr = *(*it);
 				typeID id = (*it)->getOriginalType()->getTypeID();
-				cout << "2. Also " << attr.getAttrName() << endl;
+				// cout << "2. Also " << attr.getAttrName() << endl;
 				readField(id, attr, *variableBindings);
 
 			}
 			/* Parse backwards */
 			else {
-				cout << "To get field " << (*it)->getAttrNo()
-						<< ", scan backward " << pmDistanceAfter << " fields"
-						<< endl;
+				// cout << "To get field " << (*it)->getAttrNo()
+				// 		<< ", scan backward " << pmDistanceAfter << " fields"
+				// 		<< endl;
 				int nearbyPM = (neededAttr / policy) + 1;
-				cout << "Array Field in PM: " << nearbyPM - 1 << endl;
+				// cout << "Array Field in PM: " << nearbyPM - 1 << endl;
 
 				/* Get offset from PM */
 				Value *val_pm = Builder->CreateLoad(mem_pm);
@@ -1947,7 +1955,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 						int64Type);
 				Value *val_offset = Builder->CreateAdd(val_newline,
 						val_pmOffset64);
-#ifdef DEBUGPM
+#ifdef DEBUG
 	{
 		vector<Value*> ArgsV;
 		ArgsV.clear();
@@ -1973,7 +1981,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 				/* Codegen: Convert Field */
 				RecordAttribute attr = *(*it);
 				typeID id = (*it)->getOriginalType()->getTypeID();
-				cout << "3. Also " << attr.getAttrName() << endl;
+				// cout << "3. Also " << attr.getAttrName() << endl;
 				readField(id, attr, *variableBindings);
 			}
 
