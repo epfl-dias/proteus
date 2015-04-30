@@ -34,7 +34,7 @@ typedef enum {
  * @param		start	start position in JSON data string
  * @param		end		end position in JSON data string
  */
-//#define JSON_TIGHT
+#define JSON_TIGHT
 
 #ifndef JSON_TIGHT
 typedef struct {
@@ -65,6 +65,17 @@ typedef struct {
 //	char end;
 //	char size;
 //} jsmntok_t;
+#endif
+
+/* Should be enough for single-line JSON (?) */
+#ifdef JSON_TIGHT
+//Sufficient for lineitem.json
+//#define MAXTOKENS 50
+//Exactly enough for lineitem.json (2 x #fields + 1 for the obj.)
+#define MAXTOKENS 33
+#endif
+#ifndef JSON_TIGHT
+#define MAXTOKENS 1000
 #endif
 
 /**

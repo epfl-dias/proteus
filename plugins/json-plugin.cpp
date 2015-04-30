@@ -24,7 +24,7 @@
 #include "plugins/json-plugin.hpp"
 
 //"Should" be enough on a per-row basis
-#define MAXTOKENS 1000
+//#define MAXTOKENS 1000
 
 namespace jsonPipelined
 {
@@ -119,10 +119,99 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 				token2DPtrType);
 		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
 				this->tokens);
+		this->cache = true;
 	}
 	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
 
 }
+
+//JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
+//		ExpressionType* schema, size_t linehint) :
+//		context(context), fname(fname), schema(schema), var_buf("bufPtr"), var_tokenPtr(
+//				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash")
+//{
+//	cache = false;
+//	LLVMContext& llvmContext = context->getLLVMContext();
+//	Type* int32_type = Type::getInt32Ty(llvmContext);
+//	Type* int64_type = Type::getInt64Ty(llvmContext);
+//
+//	//Memory mapping etc
+//	LOG(INFO)<< "[JSONPlugin - jsmn: ] " << fname;
+//	struct stat statbuf;
+//	const char* name_c = fname.c_str();
+//	stat(name_c, &statbuf);
+//	fsize = statbuf.st_size;
+//	fd = open(name_c, O_RDONLY);
+//	if (fd == -1)
+//	{
+//		throw runtime_error(string("json.open"));
+//	}
+//	buf = (const char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE , MAP_PRIVATE, fd, 0);
+//	if (buf == MAP_FAILED)
+//	{
+//		throw runtime_error(string("json.mmap"));
+//	}
+//
+//	//Retrieving schema - not needed yet
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//	catalog.registerFileJSON(fname,schema);
+//
+//	//Preparing structures and variables for codegen part
+//	Function* F = context->getGlobalFunction();
+//	IRBuilder<>* Builder = context->getBuilder();
+//	Type* int64Type = Type::getInt64Ty(llvmContext);
+//	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+//
+//	//Buffer holding the entire JSON document
+//	AllocaInst *mem_buf = context->CreateEntryBlockAlloca(F,string("jsFilePtr"),charPtrType);
+//	Value* val_buf_i64 = ConstantInt::get(llvmContext, APInt(64,((uint64_t)buf)));
+//	//i8*
+//	Value* val_buf = Builder->CreateIntToPtr(val_buf_i64,charPtrType);
+//	Builder->CreateStore(val_buf,mem_buf);
+//	NamedValuesJSON[var_buf] = mem_buf;
+//
+//	lines = linehint;
+//
+//	tokenType = context->CreateJSMNStruct();
+//	PointerType *tokenPtrType = PointerType::get(tokenType,0);
+//	PointerType *token2DPtrType = PointerType::get(tokenPtrType,0);
+//
+//	/* PM */
+//	CachingService& cache = CachingService::getInstance();
+//
+//	char* pmCast = cache.getPM(fname);
+//	Value *cast_tokenArray = NULL;
+//	if (pmCast == NULL) {
+////		cout << "NEW (JSON) PM" << endl;
+//		tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
+//		if (tokenBuf == NULL) {
+//			string msg = string(
+//					"[JSON Plugin: ]: Failed to allocate token arena");
+//			LOG(ERROR)<< msg;
+//			throw runtime_error(msg);
+//		}
+//		tokens = (jsmntok_t**) tokenBuf;
+//		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
+//				token2DPtrType);
+//		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, tokenBuf);
+//
+//		/* Store PM in cache */
+//		/* To be used by subsequent queries */
+//		cache.registerPM(fname, tokenBuf);
+//	} else {
+////		cout << "(JSON) PM REUSE" << endl;
+//		jsmntok_t **tokens = (jsmntok_t **) pmCast;
+//		this->tokens = tokens;
+//		tokenBuf = NULL;
+//
+//		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
+//				token2DPtrType);
+//		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
+//				this->tokens);
+//		this->cache = true;
+//	}
+//	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
+//}
 
 JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		ExpressionType* schema, size_t linehint) :
@@ -190,6 +279,16 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 			throw runtime_error(msg);
 		}
 		tokens = (jsmntok_t**) tokenBuf;
+		jsmntok_t *tokenBuf_ = (jsmntok_t*) malloc(
+				lines * MAXTOKENS * sizeof(jsmntok_t));
+		if (tokenBuf_ == NULL) {
+			throw runtime_error(string("new() of tokens failed"));
+		}
+		for (int i = 0; i < lines; i++) {
+			tokens[i] = (tokenBuf_ + i * MAXTOKENS);
+		}
+
+
 		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
 				token2DPtrType);
 		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, tokenBuf);
@@ -198,15 +297,40 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		/* To be used by subsequent queries */
 		cache.registerPM(fname, tokenBuf);
 	} else {
-//		cout << "(JSON) PM REUSE" << endl;
+		cout << "(JSON) PM REUSE" << endl;
 		jsmntok_t **tokens = (jsmntok_t **) pmCast;
 		this->tokens = tokens;
 		tokenBuf = NULL;
+
+
+		/* Flush to disk too if need be */
+//		ostringstream sstream;
+//		sstream << fname << ".pm";
+//		const char* pmPath = sstream.str().c_str();
+//		struct stat pmStatBuffer;
+//		int pmStored = stat(pmPath, &pmStatBuffer);
+//		cout << "Does pm exist? " << pmStored << endl;
+//		if (pmStored != 0) {
+//			FILE *f;
+//			f = fopen(pmPath, "wb");
+//			if (f == NULL) {
+//				fatal("fopen");
+//			}
+//
+//			tokenBuf = (char*) tokens;
+//			if (fwrite(tokenBuf, sizeof(jsmntok_t), linehint * MAXTOKENS,
+//					f) != linehint * MAXTOKENS) {
+//				fatal("fwrite");
+//			}
+//			fclose(f);
+//			cout << "(Also) Stored JSON PM" << endl;
+//		}
 
 		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
 				token2DPtrType);
 		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
 				this->tokens);
+		this->cache = true;
 	}
 	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
 }

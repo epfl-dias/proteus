@@ -249,7 +249,7 @@ void tpchSchemaJSON(map<string, dataset>& datasetCatalog) {
 	orders.linehint = 15000000;
 	/* OrdersLineitems
 	 * i.e., pre-materialized join */
-	string ordersPath = string("/cloud_store/manosk/data/vida-engine/tpch_2_17_0/sf10/ordersLineitemsArray.json");
+	string ordersLineitemsPath = string("/cloud_store/manosk/data/vida-engine/tpch_2_17_0/sf10/ordersLineitemsArray.json");
 	ordersLineitems.linehint = 15000000;
 	#endif
 

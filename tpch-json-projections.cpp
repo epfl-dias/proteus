@@ -64,14 +64,14 @@ void tpchSchema(map<string,dataset>& datasetCatalog)	{
    WHERE l_orderkey < [X]
  */
 /* COUNT() */
-void tpchOrderProjection1(map<string,dataset> datasetCatalog, int predicateVal);
+void tpchLineitemProjection1(map<string,dataset> datasetCatalog, int predicateVal);
 /* 1 x MAX() */
-void tpchOrderProjection2(map<string,dataset> datasetCatalog, int predicateVal);
+void tpchLineitemProjection2(map<string,dataset> datasetCatalog, int predicateVal);
 /* 1-4 aggregates */
-void tpchOrderProjection3(map<string,dataset> datasetCatalog, int predicateVal, int aggregatesNo);
+void tpchLineitemProjection3(map<string,dataset> datasetCatalog, int predicateVal, int aggregatesNo);
 
 /* 1-4 aggregates & Materializing l_orderkey */
-void tpchOrderProjection3Caching(map<string,dataset> datasetCatalog, int predicateVal, int aggregatesNo);
+void tpchLineitemProjection3Caching(map<string,dataset> datasetCatalog, int predicateVal, int aggregatesNo);
 
 RawContext prepareContext(string moduleName)	{
 	RawContext ctx = RawContext(moduleName);
@@ -92,29 +92,29 @@ int main()	{
 		int predicateVal = (int) ceil(predicateMax * ratio);
 		cout << "SELECTIVITY FOR key < "<< predicateVal << ": " << percentage << "%" << endl;
 		cout << "Query 0 (PM built if applicable)" << endl;
-		tpchOrderProjection1(datasetCatalog, predicateVal);
+		tpchLineitemProjection1(datasetCatalog, predicateVal);
 		cout << "---" << endl;
 		cout << "Query 1" << endl;
-		tpchOrderProjection1(datasetCatalog, predicateVal);
+		tpchLineitemProjection1(datasetCatalog, predicateVal);
 		cout << "---" << endl;
 		cout << "Query 2" << endl;
-		tpchOrderProjection2(datasetCatalog, predicateVal);
+		tpchLineitemProjection2(datasetCatalog, predicateVal);
 		cout << "---" << endl;
 		cout << "Query 3" << endl;
-		tpchOrderProjection3(datasetCatalog, predicateVal, 1);
+		tpchLineitemProjection3(datasetCatalog, predicateVal, 1);
 		cout << "---" << endl;
 		cout << "Query 4" << endl;
-		tpchOrderProjection3(datasetCatalog, predicateVal, 2);
+		tpchLineitemProjection3(datasetCatalog, predicateVal, 2);
 		cout << "---" << endl;
 		cout << "Query 5" << endl;
-		tpchOrderProjection3(datasetCatalog, predicateVal, 3);
+		tpchLineitemProjection3(datasetCatalog, predicateVal, 3);
 		cout << "---" << endl;
 		cout << "Query 6" << endl;
-		tpchOrderProjection3(datasetCatalog, predicateVal, 4);
+		tpchLineitemProjection3(datasetCatalog, predicateVal, 4);
 		cout << "---" << endl;
 	}
 
-	tpchOrderProjection3Caching(datasetCatalog,predicateMax,4);
+	tpchLineitemProjection3Caching(datasetCatalog,predicateMax,4);
 
 	cout << "CACHING (MATERIALIZING) INTO EFFECT" << endl;
 	for (int i = 1; i <= 10; i++) {
@@ -124,30 +124,30 @@ int main()	{
 		cout << "SELECTIVITY FOR key < " << predicateVal << ": " << percentage
 				<< "%" << endl;
 		cout << "Query 0 (PM built if applicable)" << endl;
-		tpchOrderProjection1(datasetCatalog, predicateVal);
+		tpchLineitemProjection1(datasetCatalog, predicateVal);
 		cout << "---" << endl;
 		cout << "Query 1" << endl;
-		tpchOrderProjection1(datasetCatalog, predicateVal);
+		tpchLineitemProjection1(datasetCatalog, predicateVal);
 		cout << "---" << endl;
 		cout << "Query 2" << endl;
-		tpchOrderProjection2(datasetCatalog, predicateVal);
+		tpchLineitemProjection2(datasetCatalog, predicateVal);
 		cout << "---" << endl;
 		cout << "Query 3" << endl;
-		tpchOrderProjection3(datasetCatalog, predicateVal, 1);
+		tpchLineitemProjection3(datasetCatalog, predicateVal, 1);
 		cout << "---" << endl;
 		cout << "Query 4" << endl;
-		tpchOrderProjection3(datasetCatalog, predicateVal, 2);
+		tpchLineitemProjection3(datasetCatalog, predicateVal, 2);
 		cout << "---" << endl;
 		cout << "Query 5" << endl;
-		tpchOrderProjection3(datasetCatalog, predicateVal, 3);
+		tpchLineitemProjection3(datasetCatalog, predicateVal, 3);
 		cout << "---" << endl;
 		cout << "Query 6" << endl;
-		tpchOrderProjection3(datasetCatalog, predicateVal, 4);
+		tpchLineitemProjection3(datasetCatalog, predicateVal, 4);
 		cout << "---" << endl;
 	}
 }
 
-void tpchOrderProjection1(map<string,dataset> datasetCatalog, int predicateVal)	{
+void tpchLineitemProjection1(map<string,dataset> datasetCatalog, int predicateVal)	{
 
 	RawContext ctx = prepareContext("tpch-json-projection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
@@ -221,7 +221,7 @@ void tpchOrderProjection1(map<string,dataset> datasetCatalog, int predicateVal)	
  * atm: X = 3
  * quantity: float
  */
-void tpchOrderProjection2(map<string,dataset> datasetCatalog, int predicateVal)	{
+void tpchLineitemProjection2(map<string,dataset> datasetCatalog, int predicateVal)	{
 
 	RawContext ctx = prepareContext("tpch-json-projection2");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
@@ -292,7 +292,7 @@ void tpchOrderProjection2(map<string,dataset> datasetCatalog, int predicateVal)	
 	rawCatalog.clear();
 }
 
-void tpchOrderProjection3(map<string,dataset> datasetCatalog, int predicateVal, int aggregatesNo)	{
+void tpchLineitemProjection3(map<string,dataset> datasetCatalog, int predicateVal, int aggregatesNo)	{
 
 	if(aggregatesNo <= 0 || aggregatesNo > 4)	{
 		throw runtime_error(string("Invalid aggregate no. requested: "));
@@ -448,7 +448,7 @@ void tpchOrderProjection3(map<string,dataset> datasetCatalog, int predicateVal, 
 }
 
 
-void tpchOrderProjection3Caching(map<string,dataset> datasetCatalog, int predicateVal, int aggregatesNo)	{
+void tpchLineitemProjection3Caching(map<string,dataset> datasetCatalog, int predicateVal, int aggregatesNo)	{
 
 	if(aggregatesNo <= 0 || aggregatesNo > 4)	{
 			throw runtime_error(string("Invalid aggregate no. requested: "));

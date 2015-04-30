@@ -671,28 +671,56 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 
 }
 
+//void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size_t line)	{
+//
+//	int error_code;
+//	jsmn_parser p;
+//
+//	/* inputs/json/jsmnDeeper-flat.json : MAXTOKENS = 25 */
+//
+//	//Populating our json 'positional index'
+//	jsmntok_t* tokenArray = (jsmntok_t*) calloc(MAXTOKENS,sizeof(jsmntok_t));
+//	if(tokens == NULL)
+//	{
+//		throw runtime_error(string("new() of tokens failed"));
+//	}
+//
+//	jsmn_init(&p);
+//	char* bufShift = buf + start;
+//	char eol = buf[end];
+//	buf[end] = '\0';
+////	printf("JSON Raw Input: %s\n",bufShift);
+////	printf("Which line? %d\n",line);
+//	error_code = jsmn_parse(&p, bufShift, end - start, tokenArray, MAXTOKENS);
+//	buf[end] = eol;
+//	if(error_code < 0)
+//	{
+//		string msg = "Json (JSMN) plugin failure: ";
+//		LOG(ERROR) << msg << error_code;
+//		throw runtime_error(msg);
+//	}
+////	else
+////	{
+////		cout << "How many tokens?? " << error_code << endl;
+////	}
+//	tokens[line] = tokenArray;
+////	cout << "[parseLineJSON: ] " << tokenArray[0].start << " to " << tokenArray[0].end << endl;
+//}
+
 void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size_t line)	{
 
 	int error_code;
 	jsmn_parser p;
-	/* Should be enough for single-line JSON (?) */
-	int MAXTOKENS = 1000;
+
 	/* inputs/json/jsmnDeeper-flat.json : MAXTOKENS = 25 */
 
 	//Populating our json 'positional index'
-	jsmntok_t* tokenArray = (jsmntok_t*) calloc(MAXTOKENS,sizeof(jsmntok_t));
-	if(tokens == NULL)
-	{
-		throw runtime_error(string("new() of tokens failed"));
-	}
 
 	jsmn_init(&p);
 	char* bufShift = buf + start;
 	char eol = buf[end];
 	buf[end] = '\0';
-//	printf("JSON Raw Input: %s\n",bufShift);
-//	printf("Which line? %d\n",line);
-	error_code = jsmn_parse(&p, bufShift, end - start, tokenArray, MAXTOKENS);
+	error_code = jsmn_parse(&p, bufShift, end - start, tokens[line], MAXTOKENS);
 	buf[end] = eol;
 	if(error_code < 0)
 	{
@@ -700,9 +728,14 @@ void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size
 		LOG(ERROR) << msg << error_code;
 		throw runtime_error(msg);
 	}
-	tokens[line] = tokenArray;
+//	else
+//	{
+//		cout << "How many tokens?? " << error_code << endl;
+//	}
 //	cout << "[parseLineJSON: ] " << tokenArray[0].start << " to " << tokenArray[0].end << endl;
 }
+
+
 
 //'Inline' -> shouldn't it be placed in .hpp?
 inline int atoi1(const char *buf) {

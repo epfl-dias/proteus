@@ -24,7 +24,7 @@
 #include "plugins/json-jsmn-plugin.hpp"
 
 //Definitely not enough as a solution
-#define MAXTOKENS 1000
+//#define MAXTOKENS 1000
 
 namespace jsmn
 {
