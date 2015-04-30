@@ -21,6 +21,9 @@
  RESULTING FROM THE USE OF THIS SOFTWARE.
  */
 
+#ifndef _MATERIALIZER_EXPR_HPP_
+#define _MATERIALIZER_EXPR_HPP_
+
 #include "operators/operators.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "util/raw-functions.hpp"
@@ -61,3 +64,5 @@ private:
 	expressions::Expression* toMat;
 	string opLabel;
 };
+
+#endif

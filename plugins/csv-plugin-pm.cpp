@@ -1587,7 +1587,7 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator& producer)
 		vector<int>::iterator pmIt;
 		pmIt = find(pmFieldsNo.begin(),pmFieldsNo.end(),i-1);
 		if(pmIt != pmFieldsNo.end())	{
-			cout << "Place field " << i << ") in PM"<<endl;
+//			cout << "Place field " << i << ") in PM"<<endl;
 
 			/* What to store: offset */
 			AllocaInst* mem_pos;
@@ -1638,7 +1638,7 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator& producer)
 			if(i == neededAttr)	{
 
 				string attrName = (*it)->getName();
-				cout << "Parsing "<< attrName << "!!" << endl;
+				//cout << "Parsing "<< attrName << "!!" << endl;
 				RecordAttribute attr = *(*it);
 
 				/* Codegen: Convert Field */

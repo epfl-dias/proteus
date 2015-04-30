@@ -50,14 +50,11 @@
 #include "expressions/expressions.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "util/raw-caching.hpp"
+#include "common/tpch-config.hpp"
 
-typedef struct dataset	{
-	string path;
-	RecordType recType;
-	int linehint;
-} dataset;
-
-void tpchSchemaJSON(map<string,dataset>& datasetCatalog);
+void tpchSchema(map<string,dataset>& datasetCatalog)	{
+	tpchSchemaJSON(datasetCatalog);
+}
 
 /**
  * Selections
@@ -79,45 +76,97 @@ RawContext prepareContext(string moduleName)	{
 	return ctx;
 }
 
+//int main()	{
+//
+//	map<string,dataset> datasetCatalog;
+//	tpchSchemaJSON(datasetCatalog);
+//
+//	vector<int> predicates;
+//	predicates.push_back(2);
+//	cout << "Query 0 (PM built if applicable)" << endl;
+//	tpchOrderSelection1(datasetCatalog, predicates);
+//	cout << "---" << endl;
+//	//1 pred.
+//	cout << "Query 1a" << endl;
+//	tpchOrderSelection1(datasetCatalog, predicates);
+//	cout << "---" << endl;
+//	cout << "Query 1b" << endl;
+//	predicates.push_back(100);
+//	//2 pred.
+//	tpchOrderSelection1(datasetCatalog, predicates);
+//	cout << "---" << endl;
+//	cout << "Query 1c" << endl;
+//	predicates.push_back(100);
+//	//3 pred.
+//	tpchOrderSelection1(datasetCatalog, predicates);
+//	cout << "---" << endl;
+//	cout << "Query 1d" << endl;
+//	//4 pred.
+//	predicates.push_back(20000);
+//	tpchOrderSelection1(datasetCatalog, predicates);
+//	//Variations of last execution
+//	cout << "---" << endl;
+//	cout << "Query 2" << endl;
+//	tpchOrderSelection2(datasetCatalog, predicates);
+//	cout << "---" << endl;
+//	cout << "Query 3" << endl;
+//	tpchOrderSelection3(datasetCatalog, predicates);
+//	cout << "---" << endl;
+//	cout << "Query 4" << endl;
+//	tpchOrderSelection4(datasetCatalog, predicates);
+//	cout << "---" << endl;
+//}
 int main()	{
 
 	map<string,dataset> datasetCatalog;
-	tpchSchemaJSON(datasetCatalog);
+	tpchSchema(datasetCatalog);
 
-	vector<int> predicates;
-	predicates.push_back(2);
-	cout << "Query 0 (PM built if applicable)" << endl;
-	tpchOrderSelection1(datasetCatalog, predicates);
-	cout << "---" << endl;
-	//1 pred.
-	cout << "Query 1a" << endl;
-	tpchOrderSelection1(datasetCatalog, predicates);
-	cout << "---" << endl;
-	cout << "Query 1b" << endl;
-	predicates.push_back(100);
-	//2 pred.
-	tpchOrderSelection1(datasetCatalog, predicates);
-	cout << "---" << endl;
-	cout << "Query 1c" << endl;
-	predicates.push_back(100);
-	//3 pred.
-	tpchOrderSelection1(datasetCatalog, predicates);
-	cout << "---" << endl;
-	cout << "Query 1d" << endl;
-	//4 pred.
-	predicates.push_back(20000);
-	tpchOrderSelection1(datasetCatalog, predicates);
-	//Variations of last execution
-	cout << "---" << endl;
-	cout << "Query 2" << endl;
-	tpchOrderSelection2(datasetCatalog, predicates);
-	cout << "---" << endl;
-	cout << "Query 3" << endl;
-	tpchOrderSelection3(datasetCatalog, predicates);
-	cout << "---" << endl;
-	cout << "Query 4" << endl;
-	tpchOrderSelection4(datasetCatalog, predicates);
-	cout << "---" << endl;
+	/* pred1 will be the one dictating query selectivity*/
+	int pred1 = L_ORDERKEY_MAX;
+	int pred2 = (int) L_QUANTITY_MAX;
+	int pred3 = L_LINENUMBER_MAX;
+	int pred4 = (int) L_EXTENDEDPRICE_MAX;
+
+	for (int i = 1; i <= 10; i++) {
+		double ratio = (i / (double) 10);
+		double percentage = ratio * 100;
+		int predicateVal = (int) ceil(pred1 * ratio);
+		cout << "SELECTIVITY FOR key < "<< predicateVal << ": " << percentage << "%" << endl;
+		vector<int> predicates;
+		predicates.push_back(predicateVal);
+		cout << "Query 0 (PM built if applicable)" << endl;
+		tpchOrderSelection1(datasetCatalog, predicates);
+		cout << "---" << endl;
+		//1 pred.
+		cout << "Query 1a" << endl;
+		tpchOrderSelection1(datasetCatalog, predicates);
+		cout << "---" << endl;
+		cout << "Query 1b" << endl;
+		predicates.push_back(pred2);
+		//2 pred.
+		tpchOrderSelection1(datasetCatalog, predicates);
+		cout << "---" << endl;
+		cout << "Query 1c" << endl;
+		predicates.push_back(pred3);
+		//3 pred.
+		tpchOrderSelection1(datasetCatalog, predicates);
+		cout << "---" << endl;
+		cout << "Query 1d" << endl;
+		//4 pred.
+		predicates.push_back(pred4);
+		tpchOrderSelection1(datasetCatalog, predicates);
+		//Variations of last execution
+		cout << "---" << endl;
+		cout << "Query 2" << endl;
+		tpchOrderSelection2(datasetCatalog, predicates);
+		cout << "---" << endl;
+		cout << "Query 3" << endl;
+		tpchOrderSelection3(datasetCatalog, predicates);
+		cout << "---" << endl;
+		cout << "Query 4" << endl;
+		tpchOrderSelection4(datasetCatalog, predicates);
+		cout << "---" << endl;
+	}
 }
 
 void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predicates)	{
@@ -637,112 +686,4 @@ void tpchOrderSelection4(map<string,dataset> datasetCatalog, vector<int> predica
 	//Close all open files & clear
 	pg->finish();
 	rawCatalog.clear();
-}
-
-void tpchSchemaJSON(map<string,dataset>& datasetCatalog)	{
-	IntType *intType 		= new IntType();
-	FloatType *floatType 	= new FloatType();
-	StringType *stringType 	= new StringType();
-
-	/* Lineitem */
-	string lineitemPath = string("inputs/tpch/json/lineitem10.json");
-
-	list<RecordAttribute*> attsLineitem = list<RecordAttribute*>();
-	RecordAttribute *l_orderkey =
-			new RecordAttribute(1, lineitemPath, "orderkey",intType);
-	attsLineitem.push_back(l_orderkey);
-	RecordAttribute *partkey =
-			new RecordAttribute(2, lineitemPath, "partkey", intType);
-	attsLineitem.push_back(partkey);
-	RecordAttribute *suppkey =
-			new RecordAttribute(3, lineitemPath, "suppkey", intType);
-	attsLineitem.push_back(suppkey);
-	RecordAttribute *linenumber =
-			new RecordAttribute(4, lineitemPath, "linenumber",intType);
-	attsLineitem.push_back(linenumber);
-	RecordAttribute *quantity =
-			new RecordAttribute(5, lineitemPath, "quantity", floatType);
-	attsLineitem.push_back(quantity);
-	RecordAttribute *extendedprice =
-			new RecordAttribute(6, lineitemPath,"extendedprice", floatType);
-	attsLineitem.push_back(extendedprice);
-	RecordAttribute *discount =
-			new RecordAttribute(7, lineitemPath, "discount",	floatType);
-	attsLineitem.push_back(discount);
-	RecordAttribute *tax =
-			new RecordAttribute(8, lineitemPath, "tax", floatType);
-	attsLineitem.push_back(tax);
-	RecordAttribute *returnflag =
-			new RecordAttribute(9, lineitemPath, "returnflag", stringType);
-	attsLineitem.push_back(returnflag);
-	RecordAttribute *linestatus =
-			new RecordAttribute(10, lineitemPath, "linestatus", stringType);
-	attsLineitem.push_back(linestatus);
-	RecordAttribute *shipdate =
-			new RecordAttribute(11, lineitemPath, "shipdate", stringType);
-	attsLineitem.push_back(shipdate);
-	RecordAttribute *commitdate =
-			new RecordAttribute(12, lineitemPath, "commitdate",stringType);
-	attsLineitem.push_back(commitdate);
-	RecordAttribute *receiptdate =
-			new RecordAttribute(13, lineitemPath, "receiptdate",stringType);
-	attsLineitem.push_back(receiptdate);
-	RecordAttribute *shipinstruct =
-			new RecordAttribute(14, lineitemPath, "shipinstruct", stringType);
-	attsLineitem.push_back(shipinstruct);
-	RecordAttribute *shipmode =
-			new RecordAttribute(15, lineitemPath, "shipmode", stringType);
-	attsLineitem.push_back(shipmode);
-	RecordAttribute *l_comment =
-			new RecordAttribute(16, lineitemPath, "comment", stringType);
-	attsLineitem.push_back(l_comment);
-
-	RecordType lineitemRec = RecordType(attsLineitem);
-
-	/* Orders */
-	string ordersPath = string("inputs/tpch/json/orders10.json");
-
-	list<RecordAttribute*> attsOrder = list<RecordAttribute*>();
-	RecordAttribute *o_orderkey =
-			new RecordAttribute(1, ordersPath, "orderkey",intType);
-	attsOrder.push_back(o_orderkey);
-	RecordAttribute *custkey =
-			new RecordAttribute(2, ordersPath, "custkey", intType);
-	attsOrder.push_back(custkey);
-	RecordAttribute *orderstatus =
-			new RecordAttribute(3, ordersPath, "orderstatus", stringType);
-	attsOrder.push_back(orderstatus);
-	RecordAttribute *totalprice =
-			new RecordAttribute(4, ordersPath, "totalprice",floatType);
-	attsOrder.push_back(totalprice);
-	RecordAttribute *orderdate =
-			new RecordAttribute(5, ordersPath, "orderdate", stringType);
-	attsOrder.push_back(orderdate);
-	RecordAttribute *orderpriority =
-			new RecordAttribute(6, ordersPath,"orderpriority", stringType);
-	attsOrder.push_back(orderpriority);
-	RecordAttribute *clerk =
-			new RecordAttribute(7, ordersPath, "clerk",	stringType);
-	attsOrder.push_back(clerk);
-	RecordAttribute *shippriority =
-			new RecordAttribute(8, ordersPath, "shippriority", intType);
-	attsOrder.push_back(shippriority);
-	RecordAttribute *o_comment =
-			new RecordAttribute(9, ordersPath, "comment", stringType);
-	attsOrder.push_back(o_comment);
-
-	RecordType ordersRec = RecordType(attsOrder);
-
-	dataset lineitem;
-	lineitem.path = lineitemPath;
-	lineitem.recType = lineitemRec;
-	lineitem.linehint = 10;
-
-	dataset orders;
-	orders.path = ordersPath;
-	orders.recType = ordersRec;
-	orders.linehint = 10;
-
-	datasetCatalog["lineitem"] = lineitem;
-	datasetCatalog["orders"] 	= orders;
 }

@@ -51,14 +51,11 @@
 #include "expressions/expressions.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "util/raw-caching.hpp"
+#include "common/tpch-config.hpp"
 
-typedef struct dataset	{
-	string path;
-	RecordType recType;
-	int linehint;
-} dataset;
-
-void tpchSchema(map<string,dataset>& datasetCatalog);
+void tpchSchema(map<string,dataset>& datasetCatalog)	{
+	tpchSchemaBin(datasetCatalog);
+}
 
 /* Numbers of lineitems per order
    SELECT COUNT(*), [...]
@@ -421,112 +418,4 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 	//Close all open files & clear
 	pg->finish();
 	rawCatalog.clear();
-}
-
-void tpchSchema(map<string, dataset>& datasetCatalog) {
-	IntType *intType = new IntType();
-	FloatType *floatType = new FloatType();
-	StringType *stringType = new StringType();
-
-	/* Lineitem */
-	string lineitemPath = string("inputs/tpch/col10/lineitem");
-
-	list<RecordAttribute*> attsLineitem = list<RecordAttribute*>();
-	RecordAttribute *l_orderkey = new RecordAttribute(1, lineitemPath,
-			"l_orderkey", intType);
-	attsLineitem.push_back(l_orderkey);
-	RecordAttribute *l_partkey = new RecordAttribute(2, lineitemPath,
-			"l_partkey", intType);
-	attsLineitem.push_back(l_partkey);
-	RecordAttribute *l_suppkey = new RecordAttribute(3, lineitemPath,
-			"l_suppkey", intType);
-	attsLineitem.push_back(l_suppkey);
-	RecordAttribute *l_linenumber = new RecordAttribute(4, lineitemPath,
-			"l_linenumber", intType);
-	attsLineitem.push_back(l_linenumber);
-	RecordAttribute *l_quantity = new RecordAttribute(5, lineitemPath,
-			"l_quantity", floatType);
-	attsLineitem.push_back(l_quantity);
-	RecordAttribute *l_extendedprice = new RecordAttribute(6, lineitemPath,
-			"l_extendedprice", floatType);
-	attsLineitem.push_back(l_extendedprice);
-	RecordAttribute *l_discount = new RecordAttribute(7, lineitemPath,
-			"l_discount", floatType);
-	attsLineitem.push_back(l_discount);
-	RecordAttribute *l_tax = new RecordAttribute(8, lineitemPath, "l_tax",
-			floatType);
-	attsLineitem.push_back(l_tax);
-	RecordAttribute *l_returnflag = new RecordAttribute(9, lineitemPath,
-			"l_returnflag", stringType);
-	attsLineitem.push_back(l_returnflag);
-	RecordAttribute *l_linestatus = new RecordAttribute(10, lineitemPath,
-			"l_linestatus", stringType);
-	attsLineitem.push_back(l_linestatus);
-	RecordAttribute *l_shipdate = new RecordAttribute(11, lineitemPath,
-			"l_shipdate", stringType);
-	attsLineitem.push_back(l_shipdate);
-	RecordAttribute *l_commitdate = new RecordAttribute(12, lineitemPath,
-			"l_commitdate", stringType);
-	attsLineitem.push_back(l_commitdate);
-	RecordAttribute *l_receiptdate = new RecordAttribute(13, lineitemPath,
-			"l_receiptdate", stringType);
-	attsLineitem.push_back(l_receiptdate);
-	RecordAttribute *l_shipinstruct = new RecordAttribute(14, lineitemPath,
-			"l_shipinstruct", stringType);
-	attsLineitem.push_back(l_shipinstruct);
-	RecordAttribute *l_shipmode = new RecordAttribute(15, lineitemPath,
-			"l_shipmode", stringType);
-	attsLineitem.push_back(l_shipmode);
-	RecordAttribute *l_comment = new RecordAttribute(16, lineitemPath,
-			"l_comment", stringType);
-	attsLineitem.push_back(l_comment);
-
-	RecordType lineitemRec = RecordType(attsLineitem);
-
-	/* Orders */
-	string ordersPath = string("inputs/tpch/col10/orders");
-
-	list<RecordAttribute*> attsOrder = list<RecordAttribute*>();
-	RecordAttribute *o_orderkey = new RecordAttribute(1, ordersPath,
-			"o_orderkey", intType);
-	attsOrder.push_back(o_orderkey);
-	RecordAttribute *o_custkey = new RecordAttribute(2, ordersPath, "o_custkey",
-			intType);
-	attsOrder.push_back(o_custkey);
-	RecordAttribute *o_orderstatus = new RecordAttribute(3, ordersPath,
-			"o_orderstatus", stringType);
-	attsOrder.push_back(o_orderstatus);
-	RecordAttribute *o_totalprice = new RecordAttribute(4, ordersPath,
-			"o_totalprice", floatType);
-	attsOrder.push_back(o_totalprice);
-	RecordAttribute *o_orderdate = new RecordAttribute(5, ordersPath,
-			"o_orderdate", stringType);
-	attsOrder.push_back(o_orderdate);
-	RecordAttribute *o_orderpriority = new RecordAttribute(6, ordersPath,
-			"o_orderpriority", stringType);
-	attsOrder.push_back(o_orderpriority);
-	RecordAttribute *o_clerk = new RecordAttribute(7, ordersPath, "o_clerk",
-			stringType);
-	attsOrder.push_back(o_clerk);
-	RecordAttribute *o_shippriority = new RecordAttribute(8, ordersPath,
-			"o_shippriority", intType);
-	attsOrder.push_back(o_shippriority);
-	RecordAttribute *o_comment = new RecordAttribute(9, ordersPath, "o_comment",
-			stringType);
-	attsOrder.push_back(o_comment);
-
-	RecordType ordersRec = RecordType(attsOrder);
-
-	dataset lineitem;
-	lineitem.path = lineitemPath;
-	lineitem.recType = lineitemRec;
-	lineitem.linehint = 10;
-
-	dataset orders;
-	orders.path = ordersPath;
-	orders.recType = ordersRec;
-	orders.linehint = 10;
-
-	datasetCatalog["lineitem"] = lineitem;
-	datasetCatalog["orders"] = orders;
 }
