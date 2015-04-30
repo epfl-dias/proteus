@@ -373,8 +373,9 @@ RawValue BinaryColPlugin::readCachedValue(CacheInfo info, const OperatorState& c
 		throw runtime_error(error_msg);
 	}
 	RawValueMemory mem_oidWrapper = it->second;
-	/* OID is a plain integer */
+	/* OID is a plain integer - starts from 1!!! */
 	Value *val_oid = Builder->CreateLoad(mem_oidWrapper.mem);
+	val_oid = Builder->CreateSub(val_oid,context->createInt64(1));
 
 	/* Need to find appropriate position in cache now -- should be OK(?) */
 
@@ -403,11 +404,10 @@ RawValue BinaryColPlugin::readCachedValue(CacheInfo info, const OperatorState& c
 	valWrapper.isNull = context->createFalse();
 #ifdef DEBUG
 	{
-		/* Obviously only works to peek integer fields */
 		vector<Value*> ArgsV;
 
-		Function* debugSth = context->getFunction("printi");
-		ArgsV.push_back(val_cachedField);
+		Function* debugSth = context->getFunction("printi64");
+		ArgsV.push_back(val_oid);
 		Builder->CreateCall(debugSth, ArgsV);
 	}
 #endif

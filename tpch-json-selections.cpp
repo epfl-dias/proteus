@@ -79,10 +79,9 @@ RawContext prepareContext(string moduleName)	{
 	return ctx;
 }
 
+int main()	{
 
-int main() {
-
-	map<string, dataset> datasetCatalog;
+	map<string,dataset> datasetCatalog;
 	tpchSchemaJSON(datasetCatalog);
 
 	vector<int> predicates;
@@ -95,18 +94,18 @@ int main() {
 	tpchOrderSelection1(datasetCatalog, predicates);
 	cout << "---" << endl;
 	cout << "Query 1b" << endl;
-	predicates.push_back(0);
+	predicates.push_back(100);
 	//2 pred.
 	tpchOrderSelection1(datasetCatalog, predicates);
 	cout << "---" << endl;
 	cout << "Query 1c" << endl;
-	predicates.push_back(0);
+	predicates.push_back(100);
 	//3 pred.
 	tpchOrderSelection1(datasetCatalog, predicates);
 	cout << "---" << endl;
 	cout << "Query 1d" << endl;
 	//4 pred.
-	predicates.push_back(0);
+	predicates.push_back(20000);
 	tpchOrderSelection1(datasetCatalog, predicates);
 	//Variations of last execution
 	cout << "---" << endl;
@@ -170,7 +169,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 				orderkey->getOriginalType(), arg, *orderkey);
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
-		expressions::Expression* pred1 = new expressions::GtExpression(
+		expressions::Expression* pred1 = new expressions::LtExpression(
 				new BoolType(), lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, scan);
@@ -186,7 +185,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 				orderkey->getOriginalType(), arg, *orderkey);
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
-		expressions::Expression* pred1 = new expressions::GtExpression(
+		expressions::Expression* pred1 = new expressions::LtExpression(
 				new BoolType(), lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, scan);
@@ -196,7 +195,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 				quantity->getOriginalType(), arg, *quantity);
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
-		expressions::Expression* pred2 = new expressions::GtExpression(
+		expressions::Expression* pred2 = new expressions::LtExpression(
 				new BoolType(), lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
@@ -214,7 +213,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 				orderkey->getOriginalType(), arg, *orderkey);
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
-		expressions::Expression* pred1 = new expressions::GtExpression(
+		expressions::Expression* pred1 = new expressions::LtExpression(
 				new BoolType(), lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, scan);
@@ -224,7 +223,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 				quantity->getOriginalType(), arg, *quantity);
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
-		expressions::Expression* pred2 = new expressions::GtExpression(
+		expressions::Expression* pred2 = new expressions::LtExpression(
 				new BoolType(), lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
@@ -234,7 +233,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 				linenumber->getOriginalType(), arg, *linenumber);
 		expressions::Expression* rhs3 = new expressions::IntConstant(
 				predicates.at(2));
-		expressions::Expression* pred3 = new expressions::GtExpression(
+		expressions::Expression* pred3 = new expressions::LtExpression(
 				new BoolType(), lhs3, rhs3);
 
 		Select *sel3 = new Select(pred3, sel2);
@@ -253,7 +252,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 				orderkey->getOriginalType(), arg, *orderkey);
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
-		expressions::Expression* pred1 = new expressions::GtExpression(
+		expressions::Expression* pred1 = new expressions::LtExpression(
 				new BoolType(), lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, scan);
@@ -263,7 +262,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 				quantity->getOriginalType(), arg, *quantity);
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
-		expressions::Expression* pred2 = new expressions::GtExpression(
+		expressions::Expression* pred2 = new expressions::LtExpression(
 				new BoolType(), lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
@@ -273,7 +272,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 				linenumber->getOriginalType(), arg, *linenumber);
 		expressions::Expression* rhs3 = new expressions::IntConstant(
 				predicates.at(2));
-		expressions::Expression* pred3 = new expressions::GtExpression(
+		expressions::Expression* pred3 = new expressions::LtExpression(
 				new BoolType(), lhs3, rhs3);
 
 		Select *sel3 = new Select(pred3, sel2);
@@ -283,7 +282,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 				extendedprice->getOriginalType(), arg, *extendedprice);
 		expressions::Expression* rhs4 = new expressions::FloatConstant(
 				predicates.at(3));
-		expressions::Expression* pred4 = new expressions::GtExpression(
+		expressions::Expression* pred4 = new expressions::LtExpression(
 				new BoolType(), lhs4, rhs4);
 
 		Select *sel4 = new Select(pred4, sel3);
@@ -362,28 +361,28 @@ void tpchOrderSelection2(map<string,dataset> datasetCatalog, vector<int> predica
 			orderkey->getOriginalType(), arg, *orderkey);
 	expressions::Expression* rhs1 = new expressions::IntConstant(
 			predicates.at(0));
-	expressions::Expression* pred1 = new expressions::GtExpression(
+	expressions::Expression* pred1 = new expressions::LtExpression(
 			new BoolType(), lhs1, rhs1);
 
 	expressions::Expression *lhs2 = new expressions::RecordProjection(
 			quantity->getOriginalType(), arg, *quantity);
 	expressions::Expression* rhs2 = new expressions::FloatConstant(
 			predicates.at(1));
-	expressions::Expression* pred2 = new expressions::GtExpression(
+	expressions::Expression* pred2 = new expressions::LtExpression(
 			new BoolType(), lhs2, rhs2);
 
 	expressions::Expression *lhs3 = new expressions::RecordProjection(
 			linenumber->getOriginalType(), arg, *linenumber);
 	expressions::Expression* rhs3 = new expressions::IntConstant(
 			predicates.at(2));
-	expressions::Expression* pred3 = new expressions::GtExpression(
+	expressions::Expression* pred3 = new expressions::LtExpression(
 			new BoolType(), lhs3, rhs3);
 
 	expressions::Expression *lhs4 = new expressions::RecordProjection(
 			extendedprice->getOriginalType(), arg, *extendedprice);
 	expressions::Expression* rhs4 = new expressions::FloatConstant(
 			predicates.at(3));
-	expressions::Expression* pred4 = new expressions::GtExpression(
+	expressions::Expression* pred4 = new expressions::LtExpression(
 			new BoolType(), lhs4, rhs4);
 
 	/* Notice that we apply predicates in reverse order */
@@ -472,28 +471,28 @@ void tpchOrderSelection3(map<string,dataset> datasetCatalog, vector<int> predica
 			orderkey->getOriginalType(), arg, *orderkey);
 	expressions::Expression* rhs1 = new expressions::IntConstant(
 			predicates.at(0));
-	expressions::Expression* pred1 = new expressions::GtExpression(
+	expressions::Expression* pred1 = new expressions::LtExpression(
 			new BoolType(), lhs1, rhs1);
 
 	expressions::Expression *lhs2 = new expressions::RecordProjection(
 			quantity->getOriginalType(), arg, *quantity);
 	expressions::Expression* rhs2 = new expressions::FloatConstant(
 			predicates.at(1));
-	expressions::Expression* pred2 = new expressions::GtExpression(
+	expressions::Expression* pred2 = new expressions::LtExpression(
 			new BoolType(), lhs2, rhs2);
 
 	expressions::Expression *lhs3 = new expressions::RecordProjection(
 			linenumber->getOriginalType(), arg, *linenumber);
 	expressions::Expression* rhs3 = new expressions::IntConstant(
 			predicates.at(2));
-	expressions::Expression* pred3 = new expressions::GtExpression(
+	expressions::Expression* pred3 = new expressions::LtExpression(
 			new BoolType(), lhs3, rhs3);
 
 	expressions::Expression *lhs4 = new expressions::RecordProjection(
 			extendedprice->getOriginalType(), arg, *extendedprice);
 	expressions::Expression* rhs4 = new expressions::FloatConstant(
 			predicates.at(3));
-	expressions::Expression* pred4 = new expressions::GtExpression(
+	expressions::Expression* pred4 = new expressions::LtExpression(
 			new BoolType(), lhs4, rhs4);
 
 	/* Two (2) composite predicates */
@@ -581,28 +580,28 @@ void tpchOrderSelection4(map<string,dataset> datasetCatalog, vector<int> predica
 			orderkey->getOriginalType(), arg, *orderkey);
 	expressions::Expression* rhs1 = new expressions::IntConstant(
 			predicates.at(0));
-	expressions::Expression* pred1 = new expressions::GtExpression(
+	expressions::Expression* pred1 = new expressions::LtExpression(
 			new BoolType(), lhs1, rhs1);
 
 	expressions::Expression *lhs2 = new expressions::RecordProjection(
 			quantity->getOriginalType(), arg, *quantity);
 	expressions::Expression* rhs2 = new expressions::FloatConstant(
 			predicates.at(1));
-	expressions::Expression* pred2 = new expressions::GtExpression(
+	expressions::Expression* pred2 = new expressions::LtExpression(
 			new BoolType(), lhs2, rhs2);
 
 	expressions::Expression *lhs3 = new expressions::RecordProjection(
 			linenumber->getOriginalType(), arg, *linenumber);
 	expressions::Expression* rhs3 = new expressions::IntConstant(
 			predicates.at(2));
-	expressions::Expression* pred3 = new expressions::GtExpression(
+	expressions::Expression* pred3 = new expressions::LtExpression(
 			new BoolType(), lhs3, rhs3);
 
 	expressions::Expression *lhs4 = new expressions::RecordProjection(
 			extendedprice->getOriginalType(), arg, *extendedprice);
 	expressions::Expression* rhs4 = new expressions::FloatConstant(
 			predicates.at(3));
-	expressions::Expression* pred4 = new expressions::GtExpression(
+	expressions::Expression* pred4 = new expressions::LtExpression(
 			new BoolType(), lhs4, rhs4);
 
 	/* One (1) final composite predicate */

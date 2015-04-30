@@ -23,9 +23,9 @@
 
 #include "plugins/plugins.hpp"
 
-#ifdef DEBUG
+//#ifdef DEBUG
 #define DEBUGBINCOL
-#endif
+//#endif
 
 class BinaryColPlugin	: public Plugin {
 public:

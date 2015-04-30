@@ -80,20 +80,21 @@ int main()	{
 	map<string,dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
 
+	int predicate = 3;
 	cout << "Query 0 (PM + Side built if applicable)" << endl;
-	tpchGroup(datasetCatalog,0,4);
+	tpchGroup(datasetCatalog, predicate, 4);
 	cout << "---" << endl;
 	cout << "Query 1 (aggr.)" << endl;
-	tpchGroup(datasetCatalog,0,1);
+	tpchGroup(datasetCatalog, predicate, 1);
 	cout << "---" << endl;
 	cout << "Query 2 (aggr.)" << endl;
-	tpchGroup(datasetCatalog,0,2);
+	tpchGroup(datasetCatalog, predicate, 2);
 	cout << "---" << endl;
 	cout << "Query 3 (aggr.)" << endl;
-	tpchGroup(datasetCatalog,0,3);
+	tpchGroup(datasetCatalog, predicate, 3);
 	cout << "---" << endl;
 	cout << "Query 4 (aggr.)" << endl;
-	tpchGroup(datasetCatalog,0,4);
+	tpchGroup(datasetCatalog, predicate, 4);
 	cout << "---" << endl;
 }
 
@@ -173,7 +174,7 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 	expressions::Expression *lhs = new expressions::RecordProjection(
 			l_orderkey->getOriginalType(), arg, *l_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(predicate);
-	expressions::Expression* pred = new expressions::GtExpression(
+	expressions::Expression* pred = new expressions::LtExpression(
 			new BoolType(), lhs, rhs);
 
 	Select *sel = new Select(pred, scan);

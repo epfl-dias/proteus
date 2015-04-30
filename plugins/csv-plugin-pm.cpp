@@ -400,7 +400,7 @@ RawValue CSVPlugin::readCachedValue(CacheInfo info, const OperatorState& currSta
 		throw runtime_error(error_msg);
 	}
 	RawValueMemory mem_oidWrapper = it->second;
-	/* OID is a plain integer */
+	/* OID is a plain integer - starts from 0!!*/
 	Value *val_oid = Builder->CreateLoad(mem_oidWrapper.mem);
 
 	StructType *cacheType = context->ReproduceCustomStruct(info.objectTypes);
@@ -432,7 +432,7 @@ RawValue CSVPlugin::readCachedValue(CacheInfo info, const OperatorState& currSta
 		vector<Value*> ArgsV;
 
 		Function* debugSth = context->getFunction("printi");
-		ArgsV.push_back(val_cachedField);
+		ArgsV.push_back(val_oid);
 		Builder->CreateCall(debugSth, ArgsV);
 	}
 #endif
@@ -1267,7 +1267,7 @@ void CSVPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, R
 	mem_valWrapper.isNull = context->createFalse();
 	variables[attName] = mem_valWrapper;
 
-	cout << "[CSV_PM: ] Stored " << attName.getAttrName() << endl;
+	//cout << "[CSV_PM: ] Stored " << attName.getAttrName() << endl;
 }
 
 void CSVPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)	{
@@ -1802,7 +1802,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 				else
 				{
 					int posInStruct = info.structFieldNo;
-					cout << posInStruct <<" pos. out of "<< info.objectTypes.size() << " in total" << endl;
+//					cout << posInStruct <<" pos. out of "<< info.objectTypes.size() << " in total" << endl;
 
 					/* We already got the OID -
 					 * No need for extra work.
