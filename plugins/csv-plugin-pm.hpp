@@ -26,7 +26,7 @@
 #include "util/raw-caching.hpp"
 
 
-#define DEBUGPM
+//#define DEBUGPM
 
 typedef struct pmCSV {
 	size_t *newlines;

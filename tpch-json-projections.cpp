@@ -81,16 +81,24 @@ RawContext prepareContext(string moduleName)	{
 
 
 int main()	{
-
+	cout << "Execution" << endl;
 	map<string,dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
 
+
+//	tpchLineitemProjection3(datasetCatalog, predicateMax, 4);
+//	cout << "---" << endl;
+//	tpchLineitemProjection3Caching(datasetCatalog,predicateMax,4);
+//	cout << "---" << endl;
+//	tpchLineitemProjection3(datasetCatalog, predicateMax, 4);
+//	cout << "---" << endl;
 	int predicateMax = L_ORDERKEY_MAX;
 	for (int i = 1; i <= 10; i++) {
-		double ratio = (i / (double)10);
+		double ratio = (i / (double) 10);
 		double percentage = ratio * 100;
 		int predicateVal = (int) ceil(predicateMax * ratio);
-		cout << "SELECTIVITY FOR key < "<< predicateVal << ": " << percentage << "%" << endl;
+		cout << "SELECTIVITY FOR key < " << predicateVal << ": " << percentage
+				<< "%" << endl;
 		cout << "Query 0 (PM built if applicable)" << endl;
 		tpchLineitemProjection1(datasetCatalog, predicateVal);
 		cout << "---" << endl;
@@ -114,7 +122,7 @@ int main()	{
 		cout << "---" << endl;
 	}
 
-	tpchLineitemProjection3Caching(datasetCatalog,predicateMax,4);
+	tpchLineitemProjection3Caching(datasetCatalog, predicateMax, 4);
 
 	cout << "CACHING (MATERIALIZING) INTO EFFECT" << endl;
 	for (int i = 1; i <= 10; i++) {
@@ -518,7 +526,7 @@ void tpchLineitemProjection3Caching(map<string,dataset> datasetCatalog, int pred
 			orderkey->getOriginalType(), arg, *orderkey);
 
 	char matLabel[] = "orderkeyMaterializer";
-	ExprMaterializer *mat = new ExprMaterializer(toMat, scan, &ctx, matLabel);
+	ExprMaterializer *mat = new ExprMaterializer(toMat, linehint, scan, &ctx, matLabel);
 	scan->setParent(mat);
 
 	/**

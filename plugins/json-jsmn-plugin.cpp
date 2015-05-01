@@ -82,7 +82,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	}
 
 	jsmn_init(&p);
-	error_code = jsmn_parse(&p, buf, strlen(buf), tokens, MAXTOKENS);
+	error_code = jsmn_parse(&p, buf, strlen(buf), &tokens, MAXTOKENS);
 	if(error_code < 0)
 	{
 		string msg = "Json (JSMN) plugin failure: ";

@@ -720,7 +720,10 @@ void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size
 	char* bufShift = buf + start;
 	char eol = buf[end];
 	buf[end] = '\0';
-	error_code = jsmn_parse(&p, bufShift, end - start, tokens[line], MAXTOKENS);
+//	error_code = jsmn_parse(&p, bufShift, end - start, tokens[line], MAXTOKENS);
+//	printf("%ld %ld\n",tokens,tokens[line]);
+	error_code = jsmn_parse(&p, bufShift, end - start, &(tokens[line]), MAXTOKENS);
+//	printf("%ld %ld\n",tokens,tokens[line]);
 	buf[end] = eol;
 	if(error_code < 0)
 	{

@@ -266,66 +266,118 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 
 	/* PM */
 	CachingService& cache = CachingService::getInstance();
+	/* Might be already flushed */
+	ostringstream sstream;
+	sstream << fname << ".pm";
+	const char* pmPath = sstream.str().c_str();
+	struct stat pmStatBuffer;
+	int pmStored = -1;
+
+#ifdef JSON_FLUSH
+	pmStored = stat(pmPath, &pmStatBuffer);
+#endif
 
 	char* pmCast = cache.getPM(fname);
 	Value *cast_tokenArray = NULL;
 	if (pmCast == NULL) {
-//		cout << "NEW (JSON) PM" << endl;
-		tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
-		if (tokenBuf == NULL) {
-			string msg = string(
-					"[JSON Plugin: ]: Failed to allocate token arena");
-			LOG(ERROR)<< msg;
-			throw runtime_error(msg);
-		}
-		tokens = (jsmntok_t**) tokenBuf;
-		jsmntok_t *tokenBuf_ = (jsmntok_t*) malloc(
-				lines * MAXTOKENS * sizeof(jsmntok_t));
-		if (tokenBuf_ == NULL) {
-			throw runtime_error(string("new() of tokens failed"));
-		}
-		for (int i = 0; i < lines; i++) {
-			tokens[i] = (tokenBuf_ + i * MAXTOKENS);
-		}
 
+		if(pmStored == 0)	{
+			/* Load from file */
+			cout << "READING PM FROM DISK" << endl;
+			size_t pmsize = pmStatBuffer.st_size;
+			//cout << pmsize << " vs " << lines * MAXTOKENS * sizeof(jsmntok_t) << endl;
+			int fdPM = open(pmPath, O_RDONLY);
+			if (fdPM == -1) {
+				fatal("open");
+			}
+			tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
+			tokens = (jsmntok_t**) tokenBuf;
+			char* pmraw = (char*) mmap(NULL, pmsize, PROT_READ, MAP_PRIVATE, fdPM, 0);
+			if (pmraw == MAP_FAILED ) {
+				string msg = string("[JSON Plugin: ]: Failed to mmap JSON pm");
+				LOG(ERROR)<< msg;
+				throw runtime_error(msg);
+			}
+			jsmntok_t *tokenBuf_ = (jsmntok_t *) pmraw;
 
-		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
-				token2DPtrType);
-		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, tokenBuf);
+			for (int i = 0; i < lines; i++) {
+				tokens[i] = (tokenBuf_ + i * MAXTOKENS);
+			}
+			mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
+					token2DPtrType);
+			cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
+					tokenBuf);
+			this->cache = true;
+			//cout << "Peek: " << tokens[0][0].start << " to " << tokens[0][0].end << endl;
+		}
+		else
+		{
+			//cout << "NEW (JSON) PM" << endl;
+			tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
+			if (tokenBuf == NULL) {
+				string msg = string(
+						"[JSON Plugin: ]: Failed to allocate token arena");
+				LOG(ERROR)<< msg;
+				throw runtime_error(msg);
+			}
+			tokens = (jsmntok_t**) tokenBuf;
+#ifndef JSON_TPCH_WIDE
+			jsmntok_t *tokenBuf_ = (jsmntok_t*) malloc(
+					lines * MAXTOKENS * sizeof(jsmntok_t));
+			if (tokenBuf_ == NULL) {
+				throw runtime_error(string("new() of tokens failed"));
+			}
+			for (int i = 0; i < lines; i++) {
+				tokens[i] = (tokenBuf_ + i * MAXTOKENS);
+			}
+#endif
 
+#ifdef JSON_TPCH_WIDE
+			for (int i = 0; i < lines; i++) {
+				tokens[i] = (jsmntok_t*) malloc(MAXTOKENS * sizeof(jsmntok_t));
+			}
+#endif
+
+			mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
+					token2DPtrType);
+			cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
+					tokenBuf);
+		}
 		/* Store PM in cache */
 		/* To be used by subsequent queries */
 		cache.registerPM(fname, tokenBuf);
 	} else {
-		cout << "(JSON) PM REUSE" << endl;
+		//cout << "(JSON) PM REUSE" << endl;
 		jsmntok_t **tokens = (jsmntok_t **) pmCast;
 		this->tokens = tokens;
 		tokenBuf = NULL;
 
 
-		/* Flush to disk too if need be */
-//		ostringstream sstream;
-//		sstream << fname << ".pm";
-//		const char* pmPath = sstream.str().c_str();
-//		struct stat pmStatBuffer;
-//		int pmStored = stat(pmPath, &pmStatBuffer);
-//		cout << "Does pm exist? " << pmStored << endl;
-//		if (pmStored != 0) {
-//			FILE *f;
-//			f = fopen(pmPath, "wb");
-//			if (f == NULL) {
-//				fatal("fopen");
-//			}
-//
-//			tokenBuf = (char*) tokens;
+		/* Flush PM to disk too if need be */
+		//cout << "Does pm exist? " << pmStored << endl;
+#ifdef JSON_FLUSH
+		if (pmStored != 0) {
+			FILE *f;
+			f = fopen(pmPath, "wb");
+			if (f == NULL) {
+				fatal("fopen");
+			}
+			//cout << "Peek before writing: " << tokens[0][0].start << " to " << tokens[0][0].end << endl;
+			tokenBuf = (char*) tokens;
+			for (int i = 0; i < lines; i++) {
+				if (fwrite(tokens[i], sizeof(jsmntok_t), MAXTOKENS,
+						f) != MAXTOKENS) {
+					fatal("fwrite");
+				}
+			}
 //			if (fwrite(tokenBuf, sizeof(jsmntok_t), linehint * MAXTOKENS,
 //					f) != linehint * MAXTOKENS) {
 //				fatal("fwrite");
 //			}
-//			fclose(f);
-//			cout << "(Also) Stored JSON PM" << endl;
-//		}
-
+			fclose(f);
+			//cout << "(Also) Stored JSON PM" << endl;
+		}
+#endif
 		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
 				token2DPtrType);
 		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,

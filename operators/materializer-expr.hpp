@@ -42,10 +42,15 @@ struct matBuf	{
 	AllocaInst *mem_offset;
 };
 
+/**
+ * Issue when attempting realloc() on server
+ */
 class ExprMaterializer: public UnaryRawOperator {
 public:
 	ExprMaterializer(expressions::Expression* expr, RawOperator* const child,
 			RawContext* const context, char* opLabel);
+	ExprMaterializer(expressions::Expression* expr, int linehint, RawOperator* const child,
+				RawContext* const context, char* opLabel);
 	virtual ~ExprMaterializer();
 	virtual void produce();
 	virtual void consume(RawContext* const context,

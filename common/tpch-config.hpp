@@ -230,15 +230,21 @@ void tpchSchemaJSON(map<string, dataset>& datasetCatalog) {
 	 #ifdef TPCH_LOCAL
 	/* Lineitem */
 	string lineitemPath = string("inputs/tpch/json/lineitem10.json");
+//	string lineitemPath = string("inputs/tpch/json/shortest.json");
+//	string lineitemPath = string("inputs/tpch/json/longest.json");
+//	lineitem.linehint = 1;
 	lineitem.linehint = 10;
 	/* Orders */
 	string ordersPath = string("inputs/tpch/json/orders10.json");
 	orders.linehint = 10;
 	/* OrdersLineitems
 	 * i.e., pre-materialized join */
+//	string ordersLineitemsPath = string(
+//			"inputs/tpch/json/ordersLineitemsArray10.json");
+//	ordersLineitems.linehint = 10;
 	string ordersLineitemsPath = string(
-			"inputs/tpch/json/ordersLineitems10.json");
-	ordersLineitems.linehint = 10;
+			"inputs/tpch/json/ordersLineitemsArray20.json");
+	ordersLineitems.linehint = 20;
 	#endif
 	#ifdef TPCH_SF10
 	/* Lineitem */

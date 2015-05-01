@@ -173,48 +173,74 @@ RawContext prepareContext(string moduleName)	{
 //	cout << "---" << endl;
 //}
 
+///* Same as in other plugins */
+//int main()	{
+//
+//	map<string,dataset> datasetCatalog;
+//	tpchSchema(datasetCatalog);
+//
+//	/* Make sure sides are materialized */
+////	cout << "Query 0a (PM + Side built if applicable)" << endl;
+////	tpchJoin1a(datasetCatalog,2);
+////	tpchJoin1a(datasetCatalog,2);
+////	cout << "---" << endl;
+////	cout << "Query 0b (PM + Side built if applicable)" << endl;
+////	tpchJoin1b(datasetCatalog,2);
+////	tpchJoin1b(datasetCatalog,2);
+////	cout << "---" << endl;
+////
+//	cout << "Query 1a" << endl;
+//	tpchJoin1a(datasetCatalog,2);
+//	cout << "---" << endl;
+//	cout << "Query 1b" << endl;
+//	tpchJoin1b(datasetCatalog,2);
+//	cout << "---" << endl;
+//	cout << "Query 2a" << endl;
+//	tpchJoin2a(datasetCatalog,3);
+//	cout << "---" << endl;
+//	cout << "Query 2b" << endl;
+//	tpchJoin2b(datasetCatalog,3);
+//	cout << "---" << endl;
+//
+//	/* Make sure sides are materialized */
+//	cout << "Query 0c (Side built if applicable)" << endl;
+//	tpchJoin3(datasetCatalog, 3);
+//	cout << "---" << endl;
+//	cout << "Query 0d (Side built if applicable)" << endl;
+//	tpchJoin4(datasetCatalog, 3);
+//	cout << "---" << endl;
+//
+////	cout << "Query 3" << endl;
+////	tpchJoin3(datasetCatalog, 3);
+////	cout << "---" << endl;
+////	cout << "Query 4" << endl;
+////	tpchJoin4(datasetCatalog, 3);
+////	cout << "---" << endl;
+//}
+
+///* Testing (very) wide json files with nesting
+// * ordersLineitemArray.json */
 int main()	{
 
 	map<string,dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
 
-	/* Make sure sides are materialized */
-//	cout << "Query 0a (PM + Side built if applicable)" << endl;
-//	tpchJoin1a(datasetCatalog,2);
-//	tpchJoin1a(datasetCatalog,2);
-//	cout << "---" << endl;
-//	cout << "Query 0b (PM + Side built if applicable)" << endl;
-//	tpchJoin1b(datasetCatalog,2);
-//	tpchJoin1b(datasetCatalog,2);
-//	cout << "---" << endl;
-//
-	cout << "Query 1a" << endl;
-	tpchJoin1a(datasetCatalog,2);
-	cout << "---" << endl;
-	cout << "Query 1b" << endl;
-	tpchJoin1b(datasetCatalog,2);
-	cout << "---" << endl;
-	cout << "Query 2a" << endl;
-	tpchJoin2a(datasetCatalog,3);
-	cout << "---" << endl;
-	cout << "Query 2b" << endl;
-	tpchJoin2b(datasetCatalog,3);
-	cout << "---" << endl;
+	/* Returned 20760489 in 30 sec.*/
+//	tpchJoin1c(datasetCatalog,20000000);
+//	tpchJoin1c(datasetCatalog,20000000);
 
-	/* Make sure sides are materialized */
-	cout << "Query 0c (Side built if applicable)" << endl;
-	tpchJoin3(datasetCatalog, 3);
-	cout << "---" << endl;
-	cout << "Query 0d (Side built if applicable)" << endl;
-	tpchJoin4(datasetCatalog, 3);
-	cout << "---" << endl;
+//	tpchJoin1a(datasetCatalog,3);
+//	tpchJoin1b(datasetCatalog,3);
 
-//	cout << "Query 3" << endl;
-//	tpchJoin3(datasetCatalog, 3);
-//	cout << "---" << endl;
-//	cout << "Query 4" << endl;
-//	tpchJoin4(datasetCatalog, 3);
-//	cout << "---" << endl;
+	/* Returns 1 more result! */
+	//Correct: 25
+	tpchJoin1c(datasetCatalog,10);
+	//Correct: 55
+	tpchJoin1c(datasetCatalog,40);
+
+//	tpchJoin1c(datasetCatalog,30000000);
+//	tpchJoin1c(datasetCatalog,30000000);
+
 }
 
 void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
@@ -529,7 +555,7 @@ void tpchJoin1c(map<string, dataset> datasetCatalog, int predicate) {
 
 	rawCatalog.registerPlugin(fileName, pg);
 	Scan *scan = new Scan(&ctx, *pg);
-	cout << "3. MADE IT HERE" << endl;
+	//cout << "3. MADE IT HERE" << endl;
 
 	/**
 	 * UNNEST:

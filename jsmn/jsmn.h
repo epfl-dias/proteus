@@ -36,6 +36,14 @@ typedef enum {
  */
 #define JSON_TIGHT
 
+/* Used to accommodate very wide TPC-H pre-computed join
+ * i.e. ordersLineitem.json */
+//#define JSON_TPCH_WIDE
+#ifndef JSON_TPCH_WIDE
+/* Only flush out equi-width json pm */
+#define JSON_FLUSH
+#endif
+
 #ifndef JSON_TIGHT
 typedef struct {
 	jsmntype_t type;
@@ -67,13 +75,21 @@ typedef struct {
 //} jsmntok_t;
 #endif
 
-/* Should be enough for single-line JSON (?) */
 #ifdef JSON_TIGHT
 //Sufficient for lineitem.json
 //#define MAXTOKENS 50
-//Exactly enough for lineitem.json (2 x #fields + 1 for the obj.)
-#define MAXTOKENS 33
+//Used to test reallocs locally
+//#define MAXTOKENS 17
+#ifdef JSON_TPCH_WIDE
+//Used for ordersLineitem
+#define MAXTOKENS 52
+#endif /* JSON_TPCH_WIDE */
+#ifndef JSON_TPCH_WIDE
+//33 is Exactly enough for lineitem.json (2 x #fields + 1 for the obj.)
+//Wider ones will break
+#define MAXTOKENS 300 //33
 #endif
+#endif /* JSON_TIGHT */
 #ifndef JSON_TIGHT
 #define MAXTOKENS 1000
 #endif
@@ -98,7 +114,7 @@ void jsmn_init(jsmn_parser *parser);
  * a single JSON object.
  */
 jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
-		jsmntok_t *tokens, unsigned int num_tokens);
+		jsmntok_t **tokens, size_t num_tokens);
 
 #ifdef __cplusplus
 }

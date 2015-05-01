@@ -1777,8 +1777,10 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 	/* Actual Work */
 	for (vector<RecordAttribute*>::iterator it = wantedFields.begin();
 			it != wantedFields.end(); it++) {
-		// cout << "[CSV_PM: ] Need Field " << (*it)->getOriginalRelationName() << "."
-		// 						<< (*it)->getAttrName() << endl;
+#ifdef DEBUGPM
+		cout << "[CSV_PM: ] Need Field " << (*it)->getOriginalRelationName()
+				<< "." << (*it)->getAttrName() << endl;
+#endif
 		/* Create search key for caches  */
 		bool found = false;
 		{
@@ -1874,10 +1876,11 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 			/* Parse from current field */
 			if (distanceFromCurr <= pmDistanceBefore
 					&& distanceFromCurr <= pmDistanceAfter) {
-//			cout << "To get field " << (*it)->getAttrNo()
-//					<< ", scan from current pos " << distanceFromCurr
-//					<< " fields" << endl;
-
+#ifdef DEBUGPM
+				cout << "To get field " << (*it)->getAttrNo()
+						<< ", scan from current pos " << distanceFromCurr
+					<< " fields" << endl;
+#endif
 				/* How many fields to skip */
 				for (int i = 0; i < distanceFromCurr; i++) {
 					skipDelimLLVM(delimInner);
@@ -1890,9 +1893,11 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 			}
 			/* Parse forwards */
 			else if (pmDistanceBefore <= pmDistanceAfter) {
-//				cout << "To get field " << (*it)->getAttrNo()
-//						<< ", scan forward " << pmDistanceBefore << " fields"
-//						<< endl;
+#ifdef DEBUGPM
+				cout << "To get field " << (*it)->getAttrNo()
+						<< ", scan forward " << pmDistanceBefore << " fields"
+						<< endl;
+#endif
 				int nearbyPM = neededAttr / policy;
 //			cout << "Array Field In PM: " << nearbyPM - 1 << endl;
 
@@ -1935,9 +1940,11 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 			}
 			/* Parse backwards */
 			else {
-				// cout << "To get field " << (*it)->getAttrNo()
-				// 		<< ", scan backward " << pmDistanceAfter << " fields"
-				// 		<< endl;
+#ifdef DEBUGPM
+				cout << "To get field " << (*it)->getAttrNo()
+						<< ", scan backward " << pmDistanceAfter << " fields"
+				 		<< endl;
+#endif
 				int nearbyPM = (neededAttr / policy) + 1;
 				// cout << "Array Field in PM: " << nearbyPM - 1 << endl;
 

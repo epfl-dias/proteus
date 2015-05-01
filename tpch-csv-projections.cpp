@@ -81,33 +81,37 @@ int main()	{
 	tpchSchema(datasetCatalog);
 
 	int predicateMax = L_ORDERKEY_MAX;
-	for (int i = 1; i <= 10; i++) {
-		double ratio = (i / (double)10);
-		double percentage = ratio * 100;
-		int predicateVal = (int) ceil(predicateMax * ratio);
-		cout << "SELECTIVITY FOR key < "<< predicateVal << ": " << percentage << "%" << endl;
-		cout << "Query 0 (PM built if applicable)" << endl;
-		tpchLineitemProjection1(datasetCatalog, predicateVal);
-		cout << "---" << endl;
-		cout << "Query 1" << endl;
-		tpchLineitemProjection1(datasetCatalog, predicateVal);
-		cout << "---" << endl;
-		cout << "Query 2" << endl;
-		tpchLineitemProjection2(datasetCatalog, predicateVal);
-		cout << "---" << endl;
-		cout << "Query 3" << endl;
-		tpchLineitemProjection3(datasetCatalog, predicateVal, 1);
-		cout << "---" << endl;
-		cout << "Query 4" << endl;
-		tpchLineitemProjection3(datasetCatalog, predicateVal, 2);
-		cout << "---" << endl;
-		cout << "Query 5" << endl;
-		tpchLineitemProjection3(datasetCatalog, predicateVal, 3);
-		cout << "---" << endl;
-		cout << "Query 6" << endl;
-		tpchLineitemProjection3(datasetCatalog, predicateVal, 4);
-		cout << "---" << endl;
-	}
+//	for (int i = 1; i <= 10; i++) {
+//		double ratio = (i / (double)10);
+//		double percentage = ratio * 100;
+//		int predicateVal = (int) ceil(predicateMax * ratio);
+//		cout << "SELECTIVITY FOR key < "<< predicateVal << ": " << percentage << "%" << endl;
+//		cout << "Query 0 (PM built if applicable)" << endl;
+//		tpchLineitemProjection1(datasetCatalog, predicateVal);
+//		cout << "---" << endl;
+//		cout << "Query 1" << endl;
+//		tpchLineitemProjection1(datasetCatalog, predicateVal);
+//		cout << "---" << endl;
+//		cout << "Query 2" << endl;
+//		tpchLineitemProjection2(datasetCatalog, predicateVal);
+//		cout << "---" << endl;
+//		cout << "Query 3" << endl;
+//		tpchLineitemProjection3(datasetCatalog, predicateVal, 1);
+//		cout << "---" << endl;
+//		cout << "Query 4" << endl;
+//		tpchLineitemProjection3(datasetCatalog, predicateVal, 2);
+//		cout << "---" << endl;
+//		cout << "Query 5" << endl;
+//		tpchLineitemProjection3(datasetCatalog, predicateVal, 3);
+//		cout << "---" << endl;
+//		cout << "Query 6" << endl;
+//		tpchLineitemProjection3(datasetCatalog, predicateVal, 4);
+//		cout << "---" << endl;
+//	}
+
+	tpchLineitemProjection3(datasetCatalog, predicateMax, 4);
+			cout << "---" << endl;
+	tpchLineitemProjection3(datasetCatalog, predicateMax, 4);
 
 }
 

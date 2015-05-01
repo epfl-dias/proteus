@@ -73,6 +73,96 @@ ExprMaterializer::ExprMaterializer(expressions::Expression* toMat,
 	toMatType = NULL;
 }
 
+ExprMaterializer::ExprMaterializer(expressions::Expression* toMat, int linehint,
+		RawOperator* const child, RawContext* const context, char* opLabel) :
+		UnaryRawOperator(child), toMat(toMat), context(context), opLabel(opLabel) {
+
+	Function *F = context->getGlobalFunction();
+	LLVMContext& llvmContext = context->getLLVMContext();
+	IRBuilder<> *Builder = context->getBuilder();
+
+	Type* int64_type = Type::getInt64Ty(llvmContext);
+	Type* int32_type = Type::getInt32Ty(llvmContext);
+	Type *int8_type = Type::getInt8Ty(llvmContext);
+	PointerType *int32_ptr_type = PointerType::get(int32_type, 0);
+	PointerType *void_ptr_type = PointerType::get(int8_type, 0);
+	PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
+
+	Value *zero = context->createInt64(0);
+
+	/* Arbitrary initial buffer sizes */
+	/* No realloc should be required with these sizes for synthetic large-scale numbers */
+	//	size_t sizeBuff = 10000000000;
+
+	/* 'linehint' * sizeof(expr)
+	 * -> sizeof(expr) not trivial to be found :) */
+	size_t sizeBuffer = linehint + 1;
+	switch (toMat->getExpressionType()->getTypeID()) {
+	case BOOL: {
+		break;
+	}
+	case STRING: {
+		/* Conservative - might require realloc */
+		sizeBuffer *= 8;
+		break;
+	}
+	case FLOAT: {
+		/* Conservative - might require realloc */
+		sizeBuffer *= sizeof(double);
+		break;
+	}
+	case INT: {
+		/* Conservative - might require realloc */
+		sizeBuffer *= sizeof(int);
+		break;
+	}
+	case INT64: {
+		/* Conservative - might require realloc */
+		sizeBuffer *= sizeof(size_t);
+		break;
+	}
+	case RECORD:
+	case LIST:
+	case BAG:
+	case SET:
+	case COMPOSITE: {
+		/* Conservative - might require realloc */
+		sizeBuffer *= sizeof(double);
+		break;
+	}
+	default: {
+		string error_msg = "[ExprMaterializer: ] Unknown type to mat.";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	}
+
+
+	Value *val_sizeBuffer = context->createInt64(sizeBuffer);
+	/* Request memory to store relation R 			*/
+	opBuffer.mem_buffer = context->CreateEntryBlockAlloca(F,
+			string("cacheBuffer"), char_ptr_type);
+	(opBuffer.mem_buffer)->setAlignment(8);
+	opBuffer.mem_tuplesNo = context->CreateEntryBlockAlloca(F,
+			string("tuplesR"), int64_type);
+	opBuffer.mem_size = context->CreateEntryBlockAlloca(F, string("sizeR"),
+			int64_type);
+	opBuffer.mem_offset = context->CreateEntryBlockAlloca(F,
+			string("offsetRelR"), int64_type);
+	rawBuffer = (char*) getMemoryChunk(sizeBuffer);
+	ptr_rawBuffer = (char**) malloc(sizeof(char*));
+	*ptr_rawBuffer = rawBuffer;
+	Value *val_relationR = context->CastPtrToLlvmPtr(char_ptr_type, rawBuffer);
+	Builder->CreateStore(val_relationR, opBuffer.mem_buffer);
+	Builder->CreateStore(zero, opBuffer.mem_tuplesNo);
+	Builder->CreateStore(zero, opBuffer.mem_offset);
+	Builder->CreateStore(val_sizeBuffer, opBuffer.mem_size);
+
+	/* Note: In principle, it's not necessary to store payload as struct.
+	 * This way, however, it is uniform across all caching cases. */
+	toMatType = NULL;
+}
+
 
 ExprMaterializer::~ExprMaterializer()	{
 	LOG(INFO)<<"Collapsing Materializer operator";
@@ -155,6 +245,17 @@ void ExprMaterializer::consume(RawContext* const context, const OperatorState& c
 	toMatType = context->CreateCustomStruct(types);
 
 	Value* val_exprSize = ConstantExpr::getSizeOf(val_toMat->getType());
+
+#ifdef DEBUG
+	{
+	vector<Value*> ArgsV;
+	Function* debugInt = context->getFunction("printi64");
+
+	ArgsV.push_back(val_exprSize);
+	Builder->CreateCall(debugInt, ArgsV);
+	}
+#endif
+
 	Value *val_arena = Builder->CreateLoad(opBuffer.mem_buffer);
 	Value *offsetInArena = Builder->CreateLoad(opBuffer.mem_offset);
 	Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena, val_exprSize);
