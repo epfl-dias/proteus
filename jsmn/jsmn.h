@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#define DEBUGJSMN
+
 /**
  * JSON type identifier. Basic types are:
  * 	o Object
@@ -36,10 +38,18 @@ typedef enum {
  */
 #define JSON_TIGHT
 
+/**
+ * XXX DATASET-SPECIFIC ATM
+ */
+/* Used to accommodate symantec workload (and flush its pm) */
+#define JSON_SYMANTEC
+#define JSON_SYMANTEC_WIDE
 /* Used to accommodate very wide TPC-H pre-computed join
  * i.e. ordersLineitem.json */
 //#define JSON_TPCH_WIDE
-#ifndef JSON_TPCH_WIDE
+
+
+#if !defined(JSON_TPCH_WIDE) && !defined(JSON_SYMANTEC_WIDE)
 /* Only flush out equi-width json pm */
 #define JSON_FLUSH
 #endif
@@ -76,21 +86,38 @@ typedef struct {
 #endif
 
 #ifdef JSON_TIGHT
+
 //Sufficient for lineitem.json
 //#define MAXTOKENS 50
+#ifdef JSON_TPCH_WIDE
+#undef MAXTOKENS
+////Used for ordersLineitem
+#define MAXTOKENS 52
 //Used to test reallocs locally
 //#define MAXTOKENS 17
-#ifdef JSON_TPCH_WIDE
-//Used for ordersLineitem
-#define MAXTOKENS 52
 #endif /* JSON_TPCH_WIDE */
+
 #ifndef JSON_TPCH_WIDE
 //33 is Exactly enough for lineitem.json (2 x #fields + 1 for the obj.)
 //Wider ones will break
+#undef MAXTOKENS
 #define MAXTOKENS 300 //33
-#endif
+#endif /* NOT_JSON_TPCH_WIDE */
+
 #endif /* JSON_TIGHT */
+
+#ifdef JSON_TPCH_WIDE
+#undef JSON_SYMANTEC
+#endif
+
+#ifdef JSON_SYMANTEC
+#undef MAXTOKENS
+#define MAXTOKENS 80 //53
+#endif /* JSON_SYMANTEC */
+
+/* Default, conservative case */
 #ifndef JSON_TIGHT
+#undef MAXTOKENS
 #define MAXTOKENS 1000
 #endif
 
@@ -121,3 +148,4 @@ jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 #endif
 
 #endif /* __JSMN_H_ */
+

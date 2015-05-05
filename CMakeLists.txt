@@ -165,6 +165,13 @@ target_link_libraries(tpch-bin-groups jsmn)
 target_link_libraries(tpch-bin-groups -lglog ${glog_ldflags})
 target_link_libraries(tpch-bin-groups ${llvm_ldflags} ${llvm_libs})
 
+add_executable(symantec-json symantec-json.cpp)
+set_target_properties(symantec-json PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(symantec-json codegen)
+target_link_libraries(symantec-json jsmn)
+target_link_libraries(symantec-json -lglog ${glog_ldflags})
+target_link_libraries(symantec-json ${llvm_ldflags} ${llvm_libs})
+
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
 if(GTEST)

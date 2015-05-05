@@ -34,23 +34,26 @@ static jsmntok_t *jsmn_alloc_token(jsmn_parser *parser,
 	jsmntok_t *tok;
 	if (parser->toknext >= *num_tokens) {
 		/* REALLOC */
-#ifndef JSON_TPCH_WIDE
-		return NULL;
-#endif
-#ifdef JSON_TPCH_WIDE
-		//printf("Increasing size for large json object\n");
+#if defined(JSON_TPCH_WIDE) || defined(JSON_SYMANTEC_WIDE)
+//		printf("Increasing size for large json object\n");
 		void *oldRegion = (void*) *tokens;
 		*num_tokens = 2 * (*num_tokens);
 
 		size_t newSize = (*num_tokens) * sizeof(jsmntok_t);
-		//printf("New size: %ld %ld\n",*num_tokens,newSize);
-		void* newRegion = realloc(oldRegion, newSize);
+		printf("New size: %ld %ld\n",*num_tokens,newSize);
+		//void* newRegion = realloc(oldRegion, newSize);
+		void* newRegion = calloc(newSize, sizeof(char));
 		if (newRegion != NULL ) {
-			*tokens = (jsmntok_t*)(newRegion);
+			memcpy(newRegion, oldRegion, newSize / 2);
+			*tokens = (jsmntok_t*) (newRegion);
+			free(oldRegion);
 		} else {
-			return NULL;
+			return NULL ;
 		}
+#else
+		return NULL;
 #endif
+
 	}
 	tok = &(*tokens)[parser->toknext++];
 	tok->start = tok->end = -1;
@@ -94,6 +97,11 @@ static jsmnerr_t jsmn_parse_primitive(jsmn_parser *parser, const char *js,
 		}
 		if (js[parser->pos] < 32 || js[parser->pos] >= 127) {
 			parser->pos = start;
+#ifdef DEBUGJSMN
+			{
+				printf("Invalid character at position %u when parsing primitive\n", parser->pos);
+			}
+#endif
 			return JSMN_ERROR_INVAL;
 		}
 	}
@@ -122,7 +130,7 @@ found:
 }
 
 /**
- * Filsl next token with JSON string.
+ * Fills next token with JSON string.
  */
 static jsmnerr_t jsmn_parse_string(jsmn_parser *parser, const char *js,
 		size_t len, jsmntok_t **tokens, size_t *num_tokens) {
@@ -171,6 +179,11 @@ static jsmnerr_t jsmn_parse_string(jsmn_parser *parser, const char *js,
 									(js[parser->pos] >= 65 && js[parser->pos] <= 70) || /* A-F */
 									(js[parser->pos] >= 97 && js[parser->pos] <= 102))) { /* a-f */
 							parser->pos = start;
+#ifdef DEBUGJSMN
+			{
+				printf("Invalid character at position %u - char not hex\n", parser->pos);
+			}
+#endif
 							return JSMN_ERROR_INVAL;
 						}
 						parser->pos++;
@@ -180,6 +193,11 @@ static jsmnerr_t jsmn_parse_string(jsmn_parser *parser, const char *js,
 				/* Unexpected symbol */
 				default:
 					parser->pos = start;
+#ifdef DEBUGJSMN
+			{
+				printf("Invalid character at position %u - unexpected symbol\n", parser->pos);
+			}
+#endif
 					return JSMN_ERROR_INVAL;
 			}
 		}
@@ -255,6 +273,13 @@ jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 				token = &(*tokensPtr)[i];
 				if (token->start != -1 && token->end == -1) {
 					if (token->type != type) {
+#ifdef DEBUGJSMN
+						{
+							printf(
+									"Invalid character at position %u - wrong type\n",
+									parser->pos);
+						}
+#endif
 						return JSMN_ERROR_INVAL;
 					}
 					parser->toksuper = -1;
@@ -264,7 +289,16 @@ jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 			}
 			/* Error if unmatched closing bracket */
 			if (i == -1)
+			{
+#ifdef DEBUGJSMN
+				{
+					printf(
+							"Invalid character at position %u - unmatched bracket\n",
+							parser->pos);
+				}
+#endif
 				return JSMN_ERROR_INVAL;
+			}
 			for (; i >= 0; i--) {
 				token = &(*tokensPtr)[i];
 				if (token->start != -1 && token->end == -1) {
@@ -320,7 +354,7 @@ jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 			return JSMN_ERROR_PART;
 		}
 	}
-	printf("[jsmn: ] %d to %d with size %d\n",(*tokensPtr)[0].start,(*tokensPtr)[0].end, (*tokensPtr)[0].size);
+	//printf("[jsmn: ] %d to %d with size %d\n",(*tokensPtr)[0].start,(*tokensPtr)[0].end, (*tokensPtr)[0].size);
 	return count;
 }
 

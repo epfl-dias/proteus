@@ -226,20 +226,20 @@ int main()	{
 	tpchSchema(datasetCatalog);
 
 	/* Returned 20760489 in 30 sec.*/
-//	tpchJoin1c(datasetCatalog,20000000);
-//	tpchJoin1c(datasetCatalog,20000000);
+	tpchJoin1c(datasetCatalog,20000000);
+	tpchJoin1c(datasetCatalog,20000000);
 
 //	tpchJoin1a(datasetCatalog,3);
 //	tpchJoin1b(datasetCatalog,3);
 
 	/* Returns 1 more result! */
 	//Correct: 25
-	tpchJoin1c(datasetCatalog,10);
+	//tpchJoin1c(datasetCatalog,10);
 	//Correct: 55
-	tpchJoin1c(datasetCatalog,40);
+	//tpchJoin1c(datasetCatalog,40);
 
-//	tpchJoin1c(datasetCatalog,30000000);
-//	tpchJoin1c(datasetCatalog,30000000);
+	tpchJoin1c(datasetCatalog,30000000);
+	tpchJoin1c(datasetCatalog,30000000);
 
 }
 

@@ -321,7 +321,12 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 				throw runtime_error(msg);
 			}
 			tokens = (jsmntok_t**) tokenBuf;
-#ifndef JSON_TPCH_WIDE
+
+#if defined(JSON_TPCH_WIDE) || defined(JSON_SYMANTEC_WIDE)
+			for (int i = 0; i < lines; i++) {
+				tokens[i] = (jsmntok_t*) malloc(MAXTOKENS * sizeof(jsmntok_t));
+			}
+#else
 			jsmntok_t *tokenBuf_ = (jsmntok_t*) malloc(
 					lines * MAXTOKENS * sizeof(jsmntok_t));
 			if (tokenBuf_ == NULL) {
@@ -329,12 +334,6 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 			}
 			for (int i = 0; i < lines; i++) {
 				tokens[i] = (tokenBuf_ + i * MAXTOKENS);
-			}
-#endif
-
-#ifdef JSON_TPCH_WIDE
-			for (int i = 0; i < lines; i++) {
-				tokens[i] = (jsmntok_t*) malloc(MAXTOKENS * sizeof(jsmntok_t));
 			}
 #endif
 

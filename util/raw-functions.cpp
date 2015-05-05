@@ -725,15 +725,19 @@ void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size
 	error_code = jsmn_parse(&p, bufShift, end - start, &(tokens[line]), MAXTOKENS);
 //	printf("%ld %ld\n",tokens,tokens[line]);
 	buf[end] = eol;
+	if(line > 0 && line % 10000 == 0)
+	{
+		printf("Processing line no. %ld\n",line);
+	}
 	if(error_code < 0)
 	{
 		string msg = "Json (JSMN) plugin failure: ";
-		LOG(ERROR) << msg << error_code;
+		LOG(ERROR) << msg << error_code << " in line " << line;
 		throw runtime_error(msg);
 	}
 //	else
 //	{
-//		cout << "How many tokens?? " << error_code << endl;
+//		cout << "How many tokens?? " << error_code << " in line " << line << endl;
 //	}
 //	cout << "[parseLineJSON: ] " << tokenArray[0].start << " to " << tokenArray[0].end << endl;
 }
