@@ -257,6 +257,11 @@ int compareTokenString(const char* buf, int start, int end, const char* candidat
 int compareTokenString64(const char* buf, size_t start, size_t end, const char* candidate)	{
 //	cout << "Start? " << start << endl;
 //	cout << "End? " << end << endl;
+//	cout << "Candidate?? " << candidate << endl;
+//	char *deleteme = (char*) malloc(end - start +1);
+//	memcpy(deleteme,buf+start,end-start);
+//	deleteme[end-start] = '\0';
+//	cout << "From file: " << deleteme << endl;
 	return (strncmp(buf + start, candidate, end - start) == 0 \
 			&& strlen(candidate) == end - start);
 }
@@ -665,7 +670,7 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 //		string error_msg = string("No newline found");
 //			LOG(ERROR)<< error_msg;
 //	}
-//	cout << "Newline / End of line at pos " << i << endl;
+	//cout << "Newline / End of line at pos " << i << endl;
 	return i;
 #endif
 
@@ -709,6 +714,7 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 
 void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size_t line)	{
 
+//	cout << "[parseLineJSON: ] Entry for line " << line << " from " << start << " to " << end << endl;
 	int error_code;
 	jsmn_parser p;
 
@@ -721,14 +727,15 @@ void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size
 	char eol = buf[end];
 	buf[end] = '\0';
 //	error_code = jsmn_parse(&p, bufShift, end - start, tokens[line], MAXTOKENS);
-//	printf("%ld %ld\n",tokens,tokens[line]);
-	error_code = jsmn_parse(&p, bufShift, end - start, &(tokens[line]), MAXTOKENS);
-//	printf("%ld %ld\n",tokens,tokens[line]);
+	//printf("Before %ld %ld %ld\n",tokens,tokens + line, tokens[line]);
+	size_t tokensNo = MAXTOKENS;
+	error_code = jsmn_parse(&p, bufShift, end - start, &(tokens[line]), tokensNo);
+	//printf("After %ld %ld\n",tokens,tokens[line]);
 	buf[end] = eol;
-	if(line > 0 && line % 10000 == 0)
-	{
-		printf("Processing line no. %ld\n",line);
-	}
+//	if(line > 0 && line % 10000 == 0)
+//	{
+//		printf("Processing line no. %ld\n",line);
+//	}
 	if(error_code < 0)
 	{
 		string msg = "Json (JSMN) plugin failure: ";
@@ -739,7 +746,10 @@ void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size
 //	{
 //		cout << "How many tokens?? " << error_code << " in line " << line << endl;
 //	}
-//	cout << "[parseLineJSON: ] " << tokenArray[0].start << " to " << tokenArray[0].end << endl;
+//	cout << "[parseLineJSON - " << line << ": ] "
+//	<< tokens[line][0].start
+//	<< " to " << tokens[line][0].end << endl;
+//	cout << "[parseLineJSON - exit] "<< endl;
 }
 
 

@@ -1,11 +1,15 @@
 #ifndef __JSMN_H_
 #define __JSMN_H_
 
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define DEBUGJSMN
+//#define DEBUGJSMN
 
 /**
  * JSON type identifier. Basic types are:
@@ -107,12 +111,13 @@ typedef struct {
 #endif /* JSON_TIGHT */
 
 #ifdef JSON_TPCH_WIDE
+#undef JSON_SYMANTEC_WIDE
 #undef JSON_SYMANTEC
 #endif
 
-#ifdef JSON_SYMANTEC
+#ifdef JSON_SYMANTEC_WIDE
 #undef MAXTOKENS
-#define MAXTOKENS 80 //53
+#define MAXTOKENS 53 //80 //53
 #endif /* JSON_SYMANTEC */
 
 /* Default, conservative case */

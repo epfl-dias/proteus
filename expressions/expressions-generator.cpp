@@ -544,6 +544,15 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::LtExpression *e) {
 
 		switch (id) {
 		case INT:
+#ifdef DEBUG
+{
+			vector<Value*> ArgsV;
+			ArgsV.clear();
+			ArgsV.push_back(left.value);
+			Function* debugInt = context->getFunction("printi");
+			TheBuilder->CreateCall(debugInt, ArgsV);
+}
+#endif
 			valWrapper.value = TheBuilder->CreateICmpSLT(left.value, right.value);
 			return valWrapper;
 		case FLOAT:

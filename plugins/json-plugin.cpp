@@ -312,19 +312,22 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		}
 		else
 		{
-			//cout << "NEW (JSON) PM" << endl;
-			tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
-			if (tokenBuf == NULL) {
-				string msg = string(
-						"[JSON Plugin: ]: Failed to allocate token arena");
-				LOG(ERROR)<< msg;
-				throw runtime_error(msg);
-			}
-			tokens = (jsmntok_t**) tokenBuf;
+			cout << "NEW (JSON) PM" << endl;
+//			tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
+//			if (tokenBuf == NULL) {
+//				string msg = string(
+//						"[JSON Plugin: ]: Failed to allocate token arena");
+//				LOG(ERROR)<< msg;
+//				throw runtime_error(msg);
+//			}
+//			tokens = (jsmntok_t**) tokenBuf;
+			tokens = new jsmntok_t*[lines];
+			tokenBuf = (char*) tokens;
 
 #if defined(JSON_TPCH_WIDE) || defined(JSON_SYMANTEC_WIDE)
 			for (int i = 0; i < lines; i++) {
-				tokens[i] = (jsmntok_t*) malloc(MAXTOKENS * sizeof(jsmntok_t));
+//				tokens[i] = (jsmntok_t*) malloc(MAXTOKENS * sizeof(jsmntok_t));
+				tokens[i] = new jsmntok_t[MAXTOKENS];
 			}
 #else
 			jsmntok_t *tokenBuf_ = (jsmntok_t*) malloc(
@@ -950,19 +953,23 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	Value *val_offset = Builder->CreateLoad(mem_offset);
 	Value *cond = Builder->CreateICmpSLT(val_offset,val_fsize);
 
-//#ifdef DEBUGJSON
-//	ArgsV.clear();
-//	ArgsV.push_back(val_offset);
-//	Builder->CreateCall(debugInt64, ArgsV);
-//	ArgsV.clear();
-//	ArgsV.push_back(val_fsize);
-//	Builder->CreateCall(debugInt64, ArgsV);
-//#endif
 	Builder->CreateCondBr(cond,jsonScanBody,jsonScanEnd);
 
 	/* Body */
 	Builder->SetInsertPoint(jsonScanBody);
-
+#ifdef DEBUGJSON
+	{
+		ArgsV.clear();
+		ArgsV.push_back(Builder->getInt64(4444));
+		Builder->CreateCall(debugInt64, ArgsV);
+		ArgsV.clear();
+		ArgsV.push_back(val_offset);
+		Builder->CreateCall(debugInt64, ArgsV);
+		ArgsV.clear();
+		ArgsV.push_back(val_fsize);
+		Builder->CreateCall(debugInt64, ArgsV);
+	}
+#endif
 	Value *val_shiftedBuf = Builder->CreateInBoundsGEP(val_buf, val_offset);
 	Value *val_len = Builder->CreateSub(val_fsize,val_offset);
 
@@ -990,7 +997,13 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 		ArgsV.push_back(val_lineCnt);
 		Builder->CreateCall(parseLineJSON, ArgsV);
 	}
-
+#ifdef DEBUGJSON
+	{
+		ArgsV.clear();
+		ArgsV.push_back(Builder->getInt64(5555));
+		Builder->CreateCall(debugInt64, ArgsV);
+	}
+#endif
 	/* Triggering Parent */
 	RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop,this->getOIDType());
 	RawValueMemory mem_tokenWrapper;
@@ -1027,13 +1040,26 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	mem_tokenWrapper.mem = mem_tokenId;
 	mem_tokenWrapper.isNull = context->createFalse();
 	(*variableBindings)[tupleIdentifier] = mem_tokenWrapper;
+#ifdef DEBUGJSON
+	{
+		ArgsV.clear();
+		ArgsV.push_back(Builder->getInt64(6666));
+		Builder->CreateCall(debugInt64, ArgsV);
+	}
+#endif
 	OperatorState* state = new OperatorState(producer, *variableBindings);
 	RawOperator* const opParent = producer.getParent();
 	opParent->consume(context, *state);
+#ifdef DEBUGJSON
+	{
+		ArgsV.clear();
+		ArgsV.push_back(Builder->getInt64(7777));
+		Builder->CreateCall(debugInt64, ArgsV);
+	}
+#endif
 
 	/* Beginning of next JSON object */
 	idx_newlineAbsolute = Builder->CreateAdd(idx_newlineAbsolute, val_one);
-
 
 	Builder->CreateBr(jsonScanInc);
 
@@ -1046,9 +1072,6 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	Builder->CreateBr(jsonScanCond);
 
 	Builder->SetInsertPoint(jsonScanEnd);
-
-
-
 }
 
 /**
@@ -1219,25 +1242,26 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 //	Value* token_parent_end_rel64 =
 //				Builder->CreateSExt(token_parent_end_rel,int64Type);
 //	Value* token_parent_end = Builder->CreateAdd(token_parent_end_rel64,val_offset);
+
 #ifdef DEBUGJSON
-//	{
-//	vector<Value*> ArgsV;
-//	ArgsV.clear();
-//	Function* debugInt = context->getFunction("printi64");
-//	ArgsV.push_back(val_offset);
-//	Builder->CreateCall(debugInt, ArgsV);
-//	ArgsV.clear();
-//
-//	ArgsV.push_back(val_rowId);
-//	Builder->CreateCall(debugInt, ArgsV);
-//	ArgsV.clear();
-//
-//	Value *tmp = context->createInt64(1001);
-//	ArgsV.push_back(tmp);
-//	Builder->CreateCall(debugInt, ArgsV);
-//	ArgsV.clear();
-//	}
+	{
+		Function* debugInt = context->getFunction("printi64");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(val_offset);
+		Builder->CreateCall(debugInt, ArgsV);
+
+		ArgsV.clear();
+		ArgsV.push_back(val_rowId);
+		Builder->CreateCall(debugInt, ArgsV);
+
+		ArgsV.clear();
+		Value *tmp = context->createInt64(10001);
+		ArgsV.push_back(tmp);
+		Builder->CreateCall(debugInt, ArgsV);
+		ArgsV.clear();
+	}
 #endif
+
 	/**
 	 * LOOP BLOCKS
 	 */
@@ -1285,6 +1309,14 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 	 */
 	Builder->SetInsertPoint(tokenSkipBody);
 
+#ifdef DEBUGJSON
+	{
+		Function* debugInt = context->getFunction("printi64");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(val_i);
+		Builder->CreateCall(debugInt, ArgsV);
+	}
+#endif
 	/**
 	 * IF-ELSE inside body:
 	 * if(TOKEN_STRING(buf,tokens[i],key.c_str()))
@@ -1331,17 +1363,20 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 	Builder->CreateStore(val_i_1, mem_return);
 
 #ifdef DEBUGJSON
-//		Function* debugInt = context->getFunction("printi");
-//		argsV.clear();
-//		Value *tmp = context->createInt32(100);
-//		argsV.push_back(tmp);
-//		Builder->CreateCall(debugInt, argsV);
-//
-//		argsV.clear();
-//		Value* token_i_1_start =
-//				context->getStructElem(mem_tokens_i_1_shifted, 1);
-//		argsV.push_back(token_i_1_start);
-//		Builder->CreateCall(debugInt, argsV);
+	{
+		vector<Value*> argsV;
+		Function* debugInt64 = context->getFunction("printi64");
+		argsV.push_back(val_i_1);
+		Builder->CreateCall(debugInt64, argsV);
+		argsV.clear();
+
+		Function* debugShort = context->getFunction("printShort");
+
+		Value* token_i_1_start =
+				context->getStructElem(mem_tokens_i_1_shifted, 1);
+		argsV.push_back(token_i_1_start);
+		Builder->CreateCall(debugShort, argsV);
+	}
 #endif
 
 	Builder->CreateBr(tokenSkipEnd);
@@ -1355,15 +1390,37 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 	/**
 	 * (Back to LOOP)
 	 * INC:
-	 * i += 2
+	 * i += (2 + tokens[i+1].size)
 	 */
 	Builder->SetInsertPoint(tokenSkipInc);
 	val_i = Builder->CreateLoad(mem_i);
 	Value* val_2 = Builder->getInt64(2);
 	Value* val_i_2 = Builder->CreateAdd(val_i, val_2);
-	Builder->CreateStore(val_i_2, mem_i);
 
-	token_i = context->getArrayElem(mem_tokens, val_i_2);
+
+	val_i_1 = Builder->CreateAdd(val_i,val_1);
+	Value* mem_token_i_1 = context->getArrayElemMem(mem_tokens, val_i_1);
+	Value* token_i_1_size =
+					context->getStructElem(mem_token_i_1, 3);
+	Value* token_i_1_size64 =
+						Builder->CreateSExt(token_i_1_size,int64Type);
+
+#ifdef DEBUGJSON
+	{
+		vector<Value*> ArgsV;
+		Function* debugInt = context->getFunction("printi64");
+		ArgsV.push_back(val_i_1);
+		Builder->CreateCall(debugInt, ArgsV);
+		ArgsV.clear();
+		ArgsV.push_back(token_i_1_size64);
+		Builder->CreateCall(debugInt, ArgsV);
+	}
+#endif
+	Value* val_i_inc = Builder->CreateAdd(val_i_2,token_i_1_size64);
+//	Value *val_i_inc = val_i_2;
+	Builder->CreateStore(val_i_inc, mem_i);
+
+	token_i = context->getArrayElem(mem_tokens, val_i_inc);
 	Builder->CreateStore(token_i, mem_tokens_i_shifted);
 
 	Builder->CreateBr(tokenSkipCond);
@@ -1884,12 +1941,12 @@ RawValue JSONPlugin::readCachedValue(CacheInfo info,
 	valWrapper.isNull = context->createFalse();
 #ifdef DEBUGJSON
 	{
-		/* Obviously only works to peek integer fields */
-		vector<Value*> ArgsV;
-
-		Function* debugSth = context->getFunction("printi");
-		ArgsV.push_back(val_cachedField);
-		Builder->CreateCall(debugSth, ArgsV);
+//		/* Obviously only works to peek integer fields */
+//		vector<Value*> ArgsV;
+//
+//		Function* debugSth = context->getFunction("printi");
+//		ArgsV.push_back(val_cachedField);
+//		Builder->CreateCall(debugSth, ArgsV);
 	}
 #endif
 	return valWrapper;

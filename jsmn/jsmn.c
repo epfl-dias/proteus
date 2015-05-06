@@ -1,6 +1,4 @@
-#include <stdlib.h>
-
-#include "jsmn.h"
+#include "jsmn/jsmn.h"
 
 ///**
 // * Allocates a fresh unused token from the token pull.
@@ -27,26 +25,42 @@
 //}
 
 /**
- * Allocates a fresh unused token from the token pull.
+ * Allocates a fresh unused token from the token pool.
  */
 static jsmntok_t *jsmn_alloc_token(jsmn_parser *parser, 
 		jsmntok_t **tokens, size_t *num_tokens) {
 	jsmntok_t *tok;
 	if (parser->toknext >= *num_tokens) {
+
 		/* REALLOC */
 #if defined(JSON_TPCH_WIDE) || defined(JSON_SYMANTEC_WIDE)
-//		printf("Increasing size for large json object\n");
+		//printf("Increasing size for large json object\n");
 		void *oldRegion = (void*) *tokens;
-		*num_tokens = 2 * (*num_tokens);
+		size_t oldTokenNo = *num_tokens;
+		size_t newTokenNo = oldTokenNo << 1;
 
-		size_t newSize = (*num_tokens) * sizeof(jsmntok_t);
-		printf("New size: %ld %ld\n",*num_tokens,newSize);
+		//printf("check: %d\n",tokens[0][0].end);
+		size_t oldSize = oldTokenNo * sizeof(jsmntok_t);
+		size_t newSize = newTokenNo * sizeof(jsmntok_t);
+#ifdef DEBUGJSMN
+		{
+			printf("New size: %ld %ld\n", newTokenNo, newSize);
+		}
+#endif
+
 		//void* newRegion = realloc(oldRegion, newSize);
-		void* newRegion = calloc(newSize, sizeof(char));
+		void *newRegion = calloc(newTokenNo, sizeof(jsmntok_t));
 		if (newRegion != NULL ) {
-			memcpy(newRegion, oldRegion, newSize / 2);
-			*tokens = (jsmntok_t*) (newRegion);
-			free(oldRegion);
+#ifdef DEBUGJSMN
+			{
+				printf("Calloc gave me %ld %ld - before it was %ld\n", tokens,
+						newRegion, oldRegion);
+			}
+#endif
+			memcpy(newRegion, oldRegion, oldSize);
+			*tokens = (jsmntok_t*) newRegion;
+			*num_tokens = newTokenNo;
+			//free(oldRegion);
 		} else {
 			return NULL ;
 		}
@@ -55,11 +69,16 @@ static jsmntok_t *jsmn_alloc_token(jsmn_parser *parser,
 #endif
 
 	}
-	tok = &(*tokens)[parser->toknext++];
+	unsigned int nextTokenNo = parser->toknext++;
+	tok = &((*tokens)[nextTokenNo]);
 	tok->start = tok->end = -1;
 	tok->size = 0;
-#ifdef JSMN_PARENT_LINKS
-	tok->parent = -1;
+#ifdef DEBUGJSMN
+	{
+		printf("Providing token %u\n", nextTokenNo);
+		printf("Token info: %ld %d %d %d\n", tok, tok->start, tok->end,
+				tok->size);
+	}
 #endif
 	return tok;
 }
@@ -73,6 +92,11 @@ static void jsmn_fill_token(jsmntok_t *token, jsmntype_t type,
 	token->start = start;
 	token->end = end;
 	token->size = 0;
+#ifdef DEBUGJSMN
+	{
+		printf("[jsmn_fill_token: ] Token filled\n");
+	}
+#endif
 }
 
 /**
@@ -121,7 +145,19 @@ found:
 		parser->pos = start;
 		return JSMN_ERROR_NOMEM;
 	}
+#ifdef DEBUGJSMN
+	{
+		printf("1. (Token to fill info): %ld %d %d %d\n", token, token->start,
+				token->end, token->size);
+	}
+#endif
 	jsmn_fill_token(token, JSMN_PRIMITIVE, start, parser->pos);
+#ifdef DEBUGJSMN
+	{
+		printf("1. Token filled\n");
+	}
+#endif
+
 #ifdef JSMN_PARENT_LINKS
 	token->parent = parser->toksuper;
 #endif
@@ -154,7 +190,18 @@ static jsmnerr_t jsmn_parse_string(jsmn_parser *parser, const char *js,
 				parser->pos = start;
 				return JSMN_ERROR_NOMEM;
 			}
+#ifdef DEBUGJSMN
+	{
+		printf("2. (Token to fill info): %ld %d %d %d\n", token, token->start,
+				token->end, token->size);
+	}
+#endif
 			jsmn_fill_token(token, JSMN_STRING, start+1, parser->pos);
+#ifdef DEBUGJSMN
+	{
+		printf("2. Token filled\n");
+	}
+#endif
 #ifdef JSMN_PARENT_LINKS
 			token->parent = parser->toksuper;
 #endif
@@ -232,6 +279,12 @@ jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 				break;
 			}
 			token = jsmn_alloc_token(parser, tokensPtr, &num_tokens);
+#ifdef DEBUGJSMN
+			{
+				printf("3. (Token to fill info): %ld %d %d %d\n", token,
+						token->start, token->end, token->size);
+			}
+#endif
 			if (token == NULL )
 				return JSMN_ERROR_NOMEM;
 			if (parser->toksuper != -1) {
@@ -354,7 +407,7 @@ jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 			return JSMN_ERROR_PART;
 		}
 	}
-	//printf("[jsmn: ] %d to %d with size %d\n",(*tokensPtr)[0].start,(*tokensPtr)[0].end, (*tokensPtr)[0].size);
+//	printf("[jsmn: ] %d to %d with size %d\n",(*tokensPtr)[0].start,(*tokensPtr)[0].end, (*tokensPtr)[0].size);
 	return count;
 }
 

@@ -36,7 +36,7 @@ if(${GLOG} STREQUAL "GLOG-NOTFOUND")
 endif()
 set(glog_ldflags "-L$ENV{HOME}/lib" "-L/cloud_store/manosk/vida-engine/lib")
 
-SET(GCC_COMPILE_FLAGS "-march=core-avx2 -msse4 -O3 -ftree-vectorize -march=native -mtune=native -g  -fno-omit-frame-pointer")
+SET(GCC_COMPILE_FLAGS "-march=core-avx2 -msse4 -O0 -ftree-vectorize -march=native -mtune=native -g -ggdb -fno-omit-frame-pointer")
 SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COMPILE_FLAGS}" )
 #add_definitions(${GCC_COMPILE_FLAGS})
 
@@ -45,6 +45,7 @@ file(GLOB codegen common/*.cpp util/*.cpp util/radix/*.cpp util/radix/joins/*.cp
 add_library(codegen ${codegen})
 set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 
+#if(FALSE)
 # not too sure if we should build "main", it looks like it has the same test cases as the gtests
 add_executable(rawmain main.cpp)
 set_target_properties(rawmain PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
@@ -123,13 +124,6 @@ target_link_libraries(tpch-json-selections jsmn)
 target_link_libraries(tpch-json-selections -lglog ${glog_ldflags})
 target_link_libraries(tpch-json-selections ${llvm_ldflags} ${llvm_libs})
 
-add_executable(tpch-json-joins tpch-json-joins.cpp)
-set_target_properties(tpch-json-joins PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(tpch-json-joins codegen)
-target_link_libraries(tpch-json-joins jsmn)
-target_link_libraries(tpch-json-joins -lglog ${glog_ldflags})
-target_link_libraries(tpch-json-joins ${llvm_ldflags} ${llvm_libs})
-
 add_executable(tpch-json-groups tpch-json-groups.cpp)
 set_target_properties(tpch-json-groups PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 target_link_libraries(tpch-json-groups codegen)
@@ -164,6 +158,14 @@ target_link_libraries(tpch-bin-groups codegen)
 target_link_libraries(tpch-bin-groups jsmn)
 target_link_libraries(tpch-bin-groups -lglog ${glog_ldflags})
 target_link_libraries(tpch-bin-groups ${llvm_ldflags} ${llvm_libs})
+#endif()
+
+add_executable(tpch-json-joins tpch-json-joins.cpp)
+set_target_properties(tpch-json-joins PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(tpch-json-joins codegen)
+target_link_libraries(tpch-json-joins jsmn)
+target_link_libraries(tpch-json-joins -lglog ${glog_ldflags})
+target_link_libraries(tpch-json-joins ${llvm_ldflags} ${llvm_libs})
 
 add_executable(symantec-json symantec-json.cpp)
 set_target_properties(symantec-json PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})

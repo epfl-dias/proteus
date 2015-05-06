@@ -27,7 +27,7 @@
 #include "common/common.hpp"
 /* Constants and macros to be used by queries targetting dataset of spam emails */
 
-//#define SYMANTEC_LOCAL
+#define SYMANTEC_LOCAL
 #ifndef SYMANTEC_LOCAL
 #define SYMANTEC_SERVER
 #endif
@@ -48,8 +48,12 @@ void symantecSchema(map<string, dataset>& datasetCatalog) {
 	dataset symantec;
 
 	#ifdef SYMANTEC_LOCAL
-	string path = string("inputs/json/spam/spams100.json");
-	symantec.linehint = 100;
+//	string path = string("inputs/json/spam/spams100k.json");
+//	symantec.linehint = 100000;
+
+	string path = string("inputs/json/spam/spams1000.json");
+	symantec.linehint = 1000;
+
 //	string path = string("inputs/json/spam/outliers.json");
 //	symantec.linehint = 2;
 	#endif

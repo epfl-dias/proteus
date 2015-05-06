@@ -70,7 +70,7 @@ int main()	{
 	symantecSchema(datasetCatalog);
 
 	/* Filtering on email size */
-	int predicateVal = 1000;
+	int predicateVal = 150000;
 	symantecProjection1(datasetCatalog, predicateVal);
 }
 
