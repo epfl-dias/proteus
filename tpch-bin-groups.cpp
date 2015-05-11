@@ -61,7 +61,7 @@ void tpchSchema(map<string,dataset>& datasetCatalog)	{
    SELECT COUNT(*), [...]
    FROM lineitem
    WHERE l_orderkey < [X]
-   GROUP BY l_orderkey
+   GROUP BY l_linenumber
  */
 void tpchGroup(map<string,dataset> datasetCatalog, int predicate, int aggregatesNo);
 
@@ -140,11 +140,13 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 	char delimInner = '|';
 	vector<RecordAttribute*> projections;
 	RecordAttribute *l_orderkey = argsLineitem["l_orderkey"];//NULL;
+	RecordAttribute *l_linenumber = argsLineitem["l_linenumber"];
 	RecordAttribute *l_quantity = NULL;
 	RecordAttribute *l_extendedprice = NULL;
 	RecordAttribute *l_tax = NULL;
 
 	projections.push_back(l_orderkey);
+	projections.push_back(l_linenumber);
 	if (aggregatesNo == 2) {
 		l_quantity = argsLineitem["l_quantity"];
 		projections.push_back(l_quantity);
@@ -200,13 +202,13 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 
 	/**
 	 * NEST
-	 * GroupBy: l_orderkey
+	 * GroupBy: l_linenumber
 	 * Pred: Redundant (true == true)
 	 * 		-> I wonder whether it gets statically removed..
 	 * Output: COUNT() => SUM(1)
 	 */
 	list<RecordAttribute> nestProjections;
-	nestProjections.push_back(*l_orderkey);
+//	nestProjections.push_back(*l_orderkey);
 	if (aggregatesNo == 2) {
 		nestProjections.push_back(*l_quantity);
 	}
@@ -223,7 +225,7 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 			nestProjections);
 	//f (& g)
 	expressions::RecordProjection* f = new expressions::RecordProjection(
-			l_orderkey->getOriginalType(), nestArg, *l_orderkey);
+			l_linenumber->getOriginalType(), nestArg, *l_linenumber);
 	//p
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
@@ -234,7 +236,7 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 	//mat.
 	vector<RecordAttribute*> fields;
 	vector<materialization_mode> outputModes;
-	fields.push_back(l_orderkey);
+	fields.push_back(l_linenumber);
 	outputModes.insert(outputModes.begin(), EAGER);
 
 

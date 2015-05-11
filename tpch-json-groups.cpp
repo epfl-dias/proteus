@@ -110,11 +110,13 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 
 	vector<RecordAttribute*> projections;
 	RecordAttribute *orderkey = argsLineitem["orderkey"];
+	RecordAttribute *linenumber = argsLineitem["linenumber"];
 	RecordAttribute *quantity = NULL;
 	RecordAttribute *extendedprice = NULL;
 	RecordAttribute *tax = NULL;
 
 	projections.push_back(orderkey);
+	projections.push_back(linenumber);
 	if (aggregatesNo == 2) {
 		quantity = argsLineitem["quantity"];
 		projections.push_back(quantity);
@@ -145,7 +147,7 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 	 * SELECT
 	 */
 	list<RecordAttribute> argProjections;
-	argProjections.push_back(*orderkey);
+//	argProjections.push_back(*orderkey);
 	if (aggregatesNo == 2) {
 		argProjections.push_back(*quantity);
 	}
@@ -195,7 +197,7 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 			nestProjections);
 	//f (& g)
 	expressions::RecordProjection* f = new expressions::RecordProjection(
-			orderkey->getOriginalType(), nestArg, *orderkey);
+			linenumber->getOriginalType(), nestArg, *linenumber);
 	//p
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);

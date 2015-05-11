@@ -27,7 +27,7 @@
 #include "common/common.hpp"
 /* Constants and macros to be used by queries targetting dataset of spam emails */
 
-#define SYMANTEC_LOCAL
+//#define SYMANTEC_LOCAL
 #ifndef SYMANTEC_LOCAL
 #define SYMANTEC_SERVER
 #endif
@@ -58,16 +58,18 @@ void symantecSchema(map<string, dataset>& datasetCatalog) {
 //	symantec.linehint = 2;
 	#endif
 	#ifdef SYMANTEC_SERVER
-	//string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams_2013_06_09.json");
-	//symantec.linehint = 55836625;
 
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams_60k.json");
-//	symantec.linehint = 55834736;
+//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams56m.json");
+//	symantec.linehint = 55833807;
 
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams1m.json");
-//	symantec.linehint = 1000000;
-	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams100k.json");
-	symantec.linehint = 100000;
+	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams1m.json");
+	symantec.linehint = 999582;
+
+//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams10m.json");
+//	symantec.linehint = 9995329;
+
+//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams100k.json");
+//	symantec.linehint = 99967;
 
 //	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams_head.json");
 //	symantec.linehint = 100000;

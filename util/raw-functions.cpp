@@ -732,7 +732,7 @@ void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size
 	error_code = jsmn_parse(&p, bufShift, end - start, &(tokens[line]), tokensNo);
 	//printf("After %ld %ld\n",tokens,tokens[line]);
 	buf[end] = eol;
-//	if(line > 0 && line % 10000 == 0)
+//	if(line > 0 && (line +1)% 10000000 == 0)
 //	{
 //		printf("Processing line no. %ld\n",line);
 //	}

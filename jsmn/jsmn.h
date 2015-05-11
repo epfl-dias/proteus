@@ -117,7 +117,7 @@ typedef struct {
 
 #ifdef JSON_SYMANTEC_WIDE
 #undef MAXTOKENS
-#define MAXTOKENS 53 //80 //53
+#define MAXTOKENS 70 //80 //53
 #endif /* JSON_SYMANTEC */
 
 /* Default, conservative case */

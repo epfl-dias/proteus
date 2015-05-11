@@ -70,9 +70,78 @@ int main()	{
 	symantecSchema(datasetCatalog);
 
 	/* Filtering on email size */
-	int predicateVal = 150000;
+	int predicateVal = 5000;
+//	int predicateVal = 600;
+	symantecProjection1(datasetCatalog, predicateVal);
 	symantecProjection1(datasetCatalog, predicateVal);
 }
+
+//void symantecProjection1(map<string,dataset> datasetCatalog, int predicateVal)	{
+//
+//	RawContext ctx = prepareContext("symantec-json-projection1");
+//	RawCatalog& rawCatalog = RawCatalog::getInstance();
+//
+//	string nameSymantec = string("symantec");
+//	dataset symantec = datasetCatalog[nameSymantec];
+//	string nameOrders = string("orders");
+//	dataset orders = datasetCatalog[nameOrders];
+//	map<string, RecordAttribute*> argsLineitem 	=
+//			symantec.recType.getArgsMap();
+//	map<string, RecordAttribute*> argsOrder		=
+//			orders.recType.getArgsMap();
+//
+//	/**
+//	 * SCAN
+//	 */
+//	string fname = symantec.path;
+//	RecordType rec = symantec.recType;
+//	int linehint = symantec.linehint;
+//	RecordAttribute *size = argsLineitem["size"];
+//
+//	ListType *documentType = new ListType(rec);
+//	jsonPipelined::JSONPlugin *pg = new jsonPipelined::JSONPlugin(&ctx, fname,
+//			documentType,linehint);
+//
+//	rawCatalog.registerPlugin(fname, pg);
+//	Scan *scan = new Scan(&ctx, *pg);
+//
+//	/**
+//	 * REDUCE
+//	 * (SUM 1)
+//	 * + predicate
+//	 */
+//	list<RecordAttribute> argProjections;
+//	argProjections.push_back(*size);
+//	expressions::Expression* arg 			=
+//				new expressions::InputArgument(&rec,0,argProjections);
+//	/* Output: */
+//	vector<Monoid> accs;
+//	vector<expressions::Expression*> outputExprs;
+//	accs.push_back(SUM);
+//	expressions::Expression* outputExpr = new expressions::IntConstant(1);
+//	outputExprs.push_back(outputExpr);
+//	/* Pred: */
+//	expressions::Expression* selOrderkey  	=
+//			new expressions::RecordProjection(size->getOriginalType(),arg,*size);
+//	expressions::Expression* vakey = new expressions::IntConstant(predicateVal);
+//	expressions::Expression* predicate = new expressions::LtExpression(
+//				new BoolType(), selOrderkey, vakey);
+//
+//	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan, &ctx);
+//	scan->setParent(reduce);
+//
+//	//Run function
+//	struct timespec t0, t1;
+//	clock_gettime(CLOCK_REALTIME, &t0);
+//	reduce->produce();
+//	ctx.prepareFunction(ctx.getGlobalFunction());
+//	clock_gettime(CLOCK_REALTIME, &t1);
+//	printf("Execution took %f seconds\n", diff(t0, t1));
+//
+//	//Close all open files & clear
+//	pg->finish();
+//	rawCatalog.clear();
+//}
 
 void symantecProjection1(map<string,dataset> datasetCatalog, int predicateVal)	{
 
@@ -116,14 +185,22 @@ void symantecProjection1(map<string,dataset> datasetCatalog, int predicateVal)	{
 	vector<Monoid> accs;
 	vector<expressions::Expression*> outputExprs;
 	accs.push_back(SUM);
-	expressions::Expression* outputExpr = new expressions::IntConstant(1);
+	expressions::Expression* outputExpr =
+			new expressions::IntConstant(1);
+//			new expressions::RecordProjection(size->getOriginalType(),arg,*size);
+//	new expressions::RecordProjection(size->getOriginalType(),arg,*size);
 	outputExprs.push_back(outputExpr);
 	/* Pred: */
 	expressions::Expression* selOrderkey  	=
 			new expressions::RecordProjection(size->getOriginalType(),arg,*size);
 	expressions::Expression* vakey = new expressions::IntConstant(predicateVal);
-	expressions::Expression* predicate = new expressions::LtExpression(
+	expressions::Expression* vakey2 = new expressions::IntConstant(0);
+	expressions::Expression* predicate1 = new expressions::LtExpression(
 				new BoolType(), selOrderkey, vakey);
+	expressions::Expression* predicate2 = new expressions::GtExpression(
+					new BoolType(), selOrderkey, vakey2);
+	expressions::Expression* predicate = new expressions::AndExpression(
+			new BoolType(), predicate1, predicate2);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan, &ctx);
 	scan->setParent(reduce);
