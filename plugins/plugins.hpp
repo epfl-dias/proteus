@@ -70,7 +70,7 @@ public:
 	 * 						 Active tuple at some point will be the one of "employees.children"
 	 */
 	virtual RawValueMemory readPath(string activeRelation,
-			Bindings wrappedBindings, const char* pathVar) 									= 0;
+			Bindings wrappedBindings, const char* pathVar, RecordAttribute attr)			= 0;
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type) 	= 0;
 	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState)		= 0;
 

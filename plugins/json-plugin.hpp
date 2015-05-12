@@ -79,6 +79,7 @@ public:
 	/* XXX Do NOT use this constructor with large inputs until realloc() is implemented for lines */
 	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema);
 	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint);
+	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint, bool staticSchema);
 	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint, jsmntok_t **tokens);
 	~JSONPlugin();
 	void init()															{}
@@ -87,7 +88,8 @@ public:
 	string& getName() 													{ return fname; }
 
 	//1-1 correspondence with 'RecordProjection' expression
-	virtual RawValueMemory readPath(string activeRelation, Bindings wrappedBindings, const char* pathVar);
+	virtual RawValueMemory readPath(string activeRelation, Bindings wrappedBindings, const char* pathVar, RecordAttribute attr);
+	virtual RawValueMemory readPredefinedPath(string activeRelation, Bindings wrappedBindings, RecordAttribute attr);
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
 	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState);
 
@@ -146,6 +148,7 @@ private:
 	size_t fsize;
 	int fd;
 	const char* buf;
+	bool staticSchema;
 
 	StructType *tokenType;
 

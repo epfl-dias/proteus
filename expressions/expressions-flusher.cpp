@@ -162,7 +162,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordProjection *e) {
 		if (e->getProjectionName() != activeLoop) {
 			//Path involves a projection / an object
 			mem_path = plugin->readPath(activeRelation, bindings,
-					e->getProjectionName().c_str());
+					e->getProjectionName().c_str(),e->getAttribute());
 		} else {
 			//Path involves a primitive datatype
 			//(e.g., the result of unnesting a list of primitives)

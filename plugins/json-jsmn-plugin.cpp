@@ -536,7 +536,7 @@ void JSONPlugin::skipToEnd()
 }
 
 RawValueMemory JSONPlugin::readPath(string activeRelation,
-		Bindings wrappedBindings, const char* path)
+		Bindings wrappedBindings, const char* path, RecordAttribute attr)
 {
 	/**
 	 * FIXME Add an extra (generated) check here

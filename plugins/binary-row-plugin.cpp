@@ -86,7 +86,7 @@ void BinaryRowPlugin::generate(const RawOperator &producer) {
 /**
  * The work of readPath() and readValue() has been taken care of scanCSV()
  */
-RawValueMemory BinaryRowPlugin::readPath(string activeRelation, Bindings bindings, const char* pathVar)	{
+RawValueMemory BinaryRowPlugin::readPath(string activeRelation, Bindings bindings, const char* pathVar, RecordAttribute attr)	{
 	RawValueMemory mem_projection;
 	{
 		const OperatorState* state = bindings.state;

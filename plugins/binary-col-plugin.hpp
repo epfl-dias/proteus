@@ -60,7 +60,7 @@ public:
 //	void initCached();
 	void generate(const RawOperator& producer);
 	void finish();
-	virtual RawValueMemory readPath(string activeRelation, Bindings bindings, const char* pathVar);
+	virtual RawValueMemory readPath(string activeRelation, Bindings bindings, const char* pathVar, RecordAttribute attr);
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
 	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState);
 //	{

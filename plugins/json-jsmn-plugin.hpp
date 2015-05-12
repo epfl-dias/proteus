@@ -67,7 +67,7 @@ public:
 	string& getName() 													{ return fname; }
 
 	//1-1 correspondence with 'RecordProjection' expression
-	virtual RawValueMemory readPath(string activeRelation, Bindings wrappedBindings, const char* pathVar);
+	virtual RawValueMemory readPath(string activeRelation, Bindings wrappedBindings, const char* pathVar, RecordAttribute attr);
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
 	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState) {
 		string error_msg = "[JSMNPlugin: ] No caching support yet";

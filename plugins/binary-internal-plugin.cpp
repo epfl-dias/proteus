@@ -425,7 +425,7 @@ void BinaryInternalPlugin::scan(const RawOperator& producer)
 	Builder->SetInsertPoint(AfterBB);
 }
 
-RawValueMemory BinaryInternalPlugin::readPath(string activeRelation, Bindings bindings, const char* pathVar)	{
+RawValueMemory BinaryInternalPlugin::readPath(string activeRelation, Bindings bindings, const char* pathVar, RecordAttribute attr)	{
 	RawValueMemory mem_valWrapper;
 	{
 		const OperatorState* state = bindings.state;

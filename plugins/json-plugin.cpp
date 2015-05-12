@@ -43,6 +43,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash")
 {
 	cache = false;
+	staticSchema = false;
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32_type = Type::getInt32Ty(llvmContext);
 	Function* F = context->getGlobalFunction();
@@ -125,98 +126,188 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 
 }
 
-//JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
-//		ExpressionType* schema, size_t linehint) :
-//		context(context), fname(fname), schema(schema), var_buf("bufPtr"), var_tokenPtr(
-//				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash")
-//{
-//	cache = false;
-//	LLVMContext& llvmContext = context->getLLVMContext();
-//	Type* int32_type = Type::getInt32Ty(llvmContext);
-//	Type* int64_type = Type::getInt64Ty(llvmContext);
-//
-//	//Memory mapping etc
-//	LOG(INFO)<< "[JSONPlugin - jsmn: ] " << fname;
-//	struct stat statbuf;
-//	const char* name_c = fname.c_str();
-//	stat(name_c, &statbuf);
-//	fsize = statbuf.st_size;
-//	fd = open(name_c, O_RDONLY);
-//	if (fd == -1)
-//	{
-//		throw runtime_error(string("json.open"));
-//	}
-//	buf = (const char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE , MAP_PRIVATE, fd, 0);
-//	if (buf == MAP_FAILED)
-//	{
-//		throw runtime_error(string("json.mmap"));
-//	}
-//
-//	//Retrieving schema - not needed yet
-//	RawCatalog& catalog = RawCatalog::getInstance();
-//	catalog.registerFileJSON(fname,schema);
-//
-//	//Preparing structures and variables for codegen part
-//	Function* F = context->getGlobalFunction();
-//	IRBuilder<>* Builder = context->getBuilder();
-//	Type* int64Type = Type::getInt64Ty(llvmContext);
-//	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-//
-//	//Buffer holding the entire JSON document
-//	AllocaInst *mem_buf = context->CreateEntryBlockAlloca(F,string("jsFilePtr"),charPtrType);
-//	Value* val_buf_i64 = ConstantInt::get(llvmContext, APInt(64,((uint64_t)buf)));
-//	//i8*
-//	Value* val_buf = Builder->CreateIntToPtr(val_buf_i64,charPtrType);
-//	Builder->CreateStore(val_buf,mem_buf);
-//	NamedValuesJSON[var_buf] = mem_buf;
-//
-//	lines = linehint;
-//
-//	tokenType = context->CreateJSMNStruct();
-//	PointerType *tokenPtrType = PointerType::get(tokenType,0);
-//	PointerType *token2DPtrType = PointerType::get(tokenPtrType,0);
-//
-//	/* PM */
-//	CachingService& cache = CachingService::getInstance();
-//
-//	char* pmCast = cache.getPM(fname);
-//	Value *cast_tokenArray = NULL;
-//	if (pmCast == NULL) {
-////		cout << "NEW (JSON) PM" << endl;
-//		tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
-//		if (tokenBuf == NULL) {
-//			string msg = string(
-//					"[JSON Plugin: ]: Failed to allocate token arena");
-//			LOG(ERROR)<< msg;
-//			throw runtime_error(msg);
-//		}
-//		tokens = (jsmntok_t**) tokenBuf;
-//		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
-//				token2DPtrType);
-//		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, tokenBuf);
-//
-//		/* Store PM in cache */
-//		/* To be used by subsequent queries */
-//		cache.registerPM(fname, tokenBuf);
-//	} else {
-////		cout << "(JSON) PM REUSE" << endl;
-//		jsmntok_t **tokens = (jsmntok_t **) pmCast;
-//		this->tokens = tokens;
-//		tokenBuf = NULL;
-//
-//		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
-//				token2DPtrType);
-//		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
-//				this->tokens);
-//		this->cache = true;
-//	}
-//	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
-//}
-
 JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		ExpressionType* schema, size_t linehint) :
 		context(context), fname(fname), schema(schema), var_buf("bufPtr"), var_tokenPtr(
 				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash")
+{
+	cache = false;
+	staticSchema = false;
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* int32_type = Type::getInt32Ty(llvmContext);
+	Type* int64_type = Type::getInt64Ty(llvmContext);
+
+	//Memory mapping etc
+	LOG(INFO)<< "[JSONPlugin - jsmn: ] " << fname;
+	struct stat statbuf;
+	const char* name_c = fname.c_str();
+	stat(name_c, &statbuf);
+	fsize = statbuf.st_size;
+	fd = open(name_c, O_RDONLY);
+	if (fd == -1)
+	{
+		throw runtime_error(string("json.open"));
+	}
+	buf = (const char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE , MAP_PRIVATE, fd, 0);
+	if (buf == MAP_FAILED)
+	{
+		throw runtime_error(string("json.mmap"));
+	}
+
+	//Retrieving schema - not needed yet
+	RawCatalog& catalog = RawCatalog::getInstance();
+	catalog.registerFileJSON(fname,schema);
+
+	//Preparing structures and variables for codegen part
+	Function* F = context->getGlobalFunction();
+	IRBuilder<>* Builder = context->getBuilder();
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+
+	//Buffer holding the entire JSON document
+	AllocaInst *mem_buf = context->CreateEntryBlockAlloca(F,string("jsFilePtr"),charPtrType);
+	Value* val_buf_i64 = ConstantInt::get(llvmContext, APInt(64,((uint64_t)buf)));
+	//i8*
+	Value* val_buf = Builder->CreateIntToPtr(val_buf_i64,charPtrType);
+	Builder->CreateStore(val_buf,mem_buf);
+	NamedValuesJSON[var_buf] = mem_buf;
+
+	lines = linehint;
+
+	tokenType = context->CreateJSMNStruct();
+	PointerType *tokenPtrType = PointerType::get(tokenType,0);
+	PointerType *token2DPtrType = PointerType::get(tokenPtrType,0);
+
+	/* PM */
+	CachingService& cache = CachingService::getInstance();
+	/* Might be already flushed */
+	ostringstream sstream;
+	sstream << fname << ".pm";
+	const char* pmPath = sstream.str().c_str();
+	struct stat pmStatBuffer;
+	int pmStored = -1;
+
+#ifdef JSON_FLUSH
+	pmStored = stat(pmPath, &pmStatBuffer);
+#endif
+
+	char* pmCast = cache.getPM(fname);
+	Value *cast_tokenArray = NULL;
+	if (pmCast == NULL) {
+
+		if(pmStored == 0)	{
+			/* Load from file */
+			cout << "READING PM FROM DISK" << endl;
+			size_t pmsize = pmStatBuffer.st_size;
+			//cout << pmsize << " vs " << lines * MAXTOKENS * sizeof(jsmntok_t) << endl;
+			int fdPM = open(pmPath, O_RDONLY);
+			if (fdPM == -1) {
+				fatal("open");
+			}
+			tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
+			tokens = (jsmntok_t**) tokenBuf;
+			char* pmraw = (char*) mmap(NULL, pmsize, PROT_READ, MAP_PRIVATE, fdPM, 0);
+			if (pmraw == MAP_FAILED ) {
+				string msg = string("[JSON Plugin: ]: Failed to mmap JSON pm");
+				LOG(ERROR)<< msg;
+				throw runtime_error(msg);
+			}
+			jsmntok_t *tokenBuf_ = (jsmntok_t *) pmraw;
+
+			for (int i = 0; i < lines; i++) {
+				tokens[i] = (tokenBuf_ + i * MAXTOKENS);
+			}
+			mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
+					token2DPtrType);
+			cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
+					tokenBuf);
+			this->cache = true;
+			//cout << "Peek: " << tokens[0][0].start << " to " << tokens[0][0].end << endl;
+		}
+		else
+		{
+			cout << "NEW (JSON) PM" << endl;
+//			tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
+//			if (tokenBuf == NULL) {
+//				string msg = string(
+//						"[JSON Plugin: ]: Failed to allocate token arena");
+//				LOG(ERROR)<< msg;
+//				throw runtime_error(msg);
+//			}
+//			tokens = (jsmntok_t**) tokenBuf;
+			tokens = new jsmntok_t*[lines];
+			tokenBuf = (char*) tokens;
+
+#if defined(JSON_TPCH_WIDE) || defined(JSON_SYMANTEC_WIDE)
+			for (int i = 0; i < lines; i++) {
+//				tokens[i] = (jsmntok_t*) malloc(MAXTOKENS * sizeof(jsmntok_t));
+				tokens[i] = new jsmntok_t[MAXTOKENS];
+			}
+#else
+			jsmntok_t *tokenBuf_ = (jsmntok_t*) malloc(
+					lines * MAXTOKENS * sizeof(jsmntok_t));
+			if (tokenBuf_ == NULL) {
+				throw runtime_error(string("new() of tokens failed"));
+			}
+			for (int i = 0; i < lines; i++) {
+				tokens[i] = (tokenBuf_ + i * MAXTOKENS);
+			}
+#endif
+
+			mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
+					token2DPtrType);
+			cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
+					tokenBuf);
+		}
+		/* Store PM in cache */
+		/* To be used by subsequent queries */
+		cache.registerPM(fname, tokenBuf);
+	} else {
+		//cout << "(JSON) PM REUSE" << endl;
+		jsmntok_t **tokens = (jsmntok_t **) pmCast;
+		this->tokens = tokens;
+		tokenBuf = NULL;
+
+
+		/* Flush PM to disk too if need be */
+		//cout << "Does pm exist? " << pmStored << endl;
+#ifdef JSON_FLUSH
+		if (pmStored != 0) {
+			FILE *f;
+			f = fopen(pmPath, "wb");
+			if (f == NULL) {
+				fatal("fopen");
+			}
+			//cout << "Peek before writing: " << tokens[0][0].start << " to " << tokens[0][0].end << endl;
+			tokenBuf = (char*) tokens;
+			for (int i = 0; i < lines; i++) {
+				if (fwrite(tokens[i], sizeof(jsmntok_t), MAXTOKENS,
+						f) != MAXTOKENS) {
+					fatal("fwrite");
+				}
+			}
+//			if (fwrite(tokenBuf, sizeof(jsmntok_t), linehint * MAXTOKENS,
+//					f) != linehint * MAXTOKENS) {
+//				fatal("fwrite");
+//			}
+			fclose(f);
+			//cout << "(Also) Stored JSON PM" << endl;
+		}
+#endif
+		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
+				token2DPtrType);
+		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
+				this->tokens);
+		this->cache = true;
+	}
+	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
+}
+
+JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
+		ExpressionType* schema, size_t linehint, bool staticSchema) :
+		context(context), fname(fname), schema(schema), var_buf("bufPtr"), var_tokenPtr(
+				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash"),
+				staticSchema(staticSchema)
 {
 	cache = false;
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -395,6 +486,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash")
 {
 	cache = true;
+	staticSchema = false;
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32_type = Type::getInt32Ty(llvmContext);
 	Type* int64_type = Type::getInt64Ty(llvmContext);
@@ -451,6 +543,8 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 
 
 }
+
+
 
 RawValueMemory JSONPlugin::initCollectionUnnest(RawValue parentTokenId)
 {
@@ -1174,8 +1268,10 @@ void JSONPlugin::skipToEnd()
 }
 
 RawValueMemory JSONPlugin::readPath(string activeRelation,
-		Bindings wrappedBindings, const char* path)
+		Bindings wrappedBindings, const char* path, RecordAttribute attr)
 {
+	if(staticSchema)
+		return readPredefinedPath(activeRelation,wrappedBindings,attr);
 	/**
 	 * FIXME Add an extra (generated) check here
 	 * Only objects are relevant to path expressions
@@ -1439,6 +1535,222 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 //	tokenIdMembers.push_back(int64Type);
 //	tokenIdMembers.push_back(int64Type);
 //	StructType::get(context->getLLVMContext(),tokenIdMembers);
+
+	StructType *tokenIdType = this->getOIDLLVMType();
+	AllocaInst *mem_tokenId = context->CreateEntryBlockAlloca(F,"tokenId",tokenIdType);
+
+	vector<Value*> idxList = vector<Value*>();
+	idxList.push_back(context->createInt32(0));
+	idxList.push_back(context->createInt32(0));
+	//Shift in struct ptr
+	Value* structPtr = Builder->CreateGEP(mem_tokenId, idxList);
+	StoreInst *store_offset = Builder->CreateStore(val_offset, structPtr);
+
+	idxList.clear();
+	idxList.push_back(context->createInt32(0));
+	idxList.push_back(context->createInt32(1));
+	structPtr = Builder->CreateGEP(mem_tokenId, idxList);
+	StoreInst *store_rowId = Builder->CreateStore(val_rowId, structPtr);
+
+	Value *val_return = Builder->CreateLoad(mem_return);
+#ifdef DEBUGJSON
+	{
+		//tokenNo returned
+		vector<Value*> ArgsV;
+		Function* debugInt = context->getFunction("printi64");
+		ArgsV.push_back(val_return);
+		Builder->CreateCall(debugInt, ArgsV);
+	}
+#endif
+	idxList.clear();
+	idxList.push_back(context->createInt32(0));
+	idxList.push_back(context->createInt32(2));
+	structPtr = Builder->CreateGEP(mem_tokenId, idxList);
+	StoreInst *store_tokenId = Builder->CreateStore(val_return, structPtr);
+
+	mem_valWrapper.mem = mem_tokenId;
+	mem_valWrapper.isNull = context->createFalse();
+	return mem_valWrapper;
+}
+
+RawValueMemory JSONPlugin::readPredefinedPath(string activeRelation,
+		Bindings wrappedBindings, RecordAttribute attr)
+{
+	const OperatorState& state = *(wrappedBindings.state);
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
+	Type* int32Type = Type::getInt32Ty(llvmContext);
+	IRBuilder<>* Builder = context->getBuilder();
+	Function* F = context->getGlobalFunction();
+	PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
+	vector<Value*> argsV;
+
+	//Get relevant ROW number
+	RecordAttribute rowIdentifier = RecordAttribute(activeRelation,
+			activeLoop,this->getOIDType());
+	const map<RecordAttribute, RawValueMemory>& bindings = state.getBindings();
+	map<RecordAttribute, RawValueMemory>::const_iterator it = bindings.find(
+			rowIdentifier);
+	if (it == bindings.end())
+	{
+		string error_msg =
+				"[JSONPlugin - jsmn: ] Current tuple binding not found";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	/* scanObjects now forwards (offset, rowId) structs */
+	RawValueMemory mem_tokenIdWrapper = (it->second);
+
+	Value* val_offset = context->getStructElem(mem_tokenIdWrapper.mem, 0);
+	Value* val_rowId = context->getStructElem(mem_tokenIdWrapper.mem, 1);
+	Value* parentTokenNo = context->getStructElem(mem_tokenIdWrapper.mem, 2);
+
+	//Preparing default return value (i.e., path not found)
+	AllocaInst* mem_return = context->CreateEntryBlockAlloca(F,
+			string("pathReturn"), int64Type);
+	Value *minus_1 = context->createInt64(-1);
+	Builder->CreateStore(minus_1, mem_return);
+
+	//tokens**
+	Value *val_token2DArray = Builder->CreateLoad(mem_tokenArray);
+	//shifted tokens**
+	Value *mem_tokenArrayShift = Builder->CreateInBoundsGEP(val_token2DArray, val_rowId);
+	//tokens*
+	Value *mem_tokens = Builder->CreateLoad(mem_tokenArrayShift);
+
+	AllocaInst* mem_tokens_parent_shifted = context->CreateEntryBlockAlloca(F,
+			string(var_tokenPtr), context->CreateJSMNStruct());
+
+	Value* token_parent = context->getArrayElem(mem_tokens, parentTokenNo);
+	Builder->CreateStore(token_parent, mem_tokens_parent_shifted);
+	Value* token_parent_end_rel =
+			context->getStructElem(mem_tokens_parent_shifted,2);
+
+	/**
+	 * LOOP BLOCKS
+	 */
+	BasicBlock *tokenSkipCond, *tokenSkipBody, *tokenSkipInc, *tokenSkipEnd;
+	context->CreateForLoop("path_tokenSkipCond", "path_tokenSkipBody",
+			"path_tokenSkipInc", "path_tokenSkipEnd", &tokenSkipCond,
+			&tokenSkipBody, &tokenSkipInc, &tokenSkipEnd);
+
+	/**
+	 * Entry Block:
+	 */
+
+
+	Value *val_1 = Builder->getInt64(1);
+	Value *val_i = Builder->CreateAdd(parentTokenNo, val_1);
+	int wantedAttrNo = attr.getAttrNo();
+	Value *val_wantedAttrNo = context->createInt64(wantedAttrNo);
+	/* Placeholders for counters */
+	AllocaInst* mem_i = context->CreateEntryBlockAlloca(F, string("tmp_i"),
+			int64Type);
+	AllocaInst* mem_attrNo = context->CreateEntryBlockAlloca(F, string("tmp_attrNo"),
+				int64Type);
+	Builder->CreateStore(val_i, mem_i);
+	Builder->CreateStore(val_1, mem_attrNo);
+
+#ifdef DEBUGJSON
+	{
+		cout << attr.getAttrNo() << ". " << attr.getAttrName() << endl;
+		Function* debugInt = context->getFunction("printi64");
+		vector<Value*> ArgsV;
+		Value *tmp = context->createInt64(10006);
+		Value *tmp2 = context->createInt64(10007);
+		if(attr.getAttrNo() == 1)
+		{
+			ArgsV.push_back(tmp);
+		}
+		else
+		{
+			ArgsV.push_back(tmp2);
+		}
+		Builder->CreateCall(debugInt, ArgsV);
+
+		ArgsV.clear();
+		ArgsV.push_back(val_wantedAttrNo);
+		Builder->CreateCall(debugInt, ArgsV);
+	}
+#endif
+	Builder->CreateBr(tokenSkipCond);
+
+	/**
+	 * while ( attrNo < wantedAttrNo )
+	 * XXX tokens[i].end <= tokens[parentToken].end XXX
+	 */
+
+	Builder->SetInsertPoint(tokenSkipCond);
+	Value *val_attrNo = Builder->CreateLoad(mem_attrNo);
+//	Value *val_cond = Builder->CreateICmpSLE(val_attrNo,val_wantedAttrNo);
+	Value *val_cond = Builder->CreateICmpSLT(val_attrNo,val_wantedAttrNo);
+	Builder->CreateCondBr(val_cond,tokenSkipBody,tokenSkipEnd);
+
+	/**
+	 * BODY:
+	 * No actual work
+	 */
+	Builder->SetInsertPoint(tokenSkipBody);
+
+	Builder->CreateBr(tokenSkipInc);
+
+	/**
+	 * (Back to LOOP)
+	 * INC:
+	 * i += (2 + tokens[i+1].size)
+	 */
+	Builder->SetInsertPoint(tokenSkipInc);
+	AllocaInst* mem_tokens_i_shifted = context->CreateEntryBlockAlloca(F,
+			string(var_tokenPtr), context->CreateJSMNStruct());
+	val_i = Builder->CreateLoad(mem_i);
+	Value* val_2 = Builder->getInt64(2);
+	Value* val_i_2 = Builder->CreateAdd(val_i, val_2);
+
+	Value *val_i_1 = Builder->CreateAdd(val_i,val_1);
+	Value* mem_token_i_1 = context->getArrayElemMem(mem_tokens, val_i_1);
+	Value* token_i_1_size =
+					context->getStructElem(mem_token_i_1, 3);
+	Value* token_i_1_size64 =
+						Builder->CreateSExt(token_i_1_size,int64Type);
+
+	Value* val_i_inc = Builder->CreateAdd(val_i_2,token_i_1_size64);
+	Builder->CreateStore(val_i_inc, mem_i);
+
+	Value *token_i = context->getArrayElem(mem_tokens, val_i_inc);
+	Builder->CreateStore(token_i, mem_tokens_i_shifted);
+
+	/* This variable controls the loop! */
+	val_attrNo = Builder->CreateLoad(mem_attrNo);
+	val_attrNo = Builder->CreateAdd(val_attrNo,val_1);
+	Builder->CreateStore(val_attrNo,mem_attrNo);
+
+	Builder->CreateBr(tokenSkipCond);
+
+	/**
+	 * END OF SKIPPING:
+	 * Time to read the actual token needed
+	 */
+	Builder->SetInsertPoint(tokenSkipEnd);
+
+	val_i = Builder->CreateLoad(mem_i);
+	val_i_1 = Builder->CreateAdd(val_i,val_1);
+	Value* val_neededToken = context->getArrayElem(mem_tokens, val_i_1);
+#ifdef DEBUGJSON
+	{
+		/* Get token no - dbg. */
+		vector<Value*> ArgsV;
+		Function* debugInt = context->getFunction("printi64");
+		ArgsV.push_back(val_i_1);
+		Builder->CreateCall(debugInt, ArgsV);
+	}
+#endif
+	//Storing return value (i+1)
+	Builder->CreateStore(val_i_1, mem_return);
+
+	RawValueMemory mem_valWrapper;
+
+	/* Struct returned: (offsetInFile, rowId, tokenId)*/
 
 	StructType *tokenIdType = this->getOIDLLVMType();
 	AllocaInst *mem_tokenId = context->CreateEntryBlockAlloca(F,"tokenId",tokenIdType);
