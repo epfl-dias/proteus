@@ -83,48 +83,51 @@ int main()	{
 
 	int predicateMax = L_ORDERKEY_MAX;
 
-	tpchLineitemProjection3CachingPred(datasetCatalog, predicateMax, 4);
+	for (int i = 0; i < 5; i++) {
+		cout << "[tpch-csv-projections-cached: ] Run " << i+1 << endl;
+		cout << "Preparing caches (&PM): Pred" << endl;
+		tpchLineitemProjection3CachingPred(datasetCatalog, predicateMax, 4);
+		cout << "CACHING (MATERIALIZING) INTO EFFECT: Pred" << endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			tpchLineitemProjection3(datasetCatalog, predicateVal, 4);
+			cout << "---" << endl;
+		}
 
-	cout << "CACHING (MATERIALIZING) INTO EFFECT" << endl;
-	for (int i = 1; i <= 10; i++) {
-		double ratio = (i / (double) 10);
-		double percentage = ratio * 100;
-		int predicateVal = (int) ceil(predicateMax * ratio);
-		cout << "SELECTIVITY FOR key < " << predicateVal << ": " << percentage
-				<< "%" << endl;
-		tpchLineitemProjection3(datasetCatalog, predicateVal, 4);
-		cout << "---" << endl;
-	}
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		rawCatalog.clear();
+		CachingService& cache = CachingService::getInstance();
+		cache.clear();
 
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
-	rawCatalog.clear();
-	CachingService& cache = CachingService::getInstance();
-	cache.clear();
+		cout << "Preparing caches: Agg" << endl;
+		tpchLineitemProjection3CachingAgg(datasetCatalog, predicateMax, 4);
+		cout << "CACHING (MATERIALIZING) INTO EFFECT: Agg" << endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			tpchLineitemProjection3(datasetCatalog, predicateVal, 4);
+			cout << "---" << endl;
+		}
 
-	tpchLineitemProjection3CachingAgg(datasetCatalog, predicateMax, 4);
-
-	cout << "CACHING (MATERIALIZING) INTO EFFECT" << endl;
-	for (int i = 1; i <= 10; i++) {
-		double ratio = (i / (double) 10);
-		double percentage = ratio * 100;
-		int predicateVal = (int) ceil(predicateMax * ratio);
-		cout << "SELECTIVITY FOR key < " << predicateVal << ": " << percentage
-				<< "%" << endl;
-		tpchLineitemProjection3(datasetCatalog, predicateVal, 4);
-		cout << "---" << endl;
-	}
-
-	tpchLineitemProjection3CachingPredAgg(datasetCatalog, predicateMax, 4);
-
-	cout << "CACHING (MATERIALIZING) INTO EFFECT" << endl;
-	for (int i = 1; i <= 10; i++) {
-		double ratio = (i / (double) 10);
-		double percentage = ratio * 100;
-		int predicateVal = (int) ceil(predicateMax * ratio);
-		cout << "SELECTIVITY FOR key < " << predicateVal << ": " << percentage
-				<< "%" << endl;
-		tpchLineitemProjection3(datasetCatalog, predicateVal, 4);
-		cout << "---" << endl;
+		cout << "Preparing caches: Pred +  Agg" << endl;
+		tpchLineitemProjection3CachingPredAgg(datasetCatalog, predicateMax, 4);
+		cout << "CACHING (MATERIALIZING) INTO EFFECT: Pred + Agg" << endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			tpchLineitemProjection3(datasetCatalog, predicateVal, 4);
+			cout << "---" << endl;
+		}
 	}
 
 }

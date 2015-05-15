@@ -198,11 +198,15 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 //					<< e->getAttribute().getAttrName()<< endl;
 			CacheInfo info = cache.getCache(e);
 			if (info.structFieldNo != -1) {
+#ifdef DEBUGCACHING
 				cout << "[Generator: ] Expression found for "
 						<< e->getOriginalRelationName() << "."
 						<< e->getAttribute().getAttrName() << "!" << endl;
+#endif
 				if (!cache.getCacheIsFull(e)) {
+#ifdef DEBUGCACHING
 					cout << "...but is not useable " << endl;
+#endif
 				} else {
 					return plugin->readCachedValue(info, currState);
 				}

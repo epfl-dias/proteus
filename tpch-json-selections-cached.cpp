@@ -89,151 +89,154 @@ int main()	{
 	int pred3 = L_LINENUMBER_MAX;
 	int pred4 = (int) L_EXTENDEDPRICE_MAX;
 
-	cout << "Building PM" << endl;
-	vector<int> predicates;
-	predicates.push_back(pred1);
-	tpchOrderSelection1CachingPred(datasetCatalog, predicates,false);
-
-	cout << "CACHING (MATERIALIZING) INTO EFFECT: Pred" << endl;
-	for (int i = 1; i <= 10; i++) {
-		double ratio = (i / (double) 10);
-		double percentage = ratio * 100;
-		int predicateVal = (int) ceil(pred1 * ratio);
-		cout << "SELECTIVITY FOR key < " << predicateVal << ": " << percentage
-				<< "%" << endl;
+	for (int i = 0; i < 5; i++) {
+		cout << "[tpch-json-selections-cached: ] Run " << i + 1 << endl;
+		cout << "Building PM" << endl;
 		vector<int> predicates;
-		predicates.push_back(predicateVal);
-		//1 pred.
-		predicates.push_back(pred2);
-		//2 pred.
-		predicates.push_back(pred3);
-		//3 pred.
-		//4 pred.
-		predicates.push_back(pred4);
-		tpchOrderSelection1(datasetCatalog, predicates, false);
+		predicates.push_back(pred1);
+		tpchOrderSelection1CachingPred(datasetCatalog, predicates, false);
+
+		cout << "CACHING (MATERIALIZING) INTO EFFECT: Pred" << endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(pred1 * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			vector<int> predicates;
+			predicates.push_back(predicateVal);
+			//1 pred.
+			predicates.push_back(pred2);
+			//2 pred.
+			predicates.push_back(pred3);
+			//3 pred.
+			//4 pred.
+			predicates.push_back(pred4);
+			tpchOrderSelection1(datasetCatalog, predicates, false);
+		}
+
+		/* Clean */
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		rawCatalog.clear();
+		CachingService& cache = CachingService::getInstance();
+		cache.clear();
+		/* Caching again */
+		tpchOrderSelection1CachingFloats(datasetCatalog, predicates, false);
+		cout << "CACHING (MATERIALIZING) INTO EFFECT: Floats" << endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(pred1 * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			vector<int> predicates;
+			predicates.push_back(predicateVal);
+			//1 pred.
+			predicates.push_back(pred2);
+			//2 pred.
+			predicates.push_back(pred3);
+			//3 pred.
+			//4 pred.
+			predicates.push_back(pred4);
+			tpchOrderSelection1(datasetCatalog, predicates, false);
+		}
+
+		rawCatalog.clear();
+		cache.clear();
+
+		/* Caching again */
+		tpchOrderSelection1CachingPredFloats(datasetCatalog, predicates, false);
+		cout << "CACHING (MATERIALIZING) INTO EFFECT: Pred +  Floats" << endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(pred1 * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			vector<int> predicates;
+			predicates.push_back(predicateVal);
+			//1 pred.
+			predicates.push_back(pred2);
+			//2 pred.
+			predicates.push_back(pred3);
+			//3 pred.
+			//4 pred.
+			predicates.push_back(pred4);
+			tpchOrderSelection1(datasetCatalog, predicates, false);
+		}
+
+		rawCatalog.clear();
+		cache.clear();
+
+		/*
+		 * Different readPath()!
+		 */
+		cout << "FILE-CONSCIOUS ReadPath() INTO EFFECT" << endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(pred1 * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			vector<int> predicates;
+			predicates.push_back(predicateVal);
+			//1 pred.
+			predicates.push_back(pred2);
+			//2 pred.
+			predicates.push_back(pred3);
+			//3 pred.
+			//4 pred.
+			predicates.push_back(pred4);
+			tpchOrderSelection1(datasetCatalog, predicates, true);
+		}
+
+		tpchOrderSelection1CachingPred(datasetCatalog, predicates, false);
+
+		cout << "FILE-CONSCIOUS ReadPath() + CACHING (MATERIALIZING): Pred"
+				<< endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(pred1 * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			vector<int> predicates;
+			predicates.push_back(predicateVal);
+			//1 pred.
+			predicates.push_back(pred2);
+			//2 pred.
+			predicates.push_back(pred3);
+			//3 pred.
+			//4 pred.
+			predicates.push_back(pred4);
+			tpchOrderSelection1(datasetCatalog, predicates, true);
+		}
+
+		/* Clean */
+		rawCatalog.clear();
+		cache.clear();
+		/* Caching again */
+		tpchOrderSelection1CachingFloats(datasetCatalog, predicates, false);
+		cout << "FILE-CONSCIOUS ReadPath() + CACHING (MATERIALIZING): Floats"
+				<< endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(pred1 * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			vector<int> predicates;
+			predicates.push_back(predicateVal);
+			//1 pred.
+			predicates.push_back(pred2);
+			//2 pred.
+			predicates.push_back(pred3);
+			//3 pred.
+			//4 pred.
+			predicates.push_back(pred4);
+			tpchOrderSelection1(datasetCatalog, predicates, true);
+		}
 	}
-
-	/* Clean */
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
-	rawCatalog.clear();
-	CachingService& cache = CachingService::getInstance();
-	cache.clear();
-	/* Caching again */
-	tpchOrderSelection1CachingFloats(datasetCatalog, predicates, false);
-	cout << "CACHING (MATERIALIZING) INTO EFFECT: Floats" << endl;
-	for (int i = 1; i <= 10; i++) {
-		double ratio = (i / (double) 10);
-		double percentage = ratio * 100;
-		int predicateVal = (int) ceil(pred1 * ratio);
-		cout << "SELECTIVITY FOR key < " << predicateVal << ": " << percentage
-				<< "%" << endl;
-		vector<int> predicates;
-		predicates.push_back(predicateVal);
-		//1 pred.
-		predicates.push_back(pred2);
-		//2 pred.
-		predicates.push_back(pred3);
-		//3 pred.
-		//4 pred.
-		predicates.push_back(pred4);
-		tpchOrderSelection1(datasetCatalog, predicates, false);
-	}
-
-	rawCatalog.clear();
-	cache.clear();
-
-	/* Caching again */
-	tpchOrderSelection1CachingPredFloats(datasetCatalog, predicates, false);
-	cout << "CACHING (MATERIALIZING) INTO EFFECT: Pred +  Floats" << endl;
-	for (int i = 1; i <= 10; i++) {
-		double ratio = (i / (double) 10);
-		double percentage = ratio * 100;
-		int predicateVal = (int) ceil(pred1 * ratio);
-		cout << "SELECTIVITY FOR key < " << predicateVal << ": " << percentage
-				<< "%" << endl;
-		vector<int> predicates;
-		predicates.push_back(predicateVal);
-		//1 pred.
-		predicates.push_back(pred2);
-		//2 pred.
-		predicates.push_back(pred3);
-		//3 pred.
-		//4 pred.
-		predicates.push_back(pred4);
-		tpchOrderSelection1(datasetCatalog, predicates, false);
-	}
-
-	rawCatalog.clear();
-	cache.clear();
-
-	/*
-	 * Different readPath()!
-	 */
-	cout << "FILE-CONSCIOUS ReadPath() INTO EFFECT" << endl;
-	for (int i = 1; i <= 10; i++) {
-		double ratio = (i / (double) 10);
-		double percentage = ratio * 100;
-		int predicateVal = (int) ceil(pred1 * ratio);
-		cout << "SELECTIVITY FOR key < " << predicateVal << ": " << percentage
-				<< "%" << endl;
-		vector<int> predicates;
-		predicates.push_back(predicateVal);
-		//1 pred.
-		predicates.push_back(pred2);
-		//2 pred.
-		predicates.push_back(pred3);
-		//3 pred.
-		//4 pred.
-		predicates.push_back(pred4);
-		tpchOrderSelection1(datasetCatalog, predicates, true);
-	}
-
-	tpchOrderSelection1CachingPred(datasetCatalog, predicates, false);
-
-	cout << "FILE-CONSCIOUS ReadPath() + CACHING (MATERIALIZING): Pred" << endl;
-	for (int i = 1; i <= 10; i++) {
-		double ratio = (i / (double) 10);
-		double percentage = ratio * 100;
-		int predicateVal = (int) ceil(pred1 * ratio);
-		cout << "SELECTIVITY FOR key < " << predicateVal << ": " << percentage
-				<< "%" << endl;
-		vector<int> predicates;
-		predicates.push_back(predicateVal);
-		//1 pred.
-		predicates.push_back(pred2);
-		//2 pred.
-		predicates.push_back(pred3);
-		//3 pred.
-		//4 pred.
-		predicates.push_back(pred4);
-		tpchOrderSelection1(datasetCatalog, predicates, true);
-	}
-
-	/* Clean */
-	rawCatalog.clear();
-	cache.clear();
-	/* Caching again */
-	tpchOrderSelection1CachingFloats(datasetCatalog, predicates, false);
-	cout << "FILE-CONSCIOUS ReadPath() + CACHING (MATERIALIZING): Floats"
-			<< endl;
-	for (int i = 1; i <= 10; i++) {
-		double ratio = (i / (double) 10);
-		double percentage = ratio * 100;
-		int predicateVal = (int) ceil(pred1 * ratio);
-		cout << "SELECTIVITY FOR key < " << predicateVal << ": " << percentage
-				<< "%" << endl;
-		vector<int> predicates;
-		predicates.push_back(predicateVal);
-		//1 pred.
-		predicates.push_back(pred2);
-		//2 pred.
-		predicates.push_back(pred3);
-		//3 pred.
-		//4 pred.
-		predicates.push_back(pred4);
-		tpchOrderSelection1(datasetCatalog, predicates, true);
-	}
-
 }
 
 void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predicates, bool exploitSchema)	{

@@ -77,46 +77,6 @@ RawContext prepareContext(string moduleName)	{
 }
 
 
-//int main()	{
-//
-//	map<string,dataset> datasetCatalog;
-//	tpchSchema(datasetCatalog);
-//
-//	vector<int> predicates;
-//	predicates.push_back(2);
-//	cout << "Query 0 (PM built if applicable)" << endl;
-//	tpchOrderSelection1(datasetCatalog, predicates);
-//	cout << "---" << endl;
-//	//1 pred.
-//	cout << "Query 1a" << endl;
-//	tpchOrderSelection1(datasetCatalog, predicates);
-//	cout << "---" << endl;
-//	cout << "Query 1b" << endl;
-//	predicates.push_back(100);
-//	//2 pred.
-//	tpchOrderSelection1(datasetCatalog, predicates);
-//	cout << "---" << endl;
-//	cout << "Query 1c" << endl;
-//	predicates.push_back(100);
-//	//3 pred.
-//	tpchOrderSelection1(datasetCatalog, predicates);
-//	cout << "---" << endl;
-//	cout << "Query 1d" << endl;
-//	//4 pred.
-//	predicates.push_back(20000);
-//	tpchOrderSelection1(datasetCatalog, predicates);
-//	//Variations of last execution
-//	cout << "---" << endl;
-//	cout << "Query 2" << endl;
-//	tpchOrderSelection2(datasetCatalog, predicates);
-//	cout << "---" << endl;
-//	cout << "Query 3" << endl;
-//	tpchOrderSelection3(datasetCatalog, predicates);
-//	cout << "---" << endl;
-//	cout << "Query 4" << endl;
-//	tpchOrderSelection4(datasetCatalog, predicates);
-//	cout << "---" << endl;
-//}
 int main()	{
 
 	map<string,dataset> datasetCatalog;
@@ -128,45 +88,49 @@ int main()	{
 	int pred3 = L_LINENUMBER_MAX;
 	int pred4 = (int) L_EXTENDEDPRICE_MAX;
 
-	for (int i = 1; i <= 10; i++) {
-		double ratio = (i / (double) 10);
-		double percentage = ratio * 100;
-		int predicateVal = (int) ceil(pred1 * ratio);
-		cout << "SELECTIVITY FOR key < "<< predicateVal << ": " << percentage << "%" << endl;
-		vector<int> predicates;
-		predicates.push_back(predicateVal);
-		cout << "Query 0 (PM built if applicable)" << endl;
-		tpchOrderSelection1(datasetCatalog, predicates);
-		cout << "---" << endl;
-		//1 pred.
-		cout << "Query 1a" << endl;
-		tpchOrderSelection1(datasetCatalog, predicates);
-		cout << "---" << endl;
-		cout << "Query 1b" << endl;
-		predicates.push_back(pred2);
-		//2 pred.
-		tpchOrderSelection1(datasetCatalog, predicates);
-		cout << "---" << endl;
-		cout << "Query 1c" << endl;
-		predicates.push_back(pred3);
-		//3 pred.
-		tpchOrderSelection1(datasetCatalog, predicates);
-		cout << "---" << endl;
-		cout << "Query 1d" << endl;
-		//4 pred.
-		predicates.push_back(pred4);
-		tpchOrderSelection1(datasetCatalog, predicates);
-		//Variations of last execution
-		cout << "---" << endl;
-		cout << "Query 2" << endl;
-		tpchOrderSelection2(datasetCatalog, predicates);
-		cout << "---" << endl;
-		cout << "Query 3" << endl;
-		tpchOrderSelection3(datasetCatalog, predicates);
-		cout << "---" << endl;
-		cout << "Query 4" << endl;
-		tpchOrderSelection4(datasetCatalog, predicates);
-		cout << "---" << endl;
+	for (int i = 0; i < 5; i++) {
+		cout << "[tpch-bin-selections: ] Run " << i+1 << endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(pred1 * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			vector<int> predicates;
+			predicates.push_back(predicateVal);
+			cout << "Query 0 (PM built if applicable)" << endl;
+			tpchOrderSelection1(datasetCatalog, predicates);
+			cout << "---" << endl;
+			//1 pred.
+			cout << "Query 1a" << endl;
+			tpchOrderSelection1(datasetCatalog, predicates);
+			cout << "---" << endl;
+			cout << "Query 1b" << endl;
+			predicates.push_back(pred2);
+			//2 pred.
+			tpchOrderSelection1(datasetCatalog, predicates);
+			cout << "---" << endl;
+			cout << "Query 1c" << endl;
+			predicates.push_back(pred3);
+			//3 pred.
+			tpchOrderSelection1(datasetCatalog, predicates);
+			cout << "---" << endl;
+			cout << "Query 1d" << endl;
+			//4 pred.
+			predicates.push_back(pred4);
+			tpchOrderSelection1(datasetCatalog, predicates);
+			//Variations of last execution
+			cout << "---" << endl;
+			cout << "Query 2" << endl;
+			tpchOrderSelection2(datasetCatalog, predicates);
+			cout << "---" << endl;
+			cout << "Query 3" << endl;
+			tpchOrderSelection3(datasetCatalog, predicates);
+			cout << "---" << endl;
+			cout << "Query 4" << endl;
+			tpchOrderSelection4(datasetCatalog, predicates);
+			cout << "---" << endl;
+		}
 	}
 }
 

@@ -39,7 +39,11 @@ void printBoolean(bool in)	{
 
 /// printd - printf that takes a double prints it as "%f\n", returning 0.
 int printi(int X) {
+#ifdef DEBUG
 	printf("[printi:] Generated code called %d\n", X);
+#else
+	printf("%d\n", X);
+#endif
 	return 0;
 }
 
@@ -49,7 +53,12 @@ int printShort(short X) {
 }
 
 int printFloat(double X) {
+#ifdef DEBUG
 	printf("[printFloat:] Generated code called %f\n", X);
+#else
+	printf("%f\n", X);
+#endif
+
 	return 0;
 }
 
