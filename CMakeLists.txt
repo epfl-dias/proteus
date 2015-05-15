@@ -180,6 +180,13 @@ target_link_libraries(tpch-bin-joins jsmn)
 target_link_libraries(tpch-bin-joins -lglog ${glog_ldflags})
 target_link_libraries(tpch-bin-joins ${llvm_ldflags} ${llvm_libs})
 
+add_executable(tpch-bin-joins-cached tpch-bin-joins-cached.cpp)
+set_target_properties(tpch-bin-joins-cached PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(tpch-bin-joins-cached codegen)
+target_link_libraries(tpch-bin-joins-cached jsmn)
+target_link_libraries(tpch-bin-joins-cached -lglog ${glog_ldflags})
+target_link_libraries(tpch-bin-joins-cached ${llvm_ldflags} ${llvm_libs})
+
 add_executable(tpch-bin-groups tpch-bin-groups.cpp)
 set_target_properties(tpch-bin-groups PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 target_link_libraries(tpch-bin-groups codegen)

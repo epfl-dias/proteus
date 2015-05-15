@@ -110,13 +110,13 @@ RawContext prepareContext(string moduleName)	{
 	return ctx;
 }
 
-
+/*
 int main()	{
 
 	map<string,dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
 
-	/* Make sure sides are materialized */
+	//Make sure sides are materialized
 //	cout << "Query 0a (PM + Side built if applicable)" << endl;
 //	tpchJoin1a(datasetCatalog,2);
 //	tpchJoin1a(datasetCatalog,2);
@@ -139,7 +139,7 @@ int main()	{
 	tpchJoin2b(datasetCatalog,3);
 	cout << "---" << endl;
 
-	/* Make sure sides are materialized */
+	//Make sure sides are materialized
 	cout << "Query 0c (Side built if applicable)" << endl;
 	tpchJoin3(datasetCatalog, 3);
 	cout << "---" << endl;
@@ -154,50 +154,95 @@ int main()	{
 //	tpchJoin4(datasetCatalog, 3);
 //	cout << "---" << endl;
 }
+*/
 
 //int main()	{
 //
 //	map<string,dataset> datasetCatalog;
 //	tpchSchema(datasetCatalog);
 //
-//	/* Make sure sides are materialized */
-//	cout << "Query 0a (PM + Side built if applicable)" << endl;
-//	tpchJoin1a(datasetCatalog,2);
-//	tpchJoin1a(datasetCatalog,2);
-//	cout << "---" << endl;
-//	cout << "Query 0b (PM + Side built if applicable)" << endl;
-//	tpchJoin1b(datasetCatalog,2);
-//	tpchJoin1b(datasetCatalog,2);
-//	cout << "---" << endl;
+//	int runs = 1;
+//	int selectivityShifts = 1;
+//	int predicateMax = L_ORDERKEY_MAX;
+//	//tpchJoinWarmupAll(datasetCatalog);
+//	tpchJoinWarmupKeys(datasetCatalog);
 //
-//	cout << "Query 1a" << endl;
-//	tpchJoin1a(datasetCatalog,2);
-//	cout << "---" << endl;
-//	cout << "Query 1b" << endl;
-//	tpchJoin1b(datasetCatalog,2);
-//	cout << "---" << endl;
-//	cout << "Query 2a" << endl;
-//	tpchJoin2a(datasetCatalog,3);
-//	cout << "---" << endl;
-//	cout << "Query 2b" << endl;
-//	tpchJoin2b(datasetCatalog,3);
-//	cout << "---" << endl;
+////	tpchJoin1a(datasetCatalog,predicateMax);
+////
+////
+////	tpchJoin1b(datasetCatalog,predicateMax);
 //
-//	/* Make sure sides are materialized */
-//	cout << "Query 0c (Side built if applicable)" << endl;
-//	tpchJoin3(datasetCatalog, 3);
-//	cout << "---" << endl;
-//	cout << "Query 0d (Side built if applicable)" << endl;
-//	tpchJoin4(datasetCatalog, 3);
-//	cout << "---" << endl;
+//	tpchJoin2a(datasetCatalog,predicateMax);
 //
-//	cout << "Query 3" << endl;
-//	tpchJoin3(datasetCatalog, 3);
-//	cout << "---" << endl;
-//	cout << "Query 4" << endl;
-//	tpchJoin4(datasetCatalog, 3);
-//	cout << "---" << endl;
+//	tpchJoin2b(datasetCatalog,predicateMax);
+//
+////	for (int i = 0; i < runs; i++) {
+////		cout << "[tpch-bin-joins: ] Run " << i+1 << endl;
+////		for (int i = 1; i <= selectivityShifts; i++) {
+////			double ratio = (i / (double) 10);
+////			double percentage = ratio * 100;
+////			int predicateVal = (int) ceil(predicateMax * ratio);
+////			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+////					<< percentage << "%" << endl;
+////			//tpchJoin1a(datasetCatalog,predicateVal);
+////		}
+////	}
 //}
+
+int main()	{
+
+	map<string,dataset> datasetCatalog;
+	tpchSchema(datasetCatalog);
+
+	int runs = 5;
+	int selectivityShifts = 10;
+	int predicateMax = O_ORDERKEY_MAX;
+
+	CachingService& cache = CachingService::getInstance();
+	RawCatalog& rawCatalog = RawCatalog::getInstance();
+	for (int i = 0; i < runs; i++) {
+		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+		for (int i = 1; i <= selectivityShifts; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+
+			//cout << "1a)" << endl;
+			tpchJoin1a(datasetCatalog, predicateVal);
+			rawCatalog.clear();
+			cache.clear();
+
+			//cout << "1b)" << endl;
+			tpchJoin1b(datasetCatalog, predicateVal);
+			rawCatalog.clear();
+			cache.clear();
+
+			//cout << "2a)" << endl;
+			tpchJoin2a(datasetCatalog, predicateVal);
+			rawCatalog.clear();
+			cache.clear();
+
+			//cout << "2b)" << endl;
+			tpchJoin2b(datasetCatalog, predicateVal);
+			rawCatalog.clear();
+			cache.clear();
+
+			//cout << "3)" << endl;
+			tpchJoin3(datasetCatalog, predicateMax);
+			rawCatalog.clear();
+			cache.clear();
+
+			//cout << "4)" << endl;
+			tpchJoin4(datasetCatalog, predicateMax);
+			rawCatalog.clear();
+			cache.clear();
+		}
+	}
+
+}
 
 void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 

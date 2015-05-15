@@ -25,8 +25,12 @@
 
 void CachingService::clear()	{
 	binCaches.clear();
+
 	binCacheIsFull.clear();
 //	pmCaches.clear();
+
+	MemoryService& mem = MemoryService::getInstance();
+	mem.clear();
 }
 
 

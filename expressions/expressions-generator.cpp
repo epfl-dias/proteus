@@ -211,8 +211,11 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 					return plugin->readCachedValue(info, currState);
 				}
 			} else {
-//			cout << "[Generator: ] No cache for expr of type " << e->getTypeID()
-//					<< endl;
+#ifdef DEBUGCACHING
+			cout << "[Generator: ] No cache found for "
+					<< e->getOriginalRelationName() << "."
+					<< e->getAttribute().getAttrName() << "!" << endl;
+#endif
 			}
 		//}
 	}

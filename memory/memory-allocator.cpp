@@ -31,6 +31,8 @@ void* allocateFromRegion(size_t regionSize)	{
 		throw runtime_error(error_msg);
 	}
 	LOG(INFO) << "Region Allocated" << endl;
+	MemoryService& mem = MemoryService::getInstance();
+	mem.registerChunk(arenaChunk);
 	return arenaChunk;
 }
 
@@ -40,6 +42,8 @@ void* increaseRegion(void* region, size_t currSize)	{
 	currSize <<= 1;
 	void* newRegion = realloc(region, currSize);
 	if(newRegion != NULL)	{
+		MemoryService& mem = MemoryService::getInstance();
+		mem.updateChunk(region,newRegion);
 		return newRegion;
 	}
 	else

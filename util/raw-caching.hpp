@@ -84,7 +84,7 @@ public:
 		bool found = false;
 		map<expressions::Expression*, bool>::iterator itBool;
 		if (it != binCaches.end()) {
-			LOG(WARNING)<< "Bin. caches already contain expr " << expr->getTypeID();
+			LOG(WARNING) << "Bin. caches already contain expr " << expr->getTypeID();
 			found = true;
 			itBool = binCacheIsFull.find(expr);
 		}
@@ -117,7 +117,9 @@ public:
 		{
 			binCaches[expr] = payload;
 			binCacheIsFull[expr] = entireDataset;
-			//cout << "Registered in cache " << endl;
+#ifdef DEBUGCACHING
+			cout << "Registered in cache " << endl;
+#endif
 		}
 #endif
 	}

@@ -54,8 +54,12 @@
 #include "common/tpch-config.hpp"
 
 void tpchSchema(map<string,dataset>& datasetCatalog)	{
-	tpchSchemaCSV(datasetCatalog);
+	tpchSchemaBin(datasetCatalog);
 }
+
+//Not to be used for timing - just to materialize columns
+void tpchJoinWarmupKeys(map<string,dataset> datasetCatalog);
+void tpchJoinWarmupAll(map<string,dataset> datasetCatalog);
 /*
    SELECT COUNT(*)
    FROM orders
@@ -109,94 +113,52 @@ RawContext prepareContext(string moduleName)	{
 	return ctx;
 }
 
+/*
+int main()	{
 
-//int main()	{
-//
-//	map<string,dataset> datasetCatalog;
-//	tpchSchema(datasetCatalog);
-//
-//	/* Make sure sides are materialized */
-////	cout << "Query 0a (PM + Side built if applicable)" << endl;
-////	tpchJoin1a(datasetCatalog,2);
-////	tpchJoin1a(datasetCatalog,2);
-////	cout << "---" << endl;
-////	cout << "Query 0b (PM + Side built if applicable)" << endl;
-////	tpchJoin1b(datasetCatalog,2);
-////	tpchJoin1b(datasetCatalog,2);
-////	cout << "---" << endl;
-////
-////	cout << "Query 1a" << endl;
-////	tpchJoin1a(datasetCatalog,2);
-////	cout << "---" << endl;
-////	cout << "Query 1b" << endl;
-////	tpchJoin1b(datasetCatalog,2);
-////	cout << "---" << endl;
-//	cout << "Query 2a" << endl;
-//	tpchJoin2a(datasetCatalog,3);
+	map<string,dataset> datasetCatalog;
+	tpchSchema(datasetCatalog);
+
+	//Make sure sides are materialized
+//	cout << "Query 0a (PM + Side built if applicable)" << endl;
+//	tpchJoin1a(datasetCatalog,2);
+//	tpchJoin1a(datasetCatalog,2);
 //	cout << "---" << endl;
-////	cout << "Query 2b" << endl;
-////	tpchJoin2b(datasetCatalog,3);
-////	cout << "---" << endl;
-//
-//	/* Make sure sides are materialized */
-//	cout << "Query 0c (Side built if applicable)" << endl;
-//	tpchJoin3(datasetCatalog, 3);
-//	cout << "---" << endl;
-//	cout << "Query 0d (Side built if applicable)" << endl;
-//	tpchJoin4(datasetCatalog, 3);
+//	cout << "Query 0b (PM + Side built if applicable)" << endl;
+//	tpchJoin1b(datasetCatalog,2);
+//	tpchJoin1b(datasetCatalog,2);
 //	cout << "---" << endl;
 //
+	cout << "Query 1a" << endl;
+	tpchJoin1a(datasetCatalog,2);
+	cout << "---" << endl;
+	cout << "Query 1b" << endl;
+	tpchJoin1b(datasetCatalog,2);
+	cout << "---" << endl;
+	cout << "Query 2a" << endl;
+	tpchJoin2a(datasetCatalog,3);
+	cout << "---" << endl;
+	cout << "Query 2b" << endl;
+	tpchJoin2b(datasetCatalog,3);
+	cout << "---" << endl;
+
+	//Make sure sides are materialized
+	cout << "Query 0c (Side built if applicable)" << endl;
+	tpchJoin3(datasetCatalog, 3);
+	cout << "---" << endl;
+	cout << "Query 0d (Side built if applicable)" << endl;
+	tpchJoin4(datasetCatalog, 3);
+	cout << "---" << endl;
+
 //	cout << "Query 3" << endl;
 //	tpchJoin3(datasetCatalog, 3);
 //	cout << "---" << endl;
 //	cout << "Query 4" << endl;
 //	tpchJoin4(datasetCatalog, 3);
 //	cout << "---" << endl;
-//}
+}
+*/
 
-//int main()	{
-//
-//	map<string,dataset> datasetCatalog;
-//	tpchSchema(datasetCatalog);
-//
-//	/* Make sure sides are materialized */
-////	cout << "Query 0a (PM + Side built if applicable)" << endl;
-////	tpchJoin1a(datasetCatalog,2);
-////	tpchJoin1a(datasetCatalog,2);
-////	cout << "---" << endl;
-////	cout << "Query 0b (PM + Side built if applicable)" << endl;
-////	tpchJoin1b(datasetCatalog,2);
-////	tpchJoin1b(datasetCatalog,2);
-////	cout << "---" << endl;
-////
-//	cout << "Query 1a" << endl;
-//	tpchJoin1a(datasetCatalog,2);
-//	cout << "---" << endl;
-//	cout << "Query 1b" << endl;
-//	tpchJoin1b(datasetCatalog,2);
-//	cout << "---" << endl;
-//	cout << "Query 2a" << endl;
-//	tpchJoin2a(datasetCatalog,3);
-//	cout << "---" << endl;
-//	cout << "Query 2b" << endl;
-//	tpchJoin2b(datasetCatalog,3);
-//	cout << "---" << endl;
-//
-//	/* Make sure sides are materialized */
-//	cout << "Query 0c (Side built if applicable)" << endl;
-//	tpchJoin3(datasetCatalog, 3);
-//	cout << "---" << endl;
-//	cout << "Query 0d (Side built if applicable)" << endl;
-//	tpchJoin4(datasetCatalog, 3);
-//	cout << "---" << endl;
-//
-////	cout << "Query 3" << endl;
-////	tpchJoin3(datasetCatalog, 3);
-////	cout << "---" << endl;
-////	cout << "Query 4" << endl;
-////	tpchJoin4(datasetCatalog, 3);
-////	cout << "---" << endl;
-//}
 int main()	{
 
 	map<string,dataset> datasetCatalog;
@@ -206,18 +168,12 @@ int main()	{
 	int selectivityShifts = 10;
 	int predicateMax = O_ORDERKEY_MAX;
 
-	cout << "[tpch-csv-joins: ] Warmup (PM)" << endl;
-	cout << "-> tpchJoinWarmupPM" << endl;
-	tpchJoin1a(datasetCatalog, predicateMax);
-	cout << "[tpch-csv-joins: ] End of Warmup (PM)" << endl;
-
-	CachingService& cache = CachingService::getInstance();
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
-	rawCatalog.clear();
-	cache.clear();
-
+	cout << "[tpch-bin-joins: ] Warmup" << endl;
+	cout << "-> tpchJoinWarmupKeys" << endl;
+	tpchJoinWarmupKeys(datasetCatalog);
+	cout << "[tpch-bin-joins: ] End of Warmup" << endl;
 	for (int i = 0; i < runs; i++) {
-		cout << "[tpch-csv-joins: ] Run " << i + 1 << endl;
+		cout << "[tpch-bin-joins-keysAsFields: ] Run " << i + 1 << endl;
 		for (int i = 1; i <= selectivityShifts; i++) {
 			double ratio = (i / (double) 10);
 			double percentage = ratio * 100;
@@ -225,38 +181,184 @@ int main()	{
 			int predicateVal = (int) ceil(predicateMax * ratio);
 			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
 					<< percentage << "%" << endl;
-
-			cout << "1a)" << endl;
 			tpchJoin1a(datasetCatalog, predicateVal);
-			rawCatalog.clear();
-			cache.clear();
 
-			cout << "1b)" << endl;
 			tpchJoin1b(datasetCatalog, predicateVal);
-			rawCatalog.clear();
-			cache.clear();
 
-			cout << "2a)" << endl;
 			tpchJoin2a(datasetCatalog, predicateVal);
-			rawCatalog.clear();
-			cache.clear();
 
-			cout << "2b)" << endl;
 			tpchJoin2b(datasetCatalog, predicateVal);
-			rawCatalog.clear();
-			cache.clear();
 
-			cout << "3)" << endl;
-			tpchJoin3(datasetCatalog, predicateMax);
-			rawCatalog.clear();
-			cache.clear();
-
-			cout << "4)" << endl;
-			tpchJoin4(datasetCatalog, predicateMax);
-			rawCatalog.clear();
-			cache.clear();
 		}
 	}
+
+	cout << "[tpch-bin-joins: ] Clean internal caches & Warmup" << endl;
+	cout << "-> tpchJoinWarmupAll" << endl;
+	/* Clean */
+	RawCatalog& rawCatalog = RawCatalog::getInstance();
+	rawCatalog.clear();
+	CachingService& cache = CachingService::getInstance();
+	cache.clear();
+	tpchJoinWarmupAll(datasetCatalog);
+	cout << "[tpch-bin-joins: ] End of Clean internal caches & Warmup" << endl;
+	for (int i = 0; i < runs; i++) {
+		cout << "[tpch-bin-joins-moreFields: ] Run " << i + 1 << endl;
+		for (int i = 1; i <= selectivityShifts; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			tpchJoin3(datasetCatalog, predicateMax);
+			tpchJoin4(datasetCatalog, predicateMax);
+
+		}
+	}
+
+}
+
+void tpchJoinWarmupKeys(map<string, dataset> datasetCatalog) {
+
+	RawContext ctx = prepareContext("tpch-csv-join1a");
+	RawCatalog& rawCatalog = RawCatalog::getInstance();
+
+	string nameLineitem = string("lineitem");
+	dataset lineitem = datasetCatalog[nameLineitem];
+	string nameOrders = string("orders");
+	dataset orders = datasetCatalog[nameOrders];
+	map<string, RecordAttribute*> argsLineitem = lineitem.recType.getArgsMap();
+	map<string, RecordAttribute*> argsOrder = orders.recType.getArgsMap();
+
+	/**
+	 * SCAN 1: Orders
+	 */
+	string ordersNamePrefix = orders.path;
+	RecordType recOrders = orders.recType;
+	int policy = 5;
+	int lineHint = orders.linehint;
+	char delimInner = '|';
+	vector<RecordAttribute*> orderProjections;
+	RecordAttribute *o_orderkey = argsOrder["o_orderkey"];
+	orderProjections.push_back(o_orderkey);
+
+	BinaryColPlugin *pgOrders = new BinaryColPlugin(&ctx, ordersNamePrefix,
+			recOrders, orderProjections);
+	rawCatalog.registerPlugin(ordersNamePrefix, pgOrders);
+	Scan *scanOrders = new Scan(&ctx, *pgOrders);
+
+	/**
+	 * SCAN 2: Lineitem
+	 */
+	string lineitemNamePrefix = lineitem.path;
+	RecordType recLineitem = lineitem.recType;
+	policy = 5;
+	lineHint = lineitem.linehint;
+	delimInner = '|';
+	vector<RecordAttribute*> lineitemProjections;
+	RecordAttribute *l_orderkey = argsLineitem["l_orderkey"];
+	lineitemProjections.push_back(l_orderkey);
+
+	BinaryColPlugin *pgLineitem = new BinaryColPlugin(&ctx, lineitemNamePrefix,
+			recLineitem, lineitemProjections);
+	rawCatalog.registerPlugin(lineitemNamePrefix, pgLineitem);
+	Scan *scanLineitem = new Scan(&ctx, *pgLineitem);
+
+	list<RecordAttribute> argProjectionsRight;
+	argProjectionsRight.push_back(*l_orderkey);
+	expressions::Expression* rightArg = new expressions::InputArgument(
+					&recLineitem, 1, argProjectionsRight);
+
+	/**
+	 * JOIN
+	 */
+	/* join key - orders */
+	list<RecordAttribute> argProjectionsLeft;
+	argProjectionsLeft.push_back(*o_orderkey);
+	expressions::Expression* leftArg = new expressions::InputArgument(
+			&recOrders, 0, argProjectionsLeft);
+	expressions::Expression* leftPred = new expressions::RecordProjection(
+			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
+
+	/* join key - lineitem */
+	expressions::Expression* rightPred = new expressions::RecordProjection(
+			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
+
+	/* join pred. */
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
+			new BoolType(), leftPred, rightPred);
+
+	/* left materializer - no explicit field needed */
+	vector<RecordAttribute*> fieldsLeft;
+	fieldsLeft.push_back(o_orderkey);
+	vector<materialization_mode> outputModesLeft;
+	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
+
+	/* explicit mention to left OID */
+	RecordAttribute *projTupleL = new RecordAttribute(ordersNamePrefix, activeLoop,
+			pgOrders->getOIDType());
+	vector<RecordAttribute*> OIDLeft;
+	OIDLeft.push_back(projTupleL);
+	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
+			pgOrders->getOIDType(), leftArg, *projTupleL);
+	expressions::Expression* exprOrderkey = new expressions::RecordProjection(
+				o_orderkey->getOriginalType(), leftArg, *o_orderkey);
+	vector<expressions::Expression*> expressionsLeft;
+	expressionsLeft.push_back(exprLeftOID);
+	expressionsLeft.push_back(exprOrderkey);
+
+	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
+			OIDLeft, outputModesLeft);
+
+	/* right materializer - no explicit field needed */
+	vector<RecordAttribute*> fieldsRight;
+	fieldsRight.push_back(l_orderkey);
+	vector<materialization_mode> outputModesRight;
+	outputModesRight.insert(outputModesRight.begin(), EAGER);
+
+	/* explicit mention to right OID */
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemNamePrefix, activeLoop,
+			pgLineitem->getOIDType());
+	vector<RecordAttribute*> OIDRight;
+	OIDRight.push_back(projTupleR);
+	expressions::Expression* exprRightOID = new expressions::RecordProjection(
+			pgLineitem->getOIDType(), rightArg, *projTupleR);
+	expressions::Expression* exprL_Orderkey = new expressions::RecordProjection(
+					l_orderkey->getOriginalType(), rightArg, *l_orderkey);
+	vector<expressions::Expression*> expressionsRight;
+	expressionsRight.push_back(exprRightOID);
+	expressionsRight.push_back(exprL_Orderkey);
+
+	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
+			OIDRight, outputModesRight);
+
+	char joinLabel[] = "radixJoin";
+	RadixJoin *join = new RadixJoin(joinPred, scanOrders, scanLineitem, &ctx,
+			joinLabel, *matLeft, *matRight);
+	scanOrders->setParent(join);
+	scanLineitem->setParent(join);
+
+	/**
+	 * REDUCE
+	 * COUNT(*)
+	 */
+	/* Output: */
+	expressions::Expression* outputExpr = new expressions::IntConstant(1);
+	ReduceNoPred *reduce = new ReduceNoPred(SUM, outputExpr, join, &ctx);
+	join->setParent(reduce);
+
+	//Run function
+	struct timespec t0, t1;
+	clock_gettime(CLOCK_REALTIME, &t0);
+	reduce->produce();
+	ctx.prepareFunction(ctx.getGlobalFunction());
+	clock_gettime(CLOCK_REALTIME, &t1);
+	printf("Execution took %f seconds\n", diff(t0, t1));
+
+	//Close all open files & clear
+	pgOrders->finish();
+	pgLineitem->finish();
+	rawCatalog.clear();
 }
 
 void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
@@ -274,7 +376,7 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 	/**
 	 * SCAN 1: Orders
 	 */
-	string ordersName = orders.path;
+	string ordersNamePrefix = orders.path;
 	RecordType recOrders = orders.recType;
 	int policy = 5;
 	int lineHint = orders.linehint;
@@ -283,15 +385,15 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 	RecordAttribute *o_orderkey = argsOrder["o_orderkey"];
 	orderProjections.push_back(o_orderkey);
 
-	pm::CSVPlugin* pgOrders = new pm::CSVPlugin(&ctx, ordersName, recOrders,
-			orderProjections, delimInner, lineHint, policy);
-	rawCatalog.registerPlugin(ordersName, pgOrders);
+	BinaryColPlugin *pgOrders = new BinaryColPlugin(&ctx, ordersNamePrefix,
+			recOrders, orderProjections);
+	rawCatalog.registerPlugin(ordersNamePrefix, pgOrders);
 	Scan *scanOrders = new Scan(&ctx, *pgOrders);
 
 	/**
 	 * SCAN 2: Lineitem
 	 */
-	string lineitemName = lineitem.path;
+	string lineitemNamePrefix = lineitem.path;
 	RecordType recLineitem = lineitem.recType;
 	policy = 5;
 	lineHint = lineitem.linehint;
@@ -300,9 +402,9 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 	RecordAttribute *l_orderkey = argsLineitem["l_orderkey"];
 	lineitemProjections.push_back(l_orderkey);
 
-	pm::CSVPlugin* pgLineitem = new pm::CSVPlugin(&ctx, lineitemName,
-			recLineitem, lineitemProjections, delimInner, lineHint, policy);
-	rawCatalog.registerPlugin(lineitemName, pgLineitem);
+	BinaryColPlugin *pgLineitem = new BinaryColPlugin(&ctx, lineitemNamePrefix,
+			recLineitem, lineitemProjections);
+	rawCatalog.registerPlugin(lineitemNamePrefix, pgLineitem);
 	Scan *scanLineitem = new Scan(&ctx, *pgLineitem);
 
 	/*
@@ -348,14 +450,14 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
 
 	/* explicit mention to left OID */
-	RecordAttribute *projTupleL = new RecordAttribute(ordersName, activeLoop,
-			pgOrders->getOIDType());
+	RecordAttribute *projTupleL = new RecordAttribute(ordersNamePrefix,
+			activeLoop, pgOrders->getOIDType());
 	vector<RecordAttribute*> OIDLeft;
 	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
 			pgOrders->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprOrderkey = new expressions::RecordProjection(
-				o_orderkey->getOriginalType(), leftArg, *o_orderkey);
+			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
 	vector<expressions::Expression*> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprOrderkey);
@@ -368,7 +470,7 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 	vector<materialization_mode> outputModesRight;
 
 	/* explicit mention to right OID */
-	RecordAttribute *projTupleR = new RecordAttribute(lineitemName, activeLoop,
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemNamePrefix, activeLoop,
 			pgLineitem->getOIDType());
 	vector<RecordAttribute*> OIDRight;
 	OIDRight.push_back(projTupleR);
@@ -424,7 +526,7 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 	/**
 	 * SCAN 1: Orders
 	 */
-	string ordersName = orders.path;
+	string ordersNamePrefix = orders.path;
 	RecordType recOrders = orders.recType;
 	int policy = 5;
 	int lineHint = orders.linehint;
@@ -433,15 +535,15 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 	RecordAttribute *o_orderkey = argsOrder["o_orderkey"];
 	orderProjections.push_back(o_orderkey);
 
-	pm::CSVPlugin* pgOrders = new pm::CSVPlugin(&ctx, ordersName, recOrders,
-			orderProjections, delimInner, lineHint, policy);
-	rawCatalog.registerPlugin(ordersName, pgOrders);
+	BinaryColPlugin *pgOrders = new BinaryColPlugin(&ctx, ordersNamePrefix,
+			recOrders, orderProjections);
+	rawCatalog.registerPlugin(ordersNamePrefix, pgOrders);
 	Scan *scanOrders = new Scan(&ctx, *pgOrders);
 
 	/**
 	 * SCAN 2: Lineitem
 	 */
-	string lineitemName = lineitem.path;
+	string lineitemNamePrefix = lineitem.path;
 	RecordType recLineitem = lineitem.recType;
 	policy = 5;
 	lineHint = lineitem.linehint;
@@ -450,9 +552,9 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 	RecordAttribute *l_orderkey = argsLineitem["l_orderkey"];
 	lineitemProjections.push_back(l_orderkey);
 
-	pm::CSVPlugin* pgLineitem = new pm::CSVPlugin(&ctx, lineitemName,
-			recLineitem, lineitemProjections, delimInner, lineHint, policy);
-	rawCatalog.registerPlugin(lineitemName, pgLineitem);
+	BinaryColPlugin *pgLineitem = new BinaryColPlugin(&ctx, lineitemNamePrefix,
+			recLineitem, lineitemProjections);
+	rawCatalog.registerPlugin(lineitemNamePrefix, pgLineitem);
 	Scan *scanLineitem = new Scan(&ctx, *pgLineitem);
 
 	/*
@@ -495,7 +597,7 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 	vector<materialization_mode> outputModesLeft;
 
 	/* explicit mention to left OID */
-	RecordAttribute *projTupleL = new RecordAttribute(ordersName, activeLoop,
+	RecordAttribute *projTupleL = new RecordAttribute(ordersNamePrefix, activeLoop,
 			pgOrders->getOIDType());
 	vector<RecordAttribute*> OIDLeft;
 	OIDLeft.push_back(projTupleL);
@@ -514,7 +616,7 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 	outputModesRight.insert(outputModesRight.begin(), EAGER);
 
 	/* explicit mention to right OID */
-	RecordAttribute *projTupleR = new RecordAttribute(lineitemName, activeLoop,
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemNamePrefix, activeLoop,
 			pgLineitem->getOIDType());
 	vector<RecordAttribute*> OIDRight;
 	OIDRight.push_back(projTupleR);
@@ -574,7 +676,7 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 	/**
 	 * SCAN 1: Orders
 	 */
-	string ordersName = orders.path;
+	string ordersNamePrefix = orders.path;
 	RecordType recOrders = orders.recType;
 	int policy = 5;
 	int lineHint = orders.linehint;
@@ -583,15 +685,15 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 	RecordAttribute *o_orderkey = argsOrder["o_orderkey"];
 	orderProjections.push_back(o_orderkey);
 
-	pm::CSVPlugin* pgOrders = new pm::CSVPlugin(&ctx, ordersName, recOrders,
-			orderProjections, delimInner, lineHint, policy);
-	rawCatalog.registerPlugin(ordersName, pgOrders);
+	BinaryColPlugin *pgOrders = new BinaryColPlugin(&ctx, ordersNamePrefix,
+			recOrders, orderProjections);
+	rawCatalog.registerPlugin(ordersNamePrefix, pgOrders);
 	Scan *scanOrders = new Scan(&ctx, *pgOrders);
 
 	/**
 	 * SCAN 2: Lineitem
 	 */
-	string lineitemName = lineitem.path;
+	string lineitemNamePrefix = lineitem.path;
 	RecordType recLineitem = lineitem.recType;
 	policy = 5;
 	lineHint = lineitem.linehint;
@@ -600,9 +702,9 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 	RecordAttribute *l_orderkey = argsLineitem["l_orderkey"];
 	lineitemProjections.push_back(l_orderkey);
 
-	pm::CSVPlugin* pgLineitem = new pm::CSVPlugin(&ctx, lineitemName,
-			recLineitem, lineitemProjections, delimInner, lineHint, policy);
-	rawCatalog.registerPlugin(lineitemName, pgLineitem);
+	BinaryColPlugin *pgLineitem = new BinaryColPlugin(&ctx, lineitemNamePrefix,
+			recLineitem, lineitemProjections);
+	rawCatalog.registerPlugin(lineitemNamePrefix, pgLineitem);
 	Scan *scanLineitem = new Scan(&ctx, *pgLineitem);
 
 	/*
@@ -640,21 +742,21 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
 			new BoolType(), leftPred, rightPred);
 
-	/* left materializer - no explicit field needed */
+	/* left materializer - no explicit field needed - added them to help caching */
 	vector<RecordAttribute*> fieldsLeft;
 	fieldsLeft.push_back(o_orderkey);
 	vector<materialization_mode> outputModesLeft;
 	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
 
 	/* explicit mention to left OID */
-	RecordAttribute *projTupleL = new RecordAttribute(ordersName, activeLoop,
-			pgOrders->getOIDType());
+	RecordAttribute *projTupleL = new RecordAttribute(ordersNamePrefix,
+			activeLoop, pgOrders->getOIDType());
 	vector<RecordAttribute*> OIDLeft;
 	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
 			pgOrders->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprOrderkey = new expressions::RecordProjection(
-				o_orderkey->getOriginalType(), leftArg, *o_orderkey);
+			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
 	vector<expressions::Expression*> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprOrderkey);
@@ -667,7 +769,7 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 	vector<materialization_mode> outputModesRight;
 
 	/* explicit mention to right OID */
-	RecordAttribute *projTupleR = new RecordAttribute(lineitemName, activeLoop,
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemNamePrefix, activeLoop,
 			pgLineitem->getOIDType());
 	vector<RecordAttribute*> OIDRight;
 	OIDRight.push_back(projTupleR);
@@ -723,7 +825,7 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 	/**
 	 * SCAN 1: Orders
 	 */
-	string ordersName = orders.path;
+	string ordersNamePrefix = orders.path;
 	RecordType recOrders = orders.recType;
 	int policy = 5;
 	int lineHint = orders.linehint;
@@ -732,15 +834,15 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 	RecordAttribute *o_orderkey = argsOrder["o_orderkey"];
 	orderProjections.push_back(o_orderkey);
 
-	pm::CSVPlugin* pgOrders = new pm::CSVPlugin(&ctx, ordersName, recOrders,
-			orderProjections, delimInner, lineHint, policy);
-	rawCatalog.registerPlugin(ordersName, pgOrders);
+	BinaryColPlugin *pgOrders = new BinaryColPlugin(&ctx, ordersNamePrefix,
+			recOrders, orderProjections);
+	rawCatalog.registerPlugin(ordersNamePrefix, pgOrders);
 	Scan *scanOrders = new Scan(&ctx, *pgOrders);
 
 	/**
 	 * SCAN 2: Lineitem
 	 */
-	string lineitemName = lineitem.path;
+	string lineitemNamePrefix = lineitem.path;
 	RecordType recLineitem = lineitem.recType;
 	policy = 5;
 	lineHint = lineitem.linehint;
@@ -749,9 +851,9 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 	RecordAttribute *l_orderkey = argsLineitem["l_orderkey"];
 	lineitemProjections.push_back(l_orderkey);
 
-	pm::CSVPlugin* pgLineitem = new pm::CSVPlugin(&ctx, lineitemName,
-			recLineitem, lineitemProjections, delimInner, lineHint, policy);
-	rawCatalog.registerPlugin(lineitemName, pgLineitem);
+	BinaryColPlugin *pgLineitem = new BinaryColPlugin(&ctx, lineitemNamePrefix,
+			recLineitem, lineitemProjections);
+	rawCatalog.registerPlugin(lineitemNamePrefix, pgLineitem);
 	Scan *scanLineitem = new Scan(&ctx, *pgLineitem);
 
 //	/*
@@ -812,17 +914,22 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 
 	/* left materializer - no explicit field needed */
 	vector<RecordAttribute*> fieldsLeft;
+	fieldsLeft.push_back(o_orderkey);
 	vector<materialization_mode> outputModesLeft;
+	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
 
 	/* explicit mention to left OID */
-	RecordAttribute *projTupleL = new RecordAttribute(ordersName, activeLoop,
-			pgOrders->getOIDType());
+	RecordAttribute *projTupleL = new RecordAttribute(ordersNamePrefix,
+			activeLoop, pgOrders->getOIDType());
 	vector<RecordAttribute*> OIDLeft;
 	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
 			pgOrders->getOIDType(), leftArg, *projTupleL);
+	expressions::Expression* exprO_Orderkey = new expressions::RecordProjection(
+			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
 	vector<expressions::Expression*> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
+	expressionsLeft.push_back(exprO_Orderkey);
 
 	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
 			OIDLeft, outputModesLeft);
@@ -834,7 +941,7 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 	outputModesRight.insert(outputModesRight.begin(), EAGER);
 
 	/* explicit mention to right OID */
-	RecordAttribute *projTupleR = new RecordAttribute(lineitemName, activeLoop,
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemNamePrefix, activeLoop,
 			pgLineitem->getOIDType());
 	vector<RecordAttribute*> OIDRight;
 	OIDRight.push_back(projTupleR);
@@ -895,7 +1002,7 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 	/**
 	 * SCAN 1: Orders
 	 */
-	string ordersName = orders.path;
+	string ordersNamePrefix = orders.path;
 	RecordType recOrders = orders.recType;
 	int policy = 5;
 	int lineHint = orders.linehint;
@@ -906,15 +1013,15 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 	orderProjections.push_back(o_orderkey);
 	orderProjections.push_back(o_totalprice);
 
-	pm::CSVPlugin* pgOrders = new pm::CSVPlugin(&ctx, ordersName, recOrders,
-			orderProjections, delimInner, lineHint, policy);
-	rawCatalog.registerPlugin(ordersName, pgOrders);
+	BinaryColPlugin *pgOrders = new BinaryColPlugin(&ctx, ordersNamePrefix,
+			recOrders, orderProjections);
+	rawCatalog.registerPlugin(ordersNamePrefix, pgOrders);
 	Scan *scanOrders = new Scan(&ctx, *pgOrders);
 
 	/**
 	 * SCAN 2: Lineitem
 	 */
-	string lineitemName = lineitem.path;
+	string lineitemNamePrefix = lineitem.path;
 	RecordType recLineitem = lineitem.recType;
 	policy = 5;
 	lineHint = lineitem.linehint;
@@ -923,9 +1030,9 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 	RecordAttribute *l_orderkey = argsLineitem["l_orderkey"];
 	lineitemProjections.push_back(l_orderkey);
 
-	pm::CSVPlugin* pgLineitem = new pm::CSVPlugin(&ctx, lineitemName,
-			recLineitem, lineitemProjections, delimInner, lineHint, policy);
-	rawCatalog.registerPlugin(lineitemName, pgLineitem);
+	BinaryColPlugin *pgLineitem = new BinaryColPlugin(&ctx, lineitemNamePrefix,
+			recLineitem, lineitemProjections);
+	rawCatalog.registerPlugin(lineitemNamePrefix, pgLineitem);
 	Scan *scanLineitem = new Scan(&ctx, *pgLineitem);
 
 	/*
@@ -972,7 +1079,7 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
 
 	/* explicit mention to left OID */
-	RecordAttribute *projTupleL = new RecordAttribute(ordersName, activeLoop,
+	RecordAttribute *projTupleL = new RecordAttribute(ordersNamePrefix, activeLoop,
 			pgOrders->getOIDType());
 	vector<RecordAttribute*> OIDLeft;
 	OIDLeft.push_back(projTupleL);
@@ -995,7 +1102,7 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 	vector<materialization_mode> outputModesRight;
 
 	/* explicit mention to right OID */
-	RecordAttribute *projTupleR = new RecordAttribute(lineitemName, activeLoop,
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemNamePrefix, activeLoop,
 			pgLineitem->getOIDType());
 	vector<RecordAttribute*> OIDRight;
 	OIDRight.push_back(projTupleR);
@@ -1059,24 +1166,25 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 	/**
 	 * SCAN 1: Orders
 	 */
-	string ordersName = orders.path;
+	string ordersNamePrefix = orders.path;
 	RecordType recOrders = orders.recType;
 	int policy = 5;
 	int lineHint = orders.linehint;
 	char delimInner = '|';
 	vector<RecordAttribute*> orderProjections;
 	RecordAttribute *o_orderkey = argsOrder["o_orderkey"];
+	RecordAttribute *o_totalprice = argsOrder["o_totalprice"];
 	orderProjections.push_back(o_orderkey);
 
-	pm::CSVPlugin* pgOrders = new pm::CSVPlugin(&ctx, ordersName, recOrders,
-			orderProjections, delimInner, lineHint, policy);
-	rawCatalog.registerPlugin(ordersName, pgOrders);
+	BinaryColPlugin *pgOrders = new BinaryColPlugin(&ctx, ordersNamePrefix,
+			recOrders, orderProjections);
+	rawCatalog.registerPlugin(ordersNamePrefix, pgOrders);
 	Scan *scanOrders = new Scan(&ctx, *pgOrders);
 
 	/**
 	 * SCAN 2: Lineitem
 	 */
-	string lineitemName = lineitem.path;
+	string lineitemNamePrefix = lineitem.path;
 	RecordType recLineitem = lineitem.recType;
 	policy = 5;
 	lineHint = lineitem.linehint;
@@ -1087,26 +1195,10 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 	lineitemProjections.push_back(l_orderkey);
 	lineitemProjections.push_back(l_extendedprice);
 
-	pm::CSVPlugin* pgLineitem = new pm::CSVPlugin(&ctx, lineitemName,
-			recLineitem, lineitemProjections, delimInner, lineHint, policy);
-	rawCatalog.registerPlugin(lineitemName, pgLineitem);
+	BinaryColPlugin *pgLineitem = new BinaryColPlugin(&ctx, lineitemNamePrefix,
+			recLineitem, lineitemProjections);
+	rawCatalog.registerPlugin(lineitemNamePrefix, pgLineitem);
 	Scan *scanLineitem = new Scan(&ctx, *pgLineitem);
-
-	//	/*
-	//	 * SELECT on ORDERS
-	//	 */
-	//	list<RecordAttribute> argProjectionsLeft;
-	//	argProjectionsLeft.push_back(*o_orderkey);
-	//	expressions::Expression* leftArg = new expressions::InputArgument(
-	//			&recOrders, 0, argProjectionsLeft);
-	//	expressions::Expression *lhs = new expressions::RecordProjection(
-	//			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
-	//	expressions::Expression* rhs = new expressions::IntConstant(predicate);
-	//	expressions::Expression* pred = new expressions::LtExpression(
-	//			new BoolType(), lhs, rhs);
-	//
-	//	Select *sel = new Select(pred, scanOrders);
-	//	scanOrders->setParent(sel);
 
 	/*
 	 * SELECT on LINEITEM
@@ -1148,19 +1240,29 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
 			new BoolType(), leftPred, rightPred);
 
-	/* left materializer - no explicit field needed */
+	/* left materializer - no explicit field needed - added them to help caching */
 	vector<RecordAttribute*> fieldsLeft;
+	fieldsLeft.push_back(o_orderkey);
+	fieldsLeft.push_back(o_totalprice);
 	vector<materialization_mode> outputModesLeft;
+	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
+	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
 
 	/* explicit mention to left OID */
-	RecordAttribute *projTupleL = new RecordAttribute(ordersName, activeLoop,
-			pgOrders->getOIDType());
+	RecordAttribute *projTupleL = new RecordAttribute(ordersNamePrefix,
+			activeLoop, pgOrders->getOIDType());
 	vector<RecordAttribute*> OIDLeft;
 	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
 			pgOrders->getOIDType(), leftArg, *projTupleL);
+	expressions::Expression* exprO_Orderkey = new expressions::RecordProjection(
+			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
+	expressions::Expression* exprTotalprice = new expressions::RecordProjection(
+			o_totalprice->getOriginalType(), leftArg, *o_totalprice);
 	vector<expressions::Expression*> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
+	expressionsLeft.push_back(exprO_Orderkey);
+	expressionsLeft.push_back(exprTotalprice);
 
 	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
 			OIDLeft, outputModesLeft);
@@ -1174,7 +1276,7 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 	outputModesRight.insert(outputModesRight.begin(), EAGER);
 
 	/* explicit mention to right OID */
-	RecordAttribute *projTupleR = new RecordAttribute(lineitemName, activeLoop,
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemNamePrefix, activeLoop,
 			pgLineitem->getOIDType());
 	vector<RecordAttribute*> OIDRight;
 	OIDRight.push_back(projTupleR);
@@ -1213,6 +1315,165 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 	outputExprs.push_back(exprExtendedprice);
 
 	opt::ReduceNoPred *reduce = new opt::ReduceNoPred(accs, outputExprs, join, &ctx);
+	join->setParent(reduce);
+
+	//Run function
+	struct timespec t0, t1;
+	clock_gettime(CLOCK_REALTIME, &t0);
+	reduce->produce();
+	ctx.prepareFunction(ctx.getGlobalFunction());
+	clock_gettime(CLOCK_REALTIME, &t1);
+	printf("Execution took %f seconds\n", diff(t0, t1));
+
+	//Close all open files & clear
+	pgOrders->finish();
+	pgLineitem->finish();
+	rawCatalog.clear();
+}
+
+void tpchJoinWarmupAll(map<string, dataset> datasetCatalog) {
+
+	RawContext ctx = prepareContext("tpch-csv-join1a");
+	RawCatalog& rawCatalog = RawCatalog::getInstance();
+
+	string nameLineitem = string("lineitem");
+	dataset lineitem = datasetCatalog[nameLineitem];
+	string nameOrders = string("orders");
+	dataset orders = datasetCatalog[nameOrders];
+	map<string, RecordAttribute*> argsLineitem = lineitem.recType.getArgsMap();
+	map<string, RecordAttribute*> argsOrder = orders.recType.getArgsMap();
+
+	/**
+	 * SCAN 1: Orders
+	 */
+	string ordersNamePrefix = orders.path;
+	RecordType recOrders = orders.recType;
+	int policy = 5;
+	int lineHint = orders.linehint;
+	char delimInner = '|';
+	vector<RecordAttribute*> orderProjections;
+	RecordAttribute *o_orderkey = argsOrder["o_orderkey"];
+	RecordAttribute *o_totalprice = argsOrder["o_totalprice"];
+	orderProjections.push_back(o_orderkey);
+	orderProjections.push_back(o_totalprice);
+
+	BinaryColPlugin *pgOrders = new BinaryColPlugin(&ctx, ordersNamePrefix,
+			recOrders, orderProjections);
+	rawCatalog.registerPlugin(ordersNamePrefix, pgOrders);
+	Scan *scanOrders = new Scan(&ctx, *pgOrders);
+
+	/**
+	 * SCAN 2: Lineitem
+	 */
+	string lineitemNamePrefix = lineitem.path;
+	RecordType recLineitem = lineitem.recType;
+	policy = 5;
+	lineHint = lineitem.linehint;
+	delimInner = '|';
+	vector<RecordAttribute*> lineitemProjections;
+	RecordAttribute *l_orderkey = argsLineitem["l_orderkey"];
+	RecordAttribute *l_extendedprice = argsLineitem["l_extendedprice"];
+	lineitemProjections.push_back(l_orderkey);
+	lineitemProjections.push_back(l_extendedprice);
+
+	BinaryColPlugin *pgLineitem = new BinaryColPlugin(&ctx, lineitemNamePrefix,
+			recLineitem, lineitemProjections);
+	rawCatalog.registerPlugin(lineitemNamePrefix, pgLineitem);
+	Scan *scanLineitem = new Scan(&ctx, *pgLineitem);
+
+	list<RecordAttribute> argProjectionsRight;
+	argProjectionsRight.push_back(*l_orderkey);
+	expressions::Expression* rightArg = new expressions::InputArgument(
+					&recLineitem, 1, argProjectionsRight);
+
+	/**
+	 * JOIN
+	 */
+	/* join key - orders */
+	list<RecordAttribute> argProjectionsLeft;
+	argProjectionsLeft.push_back(*o_orderkey);
+	expressions::Expression* leftArg = new expressions::InputArgument(
+			&recOrders, 0, argProjectionsLeft);
+	expressions::Expression* leftPred = new expressions::RecordProjection(
+			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
+
+	/* join key - lineitem */
+	expressions::Expression* rightPred = new expressions::RecordProjection(
+			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
+
+	/* join pred. */
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
+			new BoolType(), leftPred, rightPred);
+
+	/* left materializer - no explicit field needed */
+	vector<RecordAttribute*> fieldsLeft;
+	fieldsLeft.push_back(o_orderkey);
+	fieldsLeft.push_back(o_totalprice);
+	vector<materialization_mode> outputModesLeft;
+	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
+	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
+
+	/* explicit mention to left OID */
+	RecordAttribute *projTupleL = new RecordAttribute(ordersNamePrefix,
+			activeLoop, pgOrders->getOIDType());
+	vector<RecordAttribute*> OIDLeft;
+	OIDLeft.push_back(projTupleL);
+	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
+			pgOrders->getOIDType(), leftArg, *projTupleL);
+	expressions::Expression* exprO_Orderkey = new expressions::RecordProjection(
+			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
+	expressions::Expression* exprTotalprice = new expressions::RecordProjection(
+			o_totalprice->getOriginalType(), leftArg, *o_totalprice);
+	vector<expressions::Expression*> expressionsLeft;
+	expressionsLeft.push_back(exprLeftOID);
+	expressionsLeft.push_back(exprO_Orderkey);
+	expressionsLeft.push_back(exprTotalprice);
+
+	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
+			OIDLeft, outputModesLeft);
+
+	/* right materializer - no explicit field needed */
+	vector<RecordAttribute*> fieldsRight;
+	fieldsRight.push_back(l_orderkey);
+	fieldsRight.push_back(l_extendedprice);
+	vector<materialization_mode> outputModesRight;
+	outputModesRight.insert(outputModesRight.begin(), EAGER);
+	outputModesRight.insert(outputModesRight.begin(), EAGER);
+
+	/* explicit mention to right OID */
+	RecordAttribute *projTupleR = new RecordAttribute(lineitemNamePrefix,
+			activeLoop, pgLineitem->getOIDType());
+	vector<RecordAttribute*> OIDRight;
+	OIDRight.push_back(projTupleR);
+	expressions::Expression* exprRightOID = new expressions::RecordProjection(
+			pgLineitem->getOIDType(), rightArg, *projTupleR);
+	expressions::Expression* exprL_Orderkey = new expressions::RecordProjection(
+			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
+	expressions::Expression* exprExtendedprice =
+			new expressions::RecordProjection(
+					l_extendedprice->getOriginalType(), rightArg,
+					*l_extendedprice);
+	vector<expressions::Expression*> expressionsRight;
+	expressionsRight.push_back(exprRightOID);
+	expressionsRight.push_back(exprL_Orderkey);
+	expressionsRight.push_back(exprExtendedprice);
+
+	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
+			OIDRight, outputModesRight);
+
+	char joinLabel[] = "radixJoin";
+	RadixJoin *join = new RadixJoin(joinPred, scanOrders, scanLineitem, &ctx,
+			joinLabel, *matLeft, *matRight);
+	scanOrders->setParent(join);
+	scanLineitem->setParent(join);
+
+	/**
+	 * REDUCE
+	 * COUNT(*)
+	 */
+	/* Output: */
+	expressions::Expression* outputExpr = new expressions::IntConstant(1);
+	ReduceNoPred *reduce = new ReduceNoPred(SUM, outputExpr, join, &ctx);
 	join->setParent(reduce);
 
 	//Run function

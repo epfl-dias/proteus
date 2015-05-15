@@ -68,13 +68,13 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 
 	/* Arbitrary initial buffer sizes */
 	/* No realloc will be required with these sizes for synthetic large-scale numbers */
-//	size_t sizeR = 10000000000;
-//	size_t sizeS = 15000000000;
+	size_t sizeR = 10000000000;
+	size_t sizeS = 15000000000;
 
 //	size_t sizeR = 1000;
 //	size_t sizeS = 1500;
-	size_t sizeR = 50000;
-	size_t sizeS = 50000;
+//	size_t sizeR = 50000;
+//	size_t sizeS = 50000;
 
 	//size_t sizeR = 100000000;
 	//size_t sizeS = 100000000;
@@ -289,8 +289,21 @@ Scan* RadixJoin::findSideInCache(Materializer &mat, bool isLeft) const {
 					return NULL;
 				}
 			}
-			cout << "Relation side with " << info.objectTypes.size()
-					<< " fields is READY" << endl;
+
+			if (info.objectTypes.size() == exps.size()) {
+#ifdef DEBUGCACHING
+				cout << "Relation side with " << info.objectTypes.size()
+				<< " fields is READY" << endl;
+#endif
+			} else {
+#ifdef DEBUGCACHING
+				if(isLeft) cout << "[Left: ] ";
+				cout << "Only 1-1 cache correspondence available atm: "
+				<< info.objectTypes.size() << " vs " << exps.size()
+				<< endl;
+#endif
+				return NULL;
+			}
 
 			const vector<RecordAttribute*>& fields = mat.getWantedFields();
 
@@ -324,7 +337,9 @@ Scan* RadixJoin::findSideInCache(Materializer &mat, bool isLeft) const {
 			return newScan;
 		}
 	}
+#ifdef DEBUGCACHING
 	cout << "No expressions to check for" << endl;
+#endif
 	return NULL;
 }
 
@@ -455,7 +470,9 @@ void RadixJoin::produce() {
 		//cout << "Traditional LEFT side" << endl;
 		getLeftChild()->produce();
 	} else {
+#ifdef DEBUGCACHING
 		cout << "NEW LEFT SCAN POSSIBLE!!" << endl;
+#endif
 		//this->setLeftChild(*newChildLeft);
 		cachedLeft = true;
 		this->setLeftChild(newChildLeft);
@@ -472,7 +489,9 @@ void RadixJoin::produce() {
 		//cout << "Traditional RIGHT side" << endl;
 		getRightChild()->produce();
 	} else {
+#ifdef DEBUGCACHING
 		cout << "NEW RIGHT SCAN POSSIBLE!!" << endl;
+#endif
 		cachedRight = true;
 		this->setRightChild(newChildRight);
 		newChildRight->setParent(this);

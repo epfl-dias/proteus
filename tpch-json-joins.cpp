@@ -77,15 +77,6 @@ void tpchJoin1b(map<string,dataset> datasetCatalog, int predicate);
    SELECT COUNT(lineitem)
    FROM ordersLineitems
    WHERE o_orderkey < [X]
- *
- * XXX Data cannot be used for this atm..
- * Reason: Instead of being
- * {order1 , lineitems: [{},{},...,{}]},
- * they look like
- * {order1 , lineitems: {}}
- * {order1 , lineitems: {}}
- * {order1 , lineitems: {}}
- * etc.
  */
 void tpchJoin1c(map<string,dataset> datasetCatalog, int predicate);
 
@@ -220,27 +211,96 @@ RawContext prepareContext(string moduleName)	{
 
 ///* Testing (very) wide json files with nesting
 // * ordersLineitemArray.json */
+//int main()	{
+//
+//	map<string,dataset> datasetCatalog;
+//	tpchSchema(datasetCatalog);
+//
+//	/* Returned 20760489 in 30 sec.*/
+//	tpchJoin1c(datasetCatalog,20000000);
+//	tpchJoin1c(datasetCatalog,20000000);
+//
+////	tpchJoin1a(datasetCatalog,3);
+////	tpchJoin1b(datasetCatalog,3);
+//
+//	/* Returns 1 more result! */
+//	//Correct: 25
+//	//tpchJoin1c(datasetCatalog,10);
+//	//Correct: 55
+//	//tpchJoin1c(datasetCatalog,40);
+//
+//	tpchJoin1c(datasetCatalog,30000000);
+//	tpchJoin1c(datasetCatalog,30000000);
+//
+//}
+
 int main()	{
 
 	map<string,dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
 
-	/* Returned 20760489 in 30 sec.*/
-	tpchJoin1c(datasetCatalog,20000000);
-	tpchJoin1c(datasetCatalog,20000000);
+	int runs = 5;
+	int selectivityShifts = 10;
+	int predicateMax = O_ORDERKEY_MAX;
 
-//	tpchJoin1a(datasetCatalog,3);
-//	tpchJoin1b(datasetCatalog,3);
+	cout << "[tpch-json-joins: ] Warmup (PM)" << endl;
+	cout << "-> tpchJoinWarmupPM1" << endl;
+	tpchJoin1a(datasetCatalog, predicateMax);
+//	cout << "-> tpchJoinWarmupPM2" << endl;
+//	tpchJoin1c(datasetCatalog, predicateMax);
+	cout << "[tpch-json-joins: ] End of Warmup (PM)" << endl;
 
-	/* Returns 1 more result! */
-	//Correct: 25
-	//tpchJoin1c(datasetCatalog,10);
-	//Correct: 55
-	//tpchJoin1c(datasetCatalog,40);
+	CachingService& cache = CachingService::getInstance();
+	RawCatalog& rawCatalog = RawCatalog::getInstance();
+	rawCatalog.clear();
+	cache.clear();
 
-	tpchJoin1c(datasetCatalog,30000000);
-	tpchJoin1c(datasetCatalog,30000000);
+	for (int i = 0; i < runs; i++) {
+		cout << "[tpch-json-joins: ] Run " << i + 1 << endl;
+		for (int i = 1; i <= selectivityShifts; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
 
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+
+			cout << "1a)" << endl;
+			tpchJoin1a(datasetCatalog, predicateVal);
+			rawCatalog.clear();
+			cache.clear();
+
+			cout << "1b)" << endl;
+			tpchJoin1b(datasetCatalog, predicateVal);
+			rawCatalog.clear();
+			cache.clear();
+
+//			cout << "1c)" << endl;
+//			tpchJoin1c(datasetCatalog, predicateVal);
+//			rawCatalog.clear();
+//			cache.clear();
+
+			cout << "2a)" << endl;
+			tpchJoin2a(datasetCatalog, predicateVal);
+			rawCatalog.clear();
+			cache.clear();
+
+			cout << "2b)" << endl;
+			tpchJoin2b(datasetCatalog, predicateVal);
+			rawCatalog.clear();
+			cache.clear();
+
+			cout << "3)" << endl;
+			tpchJoin3(datasetCatalog, predicateMax);
+			rawCatalog.clear();
+			cache.clear();
+
+			cout << "4)" << endl;
+			tpchJoin4(datasetCatalog, predicateMax);
+			rawCatalog.clear();
+			cache.clear();
+		}
+	}
 }
 
 void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {

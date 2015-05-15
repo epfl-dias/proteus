@@ -30,4 +30,46 @@ void* allocateFromRegion(size_t regionSize);
 void* increaseRegion(void *region, size_t currSize);
 void freeRegion(void *region);
 
+class MemoryService
+{
+public:
+
+	static MemoryService& getInstance()
+	{
+		static MemoryService instance;
+		return instance;
+	}
+
+	void registerChunk(void* mem_chunk) {
+		memoryChunks.push_back(mem_chunk);
+	}
+
+	void updateChunk(void *mem_before, void *mem_after) {
+		vector<void*>::iterator it = memoryChunks.begin();
+		for (; it != memoryChunks.end(); it++) {
+			void* currChunk = (*it);
+			if (currChunk == mem_before)
+				memoryChunks.erase(it);
+			memoryChunks.push_back(mem_after);
+			break;
+		}
+	}
+
+	void clear() {
+		vector<void*>::iterator it = memoryChunks.begin();
+		for (; it != memoryChunks.end(); it++) {
+			void* currChunk = (*it);
+			free(currChunk);
+		}
+		memoryChunks.clear();
+	}
+private:
+	vector<void*> memoryChunks;
+	MemoryService()  {}
+	~MemoryService() {}
+
+	//Not implementing; MemoryService is a singleton
+	MemoryService(MemoryService const&); // Don't Implement.
+	void operator=(MemoryService const&); // Don't implement.
+};
 #endif /* MEMORY_ALLOCATOR_HPP_ */

@@ -46,8 +46,8 @@ typedef enum {
  * XXX DATASET-SPECIFIC ATM
  */
 /* Used to accommodate symantec workload (and flush its pm) */
-#define JSON_SYMANTEC
-#define JSON_SYMANTEC_WIDE
+//#define JSON_SYMANTEC
+//#define JSON_SYMANTEC_WIDE
 /* Used to accommodate very wide TPC-H pre-computed join
  * i.e. ordersLineitem.json */
 //#define JSON_TPCH_WIDE
@@ -105,7 +105,7 @@ typedef struct {
 //33 is Exactly enough for lineitem.json (2 x #fields + 1 for the obj.)
 //Wider ones will break
 #undef MAXTOKENS
-#define MAXTOKENS 300 //33
+#define MAXTOKENS 33 //300 //33
 #endif /* NOT_JSON_TPCH_WIDE */
 
 #endif /* JSON_TIGHT */
