@@ -40,6 +40,7 @@
 #include "operators/nest.hpp"
 #include "operators/nest-opt.hpp"
 #include "operators/radix-nest.hpp"
+#include "operators/materializer-expr.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/binary-row-plugin.hpp"
@@ -108,10 +109,10 @@ int main()	{
 
 	CachingService& cache = CachingService::getInstance();
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
-	cout << "Query 0 (OS caches Warmup - no PM applicable)" << endl;
-	tpchGroup(datasetCatalog, predicateMax, 4);
-	rawCatalog.clear();
-	cache.clear();
+
+
+	cout << "Query 0 (Cache creation)" << endl;
+	tpchGroup(datasetCatalog, predicateMax, 1);
 	for (int i = 0; i < runs; i++) {
 		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
 		for (int i = 1; i <= selectivityShifts; i++) {
@@ -126,24 +127,71 @@ int main()	{
 			tpchGroup(datasetCatalog, predicateVal, 1);
 			rawCatalog.clear();
 			cache.clear();
-
-			cout << "2)" << endl;
-			tpchGroup(datasetCatalog, predicateVal, 2);
-			rawCatalog.clear();
-			cache.clear();
-
-			cout << "3)" << endl;
-			tpchGroup(datasetCatalog, predicateVal, 3);
-			rawCatalog.clear();
-			cache.clear();
-
-			cout << "4)" << endl;
-			tpchGroup(datasetCatalog, predicateVal, 4);
-			rawCatalog.clear();
-			cache.clear();
 		}
 	}
 
+	rawCatalog.clear();
+	cache.clear();
+	cout << "Query 0 (Cache creation)" << endl;
+	tpchGroup(datasetCatalog, predicateMax, 2);
+	for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
+
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
+
+				cout << "2)" << endl;
+				tpchGroup(datasetCatalog, predicateVal, 2);
+				rawCatalog.clear();
+				cache.clear();
+			}
+		}
+
+	rawCatalog.clear();
+	cache.clear();
+	cout << "Query 0 (Cache creation)" << endl;
+	tpchGroup(datasetCatalog, predicateMax, 3);
+	for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
+
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
+
+				cout << "3)" << endl;
+				tpchGroup(datasetCatalog, predicateVal, 3);
+				rawCatalog.clear();
+				cache.clear();
+			}
+		}
+
+	rawCatalog.clear();
+	cache.clear();
+	cout << "Query 0 (Cache creation)" << endl;
+	tpchGroup(datasetCatalog, predicateMax, 4);
+	for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
+
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
+
+				cout << "4)" << endl;
+				tpchGroup(datasetCatalog, predicateVal, 4);
+				rawCatalog.clear();
+				cache.clear();
+			}
+		}
 }
 
 

@@ -60,7 +60,7 @@ void tpchSchema(map<string,dataset>& datasetCatalog)	{
    SELECT COUNT(*), [...]
    FROM lineitem
    WHERE l_orderkey < [X]
-   GROUP BY l_orderkey
+   GROUP BY l_linenumber
  */
 void tpchGroup(map<string,dataset> datasetCatalog, int predicate, int aggregatesNo);
 
@@ -71,27 +71,75 @@ RawContext prepareContext(string moduleName)	{
 }
 
 
+//int main()	{
+//
+//	map<string,dataset> datasetCatalog;
+//	tpchSchema(datasetCatalog);
+//
+//	int predicate = 3;
+//	cout << "Query 0 (PM + Side built if applicable)" << endl;
+//	tpchGroup(datasetCatalog, predicate, 4);
+//	cout << "---" << endl;
+//	cout << "Query 1 (aggr.)" << endl;
+//	tpchGroup(datasetCatalog, predicate, 1);
+//	cout << "---" << endl;
+//	cout << "Query 2 (aggr.)" << endl;
+//	tpchGroup(datasetCatalog, predicate, 2);
+//	cout << "---" << endl;
+//	cout << "Query 3 (aggr.)" << endl;
+//	tpchGroup(datasetCatalog, predicate, 3);
+//	cout << "---" << endl;
+//	cout << "Query 4 (aggr.)" << endl;
+//	tpchGroup(datasetCatalog, predicate, 4);
+//	cout << "---" << endl;
+//}
+
 int main()	{
 
 	map<string,dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
 
-	int predicate = 3;
-	cout << "Query 0 (PM + Side built if applicable)" << endl;
-	tpchGroup(datasetCatalog, predicate, 4);
-	cout << "---" << endl;
-	cout << "Query 1 (aggr.)" << endl;
-	tpchGroup(datasetCatalog, predicate, 1);
-	cout << "---" << endl;
-	cout << "Query 2 (aggr.)" << endl;
-	tpchGroup(datasetCatalog, predicate, 2);
-	cout << "---" << endl;
-	cout << "Query 3 (aggr.)" << endl;
-	tpchGroup(datasetCatalog, predicate, 3);
-	cout << "---" << endl;
-	cout << "Query 4 (aggr.)" << endl;
-	tpchGroup(datasetCatalog, predicate, 4);
-	cout << "---" << endl;
+	int runs = 5;
+	int selectivityShifts = 10;
+	int predicateMax = O_ORDERKEY_MAX;
+
+	CachingService& cache = CachingService::getInstance();
+	RawCatalog& rawCatalog = RawCatalog::getInstance();
+	cout << "Query 0 (OS caches Warmup + PM)" << endl;
+	tpchGroup(datasetCatalog, predicateMax, 4);
+	rawCatalog.clear();
+	cache.clear();
+	for (int i = 0; i < runs; i++) {
+		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+		for (int i = 1; i <= selectivityShifts; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+
+			cout << "1)" << endl;
+			tpchGroup(datasetCatalog, predicateVal, 1);
+			rawCatalog.clear();
+			cache.clear();
+
+			cout << "2)" << endl;
+			tpchGroup(datasetCatalog, predicateVal, 2);
+			rawCatalog.clear();
+			cache.clear();
+
+			cout << "3)" << endl;
+			tpchGroup(datasetCatalog, predicateVal, 3);
+			rawCatalog.clear();
+			cache.clear();
+
+			cout << "4)" << endl;
+			tpchGroup(datasetCatalog, predicateVal, 4);
+			rawCatalog.clear();
+			cache.clear();
+		}
+	}
 }
 
 

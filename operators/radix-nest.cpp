@@ -81,8 +81,8 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::E
 
 	/* Arbitrary initial buffer sizes */
 	/* No realloc will be required with these sizes for synthetic large-scale numbers */
-	//	size_t sizeR = 10000000000;
-	size_t sizeR = 1000;
+	size_t sizeR = 10000000000;
+	//size_t sizeR = 1000;
 	Value *val_sizeR = context->createInt64(sizeR);
 
 	/* Request memory to store relation R 			*/
