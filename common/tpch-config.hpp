@@ -27,7 +27,7 @@
 #include "common/common.hpp"
 /* Constants and macros to be used by micro-benchmark queries */
 
-//#define TPCH_LOCAL
+#define TPCH_LOCAL
 #ifndef TPCH_LOCAL
 #define TPCH_SERVER
 #define TPCH_SF10
@@ -67,7 +67,7 @@
 
 #ifdef TPCH_LOCAL
 #define O_ORDERKEY_MIN 1
-#define O_CUSTKEY_MIN 369001
+#define O_CUSTKEY_MIN 369001ς
 #define O_TOTALPRICE_MIN 41714.38
 #define O_SHIPPRIORITY_MIN 0
 #define O_ORDERKEY_MAX 34
@@ -244,6 +244,8 @@ void tpchSchemaJSON(map<string, dataset>& datasetCatalog) {
 //	ordersLineitems.linehint = 10;
 	string ordersLineitemsPath = string(
 			"inputs/tpch/json/ordersLineitemsArray20.json");
+//	string ordersLineitemsPath = string(
+//				"inputs/tpch/json/ordersLineitemsArrayBlanks.json");
 	ordersLineitems.linehint = 20;
 	#endif
 	#ifdef TPCH_SF10

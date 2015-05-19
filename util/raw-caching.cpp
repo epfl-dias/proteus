@@ -33,4 +33,8 @@ void CachingService::clear()	{
 	mem.clear();
 }
 
+void CachingService::clearPM()	{
+	pmCaches.clear();
+}
+
 

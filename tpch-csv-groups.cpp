@@ -42,9 +42,6 @@
 #include "operators/radix-nest.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/csv-plugin-pm.hpp"
-#include "plugins/binary-row-plugin.hpp"
-#include "plugins/binary-col-plugin.hpp"
-#include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
@@ -110,7 +107,7 @@ int main()	{
 	rawCatalog.clear();
 	cache.clear();
 	for (int i = 0; i < runs; i++) {
-		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+		cout << "[tpch-csv-groups: ] Run " << i + 1 << endl;
 		for (int i = 1; i <= selectivityShifts; i++) {
 			double ratio = (i / (double) 10);
 			double percentage = ratio * 100;

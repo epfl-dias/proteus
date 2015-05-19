@@ -124,7 +124,7 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::E
 			int64_type);
 	htR.mem_offset = context->CreateEntryBlockAlloca(F, string("offsetRelR"),
 			int64_type);
-	int kvSizeR = sizeR; // * htEntrySize;
+	size_t kvSizeR = sizeR; // * htEntrySize;
 	kvR = (char*) getMemoryChunk(kvSizeR);
 	Value *val_kvR = context->CastPtrToLlvmPtr(htEntryPtrType, kvR);
 

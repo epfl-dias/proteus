@@ -149,6 +149,7 @@ public:
 	}
 
 	void clear();
+	void clearPM();
 
 private:
 	/*

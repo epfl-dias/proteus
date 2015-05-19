@@ -96,10 +96,10 @@ int main()	{
 	map<string,dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
 
-	//int runs = 5;
-	//	int selectivityShifts = 10;
-	int runs = 1;
-	int selectivityShifts = 1;
+	int runs = 5;
+	int selectivityShifts = 10;
+//	int runs = 1;
+//	int selectivityShifts = 1;
 	int predicateMax = O_ORDERKEY_MAX;
 
 	CachingService& cache = CachingService::getInstance();
@@ -109,7 +109,7 @@ int main()	{
 	cout << "Query 0 (Cache creation)" << endl;
 	tpchGroup(datasetCatalog, predicateMax, 1);
 	for (int i = 0; i < runs; i++) {
-		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+		cout << "[tpch-json-groups-cached: ] Run " << i + 1 << endl;
 		for (int i = 1; i <= selectivityShifts; i++) {
 			double ratio = (i / (double) 10);
 			double percentage = ratio * 100;

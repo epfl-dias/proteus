@@ -31,6 +31,7 @@ void* allocateFromRegion(size_t regionSize)	{
 		throw runtime_error(error_msg);
 	}
 	LOG(INFO) << "Region Allocated" << endl;
+	//cout << "Allocating " << (void*) arenaChunk << " - size: " << regionSize << endl;
 	MemoryService& mem = MemoryService::getInstance();
 	mem.registerChunk(arenaChunk);
 	return arenaChunk;
@@ -56,6 +57,8 @@ void* increaseRegion(void* region, size_t currSize)	{
 }
 
 void freeRegion(void* region)	{
+	MemoryService& mem = MemoryService::getInstance();
+	mem.removeChunk(region);
 	free(region);
 }
 

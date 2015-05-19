@@ -149,7 +149,7 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 				context->CreateEntryBlockAlloca(F,string("sizeR"),int64_type);
 	htR.mem_offset =
 				context->CreateEntryBlockAlloca(F,string("offsetRelR"),int64_type);
-	int kvSizeR = sizeR;// * htEntrySize;
+	size_t kvSizeR = sizeR;// * htEntrySize;
 	kvR = (char*) getMemoryChunk(kvSizeR);
 	Value *val_kvR = context->CastPtrToLlvmPtr(htEntryPtrType, kvR);
 	StoreInst *store_htR = Builder->CreateStore(val_kvR, htR.mem_kv);
@@ -169,7 +169,7 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 			int64_type);
 	htS.mem_offset = context->CreateEntryBlockAlloca(F, string("offsetRelS"),
 			int64_type);
-	int kvSizeS = sizeS;// * htEntrySize;
+	size_t kvSizeS = sizeS;// * htEntrySize;
 	kvS = (char*) getMemoryChunk(kvSizeS);
 	Value *val_kvS = context->CastPtrToLlvmPtr(htEntryPtrType, kvS);
 	Builder->CreateStore(val_kvS, htS.mem_kv);

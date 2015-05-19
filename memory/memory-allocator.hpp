@@ -26,6 +26,14 @@
 
 #include "common/common.hpp"
 
+/**
+ * TODO
+ * Pre-allocating memory and providing it when requested
+ * will speed things up.
+ *
+ * At the moment, memory is allocated at the time of the
+ * request.
+ */
 void* allocateFromRegion(size_t regionSize);
 void* increaseRegion(void *region, size_t currSize);
 void freeRegion(void *region);
@@ -41,7 +49,25 @@ public:
 	}
 
 	void registerChunk(void* mem_chunk) {
+//		cout << "Registering " << mem_chunk << endl;
 		memoryChunks.push_back(mem_chunk);
+	}
+
+	void removeChunk(void* mem_chunk) {
+//		cout << "Removing " << mem_chunk << endl;
+
+		vector<void*>::iterator it = memoryChunks.begin();
+		for (; it != memoryChunks.end(); it++) {
+			void* currChunk = (*it);
+			if (currChunk == mem_chunk) {
+				memoryChunks.erase(it);
+				return;
+			}
+		}
+		string error_msg = string(
+				"[MemoryService: ] Unknown memory chunk to be freed");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
 	}
 
 	void updateChunk(void *mem_before, void *mem_after) {
@@ -59,6 +85,7 @@ public:
 		vector<void*>::iterator it = memoryChunks.begin();
 		for (; it != memoryChunks.end(); it++) {
 			void* currChunk = (*it);
+//			cout << "Freeing " << currChunk << endl;
 			free(currChunk);
 		}
 		memoryChunks.clear();
