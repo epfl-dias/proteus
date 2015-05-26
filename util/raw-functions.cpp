@@ -650,6 +650,7 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 						char c = testVec.c[4 * i + j];
 						if(nl == c) {
 //							cout << "1. NL at pos (" << strIdx << "+" << 4*i+j << ")" << endl;
+//							cout << "[AVX1:] Newline / End of line at pos " << strIdx + 4 * i + j << endl;
 							return strIdx + 4 * i + j;
 						}
 					}
@@ -661,7 +662,8 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 	for(; strIdx < targetLength; ++strIdx) {
 		const char c = target[strIdx];
 		if(nl == c) {
-//			cout << "2. NL at pos " << strIdx << endl;
+			//cout << "2. NL at pos " << strIdx << endl;
+			cout << "[AVX2:] Newline / End of line at pos " << strIdx << endl;
 			return strIdx;
 		}
 	}
@@ -679,7 +681,7 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 //		string error_msg = string("No newline found");
 //			LOG(ERROR)<< error_msg;
 //	}
-	//cout << "Newline / End of line at pos " << i << endl;
+//	cout << "[Non-AVX:] Newline / End of line at pos " << i << endl;
 	return i;
 #endif
 

@@ -2121,6 +2121,17 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 	{
 		Value *val_len = Builder->CreateSub(token_end,token_start);
 		Value *val_len32 = Builder->CreateTrunc(val_len,int32Type);
+#ifdef DEBUGJSON
+		{
+			vector<Value*> ArgsV;
+			Function* debugInt = context->getFunction("printi64");
+			ArgsV.push_back(token_start);
+			Builder->CreateCall(debugInt, ArgsV);
+			ArgsV.clear();
+			ArgsV.push_back(token_end);
+			Builder->CreateCall(debugInt, ArgsV);
+		}
+#endif
 		atois(bufShiftedPtr,val_len32,mem_convertedValue,context);
 		Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 #ifdef DEBUGJSON
@@ -2134,6 +2145,7 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 //		ArgsV.push_back(tmp);
 //		Builder->CreateCall(debugInt, ArgsV);
 #endif
+
 		break;
 	}
 	case STRING: {

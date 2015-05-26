@@ -407,7 +407,7 @@ jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 			return JSMN_ERROR_PART;
 		}
 	}
-//	printf("[jsmn: ] %d to %d with size %d\n",(*tokensPtr)[0].start,(*tokensPtr)[0].end, (*tokensPtr)[0].size);
+	//printf("[jsmn: ] %d to %d with size %d\n",(*tokensPtr)[0].start,(*tokensPtr)[0].end, (*tokensPtr)[0].size);
 	return count;
 }
 

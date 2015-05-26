@@ -816,6 +816,18 @@ void atois(Value *buf, Value* len, AllocaInst *mem_result, RawContext* const con
 	/* Handle 'error' case */
 	Builder->SetInsertPoint(defaultBlock);
 	Value *val_error = Builder->getInt32(-1);
+#ifdef DEBUGATOIS
+	{
+		vector<Value*> ArgsV;
+		Function* debugInt = context->getFunction("printi");
+		Value *val_tmp = Builder->getInt32(-111);
+		ArgsV.push_back(val_tmp);
+		Builder->CreateCall(debugInt, ArgsV);
+		ArgsV.clear();
+		ArgsV.push_back(len);
+		Builder->CreateCall(debugInt, ArgsV);
+	}
+#endif
 	Builder->CreateRet(val_error);
 
 	/* Back to normal */

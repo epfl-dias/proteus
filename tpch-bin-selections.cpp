@@ -68,6 +68,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 void tpchOrderSelection2(map<string,dataset> datasetCatalog, vector<int> predicates);
 //(1-2),(3-4)
 void tpchOrderSelection3(map<string,dataset> datasetCatalog, vector<int> predicates);
+//All at once
 void tpchOrderSelection4(map<string,dataset> datasetCatalog, vector<int> predicates);
 
 RawContext prepareContext(string moduleName)	{

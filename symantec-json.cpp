@@ -67,7 +67,7 @@ RawContext prepareContext(string moduleName)	{
 int main()	{
 	cout << "Execution" << endl;
 	map<string,dataset> datasetCatalog;
-	symantecSchema(datasetCatalog);
+	symantecCoreSchema(datasetCatalog);
 
 	/* Filtering on email size */
 	int predicateVal = 5000;
