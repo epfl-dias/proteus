@@ -30,7 +30,8 @@
 //#define TPCH_LOCAL
 #ifndef TPCH_LOCAL
 #define TPCH_SERVER
-#define TPCH_SF10
+//#define TPCH_SF10
+#define TPCH_SF100
 #endif
 
 #ifdef TPCH_SERVER
@@ -63,7 +64,41 @@
 #define L_DISCOUNT_MAX 0.10
 #define L_TAX_MAX 0.08
 #endif
+
+#ifdef TPCH_SF100
+#define O_ORDERKEY_MIN 1
+#define O_CUSTKEY_MIN 1
+#define O_TOTALPRICE_MIN 811.73
+#define O_SHIPPRIORITY_MIN 0
+
+#define O_ORDERKEY_MAX 600000000
+#define O_CUSTKEY_MAX 14999999
+#define O_TOTALPRICE_MAX 591036.15
+#define O_SHIPPRIORITY_MAX 0
+
+#define L_ORDERKEY_MIN 1
+#define L_PARTKEY_MIN 1
+#define L_SUPPKEY_MIN 1
+#define L_LINENUMBER_MIN 1
+#define L_QUANTITY_MIN 1.0
+#define L_EXTENDEDPRICE_MIN 900.05
+#define L_DISCOUNT_MIN 0.00
+#define L_TAX_MIN 0.00
+
+#define L_ORDERKEY_MAX 600000000
+#define L_PARTKEY_MAX 20000000
+#define L_SUPPKEY_MAX 1000000
+#define L_LINENUMBER_MAX 7
+#define L_QUANTITY_MAX 50.00
+#define L_EXTENDEDPRICE_MAX 104948.5
+#define L_DISCOUNT_MAX 0.10
+#define L_TAX_MAX 0.08
 #endif
+
+#endif
+
+
+
 
 #ifdef TPCH_LOCAL
 #define O_ORDERKEY_MIN 1
@@ -116,6 +151,15 @@ void tpchSchemaCSV(map<string,dataset>& datasetCatalog)	{
 	orders.linehint = 10;
 #endif
 #ifdef TPCH_SF10
+	/* Lineitem */
+	string lineitemPath = string("/cloud_store/manosk/data/vida-engine/tpch_2_17_0/sf10/lineitem.csv");
+	lineitem.linehint = 59986052;
+	/* Orders */
+	string ordersPath = string("/cloud_store/manosk/data/vida-engine/tpch_2_17_0/sf10/orders.csv");
+	orders.linehint = 15000000;
+#endif
+/* XXX Still SF10 */
+#ifdef TPCH_SF100
 	/* Lineitem */
 	string lineitemPath = string("/cloud_store/manosk/data/vida-engine/tpch_2_17_0/sf10/lineitem.csv");
 	lineitem.linehint = 59986052;
@@ -260,6 +304,26 @@ void tpchSchemaJSON(map<string, dataset>& datasetCatalog) {
 	string ordersLineitemsPath = string("/cloud_store/manosk/data/vida-engine/tpch_2_17_0/sf10/ordersLineitemsArray.json");
 	ordersLineitems.linehint = 15000000;
 	#endif
+
+	/* XXX Still SF10 */
+#ifdef TPCH_SF100
+	/* Lineitem */
+	string lineitemPath =
+			string(
+					"/cloud_store/manosk/data/vida-engine/tpch_2_17_0/sf10/lineitemFlatSF10.json");
+	lineitem.linehint = 59986052;
+	/* Orders */
+	string ordersPath =
+			string(
+					"/cloud_store/manosk/data/vida-engine/tpch_2_17_0/sf10/orders.json");
+	orders.linehint = 15000000;
+	/* OrdersLineitems
+	 * i.e., pre-materialized join */
+	string ordersLineitemsPath =
+			string(
+					"/cloud_store/manosk/data/vida-engine/tpch_2_17_0/sf10/ordersLineitemsArray.json");
+	ordersLineitems.linehint = 15000000;
+#endif
 
 	lineitem.path = lineitemPath;
 	orders.path = ordersPath;
@@ -476,6 +540,15 @@ void tpchSchemaBin(map<string,dataset>& datasetCatalog)	{
 	string ordersPath = string("/cloud_store/manosk/data/vida-engine/tpch_2_17_0/sf10/col/orders");
 	orders.linehint = 15000000;
 #endif
+#ifdef TPCH_SF100
+	/* Lineitem */
+	string lineitemPath = string("/cloud_store/manosk/data/vida-engine/tpch_2_17_0/sf100/col/lineitem");
+	lineitem.linehint = 600037902;
+	/* Orders */
+	string ordersPath = string("/cloud_store/manosk/data/vida-engine/tpch_2_17_0/sf100/col/orders");
+	orders.linehint = 150000000;
+#endif
+
 
 	lineitem.path = lineitemPath;
 	orders.path = ordersPath;

@@ -135,6 +135,23 @@ int main()	{
 	}
 }
 
+//int main()	{
+//
+//	map<string,dataset> datasetCatalog;
+//	tpchSchema(datasetCatalog);
+//
+//	/* pred1 will be the one dictating query selectivity*/
+//	int pred1 = L_ORDERKEY_MAX;
+//	int pred2 = (int) L_QUANTITY_MAX;
+//	int pred3 = L_LINENUMBER_MAX;
+//	int pred4 = (int) L_EXTENDEDPRICE_MAX;
+//
+//	vector<int> predicates;
+//	predicates.push_back(pred1);
+//	tpchOrderSelection1(datasetCatalog, predicates);
+//
+//}
+
 void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predicates)	{
 
 	int predicatesNo = predicates.size();
