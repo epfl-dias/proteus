@@ -81,7 +81,9 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::E
 
 	/* Arbitrary initial buffer sizes */
 	/* No realloc will be required with these sizes for synthetic large-scale numbers */
-	size_t sizeR = 10000000000;
+
+	//XXX Meant for tpch-sf100. Reduce for smaller datasets
+	size_t sizeR = 15000000000;
 	//size_t sizeR = 1000;
 	Value *val_sizeR = context->createInt64(sizeR);
 

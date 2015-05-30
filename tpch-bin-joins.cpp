@@ -61,14 +61,16 @@ void tpchSchema(map<string,dataset>& datasetCatalog)	{
    SELECT COUNT(*)
    FROM orders
    INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-   AND l_orderkey < [X]
+   WHERE l_orderkey < [X]
  */
 void tpchJoin1a(map<string,dataset> datasetCatalog, int predicate);
 /*
    SELECT COUNT(*)
    FROM orders
    INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-   AND o_orderkey < [X]
+   WHERE o_orderkey < [X]
+
+   Turn other way around for small selectivities (???)
  */
 void tpchJoin1b(map<string,dataset> datasetCatalog, int predicate);
 
@@ -76,7 +78,7 @@ void tpchJoin1b(map<string,dataset> datasetCatalog, int predicate);
    SELECT MAX(o_orderkey)
    FROM orders
    INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-   AND l_orderkey < [X]
+   WHERE l_orderkey < [X]
  */
 void tpchJoin2a(map<string,dataset> datasetCatalog, int predicate);
 
@@ -84,7 +86,7 @@ void tpchJoin2a(map<string,dataset> datasetCatalog, int predicate);
    SELECT MAX(l_orderkey)
    FROM orders
    INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-   AND l_orderkey < [X]
+   WHERE l_orderkey < [X]
  */
 void tpchJoin2b(map<string,dataset> datasetCatalog, int predicate);
 
@@ -92,7 +94,7 @@ void tpchJoin2b(map<string,dataset> datasetCatalog, int predicate);
    SELECT MAX(o_orderkey) , MAX(o_totalprice)
    FROM orders
    INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-   AND l_orderkey < [X]
+   WHERE l_orderkey < [X]
  */
 void tpchJoin3(map<string,dataset> datasetCatalog, int predicate);
 
@@ -100,7 +102,7 @@ void tpchJoin3(map<string,dataset> datasetCatalog, int predicate);
    SELECT MAX(l_orderkey) , MAX(l_extendedprice)
    FROM orders
    INNER JOIN lineitem ON (o_orderkey = l_orderkey)
-   AND l_orderkey < [X]
+   WHERE l_orderkey < [X]
  */
 void tpchJoin4(map<string,dataset> datasetCatalog, int predicate);
 
@@ -110,60 +112,122 @@ RawContext prepareContext(string moduleName)	{
 	return ctx;
 }
 
-//int main()	{
-//
-//	map<string,dataset> datasetCatalog;
-//	tpchSchema(datasetCatalog);
-//
-//	int runs = 5;
-//	int selectivityShifts = 10;
-//	int predicateMax = O_ORDERKEY_MAX;
-//
-//	CachingService& cache = CachingService::getInstance();
-//	RawCatalog& rawCatalog = RawCatalog::getInstance();
-//	for (int i = 0; i < runs; i++) {
-//		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
-//		for (int i = 1; i <= selectivityShifts; i++) {
-//			double ratio = (i / (double) 10);
-//			double percentage = ratio * 100;
-//
-//			int predicateVal = (int) ceil(predicateMax * ratio);
-//			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
-//					<< percentage << "%" << endl;
-//
-//			//cout << "1a)" << endl;
-//			tpchJoin1a(datasetCatalog, predicateVal);
-//			rawCatalog.clear();
-//			cache.clear();
-//
-//			//cout << "1b)" << endl;
-//			tpchJoin1b(datasetCatalog, predicateVal);
-//			rawCatalog.clear();
-//			cache.clear();
-//
-//			//cout << "2a)" << endl;
-//			tpchJoin2a(datasetCatalog, predicateVal);
-//			rawCatalog.clear();
-//			cache.clear();
-//
-//			//cout << "2b)" << endl;
-//			tpchJoin2b(datasetCatalog, predicateVal);
-//			rawCatalog.clear();
-//			cache.clear();
-//
-//			cout << "3)" << endl;
-//			tpchJoin3(datasetCatalog, predicateVal);
-//			rawCatalog.clear();
-//			cache.clear();
-//
-//			cout << "4)" << endl;
-//			tpchJoin4(datasetCatalog, predicateVal);
-//			rawCatalog.clear();
-//			cache.clear();
-//		}
-//	}
-//
-//}
+int main()	{
+
+	map<string,dataset> datasetCatalog;
+	tpchSchema(datasetCatalog);
+
+	int runs = 5;
+	int selectivityShifts = 10;
+	int predicateMax = O_ORDERKEY_MAX;
+
+	CachingService& cache = CachingService::getInstance();
+	RawCatalog& rawCatalog = RawCatalog::getInstance();
+	for (int i = 0; i < runs; i++) {
+		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+		for (int i = 1; i <= selectivityShifts; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+
+			cout << "1a)" << endl;
+			tpchJoin1a(datasetCatalog, predicateVal);
+			rawCatalog.clear();
+			cache.clear();
+
+		}
+	}
+
+	for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
+
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
+
+				cout << "1b)" << endl;
+				tpchJoin1b(datasetCatalog, predicateVal);
+				rawCatalog.clear();
+				cache.clear();
+
+			}
+		}
+
+	for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
+
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
+
+				cout << "2a)" << endl;
+				tpchJoin2a(datasetCatalog, predicateVal);
+				rawCatalog.clear();
+				cache.clear();
+			}
+		}
+
+	for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
+
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
+
+				cout << "2b)" << endl;
+				tpchJoin2b(datasetCatalog, predicateVal);
+				rawCatalog.clear();
+				cache.clear();
+			}
+		}
+
+	for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
+
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
+
+				cout << "3)" << endl;
+				tpchJoin3(datasetCatalog, predicateVal);
+				rawCatalog.clear();
+				cache.clear();
+			}
+		}
+
+	for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
+
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
+
+				cout << "4)" << endl;
+				tpchJoin4(datasetCatalog, predicateVal);
+				rawCatalog.clear();
+				cache.clear();
+			}
+		}
+
+}
 
 /* Complementary run to fix typo (predicateMax) */
 //int main()	{
@@ -201,19 +265,19 @@ RawContext prepareContext(string moduleName)	{
 //
 //}
 
-int main()	{
-
-	map<string,dataset> datasetCatalog;
-	tpchSchema(datasetCatalog);
-
-	int predicateMax = O_ORDERKEY_MAX;
-
-	CachingService& cache = CachingService::getInstance();
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
-
-	tpchJoin3(datasetCatalog, predicateMax);
-
-}
+//int main()	{
+//
+//	map<string,dataset> datasetCatalog;
+//	tpchSchema(datasetCatalog);
+//
+//	int predicateMax = O_ORDERKEY_MAX;
+//
+//	CachingService& cache = CachingService::getInstance();
+//	RawCatalog& rawCatalog = RawCatalog::getInstance();
+//
+//	tpchJoin3(datasetCatalog, predicateMax);
+//
+//}
 
 void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 
@@ -443,8 +507,10 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
 
 	/* join pred. */
+//	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
+//			new BoolType(), leftPred, rightPred);
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+				new BoolType(), rightPred, leftPred);
 
 	/* left materializer - no explicit field needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -486,8 +552,10 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoin";
-	RadixJoin *join = new RadixJoin(joinPred, sel, scanLineitem, &ctx,
-			joinLabel, *matLeft, *matRight);
+//	RadixJoin *join = new RadixJoin(joinPred, sel, scanLineitem, &ctx,
+//			joinLabel, *matLeft, *matRight);
+	RadixJoin *join = new RadixJoin(joinPred,  scanLineitem, sel, &ctx,
+				joinLabel, *matRight, *matLeft);
 
 	sel->setParent(join);
 	scanLineitem->setParent(join);

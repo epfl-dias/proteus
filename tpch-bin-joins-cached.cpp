@@ -212,13 +212,123 @@ RawContext prepareContext(string moduleName)	{
 
 int main()	{
 
-	map<string,dataset> datasetCatalog;
+	map<string, dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
 
+	int runs = 5;
+	int selectivityShifts = 10;
 	int predicateMax = O_ORDERKEY_MAX;
 
+
+	CachingService& cache = CachingService::getInstance();
+	RawCatalog& rawCatalog = RawCatalog::getInstance();
 	tpchJoinWarmupAll(datasetCatalog);
-	tpchJoin3(datasetCatalog, predicateMax);
+	for (int i = 0; i < runs; i++) {
+		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+		for (int i = 1; i <= selectivityShifts; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+
+			cout << "1a)" << endl;
+			tpchJoin1a(datasetCatalog, predicateVal);
+
+		}
+	}
+
+	cache.clear();
+	rawCatalog.clear();
+	tpchJoinWarmupAll(datasetCatalog);
+	for (int i = 0; i < runs; i++) {
+		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+		for (int i = 1; i <= selectivityShifts; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+
+			cout << "1b)" << endl;
+			tpchJoin1b(datasetCatalog, predicateVal);
+
+		}
+	}
+
+	cache.clear();
+	rawCatalog.clear();
+	tpchJoinWarmupAll(datasetCatalog);
+	for (int i = 0; i < runs; i++) {
+		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+		for (int i = 1; i <= selectivityShifts; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+
+			cout << "2a)" << endl;
+			tpchJoin2a(datasetCatalog, predicateVal);
+		}
+	}
+
+	cache.clear();
+	rawCatalog.clear();
+	tpchJoinWarmupAll(datasetCatalog);
+	for (int i = 0; i < runs; i++) {
+		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+		for (int i = 1; i <= selectivityShifts; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+
+			cout << "2b)" << endl;
+			tpchJoin2b(datasetCatalog, predicateVal);
+		}
+	}
+
+	cache.clear();
+	rawCatalog.clear();
+	tpchJoinWarmupAll(datasetCatalog);
+	for (int i = 0; i < runs; i++) {
+		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+		for (int i = 1; i <= selectivityShifts; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+
+			cout << "3)" << endl;
+			tpchJoin3(datasetCatalog, predicateVal);
+		}
+	}
+
+	cache.clear();
+	rawCatalog.clear();
+	tpchJoinWarmupAll(datasetCatalog);
+	for (int i = 0; i < runs; i++) {
+		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+		for (int i = 1; i <= selectivityShifts; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+
+			cout << "4)" << endl;
+			tpchJoin4(datasetCatalog, predicateVal);
+		}
+	}
 
 }
 
