@@ -95,53 +95,127 @@ RawContext prepareContext(string moduleName)	{
 //	cout << "---" << endl;
 //}
 
-int main()	{
+int main(int argc, char **argv) {
 
-	map<string,dataset> datasetCatalog;
+	map<string, dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
 
 	int runs = 5;
 	int selectivityShifts = 10;
-//	int runs = 1;
-//	int selectivityShifts = 1;
 	int predicateMax = O_ORDERKEY_MAX;
 
-	CachingService& cache = CachingService::getInstance();
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
-	cout << "Query 0 (OS caches Warmup - no PM applicable)" << endl;
-	tpchGroup(datasetCatalog, predicateMax, 4);
-	rawCatalog.clear();
-	cache.clear();
-	for (int i = 0; i < runs; i++) {
-		cout << "[tpch-bin-groups: ] Run " << i + 1 << endl;
-		for (int i = 1; i <= selectivityShifts; i++) {
-			double ratio = (i / (double) 10);
-			double percentage = ratio * 100;
+	if (argc != 2) {
+		return -1;
+	}
+	int mode = atoi(argv[1]);
 
-			int predicateVal = (int) ceil(predicateMax * ratio);
-			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
-					<< percentage << "%" << endl;
+	switch (mode) {
+	case 1: {
+		CachingService& cache = CachingService::getInstance();
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		cout << "Query 0 (OS caches Warmup - no PM applicable)" << endl;
+		tpchGroup(datasetCatalog, predicateMax, 4);
+		rawCatalog.clear();
+		cache.clear();
+		for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-groups: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
 
-			cout << "1)" << endl;
-			tpchGroup(datasetCatalog, predicateVal, 1);
-			rawCatalog.clear();
-			cache.clear();
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
 
-			cout << "2)" << endl;
-			tpchGroup(datasetCatalog, predicateVal, 2);
-			rawCatalog.clear();
-			cache.clear();
-
-			cout << "3)" << endl;
-			tpchGroup(datasetCatalog, predicateVal, 3);
-			rawCatalog.clear();
-			cache.clear();
-
-			cout << "4)" << endl;
-			tpchGroup(datasetCatalog, predicateVal, 4);
-			rawCatalog.clear();
-			cache.clear();
+				cout << "1)" << endl;
+				tpchGroup(datasetCatalog, predicateVal, 1);
+				rawCatalog.clear();
+				cache.clear();
+			}
 		}
+		break;
+	}
+	case 2: {
+		CachingService& cache = CachingService::getInstance();
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		cout << "Query 0 (OS caches Warmup - no PM applicable)" << endl;
+		tpchGroup(datasetCatalog, predicateMax, 4);
+		rawCatalog.clear();
+		cache.clear();
+		for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-groups: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
+
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
+
+				cout << "2)" << endl;
+				tpchGroup(datasetCatalog, predicateVal, 2);
+				rawCatalog.clear();
+				cache.clear();
+
+			}
+		}
+		break;
+	}
+	case 3: {
+		CachingService& cache = CachingService::getInstance();
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		cout << "Query 0 (OS caches Warmup - no PM applicable)" << endl;
+		tpchGroup(datasetCatalog, predicateMax, 4);
+		rawCatalog.clear();
+		cache.clear();
+		for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-groups: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
+
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
+
+				cout << "3)" << endl;
+				tpchGroup(datasetCatalog, predicateVal, 3);
+				rawCatalog.clear();
+				cache.clear();
+
+			}
+		}
+		break;
+	}
+	case 4: {
+		CachingService& cache = CachingService::getInstance();
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		cout << "Query 0 (OS caches Warmup - no PM applicable)" << endl;
+		tpchGroup(datasetCatalog, predicateMax, 4);
+		rawCatalog.clear();
+		cache.clear();
+		for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-groups: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
+
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
+
+				cout << "4)" << endl;
+				tpchGroup(datasetCatalog, predicateVal, 4);
+				rawCatalog.clear();
+				cache.clear();
+			}
+		}
+		break;
+	}
+	default: {
+		cout << "Please use mode 1-4 next time" << endl;
+		return -1;
+	}
 	}
 
 }

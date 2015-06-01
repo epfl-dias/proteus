@@ -112,7 +112,7 @@ RawContext prepareContext(string moduleName)	{
 	return ctx;
 }
 
-int main()	{
+int main(int argc, char **argv)	{
 
 	map<string,dataset> datasetCatalog;
 	tpchSchema(datasetCatalog);
@@ -121,27 +121,39 @@ int main()	{
 	int selectivityShifts = 10;
 	int predicateMax = O_ORDERKEY_MAX;
 
-	CachingService& cache = CachingService::getInstance();
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
-	for (int i = 0; i < runs; i++) {
-		cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
-		for (int i = 1; i <= selectivityShifts; i++) {
-			double ratio = (i / (double) 10);
-			double percentage = ratio * 100;
-
-			int predicateVal = (int) ceil(predicateMax * ratio);
-			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
-					<< percentage << "%" << endl;
-
-			cout << "1a)" << endl;
-			tpchJoin1a(datasetCatalog, predicateVal);
-			rawCatalog.clear();
-			cache.clear();
-
-		}
+	if(argc !=2)
+	{
+		return -1;
 	}
+	int mode = atoi(argv[1]);
 
-	for (int i = 0; i < runs; i++) {
+	switch (mode) {
+	case 1: {
+		CachingService& cache = CachingService::getInstance();
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		for (int i = 0; i < runs; i++) {
+			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
+			for (int i = 1; i <= selectivityShifts; i++) {
+				double ratio = (i / (double) 10);
+				double percentage = ratio * 100;
+
+				int predicateVal = (int) ceil(predicateMax * ratio);
+				cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+						<< percentage << "%" << endl;
+
+				cout << "1a)" << endl;
+				tpchJoin1a(datasetCatalog, predicateVal);
+				rawCatalog.clear();
+				cache.clear();
+
+			}
+		}
+		break;
+	}
+	case 2: {
+		CachingService& cache = CachingService::getInstance();
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		for (int i = 0; i < runs; i++) {
 			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
 			for (int i = 1; i <= selectivityShifts; i++) {
 				double ratio = (i / (double) 10);
@@ -158,8 +170,12 @@ int main()	{
 
 			}
 		}
-
-	for (int i = 0; i < runs; i++) {
+		break;
+	}
+	case 3: {
+		CachingService& cache = CachingService::getInstance();
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		for (int i = 0; i < runs; i++) {
 			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
 			for (int i = 1; i <= selectivityShifts; i++) {
 				double ratio = (i / (double) 10);
@@ -175,8 +191,12 @@ int main()	{
 				cache.clear();
 			}
 		}
-
-	for (int i = 0; i < runs; i++) {
+		break;
+	}
+	case 4: {
+		CachingService& cache = CachingService::getInstance();
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		for (int i = 0; i < runs; i++) {
 			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
 			for (int i = 1; i <= selectivityShifts; i++) {
 				double ratio = (i / (double) 10);
@@ -192,8 +212,12 @@ int main()	{
 				cache.clear();
 			}
 		}
-
-	for (int i = 0; i < runs; i++) {
+		break;
+	}
+	case 5: {
+		CachingService& cache = CachingService::getInstance();
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		for (int i = 0; i < runs; i++) {
 			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
 			for (int i = 1; i <= selectivityShifts; i++) {
 				double ratio = (i / (double) 10);
@@ -209,8 +233,12 @@ int main()	{
 				cache.clear();
 			}
 		}
-
-	for (int i = 0; i < runs; i++) {
+		break;
+	}
+	case 6: {
+		CachingService& cache = CachingService::getInstance();
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		for (int i = 0; i < runs; i++) {
 			cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
 			for (int i = 1; i <= selectivityShifts; i++) {
 				double ratio = (i / (double) 10);
@@ -226,6 +254,14 @@ int main()	{
 				cache.clear();
 			}
 		}
+		break;
+	}
+	default:
+	{
+		cout << "Please use mode 1-6 next time"<<endl;
+		return -1;
+	}
+	}
 
 }
 

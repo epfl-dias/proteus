@@ -83,7 +83,8 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::E
 	/* No realloc will be required with these sizes for synthetic large-scale numbers */
 
 	//XXX Meant for tpch-sf100. Reduce for smaller datasets
-	size_t sizeR = 15000000000;
+	//size_t sizeR = 15000000000; //Not enough
+	size_t sizeR = 30000000000;
 	//size_t sizeR = 1000;
 	Value *val_sizeR = context->createInt64(sizeR);
 
