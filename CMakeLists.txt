@@ -237,6 +237,21 @@ target_link_libraries(symantec-json jsmn)
 target_link_libraries(symantec-json -lglog ${glog_ldflags})
 target_link_libraries(symantec-json ${llvm_ldflags} ${llvm_libs})
 
+#real-world experiments
+add_executable(spam-bin experiments/realworld/spam-bin.cpp)
+set_target_properties(spam-bin PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(spam-bin codegen)
+target_link_libraries(spam-bin jsmn)
+target_link_libraries(spam-bin -lglog ${glog_ldflags})
+target_link_libraries(spam-bin ${llvm_ldflags} ${llvm_libs})
+
+add_executable(spam-csv experiments/realworld/spam-csv.cpp)
+set_target_properties(spam-csv PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(spam-csv codegen)
+target_link_libraries(spam-csv jsmn)
+target_link_libraries(spam-csv -lglog ${glog_ldflags})
+target_link_libraries(spam-csv ${llvm_ldflags} ${llvm_libs})
+
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
 if(GTEST)
