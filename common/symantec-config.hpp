@@ -454,4 +454,63 @@ void symantecBinSchema(map<string, dataset>& datasetCatalog) {
 	datasetCatalog["symantecBin"] = symantecBin;
 }
 
+void symantecCSVSchema(map<string, dataset>& datasetCatalog) {
+	IntType *intType = new IntType();
+	FloatType *floatType = new FloatType();
+	StringType *stringType = new StringType();
+
+	dataset symantecCSV;
+
+	#ifdef SYMANTEC_LOCAL
+
+	#endif
+	#ifdef SYMANTEC_SERVER
+	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsClasses400m-unordered-nocomma.csv");
+	symantecCSV.linehint = 400000000;
+//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsClasses1000-unordered.csv");
+//	symantecCSV.linehint = 1000;
+	#endif
+	symantecCSV.path = path;
+
+	list<RecordAttribute*> attsSymantec = list<RecordAttribute*>();
+
+	int attrCnt = 1;
+	RecordAttribute *id = new RecordAttribute(attrCnt, path, "id", intType);
+	attsSymantec.push_back(id);
+	attrCnt++;
+	/* classa */
+	RecordAttribute *classa = new RecordAttribute(attrCnt, path, "classa", intType);
+	attsSymantec.push_back(classa);
+	attrCnt++;
+	/* classb */
+	RecordAttribute *classb = new RecordAttribute(attrCnt, path, "classb", floatType);
+	attsSymantec.push_back(classb);
+	attrCnt++;
+	/* city */
+	RecordAttribute *city = new RecordAttribute(attrCnt, path, "city", stringType);
+	attsSymantec.push_back(city);
+	attrCnt++;
+	/* country */
+	RecordAttribute *country = new RecordAttribute(attrCnt, path, "country", stringType);
+	attsSymantec.push_back(country);
+	attrCnt++;
+	/* country_code */
+	RecordAttribute *country_code = new RecordAttribute(attrCnt, path, "country_code", stringType);
+	attsSymantec.push_back(country_code);
+	attrCnt++;
+	/* size */
+	RecordAttribute *size = new RecordAttribute(attrCnt, path, "size", intType);
+	attsSymantec.push_back(size);
+	attrCnt++;
+	/* bot */
+	RecordAttribute *bot = new RecordAttribute(attrCnt, path, "bot", stringType);
+	attsSymantec.push_back(bot);
+	attrCnt++;
+
+	RecordType symantecBinRec = RecordType(attsSymantec);
+	symantecCSV.recType = symantecBinRec;
+
+	datasetCatalog["symantecCSV"] = symantecCSV;
+}
+
 #endif /* SYMANTEC_CONFIG_HPP_ */

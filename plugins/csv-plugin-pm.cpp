@@ -146,7 +146,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 
 	char* pmCast = cache.getPM(fname);
 	if (pmCast == NULL) {
-		//cout << "NEW (CSV) PM" << endl;
+		cout << "NEW (CSV) PM" << endl;
 		hasPM = false;
 		newlines = (size_t*) malloc(lines * sizeof(size_t));
 		if (newlines == NULL) {
@@ -177,7 +177,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 		pmCast = (char*) pmStruct;
 		cache.registerPM(fname, pmCast);
 	} else {
-		//cout << "(CSV) PM REUSE" << endl;
+		cout << "(CSV) PM REUSE" << endl;
 		hasPM = true;
 		pmCSV *pmStruct = (pmCSV*) pmCast;
 
@@ -458,11 +458,11 @@ RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* ty
 	}
 	case STRING:
 	{
-		Function *hashStringObj = context->getFunction("hashStringObj");
+		Function *hashStringObj = context->getFunction("hashStringObject");
 		vector<Value*> ArgsV;
 		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
 		Value *hashResult = context->getBuilder()->CreateCall(hashStringObj,
-				ArgsV, "hashStringObj");
+				ArgsV, "hashStringObject");
 
 		RawValue valWrapper;
 		valWrapper.value = hashResult;
