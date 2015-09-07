@@ -130,7 +130,7 @@ void symantecCSV1(map<string,dataset> datasetCatalog)	{
 
 
 	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, fname, rec, projections,
-				delimInner, linehint, policy);
+				delimInner, linehint, policy, false);
 	rawCatalog.registerPlugin(fname, pg);
 	Scan *scan = new Scan(&ctx, *pg);
 
@@ -224,7 +224,7 @@ void symantecCSV2(map<string,dataset> datasetCatalog)	{
 
 
 	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, fname, rec, projections,
-				delimInner, linehint, policy);
+				delimInner, linehint, policy, false);
 	rawCatalog.registerPlugin(fname, pg);
 	Scan *scan = new Scan(&ctx, *pg);
 
@@ -319,7 +319,7 @@ void symantecCSV3(map<string,dataset> datasetCatalog)	{
 
 
 	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, fname, rec, projections,
-				delimInner, linehint, policy);
+				delimInner, linehint, policy, false);
 	rawCatalog.registerPlugin(fname, pg);
 	Scan *scan = new Scan(&ctx, *pg);
 
@@ -405,7 +405,7 @@ void symantecCSV4(map<string, dataset> datasetCatalog) {
 
 
 	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, fname, rec, projections,
-			delimInner, linehint, policy);
+			delimInner, linehint, policy, false);
 	rawCatalog.registerPlugin(fname, pg);
 	Scan *scan = new Scan(&ctx, *pg);
 
@@ -447,137 +447,137 @@ void symantecCSV4(map<string, dataset> datasetCatalog) {
 	Select *sel = new Select(predicateStr, selNum);
 	selNum->setParent(sel);
 
-//	Select *sel = new Select(predicate1, scan);
-//		scan->setParent(sel);
-
-	/**
-	 * NEST
-	 * GroupBy: country_code
-	 * Pred: Redundant (true == true)
-	 * 		-> I wonder whether it gets statically removed..
-	 * Output: max(classa), max(classb), count(*)
-	 */
-	list<RecordAttribute> nestProjections;
-	nestProjections.push_back(*classa);
-	nestProjections.push_back(*classb);
-	nestProjections.push_back(*country_code);
-	expressions::Expression* nestArg = new expressions::InputArgument(&rec, 0,
-			nestProjections);
-
-	//f (& g) -> GROUPBY country_code
-	expressions::RecordProjection* f = new expressions::RecordProjection(
-			country_code->getOriginalType(), nestArg, *country_code);
-	//p
-	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
-	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
-	expressions::Expression* predNest = new expressions::EqExpression(
-			new BoolType(), lhsNest, rhsNest);
-
-	//mat.
-	vector<RecordAttribute*> fields;
-	vector<materialization_mode> outputModes;
-	fields.push_back(classa);
-	outputModes.insert(outputModes.begin(), EAGER);
-	fields.push_back(classb);
-	outputModes.insert(outputModes.begin(), EAGER);
-	fields.push_back(country_code);
-	outputModes.insert(outputModes.begin(), EAGER);
-
-	Materializer* mat = new Materializer(fields, outputModes);
-
-	char nestLabel[] = "nest_cluster";
-	string aggrLabel = string(nestLabel);
-
-
-	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
-	vector<string> aggrLabels;
-	string aggrField1;
-	string aggrField2;
-	string aggrField3;
-
-	/* Aggregate 1: MAX(classa) */
-	expressions::Expression* aggrClassa = new expressions::RecordProjection(
-			classa->getOriginalType(), arg, *classa);
-	expressions::Expression* outputExpr1 = aggrClassa;
-	aggrField1 = string("_maxClassA");
-	accs.push_back(MAX);
-	outputExprs.push_back(outputExpr1);
-	aggrLabels.push_back(aggrField1);
-
-	/* Aggregate 2: MAX(classb) */
-	expressions::Expression* outputExpr2 = new expressions::RecordProjection(
-			classb->getOriginalType(), arg, *classb);
-	aggrField2 = string("_maxClassB");
-	accs.push_back(MAX);
-	outputExprs.push_back(outputExpr2);
-	aggrLabels.push_back(aggrField2);
-
-	/* Aggregate 3: COUNT(*) */
-	expressions::Expression* outputExpr3 = new expressions::IntConstant(1);
-	aggrField3 = string("_aggrCount");
-	accs.push_back(SUM);
-	outputExprs.push_back(outputExpr3);
-	aggrLabels.push_back(aggrField3);
-
-	radix::Nest *nestOp = new radix::Nest(&ctx, accs, outputExprs, aggrLabels,
-			predNest, f, f, sel, nestLabel, *mat);
-	sel->setParent(nestOp);
-
-	Function* debugInt = ctx.getFunction("printi");
-	Function* debugFloat = ctx.getFunction("printFloat");
-	IntType intType = IntType();
-	FloatType floatType = FloatType();
-
-	/* OUTPUT */
-	RawOperator *lastPrintOp;
-	RecordAttribute *toOutput1 = new RecordAttribute(1, aggrLabel, aggrField1,
-			&intType);
-	expressions::RecordProjection* nestOutput1 =
-			new expressions::RecordProjection(&intType, nestArg, *toOutput1);
-	Print *printOp1 = new Print(debugInt, nestOutput1, nestOp);
-	nestOp->setParent(printOp1);
-
-	RecordAttribute *toOutput2 = new RecordAttribute(2, aggrLabel, aggrField2,
-			&floatType);
-	expressions::RecordProjection* nestOutput2 =
-			new expressions::RecordProjection(&floatType, nestArg, *toOutput2);
-	Print *printOp2 = new Print(debugFloat, nestOutput2, printOp1);
-	printOp1->setParent(printOp2);
-
-	RecordAttribute *toOutput3 = new RecordAttribute(3, aggrLabel, aggrField3,
-			&intType);
-	expressions::RecordProjection* nestOutput3 =
-			new expressions::RecordProjection(&intType, nestArg, *toOutput3);
-	Print *printOp3 = new Print(debugInt, nestOutput3, printOp2);
-	printOp2->setParent(printOp3);
-	lastPrintOp = printOp3;
-
-
-	Root *rootOp = new Root(lastPrintOp);
-	lastPrintOp->setParent(rootOp);
-
-
-
-
-//	list<RecordAttribute> argProjections;
+////	Select *sel = new Select(predicate1, scan);
+////		scan->setParent(sel);
+//
+//	/**
+//	 * NEST
+//	 * GroupBy: country_code
+//	 * Pred: Redundant (true == true)
+//	 * 		-> I wonder whether it gets statically removed..
+//	 * Output: max(classa), max(classb), count(*)
+//	 */
+//	list<RecordAttribute> nestProjections;
+//	nestProjections.push_back(*classa);
+//	nestProjections.push_back(*classb);
+//	nestProjections.push_back(*country_code);
+//	expressions::Expression* nestArg = new expressions::InputArgument(&rec, 0,
+//			nestProjections);
+//
+//	//f (& g) -> GROUPBY country_code
+//	expressions::RecordProjection* f = new expressions::RecordProjection(
+//			country_code->getOriginalType(), nestArg, *country_code);
+//	//p
+//	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
+//	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
+//	expressions::Expression* predNest = new expressions::EqExpression(
+//			new BoolType(), lhsNest, rhsNest);
+//
+//	//mat.
+//	vector<RecordAttribute*> fields;
+//	vector<materialization_mode> outputModes;
+//	fields.push_back(classa);
+//	outputModes.insert(outputModes.begin(), EAGER);
+//	fields.push_back(classb);
+//	outputModes.insert(outputModes.begin(), EAGER);
+//	fields.push_back(country_code);
+//	outputModes.insert(outputModes.begin(), EAGER);
+//
+//	Materializer* mat = new Materializer(fields, outputModes);
+//
+//	char nestLabel[] = "nest_cluster";
+//	string aggrLabel = string(nestLabel);
 //
 //
-//		/* Output: */
-//		expressions::Expression* outputExpr5 = new expressions::IntConstant(1);
+//	vector<Monoid> accs;
+//	vector<expressions::Expression*> outputExprs;
+//	vector<string> aggrLabels;
+//	string aggrField1;
+//	string aggrField2;
+//	string aggrField3;
+//
+//	/* Aggregate 1: MAX(classa) */
+//	expressions::Expression* aggrClassa = new expressions::RecordProjection(
+//			classa->getOriginalType(), arg, *classa);
+//	expressions::Expression* outputExpr1 = aggrClassa;
+//	aggrField1 = string("_maxClassA");
+//	accs.push_back(MAX);
+//	outputExprs.push_back(outputExpr1);
+//	aggrLabels.push_back(aggrField1);
+//
+//	/* Aggregate 2: MAX(classb) */
+//	expressions::Expression* outputExpr2 = new expressions::RecordProjection(
+//			classb->getOriginalType(), arg, *classb);
+//	aggrField2 = string("_maxClassB");
+//	accs.push_back(MAX);
+//	outputExprs.push_back(outputExpr2);
+//	aggrLabels.push_back(aggrField2);
+//
+//	/* Aggregate 3: COUNT(*) */
+//	expressions::Expression* outputExpr3 = new expressions::IntConstant(1);
+//	aggrField3 = string("_aggrCount");
+//	accs.push_back(SUM);
+//	outputExprs.push_back(outputExpr3);
+//	aggrLabels.push_back(aggrField3);
+//
+//	radix::Nest *nestOp = new radix::Nest(&ctx, accs, outputExprs, aggrLabels,
+//			predNest, f, f, sel, nestLabel, *mat);
+//	sel->setParent(nestOp);
+//
+//	Function* debugInt = ctx.getFunction("printi");
+//	Function* debugFloat = ctx.getFunction("printFloat");
+//	IntType intType = IntType();
+//	FloatType floatType = FloatType();
+//
+//	/* OUTPUT */
+//	RawOperator *lastPrintOp;
+//	RecordAttribute *toOutput1 = new RecordAttribute(1, aggrLabel, aggrField1,
+//			&intType);
+//	expressions::RecordProjection* nestOutput1 =
+//			new expressions::RecordProjection(&intType, nestArg, *toOutput1);
+//	Print *printOp1 = new Print(debugInt, nestOutput1, nestOp);
+//	nestOp->setParent(printOp1);
+//
+//	RecordAttribute *toOutput2 = new RecordAttribute(2, aggrLabel, aggrField2,
+//			&floatType);
+//	expressions::RecordProjection* nestOutput2 =
+//			new expressions::RecordProjection(&floatType, nestArg, *toOutput2);
+//	Print *printOp2 = new Print(debugFloat, nestOutput2, printOp1);
+//	printOp1->setParent(printOp2);
+//
+//	RecordAttribute *toOutput3 = new RecordAttribute(3, aggrLabel, aggrField3,
+//			&intType);
+//	expressions::RecordProjection* nestOutput3 =
+//			new expressions::RecordProjection(&intType, nestArg, *toOutput3);
+//	Print *printOp3 = new Print(debugInt, nestOutput3, printOp2);
+//	printOp2->setParent(printOp3);
+//	lastPrintOp = printOp3;
 //
 //
-//			ReduceNoPred *reduce = new ReduceNoPred(SUM, outputExpr5, sel, &ctx);
-//			sel->setParent(reduce);
-////			Root *rootOp = new Root(reduce);
-////			reduce->setParent(rootOp);
+//	Root *rootOp = new Root(lastPrintOp);
+//	lastPrintOp->setParent(rootOp);
+
+
+
+
+	list<RecordAttribute> argProjections;
+
+
+		/* Output: */
+		expressions::Expression* outputExpr5 = new expressions::IntConstant(1);
+
+
+			ReduceNoPred *reduce = new ReduceNoPred(SUM, outputExpr5, sel, &ctx);
+			sel->setParent(reduce);
+//			Root *rootOp = new Root(reduce);
+//			reduce->setParent(rootOp);
 
 
 	//Run function
 	struct timespec t0, t1;
 	clock_gettime(CLOCK_REALTIME, &t0);
-	rootOp->produce();
-//	reduce->produce();
+//	rootOp->produce();
+	reduce->produce();
 	ctx.prepareFunction(ctx.getGlobalFunction());
 	clock_gettime(CLOCK_REALTIME, &t1);
 	printf("Execution took %f seconds\n", diff(t0, t1));
@@ -629,7 +629,7 @@ void symantecCSV5(map<string, dataset> datasetCatalog) {
 	projections.push_back(country_code);
 
 	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, fname, rec, projections,
-			delimInner, linehint, policy);
+			delimInner, linehint, policy, false);
 	rawCatalog.registerPlugin(fname, pg);
 	Scan *scan = new Scan(&ctx, *pg);
 

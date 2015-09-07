@@ -454,6 +454,7 @@ void symantecBinSchema(map<string, dataset>& datasetCatalog) {
 	datasetCatalog["symantecBin"] = symantecBin;
 }
 
+/* Careful: Strings have no brackets! */
 void symantecCSVSchema(map<string, dataset>& datasetCatalog) {
 	IntType *intType = new IntType();
 	FloatType *floatType = new FloatType();
@@ -465,6 +466,8 @@ void symantecCSVSchema(map<string, dataset>& datasetCatalog) {
 
 	#endif
 	#ifdef SYMANTEC_SERVER
+//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsClasses1000-unordered-nocomma.csv");
+//	symantecCSV.linehint = 1000;
 	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsClasses400m-unordered-nocomma.csv");
 	symantecCSV.linehint = 400000000;
 //	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsClasses1000-unordered.csv");

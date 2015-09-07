@@ -26,9 +26,9 @@
 namespace pm	{
 
 CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
-		vector<RecordAttribute*> whichFields, int lineHint, int policy) :
+		vector<RecordAttribute*> whichFields, int lineHint, int policy, bool stringBrackets) :
 		fname(fname), rec(rec), wantedFields(whichFields), context(context), posVar(
-				"offset"), bufVar("buf"), fsizeVar("fileSize"), lines(lineHint), policy(policy) {
+				"offset"), bufVar("buf"), fsizeVar("fileSize"), lines(lineHint), policy(policy), stringBrackets(stringBrackets) {
 
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function* F = context->getGlobalFunction();
@@ -117,9 +117,9 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 }
 
 CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
-		vector<RecordAttribute*> whichFields, char delimInner, int lineHint, int policy) :
+		vector<RecordAttribute*> whichFields, char delimInner, int lineHint, int policy, bool stringBrackets) :
 		fname(fname), rec(rec), wantedFields(whichFields), context(context), posVar(
-				"offset"), bufVar("buf"), fsizeVar("fileSize"), lines(lineHint), policy(policy) {
+				"offset"), bufVar("buf"), fsizeVar("fileSize"), lines(lineHint), policy(policy), stringBrackets(stringBrackets) {
 
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function* F = context->getGlobalFunction();
@@ -209,9 +209,9 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 
 CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 		vector<RecordAttribute*> whichFields, int lineHint, int policy,
-		size_t *newlines, short **offsets) :
+		size_t *newlines, short **offsets, bool stringBrackets) :
 		fname(fname), rec(rec), wantedFields(whichFields), context(context), posVar(
-				"offset"), bufVar("buf"), fsizeVar("fileSize"), lines(lineHint), policy(policy) {
+				"offset"), bufVar("buf"), fsizeVar("fileSize"), lines(lineHint), policy(policy), stringBrackets(stringBrackets) {
 
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function* F = context->getGlobalFunction();
@@ -258,9 +258,9 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 
 CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 		vector<RecordAttribute*> whichFields, char delimInner, int lineHint, int policy,
-		size_t *newlines, short **offsets) :
+		size_t *newlines, short **offsets, bool stringBrackets) :
 		fname(fname), rec(rec), wantedFields(whichFields), context(context), posVar(
-				"offset"), bufVar("buf"), fsizeVar("fileSize"), lines(lineHint), policy(policy) {
+				"offset"), bufVar("buf"), fsizeVar("fileSize"), lines(lineHint), policy(policy), stringBrackets(stringBrackets) {
 
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function* F = context->getGlobalFunction();
@@ -1237,7 +1237,10 @@ void CSVPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, R
 	Value* start = Builder->CreateLoad(mem_pos, "start_pos_str");
 	Value *val_1 = Builder->getInt64(1);
 	//Also skipping opening bracket!!
-	start = Builder->CreateAdd(start,val_1);
+	if(stringBrackets)
+	{
+		start = Builder->CreateAdd(start,val_1);
+	}
 	getFieldEndLLVM();
 	//index must be different than start!
 	Value* index = Builder->CreateLoad(mem_pos, "end_pos_str");
@@ -1250,7 +1253,10 @@ void CSVPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, R
 	Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
 	Value* len = Builder->CreateSub(index,start);
 	//Also removing (size of) ending bracket!!
-	len = Builder->CreateSub(len,val_1);
+	if(stringBrackets)
+	{
+		len = Builder->CreateSub(len,val_1);
+	}
 	Value* len_32 = Builder->CreateTrunc(len,int32Type);
 
 	StructType *stringObjType = context->CreateStringStruct();

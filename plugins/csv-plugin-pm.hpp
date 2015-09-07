@@ -44,16 +44,16 @@ public:
 	 *
 	 */
 	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
-			vector<RecordAttribute*> whichFields, int lineHint, int policy);
+			vector<RecordAttribute*> whichFields, int lineHint, int policy, bool stringBrackets = true);
 	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
-				vector<RecordAttribute*> whichFields, char delimInner, int lineHint, int policy);
+				vector<RecordAttribute*> whichFields, char delimInner, int lineHint, int policy, bool stringBrackets = true);
 	/* PM Ready */
 	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 				vector<RecordAttribute*> whichFields, int lineHint, int policy,
-				size_t *newlines, short **offsets);
+				size_t *newlines, short **offsets, bool stringBrackets = true);
 	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 					vector<RecordAttribute*> whichFields, char delimInner, int lineHint, int policy,
-					size_t *newlines, short **offsets);
+					size_t *newlines, short **offsets, bool stringBrackets = true);
 	~CSVPlugin();
 	virtual string& getName() {
 		return fname;
@@ -121,6 +121,7 @@ private:
 	//Schema info provided
 	RecordType& rec;
 	vector<RecordAttribute*> wantedFields;
+	bool stringBrackets; //Are string literals wrapped in ""?
 
 	/**
 	 * PM-related
