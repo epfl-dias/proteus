@@ -25,7 +25,7 @@
 #define SYMANTEC_CONFIG_HPP_
 
 #include "common/common.hpp"
-/* Constants and macros to be used by queries targetting dataset of spam emails */
+/* Constants and macros to be used by queries targeting dataset of spam emails */
 
 //#define SYMANTEC_LOCAL
 #ifndef SYMANTEC_LOCAL
@@ -375,6 +375,83 @@ void symantecCoreSchema(map<string, dataset>& datasetCatalog) {
 	symantec.recType = symantecRec;
 
 	datasetCatalog["symantec"] = symantec;
+}
+
+void symantecBinSchema(map<string, dataset>& datasetCatalog) {
+	IntType *intType = new IntType();
+	FloatType *floatType = new FloatType();
+	StringType *stringType = new StringType();
+
+	dataset symantecBin;
+
+	#ifdef SYMANTEC_LOCAL
+
+	#endif
+	#ifdef SYMANTEC_SERVER
+	string path = string("/cloud_store/manosk/data/vida-engine/symantec/col/symantec");
+	symantecBin.linehint = 500000000;
+	#endif
+	symantecBin.path = path;
+
+	list<RecordAttribute*> attsSymantec = list<RecordAttribute*>();
+
+	int attrCnt = 1;
+	RecordAttribute *id = new RecordAttribute(attrCnt, path, "id", intType);
+	attsSymantec.push_back(id);
+	attrCnt++;
+	/* dim */
+	RecordAttribute *dim = new RecordAttribute(attrCnt, path, "dim", intType);
+	attsSymantec.push_back(dim);
+	attrCnt++;
+	/* dataset */
+	RecordAttribute *dataset = new RecordAttribute(attrCnt, path, "dataset", stringType);
+	attsSymantec.push_back(dataset);
+	attrCnt++;
+	/* analysis */
+	RecordAttribute *analysis = new RecordAttribute(attrCnt, path, "analysis", stringType);
+	attsSymantec.push_back(analysis);
+	attrCnt++;
+	/* slice_id */
+	RecordAttribute *slice_id = new RecordAttribute(attrCnt, path, "slice_id", intType);
+	attsSymantec.push_back(slice_id);
+	attrCnt++;
+	/* cluster */
+	RecordAttribute *cluster = new RecordAttribute(attrCnt, path, "cluster", intType);
+	attsSymantec.push_back(cluster);
+	attrCnt++;
+	/* cluster */
+	RecordAttribute *mdc = new RecordAttribute(attrCnt, path, "mdc", intType);
+	attsSymantec.push_back(mdc);
+	attrCnt++;
+	/* neighbors */
+	RecordAttribute *neighbors = new RecordAttribute(attrCnt, path, "neighbors", intType);
+	attsSymantec.push_back(neighbors);
+	attrCnt++;
+	/* size */
+	RecordAttribute *size = new RecordAttribute(attrCnt, path, "size", intType);
+	attsSymantec.push_back(size);
+	attrCnt++;
+	/* cp */
+	RecordAttribute *cp = new RecordAttribute(attrCnt, path, "cp", stringType);
+	attsSymantec.push_back(cp);
+	attrCnt++;
+	/* p_event */
+	RecordAttribute *p_event = new RecordAttribute(attrCnt, path, "p_event", floatType);
+	attsSymantec.push_back(p_event);
+	attrCnt++;
+	/* value */
+	RecordAttribute *value = new RecordAttribute(attrCnt, path, "value", floatType);
+	attsSymantec.push_back(value);
+	attrCnt++;
+	/* pattern */
+	RecordAttribute *pattern = new RecordAttribute(attrCnt, path, "pattern", stringType);
+	attsSymantec.push_back(pattern);
+	attrCnt++;
+
+	RecordType symantecBinRec = RecordType(attsSymantec);
+	symantecBin.recType = symantecBinRec;
+
+	datasetCatalog["symantecBin"] = symantecBin;
 }
 
 #endif /* SYMANTEC_CONFIG_HPP_ */
