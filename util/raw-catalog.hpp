@@ -5,12 +5,6 @@
 #include "plugins/plugins.hpp"
 #include "values/expressionTypes.hpp"
 
-#include "rapidjson/writer.h"
-#include "rapidjson/stringbuffer.h"
-
-using rapidjson::Writer;
-using rapidjson::StringBuffer;
-
 //Forward Declaration
 class Plugin;
 
