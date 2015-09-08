@@ -339,8 +339,11 @@ size_t hashBoolean(bool toHash) {
 }
 
 size_t hashStringObject(StringObject obj)	{
-	char tmp = obj.start[obj.len+1];
-	obj.start[obj.len+1] = '\0';
+	//No '+1' needed here
+	char tmp = obj.start[obj.len];
+	obj.start[obj.len] = '\0';
+	//	obj.start[obj.len+1] = '\0';
+	//cout << "To Hash: " << obj.start << endl;
 	boost::hash<string> hasher;
 	size_t result = hasher(obj.start);
 	obj.start[obj.len+1] = tmp;

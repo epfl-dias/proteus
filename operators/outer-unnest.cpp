@@ -208,11 +208,18 @@ void OuterUnnest::generate(RawContext* const context,
 		valWrapper.isNull = context->createTrue();
 
 		(*unnestBindings)[unnestedAttr] = valWrapper;
-//		cout << "In unnest: " << unnestedAttr.getOriginalRelationName() << "_"
+//		cout << "In outer unnest: " << unnestedAttr.getOriginalRelationName() << "_"
 //				<< unnestedAttr.getName() << endl;
 		OperatorState *newStateNull = new OperatorState(*this, *unnestBindings);
 
 		//Triggering parent
+//	{
+//		Function* debugInt64 = context->getFunction("printi64");
+//		ArgsV.clear();
+//		ArgsV.push_back(Builder->getInt64(4444));
+//		Builder->CreateCall(debugInt64, ArgsV);
+//		ArgsV.clear();
+//	}
 		getParent()->consume(context, *newStateNull);
 		Builder->CreateBr(ElseMerge);
 	}
@@ -252,7 +259,7 @@ void OuterUnnest::generate(RawContext* const context,
 					RecordAttribute, RawValueMemory>(childState.getBindings());
 
 			(*unnestBindings2)[unnestedAttr] = nestedValueItem2;
-//			cout << "In unnest: " << unnestedAttr.getOriginalRelationName()
+//			cout << "In outer unnest: " << unnestedAttr.getOriginalRelationName()
 //					<< "_" << unnestedAttr.getName() << endl;
 
 			OperatorState* newState2 = new OperatorState(*this,
@@ -276,8 +283,16 @@ void OuterUnnest::generate(RawContext* const context,
 			 * IF BLOCK
 			 * CALL NEXT OPERATOR, ADDING nestedValueItem binding
 			 */
+
 			{
 				Builder->SetInsertPoint(ifBlock);
+//					{
+//						Function* debugInt64 = context->getFunction("printi64");
+//						ArgsV.clear();
+//						ArgsV.push_back(Builder->getInt64(5555));
+//						Builder->CreateCall(debugInt64, ArgsV);
+//						ArgsV.clear();
+//					}
 				//Triggering parent
 				getParent()->consume(context, *newState2);
 				Builder->CreateBr(loopInc2);

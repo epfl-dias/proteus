@@ -47,7 +47,7 @@ typedef enum {
  */
 /* Used to accommodate symantec workload (and flush its pm) */
 //#define JSON_SYMANTEC
-//#define JSON_SYMANTEC_WIDE
+#define JSON_SYMANTEC_WIDE
 /* Used to accommodate very wide TPC-H pre-computed join
  * i.e. ordersLineitem.json */
 //#define JSON_TPCH_WIDE

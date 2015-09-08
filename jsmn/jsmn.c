@@ -390,7 +390,11 @@ jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 				return r;
 			count++;
 			if (parser->toksuper != -1 && (*tokensPtr) != NULL )
+			{
+//				printf("1. %d\n",parser->toksuper);
+//				printf("2. %d\n",(*tokensPtr)[parser->toksuper].size);
 				(*tokensPtr)[parser->toksuper].size++;
+			}
 			break;
 
 #ifdef JSMN_STRICT

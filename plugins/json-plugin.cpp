@@ -94,7 +94,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	char* pmCast = cache.getPM(fname);
 	Value *cast_tokenArray = NULL;
 	if (pmCast == NULL) {
-//		cout << "NEW (JSON) PM" << endl;
+		cout << "NEW (JSON) PM" << endl;
 		tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
 		if (tokenBuf == NULL) {
 			string msg = string(
@@ -111,7 +111,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		/* To be used by subsequent queries */
 		cache.registerPM(fname, tokenBuf);
 	} else {
-//		cout << "(JSON) PM REUSE" << endl;
+		cout << "(JSON) PM REUSE" << endl;
 		jsmntok_t **tokens = (jsmntok_t **) pmCast;
 		this->tokens = tokens;
 		tokenBuf = NULL;
@@ -263,7 +263,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		/* To be used by subsequent queries */
 		cache.registerPM(fname, tokenBuf);
 	} else {
-		//cout << "(JSON) PM REUSE" << endl;
+		cout << "(JSON) PM IN-MEM REUSE" << endl;
 		jsmntok_t **tokens = (jsmntok_t **) pmCast;
 		this->tokens = tokens;
 		tokenBuf = NULL;
@@ -2015,53 +2015,53 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 	Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 	string error_msg;
 	switch (type->getTypeID()) {
-	case RECORD:
-	case LIST: {
-		mem_convertedValue = context->CreateEntryBlockAlloca(F,
-				string("existingObject"), (mem_value.mem)->getAllocatedType());
-		break;
-	}
-	case SET: {
-		error_msg = string("[JSON Plugin - jsmn: ]: SET datatype cannot occur");
-		LOG(ERROR)<< error_msg;
+		case RECORD:
+		case LIST: {
+			mem_convertedValue = context->CreateEntryBlockAlloca(F,
+					string("existingObject"), (mem_value.mem)->getAllocatedType());
+			break;
+		}
+		case SET: {
+			error_msg = string("[JSON Plugin - jsmn: ]: SET datatype cannot occur");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(string(error_msg));
+		}
+		case BAG: {
+			error_msg = string("[JSON Plugin - jsmn: ]: BAG datatype cannot occur");
+			LOG(ERROR)<< error_msg;
+		}
 		throw runtime_error(string(error_msg));
+		case BOOL:
+		{
+			mem_convertedValue = context->CreateEntryBlockAlloca(F,
+					string("convertedBool"), int8Type);
+			break;
+		}
+		case FLOAT:
+		{
+			mem_convertedValue = context->CreateEntryBlockAlloca(F,
+					string("convertedFloat"), doubleType);
+			break;
+		}
+		case INT:
+		{
+			mem_convertedValue = context->CreateEntryBlockAlloca(F,
+					string("convertedInt"), int32Type);
+			break;
+		}
+		case STRING: {
+			StructType *stringObjType = context->CreateStringStruct();
+			mem_convertedValue = context->CreateEntryBlockAlloca(F,
+					string("ingestedString"), stringObjType);
+			break;
+		}
+		default:
+		{
+			error_msg = string("[JSON Plugin - jsmn: ]: Unknown expression type");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(string(error_msg));
+		}
 	}
-	case BAG: {
-		error_msg = string("[JSON Plugin - jsmn: ]: BAG datatype cannot occur");
-		LOG(ERROR)<< error_msg;
-	}
-	throw runtime_error(string(error_msg));
-	case BOOL:
-	{
-		mem_convertedValue = context->CreateEntryBlockAlloca(F,
-				string("convertedBool"), int8Type);
-		break;
-	}
-	case FLOAT:
-	{
-		mem_convertedValue = context->CreateEntryBlockAlloca(F,
-				string("convertedFloat"), doubleType);
-		break;
-	}
-	case INT:
-	{
-		mem_convertedValue = context->CreateEntryBlockAlloca(F,
-				string("convertedInt"), int32Type);
-		break;
-	}
-	case STRING: {
-		StructType *stringObjType = context->CreateStringStruct();
-		mem_convertedValue = context->CreateEntryBlockAlloca(F,
-				string("ingestedString"), stringObjType);
-		break;
-	}
-	default:
-	{
-		error_msg = string("[JSON Plugin - jsmn: ]: Unknown expression type");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(string(error_msg));
-	}
-}
 
 /**
  * Return (nil) for cases path was not found
@@ -2172,7 +2172,18 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 		Builder->CreateStore(bufShiftedPtr, mem_str);
 		//context->CodegenMemcpy(mem_str,bufShiftedPtr,val_length);
 		Value *mem_len = context->getStructElemMem(mem_convertedValue, 1);
+
+		//mem_len->getType()->dump();
+		//val_length->getType()->dump();
+
+#ifndef JSON_TIGHT
 		Builder->CreateStore(val_length, mem_len);
+#endif
+#ifdef JSON_TIGHT
+		Value * val_length_32 = Builder->CreateSExt(val_length,int32Type);
+		Builder->CreateStore(val_length_32, mem_len);
+#endif
+
 
 		Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 		break;

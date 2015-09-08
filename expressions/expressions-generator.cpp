@@ -125,6 +125,8 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 						if (currAttr.getRelationName() == it->getRelationName()
 								&& currAttr.getAttrName() == activeLoop) {
 							/* Found info needed! */
+//							cout << "Binding found!!!" << endl;
+//							cout << currAttr.getRelationName() << "_" << currAttr.getAttrName() << endl;
 							RawValueMemory mem_activeTuple = itBindings->second;
 							argMem = mem_activeTuple.mem;
 							isNull = mem_activeTuple.isNull;
@@ -162,8 +164,9 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 	}
 
 	RawValue valWrapper;
+	/* XXX Should this load be removed?? Will an optimization pass realize it is not needed? */
 	valWrapper.value = Builder->CreateLoad(argMem);
-	valWrapper.isNull = context->createFalse();
+	valWrapper.isNull = isNull;//context->createFalse();
 
 #ifdef DEBUG
 	{
@@ -239,7 +242,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		} else {
 			//Path involves a primitive datatype
 			//(e.g., the result of unnesting a list of primitives)
-
+			//cout << "PROJ: " << activeRelation << endl;
 			Plugin* pg = catalog.getPlugin(activeRelation);
 			RecordAttribute tupleIdentifier = RecordAttribute(activeRelation,
 					activeLoop,pg->getOIDType());

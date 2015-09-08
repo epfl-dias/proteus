@@ -377,6 +377,178 @@ void symantecCoreSchema(map<string, dataset>& datasetCatalog) {
 	datasetCatalog["symantec"] = symantec;
 }
 
+/* TRUNK */
+void symantecCoreIDDatesSchema(map<string, dataset>& datasetCatalog) {
+	IntType *intType = new IntType();
+	FloatType *floatType = new FloatType();
+	StringType *stringType = new StringType();
+
+	dataset symantec;
+
+	#ifdef SYMANTEC_LOCAL
+	string path = string("inputs/json/spam/spamsCoreIDDates100.json");
+	symantec.linehint = 100;
+	#endif
+	#ifdef SYMANTEC_SERVER
+//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreIDDates100.json");
+//	symantec.linehint = 100;
+	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreIDDates28m-edit.json");
+	symantec.linehint = 27991116;
+
+	#endif
+	symantec.path = path;
+
+	list<RecordAttribute*> attsSymantec = list<RecordAttribute*>();
+
+	int attrCnt = 1;
+	RecordAttribute *id = new RecordAttribute(attrCnt, path, "id", intType);
+	attsSymantec.push_back(id);
+	attrCnt++;
+	/* "IP" : "83.149.45.128" */
+	RecordAttribute *ip = new RecordAttribute(attrCnt, path, "IP", stringType);
+	attsSymantec.push_back(ip);
+	attrCnt++;
+	/* "_id" : { "$oid" : "4ebbd37d466e8b0b55000000" } */
+	RecordAttribute *oid = new RecordAttribute(1, path, "$oid", stringType);
+	list<RecordAttribute*> oidNested = list<RecordAttribute*>();
+	oidNested.push_back(oid);
+	RecordType *idRec = new RecordType(oidNested);
+	RecordAttribute *_id = new RecordAttribute(attrCnt, path, "_id", idRec);
+	attsSymantec.push_back(_id);
+	attrCnt++;
+	/* "attach" : [ "whigmaleerie.jpg" ] (but tends to be empty) */
+	ListType *attachList = new ListType(*stringType);
+	RecordAttribute *attach = new RecordAttribute(attrCnt, path, "attach",
+			attachList);
+	attsSymantec.push_back(attach);
+	attrCnt++;
+	/* "body_txt_a" : "blablabla" */
+	RecordAttribute *body_txt_a = new RecordAttribute(attrCnt, path, "body_txt_a",
+			stringType);
+	attsSymantec.push_back(body_txt_a);
+	attrCnt++;
+	/* "charset" : "windows-1252" */
+	RecordAttribute *charset = new RecordAttribute(attrCnt, path, "charset",
+			stringType);
+	attsSymantec.push_back(charset);
+	attrCnt++;
+	/* "city" : "Ryazan" */
+	RecordAttribute *city = new RecordAttribute(attrCnt, path, "city", stringType);
+	attsSymantec.push_back(city);
+	attrCnt++;
+	/* "content_type" : [ "text/html", "text/plain" ] */
+	ListType *contentList = new ListType(*stringType);
+	RecordAttribute *content_type = new RecordAttribute(attrCnt, path,
+			"content_type", contentList);
+	attsSymantec.push_back(content_type);
+	attrCnt++;
+	/* "country_code" : "RU" */
+	RecordAttribute *country_code = new RecordAttribute(attrCnt, path,
+			"country_code", stringType);
+	attsSymantec.push_back(country_code);
+	attrCnt++;
+	/* "cte" : "unknown" */
+	RecordAttribute *cte = new RecordAttribute(attrCnt, path, "cte", stringType);
+	attsSymantec.push_back(cte);
+
+
+	/* "date" : { "$date" : 1285919417000 } */
+	RecordAttribute *date_ = new RecordAttribute(1, path, "$date", floatType);
+	list<RecordAttribute*> dateNested = list<RecordAttribute*>();
+	dateNested.push_back(date_);
+	RecordType *dateRec = new RecordType(dateNested);
+	RecordAttribute *date = new RecordAttribute(attrCnt, path, "date", dateRec);
+	attsSymantec.push_back(date);
+	attrCnt++;
+
+	/*"day":{"year":2010,"month":10,"day":1}*/
+	RecordAttribute *year_ = new RecordAttribute(1, path, "year", intType);
+	RecordAttribute *month_ = new RecordAttribute(2, path, "month", intType);
+	RecordAttribute *day_ = new RecordAttribute(3, path, "day", intType);
+	list<RecordAttribute*> dayNested = list<RecordAttribute*>();
+	dayNested.push_back(year_);
+	dayNested.push_back(month_);
+	dayNested.push_back(day_);
+	RecordType *dayRec = new RecordType(dayNested);
+//	/* "day" : "2010-10-01" */
+//	RecordAttribute *day = new RecordAttribute(attrCnt, path, "day", stringType);
+//	attsSymantec.push_back(day);
+	attrCnt++;
+
+	/* "from_domain" : "domain733674.com" */
+	RecordAttribute *from_domain = new RecordAttribute(attrCnt, path, "from_domain",
+			stringType);
+	attsSymantec.push_back(from_domain);
+	attrCnt++;
+	/* "host" : "airtelbroadband.in (but tends to be empty) */
+	RecordAttribute *host = new RecordAttribute(attrCnt, path, "host", stringType);
+	attsSymantec.push_back(host);
+	attrCnt++;
+	/* "lang" : "english" */
+	RecordAttribute *lang = new RecordAttribute(attrCnt, path, "lang", stringType);
+	attsSymantec.push_back(lang);
+	attrCnt++;
+	/* "lat" : 54.6197 */
+	RecordAttribute *lat = new RecordAttribute(attrCnt, path, "lat", floatType);
+	attsSymantec.push_back(lat);
+	attrCnt++;
+	/* "long" : 39.74 */
+	RecordAttribute *long_ = new RecordAttribute(attrCnt, path, "long", floatType);
+	attsSymantec.push_back(long_);
+	attrCnt++;
+	/* "rcpt_domain" : "domain555065.com" */
+	RecordAttribute *rcpt_domain = new RecordAttribute(attrCnt, path, "rcpt_domain",
+			stringType);
+	attsSymantec.push_back(rcpt_domain);
+	attrCnt++;
+	/* "size" : 3712 */
+	RecordAttribute *size = new RecordAttribute(attrCnt, path, "size", intType);
+	attsSymantec.push_back(size);
+	attrCnt++;
+	/* "subject" : "LinkedIn Messages, 9/30/2010" */
+	RecordAttribute *subject = new RecordAttribute(attrCnt, path, "subject",
+			stringType);
+	attsSymantec.push_back(subject);
+	attrCnt++;
+	/* "uri" : [ "http://hetfonteintje.com/1.html" ] */
+	ListType *uriList = new ListType(*stringType);
+	RecordAttribute *uri = new RecordAttribute(attrCnt, path, "uri", uriList);
+	attsSymantec.push_back(uri);
+	attrCnt++;
+	/* "uri_domain" : [ "hetfonteintje.com" ] */
+	ListType *domainList = new ListType(*stringType);
+	RecordAttribute *domain = new RecordAttribute(attrCnt, path, "uri_domain",
+			domainList);
+	attsSymantec.push_back(domain);
+	/* "uri_tld" : [ ".com" ] */
+	ListType *tldList = new ListType(*stringType);
+	RecordAttribute *uri_tld = new RecordAttribute(attrCnt, path, "uri_tld",
+			tldList);
+	attsSymantec.push_back(uri_tld);
+	attrCnt++;
+	/* "x_p0f_detail" : "XP/2000" */
+	RecordAttribute *x_p0f_detail = new RecordAttribute(attrCnt, path,
+			"x_p0f_detail", stringType);
+	attsSymantec.push_back(x_p0f_detail);
+	attrCnt++;
+	/* "x_p0f_genre" : "Windows" */
+	RecordAttribute *x_p0f_genre = new RecordAttribute(attrCnt, path, "x_p0f_genre",
+			stringType);
+	attsSymantec.push_back(x_p0f_genre);
+	attrCnt++;
+
+	/* "x_p0f_signature" : "64380:116:1:48:M1460,N,N,S:." */
+	RecordAttribute *x_p0f_signature = new RecordAttribute(attrCnt, path,
+			"x_p0f_signature", stringType);
+	attsSymantec.push_back(x_p0f_signature);
+	attrCnt++;
+
+	RecordType symantecRec = RecordType(attsSymantec);
+	symantec.recType = symantecRec;
+
+	datasetCatalog["symantecIDDates"] = symantec;
+}
+
 void symantecBinSchema(map<string, dataset>& datasetCatalog) {
 	IntType *intType = new IntType();
 	FloatType *floatType = new FloatType();
@@ -385,7 +557,8 @@ void symantecBinSchema(map<string, dataset>& datasetCatalog) {
 	dataset symantecBin;
 
 	#ifdef SYMANTEC_LOCAL
-
+	string path = string("inputs/json/spam/col/symantec");
+	symantecBin.linehint = 100;
 	#endif
 	#ifdef SYMANTEC_SERVER
 	string path = string("/cloud_store/manosk/data/vida-engine/symantec/col/symantec");
@@ -463,7 +636,8 @@ void symantecCSVSchema(map<string, dataset>& datasetCatalog) {
 	dataset symantecCSV;
 
 	#ifdef SYMANTEC_LOCAL
-
+	string path = string("inputs/json/spam/spamsClasses1000-unordered-nocomma.csv");
+	symantecCSV.linehint = 1000;
 	#endif
 	#ifdef SYMANTEC_SERVER
 //	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsClasses1000-unordered-nocomma.csv");
