@@ -117,7 +117,8 @@ typedef struct {
 
 #ifdef JSON_SYMANTEC_WIDE
 #undef MAXTOKENS
-#define MAXTOKENS 70 //80 //53
+//#define MAXTOKENS 70 //80 //53 //good enough for spamsCoreID28m - but crashes for idDates
+#define MAXTOKENS 100 //80: very slow - no idea if it worked
 #endif /* JSON_SYMANTEC */
 
 /* Default, conservative case */

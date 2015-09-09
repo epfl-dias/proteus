@@ -111,6 +111,24 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 		}
 		else {
 			string error_msg = string("[OUTPUT PG: ] INPUT ERROR AT OPERATOR - UNKNOWN WANTED FIELD ") + (*it)->getAttrName();
+			map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+
+			for (memSearch = currentBindings.begin();
+							memSearch != currentBindings.end(); memSearch++) {
+
+						RecordAttribute currAttr = memSearch->first;
+						cout << "HINT: " << currAttr.getOriginalRelationName() << " -- "
+								<< currAttr.getRelationName() << "_" << currAttr.getName()
+								<< endl;
+						if (currAttr.getAttrName() == activeLoop) {
+							Type* currType = (memSearch->second).mem->getAllocatedType();
+							materializedTypes->push_back(currType);
+							payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
+							//cout << "Active Tuple Size "<< (currType->getPrimitiveSizeInBits() / 8) << endl;
+							tupleIdentifiers++;
+							materializer.addTupleIdentifier(currAttr);
+						}
+					}
 			LOG(ERROR) << error_msg;
 			throw runtime_error(error_msg);
 		}

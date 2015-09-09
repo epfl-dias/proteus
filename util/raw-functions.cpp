@@ -754,6 +754,9 @@ void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size
 //	{
 //		printf("Processing line no. %ld\n",line);
 //	}
+//	if (line > 0 && (line + 1) % 100000 == 0) {
+//		printf("Processing line no. %ld\n", line);
+//	}
 	if(error_code < 0)
 	{
 		string msg = "Json (JSMN) plugin failure: ";

@@ -1309,11 +1309,25 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
 		throw runtime_error(error_msg);
 	}
 	/* scanObjects now forwards (offset, rowId) structs */
-	RawValueMemory mem_tokenIdWrapper = (it->second);
 
-	Value* val_offset = context->getStructElem(mem_tokenIdWrapper.mem, 0);
-	Value* val_rowId = context->getStructElem(mem_tokenIdWrapper.mem, 1);
-	Value* parentTokenNo = context->getStructElem(mem_tokenIdWrapper.mem, 2);
+	//FIXME This code ignored traversals! It always started from beginning of entry!
+	//=> Did not handle consecutive projections
+
+	//	RawValueMemory mem_tokenIdWrapper = (it->second);
+	//
+	//	Value* val_offset = context->getStructElem(mem_tokenIdWrapper.mem, 0);
+	//	Value* val_rowId = context->getStructElem(mem_tokenIdWrapper.mem, 1);
+	//	Value* parentTokenNo = context->getStructElem(mem_tokenIdWrapper.mem, 2);
+
+	//XXX Careful - needs more testing
+	RawValue tokenIdWrapper = wrappedBindings.record;
+	AllocaInst *mem_tokenID = context->CreateEntryBlockAlloca(F,
+			string("mem_pathToken"), tokenIdWrapper.value->getType());
+	Builder->CreateStore(tokenIdWrapper.value, mem_tokenID);
+	//tokenIdWrapper.value->getType()->dump();
+	Value* val_offset = context->getStructElem(mem_tokenID, 0);
+	Value* val_rowId = context->getStructElem(mem_tokenID, 1);
+	Value* parentTokenNo = context->getStructElem(mem_tokenID, 2);
 
 	//Preparing default return value (i.e., path not found)
 	AllocaInst* mem_return = context->CreateEntryBlockAlloca(F,
@@ -2135,15 +2149,15 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 		atois(bufShiftedPtr,val_len32,mem_convertedValue,context);
 		Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 #ifdef DEBUGJSON
-//		vector<Value*> ArgsV;
-//		Function* debugInt = context->getFunction("printi");
-//		convertedValue = Builder->CreateLoad(mem_convertedValue);
-//		ArgsV.push_back(convertedValue);
-//		Builder->CreateCall(debugInt, ArgsV);
-//		ArgsV.clear();
-//		Value *tmp = context->createInt32(888);
-//		ArgsV.push_back(tmp);
-//		Builder->CreateCall(debugInt, ArgsV);
+		vector<Value*> ArgsV;
+		Function* debugInt = context->getFunction("printi");
+		convertedValue = Builder->CreateLoad(mem_convertedValue);
+		ArgsV.push_back(convertedValue);
+		Builder->CreateCall(debugInt, ArgsV);
+		ArgsV.clear();
+		Value *tmp = context->createInt32(888);
+		ArgsV.push_back(tmp);
+		Builder->CreateCall(debugInt, ArgsV);
 #endif
 
 		break;

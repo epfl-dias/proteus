@@ -36,23 +36,16 @@ void NullFilter::generate(RawContext* const context, const OperatorState& childS
 
 	//Generate condition
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
-	RawValue nullCandidate = this->expr->accept(exprGenerator);
-	Value *isNotNull = TheBuilder->CreateNot(nullCandidate.isNull); //TheBuilder->getInt1(true);
-
-//	map<RecordAttribute, RawValueMemory>::const_iterator srch =  childState.getBindings().begin();
-//	for(srch ; srch != childState.getBindings().end(); srch++)
-//	{
-//		cout << srch->first.getRelationName() << srch->first.getAttrName() << endl;
-//	}
-
+	RawValue condition = this->expr->accept(exprGenerator);
+	Value *isNotNull = TheBuilder->CreateNot(condition.isNull);
 
 	//Get entry point
 	Function *TheFunction = TheBuilder->GetInsertBlock()->getParent();
 
 	// Create blocks for the then cases.  Insert the 'then' block at the end of the function.
 	// Note: No 'else' in this case
-	BasicBlock *ThenBB = BasicBlock::Create(llvmContext, "nullFilterThen", TheFunction);
-	BasicBlock *MergeBB = BasicBlock::Create(llvmContext, "nullFilterIfCont");
+	BasicBlock *ThenBB = BasicBlock::Create(llvmContext, "notNullFilterThen", TheFunction);
+	BasicBlock *MergeBB = BasicBlock::Create(llvmContext, "notNullFilterCont");
 
 	TheBuilder->CreateCondBr(isNotNull, ThenBB, MergeBB);
 	TheBuilder->SetInsertPoint(ThenBB);

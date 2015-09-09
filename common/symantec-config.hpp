@@ -470,9 +470,8 @@ void symantecCoreIDDatesSchema(map<string, dataset>& datasetCatalog) {
 	dayNested.push_back(month_);
 	dayNested.push_back(day_);
 	RecordType *dayRec = new RecordType(dayNested);
-//	/* "day" : "2010-10-01" */
-//	RecordAttribute *day = new RecordAttribute(attrCnt, path, "day", stringType);
-//	attsSymantec.push_back(day);
+	RecordAttribute *day = new RecordAttribute(attrCnt, path, "day", dayRec);
+	attsSymantec.push_back(day);
 	attrCnt++;
 
 	/* "from_domain" : "domain733674.com" */

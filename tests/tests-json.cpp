@@ -250,6 +250,7 @@ TEST(JSON, unnestJSON) {
 	catalog.clear();
 }
 
+/* json plugin seems broken if linehint not provided */
 TEST(JSON, reduceListObjectFlat) {
 	RawContext ctx = RawContext("Reduce-FlushListObject");
 	registerFunctions(ctx);
@@ -283,12 +284,12 @@ TEST(JSON, reduceListObjectFlat) {
 
 	RecordType inner = RecordType(atts);
 	ListType documentType = ListType(inner);
-
+	int linehint = 10;
 	/**
 	 * SCAN
 	 */
 	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
-			&documentType);
+			&documentType,linehint);
 	catalog.registerPlugin(fname, &pg);
 	Scan scan = Scan(&ctx, pg);
 

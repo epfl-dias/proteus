@@ -234,7 +234,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		Bindings bindings = { &currState, record };
 		RawValueMemory mem_path;
 		RawValueMemory mem_val;
-		//cout << "Active Relation: " << e->getProjectionName() << endl;
+//		cout << "Active Relation: " << e->getProjectionName() << endl;
 		if (e->getProjectionName() != activeLoop) {
 			//Path involves a projection / an object
 			mem_path = plugin->readPath(activeRelation, bindings,
@@ -261,10 +261,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 #ifdef DEBUG
 		{
 			/* Printing the pos. to be marked */
-			if(e->getProjectionName() == "age") {
-				cout << "AGE! " << endl;
+//			if(e->getProjectionName() == "age") {
+//				cout << "AGE! " << endl;
+			if (e->getProjectionName() == "c2") {
+				cout << "C2! " << endl;
 				/* Radix treats this as int64 (!) */
-				val->getType()->dump();
+//				val->getType()->dump();
 				Function* debugInt = context->getFunction("printi");
 				Function* debugInt64 = context->getFunction("printi64");
 				vector<Value*> ArgsV;
@@ -346,8 +348,19 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 		valWrapper.isNull = context->createFalse();
 		switch (id) {
 		case INT:
+		{
+#ifdef DEBUG
+{
+			vector<Value*> ArgsV;
+			ArgsV.clear();
+			ArgsV.push_back(left.value);
+			Function* debugInt = context->getFunction("printi");
+			TheBuilder->CreateCall(debugInt, ArgsV);
+}
+#endif
 			valWrapper.value = TheBuilder->CreateICmpEQ(left.value, right.value);
 			return valWrapper;
+		}
 		case FLOAT:
 			valWrapper.value = TheBuilder->CreateFCmpOEQ(left.value, right.value);
 			return valWrapper;
