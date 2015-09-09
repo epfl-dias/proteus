@@ -259,6 +259,13 @@ target_link_libraries(spam-json jsmn)
 target_link_libraries(spam-json -lglog ${glog_ldflags})
 target_link_libraries(spam-json ${llvm_ldflags} ${llvm_libs})
 
+add_executable(spam-bin-csv experiments/realworld/spam-bin-csv.cpp)
+set_target_properties(spam-bin-csv PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(spam-bin-csv codegen)
+target_link_libraries(spam-bin-csv jsmn)
+target_link_libraries(spam-bin-csv -lglog ${glog_ldflags})
+target_link_libraries(spam-bin-csv ${llvm_ldflags} ${llvm_libs})
+
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
 if(GTEST)
