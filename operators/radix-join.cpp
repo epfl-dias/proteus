@@ -392,7 +392,8 @@ void RadixJoin::placeInCache(Materializer &mat, bool isLeft) const {
 	}
 	itRec = fields.begin();
 	/* Explicit OID ('activeTuple') will be field 0 */
-	if (!exps.empty()) {
+	//XXX VOLATILE: without 2nd part of pred., it moved over bound in some cases
+	if (!exps.empty() && (itRec != fields.end())) {
 
 		/* By default, cache looks sth like custom_struct*.
 		 * Is it possible to isolate cache for just ONE of the expressions??
@@ -410,11 +411,11 @@ void RadixJoin::placeInCache(Materializer &mat, bool isLeft) const {
 
 			/* Having skipped OIDs */
 			if (fieldNo >= mat.getWantedOIDs().size()) {
-//				cout << "Field Cached: " << (*itRec)->getAttrName()
-//						<< endl;
+				cout << "Field Cached: " << (*itRec)->getAttrName()
+						<< endl;
 				itRec++;
 			} else {
-//				cout << "Field Cached: " << activeLoop << endl;
+				cout << "Field Cached: " << activeLoop << endl;
 			}
 
 			fieldNo++;

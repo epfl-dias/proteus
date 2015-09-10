@@ -390,8 +390,15 @@ RawValue BinaryColPlugin::readCachedValue(CacheInfo info, const OperatorState& c
 
 	Value *val_cacheShiftedPtr = context->getArrayElemMem(val_cachePtr,
 			val_oid);
+//	val_cacheShiftedPtr->getType()->dump();
+//	cout << "Pos in struct? " << posInStruct << endl;
+//	Value *val_cachedField = context->getStructElem(val_cacheShiftedPtr,
+//			posInStruct - 1);
+
+	// XXX
+	// -1 because bin files has no OID (?)
 	Value *val_cachedField = context->getStructElem(val_cacheShiftedPtr,
-			posInStruct);
+			posInStruct/* - 1*/);
 	Type *fieldType = val_cachedField->getType();
 
 	/* This Alloca should not appear in optimized code */

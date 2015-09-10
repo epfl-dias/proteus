@@ -206,6 +206,7 @@ void symantecSchema(map<string, dataset>& datasetCatalog) {
 	datasetCatalog["symantec"] = symantec;
 }
 
+/* DEPRECATED */
 void symantecCoreSchema(map<string, dataset>& datasetCatalog) {
 	IntType *intType = new IntType();
 	FloatType *floatType = new FloatType();

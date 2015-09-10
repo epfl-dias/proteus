@@ -1802,11 +1802,14 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 			CacheInfo info = cache.getCache(thisField);
 //			CacheInfo info; info.structFieldNo = -1;
 			if (info.structFieldNo != -1) {
+#ifdef DEBUGCACHING
 				cout << "[CSV_PM: ] Field " << (*it)->getOriginalRelationName() << "."
 						<< (*it)->getAttrName() << " found!" << endl;
-
+#endif
 				if (!cache.getCacheIsFull(thisField)) {
+#ifdef DEBUGCACHING
 					cout << "...but is not useable " << endl;
+#endif
 				}
 				else
 				{
