@@ -280,7 +280,7 @@ target_link_libraries(spam-csv-json jsmn)
 target_link_libraries(spam-csv-json -lglog ${glog_ldflags})
 target_link_libraries(spam-csv-json ${llvm_ldflags} ${llvm_libs})
 
-add_executable(spam-bin-csv-json experiments/realworld/spam-csv-json.cpp)
+add_executable(spam-bin-csv-json experiments/realworld/spam-bin-csv-json.cpp)
 set_target_properties(spam-bin-csv-json PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 target_link_libraries(spam-bin-csv-json codegen)
 target_link_libraries(spam-bin-csv-json jsmn)

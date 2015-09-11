@@ -53,7 +53,6 @@
 #include "operators/materializer-expr.hpp"
 
 void symantecJSONWarmup(map<string,dataset> datasetCatalog);
-void symantecCSVWarmup(map<string,dataset> datasetCatalog);
 void symantecBinJSON1(map<string,dataset> datasetCatalog);
 void symantecBinJSON2(map<string,dataset> datasetCatalog);
 void symantecBinJSON3(map<string,dataset> datasetCatalog);
@@ -1301,58 +1300,3 @@ void symantecJSONWarmup(map<string,dataset> datasetCatalog)	{
 	pg->finish();
 	rawCatalog.clear();
 }
-
-void symantecCSVWarmup(map<string,dataset> datasetCatalog)	{
-
-	RawContext ctx = prepareContext("symantec-csv-warmup");
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
-
-	string nameSymantec = string("symantecCSV");
-	dataset symantec = datasetCatalog[nameSymantec];
-	map<string, RecordAttribute*> argsSymantec 	=
-			symantec.recType.getArgsMap();
-
-	/**
-	 * SCAN
-	 */
-	string fname = symantec.path;
-	RecordType rec = symantec.recType;
-	int linehint = symantec.linehint;
-	int policy = 5;
-	char delimInner = ';';
-
-	vector<RecordAttribute*> projections;
-
-	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, fname, rec, projections,
-			delimInner, linehint, policy, false);
-	rawCatalog.registerPlugin(fname, pg);
-	Scan *scan = new Scan(&ctx, *pg);
-
-	/**
-	 * REDUCE
-	 * (SUM 1)
-	 */
-	list<RecordAttribute> argProjections;
-
-	expressions::Expression* arg 			=
-				new expressions::InputArgument(&rec,0,argProjections);
-	/* Output: */
-	expressions::Expression* outputExpr =
-			new expressions::IntConstant(1);
-
-	ReduceNoPred *reduce = new ReduceNoPred(SUM, outputExpr, scan, &ctx);
-	scan->setParent(reduce);
-
-	//Run function
-	struct timespec t0, t1;
-	clock_gettime(CLOCK_REALTIME, &t0);
-	reduce->produce();
-	ctx.prepareFunction(ctx.getGlobalFunction());
-	clock_gettime(CLOCK_REALTIME, &t1);
-	printf("Execution took %f seconds\n", diff(t0, t1));
-
-	//Close all open files & clear
-	pg->finish();
-	rawCatalog.clear();
-}
-
