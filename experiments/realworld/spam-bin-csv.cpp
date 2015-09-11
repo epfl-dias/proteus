@@ -77,14 +77,16 @@ int main()	{
 
 	cout << "SYMANTEC BIN-CSV 1" << endl;
 	symantecBinCSV1(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 2" << endl;
-	symantecBinCSV2(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 3" << endl;
-	symantecBinCSV3(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 4" << endl;
-	symantecBinCSV4(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 5" << endl;
-	symantecBinCSV5(datasetCatalog);
+	cout << "SYMANTEC BIN-CSV 1" << endl;
+	symantecBinCSV1(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 2" << endl;
+//	symantecBinCSV2(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 3" << endl;
+//	symantecBinCSV3(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 4" << endl;
+//	symantecBinCSV4(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 5" << endl;
+//	symantecBinCSV5(datasetCatalog);
 }
 
 void symantecBinCSV1(map<string, dataset> datasetCatalog) {
@@ -1134,7 +1136,7 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 
 	/**
 	 * REDUCE
-	 * MAX(neighbors), COUNT(*)
+	 * MAX(dim), COUNT(*)
 	 */
 	list<RecordAttribute> argProjections;
 	argProjections.push_back(*neighbors);

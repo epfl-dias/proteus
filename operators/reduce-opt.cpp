@@ -352,13 +352,14 @@ void Reduce::generateMax(expressions::Expression* outputExpr,
 		/**
 		 * if(curr > max) max = curr;
 		 */
-#ifdef DEBUGREDUCE
-//		{
-//			vector<Value*> ArgsV;
-//			Function* debugInt = context->getFunction("printi");
-//			ArgsV.push_back(val_output.value);
-//			Builder->CreateCall(debugInt, ArgsV);
-//		}
+#ifdef DEBUG
+		{
+			val_output.value->getType()->dump();
+			vector<Value*> ArgsV;
+			Function* debugInt = context->getFunction("printi");
+			ArgsV.push_back(val_output.value);
+			Builder->CreateCall(debugInt, ArgsV);
+		}
 #endif
 		BasicBlock* ifGtMaxBlock;
 		context->CreateIfBlock(context->getGlobalFunction(), "reduceMaxCond",

@@ -319,6 +319,16 @@ target_link_libraries(unit-tests ${GTEST_LIBRARY})
 target_link_libraries(unit-tests ${GTEST_MAIN_LIBRARY})
 target_link_libraries(unit-tests -lglog ${glog_ldflags})
 target_link_libraries(unit-tests ${llvm_ldflags} ${llvm_libs})
+
+file(GLOB gtest_src_joins tests/tests-sailors.cpp)
+add_executable(unit-tests-json ${gtest_src_joins})
+set_target_properties(unit-tests-json PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(unit-tests-json codegen)
+target_link_libraries(unit-tests-json jsmn)
+target_link_libraries(unit-tests-json ${GTEST_LIBRARY})
+target_link_libraries(unit-tests-json ${GTEST_MAIN_LIBRARY})
+target_link_libraries(unit-tests-json -lglog ${glog_ldflags})
+target_link_libraries(unit-tests-json ${llvm_ldflags} ${llvm_libs})
 # copy data files too
 file(COPY "inputs" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 

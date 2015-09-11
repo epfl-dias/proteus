@@ -44,13 +44,13 @@ class Materializer {
 
 public:
 	Materializer(vector<RecordAttribute*> whichFields,
-//			const vector<expressions::Expression*>& wantedExpressions,
-			vector<materialization_mode> outputMode_);
+				vector<expressions::Expression*> wantedExpressions,
+				vector<RecordAttribute*> whichOIDs,
+				vector<materialization_mode> outputMode_);
 
 	Materializer(vector<RecordAttribute*> whichFields,
-			vector<expressions::Expression*> wantedExpressions,
-			vector<RecordAttribute*> whichOIDs,
-			vector<materialization_mode> outputMode_);
+//			const vector<expressions::Expression*>& wantedExpressions,
+			vector<materialization_mode> outputMode_) __attribute__ ((deprecated));
 
 	~Materializer() {}
 
@@ -61,7 +61,9 @@ public:
 		if (oidsProvided) {
 			return wantedOIDs;
 		} else {
-			/* HACK to avoid crashes in deprecated test cases! */
+			/* HACK to avoid crashes in deprecated test cases!
+			 * FIXME This is deprecated and should NOT be used.
+			 * For example, it still breaks 3way joins */
 			vector<RecordAttribute*>* newOIDs = new vector<RecordAttribute*>();
 			set<RecordAttribute>::iterator it = tupleIdentifiers.begin();
 			for (; it != tupleIdentifiers.end(); it++) {

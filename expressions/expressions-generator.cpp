@@ -234,7 +234,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		Bindings bindings = { &currState, record };
 		RawValueMemory mem_path;
 		RawValueMemory mem_val;
-//		cout << "Active Relation: " << e->getProjectionName() << endl;
+//		cout << "Active RelationProj: " << activeRelation << "_" << e->getProjectionName() << endl;
 		if (e->getProjectionName() != activeLoop) {
 			//Path involves a projection / an object
 			mem_path = plugin->readPath(activeRelation, bindings,
@@ -263,8 +263,18 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 			/* Printing the pos. to be marked */
 //			if(e->getProjectionName() == "age") {
 //				cout << "AGE! " << endl;
-			if (e->getProjectionName() == "c2") {
-				cout << "C2! " << endl;
+//			if (e->getProjectionName() == "c2") {
+//				cout << "C2! " << endl;
+			if (e->getProjectionName() == "dim") {
+				cout << "dim! " << endl;
+				map<RecordAttribute, RawValueMemory>::const_iterator it =
+						currState.getBindings().begin();
+				for (; it != currState.getBindings().end(); it++) {
+					string relname = it->first.getRelationName();
+					string attrname = it->first.getAttrName();
+					cout << "Available: " << relname << "_" << attrname << endl;
+				}
+
 				/* Radix treats this as int64 (!) */
 //				val->getType()->dump();
 				Function* debugInt = context->getFunction("printi");
@@ -273,9 +283,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 				ArgsV.clear();
 				ArgsV.push_back(val);
 				Builder->CreateCall(debugInt, ArgsV);
-			}
-			else
-			{
+			} else {
 				cout << "Other projection - " << e->getProjectionName() << endl;
 			}
 		}

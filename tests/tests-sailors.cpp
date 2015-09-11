@@ -65,7 +65,7 @@
 //
 // </TechnicalDetails>
 
-
+/* Still use previous join implementation! */
 TEST(Sailors, Scan) {
 	RawContext ctx = RawContext("Sailors-Scan");
 	registerFunctions(ctx);

@@ -70,6 +70,9 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 //					<< currAttr.getRelationName() << "_" << currAttr.getName()
 //					<< endl;
 			if (currAttr.getAttrName() == activeLoop) {
+//				cout << "HINT - OID MAT'D: " << currAttr.getOriginalRelationName() << " -- "
+//									<< currAttr.getRelationName() << "_" << currAttr.getName()
+//									<< endl;
 				Type* currType = (memSearch->second).mem->getAllocatedType();
 				materializedTypes->push_back(currType);
 				payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
@@ -92,6 +95,7 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 		if(itSearch != currentBindings.end())
 		{
 			LOG(INFO)<<"[MATERIALIZER: ] PART OF PAYLOAD: "<<(*it)->getAttrName();
+//			cout << "[MATERIALIZER: ] PART OF PAYLOAD: "<<(*it)->getAttrName() << endl;
 			materialization_mode mode = (materializer.getOutputMode()).at(attrNo++);
 			//gather datatypes
 			Type* currType = (itSearch->second).mem->getAllocatedType();
@@ -204,6 +208,7 @@ Type* OutputPlugin::chooseType(const ExpressionType* exprType, Type* currType, m
 	case BOOL:
 	case STRING:
 	case FLOAT:
+	case INT64:
 	case INT:
 		switch(mode)	{
 		case EAGER:
@@ -222,8 +227,8 @@ Type* OutputPlugin::chooseType(const ExpressionType* exprType, Type* currType, m
 		}
 		break;
 	default: {
-			string error_msg = "[OUTPUT PG: ] TYPE - NOT SUPPORTED YET";
-			LOG(ERROR) << error_msg;
+			string error_msg = "[OUTPUT PG: ] TYPE - NOT SUPPORTED YET: ";
+			LOG(ERROR) << error_msg << exprType->getTypeID();
 			throw runtime_error(error_msg);
 		}
 	}
