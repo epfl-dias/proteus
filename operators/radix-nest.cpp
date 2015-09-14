@@ -84,7 +84,11 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::E
 
 	//XXX Meant for tpch-sf100. Reduce for smaller datasets
 	//size_t sizeR = 15000000000; //Not enough
+#ifdef LOCAL_EXEC
+	size_t sizeR = 30000;
+#else
 	size_t sizeR = 30000000000;
+#endif
 	//size_t sizeR = 1000;
 	Value *val_sizeR = context->createInt64(sizeR);
 

@@ -92,6 +92,7 @@
 #include <boost/functional/hash.hpp>
 
 //#define DEBUG
+//#define LOCAL_EXEC
 
 #define KB 1024
 #define MB (1024*KB)

@@ -250,7 +250,7 @@ bool equalStringObjs(StringObject obj1, StringObject obj2)	{
 //		char *deleteme = (char*) malloc(obj1.len + 1);
 //		memcpy(deleteme,obj1.start,obj1.len);
 //		deleteme[obj1.len] = '\0';
-//		cout << "vs: " << deleteme << endl;
+//		cout << " vs: " << deleteme << "." << endl;
 		return false;
 	}
 	return true;

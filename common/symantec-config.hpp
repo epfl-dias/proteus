@@ -27,7 +27,10 @@
 #include "common/common.hpp"
 /* Constants and macros to be used by queries targeting dataset of spam emails */
 
-//#define SYMANTEC_LOCAL
+#ifdef LOCAL_EXEC
+#define SYMANTEC_LOCAL
+#endif
+
 #ifndef SYMANTEC_LOCAL
 #define SYMANTEC_SERVER
 #endif
