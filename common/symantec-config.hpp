@@ -395,6 +395,8 @@ void symantecCoreIDDatesSchema(map<string, dataset>& datasetCatalog) {
 //	symantec.linehint = 100;
 	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreIDDates28m-edit.json");
 	symantec.linehint = 27991116;
+//	string path = string("/tmp/prob.json");
+//	symantec.linehint = 4;
 
 	#endif
 	symantec.path = path;

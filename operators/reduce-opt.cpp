@@ -354,7 +354,7 @@ void Reduce::generateMax(expressions::Expression* outputExpr,
 		 */
 #ifdef DEBUG
 		{
-			val_output.value->getType()->dump();
+			//val_output.value->getType()->dump();
 			vector<Value*> ArgsV;
 			Function* debugInt = context->getFunction("printi");
 			ArgsV.push_back(val_output.value);

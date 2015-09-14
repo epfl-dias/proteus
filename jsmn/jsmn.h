@@ -40,6 +40,7 @@ typedef enum {
  * @param		start	start position in JSON data string
  * @param		end		end position in JSON data string
  */
+/* XXX Do not use 'tight' settings for symantec*/
 #define JSON_TIGHT
 
 /**
@@ -48,6 +49,9 @@ typedef enum {
 /* Used to accommodate symantec workload (and flush its pm) */
 //#define JSON_SYMANTEC
 #define JSON_SYMANTEC_WIDE
+#ifdef JSON_SYMANTEC_WIDE
+#undef JSON_TIGHT
+#endif
 /* Used to accommodate very wide TPC-H pre-computed join
  * i.e. ordersLineitem.json */
 //#define JSON_TPCH_WIDE
@@ -78,6 +82,12 @@ typedef struct {
 	short end;
 	char size;
 } jsmntok_t;
+//typedef struct {
+//	char type;
+//	short start;
+//	short end;
+//	char size;
+//} jsmntok_t;
 
 /* Super tight cases
  * NOT applicable to TPC-H (tuple length ~ 350) */
