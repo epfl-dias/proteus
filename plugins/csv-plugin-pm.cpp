@@ -36,6 +36,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 
 	fd = -1;
 	buf = NULL;
+	std::sort(wantedFields.begin(), wantedFields.end());
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
 	struct stat statbuf;
@@ -127,6 +128,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 
 	fd = -1;
 	buf = NULL;
+	std::sort(wantedFields.begin(), wantedFields.end());
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
 	struct stat statbuf;
@@ -219,6 +221,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 
 	fd = -1;
 	buf = NULL;
+	std::sort(wantedFields.begin(), wantedFields.end());
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
 	struct stat statbuf;
@@ -268,6 +271,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 
 	fd = -1;
 	buf = NULL;
+	std::sort(wantedFields.begin(), wantedFields.end());
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
 	struct stat statbuf;
@@ -386,6 +390,10 @@ RawValueMemory CSVPlugin::readValue(RawValueMemory mem_value, const ExpressionTy
 }
 
 RawValue CSVPlugin::readCachedValue(CacheInfo info, const OperatorState& currState)	{
+	return readCachedValue(info,currState.getBindings());
+}
+
+RawValue CSVPlugin::readCachedValue(CacheInfo info, const map<RecordAttribute, RawValueMemory>& bindings)	{
 	IRBuilder<>* const Builder = context->getBuilder();
 	Function *F = context->getGlobalFunction();
 
@@ -393,8 +401,8 @@ RawValue CSVPlugin::readCachedValue(CacheInfo info, const OperatorState& currSta
 	RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop,
 			getOIDType());
 	map<RecordAttribute, RawValueMemory>::const_iterator it =
-			currState.getBindings().find(tupleIdentifier);
-	if (it == currState.getBindings().end()) {
+			bindings.find(tupleIdentifier);
+	if (it == bindings.end()) {
 		string error_msg =
 				"[Expression Generator: ] Current tuple binding / OID not found";
 		LOG(ERROR)<< error_msg;
@@ -439,6 +447,8 @@ RawValue CSVPlugin::readCachedValue(CacheInfo info, const OperatorState& currSta
 #endif
 	return valWrapper;
 }
+
+
 
 RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* type)	{
 	IRBuilder<>* Builder = context->getBuilder();
@@ -795,12 +805,12 @@ void CSVPlugin::skipDelimBackwardsLLVM(Value* delim)
 	//Goto ending position of previous field
 	Value *start_pos = Builder->CreateLoad(pos, "start_pos");
 #ifdef DEBUGPM
-//	{
-//		vector<Value*> ArgsV;
-//		Function* debugInt64 = context->getFunction("printi64");
-//		ArgsV.push_back(start_pos);
-//		Builder->CreateCall(debugInt64, ArgsV);
-//	}
+	{
+		vector<Value*> ArgsV;
+		Function* debugInt64 = context->getFunction("printi64");
+		ArgsV.push_back(start_pos);
+		Builder->CreateCall(debugInt64, ArgsV);
+	}
 #endif
 	start_pos = Builder->CreateSub(start_pos,context->createInt64(2));
 	Builder->CreateStore(start_pos, mem_cur_pos);
@@ -837,12 +847,12 @@ void CSVPlugin::skipDelimBackwardsLLVM(Value* delim)
 	val_finalPos = Builder->CreateAdd(val_finalPos,val_step);
 	Builder->CreateStore(val_finalPos, NamedValuesCSV[posVar]);
 #ifdef DEBUGPM
-//	{
-//		vector<Value*> ArgsV;
-//		Function* debugInt64 = context->getFunction("printi64");
-//		ArgsV.push_back(val_finalPos);
-//		Builder->CreateCall(debugInt64, ArgsV);
-//	}
+	{
+		vector<Value*> ArgsV;
+		Function* debugInt64 = context->getFunction("printi64");
+		ArgsV.push_back(val_finalPos);
+		Builder->CreateCall(debugInt64, ArgsV);
+	}
 #endif
 
 }
@@ -1039,7 +1049,7 @@ void CSVPlugin::getFieldEndLLVM()
 
 void CSVPlugin::readField(typeID id, RecordAttribute attName,
 			map<RecordAttribute, RawValueMemory>& variables)	{
-
+	cout << "READ (RAW) FIELD " << attName.getAttrName() << endl;
 	switch (id) {
 	case BOOL: {
 		readAsBooleanLLVM(attName, variables);
@@ -1189,7 +1199,7 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawV
 	mem_valWrapper.mem = mem_result;
 	mem_valWrapper.isNull = context->createFalse();
 	variables[attName] = mem_valWrapper;
-#ifdef DEBUG
+#ifdef DEBUGPM
 	{
 		Function* debugInt = context->getFunction("printi");
 		vector<Value*> ArgsV;

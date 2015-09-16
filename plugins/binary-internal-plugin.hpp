@@ -58,6 +58,13 @@ public:
 		LOG(ERROR) << error_msg;
 		throw runtime_error(error_msg);
 	}
+	virtual RawValue readCachedValue(CacheInfo info,
+			const map<RecordAttribute, RawValueMemory>& bindings) {
+		string error_msg =
+				"[BinaryInternalPlugin: ] No caching support applicable";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
 
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
 

@@ -2245,6 +2245,11 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 
 RawValue JSONPlugin::readCachedValue(CacheInfo info,
 		const OperatorState& currState) {
+	return readCachedValue(info,currState.getBindings());
+}
+
+RawValue JSONPlugin::readCachedValue(CacheInfo info,
+		 const map<RecordAttribute, RawValueMemory>& bindings) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	Function *F = context->getGlobalFunction();
 
@@ -2253,8 +2258,8 @@ RawValue JSONPlugin::readCachedValue(CacheInfo info,
 			getOIDType());
 
 	map<RecordAttribute, RawValueMemory>::const_iterator it =
-			currState.getBindings().find(tupleIdentifier);
-	if (it == currState.getBindings().end()) {
+			bindings.find(tupleIdentifier);
+	if (it == bindings.end()) {
 		string error_msg =
 				"[Expression Generator: ] Current tuple binding / OID not found";
 		LOG(ERROR)<< error_msg;

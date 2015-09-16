@@ -91,8 +91,60 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 	 */
 	for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it != wantedFields.end(); it++)	{
 		map<RecordAttribute, RawValueMemory>::const_iterator itSearch = currentBindings.find(*(*it));
+
+		CachingService& cache = CachingService::getInstance();
+		/* expr does not participate in caching search, so don't need it explicitly => mock */
+		list<RecordAttribute*> mockAtts = list<RecordAttribute*>();
+		mockAtts.push_back(*it);
+		list<RecordAttribute> mockProjections;
+		RecordType mockRec = RecordType(mockAtts);
+		expressions::InputArgument *mockExpr = new expressions::InputArgument(&mockRec, 0, mockProjections);
+		expressions::RecordProjection *e = new expressions::RecordProjection((*it)->getOriginalType(),mockExpr,*(*it));
+		CacheInfo info = cache.getCache(e);
+		bool isCached = false;
+		if (info.structFieldNo != -1) {
+			if (!cache.getCacheIsFull(e)) {
+			} else {
+				isCached = true;
+				cout << "[OUTPUT PG: ] *Cached* Expression found for "
+						<< e->getOriginalRelationName() << "."
+						<< e->getAttribute().getAttrName() << "!" << endl;
+			}
+		}
+
 		//Field needed
-		if(itSearch != currentBindings.end())
+		if (isCached == true) {
+			LOG(INFO)<<"[MATERIALIZER: ] *CACHED* PART OF PAYLOAD: "<<(*it)->getAttrName();
+			materialization_mode mode = (materializer.getOutputMode()).at(attrNo++);
+			//gather datatypes: caches can only have int32 or float!!!
+			Type* requestedType;
+			isComplex = false;
+			typeID id = (*it)->getOriginalType()->getTypeID();
+			switch(id) {
+				case BOOL: {
+					requestedType = Type::getInt1Ty(context->getLLVMContext());
+					break;
+				}
+				case INT: {
+					requestedType = Type::getInt32Ty(context->getLLVMContext());
+					break;
+				}
+				case FLOAT: {
+					requestedType = Type::getDoubleTy(context->getLLVMContext());
+					break;
+				}
+				default: {
+					string error_msg = string("[OUTPUT PG: ] UNEXPECTED, NON-NUMERIC CACHED VALUE ") + (*it)->getAttrName();
+					LOG(ERROR) << error_msg;
+					throw runtime_error(error_msg);
+				}
+			}
+			materializedTypes->push_back(requestedType);
+			int fieldSize = requestedType->getPrimitiveSizeInBits() / 8;
+			fieldSizes.push_back(fieldSize);
+			payload_type_size += fieldSize;
+		}
+		else if(itSearch != currentBindings.end())
 		{
 			LOG(INFO)<<"[MATERIALIZER: ] PART OF PAYLOAD: "<<(*it)->getAttrName();
 //			cout << "[MATERIALIZER: ] PART OF PAYLOAD: "<<(*it)->getAttrName() << endl;
@@ -118,21 +170,21 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 			map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
 
 			for (memSearch = currentBindings.begin();
-							memSearch != currentBindings.end(); memSearch++) {
+					memSearch != currentBindings.end(); memSearch++) {
 
-						RecordAttribute currAttr = memSearch->first;
-						cout << "HINT: " << currAttr.getOriginalRelationName() << " -- "
-								<< currAttr.getRelationName() << "_" << currAttr.getName()
-								<< endl;
-						if (currAttr.getAttrName() == activeLoop) {
-							Type* currType = (memSearch->second).mem->getAllocatedType();
-							materializedTypes->push_back(currType);
-							payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
-							//cout << "Active Tuple Size "<< (currType->getPrimitiveSizeInBits() / 8) << endl;
-							tupleIdentifiers++;
-							materializer.addTupleIdentifier(currAttr);
-						}
-					}
+				RecordAttribute currAttr = memSearch->first;
+				cout << "HINT: " << currAttr.getOriginalRelationName() << " -- "
+				<< currAttr.getRelationName() << "_" << currAttr.getName()
+				<< endl;
+				if (currAttr.getAttrName() == activeLoop) {
+					Type* currType = (memSearch->second).mem->getAllocatedType();
+					materializedTypes->push_back(currType);
+					payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
+					//cout << "Active Tuple Size "<< (currType->getPrimitiveSizeInBits() / 8) << endl;
+					tupleIdentifiers++;
+					materializer.addTupleIdentifier(currAttr);
+				}
+			}
 			LOG(ERROR) << error_msg;
 			throw runtime_error(error_msg);
 		}

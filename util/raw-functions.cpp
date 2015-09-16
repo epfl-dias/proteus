@@ -241,18 +241,29 @@ void** probeIntHT(int htIdentifier, int key, int typeIndex) {
 }
 
 bool equalStringObjs(StringObject obj1, StringObject obj2)	{
-	//cout << obj1.start << " with len " << obj1.len << endl;
-	//cout << obj2.start << " with len " << obj2.len << endl;
+//	cout << obj1.start << " with len " << obj1.len << endl;
+//	cout << obj2.start << " with len " << obj2.len << endl;
 	if(obj1.len != obj2.len)	{
+//		char *deleteme = (char*) malloc(obj1.len + 1);
+//		memcpy(deleteme, obj1.start, obj1.len);
+//		deleteme[obj1.len] = '\0';
+//		char *deleteme2 = (char*) malloc(obj2.len + 1);
+//		memcpy(deleteme2, obj2.start, obj2.len);
+//		deleteme2[obj2.len] = '\0';
+//		cout << deleteme << ". vs: " << deleteme2 << "." << endl;
 		return false;
 	}
 	if(strncmp(obj1.start,obj2.start,obj1.len) != 0)	{
 //		char *deleteme = (char*) malloc(obj1.len + 1);
-//		memcpy(deleteme,obj1.start,obj1.len);
+//		memcpy(deleteme, obj1.start, obj1.len);
 //		deleteme[obj1.len] = '\0';
-//		cout << " vs: " << deleteme << "." << endl;
+//		char *deleteme2 = (char*) malloc(obj2.len + 1);
+//		memcpy(deleteme2, obj2.start, obj2.len);
+//		deleteme2[obj2.len] = '\0';
+//		cout << deleteme << ". vs: " << deleteme2 << "." << endl;
 		return false;
 	}
+//	cout << "EQUAL!" << endl;
 	return true;
 }
 

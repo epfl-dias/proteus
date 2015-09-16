@@ -68,6 +68,8 @@ public:
 //		LOG(ERROR) << error_msg;
 //		throw runtime_error(error_msg);
 //	}
+	virtual RawValue readCachedValue(CacheInfo info,
+			const map<RecordAttribute, RawValueMemory>& bindings);
 
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
 

@@ -92,6 +92,7 @@ public:
 	virtual RawValueMemory readPredefinedPath(string activeRelation, Bindings wrappedBindings, RecordAttribute attr);
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
 	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState);
+	virtual RawValue readCachedValue(CacheInfo info, const map<RecordAttribute, RawValueMemory>& bindings);
 
 
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);

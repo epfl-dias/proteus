@@ -73,6 +73,7 @@ public:
 			Bindings wrappedBindings, const char* pathVar, RecordAttribute attr)			= 0;
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type) 	= 0;
 	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState)		= 0;
+	virtual RawValue readCachedValue(CacheInfo info, const map<RecordAttribute, RawValueMemory>& bindings) = 0;
 
 	//Relevant for hashing visitors
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type)		= 0;

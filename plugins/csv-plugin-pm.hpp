@@ -26,7 +26,8 @@
 #include "util/raw-caching.hpp"
 
 
-//#define DEBUGPM
+#define DEBUGPM
+#undef DEBUGPM
 
 typedef struct pmCSV {
 	size_t *newlines;
@@ -42,6 +43,7 @@ public:
 	 * Fully eager CSV Plugin.
 	 * Populates PM.
 	 *
+	 * XXX IMPORTANT: FIELDS MUST BE IN ORDER!!!
 	 */
 	CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 			vector<RecordAttribute*> whichFields, int lineHint, int policy, bool stringBrackets = true);
@@ -66,6 +68,7 @@ public:
 	virtual RawValueMemory readValue(RawValueMemory mem_value,
 			const ExpressionType* type);
 	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState);
+	virtual RawValue readCachedValue(CacheInfo info, const map<RecordAttribute, RawValueMemory>& bindings);
 
 	virtual RawValue hashValue(RawValueMemory mem_value,
 			const ExpressionType* type);

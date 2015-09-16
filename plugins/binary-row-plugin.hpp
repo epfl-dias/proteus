@@ -38,9 +38,18 @@ public:
 	void finish();
 	virtual RawValueMemory readPath(string activeRelation, Bindings bindings, const char* pathVar, RecordAttribute attr);
 	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
-	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState) {
-		string error_msg = "[BinaryRowPlugin: ] No caching support should be needed";
-		LOG(ERROR) << error_msg;
+	virtual RawValue readCachedValue(CacheInfo info,
+			const OperatorState& currState) {
+		string error_msg =
+				"[BinaryRowPlugin: ] No caching support should be needed";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+	virtual RawValue readCachedValue(CacheInfo info,
+			const map<RecordAttribute, RawValueMemory>& bindings) {
+		string error_msg =
+				"[BinaryRowPlugin: ] No caching support should be needed";
+		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
 
