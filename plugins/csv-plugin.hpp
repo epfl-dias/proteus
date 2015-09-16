@@ -54,6 +54,7 @@ public:
 	}
 
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
+	virtual RawValue hashValueEager(RawValue value, const ExpressionType* type);
 
 	virtual void flushTuple(RawValueMemory mem_value, Value* fileName)	{
 		string error_msg = "[CSVPlugin: ] Functionality not supported yet";
@@ -62,6 +63,7 @@ public:
 	}
 
 	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName);
+	virtual void flushValueEager(RawValue value, const ExpressionType *type, Value* fileName);
 
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
 		string error_msg = "[CSVPlugin: ] CSV files do not contain collections";

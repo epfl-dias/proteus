@@ -2323,6 +2323,7 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 	Function* debugInt64 = context->getFunction("printi64");
 	Function* debugInt = context->getFunction("printi");
 
+	mem_value.mem->getAllocatedType()->dump();
 	vector<Value*> ArgsV;
 	Value* val_offset = context->getStructElem(mem_value.mem, 0);
 	Value* val_rowId = context->getStructElem(mem_value.mem, 1);
@@ -2660,6 +2661,67 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 	return valWrapper;
 }
 
+
+RawValue JSONPlugin::hashValueEager(RawValue valWrapper,
+		const ExpressionType* type) {
+	IRBuilder<>* Builder = context->getBuilder();
+	Function *F = Builder->GetInsertBlock()->getParent();
+
+	switch (type->getTypeID()) {
+	case BOOL: {
+		Function *hashBoolean = context->getFunction("hashBoolean");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(valWrapper.value);
+		Value *hashResult = context->getBuilder()->CreateCall(hashBoolean,
+				ArgsV, "hashBoolean");
+
+		RawValue valWrapper;
+		valWrapper.value = hashResult;
+		valWrapper.isNull = context->createFalse();
+		return valWrapper;
+	}
+	case STRING: {
+		LOG(ERROR)<< "[JSON Plugin: ] String datatypes not supported yet";
+		throw runtime_error(string("[JSON Plugin: ] String datatypes not supported yet"));
+	}
+	case FLOAT:
+	{
+		Function *hashDouble = context->getFunction("hashDouble");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(valWrapper.value);
+		Value *hashResult = context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
+
+		RawValue valWrapper;
+		valWrapper.value = hashResult;
+		valWrapper.isNull = context->createFalse();
+		return valWrapper;
+	}
+	case INT:
+	{
+		Function *hashInt = context->getFunction("hashInt");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(valWrapper.value);
+		Value *hashResult = context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
+
+		RawValue valWrapper;
+		valWrapper.value = hashResult;
+		valWrapper.isNull = context->createFalse();
+		return valWrapper;
+	}
+	case BAG:
+	case LIST:
+	case SET:
+	LOG(ERROR) << "[JSON Plugin: ] Cannot contain collections";
+	throw runtime_error(string("[JSON Plugin: ] Cannot contain collections"));
+	case RECORD:
+	LOG(ERROR) << "[JSON Plugin: ] Cannot contain record-valued attributes";
+	throw runtime_error(string("[JSON Plugin: ] Cannot contain record-valued attributes"));
+	default:
+	LOG(ERROR) << "[JSON Plugin: ] Unknown datatype";
+	throw runtime_error(string("[JSON Plugin: ] Unknown datatype"));
+}
+}
+
 void JSONPlugin::flushChunk(RawValueMemory mem_value, Value* fileName)
 {
 
@@ -2721,6 +2783,62 @@ void JSONPlugin::flushChunk(RawValueMemory mem_value, Value* fileName)
 	ArgsV.push_back(fileName);
 	Function *flushFunc = context->getFunction("flushStringC");
 	Builder->CreateCall(flushFunc, ArgsV);
+}
+
+void JSONPlugin::flushValueEager(RawValue valWrapper,
+		const ExpressionType *type, Value* fileName) {
+	IRBuilder<>* Builder = context->getBuilder();
+	Function *flushFunc;
+	Value* val_attr = valWrapper.value;
+	switch (type->getTypeID()) {
+	case BOOL: {
+		flushFunc = context->getFunction("flushBoolean");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return;
+	}
+	case STRING: {
+		LOG(ERROR)<< "[JSON Plugin: ] String datatypes not supported yet";
+		throw runtime_error(string("[JSON Plugin: ] String datatypes not supported yet"));
+	}
+	case FLOAT:
+	{
+		flushFunc = context->getFunction("flushDouble");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc,ArgsV);
+		return;
+	}
+	case INT:
+	{
+		vector<Value*> ArgsV;
+		flushFunc = context->getFunction("flushInt");
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc,ArgsV);
+		return;
+	}
+	case BAG:
+	case LIST:
+	case SET:
+	{
+		LOG(ERROR)<< "[JSON Plugin: ] Collection datatypes not supported yet";
+		throw runtime_error(string("[JSON Plugin: ] Collection datatypes not supported yet"));
+	}
+	case RECORD:
+	{
+		LOG(ERROR)<< "[JSON Plugin: ] Record-valued datatypes not supported yet";
+		throw runtime_error(string("[JSON Plugin: ] Record-valued datatypes not supported yet"));
+	}
+	default:
+	{
+		LOG(ERROR) << "[JSON Plugin: ] Unknown datatype";
+		throw runtime_error(string("[JSON Plugin: ] Unknown datatype"));
+	}
+}
 }
 
 void JSONPlugin::generate(const RawOperator& producer)

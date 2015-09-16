@@ -81,6 +81,12 @@ public:
 		}
 
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
+	virtual RawValue hashValueEager(RawValue value,
+			const ExpressionType* type) {
+		string error_msg = "[JSMNPlugin: ] No eager haching support yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
 
 	/**
 	 * XXX VERY strong JSON-specific assumption (pretty much hard-coding) that we can just grab a chunk
@@ -88,6 +94,13 @@ public:
 	 */
 	virtual void flushTuple(RawValueMemory mem_value, Value* fileName)	{ flushChunk(mem_value, fileName); }
 	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName)  { flushChunk(mem_value, fileName); }
+	virtual void flushValueEager(RawValue value, const ExpressionType *type,
+			Value* fileName) {
+		string error_msg =
+				"[JSMNPlugin: ] No eager (caching) flushing support yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
 	void flushChunk(RawValueMemory mem_value, Value* fileName);
 
 	virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);

@@ -171,11 +171,12 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordProjection *e) {
 #endif
 			} else {
 				RawValue tmpWrapper = plugin->readCachedValue(info, currState);
-				Value *tmp = tmpWrapper.value;
-				AllocaInst *mem_tmp = context->CreateEntryBlockAlloca(F, "mem_cachedToFlush", tmp->getType());
-				TheBuilder->CreateStore(tmp,mem_tmp);
-				RawValueMemory mem_tmpWrapper = { mem_tmp, tmpWrapper.isNull };
-				plugin->flushValue(mem_tmpWrapper, e->getExpressionType(),outputFileLLVM);
+//				Value *tmp = tmpWrapper.value;
+//				AllocaInst *mem_tmp = context->CreateEntryBlockAlloca(F, "mem_cachedToFlush", tmp->getType());
+//				TheBuilder->CreateStore(tmp,mem_tmp);
+//				RawValueMemory mem_tmpWrapper = { mem_tmp, tmpWrapper.isNull };
+//				plugin->flushValue(mem_tmpWrapper, e->getExpressionType(),outputFileLLVM);
+				plugin->flushValueEager(tmpWrapper, e->getExpressionType(),outputFileLLVM);
 				return placeholder;
 			}
 		} else {

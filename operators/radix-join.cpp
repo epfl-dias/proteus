@@ -68,8 +68,13 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 
 	/* Arbitrary initial buffer sizes */
 	/* No realloc will be required with these sizes for synthetic large-scale numbers */
+#ifdef LOCAL_EXEC
+	size_t sizeR = 10000;
+	size_t sizeS = 15000;
+#else
 	size_t sizeR = 10000000000;
 	size_t sizeS = 15000000000;
+#endif
 
 //	size_t sizeR = 1000;
 //	size_t sizeS = 1500;
@@ -1213,20 +1218,56 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 				}
 			}
 
+			/* XXX Careful: Cache-aware */
 			int offsetInWanted = 0;
 			const vector<RecordAttribute*>& wantedFields =
 					matLeft.getWantedFields();
 			for (vector<RecordAttribute*>::const_iterator it =
 					wantedFields.begin(); it != wantedFields.end(); ++it) {
-				//cout << (*it)->getRelationName() << "_" << (*it)->getAttrName() << endl;
-				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
-						bindings.find(*(*it));
-				RawValueMemory currValMem = memSearch->second;
-				/* FIX THE NECESSARY CONVERSIONS HERE */
-				Value* currVal = Builder->CreateLoad(currValMem.mem);
-				Value* valToMaterialize = pg->convert(currVal->getType(),
-						materializedTypes->at(offsetInWanted), currVal);
 
+				Value* valToMaterialize = NULL;
+				//Check if cached - already done in output pg..
+				bool isCached = false;
+				CacheInfo info;
+				CachingService& cache = CachingService::getInstance();
+				/* expr does not participate in caching search, so don't need it explicitly => mock */
+				list<RecordAttribute*> mockAtts = list<RecordAttribute*>();
+				mockAtts.push_back(*it);
+				list<RecordAttribute> mockProjections;
+				RecordType mockRec = RecordType(mockAtts);
+				expressions::InputArgument *mockExpr =
+						new expressions::InputArgument(&mockRec, 0,
+								mockProjections);
+				expressions::RecordProjection *e =
+						new expressions::RecordProjection(
+								(*it)->getOriginalType(), mockExpr, *(*it));
+				info = cache.getCache(e);
+				if (info.structFieldNo != -1) {
+					if (!cache.getCacheIsFull(e)) {
+					} else {
+						isCached = true;
+						cout << "[OUTPUT PG: ] *Cached* Expression found for "
+								<< e->getOriginalRelationName() << "."
+								<< e->getAttribute().getAttrName() << "!"
+								<< endl;
+					}
+				}
+
+				if (isCached) {
+					string activeRelation = e->getOriginalRelationName();
+					string projName = e->getProjectionName();
+					Plugin* plugin = catalog.getPlugin(activeRelation);
+					valToMaterialize =
+							(plugin->readCachedValue(info, bindings)).value;
+				} else {
+					map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+							bindings.find(*(*it));
+					RawValueMemory currValMem = memSearch->second;
+					/* FIX THE NECESSARY CONVERSIONS HERE */
+					Value* currVal = Builder->CreateLoad(currValMem.mem);
+					valToMaterialize = pg->convert(currVal->getType(),
+							materializedTypes->at(offsetInWanted), currVal);
+				}
 				vector<Value*> idxList = vector<Value*>();
 				idxList.push_back(context->createInt32(0));
 				idxList.push_back(context->createInt32(offsetInStruct));
@@ -1239,6 +1280,33 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 				offsetInStruct++;
 				offsetInWanted++;
 			}
+			/* Backing up to incorporate caching-aware code */
+//			int offsetInWanted = 0;
+//			const vector<RecordAttribute*>& wantedFields =
+//					matLeft.getWantedFields();
+//			for (vector<RecordAttribute*>::const_iterator it =
+//					wantedFields.begin(); it != wantedFields.end(); ++it) {
+//				//cout << (*it)->getRelationName() << "_" << (*it)->getAttrName() << endl;
+//				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+//						bindings.find(*(*it));
+//				RawValueMemory currValMem = memSearch->second;
+//				/* FIX THE NECESSARY CONVERSIONS HERE */
+//				Value* currVal = Builder->CreateLoad(currValMem.mem);
+//				Value* valToMaterialize = pg->convert(currVal->getType(),
+//						materializedTypes->at(offsetInWanted), currVal);
+//
+//				vector<Value*> idxList = vector<Value*>();
+//				idxList.push_back(context->createInt32(0));
+//				idxList.push_back(context->createInt32(offsetInStruct));
+//
+//				//Shift in struct ptr
+//				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+//						idxList);
+//
+//				Builder->CreateStore(valToMaterialize, structPtr);
+//				offsetInStruct++;
+//				offsetInWanted++;
+//			}
 
 			/* CONSTRUCT HTENTRY PAIR   	  */
 			/* payloadPtr: relative offset from relBuffer beginning */
@@ -1662,38 +1730,102 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 				}
 			}
 
+			/* XXX Careful: Cache-aware */
 			int offsetInWanted = 0;
 			const vector<RecordAttribute*>& wantedFields =
 					matRight.getWantedFields();
 			for (vector<RecordAttribute*>::const_iterator it =
 					wantedFields.begin(); it != wantedFields.end(); ++it) {
-				//cout << (*it)->getRelationName() << "___" << (*it)->getAttrName() << endl;
-				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
-						bindings.find(*(*it));
-				RawValueMemory currValMem = memSearch->second;
-				Value* currVal = Builder->CreateLoad(currValMem.mem);
-				Value* valToMaterialize = pg->convert(currVal->getType(),
-						materializedTypes->at(offsetInWanted), currVal);
+
+				Value* valToMaterialize = NULL;
+				//Check if cached - already done in output pg..
+				bool isCached = false;
+				CacheInfo info;
+				CachingService& cache = CachingService::getInstance();
+				/* expr does not participate in caching search, so don't need it explicitly => mock */
+				list<RecordAttribute*> mockAtts = list<RecordAttribute*>();
+				mockAtts.push_back(*it);
+				list<RecordAttribute> mockProjections;
+				RecordType mockRec = RecordType(mockAtts);
+				expressions::InputArgument *mockExpr =
+						new expressions::InputArgument(&mockRec, 0,
+								mockProjections);
+				expressions::RecordProjection *e =
+						new expressions::RecordProjection(
+								(*it)->getOriginalType(), mockExpr, *(*it));
+				info = cache.getCache(e);
+				if (info.structFieldNo != -1) {
+					if (!cache.getCacheIsFull(e)) {
+					} else {
+						isCached = true;
+						cout << "[OUTPUT PG: ] *Cached* Expression found for "
+								<< e->getOriginalRelationName() << "."
+								<< e->getAttribute().getAttrName() << "!"
+								<< endl;
+					}
+				}
+
+				if (isCached) {
+					string activeRelation = e->getOriginalRelationName();
+					string projName = e->getProjectionName();
+					Plugin* plugin = catalog.getPlugin(activeRelation);
+					valToMaterialize =
+							(plugin->readCachedValue(info, bindings)).value;
+				} else {
+					map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+							bindings.find(*(*it));
+					RawValueMemory currValMem = memSearch->second;
+					/* FIX THE NECESSARY CONVERSIONS HERE */
+					Value* currVal = Builder->CreateLoad(currValMem.mem);
+					valToMaterialize = pg->convert(currVal->getType(),
+							materializedTypes->at(offsetInWanted), currVal);
+				}
 				vector<Value*> idxList = vector<Value*>();
 				idxList.push_back(context->createInt32(0));
 				idxList.push_back(context->createInt32(offsetInStruct));
+
 				//Shift in struct ptr
 				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
 						idxList);
+
 				Builder->CreateStore(valToMaterialize, structPtr);
-#ifdef DEBUGRADIX
-				{
-					Function* debugInt = context->getFunction("printi");
-					vector<Value*> ArgsV;
-
-					ArgsV.push_back(valToMaterialize);
-					Builder->CreateCall(debugInt, ArgsV);
-
-				}
-#endif
 				offsetInStruct++;
 				offsetInWanted++;
 			}
+
+			/* Backing up to incorporate caching-aware code */
+//			int offsetInWanted = 0;
+//			const vector<RecordAttribute*>& wantedFields =
+//					matRight.getWantedFields();
+//			for (vector<RecordAttribute*>::const_iterator it =
+//					wantedFields.begin(); it != wantedFields.end(); ++it) {
+//				//cout << (*it)->getRelationName() << "___" << (*it)->getAttrName() << endl;
+//				map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+//						bindings.find(*(*it));
+//				RawValueMemory currValMem = memSearch->second;
+//				Value* currVal = Builder->CreateLoad(currValMem.mem);
+//				Value* valToMaterialize = pg->convert(currVal->getType(),
+//						materializedTypes->at(offsetInWanted), currVal);
+//				vector<Value*> idxList = vector<Value*>();
+//				idxList.push_back(context->createInt32(0));
+//				idxList.push_back(context->createInt32(offsetInStruct));
+//				//Shift in struct ptr
+//				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+//						idxList);
+//				Builder->CreateStore(valToMaterialize, structPtr);
+//#ifdef DEBUGRADIX
+//				{
+//					Function* debugInt = context->getFunction("printi");
+//					vector<Value*> ArgsV;
+//
+//					ArgsV.push_back(valToMaterialize);
+//					Builder->CreateCall(debugInt, ArgsV);
+//
+//				}
+//#endif
+//				offsetInStruct++;
+//				offsetInWanted++;
+//			}
 
 #ifdef DEBUGRADIX
 				{

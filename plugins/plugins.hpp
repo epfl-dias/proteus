@@ -77,6 +77,9 @@ public:
 
 	//Relevant for hashing visitors
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type)		= 0;
+	/* Hash without re-interpreting. Mostly relevant if some value is cached
+	 * Meant for primitive values! */
+	virtual RawValue hashValueEager(RawValue value, const ExpressionType* type)	= 0;
 
 	/**
 	 * Not entirely sure which is the correct granularity for 'stuff to flush' here.
@@ -89,9 +92,13 @@ public:
 	 *
 	 * Example: How would one convert from CSV to JSON?
 	 * Can't just crop CSV entries and flush as JSON
+	 *
+	 * 'Eager' variation: Caching related. Separates eager from lazy plugins (i.e., all vs. JSON atm)
+	 * XXX 'Eager' flushing not tested
 	 */
 	virtual void flushTuple(RawValueMemory mem_value, Value* fileName) = 0;
 	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName) = 0;
+	virtual void flushValueEager(RawValue value, const ExpressionType *type, Value* fileName) = 0;
 
 	/**
 	 * Relevant for collections' unnesting

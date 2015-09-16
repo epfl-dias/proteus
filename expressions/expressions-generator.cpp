@@ -201,6 +201,11 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		/* Must also make sure that no explicit binding exists => No duplicate work */
 		map<RecordAttribute, RawValueMemory>::const_iterator it =
 				currState.getBindings().find(e->getAttribute());
+#ifdef DEBUGCACHING
+		if(it != currState.getBindings().end())	{
+			cout << "Even if cached, binding's already there!" << endl;
+		}
+#endif
 		if (info.structFieldNo != -1 && it == currState.getBindings().end()) {
 #ifdef DEBUGCACHING
 			cout << "[Generator: ] Expression found for "

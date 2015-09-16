@@ -54,6 +54,7 @@ public:
 	}
 
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
+	virtual RawValue hashValueEager(RawValue value, const ExpressionType* type);
 
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
 		string error_msg = "[BinaryRowPlugin: ] Binary row files do not contain collections";
@@ -79,6 +80,13 @@ public:
 		}
 
 	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName)	{
+		string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushValueEager(RawValue value, const ExpressionType *type,
+			Value* fileName) {
 		string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);

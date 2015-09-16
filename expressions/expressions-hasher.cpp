@@ -214,11 +214,12 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 #endif
 			} else {
 				RawValue tmpWrapper = plugin->readCachedValue(info, currState);
-				Value *tmp = tmpWrapper.value;
-				AllocaInst *mem_tmp = context->CreateEntryBlockAlloca(F, "mem_cachedToHash", tmp->getType());
-				TheBuilder->CreateStore(tmp,mem_tmp);
-				RawValueMemory mem_tmpWrapper = { mem_tmp, tmpWrapper.isNull };
-				RawValue mem_val = plugin->hashValue(mem_tmpWrapper, e->getExpressionType());
+//				Value *tmp = tmpWrapper.value;
+//				AllocaInst *mem_tmp = context->CreateEntryBlockAlloca(F, "mem_cachedToHash", tmp->getType());
+//				TheBuilder->CreateStore(tmp,mem_tmp);
+//				RawValueMemory mem_tmpWrapper = { mem_tmp, tmpWrapper.isNull };
+//				RawValue mem_val = plugin->hashValue(mem_tmpWrapper, e->getExpressionType());
+				RawValue mem_val = plugin->hashValueEager(tmpWrapper, e->getExpressionType());
 				return mem_val;
 			}
 		} else {

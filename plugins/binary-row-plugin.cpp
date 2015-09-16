@@ -116,6 +116,18 @@ RawValue BinaryRowPlugin::hashValue(RawValueMemory mem_value, const ExpressionTy
 	return value;
 }
 
+RawValue BinaryRowPlugin::hashValueEager(RawValue valWrapper,
+		const ExpressionType* type) {
+	IRBuilder<>* Builder = context->getBuilder();
+	Function *F = Builder->GetInsertBlock()->getParent();
+	Value *tmp = valWrapper.value;
+	AllocaInst *mem_tmp = context->CreateEntryBlockAlloca(F, "mem_cachedToHash",
+			tmp->getType());
+	Builder->CreateStore(tmp, mem_tmp);
+	RawValueMemory mem_tmpWrapper = { mem_tmp, valWrapper.isNull };
+	return hashValue(mem_tmpWrapper, type);
+}
+
 void BinaryRowPlugin::finish()	{
 	close(fd);
 	munmap(buf,fsize);

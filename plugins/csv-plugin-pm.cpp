@@ -518,6 +518,18 @@ RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* ty
 }
 }
 
+RawValue CSVPlugin::hashValueEager(RawValue valWrapper,
+		const ExpressionType* type) {
+	IRBuilder<>* Builder = context->getBuilder();
+	Function *F = Builder->GetInsertBlock()->getParent();
+	Value *tmp = valWrapper.value;
+	AllocaInst *mem_tmp = context->CreateEntryBlockAlloca(F, "mem_cachedToHash",
+			tmp->getType());
+	Builder->CreateStore(tmp, mem_tmp);
+	RawValueMemory mem_tmpWrapper = { mem_tmp, valWrapper.isNull };
+	return hashValue(mem_tmpWrapper, type);
+}
+
 void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
 		Value* fileName)
 {
@@ -577,6 +589,17 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
 }
 }
 
+void CSVPlugin::flushValueEager(RawValue valWrapper, const ExpressionType *type,
+		Value* fileName) {
+	IRBuilder<>* Builder = context->getBuilder();
+	Function *F = Builder->GetInsertBlock()->getParent();
+	Value *tmp = valWrapper.value;
+	AllocaInst *mem_tmp = context->CreateEntryBlockAlloca(F,
+			"mem_cachedToFlush", tmp->getType());
+	Builder->CreateStore(tmp, mem_tmp);
+	RawValueMemory mem_tmpWrapper = { mem_tmp, valWrapper.isNull };
+	return flushValue(mem_tmpWrapper, type, fileName);
+}
 
 void CSVPlugin::finish()	{
 	close(fd);
