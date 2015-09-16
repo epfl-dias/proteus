@@ -181,6 +181,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
+	Function* const F = context->getGlobalFunction();
 	activeRelation 					= e->getOriginalRelationName();
 
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
@@ -189,6 +190,46 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 	exprGenerator.setActiveRelation(activeRelation);
 	RawValue record					= e->getExpr()->accept(exprGenerator);
 	Plugin* plugin 					= catalog.getPlugin(activeRelation);
+
+		{
+		//if (plugin->getPluginType() != PGBINARY) {
+		/* Cache Logic */
+		/* XXX Apply in other visitors too! */
+		CachingService& cache = CachingService::getInstance();
+		//			cout << "LOOKING FOR STUFF FROM "<<e->getRelationName() << "."
+		//					<< e->getAttribute().getAttrName()<< endl;
+		CacheInfo info = cache.getCache(e);
+		/* Must also make sure that no explicit binding exists => No duplicate work */
+		map<RecordAttribute, RawValueMemory>::const_iterator it =
+				currState.getBindings().find(e->getAttribute());
+		if (info.structFieldNo != -1 && it == currState.getBindings().end()) {
+#ifdef DEBUGCACHING
+			cout << "[Hasher: ] Expression found for "
+					<< e->getOriginalRelationName() << "."
+					<< e->getAttribute().getAttrName() << "!" << endl;
+#endif
+			if (!cache.getCacheIsFull(e)) {
+#ifdef DEBUGCACHING
+				cout << "...but is not useable " << endl;
+#endif
+			} else {
+				RawValue tmpWrapper = plugin->readCachedValue(info, currState);
+				Value *tmp = tmpWrapper.value;
+				AllocaInst *mem_tmp = context->CreateEntryBlockAlloca(F, "mem_cachedToHash", tmp->getType());
+				TheBuilder->CreateStore(tmp,mem_tmp);
+				RawValueMemory mem_tmpWrapper = { mem_tmp, tmpWrapper.isNull };
+				RawValue mem_val = plugin->hashValue(mem_tmpWrapper, e->getExpressionType());
+				return mem_val;
+			}
+		} else {
+#ifdef DEBUGCACHING
+			cout << "[Hasher: ] No cache found for "
+					<< e->getOriginalRelationName() << "."
+					<< e->getAttribute().getAttrName() << "!" << endl;
+#endif
+		}
+		//}
+	}
 
 	//Resetting activeRelation here would break nested-record-projections
 	//activeRelation = "";

@@ -185,67 +185,68 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 }
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
-	RawCatalog& catalog 			= RawCatalog::getInstance();
-	IRBuilder<>* const Builder		= context->getBuilder();
-	activeRelation 					= e->getOriginalRelationName();
-	string projName 				= e->getProjectionName();
+	RawCatalog& catalog = RawCatalog::getInstance();
+	IRBuilder<>* const Builder = context->getBuilder();
+	activeRelation = e->getOriginalRelationName();
+	string projName = e->getProjectionName();
 
-	Plugin* plugin 					= catalog.getPlugin(activeRelation);
+	Plugin* plugin = catalog.getPlugin(activeRelation);
 
-	{
-		//if (plugin->getPluginType() != PGBINARY) {
-			/* Cache Logic */
-			/* XXX Apply in other visitors too! */
-			CachingService& cache = CachingService::getInstance();
-//			cout << "LOOKING FOR STUFF FROM "<<e->getRelationName() << "."
-//					<< e->getAttribute().getAttrName()<< endl;
-			CacheInfo info = cache.getCache(e);
-			if (info.structFieldNo != -1) {
+	if (plugin != NULL) {
+		/* Cache Logic */
+		/* XXX Apply in other visitors too! */
+		CachingService& cache = CachingService::getInstance();
+		CacheInfo info = cache.getCache(e);
+
+		/* Must also make sure that no explicit binding exists => No duplicate work */
+		map<RecordAttribute, RawValueMemory>::const_iterator it =
+				currState.getBindings().find(e->getAttribute());
+		if (info.structFieldNo != -1 && it == currState.getBindings().end()) {
 #ifdef DEBUGCACHING
-				cout << "[Generator: ] Expression found for "
-						<< e->getOriginalRelationName() << "."
-						<< e->getAttribute().getAttrName() << "!" << endl;
+			cout << "[Generator: ] Expression found for "
+					<< e->getOriginalRelationName() << "."
+					<< e->getAttribute().getAttrName() << "!" << endl;
 #endif
-				if (!cache.getCacheIsFull(e)) {
+			if (!cache.getCacheIsFull(e)) {
 #ifdef DEBUGCACHING
-					cout << "...but is not useable " << endl;
+				cout << "...but is not useable " << endl;
 #endif
-				} else {
-					return plugin->readCachedValue(info, currState);
-				}
 			} else {
+				return plugin->readCachedValue(info, currState);
+			}
+		} else {
 #ifdef DEBUGCACHING
 			cout << "[Generator: ] No cache found for "
 					<< e->getOriginalRelationName() << "."
 					<< e->getAttribute().getAttrName() << "!" << endl;
 #endif
-			}
+		}
 		//}
 	}
 
-	RawValue record					= e->getExpr()->accept(*this);
+	RawValue record = e->getExpr()->accept(*this);
 	//Resetting activeRelation here would break nested-record-projections
-	//activeRelation = "";
-	if(plugin == NULL)	{
-		string error_msg = string("[Expression Generator: ] No plugin provided");
-		LOG(ERROR) << error_msg;
+	if (plugin == NULL) {
+		string error_msg = string(
+				"[Expression Generator: ] No plugin provided");
+		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
-	}	else	{
+	} else {
 		Bindings bindings = { &currState, record };
 		RawValueMemory mem_path;
 		RawValueMemory mem_val;
-//		cout << "Active RelationProj: " << activeRelation << "_" << e->getProjectionName() << endl;
+		//cout << "Active RelationProj: " << activeRelation << "_" << e->getProjectionName() << endl;
 		if (e->getProjectionName() != activeLoop) {
 			//Path involves a projection / an object
 			mem_path = plugin->readPath(activeRelation, bindings,
-					e->getProjectionName().c_str(),e->getAttribute());
+					e->getProjectionName().c_str(), e->getAttribute());
 		} else {
 			//Path involves a primitive datatype
 			//(e.g., the result of unnesting a list of primitives)
 			//cout << "PROJ: " << activeRelation << endl;
 			Plugin* pg = catalog.getPlugin(activeRelation);
 			RecordAttribute tupleIdentifier = RecordAttribute(activeRelation,
-					activeLoop,pg->getOIDType());
+					activeLoop, pg->getOIDType());
 			map<RecordAttribute, RawValueMemory>::const_iterator it =
 					currState.getBindings().find(tupleIdentifier);
 			if (it == currState.getBindings().end()) {
@@ -258,42 +259,123 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		}
 		mem_val = plugin->readValue(mem_path, e->getExpressionType());
 		Value *val = Builder->CreateLoad(mem_val.mem);
-#ifdef DEBUG
-		{
-			/* Printing the pos. to be marked */
-//			if(e->getProjectionName() == "age") {
-//				cout << "AGE! " << endl;
-//			if (e->getProjectionName() == "c2") {
-//				cout << "C2! " << endl;
-			if (e->getProjectionName() == "dim") {
-				cout << "dim! " << endl;
-				map<RecordAttribute, RawValueMemory>::const_iterator it =
-						currState.getBindings().begin();
-				for (; it != currState.getBindings().end(); it++) {
-					string relname = it->first.getRelationName();
-					string attrname = it->first.getAttrName();
-					cout << "Available: " << relname << "_" << attrname << endl;
-				}
-
-				/* Radix treats this as int64 (!) */
-//				val->getType()->dump();
-				Function* debugInt = context->getFunction("printi");
-				Function* debugInt64 = context->getFunction("printi64");
-				vector<Value*> ArgsV;
-				ArgsV.clear();
-				ArgsV.push_back(val);
-				Builder->CreateCall(debugInt, ArgsV);
-			} else {
-				cout << "Other projection - " << e->getProjectionName() << endl;
-			}
-		}
-#endif
 		RawValue valWrapper;
 		valWrapper.value = val;
 		valWrapper.isNull = mem_val.isNull;
 		return valWrapper;
 	}
 }
+
+//RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
+//	RawCatalog& catalog 			= RawCatalog::getInstance();
+//	IRBuilder<>* const Builder		= context->getBuilder();
+//	activeRelation 					= e->getOriginalRelationName();
+//	string projName 				= e->getProjectionName();
+//
+//	Plugin* plugin 					= catalog.getPlugin(activeRelation);
+//
+//	{
+//		//if (plugin->getPluginType() != PGBINARY) {
+//		/* Cache Logic */
+//		/* XXX Apply in other visitors too! */
+//		CachingService& cache = CachingService::getInstance();
+//		//cout << "LOOKING FOR STUFF FROM "<<e->getRelationName() << "."
+//		//<< e->getAttribute().getAttrName()<< endl;
+//		CacheInfo info = cache.getCache(e);
+//		if (info.structFieldNo != -1) {
+//#ifdef DEBUGCACHING
+//			cout << "[Generator: ] Expression found for "
+//					<< e->getOriginalRelationName() << "."
+//					<< e->getAttribute().getAttrName() << "!" << endl;
+//#endif
+//			if (!cache.getCacheIsFull(e)) {
+//#ifdef DEBUGCACHING
+//				cout << "...but is not useable " << endl;
+//#endif
+//			} else {
+//				return plugin->readCachedValue(info, currState);
+//			}
+//		} else {
+//#ifdef DEBUGCACHING
+//			cout << "[Generator: ] No cache found for "
+//					<< e->getOriginalRelationName() << "."
+//					<< e->getAttribute().getAttrName() << "!" << endl;
+//#endif
+//		}
+//		//}
+//	}
+//
+//	RawValue record					= e->getExpr()->accept(*this);
+//	//Resetting activeRelation here would break nested-record-projections
+//	//activeRelation = "";
+//	if(plugin == NULL)	{
+//		string error_msg = string("[Expression Generator: ] No plugin provided");
+//		LOG(ERROR) << error_msg;
+//		throw runtime_error(error_msg);
+//	}	else	{
+//		Bindings bindings = { &currState, record };
+//		RawValueMemory mem_path;
+//		RawValueMemory mem_val;
+//		//cout << "Active RelationProj: " << activeRelation << "_" << e->getProjectionName() << endl;
+//		if (e->getProjectionName() != activeLoop) {
+//			//Path involves a projection / an object
+//			mem_path = plugin->readPath(activeRelation, bindings,
+//					e->getProjectionName().c_str(),e->getAttribute());
+//		} else {
+//			//Path involves a primitive datatype
+//			//(e.g., the result of unnesting a list of primitives)
+//			//cout << "PROJ: " << activeRelation << endl;
+//			Plugin* pg = catalog.getPlugin(activeRelation);
+//			RecordAttribute tupleIdentifier = RecordAttribute(activeRelation,
+//					activeLoop,pg->getOIDType());
+//			map<RecordAttribute, RawValueMemory>::const_iterator it =
+//					currState.getBindings().find(tupleIdentifier);
+//			if (it == currState.getBindings().end()) {
+//				string error_msg =
+//						"[Expression Generator: ] Current tuple binding not found";
+//				LOG(ERROR)<< error_msg;
+//				throw runtime_error(error_msg);
+//			}
+//			mem_path = it->second;
+//		}
+//		mem_val = plugin->readValue(mem_path, e->getExpressionType());
+//		Value *val = Builder->CreateLoad(mem_val.mem);
+//#ifdef DEBUG
+//		{
+//			/* Printing the pos. to be marked */
+////			if(e->getProjectionName() == "age") {
+////				cout << "AGE! " << endl;
+////			if (e->getProjectionName() == "c2") {
+////				cout << "C2! " << endl;
+//			if (e->getProjectionName() == "dim") {
+//				cout << "dim! " << endl;
+//				map<RecordAttribute, RawValueMemory>::const_iterator it =
+//						currState.getBindings().begin();
+//				for (; it != currState.getBindings().end(); it++) {
+//					string relname = it->first.getRelationName();
+//					string attrname = it->first.getAttrName();
+//					cout << "Available: " << relname << "_" << attrname << endl;
+//				}
+//
+//				/* Radix treats this as int64 (!) */
+////				val->getType()->dump();
+//				Function* debugInt = context->getFunction("printi");
+//				Function* debugInt64 = context->getFunction("printi64");
+//				vector<Value*> ArgsV;
+//				ArgsV.clear();
+//				ArgsV.push_back(val);
+//				Builder->CreateCall(debugInt, ArgsV);
+//			} else {
+//				cout << "Other projection - " << e->getProjectionName() << endl;
+//			}
+//		}
+//#endif
+//		RawValue valWrapper;
+//		valWrapper.value = val;
+//		valWrapper.isNull = mem_val.isNull;
+//		return valWrapper;
+//	}
+//}
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
 	RawCatalog& catalog 			= RawCatalog::getInstance();

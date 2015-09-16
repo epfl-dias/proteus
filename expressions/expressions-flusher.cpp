@@ -138,6 +138,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordProjection *e) {
 	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
+	Function *F 					= TheBuilder->GetInsertBlock()->getParent();
 	activeRelation 					= e->getOriginalRelationName();
 
 	/**
@@ -147,7 +148,45 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordProjection *e) {
 
 	RawValue record					= e->getExpr()->accept(exprGenerator);
 	Plugin* plugin 					= catalog.getPlugin(activeRelation);
-
+	{
+		//if (plugin->getPluginType() != PGBINARY) {
+		/* Cache Logic */
+		/* XXX Apply in other visitors too! */
+		CachingService& cache = CachingService::getInstance();
+		//			cout << "LOOKING FOR STUFF FROM "<<e->getRelationName() << "."
+		//					<< e->getAttribute().getAttrName()<< endl;
+		CacheInfo info = cache.getCache(e);
+		/* Must also make sure that no explicit binding exists => No duplicate work */
+		map<RecordAttribute, RawValueMemory>::const_iterator it =
+				currState.getBindings().find(e->getAttribute());
+		if (info.structFieldNo != -1 && it == currState.getBindings().end()) {
+#ifdef DEBUGCACHING
+			cout << "[Flusher: ] Expression found for "
+					<< e->getOriginalRelationName() << "."
+					<< e->getAttribute().getAttrName() << "!" << endl;
+#endif
+			if (!cache.getCacheIsFull(e)) {
+#ifdef DEBUGCACHING
+				cout << "...but is not useable " << endl;
+#endif
+			} else {
+				RawValue tmpWrapper = plugin->readCachedValue(info, currState);
+				Value *tmp = tmpWrapper.value;
+				AllocaInst *mem_tmp = context->CreateEntryBlockAlloca(F, "mem_cachedToFlush", tmp->getType());
+				TheBuilder->CreateStore(tmp,mem_tmp);
+				RawValueMemory mem_tmpWrapper = { mem_tmp, tmpWrapper.isNull };
+				plugin->flushValue(mem_tmpWrapper, e->getExpressionType(),outputFileLLVM);
+				return placeholder;
+			}
+		} else {
+#ifdef DEBUGCACHING
+			cout << "[Flusher: ] No cache found for "
+					<< e->getOriginalRelationName() << "."
+					<< e->getAttribute().getAttrName() << "!" << endl;
+#endif
+		}
+		//}
+	}
 	//Resetting activeRelation here would break nested-record-projections
 	//activeRelation = "";
 	if(plugin == NULL)	{

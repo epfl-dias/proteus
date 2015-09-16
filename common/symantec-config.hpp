@@ -641,8 +641,10 @@ void symantecCSVSchema(map<string, dataset>& datasetCatalog) {
 	dataset symantecCSV;
 
 	#ifdef SYMANTEC_LOCAL
-	string path = string("inputs/json/spam/spamsClasses1000-unordered-nocomma.csv");
-	symantecCSV.linehint = 1000;
+//	string path = string("inputs/json/spam/spamsClasses1000-unordered-nocomma.csv");
+//	symantecCSV.linehint = 1000;
+	string path = string("inputs/json/spam/spamsClasses2-unordered-nocomma.csv");
+	symantecCSV.linehint = 2;
 	#endif
 	#ifdef SYMANTEC_SERVER
 //	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsClasses1000-unordered-nocomma.csv");

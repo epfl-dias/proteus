@@ -1171,18 +1171,51 @@ void Nest::buildHT(RawContext* context, const OperatorState& childState) {
 		}
 	}
 
+	/* Backing up to incorporate caching-aware code */
 	int offsetInWanted = 0;
 	const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
 	for (vector<RecordAttribute*>::const_iterator it = wantedFields.begin();
 			it != wantedFields.end(); ++it) {
-		map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
-				bindings.find(*(*it));
-		RawValueMemory currValMem = memSearch->second;
-		/* FIX THE NECESSARY CONVERSIONS HERE */
-		Value* currVal = Builder->CreateLoad(currValMem.mem);
-		Value* valToMaterialize = pg->convert(currVal->getType(),
-				materializedTypes->at(offsetInWanted), currVal);
 
+		Value* valToMaterialize = NULL;
+		//Check if cached - already done in output pg..
+		bool isCached = false;
+		CacheInfo info;
+		CachingService& cache = CachingService::getInstance();
+		/* expr does not participate in caching search, so don't need it explicitly => mock */
+		list<RecordAttribute*> mockAtts = list<RecordAttribute*>();
+		mockAtts.push_back(*it);
+		list<RecordAttribute> mockProjections;
+		RecordType mockRec = RecordType(mockAtts);
+		expressions::InputArgument *mockExpr = new expressions::InputArgument(
+				&mockRec, 0, mockProjections);
+		expressions::RecordProjection *e = new expressions::RecordProjection(
+				(*it)->getOriginalType(), mockExpr, *(*it));
+		info = cache.getCache(e);
+		if (info.structFieldNo != -1) {
+			if (!cache.getCacheIsFull(e)) {
+			} else {
+				isCached = true;
+				cout << "[OUTPUT PG: ] *Cached* Expression found for "
+						<< e->getOriginalRelationName() << "."
+						<< e->getAttribute().getAttrName() << "!" << endl;
+			}
+		}
+
+		if (isCached) {
+			string activeRelation = e->getOriginalRelationName();
+			string projName = e->getProjectionName();
+			Plugin* plugin = catalog.getPlugin(activeRelation);
+			valToMaterialize = (plugin->readCachedValue(info, bindings)).value;
+		} else {
+			map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+					bindings.find(*(*it));
+			RawValueMemory currValMem = memSearch->second;
+			/* FIX THE NECESSARY CONVERSIONS HERE */
+			Value* currVal = Builder->CreateLoad(currValMem.mem);
+			valToMaterialize = pg->convert(currVal->getType(),
+					materializedTypes->at(offsetInWanted), currVal);
+		}
 		vector<Value*> idxList = vector<Value*>();
 		idxList.push_back(context->createInt32(0));
 		idxList.push_back(context->createInt32(offsetInStruct));
@@ -1194,6 +1227,31 @@ void Nest::buildHT(RawContext* context, const OperatorState& childState) {
 		offsetInStruct++;
 		offsetInWanted++;
 	}
+
+//	/* Backing up to incorporate caching-aware code */
+//	int offsetInWanted = 0;
+//	const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
+//	for (vector<RecordAttribute*>::const_iterator it = wantedFields.begin();
+//			it != wantedFields.end(); ++it) {
+//		map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+//				bindings.find(*(*it));
+//		RawValueMemory currValMem = memSearch->second;
+//		/* FIX THE NECESSARY CONVERSIONS HERE */
+//		Value* currVal = Builder->CreateLoad(currValMem.mem);
+//		Value* valToMaterialize = pg->convert(currVal->getType(),
+//				materializedTypes->at(offsetInWanted), currVal);
+//
+//		vector<Value*> idxList = vector<Value*>();
+//		idxList.push_back(context->createInt32(0));
+//		idxList.push_back(context->createInt32(offsetInStruct));
+//
+//		//Shift in struct ptr
+//		Value* structPtr = Builder->CreateGEP(cast_arenaShifted, idxList);
+//
+//		Builder->CreateStore(valToMaterialize, structPtr);
+//		offsetInStruct++;
+//		offsetInWanted++;
+//	}
 
 	/* CONSTRUCT HTENTRY PAIR   	  */
 	/* payloadPtr: relative offset from relBuffer beginning */
@@ -1303,7 +1361,6 @@ void Nest::buildHT(RawContext* context, const OperatorState& childState) {
 	idxList.push_back(context->createInt32(offsetInStruct));
 
 	Value* structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
-	//groupHashKey.value->getType()->dump(); //i64
 	StoreInst *store_key = Builder->CreateStore(groupHashKey.value, structPtr);
 	store_key->setAlignment(8); //Used to be 4
 

@@ -301,6 +301,13 @@ target_link_libraries(spam-csv-cached jsmn)
 target_link_libraries(spam-csv-cached -lglog ${glog_ldflags})
 target_link_libraries(spam-csv-cached ${llvm_ldflags} ${llvm_libs})
 
+add_executable(spam-csv-cached-columnar experiments/realworld/spam-csv-cached-columnar.cpp)
+set_target_properties(spam-csv-cached-columnar PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(spam-csv-cached-columnar codegen)
+target_link_libraries(spam-csv-cached-columnar jsmn)
+target_link_libraries(spam-csv-cached-columnar -lglog ${glog_ldflags})
+target_link_libraries(spam-csv-cached-columnar ${llvm_ldflags} ${llvm_libs})
+
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
 if(GTEST)
