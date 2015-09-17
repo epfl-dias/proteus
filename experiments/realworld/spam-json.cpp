@@ -103,9 +103,9 @@ int main()	{
 	//XXX 11 Cannot run locally!
 	cout << "SYMANTEC JSON 11" << endl;
 	symantecJSON11(datasetCatalog);
-	//XXX Long-running
-	cout << "SYMANTEC JSON 8" << endl;
-	symantecJSON8(datasetCatalog);
+	//XXX Long-running (and actually crashing with caches..?)
+//	cout << "SYMANTEC JSON 8" << endl;
+//	symantecJSON8(datasetCatalog);
 
 //	nesting();
 }

@@ -315,6 +315,16 @@ target_link_libraries(spam-json-cached jsmn)
 target_link_libraries(spam-json-cached -lglog ${glog_ldflags})
 target_link_libraries(spam-json-cached ${llvm_ldflags} ${llvm_libs})
 
+
+file(GLOB spam_all experiments/realworld-queries/*.cpp)
+#add_executable(spam-workload experiments/spam-workload.cpp)
+add_executable(spam-workload ${spam_all})
+set_target_properties(spam-workload PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(spam-workload codegen)
+target_link_libraries(spam-workload jsmn)
+target_link_libraries(spam-workload -lglog ${glog_ldflags})
+target_link_libraries(spam-workload ${llvm_ldflags} ${llvm_libs})
+
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
 if(GTEST)
