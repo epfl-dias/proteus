@@ -314,7 +314,7 @@ CSVPlugin::~CSVPlugin() {}
 void CSVPlugin::init()	{
 
 	/* Pages may be read AND WRITTEN (to compute hashes in-place when needed) */
-	buf = (char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_POPULATE, fd, 0);
+	buf = (char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE /*| MAP_POPULATE*/, fd, 0);
 	if (buf == MAP_FAILED) {
 		throw runtime_error(string("csv.mmap"));
 	}
