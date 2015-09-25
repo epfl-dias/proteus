@@ -33,6 +33,11 @@
 
 namespace jsonPipelined	{
 
+typedef struct pmJSON {
+	size_t *newlines;
+	jsmntok_t **tokens;
+} pmJSON;
+
 /**
  * JSON's basic types are:
  * Number: A signed decimal number that may contain a fractional part and may use exponential E notation.
@@ -159,10 +164,15 @@ private:
 
 	/* Specify whether the tokens array will be provided to the PG */
 	bool cache;
+	/* Specify whether the newlines array will be provided to the PG */
+	bool cacheNewlines;
 	/* 1-D array of tokens PER ROW => 2D */
+	/* 1-D array of newlines offsets per row */
 	jsmntok_t **tokens;
 	char *tokenBuf;
+	size_t *newLines;
 	AllocaInst *mem_tokenArray;
+	AllocaInst *mem_newlineArray;
 
 	/* Start with token value - increase when needed */
 	size_t lines;

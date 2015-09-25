@@ -213,7 +213,7 @@ void BinaryColPlugin::init()	{
 	vector<RecordAttribute*>::iterator it;
 	int cnt = 0;
 	for (it = wantedFields.begin(); it != wantedFields.end(); it++)	{
-		buf[cnt] = (char*) mmap(NULL, colFilesize[cnt], PROT_READ, MAP_PRIVATE /*| MAP_POPULATE*/, fd[cnt], 0);
+		buf[cnt] = (char*) mmap(NULL, colFilesize[cnt], PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd[cnt], 0);
 		if (buf[cnt] == MAP_FAILED )	{
 			throw runtime_error(string("csv.mmap"));
 		}

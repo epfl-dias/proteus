@@ -15,3 +15,5 @@ void symantecJSON9(map<string,dataset> datasetCatalog);
 void symantecJSON10(map<string,dataset> datasetCatalog);
 void symantecJSON11(map<string,dataset> datasetCatalog);
 void symantecJSONWarmup(map<string,dataset> datasetCatalog);
+
+void symantecJSON2v1(map<string,dataset> datasetCatalog);

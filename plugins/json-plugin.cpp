@@ -96,6 +96,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	if (pmCast == NULL) {
 		cout << "NEW (JSON) PM" << endl;
 		tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
+		newLines = (size_t*) malloc(lines * sizeof(size_t));
 		if (tokenBuf == NULL) {
 			string msg = string(
 					"[JSON Plugin: ]: Failed to allocate token arena");
@@ -105,15 +106,25 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		tokens = (jsmntok_t**) tokenBuf;
 		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
 				token2DPtrType);
-		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, tokenBuf);
+//		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, tokenBuf);
+		mem_newlineArray = context->CreateEntryBlockAlloca(F, "newlinePMArray",
+				Builder->getInt64Ty());
+
+		pmJSON *pm = new pmJSON();
+		pm->tokens = tokens;
+		pm->newlines = newLines;
 
 		/* Store PM in cache */
 		/* To be used by subsequent queries */
-		cache.registerPM(fname, tokenBuf);
+//		cache.registerPM(fname, tokenBuf);
+		cache.registerPM(fname, (char*) pm);
 	} else {
 		cout << "(JSON) PM REUSE" << endl;
-		jsmntok_t **tokens = (jsmntok_t **) pmCast;
+		pmJSON *pm = (pmJSON *) pmCast;
+		jsmntok_t **tokens = pm->tokens;
+		size_t *newlines = pm->newlines;
 		this->tokens = tokens;
+		this->newLines = newlines;
 		tokenBuf = NULL;
 
 		mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
@@ -121,6 +132,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
 				this->tokens);
 		this->cache = true;
+		this->cacheNewlines = true;
 	}
 	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
 
@@ -301,6 +313,12 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		this->cache = true;
 	}
 	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
+
+	//TODO Include support for more sophisticated PM, storing newlines too
+	//Default constructor already supports it
+	this->cacheNewlines = false;
+	this->newLines = NULL;
+	this->mem_newlineArray = NULL;
 }
 
 JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
@@ -478,6 +496,12 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		this->cache = true;
 	}
 	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
+
+	//TODO Include support for more sophisticated PM, storing newlines too
+	//Default constructor already supports it
+	this->cacheNewlines = false;
+	this->newLines = NULL;
+	this->mem_newlineArray = NULL;
 }
 
 JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
@@ -541,6 +565,11 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	Value *cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType, this->tokens);
 	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
 
+	//TODO Include support for more sophisticated PM, storing newlines too
+	//Default constructor already supports it
+	this->cacheNewlines = false;
+	this->newLines = NULL;
+	this->mem_newlineArray = NULL;
 
 }
 

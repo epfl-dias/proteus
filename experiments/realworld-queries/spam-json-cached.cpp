@@ -359,6 +359,126 @@ void symantecJSON2(map<string, dataset> datasetCatalog) {
 	rawCatalog.clear();
 }
 
+void symantecJSON2v1(map<string, dataset> datasetCatalog) {
+
+	int idHigh = 8000000;
+	int sizeHigh = 1000;
+//	string langType = "german";
+
+	RawContext ctx = prepareContext("symantec-json-2");
+	RawCatalog& rawCatalog = RawCatalog::getInstance();
+
+	string nameSymantec = string("symantecIDDates");
+	dataset symantecJSON = datasetCatalog[nameSymantec];
+	map<string, RecordAttribute*> argsSymantecJSON =
+			symantecJSON.recType.getArgsMap();
+
+	/**
+	 * SCAN JSON FILE
+	 */
+	string fname = symantecJSON.path;
+	RecordType rec = symantecJSON.recType;
+	int linehint = symantecJSON.linehint;
+
+	RecordAttribute *id = argsSymantecJSON["id"];
+	RecordAttribute *size = argsSymantecJSON["size"];
+//	RecordAttribute *lang = argsSymantecJSON["lang"];
+
+	vector<RecordAttribute*> projections;
+	projections.push_back(id);
+	projections.push_back(size);
+//	projections.push_back(lang);
+
+	ListType *documentType = new ListType(rec);
+	jsonPipelined::JSONPlugin *pg = new jsonPipelined::JSONPlugin(&ctx, fname,
+			documentType, linehint);
+	rawCatalog.registerPlugin(fname, pg);
+	Scan *scan = new Scan(&ctx, *pg);
+
+	/*
+	 * SELECT: Splitting preds in numeric and non-numeric
+	 * (data->>'id')::int < 1000000 and (data->>'size')::int < 1000 and (data->>'lang') = 'german'
+	 */
+	list<RecordAttribute> argSelections;
+	argSelections.push_back(*id);
+	argSelections.push_back(*size);
+//	argSelections.push_back(*lang);
+
+	expressions::Expression* arg = new expressions::InputArgument(&rec, 0,
+			argSelections);
+	expressions::Expression* selID = new expressions::RecordProjection(
+			id->getOriginalType(), arg, *id);
+	expressions::Expression* selSize = new expressions::RecordProjection(
+			size->getOriginalType(), arg, *size);
+//	expressions::Expression* selLang = new expressions::RecordProjection(
+//			lang->getOriginalType(), arg, *lang);
+
+	expressions::Expression* predExpr1 = new expressions::IntConstant(idHigh);
+	expressions::Expression* predExpr2 = new expressions::IntConstant(sizeHigh);
+//	expressions::Expression* predExpr3 = new expressions::StringConstant(
+//			langType);
+
+	expressions::Expression* predicate1 = new expressions::LtExpression(
+			new BoolType(), selID, predExpr1);
+	expressions::Expression* predicate2 = new expressions::LtExpression(
+			new BoolType(), selSize, predExpr2);
+	expressions::Expression* predicateNum = new expressions::AndExpression(
+			new BoolType(), predicate1, predicate2);
+
+	Select *selNum = new Select(predicateNum,scan);
+	scan->setParent(selNum);
+
+//	expressions::Expression* predicateStr = new expressions::EqExpression(
+//				new BoolType(), selLang, predExpr3);
+//	Select *sel = new Select(predicateStr,selNum);
+//	selNum->setParent(sel);
+	Select *sel = selNum;
+
+	/**
+	 * REDUCE
+	 * MAX(size), Count(*)
+	 */
+	list<RecordAttribute> argsReduce;
+	argsReduce.push_back(*size);
+	expressions::Expression* argRed = new expressions::InputArgument(&rec, 0,
+			argsReduce);
+	/* Output: */
+	vector<Monoid> accs;
+	vector<expressions::Expression*> outputExprs;
+	expressions::Expression* exprSize = new expressions::RecordProjection(
+			size->getOriginalType(), argRed, *size);
+
+	accs.push_back(MAX);
+	expressions::Expression* outputExpr1 = exprSize;
+	outputExprs.push_back(outputExpr1);
+
+	accs.push_back(SUM);
+	expressions::Expression* outputExpr2 = new expressions::IntConstant(1);
+	outputExprs.push_back(outputExpr2);
+	/* Pred: Redundant */
+
+	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
+	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
+	expressions::Expression* predRed = new expressions::EqExpression(
+			new BoolType(), lhsRed, rhsRed);
+
+	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, sel,
+			&ctx);
+	sel->setParent(reduce);
+
+	//Run function
+	struct timespec t0, t1;
+	clock_gettime(CLOCK_REALTIME, &t0);
+	reduce->produce();
+	ctx.prepareFunction(ctx.getGlobalFunction());
+	clock_gettime(CLOCK_REALTIME, &t1);
+	printf("Execution took %f seconds\n", diff(t0, t1));
+
+	//Close all open files & clear
+	pg->finish();
+	rawCatalog.clear();
+}
+
 void symantecJSON3(map<string, dataset> datasetCatalog) {
 
 	int idHigh = 1000000;

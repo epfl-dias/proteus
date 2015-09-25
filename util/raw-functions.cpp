@@ -699,7 +699,7 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 //		string error_msg = string("No newline found");
 //			LOG(ERROR)<< error_msg;
 //	}
-//	cout << "[Non-AVX:] Newline / End of line at pos " << i << endl;
+	cout << "[Non-AVX:] Newline / End of line at pos " << i << endl;
 	return i;
 #endif
 
