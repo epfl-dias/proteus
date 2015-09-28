@@ -10,3 +10,7 @@ void symantecBinCSVJSON7(map<string,dataset> datasetCatalog);
 void symantecBinCSVJSON8(map<string,dataset> datasetCatalog);
 void symantecBinCSVJSON9(map<string,dataset> datasetCatalog);
 void symantecBinCSVJSON10(map<string,dataset> datasetCatalog);
+
+//
+void symantecBinCSVJSON7v1(map<string,dataset> datasetCatalog);
+void symantecBinCSVJSON8v1(map<string,dataset> datasetCatalog);
