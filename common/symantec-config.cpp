@@ -545,8 +545,10 @@ void symantecBinSchema(map<string, dataset>& datasetCatalog) {
 	dataset symantecBin;
 
 	#ifdef SYMANTEC_LOCAL
-	string path = string("inputs/json/spam/col/symantec");
-	symantecBin.linehint = 100;
+//	string path = string("inputs/json/spam/col/symantec");
+//	symantecBin.linehint = 100;
+	string path = string("/media/data/vida-engine/symantec/col/symantec");
+	symantecBin.linehint = 500000000;
 	#endif
 	#ifdef SYMANTEC_SERVER
 	string path = string("/cloud_store/manosk/data/vida-engine/symantec/col/symantec");

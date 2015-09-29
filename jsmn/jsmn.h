@@ -54,7 +54,7 @@ typedef enum {
 #endif
 /* Used to accommodate very wide TPC-H pre-computed join
  * i.e. ordersLineitem.json */
-//#define JSON_TPCH_WIDE
+#define JSON_TPCH_WIDE
 
 
 #if !defined(JSON_TPCH_WIDE) && !defined(JSON_SYMANTEC_WIDE)
