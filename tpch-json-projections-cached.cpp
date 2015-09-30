@@ -185,9 +185,45 @@ int main()	{
 			tpchLineitemProjection3Schema(datasetCatalog, predicateVal, 4);
 			cout << "---" << endl;
 		}
+
+		/* Clean */
+		rawCatalog.clear();
+		cache.clear();
+		/* Caching again */
+		cout << "Preparing caches: Pred + Agg (&PM!)" << endl;
+		cout << "ReadPath() + CACHING (MATERIALIZING) INTO EFFECT: Pred+Agg"
+				<< endl;
+		tpchLineitemProjection3CachingPredAgg(datasetCatalog, predicateMax, 4);
+
+		cout << "[tpch-json-projections-cached: Schema + PredAgg ] Run "
+				<< i + 1 << endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			tpchLineitemProjection3Schema(datasetCatalog, predicateVal, 4);
+			cout << "---" << endl;
+		}
 	}
 
 }
+
+//int main()	{
+//	cout << "Execution: Code comparison / breakdown" << endl;
+//	map<string,dataset> datasetCatalog;
+//	tpchSchema(datasetCatalog);
+//
+//	int predicateMax = L_ORDERKEY_MAX;
+//	/* Preparing cache (1) + pm */
+//	cout << "Preparing caches (&PM): Pred" << endl;
+//	tpchLineitemProjection3CachingPred(datasetCatalog, predicateMax, 4);
+//	cout << "Q3Pred" << endl;
+//	tpchLineitemProjection3(datasetCatalog, predicateMax, 4);
+//	cout << "Q3PredSchema" << endl;
+//	tpchLineitemProjection3Schema(datasetCatalog, predicateMax, 4);
+//}
 
 //int main()	{
 //	cout << "Complementary Execution" << endl;

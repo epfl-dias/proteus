@@ -463,6 +463,153 @@ void symantecBin4(map<string,dataset> datasetCatalog)	{
 	rawCatalog.clear();
 }
 
+//SELECT MAX(dim), COUNT(*)
+//FROM symantecunordered
+//where id > 70000000  and id < 80000000 and (p_event > 0.7 OR value > 0.5) and cluster = 400;
+void symantecBin4v1(map<string,dataset> datasetCatalog)	{
+
+	int idLow = 70000000;
+	int idHigh = 80000000;
+	double p_eventLow = 0.7;
+	double valueLow = 0.5;
+	int clusterNo = 400;
+
+	RawContext ctx = prepareContext("symantec-bin-4");
+	RawCatalog& rawCatalog = RawCatalog::getInstance();
+
+	string nameSymantec = string("symantecBin");
+	dataset symantecBin = datasetCatalog[nameSymantec];
+	map<string, RecordAttribute*> argsSymantecBin 	=
+			symantecBin.recType.getArgsMap();
+
+	/**
+	 * SCAN BINARY FILE
+	 */
+	string fnamePrefix = symantecBin.path;
+	RecordType rec = symantecBin.recType;
+	int linehint = symantecBin.linehint;
+
+
+	RecordAttribute *id = argsSymantecBin["id"];
+	RecordAttribute *p_event = argsSymantecBin["p_event"];
+	RecordAttribute *dim = argsSymantecBin["dim"];
+	RecordAttribute *cluster = argsSymantecBin["cluster"];
+	RecordAttribute *value = argsSymantecBin["value"];
+
+	vector<RecordAttribute*> projections;
+	projections.push_back(id);
+	projections.push_back(p_event);
+	projections.push_back(dim);
+	projections.push_back(cluster);
+	projections.push_back(value);
+
+	BinaryColPlugin *pg = new BinaryColPlugin(&ctx, fnamePrefix, rec,
+				projections);
+	rawCatalog.registerPlugin(fnamePrefix, pg);
+	Scan *scan = new Scan(&ctx, *pg);
+
+	/*
+	 * SELECTS
+	 */
+
+	list<RecordAttribute> argSelections;
+	argSelections.push_back(*id);
+	argSelections.push_back(*p_event);
+	argSelections.push_back(*value);
+	argSelections.push_back(*cluster);
+
+	expressions::Expression* arg 			=
+					new expressions::InputArgument(&rec,0,argSelections);
+	expressions::Expression* selID  	=
+				new expressions::RecordProjection(id->getOriginalType(),arg,*id);
+	expressions::Expression* selCluster  	=
+					new expressions::RecordProjection(cluster->getOriginalType(),arg,*cluster);
+	expressions::Expression* selEvent  	=
+						new expressions::RecordProjection(p_event->getOriginalType(),arg,*p_event);
+	expressions::Expression* selValue  	=
+							new expressions::RecordProjection(value->getOriginalType(),arg,*value);
+
+	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
+	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
+	expressions::Expression* predExpr3 = new expressions::FloatConstant(
+			p_eventLow);
+	expressions::Expression* predExpr4 = new expressions::FloatConstant(
+			valueLow);
+	expressions::Expression* predExpr5 = new expressions::IntConstant(
+			clusterNo);
+
+	//cluster equality
+	expressions::Expression* predicate5 = new expressions::EqExpression(
+				new BoolType(), selCluster, predExpr5);
+	Select *sel1 = new Select(predicate5, scan);
+	scan->setParent(sel1);
+
+	//id < ...
+	expressions::Expression* predicate2 = new expressions::LtExpression(
+			new BoolType(), selID, predExpr2);
+	Select *sel2 = new Select(predicate2, sel1);
+	sel1->setParent(sel2);
+
+	//OR
+	expressions::Expression* predicate3 = new expressions::GtExpression(
+			new BoolType(), selEvent, predExpr3);
+	expressions::Expression* predicate4 = new expressions::GtExpression(
+			new BoolType(), selValue, predExpr4);
+	expressions::Expression* predicateOr = new expressions::OrExpression(
+			new BoolType(), predicate3, predicate4);
+	Select *sel3 = new Select(predicateOr, sel2);
+	sel2->setParent(sel3);
+
+	//id > ...
+	expressions::Expression* predicate1 = new expressions::GtExpression(
+			new BoolType(), selID, predExpr1);
+	Select *sel = new Select(predicate1, sel3);
+	sel3->setParent(sel);
+
+
+	/**
+	 * REDUCE
+	 */
+	list<RecordAttribute> argProjections;
+	argProjections.push_back(*dim);
+	expressions::Expression* argProj 			=
+				new expressions::InputArgument(&rec,0,argProjections);
+	/* Output: */
+	vector<Monoid> accs;
+	vector<expressions::Expression*> outputExprs;
+
+	accs.push_back(MAX);
+	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
+			dim->getOriginalType(), argProj, *dim);
+	outputExprs.push_back(outputExpr1);
+
+	accs.push_back(SUM);
+	expressions::Expression* outputExpr2 = new expressions::IntConstant(1);
+	outputExprs.push_back(outputExpr2);
+
+	/* Pred: Redundant */
+	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
+	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
+	expressions::Expression* predRed = new expressions::EqExpression(
+			new BoolType(), lhsRed, rhsRed);
+
+	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, sel,
+			&ctx);
+	scan->setParent(reduce);
+
+	//Run function
+	struct timespec t0, t1;
+	clock_gettime(CLOCK_REALTIME, &t0);
+	reduce->produce();
+	ctx.prepareFunction(ctx.getGlobalFunction());
+	clock_gettime(CLOCK_REALTIME, &t1);
+	printf("Execution took %f seconds\n", diff(t0, t1));
+
+	//Close all open files & clear
+	pg->finish();
+	rawCatalog.clear();
+}
+
 void symantecBin5(map<string,dataset> datasetCatalog)	{
 
 	int idLow = 380000000;

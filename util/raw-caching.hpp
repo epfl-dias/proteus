@@ -64,6 +64,7 @@ public:
 		map<string, char*>::iterator it = pmCaches.find(fileName);
 		if (it != pmCaches.end()) {
 			LOG(WARNING)<< "PM caches already contain " << fileName;
+			cout << "*Warning* PM caches already contain " << fileName << endl;
 		}
 		pmCaches[fileName] = payloadPtr;
 	}

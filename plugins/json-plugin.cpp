@@ -95,8 +95,8 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	char* pmCast = cache.getPM(fname);
 	Value *cast_tokenArray = NULL;
 	Value *cast_newlineArray = NULL;
+	cout << "JSON CONSTRUCTOR 1" << endl;
 	if (pmCast == NULL) {
-		cout << "JSON CONSTRUCTOR 1" << endl;
 		cout << "NEW (JSON) PM" << endl;
 		tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
 		newLines = (size_t*) malloc(lines * sizeof(size_t));
@@ -215,9 +215,9 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	char* pmCast = cache.getPM(fname);
 	Value *cast_tokenArray = NULL;
 	Value *cast_newlineArray = NULL;
+	cout << "JSON CONSTRUCTOR 2" << endl;
 	if (pmCast == NULL) {
-		cout << "JSON CONSTRUCTOR 2" << endl;
-		pmJSON *pm = new pmJSON();
+		pmJSON *pm;
 		if(pmStored == 0)	{
 			/* Load from file */
 			cout << "READING PM FROM DISK" << endl;
@@ -245,6 +245,10 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 					token2DPtrType);
 			cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
 					tokenBuf);
+			mem_newlineArray = context->CreateEntryBlockAlloca(F,
+					"newlinePMArray", int64PtrType);
+			cast_newlineArray = context->CastPtrToLlvmPtr(int64PtrType,
+					newLines);
 			this->cache = true;
 			//cout << "Peek: " << tokens[0][0].start << " to " << tokens[0][0].end << endl;
 			pm = new pmJSON();
@@ -412,6 +416,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	tokenType = context->CreateJSMNStruct();
 	PointerType *tokenPtrType = PointerType::get(tokenType,0);
 	PointerType *token2DPtrType = PointerType::get(tokenPtrType,0);
+	PointerType *int64PtrType = PointerType::get(Builder->getInt64Ty(),0);
 
 	/* PM */
 	CachingService& cache = CachingService::getInstance();
@@ -428,9 +433,10 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 
 	char* pmCast = cache.getPM(fname);
 	Value *cast_tokenArray = NULL;
+	Value *cast_newlineArray = NULL;
 	cout << "JSON CONSTRUCTOR 3" << endl;
 	if (pmCast == NULL) {
-
+		pmJSON *pm;
 		if(pmStored == 0)	{
 			/* Load from file */
 			cout << "READING PM FROM DISK" << endl;
@@ -441,6 +447,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 				fatal("open");
 			}
 			tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
+			newLines = (size_t*) malloc(lines * sizeof(size_t));
 			tokens = (jsmntok_t**) tokenBuf;
 			char* pmraw = (char*) mmap(NULL, pmsize, PROT_READ, MAP_PRIVATE, fdPM, 0);
 			if (pmraw == MAP_FAILED ) {
@@ -457,8 +464,23 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 					token2DPtrType);
 			cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
 					tokenBuf);
+			mem_newlineArray = context->CreateEntryBlockAlloca(F,
+					"newlinePMArray", int64PtrType);
+			cast_newlineArray = context->CastPtrToLlvmPtr(int64PtrType,
+					newLines);
+
 			this->cache = true;
+			this->cacheNewlines = false;
 			//cout << "Peek: " << tokens[0][0].start << " to " << tokens[0][0].end << endl;
+			pm = new pmJSON();
+			pm->tokens = tokens;
+			pm->newlines = newLines;
+
+			/* Store PM in cache */
+			/* To be used by subsequent queries */
+			//		cache.registerPM(fname, tokenBuf);
+			cache.registerPM(fname, (char*) pm);
+			this->cacheNewlines = false;
 		}
 		else
 		{
@@ -473,6 +495,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 //			tokens = (jsmntok_t**) tokenBuf;
 			tokens = new jsmntok_t*[lines];
 			tokenBuf = (char*) tokens;
+			newLines = (size_t*) malloc(lines * sizeof(size_t));
 
 #if defined(JSON_TPCH_WIDE) || defined(JSON_SYMANTEC_WIDE)
 			for (int i = 0; i < lines; i++) {
@@ -494,14 +517,29 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 					token2DPtrType);
 			cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
 					tokenBuf);
+
+			mem_newlineArray = context->CreateEntryBlockAlloca(F,
+					"newlinePMArray", int64PtrType);
+			cast_newlineArray = context->CastPtrToLlvmPtr(int64PtrType,
+					newLines);
+
+			pm = new pmJSON();
+			pm->tokens = tokens;
+			pm->newlines = newLines;
+
+			/* Store PM in cache */
+			/* To be used by subsequent queries */
+			//		cache.registerPM(fname, tokenBuf);
+			cache.registerPM(fname, (char*) pm);
+			this->cacheNewlines = false;
 		}
-		/* Store PM in cache */
-		/* To be used by subsequent queries */
-		cache.registerPM(fname, tokenBuf);
 	} else {
-		//cout << "(JSON) PM REUSE" << endl;
-		jsmntok_t **tokens = (jsmntok_t **) pmCast;
+		cout << "(JSON) PM REUSE" << endl;
+		pmJSON *pm = (pmJSON *) pmCast;
+		jsmntok_t **tokens = pm->tokens;
+		size_t *newlines = pm->newlines;
 		this->tokens = tokens;
+		this->newLines = newlines;
 		tokenBuf = NULL;
 
 
@@ -534,15 +572,17 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 				token2DPtrType);
 		cast_tokenArray = context->CastPtrToLlvmPtr(token2DPtrType,
 				this->tokens);
+
+		mem_newlineArray = context->CreateEntryBlockAlloca(F, "newlinePMArray",
+				int64PtrType);
+		cast_newlineArray = context->CastPtrToLlvmPtr(int64PtrType, newLines);
+
 		this->cache = true;
+		this->cacheNewlines = true;
 	}
 	Builder->CreateStore(cast_tokenArray, mem_tokenArray);
+	Builder->CreateStore(cast_newlineArray, mem_newlineArray);
 
-	//TODO Include support for more sophisticated PM, storing newlines too
-	//Default constructor already supports it
-	this->cacheNewlines = false;
-	this->newLines = NULL;
-	this->mem_newlineArray = NULL;
 }
 
 JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
@@ -1755,6 +1795,8 @@ RawValueMemory JSONPlugin::readPredefinedPath(string activeRelation,
 	Value *val_1 = Builder->getInt64(1);
 	Value *val_i = Builder->CreateAdd(parentTokenNo, val_1);
 	int wantedAttrNo = attr.getAttrNo();
+	//cout << "Scanning JSON for attr " << wantedAttrNo << endl;
+	LOG(INFO) << "[Scan - JSON: ] readPredefinedPath -> attr " << wantedAttrNo;
 	Value *val_wantedAttrNo = context->createInt64(wantedAttrNo);
 	/* Placeholders for counters */
 	AllocaInst* mem_i = context->CreateEntryBlockAlloca(F, string("tmp_i"),
