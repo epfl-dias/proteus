@@ -480,7 +480,6 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 			/* To be used by subsequent queries */
 			//		cache.registerPM(fname, tokenBuf);
 			cache.registerPM(fname, (char*) pm);
-			this->cacheNewlines = false;
 		}
 		else
 		{
