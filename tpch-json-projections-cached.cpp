@@ -86,10 +86,26 @@ int main()	{
 	tpchSchema(datasetCatalog);
 
 	for (int i = 0; i < 5; i++) {
-		cout << "[tpch-json-projections-cached: ] Run " << i+1 << endl;
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		CachingService& cache = CachingService::getInstance();
+
 		int predicateMax = L_ORDERKEY_MAX;
 		/* Preparing cache (1) + pm */
-		cout << "Preparing caches (&PM): Pred" << endl;
+		cout << "Preparing PM & Warming up" << endl;
+		tpchLineitemProjection3(datasetCatalog, predicateMax, 4);
+		cout << "BASELINE RUNS" << endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(predicateMax * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			tpchLineitemProjection3(datasetCatalog, predicateVal, 4);
+			cout << "---" << endl;
+		}
+
+		/* Preparing cache (1) */
+		cout << "Preparing caches: Pred" << endl;
 		tpchLineitemProjection3CachingPred(datasetCatalog, predicateMax, 4);
 		cout << "CACHING (MATERIALIZING) INTO EFFECT: Pred" << endl;
 		for (int i = 1; i <= 10; i++) {
@@ -103,9 +119,7 @@ int main()	{
 		}
 
 		/* Clean */
-		RawCatalog& rawCatalog = RawCatalog::getInstance();
 		rawCatalog.clear();
-		CachingService& cache = CachingService::getInstance();
 		cache.clear();
 		/* Caching again */
 		cout << "Preparing caches: Agg" << endl;
@@ -206,6 +220,9 @@ int main()	{
 			tpchLineitemProjection3Schema(datasetCatalog, predicateVal, 4);
 			cout << "---" << endl;
 		}
+		/* Clean */
+		rawCatalog.clear();
+		cache.clear();
 	}
 
 }

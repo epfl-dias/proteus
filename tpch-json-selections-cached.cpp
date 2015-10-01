@@ -78,6 +78,7 @@ RawContext prepareContext(string moduleName)	{
 	return ctx;
 }
 
+//XXX Default main function. the rest are supplements
 int main()	{
 
 	map<string,dataset> datasetCatalog;
@@ -90,12 +91,34 @@ int main()	{
 	int pred4 = (int) L_EXTENDEDPRICE_MAX;
 
 	for (int i = 0; i < 5; i++) {
+		RawCatalog& rawCatalog = RawCatalog::getInstance();
+		CachingService& cache = CachingService::getInstance();
+
 		cout << "[tpch-json-selections-cached: ] Run " << i + 1 << endl;
-		cout << "Building PM" << endl;
+		cout << "Building PM & Warmup" << endl;
 		vector<int> predicates;
 		predicates.push_back(pred1);
-		tpchOrderSelection1CachingPred(datasetCatalog, predicates, false);
+		tpchOrderSelection1(datasetCatalog, predicates, false);
+		cout << "BASELINE RUN: Q1d" << endl;
+		for (int i = 1; i <= 10; i++) {
+			double ratio = (i / (double) 10);
+			double percentage = ratio * 100;
+			int predicateVal = (int) ceil(pred1 * ratio);
+			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+					<< percentage << "%" << endl;
+			vector<int> predicates;
+			predicates.push_back(predicateVal);
+			//1 pred.
+			predicates.push_back(pred2);
+			//2 pred.
+			predicates.push_back(pred3);
+			//3 pred.
+			//4 pred.
+			predicates.push_back(pred4);
+			tpchOrderSelection1(datasetCatalog, predicates, false);
+		}
 
+		tpchOrderSelection1CachingPred(datasetCatalog, predicates, false);
 		cout << "CACHING (MATERIALIZING) INTO EFFECT: Pred" << endl;
 		for (int i = 1; i <= 10; i++) {
 			double ratio = (i / (double) 10);
@@ -116,9 +139,7 @@ int main()	{
 		}
 
 		/* Clean */
-		RawCatalog& rawCatalog = RawCatalog::getInstance();
 		rawCatalog.clear();
-		CachingService& cache = CachingService::getInstance();
 		cache.clear();
 		/* Caching again */
 		tpchOrderSelection1CachingFloats(datasetCatalog, predicates, false);
@@ -261,8 +282,94 @@ int main()	{
 			predicates.push_back(pred4);
 			tpchOrderSelection1(datasetCatalog, predicates, true);
 		}
+		/* Clean */
+		rawCatalog.clear();
+		cache.clear();
 	}
 }
+
+//int main()	{
+//
+//	map<string,dataset> datasetCatalog;
+//	tpchSchema(datasetCatalog);
+//
+//	/* pred1 will be the one dictating query selectivity*/
+//	int pred1 = L_ORDERKEY_MAX;
+//	int pred2 = (int) L_QUANTITY_MAX;
+//	int pred3 = L_LINENUMBER_MAX;
+//	int pred4 = (int) L_EXTENDEDPRICE_MAX;
+//
+//	for (int i = 0; i < 5; i++) {
+//		cout << "[tpch-json-selections-cached: ] Baseline Run " << i + 1 << endl;
+//		cout << "Building PM" << endl;
+//		vector<int> predicates;
+//		predicates.push_back(pred1);
+//		tpchOrderSelection1(datasetCatalog, predicates, false);
+//
+//		cout << "Getting baseline numbers" << endl;
+//		for (int i = 1; i <= 10; i++) {
+//			double ratio = (i / (double) 10);
+//			double percentage = ratio * 100;
+//			int predicateVal = (int) ceil(pred1 * ratio);
+//			cout << "SELECTIVITY FOR key < " << predicateVal << ": "
+//					<< percentage << "%" << endl;
+//			vector<int> predicates;
+//			predicates.push_back(predicateVal);
+//			//1 pred.
+//			predicates.push_back(pred2);
+//			//2 pred.
+//			predicates.push_back(pred3);
+//			//3 pred.
+//			//4 pred.
+//			predicates.push_back(pred4);
+//			tpchOrderSelection1(datasetCatalog, predicates, false);
+//		}
+//	}
+//}
+
+/* Code inspection */
+//int main()	{
+//
+//	map<string,dataset> datasetCatalog;
+//	tpchSchema(datasetCatalog);
+//
+//	/* pred1 will be the one dictating query selectivity*/
+//	int pred1 = L_ORDERKEY_MAX;
+//	int pred2 = (int) L_QUANTITY_MAX;
+//	int pred3 = L_LINENUMBER_MAX;
+//	int pred4 = (int) L_EXTENDEDPRICE_MAX;
+//
+//	cout << "Building PM" << endl;
+//	vector<int> predicates;
+//	predicates.push_back(pred1);
+//	predicates.push_back(pred2);
+//	predicates.push_back(pred3);
+//	predicates.push_back(pred4);
+//	cout << "Clean Run" << endl;
+//	tpchOrderSelection1(datasetCatalog, predicates, false);
+//
+//	cout << "CACHING (MATERIALIZING) INTO EFFECT: Floats" << endl;
+//	tpchOrderSelection1CachingFloats(datasetCatalog, predicates, false);
+//
+//	int i = 1;
+//	double ratio = (i / (double) 10);
+//	double percentage = ratio * 100;
+//	int predicateVal = (int) ceil(pred1 * ratio);
+//	cout << "SELECTIVITY FOR key < " << predicateVal << ": " << percentage
+//			<< "%" << endl;
+//	{
+//		vector<int> predicates;
+//		predicates.push_back(predicateVal);
+//		//1 pred.
+//		predicates.push_back(pred2);
+//		//2 pred.
+//		predicates.push_back(pred3);
+//		//3 pred.
+//		//4 pred.
+//		predicates.push_back(pred4);
+//		tpchOrderSelection1(datasetCatalog, predicates, false);
+//	}
+//}
 
 //int main()	{
 //
@@ -311,7 +418,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 	if(predicatesNo <= 0 || predicatesNo > 4)	{
 		throw runtime_error(string("Invalid no. of predicates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection1");
+	RawContext ctx = prepareContext("tpch-json-selection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -504,7 +611,7 @@ void tpchOrderSelection1CachingPred(map<string,dataset> datasetCatalog, vector<i
 	if(predicatesNo <= 0 || predicatesNo > 4)	{
 		throw runtime_error(string("Invalid no. of predicates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection1");
+	RawContext ctx = prepareContext("tpch-json-selection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -712,7 +819,7 @@ void tpchOrderSelection1CachingFloats(map<string,dataset> datasetCatalog, vector
 	if(predicatesNo <= 0 || predicatesNo > 4)	{
 		throw runtime_error(string("Invalid no. of predicates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection1");
+	RawContext ctx = prepareContext("tpch-json-selection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -932,7 +1039,7 @@ void tpchOrderSelection1CachingPredFloats(map<string,dataset> datasetCatalog, ve
 	if(predicatesNo <= 0 || predicatesNo > 4)	{
 		throw runtime_error(string("Invalid no. of predicates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection1");
+	RawContext ctx = prepareContext("tpch-json-selection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");

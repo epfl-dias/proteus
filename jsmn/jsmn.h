@@ -48,13 +48,17 @@ typedef enum {
  */
 /* Used to accommodate symantec workload (and flush its pm) */
 //#define JSON_SYMANTEC
-#define JSON_SYMANTEC_WIDE
+//#define JSON_SYMANTEC_WIDE
 #ifdef JSON_SYMANTEC_WIDE
 #undef JSON_TIGHT
 #endif
 /* Used to accommodate very wide TPC-H pre-computed join
- * i.e. ordersLineitem.json */
+ * i.e. ordersLineitem.json (practically an unnest case) */
 //#define JSON_TPCH_WIDE
+#ifdef JSON_TPCH_WIDE
+#undef JSON_SYMANTEC_WIDE
+#undef JSON_TIGHT
+#endif
 
 
 #if !defined(JSON_TPCH_WIDE) && !defined(JSON_SYMANTEC_WIDE)
@@ -126,13 +130,15 @@ typedef struct {
 #endif
 
 #ifdef JSON_SYMANTEC_WIDE
+#undef JSON_TPCH_WIDE
 #undef MAXTOKENS
 //#define MAXTOKENS 70 //80 //53 //good enough for spamsCoreID28m - but crashes for idDates
 #define MAXTOKENS 100 //80: very slow - no idea if it worked
 #endif /* JSON_SYMANTEC */
 
 /* Default, conservative case */
-#ifndef JSON_TIGHT
+#if !defined(JSON_TIGHT) && defined(JSON_TPCH_WIDE)
+//#ifndef JSON_TIGHT
 #undef MAXTOKENS
 #define MAXTOKENS 1000
 #endif
