@@ -30,8 +30,8 @@
 //#define TPCH_LOCAL
 #ifndef TPCH_LOCAL
 #define TPCH_SERVER
-#define TPCH_SF10
-//#define TPCH_SF100
+//#define TPCH_SF10
+#define TPCH_SF100
 #endif
 
 #ifdef TPCH_SERVER
