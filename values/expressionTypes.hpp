@@ -142,10 +142,18 @@ public:
 			: attrNo(-1), relName(relName), attrName(attrName), type(type), projected(false) 	{
 		//cout << "RELNAME:[" << relName << "]" << endl;
 		if(relName == "")	{
-			string error_msg = string("Unexpected, no-relname attribute");
+			string error_msg = string("Unexpected, no-relname attribute: ") + attrName;
 			LOG(ERROR) << error_msg;
 			throw runtime_error(error_msg);
 		}
+	}
+
+	RecordAttribute(const RecordAttribute& obj) : type(obj.getOriginalType()) {
+		this->attrNo = obj.attrNo;
+		this->attrName = obj.attrName;
+		this->relName = obj.relName;
+		this->originalRelName = obj.originalRelName;
+		this->projected = obj.projected;
 	}
 
 //	RecordAttribute(const RecordAttribute& obj) : type(obj.getOriginalType()) {

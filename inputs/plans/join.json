@@ -1,0 +1,323 @@
+{
+  "e": [{
+    "expression": "int",
+    "v": 1
+  }],
+  "operator": "reduce",
+  "accumulator": ["sum"],
+  "p": {
+    "expression": "bool",
+    "v": true
+  },
+  "input": {
+    "operator": "join",
+    "p": {
+      "expression": "eq",
+      "left": {
+        "expression": "recordProjection",
+        "type": {
+          "type": "int"
+        },
+        "e": {
+          "expression": "argument",
+          "argNo": 0,
+          "type": {
+            "type": "record",
+            "attributes": [{
+              "type": {
+                "type": "int"
+              },
+              "relName": "inputs/sailors.csv",
+              "attrName": "sid",
+              "attrNo": 1
+            }, {
+              "type": {
+                "type": "string"
+              },
+              "relName": "inputs/sailors.csv",
+              "attrName": "sname",
+              "attrNo": 2
+            }, {
+              "type": {
+                "type": "int"
+              },
+              "relName": "inputs/sailors.csv",
+              "attrName": "rating",
+              "attrNo": 3
+            }, {
+              "type": {
+                "type": "float"
+              },
+              "relName": "inputs/sailors.csv",
+              "attrName": "age",
+              "attrNo": 4
+            }]
+          },
+          "attributes": [{
+            "type": {
+              "type": "int"
+            },
+            "relName": "inputs/sailors.csv",
+            "attrName": "sid",
+            "attrNo": 1
+          }]
+        },
+        "attribute": {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/sailors.csv",
+          "attrName": "sid",
+          "attrNo": 1
+        }
+      },
+      "right": {
+        "expression": "recordProjection",
+        "type": {
+          "type": "int"
+        },
+        "e": {
+          "expression": "argument",
+          "argNo": 1,
+          "type": {
+            "type": "record",
+            "attributes": [{
+              "type": {
+                "type": "int"
+              },
+              "relName": "inputs/reserves.csv",
+              "attrName": "sid",
+              "attrNo": 1
+            }, {
+              "type": {
+                "type": "int"
+              },
+              "relName": "inputs/reserves.csv",
+              "attrName": "bid",
+              "attrNo": 2
+            }, {
+              "type": {
+                "type": "string"
+              },
+              "relName": "inputs/reserves.csv",
+              "attrName": "day",
+              "attrNo": 3
+            }, {
+              "type": {
+                "type": "float"
+              },
+              "relName": "inputs/sailors.csv",
+              "attrName": "age",
+              "attrNo": 4
+            }]
+          },
+          "attributes": [{
+            "type": {
+              "type": "int"
+            },
+            "relName": "inputs/reserves.csv",
+            "attrName": "sid",
+            "attrNo": 1
+          }]
+        },
+        "attribute": {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/reserves.csv",
+          "attrName": "sid",
+          "attrNo": 1
+        }
+      }
+    },
+    "leftFields": [{
+      "expression": "recordProjection",
+      "type": {
+        "type": "int"
+      },
+      "e": {
+        "expression": "argument",
+        "argNo": 0,
+        "type": {
+          "type": "record",
+          "attributes": [{
+            "type": {
+              "type": "int"
+            },
+            "relName": "inputs/sailors.csv",
+            "attrName": "sid",
+            "attrNo": 1
+          }, {
+            "type": {
+              "type": "string"
+            },
+            "relName": "inputs/sailors.csv",
+            "attrName": "sname",
+            "attrNo": 2
+          }, {
+            "type": {
+              "type": "int"
+            },
+            "relName": "inputs/sailors.csv",
+            "attrName": "rating",
+            "attrNo": 3
+          }, {
+            "type": {
+              "type": "float"
+            },
+            "relName": "inputs/sailors.csv",
+            "attrName": "age",
+            "attrNo": 4
+          }]
+        },
+        "attributes": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/sailors.csv",
+          "attrName": "sid",
+          "attrNo": 1
+        }]
+      },
+      "attribute": {
+        "type": {
+          "type": "int"
+        },
+        "relName": "inputs/sailors.csv",
+        "attrName": "sid",
+        "attrNo": 1
+      }
+    }],
+    "rightFields": [{
+      "expression": "recordProjection",
+      "type": {
+        "type": "int"
+      },
+      "e": {
+        "expression": "argument",
+        "argNo": 1,
+        "type": {
+          "type": "record",
+          "attributes": [{
+            "type": {
+              "type": "int"
+            },
+            "relName": "inputs/reserves.csv",
+            "attrName": "sid",
+            "attrNo": 1
+          }, {
+            "type": {
+              "type": "int"
+            },
+            "relName": "inputs/reserves.csv",
+            "attrName": "bid",
+            "attrNo": 2
+          }, {
+            "type": {
+              "type": "string"
+            },
+            "relName": "inputs/reserves.csv",
+            "attrName": "day",
+            "attrNo": 3
+          }, {
+            "type": {
+              "type": "float"
+            },
+            "relName": "inputs/sailors.csv",
+            "attrName": "age",
+            "attrNo": 4
+          }]
+        },
+        "attributes": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/reserves.csv",
+          "attrName": "sid",
+          "attrNo": 1
+        }]
+      },
+      "attribute": {
+        "type": {
+          "type": "int"
+        },
+        "relName": "inputs/reserves.csv",
+        "attrName": "sid",
+        "attrNo": 1
+      }
+    }],
+    "leftInput": {
+      "operator": "scan",
+      "plugin": {
+        "name": "inputs/sailors.csv",
+        "type": "csv",
+        "policy": 2,
+        "lines": 10,
+        "delimiter": ";",
+        "brackets": false,
+        "projections": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/sailors.csv",
+          "attrName": "sid",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/sailors.csv",
+          "attrName": "sname",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/sailors.csv",
+          "attrName": "rating",
+          "attrNo": 3
+        }, {
+          "type": {
+            "type": "float"
+          },
+          "relName": "inputs/sailors.csv",
+          "attrName": "age",
+          "attrNo": 4
+        }]
+      }
+    },
+    "rightInput": {
+      "operator": "scan",
+      "plugin": {
+        "name": "inputs/reserves.csv",
+        "type": "csv",
+        "policy": 2,
+        "lines": 10,
+        "delimiter": ";",
+        "brackets": false,
+        "projections": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/reserves.csv",
+          "attrName": "sid",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/reserves.csv",
+          "attrName": "bid",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/reserves.csv",
+          "attrName": "day",
+          "attrNo": 3
+        }]
+      }
+    }
+  }
+}

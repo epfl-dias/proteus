@@ -28,6 +28,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <list>
 #include <map>
 #include <sys/mman.h>
@@ -42,6 +43,13 @@
 #include <sstream>
 #include <stdexcept>
 #include <set>
+
+#include <cstdlib>
+#include <cstddef>
+
+#include "rapidjson/reader.h"
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
 
 //LLVM Includes
 #include "llvm/Analysis/Passes.h"
@@ -93,8 +101,8 @@
 
 #define DEBUG
 #define LOCAL_EXEC
-#undef DEBUG
-#undef LOCAL_EXEC
+//#undef DEBUG
+//#undef LOCAL_EXEC
 
 #define KB 1024
 #define MB (1024*KB)
@@ -142,5 +150,15 @@ typedef struct RawValue {
 	Value* value;
 	Value* isNull;
 } RawValue;
+
+/*
+ * Util Methods
+ */
+template <typename M, typename V>
+void MapToVec( const  M & m, V & v ) {
+    for( typename M::const_iterator it = m.begin(); it != m.end(); ++it ) {
+    	v.push_back( it->second );
+    }
+}
 
 #endif /* COMMON_HPP_ */

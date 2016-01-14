@@ -41,7 +41,7 @@ SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COMPILE_FLAGS}" )
 #add_definitions(${GCC_COMPILE_FLAGS})
 
 # code generation library
-file(GLOB codegen common/*.cpp util/*.cpp util/radix/*.cpp util/radix/joins/*.cpp util/radix/aggregations/*.cpp values/*.cpp expressions/*.cpp plugins/*.cpp plugins/output/*.cpp operators/*.cpp memory/*.cpp)
+file(GLOB codegen common/*.cpp util/*.cpp util/radix/*.cpp util/radix/joins/*.cpp util/radix/aggregations/*.cpp values/*.cpp expressions/*.cpp plugins/*.cpp plugins/output/*.cpp operators/*.cpp memory/*.cpp plan/*.cpp)
 add_library(codegen ${codegen})
 set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 
@@ -339,6 +339,13 @@ target_link_libraries(spam-workload jsmn)
 target_link_libraries(spam-workload -lglog ${glog_ldflags})
 target_link_libraries(spam-workload ${llvm_ldflags} ${llvm_libs})
 
+add_executable(plan-parsing plan-parsing.cpp)
+set_target_properties(plan-parsing PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(plan-parsing codegen)
+target_link_libraries(plan-parsing jsmn)
+target_link_libraries(plan-parsing -lglog ${glog_ldflags})
+target_link_libraries(plan-parsing ${llvm_ldflags} ${llvm_libs})
+
 # build googletest lib using the source code provided by the ubuntu package.
 include(ExternalProject)
 if(GTEST)
@@ -373,7 +380,17 @@ target_link_libraries(unit-tests -lglog ${glog_ldflags})
 target_link_libraries(unit-tests ${llvm_ldflags} ${llvm_libs})
 
 file(GLOB gtest_src_joins tests/tests-sailors.cpp)
-add_executable(unit-tests-json ${gtest_src_joins})
+add_executable(unit-tests-joins ${gtest_src_joins})
+set_target_properties(unit-tests-joins PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(unit-tests-joins codegen)
+target_link_libraries(unit-tests-joins jsmn)
+target_link_libraries(unit-tests-joins ${GTEST_LIBRARY})
+target_link_libraries(unit-tests-joins ${GTEST_MAIN_LIBRARY})
+target_link_libraries(unit-tests-joins -lglog ${glog_ldflags})
+target_link_libraries(unit-tests-joins ${llvm_ldflags} ${llvm_libs})
+
+file(GLOB gtest_src_json tests/tests-json.cpp)
+add_executable(unit-tests-json ${gtest_src_json})
 set_target_properties(unit-tests-json PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 target_link_libraries(unit-tests-json codegen)
 target_link_libraries(unit-tests-json jsmn)
@@ -381,6 +398,7 @@ target_link_libraries(unit-tests-json ${GTEST_LIBRARY})
 target_link_libraries(unit-tests-json ${GTEST_MAIN_LIBRARY})
 target_link_libraries(unit-tests-json -lglog ${glog_ldflags})
 target_link_libraries(unit-tests-json ${llvm_ldflags} ${llvm_libs})
+
 # copy data files too
 file(COPY "inputs" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 

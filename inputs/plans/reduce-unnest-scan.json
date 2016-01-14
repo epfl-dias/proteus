@@ -1,0 +1,155 @@
+{
+  "e": [{
+    "expression": "int",
+    "v": 1
+  }],
+  "operator": "reduce",
+  "accumulator": ["sum"],
+  "p": {
+    "expression": "bool",
+    "v": true
+  },
+  "input": {
+    "operator": "unnest",
+    "p": {
+      "expression": "bool",
+      "v": true
+    },
+    "argNo": 0,
+
+    "path": {
+      "name": "c",
+      "e": {
+        "expression": "recordProjection",
+        "type": {
+          "type": "list",
+          "inner": {
+            "type": "record",
+            "attributes": [{
+              "type": {
+                "type": "string"
+              },
+              "relName": "inputs/json/employees-flat.json",
+              "attrName": "name",
+              "attrNo": 1
+            }, {
+              "type": {
+                "type": "int"
+              },
+              "relName": "inputs/json/employees-flat.json",
+              "attrName": "age",
+              "attrNo": 2
+            }]
+          }
+        },
+        "e": {
+          "expression": "argument",
+          "argNo": 0,
+          "type": {
+            "type": "record",
+            "attributes": [{
+              "type": {
+                "type": "string"
+              },
+              "relName": "inputs/json/employees-flat.json",
+              "attrName": "name",
+              "attrNo": 1
+            }, {
+              "type": {
+                "type": "int"
+              },
+              "relName": "inputs/json/employees-flat.json",
+              "attrName": "age",
+              "attrNo": 2
+            }, {
+              "type": {
+                "type": "list",
+                "inner": {
+                  "type": "record",
+                  "attributes": [{
+                    "type": {
+                      "type": "string"
+                    },
+                    "relName": "inputs/json/employees-flat.json",
+                    "attrName": "name",
+                    "attrNo": 1
+                  }, {
+                    "type": {
+                      "type": "int"
+                    },
+                    "relName": "inputs/json/employees-flat.json",
+                    "attrName": "age",
+                    "attrNo": 2
+                  }]
+                }
+              },
+              "relName": "inputs/json/employees-flat.json",
+              "attrName": "children",
+              "attrNo": 3
+            }]
+          },
+          "attributes": [{
+            "type": {
+              "type": "list",
+              "inner": {
+                "type": "record",
+                "attributes": [{
+                  "type": {
+                    "type": "string"
+                  },
+                  "relName": "inputs/json/employees-flat.json",
+                  "attrName": "name",
+                  "attrNo": 1
+                }, {
+                  "type": {
+                    "type": "int"
+                  },
+                  "relName": "inputs/json/employees-flat.json",
+                  "attrName": "age",
+                  "attrNo": 2
+                }]
+              }
+            },
+            "relName": "inputs/json/employees-flat.json",
+            "attrName": "children",
+            "attrNo": 3
+          }]
+        },
+        "attribute": {
+          "type": {
+            "type": "list",
+            "inner": {
+              "type": "record",
+              "attributes": [{
+                "type": {
+                  "type": "string"
+                },
+                "relName": "inputs/json/employees-flat.json",
+                "attrName": "name",
+                "attrNo": 1
+              }, {
+                "type": {
+                  "type": "int"
+                },
+                "relName": "inputs/json/employees-flat.json",
+                "attrName": "age",
+                "attrNo": 2
+              }]
+            }
+          },
+          "relName": "inputs/json/employees-flat.json",
+          "attrName": "children",
+          "attrNo": 3
+        }
+      }
+    },
+    "input": {
+      "operator": "scan",
+      "plugin": {
+        "name": "inputs/json/employees-flat.json",
+        "type": "json",
+        "lines": 3
+      }
+    }
+  }
+}

@@ -98,6 +98,10 @@ RawValue MultExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
+RawValue DivExpression::accept(ExprVisitor &v) {
+	return v.visit(this);
+}
+
 RawValue AndExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
@@ -314,6 +318,18 @@ RawValue MultExpression::acceptTandem(ExprTandemVisitor &v,
 		MultExpression *rMultExpression =
 				dynamic_cast<MultExpression*>(expr);
 		return v.visit(this, rMultExpression);
+	}
+	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
+	LOG(ERROR)<< error_msg;
+	throw runtime_error(string(error_msg));
+}
+
+RawValue DivExpression::acceptTandem(ExprTandemVisitor &v,
+		expressions::Expression* expr) {
+	if (this->getTypeID() == expr->getTypeID()) {
+		DivExpression *rDivExpression =
+				dynamic_cast<DivExpression*>(expr);
+		return v.visit(this, rDivExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
 	LOG(ERROR)<< error_msg;

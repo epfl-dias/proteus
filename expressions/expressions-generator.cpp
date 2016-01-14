@@ -168,19 +168,6 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 	valWrapper.value = Builder->CreateLoad(argMem);
 	valWrapper.isNull = isNull;//context->createFalse();
 
-#ifdef DEBUG
-	{
-		Function* debugInt = context->getFunction("printi64");
-		vector<Value*> ArgsV;
-
-		ArgsV.push_back(valWrapper.value);
-		Builder->CreateCall(debugInt, ArgsV);
-		ArgsV.clear();
-		ArgsV.push_back(context->createInt64(100000001));
-		Builder->CreateCall(debugInt, ArgsV);
-	}
-#endif
-
 	return valWrapper;
 }
 

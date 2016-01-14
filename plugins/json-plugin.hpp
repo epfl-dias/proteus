@@ -82,8 +82,9 @@ typedef struct pmJSON {
 class JSONPlugin : public Plugin	{
 public:
 	/* XXX Do NOT use this constructor with large inputs until realloc() is implemented for lines */
-	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema);
-	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint);
+	/* Deprecated */
+//	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema);
+	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint = 1000);
 	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint, bool staticSchema);
 	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint, jsmntok_t **tokens);
 	~JSONPlugin();

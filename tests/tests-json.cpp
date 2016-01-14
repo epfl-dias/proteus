@@ -163,7 +163,7 @@ TEST(JSON, unnestJSON) {
 	string childName = string("name");
 	RecordAttribute child1 = RecordAttribute(1, fname, childName, &stringType);
 	string childAge = string("age");
-	RecordAttribute child2 = RecordAttribute(1, fname, childAge, &intType);
+	RecordAttribute child2 = RecordAttribute(2, fname, childAge, &intType);
 	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
 	attsNested.push_back(&child1);
 	RecordType nested = RecordType(attsNested);

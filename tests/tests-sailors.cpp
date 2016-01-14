@@ -79,7 +79,7 @@ TEST(Sailors, Scan) {
 	RecordAttribute* sid = new RecordAttribute(1,filename,string("sid"),intType);
 	RecordAttribute* sname = new RecordAttribute(2,filename,string("sname"),stringType);
 	RecordAttribute* rating = new RecordAttribute(3,filename,string("rating"),intType);
-	RecordAttribute* age = new RecordAttribute(3,filename,string("age"),floatType);
+	RecordAttribute* age = new RecordAttribute(4,filename,string("age"),floatType);
 
 	list<RecordAttribute*> attrList;
 	attrList.push_back(sid);
