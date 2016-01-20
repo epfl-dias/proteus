@@ -379,6 +379,10 @@ private:
 	Expression* expr;
 };
 
+/*
+ * XXX
+ * I think that unless it belongs to the final result, it is desugarized!!
+ */
 class RecordConstruction : public Expression	{
 public:
 	RecordConstruction(ExpressionType* type,

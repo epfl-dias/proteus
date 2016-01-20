@@ -27,7 +27,7 @@
 #include "common/common.hpp"
 /* Constants and macros to be used by micro-benchmark queries */
 
-//#define TPCH_LOCAL
+#define TPCH_LOCAL
 #ifndef TPCH_LOCAL
 #define TPCH_SERVER
 //#define TPCH_SF10

@@ -623,6 +623,58 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordConstruction *e)
 	return placeholder;
 }
 
+/* Code almost identical to CSVPlugin::flushValue */
+void ExpressionFlusherVisitor::flushValue(Value *val, typeID val_type) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
+	IRBuilder<> *Builder = context->getBuilder();
+	Function *flushFunc;
+	switch (val_type) {
+	case BOOL: {
+		flushFunc = context->getFunction("flushBoolean");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(val);
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return;
+	}
+	case STRING: {
+		/* Untested */
+		flushFunc = context->getFunction("flushStringObj");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(val);
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return;
+	}
+	case FLOAT: {
+		flushFunc = context->getFunction("flushDouble");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(val);
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return;
+	}
+	case INT: {
+		vector<Value*> ArgsV;
+		flushFunc = context->getFunction("flushInt");
+		ArgsV.push_back(val);
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return;
+	}
+	case BAG:
+	case LIST:
+	case SET:
+		LOG(ERROR)<< "[ExpressionFlusherVisitor: ] This method is meant for primitives!";
+		throw runtime_error(string("[ExpressionFlusherVisitor: ] This method is meant for primitives!"));
+		case RECORD:
+		LOG(ERROR) << "[ExpressionFlusherVisitor: ] This method is meant for primitives!";
+		throw runtime_error(string("[ExpressionFlusherVisitor: ] This method is meant for primitives!"));
+		default:
+		LOG(ERROR) << "[ExpressionFlusherVisitor: ] Unknown datatype";
+		throw runtime_error(string("[ExpressionFlusherVisitor: ] Unknown datatype"));
+	}
+}
 
 
 

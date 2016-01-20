@@ -113,7 +113,7 @@ void RawContext::prepareFunction(Function *F) {
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUGCTX
-//	getModule()->dump();
+	//getModule()->dump();
 #endif
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*F);
@@ -131,10 +131,11 @@ void RawContext::prepareFunction(Function *F) {
 	//Run function
 	struct timespec t0, t1;
 	clock_gettime(CLOCK_REALTIME, &t0);
-	FP(11);
+	int jitFuncResult = FP(11);
 	//LOG(INFO) << "Mock return value of generated function " << FP(11);
 	clock_gettime(CLOCK_REALTIME, &t1);
 	printf("(Already compiled) Execution took %f seconds\n",diff(t0, t1));
+	cout << "Return flag: " << jitFuncResult << endl;
 
 	TheFPM = 0;
 	//Dump to see final (optimized) form

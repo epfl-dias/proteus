@@ -258,6 +258,41 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 	}
 }
 
+
+RawValue ExpressionGeneratorVisitor::visit(expressions::RecordConstruction *e) {
+
+	RawCatalog& catalog 	   = RawCatalog::getInstance();
+	IRBuilder<>* const Builder = context->getBuilder();
+	Function *F 			   = Builder->GetInsertBlock()->getParent();
+
+	/* Evaluate new attribute expressions and keep their types */
+	vector<RawValue> valuesForStruct;
+	vector<Type*> typesForStruct;
+	list<expressions::AttributeConstruction>::const_iterator it = e->getAtts().begin();
+	for(; it != e->getAtts().end(); it++)
+	{
+		RawValue val = (it->getExpression())->accept(*this);
+		valuesForStruct.push_back(val);
+		typesForStruct.push_back(val.value->getType());
+	}
+
+	/* Construct struct type to hold record */
+	StructType* recStructType = context->CreateCustomStruct(typesForStruct);
+	AllocaInst* mem_struct =
+			context->CreateEntryBlockAlloca(F, "recConstr",recStructType);
+
+	vector<RawValue>::const_iterator itVal = valuesForStruct.begin();
+	int i = 0;
+	for (; itVal != valuesForStruct.end(); itVal++) {
+		context->updateStructElem(itVal->value,mem_struct,i++);
+	}
+	RawValue recStruct;
+	recStruct.value = Builder->CreateLoad(mem_struct);
+	recStruct.isNull = context->createFalse();
+
+	return recStruct;
+}
+
 //RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 //	RawCatalog& catalog 			= RawCatalog::getInstance();
 //	IRBuilder<>* const Builder		= context->getBuilder();
@@ -572,6 +607,15 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
 			valWrapper.value = TheBuilder->CreateICmpSGT(left.value, right.value);
 			return valWrapper;
 		case FLOAT:
+//#ifdef DEBUG
+{
+			vector<Value*> ArgsV;
+			ArgsV.clear();
+			ArgsV.push_back(left.value);
+			Function* debugF = context->getFunction("printFloat");
+			TheBuilder->CreateCall(debugF, ArgsV);
+}
+//#endif
 			valWrapper.value = TheBuilder->CreateFCmpOGT(left.value, right.value);
 			return valWrapper;
 		case BOOL:
@@ -661,6 +705,15 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::LtExpression *e) {
 			valWrapper.value = TheBuilder->CreateICmpSLT(left.value, right.value);
 			return valWrapper;
 		case FLOAT:
+#ifdef DEBUG
+{
+			vector<Value*> ArgsV;
+			ArgsV.clear();
+			ArgsV.push_back(left.value);
+			Function* debugF = context->getFunction("printFloat");
+			TheBuilder->CreateCall(debugF, ArgsV);
+}
+#endif
 			valWrapper.value = TheBuilder->CreateFCmpOLT(left.value, right.value);
 			return valWrapper;
 		case BOOL:

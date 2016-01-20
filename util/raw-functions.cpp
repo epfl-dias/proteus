@@ -600,11 +600,18 @@ void flushDelim(size_t resultCtr, char whichDelim, char* fileName) {
 
 void flushOutput(char* fileName)	{
 	RawCatalog& catalog = RawCatalog::getInstance();
-		string name = string(fileName);
-		stringstream* strBuffer = catalog.getSerializer(name);
-		ofstream outFile;
-		outFile.open(fileName);
-		outFile << strBuffer->rdbuf();
+	string name = string(fileName);
+	stringstream* strBuffer = catalog.getSerializer(name);
+	ofstream outFile;
+	cout << "Flushing to " << fileName << endl;
+
+	outFile.open(fileName,std::ofstream::out | std::ofstream::app);
+	const char *toFlush = strBuffer->rdbuf()->str().c_str();
+	cout << "Contents being flushed: " << toFlush << endl;
+	outFile << strBuffer->rdbuf();
+	//outFile << strBuffer->rdbuf();
+
+	outFile.close();
 }
 
 /**

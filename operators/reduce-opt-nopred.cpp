@@ -166,10 +166,6 @@ void ReduceNoPred::generateSum(expressions::Expression* outputExpr,
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-
-	/**
-	 * Predicate Evaluation:
-	 */
 	BasicBlock* entryBlock = Builder->GetInsertBlock();
 	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(
 			context, state);

@@ -128,7 +128,13 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 
 	fd = -1;
 	buf = NULL;
-	std::sort(wantedFields.begin(), wantedFields.end());
+
+	struct {
+		bool operator()(RecordAttribute* a, RecordAttribute* b) {
+			return a->getAttrNo() < b->getAttrNo();
+		}
+	} orderByNumber;
+	std::sort(wantedFields.begin(), wantedFields.end(), orderByNumber);
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
 	struct stat statbuf;
@@ -1407,12 +1413,13 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, Ra
 	Value* parsedFloat = Builder->CreateCall(atof_, ArgsV, "atof");
 	AllocaInst *currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);
 	Builder->CreateStore(parsedFloat,currResult);
-	LOG(INFO) << "[READ FLOAT: ] Atof Successful";
 
-#ifdef DEBUG
-//	ArgsV.clear();
-//	ArgsV.push_back(parsedFloat);
-//	Builder->CreateCall(debugFloat, ArgsV, "printf");
+#ifdef DEBUGPM
+	{
+		ArgsV.clear();
+		ArgsV.push_back(parsedFloat);
+		Builder->CreateCall(debugFloat, ArgsV, "printf");
+	}
 #endif
 	RawValueMemory mem_valWrapper;
 	mem_valWrapper.mem = currResult;
@@ -1454,7 +1461,7 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, Ra
 	}
 
 	Value* start = Builder->CreateLoad(mem_pos, "start_pos_atof");
-#ifdef DEBUG
+#ifdef DEBUGPM
 	{
 		vector<Value*> ArgsV;
 		ArgsV.clear();
@@ -1475,12 +1482,14 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, Ra
 	Value* parsedFloat = Builder->CreateCall(atof_, ArgsV, "atof");
 	AllocaInst *currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);
 	Builder->CreateStore(parsedFloat,currResult);
-	LOG(INFO) << "[READ FLOAT: ] Atof Successful";
 
-#ifdef DEBUG
-//	ArgsV.clear();
-//	ArgsV.push_back(parsedFloat);
-//	Builder->CreateCall(debugFloat, ArgsV, "printf");
+#ifdef DEBUGPM
+	{
+		Function* debugFloat = context->getFunction("printFloat");
+		ArgsV.clear();
+		ArgsV.push_back(parsedFloat);
+		Builder->CreateCall(debugFloat, ArgsV, "printf");
+	}
 #endif
 	RawValueMemory mem_valWrapper;
 	mem_valWrapper.mem = currResult;
@@ -1739,6 +1748,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 	Type* int16Type = Type::getInt16Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 	Function *F = context->getGlobalFunction();
+	context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
 	//Util.
 	Value* delimInner = ConstantInt::get(llvmContext, APInt(8, this->delimInner));

@@ -41,6 +41,31 @@ Materializer::Materializer(vector<RecordAttribute*> whichFields,
 	oidsProvided = true;
 }
 
+Materializer::Materializer(vector<expressions::Expression*> wantedExpressions) {
+	oidsProvided = true;
+	vector<expressions::Expression*>::const_iterator it =
+			wantedExpressions.begin();
+	for (; it != wantedExpressions.end(); it++) {
+		expressions::RecordProjection *proj =
+				dynamic_cast<expressions::RecordProjection*>(*it);
+		if (proj != NULL) {
+			RecordAttribute *recAttr = new RecordAttribute(
+					proj->getAttribute());
+			if (recAttr->getAttrName() == activeLoop) {
+				wantedOIDs.push_back(recAttr);
+			} else {
+				wantedFields.push_back(recAttr);
+			}
+		} else {
+			string error_msg =
+					"[Materializer: ] Unexpected value to materialize";
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		outputMode.push_back(EAGER);
+	}
+}
+
 OutputPlugin::OutputPlugin(RawContext* const context,
 		Materializer& materializer,
 		const map<RecordAttribute, RawValueMemory>& bindings) :

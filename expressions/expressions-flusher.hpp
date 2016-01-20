@@ -43,7 +43,7 @@ class ExpressionFlusherVisitor: public ExprVisitor
 {
 public:
 	ExpressionFlusherVisitor(RawContext* const context,
-			const OperatorState& currState, char* outputFile) :
+			const OperatorState& currState, const char* outputFile) :
 			context(context), currState(currState), outputFile(outputFile),
 			activeRelation("")
 	{
@@ -83,6 +83,9 @@ public:
 	RawValue visit(expressions::AndExpression *e);
 	RawValue visit(expressions::OrExpression *e);
 	RawValue visit(expressions::RecordConstruction *e);
+	/* Reduce produces accumulated value internally.
+	 * It makes no sense to probe a plugin in order to flush this value out */
+	void flushValue(Value *val, typeID val_type);
 
 	void setActiveRelation(string relName)		{ activeRelation = relName; }
 	string getActiveRelation(string relName)	{ return activeRelation; }
@@ -158,11 +161,20 @@ public:
 		ArgsV.push_back(outputFileLLVM);
 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
 	}
+	void flushDelim() {
+		outputFileLLVM = context->CreateGlobalString(this->outputFile);
+		Function *flushFunc = context->getFunction("flushChar");
+		vector<Value*> ArgsV;
+		//XXX JSON-specific -> Serializer business to differentiate
+		ArgsV.push_back(context->createInt8(','));
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
 
 private:
 	RawContext* const context;
 	const OperatorState& currState;
-	char* outputFile;
+	const char *outputFile;
 	Value* outputFileLLVM;
 
 	RawValue placeholder;

@@ -48,6 +48,11 @@ public:
 	RawValue visit(expressions::StringConstant *e);
 	RawValue visit(expressions::InputArgument *e);
 	RawValue visit(expressions::RecordProjection *e);
+	/*
+	 * XXX How is NULL propagated? What if one of the attributes is NULL;
+	 * XXX Did not have to test it yet -> Applicable to output only
+	 */
+	RawValue visit(expressions::RecordConstruction *e);
 	RawValue visit(expressions::IfThenElse *e);
 	//XXX Do binary operators require explicit handling of NULL?
 	RawValue visit(expressions::EqExpression *e);
@@ -62,16 +67,6 @@ public:
 	RawValue visit(expressions::DivExpression *e);
 	RawValue visit(expressions::AndExpression *e);
 	RawValue visit(expressions::OrExpression *e);
-
-	/**
-	 * STUBS
-	 */
-	RawValue visit(expressions::RecordConstruction *e) {
-		string error_msg = string("[ExpressionGeneratorVisitor]: Not implemented yet");
-		LOG(ERROR) << error_msg;
-		throw runtime_error(error_msg);
-	}
-
 	/**
 	 *
 	 */

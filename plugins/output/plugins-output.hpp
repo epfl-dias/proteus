@@ -41,7 +41,13 @@ enum materialization_mode {
 };
 
 class Materializer {
-
+/**
+ * Fields: All the attributes involved - oids and whatnot
+ * Expressions: The expressions (record projections!) in which the previous fields are used
+ * OIDs: The plugin-created identifiers
+ *
+ * FIXME There is DEFINITELY a better way to do this.
+ */
 public:
 	Materializer(vector<RecordAttribute*> whichFields,
 				vector<expressions::Expression*> wantedExpressions,
@@ -49,8 +55,13 @@ public:
 				vector<materialization_mode> outputMode_);
 
 	Materializer(vector<RecordAttribute*> whichFields,
-//			const vector<expressions::Expression*>& wantedExpressions,
 			vector<materialization_mode> outputMode_) __attribute__ ((deprecated));
+
+	/*
+	 * XXX New constructor, hoping to simplify process
+	 * Materializes eagerly
+	 */
+	Materializer(vector<expressions::Expression*> wantedExpressions);
 
 	~Materializer() {}
 
