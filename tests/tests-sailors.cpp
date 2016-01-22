@@ -33,10 +33,9 @@
 #include "util/raw-functions.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
-#include "operators/join.hpp"
-#include "operators/print.hpp"
-#include "operators/root.hpp"
-#include "plugins/csv-plugin.hpp"
+#include "operators/radix-join.hpp"
+#include "operators/reduce-opt.hpp"
+#include "plugins/csv-plugin-pm.hpp"
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
@@ -64,131 +63,243 @@
 // that their results don't depend on their order.
 //
 // </TechnicalDetails>
+//
+//void verifyResult(const char *testLabel)	{
+//	/* Compare with template answer */
+//	/* correct */
+//	struct stat statbuf;
+//	string correctResult = string("testResults/tests-sailors/") + testLabel;
+//	stat(correctResult.c_str(), &statbuf);
+//	size_t fsize1 = statbuf.st_size;
+//	int fd1 = open(correctResult.c_str(), O_RDONLY);
+//	if (fd1 == -1) {
+//		throw runtime_error(string("csv.open: ")+correctResult);
+//	}
+//	char *correctBuf = (char*) mmap(NULL, fsize1, PROT_READ | PROT_WRITE,
+//			MAP_PRIVATE, fd1, 0);
+//
+//	/* current */
+//	stat(testLabel, &statbuf);
+//	size_t fsize2 = statbuf.st_size;
+//	int fd2 = open(testLabel, O_RDONLY);
+//	if (fd2 == -1) {
+//		throw runtime_error(string("csv.open: ")+testLabel);
+//	}
+//	char *currResultBuf = (char*) mmap(NULL, fsize2, PROT_READ | PROT_WRITE,
+//			MAP_PRIVATE, fd2, 0);
+//	cout << correctBuf << endl;
+//	cout << currResultBuf << endl;
+//	bool areEqual = (strcmp(correctBuf, currResultBuf) == 0) ? true : false;
+//	EXPECT_TRUE(areEqual);
+//
+//	close(fd1);
+//	munmap(correctBuf, fsize1);
+//	close(fd2);
+//	munmap(currResultBuf, fsize2);
+//	if (remove(testLabel) != 0) {
+//		throw runtime_error(string("Error deleting file"));
+//	}
+//}
 
-/* Still use previous join implementation! */
 TEST(Sailors, Scan) {
-	RawContext ctx = RawContext("Sailors-Scan");
+	const char *testPath = "testResults/tests-sailors/";
+	const char *testLabel = "sailorsScan.json";
+	bool flushResults = true;
+
+	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
-	//SCAN1
-	string filename = string("inputs/sailors.csv");
+	/**
+	 * SCAN1
+	 */
+	string sailorsPath = string("inputs/sailors.csv");
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();
 	PrimitiveType* stringType = new StringType();
-	RecordAttribute* sid = new RecordAttribute(1,filename,string("sid"),intType);
-	RecordAttribute* sname = new RecordAttribute(2,filename,string("sname"),stringType);
-	RecordAttribute* rating = new RecordAttribute(3,filename,string("rating"),intType);
-	RecordAttribute* age = new RecordAttribute(4,filename,string("age"),floatType);
+	RecordAttribute* sid = new RecordAttribute(1, sailorsPath, string("sid"),
+			intType);
+	RecordAttribute* sname = new RecordAttribute(2, sailorsPath,
+			string("sname"), stringType);
+	RecordAttribute* rating = new RecordAttribute(3, sailorsPath,
+			string("rating"), intType);
+	RecordAttribute* age = new RecordAttribute(4, sailorsPath, string("age"),
+			floatType);
 
-	list<RecordAttribute*> attrList;
-	attrList.push_back(sid);
-	attrList.push_back(sname);
-	attrList.push_back(rating);
-	attrList.push_back(age);
-	RecordType rec1 = RecordType(attrList);
+	list<RecordAttribute*> sailorAtts;
+	sailorAtts.push_back(sid);
+	sailorAtts.push_back(sname);
+	sailorAtts.push_back(rating);
+	sailorAtts.push_back(age);
+	RecordType sailorRec = RecordType(sailorAtts);
 
-	vector<RecordAttribute*> whichFields;
-	whichFields.push_back(sid);
-	whichFields.push_back(age);
+	vector<RecordAttribute*> sailorAttsToProject;
+	sailorAttsToProject.push_back(sid);
+	sailorAttsToProject.push_back(age); //Float
 
-	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
-	catalog.registerPlugin(filename,pg);
-	Scan scan = Scan(&ctx, *pg);
+	int linehint = 10;
+	int policy = 2;
+	pm::CSVPlugin* pgSailors = new pm::CSVPlugin(&ctx, sailorsPath, sailorRec,
+			sailorAttsToProject, ';', linehint, policy, false);
+	catalog.registerPlugin(sailorsPath, pgSailors);
+	Scan scanSailors = Scan(&ctx, *pgSailors);
 
-	Root rootOp = Root(&scan);
-	scan.setParent(&rootOp);
-	rootOp.produce();
+	/**
+	 * REDUCE
+	 */
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(*sid);
+	projections.push_back(*age);
+
+	expressions::Expression *arg = new expressions::InputArgument(&sailorRec, 0,
+			projections);
+	expressions::Expression *outputExpr = new expressions::RecordProjection(
+			intType, arg, *sid);
+	expressions::Expression *one = new expressions::IntConstant(1);
+
+	expressions::Expression *predicate = new expressions::BoolConstant(true);
+
+	vector<Monoid> accs;
+	vector<expressions::Expression*> exprs;
+	accs.push_back(MAX);
+	exprs.push_back(outputExpr);
+	/* Sanity checks*/
+	accs.push_back(SUM);
+	exprs.push_back(outputExpr);
+	accs.push_back(SUM);
+	exprs.push_back(one);
+	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &scanSailors, &ctx,
+			flushResults, testLabel);
+	scanSailors.setParent(&reduce);
+	reduce.produce();
 
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	//Close all open files & clear
-	pg->finish();
+	pgSailors->finish();
+
 	catalog.clear();
-	EXPECT_TRUE(true);
+
+	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
 TEST(Sailors, Select) {
-	RawContext ctx = RawContext("Sailors-Select");
+	const char *testPath = "testResults/tests-sailors/";
+	const char *testLabel = "sailorsSel.json";
+	bool flushResults = true;
+
+	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
-	//SCAN1
-	string filename = string("inputs/sailors.csv");
+	/**
+	 * SCAN1
+	 */
+	string sailorsPath = string("inputs/sailors.csv");
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();
 	PrimitiveType* stringType = new StringType();
-	RecordAttribute* sid = new RecordAttribute(1,filename,string("sid"),intType);
-	RecordAttribute* sname = new RecordAttribute(2,filename,string("sname"),stringType);
-	RecordAttribute* rating = new RecordAttribute(3,filename,string("rating"),intType);
-	RecordAttribute* age = new RecordAttribute(4,filename,string("age"),floatType);
+	RecordAttribute* sid = new RecordAttribute(1, sailorsPath, string("sid"),
+			intType);
+	RecordAttribute* sname = new RecordAttribute(2, sailorsPath,
+			string("sname"), stringType);
+	RecordAttribute* rating = new RecordAttribute(3, sailorsPath,
+			string("rating"), intType);
+	RecordAttribute* age = new RecordAttribute(4, sailorsPath, string("age"),
+			floatType);
 
-	list<RecordAttribute*> attrList;
-	attrList.push_back(sid);
-	attrList.push_back(sname);
-	attrList.push_back(rating);
-	attrList.push_back(age);
-	RecordType rec1 = RecordType(attrList);
+	list<RecordAttribute*> sailorAtts;
+	sailorAtts.push_back(sid);
+	sailorAtts.push_back(sname);
+	sailorAtts.push_back(rating);
+	sailorAtts.push_back(age);
+	RecordType sailorRec = RecordType(sailorAtts);
 
-	vector<RecordAttribute*> whichFields;
-	whichFields.push_back(sid);
-	whichFields.push_back(age);
+	vector<RecordAttribute*> sailorAttsToProject;
+	sailorAttsToProject.push_back(sid);
+	sailorAttsToProject.push_back(age); //Float
 
-	CSVPlugin* pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
-	catalog.registerPlugin(filename,pg);
-	Scan scan = Scan(&ctx, *pg);
+	int linehint = 10;
+	int policy = 2;
+	pm::CSVPlugin* pgSailors = new pm::CSVPlugin(&ctx, sailorsPath, sailorRec,
+			sailorAttsToProject, ';', linehint, policy, false);
+	catalog.registerPlugin(sailorsPath, pgSailors);
+	Scan scanSailors = Scan(&ctx, *pgSailors);
 
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
-	projections.push_back(projTuple);
 	projections.push_back(*sid);
 	projections.push_back(*age);
-	expressions::Expression* lhsArg = new expressions::InputArgument(new FloatType(),0,projections);
-	expressions::Expression* lhs = new expressions::RecordProjection(new FloatType(),lhsArg,*age);
+
+	expressions::Expression *arg = new expressions::InputArgument(&sailorRec, 0,
+			projections);
+
+	expressions::Expression* lhs = new expressions::RecordProjection(
+			new FloatType(), arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40);
-	expressions::Expression* predicate = new expressions::GtExpression(new BoolType(),lhs,rhs);
-	Select sel = Select(predicate,&scan);
-	scan.setParent(&sel);
+	expressions::Expression* predicate = new expressions::GtExpression(
+			new BoolType(), lhs, rhs);
+	Select sel = Select(predicate, &scanSailors);
+	scanSailors.setParent(&sel);
 
 	/**
-	 * PRINT
+	 * REDUCE
 	 */
-	Function* debugInt = ctx.getFunction("printi");
-	expressions::RecordProjection* argProj = new expressions::RecordProjection(new IntType(),lhsArg,*sid);
-	Print printOpProj = Print(debugInt,argProj,&sel);
-	sel.setParent(&printOpProj);
+	expressions::Expression *outputExpr = new expressions::RecordProjection(
+			intType, arg, *sid);
+	expressions::Expression *one = new expressions::IntConstant(1);
 
-	Root rootOp = Root(&printOpProj);
-	printOpProj.setParent(&rootOp);
-	rootOp.produce();
+	expressions::Expression *predicateRed = new expressions::BoolConstant(true);
+
+	vector<Monoid> accs;
+	vector<expressions::Expression*> exprs;
+	accs.push_back(MAX);
+	exprs.push_back(outputExpr);
+	/* Sanity checks*/
+	accs.push_back(SUM);
+	exprs.push_back(outputExpr);
+	accs.push_back(SUM);
+	exprs.push_back(one);
+	opt::Reduce reduce = opt::Reduce(accs, exprs, predicateRed, &sel, &ctx,
+			flushResults, testLabel);
+	sel.setParent(&reduce);
+	reduce.produce();
 
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	//Close all open files & clear
-	pg->finish();
+	pgSailors->finish();
+
 	catalog.clear();
-	EXPECT_TRUE(true);
+
+	EXPECT_TRUE(verifyTestResult(testPath, testLabel));
 }
 
+
 TEST(Sailors, ScanBoats) {
-	RawContext ctx = RawContext("Sailors-ScanBoats");
+	const char *testPath = "testResults/tests-sailors/";
+	const char *testLabel = "sailorsScanBoats.json";
+	bool flushResults = true;
+
+	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
-
-	//SCAN1
-	string filenameBoats = string("inputs/boats.csv");
 	PrimitiveType* intType = new IntType();
-	PrimitiveType* floatType = new StringType();
+	PrimitiveType* floatType = new FloatType();
 	PrimitiveType* stringType = new StringType();
-	RecordAttribute* bidBoats = new RecordAttribute(1,filenameBoats,string("bid"),intType);
-	RecordAttribute* bnameBoats = new RecordAttribute(2,filenameBoats,string("bname"),stringType);
-	RecordAttribute* colorBoats = new RecordAttribute(3,filenameBoats,string("color"),stringType);
+
+	string filenameBoats = string("inputs/boats.csv");
+	RecordAttribute* bidBoats = new RecordAttribute(1, filenameBoats,
+			string("bid"), intType);
+	RecordAttribute* bnameBoats = new RecordAttribute(2, filenameBoats,
+			string("bname"), stringType);
+	RecordAttribute* colorBoats = new RecordAttribute(3, filenameBoats,
+			string("color"), stringType);
 
 	list<RecordAttribute*> attrListBoats;
 	attrListBoats.push_back(bidBoats);
@@ -199,13 +310,40 @@ TEST(Sailors, ScanBoats) {
 	vector<RecordAttribute*> whichFieldsBoats;
 	whichFieldsBoats.push_back(bidBoats);
 
-	CSVPlugin* pgBoats = new CSVPlugin(&ctx, filenameBoats, recBoats, whichFieldsBoats);
-	catalog.registerPlugin(filenameBoats,pgBoats);
+	int linehint = 4;
+	int policy = 2;
+	pm::CSVPlugin* pgBoats = new pm::CSVPlugin(&ctx, filenameBoats, recBoats,
+			whichFieldsBoats, ';', linehint, policy, false);
+	catalog.registerPlugin(filenameBoats, pgBoats);
 	Scan scanBoats = Scan(&ctx, *pgBoats);
 
-	Root rootOp = Root(&scanBoats);
-	scanBoats.setParent(&rootOp);
-	rootOp.produce();
+	/**
+	 * REDUCE
+	 */
+	list<RecordAttribute> fieldsBoats = list<RecordAttribute>();
+	fieldsBoats.push_back(*bidBoats);
+	expressions::Expression *boatsArg = new expressions::InputArgument(intType,
+			1, fieldsBoats);
+
+	expressions::Expression* outputExpr = new expressions::RecordProjection(
+			intType, boatsArg, *bidBoats);
+	expressions::Expression *one = new expressions::IntConstant(1);
+
+	expressions::Expression *predicateRed = new expressions::BoolConstant(true);
+
+	vector<Monoid> accs;
+	vector<expressions::Expression*> exprs;
+	accs.push_back(MAX);
+	exprs.push_back(outputExpr);
+	/* Sanity checks*/
+	accs.push_back(SUM);
+	exprs.push_back(outputExpr);
+	accs.push_back(SUM);
+	exprs.push_back(one);
+	opt::Reduce reduce = opt::Reduce(accs, exprs, predicateRed, &scanBoats,
+			&ctx, flushResults, testLabel);
+	scanBoats.setParent(&reduce);
+	reduce.produce();
 
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
@@ -217,95 +355,124 @@ TEST(Sailors, ScanBoats) {
 }
 
 TEST(Sailors, JoinLeft3) {
-	RawContext ctx = RawContext("Sailors-JoinLeft3");
+	const char *testPath = "testResults/tests-sailors/";
+	const char *testLabel = "sailorsJoinLeft3.json";
+	bool flushResults = true;
+
+
+	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
 	 * SCAN1
 	 */
-	string filename = string("inputs/sailors.csv");
+	string sailorsPath = string("inputs/sailors.csv");
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();
 	PrimitiveType* stringType = new StringType();
-	RecordAttribute* sid = new RecordAttribute(1,filename,string("sid"),intType);
-	RecordAttribute* sname = new RecordAttribute(2,filename,string("sname"),stringType);
-	RecordAttribute* rating = new RecordAttribute(3,filename,string("rating"),intType);
-	RecordAttribute* age = new RecordAttribute(3,filename,string("age"),floatType);
+	RecordAttribute* sid = new RecordAttribute(1,sailorsPath,string("sid"),intType);
+	RecordAttribute* sname = new RecordAttribute(2,sailorsPath,string("sname"),stringType);
+	RecordAttribute* rating = new RecordAttribute(3,sailorsPath,string("rating"),intType);
+	RecordAttribute* age = new RecordAttribute(4,sailorsPath,string("age"),floatType);
 
-	list<RecordAttribute*> attrList;
-	attrList.push_back(sid);
-	attrList.push_back(sname);
-	attrList.push_back(rating);
-	attrList.push_back(age);
-	RecordType rec1 = RecordType(attrList);
+	list<RecordAttribute*> sailorAtts;
+	sailorAtts.push_back(sid);
+	sailorAtts.push_back(sname);
+	sailorAtts.push_back(rating);
+	sailorAtts.push_back(age);
+	RecordType sailorRec = RecordType(sailorAtts);
 
-	vector<RecordAttribute*> whichFields;
-	whichFields.push_back(sid);
-	//whichFields.push_back(rating); //Int
-	whichFields.push_back(age); //Float
+	vector<RecordAttribute*> sailorAttsToProject;
+	sailorAttsToProject.push_back(sid);
+	sailorAttsToProject.push_back(age); //Float
 
-	CSVPlugin* pgSailors = new CSVPlugin(&ctx, filename, rec1, whichFields);
-	catalog.registerPlugin(filename,pgSailors);
-
+	int linehint = 10;
+	int policy = 2;
+	pm::CSVPlugin* pgSailors =
+			new pm::CSVPlugin(&ctx, sailorsPath, sailorRec, sailorAttsToProject, ';', linehint, policy, false);
+	catalog.registerPlugin(sailorsPath,pgSailors);
 	Scan scanSailors = Scan(&ctx, *pgSailors);
 
 	/**
 	 * SCAN2
 	 */
-	string filename2 = string("inputs/reserves.csv");
-	RecordAttribute* sidReserves = new RecordAttribute(1,filename2,string("sid"),intType);
-	RecordAttribute* bidReserves = new RecordAttribute(2,filename2,string("bid"),intType);
-	RecordAttribute* day = new RecordAttribute(3,filename2,string("day"),stringType);
+	string reservesPath = string("inputs/reserves.csv");
+	RecordAttribute* sidReserves = new RecordAttribute(1,reservesPath,string("sid"),intType);
+	RecordAttribute* bidReserves = new RecordAttribute(2,reservesPath,string("bid"),intType);
+	RecordAttribute* day = new RecordAttribute(3,reservesPath,string("day"),stringType);
 
-	list<RecordAttribute*> attrList2;
-	attrList2.push_back(sidReserves);
-	attrList2.push_back(bidReserves);
-	attrList2.push_back(day);
-	RecordType rec2 = RecordType(attrList2);
-	vector<RecordAttribute*> whichFields2;
-	whichFields2.push_back(sidReserves);
-	whichFields2.push_back(bidReserves);
+	list<RecordAttribute*> reserveAtts;
+	reserveAtts.push_back(sidReserves);
+	reserveAtts.push_back(bidReserves);
+	reserveAtts.push_back(day);
+	RecordType reserveRec = RecordType(reserveAtts);
+	vector<RecordAttribute*> reserveAttsToProject;
+	reserveAttsToProject.push_back(sidReserves);
+	reserveAttsToProject.push_back(bidReserves);
 
-	CSVPlugin* pgReserves = new CSVPlugin(&ctx, filename2, rec2, whichFields2);
-	catalog.registerPlugin(filename2,pgReserves);
+	linehint = 10;
+	policy = 2;
+	pm::CSVPlugin* pgReserves =
+			new pm::CSVPlugin(&ctx, reservesPath, reserveRec, reserveAttsToProject, ';', linehint, policy, false);
+	catalog.registerPlugin(reservesPath,pgReserves);
 	Scan scanReserves = Scan(&ctx, *pgReserves);
 
 	/**
 	 * JOIN
 	 */
-	RecordAttribute projTupleL = RecordAttribute(filename, activeLoop, pgSailors->getOIDType());
-	list<RecordAttribute> projectionsL = list<RecordAttribute>();
-	projectionsL.push_back(projTupleL);
-	projectionsL.push_back(*sid);
-	projectionsL.push_back(*age);
-	expressions::Expression* leftArg = new expressions::InputArgument(intType,0,projectionsL);
-	expressions::Expression* left = new expressions::RecordProjection(intType,leftArg,*sid);
+	/* Sailors: Left-side fields for materialization etc. */
+	RecordAttribute sailorOID = RecordAttribute(sailorsPath, activeLoop,
+			pgSailors->getOIDType());
+	list<RecordAttribute> sailorAttsForArg = list<RecordAttribute>();
+	sailorAttsForArg.push_back(sailorOID);
+	sailorAttsForArg.push_back(*sid);
+	sailorAttsForArg.push_back(*age);
+	expressions::Expression *sailorArg = new expressions::InputArgument(intType,
+			0, sailorAttsForArg);
+	expressions::Expression *sailorOIDProj = new expressions::RecordProjection(
+			intType, sailorArg, sailorOID);
+	expressions::Expression*sailorSIDProj = new expressions::RecordProjection(
+			intType, sailorArg, *sid);
+	expressions::Expression *sailorAgeProj = new expressions::RecordProjection(
+			floatType, sailorArg, *age);
+	vector<expressions::Expression*> exprsToMatSailor;
+	exprsToMatSailor.push_back(sailorOIDProj);
+	exprsToMatSailor.push_back(sailorSIDProj);
+	exprsToMatSailor.push_back(sailorAgeProj);
+	Materializer* matSailor = new Materializer(exprsToMatSailor);
 
-	RecordAttribute projTupleR = RecordAttribute(filename2, activeLoop, pgReserves->getOIDType());
-	list<RecordAttribute> projectionsR = list<RecordAttribute>();
-	projectionsR.push_back(projTupleR);
-	projectionsR.push_back(*sidReserves);
-	projectionsR.push_back(*bidReserves);
-	expressions::Expression* rightArg = new expressions::InputArgument(intType,1,projectionsR);
-	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,*sidReserves);
+	/* Reserves: Right-side fields for materialization etc. */
+	RecordAttribute reservesOID = RecordAttribute(reservesPath, activeLoop, pgReserves->getOIDType());
+	list<RecordAttribute> reserveAttsForArg = list<RecordAttribute>();
+	reserveAttsForArg.push_back(reservesOID);
+	reserveAttsForArg.push_back(*sidReserves);
+	reserveAttsForArg.push_back(*bidReserves);
+	expressions::Expression *reservesArg = new expressions::InputArgument(intType,
+			1, reserveAttsForArg);
+	expressions::Expression *reservesOIDProj = new expressions::RecordProjection(
+			pgReserves->getOIDType(), reservesArg, reservesOID);
+	expressions::Expression* reservesSIDProj = new expressions::RecordProjection(
+			intType, reservesArg, *sidReserves);
+	expressions::Expression* reservesBIDProj = new expressions::RecordProjection(
+				intType, reservesArg, *bidReserves);
+	vector<expressions::Expression*> exprsToMatReserves;
+	exprsToMatReserves.push_back(reservesOIDProj);
+	//exprsToMatRight.push_back(resevesSIDProj);
+	exprsToMatReserves.push_back(reservesBIDProj);
 
-	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
+	Materializer* matReserves = new Materializer(exprsToMatReserves);
 
-	vector<materialization_mode> outputModes;
-	//Active Loop Too
-	outputModes.insert(outputModes.begin(), EAGER);
-	outputModes.insert(outputModes.begin(),EAGER);
-	outputModes.insert(outputModes.begin(),EAGER);
-	Materializer* mat = new Materializer(whichFields,outputModes);
+	expressions::BinaryExpression* joinPred =
+			new expressions::EqExpression(new BoolType(),sailorSIDProj,reservesSIDProj);
 
-	char joinLabel[] = "join1";
-	Join join = Join(joinPred, &scanSailors, &scanReserves,joinLabel,*mat);
+	char joinLabel[] = "sailors_reserves";
+	RadixJoin join = RadixJoin(joinPred, &scanSailors, &scanReserves, &ctx, joinLabel, *matSailor, *matReserves);
 	scanSailors.setParent(&join);
 	scanReserves.setParent(&join);
 
 
-	//SCAN3
+	//SCAN3: BOATS
 	string filenameBoats = string("inputs/boats.csv");
 	RecordAttribute* bidBoats = new RecordAttribute(1,filenameBoats,string("bid"),intType);
 	RecordAttribute* bnameBoats = new RecordAttribute(2,filenameBoats,string("bname"),stringType);
@@ -320,47 +487,78 @@ TEST(Sailors, JoinLeft3) {
 	vector<RecordAttribute*> whichFieldsBoats;
 	whichFieldsBoats.push_back(bidBoats);
 
-	CSVPlugin* pgBoats = new CSVPlugin(&ctx, filenameBoats, recBoats, whichFieldsBoats);
+	linehint = 4;
+	policy = 2;
+	pm::CSVPlugin* pgBoats = new pm::CSVPlugin(&ctx, filenameBoats, recBoats,
+			whichFieldsBoats, ';', linehint, policy, false);
 	catalog.registerPlugin(filenameBoats,pgBoats);
 	Scan scanBoats = Scan(&ctx, *pgBoats);
 
 	/**
-	 * JOIN2
+	 * JOIN2: BOATS
 	 */
-	expressions::Expression* leftArg2 = new expressions::InputArgument(intType,0,projectionsR);
-	expressions::Expression* left2 = new expressions::RecordProjection(intType,leftArg2,*bidReserves);
+	expressions::Expression *previousJoinArg =
+			new expressions::InputArgument(intType,0,reserveAttsForArg);
+	expressions::Expression *previousJoinBIDProj =
+			new expressions::RecordProjection(intType,previousJoinArg,*bidReserves);
+	vector<expressions::Expression*> exprsToMatPreviousJoin;
+	exprsToMatPreviousJoin.push_back(sailorOIDProj);
+	exprsToMatPreviousJoin.push_back(reservesOIDProj);
+	exprsToMatPreviousJoin.push_back(sailorSIDProj);
+	Materializer* matPreviousJoin = new Materializer(exprsToMatPreviousJoin);
 
 	RecordAttribute projTupleBoat = RecordAttribute(filenameBoats, activeLoop, pgBoats->getOIDType());
-	list<RecordAttribute> projectionsBoats = list<RecordAttribute>();
-	projectionsBoats.push_back(projTupleBoat);
-	projectionsBoats.push_back(*bidBoats);
-	expressions::Expression* rightArg2 = new expressions::InputArgument(intType,1,projectionsBoats);
-	expressions::Expression* right2 = new expressions::RecordProjection(intType,rightArg2,*bidBoats);
+	list<RecordAttribute> fieldsBoats = list<RecordAttribute>();
+	fieldsBoats.push_back(projTupleBoat);
+	fieldsBoats.push_back(*bidBoats);
+	expressions::Expression* boatsArg =
+			new expressions::InputArgument(intType,1,fieldsBoats);
+	expressions::Expression* boatsOIDProj =
+			new expressions::RecordProjection(pgBoats->getOIDType(),boatsArg,projTupleBoat);
+	expressions::Expression* boatsBIDProj =
+			new expressions::RecordProjection(intType,boatsArg,*bidBoats);
 
-	expressions::BinaryExpression* joinPred2 = new expressions::EqExpression(new BoolType(),left2,right2);
-	vector<materialization_mode> outputModes2;
-	//1 + activeLoop
-	outputModes2.insert(outputModes2.begin(),EAGER);
-	outputModes2.insert(outputModes2.begin(),EAGER);
-	Materializer* mat2 = new Materializer(whichFields2,outputModes2);
+	vector<expressions::Expression*> exprsToMatBoats;
+	exprsToMatBoats.push_back(boatsOIDProj);
+	exprsToMatBoats.push_back(boatsBIDProj);
+	Materializer* matBoats = new Materializer(exprsToMatBoats);
 
-	char joinLabel2[] = "join2";
-	Join join2 = Join(joinPred2, &join, &scanBoats, joinLabel2, *mat2);
+	expressions::BinaryExpression* joinPred2 =
+			new expressions::EqExpression(new BoolType(),previousJoinBIDProj,boatsBIDProj);
+
+	char joinLabel2[] = "sailors_reserves_boats";
+	RadixJoin join2 = RadixJoin(joinPred2, &join, &scanBoats, &ctx, joinLabel2, *matPreviousJoin, *matBoats);
 	join.setParent(&join2);
 	scanBoats.setParent(&join2);
 
+	/**
+	 * REDUCE
+	 */
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(*sid);
+	projections.push_back(*age);
 
-	//PRINT
-	Function* debugInt = ctx.getFunction("printi");
-	expressions::RecordProjection* argProj = new expressions::RecordProjection(new IntType(),leftArg2,*bidBoats);
-	Print printOpProj = Print(debugInt,argProj,&join2);
-	join2.setParent(&printOpProj);
+	expressions::Expression *arg =
+			new expressions::InputArgument(&sailorRec, 0,projections);
+	expressions::Expression *outputExpr =
+			new expressions::RecordProjection(intType, arg, *sid);
+	expressions::Expression *one = new expressions::IntConstant(1);
 
+	expressions::Expression *predicate = new expressions::BoolConstant(true);
 
-	//ROOT
-	Root rootOp = Root(&printOpProj);
-	printOpProj.setParent(&rootOp);
-	rootOp.produce();
+	vector<Monoid> accs;
+	vector<expressions::Expression*> exprs;
+	accs.push_back(MAX);
+	exprs.push_back(outputExpr);
+	/* Sanity checks*/
+	accs.push_back(SUM);
+	exprs.push_back(outputExpr);
+	accs.push_back(SUM);
+	exprs.push_back(one);
+	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &join2, &ctx,
+			flushResults, testLabel);
+	join2.setParent(&reduce);
+	reduce.produce();
 
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
@@ -369,14 +567,17 @@ TEST(Sailors, JoinLeft3) {
 	pgSailors->finish();
 	pgReserves->finish();
 	pgBoats->finish();
-
 	catalog.clear();
-	EXPECT_TRUE(true);
+
+	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
-//Just like previous one, but with permuted operators
 TEST(Sailors, JoinRight3) {
-	RawContext ctx = RawContext("Sailors-JoinRight3");
+	const char *testPath = "testResults/tests-sailors/";
+	const char *testLabel = "sailorsJoinRight3.json";
+	bool flushResults = true;
+
+	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
@@ -384,32 +585,42 @@ TEST(Sailors, JoinRight3) {
 	PrimitiveType* floatType = new FloatType();
 	PrimitiveType* stringType = new StringType();
 
-	//SCAN2
-	string filename2 = string("inputs/reserves.csv");
-	RecordAttribute* sidReserves = new RecordAttribute(1,filename2,string("sid"),intType);
-	RecordAttribute* bidReserves = new RecordAttribute(2,filename2,string("bid"),intType);
-	RecordAttribute* day = new RecordAttribute(3,filename2,string("day"),stringType);
-	list<RecordAttribute*> attrList2;
-	attrList2.push_back(sidReserves);
-	attrList2.push_back(bidReserves);
-	attrList2.push_back(day);
-	RecordType rec2 = RecordType(attrList2);
+	/**
+	 * SCAN2
+	 */
+	string reservesPath = string("inputs/reserves.csv");
+	RecordAttribute* sidReserves = new RecordAttribute(1, reservesPath,
+			string("sid"), intType);
+	RecordAttribute* bidReserves = new RecordAttribute(2, reservesPath,
+			string("bid"), intType);
+	RecordAttribute* day = new RecordAttribute(3, reservesPath, string("day"),
+			stringType);
 
-	vector<RecordAttribute*> whichFields2;
-	whichFields2.push_back(sidReserves);
-	whichFields2.push_back(bidReserves);
+	list<RecordAttribute*> reserveAtts;
+	reserveAtts.push_back(sidReserves);
+	reserveAtts.push_back(bidReserves);
+	reserveAtts.push_back(day);
+	RecordType reserveRec = RecordType(reserveAtts);
+	vector<RecordAttribute*> reserveAttsToProject;
+	reserveAttsToProject.push_back(sidReserves);
+	reserveAttsToProject.push_back(bidReserves);
 
-	CSVPlugin* pgReserves = new CSVPlugin(&ctx, filename2, rec2, whichFields2);
-	catalog.registerPlugin(filename2,pgReserves);
-
+	int linehint = 10;
+	int policy = 2;
+	pm::CSVPlugin* pgReserves = new pm::CSVPlugin(&ctx, reservesPath,
+			reserveRec, reserveAttsToProject, ';', linehint, policy, false);
+	catalog.registerPlugin(reservesPath, pgReserves);
 	Scan scanReserves = Scan(&ctx, *pgReserves);
 
-
-	//SCAN3!!
+	//SCAN3: BOATS
 	string filenameBoats = string("inputs/boats.csv");
-	RecordAttribute* bidBoats = new RecordAttribute(1,filenameBoats,string("bid"),intType);
-	RecordAttribute* bnameBoats = new RecordAttribute(2,filenameBoats,string("bname"),stringType);
-	RecordAttribute* colorBoats = new RecordAttribute(3,filenameBoats,string("color"),stringType);
+	RecordAttribute* bidBoats = new RecordAttribute(1, filenameBoats,
+			string("bid"), intType);
+	RecordAttribute* bnameBoats = new RecordAttribute(2, filenameBoats,
+			string("bname"), stringType);
+	RecordAttribute* colorBoats = new RecordAttribute(3, filenameBoats,
+			string("color"), stringType);
+
 	list<RecordAttribute*> attrListBoats;
 	attrListBoats.push_back(bidBoats);
 	attrListBoats.push_back(bnameBoats);
@@ -418,213 +629,165 @@ TEST(Sailors, JoinRight3) {
 
 	vector<RecordAttribute*> whichFieldsBoats;
 	whichFieldsBoats.push_back(bidBoats);
-	CSVPlugin* pgBoats = new CSVPlugin(&ctx, filenameBoats, recBoats, whichFieldsBoats);
-	catalog.registerPlugin(filenameBoats,pgBoats);
 
+	linehint = 4;
+	policy = 2;
+	pm::CSVPlugin* pgBoats = new pm::CSVPlugin(&ctx, filenameBoats, recBoats,
+			whichFieldsBoats, ';', linehint, policy, false);
+	catalog.registerPlugin(filenameBoats, pgBoats);
 	Scan scanBoats = Scan(&ctx, *pgBoats);
 
+	/**
+	 * JOIN: Reserves JOIN Boats
+	 */
+	/* Reserves: fields for materialization etc. */
+	RecordAttribute reservesOID = RecordAttribute(reservesPath, activeLoop,
+			pgReserves->getOIDType());
+	list<RecordAttribute> reserveAttsForArg = list<RecordAttribute>();
+	reserveAttsForArg.push_back(reservesOID);
+	reserveAttsForArg.push_back(*sidReserves);
+	reserveAttsForArg.push_back(*bidReserves);
+	expressions::Expression *reservesArg = new expressions::InputArgument(
+			intType, 1, reserveAttsForArg);
+	expressions::Expression *reservesOIDProj =
+			new expressions::RecordProjection(pgReserves->getOIDType(),
+					reservesArg, reservesOID);
+	expressions::Expression* reservesSIDProj =
+			new expressions::RecordProjection(intType, reservesArg,
+					*sidReserves);
+	expressions::Expression* reservesBIDProj =
+			new expressions::RecordProjection(intType, reservesArg,
+					*bidReserves);
+	vector<expressions::Expression*> exprsToMatReserves;
+	exprsToMatReserves.push_back(reservesOIDProj);
+	exprsToMatReserves.push_back(reservesSIDProj);
+	exprsToMatReserves.push_back(reservesBIDProj);
 
-	//JOIN2
-	RecordAttribute projTupleReserves = RecordAttribute(filename2, activeLoop, pgReserves->getOIDType());
-	list<RecordAttribute> projectionsReserves = list<RecordAttribute>();
-	projectionsReserves.push_back(projTupleReserves);
-	projectionsReserves.push_back(*sidReserves);
-	projectionsReserves.push_back(*bidReserves);
-	expressions::Expression* leftArg2 = new expressions::InputArgument(intType,0,projectionsReserves);
-	expressions::Expression* left2 = new expressions::RecordProjection(intType,leftArg2,*bidReserves);
+	Materializer* matReserves = new Materializer(exprsToMatReserves);
 
-	RecordAttribute projTupleBoats = RecordAttribute(filenameBoats, activeLoop, pgBoats->getOIDType());
-	list<RecordAttribute> projectionsBoats = list<RecordAttribute>();
-	projectionsBoats.push_back(projTupleBoats);
-	projectionsBoats.push_back(*bidBoats);
-	expressions::Expression* rightArg2 = new expressions::InputArgument(intType,1,projectionsBoats);
-	expressions::Expression* right2 = new expressions::RecordProjection(intType,rightArg2,*bidBoats);
+	RecordAttribute projTupleBoat = RecordAttribute(filenameBoats, activeLoop,
+			pgBoats->getOIDType());
+	list<RecordAttribute> fieldsBoats = list<RecordAttribute>();
+	fieldsBoats.push_back(projTupleBoat);
+	fieldsBoats.push_back(*bidBoats);
+	expressions::Expression* boatsArg = new expressions::InputArgument(intType,
+			1, fieldsBoats);
+	expressions::Expression* boatsOIDProj = new expressions::RecordProjection(
+			pgBoats->getOIDType(), boatsArg, projTupleBoat);
+	expressions::Expression* boatsBIDProj = new expressions::RecordProjection(
+			intType, boatsArg, *bidBoats);
+	vector<expressions::Expression*> exprsToMatBoats;
+	exprsToMatBoats.push_back(boatsOIDProj);
+	exprsToMatBoats.push_back(boatsBIDProj);
+	Materializer* matBoats = new Materializer(exprsToMatBoats);
 
-	expressions::BinaryExpression* joinPred2 = new expressions::EqExpression(new BoolType(),left2,right2);
-	vector<materialization_mode> outputModes2;
-	outputModes2.insert(outputModes2.begin(),EAGER);
-	outputModes2.insert(outputModes2.begin(),EAGER);
-	Materializer* mat2 = new Materializer(whichFields2,outputModes2);
+	expressions::BinaryExpression* joinPred2 = new expressions::EqExpression(
+			new BoolType(), reservesBIDProj, boatsBIDProj);
 
-	char joinLabel2[] = "join2";
-	Join join2 = Join(joinPred2, &scanReserves, &scanBoats, joinLabel2, *mat2);
+	char joinLabel2[] = "reserves_boats";
+	RadixJoin join2 = RadixJoin(joinPred2, &scanReserves, &scanBoats, &ctx,
+			joinLabel2, *matReserves, *matBoats);
 	scanReserves.setParent(&join2);
-	scanBoats.setParent(&join2);
+			scanBoats.setParent(&join2);
 
+	/**
+	 * SCAN1
+	 */
+	string sailorsPath = string("inputs/sailors.csv");
 
-	//SCAN1
-	string filename = string("inputs/sailors.csv");
-	RecordAttribute* sid = new RecordAttribute(1,filename,string("sid"),intType);
-	RecordAttribute* sname = new RecordAttribute(2,filename,string("sname"),stringType);
-	RecordAttribute* rating = new RecordAttribute(3,filename,string("rating"),intType);
-	RecordAttribute* age = new RecordAttribute(3,filename,string("age"),floatType);
-	list<RecordAttribute*> attrList;
-	attrList.push_back(sid);
-	attrList.push_back(sname);
-	attrList.push_back(rating);
-	attrList.push_back(age);
-	RecordType rec1 = RecordType(attrList);
+	RecordAttribute* sid = new RecordAttribute(1, sailorsPath, string("sid"),
+			intType);
+	RecordAttribute* sname = new RecordAttribute(2, sailorsPath,
+			string("sname"), stringType);
+	RecordAttribute* rating = new RecordAttribute(3, sailorsPath,
+			string("rating"), intType);
+	RecordAttribute* age = new RecordAttribute(4, sailorsPath, string("age"),
+			floatType);
 
-	vector<RecordAttribute*> whichFields;
-	whichFields.push_back(sid);
-	//whichFields.push_back(rating); //Int
-	whichFields.push_back(age); //Float
+	list<RecordAttribute*> sailorAtts;
+	sailorAtts.push_back(sid);
+	sailorAtts.push_back(sname);
+	sailorAtts.push_back(rating);
+	sailorAtts.push_back(age);
+	RecordType sailorRec = RecordType(sailorAtts);
 
-	CSVPlugin* pgSailors = new CSVPlugin(&ctx, filename, rec1, whichFields);
-	catalog.registerPlugin(filename,pgSailors);
+	vector<RecordAttribute*> sailorAttsToProject;
+	sailorAttsToProject.push_back(sid);
+	sailorAttsToProject.push_back(age); //Float
 
+	linehint = 10;
+	policy = 2;
+	pm::CSVPlugin* pgSailors = new pm::CSVPlugin(&ctx, sailorsPath, sailorRec,
+			sailorAttsToProject, ';', linehint, policy, false);
+	catalog.registerPlugin(sailorsPath, pgSailors);
 	Scan scanSailors = Scan(&ctx, *pgSailors);
 
+	/**
+	 * JOIN: Sailors JOIN (Reserves JOIN Boats)
+	 */
 
-	//JOIN
-	RecordAttribute projTupleSailors = RecordAttribute(filename, activeLoop, pgSailors->getOIDType());
-	list<RecordAttribute> projectionsSailors = list<RecordAttribute>();
-	projectionsSailors.push_back(projTupleSailors);
-	projectionsSailors.push_back(*sid);
-	projectionsSailors.push_back(*age);
-	expressions::Expression* leftArg = new expressions::InputArgument(intType,
-			0, projectionsSailors);
-	expressions::Expression* left = new expressions::RecordProjection(intType,
-			leftArg, *sid);
+	/* Sailors: fields for materialization etc. */
+	RecordAttribute sailorOID = RecordAttribute(sailorsPath, activeLoop,
+			pgSailors->getOIDType());
+	list<RecordAttribute> sailorAttsForArg = list<RecordAttribute>();
+	sailorAttsForArg.push_back(sailorOID);
+	sailorAttsForArg.push_back(*sid);
+	sailorAttsForArg.push_back(*age);
+	expressions::Expression *sailorArg = new expressions::InputArgument(intType,
+			0, sailorAttsForArg);
+	expressions::Expression *sailorOIDProj = new expressions::RecordProjection(
+			intType, sailorArg, sailorOID);
+	expressions::Expression*sailorSIDProj = new expressions::RecordProjection(
+			intType, sailorArg, *sid);
+	vector<expressions::Expression*> exprsToMatSailor;
+	exprsToMatSailor.push_back(sailorOIDProj);
+	exprsToMatSailor.push_back(sailorSIDProj);
+	Materializer* matSailor = new Materializer(exprsToMatSailor);
 
+	expressions::Expression *previousJoinArg = new expressions::InputArgument(
+			intType, 0, reserveAttsForArg);
 
-	//For 100% correctness, I should have a new projections list, and not just the ones from reserves
-	expressions::Expression* rightArg = new expressions::InputArgument(intType,1,projectionsReserves);
-	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,*sidReserves);
-	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
-	vector<materialization_mode> outputModes;
-	outputModes.insert(outputModes.begin(),EAGER);
-	outputModes.insert(outputModes.begin(),EAGER);
-	outputModes.insert(outputModes.begin(),EAGER);
-	Materializer* mat = new Materializer(whichFields,outputModes);
+	vector<expressions::Expression*> exprsToMatPreviousJoin;
+	exprsToMatPreviousJoin.push_back(reservesOIDProj);
+	exprsToMatPreviousJoin.push_back(reservesSIDProj);
+	Materializer* matPreviousJoin = new Materializer(exprsToMatPreviousJoin);
 
-	char joinLabel[] = "join1";
-	Join join = Join(joinPred, &scanSailors, &join2, joinLabel, *mat);
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
+			new BoolType(), sailorSIDProj, reservesSIDProj);
+
+	char joinLabel[] = "sailors_(reserves_boats)";
+	RadixJoin join = RadixJoin(joinPred, &scanSailors, &join2, &ctx, joinLabel,
+			*matSailor, *matPreviousJoin);
 	scanSailors.setParent(&join);
 	join2.setParent(&join);
 
+	/**
+	 * REDUCE
+	 */
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(*sid);
 
-	//PRINT
-	Function* debugInt = ctx.getFunction("printi");
-	expressions::RecordProjection* argProj = new expressions::RecordProjection(new IntType(),leftArg2,*bidBoats);
-	Print printOpProj = Print(debugInt,argProj,&join);
-	join.setParent(&printOpProj);
+	expressions::Expression *arg = new expressions::InputArgument(&sailorRec, 0,
+			projections);
+	expressions::Expression *outputExpr = new expressions::RecordProjection(
+			intType, arg, *sid);
+	expressions::Expression *one = new expressions::IntConstant(1);
 
-	Root rootOp = Root(&printOpProj);
-	printOpProj.setParent(&rootOp);
+	expressions::Expression *predicate = new expressions::BoolConstant(true);
 
-	rootOp.produce();
-
-	//Run function
-	ctx.prepareFunction(ctx.getGlobalFunction());
-
-
-	//Close all open files
-	pgReserves->finish();
-	pgBoats->finish();
-
-	catalog.clear();
-	EXPECT_TRUE(true);
-}
-
-TEST(Sailors, Join) {
-	RawContext ctx = RawContext("Sailors-Join");
-	registerFunctions(ctx);
-	RawCatalog& catalog = RawCatalog::getInstance();
-
-	//SCAN1
-	string filename = string("inputs/sailors.csv");
-	PrimitiveType* intType = new IntType();
-	PrimitiveType* floatType = new FloatType();
-	PrimitiveType* stringType = new StringType();
-	RecordAttribute* sid = new RecordAttribute(1,filename,string("sid"),intType);
-	RecordAttribute* sname = new RecordAttribute(2,filename,string("sname"),stringType);
-	RecordAttribute* rating = new RecordAttribute(3,filename,string("rating"),intType);
-	RecordAttribute* age = new RecordAttribute(3,filename,string("age"),floatType);
-
-	list<RecordAttribute*> attrList;
-	attrList.push_back(sid);
-	attrList.push_back(sname);
-	attrList.push_back(rating);
-	attrList.push_back(age);
-
-	RecordType rec1 = RecordType(attrList);
-
-	vector<RecordAttribute*> whichFields;
-	whichFields.push_back(sid);
-	//whichFields.push_back(rating); //Int
-	whichFields.push_back(age); //Float
-
-	CSVPlugin* pgSailors = new CSVPlugin(&ctx, filename, rec1, whichFields);
-	catalog.registerPlugin(filename,pgSailors);
-	Scan scanSailors = Scan(&ctx, *pgSailors);
-
-
-	//SCAN2
-	string filename2 = string("inputs/reserves.csv");
-	RecordAttribute* sidReserves = new RecordAttribute(1,filename2,string("sid"),intType);
-	RecordAttribute* bidReserves = new RecordAttribute(2,filename2,string("bid"),intType);
-	RecordAttribute* day = new RecordAttribute(3,filename2,string("day"),stringType);
-	list<RecordAttribute*> attrList2;
-	attrList2.push_back(sidReserves);
-	attrList2.push_back(bidReserves);
-	attrList2.push_back(day);
-	RecordType rec2 = RecordType(attrList2);
-
-	vector<RecordAttribute*> whichFields2;
-	whichFields2.push_back(sidReserves);
-	whichFields2.push_back(bidReserves);
-
-	CSVPlugin* pgReserves = new CSVPlugin(&ctx, filename2, rec2, whichFields2);
-	catalog.registerPlugin(filename2,pgReserves);
-	Scan scanReserves = Scan(&ctx, *pgReserves);
-
-	//JOIN
-	string argLeft = filename+"_"+string("sid");
-	string argRight = filename2+"_"+string("sid");
-
-	RecordAttribute projTupleSailors = RecordAttribute(filename, activeLoop, pgSailors->getOIDType());
-	list<RecordAttribute> projectionsSailors = list<RecordAttribute>();
-	projectionsSailors.push_back(projTupleSailors);
-	projectionsSailors.push_back(*sid);
-	projectionsSailors.push_back(*age);
-	expressions::Expression* leftArg = new expressions::InputArgument(intType,
-			0, projectionsSailors);
-	expressions::Expression* left = new expressions::RecordProjection(intType,
-			leftArg, *sid);
-
-	RecordAttribute projTupleReserves = RecordAttribute(filename2, activeLoop, pgReserves->getOIDType());
-	list<RecordAttribute> projectionsReserves = list<RecordAttribute>();
-	projectionsReserves.push_back(projTupleReserves);
-	projectionsReserves.push_back(*sidReserves);
-	projectionsReserves.push_back(*bidReserves);
-	expressions::Expression* rightArg = new expressions::InputArgument(intType,
-			1, projectionsReserves);
-	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,*sidReserves);
-	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
-	vector<materialization_mode> outputModes;
-	outputModes.insert(outputModes.begin(),EAGER);
-	outputModes.insert(outputModes.begin(),EAGER);
-	outputModes.insert(outputModes.begin(),EAGER);
-	Materializer* mat = new Materializer(whichFields,outputModes);
-
-	char joinLabel[] = "join1";
-	Join join = Join(joinPred, &scanSailors, &scanReserves, joinLabel, *mat);
-	scanSailors.setParent(&join);
-	scanReserves.setParent(&join);
-
-
-	//PRINT
-	Function* debugInt = ctx.getFunction("printi");
-	expressions::RecordProjection* argProj = new expressions::RecordProjection(new IntType(),leftArg,*sid);
-	Print printOpProj = Print(debugInt,argProj,&join);
-	join.setParent(&printOpProj);
-
-
-	//ROOT
-	Root rootOp = Root(&printOpProj);
-	printOpProj.setParent(&rootOp);
-	rootOp.produce();
+	vector<Monoid> accs;
+	vector<expressions::Expression*> exprs;
+	accs.push_back(MAX);
+	exprs.push_back(outputExpr);
+	/* Sanity checks*/
+	accs.push_back(SUM);
+	exprs.push_back(outputExpr);
+	accs.push_back(SUM);
+	exprs.push_back(one);
+	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &join, &ctx,
+			flushResults, testLabel);
+	join.setParent(&reduce);
+	reduce.produce();
 
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
@@ -632,7 +795,9 @@ TEST(Sailors, Join) {
 	//Close all open files & clear
 	pgSailors->finish();
 	pgReserves->finish();
+	pgBoats->finish();
 	catalog.clear();
-	EXPECT_TRUE(true);
+
+	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 

@@ -54,6 +54,8 @@ public:
 				vector<RecordAttribute*> whichOIDs,
 				vector<materialization_mode> outputMode_);
 
+	/* FIXME TODO
+	 * Unfortunately, too many of the experiments rely on this constructor */
 	Materializer(vector<RecordAttribute*> whichFields,
 			vector<materialization_mode> outputMode_) __attribute__ ((deprecated));
 

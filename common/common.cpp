@@ -53,4 +53,40 @@ exception(const char *err)
     exit(1);
 }
 
+bool verifyTestResult(const char *testsPath, const char *testLabel)	{
+	/* Compare with template answer */
+	/* correct */
+	struct stat statbuf;
+	string correctResult = string(testsPath) + testLabel;
+	stat(correctResult.c_str(), &statbuf);
+	size_t fsize1 = statbuf.st_size;
+	int fd1 = open(correctResult.c_str(), O_RDONLY);
+	if (fd1 == -1) {
+		throw runtime_error(string("csv.open: ")+correctResult);
+	}
+	char *correctBuf = (char*) mmap(NULL, fsize1, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE, fd1, 0);
 
+	/* current */
+	stat(testLabel, &statbuf);
+	size_t fsize2 = statbuf.st_size;
+	int fd2 = open(testLabel, O_RDONLY);
+	if (fd2 == -1) {
+		throw runtime_error(string("csv.open: ")+testLabel);
+	}
+	char *currResultBuf = (char*) mmap(NULL, fsize2, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE, fd2, 0);
+	cout << correctBuf << endl;
+	cout << currResultBuf << endl;
+	bool areEqual = (strcmp(correctBuf, currResultBuf) == 0) ? true : false;
+
+	close(fd1);
+	munmap(correctBuf, fsize1);
+	close(fd2);
+	munmap(currResultBuf, fsize2);
+	if (remove(testLabel) != 0) {
+		throw runtime_error(string("Error deleting file"));
+	}
+
+	return areEqual;
+}
