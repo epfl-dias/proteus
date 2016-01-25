@@ -284,7 +284,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 								projL->getExpr(), *oid);
 				//Added in 'wanted expressions'
 				cout << "Injecting left OID for " << relName << endl;
-				exprsLeft.push_back(oidL);
+				exprsLeft.insert(exprsLeft.begin(),oidL);
 				outputModesLeft.insert(outputModesLeft.begin(), EAGER);
 			}
 		}
@@ -337,7 +337,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 						new expressions::RecordProjection(datasetInfo->oidType,
 								projR->getExpr(), *oid);
 				//Added in 'wanted expressions'
-				exprsRight.push_back(oidR);
+				exprsRight.insert(exprsRight.begin(),oidR);
 				cout << "Injecting right OID for " << relName << endl;
 				outputModesRight.insert(outputModesRight.begin(), EAGER);
 			}
