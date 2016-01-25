@@ -239,8 +239,11 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		/*
 		 * *** WHAT TO MATERIALIZE ***
 		 * XXX v0: JSON file contains a list of **RecordProjections**
-		 * EXPLICIT OIDs
+		 * EXPLICIT OIDs injected by PARSER (not in json file by default)
 		 * XXX Eager materialization atm
+		 *
+		 * XXX Why am I not using minimal constructor for materializer yet, as use cases do?
+		 * 	-> Because then I would have to encode the OID type in JSON -> can be messy
 		 */
 
 		//LEFT SIDE

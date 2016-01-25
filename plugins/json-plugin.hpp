@@ -81,7 +81,8 @@ typedef struct pmJSON {
  */
 class JSONPlugin : public Plugin	{
 public:
-	/* XXX Do NOT use this constructor with large inputs until realloc() is implemented for lines */
+	/* XXX Do NOT use this constructor with large inputs until realloc() is implemented for lines
+	 * XXX Assume linehint is NECESSARY to be provided */
 	/* Deprecated */
 //	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema);
 	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint = 1000);

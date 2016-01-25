@@ -205,7 +205,8 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	/* Might be already flushed */
 	ostringstream sstream;
 	sstream << fname << ".pm";
-	const char* pmPath = sstream.str().c_str();
+	string pmPathStr = sstream.str();
+	const char* pmPath = pmPathStr.c_str();
 	struct stat pmStatBuffer;
 	int pmStored = -1;
 
@@ -221,12 +222,13 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		pmJSON *pm;
 		if(pmStored == 0)	{
 			/* Load from file */
-			cout << "READING PM FROM DISK" << endl;
+			cout << "READING PM FROM DISK: " << pmPath << endl;
 			size_t pmsize = pmStatBuffer.st_size;
 			//cout << pmsize << " vs " << lines * MAXTOKENS * sizeof(jsmntok_t) << endl;
 			int fdPM = open(pmPath, O_RDONLY);
 			if (fdPM == -1) {
-				fatal("open");
+				LOG(ERROR) << "Could not open " << pmPath;
+				fatal("jsonpm.open");
 			}
 			tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
 			tokens = (jsmntok_t**) tokenBuf;
@@ -424,7 +426,8 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	/* Might be already flushed */
 	ostringstream sstream;
 	sstream << fname << ".pm";
-	const char* pmPath = sstream.str().c_str();
+	string pmPathStr = sstream.str();
+	const char* pmPath = pmPathStr.c_str();
 	struct stat pmStatBuffer;
 	int pmStored = -1;
 
@@ -445,7 +448,8 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 			//cout << pmsize << " vs " << lines * MAXTOKENS * sizeof(jsmntok_t) << endl;
 			int fdPM = open(pmPath, O_RDONLY);
 			if (fdPM == -1) {
-				fatal("open");
+				LOG(ERROR) << "Could not open " << pmPath;
+				fatal("jsonpm.open");
 			}
 			tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
 			newLines = (size_t*) malloc(lines * sizeof(size_t));
