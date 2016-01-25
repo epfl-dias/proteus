@@ -409,6 +409,16 @@ target_link_libraries(unit-tests-output ${GTEST_MAIN_LIBRARY})
 target_link_libraries(unit-tests-output -lglog ${glog_ldflags})
 target_link_libraries(unit-tests-output ${llvm_ldflags} ${llvm_libs})
 
+file(GLOB gtest_src_plans tests/tests-plan-parsing.cpp)
+add_executable(unit-tests-plan-parsing ${gtest_src_plans})
+set_target_properties(unit-tests-plan-parsing PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(unit-tests-plan-parsing codegen)
+target_link_libraries(unit-tests-plan-parsing jsmn)
+target_link_libraries(unit-tests-plan-parsing ${GTEST_LIBRARY})
+target_link_libraries(unit-tests-plan-parsing ${GTEST_MAIN_LIBRARY})
+target_link_libraries(unit-tests-plan-parsing -lglog ${glog_ldflags})
+target_link_libraries(unit-tests-plan-parsing ${llvm_ldflags} ${llvm_libs})
+
 # copy data files too
 file(COPY "inputs" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY "testResults" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

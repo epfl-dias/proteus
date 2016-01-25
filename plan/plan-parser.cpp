@@ -105,11 +105,9 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 	if (strcmp(opName, "reduce") == 0) {
 		/* "Multi - reduce"! */
 
-		/* get monoid */
+		/* get monoid(s) */
 		assert(val.HasMember("accumulator"));
-
 		assert(val["accumulator"].IsArray());
-
 		vector<Monoid> accs;
 		const rapidjson::Value& accsJSON = val["accumulator"];
 		for (SizeType i = 0; i < accsJSON.Size(); i++) // rapidjson uses SizeType instead of size_t.
@@ -125,10 +123,9 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		 */
 		assert(val.HasMember("e"));
 		assert(val["e"].IsArray());
-
 		vector<expressions::Expression*> e;
 		const rapidjson::Value& exprsJSON = val["e"];
-		for (SizeType i = 0; i < exprsJSON.Size(); i++) // rapidjson uses SizeType instead of size_t.
+		for (SizeType i = 0; i < exprsJSON.Size(); i++)
 		{
 			expressions::Expression *outExpr = parseExpression(exprsJSON[i]);
 			e.push_back(outExpr);
@@ -142,7 +139,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		/* parse operator input */
 		RawOperator* childOp = parseOperator(val["input"]);
 		/* 'Multi-reduce' used */
-		newOp = new opt::Reduce(accs, e, p, childOp, &(this->ctx));
+		newOp = new opt::Reduce(accs, e, p, childOp, &(this->ctx),true,moduleName);
 		childOp->setParent(newOp);
 	} else if (strcmp(opName, "unnest") == 0) {
 
@@ -276,14 +273,14 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 			string relName = recAttr->getRelationName();
 			if (mapOidsLeft.find(relName) == mapOidsLeft.end()) {
-				InputInfo datasetInfo = (this->catalogParser).getInputInfo(
+				InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
 						relName);
 				RecordAttribute *oid = new RecordAttribute(
 						recAttr->getRelationName(), activeLoop,
-						datasetInfo.oidType);
+						datasetInfo->oidType);
 				mapOidsLeft[relName] = oid;
 				expressions::RecordProjection *oidL =
-						new expressions::RecordProjection(datasetInfo.oidType,
+						new expressions::RecordProjection(datasetInfo->oidType,
 								projL->getExpr(), *oid);
 				//Added in 'wanted expressions'
 				cout << "Injecting left OID for " << relName << endl;
@@ -330,14 +327,14 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 			string relName = recAttr->getRelationName();
 			if (mapOidsRight.find(relName) == mapOidsRight.end()) {
-				InputInfo datasetInfo = (this->catalogParser).getInputInfo(
+				InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
 						relName);
 				RecordAttribute *oid = new RecordAttribute(
 						recAttr->getRelationName(), activeLoop,
-						datasetInfo.oidType);
+						datasetInfo->oidType);
 				mapOidsRight[relName] = oid;
 				expressions::RecordProjection *oidR =
-						new expressions::RecordProjection(datasetInfo.oidType,
+						new expressions::RecordProjection(datasetInfo->oidType,
 								projR->getExpr(), *oid);
 				//Added in 'wanted expressions'
 				exprsRight.push_back(oidR);
@@ -350,9 +347,137 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		Materializer* matRight = new Materializer(fieldsRight, exprsRight,
 				oidsRight, outputModesRight);
 
-		newOp = new RadixJoin(pred,leftOp,rightOp,&(this->ctx),"radixHash",*matLeft,*matRight);
+		newOp = new RadixJoin(pred,leftOp,rightOp,&(this->ctx),"radixHashJoin",*matLeft,*matRight);
 		leftOp->setParent(newOp);
 		rightOp->setParent(newOp);
+	}
+	else if (strcmp(opName, "nest") == 0) {
+
+		const char *keyGroup = "f";
+		const char *keyNull  = "g";
+		const char *keyPred  = "p";
+		const char *keyExprs = "e";
+		const char *keyAccum = "accumulator";
+		/* Physical Level Info */
+		const char *keyAggrNames = "aggrLabels";
+		//Materializer
+		const char *keyMat = "fields";
+
+		/* parse operator input */
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		/* get monoid(s) */
+		assert(val.HasMember(keyAccum));
+		assert(val[keyAccum].IsArray());
+		vector<Monoid> accs;
+		const rapidjson::Value& accsJSON = val[keyAccum];
+		for (SizeType i = 0; i < accsJSON.Size(); i++)
+		{
+			assert(accsJSON[i].IsString());
+			Monoid acc = parseAccumulator(accsJSON[i].GetString());
+			accs.push_back(acc);
+		}
+		/* get label for each of the aggregate values */
+		vector<string> aggrLabels;
+		assert(val.HasMember(keyAggrNames));
+		assert(val[keyAggrNames].IsArray());
+		const rapidjson::Value& labelsJSON = val[keyAggrNames];
+		for (SizeType i = 0; i < labelsJSON.Size(); i++) {
+			assert(labelsJSON[i].IsString());
+			aggrLabels.push_back(labelsJSON[i].GetString());
+		}
+
+		/* Predicate */
+		assert(val.HasMember(keyPred));
+		assert(val[keyPred].IsObject());
+		expressions::Expression *predExpr = parseExpression(val[keyPred]);
+
+		/* Group By */
+		assert(val.HasMember(keyGroup));
+		assert(val[keyGroup].IsObject());
+		expressions::Expression *groupByExpr = parseExpression(val[keyGroup]);
+
+		/* Null-to-zero Checks */
+		//FIXME not used in radix nest yet!
+		assert(val.HasMember(keyNull));
+		assert(val[keyNull].IsObject());
+		expressions::Expression *nullsToZerosExpr = parseExpression(val[keyNull]);
+
+		/* Output aggregate expression(s) */
+		assert(val.HasMember(keyExprs));
+		assert(val[keyExprs].IsArray());
+		vector<expressions::Expression*> outputExprs =
+				vector<expressions::Expression*>();
+		for (SizeType i = 0; i < val[keyExprs].Size(); i++) {
+			expressions::Expression *expr = parseExpression(val[keyExprs][i]);
+			outputExprs.push_back(expr);
+		}
+
+		/*
+		 * *** WHAT TO MATERIALIZE ***
+		 * XXX v0: JSON file contains a list of **RecordProjections**
+		 * EXPLICIT OIDs injected by PARSER (not in json file by default)
+		 * XXX Eager materialization atm
+		 *
+		 * XXX Why am I not using minimal constructor for materializer yet, as use cases do?
+		 * 	-> Because then I would have to encode the OID type in JSON -> can be messy
+		 */
+
+		assert(val.HasMember(keyMat));
+		assert(val[keyMat].IsArray());
+		vector<expressions::Expression*> exprsToMat =
+				vector<expressions::Expression*>();
+		map<string, RecordAttribute*> mapOids = map<string, RecordAttribute*>();
+		vector<RecordAttribute*> fieldsToMat = vector<RecordAttribute*>();
+		vector<materialization_mode> outputModes;
+		for (SizeType i = 0; i < val[keyMat].Size(); i++) {
+			expressions::Expression *expr = parseExpression(val[keyMat][i]);
+			exprsToMat.push_back(expr);
+			outputModes.insert(outputModes.begin(), EAGER);
+
+			//XXX STRONG ASSUMPTION: Expression is actually a record projection!
+			expressions::RecordProjection *proj =
+					dynamic_cast<expressions::RecordProjection *>(expr);
+			if (proj == NULL) {
+				string error_msg = string(
+						"[Nest: ] Cannot cast to rec projection. Original: ")
+						+ expr->getExpressionType()->getType();
+				LOG(ERROR)<< error_msg;
+				throw runtime_error(string(error_msg));
+			}
+			//Added in 'wanted fields'
+			RecordAttribute *recAttr =
+					new RecordAttribute(proj->getAttribute());
+			fieldsToMat.push_back(recAttr);
+
+			string relName = recAttr->getRelationName();
+			if (mapOids.find(relName) == mapOids.end()) {
+				InputInfo *datasetInfo =
+						(this->catalogParser).getInputInfo(relName);
+				RecordAttribute *oid =
+						new RecordAttribute(recAttr->getRelationName(), activeLoop,
+						datasetInfo->oidType);
+				mapOids[relName] = oid;
+				expressions::RecordProjection *oidProj =
+						new expressions::RecordProjection(datasetInfo->oidType,
+								proj->getExpr(), *oid);
+				//Added in 'wanted expressions'
+				LOG(INFO)<< "[Plan Parser: ] Injecting OID for " << relName;
+				/* ORDER OF expression fields matters!! OIDs need to be placed first! */
+				exprsToMat.insert(exprsToMat.begin(), oidProj);
+				outputModes.insert(outputModes.begin(), EAGER);
+			}
+		}
+		vector<RecordAttribute*> oids = vector<RecordAttribute*>();
+		MapToVec(mapOids, oids);
+		Materializer *mat =
+				new Materializer(fieldsToMat, exprsToMat, oids, outputModes);
+
+		//Put operator together
+		const char *opLabel = "radixNest";
+		newOp = new radix::Nest(&(this->ctx), accs, outputExprs, aggrLabels, predExpr,
+				groupByExpr, nullsToZerosExpr, childOp, opLabel, *mat);
+		childOp->setParent(newOp);
 	}
 	else if (strcmp(opName, "select") == 0) {
 		/* parse filtering expression */
@@ -855,15 +980,15 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 	const char *pgType = val[keyPgType].GetString();
 
 	//Lookup in catalog based on name
-	InputInfo datasetInfo = (this->catalogParser).getInputInfo(datasetName);
+	InputInfo *datasetInfo = (this->catalogParser).getInputInfo(datasetName);
 	//Dynamic allocation because I have to pass reference later on
-	string *pathDynamicCopy = new string(datasetInfo.path);
+	string *pathDynamicCopy = new string(datasetInfo->path);
 
 	/* Retrieve RecordType */
 	/* Extract inner type of collection */
-	CollectionType *collType = dynamic_cast<CollectionType*>(datasetInfo.exprType);
+	CollectionType *collType = dynamic_cast<CollectionType*>(datasetInfo->exprType);
 	if(collType == NULL)	{
-		string error_msg = string("[Plugin Parser: ] Cannot cast to collection type. Original intended type: ") + datasetInfo.exprType->getType();
+		string error_msg = string("[Plugin Parser: ] Cannot cast to collection type. Original intended type: ") + datasetInfo->exprType->getType();
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(string(error_msg));
 	}
@@ -923,7 +1048,7 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 		assert(val[keyLineHint].IsInt());
 		int linehint = val[keyLineHint].GetInt();
 
-		newPg = new jsonPipelined::JSONPlugin(&(this->ctx), *pathDynamicCopy, datasetInfo.exprType);
+		newPg = new jsonPipelined::JSONPlugin(&(this->ctx), *pathDynamicCopy, datasetInfo->exprType);
 	} else if (strcmp(pgType, "binrow") == 0) {
 		assert(val.HasMember(keyProjectionsBinRow));
 		assert(val[keyProjectionsBinRow].IsArray());
@@ -961,7 +1086,7 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 	activePlugins.push_back(newPg);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	catalog.registerPlugin(*pathDynamicCopy,newPg);
-	datasetInfo.oidType = newPg->getOIDType();
+	datasetInfo->oidType = newPg->getOIDType();
 	(this->catalogParser).setInputInfo(datasetName,datasetInfo);
 	return newPg;
 }
@@ -1015,12 +1140,12 @@ CatalogParser::CatalogParser(const char *catalogPath) {
 		string inputPath = ((itr->value)[keyInputPath]).GetString();
 		assert((itr->value)[keyExprType].IsObject());
 		ExpressionType *exprType = exprParser.parseExpressionType((itr->value)[keyExprType]);
-		InputInfo info;
-		info.exprType = exprType;
-		info.path = inputPath;
+		InputInfo *info = new InputInfo();
+		info->exprType = exprType;
+		info->path = inputPath;
 		//Initialized by parsePlugin() later on
-		info.oidType = NULL;
+		info->oidType = NULL;
 //		(this->inputs)[itr->name.GetString()] = info;
-		(this->inputs)[info.path] = info;
+		(this->inputs)[info->path] = info;
 	}
 }

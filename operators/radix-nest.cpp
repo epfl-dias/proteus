@@ -29,17 +29,18 @@ namespace radix	{
  * While in the case of JSON the OID is enough to reconstruct anything needed,
  * the other plugins need to explicitly materialize the key constituents!
  * They are needed for dot equality evaluation, regardless of final output expr.
+ *
+ * FIXME do the null check for expression g!!
+ * Previous nest version performs it
  */
-Nest::Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::Expression*> outputExprs, vector<string> aggrLabels,
-		expressions::Expression *pred,
-		expressions::Expression *f_grouping,
-		expressions::Expression *g_nullToZero,
-		RawOperator* const child,
-		char* opLabel, Materializer& mat) :
-		UnaryRawOperator(child), accs(accs), outputExprs(outputExprs), aggregateLabels(aggrLabels),
-		pred(pred),
-		g_nullToZero(g_nullToZero), f_grouping(f_grouping),
-		mat(mat), htName(opLabel), context(context)
+Nest::Nest(RawContext* const context, vector<Monoid> accs,
+		vector<expressions::Expression*> outputExprs, vector<string> aggrLabels,
+		expressions::Expression *pred, expressions::Expression *f_grouping,
+		expressions::Expression *g_nullToZero, RawOperator* const child,
+		const char *opLabel, Materializer& mat) :
+		UnaryRawOperator(child), accs(accs), outputExprs(outputExprs), aggregateLabels(
+				aggrLabels), pred(pred), g_nullToZero(g_nullToZero), f_grouping(
+				f_grouping), mat(mat), htName(opLabel), context(context)
 {
 	Function *F = context->getGlobalFunction();
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -1712,27 +1713,26 @@ void Nest::generateSum(expressions::Expression* outputExpr,
 	Builder->SetInsertPoint(ifBlock);
 	val_output = outputExpr->accept(outputExprGenerator);
 	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-
 	switch (outputExpr->getExpressionType()->getTypeID()) {
 	case INT: {
 #ifdef DEBUGNEST
-//		vector<Value*> ArgsV;
-//		Function* debugInt = context->getFunction("printi");
-//		ArgsV.push_back(val_accumulating);
-//		Builder->CreateCall(debugInt, ArgsV);
+		vector<Value*> ArgsV;
+		Function* debugInt = context->getFunction("printi");
+		ArgsV.push_back(val_accumulating);
+		Builder->CreateCall(debugInt, ArgsV);
 #endif
 		Value* val_new = Builder->CreateAdd(val_accumulating, val_output.value);
 		Builder->CreateStore(val_new, mem_accumulating);
 		Builder->CreateBr(endBlock);
 #ifdef DEBUGNEST
-//		Builder->SetInsertPoint(endBlock);
-//		vector<Value*> ArgsV;
-//		Function* debugInt = context->getFunction("printi");
-//		Value* finalResult = Builder->CreateLoad(mem_accumulating);
-//		ArgsV.push_back(finalResult);
-//		Builder->CreateCall(debugInt, ArgsV);
-//		//Back to 'normal' flow
-//		Builder->SetInsertPoint(ifBlock);
+		Builder->SetInsertPoint(endBlock);
+		vector<Value*> ArgsV;
+		Function* debugInt = context->getFunction("printi");
+		Value* finalResult = Builder->CreateLoad(mem_accumulating);
+		ArgsV.push_back(finalResult);
+		Builder->CreateCall(debugInt, ArgsV);
+		//Back to 'normal' flow
+		Builder->SetInsertPoint(ifBlock);
 #endif
 		break;
 	}

@@ -62,6 +62,8 @@ public:
 	/*
 	 * XXX New constructor, hoping to simplify process
 	 * Materializes eagerly
+	 *
+	 * XXX ORDER OF expression fields matters!! OIDs need to be placed first!
 	 */
 	Materializer(vector<expressions::Expression*> wantedExpressions);
 

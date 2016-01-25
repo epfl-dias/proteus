@@ -31,18 +31,15 @@
 #include "operators/operators.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
-#include "operators/join.hpp"
 #include "operators/radix-join.hpp"
 #include "operators/unnest.hpp"
 #include "operators/outer-unnest.hpp"
 #include "operators/print.hpp"
 #include "operators/root.hpp"
 #include "operators/reduce-opt.hpp"
-#include "operators/reduce-nopred.hpp"
-#include "operators/nest.hpp"
+#include "operators/radix-nest.hpp"
 #include "operators/materializer-expr.hpp"
 #include "plugins/csv-plugin-pm.hpp"
-#include "plugins/csv-plugin.hpp"
 #include "plugins/binary-row-plugin.hpp"
 #include "plugins/binary-col-plugin.hpp"
 #include "plugins/json-plugin.hpp"
@@ -74,9 +71,9 @@ public:
 class CatalogParser {
 public:
 	CatalogParser(const char *catalogPath);
-	InputInfo getInputInfo(string inputName)	{
+	InputInfo *getInputInfo(string inputName)	{
 
-		map<string,InputInfo>::iterator it;
+		map<string,InputInfo*>::iterator it;
 		it = inputs.find(inputName);
 		if(it == inputs.end())	{
 			string err = string("Unknown Input: ") + inputName;
@@ -86,12 +83,12 @@ public:
 		return it->second;
 	}
 
-	void setInputInfo(string inputName, InputInfo info) {
+	void setInputInfo(string inputName, InputInfo *info) {
 		inputs[inputName] = info;
 	}
 private:
 	ExpressionParser exprParser;
-	map<string,InputInfo> inputs;
+	map<string,InputInfo*> inputs;
 };
 
 class PlanExecutor {

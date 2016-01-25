@@ -72,44 +72,6 @@
 //
 // </TechnicalDetails>
 
-//void verifyResult(const char *testLabel)	{
-//	/* Compare with template answer */
-//	/* correct */
-//	struct stat statbuf;
-//	string correctResult = string("testResults/tests-output/") + testLabel;
-//	stat(correctResult.c_str(), &statbuf);
-//	size_t fsize1 = statbuf.st_size;
-//	int fd1 = open(correctResult.c_str(), O_RDONLY);
-//	if (fd1 == -1) {
-//		throw runtime_error(string("csv.open: ")+correctResult);
-//	}
-//	char *correctBuf = (char*) mmap(NULL, fsize1, PROT_READ | PROT_WRITE,
-//			MAP_PRIVATE, fd1, 0);
-//
-//	/* current */
-//	stat(testLabel, &statbuf);
-//	size_t fsize2 = statbuf.st_size;
-//	int fd2 = open(testLabel, O_RDONLY);
-//	if (fd2 == -1) {
-//		throw runtime_error(string("csv.open: ")+testLabel);
-//	}
-//	char *currResultBuf = (char*) mmap(NULL, fsize2, PROT_READ | PROT_WRITE,
-//			MAP_PRIVATE, fd2, 0);
-//	cout << correctBuf << endl;
-//	cout << currResultBuf << endl;
-//	bool areEqual = (strcmp(correctBuf, currResultBuf) == 0) ? true : false;
-//	EXPECT_TRUE(areEqual);
-//
-//	close(fd1);
-//	munmap(correctBuf, fsize1);
-//	close(fd2);
-//	munmap(currResultBuf, fsize2);
-//	if (remove(testLabel) != 0) {
-//		throw runtime_error(string("Error deleting file"));
-//	}
-//}
-
-
 TEST(Output, ReduceNumeric) {
 	const char *testPath = "testResults/tests-output/";
 	const char *testLabel = "reduceNumeric.json";
@@ -854,6 +816,128 @@ TEST(Output, JoinLeft3) {
 	pgSailors->finish();
 	pgReserves->finish();
 	pgBoats->finish();
+	catalog.clear();
+
+	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+}
+
+/* Corresponds to plan parser tests */
+TEST(Output, NestReserves) {
+	const char *testPath = "testResults/tests-output/";
+	const char *testLabel = "nestReserves.json";
+	bool flushResults = true;
+
+	RawContext ctx = RawContext(testLabel);
+	registerFunctions(ctx);
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* floatType = new FloatType();
+	PrimitiveType* stringType = new StringType();
+
+	/**
+	 * SCAN RESERVES
+	 */
+	string reservesPath = string("inputs/reserves.csv");
+	RecordAttribute* sidReserves = new RecordAttribute(1,reservesPath,string("sid"),intType);
+	RecordAttribute* bidReserves = new RecordAttribute(2,reservesPath,string("bid"),intType);
+	RecordAttribute* day = new RecordAttribute(3,reservesPath,string("day"),stringType);
+
+	list<RecordAttribute*> reserveAtts;
+	reserveAtts.push_back(sidReserves);
+	reserveAtts.push_back(bidReserves);
+	reserveAtts.push_back(day);
+	RecordType reserveRec = RecordType(reserveAtts);
+	vector<RecordAttribute*> reserveAttsToProject;
+	reserveAttsToProject.push_back(sidReserves);
+	reserveAttsToProject.push_back(bidReserves);
+
+	int linehint = 10;
+	int policy = 2;
+	pm::CSVPlugin* pgReserves =
+			new pm::CSVPlugin(&ctx, reservesPath, reserveRec, reserveAttsToProject, ';', linehint, policy, false);
+	catalog.registerPlugin(reservesPath,pgReserves);
+	Scan scanReserves = Scan(&ctx, *pgReserves);
+
+	/*
+	 * NEST
+	 */
+
+	/* Reserves: fields for materialization etc. */
+	RecordAttribute *reservesOID = new RecordAttribute(reservesPath, activeLoop, pgReserves->getOIDType());
+	list<RecordAttribute> reserveAttsForArg = list<RecordAttribute>();
+	reserveAttsForArg.push_back(*reservesOID);
+	reserveAttsForArg.push_back(*sidReserves);
+
+	/* constructing recType */
+	list<RecordAttribute*> reserveAttsForRec = list<RecordAttribute*>();
+	reserveAttsForRec.push_back(reservesOID);
+	reserveAttsForRec.push_back(sidReserves);
+	RecordType reserveRecType = RecordType(reserveAttsForRec);
+
+	expressions::Expression *reservesArg = new expressions::InputArgument(&reserveRecType,
+			1, reserveAttsForArg);
+	expressions::Expression *reservesOIDProj = new expressions::RecordProjection(
+			pgReserves->getOIDType(), reservesArg, *reservesOID);
+	expressions::Expression* reservesSIDProj = new expressions::RecordProjection(
+			intType, reservesArg, *sidReserves);
+	vector<expressions::Expression*> exprsToMatReserves;
+	exprsToMatReserves.push_back(reservesOIDProj);
+	exprsToMatReserves.push_back(reservesSIDProj);
+	Materializer* matReserves = new Materializer(exprsToMatReserves);
+
+	/* group-by expr */
+	expressions::Expression *f = reservesSIDProj;
+	/* null handling */
+	expressions::Expression *g = reservesSIDProj;
+
+	expressions::Expression *nestPred = new expressions::BoolConstant(true);
+
+	/* output of nest */
+	vector<Monoid> accsNest;
+	vector<expressions::Expression*> exprsNest;
+	vector<string> aggrLabels;
+	expressions::Expression *one = new expressions::IntConstant(1);
+	accsNest.push_back(SUM);
+	exprsNest.push_back(one);
+	aggrLabels.push_back("_groupCount");
+
+	char nestLabel[] = "nest_reserves";
+	radix::Nest nest =
+			radix::Nest(&ctx, accsNest, exprsNest, aggrLabels, nestPred,f,g, &scanReserves, nestLabel, *matReserves);
+	scanReserves.setParent(&nest);
+
+	/* REDUCE */
+	RecordAttribute *cnt = new RecordAttribute(1, nestLabel, string("_groupCount"),intType);
+	list<RecordAttribute*> newAttsTypes = list<RecordAttribute*>();
+	newAttsTypes.push_back(cnt);
+	RecordType newRecType = RecordType(newAttsTypes);
+
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(*cnt);
+
+	expressions::Expression *arg =
+			new expressions::InputArgument(&newRecType, 0,projections);
+	expressions::Expression *outputExpr =
+			new expressions::RecordProjection(intType, arg, *cnt);
+
+
+	expressions::Expression *predicate = new expressions::BoolConstant(true);
+
+	vector<Monoid> accs;
+	vector<expressions::Expression*> exprs;
+	accs.push_back(BAGUNION);
+	exprs.push_back(outputExpr);
+	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &nest, &ctx,
+			flushResults, testLabel);
+	nest.setParent(&reduce);
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pgReserves->finish();
 	catalog.clear();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));

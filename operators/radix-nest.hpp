@@ -83,11 +83,13 @@ struct kvBuf {
 
 class Nest: public UnaryRawOperator {
 public:
-	Nest(RawContext* const context, vector<Monoid> accs, vector<expressions::Expression*> outputExprs, vector<string> aggrLabels,
+	Nest(RawContext* const context, vector<Monoid> accs,
+			vector<expressions::Expression*> outputExprs,
+			vector<string> aggrLabels,
 			expressions::Expression *pred,
 			expressions::Expression *f_grouping,
 			expressions::Expression *g_nullToZero,
-			RawOperator* const child, char* opLabel, Materializer& mat);
+			RawOperator* const child, const char* opLabel, Materializer& mat);
 	virtual ~Nest() {
 		LOG(INFO)<<"Collapsing Nest operator";}
 	virtual void produce();
@@ -127,7 +129,7 @@ private:
 
 	vector<string> aggregateLabels;
 
-	char* htName;
+	const char *htName;
 	Materializer& mat;
 	RawContext* context;
 
