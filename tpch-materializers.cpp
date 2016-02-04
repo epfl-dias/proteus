@@ -54,11 +54,11 @@ void tpchMatJSON(map<string,dataset> datasetCatalog, int predicate, int aggregat
 
 /* FIXME Need a case featuring Unnest too */
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 
 int main()	{

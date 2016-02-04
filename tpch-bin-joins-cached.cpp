@@ -107,11 +107,11 @@ void tpchJoin3(map<string,dataset> datasetCatalog, int predicate);
  */
 void tpchJoin4(map<string,dataset> datasetCatalog, int predicate);
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 //int main()	{
 //

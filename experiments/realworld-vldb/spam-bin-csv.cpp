@@ -21,45 +21,7 @@
 	RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-
-#include "common/common.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
-#include "operators/scan.hpp"
-#include "operators/select.hpp"
-#include "operators/join.hpp"
-#include "operators/radix-join.hpp"
-#include "operators/unnest.hpp"
-#include "operators/outer-unnest.hpp"
-#include "operators/print.hpp"
-#include "operators/root.hpp"
-#include "operators/reduce.hpp"
-#include "operators/reduce-nopred.hpp"
-#include "operators/reduce-opt.hpp"
-#include "operators/nest.hpp"
-#include "operators/nest-opt.hpp"
-#include "operators/radix-nest.hpp"
-#include "operators/materializer-expr.hpp"
-#include "plugins/csv-plugin.hpp"
-#include "plugins/csv-plugin-pm.hpp"
-#include "plugins/binary-row-plugin.hpp"
-#include "plugins/binary-col-plugin.hpp"
-#include "plugins/json-plugin.hpp"
-#include "values/expressionTypes.hpp"
-#include "expressions/binary-operators.hpp"
-#include "expressions/expressions.hpp"
-#include "expressions/expressions-hasher.hpp"
-#include "util/raw-caching.hpp"
-#include "common/symantec-config.hpp"
-#include "operators/materializer-expr.hpp"
-
-
-void symantecBinCSV1(map<string,dataset> datasetCatalog);
-void symantecBinCSV2(map<string,dataset> datasetCatalog);
-void symantecBinCSV3(map<string,dataset> datasetCatalog);
-void symantecBinCSV4(map<string,dataset> datasetCatalog);
-void symantecBinCSV5(map<string,dataset> datasetCatalog);
-
+#include "experiments/realworld-vldb/spam-bin-csv.hpp"
 
 //RawContext prepareContext(string moduleName)	{
 //	RawContext ctx = RawContext(moduleName);
@@ -68,37 +30,17 @@ void symantecBinCSV5(map<string,dataset> datasetCatalog);
 //}
 
 
-int main()	{
-	cout << "Execution" << endl;
-	map<string,dataset> datasetCatalog;
-	symantecBinSchema(datasetCatalog);
-
-	symantecCSVSchema(datasetCatalog);
-
-	cout << "SYMANTEC BIN-CSV 1" << endl;
-	symantecBinCSV1(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 1" << endl;
-	symantecBinCSV1(datasetCatalog);
-//	cout << "SYMANTEC BIN-CSV 2" << endl;
-//	symantecBinCSV2(datasetCatalog);
-//	cout << "SYMANTEC BIN-CSV 3" << endl;
-//	symantecBinCSV3(datasetCatalog);
-//	cout << "SYMANTEC BIN-CSV 4" << endl;
-//	symantecBinCSV4(datasetCatalog);
-//	cout << "SYMANTEC BIN-CSV 5" << endl;
-//	symantecBinCSV5(datasetCatalog);
-}
-
+/*SELECT MAX(dim), COUNT(*)
+FROM symantecunordered st, spamsclassesrepeat sc
+where st.id = sc.id and (p_event > 0.95 AND value < 0.1) and cluster > 400 and classa = 5;*/
 void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idLow = 70000000;
-	int idHigh = 80000000;
 	int clusterLow = 400;
-	float valueLow = 0.5;
-	float p_eventLow = 0.7;
+	float valueHigh = 0.1;
+	float p_eventLow = 0.95;
 	//csv
-	int classaHigh = 19;
+	int classaEq = 5;
 
 	RawContext ctx = prepareContext("symantec-bin-csv-1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
@@ -163,26 +105,26 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 		expressions::Expression* selValue = new expressions::RecordProjection(
 						value->getOriginalType(), arg, *value);
 
-		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				idLow);
-		expressions::Expression* predExpr2 = new expressions::IntConstant(
-				idHigh);
-		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
-		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
-		expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+//		expressions::Expression* predExpr1 = new expressions::IntConstant(
+//				idLow);
+//		expressions::Expression* predExpr2 = new expressions::IntConstant(
+//				idHigh);
+//		expressions::Expression* predicate1 = new expressions::GtExpression(
+//				new BoolType(), selID, predExpr1);
+//		expressions::Expression* predicate2 = new expressions::LtExpression(
+//				new BoolType(), selID, predExpr2);
+//		expressions::Expression* predicateAnd1 = new expressions::AndExpression(
+//				new BoolType(), predicate1, predicate2);
 
 		expressions::Expression* predExpr3 = new expressions::FloatConstant(
 				p_eventLow);
 		expressions::Expression* predExpr4 = new expressions::FloatConstant(
-				valueLow);
+				valueHigh);
 		expressions::Expression* predicate3 = new expressions::GtExpression(
 				new BoolType(), selEvent, predExpr3);
-		expressions::Expression* predicate4 = new expressions::GtExpression(
+		expressions::Expression* predicate4 = new expressions::LtExpression(
 				new BoolType(), selValue, predExpr4);
-		expressions::Expression* predicateOr = new expressions::OrExpression(
+		expressions::Expression* predicateAnd = new expressions::AndExpression(
 				new BoolType(), predicate3, predicate4);
 
 		expressions::Expression* predExpr5 = new expressions::IntConstant(
@@ -191,10 +133,9 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 				new BoolType(), selCluster, predExpr5);
 
 		expressions::Expression* predicateAnd2 = new expressions::AndExpression(
-				new BoolType(), predicateOr, predicate5);
+				new BoolType(), predicateAnd, predicate5);
 
-		predicateBin = new expressions::AndExpression(new BoolType(),
-				predicateAnd1, predicateAnd2);
+		predicateBin = predicateAnd2;
 	}
 
 	Select *selBin = new Select(predicateBin, scanBin);
@@ -217,8 +158,8 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 	classa = argsSymantecCSV["classa"];
 
 	vector<RecordAttribute*> projections;
-	projections.push_back(idCSV);
-	projections.push_back(classa);
+//	projections.push_back(idCSV);
+//	projections.push_back(classa);
 
 	pgCSV = new pm::CSVPlugin(&ctx, fnameCSV, recCSV, projections, delimInner,
 			linehintCSV, policy, false);
@@ -228,7 +169,7 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 
 	/*
 	 * SELECT CSV
-	 * classa < 19 and sc.id > 70000000  and sc.id < 80000000;
+	 * classa = 5
 	 */
 	expressions::Expression* predicateCSV;
 	{
@@ -242,25 +183,11 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 		expressions::Expression* selClassa = new expressions::RecordProjection(
 				classa->getOriginalType(), arg, *classa);
 
-		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				idLow);
-		expressions::Expression* predExpr2 = new expressions::IntConstant(
-				idHigh);
-		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
-		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
-		expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
 
 		expressions::Expression* predExpr3 = new expressions::IntConstant(
-				classaHigh);
-		expressions::Expression* predicate3 = new expressions::LtExpression(
+				classaEq);
+		predicateCSV = new expressions::EqExpression(
 				new BoolType(), selClassa, predExpr3);
-
-		predicateCSV = new expressions::AndExpression(new BoolType(),
-				predicateAnd1, predicate3);
-
 	}
 
 	Select *selCSV = new Select(predicateCSV, scanCSV);
@@ -381,16 +308,18 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 	rawCatalog.clear();
 }
 
+/*SELECT MAX(dim), COUNT(*)
+FROM symantecunordered st, spamsclassesrepeat sc
+where st.id = sc.id and (p_event > 0.7 OR value > 0.5) and cluster > 400 and classa < 19 and neighbors < 10;*/
 void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idLow = 60000000;
-	int idHigh = 70000000;
 	int clusterLow = 400;
 	float valueLow = 0.5;
 	float p_eventLow = 0.7;
 	//csv
 	int classaHigh = 19;
+	int neighborsHigh = 10;
 
 	RawContext ctx = prepareContext("symantec-bin-csv-2");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
@@ -413,6 +342,7 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 	RecordAttribute *idBin;
 	RecordAttribute *p_event;
 	RecordAttribute *cluster;
+	RecordAttribute *neighbors;
 	RecordAttribute *value;
 	RecordAttribute *dim;
 	RecordType recBin = symantecBin.recType;
@@ -423,10 +353,12 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 	value = argsSymantecBin["value"];
 	cluster = argsSymantecBin["cluster"];
 	dim = argsSymantecBin["dim"];
+	neighbors = argsSymantecBin["neighbors"];
 	vector<RecordAttribute*> projectionsBin;
 	projectionsBin.push_back(idBin);
 	projectionsBin.push_back(p_event);
 	projectionsBin.push_back(cluster);
+	projectionsBin.push_back(neighbors);
 	projectionsBin.push_back(dim);
 	projectionsBin.push_back(value);
 
@@ -453,22 +385,18 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 				cluster->getOriginalType(), arg, *cluster);
 		expressions::Expression* selValue = new expressions::RecordProjection(
 						value->getOriginalType(), arg, *value);
+		expressions::Expression* selNeighbors =
+				new expressions::RecordProjection(neighbors->getOriginalType(),
+						arg, *neighbors);
 
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				idLow);
-		expressions::Expression* predExpr2 = new expressions::IntConstant(
-				idHigh);
-		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
-		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
-		expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
-
+				neighborsHigh);
 		expressions::Expression* predExpr3 = new expressions::FloatConstant(
 				p_eventLow);
 		expressions::Expression* predExpr4 = new expressions::FloatConstant(
 				valueLow);
+		expressions::Expression* predicate1 = new expressions::LtExpression(
+						new BoolType(), selNeighbors, predExpr1);
 		expressions::Expression* predicate3 = new expressions::GtExpression(
 				new BoolType(), selEvent, predExpr3);
 		expressions::Expression* predicate4 = new expressions::GtExpression(
@@ -486,7 +414,7 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 				new BoolType(), predicateOr, predicate5);
 
 		predicateBin = new expressions::AndExpression(new BoolType(),
-				predicateAnd1, predicateAnd2);
+				predicate1, predicateAnd2);
 	}
 
 	Select *selBin = new Select(predicateBin, scanBin);
@@ -509,8 +437,8 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 	classa = argsSymantecCSV["classa"];
 
 	vector<RecordAttribute*> projections;
-	projections.push_back(idCSV);
-	projections.push_back(classa);
+//	projections.push_back(idCSV);
+//	projections.push_back(classa);
 
 	pgCSV = new pm::CSVPlugin(&ctx, fnameCSV, recCSV, projections, delimInner,
 			linehintCSV, policy, false);
@@ -533,24 +461,13 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 		expressions::Expression* selClassa = new expressions::RecordProjection(
 				classa->getOriginalType(), arg, *classa);
 
-		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				idLow);
-		expressions::Expression* predExpr2 = new expressions::IntConstant(
-				idHigh);
-		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
-		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
-		expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
 
 		expressions::Expression* predExpr3 = new expressions::IntConstant(
 				classaHigh);
 		expressions::Expression* predicate3 = new expressions::LtExpression(
 				new BoolType(), selClassa, predExpr3);
 
-		predicateCSV = new expressions::AndExpression(new BoolType(),
-				predicateAnd1, predicate3);
+		predicateCSV = predicate3;
 
 	}
 
@@ -672,13 +589,18 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 	rawCatalog.clear();
 }
 
+/*SELECT MAX(neighbors), COUNT(*)
+FROM symantecunordered st, spamsclassesrepeat sc
+where st.id = sc.id and st.id < 100000000 and neighbors > 80
+and sc.id < 100000000 and sc.bot = 'UNCLASSIFIED' and sc.size < 1000;*/
 void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idLow = 97000000;
+	int neighborsLow = 80;
 	int idHigh = 100000000;
 	//csv
 	string botName = "UNCLASSIFIED";
+	int sizeHigh = 1000;
 
 	RawContext ctx = prepareContext("symantec-bin-csv-3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
@@ -725,17 +647,20 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 				0, argProjectionsBin);
 		expressions::Expression* selID = new expressions::RecordProjection(
 				idBin->getOriginalType(), arg, *idBin);
+		expressions::Expression* selNeighbors = new expressions::RecordProjection(
+						neighbors->getOriginalType(), arg, *neighbors);
+
 
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				idLow);
+				neighborsLow);
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+						new BoolType(), selNeighbors, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
 				new BoolType(), selID, predExpr2);
-		predicateBin = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+		predicateBin =
+				new expressions::AndExpression(new BoolType(),predicate2,predicate1);
 	}
 
 	Select *selBin = new Select(predicateBin, scanBin);
@@ -750,16 +675,20 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 	string fnameCSV = symantecCSV.path;
 	RecordAttribute *idCSV;
 	RecordAttribute *bot;
+	RecordAttribute *size;
 	int linehintCSV = symantecCSV.linehint;
 	int policy = 5;
 	char delimInner = ';';
 
 	idCSV = argsSymantecCSV["id"];
 	bot = argsSymantecCSV["bot"];
+	size = argsSymantecCSV["size"];
+	//size is cached -> no reason to re-ask for it
 
 	vector<RecordAttribute*> projections;
-	projections.push_back(idCSV);
+//	projections.push_back(idCSV);
 	projections.push_back(bot);
+	//not mentioning size -> it's supposed to be cached
 
 	pgCSV = new pm::CSVPlugin(&ctx, fnameCSV, recCSV, projections, delimInner,
 			linehintCSV, policy, false);
@@ -782,11 +711,14 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 			idCSV->getOriginalType(), arg, *idCSV);
 	expressions::Expression* selBot = new expressions::RecordProjection(
 			bot->getOriginalType(), arg, *bot);
+	expressions::Expression* selSize = new expressions::RecordProjection(
+			size->getOriginalType(), arg, *size);
 
-	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
+	expressions::Expression* predExpr1 = new expressions::IntConstant(sizeHigh);
+	expressions::Expression* predicate1 = new expressions::LtExpression(
+			new BoolType(), selSize, predExpr1);
+
 	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
-	expressions::Expression* predicate1 = new expressions::GtExpression(
-			new BoolType(), selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
 			new BoolType(), selID, predExpr2);
 	expressions::Expression* predicateNum = new expressions::AndExpression(
@@ -919,11 +851,15 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 	rawCatalog.clear();
 }
 
+/*SELECT MAX(neighbors), COUNT(*)
+FROM symantecunordered st, spamsclassesrepeat sc
+where st.id = sc.id and st.id < 300000000 and st.size < 1000
+and sc.id < 300000000 and sc.bot = 'UNCLASSIFIED' and sc.country_code = 'RU';*/
 void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idLow = 97000000;
-	int idHigh = 100000000;
+	int sizeHigh = 1000;
+	int idHigh = 300000000;
 	//csv
 	string botName = "UNCLASSIFIED";
 	string countryCodeName = "RU";
@@ -948,14 +884,16 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 	Scan *scanBin;
 	RecordAttribute *idBin;
 	RecordAttribute *neighbors;
+	RecordAttribute *size;
 	RecordType recBin = symantecBin.recType;
 	string fnamePrefixBin = symantecBin.path;
 	int linehintBin = symantecBin.linehint;
 	idBin = argsSymantecBin["id"];
+	size = argsSymantecBin["size"];
 	neighbors = argsSymantecBin["neighbors"];
 	vector<RecordAttribute*> projectionsBin;
 	projectionsBin.push_back(idBin);
-
+	projectionsBin.push_back(size);
 	projectionsBin.push_back(neighbors);
 
 	pgBin = new BinaryColPlugin(&ctx, fnamePrefixBin, recBin, projectionsBin);
@@ -974,13 +912,15 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 				0, argProjectionsBin);
 		expressions::Expression* selID = new expressions::RecordProjection(
 				idBin->getOriginalType(), arg, *idBin);
+		expressions::Expression* selSize = new expressions::RecordProjection(
+						size->getOriginalType(), arg, *size);
 
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				idLow);
+				sizeHigh);
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
-		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+		expressions::Expression* predicate1 = new expressions::LtExpression(
+				new BoolType(), selSize, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
 				new BoolType(), selID, predExpr2);
 		predicateBin = new expressions::AndExpression(
@@ -1009,7 +949,7 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 	country_code = argsSymantecCSV["country_code"];
 
 	vector<RecordAttribute*> projections;
-	projections.push_back(idCSV);
+//	projections.push_back(idCSV);
 	projections.push_back(bot);
 	projections.push_back(country_code);
 
@@ -1036,14 +976,10 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 	expressions::Expression* selCountryCode = new expressions::RecordProjection(
 			country_code->getOriginalType(), arg, *country_code);
 
-	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
 	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
-	expressions::Expression* predicate1 = new expressions::GtExpression(
-			new BoolType(), selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
 			new BoolType(), selID, predExpr2);
-	expressions::Expression* predicateNum = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
+	expressions::Expression* predicateNum = predicate2;
 
 	Select *selNum = new Select(predicateNum, scanCSV);
 	scanCSV->setParent(selNum);
@@ -1178,11 +1114,16 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 	rawCatalog.clear();
 }
 
+/*select max(classb), count(*)
+FROM symantecunordered st, spamsclassesrepeat sc
+where st.id = sc.id and sc.bot = 'DARKMAILER3' and st.id > 350000000 and st.size > 100000
+and sc.id > 350000000 and sc.country_code = 'IN' and sc.classa < 20
+group by classa;*/
 void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 
 	//bin
 	int idLow = 350000000;
-	int idHigh = 400000000;
+	int sizeLow = 100000;
 	//csv
 	string botName = "DARKMAILER3";
 	string countryCodeName = "IN";
@@ -1207,12 +1148,15 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 	BinaryColPlugin *pgBin;
 	Scan *scanBin;
 	RecordAttribute *idBin;
+	RecordAttribute *size;
 	RecordType recBin = symantecBin.recType;
 	string fnamePrefixBin = symantecBin.path;
 	int linehintBin = symantecBin.linehint;
 	idBin = argsSymantecBin["id"];
+	size = argsSymantecBin["size"];
 	vector<RecordAttribute*> projectionsBin;
 	projectionsBin.push_back(idBin);
+	projectionsBin.push_back(size);
 	pgBin = new BinaryColPlugin(&ctx, fnamePrefixBin, recBin, projectionsBin);
 	rawCatalog.registerPlugin(fnamePrefixBin, pgBin);
 	scanBin = new Scan(&ctx, *pgBin);
@@ -1229,17 +1173,18 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 				0, argProjectionsBin);
 		expressions::Expression* selID = new expressions::RecordProjection(
 				idBin->getOriginalType(), arg, *idBin);
-
+		expressions::Expression* selSize = new expressions::RecordProjection(
+						size->getOriginalType(), arg, *size);
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
 				idLow);
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
-				idHigh);
+				sizeLow);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
 				new BoolType(), selID, predExpr1);
-		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+		expressions::Expression* predicate2 = new expressions::GtExpression(
+				new BoolType(), selSize, predExpr2);
 		predicateBin = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				new BoolType(), predicate2, predicate1);
 	}
 
 	Select *selBin = new Select(predicateBin, scanBin);
@@ -1268,9 +1213,9 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 	bot = argsSymantecCSV["bot"];
 
 	vector<RecordAttribute*> projections;
-	projections.push_back(idCSV);
-	projections.push_back(classa);
-	projections.push_back(classb);
+//	projections.push_back(idCSV);
+//	projections.push_back(classa);
+//	projections.push_back(classb);
 	projections.push_back(country_code);
 	projections.push_back(bot);
 
@@ -1302,21 +1247,14 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 			country_code->getOriginalType(), arg, *country_code);
 
 	expressions::Expression* predExprNum1 = new expressions::IntConstant(idLow);
-	expressions::Expression* predExprNum2 = new expressions::IntConstant(
-			idHigh);
 	expressions::Expression* predExprNum3 = new expressions::IntConstant(
 			classaHigh);
 	expressions::Expression* predicateNum1 = new expressions::GtExpression(
 			new BoolType(), selID, predExprNum1);
-	expressions::Expression* predicateNum2 = new expressions::LtExpression(
-			new BoolType(), selID, predExprNum2);
 	expressions::Expression* predicateNum3 = new expressions::LtExpression(
 			new BoolType(), selClassa, predExprNum3);
 
-	expressions::Expression* predicateNum_ = new expressions::AndExpression(
-			new BoolType(), predicateNum1, predicateNum2);
-	expressions::Expression* predicateNum = new expressions::AndExpression(
-			new BoolType(), predicateNum_, predicateNum3);
+	expressions::Expression* predicateNum = predicateNum3;
 
 	Select *selNum = new Select(predicateNum, scanCSV);
 	scanCSV->setParent(selNum);
@@ -1509,3 +1447,29 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 	pgCSV->finish();
 	rawCatalog.clear();
 }
+
+//int main()	{
+//	cout << "[ViDa] BinCSV (Joins) Execution" << endl;
+//	map<string, dataset> datasetCatalog;
+//	symantecBinSchema(datasetCatalog);
+//	symantecCSVSchema(datasetCatalog);
+//
+//	/* Necessary to cache some stuff */
+//	cout << "SYMANTEC CSV 1 (+Caching)" << endl;
+//	symantecCSV1Caching(datasetCatalog);
+//	cout << "**************" << endl;
+//	cout << "SYMANTEC CSV 2 (+Caching)" << endl;
+//	symantecCSV2Caching(datasetCatalog);
+//	/* */
+//
+//	cout << "SYMANTEC BIN-CSV 1" << endl;
+//	symantecBinCSV1(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 2" << endl;
+//	symantecBinCSV2(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 3" << endl;
+//	symantecBinCSV3(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 4" << endl;
+//	symantecBinCSV4(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 5" << endl;
+//	symantecBinCSV5(datasetCatalog);
+//}

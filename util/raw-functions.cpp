@@ -23,6 +23,8 @@
 
 #include "util/raw-functions.hpp"
 
+
+
 //Remember to add these functions as extern in .hpp too!
 extern "C" double putchari(int X) {
 	putchar((char) X);
@@ -1381,4 +1383,10 @@ void registerFunctions(RawContext& context)	{
 
 	context.registerFunction("newline",newline);
 	context.registerFunction("parseLineJSON",parse_line_json);
+}
+
+RawContext prepareContext(string moduleName)	{
+	RawContext ctx = RawContext(moduleName);
+	registerFunctions(ctx);
+	return ctx;
 }

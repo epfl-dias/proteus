@@ -60,11 +60,11 @@ void tpchMat(map<string,dataset> datasetCatalog, int predicate, int aggregatesNo
 
 /* FIXME Need a case featuring Unnest too */
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 
 //int main()	{

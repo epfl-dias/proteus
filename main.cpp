@@ -166,11 +166,11 @@ void cidrQuery3Radix();
 void cidrQuery3RadixMax();
 void joinQueryRelationalRadixCache();
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 template<class T>
 inline void my_hash_combine(std::size_t& seed, const T& v)

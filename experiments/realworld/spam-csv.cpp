@@ -64,11 +64,11 @@ void symantecCSV6(map<string,dataset> datasetCatalog);
 void symantecCSV7(map<string,dataset> datasetCatalog);
 
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 
 int main()	{

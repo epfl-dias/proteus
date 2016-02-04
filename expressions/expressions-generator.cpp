@@ -607,7 +607,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
 			valWrapper.value = TheBuilder->CreateICmpSGT(left.value, right.value);
 			return valWrapper;
 		case FLOAT:
-//#ifdef DEBUG
+#ifdef DEBUG
 {
 			vector<Value*> ArgsV;
 			ArgsV.clear();
@@ -615,7 +615,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
 			Function* debugF = context->getFunction("printFloat");
 			TheBuilder->CreateCall(debugF, ArgsV);
 }
-//#endif
+#endif
 			valWrapper.value = TheBuilder->CreateFCmpOGT(left.value, right.value);
 			return valWrapper;
 		case BOOL:

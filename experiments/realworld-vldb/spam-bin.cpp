@@ -72,36 +72,38 @@ void symantecBin8(map<string,dataset> datasetCatalog);
 //}
 
 
-int main()	{
-	cout << "Execution" << endl;
-	map<string,dataset> datasetCatalog;
-	symantecBinSchema(datasetCatalog);
-
-	cout << "SYMANTEC BIN 1" << endl;
-	symantecBin1(datasetCatalog);
-	cout << "SYMANTEC BIN 2" << endl;
-	symantecBin2(datasetCatalog);
-	cout << "SYMANTEC BIN 3" << endl;
-	symantecBin3(datasetCatalog);
-	cout << "SYMANTEC BIN 4" << endl;
-	symantecBin4(datasetCatalog);
-	cout << "SYMANTEC BIN 5" << endl;
-	symantecBin5(datasetCatalog);
-	cout << "SYMANTEC BIN 6" << endl;
-	symantecBin6(datasetCatalog);
-	cout << "**************" << endl;
-	cout << "SYMANTEC BIN 7" << endl;
-	symantecBin7(datasetCatalog);
-	cout << "**************" << endl;
-	cout << "SYMANTEC BIN 8" << endl;
-	symantecBin8(datasetCatalog);
-	cout << "**************" << endl;
-}
+//int main()	{
+//	cout << "Execution" << endl;
+//	map<string,dataset> datasetCatalog;
+//	symantecBinSchema(datasetCatalog);
+//
+//	cout << "SYMANTEC BIN 1" << endl;
+//	symantecBin1(datasetCatalog);
+//	cout << "SYMANTEC BIN 2" << endl;
+//	symantecBin2(datasetCatalog);
+//	cout << "SYMANTEC BIN 3" << endl;
+//	symantecBin3(datasetCatalog);
+//	cout << "SYMANTEC BIN 4" << endl;
+//	symantecBin4(datasetCatalog);
+//	cout << "SYMANTEC BIN 5" << endl;
+//	symantecBin5(datasetCatalog);
+//	cout << "SYMANTEC BIN 6" << endl;
+//	symantecBin6(datasetCatalog);
+//	cout << "**************" << endl;
+//	cout << "SYMANTEC BIN 7" << endl;
+//	symantecBin7(datasetCatalog);
+//	cout << "**************" << endl;
+//	cout << "SYMANTEC BIN 8" << endl;
+//	symantecBin8(datasetCatalog);
+//	cout << "**************" << endl;
+//}
 
 void symantecBin1(map<string,dataset> datasetCatalog)	{
 
-	int idLow = 50000000;
-	int idHigh = 60000000;
+//	int idLow = 50000000;
+//	int idHigh = 60000000;
+	int dim1 = 4;
+	int dim2 = 7;
 	RawContext ctx = prepareContext("symantec-bin-1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
@@ -120,10 +122,14 @@ void symantecBin1(map<string,dataset> datasetCatalog)	{
 
 	RecordAttribute *id = argsSymantecBin["id"];
 	RecordAttribute *p_event = argsSymantecBin["p_event"];
+	RecordAttribute *mdc = argsSymantecBin["mdc"];
+	RecordAttribute *dim = argsSymantecBin["dim"];
 
 	vector<RecordAttribute*> projections;
 	projections.push_back(id);
 	projections.push_back(p_event);
+	projections.push_back(mdc);
+	projections.push_back(dim);
 
 	BinaryColPlugin *pg = new BinaryColPlugin(&ctx, fnamePrefix, rec,
 				projections);
@@ -146,19 +152,26 @@ void symantecBin1(map<string,dataset> datasetCatalog)	{
 			p_event->getOriginalType(), arg, *p_event);
 	outputExprs.push_back(outputExpr1);
 
+	accs.push_back(MAX);
+	expressions::Expression* outputExpr2 = new expressions::RecordProjection(
+				mdc->getOriginalType(), arg, *mdc);
+		outputExprs.push_back(outputExpr2);
+
 	accs.push_back(SUM);
-	expressions::Expression* outputExpr2 = new expressions::IntConstant(1);
-	outputExprs.push_back(outputExpr2);
+	expressions::Expression* outputExpr3 = new expressions::IntConstant(1);
+	outputExprs.push_back(outputExpr3);
+
+
 	/* Pred: */
-	expressions::Expression* selID  	=
-			new expressions::RecordProjection(id->getOriginalType(),arg,*id);
-	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
-	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
-	expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
-	expressions::Expression* predicate2 = new expressions::LtExpression(
-					new BoolType(), selID, predExpr2);
-	expressions::Expression* predicate = new expressions::AndExpression(
+	expressions::Expression* selDim  	=
+			new expressions::RecordProjection(dim->getOriginalType(),arg,*dim);
+	expressions::Expression* predExpr1 = new expressions::IntConstant(dim1);
+	expressions::Expression* predExpr2 = new expressions::IntConstant(dim2);
+	expressions::Expression* predicate1 = new expressions::EqExpression(
+				new BoolType(), selDim, predExpr1);
+	expressions::Expression* predicate2 = new expressions::EqExpression(
+					new BoolType(), selDim, predExpr2);
+	expressions::Expression* predicate = new expressions::OrExpression(
 			new BoolType(), predicate1, predicate2);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan, &ctx);
@@ -315,8 +328,8 @@ void symantecBin2(map<string,dataset> datasetCatalog)	{
 
 void symantecBin3(map<string,dataset> datasetCatalog)	{
 
-	int idLow = 59000000;
-	int idHigh = 63000000;
+//	int idLow = 59000000;
+//	int idHigh = 63000000;
 	int dimHigh = 3;
 	int clusterNo = 500;
 	RawContext ctx = prepareContext("symantec-bin-3");
@@ -382,24 +395,24 @@ void symantecBin3(map<string,dataset> datasetCatalog)	{
 					new expressions::RecordProjection(cluster->getOriginalType(),arg,*cluster);
 
 
-	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
-	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
+//	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
+//	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predExpr3 = new expressions::IntConstant(dimHigh);
 	expressions::Expression* predExpr4 = new expressions::IntConstant(clusterNo);
-	expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
-	expressions::Expression* predicate2 = new expressions::LtExpression(
-					new BoolType(), selID, predExpr2);
+//	expressions::Expression* predicate1 = new expressions::GtExpression(
+//				new BoolType(), selID, predExpr1);
+//	expressions::Expression* predicate2 = new expressions::LtExpression(
+//					new BoolType(), selID, predExpr2);
 	expressions::Expression* predicate3 = new expressions::LtExpression(
 						new BoolType(), selDim, predExpr3);
 	expressions::Expression* predicate4 = new expressions::EqExpression(
 						new BoolType(), selCluster, predExpr4);
-	expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
-	expressions::Expression* predicateAnd2 = new expressions::AndExpression(
-				new BoolType(), predicate3, predicate4);
+//	expressions::Expression* predicateAnd1 = new expressions::AndExpression(
+//			new BoolType(), predicate1, predicate2);
 	expressions::Expression* predicate = new expressions::AndExpression(
-				new BoolType(), predicateAnd1, predicateAnd2);
+				new BoolType(), predicate3, predicate4);
+//	expressions::Expression* predicate = new expressions::AndExpression(
+//				new BoolType(), predicateAnd1, predicateAnd2);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan, &ctx);
 	scan->setParent(reduce);
@@ -419,7 +432,7 @@ void symantecBin3(map<string,dataset> datasetCatalog)	{
 
 void symantecBin4(map<string,dataset> datasetCatalog)	{
 
-	int idLow = 70000000;
+//	int idLow = 70000000;
 	int idHigh = 80000000;
 	double p_eventLow = 0.7;
 	double valueLow = 0.5;
@@ -494,15 +507,15 @@ void symantecBin4(map<string,dataset> datasetCatalog)	{
 	expressions::Expression* selValue = new expressions::RecordProjection(value->getOriginalType(),arg,*value);
 
 
-	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
+//	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
 	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predExpr3 = new expressions::FloatConstant(
 			p_eventLow);
 	expressions::Expression* predExpr4 = new expressions::FloatConstant(valueLow);
 	expressions::Expression* predExpr5 = new expressions::IntConstant(
 			clusterNo);
-	expressions::Expression* predicate1 = new expressions::GtExpression(
-			new BoolType(), selID, predExpr1);
+//	expressions::Expression* predicate1 = new expressions::GtExpression(
+//			new BoolType(), selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
 			new BoolType(), selID, predExpr2);
 	expressions::Expression* predicate3 = new expressions::GtExpression(
@@ -512,12 +525,12 @@ void symantecBin4(map<string,dataset> datasetCatalog)	{
 	expressions::Expression* predicate5 = new expressions::EqExpression(
 			new BoolType(), selCluster, predExpr5);
 
-	expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
+//	expressions::Expression* predicateAnd1 = new expressions::AndExpression(
+//			new BoolType(), predicate1, predicate2);
 	expressions::Expression* predicateOr = new expressions::OrExpression(
 			new BoolType(), predicate3, predicate4);
 	expressions::Expression* predicateAnd2 = new expressions::AndExpression(
-			new BoolType(), predicateAnd1, predicateOr);
+			new BoolType(), predicate2, predicateOr);
 	expressions::Expression* predicate = new expressions::AndExpression(
 			new BoolType(), predicateAnd2, predicate5);
 
@@ -631,8 +644,8 @@ void symantecBin5(map<string,dataset> datasetCatalog)	{
 
 void symantecBin6(map<string, dataset> datasetCatalog) {
 
-	int idLow = 380000000;
-	int idHigh = 450000000;
+//	int idLow = 380000000;
+//	int idHigh = 450000000;
 	int clusterHigh = 10;
 	RawContext ctx = prepareContext("symantec-bin-6(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
@@ -676,20 +689,20 @@ void symantecBin6(map<string, dataset> datasetCatalog) {
 	expressions::Expression* selCluster  	=
 					new expressions::RecordProjection(cluster->getOriginalType(),arg,*cluster);
 
-	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
-	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
+//	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
+//	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predExpr3 = new expressions::IntConstant(
 			clusterHigh);
-	expressions::Expression* predicate1 = new expressions::GtExpression(
-			new BoolType(), selID, predExpr1);
-	expressions::Expression* predicate2 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr2);
-	expressions::Expression* predicate3 = new expressions::LtExpression(
+//	expressions::Expression* predicate1 = new expressions::GtExpression(
+//			new BoolType(), selID, predExpr1);
+//	expressions::Expression* predicate2 = new expressions::LtExpression(
+//			new BoolType(), selID, predExpr2);
+	expressions::Expression* predicate = new expressions::LtExpression(
 			new BoolType(), selCluster, predExpr3);
-	expressions::Expression* predicate_ = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
-	expressions::Expression* predicate = new expressions::AndExpression(
-			new BoolType(), predicate_, predicate3);
+//	expressions::Expression* predicate_ = new expressions::AndExpression(
+//			new BoolType(), predicate1, predicate2);
+//	expressions::Expression* predicate = new expressions::AndExpression(
+//			new BoolType(), predicate_, predicate3);
 
 
 	Select *sel = new Select(predicate, scan);
@@ -802,8 +815,8 @@ void symantecBin6(map<string, dataset> datasetCatalog) {
 
 void symantecBin7(map<string, dataset> datasetCatalog) {
 
-	int idLow = 59000000;
-	int idHigh = 63000000;
+//	int idLow = 59000000;
+//	int idHigh = 63000000;
 	int dimHigh = 3;
 	int clusterLow = 490;
 	int clusterHigh = 500;
@@ -855,8 +868,8 @@ void symantecBin7(map<string, dataset> datasetCatalog) {
 	expressions::Expression* selCluster  	=
 					new expressions::RecordProjection(cluster->getOriginalType(),arg,*cluster);
 
-	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
-	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
+//	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
+//	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predExpr3 = new expressions::IntConstant(
 			dimHigh);
 	expressions::Expression* predExpr4 = new expressions::IntConstant(
@@ -865,10 +878,10 @@ void symantecBin7(map<string, dataset> datasetCatalog) {
 				clusterHigh);
 
 
-	expressions::Expression* predicate1 = new expressions::GtExpression(
-			new BoolType(), selID, predExpr1);
-	expressions::Expression* predicate2 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr2);
+//	expressions::Expression* predicate1 = new expressions::GtExpression(
+//			new BoolType(), selID, predExpr1);
+//	expressions::Expression* predicate2 = new expressions::LtExpression(
+//			new BoolType(), selID, predExpr2);
 	expressions::Expression* predicate3 = new expressions::LtExpression(
 			new BoolType(), selDim, predExpr3);
 	expressions::Expression* predicate4 = new expressions::GtExpression(
@@ -877,14 +890,12 @@ void symantecBin7(map<string, dataset> datasetCatalog) {
 				new BoolType(), selCluster, predExpr5);
 
 
-	expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
-	expressions::Expression* predicateAnd2 = new expressions::AndExpression(
+//	expressions::Expression* predicateAnd1 = new expressions::AndExpression(
+//			new BoolType(), predicate1, predicate2);
+	expressions::Expression* predicateAnd = new expressions::AndExpression(
 			new BoolType(), predicate3, predicate4);
-	expressions::Expression* predicateAnd_ = new expressions::AndExpression(
-				new BoolType(), predicateAnd1, predicateAnd2);
 	expressions::Expression* predicate = new expressions::AndExpression(
-					new BoolType(), predicateAnd_, predicate5);
+					new BoolType(), predicateAnd, predicate5);
 
 	Select *sel = new Select(predicate, scan);
 	scan->setParent(sel);

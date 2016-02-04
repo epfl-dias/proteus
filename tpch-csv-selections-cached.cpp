@@ -72,11 +72,11 @@ void tpchOrderSelection1CachingPred(map<string,dataset> datasetCatalog, vector<i
 void tpchOrderSelection1CachingFloats(map<string,dataset> datasetCatalog, vector<int> predicates);
 void tpchOrderSelection1CachingPredFloats(map<string,dataset> datasetCatalog, vector<int> predicates);
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 int main()	{
 

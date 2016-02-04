@@ -73,11 +73,11 @@ void tpchLineitemProjection3(map<string,dataset> datasetCatalog, int predicateVa
 /* 1-4 aggregates & Materializing l_orderkey */
 void tpchLineitemProjection3Caching(map<string,dataset> datasetCatalog, int predicateVal, int aggregatesNo);
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 int main()	{
 

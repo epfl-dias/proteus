@@ -1,5 +1,5 @@
-#ifndef EXPERIMENTS_INIT_HPP_
-#define EXPERIMENTS_INIT_HPP_
+#ifndef EXPERIMENTS_VLDB_INIT_HPP_
+#define EXPERIMENTS_VLDB_INIT_HPP_
 
 #include "util/raw-context.hpp"
 #include "util/raw-functions.hpp"
@@ -23,6 +23,6 @@
 #include "plugins/json-plugin.hpp"
 #include "common/symantec-config.hpp"
 
-//RawContext prepareContext(string moduleName);
+//RawContext prepareContextVLDB(string moduleName);
 
-#endif /* EXPERIMENTS_INIT_HPP_ */
+#endif /* EXPERIMENTS_VLDB_INIT_HPP_ */

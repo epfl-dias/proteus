@@ -51,11 +51,11 @@
 #include "expressions/expressions-hasher.hpp"
 #include "util/raw-caching.hpp"
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 /* Sanity check: Previous reduce() */
 void reduceNumeric();

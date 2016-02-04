@@ -58,11 +58,11 @@ void tpchSchema(map<string,dataset>& datasetCatalog)	{
 	tpchSchemaJSON(datasetCatalog);
 }
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 /*
  * Using UNNEST instead of JOIN:

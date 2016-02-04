@@ -252,6 +252,41 @@ target_link_libraries(symantec-json -lglog ${glog_ldflags})
 target_link_libraries(symantec-json ${llvm_ldflags} ${llvm_libs})
 
 #real-world experiments
+
+###################
+###VLDB VERSIONS###
+###################
+file(GLOB spam_all_vldb experiments/realworld-vldb/*.cpp)
+add_executable(spam-workload-vldb ${spam_all_vldb})
+set_target_properties(spam-workload-vldb PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(spam-workload-vldb codegen)
+target_link_libraries(spam-workload-vldb jsmn)
+target_link_libraries(spam-workload-vldb -lglog ${glog_ldflags})
+target_link_libraries(spam-workload-vldb ${llvm_ldflags} ${llvm_libs})
+
+#add_executable(spam-bin-vldb experiments/realworld-vldb/spam-bin.cpp)
+#set_target_properties(spam-bin-vldb PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+#target_link_libraries(spam-bin-vldb codegen)
+#target_link_libraries(spam-bin-vldb jsmn)
+#target_link_libraries(spam-bin-vldb -lglog ${glog_ldflags})
+#target_link_libraries(spam-bin-vldb ${llvm_ldflags} ${llvm_libs})
+#
+#add_executable(spam-csv-cached-columnar-vldb experiments/realworld-vldb/spam-csv-cached-columnar.cpp)
+#set_target_properties(spam-csv-cached-columnar-vldb PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+#target_link_libraries(spam-csv-cached-columnar-vldb codegen)
+#target_link_libraries(spam-csv-cached-columnar-vldb jsmn)
+#target_link_libraries(spam-csv-cached-columnar-vldb -lglog ${glog_ldflags})
+#target_link_libraries(spam-csv-cached-columnar-vldb ${llvm_ldflags} ${llvm_libs})
+
+
+#add_executable(spam-bin-csv-vldb experiments/realworld-vldb/spam-bin-csv.cpp)
+#set_target_properties(spam-bin-csv-vldb PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+#target_link_libraries(spam-bin-csv-vldb codegen)
+#target_link_libraries(spam-bin-csv-vldb jsmn)
+#target_link_libraries(spam-bin-csv-vldb -lglog ${glog_ldflags})
+#target_link_libraries(spam-bin-csv-vldb ${llvm_ldflags} ${llvm_libs})
+
+#sigmod versions
 add_executable(spam-bin experiments/realworld/spam-bin.cpp)
 set_target_properties(spam-bin PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 target_link_libraries(spam-bin codegen)

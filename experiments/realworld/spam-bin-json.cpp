@@ -60,11 +60,11 @@ void symantecBinJSON4(map<string,dataset> datasetCatalog);
 void symantecBinJSON5(map<string,dataset> datasetCatalog);
 
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 
 int main()	{

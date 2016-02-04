@@ -71,11 +71,11 @@ void tpchOrderSelection3(map<string,dataset> datasetCatalog, vector<int> predica
 //All at once
 void tpchOrderSelection4(map<string,dataset> datasetCatalog, vector<int> predicates);
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 
 int main()	{

@@ -88,10 +88,10 @@
 //Must be placed before glog include
 /*Setting GOOGLE_STRIP_LOG to 1 or greater removes all log messages associated with VLOGs
  * as well as INFO log statements. Setting it to two removes WARNING log statements too. */
-//#undef GOOGLE_STRIP_LOG
-//#undef STRIP_LOG
-//#define GOOGLE_STRIP_LOG 2
-//#define STRIP_LOG 2
+#undef GOOGLE_STRIP_LOG
+#undef STRIP_LOG
+#define GOOGLE_STRIP_LOG 2
+#define STRIP_LOG 2
 
 #define TIMING
 
@@ -102,7 +102,7 @@
 //#define DEBUG
 #define LOCAL_EXEC
 //#undef DEBUG
-//#undef LOCAL_EXEC
+#undef LOCAL_EXEC
 
 #define KB 1024
 #define MB (1024*KB)

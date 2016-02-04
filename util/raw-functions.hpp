@@ -33,6 +33,7 @@
 class RawContext;
 
 void registerFunctions(RawContext& context);
+RawContext prepareContext(string moduleName);
 //===----------------------------------------------------------------------===//
 // "Library" functions that can be "extern'd" from user code.
 //===----------------------------------------------------------------------===//

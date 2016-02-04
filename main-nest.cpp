@@ -63,11 +63,11 @@ void nestRadixFull();
 /* radix::Nest: Group By name, age => 4 groups */
 void nestRadixTwoKeys();
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 int main()	{
 //	nest();

@@ -71,11 +71,11 @@ void symantecBinCSVJSON9(map<string,dataset> datasetCatalog);
 void symantecBinCSVJSON10(map<string,dataset> datasetCatalog);
 
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
-	registerFunctions(ctx);
-	return ctx;
-}
+//RawContext prepareContext(string moduleName)	{
+//	RawContext ctx = RawContext(moduleName);
+//	registerFunctions(ctx);
+//	return ctx;
+//}
 
 void symantecBinCSVJSON1Debug1(map<string, dataset> datasetCatalog) {
 
