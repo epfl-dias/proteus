@@ -152,6 +152,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		context(context), fname(fname), schema(schema), var_buf("bufPtr"), var_tokenPtr(
 				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash")
 {
+	cout << "JSON BASIC CONSTRUCTOR (2)" << endl;
 	cache = false;
 	staticSchema = false;
 	LLVMContext& llvmContext = context->getLLVMContext();
@@ -217,7 +218,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	char* pmCast = cache.getPM(fname);
 	Value *cast_tokenArray = NULL;
 	Value *cast_newlineArray = NULL;
-	cout << "JSON CONSTRUCTOR 2" << endl;
+
 	if (pmCast == NULL) {
 		pmJSON *pm;
 		if(pmStored == 0)	{
@@ -315,9 +316,6 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 			cache.registerPM(fname, (char*) pm);
 			this->cacheNewlines = false;
 		}
-		/* Store PM in cache */
-		/* To be used by subsequent queries */
-		cache.registerPM(fname, (char*) pm);
 	} else {
 		cout << "(JSON) PM IN-MEM REUSE" << endl;
 		pmJSON *pm = (pmJSON *) pmCast;
@@ -374,6 +372,8 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash"),
 				staticSchema(staticSchema)
 {
+	cout << "JSON CONSTRUCTOR - SCHEMA AWARE (3)" << endl;
+
 	cache = false;
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32_type = Type::getInt32Ty(llvmContext);
@@ -438,7 +438,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	char* pmCast = cache.getPM(fname);
 	Value *cast_tokenArray = NULL;
 	Value *cast_newlineArray = NULL;
-	cout << "JSON CONSTRUCTOR 3" << endl;
+
 	if (pmCast == NULL) {
 		pmJSON *pm;
 		if(pmStored == 0)	{
@@ -594,13 +594,15 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		context(context), fname(fname), schema(schema), var_buf("bufPtr"), var_tokenPtr(
 				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash")
 {
+	cout << "JSON CONSTRUCTOR - EXISTING TOKENS (4)" << endl;
+
 	cache = true;
 	staticSchema = false;
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32_type = Type::getInt32Ty(llvmContext);
 	Type* int64_type = Type::getInt64Ty(llvmContext);
 
-	cout << "JSON CONSTRUCTOR 4" << endl;
+
 	//Memory mapping etc
 	LOG(INFO)<< "[JSONPlugin - jsmn: ] " << fname;
 	struct stat statbuf;

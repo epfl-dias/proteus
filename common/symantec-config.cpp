@@ -377,9 +377,11 @@ void symantecCoreIDDatesSchema(map<string, dataset>& datasetCatalog) {
 	symantec.linehint = 100;
 	#endif
 	#ifdef SYMANTEC_SERVER
+	cout << "[SYMANTEC: ] SERVER MODE ON!" << endl;
 //	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreIDDates100.json");
 //	symantec.linehint = 100;
-	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreIDDates28m-edit.json");
+//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreIDDates28m-edit.json");
+	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreIDDates28m-bigids.json");
 	symantec.linehint = 27991116;
 //	string path = string("/tmp/prob.json");
 //	symantec.linehint = 4;

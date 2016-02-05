@@ -47,8 +47,8 @@ typedef enum {
  * XXX DATASET-SPECIFIC ATM
  */
 /* Used to accommodate symantec workload (and flush its pm) */
-//#define JSON_SYMANTEC
-//#define JSON_SYMANTEC_WIDE
+#define JSON_SYMANTEC
+#define JSON_SYMANTEC_WIDE
 #ifdef JSON_SYMANTEC_WIDE
 #undef JSON_TIGHT
 #endif
@@ -129,11 +129,13 @@ typedef struct {
 #undef JSON_SYMANTEC
 #endif
 
+//A lot of problems because of this...
 #ifdef JSON_SYMANTEC_WIDE
 #undef JSON_TPCH_WIDE
 #undef MAXTOKENS
 //#define MAXTOKENS 70 //80 //53 //good enough for spamsCoreID28m - but crashes for idDates
-#define MAXTOKENS 100 //80: very slow - no idea if it worked
+#define MAXTOKENS 600 //100 is not enough (for sure) for spam because of outlier entries //80: very slow - no idea if it worked
+//Largest line in symantec files needs 569 tokens (!)
 #endif /* JSON_SYMANTEC */
 
 /* Default, conservative case */

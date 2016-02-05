@@ -26,8 +26,8 @@
 void symantecBinCSVJSON1(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idLow = 8000000;
-	int idHigh = 10000000;
+	int idLow = 160000000;
+	int idHigh = 200000000;
 	int clusterHigh = 200;
 	//csv
 	int classaHigh = 90;
@@ -1490,8 +1490,8 @@ void symantecBinCSVJSON3(map<string, dataset> datasetCatalog) {
 void symantecBinCSVJSON4(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idLow = 7000000;
-	int idHigh = 9000000;
+	int idLow = 140000000;
+	int idHigh = 180000000;
 	int clusterHigh = 20;
 
 	RawContext ctx = prepareContext("symantec-bin-csv-json-1");
@@ -1872,8 +1872,8 @@ void symantecBinCSVJSON4(map<string, dataset> datasetCatalog) {
 void symantecBinCSVJSON5(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idLow = 7000000;
-	int idHigh = 10000000;
+	int idLow = 140000000;
+	int idHigh = 200000000;
 	int clusterHigh = 30;
 	//csv
 	string botName1 = "Bobax";
@@ -2299,8 +2299,8 @@ void symantecBinCSVJSON5(map<string, dataset> datasetCatalog) {
 void symantecBinCSVJSON6(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idLow = 5000000;
-	int idHigh = 10000000;
+	int idLow = 100000000;
+	int idHigh = 200000000;
 	int clusterLow = 200;
 	//csv
 	int classaHigh = 75;
@@ -2740,7 +2740,7 @@ void symantecBinCSVJSON6(map<string, dataset> datasetCatalog) {
 void symantecBinCSVJSON7(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idHigh = 100000;
+	int idHigh = 2000000;
 
 	RawContext ctx = prepareContext("symantec-bin-csv-json-7");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
@@ -3140,7 +3140,7 @@ void symantecBinCSVJSON7(map<string, dataset> datasetCatalog) {
 void symantecBinCSVJSON7v1(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idHigh = 10000000;
+	int idHigh = 200000000;
 	//json
 	int sizeLow = 5000;
 
@@ -3539,7 +3539,7 @@ void symantecBinCSVJSON7v1(map<string, dataset> datasetCatalog) {
 void symantecBinCSVJSON8(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idHigh = 100000;
+	int idHigh = 2000000;
 	//csv
 	int classaLow = 80;
 	int classaHigh = 100;
@@ -4007,7 +4007,7 @@ void symantecBinCSVJSON8(map<string, dataset> datasetCatalog) {
 void symantecBinCSVJSON8v1(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idHigh = 10000000;
+	int idHigh = 200000000;
 	//csv
 	int classaLow = 80;
 	int classaHigh = 100;
@@ -4473,8 +4473,8 @@ void symantecBinCSVJSON8v1(map<string, dataset> datasetCatalog) {
 void symantecBinCSVJSON9(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idHigh = 9000000;
-	int idLow = 7000000;
+	int idHigh = 180000000;
+	int idLow = 140000000;
 	int clusterHigh = 100;
 	//csv
 	int classaLow = 100;
@@ -4936,8 +4936,8 @@ void symantecBinCSVJSON9(map<string, dataset> datasetCatalog) {
 void symantecBinCSVJSON10(map<string, dataset> datasetCatalog) {
 
 	//bin
-	int idHigh = 8500000;
-	int idLow = 8000000;
+	int idHigh = 170000000;
+	int idLow =  160000000;
 	int clusterLow = 100;
 	//csv
 	int classaLow = 80;

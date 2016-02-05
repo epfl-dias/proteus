@@ -412,6 +412,9 @@ jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 		}
 	}
 	//printf("[jsmn: ] %d to %d with size %d\n",(*tokensPtr)[0].start,(*tokensPtr)[0].end, (*tokensPtr)[0].size);
+
+	/* Useful to find number of tokens per line */
+	/* printf("TokenNo: %u\n", parser->toknext); */
 	return count;
 }
 
