@@ -1188,13 +1188,13 @@ void symantecBinJSON3v2(map<string, dataset> datasetCatalog) {
 	vector<Monoid> accs;
 	vector<expressions::Expression*> outputExprs;
 
-	accs.push_back(MAX);
-	expressions::Expression* outputExpr1 = exprMDC;
-	outputExprs.push_back(outputExpr1);
-
-	accs.push_back(MAX);
-	expressions::Expression* outputExpr2 = exprSize;
-	outputExprs.push_back(outputExpr2);
+//	accs.push_back(MAX);
+//	expressions::Expression* outputExpr1 = exprMDC;
+//	outputExprs.push_back(outputExpr1);
+//
+//	accs.push_back(MAX);
+//	expressions::Expression* outputExpr2 = exprSize;
+//	outputExprs.push_back(outputExpr2);
 
 	accs.push_back(SUM);
 	expressions::Expression* outputExpr3 = new expressions::IntConstant(1);

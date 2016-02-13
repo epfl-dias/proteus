@@ -28,7 +28,8 @@ void symantecCSVJSON1(map<string, dataset> datasetCatalog) {
 	//csv
 	int idLow = 100000000;
 	int idHigh = 200000000;
-	string botName = "Bobax";
+	//string botName = "Bobax";
+	string botName = "GHEG";
 	//JSON
 	//id, again
 
@@ -293,7 +294,9 @@ void symantecCSVJSON2(map<string, dataset> datasetCatalog) {
 	//csv
 	int idLow =  160000000;
 	int idHigh = 200000000;
-	string botName = "Bobax";
+//	string botName = "Bobax";
+	string botName = "BAGLE-CB";
+
 	//JSON
 	//id, again
 	int sizeLow = 1000;
@@ -570,7 +573,8 @@ void symantecCSVJSON3(map<string, dataset> datasetCatalog) {
 	//csv
 	int idLow = 160000000;
 	int idHigh = 200000000;
-	string botName = "Unclassified";
+//	string botName = "Unclassified";
+	string botName = "FESTI";
 	//JSON
 	//id, again
 	int yearNo = 2012;
@@ -852,7 +856,8 @@ void symantecCSVJSON4(map<string, dataset> datasetCatalog) {
 	//csv
 	int idLow =  180000000;
 	int idHigh = 200000000;
-	string botName = "Unclassified";
+	//string botName = "Unclassified";
+	string botName = "FESTI";
 	int classaHigh = 5;
 	//JSON
 	//id, again
