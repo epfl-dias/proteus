@@ -79,6 +79,8 @@ private:
 
 	string activeRelation;
 
+	RawValue mystrncmp(Value *s1, Value *s2, Value *n);
+
 	/* Plugins are responsible for this action */
 	//RawValue retrieveValue(CacheInfo info, Plugin *pg);
 

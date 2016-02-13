@@ -41,6 +41,79 @@
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 
+TEST(JSON, String) {
+	RawContext ctx = RawContext("jsonStringIngestion");
+	registerFunctions(ctx);
+
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	string fname = string("inputs/json/json-string.json");
+
+	IntType intType = IntType();
+	StringType stringType = StringType();
+
+	string name = string("name");
+	RecordAttribute field1 = RecordAttribute(1, fname, name, &stringType);
+	string age = string("age");
+	RecordAttribute field2 = RecordAttribute(2, fname, age, &intType);
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&field1);
+	atts.push_back(&field2);
+
+	RecordType rec = RecordType(atts);
+	ListType documentType = ListType(rec);
+
+	int linehint = 3;
+	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
+			&documentType,linehint);
+	catalog.registerPlugin(fname, &pg);
+	Scan scan = Scan(&ctx, pg);
+
+	/**
+	 * SELECT
+	 */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(projTuple);
+	projections.push_back(field1);
+	projections.push_back(field2);
+
+	expressions::Expression* lhsArg = new expressions::InputArgument(
+			&documentType, 0, projections);
+	expressions::Expression* lhs = new expressions::RecordProjection(
+			&stringType, lhsArg, field1);
+	string neededName = string("Harry");
+	expressions::Expression* rhs = new expressions::StringConstant(neededName);
+
+	expressions::Expression* predicate = new expressions::EqExpression(
+			new BoolType(), lhs, rhs);
+
+	Select sel = Select(predicate, &scan);
+	scan.setParent(&sel);
+
+	/**
+	 * PRINT
+	 */
+	Function* debugInt = ctx.getFunction("printi");
+	expressions::RecordProjection* proj = new expressions::RecordProjection(
+			&intType, lhsArg, field2);
+	Print printOp = Print(debugInt, proj, &sel);
+	sel.setParent(&printOp);
+
+	/**
+	 * ROOT
+	 */
+	Root rootOp = Root(&printOp);
+	printOp.setParent(&rootOp);
+	rootOp.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg.finish();
+	catalog.clear();
+}
+
 TEST(JSON, ScanJSON) {
 	bool flushResults = true;
 		const char *testPath = "testResults/tests-json/";

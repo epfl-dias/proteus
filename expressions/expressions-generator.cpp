@@ -455,6 +455,8 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
+	Function *F = TheBuilder->GetInsertBlock()->getParent();
+
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
 
@@ -486,13 +488,39 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 			return valWrapper;
 		//XXX Does this code work if we are iterating over a json primitive array?
 		//Example: ["alpha","beta","gamma"]
+//		case STRING: {
+//			vector<Value*> ArgsV;
+//			ArgsV.push_back(left.value);
+//			ArgsV.push_back(right.value);
+//			Function* stringEquality = context->getFunction("equalStringObjs");
+//			valWrapper.value = TheBuilder->CreateCall(stringEquality, ArgsV,
+//					"equalStringObjsCall");
+//			return valWrapper;
+//		}
 		case STRING: {
-			vector<Value*> ArgsV;
-			ArgsV.push_back(left.value);
-			ArgsV.push_back(right.value);
-			Function* stringEquality = context->getFunction("equalStringObjs");
-			valWrapper.value = TheBuilder->CreateCall(stringEquality, ArgsV,
-					"equalStringObjsCall");
+//			vector<Value*> ArgsV;
+//			ArgsV.push_back(left.value);
+//			ArgsV.push_back(right.value);
+//			Function* stringEquality = context->getFunction("equalStringObjs");
+//			valWrapper.value = TheBuilder->CreateCall(stringEquality, ArgsV,
+//					"equalStringObjsCall");
+//			return valWrapper;
+
+			//{ i8*, i32 }
+			StructType *stringObjType = context->CreateStringStruct();
+			AllocaInst *mem_str_obj_left = context->CreateEntryBlockAlloca(F,
+								string("revertedStringObjLeft"), stringObjType);
+			AllocaInst *mem_str_obj_right = context->CreateEntryBlockAlloca(F,
+											string("revertedStringObjRight"), stringObjType);
+			TheBuilder->CreateStore(left.value,mem_str_obj_left);
+			TheBuilder->CreateStore(right.value,mem_str_obj_right);
+
+			Value *ptr_s1 = context->getStructElem(mem_str_obj_left,0);
+			Value *ptr_s2 = context->getStructElem(mem_str_obj_right,0);
+			Value *len = context->getStructElem(mem_str_obj_left,1);
+
+			Value *toCmp = context->createInt32(0);
+			valWrapper.value = TheBuilder->CreateICmpEQ(mystrncmp(ptr_s1,ptr_s2,len).value,toCmp);
 			return valWrapper;
 		}
 		case BAG:
@@ -510,6 +538,414 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 	}
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
+
+int mystrncmp(const char *s1, const char *s2, size_t n)
+{
+    for ( ; n > 0; s1++, s2++, --n)
+	if (*s1 != *s2)
+	    return ((*(unsigned char *)s1 < *(unsigned char *)s2) ? -1 : +1);
+	else if (*s1 == '\0')
+	    return 0;
+    return 0;
+}
+
+
+//RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
+//		Value *int64_n) {
+//
+//	IRBuilder<>* Builder = context->getBuilder();
+//	LLVMContext& llvmContext = context->getLLVMContext();
+//	Function *F = Builder->GetInsertBlock()->getParent();
+//	PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
+//
+//	// Constant Definitions
+//	ConstantInt* const_int32_5 = ConstantInt::get(llvmContext,
+//			APInt(32, StringRef("1"), 10));
+//	ConstantInt* const_int32_6 = ConstantInt::get(llvmContext,
+//			APInt(32, StringRef("-2"), 10));
+//	ConstantInt* const_int64_7 = ConstantInt::get(llvmContext,
+//			APInt(64, StringRef("0"), 10));
+//	ConstantInt* const_int32_8 = ConstantInt::get(llvmContext,
+//			APInt(32, StringRef("-1"), 10));
+//	ConstantInt* const_int32_9 = ConstantInt::get(llvmContext,
+//			APInt(32, StringRef("0"), 10));
+//	ConstantInt* const_int64_10 = ConstantInt::get(llvmContext,
+//			APInt(64, StringRef("-1"), 10));
+//
+//	BasicBlock* label_entry = BasicBlock::Create(llvmContext, "entry", F, 0);
+//	BasicBlock* label_for_cond = BasicBlock::Create(llvmContext, "for.cond", F,
+//			0);
+//	BasicBlock* label_for_body = BasicBlock::Create(llvmContext, "for.body", F,
+//			0);
+//	BasicBlock* label_if_then = BasicBlock::Create(llvmContext, "if.then", F,
+//			0);
+//	BasicBlock* label_if_else = BasicBlock::Create(llvmContext, "if.else", F,
+//			0);
+//	BasicBlock* label_if_then8 = BasicBlock::Create(llvmContext, "if.then8", F,
+//			0);
+//	BasicBlock* label_if_end = BasicBlock::Create(llvmContext, "if.end", F, 0);
+//	BasicBlock* label_if_end9 = BasicBlock::Create(llvmContext, "if.end9", F,
+//			0);
+//	BasicBlock* label_for_inc = BasicBlock::Create(llvmContext, "for.inc", F,
+//			0);
+//	BasicBlock* label_for_end = BasicBlock::Create(llvmContext, "for.end", F,
+//			0);
+//	BasicBlock* label_if_then12 = BasicBlock::Create(llvmContext, "if.then12",
+//			F, 0);
+//	BasicBlock* label_if_end13 = BasicBlock::Create(llvmContext, "if.end13", F,
+//			0);
+//
+//	/* Connect w. previous */
+//	Builder->CreateBr(label_entry);
+//
+//
+//	// Block entry (label_entry)
+//	AllocaInst* ptr_s1_addr = new AllocaInst(charPtrType, "s1.addr",
+//			label_entry);
+//	ptr_s1_addr->setAlignment(8);
+//	AllocaInst* ptr_s2_addr = new AllocaInst(charPtrType, "s2.addr",
+//			label_entry);
+//	ptr_s2_addr->setAlignment(8);
+//	AllocaInst* ptr_n_addr = new AllocaInst(IntegerType::get(llvmContext, 64),
+//			"n.addr", label_entry);
+//	ptr_n_addr->setAlignment(8);
+//	AllocaInst* ptr_result = new AllocaInst(IntegerType::get(llvmContext, 32),
+//			"result", label_entry);
+//	ptr_result->setAlignment(4);
+//	StoreInst* void_11 = new StoreInst(ptr_s1, ptr_s1_addr, false, label_entry);
+//	void_11->setAlignment(8);
+//	StoreInst* void_12 = new StoreInst(ptr_s2, ptr_s2_addr, false, label_entry);
+//	void_12->setAlignment(8);
+//	StoreInst* void_13 = new StoreInst(int64_n, ptr_n_addr, false, label_entry);
+//	void_13->setAlignment(8);
+//	StoreInst* void_14 = new StoreInst(const_int32_6, ptr_result, false,
+//			label_entry);
+//	void_14->setAlignment(4);
+//	BranchInst::Create(label_for_cond, label_entry);
+//
+//	// Block for.cond (label_for_cond)
+//	LoadInst* int64_16 = new LoadInst(ptr_n_addr, "", false, label_for_cond);
+//	int64_16->setAlignment(8);
+//	ICmpInst* int1_cmp = new ICmpInst(*label_for_cond, ICmpInst::ICMP_UGT,
+//			int64_16, const_int64_7, "cmp");
+//	BranchInst::Create(label_for_body, label_for_end, int1_cmp, label_for_cond);
+//
+//	// Block for.body (label_for_body)
+//	LoadInst* ptr_18 = new LoadInst(ptr_s1_addr, "", false, label_for_body);
+//	ptr_18->setAlignment(8);
+//	LoadInst* int8_19 = new LoadInst(ptr_18, "", false, label_for_body);
+//	int8_19->setAlignment(1);
+//	CastInst* int32_conv = new SExtInst(int8_19,
+//			IntegerType::get(llvmContext, 32), "conv", label_for_body);
+//	LoadInst* ptr_20 = new LoadInst(ptr_s2_addr, "", false, label_for_body);
+//	ptr_20->setAlignment(8);
+//	LoadInst* int8_21 = new LoadInst(ptr_20, "", false, label_for_body);
+//	int8_21->setAlignment(1);
+//	CastInst* int32_conv1 = new SExtInst(int8_21,
+//			IntegerType::get(llvmContext, 32), "conv1", label_for_body);
+//	ICmpInst* int1_cmp2 = new ICmpInst(*label_for_body, ICmpInst::ICMP_NE,
+//			int32_conv, int32_conv1, "cmp2");
+//	BranchInst::Create(label_if_then, label_if_else, int1_cmp2, label_for_body);
+//
+//	// Block if.then (label_if_then)
+//	LoadInst* ptr_23 = new LoadInst(ptr_s1_addr, "", false, label_if_then);
+//	ptr_23->setAlignment(8);
+//	LoadInst* int8_24 = new LoadInst(ptr_23, "", false, label_if_then);
+//	int8_24->setAlignment(1);
+//	CastInst* int32_conv3 = new ZExtInst(int8_24,
+//			IntegerType::get(llvmContext, 32), "conv3", label_if_then);
+//	LoadInst* ptr_25 = new LoadInst(ptr_s2_addr, "", false, label_if_then);
+//	ptr_25->setAlignment(8);
+//	LoadInst* int8_26 = new LoadInst(ptr_25, "", false, label_if_then);
+//	int8_26->setAlignment(1);
+//	CastInst* int32_conv4 = new ZExtInst(int8_26,
+//			IntegerType::get(llvmContext, 32), "conv4", label_if_then);
+//	ICmpInst* int1_cmp5 = new ICmpInst(*label_if_then, ICmpInst::ICMP_SLT,
+//			int32_conv3, int32_conv4, "cmp5");
+//	SelectInst* int32_cond = SelectInst::Create(int1_cmp5, const_int32_8,
+//			const_int32_5, "cond", label_if_then);
+//	StoreInst* void_27 = new StoreInst(int32_cond, ptr_result, false,
+//			label_if_then);
+//	void_27->setAlignment(4);
+//	BranchInst::Create(label_for_end, label_if_then);
+//
+//	// Block if.else (label_if_else)
+//	LoadInst* ptr_29 = new LoadInst(ptr_s1_addr, "", false, label_if_else);
+//	ptr_29->setAlignment(8);
+//	LoadInst* int8_30 = new LoadInst(ptr_29, "", false, label_if_else);
+//	int8_30->setAlignment(1);
+//	CastInst* int32_conv6 = new SExtInst(int8_30,
+//			IntegerType::get(llvmContext, 32), "conv6", label_if_else);
+//	ICmpInst* int1_cmp7 = new ICmpInst(*label_if_else, ICmpInst::ICMP_EQ,
+//			int32_conv6, const_int32_9, "cmp7");
+//	BranchInst::Create(label_if_then8, label_if_end, int1_cmp7, label_if_else);
+//
+//	// Block if.then8 (label_if_then8)
+//	StoreInst* void_32 = new StoreInst(const_int32_9, ptr_result, false,
+//			label_if_then8);
+//	void_32->setAlignment(4);
+//	BranchInst::Create(label_for_end, label_if_then8);
+//
+//	// Block if.end (label_if_end)
+//	BranchInst::Create(label_if_end9, label_if_end);
+//
+//	// Block if.end9 (label_if_end9)
+//	BranchInst::Create(label_for_inc, label_if_end9);
+//
+//	// Block for.inc (label_for_inc)
+//	LoadInst* ptr_36 = new LoadInst(ptr_s1_addr, "", false, label_for_inc);
+//	ptr_36->setAlignment(8);
+////	GetElementPtrInst* ptr_incdec_ptr = GetElementPtrInst::Create(
+////			IntegerType::get(llvmContext, 8), ptr_36, { const_int32_5 },
+////			"incdec.ptr", label_for_inc);
+////	GetElementPtrInst* ptr_incdec_ptr = GetElementPtrInst::Create(
+////				ptr_36, { const_int32_5 },
+////				"incdec.ptr", label_for_inc);
+//	GetElementPtrInst* ptr_incdec_ptr = GetElementPtrInst::Create(
+//					ptr_36, const_int32_5 ,
+//					"incdec.ptr", label_for_inc);
+//	StoreInst* void_37 = new StoreInst(ptr_incdec_ptr, ptr_s1_addr, false,
+//			label_for_inc);
+//	void_37->setAlignment(8);
+//	LoadInst* ptr_38 = new LoadInst(ptr_s2_addr, "", false, label_for_inc);
+//	ptr_38->setAlignment(8);
+////	GetElementPtrInst* ptr_incdec_ptr10 = GetElementPtrInst::Create(
+////			IntegerType::get(llvmContext, 8), ptr_38, { const_int32_5 },
+////			"incdec.ptr10", label_for_inc);
+////	GetElementPtrInst* ptr_incdec_ptr10 = GetElementPtrInst::Create(
+////				ptr_38, { const_int32_5 },"incdec.ptr10", label_for_inc);
+//	GetElementPtrInst* ptr_incdec_ptr10 = GetElementPtrInst::Create(
+//					ptr_38, const_int32_5 ,"incdec.ptr10", label_for_inc);
+//	StoreInst* void_39 = new StoreInst(ptr_incdec_ptr10, ptr_s2_addr, false,
+//			label_for_inc);
+//	void_39->setAlignment(8);
+//	LoadInst* int64_40 = new LoadInst(ptr_n_addr, "", false, label_for_inc);
+//	int64_40->setAlignment(8);
+//	BinaryOperator* int64_dec = BinaryOperator::Create(Instruction::Add,
+//			int64_40, const_int64_10, "dec", label_for_inc);
+//	StoreInst* void_41 = new StoreInst(int64_dec, ptr_n_addr, false,
+//			label_for_inc);
+//	void_41->setAlignment(8);
+//	BranchInst::Create(label_for_cond, label_for_inc);
+//
+//	// Block for.end (label_for_end)
+//	LoadInst* int32_43 = new LoadInst(ptr_result, "", false, label_for_end);
+//	int32_43->setAlignment(4);
+//	ICmpInst* int1_cmp11 = new ICmpInst(*label_for_end, ICmpInst::ICMP_EQ,
+//			int32_43, const_int32_6, "cmp11");
+//	BranchInst::Create(label_if_then12, label_if_end13, int1_cmp11,
+//			label_for_end);
+//
+//	// Block if.then12 (label_if_then12)
+//	StoreInst* void_45 = new StoreInst(const_int32_9, ptr_result, false,
+//			label_if_then12);
+//	void_45->setAlignment(4);
+//	BranchInst::Create(label_if_end13, label_if_then12);
+//
+//	// Block if.end13 (label_if_end13)
+//	LoadInst* int32_47 = new LoadInst(ptr_result, "", false, label_if_end13);
+//	int32_47->setAlignment(4);
+////	ReturnInst::Create(llvmContext, int32_47, label_if_end13);
+//	RawValue valWrapper;
+//	valWrapper.isNull = context->createFalse();
+//	valWrapper.value = int32_47;
+//
+//	Builder->SetInsertPoint(label_if_end13);
+//
+//	return valWrapper;
+//}
+
+/* returns 0/1/-1 */
+RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
+		Value *int32_n) {
+
+	IRBuilder<>* Builder = context->getBuilder();
+	LLVMContext& llvmContext = context->getLLVMContext();
+	Function *F = Builder->GetInsertBlock()->getParent();
+	PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
+
+	// Constant Definitions
+	ConstantInt* const_int32_4 = ConstantInt::get(llvmContext,
+			APInt(32, StringRef("1"), 10));
+	ConstantInt* const_int32_5 = ConstantInt::get(llvmContext,
+			APInt(32, StringRef("-2"), 10));
+	ConstantInt* const_int32_6 = ConstantInt::get(llvmContext,
+			APInt(32, StringRef("0"), 10));
+	ConstantInt* const_int32_7 = ConstantInt::get(llvmContext,
+			APInt(32, StringRef("-1"), 10));
+
+	BasicBlock* label_entry = BasicBlock::Create(llvmContext, "entry", F, 0);
+	BasicBlock* label_for_cond = BasicBlock::Create(llvmContext, "for.cond", F,
+			0);
+	BasicBlock* label_for_body = BasicBlock::Create(llvmContext, "for.body", F,
+			0);
+	BasicBlock* label_if_then = BasicBlock::Create(llvmContext, "if.then", F,
+			0);
+	BasicBlock* label_if_else = BasicBlock::Create(llvmContext, "if.else", F,
+			0);
+	BasicBlock* label_if_then11 = BasicBlock::Create(llvmContext, "if.then11",
+			F, 0);
+	BasicBlock* label_if_end = BasicBlock::Create(llvmContext, "if.end", F, 0);
+	BasicBlock* label_if_end12 = BasicBlock::Create(llvmContext, "if.end12", F,
+			0);
+	BasicBlock* label_for_inc = BasicBlock::Create(llvmContext, "for.inc", F,
+			0);
+	BasicBlock* label_for_end = BasicBlock::Create(llvmContext, "for.end", F,
+			0);
+	BasicBlock* label_if_then16 = BasicBlock::Create(llvmContext, "if.then16",
+			F, 0);
+	BasicBlock* label_if_end17 = BasicBlock::Create(llvmContext, "if.end17", F,
+			0);
+
+	/* Connect w. previous */
+	Builder->CreateBr(label_entry);
+
+	// Block entry (label_entry)
+	AllocaInst* ptr_s1_addr = new AllocaInst(charPtrType, "s1.addr",
+			label_entry);
+	ptr_s1_addr->setAlignment(8);
+	AllocaInst* ptr_s2_addr = new AllocaInst(charPtrType, "s2.addr",
+			label_entry);
+	ptr_s2_addr->setAlignment(8);
+	AllocaInst* ptr_n_addr = new AllocaInst(IntegerType::get(llvmContext, 32),
+			"n.addr", label_entry);
+	ptr_n_addr->setAlignment(4);
+	AllocaInst* ptr_result = new AllocaInst(IntegerType::get(llvmContext, 32),
+			"result", label_entry);
+	ptr_result->setAlignment(4);
+	StoreInst* void_8 = new StoreInst(ptr_s1, ptr_s1_addr, false, label_entry);
+	void_8->setAlignment(8);
+	StoreInst* void_9 = new StoreInst(ptr_s2, ptr_s2_addr, false, label_entry);
+	void_9->setAlignment(8);
+	StoreInst* void_10 = new StoreInst(int32_n, ptr_n_addr, false, label_entry);
+	void_10->setAlignment(4);
+	StoreInst* void_11 = new StoreInst(const_int32_5, ptr_result, false,
+			label_entry);
+	void_11->setAlignment(4);
+	BranchInst::Create(label_for_cond, label_entry);
+
+	// Block for.cond (label_for_cond)
+	LoadInst* int32_13 = new LoadInst(ptr_n_addr, "", false, label_for_cond);
+	int32_13->setAlignment(4);
+	ICmpInst* int1_cmp = new ICmpInst(*label_for_cond, ICmpInst::ICMP_SGT,
+			int32_13, const_int32_6, "cmp");
+	BranchInst::Create(label_for_body, label_for_end, int1_cmp, label_for_cond);
+
+	// Block for.body (label_for_body)
+	LoadInst* ptr_15 = new LoadInst(ptr_s1_addr, "", false, label_for_body);
+	ptr_15->setAlignment(8);
+	LoadInst* int8_16 = new LoadInst(ptr_15, "", false, label_for_body);
+	int8_16->setAlignment(1);
+	CastInst* int32_conv = new SExtInst(int8_16,
+			IntegerType::get(llvmContext, 32), "conv", label_for_body);
+	LoadInst* ptr_17 = new LoadInst(ptr_s2_addr, "", false, label_for_body);
+	ptr_17->setAlignment(8);
+	LoadInst* int8_18 = new LoadInst(ptr_17, "", false, label_for_body);
+	int8_18->setAlignment(1);
+	CastInst* int32_conv1 = new SExtInst(int8_18,
+			IntegerType::get(llvmContext, 32), "conv1", label_for_body);
+	ICmpInst* int1_cmp2 = new ICmpInst(*label_for_body, ICmpInst::ICMP_NE,
+			int32_conv, int32_conv1, "cmp2");
+	BranchInst::Create(label_if_then, label_if_else, int1_cmp2, label_for_body);
+
+	// Block if.then (label_if_then)
+	LoadInst* ptr_20 = new LoadInst(ptr_s1_addr, "", false, label_if_then);
+	ptr_20->setAlignment(8);
+	LoadInst* int8_21 = new LoadInst(ptr_20, "", false, label_if_then);
+	int8_21->setAlignment(1);
+	CastInst* int32_conv4 = new ZExtInst(int8_21,
+			IntegerType::get(llvmContext, 32), "conv4", label_if_then);
+	LoadInst* ptr_22 = new LoadInst(ptr_s2_addr, "", false, label_if_then);
+	ptr_22->setAlignment(8);
+	LoadInst* int8_23 = new LoadInst(ptr_22, "", false, label_if_then);
+	int8_23->setAlignment(1);
+	CastInst* int32_conv5 = new ZExtInst(int8_23,
+			IntegerType::get(llvmContext, 32), "conv5", label_if_then);
+	ICmpInst* int1_cmp6 = new ICmpInst(*label_if_then, ICmpInst::ICMP_SLT,
+			int32_conv4, int32_conv5, "cmp6");
+	SelectInst* int32_cond = SelectInst::Create(int1_cmp6, const_int32_7,
+			const_int32_4, "cond", label_if_then);
+	StoreInst* void_24 = new StoreInst(int32_cond, ptr_result, false,
+			label_if_then);
+	void_24->setAlignment(4);
+	BranchInst::Create(label_for_end, label_if_then);
+
+	// Block if.else (label_if_else)
+	LoadInst* ptr_26 = new LoadInst(ptr_s1_addr, "", false, label_if_else);
+	ptr_26->setAlignment(8);
+	LoadInst* int8_27 = new LoadInst(ptr_26, "", false, label_if_else);
+	int8_27->setAlignment(1);
+	CastInst* int32_conv8 = new SExtInst(int8_27,
+			IntegerType::get(llvmContext, 32), "conv8", label_if_else);
+	ICmpInst* int1_cmp9 = new ICmpInst(*label_if_else, ICmpInst::ICMP_EQ,
+			int32_conv8, const_int32_6, "cmp9");
+	BranchInst::Create(label_if_then11, label_if_end, int1_cmp9, label_if_else);
+
+	// Block if.then11 (label_if_then11)
+	StoreInst* void_29 = new StoreInst(const_int32_6, ptr_result, false,
+			label_if_then11);
+	void_29->setAlignment(4);
+	BranchInst::Create(label_for_end, label_if_then11);
+
+	// Block if.end (label_if_end)
+	BranchInst::Create(label_if_end12, label_if_end);
+
+	// Block if.end12 (label_if_end12)
+	BranchInst::Create(label_for_inc, label_if_end12);
+
+	// Block for.inc (label_for_inc)
+	LoadInst* ptr_33 = new LoadInst(ptr_s1_addr, "", false, label_for_inc);
+	ptr_33->setAlignment(8);
+	GetElementPtrInst* ptr_incdec_ptr = GetElementPtrInst::Create(ptr_33,
+			const_int32_4, "incdec.ptr", label_for_inc);
+	StoreInst* void_34 = new StoreInst(ptr_incdec_ptr, ptr_s1_addr, false,
+			label_for_inc);
+	void_34->setAlignment(8);
+	LoadInst* ptr_35 = new LoadInst(ptr_s2_addr, "", false, label_for_inc);
+	ptr_35->setAlignment(8);
+	GetElementPtrInst* ptr_incdec_ptr13 = GetElementPtrInst::Create(ptr_35,
+			const_int32_4, "incdec.ptr13", label_for_inc);
+	StoreInst* void_36 = new StoreInst(ptr_incdec_ptr13, ptr_s2_addr, false,
+			label_for_inc);
+	void_36->setAlignment(8);
+	LoadInst* int32_37 = new LoadInst(ptr_n_addr, "", false, label_for_inc);
+	int32_37->setAlignment(4);
+	BinaryOperator* int32_dec = BinaryOperator::Create(Instruction::Add,
+			int32_37, const_int32_7, "dec", label_for_inc);
+	StoreInst* void_38 = new StoreInst(int32_dec, ptr_n_addr, false,
+			label_for_inc);
+	void_38->setAlignment(4);
+	BranchInst::Create(label_for_cond, label_for_inc);
+
+	// Block for.end (label_for_end)
+	LoadInst* int32_40 = new LoadInst(ptr_result, "", false, label_for_end);
+	int32_40->setAlignment(4);
+	ICmpInst* int1_cmp14 = new ICmpInst(*label_for_end, ICmpInst::ICMP_EQ,
+			int32_40, const_int32_5, "cmp14");
+	BranchInst::Create(label_if_then16, label_if_end17, int1_cmp14,
+			label_for_end);
+
+	// Block if.then16 (label_if_then16)
+	StoreInst* void_42 = new StoreInst(const_int32_6, ptr_result, false,
+			label_if_then16);
+	void_42->setAlignment(4);
+	BranchInst::Create(label_if_end17, label_if_then16);
+
+	// Block if.end17 (label_if_end17)
+	LoadInst* int32_44 = new LoadInst(ptr_result, "", false, label_if_end17);
+	int32_44->setAlignment(4);
+
+	/* OUTPUT */
+	RawValue valWrapper;
+	valWrapper.isNull = context->createFalse();
+	valWrapper.value = int32_44;
+
+	Builder->SetInsertPoint(label_if_end17);
+
+	return valWrapper;
+}
+
+/* returns true / false!!*/
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::NeExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
@@ -917,5 +1353,4 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::OrExpression *e) {
 		valWrapper.value = TheBuilder->CreateOr(left.value, right.value);
 		return valWrapper;
 }
-
 

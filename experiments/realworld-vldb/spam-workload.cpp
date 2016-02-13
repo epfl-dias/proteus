@@ -37,12 +37,12 @@ int main()	{
 //	cout << "**************" << endl;
 
 
-	cout << "SYMANTEC CSV 1 (+Caching)" << endl;
-	symantecCSV1Caching(datasetCatalog);
-	cout << "**************" << endl;
-	cout << "SYMANTEC CSV 2 (+Caching)" << endl;
-	symantecCSV2Caching(datasetCatalog);
-	cout << "**************" << endl;
+//	cout << "SYMANTEC CSV 1 (+Caching)" << endl;
+//	symantecCSV1Caching(datasetCatalog);
+//	cout << "**************" << endl;
+//	cout << "SYMANTEC CSV 2 (+Caching)" << endl;
+//	symantecCSV2Caching(datasetCatalog);
+//	cout << "**************" << endl;
 //	cout << "SYMANTEC CSV 3v1" << endl;
 //	symantecCSV3v1(datasetCatalog);
 //	cout << "**************" << endl;
@@ -60,38 +60,38 @@ int main()	{
 //	cout << "**************" << endl;
 
 
-//	cout << "SYMANTEC JSON 1 (PM+Very Eager Caching)" << endl;
-//	symantecJSON1Caching(datasetCatalog);
-//	cout << "SYMANTEC JSON 2" << endl;
-//	symantecJSON2v1(datasetCatalog);
-//	cout << "SYMANTEC JSON 3" << endl;
-//	symantecJSON3v1(datasetCatalog);
-//	cout << "SYMANTEC JSON 4" << endl;
-//	symantecJSON4v1(datasetCatalog);
-//	cout << "SYMANTEC JSON 5" << endl;
-//	symantecJSON5v1(datasetCatalog);
-//	cout << "SYMANTEC JSON 6" << endl;
-//	symantecJSON6v1(datasetCatalog);
-//	cout << "SYMANTEC JSON 7" << endl;
-//	symantecJSON7v1(datasetCatalog);
-//	cout << "SYMANTEC JSON 9" << endl;
-//	symantecJSON9v1(datasetCatalog);
-//	cout << "SYMANTEC JSON 10" << endl;
-//	symantecJSON10v1(datasetCatalog);
-//	cout << "SYMANTEC JSON 11" << endl;
-//	symantecJSON11v1(datasetCatalog);
+	cout << "SYMANTEC JSON 1 (PM+Very Eager Caching)" << endl;
+	symantecJSON1Caching(datasetCatalog);
+	cout << "SYMANTEC JSON 2" << endl;
+	symantecJSON2v1(datasetCatalog);
+	cout << "SYMANTEC JSON 3" << endl;
+	symantecJSON3v1(datasetCatalog);
+	cout << "SYMANTEC JSON 4" << endl;
+	symantecJSON4v1(datasetCatalog);
+	cout << "SYMANTEC JSON 5" << endl;
+	symantecJSON5v1(datasetCatalog);
+	cout << "SYMANTEC JSON 6" << endl;
+	symantecJSON6v1(datasetCatalog);
+	cout << "SYMANTEC JSON 7" << endl;
+	symantecJSON7v1(datasetCatalog);
+	cout << "SYMANTEC JSON 9" << endl;
+	symantecJSON9v1(datasetCatalog);
+	cout << "SYMANTEC JSON 10" << endl;
+	symantecJSON10v1(datasetCatalog);
+	cout << "SYMANTEC JSON 11" << endl;
+	symantecJSON11v1(datasetCatalog);
 
 
-	cout << "SYMANTEC BIN-CSV 1" << endl;
-	symantecBinCSV1(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 2" << endl;
-	symantecBinCSV2(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 3" << endl;
-	symantecBinCSV3(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 4" << endl;
-	symantecBinCSV4(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 5" << endl;
-	symantecBinCSV5(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 1" << endl;
+//	symantecBinCSV1(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 2" << endl;
+//	symantecBinCSV2(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 3" << endl;
+//	symantecBinCSV3(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 4" << endl;
+//	symantecBinCSV4(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 5" << endl;
+//	symantecBinCSV5(datasetCatalog);
 
 //
 //	cout << "SYMANTEC BIN-JSON 1" << endl;
