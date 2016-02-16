@@ -79,6 +79,11 @@ private:
 
 	string activeRelation;
 
+	RawValue mystrncmp(Value *s1, Value *s2, Value *n);
+	RawValue mystrncmp(Value *s1, Value *s2, Value *n1, Value *n2);
+
+	void declareLLVMFunc();
+
 	/* Plugins are responsible for this action */
 	//RawValue retrieveValue(CacheInfo info, Plugin *pg);
 

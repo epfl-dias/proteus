@@ -6,6 +6,33 @@
 #include "experiments/realworld-vldb/spam-csv-json.hpp"
 #include "experiments/realworld-vldb/spam-bin-csv-json-v2.hpp"
 
+int main() {
+	cout << "[ViDa] Execution - Patches because of new strcmp()" << endl;
+	map<string,dataset> datasetCatalog;
+
+	symantecCoreIDDatesSchema(datasetCatalog);
+
+	cout << "SYMANTEC JSON 1 (PM+Very Eager Caching)" << endl;
+	symantecJSON1Caching(datasetCatalog);
+	cout << "SYMANTEC JSON 2" << endl;
+	symantecJSON2v1(datasetCatalog);
+	cout << "SYMANTEC JSON 3" << endl;
+	symantecJSON3v1(datasetCatalog);
+	cout << "SYMANTEC JSON 4" << endl;
+	symantecJSON4v1(datasetCatalog);
+	cout << "SYMANTEC JSON 5" << endl;
+	symantecJSON5v1(datasetCatalog);
+	cout << "SYMANTEC JSON 6" << endl;
+	symantecJSON6v1(datasetCatalog);
+	cout << "SYMANTEC JSON 7" << endl;
+	symantecJSON7v1(datasetCatalog);
+	cout << "SYMANTEC JSON 9" << endl;
+	symantecJSON9v1(datasetCatalog);
+	cout << "SYMANTEC JSON 10" << endl;
+	symantecJSON10v1(datasetCatalog);
+	cout << "SYMANTEC JSON 11" << endl;
+	symantecJSON11v1(datasetCatalog);
+}
 
 /*
 int main()	{
@@ -58,7 +85,6 @@ int main()	{
 	symantecBin8(datasetCatalog);
 	cout << "**************" << endl;
 
-
 	cout << "SYMANTEC CSV 1 (+Caching)" << endl;
 	symantecCSV1Caching(datasetCatalog);
 	cout << "**************" << endl;
@@ -80,6 +106,7 @@ int main()	{
 	cout << "SYMANTEC CSV 7" << endl;
 	symantecCSV7(datasetCatalog);
 	cout << "**************" << endl;
+
 
 
 	cout << "SYMANTEC JSON 1 (PM+Very Eager Caching)" << endl;
@@ -104,16 +131,16 @@ int main()	{
 	symantecJSON11v1(datasetCatalog);
 
 
-	cout << "SYMANTEC BIN-CSV 1" << endl;
-	symantecBinCSV1(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 2" << endl;
-	symantecBinCSV2(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 3" << endl;
-	symantecBinCSV3(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 4" << endl;
-	symantecBinCSV4(datasetCatalog);
-	cout << "SYMANTEC BIN-CSV 5" << endl;
-	symantecBinCSV5(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 1" << endl;
+//	symantecBinCSV1(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 2" << endl;
+//	symantecBinCSV2(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 3" << endl;
+//	symantecBinCSV3(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 4" << endl;
+//	symantecBinCSV4(datasetCatalog);
+//	cout << "SYMANTEC BIN-CSV 5" << endl;
+//	symantecBinCSV5(datasetCatalog);
 
 
 	cout << "SYMANTEC BIN-JSON 1" << endl;
@@ -162,7 +189,7 @@ int main()	{
 	cout << "SYMANTEC BIN-CSV-JSON 10" << endl;
 	symantecBinCSVJSON10(datasetCatalog);
 }*/
-
+/*
 int main()	{
 	cout << "[ViDa] Execution - Patches because of PostgreSQL changes" << endl;
 	map<string,dataset> datasetCatalog;
@@ -210,4 +237,5 @@ int main()	{
 	symantecBinCSVJSON6v1(datasetCatalog);
 
 }
+*/
 

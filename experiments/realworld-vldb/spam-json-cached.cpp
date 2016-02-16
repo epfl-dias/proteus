@@ -585,7 +585,10 @@ void symantecJSON3(map<string, dataset> datasetCatalog) {
 //select max((data->>'size')::int), count(*) from spamscoreiddates28m where (data->>'id')::int < 30000000 and (data->>'country_code') = 'US';
 void symantecJSON3v1(map<string, dataset> datasetCatalog) {
 
-	int idHigh = 600000000;
+	//int idHigh = 600000000;
+	//int idHigh = 60000000;
+	//int idHigh = 180000000;
+	int idHigh = 300000000;
 	string country_codeType = "US";
 //	string cityType = "Athens";
 
