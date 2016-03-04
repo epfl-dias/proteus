@@ -57,7 +57,8 @@
 
 
 TEST(Plan, Scan) {
-
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
 	const char *testPath = "testResults/tests-plan-parsing/";
 	//Test-specific
@@ -71,7 +72,8 @@ TEST(Plan, Scan) {
 }
 
 TEST(Plan, Unnest) {
-
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
 	const char *testPath = "testResults/tests-plan-parsing/";
 	//Test-specific
@@ -86,7 +88,8 @@ TEST(Plan, Unnest) {
 
 
 TEST(Plan, Join) {
-
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
 	const char *testPath = "testResults/tests-plan-parsing/";
 	//Test-specific
@@ -100,7 +103,8 @@ TEST(Plan, Join) {
 }
 
 TEST(Plan, Nest) {
-
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
 	const char *testPath = "testResults/tests-plan-parsing/";
 	//Test-specific

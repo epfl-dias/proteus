@@ -109,6 +109,8 @@ TEST(Sailors, Scan) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 
 	/**
 	 * SCAN1
@@ -192,6 +194,8 @@ TEST(Sailors, Select) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 
 	/**
 	 * SCAN1
@@ -288,6 +292,8 @@ TEST(Sailors, ScanBoats) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();
@@ -363,6 +369,8 @@ TEST(Sailors, JoinLeft3) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 
 	/**
 	 * SCAN1
@@ -580,6 +588,8 @@ TEST(Sailors, JoinRight3) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();

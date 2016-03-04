@@ -79,6 +79,8 @@ TEST(Output, ReduceNumeric) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 
 	//SCAN1
 	string filename = string("inputs/sailors.csv");
@@ -158,6 +160,8 @@ TEST(Output, MultiReduceNumeric) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 
 	//SCAN1
 	string filename = string("inputs/sailors.csv");
@@ -239,6 +243,8 @@ TEST(Output, ReduceBag) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 
 	//SCAN1
 	string filename = string("inputs/sailors.csv");
@@ -320,6 +326,8 @@ TEST(Output, ReduceBagRecord) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 
 	//SCAN1
 	string filename = string("inputs/sailors.csv");
@@ -421,26 +429,79 @@ TEST(Output, NestBagTPCH) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
+
 	PrimitiveType *intType = new IntType();
 	PrimitiveType *floatType = new FloatType();
+	PrimitiveType *stringType = new StringType();
 
 	/* File Info */
 	map<string, dataset> datasetCatalog;
-	tpchSchemaCSV(datasetCatalog);
-	string nameLineitem = string("lineitem");
-	dataset lineitem = datasetCatalog[nameLineitem];
-	map<string, RecordAttribute*> argsLineitem = lineitem.recType.getArgsMap();
+//	tpchSchemaCSV(datasetCatalog);
+//	string nameLineitem = string("lineitem");
+//	dataset lineitem = datasetCatalog[nameLineitem];
+//	map<string, RecordAttribute*> argsLineitem = lineitem.recType.getArgsMap();
+
 	string lineitemPath = string("inputs/tpch/lineitem10.csv");
+	list<RecordAttribute*> attsLineitem = list<RecordAttribute*>();
+	RecordAttribute *l_orderkey = new RecordAttribute(1, lineitemPath,
+			"l_orderkey", intType);
+	attsLineitem.push_back(l_orderkey);
+	RecordAttribute *l_partkey = new RecordAttribute(2, lineitemPath,
+			"l_partkey", intType);
+	attsLineitem.push_back(l_partkey);
+	RecordAttribute *l_suppkey = new RecordAttribute(3, lineitemPath,
+			"l_suppkey", intType);
+	attsLineitem.push_back(l_suppkey);
+	RecordAttribute *l_linenumber = new RecordAttribute(4, lineitemPath,
+			"l_linenumber", intType);
+	attsLineitem.push_back(l_linenumber);
+	RecordAttribute *l_quantity = new RecordAttribute(5, lineitemPath,
+			"l_quantity", floatType);
+	attsLineitem.push_back(l_quantity);
+	RecordAttribute *l_extendedprice = new RecordAttribute(6, lineitemPath,
+			"l_extendedprice", floatType);
+	attsLineitem.push_back(l_extendedprice);
+	RecordAttribute *l_discount = new RecordAttribute(7, lineitemPath,
+			"l_discount", floatType);
+	attsLineitem.push_back(l_discount);
+	RecordAttribute *l_tax = new RecordAttribute(8, lineitemPath, "l_tax",
+			floatType);
+	attsLineitem.push_back(l_tax);
+	RecordAttribute *l_returnflag = new RecordAttribute(9, lineitemPath,
+			"l_returnflag", stringType);
+	attsLineitem.push_back(l_returnflag);
+	RecordAttribute *l_linestatus = new RecordAttribute(10, lineitemPath,
+			"l_linestatus", stringType);
+	attsLineitem.push_back(l_linestatus);
+	RecordAttribute *l_shipdate = new RecordAttribute(11, lineitemPath,
+			"l_shipdate", stringType);
+	attsLineitem.push_back(l_shipdate);
+	RecordAttribute *l_commitdate = new RecordAttribute(12, lineitemPath,
+			"l_commitdate", stringType);
+	attsLineitem.push_back(l_commitdate);
+	RecordAttribute *l_receiptdate = new RecordAttribute(13, lineitemPath,
+			"l_receiptdate", stringType);
+	attsLineitem.push_back(l_receiptdate);
+	RecordAttribute *l_shipinstruct = new RecordAttribute(14, lineitemPath,
+			"l_shipinstruct", stringType);
+	attsLineitem.push_back(l_shipinstruct);
+	RecordAttribute *l_shipmode = new RecordAttribute(15, lineitemPath,
+			"l_shipmode", stringType);
+	attsLineitem.push_back(l_shipmode);
+	RecordAttribute *l_comment = new RecordAttribute(16, lineitemPath,
+			"l_comment", stringType);
+	attsLineitem.push_back(l_comment);
+
+	RecordType rec = RecordType(attsLineitem);
+
 	int linehint = 10;
 	int policy = 5;
 	char delimInner = '|';
-	RecordType rec = lineitem.recType;
 
 	/* Projections */
 	vector<RecordAttribute*> projections;
-	RecordAttribute *l_orderkey = argsLineitem["l_orderkey"];
-	RecordAttribute *l_linenumber = argsLineitem["l_linenumber"];
-	RecordAttribute *l_quantity = argsLineitem["l_quantity"];
 
 	projections.push_back(l_orderkey);
 	projections.push_back(l_linenumber);
@@ -612,7 +673,8 @@ TEST(Output, JoinLeft3) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
-
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 	/**
 	 * SCAN1
 	 */
@@ -830,6 +892,8 @@ TEST(Output, NestReserves) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
 
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();

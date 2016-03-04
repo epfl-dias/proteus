@@ -46,6 +46,7 @@ TEST(JSON, String) {
 	registerFunctions(ctx);
 
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
 
 	string fname = string("inputs/json/json-string.json");
 
@@ -112,6 +113,7 @@ TEST(JSON, String) {
 
 	pg.finish();
 	catalog.clear();
+	caches.clear();
 }
 
 TEST(JSON, ScanJSON) {
@@ -122,6 +124,7 @@ TEST(JSON, ScanJSON) {
 		RawContext ctx = RawContext(testLabel);
 		registerFunctions(ctx);
 		RawCatalog& catalog = RawCatalog::getInstance();
+		CachingService& caches = CachingService::getInstance();
 
 		string fname = string("inputs/json/jsmn-flat.json");
 
@@ -169,6 +172,7 @@ TEST(JSON, ScanJSON) {
 
 		pg.finish();
 		catalog.clear();
+		caches.clear();
 		EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
@@ -181,6 +185,7 @@ TEST(JSON, SelectJSON) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
 
 	string fname = string("inputs/json/jsmn-flat.json");
 
@@ -242,6 +247,7 @@ TEST(JSON, SelectJSON) {
 
 	pg.finish();
 	catalog.clear();
+	caches.clear();
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
@@ -254,6 +260,7 @@ TEST(JSON, unnestJSON) {
 	RawContext ctx = RawContext(testLabel);
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
 
 	string fname = string("inputs/json/employees-flat.json");
 
@@ -358,6 +365,7 @@ TEST(JSON, unnestJSON) {
 
 	pg.finish();
 	catalog.clear();
+	caches.clear();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
@@ -373,6 +381,7 @@ TEST(JSON, reduceListObjectFlat) {
 	registerFunctions(ctx);
 
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
 
 	string fname = string("inputs/json/jsmnDeeper-flat.json");
 
@@ -457,6 +466,7 @@ bool reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 	RawContext ctx = RawContext("Reduce-JSONMax");
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
 
 	cout << "Input: " << fname << endl;
 
@@ -528,6 +538,7 @@ bool reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 
 	pg.finish();
 	catalog.clear();
+	caches.clear();
 
 	return verifyTestResult(testPath,testLabel);
 }
@@ -539,6 +550,7 @@ TEST(JSON, reduceMax) {
 	RawContext ctx = RawContext("Reduce-JSONMax");
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
 
 	string fname;
 	size_t lineHint;
@@ -635,6 +647,7 @@ TEST(JSON, reduceMax) {
 
 	pg.finish();
 	catalog.clear();
+	caches.clear();
 
 	EXPECT_TRUE(result);
 }
@@ -650,6 +663,7 @@ TEST(JSON, reduceDeeperMax) {
 
 	registerFunctions(ctx);
 	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
 
 	string fname;
 	size_t lineHint;
@@ -734,6 +748,6 @@ TEST(JSON, reduceDeeperMax) {
 
 	pg.finish();
 	catalog.clear();
-
+	caches.clear();
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
