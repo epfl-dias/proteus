@@ -1,0 +1,516 @@
+{
+  "customer": {
+    "path": "inputs/tpch/customer_0.001.tbl",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "float"
+          },
+          "relName": "inputs/tpch/customer_0.001.tbl",
+          "attrName": "c_acctbal",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/customer_0.001.tbl",
+          "attrName": "c_address",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/customer_0.001.tbl",
+          "attrName": "c_comment",
+          "attrNo": 3
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/customer_0.001.tbl",
+          "attrName": "c_custkey",
+          "attrNo": 4
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/customer_0.001.tbl",
+          "attrName": "c_mktsegment",
+          "attrNo": 5
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/customer_0.001.tbl",
+          "attrName": "c_name",
+          "attrNo": 6
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/customer_0.001.tbl",
+          "attrName": "c_nationkey",
+          "attrNo": 7
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/customer_0.001.tbl",
+          "attrName": "c_phone",
+          "attrNo": 8
+        }]
+      }
+    }
+  },
+  "lineitem": {
+    "path": "inputs/tpch/lineitem_0.001.tbl",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_comment",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_commitdate",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "float"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_discount",
+          "attrNo": 3
+        }, {
+          "type": {
+            "type": "float"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_extendedprice",
+          "attrNo": 4
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_linenumber",
+          "attrNo": 5
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_linestatus",
+          "attrNo": 6
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_orderkey",
+          "attrNo": 7
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_partkey",
+          "attrNo": 8
+        }, {
+          "type": {
+            "type": "float"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_quantity",
+          "attrNo": 9
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_receiptdate",
+          "attrNo": 10
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_returnflag",
+          "attrNo": 11
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_shipdate",
+          "attrNo": 12
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_shipinstruct",
+          "attrNo": 13
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_shipmode",
+          "attrNo": 14
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_suppkey",
+          "attrNo": 15
+        }, {
+          "type": {
+            "type": "float"
+          },
+          "relName": "inputs/tpch/lineitem_0.001.tbl",
+          "attrName": "l_tax",
+          "attrNo": 16
+        }]
+      }
+    }
+  },
+  "nation": {
+    "path": "inputs/tpch/nation_0.001.tbl",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/nation_0.001.tbl",
+          "attrName": "n_comment",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/nation_0.001.tbl",
+          "attrName": "n_name",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/nation_0.001.tbl",
+          "attrName": "n_nationkey",
+          "attrNo": 3
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/nation_0.001.tbl",
+          "attrName": "n_regionkey",
+          "attrNo": 4
+        }]
+      }
+    }
+  },
+  "orders": {
+    "path": "inputs/tpch/orders_0.001.tbl",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/orders_0.001.tbl",
+          "attrName": "o_clerk",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/orders_0.001.tbl",
+          "attrName": "o_comment",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/orders_0.001.tbl",
+          "attrName": "o_custkey",
+          "attrNo": 3
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/orders_0.001.tbl",
+          "attrName": "o_orderdate",
+          "attrNo": 4
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/orders_0.001.tbl",
+          "attrName": "o_orderkey",
+          "attrNo": 5
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/orders_0.001.tbl",
+          "attrName": "o_orderpriority",
+          "attrNo": 6
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/orders_0.001.tbl",
+          "attrName": "o_orderstatus",
+          "attrNo": 7
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/orders_0.001.tbl",
+          "attrName": "o_shippriority",
+          "attrNo": 8
+        }, {
+          "type": {
+            "type": "float"
+          },
+          "relName": "inputs/tpch/orders_0.001.tbl",
+          "attrName": "o_totalprice",
+          "attrNo": 9
+        }]
+      }
+    }
+  },
+  "part": {
+    "path": "inputs/tpch/part_0.001.tbl",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/part_0.001.tbl",
+          "attrName": "p_partkey",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/part_0.001.tbl",
+          "attrName": "p_name",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/part_0.001.tbl",
+          "attrName": "p_mfgr",
+          "attrNo": 3
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/part_0.001.tbl",
+          "attrName": "p_brand",
+          "attrNo": 4
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/part_0.001.tbl",
+          "attrName": "p_type",
+          "attrNo": 5
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/part_0.001.tbl",
+          "attrName": "p_size",
+          "attrNo": 6
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/part_0.001.tbl",
+          "attrName": "p_container",
+          "attrNo": 7
+        }, {
+          "type": {
+            "type": "float"
+          },
+          "relName": "inputs/tpch/part_0.001.tbl",
+          "attrName": "p_retailprice",
+          "attrNo": 8
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/part_0.001.tbl",
+          "attrName": "p_comment",
+          "attrNo": 9
+        }]
+      }
+    }
+  },
+  "partsupp": {
+    "path": "inputs/tpch/partsupp_0.001.tbl",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+            "type": {
+              "type": "int"
+            },
+            "relName": "inputs/tpch/partsupp_0.001.tbl",
+            "attrName": "ps_partkey",
+            "attrNo": 1
+          },
+
+          {
+            "type": {
+              "type": "int"
+            },
+            "relName": "inputs/tpch/partsupp_0.001.tbl",
+            "attrName": "ps_suppkey",
+            "attrNo": 2
+          },
+          {
+            "type": {
+              "type": "int"
+            },
+            "relName": "inputs/tpch/partsupp_0.001.tbl",
+            "attrName": "ps_availqty",
+            "attrNo": 3
+          },
+
+
+          {
+            "type": {
+              "type": "int"
+            },
+            "relName": "inputs/tpch/partsupp_0.001.tbl",
+            "attrName": "ps_supplycost",
+            "attrNo": 4
+          }, {
+            "type": {
+              "type": "string"
+            },
+            "relName": "inputs/tpch/partsupp_0.001.tbl",
+            "attrName": "ps_comment",
+            "attrNo": 5
+          }
+        ]
+      }
+    }
+  },
+  "region": {
+    "path": "inputs/tpch/region_0.001.tbl",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/region_0.001.tbl",
+          "attrName": "r_comment",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/region_0.001.tbl",
+          "attrName": "r_name",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/region_0.001.tbl",
+          "attrName": "r_regionkey",
+          "attrNo": 3
+        }]
+      }
+    }
+  },
+  "supplier": {
+    "path": "inputs/tpch/supplier_0.001.tbl",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "float"
+          },
+          "relName": "inputs/tpch/supplier_0.001.tbl",
+          "attrName": "s_acctbal",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/supplier_0.001.tbl",
+          "attrName": "s_address",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/supplier_0.001.tbl",
+          "attrName": "s_comment",
+          "attrNo": 3
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/supplier_0.001.tbl",
+          "attrName": "s_name",
+          "attrNo": 4
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/supplier_0.001.tbl",
+          "attrName": "s_nationkey",
+          "attrNo": 5
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/supplier_0.001.tbl",
+          "attrName": "s_phone",
+          "attrNo": 6
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/supplier_0.001.tbl",
+          "attrName": "s_suppkey",
+          "attrNo": 7
+        }]
+      }
+    }
+  }
+}

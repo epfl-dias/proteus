@@ -102,7 +102,7 @@
 //#define DEBUG
 #define LOCAL_EXEC
 //#undef DEBUG
-#undef LOCAL_EXEC
+//#undef LOCAL_EXEC
 
 #define KB 1024
 #define MB (1024*KB)

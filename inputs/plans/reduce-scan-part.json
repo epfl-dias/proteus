@@ -1,0 +1,88 @@
+{
+  "e": [{
+    "expression": "int",
+    "v": 1
+  }],
+  "operator": "reduce",
+  "accumulator": ["sum"],
+  "p": {
+    "expression": "bool",
+    "v": true
+  },
+  "input": {
+    "operator": "scan",
+    "plugin": {
+      "name": "inputs/tpch/part_0.001.tbl",
+      "type": "csv",
+      "policy": 2,
+      "lines": 200,
+      "delimiter": "|",
+      "brackets": false,
+      "projections": [{
+        "type": {
+          "type": "int"
+        },
+        "relName": "inputs/tpch/part_0.001.tbl",
+        "attrName": "p_partkey",
+        "attrNo": 1
+      }, {
+        "type": {
+          "type": "string"
+        },
+        "relName": "inputs/tpch/part_0.001.tbl",
+        "attrName": "p_name",
+        "attrNo": 2
+      }, {
+        "type": {
+          "type": "string"
+        },
+        "relName": "inputs/tpch/part_0.001.tbl",
+        "attrName": "p_mfgr",
+        "attrNo": 3
+      }, {
+        "type": {
+          "type": "string"
+        },
+        "relName": "inputs/tpch/part_0.001.tbl",
+        "attrName": "p_brand",
+        "attrNo": 4
+      }, {
+        "type": {
+          "type": "string"
+        },
+        "relName": "inputs/tpch/part_0.001.tbl",
+        "attrName": "p_type",
+        "attrNo": 5
+      }, {
+        "type": {
+          "type": "int"
+        },
+        "relName": "inputs/tpch/part_0.001.tbl",
+        "attrName": "p_size",
+        "attrNo": 6
+      }, {
+        "type": {
+          "type": "string"
+        },
+        "relName": "inputs/tpch/part_0.001.tbl",
+        "attrName": "p_container",
+        "attrNo": 7
+      }, {
+        "type": {
+          "type": "float"
+        },
+        "relName": "inputs/tpch/part_0.001.tbl",
+        "attrName": "p_retailprice",
+        "attrNo": 8
+      }, {
+        "type": {
+          "type": "string"
+        },
+        "relName": "inputs/tpch/part_0.001.tbl",
+        "attrName": "p_comment",
+        "attrNo": 9
+      }]
+    }
+  }
+
+}

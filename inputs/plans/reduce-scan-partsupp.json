@@ -1,0 +1,71 @@
+{
+  "e": [{
+    "expression": "int",
+    "v": 1
+  }],
+  "operator": "reduce",
+  "accumulator": ["sum"],
+  "p": {
+    "expression": "bool",
+    "v": true
+  },
+
+  "input": {
+    "operator": "scan",
+    "plugin": {
+      "name": "inputs/tpch/partsupp_0.001.tbl",
+      "type": "csv",
+      "policy": 2,
+      "lines": 800,
+      "delimiter": "|",
+      "brackets": false,
+      "projections": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/partsupp_0.001.tbl",
+          "attrName": "ps_partkey",
+          "attrNo": 1
+        },
+
+        {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/partsupp_0.001.tbl",
+          "attrName": "ps_suppkey",
+          "attrNo": 2
+        },
+
+
+
+        {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/partsupp_0.001.tbl",
+          "attrName": "ps_availqty",
+          "attrNo": 3
+        },
+
+
+        {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/tpch/partsupp_0.001.tbl",
+          "attrName": "ps_supplycost",
+          "attrNo": 4
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/tpch/partsupp_0.001.tbl",
+          "attrName": "ps_comment",
+          "attrNo": 5
+        }
+      ]
+    }
+  }
+
+}

@@ -86,18 +86,38 @@
 //    return 0;
 //}
 
-int main() {
-	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char* plan1JSON = "inputs/plans/reduce-scan.json";
-	const char* plan2JSON = "inputs/plans/reduce-unnest-scan.json";
-	const char* plan3JSON = "inputs/plans/reduce-join.json";
-	const char* plan4JSON = "inputs/plans/reduce-nest.json";
+//int main() {
+//	const char* catalogJSON = "inputs/plans/catalog.json";
+//	const char* plan1JSON = "inputs/plans/reduce-scan.json";
+//	const char* plan2JSON = "inputs/plans/reduce-unnest-scan.json";
+//	const char* plan3JSON = "inputs/plans/reduce-join.json";
+//	const char* plan4JSON = "inputs/plans/reduce-nest.json";
+//
+//
+//	CatalogParser catalog = CatalogParser(catalogJSON);
+//
+////	PlanExecutor exec1 = PlanExecutor(plan1JSON,catalog,"scanReduce");
+////	PlanExecutor exec2 = PlanExecutor(plan2JSON,catalog,"unnestJSON");
+////	PlanExecutor exec3 = PlanExecutor(plan3JSON,catalog,"join"); //10
+//	PlanExecutor exec4 = PlanExecutor(plan4JSON,catalog,"nest");
+//}
 
+/* Satya's bug report:
+ * select count(*)
+ * from part,partsupp
+ * where p_partkey = ps_partkey;
+ **/
+int main() {
+	const char* catalogJSON = "inputs/plans/tpchCatalog.json";
+
+	/* Satya's test case */
+	const char* planJSON = "inputs/plans/reduce-join-parts.json";
+	/* Satya's test case: Isolating scan of Part table */
+//	const char* planJSON = "inputs/plans/reduce-scan-part.json";
+	/* Satya's test case: Isolating scan of PartSupp table */
+//	const char* planJSON = "inputs/plans/reduce-scan-partsupp.json";
 
 	CatalogParser catalog = CatalogParser(catalogJSON);
 
-//	PlanExecutor exec1 = PlanExecutor(plan1JSON,catalog,"scanReduce");
-//	PlanExecutor exec2 = PlanExecutor(plan2JSON,catalog,"unnestJSON");
-//	PlanExecutor exec3 = PlanExecutor(plan3JSON,catalog,"join"); //10
-	PlanExecutor exec4 = PlanExecutor(plan4JSON,catalog,"nest");
+	PlanExecutor exec = PlanExecutor(planJSON, catalog, "join");
 }
