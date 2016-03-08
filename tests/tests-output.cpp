@@ -1006,3 +1006,289 @@ TEST(Output, NestReserves) {
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
+
+//TEST(Output, MultiNestReserves) {
+//	const char *testPath = "testResults/tests-output/";
+//	const char *testLabel = "multinestReserves.json";
+//	bool flushResults = true;
+//
+//	RawContext ctx = RawContext(testLabel);
+//	registerFunctions(ctx);
+//	RawCatalog& catalog = RawCatalog::getInstance();
+//	CachingService& caches = CachingService::getInstance();
+//	caches.clear();
+//
+//	PrimitiveType* intType = new IntType();
+//	PrimitiveType* floatType = new FloatType();
+//	PrimitiveType* stringType = new StringType();
+//
+//	/**
+//	 * SCAN RESERVES
+//	 */
+//	string reservesPath = string("inputs/reserves.csv");
+//	RecordAttribute* sidReserves = new RecordAttribute(1,reservesPath,string("sid"),intType);
+//	RecordAttribute* bidReserves = new RecordAttribute(2,reservesPath,string("bid"),intType);
+//	RecordAttribute* day = new RecordAttribute(3,reservesPath,string("day"),stringType);
+//
+//	list<RecordAttribute*> reserveAtts;
+//	reserveAtts.push_back(sidReserves);
+//	reserveAtts.push_back(bidReserves);
+//	reserveAtts.push_back(day);
+//	RecordType reserveRec = RecordType(reserveAtts);
+//	vector<RecordAttribute*> reserveAttsToProject;
+//	reserveAttsToProject.push_back(sidReserves);
+//	reserveAttsToProject.push_back(bidReserves);
+//
+//	int linehint = 10;
+//	int policy = 2;
+//	pm::CSVPlugin* pgReserves =
+//			new pm::CSVPlugin(&ctx, reservesPath, reserveRec, reserveAttsToProject, ';', linehint, policy, false);
+//	catalog.registerPlugin(reservesPath,pgReserves);
+//	Scan scanReserves = Scan(&ctx, *pgReserves);
+//
+//	/*
+//	 * NEST
+//	 */
+//
+//	/* Reserves: fields for materialization etc. */
+//	RecordAttribute *reservesOID = new RecordAttribute(reservesPath, activeLoop, pgReserves->getOIDType());
+//	list<RecordAttribute> reserveAttsForArg = list<RecordAttribute>();
+//	reserveAttsForArg.push_back(*reservesOID);
+//	reserveAttsForArg.push_back(*sidReserves);
+//
+//	/* constructing recType */
+//	list<RecordAttribute*> reserveAttsForRec = list<RecordAttribute*>();
+//	reserveAttsForRec.push_back(reservesOID);
+//	reserveAttsForRec.push_back(sidReserves);
+//	RecordType reserveRecType = RecordType(reserveAttsForRec);
+//
+//	expressions::Expression *reservesArg = new expressions::InputArgument(&reserveRecType,
+//			1, reserveAttsForArg);
+//	expressions::Expression *reservesOIDProj = new expressions::RecordProjection(
+//			pgReserves->getOIDType(), reservesArg, *reservesOID);
+//	expressions::Expression* reservesSIDProj = new expressions::RecordProjection(
+//			intType, reservesArg, *sidReserves);
+//	expressions::Expression* reservesBIDProj = new expressions::RecordProjection(
+//				intType, reservesArg, *bidReserves);
+//	vector<expressions::Expression*> exprsToMatReserves;
+//	exprsToMatReserves.push_back(reservesOIDProj);
+//	exprsToMatReserves.push_back(reservesSIDProj);
+//	exprsToMatReserves.push_back(reservesBIDProj);
+//	Materializer* matReserves = new Materializer(exprsToMatReserves);
+//
+//	/* group-by expr */
+//	expressions::Expression *f = reservesSIDProj;
+//	/* null handling */
+//	expressions::Expression *g = reservesSIDProj;
+//
+//	expressions::Expression *nestPred = new expressions::BoolConstant(true);
+//
+//	/* output of nest */
+//	vector<Monoid> accsNest;
+//	vector<expressions::Expression*> exprsNest;
+//	vector<string> aggrLabels;
+//	expressions::Expression *one = new expressions::IntConstant(1);
+//	accsNest.push_back(SUM);
+//	exprsNest.push_back(one);
+//	accsNest.push_back(MAX);
+//	exprsNest.push_back(reservesBIDProj);
+//	aggrLabels.push_back("_groupCount");
+//	aggrLabels.push_back("_groupMax");
+//
+//	char nestLabel[] = "nest_reserves";
+//	radix::Nest nest =
+//			radix::Nest(&ctx, accsNest, exprsNest, aggrLabels, nestPred,f,g, &scanReserves, nestLabel, *matReserves);
+//	scanReserves.setParent(&nest);
+//
+//	/* REDUCE */
+////	RecordAttribute *cnt = new RecordAttribute(1, nestLabel, string("_groupCount"),intType);
+//	RecordAttribute *max = new RecordAttribute(1, nestLabel, string("_groupMax"),intType);
+//
+//	list<RecordAttribute*> newAttsTypes = list<RecordAttribute*>();
+////	newAttsTypes.push_back(cnt);
+//	newAttsTypes.push_back(max);
+//	RecordType newRecType = RecordType(newAttsTypes);
+//
+//	list<RecordAttribute> projections = list<RecordAttribute>();
+////	projections.push_back(*cnt);
+//	projections.push_back(*max);
+//
+//	expressions::Expression *arg =
+//			new expressions::InputArgument(&newRecType, 0,projections);
+////	expressions::Expression *outputExpr =
+////			new expressions::RecordProjection(intType, arg, *cnt);
+//	expressions::Expression *outputExpr =
+//				new expressions::RecordProjection(intType, arg, *max);
+//
+//
+//	expressions::Expression *predicate = new expressions::BoolConstant(true);
+//
+//	vector<Monoid> accs;
+//	vector<expressions::Expression*> exprs;
+//	accs.push_back(BAGUNION);
+//	exprs.push_back(outputExpr);
+//	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &nest, &ctx,
+//			flushResults, testLabel);
+//	nest.setParent(&reduce);
+//	reduce.produce();
+//
+//	//Run function
+//	ctx.prepareFunction(ctx.getGlobalFunction());
+//
+//	//Close all open files & clear
+//	pgReserves->finish();
+//	catalog.clear();
+//
+////	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+//}
+
+TEST(Output, MultiNestReserves) {
+	const char *testPath = "testResults/tests-output/";
+	const char *testLabel = "multinestReserves.json";
+	bool flushResults = true;
+
+	RawContext ctx = RawContext(testLabel);
+	registerFunctions(ctx);
+	RawCatalog& catalog = RawCatalog::getInstance();
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
+
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* floatType = new FloatType();
+	PrimitiveType* stringType = new StringType();
+
+	/**
+	 * SCAN RESERVES
+	 */
+	string reservesPath = string("inputs/reserves.csv");
+	RecordAttribute* sidReserves = new RecordAttribute(1,reservesPath,string("sid"),intType);
+	RecordAttribute* bidReserves = new RecordAttribute(2,reservesPath,string("bid"),intType);
+	RecordAttribute* day = new RecordAttribute(3,reservesPath,string("day"),stringType);
+
+	list<RecordAttribute*> reserveAtts;
+	reserveAtts.push_back(sidReserves);
+	reserveAtts.push_back(bidReserves);
+	reserveAtts.push_back(day);
+	RecordType reserveRec = RecordType(reserveAtts);
+	vector<RecordAttribute*> reserveAttsToProject;
+	reserveAttsToProject.push_back(sidReserves);
+	reserveAttsToProject.push_back(bidReserves);
+
+	int linehint = 10;
+	int policy = 2;
+	pm::CSVPlugin* pgReserves =
+			new pm::CSVPlugin(&ctx, reservesPath, reserveRec, reserveAttsToProject, ';', linehint, policy, false);
+	catalog.registerPlugin(reservesPath,pgReserves);
+	Scan scanReserves = Scan(&ctx, *pgReserves);
+
+	/*
+	 * NEST
+	 */
+
+	/* Reserves: fields for materialization etc. */
+	RecordAttribute *reservesOID = new RecordAttribute(reservesPath, activeLoop, pgReserves->getOIDType());
+	list<RecordAttribute> reserveAttsForArg = list<RecordAttribute>();
+	reserveAttsForArg.push_back(*reservesOID);
+	reserveAttsForArg.push_back(*sidReserves);
+
+	/* constructing recType */
+	list<RecordAttribute*> reserveAttsForRec = list<RecordAttribute*>();
+	reserveAttsForRec.push_back(reservesOID);
+	reserveAttsForRec.push_back(sidReserves);
+	RecordType reserveRecType = RecordType(reserveAttsForRec);
+
+	expressions::Expression *reservesArg = new expressions::InputArgument(&reserveRecType,
+			1, reserveAttsForArg);
+	expressions::Expression *reservesOIDProj = new expressions::RecordProjection(
+			pgReserves->getOIDType(), reservesArg, *reservesOID);
+	expressions::Expression* reservesSIDProj = new expressions::RecordProjection(
+			intType, reservesArg, *sidReserves);
+	expressions::Expression* reservesBIDProj = new expressions::RecordProjection(
+				intType, reservesArg, *bidReserves);
+	vector<expressions::Expression*> exprsToMatReserves;
+	exprsToMatReserves.push_back(reservesOIDProj);
+	exprsToMatReserves.push_back(reservesSIDProj);
+	exprsToMatReserves.push_back(reservesBIDProj);
+	Materializer* matReserves = new Materializer(exprsToMatReserves);
+
+	/* group-by expr */
+	expressions::Expression *f = reservesSIDProj;
+	/* null handling */
+	expressions::Expression *g = reservesSIDProj;
+
+	expressions::Expression *nestPred = new expressions::BoolConstant(true);
+
+	/* output of nest */
+	vector<Monoid> accsNest;
+	vector<expressions::Expression*> exprsNest;
+	vector<string> aggrLabels;
+	expressions::Expression *one = new expressions::IntConstant(1);
+	accsNest.push_back(SUM);
+	exprsNest.push_back(one);
+	accsNest.push_back(MAX);
+	exprsNest.push_back(reservesBIDProj);
+	aggrLabels.push_back("_groupCount");
+	aggrLabels.push_back("_groupMax");
+
+	char nestLabel[] = "nest_reserves";
+	radix::Nest nest =
+			radix::Nest(&ctx, accsNest, exprsNest, aggrLabels, nestPred,f,g, &scanReserves, nestLabel, *matReserves);
+	scanReserves.setParent(&nest);
+
+	/* REDUCE */
+	const char *outLabel = "output";
+	RecordAttribute *newCnt = new RecordAttribute(1, outLabel, string("_outCount"),intType);
+	RecordAttribute *newMax = new RecordAttribute(2, outLabel, string("_outMax"),intType);
+	list<RecordAttribute*> *newAttrTypes = new list<RecordAttribute*>();
+	newAttrTypes->push_back(newCnt);
+	newAttrTypes->push_back(newMax);
+	RecordType *newRecType = new RecordType(*newAttrTypes);
+
+	RecordAttribute *cnt = new RecordAttribute(1, nestLabel, string("_groupCount"),intType);
+	RecordAttribute *max = new RecordAttribute(2, nestLabel, string("_groupMax"),intType);
+
+
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(*cnt);
+	projections.push_back(*max);
+
+	expressions::Expression *arg = new expressions::InputArgument(newRecType,
+			0, projections);
+	expressions::Expression *outputExpr1 = new expressions::RecordProjection(
+			intType, arg, *cnt);
+	expressions::Expression *outputExpr2 = new expressions::RecordProjection(
+			intType, arg, *max);
+
+	list<expressions::AttributeConstruction>* newAtts = new list<
+			expressions::AttributeConstruction>();
+
+	expressions::AttributeConstruction constr1 =
+			expressions::AttributeConstruction(string("_outCount"),
+					outputExpr1);
+	expressions::AttributeConstruction constr2 =
+			expressions::AttributeConstruction(string("_outMax"), outputExpr2);
+	newAtts->push_back(constr1);
+	newAtts->push_back(constr2);
+
+	expressions::RecordConstruction *newRec = new expressions::RecordConstruction(newRecType, *newAtts);
+
+	expressions::Expression *predicate = new expressions::BoolConstant(true);
+
+	vector<Monoid> accs;
+	vector<expressions::Expression*> exprs;
+	accs.push_back(BAGUNION);
+	exprs.push_back(newRec);
+	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &nest, &ctx,
+			flushResults, testLabel);
+	nest.setParent(&reduce);
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pgReserves->finish();
+	catalog.clear();
+
+	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+}

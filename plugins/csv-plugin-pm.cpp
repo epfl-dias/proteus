@@ -388,10 +388,12 @@ RawValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings, con
 			}
 		mem_valWrapper = it->second;
 	}
+
 	return mem_valWrapper;
 }
 
 RawValueMemory CSVPlugin::readValue(RawValueMemory mem_value, const ExpressionType* type)	{
+
 	return mem_value;
 }
 

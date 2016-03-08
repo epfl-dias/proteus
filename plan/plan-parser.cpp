@@ -463,6 +463,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 								proj->getExpr(), *oid);
 				//Added in 'wanted expressions'
 				LOG(INFO)<< "[Plan Parser: ] Injecting OID for " << relName;
+//				std::cout << "[Plan Parser: ] Injecting OID for " << relName << std::endl;
 				/* ORDER OF expression fields matters!! OIDs need to be placed first! */
 				exprsToMat.insert(exprsToMat.begin(), oidProj);
 				outputModes.insert(outputModes.begin(), EAGER);
@@ -470,13 +471,16 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		}
 		vector<RecordAttribute*> oids = vector<RecordAttribute*>();
 		MapToVec(mapOids, oids);
-		Materializer *mat =
-				new Materializer(fieldsToMat, exprsToMat, oids, outputModes);
+		/* FIXME This constructor breaks nest use cases that trigger caching */
+		/* Check similar hook in radix-nest.cpp */
+//		Materializer *mat =
+//				new Materializer(fieldsToMat, exprsToMat, oids, outputModes);
+		Materializer* matCoarse = new Materializer(exprsToMat);
 
 		//Put operator together
 		const char *opLabel = "radixNest";
 		newOp = new radix::Nest(&(this->ctx), accs, outputExprs, aggrLabels, predExpr,
-				groupByExpr, nullsToZerosExpr, childOp, opLabel, *mat);
+				groupByExpr, nullsToZerosExpr, childOp, opLabel, *matCoarse);
 		childOp->setParent(newOp);
 	}
 	else if (strcmp(opName, "select") == 0) {
@@ -612,23 +616,23 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val.HasMember(keyAttsConstruction));
 		assert(val[keyAttsConstruction].IsArray());
 
-		list<expressions::AttributeConstruction> newAtts = list<expressions::AttributeConstruction>();
+		list<expressions::AttributeConstruction> *newAtts = new list<expressions::AttributeConstruction>();
 		const rapidjson::Value& attributeConstructs = val[keyAttsConstruction]; // Using a reference for consecutive access is handy and faster.
 		for (SizeType i = 0; i < attributeConstructs.Size(); i++) // rapidjson uses SizeType instead of size_t.
 		{
 			assert(attributeConstructs[i].HasMember(keyAttrName));
-			assert(val[keyAttrName].IsString());
-			string newAttrName = val[keyAttrName].GetString();
+			assert(attributeConstructs[i][keyAttrName].IsString());
+			string newAttrName = attributeConstructs[i][keyAttrName].GetString();
 
 			assert(attributeConstructs[i].HasMember(keyAttrExpr));
-			assert(val[keyAttrExpr].IsObject());
-			expressions::Expression *newAttrExpr = parseExpression(val[keyAttrExpr]);
+			assert(attributeConstructs[i][keyAttrExpr].IsObject());
+			expressions::Expression *newAttrExpr = parseExpression(attributeConstructs[i][keyAttrExpr]);
 
-			expressions::AttributeConstruction newAttr =
-					expressions::AttributeConstruction(newAttrName,newAttrExpr);
-			newAtts.push_back(newAttr);
+			expressions::AttributeConstruction *newAttr =
+					new expressions::AttributeConstruction(newAttrName,newAttrExpr);
+			newAtts->push_back(*newAttr);
 		}
-		return new expressions::RecordConstruction(exprType,newAtts);
+		return new expressions::RecordConstruction(exprType,*newAtts);
 
 	} else if (strcmp(valExpression,"if") == 0)	{
 		/* exprType */

@@ -1024,35 +1024,35 @@ void Nest::buildHT(RawContext* context, const OperatorState& childState) {
 	{
 		CachingService& cache = CachingService::getInstance();
 		bool fullRelation = !(this->getChild())->isFiltering();
-		const vector<expressions::Expression*>& expsLeft =
+		const vector<expressions::Expression*>& exps =
 				mat.getWantedExpressions();
-		const vector<RecordAttribute*>& fieldsLeft = mat.getWantedFields();
+		const vector<RecordAttribute*>& fields = mat.getWantedFields();
 		/* Note: wantedFields do not include activeTuple */
-		vector<RecordAttribute*>::const_iterator itRec = fieldsLeft.begin();
+		vector<RecordAttribute*>::const_iterator itRec = fields.begin();
 		int fieldNo = 0;
 		CacheInfo info;
 		const vector<RecordAttribute*>& oids = mat.getWantedOIDs();
 		vector<RecordAttribute*>::const_iterator itOids = oids.begin();
 		for (; itOids != oids.end(); itOids++) {
 			RecordAttribute *attr = *itOids;
-			//				cout << "OID mat'ed" << endl;
+			cout << "OID mat'ed" << endl;
 			info.objectTypes.push_back(attr->getOriginalType()->getTypeID());
 		}
-		for (; itRec != fieldsLeft.end(); itRec++) {
-			//				cout << "Field mat'ed" << endl;
+		for (; itRec != fields.end(); itRec++) {
+			cout << "Field mat'ed" << endl;
 			info.objectTypes.push_back(
 					(*itRec)->getOriginalType()->getTypeID());
 		}
-		itRec = fieldsLeft.begin();
+		itRec = fields.begin();
 		/* Explicit OID ('activeTuple') will be field 0 */
-		if (!expsLeft.empty()) {
-
+		if (!exps.empty()) {
+			//FIXME When this code is activated, CSV use case 'TEST(Plan, MultiNest)' breaks!!
 			/* By default, cache looks sth like custom_struct*.
 			 * Is it possible to isolate cache for just ONE of the expressions??
 			 * Group of expressions probably more palpable */
 			vector<expressions::Expression*>::const_iterator it =
-					expsLeft.begin();
-			for (; it != expsLeft.end(); it++) {
+					exps.begin();
+			for (; it != exps.end(); it++) {
 				//info.objectType = rPayloadType;
 				info.structFieldNo = fieldNo;
 				info.payloadPtr = ptr_relationR;
@@ -1875,6 +1875,12 @@ void Nest::generateMax(expressions::Expression* outputExpr,
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 		Value* maxCondition = Builder->CreateICmpSGT(val_output.value,
 				val_accumulating);
+#ifdef DEBUGNEST
+		vector<Value*> ArgsV;
+		Function* debugInt = context->getFunction("printi");
+		ArgsV.push_back(val_output.value);
+		Builder->CreateCall(debugInt, ArgsV);
+#endif
 		Builder->CreateCondBr(maxCondition, ifGtMaxBlock, endBlock);
 
 		Builder->SetInsertPoint(ifGtMaxBlock);

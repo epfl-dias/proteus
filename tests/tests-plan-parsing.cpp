@@ -55,7 +55,7 @@
 //
 // </TechnicalDetails>
 
-
+/* SELECT COUNT(*) FROM SAILORS s; */
 TEST(Plan, Scan) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
@@ -86,7 +86,7 @@ TEST(Plan, Unnest) {
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
-
+/* SELECT COUNT(*) FROM SAILORS s JOIN RESERVES r ON s.sid = r.sid; */
 TEST(Plan, Join) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
@@ -102,6 +102,7 @@ TEST(Plan, Join) {
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
+/* SELECT COUNT(*) FROM RESERVES GROUP BY sid; */
 TEST(Plan, Nest) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
@@ -110,6 +111,23 @@ TEST(Plan, Nest) {
 	//Test-specific
 	const char* planPath = "inputs/plans/reduce-nest.json";
 	const char *testLabel = "reduce-nest-log.json";
+
+	CatalogParser catalog = CatalogParser(catalogJSON);
+	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
+
+	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+}
+
+/* Project out multiple cols:
+ * SELECT COUNT(*), MAX(bid) FROM RESERVES GROUP BY sid; */
+TEST(Plan, MultiNest) {
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
+	const char* catalogJSON = "inputs/plans/catalog.json";
+	const char *testPath = "testResults/tests-plan-parsing/";
+	//Test-specific
+	const char* planPath = "inputs/plans/reduce-multinest.json";
+	const char *testLabel = "reduce-multinest-log.json";
 
 	CatalogParser catalog = CatalogParser(catalogJSON);
 	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
