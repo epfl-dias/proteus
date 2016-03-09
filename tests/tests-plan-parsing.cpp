@@ -134,3 +134,18 @@ TEST(Plan, MultiNest) {
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
+
+TEST(Plan, JoinRecord) {
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
+	const char* catalogJSON = "inputs/plans/catalog.json";
+	const char *testPath = "testResults/tests-plan-parsing/";
+	//Test-specific
+	const char* planPath = "inputs/plans/reduce-join-record.json";
+	const char *testLabel = "reduce-join-record-log.json";
+
+	CatalogParser catalog = CatalogParser(catalogJSON);
+	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
+
+	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+}

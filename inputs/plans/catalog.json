@@ -113,6 +113,67 @@
         }]
       }
     }
+  },
+  "A": {
+    "path": "inputs/A.csv",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/A.csv",
+          "attrName": "A1",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/A.csv",
+          "attrName": "A2",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/A.csv",
+          "attrName": "A3",
+          "attrNo": 3
+        }]
+      }
+    }
+  },
+  "B": {
+    "path": "inputs/B.csv",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/B.csv",
+          "attrName": "B1",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/B.csv",
+          "attrName": "B2",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/B.csv",
+          "attrName": "B3",
+          "attrNo": 3
+        }]
+      }
+    }
   }
-
 }
