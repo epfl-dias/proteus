@@ -135,6 +135,11 @@ TEST(Plan, MultiNest) {
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
+/*
+ * select A3,B3
+ * From A, B
+ * where A.A1 = B.B1 and A.A2 > 10 and B.B2 < 10;
+ * */
 TEST(Plan, JoinRecord) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
