@@ -154,3 +154,25 @@ TEST(Plan, JoinRecord) {
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
+
+/*
+ * select A3,B3
+ * From A, B
+ * where A.A1 = B.B1 and A.A2 > 10 and B.B2 < 10;
+ *
+ * [more results]
+ * */
+TEST(Plan, JoinRecordBNonselective) {
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
+	const char* catalogJSON = "inputs/parser/catalog.json";
+	const char *testPath = "testResults/tests-plan-parsing/";
+	//Test-specific
+	const char* planPath = "inputs/plans/reduce-join-record-nonselective.json";
+	const char *testLabel = "reduce-join-record-nonselective-log.json";
+
+	CatalogParser catalog = CatalogParser(catalogJSON);
+	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
+
+	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+}

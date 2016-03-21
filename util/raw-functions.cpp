@@ -608,8 +608,9 @@ void flushOutput(char* fileName)	{
 	cout << "Flushing to " << fileName << endl;
 
 	outFile.open(fileName,std::ofstream::out | std::ofstream::app);
-	const char *toFlush = strBuffer->rdbuf()->str().c_str();
-	cout << "Contents being flushed: " << toFlush << endl;
+//	const char *toFlush = strBuffer->rdbuf()->str().c_str();
+//	cout << "Contents being flushed: " << toFlush << endl;
+	cout << "Contents being flushed: " << strBuffer->str() << std::flush << std::endl;
 	outFile << strBuffer->rdbuf();
 	//outFile << strBuffer->rdbuf();
 

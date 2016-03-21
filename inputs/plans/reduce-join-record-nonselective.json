@@ -1,0 +1,634 @@
+{
+	"e": [{
+		"expression": "recordConstruction",
+		"type": {
+			"type": "record",
+			"attributes": [{
+				"type": {
+					"type": "int"
+				},
+				"relName": "output",
+				"attrName": "A3",
+				"attrNo": 1
+			}, {
+				"type": {
+					"type": "int"
+				},
+				"relName": "output",
+				"attrName": "B3",
+				"attrNo": 2
+			}]
+		},
+		"attributes": [{
+			"name": "A3",
+			"e": {
+				"expression": "recordProjection",
+				"type": {
+					"type": "int"
+				},
+				"e": {
+					"expression": "argument",
+					"argNo": 0,
+					"type": {
+						"type": "record",
+						"attributes": [{
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/A.csv",
+							"attrName": "A1",
+							"attrNo": 1
+						}, {
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/A.csv",
+							"attrName": "A2",
+							"attrNo": 2
+						}, {
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/A.csv",
+							"attrName": "A3",
+							"attrNo": 3
+						}]
+					},
+					"attributes": [{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/A.csv",
+						"attrName": "A3",
+						"attrNo": 3
+					}]
+				},
+				"attribute": {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/parser/A.csv",
+					"attrName": "A3",
+					"attrNo": 3
+				}
+			}
+		}, {
+			"name": "B3",
+			"e": {
+				"expression": "recordProjection",
+				"type": {
+					"type": "int"
+				},
+				"e": {
+					"expression": "argument",
+					"argNo": 1,
+					"type": {
+						"type": "record",
+						"attributes": [{
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/B.csv",
+							"attrName": "B1",
+							"attrNo": 1
+						}, {
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/B.csv",
+							"attrName": "B2",
+							"attrNo": 2
+						}, {
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/B.csv",
+							"attrName": "B3",
+							"attrNo": 3
+						}]
+					},
+					"attributes": [{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/B.csv",
+						"attrName": "B3",
+						"attrNo": 3
+					}]
+				},
+				"attribute": {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/parser/B.csv",
+					"attrName": "B3",
+					"attrNo": 3
+				}
+			}
+		}]
+	}],
+	"operator": "reduce",
+	"accumulator": ["bagunion"],
+	"p": {
+		"expression": "bool",
+		"v": true
+	},
+	"input": {
+		"operator": "join",
+		"p": {
+			"expression": "eq",
+			"left": {
+				"expression": "recordProjection",
+				"type": {
+					"type": "int"
+				},
+				"e": {
+					"expression": "argument",
+					"argNo": 0,
+					"type": {
+						"type": "record",
+						"attributes": [{
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/A.csv",
+							"attrName": "A1",
+							"attrNo": 1
+						}, {
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/A.csv",
+							"attrName": "A2",
+							"attrNo": 2
+						}, {
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/A.csv",
+							"attrName": "A3",
+							"attrNo": 3
+						}]
+					},
+					"attributes": [{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/A.csv",
+						"attrName": "A1",
+						"attrNo": 1
+					}]
+				},
+				"attribute": {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/parser/A.csv",
+					"attrName": "A1",
+					"attrNo": 1
+				}
+			},
+			"right": {
+				"expression": "recordProjection",
+				"type": {
+					"type": "int"
+				},
+				"e": {
+					"expression": "argument",
+					"argNo": 1,
+					"type": {
+						"type": "record",
+						"attributes": [{
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/B.csv",
+							"attrName": "B1",
+							"attrNo": 1
+						}, {
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/B.csv",
+							"attrName": "B2",
+							"attrNo": 2
+						}, {
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/B.csv",
+							"attrName": "B3",
+							"attrNo": 3
+						}]
+					},
+					"attributes": [{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/B.csv",
+						"attrName": "B1",
+						"attrNo": 1
+					}]
+				},
+				"attribute": {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/parser/B.csv",
+					"attrName": "B1",
+					"attrNo": 1
+				}
+			}
+		},
+		"leftFields": [{
+			"expression": "recordProjection",
+			"type": {
+				"type": "int"
+			},
+			"e": {
+				"expression": "argument",
+				"argNo": 0,
+				"type": {
+					"type": "record",
+					"attributes": [{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/A.csv",
+						"attrName": "A1",
+						"attrNo": 1
+					}, {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/A.csv",
+						"attrName": "A2",
+						"attrNo": 2
+					}, {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/A.csv",
+						"attrName": "A3",
+						"attrNo": 3
+					}]
+				},
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/parser/A.csv",
+					"attrName": "A1",
+					"attrNo": 1
+				}]
+			},
+			"attribute": {
+				"type": {
+					"type": "int"
+				},
+				"relName": "inputs/parser/A.csv",
+				"attrName": "A1",
+				"attrNo": 1
+			}
+		}, {
+			"expression": "recordProjection",
+			"type": {
+				"type": "int"
+			},
+			"e": {
+				"expression": "argument",
+				"argNo": 0,
+				"type": {
+					"type": "record",
+					"attributes": [{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/A.csv",
+						"attrName": "A1",
+						"attrNo": 1
+					}, {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/A.csv",
+						"attrName": "A2",
+						"attrNo": 2
+					}, {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/A.csv",
+						"attrName": "A3",
+						"attrNo": 3
+					}]
+				},
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/parser/A.csv",
+					"attrName": "A3",
+					"attrNo": 3
+				}]
+			},
+			"attribute": {
+				"type": {
+					"type": "int"
+				},
+				"relName": "inputs/parser/A.csv",
+				"attrName": "A3",
+				"attrNo": 3
+			}
+		}],
+		"rightFields": [{
+			"expression": "recordProjection",
+			"type": {
+				"type": "int"
+			},
+			"e": {
+				"expression": "argument",
+				"argNo": 1,
+				"type": {
+					"type": "record",
+					"attributes": [{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/B.csv",
+						"attrName": "B1",
+						"attrNo": 1
+					}, {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/B.csv",
+						"attrName": "B2",
+						"attrNo": 2
+					}, {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/B.csv",
+						"attrName": "B3",
+						"attrNo": 3
+					}]
+				},
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/parser/B.csv",
+					"attrName": "B1",
+					"attrNo": 1
+				}]
+			},
+			"attribute": {
+				"type": {
+					"type": "int"
+				},
+				"relName": "inputs/parser/B.csv",
+				"attrName": "B1",
+				"attrNo": 1
+			}
+		}, {
+			"expression": "recordProjection",
+			"type": {
+				"type": "int"
+			},
+			"e": {
+				"expression": "argument",
+				"argNo": 1,
+				"type": {
+					"type": "record",
+					"attributes": [{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/B.csv",
+						"attrName": "B1",
+						"attrNo": 1
+					}, {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/B.csv",
+						"attrName": "B2",
+						"attrNo": 2
+					}, {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/B.csv",
+						"attrName": "B3",
+						"attrNo": 3
+					}]
+				},
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/parser/B.csv",
+					"attrName": "B3",
+					"attrNo": 3
+				}]
+			},
+			"attribute": {
+				"type": {
+					"type": "int"
+				},
+				"relName": "inputs/parser/B.csv",
+				"attrName": "B3",
+				"attrNo": 3
+			}
+		}],
+		"leftInput": {
+			"operator": "select",
+			"p": {
+				"expression": "gt",
+				"left": {
+					"expression": "recordProjection",
+					"type": {
+						"type": "int"
+					},
+					"e": {
+						"expression": "argument",
+						"argNo": 0,
+						"type": {
+							"type": "record",
+							"attributes": [{
+								"type": {
+									"type": "int"
+								},
+								"relName": "inputs/parser/A.csv",
+								"attrName": "A1",
+								"attrNo": 1
+							}, {
+								"type": {
+									"type": "int"
+								},
+								"relName": "inputs/parser/A.csv",
+								"attrName": "A2",
+								"attrNo": 2
+							}, {
+								"type": {
+									"type": "int"
+								},
+								"relName": "inputs/parser/A.csv",
+								"attrName": "A3",
+								"attrNo": 3
+							}]
+						},
+						"attributes": [{
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/A.csv",
+							"attrName": "A2",
+							"attrNo": 2
+						}]
+					},
+					"attribute": {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/A.csv",
+						"attrName": "A2",
+						"attrNo": 2
+					}
+				},
+				"right": {
+					"expression": "int",
+					"v": 10
+				}
+			},
+			"input": {
+				"operator": "scan",
+				"plugin": {
+					"name": "inputs/parser/A.csv",
+					"type": "csv",
+					"policy": 2,
+					"lines": 14,
+					"delimiter": ";",
+					"brackets": false,
+					"projections": [{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/A.csv",
+						"attrName": "A1",
+						"attrNo": 1
+					}, {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/A.csv",
+						"attrName": "A2",
+						"attrNo": 2
+					}, {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/A.csv",
+						"attrName": "A3",
+						"attrNo": 3
+					}]
+				}
+			}
+		},
+		"rightInput": {
+			"operator": "select",
+			"p": {
+				"expression": "lt",
+				"left": {
+					"expression": "recordProjection",
+					"type": {
+						"type": "int"
+					},
+					"e": {
+						"expression": "argument",
+						"argNo": 0,
+						"type": {
+							"type": "record",
+							"attributes": [{
+								"type": {
+									"type": "int"
+								},
+								"relName": "inputs/parser/B.csv",
+								"attrName": "B1",
+								"attrNo": 1
+							}, {
+								"type": {
+									"type": "int"
+								},
+								"relName": "inputs/parser/B.csv",
+								"attrName": "B2",
+								"attrNo": 2
+							}, {
+								"type": {
+									"type": "int"
+								},
+								"relName": "inputs/parser/B.csv",
+								"attrName": "B3",
+								"attrNo": 3
+							}]
+						},
+						"attributes": [{
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/parser/B.csv",
+							"attrName": "B2",
+							"attrNo": 2
+						}]
+					},
+					"attribute": {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/B.csv",
+						"attrName": "B2",
+						"attrNo": 2
+					}
+				},
+				"right": {
+					"expression": "int",
+					"v": 10
+				}
+			},
+			"input": {
+				"operator": "scan",
+				"plugin": {
+					"name": "inputs/parser/B.csv",
+					"type": "csv",
+					"policy": 2,
+					"lines": 16,
+					"delimiter": ";",
+					"brackets": false,
+					"projections": [{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/B.csv",
+						"attrName": "B1",
+						"attrNo": 1
+					}, {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/B.csv",
+						"attrName": "B2",
+						"attrNo": 2
+					}, {
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/parser/B.csv",
+						"attrName": "B3",
+						"attrNo": 3
+					}]
+				}
+			}
+		}
+	}
+}

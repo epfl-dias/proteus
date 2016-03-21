@@ -1,0 +1,179 @@
+{
+  "sailors": {
+    "path": "inputs/sailors.csv",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/sailors.csv",
+          "attrName": "sid",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/sailors.csv",
+          "attrName": "sname",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/sailors.csv",
+          "attrName": "rating",
+          "attrNo": 3
+        }, {
+          "type": {
+            "type": "float"
+          },
+          "relName": "inputs/sailors.csv",
+          "attrName": "age",
+          "attrNo": 4
+        }]
+      }
+    }
+  },
+  "reserves": {
+    "path": "inputs/reserves.csv",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/reserves.csv",
+          "attrName": "sid",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/reserves.csv",
+          "attrName": "bid",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/reserves.csv",
+          "attrName": "day",
+          "attrNo": 3
+        }]
+      }
+    }
+  },
+  "employees": {
+    "path": "inputs/json/employees-flat.json",
+    "type": {
+      "type": "list",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "string"
+          },
+          "relName": "inputs/json/employees-flat.json",
+          "attrName": "name",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/json/employees-flat.json",
+          "attrName": "age",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "record",
+            "attributes": [{
+              "type": {
+                "type": "string"
+              },
+              "relName": "inputs/json/employees-flat.json",
+              "attrName": "name",
+              "attrNo": 1
+            }, {
+              "type": {
+                "type": "int"
+              },
+              "relName": "inputs/json/employees-flat.json",
+              "attrName": "age",
+              "attrNo": 2
+            }]
+          },
+          "relName": "inputs/json/employees-flat.json",
+          "attrName": "children",
+          "attrNo": 3
+        }]
+      }
+    }
+  },
+  "A": {
+    "path": "inputs/parser/A.csv",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/parser/A.csv",
+          "attrName": "A1",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/parser/A.csv",
+          "attrName": "A2",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/parser/A.csv",
+          "attrName": "A3",
+          "attrNo": 3
+        }]
+      }
+    }
+  },
+  "B": {
+    "path": "inputs/parser/B.csv",
+    "type": {
+      "type": "bag",
+      "inner": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/parser/B.csv",
+          "attrName": "B1",
+          "attrNo": 1
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/parser/B.csv",
+          "attrName": "B2",
+          "attrNo": 2
+        }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "inputs/parser/B.csv",
+          "attrName": "B3",
+          "attrNo": 3
+        }]
+      }
+    }
+  }
+}
