@@ -118,6 +118,22 @@ TEST(Plan, Nest) {
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
+/* SELECT COUNT(*) FROM RESERVES WHERE sid = 22; */
+TEST(Plan, Select) {
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
+	const char* catalogJSON = "inputs/plans/catalog.json";
+	const char *testPath = "testResults/tests-plan-parsing/";
+	//Test-specific
+	const char* planPath = "inputs/plans/reduce-select.json";
+	const char *testLabel = "reduce-select-log.json";
+
+	CatalogParser catalog = CatalogParser(catalogJSON);
+	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
+
+	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+}
+
 /* Project out multiple cols:
  * SELECT COUNT(*), MAX(bid) FROM RESERVES GROUP BY sid; */
 TEST(Plan, MultiNest) {
