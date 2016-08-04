@@ -536,20 +536,23 @@ public:
 				Expression *l2 = this->getRightOperand();
 
 				Expression *r1 = rEq.getLeftOperand();
-				Expression *r2 = rEq.getRightOperand();
+				Expression *r2 = rEq.getRightOperand();				
 
-				bool eq1 = *l1 < *r1;
-				bool eq2 = *l2 < *r2;
+				bool lt1 = *l1 < *r1;
+				bool lt2 = *r1 < *l1;
 
-				if (eq1) {
-					if (eq2) {
-						return false;
-					} else {
-						return *l2 < *r2;
-					}
-				} else {
-					return *l1 < *r1;
+				if (!lt1 && !lt2) {
+				  bool lt11 = *l2 < *r2;
+				  bool lt22 = *r2 < *l2;
+
+				  if (!lt11 && !lt22) {
+				    return false;
+				  }
+
+				  return lt11;
 				}
+				
+				return lt1;
 			} else {
 				return this->getOp()->getID() < rBin.getOp()->getID();
 			}
@@ -743,18 +746,21 @@ public:
 				Expression *r1 = rNe.getLeftOperand();
 				Expression *r2 = rNe.getRightOperand();
 
-				bool eq1 = *l1 < *r1;
-				bool eq2 = *l2 < *r2;
+				bool lt1 = *l1 < *r1;
+				bool lt2 = *r1 < *l1;
 
-				if (eq1) {
-					if (eq2) {
-						return false;
-					} else {
-						return *l2 < *r2;
-					}
-				} else {
-					return *l1 < *r1;
+				if (!lt1 && !lt2) {
+				  bool lt11 = *l2 < *r2;
+				  bool lt22 = *r2 < *l2;
+
+				  if (!lt11 && !lt22) {
+				    return false;
+				  }
+
+				  return lt11;
 				}
+				
+				return lt1;				
 			} else {
 				return this->getOp()->getID() < rBin.getOp()->getID();
 			}
