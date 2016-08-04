@@ -338,9 +338,13 @@ void ExprMaterializer::consume(RawContext* const context, const OperatorState& c
 		info.objectTypes.push_back(toMat->getExpressionType()->getTypeID());
 		info.structFieldNo = 0;
 		info.payloadPtr = ptr_rawBuffer;
-		//XXX Have LLVM exec. fill this up!
+		//Have LLVM exec. fill itemCount up!
 		info.itemCount = new size_t[1];
-		*(info.itemCount) = 0;
+		*(info.itemCount) = 0;		
+		PointerType *int64PtrType = Type::getInt64PtrTy(llvmContext);
+		Value *mem_itemCount = context->CastPtrToLlvmPtr(int64PtrType,(void*)info.itemCount);
+		Builder->CreateStore(val_tuplesNo, mem_itemCount);
+		
 		cache.registerCache(toMat, info, fullRelation);
 	}
 
