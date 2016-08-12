@@ -767,7 +767,8 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
 
-		return new expressions::AddExpression(new BoolType(),leftExpr,rightExpr);
+		ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
+		return new expressions::AddExpression(exprType,leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "sub") == 0) {
 		/* left child */
 		assert(val.HasMember(leftArg));
@@ -779,7 +780,8 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
 
-		return new expressions::SubExpression(new BoolType(),leftExpr,rightExpr);
+		ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
+		return new expressions::SubExpression(exprType,leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "multiply") == 0) {
 		/* left child */
 		assert(val.HasMember(leftArg));
@@ -791,7 +793,8 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
 
-		return new expressions::MultExpression(new BoolType(),leftExpr,rightExpr);
+		ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
+		return new expressions::MultExpression(exprType,leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "div") == 0) {
 		/* left child */
 		assert(val.HasMember(leftArg));
@@ -803,7 +806,8 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
 
-		return new expressions::DivExpression(new BoolType(),leftExpr,rightExpr);
+		ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
+		return new expressions::DivExpression(exprType,leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "merge") == 0) {
 		string err = string("(Still) unsupported expression: ") + valExpression;
 		LOG(ERROR)<< err;
