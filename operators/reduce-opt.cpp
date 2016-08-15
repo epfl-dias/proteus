@@ -317,6 +317,12 @@ void Reduce::generateSum(expressions::Expression* outputExpr,
 #endif
 		break;
 	}
+	case INT64: {
+		Value* val_new = Builder->CreateAdd(val_accumulating, val_output.value);
+		Builder->CreateStore(val_new, mem_accumulating);
+		Builder->CreateBr(endBlock);
+		break;
+	}
 	case FLOAT: {
 		Value* val_new = Builder->CreateFAdd(val_accumulating,
 				val_output.value);
@@ -393,6 +399,12 @@ void Reduce::generateMul(expressions::Expression* outputExpr,
 //		//Back to 'normal' flow
 //		Builder->SetInsertPoint(ifBlock);
 #endif
+		break;
+	}
+	case INT64: {
+		Value* val_new = Builder->CreateAdd(val_accumulating, val_output.value);
+		Builder->CreateStore(val_new, mem_accumulating);
+		Builder->CreateBr(endBlock);
 		break;
 	}
 	case FLOAT: {
@@ -485,6 +497,31 @@ void Reduce::generateMax(expressions::Expression* outputExpr,
 		ArgsV.push_back(finalResult);
 		Builder->CreateCall(debugInt, ArgsV);
 #endif
+		//Back to 'normal' flow
+		Builder->SetInsertPoint(ifGtMaxBlock);
+
+		//Branch Instruction to reach endBlock will be flushed after end of switch
+		break;
+	}
+	case INT64: {
+		/**
+		 * if(curr > max) max = curr;
+		 */
+		BasicBlock* ifGtMaxBlock;
+		context->CreateIfBlock(context->getGlobalFunction(), "reduceMaxCond",
+				&ifGtMaxBlock, endBlock);
+		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
+		Value* maxCondition = Builder->CreateICmpSGT(val_output.value,
+				val_accumulating);
+		Builder->CreateCondBr(maxCondition, ifGtMaxBlock, endBlock);
+
+		Builder->SetInsertPoint(ifGtMaxBlock);
+		Builder->CreateStore(val_output.value, mem_accumulating);
+		Builder->CreateBr(endBlock);
+
+		//Prepare final result output
+		Builder->SetInsertPoint(context->getEndingBlock());
+
 		//Back to 'normal' flow
 		Builder->SetInsertPoint(ifGtMaxBlock);
 
@@ -1449,6 +1486,7 @@ AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,
 
 	Type* int1Type = Type::getInt1Ty(llvmContext);
 	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
 	Type* doubleType = Type::getDoubleTy(llvmContext);
 
 	//Deal with 'memory allocations' as per monoid type requested
@@ -1460,6 +1498,13 @@ AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,
 			mem_accumulating = context->CreateEntryBlockAlloca(f,
 					string("dest_acc"), int32Type);
 			Value *val_zero = Builder->getInt32(0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		case INT64: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int64Type);
+			Value *val_zero = Builder->getInt64(0);
 			Builder->CreateStore(val_zero, mem_accumulating);
 			break;
 		}
@@ -1496,6 +1541,13 @@ AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,
 			Builder->CreateStore(val_zero, mem_accumulating);
 			break;
 		}
+		case INT64: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int64Type);
+			Value *val_zero = Builder->getInt64(0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
 		default: {
 			string error_msg = string(
 					"[Reduce: ] Sum/Multiply/Max operate on numerics");
@@ -1515,6 +1567,13 @@ AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,
 			 * It is the one for naturals
 			 */
 			Value *val_zero = Builder->getInt32(0);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
+		case INT64: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int64Type);
+			Value *val_zero = Builder->getInt64(0);
 			Builder->CreateStore(val_zero, mem_accumulating);
 			break;
 		}
