@@ -1061,30 +1061,30 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 		assert(val.HasMember(keyProjectionsBinRow));
 		assert(val[keyProjectionsBinRow].IsArray());
 
-		vector<RecordAttribute*> projections;
+		vector<RecordAttribute*> *projections = new vector<RecordAttribute*>();
 		for (SizeType i = 0; i < val[keyProjectionsBinRow].Size(); i++) {
 			assert(val[keyProjectionsBinRow][i].IsObject());
 			RecordAttribute *recAttr = this->parseRecordAttr(
 					val[keyProjectionsBinRow][i]);
-			projections.push_back(recAttr);
+			projections->push_back(recAttr);
 		}
 
 		newPg = new BinaryRowPlugin(&(this->ctx), *pathDynamicCopy, *recType,
-				projections);
+				*projections);
 	} else if (strcmp(pgType, "bincol") == 0) {
 		assert(val.HasMember(keyProjectionsBinCol));
 		assert(val[keyProjectionsBinCol].IsArray());
 
-		vector<RecordAttribute*> projections;
+		vector<RecordAttribute*> *projections = new vector<RecordAttribute*>();
 		for (SizeType i = 0; i < val[keyProjectionsBinCol].Size(); i++) {
 			assert(val[keyProjectionsBinCol][i].IsObject());
 			RecordAttribute *recAttr = this->parseRecordAttr(
 					val[keyProjectionsBinCol][i]);
-			projections.push_back(recAttr);
+			projections->push_back(recAttr);
 		}
 
 		newPg = new BinaryColPlugin(&(this->ctx), *pathDynamicCopy, *recType,
-				projections);
+				*projections);
 	} else {
 		string err = string("Unknown Plugin Type: ") + pgType;
 		LOG(ERROR)<< err;

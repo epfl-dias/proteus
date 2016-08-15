@@ -208,3 +208,18 @@ TEST(Plan, JoinRecordBNonselective) {
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
+
+TEST(Plan, ScanBin) {
+	CachingService& caches = CachingService::getInstance();
+	caches.clear();
+	const char* catalogJSON = "inputs/plans/catalog.json";
+	const char *testPath = "testResults/tests-plan-parsing/";
+	//Test-specific
+	const char* planPath = "inputs/plans/reduce-scan-bin.json";
+	const char *testLabel = "reduce-scan-bin-log.json";
+
+	CatalogParser catalog = CatalogParser(catalogJSON);
+	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
+
+	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+}

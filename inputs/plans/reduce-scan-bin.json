@@ -1,0 +1,34 @@
+{
+	"e": [{
+		"expression": "int",
+		"v": 1
+	}],
+	"operator": "reduce",
+	"accumulator": ["sum"],
+	"p": {
+		"expression": "bool",
+		"v": true
+	},
+	"input": {
+		"operator": "scan",
+		"plugin": {
+			"name": "inputs/synthetic/100-30cols-fixed",
+			"type": "bincol",
+			"projections": [{
+				"type": {
+					"type": "int"
+				},
+				"relName": "inputs/synthetic/100-30cols-fixed",
+				"attrName": "field1",
+				"attrNo": 1
+			}, {
+				"type": {
+					"type": "int"
+				},
+				"relName": "inputs/synthetic/100-30cols-fixed",
+				"attrName": "field4",
+				"attrNo": 4
+			}]
+		}
+	}
+}

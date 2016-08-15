@@ -1,179 +1,400 @@
 {
-  "sailors": {
-    "path": "inputs/sailors.csv",
-    "type": {
-      "type": "bag",
-      "inner": {
-        "type": "record",
-        "attributes": [{
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/sailors.csv",
-          "attrName": "sid",
-          "attrNo": 1
-        }, {
-          "type": {
-            "type": "string"
-          },
-          "relName": "inputs/sailors.csv",
-          "attrName": "sname",
-          "attrNo": 2
-        }, {
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/sailors.csv",
-          "attrName": "rating",
-          "attrNo": 3
-        }, {
-          "type": {
-            "type": "float"
-          },
-          "relName": "inputs/sailors.csv",
-          "attrName": "age",
-          "attrNo": 4
-        }]
-      }
-    }
-  },
-  "reserves": {
-    "path": "inputs/reserves.csv",
-    "type": {
-      "type": "bag",
-      "inner": {
-        "type": "record",
-        "attributes": [{
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/reserves.csv",
-          "attrName": "sid",
-          "attrNo": 1
-        }, {
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/reserves.csv",
-          "attrName": "bid",
-          "attrNo": 2
-        }, {
-          "type": {
-            "type": "string"
-          },
-          "relName": "inputs/reserves.csv",
-          "attrName": "day",
-          "attrNo": 3
-        }]
-      }
-    }
-  },
-  "employees": {
-    "path": "inputs/json/employees-flat.json",
-    "type": {
-      "type": "list",
-      "inner": {
-        "type": "record",
-        "attributes": [{
-          "type": {
-            "type": "string"
-          },
-          "relName": "inputs/json/employees-flat.json",
-          "attrName": "name",
-          "attrNo": 1
-        }, {
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/json/employees-flat.json",
-          "attrName": "age",
-          "attrNo": 2
-        }, {
-          "type": {
-            "type": "record",
-            "attributes": [{
-              "type": {
-                "type": "string"
-              },
-              "relName": "inputs/json/employees-flat.json",
-              "attrName": "name",
-              "attrNo": 1
-            }, {
-              "type": {
-                "type": "int"
-              },
-              "relName": "inputs/json/employees-flat.json",
-              "attrName": "age",
-              "attrNo": 2
-            }]
-          },
-          "relName": "inputs/json/employees-flat.json",
-          "attrName": "children",
-          "attrNo": 3
-        }]
-      }
-    }
-  },
-  "A": {
-    "path": "inputs/A.csv",
-    "type": {
-      "type": "bag",
-      "inner": {
-        "type": "record",
-        "attributes": [{
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/A.csv",
-          "attrName": "A1",
-          "attrNo": 1
-        }, {
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/A.csv",
-          "attrName": "A2",
-          "attrNo": 2
-        }, {
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/A.csv",
-          "attrName": "A3",
-          "attrNo": 3
-        }]
-      }
-    }
-  },
-  "B": {
-    "path": "inputs/B.csv",
-    "type": {
-      "type": "bag",
-      "inner": {
-        "type": "record",
-        "attributes": [{
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/B.csv",
-          "attrName": "B1",
-          "attrNo": 1
-        }, {
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/B.csv",
-          "attrName": "B2",
-          "attrNo": 2
-        }, {
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/B.csv",
-          "attrName": "B3",
-          "attrNo": 3
-        }]
-      }
-    }
-  }
+	"sailors": {
+		"path": "inputs/sailors.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/sailors.csv",
+					"attrName": "sid",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "string"
+					},
+					"relName": "inputs/sailors.csv",
+					"attrName": "sname",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/sailors.csv",
+					"attrName": "rating",
+					"attrNo": 3
+				}, {
+					"type": {
+						"type": "float"
+					},
+					"relName": "inputs/sailors.csv",
+					"attrName": "age",
+					"attrNo": 4
+				}]
+			}
+		}
+	},
+	"reserves": {
+		"path": "inputs/reserves.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/reserves.csv",
+					"attrName": "sid",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/reserves.csv",
+					"attrName": "bid",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "string"
+					},
+					"relName": "inputs/reserves.csv",
+					"attrName": "day",
+					"attrNo": 3
+				}]
+			}
+		}
+	},
+	"employees": {
+		"path": "inputs/json/employees-flat.json",
+		"type": {
+			"type": "list",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "string"
+					},
+					"relName": "inputs/json/employees-flat.json",
+					"attrName": "name",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/json/employees-flat.json",
+					"attrName": "age",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "record",
+						"attributes": [{
+							"type": {
+								"type": "string"
+							},
+							"relName": "inputs/json/employees-flat.json",
+							"attrName": "name",
+							"attrNo": 1
+						}, {
+							"type": {
+								"type": "int"
+							},
+							"relName": "inputs/json/employees-flat.json",
+							"attrName": "age",
+							"attrNo": 2
+						}]
+					},
+					"relName": "inputs/json/employees-flat.json",
+					"attrName": "children",
+					"attrNo": 3
+				}]
+			}
+		}
+	},
+	"A": {
+		"path": "inputs/A.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/A.csv",
+					"attrName": "A1",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/A.csv",
+					"attrName": "A2",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/A.csv",
+					"attrName": "A3",
+					"attrNo": 3
+				}]
+			}
+		}
+	},
+	"B": {
+		"path": "inputs/B.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/B.csv",
+					"attrName": "B1",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/B.csv",
+					"attrName": "B2",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/B.csv",
+					"attrName": "B3",
+					"attrNo": 3
+				}]
+			}
+		}
+	},
+	"100-30cols-fixed": {
+		"path": "inputs/synthetic/100-30cols-fixed",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c1",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c2",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c3",
+					"attrNo": 3
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c4",
+					"attrNo": 4
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c5",
+					"attrNo": 5
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c6",
+					"attrNo": 6
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c7",
+					"attrNo": 7
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c8",
+					"attrNo": 8
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c9",
+					"attrNo": 9
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c10",
+					"attrNo": 10
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c11",
+					"attrNo": 11
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c12",
+					"attrNo": 12
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c13",
+					"attrNo": 13
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c14",
+					"attrNo": 14
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c15",
+					"attrNo": 15
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c16",
+					"attrNo": 16
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c17",
+					"attrNo": 17
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c18",
+					"attrNo": 18
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c19",
+					"attrNo": 19
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c20",
+					"attrNo": 20
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c21",
+					"attrNo": 21
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c22",
+					"attrNo": 22
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c23",
+					"attrNo": 23
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c24",
+					"attrNo": 24
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c25",
+					"attrNo": 25
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c26",
+					"attrNo": 26
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c27",
+					"attrNo": 27
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c28",
+					"attrNo": 28
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c29",
+					"attrNo": 29
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c30",
+					"attrNo": 30
+				}]
+			}
+		}
+	}
+
 }
