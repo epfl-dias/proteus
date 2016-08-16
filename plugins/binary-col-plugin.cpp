@@ -890,6 +890,7 @@ void BinaryColPlugin::prepareArray(RecordAttribute attName)	{
 	Type* doublePtrType = Type::getDoublePtrTy(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
 	Type* int32PtrType = Type::getInt32PtrTy(llvmContext);
+	Type* int64PtrType = Type::getInt64PtrTy(llvmContext);
 	Type* int8PtrType = Type::getInt8PtrTy(llvmContext);
 
 	IRBuilder<>* Builder = context->getBuilder();
@@ -957,6 +958,14 @@ void BinaryColPlugin::prepareArray(RecordAttribute attName)	{
 		NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
 		break;
 	}
+	case INT64: {
+			AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(F,
+					string("mem_bufPtr"), int64PtrType);
+			Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, int64PtrType);
+			Builder->CreateStore(val_bufPtr, mem_bufPtr);
+			NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
+			break;
+		}
 	case STRING: {
 		/* String representation comprises the code and the dictionary
 		 * Codes are (will be) int32, so can again treat like int32* */
@@ -1062,6 +1071,10 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 			readAsIntLLVM(attr, *variableBindings);
 			offset = 1;
 			break;
+		case INT64:
+			readAsInt64LLVM(attr, *variableBindings);
+			offset = 1;
+			break;
 		case BAG:
 		case LIST:
 		case SET:
@@ -1101,5 +1114,6 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 	// 	Any new code will be inserted in AfterBB.
 	Builder->SetInsertPoint(AfterBB);
 }
+
 
 
