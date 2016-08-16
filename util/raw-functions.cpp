@@ -509,6 +509,13 @@ void flushInt(int toFlush, char* fileName)	{
 	(*strBuffer) << toFlush;
 }
 
+void flushInt64(size_t toFlush, char* fileName)	{
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream *strBuffer = catalog.getSerializer(name);
+	(*strBuffer) << toFlush;
+}
+
 void flushDouble(double toFlush, char* fileName)	{
 	RawCatalog& catalog = RawCatalog::getInstance();
 	string name = string(fileName);
@@ -999,6 +1006,10 @@ void registerFunctions(RawContext& context)	{
 	ArgsFlushInt.insert(ArgsFlushInt.begin(),char_ptr_type);
 	ArgsFlushInt.insert(ArgsFlushInt.begin(),int32_type);
 
+	vector<Type*> ArgsFlushInt64;
+	ArgsFlushInt64.insert(ArgsFlushInt64.begin(),char_ptr_type);
+	ArgsFlushInt64.insert(ArgsFlushInt64.begin(),int64_type);
+
 	vector<Type*> ArgsFlushDouble;
 	ArgsFlushDouble.insert(ArgsFlushDouble.begin(),char_ptr_type);
 	ArgsFlushDouble.insert(ArgsFlushDouble.begin(),double_type);
@@ -1072,6 +1083,7 @@ void registerFunctions(RawContext& context)	{
 	FunctionType *FThashBoolean 		  = FunctionType::get(int64_type, ArgsHashBoolean, false);
 	FunctionType *FThashCombine 		  = FunctionType::get(int64_type, ArgsHashCombine, false);
 	FunctionType *FTflushInt 			  = FunctionType::get(void_type, ArgsFlushInt, false);
+	FunctionType *FTflushInt64 			  = FunctionType::get(void_type, ArgsFlushInt64, false);
 	FunctionType *FTflushDouble 		  = FunctionType::get(void_type, ArgsFlushDouble, false);
 	FunctionType *FTflushStringC 		  = FunctionType::get(void_type, ArgsFlushStringC, false);
 	FunctionType *FTflushStringCv2 		  = FunctionType::get(void_type, ArgsFlushStringCv2, false);
@@ -1151,6 +1163,8 @@ void registerFunctions(RawContext& context)	{
 	*/
 	Function *flushInt_ = Function::Create(FTflushInt,
 			Function::ExternalLinkage, "flushInt", TheModule);
+	Function *flushInt64_ = Function::Create(FTflushInt64,
+				Function::ExternalLinkage, "flushInt64", TheModule);
 	Function *flushDouble_ = Function::Create(FTflushDouble,
 			Function::ExternalLinkage, "flushDouble", TheModule);
 	Function *flushStringC_ = Function::Create(FTflushStringC,
@@ -1354,6 +1368,7 @@ void registerFunctions(RawContext& context)	{
 	context.registerFunction("combineHashesNoOrder", hashCombineNoOrder_);
 
 	context.registerFunction("flushInt", flushInt_);
+	context.registerFunction("flushInt64", flushInt64_);
 	context.registerFunction("flushDouble", flushDouble_);
 	context.registerFunction("flushStringC", flushStringC_);
 	context.registerFunction("flushStringCv2", flushStringCv2_);
@@ -1391,3 +1406,4 @@ RawContext prepareContext(string moduleName)	{
 	registerFunctions(ctx);
 	return ctx;
 }
+

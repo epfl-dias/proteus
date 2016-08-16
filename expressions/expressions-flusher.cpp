@@ -654,6 +654,14 @@ void ExpressionFlusherVisitor::flushValue(Value *val, typeID val_type) {
 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
 		return;
 	}
+	case INT64: {
+		vector<Value*> ArgsV;
+		flushFunc = context->getFunction("flushInt64");
+		ArgsV.push_back(val);
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return;
+	}
 	case INT: {
 		vector<Value*> ArgsV;
 		flushFunc = context->getFunction("flushInt");
@@ -675,6 +683,7 @@ void ExpressionFlusherVisitor::flushValue(Value *val, typeID val_type) {
 		throw runtime_error(string("[ExpressionFlusherVisitor: ] Unknown datatype"));
 	}
 }
+
 
 
 

@@ -466,6 +466,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 		RawValue valWrapper;
 		valWrapper.isNull = context->createFalse();
 		switch (id) {
+		case INT64:
 		case INT:
 		{
 #ifdef DEBUG
@@ -1290,6 +1291,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::NeExpression *e) {
 		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
+		case INT64:
 		case INT:
 			valWrapper.value = TheBuilder->CreateICmpNE(left.value, right.value);
 			return valWrapper;
@@ -1330,6 +1332,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::GeExpression *e) {
 		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
+		case INT64:
 		case INT:
 			valWrapper.value = TheBuilder->CreateICmpSGE(left.value, right.value);
 			return valWrapper;
@@ -1370,6 +1373,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
 		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
+		case INT64:
 		case INT:
 			valWrapper.value = TheBuilder->CreateICmpSGT(left.value, right.value);
 			return valWrapper;
@@ -1419,6 +1423,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::LeExpression *e) {
 		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
+		case INT64:
 		case INT:
 			valWrapper.value = TheBuilder->CreateICmpSLE(left.value, right.value);
 			return valWrapper;
@@ -1459,6 +1464,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::LtExpression *e) {
 		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
+		case INT64:
 		case INT:
 #ifdef DEBUG
 {
@@ -1517,6 +1523,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::AddExpression *e) {
 		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
+		case INT64:
 		case INT:
 			valWrapper.value = TheBuilder->CreateAdd(left.value, right.value);
 			return valWrapper;
@@ -1557,6 +1564,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::SubExpression *e) {
 		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
+		case INT64:
 		case INT:
 			valWrapper.value = TheBuilder->CreateSub(left.value, right.value);
 			return valWrapper;
@@ -1597,6 +1605,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::MultExpression *e) {
 		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
+		case INT64:
 		case INT:
 			valWrapper.value = TheBuilder->CreateMul(left.value, right.value);
 			return valWrapper;
@@ -1637,6 +1646,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::DivExpression *e) {
 		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
+		case INT64:
 		case INT:
 			valWrapper.value = TheBuilder->CreateSDiv(left.value, right.value);
 			return valWrapper;
@@ -1684,4 +1694,5 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::OrExpression *e) {
 		valWrapper.value = TheBuilder->CreateOr(left.value, right.value);
 		return valWrapper;
 }
+
 

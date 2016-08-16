@@ -125,6 +125,8 @@ extern "C" void flushArrayEnd(char* fileName);
 
 extern "C" void flushInt(int toFlush, char* fileName);
 
+extern "C" void flushInt64(int toFlush, char* fileName);
+
 extern "C" void flushDouble(double toFlush, char* fileName);
 
 extern "C" void flushBoolean(bool toFlush, char* fileName);
@@ -165,3 +167,4 @@ extern "C" void resetTime();
 extern "C" void calculateTime();
 
 #endif /* RAW_FUNCTIONS_HPP_ */
+
