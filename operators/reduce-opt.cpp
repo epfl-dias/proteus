@@ -1543,6 +1543,7 @@ AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,
 
 	Type* int1Type = Type::getInt1Ty(llvmContext);
 	Type* int32Type = Type::getInt32Ty(llvmContext);
+	Type* int64Type = Type::getInt64Ty(llvmContext);
 	Type* doubleType = Type::getDoubleTy(llvmContext);
 
 	//Deal with 'memory allocations' as per monoid type requested
@@ -1550,6 +1551,13 @@ AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,
 	switch (acc) {
 	case SUM: {
 		switch (outputType) {
+		case INT64: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int64Type);
+			Value *val_zero = Builder->getInt64(1);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
 		case INT: {
 			mem_accumulating = context->CreateEntryBlockAlloca(f,
 					string("dest_acc"), int32Type);
@@ -1576,6 +1584,13 @@ AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,
 	}
 	case MULTIPLY: {
 		switch (outputType) {
+		case INT64: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int64Type);
+			Value *val_zero = Builder->getInt64(1);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
 		case INT: {
 			mem_accumulating = context->CreateEntryBlockAlloca(f,
 					string("dest_acc"), int32Type);
@@ -1601,6 +1616,13 @@ AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,
 	}
 	case MAX: {
 		switch (outputType) {
+		case INT64: {
+			mem_accumulating = context->CreateEntryBlockAlloca(f,
+					string("dest_acc"), int64Type);
+			Value *val_zero = Builder->getInt64(1);
+			Builder->CreateStore(val_zero, mem_accumulating);
+			break;
+		}
 		case INT: {
 			mem_accumulating = context->CreateEntryBlockAlloca(f,
 					string("dest_acc"), int32Type);

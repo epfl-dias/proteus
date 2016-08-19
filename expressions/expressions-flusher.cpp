@@ -384,6 +384,9 @@ RawValue ExpressionFlusherVisitor::visit(expressions::AddExpression *e) {
 		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
+		case INT64:
+			instructionLabel = string("flushInt64");
+			break;
 		case INT:
 			instructionLabel = string("flushInt");
 			break;
@@ -411,6 +414,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::AddExpression *e) {
 		flushFunc = context->getFunction(instructionLabel);
 		vector<Value*> ArgsV;
 		ArgsV.push_back(exprResult.value);
+		ArgsV.push_back(outputFileLLVM);
 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
 		return placeholder;
 	}
@@ -433,6 +437,9 @@ RawValue ExpressionFlusherVisitor::visit(expressions::SubExpression *e) {
 		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
+		case INT64:
+			instructionLabel = string("flushInt64");
+			break;
 		case INT:
 			instructionLabel = string("flushInt");
 			break;
@@ -460,6 +467,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::SubExpression *e) {
 		flushFunc = context->getFunction(instructionLabel);
 		vector<Value*> ArgsV;
 		ArgsV.push_back(exprResult.value);
+		ArgsV.push_back(outputFileLLVM);
 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
 		return placeholder;
 
@@ -483,6 +491,9 @@ RawValue ExpressionFlusherVisitor::visit(expressions::MultExpression *e) {
 		valWrapper.isNull = context->createFalse();
 
 		switch (id) {
+		case INT64:
+			instructionLabel = string("flushInt64");
+			break;
 		case INT:
 			instructionLabel = string("flushInt");
 			break;
@@ -510,6 +521,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::MultExpression *e) {
 		flushFunc = context->getFunction(instructionLabel);
 		vector<Value*> ArgsV;
 		ArgsV.push_back(exprResult.value);
+		ArgsV.push_back(outputFileLLVM);
 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
 		return placeholder;
 	}
@@ -559,6 +571,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::DivExpression *e) {
 		flushFunc = context->getFunction(instructionLabel);
 		vector<Value*> ArgsV;
 		ArgsV.push_back(exprResult.value);
+		ArgsV.push_back(outputFileLLVM);
 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
 		return placeholder;
 	}
