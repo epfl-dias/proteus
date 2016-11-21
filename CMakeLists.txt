@@ -81,26 +81,7 @@ add_executable(symantec-json symantec-json.cpp)
 set_target_properties(symantec-json PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 target_link_libraries(symantec-json ${default_libs})
 
-###################
-###VLDB VERSIONS###
-###################
-file(GLOB spam_all_vldb experiments/realworld-vldb/*.cpp)
-add_executable(spam-workload-vldb ${spam_all_vldb})
-set_target_properties(spam-workload-vldb PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-workload-vldb ${default_libs})
-
-#add_executable(spam-bin-vldb experiments/realworld-vldb/spam-bin.cpp)
-#set_target_properties(spam-bin-vldb PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-#target_link_libraries(spam-bin-vldb ${default_libs})
-#
-#add_executable(spam-csv-cached-columnar-vldb experiments/realworld-vldb/spam-csv-cached-columnar.cpp)
-#set_target_properties(spam-csv-cached-columnar-vldb PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-#target_link_libraries(spam-csv-cached-columnar-vldb ${default_libs})
-
-
-#add_executable(spam-bin-csv-vldb experiments/realworld-vldb/spam-bin-csv.cpp)
-#set_target_properties(spam-bin-csv-vldb PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-#target_link_libraries(spam-bin-csv-vldb ${default_libs})
+add_subdirectory(experiments/realworld-vldb)
 
 #sigmod versions
 add_executable(spam-bin experiments/realworld/spam-bin.cpp)
