@@ -77,11 +77,8 @@ target_link_libraries(rawmain-reduce ${default_libs})
 add_subdirectory(benchmarks/tpch)
 
 #real-world experiments
-add_executable(symantec-json symantec-json.cpp)
-set_target_properties(symantec-json PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(symantec-json ${default_libs})
-
 add_subdirectory(experiments/realworld-vldb)
+add_subdirectory(experiments/realworld-symantec)
 
 #sigmod versions
 add_executable(spam-bin experiments/realworld/spam-bin.cpp)
