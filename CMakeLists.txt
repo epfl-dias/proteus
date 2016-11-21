@@ -159,34 +159,8 @@ set_target_properties(plan-parsing PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
 target_link_libraries(plan-parsing ${default_libs})
 
 # compile our unit-tests
-file(GLOB gtest_src tests/*.cpp)
-add_executable(unit-tests ${gtest_src})
-set_target_properties(unit-tests PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(unit-tests ${gtest_libs})
-
-file(GLOB gtest_src_joins tests/tests-sailors.cpp)
-add_executable(unit-tests-joins ${gtest_src_joins})
-set_target_properties(unit-tests-joins PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(unit-tests-joins ${gtest_libs})
-
-file(GLOB gtest_src_json tests/tests-json.cpp)
-add_executable(unit-tests-json ${gtest_src_json})
-set_target_properties(unit-tests-json PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(unit-tests-json ${gtest_libs})
-
-file(GLOB gtest_src_output tests/tests-output.cpp)
-add_executable(unit-tests-output ${gtest_src_output})
-set_target_properties(unit-tests-output PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(unit-tests-output ${gtest_libs})
-
-file(GLOB gtest_src_plans tests/tests-plan-parsing.cpp)
-add_executable(unit-tests-plan-parsing ${gtest_src_plans})
-set_target_properties(unit-tests-plan-parsing PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(unit-tests-plan-parsing ${gtest_libs})
+add_subdirectory(tests)
 
 # copy data files too
 file(COPY "inputs" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY "testResults" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-
-enable_testing()
-add_test(UT unit-tests)
