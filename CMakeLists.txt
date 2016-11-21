@@ -81,50 +81,7 @@ add_subdirectory(experiments/realworld-vldb)
 add_subdirectory(experiments/realworld-symantec)
 
 #sigmod versions
-add_executable(spam-bin experiments/realworld/spam-bin.cpp)
-set_target_properties(spam-bin PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-bin ${default_libs})
-
-add_executable(spam-csv experiments/realworld/spam-csv.cpp)
-set_target_properties(spam-csv PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-csv ${default_libs})
-
-add_executable(spam-json experiments/realworld/spam-json.cpp)
-set_target_properties(spam-json PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-json ${default_libs})
-
-add_executable(spam-bin-csv experiments/realworld/spam-bin-csv.cpp)
-set_target_properties(spam-bin-csv PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-bin-csv ${default_libs})
-
-add_executable(spam-bin-json experiments/realworld/spam-bin-json.cpp)
-set_target_properties(spam-bin-json PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-bin-json ${default_libs})
-
-add_executable(spam-csv-json experiments/realworld/spam-csv-json.cpp)
-set_target_properties(spam-csv-json PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-csv-json ${default_libs})
-
-add_executable(spam-bin-csv-json experiments/realworld/spam-bin-csv-json.cpp)
-set_target_properties(spam-bin-csv-json PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-bin-csv-json ${default_libs})
-
-add_executable(spam-bin-csv-json-v2 experiments/realworld/spam-bin-csv-json-v2.cpp)
-set_target_properties(spam-bin-csv-json-v2 PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-bin-csv-json-v2 ${default_libs})
-
-add_executable(spam-csv-cached experiments/realworld/spam-csv-cached.cpp)
-set_target_properties(spam-csv-cached PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-csv-cached ${default_libs})
-
-add_executable(spam-csv-cached-columnar experiments/realworld/spam-csv-cached-columnar.cpp)
-set_target_properties(spam-csv-cached-columnar PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-csv-cached-columnar ${default_libs})
-
-add_executable(spam-json-cached experiments/realworld/spam-json-cached.cpp)
-set_target_properties(spam-json-cached PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-json-cached ${default_libs})
-
+add_subdirectory(experiments/realworld)
 
 file(GLOB spam_all experiments/realworld-queries/*.cpp)
 #add_executable(spam-workload experiments/spam-workload.cpp)
