@@ -77,17 +77,12 @@ target_link_libraries(rawmain-reduce ${default_libs})
 add_subdirectory(benchmarks/tpch)
 
 #real-world experiments
-add_subdirectory(experiments/realworld-vldb)
+add_subdirectory(experiments/realworld-queries)
 add_subdirectory(experiments/realworld-symantec)
+add_subdirectory(experiments/realworld-vldb)
 
 #sigmod versions
 add_subdirectory(experiments/realworld)
-
-file(GLOB spam_all experiments/realworld-queries/*.cpp)
-#add_executable(spam-workload experiments/spam-workload.cpp)
-add_executable(spam-workload ${spam_all})
-set_target_properties(spam-workload PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(spam-workload ${default_libs})
 
 add_executable(plan-parsing plan-parsing.cpp)
 set_target_properties(plan-parsing PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
