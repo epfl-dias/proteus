@@ -7,6 +7,7 @@ find_program(CLANG_C_COMPILER "clang")
 set(CMAKE_C_COMPILER "${CLANG_C_COMPILER}")
 
 include_directories("${PROJECT_SOURCE_DIR}")
+include_directories("${PROJECT_SOURCE_DIR}/codegen")
 
 include_directories("${CMAKE_INSTALL_PREFIX}/include")
 link_directories("${CMAKE_INSTALL_PREFIX}/lib")
@@ -47,32 +48,26 @@ file(GLOB jsmn jsmn/*.c)
 add_library(jsmn ${jsmn})
 
 # code generation library
-file(GLOB codegen common/*.cpp util/*.cpp util/radix/*.cpp util/radix/joins/*.cpp util/radix/aggregations/*.cpp values/*.cpp expressions/*.cpp plugins/*.cpp plugins/output/*.cpp operators/*.cpp memory/*.cpp plan/*.cpp postgres/*.cpp)
-add_library(codegen ${codegen})
-set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+add_subdirectory(codegen)
 
 #if(FALSE)
 # not too sure if we should build "main", it looks like it has the same test cases as the gtests
-add_executable(rawmain main.cpp)
-set_target_properties(rawmain PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(rawmain ${default_libs})
-
-add_executable(rawmain-caches main-caches.cpp)
-set_target_properties(rawmain-caches PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(rawmain-caches ${default_libs})
-
-add_executable(rawmain-nest main-nest.cpp)
-set_target_properties(rawmain-nest PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(rawmain-nest ${default_libs})
-
-add_executable(rawmain-str main-str.cpp)
-set_target_properties(rawmain-str PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(rawmain-str ${default_libs})
-
-add_executable(rawmain-reduce main-reduce.cpp)
-set_target_properties(rawmain-reduce PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(rawmain-reduce ${default_libs})
+foreach(target
+	main
+	main-caches
+	main-nest
+	main-str
+	main-reduce
+	)
+	add_executable(raw${target} ${target}.cpp)
+	set_target_properties(raw${target} PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+	target_link_libraries(raw${target} ${default_libs})
+endforeach(target)
 #endif()
+
+add_executable(plan-parsing plan-parsing.cpp)
+set_target_properties(plan-parsing PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+target_link_libraries(plan-parsing ${default_libs})
 
 add_subdirectory(benchmarks/tpch)
 
@@ -83,10 +78,6 @@ add_subdirectory(experiments/realworld-vldb)
 
 #sigmod versions
 add_subdirectory(experiments/realworld)
-
-add_executable(plan-parsing plan-parsing.cpp)
-set_target_properties(plan-parsing PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
-target_link_libraries(plan-parsing ${default_libs})
 
 # compile our unit-tests
 add_subdirectory(tests)
