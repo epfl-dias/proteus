@@ -73,7 +73,7 @@
 // </TechnicalDetails>
 
 TEST(Output, ReduceNumeric) {
-	const char *testPath = "testResults/tests-output/";
+	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "reduceNumeric.json";
 	bool flushResults = true;
 	RawContext ctx = RawContext(testLabel);
@@ -154,7 +154,7 @@ TEST(Output, ReduceNumeric) {
 }
 
 TEST(Output, MultiReduceNumeric) {
-	const char *testPath = "testResults/tests-output/";
+	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "multiReduceNumeric.json";
 	bool flushResults = true;
 	RawContext ctx = RawContext(testLabel);
@@ -237,7 +237,7 @@ TEST(Output, MultiReduceNumeric) {
 }
 
 TEST(Output, ReduceBag) {
-	const char *testPath = "testResults/tests-output/";
+	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "reduceBag.json";
 	bool flushResults = true;
 	RawContext ctx = RawContext(testLabel);
@@ -320,7 +320,7 @@ TEST(Output, ReduceBag) {
 }
 
 TEST(Output, ReduceBagRecord) {
-	const char *testPath = "testResults/tests-output/";
+	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "reduceBagRecord.json";
 	bool flushResults = true;
 	RawContext ctx = RawContext(testLabel);
@@ -422,7 +422,7 @@ TEST(Output, ReduceBagRecord) {
 }
 
 TEST(Output, NestBagTPCH) {
-	const char *testPath = "testResults/tests-output/";
+	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "nestBagTPCH.json";
 	bool flushResults = true;
 	/* Bookkeeping */
@@ -665,7 +665,7 @@ TEST(Output, NestBagTPCH) {
 }
 
 TEST(Output, JoinLeft3) {
-	const char *testPath = "testResults/tests-output/";
+	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "3wayJoin.json";
 	bool flushResults = true;
 
@@ -885,7 +885,7 @@ TEST(Output, JoinLeft3) {
 
 /* Corresponds to plan parser tests */
 TEST(Output, NestReserves) {
-	const char *testPath = "testResults/tests-output/";
+	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "nestReserves.json";
 	bool flushResults = true;
 
@@ -1008,7 +1008,7 @@ TEST(Output, NestReserves) {
 }
 
 //TEST(Output, MultiNestReserves) {
-//	const char *testPath = "testResults/tests-output/";
+//	const char *testPath = TEST_OUTPUTS "/tests-output/";
 //	const char *testLabel = "multinestReserves.json";
 //	bool flushResults = true;
 //
@@ -1143,7 +1143,7 @@ TEST(Output, NestReserves) {
 //}
 
 TEST(Output, MultiNestReserves) {
-	const char *testPath = "testResults/tests-output/";
+	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "multinestReserves.json";
 	bool flushResults = true;
 

@@ -60,7 +60,7 @@ TEST(Plan, Scan) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = "testResults/tests-plan-parsing/";
+	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
 	//Test-specific
 	const char* planPath = "inputs/plans/reduce-scan.json";
 	const char *testLabel = "reduce-scan-log.json";
@@ -76,7 +76,7 @@ TEST(Plan, ScanTwoFields) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = "testResults/tests-plan-parsing/";
+	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
 	//Test-specific
 	const char* planPath = "inputs/plans/reduce-twofields-scan.json";
 	const char *testLabel = "reduce-twofields-scan-log.json";
@@ -91,7 +91,7 @@ TEST(Plan, Unnest) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = "testResults/tests-plan-parsing/";
+	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
 	//Test-specific
 	const char* planPath = "inputs/plans/reduce-unnest-scan.json";
 	const char *testLabel = "reduce-unnest-scan-log.json";
@@ -107,7 +107,7 @@ TEST(Plan, Join) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = "testResults/tests-plan-parsing/";
+	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
 	//Test-specific
 	const char* planPath = "inputs/plans/reduce-join.json";
 	const char *testLabel = "reduce-join-log.json";
@@ -123,7 +123,7 @@ TEST(Plan, Nest) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = "testResults/tests-plan-parsing/";
+	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
 	//Test-specific
 	const char* planPath = "inputs/plans/reduce-nest.json";
 	const char *testLabel = "reduce-nest-log.json";
@@ -139,7 +139,7 @@ TEST(Plan, Select) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = "testResults/tests-plan-parsing/";
+	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
 	//Test-specific
 	const char* planPath = "inputs/plans/reduce-select.json";
 	const char *testLabel = "reduce-select-log.json";
@@ -156,7 +156,7 @@ TEST(Plan, MultiNest) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = "testResults/tests-plan-parsing/";
+	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
 	//Test-specific
 	const char* planPath = "inputs/plans/reduce-multinest.json";
 	const char *testLabel = "reduce-multinest-log.json";
@@ -176,7 +176,7 @@ TEST(Plan, JoinRecord) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = "testResults/tests-plan-parsing/";
+	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
 	//Test-specific
 	const char* planPath = "inputs/plans/reduce-join-record.json";
 	const char *testLabel = "reduce-join-record-log.json";
@@ -198,7 +198,7 @@ TEST(Plan, JoinRecordBNonselective) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
 	const char* catalogJSON = "inputs/parser/catalog.json";
-	const char *testPath = "testResults/tests-plan-parsing/";
+	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
 	//Test-specific
 	const char* planPath = "inputs/plans/reduce-join-record-nonselective.json";
 	const char *testLabel = "reduce-join-record-nonselective-log.json";
@@ -213,7 +213,7 @@ TEST(Plan, ScanBin) {
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
 	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = "testResults/tests-plan-parsing/";
+	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
 	//Test-specific
 	const char* planPath = "inputs/plans/reduce-scan-bin.json";
 	const char *testLabel = "reduce-scan-bin-log.json";

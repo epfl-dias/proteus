@@ -5,6 +5,7 @@ find_program(CLANG_CXX_COMPILER "clang++")
 set(CMAKE_CXX_COMPILER "${CLANG_CXX_COMPILER}")
 find_program(CLANG_C_COMPILER "clang")
 set(CMAKE_C_COMPILER "${CLANG_C_COMPILER}")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 include_directories("${PROJECT_SOURCE_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}/codegen")
@@ -36,6 +37,10 @@ endif()
 
 # look for Boost related compilation flags
 find_package(Boost REQUIRED)
+
+# Define path to installed resources
+add_definitions(-DTEST_INPUTS="${CMAKE_INSTALL_PREFIX}/raw/inputs")
+add_definitions(-DTEST_OUTPUTS="${CMAKE_INSTALL_PREFIX}/raw/outputs")
 
 set(GCC_COMPILE_FLAGS "-march=core-avx2 -msse4 -O0 -ftree-vectorize -march=native -mtune=native -g -ggdb -fno-omit-frame-pointer")
 set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COMPILE_FLAGS}" )
@@ -83,5 +88,5 @@ add_subdirectory(experiments/realworld)
 add_subdirectory(tests)
 
 # copy data files too
-file(COPY "inputs" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-file(COPY "testResults" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+install(DIRECTORY "inputs" DESTINATION ${CMAKE_INSTALL_PREFIX}/raw)			# Creates <..>/raw/inputs
+install(DIRECTORY "testResults/" DESTINATION ${CMAKE_INSTALL_PREFIX}/raw/outputs)	# Creates <..>/raw/outputs

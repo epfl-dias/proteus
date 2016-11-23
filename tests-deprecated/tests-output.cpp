@@ -77,7 +77,7 @@ void verifyResult_(const char *testLabel)	{
 	/* Compare with template answer */
 	/* correct */
 	struct stat statbuf;
-	string correctResult = string("testResults/tests-output/") + testLabel;
+	string correctResult = string(TEST_OUTPUTS "/tests-output/") + testLabel;
 	stat(correctResult.c_str(), &statbuf);
 	size_t fsize1 = statbuf.st_size;
 	int fd1 = open(correctResult.c_str(), O_RDONLY);

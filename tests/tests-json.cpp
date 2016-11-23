@@ -118,7 +118,7 @@ TEST(JSON, String) {
 
 TEST(JSON, ScanJSON) {
 	bool flushResults = true;
-		const char *testPath = "testResults/tests-json/";
+		const char *testPath = TEST_OUTPUTS "/tests-json/";
 		const char *testLabel = "scanJSON.json";
 
 		RawContext ctx = RawContext(testLabel);
@@ -179,7 +179,7 @@ TEST(JSON, ScanJSON) {
 TEST(JSON, SelectJSON) {
 
 	bool flushResults = true;
-	const char *testPath = "testResults/tests-json/";
+	const char *testPath = TEST_OUTPUTS "/tests-json/";
 	const char *testLabel = "selectJSON.json";
 
 	RawContext ctx = RawContext(testLabel);
@@ -253,7 +253,7 @@ TEST(JSON, SelectJSON) {
 
 
 TEST(JSON, unnestJSON) {
-	const char *testPath = "testResults/tests-json/";
+	const char *testPath = TEST_OUTPUTS "/tests-json/";
 	const char *testLabel = "unnestJSONEmployees.json";
 	bool flushResults = true;
 
@@ -373,7 +373,7 @@ TEST(JSON, unnestJSON) {
 
 /* json plugin seems broken if linehint not provided */
 TEST(JSON, reduceListObjectFlat) {
-	const char *testPath = "testResults/tests-json/";
+	const char *testPath = TEST_OUTPUTS "/tests-json/";
 	const char *testLabel = "jsonFlushList.json";
 	bool flushResults = true;
 
@@ -459,7 +459,7 @@ TEST(JSON, reduceListObjectFlat) {
 
 bool reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 		jsmntok_t** tokens) {
-	const char *testPath = "testResults/tests-json/";
+	const char *testPath = TEST_OUTPUTS "/tests-json/";
 	const char *testLabel = "reduceJSONCached.json";
 	bool flushResults = true;
 
@@ -655,7 +655,7 @@ TEST(JSON, reduceMax) {
 /* SELECT MAX(obj.c.c2) FROM jsonFile obj WHERE obj.b  > 43 */
 TEST(JSON, reduceDeeperMax) {
 	bool longRun = false;
-	const char *testPath = "testResults/tests-json/";
+	const char *testPath = TEST_OUTPUTS "/tests-json/";
 	const char *testLabel = "reduceDeeperMax.json";
 	bool flushResults = true;
 

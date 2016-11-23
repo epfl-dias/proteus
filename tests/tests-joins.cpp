@@ -68,7 +68,7 @@
 //	/* Compare with template answer */
 //	/* correct */
 //	struct stat statbuf;
-//	string correctResult = string("testResults/tests-sailors/") + testLabel;
+//	string correctResult = string(TEST_OUTPUTS "/tests-sailors/") + testLabel;
 //	stat(correctResult.c_str(), &statbuf);
 //	size_t fsize1 = statbuf.st_size;
 //	int fd1 = open(correctResult.c_str(), O_RDONLY);
@@ -102,7 +102,7 @@
 //}
 
 //TEST(Sailors, Scan) {
-//	const char *testPath = "testResults/tests-sailors/";
+//	const char *testPath = TEST_OUTPUTS "/tests-sailors/";
 //	const char *testLabel = "sailorsScan.json";
 //	bool flushResults = true;
 //
@@ -187,7 +187,7 @@
 //}
 
 TEST(Sailors, Select) {
-	const char *testPath = "testResults/tests-sailors/";
+	const char *testPath = TEST_OUTPUTS "/tests-sailors/";
 	const char *testLabel = "sailorsSel.json";
 	bool flushResults = true;
 
@@ -285,7 +285,7 @@ TEST(Sailors, Select) {
 
 
 //TEST(Sailors, ScanBoats) {
-//	const char *testPath = "testResults/tests-sailors/";
+//	const char *testPath = TEST_OUTPUTS "/tests-sailors/";
 //	const char *testLabel = "sailorsScanBoats.json";
 //	bool flushResults = true;
 //
@@ -361,7 +361,7 @@ TEST(Sailors, Select) {
 //}
 
 //TEST(Sailors, JoinLeft3) {
-//	const char *testPath = "testResults/tests-sailors/";
+//	const char *testPath = TEST_OUTPUTS "/tests-sailors/";
 //	const char *testLabel = "sailorsJoinLeft3.json";
 //	bool flushResults = true;
 //
@@ -581,7 +581,7 @@ TEST(Sailors, Select) {
 //}
 
 //TEST(Sailors, JoinRight3) {
-//	const char *testPath = "testResults/tests-sailors/";
+//	const char *testPath = TEST_OUTPUTS "/tests-sailors/";
 //	const char *testLabel = "sailorsJoinRight3.json";
 //	bool flushResults = true;
 //
