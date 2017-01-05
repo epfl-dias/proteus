@@ -39,6 +39,8 @@
 #include "values/expressionTypes.hpp"
 #include "memory/memory-allocator.hpp"
 
+#include "llvm/IR/LegacyPassManager.h"
+
 #include <x86intrin.h>
 
 //#ifdef DEBUG
@@ -55,25 +57,25 @@ public:
 	~RawContext() {
 		LOG(WARNING)<< "[RawContext: ] Destructor";
 		//XXX Has to be done in an appropriate sequence - segfaults otherwise
-		delete Builder;
+//		delete Builder;
 //			delete TheFPM;
 //			delete TheExecutionEngine;
 //			delete TheFunction;
 //			delete llvmContext;
 //			delete TheFunction;
 	}
+
 	LLVMContext& getLLVMContext() {
-		return *llvmContext;
+		return TheContext;
 	}
 
 	void prepareFunction(Function *F);
-	void* jit(Function* F);
 
-	ExecutionEngine* getExecEngine() {return TheExecutionEngine;}
+	ExecutionEngine const * const getExecEngine() {return TheExecutionEngine;}
 
-	Function* const getGlobalFunction() const {return TheFunction;}
-	Module* const getModule() const {return TheModule;}
-	IRBuilder<>* const getBuilder() const {return Builder;}
+	Function * getGlobalFunction() const {return TheFunction;}
+	Module * getModule() const {return TheModule;}
+	IRBuilder<> * getBuilder() const {return TheBuilder;}
 	Function* const getFunction(string funcName) const;
 
 	ConstantInt* createInt8(char val);
@@ -142,7 +144,7 @@ public:
 	//Will probably use an array of such structs per HT
 	StructType* getHashtableMetadataType() {
 		vector<Type*> types_htMetadata = vector<Type*>();
-		Type* int64_type = Type::getInt64Ty(*llvmContext);
+		Type* int64_type = Type::getInt64Ty(getLLVMContext());
 		Type* keyType = int64_type;
 		Type* bucketSizeType = int64_type;
 		types_htMetadata.push_back(keyType);
@@ -151,22 +153,25 @@ public:
 		htMetadataSize += (bucketSizeType->getPrimitiveSizeInBits() / 8);
 
 		//Result type specified
-		StructType *metadataType = llvm::StructType::get(*llvmContext,types_htMetadata);
+		StructType *metadataType = llvm::StructType::get(getLLVMContext(),types_htMetadata);
 		return metadataType;
 	}
 
-	Value* getMemResultCtr() {return mem_resultCtr;}
+	Value * const getMemResultCtr() {return mem_resultCtr;}
 
 private:
-	LLVMContext *llvmContext;
-	Module *TheModule;
-	IRBuilder<> *Builder;
+	LLVMContext TheContext;
+	Module * TheModule;
+	IRBuilder<> * TheBuilder;
+
 	//Used to include optimization passes
-	FunctionPassManager *TheFPM;
+	legacy::FunctionPassManager * TheFPM;
+
 	//JIT Driver
-	ExecutionEngine *TheExecutionEngine;
-	Function* TheFunction;
+	ExecutionEngine * TheExecutionEngine;
+	Function * TheFunction;
 	map<string, Function*> availableFunctions;
+
 	//Last (current) basic block. This changes every time a new scan is triggered
 	BasicBlock* codeEnd;
 	//Current entry basic block. This changes every time a new scan is triggered
@@ -178,8 +183,11 @@ private:
 	//XXX used to keep a counter of final output results
 	//and be utilized in actions such as flushing out delimiters
 	//NOTE: Must check whether sth similar is necessary for nested collections
-	Value* mem_resultCtr;
+	Value * mem_resultCtr;
 
+	/**
+	 * Helper function to create the LLVM objects required for JIT execution. */
+	void createJITEngine();
 };
 
 typedef struct StringObject {

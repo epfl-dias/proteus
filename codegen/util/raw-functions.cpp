@@ -917,7 +917,8 @@ int atois(const char *buf, int len) {
 
 static void registerFunctions(RawContext * context)	{
 	LLVMContext& ctx = context->getLLVMContext();
-	Module* const TheModule = context->getModule();
+	Module* TheModule = context->getModule();
+	assert(TheModule != nullptr);
 
 	Type* int1_bool_type = Type::getInt1Ty(ctx);
 	Type* int8_type = Type::getInt8Ty(ctx);

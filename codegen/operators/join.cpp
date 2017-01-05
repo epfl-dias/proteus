@@ -210,7 +210,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		CastInst* int64_idxprom = new SExtInst(load_cnt, IntegerType::get(llvmContext, 64), "idxprom");
 		loopCond->getInstList().push_back(int64_idxprom);
 		//Normally I would load the void array here. But I have it ready by the call previously
-		GetElementPtrInst* ptr_arrayidx = GetElementPtrInst::Create(voidJoinBindings, int64_idxprom, "arrayidx");
+		GetElementPtrInst* ptr_arrayidx = GetElementPtrInst::Create(voidJoinBindings->getType()->getPointerElementType(), voidJoinBindings, int64_idxprom, "arrayidx");
 		loopCond->getInstList().push_back(ptr_arrayidx);
 		LoadInst* arrayShifted = new LoadInst(ptr_arrayidx, "", false);
 		arrayShifted->setAlignment(8);
@@ -223,7 +223,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		LoadInst* load_cnt_body = new LoadInst(ptr_i, "", false, loopBody);
 		load_cnt_body->setAlignment(4);
 		CastInst* int64_idxprom_body = new SExtInst(load_cnt_body, IntegerType::get(context->getLLVMContext(), 64), "idxprom1", loopBody);
-		GetElementPtrInst* ptr_arrayidx_body = GetElementPtrInst::Create(voidJoinBindings, int64_idxprom_body, "arrayidx2", loopBody);
+		GetElementPtrInst* ptr_arrayidx_body = GetElementPtrInst::Create(IntegerType::get(llvmContext, 64), voidJoinBindings, int64_idxprom_body, "arrayidx2", loopBody);
 		LoadInst* arrayShiftedBody = new LoadInst(ptr_arrayidx_body, "", false, loopBody);
 		arrayShiftedBody->setAlignment(8);
 
@@ -253,7 +253,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 			vector<Value*> idxList = vector<Value*>();
 			idxList.push_back(context->createInt32(0));
 			idxList.push_back(context->createInt32(i));
-			GetElementPtrInst* elem_ptr = GetElementPtrInst::Create(result_cast, idxList, "ptr_activeTuple", loopBody);
+			GetElementPtrInst* elem_ptr = GetElementPtrInst::Create(str->getElementType(i), result_cast, idxList, "ptr_activeTuple", loopBody);
 			stringstream ss;
 			ss<<activeLoop;
 			ss<<i;
@@ -274,7 +274,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 			vector<Value*> idxList = vector<Value*>();
 			idxList.push_back(context->createInt32(0));
 			idxList.push_back(context->createInt32(i));
-			GetElementPtrInst* elem_ptr = GetElementPtrInst::Create(result_cast, idxList, currField+"ptr", loopBody);
+			GetElementPtrInst* elem_ptr = GetElementPtrInst::Create(str->getElementType(i), result_cast, idxList, currField+"ptr", loopBody);
 			LoadInst* field = new LoadInst(elem_ptr,currField, false, loopBody);
 			StoreInst* store_field = new StoreInst(field, memForField, false, loopBody);
 			i++;
@@ -320,6 +320,3 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		Builder->SetInsertPoint(loopEnd);
 	}
 };
-
-
-

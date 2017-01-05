@@ -23,92 +23,98 @@
 
 #include "util/raw-context.hpp"
 
-RawContext::RawContext(const string& moduleName) {
-	llvmContext = new LLVMContext();
-	LLVMContext& ctx = *llvmContext;
-	Builder = new IRBuilder<>(ctx);
-	TheFPM = 0;
-	TheExecutionEngine = 0;
-	TheFunction = 0;
-	codeEnd = NULL;
-	availableFunctions = map<string, Function*>();
-
-	InitializeNativeTarget();
-	TheModule = new Module(moduleName, ctx);
+void RawContext::createJITEngine() {
+	LLVMLinkInMCJIT();
+	LLVMInitializeNativeTarget();
+	LLVMInitializeNativeAsmPrinter();
+	LLVMInitializeNativeAsmParser();
 
 	// Create the JIT.  This takes ownership of the module.
 	string ErrStr;
-	TheExecutionEngine = 
-		EngineBuilder(TheModule).setErrorStr(&ErrStr).create();
-	if (!TheExecutionEngine) {
+	TheExecutionEngine =
+		EngineBuilder(std::unique_ptr<Module>(TheModule)).setErrorStr(&ErrStr).create();
+	if (TheExecutionEngine == nullptr) {
 		fprintf(stderr, "Could not create ExecutionEngine: %s\n",
 				ErrStr.c_str());
 		exit(1);
 	}
+}
 
-	PassManager mpm;
-	FunctionPassManager* OurFPM = new FunctionPassManager(TheModule);
+static void addOptimizerPipelineDefault(legacy::FunctionPassManager * TheFPM) {
+	//Provide basic AliasAnalysis support for GVN.
+	TheFPM->add(createBasicAAWrapperPass());
+	// Promote allocas to registers.
+	TheFPM->add(createPromoteMemoryToRegisterPass());
+	//Do simple "peephole" optimizations and bit-twiddling optzns.
+	TheFPM->add(createInstructionCombiningPass());
+	// Reassociate expressions.
+	TheFPM->add(createReassociatePass());
+	// Eliminate Common SubExpressions.
+	TheFPM->add(createGVNPass());
+	// Simplify the control flow graph (deleting unreachable blocks, etc).
+	TheFPM->add(createCFGSimplificationPass());
+	// Aggressive Dead Code Elimination. Make sure work takes place
+	TheFPM->add(createAggressiveDCEPass());
+}
 
-	PassManagerBuilder pmb;
-	pmb.OptLevel=0;
-	pmb.populateModulePassManager(mpm);
-	pmb.populateFunctionPassManager(*OurFPM);
+static void addOptimizerPipelineInlining(legacy::FunctionPassManager * TheFPM) {
+	/* Inlining: Not sure it works */
+	TheFPM->add(createFunctionInliningPass());
+	TheFPM->add(createAlwaysInlinerPass());
+}
+
+static void addOptimizerPipelineVectorization(legacy::FunctionPassManager * TheFPM) {
+	/* Vectorization */
+	TheFPM->add(createBBVectorizePass());
+	TheFPM->add(createLoopVectorizePass());
+	TheFPM->add(createSLPVectorizerPass());
+}
+
+RawContext::RawContext(const string& moduleName) {
+	TheModule = new Module(moduleName, getLLVMContext());
+	TheBuilder = new IRBuilder<>(getLLVMContext());
+
+	TheExecutionEngine = nullptr;
+	TheFunction = nullptr;
+	codeEnd = nullptr;
+	//availableFunctions = map<string, Function*>();
 
 	/* OPTIMIZER PIPELINE */
-	// Set up the optimizer pipeline.  Start with registering info about how the
-	// target lays out data structures.
-	OurFPM->add(new DataLayout(*TheExecutionEngine->getDataLayout()));
-	//Provide basic AliasAnalysis support for GVN.
-	OurFPM->add(createBasicAliasAnalysisPass());
-	// Promote allocas to registers.
-	OurFPM->add(createPromoteMemoryToRegisterPass());
-	//Do simple "peephole" optimizations and bit-twiddling optzns.
-	OurFPM->add(createInstructionCombiningPass());
-	// Reassociate expressions.
-	OurFPM->add(createReassociatePass());
-	// Eliminate Common SubExpressions.
-	OurFPM->add(createGVNPass());
-	// Simplify the control flow graph (deleting unreachable blocks, etc).
-	OurFPM->add(createCFGSimplificationPass());
-	// Aggressive Dead Code Elimination. Make sure work takes place
-	OurFPM->add(createAggressiveDCEPass());
+	//TheFPM = new FunctionPassManager(getModule());
+	TheFPM = new legacy::FunctionPassManager(getModule());
 
-	/* Inlining: Not sure it works */
-	mpm.add(createFunctionInliningPass());
-	mpm.add(createAlwaysInlinerPass());
-	/* Vectorization */
-	mpm.add(createBBVectorizePass());
-	mpm.add(createLoopVectorizePass());
-	mpm.add(createSLPVectorizerPass());
+	addOptimizerPipelineDefault(TheFPM);
+	//addOptimizerPipelineInlining(TheFPM);
+	//addOptimizerPipelineVectorization(TheFPM);
 
-	mpm.run(*TheModule);
-	OurFPM->doInitialization();
-	TheFPM = OurFPM;
+	TheFPM->doInitialization();
 
-	llvm::Type* int_type = Type::getInt32Ty(ctx);
+	llvm::Type* int_type = Type::getInt32Ty(getLLVMContext());
 	vector<Type*> Ints(1,int_type);
-	FunctionType *FT = FunctionType::get(Type::getInt32Ty(ctx),Ints, false);
-	Function *F = Function::Create(FT, Function::ExternalLinkage, 
-		moduleName, TheModule);
+	FunctionType *FT = FunctionType::get(Type::getInt32Ty(getLLVMContext()),Ints, false);
+	Function *F = Function::Create(FT, Function::ExternalLinkage,
+		moduleName, getModule());
 
 	//Setting the 'global' function
 	TheFunction = F;
 	// Create a new basic block to start insertion into.
-	BasicBlock *BB = BasicBlock::Create(ctx, "entry", F);
-	Builder->SetInsertPoint(BB);
+	BasicBlock *BB = BasicBlock::Create(getLLVMContext(), "entry", F);
+	getBuilder()->SetInsertPoint(BB);
 
 	/**
 	 * Preparing global info to be maintained
 	 */
-	llvm::Type* int64_type = Type::getInt64Ty(ctx);
+	llvm::Type* int64_type = Type::getInt64Ty(getLLVMContext());
 	mem_resultCtr = this->CreateEntryBlockAlloca(F,"resultCtr",int64_type);
-	Builder->CreateStore(this->createInt64(0),mem_resultCtr);
+	getBuilder()->CreateStore(this->createInt64(0),mem_resultCtr);
+
+	createJITEngine();
 }
 
 void RawContext::prepareFunction(Function *F) {
 
 	//FIXME Have a (tmp) return value for now at this point
-	Builder->CreateRet(Builder->getInt32(114));
+	getBuilder()->CreateRet(getBuilder()->getInt32(114));
 
 	LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUGCTX
@@ -121,16 +127,18 @@ void RawContext::prepareFunction(Function *F) {
 	TheFPM->run(*F);
 
 	// JIT the function, returning a function pointer.
+	TheExecutionEngine->finalizeObject();
 	void *FPtr = TheExecutionEngine->getPointerToFunction(F);
 
-	int (*FP)(int) = (int (*)(int))(intptr_t)FPtr;
+	int (*FP)(void) = (int (*)(void))FPtr;
+	assert(FP != nullptr && "Code generation failed!");
 
 
-	//	TheModule->dump();
+	//TheModule->dump();
 	//Run function
 	struct timespec t0, t1;
 	clock_gettime(CLOCK_REALTIME, &t0);
-	int jitFuncResult = FP(11);
+	int jitFuncResult = FP();
 	//LOG(INFO) << "Mock return value of generated function " << FP(11);
 	clock_gettime(CLOCK_REALTIME, &t1);
 	printf("(Already compiled) Execution took %f seconds\n",diff(t0, t1));
@@ -141,13 +149,6 @@ void RawContext::prepareFunction(Function *F) {
 #ifdef DEBUGCTX
 //	F->dump();
 #endif
-
-}
-
-void* RawContext::jit(Function* F) {
-	// JIT the function, returning a function pointer.
-	//void *FPtr = TheExecutionEngine->getPointerToFunction(F);
-	return TheExecutionEngine->getPointerToFunction(F);
 }
 
 Function* const RawContext::getFunction(string funcName) const {
@@ -160,7 +161,7 @@ Function* const RawContext::getFunction(string funcName) const {
 }
 
 void RawContext::CodegenMemcpy(Value* dst, Value* src, int size) {
-	LLVMContext& ctx = *llvmContext;
+	LLVMContext& ctx = getLLVMContext();
 	// Cast src/dst to int8_t*.  If they already are, this will get optimized away
 	//  DCHECK(PointerType::classof(dst->getType()));
 	//  DCHECK(PointerType::classof(src->getType()));
@@ -171,8 +172,8 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, int size) {
 	Value* size_ = ConstantInt::get(ctx, APInt(32, size));
 	Value* zero = ConstantInt::get(ctx, APInt(32, 0));
 
-	dst = Builder->CreateBitCast(dst, ptr_type);
-	src = Builder->CreateBitCast(src, ptr_type);
+	dst = getBuilder()->CreateBitCast(dst, ptr_type);
+	src = getBuilder()->CreateBitCast(src, ptr_type);
 
 	// Get intrinsic function.
 	Function* memcpy_fn = availableFunctions[string("memcpy")];
@@ -186,11 +187,11 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, int size) {
 	Type* intType = Type::getInt32Ty(ctx);
 	Value* args[] = { dst, src, size_, zero, false_value_  // is_volatile.
 			};
-	Builder->CreateCall(memcpy_fn, args);
+	getBuilder()->CreateCall(memcpy_fn, args);
 }
 
 void RawContext::CodegenMemcpy(Value* dst, Value* src, Value* size) {
-	LLVMContext& ctx = *llvmContext;
+	LLVMContext& ctx = getLLVMContext();
 	// Cast src/dst to int8_t*.  If they already are, this will get optimized away
 	//  DCHECK(PointerType::classof(dst->getType()));
 	//  DCHECK(PointerType::classof(src->getType()));
@@ -204,8 +205,8 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, Value* size) {
 	dst->getType()->dump();
 	cout << endl;
 	src->getType()->dump();
-//	dst = Builder->CreateBitCast(dst, ptr_type);
-//	src = Builder->CreateBitCast(src, ptr_type);
+//	dst = getBuilder()->CreateBitCast(dst, ptr_type);
+//	src = getBuilder()->CreateBitCast(src, ptr_type);
 
 	// Get intrinsic function.
 	Function* memcpy_fn = availableFunctions[string("memcpy")];
@@ -219,67 +220,54 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, Value* size) {
 	Type* intType = Type::getInt32Ty(ctx);
 	Value* args[] = { dst, src, size, zero, false_value_  // is_volatile.
 			};
-	Builder->CreateCall(memcpy_fn, args);
+	getBuilder()->CreateCall(memcpy_fn, args);
 }
 
 ConstantInt* RawContext::createInt8(char val) {
-	LLVMContext& ctx = *llvmContext;
-	return ConstantInt::get(ctx, APInt(8, val));
+	return ConstantInt::get(getLLVMContext(), APInt(8, val));
 }
 
 ConstantInt* RawContext::createInt32(int val) {
-	LLVMContext& ctx = *llvmContext;
-	return ConstantInt::get(ctx, APInt(32, val));
+	return ConstantInt::get(getLLVMContext(), APInt(32, val));
 }
 
 ConstantInt* RawContext::createInt64(int val) {
-	LLVMContext& ctx = *llvmContext;
-	return ConstantInt::get(ctx, APInt(64, val));
+	return ConstantInt::get(getLLVMContext(), APInt(64, val));
 }
 
 ConstantInt* RawContext::createInt64(size_t val) {
-	LLVMContext& ctx = *llvmContext;
-	return ConstantInt::get(ctx, APInt(64, val));
+	return ConstantInt::get(getLLVMContext(), APInt(64, val));
 }
 
 ConstantInt* RawContext::createTrue() {
-	LLVMContext& ctx = *llvmContext;
-	return ConstantInt::get(ctx, APInt(1, 1));
+	return ConstantInt::get(getLLVMContext(), APInt(1, 1));
 }
 
 ConstantInt* RawContext::createFalse() {
-	LLVMContext& ctx = *llvmContext;
-	return ConstantInt::get(ctx, APInt(1, 0));
+	return ConstantInt::get(getLLVMContext(), APInt(1, 0));
 }
 
 Value* RawContext::CastPtrToLlvmPtr(PointerType* type, const void* ptr) {
-	LLVMContext& ctx = *llvmContext;
-	Constant* const_int = ConstantInt::get(Type::getInt64Ty(ctx),(uint64_t) ptr);
+	Constant* const_int = ConstantInt::get(Type::getInt64Ty(getLLVMContext()),(uint64_t) ptr);
 	Value* llvmPtr = ConstantExpr::getIntToPtr(const_int, type);
 	return llvmPtr;
 }
 
 Value* RawContext::getArrayElem(AllocaInst* mem_ptr, Value* offset)	{
-	LLVMContext& ctx = *llvmContext;
-
-	Value* val_ptr = Builder->CreateLoad(mem_ptr, "mem_ptr");
-	Value* shiftedPtr = Builder->CreateInBoundsGEP(val_ptr, offset);
-	Value* val_shifted = Builder->CreateLoad(shiftedPtr,"val_shifted");
+	Value* val_ptr = getBuilder()->CreateLoad(mem_ptr, "mem_ptr");
+	Value* shiftedPtr = getBuilder()->CreateInBoundsGEP(val_ptr, offset);
+	Value* val_shifted = getBuilder()->CreateLoad(shiftedPtr,"val_shifted");
 	return val_shifted;
 }
 
 Value* RawContext::getArrayElem(Value* val_ptr, Value* offset)	{
-	LLVMContext& ctx = *llvmContext;
-
-	Value* shiftedPtr = Builder->CreateInBoundsGEP(val_ptr, offset);
-	Value* val_shifted = Builder->CreateLoad(shiftedPtr,"val_shifted");
+	Value* shiftedPtr = getBuilder()->CreateInBoundsGEP(val_ptr, offset);
+	Value* val_shifted = getBuilder()->CreateLoad(shiftedPtr,"val_shifted");
 	return val_shifted;
 }
 
 Value* RawContext::getArrayElemMem(Value* val_ptr, Value* offset)	{
-	LLVMContext& ctx = *llvmContext;
-
-	Value* shiftedPtr = Builder->CreateInBoundsGEP(val_ptr, offset);
+	Value* shiftedPtr = getBuilder()->CreateInBoundsGEP(val_ptr, offset);
 	return shiftedPtr;
 }
 
@@ -288,8 +276,8 @@ Value* RawContext::getStructElem(Value* mem_struct, int elemNo)	{
 	idxList.push_back(createInt32(0));
 	idxList.push_back(createInt32(elemNo));
 	//Shift in struct ptr
-	Value* mem_struct_shifted = Builder->CreateGEP(mem_struct, idxList);
-	Value* val_struct_shifted =  Builder->CreateLoad(mem_struct_shifted);
+	Value* mem_struct_shifted = getBuilder()->CreateGEP(mem_struct, idxList);
+	Value* val_struct_shifted =  getBuilder()->CreateLoad(mem_struct_shifted);
 	return val_struct_shifted;
 }
 
@@ -298,7 +286,7 @@ Value* RawContext::getStructElemMem(Value* mem_struct, int elemNo)	{
 	idxList.push_back(createInt32(0));
 	idxList.push_back(createInt32(elemNo));
 	//Shift in struct ptr
-	Value* mem_struct_shifted = Builder->CreateGEP(mem_struct, idxList);
+	Value* mem_struct_shifted = getBuilder()->CreateGEP(mem_struct, idxList);
 	return mem_struct_shifted;
 }
 
@@ -307,8 +295,8 @@ Value* RawContext::getStructElem(AllocaInst* mem_struct, int elemNo)	{
 	idxList.push_back(createInt32(0));
 	idxList.push_back(createInt32(elemNo));
 	//Shift in struct ptr
-	Value* mem_struct_shifted = Builder->CreateGEP(mem_struct, idxList);
-	Value* val_struct_shifted =  Builder->CreateLoad(mem_struct_shifted);
+	Value* mem_struct_shifted = getBuilder()->CreateGEP(mem_struct, idxList);
+	Value* val_struct_shifted =  getBuilder()->CreateLoad(mem_struct_shifted);
 	return val_struct_shifted;
 }
 
@@ -318,8 +306,8 @@ void RawContext::updateStructElem(Value *toStore, Value* mem_struct,
 	idxList.push_back(createInt32(0));
 	idxList.push_back(createInt32(elemNo));
 	//Shift in struct ptr
-	Value* structPtr = Builder->CreateGEP(mem_struct, idxList);
-	Builder->CreateStore(toStore, structPtr);
+	Value* structPtr = getBuilder()->CreateGEP(mem_struct, idxList);
+	getBuilder()->CreateStore(toStore, structPtr);
 }
 
 void RawContext::CreateForLoop(const string& cond, const string& body,
@@ -327,7 +315,7 @@ void RawContext::CreateForLoop(const string& cond, const string& body,
 		BasicBlock** body_block, BasicBlock** inc_block, BasicBlock** end_block,
 		BasicBlock* insert_before) {
 	Function* fn = TheFunction;
-	LLVMContext& ctx = *llvmContext;
+	LLVMContext& ctx = getLLVMContext();
 	*cond_block = BasicBlock::Create(ctx, string(cond), fn,	insert_before);
 	*body_block = BasicBlock::Create(ctx, string(body), fn,	insert_before);
 	*inc_block = BasicBlock::Create(ctx, string(inc), fn, insert_before);
@@ -337,15 +325,14 @@ void RawContext::CreateForLoop(const string& cond, const string& body,
 void RawContext::CreateIfElseBlocks(Function* fn, const string& if_label,
 		const string& else_label, BasicBlock** if_block, BasicBlock** else_block,
 		BasicBlock* insert_before) {
-	LLVMContext& ctx = *llvmContext;
+	LLVMContext& ctx = getLLVMContext();
 	*if_block = BasicBlock::Create(ctx, if_label, fn, insert_before);
 	*else_block = BasicBlock::Create(ctx, else_label, fn, insert_before);
 }
 
 void RawContext::CreateIfBlock(Function* fn, const string& if_label,
 		BasicBlock** if_block, BasicBlock* insert_before) {
-	LLVMContext& ctx = *llvmContext;
-	*if_block = BasicBlock::Create(ctx, if_label, fn, insert_before);
+	*if_block = BasicBlock::Create(getLLVMContext(), if_label, fn, insert_before);
 }
 
 AllocaInst* RawContext::CreateEntryBlockAlloca(Function *TheFunction,
@@ -356,10 +343,10 @@ AllocaInst* RawContext::CreateEntryBlockAlloca(Function *TheFunction,
 }
 
 Value* RawContext::CreateGlobalString(char* str) {
-	LLVMContext& ctx = *llvmContext;
+	LLVMContext& ctx = getLLVMContext();
 	ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(ctx, 8), strlen(str) + 1);
 
-	GlobalVariable* gvar_array__str = new GlobalVariable(*TheModule,
+	GlobalVariable* gvar_array__str = new GlobalVariable(*getModule(),
 	/*Type=*/ArrayTy_0,
 	/*isConstant=*/true,
 	/*Linkage=*/GlobalValue::PrivateLinkage,
@@ -373,21 +360,21 @@ Value* RawContext::CreateGlobalString(char* str) {
 	vector<Value*> idxList = vector<Value*>();
 	idxList.push_back(createInt32(0));
 	idxList.push_back(createInt32(0));
-	Constant* shifted = ConstantExpr::getGetElementPtr(gvar_array__str,idxList);
+	Constant* shifted = ConstantExpr::getGetElementPtr(ArrayTy_0,gvar_array__str,idxList);
 	gvar_array__str->setInitializer(tmpHTname);
 
 
 	LOG(INFO) << "[CreateGlobalString: ] " << str;
-	Builder->CreateStore(shifted, AllocaName);
-	Value* globalStr = Builder->CreateLoad(AllocaName);
+	getBuilder()->CreateStore(shifted, AllocaName);
+	Value* globalStr = getBuilder()->CreateLoad(AllocaName);
 	return globalStr;
 }
 
 Value* RawContext::CreateGlobalString(const char* str) {
-	LLVMContext& ctx = *llvmContext;
+	LLVMContext& ctx = getLLVMContext();
 	ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(ctx, 8), strlen(str) + 1);
 
-	GlobalVariable* gvar_array__str = new GlobalVariable(*TheModule,
+	GlobalVariable* gvar_array__str = new GlobalVariable(*getModule(),
 	/*Type=*/ArrayTy_0,
 	/*isConstant=*/true,
 	/*Linkage=*/GlobalValue::PrivateLinkage,
@@ -401,13 +388,13 @@ Value* RawContext::CreateGlobalString(const char* str) {
 	vector<Value*> idxList = vector<Value*>();
 	idxList.push_back(createInt32(0));
 	idxList.push_back(createInt32(0));
-	Constant* shifted = ConstantExpr::getGetElementPtr(gvar_array__str,idxList);
+	Constant* shifted = ConstantExpr::getGetElementPtr(ArrayTy_0,gvar_array__str,idxList);
 	gvar_array__str->setInitializer(tmpHTname);
 
 
 	LOG(INFO) << "[CreateGlobalString: ] " << str;
-	Builder->CreateStore(shifted, AllocaName);
-	Value* globalStr = Builder->CreateLoad(AllocaName);
+	getBuilder()->CreateStore(shifted, AllocaName);
+	Value* globalStr = getBuilder()->CreateLoad(AllocaName);
 	return globalStr;
 }
 
@@ -416,13 +403,12 @@ PointerType* RawContext::getPointerType(Type* type) {
 }
 
 StructType* RawContext::CreateCustomStruct(vector<Type*> innerTypes) {
-	LLVMContext& ctx = *llvmContext;
-	llvm::StructType* valueType = llvm::StructType::get(ctx,innerTypes);
+	llvm::StructType* valueType = llvm::StructType::get(getLLVMContext(),innerTypes);
 	return valueType;
 }
 
 StructType* RawContext::ReproduceCustomStruct(list<typeID> innerTypes) {
-	LLVMContext& ctx = *llvmContext;
+	LLVMContext& ctx = getLLVMContext();
 	vector<Type*> llvmTypes;
 	list<typeID>::iterator it;
 	for (it = innerTypes.begin(); it != innerTypes.end(); it++) {
@@ -465,8 +451,7 @@ StructType* RawContext::ReproduceCustomStruct(list<typeID> innerTypes) {
 }
 
 StructType* RawContext::CreateJSONPosStruct() {
-	LLVMContext& ctx = *llvmContext;
-	llvm::Type* int64_type = Type::getInt64Ty(ctx);
+	llvm::Type* int64_type = Type::getInt64Ty(getLLVMContext());
 	vector<Type*> json_pos_types;
 	json_pos_types.push_back(int64_type);
 	json_pos_types.push_back(int64_type);
@@ -474,14 +459,13 @@ StructType* RawContext::CreateJSONPosStruct() {
 }
 
 PointerType* RawContext::CreateJSMNStructPtr()	{
-	LLVMContext& ctx = *llvmContext;
 	Type* jsmnStructType = CreateJSMNStruct();
 	PointerType* ptr_jsmnStructType = PointerType::get(jsmnStructType,0);
 	return ptr_jsmnStructType;
 }
 
 StructType* RawContext::CreateJSMNStruct() {
-	LLVMContext& ctx = *llvmContext;
+	LLVMContext& ctx = getLLVMContext();
 	llvm::Type* int32_type = Type::getInt32Ty(ctx);
 	llvm::Type* int8_type = Type::getInt8Ty(ctx);
 	llvm::Type* int16_type = Type::getInt16Ty(ctx);
@@ -503,7 +487,7 @@ StructType* RawContext::CreateJSMNStruct() {
 }
 
 StructType* RawContext::CreateStringStruct() {
-	LLVMContext& ctx = *llvmContext;
+	LLVMContext& ctx = getLLVMContext();
 	llvm::Type* int32_type = Type::getInt32Ty(ctx);
 	llvm::Type* char_type = Type::getInt8Ty(ctx);
 	PointerType* ptr_char_type = PointerType::get(char_type,0);
@@ -518,5 +502,3 @@ StructType* RawContext::CreateStringStruct() {
 void RawContext::registerFunction(const char* funcName, Function* func)	{
 	availableFunctions[funcName] = func;
 }
-
-

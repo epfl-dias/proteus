@@ -595,22 +595,21 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
 
 	// Type Definitions
 	std::vector<Type*> FuncTy_0_args;
-	PointerType* PointerTy_1 = PointerType::get(
-			IntegerType::get(mod->getContext(), 8), 0);
+	IntegerType * IntegerTy_1 = IntegerType::get(mod->getContext(), 8);
+	PointerType * PointerTy_1 = PointerType::get(IntegerTy_1, 0);
+
+	IntegerType * IntegerTy_2 = IntegerType::get(mod->getContext(), 32);
 
 	FuncTy_0_args.push_back(PointerTy_1);
 	FuncTy_0_args.push_back(PointerTy_1);
-	FuncTy_0_args.push_back(IntegerType::get(mod->getContext(), 32));
-	FuncTy_0_args.push_back(IntegerType::get(mod->getContext(), 32));
+	FuncTy_0_args.push_back(IntegerTy_2);
+	FuncTy_0_args.push_back(IntegerTy_2);
 	FunctionType* FuncTy_0 = FunctionType::get(
 	/*Result=*/IntegerType::get(mod->getContext(), 32),
 	/*Params=*/FuncTy_0_args,
 	/*isVarArg=*/false);
 
-	PointerType* PointerTy_2 = PointerType::get(
-			IntegerType::get(mod->getContext(), 32), 0);
-
-	PointerType* PointerTy_3 = PointerType::get(PointerTy_1, 0);
+	PointerType* PointerTy_2 = PointerType::get(IntegerTy_2, 0);
 
 	//Function Declarations
 	Function* func_mystrncmpllvm = mod->getFunction("mystrncmpllvm");
@@ -820,14 +819,14 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
 		// Block for.inc (label_for_inc)
 		LoadInst* ptr_37 = new LoadInst(ptr_s1_addr, "", false, label_for_inc);
 		ptr_37->setAlignment(8);
-		GetElementPtrInst* ptr_incdec_ptr = GetElementPtrInst::Create(ptr_37,
+		GetElementPtrInst* ptr_incdec_ptr = GetElementPtrInst::Create(IntegerTy_1, ptr_37,
 				const_int32_4, "incdec.ptr", label_for_inc);
 		StoreInst* void_38 = new StoreInst(ptr_incdec_ptr, ptr_s1_addr, false,
 				label_for_inc);
 		void_38->setAlignment(8);
 		LoadInst* ptr_39 = new LoadInst(ptr_s2_addr, "", false, label_for_inc);
 		ptr_39->setAlignment(8);
-		GetElementPtrInst* ptr_incdec_ptr16 = GetElementPtrInst::Create(ptr_39,
+		GetElementPtrInst* ptr_incdec_ptr16 = GetElementPtrInst::Create(IntegerTy_1, ptr_39,
 				const_int32_4, "incdec.ptr16", label_for_inc);
 		StoreInst* void_40 = new StoreInst(ptr_incdec_ptr16, ptr_s2_addr, false,
 				label_for_inc);
@@ -1017,14 +1016,14 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 	// Block for.inc (label_for_inc)
 	LoadInst* ptr_33 = new LoadInst(ptr_s1_addr, "", false, label_for_inc);
 	ptr_33->setAlignment(8);
-	GetElementPtrInst* ptr_incdec_ptr = GetElementPtrInst::Create(ptr_33,
+	GetElementPtrInst* ptr_incdec_ptr = GetElementPtrInst::Create(charPtrType->getPointerElementType(), ptr_33,
 			const_int32_4, "incdec.ptr", label_for_inc);
 	StoreInst* void_34 = new StoreInst(ptr_incdec_ptr, ptr_s1_addr, false,
 			label_for_inc);
 	void_34->setAlignment(8);
 	LoadInst* ptr_35 = new LoadInst(ptr_s2_addr, "", false, label_for_inc);
 	ptr_35->setAlignment(8);
-	GetElementPtrInst* ptr_incdec_ptr13 = GetElementPtrInst::Create(ptr_35,
+	GetElementPtrInst* ptr_incdec_ptr13 = GetElementPtrInst::Create(charPtrType->getPointerElementType(), ptr_35,
 			const_int32_4, "incdec.ptr13", label_for_inc);
 	StoreInst* void_36 = new StoreInst(ptr_incdec_ptr13, ptr_s2_addr, false,
 			label_for_inc);
@@ -1226,14 +1225,14 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 	// Block for.inc (label_for_inc)
 	LoadInst* ptr_33 = new LoadInst(ptr_s1_addr, "", false, label_for_inc);
 	ptr_33->setAlignment(8);
-	GetElementPtrInst* ptr_incdec_ptr = GetElementPtrInst::Create(ptr_33,
+	GetElementPtrInst* ptr_incdec_ptr = GetElementPtrInst::Create(ptr_s1->getType(), ptr_33,
 			const_int32_4, "incdec.ptr", label_for_inc);
 	StoreInst* void_34 = new StoreInst(ptr_incdec_ptr, ptr_s1_addr, false,
 			label_for_inc);
 	void_34->setAlignment(8);
 	LoadInst* ptr_35 = new LoadInst(ptr_s2_addr, "", false, label_for_inc);
 	ptr_35->setAlignment(8);
-	GetElementPtrInst* ptr_incdec_ptr13 = GetElementPtrInst::Create(ptr_35,
+	GetElementPtrInst* ptr_incdec_ptr13 = GetElementPtrInst::Create(ptr_s2->getType(), ptr_35,
 			const_int32_4, "incdec.ptr13", label_for_inc);
 	StoreInst* void_36 = new StoreInst(ptr_incdec_ptr13, ptr_s2_addr, false,
 			label_for_inc);
@@ -1694,5 +1693,3 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::OrExpression *e) {
 		valWrapper.value = TheBuilder->CreateOr(left.value, right.value);
 		return valWrapper;
 }
-
-
