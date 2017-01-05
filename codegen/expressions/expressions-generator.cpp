@@ -656,13 +656,13 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
 	// Function: mystrncmpllvm (func_mystrncmpllvm)
 	{
 		Function::arg_iterator args = func_mystrncmpllvm->arg_begin();
-		Value* ptr_s1 = args++;
+		Value* ptr_s1 = &(*args);
 		ptr_s1->setName("s1");
-		Value* ptr_s2 = args++;
+		Value* ptr_s2 = &(*++args);
 		ptr_s2->setName("s2");
-		Value* int32_n1 = args++;
+		Value* int32_n1 = &(*++args);
 		int32_n1->setName("n1");
-		Value* int32_n2 = args++;
+		Value* int32_n2 = &(*++args);
 		int32_n2->setName("n2");
 
 		BasicBlock* label_entry = BasicBlock::Create(mod->getContext(), "entry",
