@@ -42,9 +42,7 @@
 #include "expressions/expressions.hpp"
 
 TEST(JSON, String) {
-	RawContext ctx = RawContext("jsonStringIngestion");
-	registerFunctions(ctx);
-
+	RawContext& ctx = *prepareContext("jsonStringIngestion");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 
@@ -120,9 +118,7 @@ TEST(JSON, ScanJSON) {
 	bool flushResults = true;
 		const char *testPath = TEST_OUTPUTS "/tests-json/";
 		const char *testLabel = "scanJSON.json";
-
-		RawContext ctx = RawContext(testLabel);
-		registerFunctions(ctx);
+		RawContext& ctx = *prepareContext(testLabel);
 		RawCatalog& catalog = RawCatalog::getInstance();
 		CachingService& caches = CachingService::getInstance();
 
@@ -181,9 +177,7 @@ TEST(JSON, SelectJSON) {
 	bool flushResults = true;
 	const char *testPath = TEST_OUTPUTS "/tests-json/";
 	const char *testLabel = "selectJSON.json";
-
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 
@@ -256,9 +250,7 @@ TEST(JSON, unnestJSON) {
 	const char *testPath = TEST_OUTPUTS "/tests-json/";
 	const char *testLabel = "unnestJSONEmployees.json";
 	bool flushResults = true;
-
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 
@@ -376,10 +368,7 @@ TEST(JSON, reduceListObjectFlat) {
 	const char *testPath = TEST_OUTPUTS "/tests-json/";
 	const char *testLabel = "jsonFlushList.json";
 	bool flushResults = true;
-
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
-
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 
@@ -462,9 +451,7 @@ bool reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 	const char *testPath = TEST_OUTPUTS "/tests-json/";
 	const char *testLabel = "reduceJSONCached.json";
 	bool flushResults = true;
-
-	RawContext ctx = RawContext("Reduce-JSONMax");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("Reduce-JSONMax");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 
@@ -545,10 +532,8 @@ bool reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 
 /* SELECT MAX(obj.b) FROM jsonFile obj WHERE obj.b  > 43 */
 TEST(JSON, reduceMax) {
-
 	bool longRun = false;
-	RawContext ctx = RawContext("Reduce-JSONMax");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("Reduce-JSONMax");
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 
@@ -658,10 +643,7 @@ TEST(JSON, reduceDeeperMax) {
 	const char *testPath = TEST_OUTPUTS "/tests-json/";
 	const char *testLabel = "reduceDeeperMax.json";
 	bool flushResults = true;
-
-	RawContext ctx = RawContext(testLabel);
-
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 

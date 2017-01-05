@@ -88,7 +88,6 @@ RawContext::RawContext(const string& moduleName) {
 	llvm::Type* int_type = Type::getInt32Ty(ctx);
 	vector<Type*> Ints(1,int_type);
 	FunctionType *FT = FunctionType::get(Type::getInt32Ty(ctx),Ints, false);
-	//registerFunctions(*this);
 	Function *F = Function::Create(FT, Function::ExternalLinkage, 
 		moduleName, TheModule);
 

@@ -23,12 +23,6 @@
 
 #include "experiments/realworld-vldb/spam-bin-csv.hpp"
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
 
 /*SELECT MAX(dim), COUNT(*)
 FROM symantecunordered st, spamsclassesrepeat sc
@@ -42,7 +36,7 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 	//csv
 	int classaEq = 5;
 
-	RawContext ctx = prepareContext("symantec-bin-csv-1");
+	RawContext& ctx = *prepareContext("symantec-bin-csv-1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -321,7 +315,7 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 	int classaHigh = 19;
 	int neighborsHigh = 10;
 
-	RawContext ctx = prepareContext("symantec-bin-csv-2");
+	RawContext& ctx = *prepareContext("symantec-bin-csv-2");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -602,7 +596,7 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 	string botName = "UNCLASSIFIED";
 	int sizeHigh = 1000;
 
-	RawContext ctx = prepareContext("symantec-bin-csv-3");
+	RawContext& ctx = *prepareContext("symantec-bin-csv-3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -864,7 +858,7 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 	string botName = "UNCLASSIFIED";
 	string countryCodeName = "RU";
 
-	RawContext ctx = prepareContext("symantec-bin-csv-4");
+	RawContext& ctx = *prepareContext("symantec-bin-csv-4");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -1129,7 +1123,7 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 	string countryCodeName = "IN";
 	int classaHigh = 20;
 
-	RawContext ctx = prepareContext("symantec-bin-csv-5");
+	RawContext& ctx = *prepareContext("symantec-bin-csv-5");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");

@@ -58,12 +58,6 @@ void tpchSchema(map<string,dataset>& datasetCatalog)	{
 	tpchSchemaJSON(datasetCatalog);
 }
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
 /*
  * Using UNNEST instead of JOIN:
    SELECT COUNT(lineitem)
@@ -187,7 +181,7 @@ int main()	{
 
 void tpchUnnestCachingPred(map<string, dataset> datasetCatalog, int predicate, bool exploitSchema) {
 
-	RawContext ctx = prepareContext("tpch-json/unnest-cachingPred");
+	RawContext& ctx = *prepareContext("tpch-json/unnest-cachingPred");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameOrdersLineitems = string("ordersLineitems");
@@ -277,7 +271,7 @@ void tpchUnnestCachingPred(map<string, dataset> datasetCatalog, int predicate, b
 
 void tpchUnnest(map<string, dataset> datasetCatalog, int predicate, bool exploitSchema) {
 
-	RawContext ctx = prepareContext("tpch-json/unnest");
+	RawContext& ctx = *prepareContext("tpch-json/unnest");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameOrdersLineitems = string("ordersLineitems");

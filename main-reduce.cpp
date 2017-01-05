@@ -51,11 +51,6 @@
 #include "expressions/expressions-hasher.hpp"
 #include "util/raw-caching.hpp"
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
 
 /* Sanity check: Previous reduce() */
 void reduceNumeric();
@@ -71,7 +66,7 @@ int main() {
 
 void reduceMultipleNumeric()
 {
-	RawContext ctx = prepareContext("reduceNumeric");
+	RawContext& ctx = *prepareContext("reduceNumeric");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -149,7 +144,7 @@ void reduceMultipleNumeric()
 
 void reduceNumeric()
 {
-	RawContext ctx = prepareContext("reduceNumeric");
+	RawContext& ctx = *prepareContext("reduceNumeric");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1

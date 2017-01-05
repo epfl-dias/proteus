@@ -67,12 +67,6 @@ void symantecCSV6(map<string,dataset> datasetCatalog);
 void symantecCSV7(map<string,dataset> datasetCatalog);
 
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
 //int main()	{
 //	cout << "Execution (Materializers OFF)" << endl;
 //	map<string,dataset> datasetCatalog;
@@ -133,7 +127,7 @@ void symantecCSV1Caching(map<string,dataset> datasetCatalog)	{
 
 	int idLow  = 100000000;
 	int idHigh = 200000000;
-	RawContext ctx = prepareContext("symantec-csv-1");
+	RawContext& ctx = *prepareContext("symantec-csv-1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecCSV");
@@ -266,7 +260,7 @@ void symantecCSV1CachingB(map<string,dataset> datasetCatalog)	{
 
 	int idLow  = 100000000;
 	int idHigh = 200000000;
-	RawContext ctx = prepareContext("symantec-csv-1");
+	RawContext& ctx = *prepareContext("symantec-csv-1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecCSV");
@@ -398,7 +392,7 @@ void symantecCSV1(map<string,dataset> datasetCatalog)	{
 
 	int idLow  = 100000000;
 	int idHigh = 200000000;
-	RawContext ctx = prepareContext("symantec-csv-1");
+	RawContext& ctx = *prepareContext("symantec-csv-1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecCSV");
@@ -490,7 +484,7 @@ void symantecCSV2Caching(map<string,dataset> datasetCatalog)	{
 
 	int classNo  = 195;
 
-	RawContext ctx = prepareContext("symantec-csv-2");
+	RawContext& ctx = *prepareContext("symantec-csv-2");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecCSV");
@@ -598,7 +592,7 @@ void symantecCSV2(map<string,dataset> datasetCatalog)	{
 
 	int classNo  = 195;
 
-	RawContext ctx = prepareContext("symantec-csv-2");
+	RawContext& ctx = *prepareContext("symantec-csv-2");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecCSV");
@@ -698,7 +692,7 @@ void symantecCSV3(map<string,dataset> datasetCatalog)	{
 
 	string botName  = "DARKMAILER3";
 
-	RawContext ctx = prepareContext("symantec-csv-3");
+	RawContext& ctx = *prepareContext("symantec-csv-3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecCSV");
@@ -779,7 +773,7 @@ void symantecCSV4(map<string, dataset> datasetCatalog) {
 	int idLow  = 40000000;
 	int idHigh = 50000000;
 	string botName = "Bobax";
-	RawContext ctx = prepareContext("symantec-csv-4(agg)");
+	RawContext& ctx = *prepareContext("symantec-csv-4(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecCSV");
@@ -987,7 +981,7 @@ void symantecCSV5(map<string, dataset> datasetCatalog) {
 	string countryCode2 = "RU";
 	string countryCode3 = "IN";
 
-	RawContext ctx = prepareContext("symantec-csv-5(agg)");
+	RawContext& ctx = *prepareContext("symantec-csv-5(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecCSV");
@@ -1228,7 +1222,7 @@ void symantecCSV6(map<string, dataset> datasetCatalog) {
 	int idLow  = 100000000;
 	int idHigh = 200000000;
 	int classHigh = 10;
-	RawContext ctx = prepareContext("symantec-csv-6(agg)");
+	RawContext& ctx = *prepareContext("symantec-csv-6(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecCSV");
@@ -1414,7 +1408,7 @@ void symantecCSV7(map<string, dataset> datasetCatalog) {
 	int classLow = 50;
 	int classHigh = 60;
 	int sizeHigh = 1500;
-	RawContext ctx = prepareContext("symantec-csv-7(agg)");
+	RawContext& ctx = *prepareContext("symantec-csv-7(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecCSV");

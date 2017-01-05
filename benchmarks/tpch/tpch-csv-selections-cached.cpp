@@ -72,12 +72,6 @@ void tpchOrderSelection1CachingPred(map<string,dataset> datasetCatalog, vector<i
 void tpchOrderSelection1CachingFloats(map<string,dataset> datasetCatalog, vector<int> predicates);
 void tpchOrderSelection1CachingPredFloats(map<string,dataset> datasetCatalog, vector<int> predicates);
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
 int main()	{
 
 	map<string,dataset> datasetCatalog;
@@ -184,7 +178,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 	if(predicatesNo <= 0 || predicatesNo > 4)	{
 		throw runtime_error(string("Invalid no. of predicates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection1");
+	RawContext& ctx = *prepareContext("tpch-csv-selection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -393,7 +387,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 	if (predicatesNo <= 0 || predicatesNo > 4) {
 		throw runtime_error(string("Invalid no. of predicates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection1");
+	RawContext& ctx = *prepareContext("tpch-csv-selection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -616,7 +610,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 	if (predicatesNo <= 0 || predicatesNo > 4) {
 		throw runtime_error(string("Invalid no. of predicates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection1");
+	RawContext& ctx = *prepareContext("tpch-csv-selection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -852,7 +846,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 	if (predicatesNo <= 0 || predicatesNo > 4) {
 		throw runtime_error(string("Invalid no. of predicates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection1");
+	RawContext& ctx = *prepareContext("tpch-csv-selection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");

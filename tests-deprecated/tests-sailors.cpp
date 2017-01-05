@@ -67,8 +67,7 @@
 
 /* Still use previous join implementation! */
 TEST(Sailors, Scan) {
-	RawContext ctx = RawContext("Sailors-Scan");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("Sailors-Scan");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -110,8 +109,7 @@ TEST(Sailors, Scan) {
 }
 
 TEST(Sailors, Select) {
-	RawContext ctx = RawContext("Sailors-Select");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("Sailors-Select");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -176,8 +174,7 @@ TEST(Sailors, Select) {
 }
 
 TEST(Sailors, ScanBoats) {
-	RawContext ctx = RawContext("Sailors-ScanBoats");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("Sailors-ScanBoats");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 
@@ -217,8 +214,7 @@ TEST(Sailors, ScanBoats) {
 }
 
 TEST(Sailors, JoinLeft3) {
-	RawContext ctx = RawContext("Sailors-JoinLeft3");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("Sailors-JoinLeft3");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -376,8 +372,7 @@ TEST(Sailors, JoinLeft3) {
 
 //Just like previous one, but with permuted operators
 TEST(Sailors, JoinRight3) {
-	RawContext ctx = RawContext("Sailors-JoinRight3");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("Sailors-JoinRight3");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	PrimitiveType* intType = new IntType();
@@ -528,8 +523,7 @@ TEST(Sailors, JoinRight3) {
 }
 
 TEST(Sailors, Join) {
-	RawContext ctx = RawContext("Sailors-Join");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("Sailors-Join");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -635,4 +629,3 @@ TEST(Sailors, Join) {
 	catalog.clear();
 	EXPECT_TRUE(true);
 }
-

@@ -32,8 +32,7 @@
 
 class RawContext;
 
-void registerFunctions(RawContext& context);
-RawContext prepareContext(string moduleName);
+RawContext * prepareContext(string moduleName);
 //===----------------------------------------------------------------------===//
 // "Library" functions that can be "extern'd" from user code.
 //===----------------------------------------------------------------------===//
@@ -167,4 +166,3 @@ extern "C" void resetTime();
 extern "C" void calculateTime();
 
 #endif /* RAW_FUNCTIONS_HPP_ */
-

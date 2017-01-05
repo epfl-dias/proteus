@@ -63,11 +63,6 @@ void nestRadixFull();
 /* radix::Nest: Group By name, age => 4 groups */
 void nestRadixTwoKeys();
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
 
 int main()	{
 //	nest();
@@ -87,7 +82,7 @@ int main()	{
  */
 void nest()
 {
-	RawContext ctx = prepareContext("testFunction-nestJSON");
+	RawContext& ctx = *prepareContext("testFunction-nestJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees-more.json");
@@ -229,7 +224,7 @@ void nest()
 
 void nestMultipleAggs()
 {
-	RawContext ctx = prepareContext("testFunction-nestJSON");
+	RawContext& ctx = *prepareContext("testFunction-nestJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees-more.json");
@@ -393,7 +388,7 @@ void nestMultipleAggs()
 
 void nestRadixMultipleAggs()
 {
-	RawContext ctx = prepareContext("testFunction-nestRadixJSON");
+	RawContext& ctx = *prepareContext("testFunction-nestRadixJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees-more.json");
@@ -564,7 +559,7 @@ void nestRadixMultipleAggs()
 
 void nestRadixFull()
 {
-	RawContext ctx = prepareContext("testFunction-nestRadixJSON");
+	RawContext& ctx = *prepareContext("testFunction-nestRadixJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees-more.json");
@@ -739,7 +734,7 @@ void nestRadixFull()
 
 void nestRadixTwoKeys()
 {
-	RawContext ctx = prepareContext("testFunction-nestRadixJSONTwoKeys");
+	RawContext& ctx = *prepareContext("testFunction-nestRadixJSONTwoKeys");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees-more.json");

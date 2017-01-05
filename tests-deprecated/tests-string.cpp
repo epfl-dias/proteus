@@ -57,8 +57,7 @@
  * of matches (i.e., both hashKey and key checked) */
 
 TEST(JSMN, String) {
-	RawContext ctx = RawContext("jsmnStringIngestion");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("jsmnStringIngestion");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/jsmn-string.json");
@@ -127,9 +126,7 @@ TEST(JSMN, String) {
 }
 
 TEST(JSON, String) {
-	RawContext ctx = RawContext("jsonStringIngestion");
-	registerFunctions(ctx);
-
+	RawContext& ctx = *prepareContext("jsonStringIngestion");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/json-string.json");
@@ -199,8 +196,7 @@ TEST(JSON, String) {
 }
 
 TEST(CSV, String) {
-	RawContext ctx = RawContext("csvStringIngestion");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("csvStringIngestion");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/csv/csv-string.csv");

@@ -68,12 +68,6 @@ void tpchLineitemProjection3CachingAgg(map<string,dataset> datasetCatalog, int p
 /* 1-4 aggregates & Materializing predicate (l_orderkey) *AND* floats (quantity & extendedprice) */
 void tpchLineitemProjection3CachingPredAgg(map<string,dataset> datasetCatalog, int predicateVal, int aggregatesNo);
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
 
 int main()	{
 	cout << "Execution" << endl;
@@ -138,7 +132,7 @@ void tpchLineitemProjection3(map<string,dataset> datasetCatalog, int predicateVa
 	if(aggregatesNo <= 0 || aggregatesNo > 4)	{
 		throw runtime_error(string("Invalid aggregate no. requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-projection3");
+	RawContext& ctx = *prepareContext("tpch-csv-projection3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -306,7 +300,7 @@ void tpchLineitemProjection3CachingPred(map<string,dataset> datasetCatalog, int 
 	if(aggregatesNo <= 0 || aggregatesNo > 4)	{
 		throw runtime_error(string("Invalid aggregate no. requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-projection3");
+	RawContext& ctx = *prepareContext("tpch-csv-projection3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -488,7 +482,7 @@ void tpchLineitemProjection3CachingAgg(map<string, dataset> datasetCatalog,
 	if (aggregatesNo <= 0 || aggregatesNo > 4) {
 		throw runtime_error(string("Invalid aggregate no. requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-projection3");
+	RawContext& ctx = *prepareContext("tpch-csv-projection3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -682,7 +676,7 @@ void tpchLineitemProjection3CachingPredAgg(map<string, dataset> datasetCatalog,
 	if (aggregatesNo <= 0 || aggregatesNo > 4) {
 		throw runtime_error(string("Invalid aggregate no. requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-projection3");
+	RawContext& ctx = *prepareContext("tpch-csv-projection3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");

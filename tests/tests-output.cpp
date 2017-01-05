@@ -76,8 +76,7 @@ TEST(Output, ReduceNumeric) {
 	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "reduceNumeric.json";
 	bool flushResults = true;
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
@@ -157,8 +156,7 @@ TEST(Output, MultiReduceNumeric) {
 	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "multiReduceNumeric.json";
 	bool flushResults = true;
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
@@ -240,8 +238,7 @@ TEST(Output, ReduceBag) {
 	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "reduceBag.json";
 	bool flushResults = true;
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
@@ -323,8 +320,7 @@ TEST(Output, ReduceBagRecord) {
 	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "reduceBagRecord.json";
 	bool flushResults = true;
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
@@ -426,8 +422,7 @@ TEST(Output, NestBagTPCH) {
 	const char *testLabel = "nestBagTPCH.json";
 	bool flushResults = true;
 	/* Bookkeeping */
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
@@ -668,10 +663,7 @@ TEST(Output, JoinLeft3) {
 	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "3wayJoin.json";
 	bool flushResults = true;
-
-
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
@@ -888,9 +880,7 @@ TEST(Output, NestReserves) {
 	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "nestReserves.json";
 	bool flushResults = true;
-
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
@@ -1012,8 +1002,7 @@ TEST(Output, NestReserves) {
 //	const char *testLabel = "multinestReserves.json";
 //	bool flushResults = true;
 //
-//	RawContext ctx = RawContext(testLabel);
-//	registerFunctions(ctx);
+//	RawContext& ctx = prepareContext(testLabel);
 //	RawCatalog& catalog = RawCatalog::getInstance();
 //	CachingService& caches = CachingService::getInstance();
 //	caches.clear();
@@ -1146,9 +1135,7 @@ TEST(Output, MultiNestReserves) {
 	const char *testPath = TEST_OUTPUTS "/tests-output/";
 	const char *testLabel = "multinestReserves.json";
 	bool flushResults = true;
-
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();

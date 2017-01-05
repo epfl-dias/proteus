@@ -105,12 +105,6 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate);
  */
 void tpchJoin4(map<string, dataset> datasetCatalog, int predicate);
 
-//RawContext prepareContext(string moduleName) {
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
 int main(int argc, char **argv) {
 
 	map<string, dataset> datasetCatalog;
@@ -312,7 +306,7 @@ int main(int argc, char **argv) {
 //}
 void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-csv-join1a");
+	RawContext& ctx = *prepareContext("tpch-csv-join1a");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -461,7 +455,7 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 
 void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-csv-join1b");
+	RawContext& ctx = *prepareContext("tpch-csv-join1b");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -615,7 +609,7 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 
 void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-csv-join2a");
+	RawContext& ctx = *prepareContext("tpch-csv-join2a");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -764,7 +758,7 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 
 void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-csv-join2b");
+	RawContext& ctx = *prepareContext("tpch-csv-join2b");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -936,7 +930,7 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 
 void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-csv-join3");
+	RawContext& ctx = *prepareContext("tpch-csv-join3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -1100,7 +1094,7 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 
 void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-csv-join4");
+	RawContext& ctx = *prepareContext("tpch-csv-join4");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");

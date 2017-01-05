@@ -101,7 +101,7 @@ private:
 	CatalogParser& catalogParser;
 	vector<Plugin*> activePlugins;
 
-	RawContext ctx;
+	RawContext * ctx;
 	void		 			 parsePlan(const rapidjson::Document& doc);
 	/* When processing tree root, parent will be NULL */
 	RawOperator* 			 parseOperator(const rapidjson::Value& val);

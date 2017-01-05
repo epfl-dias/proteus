@@ -24,11 +24,10 @@ struct PlanHandler {
 };
 
 PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, const char *moduleName) :
-		planPath(planPath), moduleName(moduleName), ctx(RawContext(moduleName)), catalogParser(cat) {
+		planPath(planPath), moduleName(moduleName), catalogParser(cat) {
 
 	/* Init LLVM Context and catalog */
-	//ctx = RawContext(this->moduleName);
-	registerFunctions(ctx);
+	ctx = prepareContext(this->moduleName);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//Input Path
@@ -84,7 +83,7 @@ void PlanExecutor::parsePlan(const rapidjson::Document& doc)	{
 	planRootOp->produce();
 
 	//Run function
-	ctx.prepareFunction(ctx.getGlobalFunction());
+	ctx->prepareFunction(ctx->getGlobalFunction());
 
 	RawCatalog& catalog = RawCatalog::getInstance();
 	/* XXX Remove when testing caches (?) */
@@ -139,7 +138,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		/* parse operator input */
 		RawOperator* childOp = parseOperator(val["input"]);
 		/* 'Multi-reduce' used */
-		newOp = new opt::Reduce(accs, e, p, childOp, &(this->ctx),true,moduleName);
+		newOp = new opt::Reduce(accs, e, p, childOp, this->ctx,true,moduleName);
 		childOp->setParent(newOp);
 	} else if (strcmp(opName, "unnest") == 0) {
 
@@ -347,7 +346,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		Materializer* matRight = new Materializer(fieldsRight, exprsRight,
 				oidsRight, outputModesRight);
 
-		newOp = new RadixJoin(pred,leftOp,rightOp,&(this->ctx),"radixHashJoin",*matLeft,*matRight);
+		newOp = new RadixJoin(pred,leftOp,rightOp,this->ctx,"radixHashJoin",*matLeft,*matRight);
 		leftOp->setParent(newOp);
 		rightOp->setParent(newOp);
 	}
@@ -479,7 +478,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		//Put operator together
 		const char *opLabel = "radixNest";
-		newOp = new radix::Nest(&(this->ctx), accs, outputExprs, aggrLabels, predExpr,
+		newOp = new radix::Nest(this->ctx, accs, outputExprs, aggrLabels, predExpr,
 				groupByExpr, nullsToZerosExpr, childOp, opLabel, *matCoarse);
 		childOp->setParent(newOp);
 	}
@@ -498,7 +497,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val.HasMember(keyPg));
 		assert(val[keyPg].IsObject());
 		Plugin *pg = this->parsePlugin(val[keyPg]);
-		newOp =  new Scan(&(this->ctx),*pg);
+		newOp =  new Scan(this->ctx,*pg);
 	}
 	else	{
 		string err = string("Unknown Operator: ") + opName;
@@ -1049,14 +1048,14 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 			stringBrackets = val[keyBrackets].GetBool();
 		}
 
-		newPg = new pm::CSVPlugin(&(this->ctx), *pathDynamicCopy, *recType,
+		newPg = new pm::CSVPlugin(this->ctx, *pathDynamicCopy, *recType,
 				projections, delim, linehint, policy, stringBrackets);
 	} else if (strcmp(pgType, "json") == 0) {
 		assert(val.HasMember(keyLineHint));
 		assert(val[keyLineHint].IsInt());
 		int linehint = val[keyLineHint].GetInt();
 
-		newPg = new jsonPipelined::JSONPlugin(&(this->ctx), *pathDynamicCopy, datasetInfo->exprType);
+		newPg = new jsonPipelined::JSONPlugin(this->ctx, *pathDynamicCopy, datasetInfo->exprType);
 	} else if (strcmp(pgType, "binrow") == 0) {
 		assert(val.HasMember(keyProjectionsBinRow));
 		assert(val[keyProjectionsBinRow].IsArray());
@@ -1069,7 +1068,7 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 			projections->push_back(recAttr);
 		}
 
-		newPg = new BinaryRowPlugin(&(this->ctx), *pathDynamicCopy, *recType,
+		newPg = new BinaryRowPlugin(this->ctx, *pathDynamicCopy, *recType,
 				*projections);
 	} else if (strcmp(pgType, "bincol") == 0) {
 		assert(val.HasMember(keyProjectionsBinCol));
@@ -1083,7 +1082,7 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 			projections->push_back(recAttr);
 		}
 
-		newPg = new BinaryColPlugin(&(this->ctx), *pathDynamicCopy, *recType,
+		newPg = new BinaryColPlugin(this->ctx, *pathDynamicCopy, *recType,
 				*projections);
 	} else {
 		string err = string("Unknown Plugin Type: ") + pgType;

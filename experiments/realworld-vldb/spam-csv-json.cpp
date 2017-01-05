@@ -33,7 +33,7 @@ void symantecCSVJSON1(map<string, dataset> datasetCatalog) {
 	//JSON
 	//id, again
 
-	RawContext ctx = prepareContext("symantec-CSV-JSON-1");
+	RawContext& ctx = *prepareContext("symantec-CSV-JSON-1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecCSV = string("symantecCSV");
@@ -301,7 +301,7 @@ void symantecCSVJSON2(map<string, dataset> datasetCatalog) {
 	//id, again
 	int sizeLow = 1000;
 
-	RawContext ctx = prepareContext("symantec-CSV-JSON-2");
+	RawContext& ctx = *prepareContext("symantec-CSV-JSON-2");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecCSV = string("symantecCSV");
@@ -579,7 +579,7 @@ void symantecCSVJSON3(map<string, dataset> datasetCatalog) {
 	//id, again
 	int yearNo = 2012;
 
-	RawContext ctx = prepareContext("symantec-CSV-JSON-3");
+	RawContext& ctx = *prepareContext("symantec-CSV-JSON-3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecCSV = string("symantecCSV");
@@ -863,7 +863,7 @@ void symantecCSVJSON4(map<string, dataset> datasetCatalog) {
 	//id, again
 	int yearNo = 2012;
 
-	RawContext ctx = prepareContext("symantec-CSV-JSON-3");
+	RawContext& ctx = *prepareContext("symantec-CSV-JSON-3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecCSV = string("symantecCSV");
@@ -1205,7 +1205,7 @@ void symantecCSVJSON5(map<string, dataset> datasetCatalog) {
 	//JSON
 	//id, again
 
-	RawContext ctx = prepareContext("symantec-CSV-JSON-5");
+	RawContext& ctx = *prepareContext("symantec-CSV-JSON-5");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecCSV = string("symantecCSV");
@@ -1479,7 +1479,7 @@ void symantecCSVJSON5v1(map<string, dataset> datasetCatalog) {
 	//id, again
 	int sizeLow = 5000;
 
-	RawContext ctx = prepareContext("symantec-CSV-JSON-5");
+	RawContext& ctx = *prepareContext("symantec-CSV-JSON-5");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecCSV = string("symantecCSV");

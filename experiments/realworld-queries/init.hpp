@@ -23,6 +23,4 @@
 #include "plugins/json-plugin.hpp"
 #include "common/symantec-config.hpp"
 
-//RawContext prepareContext(string moduleName);
-
 #endif /* EXPERIMENTS_INIT_HPP_ */

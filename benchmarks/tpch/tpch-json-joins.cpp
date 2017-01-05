@@ -112,12 +112,6 @@ void tpchJoin3(map<string,dataset> datasetCatalog, int predicate);
  */
 void tpchJoin4(map<string,dataset> datasetCatalog, int predicate);
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
 
 //int main()	{
 //
@@ -228,7 +222,7 @@ int main()	{
 
 void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-json-join1a");
+	RawContext& ctx = *prepareContext("tpch-json-join1a");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -369,7 +363,7 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 
 void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-json-join1b");
+	RawContext& ctx = *prepareContext("tpch-json-join1b");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -516,7 +510,7 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 
 void tpchJoin1c(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-json/unnest-join1c");
+	RawContext& ctx = *prepareContext("tpch-json/unnest-join1c");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameOrdersLineitems = string("ordersLineitems");
@@ -599,7 +593,7 @@ void tpchJoin1c(map<string, dataset> datasetCatalog, int predicate) {
 
 void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-json-join2a");
+	RawContext& ctx = *prepareContext("tpch-json-join2a");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -741,7 +735,7 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 
 void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-json-join2b");
+	RawContext& ctx = *prepareContext("tpch-json-join2b");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -905,7 +899,7 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 
 void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-json-join3");
+	RawContext& ctx = *prepareContext("tpch-json-join3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -1058,7 +1052,7 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 
 void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 
-	RawContext ctx = prepareContext("tpch-json-join4");
+	RawContext& ctx = *prepareContext("tpch-json-join4");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");

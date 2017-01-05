@@ -77,8 +77,7 @@ inline void my_hash_combine(std::size_t& seed, const T& v)
 }
 
 TEST(Hashing, IntegerNotGenerated) {
-	RawContext ctx = RawContext("HashInt");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("HashInt");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	boost::hash<int> hasher;
@@ -113,8 +112,7 @@ TEST(Hashing, IntegerNotGenerated) {
 }
 
 TEST(Hashing, Constants) {
-	RawContext ctx = RawContext("HashConstants");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("HashConstants");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	Root rootOp = Root(NULL);
@@ -158,8 +156,7 @@ TEST(Hashing, Constants) {
 }
 
 TEST(Hashing, BinaryExpressions)	{
-	RawContext ctx = RawContext("HashBinaryExpressions");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("HashBinaryExpressions");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	Root rootOp = Root(NULL);
@@ -203,8 +200,7 @@ TEST(Hashing, BinaryExpressions)	{
 }
 
 TEST(Hashing, IfThenElse)	{
-	RawContext ctx = RawContext("HashIfThenElse");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("HashIfThenElse");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	Root rootOp = Root(NULL);

@@ -54,11 +54,6 @@ void JsonString();
 void CsvString();
 void nestRadixString();
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
 
 int main()	{
 //	JsmnString();
@@ -69,8 +64,7 @@ int main()	{
 }
 
 void JsmnString()	{
-	RawContext ctx = RawContext("jsmnStringIngestion");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("jsmnStringIngestion");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/jsmn-string.json");
@@ -139,8 +133,7 @@ void JsmnString()	{
 }
 
 void JsonString()	{
-	RawContext ctx = RawContext("jsonStringIngestion");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("jsonStringIngestion");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/json-string.json");
@@ -209,8 +202,7 @@ void JsonString()	{
 }
 
 void CsvString() {
-	RawContext ctx = RawContext("csvStringIngestion");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("csvStringIngestion");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/csv/csv-string.csv");
@@ -283,7 +275,7 @@ void CsvString() {
 
 void nestRadixString()
 {
-	RawContext ctx = prepareContext("testFunction-nestRadixJSON");
+	RawContext& ctx = *prepareContext("testFunction-nestRadixJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees-more.json");

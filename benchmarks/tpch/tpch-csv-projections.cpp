@@ -68,13 +68,6 @@ void tpchLineitemProjection2(map<string,dataset> datasetCatalog, int predicateVa
 /* 1-4 aggregates */
 void tpchLineitemProjection3(map<string,dataset> datasetCatalog, int predicateVal, int aggregatesNo);
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
-
 int main()	{
 
 	map<string,dataset> datasetCatalog;
@@ -121,7 +114,7 @@ int main()	{
 
 void tpchLineitemProjection1(map<string,dataset> datasetCatalog, int predicateVal)	{
 
-	RawContext ctx = prepareContext("tpch-csv-projection1");
+	RawContext& ctx = *prepareContext("tpch-csv-projection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -198,7 +191,7 @@ void tpchLineitemProjection1(map<string,dataset> datasetCatalog, int predicateVa
  */
 void tpchLineitemProjection2(map<string,dataset> datasetCatalog, int predicateVal)	{
 
-	RawContext ctx = prepareContext("tpch-csv-projection2");
+	RawContext& ctx = *prepareContext("tpch-csv-projection2");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -276,7 +269,7 @@ void tpchLineitemProjection3(map<string,dataset> datasetCatalog, int predicateVa
 	if(aggregatesNo <= 0 || aggregatesNo > 4)	{
 		throw runtime_error(string("Invalid aggregate no. requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-projection3");
+	RawContext& ctx = *prepareContext("tpch-csv-projection3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");

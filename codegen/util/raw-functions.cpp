@@ -24,7 +24,6 @@
 #include "util/raw-functions.hpp"
 
 
-
 //Remember to add these functions as extern in .hpp too!
 extern "C" double putchari(int X) {
 	putchar((char) X);
@@ -719,7 +718,6 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 //	cout << "[Non-AVX:] Newline / End of line at pos " << i << endl;
 	return i;
 #endif
-
 }
 
 //void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t** tokens, size_t line)	{
@@ -917,9 +915,9 @@ int atois(const char *buf, int len) {
 	}
 }
 
-void registerFunctions(RawContext& context)	{
-	LLVMContext& ctx = context.getLLVMContext();
-	Module* const TheModule = context.getModule();
+static void registerFunctions(RawContext * context)	{
+	LLVMContext& ctx = context->getLLVMContext();
+	Module* const TheModule = context->getModule();
 
 	Type* int1_bool_type = Type::getInt1Ty(ctx);
 	Type* int8_type = Type::getInt8Ty(ctx);
@@ -928,7 +926,7 @@ void registerFunctions(RawContext& context)	{
 	Type* int64_type = Type::getInt64Ty(ctx);
 	Type* void_type = Type::getVoidTy(ctx);
 	Type* double_type = Type::getDoubleTy(ctx);
-	StructType* strObjType = context.CreateStringStruct();
+	StructType* strObjType = context->CreateStringStruct();
 	PointerType* void_ptr_type = PointerType::get(int8_type, 0);
 	PointerType* char_ptr_type = PointerType::get(int8_type, 0);
 	PointerType* int32_ptr_type = PointerType::get(int32_type, 0);
@@ -1224,7 +1222,7 @@ void registerFunctions(RawContext& context)	{
 	Function* insertToHT_ = Function::Create(FT_HT, Function::ExternalLinkage, "insertToHT", TheModule);
 
 	Type* ht_int_probe_types[] = { int32_type, int32_type, int32_type };
-	PointerType* void_ptr_ptr_type = context.getPointerType(void_ptr_type);
+	PointerType* void_ptr_ptr_type = context->getPointerType(void_ptr_type);
 	FunctionType *FTint_probeHT = FunctionType::get(void_ptr_ptr_type, ht_int_probe_types, false);
 	Function* probeIntHT_ = Function::Create(FTint_probeHT,	Function::ExternalLinkage, "probeIntHT", TheModule);
 	probeIntHT_->addFnAttr(llvm::Attribute::AlwaysInline);
@@ -1235,7 +1233,7 @@ void registerFunctions(RawContext& context)	{
 	probeHT_->addFnAttr(llvm::Attribute::AlwaysInline);
 
 	Type* ht_get_metadata_types[] = { char_ptr_type };
-	StructType *metadataType = context.getHashtableMetadataType();
+	StructType *metadataType = context->getHashtableMetadataType();
 	PointerType *metadataArrayType = PointerType::get(metadataType,0);
 	FunctionType *FTget_metadata_HT = FunctionType::get(metadataArrayType,
 			ht_get_metadata_types, false);
@@ -1322,7 +1320,7 @@ void registerFunctions(RawContext& context)	{
 //	tokenMembers.push_back(int32_type);
 //	tokenMembers.push_back(int32_type);
 //	StructType *tokenType = StructType::get(ctx,tokenMembers);
-	StructType *tokenType = context.CreateJSMNStruct();
+	StructType *tokenType = context->CreateJSMNStruct();
 
 
 	PointerType *tokenPtrType = PointerType::get(tokenType, 0);
@@ -1335,75 +1333,74 @@ void registerFunctions(RawContext& context)	{
 			Function::ExternalLinkage, "parseLineJSON", TheModule);
 
 
-	context.registerFunction("printi", printi_);
-	context.registerFunction("printi64", printi64_);
-	context.registerFunction("printFloat", printFloat_);
-	context.registerFunction("printShort", printShort_);
-	context.registerFunction("printBoolean", printBoolean_);
-	context.registerFunction("printc", printc_);
+	context->registerFunction("printi", printi_);
+	context->registerFunction("printi64", printi64_);
+	context->registerFunction("printFloat", printFloat_);
+	context->registerFunction("printShort", printShort_);
+	context->registerFunction("printBoolean", printBoolean_);
+	context->registerFunction("printc", printc_);
 
-	context.registerFunction("atoi", atoi_);
-	context.registerFunction("atois", atois_);
-	context.registerFunction("atof", atof_);
+	context->registerFunction("atoi", atoi_);
+	context->registerFunction("atois", atois_);
+	context->registerFunction("atof", atof_);
 
-	context.registerFunction("insertInt", insertIntKeyToHT_);
-	context.registerFunction("probeInt", probeIntHT_);
-	context.registerFunction("insertHT", insertToHT_);
-	context.registerFunction("probeHT", probeHT_);
-	context.registerFunction("getMetadataHT", getMetadataHT_);
+	context->registerFunction("insertInt", insertIntKeyToHT_);
+	context->registerFunction("probeInt", probeIntHT_);
+	context->registerFunction("insertHT", insertToHT_);
+	context->registerFunction("probeHT", probeHT_);
+	context->registerFunction("getMetadataHT", getMetadataHT_);
 
-	context.registerFunction("compareTokenString", compareTokenString_);
-	context.registerFunction("compareTokenString64", compareTokenString64_);
-	context.registerFunction("convertBoolean", convertBoolean_);
-	context.registerFunction("convertBoolean64", convertBoolean64_);
-	context.registerFunction("equalStringObjs", stringObjEquality);
-	context.registerFunction("equalStrings", stringEquality);
+	context->registerFunction("compareTokenString", compareTokenString_);
+	context->registerFunction("compareTokenString64", compareTokenString64_);
+	context->registerFunction("convertBoolean", convertBoolean_);
+	context->registerFunction("convertBoolean64", convertBoolean64_);
+	context->registerFunction("equalStringObjs", stringObjEquality);
+	context->registerFunction("equalStrings", stringEquality);
 
-	context.registerFunction("hashInt", hashInt_);
-	context.registerFunction("hashDouble", hashDouble_);
-	context.registerFunction("hashStringC", hashStringC_);
-	context.registerFunction("hashStringObject", hashStringObj_);
-	context.registerFunction("hashBoolean", hashBoolean_);
-	context.registerFunction("combineHashes", hashCombine_);
-	context.registerFunction("combineHashesNoOrder", hashCombineNoOrder_);
+	context->registerFunction("hashInt", hashInt_);
+	context->registerFunction("hashDouble", hashDouble_);
+	context->registerFunction("hashStringC", hashStringC_);
+	context->registerFunction("hashStringObject", hashStringObj_);
+	context->registerFunction("hashBoolean", hashBoolean_);
+	context->registerFunction("combineHashes", hashCombine_);
+	context->registerFunction("combineHashesNoOrder", hashCombineNoOrder_);
 
-	context.registerFunction("flushInt", flushInt_);
-	context.registerFunction("flushInt64", flushInt64_);
-	context.registerFunction("flushDouble", flushDouble_);
-	context.registerFunction("flushStringC", flushStringC_);
-	context.registerFunction("flushStringCv2", flushStringCv2_);
-	context.registerFunction("flushStringObj", flushStringObj_);
-	context.registerFunction("flushBoolean", flushBoolean_);
-	context.registerFunction("flushChar", flushChar_);
-	context.registerFunction("flushDelim", flushDelim_);
-	context.registerFunction("flushOutput", flushOutput_);
+	context->registerFunction("flushInt", flushInt_);
+	context->registerFunction("flushInt64", flushInt64_);
+	context->registerFunction("flushDouble", flushDouble_);
+	context->registerFunction("flushStringC", flushStringC_);
+	context->registerFunction("flushStringCv2", flushStringCv2_);
+	context->registerFunction("flushStringObj", flushStringObj_);
+	context->registerFunction("flushBoolean", flushBoolean_);
+	context->registerFunction("flushChar", flushChar_);
+	context->registerFunction("flushDelim", flushDelim_);
+	context->registerFunction("flushOutput", flushOutput_);
 
-	context.registerFunction("flushObjectStart", flushObjectStart_);
-	context.registerFunction("flushArrayStart", flushArrayStart_);
-	context.registerFunction("flushObjectEnd", flushObjectEnd_);
-	context.registerFunction("flushArrayEnd", flushArrayEnd_);
-	context.registerFunction("flushArrayEnd", flushArrayEnd_);
+	context->registerFunction("flushObjectStart", flushObjectStart_);
+	context->registerFunction("flushArrayStart", flushArrayStart_);
+	context->registerFunction("flushObjectEnd", flushObjectEnd_);
+	context->registerFunction("flushArrayEnd", flushArrayEnd_);
+	context->registerFunction("flushArrayEnd", flushArrayEnd_);
 
-	context.registerFunction("getMemoryChunk", getMemoryChunk_);
-	context.registerFunction("increaseMemoryChunk", increaseMemoryChunk_);
-	context.registerFunction("releaseMemoryChunk", releaseMemoryChunk_);
-	context.registerFunction("memcpy", memcpy_);
+	context->registerFunction("getMemoryChunk", getMemoryChunk_);
+	context->registerFunction("increaseMemoryChunk", increaseMemoryChunk_);
+	context->registerFunction("releaseMemoryChunk", releaseMemoryChunk_);
+	context->registerFunction("memcpy", memcpy_);
 
-	context.registerFunction("resetTime", resetTime_);
-	context.registerFunction("calculateTime", calculateTime_);
+	context->registerFunction("resetTime", resetTime_);
+	context->registerFunction("calculateTime", calculateTime_);
 
-	context.registerFunction("partitionHT",radix_partition);
-	context.registerFunction("bucketChainingPrepare",bucket_chaining_join_prepare);
-	context.registerFunction("partitionAggHT",radix_partition_agg);
-	context.registerFunction("bucketChainingAggPrepare",bucket_chaining_agg_prepare);
+	context->registerFunction("partitionHT",radix_partition);
+	context->registerFunction("bucketChainingPrepare",bucket_chaining_join_prepare);
+	context->registerFunction("partitionAggHT",radix_partition_agg);
+	context->registerFunction("bucketChainingAggPrepare",bucket_chaining_agg_prepare);
 
-	context.registerFunction("newline",newline);
-	context.registerFunction("parseLineJSON",parse_line_json);
+	context->registerFunction("newline",newline);
+	context->registerFunction("parseLineJSON",parse_line_json);
 }
 
-RawContext prepareContext(string moduleName)	{
-	RawContext ctx = RawContext(moduleName);
+RawContext * prepareContext(string moduleName)	{
+	RawContext * ctx = new RawContext(moduleName);
 	registerFunctions(ctx);
 	return ctx;
 }
-

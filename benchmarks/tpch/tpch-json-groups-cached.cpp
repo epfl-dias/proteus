@@ -60,12 +60,6 @@ void tpchMat(map<string,dataset> datasetCatalog, int predicate, int aggregatesNo
 
 /* FIXME Need a case featuring Unnest too */
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
 
 //int main()	{
 //
@@ -195,7 +189,7 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 	if(aggregatesNo < 1 || aggregatesNo > 4)	{
 		throw runtime_error(string("Invalid no. of aggregates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection1");
+	RawContext& ctx = *prepareContext("tpch-csv-selection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -500,7 +494,7 @@ void tpchMat(map<string, dataset> datasetCatalog, int predicate, int aggregatesN
 	if(aggregatesNo < 1 || aggregatesNo > 4)	{
 		throw runtime_error(string("Invalid no. of aggregates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection1");
+	RawContext& ctx = *prepareContext("tpch-csv-selection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");

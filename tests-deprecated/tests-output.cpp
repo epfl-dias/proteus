@@ -114,8 +114,7 @@ void verifyResult_(const char *testLabel)	{
 TEST(Output, ReduceNumeric) {
 	const char *testLabel = "reduceNumeric.json";
 	bool flushResults = true;
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -192,8 +191,7 @@ TEST(Output, ReduceNumeric) {
 TEST(Output, MultiReduceNumeric) {
 	const char *testLabel = "multiReduceNumeric.json";
 	bool flushResults = true;
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -272,8 +270,7 @@ TEST(Output, MultiReduceNumeric) {
 TEST(Output, ReduceBag) {
 	const char *testLabel = "reduceBag.json";
 	bool flushResults = true;
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -352,8 +349,7 @@ TEST(Output, ReduceBag) {
 TEST(Output, ReduceBagRecord) {
 	const char *testLabel = "reduceBagRecord.json";
 	bool flushResults = true;
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -452,8 +448,7 @@ TEST(Output, NestBagTPCH) {
 	const char *testLabel = "nestBagTPCH.json";
 	bool flushResults = true;
 	/* Bookkeeping */
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	PrimitiveType *intType = new IntType();
 	PrimitiveType *floatType = new FloatType();
@@ -638,13 +633,9 @@ TEST(Output, NestBagTPCH) {
 }
 
 TEST(Output, JoinLeft3) {
-
 	const char *testLabel = "3wayJoin.json";
 	bool flushResults = true;
-
-
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+  RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**

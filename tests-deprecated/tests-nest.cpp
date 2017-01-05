@@ -57,9 +57,7 @@
  * of matches (i.e., both hashKey and key checked) */
 
 TEST(JSON, Nest) {
-	RawContext ctx = RawContext("nestRadixJSON");
-	registerFunctions(ctx);
-
+	RawContext& ctx = *prepareContext("nestRadixJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees-more.json");
@@ -233,8 +231,7 @@ TEST(JSON, Nest) {
 }
 
 TEST(JSON, NestTwoKeys) {
-	RawContext ctx = RawContext("nestRadixJSON-TwoKeys");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("nestRadixJSON-TwoKeys");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees-more.json");

@@ -70,12 +70,6 @@ void tpchOrderSelection2(map<string,dataset> datasetCatalog, vector<int> predica
 void tpchOrderSelection3(map<string,dataset> datasetCatalog, vector<int> predicates);
 void tpchOrderSelection4(map<string,dataset> datasetCatalog, vector<int> predicates);
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
 
 int main()	{
 
@@ -141,7 +135,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 	if(predicatesNo <= 0 || predicatesNo > 4)	{
 		throw runtime_error(string("Invalid no. of predicates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection1");
+	RawContext& ctx = *prepareContext("tpch-csv-selection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -349,7 +343,7 @@ void tpchOrderSelection2(map<string,dataset> datasetCatalog, vector<int> predica
 	if(predicatesNo != 4)	{
 		throw runtime_error(string("Invalid no. of predicates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection2");
+	RawContext& ctx = *prepareContext("tpch-csv-selection2");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -465,7 +459,7 @@ void tpchOrderSelection3(map<string,dataset> datasetCatalog, vector<int> predica
 	if(predicatesNo != 4)	{
 		throw runtime_error(string("Invalid no. of predicates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection3");
+	RawContext& ctx = *prepareContext("tpch-csv-selection3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -580,7 +574,7 @@ void tpchOrderSelection4(map<string,dataset> datasetCatalog, vector<int> predica
 	if(predicatesNo != 4)	{
 		throw runtime_error(string("Invalid no. of predicates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection4");
+	RawContext& ctx = *prepareContext("tpch-csv-selection4");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");

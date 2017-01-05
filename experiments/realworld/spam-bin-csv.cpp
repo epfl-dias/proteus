@@ -61,13 +61,6 @@ void symantecBinCSV4(map<string,dataset> datasetCatalog);
 void symantecBinCSV5(map<string,dataset> datasetCatalog);
 
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
-
 int main()	{
 	cout << "Execution" << endl;
 	map<string,dataset> datasetCatalog;
@@ -100,7 +93,7 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 	//csv
 	int classaHigh = 19;
 
-	RawContext ctx = prepareContext("symantec-bin-csv-1");
+	RawContext& ctx = *prepareContext("symantec-bin-csv-1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -392,7 +385,7 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 	//csv
 	int classaHigh = 19;
 
-	RawContext ctx = prepareContext("symantec-bin-csv-2");
+	RawContext& ctx = *prepareContext("symantec-bin-csv-2");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -680,7 +673,7 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 	//csv
 	string botName = "UNCLASSIFIED";
 
-	RawContext ctx = prepareContext("symantec-bin-csv-3");
+	RawContext& ctx = *prepareContext("symantec-bin-csv-3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -928,7 +921,7 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 	string botName = "UNCLASSIFIED";
 	string countryCodeName = "RU";
 
-	RawContext ctx = prepareContext("symantec-bin-csv-4");
+	RawContext& ctx = *prepareContext("symantec-bin-csv-4");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -1188,7 +1181,7 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 	string countryCodeName = "IN";
 	int classaHigh = 20;
 
-	RawContext ctx = prepareContext("symantec-bin-csv-5");
+	RawContext& ctx = *prepareContext("symantec-bin-csv-5");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");

@@ -34,7 +34,7 @@ void symantecBinJSON1(map<string, dataset> datasetCatalog) {
 	//JSON
 	//id, again
 
-	RawContext ctx = prepareContext("symantec-bin-JSON-1");
+	RawContext& ctx = *prepareContext("symantec-bin-JSON-1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -314,7 +314,7 @@ void symantecBinJSON2(map<string, dataset> datasetCatalog) {
 	//JSON
 	//id, again
 
-	RawContext ctx = prepareContext("symantec-bin-JSON-2");
+	RawContext& ctx = *prepareContext("symantec-bin-JSON-2");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -579,7 +579,7 @@ void symantecBinJSON3(map<string, dataset> datasetCatalog) {
 	int sizeHigh = 1000;
 	string langName = "german";
 
-	RawContext ctx = prepareContext("symantec-bin-JSON-3");
+	RawContext& ctx = *prepareContext("symantec-bin-JSON-3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -778,7 +778,7 @@ void symantecBinJSON3v1(map<string, dataset> datasetCatalog) {
 	int sizeHigh = 1000;
 //	string langName = "german";
 
-	RawContext ctx = prepareContext("symantec-bin-JSON-3v1");
+	RawContext& ctx = *prepareContext("symantec-bin-JSON-3v1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -982,7 +982,7 @@ void symantecBinJSON3v2(map<string, dataset> datasetCatalog) {
 	int sizeHigh = 1000;
 //	string langName = "german";
 
-	RawContext ctx = prepareContext("symantec-bin-JSON-3v2");
+	RawContext& ctx = *prepareContext("symantec-bin-JSON-3v2");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -1231,7 +1231,7 @@ void symantecBinJSON4(map<string, dataset> datasetCatalog) {
 	//JSON
 	int monthNo = 12;
 
-	RawContext ctx = prepareContext("symantec-bin-JSON-4");
+	RawContext& ctx = *prepareContext("symantec-bin-JSON-4");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -1438,7 +1438,7 @@ void symantecBinJSON5(map<string, dataset> datasetCatalog) {
 	//JSON
 	int yearNo = 2010;
 
-	RawContext ctx = prepareContext("symantec-bin-JSON-5");
+	RawContext& ctx = *prepareContext("symantec-bin-JSON-5");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");
@@ -1647,7 +1647,7 @@ void symantecBinJSON5v1(map<string, dataset> datasetCatalog) {
 	//JSON
 	int yearNo = 2010;
 
-	RawContext ctx = prepareContext("symantec-bin-JSON-5");
+	RawContext& ctx = *prepareContext("symantec-bin-JSON-5");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantecBin = string("symantecBin");

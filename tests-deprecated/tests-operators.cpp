@@ -69,8 +69,7 @@
 // </TechnicalDetails>
 
 TEST(Relational, Scan) {
-	RawContext ctx = RawContext("RelationalScan");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("RelationalScan");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -107,9 +106,7 @@ TEST(Relational, Scan) {
 }
 
 TEST(Relational, SPJ) {
-
-	RawContext ctx = RawContext("RelationalSPJ");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("RelationalSPJ");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -238,8 +235,7 @@ TEST(Relational, SPJ) {
 }
 
 TEST(Hierarchical, TwoProjections) {
-	RawContext ctx = RawContext("testFunction-ScanJSON-TwoProjections");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("testFunction-ScanJSON-TwoProjections");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/jsmnDeeper.json");
@@ -319,8 +315,7 @@ TEST(Hierarchical, TwoProjections) {
 }
 
 TEST(Hierarchical, Unnest) {
-	RawContext ctx = RawContext("testFunction-unnestJSON");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("testFunction-unnestJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees.json");
@@ -420,8 +415,7 @@ TEST(Hierarchical, Unnest) {
 }
 
 TEST(Hierarchical, UnnestDeeper) {
-	RawContext ctx = RawContext("testFunction-unnestJSONDeeper");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("testFunction-unnestJSONDeeper");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employeesDeeper.json");
@@ -530,8 +524,7 @@ TEST(Hierarchical, UnnestDeeper) {
 }
 
 TEST(Hierarchical, UnnestFiltering) {
-	RawContext ctx = RawContext("testFunction-unnestJSONFiltering");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("testFunction-unnestJSONFiltering");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees.json");
@@ -634,8 +627,7 @@ TEST(Hierarchical, UnnestFiltering) {
 }
 
 TEST(Generic, ReduceNumeric) {
-	RawContext ctx = RawContext("reduceNumeric");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("reduceNumeric");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -703,8 +695,7 @@ TEST(Generic, ReduceNumeric) {
 }
 
 TEST(Generic, ReduceBoolean) {
-	RawContext ctx = RawContext("reduceBoolean");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("reduceBoolean");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -767,8 +758,7 @@ TEST(Generic, ReduceBoolean) {
 }
 
 TEST(Generic, IfThenElse) {
-	RawContext ctx = RawContext("ifThenElseExpr");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("ifThenElseExpr");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//SCAN1
@@ -834,8 +824,7 @@ TEST(Generic, IfThenElse) {
 
 TEST(Hierarchical,OuterUnnest1)
 {
-	RawContext ctx = RawContext("testFunction-outerUnnestJSON");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("testFunction-outerUnnestJSON");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/employees.json");

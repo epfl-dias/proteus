@@ -27,7 +27,7 @@ void symantecBin1(map<string,dataset> datasetCatalog)	{
 
 	int idLow = 50000000;
 	int idHigh = 60000000;
-	RawContext ctx = prepareContext("symantec-bin-1");
+	RawContext& ctx = *prepareContext("symantec-bin-1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -108,7 +108,7 @@ void symantecBin2(map<string,dataset> datasetCatalog)	{
 	int idHigh = 60000000;
 	int dimHigh = 3;
 
-	RawContext ctx = prepareContext("symantec-bin-2");
+	RawContext& ctx = *prepareContext("symantec-bin-2");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -244,7 +244,7 @@ void symantecBin3(map<string,dataset> datasetCatalog)	{
 	int idHigh = 63000000;
 	int dimHigh = 3;
 	int clusterNo = 500;
-	RawContext ctx = prepareContext("symantec-bin-3");
+	RawContext& ctx = *prepareContext("symantec-bin-3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -350,7 +350,7 @@ void symantecBin4(map<string,dataset> datasetCatalog)	{
 	double valueLow = 0.5;
 	int clusterNo = 400;
 
-	RawContext ctx = prepareContext("symantec-bin-4");
+	RawContext& ctx = *prepareContext("symantec-bin-4");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -474,7 +474,7 @@ void symantecBin4v1(map<string,dataset> datasetCatalog)	{
 	double valueLow = 0.5;
 	int clusterNo = 400;
 
-	RawContext ctx = prepareContext("symantec-bin-4");
+	RawContext& ctx = *prepareContext("symantec-bin-4");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -615,7 +615,7 @@ void symantecBin5(map<string,dataset> datasetCatalog)	{
 	int idLow = 380000000;
 	int idHigh = 450000000;
 	int sliceIdNo = 150;
-	RawContext ctx = prepareContext("symantec-bin-5");
+	RawContext& ctx = *prepareContext("symantec-bin-5");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -706,7 +706,7 @@ void symantecBin6(map<string, dataset> datasetCatalog) {
 	int idLow = 380000000;
 	int idHigh = 450000000;
 	int clusterHigh = 10;
-	RawContext ctx = prepareContext("symantec-bin-6(agg)");
+	RawContext& ctx = *prepareContext("symantec-bin-6(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -877,7 +877,7 @@ void symantecBin6v1(map<string, dataset> datasetCatalog) {
 //	int idLow = 380000000;
 //	int idHigh = 450000000;
 	int clusterHigh = 10;
-	RawContext ctx = prepareContext("symantec-bin-6(agg)");
+	RawContext& ctx = *prepareContext("symantec-bin-6(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -1049,7 +1049,7 @@ void symantecBin6v2(map<string, dataset> datasetCatalog) {
 	int idLow = 1;
 //	int idHigh = 450000000;
 	int clusterHigh = 10;
-	RawContext ctx = prepareContext("symantec-bin-6(agg)");
+	RawContext& ctx = *prepareContext("symantec-bin-6(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -1225,7 +1225,7 @@ void symantecBin7(map<string, dataset> datasetCatalog) {
 	int dimHigh = 3;
 	int clusterLow = 490;
 	int clusterHigh = 500;
-	RawContext ctx = prepareContext("symantec-bin-7(agg)");
+	RawContext& ctx = *prepareContext("symantec-bin-7(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -1419,7 +1419,7 @@ void symantecBin7v1(map<string, dataset> datasetCatalog) {
 //	int dimHigh = 3;
 	int clusterLow = 490;
 	int clusterHigh = 500;
-	RawContext ctx = prepareContext("symantec-bin-7(agg)");
+	RawContext& ctx = *prepareContext("symantec-bin-7(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -1615,7 +1615,7 @@ void symantecBin7v2(map<string, dataset> datasetCatalog) {
 //	int dimHigh = 3;
 	int clusterLow = 490;
 	int clusterHigh = 500;
-	RawContext ctx = prepareContext("symantec-bin-7(agg)");
+	RawContext& ctx = *prepareContext("symantec-bin-7(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -1815,7 +1815,7 @@ void symantecBin8(map<string, dataset> datasetCatalog) {
 	double valueLow = 0.5;
 	int clusterLow = 395;
 	int clusterHigh = 405;
-	RawContext ctx = prepareContext("symantec-bin-8(agg)");
+	RawContext& ctx = *prepareContext("symantec-bin-8(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -2022,7 +2022,7 @@ void symantecBin8v1(map<string, dataset> datasetCatalog) {
 //	double valueLow = 0.5;
 	int clusterLow = 395;
 	int clusterHigh = 405;
-	RawContext ctx = prepareContext("symantec-bin-8(agg)");
+	RawContext& ctx = *prepareContext("symantec-bin-8(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");
@@ -2231,7 +2231,7 @@ void symantecBin8v2(map<string, dataset> datasetCatalog) {
 //	double valueLow = 0.5;
 	int clusterLow = 395;
 	int clusterHigh = 405;
-	RawContext ctx = prepareContext("symantec-bin-8(agg)");
+	RawContext& ctx = *prepareContext("symantec-bin-8(agg)");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantecBin");

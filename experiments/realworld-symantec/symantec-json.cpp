@@ -57,12 +57,6 @@
 /* COUNT() */
 void symantecProjection1(map<string,dataset> datasetCatalog, int predicateVal);
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
 
 int main()	{
 	cout << "Execution" << endl;
@@ -78,7 +72,7 @@ int main()	{
 
 //void symantecProjection1(map<string,dataset> datasetCatalog, int predicateVal)	{
 //
-//	RawContext ctx = prepareContext("symantec-json-projection1");
+//	RawContext& ctx = *prepareContext("symantec-json-projection1");
 //	RawCatalog& rawCatalog = RawCatalog::getInstance();
 //
 //	string nameSymantec = string("symantec");
@@ -145,7 +139,7 @@ int main()	{
 
 void symantecProjection1(map<string,dataset> datasetCatalog, int predicateVal)	{
 
-	RawContext ctx = prepareContext("symantec-json-projection1");
+	RawContext& ctx = *prepareContext("symantec-json-projection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameSymantec = string("symantec");
@@ -217,4 +211,3 @@ void symantecProjection1(map<string,dataset> datasetCatalog, int predicateVal)	{
 	pg->finish();
 	rawCatalog.clear();
 }
-

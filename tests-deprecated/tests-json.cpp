@@ -42,9 +42,7 @@
 #include "expressions/expressions.hpp"
 
 TEST(JSON, ScanJSON) {
-	RawContext ctx = RawContext("ScanJSON-flat");
-	registerFunctions(ctx);
-
+	RawContext& ctx = *prepareContext("ScanJSON-flat");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/jsmn-flat.json");
@@ -81,8 +79,7 @@ TEST(JSON, ScanJSON) {
 }
 
 TEST(JSON, SelectJSON) {
-	RawContext ctx = RawContext("SelectJSON-flat");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("SelectJSON-flat");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/jsmn-flat.json");
@@ -151,8 +148,7 @@ TEST(JSON, SelectJSON) {
 }
 
 TEST(JSON, unnestJSON) {
-	RawContext ctx = RawContext("unnestJSONFlat");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("unnestJSONFlat");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/employees-flat.json");
@@ -252,9 +248,7 @@ TEST(JSON, unnestJSON) {
 
 /* json plugin seems broken if linehint not provided */
 TEST(JSON, reduceListObjectFlat) {
-	RawContext ctx = RawContext("Reduce-FlushListObject");
-	registerFunctions(ctx);
-
+	RawContext& ctx = *prepareContext("Reduce-FlushListObject");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/jsmnDeeper-flat.json");
@@ -325,8 +319,7 @@ TEST(JSON, reduceListObjectFlat) {
 
 void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 		jsmntok_t** tokens) {
-	RawContext ctx = RawContext("Reduce-JSONMax");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("Reduce-JSONMax");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	cout << "Input: " << fname << endl;
@@ -398,8 +391,7 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 /* SELECT MAX(obj.b) FROM jsonFile obj WHERE obj.b  > 43 */TEST(JSON, reduceMax) {
 
 	bool longRun = false;
-	RawContext ctx = RawContext("Reduce-JSONMax");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("Reduce-JSONMax");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname;
@@ -496,8 +488,7 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 
 /* SELECT MAX(obj.c.c2) FROM jsonFile obj WHERE obj.b  > 43 */TEST(JSON, reduceDeeperMax) {
 	bool longRun = false;
-	RawContext ctx = RawContext("Reduce-DeeperJSONMax");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("Reduce-DeeperJSONMax");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname;

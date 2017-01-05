@@ -106,8 +106,7 @@
 //	const char *testLabel = "sailorsScan.json";
 //	bool flushResults = true;
 //
-//	RawContext ctx = RawContext(testLabel);
-//	registerFunctions(ctx);
+//	RawContext& ctx = *prepareContext(testLabel);
 //	RawCatalog& catalog = RawCatalog::getInstance();
 //	CachingService& caches = CachingService::getInstance();
 //	caches.clear();
@@ -190,9 +189,7 @@ TEST(Sailors, Select) {
 	const char *testPath = TEST_OUTPUTS "/tests-sailors/";
 	const char *testLabel = "sailorsSel.json";
 	bool flushResults = true;
-
-	RawContext ctx = RawContext(testLabel);
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext(testLabel);
 	RawCatalog& catalog = RawCatalog::getInstance();
 	CachingService& caches = CachingService::getInstance();
 	caches.clear();
@@ -289,8 +286,7 @@ TEST(Sailors, Select) {
 //	const char *testLabel = "sailorsScanBoats.json";
 //	bool flushResults = true;
 //
-//	RawContext ctx = RawContext(testLabel);
-//	registerFunctions(ctx);
+//	RawContext& ctx = *prepareContext(testLabel);
 //	RawCatalog& catalog = RawCatalog::getInstance();
 //	CachingService& caches = CachingService::getInstance();
 //	caches.clear();
@@ -366,8 +362,7 @@ TEST(Sailors, Select) {
 //	bool flushResults = true;
 //
 //
-//	RawContext ctx = RawContext(testLabel);
-//	registerFunctions(ctx);
+//	RawContext& ctx = *prepareContext(testLabel);
 //	RawCatalog& catalog = RawCatalog::getInstance();
 //	CachingService& caches = CachingService::getInstance();
 //	caches.clear();
@@ -584,9 +579,7 @@ TEST(Sailors, Select) {
 //	const char *testPath = TEST_OUTPUTS "/tests-sailors/";
 //	const char *testLabel = "sailorsJoinRight3.json";
 //	bool flushResults = true;
-//
-//	RawContext ctx = RawContext(testLabel);
-//	registerFunctions(ctx);
+//	RawContext& ctx = *prepareContext(testLabel);
 //	RawCatalog& catalog = RawCatalog::getInstance();
 //	CachingService& caches = CachingService::getInstance();
 //	caches.clear();
@@ -810,4 +803,3 @@ TEST(Sailors, Select) {
 //
 //	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 //}
-

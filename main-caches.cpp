@@ -57,11 +57,6 @@ void materializer();
 /* Use it to cross-compare with materializer */
 void selectionJSONFlat();
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
 
 int main() {
 
@@ -199,7 +194,7 @@ void expressionMapVertical() {
 }
 
 void joinQueryRelationalRadixCache() {
-	RawContext ctx = prepareContext("testFunction-RadixJoinCSV");
+	RawContext& ctx = *prepareContext("testFunction-RadixJoinCSV");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -361,7 +356,7 @@ void joinQueryRelationalRadixCache() {
 
 void materializer()
 {
-	RawContext ctx = prepareContext("materializer");
+	RawContext& ctx = *prepareContext("materializer");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/jsmn-flat.json");
@@ -437,7 +432,7 @@ void materializer()
 
 void selectionJSONFlat()
 {
-	RawContext ctx = prepareContext("testFunction-SelectJSON-flat");
+	RawContext& ctx = *prepareContext("testFunction-SelectJSON-flat");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	string fname = string("inputs/json/jsmn-flat.json");

@@ -54,12 +54,6 @@ void tpchMatJSON(map<string,dataset> datasetCatalog, int predicate, int aggregat
 
 /* FIXME Need a case featuring Unnest too */
 
-//RawContext prepareContext(string moduleName)	{
-//	RawContext ctx = RawContext(moduleName);
-//	registerFunctions(ctx);
-//	return ctx;
-//}
-
 
 int main()	{
 
@@ -160,7 +154,7 @@ void tpchMatCSV(map<string, dataset> datasetCatalog, int predicate, int aggregat
 	if (aggregatesNo <= 0 || aggregatesNo > 4) {
 		throw runtime_error(string("Invalid aggregate no. requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-projection3");
+	RawContext& ctx = *prepareContext("tpch-csv-projection3");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");
@@ -311,7 +305,7 @@ void tpchMatJSON(map<string, dataset> datasetCatalog, int predicate, int aggrega
 	if(aggregatesNo < 1 || aggregatesNo > 4)	{
 		throw runtime_error(string("Invalid no. of aggregates requested: "));
 	}
-	RawContext ctx = prepareContext("tpch-csv-selection1");
+	RawContext& ctx = *prepareContext("tpch-csv-selection1");
 	RawCatalog& rawCatalog = RawCatalog::getInstance();
 
 	string nameLineitem = string("lineitem");

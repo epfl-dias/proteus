@@ -43,8 +43,7 @@
 
 TEST(CSV, ScanCsvPM) {
 
-	RawContext ctx = RawContext("ScanCsvPM");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("ScanCsvPM");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -97,8 +96,7 @@ TEST(CSV, ScanCsvPM) {
 }
 
 TEST(CSV, ScanCsvWideBuildPM) {
-	RawContext ctx = RawContext("ScanCsvWidePM");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("ScanCsvWidePM");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -166,8 +164,7 @@ TEST(CSV, ScanCsvWideBuildPM) {
 }
 
 void scanCsvWideUsePM_(size_t *newline, short **offsets) {
-	RawContext ctx = RawContext("ScanCsvWideUsePM");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("ScanCsvWideUsePM");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -235,8 +232,7 @@ void scanCsvWideUsePM_(size_t *newline, short **offsets) {
 }
 
 TEST(CSV, scanCsvWideUsePM) {
-	RawContext ctx = RawContext("ScanCsvWideBuildPM");
-	registerFunctions(ctx);
+	RawContext& ctx = *prepareContext("ScanCsvWideBuildPM");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
@@ -309,9 +305,7 @@ TEST(CSV, scanCsvWideUsePM) {
 }
 
 TEST(CSV, atoiCSV) {
-	RawContext ctx = RawContext("AtoiCSV");
-	registerFunctions(ctx);
-
+	RawContext& ctx = *prepareContext("AtoiCSV");
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	/**
