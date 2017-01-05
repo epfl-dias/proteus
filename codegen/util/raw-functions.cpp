@@ -704,8 +704,8 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 
 	string error_msg = string("No newline found");
 	LOG(ERROR)<< error_msg;
-#endif
-#ifndef __AVX2__
+	throw runtime_error(error_msg);
+#else
 	//cout << "Careful: Non-AVX parsing" << endl;
 	int i = 0;
 	while(target[i] != nl && i < targetLength)	{
