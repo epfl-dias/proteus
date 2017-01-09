@@ -445,7 +445,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 	 *
 	 * Lots of repetition..
 	 */
-	RawOperator *lastSelectOp;
+	RawOperator *lastSelectOp =  nullptr;
 	list<RecordAttribute> argProjections;
 	if (predicatesNo == 1) {
 		argProjections.push_back(*orderkey);
@@ -632,7 +632,7 @@ void tpchOrderSelection1CachingPred(map<string,dataset> datasetCatalog, vector<i
 	rawCatalog.registerPlugin(fname, pg);
 	Scan *scan = new Scan(&ctx, *pg);
 
-	expressions::Expression *arg;
+	expressions::Expression *arg = nullptr;
 	list<RecordAttribute> argProjections;
 	if (predicatesNo == 1) {
 		argProjections.push_back(*orderkey);
@@ -673,7 +673,7 @@ void tpchOrderSelection1CachingPred(map<string,dataset> datasetCatalog, vector<i
 	 *
 	 * Lots of repetition..
 	 */
-	RawOperator *lastSelectOp;
+	RawOperator *lastSelectOp = nullptr;
 
 	if (predicatesNo == 1) {
 
@@ -840,7 +840,7 @@ void tpchOrderSelection1CachingFloats(map<string,dataset> datasetCatalog, vector
 	rawCatalog.registerPlugin(fname, pg);
 	Scan *scan = new Scan(&ctx, *pg);
 
-	expressions::Expression *arg;
+	expressions::Expression *arg = nullptr;
 	list<RecordAttribute> argProjections;
 	if (predicatesNo == 1) {
 		argProjections.push_back(*orderkey);
@@ -893,7 +893,7 @@ void tpchOrderSelection1CachingFloats(map<string,dataset> datasetCatalog, vector
 	 *
 	 * Lots of repetition..
 	 */
-	RawOperator *lastSelectOp;
+	RawOperator *lastSelectOp = nullptr;
 
 	if (predicatesNo == 1) {
 
@@ -1060,7 +1060,7 @@ void tpchOrderSelection1CachingPredFloats(map<string,dataset> datasetCatalog, ve
 	rawCatalog.registerPlugin(fname, pg);
 	Scan *scan = new Scan(&ctx, *pg);
 
-	expressions::Expression *arg;
+	expressions::Expression *arg = nullptr;
 	list<RecordAttribute> argProjections;
 	if (predicatesNo == 1) {
 		argProjections.push_back(*orderkey);
@@ -1125,7 +1125,7 @@ void tpchOrderSelection1CachingPredFloats(map<string,dataset> datasetCatalog, ve
 	 *
 	 * Lots of repetition..
 	 */
-	RawOperator *lastSelectOp;
+	RawOperator *lastSelectOp = nullptr;
 
 	if (predicatesNo == 1) {
 

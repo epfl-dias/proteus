@@ -166,7 +166,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 	 *
 	 * Lots of repetition..
 	 */
-	RawOperator *lastSelectOp;
+	RawOperator *lastSelectOp = nullptr;
 	list<RecordAttribute> argProjections;
 	if (predicatesNo == 1) {
 		argProjections.push_back(*orderkey);

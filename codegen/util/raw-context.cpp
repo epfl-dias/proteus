@@ -164,7 +164,7 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, int size) {
 	// Cast src/dst to int8_t*.  If they already are, this will get optimized away
 	//  DCHECK(PointerType::classof(dst->getType()));
 	//  DCHECK(PointerType::classof(src->getType()));
-	llvm::PointerType* ptr_type;
+	llvm::PointerType* ptr_type = nullptr;
 
 	Value* false_value_ = ConstantInt::get(ctx,
 			APInt(1, false, true));

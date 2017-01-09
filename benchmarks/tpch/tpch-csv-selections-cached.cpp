@@ -225,7 +225,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 	 *
 	 * Lots of repetition..
 	 */
-	RawOperator *lastSelectOp;
+	RawOperator *lastSelectOp = nullptr;
 	list<RecordAttribute> argProjections;
 	if (predicatesNo == 1) {
 		argProjections.push_back(*l_orderkey);
@@ -427,7 +427,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 	rawCatalog.registerPlugin(fname, pg);
 	Scan *scan = new Scan(&ctx, *pg);
 
-	expressions::Expression *arg;
+	expressions::Expression *arg = nullptr;
 	list<RecordAttribute> argProjections;
 	if (predicatesNo == 1) {
 		argProjections.push_back(*l_orderkey);
@@ -467,7 +467,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 	 *
 	 * Lots of repetition..
 	 */
-	RawOperator *lastSelectOp;
+	RawOperator *lastSelectOp = nullptr;
 
 	if (predicatesNo == 1) {
 
@@ -650,7 +650,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 	rawCatalog.registerPlugin(fname, pg);
 	Scan *scan = new Scan(&ctx, *pg);
 
-	expressions::Expression *arg;
+	expressions::Expression *arg = nullptr;
 		list<RecordAttribute> argProjections;
 		if (predicatesNo == 1) {
 			argProjections.push_back(*l_orderkey);
@@ -703,7 +703,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 		 *
 		 * Lots of repetition..
 		 */
-		RawOperator *lastSelectOp;
+		RawOperator *lastSelectOp = nullptr;
 
 	if (predicatesNo == 1) {
 
@@ -886,7 +886,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 	rawCatalog.registerPlugin(fname, pg);
 	Scan *scan = new Scan(&ctx, *pg);
 
-	expressions::Expression *arg;
+	expressions::Expression *arg = nullptr;
 	list<RecordAttribute> argProjections;
 	if (predicatesNo == 1) {
 		argProjections.push_back(*l_orderkey);
@@ -950,7 +950,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 	 *
 	 * Lots of repetition..
 	 */
-	RawOperator *lastSelectOp;
+	RawOperator *lastSelectOp = nullptr;
 
 	if (predicatesNo == 1) {
 
