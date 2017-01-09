@@ -13,5 +13,12 @@ file(GLOB codegen_src
 	plan/*.cpp
 	postgres/*.cpp
     )
-add_library(codegen ${codegen_src})
-set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CPPFLAGS})
+add_library(codegen SHARED ${codegen_src})
+set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
+target_link_libraries(codegen jsmn)
+
+install(TARGETS codegen
+	RUNTIME DESTINATION bin
+	LIBRARY DESTINATION lib
+	ARCHIVE DESTINATION lib
+    )
