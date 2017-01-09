@@ -47,7 +47,7 @@ public:
 			const OperatorState& childState);
 	virtual bool isFiltering() const {return true;}
 private:
-	RawContext* context;
+	RawContext* __attribute__((unused)) context;
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> outputExprs;

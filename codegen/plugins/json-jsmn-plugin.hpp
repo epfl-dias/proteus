@@ -137,7 +137,7 @@ private:
 	RawContext* const context;
 
 	//Assumption (1) applies here
-	ExpressionType* schema;
+	ExpressionType* __attribute__((unused)) schema;
 	jsmntok_t *tokens;
 
 	//Cannot implement such a function. Arrays have non-fixed number of values.

@@ -96,7 +96,7 @@ public:
 	PlanExecutor(const char *planPath, CatalogParser& cat, const char *moduleName = "llvmModule");
 private:
 	ExpressionParser exprParser;
-	const char *planPath;
+	const char * __attribute__((unused)) planPath;
 	const char *moduleName;
 	CatalogParser& catalogParser;
 	vector<Plugin*> activePlugins;

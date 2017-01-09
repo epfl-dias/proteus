@@ -40,7 +40,7 @@ void RawContext::createJITEngine() {
 	}
 }
 
-static void addOptimizerPipelineDefault(legacy::FunctionPassManager * TheFPM) {
+static void __attribute__((unused)) addOptimizerPipelineDefault(legacy::FunctionPassManager * TheFPM) {
 	//Provide basic AliasAnalysis support for GVN.
 	TheFPM->add(createBasicAAWrapperPass());
 	// Promote allocas to registers.
@@ -57,13 +57,13 @@ static void addOptimizerPipelineDefault(legacy::FunctionPassManager * TheFPM) {
 	TheFPM->add(createAggressiveDCEPass());
 }
 
-static void addOptimizerPipelineInlining(legacy::FunctionPassManager * TheFPM) {
+static void __attribute__((unused)) addOptimizerPipelineInlining(legacy::FunctionPassManager * TheFPM) {
 	/* Inlining: Not sure it works */
 	TheFPM->add(createFunctionInliningPass());
 	TheFPM->add(createAlwaysInlinerPass());
 }
 
-static void addOptimizerPipelineVectorization(legacy::FunctionPassManager * TheFPM) {
+static void __attribute__((unused)) addOptimizerPipelineVectorization(legacy::FunctionPassManager * TheFPM) {
 	/* Vectorization */
 	TheFPM->add(createBBVectorizePass());
 	TheFPM->add(createLoopVectorizePass());

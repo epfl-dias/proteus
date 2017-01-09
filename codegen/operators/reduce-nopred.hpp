@@ -50,7 +50,7 @@ public:
 			const OperatorState& childState);
 	virtual bool isFiltering() const {return getChild()->isFiltering();}
 private:
-	RawContext* context;
+	RawContext* __attribute__((unused)) context;
 
 	Monoid acc;
 	expressions::Expression* outputExpr;

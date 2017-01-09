@@ -158,8 +158,8 @@ private:
 
 	const char* posVar;		// = "offset";
 	const char* bufVar;		// = "fileBuffer";
-	const char* fsizeVar;	// = "fileSize";
-	const char* sizeVar;	// = "size";
+	const char* __attribute__((unused)) fsizeVar;	// = "fileSize";
+	const char* __attribute__((unused)) sizeVar;	// = "size";
 	const char* itemCtrVar; // = "itemCtr";
 
 	//Used to generate code

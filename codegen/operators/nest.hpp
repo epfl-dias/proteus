@@ -72,7 +72,7 @@ private:
 	expressions::Expression* outputExpr;
 	expressions::Expression* pred;
 	expressions::Expression* f_grouping;
-	const list<expressions::InputArgument>& g_nullToZero;
+	const list<expressions::InputArgument>& __attribute__((unused)) g_nullToZero;
 
 	//Check TODO on naming above
 	string aggregateName;

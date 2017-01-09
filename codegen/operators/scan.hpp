@@ -40,7 +40,7 @@ public:
 	virtual void consume(RawContext* const context, const OperatorState& childState);
 	virtual bool isFiltering() const {return false;}
 private:
-	RawContext* const context;
+	RawContext* const __attribute__((unused)) context;
 	Plugin& pg;
 };
 

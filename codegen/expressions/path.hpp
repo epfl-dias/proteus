@@ -31,7 +31,7 @@
 class Path	{
 public:
 	Path(string nestedName, expressions::RecordProjection* desugarizedPath) :
-			desugarizedPath(desugarizedPath), nestedName(nestedName), mem_currentChild(NULL), val_parentColl(
+			desugarizedPath(desugarizedPath), nestedName(nestedName), val_parentColl(
 					NULL) {
 		RawCatalog& catalog = RawCatalog::getInstance();
 		string originalRelation = desugarizedPath->getOriginalRelationName();
@@ -45,7 +45,6 @@ public:
 	string toString();
 private:
 	expressions::RecordProjection* const desugarizedPath;
-	const AllocaInst* mem_currentChild;
 	const Value* val_parentColl;
 	string nestedName;
 	Plugin* pg;

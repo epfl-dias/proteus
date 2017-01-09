@@ -185,7 +185,7 @@ private:
 	RawContext* const context;
 
 	//Assumption (1) applies here
-	ExpressionType* schema;
+	ExpressionType* __attribute__((unused)) schema;
 
 	/* Remember: token != OID */
 	StructType *getOIDLLVMType()	{

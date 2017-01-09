@@ -79,7 +79,7 @@ private:
 	vector<expressions::Expression*> outputExprs;
 	expressions::Expression* pred;
 	expressions::Expression* f_grouping;
-	const list<expressions::InputArgument>& g_nullToZero;
+	const list<expressions::InputArgument>& __attribute__((unused)) g_nullToZero;
 
 	vector<string> aggregateLabels;
 

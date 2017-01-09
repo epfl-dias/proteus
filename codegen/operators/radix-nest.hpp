@@ -125,13 +125,13 @@ private:
 	vector<expressions::Expression*> outputExprs;
 	expressions::Expression* pred;
 	expressions::Expression* f_grouping;
-	expressions::Expression* g_nullToZero;
+	expressions::Expression* __attribute__((unused)) g_nullToZero;
 
 	vector<string> aggregateLabels;
 
 	const char *htName;
 	Materializer& mat;
-	RawContext* context;
+	RawContext* __attribute__((unused)) context;
 
 	/**
 	 * Relevant to radix-based HT
