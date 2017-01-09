@@ -63,7 +63,7 @@ extern "C" void** probeHT(char* HTname, size_t key);
 
 extern "C" HashtableBucketMetadata* getMetadataHT(char* HTname);
 
-extern "C" int compareTokenString(const char* buf, int start, int end,
+extern "C" int compareTokenString(const char* buf, size_t start, size_t end,
 		const char* candidate);
 
 extern "C" int compareTokenString64(const char* buf, size_t start, size_t end,

@@ -317,7 +317,7 @@ int *partitionHT(size_t num_tuples, joins::tuple_t *inTuples)	{
 	int * count_per_cluster = (int*) calloc((1 << NUM_RADIX_BITS), sizeof(int));
 
 	/* compute number of tuples per cluster */
-	for (int i = 0; i < num_tuples; i++) {
+	for (size_t i = 0; i < num_tuples; i++) {
 		uint32_t idx = (inTuples[i].key) & ((1 << NUM_RADIX_BITS) - 1);
 		count_per_cluster[idx]++;
 	}
@@ -411,7 +411,7 @@ RJStepwise(joins::relation_t * relR, joins::relation_t * relS)
 			/* Memory Manager: Take care of HT* demands */
 			bucket_chaining_join_prepare(&tmpR, &(HT_per_cluster[i]));
 
-			for (int j = 0; j < tmpS.num_tuples; j++)
+			for (size_t j = 0; j < tmpS.num_tuples; j++)
 			{
 				result += bucket_chaining_join_probe(&tmpR,
 						&(HT_per_cluster[i]), &(tmpS.tuples[j]));

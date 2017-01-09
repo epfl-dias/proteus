@@ -272,7 +272,7 @@ bool equalStrings(char *str1, char *str2)	{
 	return strcmp(str1,str2) == 0;
 }
 
-int compareTokenString(const char* buf, int start, int end, const char* candidate)	{
+int compareTokenString(const char* buf, size_t start, size_t end, const char* candidate)	{
 //	cout << "Candidate?? " << candidate << endl;
 //	cout << "Buf?" << start << " " << end << endl;
 	return (strncmp(buf + start, candidate, end - start) == 0 \
@@ -707,7 +707,7 @@ size_t newlineAVX(const char* const target, size_t targetLength) {
 	throw runtime_error(error_msg);
 #else
 	//cout << "Careful: Non-AVX parsing" << endl;
-	int i = 0;
+	size_t i = 0;
 	while(target[i] != nl && i < targetLength)	{
 		i++;
 	}

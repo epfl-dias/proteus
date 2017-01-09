@@ -242,7 +242,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 			}
 			jsmntok_t *tokenBuf_ = (jsmntok_t *) pmraw;
 
-			for (int i = 0; i < lines; i++) {
+			for (size_t i = 0; i < lines; i++) {
 				tokens[i] = (tokenBuf_ + i * MAXTOKENS);
 			}
 			mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
@@ -281,7 +281,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 			newLines = (size_t*) malloc(lines * sizeof(size_t));
 
 #if defined(JSON_TPCH_WIDE) || defined(JSON_SYMANTEC_WIDE)
-			for (int i = 0; i < lines; i++) {
+			for (size_t i = 0; i < lines; i++) {
 //				tokens[i] = (jsmntok_t*) malloc(MAXTOKENS * sizeof(jsmntok_t));
 				tokens[i] = new jsmntok_t[MAXTOKENS];
 			}
@@ -462,7 +462,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 			}
 			jsmntok_t *tokenBuf_ = (jsmntok_t *) pmraw;
 
-			for (int i = 0; i < lines; i++) {
+			for (size_t i = 0; i < lines; i++) {
 				tokens[i] = (tokenBuf_ + i * MAXTOKENS);
 			}
 			mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
@@ -502,7 +502,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 			newLines = (size_t*) malloc(lines * sizeof(size_t));
 
 #if defined(JSON_TPCH_WIDE) || defined(JSON_SYMANTEC_WIDE)
-			for (int i = 0; i < lines; i++) {
+			for (size_t i = 0; i < lines; i++) {
 //				tokens[i] = (jsmntok_t*) malloc(MAXTOKENS * sizeof(jsmntok_t));
 				tokens[i] = new jsmntok_t[MAXTOKENS];
 			}

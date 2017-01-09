@@ -1029,7 +1029,7 @@ void Nest::buildHT(RawContext* context, const OperatorState& childState) {
 		const vector<RecordAttribute*>& fields = mat.getWantedFields();
 		/* Note: wantedFields do not include activeTuple */
 		vector<RecordAttribute*>::const_iterator itRec = fields.begin();
-		int fieldNo = 0;
+		size_t fieldNo = 0;
 		CacheInfo info;
 		const vector<RecordAttribute*>& oids = mat.getWantedOIDs();
 		vector<RecordAttribute*>::const_iterator itOids = oids.begin();
@@ -2264,16 +2264,3 @@ AllocaInst* Nest::resetAccumulator(expressions::Expression* outputExpr, Monoid a
 }
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

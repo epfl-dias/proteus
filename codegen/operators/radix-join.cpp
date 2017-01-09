@@ -381,7 +381,7 @@ void RadixJoin::placeInCache(Materializer &mat, bool isLeft) const {
 	const vector<RecordAttribute*>& fields = mat.getWantedFields();
 	/* Note: wantedFields do not include activeTuple */
 	vector<RecordAttribute*>::const_iterator itRec = fields.begin();
-	int fieldNo = 0;
+	size_t fieldNo = 0;
 	CacheInfo info;
 	const vector<RecordAttribute*>& oids = mat.getWantedOIDs();
 	//const set<RecordAttribute>& oids = mat.getTupleIdentifiers();
@@ -2132,6 +2132,3 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 		}
 	}
 };
-
-
-

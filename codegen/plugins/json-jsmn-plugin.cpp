@@ -35,7 +35,7 @@ namespace jsmn
 
 #define TOKEN_STRING(js, t, s) \
 	(strncmp(js+(t).start, s, (t).end - (t).start) == 0 \
-	 && strlen(s) == (t).end - (t).start)
+	 && strlen(s) == (size_t)((t).end - (t).start))
 
 JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 		ExpressionType* schema) :
