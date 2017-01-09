@@ -600,7 +600,6 @@ void flushChar(char whichChar, char* fileName)	{
 }
 
 void flushDelim(size_t resultCtr, char whichDelim, char* fileName) {
-	RawCatalog& catalog = RawCatalog::getInstance();
 	if (likely(resultCtr > 0)) {
 		flushChar(whichDelim, fileName);
 	}
@@ -1148,6 +1147,7 @@ static void registerFunctions(RawContext * context)	{
 	Function *hashCombineNoOrder_ = Function::Create(FThashCombine,
 			Function::ExternalLinkage, "combineHashesNoOrder", TheModule);
 
+#if 0
 	/**
 	 * Debug (TMP)
 	 */
@@ -1156,6 +1156,7 @@ static void registerFunctions(RawContext * context)	{
 	FunctionType *FTdebug = FunctionType::get(void_type, ArgsDebug, false);
 	Function *debug_ = Function::Create(FTdebug, Function::ExternalLinkage,
 				"debug", TheModule);
+#endif
 
 	/**
 	* Flushing

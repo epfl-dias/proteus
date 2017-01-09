@@ -116,7 +116,6 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 
 	Function *hashCombine = context->getFunction("combineHashes");
 	Value* hashedValue = context->createInt64(0);
-	Function* debugInt = context->getFunction("printi");
 	vector<Value*> ArgsV;
 
 	const map<RecordAttribute, RawValueMemory>& activeVars =
@@ -180,8 +179,6 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 
 RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 	RawCatalog& catalog 			= RawCatalog::getInstance();
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	Function* const F = context->getGlobalFunction();
 	activeRelation 					= e->getOriginalRelationName();
 
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
@@ -270,7 +267,6 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::IfThenElse *e) {
-	RawCatalog& catalog 			= RawCatalog::getInstance();
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	LLVMContext& llvmContext		= context->getLLVMContext();
 	Function *F 					= TheBuilder->GetInsertBlock()->getParent();
@@ -735,13 +731,9 @@ RawValue ExpressionHasherVisitor::visit(expressions::DivExpression *e) {
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::RecordConstruction *e) {
-
-	RawCatalog& catalog = RawCatalog::getInstance();
 	Function* const F = context->getGlobalFunction();
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 	Type* int64Type = Type::getInt64Ty(context->getLLVMContext());
-	AllocaInst* argMem = NULL;
-	Value* isNull = NULL;
 
 	Function *hashCombine = context->getFunction("combineHashes");
 	Value* hashedValue = context->createInt64(0);
@@ -762,7 +754,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordConstruction *e) {
 		ArgsV.push_back(hashedValue);
 		ArgsV.push_back(partialHash.value);
 		hashedValue = TheBuilder->CreateCall(hashCombine, ArgsV,
-											"combineHashesRes");
+			"combineHashesRes");
 		TheBuilder->CreateStore(hashedValue, mem_hashedValue);
 	}
 
@@ -771,30 +763,3 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordConstruction *e) {
 	hashValWrapper.isNull = context->createFalse();
 	return hashValWrapper;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -175,7 +175,7 @@ radix_cluster_nopadding(joins::tuple_t * outTuples, joins::tuple_t * inTuples, s
     }
 
     input = inTuples;
-    int cnt = 0;
+    // int cnt = 0;
     /* copy tuples to their corresponding clusters at appropriate offsets */
     for( i=0; i < ntuples; i++ ){
     	uint32_t idx   = (uint32_t)(HASH_BIT_MODULO(input->key, M, R));
@@ -223,7 +223,6 @@ radix_cluster_nopadding(joins::tuple_t * outTuples, joins::tuple_t * inTuples, s
 void bucket_chaining_join_prepare(const joins::relation_t * const R, HT * ht)	{
     const uint32_t numR = R->num_tuples;
     uint32_t N = numR;
-    int64_t matches = 0;
 
     NEXT_POW_2(N);
     /* N <<= 1; */
@@ -232,7 +231,6 @@ void bucket_chaining_join_prepare(const joins::relation_t * const R, HT * ht)	{
     ht->next   = (int*) malloc(sizeof(int) * numR);
     ht->bucket = (int*) calloc(N, sizeof(int));
 
-    const joins::tuple_t * const Rtuples = R->tuples;
     for(uint32_t i=0; i < numR; ){
         uint32_t idx = HASH_BIT_MODULO(R->tuples[i].key, MASK, NUM_RADIX_BITS);
         (ht->next)[i]      = (ht->bucket)[idx];
@@ -244,7 +242,6 @@ void bucket_chaining_join_prepare(const joins::relation_t * const R, HT * ht)	{
 void bucket_chaining_join_prepare(const joins::tuple_t * const tuplesR, int num_tuples, HT * ht)	{
     const uint32_t numR = num_tuples;
     uint32_t N = numR;
-    int64_t matches = 0;
 
     NEXT_POW_2(N);
     /* N <<= 1; */
@@ -253,7 +250,6 @@ void bucket_chaining_join_prepare(const joins::tuple_t * const tuplesR, int num_
     ht->next   = (int*) malloc(sizeof(int) * numR);
     ht->bucket = (int*) calloc(N, sizeof(int));
     //cout << "[PREPARING]: " << endl;
-    const joins::tuple_t * const Rtuples = tuplesR;
     for(uint32_t i=0; i < numR; ){
         uint32_t idx = HASH_BIT_MODULO(tuplesR[i].key, MASK, NUM_RADIX_BITS);
         //cout << "[K]: " << tuplesR[i].key << " [V]: " << tuplesR[i].payload << endl;

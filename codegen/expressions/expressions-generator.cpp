@@ -260,8 +260,6 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::RecordConstruction *e) {
-
-	RawCatalog& catalog 	   = RawCatalog::getInstance();
 	IRBuilder<>* const Builder = context->getBuilder();
 	Function *F 			   = Builder->GetInsertBlock()->getParent();
 
@@ -405,7 +403,6 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordConstruction *e) {
 //}
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
-	RawCatalog& catalog 			= RawCatalog::getInstance();
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	LLVMContext& llvmContext		= context->getLLVMContext();
 	Function *F 					= TheBuilder->GetInsertBlock()->getParent();
@@ -455,7 +452,6 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Function *F = TheBuilder->GetInsertBlock()->getParent();
 
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
@@ -587,10 +583,6 @@ int mystrncmp(const char *s1, const char *s2, size_t n)
 
 
 void ExpressionGeneratorVisitor::declareLLVMFunc() {
-
-	IRBuilder<>* Builder = context->getBuilder();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	Function *F = Builder->GetInsertBlock()->getParent();
 	Module *mod = context->getModule();
 
 	// Type Definitions
@@ -608,8 +600,6 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
 	/*Result=*/IntegerType::get(mod->getContext(), 32),
 	/*Params=*/FuncTy_0_args,
 	/*isVarArg=*/false);
-
-	PointerType* PointerTy_2 = PointerType::get(IntegerTy_2, 0);
 
 	//Function Declarations
 	Function* func_mystrncmpllvm = mod->getFunction("mystrncmpllvm");

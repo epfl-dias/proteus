@@ -27,7 +27,7 @@
 /**
  * Allocates a fresh unused token from the token pool.
  */
-static jsmntok_t *jsmn_alloc_token(jsmn_parser *parser, 
+static jsmntok_t *jsmn_alloc_token(jsmn_parser *parser,
 		jsmntok_t **tokens, size_t *num_tokens) {
 	jsmntok_t *tok;
 	if (parser->toknext >= *num_tokens) {
@@ -41,8 +41,8 @@ static jsmntok_t *jsmn_alloc_token(jsmn_parser *parser,
 
 		//printf("check: %d\n",tokens[0][0].end);
 		size_t oldSize = oldTokenNo * sizeof(jsmntok_t);
-		size_t newSize = newTokenNo * sizeof(jsmntok_t);
 #ifdef DEBUGJSMN
+		size_t newSize = newTokenNo * sizeof(jsmntok_t);
 		{
 			printf("New size: %ld %ld\n", newTokenNo, newSize);
 		}
@@ -86,7 +86,7 @@ static jsmntok_t *jsmn_alloc_token(jsmn_parser *parser,
 /**
  * Fills token type and boundaries.
  */
-static void jsmn_fill_token(jsmntok_t *token, jsmntype_t type, 
+static void jsmn_fill_token(jsmntok_t *token, jsmntype_t type,
                             int start, int end) {
 	token->type = type;
 	token->start = start;
@@ -419,7 +419,7 @@ jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 }
 
 /**
- * Creates a new parser based over a given  buffer with an array of tokens 
+ * Creates a new parser based over a given  buffer with an array of tokens
  * available.
  */
 void jsmn_init(jsmn_parser *parser) {
@@ -427,4 +427,3 @@ void jsmn_init(jsmn_parser *parser) {
 	parser->toknext = 0;
 	parser->toksuper = -1;
 }
-

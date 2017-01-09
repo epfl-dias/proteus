@@ -11,7 +11,6 @@
 void atoi1(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32Type = Type::getInt32Ty(llvmContext);
-	Type* int8Type = Type::getInt8Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 
 	ConstantInt *char_0 =
@@ -38,7 +37,6 @@ void atoi1(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 void atoi2(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32Type = Type::getInt32Ty(llvmContext);
-	Type* int8Type = Type::getInt8Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 
 	ConstantInt *char_0 =
@@ -80,7 +78,6 @@ void atoi2(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 void atoi3(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32Type = Type::getInt32Ty(llvmContext);
-	Type* int8Type = Type::getInt8Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 
 	ConstantInt *char_0 = ConstantInt::get(llvmContext,
@@ -131,7 +128,6 @@ void atoi3(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 void atoi4(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32Type = Type::getInt32Ty(llvmContext);
-	Type* int8Type = Type::getInt8Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 
 	ConstantInt *char_0 = ConstantInt::get(llvmContext,
@@ -191,7 +187,6 @@ void atoi4(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 void atoi5(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32Type = Type::getInt32Ty(llvmContext);
-	Type* int8Type = Type::getInt8Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 
 	ConstantInt *char_0 = ConstantInt::get(llvmContext,
@@ -260,7 +255,6 @@ void atoi5(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 void atoi6(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32Type = Type::getInt32Ty(llvmContext);
-	Type* int8Type = Type::getInt8Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 
 	ConstantInt *char_0 = ConstantInt::get(llvmContext,
@@ -338,7 +332,6 @@ void atoi6(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 void atoi7(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32Type = Type::getInt32Ty(llvmContext);
-	Type* int8Type = Type::getInt8Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 
 	ConstantInt *char_0 = ConstantInt::get(llvmContext,
@@ -425,7 +418,6 @@ void atoi7(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 void atoi8(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32Type = Type::getInt32Ty(llvmContext);
-	Type* int8Type = Type::getInt8Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 
 	ConstantInt *char_0 = ConstantInt::get(llvmContext,
@@ -521,7 +513,6 @@ void atoi8(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 void atoi9(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32Type = Type::getInt32Ty(llvmContext);
-	Type* int8Type = Type::getInt8Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 
 	ConstantInt *char_0 = ConstantInt::get(llvmContext,
@@ -626,7 +617,6 @@ void atoi9(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 void atoi10(Value *buf, AllocaInst *mem_result, RawContext* const context) {
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* int32Type = Type::getInt32Ty(llvmContext);
-	Type* int8Type = Type::getInt8Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
 
 	ConstantInt *char_0 = ConstantInt::get(llvmContext,

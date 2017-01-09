@@ -184,7 +184,6 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, int size) {
 	// The fourth argument is the alignment.  For non-zero values, the caller
 	// must guarantee that the src and dst values are aligned to that byte boundary.
 	// TODO: We should try to take advantage of this since our tuples are well aligned.
-	Type* intType = Type::getInt32Ty(ctx);
 	Value* args[] = { dst, src, size_, zero, false_value_  // is_volatile.
 			};
 	getBuilder()->CreateCall(memcpy_fn, args);
@@ -195,8 +194,6 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, Value* size) {
 	// Cast src/dst to int8_t*.  If they already are, this will get optimized away
 	//  DCHECK(PointerType::classof(dst->getType()));
 	//  DCHECK(PointerType::classof(src->getType()));
-	llvm::PointerType* ptr_type;
-
 	Value* false_value_ = ConstantInt::get(ctx,
 			APInt(1, false, true));
 
@@ -217,7 +214,6 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, Value* size) {
 	// The fourth argument is the alignment.  For non-zero values, the caller
 	// must guarantee that the src and dst values are aligned to that byte boundary.
 	// TODO: We should try to take advantage of this since our tuples are well aligned.
-	Type* intType = Type::getInt32Ty(ctx);
 	Value* args[] = { dst, src, size, zero, false_value_  // is_volatile.
 			};
 	getBuilder()->CreateCall(memcpy_fn, args);
@@ -466,18 +462,17 @@ PointerType* RawContext::CreateJSMNStructPtr()	{
 
 StructType* RawContext::CreateJSMNStruct() {
 	LLVMContext& ctx = getLLVMContext();
-	llvm::Type* int32_type = Type::getInt32Ty(ctx);
-	llvm::Type* int8_type = Type::getInt8Ty(ctx);
-	llvm::Type* int16_type = Type::getInt16Ty(ctx);
-#ifndef JSON_TIGHT
 	vector<Type*> jsmn_pos_types;
+#ifndef JSON_TIGHT
+	llvm::Type* int32_type = Type::getInt32Ty(ctx);
 	jsmn_pos_types.push_back(int32_type);
 	jsmn_pos_types.push_back(int32_type);
 	jsmn_pos_types.push_back(int32_type);
 	jsmn_pos_types.push_back(int32_type);
 #endif
 #ifdef JSON_TIGHT
-	vector<Type*> jsmn_pos_types;
+	llvm::Type* int16_type = Type::getInt16Ty(ctx);
+	llvm::Type* int8_type = Type::getInt8Ty(ctx);
 	jsmn_pos_types.push_back(int8_type);
 	jsmn_pos_types.push_back(int16_type);
 	jsmn_pos_types.push_back(int16_type);
