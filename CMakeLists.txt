@@ -6,8 +6,16 @@ project(raw)
 
 # Make sure the libraries are found...
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
+
+# Build with the install RPATH already
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-#set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+# Set the installation path of the libraries
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+
+# add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 #-----------------------------------------------------------------------
 # various dependencies (e.g., glog) may not be available through repos,
