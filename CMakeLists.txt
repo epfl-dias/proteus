@@ -109,6 +109,9 @@ foreach(target
 		)
 endforeach(target)
 
+# Get rawmain to compile even if there are expected tautological comparisons
+set_target_properties(rawmain PROPERTIES COMPILE_FLAGS "${LLVM_CXXFLAGS} -Wno-tautological-compare")
+
 add_executable(plan-parsing plan-parsing.cpp)
 set_target_properties(plan-parsing PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
 target_link_libraries(plan-parsing ${default_libs})
