@@ -15,11 +15,7 @@ class RawCatalog
 {
 public:
 
-	static RawCatalog& getInstance()
-	{
-		static RawCatalog instance;
-		return instance;
-	}
+	static RawCatalog& getInstance();
 
 	//TODO REPLACE ONCE REMOVED FROM JOIN
 	//TODO NEED a more elegant way to group hashtables together - array?
@@ -129,16 +125,16 @@ public:
 	}
 
 	void registerPlugin(string fileName, Plugin* pg)	{
-		map<string, Plugin*>::iterator it = plugins.find(fileName);
-		if(it != plugins.end())	{
+		map<string, Plugin*>::iterator it = this->plugins.find(fileName);
+		if(it != this->plugins.end())	{
 			LOG(WARNING) << "Catalog already contains the plugin of " << fileName;
 		}
-		plugins[fileName] = pg;
+		this->plugins[fileName] = pg;
 	}
 
 	Plugin* getPlugin(string fileName)	{
-		map<string, Plugin*>::iterator it = plugins.find(fileName);
-		if(it == plugins.end())	{
+		map<string, Plugin*>::iterator it = this->plugins.find(fileName);
+		if(it == this->plugins.end())	{
 			string error_msg = string("Catalog does not contain the plugin of ") + fileName;
 			LOG(ERROR) << error_msg;
 			throw runtime_error(error_msg);
@@ -192,7 +188,15 @@ public:
 		}
 	}
 
-	void clear();
+	void clear() {
+		htIdentifiers.clear();
+		//NOTE: Clear != Free()
+		intHashtables.clear();
+		jsonTypeCatalog.clear();
+		resultTypes.clear();
+		plugins.clear();
+		fprintf(stderr, "Catalog cleared!\n");
+	}
 
 private:
 	map<string,Plugin*> 					plugins;

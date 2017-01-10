@@ -23,11 +23,9 @@
 
 #include "util/raw-catalog.hpp"
 
-void RawCatalog::clear()	{
-	htIdentifiers.clear();
-	//NOTE: Clear != Free()
-	intHashtables.clear();
-	jsonTypeCatalog.clear();
-	resultTypes.clear();
-	plugins.clear();
+RawCatalog& RawCatalog::getInstance()
+{
+	static RawCatalog instance;
+	return instance;
 }
+
