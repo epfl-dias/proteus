@@ -1317,9 +1317,9 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 					ExpressionGeneratorVisitor(context, childState);
 			RawValue leftKey = leftKeyExpr->accept(exprGenerator);
 			Type* keyType = (leftKey.value)->getType();
-			//10: IntegerTyID
-			if (keyType->getTypeID() != 10) {
-				string error_msg = "Only INT32 keys considered atm";
+			// only 32bit integers keys are supported
+			if (!keyType->isIntegerTy(32)) {
+				string error_msg = "--A-- Only INT32 keys considered atm";
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			}
@@ -1488,9 +1488,9 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 					ExpressionGeneratorVisitor(context, childState);
 			RawValue leftKey = leftKeyExpr->accept(exprGenerator);
 			Type* keyType = (leftKey.value)->getType();
-			//10: IntegerTyID
-			if (keyType->getTypeID() != 10) {
-				string error_msg = "Only INT32 keys considered atm";
+			// only 32bit integers keys are supported
+			if (!keyType->isIntegerTy(32)) {
+				string error_msg = "--B-- Only INT32 keys considered atm";
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			}
@@ -1849,9 +1849,9 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 			RawValue rightKey = rightKeyExpr->accept(exprGenerator);
 			Type* keyType = (rightKey.value)->getType();
 
-			//10: IntegerTyID
-			if (keyType->getTypeID() != 10) {
-				string error_msg = "Only INT32 keys considered atm";
+			// only 32bit integers keys are supported
+			if (!keyType->isIntegerTy(32)) {
+				string error_msg = "--C-- Only INT32 keys considered atm";
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			}
@@ -2021,9 +2021,9 @@ void RadixJoin::consume(RawContext* const context, const OperatorState& childSta
 					ExpressionGeneratorVisitor(context, childState);
 			RawValue rightKey = rightKeyExpr->accept(exprGenerator);
 			Type* keyType = (rightKey.value)->getType();
-			//10: IntegerTyID
-			if (keyType->getTypeID() != 10) {
-				string error_msg = "Only INT32 keys considered atm";
+			// only 32bit integers keys are supported
+			if (!keyType->isIntegerTy(32)) {
+				string error_msg = "--D-- Only INT32 keys considered atm";
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			}
