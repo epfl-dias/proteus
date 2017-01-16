@@ -871,6 +871,7 @@ TEST(Output, JoinLeft3) {
 	pgReserves->finish();
 	pgBoats->finish();
 	catalog.clear();
+	caches.clear();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }

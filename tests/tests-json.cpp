@@ -442,6 +442,7 @@ TEST(JSON, reduceListObjectFlat) {
 
 	pg.finish();
 	catalog.clear();
+	caches.clear();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
