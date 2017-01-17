@@ -133,6 +133,7 @@ endif()
 
 # compile our unit-tests
 add_subdirectory(tests)
+add_subdirectory(tests-deprecated)
 
 #-----------------------------------------------------------------------
 # Copy data files too in the destination folder
