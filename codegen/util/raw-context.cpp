@@ -57,11 +57,14 @@ static void __attribute__((unused)) addOptimizerPipelineDefault(legacy::Function
 	TheFPM->add(createAggressiveDCEPass());
 }
 
-static void __attribute__((unused)) addOptimizerPipelineInlining(legacy::FunctionPassManager * TheFPM) {
+#if MODULEPASS
+static void __attribute__((unused)) addOptimizerPipelineInlining(ModulePassManager * TheMPM) {
 	/* Inlining: Not sure it works */
-	TheFPM->add(createFunctionInliningPass());
-	TheFPM->add(createAlwaysInlinerPass());
+	// LSC: FIXME: No add member to a ModulePassManager
+	TheMPM->add(createFunctionInliningPass());
+	TheMPM->add(createAlwaysInlinerPass());
 }
+#endif
 
 static void __attribute__((unused)) addOptimizerPipelineVectorization(legacy::FunctionPassManager * TheFPM) {
 	/* Vectorization */
@@ -77,15 +80,24 @@ RawContext::RawContext(const string& moduleName) {
 	TheExecutionEngine = nullptr;
 	TheFunction = nullptr;
 	codeEnd = nullptr;
-	//availableFunctions = map<string, Function*>();
 
-	/* OPTIMIZER PIPELINE */
-	//TheFPM = new FunctionPassManager(getModule());
+	/* OPTIMIZER PIPELINE, function passes */
 	TheFPM = new legacy::FunctionPassManager(getModule());
-
 	addOptimizerPipelineDefault(TheFPM);
-	//addOptimizerPipelineInlining(TheFPM);
+
+	//LSC: Seems to be faster without the vectorization, at least
+	//while running the unit-tests, but this might be because the
+	//datasets are too small.
 	//addOptimizerPipelineVectorization(TheFPM);
+	
+#if MODULEPASS
+	/* OPTIMIZER PIPELINE, module passes */
+	PassManagerBuilder pmb;
+	pmb.OptLevel=3;
+	TheMPM = new ModulePassManager();
+	pmb.populateModulePassManager(*TheMPM);
+	addOptimizerPipelineInlining(TheMPM);
+#endif
 
 	TheFPM->doInitialization();
 
@@ -125,6 +137,9 @@ void RawContext::prepareFunction(Function *F) {
 
 	// Optimize the function.
 	TheFPM->run(*F);
+#if MODULEPASS
+	TheMPM->runOnModule(getModule());
+#endif
 
 	// JIT the function, returning a function pointer.
 	TheExecutionEngine->finalizeObject();

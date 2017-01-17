@@ -41,7 +41,7 @@
 
 #include "llvm/IR/LegacyPassManager.h"
 
-#include <x86intrin.h>
+#define MODULEPASS 0
 
 //#ifdef DEBUG
 #define DEBUGCTX
@@ -166,6 +166,9 @@ private:
 
 	//Used to include optimization passes
 	legacy::FunctionPassManager * TheFPM;
+#if MODULEPASS
+	ModulePassManager * TheMPM;
+#endif
 
 	//JIT Driver
 	ExecutionEngine * TheExecutionEngine;
