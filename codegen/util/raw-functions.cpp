@@ -615,7 +615,7 @@ void flushOutput(char* fileName)	{
 	outFile.open(fileName,std::ofstream::out | std::ofstream::app);
 //	const char *toFlush = strBuffer->rdbuf()->str().c_str();
 //	cout << "Contents being flushed: " << toFlush << endl;
-	cout << "Contents being flushed: " << strBuffer->str() << std::flush << std::endl;
+//	cout << "Contents being flushed: " << std::endl << strBuffer->str() << std::flush << std::endl;
 	outFile << strBuffer->rdbuf();
 	//outFile << strBuffer->rdbuf();
 

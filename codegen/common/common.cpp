@@ -62,7 +62,7 @@ bool verifyTestResult(const char *testsPath, const char *testLabel)	{
 	size_t fsize1 = statbuf.st_size;
 	int fd1 = open(correctResult.c_str(), O_RDONLY);
 	if (fd1 == -1) {
-		throw runtime_error(string("csv.open: ")+correctResult);
+		throw runtime_error(string(__func__) + string(".open: ")+correctResult);
 	}
 	char *correctBuf = (char*) mmap(NULL, fsize1, PROT_READ | PROT_WRITE,
 			MAP_PRIVATE, fd1, 0);
@@ -72,13 +72,18 @@ bool verifyTestResult(const char *testsPath, const char *testLabel)	{
 	size_t fsize2 = statbuf.st_size;
 	int fd2 = open(testLabel, O_RDONLY);
 	if (fd2 == -1) {
-		throw runtime_error(string("csv.open: ")+testLabel);
+		throw runtime_error(string(__func__) + string(".open: ")+testLabel);
 	}
 	char *currResultBuf = (char*) mmap(NULL, fsize2, PROT_READ | PROT_WRITE,
 			MAP_PRIVATE, fd2, 0);
-	cout << correctBuf << endl;
-	cout << currResultBuf << endl;
 	bool areEqual = (strcmp(correctBuf, currResultBuf) == 0) ? true : false;
+	if (!areEqual) {
+		fprintf(stderr, "######################################################################\n");
+		fprintf(stderr, "FAILURE:\n");
+		fprintf(stderr, "* Expected:\n%s\n", correctBuf);
+		fprintf(stderr, "* Obtained:\n%s\n", currResultBuf);
+		fprintf(stderr, "######################################################################\n");
+	}
 
 	close(fd1);
 	munmap(correctBuf, fsize1);
