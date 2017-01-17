@@ -55,116 +55,87 @@
 //
 // </TechnicalDetails>
 
+class PlanTest : public ::testing::Test {
+protected:
+	virtual void SetUp() {
+		catalog = &RawCatalog::getInstance();
+		caches = &CachingService::getInstance();
+		catalog->clear();
+		caches->clear();
+	}
+
+	virtual void TearDown() {}
+
+	bool executePlan(const char * planPath, const char * testLabel) {
+		CatalogParser catalog = CatalogParser(catalogJSON);
+		PlanExecutor exec = PlanExecutor(planPath, catalog, testLabel);
+
+		return verifyTestResult(testPath, testLabel);
+	}
+
+	bool flushResults = true;
+	const char * testPath = TEST_OUTPUTS "/tests-plan-parsing/";
+	const char * catalogJSON = "inputs/plans/catalog.json";
+
+private:
+	RawCatalog * catalog;
+	CachingService * caches;
+};
+
 /* SELECT COUNT(*) FROM SAILORS s; */
-TEST(Plan, Scan) {
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
-	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
-	//Test-specific
+TEST_F(PlanTest, Scan) {
 	const char* planPath = "inputs/plans/reduce-scan.json";
 	const char *testLabel = "reduce-scan-log.json";
 
-	CatalogParser catalog = CatalogParser(catalogJSON);
-	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /* SELECT COUNT(*), MAX(age) FROM SAILORS s; */
-TEST(Plan, ScanTwoFields) {
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
-	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
-	//Test-specific
+TEST_F(PlanTest, ScanTwoFields) {
 	const char* planPath = "inputs/plans/reduce-twofields-scan.json";
 	const char *testLabel = "reduce-twofields-scan-log.json";
 
-	CatalogParser catalog = CatalogParser(catalogJSON);
-	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
-TEST(Plan, Unnest) {
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
-	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
-	//Test-specific
+TEST_F(PlanTest, Unnest) {
 	const char* planPath = "inputs/plans/reduce-unnest-scan.json";
 	const char *testLabel = "reduce-unnest-scan-log.json";
 
-	CatalogParser catalog = CatalogParser(catalogJSON);
-	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /* SELECT COUNT(*) FROM SAILORS s JOIN RESERVES r ON s.sid = r.sid; */
-TEST(Plan, Join) {
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
-	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
-	//Test-specific
+TEST_F(PlanTest, Join) {
 	const char* planPath = "inputs/plans/reduce-join.json";
 	const char *testLabel = "reduce-join-log.json";
 
-	CatalogParser catalog = CatalogParser(catalogJSON);
-	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /* SELECT COUNT(*) FROM RESERVES GROUP BY sid; */
-TEST(Plan, Nest) {
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
-	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
-	//Test-specific
+TEST_F(PlanTest, Nest) {
 	const char* planPath = "inputs/plans/reduce-nest.json";
 	const char *testLabel = "reduce-nest-log.json";
 
-	CatalogParser catalog = CatalogParser(catalogJSON);
-	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /* SELECT COUNT(*) FROM RESERVES WHERE sid = 22; */
-TEST(Plan, Select) {
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
-	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
-	//Test-specific
+TEST_F(PlanTest, Select) {
 	const char* planPath = "inputs/plans/reduce-select.json";
 	const char *testLabel = "reduce-select-log.json";
 
-	CatalogParser catalog = CatalogParser(catalogJSON);
-	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /* Project out multiple cols:
  * SELECT COUNT(*), MAX(bid) FROM RESERVES GROUP BY sid; */
-TEST(Plan, MultiNest) {
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
-	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
-	//Test-specific
+TEST_F(PlanTest, MultiNest) {
 	const char* planPath = "inputs/plans/reduce-multinest.json";
 	const char *testLabel = "reduce-multinest-log.json";
 
-	CatalogParser catalog = CatalogParser(catalogJSON);
-	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /*
@@ -172,19 +143,11 @@ TEST(Plan, MultiNest) {
  * From A, B
  * where A.A1 = B.B1 and A.A2 > 10 and B.B2 < 10;
  * */
-TEST(Plan, JoinRecord) {
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
-	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
-	//Test-specific
+TEST_F(PlanTest, JoinRecord) {
 	const char* planPath = "inputs/plans/reduce-join-record.json";
 	const char *testLabel = "reduce-join-record-log.json";
 
-	CatalogParser catalog = CatalogParser(catalogJSON);
-	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /*
@@ -194,32 +157,23 @@ TEST(Plan, JoinRecord) {
  *
  * [more results]
  * */
-TEST(Plan, JoinRecordBNonselective) {
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
+TEST_F(PlanTest, JoinRecordBNonselective) {
+	//LSC: FIXME: Why this one alone uses other files? Can't we use the same
+	//            inputs, or add a specific file for that test there instead
+	//            of using a different catalog, and different test data?
 	const char* catalogJSON = "inputs/parser/catalog.json";
-	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
-	//Test-specific
 	const char* planPath = "inputs/plans/reduce-join-record-nonselective.json";
 	const char *testLabel = "reduce-join-record-nonselective-log.json";
 
 	CatalogParser catalog = CatalogParser(catalogJSON);
-	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
+	PlanExecutor exec1 = PlanExecutor (planPath, catalog, testLabel);
 
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(verifyTestResult(testPath, testLabel));
 }
 
-TEST(Plan, ScanBin) {
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
-	const char* catalogJSON = "inputs/plans/catalog.json";
-	const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
-	//Test-specific
+TEST_F(PlanTest, ScanBin) {
 	const char* planPath = "inputs/plans/reduce-scan-bin.json";
 	const char *testLabel = "reduce-scan-bin-log.json";
 
-	CatalogParser catalog = CatalogParser(catalogJSON);
-	PlanExecutor exec1 = PlanExecutor(planPath,catalog,testLabel);
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(planPath, testLabel));
 }

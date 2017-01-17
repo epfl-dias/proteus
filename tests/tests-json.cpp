@@ -41,10 +41,42 @@
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 
-TEST(JSON, String) {
+class JSONTest : public ::testing::Test {
+protected:
+	virtual void SetUp() {
+		catalog = &RawCatalog::getInstance();
+		caches = &CachingService::getInstance();
+		catalog->clear();
+		caches->clear();
+	}
+
+	virtual void TearDown() {}
+
+	jsonPipelined::JSONPlugin * openJSON(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint = 1000) {
+		jsonPipelined::JSONPlugin * plugin = new jsonPipelined::JSONPlugin(context, fname, schema, linehint);
+		catalog->registerPlugin(fname, plugin);
+		return plugin;
+	}
+
+	jsonPipelined::JSONPlugin * openJSON(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint, jsmntok_t **tokens) {
+		jsonPipelined::JSONPlugin * plugin = new jsonPipelined::JSONPlugin(context, fname, schema, linehint, tokens);
+		catalog->registerPlugin(fname, plugin);
+		return plugin;
+	}
+
+	bool reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
+			jsmntok_t** tokens);
+
+	bool flushResults = true;
+	const char * testPath = TEST_OUTPUTS "/tests-json/";
+
+private:
+	RawCatalog * catalog;
+	CachingService * caches;
+};
+
+TEST_F(JSONTest, String) {
 	RawContext& ctx = *prepareContext("jsonStringIngestion");
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
 
 	string fname = string("inputs/json/json-string.json");
 
@@ -63,15 +95,14 @@ TEST(JSON, String) {
 	ListType documentType = ListType(rec);
 
 	int linehint = 3;
-	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
-			&documentType,linehint);
-	catalog.registerPlugin(fname, &pg);
-	Scan scan = Scan(&ctx, pg);
+	jsonPipelined::JSONPlugin * pg =
+		openJSON(&ctx, fname, &documentType,linehint);
+	Scan scan = Scan(&ctx, *pg);
 
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(field1);
@@ -109,77 +140,15 @@ TEST(JSON, String) {
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
-	pg.finish();
-	catalog.clear();
-	caches.clear();
+	pg->finish();
+
+	EXPECT_TRUE(true);
+
 }
 
-TEST(JSON, ScanJSON) {
-	bool flushResults = true;
-		const char *testPath = TEST_OUTPUTS "/tests-json/";
-		const char *testLabel = "scanJSON.json";
-		RawContext& ctx = *prepareContext(testLabel);
-		RawCatalog& catalog = RawCatalog::getInstance();
-		CachingService& caches = CachingService::getInstance();
-
-		string fname = string("inputs/json/jsmn-flat.json");
-
-		string attrName = string("a");
-		string attrName2 = string("b");
-		IntType attrType = IntType();
-		RecordAttribute attr = RecordAttribute(1, fname, attrName, &attrType);
-		RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &attrType);
-
-		list<RecordAttribute*> atts = list<RecordAttribute*>();
-		atts.push_back(&attr);
-		atts.push_back(&attr2);
-
-		RecordType inner = RecordType(atts);
-		ListType documentType = ListType(inner);
-
-		jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
-				&documentType);
-		catalog.registerPlugin(fname, &pg);
-
-		Scan scan = Scan(&ctx, pg);
-
-		/* Reduce */
-		RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
-		list<RecordAttribute> projections = list<RecordAttribute>();
-		projections.push_back(attr);
-		projections.push_back(attr2);
-
-		expressions::Expression* lhsArg = new expressions::InputArgument(&attrType,
-						0, projections);
-		expressions::RecordProjection* proj = new expressions::RecordProjection(&attrType, lhsArg, attr);
-		expressions::Expression* predicateRed = new expressions::BoolConstant(true);
-		vector<Monoid> accs;
-		vector<expressions::Expression*> exprs;
-		accs.push_back(BAGUNION);
-		exprs.push_back(proj);
-
-		opt::Reduce reduce = opt::Reduce(accs, exprs, predicateRed, &scan, &ctx,flushResults, testLabel);
-		scan.setParent(&reduce);
-
-		reduce.produce();
-
-		//Run function
-		ctx.prepareFunction(ctx.getGlobalFunction());
-
-		pg.finish();
-		catalog.clear();
-		caches.clear();
-		EXPECT_TRUE(verifyTestResult(testPath,testLabel));
-}
-
-TEST(JSON, SelectJSON) {
-
-	bool flushResults = true;
-	const char *testPath = TEST_OUTPUTS "/tests-json/";
-	const char *testLabel = "selectJSON.json";
+TEST_F(JSONTest, ScanJSON) {
+	const char *testLabel = "scanJSON.json";
 	RawContext& ctx = *prepareContext(testLabel);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
 
 	string fname = string("inputs/json/jsmn-flat.json");
 
@@ -196,16 +165,62 @@ TEST(JSON, SelectJSON) {
 	RecordType inner = RecordType(atts);
 	ListType documentType = ListType(inner);
 
-	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
-			&documentType);
-	catalog.registerPlugin(fname, &pg);
+	jsonPipelined::JSONPlugin * pg = openJSON(&ctx, fname, &documentType);
+	Scan scan = Scan(&ctx, *pg);
 
-	Scan scan = Scan(&ctx, pg);
+	/* Reduce */
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg->getOIDType());
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(attr);
+	projections.push_back(attr2);
+
+	expressions::Expression* lhsArg = new expressions::InputArgument(&attrType,
+					0, projections);
+	expressions::RecordProjection* proj = new expressions::RecordProjection(&attrType, lhsArg, attr);
+	expressions::Expression* predicateRed = new expressions::BoolConstant(true);
+	vector<Monoid> accs;
+	vector<expressions::Expression*> exprs;
+	accs.push_back(BAGUNION);
+	exprs.push_back(proj);
+
+	opt::Reduce reduce = opt::Reduce(accs, exprs, predicateRed, &scan, &ctx,flushResults, testLabel);
+	scan.setParent(&reduce);
+
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	pg->finish();
+	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+}
+
+TEST_F(JSONTest, SelectJSON) {
+	const char *testLabel = "selectJSON.json";
+	RawContext& ctx = *prepareContext(testLabel);
+
+	string fname = string("inputs/json/jsmn-flat.json");
+
+	string attrName = string("a");
+	string attrName2 = string("b");
+	IntType attrType = IntType();
+	RecordAttribute attr = RecordAttribute(1, fname, attrName, &attrType);
+	RecordAttribute attr2 = RecordAttribute(2, fname, attrName2, &attrType);
+
+	list<RecordAttribute*> atts = list<RecordAttribute*>();
+	atts.push_back(&attr);
+	atts.push_back(&attr2);
+
+	RecordType inner = RecordType(atts);
+	ListType documentType = ListType(inner);
+
+	jsonPipelined::JSONPlugin * pg = openJSON(&ctx, fname, &documentType);
+	Scan scan = Scan(&ctx, *pg);
 
 	/**
 	 * SELECT
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr);
@@ -239,20 +254,15 @@ TEST(JSON, SelectJSON) {
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
-	pg.finish();
-	catalog.clear();
-	caches.clear();
+	pg->finish();
+
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
 
-TEST(JSON, unnestJSON) {
-	const char *testPath = TEST_OUTPUTS "/tests-json/";
+TEST_F(JSONTest, unnestJSON) {
 	const char *testLabel = "unnestJSONEmployees.json";
-	bool flushResults = true;
 	RawContext& ctx = *prepareContext(testLabel);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
 
 	string fname = string("inputs/json/employees-flat.json");
 
@@ -284,13 +294,11 @@ TEST(JSON, unnestJSON) {
 	RecordType inner = RecordType(atts);
 	ListType documentType = ListType(inner);
 
-	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
-			&documentType);
-	catalog.registerPlugin(fname, &pg);
-	Scan scan = Scan(&ctx, pg);
+	jsonPipelined::JSONPlugin * pg = openJSON(&ctx, fname, &documentType);
+	Scan scan = Scan(&ctx, *pg);
 
 	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,
-			pg.getOIDType());
+			pg->getOIDType());
 	RecordAttribute proj1 = RecordAttribute(fname, empChildren,
 			&nestedCollection);
 	list<RecordAttribute> projections = list<RecordAttribute>();
@@ -355,22 +363,16 @@ TEST(JSON, unnestJSON) {
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
-	pg.finish();
-	catalog.clear();
-	caches.clear();
+	pg->finish();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
 
 /* json plugin seems broken if linehint not provided */
-TEST(JSON, reduceListObjectFlat) {
-	const char *testPath = TEST_OUTPUTS "/tests-json/";
+TEST_F(JSONTest, reduceListObjectFlat) {
 	const char *testLabel = "jsonFlushList.json";
-	bool flushResults = true;
 	RawContext& ctx = *prepareContext(testLabel);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
 
 	string fname = string("inputs/json/jsmnDeeper-flat.json");
 
@@ -403,15 +405,14 @@ TEST(JSON, reduceListObjectFlat) {
 	/**
 	 * SCAN
 	 */
-	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
-			&documentType,linehint);
-	catalog.registerPlugin(fname, &pg);
-	Scan scan = Scan(&ctx, pg);
+	jsonPipelined::JSONPlugin * pg =
+		openJSON(&ctx, fname, &documentType, linehint);
+	Scan scan = Scan(&ctx, *pg);
 
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -440,21 +441,15 @@ TEST(JSON, reduceListObjectFlat) {
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
-	pg.finish();
-	catalog.clear();
-	caches.clear();
+	pg->finish();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
-bool reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
+bool JSONTest::reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 		jsmntok_t** tokens) {
-	const char *testPath = TEST_OUTPUTS "/tests-json/";
 	const char *testLabel = "reduceJSONCached.json";
-	bool flushResults = true;
 	RawContext& ctx = *prepareContext("Reduce-JSONMax");
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
 
 	cout << "Input: " << fname << endl;
 
@@ -487,16 +482,15 @@ bool reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 	/**
 	 * SCAN
 	 */
-	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
-			&documentType, lineHint, tokens);
-	catalog.registerPlugin(fname, &pg);
-	Scan scan = Scan(&ctx, pg);
+	jsonPipelined::JSONPlugin * pg =
+		openJSON(&ctx, fname, &documentType, lineHint, tokens);
+	Scan scan = Scan(&ctx, *pg);
 
 	/**
 	 * REDUCE
 	 */
 	RecordAttribute projTuple = RecordAttribute(fname, activeLoop,
-			pg.getOIDType());
+			pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -524,19 +518,15 @@ bool reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
-	pg.finish();
-	catalog.clear();
-	caches.clear();
+	pg->finish();
 
 	return verifyTestResult(testPath,testLabel);
 }
 
 /* SELECT MAX(obj.b) FROM jsonFile obj WHERE obj.b  > 43 */
-TEST(JSON, reduceMax) {
+TEST_F(JSONTest, reduceMax) {
 	bool longRun = false;
 	RawContext& ctx = *prepareContext("Reduce-JSONMax");
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
 
 	string fname;
 	size_t lineHint;
@@ -590,15 +580,14 @@ TEST(JSON, reduceMax) {
 	/**
 	 * SCAN
 	 */
-	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
-			&documentType, lineHint);
-	catalog.registerPlugin(fname, &pg);
-	Scan scan = Scan(&ctx, pg);
+	jsonPipelined::JSONPlugin * pg =
+		openJSON(&ctx, fname, &documentType, lineHint);
+	Scan scan = Scan(&ctx, *pg);
 
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -629,24 +618,18 @@ TEST(JSON, reduceMax) {
 	/**
 	 * CALL 2nd QUERY
 	 */
-	bool result = reduceJSONMaxFlatCached(longRun, lineHint, fname, pg.getTokens());
+	bool result = reduceJSONMaxFlatCached(longRun, lineHint, fname, pg->getTokens());
 
-	pg.finish();
-	catalog.clear();
-	caches.clear();
+	pg->finish();
 
 	EXPECT_TRUE(result);
 }
 
 /* SELECT MAX(obj.c.c2) FROM jsonFile obj WHERE obj.b  > 43 */
-TEST(JSON, reduceDeeperMax) {
+TEST_F(JSONTest, reduceDeeperMax) {
 	bool longRun = false;
-	const char *testPath = TEST_OUTPUTS "/tests-json/";
 	const char *testLabel = "reduceDeeperMax.json";
-	bool flushResults = true;
 	RawContext& ctx = *prepareContext(testLabel);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
 
 	string fname;
 	size_t lineHint;
@@ -691,15 +674,14 @@ TEST(JSON, reduceDeeperMax) {
 	/**
 	 * SCAN
 	 */
-	jsonPipelined::JSONPlugin pg = jsonPipelined::JSONPlugin(&ctx, fname,
-			&documentType, lineHint);
-	catalog.registerPlugin(fname, &pg);
-	Scan scan = Scan(&ctx, pg);
+	jsonPipelined::JSONPlugin * pg =
+		openJSON(&ctx, fname, &documentType, lineHint);
+	Scan scan = Scan(&ctx, *pg);
 
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg.getOIDType());
+	RecordAttribute projTuple = RecordAttribute(fname, activeLoop, pg->getOIDType());
 	list<RecordAttribute> projections = list<RecordAttribute>();
 	projections.push_back(projTuple);
 	projections.push_back(attr2);
@@ -729,8 +711,7 @@ TEST(JSON, reduceDeeperMax) {
 	//Run function
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
-	pg.finish();
-	catalog.clear();
-	caches.clear();
+	pg->finish();
+
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }

@@ -72,14 +72,38 @@
 //
 // </TechnicalDetails>
 
-TEST(Output, ReduceNumeric) {
-	const char *testPath = TEST_OUTPUTS "/tests-output/";
-	const char *testLabel = "reduceNumeric.json";
+class OutputTest : public ::testing::Test {
+protected:
+	virtual void SetUp() {
+		catalog = &RawCatalog::getInstance();
+		caches = &CachingService::getInstance();
+		catalog->clear();
+		caches->clear();
+	}
+
+	virtual void TearDown() {}
+
+	pm::CSVPlugin * openCSV(RawContext* const context, string& fname,
+		RecordType& rec, vector<RecordAttribute*> whichFields,
+		char delimInner, int lineHint, int policy, bool stringBrackets = true)
+	{
+		pm::CSVPlugin * plugin = new pm::CSVPlugin(context, fname, rec,
+			whichFields, delimInner, lineHint, policy, stringBrackets);
+       		catalog->registerPlugin(fname, plugin);
+       		return plugin;
+	}
+
 	bool flushResults = true;
+	const char * testPath = TEST_OUTPUTS "/tests-output/";
+
+private:
+	RawCatalog * catalog;
+	CachingService * caches;
+};
+
+TEST_F(OutputTest, ReduceNumeric) {
+ 	const char *testLabel = "reduceNumeric.json";
 	RawContext& ctx = *prepareContext(testLabel);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
 
 	//SCAN1
 	string filename = string("inputs/sailors.csv");
@@ -109,9 +133,8 @@ TEST(Output, ReduceNumeric) {
 
 	int linehint = 10;
 	int policy = 2;
-	pm::CSVPlugin* pg =
-			new pm::CSVPlugin(&ctx, filename, rec1, whichFields, ';', linehint, policy, false);
-	catalog.registerPlugin(filename, pg);
+	pm::CSVPlugin * pg = openCSV(&ctx, filename, rec1, whichFields, ';',
+		linehint, policy, false);
 	Scan scan = Scan(&ctx, *pg);
 
 	/**
@@ -147,19 +170,13 @@ TEST(Output, ReduceNumeric) {
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	pg->finish();
-	catalog.clear();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
-TEST(Output, MultiReduceNumeric) {
-	const char *testPath = TEST_OUTPUTS "/tests-output/";
+TEST_F(OutputTest, MultiReduceNumeric) {
 	const char *testLabel = "multiReduceNumeric.json";
-	bool flushResults = true;
 	RawContext& ctx = *prepareContext(testLabel);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
 
 	//SCAN1
 	string filename = string("inputs/sailors.csv");
@@ -189,9 +206,8 @@ TEST(Output, MultiReduceNumeric) {
 
 	int linehint = 10;
 	int policy = 2;
-	pm::CSVPlugin* pg =
-			new pm::CSVPlugin(&ctx, filename, rec1, whichFields, ';', linehint, policy, false);
-	catalog.registerPlugin(filename, pg);
+	pm::CSVPlugin * pg = openCSV(&ctx, filename, rec1, whichFields, ';',
+		linehint, policy, false);
 	Scan scan = Scan(&ctx, *pg);
 
 	/**
@@ -229,19 +245,13 @@ TEST(Output, MultiReduceNumeric) {
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	pg->finish();
-	catalog.clear();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
-TEST(Output, ReduceBag) {
-	const char *testPath = TEST_OUTPUTS "/tests-output/";
+TEST_F(OutputTest, ReduceBag) {
 	const char *testLabel = "reduceBag.json";
-	bool flushResults = true;
 	RawContext& ctx = *prepareContext(testLabel);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
 
 	//SCAN1
 	string filename = string("inputs/sailors.csv");
@@ -271,9 +281,8 @@ TEST(Output, ReduceBag) {
 
 	int linehint = 10;
 	int policy = 2;
-	pm::CSVPlugin* pg =
-			new pm::CSVPlugin(&ctx, filename, rec1, whichFields, ';', linehint, policy, false);
-	catalog.registerPlugin(filename, pg);
+	pm::CSVPlugin * pg = openCSV(&ctx, filename, rec1, whichFields, ';',
+		linehint, policy, false);
 	Scan scan = Scan(&ctx, *pg);
 
 	/**
@@ -311,19 +320,13 @@ TEST(Output, ReduceBag) {
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	pg->finish();
-	catalog.clear();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
-TEST(Output, ReduceBagRecord) {
-	const char *testPath = TEST_OUTPUTS "/tests-output/";
+TEST_F(OutputTest, ReduceBagRecord) {
 	const char *testLabel = "reduceBagRecord.json";
-	bool flushResults = true;
 	RawContext& ctx = *prepareContext(testLabel);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
 
 	//SCAN1
 	string filename = string("inputs/sailors.csv");
@@ -353,9 +356,8 @@ TEST(Output, ReduceBagRecord) {
 
 	int linehint = 10;
 	int policy = 2;
-	pm::CSVPlugin* pg =
-			new pm::CSVPlugin(&ctx, filename, rec1, whichFields, ';', linehint, policy, false);
-	catalog.registerPlugin(filename, pg);
+	pm::CSVPlugin * pg = openCSV(&ctx, filename, rec1, whichFields, ';',
+		linehint, policy, false);
 	Scan scan = Scan(&ctx, *pg);
 
 	/**
@@ -412,20 +414,13 @@ TEST(Output, ReduceBagRecord) {
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	pg->finish();
-	catalog.clear();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
-TEST(Output, NestBagTPCH) {
-	const char *testPath = TEST_OUTPUTS "/tests-output/";
+TEST_F(OutputTest, NestBagTPCH) {
 	const char *testLabel = "nestBagTPCH.json";
-	bool flushResults = true;
-	/* Bookkeeping */
 	RawContext& ctx = *prepareContext(testLabel);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
 
 	PrimitiveType *intType = new IntType();
 	PrimitiveType *floatType = new FloatType();
@@ -502,9 +497,8 @@ TEST(Output, NestBagTPCH) {
 	projections.push_back(l_linenumber);
 	projections.push_back(l_quantity);
 
-	pm::CSVPlugin* pg = new pm::CSVPlugin(&ctx, lineitemPath, rec, projections,
-			delimInner, linehint, policy, false);
-	catalog.registerPlugin(lineitemPath, pg);
+	pm::CSVPlugin * pg = openCSV(&ctx, lineitemPath, rec, projections,
+		delimInner, linehint, policy, false);
 	Scan *scan = new Scan(&ctx, *pg);
 
 	/**
@@ -651,22 +645,14 @@ TEST(Output, NestBagTPCH) {
 
 	//Close all open files & clear
 	pg->finish();
-	catalog.clear();
-
-	pg->finish();
-	catalog.clear();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
-TEST(Output, JoinLeft3) {
-	const char *testPath = TEST_OUTPUTS "/tests-output/";
+TEST_F(OutputTest, JoinLeft3) {
 	const char *testLabel = "3wayJoin.json";
-	bool flushResults = true;
 	RawContext& ctx = *prepareContext(testLabel);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
+
 	/**
 	 * SCAN1
 	 */
@@ -692,9 +678,8 @@ TEST(Output, JoinLeft3) {
 
 	int linehint = 10;
 	int policy = 2;
-	pm::CSVPlugin* pgSailors =
-			new pm::CSVPlugin(&ctx, sailorsPath, sailorRec, sailorAttsToProject, ';', linehint, policy, false);
-	catalog.registerPlugin(sailorsPath,pgSailors);
+	pm::CSVPlugin * pgSailors = openCSV(&ctx, sailorsPath, sailorRec,
+		sailorAttsToProject, ';', linehint, policy, false);
 	Scan scanSailors = Scan(&ctx, *pgSailors);
 
 	/**
@@ -716,9 +701,8 @@ TEST(Output, JoinLeft3) {
 
 	linehint = 10;
 	policy = 2;
-	pm::CSVPlugin* pgReserves =
-			new pm::CSVPlugin(&ctx, reservesPath, reserveRec, reserveAttsToProject, ';', linehint, policy, false);
-	catalog.registerPlugin(reservesPath,pgReserves);
+	pm::CSVPlugin * pgReserves = openCSV(&ctx, reservesPath, reserveRec,
+		reserveAttsToProject, ';', linehint, policy, false);
 	Scan scanReserves = Scan(&ctx, *pgReserves);
 
 	/**
@@ -792,9 +776,8 @@ TEST(Output, JoinLeft3) {
 
 	linehint = 4;
 	policy = 2;
-	pm::CSVPlugin* pgBoats = new pm::CSVPlugin(&ctx, filenameBoats, recBoats,
-			whichFieldsBoats, ';', linehint, policy, false);
-	catalog.registerPlugin(filenameBoats,pgBoats);
+	pm::CSVPlugin * pgBoats = openCSV(&ctx, filenameBoats, recBoats,
+		whichFieldsBoats, ';', linehint, policy, false);
 	Scan scanBoats = Scan(&ctx, *pgBoats);
 
 	/**
@@ -870,21 +853,14 @@ TEST(Output, JoinLeft3) {
 	pgSailors->finish();
 	pgReserves->finish();
 	pgBoats->finish();
-	catalog.clear();
-	caches.clear();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
 /* Corresponds to plan parser tests */
-TEST(Output, NestReserves) {
-	const char *testPath = TEST_OUTPUTS "/tests-output/";
+TEST_F(OutputTest, NestReserves) {
 	const char *testLabel = "nestReserves.json";
-	bool flushResults = true;
 	RawContext& ctx = *prepareContext(testLabel);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
 
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();
@@ -909,9 +885,8 @@ TEST(Output, NestReserves) {
 
 	int linehint = 10;
 	int policy = 2;
-	pm::CSVPlugin* pgReserves =
-			new pm::CSVPlugin(&ctx, reservesPath, reserveRec, reserveAttsToProject, ';', linehint, policy, false);
-	catalog.registerPlugin(reservesPath,pgReserves);
+	pm::CSVPlugin * pgReserves = openCSV(&ctx, reservesPath, reserveRec,
+		reserveAttsToProject, ';', linehint, policy, false);
 	Scan scanReserves = Scan(&ctx, *pgReserves);
 
 	/*
@@ -993,153 +968,13 @@ TEST(Output, NestReserves) {
 
 	//Close all open files & clear
 	pgReserves->finish();
-	catalog.clear();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
-//TEST(Output, MultiNestReserves) {
-//	const char *testPath = TEST_OUTPUTS "/tests-output/";
-//	const char *testLabel = "multinestReserves.json";
-//	bool flushResults = true;
-//
-//	RawContext& ctx = prepareContext(testLabel);
-//	RawCatalog& catalog = RawCatalog::getInstance();
-//	CachingService& caches = CachingService::getInstance();
-//	caches.clear();
-//
-//	PrimitiveType* intType = new IntType();
-//	PrimitiveType* floatType = new FloatType();
-//	PrimitiveType* stringType = new StringType();
-//
-//	/**
-//	 * SCAN RESERVES
-//	 */
-//	string reservesPath = string("inputs/reserves.csv");
-//	RecordAttribute* sidReserves = new RecordAttribute(1,reservesPath,string("sid"),intType);
-//	RecordAttribute* bidReserves = new RecordAttribute(2,reservesPath,string("bid"),intType);
-//	RecordAttribute* day = new RecordAttribute(3,reservesPath,string("day"),stringType);
-//
-//	list<RecordAttribute*> reserveAtts;
-//	reserveAtts.push_back(sidReserves);
-//	reserveAtts.push_back(bidReserves);
-//	reserveAtts.push_back(day);
-//	RecordType reserveRec = RecordType(reserveAtts);
-//	vector<RecordAttribute*> reserveAttsToProject;
-//	reserveAttsToProject.push_back(sidReserves);
-//	reserveAttsToProject.push_back(bidReserves);
-//
-//	int linehint = 10;
-//	int policy = 2;
-//	pm::CSVPlugin* pgReserves =
-//			new pm::CSVPlugin(&ctx, reservesPath, reserveRec, reserveAttsToProject, ';', linehint, policy, false);
-//	catalog.registerPlugin(reservesPath,pgReserves);
-//	Scan scanReserves = Scan(&ctx, *pgReserves);
-//
-//	/*
-//	 * NEST
-//	 */
-//
-//	/* Reserves: fields for materialization etc. */
-//	RecordAttribute *reservesOID = new RecordAttribute(reservesPath, activeLoop, pgReserves->getOIDType());
-//	list<RecordAttribute> reserveAttsForArg = list<RecordAttribute>();
-//	reserveAttsForArg.push_back(*reservesOID);
-//	reserveAttsForArg.push_back(*sidReserves);
-//
-//	/* constructing recType */
-//	list<RecordAttribute*> reserveAttsForRec = list<RecordAttribute*>();
-//	reserveAttsForRec.push_back(reservesOID);
-//	reserveAttsForRec.push_back(sidReserves);
-//	RecordType reserveRecType = RecordType(reserveAttsForRec);
-//
-//	expressions::Expression *reservesArg = new expressions::InputArgument(&reserveRecType,
-//			1, reserveAttsForArg);
-//	expressions::Expression *reservesOIDProj = new expressions::RecordProjection(
-//			pgReserves->getOIDType(), reservesArg, *reservesOID);
-//	expressions::Expression* reservesSIDProj = new expressions::RecordProjection(
-//			intType, reservesArg, *sidReserves);
-//	expressions::Expression* reservesBIDProj = new expressions::RecordProjection(
-//				intType, reservesArg, *bidReserves);
-//	vector<expressions::Expression*> exprsToMatReserves;
-//	exprsToMatReserves.push_back(reservesOIDProj);
-//	exprsToMatReserves.push_back(reservesSIDProj);
-//	exprsToMatReserves.push_back(reservesBIDProj);
-//	Materializer* matReserves = new Materializer(exprsToMatReserves);
-//
-//	/* group-by expr */
-//	expressions::Expression *f = reservesSIDProj;
-//	/* null handling */
-//	expressions::Expression *g = reservesSIDProj;
-//
-//	expressions::Expression *nestPred = new expressions::BoolConstant(true);
-//
-//	/* output of nest */
-//	vector<Monoid> accsNest;
-//	vector<expressions::Expression*> exprsNest;
-//	vector<string> aggrLabels;
-//	expressions::Expression *one = new expressions::IntConstant(1);
-//	accsNest.push_back(SUM);
-//	exprsNest.push_back(one);
-//	accsNest.push_back(MAX);
-//	exprsNest.push_back(reservesBIDProj);
-//	aggrLabels.push_back("_groupCount");
-//	aggrLabels.push_back("_groupMax");
-//
-//	char nestLabel[] = "nest_reserves";
-//	radix::Nest nest =
-//			radix::Nest(&ctx, accsNest, exprsNest, aggrLabels, nestPred,f,g, &scanReserves, nestLabel, *matReserves);
-//	scanReserves.setParent(&nest);
-//
-//	/* REDUCE */
-////	RecordAttribute *cnt = new RecordAttribute(1, nestLabel, string("_groupCount"),intType);
-//	RecordAttribute *max = new RecordAttribute(1, nestLabel, string("_groupMax"),intType);
-//
-//	list<RecordAttribute*> newAttsTypes = list<RecordAttribute*>();
-////	newAttsTypes.push_back(cnt);
-//	newAttsTypes.push_back(max);
-//	RecordType newRecType = RecordType(newAttsTypes);
-//
-//	list<RecordAttribute> projections = list<RecordAttribute>();
-////	projections.push_back(*cnt);
-//	projections.push_back(*max);
-//
-//	expressions::Expression *arg =
-//			new expressions::InputArgument(&newRecType, 0,projections);
-////	expressions::Expression *outputExpr =
-////			new expressions::RecordProjection(intType, arg, *cnt);
-//	expressions::Expression *outputExpr =
-//				new expressions::RecordProjection(intType, arg, *max);
-//
-//
-//	expressions::Expression *predicate = new expressions::BoolConstant(true);
-//
-//	vector<Monoid> accs;
-//	vector<expressions::Expression*> exprs;
-//	accs.push_back(BAGUNION);
-//	exprs.push_back(outputExpr);
-//	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &nest, &ctx,
-//			flushResults, testLabel);
-//	nest.setParent(&reduce);
-//	reduce.produce();
-//
-//	//Run function
-//	ctx.prepareFunction(ctx.getGlobalFunction());
-//
-//	//Close all open files & clear
-//	pgReserves->finish();
-//	catalog.clear();
-//
-////	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
-//}
-
-TEST(Output, MultiNestReserves) {
-	const char *testPath = TEST_OUTPUTS "/tests-output/";
+TEST_F(OutputTest, MultiNestReservesStaticAlloc) {
 	const char *testLabel = "multinestReserves.json";
-	bool flushResults = true;
 	RawContext& ctx = *prepareContext(testLabel);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	CachingService& caches = CachingService::getInstance();
-	caches.clear();
 
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();
@@ -1164,9 +999,150 @@ TEST(Output, MultiNestReserves) {
 
 	int linehint = 10;
 	int policy = 2;
-	pm::CSVPlugin* pgReserves =
-			new pm::CSVPlugin(&ctx, reservesPath, reserveRec, reserveAttsToProject, ';', linehint, policy, false);
-	catalog.registerPlugin(reservesPath,pgReserves);
+	pm::CSVPlugin * pgReserves = openCSV(&ctx, reservesPath, reserveRec,
+		reserveAttsToProject, ';', linehint, policy, false);
+	Scan scanReserves = Scan(&ctx, *pgReserves);
+
+	/*
+	 * NEST
+	 */
+
+	/* Reserves: fields for materialization etc. */
+	RecordAttribute *reservesOID = new RecordAttribute(reservesPath, activeLoop, pgReserves->getOIDType());
+	list<RecordAttribute> reserveAttsForArg = list<RecordAttribute>();
+	reserveAttsForArg.push_back(*reservesOID);
+	reserveAttsForArg.push_back(*sidReserves);
+
+	/* constructing recType */
+	list<RecordAttribute*> reserveAttsForRec = list<RecordAttribute*>();
+	reserveAttsForRec.push_back(reservesOID);
+	reserveAttsForRec.push_back(sidReserves);
+	RecordType reserveRecType = RecordType(reserveAttsForRec);
+
+	expressions::Expression *reservesArg = new expressions::InputArgument(&reserveRecType,
+			1, reserveAttsForArg);
+	expressions::Expression *reservesOIDProj = new expressions::RecordProjection(
+			pgReserves->getOIDType(), reservesArg, *reservesOID);
+	expressions::Expression* reservesSIDProj = new expressions::RecordProjection(
+			intType, reservesArg, *sidReserves);
+	expressions::Expression* reservesBIDProj = new expressions::RecordProjection(
+				intType, reservesArg, *bidReserves);
+	vector<expressions::Expression*> exprsToMatReserves;
+	exprsToMatReserves.push_back(reservesOIDProj);
+	exprsToMatReserves.push_back(reservesSIDProj);
+	exprsToMatReserves.push_back(reservesBIDProj);
+	Materializer* matReserves = new Materializer(exprsToMatReserves);
+
+	/* group-by expr */
+	expressions::Expression *f = reservesSIDProj;
+	/* null handling */
+	expressions::Expression *g = reservesSIDProj;
+
+	expressions::Expression *nestPred = new expressions::BoolConstant(true);
+
+	/* output of nest */
+	vector<Monoid> accsNest;
+	vector<expressions::Expression*> exprsNest;
+	vector<string> aggrLabels;
+	expressions::Expression *one = new expressions::IntConstant(1);
+	accsNest.push_back(SUM);
+	exprsNest.push_back(one);
+	accsNest.push_back(MAX);
+	exprsNest.push_back(reservesBIDProj);
+	aggrLabels.push_back("_groupCount");
+	aggrLabels.push_back("_groupMax");
+
+	char nestLabel[] = "nest_reserves";
+	radix::Nest nest =
+			radix::Nest(&ctx, accsNest, exprsNest, aggrLabels, nestPred,f,g, &scanReserves, nestLabel, *matReserves);
+	scanReserves.setParent(&nest);
+
+	/* REDUCE */
+	const char *outLabel = "output";
+	RecordAttribute *newCnt = new RecordAttribute(1, outLabel, string("_outCount"),intType);
+	RecordAttribute *newMax = new RecordAttribute(2, outLabel, string("_outMax"),intType);
+	list<RecordAttribute*> newAttrTypes = list<RecordAttribute*>();
+	newAttrTypes.push_back(newCnt);
+	newAttrTypes.push_back(newMax);
+	RecordType newRecType = RecordType(newAttrTypes);
+
+	RecordAttribute *cnt = new RecordAttribute(1, nestLabel, string("_groupCount"),intType);
+	RecordAttribute *max = new RecordAttribute(2, nestLabel, string("_groupMax"),intType);
+
+
+	list<RecordAttribute> projections = list<RecordAttribute>();
+	projections.push_back(*cnt);
+	projections.push_back(*max);
+
+	expressions::Expression *arg = new expressions::InputArgument(&newRecType,
+			0, projections);
+	expressions::Expression *outputExpr1 = new expressions::RecordProjection(
+			intType, arg, *cnt);
+	expressions::Expression *outputExpr2 = new expressions::RecordProjection(
+			intType, arg, *max);
+
+	list<expressions::AttributeConstruction>* newAtts = new list<
+			expressions::AttributeConstruction>();
+
+	expressions::AttributeConstruction constr1 =
+			expressions::AttributeConstruction(string("_outCount"),
+					outputExpr1);
+	expressions::AttributeConstruction constr2 =
+			expressions::AttributeConstruction(string("_outMax"), outputExpr2);
+	newAtts->push_back(constr1);
+	newAtts->push_back(constr2);
+
+	expressions::RecordConstruction *newRec = new expressions::RecordConstruction(&newRecType, *newAtts);
+
+	expressions::Expression *predicate = new expressions::BoolConstant(true);
+
+	vector<Monoid> accs;
+	vector<expressions::Expression*> exprs;
+	accs.push_back(BAGUNION);
+	exprs.push_back(newRec);
+	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &nest, &ctx,
+			flushResults, testLabel);
+	nest.setParent(&reduce);
+	reduce.produce();
+
+	//Run function
+	ctx.prepareFunction(ctx.getGlobalFunction());
+
+	//Close all open files & clear
+	pgReserves->finish();
+
+	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+}
+
+TEST_F(OutputTest, MultiNestReservesDynAlloc) {
+	const char *testLabel = "multinestReserves.json";
+	RawContext& ctx = *prepareContext(testLabel);
+
+	PrimitiveType* intType = new IntType();
+	PrimitiveType* floatType = new FloatType();
+	PrimitiveType* stringType = new StringType();
+
+	/**
+	 * SCAN RESERVES
+	 */
+	string reservesPath = string("inputs/reserves.csv");
+	RecordAttribute* sidReserves = new RecordAttribute(1,reservesPath,string("sid"),intType);
+	RecordAttribute* bidReserves = new RecordAttribute(2,reservesPath,string("bid"),intType);
+	RecordAttribute* day = new RecordAttribute(3,reservesPath,string("day"),stringType);
+
+	list<RecordAttribute*> reserveAtts;
+	reserveAtts.push_back(sidReserves);
+	reserveAtts.push_back(bidReserves);
+	reserveAtts.push_back(day);
+	RecordType reserveRec = RecordType(reserveAtts);
+	vector<RecordAttribute*> reserveAttsToProject;
+	reserveAttsToProject.push_back(sidReserves);
+	reserveAttsToProject.push_back(bidReserves);
+
+	int linehint = 10;
+	int policy = 2;
+	pm::CSVPlugin * pgReserves = openCSV(&ctx, reservesPath, reserveRec,
+		reserveAttsToProject, ';', linehint, policy, false);
 	Scan scanReserves = Scan(&ctx, *pgReserves);
 
 	/*
@@ -1276,7 +1252,6 @@ TEST(Output, MultiNestReserves) {
 
 	//Close all open files & clear
 	pgReserves->finish();
-	catalog.clear();
 
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
