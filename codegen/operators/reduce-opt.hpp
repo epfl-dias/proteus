@@ -46,16 +46,20 @@ public:
 	virtual void consume(RawContext* const context,
 			const OperatorState& childState);
 	virtual bool isFiltering() const {return true;}
-private:
+
+	AllocaInst * getAccumulator(int index){return mem_accumulators[index];}
+protected:
 	RawContext* context;
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> outputExprs;
 	expressions::Expression* pred;
 	vector<AllocaInst*> mem_accumulators;
+
 	const char *outPath;
 	bool flushResults;
 
+private:
 	void generate(RawContext* const context, const OperatorState& childState) const;
 	//Used to enable chaining with subsequent operators
 	void generateSum(expressions::Expression* outputExpr, RawContext* const context,

@@ -39,13 +39,17 @@ public:
 	virtual bool isPrimitive() const = 0;
 };
 
-class PrimitiveType : public ExpressionType	{};
+class PrimitiveType : public ExpressionType	{
+public:
+	virtual Type *getLLVMType(LLVMContext &ctx) const = 0;
+};
 
 class BoolType : public PrimitiveType {
 public:
 	string getType() 	const 	{ return string("Bool"); }
 	typeID getTypeID() 	const	{ return BOOL; }
 	bool isPrimitive()	const	{ return true; }
+	Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt1Ty(ctx);}
 };
 
 class StringType : public PrimitiveType {
@@ -53,6 +57,7 @@ public:
 	string getType() 	const	{ return string("String"); }
 	typeID getTypeID() 	const	{ return STRING; }
 	bool isPrimitive() 	const	{ return true; }
+	Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt8PtrTy(ctx);}
 };
 
 class FloatType : public PrimitiveType {
@@ -60,6 +65,7 @@ public:
 	string getType() 	const 	{ return string("Float"); }
 	typeID getTypeID()	const	{ return FLOAT; }
 	bool isPrimitive() 	const	{ return true; }
+	Type *getLLVMType(LLVMContext &ctx) const { return Type::getDoubleTy(ctx);}
 };
 
 class IntType : public PrimitiveType {
@@ -67,6 +73,7 @@ public:
 	string getType() 	const 	{ return string("Int"); }
 	typeID getTypeID()	const	{ return INT; }
 	bool isPrimitive() 	const	{ return true; }
+	Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt32Ty(ctx);}
 };
 
 class Int64Type : public PrimitiveType {
@@ -74,6 +81,7 @@ public:
 	string getType() 	const 	{ return string("Int64"); }
 	typeID getTypeID()	const	{ return INT64; }
 	bool isPrimitive() 	const	{ return true; }
+	Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt64Ty(ctx);}
 };
 
 class CollectionType : public ExpressionType	{
@@ -166,7 +174,7 @@ public:
 		return attrName +" "+type->getType();
 	}
 	const ExpressionType* getOriginalType() const					{ return type; }
-	string getName()												{ return attrName; }
+	string getName()						const					{ return attrName; }
 	string getRelationName() 				const					{ return relName; }
 	string getOriginalRelationName() 		const					{ return originalRelName; }
 	string getAttrName() 					const					{ return attrName; }

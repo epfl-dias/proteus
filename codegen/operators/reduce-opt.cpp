@@ -23,6 +23,11 @@
 
 #include "operators/reduce-opt.hpp"
 
+#pragma push_macro("DEBUG") //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
+#undef DEBUG //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
+#pragma push_macro("DEBUGREDUCE") //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
+#undef DEBUGREDUCE //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
+
 namespace opt {
 Reduce::Reduce(vector<Monoid> accs,
 		vector<expressions::Expression*> outputExprs,
@@ -1711,4 +1716,5 @@ AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,
 
 }
 
-
+#pragma pop_macro("DEBUG") //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
+#pragma pop_macro("DEBUGREDUCE") //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side

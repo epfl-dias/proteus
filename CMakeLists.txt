@@ -30,6 +30,8 @@ if(${GTEST} STREQUAL "GTEST-NOTFOUND")
     message(FATAL_ERROR "GoogleTest not found!")
 endif()
 
+list(APPEND CMAKE_CXX_SOURCE_FILE_EXTENSIONS cu)
+
 # look for Boost related compilation flags
 find_package(Boost REQUIRED)
 
@@ -70,10 +72,10 @@ add_definitions(-DTEST_OUTPUTS="${CMAKE_INSTALL_PREFIX}/raw/outputs")
 
 #set(GCC_COMPILE_FLAGS "-march=core-avx2 -msse4 -O0 -ftree-vectorize -march=native -mtune=native -g -ggdb -fno-omit-frame-pointer")
 set(WARNING_FLAGS "-Wno-unknown-warning-option -Wno-unused-variable -Wno-reorder -Wno-ignored-qualifiers -Wno-deprecated")
-set(LLVM_CXXFLAGS "-stdlib=libstdc++ ${LLVM_CXXFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS}")
+set(LLVM_CXXFLAGS "-stdlib=libstdc++ ${LLVM_CXXFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS} --cuda-gpu-arch=sm_61 -I/usr/local/cuda/include -I/usr/local/cuda/nvvm/include")
 set(LLVM_CFLAGS "${LLVM_CFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS}")
 
-set(default_libs codegen -lglog ${LLVM_LIBS} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS})
+set(default_libs codegen -lglog ${LLVM_LIBS} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -L/usr/local/cuda/lib64 -L/usr/local/cuda/nvvm/lib64 -lcuda -lcudart -ldl -lrt -lnvvm -pthread -I/usr/local/cuda/nvvm/include)
 set(gtest_libs -lgtest libgtest_main.a ${default_libs})
 
 #-----------------------------------------------------------------------

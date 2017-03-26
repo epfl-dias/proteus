@@ -73,7 +73,7 @@ static void __attribute__((unused)) addOptimizerPipelineVectorization(legacy::Fu
 	TheFPM->add(createSLPVectorizerPass());
 }
 
-RawContext::RawContext(const string& moduleName) {
+RawContext::RawContext(const string& moduleName, bool setGlobFunction) {
 	TheModule = new Module(moduleName, getLLVMContext());
 	TheBuilder = new IRBuilder<>(getLLVMContext());
 
@@ -101,11 +101,19 @@ RawContext::RawContext(const string& moduleName) {
 
 	TheFPM->doInitialization();
 
-	llvm::Type* int_type = Type::getInt32Ty(getLLVMContext());
-	vector<Type*> Ints(1,int_type);
-	FunctionType *FT = FunctionType::get(Type::getInt32Ty(getLLVMContext()),Ints, false);
-	Function *F = Function::Create(FT, Function::ExternalLinkage,
-		moduleName, getModule());
+	if (setGlobFunction){
+		llvm::Type* int_type = Type::getInt32Ty(getLLVMContext());
+		vector<Type*> Ints(1,int_type);
+		FunctionType *FT = FunctionType::get(Type::getInt32Ty(getLLVMContext()),Ints, false);
+		Function *F = Function::Create(FT, Function::ExternalLinkage,
+			moduleName, getModule());
+
+		setGlobalFunction(F);
+	}
+}
+
+void RawContext::setGlobalFunction(Function *F){
+	assert(TheFunction == nullptr && "Should only be called if global function has not be set.");
 
 	//Setting the 'global' function
 	TheFunction = F;
@@ -341,9 +349,15 @@ void RawContext::CreateIfElseBlocks(Function* fn, const string& if_label,
 	*else_block = BasicBlock::Create(ctx, else_label, fn, insert_before);
 }
 
+BasicBlock * RawContext::CreateIfBlock(Function *		fn,
+										const string &	if_label,
+										BasicBlock *	insert_before) {
+	return BasicBlock::Create(getLLVMContext(), if_label, fn, insert_before);
+}
+
 void RawContext::CreateIfBlock(Function* fn, const string& if_label,
 		BasicBlock** if_block, BasicBlock* insert_before) {
-	*if_block = BasicBlock::Create(getLLVMContext(), if_label, fn, insert_before);
+	*if_block = CreateIfBlock(fn, if_label, insert_before);
 }
 
 AllocaInst* RawContext::CreateEntryBlockAlloca(Function *TheFunction,

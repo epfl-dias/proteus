@@ -1,6 +1,7 @@
 file(GLOB codegen_src
 	common/*.cpp
 	util/*.cpp
+	util/gpu/*.cpp
 	util/radix/*.cpp
 	util/radix/joins/*.cpp
 	util/radix/aggregations/*.cpp
@@ -9,6 +10,7 @@ file(GLOB codegen_src
 	plugins/*.cpp
 	plugins/output/*.cpp
 	operators/*.cpp
+	operators/gpu/*.cpp
 	memory/*.cpp
 	plan/*.cpp
 	postgres/*.cpp

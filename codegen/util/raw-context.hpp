@@ -53,7 +53,7 @@ class JSONObject;
 class RawContext {
 public:
 
-	RawContext(const string& moduleName);
+	RawContext(const string& moduleName, bool setGlobalFunction = true);
 	~RawContext() {
 		LOG(WARNING)<< "[RawContext: ] Destructor";
 		//XXX Has to be done in an appropriate sequence - segfaults otherwise
@@ -69,10 +69,11 @@ public:
 		return TheContext;
 	}
 
-	void prepareFunction(Function *F);
+	virtual void prepareFunction(Function *F);
 
 	ExecutionEngine const * const getExecEngine() {return TheExecutionEngine;}
 
+	virtual void setGlobalFunction(Function *F);
 	Function * getGlobalFunction() const {return TheFunction;}
 	Module * getModule() const {return TheModule;}
 	IRBuilder<> * getBuilder() const {return TheBuilder;}
@@ -119,6 +120,11 @@ public:
 	void CreateIfBlock(Function* fn, const string& if_name,
 			BasicBlock** if_block,
 			BasicBlock* insert_before = NULL);
+
+	BasicBlock * CreateIfBlock(Function* fn,
+								const string& if_label,
+								BasicBlock* insert_before = NULL);
+	
 	Value* CastPtrToLlvmPtr(PointerType* type, const void* ptr);
 	Value* getArrayElem(AllocaInst* mem_ptr, Value* offset);
 	Value* getArrayElem(Value* val_ptr, Value* offset);
@@ -159,7 +165,7 @@ public:
 
 	Value * const getMemResultCtr() {return mem_resultCtr;}
 
-private:
+protected:
 	LLVMContext TheContext;
 	Module * TheModule;
 	IRBuilder<> * TheBuilder;
@@ -190,7 +196,7 @@ private:
 
 	/**
 	 * Helper function to create the LLVM objects required for JIT execution. */
-	void createJITEngine();
+	virtual void createJITEngine();
 };
 
 typedef struct StringObject {

@@ -23,6 +23,9 @@
 
 #include "expressions/expressions-generator.hpp"
 
+#pragma push_macro("DEBUG") //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
+#undef DEBUG //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
+
 RawValue ExpressionGeneratorVisitor::visit(expressions::IntConstant *e) {
 	RawValue valWrapper;
 	valWrapper.value = ConstantInt::get(context->getLLVMContext(), APInt(32, e->getVal()));
@@ -1683,3 +1686,5 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::OrExpression *e) {
 		valWrapper.value = TheBuilder->CreateOr(left.value, right.value);
 		return valWrapper;
 }
+
+#pragma pop_macro("DEBUG") //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
