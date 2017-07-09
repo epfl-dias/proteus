@@ -34,17 +34,20 @@ public:
     GpuRawContext(const string& moduleName);
     ~GpuRawContext();
 
-    virtual void setGlobalFunction(Function *F);
+    virtual int appendParameter(llvm::Type * ptype, bool noalias = false, bool readonly = false);
+    virtual Argument * getArgument(int id) const;
+
+    virtual void setGlobalFunction(Function *F = nullptr);
     virtual void prepareFunction(Function *F);
 
-    virtual Value * threadId ();
-    virtual Value * threadNum();
-    virtual Value * laneId   ();
+    virtual llvm::Value * threadId ();
+    virtual llvm::Value * threadNum();
+    virtual llvm::Value * laneId   ();
 
     string emitPTX();
 
     void compileAndLoad();
-    CUfunction getKernel(std::string kernelName);
+    CUfunction getKernel();
 
 protected:
     virtual void createJITEngine();
@@ -52,6 +55,14 @@ protected:
     std::unique_ptr<TargetMachine> TheTargetMachine;
 
     CUmodule cudaModule;
+
+    std::vector<llvm::Type *> inputs;
+    std::vector<bool     > inputs_noalias;
+    std::vector<bool     > inputs_readonly;
+
+    std::vector<Argument *> args;
+
+    string               kernelName;
 };
 
 #endif /* GPU_RAW_CONTEXT_HPP_ */

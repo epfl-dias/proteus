@@ -28,6 +28,26 @@ GpuColScanPlugin::GpuColScanPlugin(GpuRawContext* const context, string fnamePre
       posVar("offset"), bufVar("buf"), fsizeVar("fileSize"), sizeVar("size"), itemCtrVar("itemCtr"),
       isCached(false), val_size(NULL) {
 
+    for (const auto &in: whichFields){
+        const ExpressionType* tin = in->getOriginalType();
+        if (!tin->isPrimitive()){
+            LOG(ERROR)<< "[GpuColScanPlugin: ] Only primitive inputs are currently supported";
+            throw runtime_error(string("[GpuColScanPlugin: ] Only primitive inputs are currently supported"));
+        }
+        
+        //FIXME: consider if address space should be global memory rather than generic
+        Type * t = PointerType::get(((const PrimitiveType *) tin)->getLLVMType(context->getLLVMContext()), /* address space */ 0);
+
+        wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
+    }
+
+    Type * size_type;
+    if      (sizeof(size_t) == 4) size_type = Type::getInt32Ty(context->getLLVMContext());
+    else if (sizeof(size_t) == 8) size_type = Type::getInt64Ty(context->getLLVMContext());
+    else                          assert(false);
+
+    tupleCntArg_id = context->appendParameter(size_type, false, false);
+
     if (wantedFields.size() == 0) {
         string error_msg = string("[Binary Col Plugin]: Invalid number of fields");
         LOG(ERROR) << error_msg;
@@ -38,6 +58,7 @@ GpuColScanPlugin::GpuColScanPlugin(GpuRawContext* const context, string fnamePre
 GpuColScanPlugin::~GpuColScanPlugin() {}
 
 void GpuColScanPlugin::init()    {
+    context->setGlobalFunction();
 
     Function* F = context->getGlobalFunction();
     LLVMContext& llvmContext = context->getLLVMContext();
@@ -47,10 +68,11 @@ void GpuColScanPlugin::init()    {
     IRBuilder<>* Builder = context->getBuilder();
 
     /* XXX Very silly conversion */
-    RecordAttribute projTuple = RecordAttribute(fnamePrefix, activeLoop, getOIDType());
+    // RecordAttribute projTuple = RecordAttribute(fnamePrefix, activeLoop, getOIDType());
     
-    list<RecordAttribute> attrList{projTuple};
-    for (const auto &t: wantedFields) attrList.push_back(*t);
+    // list<RecordAttribute> attrList{projTuple};
+    
+    // for (const auto &t: wantedFields) attrList.emplace_back(*t);
 
     // expressions::InputArgument arg = expressions::InputArgument(&rec, 0, attrList);
     /*******/
@@ -87,6 +109,7 @@ void GpuColScanPlugin::init()    {
     // }
     //cout << "[GpuColScanPlugin: ] Initialization Successful for " << fnamePrefix << endl;
     //Global item counter
+    // printf("asdasdas\n");
 
     AllocaInst *mem_itemCtr = context->CreateEntryBlockAlloca(F, itemCtrVar, int64Type);
     Builder->CreateStore(
@@ -96,6 +119,7 @@ void GpuColScanPlugin::init()    {
                 mem_itemCtr);
 
     NamedValuesBinaryCol[itemCtrVar] = mem_itemCtr;
+    // printf("asdasdas\n");
 }
 
 void GpuColScanPlugin::generate(const RawOperator &producer) {
@@ -788,8 +812,6 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
 
     BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanCond", F);
 
-    // Insert an explicit fall through from the current (entry) block to the CondBB.
-    Builder->CreateBr(CondBB);
     // // Start insertion in CondBB.
     // Builder->SetInsertPoint(CondBB);
 
@@ -810,9 +832,11 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
      * while(itemCtr < size)
      */
     AllocaInst *mem_itemCtr = NamedValuesBinaryCol[itemCtrVar];
-    Value *lhs = Builder->CreateLoad(mem_itemCtr, "i");
-    Value *rhs = &(*(--(F->args().end())));
-    Value *cond = Builder->CreateICmpSLT(lhs, rhs);
+    Value    *lhs = Builder->CreateLoad(mem_itemCtr, "i");
+    Argument *rhs = context->getArgument(tupleCntArg_id);
+    rhs->setName("cnt");
+    
+    Value   *cond = Builder->CreateICmpSLT(lhs, rhs);
 
     // Insert the conditional branch into the end of CondBB.
     Builder->CreateCondBr(cond, LoopBB, AfterBB);
@@ -831,12 +855,11 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
     mem_posWrapper.isNull = context->createFalse();
     (*variableBindings)[tupleIdentifier] = mem_posWrapper;
 
-    auto arg = F->args().begin();
-
     //Actual Work (Loop through attributes etc.)
-    for (vector<RecordAttribute*>::iterator it = wantedFields.begin(); it != wantedFields.end(); it++, ++arg)  {
-        RecordAttribute attr = *(*it);
+    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
+        RecordAttribute attr = *(wantedFields[i]);
 
+        Argument * arg = context->getArgument(wantedFieldsArg_id[i]);
         arg->setName(attr.getAttrName() + "_ptr");
 
         // size_t offset = 0;
@@ -896,7 +919,7 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
 
 
         // Value *parsed = Builder->CreateLoad(bufShiftedPtr); //attr_alloca
-        Value *parsed = Builder->CreateLoad(Builder->CreateGEP(&(*arg), lhs)); //TODO : use CreateAllignedLoad 
+        Value *parsed = Builder->CreateLoad(Builder->CreateGEP(arg, lhs)); //TODO : use CreateAllignedLoad 
 
         AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(F, currBufVar, t->getLLVMType(llvmContext));
         Builder->CreateStore(parsed, mem_currResult);
@@ -906,9 +929,6 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
         mem_valWrapper.isNull = context->createFalse();
         (*variableBindings)[attr] = mem_valWrapper;
     }
-    arg->setName("result_ptr");
-    ++arg;
-    arg->setName("cnt");
 
     // Start insertion in IncBB.
     Builder->SetInsertPoint(IncBB);
@@ -924,6 +944,15 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
 
     // Insert an explicit fall through from the current (body) block to IncBB.
     Builder->CreateBr(IncBB);
+
+    Builder->SetInsertPoint(context->getCurrentEntryBlock());
+    // Insert an explicit fall through from the current (entry) block to the CondBB.
+    Builder->CreateBr(CondBB);
+
+
+    Builder->SetInsertPoint(context->getEndingBlock());
+
+    Builder->CreateRetVoid();
 
     //  Finish up with end (the AfterLoop)
     //  Any new code will be inserted in AfterBB.

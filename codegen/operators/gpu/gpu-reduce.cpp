@@ -30,10 +30,19 @@ GpuReduce::GpuReduce(vector<Monoid>             accs,
             vector<expressions::Expression*>    outputExprs,
             expressions::Expression*            pred, 
             RawOperator* const                  child,
-            RawContext*                         context, 
-            vector<Value *>                     global_accumulator_ptr)
-        : Reduce(accs, outputExprs, pred, child, context, false), 
-        global_acc_ptr(global_accumulator_ptr){}
+            GpuRawContext*                      context)
+        : Reduce(accs, outputExprs, pred, child, context, false) {
+    for (const auto &expr: outputExprs){
+        if (!expr->getExpressionType()->isPrimitive()){
+            string error_msg("[GpuReduce: ] Currently only supports primitive types");
+            LOG(ERROR) << error_msg;
+            throw runtime_error(error_msg);
+        }
+
+        Type * t = PointerType::get(((const PrimitiveType *) expr->getExpressionType())->getLLVMType(context->getLLVMContext()), /* address space */ 1);
+        out_ids.push_back(context->appendParameter(t, true, false));
+    }
+}
 
 void GpuReduce::produce() {
     getChild()->produce();
@@ -48,25 +57,26 @@ void GpuReduce::generate(RawContext* const context, const OperatorState& childSt
     vector<Monoid                   >::const_iterator itAcc    ;
     vector<expressions::Expression *>::const_iterator itExpr   ;
     vector<AllocaInst *             >::const_iterator itMem    ;
-    vector<Value *                  >::const_iterator itGAccPtr;
+    vector<int                      >::const_iterator itID;
     /* Time to Compute Aggs */
     itAcc       = accs.begin();
     itExpr      = outputExprs.begin();
     itMem       = mem_accumulators.begin();
-    itGAccPtr   = global_acc_ptr.begin();
+    itID        = out_ids.begin();
     
-    for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++, ++itGAccPtr) {
+    for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++, ++itID) {
         Monoid                      acc                     = *itAcc;
         expressions::Expression *   outputExpr              = *itExpr;
         AllocaInst *                mem_accumulating        = *itMem;
-        Value *                     global_accumulator_ptr  = *itGAccPtr;
+
+        Argument * global_acc_ptr = ((const GpuRawContext *) context)->getArgument(*itID);
 
         switch (acc) {
         case MAX:
         case SUM:
         case OR:
         case AND:
-            generate(acc, outputExpr, (GpuRawContext * const) context, childState, mem_accumulating, global_accumulator_ptr);
+            generate(acc, outputExpr, (GpuRawContext * const) context, childState, mem_accumulating, global_acc_ptr);
             break;
         case MULTIPLY:
         case BAGUNION:
@@ -84,13 +94,16 @@ void GpuReduce::generate(RawContext* const context, const OperatorState& childSt
 
 void GpuReduce::generate(const Monoid &m, expressions::Expression* outputExpr,
         GpuRawContext* const context, const OperatorState& state,
-        AllocaInst *mem_accumulating, Value *global_accumulator_ptr) const {
+        AllocaInst *mem_accumulating, Argument *global_accumulator_ptr) const {
 
     IRBuilder<>* Builder        = context->getBuilder();
     LLVMContext& llvmContext    = context->getLLVMContext();
     Function *TheFunction       = Builder->GetInsertBlock()->getParent();
 
     gpu::Monoid * gm = gpu::Monoid::get(m);
+
+
+    global_accumulator_ptr->setName("reduce_" + std::to_string(*gm) + "_ptr");
 
     BasicBlock* entryBlock = Builder->GetInsertBlock();
     

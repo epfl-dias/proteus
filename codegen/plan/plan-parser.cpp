@@ -1,4 +1,6 @@
 #include "plan/plan-parser.hpp"
+#include "plugins/gpu-col-scan-plugin.hpp"
+#include "operators/gpu/gpu-reduce.hpp"
 
 /* too primitive */
 struct PlanHandler {
@@ -78,16 +80,88 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, const char 
 	return;
 }
 
-void PlanExecutor::parsePlan(const rapidjson::Document& doc)	{
+
+PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, RawContext * ctx) :
+		planPath(planPath), moduleName(""), catalogParser(cat), ctx(ctx) {
+
+	RawCatalog& catalog = RawCatalog::getInstance();
+
+	//Input Path
+	const char* nameJSON = planPath;
+	//Prepare Input
+	struct stat statbuf;
+	stat(nameJSON, &statbuf);
+	size_t fsize = statbuf.st_size;
+
+	int fd = open(nameJSON, O_RDONLY);
+	if (fd == -1) {
+		throw runtime_error(string("json.open"));
+	}
+
+	const char *bufJSON = (const char*) mmap(NULL, fsize, PROT_READ,
+			MAP_PRIVATE, fd, 0);
+	if (bufJSON == MAP_FAILED ) {
+		const char *err = "json.mmap";
+		LOG(ERROR)<< err;
+		throw runtime_error(err);
+	}
+
+	Document document; // Default template parameter uses UTF8 and MemoryPoolAllocator.
+	if (document.Parse(bufJSON).HasParseError()) {
+		const char *err = "[PlanExecutor: ] Error parsing physical plan";
+		LOG(ERROR)<< err;
+		throw runtime_error(err);
+	}
+
+	/* Start plan traversal. */
+	printf("\nParsing physical plan:\n");
+	assert(document.IsObject());
+
+	assert(document.HasMember("operator"));
+	assert(document["operator"].IsString());
+	printf("operator = %s\n", document["operator"].GetString());
+
+	parsePlan(document, false);
+
+	// vector<Plugin*>::iterator pgIter = activePlugins.begin();
+
+	// /* Cleanup */
+	// for(; pgIter != activePlugins.end(); pgIter++)	{
+	// 	Plugin *currPg = *pgIter;
+	// 	currPg->finish();
+	// }
+
+	return;
+}
+
+
+void PlanExecutor::parsePlan(const rapidjson::Document& doc, bool execute)	{
 	RawOperator* planRootOp = parseOperator(doc);
+
 	planRootOp->produce();
 
 	//Run function
 	ctx->prepareFunction(ctx->getGlobalFunction());
 
+	if (execute){
+		RawCatalog& catalog = RawCatalog::getInstance();
+		/* XXX Remove when testing caches (?) */
+		catalog.clear();
+	}
+}
+
+void PlanExecutor::cleanUp(){
 	RawCatalog& catalog = RawCatalog::getInstance();
 	/* XXX Remove when testing caches (?) */
 	catalog.clear();
+
+	vector<Plugin*>::iterator pgIter = activePlugins.begin();
+
+	/* Cleanup */
+	for(; pgIter != activePlugins.end(); pgIter++)	{
+		Plugin *currPg = *pgIter;
+		currPg->finish();
+	}
 }
 
 RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
@@ -138,7 +212,12 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		/* parse operator input */
 		RawOperator* childOp = parseOperator(val["input"]);
 		/* 'Multi-reduce' used */
-		newOp = new opt::Reduce(accs, e, p, childOp, this->ctx,true,moduleName);
+		if (val.HasMember("gpu") && val["gpu"].GetBool()){
+			assert(dynamic_cast<GpuRawContext *>(this->ctx));
+			newOp = new opt::GpuReduce(accs, e, p, childOp, dynamic_cast<GpuRawContext *>(this->ctx));
+		} else {
+			newOp = new opt::Reduce(accs, e, p, childOp, this->ctx,true,moduleName);
+		}
 		childOp->setParent(newOp);
 	} else if (strcmp(opName, "unnest") == 0) {
 
@@ -974,6 +1053,11 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 	const char *keyProjectionsBinRow = "projections";
 
 	/*
+	 * GPU
+	 */
+	const char *keyProjectionsGPU = "projections";
+
+	/*
 	 * BinCol
 	 */
 	const char *keyProjectionsBinCol = "projections";
@@ -1004,7 +1088,6 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 	const RecordType& recType_ = dynamic_cast<const RecordType&>(nestedType);
 	//circumventing the presence of const
 	RecordType *recType = new RecordType(recType_.getArgs());
-
 
 	if (strcmp(pgType, "csv") == 0) {
 //		cout<<"Original intended type: " << datasetInfo.exprType->getType()<<endl;
@@ -1084,6 +1167,20 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 
 		newPg = new BinaryColPlugin(this->ctx, *pathDynamicCopy, *recType,
 				*projections);
+	} else if (strcmp(pgType, "gpu") == 0) {
+		assert(val.HasMember(keyProjectionsGPU));
+		assert(val[keyProjectionsGPU].IsArray());
+
+		vector<RecordAttribute*> projections;
+		for (SizeType i = 0; i < val[keyProjectionsGPU].Size(); i++)
+		{
+			assert(val[keyProjectionsGPU][i].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val[keyProjectionsGPU][i]);
+			projections.push_back(recAttr);
+		}
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+
+		newPg = new GpuColScanPlugin(dynamic_cast<GpuRawContext *>(this->ctx), *pathDynamicCopy, *recType, projections);
 	} else {
 		string err = string("Unknown Plugin Type: ") + pgType;
 		LOG(ERROR)<< err;

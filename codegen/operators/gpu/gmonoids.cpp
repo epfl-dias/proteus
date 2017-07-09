@@ -294,3 +294,9 @@ Value * LogAndMonoid::createWarpAggregateToAll(RawContext * const context,
 }
 
 } //namemspace gpu
+
+namespace std{
+    string to_string(const gpu::Monoid &m){
+        return m.to_string();
+    }
+}

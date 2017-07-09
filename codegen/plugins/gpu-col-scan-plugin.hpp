@@ -81,31 +81,31 @@ public:
         throw runtime_error(error_msg);
     }
 
-    virtual void flushTuple(RawValueMemory mem_value, Value* fileName) {
+    virtual void flushTuple(RawValueMemory mem_value, llvm::Value* fileName) {
             string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
             LOG(ERROR) << error_msg;
             throw runtime_error(error_msg);
         }
 
-    virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName)  {
+    virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, llvm::Value* fileName)  {
         string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
         LOG(ERROR) << error_msg;
         throw runtime_error(error_msg);
     }
 
-    virtual void flushValueEager(RawValue value, const ExpressionType *type, Value* fileName) {
+    virtual void flushValueEager(RawValue value, const ExpressionType *type, llvm::Value* fileName) {
         string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
         LOG(ERROR) << error_msg;
         throw runtime_error(error_msg);
     }
 
-    virtual void flushChunk(RawValueMemory mem_value, Value* fileName)  {
+    virtual void flushChunk(RawValueMemory mem_value, llvm::Value* fileName)  {
         string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
         LOG(ERROR) << error_msg;
         throw runtime_error(error_msg);
     }
 
-    virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);
+    virtual llvm::Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);
 
     virtual ExpressionType *getOIDType() {
         return new Int64Type();
@@ -116,7 +116,9 @@ public:
 private:
     //Schema info provided
     RecordType rec;
-    vector<RecordAttribute*>& wantedFields;
+    vector<RecordAttribute*>  wantedFields;
+    vector<int>               wantedFieldsArg_id;
+    int                       tupleCntArg_id;
 
     /* Used when we treat the col. files as internal caches! */
     bool isCached;
@@ -144,7 +146,7 @@ private:
     map<string, AllocaInst*> NamedValuesBinaryCol;
     GpuRawContext* const context;
     //To be initialized by init(). Dictates # of loops
-    Value *val_size;
+    llvm::Value *val_size;
 
     const char* posVar;     // = "offset";
     const char* bufVar;     // = "fileBuffer";
@@ -153,13 +155,13 @@ private:
     const char* itemCtrVar; // = "itemCtr";
 
     //Used to generate code
-    void skipLLVM(RecordAttribute attName, Value *offset);
+    void skipLLVM(RecordAttribute attName, llvm::Value *offset);
     void prepareArray(RecordAttribute attName);
 
     void nextEntry();
     /* Operate over char* */
     void readAsInt64LLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
-    Value* readAsInt64LLVM(RecordAttribute attName);
+    llvm::Value* readAsInt64LLVM(RecordAttribute attName);
     /* Operates over int* */
     void readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
     /* Operates over float* */

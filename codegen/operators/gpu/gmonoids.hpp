@@ -52,6 +52,8 @@ namespace gpu {
             return createWarpAggregateToAll(context, val_in);
         }
 
+        virtual inline std::string to_string() const = 0;
+
         static Monoid * get(::Monoid m);
     };
 
@@ -69,6 +71,10 @@ namespace gpu {
                                 Value * val_in, 
                                 llvm::AtomicOrdering order = 
                                             llvm::AtomicOrdering::Monotonic);
+
+        inline std::string to_string() const{
+            return "max";
+        }
     };
 
     class SumMonoid : public Monoid{
@@ -81,6 +87,10 @@ namespace gpu {
                                 Value * val_in, 
                                 llvm::AtomicOrdering order = 
                                             llvm::AtomicOrdering::Monotonic);
+
+        inline std::string to_string() const{
+            return "sum";
+        }
     };
 
     class LogOrMonoid : public Monoid{
@@ -96,6 +106,10 @@ namespace gpu {
 
         Value * createWarpAggregateToAll(RawContext * const context, 
                                             Value * val_in);
+
+        inline std::string to_string() const{
+            return "lor";
+        }
     };
 
     class LogAndMonoid : public Monoid{
@@ -111,6 +125,10 @@ namespace gpu {
         
         Value * createWarpAggregateToAll(RawContext * const context, 
                                             Value * val_in);
+
+        inline std::string to_string() const{
+            return "land";
+        }
     };
 
     class BitOrMonoid : public Monoid{
@@ -123,6 +141,10 @@ namespace gpu {
                                 Value * val_in, 
                                 llvm::AtomicOrdering order = 
                                             llvm::AtomicOrdering::Monotonic);
+
+        inline std::string to_string() const{
+            return "bor";
+        }
     };
 
     class BitAndMonoid : public Monoid{
@@ -135,8 +157,15 @@ namespace gpu {
                                 Value * val_in, 
                                 llvm::AtomicOrdering order = 
                                             llvm::AtomicOrdering::Monotonic);
+
+        inline std::string to_string() const{
+            return "band";
+        }
     };
 
 }
 
+namespace std{
+    string to_string(const gpu::Monoid &m);
+}
 #endif /* GMONOIDS_HPP_ */

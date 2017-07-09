@@ -94,6 +94,8 @@ private:
 class PlanExecutor {
 public:
 	PlanExecutor(const char *planPath, CatalogParser& cat, const char *moduleName = "llvmModule");
+	PlanExecutor(const char *planPath, CatalogParser& cat, RawContext * ctx);
+
 private:
 	ExpressionParser exprParser;
 	const char * __attribute__((unused)) planPath;
@@ -102,7 +104,7 @@ private:
 	vector<Plugin*> activePlugins;
 
 	RawContext * ctx;
-	void		 			 parsePlan(const rapidjson::Document& doc);
+	void		 			 parsePlan(const rapidjson::Document& doc, bool execute = false);
 	/* When processing tree root, parent will be NULL */
 	RawOperator* 			 parseOperator(const rapidjson::Value& val);
 	expressions::Expression* parseExpression(const rapidjson::Value& val) {
@@ -119,6 +121,8 @@ private:
 	}
 
 	Plugin* parsePlugin(const rapidjson::Value& val);
+
+	void cleanUp();
 };
 
 

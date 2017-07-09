@@ -44,16 +44,17 @@ public:
             vector<expressions::Expression *>   outputExprs,
             expressions::Expression *           pred,
             RawOperator * const                 child,
-            RawContext *                        context,
-            vector<Value *>                     global_accumulator_ptr);
+            GpuRawContext *                     context);
     virtual ~GpuReduce() { LOG(INFO)<< "Collapsing GpuReduce operator";}
     virtual void produce();
     virtual void consume(RawContext* const context, const OperatorState& childState);
 private:
     void generate(RawContext* const context, const OperatorState& childState) const;
-    void generate(const Monoid &m, expressions::Expression* outputExpr, GpuRawContext* const context, const OperatorState& childState, AllocaInst *mem_accumulating, Value *global_accumulator_ptr) const;
+    void generate(const Monoid &m, expressions::Expression* outputExpr, GpuRawContext* const context, const OperatorState& childState, AllocaInst *mem_accumulating, Argument *global_accumulator_ptr) const;
     
-    std::vector<Value *> global_acc_ptr;
+    std::vector<llvm::Value *> global_acc_ptr;
+
+    std::vector<int> out_ids;
 };
 }
 

@@ -49,18 +49,6 @@ Reduce::Reduce(vector<Monoid> accs,
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
-
-	vector<Monoid>::const_iterator itAcc;
-	vector<expressions::Expression*>::const_iterator itExpr;
-	itAcc = accs.begin();
-	itExpr = outputExprs.begin();
-	/* Prepare accumulator FOREACH outputExpr */
-	for (; itAcc != accs.end(); itAcc++, itExpr++) {
-		Monoid acc = *itAcc;
-		expressions::Expression *outputExpr = *itExpr;
-		AllocaInst *mem_accumulator = resetAccumulator(outputExpr, acc);
-		mem_accumulators.push_back(mem_accumulator);
-	}
 }
 
 void Reduce::produce() {
@@ -69,7 +57,19 @@ void Reduce::produce() {
 
 void Reduce::consume(RawContext* const context,
 		const OperatorState& childState) {
-
+	if (mem_accumulators.empty()){
+		vector<Monoid>::const_iterator itAcc;
+		vector<expressions::Expression*>::const_iterator itExpr;
+		itAcc = accs.begin();
+		itExpr = outputExprs.begin();
+		/* Prepare accumulator FOREACH outputExpr */
+		for (; itAcc != accs.end(); itAcc++, itExpr++) {
+			Monoid acc = *itAcc;
+			expressions::Expression *outputExpr = *itExpr;
+			AllocaInst *mem_accumulator = resetAccumulator(outputExpr, acc);
+			mem_accumulators.push_back(mem_accumulator);
+		}
+	}
 	generate(context, childState);
 	//flushResult();
 }
@@ -1546,6 +1546,9 @@ AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *f = Builder->GetInsertBlock()->getParent();
 
+	BasicBlock* entryBlock = Builder->GetInsertBlock();
+	Builder->SetInsertPoint(context->getCurrentEntryBlock());
+
 	Type* int1Type = Type::getInt1Ty(llvmContext);
 	Type* int32Type = Type::getInt32Ty(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
@@ -1703,7 +1706,8 @@ AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,
 	case BAGUNION:
 	case APPEND: {
 		/*XXX Bags and Lists can be processed in streaming fashion -> No accumulator needed */
-		return NULL;
+		mem_accumulating = NULL;
+		break;
 	}
 	default: {
 		string error_msg = string("[Reduce: ] Unknown accumulator");
@@ -1711,6 +1715,9 @@ AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,
 		throw runtime_error(error_msg);
 	}
 	}
+
+
+	Builder->SetInsertPoint(entryBlock);
 	return mem_accumulating;
 }
 

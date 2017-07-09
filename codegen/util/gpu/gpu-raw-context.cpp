@@ -31,6 +31,8 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 
+#define DEBUGCTX
+
 void GpuRawContext::createJITEngine() {
     LLVMLinkInMCJIT();
     LLVMInitializeNVPTXTarget();
@@ -101,6 +103,18 @@ void GpuRawContext::createJITEngine() {
     }
 }
 
+int GpuRawContext::appendParameter(llvm::Type * ptype, bool noalias, bool readonly){
+    inputs.push_back(ptype);
+    inputs_noalias.push_back(noalias);
+    inputs_readonly.push_back(readonly);
+
+    return inputs.size() - 1;
+}
+
+Argument * GpuRawContext::getArgument(int id) const{
+    return args[id];
+}
+
 // static void __attribute__((unused)) addOptimizerPipelineDefault(legacy::FunctionPassManager * TheFPM) {
 //     //Provide basic AliasAnalysis support for GVN.
 //     TheFPM->add(createBasicAAWrapperPass());
@@ -135,7 +149,7 @@ void GpuRawContext::createJITEngine() {
 // }
 
 GpuRawContext::GpuRawContext(const string& moduleName): 
-            RawContext(moduleName, false) {
+            RawContext(moduleName, false), kernelName(moduleName){
     Module * mod = getModule();
 
     if (sizeof(void*) == 8) {
@@ -194,8 +208,24 @@ GpuRawContext::~GpuRawContext() {
 }
 
 void GpuRawContext::setGlobalFunction(Function *F){
-    RawContext::setGlobalFunction(F);
+    if (F){
+        string error_msg("[GpuRawContext: ] Should not set global function for GPU context!");
+        std::cout << error_msg << std::endl;
+        throw runtime_error(error_msg);
+    }
 
+    FunctionType *ftype = FunctionType::get(Type::getVoidTy(getLLVMContext()), inputs, false);
+    F = Function::Create(ftype, Function::ExternalLinkage, kernelName, getModule());
+
+    for (size_t i = 1 ; i <= inputs.size() ; ++i){ //+1 because 0 is the return value
+        if (inputs_readonly[i - 1]) F->setOnlyReadsMemory(i);
+        if (inputs_noalias [i - 1]) F->setDoesNotAlias(   i);
+    }
+
+    for (auto &t: F->args()) args.push_back(&t);
+
+    RawContext::setGlobalFunction(F);
+    
     Type *int32Type           = Type::getInt32Ty(TheContext); 
     
     std::vector<llvm::Metadata *> Vals;
@@ -221,7 +251,7 @@ void GpuRawContext::compileAndLoad(){
 
 }
 
-CUfunction GpuRawContext::getKernel(std::string kernelName){
+CUfunction GpuRawContext::getKernel(){
     CUfunction function;
     gpu_run(cuModuleGetFunction(&function, cudaModule, kernelName.c_str()));
     return function;
@@ -357,7 +387,7 @@ void GpuRawContext::prepareFunction(Function *F) {
         getModule()->print(out, nullptr, false, true);
     }
 #endif
-    // std::cout << " Here "  << std::endl;
+    // std::cout << " Her4e "  << std::endl;
 }
 
 Value * GpuRawContext::threadId(){

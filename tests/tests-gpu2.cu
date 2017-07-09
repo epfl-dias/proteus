@@ -34,29 +34,18 @@
 #include "util/gpu/gpu-raw-context.hpp"
 #include "plugins/gpu-col-scan-plugin.hpp"
 #include "operators/gpu/gpu-reduce.hpp"
+#include "operators/gpu/gpu-materializer-expr.hpp"
 
 #include "common/common.hpp"
 #include "util/raw-context.hpp"
 #include "util/raw-functions.hpp"
-#include "operators/scan.hpp"
-#include "operators/select.hpp"
-#include "operators/print.hpp"
-#include "operators/root.hpp"
-#include "operators/join.hpp"
-#include "operators/unnest.hpp"
-#include "operators/outer-unnest.hpp"
-#include "operators/radix-join.hpp"
-#include "operators/radix-nest.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 
-
-
-
-
+#include "plan/plan-parser.hpp"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Triple.h"
@@ -137,12 +126,15 @@ protected:
     }
 
 
-    std::tuple<Function *, Module *, Function *> createKernel(GpuRawContext &ctx);
+    void createKernel(GpuRawContext &ctx);
+    void createKernel2(GpuRawContext &ctx);
 
 
     bool flushResults = true;
     const char * testPath = TEST_OUTPUTS "/tests-output/";
 
+    const char * catalogJSON = "inputs/plans/catalog.json";
+    
 private:
     RawCatalog * catalog;
     CachingService * caches;
@@ -152,10 +144,13 @@ public:
     int32_t * a;
     double  * b;
     int32_t * c;
+    int32_t * d;
 
     int32_t * h_a;
     double  * h_b;
     int32_t * h_c;
+    int32_t * h_d;
+    int32_t * h_e;
 
     CUdevice device;
     CUmodule cudaModule;
@@ -166,39 +161,39 @@ public:
     int devMajor, devMinor;
 };
 
-std::tuple<Function *, Module *, Function *> GPUOutputTest3::createKernel(GpuRawContext &ctx){
-    Module * mod = ctx.getModule();
+void GPUOutputTest3::createKernel(GpuRawContext &ctx){
+    // Module * mod = ctx.getModule();
 
-    Type * int32_type = Type::getInt32Ty(ctx.getLLVMContext());
-    Type * int1_type  = Type::getInt1Ty(ctx.getLLVMContext());
+    // Type * int32_type = Type::getInt32Ty(ctx.getLLVMContext());
+    // Type * int1_type  = Type::getInt1Ty(ctx.getLLVMContext());
 
-    std::vector<Type *> inputs;
-    inputs.push_back(PointerType::get(int32_type                             , /* address space */ 0));
-    inputs.push_back(PointerType::get(Type::getDoubleTy(ctx.getLLVMContext()), /* address space */ 0));
-    inputs.push_back(PointerType::get(int32_type                             , /* address space */ 1)); // needs to be in device memory for atomic write
-    inputs.push_back(PointerType::get(int32_type                             , /* address space */ 1)); // needs to be in device memory for atomic write
-    inputs.push_back(PointerType::get(int1_type                              , /* address space */ 1)); // needs to be in device memory for atomic write
-    inputs.push_back(PointerType::get(int1_type                              , /* address space */ 1)); // needs to be in device memory for atomic write
+    // std::vector<Type *> inputs;
+    // inputs.push_back(PointerType::get(int32_type                             , /* address space */ 0));
+    // inputs.push_back(PointerType::get(Type::getDoubleTy(ctx.getLLVMContext()), /* address space */ 0));
+    // inputs.push_back(PointerType::get(int32_type                             , /* address space */ 1)); // needs to be in device memory for atomic write
+    // inputs.push_back(PointerType::get(int32_type                             , /* address space */ 1)); // needs to be in device memory for atomic write
+    // inputs.push_back(PointerType::get(int1_type                              , /* address space */ 1)); // needs to be in device memory for atomic write
+    // inputs.push_back(PointerType::get(int1_type                              , /* address space */ 1)); // needs to be in device memory for atomic write
 
-    Type * size_type;
-    if      (sizeof(size_t) == 4) size_type = Type::getInt32Ty(ctx.getLLVMContext());
-    else if (sizeof(size_t) == 8) size_type = Type::getInt64Ty(ctx.getLLVMContext());
-    else                          assert(false);
-    inputs.push_back(size_type);
+    // Type * size_type;
+    // if      (sizeof(size_t) == 4) size_type = Type::getInt32Ty(ctx.getLLVMContext());
+    // else if (sizeof(size_t) == 8) size_type = Type::getInt64Ty(ctx.getLLVMContext());
+    // else                          assert(false);
+    // inputs.push_back(size_type);
 
-    FunctionType *entry_point_type = FunctionType::get(Type::getVoidTy(ctx.getLLVMContext()), inputs, false);
+    // FunctionType *entry_point_type = FunctionType::get(Type::getVoidTy(ctx.getLLVMContext()), inputs, false);
     
-    Function *entry_point = Function::Create(entry_point_type, Function::ExternalLinkage, "jit_kernel", mod);
+    // Function *entry_point = Function::Create(entry_point_type, Function::ExternalLinkage, "jit_kernel", mod);
 
-    for (size_t i = 0 ; i < 2 ; ++i){
-        entry_point->setOnlyReadsMemory(i + 1); //+1 because 0 is the return value
-        entry_point->setDoesNotAlias(i + 1); //+1 because 0 is the return value
-    }
-    for (size_t i = 2 ; i < 6 ; ++i){
-        entry_point->setDoesNotAlias(i + 1); //+1 because 0 is the return value
-    }
+    // for (size_t i = 0 ; i < 2 ; ++i){
+    //     entry_point->setOnlyReadsMemory(i + 1); //+1 because 0 is the return value
+    //     entry_point->setDoesNotAlias(i + 1); //+1 because 0 is the return value
+    // }
+    // for (size_t i = 2 ; i < 6 ; ++i){
+    //     entry_point->setDoesNotAlias(i + 1); //+1 because 0 is the return value
+    // }
 
-    ctx.setGlobalFunction(entry_point);
+    // ctx.setGlobalFunction(entry_point);
 
     // //SCAN1
     string filename = string("inputs/sailors.csv");
@@ -263,44 +258,106 @@ std::tuple<Function *, Module *, Function *> GPUOutputTest3::createKernel(GpuRaw
   exprs.push_back(predicateExpr);
   exprs.push_back(predicateExpr);
 
-  vector<Value *> accums{accs.size()};
-
-  std::cout << accums.size() << std::endl;
-
-    auto eparg = --(--(entry_point->args().end()));
-    for (size_t i = 0 ; i < accs.size() ; ++i, --eparg){
-        accums[accums.size() - 1 - i] = &(*(eparg));
-    }
-
   opt::GpuReduce reduce = opt::GpuReduce(accs, 
                                             exprs, 
                                             predicate, 
                                             &scan, 
-                                            &ctx, 
-                                            accums);
+                                            &ctx);
 
   scan.setParent(&reduce);
 
   reduce.produce();
 
-  ctx.getBuilder()->SetInsertPoint(ctx.getEndingBlock());
+  // ctx.getBuilder()->SetInsertPoint(ctx.getEndingBlock());
 
-    ctx.getBuilder()->CreateRetVoid();
+  //   ctx.getBuilder()->CreateRetVoid();
 
     LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
 #ifdef DEBUGCTX
 //  getModule()->dump();
 #endif
     // Validate the generated code, checking for consistency.
-    verifyFunction(*entry_point);
+    verifyFunction(*ctx.getGlobalFunction());
 
     //Run function
     ctx.prepareFunction(ctx.getGlobalFunction());
-
-    return std::make_tuple(entry_point, mod, entry_point);
 }
 
-// Dummy test use to wake up the device beefore running any other test.
+void GPUOutputTest3::createKernel2(GpuRawContext &ctx){
+    // //SCAN1
+    string filename = string("inputs/sailors.csv");
+    PrimitiveType * intType = new IntType();
+    PrimitiveType* floatType = new FloatType();
+    PrimitiveType* stringType = new StringType();
+    RecordAttribute* sid = new RecordAttribute(1, filename, string("sid"),
+            intType);
+    RecordAttribute* sname = new RecordAttribute(2, filename, string("sname"),
+            stringType);
+    RecordAttribute* rating = new RecordAttribute(3, filename, string("rating"),
+            intType);
+    RecordAttribute* age = new RecordAttribute(4, filename, string("age"),
+            floatType);
+
+    list<RecordAttribute*> attrList;
+    attrList.push_back(sid);
+    attrList.push_back(sname);
+    attrList.push_back(rating);
+    attrList.push_back(age);
+
+    RecordType rec1 = RecordType(attrList);
+
+    vector<RecordAttribute*> whichFields;
+    whichFields.push_back(sid);
+    whichFields.push_back(age);
+
+
+    GpuColScanPlugin * pg = new GpuColScanPlugin(&ctx, filename, rec1, whichFields);
+    catalog->registerPlugin(filename, pg);
+  
+    Scan scan(&ctx, *pg);
+
+    // /**
+    //  * REDUCE
+    //  */
+  
+    RecordAttribute projTuple = RecordAttribute(filename, activeLoop, new Int64Type());
+    list<RecordAttribute> projections = list<RecordAttribute>();
+    projections.push_back(projTuple);
+    projections.push_back(*sid);
+    projections.push_back(*age);
+
+    expressions::Expression* arg = new expressions::InputArgument(&rec1, 0, projections);
+
+    expressions::Expression* outputExpr = new expressions::RecordProjection(intType, arg, *sid);
+
+    expressions::Expression* lhs = new expressions::RecordProjection(floatType, arg, *age);
+    expressions::Expression* rhs = new expressions::FloatConstant(40.0);
+    expressions::Expression* predicate = new expressions::GtExpression(new BoolType(), lhs, rhs);
+
+    Select sel(predicate, &scan);
+    scan.setParent(&sel);
+
+    GpuExprMaterializer mat(outputExpr, &sel, &ctx, "mat");
+    sel.setParent(&mat);
+
+    mat.produce();
+
+    // ctx.getBuilder()->SetInsertPoint(ctx.getEndingBlock());
+
+    // ctx.getBuilder()->CreateRetVoid();
+
+    LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
+#ifdef DEBUGCTX
+//  getModule()->dump();
+#endif
+    // Validate the generated code, checking for consistency.
+    verifyFunction(*ctx.getGlobalFunction());
+
+    //Run function
+    ctx.prepareFunction(ctx.getGlobalFunction());
+}
+
+// Dummy test use to wake up the device before running any other test.
 // This makes timings more meaningful.
 TEST_F(GPUOutputTest3, gpuWakeUp) { // DO NOT DELETE!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 }
@@ -392,7 +449,7 @@ TEST_F(GPUOutputTest3, gpuReduceNumeric) {
     ctx->compileAndLoad();
 
     // Get kernel function
-    function = ctx->getKernel("jit_kernel");
+    function = ctx->getKernel();
 
         auto end   = std::chrono::system_clock::now();
         std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
@@ -422,7 +479,7 @@ TEST_F(GPUOutputTest3, gpuReduceNumeric) {
     bool    * c4 = (bool *) (c + 3);
 
     // Kernel parameters
-    void *KernelParams[] = {&a, &b, &c, &c2, &c3, &c4, &N};
+    void *KernelParams[] = {&a, &b, &N, &c, &c2, &c3, &c4};
 
 
     {
@@ -494,6 +551,181 @@ TEST_F(GPUOutputTest3, gpuReduceNumeric) {
 }
 
 
+__global__ void kernel_select(  const int32_t * __restrict__ sid_ptr,
+                                const double  * __restrict__ age_ptr,
+                                      int32_t * __restrict__ out_ptr,
+                                      int32_t * __restrict__ out_cnt,
+                                      size_t                 cnt){
+    const size_t tid    = threadIdx.x + blockDim.x * blockIdx.x;
+    const int    laneid = tid & 0x1F;
+
+    for (size_t i = tid ; i < cnt ; i += blockDim.x * gridDim.x){
+        if (age_ptr[i] > 40){
+            int32_t filter = __ballot(1);
+            int     lcnt   = __popc(filter);
+
+            int32_t old_cnt = atomicAdd(out_cnt, 1);
+
+            // int r = __popc(filter & ((1 << laneid) - 1));
+            out_ptr[old_cnt] = sid_ptr[i];
+        }
+    }
+}
+
+
+void cpu_gpuSelectNumeric(const int32_t * __restrict__ sid_ptr,
+                            const double  * __restrict__ age_ptr,
+                                  int32_t * __restrict__ result_ptr,
+                                  size_t cnt){
+    int32_t   res = 0;
+
+    for (size_t i = 0 ; i < cnt ; ++i) {
+        if (age_ptr[i] > 40.0) result_ptr[res++] = sid_ptr[i];
+    }
+}
+
+
+TEST_F(GPUOutputTest3, gpuSelectNumeric) {
+    auto start = std::chrono::system_clock::now();
+
+    const char *testLabel = "gpuSelectNumeric";
+    GpuRawContext * ctx;
+
+    {
+        auto start = std::chrono::system_clock::now();
+
+    ctx = new GpuRawContext(testLabel);
+    createKernel2(*ctx);
+
+    ctx->compileAndLoad();
+
+    // Get kernel function
+    function = ctx->getKernel();
+
+        auto end   = std::chrono::system_clock::now();
+        std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+    }
+
+    // Create driver context
+    
+    h_c[0] =  0;
+
+    gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 1, cudaMemcpyDefault));
+    // gpu_run(cudaMemcpy(d, h_d, sizeof(int32_t) * N, cudaMemcpyDefault));
+
+
+    unsigned blockSizeX = 1024;
+    unsigned blockSizeY = 1;
+    unsigned blockSizeZ = 1;
+    unsigned gridSizeX  = 1024;
+    unsigned gridSizeY  = 1;
+    unsigned gridSizeZ  = 1;
+
+    // Kernel parameters
+    void *KernelParams[] = {&a, &b, &N, &d, &c};
+
+
+    {
+        auto start = std::chrono::system_clock::now();
+        // Kernel launch
+        gpu_run(cuLaunchKernel(function, gridSizeX, gridSizeY, gridSizeZ,
+                                     blockSizeX, blockSizeY, blockSizeZ,
+                                     0, NULL, KernelParams, NULL));
+
+        gpu_run(cudaDeviceSynchronize());
+
+        auto end   = std::chrono::system_clock::now();
+        std::cout << "Tgenerated: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+    }
+    gpu_run(cudaMemcpy(h_c, c, sizeof(int32_t)*1, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(h_d, d, sizeof(int32_t)*N, cudaMemcpyDefault));
+
+    h_c[1] =  0;
+
+    gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(c, h_c + 1, sizeof(int32_t) * 1, cudaMemcpyDefault));
+    // gpu_run(cudaMemcpy(d, h_d, sizeof(int32_t) * N, cudaMemcpyDefault));
+
+
+    {
+        auto start = std::chrono::system_clock::now();
+
+        kernel_select<<<1024, 1024, 0, 0>>>(a, b, d, c, N);
+
+        gpu_run(cudaDeviceSynchronize());
+
+        auto end   = std::chrono::system_clock::now();
+        std::cout << "Tgenerated: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+    }
+    gpu_run(cudaMemcpy(h_c + 1, c, sizeof(int32_t)*1, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(h_e, d, sizeof(int32_t)*N, cudaMemcpyDefault));
+
+    EXPECT_EQ(h_c[0], h_c[1]);
+
+    if (h_c[0] == h_c[1]){
+        std::sort(h_e, h_e + h_c[1]);
+        std::sort(h_d, h_d + h_c[0]);
+
+        for (unsigned int i = 0 ; i < std::min(h_c[0], h_c[1]) ; ++i) EXPECT_EQ(h_d[i], h_e[i]);
+    }
+
+//     for (size_t i = 0 ; i < 4 ; ++i) std::cout << h_c[i] << " "; std::cout << std::endl;
+
+//     int32_t h_d[4];
+
+//     h_d[0] = 0;
+//     h_d[1] = 0;
+//     h_d[2] = 0;
+//     h_d[3] = 0xFF;
+
+//     gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(c, h_d, sizeof(int32_t) * 4, cudaMemcpyDefault));
+
+//     {
+//         auto start = std::chrono::system_clock::now();
+
+//         kernel_gpuReduceNumeric<<<1024, 1024, 0, 0>>>(a, b, c, c2, c3, c4, N);
+
+//         gpu_run(cudaDeviceSynchronize());
+        
+//         auto end   = std::chrono::system_clock::now();
+//         std::cout << "Thandwritten: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+
+//     }
+//     gpu_run(cudaMemcpy(h_d, c, sizeof(int32_t)*4, cudaMemcpyDefault));
+
+//     for (size_t i = 0 ; i < 4 ; ++i) std::cout << h_d[i] << " "; std::cout << std::endl;
+
+//     int32_t   local_sum = 0;
+//     int32_t   local_max = 0; //FIXME: should be MAX_NEG_INT, but codegen currently sets it to zero
+
+//     bool      local_and = true ;
+//     bool      local_or  = false;
+    {
+
+        auto start = std::chrono::system_clock::now();
+
+        cpu_gpuSelectNumeric(h_a, h_b, h_d, N);
+
+        auto end   = std::chrono::system_clock::now();
+        std::cout << "Tcpu: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+
+    }
+//     std::cout << local_sum << " " << local_max << " " << local_and << " " << local_or << std::endl;
+//     EXPECT_EQ(local_sum, h_c[0]);
+//     EXPECT_EQ(local_max, h_c[1]);
+//     EXPECT_EQ(local_and, !!(h_c[2] & 0xFF));
+//     EXPECT_EQ(local_or , !!(h_c[3] & 0xFF));
+//     EXPECT_EQ(local_sum, h_d[0]);
+//     EXPECT_EQ(local_max, h_d[1]);
+//     EXPECT_EQ(local_and, !!(h_d[2] & 0xFF));
+//     EXPECT_EQ(local_or , !!(h_d[3] & 0xFF));
+}
+
 void GPUOutputTest3::SetUp() {
     // NVPTXTargetMachine64 TM(TheNVPTXTarget64, Triple("nvptx64-nvidia-cuda"), "sm_61", );
     // TODO: initialize only the required ones...
@@ -529,10 +761,14 @@ void GPUOutputTest3::SetUp() {
     gpu_run(cudaMalloc(&a, sizeof(int32_t)*N));
     gpu_run(cudaMalloc(&b, sizeof(double )*N));
     gpu_run(cudaMalloc(&c, sizeof(int32_t)*4));
+    gpu_run(cudaMalloc(&d, sizeof(int32_t)*N));
 
     gpu_run(cudaMallocHost(&h_a, sizeof(int32_t)*N));
     gpu_run(cudaMallocHost(&h_b, sizeof(double )*N));
     gpu_run(cudaMallocHost(&h_c, sizeof(int32_t)*4));
+    gpu_run(cudaMallocHost(&h_d, sizeof(int32_t)*N));
+    gpu_run(cudaMallocHost(&h_e, sizeof(int32_t)*N));
+
 
     srand(time(NULL));
 
@@ -544,8 +780,39 @@ void GPUOutputTest3::TearDown() {
     gpu_run(cudaFree(a));
     gpu_run(cudaFree(b));
     gpu_run(cudaFree(c));
+    gpu_run(cudaFree(d));
 
     gpu_run(cudaFreeHost(h_a));
     gpu_run(cudaFreeHost(h_b));
     gpu_run(cudaFreeHost(h_c));
+    gpu_run(cudaFreeHost(h_d));
+    gpu_run(cudaFreeHost(h_e));
+}
+
+
+
+TEST_F(GPUOutputTest3, gpuPlan) {
+
+    const char *testLabel = "gpuPlan";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/reduce-scan-gpu.json";
+
+    {
+        auto start = std::chrono::system_clock::now();
+
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        
+        ctx->compileAndLoad();
+
+        // Get kernel function
+        function = ctx->getKernel();
+
+        auto end   = std::chrono::system_clock::now();
+        std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+    }
+
+    EXPECT_TRUE(true);
 }
