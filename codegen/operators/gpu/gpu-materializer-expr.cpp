@@ -24,20 +24,68 @@
 #include "operators/gpu/gpu-materializer-expr.hpp"
 
 
-GpuExprMaterializer::GpuExprMaterializer(expressions::Expression* toMat,
+
+
+GpuExprMaterializer::GpuExprMaterializer(const std::vector<GpuMatExpr> &toMat,
+		const std::vector<size_t> &packet_widths,
 		RawOperator* const child, GpuRawContext* const context, string opLabel) :
-		UnaryRawOperator(child), toMat(toMat), context(context), opLabel(opLabel) {
+		UnaryRawOperator(child), matExpr(toMat),
+		// context(context), 
+		opLabel(opLabel),
+		packet_widths(packet_widths) {
 
-	const ExpressionType * out_type = toMat->getExpressionType();
 
-	if (!out_type->isPrimitive()){
-		string error_msg("[GpuExprMaterializer: ] Currently only supports materialization of primitive types");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
+	std::sort(matExpr.begin(), matExpr.end(), [](const GpuMatExpr& a, const GpuMatExpr& b){
+		return a.packet < b.packet || a.bitoffset < b.bitoffset;
+	});
+
+	size_t i = 0;
+
+	for (size_t p = 0 ; p < packet_widths.size() ; ++p){
+		// Type * t     = PointerType::get(IntegerType::getIntNTy(context->getLLVMContext(), packet_widths[p]), /* address space */ 1);
+
+		size_t bindex  = 0;
+		size_t packind = 0;
+
+		std::vector<Type *> body;
+		while (i < matExpr.size() && matExpr[i].packet == p){
+			if (matExpr[i].bitoffset != bindex){
+				//insert space
+				assert(matExpr[i].bitoffset > bindex);
+				body.push_back(Type::getIntNTy(context->getLLVMContext(), (matExpr[i].bitoffset - bindex)));
+				++packind;
+			}
+
+			const ExpressionType * out_type = matExpr[i].expr->getExpressionType();
+
+			if (!out_type->isPrimitive()){
+				string error_msg("[GpuExprMaterializer: ] Currently only supports materialization of primitive types");
+				LOG(ERROR)<< error_msg;
+				throw runtime_error(error_msg);
+			}
+
+			Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
+
+			body.push_back(llvm_type);
+			bindex = matExpr[i].bitoffset + llvm_type->getPrimitiveSizeInBits();
+			matExpr[i].packind = packind++;
+			++i;
+		}
+		assert(packet_widths[p] >= bindex);
+
+		if (packet_widths[p] > bindex) {
+			body.push_back(Type::getIntNTy(context->getLLVMContext(), (packet_widths[p] - bindex)));
+		}
+
+		Type * t     = StructType::create(body, opLabel + "_struct_" + std::to_string(p), true);
+		Type * t_ptr = PointerType::get(t, /* address space */ 1);
+
+		out_param_ids.push_back(context->appendParameter(t_ptr, true, false));
 	}
+	assert(i == matExpr.size());
 
-	Type * t     = PointerType::get(((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext()), /* address space */ 1);
-	out_param_id = context->appendParameter(t    , true, false);
+	// Type * t     = PointerType::get(((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext()), /* address space */ 1);
+	// out_param_id = context->appendParameter(t    , true, false);
 
 	Type * int32_type = Type::getInt32Ty(context->getLLVMContext());
 
@@ -181,36 +229,36 @@ GpuExprMaterializer::GpuExprMaterializer(expressions::Expression* toMat,
 
 
 GpuExprMaterializer::~GpuExprMaterializer()	{
-	LOG(INFO)<<"Collapsing Materializer operator";
+	LOG(INFO)<<"Collapsing Gpu Materializer operator";
 //	Can't do garbage collection here, need to do it from codegen
 }
 
-void GpuExprMaterializer::freeArenas() const	{
-	/* Prepare codegen utils */
-	LLVMContext& llvmContext = context->getLLVMContext();
-	RawCatalog& catalog = RawCatalog::getInstance();
-	Function *F = context->getGlobalFunction();
-	IRBuilder<> *Builder = context->getBuilder();
-	Function *debugInt = context->getFunction("printi");
-	Function *debugInt64 = context->getFunction("printi64");
+// void GpuExprMaterializer::freeArenas() const	{
+// 	/* Prepare codegen utils */
+// 	LLVMContext& llvmContext = context->getLLVMContext();
+// 	RawCatalog& catalog = RawCatalog::getInstance();
+// 	Function *F = context->getGlobalFunction();
+// 	IRBuilder<> *Builder = context->getBuilder();
+// 	Function *debugInt = context->getFunction("printi");
+// 	Function *debugInt64 = context->getFunction("printi64");
 
-	PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
-	Type *int8_type = Type::getInt8Ty(llvmContext);
-	PointerType *void_ptr_type = PointerType::get(int8_type, 0);
-	Type *int64_type = Type::getInt64Ty(llvmContext);
-	Type *int32_type = Type::getInt32Ty(llvmContext);
+// 	PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
+// 	Type *int8_type = Type::getInt8Ty(llvmContext);
+// 	PointerType *void_ptr_type = PointerType::get(int8_type, 0);
+// 	Type *int64_type = Type::getInt64Ty(llvmContext);
+// 	Type *int32_type = Type::getInt32Ty(llvmContext);
 
-	/* Actual Work */
-	Function* freeLLVM = context->getFunction("releaseMemoryChunk");
+// 	/* Actual Work */
+// 	Function* freeLLVM = context->getFunction("releaseMemoryChunk");
 
-	Value *val_arena = Builder->CreateLoad(opBuffer.mem_buffer);
-	vector<Value*> ArgsFree;
-	AllocaInst* mem_arena_void = Builder->CreateAlloca(void_ptr_type,0,"voidArenaPtr");
-	Builder->CreateStore(val_arena,mem_arena_void);
-	Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
-	ArgsFree.push_back(val_arena_void);
-	Builder->CreateCall(freeLLVM, ArgsFree);
-}
+// 	Value *val_arena = Builder->CreateLoad(opBuffer.mem_buffer);
+// 	vector<Value*> ArgsFree;
+// 	AllocaInst* mem_arena_void = Builder->CreateAlloca(void_ptr_type,0,"voidArenaPtr");
+// 	Builder->CreateStore(val_arena,mem_arena_void);
+// 	Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
+// 	ArgsFree.push_back(val_arena_void);
+// 	Builder->CreateCall(freeLLVM, ArgsFree);
+// }
 
 void GpuExprMaterializer::produce() {
 	getChild()->produce();
@@ -219,18 +267,18 @@ void GpuExprMaterializer::produce() {
 	/*this->freeArenas();*/
 }
 
-void GpuExprMaterializer::updateRelationPointers() const {
-	Function *F = context->getGlobalFunction();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	IRBuilder<> *Builder = context->getBuilder();
-	PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
-	PointerType *char_ptr_ptr_type = PointerType::get(char_ptr_type, 0);
+// void GpuExprMaterializer::updateRelationPointers() const {
+// 	Function *F = context->getGlobalFunction();
+// 	LLVMContext& llvmContext = context->getLLVMContext();
+// 	IRBuilder<> *Builder = context->getBuilder();
+// 	PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
+// 	PointerType *char_ptr_ptr_type = PointerType::get(char_ptr_type, 0);
 
-	Value *val_ptrRawBuffer = context->CastPtrToLlvmPtr(char_ptr_ptr_type,
-			ptr_rawBuffer);
-	Value *val_rawBuffer = Builder->CreateLoad(this->opBuffer.mem_buffer);
-	Builder->CreateStore(val_rawBuffer, val_ptrRawBuffer);
-}
+// 	Value *val_ptrRawBuffer = context->CastPtrToLlvmPtr(char_ptr_ptr_type,
+// 			ptr_rawBuffer);
+// 	Value *val_rawBuffer = Builder->CreateLoad(this->opBuffer.mem_buffer);
+// 	Builder->CreateStore(val_rawBuffer, val_ptrRawBuffer);
+// }
 
 void GpuExprMaterializer::consume(RawContext* const context, const OperatorState& childState) {
 
@@ -242,10 +290,33 @@ void GpuExprMaterializer::consume(RawContext* const context, const OperatorState
 	// Function *debugInt = context->getFunction("printi");
 	// Function *debugInt64 = context->getFunction("printi64");
 
-	Argument * out_ptr = ((const GpuRawContext *) context)->getArgument(out_param_id);
+
 	Argument * out_cnt = ((const GpuRawContext *) context)->getArgument(cnt_param_id);
-	out_ptr->setName(opLabel + "_out_ptr");
 	out_cnt->setName(opLabel + "_cnt_ptr");
+
+
+	Value * old_cnt = Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, 
+												out_cnt,
+												ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1),
+												llvm::AtomicOrdering::Monotonic);
+
+
+
+	std::vector<Value *> out_ptrs;
+	std::vector<Value *> out_vals;
+
+	for (size_t i = 0 ; i < out_param_ids.size() ; ++i) {
+		Argument * out_ptr = ((const GpuRawContext *) context)->getArgument(out_param_ids[i]);
+		if (out_param_ids.size() != 1){
+			out_ptr->setName(opLabel + "_out" + std::to_string(i) + "_ptr");
+		} else {
+			out_ptr->setName(opLabel + "_out_ptr");
+		}
+		// out_ptrs.push_back(out_ptr);
+
+		out_ptrs.push_back(Builder->CreateInBoundsGEP(out_ptr, old_cnt));
+		out_vals.push_back(UndefValue::get(out_ptr->getType()->getPointerElementType()));
+	}
 
 	PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
 	Type *int8_type = Type::getInt8Ty(llvmContext);
@@ -253,11 +324,18 @@ void GpuExprMaterializer::consume(RawContext* const context, const OperatorState
 	Type *int64_type = Type::getInt64Ty(llvmContext);
 	Type *int32_type = Type::getInt32Ty(llvmContext);
 
-	const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
+	// const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
 
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
-	RawValue valWrapper = toMat->accept(exprGenerator);
-	Value *val_toMat = valWrapper.value;
+	// std::vector<Value *> vals_toMat;
+
+	for (const GpuMatExpr &mexpr: matExpr){
+		ExpressionGeneratorVisitor exprGenerator(context, childState);
+		RawValue valWrapper = mexpr.expr->accept(exprGenerator);
+		
+		out_vals[mexpr.packet] = Builder->CreateInsertValue(out_vals[mexpr.packet], valWrapper.value, mexpr.packind);
+		// std::cout << out_vals[mexpr.packind]->getType() << std::endl;
+		// break;
+	}
 
 	/* Creating the 'payload' type */
 	// vector<Type*> types;
@@ -276,14 +354,10 @@ void GpuExprMaterializer::consume(RawContext* const context, const OperatorState
 // 	}
 // #endif
 
-	Value * old_cnt = Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, 
-												out_cnt,
-												ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1),
-												llvm::AtomicOrdering::Monotonic);
-
-	Value * st_pos  = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
-	
-	Builder->CreateStore(val_toMat, st_pos);
+	for (size_t i = 0 ; i < out_ptrs.size() ; ++i){
+		// Builder->CreateStore(out_vals[i], out_ptrs[i]);
+		Builder->CreateAlignedStore(out_vals[i], out_ptrs[i], packet_widths[i]/8);
+	}
 
 	// Value *val_arena = Builder->CreateLoad(opBuffer.mem_buffer);
 	// Value *offsetInArena = Builder->CreateLoad(opBuffer.mem_offset);

@@ -44,6 +44,8 @@
 #include <stdexcept>
 #include <set>
 
+#include <chrono>
+
 #include <cstdlib>
 #include <cstddef>
 
@@ -161,5 +163,21 @@ void MapToVec( const  M & m, V & v ) {
     	v.push_back( it->second );
     }
 }
+
+
+class time_block{
+private:
+    std::chrono::time_point<std::chrono::system_clock> start;
+    std::string                                        text ;
+public:
+    inline time_block(std::string text = ""): 
+                        text(text), start(std::chrono::system_clock::now()){}
+
+    inline ~time_block(){
+        auto end   = std::chrono::system_clock::now();
+        std::cout << text;
+        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+    }
+};
 
 #endif /* COMMON_HPP_ */

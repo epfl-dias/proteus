@@ -1,6 +1,7 @@
 #include "plan/plan-parser.hpp"
 #include "plugins/gpu-col-scan-plugin.hpp"
 #include "operators/gpu/gpu-reduce.hpp"
+#include "operators/gpu/gpu-materializer-expr.hpp"
 
 /* too primitive */
 struct PlanHandler {
@@ -577,6 +578,46 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val[keyPg].IsObject());
 		Plugin *pg = this->parsePlugin(val[keyPg]);
 		newOp =  new Scan(this->ctx,*pg);
+	} else if (strcmp(opName, "materializer") == 0){
+		assert(val.HasMember("w"));
+		assert(val["w"].IsArray());
+		vector<size_t> widths;
+
+		const rapidjson::Value& wJSON = val["w"];
+		for (SizeType i = 0; i < wJSON.Size(); i++){
+			assert(wJSON[i].IsInt());
+			widths.push_back(wJSON[i].GetInt());
+		}
+
+		/*
+		 * parse output expressions
+		 * XXX Careful: Assuming numerous output expressions!
+		 */
+		assert(val.HasMember("e"));
+		assert(val["e"].IsArray());
+		vector<GpuMatExpr> e;
+		const rapidjson::Value& exprsJSON = val["e"];
+		for (SizeType i = 0; i < exprsJSON.Size(); i++){
+			assert(exprsJSON[i].HasMember("e"     ));
+			assert(exprsJSON[i].HasMember("packet"));
+			assert(exprsJSON[i]["packet"].IsInt());
+			assert(exprsJSON[i].HasMember("offset"));
+			assert(exprsJSON[i]["offset"].IsInt());
+			expressions::Expression *outExpr = parseExpression(exprsJSON[i]["e"]);
+
+			e.emplace_back(outExpr, exprsJSON[i]["packet"].GetInt(), exprsJSON[i]["offset"].GetInt());
+		}
+
+		/* parse operator input */
+		RawOperator* childOp = parseOperator(val["input"]);
+		/* 'Multi-reduce' used */
+		if (val.HasMember("gpu") && val["gpu"].GetBool()){
+			assert(dynamic_cast<GpuRawContext *>(this->ctx));
+			newOp = new GpuExprMaterializer(e, widths, childOp, dynamic_cast<GpuRawContext *>(this->ctx));
+		} else {
+			assert(false && "Unimplemented");
+		}
+		childOp->setParent(newOp);
 	}
 	else	{
 		string err = string("Unknown Operator: ") + opName;

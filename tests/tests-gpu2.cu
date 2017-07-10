@@ -111,6 +111,9 @@
 //
 // </TechnicalDetails>
 
+const dim3 defaultBlockDim(1024, 1, 1);
+const dim3 defaultGridDim (1024, 1, 1);
+
 class GPUOutputTest3 : public ::testing::Test {
 protected:
     virtual void SetUp();
@@ -128,6 +131,10 @@ protected:
 
     void createKernel(GpuRawContext &ctx);
     void createKernel2(GpuRawContext &ctx);
+
+    void launch_kernel(void ** args, dim3 gridDim, dim3 blockDim);
+    void launch_kernel(void ** args, dim3 gridDim);
+    void launch_kernel(void ** args);
 
 
     bool flushResults = true;
@@ -337,7 +344,9 @@ void GPUOutputTest3::createKernel2(GpuRawContext &ctx){
     Select sel(predicate, &scan);
     scan.setParent(&sel);
 
-    GpuExprMaterializer mat(outputExpr, &sel, &ctx, "mat");
+    GpuExprMaterializer mat({GpuMatExpr{outputExpr, 0, 0}}, vector<size_t>{
+            ((const PrimitiveType *) outputExpr->getExpressionType())->getLLVMType(ctx.getLLVMContext())->getPrimitiveSizeInBits()
+        }, &sel, &ctx, "mat");
     sel.setParent(&mat);
 
     mat.produce();
@@ -466,14 +475,6 @@ TEST_F(GPUOutputTest3, gpuReduceNumeric) {
     gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
     gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 4, cudaMemcpyDefault));
 
-
-    unsigned blockSizeX = 1024;
-    unsigned blockSizeY = 1;
-    unsigned blockSizeZ = 1;
-    unsigned gridSizeX  = 1024;
-    unsigned gridSizeY  = 1;
-    unsigned gridSizeZ  = 1;
-
     int32_t * c2 = c + 1;
     bool    * c3 = (bool *) (c + 2);
     bool    * c4 = (bool *) (c + 3);
@@ -485,9 +486,7 @@ TEST_F(GPUOutputTest3, gpuReduceNumeric) {
     {
         auto start = std::chrono::system_clock::now();
         // Kernel launch
-        gpu_run(cuLaunchKernel(function, gridSizeX, gridSizeY, gridSizeZ,
-                                     blockSizeX, blockSizeY, blockSizeZ,
-                                     0, NULL, KernelParams, NULL));
+        launch_kernel(KernelParams);
 
         gpu_run(cudaDeviceSynchronize());
 
@@ -561,8 +560,8 @@ __global__ void kernel_select(  const int32_t * __restrict__ sid_ptr,
 
     for (size_t i = tid ; i < cnt ; i += blockDim.x * gridDim.x){
         if (age_ptr[i] > 40){
-            int32_t filter = __ballot(1);
-            int     lcnt   = __popc(filter);
+            // int32_t filter = __ballot(1);
+            // int     lcnt   = __popc(filter);
 
             int32_t old_cnt = atomicAdd(out_cnt, 1);
 
@@ -584,6 +583,19 @@ void cpu_gpuSelectNumeric(const int32_t * __restrict__ sid_ptr,
     }
 }
 
+void GPUOutputTest3::launch_kernel(void ** args, dim3 gridDim, dim3 blockDim){
+    gpu_run(cuLaunchKernel(function, gridDim.x, gridDim.y, gridDim.z,
+                                 blockDim.x, blockDim.y, blockDim.z,
+                                 0, NULL, args, NULL));
+}
+
+void GPUOutputTest3::launch_kernel(void ** args, dim3 gridDim){
+    launch_kernel(args, gridDim, defaultBlockDim);
+}
+
+void GPUOutputTest3::launch_kernel(void ** args){
+    launch_kernel(args, defaultGridDim, defaultBlockDim);
+}
 
 TEST_F(GPUOutputTest3, gpuSelectNumeric) {
     auto start = std::chrono::system_clock::now();
@@ -615,14 +627,6 @@ TEST_F(GPUOutputTest3, gpuSelectNumeric) {
     gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 1, cudaMemcpyDefault));
     // gpu_run(cudaMemcpy(d, h_d, sizeof(int32_t) * N, cudaMemcpyDefault));
 
-
-    unsigned blockSizeX = 1024;
-    unsigned blockSizeY = 1;
-    unsigned blockSizeZ = 1;
-    unsigned gridSizeX  = 1024;
-    unsigned gridSizeY  = 1;
-    unsigned gridSizeZ  = 1;
-
     // Kernel parameters
     void *KernelParams[] = {&a, &b, &N, &d, &c};
 
@@ -630,9 +634,11 @@ TEST_F(GPUOutputTest3, gpuSelectNumeric) {
     {
         auto start = std::chrono::system_clock::now();
         // Kernel launch
-        gpu_run(cuLaunchKernel(function, gridSizeX, gridSizeY, gridSizeZ,
-                                     blockSizeX, blockSizeY, blockSizeZ,
-                                     0, NULL, KernelParams, NULL));
+        // gpu_run(cuLaunchKernel(function, gridSizeX, gridSizeY, gridSizeZ,
+        //                              blockSizeX, blockSizeY, blockSizeZ,
+        //                              0, NULL, KernelParams, NULL));
+        launch_kernel(KernelParams);
+
 
         gpu_run(cudaDeviceSynchronize());
 
@@ -651,14 +657,11 @@ TEST_F(GPUOutputTest3, gpuSelectNumeric) {
 
 
     {
-        auto start = std::chrono::system_clock::now();
+        time_block t("Thandwritten: ");
 
         kernel_select<<<1024, 1024, 0, 0>>>(a, b, d, c, N);
 
         gpu_run(cudaDeviceSynchronize());
-
-        auto end   = std::chrono::system_clock::now();
-        std::cout << "Tgenerated: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
     }
     gpu_run(cudaMemcpy(h_c + 1, c, sizeof(int32_t)*1, cudaMemcpyDefault));
     gpu_run(cudaMemcpy(h_e, d, sizeof(int32_t)*N, cudaMemcpyDefault));
@@ -669,7 +672,7 @@ TEST_F(GPUOutputTest3, gpuSelectNumeric) {
         std::sort(h_e, h_e + h_c[1]);
         std::sort(h_d, h_d + h_c[0]);
 
-        for (unsigned int i = 0 ; i < std::min(h_c[0], h_c[1]) ; ++i) EXPECT_EQ(h_d[i], h_e[i]);
+        for (int i = 0 ; i < std::min(h_c[0], h_c[1]) ; ++i) EXPECT_EQ(h_d[i], h_e[i]);
     }
 
 //     for (size_t i = 0 ; i < 4 ; ++i) std::cout << h_c[i] << " "; std::cout << std::endl;
@@ -791,6 +794,31 @@ void GPUOutputTest3::TearDown() {
 
 
 
+__global__ void kernel_gpuPlan(const int32_t * __restrict__ sid_ptr,
+                                const double  * __restrict__ age_ptr,
+                                      int32_t * __restrict__ result_cnt,
+                                      int32_t * __restrict__ result_max,
+                                      size_t cnt){
+    const size_t tid    = threadIdx.x + blockDim.x * blockIdx.x;
+    const int    laneid = tid & 0x1F;
+
+    int32_t   local_max = 0; //FIXME: should be MAX_NEG_INT, but codegen currently sets it to zero
+
+    for (size_t i = tid ; i < cnt ; i += blockDim.x * gridDim.x){
+        // if (age_ptr[i] > 40)
+        local_max   = max(local_max, sid_ptr[i]);
+    }
+
+    #pragma unroll
+    for (int m = 32 >> 1; m > 0; m >>= 1){
+        local_max  = max(local_max, __shfl_xor(local_max, m));
+    }
+
+    if (laneid == 0) atomicMax(result_max, local_max);
+
+    if (blockIdx.x == 0 && threadIdx.x == 0) *result_cnt = cnt;
+}
+
 TEST_F(GPUOutputTest3, gpuPlan) {
 
     const char *testLabel = "gpuPlan";
@@ -814,5 +842,132 @@ TEST_F(GPUOutputTest3, gpuPlan) {
         std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
     }
 
-    EXPECT_TRUE(true);
+    h_c[0] =  0;
+    h_c[1] =  0;
+    h_c[2] =  0;
+    h_c[3] = 0xFF;
+
+    gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 4, cudaMemcpyDefault));
+
+    int32_t * c2 = c + 1;
+
+    // Kernel parameters
+    void *KernelParams[] = {&a, &b, &N, &c, &c2};
+
+    {
+        time_block t("Tgenerated: ");
+        // Kernel launch
+        launch_kernel(KernelParams);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+
+    int32_t h2_c[4];
+    gpu_run(cudaMemcpy(h2_c, c, sizeof(int32_t)*4, cudaMemcpyDefault));
+
+    h_c[0] =  0;
+    h_c[1] =  0;
+    h_c[2] =  0;
+    h_c[3] = 0xFF;
+
+    gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 4, cudaMemcpyDefault));
+
+    c2 = c + 1;
+
+    {
+        time_block t("Thandwritten: ");
+
+        kernel_gpuPlan<<<1024, 1024, 0, 0>>>(a, b, c, c2, N);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+
+    gpu_run(cudaMemcpy(h_c, c, sizeof(int32_t)*4, cudaMemcpyDefault));
+
+    for (size_t i = 0 ; i < 2 ; ++i) EXPECT_EQ(h_c[i], h2_c[i]);
+}
+
+TEST_F(GPUOutputTest3, gpuPlan2) {
+
+    const char *testLabel = "gpuPlan2";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/reduce-select-gpu.json";
+
+    {
+        auto start = std::chrono::system_clock::now();
+
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        
+        ctx->compileAndLoad();
+
+        // Get kernel function
+        function = ctx->getKernel();
+
+        auto end   = std::chrono::system_clock::now();
+        std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+    }
+
+    // Create driver context
+    
+    h_c[0] =  0;
+
+    gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 1, cudaMemcpyDefault));
+    // gpu_run(cudaMemcpy(d, h_d, sizeof(int32_t) * N, cudaMemcpyDefault));
+
+    // Kernel parameters
+    void *KernelParams[] = {&a, &b, &N, &d, &c};
+
+
+    {
+        auto start = std::chrono::system_clock::now();
+        // Kernel launch
+        // gpu_run(cuLaunchKernel(function, gridSizeX, gridSizeY, gridSizeZ,
+        //                              blockSizeX, blockSizeY, blockSizeZ,
+        //                              0, NULL, KernelParams, NULL));
+        launch_kernel(KernelParams);
+
+
+        gpu_run(cudaDeviceSynchronize());
+
+        auto end   = std::chrono::system_clock::now();
+        std::cout << "Tgenerated: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+    }
+    gpu_run(cudaMemcpy(h_c, c, sizeof(int32_t)*1, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(h_d, d, sizeof(int32_t)*N, cudaMemcpyDefault));
+
+    h_c[1] =  0;
+
+    gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(c, h_c + 1, sizeof(int32_t) * 1, cudaMemcpyDefault));
+    // gpu_run(cudaMemcpy(d, h_d, sizeof(int32_t) * N, cudaMemcpyDefault));
+
+
+    {
+        time_block t("Thandwritten: ");
+
+        kernel_select<<<1024, 1024, 0, 0>>>(a, b, d, c, N);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+    gpu_run(cudaMemcpy(h_c + 1, c, sizeof(int32_t)*1, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(h_e, d, sizeof(int32_t)*N, cudaMemcpyDefault));
+
+    EXPECT_EQ(h_c[0], h_c[1]);
+
+    if (h_c[0] == h_c[1]){
+        std::sort(h_e, h_e + h_c[1]);
+        std::sort(h_d, h_d + h_c[0]);
+
+        for (int i = 0 ; i < std::min(h_c[0], h_c[1]) ; ++i) EXPECT_EQ(h_d[i], h_e[i]);
+    }
 }
