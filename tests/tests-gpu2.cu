@@ -45,6 +45,8 @@
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 
+#include <unordered_map>
+
 #include "plan/plan-parser.hpp"
 
 #include "llvm/ADT/STLExtras.h"
@@ -111,9 +113,6 @@
 //
 // </TechnicalDetails>
 
-const dim3 defaultBlockDim(1024, 1, 1);
-const dim3 defaultGridDim (1024, 1, 1);
-
 class GPUOutputTest3 : public ::testing::Test {
 protected:
     virtual void SetUp();
@@ -132,10 +131,9 @@ protected:
     void createKernel(GpuRawContext &ctx);
     void createKernel2(GpuRawContext &ctx);
 
-    void launch_kernel(void ** args, dim3 gridDim, dim3 blockDim);
-    void launch_kernel(void ** args, dim3 gridDim);
-    void launch_kernel(void ** args);
-
+    void launch(void ** args, dim3 gridDim, dim3 blockDim);
+    void launch(void ** args, dim3 gridDim);
+    void launch(void ** args);
 
     bool flushResults = true;
     const char * testPath = TEST_OUTPUTS "/tests-output/";
@@ -458,7 +456,7 @@ TEST_F(GPUOutputTest3, gpuReduceNumeric) {
     ctx->compileAndLoad();
 
     // Get kernel function
-    function = ctx->getKernel();
+    function = ctx->getKernel()[0];
 
         auto end   = std::chrono::system_clock::now();
         std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
@@ -480,13 +478,13 @@ TEST_F(GPUOutputTest3, gpuReduceNumeric) {
     bool    * c4 = (bool *) (c + 3);
 
     // Kernel parameters
-    void *KernelParams[] = {&a, &b, &N, &c, &c2, &c3, &c4};
-
+    // void *KernelParams[] = {&a, &b, &N, &c, &c2, &c3, &c4};
+    void *KernelParams[] = {&c, &c2, &c3, &c4, &a, &b, &N};
 
     {
         auto start = std::chrono::system_clock::now();
         // Kernel launch
-        launch_kernel(KernelParams);
+        launch(KernelParams);
 
         gpu_run(cudaDeviceSynchronize());
 
@@ -583,18 +581,16 @@ void cpu_gpuSelectNumeric(const int32_t * __restrict__ sid_ptr,
     }
 }
 
-void GPUOutputTest3::launch_kernel(void ** args, dim3 gridDim, dim3 blockDim){
-    gpu_run(cuLaunchKernel(function, gridDim.x, gridDim.y, gridDim.z,
-                                 blockDim.x, blockDim.y, blockDim.z,
-                                 0, NULL, args, NULL));
+void GPUOutputTest3::launch(void ** args, dim3 gridDim, dim3 blockDim){
+    launch_kernel(function, args, gridDim, blockDim);
 }
 
-void GPUOutputTest3::launch_kernel(void ** args, dim3 gridDim){
-    launch_kernel(args, gridDim, defaultBlockDim);
+void GPUOutputTest3::launch(void ** args, dim3 gridDim){
+    launch_kernel(function, args, gridDim);
 }
 
-void GPUOutputTest3::launch_kernel(void ** args){
-    launch_kernel(args, defaultGridDim, defaultBlockDim);
+void GPUOutputTest3::launch(void ** args){
+    launch_kernel(function, args);
 }
 
 TEST_F(GPUOutputTest3, gpuSelectNumeric) {
@@ -612,7 +608,7 @@ TEST_F(GPUOutputTest3, gpuSelectNumeric) {
     ctx->compileAndLoad();
 
     // Get kernel function
-    function = ctx->getKernel();
+    function = ctx->getKernel()[0];
 
         auto end   = std::chrono::system_clock::now();
         std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
@@ -628,7 +624,8 @@ TEST_F(GPUOutputTest3, gpuSelectNumeric) {
     // gpu_run(cudaMemcpy(d, h_d, sizeof(int32_t) * N, cudaMemcpyDefault));
 
     // Kernel parameters
-    void *KernelParams[] = {&a, &b, &N, &d, &c};
+    // void *KernelParams[] = {&a, &b, &N, &d, &c};
+    void *KernelParams[] = {&d, &c, &a, &b, &N};
 
 
     {
@@ -637,7 +634,7 @@ TEST_F(GPUOutputTest3, gpuSelectNumeric) {
         // gpu_run(cuLaunchKernel(function, gridSizeX, gridSizeY, gridSizeZ,
         //                              blockSizeX, blockSizeY, blockSizeZ,
         //                              0, NULL, KernelParams, NULL));
-        launch_kernel(KernelParams);
+        launch(KernelParams);
 
 
         gpu_run(cudaDeviceSynchronize());
@@ -763,12 +760,12 @@ void GPUOutputTest3::SetUp() {
     
     gpu_run(cudaMalloc(&a, sizeof(int32_t)*N));
     gpu_run(cudaMalloc(&b, sizeof(double )*N));
-    gpu_run(cudaMalloc(&c, sizeof(int32_t)*4));
+    gpu_run(cudaMalloc(&c, sizeof(int32_t)*16));
     gpu_run(cudaMalloc(&d, sizeof(int32_t)*N));
 
     gpu_run(cudaMallocHost(&h_a, sizeof(int32_t)*N));
     gpu_run(cudaMallocHost(&h_b, sizeof(double )*N));
-    gpu_run(cudaMallocHost(&h_c, sizeof(int32_t)*4));
+    gpu_run(cudaMallocHost(&h_c, sizeof(int32_t)*16));
     gpu_run(cudaMallocHost(&h_d, sizeof(int32_t)*N));
     gpu_run(cudaMallocHost(&h_e, sizeof(int32_t)*N));
 
@@ -836,7 +833,7 @@ TEST_F(GPUOutputTest3, gpuPlan) {
         ctx->compileAndLoad();
 
         // Get kernel function
-        function = ctx->getKernel();
+        function = ctx->getKernel()[0];
 
         auto end   = std::chrono::system_clock::now();
         std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
@@ -854,12 +851,13 @@ TEST_F(GPUOutputTest3, gpuPlan) {
     int32_t * c2 = c + 1;
 
     // Kernel parameters
-    void *KernelParams[] = {&a, &b, &N, &c, &c2};
+    // void *KernelParams[] = {&a, &b, &N, &c, &c2};
+    void *KernelParams[] = {&c, &c2, &a, &b, &N};
 
     {
         time_block t("Tgenerated: ");
         // Kernel launch
-        launch_kernel(KernelParams);
+        launch(KernelParams);
 
         gpu_run(cudaDeviceSynchronize());
     }
@@ -899,7 +897,7 @@ TEST_F(GPUOutputTest3, gpuPlan2) {
     const char* planPath = "inputs/plans/reduce-select-gpu.json";
 
     {
-        auto start = std::chrono::system_clock::now();
+        time_block t("Tcodegen: ");
 
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
@@ -908,10 +906,7 @@ TEST_F(GPUOutputTest3, gpuPlan2) {
         ctx->compileAndLoad();
 
         // Get kernel function
-        function = ctx->getKernel();
-
-        auto end   = std::chrono::system_clock::now();
-        std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        function = ctx->getKernel()[0];
     }
 
     // Create driver context
@@ -924,8 +919,8 @@ TEST_F(GPUOutputTest3, gpuPlan2) {
     // gpu_run(cudaMemcpy(d, h_d, sizeof(int32_t) * N, cudaMemcpyDefault));
 
     // Kernel parameters
-    void *KernelParams[] = {&a, &b, &N, &d, &c};
-
+    // void *KernelParams[] = {&a, &b, &N, &d, &c};
+    void *KernelParams[] = {&d, &c, &a, &b, &N};
 
     {
         auto start = std::chrono::system_clock::now();
@@ -933,7 +928,7 @@ TEST_F(GPUOutputTest3, gpuPlan2) {
         // gpu_run(cuLaunchKernel(function, gridSizeX, gridSizeY, gridSizeZ,
         //                              blockSizeX, blockSizeY, blockSizeZ,
         //                              0, NULL, KernelParams, NULL));
-        launch_kernel(KernelParams);
+        launch(KernelParams);
 
 
         gpu_run(cudaDeviceSynchronize());
@@ -970,4 +965,1703 @@ TEST_F(GPUOutputTest3, gpuPlan2) {
 
         for (int i = 0 ; i < std::min(h_c[0], h_c[1]) ; ++i) EXPECT_EQ(h_d[i], h_e[i]);
     }
+}
+
+
+struct mmap_file{
+private:
+    int    fd;
+
+public:
+    size_t filesize;
+    void *     data;
+    void * gpu_data;
+
+    mmap_file(std::string name){
+        filesize = getFileSize(name.c_str());
+        fd       = open(name.c_str(), O_RDONLY, 0);
+
+        //Execute mmap
+        data     = mmap(NULL, filesize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, 0);
+        assert(data != MAP_FAILED);
+        
+        gpu_run(cudaMalloc(&gpu_data,       filesize));
+        gpu_run(cudaMemcpy( gpu_data, data, filesize, cudaMemcpyDefault));
+    }
+
+    ~mmap_file(){
+        munmap(data, filesize);
+        close (fd  );
+
+        gpu_run(cudaFree(gpu_data));
+    }
+};
+
+template<typename T>
+struct mmap_file_splitable{
+private:
+    int    fd;
+
+public:
+    size_t filesize;
+    T    * data    ;
+    T    * gpu_data;
+    size_t index   ;
+    size_t step    ;
+
+    mmap_file_splitable(std::string name, size_t step): index(0), step(step){
+        filesize = getFileSize(name.c_str());
+        fd       = open(name.c_str(), O_RDONLY, 0);
+
+        //Execute mmap
+        data     = (T *) mmap(NULL, filesize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, 0);
+        assert(data != MAP_FAILED);
+
+        gpu_run(cudaMalloc(&gpu_data,       step * sizeof(T)                   ));
+    }
+
+    size_t next(){
+        size_t l_step = min(step, remaining());
+        std::cout << index << "->";
+        gpu_run(cudaMemcpy( gpu_data, data + index, l_step * sizeof(T), cudaMemcpyDefault));
+        index += l_step;
+
+        std::cout << index << std::endl;
+
+        return l_step;
+    }
+
+    size_t remaining(){
+        return (filesize - index * sizeof(T))/sizeof(T);
+    }
+
+    ~mmap_file_splitable(){
+        munmap(data, filesize);
+        close (fd  );
+
+        gpu_run(cudaFree(gpu_data));
+    }
+};
+
+
+//FIXME: make configuration dynamic
+constexpr uint32_t log_parts1 = 0;//9;
+constexpr uint32_t log_parts2 = 0;//6;//8;
+
+constexpr int32_t g_d        = log_parts1 + log_parts2;
+constexpr int32_t p_d        = 5;
+
+constexpr int32_t max_chain  = (32 - 1) * 2 - 1;
+
+#define hj_d (5 + p_d + g_d)
+
+constexpr uint32_t hj_mask = ((1 << hj_d) - 1);
+
+constexpr int32_t partitions = 1 << p_d;
+constexpr int32_t partitions_mask = partitions - 1;
+
+constexpr int32_t grid_parts = 1 << g_d;
+constexpr int32_t grid_parts_mask = grid_parts - 1;
+
+extern __shared__ int     int_shared  [];
+extern __shared__ int64_t int64_shared[];
+
+__host__ __device__ __forceinline__ uint32_t hasht(uint32_t x) {
+    x ^= x >> 16;
+    x *= 0x85ebca6b;
+    x ^= x >> 13;
+    x *= 0xc2b2ae35;
+    x ^= x >> 16;
+    return x;
+}
+
+__global__ void build_subpartitions(const int32_t  * __restrict__ S_partitioned,
+                                    const int32_t * __restrict__ gpart_offset,
+                                    const int32_t * __restrict__ gpart_cnt,
+                                          uint32_t * __restrict__ hj_index,
+                                          int32_t  * __restrict__ hj_data){
+    const size_t base     = gpart_offset[blockIdx.x & grid_parts_mask];
+    const size_t cnt      = base + gpart_cnt[blockIdx.x & grid_parts_mask];
+
+    int32_t * cnts = int_shared;
+
+    // const int32_t prevwrapmask  = (1 << get_laneid()) - 1;
+    // const int32_t lane_leq_mask = (prevwrapmask << 1) | 1;
+
+    for (int i = threadIdx.x; i < partitions ; i += blockDim.x){
+        atomicExch(cnts + i, 0);
+    }
+
+    if (threadIdx.x == 0) atomicExch(cnts + partitions, base);
+
+    __syncthreads();
+
+    for (size_t i = base + threadIdx.x; i < cnt ; i += blockDim.x){ //FIXME: loop until ___all___ lanes have finished!
+        // vec4 tmp_probe = *reinterpret_cast<const vec4 *>(S_partitioned + i);
+        // #pragma unroll
+        // for (int k = 0 ; k < 4 ; ++k){
+        int32_t  sid_probe = S_partitioned[i];
+
+        uint32_t current   = hasht(sid_probe) & hj_mask;
+        int32_t  bbucket   = (current >> 5) & partitions_mask;
+
+        atomicAdd(cnts + bbucket, 1);
+    }
+
+    __syncthreads(); //if you manage to remove this line, change the loop below!
+
+    for (int i = threadIdx.x; i < partitions ; i += blockDim.x){
+        // atomicExch(cnts + i, atomicAdd(cnts + partitions, atomicExch(cnts[i], 0)));
+        int32_t old_cnt = cnts[i];
+        // assert(old_cnt <= 30 * 32); //FIXME: remove limitation
+        int32_t tmp = atomicAdd(cnts + partitions, old_cnt); //use above line if you remove syncthreads!!!!
+        cnts[i] = tmp;
+
+        hj_index[((blockIdx.x & grid_parts_mask) * partitions + i) * 32    ] = tmp;
+        hj_index[((blockIdx.x & grid_parts_mask) * partitions + i) * 32 + 1] = old_cnt;
+    }
+
+    __syncthreads(); //if you manage to remove this line, change the loop above!
+
+    for (size_t i = base + threadIdx.x; i < cnt ; i += blockDim.x){ //FIXME: loop until ___all___ lanes have finished!
+        // vec4 tmp_probe = *reinterpret_cast<const vec4 *>(S_partitioned + i);
+        // #pragma unroll
+        // for (int k = 0 ; k < 4 ; ++k){
+        int32_t  sid_probe = S_partitioned[i];
+        uint32_t current   = hasht(sid_probe) & hj_mask;
+        int32_t  bbucket   = (current >> 5) & partitions_mask;
+
+        hj_data[atomicAdd(cnts + bbucket, 1)] = sid_probe;
+    }
+}
+
+
+__launch_bounds__(32, 1024) __global__ void build_buckets(      uint32_t * __restrict__ hj_index   ,
+                              const int32_t  * __restrict__ hj_data_in ,
+                                    int32_t  * __restrict__ hj_data_out,
+                                    uint32_t * __restrict__ hj_index_cnt){
+    uint32_t tid_base = 32 * blockIdx.x;
+    // assert(blockDim.x == 32);
+    // const int    laneid   =  threadIdx.x &  0x1F;
+
+    // volatile int32_t  * d_buff = int_shared;
+    uint32_t * mark_p = (uint32_t *) int_shared;//(uint32_t *) (d_buff + 32 * 32);
+    uint32_t * mark_c = mark_p + 32;
+    volatile uint32_t * mark_b = mark_c + max_chain;
+    // uint32_t * mark_c = (uint32_t *) (mark_p + 32);
+
+    // const int32_t prevwrapmask  = (1 << get_laneid()) - 1;
+    // const int32_t lane_leq_mask = (prevwrapmask << 1) | 1;
+
+    atomicExch(mark_p + threadIdx.x, 0);
+    for (int j = 0 ; j < max_chain ; j += 32){
+        atomicExch(mark_c + threadIdx.x + j, 0);
+    }
+
+    uint32_t tmp    = hj_index[tid_base + get_laneid()];
+
+    uint32_t base   = __shfl(tmp, 0);
+    uint32_t icnt   = __shfl(tmp, 1);
+
+    int32_t x[32];
+
+    for (int j = 1 ; j < 32 ; ++j){
+        if (32 * (j - 1) + get_laneid() >= icnt) continue;
+        x[j] = hj_data_in[base + 32 * (j - 1) + get_laneid()];
+    }
+    
+    // #pragma unroll
+    for (int j = 1 ; j < 32 ; ++j){
+        if (32 * (j - 1) + get_laneid() >= icnt) continue;
+        int32_t h = hasht(x[j]) & hj_mask & 0x1F;
+
+        int32_t old = atomicAdd(mark_p + h, 1);
+        // assert(old < max_chain);
+        atomicAdd(mark_c + old, 1);
+    }
+
+    __threadfence();
+
+    int32_t pre_cnt = 0;
+
+    for (int j = 0 ; j < max_chain ; j += 32){
+        int32_t cnt = mark_c[threadIdx.x + j];
+        #pragma unroll
+        for (int i = 1; i < 32; i <<= 1){
+            int32_t tmp = __shfl_up(cnt, i);
+            if (i <= get_laneid()) cnt += tmp;
+        }
+
+        mark_c[threadIdx.x + j] = cnt + pre_cnt - mark_c[threadIdx.x + j];
+
+        pre_cnt += __shfl(cnt, 31);
+    }
+
+    int32_t max_bucket = 0;
+
+    int32_t pcnt    = mark_p[get_laneid()];
+    for (int j = 0 ; j < max_chain ; ++j){
+        uint32_t mask = __ballot(j < pcnt);
+        if (get_laneid() == 0) mark_b[j] = mask;
+        if (mask) max_bucket = j;
+    }
+
+    __threadfence();
+    
+    // {
+        // int32_t x[32];
+
+        // for (int j = 1 ; j < 32 ; ++j){
+        //     if (32 * (j - 1) + get_laneid() >= icnt) continue;
+        //     x[j] = hj_data_in[base + 32 * (j - 1) + get_laneid()];
+        // }
+        
+        // #pragma unroll
+        for (int j = 1 ; j < 32 ; ++j){
+            if (32 * (j - 1) + get_laneid() >= icnt) continue;
+            int32_t h = hasht(x[j]) & hj_mask & 0x1F;
+
+        // // #pragma unroll
+        // for (int j = 1 ; j < 32 ; ++j){
+        //     if (32 * (j - 1) + get_laneid() >= icnt) continue;
+        //     // int32_t loc_base = __shfl(base, j);
+
+        //     int32_t x = hj_data_in[base + 32 * (j - 1) + get_laneid()];
+
+            // int32_t h = hasht(x) & hj_mask & 0x1F;
+
+            uint32_t r = atomicSub(mark_p + h, 1) - 1;
+
+            uint32_t index = mark_c[r];
+            index += __popc(mark_b[r] & ((1 << h) - 1));
+            index += base;
+
+            hj_data_out[index] = x[j];
+        }
+    // }
+
+    if (get_laneid() > 1) hj_index[tid_base + get_laneid()] = mark_b[get_laneid() - 2];
+
+    // assert(max_bucket < 30);
+
+    // int32_t j = 30;
+    // while (j < max_bucket){
+    //     uint32_t next;
+    //     if (get_laneid() == 0) {
+    //         next = atomicAdd(hj_index_cnt, 32);
+    //         hj_index[tid_base + 1] = next;
+    //     }
+    //     tid_base = __shfl(next, 0);
+    //     if (get_laneid() != 0) hj_index[tid_base + get_laneid()] = mark_b[get_laneid() - 1 + j];
+    //     j += 31;
+    // }
+    // if (get_laneid() == 0) hj_index[tid_base + 1] = 0;
+}
+
+struct alignas(int64_t) hjt {
+    int32_t key;
+    int32_t val;
+
+    __device__ hjt(){}
+    __device__ hjt(const hjt& h): key(h.key), val(h.val){}
+    __device__ hjt(const volatile hjt& h): key(h.key), val(h.val){}
+
+    __device__ volatile hjt &operator=(const hjt& h) volatile{
+        key = h.key;
+        val = h.val;
+        return *this;
+    }
+};
+
+__global__ void probe(const   hjt       * __restrict__ R_partitioned,
+                        const int32_t   * __restrict__ gpart_offset,
+                        const int32_t   * __restrict__ gpart_cnt,
+                        const uint32_t  * __restrict__ hj_index,
+                        const int32_t   * __restrict__ hj_data ,
+                              size_t    * __restrict__ res){
+    const size_t base     = gpart_offset[blockIdx.x & grid_parts_mask];
+    const size_t cnt      = base + gpart_cnt[blockIdx.x & grid_parts_mask];
+
+    const size_t tid_base = (threadIdx.x & ~0x1F) + blockDim.x * (blockIdx.x >> g_d);
+    // const int    laneid   =  threadIdx.x &  0x1F;
+
+
+    // volatile int32_t  * buffer = int_shared;
+    volatile hjt * d_buff = (hjt *) int64_shared;//buffer + 32 * partitions;
+    uint32_t * mark_e = (uint32_t *) (d_buff + 32 * partitions);
+    uint32_t * mark_s = (uint32_t *) (mark_e + partitions     );
+
+
+    // const int32_t prevwrapmask  = (1 << get_laneid()) - 1;
+    // const int32_t lane_leq_mask = (prevwrapmask << 1) | 1;
+
+    if (threadIdx.x < 32) {
+        for (int i = 0 ; i < partitions ; i += 32){
+            atomicExch(mark_e + threadIdx.x + i, 0);
+            atomicExch(mark_s + threadIdx.x + i, 0);
+        }
+    }
+
+    __syncthreads();
+
+    int32_t s = 0;
+
+    for (size_t i = tid_base + base; i < cnt ; i += blockDim.x * (gridDim.x >> g_d)){ //FIXME: loop until ___all___ lanes have finished!
+        // vec4 tmp_probe = *reinterpret_cast<const vec4 *>(sid2_ptr + i);
+        // #pragma unroll
+        // for (int k = 0 ; k < 4 ; ++k){
+            hjt  sid_probe;
+            uint32_t current = (uint32_t) -1;
+            int32_t  bbucket = -1;
+
+            if (i + get_laneid() < cnt){
+                sid_probe = R_partitioned[i + get_laneid()];
+                current   = hasht(sid_probe.key) & hj_mask;
+                bbucket   = (current >> 5) & partitions_mask;
+                current  &= ~0x1F;
+            }
+
+            while (__any(bbucket >= 0)){
+                int32_t olde = 0;
+                if (bbucket >= 0){
+                    int32_t old     = atomicAdd(mark_s + bbucket, 1); //FIXME: May overflow
+                    // assert(old < 100000);
+                    atomicMin(mark_s + bbucket, 64);
+
+                    if (old < 32){
+                        d_buff[((bbucket + old) & partitions_mask) + (old * partitions)] = sid_probe;
+                        __threadfence_block();
+                        olde = atomicInc(((uint32_t *) (mark_e + bbucket)), 31);
+                        bbucket = -1;
+                    }
+                }
+
+                int32_t ready = __ballot(olde == 31);
+                while (ready){
+                    //find pivot
+                    int32_t loc    = __ffs(ready) - 1;
+                    int32_t pivot2 = __shfl(current, loc);
+                    ready         &= ready - 1;
+
+                    uint32_t tmp = hj_index[pivot2 | get_laneid()];
+
+                    int32_t pivot = (pivot2 >> 5) & partitions_mask;
+                    hjt probe = d_buff[((pivot + get_laneid()) & partitions_mask) + (get_laneid() * partitions)];
+
+                    if (get_laneid() == 0) atomicExch(mark_s + pivot, 0);
+
+                    int32_t prb_mask = 1 << (hasht(probe.key) & 0x1F);
+                    int32_t leq_mask = prb_mask - 1;
+
+                    uint32_t base   = __shfl(tmp, 0);
+
+                    #pragma unroll
+                    for (int j = 2 ; j < 32 ; ++j){
+                        int32_t loc_mask = __shfl(tmp, j);
+
+                        //Accessing everything "just in case" and then shuffling
+                        //permits the compiler to hide the latency.
+                        //Modify with care!
+                        int32_t x = hj_data[base + get_laneid()];
+                        
+                        base += __popc(loc_mask);
+
+                        x = __shfl(x, __popc(loc_mask & leq_mask));
+
+                        if (loc_mask & prb_mask){
+                            if (x == probe.key) s += probe.val;
+
+                            // {
+                            //     int32_t tmp = hasht(x) & hj_mask;
+                            //     assert(tmp == (hasht(probe) & hj_mask));
+                            // }
+            
+                        }
+                    }
+                }
+            // }
+        }
+    }
+
+
+    __syncthreads();
+
+    if (threadIdx.x < 32){
+        for (int pivot = 0 ; pivot < partitions ; ++pivot){
+            int max_lane = atomicCAS(mark_e+pivot, 55, 55);
+
+            if (max_lane == 0) continue;
+
+            hjt probe  = (hjt) d_buff[((pivot + get_laneid()) & partitions_mask) + (get_laneid() * partitions)];
+
+            uint32_t prob_base = __shfl((hasht(probe.key) & hj_mask & ~0x1F), 0);
+
+            uint32_t tmp = hj_index[prob_base + get_laneid()];
+
+            int32_t prb_mask = 1 << (hasht(probe.key) & 0x1F);
+            int32_t leq_mask = prb_mask - 1;
+
+            uint32_t base = __shfl(tmp, 0);
+
+            #pragma unroll
+            for (int j = 2 ; j < 32 ; ++j){
+                int32_t loc_mask = __shfl(tmp, j);
+
+                //Accessing everything "just in case" and then shuffling
+                //permits the compiler to hide the latency.
+                //Modify with care!
+                int32_t x = hj_data[base + get_laneid()];
+                
+                base += __popc(loc_mask);
+
+                x = __shfl(x, __popc(loc_mask & leq_mask));
+
+                if (get_laneid() < max_lane){
+                    if (loc_mask & prb_mask){
+                        if (x == probe.key) s += probe.val;
+
+                        // {
+                        //     int32_t tmp = hasht(x) & hj_mask;
+                        //     assert(tmp == (hasht(probe) & hj_mask));
+                        // }
+                    }
+                }
+            }
+        }
+    }
+
+    // printf("%d\n", s);
+    atomicAdd((unsigned long long int *) res, (unsigned long long int) s);
+}
+
+
+
+TEST_F(GPUOutputTest3, gpuPlan3) {
+
+    const char *testLabel = "gpuPlan3";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/ssbm_q1_1.json";
+
+    std::vector<CUfunction> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        
+        ctx->compileAndLoad();
+
+        // Get kernel function
+        pipelines = ctx->getKernel();
+    }
+
+    // gpu_run(cudaFree(a));
+    // gpu_run(cudaFree(b));
+    // gpu_run(cudaFree(d));
+
+    // gpu_run(cudaFreeHost(h_a));
+    // gpu_run(cudaFreeHost(h_b));
+    // gpu_run(cudaFreeHost(h_d));
+    // gpu_run(cudaFreeHost(h_e));
+
+    h_c[0] =  0;
+    h_c[1] =  0;
+    h_c[2] =  0;
+    h_c[3] =  0;
+    h_c[4] =  0;
+    h_c[5] =  0;
+    h_c[6] =  0;
+    h_c[7] =  0;
+
+    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 16, cudaMemcpyDefault));
+
+    mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
+    mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
+    mmap_file f_lo_orderdate    ("inputs/ssbm/lo_orderdate.bin"    );
+    mmap_file f_lo_extendedprice("inputs/ssbm/lo_extendedprice.bin");
+
+    mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
+    mmap_file f_d_year          ("inputs/ssbm/d_year.bin"          );
+
+    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
+    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
+
+    int32_t * join_build_out;
+    int32_t * join_probe_out;
+
+    size_t * c1 = ((size_t *) c)  + 1;
+    size_t * c2 =            c1   + 1;
+    size_t * c3 =            c2   + 1;
+
+    uint32_t * hj_index;
+    int32_t  * hj_data ;
+    int32_t  * hj_data2;
+
+    uint32_t * hj_index_cnt;
+    uint32_t h_hj_index_cnt = 1 << hj_d;
+
+    gpu_run(cudaMalloc(&join_build_out,  sizeof(int32_t)                   * d_N));
+    gpu_run(cudaMalloc(&join_probe_out, (sizeof(int32_t) + sizeof(int32_t))*lo_N));
+
+    gpu_run(cudaMalloc(&hj_index     , sizeof(uint32_t) * (1 << hj_d)));
+    gpu_run(cudaMalloc(&hj_data      , sizeof( int32_t) * d_N        ));
+    gpu_run(cudaMalloc(&hj_data2     , sizeof( int32_t) * d_N        ));
+
+    int32_t * g_d_N;
+    gpu_run(cudaMalloc(&g_d_N        , sizeof( int32_t)));
+
+    gpu_run(cudaMalloc(&hj_index_cnt, sizeof(uint32_t)));
+
+    gpu_run(cudaMemcpy(hj_index_cnt, &h_hj_index_cnt, sizeof(uint32_t), cudaMemcpyDefault));
+
+    {
+        void *KernelParams[] = {&join_build_out,
+                                &c,
+                                &(f_d_datekey.gpu_data),
+                                &(f_d_year.gpu_data),
+                                &d_N};
+        time_block t("Tgenerated (hj build filter): ");
+
+        launch_kernel(pipelines[0], KernelParams);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+    {
+        time_block t("Tsubpart : ");
+        
+        build_subpartitions<<<1 << (log_parts2 + log_parts1), 1024, (partitions + 1) * sizeof(int32_t)>>>(
+                                                    join_build_out,
+                                                    ((int32_t *) c2), //c is a b64 on generated code
+                                                    ((int32_t *) c ),
+                                                    hj_index,
+                                                    hj_data);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+    {
+        time_block t("Tbuckets : ");
+
+        build_buckets<<<(1 << (log_parts2 + log_parts1)) * partitions, 32, (2 * max_chain + 32) * sizeof(int32_t)>>>(
+                                                    hj_index,
+                                                    hj_data,
+                                                    hj_data2,
+                                                    hj_index_cnt);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+    {
+        void *KernelParams[] = {&join_probe_out,
+                                &c1, 
+                                &(f_lo_discount.gpu_data), 
+                                &(f_lo_quantity.gpu_data), 
+                                &(f_lo_orderdate.gpu_data), 
+                                &(f_lo_extendedprice.gpu_data),
+                                &lo_N};
+        time_block t("Tgenerated (hj probe filter): ");
+        // Kernel launch
+        // gpu_run(cuLaunchKernel(function, gridSizeX, gridSizeY, gridSizeZ,
+        //                              blockSizeX, blockSizeY, blockSizeZ,
+        //                              0, NULL, KernelParams, NULL));
+        launch_kernel(pipelines[1], KernelParams);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+    {
+        time_block t("Tprobe : ");
+        gpu_run(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte));
+        probe<<<128*(1 << (log_parts2 + log_parts1)), 128, 2 * (32 * partitions + partitions * 2) * sizeof(int32_t)>>>(
+                                                    (hjt *) join_probe_out, 
+                                                    ((int32_t *) c2), //c is a b64 on generated code
+                                                    ((int32_t *) c1),
+                                                    hj_index, 
+                                                    hj_data2, 
+                                                    c3);
+
+        gpu_run(cudaDeviceSynchronize());
+        gpu_run(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeFourByte));
+    }
+
+    size_t c_out;
+    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
+
+    std::cout << c_out << std::endl;
+
+    gpu_run(cudaMemcpy(&c_out, c1, sizeof(size_t), cudaMemcpyDefault));
+    std::cout << c_out << std::endl;
+
+    gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
+    std::cout << c_out << std::endl;
+
+
+    gpu_run(cudaFree(join_build_out));
+    gpu_run(cudaFree(join_probe_out));
+
+    gpu_run(cudaFree(hj_index      ));
+    gpu_run(cudaFree(hj_data       ));
+    gpu_run(cudaFree(hj_data2      ));
+
+    gpu_run(cudaFree(g_d_N         ));
+
+    gpu_run(cudaFree(hj_index_cnt  ));
+
+}
+
+struct alignas(alignof(int64_t)) hj_bucket{
+    int32_t next;
+    int32_t val ;
+
+    constexpr __host__ __device__ hj_bucket(int32_t next, int32_t value): next(next), val(value){}
+};
+
+__global__ void probeBucketChainingDevicePacked(const hjt       * __restrict__ probeInput,
+                                                      size_t    * __restrict__ output,
+                                                const int32_t   * __restrict__ first,
+                                                const hj_bucket * __restrict__ next_w_values,
+                                                      int                      d,
+                                                      int                      N) {
+    size_t out = 0;
+
+    for (unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < N ; idx += blockDim.x * gridDim.x){
+        hjt      probe = probeInput[idx]; //read once, hint to the compiler that it should not care about aliasing
+
+        uint32_t bucket = hasht(probe.key) % (1 << d);
+
+        int32_t current = first[bucket];
+
+        while (current >= 0) {
+            hj_bucket tmp = next_w_values[current];
+            current = tmp.next;
+
+            if (tmp.val == probe.key) out += probe.val;
+        }
+    }
+    atomicAdd(output, out);
+}
+
+TEST_F(GPUOutputTest3, gpuPlan3b) {
+
+    const char *testLabel = "gpuPlan3b";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/ssbm_q1_1b.json";
+
+    std::vector<CUfunction> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        
+        ctx->compileAndLoad();
+
+        // Get kernel function
+        pipelines = ctx->getKernel();
+    }
+
+    // gpu_run(cudaFree(a));
+    // gpu_run(cudaFree(b));
+    // gpu_run(cudaFree(d));
+
+    // gpu_run(cudaFreeHost(h_a));
+    // gpu_run(cudaFreeHost(h_b));
+    // gpu_run(cudaFreeHost(h_d));
+    // gpu_run(cudaFreeHost(h_e));
+
+    h_c[0] =  0;
+    h_c[1] =  0;
+    h_c[2] =  0;
+    h_c[3] =  0;
+    h_c[4] =  0;
+    h_c[5] =  0;
+    h_c[6] =  0;
+    h_c[7] =  0;
+
+    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 16, cudaMemcpyDefault));
+
+    mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
+    mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
+    mmap_file f_lo_orderdate    ("inputs/ssbm/lo_orderdate.bin"    );
+    mmap_file f_lo_extendedprice("inputs/ssbm/lo_extendedprice.bin");
+
+    mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
+    mmap_file f_d_year          ("inputs/ssbm/d_year.bin"          );
+
+    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
+    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
+
+    size_t * c1 = ((size_t *) c)  + 1;
+    size_t * c2 =            c1   + 1;
+    size_t * c3 =            c2   + 1;
+
+    uint32_t  * first;
+    hj_bucket * next_w_values ;
+    // int32_t  * hj_data2;
+
+    uint32_t * hj_index_cnt;
+    uint32_t h_hj_index_cnt = 1 << hj_d;
+
+    int d = 10;
+
+    int32_t * g_d_N;
+
+    {
+        time_block t("Tmallocs (init): ");
+        gpu_run(cudaMalloc(&first        , sizeof(uint32_t ) * (1 << d)));
+        gpu_run(cudaMalloc(&next_w_values, sizeof(hj_bucket) * d_N     ));
+        gpu_run(cudaMalloc(&g_d_N        , sizeof( int32_t))            );
+
+    }
+    {
+        time_block t("Tinit (hj init): ");
+        gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(uint32_t)));
+    }
+
+    {
+        void *KernelParams[] = {&first,
+                                &next_w_values,
+                                &c,
+                                &(f_d_datekey.gpu_data),
+                                &(f_d_year.gpu_data),
+                                &d_N};
+        time_block t("Tgenerated (hj build): ");
+
+        launch_kernel(pipelines[0], KernelParams);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+
+    {
+        void *KernelParams[] = {&c3,
+                                &first,
+                                &next_w_values, 
+                                &(f_lo_discount.gpu_data), 
+                                &(f_lo_quantity.gpu_data), 
+                                &(f_lo_orderdate.gpu_data), 
+                                &(f_lo_extendedprice.gpu_data),
+                                &lo_N};
+        time_block t("Tgenerated (hj probe): ");
+        // Kernel launch
+        launch_kernel(pipelines[1], KernelParams);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+
+    size_t c_out;
+    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
+
+    //this results is constant for SSBM Q1.1
+    EXPECT_EQ(c_out, 365);
+
+    gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
+
+    //for the current dataset, regenerating it may change the results
+    EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
+
+    gpu_run(cudaFree(first         ));
+    gpu_run(cudaFree(next_w_values ));
+
+}
+
+TEST_F(GPUOutputTest3, gpuPlan3bc) {
+    const char *testLabel = "gpuPlan3bc";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/ssbm_q1_1b.json";
+
+    std::vector<RawPipeline *> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        
+        ctx->compileAndLoad();
+
+        pipelines = ctx->getPipelines();
+    }
+
+    gpu_run(cudaMemset(c, 0, sizeof(int32_t) * 16));
+
+    mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
+    mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
+    mmap_file f_lo_orderdate    ("inputs/ssbm/lo_orderdate.bin"    );
+    mmap_file f_lo_extendedprice("inputs/ssbm/lo_extendedprice.bin");
+
+    mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
+    mmap_file f_d_year          ("inputs/ssbm/d_year.bin"          );
+
+    size_t d_N  = (f_d_datekey  .filesize)/sizeof(int32_t);
+    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
+
+    {
+        time_block t("Topen0: ");
+        pipelines[0]->open();
+    }
+    {
+        time_block t("Tgenerated (hj build): ");
+
+        pipelines[0]->consume(d_N, f_d_datekey.gpu_data, f_d_year.gpu_data);
+    }
+    {
+        time_block t("Tclose0: ");
+        pipelines[0]->close();
+    }
+
+    {
+        time_block t("Topen1: ");
+        pipelines[1]->open();
+    }
+    {
+        time_block t("Tgenerated (hj probe): ");
+
+        // Kernel launch
+        pipelines[1]->consume(lo_N, 
+                                c, 
+                                f_lo_discount.gpu_data, 
+                                f_lo_quantity.gpu_data, 
+                                f_lo_orderdate.gpu_data, 
+                                f_lo_extendedprice.gpu_data);
+    }
+    {
+        time_block t("Tclose1: ");
+        pipelines[1]->close();
+    }
+
+    size_t c_out;
+    // gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
+
+    //this result is constant for SSBM Q1.1
+    // EXPECT_EQ(365, c_out);
+
+    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
+
+    //for the current dataset, regenerating it may change the results
+    EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
+
+    // gpu_run(cudaFree(first         ));
+    // gpu_run(cudaFree(next_w_values ));
+
+}
+
+TEST_F(GPUOutputTest3, gpuSSBM_Q1_2) {
+
+    const char *testLabel = "gpuSSBM_Q1_2";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/ssbm_q1_2.json";
+
+    std::vector<CUfunction> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        
+        ctx->compileAndLoad();
+
+        // Get kernel function
+        pipelines = ctx->getKernel();
+    }
+
+    // gpu_run(cudaFree(a));
+    // gpu_run(cudaFree(b));
+    // gpu_run(cudaFree(d));
+
+    // gpu_run(cudaFreeHost(h_a));
+    // gpu_run(cudaFreeHost(h_b));
+    // gpu_run(cudaFreeHost(h_d));
+    // gpu_run(cudaFreeHost(h_e));
+
+    h_c[0] =  0;
+    h_c[1] =  0;
+    h_c[2] =  0;
+    h_c[3] =  0;
+    h_c[4] =  0;
+    h_c[5] =  0;
+    h_c[6] =  0;
+    h_c[7] =  0;
+
+    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 16, cudaMemcpyDefault));
+
+    mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
+    mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
+    mmap_file f_lo_orderdate    ("inputs/ssbm/lo_orderdate.bin"    );
+    mmap_file f_lo_extendedprice("inputs/ssbm/lo_extendedprice.bin");
+
+    mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
+    mmap_file f_d_yearmonthnum  ("inputs/ssbm/d_yearmonthnum.bin"  );
+
+    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
+    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
+
+    size_t * c1 = ((size_t *) c)  + 1;
+    size_t * c2 =            c1   + 1;
+    size_t * c3 =            c2   + 1;
+
+    uint32_t  * first;
+    hj_bucket * next_w_values ;
+    // int32_t  * hj_data2;
+
+    uint32_t * hj_index_cnt;
+    uint32_t h_hj_index_cnt = 1 << hj_d;
+
+    int d = 10;
+
+    int32_t * g_d_N;
+
+    {
+        time_block t("Tmallocs (init): ");
+        gpu_run(cudaMalloc(&first        , sizeof(uint32_t ) * (1 << d)));
+        gpu_run(cudaMalloc(&next_w_values, sizeof(hj_bucket) * d_N     ));
+        gpu_run(cudaMalloc(&g_d_N        , sizeof( int32_t))            );
+
+    }
+    {
+        time_block t("Tinit (hj init): ");
+        gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(uint32_t)));
+    }
+
+    {
+        void *KernelParams[] = {&first,
+                                &next_w_values,
+                                &c,
+                                &(f_d_datekey.gpu_data),
+                                &(f_d_yearmonthnum.gpu_data),
+                                &d_N};
+        time_block t("Tgenerated (hj build): ");
+
+        launch_kernel(pipelines[0], KernelParams);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+
+    {
+        void *KernelParams[] = {&c3,
+                                &first,
+                                &next_w_values, 
+                                &(f_lo_discount.gpu_data), 
+                                &(f_lo_quantity.gpu_data), 
+                                &(f_lo_orderdate.gpu_data), 
+                                &(f_lo_extendedprice.gpu_data),
+                                &lo_N};
+        time_block t("Tgenerated (hj probe): ");
+        // Kernel launch
+        launch_kernel(pipelines[1], KernelParams);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+
+    size_t c_out;
+    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
+    std::cout << c_out << std::endl;
+
+    //this results is constant for SSBM Q1.1
+    EXPECT_EQ(c_out, 31);
+
+    gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
+    std::cout << c_out << std::endl;
+
+    //for the current dataset, regenerating it may change the results
+    EXPECT_TRUE(c_out == UINT64_C(965049065847) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(965049065847)));
+
+    gpu_run(cudaFree(first         ));
+    gpu_run(cudaFree(next_w_values ));
+}
+
+
+TEST_F(GPUOutputTest3, gpuSSBM_Q1_3) {
+
+    const char *testLabel = "gpuSSBM_Q1_3";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/ssbm_q1_3.json";
+
+    std::vector<CUfunction> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        
+        ctx->compileAndLoad();
+
+        // Get kernel function
+        pipelines = ctx->getKernel();
+    }
+
+    // gpu_run(cudaFree(a));
+    // gpu_run(cudaFree(b));
+    // gpu_run(cudaFree(d));
+
+    // gpu_run(cudaFreeHost(h_a));
+    // gpu_run(cudaFreeHost(h_b));
+    // gpu_run(cudaFreeHost(h_d));
+    // gpu_run(cudaFreeHost(h_e));
+
+    h_c[0] =  0;
+    h_c[1] =  0;
+    h_c[2] =  0;
+    h_c[3] =  0;
+    h_c[4] =  0;
+    h_c[5] =  0;
+    h_c[6] =  0;
+    h_c[7] =  0;
+
+    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 16, cudaMemcpyDefault));
+
+    mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
+    mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
+    mmap_file f_lo_orderdate    ("inputs/ssbm/lo_orderdate.bin"    );
+    mmap_file f_lo_extendedprice("inputs/ssbm/lo_extendedprice.bin");
+
+    mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
+    mmap_file f_d_weeknuminyear ("inputs/ssbm/d_weeknuminyear.bin" );
+    mmap_file f_d_year          ("inputs/ssbm/d_year.bin"          );
+
+    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
+    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
+
+    size_t * c1 = ((size_t *) c)  + 1;
+    size_t * c2 =            c1   + 1;
+    size_t * c3 =            c2   + 1;
+
+    uint32_t  * first;
+    hj_bucket * next_w_values ;
+    // int32_t  * hj_data2;
+
+    uint32_t * hj_index_cnt;
+    uint32_t h_hj_index_cnt = 1 << hj_d;
+
+    int d = 10;
+
+    int32_t * g_d_N;
+
+    {
+        time_block t("Tmallocs (init): ");
+        gpu_run(cudaMalloc(&first        , sizeof(uint32_t ) * (1 << d)));
+        gpu_run(cudaMalloc(&next_w_values, sizeof(hj_bucket) * d_N     ));
+        gpu_run(cudaMalloc(&g_d_N        , sizeof( int32_t))            );
+
+    }
+    {
+        time_block t("Tinit (hj init): ");
+        gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(uint32_t)));
+    }
+
+    {
+        void *KernelParams[] = {&first,
+                                &next_w_values,
+                                &c,
+                                &(f_d_datekey.gpu_data),
+                                &(f_d_weeknuminyear.gpu_data),
+                                &(f_d_year.gpu_data),
+                                &d_N};
+        time_block t("Tgenerated (hj build): ");
+
+        launch_kernel(pipelines[0], KernelParams);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+
+    {
+        void *KernelParams[] = {&c3,
+                                &first,
+                                &next_w_values, 
+                                &(f_lo_discount.gpu_data), 
+                                &(f_lo_quantity.gpu_data), 
+                                &(f_lo_orderdate.gpu_data), 
+                                &(f_lo_extendedprice.gpu_data),
+                                &lo_N};
+        time_block t("Tgenerated (hj probe): ");
+        // Kernel launch
+        launch_kernel(pipelines[1], KernelParams);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+
+    size_t c_out;
+    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
+    std::cout << c_out << std::endl;
+
+    //this results is constant for SSBM Q1.1
+    // EXPECT_EQ(c_out, 31);
+
+    gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
+    std::cout << c_out << std::endl;
+
+    //for the current dataset, regenerating it may change the results
+    EXPECT_TRUE(c_out == UINT64_C(261356323969) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(261356323969)));
+
+    gpu_run(cudaFree(first         ));
+    gpu_run(cudaFree(next_w_values ));
+}
+
+
+TEST_F(GPUOutputTest3, gpuSSBM_Q1_1_100) {
+
+    const char *testLabel = "gpuSSBM_Q1_1_100";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/ssbm_q1_1b.json";
+
+    std::vector<CUfunction> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        
+        ctx->compileAndLoad();
+
+        // Get kernel function
+        pipelines = ctx->getKernel();
+    }
+
+    // gpu_run(cudaFree(a));
+    // gpu_run(cudaFree(b));
+    // gpu_run(cudaFree(d));
+
+    // gpu_run(cudaFreeHost(h_a));
+    // gpu_run(cudaFreeHost(h_b));
+    // gpu_run(cudaFreeHost(h_d));
+    // gpu_run(cudaFreeHost(h_e));
+
+    h_c[0] =  0;
+    h_c[1] =  0;
+    h_c[2] =  0;
+    h_c[3] =  0;
+    h_c[4] =  0;
+    h_c[5] =  0;
+    h_c[6] =  0;
+    h_c[7] =  0;
+
+    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 16, cudaMemcpyDefault));
+
+    size_t step_size = 1024*1024*16;
+
+    mmap_file_splitable<int32_t> f_lo_discount     ("inputs/ssbm100/lo_discount.bin"     , step_size);
+    mmap_file_splitable<int32_t> f_lo_quantity     ("inputs/ssbm100/lo_quantity.bin"     , step_size);
+    mmap_file_splitable<int32_t> f_lo_orderdate    ("inputs/ssbm100/lo_orderdate.bin"    , step_size);
+    mmap_file_splitable<int32_t> f_lo_extendedprice("inputs/ssbm100/lo_extendedprice.bin", step_size);
+
+    mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"          );
+    mmap_file f_d_year          ("inputs/ssbm/d_year.bin"             );
+
+    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
+    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
+
+    size_t * c1 = ((size_t *) c)  + 1;
+    size_t * c2 =            c1   + 1;
+    size_t * c3 =            c2   + 1;
+
+    uint32_t  * first;
+    hj_bucket * next_w_values ;
+    // int32_t  * hj_data2;
+
+    uint32_t * hj_index_cnt;
+    uint32_t h_hj_index_cnt = 1 << hj_d;
+
+    int d = 10;
+
+    int32_t * g_d_N;
+
+    {
+        time_block t("Tmallocs (init): ");
+        gpu_run(cudaMalloc(&first        , sizeof(uint32_t ) * (1 << d)));
+        gpu_run(cudaMalloc(&next_w_values, sizeof(hj_bucket) * d_N     ));
+        gpu_run(cudaMalloc(&g_d_N        , sizeof( int32_t))            );
+
+    }
+    {
+        time_block t("Tinit (hj init): ");
+        gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(uint32_t)));
+    }
+
+    {
+        void *KernelParams[] = {&first,
+                                &next_w_values,
+                                &c,
+                                &(f_d_datekey.gpu_data),
+                                &(f_d_year.gpu_data),
+                                &d_N};
+        time_block t("Tgenerated (hj build): ");
+
+        launch_kernel(pipelines[0], KernelParams);
+
+        gpu_run(cudaDeviceSynchronize());
+    }
+
+    size_t remaining;
+    while((remaining = f_lo_discount.remaining()) > 0) {
+        size_t l_step = f_lo_discount.next();
+        f_lo_quantity.next();
+        f_lo_orderdate.next();
+        f_lo_extendedprice.next();
+
+        {
+            void *KernelParams[] = {&c3,
+                                    &first,
+                                    &next_w_values, 
+                                    &(f_lo_discount.gpu_data), 
+                                    &(f_lo_quantity.gpu_data), 
+                                    &(f_lo_orderdate.gpu_data), 
+                                    &(f_lo_extendedprice.gpu_data),
+                                    &l_step};
+            time_block t("Tgenerated (hj probe): ");
+            // Kernel launch
+            launch_kernel(pipelines[1], KernelParams);
+
+            gpu_run(cudaDeviceSynchronize());
+        }
+    }
+
+    size_t c_out;
+    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
+
+    //this results is constant for SSBM Q1.1
+    EXPECT_EQ(c_out, 365);
+
+    gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
+    std::cout << c_out << std::endl;
+
+    //for the current dataset, regenerating it may change the results
+    EXPECT_TRUE(c_out == UINT64_C(-1) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(-1)));
+
+    gpu_run(cudaFree(first         ));
+    gpu_run(cudaFree(next_w_values ));
+
+}
+
+
+struct gb_bucket{
+    int32_t next;
+    int32_t key ;
+    int32_t sum ;
+    int32_t hold;
+};
+
+
+
+__global__ void hashGroupBy(const int32_t   * __restrict__ a,
+                            const int32_t   * __restrict__ b,
+
+                                  int32_t   * __restrict__ first,
+                                  gb_bucket * __restrict__ next ,
+                                  int                      d,
+                                  size_t                   N) {
+    for (size_t idx = blockIdx.x * blockDim.x + threadIdx.x; idx < N ; idx += blockDim.x * gridDim.x){
+        int32_t key = a[idx]; //read once, hint to the compiler that it should not care about aliasing
+        int32_t val = b[idx];
+
+        uint32_t bucket = hasht(key) % (1 << d);
+
+        int32_t current = first[bucket];
+
+        bool written = false;
+
+        if (current == ((uint32_t) -1)){
+            if (!written){
+                next[idx].sum  = val;
+                next[idx].key  = key;
+                next[idx].next =  -1;
+
+                written = true;
+                __threadfence();
+            }
+            current = atomicCAS(&(first[bucket]), -1, idx);
+        }
+
+        if (current != ((uint32_t) -1)){
+            while (true) {
+                int32_t   next_bucket = next[current].next;
+
+                if (next[current].key == key) {
+                    atomicAdd(&(next[current].sum), val);
+                    if (written) next[idx].next = idx;
+                    break;
+                }
+
+                if (next_bucket == ((uint32_t) -1)){
+                    if (!written){
+                        next[idx].sum  = val;
+                        next[idx].key  = key;
+                        next[idx].next =  -1;
+
+                        written = true;
+                        __threadfence();
+                    }
+                    next_bucket = atomicCAS(&(next[current].next), -1, idx);
+                    if (next_bucket == ((uint32_t) -1)) break;
+                }
+
+                current = next_bucket;
+            }
+        }
+    }
+}
+
+
+
+__global__ void hashGroupBy(const int32_t   * __restrict__ a,
+                            const int32_t   * __restrict__ b,
+                                  int32_t   * __restrict__ cnt,
+                                  int32_t   * __restrict__ first,
+                                  gb_bucket * __restrict__ next ,
+                                  int                      d,
+                                  size_t                   N) {
+    for (size_t idx = blockIdx.x * blockDim.x + threadIdx.x; idx < N ; idx += blockDim.x * gridDim.x){
+        int32_t key = a[idx]; //read once, hint to the compiler that it should not care about aliasing
+        int32_t val = b[idx];
+
+        uint32_t bucket = hasht(key) % (1 << d);
+
+        int32_t current = first[bucket];
+
+        bool written = false;
+        int32_t old_cnt;
+
+        if (current == ((uint32_t) -1)){
+            if (!written){
+                old_cnt            = atomicAdd(cnt, 1);
+                next[old_cnt].sum  = val;
+                next[old_cnt].key  = key;
+                next[old_cnt].next =  -1;
+
+                written = true;
+                __threadfence();
+            }
+            current = atomicCAS(&(first[bucket]), -1, old_cnt);
+        }
+
+        if (current != ((uint32_t) -1)){
+            while (true) {
+                int32_t   next_bucket = next[current].next;
+
+                if (next[current].key == key) {
+                    atomicAdd(&(next[current].sum), val);
+                    if (written) next[old_cnt].next = old_cnt;
+                    break;
+                }
+
+                if (next_bucket == ((uint32_t) -1)){
+                    if (!written){
+                        old_cnt            = atomicAdd(cnt, 1);
+                        next[old_cnt].sum  = val;
+                        next[old_cnt].key  = key;
+                        next[old_cnt].next =  -1;
+
+                        written = true;
+                        __threadfence();
+                    }
+                    next_bucket = atomicCAS(&(next[current].next), -1, old_cnt);
+                    if (next_bucket == ((uint32_t) -1)) break;
+                }
+
+                current = next_bucket;
+            }
+        }
+    }
+}
+
+
+TEST_F(GPUOutputTest3, gpuHashGroupBy) {
+    const char *testLabel = "gpuHashGroupBy";
+    const char* planPath = "inputs/plans/gpu-group-by.json";
+
+    GpuRawContext * ctx;
+    std::vector<RawPipeline *> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        
+        ctx->compileAndLoad();
+
+        // Get kernel function
+        pipelines = ctx->getPipelines();
+    }
+
+    h_c[0] =  0;
+    h_c[1] =  0;
+    h_c[2] =  0;
+    h_c[3] =  0;
+
+    gpu_run(cudaFree(b));
+    gpu_run(cudaFree(d));
+    d = NULL;
+
+    gpu_run(cudaMalloc(&b, sizeof(int32_t) * N));
+
+
+    for (size_t i = 0 ; i < N ; ++i) h_a[i] %= 100;
+    for (size_t i = 0 ; i < N ; ++i) ((int32_t *) h_b)[i] = 1;//rand();
+
+    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 4, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(b, h_b, sizeof(int32_t) * N, cudaMemcpyDefault));
+
+    int32_t   * first;
+    gb_bucket * next ;
+
+    int d = 10;//1 + ((int32_t) ceil(log2(N)));
+    std::cout << "d = " << d << std::endl;
+
+    {
+        time_block t("Tmallocs (init): ");
+        gpu_run(cudaMalloc(&first, sizeof(int32_t  ) * (1 << d)));
+        gpu_run(cudaMalloc(&next , sizeof(gb_bucket) * N       ));
+    }
+    {
+        time_block t("Tinit (hj init): ");
+        gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(int32_t)));
+    }
+
+
+    {
+        time_block t("TgroupBy - handwritten: ");
+
+        hashGroupBy<<<128, 1024>>>(a, (int32_t *) b, first, next, d, N);
+        gpu_run(cudaDeviceSynchronize());
+    }
+    {
+        time_block t("Tinit (hj init): ");
+        gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(int32_t)));
+    }
+
+
+    {
+        time_block t("TgroupBy - handwritten: ");
+
+        hashGroupBy<<<128, 1024>>>(a, (int32_t *) b, c, first, next, d, N);
+        gpu_run(cudaDeviceSynchronize());
+    }
+    size_t c_out;
+    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
+
+    std::cout << c_out << std::endl;
+    // gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 4, cudaMemcpyDefault));
+    // {
+    //     time_block t("Tinit (hj init): ");
+    //     gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(int32_t)));
+    // }
+
+
+    gpu_run(cudaFree(first));
+    gpu_run(cudaFree(next ));
+    gpu_run(cudaFree(c    ));
+
+    {
+        time_block t("Topen: ");
+
+        pipelines[0]->open();
+    }
+
+
+    first = pipelines[0]->getStateVar<int32_t *>(ctx, 0);
+    next  = (gb_bucket *) pipelines[0]->getStateVar<void    *>(ctx, 1);
+
+    c     = pipelines[0]->getStateVar<int32_t *>(ctx, 2);
+
+    // struct state_t{
+    //     int32_t   * first;
+    //     gb_bucket * next ;
+    //     int32_t   * cnt  ;
+    // };
+
+    // state_t st{first, next, c};
+    {
+        time_block t("TgroupBy - generated: ");
+        // *((state_t *) (pipelines[0]->state)) = st;
+
+        pipelines[0]->consume(N, b, a);
+    }
+
+    int32_t   * h_first;
+    gb_bucket * h_next ;
+
+    gpu_run(cudaMallocHost(&h_first, sizeof(int32_t  ) * (1 << d)));
+    gpu_run(cudaMallocHost(&h_next , sizeof(gb_bucket) * N       ));
+
+    gpu_run(cudaMemcpy(h_first, first, sizeof(int32_t  ) * (1 << d), cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(h_next , next , sizeof(gb_bucket) * N       , cudaMemcpyDefault));
+
+    // size_t c_out;
+    gpu_run(cudaMemcpy(&c_out, c, sizeof(int32_t), cudaMemcpyDefault));
+
+    std::cout << c_out << std::endl;
+
+    {
+        time_block t("Tclose: ");
+
+        pipelines[0]->close();
+    }
+
+    first = NULL;
+    next  = NULL;
+    c     = NULL;
+
+    std::unordered_map<int32_t, int32_t> groups;
+    {
+        time_block t("Tnaive-cpu: ");
+        for (size_t i = 0 ; i < N ; ++i) {
+            auto t = groups.emplace(h_a[i], ((int32_t *) h_b)[i]);
+            if (!t.second) t.first->second += ((int32_t *) h_b)[i];
+        }
+    }
+
+    std::vector<std::pair<int32_t, int32_t>> groups2(groups.begin(), groups.end());
+    std::sort(groups2.begin(), groups2.end());
+
+    // for (const auto &t: groups2){
+    //     std::cout << t.first << " " << t.second << std::endl;
+    // }
+
+    std::vector<std::pair<int32_t, int32_t>> groups3;
+
+    for (size_t i = 0 ; i < (1 << d); ++i){
+        int32_t k = h_first[i];
+        while (k != -1){
+            gb_bucket tmp = h_next[k];
+            groups3.emplace_back(tmp.key, tmp.sum);
+            k = tmp.next;
+        }
+    }
+
+    std::sort(groups3.begin(), groups3.end());
+
+    // for (const auto &t: groups3){
+    //     std::cout << t.first << " " << t.second << std::endl;
+    // }
+
+    EXPECT_EQ(groups2, groups3);
+}
+
+
+
+TEST_F(GPUOutputTest3, gpuSSBM_Q2_1) {
+
+    const char *testLabel = "gpuSSBM_Q2_1";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/ssbm_q2_1.json";
+
+    std::vector<CUfunction> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        
+        ctx->compileAndLoad();
+
+        // Get kernel function
+        pipelines = ctx->getKernel();
+    }
+
+    // h_c[0] =  0;
+    // h_c[1] =  0;
+    // h_c[2] =  0;
+    // h_c[3] =  0;
+    // h_c[4] =  0;
+    // h_c[5] =  0;
+    // h_c[6] =  0;
+    // h_c[7] =  0;
+
+    // gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 16, cudaMemcpyDefault));
+
+    // mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
+    // mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
+    // mmap_file f_lo_orderdate    ("inputs/ssbm/lo_orderdate.bin"    );
+    // mmap_file f_lo_extendedprice("inputs/ssbm/lo_extendedprice.bin");
+
+    // mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
+    // mmap_file f_d_weeknuminyear ("inputs/ssbm/d_weeknuminyear.bin" );
+    // mmap_file f_d_year          ("inputs/ssbm/d_year.bin"          );
+
+    // size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
+    // size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
+
+    // size_t * c1 = ((size_t *) c)  + 1;
+    // size_t * c2 =            c1   + 1;
+    // size_t * c3 =            c2   + 1;
+
+    // uint32_t  * first;
+    // hj_bucket * next_w_values ;
+    // // int32_t  * hj_data2;
+
+    // uint32_t * hj_index_cnt;
+    // uint32_t h_hj_index_cnt = 1 << hj_d;
+
+    // int d = 10;
+
+    // int32_t * g_d_N;
+
+    // {
+    //     time_block t("Tmallocs (init): ");
+    //     gpu_run(cudaMalloc(&first        , sizeof(uint32_t ) * (1 << d)));
+    //     gpu_run(cudaMalloc(&next_w_values, sizeof(hj_bucket) * d_N     ));
+    //     gpu_run(cudaMalloc(&g_d_N        , sizeof( int32_t))            );
+
+    // }
+    // {
+    //     time_block t("Tinit (hj init): ");
+    //     gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(uint32_t)));
+    // }
+
+    // {
+    //     void *KernelParams[] = {&first,
+    //                             &next_w_values,
+    //                             &c,
+    //                             &(f_d_datekey.gpu_data),
+    //                             &(f_d_weeknuminyear.gpu_data),
+    //                             &(f_d_year.gpu_data),
+    //                             &d_N};
+    //     time_block t("Tgenerated (hj build): ");
+
+    //     launch_kernel(pipelines[0], KernelParams);
+
+    //     gpu_run(cudaDeviceSynchronize());
+    // }
+
+    // {
+    //     void *KernelParams[] = {&c3,
+    //                             &first,
+    //                             &next_w_values, 
+    //                             &(f_lo_discount.gpu_data), 
+    //                             &(f_lo_quantity.gpu_data), 
+    //                             &(f_lo_orderdate.gpu_data), 
+    //                             &(f_lo_extendedprice.gpu_data),
+    //                             &lo_N};
+    //     time_block t("Tgenerated (hj probe): ");
+    //     // Kernel launch
+    //     launch_kernel(pipelines[1], KernelParams);
+
+    //     gpu_run(cudaDeviceSynchronize());
+    // }
+
+    // size_t c_out;
+    // gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
+    // std::cout << c_out << std::endl;
+
+    // //this results is constant for SSBM Q1.1
+    // // EXPECT_EQ(c_out, 31);
+
+    // gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
+    // std::cout << c_out << std::endl;
+
+    // //for the current dataset, regenerating it may change the results
+    // EXPECT_TRUE(c_out == UINT64_C(261356323969) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(261356323969)));
+
+    // gpu_run(cudaFree(first         ));
+    // gpu_run(cudaFree(next_w_values ));
 }

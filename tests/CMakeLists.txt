@@ -16,6 +16,7 @@ endforeach(target)
 
 foreach(target
 	tests-gpu2
+	tests-gpu-ssbm
 	)
 	SET_SOURCE_FILES_PROPERTIES(${target}.cu PROPERTIES LANGUAGE CXX)
 	add_executable(unit-${target} ${target}.cu)

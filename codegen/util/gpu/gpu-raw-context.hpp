@@ -28,14 +28,25 @@
 #include "cuda.h"
 #include "cuda_runtime_api.h"
 
+#include "util/raw-pipeline.hpp"
+
 class GpuRawContext: public RawContext {
 public:
 
     GpuRawContext(const string& moduleName);
     ~GpuRawContext();
 
-    virtual int appendParameter(llvm::Type * ptype, bool noalias = false, bool readonly = false);
-    virtual Argument * getArgument(int id) const;
+    virtual size_t appendParameter(llvm::Type * ptype, bool noalias  = false, bool readonly = false);
+    virtual size_t appendStateVar (llvm::Type * ptype);
+
+    virtual llvm::Argument * getArgument(size_t id) const;
+    virtual llvm::Value    * getStateVar(size_t id) const;
+
+    void registerOpen (std::function<void (RawPipeline * pip)> open );
+    void registerClose(std::function<void (RawPipeline * pip)> close);
+
+    void pushNewPipeline();
+    void popNewPipeline();
 
     virtual void setGlobalFunction(Function *F = nullptr);
     virtual void prepareFunction(Function *F);
@@ -43,11 +54,14 @@ public:
     virtual llvm::Value * threadId ();
     virtual llvm::Value * threadNum();
     virtual llvm::Value * laneId   ();
+    virtual void          createMembar_gl();
 
     string emitPTX();
 
     void compileAndLoad();
-    CUfunction getKernel();
+
+    std::vector<CUfunction> getKernel();
+    std::vector<RawPipeline *> getPipelines();
 
 protected:
     virtual void createJITEngine();
@@ -56,13 +70,10 @@ protected:
 
     CUmodule cudaModule;
 
-    std::vector<llvm::Type *> inputs;
-    std::vector<bool     > inputs_noalias;
-    std::vector<bool     > inputs_readonly;
+    string                  kernelName;
+    std::vector<RawPipelineGen> pipelines ;
 
-    std::vector<Argument *> args;
-
-    string               kernelName;
+    std::vector<RawPipelineGen> generators;
 };
 
 #endif /* GPU_RAW_CONTEXT_HPP_ */

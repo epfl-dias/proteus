@@ -56,3 +56,6 @@ inputs/CIDR15
 clinical*.csv
 genetic*.csv
 iputs/json/spam/*.json
+/generated_ptx.ptx
+/generated_code.ll
+/generated_code_opt.ll

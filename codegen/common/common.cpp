@@ -96,4 +96,8 @@ bool verifyTestResult(const char *testsPath, const char *testLabel)	{
 	return areEqual;
 }
 
-
+size_t getFileSize(const char* filename) {
+    struct stat st;
+    stat(filename, &st);
+    return st.st_size;
+}

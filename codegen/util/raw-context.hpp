@@ -85,6 +85,9 @@ public:
 	ConstantInt* createInt64(size_t val);
 	ConstantInt* createTrue();
 	ConstantInt* createFalse();
+	
+    virtual size_t getSizeOf(llvm::Type  * type) const;
+    virtual size_t getSizeOf(llvm::Value * val ) const;
 
 	Type* CreateCustomType(char* typeName);
 	StructType* CreateJSMNStruct();

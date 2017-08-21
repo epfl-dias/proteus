@@ -103,16 +103,21 @@ void GpuRawContext::createJITEngine() {
     }
 }
 
-int GpuRawContext::appendParameter(llvm::Type * ptype, bool noalias, bool readonly){
-    inputs.push_back(ptype);
-    inputs_noalias.push_back(noalias);
-    inputs_readonly.push_back(readonly);
-
-    return inputs.size() - 1;
+size_t GpuRawContext::appendParameter(llvm::Type * ptype, bool noalias, bool readonly){
+    return generators.back().appendParameter(ptype, noalias, readonly);
 }
 
-Argument * GpuRawContext::getArgument(int id) const{
-    return args[id];
+
+size_t GpuRawContext::appendStateVar(llvm::Type * ptype){
+    return generators.back().appendStateVar(ptype);
+}
+
+Argument * GpuRawContext::getArgument(size_t id) const{
+    return generators.back().getArgument(id);
+}
+
+Value * GpuRawContext::getStateVar(size_t id) const{
+    return generators.back().getStateVar(id);
 }
 
 // static void __attribute__((unused)) addOptimizerPipelineDefault(legacy::FunctionPassManager * TheFPM) {
@@ -165,6 +170,7 @@ GpuRawContext::GpuRawContext(const string& moduleName):
     }
 
     Type * int32_type = Type::getInt32Ty(getLLVMContext());
+    Type * void_type  = Type::getVoidTy (getLLVMContext());
 
     std::vector<Type *> inputs3{3, int32_type};
 
@@ -192,7 +198,14 @@ GpuRawContext::GpuRawContext(const string& moduleName):
     FunctionType *intr4 = FunctionType::get(int32_type, std::vector<Type *>{}, false);
     Function *intr_p4 = Function::Create(intr4, Function::ExternalLinkage, "llvm.nvvm.read.ptx.sreg.laneid", mod);
     registerFunction("llvm.nvvm.read.ptx.sreg.laneid", intr_p4);
+
+    FunctionType *intrmembargl = FunctionType::get(void_type, std::vector<Type *>{}, false);
+    Function *intr_pmembargl = Function::Create(intrmembargl, Function::ExternalLinkage, "llvm.nvvm.membar.gl", mod);
+    registerFunction("llvm.nvvm.membar.gl", intr_pmembargl);
+
+    pushNewPipeline();
 }
+
 
 GpuRawContext::~GpuRawContext() {
     LOG(WARNING)<< "[GpuRawContext: ] Destructor";
@@ -214,47 +227,55 @@ void GpuRawContext::setGlobalFunction(Function *F){
         throw runtime_error(error_msg);
     }
 
-    FunctionType *ftype = FunctionType::get(Type::getVoidTy(getLLVMContext()), inputs, false);
-    F = Function::Create(ftype, Function::ExternalLinkage, kernelName, getModule());
-
-    for (size_t i = 1 ; i <= inputs.size() ; ++i){ //+1 because 0 is the return value
-        if (inputs_readonly[i - 1]) F->setOnlyReadsMemory(i);
-        if (inputs_noalias [i - 1]) F->setDoesNotAlias(   i);
-    }
-
-    for (auto &t: F->args()) args.push_back(&t);
-
-    RawContext::setGlobalFunction(F);
-    
-    Type *int32Type           = Type::getInt32Ty(TheContext); 
-    
-    std::vector<llvm::Metadata *> Vals;
-
-    NamedMDNode * annot = TheModule->getOrInsertNamedMetadata("nvvm.annotations");
-    MDString    * str   = MDString::get(TheContext, "kernel");
-    Value       * one   = ConstantInt::get(int32Type, 1);
-
-    Vals.push_back(ValueAsMetadata::get(F));
-    Vals.push_back(str);
-    Vals.push_back(ValueAsMetadata::getConstant(one));
-    
-    MDNode * mdNode = MDNode::get(TheContext, Vals);
-
-    annot->addOperand(mdNode); 
+    RawContext::setGlobalFunction(generators.back().prepare());
 }
 
+void GpuRawContext::pushNewPipeline(){
+    TheFunction = nullptr;
+    generators.emplace_back(this, kernelName + "_pip" + std::to_string(generators.size() + pipelines.size()));
+}
+
+void GpuRawContext::popNewPipeline(){
+    pipelines.push_back(generators.back());
+    
+    generators.pop_back();
+    
+    TheFunction = (generators.size() != 0) ? generators.back().F : nullptr;
+}
 
 void GpuRawContext::compileAndLoad(){
+    popNewPipeline();
     string ptx = emitPTX();
 
     gpu_run(cuModuleLoadDataEx(&cudaModule, ptx.c_str(), 0, 0, 0));
-
 }
 
-CUfunction GpuRawContext::getKernel(){
-    CUfunction function;
-    gpu_run(cuModuleGetFunction(&function, cudaModule, kernelName.c_str()));
-    return function;
+std::vector<CUfunction> GpuRawContext::getKernel(){
+    std::vector<CUfunction> funcs;
+    for (const auto &p: pipelines) {
+        funcs.emplace_back();
+        gpu_run(cuModuleGetFunction(&(funcs.back()), cudaModule, p.getFunction()->getName().str().c_str()));
+    }
+    return funcs;
+}
+
+
+std::vector<RawPipeline *> GpuRawContext::getPipelines(){
+    std::vector<RawPipeline *> pips;
+
+    for (const auto &p: pipelines) {
+        pips.emplace_back(p.getPipeline(cudaModule));
+    }
+
+    return pips;
+}
+
+void GpuRawContext::registerOpen (std::function<void (RawPipeline * pip)> open ){
+    generators.back().registerOpen (open );
+}
+
+void GpuRawContext::registerClose(std::function<void (RawPipeline * pip)> close){
+    generators.back().registerClose(close);
 }
 
 string GpuRawContext::emitPTX(){
@@ -456,4 +477,12 @@ Value * GpuRawContext::laneId(){
     Function * laneid_fun = getFunction("llvm.nvvm.read.ptx.sreg.laneid");
     return TheBuilder->CreateCall(laneid_fun, std::vector<Value *>{}, "laneid");
 }
+
+
+void GpuRawContext::createMembar_gl(){
+    Function * membar_fun = getFunction("llvm.nvvm.membar.gl");
+    TheBuilder->CreateCall(membar_fun, std::vector<Value *>{});
+}
+
+
 

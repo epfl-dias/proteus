@@ -180,4 +180,6 @@ public:
     }
 };
 
+size_t getFileSize(const char* filename);
+
 #endif /* COMMON_HPP_ */

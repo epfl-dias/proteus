@@ -10,52 +10,16 @@
         "argNo": 4,
         "type": {
           "type": "record",
-          "attributes": [{
-            "type": {
-              "type": "int"
-            },
-            "relName": "inputs/sailors.csv",
-            "attrName": "sid",
-            "attrNo": 1
-          }, {
-            "type": {
-              "type": "string"
-            },
-            "relName": "inputs/sailors.csv",
-            "attrName": "sname",
-            "attrNo": 2
-          }, {
-            "type": {
-              "type": "int"
-            },
-            "relName": "inputs/sailors.csv",
-            "attrName": "rating",
-            "attrNo": 3
-          }, {
-            "type": {
-              "type": "float"
-            },
-            "relName": "inputs/sailors.csv",
-            "attrName": "age",
-            "attrNo": 4
-          }]
+          "relName": "inputs/sailors.csv"
         },
         "attributes": [{
-          "type": {
-            "type": "int"
-          },
           "relName": "inputs/sailors.csv",
-          "attrName": "sid",
-          "attrNo": 1
+          "attrName": "sid"
         }]
       },
       "attribute": {
-        "type": {
-          "type": "int"
-        },
         "relName": "inputs/sailors.csv",
-        "attrName": "sid",
-        "attrNo": 1
+        "attrName": "sid"
       }
     },
     "packet": 0,
@@ -79,52 +43,16 @@
           "argNo": 4,
           "type": {
             "type": "record",
-            "attributes": [{
-              "type": {
-                "type": "int"
-              },
-              "relName": "inputs/sailors.csv",
-              "attrName": "sid",
-              "attrNo": 1
-            }, {
-              "type": {
-                "type": "string"
-              },
-              "relName": "inputs/sailors.csv",
-              "attrName": "sname",
-              "attrNo": 2
-            }, {
-              "type": {
-                "type": "int"
-              },
-              "relName": "inputs/sailors.csv",
-              "attrName": "rating",
-              "attrNo": 3
-            }, {
-              "type": {
-                "type": "float"
-              },
-              "relName": "inputs/sailors.csv",
-              "attrName": "age",
-              "attrNo": 4
-            }]
+            "relName": "inputs/sailors.csv"
           },
           "attributes": [{
-            "type": {
-              "type": "float"
-            },
             "relName": "inputs/sailors.csv",
-            "attrName": "age",
-            "attrNo": 4
+            "attrName": "age"
           }]
         },
         "attribute": {
-          "type": {
-            "type": "float"
-          },
           "relName": "inputs/sailors.csv",
-          "attrName": "age",
-          "attrNo": 4
+          "attrName": "age"
         }
       },
       "right": {
@@ -138,19 +66,11 @@
         "name": "inputs/sailors.csv",
         "type": "gpu",
         "projections": [{
-          "type": {
-            "type": "int"
-          },
           "relName": "inputs/sailors.csv",
-          "attrName": "sid",
-          "attrNo": 1
+          "attrName": "sid"
         },{
-          "type": {
-            "type": "float"
-          },
           "relName": "inputs/sailors.csv",
-          "attrName": "age",
-          "attrNo": 4
+          "attrName": "age"
         }]
       }
     }

@@ -30,111 +30,10 @@ GpuExprMaterializer::GpuExprMaterializer(const std::vector<GpuMatExpr> &toMat,
 		const std::vector<size_t> &packet_widths,
 		RawOperator* const child, GpuRawContext* const context, string opLabel) :
 		UnaryRawOperator(child), matExpr(toMat),
-		// context(context), 
+		context(context), 
 		opLabel(opLabel),
 		packet_widths(packet_widths) {
 
-
-	std::sort(matExpr.begin(), matExpr.end(), [](const GpuMatExpr& a, const GpuMatExpr& b){
-		return a.packet < b.packet || a.bitoffset < b.bitoffset;
-	});
-
-	size_t i = 0;
-
-	for (size_t p = 0 ; p < packet_widths.size() ; ++p){
-		// Type * t     = PointerType::get(IntegerType::getIntNTy(context->getLLVMContext(), packet_widths[p]), /* address space */ 1);
-
-		size_t bindex  = 0;
-		size_t packind = 0;
-
-		std::vector<Type *> body;
-		while (i < matExpr.size() && matExpr[i].packet == p){
-			if (matExpr[i].bitoffset != bindex){
-				//insert space
-				assert(matExpr[i].bitoffset > bindex);
-				body.push_back(Type::getIntNTy(context->getLLVMContext(), (matExpr[i].bitoffset - bindex)));
-				++packind;
-			}
-
-			const ExpressionType * out_type = matExpr[i].expr->getExpressionType();
-
-			if (!out_type->isPrimitive()){
-				string error_msg("[GpuExprMaterializer: ] Currently only supports materialization of primitive types");
-				LOG(ERROR)<< error_msg;
-				throw runtime_error(error_msg);
-			}
-
-			Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
-
-			body.push_back(llvm_type);
-			bindex = matExpr[i].bitoffset + llvm_type->getPrimitiveSizeInBits();
-			matExpr[i].packind = packind++;
-			++i;
-		}
-		assert(packet_widths[p] >= bindex);
-
-		if (packet_widths[p] > bindex) {
-			body.push_back(Type::getIntNTy(context->getLLVMContext(), (packet_widths[p] - bindex)));
-		}
-
-		Type * t     = StructType::create(body, opLabel + "_struct_" + std::to_string(p), true);
-		Type * t_ptr = PointerType::get(t, /* address space */ 1);
-
-		out_param_ids.push_back(context->appendParameter(t_ptr, true, false));
-	}
-	assert(i == matExpr.size());
-
-	// Type * t     = PointerType::get(((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext()), /* address space */ 1);
-	// out_param_id = context->appendParameter(t    , true, false);
-
-	Type * int32_type = Type::getInt32Ty(context->getLLVMContext());
-
-	Type * t_cnt = PointerType::get(int32_type, /* address space */ 1);
-	cnt_param_id = context->appendParameter(t_cnt, true, false);
-
-	// Function *F = context->getGlobalFunction();
-	// LLVMContext& llvmContext = context->getLLVMContext();
-	// IRBuilder<> *Builder = context->getBuilder();
-
-	// Type* int64_type = Type::getInt64Ty(llvmContext);
-	// Type* int32_type = Type::getInt32Ty(llvmContext);
-	// Type *int8_type = Type::getInt8Ty(llvmContext);
-	// PointerType *int32_ptr_type = PointerType::get(int32_type, 0);
-	// PointerType *void_ptr_type = PointerType::get(int8_type, 0);
-	// PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
-
-	// Value *zero = context->createInt64(0);
-
-	// /* Arbitrary initial buffer sizes */
-	// /* No realloc will be required with these sizes for synthetic large-scale numbers */
-	// //	size_t sizeBuff = 10000000000;
-
-	// /* 'linehint' if need be*/
-	// size_t sizeBuffer = 1000;
-
-	// Value *val_sizeBuffer = context->createInt64(sizeBuffer);
-	// /* Request memory to store relation R 			*/
-	// opBuffer.mem_buffer = context->CreateEntryBlockAlloca(F,
-	// 		string("cacheBuffer"), char_ptr_type);
-	// (opBuffer.mem_buffer)->setAlignment(8);
-	// opBuffer.mem_tuplesNo = context->CreateEntryBlockAlloca(F,
-	// 		string("tuplesR"), int64_type);
-	// opBuffer.mem_size = context->CreateEntryBlockAlloca(F, string("sizeR"),
-	// 		int64_type);
-	// opBuffer.mem_offset = context->CreateEntryBlockAlloca(F,
-	// 		string("offsetRelR"), int64_type);
-	// rawBuffer = (char*) getMemoryChunk(sizeBuffer);
-	// ptr_rawBuffer = (char**) malloc(sizeof(char*));
-	// *ptr_rawBuffer = rawBuffer;
-	// Value *val_relationR = context->CastPtrToLlvmPtr(char_ptr_type, rawBuffer);
-	// Builder->CreateStore(val_relationR, opBuffer.mem_buffer);
-	// Builder->CreateStore(zero, opBuffer.mem_tuplesNo);
-	// Builder->CreateStore(zero, opBuffer.mem_offset);
-	// Builder->CreateStore(val_sizeBuffer, opBuffer.mem_size);
-
-	// /* Note: In principle, it's not necessary to store payload as struct.
-	//  * This way, however, it is uniform across all caching cases. */
-	// toMatType = NULL;
 }
 
 // GpuExprMaterializer::GpuExprMaterializer(expressions::Expression* toMat, int linehint,
@@ -261,6 +160,108 @@ GpuExprMaterializer::~GpuExprMaterializer()	{
 // }
 
 void GpuExprMaterializer::produce() {
+	std::sort(matExpr.begin(), matExpr.end(), [](const GpuMatExpr& a, const GpuMatExpr& b){
+		return a.packet < b.packet || a.bitoffset < b.bitoffset;
+	});
+
+	size_t i = 0;
+
+	for (size_t p = 0 ; p < packet_widths.size() ; ++p){
+		// Type * t     = PointerType::get(IntegerType::getIntNTy(context->getLLVMContext(), packet_widths[p]), /* address space */ 1);
+
+		size_t bindex  = 0;
+		size_t packind = 0;
+
+		std::vector<Type *> body;
+		while (i < matExpr.size() && matExpr[i].packet == p){
+			if (matExpr[i].bitoffset != bindex){
+				//insert space
+				assert(matExpr[i].bitoffset > bindex);
+				body.push_back(Type::getIntNTy(context->getLLVMContext(), (matExpr[i].bitoffset - bindex)));
+				++packind;
+			}
+
+			const ExpressionType * out_type = matExpr[i].expr->getExpressionType();
+
+			if (!out_type->isPrimitive()){
+				string error_msg("[GpuExprMaterializer: ] Currently only supports materialization of primitive types");
+				LOG(ERROR)<< error_msg;
+				throw runtime_error(error_msg);
+			}
+
+			Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
+
+			body.push_back(llvm_type);
+			bindex = matExpr[i].bitoffset + llvm_type->getPrimitiveSizeInBits();
+			matExpr[i].packind = packind++;
+			++i;
+		}
+		assert(packet_widths[p] >= bindex);
+
+		if (packet_widths[p] > bindex) {
+			body.push_back(Type::getIntNTy(context->getLLVMContext(), (packet_widths[p] - bindex)));
+		}
+
+		Type * t     = StructType::create(body, opLabel + "_struct_" + std::to_string(p), true);
+		Type * t_ptr = PointerType::get(t, /* address space */ 1);
+
+		out_param_ids.push_back(context->appendParameter(t_ptr, true, false));
+	}
+	assert(i == matExpr.size());
+
+	// Type * t     = PointerType::get(((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext()), /* address space */ 1);
+	// out_param_id = context->appendParameter(t    , true, false);
+
+	Type * int32_type = Type::getInt32Ty(context->getLLVMContext());
+
+	Type * t_cnt = PointerType::get(int32_type, /* address space */ 1);
+	cnt_param_id = context->appendParameter(t_cnt, true, false);
+
+	// Function *F = context->getGlobalFunction();
+	// LLVMContext& llvmContext = context->getLLVMContext();
+	// IRBuilder<> *Builder = context->getBuilder();
+
+	// Type* int64_type = Type::getInt64Ty(llvmContext);
+	// Type* int32_type = Type::getInt32Ty(llvmContext);
+	// Type *int8_type = Type::getInt8Ty(llvmContext);
+	// PointerType *int32_ptr_type = PointerType::get(int32_type, 0);
+	// PointerType *void_ptr_type = PointerType::get(int8_type, 0);
+	// PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
+
+	// Value *zero = context->createInt64(0);
+
+	// /* Arbitrary initial buffer sizes */
+	// /* No realloc will be required with these sizes for synthetic large-scale numbers */
+	// //	size_t sizeBuff = 10000000000;
+
+	// /* 'linehint' if need be*/
+	// size_t sizeBuffer = 1000;
+
+	// Value *val_sizeBuffer = context->createInt64(sizeBuffer);
+	// /* Request memory to store relation R 			*/
+	// opBuffer.mem_buffer = context->CreateEntryBlockAlloca(F,
+	// 		string("cacheBuffer"), char_ptr_type);
+	// (opBuffer.mem_buffer)->setAlignment(8);
+	// opBuffer.mem_tuplesNo = context->CreateEntryBlockAlloca(F,
+	// 		string("tuplesR"), int64_type);
+	// opBuffer.mem_size = context->CreateEntryBlockAlloca(F, string("sizeR"),
+	// 		int64_type);
+	// opBuffer.mem_offset = context->CreateEntryBlockAlloca(F,
+	// 		string("offsetRelR"), int64_type);
+	// rawBuffer = (char*) getMemoryChunk(sizeBuffer);
+	// ptr_rawBuffer = (char**) malloc(sizeof(char*));
+	// *ptr_rawBuffer = rawBuffer;
+	// Value *val_relationR = context->CastPtrToLlvmPtr(char_ptr_type, rawBuffer);
+	// Builder->CreateStore(val_relationR, opBuffer.mem_buffer);
+	// Builder->CreateStore(zero, opBuffer.mem_tuplesNo);
+	// Builder->CreateStore(zero, opBuffer.mem_offset);
+	// Builder->CreateStore(val_sizeBuffer, opBuffer.mem_size);
+
+	// /* Note: In principle, it's not necessary to store payload as struct.
+	//  * This way, however, it is uniform across all caching cases. */
+	// toMatType = NULL;
+
+
 	getChild()->produce();
 
 	/* Free Arenas */

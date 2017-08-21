@@ -59,28 +59,39 @@ typedef struct InputInfo	{
 	ExpressionType *oidType;
 } InputInfo;
 
+class CatalogParser;
+
 class ExpressionParser {
+	CatalogParser& catalogParser;
 public:
-	ExpressionParser() {};
+	ExpressionParser(CatalogParser& catalogParser): catalogParser(catalogParser) {};
 	expressions::Expression* parseExpression(const rapidjson::Value& val);
 	ExpressionType* 		 parseExpressionType(const rapidjson::Value& val);
 	RecordAttribute* 		 parseRecordAttr(const rapidjson::Value& val);
 	Monoid parseAccumulator(const char *acc);
+private:
+	RecordType * 			 getRecordType(string relName);
+	const RecordAttribute *	 getAttribute (string relName, string attrName);
 };
 
 class CatalogParser {
 public:
 	CatalogParser(const char *catalogPath);
-	InputInfo *getInputInfo(string inputName)	{
 
+	InputInfo *getInputInfoIfKnown(string inputName){
 		map<string,InputInfo*>::iterator it;
 		it = inputs.find(inputName);
-		if(it == inputs.end())	{
-			string err = string("Unknown Input: ") + inputName;
-			LOG(ERROR)<< err;
-			throw runtime_error(err);
-		}
+		if(it == inputs.end()) return NULL;
 		return it->second;
+	}
+
+	InputInfo *getInputInfo(string inputName)	{
+		InputInfo * ret = getInputInfoIfKnown(inputName);
+		if(ret) return ret;
+
+		string err = string("Unknown Input: ") + inputName;
+		LOG(ERROR)<< err;
+		throw runtime_error(err);
 	}
 
 	void setInputInfo(string inputName, InputInfo *info) {
@@ -125,7 +136,6 @@ private:
 	void cleanUp();
 };
 
-
-
+int lookupInDictionary(string s, const rapidjson::Value& val);
 
 #endif /* PLAN_PARSER_HPP_ */

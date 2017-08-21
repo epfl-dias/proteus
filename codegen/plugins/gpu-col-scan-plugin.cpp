@@ -27,8 +27,17 @@ GpuColScanPlugin::GpuColScanPlugin(GpuRawContext* const context, string fnamePre
     : fnamePrefix(fnamePrefix), rec(rec), wantedFields(whichFields), context(context),
       posVar("offset"), bufVar("buf"), fsizeVar("fileSize"), sizeVar("size"), itemCtrVar("itemCtr"),
       isCached(false), val_size(NULL) {
+    // if (wantedFields.size() == 0) {
+    //     string error_msg = string("[Binary Col Plugin]: Invalid number of fields");
+    //     LOG(ERROR) << error_msg;
+    //     throw runtime_error(error_msg);
+    // }
+}
 
-    for (const auto &in: whichFields){
+GpuColScanPlugin::~GpuColScanPlugin() {}
+
+void GpuColScanPlugin::init()    {
+    for (const auto &in: wantedFields){
         const ExpressionType* tin = in->getOriginalType();
         if (!tin->isPrimitive()){
             LOG(ERROR)<< "[GpuColScanPlugin: ] Only primitive inputs are currently supported";
@@ -48,16 +57,6 @@ GpuColScanPlugin::GpuColScanPlugin(GpuRawContext* const context, string fnamePre
 
     tupleCntArg_id = context->appendParameter(size_type, false, false);
 
-    if (wantedFields.size() == 0) {
-        string error_msg = string("[Binary Col Plugin]: Invalid number of fields");
-        LOG(ERROR) << error_msg;
-        throw runtime_error(error_msg);
-    }
-}
-
-GpuColScanPlugin::~GpuColScanPlugin() {}
-
-void GpuColScanPlugin::init()    {
     context->setGlobalFunction();
 
     Function* F = context->getGlobalFunction();

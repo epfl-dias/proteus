@@ -1,0 +1,69 @@
+{
+  "operator": "hashgroupby-chained",
+  "e": [{
+    "e": {
+      "expression": "recordProjection",
+      "type": {
+        "type": "int"
+      },
+      "e": {
+        "expression": "argument",
+        "argNo": -1,
+        "type": {
+          "type": "record",
+          "relName": "inputs/sailors.csv"
+        },
+        "attributes": [{
+          "relName": "inputs/sailors.csv",
+          "attrName": "sid"
+        }]
+      },
+      "attribute": {
+        "relName": "inputs/sailors.csv",
+        "attrName": "sid"
+      }
+    },
+    "packet": 0,
+    "offset": 64,
+    "m"     : "sum"
+  }],
+  "gpu": true,
+  "hash_bits": 10,
+  "w": [128],
+  "k": [{
+    "expression": "recordProjection",
+    "type": {
+      "type": "int"
+    },
+    "e": {
+      "expression": "argument",
+      "argNo": -1,
+      "type": {
+        "type": "record",
+        "relName": "inputs/sailors.csv"
+      },
+      "attributes": [{
+        "relName": "inputs/sailors.csv",
+        "attrName": "rating"
+      }]
+    },
+    "attribute": {
+      "relName": "inputs/sailors.csv",
+      "attrName": "rating"
+    }
+  }],
+  "input": {
+    "operator": "scan",
+    "plugin": {
+      "name": "inputs/sailors.csv",
+      "type": "gpu",
+      "projections": [{
+        "relName": "inputs/sailors.csv",
+        "attrName": "sid"
+      }, {
+        "relName": "inputs/sailors.csv",
+        "attrName": "rating"
+      }]
+    }
+  }
+}

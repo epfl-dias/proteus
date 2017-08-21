@@ -183,6 +183,14 @@ Function* const RawContext::getFunction(string funcName) const {
 	return it->second;
 }
 
+size_t RawContext::getSizeOf(llvm::Type  * type) const{
+    return getModule()->getDataLayout().getTypeSizeInBits(type)/8;
+}
+
+size_t RawContext::getSizeOf(llvm::Value * val ) const{
+    return getSizeOf(val->getType());
+}
+
 void RawContext::CodegenMemcpy(Value* dst, Value* src, int size) {
 	LLVMContext& ctx = getLLVMContext();
 	// Cast src/dst to int8_t*.  If they already are, this will get optimized away

@@ -70,7 +70,7 @@ private:
     // char *rawBuffer;
     // char **ptr_rawBuffer;
 
-    // GpuRawContext* const    context;
+    GpuRawContext* const    context;
     std::vector<GpuMatExpr> matExpr;
     string                  opLabel;
     

@@ -179,7 +179,7 @@ public:
 	string getOriginalRelationName() 		const					{ return originalRelName; }
 	string getAttrName() 					const					{ return attrName; }
 	//CONVENTION: Fields requested can be 1-2-3-etc.
-	int getAttrNo()													{ return attrNo; }
+	int getAttrNo()							const					{ return attrNo; }
 	void setProjected()												{ projected = true; }
 	bool isProjected()												{ return projected; }
 
@@ -233,9 +233,17 @@ public:
 	typeID getTypeID()	const					{ return RECORD; }
 	list<RecordAttribute*> getArgs() const 		{ return args; }
 	map<string, RecordAttribute*>& getArgsMap()	{ return argsMap; }
-	int getArgsNo() 							{ return args.size(); }
+	int getArgsNo() const						{ return args.size(); }
 	bool isPrimitive() 	const					{ return false; }
 	~RecordType() 								{}
+
+	const RecordAttribute * getArg(string name) const {
+		for (const auto &attr: args){
+			if (name == attr->getAttrName()) return attr;
+		}
+		// assert(false && "Argument does not exist");
+		return NULL;
+	}
 
 private:
 	list<RecordAttribute*> args;

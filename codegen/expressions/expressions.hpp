@@ -41,8 +41,8 @@ enum ExpressionId	{ CONSTANT, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, 
 
 class Expression	{
 public:
-	Expression(ExpressionType* type) : type(type)		{}
-	Expression(const ExpressionType* type) : type(type)	{}
+	Expression(ExpressionType* type) : type(type), registered(false){}
+	Expression(const ExpressionType* type) : type(type), registered(false){}
 	virtual ~Expression()								{}
 
 	const ExpressionType* getExpressionType()	const		{ return type; }
@@ -61,8 +61,37 @@ public:
 			return this->getTypeID() < r.getTypeID();
 		}
 	}
+
+	virtual inline void registerAs(string relName, string attrName){
+		registered     = true;
+		this->relName  = relName ;
+		this->attrName = attrName;
+	}
+
+	virtual inline string getRegisteredAttrName(){
+		if (!registered){
+			string error_msg = string("Expression not registered");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		return attrName;
+	}
+
+	virtual inline string getRegisteredRelName(){
+		if (!registered){
+			string error_msg = string("Expression not registered");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		return relName;
+	}
+
 private:
 	const ExpressionType* type;
+protected:
+	bool registered;
+	string relName ;
+	string attrName;
 };
 
 struct less_map: std::binary_function<const Expression *,
@@ -293,9 +322,17 @@ private:
 class RecordProjection : public Expression	{
 public:
 	RecordProjection(ExpressionType* type, Expression* expr, RecordAttribute attribute)	:
-			Expression(type), expr(expr), attribute(attribute)	{}
+			Expression(type), expr(expr), attribute(attribute)	{
+					registered = true;
+					relName    = getRelationName();
+					attrName   = getProjectionName();
+				}
 	RecordProjection(const ExpressionType* type, Expression* expr, RecordAttribute attribute)	:
-				Expression(type), expr(expr), attribute(attribute)	{}
+				Expression(type), expr(expr), attribute(attribute)	{
+					registered = true;
+					relName    = getRelationName();
+					attrName   = getProjectionName();
+				}
 	~RecordProjection()								{}
 
 	Expression* getExpr() const						{ return expr; }
