@@ -882,8 +882,6 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 
 	BasicBlock *CondBB = BasicBlock::Create(llvmContext, "csvScanCond", TheFunction);
 
-	// Insert an explicit fall through from the current (entry) block to the CondBB.
-	Builder->CreateBr(CondBB);
 	// Start insertion in CondBB.
 	Builder->SetInsertPoint(CondBB);
 
@@ -1010,9 +1008,13 @@ void CSVPlugin::scanCSV(const RawOperator& producer, Function* debug)
 
 	Builder->CreateBr(CondBB);
 
+	Builder->SetInsertPoint(context->getCurrentEntryBlock());
+	// Insert an explicit fall through from the current (entry) block to the CondBB.
+	Builder->CreateBr(CondBB);
+
 	//	Finish up with end (the AfterLoop)
 	// 	Any new code will be inserted in AfterBB.
-	Builder->SetInsertPoint(AfterBB);
+	Builder->SetInsertPoint(context->getEndingBlock());
 }
 
 int CSVPlugin::readAsInt() {

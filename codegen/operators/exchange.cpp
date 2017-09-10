@@ -137,7 +137,7 @@ void Exchange::produce() {
 
 
     Builder->SetInsertPoint(context->getEndingBlock());
-    Builder->CreateRetVoid();
+    // Builder->CreateRetVoid();
 
 
     context->popNewPipeline();

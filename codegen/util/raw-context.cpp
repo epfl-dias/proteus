@@ -113,8 +113,10 @@ RawContext::RawContext(const string& moduleName, bool setGlobFunction) {
 }
 
 void RawContext::setGlobalFunction(Function *F){
-	assert(TheFunction == nullptr && "Should only be called if global function has not be set.");
-
+	if (TheFunction){
+		assert(F == nullptr && "Should only be called if global function has not be set.");
+		return;
+	}
 	//Setting the 'global' function
 	TheFunction = F;
 	// Create a new basic block to start insertion into.
@@ -538,6 +540,5 @@ StructType* RawContext::CreateStringStruct() {
 
 //Provide support for some extern functions
 void RawContext::registerFunction(const char* funcName, Function* func)	{
-	std::cout << " -------------------------------------------------------------- " << funcName << std::endl;
 	availableFunctions[funcName] = func;
 }

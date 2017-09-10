@@ -365,8 +365,7 @@ void HashRearrange::consume_flush(){
 
 
     Builder->SetInsertPoint(context->getEndingBlock());
-
-    Builder->CreateRetVoid();
+    // Builder->CreateRetVoid();
 
 
     context->popNewPipeline();

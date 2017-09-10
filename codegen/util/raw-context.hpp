@@ -155,7 +155,11 @@ public:
 	virtual void registerFunction(const char*, Function*);
 	virtual BasicBlock* getEndingBlock() {return codeEnd;}
 	virtual void setEndingBlock(BasicBlock* codeEnd) {this->codeEnd = codeEnd;}
-	virtual BasicBlock* getCurrentEntryBlock() {return currentCodeEntry;}
+	virtual BasicBlock* getCurrentEntryBlock() {
+		assert(currentCodeEntry != nullptr && "No entry block is set!");
+		assert(currentCodeEntry->getTerminator() == nullptr && "Current entry block is terminated!");
+		return currentCodeEntry;
+	}
 	virtual void setCurrentEntryBlock(BasicBlock* codeEntry) {this->currentCodeEntry = codeEntry;}
 
 	/**

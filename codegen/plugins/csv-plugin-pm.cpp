@@ -94,27 +94,6 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 		this->newlines = pmStruct->newlines;
 		this->pm = pmStruct->offsets;
 	}
-	/* PM - LLVM LAND */
-	PointerType *size_tPtrType = Type::getInt64PtrTy(llvmContext);
-	mem_newlines = context->CreateEntryBlockAlloca(F, string("mem_newlines"),
-			size_tPtrType);
-	Value *val_newlines = context->CastPtrToLlvmPtr(size_tPtrType,
-			(char*) newlines);
-	Builder->CreateStore(val_newlines, mem_newlines);
-
-	Type *int16PtrType = Type::getInt16PtrTy(llvmContext);
-	PointerType *int162DPtrType = PointerType::get(int16PtrType, 0);
-	mem_pm = context->CreateEntryBlockAlloca(F, string("mem_pm"),
-			int162DPtrType);
-	Value *val_pm = context->CastPtrToLlvmPtr(int162DPtrType, (char*) pm);
-	Builder->CreateStore(val_pm, mem_pm);
-
-	Type *int32Type = Type::getInt32Ty(llvmContext);
-	//int32Type->getTypeID();
-	mem_lineCtr = context->CreateEntryBlockAlloca(F, string("mem_lineCtr"),
-			int32Type);
-	Value *val_zero = context->createInt32(0);
-	Builder->CreateStore(val_zero, mem_lineCtr);
 }
 
 CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
@@ -192,27 +171,6 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 		this->newlines = pmStruct->newlines;
 		this->pm = pmStruct->offsets;
 	}
-	/* PM - LLVM LAND */
-	PointerType *size_tPtrType = Type::getInt64PtrTy(llvmContext);
-	mem_newlines = context->CreateEntryBlockAlloca(F, string("mem_newlines"),
-			size_tPtrType);
-	Value *val_newlines = context->CastPtrToLlvmPtr(size_tPtrType,
-			(char*) newlines);
-	Builder->CreateStore(val_newlines, mem_newlines);
-
-	Type *int16PtrType = Type::getInt16PtrTy(llvmContext);
-	PointerType *int162DPtrType = PointerType::get(int16PtrType, 0);
-	mem_pm = context->CreateEntryBlockAlloca(F, string("mem_pm"),
-			int162DPtrType);
-	Value *val_pm = context->CastPtrToLlvmPtr(int162DPtrType, (char*) pm);
-	Builder->CreateStore(val_pm, mem_pm);
-
-	Type *int32Type = Type::getInt32Ty(llvmContext);
-	//int32Type->getTypeID();
-	mem_lineCtr = context->CreateEntryBlockAlloca(F, string("mem_lineCtr"),
-			int32Type);
-	Value *val_zero = context->createInt32(0);
-	Builder->CreateStore(val_zero, mem_lineCtr);
 }
 
 CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
@@ -246,23 +204,6 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 	this->pm = offsets;
 	this->delimInner = ';';
 	this->delimEnd = '\n';
-
-	/* PM - LLVM LAND */
-	PointerType *size_tPtrType = Type::getInt64PtrTy(llvmContext);
-	mem_newlines = context->CreateEntryBlockAlloca(F,string("mem_newlines"),size_tPtrType);
-	Value *val_newlines = context->CastPtrToLlvmPtr(size_tPtrType, (char*) newlines);
-	Builder->CreateStore(val_newlines,mem_newlines);
-
-	Type *int16PtrType = Type::getInt16PtrTy(llvmContext);
-	PointerType *int162DPtrType = PointerType::get(int16PtrType,0);
-	mem_pm = context->CreateEntryBlockAlloca(F,string("mem_pm"),int162DPtrType);
-	Value *val_pm = context->CastPtrToLlvmPtr(int162DPtrType, (char*) pm);
-	Builder->CreateStore(val_pm,mem_pm);
-
-	Type *int32Type = Type::getInt32Ty(llvmContext);
-	mem_lineCtr = context->CreateEntryBlockAlloca(F,string("mem_lineCtr"),int32Type);
-	Value *val_zero = context->createInt32(0);
-	Builder->CreateStore(val_zero,mem_lineCtr);
 }
 
 CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
@@ -296,40 +237,46 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 	this->pm = offsets;
 	this->delimInner = delimInner;
 	this->delimEnd = '\n';
-
-	/* PM - LLVM LAND */
-	PointerType *size_tPtrType = Type::getInt64PtrTy(llvmContext);
-	mem_newlines = context->CreateEntryBlockAlloca(F,string("mem_newlines"),size_tPtrType);
-	Value *val_newlines = context->CastPtrToLlvmPtr(size_tPtrType, (char*) newlines);
-	Builder->CreateStore(val_newlines,mem_newlines);
-
-	Type *int16PtrType = Type::getInt16PtrTy(llvmContext);
-	PointerType *int162DPtrType = PointerType::get(int16PtrType,0);
-	mem_pm = context->CreateEntryBlockAlloca(F,string("mem_pm"),int162DPtrType);
-	Value *val_pm = context->CastPtrToLlvmPtr(int162DPtrType, (char*) pm);
-	Builder->CreateStore(val_pm,mem_pm);
-
-	Type *int32Type = Type::getInt32Ty(llvmContext);
-	mem_lineCtr = context->CreateEntryBlockAlloca(F,string("mem_lineCtr"),int32Type);
-	Value *val_zero = context->createInt32(0);
-	Builder->CreateStore(val_zero,mem_lineCtr);
 }
 
 CSVPlugin::~CSVPlugin() {}
 
 void CSVPlugin::init()	{
-
-	/* Pages may be read AND WRITTEN (to compute hashes in-place when needed) */
-	buf = (char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE /*| MAP_POPULATE*/, fd, 0);
-	if (buf == MAP_FAILED) {
-		throw runtime_error(string("csv.mmap"));
-	}
+	context->setGlobalFunction();
 
 	/* Preparing the codegen part */
 	Function* F = context->getGlobalFunction();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
+
+	/* PM - LLVM LAND */
+	PointerType *size_tPtrType = Type::getInt64PtrTy(llvmContext);
+	mem_newlines = context->CreateEntryBlockAlloca(F, string("mem_newlines"),
+			size_tPtrType);
+	Value *val_newlines = context->CastPtrToLlvmPtr(size_tPtrType,
+			(char*) newlines);
+	Builder->CreateStore(val_newlines, mem_newlines);
+
+	Type *int16PtrType = Type::getInt16PtrTy(llvmContext);
+	PointerType *int162DPtrType = PointerType::get(int16PtrType, 0);
+	mem_pm = context->CreateEntryBlockAlloca(F, string("mem_pm"),
+			int162DPtrType);
+	Value *val_pm = context->CastPtrToLlvmPtr(int162DPtrType, (char*) pm);
+	Builder->CreateStore(val_pm, mem_pm);
+
+	Type *int32Type = Type::getInt32Ty(llvmContext);
+	//int32Type->getTypeID();
+	mem_lineCtr = context->CreateEntryBlockAlloca(F, string("mem_lineCtr"),
+			int32Type);
+	Value *val_zero = context->createInt32(0);
+	Builder->CreateStore(val_zero, mem_lineCtr);
+
+	/* Pages may be read AND WRITTEN (to compute hashes in-place when needed) */
+	buf = (char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE /*| MAP_POPULATE*/, fd, 0);
+	if (buf == MAP_FAILED) {
+		throw runtime_error(string("csv.mmap"));
+	}
 
 	//Allocating memory
 	AllocaInst *offsetMem = context->CreateEntryBlockAlloca(F,string(posVar),Type::getInt64Ty(llvmContext));
@@ -1548,9 +1495,6 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator& producer)
 
 	BasicBlock *CondBB = BasicBlock::Create(llvmContext, "csvScanCond", TheFunction);
 
-	// Insert an explicit fall through from the current (entry) block to the CondBB.
-	Builder->CreateBr(CondBB);
-
 	// Start insertion in CondBB.
 	Builder->SetInsertPoint(CondBB);
 	Value* lhs = Builder->CreateLoad(pos);
@@ -1737,9 +1681,13 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator& producer)
 
 	Builder->CreateBr(CondBB);
 
+	Builder->SetInsertPoint(context->getCurrentEntryBlock());
+	// Insert an explicit fall through from the current (entry) block to the CondBB.
+	Builder->CreateBr(CondBB);
+
 	//	Finish up with end (the AfterLoop)
 	// 	Any new code will be inserted in AfterBB.
-	Builder->SetInsertPoint(AfterBB);
+	Builder->SetInsertPoint(context->getEndingBlock());
 }
 void CSVPlugin::scanPM(const RawOperator& producer)
 {
@@ -1796,7 +1744,7 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 	context->setEndingBlock(pmScanEnd);
 
 	Value *val_lines = context->createInt32(lines);
-	Builder->CreateBr(pmScanCond);
+	// Builder->CreateBr(pmScanCond);
 
 	/* Condition: currLine != lines */
 	Builder->SetInsertPoint(pmScanCond);
@@ -2074,7 +2022,12 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 #endif
 	Builder->CreateBr(pmScanCond);
 
-	/* End */
-	Builder->SetInsertPoint(pmScanEnd);
+	Builder->SetInsertPoint(context->getCurrentEntryBlock());
+	// Insert an explicit fall through from the current (entry) block to the CondBB.
+	Builder->CreateBr(pmScanCond);
+
+	//	Finish up with end (the AfterLoop)
+	// 	Any new code will be inserted in AfterBB.
+	Builder->SetInsertPoint(context->getEndingBlock());
 }
 }

@@ -176,8 +176,7 @@ void Reduce::generate(RawContext* const context,
 			//Preparing collection output (e.g., flushing out '{' in the case of JSON)
 			BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
 
-			Instruction *termInstr = loopEntryBlock->getTerminator();
-			Builder->SetInsertPoint(termInstr);
+			Builder->SetInsertPoint(loopEntryBlock);
 			flusher.beginList();
 
 			//Restoring
@@ -734,7 +733,7 @@ void Reduce::generateUnion(expressions::Expression* outputExpr,
 
 	//Preparing collection output (e.g., flushing out '{' in the case of JSON)
 	BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
-	Builder->SetInsertPoint(loopEntryBlock->getTerminator());
+	Builder->SetInsertPoint(loopEntryBlock);
 	flusher.beginList();
 
 	//Restoring
@@ -807,8 +806,7 @@ void Reduce::generateBagUnion(expressions::Expression* outputExpr,
 	//Preparing collection output (e.g., flushing out '{' in the case of JSON)
 	BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
 
-	Instruction *termInstr = loopEntryBlock->getTerminator();
-	Builder->SetInsertPoint(termInstr);
+	Builder->SetInsertPoint(loopEntryBlock);
 	flusher.beginList();
 
 
@@ -1408,8 +1406,7 @@ BasicBlock* Reduce::flushAnd(expressions::Expression* outputExpr,
 //		//Preparing collection output (e.g., flushing out '{' in the case of JSON)
 //		BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
 //
-//		Instruction *termInstr = loopEntryBlock->getTerminator();
-//		Builder->SetInsertPoint(termInstr);
+//		Builder->SetInsertPoint(loopEntryBlock);
 //		flusher->beginList();
 //
 //
@@ -1479,8 +1476,7 @@ BasicBlock* Reduce::flushBagUnion(expressions::Expression* outputExpr,
 	//Preparing collection output (e.g., flushing out '{' in the case of JSON)
 	BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
 
-	Instruction *termInstr = loopEntryBlock->getTerminator();
-	Builder->SetInsertPoint(termInstr);
+	Builder->SetInsertPoint(loopEntryBlock);
 	flusher->beginList();
 
 

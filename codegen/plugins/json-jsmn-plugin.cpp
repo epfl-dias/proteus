@@ -354,7 +354,7 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	/**
 	 * Entry Block: Simply jumping to condition part
 	 */
-	Builder->CreateBr(jsonScanCond);
+	// Builder->CreateBr(jsonScanCond);
 
 	/**
 	 * Condition: tokens[i].start != 0
@@ -428,10 +428,18 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	Builder->SetInsertPoint(jsonScanInc);
 	Builder->CreateBr(jsonScanCond);
 
+	// Builder->SetInsertPoint(jsonScanEnd);
+	Builder->SetInsertPoint(context->getCurrentEntryBlock());
+	// Insert an explicit fall through from the current (entry) block to the CondBB.
+	Builder->CreateBr(jsonScanCond);
+
 	/**
 	 * END:
 	 */
-	Builder->SetInsertPoint(jsonScanEnd);
+	//	Finish up with end (the jsonScanEnd)
+	// 	Any new code will be inserted in jsonScanEnd.
+	Builder->SetInsertPoint(context->getEndingBlock());
+
 	LOG(INFO)<< "[Scan - JSON: ] End of scanObjects()";
 
 }

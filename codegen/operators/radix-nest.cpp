@@ -494,6 +494,7 @@ void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 #endif
 }
 void Nest::probeHT() const	{
+	context->setGlobalFunction();
 
 	LLVMContext& llvmContext = context->getLLVMContext();
 	RawCatalog& catalog = RawCatalog::getInstance();
@@ -511,6 +512,8 @@ void Nest::probeHT() const	{
 	Value *val_one = context->createInt32(1);
 	Value *val_true = context->createInt8(1);
 	Value *val_false = context->createInt8(0);
+
+	context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
 	/* Partition and Cluster 'R' (the corresponding htEntries) */
 	Value *clusterCountR = radix_cluster_nopadding(relR, htR);
@@ -552,7 +555,7 @@ void Nest::probeHT() const	{
 	context->setEndingBlock(loopEnd);
 
 	/* 1. Loop Condition - Unsigned integers operation */
-	Builder->CreateBr(loopCond);
+	// Builder->CreateBr(loopCond);
 	Builder->SetInsertPoint(loopCond);
 	Value *val_clusterCount = Builder->CreateLoad(mem_clusterCount);
 	Value *val_cond = Builder->CreateICmpULT(val_clusterCount, val_clusterNo);
@@ -967,8 +970,12 @@ void Nest::probeHT() const	{
 
 	Builder->CreateBr(loopCond);
 
+	Builder->SetInsertPoint(context->getCurrentEntryBlock());
+	// Insert an explicit fall through from the current (entry) block to the CondBB.
+	Builder->CreateBr(loopCond);
+	
 	/* 4. Loop End */
-	Builder->SetInsertPoint(loopEnd);
+	Builder->SetInsertPoint(context->getEndingBlock());
 }
 
 /**

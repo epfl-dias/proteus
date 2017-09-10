@@ -930,13 +930,13 @@ void GpuColScanToBlockPlugin::scan(const RawOperator& producer)
     Builder->CreateBr(CondBB);
 
 
-    Builder->SetInsertPoint(context->getEndingBlock());
 
-    Builder->CreateRetVoid();
+    // Builder->CreateRetVoid();
 
     //  Finish up with end (the AfterLoop)
     //  Any new code will be inserted in AfterBB.
-    Builder->SetInsertPoint(AfterBB);
+    Builder->SetInsertPoint(context->getEndingBlock());
+    // Builder->SetInsertPoint(AfterBB);
 }
 
 

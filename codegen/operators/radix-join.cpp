@@ -526,6 +526,7 @@ void RadixJoin::produce() {
 
 
 void RadixJoin::runRadix() const	{
+	context->setGlobalFunction();
 
 	LLVMContext& llvmContext = context->getLLVMContext();
 	RawCatalog& catalog = RawCatalog::getInstance();
@@ -553,6 +554,8 @@ void RadixJoin::runRadix() const	{
 		ArgsV0.push_back(context->createInt32(666));
 		Builder->CreateCall(debugInt,ArgsV0);
 #endif
+
+	context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
 	AllocaInst *mem_rCount =
 				Builder->CreateAlloca(int32_type,0,"rCount");
@@ -589,7 +592,7 @@ void RadixJoin::runRadix() const	{
 	context->setEndingBlock(loopEnd);
 
 	/* 1. Loop Condition - Unsigned integers operation */
-	Builder->CreateBr(loopCond);
+	// Builder->CreateBr(loopCond);
 	Builder->SetInsertPoint(loopCond);
 	Value *val_clusterCount = Builder->CreateLoad(mem_clusterCount);
 	Value *val_cond = Builder->CreateICmpULT(val_clusterCount,val_clusterNo);
@@ -1044,6 +1047,14 @@ void RadixJoin::runRadix() const	{
 
 	/* 4. Loop End */
 	Builder->SetInsertPoint(loopEnd);
+
+	
+	Builder->SetInsertPoint(context->getCurrentEntryBlock());
+	// Insert an explicit fall through from the current (entry) block to the CondBB.
+	Builder->CreateBr(loopCond);
+
+	/* 4. Loop End */
+	Builder->SetInsertPoint(context->getEndingBlock());
 
 }
 

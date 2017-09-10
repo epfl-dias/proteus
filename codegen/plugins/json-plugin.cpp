@@ -1118,6 +1118,8 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentTokenId)
 
 void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 {
+	context->setGlobalFunction();
+
 	//Prepare
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -1159,7 +1161,7 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 
 
 	/* while( offset != length ) */
-	Builder->CreateBr(jsonScanCond);
+	// Builder->CreateBr(jsonScanCond);
 	Builder->SetInsertPoint(jsonScanCond);
 
 	Value *val_offset = Builder->CreateLoad(mem_offset);
@@ -1310,7 +1312,14 @@ void JSONPlugin::scanObjects(const RawOperator& producer, Function* debug)
 	Builder->CreateStore(val_lineCnt,mem_lineCnt);
 	Builder->CreateBr(jsonScanCond);
 
-	Builder->SetInsertPoint(jsonScanEnd);
+
+	Builder->SetInsertPoint(context->getCurrentEntryBlock());
+	// Insert an explicit fall through from the current (entry) block to the CondBB.
+	Builder->CreateBr(jsonScanCond);
+
+	//	Finish up with end (the jsonScanEnd)
+	// 	Any new code will be inserted in jsonScanEnd.
+	Builder->SetInsertPoint(context->getEndingBlock());
 }
 
 /**

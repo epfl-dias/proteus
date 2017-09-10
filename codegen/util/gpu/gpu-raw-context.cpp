@@ -227,6 +227,8 @@ void GpuRawContext::pushNewCpuPipeline(RawPipelineGen * copyStateFrom){
 
 
 void GpuRawContext::popNewPipeline(){
+    getBuilder()->CreateRetVoid();
+    
     pipelines.push_back(generators.back());
     pipelines.back()->compileAndLoad();
     

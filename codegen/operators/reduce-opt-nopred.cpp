@@ -471,7 +471,7 @@ void ReduceNoPred::generateUnion(expressions::Expression* outputExpr,
 
 	//Preparing collection output (e.g., flushing out '{' in the case of JSON)
 	BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
-	Builder->SetInsertPoint(loopEntryBlock->getTerminator());
+	Builder->SetInsertPoint(loopEntryBlock);
 	flusher.beginList();
 
 	//Restoring
@@ -540,7 +540,7 @@ void ReduceNoPred::generateBagUnion(expressions::Expression* outputExpr,
 
 	//Preparing collection output (e.g., flushing out '{' in the case of JSON)
 	BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
-	Builder->SetInsertPoint(loopEntryBlock->getTerminator());
+	Builder->SetInsertPoint(loopEntryBlock);
 	flusher.beginList();
 
 	//Restoring

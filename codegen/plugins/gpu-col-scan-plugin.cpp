@@ -949,14 +949,9 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
     // Insert an explicit fall through from the current (entry) block to the CondBB.
     Builder->CreateBr(CondBB);
 
-
-    Builder->SetInsertPoint(context->getEndingBlock());
-
-    Builder->CreateRetVoid();
-
     //  Finish up with end (the AfterLoop)
     //  Any new code will be inserted in AfterBB.
-    Builder->SetInsertPoint(AfterBB);
+    Builder->SetInsertPoint(context->getEndingBlock());
 }
 
 
