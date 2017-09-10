@@ -382,7 +382,7 @@ void RawPipelineGen::compileAndLoad(){
 
     {
         std::error_code EC;
-        raw_fd_ostream out("generated_code_" + pipName + ".ll", EC, sys::fs::F_None);
+        raw_fd_ostream out("generated_code/" + pipName + ".ll", EC, sys::fs::F_None);
 
         getModule()->print(out, nullptr, false, true);
     }
@@ -402,7 +402,7 @@ void RawPipelineGen::compileAndLoad(){
 
     {
         std::error_code EC;
-        raw_fd_ostream out("generated_code_" + pipName + "_opt.ll", EC, sys::fs::F_None);
+        raw_fd_ostream out("generated_code/" + pipName + "_opt.ll", EC, sys::fs::F_None);
 
         getModule()->print(out, nullptr, false, true);
     }
@@ -426,7 +426,7 @@ void GpuRawPipelineGen::compileAndLoad(){
 
     {
         std::error_code EC;
-        raw_fd_ostream out("generated_code_" + pipName + ".ll", EC, sys::fs::F_None);
+        raw_fd_ostream out("generated_code/" + pipName + ".ll", EC, sys::fs::F_None);
 
         getModule()->print(out, nullptr, false, true);
     }
@@ -468,7 +468,7 @@ void GpuRawPipelineGen::compileAndLoad(){
     
     {
         std::error_code EC;
-        raw_fd_ostream out("generated_code_" + pipName + "_opt.ll", EC, sys::fs::F_None);
+        raw_fd_ostream out("generated_code/" + pipName + "_opt.ll", EC, sys::fs::F_None);
 
         getModule()->print(out, nullptr, false, true);
     }
@@ -488,7 +488,7 @@ void GpuRawPipelineGen::compileAndLoad(){
     } // flushes stream and ostream
 #ifdef DEBUGCTX
     {
-        std::ofstream optx("generated_ptx_" + pipName + ".ptx");
+        std::ofstream optx("generated_code/" + pipName + ".ptx");
         optx << ptx;
     }
 #endif

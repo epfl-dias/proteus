@@ -57,6 +57,4 @@ clinical*.csv
 genetic*.csv
 inputs/json/spam/*.json
 inputs/ssbm/**
-/generated_ptx.ptx
-/generated_code.ll
-/generated_code_opt.ll
+generated_code/**
