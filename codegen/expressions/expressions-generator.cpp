@@ -171,6 +171,8 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 		}*/
 	}
 
+	assert(argMem && "Argument not found");
+
 	RawValue valWrapper;
 	/* XXX Should this load be removed?? Will an optimization pass realize it is not needed? */
 	valWrapper.value = Builder->CreateLoad(argMem);

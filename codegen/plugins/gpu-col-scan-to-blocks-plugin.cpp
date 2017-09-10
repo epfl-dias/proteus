@@ -21,12 +21,12 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "plugins/gpu-col-scan-plugin.hpp"
+#include "plugins/gpu-col-scan-to-blocks-plugin.hpp"
 
-GpuColScanPlugin::GpuColScanPlugin(GpuRawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields, RawOperator* const child)
+GpuColScanToBlockPlugin::GpuColScanToBlockPlugin(GpuRawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields)
     : fnamePrefix(fnamePrefix), rec(rec), wantedFields(whichFields), context(context),
       posVar("offset"), bufVar("buf"), fsizeVar("fileSize"), sizeVar("size"), itemCtrVar("itemCtr"),
-      isCached(false), val_size(NULL), child(child) {
+      isCached(false), val_size(NULL) {
     // if (wantedFields.size() == 0) {
     //     string error_msg = string("[Binary Col Plugin]: Invalid number of fields");
     //     LOG(ERROR) << error_msg;
@@ -34,20 +34,43 @@ GpuColScanPlugin::GpuColScanPlugin(GpuRawContext* const context, string fnamePre
     // }
 }
 
-GpuColScanPlugin::~GpuColScanPlugin() {}
+GpuColScanToBlockPlugin::~GpuColScanToBlockPlugin() {std::cout << "freeing plugin..." << std::endl;}
 
-void GpuColScanPlugin::init()    {
+void GpuColScanToBlockPlugin::init()    {
+}
+
+void GpuColScanToBlockPlugin::generate(const RawOperator &producer) {
+    //Triggering parent
+
+
+
+    data_loc loc = GPU_RESIDENT;
     for (const auto &in: wantedFields){
         const ExpressionType* tin = in->getOriginalType();
         if (!tin->isPrimitive()){
-            LOG(ERROR)<< "[GpuColScanPlugin: ] Only primitive inputs are currently supported";
-            throw runtime_error(string("[GpuColScanPlugin: ] Only primitive inputs are currently supported"));
+            LOG(ERROR)<< "[GpuColScanToBlockPlugin: ] Only primitive inputs are currently supported";
+            throw runtime_error(string("[GpuColScanToBlockPlugin: ] Only primitive inputs are currently supported"));
         }
         
-        //FIXME: consider if address space should be global memory rather than generic
-        Type * t = PointerType::get(((const PrimitiveType *) tin)->getLLVMType(context->getLLVMContext()), /* address space */ 0);
+        string fileName = fnamePrefix + "." + in->getAttrName();
 
-        wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
+        wantedFieldsFiles.emplace_back(new mmap_file(fileName, loc));
+        wantedFieldsWidth.emplace_back((((const PrimitiveType *) tin)->getSizeInBits(context->getLLVMContext()) + 7) / 8);
+
+        //FIXME: consider if address space should be global memory rather than generic
+        // Type * t = PointerType::get(((const PrimitiveType *) tin)->getLLVMType(context->getLLVMContext()), /* address space */ 0);
+
+        // wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
+    }
+
+    Ntuples = 0;
+    if (wantedFields.size() > 0) Ntuples = wantedFieldsFiles[0]->getFileSize() / wantedFieldsWidth[0];
+    for (size_t i = 1 ; i < wantedFields.size() ; ++i){
+        size_t Ntuples_loc = wantedFieldsFiles[i]->getFileSize() / wantedFieldsWidth[i];
+        if (Ntuples_loc != Ntuples){
+            LOG(ERROR)<< "[GpuColScanToBlockPlugin: ] Columns do not have the same number of elements";
+            throw runtime_error(string("[GpuColScanToBlockPlugin: ] Columns do not have the same number of elements"));
+        }
     }
 
     Type * size_type;
@@ -55,81 +78,30 @@ void GpuColScanPlugin::init()    {
     else if (sizeof(size_t) == 8) size_type = Type::getInt64Ty(context->getLLVMContext());
     else                          assert(false);
 
-    tupleCntArg_id = context->appendParameter(size_type, false, false);
-
     context->setGlobalFunction();
 
     Function* F = context->getGlobalFunction();
-    LLVMContext& llvmContext = context->getLLVMContext();
-    Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-    PointerType* int64PtrType = Type::getInt64PtrTy(llvmContext);
-    Type* int64Type = Type::getInt64Ty(llvmContext);
     IRBuilder<>* Builder = context->getBuilder();
 
-    /* XXX Very silly conversion */
-    // RecordAttribute projTuple = RecordAttribute(fnamePrefix, activeLoop, getOIDType());
-    
-    // list<RecordAttribute> attrList{projTuple};
-    
-    // for (const auto &t: wantedFields) attrList.emplace_back(*t);
+    tupleCnt = ConstantInt::get(size_type, Ntuples);
+    tupleCnt->setName("N");
 
-    // expressions::InputArgument arg = expressions::InputArgument(&rec, 0, attrList);
-    /*******/
-
-    // vector<RecordAttribute*>::iterator it;
-    // int cnt = 0;
-    // for (it = wantedFields.begin(); it != wantedFields.end(); it++) {
-    //     RecordAttribute *attr = *it;
-        
-    //     if (!attr->getOriginalType()->isPrimitive()){
-    //         LOG(ERROR)<< "[BINARY COL PLUGIN: ] Only primitives are currently supported";
-    //         throw runtime_error(string("[BINARY COL PLUGIN: ] Only primitives are currently supported"));
-    //     }
-
-    //     //Allocating memory for each field / column involved
-    //     string attrName = attr->getAttrName();
-    //     string currBufVar = string(bufVar) + "." + attrName;
-
-
-    //     const PrimitiveType * t = dynamic_cast<const PrimitiveType *>(attr->getOriginalType());
-
-    //     AllocaInst * bufMem = context->CreateEntryBlockAlloca(F, currBufVar, PointerType::get(t->getLLVMType(llvmContext), /* global address space */ 1));
-
-    //     NamedValuesBinaryCol[currBufVar] = bufMem;
-
-    //     /* Deal with preparation of input arrays too */
-    //     string bufVarStr = string(bufVar);
-
-    //     /* Move all buffer pointers to the actual data
-    //      * and cast appropriately
-    //      */
-    //     // prepareArray(*attr);
-
-    // }
-    //cout << "[GpuColScanPlugin: ] Initialization Successful for " << fnamePrefix << endl;
-    //Global item counter
-    // printf("asdasdas\n");
-
-    AllocaInst *mem_itemCtr = context->CreateEntryBlockAlloca(F, itemCtrVar, int64Type);
+    AllocaInst *mem_itemCtr = context->CreateEntryBlockAlloca(F, itemCtrVar, size_type);
     Builder->CreateStore(
-                Builder->CreateIntCast(context->threadId(),
-                                        int64Type,
-                                        false),
+                ConstantInt::get(size_type, 0),
                 mem_itemCtr);
 
     NamedValuesBinaryCol[itemCtrVar] = mem_itemCtr;
-    // printf("asdasdas\n");
-}
 
-void GpuColScanPlugin::generate(const RawOperator &producer) {
-    scan(producer);
-    if (child) child->produce();
+    blockSize = ConstantInt::get(size_type, h_vector_size);
+
+    return scan(producer);
 }
 
 /**
  * The work of readPath() and readValue() has been taken care of scanCSV()
  */
-RawValueMemory GpuColScanPlugin::readPath(string activeRelation, Bindings bindings, const char* pathVar, RecordAttribute attr)   {
+RawValueMemory GpuColScanToBlockPlugin::readPath(string activeRelation, Bindings bindings, const char* pathVar, RecordAttribute attr)   {
     RawValueMemory mem_projection;
     {
         const OperatorState* state = bindings.state;
@@ -158,15 +130,15 @@ RawValueMemory GpuColScanPlugin::readPath(string activeRelation, Bindings bindin
 }
 
 /* FIXME Differentiate between operations that need the code and the ones needing the materialized string */
-RawValueMemory GpuColScanPlugin::readValue(RawValueMemory mem_value, const ExpressionType* type) {
+RawValueMemory GpuColScanToBlockPlugin::readValue(RawValueMemory mem_value, const ExpressionType* type) {
     return mem_value;
 }
 
-RawValue GpuColScanPlugin::readCachedValue(CacheInfo info, const OperatorState& currState)   {
+RawValue GpuColScanToBlockPlugin::readCachedValue(CacheInfo info, const OperatorState& currState)   {
     return readCachedValue(info, currState.getBindings());
 }
 
-RawValue GpuColScanPlugin::readCachedValue(CacheInfo info, const map<RecordAttribute, RawValueMemory>& bindings) {
+RawValue GpuColScanToBlockPlugin::readCachedValue(CacheInfo info, const map<RecordAttribute, RawValueMemory>& bindings) {
     IRBuilder<>* const Builder = context->getBuilder();
     Function *F = context->getGlobalFunction();
 
@@ -230,14 +202,14 @@ RawValue GpuColScanPlugin::readCachedValue(CacheInfo info, const map<RecordAttri
     return valWrapper;
 }
 
-//RawValue GpuColScanPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* type) {
+//RawValue GpuColScanToBlockPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* type) {
 //  IRBuilder<>* Builder = context->getBuilder();
 //  RawValue value;
 //  value.isNull = mem_value.isNull;
 //  value.value = Builder->CreateLoad(mem_value.mem);
 //  return value;
 //}
-RawValue GpuColScanPlugin::hashValue(RawValueMemory mem_value,
+RawValue GpuColScanToBlockPlugin::hashValue(RawValueMemory mem_value,
         const ExpressionType* type) {
     IRBuilder<>* Builder = context->getBuilder();
     switch (type->getTypeID()) {
@@ -254,8 +226,8 @@ RawValue GpuColScanPlugin::hashValue(RawValueMemory mem_value,
         return valWrapper;
     }
     case STRING: {
-        LOG(ERROR)<< "[GpuColScanPlugin: ] String datatypes not supported yet";
-        throw runtime_error(string("[GpuColScanPlugin: ] String datatypes not supported yet"));
+        LOG(ERROR)<< "[GpuColScanToBlockPlugin: ] String datatypes not supported yet";
+        throw runtime_error(string("[GpuColScanToBlockPlugin: ] String datatypes not supported yet"));
     }
     case FLOAT:
     {
@@ -284,18 +256,18 @@ RawValue GpuColScanPlugin::hashValue(RawValueMemory mem_value,
     case BAG:
     case LIST:
     case SET:
-    LOG(ERROR) << "[GpuColScanPlugin: ] Cannot contain collections";
-    throw runtime_error(string("[GpuColScanPlugin: ] Cannot contain collections"));
+    LOG(ERROR) << "[GpuColScanToBlockPlugin: ] Cannot contain collections";
+    throw runtime_error(string("[GpuColScanToBlockPlugin: ] Cannot contain collections"));
     case RECORD:
-    LOG(ERROR) << "[GpuColScanPlugin: ] Cannot contain record-valued attributes";
-    throw runtime_error(string("[GpuColScanPlugin: ] Cannot contain record-valued attributes"));
+    LOG(ERROR) << "[GpuColScanToBlockPlugin: ] Cannot contain record-valued attributes";
+    throw runtime_error(string("[GpuColScanToBlockPlugin: ] Cannot contain record-valued attributes"));
     default:
-    LOG(ERROR) << "[GpuColScanPlugin: ] Unknown datatype";
-    throw runtime_error(string("[GpuColScanPlugin: ] Unknown datatype"));
+    LOG(ERROR) << "[GpuColScanToBlockPlugin: ] Unknown datatype";
+    throw runtime_error(string("[GpuColScanToBlockPlugin: ] Unknown datatype"));
 }
 }
 
-RawValue GpuColScanPlugin::hashValueEager(RawValue valWrapper,
+RawValue GpuColScanToBlockPlugin::hashValueEager(RawValue valWrapper,
         const ExpressionType* type) {
     IRBuilder<>* Builder = context->getBuilder();
     Function *F = Builder->GetInsertBlock()->getParent();
@@ -307,7 +279,7 @@ RawValue GpuColScanPlugin::hashValueEager(RawValue valWrapper,
     return hashValue(mem_tmpWrapper, type);
 }
 
-void GpuColScanPlugin::finish()  {
+void GpuColScanToBlockPlugin::finish()  {
     vector<RecordAttribute*>::iterator it;
     int cnt = 0;
     for (it = wantedFields.begin(); it != wantedFields.end(); it++) {
@@ -323,7 +295,7 @@ void GpuColScanPlugin::finish()  {
     }
 }
 
-Value* GpuColScanPlugin::getValueSize(RawValueMemory mem_value,
+Value* GpuColScanToBlockPlugin::getValueSize(RawValueMemory mem_value,
         const ExpressionType* type) {
     switch (type->getTypeID()) {
     case BOOL:
@@ -361,7 +333,7 @@ Value* GpuColScanPlugin::getValueSize(RawValueMemory mem_value,
     }
 }
 
-void GpuColScanPlugin::skipLLVM(RecordAttribute attName, Value* offset)
+void GpuColScanToBlockPlugin::skipLLVM(RecordAttribute attName, Value* offset)
 {
     //Prepare
     LLVMContext& llvmContext = context->getLLVMContext();
@@ -389,7 +361,7 @@ void GpuColScanPlugin::skipLLVM(RecordAttribute attName, Value* offset)
 
 }
 
-void GpuColScanPlugin::nextEntry()   {
+void GpuColScanToBlockPlugin::nextEntry()   {
 
     //Prepare
     LLVMContext& llvmContext = context->getLLVMContext();
@@ -412,13 +384,12 @@ void GpuColScanPlugin::nextEntry()   {
     //Increment and store back
 
     Value* val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
-    Value* val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr,
-        Builder->CreateIntCast(context->threadNum(), val_curr_itemCtr->getType(), false));
+    Value* val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr, blockSize);
     Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
 }
 
 /* Operates over int*! */
-void GpuColScanPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
+void GpuColScanToBlockPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
 {
     //Prepare
     LLVMContext& llvmContext = context->getLLVMContext();
@@ -480,7 +451,7 @@ void GpuColScanPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribut
 }
 
 /* Operates over char*! */
-void GpuColScanPlugin::readAsInt64LLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
+void GpuColScanToBlockPlugin::readAsInt64LLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
 {
     //Prepare
     LLVMContext& llvmContext = context->getLLVMContext();
@@ -533,7 +504,7 @@ void GpuColScanPlugin::readAsInt64LLVM(RecordAttribute attName, map<RecordAttrib
 }
 
 /* Operates over char*! */
-Value* GpuColScanPlugin::readAsInt64LLVM(RecordAttribute attName)
+Value* GpuColScanToBlockPlugin::readAsInt64LLVM(RecordAttribute attName)
 {
     //Prepare
     LLVMContext& llvmContext = context->getLLVMContext();
@@ -584,12 +555,12 @@ Value* GpuColScanPlugin::readAsInt64LLVM(RecordAttribute attName)
  * Probably readValue() is the appropriate place for this.
  * I think forwarding the dict. code (int32) is sufficient here.
  */
-void GpuColScanPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
+void GpuColScanToBlockPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
 {
     readAsIntLLVM(attName, variables);
 }
 
-void GpuColScanPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
+void GpuColScanToBlockPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
 {
     //Prepare
     LLVMContext& llvmContext = context->getLLVMContext();
@@ -639,7 +610,7 @@ void GpuColScanPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttr
     variables[attName] = mem_valWrapper;
 }
 
-void GpuColScanPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
+void GpuColScanToBlockPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
 {
     //Prepare
     LLVMContext& llvmContext = context->getLLVMContext();
@@ -689,7 +660,7 @@ void GpuColScanPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttrib
     variables[attName] = mem_valWrapper;
 }
 
-void GpuColScanPlugin::prepareArray(RecordAttribute attName) {
+void GpuColScanToBlockPlugin::prepareArray(RecordAttribute attName) {
     LLVMContext& llvmContext = context->getLLVMContext();
     Type* charPtrType = Type::getInt8PtrTy(llvmContext);
 //  Type* floatPtrType = Type::getFloatPtrTy(llvmContext);
@@ -794,7 +765,7 @@ void GpuColScanPlugin::prepareArray(RecordAttribute attName) {
     }
 }
 
-void GpuColScanPlugin::scan(const RawOperator& producer)
+void GpuColScanToBlockPlugin::scan(const RawOperator& producer)
 {
     //Prepare
     LLVMContext& llvmContext = context->getLLVMContext();
@@ -832,11 +803,10 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
      * while(itemCtr < size)
      */
     AllocaInst *mem_itemCtr = NamedValuesBinaryCol[itemCtrVar];
-    Value    *lhs = Builder->CreateLoad(mem_itemCtr, "i");
-    Argument *rhs = context->getArgument(tupleCntArg_id);
-    rhs->setName("cnt");
+    Value *lhs  = Builder->CreateLoad(mem_itemCtr, "i");
+    Value *rhs  = tupleCnt;
     
-    Value   *cond = Builder->CreateICmpSLT(lhs, rhs);
+    Value *cond = Builder->CreateICmpSLT(lhs, rhs);
 
     // Insert the conditional branch into the end of CondBB.
     Builder->CreateCondBr(cond, LoopBB, AfterBB);
@@ -848,19 +818,22 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
     //More general/lazy plugins will only perform this action,
     //instead of eagerly 'converting' fields
     //FIXME This action corresponds to materializing the oid. Do we want this?
-    RecordAttribute tupleIdentifier = RecordAttribute(fnamePrefix,activeLoop,this->getOIDType());
+    RecordAttribute tupleIdentifier = RecordAttribute(fnamePrefix,activeLoop,this->getOIDType()); //FIXME: OID type for blocks ?
 
     RawValueMemory mem_posWrapper;
     mem_posWrapper.mem = mem_itemCtr;
     mem_posWrapper.isNull = context->createFalse();
     (*variableBindings)[tupleIdentifier] = mem_posWrapper;
 
+    // Type * kernel_params_type = ArrayType::get(charPtrType, wantedFields.size() + 2); //input + N + state
+
+    // Value * kernel_params      = UndefValue::get(kernel_params_type);
+    // Value * kernel_params_addr = context->CreateEntryBlockAlloca(F, "gpu_params", kernel_params_type);
+
     //Actual Work (Loop through attributes etc.)
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        RecordAttribute attr = *(wantedFields[i]);
-
-        Argument * arg = context->getArgument(wantedFieldsArg_id[i]);
-        arg->setName(attr.getAttrName() + "_ptr");
+        RecordAttribute attr        (*(wantedFields[i]));
+        RecordAttribute block_attr  (attr, true);
 
         // size_t offset = 0;
 
@@ -874,61 +847,68 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
 
         const PrimitiveType * t = dynamic_cast<const PrimitiveType *>(attr.getOriginalType());
 
-        // AllocaInst * attr_alloca = context->CreateEntryBlockAlloca(F, attr.getAttrName(), t->getLLVMType(llvmContext));
+        Type * ptr_t = PointerType::get(t->getLLVMType(context->getLLVMContext()), 0);
 
-        // (*variableBindings)[tupleIdentifier] = mem_posWrapper;
-        //Move to next position
-        // Value* val_offset = context->createInt64(offset);
-        // skipLLVM(attr, val_offset);
+        Value * val_bufPtr = ConstantInt::get(llvmContext, APInt(64, ((uint64_t) wantedFieldsFiles[i]->getData())));
+        
+        Value * arg        = Builder->CreateIntToPtr(val_bufPtr, ptr_t);
+        arg->setName(attr.getAttrName() + "_ptr");
 
 
-
-        // string posVarStr = string(posVar);
-        // string currPosVar = posVarStr + "." + attr.getAttrName();
         string bufVarStr = string(bufVar);
-        string currBufVar = bufVarStr + "." + attr.getAttrName();
+        string currBufVar = bufVarStr + "." + attr.getAttrName() + "_ptr";
 
-        // //Fetch values from symbol table
-        // AllocaInst *mem_pos;
-        // {
-        //     map<std::string, AllocaInst*>::iterator it;
-        //     it = NamedValuesBinaryCol.find(currPosVar);
-        //     if (it == NamedValuesBinaryCol.end()) {
-        //         throw runtime_error(string("Unknown variable name: ") + currPosVar);
-        //     }
-        //     mem_pos = it->second;
-        // }
-        // Value *val_pos = Builder->CreateLoad(mem_pos);
+        Value *parsed = Builder->CreateGEP(arg, lhs);
 
-        // AllocaInst* buf;
-        // {
-        //     map<string, AllocaInst*>::iterator it;
-        //     it = NamedValuesBinaryCol.find(currBufVar);
-        //     if (it == NamedValuesBinaryCol.end()) {
-        //         throw runtime_error(string("Unknown variable name: ") + currBufVar);
-        //     }
-        //     buf = it->second;
-        // }
-        // Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
-        // Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-
-
-
-
-
-
-
-        // Value *parsed = Builder->CreateLoad(bufShiftedPtr); //attr_alloca
-        Value *parsed = Builder->CreateLoad(Builder->CreateGEP(arg, lhs)); //TODO : use CreateAllignedLoad 
-
-        AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(F, currBufVar, t->getLLVMType(llvmContext));
+        AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(F, currBufVar, ptr_t);
         Builder->CreateStore(parsed, mem_currResult);
+
+        // kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(mem_currResult, charPtrType), i);
 
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem = mem_currResult;
         mem_valWrapper.isNull = context->createFalse();
-        (*variableBindings)[attr] = mem_valWrapper;
+        (*variableBindings)[block_attr] = mem_valWrapper;
     }
+
+    AllocaInst * blockN_ptr = context->CreateEntryBlockAlloca(F, "blockN", tupleCnt->getType());
+    
+    Value * remaining  = Builder->CreateSub(tupleCnt, lhs);
+    Value * blockN     = Builder->CreateSelect(Builder->CreateICmpSLT(blockSize, remaining), blockSize, remaining);
+    Builder->CreateStore(blockN, blockN_ptr);
+    
+    RecordAttribute tupCnt = RecordAttribute(fnamePrefix,"activeCnt",this->getOIDType()); //FIXME: OID type for blocks ?
+
+    RawValueMemory mem_cntWrapper;
+    mem_cntWrapper.mem      = blockN_ptr;
+    mem_cntWrapper.isNull   = context->createFalse();
+    (*variableBindings)[tupCnt] = mem_cntWrapper;
+
+
+    OperatorState* state = new OperatorState(producer, *variableBindings);
+    producer.getParent()->consume(context,*state);
+
+    // Builder->CreateStore(blockN, blockN_ptr);
+
+    // kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(blockN_ptr, charPtrType), wantedFields.size()    );
+
+    // Value * subState   = Builder->CreateLoad(context->getSubStateVar(), "subState");
+
+    // kernel_params = Builder->CreateInsertValue(kernel_params, subState, wantedFields.size() + 1);
+
+    // Builder->CreateStore(kernel_params, kernel_params_addr);
+
+    // Function * launchk = context->getFunction("launch_kernel");
+
+    // Type  * ptr_t = PointerType::get(charPtrType, 0);
+
+    // Value * entryPtr = ConstantInt::get(llvmContext, APInt(64, ((uint64_t) entry_point)));
+    
+    // Value * entry    = Builder->CreateIntToPtr(entryPtr, charPtrType);
+
+    // vector<Value *> kernel_args{entry, Builder->CreateBitCast(kernel_params_addr, PointerType::get(charPtrType, 0))};
+    
+    // Builder->CreateCall(launchk, kernel_args);
 
     // Start insertion in IncBB.
     Builder->SetInsertPoint(IncBB);
@@ -937,10 +917,10 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
 
     Builder->SetInsertPoint(LoopBB);
 
-    //Triggering parent
-    OperatorState* state = new OperatorState(producer, *variableBindings);
-    RawOperator* const opParent = producer.getParent();
-    opParent->consume(context,*state);
+                                                                                                            // //Triggering parent
+                                                                                                            // OperatorState* state = new OperatorState(producer, *variableBindings);
+                                                                                                            // RawOperator* const opParent = producer.getParent();
+                                                                                                            // opParent->consume(context,*state);
 
     // Insert an explicit fall through from the current (body) block to IncBB.
     Builder->CreateBr(IncBB);

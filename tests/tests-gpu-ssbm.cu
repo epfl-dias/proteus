@@ -161,36 +161,6 @@ void GpuSSBMTest3::TearDown() {
     // gpu_run(cudaFreeHost(h_e));
 }
 
-
-struct mmap_file{
-private:
-    int    fd;
-
-public:
-    size_t filesize;
-    void *     data;
-    void * gpu_data;
-
-    mmap_file(std::string name){
-        filesize = getFileSize(name.c_str());
-        fd       = open(name.c_str(), O_RDONLY, 0);
-
-        //Execute mmap
-        data     = mmap(NULL, filesize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, 0);
-        assert(data != MAP_FAILED);
-        
-        gpu_run(cudaMalloc(&gpu_data,       filesize));
-        gpu_run(cudaMemcpy( gpu_data, data, filesize, cudaMemcpyDefault));
-    }
-
-    ~mmap_file(){
-        munmap(data, filesize);
-        close (fd  );
-
-        gpu_run(cudaFree(gpu_data));
-    }
-};
-
 template<typename T>
 struct mmap_file_splitable{
 private:
@@ -293,8 +263,8 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_1b) {
     mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
     mmap_file f_d_year          ("inputs/ssbm/d_year.bin"          );
 
-    size_t d_N  = (f_d_datekey  .filesize)/sizeof(int32_t);
-    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
+    size_t d_N  = (f_d_datekey  .getFileSize())/sizeof(int32_t);
+    size_t lo_N = (f_lo_quantity.getFileSize())/sizeof(int32_t);
 
     {
         time_block t("Topen0: ");
@@ -303,7 +273,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_1b) {
     {
         time_block t("Tgenerated (hj build): ");
 
-        pipelines[0]->consume(d_N, f_d_datekey.gpu_data, f_d_year.gpu_data);
+        pipelines[0]->consume_gpu(d_N, f_d_datekey.getData(), f_d_year.getData());
     }
     {
         time_block t("Tclose0: ");
@@ -318,25 +288,26 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_1b) {
         time_block t("Tgenerated (hj probe): ");
 
         // Kernel launch
-        pipelines[1]->consume(lo_N, 
-                                c, 
-                                f_lo_discount.gpu_data, 
-                                f_lo_quantity.gpu_data, 
-                                f_lo_orderdate.gpu_data, 
-                                f_lo_extendedprice.gpu_data);
+        pipelines[1]->consume_gpu(lo_N, 
+                                f_lo_discount.getData(), 
+                                f_lo_quantity.getData(), 
+                                f_lo_orderdate.getData(), 
+                                f_lo_extendedprice.getData());
     }
+
+    int32_t * aggr = pipelines[1]->getStateVar<int32_t *>(0);
+
     {
         time_block t("Tclose1: ");
         pipelines[1]->close();
     }
 
-    size_t c_out;
+    int32_t c_out;
     // gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
 
     //this result is constant for SSBM Q1.1
     // EXPECT_EQ(365, c_out);
-
-    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
+    gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
 
     //for the current dataset, regenerating it may change the results
     EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
@@ -365,7 +336,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_2) {
         pipelines = ctx->getPipelines();
     }
 
-    gpu_run(cudaMemset(c, 0, sizeof(int32_t) * 16));
+    // gpu_run(cudaMemset(c, 0, sizeof(int32_t) * 16));
 
     mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
     mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
@@ -375,8 +346,8 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_2) {
     mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
     mmap_file f_d_yearmonthnum  ("inputs/ssbm/d_yearmonthnum.bin"  );
 
-    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
-    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
+    size_t d_N  = (f_d_datekey.getFileSize())/sizeof(int32_t);
+    size_t lo_N = (f_lo_quantity.getFileSize())/sizeof(int32_t);
 
     {
         time_block t("Topen0: ");
@@ -385,7 +356,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_2) {
     {
         time_block t("Tgenerated (hj build): ");
 
-        pipelines[0]->consume(d_N, f_d_datekey.gpu_data, f_d_yearmonthnum.gpu_data);
+        pipelines[0]->consume_gpu(d_N, f_d_datekey.getData(), f_d_yearmonthnum.getData());
     }
     {
         time_block t("Tclose0: ");
@@ -401,28 +372,28 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_2) {
         time_block t("Tgenerated (hj probe): ");
 
         // Kernel launch
-        pipelines[1]->consume(lo_N, 
-                                c, 
-                                f_lo_discount.gpu_data, 
-                                f_lo_quantity.gpu_data, 
-                                f_lo_orderdate.gpu_data, 
-                                f_lo_extendedprice.gpu_data);
+        pipelines[1]->consume_gpu(lo_N, 
+                                // c, 
+                                f_lo_discount.getData(), 
+                                f_lo_quantity.getData(), 
+                                f_lo_orderdate.getData(), 
+                                f_lo_extendedprice.getData());
     }
+
+    int32_t * aggr = pipelines[1]->getStateVar<int32_t *>(0);
+
     {
         time_block t("Tclose1: ");
         pipelines[1]->close();
     }
 
-
-    size_t c_out;
+    int32_t c_out;
     // gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
     // std::cout << c_out << std::endl;
 
     // //this results is constant for SSBM Q1.1
     // EXPECT_EQ(c_out, 31);
-
-    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
-    std::cout << c_out << std::endl;
+    gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
 
     //for the current dataset, regenerating it may change the results
     EXPECT_TRUE(c_out == UINT64_C(965049065847) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(965049065847)));
@@ -450,7 +421,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_3) {
         pipelines = ctx->getPipelines();
     }
 
-    gpu_run(cudaMemset(c, 0, sizeof(int32_t) * 16));
+    // gpu_run(cudaMemset(c, 0, sizeof(int32_t) * 16));
 
     mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
     mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
@@ -461,8 +432,8 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_3) {
     mmap_file f_d_weeknuminyear ("inputs/ssbm/d_weeknuminyear.bin" );
     mmap_file f_d_year          ("inputs/ssbm/d_year.bin"          );
 
-    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
-    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
+    size_t d_N  = (f_d_datekey.getFileSize())/sizeof(int32_t);
+    size_t lo_N = (f_lo_quantity.getFileSize())/sizeof(int32_t);
 
     {
         time_block t("Topen0: ");
@@ -471,7 +442,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_3) {
     {
         time_block t("Tgenerated (hj build): ");
 
-        pipelines[0]->consume(d_N, f_d_datekey.gpu_data, f_d_weeknuminyear.gpu_data, f_d_year.gpu_data);
+        pipelines[0]->consume_gpu(d_N, f_d_datekey.getData(), f_d_weeknuminyear.getData(), f_d_year.getData());
     }
     {
         time_block t("Tclose0: ");
@@ -487,27 +458,28 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_3) {
         time_block t("Tgenerated (hj probe): ");
 
         // Kernel launch
-        pipelines[1]->consume(lo_N, 
-                                c, 
-                                f_lo_discount.gpu_data, 
-                                f_lo_quantity.gpu_data, 
-                                f_lo_orderdate.gpu_data, 
-                                f_lo_extendedprice.gpu_data);
+        pipelines[1]->consume_gpu(lo_N, 
+                                // c, 
+                                f_lo_discount.getData(), 
+                                f_lo_quantity.getData(), 
+                                f_lo_orderdate.getData(), 
+                                f_lo_extendedprice.getData());
     }
+
+    int32_t * aggr = pipelines[1]->getStateVar<int32_t *>(0);
+
     {
         time_block t("Tclose1: ");
         pipelines[1]->close();
     }
 
-    size_t c_out;
+    int32_t c_out;
     // gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
     // std::cout << c_out << std::endl;
 
-    //this results is constant for SSBM Q1.1
+    // //this results is constant for SSBM Q1.1
     // EXPECT_EQ(c_out, 31);
-
-    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
-    std::cout << c_out << std::endl;
+    gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
 
     //for the current dataset, regenerating it may change the results
     EXPECT_TRUE(c_out == UINT64_C(261356323969) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(261356323969)));
@@ -534,7 +506,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_1_100) {
         pipelines = ctx->getPipelines();
     }
 
-    gpu_run(cudaMemset(c, 0, sizeof(int32_t) * 16));
+    // gpu_run(cudaMemset(c, 0, sizeof(int32_t) * 16));
 
     size_t step_size = 1024*1024*16;
 
@@ -546,7 +518,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_1_100) {
     mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"          );
     mmap_file f_d_year          ("inputs/ssbm/d_year.bin"             );
 
-    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
+    size_t d_N  = (f_d_datekey.getFileSize())/sizeof(int32_t);
     size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
 
     {
@@ -556,7 +528,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_1_100) {
     {
         time_block t("Tgenerated (hj build): ");
 
-        pipelines[0]->consume(d_N, f_d_datekey.gpu_data, f_d_year.gpu_data);
+        pipelines[0]->consume_gpu(d_N, f_d_datekey.getData(), f_d_year.getData());
     }
     {
         time_block t("Tclose0: ");
@@ -581,8 +553,8 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_1_100) {
                 // time_block t("Tgenerated (hj probe, step): ");
 
                 // Kernel launch
-                pipelines[1]->consume(l_step, 
-                                        c, 
+                pipelines[1]->consume_gpu(l_step, 
+                                        // c, 
                                         f_lo_discount.gpu_data, 
                                         f_lo_quantity.gpu_data, 
                                         f_lo_orderdate.gpu_data, 
@@ -591,18 +563,20 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_1_100) {
         }
     }
 
+    int32_t * aggr = pipelines[1]->getStateVar<int32_t *>(0);
+
     {
         time_block t("Tclose1: ");
         pipelines[1]->close();
     }
 
-    size_t c_out;
+    int32_t c_out;
     // gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
 
     // //this results is constant for SSBM Q1.1
     // EXPECT_EQ(c_out, 365);
+    gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
 
-    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
     std::cout << c_out << std::endl;
 
     //for the current dataset, regenerating it may change the results

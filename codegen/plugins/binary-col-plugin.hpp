@@ -52,7 +52,7 @@ public:
 	 * => Looping does not depend on fsize: it depends on this 'size/length'
 	 */
 
-	BinaryColPlugin(RawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields);
+	BinaryColPlugin(RawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields, bool sizeInFile = true);
 //	BinaryColPlugin(RawContext* const context, vector<RecordAttribute*>& whichFields, vector<CacheInfo> whichCaches);
 	~BinaryColPlugin();
 	virtual string& getName() { return fnamePrefix; }
@@ -155,6 +155,8 @@ private:
 	RawContext* const context;
 	//To be initialized by init(). Dictates # of loops
 	Value *val_size;
+
+	bool sizeInFile;
 
 	const char* posVar;		// = "offset";
 	const char* bufVar;		// = "fileBuffer";

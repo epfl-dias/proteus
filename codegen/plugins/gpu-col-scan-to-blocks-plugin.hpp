@@ -23,8 +23,9 @@
 
 #include "plugins/plugins.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
+#include <memory>
 
-class GpuColScanPlugin   : public Plugin {
+class GpuColScanToBlockPlugin   : public Plugin {
 public:
 
     /**
@@ -42,9 +43,9 @@ public:
      * -> dates require more sophisticated serialization (boost?)
      */
 
-    GpuColScanPlugin(GpuRawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields, RawOperator* const child);
-//  GpuColScanPlugin(GpuRawContext* const context, vector<RecordAttribute*>& whichFields, vector<CacheInfo> whichCaches);
-    ~GpuColScanPlugin();
+    GpuColScanToBlockPlugin(GpuRawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields);
+//  GpuColScanToBlockPlugin(GpuRawContext* const context, vector<RecordAttribute*>& whichFields, vector<CacheInfo> whichCaches);
+    ~GpuColScanToBlockPlugin();
     virtual string& getName() { return fnamePrefix; }
     void init();
 //  void initCached();
@@ -54,7 +55,7 @@ public:
     virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
     virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState);
 //  {
-//      string error_msg = "[GpuColScanPlugin: ] No caching support should be needed";
+//      string error_msg = "[GpuColScanToBlockPlugin: ] No caching support should be needed";
 //      LOG(ERROR) << error_msg;
 //      throw runtime_error(error_msg);
 //  }
@@ -65,42 +66,42 @@ public:
     virtual RawValue hashValueEager(RawValue value, const ExpressionType* type);
 
     virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
-        string error_msg = "[GpuColScanPlugin: ] Binary col. files do not contain collections";
+        string error_msg = "[GpuColScanToBlockPlugin: ] Binary col. files do not contain collections";
         LOG(ERROR) << error_msg;
         throw runtime_error(error_msg);
     }
     virtual RawValue collectionHasNext(RawValue val_parentObject,
             RawValueMemory mem_currentChild) {
-        string error_msg = "[GpuColScanPlugin: ] Binary col. files do not contain collections";
+        string error_msg = "[GpuColScanToBlockPlugin: ] Binary col. files do not contain collections";
         LOG(ERROR) << error_msg;
         throw runtime_error(error_msg);
     }
     virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) {
-        string error_msg = "[GpuColScanPlugin: ] Binary col. files do not contain collections";
+        string error_msg = "[GpuColScanToBlockPlugin: ] Binary col. files do not contain collections";
         LOG(ERROR) << error_msg;
         throw runtime_error(error_msg);
     }
 
     virtual void flushTuple(RawValueMemory mem_value, llvm::Value* fileName) {
-            string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
+            string error_msg = "[GpuColScanToBlockPlugin: ] Flush not implemented yet";
             LOG(ERROR) << error_msg;
             throw runtime_error(error_msg);
         }
 
     virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, llvm::Value* fileName)  {
-        string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
+        string error_msg = "[GpuColScanToBlockPlugin: ] Flush not implemented yet";
         LOG(ERROR) << error_msg;
         throw runtime_error(error_msg);
     }
 
     virtual void flushValueEager(RawValue value, const ExpressionType *type, llvm::Value* fileName) {
-        string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
+        string error_msg = "[GpuColScanToBlockPlugin: ] Flush not implemented yet";
         LOG(ERROR) << error_msg;
         throw runtime_error(error_msg);
     }
 
     virtual void flushChunk(RawValueMemory mem_value, llvm::Value* fileName)  {
-        string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
+        string error_msg = "[GpuColScanToBlockPlugin: ] Flush not implemented yet";
         LOG(ERROR) << error_msg;
         throw runtime_error(error_msg);
     }
@@ -113,15 +114,19 @@ public:
 
     virtual PluginType getPluginType() { return PGBINARY; }
 
-    RawOperator * getChild(){ return child; }
 private:
     //Schema info provided
+    size_t                    Ntuples;
     RecordType rec;
     vector<RecordAttribute*>  wantedFields;
     vector<int>               wantedFieldsArg_id;
-    int                       tupleCntArg_id;
+    llvm::Value *               tupleCnt;
+    llvm::Value *               blockSize;
 
-    RawOperator* const        child;
+    vector<std::unique_ptr<mmap_file>>          wantedFieldsFiles;
+    vector<size_t   >           wantedFieldsWidth;
+
+    CUfunction                  entry_point;
 
     /* Used when we treat the col. files as internal caches! */
     bool isCached;

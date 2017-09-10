@@ -38,6 +38,7 @@ GpuHashJoinChained::GpuHashJoinChained(
             int                                 hash_bits,
 
             GpuRawContext *                     context,
+            size_t                              maxBuildInputSize,
             string                              opLabel): 
                 build_mat_exprs(build_mat_exprs),
                 build_packet_widths(build_packet_widths),
@@ -46,6 +47,7 @@ GpuHashJoinChained::GpuHashJoinChained(
                 hash_bits(hash_bits),
                 BinaryRawOperator(build_child, probe_child), 
                 context(context),
+                maxBuildInputSize(maxBuildInputSize),
                 opLabel(opLabel){
     // build_mat = new GpuExprMaterializer(build_mat_exprs, 
     //                                     build_packet_widths,
@@ -464,14 +466,14 @@ void GpuHashJoinChained::open_build(RawPipeline * pip){
 
     for (const auto &w: build_packet_widths){
         next_w_values.emplace_back();
-        gpu_run(cudaMalloc((void **) &(next_w_values.back()), (w/8) * 1024 * 1024 * 256)); //FIXME constant ==> max build input size
+        gpu_run(cudaMalloc((void **) &(next_w_values.back()), (w/8) * maxBuildInputSize)); //FIXME constant ==> max build input size
     }
 
-    pip->setStateVar(context, head_param_id, head);
-    pip->setStateVar(context, cnt_param_id , cnt );
+    pip->setStateVar(head_param_id, head);
+    pip->setStateVar(cnt_param_id , cnt );
 
     for (size_t i = 0 ; i < build_packet_widths.size() ; ++i){
-        pip->setStateVar(context, out_param_ids[i], next_w_values[i]);
+        pip->setStateVar(out_param_ids[i], next_w_values[i]);
     }
 
     next_w_values.emplace_back(head);
@@ -484,14 +486,14 @@ void GpuHashJoinChained::open_probe(RawPipeline * pip){
 
     // next_w_values.pop_back();
 
-    pip->setStateVar(context, probe_head_param_id, head);
+    pip->setStateVar(probe_head_param_id, head);
 
     for (size_t i = 0 ; i < build_packet_widths.size() ; ++i){
-        pip->setStateVar(context, in_param_ids[i], next_w_values[i]);
+        pip->setStateVar(in_param_ids[i], next_w_values[i]);
     }
 }
 void GpuHashJoinChained::close_build(RawPipeline * pip){
-    gpu_run(cudaFree(pip->getStateVar<uint32_t *>(context, cnt_param_id)));
+    gpu_run(cudaFree(pip->getStateVar<uint32_t *>(cnt_param_id)));
 }
 
 void GpuHashJoinChained::close_probe(RawPipeline * pip){

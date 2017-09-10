@@ -166,203 +166,203 @@ public:
     int devMajor, devMinor;
 };
 
-void GPUOutputTest3::createKernel(GpuRawContext &ctx){
-    // Module * mod = ctx.getModule();
+// void GPUOutputTest3::createKernel(GpuRawContext &ctx){
+//     // Module * mod = ctx.getModule();
 
-    // Type * int32_type = Type::getInt32Ty(ctx.getLLVMContext());
-    // Type * int1_type  = Type::getInt1Ty(ctx.getLLVMContext());
+//     // Type * int32_type = Type::getInt32Ty(ctx.getLLVMContext());
+//     // Type * int1_type  = Type::getInt1Ty(ctx.getLLVMContext());
 
-    // std::vector<Type *> inputs;
-    // inputs.push_back(PointerType::get(int32_type                             , /* address space */ 0));
-    // inputs.push_back(PointerType::get(Type::getDoubleTy(ctx.getLLVMContext()), /* address space */ 0));
-    // inputs.push_back(PointerType::get(int32_type                             , /* address space */ 1)); // needs to be in device memory for atomic write
-    // inputs.push_back(PointerType::get(int32_type                             , /* address space */ 1)); // needs to be in device memory for atomic write
-    // inputs.push_back(PointerType::get(int1_type                              , /* address space */ 1)); // needs to be in device memory for atomic write
-    // inputs.push_back(PointerType::get(int1_type                              , /* address space */ 1)); // needs to be in device memory for atomic write
+//     // std::vector<Type *> inputs;
+//     // inputs.push_back(PointerType::get(int32_type                             , /* address space */ 0));
+//     // inputs.push_back(PointerType::get(Type::getDoubleTy(ctx.getLLVMContext()), /* address space */ 0));
+//     // inputs.push_back(PointerType::get(int32_type                             , /* address space */ 1)); // needs to be in device memory for atomic write
+//     // inputs.push_back(PointerType::get(int32_type                             , /* address space */ 1)); // needs to be in device memory for atomic write
+//     // inputs.push_back(PointerType::get(int1_type                              , /* address space */ 1)); // needs to be in device memory for atomic write
+//     // inputs.push_back(PointerType::get(int1_type                              , /* address space */ 1)); // needs to be in device memory for atomic write
 
-    // Type * size_type;
-    // if      (sizeof(size_t) == 4) size_type = Type::getInt32Ty(ctx.getLLVMContext());
-    // else if (sizeof(size_t) == 8) size_type = Type::getInt64Ty(ctx.getLLVMContext());
-    // else                          assert(false);
-    // inputs.push_back(size_type);
+//     // Type * size_type;
+//     // if      (sizeof(size_t) == 4) size_type = Type::getInt32Ty(ctx.getLLVMContext());
+//     // else if (sizeof(size_t) == 8) size_type = Type::getInt64Ty(ctx.getLLVMContext());
+//     // else                          assert(false);
+//     // inputs.push_back(size_type);
 
-    // FunctionType *entry_point_type = FunctionType::get(Type::getVoidTy(ctx.getLLVMContext()), inputs, false);
+//     // FunctionType *entry_point_type = FunctionType::get(Type::getVoidTy(ctx.getLLVMContext()), inputs, false);
     
-    // Function *entry_point = Function::Create(entry_point_type, Function::ExternalLinkage, "jit_kernel", mod);
+//     // Function *entry_point = Function::Create(entry_point_type, Function::ExternalLinkage, "jit_kernel", mod);
 
-    // for (size_t i = 0 ; i < 2 ; ++i){
-    //     entry_point->setOnlyReadsMemory(i + 1); //+1 because 0 is the return value
-    //     entry_point->setDoesNotAlias(i + 1); //+1 because 0 is the return value
-    // }
-    // for (size_t i = 2 ; i < 6 ; ++i){
-    //     entry_point->setDoesNotAlias(i + 1); //+1 because 0 is the return value
-    // }
+//     // for (size_t i = 0 ; i < 2 ; ++i){
+//     //     entry_point->setOnlyReadsMemory(i + 1); //+1 because 0 is the return value
+//     //     entry_point->setDoesNotAlias(i + 1); //+1 because 0 is the return value
+//     // }
+//     // for (size_t i = 2 ; i < 6 ; ++i){
+//     //     entry_point->setDoesNotAlias(i + 1); //+1 because 0 is the return value
+//     // }
 
-    // ctx.setGlobalFunction(entry_point);
+//     // ctx.setGlobalFunction(entry_point);
 
-    // //SCAN1
-    string filename = string("inputs/sailors.csv");
-    PrimitiveType * intType = new IntType();
-    PrimitiveType* floatType = new FloatType();
-    PrimitiveType* stringType = new StringType();
-    RecordAttribute* sid = new RecordAttribute(1, filename, string("sid"),
-            intType);
-    RecordAttribute* sname = new RecordAttribute(2, filename, string("sname"),
-            stringType);
-    RecordAttribute* rating = new RecordAttribute(3, filename, string("rating"),
-            intType);
-    RecordAttribute* age = new RecordAttribute(4, filename, string("age"),
-            floatType);
+//     // //SCAN1
+//     string filename = string("inputs/sailors.csv");
+//     PrimitiveType * intType = new IntType();
+//     PrimitiveType* floatType = new FloatType();
+//     PrimitiveType* stringType = new StringType();
+//     RecordAttribute* sid = new RecordAttribute(1, filename, string("sid"),
+//             intType);
+//     RecordAttribute* sname = new RecordAttribute(2, filename, string("sname"),
+//             stringType);
+//     RecordAttribute* rating = new RecordAttribute(3, filename, string("rating"),
+//             intType);
+//     RecordAttribute* age = new RecordAttribute(4, filename, string("age"),
+//             floatType);
 
-    list<RecordAttribute*> attrList;
-    attrList.push_back(sid);
-    attrList.push_back(sname);
-    attrList.push_back(rating);
-    attrList.push_back(age);
+//     list<RecordAttribute*> attrList;
+//     attrList.push_back(sid);
+//     attrList.push_back(sname);
+//     attrList.push_back(rating);
+//     attrList.push_back(age);
 
-    RecordType rec1 = RecordType(attrList);
+//     RecordType rec1 = RecordType(attrList);
 
-    vector<RecordAttribute*> whichFields;
-    whichFields.push_back(sid);
-    whichFields.push_back(age);
+//     vector<RecordAttribute*> whichFields;
+//     whichFields.push_back(sid);
+//     whichFields.push_back(age);
 
 
-    GpuColScanPlugin * pg = new GpuColScanPlugin(&ctx, filename, rec1, whichFields);
-    catalog->registerPlugin(filename, pg);
+//     GpuColScanPlugin * pg = new GpuColScanPlugin(&ctx, filename, rec1, whichFields);
+//     catalog->registerPlugin(filename, pg);
   
-    Scan scan(&ctx, *pg);
+//     Scan scan(&ctx, *pg);
 
-  // /**
-  //  * REDUCE
-  //  */
+//   // /**
+//   //  * REDUCE
+//   //  */
   
-  RecordAttribute projTuple = RecordAttribute(filename, activeLoop, new Int64Type());
-  list<RecordAttribute> projections = list<RecordAttribute>();
-  projections.push_back(projTuple);
-  projections.push_back(*sid);
-  projections.push_back(*age);
+//   RecordAttribute projTuple = RecordAttribute(filename, activeLoop, new Int64Type());
+//   list<RecordAttribute> projections = list<RecordAttribute>();
+//   projections.push_back(projTuple);
+//   projections.push_back(*sid);
+//   projections.push_back(*age);
 
-  expressions::Expression* arg = new expressions::InputArgument(&rec1, 0, projections);
+//   expressions::Expression* arg = new expressions::InputArgument(&rec1, 0, projections);
 
-  expressions::Expression* outputExpr = new expressions::RecordProjection(intType, arg, *sid);
+//   expressions::Expression* outputExpr = new expressions::RecordProjection(intType, arg, *sid);
 
-  expressions::Expression* lhs = new expressions::RecordProjection(floatType, arg, *age);
-  expressions::Expression* rhs = new expressions::FloatConstant(40.0);
-  expressions::Expression* predicate = new expressions::GtExpression(new BoolType(), lhs, rhs);
-  expressions::Expression* rhs2 = new expressions::IntConstant(60);
-  expressions::Expression* predicateExpr = new expressions::LtExpression(new BoolType(), outputExpr, rhs2);
+//   expressions::Expression* lhs = new expressions::RecordProjection(floatType, arg, *age);
+//   expressions::Expression* rhs = new expressions::FloatConstant(40.0);
+//   expressions::Expression* predicate = new expressions::GtExpression(new BoolType(), lhs, rhs);
+//   expressions::Expression* rhs2 = new expressions::IntConstant(60);
+//   expressions::Expression* predicateExpr = new expressions::LtExpression(new BoolType(), outputExpr, rhs2);
 
-  vector<Monoid> accs;
-  vector<expressions::Expression*> exprs;
-  accs.push_back(SUM);
-  accs.push_back(MAX);
-  accs.push_back(OR);
-  accs.push_back(AND);
-  exprs.push_back(outputExpr);
-  exprs.push_back(outputExpr);
-  exprs.push_back(predicateExpr);
-  exprs.push_back(predicateExpr);
+//   vector<Monoid> accs;
+//   vector<expressions::Expression*> exprs;
+//   accs.push_back(SUM);
+//   accs.push_back(MAX);
+//   accs.push_back(OR);
+//   accs.push_back(AND);
+//   exprs.push_back(outputExpr);
+//   exprs.push_back(outputExpr);
+//   exprs.push_back(predicateExpr);
+//   exprs.push_back(predicateExpr);
 
-  opt::GpuReduce reduce = opt::GpuReduce(accs, 
-                                            exprs, 
-                                            predicate, 
-                                            &scan, 
-                                            &ctx);
+//   opt::GpuReduce reduce = opt::GpuReduce(accs, 
+//                                             exprs, 
+//                                             predicate, 
+//                                             &scan, 
+//                                             &ctx);
 
-  scan.setParent(&reduce);
+//   scan.setParent(&reduce);
 
-  reduce.produce();
+//   reduce.produce();
 
-  // ctx.getBuilder()->SetInsertPoint(ctx.getEndingBlock());
+//   // ctx.getBuilder()->SetInsertPoint(ctx.getEndingBlock());
 
-  //   ctx.getBuilder()->CreateRetVoid();
+//   //   ctx.getBuilder()->CreateRetVoid();
 
-    LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
-#ifdef DEBUGCTX
-//  getModule()->dump();
-#endif
-    // Validate the generated code, checking for consistency.
-    verifyFunction(*ctx.getGlobalFunction());
+//     LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
+// #ifdef DEBUGCTX
+// //  getModule()->dump();
+// #endif
+//     // Validate the generated code, checking for consistency.
+//     verifyFunction(*ctx.getGlobalFunction());
 
-    //Run function
-    ctx.prepareFunction(ctx.getGlobalFunction());
-}
+//     //Run function
+//     ctx.prepareFunction(ctx.getGlobalFunction());
+// }
 
-void GPUOutputTest3::createKernel2(GpuRawContext &ctx){
-    // //SCAN1
-    string filename = string("inputs/sailors.csv");
-    PrimitiveType * intType = new IntType();
-    PrimitiveType* floatType = new FloatType();
-    PrimitiveType* stringType = new StringType();
-    RecordAttribute* sid = new RecordAttribute(1, filename, string("sid"),
-            intType);
-    RecordAttribute* sname = new RecordAttribute(2, filename, string("sname"),
-            stringType);
-    RecordAttribute* rating = new RecordAttribute(3, filename, string("rating"),
-            intType);
-    RecordAttribute* age = new RecordAttribute(4, filename, string("age"),
-            floatType);
+// void GPUOutputTest3::createKernel2(GpuRawContext &ctx){
+//     // //SCAN1
+//     string filename = string("inputs/sailors.csv");
+//     PrimitiveType * intType = new IntType();
+//     PrimitiveType* floatType = new FloatType();
+//     PrimitiveType* stringType = new StringType();
+//     RecordAttribute* sid = new RecordAttribute(1, filename, string("sid"),
+//             intType);
+//     RecordAttribute* sname = new RecordAttribute(2, filename, string("sname"),
+//             stringType);
+//     RecordAttribute* rating = new RecordAttribute(3, filename, string("rating"),
+//             intType);
+//     RecordAttribute* age = new RecordAttribute(4, filename, string("age"),
+//             floatType);
 
-    list<RecordAttribute*> attrList;
-    attrList.push_back(sid);
-    attrList.push_back(sname);
-    attrList.push_back(rating);
-    attrList.push_back(age);
+//     list<RecordAttribute*> attrList;
+//     attrList.push_back(sid);
+//     attrList.push_back(sname);
+//     attrList.push_back(rating);
+//     attrList.push_back(age);
 
-    RecordType rec1 = RecordType(attrList);
+//     RecordType rec1 = RecordType(attrList);
 
-    vector<RecordAttribute*> whichFields;
-    whichFields.push_back(sid);
-    whichFields.push_back(age);
+//     vector<RecordAttribute*> whichFields;
+//     whichFields.push_back(sid);
+//     whichFields.push_back(age);
 
 
-    GpuColScanPlugin * pg = new GpuColScanPlugin(&ctx, filename, rec1, whichFields);
-    catalog->registerPlugin(filename, pg);
+//     GpuColScanPlugin * pg = new GpuColScanPlugin(&ctx, filename, rec1, whichFields);
+//     catalog->registerPlugin(filename, pg);
   
-    Scan scan(&ctx, *pg);
+//     Scan scan(&ctx, *pg);
 
-    // /**
-    //  * REDUCE
-    //  */
+//     // /**
+//     //  * REDUCE
+//     //  */
   
-    RecordAttribute projTuple = RecordAttribute(filename, activeLoop, new Int64Type());
-    list<RecordAttribute> projections = list<RecordAttribute>();
-    projections.push_back(projTuple);
-    projections.push_back(*sid);
-    projections.push_back(*age);
+//     RecordAttribute projTuple = RecordAttribute(filename, activeLoop, new Int64Type());
+//     list<RecordAttribute> projections = list<RecordAttribute>();
+//     projections.push_back(projTuple);
+//     projections.push_back(*sid);
+//     projections.push_back(*age);
 
-    expressions::Expression* arg = new expressions::InputArgument(&rec1, 0, projections);
+//     expressions::Expression* arg = new expressions::InputArgument(&rec1, 0, projections);
 
-    expressions::Expression* outputExpr = new expressions::RecordProjection(intType, arg, *sid);
+//     expressions::Expression* outputExpr = new expressions::RecordProjection(intType, arg, *sid);
 
-    expressions::Expression* lhs = new expressions::RecordProjection(floatType, arg, *age);
-    expressions::Expression* rhs = new expressions::FloatConstant(40.0);
-    expressions::Expression* predicate = new expressions::GtExpression(new BoolType(), lhs, rhs);
+//     expressions::Expression* lhs = new expressions::RecordProjection(floatType, arg, *age);
+//     expressions::Expression* rhs = new expressions::FloatConstant(40.0);
+//     expressions::Expression* predicate = new expressions::GtExpression(new BoolType(), lhs, rhs);
 
-    Select sel(predicate, &scan);
-    scan.setParent(&sel);
+//     Select sel(predicate, &scan);
+//     scan.setParent(&sel);
 
-    GpuExprMaterializer mat({GpuMatExpr{outputExpr, 0, 0}}, vector<size_t>{
-            ((const PrimitiveType *) outputExpr->getExpressionType())->getLLVMType(ctx.getLLVMContext())->getPrimitiveSizeInBits()
-        }, &sel, &ctx, "mat");
-    sel.setParent(&mat);
+//     GpuExprMaterializer mat({GpuMatExpr{outputExpr, 0, 0}}, vector<size_t>{
+//             ((const PrimitiveType *) outputExpr->getExpressionType())->getLLVMType(ctx.getLLVMContext())->getPrimitiveSizeInBits()
+//         }, &sel, &ctx, "mat");
+//     sel.setParent(&mat);
 
-    mat.produce();
+//     mat.produce();
 
-    // ctx.getBuilder()->SetInsertPoint(ctx.getEndingBlock());
+//     // ctx.getBuilder()->SetInsertPoint(ctx.getEndingBlock());
 
-    // ctx.getBuilder()->CreateRetVoid();
+//     // ctx.getBuilder()->CreateRetVoid();
 
-    LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
-#ifdef DEBUGCTX
-//  getModule()->dump();
-#endif
-    // Validate the generated code, checking for consistency.
-    verifyFunction(*ctx.getGlobalFunction());
+//     LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
+// #ifdef DEBUGCTX
+// //  getModule()->dump();
+// #endif
+//     // Validate the generated code, checking for consistency.
+//     verifyFunction(*ctx.getGlobalFunction());
 
-    //Run function
-    ctx.prepareFunction(ctx.getGlobalFunction());
-}
+//     //Run function
+//     ctx.prepareFunction(ctx.getGlobalFunction());
+// }
 
 // Dummy test use to wake up the device before running any other test.
 // This makes timings more meaningful.
@@ -441,111 +441,111 @@ void cpu_gpuReduceNumeric(const int32_t * __restrict__ sid_ptr,
     *result_or  = local_or ;
 }
 
-TEST_F(GPUOutputTest3, gpuReduceNumeric) {
-    auto start = std::chrono::system_clock::now();
+// TEST_F(GPUOutputTest3, gpuReduceNumeric) {
+//     auto start = std::chrono::system_clock::now();
 
-    const char *testLabel = "gpuReduceNumeric";
-    GpuRawContext * ctx;
+//     const char *testLabel = "gpuReduceNumeric";
+//     GpuRawContext * ctx;
 
-    {
-        auto start = std::chrono::system_clock::now();
+//     {
+//         auto start = std::chrono::system_clock::now();
 
-    ctx = new GpuRawContext(testLabel);
-    createKernel(*ctx);
+//     ctx = new GpuRawContext(testLabel);
+//     createKernel(*ctx);
 
-    ctx->compileAndLoad();
+//     ctx->compileAndLoad();
 
-    // Get kernel function
-    function = ctx->getKernel()[0];
+//     // Get kernel function
+//     function = ctx->getKernel()[0];
 
-        auto end   = std::chrono::system_clock::now();
-        std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-    }
-    // Create driver context
-    // for (size_t i = 0 ; i < N ; ++i) h_c[i] = 0;
+//         auto end   = std::chrono::system_clock::now();
+//         std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+//     }
+//     // Create driver context
+//     // for (size_t i = 0 ; i < N ; ++i) h_c[i] = 0;
 
-    h_c[0] =  0;
-    h_c[1] =  0;
-    h_c[2] =  0;
-    h_c[3] = 0xFF;
+//     h_c[0] =  0;
+//     h_c[1] =  0;
+//     h_c[2] =  0;
+//     h_c[3] = 0xFF;
 
-    gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
-    gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
-    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 4, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 4, cudaMemcpyDefault));
 
-    int32_t * c2 = c + 1;
-    bool    * c3 = (bool *) (c + 2);
-    bool    * c4 = (bool *) (c + 3);
+//     int32_t * c2 = c + 1;
+//     bool    * c3 = (bool *) (c + 2);
+//     bool    * c4 = (bool *) (c + 3);
 
-    // Kernel parameters
-    // void *KernelParams[] = {&a, &b, &N, &c, &c2, &c3, &c4};
-    void *KernelParams[] = {&c, &c2, &c3, &c4, &a, &b, &N};
+//     // Kernel parameters
+//     // void *KernelParams[] = {&a, &b, &N, &c, &c2, &c3, &c4};
+//     void *KernelParams[] = {&c, &c2, &c3, &c4, &a, &b, &N};
 
-    {
-        auto start = std::chrono::system_clock::now();
-        // Kernel launch
-        launch(KernelParams);
+//     {
+//         auto start = std::chrono::system_clock::now();
+//         // Kernel launch
+//         launch(KernelParams);
 
-        gpu_run(cudaDeviceSynchronize());
+//         gpu_run(cudaDeviceSynchronize());
 
-        auto end   = std::chrono::system_clock::now();
-        std::cout << "Tgenerated: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-    }
-    gpu_run(cudaMemcpy(h_c, c, sizeof(int32_t)*4, cudaMemcpyDefault));
+//         auto end   = std::chrono::system_clock::now();
+//         std::cout << "Tgenerated: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+//     }
+//     gpu_run(cudaMemcpy(h_c, c, sizeof(int32_t)*4, cudaMemcpyDefault));
 
-    for (size_t i = 0 ; i < 4 ; ++i) std::cout << h_c[i] << " "; std::cout << std::endl;
+//     for (size_t i = 0 ; i < 4 ; ++i) std::cout << h_c[i] << " "; std::cout << std::endl;
 
-    int32_t h_d[4];
+//     int32_t h_d[4];
 
-    h_d[0] = 0;
-    h_d[1] = 0;
-    h_d[2] = 0;
-    h_d[3] = 0xFF;
+//     h_d[0] = 0;
+//     h_d[1] = 0;
+//     h_d[2] = 0;
+//     h_d[3] = 0xFF;
 
-    gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
-    gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
-    gpu_run(cudaMemcpy(c, h_d, sizeof(int32_t) * 4, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(c, h_d, sizeof(int32_t) * 4, cudaMemcpyDefault));
 
-    {
-        auto start = std::chrono::system_clock::now();
+//     {
+//         auto start = std::chrono::system_clock::now();
 
-        kernel_gpuReduceNumeric<<<1024, 1024, 0, 0>>>(a, b, c, c2, c3, c4, N);
+//         kernel_gpuReduceNumeric<<<1024, 1024, 0, 0>>>(a, b, c, c2, c3, c4, N);
 
-        gpu_run(cudaDeviceSynchronize());
+//         gpu_run(cudaDeviceSynchronize());
         
-        auto end   = std::chrono::system_clock::now();
-        std::cout << "Thandwritten: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+//         auto end   = std::chrono::system_clock::now();
+//         std::cout << "Thandwritten: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
-    }
-    gpu_run(cudaMemcpy(h_d, c, sizeof(int32_t)*4, cudaMemcpyDefault));
+//     }
+//     gpu_run(cudaMemcpy(h_d, c, sizeof(int32_t)*4, cudaMemcpyDefault));
 
-    for (size_t i = 0 ; i < 4 ; ++i) std::cout << h_d[i] << " "; std::cout << std::endl;
+//     for (size_t i = 0 ; i < 4 ; ++i) std::cout << h_d[i] << " "; std::cout << std::endl;
 
-    int32_t   local_sum = 0;
-    int32_t   local_max = 0; //FIXME: should be MAX_NEG_INT, but codegen currently sets it to zero
+//     int32_t   local_sum = 0;
+//     int32_t   local_max = 0; //FIXME: should be MAX_NEG_INT, but codegen currently sets it to zero
 
-    bool      local_and = true ;
-    bool      local_or  = false;
-    {
+//     bool      local_and = true ;
+//     bool      local_or  = false;
+//     {
 
-        auto start = std::chrono::system_clock::now();
+//         auto start = std::chrono::system_clock::now();
 
-        cpu_gpuReduceNumeric(h_a, h_b, &local_sum, &local_max, &local_and, &local_or, N);
+//         cpu_gpuReduceNumeric(h_a, h_b, &local_sum, &local_max, &local_and, &local_or, N);
 
-        auto end   = std::chrono::system_clock::now();
-        std::cout << "Tcpu: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+//         auto end   = std::chrono::system_clock::now();
+//         std::cout << "Tcpu: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
-    }
-    std::cout << local_sum << " " << local_max << " " << local_and << " " << local_or << std::endl;
-    EXPECT_EQ(local_sum, h_c[0]);
-    EXPECT_EQ(local_max, h_c[1]);
-    EXPECT_EQ(local_and, !!(h_c[2] & 0xFF));
-    EXPECT_EQ(local_or , !!(h_c[3] & 0xFF));
-    EXPECT_EQ(local_sum, h_d[0]);
-    EXPECT_EQ(local_max, h_d[1]);
-    EXPECT_EQ(local_and, !!(h_d[2] & 0xFF));
-    EXPECT_EQ(local_or , !!(h_d[3] & 0xFF));
-}
+//     }
+//     std::cout << local_sum << " " << local_max << " " << local_and << " " << local_or << std::endl;
+//     EXPECT_EQ(local_sum, h_c[0]);
+//     EXPECT_EQ(local_max, h_c[1]);
+//     EXPECT_EQ(local_and, !!(h_c[2] & 0xFF));
+//     EXPECT_EQ(local_or , !!(h_c[3] & 0xFF));
+//     EXPECT_EQ(local_sum, h_d[0]);
+//     EXPECT_EQ(local_max, h_d[1]);
+//     EXPECT_EQ(local_and, !!(h_d[2] & 0xFF));
+//     EXPECT_EQ(local_or , !!(h_d[3] & 0xFF));
+// }
 
 
 __global__ void kernel_select(  const int32_t * __restrict__ sid_ptr,
@@ -593,138 +593,138 @@ void GPUOutputTest3::launch(void ** args){
     launch_kernel(function, args);
 }
 
-TEST_F(GPUOutputTest3, gpuSelectNumeric) {
-    auto start = std::chrono::system_clock::now();
+// TEST_F(GPUOutputTest3, gpuSelectNumeric) {
+//     auto start = std::chrono::system_clock::now();
 
-    const char *testLabel = "gpuSelectNumeric";
-    GpuRawContext * ctx;
-
-    {
-        auto start = std::chrono::system_clock::now();
-
-    ctx = new GpuRawContext(testLabel);
-    createKernel2(*ctx);
-
-    ctx->compileAndLoad();
-
-    // Get kernel function
-    function = ctx->getKernel()[0];
-
-        auto end   = std::chrono::system_clock::now();
-        std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-    }
-
-    // Create driver context
-    
-    h_c[0] =  0;
-
-    gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
-    gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
-    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 1, cudaMemcpyDefault));
-    // gpu_run(cudaMemcpy(d, h_d, sizeof(int32_t) * N, cudaMemcpyDefault));
-
-    // Kernel parameters
-    // void *KernelParams[] = {&a, &b, &N, &d, &c};
-    void *KernelParams[] = {&d, &c, &a, &b, &N};
-
-
-    {
-        auto start = std::chrono::system_clock::now();
-        // Kernel launch
-        // gpu_run(cuLaunchKernel(function, gridSizeX, gridSizeY, gridSizeZ,
-        //                              blockSizeX, blockSizeY, blockSizeZ,
-        //                              0, NULL, KernelParams, NULL));
-        launch(KernelParams);
-
-
-        gpu_run(cudaDeviceSynchronize());
-
-        auto end   = std::chrono::system_clock::now();
-        std::cout << "Tgenerated: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-    }
-    gpu_run(cudaMemcpy(h_c, c, sizeof(int32_t)*1, cudaMemcpyDefault));
-    gpu_run(cudaMemcpy(h_d, d, sizeof(int32_t)*N, cudaMemcpyDefault));
-
-    h_c[1] =  0;
-
-    gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
-    gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
-    gpu_run(cudaMemcpy(c, h_c + 1, sizeof(int32_t) * 1, cudaMemcpyDefault));
-    // gpu_run(cudaMemcpy(d, h_d, sizeof(int32_t) * N, cudaMemcpyDefault));
-
-
-    {
-        time_block t("Thandwritten: ");
-
-        kernel_select<<<1024, 1024, 0, 0>>>(a, b, d, c, N);
-
-        gpu_run(cudaDeviceSynchronize());
-    }
-    gpu_run(cudaMemcpy(h_c + 1, c, sizeof(int32_t)*1, cudaMemcpyDefault));
-    gpu_run(cudaMemcpy(h_e, d, sizeof(int32_t)*N, cudaMemcpyDefault));
-
-    EXPECT_EQ(h_c[0], h_c[1]);
-
-    if (h_c[0] == h_c[1]){
-        std::sort(h_e, h_e + h_c[1]);
-        std::sort(h_d, h_d + h_c[0]);
-
-        for (int i = 0 ; i < std::min(h_c[0], h_c[1]) ; ++i) EXPECT_EQ(h_d[i], h_e[i]);
-    }
-
-//     for (size_t i = 0 ; i < 4 ; ++i) std::cout << h_c[i] << " "; std::cout << std::endl;
-
-//     int32_t h_d[4];
-
-//     h_d[0] = 0;
-//     h_d[1] = 0;
-//     h_d[2] = 0;
-//     h_d[3] = 0xFF;
-
-//     gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
-//     gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
-//     gpu_run(cudaMemcpy(c, h_d, sizeof(int32_t) * 4, cudaMemcpyDefault));
+//     const char *testLabel = "gpuSelectNumeric";
+//     GpuRawContext * ctx;
 
 //     {
 //         auto start = std::chrono::system_clock::now();
 
-//         kernel_gpuReduceNumeric<<<1024, 1024, 0, 0>>>(a, b, c, c2, c3, c4, N);
+//     ctx = new GpuRawContext(testLabel);
+//     createKernel2(*ctx);
+
+//     ctx->compileAndLoad();
+
+//     // Get kernel function
+//     function = ctx->getKernel()[0];
+
+//         auto end   = std::chrono::system_clock::now();
+//         std::cout << "codegen: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+//     }
+
+//     // Create driver context
+    
+//     h_c[0] =  0;
+
+//     gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 1, cudaMemcpyDefault));
+//     // gpu_run(cudaMemcpy(d, h_d, sizeof(int32_t) * N, cudaMemcpyDefault));
+
+//     // Kernel parameters
+//     // void *KernelParams[] = {&a, &b, &N, &d, &c};
+//     void *KernelParams[] = {&d, &c, &a, &b, &N};
+
+
+//     {
+//         auto start = std::chrono::system_clock::now();
+//         // Kernel launch
+//         // gpu_run(cuLaunchKernel(function, gridSizeX, gridSizeY, gridSizeZ,
+//         //                              blockSizeX, blockSizeY, blockSizeZ,
+//         //                              0, NULL, KernelParams, NULL));
+//         launch(KernelParams);
+
 
 //         gpu_run(cudaDeviceSynchronize());
-        
+
 //         auto end   = std::chrono::system_clock::now();
-//         std::cout << "Thandwritten: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+//         std::cout << "Tgenerated: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+//     }
+//     gpu_run(cudaMemcpy(h_c, c, sizeof(int32_t)*1, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(h_d, d, sizeof(int32_t)*N, cudaMemcpyDefault));
+
+//     h_c[1] =  0;
+
+//     gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(c, h_c + 1, sizeof(int32_t) * 1, cudaMemcpyDefault));
+//     // gpu_run(cudaMemcpy(d, h_d, sizeof(int32_t) * N, cudaMemcpyDefault));
+
+
+//     {
+//         time_block t("Thandwritten: ");
+
+//         kernel_select<<<1024, 1024, 0, 0>>>(a, b, d, c, N);
+
+//         gpu_run(cudaDeviceSynchronize());
+//     }
+//     gpu_run(cudaMemcpy(h_c + 1, c, sizeof(int32_t)*1, cudaMemcpyDefault));
+//     gpu_run(cudaMemcpy(h_e, d, sizeof(int32_t)*N, cudaMemcpyDefault));
+
+//     EXPECT_EQ(h_c[0], h_c[1]);
+
+//     if (h_c[0] == h_c[1]){
+//         std::sort(h_e, h_e + h_c[1]);
+//         std::sort(h_d, h_d + h_c[0]);
+
+//         for (int i = 0 ; i < std::min(h_c[0], h_c[1]) ; ++i) EXPECT_EQ(h_d[i], h_e[i]);
+//     }
+
+// //     for (size_t i = 0 ; i < 4 ; ++i) std::cout << h_c[i] << " "; std::cout << std::endl;
+
+// //     int32_t h_d[4];
+
+// //     h_d[0] = 0;
+// //     h_d[1] = 0;
+// //     h_d[2] = 0;
+// //     h_d[3] = 0xFF;
+
+// //     gpu_run(cudaMemcpy(a, h_a, sizeof(int32_t) * N, cudaMemcpyDefault));
+// //     gpu_run(cudaMemcpy(b, h_b, sizeof(double ) * N, cudaMemcpyDefault));
+// //     gpu_run(cudaMemcpy(c, h_d, sizeof(int32_t) * 4, cudaMemcpyDefault));
+
+// //     {
+// //         auto start = std::chrono::system_clock::now();
+
+// //         kernel_gpuReduceNumeric<<<1024, 1024, 0, 0>>>(a, b, c, c2, c3, c4, N);
+
+// //         gpu_run(cudaDeviceSynchronize());
+        
+// //         auto end   = std::chrono::system_clock::now();
+// //         std::cout << "Thandwritten: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+
+// //     }
+// //     gpu_run(cudaMemcpy(h_d, c, sizeof(int32_t)*4, cudaMemcpyDefault));
+
+// //     for (size_t i = 0 ; i < 4 ; ++i) std::cout << h_d[i] << " "; std::cout << std::endl;
+
+// //     int32_t   local_sum = 0;
+// //     int32_t   local_max = 0; //FIXME: should be MAX_NEG_INT, but codegen currently sets it to zero
+
+// //     bool      local_and = true ;
+// //     bool      local_or  = false;
+//     {
+
+//         auto start = std::chrono::system_clock::now();
+
+//         cpu_gpuSelectNumeric(h_a, h_b, h_d, N);
+
+//         auto end   = std::chrono::system_clock::now();
+//         std::cout << "Tcpu: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
 //     }
-//     gpu_run(cudaMemcpy(h_d, c, sizeof(int32_t)*4, cudaMemcpyDefault));
-
-//     for (size_t i = 0 ; i < 4 ; ++i) std::cout << h_d[i] << " "; std::cout << std::endl;
-
-//     int32_t   local_sum = 0;
-//     int32_t   local_max = 0; //FIXME: should be MAX_NEG_INT, but codegen currently sets it to zero
-
-//     bool      local_and = true ;
-//     bool      local_or  = false;
-    {
-
-        auto start = std::chrono::system_clock::now();
-
-        cpu_gpuSelectNumeric(h_a, h_b, h_d, N);
-
-        auto end   = std::chrono::system_clock::now();
-        std::cout << "Tcpu: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-
-    }
-//     std::cout << local_sum << " " << local_max << " " << local_and << " " << local_or << std::endl;
-//     EXPECT_EQ(local_sum, h_c[0]);
-//     EXPECT_EQ(local_max, h_c[1]);
-//     EXPECT_EQ(local_and, !!(h_c[2] & 0xFF));
-//     EXPECT_EQ(local_or , !!(h_c[3] & 0xFF));
-//     EXPECT_EQ(local_sum, h_d[0]);
-//     EXPECT_EQ(local_max, h_d[1]);
-//     EXPECT_EQ(local_and, !!(h_d[2] & 0xFF));
-//     EXPECT_EQ(local_or , !!(h_d[3] & 0xFF));
-}
+// //     std::cout << local_sum << " " << local_max << " " << local_and << " " << local_or << std::endl;
+// //     EXPECT_EQ(local_sum, h_c[0]);
+// //     EXPECT_EQ(local_max, h_c[1]);
+// //     EXPECT_EQ(local_and, !!(h_c[2] & 0xFF));
+// //     EXPECT_EQ(local_or , !!(h_c[3] & 0xFF));
+// //     EXPECT_EQ(local_sum, h_d[0]);
+// //     EXPECT_EQ(local_max, h_d[1]);
+// //     EXPECT_EQ(local_and, !!(h_d[2] & 0xFF));
+// //     EXPECT_EQ(local_or , !!(h_d[3] & 0xFF));
+// }
 
 void GPUOutputTest3::SetUp() {
     // NVPTXTargetMachine64 TM(TheNVPTXTarget64, Triple("nvptx64-nvidia-cuda"), "sm_61", );
@@ -742,7 +742,14 @@ void GPUOutputTest3::SetUp() {
     // CUDA initialization
     // gpu_run(cuInit(0));
     // gpu_run(cuDeviceGetCount(&devCount));
-    // gpu_run(cuDeviceGet(&device, 0));
+
+
+    // for (int i = 0 ; i < devCount ; ++i){
+    //     CUdevice device;
+    //     CUcontext context;
+    //     gpu_run(cuDeviceGet(&device, i));
+    //     gpu_run(cuCtxCreate(&context, 0, device));
+    // }
 
     // char name[128];
     // gpu_run(cuDeviceGetName(name, 128, device));
@@ -755,7 +762,6 @@ void GPUOutputTest3::SetUp() {
     //     EXPECT_TRUE(false);
     // }
 
-    // gpu_run(cuCtxCreate(&context, 0, device));
     N = 1024*1024*256;
     
     gpu_run(cudaMalloc(&a, sizeof(int32_t)*N));
@@ -966,36 +972,6 @@ TEST_F(GPUOutputTest3, gpuPlan2) {
         for (int i = 0 ; i < std::min(h_c[0], h_c[1]) ; ++i) EXPECT_EQ(h_d[i], h_e[i]);
     }
 }
-
-
-struct mmap_file{
-private:
-    int    fd;
-
-public:
-    size_t filesize;
-    void *     data;
-    void * gpu_data;
-
-    mmap_file(std::string name){
-        filesize = getFileSize(name.c_str());
-        fd       = open(name.c_str(), O_RDONLY, 0);
-
-        //Execute mmap
-        data     = mmap(NULL, filesize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, 0);
-        assert(data != MAP_FAILED);
-        
-        gpu_run(cudaMalloc(&gpu_data,       filesize));
-        gpu_run(cudaMemcpy( gpu_data, data, filesize, cudaMemcpyDefault));
-    }
-
-    ~mmap_file(){
-        munmap(data, filesize);
-        close (fd  );
-
-        gpu_run(cudaFree(gpu_data));
-    }
-};
 
 template<typename T>
 struct mmap_file_splitable{
@@ -1435,179 +1411,6 @@ __global__ void probe(const   hjt       * __restrict__ R_partitioned,
 }
 
 
-
-TEST_F(GPUOutputTest3, gpuPlan3) {
-
-    const char *testLabel = "gpuPlan3";
-    GpuRawContext * ctx;
-
-    const char* planPath = "inputs/plans/ssbm_q1_1.json";
-
-    std::vector<CUfunction> pipelines;
-    {
-        time_block t("Tcodegen: ");
-        
-        ctx                   = new GpuRawContext(testLabel);
-        CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
-        
-        ctx->compileAndLoad();
-
-        // Get kernel function
-        pipelines = ctx->getKernel();
-    }
-
-    // gpu_run(cudaFree(a));
-    // gpu_run(cudaFree(b));
-    // gpu_run(cudaFree(d));
-
-    // gpu_run(cudaFreeHost(h_a));
-    // gpu_run(cudaFreeHost(h_b));
-    // gpu_run(cudaFreeHost(h_d));
-    // gpu_run(cudaFreeHost(h_e));
-
-    h_c[0] =  0;
-    h_c[1] =  0;
-    h_c[2] =  0;
-    h_c[3] =  0;
-    h_c[4] =  0;
-    h_c[5] =  0;
-    h_c[6] =  0;
-    h_c[7] =  0;
-
-    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 16, cudaMemcpyDefault));
-
-    mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
-    mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
-    mmap_file f_lo_orderdate    ("inputs/ssbm/lo_orderdate.bin"    );
-    mmap_file f_lo_extendedprice("inputs/ssbm/lo_extendedprice.bin");
-
-    mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
-    mmap_file f_d_year          ("inputs/ssbm/d_year.bin"          );
-
-    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
-    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
-
-    int32_t * join_build_out;
-    int32_t * join_probe_out;
-
-    size_t * c1 = ((size_t *) c)  + 1;
-    size_t * c2 =            c1   + 1;
-    size_t * c3 =            c2   + 1;
-
-    uint32_t * hj_index;
-    int32_t  * hj_data ;
-    int32_t  * hj_data2;
-
-    uint32_t * hj_index_cnt;
-    uint32_t h_hj_index_cnt = 1 << hj_d;
-
-    gpu_run(cudaMalloc(&join_build_out,  sizeof(int32_t)                   * d_N));
-    gpu_run(cudaMalloc(&join_probe_out, (sizeof(int32_t) + sizeof(int32_t))*lo_N));
-
-    gpu_run(cudaMalloc(&hj_index     , sizeof(uint32_t) * (1 << hj_d)));
-    gpu_run(cudaMalloc(&hj_data      , sizeof( int32_t) * d_N        ));
-    gpu_run(cudaMalloc(&hj_data2     , sizeof( int32_t) * d_N        ));
-
-    int32_t * g_d_N;
-    gpu_run(cudaMalloc(&g_d_N        , sizeof( int32_t)));
-
-    gpu_run(cudaMalloc(&hj_index_cnt, sizeof(uint32_t)));
-
-    gpu_run(cudaMemcpy(hj_index_cnt, &h_hj_index_cnt, sizeof(uint32_t), cudaMemcpyDefault));
-
-    {
-        void *KernelParams[] = {&join_build_out,
-                                &c,
-                                &(f_d_datekey.gpu_data),
-                                &(f_d_year.gpu_data),
-                                &d_N};
-        time_block t("Tgenerated (hj build filter): ");
-
-        launch_kernel(pipelines[0], KernelParams);
-
-        gpu_run(cudaDeviceSynchronize());
-    }
-    {
-        time_block t("Tsubpart : ");
-        
-        build_subpartitions<<<1 << (log_parts2 + log_parts1), 1024, (partitions + 1) * sizeof(int32_t)>>>(
-                                                    join_build_out,
-                                                    ((int32_t *) c2), //c is a b64 on generated code
-                                                    ((int32_t *) c ),
-                                                    hj_index,
-                                                    hj_data);
-
-        gpu_run(cudaDeviceSynchronize());
-    }
-    {
-        time_block t("Tbuckets : ");
-
-        build_buckets<<<(1 << (log_parts2 + log_parts1)) * partitions, 32, (2 * max_chain + 32) * sizeof(int32_t)>>>(
-                                                    hj_index,
-                                                    hj_data,
-                                                    hj_data2,
-                                                    hj_index_cnt);
-
-        gpu_run(cudaDeviceSynchronize());
-    }
-    {
-        void *KernelParams[] = {&join_probe_out,
-                                &c1, 
-                                &(f_lo_discount.gpu_data), 
-                                &(f_lo_quantity.gpu_data), 
-                                &(f_lo_orderdate.gpu_data), 
-                                &(f_lo_extendedprice.gpu_data),
-                                &lo_N};
-        time_block t("Tgenerated (hj probe filter): ");
-        // Kernel launch
-        // gpu_run(cuLaunchKernel(function, gridSizeX, gridSizeY, gridSizeZ,
-        //                              blockSizeX, blockSizeY, blockSizeZ,
-        //                              0, NULL, KernelParams, NULL));
-        launch_kernel(pipelines[1], KernelParams);
-
-        gpu_run(cudaDeviceSynchronize());
-    }
-    {
-        time_block t("Tprobe : ");
-        gpu_run(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte));
-        probe<<<128*(1 << (log_parts2 + log_parts1)), 128, 2 * (32 * partitions + partitions * 2) * sizeof(int32_t)>>>(
-                                                    (hjt *) join_probe_out, 
-                                                    ((int32_t *) c2), //c is a b64 on generated code
-                                                    ((int32_t *) c1),
-                                                    hj_index, 
-                                                    hj_data2, 
-                                                    c3);
-
-        gpu_run(cudaDeviceSynchronize());
-        gpu_run(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeFourByte));
-    }
-
-    size_t c_out;
-    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
-
-    std::cout << c_out << std::endl;
-
-    gpu_run(cudaMemcpy(&c_out, c1, sizeof(size_t), cudaMemcpyDefault));
-    std::cout << c_out << std::endl;
-
-    gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
-    std::cout << c_out << std::endl;
-
-
-    gpu_run(cudaFree(join_build_out));
-    gpu_run(cudaFree(join_probe_out));
-
-    gpu_run(cudaFree(hj_index      ));
-    gpu_run(cudaFree(hj_data       ));
-    gpu_run(cudaFree(hj_data2      ));
-
-    gpu_run(cudaFree(g_d_N         ));
-
-    gpu_run(cudaFree(hj_index_cnt  ));
-
-}
-
 struct alignas(alignof(int64_t)) hj_bucket{
     int32_t next;
     int32_t val ;
@@ -1640,614 +1443,12 @@ __global__ void probeBucketChainingDevicePacked(const hjt       * __restrict__ p
     atomicAdd(output, out);
 }
 
-TEST_F(GPUOutputTest3, gpuPlan3b) {
-
-    const char *testLabel = "gpuPlan3b";
-    GpuRawContext * ctx;
-
-    const char* planPath = "inputs/plans/ssbm_q1_1b.json";
-
-    std::vector<CUfunction> pipelines;
-    {
-        time_block t("Tcodegen: ");
-        
-        ctx                   = new GpuRawContext(testLabel);
-        CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
-        
-        ctx->compileAndLoad();
-
-        // Get kernel function
-        pipelines = ctx->getKernel();
-    }
-
-    // gpu_run(cudaFree(a));
-    // gpu_run(cudaFree(b));
-    // gpu_run(cudaFree(d));
-
-    // gpu_run(cudaFreeHost(h_a));
-    // gpu_run(cudaFreeHost(h_b));
-    // gpu_run(cudaFreeHost(h_d));
-    // gpu_run(cudaFreeHost(h_e));
-
-    h_c[0] =  0;
-    h_c[1] =  0;
-    h_c[2] =  0;
-    h_c[3] =  0;
-    h_c[4] =  0;
-    h_c[5] =  0;
-    h_c[6] =  0;
-    h_c[7] =  0;
-
-    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 16, cudaMemcpyDefault));
-
-    mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
-    mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
-    mmap_file f_lo_orderdate    ("inputs/ssbm/lo_orderdate.bin"    );
-    mmap_file f_lo_extendedprice("inputs/ssbm/lo_extendedprice.bin");
-
-    mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
-    mmap_file f_d_year          ("inputs/ssbm/d_year.bin"          );
-
-    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
-    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
-
-    size_t * c1 = ((size_t *) c)  + 1;
-    size_t * c2 =            c1   + 1;
-    size_t * c3 =            c2   + 1;
-
-    uint32_t  * first;
-    hj_bucket * next_w_values ;
-    // int32_t  * hj_data2;
-
-    uint32_t * hj_index_cnt;
-    uint32_t h_hj_index_cnt = 1 << hj_d;
-
-    int d = 10;
-
-    int32_t * g_d_N;
-
-    {
-        time_block t("Tmallocs (init): ");
-        gpu_run(cudaMalloc(&first        , sizeof(uint32_t ) * (1 << d)));
-        gpu_run(cudaMalloc(&next_w_values, sizeof(hj_bucket) * d_N     ));
-        gpu_run(cudaMalloc(&g_d_N        , sizeof( int32_t))            );
-
-    }
-    {
-        time_block t("Tinit (hj init): ");
-        gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(uint32_t)));
-    }
-
-    {
-        void *KernelParams[] = {&first,
-                                &next_w_values,
-                                &c,
-                                &(f_d_datekey.gpu_data),
-                                &(f_d_year.gpu_data),
-                                &d_N};
-        time_block t("Tgenerated (hj build): ");
-
-        launch_kernel(pipelines[0], KernelParams);
-
-        gpu_run(cudaDeviceSynchronize());
-    }
-
-    {
-        void *KernelParams[] = {&c3,
-                                &first,
-                                &next_w_values, 
-                                &(f_lo_discount.gpu_data), 
-                                &(f_lo_quantity.gpu_data), 
-                                &(f_lo_orderdate.gpu_data), 
-                                &(f_lo_extendedprice.gpu_data),
-                                &lo_N};
-        time_block t("Tgenerated (hj probe): ");
-        // Kernel launch
-        launch_kernel(pipelines[1], KernelParams);
-
-        gpu_run(cudaDeviceSynchronize());
-    }
-
-    size_t c_out;
-    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
-
-    //this results is constant for SSBM Q1.1
-    EXPECT_EQ(c_out, 365);
-
-    gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
-
-    //for the current dataset, regenerating it may change the results
-    EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
-
-    gpu_run(cudaFree(first         ));
-    gpu_run(cudaFree(next_w_values ));
-
-}
-
-TEST_F(GPUOutputTest3, gpuPlan3bc) {
-    const char *testLabel = "gpuPlan3bc";
-    GpuRawContext * ctx;
-
-    const char* planPath = "inputs/plans/ssbm_q1_1b.json";
-
-    std::vector<RawPipeline *> pipelines;
-    {
-        time_block t("Tcodegen: ");
-        
-        ctx                   = new GpuRawContext(testLabel);
-        CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
-        
-        ctx->compileAndLoad();
-
-        pipelines = ctx->getPipelines();
-    }
-
-    gpu_run(cudaMemset(c, 0, sizeof(int32_t) * 16));
-
-    mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
-    mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
-    mmap_file f_lo_orderdate    ("inputs/ssbm/lo_orderdate.bin"    );
-    mmap_file f_lo_extendedprice("inputs/ssbm/lo_extendedprice.bin");
-
-    mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
-    mmap_file f_d_year          ("inputs/ssbm/d_year.bin"          );
-
-    size_t d_N  = (f_d_datekey  .filesize)/sizeof(int32_t);
-    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
-
-    {
-        time_block t("Topen0: ");
-        pipelines[0]->open();
-    }
-    {
-        time_block t("Tgenerated (hj build): ");
-
-        pipelines[0]->consume(d_N, f_d_datekey.gpu_data, f_d_year.gpu_data);
-    }
-    {
-        time_block t("Tclose0: ");
-        pipelines[0]->close();
-    }
-
-    {
-        time_block t("Topen1: ");
-        pipelines[1]->open();
-    }
-    {
-        time_block t("Tgenerated (hj probe): ");
-
-        // Kernel launch
-        pipelines[1]->consume(lo_N, 
-                                c, 
-                                f_lo_discount.gpu_data, 
-                                f_lo_quantity.gpu_data, 
-                                f_lo_orderdate.gpu_data, 
-                                f_lo_extendedprice.gpu_data);
-    }
-    {
-        time_block t("Tclose1: ");
-        pipelines[1]->close();
-    }
-
-    size_t c_out;
-    // gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
-
-    //this result is constant for SSBM Q1.1
-    // EXPECT_EQ(365, c_out);
-
-    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
-
-    //for the current dataset, regenerating it may change the results
-    EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
-
-    // gpu_run(cudaFree(first         ));
-    // gpu_run(cudaFree(next_w_values ));
-
-}
-
-TEST_F(GPUOutputTest3, gpuSSBM_Q1_2) {
-
-    const char *testLabel = "gpuSSBM_Q1_2";
-    GpuRawContext * ctx;
-
-    const char* planPath = "inputs/plans/ssbm_q1_2.json";
-
-    std::vector<CUfunction> pipelines;
-    {
-        time_block t("Tcodegen: ");
-        
-        ctx                   = new GpuRawContext(testLabel);
-        CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
-        
-        ctx->compileAndLoad();
-
-        // Get kernel function
-        pipelines = ctx->getKernel();
-    }
-
-    // gpu_run(cudaFree(a));
-    // gpu_run(cudaFree(b));
-    // gpu_run(cudaFree(d));
-
-    // gpu_run(cudaFreeHost(h_a));
-    // gpu_run(cudaFreeHost(h_b));
-    // gpu_run(cudaFreeHost(h_d));
-    // gpu_run(cudaFreeHost(h_e));
-
-    h_c[0] =  0;
-    h_c[1] =  0;
-    h_c[2] =  0;
-    h_c[3] =  0;
-    h_c[4] =  0;
-    h_c[5] =  0;
-    h_c[6] =  0;
-    h_c[7] =  0;
-
-    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 16, cudaMemcpyDefault));
-
-    mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
-    mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
-    mmap_file f_lo_orderdate    ("inputs/ssbm/lo_orderdate.bin"    );
-    mmap_file f_lo_extendedprice("inputs/ssbm/lo_extendedprice.bin");
-
-    mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
-    mmap_file f_d_yearmonthnum  ("inputs/ssbm/d_yearmonthnum.bin"  );
-
-    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
-    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
-
-    size_t * c1 = ((size_t *) c)  + 1;
-    size_t * c2 =            c1   + 1;
-    size_t * c3 =            c2   + 1;
-
-    uint32_t  * first;
-    hj_bucket * next_w_values ;
-    // int32_t  * hj_data2;
-
-    uint32_t * hj_index_cnt;
-    uint32_t h_hj_index_cnt = 1 << hj_d;
-
-    int d = 10;
-
-    int32_t * g_d_N;
-
-    {
-        time_block t("Tmallocs (init): ");
-        gpu_run(cudaMalloc(&first        , sizeof(uint32_t ) * (1 << d)));
-        gpu_run(cudaMalloc(&next_w_values, sizeof(hj_bucket) * d_N     ));
-        gpu_run(cudaMalloc(&g_d_N        , sizeof( int32_t))            );
-
-    }
-    {
-        time_block t("Tinit (hj init): ");
-        gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(uint32_t)));
-    }
-
-    {
-        void *KernelParams[] = {&first,
-                                &next_w_values,
-                                &c,
-                                &(f_d_datekey.gpu_data),
-                                &(f_d_yearmonthnum.gpu_data),
-                                &d_N};
-        time_block t("Tgenerated (hj build): ");
-
-        launch_kernel(pipelines[0], KernelParams);
-
-        gpu_run(cudaDeviceSynchronize());
-    }
-
-    {
-        void *KernelParams[] = {&c3,
-                                &first,
-                                &next_w_values, 
-                                &(f_lo_discount.gpu_data), 
-                                &(f_lo_quantity.gpu_data), 
-                                &(f_lo_orderdate.gpu_data), 
-                                &(f_lo_extendedprice.gpu_data),
-                                &lo_N};
-        time_block t("Tgenerated (hj probe): ");
-        // Kernel launch
-        launch_kernel(pipelines[1], KernelParams);
-
-        gpu_run(cudaDeviceSynchronize());
-    }
-
-    size_t c_out;
-    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
-    std::cout << c_out << std::endl;
-
-    //this results is constant for SSBM Q1.1
-    EXPECT_EQ(c_out, 31);
-
-    gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
-    std::cout << c_out << std::endl;
-
-    //for the current dataset, regenerating it may change the results
-    EXPECT_TRUE(c_out == UINT64_C(965049065847) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(965049065847)));
-
-    gpu_run(cudaFree(first         ));
-    gpu_run(cudaFree(next_w_values ));
-}
-
-
-TEST_F(GPUOutputTest3, gpuSSBM_Q1_3) {
-
-    const char *testLabel = "gpuSSBM_Q1_3";
-    GpuRawContext * ctx;
-
-    const char* planPath = "inputs/plans/ssbm_q1_3.json";
-
-    std::vector<CUfunction> pipelines;
-    {
-        time_block t("Tcodegen: ");
-        
-        ctx                   = new GpuRawContext(testLabel);
-        CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
-        
-        ctx->compileAndLoad();
-
-        // Get kernel function
-        pipelines = ctx->getKernel();
-    }
-
-    // gpu_run(cudaFree(a));
-    // gpu_run(cudaFree(b));
-    // gpu_run(cudaFree(d));
-
-    // gpu_run(cudaFreeHost(h_a));
-    // gpu_run(cudaFreeHost(h_b));
-    // gpu_run(cudaFreeHost(h_d));
-    // gpu_run(cudaFreeHost(h_e));
-
-    h_c[0] =  0;
-    h_c[1] =  0;
-    h_c[2] =  0;
-    h_c[3] =  0;
-    h_c[4] =  0;
-    h_c[5] =  0;
-    h_c[6] =  0;
-    h_c[7] =  0;
-
-    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 16, cudaMemcpyDefault));
-
-    mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
-    mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
-    mmap_file f_lo_orderdate    ("inputs/ssbm/lo_orderdate.bin"    );
-    mmap_file f_lo_extendedprice("inputs/ssbm/lo_extendedprice.bin");
-
-    mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
-    mmap_file f_d_weeknuminyear ("inputs/ssbm/d_weeknuminyear.bin" );
-    mmap_file f_d_year          ("inputs/ssbm/d_year.bin"          );
-
-    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
-    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
-
-    size_t * c1 = ((size_t *) c)  + 1;
-    size_t * c2 =            c1   + 1;
-    size_t * c3 =            c2   + 1;
-
-    uint32_t  * first;
-    hj_bucket * next_w_values ;
-    // int32_t  * hj_data2;
-
-    uint32_t * hj_index_cnt;
-    uint32_t h_hj_index_cnt = 1 << hj_d;
-
-    int d = 10;
-
-    int32_t * g_d_N;
-
-    {
-        time_block t("Tmallocs (init): ");
-        gpu_run(cudaMalloc(&first        , sizeof(uint32_t ) * (1 << d)));
-        gpu_run(cudaMalloc(&next_w_values, sizeof(hj_bucket) * d_N     ));
-        gpu_run(cudaMalloc(&g_d_N        , sizeof( int32_t))            );
-
-    }
-    {
-        time_block t("Tinit (hj init): ");
-        gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(uint32_t)));
-    }
-
-    {
-        void *KernelParams[] = {&first,
-                                &next_w_values,
-                                &c,
-                                &(f_d_datekey.gpu_data),
-                                &(f_d_weeknuminyear.gpu_data),
-                                &(f_d_year.gpu_data),
-                                &d_N};
-        time_block t("Tgenerated (hj build): ");
-
-        launch_kernel(pipelines[0], KernelParams);
-
-        gpu_run(cudaDeviceSynchronize());
-    }
-
-    {
-        void *KernelParams[] = {&c3,
-                                &first,
-                                &next_w_values, 
-                                &(f_lo_discount.gpu_data), 
-                                &(f_lo_quantity.gpu_data), 
-                                &(f_lo_orderdate.gpu_data), 
-                                &(f_lo_extendedprice.gpu_data),
-                                &lo_N};
-        time_block t("Tgenerated (hj probe): ");
-        // Kernel launch
-        launch_kernel(pipelines[1], KernelParams);
-
-        gpu_run(cudaDeviceSynchronize());
-    }
-
-    size_t c_out;
-    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
-    std::cout << c_out << std::endl;
-
-    //this results is constant for SSBM Q1.1
-    // EXPECT_EQ(c_out, 31);
-
-    gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
-    std::cout << c_out << std::endl;
-
-    //for the current dataset, regenerating it may change the results
-    EXPECT_TRUE(c_out == UINT64_C(261356323969) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(261356323969)));
-
-    gpu_run(cudaFree(first         ));
-    gpu_run(cudaFree(next_w_values ));
-}
-
-
-TEST_F(GPUOutputTest3, gpuSSBM_Q1_1_100) {
-
-    const char *testLabel = "gpuSSBM_Q1_1_100";
-    GpuRawContext * ctx;
-
-    const char* planPath = "inputs/plans/ssbm_q1_1b.json";
-
-    std::vector<CUfunction> pipelines;
-    {
-        time_block t("Tcodegen: ");
-        
-        ctx                   = new GpuRawContext(testLabel);
-        CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
-        
-        ctx->compileAndLoad();
-
-        // Get kernel function
-        pipelines = ctx->getKernel();
-    }
-
-    // gpu_run(cudaFree(a));
-    // gpu_run(cudaFree(b));
-    // gpu_run(cudaFree(d));
-
-    // gpu_run(cudaFreeHost(h_a));
-    // gpu_run(cudaFreeHost(h_b));
-    // gpu_run(cudaFreeHost(h_d));
-    // gpu_run(cudaFreeHost(h_e));
-
-    h_c[0] =  0;
-    h_c[1] =  0;
-    h_c[2] =  0;
-    h_c[3] =  0;
-    h_c[4] =  0;
-    h_c[5] =  0;
-    h_c[6] =  0;
-    h_c[7] =  0;
-
-    gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 16, cudaMemcpyDefault));
-
-    size_t step_size = 1024*1024*16;
-
-    mmap_file_splitable<int32_t> f_lo_discount     ("inputs/ssbm100/lo_discount.bin"     , step_size);
-    mmap_file_splitable<int32_t> f_lo_quantity     ("inputs/ssbm100/lo_quantity.bin"     , step_size);
-    mmap_file_splitable<int32_t> f_lo_orderdate    ("inputs/ssbm100/lo_orderdate.bin"    , step_size);
-    mmap_file_splitable<int32_t> f_lo_extendedprice("inputs/ssbm100/lo_extendedprice.bin", step_size);
-
-    mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"          );
-    mmap_file f_d_year          ("inputs/ssbm/d_year.bin"             );
-
-    size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
-    size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
-
-    size_t * c1 = ((size_t *) c)  + 1;
-    size_t * c2 =            c1   + 1;
-    size_t * c3 =            c2   + 1;
-
-    uint32_t  * first;
-    hj_bucket * next_w_values ;
-    // int32_t  * hj_data2;
-
-    uint32_t * hj_index_cnt;
-    uint32_t h_hj_index_cnt = 1 << hj_d;
-
-    int d = 10;
-
-    int32_t * g_d_N;
-
-    {
-        time_block t("Tmallocs (init): ");
-        gpu_run(cudaMalloc(&first        , sizeof(uint32_t ) * (1 << d)));
-        gpu_run(cudaMalloc(&next_w_values, sizeof(hj_bucket) * d_N     ));
-        gpu_run(cudaMalloc(&g_d_N        , sizeof( int32_t))            );
-
-    }
-    {
-        time_block t("Tinit (hj init): ");
-        gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(uint32_t)));
-    }
-
-    {
-        void *KernelParams[] = {&first,
-                                &next_w_values,
-                                &c,
-                                &(f_d_datekey.gpu_data),
-                                &(f_d_year.gpu_data),
-                                &d_N};
-        time_block t("Tgenerated (hj build): ");
-
-        launch_kernel(pipelines[0], KernelParams);
-
-        gpu_run(cudaDeviceSynchronize());
-    }
-
-    size_t remaining;
-    while((remaining = f_lo_discount.remaining()) > 0) {
-        size_t l_step = f_lo_discount.next();
-        f_lo_quantity.next();
-        f_lo_orderdate.next();
-        f_lo_extendedprice.next();
-
-        {
-            void *KernelParams[] = {&c3,
-                                    &first,
-                                    &next_w_values, 
-                                    &(f_lo_discount.gpu_data), 
-                                    &(f_lo_quantity.gpu_data), 
-                                    &(f_lo_orderdate.gpu_data), 
-                                    &(f_lo_extendedprice.gpu_data),
-                                    &l_step};
-            time_block t("Tgenerated (hj probe): ");
-            // Kernel launch
-            launch_kernel(pipelines[1], KernelParams);
-
-            gpu_run(cudaDeviceSynchronize());
-        }
-    }
-
-    size_t c_out;
-    gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
-
-    //this results is constant for SSBM Q1.1
-    EXPECT_EQ(c_out, 365);
-
-    gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
-    std::cout << c_out << std::endl;
-
-    //for the current dataset, regenerating it may change the results
-    EXPECT_TRUE(c_out == UINT64_C(-1) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(-1)));
-
-    gpu_run(cudaFree(first         ));
-    gpu_run(cudaFree(next_w_values ));
-
-}
-
-
 struct gb_bucket{
     int32_t next;
     int32_t key ;
     int32_t sum ;
     int32_t hold;
 };
-
-
 
 __global__ void hashGroupBy(const int32_t   * __restrict__ a,
                             const int32_t   * __restrict__ b,
@@ -2543,125 +1744,4 @@ TEST_F(GPUOutputTest3, gpuHashGroupBy) {
     // }
 
     EXPECT_EQ(groups2, groups3);
-}
-
-
-
-TEST_F(GPUOutputTest3, gpuSSBM_Q2_1) {
-
-    const char *testLabel = "gpuSSBM_Q2_1";
-    GpuRawContext * ctx;
-
-    const char* planPath = "inputs/plans/ssbm_q2_1.json";
-
-    std::vector<CUfunction> pipelines;
-    {
-        time_block t("Tcodegen: ");
-        
-        ctx                   = new GpuRawContext(testLabel);
-        CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
-        
-        ctx->compileAndLoad();
-
-        // Get kernel function
-        pipelines = ctx->getKernel();
-    }
-
-    // h_c[0] =  0;
-    // h_c[1] =  0;
-    // h_c[2] =  0;
-    // h_c[3] =  0;
-    // h_c[4] =  0;
-    // h_c[5] =  0;
-    // h_c[6] =  0;
-    // h_c[7] =  0;
-
-    // gpu_run(cudaMemcpy(c, h_c, sizeof(int32_t) * 16, cudaMemcpyDefault));
-
-    // mmap_file f_lo_discount     ("inputs/ssbm/lo_discount.bin"     );
-    // mmap_file f_lo_quantity     ("inputs/ssbm/lo_quantity.bin"     );
-    // mmap_file f_lo_orderdate    ("inputs/ssbm/lo_orderdate.bin"    );
-    // mmap_file f_lo_extendedprice("inputs/ssbm/lo_extendedprice.bin");
-
-    // mmap_file f_d_datekey       ("inputs/ssbm/d_datekey.bin"       );
-    // mmap_file f_d_weeknuminyear ("inputs/ssbm/d_weeknuminyear.bin" );
-    // mmap_file f_d_year          ("inputs/ssbm/d_year.bin"          );
-
-    // size_t d_N  = (f_d_datekey.filesize)/sizeof(int32_t);
-    // size_t lo_N = (f_lo_quantity.filesize)/sizeof(int32_t);
-
-    // size_t * c1 = ((size_t *) c)  + 1;
-    // size_t * c2 =            c1   + 1;
-    // size_t * c3 =            c2   + 1;
-
-    // uint32_t  * first;
-    // hj_bucket * next_w_values ;
-    // // int32_t  * hj_data2;
-
-    // uint32_t * hj_index_cnt;
-    // uint32_t h_hj_index_cnt = 1 << hj_d;
-
-    // int d = 10;
-
-    // int32_t * g_d_N;
-
-    // {
-    //     time_block t("Tmallocs (init): ");
-    //     gpu_run(cudaMalloc(&first        , sizeof(uint32_t ) * (1 << d)));
-    //     gpu_run(cudaMalloc(&next_w_values, sizeof(hj_bucket) * d_N     ));
-    //     gpu_run(cudaMalloc(&g_d_N        , sizeof( int32_t))            );
-
-    // }
-    // {
-    //     time_block t("Tinit (hj init): ");
-    //     gpu_run(cudaMemset(first, -1, (1 << d) * sizeof(uint32_t)));
-    // }
-
-    // {
-    //     void *KernelParams[] = {&first,
-    //                             &next_w_values,
-    //                             &c,
-    //                             &(f_d_datekey.gpu_data),
-    //                             &(f_d_weeknuminyear.gpu_data),
-    //                             &(f_d_year.gpu_data),
-    //                             &d_N};
-    //     time_block t("Tgenerated (hj build): ");
-
-    //     launch_kernel(pipelines[0], KernelParams);
-
-    //     gpu_run(cudaDeviceSynchronize());
-    // }
-
-    // {
-    //     void *KernelParams[] = {&c3,
-    //                             &first,
-    //                             &next_w_values, 
-    //                             &(f_lo_discount.gpu_data), 
-    //                             &(f_lo_quantity.gpu_data), 
-    //                             &(f_lo_orderdate.gpu_data), 
-    //                             &(f_lo_extendedprice.gpu_data),
-    //                             &lo_N};
-    //     time_block t("Tgenerated (hj probe): ");
-    //     // Kernel launch
-    //     launch_kernel(pipelines[1], KernelParams);
-
-    //     gpu_run(cudaDeviceSynchronize());
-    // }
-
-    // size_t c_out;
-    // gpu_run(cudaMemcpy(&c_out, c, sizeof(size_t), cudaMemcpyDefault));
-    // std::cout << c_out << std::endl;
-
-    // //this results is constant for SSBM Q1.1
-    // // EXPECT_EQ(c_out, 31);
-
-    // gpu_run(cudaMemcpy(&c_out, c3, sizeof(size_t), cudaMemcpyDefault));
-    // std::cout << c_out << std::endl;
-
-    // //for the current dataset, regenerating it may change the results
-    // EXPECT_TRUE(c_out == UINT64_C(261356323969) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(261356323969)));
-
-    // gpu_run(cudaFree(first         ));
-    // gpu_run(cudaFree(next_w_values ));
 }

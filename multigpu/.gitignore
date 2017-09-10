@@ -1,0 +1,11 @@
+*.nvprof
+*.out
+test2/
+test3/
+teststre/
+sftp-config.json
+/.cuda-gdbinit
+cpu/
+.depend
+bin/
+obj/

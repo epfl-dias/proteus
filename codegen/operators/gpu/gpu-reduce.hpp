@@ -48,9 +48,12 @@ public:
     virtual ~GpuReduce() { LOG(INFO)<< "Collapsing GpuReduce operator";}
     virtual void produce();
     virtual void consume(RawContext* const context, const OperatorState& childState);
+
+    virtual void open (RawPipeline * pip) const;
+    virtual void close(RawPipeline * pip) const;
 private:
     void generate(RawContext* const context, const OperatorState& childState) const;
-    void generate(const Monoid &m, expressions::Expression* outputExpr, GpuRawContext* const context, const OperatorState& childState, AllocaInst *mem_accumulating, Argument *global_accumulator_ptr) const;
+    void generate(const Monoid &m, expressions::Expression* outputExpr, GpuRawContext* const context, const OperatorState& childState, AllocaInst *mem_accumulating, llvm::Value *global_accumulator_ptr) const;
     
     std::vector<llvm::Value *> global_acc_ptr;
 

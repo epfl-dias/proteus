@@ -64,6 +64,7 @@ public:
         int                                             hash_bits,
 
         GpuRawContext *                                 context,
+        size_t                                          maxInputSize,
         string                                          opLabel = "gb_chained");
     virtual ~GpuHashGroupByChained() { LOG(INFO)<< "Collapsing GpuHashGroupByChained operator";}
 
@@ -85,19 +86,20 @@ private:
     llvm::Value * hash(llvm::Value * old_seed, llvm::Value * key);
     llvm::Value * hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState);
 
-    string                                  opLabel;
+    string                                  opLabel         ;
 
-    std::vector<GpuAggrMatExpr>             agg_exprs;
-    std::vector<size_t>                     packet_widths;
-    std::vector<expressions::Expression *>  key_expr;
+    std::vector<GpuAggrMatExpr>             agg_exprs       ;
+    std::vector<size_t>                     packet_widths   ;
+    std::vector<expressions::Expression *>  key_expr        ;
 
-    int                                     head_param_id;
-    std::vector<int>                        out_param_ids;
-    int                                     cnt_param_id ;
+    int                                     head_param_id   ;
+    std::vector<int>                        out_param_ids   ;
+    int                                     cnt_param_id    ;
 
-    int                                     hash_bits  ;
+    int                                     hash_bits       ;
+    size_t                                  maxInputSize    ;
 
-    GpuRawContext *                         context;
+    GpuRawContext *                         context         ;
 };
 
 #endif /* GPU_HASH_GROUP_BY_CHAINED_HPP_ */

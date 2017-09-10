@@ -32,6 +32,9 @@ GpuReduce::GpuReduce(vector<Monoid>             accs,
             RawOperator* const                  child,
             GpuRawContext*                      context)
         : Reduce(accs, outputExprs, pred, child, context, false) {
+}
+
+void GpuReduce::produce() {
     for (const auto &expr: outputExprs){
         if (!expr->getExpressionType()->isPrimitive()){
             string error_msg("[GpuReduce: ] Currently only supports primitive types");
@@ -40,11 +43,9 @@ GpuReduce::GpuReduce(vector<Monoid>             accs,
         }
 
         Type * t = PointerType::get(((const PrimitiveType *) expr->getExpressionType())->getLLVMType(context->getLLVMContext()), /* address space */ 1);
-        out_ids.push_back(context->appendParameter(t, true, false));
+        out_ids.push_back(((GpuRawContext *) context)->appendStateVar(t));//, true, false));
     }
-}
 
-void GpuReduce::produce() {
     getChild()->produce();
 }
 
@@ -53,7 +54,7 @@ void GpuReduce::consume(RawContext* const context, const OperatorState& childSta
     generate(context, childState);
 }
 
-void GpuReduce::generate(RawContext* const context, const OperatorState& childState) const {
+void GpuReduce::generate(RawContext* const context, const OperatorState& childState) const{
     vector<Monoid                   >::const_iterator itAcc    ;
     vector<expressions::Expression *>::const_iterator itExpr   ;
     vector<AllocaInst *             >::const_iterator itMem    ;
@@ -63,13 +64,22 @@ void GpuReduce::generate(RawContext* const context, const OperatorState& childSt
     itExpr      = outputExprs.begin();
     itMem       = mem_accumulators.begin();
     itID        = out_ids.begin();
+
+    IRBuilder<>* Builder        = context->getBuilder();
     
     for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++, ++itID) {
         Monoid                      acc                     = *itAcc;
         expressions::Expression *   outputExpr              = *itExpr;
         AllocaInst *                mem_accumulating        = *itMem;
 
-        Argument * global_acc_ptr = ((const GpuRawContext *) context)->getArgument(*itID);
+        BasicBlock* insBlock = Builder->GetInsertBlock();
+        
+        BasicBlock* entryBlock = context->getCurrentEntryBlock();
+        Builder->SetInsertPoint(entryBlock);
+
+        Value * global_acc_ptr = ((const GpuRawContext *) context)->getStateVar(*itID);
+
+        Builder->SetInsertPoint(insBlock);
 
         switch (acc) {
         case MAX:
@@ -90,11 +100,14 @@ void GpuReduce::generate(RawContext* const context, const OperatorState& childSt
         }
         }
     }
+
+    ((GpuRawContext *) context)->registerOpen ([this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose([this](RawPipeline * pip){this->close(pip);});
 }
 
 void GpuReduce::generate(const Monoid &m, expressions::Expression* outputExpr,
         GpuRawContext* const context, const OperatorState& state,
-        AllocaInst *mem_accumulating, Argument *global_accumulator_ptr) const {
+        AllocaInst *mem_accumulating, Value *global_accumulator_ptr) const {
 
     IRBuilder<>* Builder        = context->getBuilder();
     LLVMContext& llvmContext    = context->getLLVMContext();
@@ -137,6 +150,36 @@ void GpuReduce::generate(const Monoid &m, expressions::Expression* outputExpr,
 
     Builder->SetInsertPoint(entryBlock);
 }
+
+void GpuReduce::open(RawPipeline * pip) const{
+    for (size_t i = 0 ; i < out_ids.size() ; ++i){
+        Type * llvm_type = ((const PrimitiveType *) outputExprs[i]->getExpressionType())->getLLVMType(context->getLLVMContext());
+
+        size_t size_in_bytes = (llvm_type->getPrimitiveSizeInBits() + 7)/8;
+
+        void * acc;
+        gpu_run(cudaMalloc(&acc,    size_in_bytes));
+
+        gpu_run(cudaMemset( acc, 0, size_in_bytes)); //FIXME: reset every type of (data, monoid)
+
+        pip->setStateVar(out_ids[i], acc);
+    }
+}
+
+void GpuReduce::close(RawPipeline * pip) const{
+    // for (size_t i = 0 ; i < out_ids.size() ; ++i){
+    //     gpu_run(cudaFree(pip->getStateVar<uint32_t *>(context, out_ids[i])));
+    // }
+
+
+    for (size_t i = 0 ; i < out_ids.size() ; ++i){
+        uint32_t r;
+        gpu_run(cudaMemcpy(&r, pip->getStateVar<uint32_t *>(out_ids[i]), sizeof(uint32_t), cudaMemcpyDefault));
+        std::cout << r << std::endl;
+    }
+}
+
+
 
 }
 

@@ -40,7 +40,7 @@ void RawContext::createJITEngine() {
 	}
 }
 
-static void __attribute__((unused)) addOptimizerPipelineDefault(legacy::FunctionPassManager * TheFPM) {
+void __attribute__((unused)) addOptimizerPipelineDefault(legacy::FunctionPassManager * TheFPM) {
 	//Provide basic AliasAnalysis support for GVN.
 	TheFPM->add(createBasicAAWrapperPass());
 	// Promote allocas to registers.
@@ -58,7 +58,7 @@ static void __attribute__((unused)) addOptimizerPipelineDefault(legacy::Function
 }
 
 #if MODULEPASS
-static void __attribute__((unused)) addOptimizerPipelineInlining(ModulePassManager * TheMPM) {
+void __attribute__((unused)) addOptimizerPipelineInlining(ModulePassManager * TheMPM) {
 	/* Inlining: Not sure it works */
 	// LSC: FIXME: No add member to a ModulePassManager
 	TheMPM->add(createFunctionInliningPass());
@@ -66,7 +66,7 @@ static void __attribute__((unused)) addOptimizerPipelineInlining(ModulePassManag
 }
 #endif
 
-static void __attribute__((unused)) addOptimizerPipelineVectorization(legacy::FunctionPassManager * TheFPM) {
+void __attribute__((unused)) addOptimizerPipelineVectorization(legacy::FunctionPassManager * TheFPM) {
 	/* Vectorization */
 	TheFPM->add(createBBVectorizePass());
 	TheFPM->add(createLoopVectorizePass());
@@ -108,7 +108,7 @@ RawContext::RawContext(const string& moduleName, bool setGlobFunction) {
 		Function *F = Function::Create(FT, Function::ExternalLinkage,
 			moduleName, getModule());
 
-		setGlobalFunction(F);
+		setGlobalFunction(F); // Be careful, calls from constructor non-virtual!
 	}
 }
 
@@ -264,6 +264,12 @@ ConstantInt* RawContext::createInt64(int val) {
 
 ConstantInt* RawContext::createInt64(size_t val) {
 	return ConstantInt::get(getLLVMContext(), APInt(64, val));
+}
+
+
+ConstantInt* RawContext::createSizeT(size_t val) {
+	IntegerType * size_type = Type::getIntNTy(getLLVMContext(), sizeof(size_t)*8);
+	return ConstantInt::get(size_type, val);
 }
 
 ConstantInt* RawContext::createTrue() {
@@ -532,5 +538,6 @@ StructType* RawContext::CreateStringStruct() {
 
 //Provide support for some extern functions
 void RawContext::registerFunction(const char* funcName, Function* func)	{
+	std::cout << " -------------------------------------------------------------- " << funcName << std::endl;
 	availableFunctions[funcName] = func;
 }

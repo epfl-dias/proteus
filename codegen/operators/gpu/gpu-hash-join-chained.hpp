@@ -43,6 +43,7 @@ public:
             RawOperator * const                 probe_child,
             int                                 hash_bits,
             GpuRawContext *                     context,
+            size_t                              maxBuildInputSize,
             string                              opLabel = "hj_chained");
     virtual ~GpuHashJoinChained() { LOG(INFO)<< "Collapsing GpuHashJoinChained operator";}
 
@@ -82,6 +83,7 @@ private:
     int                     probe_head_param_id;
 
     int                     hash_bits  ;
+    size_t                  maxBuildInputSize;
 
     GpuExprMaterializer *   build_mat  ;
     GpuExprMaterializer *   probe_mat  ;

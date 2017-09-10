@@ -41,39 +41,73 @@ public:
 
     virtual llvm::Argument * getArgument(size_t id) const;
     virtual llvm::Value    * getStateVar(size_t id) const;
+    virtual llvm::Value    * getStateVar()          const;
+    virtual llvm::Value    * getSubStateVar()       const;
+    virtual std::vector<llvm::Type *> getStateVars()          const;
 
     void registerOpen (std::function<void (RawPipeline * pip)> open );
     void registerClose(std::function<void (RawPipeline * pip)> close);
 
-    void pushNewPipeline();
+    void pushNewPipeline    (RawPipelineGen *copyStateFrom = NULL);
+    void pushNewCpuPipeline (RawPipelineGen *copyStateFrom = NULL);
     void popNewPipeline();
+    RawPipelineGen * removeLatestPipeline();
+
+    virtual Module      * getModule () const {
+        return generators.back()->getModule ();
+    }
+    
+    virtual IRBuilder<> * getBuilder() const {
+        return generators.back()->getBuilder();
+    }
+
+    Function * const getFunction(string funcName) const{
+        return generators.back()->getFunction(funcName);
+    }
 
     virtual void setGlobalFunction(Function *F = nullptr);
-    virtual void prepareFunction(Function *F);
+    virtual void prepareFunction(Function *F){}
 
     virtual llvm::Value * threadId ();
     virtual llvm::Value * threadNum();
     virtual llvm::Value * laneId   ();
     virtual void          createMembar_gl();
 
-    string emitPTX();
+    virtual BasicBlock* getEndingBlock()                            {return generators.back()->getEndingBlock();}
+    virtual void        setEndingBlock(BasicBlock* codeEnd)         {generators.back()->setEndingBlock(codeEnd);}
+    virtual BasicBlock* getCurrentEntryBlock()                      {return generators.back()->getCurrentEntryBlock();}
+    virtual void        setCurrentEntryBlock(BasicBlock* codeEntry) {generators.back()->setCurrentEntryBlock(codeEntry);}
+
+
+    // string emitPTX();
 
     void compileAndLoad();
 
-    std::vector<CUfunction> getKernel();
+    // std::vector<CUfunction> getKernel();
     std::vector<RawPipeline *> getPipelines();
+    
+    //Provide support for some extern functions
+    virtual void registerFunction(const char* funcName, Function* func);
 
 protected:
     virtual void createJITEngine();
 
+public:
     std::unique_ptr<TargetMachine> TheTargetMachine;
+    ExecutionEngine * TheExecutionEngine;
+    ExecutionEngine * TheCPUExecutionEngine;
 
-    CUmodule cudaModule;
+    // CUmodule cudaModule;
 
-    string                  kernelName;
-    std::vector<RawPipelineGen> pipelines ;
+protected:
+    string                      kernelName;
+    size_t                      pip_cnt   ;
 
-    std::vector<RawPipelineGen> generators;
+    // Module * TheCPUModule;
+
+    std::vector<RawPipelineGen *> pipelines ;
+
+    std::vector<RawPipelineGen *> generators;
 };
 
 #endif /* GPU_RAW_CONTEXT_HPP_ */

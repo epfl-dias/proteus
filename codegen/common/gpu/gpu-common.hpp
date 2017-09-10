@@ -24,13 +24,38 @@
 #ifndef GPU_COMMON_HPP_
 #define GPU_COMMON_HPP_
 
+#include "common/common.hpp"
 #include "cuda.h"
 #include "cuda_runtime_api.h"
+#include "nvml.h"
+#include <numaif.h>
+#include <numa.h>
+#include <thread>
 
+// #include "multigpu/src/common.cuh"
 #include <cstdint>
 #include <iostream>
 
-constexpr uint32_t warp_size = 32;
+#ifndef WARPSIZE
+#define WARPSIZE (32)
+#endif
+
+#ifndef DEFAULT_BUFF_CAP
+#define DEFAULT_BUFF_CAP (16*1024*1024)
+#endif
+
+extern int                                                 cpu_cnt;
+extern cpu_set_t                                          *gpu_affinity;
+extern cpu_set_t                                          *cpu_numa_affinity;
+
+typedef size_t   vid_t;
+typedef uint32_t cid_t;
+typedef uint32_t sel_t;
+typedef uint32_t cnt_t;
+
+constexpr uint32_t warp_size     =         WARPSIZE;
+constexpr cnt_t    vector_size   =   32*4*warp_size;
+constexpr cnt_t    h_vector_size = DEFAULT_BUFF_CAP;
 
 #define gpu_run(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 
@@ -57,6 +82,101 @@ __host__ __device__ inline void gpuAssert(CUresult code, const char *file, int l
 #endif
     }
 }
+
+__host__ __device__ inline void gpuAssert(nvmlReturn_t code, const char *file, int line, bool abort=true){
+    if (code != NVML_SUCCESS) {
+#ifndef __CUDA_ARCH__
+        const char * msg = nvmlErrorString(code);
+        fprintf(stderr,"GPUassert: %s %s %d\n", msg, file, line);
+        if (abort) exit(code);
+#else
+        printf("GPUassert: %s %s %d\n", "error", file, line);
+#endif
+    }
+}
+
+inline int get_num_of_gpus(){
+    int devices;
+    gpu_run(cudaGetDeviceCount(&devices));
+    return devices;
+}
+
+inline int get_current_gpu(){
+    int device;
+    gpu_run(cudaGetDevice(&device));
+    return device;
+}
+
+std::ostream& operator<<(std::ostream& out, const cpu_set_t& cpus);
+
+class exec_location{
+private:
+    int         gpu_device;
+    cpu_set_t   cpus;
+
+public:
+    exec_location(){
+        gpu_run(cudaGetDevice(&gpu_device));
+
+        CPU_ZERO(&cpus);
+        pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpus);
+    }
+
+    exec_location(int gpu): gpu_device(gpu){
+        cpus = gpu_affinity[gpu_device];
+    }
+
+    exec_location(int gpu, cpu_set_t cpus): gpu_device(gpu), cpus(cpus){
+    }
+
+    exec_location(cpu_set_t cpus): cpus(cpus){
+        gpu_device = -1;
+    }
+
+public:
+    void activate() const{
+        std::cout << "d" << gpu_device << " " << cpus << std::endl;
+        if (gpu_device >= 0) gpu_run(cudaSetDevice(gpu_device));
+        pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpus);
+    }
+
+};
+
+class set_device_on_scope{
+private:
+    int device;
+public:
+    inline set_device_on_scope(int set){
+        gpu_run(cudaGetDevice(&device));
+        if (set >= 0) gpu_run(cudaSetDevice(set));
+    }
+
+    inline ~set_device_on_scope(){
+        gpu_run(cudaSetDevice(device));
+    }
+};
+
+
+class set_exec_location_on_scope{
+private:
+    exec_location old;
+public:
+    inline set_exec_location_on_scope(int gpu){
+        exec_location{gpu}.activate();
+    }
+
+    inline set_exec_location_on_scope(int gpu, cpu_set_t cpus){
+        exec_location{gpu, cpus}.activate();
+    }
+
+    inline set_exec_location_on_scope(const exec_location &loc){
+        loc.activate();
+    }
+
+    inline ~set_exec_location_on_scope(){
+        old.activate();
+    }
+};
 
 __device__ __forceinline__ uint32_t get_laneid(){
     uint32_t laneid;
@@ -192,7 +312,9 @@ const dim3 defaultGridDim ( 128, 1, 1);
 
 [[deprecated]] void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim);
 [[deprecated]] void launch_kernel(CUfunction function, void ** args, dim3 gridDim);
-[[deprecated]] void launch_kernel(CUfunction function, void ** args);
+extern "C" {
+    [[deprecated]] void launch_kernel(CUfunction function, void ** args);
+}
 
 
 

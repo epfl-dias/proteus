@@ -164,6 +164,10 @@ void MapToVec( const  M & m, V & v ) {
     }
 }
 
+typedef size_t   vid_t;
+typedef uint32_t cid_t;
+typedef uint32_t sel_t;
+typedef uint32_t cnt_t;
 
 class time_block{
 private:
@@ -181,5 +185,28 @@ public:
 };
 
 size_t getFileSize(const char* filename);
+
+enum data_loc{
+    GPU_RESIDENT,
+    PINNED,
+    PAGEABLE
+};
+
+struct mmap_file{
+private:
+    int    fd;
+
+    size_t filesize;
+    void *     data;
+    void * gpu_data;
+    data_loc   loc ;
+    
+public:
+    mmap_file(std::string name, data_loc loc = GPU_RESIDENT);
+    ~mmap_file();
+
+    const void * getData() const;
+    size_t getFileSize() const;
+};
 
 #endif /* COMMON_HPP_ */

@@ -23,9 +23,9 @@
 
 #include "plugins/binary-col-plugin.hpp"
 
-BinaryColPlugin::BinaryColPlugin(RawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields)
+BinaryColPlugin::BinaryColPlugin(RawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields, bool sizeInFile)
 	: fnamePrefix(fnamePrefix), rec(rec), wantedFields(whichFields), context(context),
-	  posVar("offset"), bufVar("buf"), fsizeVar("fileSize"), sizeVar("size"), itemCtrVar("itemCtr") {
+	  posVar("offset"), bufVar("buf"), fsizeVar("fileSize"), sizeVar("size"), itemCtrVar("itemCtr"), sizeInFile(sizeInFile) {
 
 	isCached = false;
 	val_size = NULL;
@@ -188,13 +188,14 @@ BinaryColPlugin::~BinaryColPlugin() {}
 
 
 void BinaryColPlugin::init()	{
+	context->setGlobalFunction();
 
-	Function* F = context->getGlobalFunction();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);
 	PointerType* int64PtrType = Type::getInt64PtrTy(llvmContext);
 	Type* int64Type = Type::getInt64Ty(llvmContext);
 	IRBuilder<>* Builder = context->getBuilder();
+	Function *F = Builder->GetInsertBlock()->getParent();
 
 	/* XXX Very silly conversion */
 	list<RecordAttribute*>::iterator attrIter = rec.getArgs().begin();
@@ -213,9 +214,12 @@ void BinaryColPlugin::init()	{
 	vector<RecordAttribute*>::iterator it;
 	int cnt = 0;
 	for (it = wantedFields.begin(); it != wantedFields.end(); it++)	{
-		buf[cnt] = (char*) mmap(NULL, colFilesize[cnt], PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd[cnt], 0);
-		if (buf[cnt] == MAP_FAILED )	{
-			throw runtime_error(string("csv.mmap"));
+		{
+			time_block t("Topen");
+			buf[cnt] = (char*) mmap(NULL, colFilesize[cnt], PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd[cnt], 0);
+			if (buf[cnt] == MAP_FAILED )	{
+				throw runtime_error(string("csv.mmap"));
+			}
 		}
 
 		RecordAttribute *attr = *it;
@@ -254,7 +258,6 @@ void BinaryColPlugin::init()	{
 			Builder->CreateStore(unshiftedPtr,dictMem);
 			NamedValuesBinaryCol[currDictVar] = bufMem;
 		}
-		cnt++;
 
 		/* Deal with preparation of input arrays too */
 		string bufVarStr = string(bufVar);
@@ -263,7 +266,11 @@ void BinaryColPlugin::init()	{
 
 
 		if (it == wantedFields.begin()) {
-			val_size = readAsInt64LLVM(*attr);
+			if (sizeInFile){
+				val_size = readAsInt64LLVM(*attr);
+			} else {
+				val_size = context->createSizeT(colFilesize[cnt] / context->getSizeOf(attr->getOriginalType()->getLLVMType(llvmContext)));
+			}
 #ifdef DEBUG
 			vector<Value*> ArgsV;
 			ArgsV.push_back(val_size);
@@ -273,10 +280,12 @@ void BinaryColPlugin::init()	{
 #endif
 		}
 
+		cnt++;
+
 		/* Move all buffer pointers to the actual data
 		 * and cast appropriately
 		 */
-		prepareArray(*attr);
+		prepareArray(*attr); //FIXME: set this as an option
 
 		/* What is the point of caching what is already converted and compact? */
 //		{
@@ -917,7 +926,12 @@ void BinaryColPlugin::prepareArray(RecordAttribute attName)	{
 
 	//Increment and store back
 	Value* val_curr_pos = Builder->CreateLoad(mem_pos);
-	Value* val_new_pos = Builder->CreateAdd(val_curr_pos,val_offset);
+	Value* val_new_pos;
+	if (sizeInFile){
+		val_new_pos = Builder->CreateAdd(val_curr_pos,val_offset);
+	} else {
+		val_new_pos = val_curr_pos;
+	}
 	/* Not storing this 'offset' - we want the cast buffer to
 	 * conceptually start from 0 */
 	//	Builder->CreateStore(val_new_pos,mem_pos);
@@ -1006,8 +1020,6 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 
 	BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanCond", F);
 
-	// Insert an explicit fall through from the current (entry) block to the CondBB.
-	Builder->CreateBr(CondBB);
 	// Start insertion in CondBB.
 	Builder->SetInsertPoint(CondBB);
 
@@ -1109,6 +1121,14 @@ void BinaryColPlugin::scan(const RawOperator& producer)
 	opParent->consume(context,*state);
 
 	Builder->CreateBr(CondBB);
+
+	// Insert an explicit fall through from the current (entry) block to the CondBB.
+	Builder->SetInsertPoint(context->getCurrentEntryBlock());
+	Builder->CreateBr(CondBB);
+
+	Builder->SetInsertPoint(context->getEndingBlock());
+	Builder->CreateRetVoid();
+
 
 	//	Finish up with end (the AfterLoop)
 	// 	Any new code will be inserted in AfterBB.

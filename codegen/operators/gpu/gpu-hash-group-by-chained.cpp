@@ -34,6 +34,7 @@ GpuHashGroupByChained::GpuHashGroupByChained(
             int                                             hash_bits,
 
             GpuRawContext *                                 context,
+            size_t                                          maxInputSize,
             string                                          opLabel): 
                 agg_exprs(agg_exprs),
                 packet_widths(packet_widths),
@@ -41,6 +42,7 @@ GpuHashGroupByChained::GpuHashGroupByChained(
                 hash_bits(hash_bits),
                 UnaryRawOperator(child), 
                 context(context),
+                maxInputSize(maxInputSize),
                 opLabel(opLabel){
 }
 
@@ -534,25 +536,25 @@ void GpuHashGroupByChained::open(RawPipeline * pip){
 
     for (const auto &w: packet_widths){
         next.emplace_back();
-        gpu_run(cudaMalloc((void **) &(next.back()), (w/8) * 1024 * 1024 * 256)); //FIXME constant ==> max input size
+        gpu_run(cudaMalloc((void **) &(next.back()), (w/8) * maxInputSize)); //FIXME constant ==> max input size
     }
 
     gpu_run(cudaMemset(  cnt,  0,                    sizeof(int32_t)));
     gpu_run(cudaMemset(first, -1, (1 << hash_bits) * sizeof(int32_t)));
 
-    pip->setStateVar<int32_t  *>(context, cnt_param_id , cnt);
-    pip->setStateVar<int32_t  *>(context, head_param_id, first);
+    pip->setStateVar<int32_t  *>(cnt_param_id , cnt);
+    pip->setStateVar<int32_t  *>(head_param_id, first);
 
     for (size_t i = 0 ; i < out_param_ids.size() ; ++i){
-        pip->setStateVar<void *>(context, out_param_ids[i], next[i]);
+        pip->setStateVar<void *>(out_param_ids[i], next[i]);
     }
 }
 
 void GpuHashGroupByChained::close(RawPipeline * pip){
-    gpu_run(cudaFree(pip->getStateVar<int32_t  *>(context, cnt_param_id)));
-    gpu_run(cudaFree(pip->getStateVar<int32_t  *>(context, head_param_id)));
+    gpu_run(cudaFree(pip->getStateVar<int32_t  *>(cnt_param_id)));
+    gpu_run(cudaFree(pip->getStateVar<int32_t  *>(head_param_id)));
 
     for (size_t i = 0 ; i < out_param_ids.size() ; ++i){
-        gpu_run(cudaFree(pip->getStateVar<void *>(context, out_param_ids[i])));
+        gpu_run(cudaFree(pip->getStateVar<void *>(out_param_ids[i])));
     }
 }

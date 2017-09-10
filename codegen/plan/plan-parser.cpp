@@ -1,10 +1,15 @@
 #include "plan/plan-parser.hpp"
 #include "plugins/gpu-col-scan-plugin.hpp"
+#include "plugins/gpu-col-scan-to-blocks-plugin.hpp"
 #include "operators/gpu/gpu-join.hpp"
 #include "operators/gpu/gpu-hash-join-chained.hpp"
 #include "operators/gpu/gpu-hash-group-by-chained.hpp"
 #include "operators/gpu/gpu-reduce.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
+#include "operators/cpu-to-gpu.hpp"
+#include "operators/mem-move-device.hpp"
+#include "operators/exchange.hpp"
+#include "operators/hash-rearrange.hpp"
 
 /* too primitive */
 struct PlanHandler {
@@ -181,6 +186,8 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 	if (strcmp(opName, "reduce") == 0) {
 		/* "Multi - reduce"! */
+		/* parse operator input */
+		RawOperator* childOp = parseOperator(val["input"]);
 
 		/* get monoid(s) */
 		assert(val.HasMember("accumulator"));
@@ -213,8 +220,6 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val["p"].IsObject());
 		expressions::Expression *p = parseExpression(val["p"]);
 
-		/* parse operator input */
-		RawOperator* childOp = parseOperator(val["input"]);
 		/* 'Multi-reduce' used */
 		if (val.HasMember("gpu") && val["gpu"].GetBool()){
 			assert(dynamic_cast<GpuRawContext *>(this->ctx));
@@ -290,6 +295,9 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		newOp = new OuterUnnest(p, *projPath, childOp);
 		childOp->setParent(newOp);
 	} else if(strcmp(opName, "hashgroupby-chained") == 0)	{
+		/* parse operator input */
+		RawOperator* child = parseOperator(val["input"]);
+
 		assert(val.HasMember("gpu") && val["gpu"].GetBool());
 
 		assert(val.HasMember("hash_bits"));
@@ -335,15 +343,26 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			key_expr.emplace_back(parseExpression(keyJSON[i]));
 		}
 
-		/* parse operator input */
-		RawOperator* child = parseOperator(val["input"]);
+		assert(val.HasMember("maxInputSize"));
+		assert(val["maxInputSize"].IsUint64());
+		
+		size_t maxInputSize = val["maxInputSize"].GetUint64();
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
 		newOp = new GpuHashGroupByChained(e, widths, key_expr, child, hash_bits,
-							dynamic_cast<GpuRawContext *>(this->ctx));
+							dynamic_cast<GpuRawContext *>(this->ctx), maxInputSize);
 
 		child->setParent(newOp);
 	} else if(strcmp(opName, "hashjoin-chained") == 0)	{
+		/* parse operator input */
+		assert(val.HasMember("probe_input"));
+		assert(val["probe_input"].IsObject());
+		RawOperator* probe_op = parseOperator(val["probe_input"]);
+		/* parse operator input */
+		assert(val.HasMember("build_input"));
+		assert(val["build_input"].IsObject());
+		RawOperator* build_op = parseOperator(val["build_input"]);
+
 		assert(val.HasMember("gpu") && val["gpu"].GetBool());
 
 		assert(val.HasMember("hash_bits"));
@@ -382,11 +401,6 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val.HasMember("build_k"));
 		expressions::Expression *build_key_expr = parseExpression(val["build_k"]);
 
-		/* parse operator input */
-		assert(val.HasMember("build_input"));
-		assert(val["build_input"].IsObject());
-		RawOperator* build_op = parseOperator(val["build_input"]);
-
 		assert(val.HasMember("probe_w"));
 		assert(val["probe_w"].IsArray());
 		vector<size_t> probe_widths;
@@ -419,21 +433,26 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			probe_e.emplace_back(outExpr, probe_exprsJSON[i]["packet"].GetInt(), probe_exprsJSON[i]["offset"].GetInt());
 		}
 
-		/* parse operator input */
-		assert(val.HasMember("probe_input"));
-		assert(val["probe_input"].IsObject());
-		RawOperator* probe_op = parseOperator(val["probe_input"]);
+		assert(val.HasMember("maxBuildInputSize"));
+		assert(val["maxBuildInputSize"].IsUint64());
+		
+		size_t maxBuildInputSize = val["maxBuildInputSize"].GetUint64();
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
 		newOp = new GpuHashJoinChained(build_e, build_widths, build_key_expr, build_op,
 							probe_e, probe_widths, probe_key_expr, probe_op, hash_bits,
-							dynamic_cast<GpuRawContext *>(this->ctx));
+							dynamic_cast<GpuRawContext *>(this->ctx), maxBuildInputSize);
 
 		build_op->setParent(newOp);
 		probe_op->setParent(newOp);
 	}
 	else if(strcmp(opName, "join") == 0)	{
 		if (val.HasMember("gpu") && val["gpu"].GetBool()){
+			/* parse operator input */
+			RawOperator* build_op = parseOperator(val["build_input"]);
+			/* parse operator input */
+			RawOperator* probe_op = parseOperator(val["probe_input"]);
+
 			assert(val.HasMember("build_w"));
 			assert(val["build_w"].IsArray());
 			vector<size_t> build_widths;
@@ -463,9 +482,6 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 				build_e.emplace_back(outExpr, build_exprsJSON[i]["packet"].GetInt(), build_exprsJSON[i]["offset"].GetInt());
 			}
 
-			/* parse operator input */
-			RawOperator* build_op = parseOperator(val["build_input"]);
-
 			assert(val.HasMember("probe_w"));
 			assert(val["probe_w"].IsArray());
 			vector<size_t> probe_widths;
@@ -494,9 +510,6 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 				probe_e.emplace_back(outExpr, probe_exprsJSON[i]["packet"].GetInt(), probe_exprsJSON[i]["offset"].GetInt());
 			}
-
-			/* parse operator input */
-			RawOperator* probe_op = parseOperator(val["probe_input"]);
 
 			assert(dynamic_cast<GpuRawContext *>(this->ctx));
 			newOp = new GpuJoin(build_e, build_widths, build_op, 
@@ -662,6 +675,8 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		const char *keyMat = "fields";
 
 		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsObject());
 		RawOperator* childOp = parseOperator(val["input"]);
 
 		/* get monoid(s) */
@@ -782,13 +797,16 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		childOp->setParent(newOp);
 	}
 	else if (strcmp(opName, "select") == 0) {
+		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsObject());
+		RawOperator* childOp = parseOperator(val["input"]);
+
 		/* parse filtering expression */
 		assert(val.HasMember("p"));
 		assert(val["p"].IsObject());
 		expressions::Expression *p = parseExpression(val["p"]);
 
-		/* parse operator input */
-		RawOperator* childOp = parseOperator(val["input"]);
 		newOp = new Select(p, childOp);
 		childOp->setParent(newOp);
 	}
@@ -796,8 +814,139 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val.HasMember(keyPg));
 		assert(val[keyPg].IsObject());
 		Plugin *pg = this->parsePlugin(val[keyPg]);
+
 		newOp =  new Scan(this->ctx,*pg);
+
+		GpuColScanPlugin * gpu_scan_pg = dynamic_cast<GpuColScanPlugin *>(pg);
+		if (gpu_scan_pg && gpu_scan_pg->getChild()) gpu_scan_pg->getChild()->setParent(newOp);
+	} else if(strcmp(opName,"cpu-to-gpu") == 0)	{
+		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsObject());
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		assert(val.HasMember("projections"));
+		assert(val["projections"].IsArray());
+
+		vector<RecordAttribute*> projections;
+		for (SizeType i = 0; i < val["projections"].Size(); i++)
+		{
+			assert(val["projections"][i].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+			projections.push_back(recAttr);
+		}
+
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+		newOp =  new CpuToGpu(childOp, ((GpuRawContext *) this->ctx), projections);
+		childOp->setParent(newOp);
+	} else if(strcmp(opName,"hash-rearrange") == 0)	{
+		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsObject());
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		assert(val.HasMember("projections"));
+		assert(val["projections"].IsArray());
+
+		vector<RecordAttribute*> projections;
+		for (SizeType i = 0; i < val["projections"].Size(); i++)
+		{
+			assert(val["projections"][i].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+			projections.push_back(recAttr);
+		}
+		
+		RecordAttribute * hashAttr = NULL;
+		// register hash as an attribute
+		if (val.HasMember("hashProject")){
+			assert(val["hashProject"].IsObject());
+
+			hashAttr = parseRecordAttr(val["hashProject"]);
+
+			InputInfo * datasetInfo = (this->catalogParser).getInputInfo(hashAttr->getRelationName());
+			RecordType * rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfo->exprType)->getNestedType())};
+
+			rec->appendAttribute(hashAttr);
+
+			datasetInfo->exprType = new BagType{*rec};
+		}
+
+		assert(val.HasMember("e"));
+		assert(val["e"].IsObject());
+
+		expressions::Expression *hashExpr = parseExpression(val["e"]);
+
+		int numOfBuckets = 2;
+		if (val.HasMember("buckets")){
+			assert(val["buckets"].IsInt());
+			numOfBuckets = val["buckets"].GetInt();
+		}
+
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+		newOp =  new HashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
+		childOp->setParent(newOp);
+	} else if(strcmp(opName,"mem-move-device") == 0) {
+		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsObject());
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		assert(val.HasMember("projections"));
+		assert(val["projections"].IsArray());
+
+		vector<RecordAttribute*> projections;
+		for (SizeType i = 0; i < val["projections"].Size(); i++)
+		{
+			assert(val["projections"][i].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+			projections.push_back(recAttr);
+		}
+
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+		newOp =  new MemMoveDevice(childOp, ((GpuRawContext *) this->ctx), projections);
+		childOp->setParent(newOp);
+	} else if(strcmp(opName,"exchange") == 0) {
+		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsObject());
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		assert(val.HasMember("projections"));
+		assert(val["projections"].IsArray());
+
+		vector<RecordAttribute*> projections;
+		for (SizeType i = 0; i < val["projections"].Size(); i++)
+		{
+			assert(val["projections"][i].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+			projections.push_back(recAttr);
+		}
+
+		assert(val.HasMember("numOfParents"));
+		assert(val["numOfParents"].IsInt());
+		int numOfParents = val["numOfParents"].GetInt();
+
+		int slack = 8;
+		if (val.HasMember("slack")){
+			assert(val["slack"].IsInt());
+			slack = val["slack"].GetInt();
+		}
+
+		expressions::Expression * hash = NULL;
+		if (val.HasMember("target")){
+			assert(val["target"].IsObject());
+			hash = parseExpression(val["target"]);
+		}
+
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+		newOp =  new Exchange(childOp, ((GpuRawContext *) this->ctx), numOfParents, projections, slack, hash);
+		childOp->setParent(newOp);
 	} else if (strcmp(opName, "materializer") == 0){
+		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsObject());
+		RawOperator* childOp = parseOperator(val["input"]);
+
 		assert(val.HasMember("w"));
 		assert(val["w"].IsArray());
 		vector<size_t> widths;
@@ -827,8 +976,6 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			e.emplace_back(outExpr, exprsJSON[i]["packet"].GetInt(), exprsJSON[i]["offset"].GetInt());
 		}
 
-		/* parse operator input */
-		RawOperator* childOp = parseOperator(val["input"]);
 		/* 'Multi-reduce' used */
 		if (val.HasMember("gpu") && val["gpu"].GetBool()){
 			assert(dynamic_cast<GpuRawContext *>(this->ctx));
@@ -1359,7 +1506,13 @@ RecordAttribute* ExpressionParser::parseRecordAttr(const rapidjson::Value& val) 
 		recArgType = attr->getOriginalType();
 	}
 
-	return new RecordAttribute(attrNo, relName, attrName, recArgType);
+	bool is_block = false;
+	if (val.HasMember("isBlock")){
+		assert(val["isBlock"].IsBool());
+		is_block = val["isBlock"].GetBool();
+	}
+
+	return new RecordAttribute(attrNo, relName, attrName, recArgType, is_block);
 }
 
 Monoid ExpressionParser::parseAccumulator(const char *acc) {
@@ -1530,8 +1683,13 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 			projections->push_back(recAttr);
 		}
 
+		bool sizeInFile = true;
+		if (val.HasMember("sizeInFile")){
+			assert(val["sizeInFile"].IsBool());
+			sizeInFile = val["sizeInFile"].GetBool();
+		}
 		newPg = new BinaryColPlugin(this->ctx, *pathDynamicCopy, *recType,
-				*projections);
+				*projections, sizeInFile);
 	} else if (strcmp(pgType, "gpu") == 0) {
 		assert(val.HasMember(keyProjectionsGPU));
 		assert(val[keyProjectionsGPU].IsArray());
@@ -1545,7 +1703,28 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 		}
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
 
-		newPg = new GpuColScanPlugin(dynamic_cast<GpuRawContext *>(this->ctx), *pathDynamicCopy, *recType, projections);
+		RawOperator* childOp = NULL;
+		if (val.HasMember("input")) {
+			assert(val["input"].IsObject());
+			childOp = parseOperator(val["input"]);
+		}
+
+		newPg = new GpuColScanPlugin(dynamic_cast<GpuRawContext *>(this->ctx), *pathDynamicCopy, *recType, projections, childOp);
+
+	} else if (strcmp(pgType, "block") == 0) {
+		assert(val.HasMember(keyProjectionsGPU));
+		assert(val[keyProjectionsGPU].IsArray());
+
+		vector<RecordAttribute*> projections;
+		for (SizeType i = 0; i < val[keyProjectionsGPU].Size(); i++)
+		{
+			assert(val[keyProjectionsGPU][i].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val[keyProjectionsGPU][i]);
+			projections.push_back(recAttr);
+		}
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+
+		newPg = new GpuColScanToBlockPlugin(dynamic_cast<GpuRawContext *>(this->ctx), *pathDynamicCopy, *recType, projections);
 	} else {
 		string err = string("Unknown Plugin Type: ") + pgType;
 		LOG(ERROR)<< err;

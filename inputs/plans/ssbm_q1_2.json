@@ -56,7 +56,8 @@
   "input": {
     "operator": "hashjoin-chained",
     "gpu": true,
-    "hash_bits": 10,
+    "hash_bits": 6,
+    "maxBuildInputSize": 64,
     "build_k": {
       "expression": "recordProjection",
       "type": {

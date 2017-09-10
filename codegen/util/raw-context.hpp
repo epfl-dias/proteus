@@ -50,6 +50,17 @@
 //Forward Declaration
 class JSONObject;
 
+
+void __attribute__((unused)) addOptimizerPipelineDefault(legacy::FunctionPassManager * TheFPM);
+
+#if MODULEPASS
+void __attribute__((unused)) addOptimizerPipelineInlining(ModulePassManager * TheMPM);
+#endif
+
+void __attribute__((unused)) addOptimizerPipelineVectorization(legacy::FunctionPassManager * TheFPM);
+
+
+
 class RawContext {
 public:
 
@@ -73,16 +84,17 @@ public:
 
 	ExecutionEngine const * const getExecEngine() {return TheExecutionEngine;}
 
-	virtual void setGlobalFunction(Function *F);
+	virtual void setGlobalFunction(Function *F = nullptr);
 	Function * getGlobalFunction() const {return TheFunction;}
-	Module * getModule() const {return TheModule;}
-	IRBuilder<> * getBuilder() const {return TheBuilder;}
-	Function* const getFunction(string funcName) const;
+	virtual Module * getModule() const {return TheModule;}
+	virtual IRBuilder<> * getBuilder() const {return TheBuilder;}
+	virtual Function* const getFunction(string funcName) const;
 
 	ConstantInt* createInt8(char val);
 	ConstantInt* createInt32(int val);
 	ConstantInt* createInt64(int val);
 	ConstantInt* createInt64(size_t val);
+	ConstantInt* createSizeT(size_t val);
 	ConstantInt* createTrue();
 	ConstantInt* createFalse();
 	
@@ -140,11 +152,11 @@ public:
 	void CodegenMemcpy(Value* dst, Value* src, int size);
 	void CodegenMemcpy(Value* dst, Value* src, Value* size);
 
-	void registerFunction(const char*, Function*);
-	BasicBlock* getEndingBlock() {return codeEnd;}
-	void setEndingBlock(BasicBlock* codeEnd) {this->codeEnd = codeEnd;}
-	BasicBlock* getCurrentEntryBlock() {return currentCodeEntry;}
-	void setCurrentEntryBlock(BasicBlock* codeEntry) {this->currentCodeEntry = codeEntry;}
+	virtual void registerFunction(const char*, Function*);
+	virtual BasicBlock* getEndingBlock() {return codeEnd;}
+	virtual void setEndingBlock(BasicBlock* codeEnd) {this->codeEnd = codeEnd;}
+	virtual BasicBlock* getCurrentEntryBlock() {return currentCodeEntry;}
+	virtual void setCurrentEntryBlock(BasicBlock* codeEntry) {this->currentCodeEntry = codeEntry;}
 
 	/**
 	 * Not sure the HT methods belong here
@@ -173,14 +185,16 @@ protected:
 	Module * TheModule;
 	IRBuilder<> * TheBuilder;
 
+public:
 	//Used to include optimization passes
 	legacy::FunctionPassManager * TheFPM;
 #if MODULEPASS
 	ModulePassManager * TheMPM;
 #endif
 
-	//JIT Driver
 	ExecutionEngine * TheExecutionEngine;
+protected:
+	//JIT Driver
 	Function * TheFunction;
 	map<string, Function*> availableFunctions;
 

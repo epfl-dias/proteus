@@ -27,9 +27,9 @@
 #include "common/common.hpp"
 
 /* Original.*/
-//enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET };
+//enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, BLOCK };
 /* Extended due to caching (for now)*/
-enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, INT64, COMPOSITE };
+enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, INT64, COMPOSITE, BLOCK};
 
 class ExpressionType {
 public:
@@ -37,11 +37,20 @@ public:
 	virtual typeID getTypeID() const = 0;
 	virtual ~ExpressionType()  {}
 	virtual bool isPrimitive() const = 0;
+	virtual Type *getLLVMType(LLVMContext &ctx) const {
+		string error_msg = string("Type " + getType() + " is not mapped into an LLVM-type.");
+		LOG(ERROR) << error_msg;
+		throw runtime_error(error_msg);
+	}
 };
 
 class PrimitiveType : public ExpressionType	{
 public:
 	virtual Type *getLLVMType(LLVMContext &ctx) const = 0;
+	virtual size_t getSizeInBits(LLVMContext &ctx) const{
+		Type * llvm_type = getLLVMType(ctx);
+		return llvm_type->getPrimitiveSizeInBits();
+	}
 };
 
 class BoolType : public PrimitiveType {
@@ -98,6 +107,16 @@ private:
 	const ExpressionType& type;
 };
 
+class BlockType : public CollectionType	{
+public:
+	BlockType(const ExpressionType& type) : CollectionType(type)	{}
+	string getType() 	const									{ return string("BlockType(")+this->getNestedType().getType()+string(")"); }
+	typeID getTypeID() 	const									{ return BLOCK; }
+	bool isPrimitive() 	const									{ return false; }
+	~BlockType() 												{}
+	Type *getLLVMType(LLVMContext &ctx) const 					{ return PointerType::get(getNestedType().getLLVMType(ctx), 0);}
+};
+
 class ListType : public CollectionType	{
 public:
 	ListType(const ExpressionType& type) : CollectionType(type)	{}
@@ -131,8 +150,8 @@ public:
 	RecordAttribute() : attrNo(-1), projected(false), type(NULL), relName(""), attrName("")	{
 		cout << "ANONYMOUS CONSTRUCTOR!!" << endl;
 	}
-	RecordAttribute(int no, string relName, string attrName, const ExpressionType* type)
-		: attrNo(no), relName(relName), originalRelName(relName), attrName(attrName), type(type), projected(false) 	{}
+	RecordAttribute(int no, string relName, string attrName, const ExpressionType* type, bool make_block = false)
+		: attrNo(no), relName(relName), originalRelName(relName), attrName(attrName), type(make_block ? new BlockType(*type) : type), projected(false) 	{}
 	RecordAttribute(int no, string relName, const char* attrName, const ExpressionType* type)
 			: attrNo(no), relName(relName), originalRelName(relName), type(type), projected(false) 	{
 		this->attrName = string(attrName);
@@ -156,7 +175,7 @@ public:
 		}
 	}
 
-	RecordAttribute(const RecordAttribute& obj) : type(obj.getOriginalType()) {
+	RecordAttribute(const RecordAttribute& obj, bool make_block) : type(make_block ? new BlockType(*(obj.getOriginalType())) : obj.getOriginalType()) {
 		this->attrNo = obj.attrNo;
 		this->attrName = obj.attrName;
 		this->relName = obj.relName;
@@ -174,6 +193,7 @@ public:
 		return attrName +" "+type->getType();
 	}
 	const ExpressionType* getOriginalType() const					{ return type; }
+	Type * getLLVMType(LLVMContext &ctx) 	const					{ return getOriginalType()->getLLVMType(ctx); }
 	string getName()						const					{ return attrName; }
 	string getRelationName() 				const					{ return relName; }
 	string getOriginalRelationName() 		const					{ return originalRelName; }
@@ -215,6 +235,11 @@ public:
 		}
 	}
 
+	RecordType(const RecordType &rec) {
+		argsMap.insert(rec.argsMap.begin(), rec.argsMap.end());
+		args.insert(args.begin(), rec.args.begin(), rec.args.end());
+	}
+
 	string getType() const {
 		stringstream ss;
 		ss<<"Record(";
@@ -237,12 +262,19 @@ public:
 	bool isPrimitive() 	const					{ return false; }
 	~RecordType() 								{}
 
+	void appendAttribute(RecordAttribute * attr){
+#ifndef NDEBUG
+		auto inserted = 
+#endif
+		argsMap.emplace(attr->getAttrName(), attr);
+		assert(inserted.second && "Attribute already exists!");
+		args.push_back(attr);
+	}
+
 	const RecordAttribute * getArg(string name) const {
-		for (const auto &attr: args){
-			if (name == attr->getAttrName()) return attr;
-		}
-		// assert(false && "Argument does not exist");
-		return NULL;
+		auto r = argsMap.find(name);
+		if (r == argsMap.end()) return NULL;
+		return r->second;
 	}
 
 private:
