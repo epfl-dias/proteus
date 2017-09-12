@@ -115,19 +115,27 @@
         }
       },
       "input": {
-        "operator": "scan",
-        "plugin": {
-          "name": "inputs/ssbm/date.csv",
-          "type": "gpu",
+        "operator": "block-to-tuples",
+        "projections": [{
+          "relName": "inputs/ssbm/date.csv",
+          "attrName": "d_datekey"
+        },{
+          "relName": "inputs/ssbm/date.csv",
+          "attrName": "d_year"
+        }],
+        "input": {
+          "operator": "cpu-to-gpu",
           "projections": [{
             "relName": "inputs/ssbm/date.csv",
-            "attrName": "d_datekey"
+            "attrName": "d_datekey",
+            "isBlock": true
           },{
             "relName": "inputs/ssbm/date.csv",
-            "attrName": "d_year"
+            "attrName": "d_year",
+            "isBlock": true
           }],
-          "input": {
-            "operator": "cpu-to-gpu",
+          "input":{
+            "operator": "mem-move-device",
             "projections": [{
               "relName": "inputs/ssbm/date.csv",
               "attrName": "d_datekey",
@@ -138,7 +146,7 @@
               "isBlock": true
             }],
             "input":{
-              "operator": "mem-move-device",
+              "operator": "exchange",
               "projections": [{
                 "relName": "inputs/ssbm/date.csv",
                 "attrName": "d_datekey",
@@ -148,32 +156,20 @@
                 "attrName": "d_year",
                 "isBlock": true
               }],
-              "input":{
-                "operator": "exchange",
-                "projections": [{
-                  "relName": "inputs/ssbm/date.csv",
-                  "attrName": "d_datekey",
-                  "isBlock": true
-                },{
-                  "relName": "inputs/ssbm/date.csv",
-                  "attrName": "d_year",
-                  "isBlock": true
-                }],
-                "numOfParents": 1,
-                "slack": 8,
-                "input": {
-                  "operator": "scan",
-                  "plugin": {
-                    "name": "inputs/ssbm/date.csv",
-                    "type": "block",
-                    "projections": [{
-                      "relName": "inputs/ssbm/date.csv",
-                      "attrName": "d_datekey"
-                    },{
-                      "relName": "inputs/ssbm/date.csv",
-                      "attrName": "d_year"
-                    }]
-                  }
+              "numOfParents": 1,
+              "slack": 8,
+              "input": {
+                "operator": "scan",
+                "plugin": {
+                  "name": "inputs/ssbm/date.csv",
+                  "type": "block",
+                  "projections": [{
+                    "relName": "inputs/ssbm/date.csv",
+                    "attrName": "d_datekey"
+                  },{
+                    "relName": "inputs/ssbm/date.csv",
+                    "attrName": "d_year"
+                  }]
                 }
               }
             }
@@ -302,25 +298,41 @@
         }
       },
       "input": {
-        "operator": "scan",
-        "plugin": {
-          "name": "inputs/ssbm/lineorder.csv",
-          "type": "gpu",
+        "operator": "block-to-tuples",
+        "projections": [{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_discount"
+        },{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_quantity"
+        },{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_orderdate"
+        },{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_extendedprice"
+        }],
+        "input": {
+          "operator": "cpu-to-gpu",
           "projections": [{
             "relName": "inputs/ssbm/lineorder.csv",
-            "attrName": "lo_discount"
+            "attrName": "lo_discount",
+            "isBlock": true
           },{
             "relName": "inputs/ssbm/lineorder.csv",
-            "attrName": "lo_quantity"
+            "attrName": "lo_quantity",
+            "isBlock": true
           },{
             "relName": "inputs/ssbm/lineorder.csv",
-            "attrName": "lo_orderdate"
+            "attrName": "lo_orderdate",
+            "isBlock": true
           },{
             "relName": "inputs/ssbm/lineorder.csv",
-            "attrName": "lo_extendedprice"
+            "attrName": "lo_extendedprice",
+            "isBlock": true
           }],
           "input": {
-            "operator": "cpu-to-gpu",
+            "operator": "mem-move-device",
             "projections": [{
               "relName": "inputs/ssbm/lineorder.csv",
               "attrName": "lo_discount",
@@ -339,7 +351,7 @@
               "isBlock": true
             }],
             "input": {
-              "operator": "mem-move-device",
+              "operator": "exchange",
               "projections": [{
                 "relName": "inputs/ssbm/lineorder.csv",
                 "attrName": "lo_discount",
@@ -357,46 +369,26 @@
                 "attrName": "lo_extendedprice",
                 "isBlock": true
               }],
+              "numOfParents": 1,
+              "slack": 8,
               "input": {
-                "operator": "exchange",
-                "projections": [{
-                  "relName": "inputs/ssbm/lineorder.csv",
-                  "attrName": "lo_discount",
-                  "isBlock": true
-                },{
-                  "relName": "inputs/ssbm/lineorder.csv",
-                  "attrName": "lo_quantity",
-                  "isBlock": true
-                },{
-                  "relName": "inputs/ssbm/lineorder.csv",
-                  "attrName": "lo_orderdate",
-                  "isBlock": true
-                },{
-                  "relName": "inputs/ssbm/lineorder.csv",
-                  "attrName": "lo_extendedprice",
-                  "isBlock": true
-                }],
-                "numOfParents": 1,
-                "slack": 8,
-                "input": {
-                  "operator": "scan",
-                  "plugin": {
-                    "name": "inputs/ssbm/lineorder.csv",
-                    "type": "block",
-                    "projections": [{
-                      "relName": "inputs/ssbm/lineorder.csv",
-                      "attrName": "lo_discount"
-                    },{
-                      "relName": "inputs/ssbm/lineorder.csv",
-                      "attrName": "lo_quantity"
-                    },{
-                      "relName": "inputs/ssbm/lineorder.csv",
-                      "attrName": "lo_orderdate"
-                    },{
-                      "relName": "inputs/ssbm/lineorder.csv",
-                      "attrName": "lo_extendedprice"
-                    }]
-                  }
+                "operator": "scan",
+                "plugin": {
+                  "name": "inputs/ssbm/lineorder.csv",
+                  "type": "block",
+                  "projections": [{
+                    "relName": "inputs/ssbm/lineorder.csv",
+                    "attrName": "lo_discount"
+                  },{
+                    "relName": "inputs/ssbm/lineorder.csv",
+                    "attrName": "lo_quantity"
+                  },{
+                    "relName": "inputs/ssbm/lineorder.csv",
+                    "attrName": "lo_orderdate"
+                  },{
+                    "relName": "inputs/ssbm/lineorder.csv",
+                    "attrName": "lo_extendedprice"
+                  }]
                 }
               }
             }

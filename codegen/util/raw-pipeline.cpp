@@ -250,8 +250,7 @@ GpuRawPipelineGen::GpuRawPipelineGen(RawContext * context, std::string pipName, 
 
     FunctionType *intrmembarsys = FunctionType::get(void_type, std::vector<Type *>{}, false);
     Function *intr_pmembarsys = Function::Create(intrmembarsys, Function::ExternalLinkage, "llvm.nvvm.membar.sys", getModule());
-    registerFunction("llvm.nvvm.membar.sys", intr_pmembargl);
-
+    registerFunction("llvm.nvvm.membar.sys", intr_pmembarsys);
 
     string ErrStr;
     TheExecutionEngine =

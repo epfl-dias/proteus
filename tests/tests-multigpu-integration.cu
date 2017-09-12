@@ -306,3 +306,53 @@ TEST_F(MultiGPUTest, gpuDriverParallel) {
     // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
     // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
 }
+
+TEST_F(MultiGPUTest, gpuPingPong) {
+    int devices = get_num_of_gpus();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStart());
+    }
+    
+    gpu_run(cudaSetDevice(0));
+
+    __itt_resume();
+    const char *testLabel = "reduceScanPingPongMultigpu";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/reduce-scan-ping-pong-multigpu.json";
+
+    std::vector<RawPipeline *> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        
+        ctx->compileAndLoad();
+
+        pipelines = ctx->getPipelines();
+    }
+
+    for (RawPipeline * p: pipelines) {
+        nvtxRangePushA("pip");
+        {
+            time_block t("T: ");
+            p->open();
+            p->consume(0);
+            p->close();
+        }
+        nvtxRangePop();
+    }
+    __itt_pause();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStop());
+    }
+    // int32_t c_out;
+    // gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
+    // //for the current dataset, regenerating it may change the results
+    // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
+    // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+}

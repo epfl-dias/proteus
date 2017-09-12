@@ -24,10 +24,7 @@
 #include "operators/cpu-to-gpu.hpp"
 
 void CpuToGpu::produce() {
-    map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
-
-    OperatorState* state = new OperatorState(*this, *variableBindings);
-    getParent()->consume(context, *state);
+    generateGpuSide();
 
     context->popNewPipeline();
 
@@ -42,6 +39,100 @@ void CpuToGpu::produce() {
     childVar_id = context->appendStateVar(charPtrType);
 
     getChild()->produce();
+}
+
+void CpuToGpu::generateGpuSide(){
+    LLVMContext & llvmContext   = context->getLLVMContext();
+
+    std::vector<size_t> wantedFieldsArg_id;
+    for (const auto &tin: wantedFields){
+        Type * t = tin->getOriginalType()->getLLVMType(llvmContext);
+
+        wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
+    }
+
+    Type * size_type;
+    if      (sizeof(size_t) == 4) size_type = Type::getInt32Ty(llvmContext);
+    else if (sizeof(size_t) == 8) size_type = Type::getInt64Ty(llvmContext);
+    else                          assert(false);
+
+    size_t tupleOIDArg_id = context->appendParameter(size_type, false, false);
+    size_t tupleCntArg_id = context->appendParameter(size_type, false, false);
+
+    context->setGlobalFunction();
+
+    IRBuilder<> * Builder       = context->getBuilder    ();
+    BasicBlock  * insBB         = Builder->GetInsertBlock();
+    Function    * F             = insBB->getParent();
+
+
+    BasicBlock * AfterBB = BasicBlock::Create(llvmContext, "end" , F);
+    BasicBlock * MainBB  = BasicBlock::Create(llvmContext, "main", F);
+
+    context->setCurrentEntryBlock(Builder->GetInsertBlock());
+    context->setEndingBlock(AfterBB);
+
+    map<RecordAttribute, RawValueMemory> variableBindings;
+
+    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
+        Value      * arg = context->getArgument(wantedFieldsArg_id[i]);
+        arg->setName(wantedFields[i]->getAttrName());
+        AllocaInst * mem = context->CreateEntryBlockAlloca(F, wantedFields[i]->getAttrName() + "_ptr", arg->getType());
+        Builder->CreateStore(arg, mem);
+
+        RawValueMemory tmp;
+        tmp.mem     = mem;
+        tmp.isNull  = context->createFalse();
+
+        variableBindings[*(wantedFields[i])] = tmp;
+    }
+    
+    Plugin     * pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+
+    {
+        RecordAttribute tupleOID = RecordAttribute(wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType()); //FIXME: OID type for blocks ?
+
+        Value      * oid = context->getArgument(tupleOIDArg_id);
+        oid->setName("oid");
+        AllocaInst * mem = context->CreateEntryBlockAlloca(F, "activeLoop_ptr", oid->getType());
+        Builder->CreateStore(oid, mem);
+
+        RawValueMemory tmp;
+        tmp.mem     = mem;
+        tmp.isNull  = context->createFalse();
+
+        variableBindings[tupleOID] = tmp;
+    }
+
+    {
+        RecordAttribute tupleCnt = RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
+
+        Value      * N   = context->getArgument(tupleCntArg_id);
+        N->setName("cnt");
+        AllocaInst * mem = context->CreateEntryBlockAlloca(F, "activeCnt_ptr", N->getType());
+        Builder->CreateStore(N, mem);
+
+        RawValueMemory tmp;
+        tmp.mem     = mem;
+        tmp.isNull  = context->createFalse();
+
+        variableBindings[tupleCnt] = tmp;
+    }
+
+    Builder->SetInsertPoint(MainBB);
+    OperatorState state{*this, variableBindings};
+    getParent()->consume(context, state);
+
+    // Insert an explicit fall through from the current (body) block to AfterBB.
+    Builder->CreateBr(AfterBB);
+
+    Builder->SetInsertPoint(context->getCurrentEntryBlock());
+    // Insert an explicit fall through from the current (entry) block to the CondBB.
+    Builder->CreateBr(MainBB);
+
+    //  Finish up with end (the AfterLoop)
+    //  Any new code will be inserted in AfterBB.
+    Builder->SetInsertPoint(context->getEndingBlock());
 }
 
 void CpuToGpu::consume(RawContext* const context, const OperatorState& childState) {
@@ -59,7 +150,7 @@ void CpuToGpu::consume(RawContext* const context, const OperatorState& childStat
 
     const map<RecordAttribute, RawValueMemory>& activeVars = childState.getBindings();
 
-    Type * kernel_params_type = ArrayType::get(charPtrType, wantedFields.size() + 2); //input + N + state
+    Type * kernel_params_type = ArrayType::get(charPtrType, wantedFields.size() + 3); //input + N + oid + state
 
     Value * kernel_params      = UndefValue::get(kernel_params_type);
     Value * kernel_params_addr = context->CreateEntryBlockAlloca(F, "gpu_params", kernel_params_type);
@@ -78,18 +169,28 @@ void CpuToGpu::consume(RawContext* const context, const OperatorState& childStat
     }
     
     Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+    
+    RecordAttribute tupleOID = RecordAttribute(wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType()); //FIXME: OID type for blocks ?
+
+    auto it = activeVars.find(tupleOID);
+    assert(it != activeVars.end());
+
+    RawValueMemory mem_oidWrapper = it->second;
+
+    kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(mem_oidWrapper.mem, charPtrType), wantedFields.size()    );
+
     RecordAttribute tupleCnt = RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
 
-    auto it = activeVars.find(tupleCnt);
+    it = activeVars.find(tupleCnt);
     assert(it != activeVars.end());
 
     RawValueMemory mem_cntWrapper = it->second;
 
-    kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(mem_cntWrapper.mem, charPtrType), wantedFields.size()    );
+    kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(mem_cntWrapper.mem, charPtrType), wantedFields.size() + 1);
 
     Value * subState   = ((GpuRawContext *) context)->getSubStateVar();
 
-    kernel_params = Builder->CreateInsertValue(kernel_params, subState, wantedFields.size() + 1);
+    kernel_params = Builder->CreateInsertValue(kernel_params, subState, wantedFields.size() + 2);
 
     Builder->CreateStore(kernel_params, kernel_params_addr);
 

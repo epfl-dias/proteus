@@ -184,7 +184,8 @@
           "isBlock": true
         }],
         "input": {
-          "operator": "mem-move-device",
+          "operator": "gpu-to-cpu",
+          "queueSize": 64,
           "projections": [{
             "relName": "inputs/ssbm/lineorder.csv",
             "attrName": "lo_discount",
@@ -203,7 +204,7 @@
             "isBlock": true
           }],
           "input": {
-            "operator": "exchange",
+            "operator": "cpu-to-gpu",
             "projections": [{
               "relName": "inputs/ssbm/lineorder.csv",
               "attrName": "lo_discount",
@@ -221,26 +222,66 @@
               "attrName": "lo_extendedprice",
               "isBlock": true
             }],
-            "numOfParents": 2,
-            "slack": 8,
             "input": {
-              "operator": "scan",
-              "plugin": {
-                "name": "inputs/ssbm/lineorder.csv",
-                "type": "block",
+              "operator": "mem-move-device",
+              "projections": [{
+                "relName": "inputs/ssbm/lineorder.csv",
+                "attrName": "lo_discount",
+                "isBlock": true
+              },{
+                "relName": "inputs/ssbm/lineorder.csv",
+                "attrName": "lo_quantity",
+                "isBlock": true
+              },{
+                "relName": "inputs/ssbm/lineorder.csv",
+                "attrName": "lo_orderdate",
+                "isBlock": true
+              },{
+                "relName": "inputs/ssbm/lineorder.csv",
+                "attrName": "lo_extendedprice",
+                "isBlock": true
+              }],
+              "input": {
+                "operator": "exchange",
                 "projections": [{
                   "relName": "inputs/ssbm/lineorder.csv",
-                  "attrName": "lo_discount"
+                  "attrName": "lo_discount",
+                  "isBlock": true
                 },{
                   "relName": "inputs/ssbm/lineorder.csv",
-                  "attrName": "lo_quantity"
+                  "attrName": "lo_quantity",
+                  "isBlock": true
                 },{
                   "relName": "inputs/ssbm/lineorder.csv",
-                  "attrName": "lo_orderdate"
+                  "attrName": "lo_orderdate",
+                  "isBlock": true
                 },{
                   "relName": "inputs/ssbm/lineorder.csv",
-                  "attrName": "lo_extendedprice"
-                }]
+                  "attrName": "lo_extendedprice",
+                  "isBlock": true
+                }],
+                "numOfParents": 1,
+                "slack": 8,
+                "input": {
+                  "operator": "scan",
+                  "plugin": {
+                    "name": "inputs/ssbm/lineorder.csv",
+                    "type": "block",
+                    "projections": [{
+                      "relName": "inputs/ssbm/lineorder.csv",
+                      "attrName": "lo_discount"
+                    },{
+                      "relName": "inputs/ssbm/lineorder.csv",
+                      "attrName": "lo_quantity"
+                    },{
+                      "relName": "inputs/ssbm/lineorder.csv",
+                      "attrName": "lo_orderdate"
+                    },{
+                      "relName": "inputs/ssbm/lineorder.csv",
+                      "attrName": "lo_extendedprice"
+                    }]
+                  }
+                }
               }
             }
           }

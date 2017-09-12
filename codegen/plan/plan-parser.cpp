@@ -7,9 +7,11 @@
 #include "operators/gpu/gpu-reduce.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/cpu-to-gpu.hpp"
+#include "operators/gpu/gpu-to-cpu.hpp"
 #include "operators/mem-move-device.hpp"
 #include "operators/exchange.hpp"
 #include "operators/hash-rearrange.hpp"
+#include "operators/block-to-tuples.hpp"
 
 /* too primitive */
 struct PlanHandler {
@@ -838,6 +840,51 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
 		newOp =  new CpuToGpu(childOp, ((GpuRawContext *) this->ctx), projections);
+		childOp->setParent(newOp);
+	} else if(strcmp(opName,"block-to-tuples") == 0)	{
+		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsObject());
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		assert(val.HasMember("projections"));
+		assert(val["projections"].IsArray());
+
+		vector<RecordAttribute*> projections;
+		for (SizeType i = 0; i < val["projections"].Size(); i++)
+		{
+			assert(val["projections"][i].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+			projections.push_back(recAttr);
+		}
+
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+		newOp =  new BlockToTuples(childOp, ((GpuRawContext *) this->ctx), projections);
+		childOp->setParent(newOp);
+	} else if(strcmp(opName,"gpu-to-cpu") == 0)	{
+		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsObject());
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		assert(val.HasMember("projections"));
+		assert(val["projections"].IsArray());
+
+		vector<RecordAttribute*> projections;
+		for (SizeType i = 0; i < val["projections"].Size(); i++)
+		{
+			assert(val["projections"][i].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+			projections.push_back(recAttr);
+		}
+
+
+		assert(val.HasMember("queueSize"));
+		assert(val["queueSize"].IsInt());
+		int size = val["queueSize"].GetInt();
+
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+		newOp =  new GpuToCpu(childOp, ((GpuRawContext *) this->ctx), projections, size);
 		childOp->setParent(newOp);
 	} else if(strcmp(opName,"hash-rearrange") == 0)	{
 		/* parse operator input */

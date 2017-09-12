@@ -316,6 +316,6 @@ extern "C" {
     [[deprecated]] void launch_kernel(CUfunction function, void ** args);
 }
 
-
+int get_device(const void *p);
 
 #endif /* GPU_COMMON_HPP_ */

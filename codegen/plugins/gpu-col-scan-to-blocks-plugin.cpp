@@ -776,7 +776,7 @@ void GpuColScanToBlockPlugin::scan(const RawOperator& producer)
     Type* int64Type = Type::getInt64Ty(llvmContext);
 
     //Container for the variable bindings
-    map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
+    map<RecordAttribute, RawValueMemory> variableBindings;
 
     //Get the ENTRY BLOCK
     context->setCurrentEntryBlock(Builder->GetInsertBlock());
@@ -823,12 +823,7 @@ void GpuColScanToBlockPlugin::scan(const RawOperator& producer)
     RawValueMemory mem_posWrapper;
     mem_posWrapper.mem = mem_itemCtr;
     mem_posWrapper.isNull = context->createFalse();
-    (*variableBindings)[tupleIdentifier] = mem_posWrapper;
-
-    // Type * kernel_params_type = ArrayType::get(charPtrType, wantedFields.size() + 2); //input + N + state
-
-    // Value * kernel_params      = UndefValue::get(kernel_params_type);
-    // Value * kernel_params_addr = context->CreateEntryBlockAlloca(F, "gpu_params", kernel_params_type);
+    variableBindings[tupleIdentifier] = mem_posWrapper;
 
     //Actual Work (Loop through attributes etc.)
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
@@ -868,7 +863,7 @@ void GpuColScanToBlockPlugin::scan(const RawOperator& producer)
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem = mem_currResult;
         mem_valWrapper.isNull = context->createFalse();
-        (*variableBindings)[block_attr] = mem_valWrapper;
+        variableBindings[block_attr] = mem_valWrapper;
     }
 
     AllocaInst * blockN_ptr = context->CreateEntryBlockAlloca(F, "blockN", tupleCnt->getType());
@@ -882,33 +877,12 @@ void GpuColScanToBlockPlugin::scan(const RawOperator& producer)
     RawValueMemory mem_cntWrapper;
     mem_cntWrapper.mem      = blockN_ptr;
     mem_cntWrapper.isNull   = context->createFalse();
-    (*variableBindings)[tupCnt] = mem_cntWrapper;
+    variableBindings[tupCnt] = mem_cntWrapper;
 
 
-    OperatorState* state = new OperatorState(producer, *variableBindings);
-    producer.getParent()->consume(context,*state);
+    OperatorState state{producer, variableBindings};
+    producer.getParent()->consume(context, state);
 
-    // Builder->CreateStore(blockN, blockN_ptr);
-
-    // kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(blockN_ptr, charPtrType), wantedFields.size()    );
-
-    // Value * subState   = Builder->CreateLoad(context->getSubStateVar(), "subState");
-
-    // kernel_params = Builder->CreateInsertValue(kernel_params, subState, wantedFields.size() + 1);
-
-    // Builder->CreateStore(kernel_params, kernel_params_addr);
-
-    // Function * launchk = context->getFunction("launch_kernel");
-
-    // Type  * ptr_t = PointerType::get(charPtrType, 0);
-
-    // Value * entryPtr = ConstantInt::get(llvmContext, APInt(64, ((uint64_t) entry_point)));
-    
-    // Value * entry    = Builder->CreateIntToPtr(entryPtr, charPtrType);
-
-    // vector<Value *> kernel_args{entry, Builder->CreateBitCast(kernel_params_addr, PointerType::get(charPtrType, 0))};
-    
-    // Builder->CreateCall(launchk, kernel_args);
 
     // Start insertion in IncBB.
     Builder->SetInsertPoint(IncBB);
@@ -925,12 +899,9 @@ void GpuColScanToBlockPlugin::scan(const RawOperator& producer)
     // Insert an explicit fall through from the current (body) block to IncBB.
     Builder->CreateBr(IncBB);
 
-    Builder->SetInsertPoint(context->getCurrentEntryBlock());
     // Insert an explicit fall through from the current (entry) block to the CondBB.
+    Builder->SetInsertPoint(context->getCurrentEntryBlock());
     Builder->CreateBr(CondBB);
-
-
-
     // Builder->CreateRetVoid();
 
     //  Finish up with end (the AfterLoop)

@@ -1,7 +1,7 @@
 /*
     RAW -- High-performance querying over raw, never-seen-before data.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -20,36 +20,34 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#ifndef CPU_TO_GPU_HPP_
-#define CPU_TO_GPU_HPP_
+#ifndef BLOCK_TO_TUPLES_HPP_
+#define BLOCK_TO_TUPLES_HPP_
 
 #include "operators/operators.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 
-class CpuToGpu : public UnaryRawOperator {
+class BlockToTuples : public UnaryRawOperator {
 public:
-    CpuToGpu(   RawOperator * const             child,
+    BlockToTuples(RawOperator * const             child,
                 GpuRawContext * const           context,
                 const vector<RecordAttribute*> &wantedFields) :
                     UnaryRawOperator(child), 
                     context(context), 
                     wantedFields(wantedFields){}
 
-    virtual ~CpuToGpu()                                             { LOG(INFO)<<"Collapsing CpuToGpu operator";}
+    virtual ~BlockToTuples()                                             { LOG(INFO)<<"Collapsing BlockToTuples operator";}
 
     virtual void produce();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
+    virtual void consume(RawContext    * const context, const OperatorState& childState);
+    virtual void consume(GpuRawContext * const context, const OperatorState& childState);
     virtual bool isFiltering() const {return false;}
 
-    virtual void generateGpuSide();
-
 private:
+    void nextEntry();
+
     const vector<RecordAttribute *> wantedFields;
-
     GpuRawContext * const           context     ;
-
-    RawPipelineGen *                gpu_pip     ;
-    int                             childVar_id ;
+    AllocaInst                    * mem_itemCtr ;
 };
 
-#endif /* CPU_TO_GPU_HPP_ */
+#endif /* BLOCK_TO_TUPLES_HPP_ */
