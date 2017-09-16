@@ -157,22 +157,7 @@ private:
     const char* __attribute__((unused)) sizeVar;    // = "size";
     const char* itemCtrVar; // = "itemCtr";
 
-    //Used to generate code
-    void skipLLVM(RecordAttribute attName, llvm::Value *offset);
-    void prepareArray(RecordAttribute attName);
-
     void nextEntry();
-    /* Operate over char* */
-    void readAsInt64LLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
-    llvm::Value* readAsInt64LLVM(RecordAttribute attName);
-    /* Operates over int* */
-    void readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
-    /* Operates over float* */
-    void readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
-    /* Operates over bool* */
-    void readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
-    /* Not (fully) supported yet. Dictionary-based */
-    void readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables);
 
     //Generates a for loop that performs the file scan
     void scan(const RawOperator& producer);

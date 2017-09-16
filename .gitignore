@@ -57,4 +57,9 @@ clinical*.csv
 genetic*.csv
 inputs/json/spam/*.json
 inputs/ssbm/**
+
+#Generated code folder
 generated_code/**
+
+#Scratchpad
+scratchpad/**

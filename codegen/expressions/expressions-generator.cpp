@@ -601,6 +601,7 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
 	PointerType * PointerTy_1 = PointerType::get(IntegerTy_1, 0);
 
 	IntegerType * IntegerTy_2 = IntegerType::get(mod->getContext(), 32);
+	IntegerType * int32Ty     = IntegerTy_2;
 
 	FuncTy_0_args.push_back(PointerTy_1);
 	FuncTy_0_args.push_back(PointerTy_1);
@@ -620,19 +621,18 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
 		/*Name=*/"mystrncmpllvm", mod);
 		func_mystrncmpllvm->setCallingConv(CallingConv::C);
 	}
-	AttributeSet func_mystrncmpllvm_PAL;
-	{
-		SmallVector<AttributeSet, 4> Attrs;
-		AttributeSet PAS;
-		{
-			AttrBuilder B;
-			B.addAttribute(Attribute::NoUnwind);
-			B.addAttribute(Attribute::AlwaysInline);
-			PAS = AttributeSet::get(mod->getContext(), ~0U, B);
-		}
 
-		Attrs.push_back(PAS);
-		func_mystrncmpllvm_PAL = AttributeSet::get(mod->getContext(), Attrs);
+	AttributeList func_mystrncmpllvm_PAL;
+	{
+		AttrBuilder B;
+		B.addAttribute(Attribute::NoUnwind);
+		B.addAttribute(Attribute::AlwaysInline);
+
+		func_mystrncmpllvm_PAL = AttributeList::get(
+										mod->getContext()                      ,
+										AttributeList::AttrIndex::FunctionIndex,
+										B
+									);
 
 	}
 	func_mystrncmpllvm->setAttributes(func_mystrncmpllvm_PAL);
@@ -692,22 +692,25 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
 				"return", func_mystrncmpllvm, 0);
 
 		// Block entry (label_entry)
-		AllocaInst* ptr_retval = new AllocaInst(
-				IntegerType::get(mod->getContext(), 32), "retval", label_entry);
+		AllocaInst * ptr_retval		= context->createAlloca(label_entry,
+															"retval",
+															int32Ty);
 		ptr_retval->setAlignment(4);
-		AllocaInst* ptr_s1_addr = new AllocaInst(PointerTy_1, "s1.addr",
-				label_entry);
+		AllocaInst * ptr_s1_addr	= context->createAlloca(label_entry,
+															"s1.addr",
+															PointerTy_1);
 		ptr_s1_addr->setAlignment(8);
-		AllocaInst* ptr_s2_addr = new AllocaInst(PointerTy_1, "s2.addr",
-				label_entry);
+		AllocaInst * ptr_s2_addr	= context->createAlloca(label_entry,
+															"s2.addr",
+															PointerTy_1);
 		ptr_s2_addr->setAlignment(8);
-		AllocaInst* ptr_n1_addr = new AllocaInst(
-				IntegerType::get(mod->getContext(), 32), "n1.addr",
-				label_entry);
+		AllocaInst * ptr_n1_addr	= context->createAlloca(label_entry,
+															"n1.addr",
+															int32Ty);
 		ptr_n1_addr->setAlignment(4);
-		AllocaInst* ptr_n2_addr = new AllocaInst(
-				IntegerType::get(mod->getContext(), 32), "n2.addr",
-				label_entry);
+		AllocaInst * ptr_n2_addr	= context->createAlloca(label_entry,
+															"n2.addr",
+															int32Ty);
 		ptr_n2_addr->setAlignment(4);
 		StoreInst* void_7 = new StoreInst(ptr_s1, ptr_s1_addr, false,
 				label_entry);
@@ -882,7 +885,9 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *F = Builder->GetInsertBlock()->getParent();
-	PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
+	PointerType * charPtrType = Type::getInt8PtrTy(llvmContext);
+
+	IntegerType * int32Ty     = IntegerType::get(llvmContext, 32);
 
 	// Constant Definitions
 	ConstantInt* const_int32_4 = ConstantInt::get(llvmContext,
@@ -921,17 +926,21 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 	Builder->CreateBr(label_entry);
 
 	// Block entry (label_entry)
-	AllocaInst* ptr_s1_addr = new AllocaInst(charPtrType, "s1.addr",
-			label_entry);
+	AllocaInst * ptr_s1_addr	= context->createAlloca(label_entry ,
+														"s1.addr"	,
+														charPtrType);
 	ptr_s1_addr->setAlignment(8);
-	AllocaInst* ptr_s2_addr = new AllocaInst(charPtrType, "s2.addr",
-			label_entry);
+	AllocaInst * ptr_s2_addr	= context->createAlloca(label_entry ,
+														"s2.addr"	,
+														charPtrType);
 	ptr_s2_addr->setAlignment(8);
-	AllocaInst* ptr_n_addr = new AllocaInst(IntegerType::get(llvmContext, 32),
-			"n.addr", label_entry);
+	AllocaInst * ptr_n_addr		= context->createAlloca(label_entry ,
+														"n.addr"	,
+														int32Ty);
 	ptr_n_addr->setAlignment(4);
-	AllocaInst* ptr_result = new AllocaInst(IntegerType::get(llvmContext, 32),
-			"result", label_entry);
+	AllocaInst * ptr_result		= context->createAlloca(label_entry ,
+														"result"	,
+														int32Ty);
 	ptr_result->setAlignment(4);
 	StoreInst* void_8 = new StoreInst(ptr_s1, ptr_s1_addr, false, label_entry);
 	void_8->setAlignment(8);
@@ -1071,8 +1080,9 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *F = Builder->GetInsertBlock()->getParent();
-	PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
-
+	PointerType * charPtrType = Type::getInt8PtrTy(llvmContext);
+	IntegerType * int32Ty     = IntegerType::get(llvmContext, 32);
+	
 	// Constant Definitions
 	ConstantInt* const_int32_4 = ConstantInt::get(llvmContext,
 			APInt(32, StringRef("1"), 10));
@@ -1092,8 +1102,9 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 
 	/* Connect w. previous */
 	Builder->CreateBr(label_size_cond);
-	AllocaInst* ptr_result = new AllocaInst(IntegerType::get(llvmContext, 32),
-					"result", label_size_cond);
+	AllocaInst * ptr_result = context->createAlloca(label_size_cond	,
+													"result"		,
+													int32Ty			);
 	Value *size_cond = Builder->CreateICmpNE(int32_n1,int32_n2);
 
 	Builder->CreateCondBr(size_cond,label_size_then,label_size_else);
@@ -1131,14 +1142,17 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 	Builder->CreateBr(label_entry);
 
 	// Block entry (label_entry)
-	AllocaInst* ptr_s1_addr = new AllocaInst(charPtrType, "s1.addr",
-			label_entry);
+	AllocaInst * ptr_s1_addr	= context->createAlloca(label_entry	,
+														"s1.addr"	,
+														charPtrType	);
 	ptr_s1_addr->setAlignment(8);
-	AllocaInst* ptr_s2_addr = new AllocaInst(charPtrType, "s2.addr",
-			label_entry);
+	AllocaInst * ptr_s2_addr	= context->createAlloca(label_entry	,
+														"s2.addr"	,
+														charPtrType	);
 	ptr_s2_addr->setAlignment(8);
-	AllocaInst* ptr_n_addr = new AllocaInst(IntegerType::get(llvmContext, 32),
-			"n.addr", label_entry);
+	AllocaInst * ptr_n_addr		= context->createAlloca(label_entry	,
+														"n.addr"	,
+														int32Ty		);
 	ptr_n_addr->setAlignment(4);
 
 	ptr_result->setAlignment(4);

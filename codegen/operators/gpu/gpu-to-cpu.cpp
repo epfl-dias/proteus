@@ -22,7 +22,7 @@
 */
 
 #include "operators/gpu/gpu-to-cpu.hpp"
-#include "numa_utils.cuh"
+#include "multigpu/numa_utils.cuh"
 
 void GpuToCpu::produce() {
     LLVMContext & llvmContext   = context->getLLVMContext();
@@ -339,10 +339,6 @@ void GpuToCpu::generate_catch(){
         mem_valWrapper.isNull   = context->createFalse();
 
         variableBindings[tupleCnt] = mem_valWrapper;
-
-
-        Function * printi = context->getFunction("printi64");
-        Builder->CreateCall(printi, std::vector<Value *>{val});
     }
 
     {

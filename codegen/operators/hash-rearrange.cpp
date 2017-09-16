@@ -284,8 +284,7 @@ void HashRearrange::consume_flush(){
     if (hashProject){
         //Save hash in bindings
         AllocaInst * hash_ptr = context->CreateEntryBlockAlloca(F, "hash_ptr", target_type);
-        target->dump();
-        hash_ptr->dump();
+        
         Builder->CreateStore(target, hash_ptr);
 
         RawValueMemory mem_hashWrapper;

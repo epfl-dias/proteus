@@ -68,7 +68,7 @@ void __attribute__((unused)) addOptimizerPipelineInlining(ModulePassManager * Th
 
 void __attribute__((unused)) addOptimizerPipelineVectorization(legacy::FunctionPassManager * TheFPM) {
 	/* Vectorization */
-	TheFPM->add(createBBVectorizePass());
+	// TheFPM->add(createBBVectorizePass());
 	TheFPM->add(createLoopVectorizePass());
 	TheFPM->add(createSLPVectorizerPass());
 }
@@ -380,6 +380,13 @@ AllocaInst* RawContext::CreateEntryBlockAlloca(Function *TheFunction,
 		const string &VarName, Type* varType) {
 	IRBuilder<> TmpBuilder(&TheFunction->getEntryBlock(),
 			TheFunction->getEntryBlock().begin());
+	return TmpBuilder.CreateAlloca(varType, 0, VarName.c_str());
+}
+
+AllocaInst* RawContext::createAlloca(	BasicBlock    * InsertAtBB,
+										const string  & VarName, 
+										Type          * varType) {
+	IRBuilder<> TmpBuilder(InsertAtBB, InsertAtBB->begin());
 	return TmpBuilder.CreateAlloca(varType, 0, VarName.c_str());
 }
 

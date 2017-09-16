@@ -1440,8 +1440,11 @@ void Nest::generateProbe(RawContext* const context) const
 	BasicBlock* codeSpot = Builder->GetInsertBlock();
 	PointerType* i8_ptr = PointerType::get(IntegerType::get(llvmContext, 8), 0);
 //	ConstantPointerNull* const_null = ConstantPointerNull::get(i8_ptr);
-	AllocaInst* mem_bucketCounter = new AllocaInst(
-			IntegerType::get(llvmContext, 64), "mem_bucketCnt", codeSpot);
+	AllocaInst * mem_bucketCounter = context->createAlloca(
+											codeSpot,
+											"mem_bucketCnt",
+											IntegerType::get(llvmContext, 64)
+										);
 	Builder->CreateStore(context->createInt64(0), mem_bucketCounter);
 	Builder->CreateBr(loopCondHT);
 

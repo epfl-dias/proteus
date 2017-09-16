@@ -124,6 +124,10 @@ public:
 	AllocaInst* CreateEntryBlockAlloca(Function *TheFunction,
 			const std::string &VarName,
 			Type* varType);
+	AllocaInst * createAlloca(	BasicBlock   * InsertAtBB, 
+								const string & VarName   , 
+								Type         * varType   );
+
 	void CreateForLoop(const string& cond, const string& body,
 			const string& inc, const string& end, BasicBlock** cond_block,
 			BasicBlock** body_block, BasicBlock** inc_block,

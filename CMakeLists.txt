@@ -32,7 +32,6 @@ endif()
 
 # list(APPEND CMAKE_CXX_SOURCE_FILE_EXTENSIONS cu)
 
-
 # look for Boost related compilation flags
 find_package(Boost REQUIRED)
 
@@ -49,8 +48,7 @@ set(CMAKE_CXX_COMPILER "${CLANG_CXX_COMPILER}")
 find_program(CLANG_C_COMPILER "clang")
 set(CMAKE_C_COMPILER "${CLANG_C_COMPILER}")
 
-# set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 
 # LLVM APIs we use
 #set(LLVM_COMPONENTS engine executionengine analysis lto mc mcjit nativecodegen orcjit passes)
@@ -65,7 +63,6 @@ execute_process(COMMAND ${CMAKE_INSTALL_PREFIX}/bin/llvm-config --system-libs ${
 include_directories(
 	"${PROJECT_SOURCE_DIR}"
 	"${PROJECT_SOURCE_DIR}/codegen"
-	"${PROJECT_SOURCE_DIR}/multigpu/src"
 	"${LLVM_INCLUDE_DIRS}"
 	"${CMAKE_INSTALL_PREFIX}/include"
 	)
@@ -77,14 +74,14 @@ add_definitions(-DTEST_OUTPUTS="${CMAKE_INSTALL_PREFIX}/raw/outputs")
 
 #set(GCC_COMPILE_FLAGS "-march=core-avx2 -msse4 -O0 -ftree-vectorize -march=native -mtune=native -g -ggdb -fno-omit-frame-pointer")
 set(WARNING_FLAGS "-Wno-unknown-warning-option -Wno-unused-variable -Wno-reorder -Wno-ignored-qualifiers -Wno-deprecated")
-set(LLVM_CXXFLAGS "-x cuda -D__STRICT_ANSI__ -stdlib=libstdc++ ${LLVM_CXXFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS} -I/usr/local/cuda/include -I/usr/local/cuda/nvvm/include")
+set(LLVM_CXXFLAGS "-x cuda --cuda-gpu-arch=sm_61 -D__STRICT_ANSI__ -fPIC -stdlib=libstdc++ ${LLVM_CXXFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS} -I/usr/local/cuda/include -I/usr/local/cuda/nvvm/include -I/opt/intel/vtune_amplifier_xe_2017/include")
 set(LLVM_CFLAGS "${LLVM_CFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS}")
 
 set(CUDA_CXXFLAGS -Xcompiler -fPIC ${CUDA_CXXFLAGS} ${GCC_COMPILE_FLAGS} --expt-relaxed-constexpr --std=c++11 -arch=sm_61 -I/opt/intel/vtune_amplifier_xe_2017/include -I/usr/local/cuda/include -I/usr/local/cuda/nvvm/include)
 set(CUDA_CFLAGS "${CUDA_CFLAGS} ${GCC_COMPILE_FLAGS}")
 
 
-set(default_libs codegen multigpu -lnuma -lnvToolsExt -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -L/usr/local/cuda/lib64 -L/usr/local/cuda/nvvm/lib64 -L/usr/local/cuda/nvml/lib64 -lcuda -lcudart -lnvidia-ml -lcudadevrt -ldl -lrt -lnvvm -pthread -I/usr/local/cuda/nvvm/include -L/opt/intel/vtune_amplifier_xe_2017/lib64 -littnotify)
+set(default_libs codegen -lpthread -lnuma -lnvToolsExt -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -L/usr/local/cuda/lib64 -L/usr/local/cuda/nvvm/lib64 -L/usr/local/cuda/nvml/lib64 -lcuda -lcudart -lnvidia-ml -lcudadevrt -ldl -lrt -lnvvm -pthread -I/usr/local/cuda/nvvm/include -L/opt/intel/vtune_amplifier_xe_2017/lib64 -littnotify)
 set(gtest_libs -lgtest libgtest_main.a ${default_libs})
 
 #-----------------------------------------------------------------------
@@ -96,7 +93,6 @@ add_subdirectory(jsmn)
 
 # code generation library
 add_subdirectory(codegen)
-add_subdirectory(multigpu)
 
 #-----------------------------------------------------------------------
 # Build our executables

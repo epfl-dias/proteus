@@ -58,20 +58,15 @@
 //
 // </TechnicalDetails>
 
-#include <thrust/swap.h>
 // #include "common/gpu/gpu-common.hpp"
 #include "common/common.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 #include "util/raw-functions.hpp"
 #include "util/raw-pipeline.hpp"
 #include "plan/plan-parser.hpp"
-#include "multigpu/src/buffer_manager.cuh"
-#include "operators/generators.cuh"
-#include "operators/h_operator.cuh"
-#include "operators/mem_move.cuh"
-#include "operators/mem_move_local_to.cuh"
+#include "multigpu/buffer_manager.cuh"
 
-#include "numa_utils.cuh"
+#include "multigpu/numa_utils.cuh"
 #include <cuda_profiler_api.h>
 
 #include <vector>

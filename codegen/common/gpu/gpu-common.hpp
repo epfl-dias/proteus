@@ -95,6 +95,18 @@ __host__ __device__ inline void gpuAssert(nvmlReturn_t code, const char *file, i
     }
 }
 
+// __host__ __device__ inline void gpuAssert(nvrtcResult code, const char *file, int line, bool abort=true){
+//     if (code != NVML_SUCCESS) {
+// #ifndef __CUDA_ARCH__
+//         const char * msg = nvrtcGetErrorString(code);
+//         fprintf(stderr,"GPUassert: %s %s %d\n", msg, file, line);
+//         if (abort) exit(code);
+// #else
+//         printf("GPUassert: %s %s %d\n", "error", file, line);
+// #endif
+//     }
+// }
+
 inline int get_num_of_gpus(){
     int devices;
     gpu_run(cudaGetDeviceCount(&devices));
@@ -135,7 +147,7 @@ public:
 
 public:
     void activate() const{
-        std::cout << "d" << gpu_device << " " << cpus << std::endl;
+        // std::cout << "d" << gpu_device << " " << cpus << std::endl;
         if (gpu_device >= 0) gpu_run(cudaSetDevice(gpu_device));
         pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpus);
     }

@@ -66,49 +66,6 @@ void GpuColScanPlugin::init()    {
     Type* int64Type = Type::getInt64Ty(llvmContext);
     IRBuilder<>* Builder = context->getBuilder();
 
-    /* XXX Very silly conversion */
-    // RecordAttribute projTuple = RecordAttribute(fnamePrefix, activeLoop, getOIDType());
-    
-    // list<RecordAttribute> attrList{projTuple};
-    
-    // for (const auto &t: wantedFields) attrList.emplace_back(*t);
-
-    // expressions::InputArgument arg = expressions::InputArgument(&rec, 0, attrList);
-    /*******/
-
-    // vector<RecordAttribute*>::iterator it;
-    // int cnt = 0;
-    // for (it = wantedFields.begin(); it != wantedFields.end(); it++) {
-    //     RecordAttribute *attr = *it;
-        
-    //     if (!attr->getOriginalType()->isPrimitive()){
-    //         LOG(ERROR)<< "[BINARY COL PLUGIN: ] Only primitives are currently supported";
-    //         throw runtime_error(string("[BINARY COL PLUGIN: ] Only primitives are currently supported"));
-    //     }
-
-    //     //Allocating memory for each field / column involved
-    //     string attrName = attr->getAttrName();
-    //     string currBufVar = string(bufVar) + "." + attrName;
-
-
-    //     const PrimitiveType * t = dynamic_cast<const PrimitiveType *>(attr->getOriginalType());
-
-    //     AllocaInst * bufMem = context->CreateEntryBlockAlloca(F, currBufVar, PointerType::get(t->getLLVMType(llvmContext), /* global address space */ 1));
-
-    //     NamedValuesBinaryCol[currBufVar] = bufMem;
-
-    //     /* Deal with preparation of input arrays too */
-    //     string bufVarStr = string(bufVar);
-
-    //     /* Move all buffer pointers to the actual data
-    //      * and cast appropriately
-    //      */
-    //     // prepareArray(*attr);
-
-    // }
-    //cout << "[GpuColScanPlugin: ] Initialization Successful for " << fnamePrefix << endl;
-    //Global item counter
-    // printf("asdasdas\n");
 
     AllocaInst *mem_itemCtr = context->CreateEntryBlockAlloca(F, itemCtrVar, int64Type);
     Builder->CreateStore(
@@ -118,7 +75,6 @@ void GpuColScanPlugin::init()    {
                 mem_itemCtr);
 
     NamedValuesBinaryCol[itemCtrVar] = mem_itemCtr;
-    // printf("asdasdas\n");
 }
 
 void GpuColScanPlugin::generate(const RawOperator &producer) {
@@ -361,34 +317,6 @@ Value* GpuColScanPlugin::getValueSize(RawValueMemory mem_value,
     }
 }
 
-void GpuColScanPlugin::skipLLVM(RecordAttribute attName, Value* offset)
-{
-    //Prepare
-    LLVMContext& llvmContext = context->getLLVMContext();
-    Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-    Type* int64Type = Type::getInt64Ty(llvmContext);
-    IRBuilder<>* Builder = context->getBuilder();
-
-    //Fetch values from symbol table
-    AllocaInst* mem_pos;
-    {
-        map<string, AllocaInst*>::iterator it;
-        string posVarStr = string(posVar);
-        string currPosVar = posVarStr + "." + attName.getAttrName();
-        it = NamedValuesBinaryCol.find(currPosVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currPosVar);
-        }
-        mem_pos = it->second;
-    }
-
-    //Increment and store back
-    Value* val_curr_pos = Builder->CreateLoad(mem_pos);
-    Value* val_new_pos = Builder->CreateAdd(val_curr_pos,offset);
-    Builder->CreateStore(val_new_pos,mem_pos);
-
-}
-
 void GpuColScanPlugin::nextEntry()   {
 
     //Prepare
@@ -417,385 +345,7 @@ void GpuColScanPlugin::nextEntry()   {
     Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
 }
 
-/* Operates over int*! */
-void GpuColScanPlugin::readAsIntLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
-{
-    //Prepare
-    LLVMContext& llvmContext = context->getLLVMContext();
-    Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-    Type* int32Type = Type::getInt32Ty(llvmContext);
-    Type* int64Type = Type::getInt64Ty(llvmContext);
-    PointerType* ptrType_int32 = PointerType::get(int32Type, 0);
-
-    IRBuilder<>* Builder = context->getBuilder();
-    Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-
-    string posVarStr = string(posVar);
-    string currPosVar = posVarStr + "." + attName.getAttrName();
-    string bufVarStr = string(bufVar);
-    string currBufVar = bufVarStr + "." + attName.getAttrName();
-
-    //Fetch values from symbol table
-    AllocaInst *mem_pos;
-    {
-        map<std::string, AllocaInst*>::iterator it;
-        it = NamedValuesBinaryCol.find(currPosVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currPosVar);
-        }
-        mem_pos = it->second;
-    }
-    Value *val_pos = Builder->CreateLoad(mem_pos);
-
-    AllocaInst* buf;
-    {
-        map<string, AllocaInst*>::iterator it;
-        it = NamedValuesBinaryCol.find(currBufVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currBufVar);
-        }
-        buf = it->second;
-    }
-    Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
-    Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-    Value *parsedInt = Builder->CreateLoad(bufShiftedPtr);
-
-    AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
-    Builder->CreateStore(parsedInt,mem_currResult);
-    LOG(INFO) << "[BINARYCOL - READ INT: ] Read Successful";
-
-    RawValueMemory mem_valWrapper;
-    mem_valWrapper.mem = mem_currResult;
-    mem_valWrapper.isNull = context->createFalse();
-    variables[attName] = mem_valWrapper;
-
-#ifdef DEBUGBINCOL
-//      vector<Value*> ArgsV;
-//      ArgsV.clear();
-//      ArgsV.push_back(parsedInt);
-//      Function* debugInt = context->getFunction("printi");
-//      Builder->CreateCall(debugInt, ArgsV, "printi");
-#endif
-}
-
-/* Operates over char*! */
-void GpuColScanPlugin::readAsInt64LLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
-{
-    //Prepare
-    LLVMContext& llvmContext = context->getLLVMContext();
-    Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-    Type* int64Type = Type::getInt64Ty(llvmContext);
-    PointerType* ptrType_int64 = PointerType::get(int64Type, 0);
-
-    IRBuilder<>* Builder = context->getBuilder();
-    Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-    string posVarStr = string(posVar);
-    string currPosVar = posVarStr + "." + attName.getAttrName();
-    string bufVarStr = string(bufVar);
-    string currBufVar = bufVarStr + "." + attName.getAttrName();
-
-    //Fetch values from symbol table
-    AllocaInst *mem_pos;
-    {
-        map<std::string, AllocaInst*>::iterator it;
-        it = NamedValuesBinaryCol.find(currPosVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currPosVar);
-        }
-        mem_pos = it->second;
-    }
-    Value *val_pos = Builder->CreateLoad(mem_pos);
-
-    AllocaInst* buf;
-    {
-        map<string, AllocaInst*>::iterator it;
-        it = NamedValuesBinaryCol.find(currBufVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currBufVar);
-        }
-        buf = it->second;
-    }
-    Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
-    Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-    Value* mem_result = Builder->CreateBitCast(bufShiftedPtr,ptrType_int64);
-    Value *parsedInt = Builder->CreateLoad(mem_result);
-
-    AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", int64Type);
-    Builder->CreateStore(parsedInt,mem_currResult);
-    LOG(INFO) << "[BINARYCOL - READ INT64: ] Read Successful";
-
-    RawValueMemory mem_valWrapper;
-    mem_valWrapper.mem = mem_currResult;
-    mem_valWrapper.isNull = context->createFalse();
-    variables[attName] = mem_valWrapper;
-}
-
-/* Operates over char*! */
-Value* GpuColScanPlugin::readAsInt64LLVM(RecordAttribute attName)
-{
-    //Prepare
-    LLVMContext& llvmContext = context->getLLVMContext();
-    Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-    Type* int64Type = Type::getInt64Ty(llvmContext);
-    PointerType* ptrType_int64 = PointerType::get(int64Type, 0);
-
-    IRBuilder<>* Builder = context->getBuilder();
-    Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-    string posVarStr = string(posVar);
-    string currPosVar = posVarStr + "." + attName.getAttrName();
-    string bufVarStr = string(bufVar);
-    string currBufVar = bufVarStr + "." + attName.getAttrName();
-
-    //Fetch values from symbol table
-    AllocaInst *mem_pos;
-    {
-        map<std::string, AllocaInst*>::iterator it;
-        it = NamedValuesBinaryCol.find(currPosVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currPosVar);
-        }
-        mem_pos = it->second;
-    }
-    Value *val_pos = Builder->CreateLoad(mem_pos);
-
-    AllocaInst* buf;
-    {
-        map<string, AllocaInst*>::iterator it;
-        it = NamedValuesBinaryCol.find(currBufVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currBufVar);
-        }
-        buf = it->second;
-    }
-    Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
-    Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-    Value* mem_result = Builder->CreateBitCast(bufShiftedPtr,ptrType_int64);
-    Value *parsedInt64 = Builder->CreateLoad(mem_result);
-
-    return parsedInt64;
-}
-
-
-/*
- * FIXME Needs to be aware of dictionary (?).
- * Probably readValue() is the appropriate place for this.
- * I think forwarding the dict. code (int32) is sufficient here.
- */
-void GpuColScanPlugin::readAsStringLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
-{
-    readAsIntLLVM(attName, variables);
-}
-
-void GpuColScanPlugin::readAsBooleanLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
-{
-    //Prepare
-    LLVMContext& llvmContext = context->getLLVMContext();
-    Type* int1Type = Type::getInt1Ty(llvmContext);
-    PointerType* ptrType_bool = PointerType::get(int1Type, 0);
-
-    IRBuilder<>* Builder = context->getBuilder();
-    Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-    string posVarStr = string(posVar);
-    string currPosVar = posVarStr + "." + attName.getAttrName();
-    string bufVarStr = string(bufVar);
-    string currBufVar = bufVarStr + "." + attName.getAttrName();
-
-    //Fetch values from symbol table
-    AllocaInst *mem_pos;
-    {
-        map<std::string, AllocaInst*>::iterator it;
-        it = NamedValuesBinaryCol.find(currPosVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currPosVar);
-        }
-        mem_pos = it->second;
-    }
-    Value *val_pos = Builder->CreateLoad(mem_pos);
-
-    AllocaInst* buf;
-    {
-        map<std::string, AllocaInst*>::iterator it;
-        it = NamedValuesBinaryCol.find(currBufVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currBufVar);
-        }
-        buf = it->second;
-    }
-    Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
-    Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-    Value *parsedInt = Builder->CreateLoad(bufShiftedPtr);
-
-    AllocaInst *currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", int1Type);
-    Builder->CreateStore(parsedInt,currResult);
-    LOG(INFO) << "[BINARYCOL - READ BOOL: ] Read Successful";
-
-    RawValueMemory mem_valWrapper;
-    mem_valWrapper.mem = currResult;
-    mem_valWrapper.isNull = context->createFalse();
-    variables[attName] = mem_valWrapper;
-}
-
-void GpuColScanPlugin::readAsFloatLLVM(RecordAttribute attName, map<RecordAttribute, RawValueMemory>& variables)
-{
-    //Prepare
-    LLVMContext& llvmContext = context->getLLVMContext();
-    Type* doubleType = Type::getDoubleTy(llvmContext);
-    PointerType* ptrType_double = PointerType::get(doubleType, 0);
-
-    IRBuilder<>* Builder = context->getBuilder();
-    Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-    string posVarStr = string(posVar);
-    string currPosVar = posVarStr + "." + attName.getAttrName();
-    string bufVarStr = string(bufVar);
-    string currBufVar = bufVarStr + "." + attName.getAttrName();
-
-    //Fetch values from symbol table
-    AllocaInst *mem_pos;
-    {
-        map<string, AllocaInst*>::iterator it;
-        it = NamedValuesBinaryCol.find(currPosVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currPosVar);
-        }
-        mem_pos = it->second;
-    }
-    Value *val_pos = Builder->CreateLoad(mem_pos);
-
-    AllocaInst* buf;
-    {
-        map<string, AllocaInst*>::iterator it;
-        it = NamedValuesBinaryCol.find(currBufVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currBufVar);
-        }
-        buf = it->second;
-    }
-    Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
-    Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-    Value *parsedFloat = Builder->CreateLoad(bufShiftedPtr);
-
-    AllocaInst *currResult = context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);
-    Builder->CreateStore(parsedFloat,currResult);
-    LOG(INFO) << "[BINARYCOL - READ FLOAT: ] Read Successful";
-
-    RawValueMemory mem_valWrapper;
-    mem_valWrapper.mem = currResult;
-    mem_valWrapper.isNull = context->createFalse();
-    variables[attName] = mem_valWrapper;
-}
-
-void GpuColScanPlugin::prepareArray(RecordAttribute attName) {
-    LLVMContext& llvmContext = context->getLLVMContext();
-    Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-//  Type* floatPtrType = Type::getFloatPtrTy(llvmContext);
-    Type* doublePtrType = Type::getDoublePtrTy(llvmContext);
-    Type* int64Type = Type::getInt64Ty(llvmContext);
-    Type* int32PtrType = Type::getInt32PtrTy(llvmContext);
-    Type* int64PtrType = Type::getInt64PtrTy(llvmContext);
-    Type* int8PtrType = Type::getInt8PtrTy(llvmContext);
-
-    IRBuilder<>* Builder = context->getBuilder();
-    Function *F = Builder->GetInsertBlock()->getParent();
-
-    string posVarStr = string(posVar);
-    string currPosVar = posVarStr + "." + attName.getAttrName();
-    string bufVarStr = string(bufVar);
-    string currBufVar = bufVarStr + "." + attName.getAttrName();
-
-    /* Code equivalent to skip(size_t) */
-    Value* val_offset = context->createInt64(sizeof(size_t));
-    AllocaInst* mem_pos;
-    {
-        map<string, AllocaInst*>::iterator it;
-        string posVarStr = string(posVar);
-        string currPosVar = posVarStr + "." + attName.getAttrName();
-        it = NamedValuesBinaryCol.find(currPosVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currPosVar);
-        }
-        mem_pos = it->second;
-    }
-
-    //Increment and store back
-    Value* val_curr_pos = Builder->CreateLoad(mem_pos);
-    Value* val_new_pos = Builder->CreateAdd(val_curr_pos,val_offset);
-    /* Not storing this 'offset' - we want the cast buffer to
-     * conceptually start from 0 */
-    //  Builder->CreateStore(val_new_pos,mem_pos);
-
-    /* Get relevant char* rawBuf */
-    AllocaInst* buf;
-    {
-        map<string, AllocaInst*>::iterator it;
-        it = NamedValuesBinaryCol.find(currBufVar);
-        if (it == NamedValuesBinaryCol.end()) {
-            throw runtime_error(string("Unknown variable name: ") + currBufVar);
-        }
-        buf = it->second;
-    }
-    Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
-    Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_new_pos);
-
-    /* Cast to appropriate form */
-    typeID id = attName.getOriginalType()->getTypeID();
-    switch (id) {
-    case BOOL: {
-        //No need to do sth - char* and int8* are interchangeable
-        break;
-    }
-    case FLOAT: {
-        AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(F,
-                string("mem_bufPtr"), doublePtrType);
-        Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, doublePtrType);
-        Builder->CreateStore(val_bufPtr, mem_bufPtr);
-        NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
-        break;
-    }
-    case INT: {
-        AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(F,
-                string("mem_bufPtr"), int32PtrType);
-        Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, int32PtrType);
-        Builder->CreateStore(val_bufPtr, mem_bufPtr);
-        NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
-        break;
-    }
-    case INT64: {
-            AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(F,
-                    string("mem_bufPtr"), int64PtrType);
-            Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, int64PtrType);
-            Builder->CreateStore(val_bufPtr, mem_bufPtr);
-            NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
-            break;
-        }
-    case STRING: {
-        /* String representation comprises the code and the dictionary
-         * Codes are (will be) int32, so can again treat like int32* */
-        AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(F,
-                string("mem_bufPtr"), int32PtrType);
-        Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, int32PtrType);
-        Builder->CreateStore(val_bufPtr, mem_bufPtr);
-        NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
-        break;
-    }
-    case RECORD:
-    case LIST:
-    case BAG:
-    case SET:
-    default: {
-        string error_msg = string("[Binary Col PG: ] Unsupported Record");
-        LOG(ERROR)<< error_msg;
-        throw runtime_error(error_msg);
-    }
-    }
-}
-
-void GpuColScanPlugin::scan(const RawOperator& producer)
-{
+void GpuColScanPlugin::scan(const RawOperator& producer){
     //Prepare
     LLVMContext& llvmContext = context->getLLVMContext();
     IRBuilder<>* Builder = context->getBuilder();
@@ -805,7 +355,7 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
     Type* int64Type = Type::getInt64Ty(llvmContext);
 
     //Container for the variable bindings
-    map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
+    map<RecordAttribute, RawValueMemory> variableBindings;
 
     //Get the ENTRY BLOCK
     context->setCurrentEntryBlock(Builder->GetInsertBlock());
@@ -853,7 +403,7 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
     RawValueMemory mem_posWrapper;
     mem_posWrapper.mem = mem_itemCtr;
     mem_posWrapper.isNull = context->createFalse();
-    (*variableBindings)[tupleIdentifier] = mem_posWrapper;
+    variableBindings[tupleIdentifier] = mem_posWrapper;
 
     //Actual Work (Loop through attributes etc.)
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
@@ -876,7 +426,7 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
 
         // AllocaInst * attr_alloca = context->CreateEntryBlockAlloca(F, attr.getAttrName(), t->getLLVMType(llvmContext));
 
-        // (*variableBindings)[tupleIdentifier] = mem_posWrapper;
+        // variableBindings[tupleIdentifier] = mem_posWrapper;
         //Move to next position
         // Value* val_offset = context->createInt64(offset);
         // skipLLVM(attr, val_offset);
@@ -888,36 +438,6 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
         string bufVarStr = string(bufVar);
         string currBufVar = bufVarStr + "." + attr.getAttrName();
 
-        // //Fetch values from symbol table
-        // AllocaInst *mem_pos;
-        // {
-        //     map<std::string, AllocaInst*>::iterator it;
-        //     it = NamedValuesBinaryCol.find(currPosVar);
-        //     if (it == NamedValuesBinaryCol.end()) {
-        //         throw runtime_error(string("Unknown variable name: ") + currPosVar);
-        //     }
-        //     mem_pos = it->second;
-        // }
-        // Value *val_pos = Builder->CreateLoad(mem_pos);
-
-        // AllocaInst* buf;
-        // {
-        //     map<string, AllocaInst*>::iterator it;
-        //     it = NamedValuesBinaryCol.find(currBufVar);
-        //     if (it == NamedValuesBinaryCol.end()) {
-        //         throw runtime_error(string("Unknown variable name: ") + currBufVar);
-        //     }
-        //     buf = it->second;
-        // }
-        // Value* bufPtr = Builder->CreateLoad(buf, "bufPtr");
-        // Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-
-
-
-
-
-
-
         // Value *parsed = Builder->CreateLoad(bufShiftedPtr); //attr_alloca
         Value *parsed = Builder->CreateLoad(Builder->CreateGEP(arg, lhs)); //TODO : use CreateAllignedLoad 
 
@@ -927,7 +447,7 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem = mem_currResult;
         mem_valWrapper.isNull = context->createFalse();
-        (*variableBindings)[attr] = mem_valWrapper;
+        variableBindings[attr] = mem_valWrapper;
     }
 
     // Start insertion in IncBB.
@@ -938,9 +458,8 @@ void GpuColScanPlugin::scan(const RawOperator& producer)
     Builder->SetInsertPoint(LoopBB);
 
     //Triggering parent
-    OperatorState* state = new OperatorState(producer, *variableBindings);
-    RawOperator* const opParent = producer.getParent();
-    opParent->consume(context,*state);
+    OperatorState state{producer, variableBindings};
+    producer.getParent()->consume(context, state);
 
     // Insert an explicit fall through from the current (body) block to IncBB.
     Builder->CreateBr(IncBB);

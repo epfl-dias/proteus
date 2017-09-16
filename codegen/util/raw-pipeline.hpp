@@ -37,6 +37,8 @@ extern "C"{
     void yield();
 }
 
+// __device__ void devprinti64(uint64_t x);
+
 class RawPipelineGen {
 protected:
     //Last (current) basic block. This changes every time a new scan is triggered

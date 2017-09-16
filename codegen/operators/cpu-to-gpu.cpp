@@ -112,6 +112,9 @@ void CpuToGpu::generateGpuSide(){
         AllocaInst * mem = context->CreateEntryBlockAlloca(F, "activeCnt_ptr", N->getType());
         Builder->CreateStore(N, mem);
 
+        // Function * printi = context->getFunction("printi64");
+        // Builder->CreateCall(printi, std::vector<Value *>{N});
+
         RawValueMemory tmp;
         tmp.mem     = mem;
         tmp.isNull  = context->createFalse();

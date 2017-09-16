@@ -141,6 +141,14 @@ void GpuSSBMTest3::SetUp() {
     caches->clear();
 
     N = 1024*1024*256;
+
+    int devices = get_num_of_gpus();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaFree(0));
+    }
+    gpu_run(cudaSetDevice(0));
+
     
     gpu_run(cudaMalloc(&c, sizeof(int32_t)*16));
     gpu_run(cudaMallocHost(&h_c, sizeof(int32_t)*16));
@@ -580,7 +588,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_1_100) {
     std::cout << c_out << std::endl;
 
     //for the current dataset, regenerating it may change the results
-    EXPECT_TRUE((c_out == UINT64_C(-1) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(-1))) && "TODO: compare with correct value"); //FIXME: compare with correct value
+    EXPECT_TRUE(c_out == UINT64_C(44652567249651) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(44652567249651)));
 }
 
 TEST_F(GpuSSBMTest3, gpuSSBM_Q2_1) {

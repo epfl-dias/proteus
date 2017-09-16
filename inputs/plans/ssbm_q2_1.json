@@ -29,6 +29,7 @@
   }],
   "gpu": true,
   "hash_bits": 10,
+  "maxInputSize": 1048576,
   "w": [128],
   "k": [{
     "expression": "recordProjection",
@@ -77,6 +78,7 @@
     "operator": "hashjoin-chained",
     "gpu": true,
     "hash_bits": 6,
+    "maxBuildInputSize": 1048576,
     "build_k": {
       "expression": "recordProjection",
       "type": {
@@ -168,6 +170,7 @@
       "operator": "hashjoin-chained",
       "gpu": true,
       "hash_bits": 6,
+      "maxBuildInputSize": 1048576,
       "build_k": {
         "expression": "recordProjection",
         "type": {
@@ -270,6 +273,7 @@
         "operator": "hashjoin-chained",
         "gpu": true,
         "hash_bits": 6,
+        "maxBuildInputSize": 1048576,
         "build_k": {
           "expression": "recordProjection",
           "type": {

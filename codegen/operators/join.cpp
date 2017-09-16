@@ -197,7 +197,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		ConstantPointerNull* const_null = ConstantPointerNull::get(i8_ptr);
 
 		BasicBlock* codeSpot = Builder->GetInsertBlock();
-		AllocaInst* ptr_i = new AllocaInst(IntegerType::get(llvmContext, 32), "i_mem",codeSpot);
+		AllocaInst* ptr_i = context->createAlloca(codeSpot, "i_mem", IntegerType::get(llvmContext, 32));
 		ptr_i->setAlignment(4);
 		StoreInst* store_i = new StoreInst(context->createInt32(0), ptr_i, false,codeSpot);
 		store_i->setAlignment(4);

@@ -47,16 +47,9 @@ GpuHashGroupByChained::GpuHashGroupByChained(
 }
 
 void GpuHashGroupByChained::produce() {
-    // context->pushNewPipeline(); //FIXME: find a better way to do this
     buildHashTableFormat();
 
     getChild()->produce();
-
-    // context->compileAndLoad(); //FIXME: Remove!!!! causes an extra compilation! this compile will be done again later!
-    // Get kernel function
-    // probe_kernel = context->getKernel();
-    // context->popNewPipeline(); //FIXME: find a better way to do this
-    // generate_scan();
 }
 
 void GpuHashGroupByChained::consume(RawContext* const context, const OperatorState& childState) {
@@ -233,11 +226,7 @@ void GpuHashGroupByChained::generate_build(RawContext* const context, const Oper
 
     for (size_t i = 0 ; i < out_param_ids.size() ; ++i) {
         Value * out_ptr = ((const GpuRawContext *) context)->getStateVar(out_param_ids[i]);
-        if (out_param_ids.size() != 1){
-            out_ptr->setName(opLabel + "_data" + std::to_string(i) + "_ptr");
-        } else {
-            out_ptr->setName(opLabel + "_data_ptr");
-        }
+        out_ptr->setName(opLabel + "_data" + std::to_string(i) + "_ptr");
         // out_ptrs.push_back(out_ptr);
 
         // out_ptr->addAttr(Attribute::getWithAlignment(llvmContext, context->getSizeOf(out_ptr)));
@@ -536,7 +525,7 @@ void GpuHashGroupByChained::open(RawPipeline * pip){
 
     for (const auto &w: packet_widths){
         next.emplace_back();
-        gpu_run(cudaMalloc((void **) &(next.back()), (w/8) * maxInputSize)); //FIXME constant ==> max input size
+        gpu_run(cudaMalloc((void **) &(next.back()), (w/8) * maxInputSize));
     }
 
     gpu_run(cudaMemset(  cnt,  0,                    sizeof(int32_t)));

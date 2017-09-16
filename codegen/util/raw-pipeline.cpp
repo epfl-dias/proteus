@@ -70,7 +70,7 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
         /* OPTIMIZER PIPELINE, function passes */
         TheFPM = new legacy::FunctionPassManager(getModule());
         addOptimizerPipelineDefault(TheFPM);
-        TheFPM->add(createLoadCombinePass());
+        // TheFPM->add(createLoadCombinePass());
 
 
         //LSC: Seems to be faster without the vectorization, at least
@@ -252,6 +252,10 @@ GpuRawPipelineGen::GpuRawPipelineGen(RawContext * context, std::string pipName, 
     Function *intr_pmembarsys = Function::Create(intrmembarsys, Function::ExternalLinkage, "llvm.nvvm.membar.sys", getModule());
     registerFunction("llvm.nvvm.membar.sys", intr_pmembarsys);
 
+    FunctionType *intrprinti64 = FunctionType::get(void_type, std::vector<Type *>{int64_type}, false);
+    Function *intr_pprinti64 = Function::Create(intrprinti64, Function::ExternalLinkage, "printi64", getModule());
+    registerFunction("printi64", intr_pprinti64);
+
     string ErrStr;
     TheExecutionEngine =
         EngineBuilder(std::unique_ptr<Module>(TheModule)).setErrorStr(&ErrStr).create();
@@ -308,11 +312,16 @@ void RawPipelineGen::prepareFunction(){
     //use f_num to overcome an llvm bu with keeping dots in function names when generating PTX (which is invalid in PTX)
     F = Function::Create(ftype, Function::ExternalLinkage, pipName, context->getModule());
 
+    Attribute readOnly = Attribute::get(context->getLLVMContext(), Attribute::AttrKind::ReadOnly);
+    Attribute noAlias  = Attribute::get(context->getLLVMContext(), Attribute::AttrKind::NoAlias );
+
+    std::vector<std::pair<unsigned, Attribute>> attrs;
     for (size_t i = 1 ; i <= inputs.size() ; ++i){ //+1 because 0 is the return value
-        if (inputs_readonly[i - 1]) F->setOnlyReadsMemory(i);
-        if (inputs_noalias [i - 1]) F->setDoesNotAlias(   i);
+        if (inputs_readonly[i - 1]) attrs.emplace_back(i, readOnly);
+        if (inputs_noalias [i - 1]) attrs.emplace_back(i, noAlias );
     }
 
+    F->setAttributes(AttributeList::get(context->getLLVMContext(), attrs));
     for (auto &t: F->args()) args.push_back(&t);
 
     BasicBlock *BB = BasicBlock::Create(context->getLLVMContext(), "entry", F);
@@ -381,7 +390,7 @@ void RawPipelineGen::compileAndLoad(){
 
     {
         std::error_code EC;
-        raw_fd_ostream out("generated_code/" + pipName + ".ll", EC, sys::fs::F_None);
+        raw_fd_ostream out("generated_code/" + pipName + ".ll", EC, (llvm::sys::fs::OpenFlags) 0); // FIXME: llvm::sys::fs::OpenFlags::F_NONE is the correct one but it gives a compilation error
 
         getModule()->print(out, nullptr, false, true);
     }
@@ -401,7 +410,7 @@ void RawPipelineGen::compileAndLoad(){
 
     {
         std::error_code EC;
-        raw_fd_ostream out("generated_code/" + pipName + "_opt.ll", EC, sys::fs::F_None);
+        raw_fd_ostream out("generated_code/" + pipName + "_opt.ll", EC, (llvm::sys::fs::OpenFlags) 0); // FIXME: llvm::sys::fs::OpenFlags::F_NONE is the correct one but it gives a compilation error
 
         getModule()->print(out, nullptr, false, true);
     }
@@ -416,6 +425,14 @@ void RawPipelineGen::compileAndLoad(){
 }
 
 
+extern char _binary_device_funcs_cubin_end  [];
+extern char _binary_device_funcs_cubin_size   ; //size = (size_t) &_binary_device_funcs_cubin_size
+extern char _binary_device_funcs_cubin_start[];
+
+constexpr size_t BUFFER_SIZE = 8192;
+char error_log[BUFFER_SIZE];
+// char info_log [BUFFER_SIZE];
+
 void GpuRawPipelineGen::compileAndLoad(){
     LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
     std::cout << pipName << " G" << std::endl;
@@ -425,7 +442,7 @@ void GpuRawPipelineGen::compileAndLoad(){
 
     {
         std::error_code EC;
-        raw_fd_ostream out("generated_code/" + pipName + ".ll", EC, sys::fs::F_None);
+        raw_fd_ostream out("generated_code/" + pipName + ".ll", EC, (llvm::sys::fs::OpenFlags) 0); // FIXME: llvm::sys::fs::OpenFlags::F_NONE is the correct one but it gives a compilation error
 
         getModule()->print(out, nullptr, false, true);
     }
@@ -467,7 +484,7 @@ void GpuRawPipelineGen::compileAndLoad(){
     
     {
         std::error_code EC;
-        raw_fd_ostream out("generated_code/" + pipName + "_opt.ll", EC, sys::fs::F_None);
+        raw_fd_ostream out("generated_code/" + pipName + "_opt.ll", EC, (llvm::sys::fs::OpenFlags) 0); // FIXME: llvm::sys::fs::OpenFlags::F_NONE is the correct one but it gives a compilation error
 
         getModule()->print(out, nullptr, false, true);
     }
@@ -491,14 +508,65 @@ void GpuRawPipelineGen::compileAndLoad(){
         optx << ptx;
     }
 #endif
+    
+    // {
+    //     time_block t("Tcuda_comp: ");
+    //     CUlinkState linkState;
 
+    //     gpu_run(cuLinkCreate  (0, NULL, NULL, &linkState));
+    //     gpu_run(cuLinkAddData (linkState, CU_JIT_INPUT_PTX, (void *) ptx.c_str(), ptx.length() + 1, 0, 0, 0, 0));
+    //     gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_LIBRARY, "/usr/local/cuda/lib64/libcudadevrt.a", 0, NULL, NULL));
+    //     gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX, "/home/chrysoge/Documents/pelago/src/raw-jit-executor/codegen/device_funcs.ptx", 0, NULL, NULL));
+    //     gpu_run(cuLinkComplete(linkState, &cubin, &cubinSize));
+    //     gpu_run(cuLinkDestroy (linkState));
+    // }
+    {
+        time_block t("TcuCompile: "); //FIXME: Currently requires all GPUs to be of the same compute capability, or to be more precise, all of them to be compatible with the CC of the current device
+        void * cubin;
+        size_t cubinSize;
 
-    int devices = get_num_of_gpus();
-    for (int i = 0 ; i < devices ; ++i){
-        time_block t("TloadModule: ");
-        set_device_on_scope d(i);
+        CUlinkState linkState;
+        
+        constexpr size_t opt_size = 3;
+        CUjit_option options[opt_size];
+        void       * values [opt_size];
 
-        gpu_run(cuModuleLoadDataEx(&cudaModule[i], ptx.c_str(), 0, 0, 0));
+        options [0] = CU_JIT_TARGET_FROM_CUCONTEXT;
+        values  [0] = 0;
+        options [1] = CU_JIT_ERROR_LOG_BUFFER;
+        values  [1] = (void *) error_log;
+        options [2] = CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES;
+        values  [2] = (void *) BUFFER_SIZE;
+        // options [3] = CU_JIT_INFO_LOG_BUFFER;
+        // values  [3] = (void *) info_log;
+        // options [4] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
+        // values  [4] = (void *) BUFFER_SIZE;
+
+        size_t size = _binary_device_funcs_cubin_end - _binary_device_funcs_cubin_start;
+
+        gpu_run(cuLinkCreate  (opt_size, options, values, &linkState));
+        // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_LIBRARY, "/usr/local/cuda/lib64/libcudadevrt.a", 0, NULL, NULL));
+        // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN, "/home/chrysoge/Documents/pelago/opt/res/device_funcs.cubin", 0, NULL, NULL));
+        gpu_run(cuLinkAddData (linkState, CU_JIT_INPUT_CUBIN, _binary_device_funcs_cubin_start, size, NULL, 0, NULL, NULL));
+        // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX, "/home/chrysoge/Documents/pelago/src/raw-jit-executor/codegen/device_funcs.ptx", 0, NULL, NULL));
+        // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX, ("generated_code/" + pipName + ".ptx").c_str(), 0, NULL, NULL));
+        gpu_run(cuLinkAddData (linkState, CU_JIT_INPUT_PTX, (void *) ptx.c_str(), ptx.length() + 1, NULL, 0, NULL, NULL));
+        auto x = cuLinkComplete(linkState, &cubin, &cubinSize);
+        if (x != CUDA_SUCCESS) {
+            printf("[CUcompile: ] %s\n", error_log);
+            gpu_run(x);
+        }
+
+        int devices = get_num_of_gpus();
+        for (int i = 0 ; i < devices ; ++i){
+            time_block t("TloadModule: ");
+            set_device_on_scope d(i);
+
+            // gpu_run(cuModuleLoadDataEx(&cudaModule[i], ptx.c_str(), 0, 0, 0));
+            gpu_run(cuModuleLoadFatBinary(&cudaModule[i], cubin));
+        }
+        
+        gpu_run(cuLinkDestroy (linkState));
     }
     func_name = F->getName().str();
 

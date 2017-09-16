@@ -14,8 +14,8 @@ foreach(target
 		)
 endforeach(target)
 
-find_package(CUDA REQUIRED)
-set(CUDA_HOST_COMPILER "g++") #FIXME: workaround as nvcc does not support the current clang version
+# find_package(CUDA REQUIRED)
+# set(CUDA_HOST_COMPILER "g++") #FIXME: workaround as nvcc does not support the current clang version
 
 # find_program(CLANG_CXX_COMPILER "nvcc")
 # set(CMAKE_CXX_COMPILER "nvcc")
@@ -31,9 +31,9 @@ foreach(target
 	# find_program(CLANG_C_COMPILER "nvcc")
 	# set(CMAKE_C_COMPILER "nvcc")
 
-	SET_SOURCE_FILES_PROPERTIES(${target}.cu PROPERTIES LANGUAGE CUDA)
-	cuda_add_executable(unit-${target} ${target}.cu OPTIONS ${CUDA_CXXFLAGS})
-	# set_target_properties(unit-${target} PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
+	SET_SOURCE_FILES_PROPERTIES(${target}.cu PROPERTIES LANGUAGE CXX)
+	add_executable(unit-${target} ${target}.cu)
+	set_target_properties(unit-${target} PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
 	target_link_libraries(unit-${target} ${gtest_libs})
 	install(TARGETS unit-${target}
 		RUNTIME DESTINATION raw

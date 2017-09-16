@@ -466,7 +466,7 @@ void GpuHashJoinChained::open_build(RawPipeline * pip){
 
     for (const auto &w: build_packet_widths){
         next_w_values.emplace_back();
-        gpu_run(cudaMalloc((void **) &(next_w_values.back()), (w/8) * maxBuildInputSize)); //FIXME constant ==> max build input size
+        gpu_run(cudaMalloc((void **) &(next_w_values.back()), (w/8) * maxBuildInputSize));
     }
 
     pip->setStateVar(head_param_id, head);
