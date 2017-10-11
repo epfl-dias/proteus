@@ -3,9 +3,6 @@
     "expression": "multiply",
       "left": {
         "expression": "recordProjection",
-        "type": {
-          "type": "int"
-        },
         "e": {
           "expression": "argument",
           "argNo": -1,
@@ -25,9 +22,6 @@
       },
       "right":{
         "expression": "recordProjection",
-        "type": {
-          "type": "int"
-        },
         "e": {
           "expression": "argument",
           "argNo": -1,
@@ -60,9 +54,6 @@
     "maxBuildInputSize": 32,
     "build_k": {
       "expression": "recordProjection",
-      "type": {
-        "type": "int"
-      },
       "e": {
         "expression": "argument",
         "argNo": 1,
@@ -91,9 +82,6 @@
           "expression": "eq",
           "left": {
             "expression": "recordProjection",
-            "type": {
-              "type": "int"
-            },
             "e": {
               "expression": "argument",
               "argNo": -1,
@@ -120,9 +108,6 @@
           "expression": "eq",
           "left": {
             "expression": "recordProjection",
-            "type": {
-              "type": "int"
-            },
             "e": {
               "expression": "argument",
               "argNo": -1,
@@ -166,9 +151,6 @@
     },
     "probe_k": {
       "expression": "recordProjection",
-      "type": {
-        "type": "int"
-      },
       "e": {
         "expression": "argument",
         "argNo": -1,
@@ -199,9 +181,6 @@
             "expression": "ge",
             "left": {
               "expression": "recordProjection",
-              "type": {
-                "type": "int"
-              },
               "e": {
                 "expression": "argument",
                 "argNo": -1,
@@ -228,9 +207,6 @@
             "expression": "le",
             "left": {
               "expression": "recordProjection",
-              "type": {
-                "type": "int"
-              },
               "e": {
                 "expression": "argument",
                 "argNo": -1,
@@ -260,9 +236,6 @@
             "expression": "le",
             "left": {
               "expression": "recordProjection",
-              "type": {
-                "type": "int"
-              },
               "e": {
                 "expression": "argument",
                 "argNo": -1,
@@ -289,9 +262,6 @@
             "expression": "ge",
             "left": {
               "expression": "recordProjection",
-              "type": {
-                "type": "int"
-              },
               "e": {
                 "expression": "argument",
                 "argNo": -1,

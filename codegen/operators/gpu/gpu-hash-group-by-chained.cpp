@@ -423,8 +423,8 @@ void GpuHashGroupByChained::generate_build(RawContext* const context, const Oper
 
     Builder->SetInsertPoint(MergeBB);
 
-    ((GpuRawContext *) context)->registerOpen ([this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose([this](RawPipeline * pip){this->close(pip);});
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
 // void GpuHashGroupByChained::generate_probe(RawContext* const context, const OperatorState& childState) {

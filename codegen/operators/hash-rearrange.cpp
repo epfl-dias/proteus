@@ -204,8 +204,8 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
     // flush remaining elements
     consume_flush();
 
-    ((GpuRawContext *) context)->registerOpen ([this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose([this](RawPipeline * pip){this->close(pip);});
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
 void HashRearrange::consume_flush(){

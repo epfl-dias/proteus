@@ -37,6 +37,7 @@ void CpuToGpu::produce() {
     Type  * charPtrType         = Type::getInt8PtrTy(llvmContext);
 
     childVar_id = context->appendStateVar(charPtrType);
+    strmVar_id  = context->appendStateVar(charPtrType);
 
     getChild()->produce();
 }
@@ -199,24 +200,33 @@ void CpuToGpu::consume(RawContext* const context, const OperatorState& childStat
 
 
     Value * entry   = ((GpuRawContext *) context)->getStateVar(childVar_id);
+    Value * strm    = ((GpuRawContext *) context)->getStateVar(strmVar_id );
 
     // Value * entryPtr = ConstantInt::get(llvmContext, APInt(64, ((uint64_t) entry_point)));
     // Value * entry    = Builder->CreateIntToPtr(entryPtr, charPtrType);
 
-    vector<Value *> kernel_args{entry, Builder->CreateBitCast(kernel_params_addr, ptr_t)};
+    vector<Value *> kernel_args{entry, 
+                                Builder->CreateBitCast(kernel_params_addr, ptr_t),
+                                strm
+                                };
     
-    Function * launchk = context->getFunction("launch_kernel");
+    Function * launchk = context->getFunction("launch_kernel_strm");
 
     Builder->SetInsertPoint(insBB);
 
     // Launch GPU kernel
     Builder->CreateCall(launchk, kernel_args);
 
-    ((GpuRawContext *) context)->registerOpen([this](RawPipeline * pip){
-        pip->setStateVar<void *>(this->childVar_id, gpu_pip->getKernel());
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){
+        cudaStream_t strm;
+        gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+        pip->setStateVar<void       *>(this->childVar_id, gpu_pip->getKernel());
+        pip->setStateVar<cudaStream_t>(this->strmVar_id , strm                );
     });
 
-    ((GpuRawContext *) context)->registerClose([this](RawPipeline * pip){
-        gpu_run(cudaDeviceSynchronize());
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){
+        cudaStream_t strm = pip->getStateVar<cudaStream_t>(this->strmVar_id   );
+        gpu_run(cudaStreamSynchronize(strm));
+        gpu_run(cudaStreamDestroy    (strm));
     });
 }

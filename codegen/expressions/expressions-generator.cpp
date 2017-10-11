@@ -226,7 +226,9 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		//}
 	}
 
+
 	RawValue record = e->getExpr()->accept(*this);
+
 	//Resetting activeRelation here would break nested-record-projections
 	if (plugin == NULL) {
 		string error_msg = string(
@@ -239,6 +241,18 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		RawValueMemory mem_val;
 		//cout << "Active RelationProj: " << activeRelation << "_" << e->getProjectionName() << endl;
 		if (e->getProjectionName() != activeLoop) {
+			const RecordType * exprType = dynamic_cast<const RecordType *>(e->getExpr()->getExpressionType());
+			if (exprType){
+				RecordAttribute attr = e->getAttribute();
+				Value * val = exprType->projectArg(record.value, &attr, Builder);
+				if (val){
+					RawValue valWrapper;
+					valWrapper.value  = val;
+					valWrapper.isNull = record.isNull; //FIXME: what if only one attribute is NULL?
+					return valWrapper;
+				}
+			}
+			
 			//Path involves a projection / an object
 			mem_path = plugin->readPath(activeRelation, bindings,
 					e->getProjectionName().c_str(), e->getAttribute());
@@ -275,17 +289,17 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordConstruction *e) {
 
 	/* Evaluate new attribute expressions and keep their types */
 	vector<RawValue> valuesForStruct;
-	vector<Type*> typesForStruct;
+	// vector<Type*> typesForStruct;
 	list<expressions::AttributeConstruction>::const_iterator it = e->getAtts().begin();
 	for(; it != e->getAtts().end(); it++)
 	{
 		RawValue val = (it->getExpression())->accept(*this);
 		valuesForStruct.push_back(val);
-		typesForStruct.push_back(val.value->getType());
+		// typesForStruct.push_back(val.value->getType());
 	}
 
 	/* Construct struct type to hold record */
-	StructType* recStructType = context->CreateCustomStruct(typesForStruct);
+	Type* recStructType = e->getExpressionType()->getLLVMType(context->getLLVMContext());
 	AllocaInst* mem_struct =
 			context->CreateEntryBlockAlloca(F, "recConstr",recStructType);
 

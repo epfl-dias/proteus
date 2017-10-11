@@ -310,19 +310,21 @@ void Exchange::consume(RawContext* const context, const OperatorState& childStat
 
     Builder->CreateCall(releaseBuffer, kernel_args);
 
-    ((GpuRawContext *) context)->registerOpen ([this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose([this](RawPipeline * pip){this->close(pip);});
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
 
 
 void Exchange::open (RawPipeline * pip){
-    assert(firers.empty());
-
     time_block t("Tinit_exchange: ");
 
-    for (int i = 0 ; i < numOfParents ; ++i){
-        firers.emplace_back(&Exchange::fire, this, i, catch_pip);
+    std::lock_guard<std::mutex> guard(init_mutex);
+    
+    if (firers.empty()){
+        for (int i = 0 ; i < numOfParents ; ++i){
+            firers.emplace_back(&Exchange::fire, this, i, catch_pip);
+        }
     }
 }
 

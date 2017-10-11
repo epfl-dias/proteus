@@ -1,18 +1,27 @@
 #include "common/gpu/gpu-common.hpp"
+#include "common/common.hpp"
 
-void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim){
+void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim, cudaStream_t strm = 0){
     gpu_run(cuLaunchKernel(function, gridDim.x, gridDim.y, gridDim.z,
                                  blockDim.x, blockDim.y, blockDim.z,
-                                 0, NULL, args, NULL));
+                                 0, (CUstream) strm, args, NULL));
 }
 
-void launch_kernel(CUfunction function, void ** args, dim3 gridDim){
-    launch_kernel(function, args, gridDim, defaultBlockDim);
+void launch_kernel(CUfunction function, void ** args, dim3 gridDim, cudaStream_t strm = 0){
+    launch_kernel(function, args, gridDim, defaultBlockDim, strm);
+}
+
+void launch_kernel(CUfunction function, void ** args, cudaStream_t strm = 0){
+    launch_kernel(function, args, defaultGridDim, defaultBlockDim, strm);
 }
 
 extern "C" {
 void launch_kernel(CUfunction function, void ** args){
-    launch_kernel(function, args, defaultGridDim, defaultBlockDim);
+    launch_kernel(function, args, defaultGridDim, defaultBlockDim, 0);
+}
+
+void launch_kernel_strm(CUfunction function, void ** args, cudaStream_t strm){
+    launch_kernel(function, args, strm);
 }
 }
 
@@ -59,6 +68,7 @@ mmap_file::mmap_file(std::string name, data_loc loc): loc(loc){
     gpu_data = data;
 
     if (loc == GPU_RESIDENT){
+        std::cout << "Dataset on device: " << get_device() << std::endl;
         gpu_run(cudaMalloc(&gpu_data,       filesize));
         gpu_run(cudaMemcpy( gpu_data, data, filesize, cudaMemcpyDefault));
     }

@@ -255,6 +255,13 @@ public:
 		ss<<")";
 		return ss.str();
 	}
+
+	virtual Type *getLLVMType(LLVMContext &ctx) const {
+		std::vector<Type *> body;
+		for (const auto &attr: args) body.push_back(attr->getLLVMType(ctx));
+		return StructType::get(ctx, body);
+	}
+
 	typeID getTypeID()	const					{ return RECORD; }
 	list<RecordAttribute*> getArgs() const 		{ return args; }
 	map<string, RecordAttribute*>& getArgsMap()	{ return argsMap; }
@@ -277,10 +284,13 @@ public:
 		return r->second;
 	}
 
+	Value * projectArg(Value * record, RecordAttribute * attr, IRBuilder<>* const Builder) const;
+
 private:
 	list<RecordAttribute*> args;
 	map<string, RecordAttribute*> argsMap;
 
+	int getIndex(RecordAttribute * x) const;
 };
 
 class ExprTypeVisitor

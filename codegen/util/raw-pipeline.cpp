@@ -1,8 +1,8 @@
 #include "util/raw-pipeline.hpp"
 #include "common/gpu/gpu-common.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
-
 #include <thread>
+#include "multigpu/buffer_manager.cuh"
 
 size_t RawPipelineGen::appendParameter(llvm::Type * ptype, bool noalias, bool readonly){
     inputs.push_back(ptype);
@@ -63,6 +63,7 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
         appendStateVar(charPtrType);
     }
 
+    ThePM = new legacy::PassManager();
 
     TheExecutionEngine = nullptr;
 
@@ -87,7 +88,7 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
         addOptimizerPipelineInlining(TheMPM);
 #endif
 
-        TheFPM->doInitialization();
+        // TheFPM->doInitialization();
 
         Type * int32_type   = Type::getInt32Ty  (context->getLLVMContext());
         Type * int64_type   = Type::getInt64Ty  (context->getLLVMContext());
@@ -113,6 +114,21 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
                                                     );
 
         registerFunction("launch_kernel",launch_kernel_);
+
+        FunctionType * FTlaunch_kernel_strm        = FunctionType::get(
+                                                        void_type, 
+                                                        std::vector<Type *>{charPtrType, PointerType::get(charPtrType, 0), charPtrType}, 
+                                                        false
+                                                    );
+
+        Function * launch_kernel_strm_             = Function::Create(
+                                                        FTlaunch_kernel_strm,
+                                                        Function::ExternalLinkage, 
+                                                        "launch_kernel_strm", 
+                                                        getModule()
+                                                    );
+
+        registerFunction("launch_kernel_strm",launch_kernel_strm_);
 
 
         FunctionType *make_mem_move_device = FunctionType::get(charPtrType, std::vector<Type *>{charPtrType, size_type, int32_type, charPtrType}, false);
@@ -165,7 +181,7 @@ GpuRawPipelineGen::GpuRawPipelineGen(RawContext * context, std::string pipName, 
     cudaModule = (CUmodule *) malloc(get_num_of_gpus() * sizeof(CUmodule));
 
     TheFPM = new legacy::FunctionPassManager(getModule());
-    addOptimizerPipelineDefault(TheFPM);
+                        addOptimizerPipelineDefault(TheFPM);
 
     // ThePM = new legacy::PassManager();
 
@@ -181,7 +197,7 @@ GpuRawPipelineGen::GpuRawPipelineGen(RawContext * context, std::string pipName, 
     //LSC: Seems to be faster without the vectorization, at least
     //while running the unit-tests, but this might be because the
     //datasets are too small.
-    addOptimizerPipelineVectorization(TheFPM);
+                        addOptimizerPipelineVectorization(TheFPM);
     
 #if MODULEPASS
     /* OPTIMIZER PIPELINE, module passes */
@@ -191,8 +207,21 @@ GpuRawPipelineGen::GpuRawPipelineGen(RawContext * context, std::string pipName, 
     pmb.populateModulePassManager(*TheMPM);
     addOptimizerPipelineInlining(TheMPM);
 #endif
+    ThePM = new legacy::PassManager();
 
-    TheFPM->doInitialization();
+    // ThePM->add(llvm::createNVPTXAssignValidGlobalNamesPass());
+
+    // TargetPassConfig *TPC = ((LLVMTargetMachine *) ((GpuRawContext *) context)->TheTargetMachine.get())->createPassConfig(*ThePM);
+    // ThePM->add(TPC);
+
+    PassManagerBuilder Builder;
+    Builder.OptLevel = 3;
+    ((GpuRawContext *) context)->TheTargetMachine->adjustPassManager(Builder);
+    Builder.populateFunctionPassManager(*TheFPM);
+    Builder.populateModulePassManager(*ThePM);
+    // Builder.populateLTOPassManager (*ThePM);
+
+    // TheFPM->doInitialization();
 
     if (sizeof(void*) == 8) {
         getModule()->setDataLayout("e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-"
@@ -224,6 +253,9 @@ GpuRawPipelineGen::GpuRawPipelineGen(RawContext * context, std::string pipName, 
     Function *intr_p = Function::Create(intr, Function::ExternalLinkage, "llvm.nvvm.shfl.bfly.i32", getModule());
     registerFunction("llvm.nvvm.shfl.bfly.i32", intr_p);
 
+    Function *intr_shfl32 = Function::Create(intr, Function::ExternalLinkage, "llvm.nvvm.shfl.idx.i32", getModule());
+    registerFunction("llvm.nvvm.shfl.idx.i32", intr_shfl32);
+
     FunctionType *intr2 = FunctionType::get(int32_type, std::vector<Type *>{}, false);
     Function *intr_p2 = Function::Create(intr2, Function::ExternalLinkage, "llvm.nvvm.read.ptx.sreg.ntid.x", getModule());
     registerFunction("llvm.nvvm.read.ptx.sreg.ntid.x", intr_p2);
@@ -231,6 +263,12 @@ GpuRawPipelineGen::GpuRawPipelineGen(RawContext * context, std::string pipName, 
     FunctionType *intr3 = FunctionType::get(int32_type, std::vector<Type *>{}, false);
     Function *intr_p3 = Function::Create(intr3, Function::ExternalLinkage, "llvm.nvvm.read.ptx.sreg.tid.x", getModule());
     registerFunction("llvm.nvvm.read.ptx.sreg.tid.x", intr_p3);
+
+    Function *intr_lanemask_lt = Function::Create(intr3, Function::ExternalLinkage, "llvm.nvvm.read.ptx.sreg.lanemask.lt", getModule());
+    registerFunction("llvm.nvvm.read.ptx.sreg.lanemask.lt", intr_lanemask_lt);
+
+    Function *intr_lanemask_eq = Function::Create(intr3, Function::ExternalLinkage, "llvm.nvvm.read.ptx.sreg.lanemask.eq", getModule());
+    registerFunction("llvm.nvvm.read.ptx.sreg.lanemask.eq", intr_lanemask_eq);
 
     FunctionType *intr2b = FunctionType::get(int32_type, std::vector<Type *>{}, false);
     Function *intr_p2b = Function::Create(intr2b, Function::ExternalLinkage, "llvm.nvvm.read.ptx.sreg.nctaid.x", getModule());
@@ -244,17 +282,40 @@ GpuRawPipelineGen::GpuRawPipelineGen(RawContext * context, std::string pipName, 
     Function *intr_p4 = Function::Create(intr4, Function::ExternalLinkage, "llvm.nvvm.read.ptx.sreg.laneid", getModule());
     registerFunction("llvm.nvvm.read.ptx.sreg.laneid", intr_p4);
 
+    FunctionType *intrmembarcta = FunctionType::get(void_type, std::vector<Type *>{}, false);
+    Function *intr_pmembarcta = Function::Create(intrmembarcta, Function::ExternalLinkage, "llvm.nvvm.membar.cta", getModule());
+    registerFunction("llvm.nvvm.membar.cta", intr_pmembarcta);
+    registerFunction("threadfence_block"   , intr_pmembarcta);
+
     FunctionType *intrmembargl = FunctionType::get(void_type, std::vector<Type *>{}, false);
     Function *intr_pmembargl = Function::Create(intrmembargl, Function::ExternalLinkage, "llvm.nvvm.membar.gl", getModule());
     registerFunction("llvm.nvvm.membar.gl", intr_pmembargl);
+    registerFunction("threadfence"        , intr_pmembargl);
 
     FunctionType *intrmembarsys = FunctionType::get(void_type, std::vector<Type *>{}, false);
     Function *intr_pmembarsys = Function::Create(intrmembarsys, Function::ExternalLinkage, "llvm.nvvm.membar.sys", getModule());
     registerFunction("llvm.nvvm.membar.sys", intr_pmembarsys);
 
     FunctionType *intrprinti64 = FunctionType::get(void_type, std::vector<Type *>{int64_type}, false);
-    Function *intr_pprinti64 = Function::Create(intrprinti64, Function::ExternalLinkage, "printi64", getModule());
+    Function *intr_pprinti64 = Function::Create(intrprinti64, Function::ExternalLinkage, "dprinti64", getModule());
     registerFunction("printi64", intr_pprinti64);
+    
+    FunctionType *intrget_buffers = FunctionType::get(charPtrType, std::vector<Type *>{}, false);
+    Function *intr_pget_buffers = Function::Create(intrget_buffers, Function::ExternalLinkage, "get_buffers", getModule());
+    registerFunction("get_buffers", intr_pget_buffers);
+
+    FunctionType *intrrelease_buffers = FunctionType::get(void_type, std::vector<Type *>{charPtrType}, false);
+    Function *intr_prelease_buffers = Function::Create(intrrelease_buffers, Function::ExternalLinkage, "release_buffers", getModule());
+    registerFunction("release_buffers", intr_prelease_buffers);
+
+    FunctionType *intrsyncthreads = FunctionType::get(void_type, std::vector<Type *>{}, false);
+    Function *intr_psyncthreads   = Function::Create(intrsyncthreads, Function::ExternalLinkage, "llvm.nvvm.barrier0", getModule());
+    registerFunction("syncthreads"       , intr_psyncthreads);
+    registerFunction("llvm.nvvm.barrier0", intr_psyncthreads);
+
+    FunctionType *intrctpop = FunctionType::get(int32_type, std::vector<Type *>{int32_type}, false);
+    Function *intr_pctpop = Function::Create(intrctpop, Function::ExternalLinkage, "llvm.ctpop.i32", getModule());
+    registerFunction("llvm.ctpop.i32"      , intr_pctpop);
 
     string ErrStr;
     TheExecutionEngine =
@@ -395,12 +456,16 @@ void RawPipelineGen::compileAndLoad(){
         getModule()->print(out, nullptr, false, true);
     }
 #endif
-
+    TheFPM->doInitialization();
+    for (Function &F : *getModule()) {
+        verifyFunction(F);
+        TheFPM->run(F);
+    }
+    TheFPM->doFinalization();
     // Validate the generated code, checking for consistency.
-    verifyFunction(*F);
 
     // Optimize the function.
-    TheFPM->run(*F);
+    // TheFPM->run(*F);
 #if MODULEPASS
     TheMPM->runOnModule(getModule());
 #endif
@@ -425,13 +490,13 @@ void RawPipelineGen::compileAndLoad(){
 }
 
 
-extern char _binary_device_funcs_cubin_end  [];
-extern char _binary_device_funcs_cubin_size   ; //size = (size_t) &_binary_device_funcs_cubin_size
-extern char _binary_device_funcs_cubin_start[];
+// extern char _binary_device_funcs_cubin_end  [];
+// extern char _binary_device_funcs_cubin_size   ; //size = (size_t) &_binary_device_funcs_cubin_size
+// extern char _binary_device_funcs_cubin_start[];
 
 constexpr size_t BUFFER_SIZE = 8192;
 char error_log[BUFFER_SIZE];
-// char info_log [BUFFER_SIZE];
+char info_log [BUFFER_SIZE];
 
 void GpuRawPipelineGen::compileAndLoad(){
     LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
@@ -448,14 +513,17 @@ void GpuRawPipelineGen::compileAndLoad(){
     }
 #endif
 
-    // Validate the generated code, checking for consistency.
-    verifyFunction(*F);
+    TheFPM->doInitialization();
+    for (Function &F : *getModule()) {
+        verifyFunction(F);
+        TheFPM->run(F);
+    }
+    TheFPM->doFinalization();
 
-//     // Optimize the function.
-    TheFPM->run(*F);
 #if MODULEPASS
     TheMPM->runOnModule(getModule());
 #endif
+    ThePM->run(*(getModule()));
 
     // ThePM->run(*getModule());
 
@@ -542,16 +610,30 @@ void GpuRawPipelineGen::compileAndLoad(){
         // options [4] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
         // values  [4] = (void *) BUFFER_SIZE;
 
-        size_t size = _binary_device_funcs_cubin_end - _binary_device_funcs_cubin_start;
+        // size_t size = _binary_device_funcs_cubin_end - _binary_device_funcs_cubin_start;
 
         gpu_run(cuLinkCreate  (opt_size, options, values, &linkState));
         // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_LIBRARY, "/usr/local/cuda/lib64/libcudadevrt.a", 0, NULL, NULL));
         // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN, "/home/chrysoge/Documents/pelago/opt/res/device_funcs.cubin", 0, NULL, NULL));
-        gpu_run(cuLinkAddData (linkState, CU_JIT_INPUT_CUBIN, _binary_device_funcs_cubin_start, size, NULL, 0, NULL, NULL));
+        // (cuLinkAddData (linkState, CU_JIT_INPUT_CUBIN, _binary_device_funcs_cubin_start, size, NULL, 0, NULL, NULL));
+
+        //the strange file name comes from FindCUDA... hopefully there is way to change it...
+        // auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN, "/home/chrysoge/Documents/pelago/build/raw-jit-executor/codegen/multigpu/CMakeFiles/multigpu.dir/multigpu_generated_buffer_manager.cu.o.cubin.txt", 0, NULL, NULL));
+        auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN, "/home/chrysoge/Documents/pelago/opt/lib/buffer_manager.cubin", 0, NULL, NULL));
+            // libmultigpu.a", 0, NULL, NULL));
+        if (x != CUDA_SUCCESS) {
+            printf("[CUcompile: ] %s\n", info_log );
+            printf("[CUcompile: ] %s\n", error_log);
+            gpu_run(x);
+        }
         // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX, "/home/chrysoge/Documents/pelago/src/raw-jit-executor/codegen/device_funcs.ptx", 0, NULL, NULL));
         // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX, ("generated_code/" + pipName + ".ptx").c_str(), 0, NULL, NULL));
-        gpu_run(cuLinkAddData (linkState, CU_JIT_INPUT_PTX, (void *) ptx.c_str(), ptx.length() + 1, NULL, 0, NULL, NULL));
-        auto x = cuLinkComplete(linkState, &cubin, &cubinSize);
+        x = cuLinkAddData (linkState, CU_JIT_INPUT_PTX, (void *) ptx.c_str(), ptx.length() + 1, NULL, 0, NULL, NULL);
+        if (x != CUDA_SUCCESS) {
+            printf("[CUcompile: ] %s\n", error_log);
+            gpu_run(x);
+        }
+        x = cuLinkComplete(linkState, &cubin, &cubinSize);
         if (x != CUDA_SUCCESS) {
             printf("[CUcompile: ] %s\n", error_log);
             gpu_run(x);
@@ -564,6 +646,10 @@ void GpuRawPipelineGen::compileAndLoad(){
 
             // gpu_run(cuModuleLoadDataEx(&cudaModule[i], ptx.c_str(), 0, 0, 0));
             gpu_run(cuModuleLoadFatBinary(&cudaModule[i], cubin));
+            {
+                time_block t("TinitModule: ");
+                initializeModule(cudaModule[i]);
+            }
         }
         
         gpu_run(cuLinkDestroy (linkState));
@@ -597,30 +683,27 @@ void * GpuRawPipelineGen::getKernel() const{
 }
 
 
-void RawPipelineGen::registerOpen (std::function<void (RawPipeline * pip)> open ){
-    openers.push_back(open );
+void RawPipelineGen::registerOpen (const void * owner, std::function<void (RawPipeline * pip)> open ){
+    openers.emplace_back(owner, open );
 }
 
-void RawPipelineGen::registerClose(std::function<void (RawPipeline * pip)> close){
-    closers.push_back(close);
+void RawPipelineGen::registerClose(const void * owner, std::function<void (RawPipeline * pip)> close){
+    closers.emplace_back(owner, close);
 }
 
 
 RawPipeline * RawPipelineGen::getPipeline(int group_id){
     void       * func       = getKernel();
 
-    std::vector<std::function<void (RawPipeline * pip)>> openers{this->openers};
-    std::vector<std::function<void (RawPipeline * pip)>> closers{this->closers};
+    std::vector<std::pair<const void *, std::function<opener_t>>> openers{this->openers};
+    std::vector<std::pair<const void *, std::function<closer_t>>> closers{this->closers};
 
     if (copyStateFrom){
         RawPipeline * copyFrom = copyStateFrom->getPipeline(group_id);
 
-        openers.push_back([copyFrom](RawPipeline * pip){copyFrom->open ();});
-        openers.push_back([copyFrom](RawPipeline * pip){pip->setStateVar(0, copyFrom->state);});
-
-        // openers.push_back([copyFrom](RawPipeline * pip){std::cout << " ASDASd " << std::endl; pip->copyStateFrom  (copyFrom);});
-        // closers.push_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
-        closers.push_back([copyFrom](RawPipeline * pip){copyFrom->close();});
+        openers.emplace_back(this, [copyFrom](RawPipeline * pip){copyFrom->open (); pip->setStateVar(0, copyFrom->state);});
+        // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
+        closers.emplace_back(this, [copyFrom](RawPipeline * pip){copyFrom->close();                                      });
     }
 
     return new RawPipeline(func, (getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8, this, state_type, openers, closers, group_id);
@@ -634,8 +717,8 @@ RawPipeline * GpuRawPipelineGen::getPipeline(int group_id){
 }
 
 RawPipeline::RawPipeline(void * f, size_t state_size, RawPipelineGen * gen, StructType * state_type,
-        const std::vector<std::function<void (RawPipeline * pip)>> &openers,
-        const std::vector<std::function<void (RawPipeline * pip)>> &closers,
+        const std::vector<std::pair<const void *, std::function<opener_t>>> &openers,
+        const std::vector<std::pair<const void *, std::function<closer_t>>> &closers,
         int32_t group_id): 
             cons(f), state_type(state_type), openers(openers), closers(closers), group_id(group_id), layout(gen->getModule()->getDataLayout()), state_size(state_size){
     state = malloc(state_size); //(getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8);
@@ -661,11 +744,35 @@ int32_t RawPipeline::getGroup() const{
 }
 
 void RawPipeline::open(){
-    for (const auto &opener: openers) opener(this);
+    //TODO: for sure it can be done in at least N log N by sorting...
+    for (size_t i = 0 ; i < openers.size() ; ++i) {
+        bool is_first = true;
+        const void * owner = openers[i].first;
+        for (size_t j = 0 ; j < i ; ++j) {
+            if (openers[j].first == owner){
+                is_first = false;
+                break;
+            }
+        }
+        if (is_first) (openers[i].second)(this);
+    }
+    // for (const auto &opener: openers) opener(this);
 }
 
 void RawPipeline::close(){
-    for (size_t i = closers.size() ; i > 0 ; --i) closers[i - 1](this);
+    //TODO: for sure it can be done in at least N log N by sorting...
+    for (size_t i = closers.size() ; i > 0 ; --i) {
+        bool is_last = true;
+        const void * owner = closers[i - 1].first;
+        for (size_t j = closers.size() ; j > i ; --j) {
+            if (closers[j - 1].first == owner){
+                is_last = false;
+                break;
+            }
+        }
+        if (is_last) (closers[i - 1].second)(this);
+    }
+    // for (size_t i = closers.size() ; i > 0 ; --i) closers[i - 1](this);
 }
 
 

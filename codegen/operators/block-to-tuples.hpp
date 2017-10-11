@@ -44,8 +44,11 @@ public:
 
 private:
     void nextEntry();
+    virtual void open (RawPipeline * pip);
+    virtual void close(RawPipeline * pip);
 
     const vector<RecordAttribute *> wantedFields;
+    std::vector<size_t>             old_buffs   ;
     GpuRawContext * const           context     ;
     AllocaInst                    * mem_itemCtr ;
 };

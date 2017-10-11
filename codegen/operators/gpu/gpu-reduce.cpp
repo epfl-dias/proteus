@@ -101,8 +101,8 @@ void GpuReduce::generate(RawContext* const context, const OperatorState& childSt
         }
     }
 
-    ((GpuRawContext *) context)->registerOpen ([this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose([this](RawPipeline * pip){this->close(pip);});
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
 void GpuReduce::generate(const Monoid &m, expressions::Expression* outputExpr,

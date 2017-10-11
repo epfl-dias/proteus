@@ -45,8 +45,8 @@ public:
     virtual llvm::Value    * getSubStateVar()       const;
     virtual std::vector<llvm::Type *> getStateVars()          const;
 
-    void registerOpen (std::function<void (RawPipeline * pip)> open );
-    void registerClose(std::function<void (RawPipeline * pip)> close);
+    void registerOpen (const void * owner, std::function<void (RawPipeline * pip)> open );
+    void registerClose(const void * owner, std::function<void (RawPipeline * pip)> close);
 
     void pushNewPipeline    (RawPipelineGen *copyStateFrom = NULL);
     void pushNewCpuPipeline (RawPipelineGen *copyStateFrom = NULL);
@@ -69,6 +69,8 @@ public:
     virtual void prepareFunction(Function *F){}
 
     virtual llvm::Value * threadId ();
+    virtual llvm::Value * threadIdInBlock();
+    virtual llvm::Value * blockId  ();
     virtual llvm::Value * threadNum();
     virtual llvm::Value * laneId   ();
     virtual void          createMembar_gl();

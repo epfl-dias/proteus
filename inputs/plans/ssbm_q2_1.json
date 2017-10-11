@@ -3,9 +3,6 @@
   "e": [{
     "e": {
       "expression": "recordProjection",
-      "type": {
-        "type": "int"
-      },
       "e": {
         "expression": "argument",
         "argNo": -1,
@@ -33,9 +30,6 @@
   "w": [128],
   "k": [{
     "expression": "recordProjection",
-    "type": {
-      "type": "int"
-    },
     "e": {
       "expression": "argument",
       "argNo": -1,
@@ -54,9 +48,6 @@
     }
   },{
       "expression": "recordProjection",
-      "type": {
-        "type": "int"
-      },
       "e": {
         "expression": "argument",
         "argNo": -1,
@@ -81,9 +72,6 @@
     "maxBuildInputSize": 1048576,
     "build_k": {
       "expression": "recordProjection",
-      "type": {
-        "type": "int"
-      },
       "e": {
         "expression": "argument",
         "argNo": -1,
@@ -104,9 +92,6 @@
     "build_e": [{
       "e":{
         "expression": "recordProjection",
-        "type": {
-          "type": "int"
-        },
         "e": {
           "expression": "argument",
           "argNo": -1,
@@ -144,9 +129,6 @@
     },
     "probe_k": {
       "expression": "recordProjection",
-      "type": {
-        "type": "int"
-      },
       "e": {
         "expression": "argument",
         "argNo": -1,
@@ -173,9 +155,6 @@
       "maxBuildInputSize": 1048576,
       "build_k": {
         "expression": "recordProjection",
-        "type": {
-          "type": "int"
-        },
         "e": {
           "expression": "argument",
           "argNo": -1,
@@ -202,9 +181,6 @@
           "expression": "eq",
           "left": {
             "expression": "recordProjection",
-            "type": {
-              "type": "dstring"
-            },
             "e": {
               "expression": "argument",
               "argNo": -1,
@@ -247,9 +223,6 @@
       },
       "probe_k": {
         "expression": "recordProjection",
-        "type": {
-          "type": "int"
-        },
         "e": {
           "expression": "argument",
           "argNo": -1,
@@ -276,9 +249,6 @@
         "maxBuildInputSize": 1048576,
         "build_k": {
           "expression": "recordProjection",
-          "type": {
-            "type": "int"
-          },
           "e": {
             "expression": "argument",
             "argNo": -1,
@@ -299,9 +269,6 @@
         "build_e": [{
           "e":{
             "expression": "recordProjection",
-            "type": {
-              "type": "dstring"
-            },
             "e": {
               "expression": "argument",
               "argNo": -1,
@@ -330,9 +297,6 @@
             "expression": "eq",
             "left": {
               "expression": "recordProjection",
-              "type": {
-                "type": "dstring"
-              },
               "e": {
                 "expression": "argument",
                 "argNo": -1,
@@ -378,9 +342,6 @@
         },
         "probe_k": {
           "expression": "recordProjection",
-          "type": {
-            "type": "int"
-          },
           "e": {
             "expression": "argument",
             "argNo": -1,

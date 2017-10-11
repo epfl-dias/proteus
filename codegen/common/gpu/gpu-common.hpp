@@ -24,7 +24,7 @@
 #ifndef GPU_COMMON_HPP_
 #define GPU_COMMON_HPP_
 
-#include "common/common.hpp"
+// #include "common/common.hpp"
 #include "cuda.h"
 #include "cuda_runtime_api.h"
 #include "nvml.h"
@@ -41,7 +41,7 @@
 #endif
 
 #ifndef DEFAULT_BUFF_CAP
-#define DEFAULT_BUFF_CAP (16*1024*1024)
+#define DEFAULT_BUFF_CAP (4*1024*1024)
 #endif
 
 extern int                                                 cpu_cnt;
@@ -56,6 +56,12 @@ typedef uint32_t cnt_t;
 constexpr uint32_t warp_size     =         WARPSIZE;
 constexpr cnt_t    vector_size   =   32*4*warp_size;
 constexpr cnt_t    h_vector_size = DEFAULT_BUFF_CAP;
+
+enum class gran_t {
+    GRID,
+    BLOCK,
+    THREAD
+};
 
 #define gpu_run(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 
@@ -320,14 +326,39 @@ __device__ __forceinline__ T atomicAdd_block(T *address, T val){
 
 
 const dim3 defaultBlockDim(1024, 1, 1);
-const dim3 defaultGridDim ( 128, 1, 1);
+const dim3 defaultGridDim (  40, 1, 1);
 
-[[deprecated]] void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim);
-[[deprecated]] void launch_kernel(CUfunction function, void ** args, dim3 gridDim);
+struct execution_conf {
+    dim3 gridDim ;
+    dim3 blockDim;
+
+    execution_conf(dim3 gridDim = defaultGridDim, dim3 blockDim = defaultBlockDim):
+            gridDim(gridDim), blockDim(blockDim){}
+
+    size_t gridSize() const{
+        return ((size_t) gridDim.x) * gridDim.y * gridDim.z;
+    }
+    
+    size_t blockSize() const{
+        return ((size_t) blockDim.x) * blockDim.y * blockDim.z;
+    }
+
+    size_t threadNum() const{
+        return blockSize() * gridSize();
+    }
+};
+
+void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim);
+void launch_kernel(CUfunction function, void ** args, dim3 gridDim);
 extern "C" {
-    [[deprecated]] void launch_kernel(CUfunction function, void ** args);
+    void launch_kernel(CUfunction function, void ** args);
 }
 
 int get_device(const void *p);
+inline int get_device(){
+    int device;
+    gpu_run(cudaGetDevice(&device));
+    return device;
+}
 
 #endif /* GPU_COMMON_HPP_ */

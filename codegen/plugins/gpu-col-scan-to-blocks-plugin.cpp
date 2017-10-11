@@ -44,7 +44,7 @@ void GpuColScanToBlockPlugin::generate(const RawOperator &producer) {
 
 
 
-    data_loc loc = GPU_RESIDENT;
+    data_loc loc = PINNED;
     for (const auto &in: wantedFields){
         const ExpressionType* tin = in->getOriginalType();
         if (!tin->isPrimitive()){

@@ -23,6 +23,7 @@
 
 #include "operators/gpu/gpu-to-cpu.hpp"
 #include "multigpu/numa_utils.cuh"
+#include "util/gpu/gpu-intrinsics.hpp"
 
 void GpuToCpu::produce() {
     LLVMContext & llvmContext   = context->getLLVMContext();
@@ -142,14 +143,48 @@ void GpuToCpu::consume(GpuRawContext * const context, const OperatorState& child
     BasicBlock * readLastBB    = BasicBlock::Create(llvmContext, "readLast"   , F);
     BasicBlock * waitSlotBB    = BasicBlock::Create(llvmContext, "waitSlot"   , F);
     BasicBlock * saveItemBB    = BasicBlock::Create(llvmContext, "saveItem"   , F);
-    BasicBlock * afterBB       = BasicBlock::Create(llvmContext, "afterBB"    , F);
+    BasicBlock * afterBB       = BasicBlock::Create(llvmContext, "after"      , F);
+    BasicBlock * preAfterBB    = BasicBlock::Create(llvmContext, "preAfter"   , F);
 
+    if (granularity == gran_t::GRID || granularity == gran_t::BLOCK){
+        Value * tid  ;
+        if      (granularity == gran_t::GRID )    tid = context->threadId();
+        else /* (granularity == gran_t::BLOCK) */ tid = context->threadIdInBlock();
+        Value * cond = Builder->CreateICmpEQ(tid, ConstantInt::get((IntegerType *) tid->getType(), 0));
 
-    Value * tid  = context->threadId();
-    Value * cond = Builder->CreateICmpEQ(tid, ConstantInt::get((IntegerType *) tid->getType(), 0));
+        Builder->CreateCondBr(cond, acquireLockBB, preAfterBB);
 
+        Builder->SetInsertPoint(preAfterBB);
+        Builder->CreateBr(afterBB);
+    } else { //granularity == THREAD
+        Value * mask     = gpu_intrinsic::ballot(context, context->createTrue());
+        Value * mask_ptr = context->CreateEntryBlockAlloca(F, "mask_ptr", mask->getType());
+        Builder->CreateStore(mask, mask_ptr);
 
-    Builder->CreateCondBr(cond, acquireLockBB, afterBB);
+        BasicBlock * maskMaintBB  = BasicBlock::Create(llvmContext, "maskMaint", F);
+
+        Builder->CreateBr(maskMaintBB);
+        Builder->SetInsertPoint(maskMaintBB);
+        Value * cmask    = Builder->CreateLoad(mask_ptr);
+
+        Value * leader   = Builder->CreateAnd(  
+                                                cmask,
+                                                Builder->CreateNeg(cmask)
+                                            );
+
+        Value * new_mask = Builder->CreateXor(cmask, leader);
+
+        Builder->CreateStore(new_mask, mask_ptr);
+
+        Function * f_lanemask_eq = context->getFunction("llvm.nvvm.read.ptx.sreg.lanemask.eq");
+        Value    * lanemask_eq   = Builder->CreateCall(f_lanemask_eq);
+        Value    * lock_cond     = Builder->CreateICmpEQ(leader, lanemask_eq);
+        Builder->CreateCondBr(lock_cond, acquireLockBB, preAfterBB);
+
+        Builder->SetInsertPoint(preAfterBB);
+        Value    * cond          = Builder->CreateICmpEQ(new_mask, ConstantInt::get((IntegerType *) new_mask->getType(), 0));
+        Builder->CreateCondBr(cond, afterBB, maskMaintBB);
+    }
     // Builder->CreateBr(acquireLockBB);
 
     Builder->SetInsertPoint(acquireLockBB);
@@ -212,13 +247,12 @@ void GpuToCpu::consume(GpuRawContext * const context, const OperatorState& child
     // lock = 0;
     Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg, lock_ptr, zero, order);
 
-    Builder->CreateBr(afterBB);
+    Builder->CreateBr(preAfterBB);
 
     Builder->SetInsertPoint(afterBB);
 
-
-    context->registerOpen ([this](RawPipeline * pip){this->open (pip);});
-    context->registerClose([this](RawPipeline * pip){this->close(pip);});
+    context->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    context->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
 
@@ -306,6 +340,7 @@ void GpuToCpu::generate_catch(){
                                     ConstantInt::get(front->getType(),    1));
     new_front           = Builder->CreateURem(new_front, 
                                     ConstantInt::get(front->getType(), size));
+
     Builder->CreateStore(new_front, front_ptr);
 
     map<RecordAttribute, RawValueMemory> variableBindings;

@@ -11,6 +11,7 @@
 #include "operators/mem-move-device.hpp"
 #include "operators/exchange.hpp"
 #include "operators/hash-rearrange.hpp"
+#include "operators/gpu/gpu-hash-rearrange.hpp"
 #include "operators/block-to-tuples.hpp"
 
 /* too primitive */
@@ -883,10 +884,25 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val["queueSize"].IsInt());
 		int size = val["queueSize"].GetInt();
 
+		assert(val.HasMember("granularity"));
+		assert(val["granularity"].IsString());
+		std::string gran = val["granularity"].GetString();
+		std::transform(gran.begin(), gran.end(), gran.begin(), [](unsigned char c){ return std::tolower(c); });
+		gran_t g = gran_t::GRID;
+		if      (gran == "grid"  ) g = gran_t::GRID;
+		else if (gran == "block" ) g = gran_t::BLOCK;
+		else if (gran == "thread") g = gran_t::THREAD;
+		else 	assert(false && "granularity must be one of GRID, BLOCK, THREAD");
+
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new GpuToCpu(childOp, ((GpuRawContext *) this->ctx), projections, size);
+		newOp =  new GpuToCpu(childOp, ((GpuRawContext *) this->ctx), projections, size, g);
 		childOp->setParent(newOp);
 	} else if(strcmp(opName,"hash-rearrange") == 0)	{
+		bool gpu = false;
+		if (val.HasMember("gpu")){
+			assert(val["gpu"].IsBool());
+			gpu = val["gpu"].GetBool();
+		}
 		/* parse operator input */
 		assert(val.HasMember("input"));
 		assert(val["input"].IsObject());
@@ -895,14 +911,12 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val.HasMember("projections"));
 		assert(val["projections"].IsArray());
 
-		vector<RecordAttribute*> projections;
-		for (SizeType i = 0; i < val["projections"].Size(); i++)
-		{
-			assert(val["projections"][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
-			projections.push_back(recAttr);
+		int numOfBuckets = 2;
+		if (val.HasMember("buckets")){
+			assert(val["buckets"].IsInt());
+			numOfBuckets = val["buckets"].GetInt();
 		}
-		
+
 		RecordAttribute * hashAttr = NULL;
 		// register hash as an attribute
 		if (val.HasMember("hashProject")){
@@ -923,15 +937,27 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		expressions::Expression *hashExpr = parseExpression(val["e"]);
 
-		int numOfBuckets = 2;
-		if (val.HasMember("buckets")){
-			assert(val["buckets"].IsInt());
-			numOfBuckets = val["buckets"].GetInt();
-		}
+		if (gpu){
+			vector<expressions::Expression *> projections;
+			for (SizeType i = 0; i < val["projections"].Size(); i++){
+				assert(val["projections"][i].IsObject());
+				projections.push_back(this->parseExpression(val["projections"][i]));
+			}
 
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new HashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
-		childOp->setParent(newOp);
+			assert(dynamic_cast<GpuRawContext *>(this->ctx));
+			newOp =  new GpuHashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
+			childOp->setParent(newOp);
+		} else {
+			vector<RecordAttribute*> projections;
+			for (SizeType i = 0; i < val["projections"].Size(); i++){
+				assert(val["projections"][i].IsObject());
+				projections.push_back(this->parseRecordAttr(val["projections"][i]));
+			}
+
+			assert(dynamic_cast<GpuRawContext *>(this->ctx));
+			newOp =  new HashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
+			childOp->setParent(newOp);
+		}
 	} else if(strcmp(opName,"mem-move-device") == 0) {
 		/* parse operator input */
 		assert(val.HasMember("input"));
@@ -979,6 +1005,12 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			slack = val["slack"].GetInt();
 		}
 
+		int producers = 1;
+		if (val.HasMember("producers")){
+			assert(val["producers"].IsInt());
+			producers = val["producers"].GetInt();
+		}
+
 		expressions::Expression * hash = NULL;
 		if (val.HasMember("target")){
 			assert(val["target"].IsObject());
@@ -986,7 +1018,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		}
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new Exchange(childOp, ((GpuRawContext *) this->ctx), numOfParents, projections, slack, hash);
+		newOp =  new Exchange(childOp, ((GpuRawContext *) this->ctx), numOfParents, projections, slack, hash, producers);
 		childOp->setParent(newOp);
 	} else if (strcmp(opName, "materializer") == 0){
 		/* parse operator input */
@@ -1175,11 +1207,6 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 
 	} else if (strcmp(valExpression, "recordProjection") == 0) {
 
-		/* exprType */
-		assert(val.HasMember(keyExprType));
-		assert(val[keyExprType].IsObject());
-		ExpressionType *exprType = parseExpressionType(val[keyExprType]);
-
 		/* e: expression over which projection is calculated */
 		assert(val.HasMember(keyInnerExpr));
 		assert(val[keyInnerExpr].IsObject());
@@ -1190,7 +1217,24 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[keyProjectedAttr].IsObject());
 		RecordAttribute *recAttr = parseRecordAttr(val[keyProjectedAttr]);
 
-		retValue = new expressions::RecordProjection(exprType,expr,*recAttr);
+		/* exprType */
+		if (val.HasMember(keyExprType)){
+			assert(val[keyExprType].IsObject());
+			ExpressionType * exprType = parseExpressionType(val[keyExprType]);
+
+			if (exprType->getTypeID() != recAttr->getOriginalType()->getTypeID()){
+				string err = string("recordProjection type differed from projected attribute's type (") +
+								exprType->getType() +
+								"!=" +
+								recAttr->getOriginalType()->getType() + 
+								")";
+				LOG(WARNING)<< err;
+				cout << err << endl;
+			}
+			retValue = new expressions::RecordProjection(exprType, expr, *recAttr);
+		} else {
+			retValue = new expressions::RecordProjection(expr, *recAttr);
+		}
 	} else if (strcmp(valExpression, "recordConstruction") == 0) {
 		/* exprType */
 		assert(val.HasMember(keyExprType));
@@ -1405,8 +1449,16 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 
 	if (retValue && val.HasMember("register_as")){
 		assert(val["register_as"].IsObject());
-		assert(val["register_as"].HasMember("attrName"));
-		assert(val["register_as"].HasMember("relName"));
+		RecordAttribute * reg_as = parseRecordAttr(val["register_as"]);
+
+		InputInfo * datasetInfo = (this->catalogParser).getInputInfo(reg_as->getRelationName());
+		RecordType * rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfo->exprType)->getNestedType())};
+
+		rec->appendAttribute(reg_as);
+
+		datasetInfo->exprType = new BagType{*rec};
+
+		retValue->registerAs(reg_as);
 	}
 
 	return retValue;

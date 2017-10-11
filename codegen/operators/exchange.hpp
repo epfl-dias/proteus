@@ -47,13 +47,15 @@ public:
                 int                             numOfParents,
                 const vector<RecordAttribute*> &wantedFields,
                 int                             slack,
-                expressions::Expression       * hash = NULL) :
+                expressions::Expression       * hash = NULL,
+                int                             producers = 1) :
                     UnaryRawOperator(child), 
                     context(context), 
                     numOfParents(numOfParents),
                     wantedFields(wantedFields),
                     slack(slack),
-                    hashExpr(hash){
+                    hashExpr(hash),
+                    remaining_producers(producers){
         free_pool           = new std::stack<void *>     [numOfParents];
         free_pool_mutex     = new std::mutex             [numOfParents];
         free_pool_cv        = new std::condition_variable[numOfParents];
@@ -61,8 +63,6 @@ public:
         ready_pool          = new std::queue<void *>     [numOfParents];
         ready_pool_mutex    = new std::mutex             [numOfParents];
         ready_pool_cv       = new std::condition_variable[numOfParents];
-
-        remaining_producers = 1; //FIMXE: handle multiple producers
         
         int devices = get_num_of_gpus();
 
@@ -111,6 +111,8 @@ private:
     std::stack<void *>            * free_pool;
     std::mutex                    * free_pool_mutex;
     std::condition_variable       * free_pool_cv;
+
+    std::mutex                      init_mutex;
 
     std::vector<exec_location>      target_processors;
 

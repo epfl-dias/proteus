@@ -26,3 +26,21 @@
 bool recordComparator (RecordAttribute* x, RecordAttribute* y) {
 	return (x->getAttrNo() < y->getAttrNo());
 }
+
+Value * RecordType::projectArg(Value * record, RecordAttribute * attr, IRBuilder<>* const Builder) const{
+	if (!(record->getType()->isStructTy())) return NULL;
+	assert(((StructType *) record->getType())->isLayoutIdentical((StructType *) getLLVMType(record->getContext())));
+	int index = getIndex(attr);
+	if (index < 0) return NULL;
+	return Builder->CreateExtractValue(record, index);
+}
+
+int RecordType::getIndex(RecordAttribute * x) const{
+	int index = 0;
+	for (const auto &attr: args){
+		if (x->getRelationName() == attr->getRelationName() &&
+				x->getAttrName() == attr->getAttrName()) return index;
+		++index;
+	}
+	return -1;
+}

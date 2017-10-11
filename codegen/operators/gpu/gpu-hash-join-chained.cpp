@@ -298,8 +298,8 @@ void GpuHashJoinChained::generate_build(RawContext* const context, const Operato
         Builder->CreateAlignedStore(out_vals[i], out_ptrs[i], build_packet_widths[i]/8);
     }
 
-    ((GpuRawContext *) context)->registerOpen ([this](RawPipeline * pip){this->open_build (pip);});
-    ((GpuRawContext *) context)->registerClose([this](RawPipeline * pip){this->close_build(pip);});
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open_build (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close_build(pip);});
 }
 
 void GpuHashJoinChained::generate_probe(RawContext* const context, const OperatorState& childState) {
@@ -449,8 +449,8 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
     // TheFunction->getBasicBlockList().push_back(MergeBB);
     Builder->SetInsertPoint(MergeBB);
 
-    ((GpuRawContext *) context)->registerOpen ([this](RawPipeline * pip){this->open_probe (pip);});
-    ((GpuRawContext *) context)->registerClose([this](RawPipeline * pip){this->close_probe(pip);});
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open_probe (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close_probe(pip);});
 }
 
 void GpuHashJoinChained::open_build(RawPipeline * pip){

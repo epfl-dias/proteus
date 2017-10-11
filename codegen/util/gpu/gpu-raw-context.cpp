@@ -272,12 +272,12 @@ std::vector<RawPipeline *> GpuRawContext::getPipelines(){
     return pips;
 }
 
-void GpuRawContext::registerOpen (std::function<void (RawPipeline * pip)> open ){
-    generators.back()->registerOpen (open );
+void GpuRawContext::registerOpen (const void * owner, std::function<void (RawPipeline * pip)> open ){
+    generators.back()->registerOpen (owner, open );
 }
 
-void GpuRawContext::registerClose(std::function<void (RawPipeline * pip)> close){
-    generators.back()->registerClose(close);
+void GpuRawContext::registerClose(const void * owner, std::function<void (RawPipeline * pip)> close){
+    generators.back()->registerClose(owner, close);
 }
 
 // string GpuRawContext::emitPTX(){
@@ -413,7 +413,7 @@ void GpuRawContext::registerClose(std::function<void (RawPipeline * pip)> close)
 //     // std::cout << " Her4e "  << std::endl;
 // }
 
-Value * GpuRawContext::threadId(){
+Value * GpuRawContext::threadIdInBlock(){
     // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x" );
     // Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
     // Function *fy  = getFunction("llvm.nvvm.read.ptx.sreg.tid.y" );
@@ -429,20 +429,80 @@ Value * GpuRawContext::threadId(){
     Type * int64_type = Type::getInt64Ty(getLLVMContext());
 
     Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
-    Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x" );
-    Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
 
     std::vector<Value *> v{};
 
     Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
-    Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
+
+    // llvm does not provide i32 x i32 => i64, so we cast them to i64
+    Value * tid_x      = getBuilder()->CreateZExt(threadID_x, int64_type, "thread_id_in_block");
+
+    return tid_x;
+}
+
+Value * GpuRawContext::blockId(){
+    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x" );
+    // Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
+    // Function *fy  = getFunction("llvm.nvvm.read.ptx.sreg.tid.y" );
+
+    // std::vector<Value *> v{};
+
+    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
+    // Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
+    // Value * threadID_y = getBuilder()->CreateCall(fy , v, "threadID_y");
+
+    // Value * rowid      = getBuilder()->CreateMul(threadID_y, blockDim_x, "rowid");
+    // return getBuilder()->CreateAdd(threadID_x, rowid, "thread_id");
+    Type * int64_type = Type::getInt64Ty(getLLVMContext());
+
+    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
+    // Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x" );
+    Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
+
+    std::vector<Value *> v{};
+
+    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
+    // Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
     Value * blockID_x  = getBuilder()->CreateCall(fbx, v, "blockID_x" );
 
 
     // llvm does not provide i32 x i32 => i64, so we cast them to i64
-    Value * tid_x      = getBuilder()->CreateZExt(threadID_x, int64_type);
+    // Value * tid_x      = getBuilder()->CreateZExt(threadID_x, int64_type);
+    // Value * bd_x       = getBuilder()->CreateZExt(blockDim_x, int64_type);
+    Value * bid_x      = getBuilder()->CreateZExt(blockID_x , int64_type, "block_id");
+    return bid_x;
+}
+
+Value * GpuRawContext::threadId(){
+    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x" );
+    // Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
+    // Function *fy  = getFunction("llvm.nvvm.read.ptx.sreg.tid.y" );
+
+    // std::vector<Value *> v{};
+
+    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
+    // Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
+    // Value * threadID_y = getBuilder()->CreateCall(fy , v, "threadID_y");
+
+    // Value * rowid      = getBuilder()->CreateMul(threadID_y, blockDim_x, "rowid");
+    // return getBuilder()->CreateAdd(threadID_x, rowid, "thread_id");
+    Type * int64_type = Type::getInt64Ty(getLLVMContext());
+
+    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
+    Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x" );
+    // Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
+
+    std::vector<Value *> v{};
+
+    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
+    Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
+    // Value * blockID_x  = getBuilder()->CreateCall(fbx, v, "blockID_x" );
+
+
+    // llvm does not provide i32 x i32 => i64, so we cast them to i64
+    Value * tid_x      = threadIdInBlock();
     Value * bd_x       = getBuilder()->CreateZExt(blockDim_x, int64_type);
-    Value * bid_x      = getBuilder()->CreateZExt(blockID_x , int64_type);
+    Value * bid_x      = blockId() ;
 
     Value * rowid      = getBuilder()->CreateMul(bid_x, bd_x, "rowid");
     return getBuilder()->CreateAdd(tid_x, rowid, "thread_id");

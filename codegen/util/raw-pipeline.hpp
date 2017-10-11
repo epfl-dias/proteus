@@ -30,12 +30,16 @@
 #include "cuda.h"
 #include "cuda_runtime_api.h"
 #include "common/gpu/gpu-common.hpp"
+#include <utility>
 
 class RawPipeline;
 
 extern "C"{
     void yield();
 }
+
+typedef void (opener_t)(RawPipeline *);
+typedef void (closer_t)(RawPipeline *);
 
 // __device__ void devprinti64(uint64_t x);
 
@@ -53,8 +57,8 @@ protected:
     std::vector<llvm::Type *>   state_vars      ;
     std::vector<Argument *>     args            ;
 
-    std::vector<std::function<void (RawPipeline * pip)>> openers;
-    std::vector<std::function<void (RawPipeline * pip)>> closers;
+    std::vector<std::pair<const void *, std::function<opener_t>>> openers;
+    std::vector<std::pair<const void *, std::function<closer_t>>> closers;
 
     std::string                 pipName         ;
     RawContext                * context         ;
@@ -76,6 +80,8 @@ protected:
 #if MODULEPASS
     ModulePassManager           * TheMPM        ;
 #endif
+
+    legacy::PassManager         * ThePM         ;
 
     ExecutionEngine             * TheExecutionEngine;
 
@@ -108,8 +114,8 @@ public:
 
     virtual void compileAndLoad();
 
-    void registerOpen (std::function<void (RawPipeline * pip)> open );
-    void registerClose(std::function<void (RawPipeline * pip)> close);
+    void registerOpen (const void * owner, std::function<void (RawPipeline * pip)> open );
+    void registerClose(const void * owner, std::function<void (RawPipeline * pip)> close);
     
 
     [[deprecated]] virtual Function              * getFunction() const;
@@ -163,12 +169,12 @@ protected:
     size_t              state_size;
     const DataLayout  & layout    ;
 
-    std::vector<std::function<void (RawPipeline * pip)>> openers;
-    std::vector<std::function<void (RawPipeline * pip)>> closers;
+    std::vector<std::pair<const void *, std::function<opener_t>>> openers;
+    std::vector<std::pair<const void *, std::function<closer_t>>> closers;
 
     RawPipeline(void * cons, size_t state_size, RawPipelineGen * gen, llvm::StructType * state_type,
-        const std::vector<std::function<void (RawPipeline * pip)>> &openers,
-        const std::vector<std::function<void (RawPipeline * pip)>> &closers,
+        const std::vector<std::pair<const void *, std::function<opener_t>>> &openers,
+        const std::vector<std::pair<const void *, std::function<closer_t>>> &closers,
         int32_t group_id = 0); //FIXME: group id should be handled to comply with the requirements!
 
     // void copyStateFrom  (RawPipeline * p){
@@ -214,6 +220,10 @@ public:
     }
 
     int32_t getGroup() const;
+
+    virtual execution_conf getExecConfiguration() const{
+        return execution_conf{};
+    }
 
     virtual void open();
     

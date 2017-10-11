@@ -66,6 +66,27 @@ Value * any(GpuRawContext * const context, Value * val_in){
     return any;
 }
 
+Value * ballot(GpuRawContext * const context, Value * val_in){
+    IRBuilder<>* Builder            = context->getBuilder();
+    LLVMContext &llvmContext        = context->getLLVMContext();
+    IntegerType *int32_type         = Type::getInt32Ty(llvmContext);
+    
+    FunctionType    * ballot_sig    = FunctionType::get(int32_type, 
+                                        std::vector<Type *>{val_in->getType()},
+                                        false);
+
+    InlineAsm       * ballot_fun    = InlineAsm::get(ballot_sig, 
+                                        "vote.ballot.b32 $0, $1;",
+                                        "=r,b",
+                                        false);
+
+    Value           * ballot        = Builder->CreateCall(  ballot_fun,
+                                        std::vector<Value *>{val_in},
+                                        "ballot");
+
+    return ballot;
+}
+
 Value * shfl_bfly(GpuRawContext * const context, 
                     Value *             val_in, 
                     uint32_t            vxor, 

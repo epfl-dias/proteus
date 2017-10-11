@@ -31,11 +31,13 @@ public:
     GpuToCpu(   RawOperator   * const            child,
                 GpuRawContext * const            context,
                 const vector<RecordAttribute *> &wantedFields,
-                size_t                           size) :
+                size_t                           size,
+                gran_t                           granularity = gran_t::GRID) :
                     UnaryRawOperator(child), 
                     context(context), 
                     wantedFields(wantedFields),
-                    size(size){}
+                    size(size),
+                    granularity(granularity){}
 
     virtual ~GpuToCpu(){ LOG(INFO)<<"Collapsing GpuToCpu operator";}
 
@@ -72,6 +74,8 @@ private:
     size_t                          eofVar_id_catch     ;
 
     size_t                          size                ;
+
+    gran_t                          granularity         ;
 };
 
 #endif /* GPU_TO_CPU_HPP_ */

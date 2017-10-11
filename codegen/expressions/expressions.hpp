@@ -32,7 +32,7 @@
 class ExprVisitor; 		 //Forward declaration
 class ExprTandemVisitor; //Forward declaration
 
-//Careful: Using a namespace to avoid conflicts with LLVM namespace
+//Careful: Using a namespace to avoid conflicts witfh LLVM namespace
 namespace expressions
 {
 
@@ -66,6 +66,10 @@ public:
 		registered     = true;
 		this->relName  = relName ;
 		this->attrName = attrName;
+	}
+
+	virtual inline void registerAs(RecordAttribute * attr){
+		registerAs(attr->getRelationName(), attr->getAttrName());
 	}
 
 	virtual inline string getRegisteredAttrName(){
@@ -321,14 +325,24 @@ private:
 
 class RecordProjection : public Expression	{
 public:
+	[[deprecated]]
 	RecordProjection(ExpressionType* type, Expression* expr, RecordAttribute attribute)	:
 			Expression(type), expr(expr), attribute(attribute)	{
+					assert(type->getTypeID() == attribute.getOriginalType()->getTypeID());
 					registered = true;
 					relName    = getRelationName();
 					attrName   = getProjectionName();
 				}
+	[[deprecated]]
 	RecordProjection(const ExpressionType* type, Expression* expr, RecordAttribute attribute)	:
 				Expression(type), expr(expr), attribute(attribute)	{
+					assert(type->getTypeID() == attribute.getOriginalType()->getTypeID());
+					registered = true;
+					relName    = getRelationName();
+					attrName   = getProjectionName();
+				}
+	RecordProjection(Expression* expr, RecordAttribute attribute)	:
+			Expression(attribute.getOriginalType()), expr(expr), attribute(attribute)	{
 					registered = true;
 					relName    = getRelationName();
 					attrName   = getProjectionName();
@@ -424,7 +438,9 @@ class RecordConstruction : public Expression	{
 public:
 	RecordConstruction(ExpressionType* type,
 			const list<AttributeConstruction>& atts) :
-			Expression(type), atts(atts) 							{}
+			Expression(type), atts(atts) 							{
+				assert(type->getTypeID() == RECORD);
+			}
 	~RecordConstruction()											{}
 
 	RawValue accept(ExprVisitor &v);

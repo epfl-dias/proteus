@@ -22,8 +22,22 @@
 */
 
 #include "operators/block-to-tuples.hpp"
+#include "multigpu/buffer_manager.cuh"
 
 void BlockToTuples::produce()    {
+
+    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
+        old_buffs.push_back(
+                                context->appendStateVar(
+                                    PointerType::getUnqual(
+                                        RecordAttribute{*(wantedFields[i]), true}.
+                                            getLLVMType(context->getLLVMContext())
+                                    )
+                                )
+                            );
+    }
+
+
     getChild()->produce();
 }
 
@@ -65,6 +79,32 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
     //Container for the variable bindings
     map<RecordAttribute, RawValueMemory> oldBindings{childState.getBindings()};
     map<RecordAttribute, RawValueMemory> variableBindings;
+
+    // Create the "AFTER LOOP" block and insert it.
+    BasicBlock *releaseBB = BasicBlock::Create(llvmContext, "releaseIf", F);
+    BasicBlock *rlAfterBB = BasicBlock::Create(llvmContext, "releaseEnd" , F);
+
+    Value * tId       = context->threadId();
+    Value * is_leader = Builder->CreateICmpEQ(tId, ConstantInt::get(tId->getType(), 0));
+    Builder->CreateCondBr(is_leader, releaseBB, rlAfterBB);
+
+    Builder->SetInsertPoint(releaseBB);
+
+    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
+        RecordAttribute attr{*(wantedFields[i]), true};
+        Value        * arg = Builder->CreateLoad(oldBindings[attr].mem);
+        Value        * old = Builder->CreateLoad(context->getStateVar(old_buffs[i]));
+        old                = Builder->CreateBitCast(old, charPtrType);
+
+        Function * f = context->getFunction("release_buffers"); //FIXME: Assumes grid launch + Assumes 1 block per kernel!
+        Builder->CreateCall(f, std::vector<Value *>{old});
+
+        Builder->CreateStore(arg, context->getStateVar(old_buffs[i]));
+    }
+
+    Builder->CreateBr(rlAfterBB);
+
+    Builder->SetInsertPoint(rlAfterBB);
 
     //Get the ENTRY BLOCK
     // context->setCurrentEntryBlock(Builder->GetInsertBlock());
@@ -197,7 +237,38 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
     //  Finish up with end (the AfterLoop)
     //  Any new code will be inserted in AfterBB.
     Builder->SetInsertPoint(AfterBB);
+
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
 
 
+void BlockToTuples::open (RawPipeline * pip){
+    int device = get_device();
+
+    execution_conf ec = pip->getExecConfiguration();
+
+    size_t grid_size  = ec.gridSize();
+
+    void   ** buffs;
+    gpu_run(cudaMalloc(&buffs, sizeof(void  *) * wantedFields.size()));
+
+    gpu_run(cudaMemset(buffs, 0, sizeof(void  *) * wantedFields.size()));
+
+    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
+        pip->setStateVar<void *>(old_buffs[i], buffs + i);
+    }
+}
+
+void BlockToTuples::close(RawPipeline * pip){
+    void ** h_buffs = (void **) malloc(sizeof(void  *) * wantedFields.size());
+    void ** buffs   = pip->getStateVar<void **>(old_buffs[0]);
+
+    gpu_run(cudaMemcpy(h_buffs, buffs, sizeof(void  *) * wantedFields.size(), cudaMemcpyDefault));
+    gpu_run(cudaFree(buffs));
+
+    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
+        buffer_manager<int32_t>::release_buffer((int32_t *) h_buffs[i]);
+    }
+}

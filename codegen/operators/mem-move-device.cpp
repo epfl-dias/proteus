@@ -118,19 +118,28 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
         Builder->CreateStore(Builder->CreateBitCast(new_ptr, mem_valWrapper.mem->getType()->getPointerElementType()), new_ptr_addr);
     }
 
-    ((GpuRawContext *) context)->registerOpen ([this](RawPipeline * pip){this->open (pip);});
-    // ((GpuRawContext *) context)->registerClose([this](RawPipeline * pip){this->close(pip);});
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 
     OperatorState newState{*this, new_bindings};
     //Triggering parent
     getParent()->consume(context, newState);
 }
 
-void MemMoveDevice::open(RawPipeline * pip){
-    int device;
-    gpu_run(cudaGetDevice(&device));
+void MemMoveDevice::open (RawPipeline * pip){
+    int device = get_device();
+    cudaStream_t strm;
+    gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
 
     pip->setStateVar<int         >(device_id_var, device);
 
-    pip->setStateVar<cudaStream_t>(cu_stream_var, 0     );
+    pip->setStateVar<cudaStream_t>(cu_stream_var, strm  );
+}
+
+void MemMoveDevice::close(RawPipeline * pip){
+    int device = get_device();
+    cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
+
+    gpu_run(cudaStreamSynchronize(strm));
+    gpu_run(cudaStreamDestroy    (strm));
 }

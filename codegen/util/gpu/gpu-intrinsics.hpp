@@ -57,6 +57,8 @@ Value * shfl_bfly(GpuRawContext * const context,
                     Value *             vxor, 
                     Value *             mask = NULL);
 
+Value * ballot(GpuRawContext * const context, Value * val_in);
+
 }
 
 #endif /* GPU_INTRINSICS_HPP_ */

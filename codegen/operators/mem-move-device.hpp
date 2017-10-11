@@ -50,7 +50,8 @@ private:
 
     GpuRawContext * const context;
 
-    void open(RawPipeline * pip);
+    void open (RawPipeline * pip);
+    void close(RawPipeline * pip);
 };
 
 #endif /* MEM_MOVE_DEVICE_HPP_ */

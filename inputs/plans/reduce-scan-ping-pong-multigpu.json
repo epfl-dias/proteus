@@ -186,6 +186,7 @@
         "input": {
           "operator": "gpu-to-cpu",
           "queueSize": 64,
+          "granularity": "grid",
           "projections": [{
             "relName": "inputs/ssbm/lineorder.csv",
             "attrName": "lo_discount",

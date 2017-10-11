@@ -26,21 +26,13 @@
 #include "operators/operators.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 
-class HashRearrange;
-
-// extern "C"{
-//     void * acquireBuffer(int target, HashRearrange * xch);
-//     void   releaseBuffer(int target, HashRearrange * xch, void * buff);
-//     void   freeBuffer   (int target, HashRearrange * xch, void * buff);
-// }
-
 class HashRearrange : public UnaryRawOperator {
 public:
     HashRearrange(  RawOperator * const             child,
                     GpuRawContext * const           context,
                     int                             numOfBuckets,
                     const vector<RecordAttribute*> &wantedFields,
-                    expressions::Expression *       hashExpr,
+                    expressions::Expression        *hashExpr,
                     RecordAttribute                *hashProject = NULL) :
                         UnaryRawOperator(child), 
                         context(context), 
@@ -57,11 +49,11 @@ public:
     virtual void consume(RawContext* const context, const OperatorState& childState);
     virtual bool isFiltering() const {return false;}
 
-private:
-    void consume_flush();
+protected:
+    virtual void consume_flush();
 
-    void open (RawPipeline * pip);
-    void close(RawPipeline * pip);
+    virtual void open (RawPipeline * pip);
+    virtual void close(RawPipeline * pip);
 
     const vector<RecordAttribute *> wantedFields;
     const int                       numOfBuckets;

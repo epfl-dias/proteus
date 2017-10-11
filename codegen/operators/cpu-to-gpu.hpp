@@ -49,7 +49,8 @@ private:
     GpuRawContext * const           context     ;
 
     RawPipelineGen *                gpu_pip     ;
-    int                             childVar_id ;
+    size_t                          childVar_id ;
+    size_t                          strmVar_id  ;
 };
 
 #endif /* CPU_TO_GPU_HPP_ */
