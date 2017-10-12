@@ -341,12 +341,14 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     Builder->CreateStore(UndefValue::get(int32_type), mask_ptr);
 
     Value * laneid = context->laneId();
+    
+
 
     // uint32_t mask;
     // #pragma unroll
     // for (uint32_t j = 0 ; j < parts ; ++j){
-    //     uint32_t tmp = __ballot(h == j);
-    //     if (j == get_laneid()) mask = tmp;
+    //     uint32_t tmp = __ballot((!done) && (h == j));
+    //     if (j == h) mask = tmp;
     // }
     for (int i = 0 ; i < numOfBuckets ; ++i){
         Value * comp = Builder->CreateICmpEQ(target, ConstantInt::get(target_type, i));
@@ -355,9 +357,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
         BasicBlock * stBB    = BasicBlock::Create(llvmContext, "st", F);
         BasicBlock * mgBB    = BasicBlock::Create(llvmContext, "mg", F);
 
-        Value * cond = Builder->CreateICmpEQ(laneid, ConstantInt::get(target_type, i));
-
-        Builder->CreateCondBr(cond, stBB, mgBB);
+        Builder->CreateCondBr(comp, stBB, mgBB);
 
         Builder->SetInsertPoint(stBB);
         Builder->CreateStore(vote, mask_ptr);
@@ -372,9 +372,19 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     AllocaInst * indx_ptr    = context->CreateEntryBlockAlloca(F, "indx_ptr", idx_type); //consider lowering it into 32bit
     Builder->CreateStore(UndefValue::get(idx_type), indx_ptr);
 
-    // if (get_laneid() < parts) idx = atomicAdd_block(cnt + get_laneid(), __popc(mask));
-    Value * numOfBucketsL = ConstantInt::get(laneid->getType(), numOfBuckets);
-    Value * inc_cond = Builder->CreateICmpULT(laneid, numOfBucketsL);
+
+    // uint32_t idx;
+
+    // uint32_t h_leader    = mask & -mask;
+    // uint32_t lanemask_eq = 1 << get_laneid();
+    Value * mask     = Builder->CreateLoad(mask_ptr);
+    Value * h_leader = Builder->CreateAnd(mask, Builder->CreateNeg(mask));
+
+    Function * f_lanemask_eq = context->getFunction("llvm.nvvm.read.ptx.sreg.lanemask.eq");
+    Value * lanemask_eq = Builder->CreateCall(f_lanemask_eq);
+
+    // if (lanemask_eq == h_leader) idx = atomicAdd_block(cnt + h, __popc(mask));
+    Value * inc_cond = Builder->CreateICmpEQ(lanemask_eq, h_leader);
     Builder->CreateCondBr(inc_cond, incIdxBB, mgiIdxBB);
 
 
@@ -387,9 +397,9 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
 
     Builder->SetInsertPoint(incIdxBB);
 
-    idx[1] = laneid;
+    idx[1] = target;
     Value * cnt_ptr         = Builder->CreateInBoundsGEP(cnt, idx);
-    Value * pop             = Builder->CreateCall(popc, std::vector<Value *>{Builder->CreateLoad(mask_ptr)});
+    Value * pop             = Builder->CreateCall(popc, mask);
     //TODO: make it block atomic! but it is on shared memory, so it does not matter :P
     Value * new_idx         = Builder->CreateAtomicRMW(AtomicRMWInst::BinOp::Add, cnt_ptr, Builder->CreateZExt(pop, idx_type), AtomicOrdering::Monotonic);
     Builder->CreateStore(new_idx, indx_ptr);
@@ -397,21 +407,19 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
 
     Builder->SetInsertPoint(mgiIdxBB);
 
+
+    // idx  = __shfl(idx, __popc(h_leader - 1)) + __popc(mask & ((1 << get_laneid()) - 1));
+
+    Value * h_leader_lt    = Builder->CreateSub (h_leader, ConstantInt::get((IntegerType *) (h_leader->getType()), 1)); 
+    Value * leader_id      = Builder->CreateCall(popc, h_leader_lt);
+
     Function * shfl        = context->getFunction("llvm.nvvm.shfl.idx.i32");
     Function * lanemask_lt = context->getFunction("llvm.nvvm.read.ptx.sreg.lanemask.lt");
 
-
-
-    std::vector<Value *> args{  Builder->CreateLoad(mask_ptr), 
-                                target,
+    std::vector<Value *> args{  Builder->CreateLoad(indx_ptr), 
+                                leader_id,
                                 context->createInt32(warp_size - 1)
                             };
-
-    // mask = __shfl(mask, h);
-    Value * mask   = Builder->CreateCall(shfl, args);
-
-    // idx  = __shfl(idx , h) + __popc(mask & ((1 << get_laneid()) - 1));
-    args[0]        = Builder->CreateLoad(indx_ptr);
     Value * idx_g  = Builder->CreateAdd(
                         Builder->CreateCall(shfl, args),
                         Builder->CreateCall(popc, std::vector<Value *>{
