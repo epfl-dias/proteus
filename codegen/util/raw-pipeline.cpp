@@ -701,9 +701,9 @@ RawPipeline * RawPipelineGen::getPipeline(int group_id){
     if (copyStateFrom){
         RawPipeline * copyFrom = copyStateFrom->getPipeline(group_id);
 
-        openers.emplace_back(this, [copyFrom](RawPipeline * pip){copyFrom->open (); pip->setStateVar(0, copyFrom->state);});
+        openers.insert(openers.begin(), make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->open (); pip->setStateVar(0, copyFrom->state);}));
         // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
-        closers.emplace_back(this, [copyFrom](RawPipeline * pip){copyFrom->close();                                      });
+        closers.insert(closers.begin(), make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->close();                                      }));
     }
 
     return new RawPipeline(func, (getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8, this, state_type, openers, closers, group_id);
@@ -745,6 +745,19 @@ int32_t RawPipeline::getGroup() const{
 
 void RawPipeline::open(){
     //TODO: for sure it can be done in at least N log N by sorting...
+    // for (size_t i = openers.size() ; i > 0 ; --i) {
+    //     bool is_last = true;
+    //     const void * owner = openers[i - 1].first;
+    //     for (size_t j = openers.size() ; j > i ; --j) {
+    //         if (openers[j - 1].first == owner){
+    //             is_last = false;
+    //             break;
+    //         }
+    //     }
+    //     if (is_last) (openers[i - 1].second)(this);
+    // }
+
+
     for (size_t i = 0 ; i < openers.size() ; ++i) {
         bool is_first = true;
         const void * owner = openers[i].first;
@@ -761,6 +774,18 @@ void RawPipeline::open(){
 
 void RawPipeline::close(){
     //TODO: for sure it can be done in at least N log N by sorting...
+    // for (size_t i = 0 ; i < closers.size() ; ++i) {
+    //     bool is_first = true;
+    //     const void * owner = closers[i].first;
+    //     for (size_t j = 0 ; j < i ; ++j) {
+    //         if (closers[j].first == owner){
+    //             is_first = false;
+    //             break;
+    //         }
+    //     }
+    //     if (is_first) (closers[i].second)(this);
+    // }
+
     for (size_t i = closers.size() ; i > 0 ; --i) {
         bool is_last = true;
         const void * owner = closers[i - 1].first;

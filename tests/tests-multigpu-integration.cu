@@ -65,7 +65,7 @@
 #include "util/raw-pipeline.hpp"
 #include "plan/plan-parser.hpp"
 #include "multigpu/buffer_manager.cuh"
-
+#include "storage/raw-storage-manager.hpp"
 #include "multigpu/numa_utils.cuh"
 #include <cuda_profiler_api.h>
 
@@ -143,6 +143,24 @@ TEST_F(MultiGPUTest, gpuDriverSequential) {
     }
 
     gpu_run(cudaSetDevice(0));
+
+    // StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );//, GPU_RESIDENT);
+    // StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );//, GPU_RESIDENT);
+    // StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );//, GPU_RESIDENT);
+    // StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );//, GPU_RESIDENT);
+
+    // StorageManager::loadToGpus("inputs/ssbm/date.csv.d_datekey"             );//, GPU_RESIDENT);
+    // StorageManager::loadToGpus("inputs/ssbm/date.csv.d_year"                );//, GPU_RESIDENT);
+
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_discount"      , GPU_RESIDENT);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_quantity"      , GPU_RESIDENT);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_orderdate"     , GPU_RESIDENT);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_extendedprice" , GPU_RESIDENT);
+
+    StorageManager::load("inputs/ssbm/date.csv.d_datekey"             , GPU_RESIDENT);
+    StorageManager::load("inputs/ssbm/date.csv.d_year"                , GPU_RESIDENT);
+
+    gpu_run(cudaSetDevice(0));
     
     const char *testLabel = "gpuSSBM_Q1_1c";
     GpuRawContext * ctx;
@@ -202,6 +220,8 @@ TEST_F(MultiGPUTest, gpuDriverSequential) {
     // //for the current dataset, regenerating it may change the results
     // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
     // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+    StorageManager::unloadAll();
 }
 
 TEST_F(MultiGPUTest, gpuDriverMultiReduce) {
@@ -210,6 +230,11 @@ TEST_F(MultiGPUTest, gpuDriverMultiReduce) {
         gpu_run(cudaSetDevice(i));
         gpu_run(cudaProfilerStart());
     }
+
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
     
     gpu_run(cudaSetDevice(0));
 
@@ -250,6 +275,8 @@ TEST_F(MultiGPUTest, gpuDriverMultiReduce) {
     // //for the current dataset, regenerating it may change the results
     // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
     // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+    StorageManager::unloadAll();
 }
 
 TEST_F(MultiGPUTest, gpuDriverParallel) {
@@ -260,6 +287,14 @@ TEST_F(MultiGPUTest, gpuDriverParallel) {
     }
     
     gpu_run(cudaSetDevice(0));
+
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
+
+    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_datekey"             );
+    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_year"                );
 
     __itt_resume();
     const char *testLabel = "gpuSSBM_Q1_1_parallel";
@@ -300,6 +335,8 @@ TEST_F(MultiGPUTest, gpuDriverParallel) {
     // //for the current dataset, regenerating it may change the results
     // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
     // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+    StorageManager::unloadAll();
 }
 
 TEST_F(MultiGPUTest, gpuDriverParallelOnGpu) {
@@ -310,6 +347,14 @@ TEST_F(MultiGPUTest, gpuDriverParallelOnGpu) {
     }
     
     gpu_run(cudaSetDevice(0));
+
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
+
+    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_datekey"             );
+    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_year"                );
 
     __itt_resume();
     const char *testLabel = "gpuSSBM_Q1_1_parallel_hash_on_gpu";
@@ -350,6 +395,8 @@ TEST_F(MultiGPUTest, gpuDriverParallelOnGpu) {
     // //for the current dataset, regenerating it may change the results
     // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
     // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+    StorageManager::unloadAll();
 }
 
 TEST_F(MultiGPUTest, gpuDriverParallelOnGpuEarlyFilter) {
@@ -360,6 +407,14 @@ TEST_F(MultiGPUTest, gpuDriverParallelOnGpuEarlyFilter) {
     }
     
     gpu_run(cudaSetDevice(0));
+
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
+
+    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_datekey"             );
+    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_year"                );
 
     __itt_resume();
     const char *testLabel = "gpuSSBM_Q1_1_parallel_hash_on_gpu_early_filter";
@@ -400,6 +455,8 @@ TEST_F(MultiGPUTest, gpuDriverParallelOnGpuEarlyFilter) {
     // //for the current dataset, regenerating it may change the results
     // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
     // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+    StorageManager::unloadAll();
 }
 
 TEST_F(MultiGPUTest, gpuDriverParallelOnGpuFull) {
@@ -410,6 +467,14 @@ TEST_F(MultiGPUTest, gpuDriverParallelOnGpuFull) {
     }
     
     gpu_run(cudaSetDevice(0));
+
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
+
+    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_datekey"             );
+    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_year"                );
 
     __itt_resume();
     const char *testLabel = "gpuSSBM_Q1_1_parallel_hash_on_gpu_full";
@@ -450,6 +515,9 @@ TEST_F(MultiGPUTest, gpuDriverParallelOnGpuFull) {
     // //for the current dataset, regenerating it may change the results
     // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
     // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+
+    StorageManager::unloadAll();
 }
 
 TEST_F(MultiGPUTest, gpuPingPong) {
@@ -460,6 +528,11 @@ TEST_F(MultiGPUTest, gpuPingPong) {
     }
     
     gpu_run(cudaSetDevice(0));
+
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
 
     __itt_resume();
     const char *testLabel = "reduceScanPingPongMultigpu";
@@ -500,6 +573,8 @@ TEST_F(MultiGPUTest, gpuPingPong) {
     // //for the current dataset, regenerating it may change the results
     // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
     // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+    StorageManager::unloadAll();
 }
 
 TEST_F(MultiGPUTest, gpuPingHashRearrangePong) {
@@ -510,6 +585,11 @@ TEST_F(MultiGPUTest, gpuPingHashRearrangePong) {
     }
     
     gpu_run(cudaSetDevice(0));
+
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
 
     __itt_resume();
     const char *testLabel = "reduceScanPingHashRearrangePongMultigpu";
@@ -550,4 +630,65 @@ TEST_F(MultiGPUTest, gpuPingHashRearrangePong) {
     // //for the current dataset, regenerating it may change the results
     // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
     // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+    StorageManager::unloadAll();
+
+}
+
+TEST_F(MultiGPUTest, gpuStorageManager) {
+    int devices = get_num_of_gpus();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStart());
+    }
+    
+    gpu_run(cudaSetDevice(0));
+
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
+
+    __itt_resume();
+    const char *testLabel = "gpuStorageManager";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/reduce-scan-gpu-storage-manager.json";
+
+    std::vector<RawPipeline *> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        
+        ctx->compileAndLoad();
+
+        pipelines = ctx->getPipelines();
+    }
+
+    for (RawPipeline * p: pipelines) {
+        nvtxRangePushA("pip");
+        {
+            time_block t("T: ");
+            p->open();
+            p->consume(0);
+            p->close();
+        }
+        nvtxRangePop();
+    }
+    __itt_pause();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStop());
+    }
+    // int32_t c_out;
+    // gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
+    // //for the current dataset, regenerating it may change the results
+    // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
+    // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+    StorageManager::unloadAll();
+
 }

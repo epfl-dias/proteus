@@ -458,21 +458,21 @@ void GpuToCpu::open(RawPipeline * pip){
     pip->setStateVar<void    *>(threadVar_id, t);
 }
 
-__global__ void write_eof(volatile int32_t * eof){
-    *eof = 1;
-    __threadfence_system();
-}
+// __global__ void write_eof(volatile int32_t * eof){
+//     *eof = 1;
+//     __threadfence_system();
+// }
 
 void GpuToCpu::close(RawPipeline * pip){
     volatile int32_t * eof = pip->getStateVar<volatile int32_t *>(eofVar_id);
-    // *eof = 1;
+    *eof = 1;
 
-    // A kernel needs to be launched to be able to guarantee that the CPU will 
-    // see the EOF __AFTER__ every flag write
-    // Otherwise, there is not guarantee on the order the CPU will see the 
-    // remote write compared to the (local) volatile write
-    write_eof<<<1, 1>>>(eof);
-    gpu_run(cudaDeviceSynchronize());
+    // // A kernel needs to be launched to be able to guarantee that the CPU will 
+    // // see the EOF __AFTER__ every flag write
+    // // Otherwise, there is not guarantee on the order the CPU will see the 
+    // // remote write compared to the (local) volatile write
+    // write_eof<<<1, 1>>>(eof);
+    // gpu_run(cudaDeviceSynchronize());
 
 
     std::thread * t = pip->getStateVar<std::thread *>(threadVar_id);

@@ -1,6 +1,7 @@
 #include "plan/plan-parser.hpp"
 #include "plugins/gpu-col-scan-plugin.hpp"
 #include "plugins/gpu-col-scan-to-blocks-plugin.hpp"
+#include "plugins/scan-to-blocks-sm-plugin.hpp"
 #include "operators/gpu/gpu-join.hpp"
 #include "operators/gpu/gpu-hash-join-chained.hpp"
 #include "operators/gpu/gpu-hash-group-by-chained.hpp"
@@ -1823,7 +1824,7 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 		}
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
 
-		newPg = new GpuColScanToBlockPlugin(dynamic_cast<GpuRawContext *>(this->ctx), *pathDynamicCopy, *recType, projections);
+		newPg = new ScanToBlockSMPlugin(dynamic_cast<GpuRawContext *>(this->ctx), *pathDynamicCopy, *recType, projections);
 	} else {
 		string err = string("Unknown Plugin Type: ") + pgType;
 		LOG(ERROR)<< err;

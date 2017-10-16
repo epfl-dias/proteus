@@ -786,8 +786,7 @@ void GpuHashRearrange::open (RawPipeline * pip){
     execution_conf ec = pip->getExecConfiguration();
 
     size_t grid_size  = ec.gridSize();
-    std::cout << grid_size << std::endl;
-
+    
     void   ** buffs;
     int32_t * cnts ;
     size_t  * oid  ;

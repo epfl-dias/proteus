@@ -203,6 +203,7 @@ private:
     
 public:
     mmap_file(std::string name, data_loc loc = GPU_RESIDENT);
+    mmap_file(std::string name, data_loc loc, size_t bytes, size_t offset);
     ~mmap_file();
 
     const void * getData() const;

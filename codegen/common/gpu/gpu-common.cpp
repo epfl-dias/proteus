@@ -1,5 +1,6 @@
 #include "common/gpu/gpu-common.hpp"
 #include "common/common.hpp"
+#include <cassert>
 
 void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim, cudaStream_t strm = 0){
     gpu_run(cuLaunchKernel(function, gridDim.x, gridDim.y, gridDim.z,
@@ -71,6 +72,46 @@ mmap_file::mmap_file(std::string name, data_loc loc): loc(loc){
         std::cout << "Dataset on device: " << get_device() << std::endl;
         gpu_run(cudaMalloc(&gpu_data,       filesize));
         gpu_run(cudaMemcpy( gpu_data, data, filesize, cudaMemcpyDefault));
+        munmap(data, filesize);
+        close (fd  );
+    }
+}
+
+mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes, size_t offset = 0): loc(loc), filesize(bytes){
+    time_block t("Topen (" + name + ", " + std::to_string(offset) + ":" + std::to_string(offset + filesize) + "): ");
+
+    size_t real_filesize = ::getFileSize(name.c_str());
+    assert(offset + filesize <= real_filesize);
+    fd       = open(name.c_str(), O_RDONLY, 0);
+
+    if (fd == -1){
+        string msg("[Storage: ] Failed to open input file " + name);
+        LOG(ERROR) << msg;
+        throw runtime_error(msg);
+    }
+
+    //Execute mmap
+    data     = mmap(NULL, filesize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, offset);
+    assert(data != MAP_FAILED);
+
+    // gpu_run(cudaHostRegister(data, filesize, 0));
+    if (loc == PINNED){
+        void * data2;
+        gpu_run(cudaMallocHost(&data2, filesize));
+        memcpy(data2, data, filesize);
+        munmap(data, filesize);
+        close (fd  );
+        data = data2;
+    }
+
+    gpu_data = data;
+
+    if (loc == GPU_RESIDENT){
+        std::cout << "Dataset on device: " << get_device() << std::endl;
+        gpu_run(cudaMalloc(&gpu_data,       filesize                   ));
+        gpu_run(cudaMemcpy( gpu_data, data, filesize, cudaMemcpyDefault));
+        munmap(data, filesize);
+        close (fd  );
     }
 }
 

@@ -170,8 +170,6 @@ void GpuReduce::close(RawPipeline * pip) const{
     // for (size_t i = 0 ; i < out_ids.size() ; ++i){
     //     gpu_run(cudaFree(pip->getStateVar<uint32_t *>(context, out_ids[i])));
     // }
-
-
     for (size_t i = 0 ; i < out_ids.size() ; ++i){
         uint32_t r;
         gpu_run(cudaMemcpy(&r, pip->getStateVar<uint32_t *>(out_ids[i]), sizeof(uint32_t), cudaMemcpyDefault));

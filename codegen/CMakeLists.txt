@@ -15,6 +15,7 @@ file(GLOB codegen_src
 	memory/*.cpp
 	plan/*.cpp
 	postgres/*.cpp
+	storage/*.cpp
 	# multigpu/operators/*.cu
 	# multigpu/buffer_pool.cu
 	# # src/output_composer.cu

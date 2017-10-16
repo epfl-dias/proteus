@@ -86,7 +86,7 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
 
     Value * tId       = context->threadId();
     Value * is_leader = Builder->CreateICmpEQ(tId, ConstantInt::get(tId->getType(), 0));
-    Builder->CreateCondBr(is_leader, releaseBB, rlAfterBB);
+    Builder->CreateCondBr(is_leader, releaseBB, rlAfterBB); //FIXME: assumes thread 0 gets to execute block2tuples
 
     Builder->SetInsertPoint(releaseBB);
 
@@ -252,7 +252,7 @@ void BlockToTuples::open (RawPipeline * pip){
     size_t grid_size  = ec.gridSize();
 
     void   ** buffs;
-    gpu_run(cudaMalloc(&buffs, sizeof(void  *) * wantedFields.size()));
+    gpu_run(cudaMalloc((void **) &buffs, sizeof(void  *) * wantedFields.size()));
 
     gpu_run(cudaMemset(buffs, 0, sizeof(void  *) * wantedFields.size()));
 
