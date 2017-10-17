@@ -361,4 +361,9 @@ inline int get_device(){
     return device;
 }
 
+extern "C"{
+    int get_ptr_device(const void *p);
+    int get_ptr_device_or_rand_for_host(const void *p);
+}
+
 #endif /* GPU_COMMON_HPP_ */

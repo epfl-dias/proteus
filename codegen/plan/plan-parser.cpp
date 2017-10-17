@@ -1012,14 +1012,22 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			producers = val["producers"].GetInt();
 		}
 
+		bool numa_local = true;
 		expressions::Expression * hash = NULL;
 		if (val.HasMember("target")){
 			assert(val["target"].IsObject());
 			hash = parseExpression(val["target"]);
+			numa_local = false;
+		}
+
+		if (val.HasMember("numa_local")){
+			assert(numa_local);
+			val["numa_local"].IsBool();
+			numa_local = val["numa_local"].GetBool();
 		}
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new Exchange(childOp, ((GpuRawContext *) this->ctx), numOfParents, projections, slack, hash, producers);
+		newOp =  new Exchange(childOp, ((GpuRawContext *) this->ctx), numOfParents, projections, slack, hash, numa_local, producers);
 		childOp->setParent(newOp);
 	} else if (strcmp(opName, "materializer") == 0){
 		/* parse operator input */

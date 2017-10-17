@@ -134,3 +134,16 @@ const void * mmap_file::getData() const{
 size_t mmap_file::getFileSize() const{
     return filesize;
 }
+
+
+extern "C"{
+    int get_ptr_device(const void *p){
+        return get_device(p);
+    }
+
+    int get_ptr_device_or_rand_for_host(const void *p){
+        int dev = get_device(p);
+        if (dev >= 0) return dev;
+        return rand();
+    }
+}

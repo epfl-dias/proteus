@@ -270,6 +270,14 @@ void Exchange::consume(RawContext* const context, const OperatorState& childStat
     if (hashExpr){
         ExpressionGeneratorVisitor exprGenerator{context, childState};
         target            = hashExpr->accept(exprGenerator).value;
+    } else if (numa_local){
+        auto it = activeVars.find(*(wantedFields[0]));
+        assert(it != activeVars.end());
+        Function * getdev = context->getFunction("get_ptr_device_or_rand_for_host");
+
+        Value * ptr       = Builder->CreateLoad(it->second.mem);
+        ptr               = Builder->CreateBitCast(ptr, charPtrType);
+        target            = Builder->CreateCall(getdev, vector<Value *>{ptr});
     } else {
         Function * crand  = context->getFunction("rand");
         target            = Builder->CreateCall(crand, vector<Value *>{});

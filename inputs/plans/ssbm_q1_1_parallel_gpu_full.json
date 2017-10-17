@@ -305,6 +305,7 @@
                             "attrName": "d_year",
                             "isBlock": true
                           }],
+                          "numa_local": true,
                           "numOfParents": 2,
                           "slack": 8,
                           "input": {
@@ -745,6 +746,7 @@
                             "attrName": "lo_extendedprice",
                             "isBlock": true
                           }],
+                          "numa_local": true,
                           "numOfParents": 2,
                           "slack": 8,
                           "input": {

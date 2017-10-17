@@ -48,6 +48,7 @@ public:
                 const vector<RecordAttribute*> &wantedFields,
                 int                             slack,
                 expressions::Expression       * hash = NULL,
+                bool                            numa_local = true,
                 int                             producers = 1) :
                     UnaryRawOperator(child), 
                     context(context), 
@@ -55,7 +56,10 @@ public:
                     wantedFields(wantedFields),
                     slack(slack),
                     hashExpr(hash),
+                    numa_local(numa_local),
                     remaining_producers(producers){
+        assert((!hash || !numa_local) && "Just to make it more clear that hash has precedence over numa_local");
+        
         free_pool           = new std::stack<void *>     [numOfParents];
         free_pool_mutex     = new std::mutex             [numOfParents];
         free_pool_cv        = new std::condition_variable[numOfParents];
@@ -117,6 +121,7 @@ private:
     std::vector<exec_location>      target_processors;
 
     expressions::Expression       * hashExpr;
+    bool                            numa_local;
 };
 
 #endif /* EXCHANGE_HPP_ */

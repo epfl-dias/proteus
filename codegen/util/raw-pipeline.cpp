@@ -162,6 +162,14 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
         Function *fyield = Function::Create(yield, Function::ExternalLinkage, "yield", getModule());
         registerFunction("yield", fyield);
 
+        FunctionType *get_ptr_device = FunctionType::get(int32_type, std::vector<Type *>{charPtrType}, false);
+        Function *fget_ptr_device = Function::Create(get_ptr_device, Function::ExternalLinkage, "get_ptr_device", getModule());
+        registerFunction("get_ptr_device", fget_ptr_device);
+
+        FunctionType *get_ptr_device_or_rand_for_host = FunctionType::get(int32_type, std::vector<Type *>{charPtrType}, false);
+        Function *fget_ptr_device_or_rand_for_host = Function::Create(get_ptr_device_or_rand_for_host, Function::ExternalLinkage, "get_ptr_device_or_rand_for_host", getModule());
+        registerFunction("get_ptr_device_or_rand_for_host", fget_ptr_device_or_rand_for_host);
+
         registerFunctions(); //FIXME: do we have to register them every time ?
 
         string ErrStr;
