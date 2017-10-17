@@ -44,8 +44,8 @@ file(GLOB codegen_src
 # # FIXME: multigpu::gpu_to_cpu is using thrust::tuple and clang produces errors when compiling thrust
 # list(REMOVE_ITEM codegen_src ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/operators/gpu_to_cpu.cu)
 
-# get_property(inc_dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-# string(REGEX REPLACE "([^;]+)" "-I\\1" inc_dirs2 "${inc_dirs}")
+get_property(inc_dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
+string(REGEX REPLACE "([^;]+)" "-I\\1" inc_dirs2 "${inc_dirs}")
 
 # add_custom_command(OUTPUT device_funcs.cubin
 #                    COMMAND nvcc ${CUDA_CXXFLAGS} -O3 --generate-line-info ${inc_dirs2} -dc --cubin ${CMAKE_CURRENT_SOURCE_DIR}/device_funcs.cu -o ${CMAKE_CURRENT_BINARY_DIR}/device_funcs.cubin
@@ -62,11 +62,27 @@ file(GLOB codegen_src
 # add_custom_target(device_funcs     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/device_funcs.cubin)
 # add_custom_target(device_funcs_obj DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/device_funcs.cubin.o)
 
-add_library(codegen SHARED ${codegen_src}) # ${CMAKE_CURRENT_BINARY_DIR}/device_funcs.cubin.o)
+add_custom_command(OUTPUT buffer_manager.cubin
+                   COMMAND nvcc ${CUDA_CXXFLAGS} -O3 --generate-line-info ${inc_dirs2} -dc --cubin ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu -o ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin
+                   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu
+                   # WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                   )
+
+add_custom_command(OUTPUT buffer_manager.cubin.o
+                   COMMAND ld -r -b binary buffer_manager.cubin -o ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o
+                   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin
+                   # WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                   )
+
+add_custom_target(buffer_manager     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin)
+add_custom_target(buffer_manager_obj DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o)
+
+add_library(codegen SHARED ${codegen_src} ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o)
 set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
 target_link_libraries(codegen jsmn multigpu)
 
 # add_dependencies(codegen device_funcs_obj)
+add_dependencies(codegen buffer_manager_obj)
 
 add_subdirectory(multigpu)
 

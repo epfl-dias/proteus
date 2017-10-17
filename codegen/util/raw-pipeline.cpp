@@ -494,6 +494,10 @@ void RawPipelineGen::compileAndLoad(){
 // extern char _binary_device_funcs_cubin_size   ; //size = (size_t) &_binary_device_funcs_cubin_size
 // extern char _binary_device_funcs_cubin_start[];
 
+extern char _binary_buffer_manager_cubin_end  [];
+extern char _binary_buffer_manager_cubin_size   ; //size = (size_t) &_binary_buffer_manager_cubin_size
+extern char _binary_buffer_manager_cubin_start[];
+
 constexpr size_t BUFFER_SIZE = 8192;
 char error_log[BUFFER_SIZE];
 char info_log [BUFFER_SIZE];
@@ -611,15 +615,17 @@ void GpuRawPipelineGen::compileAndLoad(){
         // values  [4] = (void *) BUFFER_SIZE;
 
         // size_t size = _binary_device_funcs_cubin_end - _binary_device_funcs_cubin_start;
+        size_t size = _binary_buffer_manager_cubin_end - _binary_buffer_manager_cubin_start;
 
         gpu_run(cuLinkCreate  (opt_size, options, values, &linkState));
         // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_LIBRARY, "/usr/local/cuda/lib64/libcudadevrt.a", 0, NULL, NULL));
         // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN, "/home/chrysoge/Documents/pelago/opt/res/device_funcs.cubin", 0, NULL, NULL));
-        // (cuLinkAddData (linkState, CU_JIT_INPUT_CUBIN, _binary_device_funcs_cubin_start, size, NULL, 0, NULL, NULL));
+        // auto x = (cuLinkAddData (linkState, CU_JIT_INPUT_CUBIN, _binary_device_funcs_cubin_start, size, NULL, 0, NULL, NULL));
+        auto x = (cuLinkAddData (linkState, CU_JIT_INPUT_CUBIN, _binary_buffer_manager_cubin_start, size, NULL, 0, NULL, NULL));
 
         //the strange file name comes from FindCUDA... hopefully there is way to change it...
         // auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN, "/home/chrysoge/Documents/pelago/build/raw-jit-executor/codegen/multigpu/CMakeFiles/multigpu.dir/multigpu_generated_buffer_manager.cu.o.cubin.txt", 0, NULL, NULL));
-        auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN, "/home/chrysoge/Documents/pelago/opt/lib/buffer_manager.cubin", 0, NULL, NULL));
+        // auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN, "/home/chrysoge/Documents/pelago/opt/res/buffer_manager.cubin", 0, NULL, NULL));
             // libmultigpu.a", 0, NULL, NULL));
         if (x != CUDA_SUCCESS) {
             printf("[CUcompile: ] %s\n", info_log );
