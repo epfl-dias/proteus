@@ -29,7 +29,7 @@ bool recordComparator (RecordAttribute* x, RecordAttribute* y) {
 
 Value * RecordType::projectArg(Value * record, RecordAttribute * attr, IRBuilder<>* const Builder) const{
 	if (!(record->getType()->isStructTy())) return NULL;
-	assert(((StructType *) record->getType())->isLayoutIdentical((StructType *) getLLVMType(record->getContext())));
+	if (!(((StructType *) record->getType())->isLayoutIdentical((StructType *) getLLVMType(record->getContext())))) return NULL;
 	int index = getIndex(attr);
 	if (index < 0) return NULL;
 	return Builder->CreateExtractValue(record, index);
