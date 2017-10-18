@@ -7,7 +7,7 @@
       "type": "custom",
       "factory": "org.apache.calcite.adapter.csv.CsvSchemaFactory",
       "operand": {
-        "directory": "/home/manolee/IdeaProjects/calcite-tutorial/src/main/resources/schema"
+        "directory": "schema"
       }
     }
   ]
