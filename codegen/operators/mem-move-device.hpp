@@ -1,7 +1,7 @@
 /*
     RAW -- High-performance querying over raw, never-seen-before data.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -25,17 +25,33 @@
 
 #include "operators/operators.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
+#include "util/async_containers.hpp"
+#include <thread>
 
 // void * make_mem_move_device(char * src, size_t bytes, int target_device, cudaStream_t strm);
 
 class MemMoveDevice : public UnaryRawOperator {
 public:
+    struct workunit{
+        void      * data ;
+        cudaEvent_t event;
+    };
+
+    struct MemMoveConf{
+        AsyncStackSPSC<workunit *> idle  ;
+        AsyncQueueSPSC<workunit *> tran  ;
+
+        std::thread              * worker;
+        cudaStream_t               strm  ;
+    };
+
     MemMoveDevice(  RawOperator * const             child,
                     GpuRawContext * const           context,
                     const vector<RecordAttribute*> &wantedFields) :
                         UnaryRawOperator(child), 
                         context(context), 
-                        wantedFields(wantedFields){}
+                        wantedFields(wantedFields),
+                        slack(8){}
 
     virtual ~MemMoveDevice()                                             { LOG(INFO)<<"Collapsing MemMoveDevice operator";}
 
@@ -45,13 +61,22 @@ public:
 
 private:
     const vector<RecordAttribute *> wantedFields ;
-    int                             device_id_var;
-    int                             cu_stream_var;
+    size_t                          device_id_var;
+    size_t                          cu_stream_var;
+    size_t                          memmvconf_var;
+
+    RawPipelineGen                * catch_pip    ;
+    llvm::Type                    * data_type    ;
+
+
+    size_t                          slack        ;
 
     GpuRawContext * const context;
 
     void open (RawPipeline * pip);
     void close(RawPipeline * pip);
+
+    void catcher(MemMoveConf * conf, int group_id, const exec_location &target_dev);
 };
 
 #endif /* MEM_MOVE_DEVICE_HPP_ */

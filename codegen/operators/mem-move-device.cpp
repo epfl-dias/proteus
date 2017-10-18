@@ -1,7 +1,7 @@
 /*
     RAW -- High-performance querying over raw, never-seen-before data.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -45,11 +45,127 @@
 // }
 
 void MemMoveDevice::produce() {
+    LLVMContext & llvmContext   = context->getLLVMContext();
+    Type * bool_type    = Type::getInt1Ty   (context->getLLVMContext());
     Type * int32_type   = Type::getInt32Ty  (context->getLLVMContext());
     Type * charPtrType  = Type::getInt8PtrTy(context->getLLVMContext());
 
+
+    Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+    const PrimitiveType * ptoid = dynamic_cast<const PrimitiveType *>(pg->getOIDType());
+    Type  * oidType             = ptoid->getLLVMType(llvmContext);
+
+
+    std::vector<Type *> tr_types;
+    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
+        tr_types.push_back(wantedFields[i]->getLLVMType(llvmContext));
+        tr_types.push_back(wantedFields[i]->getLLVMType(llvmContext)); // old buffer, to be released
+    }
+    tr_types.push_back(oidType); //cnt
+    tr_types.push_back(oidType); //oid
+
+    data_type   = StructType::get(llvmContext, tr_types);
+
+    RecordAttribute tupleCnt        = RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
+    RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRelationName(),  activeLoop, pg->getOIDType()); 
+
+    // Generate catch code
+    int p = context->appendParameter(PointerType::get(data_type, 0), true, true);
+    context->setGlobalFunction();
+
+    IRBuilder<> * Builder       = context->getBuilder    ();
+    BasicBlock  * entryBB       = Builder->GetInsertBlock();
+    Function    * F             = entryBB->getParent();
+
+    BasicBlock *mainBB = BasicBlock::Create(llvmContext, "main", F);
+
+    BasicBlock *endBB = BasicBlock::Create(llvmContext, "end", F);
+    context->setEndingBlock(endBB);
+
+    Builder->SetInsertPoint(entryBB);
+
+    Value * params = Builder->CreateLoad(context->getArgument(p));
+    
+    map<RecordAttribute, RawValueMemory> variableBindings;
+
+    Function * release = context->getFunction("release_buffer");
+
+    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
+        RawValueMemory mem_valWrapper;
+
+        mem_valWrapper.mem    = context->CreateEntryBlockAlloca(F, wantedFields[i]->getAttrName() + "_ptr", wantedFields[i]->getOriginalType()->getLLVMType(llvmContext));
+        mem_valWrapper.isNull = context->createFalse(); //FIMXE: should we alse transfer this information ?
+
+        Value * param = Builder->CreateExtractValue(params, 2 * i    );
+
+        Value * src   = Builder->CreateExtractValue(params, 2 * i + 1);
+
+        BasicBlock *relBB = BasicBlock::Create(llvmContext, "rel", F);
+        BasicBlock *merBB = BasicBlock::Create(llvmContext, "mer", F);
+
+        Value * do_rel = Builder->CreateICmpEQ(param, src);
+        Builder->CreateCondBr(do_rel, merBB, relBB);
+
+        Builder->SetInsertPoint(relBB);
+
+        Builder->CreateCall(release, Builder->CreateBitCast(src, charPtrType));
+
+        Builder->CreateBr(merBB);
+
+        Builder->SetInsertPoint(merBB);
+
+        Builder->CreateStore(param, mem_valWrapper.mem);
+
+        variableBindings[*(wantedFields[i])] = mem_valWrapper;
+    }
+
+    RawValueMemory mem_cntWrapper;
+    mem_cntWrapper.mem    = context->CreateEntryBlockAlloca(F, "activeCnt", oidType);
+    mem_cntWrapper.isNull = context->createFalse(); //FIMXE: should we alse transfer this information ?
+
+    Value * cnt = Builder->CreateExtractValue(params, 2 * wantedFields.size()    );
+    Builder->CreateStore(cnt, mem_cntWrapper.mem);
+
+    variableBindings[tupleCnt] = mem_cntWrapper;
+
+
+    RawValueMemory mem_oidWrapper;
+    mem_oidWrapper.mem    = context->CreateEntryBlockAlloca(F, activeLoop, oidType);
+    mem_oidWrapper.isNull = context->createFalse(); //FIMXE: should we alse transfer this information ?
+
+    Value * oid = Builder->CreateExtractValue(params, 2 * wantedFields.size() + 1);
+    Builder->CreateStore(oid, mem_oidWrapper.mem);
+
+    variableBindings[tupleIdentifier] = mem_oidWrapper;
+
+    context->setCurrentEntryBlock(Builder->GetInsertBlock());
+
+    Builder->SetInsertPoint(mainBB);
+
+    OperatorState state{*this, variableBindings};
+    getParent()->consume(context, state);
+
+    Builder->CreateBr(endBB);
+
+    Builder->SetInsertPoint(context->getCurrentEntryBlock());
+    // Insert an explicit fall through from the current (entry) block to the CondBB.
+    Builder->CreateBr(mainBB);
+
+
+    Builder->SetInsertPoint(context->getEndingBlock());
+    // Builder->CreateRetVoid();
+
+
+    context->popNewPipeline();
+
+    catch_pip = context->removeLatestPipeline();
+
+    //push new pipeline for the throw part
+    context->pushNewCpuPipeline();
+
     device_id_var       = context->appendStateVar(int32_type );
     cu_stream_var       = context->appendStateVar(charPtrType);
+    memmvconf_var       = context->appendStateVar(charPtrType);
 
     getChild()->produce();
 }
@@ -61,16 +177,18 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
     BasicBlock  * insBB         = Builder->GetInsertBlock();
     Function    * F             = insBB->getParent();
 
-    Type * charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
+    Type * charPtrType          = Type::getInt8PtrTy(context->getLLVMContext());
 
-    map<RecordAttribute, RawValueMemory> new_bindings{childState.getBindings()};
+    Type  * workunit_type       = StructType::get(llvmContext, std::vector<Type *>{charPtrType, charPtrType});
+
+    map<RecordAttribute, RawValueMemory> old_bindings{childState.getBindings()};
     
     // Find block size
     Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
     RecordAttribute tupleCnt = RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
 
-    auto it = new_bindings.find(tupleCnt);
-    assert(it != new_bindings.end());
+    auto it = old_bindings.find(tupleCnt);
+    assert(it != old_bindings.end());
 
     RawValueMemory mem_cntWrapper = it->second;
 
@@ -83,15 +201,23 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
 
     Builder->SetInsertPoint(insBB);
     Value * N               = Builder->CreateLoad(mem_cntWrapper.mem);
-    
-    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        RecordAttribute attr        (*(wantedFields[i]));
-        RecordAttribute block_attr  (attr, true);
 
-        auto it = new_bindings.find(block_attr);
-        assert(it != new_bindings.end());
+
+    RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRelationName(),  activeLoop, pg->getOIDType()); 
+    it = old_bindings.find(tupleIdentifier);
+    assert(it != old_bindings.end());
+    RawValueMemory mem_oidWrapper = it->second;
+    Value * oid             = Builder->CreateLoad(mem_oidWrapper.mem);
+    
+
+    std::vector<Value *> pushed;
+    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
+        RecordAttribute block_attr  (*(wantedFields[i]), true);
+
+        auto it = old_bindings.find(block_attr);
+        assert(it != old_bindings.end());
         RawValueMemory mem_valWrapper = it->second;
-                
+        
         Value * mv              = Builder->CreateBitCast(
                                                             Builder->CreateLoad(mem_valWrapper.mem), 
                                                             charPtrType
@@ -105,25 +231,36 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
         vector<Value *> mv_args{mv, size, device_id, cu_stream};
 
         // Do actual mem move
-        Value * new_ptr         = Builder->CreateCall(make_mem_move, mv_args);
-        //FIMXE: someone should release the buffer... But who ?
-        //This operator should not release it, siblings may use it
-        //Maybe the buffer manager should keep counts ?
-        
-        AllocaInst * new_ptr_addr    = context->CreateEntryBlockAlloca(F, attr.getAttrName(), mem_valWrapper.mem->getType()->getPointerElementType());
+        Value * moved = Builder->CreateCall(make_mem_move, mv_args);
 
-        mem_valWrapper.mem      = new_ptr_addr;
-        it->second              = mem_valWrapper;
-        
-        Builder->CreateStore(Builder->CreateBitCast(new_ptr, mem_valWrapper.mem->getType()->getPointerElementType()), new_ptr_addr);
+        pushed.push_back(Builder->CreateBitCast(moved, mem_valWrapper.mem->getType()->getPointerElementType()));
+        pushed.push_back(Builder->CreateLoad(mem_valWrapper.mem));
     }
+    pushed.push_back(N);
+    pushed.push_back(oid);
+
+    Value * d           = UndefValue::get(data_type);
+    for (size_t i = 0 ; i < pushed.size() ; ++i){
+        d               = Builder->CreateInsertValue(d, pushed[i], i);
+    }
+
+    Value * memmv           = ((GpuRawContext *) context)->getStateVar(memmvconf_var);
+
+    Function * acquire      = context->getFunction("acquireWorkUnit");
+
+    Value * workunit_ptr8   = Builder->CreateCall(acquire, memmv);
+    Value * workunit_ptr    = Builder->CreateBitCast(workunit_ptr8, PointerType::getUnqual(workunit_type));
+
+    Value * workunit_dat    = Builder->CreateLoad(workunit_ptr);
+    Value * d_ptr           = Builder->CreateExtractValue(workunit_dat, 0);
+    d_ptr                   = Builder->CreateBitCast(d_ptr       , PointerType::getUnqual(data_type    ));
+    Builder->CreateStore(d, d_ptr);
+
+    Function * propagate = context->getFunction("propagateWorkUnit");
+    Builder->CreateCall(propagate, std::vector<Value *>{memmv, workunit_ptr8});
 
     ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
     ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
-
-    OperatorState newState{*this, new_bindings};
-    //Triggering parent
-    getParent()->consume(context, newState);
 }
 
 void MemMoveDevice::open (RawPipeline * pip){
@@ -131,9 +268,24 @@ void MemMoveDevice::open (RawPipeline * pip){
     cudaStream_t strm;
     gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
 
+    MemMoveConf * mmc = new MemMoveConf;
+    mmc->strm = strm;
+
+    workunit * wu = new workunit[slack];
+    for (size_t i = 0 ; i < slack ; ++i){
+        wu[i].data  = malloc(pip->getSizeOf(data_type));
+        gpu_run(cudaEventCreateWithFlags(&(wu[i].event), cudaEventDisableTiming));
+
+        mmc->idle.push(wu + i);
+    }
+
+    mmc->worker = new std::thread(&MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
+
+
     pip->setStateVar<int         >(device_id_var, device);
 
     pip->setStateVar<cudaStream_t>(cu_stream_var, strm  );
+    pip->setStateVar<void      * >(memmvconf_var, mmc   );
 }
 
 void MemMoveDevice::close(RawPipeline * pip){
@@ -142,4 +294,80 @@ void MemMoveDevice::close(RawPipeline * pip){
 
     gpu_run(cudaStreamSynchronize(strm));
     gpu_run(cudaStreamDestroy    (strm));
+
+    MemMoveConf * mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
+
+    mmc->tran.close();
+    mmc->worker->join();
+
+    workunit * start_wu;
+    for (size_t i = 0 ; i < slack ; ++i){
+        workunit * wu;
+#ifndef NDEBUG
+        bool r =
+#endif
+        mmc->idle.pop(wu);
+        assert(r);
+
+        gpu_run(cudaEventDestroy(wu->event));
+        free(wu->data);
+
+        if (i == 0 || wu < start_wu) start_wu = wu;
+    }
+    delete[] start_wu;
+
+    mmc->idle.close();
+
+    delete mmc->worker;
+    delete mmc;
+}
+
+
+extern "C"{
+    MemMoveDevice::workunit * acquireWorkUnit  (MemMoveDevice::MemMoveConf * mmc){
+        MemMoveDevice::workunit * ret = nullptr;
+#ifndef NDEBUG
+        bool popres = 
+#endif
+        mmc->idle.pop(ret);
+        assert(popres);
+        return ret;
+    }
+
+    void propagateWorkUnit(MemMoveDevice::MemMoveConf * mmc, MemMoveDevice::workunit * buff){
+        gpu_run(cudaEventRecord(buff->event, mmc->strm));
+
+        mmc->tran.push(buff);
+    }
+
+    bool acquirePendingWorkUnit(MemMoveDevice::MemMoveConf * mmc, MemMoveDevice::workunit ** ret){
+        return mmc->tran.pop(*ret);
+    }
+
+    void releaseWorkUnit  (MemMoveDevice::MemMoveConf * mmc, MemMoveDevice::workunit * buff){
+        mmc->idle.push(buff);
+    }
+}
+
+
+void MemMoveDevice::catcher(MemMoveConf * mmc, int group_id, const exec_location &target_dev){
+    set_exec_location_on_scope d(target_dev);
+
+    RawPipeline * pip = catch_pip->getPipeline(group_id);
+
+    pip->open();
+
+    {
+        do {
+            MemMoveDevice::workunit * p = nullptr;
+            if (!acquirePendingWorkUnit(mmc, &p)) break;
+
+            gpu_run(cudaEventSynchronize(p->event));
+            pip->consume(0, p->data);
+
+            releaseWorkUnit(mmc, p); //FIXME: move this inside the generated code
+        } while (true);
+    }
+
+    pip->close();
 }

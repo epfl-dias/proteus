@@ -89,7 +89,7 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
 #endif
 
         // TheFPM->doInitialization();
-
+        Type * bool_type    = Type::getInt1Ty   (context->getLLVMContext());
         Type * int32_type   = Type::getInt32Ty  (context->getLLVMContext());
         Type * int64_type   = Type::getInt64Ty  (context->getLLVMContext());
         Type * void_type    = Type::getVoidTy   (context->getLLVMContext());
@@ -158,6 +158,10 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
         Function *fget_buffer = Function::Create(get_buffer, Function::ExternalLinkage, "get_buffer", getModule());
         registerFunction("get_buffer", fget_buffer);
 
+        FunctionType *release_buffer = FunctionType::get(void_type, std::vector<Type *>{charPtrType}, false);
+        Function *frelease_buffer = Function::Create(release_buffer, Function::ExternalLinkage, "release_buffer", getModule());
+        registerFunction("release_buffer", frelease_buffer);
+
         FunctionType *yield = FunctionType::get(void_type, std::vector<Type *>{}, false);
         Function *fyield = Function::Create(yield, Function::ExternalLinkage, "yield", getModule());
         registerFunction("yield", fyield);
@@ -169,6 +173,22 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
         FunctionType *get_ptr_device_or_rand_for_host = FunctionType::get(int32_type, std::vector<Type *>{charPtrType}, false);
         Function *fget_ptr_device_or_rand_for_host = Function::Create(get_ptr_device_or_rand_for_host, Function::ExternalLinkage, "get_ptr_device_or_rand_for_host", getModule());
         registerFunction("get_ptr_device_or_rand_for_host", fget_ptr_device_or_rand_for_host);
+
+        FunctionType *acquireWorkUnit = FunctionType::get(charPtrType, std::vector<Type *>{charPtrType}, false);
+        Function *facquireWorkUnit = Function::Create(acquireWorkUnit, Function::ExternalLinkage, "acquireWorkUnit", getModule());
+        registerFunction("acquireWorkUnit", facquireWorkUnit);
+
+        FunctionType *propagateWorkUnit = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType}, false);
+        Function *fpropagateWorkUnit = Function::Create(propagateWorkUnit, Function::ExternalLinkage, "propagateWorkUnit", getModule());
+        registerFunction("propagateWorkUnit", fpropagateWorkUnit);
+
+        FunctionType *acquirePendingWorkUnit = FunctionType::get(bool_type, std::vector<Type *>{charPtrType, charPtrType}, false);
+        Function *facquirePendingWorkUnit = Function::Create(acquirePendingWorkUnit, Function::ExternalLinkage, "acquirePendingWorkUnit", getModule());
+        registerFunction("acquirePendingWorkUnit", facquirePendingWorkUnit);
+
+        FunctionType *releaseWorkUnit = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType}, false);
+        Function *freleaseWorkUnit = Function::Create(releaseWorkUnit, Function::ExternalLinkage, "releaseWorkUnit", getModule());
+        registerFunction("releaseWorkUnit", freleaseWorkUnit);
 
         registerFunctions(); //FIXME: do we have to register them every time ?
 
