@@ -1,1 +1,1 @@
-ID:int,NAME:string
+ID:int,NAME:string,PRICE:double,DISCOUNT:double

@@ -9,6 +9,14 @@
       "operand": {
         "directory": "schema"
       }
+    },
+    {
+      "name": "SSB",
+      "type": "custom",
+      "factory": "org.apache.calcite.adapter.csv.CsvSchemaFactory",
+      "operand": {
+        "directory": "ssb_schema"
+      }
     }
   ]
 }

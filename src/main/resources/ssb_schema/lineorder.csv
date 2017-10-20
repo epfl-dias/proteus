@@ -1,0 +1,1 @@
+lo_orderkey:int,lo_linenumber:int,lo_custkey:int,lo_partkey:int,lo_suppkey:int,lo_orderdate:int,lo_orderpriority:string,lo_shippriority:string,lo_quantity:int,lo_extendedprice:int,lo_ordtotalprice:int,lo_discount:int,lo_revenue:int,lo_supplycost:int,lo_tax:int,lo_commitdate:int,lo_shipmode:string
