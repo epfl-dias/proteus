@@ -15,7 +15,7 @@ import org.apache.calcite.rel.RelNode
 import org.apache.calcite.sql.SqlExplainLevel
 import org.json4s.JsonAST.JValue
 
-import scala.io.StdIn
+import scala.io.{BufferedSource, Source, StdIn}
 
 object Repl extends App {
 
@@ -24,7 +24,7 @@ object Repl extends App {
     val input = StdIn.readLine()
 
       if (input == "exit" || input == "quit") {
-        System.exit(-1)
+        System.exit(0)
       }
       //Setup Connection
       Class.forName("org.apache.calcite.jdbc.Driver")
@@ -32,7 +32,10 @@ object Repl extends App {
       info.setProperty("lex", "JAVA")
       //Getting the actual content of schema.json
       //String schemaRaw = Resources.toString(QueryToPlan.class.getResource("/schema.json"), Charset.defaultCharset());
-      val schemaPath = Resources.getResource("schema.json").getPath
+
+      //val schemaPath = /*getClass.getResource("schema.json").getPath*/ Resources.getResource("schema.json").getPath
+      //TODO Not the cleanest way to provide this path, but sbt crashes otherwise
+      val schemaPath: String = new java.io.File(".").getCanonicalPath+"/src/main/resources/schema.json"
       val connection = DriverManager.getConnection("jdbc:calcite:model=" + schemaPath, info)
       val calciteConnection = connection.unwrap(classOf[CalciteConnection])
       val rootSchema = calciteConnection.getRootSchema.getSubSchema("SALES") //or SSB
