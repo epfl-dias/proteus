@@ -1,6 +1,7 @@
 package ch.epfl.dias.repl
 
 import java.io.PrintWriter
+import java.net.URL
 import java.sql.{Connection, DriverManager, Statement}
 import java.util.Properties
 
@@ -27,11 +28,20 @@ object Repl extends App {
   //Getting the actual content of schema.json
   //String schemaRaw = Resources.toString(QueryToPlan.class.getResource("/schema.json"), Charset.defaultCharset());
 
-  //val schemaPath = /*getClass.getResource("schema.json").getPath*/ Resources.getResource("schema.json").getPath
-  //TODO Not the cleanest way to provide this path, but sbt crashes otherwise
+  /*
+  //Getting the actual model doesn't do us any good, unless we put it together programmatically on our own
+  //See https://calcite.apache.org/docs/model.html
+  var schemaPath : String = getClass.getResource("/schema.json").getPath
+  import java.io.InputStream
+  import org.apache.commons.io.IOUtils
+  val is = getClass.getResourceAsStream("/schema.json")
+  val model = IOUtils.toString(is)
+  */
+
+  //TODO Not the cleanest way to provide this path, but sbt crashes otherwise. Incompatible with assembly jar
   val schemaPath: String = new java.io.File(".").getCanonicalPath+"/src/main/resources/schema.json"
   val connection = DriverManager.getConnection("jdbc:calcite:model=" + schemaPath, info)
-  val calciteConnection = connection.unwrap(classOf[CalciteConnection])
+  val calciteConnection: CalciteConnection = connection.unwrap(classOf[CalciteConnection])
   val rootSchema = calciteConnection.getRootSchema.getSubSchema("SSB") //or SALES
   val statement = connection.createStatement
 
@@ -39,7 +49,7 @@ object Repl extends App {
     print("sql > ")
     val input = StdIn.readLine()
 
-      if (input == "exit" || input == "quit") {
+      if (input == null || input == "" || input == "exit" || input == "quit") {
         System.exit(0)
       }
 
