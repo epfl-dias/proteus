@@ -1,0 +1,1 @@
+c_custkey:int,c_name:string,c_address:string,c_city:string,c_nation:string,c_region:string,c_phone:string,c_mktsegment:string

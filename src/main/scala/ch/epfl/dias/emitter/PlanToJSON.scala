@@ -1,20 +1,20 @@
 package ch.epfl.dias.emitter
 
 import java.io.{PrintWriter, StringWriter}
-import java.util
-
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.adapter.enumerable._
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeField, RelRecordType}
 import org.apache.calcite.rel.core.AggregateCall
 import org.apache.calcite.rex.{RexCall, RexInputRef, RexLiteral, RexNode}
-import org.apache.calcite.sql.{SqlBinaryOperator, SqlKind, SqlOperator}
+import org.apache.calcite.sql.fun.SqlCaseOperator
+import org.apache.calcite.sql.{SqlBinaryOperator, SqlFunction, SqlKind, SqlOperator}
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks._
 
 object PlanToJSON {
@@ -25,6 +25,7 @@ object PlanToJSON {
   //---> Join behavior can be handled implicitly by executor:
   //-----> Early materialization: Create new OID
   //-----> Late materialization: Preserve OID + rowTypes of join's children instead of the new one
+  //-> TODO Do we need projection pushdown at this level?
 
   def jsonToString(in: JValue) : String = {
     pretty(render(in))
@@ -50,13 +51,16 @@ object PlanToJSON {
   }
 
   def emitExpression(e: RexNode, f: List[Binding]) : JValue = {
+    val exprType : String = e.getType.toString
     val json : JValue = e match {
-      case call: RexCall => emitOp(call.op, call.operands, f)
+      case call: RexCall => {
+        emitOp(call.op, call.operands, exprType, f)
+      }
       case inputRef: RexInputRef => {
         val arg = emitArg(inputRef,f)
-        ("arg",arg)
+        arg
       }
-      case lit: RexLiteral => ("v",toJavaString(lit))
+      case lit: RexLiteral => ("expression",exprType) ~ ("v",toJavaString(lit))
       case _ => {
         val msg : String = "Unsupported expression "+e.toString
         throw new PlanConversionException(msg)
@@ -68,36 +72,51 @@ object PlanToJSON {
   //TODO Assumming unary ops
   def emitAggExpression(aggExpr: AggregateCall, f: List[Binding]) : JValue = {
     val opType : String = aggExpr.getAggregation.getKind match {
-      case SqlKind.AVG => "avg"
-      case SqlKind.COUNT => "cnt"
-      case SqlKind.MAX => "max"
-      case SqlKind.MIN => "min"
-      case SqlKind.SUM => "sum"
+      case SqlKind.AVG    => "avg"
+      case SqlKind.COUNT  => "cnt"
+      case SqlKind.MAX    => "max"
+      case SqlKind.MIN    => "min"
+      case SqlKind.SUM    => "sum"
+      //'Sum0 is an aggregator which returns the sum of the values which go into it like Sum.'
+      //'It differs in that when no non null values are applied zero is returned instead of null.'
+      case SqlKind.SUM0    => "sum0"
       case _ => {
         val msg : String = "unknown aggr. function "+aggExpr.getAggregation.getKind.toString
         throw new PlanConversionException(msg)
       }
     }
 
-    if(aggExpr.getArgList.size() != 1)  {
-      val msg : String = "size of aggregate's input expected to be 1 - actually is "+aggExpr.getArgList.size()
+    if(aggExpr.getArgList.size() > 1)  {
+      //count() has 0 arguments; the rest expected to have 1
+      val msg : String = "size of aggregate's input expected to be 0 or 1 - actually is "+aggExpr.getArgList.size()
       throw new PlanConversionException(msg)
     }
-    val e = emitArg(aggExpr.getArgList.get(0),f)
-    val json : JValue = ("type", aggExpr.getType.toString) ~ ("op",opType) ~ ("e",e)
-    json
+    if(aggExpr.getArgList.size() == 1)  {
+      val e: JValue = emitArg(aggExpr.getArgList.get(0),f)
+      val json : JValue = ("type", aggExpr.getType.toString) ~ ("op",opType) ~ ("e",e)
+      json
+    } else  {
+      //val e: JValue =
+      val json : JValue = ("type", aggExpr.getType.toString) ~ ("op",opType) ~ ("e","")
+      json
+    }
   }
 
-  def emitOp(op: SqlOperator, args: ImmutableList[RexNode], f: List[Binding] ) : JValue = op match   {
-    case binOp: SqlBinaryOperator => emitBinaryOp(binOp, args, f)
+  def emitOp(op: SqlOperator, args: ImmutableList[RexNode], dataType: String, f: List[Binding] ) : JValue = op match   {
+    case binOp: SqlBinaryOperator => emitBinaryOp(binOp, args, dataType, f)
+    case func: SqlFunction => emitFunc(func, args, dataType, f)
+    case caseOp: SqlCaseOperator => emitCaseOp(caseOp, args, dataType, f)
     case _ => throw new PlanConversionException("Unknown operator: "+op.getKind.sql)
   }
 
-  def emitBinaryOp(op: SqlBinaryOperator, args: ImmutableList[RexNode], f: List[Binding]) : JValue =  {
+  def emitBinaryOp(op: SqlBinaryOperator, args: ImmutableList[RexNode], opType: String, f: List[Binding]) : JValue =  {
 
-    val opType : String = op.getKind match {
+    val left = emitExpression(args.get(0), f)
+    val right = emitExpression(args.get(1), f)
+
+    val opName : String = op.getKind match {
       case SqlKind.GREATER_THAN => "gt"
-      case SqlKind.GREATER_THAN_OR_EQUAL => "qe"
+      case SqlKind.GREATER_THAN_OR_EQUAL => "ge"
       case SqlKind.LESS_THAN => "lt"
       case SqlKind.LESS_THAN_OR_EQUAL => "le"
       case SqlKind.EQUALS => "eq"
@@ -111,9 +130,30 @@ object PlanToJSON {
       case _ => throw new PlanConversionException("Unsupported binary operator: "+op.getKind.sql)
     }
 
-    val left = emitExpression(args.get(0), f)
-    val right = emitExpression(args.get(1), f)
-    val json = ("expression",opType) ~ ("left", left) ~ ("right", right)
+    val json = ("type", opType) ~ ("expression",opName) ~ ("left", left) ~ ("right", right)
+    json
+  }
+
+  def emitFunc(func: SqlFunction, args: ImmutableList[RexNode], retType: String, f: List[Binding]) : JValue =  {
+    val json = func.getKind match  {
+      case SqlKind.CAST => {
+        val funcName = "cast"
+        val arg : JValue = List(emitExpression(args.get(0), f))
+        ("type",retType) ~ ("expression",funcName) ~ ("args", arg)
+      }
+      case _ => throw new PlanConversionException("Unsupported function: "+func.getKind.sql)
+    }
+    json
+  }
+
+  //First n-1 args: Consecutive if-then pairs
+  //Last arg: 'Else' clause
+  def emitCaseOp(op: SqlCaseOperator, args: ImmutableList[RexNode], opType: String, f: List[Binding]) : JValue =  {
+    val cases: JValue = args.asScala.dropRight(1).grouped(2).toList.map  {
+      case ArrayBuffer(first: RexNode,second: RexNode) => ("if",emitExpression(first,f)) ~ ("then",emitExpression(second,f))
+    }
+    val elseNode : RexNode = args.get(args.size() - 1)
+    val json : JValue = ("expression", "case") ~ ("cases", cases) ~ ("else", emitExpression(elseNode,f))
     json
   }
 
@@ -132,7 +172,7 @@ object PlanToJSON {
       fieldCountCurr += b.fields.size
     } }
 
-    val json : JObject = ("type",arg.getType.toString)~("rel",rel) ~ ("attr",attr)
+    val json : JObject = ("expression" -> "argument") ~ ("type",arg.getType.toString) ~ ("rel",rel) ~ ("attr",attr)
     json
   }
 
@@ -189,7 +229,7 @@ object PlanToJSON {
         e => emitExpression(e,List(childBinding))
       }
 
-      val json = op ~ ("type", rowType) ~ ("e", exprsJS) ~ ("child" , childOp)
+      val json = op ~ ("tupleType", rowType) ~ ("e", exprsJS) ~ ("child" , childOp)
       val binding: Binding = Binding(alias,getFields(p.getRowType))
       val ret: (Binding, JValue) = (binding,json)
       ret
@@ -212,7 +252,7 @@ object PlanToJSON {
       val alias = "agg"+a.getId
       val rowType = emitSchema(alias, a.getRowType)
 
-      val json = op ~ ("type", rowType) ~ ("groups", groupsJS) ~ ("aggs", aggsJS) ~ ("child" , childOp)
+      val json = op ~ ("tupleType", rowType) ~ ("groups", groupsJS) ~ ("aggs", aggsJS) ~ ("child" , childOp)
       val binding: Binding = Binding(alias,getFields(a.getRowType))
       val ret: (Binding, JValue) = (binding,json)
       ret
@@ -229,7 +269,7 @@ object PlanToJSON {
       val alias = "join"+j.getId
       val rowType = emitSchema(alias, j.getRowType)
 
-      val json = op ~ ("type", rowType) ~ ("cond", cond) ~ ("left" , leftChildOp) ~ ("right" , rightChildOp)
+      val json = op ~ ("tupleType", rowType) ~ ("cond", cond) ~ ("left" , leftChildOp) ~ ("right" , rightChildOp)
       val binding: Binding = Binding(alias,leftBinding.fields ++ rightBinding.fields)
       val ret: (Binding, JValue) = (binding,json)
       ret
@@ -242,7 +282,7 @@ object PlanToJSON {
       val rowType = emitSchema(childBinding.rel, f.getRowType)
       val cond = emitExpression(f.getCondition,List(childBinding))
 
-      val json = op ~ ("type", rowType) ~ ("cond", cond) ~ ("input", childOp)
+      val json = op ~ ("tupleType", rowType) ~ ("cond", cond) ~ ("input", childOp)
       val ret: (Binding, JValue) = (childBinding,json)
       ret
     }
@@ -252,9 +292,25 @@ object PlanToJSON {
       val srcName = s.getTable.getQualifiedName.get(1)
       val rowType = emitSchema(srcName, s.getRowType)
 
-      val json : JValue = op~ ("type", rowType) ~ ("name", srcName)
+      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
       val binding: Binding = Binding(srcName,getFields(s.getRowType))
       val ret: (Binding, JValue) = (binding,json)
+      ret
+    }
+    case sort: EnumerableSort => {
+      val op = ("operator" , "sort")
+      val child = emit_(sort.getInput)
+      val childBinding: Binding = child._1
+      val childOp = child._2
+      val rowType = emitSchema(childBinding.rel, sort.getRowType)
+
+      val args : JValue =
+      sort.getCollation.getFieldCollations.asScala.map {
+        col => ("expression", emitArg(col.getFieldIndex,List(childBinding))) ~ ("direction", col.getDirection.shortString)
+      }
+
+      val json : JValue = op ~ ("tupleType", rowType) ~ ("args", args) ~ ("input", childOp)
+      val ret: (Binding, JValue) = (childBinding,json)
       ret
     }
     case _  => {

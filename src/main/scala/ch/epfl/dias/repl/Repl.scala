@@ -8,8 +8,9 @@ import ch.epfl.dias.emitter.{PlanConversionException, PlanToJSON}
 import ch.epfl.dias.sql.QueryToPlan
 import com.google.common.io.Resources
 import org.apache.calcite.adapter.enumerable.EnumerableConvention
+import org.apache.calcite.interpreter.InterpretableConvention
 import org.apache.calcite.jdbc.CalciteConnection
-import org.apache.calcite.plan.RelOptUtil
+import org.apache.calcite.plan.{RelOptUtil, RelTraitSet}
 import org.apache.calcite.plan.hep.{HepPlanner, HepProgramBuilder}
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.sql.SqlExplainLevel
@@ -19,6 +20,21 @@ import scala.io.{BufferedSource, Source, StdIn}
 
 object Repl extends App {
 
+  //Setup Connection
+  Class.forName("org.apache.calcite.jdbc.Driver")
+  val info = new Properties
+  info.setProperty("lex", "JAVA")
+  //Getting the actual content of schema.json
+  //String schemaRaw = Resources.toString(QueryToPlan.class.getResource("/schema.json"), Charset.defaultCharset());
+
+  //val schemaPath = /*getClass.getResource("schema.json").getPath*/ Resources.getResource("schema.json").getPath
+  //TODO Not the cleanest way to provide this path, but sbt crashes otherwise
+  val schemaPath: String = new java.io.File(".").getCanonicalPath+"/src/main/resources/schema.json"
+  val connection = DriverManager.getConnection("jdbc:calcite:model=" + schemaPath, info)
+  val calciteConnection = connection.unwrap(classOf[CalciteConnection])
+  val rootSchema = calciteConnection.getRootSchema.getSubSchema("SSB") //or SALES
+  val statement = connection.createStatement
+
   while (true) {
     print("sql > ")
     val input = StdIn.readLine()
@@ -26,34 +42,25 @@ object Repl extends App {
       if (input == "exit" || input == "quit") {
         System.exit(0)
       }
-      //Setup Connection
-      Class.forName("org.apache.calcite.jdbc.Driver")
-      val info = new Properties
-      info.setProperty("lex", "JAVA")
-      //Getting the actual content of schema.json
-      //String schemaRaw = Resources.toString(QueryToPlan.class.getResource("/schema.json"), Charset.defaultCharset());
-
-      //val schemaPath = /*getClass.getResource("schema.json").getPath*/ Resources.getResource("schema.json").getPath
-      //TODO Not the cleanest way to provide this path, but sbt crashes otherwise
-      val schemaPath: String = new java.io.File(".").getCanonicalPath+"/src/main/resources/schema.json"
-      val connection = DriverManager.getConnection("jdbc:calcite:model=" + schemaPath, info)
-      val calciteConnection = connection.unwrap(classOf[CalciteConnection])
-      val rootSchema = calciteConnection.getRootSchema.getSubSchema("SALES") //or SSB
-      val statement = connection.createStatement
 
       //Parse, validate, optimize query
       val queryPlanner: QueryToPlan = new QueryToPlan(rootSchema)
-      val rel = queryPlanner.getLogicalPlan(input)
-      val traitSet = queryPlanner.planner.getEmptyTraitSet.replace(EnumerableConvention.INSTANCE)
+      val rel: RelNode = queryPlanner.getLogicalPlan(input)
+
+      System.out.println("Calcite Logical Plan:")
+      System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES))
+
+      val traitSet: RelTraitSet = queryPlanner.planner.getEmptyTraitSet.replace(EnumerableConvention.INSTANCE)
+//      val traitSet = queryPlanner.planner.getEmptyTraitSet.replace(InterpretableConvention.INSTANCE)
       var logicalPlan: RelNode = queryPlanner.planner.transform(0, traitSet, rel)
       //Heuristics optimizer
-      val hepProgramBuilder = new HepProgramBuilder
+      /*val hepProgramBuilder = new HepProgramBuilder
       val hepPlanner = new HepPlanner(hepProgramBuilder.build)
       //Applying rules
       hepPlanner.setRoot(logicalPlan)
-      logicalPlan = hepPlanner.findBestExp
+      logicalPlan = hepPlanner.findBestExp*/
 
-      System.out.println("Calcite Plan:")
+      System.out.println("Calcite Physical Plan:")
       System.out.println(RelOptUtil.toString(logicalPlan, SqlExplainLevel.EXPPLAN_ATTRIBUTES))
 
       //Emitting JSON equivalent of produced plan
