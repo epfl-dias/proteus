@@ -22,6 +22,7 @@
 */
 
 #include "plugins/binary-col-plugin.hpp"
+#include "storage/raw-storage-manager.hpp"
 
 BinaryColPlugin::BinaryColPlugin(RawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields, bool sizeInFile)
 	: fnamePrefix(fnamePrefix), rec(rec), wantedFields(whichFields), context(context),
@@ -36,13 +37,7 @@ BinaryColPlugin::BinaryColPlugin(RawContext* const context, string fnamePrefix, 
 		throw runtime_error(error_msg);
 	}
 
-	fd = (int*) malloc(fieldsNumber * sizeof(int));
-	if(fd == NULL)	{
-		string error_msg = string("[Binary Col Plugin]: Malloc Failed");
-		LOG(ERROR) << error_msg;
-		throw runtime_error(error_msg);
-	}
-	buf = (char**) malloc(fieldsNumber * sizeof(char*));
+	buf = (const void **) malloc(fieldsNumber * sizeof(void *));
 	if(buf == NULL)	{
 		string error_msg = string("[Binary Col Plugin]: Malloc Failed");
 		LOG(ERROR) << error_msg;
@@ -62,22 +57,17 @@ BinaryColPlugin::BinaryColPlugin(RawContext* const context, string fnamePrefix, 
 	for(it = wantedFields.begin(); it != wantedFields.end(); it++)	{
 		string fileName = fnamePrefix + "." + (*it)->getAttrName();
 
-		struct stat statbuf;
-		const char* name_c = fileName.c_str();
-		stat(name_c, &statbuf);
-		colFilesize[cnt] = statbuf.st_size;
-		fd[cnt] = open(name_c, O_RDONLY);
-		if (fd[cnt] == -1) {
-			string error_msg = string("[Binary Col Plugin]: Opening column failed -> "+fileName);
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(error_msg);
-		}
+		std::vector<mem_file> file_parts = StorageManager::getOrLoadFile(fileName.c_str(), PINNED);//open(name_c, O_RDONLY);
+		assert(file_parts.size() == 1 && "Plug-in does not handle (in-memory) partitioned files");
+		buf[cnt]         = file_parts[0].data;
+		colFilesize[cnt] = file_parts[0].size;
 
 		if((*it)->getOriginalType()->getTypeID() == STRING)	{
+			struct stat statbuf;
 			//Initialize dictionary
 			string dictionaryPath = fileName + ".dict";
 			const char* dictionaryPath_c = dictionaryPath.c_str();
-			int dictionaryFd = open(name_c, O_RDONLY);
+			int dictionaryFd = open(dictionaryPath_c, O_RDONLY);
 			if(dictionaryFd == -1)	{
 				string error_msg = string("[Binary Col Plugin]: Opening column dictionary failed");
 				LOG(ERROR)<< error_msg;
@@ -214,14 +204,6 @@ void BinaryColPlugin::init()	{
 	vector<RecordAttribute*>::iterator it;
 	int cnt = 0;
 	for (it = wantedFields.begin(); it != wantedFields.end(); it++)	{
-		{
-			time_block t("Topen");
-			buf[cnt] = (char*) mmap(NULL, colFilesize[cnt], PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd[cnt], 0);
-			if (buf[cnt] == MAP_FAILED )	{
-				throw runtime_error(string("csv.mmap"));
-			}
-		}
-
 		RecordAttribute *attr = *it;
 		//Allocating memory for each field / column involved
 		string attrName = attr->getAttrName();
@@ -244,7 +226,7 @@ void BinaryColPlugin::init()	{
 		NamedValuesBinaryCol[currBufVar] = bufMem;
 
 		if(wantedFields.at(cnt)->getOriginalType()->getTypeID() == STRING)	{
-			char *dictBuf = (char*) mmap(NULL, colFilesize[cnt], PROT_READ, MAP_PRIVATE /*| MAP_POPULATE*/, fd[cnt], 0);
+			char *dictBuf = (char*) mmap(NULL, colFilesize[cnt], PROT_READ, MAP_PRIVATE /*| MAP_POPULATE*/, dictionaries[cnt], 0);
 			dictionariesBuf[cnt] = dictBuf;
 
 			string currDictVar = string(bufVar) + "." + attrName + ".dict";
@@ -515,8 +497,8 @@ void BinaryColPlugin::finish()	{
 	vector<RecordAttribute*>::iterator it;
 	int cnt = 0;
 	for (it = wantedFields.begin(); it != wantedFields.end(); it++)	{
-		close(fd[cnt]);
-		munmap(buf[cnt], colFilesize[cnt]);
+		// close(fd[cnt]);
+		// munmap(buf[cnt], colFilesize[cnt]);
 
 		if ((*it)->getOriginalType()->getTypeID() == STRING)	{
 			int dictionaryFd = dictionaries[cnt];

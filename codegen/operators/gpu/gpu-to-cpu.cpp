@@ -24,6 +24,7 @@
 #include "operators/gpu/gpu-to-cpu.hpp"
 #include "multigpu/numa_utils.cuh"
 #include "util/gpu/gpu-intrinsics.hpp"
+#include "util/raw-memory-manager.hpp"
 
 void GpuToCpu::produce() {
     LLVMContext & llvmContext   = context->getLLVMContext();
@@ -144,18 +145,39 @@ void GpuToCpu::consume(GpuRawContext * const context, const OperatorState& child
     BasicBlock * waitSlotBB    = BasicBlock::Create(llvmContext, "waitSlot"   , F);
     BasicBlock * saveItemBB    = BasicBlock::Create(llvmContext, "saveItem"   , F);
     BasicBlock * afterBB       = BasicBlock::Create(llvmContext, "after"      , F);
-    BasicBlock * preAfterBB    = BasicBlock::Create(llvmContext, "preAfter"   , F);
-
+    // BasicBlock * preAfterBB    = BasicBlock::Create(llvmContext, "preAfter"   , F);
+    
+    Value * id;
+    Value * lock_cond;
+    Value * cnt;
     if (granularity == gran_t::GRID || granularity == gran_t::BLOCK){
         Value * tid  ;
         if      (granularity == gran_t::GRID )    tid = context->threadId();
         else /* (granularity == gran_t::BLOCK) */ tid = context->threadIdInBlock();
         Value * cond = Builder->CreateICmpEQ(tid, ConstantInt::get((IntegerType *) tid->getType(), 0));
 
-        Builder->CreateCondBr(cond, acquireLockBB, preAfterBB);
+        id           = context->createInt32(0);
+        lock_cond    = context->createTrue();
+        cnt          = context->createInt32(1);
 
-        Builder->SetInsertPoint(preAfterBB);
-        Builder->CreateBr(afterBB);
+        Builder->CreateCondBr(cond, acquireLockBB, afterBB);
+
+        Builder->SetInsertPoint(acquireLockBB);
+
+        // while (atomicCAS((int *) &lock, 0, 1));
+
+        Value * locked   = Builder->CreateAtomicCmpXchg(lock_ptr,
+                                                        zero,
+                                                        one,
+                                                        order,
+                                                        order);
+
+        Value * got_lock = Builder->CreateExtractValue(locked, 1);
+
+        Builder->CreateCondBr(got_lock, readLastBB, acquireLockBB);
+
+        // Builder->SetInsertPoint(preAfterBB);
+        // Builder->CreateBr(afterBB);
     } else { //granularity == THREAD
         Value * mask     = gpu_intrinsic::ballot(context, context->createTrue());
         Value * mask_ptr = context->CreateEntryBlockAlloca(F, "mask_ptr", mask->getType());
@@ -167,60 +189,122 @@ void GpuToCpu::consume(GpuRawContext * const context, const OperatorState& child
         Builder->SetInsertPoint(maskMaintBB);
         Value * cmask    = Builder->CreateLoad(mask_ptr);
 
-        Value * leader   = Builder->CreateAnd(  
-                                                cmask,
-                                                Builder->CreateNeg(cmask)
-                                            );
+        Function * f_lanemask_lt = context->getFunction("llvm.nvvm.read.ptx.sreg.lanemask.lt");
 
-        Value * new_mask = Builder->CreateXor(cmask, leader);
+        Function * popc = context->getFunction("llvm.ctpop.i32");
 
-        Builder->CreateStore(new_mask, mask_ptr);
+        cnt  = Builder->CreateCall(popc, cmask);
 
-        Function * f_lanemask_eq = context->getFunction("llvm.nvvm.read.ptx.sreg.lanemask.eq");
-        Value    * lanemask_eq   = Builder->CreateCall(f_lanemask_eq);
-        Value    * lock_cond     = Builder->CreateICmpEQ(leader, lanemask_eq);
-        Builder->CreateCondBr(lock_cond, acquireLockBB, preAfterBB);
+        id           = Builder->CreateCall(
+                            popc,
+                            Builder->CreateAnd(  
+                                cmask,
+                                Builder->CreateCall(f_lanemask_lt)
+                            )
+                        );
 
-        Builder->SetInsertPoint(preAfterBB);
-        Value    * cond          = Builder->CreateICmpEQ(new_mask, ConstantInt::get((IntegerType *) new_mask->getType(), 0));
-        Builder->CreateCondBr(cond, afterBB, maskMaintBB);
+        // Value * new_mask = Builder->CreateXor(cmask, leader);
+
+        // Builder->CreateStore(new_mask, mask_ptr);
+
+        // Function * f_lanemask_eq = context->getFunction("llvm.nvvm.read.ptx.sreg.lanemask.eq");
+        // Value    * lanemask_eq   = Builder->CreateCall(f_lanemask_eq);
+        lock_cond = Builder->CreateICmpEQ(id, ConstantInt::get((IntegerType *) id->getType(), 0));
+
+        //The optimizer breaks this into two codepaths and brakes the __any calls, ending up in a deadlock
+        // BasicBlock * preAcqBB    = BasicBlock::Create(llvmContext, "preAcqBB"  , F);
+        // BasicBlock * afterAcqBB  = BasicBlock::Create(llvmContext, "afterAcqBB", F);
+
+        // Builder->CreateBr(preAcqBB);
+        // Builder->SetInsertPoint(preAcqBB);
+
+        // Value * got_lock_ptr = context->CreateEntryBlockAlloca(F, "got_lock_ptr", context->createFalse()->getType());
+        // Builder->CreateStore(context->createFalse(), got_lock_ptr);
+        // Builder->CreateCondBr(lock_cond, acquireLockBB, afterAcqBB);
+
+        // Builder->SetInsertPoint(acquireLockBB);
+
+        // // while (atomicCAS((int *) &lock, 0, 1));
+
+        // Value * locked   = Builder->CreateAtomicCmpXchg(lock_ptr,
+        //                                                 zero,
+        //                                                 one,
+        //                                                 order,
+        //                                                 order);
+
+        // Builder->CreateStore(Builder->CreateExtractValue(locked, 1), got_lock_ptr);
+
+        // Builder->CreateBr(afterAcqBB);
+
+        // Builder->SetInsertPoint(afterAcqBB);
+        // Value * got_lock = gpu_intrinsic::any(context, Builder->CreateLoad(got_lock_ptr));
+
+        // Builder->CreateCondBr(got_lock, readLastBB, preAcqBB);
+
+
+        //FIXME: This is unsafe... And probably will break in CUDA > 8, but at least the optimzer does not break it for CUDA <= 8...
+        // Value * got_lock_ptr = context->CreateEntryBlockAlloca(F, "got_lock_ptr", context->createFalse()->getType());
+        // Builder->CreateStore(context->createFalse(), got_lock_ptr);
+        Builder->CreateCondBr(lock_cond, acquireLockBB, readLastBB);
+
+        Builder->SetInsertPoint(acquireLockBB);
+
+        // while (atomicCAS((int *) &lock, 0, 1));
+
+        Value * locked   = Builder->CreateAtomicCmpXchg(lock_ptr,
+                                                        zero,
+                                                        one,
+                                                        order,
+                                                        order);
+
+        Value * got_lock = Builder->CreateExtractValue(locked, 1);
+
+        Builder->CreateCondBr(got_lock, readLastBB, acquireLockBB);
+
+        // Builder->SetInsertPoint(preAfterBB);
+        // Builder->CreateBr(afterBB);
     }
     // Builder->CreateBr(acquireLockBB);
 
-    Builder->SetInsertPoint(acquireLockBB);
-
-    // while (atomicCAS((int *) &lock, 0, 1));
-
-    Value * locked   = Builder->CreateAtomicCmpXchg(lock_ptr,
-                                                    zero,
-                                                    one,
-                                                    order,
-                                                    order);
-
-    Value * got_lock = Builder->CreateExtractValue(locked, 1);
-
-    Builder->CreateCondBr(got_lock, readLastBB, acquireLockBB);
-
-
     Builder->SetInsertPoint(readLastBB);
 
-    Value * end      = Builder->CreateLoad(last_ptr, true);
+    Value * end_base = Builder->CreateLoad(last_ptr, true);
+    Value * end      = Builder->CreateURem(Builder->CreateAdd(end_base, id), ConstantInt::get((IntegerType *) end_base->getType(), size));
 
     Value * cflg_ptr = Builder->CreateInBoundsGEP(flags_ptr, end);
     Value * cstr_ptr = Builder->CreateInBoundsGEP(store_ptr, end);
 
+    Value * got_slot_ptr = context->CreateEntryBlockAlloca(F, "got_slot_ptr", context->createFalse()->getType());
+    Builder->CreateStore(context->createFalse(), got_slot_ptr);
+
     Builder->CreateBr(waitSlotBB);
 
+    BasicBlock * get_slot_lockBB = BasicBlock::Create(llvmContext, "get_slot_lock", F);
+    BasicBlock * test_lockBB     = BasicBlock::Create(llvmContext, "test_lock"    , F);
 
     // while (*(flags+end) != 0);
     Builder->SetInsertPoint(waitSlotBB);
 
+    Builder->CreateCondBr(Builder->CreateLoad(got_slot_ptr), test_lockBB, get_slot_lockBB);
+    Builder->SetInsertPoint(get_slot_lockBB);
     Value * flag     = Builder->CreateLoad(cflg_ptr, true);
 
-    Value * got_slot = Builder->CreateICmpEQ(flag, zero);
+    Builder->CreateStore(Builder->CreateICmpEQ(flag, zero), got_slot_ptr);
 
-    Builder->CreateCondBr(got_slot, saveItemBB, waitSlotBB);
+    Builder->CreateBr(test_lockBB);
 
+    Builder->SetInsertPoint(test_lockBB);
+
+    Value * got_slot = Builder->CreateLoad(got_slot_ptr);
+
+    Value * all_got_slot;
+    if (granularity == gran_t::GRID || granularity == gran_t::BLOCK){
+        all_got_slot = got_slot;
+    } else {
+        all_got_slot = gpu_intrinsic::all(context, got_slot);
+    }
+
+    Builder->CreateCondBr(all_got_slot, saveItemBB, waitSlotBB);
 
 
     Builder->SetInsertPoint(saveItemBB);
@@ -239,22 +323,39 @@ void GpuToCpu::consume(GpuRawContext * const context, const OperatorState& child
     // __threadfence_system();
     Builder->CreateCall(threadfence_system);
 
-    Value * new_end  = Builder->CreateAdd (end    , ConstantInt::get(end->getType(),    1));
-    new_end          = Builder->CreateURem(new_end, ConstantInt::get(end->getType(), size));
+    //FIXME: __sync_warp();
+
+    BasicBlock * releaseBB    = BasicBlock::Create(llvmContext, "release"   , F);
+
+    Builder->CreateCondBr(lock_cond, releaseBB, afterBB);
+
+    Builder->SetInsertPoint(releaseBB);
+
+    Value * new_end  = Builder->CreateAdd (end_base, cnt);
+    new_end          = Builder->CreateURem(new_end , ConstantInt::get((IntegerType *) end->getType(), size));
 
     Builder->CreateStore(new_end, last_ptr, true);
 
     // lock = 0;
     Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg, lock_ptr, zero, order);
 
-    Builder->CreateBr(preAfterBB);
+    Builder->CreateBr(afterBB);
 
     Builder->SetInsertPoint(afterBB);
 
     context->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
     context->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
+#include <x86intrin.h>
+#include <sched.h>
 
+extern "C"{
+void printTime(){
+    std::cout << __rdtsc();
+    int dev = get_device();
+    std::cout << " " << dev << " " << sched_getcpu() << std::endl;
+}
+}
 
 void GpuToCpu::generate_catch(){
     context->setGlobalFunction();
@@ -335,6 +436,9 @@ void GpuToCpu::generate_catch(){
     // flags[front] = 0;           //volatile
     Builder->CreateStore(zero, cflg_ptr, true);
 
+    // Function * printTime = context->getFunction("printTime");
+    // Builder->CreateCall(printTime);
+
     //      front = (front + 1) % size;
     Value * new_front   = Builder->CreateAdd(front, 
                                     ConstantInt::get(front->getType(),    1));
@@ -409,32 +513,45 @@ void GpuToCpu::generate_catch(){
     Builder->SetInsertPoint(endBB);
 }
 
+#include "nvToolsExt.h"
+
+void kick_start(RawPipeline * cpip, int device){
+        set_affinity_local_to_gpu(device);
+    nvtxRangePushA("gpu2cpu_reads");
+        cpip->open ();
+        cpip->consume(0);
+        cpip->close();
+    nvtxRangePop();
+
+}
+
 void GpuToCpu::open(RawPipeline * pip){
-    volatile int64_t * store;
-    volatile int32_t * flags;
-    volatile int32_t * eof  ;
-    int32_t          * lock ;
-    int32_t          * last ;
+    int64_t * store; //volatile
+    int32_t * flags; //volatile
+    int32_t * eof  ; //volatile
+    int32_t * lock ;
+    int32_t * last ;
 
     int device;
     gpu_run(cudaGetDevice(&device));
 
-    store = (volatile int64_t *) malloc_host_local_to_gpu(
-                                        pip->getSizeOf(params_type) * size,
-                                        device
-                                    );
+    store = (int64_t *) RawMemoryManager::mallocPinned(
+                            pip->getSizeOf(params_type) * size
+                        );
 
-    flags = (volatile int32_t *) malloc_host_local_to_gpu(
-                                                sizeof(int32_t) * (size + 1), 
-                                                device
-                                            );
+    flags = (int32_t *) RawMemoryManager::mallocPinned(
+                            sizeof(int32_t) * (size + 1)
+                        );
 
     for (size_t i = 0 ; i <= size ; ++i) flags[i] = 0;
     eof = flags + size;
 
-    gpu_run(cudaMalloc((void **) &lock, sizeof(int32_t) * 2));
+    lock = (int32_t *) RawMemoryManager::mallocGpu(sizeof(int32_t) * 2);
     gpu_run(cudaMemset(        lock, 0, sizeof(int32_t) * 2));
     last = lock + 1;
+
+    nvtxRangePushA("gpu2cpu_set_state_init");
+    nvtxRangePushA("gpu2cpu_set_state");
 
     pip->setStateVar<int32_t *>(lockVar_id , (int32_t *) lock );
     pip->setStateVar<int32_t *>(lastVar_id , (int32_t *) last );
@@ -442,20 +559,20 @@ void GpuToCpu::open(RawPipeline * pip){
     pip->setStateVar<void    *>(storeVar_id, (void    *) store);
     pip->setStateVar<int32_t *>(eofVar_id  , (int32_t *) eof  );
 
+
+    nvtxRangePushA("gpu2cpu_get_pipeline");
     RawPipeline * cpip = cpu_pip->getPipeline(pip->getGroup());
+    nvtxRangePop();
 
     cpip->setStateVar<int32_t *>(flagsVar_id_catch, (int32_t *) flags);
     cpip->setStateVar<void    *>(storeVar_id_catch, (void    *) store);
     cpip->setStateVar<int32_t *>(eofVar_id_catch  , (int32_t *) eof  );
+    nvtxRangePop();
 
-    std::thread * t = new std::thread([cpip, device](){
-        set_affinity_local_to_gpu(device);
-        cpip->open ();
-        cpip->consume(0);
-        cpip->close();
-    });
+    std::thread * t = new std::thread(kick_start, cpip, device);
 
     pip->setStateVar<void    *>(threadVar_id, t);
+    nvtxRangePop();
 }
 
 // __global__ void write_eof(volatile int32_t * eof){
@@ -474,13 +591,18 @@ void GpuToCpu::close(RawPipeline * pip){
     // write_eof<<<1, 1>>>(eof);
     // gpu_run(cudaDeviceSynchronize());
 
+    nvtxRangePushA("gpu2cpu_wait_reads");
 
     std::thread * t = pip->getStateVar<std::thread *>(threadVar_id);
     
     t->join();
 
-    // int32_t * fg = pip->getStateVar<int32_t *>(flagsVar_id_catch);
-    // int64_t * st = pip->getStateVar<int64_t *>(storeVar_id_catch);
+
+    nvtxRangePop();
+
+    RawMemoryManager::freePinned(pip->getStateVar<int32_t *>(flagsVar_id));
+    RawMemoryManager::freePinned(pip->getStateVar<int64_t *>(storeVar_id));
+    RawMemoryManager::freeGpu   (pip->getStateVar<int32_t *>(lockVar_id ));
 
     // for (size_t i = 0 ; i < size ; ++i) std::cout << "=====> " << i << " " << fg[i] << " " << st[i * 6 + 5] << std::endl;
 

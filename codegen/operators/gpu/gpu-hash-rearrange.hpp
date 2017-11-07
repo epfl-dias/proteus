@@ -74,6 +74,8 @@ protected:
 
     size_t                                  blockSize       ; //bytes
 
+    int64_t                                 cap             ;
+
     GpuRawContext * const                   context         ;
 
     // std::vector<size_t>                     packet_widths   ;

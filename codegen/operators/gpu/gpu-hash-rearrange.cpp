@@ -22,10 +22,13 @@
 */
 
 #include "operators/gpu/gpu-hash-rearrange.hpp"
+#include "common/gpu/gpu-common.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"
 #include "expressions/expressions-generator.hpp"
 #include <algorithm>
 #include "multigpu/buffer_manager.cuh"
+#include "util/raw-memory-manager.hpp"
+#include "multigpu/numa_utils.cuh"
 
 void GpuHashRearrange::produce() {
     LLVMContext & llvmContext   = context->getLLVMContext();
@@ -198,7 +201,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     Value * numOfBucketsV = ConstantInt::get(target_type, numOfBuckets);
     Value * zero_oid      = ConstantInt::get(idx_type   , 0);
 
-    int64_t cap           = blockSize / max_width;
+    cap                   = blockSize / max_width;
     Value * capacity      = ConstantInt::get(idx_type   , cap);
     Value * last_index    = ConstantInt::get(idx_type   , cap - 1);
 
@@ -636,6 +639,7 @@ void GpuHashRearrange::consume_flush(){
     Plugin * pg       = RawCatalog::getInstance().getPlugin(matExpr[0]->getRegisteredRelName());
     Type   * oid_type = pg->getOIDType()->getLLVMType(llvmContext);
 
+    Type        * charPtrType  = Type::getInt8PtrTy(llvmContext);
     IntegerType * int32_type   = Type::getInt32Ty  (llvmContext);
     IntegerType * int64_type   = Type::getInt64Ty  (llvmContext);
 
@@ -697,6 +701,27 @@ void GpuHashRearrange::consume_flush(){
     // Value * cnt__thrd       = Builder->CreateInBoundsGEP(cnt , idx);
     Value * stored_cnt_ptr  = Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id), idxStored);
     Value * cnt             = Builder->CreateLoad(stored_cnt_ptr);
+
+    BasicBlock *emptyBB     = BasicBlock::Create(llvmContext, "empty", F);
+    BasicBlock *non_emptyBB = BasicBlock::Create(llvmContext, "non_empty", F);
+
+    Value * empty_cond      = Builder->CreateICmpEQ(cnt, ConstantInt::get((IntegerType *) cnt->getType(), 0));
+    Builder->CreateCondBr(empty_cond, emptyBB, non_emptyBB);
+
+    Builder->SetInsertPoint(emptyBB);
+
+    Function * f = context->getFunction("release_buffers"); //FIXME: Assumes grid launch + Assumes 1 block per kernel!
+    
+    for (size_t i = 0 ; i < matExpr.size() ; ++i){
+        buff_ptrs[i]->getType()->dump();
+        Builder->CreateCall(f, std::vector<Value *>{Builder->CreateBitCast(buff_ptrs[i], charPtrType)});
+    }
+    
+    Builder->CreateBr(endIBB);
+
+
+
+    Builder->SetInsertPoint(non_emptyBB);
 
     // call parent
     map<RecordAttribute, RawValueMemory> variableBindings;
@@ -780,6 +805,8 @@ void GpuHashRearrange::consume_flush(){
     closingPip = context->removeLatestPipeline();
 }
 
+__global__ void GpuHashRearrange_acq_buffs(void   ** buffs);
+
 void GpuHashRearrange::open (RawPipeline * pip){
     int device = get_device();
 
@@ -787,16 +814,17 @@ void GpuHashRearrange::open (RawPipeline * pip){
 
     size_t grid_size  = ec.gridSize();
     
-    void   ** buffs;
-    int32_t * cnts ;
-    size_t  * oid  ;
-    gpu_run(cudaMalloc(&buffs, sizeof(void  *) * numOfBuckets * buffVar_id.size() * grid_size));
-    gpu_run(cudaMalloc(&cnts , sizeof(int32_t) * numOfBuckets * 2                 * grid_size));
-    gpu_run(cudaMalloc(&oid  , sizeof(size_t )                   ));
+    size_t buffs_bytes  = ((sizeof(void  *) * numOfBuckets * buffVar_id.size() * grid_size        ) + 16 - 1) & ~((size_t) 0xF);
+    size_t cnts_bytes   = ((sizeof(int32_t) * numOfBuckets * 2                 * grid_size        ) + 16 - 1) & ~((size_t) 0xF);
+    size_t oid_bytes    = ((sizeof(size_t )                                                       ) + 16 - 1) & ~((size_t) 0xF);
 
-    gpu_run(cudaMemset(cnts, 0, numOfBuckets * 2 * sizeof(int32_t) * grid_size));
-    gpu_run(cudaMemset(oid , 0,                    sizeof(size_t )            ));
+    void   ** buffs  = (void   **) RawMemoryManager::mallocGpu(buffs_bytes + cnts_bytes + oid_bytes);
+    int32_t * cnts   = (int32_t *) (((char *) buffs) + buffs_bytes );
+    size_t  * oid    = (size_t  *) (((char *) cnts ) + cnts_bytes  );
 
+    cudaStream_t strm;
+    gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+    gpu_run(cudaMemsetAsync(cnts, 0, cnts_bytes + oid_bytes, strm));
     // for (int i = 0 ; i < numOfBuckets * 2; ++i) cnts[i] = 0;
     // *oid = 0;
 
@@ -804,31 +832,184 @@ void GpuHashRearrange::open (RawPipeline * pip){
     pip->setStateVar<int32_t *>(wcntVar_id, cnts + numOfBuckets * grid_size);
     pip->setStateVar<size_t  *>(oidVar_id , oid                            );
 
-    void ** h_buffs = (void **) malloc(sizeof(void  *) * numOfBuckets * buffVar_id.size() * grid_size);
-    
-    for (int i = 0 ; i < numOfBuckets * buffVar_id.size() * grid_size; ++i){
-        h_buffs[i] = buffer_manager<int32_t>::h_get_buffer(device); // FIMXE: assumes that all buffers need at most a h_host_vector * sizeof(int32_t) size
+    // void ** h_buffs = (void **) malloc(buffs_bytes);
 
+
+    // for (size_t i = 0 ; i < numOfBuckets * buffVar_id.size() * grid_size; ++i){
+    //     h_buffs[i] = curr_buff;
+    //     curr_buff += h_vector_size * sizeof(int32_t); // FIMXE: assumes that all buffers need at most a h_vector_size * sizeof(int32_t) size
+    // }
+
+    // for (size_t i = 0 ; i < numOfBuckets * buffVar_id.size() * grid_size; ++i){
+    //     h_buffs[i] = buffer_manager<int32_t>::h_get_buffer(device); // FIMXE: assumes that all buffers need at most a h_vector_size * sizeof(int32_t) size
+    // }
+    GpuHashRearrange_acq_buffs<<<numOfBuckets * buffVar_id.size() * grid_size, 1, 0, strm>>>(buffs);
+
+    // gpu_run(cudaMemcpy(buffs, h_buffs, buffs_bytes, cudaMemcpyDefault));
+
+    // free(h_buffs);
+
+    for (size_t i = 0 ; i < buffVar_id.size() ; ++i){
+        pip->setStateVar<void **>(buffVar_id[i], buffs + numOfBuckets * i * grid_size);
+    }
+    gpu_run(cudaStreamSynchronize(strm));
+    gpu_run(cudaStreamDestroy(strm));
+}
+
+#include <numeric>
+
+struct mv_description{
+    const char * __restrict__ from ;
+    char * __restrict__ to   ;
+    size_t bytes;
+};
+
+__device__ void GpuHashRearrange_copy(int4 * __restrict__ to, const int4 * __restrict__ from){
+    *to = *from;
+}
+
+__global__ void GpuHashRearrange_pack(mv_description * desc){
+    mv_description d = desc[blockIdx.x];
+
+    const int4 * from = (const int4 *) d.from;
+    int4       * to   = (int4 *) (((((uint64_t) d.to) + 16 - 1) / 16) * 16);
+    size_t offset = ((char *) to) - d.to;
+
+    size_t packs  = (d.bytes - offset) / 16;
+    size_t rem    = (d.bytes - offset) % 16;
+
+    #pragma unroll 2
+    for (size_t i = threadIdx.x ; i < packs ; i += blockDim.x){
+        GpuHashRearrange_copy(to + i, from + i);
     }
 
-    gpu_run(cudaMemcpy(buffs, h_buffs, sizeof(void  *) * numOfBuckets * buffVar_id.size() * grid_size, cudaMemcpyDefault));
+    if (threadIdx.x < offset){
+        d.to[threadIdx.x] = d.from[packs * 16 + threadIdx.x];
+    }
 
-    free(h_buffs);
-
-    for (int i = 0 ; i < buffVar_id.size() ; ++i){
-        pip->setStateVar<void **>(buffVar_id[i], buffs + numOfBuckets * i * grid_size);
+    if (threadIdx.x < rem){
+        d.to[d.bytes - rem + threadIdx.x] = d.from[packs * 16 + offset + threadIdx.x];
     }
 }
 
 void GpuHashRearrange::close(RawPipeline * pip){
     // ((void (*)(void *)) this->flushFunc)(pip->getState());
-    void *KernelParams[] = {pip->getState()};
-    launch_kernel((CUfunction) closingPip->getKernel(), KernelParams);
-    gpu_run(cudaDeviceSynchronize());
+    cudaStream_t strm;
+    gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
 
-    gpu_run(cudaFree(pip->getStateVar<size_t *>(cntVar_id    )));
-    gpu_run(cudaFree(pip->getStateVar<size_t *>(oidVar_id    )));
-    gpu_run(cudaFree(pip->getStateVar<void  **>(buffVar_id[0]))); //FIXME: release buffers before freeing memory!
+    execution_conf ec = pip->getExecConfiguration();
+    size_t grid_size  = ec.gridSize();
+    
+    void   ** buffs = pip->getStateVar<void   **>(buffVar_id[0]);
+    int32_t * cnts  = pip->getStateVar<int32_t *>(cntVar_id    );
+
+    void   ** h_buffs;
+    int32_t * h_cnts ;
+    mv_description * mv_descs;
+
+    size_t h_buffs_bytes  = ((sizeof(void  *) * numOfBuckets * buffVar_id.size() * grid_size        ) + 16 - 1) & ~((size_t) 0xF);
+    size_t h_cnts_bytes   = ((sizeof(int32_t) * numOfBuckets * 2                 * grid_size        ) + 16 - 1) & ~((size_t) 0xF);
+    size_t mv_descs_bytes = ((sizeof(mv_description) * numOfBuckets * grid_size * buffVar_id.size() ) + 16 - 1) & ~((size_t) 0xF);
+
+    // gpu_run(cudaMallocHost ((void **) &h_buffs, h_buffs_bytes + h_cnts_bytes + mv_descs_bytes));
+    h_buffs = (void **) malloc(h_buffs_bytes + h_cnts_bytes);
+    mv_descs = (mv_description *) RawMemoryManager::mallocPinned(mv_descs_bytes);
+    gpu_run(cudaMemcpyAsync(h_buffs    , buffs, h_buffs_bytes + h_cnts_bytes, cudaMemcpyDefault, strm));
+    gpu_run(cudaStreamSynchronize(strm));
+
+    h_cnts   = (int32_t        *) (((char *) h_buffs) + h_buffs_bytes);
+    // mv_descs = (mv_description *) (((char *) h_cnts ) + h_cnts_bytes );
+
+    // for (size_t part = 0 ; part < numOfBuckets ; ++part){
+    //     int bucks = numOfBuckets;
+    //     std::vector<int32_t> idx(grid_size);
+    //     for (size_t i = 0 ; i < grid_size ; ++i) idx[i] = i * bucks + part;
+    //     std::sort(idx.begin(), idx.end(), [&h_cnts](int32_t i, int32_t j) {return h_cnts[i] > h_cnts[j];});
+
+    //     int32_t i = 0            ;
+    //     int32_t j = grid_size - 1;
+
+    //     size_t attr_size[buffVar_id.size()];
+    //     for (size_t attr_i = 0; attr_i < buffVar_id.size() ; ++attr_i){
+    //         attr_size[attr_i] = pip->getSizeOf(matExpr[attr_i]->getExpressionType()->getLLVMType(context->getLLVMContext()));
+    //     }
+
+    //     while (i < j){
+    //         if (h_cnts[idx[i]] + h_cnts[idx[j]] > cap/16) {
+    //             ++i;
+    //             continue;
+    //         }
+    //         for (size_t attr_i = 0; attr_i < buffVar_id.size() ; ++attr_i){
+    //             gpu_run(cudaMemcpyAsync(((char *) h_buffs[idx[i]]) + h_cnts[idx[i]] * attr_size[attr_i], h_buffs[idx[j]], h_cnts[idx[j]] * attr_size[attr_i], cudaMemcpyDefault, strm));
+    //         }
+
+    //         h_cnts[idx[i]] += h_cnts[idx[j]];
+    //         h_cnts[idx[j]]  = 0;
+
+    //         --j;
+    //     }
+    // }
+
+    // mv_description * mv_descs = new mv_description[part * grid_size];
+    size_t mv_descs_i = 0;
+    for (size_t part = 0 ; part < numOfBuckets ; ++part){
+        std::vector<int32_t> idx(grid_size);
+        for (size_t i = 0 ; i < grid_size ; ++i) idx[i] = i * numOfBuckets + part;
+        std::sort(idx.begin(), idx.end(), [&h_cnts](int32_t i, int32_t j) {return h_cnts[i] > h_cnts[j];});
+
+        int32_t i = 0            ;
+        int32_t j = grid_size - 1;
+
+        size_t attr_size[buffVar_id.size()];
+        for (size_t attr_i = 0; attr_i < buffVar_id.size() ; ++attr_i){
+            attr_size[attr_i] = pip->getSizeOf(matExpr[attr_i]->getExpressionType()->getLLVMType(context->getLLVMContext()));
+        }
+
+        while (j >= 0 && h_cnts[idx[j]] <= 0) --j;
+
+        while (i < j){
+            if (h_cnts[idx[i]] <= 0){
+                ++i;
+                continue;
+            }
+            if (h_cnts[idx[i]] + h_cnts[idx[j]] > cap/8) {
+                ++i;
+                continue;
+            }
+            //for (
+            size_t attr_i = 0;// attr_i < buffVar_id.size() ; ++attr_i){ //FIXME: generalize for attr_size.size() > 1
+                mv_descs[mv_descs_i].from  =  (char *) h_buffs[idx[j]];
+                mv_descs[mv_descs_i].to    = ((char *) h_buffs[idx[i]]) + h_cnts[idx[i]] * attr_size[attr_i];
+                mv_descs[mv_descs_i].bytes = h_cnts[idx[j]] * attr_size[attr_i];
+                mv_descs_i++;
+            // }
+
+            h_cnts[idx[i]] += h_cnts[idx[j]];
+            h_cnts[idx[j]]  = 0;
+
+            --j;
+        }
+    }
+    if (mv_descs_i > 0){
+        gpu_run(cudaMemcpyAsync(buffs, h_buffs, h_buffs_bytes + h_cnts_bytes, cudaMemcpyDefault, strm));
+        // gpu_run(cudaMemcpyAsync(buffs, h_buffs, sizeof(void  *) * numOfBuckets * buffVar_id.size() * grid_size, cudaMemcpyDefault, strm));
+        // gpu_run(cudaMemcpyAsync(cnts , h_cnts , sizeof(int32_t) * numOfBuckets                     * grid_size, cudaMemcpyDefault, strm));
+
+        GpuHashRearrange_pack<<<mv_descs_i, 1024, 0, strm>>>(mv_descs);
+    }
+
+    void *KernelParams[] = {pip->getState()};
+    launch_kernel((CUfunction) closingPip->getKernel(), KernelParams, strm);
+    gpu_run(cudaStreamSynchronize(strm));
+    gpu_run(cudaStreamDestroy    (strm));
+ 
+    // gpu_run(cudaFreeHost(h_buffs));
+    free(h_buffs);
+    RawMemoryManager::freePinned(mv_descs);
+
+    // RawMemoryManager::freeGpu(pip->getStateVar<size_t *> (cntVar_id    ));
+    // RawMemoryManager::freeGpu(pip->getStateVar<size_t *> (oidVar_id    ));
+    RawMemoryManager::freeGpu(pip->getStateVar<void   **>(buffVar_id[0]));
     // wcntVar_id is part of cntVar, so they are freed together
     // rest of mem for buffers is part of buffVar_id
 }

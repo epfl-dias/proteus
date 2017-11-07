@@ -34,160 +34,6 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
 		BinaryRawOperator(leftChild, rightChild), pred(predicate),
 		context(context), matLeft(matLeft), matRight(matRight), htLabel(opLabel) {
 
-	Function *F = context->getGlobalFunction();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	IRBuilder<> *Builder = context->getBuilder();
-
-	Type* int64_type = Type::getInt64Ty(llvmContext);
-	Type* int32_type = Type::getInt32Ty(llvmContext);
-	Type *int8_type = Type::getInt8Ty(llvmContext);
-	PointerType *int32_ptr_type = PointerType::get(int32_type, 0);
-	PointerType *void_ptr_type = PointerType::get(int8_type, 0);
-	PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
-	keyType = int32_type;
-
-	Value *zero = context->createInt64(0);
-
-	/* Request memory for HT(s) construction 		*/
-	/* Note: Does not allocate mem. for buckets too */
-	size_t htSize = (1 << NUM_RADIX_BITS) * sizeof(HT);
-	HT_per_cluster = (HT *) getMemoryChunk(htSize);
-
-	/* What the type of internal radix HT per cluster is 	*/
-	/* (int32*, int32*, unit32_t, void*, int32) */
-	vector<Type*> htRadixClusterMembers;
-	htRadixClusterMembers.push_back(int32_ptr_type);
-	htRadixClusterMembers.push_back(int32_ptr_type);
-	/* LLVM does not make a distinction between signed and unsigned integer type:
-	 * Both are lowered to i32
-	 */
-	htRadixClusterMembers.push_back(int32_type);
-	htRadixClusterMembers.push_back(int32_type);
-	htClusterType = StructType::get(context->getLLVMContext(),htRadixClusterMembers);
-	PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
-
-	/* Arbitrary initial buffer sizes */
-	/* No realloc will be required with these sizes for synthetic large-scale numbers */
-#ifdef LOCAL_EXEC
-	size_t sizeR = 10000;
-	size_t sizeS = 15000;
-#else
-	size_t sizeR = 10000000000;
-	size_t sizeS = 15000000000;
-#endif
-
-//	size_t sizeR = 1000;
-//	size_t sizeS = 1500;
-//	size_t sizeR = 50000;
-//	size_t sizeS = 50000;
-
-	//size_t sizeR = 100000000;
-	//size_t sizeS = 100000000;
-
-//	Still segfaults with these
-//	size_t sizeR = 40000000000; //000;//0; //30; //1000;
-//	size_t sizeS = 40000000000;//0; //1000;
-	Value *val_sizeR = context->createInt64(sizeR);
-	Value *val_sizeS = context->createInt64(sizeS);
-
-	/* Request memory to store relation R 			*/
-	relR.mem_relation =
-			context->CreateEntryBlockAlloca(F,string("relationR"),char_ptr_type);
-	(relR.mem_relation)->setAlignment(8);
-	relR.mem_tuplesNo =
-			context->CreateEntryBlockAlloca(F,string("tuplesR"),int64_type);
-	relR.mem_cachedTuplesNo =
-					context->CreateEntryBlockAlloca(F,string("tuplesRcached"),int64_type);
-	relR.mem_size =
-			context->CreateEntryBlockAlloca(F,string("sizeR"),int64_type);
-	relR.mem_offset =
-			context->CreateEntryBlockAlloca(F,string("offsetRelR"),int64_type);
-	relationR = (char*) getMemoryChunk(sizeR);
-	ptr_relationR = (char**) malloc(sizeof(char*));
-	*ptr_relationR = relationR;
-	Value *val_relationR = context->CastPtrToLlvmPtr(char_ptr_type, relationR);
-	Builder->CreateStore(val_relationR,relR.mem_relation);
-	Builder->CreateStore(zero,relR.mem_tuplesNo);
-	Builder->CreateStore(zero,relR.mem_cachedTuplesNo);
-	Builder->CreateStore(zero,relR.mem_offset);
-	Builder->CreateStore(val_sizeR,relR.mem_size);
-
-	/* Request memory to store relation S 			*/
-	relS.mem_relation =
-			context->CreateEntryBlockAlloca(F,string("relationS"),char_ptr_type);
-	(relS.mem_relation)->setAlignment(8);
-	relS.mem_tuplesNo =
-			context->CreateEntryBlockAlloca(F,string("tuplesS"),int64_type);
-	relS.mem_cachedTuplesNo =
-				context->CreateEntryBlockAlloca(F,string("tuplesScached"),int64_type);
-	relS.mem_size =
-			context->CreateEntryBlockAlloca(F,string("sizeS"),int64_type);
-	relS.mem_offset =
-			context->CreateEntryBlockAlloca(F,string("offsetRelS"),int64_type);
-	relationS = (char*) getMemoryChunk(sizeS);
-	ptr_relationS = (char**) malloc(sizeof(char*));
-	*ptr_relationS = relationS;
-	Value *val_relationS = context->CastPtrToLlvmPtr(char_ptr_type, relationS);
-	Builder->CreateStore(val_relationS,relS.mem_relation);
-	Builder->CreateStore(zero,relS.mem_tuplesNo);
-	Builder->CreateStore(zero,relS.mem_cachedTuplesNo);
-	Builder->CreateStore(zero,relS.mem_offset);
-	Builder->CreateStore(val_sizeS,relS.mem_size);
-
-	/* What the type of HT entries is */
-	/* (int32, size_t) */
-	vector<Type*> htEntryMembers;
-	htEntryMembers.push_back(int32_type);
-	htEntryMembers.push_back(int64_type);
-	int htEntrySize = sizeof(int) + sizeof(size_t);
-	htEntryType = StructType::get(context->getLLVMContext(),htEntryMembers);
-	PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
-
-	/* Request memory to store HT entries of R */
-	htR.mem_kv =
-				context->CreateEntryBlockAlloca(F,string("htR"),htEntryPtrType);
-	(htR.mem_kv)->setAlignment(8);
-
-	htR.mem_tuplesNo =
-				context->CreateEntryBlockAlloca(F,string("tuplesR"),int64_type);
-	htR.mem_size =
-				context->CreateEntryBlockAlloca(F,string("sizeR"),int64_type);
-	htR.mem_offset =
-				context->CreateEntryBlockAlloca(F,string("offsetRelR"),int64_type);
-	size_t kvSizeR = sizeR;// * htEntrySize;
-	kvR = (char*) getMemoryChunk(kvSizeR);
-	Value *val_kvR = context->CastPtrToLlvmPtr(htEntryPtrType, kvR);
-	StoreInst *store_htR = Builder->CreateStore(val_kvR, htR.mem_kv);
-	store_htR->setAlignment(8);
-
-	Builder->CreateStore(zero, htR.mem_tuplesNo);
-	Builder->CreateStore(context->createInt64(kvSizeR),htR.mem_size);
-	Builder->CreateStore(zero, htR.mem_offset);
-
-
-	/* Request memory to store HT entries of S */
-	htS.mem_kv = context->CreateEntryBlockAlloca(F, string("htS"),
-			htEntryPtrType);
-	htS.mem_tuplesNo = context->CreateEntryBlockAlloca(F, string("tuplesS"),
-			int64_type);
-	htS.mem_size = context->CreateEntryBlockAlloca(F, string("sizeS"),
-			int64_type);
-	htS.mem_offset = context->CreateEntryBlockAlloca(F, string("offsetRelS"),
-			int64_type);
-	size_t kvSizeS = sizeS;// * htEntrySize;
-	kvS = (char*) getMemoryChunk(kvSizeS);
-	Value *val_kvS = context->CastPtrToLlvmPtr(htEntryPtrType, kvS);
-	Builder->CreateStore(val_kvS, htS.mem_kv);
-	Builder->CreateStore(zero, htS.mem_tuplesNo);
-	Builder->CreateStore(context->createInt64(kvSizeS),htS.mem_size);
-	Builder->CreateStore(zero, htS.mem_offset);
-
-	/* Defined in consume() */
-	rPayloadType = NULL;
-	sPayloadType = NULL;
-
-	/* Caches */
-	cachedLeft = cachedRight = false;
 }
 
 RadixJoin::~RadixJoin()	{
@@ -457,6 +303,162 @@ void RadixJoin::updateRelationPointers() const {
 
 
 void RadixJoin::produce() {
+	{
+		Function *F = context->getGlobalFunction();
+		LLVMContext& llvmContext = context->getLLVMContext();
+		IRBuilder<> *Builder = context->getBuilder();
+
+		Type* int64_type = Type::getInt64Ty(llvmContext);
+		Type* int32_type = Type::getInt32Ty(llvmContext);
+		Type *int8_type = Type::getInt8Ty(llvmContext);
+		PointerType *int32_ptr_type = PointerType::get(int32_type, 0);
+		PointerType *void_ptr_type = PointerType::get(int8_type, 0);
+		PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
+		keyType = int32_type;
+
+		Value *zero = context->createInt64(0);
+
+		/* Request memory for HT(s) construction 		*/
+		/* Note: Does not allocate mem. for buckets too */
+		size_t htSize = (1 << NUM_RADIX_BITS) * sizeof(HT);
+		HT_per_cluster = (HT *) getMemoryChunk(htSize);
+
+		/* What the type of internal radix HT per cluster is 	*/
+		/* (int32*, int32*, unit32_t, void*, int32) */
+		vector<Type*> htRadixClusterMembers;
+		htRadixClusterMembers.push_back(int32_ptr_type);
+		htRadixClusterMembers.push_back(int32_ptr_type);
+		/* LLVM does not make a distinction between signed and unsigned integer type:
+		 * Both are lowered to i32
+		 */
+		htRadixClusterMembers.push_back(int32_type);
+		htRadixClusterMembers.push_back(int32_type);
+		htClusterType = StructType::get(context->getLLVMContext(),htRadixClusterMembers);
+		PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
+
+		/* Arbitrary initial buffer sizes */
+		/* No realloc will be required with these sizes for synthetic large-scale numbers */
+	#ifdef LOCAL_EXEC
+		size_t sizeR = 10000;
+		size_t sizeS = 15000;
+	#else
+		size_t sizeR = 20000000000;
+		size_t sizeS = 30000000000;
+	#endif
+
+	//	size_t sizeR = 1000;
+	//	size_t sizeS = 1500;
+	//	size_t sizeR = 50000;
+	//	size_t sizeS = 50000;
+
+		//size_t sizeR = 100000000;
+		//size_t sizeS = 100000000;
+
+	//	Still segfaults with these
+	//	size_t sizeR = 40000000000; //000;//0; //30; //1000;
+	//	size_t sizeS = 40000000000;//0; //1000;
+		Value *val_sizeR = context->createInt64(sizeR);
+		Value *val_sizeS = context->createInt64(sizeS);
+
+		/* Request memory to store relation R 			*/
+		relR.mem_relation =
+				context->CreateEntryBlockAlloca(F,string("relationR"),char_ptr_type);
+		(relR.mem_relation)->setAlignment(8);
+		relR.mem_tuplesNo =
+				context->CreateEntryBlockAlloca(F,string("tuplesR"),int64_type);
+		relR.mem_cachedTuplesNo =
+						context->CreateEntryBlockAlloca(F,string("tuplesRcached"),int64_type);
+		relR.mem_size =
+				context->CreateEntryBlockAlloca(F,string("sizeR"),int64_type);
+		relR.mem_offset =
+				context->CreateEntryBlockAlloca(F,string("offsetRelR"),int64_type);
+		relationR = (char*) getMemoryChunk(sizeR);
+		ptr_relationR = (char**) malloc(sizeof(char*));
+		*ptr_relationR = relationR;
+		Value *val_relationR = context->CastPtrToLlvmPtr(char_ptr_type, relationR);
+		Builder->CreateStore(val_relationR,relR.mem_relation);
+		Builder->CreateStore(zero,relR.mem_tuplesNo);
+		Builder->CreateStore(zero,relR.mem_cachedTuplesNo);
+		Builder->CreateStore(zero,relR.mem_offset);
+		Builder->CreateStore(val_sizeR,relR.mem_size);
+
+		/* Request memory to store relation S 			*/
+		relS.mem_relation =
+				context->CreateEntryBlockAlloca(F,string("relationS"),char_ptr_type);
+		(relS.mem_relation)->setAlignment(8);
+		relS.mem_tuplesNo =
+				context->CreateEntryBlockAlloca(F,string("tuplesS"),int64_type);
+		relS.mem_cachedTuplesNo =
+					context->CreateEntryBlockAlloca(F,string("tuplesScached"),int64_type);
+		relS.mem_size =
+				context->CreateEntryBlockAlloca(F,string("sizeS"),int64_type);
+		relS.mem_offset =
+				context->CreateEntryBlockAlloca(F,string("offsetRelS"),int64_type);
+		relationS = (char*) getMemoryChunk(sizeS);
+		ptr_relationS = (char**) malloc(sizeof(char*));
+		*ptr_relationS = relationS;
+		Value *val_relationS = context->CastPtrToLlvmPtr(char_ptr_type, relationS);
+		Builder->CreateStore(val_relationS,relS.mem_relation);
+		Builder->CreateStore(zero,relS.mem_tuplesNo);
+		Builder->CreateStore(zero,relS.mem_cachedTuplesNo);
+		Builder->CreateStore(zero,relS.mem_offset);
+		Builder->CreateStore(val_sizeS,relS.mem_size);
+
+		/* What the type of HT entries is */
+		/* (int32, size_t) */
+		vector<Type*> htEntryMembers;
+		htEntryMembers.push_back(int32_type);
+		htEntryMembers.push_back(int64_type);
+		int htEntrySize = sizeof(int) + sizeof(size_t);
+		htEntryType = StructType::get(context->getLLVMContext(),htEntryMembers);
+		PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
+
+		/* Request memory to store HT entries of R */
+		htR.mem_kv =
+					context->CreateEntryBlockAlloca(F,string("htR"),htEntryPtrType);
+		(htR.mem_kv)->setAlignment(8);
+
+		htR.mem_tuplesNo =
+					context->CreateEntryBlockAlloca(F,string("tuplesR"),int64_type);
+		htR.mem_size =
+					context->CreateEntryBlockAlloca(F,string("sizeR"),int64_type);
+		htR.mem_offset =
+					context->CreateEntryBlockAlloca(F,string("offsetRelR"),int64_type);
+		size_t kvSizeR = sizeR;// * htEntrySize;
+		kvR = (char*) getMemoryChunk(kvSizeR);
+		Value *val_kvR = context->CastPtrToLlvmPtr(htEntryPtrType, kvR);
+		StoreInst *store_htR = Builder->CreateStore(val_kvR, htR.mem_kv);
+		store_htR->setAlignment(8);
+
+		Builder->CreateStore(zero, htR.mem_tuplesNo);
+		Builder->CreateStore(context->createInt64(kvSizeR),htR.mem_size);
+		Builder->CreateStore(zero, htR.mem_offset);
+
+
+		/* Request memory to store HT entries of S */
+		htS.mem_kv = context->CreateEntryBlockAlloca(F, string("htS"),
+				htEntryPtrType);
+		htS.mem_tuplesNo = context->CreateEntryBlockAlloca(F, string("tuplesS"),
+				int64_type);
+		htS.mem_size = context->CreateEntryBlockAlloca(F, string("sizeS"),
+				int64_type);
+		htS.mem_offset = context->CreateEntryBlockAlloca(F, string("offsetRelS"),
+				int64_type);
+		size_t kvSizeS = sizeS;// * htEntrySize;
+		kvS = (char*) getMemoryChunk(kvSizeS);
+		Value *val_kvS = context->CastPtrToLlvmPtr(htEntryPtrType, kvS);
+		Builder->CreateStore(val_kvS, htS.mem_kv);
+		Builder->CreateStore(zero, htS.mem_tuplesNo);
+		Builder->CreateStore(context->createInt64(kvSizeS),htS.mem_size);
+		Builder->CreateStore(zero, htS.mem_offset);
+
+		/* Defined in consume() */
+		rPayloadType = NULL;
+		sPayloadType = NULL;
+
+		/* Caches */
+		cachedLeft = cachedRight = false;
+	}
 	IRBuilder<> *Builder = context->getBuilder();
 	Function *func_startTime = context->getFunction("resetTime");
 	Function *func_endTime = context->getFunction("calculateTime");

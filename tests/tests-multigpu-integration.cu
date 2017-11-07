@@ -64,7 +64,7 @@
 #include "util/raw-functions.hpp"
 #include "util/raw-pipeline.hpp"
 #include "plan/plan-parser.hpp"
-#include "multigpu/buffer_manager.cuh"
+#include "util/raw-memory-manager.hpp"
 #include "storage/raw-storage-manager.hpp"
 #include "multigpu/numa_utils.cuh"
 #include <cuda_profiler_api.h>
@@ -108,7 +108,7 @@ void MultiGPUTest::SetUp   (){
     //     gpu_run(cuCtxCreate(context + i, 0, device[i]));
     // }
 
-    // gpu(cudaSetDeviceFlags(cudaDeviceScheduleYield));
+    // gpu_run(cudaSetDeviceFlags(cudaDeviceScheduleYield));
 
     int devices = get_num_of_gpus();
     for (int i = 0 ; i < devices ; ++i) {
@@ -118,21 +118,21 @@ void MultiGPUTest::SetUp   (){
     
     // gpu_run(cudaSetDevice(0));
 
-    gpu(cudaFree(0));
+    gpu_run(cudaFree(0));
 
-    // gpu(cudaDeviceSetLimit(cudaLimitStackSize, 40960));
+    // gpu_run(cudaDeviceSetLimit(cudaLimitStackSize, 40960));
 
-    // std::vector<std::thread> thrds;
-    // for (int i = 0 ; i < 20 ; ++i) thrds.emplace_back(thread_warm_up);
-    // for (auto &t: thrds) t.join();
+    std::vector<std::thread> thrds;
+    for (int i = 0 ; i < 32 ; ++i) thrds.emplace_back(thread_warm_up);
+    for (auto &t: thrds) t.join();
 
     // srand(time(0));
 
-    buffer_manager<int32_t>::init(100);
+    RawMemoryManager::init();
 }
 
 void MultiGPUTest::TearDown(){
-    buffer_manager<int32_t>::destroy();
+    RawMemoryManager::destroy();
 }
 
 TEST_F(MultiGPUTest, gpuDriverSequential) {
@@ -152,13 +152,13 @@ TEST_F(MultiGPUTest, gpuDriverSequential) {
     // StorageManager::loadToGpus("inputs/ssbm/date.csv.d_datekey"             );//, GPU_RESIDENT);
     // StorageManager::loadToGpus("inputs/ssbm/date.csv.d_year"                );//, GPU_RESIDENT);
 
-    StorageManager::load("inputs/ssbm/lineorder.csv.lo_discount"      , GPU_RESIDENT);
-    StorageManager::load("inputs/ssbm/lineorder.csv.lo_quantity"      , GPU_RESIDENT);
-    StorageManager::load("inputs/ssbm/lineorder.csv.lo_orderdate"     , GPU_RESIDENT);
-    StorageManager::load("inputs/ssbm/lineorder.csv.lo_extendedprice" , GPU_RESIDENT);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_discount"      , PINNED);//GPU_RESIDENT);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_quantity"      , PINNED);//GPU_RESIDENT);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_orderdate"     , PINNED);//GPU_RESIDENT);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_extendedprice" , PINNED);//GPU_RESIDENT);
 
-    StorageManager::load("inputs/ssbm/date.csv.d_datekey"             , GPU_RESIDENT);
-    StorageManager::load("inputs/ssbm/date.csv.d_year"                , GPU_RESIDENT);
+    StorageManager::load("inputs/ssbm/date.csv.d_datekey"             , PINNED);//GPU_RESIDENT);
+    StorageManager::load("inputs/ssbm/date.csv.d_year"                , PINNED);//GPU_RESIDENT);
 
     gpu_run(cudaSetDevice(0));
     
@@ -468,13 +468,13 @@ TEST_F(MultiGPUTest, gpuDriverParallelOnGpuFull) {
     
     gpu_run(cudaSetDevice(0));
 
-    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
-    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
-    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
-    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"     );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"     );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"    );
+    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice");
 
-    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_datekey"             );
-    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_year"                );
+    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_datekey"            );
+    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_year"               );
 
     __itt_resume();
     const char *testLabel = "gpuSSBM_Q1_1_parallel_hash_on_gpu_full";
@@ -691,4 +691,101 @@ TEST_F(MultiGPUTest, gpuStorageManager) {
 
     StorageManager::unloadAll();
 
+}
+
+TEST_F(MultiGPUTest, cpuSequential) {
+    int devices = get_num_of_gpus();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStart());
+    }
+
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_discount"      , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_quantity"      , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_orderdate"     , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_extendedprice" , PINNED);
+
+    StorageManager::load("inputs/ssbm/date.csv.d_datekey"             , PINNED);
+    StorageManager::load("inputs/ssbm/date.csv.d_year"                , PINNED);
+    
+    gpu_run(cudaSetDevice(0));
+
+    __itt_resume();
+    const char *testLabel = "cpuSequential";
+    // GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/ssbm_q1_1_cpu.json";
+
+    // std::vector<RawPipeline *> pipelines;
+    {
+        time_block t("T: ");
+
+        // ctx                   = new RawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel);
+
+        // return verifyTestResult(TEST_OUTPUTS "/tests-cpu-sequential/", testLabel);
+        
+        // ctx->compileAndLoad();
+
+        // pipelines = ctx->getPipelines();
+    }
+
+    EXPECT_TRUE(verifyTestResult(TEST_OUTPUTS "/tests-multigpu-integration/", testLabel));
+
+    // int32_t c_out;
+    // gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
+    // //for the current dataset, regenerating it may change the results
+    // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
+    // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+    StorageManager::unloadAll();
+}
+TEST_F(MultiGPUTest, cpuParallel) {
+    int devices = get_num_of_gpus();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStart());
+    }
+
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_discount"      , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_quantity"      , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_orderdate"     , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_extendedprice" , PINNED);
+
+    StorageManager::load("inputs/ssbm/date.csv.d_datekey"             , PINNED);
+    StorageManager::load("inputs/ssbm/date.csv.d_year"                , PINNED);
+    
+    gpu_run(cudaSetDevice(0));
+
+    __itt_resume();
+    const char *testLabel = "cpuParallel";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/ssbm_q1_1_multicore2.json";
+
+    std::vector<RawPipeline *> pipelines;
+    {
+        time_block t("T: ");
+
+        ctx                   = new GpuRawContext(testLabel);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+
+        // return verifyTestResult(TEST_OUTPUTS "/tests-cpu-sequential/", testLabel);
+        
+        ctx->compileAndLoad();
+
+        pipelines = ctx->getPipelines();
+    }
+
+    // EXPECT_TRUE(verifyTestResult(TEST_OUTPUTS "/tests-multigpu-integration/", testLabel));
+
+    // int32_t c_out;
+    // gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
+    // //for the current dataset, regenerating it may change the results
+    // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
+    // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+    StorageManager::unloadAll();
 }

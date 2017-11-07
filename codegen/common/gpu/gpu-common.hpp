@@ -47,6 +47,7 @@
 extern int                                                 cpu_cnt;
 extern cpu_set_t                                          *gpu_affinity;
 extern cpu_set_t                                          *cpu_numa_affinity;
+extern int                                                *gpu_numa_node;
 
 typedef size_t   vid_t;
 typedef uint32_t cid_t;
@@ -348,11 +349,9 @@ struct execution_conf {
     }
 };
 
-void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim);
-void launch_kernel(CUfunction function, void ** args, dim3 gridDim);
-extern "C" {
-    void launch_kernel(CUfunction function, void ** args);
-}
+void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim, cudaStream_t strm = 0);
+void launch_kernel(CUfunction function, void ** args, dim3 gridDim, cudaStream_t strm = 0);
+void launch_kernel(CUfunction function, void ** args, cudaStream_t strm = 0);
 
 int get_device(const void *p);
 inline int get_device(){

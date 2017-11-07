@@ -62,8 +62,8 @@ void Exchange::produce() {
         for (int j = 0 ; j < slack ; ++j) {
             free_pool[i].push(malloc(buf_size));
         }
+    std::cout << free_pool[i].size() << std::endl;
     }
-
 
     // context->SetInsertPoint(insBB);
 
@@ -150,36 +150,48 @@ void Exchange::produce() {
 }
 
 void * Exchange::acquireBuffer(int target){
+    nvtxRangePushA("acq_buff");
     std::unique_lock<std::mutex> lock(free_pool_mutex[target]);
 
-    free_pool_cv[target].wait(lock, [this, target](){return !free_pool[target].empty();});
+    if (free_pool[target].empty()){
+        nvtxRangePushA("cv_buff");
+        free_pool_cv[target].wait(lock, [this, target](){return !free_pool[target].empty();});
+        nvtxRangePop();
+    }
 
+    nvtxRangePushA("stack_buff");
     void * buff = free_pool[target].top();
     free_pool[target].pop();
+    nvtxRangePop();
 
     lock.unlock();
+    nvtxRangePushA("got_acq_buff");
     return buff;
 }
 
 void   Exchange::releaseBuffer(int target, void * buff){
+    nvtxRangePop();
     std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
     ready_pool[target].emplace(buff);
-    ready_pool_cv[target].notify_all();
     lock.unlock();
+    ready_pool_cv[target].notify_all();
+    nvtxRangePop();
 }
 
 void   Exchange::freeBuffer(int target, void * buff){
     std::unique_lock<std::mutex> lock(free_pool_mutex[target]);
     free_pool[target].emplace(buff);
-    free_pool_cv[target].notify_all();
     lock.unlock();
+    free_pool_cv[target].notify_all();
 }
 
 bool   Exchange::get_ready(int target, void * &buff){
     std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
 
-    ready_pool_cv[target].wait(lock, [this, target](){return !ready_pool[target].empty() || (ready_pool[target].empty() && remaining_producers <= 0);});
-
+    if (ready_pool[target].empty()){
+        ready_pool_cv[target].wait(lock, [this, target](){return !ready_pool[target].empty() || (ready_pool[target].empty() && remaining_producers <= 0);});
+    }
+    
     if (ready_pool[target].empty()){
         assert(remaining_producers == 0);
         lock.unlock();
@@ -217,7 +229,7 @@ void   Exchange::fire(int target, RawPipelineGen * pipGen){
 
             freeBuffer(target, p); //FIXME: move this inside the generated code
             
-            std::this_thread::yield();
+            // std::this_thread::yield();
         } while (true);
     }
 

@@ -2,17 +2,17 @@
 #include "common/common.hpp"
 #include <cassert>
 
-void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim, cudaStream_t strm = 0){
+void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim, cudaStream_t strm){
     gpu_run(cuLaunchKernel(function, gridDim.x, gridDim.y, gridDim.z,
                                  blockDim.x, blockDim.y, blockDim.z,
                                  0, (CUstream) strm, args, NULL));
 }
 
-void launch_kernel(CUfunction function, void ** args, dim3 gridDim, cudaStream_t strm = 0){
+void launch_kernel(CUfunction function, void ** args, dim3 gridDim, cudaStream_t strm){
     launch_kernel(function, args, gridDim, defaultBlockDim, strm);
 }
 
-void launch_kernel(CUfunction function, void ** args, cudaStream_t strm = 0){
+void launch_kernel(CUfunction function, void ** args, cudaStream_t strm){
     launch_kernel(function, args, defaultGridDim, defaultBlockDim, strm);
 }
 

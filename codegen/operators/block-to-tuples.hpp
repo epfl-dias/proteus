@@ -28,12 +28,14 @@
 
 class BlockToTuples : public UnaryRawOperator {
 public:
-    BlockToTuples(RawOperator * const             child,
+    BlockToTuples(RawOperator * const           child,
                 GpuRawContext * const           context,
-                const vector<RecordAttribute*> &wantedFields) :
+                const vector<RecordAttribute*> &wantedFields,
+                bool                            gpu = true) :
                     UnaryRawOperator(child), 
                     context(context), 
-                    wantedFields(wantedFields){}
+                    wantedFields(wantedFields),
+                    gpu(gpu){}
 
     virtual ~BlockToTuples()                                             { LOG(INFO)<<"Collapsing BlockToTuples operator";}
 
@@ -51,6 +53,8 @@ private:
     std::vector<size_t>             old_buffs   ;
     GpuRawContext * const           context     ;
     AllocaInst                    * mem_itemCtr ;
+
+    bool                            gpu         ;
 };
 
 #endif /* BLOCK_TO_TUPLES_HPP_ */

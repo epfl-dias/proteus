@@ -20,8 +20,8 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#ifndef MEM_MOVE_DEVICE_HPP_
-#define MEM_MOVE_DEVICE_HPP_
+#ifndef MEM_MOVE_LOCAL_TO_HPP_
+#define MEM_MOVE_LOCAL_TO_HPP_
 
 #include "operators/operators.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
@@ -30,7 +30,7 @@
 
 // void * make_mem_move_device(char * src, size_t bytes, int target_device, cudaStream_t strm);
 
-class MemMoveDevice : public UnaryRawOperator {
+class MemMoveLocalTo : public UnaryRawOperator {
 public:
     struct workunit{
         void      * data ;
@@ -51,7 +51,7 @@ public:
         size_t                      next_e   ;
     };
 
-    MemMoveDevice(  RawOperator * const             child,
+    MemMoveLocalTo(  RawOperator * const             child,
                     GpuRawContext * const           context,
                     const vector<RecordAttribute*> &wantedFields) :
                         UnaryRawOperator(child), 
@@ -59,7 +59,7 @@ public:
                         wantedFields(wantedFields),
                         slack(8){}
 
-    virtual ~MemMoveDevice()                                             { LOG(INFO)<<"Collapsing MemMoveDevice operator";}
+    virtual ~MemMoveLocalTo()                                             { LOG(INFO)<<"Collapsing MemMoveLocalTo operator";}
 
     virtual void produce();
     virtual void consume(RawContext* const context, const OperatorState& childState);
@@ -68,7 +68,6 @@ public:
 private:
     const vector<RecordAttribute *> wantedFields ;
     size_t                          device_id_var;
-    size_t                          cu_stream_var;
     size_t                          memmvconf_var;
 
     RawPipelineGen                * catch_pip    ;
@@ -85,4 +84,4 @@ private:
     void catcher(MemMoveConf * conf, int group_id, const exec_location &target_dev);
 };
 
-#endif /* MEM_MOVE_DEVICE_HPP_ */
+#endif /* MEM_MOVE_LOCAL_TO_HPP_ */

@@ -21,12 +21,17 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#ifndef ASYNC_CONTAINERS_HPP_
+#define ASYNC_CONTAINERS_HPP_
+
 #include <mutex>
 #include <stack>
 #include <condition_variable>
 #include <atomic>
 #include <queue>
 #include <iostream>
+
+#include "nvToolsExt.h"
 
 template<typename T>
 class AsyncStackSPSC{
@@ -41,14 +46,18 @@ public:
     AsyncStackSPSC(): terminating(false){}
 
     void close(){
+        nvtxRangePushA("AsyncStack_o");
         terminating = true;
         cv.notify_all();
 
+        nvtxRangePushA("AsyncStack_t");
         std::unique_lock<std::mutex> lock(m);
 
         cv.wait(lock, [this](){return data.empty();});
 
         lock.unlock();
+        nvtxRangePop();
+        nvtxRangePop();
     }
 
     void push(const T &x){
@@ -62,7 +71,9 @@ public:
     bool pop(T &x){
         std::unique_lock<std::mutex> lock(m);
 
-        cv.wait(lock, [this](){return !data.empty() || (data.empty() && terminating);});
+        if (data.empty()){
+            cv.wait(lock, [this](){return !data.empty() || (data.empty() && terminating);});
+        }
 
         if (data.empty()){
             assert(terminating);
@@ -78,8 +89,13 @@ public:
         lock.unlock();
         return true;
     }
-};
 
+    T pop_unsafe(){
+        T x = data.back();
+        data.pop_back();
+        return x;
+    }
+};
 
 template<typename T>
 class AsyncQueueSPSC{
@@ -94,14 +110,18 @@ public:
     AsyncQueueSPSC(): terminating(false){}
 
     void close(){
+        nvtxRangePushA("AsyncQueue_o");
         terminating = true;
         cv.notify_all();
 
+        nvtxRangePushA("AsyncQueue_t");
         std::unique_lock<std::mutex> lock(m);
 
         cv.wait(lock, [this](){return data.empty();});
 
         lock.unlock();
+        nvtxRangePop();
+        nvtxRangePop();
     }
 
     void push(const T &x){
@@ -115,7 +135,9 @@ public:
     bool pop(T &x){
         std::unique_lock<std::mutex> lock(m);
 
-        cv.wait(lock, [this](){return !data.empty() || (data.empty() && terminating);});
+        if (data.empty()){
+            cv.wait(lock, [this](){return !data.empty() || (data.empty() && terminating);});
+        }
 
         if (data.empty()){
             assert(terminating);
@@ -131,5 +153,13 @@ public:
         lock.unlock();
         return true;
     }
+
+    T pop_unsafe(){
+        T x = data.front();
+        data.pop();
+        return x;
+    }
 };
+
+#endif /* ASYNC_CONTAINERS_HPP_ */
 

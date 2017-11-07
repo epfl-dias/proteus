@@ -10,6 +10,7 @@
 #include "operators/cpu-to-gpu.hpp"
 #include "operators/gpu/gpu-to-cpu.hpp"
 #include "operators/mem-move-device.hpp"
+#include "operators/mem-move-local-to.hpp"
 #include "operators/exchange.hpp"
 #include "operators/hash-rearrange.hpp"
 #include "operators/gpu/gpu-hash-rearrange.hpp"
@@ -852,6 +853,12 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val.HasMember("projections"));
 		assert(val["projections"].IsArray());
 
+		bool gpu = true;
+		if (val.HasMember("gpu")){
+			assert(val["gpu"].IsBool());
+			gpu = val["gpu"].GetBool();
+		}
+
 		vector<RecordAttribute*> projections;
 		for (SizeType i = 0; i < val["projections"].Size(); i++)
 		{
@@ -861,7 +868,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		}
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new BlockToTuples(childOp, ((GpuRawContext *) this->ctx), projections);
+		newOp =  new BlockToTuples(childOp, ((GpuRawContext *) this->ctx), projections, gpu);
 		childOp->setParent(newOp);
 	} else if(strcmp(opName,"gpu-to-cpu") == 0)	{
 		/* parse operator input */
@@ -978,6 +985,26 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
 		newOp =  new MemMoveDevice(childOp, ((GpuRawContext *) this->ctx), projections);
+		childOp->setParent(newOp);
+	} else if(strcmp(opName,"mem-move-local-to") == 0) {
+		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsObject());
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		assert(val.HasMember("projections"));
+		assert(val["projections"].IsArray());
+
+		vector<RecordAttribute*> projections;
+		for (SizeType i = 0; i < val["projections"].Size(); i++)
+		{
+			assert(val["projections"][i].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+			projections.push_back(recAttr);
+		}
+
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+		newOp =  new MemMoveLocalTo(childOp, ((GpuRawContext *) this->ctx), projections);
 		childOp->setParent(newOp);
 	} else if(strcmp(opName,"exchange") == 0) {
 		/* parse operator input */

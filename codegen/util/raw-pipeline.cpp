@@ -130,11 +130,14 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
 
         registerFunction("launch_kernel_strm",launch_kernel_strm_);
 
-
-        FunctionType *make_mem_move_device = FunctionType::get(charPtrType, std::vector<Type *>{charPtrType, size_type, int32_type, charPtrType}, false);
+        Type * pair_type = StructType::get(context->getLLVMContext(), std::vector<Type *>{charPtrType, charPtrType});
+        FunctionType *make_mem_move_device = FunctionType::get(pair_type, std::vector<Type *>{charPtrType, size_type, int32_type, charPtrType}, false);
         Function *fmake_mem_move_device = Function::Create(make_mem_move_device, Function::ExternalLinkage, "make_mem_move_device", getModule());
         registerFunction("make_mem_move_device", fmake_mem_move_device);
 
+        FunctionType *make_mem_move_local_to = FunctionType::get(pair_type, std::vector<Type *>{charPtrType, size_type, int32_type, charPtrType}, false);
+        Function *fmake_mem_move_local_to = Function::Create(make_mem_move_local_to, Function::ExternalLinkage, "make_mem_move_local_to", getModule());
+        registerFunction("make_mem_move_local_to", fmake_mem_move_local_to);
 
         FunctionType *acquireBuffer = FunctionType::get(charPtrType, std::vector<Type *>{int32_type, charPtrType}, false);
         Function *facquireBuffer = Function::Create(acquireBuffer, Function::ExternalLinkage, "acquireBuffer", getModule());
@@ -149,10 +152,13 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
         Function *ffreeBuffer = Function::Create(freeBuffer, Function::ExternalLinkage, "freeBuffer", getModule());
         registerFunction("freeBuffer", ffreeBuffer);
 
-
         FunctionType *crand = FunctionType::get(int32_type, std::vector<Type *>{}, false);
         Function *fcrand = Function::Create(crand, Function::ExternalLinkage, "rand", getModule());
         registerFunction("rand", fcrand);
+
+        FunctionType *cprintTime = FunctionType::get(void_type, std::vector<Type *>{}, false);
+        Function *fcprintTime = Function::Create(cprintTime, Function::ExternalLinkage, "printTime", getModule());
+        registerFunction("printTime", fcprintTime);
 
         FunctionType *get_buffer = FunctionType::get(charPtrType, std::vector<Type *>{size_type}, false);
         Function *fget_buffer = Function::Create(get_buffer, Function::ExternalLinkage, "get_buffer", getModule());
@@ -178,7 +184,7 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
         Function *facquireWorkUnit = Function::Create(acquireWorkUnit, Function::ExternalLinkage, "acquireWorkUnit", getModule());
         registerFunction("acquireWorkUnit", facquireWorkUnit);
 
-        FunctionType *propagateWorkUnit = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType}, false);
+        FunctionType *propagateWorkUnit = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType, bool_type}, false);
         Function *fpropagateWorkUnit = Function::Create(propagateWorkUnit, Function::ExternalLinkage, "propagateWorkUnit", getModule());
         registerFunction("propagateWorkUnit", fpropagateWorkUnit);
 
@@ -189,6 +195,22 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
         FunctionType *releaseWorkUnit = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType}, false);
         Function *freleaseWorkUnit = Function::Create(releaseWorkUnit, Function::ExternalLinkage, "releaseWorkUnit", getModule());
         registerFunction("releaseWorkUnit", freleaseWorkUnit);
+
+        FunctionType *mem_move_local_to_acquireWorkUnit = FunctionType::get(charPtrType, std::vector<Type *>{charPtrType}, false);
+        Function *fmem_move_local_to_acquireWorkUnit = Function::Create(mem_move_local_to_acquireWorkUnit, Function::ExternalLinkage, "mem_move_local_to_acquireWorkUnit", getModule());
+        registerFunction("mem_move_local_to_acquireWorkUnit", fmem_move_local_to_acquireWorkUnit);
+
+        FunctionType *mem_move_local_to_propagateWorkUnit = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType, bool_type}, false);
+        Function *fmem_move_local_to_propagateWorkUnit = Function::Create(mem_move_local_to_propagateWorkUnit, Function::ExternalLinkage, "mem_move_local_to_propagateWorkUnit", getModule());
+        registerFunction("mem_move_local_to_propagateWorkUnit", fmem_move_local_to_propagateWorkUnit);
+
+        FunctionType *mem_move_local_to_acquirePendingWorkUnit = FunctionType::get(bool_type, std::vector<Type *>{charPtrType, charPtrType}, false);
+        Function *fmem_move_local_to_acquirePendingWorkUnit = Function::Create(mem_move_local_to_acquirePendingWorkUnit, Function::ExternalLinkage, "mem_move_local_to_acquirePendingWorkUnit", getModule());
+        registerFunction("mem_move_local_to_acquirePendingWorkUnit", fmem_move_local_to_acquirePendingWorkUnit);
+
+        FunctionType *mem_move_local_to_releaseWorkUnit = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType}, false);
+        Function *fmem_move_local_to_releaseWorkUnit = Function::Create(mem_move_local_to_releaseWorkUnit, Function::ExternalLinkage, "mem_move_local_to_releaseWorkUnit", getModule());
+        registerFunction("mem_move_local_to_releaseWorkUnit", fmem_move_local_to_releaseWorkUnit);
 
         registerFunctions(); //FIXME: do we have to register them every time ?
 

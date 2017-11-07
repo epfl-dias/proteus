@@ -134,8 +134,7 @@ private:
 
 	string fnamePrefix;
 	off_t *colFilesize; //Size of each column
-	int *fd; //One per column
-	char **buf;
+	const void **buf;
 
 	//Mapping attrNumber to
 	//	-> file descriptor of its dictionary

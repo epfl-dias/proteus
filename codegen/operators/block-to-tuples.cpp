@@ -23,6 +23,7 @@
 
 #include "operators/block-to-tuples.hpp"
 #include "multigpu/buffer_manager.cuh"
+#include "util/raw-memory-manager.hpp"
 
 void BlockToTuples::produce()    {
 
@@ -52,8 +53,15 @@ void BlockToTuples::nextEntry()   {
     //Increment and store back
 
     Value* val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
-    Value* val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr,
-        Builder->CreateIntCast(context->threadNum(), val_curr_itemCtr->getType(), false));
+    
+    Value * inc;
+    if (gpu){
+        inc = Builder->CreateIntCast(context->threadNum(), val_curr_itemCtr->getType(), false);
+    } else {
+        inc = ConstantInt::get((IntegerType *) val_curr_itemCtr->getType(), 1);
+    }
+
+    Value* val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr, inc);
     Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
 }
 
@@ -251,8 +259,7 @@ void BlockToTuples::open (RawPipeline * pip){
 
     size_t grid_size  = ec.gridSize();
 
-    void   ** buffs;
-    gpu_run(cudaMalloc((void **) &buffs, sizeof(void  *) * wantedFields.size()));
+    void ** buffs = (void **) RawMemoryManager::mallocGpu(sizeof(void  *) * wantedFields.size());
 
     gpu_run(cudaMemset(buffs, 0, sizeof(void  *) * wantedFields.size()));
 
@@ -265,8 +272,12 @@ void BlockToTuples::close(RawPipeline * pip){
     void ** h_buffs = (void **) malloc(sizeof(void  *) * wantedFields.size());
     void ** buffs   = pip->getStateVar<void **>(old_buffs[0]);
 
-    gpu_run(cudaMemcpy(h_buffs, buffs, sizeof(void  *) * wantedFields.size(), cudaMemcpyDefault));
-    gpu_run(cudaFree(buffs));
+    cudaStream_t strm;
+    gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+    gpu_run(cudaMemcpyAsync(h_buffs, buffs, sizeof(void  *) * wantedFields.size(), cudaMemcpyDefault, strm));
+    gpu_run(cudaStreamSynchronize(strm));
+    gpu_run(cudaStreamDestroy(strm));
+    RawMemoryManager::freeGpu(buffs);
 
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
         buffer_manager<int32_t>::release_buffer((int32_t *) h_buffs[i]);

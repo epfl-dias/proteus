@@ -71,3 +71,10 @@ std::vector<mem_file> StorageManager::getFile(std::string name){
     }
     return mfiles;
 }
+
+std::vector<mem_file> StorageManager::getOrLoadFile(std::string name, data_loc loc){
+    if (files.count(name) == 0){
+        load(name, loc);
+    }
+    return getFile(name);
+}

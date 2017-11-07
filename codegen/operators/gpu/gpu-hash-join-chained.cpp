@@ -23,6 +23,7 @@
 
 #include "operators/gpu/gpu-hash-join-chained.hpp"
 #include "operators/gpu/gmonoids.hpp"
+#include "util/raw-memory-manager.hpp"
 
 GpuHashJoinChained::GpuHashJoinChained(
             const std::vector<GpuMatExpr>      &build_mat_exprs, 
@@ -454,19 +455,16 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
 }
 
 void GpuHashJoinChained::open_build(RawPipeline * pip){
-    uint32_t * head;
     std::vector<void *> next_w_values;
-    int32_t  * cnt ;
 
-    gpu_run(cudaMalloc((void **) &head, sizeof(uint32_t) * (1 << hash_bits)));
-    gpu_run(cudaMalloc((void **) &cnt , sizeof( int32_t)                   ));
+    uint32_t * head = (uint32_t *) RawMemoryManager::mallocGpu(sizeof(uint32_t) * (1 << hash_bits) + sizeof(int32_t));
+    int32_t  * cnt  = (int32_t *) (head + (1 << hash_bits));
 
     gpu_run(cudaMemset(head, -1, sizeof(uint32_t) * (1 << hash_bits)));
     gpu_run(cudaMemset( cnt,  0, sizeof( int32_t)                   ));
 
     for (const auto &w: build_packet_widths){
-        next_w_values.emplace_back();
-        gpu_run(cudaMalloc((void **) &(next_w_values.back()), (w/8) * maxBuildInputSize));
+        next_w_values.emplace_back(RawMemoryManager::mallocGpu((w/8) * maxBuildInputSize));
     }
 
     pip->setStateVar(head_param_id, head);
@@ -492,10 +490,10 @@ void GpuHashJoinChained::open_probe(RawPipeline * pip){
         pip->setStateVar(in_param_ids[i], next_w_values[i]);
     }
 }
+
 void GpuHashJoinChained::close_build(RawPipeline * pip){
-    gpu_run(cudaFree(pip->getStateVar<uint32_t *>(cnt_param_id)));
 }
 
 void GpuHashJoinChained::close_probe(RawPipeline * pip){
-    for (const auto &p: confs[pip->getGroup()]) gpu_run(cudaFree(p));
+    for (const auto &p: confs[pip->getGroup()]) RawMemoryManager::freeGpu(p);
 }

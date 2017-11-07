@@ -1,0 +1,319 @@
+{
+  "e": [{
+    "expression": "multiply",
+    "left": {
+      "expression": "recordProjection",
+      "e": {
+        "expression": "argument",
+        "argNo": -1,
+        "type": {
+          "type": "record",
+          "relName": "inputs/ssbm/lineorder.csv"
+        },
+        "attributes": [{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_discount"
+        }]
+      },
+      "attribute": {
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_discount"
+      }
+    },
+    "right":{
+      "expression": "recordProjection",
+      "e": {
+        "expression": "argument",
+        "argNo": -1,
+        "type": {
+          "type": "record",
+          "relName": "inputs/ssbm/lineorder.csv"
+        },
+        "attributes": [{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_extendedprice"
+        }]
+      },
+      "attribute": {
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_extendedprice"
+      }
+    }
+  }],
+  "operator": "reduce",
+  "accumulator": ["sum"],
+  "p": {
+    "expression": "bool",
+    "v": true
+  },
+  "input": {
+    "operator": "join",
+    "p": {
+      "expression": "eq",
+      "left": {
+        "expression": "recordProjection",
+        "e": {
+          "expression": "argument",
+          "argNo": -1,
+          "type": {
+            "type": "record",
+            "relName": "inputs/ssbm/lineorder.csv"
+          },
+          "attributes": [{
+            "relName": "inputs/ssbm/lineorder.csv",
+            "attrName": "lo_orderdate"
+          }]
+        },
+        "attribute": {
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_orderdate"
+        }
+      },
+      "right": {
+        "expression": "recordProjection",
+        "e": {
+          "expression": "argument",
+          "argNo": 1,
+          "type": {
+            "type": "record",
+            "relName": "inputs/ssbm/date.csv"
+          },
+          "attributes": [{
+            "relName": "inputs/ssbm/date.csv",
+            "attrName": "d_datekey"
+          }]
+        },
+        "attribute": {
+          "relName": "inputs/ssbm/date.csv",
+          "attrName": "d_datekey"
+        }
+      }
+    },
+    "rightFields": [{
+        "expression": "recordProjection",
+        "e": {
+          "expression": "argument",
+          "argNo": 1,
+          "type": {
+            "type": "record",
+            "relName": "inputs/ssbm/date.csv"
+          },
+          "attributes": [{
+            "relName": "inputs/ssbm/date.csv",
+            "attrName": "d_datekey"
+          }]
+        },
+        "attribute": {
+          "relName": "inputs/ssbm/date.csv",
+          "attrName": "d_datekey"
+        }
+    }],
+    "rightInput": {
+      "operator": "select",
+      "p": {
+        "expression": "eq",
+        "left": {
+          "expression": "recordProjection",
+          "e": {
+            "expression": "argument",
+            "argNo": 1,
+            "type": {
+              "type": "record",
+              "relName": "inputs/ssbm/date.csv"
+            },
+            "attributes": [{
+              "relName": "inputs/ssbm/date.csv",
+              "attrName": "d_year"
+            }]
+          },
+          "attribute": {
+            "relName": "inputs/ssbm/date.csv",
+            "attrName": "d_year"
+          }
+        },
+        "right": {
+          "expression": "int",
+          "v": 1993
+        }
+      },
+      "input": {
+        "operator": "scan",
+        "plugin": {
+          "name": "inputs/ssbm/date.csv",
+          "type": "bincol",
+          "sizeInFile": false,
+          "projections": [{
+            "relName": "inputs/ssbm/date.csv",
+            "attrName": "d_datekey"
+          },{
+            "relName": "inputs/ssbm/date.csv",
+            "attrName": "d_year"
+          }]
+        }
+      }
+    },
+    "leftFields": [{
+      "expression": "recordProjection",
+      "e": {
+        "expression": "argument",
+        "argNo": 0,
+        "type": {
+          "type": "record",
+          "relName": "inputs/ssbm/lineorder.csv"
+        },
+        "attributes": [{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_orderdate"
+        }]
+      },
+      "attribute": {
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_orderdate"
+      }
+    },{
+      "expression": "recordProjection",
+      "e": {
+        "expression": "argument",
+        "argNo": -1,
+        "type": {
+          "type": "record",
+          "relName": "inputs/ssbm/lineorder.csv"
+        },
+        "attributes": [{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_discount"
+        }]
+      },
+      "attribute": {
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_discount"
+      }
+    },{
+      "expression": "recordProjection",
+      "e": {
+        "expression": "argument",
+        "argNo": 0,
+        "type": {
+          "type": "record",
+          "relName": "inputs/ssbm/lineorder.csv"
+        },
+        "attributes": [{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_extendedprice"
+        }]
+      },
+      "attribute": {
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_extendedprice"
+      }
+    }],
+    "leftInput": {
+      "operator": "select",
+      "p": {
+        "expression": "and",
+        "left": {
+          "expression": "and",
+          "left": {
+            "expression": "ge",
+            "left": {
+              "expression": "recordProjection",
+              "e": {
+                "expression": "argument",
+                "argNo": -1,
+                "type": {
+                  "type": "record",
+                  "relName": "inputs/ssbm/lineorder.csv"
+                },
+                "attributes": [{
+                  "relName": "inputs/ssbm/lineorder.csv",
+                  "attrName": "lo_discount"
+                }]
+              },
+              "attribute": {
+                "relName": "inputs/ssbm/lineorder.csv",
+                "attrName": "lo_discount"
+              }
+            },
+            "right":{
+              "expression": "int",
+              "v": 1
+            } 
+          },
+          "right":{
+            "expression": "le",
+            "left": {
+              "expression": "recordProjection",
+              "e": {
+                "expression": "argument",
+                "argNo": -1,
+                "type": {
+                  "type": "record",
+                  "relName": "inputs/ssbm/lineorder.csv"
+                },
+                "attributes": [{
+                  "relName": "inputs/ssbm/lineorder.csv",
+                  "attrName": "lo_discount"
+                }]
+              },
+              "attribute": {
+                "relName": "inputs/ssbm/lineorder.csv",
+                "attrName": "lo_discount"
+              }
+            },
+            "right":{
+              "expression": "int",
+              "v": 3
+            } 
+          } 
+        },
+        "right":{
+            "expression": "lt",
+            "left": {
+              "expression": "recordProjection",
+              "e": {
+                "expression": "argument",
+                "argNo": -1,
+                "type": {
+                  "type": "record",
+                  "relName": "inputs/ssbm/lineorder.csv"
+                },
+                "attributes": [{
+                  "relName": "inputs/ssbm/lineorder.csv",
+                  "attrName": "lo_quantity"
+                }]
+              },
+              "attribute": {
+                "relName": "inputs/ssbm/lineorder.csv",
+                "attrName": "lo_quantity"
+              }
+            },
+            "right":{
+              "expression": "int",
+              "v": 25
+            } 
+        }
+      },
+      "input": {
+        "operator": "scan",
+        "plugin": {
+          "name": "inputs/ssbm/lineorder.csv",
+          "type": "bincol",
+          "sizeInFile": false,
+          "projections": [{
+            "relName": "inputs/ssbm/lineorder.csv",
+            "attrName": "lo_discount"
+          },{
+            "relName": "inputs/ssbm/lineorder.csv",
+            "attrName": "lo_quantity"
+          },{
+            "relName": "inputs/ssbm/lineorder.csv",
+            "attrName": "lo_orderdate"
+          },{
+            "relName": "inputs/ssbm/lineorder.csv",
+            "attrName": "lo_extendedprice"
+          }]
+        }
+      }
+    }
+  }
+}

@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "operators/mem-move-device.hpp"
+#include "operators/mem-move-local-to.hpp"
 // #include "common/gpu/gpu-common.hpp"
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
@@ -35,51 +35,26 @@ struct buff_pair{
 };
 
 extern "C"{
-buff_pair make_mem_move_device(char * src, size_t bytes, int target_device, MemMoveDevice::MemMoveConf * mmc){
+buff_pair make_mem_move_local_to(char * src, size_t bytes, int target_device, MemMoveLocalTo::MemMoveConf * mmc){
     int dev = get_device(src);
 
-    if (dev == target_device) return buff_pair{src, src}; // block already in correct device
+    if (dev == target_device || bytes <= 0 || dev < 0 || numa_node_of_gpu(dev) == numa_node_of_gpu(target_device)) return buff_pair{src, src}; // block already in correct device
 
-    // set_device_on_scope d(dev);
+    set_device_on_scope d(dev);
 
-    // if (dev >= 0) set_affinity_local_to_gpu(dev);
+    if (dev >= 0) set_affinity_local_to_gpu(dev);
 
     assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager should be able to provide blocks of arbitary size
-    char * buff = (char *) buffer_manager<int32_t>::h_get_buffer(target_device);
-    
-    // int numa_target = numa_node_of_gpu(target_device);
-    // if (dev >= 0 && (numa_node_of_gpu(dev) != numa_target)){
-    //     set_device_on_scope d(dev);
+    char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(numa_node_of_gpu(target_device));
 
-    //     if (dev >= 0) set_affinity_local_to_gpu(dev);
-
-    //     size_t curr_e  = mmc->next_e;
-    //     cudaEvent_t e  = mmc->events   [curr_e];
-    //     void * old_ptr = mmc->old_buffs[curr_e];
-    //     // mmc->old_buffs[curr_e] = NULL;
-
-    //     if (old_ptr) buffer_manager<int32_t>::release_buffer((int32_t *) old_ptr); //FIXME: cannot release it yet!
-    //     gpu_run(cudaEventSynchronize(e));
-    //     mmc->next_e = (curr_e + 1) % mmc->slack;
-
-    //     char * interbuff = (char *) buffer_manager<int32_t>::get_buffer_numa(numa_target);
-    //     mmc->old_buffs[curr_e] = src;
-
-    //     buffer_manager<int32_t>::overwrite_bytes(interbuff, src, bytes, mmc->strm2, false);
-    //     gpu_run(cudaEventRecord(e, mmc->strm2));
-    //     src = interbuff;
-    
-    //     gpu_run(cudaStreamWaitEvent(mmc->strm, e, 0));
-    // }
-
-    if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm, false);
+    buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm, false);
     // buffer_manager<int32_t>::release_buffer ((int32_t *) src                             );
 
     return buff_pair{buff, src};
 }
 }
 
-void MemMoveDevice::produce() {
+void MemMoveLocalTo::produce() {
     LLVMContext & llvmContext   = context->getLLVMContext();
     Type * bool_type    = Type::getInt1Ty   (context->getLLVMContext());
     Type * int32_type   = Type::getInt32Ty  (context->getLLVMContext());
@@ -205,7 +180,7 @@ void MemMoveDevice::produce() {
     getChild()->produce();
 }
 
-void MemMoveDevice::consume(RawContext* const context, const OperatorState& childState) {
+void MemMoveLocalTo::consume(RawContext* const context, const OperatorState& childState) {
     //Prepare
     LLVMContext & llvmContext   = context->getLLVMContext();
     IRBuilder<> * Builder       = context->getBuilder    ();
@@ -227,7 +202,7 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
 
     RawValueMemory mem_cntWrapper = it->second;
 
-    Function * make_mem_move = context->getFunction("make_mem_move_device");
+    Function * make_mem_move = context->getFunction("make_mem_move_local_to");
     
     Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
@@ -285,7 +260,7 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
         d               = Builder->CreateInsertValue(d, pushed[i], i);
     }
 
-    Function * acquire      = context->getFunction("acquireWorkUnit");
+    Function * acquire      = context->getFunction("mem_move_local_to_acquireWorkUnit");
 
     Value * workunit_ptr8   = Builder->CreateCall(acquire, memmv);
     Value * workunit_ptr    = Builder->CreateBitCast(workunit_ptr8, PointerType::getUnqual(workunit_type));
@@ -295,16 +270,18 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
     d_ptr                   = Builder->CreateBitCast(d_ptr       , PointerType::getUnqual(data_type    ));
     Builder->CreateStore(d, d_ptr);
 
-    Function * propagate = context->getFunction("propagateWorkUnit");
+    Function * propagate = context->getFunction("mem_move_local_to_propagateWorkUnit");
     Builder->CreateCall(propagate, std::vector<Value *>{memmv, workunit_ptr8, is_noop});
 
     ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
     ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
-void MemMoveDevice::open (RawPipeline * pip){
-    nvtxRangePushA("memmove::open");
+void MemMoveLocalTo::open (RawPipeline * pip){
     int device = get_device();
+
+    // set_device_on_scope d(1-device);
+    
     cudaStream_t strm;
     gpu_run(cudaStreamCreateWithFlags(&strm , cudaStreamNonBlocking));
 
@@ -322,9 +299,8 @@ void MemMoveDevice::open (RawPipeline * pip){
     workunit * wu = new workunit[slack];
     size_t data_size = (pip->getSizeOf(data_type) + 16 - 1) & ~((size_t) 0xF);
     // void * data_buff = malloc(data_size * slack);
-    nvtxRangePushA("memmove::open2");
     for (size_t i = 0 ; i < slack ; ++i){
-        wu[i].data  = malloc(data_size);//((void *) (((char *) data_buff) + i * data_size));
+        wu[i].data = malloc(data_size);//((void *) (((char *) data_buff) + i * data_size));
         gpu_run(cudaEventCreateWithFlags(&(wu[i].event), cudaEventDisableTiming  | cudaEventBlockingSync));
 
         mmc->idle.push(wu + i);
@@ -332,36 +308,35 @@ void MemMoveDevice::open (RawPipeline * pip){
         gpu_run(cudaEventCreateWithFlags(mmc->events + i, cudaEventDisableTiming | cudaEventBlockingSync));
         mmc->old_buffs[i] = NULL;
     }
-    nvtxRangePop();
 
-    mmc->worker = new std::thread(&MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
+    mmc->worker = new std::thread(&MemMoveLocalTo::catcher, this, mmc, pip->getGroup(), exec_location{});
 
 
     pip->setStateVar<int         >(device_id_var, device);
 
     // pip->setStateVar<cudaStream_t>(cu_stream_var, strm  );
     pip->setStateVar<void      * >(memmvconf_var, mmc   );
-    nvtxRangePop();
 }
 
-void MemMoveDevice::close(RawPipeline * pip){
+void MemMoveLocalTo::close(RawPipeline * pip){
     int device = get_device();
     // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
     MemMoveConf * mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
+
+    nvtxRangePushA("MemMoveLocal_running");
+    nvtxRangePushA("MemMoveLocal_running2");
 
     gpu_run(cudaStreamSynchronize(mmc->strm ));
     gpu_run(cudaStreamDestroy    (mmc->strm ));
     gpu_run(cudaStreamSynchronize(mmc->strm2));
     gpu_run(cudaStreamDestroy    (mmc->strm2));
 
-    nvtxRangePushA("MemMoveDev_running2");
-    nvtxRangePushA("MemMoveDev_running");
-
+    nvtxRangePop();
     mmc->tran.close();
     nvtxRangePop();
     mmc->worker->join();
 
-    nvtxRangePushA("MemMoveDev_release");
+    nvtxRangePushA("MemMoveLocalTo::release");
     workunit * start_wu;
     // void     * start_wu_data;
     for (size_t i = 0 ; i < slack ; ++i){
@@ -373,10 +348,9 @@ void MemMoveDevice::close(RawPipeline * pip){
         gpu_run(cudaEventDestroy(mmc->events[i]));
         free(wu->data);
 
-        if (i == 0 || wu       < start_wu     ) start_wu      = wu;
+        if (i == 0 || wu       < start_wu     ) start_wu      = wu      ;
         // if (i == 0 || wu->data < start_wu_data) start_wu_data = wu->data;
     }
-    nvtxRangePop();
     nvtxRangePop();
     // free(start_wu_data);
     delete[] start_wu;
@@ -391,8 +365,8 @@ void MemMoveDevice::close(RawPipeline * pip){
 
 
 extern "C"{
-    MemMoveDevice::workunit * acquireWorkUnit  (MemMoveDevice::MemMoveConf * mmc){
-        MemMoveDevice::workunit * ret = nullptr;
+    MemMoveLocalTo::workunit * mem_move_local_to_acquireWorkUnit  (MemMoveLocalTo::MemMoveConf * mmc){
+        MemMoveLocalTo::workunit * ret = nullptr;
 #ifndef NDEBUG
         bool popres = 
 #endif
@@ -401,51 +375,48 @@ extern "C"{
         return ret;
     }
 
-    void propagateWorkUnit(MemMoveDevice::MemMoveConf * mmc, MemMoveDevice::workunit * buff, bool is_noop){
+    void mem_move_local_to_propagateWorkUnit(MemMoveLocalTo::MemMoveConf * mmc, MemMoveLocalTo::workunit * buff, bool is_noop){
         if (!is_noop) gpu_run(cudaEventRecord(buff->event, mmc->strm));
 
         mmc->tran.push(buff);
     }
 
-    bool acquirePendingWorkUnit(MemMoveDevice::MemMoveConf * mmc, MemMoveDevice::workunit ** ret){
+    bool mem_move_local_to_acquirePendingWorkUnit(MemMoveLocalTo::MemMoveConf * mmc, MemMoveLocalTo::workunit ** ret){
         return mmc->tran.pop(*ret);
     }
 
-    void releaseWorkUnit  (MemMoveDevice::MemMoveConf * mmc, MemMoveDevice::workunit * buff){
+    void mem_move_local_to_releaseWorkUnit  (MemMoveLocalTo::MemMoveConf * mmc, MemMoveLocalTo::workunit * buff){
         mmc->idle.push(buff);
     }
 }
 
-#include "nvToolsExt.h"
 
-void MemMoveDevice::catcher(MemMoveConf * mmc, int group_id, const exec_location &target_dev){
+void MemMoveLocalTo::catcher(MemMoveConf * mmc, int group_id, const exec_location &target_dev){
     set_exec_location_on_scope d(target_dev);
 
-    nvtxRangePushA("memmove::catch");
-
     RawPipeline * pip = catch_pip->getPipeline(group_id);
+    nvtxRangePushA("MemMoveLocalTo::catch");
 
-    nvtxRangePushA("memmove::catch_open");
+    nvtxRangePushA("MemMoveLocalTo::catch_open");
     pip->open();
     nvtxRangePop();
 
     {
         do {
-            MemMoveDevice::workunit * p = nullptr;
-            if (!acquirePendingWorkUnit(mmc, &p)) break;
+            MemMoveLocalTo::workunit * p = nullptr;
+            if (!mem_move_local_to_acquirePendingWorkUnit(mmc, &p)) break;
 
             gpu_run(cudaEventSynchronize(p->event));
-            nvtxRangePushA("memmove::catch_cons");
+            nvtxRangePushA("MemMoveLocalTo::catch_cons");
             pip->consume(0, p->data);
             nvtxRangePop();
 
-            releaseWorkUnit(mmc, p); //FIXME: move this inside the generated code
+            mem_move_local_to_releaseWorkUnit(mmc, p); //FIXME: move this inside the generated code
         } while (true);
     }
 
-    nvtxRangePushA("memmove::catch_close");
+    nvtxRangePushA("MemMoveLocalTo::catch_close");
     pip->close();
     nvtxRangePop();
-
     nvtxRangePop();
 }

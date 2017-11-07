@@ -76,6 +76,7 @@ public:
     // void unload(std::string name);
 
     static std::vector<mem_file> getFile(std::string name);
+    static std::vector<mem_file> getOrLoadFile(std::string name, data_loc loc = PINNED);
 };
 
 #endif /* RAW_STORAGE_MANAGER_HPP_ */
