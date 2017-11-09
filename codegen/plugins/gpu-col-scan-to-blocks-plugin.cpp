@@ -880,10 +880,6 @@ void GpuColScanToBlockPlugin::scan(const RawOperator& producer)
     variableBindings[tupCnt] = mem_cntWrapper;
 
 
-    OperatorState state{producer, variableBindings};
-    producer.getParent()->consume(context, state);
-
-
     // Start insertion in IncBB.
     Builder->SetInsertPoint(IncBB);
     nextEntry();
@@ -891,10 +887,8 @@ void GpuColScanToBlockPlugin::scan(const RawOperator& producer)
 
     Builder->SetInsertPoint(LoopBB);
 
-                                                                                                            // //Triggering parent
-                                                                                                            // OperatorState* state = new OperatorState(producer, *variableBindings);
-                                                                                                            // RawOperator* const opParent = producer.getParent();
-                                                                                                            // opParent->consume(context,*state);
+    OperatorState state{producer, variableBindings};
+    producer.getParent()->consume(context, state);
 
     // Insert an explicit fall through from the current (body) block to IncBB.
     Builder->CreateBr(IncBB);

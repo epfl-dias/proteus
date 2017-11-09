@@ -254,7 +254,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_1b) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -337,7 +337,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_2) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -422,7 +422,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_3) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -507,7 +507,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q1_1_100) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -604,7 +604,7 @@ TEST_F(GpuSSBMTest3, gpuSSBM_Q2_1) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 

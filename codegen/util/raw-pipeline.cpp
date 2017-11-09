@@ -166,7 +166,8 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
 
         FunctionType *release_buffer = FunctionType::get(void_type, std::vector<Type *>{charPtrType}, false);
         Function *frelease_buffer = Function::Create(release_buffer, Function::ExternalLinkage, "release_buffer", getModule());
-        registerFunction("release_buffer", frelease_buffer);
+        registerFunction("release_buffer" , frelease_buffer);
+        registerFunction("release_buffers", frelease_buffer);
 
         FunctionType *yield = FunctionType::get(void_type, std::vector<Type *>{}, false);
         Function *fyield = Function::Create(yield, Function::ExternalLinkage, "yield", getModule());

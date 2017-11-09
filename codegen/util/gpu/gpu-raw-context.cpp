@@ -181,10 +181,11 @@ Value * GpuRawContext::getSubStateVar() const{
 //     TheFPM->add(createSLPVectorizerPass());
 // }
 
-GpuRawContext::GpuRawContext(const string& moduleName): 
+GpuRawContext::GpuRawContext(const string& moduleName, bool gpu_root): 
             RawContext(moduleName, false), kernelName(moduleName), pip_cnt(0){
     createJITEngine();
-    pushNewPipeline();
+    if (gpu_root) pushNewPipeline();
+    else          pushNewCpuPipeline();
 }
 
 
@@ -414,134 +415,112 @@ void GpuRawContext::registerClose(const void * owner, std::function<void (RawPip
 // }
 
 Value * GpuRawContext::threadIdInBlock(){
-    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x" );
-    // Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
-    // Function *fy  = getFunction("llvm.nvvm.read.ptx.sreg.tid.y" );
+    IntegerType * int64_type = Type::getInt64Ty(getLLVMContext());
 
-    // std::vector<Value *> v{};
+    if (dynamic_cast<GpuRawPipelineGen *>(generators.back())){
+        Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
 
-    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
-    // Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
-    // Value * threadID_y = getBuilder()->CreateCall(fy , v, "threadID_y");
+        std::vector<Value *> v{};
 
-    // Value * rowid      = getBuilder()->CreateMul(threadID_y, blockDim_x, "rowid");
-    // return getBuilder()->CreateAdd(threadID_x, rowid, "thread_id");
-    Type * int64_type = Type::getInt64Ty(getLLVMContext());
+        Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
 
-    Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
+        // llvm does not provide i32 x i32 => i64, so we cast them to i64
+        Value * tid_x      = getBuilder()->CreateZExt(threadID_x, int64_type, "thread_id_in_block");
 
-    std::vector<Value *> v{};
-
-    Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
-
-    // llvm does not provide i32 x i32 => i64, so we cast them to i64
-    Value * tid_x      = getBuilder()->CreateZExt(threadID_x, int64_type, "thread_id_in_block");
-
-    return tid_x;
+        return tid_x;
+    } else {
+        return ConstantInt::get(int64_type, 0);
+    }
 }
 
 Value * GpuRawContext::blockId(){
-    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x" );
-    // Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
-    // Function *fy  = getFunction("llvm.nvvm.read.ptx.sreg.tid.y" );
+    IntegerType * int64_type = Type::getInt64Ty(getLLVMContext());
 
-    // std::vector<Value *> v{};
+    if (dynamic_cast<GpuRawPipelineGen *>(generators.back())){
+        // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
+        // Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x" );
+        Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
 
-    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
-    // Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
-    // Value * threadID_y = getBuilder()->CreateCall(fy , v, "threadID_y");
+        std::vector<Value *> v{};
 
-    // Value * rowid      = getBuilder()->CreateMul(threadID_y, blockDim_x, "rowid");
-    // return getBuilder()->CreateAdd(threadID_x, rowid, "thread_id");
-    Type * int64_type = Type::getInt64Ty(getLLVMContext());
-
-    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
-    // Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x" );
-    Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
-
-    std::vector<Value *> v{};
-
-    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
-    // Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
-    Value * blockID_x  = getBuilder()->CreateCall(fbx, v, "blockID_x" );
+        // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
+        // Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
+        Value * blockID_x  = getBuilder()->CreateCall(fbx, v, "blockID_x" );
 
 
-    // llvm does not provide i32 x i32 => i64, so we cast them to i64
-    // Value * tid_x      = getBuilder()->CreateZExt(threadID_x, int64_type);
-    // Value * bd_x       = getBuilder()->CreateZExt(blockDim_x, int64_type);
-    Value * bid_x      = getBuilder()->CreateZExt(blockID_x , int64_type, "block_id");
-    return bid_x;
+        // llvm does not provide i32 x i32 => i64, so we cast them to i64
+        // Value * tid_x      = getBuilder()->CreateZExt(threadID_x, int64_type);
+        // Value * bd_x       = getBuilder()->CreateZExt(blockDim_x, int64_type);
+        Value * bid_x      = getBuilder()->CreateZExt(blockID_x , int64_type, "block_id");
+        return bid_x;
+    } else {
+        return ConstantInt::get(int64_type, 0);
+    }
 }
 
 Value * GpuRawContext::threadId(){
-    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x" );
-    // Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
-    // Function *fy  = getFunction("llvm.nvvm.read.ptx.sreg.tid.y" );
+    IntegerType * int64_type = Type::getInt64Ty(getLLVMContext());
 
-    // std::vector<Value *> v{};
+    if (dynamic_cast<GpuRawPipelineGen *>(generators.back())){
+        // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
+        Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x" );
+        // Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
 
-    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
-    // Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
-    // Value * threadID_y = getBuilder()->CreateCall(fy , v, "threadID_y");
+        std::vector<Value *> v{};
 
-    // Value * rowid      = getBuilder()->CreateMul(threadID_y, blockDim_x, "rowid");
-    // return getBuilder()->CreateAdd(threadID_x, rowid, "thread_id");
-    Type * int64_type = Type::getInt64Ty(getLLVMContext());
-
-    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
-    Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x" );
-    // Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
-
-    std::vector<Value *> v{};
-
-    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
-    Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
-    // Value * blockID_x  = getBuilder()->CreateCall(fbx, v, "blockID_x" );
+        // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
+        Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
+        // Value * blockID_x  = getBuilder()->CreateCall(fbx, v, "blockID_x" );
 
 
-    // llvm does not provide i32 x i32 => i64, so we cast them to i64
-    Value * tid_x      = threadIdInBlock();
-    Value * bd_x       = getBuilder()->CreateZExt(blockDim_x, int64_type);
-    Value * bid_x      = blockId() ;
+        // llvm does not provide i32 x i32 => i64, so we cast them to i64
+        Value * tid_x      = threadIdInBlock();
+        Value * bd_x       = getBuilder()->CreateZExt(blockDim_x, int64_type);
+        Value * bid_x      = blockId() ;
 
-    Value * rowid      = getBuilder()->CreateMul(bid_x, bd_x, "rowid");
-    return getBuilder()->CreateAdd(tid_x, rowid, "thread_id");
+        Value * rowid      = getBuilder()->CreateMul(bid_x, bd_x, "rowid");
+        return getBuilder()->CreateAdd(tid_x, rowid, "thread_id");
+    } else {
+        return ConstantInt::get(int64_type, 0);
+    }
 }
 
 Value * GpuRawContext::threadNum(){
-    // Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
-    // Function *fny = getFunction("llvm.nvvm.read.ptx.sreg.ntid.y");
+    IntegerType * int64_type = Type::getInt64Ty(getLLVMContext());
 
-    // std::vector<Value *> v{};
+    if (dynamic_cast<GpuRawPipelineGen *>(generators.back())){
+        Function *fnx  = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
+        Function *fnbx = getFunction("llvm.nvvm.read.ptx.sreg.nctaid.x");
 
-    // Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
-    // Value * blockDim_y = getBuilder()->CreateCall(fny, v, "blockDim_y");
+        std::vector<Value *> v{};
 
-    // return getBuilder()->CreateMul(blockDim_x, blockDim_y);
-    Type * int64_type = Type::getInt64Ty(getLLVMContext());
+        Value * blockDim_x = getBuilder()->CreateCall(fnx , v, "blockDim_x");
+        Value * gridDim_x  = getBuilder()->CreateCall(fnbx, v, "gridDim_x" );
 
-    Function *fnx  = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
-    Function *fnbx = getFunction("llvm.nvvm.read.ptx.sreg.nctaid.x");
+        // llvm does not provide i32 x i32 => i64, so we cast them to i64
+        Value * bd_x       = getBuilder()->CreateZExt(blockDim_x, int64_type);
+        Value * gd_x       = getBuilder()->CreateZExt(gridDim_x , int64_type);
 
-    std::vector<Value *> v{};
-
-    Value * blockDim_x = getBuilder()->CreateCall(fnx , v, "blockDim_x");
-    Value * gridDim_x  = getBuilder()->CreateCall(fnbx, v, "gridDim_x" );
-
-    // llvm does not provide i32 x i32 => i64, so we cast them to i64
-    Value * bd_x       = getBuilder()->CreateZExt(blockDim_x, int64_type);
-    Value * gd_x       = getBuilder()->CreateZExt(gridDim_x , int64_type);
-
-    return getBuilder()->CreateMul(bd_x, gd_x);
+        return getBuilder()->CreateMul(bd_x, gd_x);
+    } else {
+        return ConstantInt::get(int64_type, 1);
+    }
 }
 
 Value * GpuRawContext::laneId(){
-    Function * laneid_fun = getFunction("llvm.nvvm.read.ptx.sreg.laneid");
-    return getBuilder()->CreateCall(laneid_fun, std::vector<Value *>{}, "laneid");
+    IntegerType * int64_type = Type::getInt64Ty(getLLVMContext());
+
+    if (dynamic_cast<GpuRawPipelineGen *>(generators.back())){
+        Function * laneid_fun = getFunction("llvm.nvvm.read.ptx.sreg.laneid");
+        return getBuilder()->CreateCall(laneid_fun, std::vector<Value *>{}, "laneid");
+    } else {
+        return ConstantInt::get(int64_type, 0);
+    }
 }
 
 
 void GpuRawContext::createMembar_gl(){
+    assert(dynamic_cast<GpuRawPipelineGen *>(generators.back()));
     Function * membar_fun = getFunction("llvm.nvvm.membar.gl");
     getBuilder()->CreateCall(membar_fun, std::vector<Value *>{});
 }

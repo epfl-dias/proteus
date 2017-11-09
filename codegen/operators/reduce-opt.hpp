@@ -72,10 +72,8 @@ private:
 			const OperatorState& state, AllocaInst *mem_accumulating) const;
 	void generateAnd(expressions::Expression* outputExpr, RawContext* const context,
 			const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateUnion(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, AllocaInst *mem_accumulating) const;
 	void generateBagUnion(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state) const;
+			const OperatorState& state, ExpressionFlusherVisitor * bflusher = NULL) const;
 	void generateAppend(expressions::Expression* outputExpr, RawContext* const context,
 			const OperatorState& state, AllocaInst *mem_accumulating) const;
 
@@ -93,9 +91,6 @@ private:
 			const OperatorState& state, AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher,
 			bool flushDelim = false) const;
 	BasicBlock* flushAnd(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher,
-			bool flushDelim = false) const;
-	BasicBlock* flushUnion(expressions::Expression* outputExpr, RawContext* const context,
 			const OperatorState& state, AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher,
 			bool flushDelim = false) const;
 	BasicBlock* flushBagUnion(expressions::Expression* outputExpr, RawContext* const context,

@@ -188,6 +188,8 @@ public:
 
 	Value * const getMemResultCtr() {return mem_resultCtr;}
 
+	const char * getName();
+
 protected:
 	LLVMContext TheContext;
 	Module * TheModule;

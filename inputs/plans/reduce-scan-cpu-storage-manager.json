@@ -1,0 +1,188 @@
+{
+  "operator": "reduce",
+  "accumulator": ["sum"],
+  "p": {
+    "expression": "bool",
+    "v": true
+  },
+  "e": [{
+    "expression": "multiply",
+    "left": {
+      "expression": "recordProjection",
+      "type": {
+        "type": "int"
+      },
+      "e": {
+        "expression": "argument",
+        "argNo": -1,
+        "type": {
+          "type": "record",
+          "relName": "inputs/ssbm/lineorder.csv"
+        },
+        "attributes": [{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_discount"
+        }]
+      },
+      "attribute": {
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_discount"
+      }
+    },
+    "right":{
+      "expression": "recordProjection",
+      "type": {
+        "type": "int"
+      },
+      "e": {
+        "expression": "argument",
+        "argNo": -1,
+        "type": {
+          "type": "record",
+          "relName": "inputs/ssbm/lineorder.csv"
+        },
+        "attributes": [{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_extendedprice"
+        }]
+      },
+      "attribute": {
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_extendedprice"
+      }
+    }
+  }],
+  "input": {
+    "operator": "select",
+    "p": {
+      "expression": "and",
+      "left": {
+        "expression": "and",
+        "left": {
+          "expression": "ge",
+          "left": {
+            "expression": "recordProjection",
+            "type": {
+              "type": "int"
+            },
+            "e": {
+              "expression": "argument",
+              "argNo": -1,
+              "type": {
+                "type": "record",
+                "relName": "inputs/ssbm/lineorder.csv"
+              },
+              "attributes": [{
+                "relName": "inputs/ssbm/lineorder.csv",
+                "attrName": "lo_discount"
+              }]
+            },
+            "attribute": {
+              "relName": "inputs/ssbm/lineorder.csv",
+              "attrName": "lo_discount"
+            }
+          },
+          "right":{
+            "expression": "int",
+            "v": 1
+          } 
+        },
+        "right":{
+          "expression": "le",
+          "left": {
+            "expression": "recordProjection",
+            "type": {
+              "type": "int"
+            },
+            "e": {
+              "expression": "argument",
+              "argNo": -1,
+              "type": {
+                "type": "record",
+                "relName": "inputs/ssbm/lineorder.csv"
+              },
+              "attributes": [{
+                "relName": "inputs/ssbm/lineorder.csv",
+                "attrName": "lo_discount"
+              }]
+            },
+            "attribute": {
+              "relName": "inputs/ssbm/lineorder.csv",
+              "attrName": "lo_discount"
+            }
+          },
+          "right":{
+            "expression": "int",
+            "v": 3
+          } 
+        } 
+      },
+      "right":{
+          "expression": "lt",
+          "left": {
+            "expression": "recordProjection",
+            "type": {
+              "type": "int"
+            },
+            "e": {
+              "expression": "argument",
+              "argNo": -1,
+              "type": {
+                "type": "record",
+                "relName": "inputs/ssbm/lineorder.csv"
+              },
+              "attributes": [{
+                "relName": "inputs/ssbm/lineorder.csv",
+                "attrName": "lo_quantity"
+              }]
+            },
+            "attribute": {
+              "relName": "inputs/ssbm/lineorder.csv",
+              "attrName": "lo_quantity"
+            }
+          },
+          "right":{
+            "expression": "int",
+            "v": 25
+          } 
+      }
+    },
+    "input": {
+      "operator": "block-to-tuples",
+      "gpu": false,
+      "projections": [{
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_discount"
+      },{
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_quantity"
+      },{
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_orderdate"
+      },{
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_extendedprice"
+      }],
+      "input": {
+        "operator": "scan",
+        "plugin": {
+          "name": "inputs/ssbm/lineorder.csv",
+          "type": "block",
+          "projections": [{
+            "relName": "inputs/ssbm/lineorder.csv",
+            "attrName": "lo_discount"
+          },{
+            "relName": "inputs/ssbm/lineorder.csv",
+            "attrName": "lo_quantity"
+          },{
+            "relName": "inputs/ssbm/lineorder.csv",
+            "attrName": "lo_orderdate"
+          },{
+            "relName": "inputs/ssbm/lineorder.csv",
+            "attrName": "lo_extendedprice"
+          }]
+        }
+      }
+    }
+  }
+}

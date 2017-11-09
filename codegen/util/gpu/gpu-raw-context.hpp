@@ -33,7 +33,7 @@
 class GpuRawContext: public RawContext {
 public:
 
-    GpuRawContext(const string& moduleName);
+    GpuRawContext(const string& moduleName, bool gpu_root = true);
     ~GpuRawContext();
 
     virtual size_t appendParameter(llvm::Type * ptype, bool noalias  = false, bool readonly = false);

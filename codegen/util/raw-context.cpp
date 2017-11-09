@@ -73,6 +73,10 @@ void __attribute__((unused)) addOptimizerPipelineVectorization(legacy::FunctionP
 	TheFPM->add(createSLPVectorizerPass());
 }
 
+const char * RawContext::getName(){
+	return TheModule->getName().str().c_str();
+}
+
 RawContext::RawContext(const string& moduleName, bool setGlobFunction) {
 	TheModule = new Module(moduleName, getLLVMContext());
 	TheBuilder = new IRBuilder<>(getLLVMContext());

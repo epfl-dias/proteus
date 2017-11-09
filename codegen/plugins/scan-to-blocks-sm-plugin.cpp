@@ -1025,9 +1025,6 @@ void ScanToBlockSMPlugin::scan(const RawOperator& producer){
     mem_cntWrapper.isNull   = context->createFalse();
     variableBindings[tupCnt] = mem_cntWrapper;
 
-    OperatorState state{producer, variableBindings};
-    producer.getParent()->consume(context, state);
-
     // // Start insertion in IncBB.
     Builder->SetInsertPoint(IncBB);
     nextEntry();
@@ -1036,6 +1033,9 @@ void ScanToBlockSMPlugin::scan(const RawOperator& producer){
 
     Builder->SetInsertPoint(MainBB);
     
+    OperatorState state{producer, variableBindings};
+    producer.getParent()->consume(context, state);
+
     // Insert an explicit fall through from the current (body) block to IncBB.
     Builder->CreateBr(IncBB);
 

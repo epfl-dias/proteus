@@ -117,24 +117,24 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
     //Get the ENTRY BLOCK
     // context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
-    BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanCond", F);
+    BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanBlkCond", F);
 
     // // Start insertion in CondBB.
     // Builder->SetInsertPoint(CondBB);
 
     // Make the new basic block for the loop header (BODY), inserting after current block.
-    BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "scanBody", F);
+    BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "scanBlkBody", F);
 
     // Make the new basic block for the increment, inserting after current block.
-    BasicBlock *IncBB = BasicBlock::Create(llvmContext, "scanInc", F);
+    BasicBlock *IncBB = BasicBlock::Create(llvmContext, "scanBlkInc", F);
 
     // Create the "AFTER LOOP" block and insert it.
-    BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "scanEnd", F);
+    BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "scanBlkEnd", F);
     // context->setEndingBlock(AfterBB);
 
-    Builder->CreateBr      (CondBB);
+    // Builder->CreateBr      (CondBB);
 
-    Builder->SetInsertPoint(context->getCurrentEntryBlock());
+    // Builder->SetInsertPoint(context->getCurrentEntryBlock());
     
     Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
     
@@ -151,6 +151,7 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
     // Function * f = context->getFunction("devprinti64");
     // Builder->CreateCall(f, std::vector<Value *>{cnt});
 
+    Builder->CreateBr      (CondBB);
     Builder->SetInsertPoint(CondBB);
     
 
@@ -259,7 +260,13 @@ void BlockToTuples::open (RawPipeline * pip){
 
     size_t grid_size  = ec.gridSize();
 
-    void ** buffs = (void **) RawMemoryManager::mallocGpu(sizeof(void  *) * wantedFields.size());
+    void ** buffs;
+
+    if (gpu) {
+        buffs = (void **) RawMemoryManager::mallocGpu(sizeof(void  *) * wantedFields.size());
+    } else {
+        buffs = (void **) RawMemoryManager::mallocPinned(sizeof(void  *) * wantedFields.size());
+    }
 
     gpu_run(cudaMemset(buffs, 0, sizeof(void  *) * wantedFields.size()));
 
@@ -269,15 +276,22 @@ void BlockToTuples::open (RawPipeline * pip){
 }
 
 void BlockToTuples::close(RawPipeline * pip){
-    void ** h_buffs = (void **) malloc(sizeof(void  *) * wantedFields.size());
+    void ** h_buffs;
     void ** buffs   = pip->getStateVar<void **>(old_buffs[0]);
 
-    cudaStream_t strm;
-    gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
-    gpu_run(cudaMemcpyAsync(h_buffs, buffs, sizeof(void  *) * wantedFields.size(), cudaMemcpyDefault, strm));
-    gpu_run(cudaStreamSynchronize(strm));
-    gpu_run(cudaStreamDestroy(strm));
-    RawMemoryManager::freeGpu(buffs);
+    if (gpu){
+        h_buffs = (void **) malloc(sizeof(void  *) * wantedFields.size());
+        cudaStream_t strm;
+        gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+        gpu_run(cudaMemcpyAsync(h_buffs, buffs, sizeof(void  *) * wantedFields.size(), cudaMemcpyDefault, strm));
+        gpu_run(cudaStreamSynchronize(strm));
+        gpu_run(cudaStreamDestroy(strm));
+    } else {
+        h_buffs = buffs;
+    }
+
+    if (gpu) RawMemoryManager::freeGpu(buffs);
+    else     RawMemoryManager::freePinned(buffs);
 
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
         buffer_manager<int32_t>::release_buffer((int32_t *) h_buffs[i]);

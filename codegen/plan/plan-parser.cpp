@@ -95,9 +95,8 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, const char 
 }
 
 
-PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, RawContext * ctx) :
-		planPath(planPath), moduleName(""), catalogParser(cat), ctx(ctx), exprParser(cat) {
-
+PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, const char *moduleName, RawContext * ctx) :
+		planPath(planPath), moduleName(moduleName), catalogParser(cat), ctx(ctx), exprParser(cat) {
 	RawCatalog& catalog = RawCatalog::getInstance();
 
 	//Input Path

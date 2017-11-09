@@ -105,7 +105,7 @@ private:
 class PlanExecutor {
 public:
 	PlanExecutor(const char *planPath, CatalogParser& cat, const char *moduleName = "llvmModule");
-	PlanExecutor(const char *planPath, CatalogParser& cat, RawContext * ctx);
+	PlanExecutor(const char *planPath, CatalogParser& cat, const char *moduleName, RawContext * ctx);
 
 private:
 	ExpressionParser exprParser;

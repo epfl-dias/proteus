@@ -173,7 +173,7 @@ TEST_F(MultiGPUTest, gpuDriverSequential) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -250,7 +250,7 @@ TEST_F(MultiGPUTest, gpuDriverMultiReduce) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -288,13 +288,13 @@ TEST_F(MultiGPUTest, gpuDriverParallel) {
     
     gpu_run(cudaSetDevice(0));
 
-    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
-    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
-    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
-    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_discount"     , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_quantity"     , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_orderdate"    , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_extendedprice", PINNED);
 
-    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_datekey"             );
-    StorageManager::loadToGpus("inputs/ssbm/date.csv.d_year"                );
+    StorageManager::load("inputs/ssbm/date.csv.d_datekey"            , PINNED);
+    StorageManager::load("inputs/ssbm/date.csv.d_year"               , PINNED);
 
     __itt_resume();
     const char *testLabel = "gpuSSBM_Q1_1_parallel";
@@ -308,7 +308,7 @@ TEST_F(MultiGPUTest, gpuDriverParallel) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -368,7 +368,7 @@ TEST_F(MultiGPUTest, gpuDriverParallelOnGpu) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -428,7 +428,7 @@ TEST_F(MultiGPUTest, gpuDriverParallelOnGpuEarlyFilter) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -488,7 +488,7 @@ TEST_F(MultiGPUTest, gpuDriverParallelOnGpuFull) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -546,7 +546,7 @@ TEST_F(MultiGPUTest, gpuPingPong) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -603,7 +603,7 @@ TEST_F(MultiGPUTest, gpuPingHashRearrangePong) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -661,7 +661,7 @@ TEST_F(MultiGPUTest, gpuStorageManager) {
         
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
         ctx->compileAndLoad();
 
@@ -770,7 +770,7 @@ TEST_F(MultiGPUTest, cpuParallel) {
 
         ctx                   = new GpuRawContext(testLabel);
         CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, ctx);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
 
         // return verifyTestResult(TEST_OUTPUTS "/tests-cpu-sequential/", testLabel);
         
@@ -781,6 +781,70 @@ TEST_F(MultiGPUTest, cpuParallel) {
 
     // EXPECT_TRUE(verifyTestResult(TEST_OUTPUTS "/tests-multigpu-integration/", testLabel));
 
+    // int32_t c_out;
+    // gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
+    // //for the current dataset, regenerating it may change the results
+    // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
+    // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+    StorageManager::unloadAll();
+}
+
+
+TEST_F(MultiGPUTest, cpuScanReduce) {
+    int devices = get_num_of_gpus();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStart());
+    }
+
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_discount"      , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_quantity"      , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_orderdate"     , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_extendedprice" , PINNED);
+
+    StorageManager::load("inputs/ssbm/date.csv.d_datekey"             , PINNED);
+    StorageManager::load("inputs/ssbm/date.csv.d_year"                , PINNED);
+    
+    gpu_run(cudaSetDevice(0));
+
+    __itt_resume();
+    const char *testLabel = "cpuScanReduce";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/reduce-scan-cpu-storage-manager.json";
+
+    std::vector<RawPipeline *> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel, false);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
+        
+        ctx->compileAndLoad();
+
+        pipelines = ctx->getPipelines();
+    }
+
+    for (RawPipeline * p: pipelines) {
+        nvtxRangePushA("pip");
+        {
+            time_block t("T: ");
+            p->open();
+            p->consume(0);
+            p->close();
+        }
+        nvtxRangePop();
+    }
+    __itt_pause();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStop());
+    }
+
+
+    EXPECT_TRUE(verifyTestResult(TEST_OUTPUTS "/tests-multigpu-integration/", testLabel));
     // int32_t c_out;
     // gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
     // //for the current dataset, regenerating it may change the results
