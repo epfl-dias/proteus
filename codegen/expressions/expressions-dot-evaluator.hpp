@@ -56,6 +56,8 @@ public:
 			expressions::StringConstant *e2);
 	RawValue visit(expressions::InputArgument *e1,
 			expressions::InputArgument *e2);
+	RawValue visit(expressions::RawValueExpression *e1,
+			expressions::RawValueExpression *e2);
 	RawValue visit(expressions::RecordProjection *e1,
 			expressions::RecordProjection *e2);
 	RawValue visit(expressions::IfThenElse *e1, expressions::IfThenElse *e2);
@@ -85,6 +87,10 @@ public:
 			expressions::OrExpression *e2);
 	RawValue visit(expressions::RecordConstruction *e1,
 			expressions::RecordConstruction *e2);
+	RawValue visit(expressions::MaxExpression *e1,
+			expressions::MaxExpression *e2);
+	RawValue visit(expressions::MinExpression *e1,
+			expressions::MinExpression *e2);
 
 private:
 	RawContext* const context;

@@ -110,6 +110,18 @@ RawValue OrExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
+RawValue RawValueExpression::accept(ExprVisitor &v) {
+	return v.visit(this);
+}
+
+RawValue MaxExpression::accept(ExprVisitor &v) {
+	return v.visit(this);
+}
+
+RawValue MinExpression::accept(ExprVisitor &v) {
+	return v.visit(this);
+}
+
 /*XXX My responsibility to provide appropriate (i.e., compatible) input */
 RawValue IntConstant::acceptTandem(ExprTandemVisitor &v, expressions::Expression* expr) {
 	if (this->getTypeID() == expr->getTypeID()) {
@@ -206,6 +218,17 @@ RawValue RecordConstruction::acceptTandem(ExprTandemVisitor &v,
 		RecordConstruction *rRecordConstruction =
 				dynamic_cast<RecordConstruction*>(expr);
 		return v.visit(this, rRecordConstruction);
+	}
+	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
+	LOG(ERROR)<< error_msg;
+	throw runtime_error(string(error_msg));
+}
+
+RawValue RawValueExpression::acceptTandem(ExprTandemVisitor &v,
+		expressions::Expression* expr) {
+	if (this->getTypeID() == expr->getTypeID()) {
+		RawValueExpression *rVariable = dynamic_cast<RawValueExpression*>(expr);
+		return v.visit(this, rVariable);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
 	LOG(ERROR)<< error_msg;
@@ -360,4 +383,46 @@ RawValue OrExpression::acceptTandem(ExprTandemVisitor &v,
 	throw runtime_error(string(error_msg));
 }
 
+RawValue MaxExpression::acceptTandem(ExprTandemVisitor &v,
+		expressions::Expression* expr) {
+	if (this->getTypeID() == expr->getTypeID()) {
+		MaxExpression *r = dynamic_cast<MaxExpression*>(expr);
+		return v.visit(this, r);
+	}
+	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
+	LOG(ERROR)<< error_msg;
+	throw runtime_error(string(error_msg));
 }
+
+RawValue MinExpression::acceptTandem(ExprTandemVisitor &v,
+		expressions::Expression* expr) {
+	if (this->getTypeID() == expr->getTypeID()) {
+		MinExpression *r = dynamic_cast<MinExpression*>(expr);
+		return v.visit(this, r);
+	}
+	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
+	LOG(ERROR)<< error_msg;
+	throw runtime_error(string(error_msg));
+}
+
+}
+
+expressions::Expression * toExpression(Monoid m, expressions::Expression * lhs, expressions::Expression * rhs){
+	switch (m){
+		case SUM:
+			return new expressions::AddExpression(lhs, rhs);
+		case MULTIPLY:
+			return new expressions::MultExpression(lhs, rhs);
+		case MAX:
+			return new expressions::MaxExpression(lhs, rhs);
+		case OR:
+			return new expressions::OrExpression(lhs, rhs);
+		case AND:
+			return new expressions::AndExpression(lhs, rhs);
+		default:
+			return NULL;
+	}
+}
+
+
+

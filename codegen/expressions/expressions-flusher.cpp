@@ -126,6 +126,24 @@ RawValue ExpressionFlusherVisitor::visit(expressions::InputArgument *e)
 	return placeholder;
 }
 
+RawValue ExpressionFlusherVisitor::visit(expressions::RawValueExpression *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
+	RawCatalog& catalog 			= RawCatalog::getInstance();
+
+	Plugin* plugin 					= catalog.getPlugin(activeRelation);
+
+	//Resetting activeRelation here would break nested-record-projections
+	//activeRelation = "";
+	if(plugin == NULL)	{
+		string error_msg = string("[Expression Generator: ] No plugin provided");
+		LOG(ERROR) << error_msg;
+		throw runtime_error(error_msg);
+	} else {
+		plugin->flushValueEager(e->getValue(), e->getExpressionType(), outputFileLLVM);
+	}
+	return placeholder;
+}
+
 RawValue ExpressionFlusherVisitor::visit(expressions::RecordProjection *e) {
 	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	RawCatalog& catalog 			= RawCatalog::getInstance();
@@ -605,6 +623,14 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordConstruction *e)
 	return placeholder;
 }
 
+RawValue ExpressionFlusherVisitor::visit(expressions::MaxExpression *e)	{
+	return e->getCond()->accept(*this);
+}
+
+RawValue ExpressionFlusherVisitor::visit(expressions::MinExpression *e)	{
+	return e->getCond()->accept(*this);
+}
+
 /* Code almost identical to CSVPlugin::flushValue */
 void ExpressionFlusherVisitor::flushValue(Value *val, typeID val_type) {
 	outputFileLLVM = context->CreateGlobalString(this->outputFile);
@@ -664,3 +690,5 @@ void ExpressionFlusherVisitor::flushValue(Value *val, typeID val_type) {
 		throw runtime_error(string("[ExpressionFlusherVisitor: ] Unknown datatype"));
 	}
 }
+
+

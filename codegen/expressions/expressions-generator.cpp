@@ -1722,4 +1722,16 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::OrExpression *e) {
 		return valWrapper;
 }
 
+RawValue ExpressionGeneratorVisitor::visit(expressions::RawValueExpression *e){
+	return e->getValue();
+}
+
+RawValue ExpressionGeneratorVisitor::visit(expressions::MaxExpression *e)	{
+	return e->getCond()->accept(*this);
+}
+
+RawValue ExpressionGeneratorVisitor::visit(expressions::MinExpression *e)	{
+	return e->getCond()->accept(*this);
+}
+
 #pragma pop_macro("DEBUG") //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side

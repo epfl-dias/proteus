@@ -27,7 +27,7 @@
 #include "util/raw-context.hpp"
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
-
+#include "operators/monoids.hpp"
 
 class ExprVisitor; 		 //Forward declaration
 class ExprTandemVisitor; //Forward declaration
@@ -37,10 +37,11 @@ namespace expressions
 {
 
 
-enum ExpressionId	{ CONSTANT, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE };
+enum ExpressionId	{ CONSTANT, RAWVALUE, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE};
 
 class Expression	{
 public:
+	[[deprecated]]
 	Expression(ExpressionType* type) : type(type), registered(false){}
 	Expression(const ExpressionType* type) : type(type), registered(false){}
 	virtual ~Expression()								{}
@@ -111,7 +112,7 @@ public:
 	enum ConstantType {
 		INT, BOOL, FLOAT, STRING
 	};
-	Constant(ExpressionType* type) : Expression(type)	{}
+	Constant(const ExpressionType* type) : Expression(type)	{}
 	~Constant()										  	{}
 	virtual ConstantType getConstantType() const = 0;
 };
@@ -417,6 +418,28 @@ private:
 	RecordAttribute attribute;
 };
 
+class RawValueExpression : public Expression	{
+public:
+	RawValueExpression(const ExpressionType* type, RawValue expr)	:
+				Expression(type), expr(expr){}
+	~RawValueExpression()								{}
+
+	RawValue getValue() const							{ return expr; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const						{ return RAWVALUE; }
+	inline bool operator<(const expressions::Expression& r) const {
+		if (this->getTypeID() == r.getTypeID()) {
+			const RawValueExpression& rProj = dynamic_cast<const RawValueExpression&>(r);
+			return (expr.value == NULL && rProj.expr.value == NULL) ? (expr.isNull < rProj.expr.isNull) : (expr.value < rProj.expr.value);
+		} else {
+			return this->getTypeID() < r.getTypeID();
+		}
+	}
+private:
+	RawValue expr;
+};
+
 class AttributeConstruction	{
 public:
 	AttributeConstruction(string name, Expression* expr) :
@@ -436,7 +459,7 @@ private:
  */
 class RecordConstruction : public Expression	{
 public:
-	RecordConstruction(ExpressionType* type,
+	RecordConstruction(const ExpressionType* type,
 			const list<AttributeConstruction>& atts) :
 			Expression(type), atts(atts) 							{
 				assert(type->getTypeID() == RECORD);
@@ -479,8 +502,13 @@ private:
 
 class IfThenElse : public Expression	{
 public:
-	IfThenElse(ExpressionType* type, Expression* expr1, Expression* expr2, Expression* expr3) :
+	[[deprecated]]
+	IfThenElse(const ExpressionType* type, Expression* expr1, Expression* expr2, Expression* expr3) :
 			Expression(type), expr1(expr1), expr2(expr2), expr3(expr3)			{}
+	IfThenElse(Expression* expr1, Expression* expr2, Expression* expr3) :
+			Expression(expr2->getExpressionType()), expr1(expr1), expr2(expr2), expr3(expr3){
+				assert(expr2->getExpressionType()->getTypeID() == expr3->getExpressionType()->getTypeID());
+			}
 	~IfThenElse()																{}
 
 	RawValue accept(ExprVisitor &v);
@@ -533,7 +561,7 @@ private:
 
 class BinaryExpression : public Expression	{
 public:
-	BinaryExpression(ExpressionType* type, expressions::BinaryOperator* op, Expression* lhs, Expression* rhs) :
+	BinaryExpression(const ExpressionType* type, expressions::BinaryOperator* op, Expression* lhs, Expression* rhs) :
 		Expression(type), lhs(lhs), rhs(rhs), op(op)			{}
 	virtual Expression* getLeftOperand() const					{ return lhs; }
 	virtual Expression* getRightOperand() const					{ return rhs; }
@@ -568,8 +596,12 @@ private:
 
 class EqExpression: public BinaryExpression {
 public:
-	EqExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+	[[deprecated]]
+	EqExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
 			BinaryExpression(type, new Eq(), lhs, rhs) {
+	}
+	EqExpression(Expression* lhs, Expression* rhs) :
+			BinaryExpression(new BoolType(), new Eq(), lhs, rhs) {
 	}
 	~EqExpression() {
 	}
@@ -616,8 +648,11 @@ public:
 
 class NeExpression : public BinaryExpression	{
 public:
-	NeExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+	[[deprecated]]
+	NeExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
 		BinaryExpression(type,new Neq(),lhs,rhs) 	{}
+	NeExpression(Expression* lhs, Expression* rhs) :
+		BinaryExpression(new BoolType(),new Neq(),lhs,rhs) 	{}
 	~NeExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
@@ -657,8 +692,11 @@ public:
 
 class GeExpression : public BinaryExpression	{
 public:
-	GeExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+	[[deprecated]]
+	GeExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
 		BinaryExpression(type,new Ge(),lhs,rhs) 	{}
+	GeExpression(Expression* lhs, Expression* rhs) :
+		BinaryExpression(new BoolType(),new Ge(),lhs,rhs) 	{}
 	~GeExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
@@ -698,8 +736,11 @@ public:
 
 class GtExpression : public BinaryExpression	{
 public:
-	GtExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+	[[deprecated]]
+	GtExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
 		BinaryExpression(type,new Gt(),lhs,rhs)		{}
+	GtExpression(Expression* lhs, Expression* rhs) :
+		BinaryExpression(new BoolType(),new Gt(),lhs,rhs)		{}
 	~GtExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
@@ -739,8 +780,11 @@ public:
 
 class LeExpression : public BinaryExpression	{
 public:
-	LeExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+	[[deprecated]]
+	LeExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
 		BinaryExpression(type,new Le(),lhs,rhs) 	{}
+	LeExpression(Expression* lhs, Expression* rhs) :
+		BinaryExpression(new BoolType(),new Le(),lhs,rhs) 	{}
 	~LeExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
@@ -780,8 +824,11 @@ public:
 
 class LtExpression : public BinaryExpression	{
 public:
-	LtExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+	[[deprecated]]
+	LtExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
 		BinaryExpression(type,new Lt(),lhs,rhs) 	{}
+	LtExpression(Expression* lhs, Expression* rhs) :
+		BinaryExpression(new BoolType(),new Lt(),lhs,rhs) 	{}
 	~LtExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
@@ -824,8 +871,11 @@ public:
 
 class AddExpression : public BinaryExpression	{
 public:
-	AddExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+	[[deprecated]]
+	AddExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
 		BinaryExpression(type,new Add(),lhs,rhs) 	{}
+	AddExpression(Expression* lhs, Expression* rhs) :
+		BinaryExpression(lhs->getExpressionType(), new Add(),lhs,rhs) 	{}
 	~AddExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
@@ -866,8 +916,11 @@ public:
 
 class SubExpression : public BinaryExpression	{
 public:
-	SubExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+	[[deprecated]]
+	SubExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
 		BinaryExpression(type,new Sub(),lhs,rhs) 	{}
+	SubExpression(Expression* lhs, Expression* rhs) :
+		BinaryExpression(lhs->getExpressionType(),new Sub(),lhs,rhs) 	{}
 	~SubExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
@@ -908,8 +961,10 @@ public:
 
 class MultExpression : public BinaryExpression	{
 public:
-	MultExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+	MultExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
 		BinaryExpression(type,new Mult(),lhs,rhs) 	{}
+	MultExpression(Expression* lhs, Expression* rhs) :
+		BinaryExpression(lhs->getExpressionType(),new Mult(),lhs,rhs) 	{}
 	~MultExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
@@ -950,8 +1005,10 @@ public:
 
 class DivExpression : public BinaryExpression	{
 public:
-	DivExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+	DivExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
 		BinaryExpression(type,new Div(),lhs,rhs) 	{}
+	DivExpression(Expression* lhs, Expression* rhs) :
+		BinaryExpression(lhs->getExpressionType(),new Div(),lhs,rhs) 	{}
 	~DivExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
@@ -992,8 +1049,10 @@ public:
 
 class AndExpression : public BinaryExpression	{
 public:
-	AndExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+	AndExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
 		BinaryExpression(type,new And(),lhs,rhs) 	{}
+	AndExpression(Expression* lhs, Expression* rhs) :
+		BinaryExpression(lhs->getExpressionType(),new And(),lhs,rhs) 	{}
 	~AndExpression()								{}
 
 	RawValue accept(ExprVisitor &v);
@@ -1034,8 +1093,10 @@ public:
 
 class OrExpression : public BinaryExpression	{
 public:
-	OrExpression(ExpressionType* type, Expression* lhs, Expression* rhs) :
+	OrExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
 		BinaryExpression(type,new Or(),lhs,rhs) 	{}
+	OrExpression(Expression* lhs, Expression* rhs) :
+		BinaryExpression(lhs->getExpressionType(),new Or(),lhs,rhs) 	{}
 	~OrExpression()									{}
 
 	RawValue accept(ExprVisitor &v);
@@ -1072,6 +1133,79 @@ public:
 		return this->getTypeID() < r.getTypeID();
 	}
 };
+
+class MaxExpression: public BinaryExpression {
+public:
+	MaxExpression(Expression* lhs, Expression* rhs) :
+			BinaryExpression(lhs->getExpressionType(), new Max(), lhs, rhs),
+			cond(
+				new GtExpression(
+					lhs,
+					rhs
+				),
+				lhs,
+				rhs
+			){
+	}
+	~MaxExpression() {
+	}
+
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	IfThenElse * getCond(){return &cond;};
+	inline bool operator<(const expressions::Expression& r) const {
+		if (this->getTypeID() == r.getTypeID()) {
+			const BinaryExpression& rBin = dynamic_cast<const BinaryExpression&>(r);
+			if (this->getOp()->getID() == rBin.getOp()->getID()) {
+				const MaxExpression& rMax = dynamic_cast<const MaxExpression&>(r);
+				return this->cond < rMax.cond;
+			} else {
+				return this->getOp()->getID() < rBin.getOp()->getID();
+			}
+		}
+		return this->getTypeID() < r.getTypeID();
+	}
+
+private:
+	IfThenElse cond;
+};
+
+class MinExpression: public BinaryExpression {
+public:
+	MinExpression(Expression* lhs, Expression* rhs) :
+			BinaryExpression(lhs->getExpressionType(), new Min(), lhs, rhs),
+			cond(
+				new LtExpression(
+					lhs,
+					rhs
+				),
+				lhs,
+				rhs
+			){
+	}
+	~MinExpression() {
+	}
+
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	IfThenElse * getCond(){return &cond;};
+	inline bool operator<(const expressions::Expression& r) const {
+		if (this->getTypeID() == r.getTypeID()) {
+			const BinaryExpression& rBin = dynamic_cast<const BinaryExpression&>(r);
+			if (this->getOp()->getID() == rBin.getOp()->getID()) {
+				const MinExpression& rMin = dynamic_cast<const MinExpression&>(r);
+				return this->cond < rMin.cond;
+			} else {
+				return this->getOp()->getID() < rBin.getOp()->getID();
+			}
+		}
+		return this->getTypeID() < r.getTypeID();
+	}
+
+private:
+	IfThenElse cond;
+};
+
 inline bool operator<(const expressions::BinaryExpression& l,
 		const expressions::BinaryExpression& r) {
 
@@ -1171,6 +1305,9 @@ public:
 	virtual RawValue visit(expressions::DivExpression *e)  		= 0;
 	virtual RawValue visit(expressions::AndExpression *e)  		= 0;
 	virtual RawValue visit(expressions::OrExpression *e)  		= 0;
+	virtual RawValue visit(expressions::RawValueExpression *e)  = 0;
+	virtual RawValue visit(expressions::MinExpression *e) 		= 0;
+	virtual RawValue visit(expressions::MaxExpression *e) 		= 0;
 //	virtual RawValue visit(expressions::MergeExpression *e)  	= 0;
 	virtual ~ExprVisitor() {}
 };
@@ -1218,8 +1355,16 @@ public:
 			expressions::AndExpression *e2) = 0;
 	virtual RawValue visit(expressions::OrExpression *e1,
 			expressions::OrExpression *e2) = 0;
+	virtual RawValue visit(expressions::RawValueExpression *e1,
+			expressions::RawValueExpression *e2) = 0;
+	virtual RawValue visit(expressions::MinExpression *e1,
+			expressions::MinExpression *e2) = 0;
+	virtual RawValue visit(expressions::MaxExpression *e1,
+			expressions::MaxExpression *e2) = 0;
 	virtual ~ExprTandemVisitor() {}
 };
+
+expressions::Expression * toExpression(Monoid m, expressions::Expression * lhs, expressions::Expression * rhs);
 
 
 #endif /* EXPRESSIONS_HPP_ */

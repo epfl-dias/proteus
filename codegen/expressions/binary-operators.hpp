@@ -29,7 +29,7 @@ namespace expressions	{
 class BinaryOperator	{
 public:
 	enum opID {
-		EQ, NEQ, GE, GT, LE, LT, ADD, SUB, MULT, DIV, AND, OR
+		EQ, NEQ, GE, GT, LE, LT, ADD, SUB, MULT, DIV, AND, OR, MAX, MIN
 	};
 	virtual opID getID() = 0;
 	virtual ~BinaryOperator() = 0;
@@ -47,6 +47,8 @@ class Mult : public BinaryOperator { opID getID() {return MULT;}};
 class Div  : public BinaryOperator { opID getID() {return DIV;}};
 class And  : public BinaryOperator { opID getID() {return AND;}};
 class Or   : public BinaryOperator { opID getID() {return OR;}};
+class Max  : public BinaryOperator { opID getID() {return MAX;}};
+class Min  : public BinaryOperator { opID getID() {return MIN;}};
 }
 
 #endif /* BINARYOPERATORS_HPP_ */

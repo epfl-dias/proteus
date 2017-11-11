@@ -69,6 +69,9 @@ public:
 	RawValue visit(expressions::AndExpression *e);
 	RawValue visit(expressions::OrExpression *e);
 	RawValue visit(expressions::RecordConstruction *e);
+	RawValue visit(expressions::RawValueExpression *e);
+	RawValue visit(expressions::MinExpression *e);
+	RawValue visit(expressions::MaxExpression *e);
 
 	void setActiveRelation(string relName)		{ activeRelation = relName; }
 	string getActiveRelation(string relName)	{ return activeRelation; }

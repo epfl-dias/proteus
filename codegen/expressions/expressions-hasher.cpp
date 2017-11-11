@@ -177,6 +177,22 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 	return hashValWrapper;
 }
 
+RawValue ExpressionHasherVisitor::visit(expressions::RawValueExpression *e) {
+	RawCatalog& catalog 			= RawCatalog::getInstance();
+
+	Plugin* plugin 					= catalog.getPlugin(activeRelation);
+
+	//Resetting activeRelation here would break nested-record-projections
+	//activeRelation = "";
+	if(plugin == NULL)	{
+		string error_msg = string("[Expression Generator: ] No plugin provided");
+		LOG(ERROR) << error_msg;
+		throw runtime_error(error_msg);
+	}	else	{
+		return plugin->hashValueEager(e->getValue(), e->getExpressionType());
+	}
+}
+
 RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 	activeRelation 					= e->getOriginalRelationName();
@@ -762,4 +778,12 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordConstruction *e) {
 	hashValWrapper.value = TheBuilder->CreateLoad(mem_hashedValue);
 	hashValWrapper.isNull = context->createFalse();
 	return hashValWrapper;
+}
+
+RawValue ExpressionHasherVisitor::visit(expressions::MaxExpression *e)	{
+	return e->getCond()->accept(*this);
+}
+
+RawValue ExpressionHasherVisitor::visit(expressions::MinExpression *e)	{
+	return e->getCond()->accept(*this);
 }

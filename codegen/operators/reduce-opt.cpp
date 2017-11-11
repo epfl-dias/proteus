@@ -114,151 +114,26 @@ void Reduce::generate(RawContext* const context,
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-	vector<Monoid>::const_iterator itAcc;
-	vector<expressions::Expression*>::const_iterator itExpr;
-	vector<AllocaInst*>::const_iterator itMem;
-	/* Time to Compute Aggs */
-	itAcc = accs.begin();
-	itExpr = outputExprs.begin();
-	itMem = mem_accumulators.begin();
+	ExpressionFlusherVisitor flusher{context, childState, outPath};
 
-	if (!flushResults) {
-		for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-			Monoid acc = *itAcc;
-			expressions::Expression *outputExpr = *itExpr;
-			AllocaInst *mem_accumulating = *itMem;
+	int aggsNo = accs.size();
+	if (flushResults && aggsNo > 1) {
+		/* Start result flushing: Opening brace */
+		//Backing up insertion block
+		BasicBlock * currBlock = Builder->GetInsertBlock();
 
-			switch (acc) {
-			case SUM:
-				generateSum(outputExpr, context, childState, mem_accumulating);
-				break;
-			case MULTIPLY:
-				generateMul(outputExpr, context, childState, mem_accumulating);
-				break;
-			case MAX:
-				generateMax(outputExpr, context, childState, mem_accumulating);
-				break;
-			case OR:
-				generateOr(outputExpr, context, childState, mem_accumulating);
-				break;
-			case AND:
-				generateAnd(outputExpr, context, childState, mem_accumulating);
-				break;
-			case BAGUNION:
-				generateBagUnion(outputExpr, context, childState);
-				break;
-			case APPEND:
-				//		generateAppend(context, childState);
-				//		break;
-			case UNION:
-			default: {
-				string error_msg = string(
-						"[Reduce: ] Unknown / Still Unsupported accumulator");
-				LOG(ERROR)<< error_msg;
-				throw runtime_error(error_msg);
-			}
-			}
-		}
+		//Preparing collection output (e.g., flushing out '{' in the case of JSON)
+		BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
+
+		Builder->SetInsertPoint(loopEntryBlock);
+		flusher.beginList();
+
+		//Restoring
+		Builder->SetInsertPoint(currBlock);
 	}
-	else
-	{
-		ExpressionFlusherVisitor flusher =
-				ExpressionFlusherVisitor(context, childState,outPath);
-
-		int aggsNo = accs.size();
-		BasicBlock *currBlock = NULL;
-		if(aggsNo > 1)
-		{
-			/* Start result flushing: Opening brace */
-			//Backing up insertion block
-			currBlock = Builder->GetInsertBlock();
-
-			//Preparing collection output (e.g., flushing out '{' in the case of JSON)
-			BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
-
-			Builder->SetInsertPoint(loopEntryBlock);
-			flusher.beginList();
-
-			//Restoring
-			Builder->SetInsertPoint(currBlock);
-		}
-
-		BasicBlock *currEndingBlock;
-		for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-			currEndingBlock = NULL;
-			Monoid acc = *itAcc;
-			expressions::Expression *outputExpr = *itExpr;
-			AllocaInst *mem_accumulating = *itMem;
-
-			bool flushDelim = (aggsNo > 1) && (itAcc != accs.end() - 1);
-			switch (acc) {
-			case SUM:
-				currEndingBlock = flushSum(outputExpr, context, childState, mem_accumulating,&flusher,flushDelim);
-				break;
-			case MULTIPLY:
-				currEndingBlock = flushMul(outputExpr, context, childState, mem_accumulating,&flusher,flushDelim);
-				break;
-			case MAX:
-				currEndingBlock = flushMax(outputExpr, context, childState, mem_accumulating,&flusher,flushDelim);
-				break;
-			case OR:
-				currEndingBlock = flushOr(outputExpr, context, childState, mem_accumulating,&flusher,flushDelim);
-				break;
-			case AND:
-				currEndingBlock = flushAnd(outputExpr, context, childState, mem_accumulating,&flusher,flushDelim);
-				break;
-			case BAGUNION:
-				currEndingBlock = flushBagUnion(outputExpr, context, childState, &flusher);
-				break;
-			case APPEND:
-				//		generateAppend(context, childState);
-				//		break;
-			case UNION:
-			default: {
-				string error_msg = string(
-						"[Reduce: ] Unknown / Still Unsupported accumulator");
-				LOG(ERROR)<< error_msg;
-				throw runtime_error(error_msg);
-			}
-			}
-
-			/* Need to group aggregate values together if > 1 accumulators */
-//			Builder->SetInsertPoint(context->getEndingBlock());
-//			if (aggsNo != 1) {
-//				if (itAcc == accs.end() - 1) {
-//					flusher.endList();
-//				} else {
-//					flusher.flushDelim();
-//				}
-//			}
-//			Builder->SetInsertPoint(currEndingBlock);
-
-		}
-
-		if(aggsNo > 1)
-		{
-			//Prepare final result output (e.g., flushing out ']' in the case of JSON)
-			Builder->SetInsertPoint(context->getEndingBlock());
-			flusher.endList();
-		}
-		Builder->SetInsertPoint(context->getEndingBlock());
-		flusher.flushOutput();
-
-		Builder->SetInsertPoint(currEndingBlock);
-	}
-
-}
-
-void Reduce::generateSum(expressions::Expression* outputExpr,
-		RawContext* const context, const OperatorState& state,
-		AllocaInst *mem_accumulating) const {
-	IRBuilder<>* Builder = context->getBuilder();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
 	//Generate condition
-	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(
-			context, state);
+	ExpressionGeneratorVisitor predExprGenerator{context, childState};
 	RawValue condition = pred->accept(predExprGenerator);
 	/**
 	 * Predicate Evaluation:
@@ -273,8 +148,6 @@ void Reduce::generateSum(expressions::Expression* outputExpr,
 	/**
 	 * IF(pred) Block
 	 */
-	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(
-			context, state);
 	RawValue val_output;
 	Builder->SetInsertPoint(entryBlock);
 //	{
@@ -286,433 +159,204 @@ void Reduce::generateSum(expressions::Expression* outputExpr,
 	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
 	Builder->SetInsertPoint(ifBlock);
-//	{
-//		Function* debugInt = context->getFunction("printi");
-//		vector<Value*> ArgsV;
-//		ArgsV.push_back(context->createInt32(778));
-//		Builder->CreateCall(debugInt, ArgsV, "printi");
-//	}
-	val_output = outputExpr->accept(outputExprGenerator);
-	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-	switch (outputExpr->getExpressionType()->getTypeID()) {
-	case INT64: {
-			Value* val_new = Builder->CreateAdd(val_accumulating, val_output.value);
-			Builder->CreateStore(val_new, mem_accumulating);
-			Builder->CreateBr(endBlock);
+	vector<Monoid>::const_iterator itAcc;
+	vector<expressions::Expression*>::const_iterator itExpr;
+	vector<AllocaInst*>::const_iterator itMem;
+	/* Time to Compute Aggs */
+	itAcc = accs.begin();
+	itExpr = outputExprs.begin();
+	itMem = mem_accumulators.begin();
+
+	for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
+		Monoid acc = *itAcc;
+		expressions::Expression *outputExpr = *itExpr;
+		AllocaInst *mem_accumulating = *itMem;
+
+		switch (acc) {
+		case SUM:
+		case MULTIPLY:
+		case MAX:
+		case OR:
+		case AND:{
+			ExpressionGeneratorVisitor outputExprGenerator{context, childState};
+
+			// Load accumulator -> acc_value
+			RawValue acc_value;
+			acc_value.value  = Builder->CreateLoad(mem_accumulating);
+			acc_value.isNull = context->createFalse();
+
+			// new_value = acc_value op outputExpr
+			expressions::Expression * val = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc_value);
+			expressions::Expression * upd = toExpression(acc, val, outputExpr);
+			assert(upd && "Monoid is not convertible to expression!");
+			RawValue new_val = upd->accept(outputExprGenerator);
+
+			// store new_val to accumulator
+			Builder->CreateStore(new_val.value, mem_accumulating);
 			break;
 		}
-	case INT: {
-		Value* val_new = Builder->CreateAdd(val_accumulating, val_output.value);
-		Builder->CreateStore(val_new, mem_accumulating);
-		Builder->CreateBr(endBlock);
-
-#ifdef DEBUGREDUCE
-		{
-			Builder->SetInsertPoint(context->getEndingBlock());
-			vector<Value*> ArgsV;
-			Function* debugInt = context->getFunction("printi");
-			Value* finalResult = Builder->CreateLoad(mem_accumulating);
-			ArgsV.push_back(finalResult);
-			Builder->CreateCall(debugInt, ArgsV);
-
-
-//			ArgsV.clear();
-//			ArgsV.push_back(context->createInt32(779));
-//			Builder->CreateCall(debugInt, ArgsV, "printi");
-
-			//Back to 'normal' flow
-			Builder->SetInsertPoint(ifBlock);
+		case BAGUNION:
+			generateBagUnion(outputExpr, context, childState);
+			break;
+		case APPEND:
+			//		generateAppend(context, childState);
+			//		break;
+		case UNION:
+		default: {
+			string error_msg = string(
+					"[Reduce: ] Unknown / Still Unsupported accumulator");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
 		}
-#endif
-		break;
+		}
+		if (flushResults){
+			BasicBlock * currEndingBlock = Builder->GetInsertBlock();
+			/* Flushing Output */
+			bool flushDelim = (aggsNo > 1) && (itAcc != accs.end() - 1);
+			switch (acc) {
+			case SUM:
+			case MULTIPLY:
+			case MAX:
+			case OR:
+			case AND:{
+				Builder->SetInsertPoint(context->getEndingBlock());
+				Value* val_acc = Builder->CreateLoad(mem_accumulating);
+				flusher.flushValue(val_acc, outputExpr->getExpressionType()->getTypeID());
+				if (flushDelim) flusher.flushDelim();
+
+				break;
+			}
+			case BAGUNION:{
+				//nothing to flush for bagunion
+				break;
+			}
+			case APPEND:
+			case UNION:
+			default: {
+				string error_msg = string(
+						"[Reduce: ] Unknown / Still Unsupported accumulator");
+				LOG(ERROR)<< error_msg;
+				throw runtime_error(error_msg);
+			}
+			}
+			/* Back to normal flow */
+			Builder->SetInsertPoint(currEndingBlock);
+		}
+		/* Need to group aggregate values together if > 1 accumulators */
+//			Builder->SetInsertPoint(context->getEndingBlock());
+//			if (aggsNo != 1) {
+//				if (itAcc == accs.end() - 1) {
+//					flusher.endList();
+//				} else {
+//					flusher.flushDelim();
+//				}
+//			}
+//			Builder->SetInsertPoint(currEndingBlock);
+
 	}
-	case FLOAT: {
-		Value* val_new = Builder->CreateFAdd(val_accumulating,
-				val_output.value);
-		Builder->CreateStore(val_new, mem_accumulating);
-		Builder->CreateBr(endBlock);
-		break;
-	}
-	default: {
-		string error_msg = string(
-				"[Reduce: ] Sum accumulator operates on numerics");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
-	}
+
+	Builder->CreateBr(endBlock);
 
 	/**
 	 * END Block
 	 */
+	if (flushResults) {
+		if (aggsNo > 1) {
+			//Prepare final result output (e.g., flushing out ']' in the case of JSON)
+			Builder->SetInsertPoint(context->getEndingBlock());
+			flusher.endList();
+		}
+		Builder->SetInsertPoint(context->getEndingBlock());
+		flusher.flushOutput();
+	}
+
 	Builder->SetInsertPoint(endBlock);
+}
+
+void Reduce::generateSum(expressions::Expression* outputExpr,
+		RawContext* const context, const OperatorState& state,
+		AllocaInst *mem_accumulating) const {
+	IRBuilder<>* Builder = context->getBuilder();
+	ExpressionGeneratorVisitor outputExprGenerator{context, state};
+
+	RawValue acc;
+	acc.value  = Builder->CreateLoad(mem_accumulating);
+	acc.isNull = context->createFalse();
+
+	expressions::Expression * val = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc);
+	expressions::Expression * upd = new expressions::AddExpression    (val, outputExpr);
+	RawValue new_val = upd->accept(outputExprGenerator);
+
+	Builder->CreateStore(new_val.value, mem_accumulating);
 }
 
 void Reduce::generateMul(expressions::Expression* outputExpr,
 		RawContext* const context, const OperatorState& state,
 		AllocaInst *mem_accumulating) const {
 	IRBuilder<>* Builder = context->getBuilder();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	ExpressionGeneratorVisitor outputExprGenerator{context, state};
 
-	//Generate condition
-	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(
-			context, state);
-	RawValue condition = pred->accept(predExprGenerator);
-	/**
-	 * Predicate Evaluation:
-	 */
-	BasicBlock* entryBlock = Builder->GetInsertBlock();
-	BasicBlock *endBlock = BasicBlock::Create(llvmContext, "reduceCondEnd",
-			TheFunction);
-	BasicBlock *ifBlock;
-	context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond",
-			&ifBlock, endBlock);
+	RawValue acc;
+	acc.value  = Builder->CreateLoad(mem_accumulating);
+	acc.isNull = context->createFalse();
 
-	/**
-	 * IF(pred) Block
-	 */
-	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(
-			context, state);
-	RawValue val_output;
-	Builder->SetInsertPoint(entryBlock);
-	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
+	expressions::Expression * val = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc);
+	expressions::Expression * upd = new expressions::MultExpression    (val, outputExpr);
+	RawValue new_val = upd->accept(outputExprGenerator);
 
-	Builder->SetInsertPoint(ifBlock);
-	val_output = outputExpr->accept(outputExprGenerator);
-	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-
-	switch (outputExpr->getExpressionType()->getTypeID()) {
-	case INT64: {
-
-		Value* val_new = Builder->CreateMul(val_accumulating, val_output.value);
-		Builder->CreateStore(val_new, mem_accumulating);
-		Builder->CreateBr(endBlock);
-		break;
-	}
-	case INT: {
-#ifdef DEBUGREDUCE
-//		vector<Value*> ArgsV;
-//		Function* debugInt = context->getFunction("printi");
-//		ArgsV.push_back(val_accumulating);
-//		Builder->CreateCall(debugInt, ArgsV);
-#endif
-		Value* val_new = Builder->CreateMul(val_accumulating, val_output.value);
-		Builder->CreateStore(val_new, mem_accumulating);
-		Builder->CreateBr(endBlock);
-#ifdef DEBUGREDUCE
-//		Builder->SetInsertPoint(endBlock);
-//		vector<Value*> ArgsV;
-//		Function* debugInt = context->getFunction("printi");
-//		Value* finalResult = Builder->CreateLoad(mem_accumulating);
-//		ArgsV.push_back(finalResult);
-//		Builder->CreateCall(debugInt, ArgsV);
-//		//Back to 'normal' flow
-//		Builder->SetInsertPoint(ifBlock);
-#endif
-		break;
-	}
-	case FLOAT: {
-		Value* val_new = Builder->CreateFMul(val_accumulating,
-				val_output.value);
-		Builder->CreateStore(val_new, mem_accumulating);
-		Builder->CreateBr(endBlock);
-		break;
-	}
-	default: {
-		string error_msg = string(
-				"[Reduce: ] Mul accumulator operates on numerics");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
-	}
-
-	/**
-	 * END Block
-	 */
-	Builder->SetInsertPoint(endBlock);
+	Builder->CreateStore(new_val.value, mem_accumulating);
 }
 
 void Reduce::generateMax(expressions::Expression* outputExpr,
 		RawContext* const context, const OperatorState& state,
 		AllocaInst *mem_accumulating) const {
 	IRBuilder<>* Builder = context->getBuilder();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	ExpressionGeneratorVisitor outputExprGenerator{context, state};
 
-	//Generate condition
-	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(
-			context, state);
-	RawValue condition = pred->accept(predExprGenerator);
-	/**
-	 * Predicate Evaluation:
-	 */
-	BasicBlock* entryBlock = Builder->GetInsertBlock();
-	BasicBlock *endBlock = BasicBlock::Create(llvmContext, "reduceCondEnd",
-			TheFunction);
-	BasicBlock *ifBlock;
-	context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond",
-			&ifBlock, endBlock);
+	RawValue acc;
+	acc.value  = Builder->CreateLoad(mem_accumulating);
+	acc.isNull = context->createFalse();
 
-	/**
-	 * IF(pred) Block
-	 */
-	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(
-			context, state);
-	RawValue val_output;
-	Builder->SetInsertPoint(entryBlock);
-	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
+	expressions::Expression * val = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc);
+	expressions::Expression * upd = new expressions::MaxExpression     (val, outputExpr);
+	RawValue new_val = upd->accept(outputExprGenerator);
 
-	Builder->SetInsertPoint(ifBlock);
-	val_output = outputExpr->accept(outputExprGenerator);
-	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-
-	switch (outputExpr->getExpressionType()->getTypeID()) {
-	case INT64: {
-		/**
-		 * if(curr > max) max = curr;
-		 */
-		BasicBlock* ifGtMaxBlock;
-		context->CreateIfBlock(context->getGlobalFunction(), "reduceMaxCond",
-				&ifGtMaxBlock, endBlock);
-		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* maxCondition = Builder->CreateICmpSGT(val_output.value,
-				val_accumulating);
-		Builder->CreateCondBr(maxCondition, ifGtMaxBlock, endBlock);
-
-		Builder->SetInsertPoint(ifGtMaxBlock);
-		Builder->CreateStore(val_output.value, mem_accumulating);
-		Builder->CreateBr(endBlock);
-
-		//Prepare final result output
-		Builder->SetInsertPoint(context->getEndingBlock());
-
-		//Back to 'normal' flow
-		Builder->SetInsertPoint(ifGtMaxBlock);
-
-		//Branch Instruction to reach endBlock will be flushed after end of switch
-		break;
-	}
-	case INT: {
-		/**
-		 * if(curr > max) max = curr;
-		 */
-#ifdef DEBUG
-		{
-			//val_output.value->getType()->dump();
-			vector<Value*> ArgsV;
-			Function* debugInt = context->getFunction("printi");
-			ArgsV.push_back(val_output.value);
-			Builder->CreateCall(debugInt, ArgsV);
-		}
-#endif
-		BasicBlock* ifGtMaxBlock;
-		context->CreateIfBlock(context->getGlobalFunction(), "reduceMaxCond",
-				&ifGtMaxBlock, endBlock);
-		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* maxCondition = Builder->CreateICmpSGT(val_output.value,
-				val_accumulating);
-		Builder->CreateCondBr(maxCondition, ifGtMaxBlock, endBlock);
-
-		Builder->SetInsertPoint(ifGtMaxBlock);
-		Builder->CreateStore(val_output.value, mem_accumulating);
-		Builder->CreateBr(endBlock);
-
-		//Prepare final result output
-		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUGREDUCE
-		vector<Value*> ArgsV;
-		Function* debugInt = context->getFunction("printi");
-		Value* finalResult = Builder->CreateLoad(mem_accumulating);
-		ArgsV.push_back(finalResult);
-		Builder->CreateCall(debugInt, ArgsV);
-#endif
-		//Back to 'normal' flow
-		Builder->SetInsertPoint(ifGtMaxBlock);
-
-		//Branch Instruction to reach endBlock will be flushed after end of switch
-		break;
-	}
-	case FLOAT: {
-		/**
-		 * if(curr > max) max = curr;
-		 */
-		BasicBlock* ifGtMaxBlock;
-		context->CreateIfBlock(context->getGlobalFunction(), "reduceMaxCond",
-				&ifGtMaxBlock, endBlock);
-		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-		Value* maxCondition = Builder->CreateFCmpOGT(val_output.value,
-				val_accumulating);
-		Builder->CreateCondBr(maxCondition, ifGtMaxBlock, endBlock);
-
-		Builder->SetInsertPoint(ifGtMaxBlock);
-		Builder->CreateStore(val_output.value, mem_accumulating);
-		Builder->CreateBr(endBlock);
-
-		//Prepare final result output
-		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUGREDUCE
-		vector<Value*> ArgsV;
-		Function* debugFloat = context->getFunction("printFloat");
-		Value* finalResult = Builder->CreateLoad(mem_accumulating);
-		ArgsV.push_back(finalResult);
-		Builder->CreateCall(debugFloat, ArgsV);
-#endif
-		//Back to 'normal' flow
-		Builder->SetInsertPoint(ifGtMaxBlock);
-		break;
-	}
-	default: {
-		string error_msg = string(
-				"[Reduce: ] Max accumulator operates on numerics");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
-	}
-
-	/**
-	 * END Block
-	 */
-	Builder->SetInsertPoint(endBlock);
+	Builder->CreateStore(new_val.value, mem_accumulating);
 }
 
 void Reduce::generateOr(expressions::Expression* outputExpr,
 		RawContext* const context, const OperatorState& state,
 		AllocaInst *mem_accumulating) const {
 	IRBuilder<>* Builder = context->getBuilder();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	ExpressionGeneratorVisitor outputExprGenerator{context, state};
 
-	//Generate condition
-	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(
-			context, state);
-	RawValue condition = pred->accept(predExprGenerator);
-	/**
-	 * Predicate Evaluation:
-	 */
-	BasicBlock* entryBlock = Builder->GetInsertBlock();
-	BasicBlock *endBlock = BasicBlock::Create(llvmContext, "reduceCondEnd",
-			TheFunction);
-	BasicBlock *ifBlock;
-	context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond",
-			&ifBlock, endBlock);
+	RawValue acc;
+	acc.value  = Builder->CreateLoad(mem_accumulating);
+	acc.isNull = context->createFalse();
 
-	/**
-	 * IF(pred) Block
-	 */
-	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(
-			context, state);
-	RawValue val_output;
-	Builder->SetInsertPoint(entryBlock);
-	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
+	expressions::Expression * val = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc);
+	expressions::Expression * upd = new expressions::OrExpression      (val, outputExpr);
+	RawValue new_val = upd->accept(outputExprGenerator);
 
-	Builder->SetInsertPoint(ifBlock);
-	val_output = outputExpr->accept(outputExprGenerator);
-	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-
-	switch (outputExpr->getExpressionType()->getTypeID()) {
-	case BOOL: {
-		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-
-		RawValue val_output = outputExpr->accept(outputExprGenerator);
-		Value* val_new = Builder->CreateOr(val_accumulating, val_output.value);
-		Builder->CreateStore(val_new, mem_accumulating);
-
-		Builder->CreateBr(endBlock);
-
-		//Prepare final result output
-		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUGREDUCE
-		std::vector<Value*> ArgsV;
-		Function* debugBoolean = context->getFunction("printBoolean");
-		Value* finalResult = Builder->CreateLoad(mem_accumulating);
-		ArgsV.push_back(finalResult);
-		Builder->CreateCall(debugBoolean, ArgsV);
-#endif
-		break;
-	}
-	default: {
-		string error_msg = string(
-				"[Reduce: ] Or accumulator operates on booleans");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
-	}
-
-	/**
-	 * END Block
-	 */
-	Builder->SetInsertPoint(endBlock);
-
+	Builder->CreateStore(new_val.value, mem_accumulating);
 }
 
 void Reduce::generateAnd(expressions::Expression* outputExpr,
 		RawContext* const context, const OperatorState& state,
 		AllocaInst *mem_accumulating) const {
 	IRBuilder<>* Builder = context->getBuilder();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+	ExpressionGeneratorVisitor outputExprGenerator{context, state};
 
-	//Generate condition
-	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(
-			context, state);
-	RawValue condition = pred->accept(predExprGenerator);
-	/**
-	 * Predicate Evaluation:
-	 */
-	BasicBlock* entryBlock = Builder->GetInsertBlock();
-	BasicBlock *endBlock = BasicBlock::Create(llvmContext, "reduceCondEnd",
-			TheFunction);
-	BasicBlock *ifBlock;
-	context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond",
-			&ifBlock, endBlock);
+	RawValue acc;
+	acc.value  = Builder->CreateLoad(mem_accumulating);
+	acc.isNull = context->createFalse();
 
-	/**
-	 * IF(pred) Block
-	 */
-	ExpressionGeneratorVisitor outputExprGenerator = ExpressionGeneratorVisitor(
-			context, state);
-	RawValue val_output;
-	Builder->SetInsertPoint(entryBlock);
-	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
+	expressions::Expression * val = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc);
+	expressions::Expression * upd = new expressions::AndExpression     (val, outputExpr);
+	RawValue new_val = upd->accept(outputExprGenerator);
 
-	Builder->SetInsertPoint(ifBlock);
-	val_output = outputExpr->accept(outputExprGenerator);
-	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-
-	switch (outputExpr->getExpressionType()->getTypeID()) {
-	case BOOL: {
-		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-
-		RawValue val_output = outputExpr->accept(outputExprGenerator);
-		Value* val_new = Builder->CreateAnd(val_accumulating, val_output.value);
-		Builder->CreateStore(val_new, mem_accumulating);
-
-		Builder->CreateBr(endBlock);
-
-		//Prepare final result output
-		Builder->SetInsertPoint(context->getEndingBlock());
-#ifdef DEBUGREDUCE
-		std::vector<Value*> ArgsV;
-		Function* debugBoolean = context->getFunction("printBoolean");
-		Value* finalResult = Builder->CreateLoad(mem_accumulating);
-		ArgsV.push_back(finalResult);
-		Builder->CreateCall(debugBoolean, ArgsV);
-#endif
-		break;
-	}
-	default: {
-		string error_msg = string(
-				"[Reduce: ] Or accumulator operates on booleans");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
-	}
-
-	/**
-	 * END Block
-	 */
-	Builder->SetInsertPoint(endBlock);
+	Builder->CreateStore(new_val.value, mem_accumulating);
 }
 
 //Flush out whatever you received
@@ -736,32 +380,8 @@ void Reduce::generateBagUnion(expressions::Expression* outputExpr,
 	Builder->SetInsertPoint(loopEntryBlock);
 	flusher->beginList();
 
-
 	//Restoring
 	Builder->SetInsertPoint(currBlock);
-
-	//Generate condition
-	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(
-			context, state);
-	RawValue condition = pred->accept(predExprGenerator);
-
-	/**
-	 * Predicate Evaluation:
-	 */
-	BasicBlock* entryBlock = Builder->GetInsertBlock();
-	BasicBlock *endBlock = BasicBlock::Create(llvmContext, "reduceCondEnd",
-			TheFunction);
-	BasicBlock *ifBlock;
-	context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond",
-			&ifBlock, endBlock);
-
-	/**
-	 * IF Block
-	 */
-	Builder->SetInsertPoint(entryBlock);
-	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
-
-	Builder->SetInsertPoint(ifBlock);
 
 	//results so far
 	Value* mem_resultCtr = context->getMemResultCtr();
@@ -777,7 +397,8 @@ void Reduce::generateBagUnion(expressions::Expression* outputExpr,
 			context->createInt64(1));
 	Builder->CreateStore(resultCtrInc, mem_resultCtr);
 
-	Builder->CreateBr(endBlock);
+	//Backing up insertion block
+	currBlock = Builder->GetInsertBlock();
 
 	//Prepare final result output (e.g., flushing out '}' in the case of JSON)
 	Builder->SetInsertPoint(context->getEndingBlock());
@@ -789,7 +410,7 @@ void Reduce::generateBagUnion(expressions::Expression* outputExpr,
 	/**
 	 * END Block
 	 */
-	Builder->SetInsertPoint(endBlock);
+	Builder->SetInsertPoint(currBlock);
 }
 
 //Materializes collection (in HT?)
@@ -798,113 +419,6 @@ void Reduce::generateAppend(expressions::Expression* outputExpr,
 		RawContext* const context, const OperatorState& state,
 		AllocaInst *mem_accumulating) const {
 
-}
-
-
-
-BasicBlock *Reduce::flushSum(expressions::Expression* outputExpr,
-		RawContext* const context, const OperatorState& state,
-		AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher, bool flushDelim) const {
-	IRBuilder<>* Builder = context->getBuilder();
-
-	generateSum(outputExpr, context, state, mem_accumulating);
-	BasicBlock * endBlock = Builder->GetInsertBlock();
-
-	/* Flushing Output */
-	Builder->SetInsertPoint(context->getEndingBlock());
-	Value* val_acc = Builder->CreateLoad(mem_accumulating);
-	flusher->flushValue(val_acc, outputExpr->getExpressionType()->getTypeID());
-	if (flushDelim) flusher->flushDelim();
-
-	/* Back to normal flow */
-	Builder->SetInsertPoint(endBlock);
-	return endBlock;
-}
-
-BasicBlock* Reduce::flushMul(expressions::Expression* outputExpr,
-		RawContext* const context, const OperatorState& state,
-		AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher, bool flushDelim) const {
-	IRBuilder<>* Builder = context->getBuilder();
-
-	generateMul(outputExpr, context, state, mem_accumulating);
-	BasicBlock * endBlock = Builder->GetInsertBlock();
-
-	/* Flushing Output */
-	Builder->SetInsertPoint(context->getEndingBlock());
-	Value* val_acc = Builder->CreateLoad(mem_accumulating);
-	flusher->flushValue(val_acc, outputExpr->getExpressionType()->getTypeID());
-	if (flushDelim) flusher->flushDelim();
-
-	/* Back to normal flow */
-	Builder->SetInsertPoint(endBlock);
-	return endBlock;
-}
-
-BasicBlock* Reduce::flushMax(expressions::Expression* outputExpr,
-		RawContext* const context, const OperatorState& state,
-		AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher, bool flushDelim) const {
-	IRBuilder<>* Builder = context->getBuilder();
-
-	generateMax(outputExpr, context, state, mem_accumulating);
-	BasicBlock * endBlock = Builder->GetInsertBlock();
-
-	/* Flushing Output */
-	Builder->SetInsertPoint(context->getEndingBlock());
-	Value* val_acc = Builder->CreateLoad(mem_accumulating);
-	flusher->flushValue(val_acc, outputExpr->getExpressionType()->getTypeID());
-	if (flushDelim) flusher->flushDelim();
-
-	/* Back to normal flow */
-	Builder->SetInsertPoint(endBlock);
-	return endBlock;
-}
-
-BasicBlock* Reduce::flushOr(expressions::Expression* outputExpr,
-		RawContext* const context, const OperatorState& state,
-		AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher, bool flushDelim) const {
-	IRBuilder<>* Builder = context->getBuilder();
-
-	generateOr(outputExpr, context, state, mem_accumulating);
-	BasicBlock * endBlock = Builder->GetInsertBlock();
-
-	/* Flushing Output */
-	Builder->SetInsertPoint(context->getEndingBlock());
-	Value* val_acc = Builder->CreateLoad(mem_accumulating);
-	flusher->flushValue(val_acc, outputExpr->getExpressionType()->getTypeID());
-	if (flushDelim) flusher->flushDelim();
-
-	/* Back to normal flow */
-	Builder->SetInsertPoint(endBlock);
-	return endBlock;
-}
-
-BasicBlock* Reduce::flushAnd(expressions::Expression* outputExpr,
-		RawContext* const context, const OperatorState& state,
-		AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher, bool flushDelim) const {
-	IRBuilder<>* Builder = context->getBuilder();
-
-	generateOr(outputExpr, context, state, mem_accumulating);
-	BasicBlock * endBlock = Builder->GetInsertBlock();
-
-	/* Flushing Output */
-	Builder->SetInsertPoint(context->getEndingBlock());
-	Value* val_acc = Builder->CreateLoad(mem_accumulating);
-	flusher->flushValue(val_acc, outputExpr->getExpressionType()->getTypeID());
-	if (flushDelim) flusher->flushDelim();
-
-	/* Back to normal flow */
-	Builder->SetInsertPoint(endBlock);
-	return endBlock;
-}
-
-BasicBlock* Reduce::flushBagUnion(expressions::Expression* outputExpr,
-		RawContext* const context, const OperatorState& state, ExpressionFlusherVisitor *flusher) const {
-	IRBuilder<>* Builder = context->getBuilder();
-
-	generateBagUnion(outputExpr, context, state, flusher);
-	BasicBlock * endBlock = Builder->GetInsertBlock();
-
-	return endBlock;
 }
 
 AllocaInst* Reduce::resetAccumulator(expressions::Expression* outputExpr,

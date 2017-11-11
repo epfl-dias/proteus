@@ -429,6 +429,16 @@ RawValue ExpressionDotVisitor::visit(expressions::InputArgument *e1,
 	throw runtime_error(error_msg);
 }
 
+RawValue ExpressionDotVisitor::visit(expressions::RawValueExpression *e1,
+		expressions::RawValueExpression *e2) {
+	/* What would be needed is a per-pg 'dotCmp' method
+	 * -> compare piece by piece at this level, don't reconstruct here*/
+	string error_msg = string(
+			"[Expression Dot: ] No explicit RawValueExpression support yet");
+	LOG(ERROR)<< error_msg;
+	throw runtime_error(error_msg);
+}
+
 /* Probably insufficient for complex datatypes */
 RawValue ExpressionDotVisitor::visit(expressions::RecordProjection *e1,
 		expressions::RecordProjection *e2) {
@@ -561,27 +571,12 @@ RawValue ExpressionDotVisitor::visit(expressions::IfThenElse *e1,
 	return valWrapper;
 }
 
+RawValue ExpressionDotVisitor::visit(expressions::MaxExpression *e1,
+		expressions::MaxExpression *e2) {
+	return e1->getCond()->acceptTandem(*this, e2->getCond());
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+RawValue ExpressionDotVisitor::visit(expressions::MinExpression *e1,
+		expressions::MinExpression *e2) {
+	return e1->getCond()->acceptTandem(*this, e2->getCond());
+}

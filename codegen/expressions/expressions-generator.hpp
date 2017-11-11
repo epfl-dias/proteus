@@ -67,6 +67,9 @@ public:
 	RawValue visit(expressions::DivExpression *e);
 	RawValue visit(expressions::AndExpression *e);
 	RawValue visit(expressions::OrExpression *e);
+	RawValue visit(expressions::RawValueExpression *e);
+	RawValue visit(expressions::MinExpression *e);
+	RawValue visit(expressions::MaxExpression *e);
 	/**
 	 *
 	 */
