@@ -62,41 +62,10 @@ protected:
 private:
 	void generate(RawContext* const context, const OperatorState& childState) const;
 	//Used to enable chaining with subsequent operators
-	void generateSum(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateMul(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateMax(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateOr(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateAnd(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, AllocaInst *mem_accumulating) const;
 	void generateBagUnion(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, ExpressionFlusherVisitor * bflusher = NULL) const;
+			const OperatorState& state) const;
 	void generateAppend(expressions::Expression* outputExpr, RawContext* const context,
 			const OperatorState& state, AllocaInst *mem_accumulating) const;
-
-	//Used to flush out results in a file
-	BasicBlock* flushSum(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher,
-			bool flushDelim = false) const;
-	BasicBlock* flushMul(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher,
-			bool flushDelim = false) const;
-	BasicBlock* flushMax(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher,
-			bool flushDelim = false) const;
-	BasicBlock* flushOr(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher,
-			bool flushDelim = false) const;
-	BasicBlock* flushAnd(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, AllocaInst *mem_accumulating, ExpressionFlusherVisitor *flusher,
-			bool flushDelim = false) const;
-	BasicBlock* flushBagUnion(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, ExpressionFlusherVisitor *flusher) const;
-	BasicBlock* flushAppend(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, ExpressionFlusherVisitor *flusher, bool flushDelim = false) const;
 
 	AllocaInst* resetAccumulator(expressions::Expression* outputExpr, Monoid acc) const;
 

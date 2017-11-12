@@ -424,5 +424,96 @@ expressions::Expression * toExpression(Monoid m, expressions::Expression * lhs, 
 	}
 }
 
+llvm::Constant * getIdentityElementIfSimple(Monoid m, const ExpressionType * type, RawContext * context){
+	Type * llvmType   = type->getLLVMType(context->getLLVMContext());
+	typeID outputType = type->getTypeID();
+	switch (m) {
+		case SUM: {
+			switch (outputType) {
+				case INT64:
+				case INT: {
+					return ConstantInt::get((IntegerType *) llvmType, 0);
+				}
+				case FLOAT: {
+					return ConstantFP::get(llvmType, 0.0);
+				}
+				default: {
+					string error_msg = string(
+							"[Monoid: ] Sum/Multiply/Max operate on numerics");
+					LOG(ERROR)<< error_msg;
+					throw runtime_error(error_msg);
+				}
+			}
+		}
+		case MULTIPLY: {
+			switch (outputType) {
+				case INT64:
+				case INT: {
+					return ConstantInt::get((IntegerType *) llvmType, 1);
+				}
+				case FLOAT: {
+					return ConstantFP::get(llvmType, 1.0);
+				}
+				default: {
+					string error_msg = string(
+							"[Monoid: ] Sum/Multiply/Max operate on numerics");
+					LOG(ERROR)<< error_msg;
+					throw runtime_error(error_msg);
+				}
+			}
+		}
+		case MAX: {
+			switch (outputType) {
+				case INT64:{
+					return ConstantInt::get((IntegerType *) llvmType, 
+										std::numeric_limits<int64_t>::min());
+				}
+				case INT: {
+					return ConstantInt::get((IntegerType *) llvmType, 
+										std::numeric_limits<int32_t>::min());
+				}
+				case FLOAT: {
+					return ConstantFP::getInfinity(llvmType, true);
+				}
+				default: {
+					string error_msg = string(
+							"[Monoid: ] Sum/Multiply/Max operate on numerics");
+					LOG(ERROR)<< error_msg;
+					throw runtime_error(error_msg);
+				}
+			}
+		}
+		case OR: {
+			switch (outputType) {
+				case BOOL: {
+					return ConstantInt::getFalse(context->getLLVMContext());
+				}
+				default: {
+					string error_msg = string(
+							"[Monoid: ] Or/And operate on booleans");
+					LOG(ERROR)<< error_msg;
+					throw runtime_error(error_msg);
+				}
+			}
+		}
+		case AND: {
+			switch (outputType) {
+				case BOOL: {
+					return ConstantInt::getTrue(context->getLLVMContext());
+				}
+				default: {
+					string error_msg = string(
+							"[Monoid: ] Or/And operate on booleans");
+					LOG(ERROR)<< error_msg;
+					throw runtime_error(error_msg);
+				}
+			}
+		}
+		default: {
+			return NULL;
+		}
+	}
+}
+
 
 

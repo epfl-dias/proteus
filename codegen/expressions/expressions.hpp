@@ -1366,5 +1366,6 @@ public:
 
 expressions::Expression * toExpression(Monoid m, expressions::Expression * lhs, expressions::Expression * rhs);
 
+llvm::Constant * getIdentityElementIfSimple(Monoid m, const ExpressionType * type, RawContext * context);
 
 #endif /* EXPRESSIONS_HPP_ */
