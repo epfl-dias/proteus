@@ -41,14 +41,25 @@ extern "C"{
 typedef void (opener_t)(RawPipeline *);
 typedef void (closer_t)(RawPipeline *);
 
+typedef llvm::Value * (  init_func_t)(llvm::Value *);
+typedef void          (deinit_func_t)(llvm::Value *, llvm::Value *);
+
 // __device__ void devprinti64(uint64_t x);
 
 class RawPipelineGen {
+private:
+    Module                    * TheModule       ;
 protected:
     //Last (current) basic block. This changes every time a new scan is triggered
     BasicBlock* codeEnd;
     //Current entry basic block. This changes every time a new scan is triggered
     BasicBlock* currentCodeEntry;
+
+    std::vector<std::function<  init_func_t>> open_var;
+    Function *                  open__function  ;
+
+    std::vector<std::function<deinit_func_t>> close_var;
+    Function *                  close_function  ;
 
     std::vector<llvm::Type *>   inputs          ;
     std::vector<bool     >      inputs_noalias  ;
@@ -70,35 +81,40 @@ protected:
     llvm::Value               * state           ;
     llvm::StructType          * state_type      ;
 
-    Module                    * TheModule       ;
     IRBuilder<>               * TheBuilder      ;
 
     RawPipelineGen            * copyStateFrom   ;
 
-    //Used to include optimization passes
-    legacy::FunctionPassManager * TheFPM        ;
-#if MODULEPASS
-    ModulePassManager           * TheMPM        ;
-#endif
+//     //Used to include optimization passes
+//     legacy::FunctionPassManager * TheFPM        ;
+// #if MODULEPASS
+//     ModulePassManager           * TheMPM        ;
+// #endif
 
-    legacy::PassManager         * ThePM         ;
+//     legacy::PassManager         * ThePM         ;
 
-    ExecutionEngine             * TheExecutionEngine;
+    // ExecutionEngine             * TheExecutionEngine;
 
     map<string, Function*>    availableFunctions   ;
 public:
     Function *                  F               ;
 
-    RawPipelineGen(RawContext * context, std::string pipName = "pip", RawPipelineGen * copyStateFrom = NULL, bool initEngine = true);
+protected:
+    RawPipelineGen(RawContext * context, std::string pipName = "pip", RawPipelineGen * copyStateFrom = NULL);
     // ~RawPipelineGen();
 
+public:
     virtual size_t appendParameter(llvm::Type * ptype, bool noalias  = false, bool readonly = false);
     virtual size_t appendStateVar (llvm::Type * ptype);
+    virtual size_t appendStateVar (llvm::Type * ptype, std::function<init_func_t> init, std::function<deinit_func_t> deinit);
 
     virtual llvm::Argument* getArgument(size_t id) const;
     virtual llvm::Value   * getStateVar(size_t id) const;
     virtual llvm::Value   * getStateVar()          const;
     virtual llvm::Value   * getSubStateVar()       const;
+
+    virtual llvm::Value   * allocateStateVar  (llvm::Type  * t);
+    virtual void            deallocateStateVar(llvm::Value * v);
 
     virtual Function              * prepare();
     virtual RawPipeline           * getPipeline(int group_id = 0);
@@ -112,11 +128,10 @@ public:
     virtual void         setCurrentEntryBlock(BasicBlock* codeEntry) {this->currentCodeEntry = codeEntry;}
 
 
-    virtual void compileAndLoad();
+    virtual void compileAndLoad() = 0;
 
     void registerOpen (const void * owner, std::function<void (RawPipeline * pip)> open );
     void registerClose(const void * owner, std::function<void (RawPipeline * pip)> close);
-    
 
     [[deprecated]] virtual Function              * getFunction() const;
 
@@ -130,35 +145,19 @@ public:
 
     std::vector<llvm::Type *> getStateVars() const;
 
+    static void init();
+
 protected:
+    virtual void                    optimizeModule(Module * M) = 0;
+
     virtual size_t                  prepareStateArgument();
     virtual llvm::Value           * getStateLLVMValue();
     virtual void                    prepareFunction();
+    virtual void                    prepareInitDeinit();
 
-private:
+    virtual void                  * getCompiledFunction(Function * f) = 0;
+protected:
     void registerFunctions();
-};
-
-
-class GpuRawPipelineGen: public RawPipelineGen {
-protected:
-    CUmodule                  * cudaModule      ;
-    legacy::PassManager       * ThePM           ;
-
-public:
-    GpuRawPipelineGen(RawContext * context, std::string pipName = "pip", RawPipelineGen * copyStateFrom = NULL);
-
-    virtual Function              * prepare();
-
-    virtual RawPipeline           * getPipeline(int group_id = 0);
-    virtual void                  * getKernel  () const;
-
-    virtual void                    compileAndLoad();
-
-protected:
-    virtual size_t                  prepareStateArgument();
-    virtual llvm::Value           * getStateLLVMValue();
-
 };
 
 class RawPipeline{
@@ -172,9 +171,14 @@ protected:
     std::vector<std::pair<const void *, std::function<opener_t>>> openers;
     std::vector<std::pair<const void *, std::function<closer_t>>> closers;
 
+    void              * init_state;
+    void              * deinit_state;
+
     RawPipeline(void * cons, size_t state_size, RawPipelineGen * gen, llvm::StructType * state_type,
         const std::vector<std::pair<const void *, std::function<opener_t>>> &openers,
         const std::vector<std::pair<const void *, std::function<closer_t>>> &closers,
+        void *init_state,
+        void *deinit_state,
         int32_t group_id = 0); //FIXME: group id should be handled to comply with the requirements!
 
     // void copyStateFrom  (RawPipeline * p){
@@ -193,7 +197,8 @@ protected:
     // }
 
     friend class RawPipelineGen;
-    friend class GpuRawPipelineGen;
+    friend class RawGpuPipelineGen;
+    friend class RawCpuPipelineGen;
 public:
     void     * state;
 

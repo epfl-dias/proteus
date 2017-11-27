@@ -191,7 +191,7 @@ void GpuToCpu::consume(GpuRawContext * const context, const OperatorState& child
 
         Function * f_lanemask_lt = context->getFunction("llvm.nvvm.read.ptx.sreg.lanemask.lt");
 
-        Function * popc = context->getFunction("llvm.ctpop.i32");
+        Function * popc = context->getFunction("llvm.ctpop");
 
         cnt  = Builder->CreateCall(popc, cmask);
 

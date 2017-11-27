@@ -161,5 +161,52 @@ public:
     }
 };
 
+// template<typename T, size_t size>
+// class AsyncQueueSPSC_spin{
+// private:
+//     volatile uint32_t front;
+//     volatile uint32_t back ; //TODO: should we put them in different cache lines ?
+
+//     volatile bool     terminating;
+//     volatile T data[size];
+// public:
+//     AsyncQueueSPSC(): front(0), back(-1), terminating(false){}
+
+//     void close(){
+//         nvtxRangePushA("AsyncQueue_o");
+//         terminating = true;
+
+//         while (f > back + 1);
+//         nvtxRangePop();
+//     }
+
+//     void push(const T &x){
+//         // assert(!terminating);
+//         uint32_t f = front;
+//         while (f - back - 1 >= size);
+
+//         data[f % size] = x;
+
+//         front = f + 1;
+//     }
+
+//     bool pop(T &x){
+//         uint32_t b = back;
+
+//         while (front <= b + 1 && !terminating);
+
+//         x = data[b % size];
+
+//         return true;
+//     }
+
+//     T pop_unsafe(){
+//         T x = data.front();
+//         data.pop();
+//         return x;
+//     }
+// };
+
+
 #endif /* ASYNC_CONTAINERS_HPP_ */
 

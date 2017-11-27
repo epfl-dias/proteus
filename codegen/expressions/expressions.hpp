@@ -63,6 +63,10 @@ public:
 		}
 	}
 
+	virtual inline bool isRegistered(){
+		return registered;
+	}
+
 	virtual inline void registerAs(string relName, string attrName){
 		registered     = true;
 		this->relName  = relName ;
@@ -89,6 +93,19 @@ public:
 			throw runtime_error(error_msg);
 		}
 		return relName;
+	}
+
+	virtual RecordAttribute getRegisteredAs(){
+		if (!registered){
+			string error_msg = string("Expression not registered");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+		return RecordAttribute{
+								getRegisteredRelName() , 
+								getRegisteredAttrName(), 
+								getExpressionType()
+							};
 	}
 
 private:

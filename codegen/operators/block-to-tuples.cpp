@@ -164,8 +164,34 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
     Value   *cond = Builder->CreateICmpSLT(lhs, cnt);
 
     // Insert the conditional branch into the end of CondBB.
-    Builder->CreateCondBr(cond, LoopBB, AfterBB);
+    BranchInst * loop_cond = Builder->CreateCondBr(cond, LoopBB, AfterBB);
 
+
+    // NamedMDNode * annot = context->getModule()->getOrInsertNamedMetadata("nvvm.annotations");
+    // MDString    * str   = MDString::get(TheContext, "kernel");
+    // Value       * one   = ConstantInt::get(int32Type, 1);
+
+    MDNode * LoopID;
+
+    {
+        // MDString       * vec_st   = MDString::get(llvmContext, "llvm.loop.vectorize.enable");
+        // Type           * int1Type = Type::getInt1Ty(llvmContext);
+        // Metadata       * one      = ConstantAsMetadata::get(ConstantInt::get(int1Type, 1));
+        // llvm::Metadata * vec_en[] = {vec_st, one};
+        // MDNode * vectorize_enable = MDNode::get(llvmContext, vec_en);
+
+        // MDString       * itr_st   = MDString::get(llvmContext, "llvm.loop.interleave.count");
+        // Type           * int32Type= Type::getInt32Ty(llvmContext);
+        // Metadata       * count    = ConstantAsMetadata::get(ConstantInt::get(int32Type, 4));
+        // llvm::Metadata * itr_en[] = {itr_st, count};
+        // MDNode * interleave_count = MDNode::get(llvmContext, itr_en);
+
+        llvm::Metadata * Args[] = {NULL};//, vectorize_enable, interleave_count};
+        LoopID = MDNode::get(llvmContext, Args);
+        LoopID->replaceOperandWith(0, LoopID);
+
+        loop_cond->setMetadata("llvm.loop", LoopID);
+    }
     // Start insertion in LoopBB.
     Builder->SetInsertPoint(LoopBB);
 
@@ -214,7 +240,24 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
         string currBufVar = bufVarStr + "." + attr.getAttrName();
 
         // Value *parsed = Builder->CreateLoad(bufShiftedPtr); //attr_alloca
-        Value *parsed = Builder->CreateLoad(Builder->CreateGEP(arg, lhs)); //TODO : use CreateAllignedLoad 
+        Value       * ptr   = Builder->CreateGEP(arg, lhs);
+
+        // Function    * pfetch = Intrinsic::getDeclaration(Builder->GetInsertBlock()->getParent()->getParent(), Intrinsic::prefetch);
+
+        // Instruction * ins = Builder->CreateCall(pfetch, std::vector<Value*>{
+        //                     Builder->CreateBitCast(ptr, charPtrType),
+        //                     context->createInt32(0),
+        //                     context->createInt32(3),
+        //                     context->createInt32(1)}
+        //                     );
+        // {
+        //     ins->setMetadata("llvm.mem.parallel_loop_access", LoopID);
+        // }
+
+        Instruction *parsed = Builder->CreateLoad(ptr); //TODO : use CreateAllignedLoad 
+        {
+            parsed->setMetadata("llvm.mem.parallel_loop_access", LoopID);
+        }
 
         AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(F, currBufVar, parsed->getType());
         Builder->CreateStore(parsed, mem_currResult);
@@ -264,11 +307,12 @@ void BlockToTuples::open (RawPipeline * pip){
 
     if (gpu) {
         buffs = (void **) RawMemoryManager::mallocGpu(sizeof(void  *) * wantedFields.size());
+        gpu_run(cudaMemset(buffs, 0, sizeof(void  *) * wantedFields.size()));
     } else {
         buffs = (void **) RawMemoryManager::mallocPinned(sizeof(void  *) * wantedFields.size());
+        memset(buffs, 0, sizeof(void  *) * wantedFields.size());
     }
 
-    gpu_run(cudaMemset(buffs, 0, sizeof(void  *) * wantedFields.size()));
 
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
         pip->setStateVar<void *>(old_buffs[i], buffs + i);

@@ -35,9 +35,10 @@
 class Exchange;
 
 extern "C"{
-    void * acquireBuffer(int target, Exchange * xch);
-    void   releaseBuffer(int target, Exchange * xch, void * buff);
-    void   freeBuffer   (int target, Exchange * xch, void * buff);
+    void * acquireBuffer    (int target, Exchange * xch);
+    void * try_acquireBuffer(int target, Exchange * xch);
+    void   releaseBuffer    (int target, Exchange * xch, void * buff);
+    void   freeBuffer       (int target, Exchange * xch, void * buff);
 }
 
 class Exchange : public UnaryRawOperator {
@@ -49,6 +50,7 @@ public:
                 int                             slack,
                 expressions::Expression       * hash = NULL,
                 bool                            numa_local = true,
+                bool                            rand_local_cpu = false,
                 int                             producers = 1) :
                     UnaryRawOperator(child), 
                     context(context), 
@@ -57,6 +59,8 @@ public:
                     slack(slack),
                     hashExpr(hash),
                     numa_local(numa_local),
+                    rand_local_cpu(rand_local_cpu),
+                    producers(producers),
                     remaining_producers(producers){
         assert((!hash || !numa_local) && "Just to make it more clear that hash has precedence over numa_local");
         
@@ -82,16 +86,17 @@ public:
     virtual bool isFiltering() const {return false;}
 
 private:
-    void * acquireBuffer(int target);
+    void * acquireBuffer(int target, bool polling = false);
     void   releaseBuffer(int target, void * buff);
     void   freeBuffer   (int target, void * buff);
-    bool   get_ready(int target, void * &buff);
+    bool   get_ready    (int target, void * &buff);
 
-    void   fire(int target, RawPipelineGen * pipGen);
+    void   fire         (int target, RawPipelineGen * pipGen);
 
-    friend void * acquireBuffer(int target, Exchange * xch);
-    friend void   releaseBuffer(int target, Exchange * xch, void * buff);
-    friend void   freeBuffer   (int target, Exchange * xch, void * buff);
+    friend void * acquireBuffer    (int target, Exchange * xch);
+    friend void * try_acquireBuffer(int target, Exchange * xch);
+    friend void   releaseBuffer    (int target, Exchange * xch, void * buff);
+    friend void   freeBuffer       (int target, Exchange * xch, void * buff);
 
     void open (RawPipeline * pip);
     void close(RawPipeline * pip);
@@ -100,6 +105,7 @@ private:
 
     const int                       slack;
     const int                       numOfParents;
+    int                             producers;
     std::atomic<int>                remaining_producers;
     GpuRawContext * const           context;
 
@@ -122,6 +128,7 @@ private:
 
     expressions::Expression       * hashExpr;
     bool                            numa_local;
+    bool                            rand_local_cpu;
 };
 
 #endif /* EXCHANGE_HPP_ */

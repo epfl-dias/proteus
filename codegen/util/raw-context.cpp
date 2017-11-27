@@ -126,6 +126,7 @@ void RawContext::setGlobalFunction(Function *F){
 	// Create a new basic block to start insertion into.
 	BasicBlock *BB = BasicBlock::Create(getLLVMContext(), "entry", F);
 	getBuilder()->SetInsertPoint(BB);
+	setCurrentEntryBlock(BB);
 
 	/**
 	 * Preparing global info to be maintained
@@ -134,10 +135,13 @@ void RawContext::setGlobalFunction(Function *F){
 	mem_resultCtr = this->CreateEntryBlockAlloca(F,"resultCtr",int64_type);
 	getBuilder()->CreateStore(this->createInt64(0),mem_resultCtr);
 
+	prepareStateVars();
+
 	createJITEngine();
 }
 
 void RawContext::prepareFunction(Function *F) {
+	endStateVars();
 
 	//FIXME Have a (tmp) return value for now at this point
 	getBuilder()->CreateRet(getBuilder()->getInt32(114));
@@ -387,6 +391,11 @@ AllocaInst* RawContext::CreateEntryBlockAlloca(Function *TheFunction,
 	return TmpBuilder.CreateAlloca(varType, 0, VarName.c_str());
 }
 
+AllocaInst* RawContext::CreateEntryBlockAlloca(const string &VarName, Type* varType) {
+	Function * F  = getBuilder()->GetInsertBlock()->getParent();
+	return CreateEntryBlockAlloca(F, VarName, varType);
+}
+
 AllocaInst* RawContext::createAlloca(	BasicBlock    * InsertAtBB,
 										const string  & VarName, 
 										Type          * varType) {
@@ -407,7 +416,7 @@ Value* RawContext::CreateGlobalString(char* str) {
 
 	Constant *tmpHTname = ConstantDataArray::getString(ctx, str,true);
 	PointerType* charPtrType = PointerType::get(IntegerType::get(ctx, 8), 0);
-	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, string("globalStr"), charPtrType);
+	AllocaInst* AllocaName = CreateEntryBlockAlloca(string("globalStr"), charPtrType);
 
 	vector<Value*> idxList = vector<Value*>();
 	idxList.push_back(createInt32(0));
@@ -435,7 +444,7 @@ Value* RawContext::CreateGlobalString(const char* str) {
 
 	Constant *tmpHTname = ConstantDataArray::getString(ctx, str,true);
 	PointerType* charPtrType = PointerType::get(IntegerType::get(ctx, 8), 0);
-	AllocaInst* AllocaName = CreateEntryBlockAlloca(TheFunction, string("globalStr"), charPtrType);
+	AllocaInst* AllocaName = CreateEntryBlockAlloca(string("globalStr"), charPtrType);
 
 	vector<Value*> idxList = vector<Value*>();
 	idxList.push_back(createInt32(0));
@@ -552,4 +561,144 @@ StructType* RawContext::CreateStringStruct() {
 //Provide support for some extern functions
 void RawContext::registerFunction(const char* funcName, Function* func)	{
 	availableFunctions[funcName] = func;
+}
+
+size_t RawContext::appendStateVar(llvm::Type * ptype, std::string name){
+	return appendStateVar(ptype, [ptype](llvm::Value *){return UndefValue::get(ptype);}, [](llvm::Value *, llvm::Value *){}, name);
+}
+
+llvm::Value * RawContext::getStateVar(size_t id) const{
+	assert(state_vars.size() > id && "Has the function been created? Is it a valid ID?");
+	return state_vars[id];
+}
+
+
+size_t RawContext::appendStateVar(llvm::Type * ptype, std::function<init_func_t> init, std::function<deinit_func_t> deinit, std::string name){
+	size_t id = to_prepare_state_vars.size();
+
+	if (getGlobalFunction()){
+		//FIXME: deprecated path...  remove
+		Value * pip =  NULL; //FIXME should introduce a pipeline ptr
+
+		//save current block
+		BasicBlock *currBlock = getBuilder()->GetInsertBlock();
+		//go to entry block
+		getBuilder()->SetInsertPoint(getCurrentEntryBlock());
+
+		Value * var = init(pip);
+		var->setName(name);
+
+		//save new entry block
+		setCurrentEntryBlock(getBuilder()->GetInsertBlock());
+
+		//restore insert point
+		getBuilder()->SetInsertPoint(currBlock);
+
+		state_vars.emplace_back(var);
+	}
+
+	to_prepare_state_vars.emplace_back(
+		ptype,
+		name + "_statevar" + std::to_string(id),
+		init,
+		deinit
+	);
+
+	return id;
+}
+
+llvm::Value * RawContext::allocateStateVar(llvm::Type * t){
+	return CreateEntryBlockAlloca("", t);
+}
+
+void RawContext::deallocateStateVar(llvm::Value * t){
+}
+
+
+void RawContext::prepareStateVars(){
+	assert(state_vars.size() == 0);
+	// //save current block
+	// BasicBlock *currBlock = getBuilder()->GetInsertBlock();
+	// //go to entry block
+	// getBuilder()->SetInsertPoint(getCurrentEntryBlock());
+
+
+	// //save new entry block
+	// setCurrentEntryBlock(getBuilder()->GetInsertBlock());
+	// //restore insert point
+	// getBuilder()->SetInsertPoint(currBlock);
+	for (size_t i = 0 ; i < to_prepare_state_vars.size() ; ++i){
+		Value * var 	=  NULL; //FIXME should introduce a pipeline ptr
+		var = std::get<2>(to_prepare_state_vars[i])(var);
+		var->setName(std::get<1>(to_prepare_state_vars[i]));
+		state_vars.emplace_back(var);
+	}
+	// size_t id = state_vars.size();
+
+	// AllocaInst * var 	= CreateEntryBlockAlloca(
+	// 						getBuilder()->GetInsertBlock()->getParent(), 
+	// 						name + std::to_string(id),
+	// 						ptype
+	// 					);
+	// state_vars.emplace_back(var);
+	// return id;
+
+
+	// size_t id = appendStateVar(ptype, name);
+
+	// //save current block
+	// BasicBlock *currBlock = getBuilder()->GetInsertBlock();
+	// //go to entry block
+	// getBuilder()->SetInsertPoint(getCurrentEntryBlock());
+
+	// init(getStateVar(id));
+
+	// //save new entry block
+	// setCurrentEntryBlock(getBuilder()->GetInsertBlock());
+	// //restore insert point
+	// getBuilder()->SetInsertPoint(currBlock);
+	// return id;
+}
+
+
+void RawContext::endStateVars(){
+	// //save current block
+	// BasicBlock *currBlock = getBuilder()->GetInsertBlock();
+	// //go to entry block
+	// getBuilder()->SetInsertPoint(getCurrentEntryBlock());
+
+
+	// //save new entry block
+	// setCurrentEntryBlock(getBuilder()->GetInsertBlock());
+	// //restore insert point
+	// getBuilder()->SetInsertPoint(currBlock);
+	for (size_t i = 0 ; i < to_prepare_state_vars.size() ; ++i){
+		Value * pip 	=  NULL; //FIXME should introduce a pipeline ptr
+		std::get<3>(to_prepare_state_vars[i])(pip, state_vars[i]);
+	}
+	// size_t id = state_vars.size();
+
+	// AllocaInst * var 	= CreateEntryBlockAlloca(
+	// 						getBuilder()->GetInsertBlock()->getParent(), 
+	// 						name + std::to_string(id),
+	// 						ptype
+	// 					);
+	// state_vars.emplace_back(var);
+	// return id;
+
+
+	// size_t id = appendStateVar(ptype, name);
+
+	// //save current block
+	// BasicBlock *currBlock = getBuilder()->GetInsertBlock();
+	// //go to entry block
+	// getBuilder()->SetInsertPoint(getCurrentEntryBlock());
+
+	// init(getStateVar(id));
+
+	// //save new entry block
+	// setCurrentEntryBlock(getBuilder()->GetInsertBlock());
+	// //restore insert point
+	// getBuilder()->SetInsertPoint(currBlock);
+	// return id;
 }

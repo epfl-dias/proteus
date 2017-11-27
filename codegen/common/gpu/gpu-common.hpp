@@ -188,6 +188,10 @@ public:
         exec_location{gpu, cpus}.activate();
     }
 
+    inline set_exec_location_on_scope(cpu_set_t cpus){
+        exec_location{cpus}.activate();
+    }
+
     inline set_exec_location_on_scope(const exec_location &loc){
         loc.activate();
     }
@@ -363,6 +367,7 @@ inline int get_device(){
 extern "C"{
     int get_ptr_device(const void *p);
     int get_ptr_device_or_rand_for_host(const void *p);
+    int get_rand_core_local_to_ptr(const void *p);
 }
 
 #endif /* GPU_COMMON_HPP_ */

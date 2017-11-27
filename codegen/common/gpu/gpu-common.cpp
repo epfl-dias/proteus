@@ -1,6 +1,7 @@
 #include "common/gpu/gpu-common.hpp"
 #include "common/common.hpp"
 #include <cassert>
+#include "multigpu/numa_utils.cuh"
 
 void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim, cudaStream_t strm){
     gpu_run(cuLaunchKernel(function, gridDim.x, gridDim.y, gridDim.z,
@@ -58,8 +59,8 @@ mmap_file::mmap_file(std::string name, data_loc loc): loc(loc){
 
     // gpu_run(cudaHostRegister(data, filesize, 0));
     if (loc == PINNED){
-        void * data2;
-        gpu_run(cudaMallocHost(&data2, filesize));
+        void * data2 = cudaMallocHost_local_to_cpu(filesize);
+
         memcpy(data2, data, filesize);
         munmap(data, filesize);
         close (fd  );
@@ -96,8 +97,8 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes, size_t offset
 
     // gpu_run(cudaHostRegister(data, filesize, 0));
     if (loc == PINNED){
-        void * data2;
-        gpu_run(cudaMallocHost(&data2, filesize));
+        void * data2 = cudaMallocHost_local_to_cpu(filesize);
+
         memcpy(data2, data, filesize);
         munmap(data, filesize);
         close (fd  );
@@ -119,7 +120,7 @@ mmap_file::~mmap_file(){
     if (loc == GPU_RESIDENT) gpu_run(cudaFree(gpu_data));
 
     // gpu_run(cudaHostUnregister(data));
-    if (loc == PINNED)       gpu_run(cudaFreeHost(data));
+    if (loc == PINNED)       cudaFreeHost_local_to_cpu(data, filesize);
 
     if (loc == PAGEABLE){
         munmap(data, filesize);
@@ -145,5 +146,18 @@ extern "C"{
         int dev = get_device(p);
         if (dev >= 0) return dev;
         return rand();
+    }
+
+    int get_rand_core_local_to_ptr(const void *p){
+        int dev = get_device(p);
+        if (dev >= 0) return dev;
+        int node;
+        void * tmp = (void *) p;
+        move_pages(0, 1, &tmp, NULL, &node, MPOL_MF_MOVE);
+        cpu_set_t cset = cpu_numa_affinity[node];
+        while (true) {
+            int r = rand();
+            if (CPU_ISSET(r % cpu_cnt, &cset)) return r;
+        }
     }
 }

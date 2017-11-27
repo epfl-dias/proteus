@@ -105,7 +105,7 @@ Value * shfl_bfly(GpuRawContext * const context,
     IntegerType *int32_type     = Type::getInt32Ty(llvmContext);
 
     // Aggregate internally to each warp
-    Function *shfl_bfly = mod->getFunction("llvm.nvvm.shfl.bfly.i32");
+    Function *shfl_bfly = context->getFunction("llvm.nvvm.shfl.bfly.i32");
     assert(shfl_bfly);
     
     unsigned int bits = 0;

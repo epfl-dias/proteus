@@ -57,6 +57,29 @@ void StorageManager::loadToGpus(std::string name){
     }
 }
 
+void StorageManager::loadToCpus(std::string name){
+    time_block t("Topen (" + name + "): ");
+
+    int devices = numa_num_task_nodes();
+
+    auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});
+    assert(it.second && "File already loaded!");
+
+    size_t filesize  = ::getFileSize(name.c_str());
+
+    size_t pack_alignment = sysconf(_SC_PAGE_SIZE); //required by mmap
+    pack_alignment = std::max(pack_alignment, (size_t) h_vector_size * 4);
+
+    size_t part_size = (((filesize + pack_alignment - 1)/pack_alignment + devices - 1) / devices) * pack_alignment; //FIXME: assumes maximum record size of 128Bytes
+
+    for (int d = 0 ; d < devices ; ++d){
+        if (part_size * d < filesize){
+            set_exec_location_on_scope cd(cpu_numa_affinity[d]);
+            it.first->second.emplace_back(new mmap_file(name, PINNED, std::min(part_size, filesize - part_size * d), part_size * d));
+        }
+    }
+}
+
 void StorageManager::unloadAll(){
     files.clear();
 }

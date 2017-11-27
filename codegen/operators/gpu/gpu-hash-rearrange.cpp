@@ -396,7 +396,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     // for (const auto &t: SSNs) std::cout << t << std::endl;
 
 
-    Function * popc = context->getFunction("llvm.ctpop.i32");
+    Function * popc = context->getFunction("llvm.ctpop");
 
     Builder->SetInsertPoint(incIdxBB);
 
@@ -559,13 +559,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = context->createFalse();
 
-        RecordAttribute battr(  RecordAttribute{
-                                    matExpr[i]->getRegisteredRelName() , 
-                                    matExpr[i]->getRegisteredAttrName(), 
-                                    matExpr[i]->getExpressionType()    
-                                },
-                                true
-                            );
+        RecordAttribute battr(matExpr[i]->getRegisteredAs(), true);
 
         variableBindings[battr] = mem_valWrapper;
     }

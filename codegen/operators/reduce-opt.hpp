@@ -47,17 +47,25 @@ public:
 			const OperatorState& childState);
 	virtual bool isFiltering() const {return true;}
 
-	AllocaInst * getAccumulator(int index){return mem_accumulators[index];}
+	Value * getAccumulator(int index){return context->getStateVar(mem_accumulators[index]);}
 protected:
 	RawContext* context;
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> outputExprs;
 	expressions::Expression* pred;
-	vector<AllocaInst*> mem_accumulators;
-
+	vector<size_t> mem_accumulators;
+	
 	const char *outPath;
 	bool flushResults;
+
+	void * flush_fun;
+
+	// RawPipelineGen *                flush_pip;
+
+	virtual void generate_flush();
+
+	size_t resetAccumulator(expressions::Expression* outputExpr, Monoid acc, bool flushDelim = false, bool is_first = false, bool is_last = false) const;
 
 private:
 	void generate(RawContext* const context, const OperatorState& childState) const;
@@ -66,8 +74,6 @@ private:
 			const OperatorState& state) const;
 	void generateAppend(expressions::Expression* outputExpr, RawContext* const context,
 			const OperatorState& state, AllocaInst *mem_accumulating) const;
-
-	AllocaInst* resetAccumulator(expressions::Expression* outputExpr, Monoid acc) const;
 
 	void flushResult();
 };

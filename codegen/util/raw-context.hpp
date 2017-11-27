@@ -63,6 +63,8 @@ void __attribute__((unused)) addOptimizerPipelineVectorization(legacy::FunctionP
 
 class RawContext {
 public:
+	typedef llvm::Value * (  init_func_t)(llvm::Value *);
+	typedef void          (deinit_func_t)(llvm::Value *, llvm::Value *);
 
 	RawContext(const string& moduleName, bool setGlobalFunction = true);
 	~RawContext() {
@@ -124,6 +126,9 @@ public:
 	AllocaInst* CreateEntryBlockAlloca(Function *TheFunction,
 			const std::string &VarName,
 			Type* varType);
+
+	AllocaInst* CreateEntryBlockAlloca(const std::string &VarName, Type* varType);
+	
 	AllocaInst * createAlloca(	BasicBlock   * InsertAtBB, 
 								const string & VarName   , 
 								Type         * varType   );
@@ -190,7 +195,19 @@ public:
 
 	const char * getName();
 
+	virtual size_t appendStateVar(llvm::Type * ptype, std::string name = "");
+	virtual size_t appendStateVar(llvm::Type * ptype, std::function<init_func_t> init, std::function<deinit_func_t> deinit, std::string name = "");
+
+	virtual llvm::Value *   allocateStateVar(llvm::Type  *t);
+	virtual void          deallocateStateVar(llvm::Value *v);
+
+	virtual llvm::Value * getStateVar(size_t id) const;
+
 protected:
+	virtual void prepareStateVars();
+	virtual void endStateVars();
+
+
 	LLVMContext TheContext;
 	Module * TheModule;
 	IRBuilder<> * TheBuilder;
@@ -224,6 +241,11 @@ protected:
 	/**
 	 * Helper function to create the LLVM objects required for JIT execution. */
 	virtual void createJITEngine();
+
+private:
+
+	std::vector<std::tuple<llvm::Type *, std::string, std::function<init_func_t>, std::function<deinit_func_t>>> to_prepare_state_vars;
+	std::vector<llvm::Value *> state_vars;
 };
 
 typedef struct StringObject {

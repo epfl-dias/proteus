@@ -37,7 +37,9 @@ public:
     ~GpuRawContext();
 
     virtual size_t appendParameter(llvm::Type * ptype, bool noalias  = false, bool readonly = false);
-    virtual size_t appendStateVar (llvm::Type * ptype);
+    virtual size_t appendStateVar (llvm::Type * ptype, std::string name = "");
+    virtual size_t appendStateVar (llvm::Type * ptype, std::function<init_func_t> init, std::function<deinit_func_t> deinit, std::string name = "");
+
 
     virtual llvm::Argument * getArgument(size_t id) const;
     virtual llvm::Value    * getStateVar(size_t id) const;
@@ -80,6 +82,8 @@ public:
     virtual BasicBlock* getCurrentEntryBlock()                      {return generators.back()->getCurrentEntryBlock();}
     virtual void        setCurrentEntryBlock(BasicBlock* codeEntry) {generators.back()->setCurrentEntryBlock(codeEntry);}
 
+    virtual llvm::Value * allocateStateVar  (llvm::Type  *t);
+    virtual void          deallocateStateVar(llvm::Value *v);
 
     // string emitPTX();
 
@@ -90,6 +94,8 @@ public:
     
     //Provide support for some extern functions
     virtual void registerFunction(const char* funcName, Function* func);
+
+    RawPipelineGen * operator->() const {return generators.back();}
 
 protected:
     virtual void createJITEngine();

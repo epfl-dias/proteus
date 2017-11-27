@@ -72,6 +72,10 @@
 #include <vector>
 #include <thread>
 
+using namespace llvm;
+
+
+
 class MultiGPUTest : public ::testing::Test {
 protected:
     virtual void SetUp();
@@ -88,12 +92,18 @@ protected:
 public:
     CUdevice  *device ;
     CUcontext *context;
+
+    // sys::PrintStackTraceOnErrorSignal;
+    // llvm::PrettyStackTraceProgram X;
+
+    // llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
 };
 
 void thread_warm_up(){}
 
 void MultiGPUTest::SetUp   (){
     setbuf(stdout, NULL);
+
 
     // int devCount;
 
@@ -128,6 +138,7 @@ void MultiGPUTest::SetUp   (){
 
     // srand(time(0));
 
+    RawPipelineGen::init();
     RawMemoryManager::init();
 }
 
@@ -248,7 +259,7 @@ TEST_F(MultiGPUTest, gpuDriverMultiReduce) {
     {
         time_block t("Tcodegen: ");
         
-        ctx                   = new GpuRawContext(testLabel);
+        ctx                   = new GpuRawContext(testLabel, false);
         CatalogParser catalog = CatalogParser(catalogJSON);
         PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
         
@@ -837,7 +848,73 @@ TEST_F(MultiGPUTest, cpuScanReduce) {
         }
         nvtxRangePop();
     }
-    __itt_pause();
+
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStop());
+    }
+
+
+    EXPECT_TRUE(verifyTestResult(TEST_OUTPUTS "/tests-multigpu-integration/", testLabel));
+    // int32_t c_out;
+    // gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
+    // //for the current dataset, regenerating it may change the results
+    // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
+    // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+
+    StorageManager::unloadAll();
+}
+
+TEST_F(MultiGPUTest, multicpuScanReduce) {
+    int devices = get_num_of_gpus();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStart());
+    }
+
+    StorageManager::loadToCpus("inputs/ssbm/lineorder.csv.lo_discount"     );
+    StorageManager::loadToCpus("inputs/ssbm/lineorder.csv.lo_quantity"     );
+    StorageManager::loadToCpus("inputs/ssbm/lineorder.csv.lo_orderdate"    );
+    StorageManager::loadToCpus("inputs/ssbm/lineorder.csv.lo_extendedprice");
+
+    StorageManager::loadToCpus("inputs/ssbm/date.csv.d_datekey"            );
+    StorageManager::loadToCpus("inputs/ssbm/date.csv.d_year"               );
+    
+    gpu_run(cudaSetDevice(0));
+
+    // __itt_resume();
+    const char *testLabel = "multicpuScanReduce";
+    GpuRawContext * ctx;
+
+    const char* planPath = "inputs/plans/reduce-scan-multicpu-storage-manager.json";
+
+    std::vector<RawPipeline *> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel, false);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
+        
+        ctx->compileAndLoad();
+
+        pipelines = ctx->getPipelines();
+    }
+
+    // for (size_t i = 0 ; i < 100; ++i){
+        __itt_resume();
+        for (RawPipeline * p: pipelines) {
+            nvtxRangePushA("pip");
+            {
+                time_block t("T: ");
+                p->open();
+                p->consume(0);
+                p->close();
+            }
+            nvtxRangePop();
+        }
+        __itt_pause();
+    // }
     for (int i = 0 ; i < devices ; ++i) {
         gpu_run(cudaSetDevice(i));
         gpu_run(cudaProfilerStop());

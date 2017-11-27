@@ -230,6 +230,9 @@ void SingleDeviceMemoryManager<allocator, unit_cap>::free(void * ptr){
     {
         std::lock_guard<std::mutex> lock(m);
         auto f = mappings.find(ptr);
+        if (f == mappings.end()){
+            for (auto &t: mappings) std::cout << t.first << " " << t.second << std::endl;
+        }
         assert(f != mappings.end() && "Mapping does not exist!");
 
         void            * base = f->second;

@@ -1039,6 +1039,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		}
 
 		bool numa_local = true;
+		bool rand_local_cpu = false;
 		expressions::Expression * hash = NULL;
 		if (val.HasMember("target")){
 			assert(val["target"].IsObject());
@@ -1046,14 +1047,23 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			numa_local = false;
 		}
 
+		if (val.HasMember("rand_local_cpu")){
+			assert(hash == NULL && "Can not have both flags set");
+			assert(val["rand_local_cpu"].IsBool());
+			rand_local_cpu = val["rand_local_cpu"].GetBool();
+			numa_local = false;
+		}
+
 		if (val.HasMember("numa_local")){
+			assert(hash == NULL && "Can not have both flags set");
+			assert(!rand_local_cpu);
 			assert(numa_local);
-			val["numa_local"].IsBool();
+			assert(val["numa_local"].IsBool());
 			numa_local = val["numa_local"].GetBool();
 		}
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new Exchange(childOp, ((GpuRawContext *) this->ctx), numOfParents, projections, slack, hash, numa_local, producers);
+		newOp =  new Exchange(childOp, ((GpuRawContext *) this->ctx), numOfParents, projections, slack, hash, numa_local, rand_local_cpu, producers);
 		childOp->setParent(newOp);
 	} else if (strcmp(opName, "materializer") == 0){
 		/* parse operator input */

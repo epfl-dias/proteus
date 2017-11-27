@@ -32,88 +32,230 @@ GpuReduce::GpuReduce(vector<Monoid>             accs,
             RawOperator* const                  child,
             GpuRawContext*                      context)
         : Reduce(accs, outputExprs, pred, child, context, false) {
-}
-
-void GpuReduce::produce() {
     for (const auto &expr: outputExprs){
         if (!expr->getExpressionType()->isPrimitive()){
             string error_msg("[GpuReduce: ] Currently only supports primitive types");
             LOG(ERROR) << error_msg;
             throw runtime_error(error_msg);
         }
+    }
+}
 
-        Type * t = PointerType::get(((const PrimitiveType *) expr->getExpressionType())->getLLVMType(context->getLLVMContext()), /* address space */ 1);
-        out_ids.push_back(((GpuRawContext *) context)->appendStateVar(t));//, true, false));
+void GpuReduce::produce() {
+    flushResults = flushResults && !getParent(); //TODO: is this the best way to do it ?
+    generate_flush();
+
+    ((GpuRawContext *) context)->popNewPipeline();
+
+    auto flush_pip = ((GpuRawContext *) context)->removeLatestPipeline();
+    flush_fun = flush_pip->getKernel();
+
+    ((GpuRawContext *) context)->pushNewPipeline(flush_pip);
+
+    assert(mem_accumulators.empty());
+    if (mem_accumulators.empty()){
+        vector<Monoid>::const_iterator itAcc;
+        vector<expressions::Expression*>::const_iterator itExpr;
+        itAcc = accs.begin();
+        itExpr = outputExprs.begin();
+
+        int aggsNo = accs.size();
+        /* Prepare accumulator FOREACH outputExpr */
+        for (; itAcc != accs.end(); itAcc++, itExpr++) {
+            Monoid acc = *itAcc;
+            expressions::Expression *outputExpr = *itExpr;
+            bool flushDelim = (aggsNo > 1) && (itAcc != accs.end() - 1);
+            bool is_first   = (itAcc == accs.begin()  );
+            bool is_last    = (itAcc == accs.end() - 1);
+            size_t mem_accumulator = resetAccumulator(outputExpr, acc, flushDelim, is_first, is_last);
+            mem_accumulators.push_back(mem_accumulator);
+        }
     }
 
     getChild()->produce();
 }
 
 void GpuReduce::consume(RawContext* const context, const OperatorState& childState) {
-    Reduce::consume(context, childState);
-    generate(context, childState);
+    consume((GpuRawContext *) context, childState);
 }
 
-void GpuReduce::generate(RawContext* const context, const OperatorState& childState) const{
-    vector<Monoid                   >::const_iterator itAcc    ;
-    vector<expressions::Expression *>::const_iterator itExpr   ;
-    vector<AllocaInst *             >::const_iterator itMem    ;
-    vector<int                      >::const_iterator itID;
+void GpuReduce::consume(GpuRawContext* const context, const OperatorState& childState) {
+    IRBuilder<>* Builder = context->getBuilder();
+    LLVMContext& llvmContext = context->getLLVMContext();
+    Function *TheFunction = Builder->GetInsertBlock()->getParent();
+
+    int aggsNo = accs.size();
+
+    //Generate condition
+    ExpressionGeneratorVisitor predExprGenerator{context, childState};
+    RawValue condition = pred->accept(predExprGenerator);
+    /**
+     * Predicate Evaluation:
+     */
+    BasicBlock* entryBlock = Builder->GetInsertBlock();
+    BasicBlock *endBlock = BasicBlock::Create(llvmContext, "reduceCondEnd",
+            TheFunction);
+    BasicBlock *ifBlock;
+    context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond",
+            &ifBlock, endBlock);
+
+    /**
+     * IF(pred) Block
+     */
+    RawValue val_output;
+    Builder->SetInsertPoint(entryBlock);
+
+    Builder->CreateCondBr(condition.value, ifBlock, endBlock);
+
+    Builder->SetInsertPoint(ifBlock);
+
+    vector<Monoid                   >::const_iterator itAcc ;
+    vector<expressions::Expression *>::const_iterator itExpr;
+    vector<size_t                   >::const_iterator itMem ;
     /* Time to Compute Aggs */
-    itAcc       = accs.begin();
-    itExpr      = outputExprs.begin();
-    itMem       = mem_accumulators.begin();
-    itID        = out_ids.begin();
+    itAcc  = accs.begin();
+    itExpr = outputExprs.begin();
+    itMem  = mem_accumulators.begin();
 
-    IRBuilder<>* Builder        = context->getBuilder();
-    
-    for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++, ++itID) {
-        Monoid                      acc                     = *itAcc;
-        expressions::Expression *   outputExpr              = *itExpr;
-        AllocaInst *                mem_accumulating        = *itMem;
-
-        BasicBlock* insBlock = Builder->GetInsertBlock();
-        
-        BasicBlock* entryBlock = context->getCurrentEntryBlock();
-        Builder->SetInsertPoint(entryBlock);
-
-        Value * global_acc_ptr = ((const GpuRawContext *) context)->getStateVar(*itID);
-
-        Builder->SetInsertPoint(insBlock);
+    for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
+        Monoid                      acc                 = *itAcc    ;
+        expressions::Expression   * outputExpr          = *itExpr   ;
+        Value                     * mem_accumulating    = NULL      ;
 
         switch (acc) {
-        case MAX:
         case SUM:
-        case OR:
-        case AND:
-            generate(acc, outputExpr, (GpuRawContext * const) context, childState, mem_accumulating, global_acc_ptr);
-            break;
         case MULTIPLY:
+        case MAX:
+        case OR:
+        case AND:{
+            BasicBlock *cBB = Builder->GetInsertBlock();
+            Builder->SetInsertPoint(context->getCurrentEntryBlock());
+
+            mem_accumulating = context->getStateVar(*itMem);
+
+            Constant * acc_init = getIdentityElementIfSimple(
+                acc,
+                outputExpr->getExpressionType(),
+                context
+            );
+            Value * acc_mem  = context->CreateEntryBlockAlloca("acc", acc_init->getType());
+            Builder->CreateStore(acc_init, acc_mem);
+
+            Builder->SetInsertPoint(context->getEndingBlock());
+            generate(acc, outputExpr, context, childState, acc_mem, mem_accumulating);
+
+            Builder->SetInsertPoint(cBB);
+
+            ExpressionGeneratorVisitor outputExprGenerator{context, childState};
+
+            // Load accumulator -> acc_value
+            RawValue acc_value;
+            acc_value.value  = Builder->CreateLoad(acc_mem);
+            acc_value.isNull = context->createFalse();
+
+            // new_value = acc_value op outputExpr
+            expressions::Expression * val = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc_value);
+            expressions::Expression * upd = toExpression(acc, val, outputExpr);
+            assert(upd && "Monoid is not convertible to expression!");
+            RawValue new_val = upd->accept(outputExprGenerator);
+
+            // store new_val to accumulator
+            Builder->CreateStore(new_val.value, acc_mem);
+            break;
+        }
         case BAGUNION:
         case APPEND:
+            //      generateAppend(context, childState);
+            //      break;
         case UNION:
         default: {
             string error_msg = string(
-                    "[GpuReduce: ] Unknown / Still Unsupported accumulator");
+                    "[Reduce: ] Unknown / Still Unsupported accumulator");
             LOG(ERROR)<< error_msg;
             throw runtime_error(error_msg);
         }
         }
     }
 
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+    Builder->CreateBr(endBlock);
+
+    /**
+     * END Block
+     */
+    Builder->SetInsertPoint(endBlock);
 }
+
+
+
+
+
+// void GpuReduce::consume(RawContext* const context, const OperatorState& childState) {
+//     Reduce::consume(context, childState);
+//     generate(context, childState);
+// }
+
+// void GpuReduce::generate(RawContext* const context, const OperatorState& childState) const{
+//     vector<Monoid                   >::const_iterator itAcc    ;
+//     vector<expressions::Expression *>::const_iterator itExpr   ;
+//     vector<size_t                   >::const_iterator itMem    ;
+//     vector<int                      >::const_iterator itID;
+//     /* Time to Compute Aggs */
+//     itAcc       = accs.begin();
+//     itExpr      = outputExprs.begin();
+//     itMem       = mem_accumulators.begin();
+//     itID        = out_ids.begin();
+
+//     IRBuilder<>* Builder        = context->getBuilder();
+    
+//     for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++, ++itID) {
+//         Monoid                      acc                     = *itAcc ;
+//         expressions::Expression *   outputExpr              = *itExpr;
+//         Value                   *   mem_accumulating        = NULL   ;
+
+//         BasicBlock* insBlock = Builder->GetInsertBlock();
+        
+//         BasicBlock* entryBlock = context->getCurrentEntryBlock();
+//         Builder->SetInsertPoint(entryBlock);
+
+//         Value * global_acc_ptr = ((const GpuRawContext *) context)->getStateVar(*itID);
+
+//         Builder->SetInsertPoint(insBlock);
+
+//         switch (acc) {
+//         case MAX:
+//         case SUM:
+//         case OR:
+//         case AND:
+//             mem_accumulating = context->getStateVar(*itMem);
+//             generate(acc, outputExpr, (GpuRawContext * const) context, childState, mem_accumulating, global_acc_ptr);
+//             break;
+//         case MULTIPLY:
+//         case BAGUNION:
+//         case APPEND:
+//         case UNION:
+//         default: {
+//             string error_msg = string(
+//                     "[GpuReduce: ] Unknown / Still Unsupported accumulator");
+//             LOG(ERROR)<< error_msg;
+//             throw runtime_error(error_msg);
+//         }
+//         }
+//     }
+
+//     ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+//     ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+// }
 
 void GpuReduce::generate(const Monoid &m, expressions::Expression* outputExpr,
         GpuRawContext* const context, const OperatorState& state,
-        AllocaInst *mem_accumulating, Value *global_accumulator_ptr) const {
+        Value * mem_accumulating, Value *global_accumulator_ptr) const {
 
     IRBuilder<>* Builder        = context->getBuilder();
     LLVMContext& llvmContext    = context->getLLVMContext();
     Function *TheFunction       = Builder->GetInsertBlock()->getParent();
 
     gpu::Monoid * gm = gpu::Monoid::get(m);
+
 
 
     global_accumulator_ptr->setName("reduce_" + std::to_string(*gm) + "_ptr");

@@ -71,6 +71,7 @@ public:
     // void unload(const RawStorageDescription &desc);
     static void load      (std::string name, data_loc loc = PINNED);
     static void loadToGpus(std::string name);
+    static void loadToCpus(std::string name);
 
     static void unloadAll();
     // void unload(std::string name);

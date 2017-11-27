@@ -2,6 +2,7 @@ file(GLOB codegen_src
 	common/*.cpp
 	common/gpu/*.cpp
 	util/*.cpp
+	util/jit/*.cpp
 	util/gpu/*.cpp
 	util/radix/*.cpp
 	util/radix/joins/*.cpp
