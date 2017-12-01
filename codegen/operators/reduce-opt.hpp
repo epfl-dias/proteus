@@ -65,7 +65,7 @@ protected:
 
 	virtual void generate_flush();
 
-	size_t resetAccumulator(expressions::Expression* outputExpr, Monoid acc, bool flushDelim = false, bool is_first = false, bool is_last = false) const;
+	virtual size_t resetAccumulator(expressions::Expression* outputExpr, Monoid acc, bool flushDelim = false, bool is_first = false, bool is_last = false) const;
 
 private:
 	void generate(RawContext* const context, const OperatorState& childState) const;

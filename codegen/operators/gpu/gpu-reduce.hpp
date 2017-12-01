@@ -52,6 +52,10 @@ public:
 
     virtual void open (RawPipeline * pip) const;
     virtual void close(RawPipeline * pip) const;
+
+protected:
+    virtual size_t resetAccumulator(expressions::Expression* outputExpr,
+        Monoid acc, bool flushDelim, bool is_first, bool is_last) const;
 private:
     void generate(RawContext* const context, const OperatorState& childState) const;
     void generate(const Monoid &m, expressions::Expression* outputExpr, GpuRawContext* const context, const OperatorState& childState, llvm::Value *mem_accumulating, llvm::Value *global_accumulator_ptr) const;

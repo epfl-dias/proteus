@@ -25,6 +25,10 @@ void launch_kernel(CUfunction function, void ** args){
 void launch_kernel_strm(CUfunction function, void ** args, cudaStream_t strm){
     launch_kernel(function, args, strm);
 }
+
+void launch_kernel_strm_single(CUfunction function, void ** args, cudaStream_t strm){
+    launch_kernel(function, args, 1, 1, strm);
+}
 }
 
 std::ostream& operator<<(std::ostream& out, const cpu_set_t& cpus) {

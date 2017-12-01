@@ -21,27 +21,35 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef RAW_CPU_PIPELINE_HPP_
-#define RAW_CPU_PIPELINE_HPP_
+#ifndef RAW_CPU_MODULE_HPP_
+#define RAW_CPU_MODULE_HPP_
 
-#include "util/raw-pipeline.hpp"
-#include "util/jit/raw-cpu-module.hpp"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 
-class RawCpuPipelineGen: public RawPipelineGen {
+#include "util/jit/raw-module.hpp"
+
+class RawCpuModule: public RawModule {
 protected:
-    RawCpuModule                                        module;
+    static llvm::LLVMTargetMachine                    * TheTargetMachine    ;
+    static llvm::legacy::PassManager                    Passes              ;
+    static llvm::PassManagerBuilder                     Builder             ;
+    // static std::unique_ptr<llvm::legacy::FunctionPassManager>   FPasses         ;
 
+protected:
+    llvm::ExecutionEngine                             * TheExecutionEngine  ;
 public:
-    RawCpuPipelineGen(  RawContext        * context                 , 
-                        std::string         pipName         = "pip" , 
-                        RawPipelineGen    * copyStateFrom   = NULL  );
+    RawCpuModule(RawContext * context, std::string pipName = "pip");
+
+    static void init();
 
     virtual void compileAndLoad();
 
-    virtual Module * getModule () const {return module.getModule();}
+    virtual void * getCompiledFunction(Function * f) const;
 
 protected:
-    virtual void * getCompiledFunction(Function * f);
+    virtual void optimizeModule(Module * M);
 };
 
-#endif /* RAW_CPU_PIPELINE_HPP_ */
+#endif /* RAW_CPU_MODULE_HPP_ */

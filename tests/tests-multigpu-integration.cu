@@ -237,10 +237,10 @@ TEST_F(MultiGPUTest, gpuDriverSequential) {
 
 TEST_F(MultiGPUTest, gpuDriverMultiReduce) {
     int devices = get_num_of_gpus();
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaProfilerStart());
-    }
+    // for (int i = 0 ; i < devices ; ++i) {
+    //     gpu_run(cudaSetDevice(i));
+    //     gpu_run(cudaProfilerStart());
+    // }
 
     StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
     StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
@@ -249,7 +249,7 @@ TEST_F(MultiGPUTest, gpuDriverMultiReduce) {
     
     gpu_run(cudaSetDevice(0));
 
-    __itt_resume();
+    // __itt_resume();
     const char *testLabel = "gpuDriverMultiReduce";
     GpuRawContext * ctx;
 
@@ -268,19 +268,30 @@ TEST_F(MultiGPUTest, gpuDriverMultiReduce) {
         pipelines = ctx->getPipelines();
     }
 
-    {
-        time_block t("T: ");
-        pipelines[0]->open();
-        pipelines[0]->consume(0);
-        pipelines[0]->close();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStart());
     }
+    gpu_run(cudaSetDevice(0));
 
-    __itt_pause();
+    for (RawPipeline * p: pipelines) {
+        nvtxRangePushA("pip");
+        {
+            time_block t("T: ");
+            p->open();
+            p->consume(0);
+            p->close();
+        }
+        nvtxRangePop();
+    }
+    
     for (int i = 0 ; i < devices ; ++i) {
         gpu_run(cudaSetDevice(i));
         gpu_run(cudaProfilerStop());
     }
 
+    EXPECT_TRUE(verifyTestResult(TEST_OUTPUTS "/tests-multigpu-integration/", testLabel));
+    shm_unlink(testLabel);
     // int32_t c_out;
     // gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
     // //for the current dataset, regenerating it may change the results

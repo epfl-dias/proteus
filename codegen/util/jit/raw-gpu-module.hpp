@@ -21,27 +21,38 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef RAW_CPU_PIPELINE_HPP_
-#define RAW_CPU_PIPELINE_HPP_
+#ifndef RAW_GPU_MODULE_HPP_
+#define RAW_GPU_MODULE_HPP_
 
-#include "util/raw-pipeline.hpp"
-#include "util/jit/raw-cpu-module.hpp"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 
-class RawCpuPipelineGen: public RawPipelineGen {
+#include "common/gpu/gpu-common.hpp"
+
+#include "util/jit/raw-module.hpp"
+
+class RawGpuModule: public RawModule {
 protected:
-    RawCpuModule                                        module;
+    static llvm::LLVMTargetMachine                    * TheTargetMachine    ;
+    static llvm::legacy::PassManager                    Passes              ;
+    static llvm::PassManagerBuilder                     Builder             ;
+    // static std::unique_ptr<llvm::legacy::FunctionPassManager>   FPasses         ;
 
+protected:
+    // llvm::ExecutionEngine                             * TheExecutionEngine  ;
+    CUmodule                                          * cudaModule          ;
 public:
-    RawCpuPipelineGen(  RawContext        * context                 , 
-                        std::string         pipName         = "pip" , 
-                        RawPipelineGen    * copyStateFrom   = NULL  );
+    RawGpuModule(RawContext * context, std::string pipName = "pip");
+
+    static void init();
 
     virtual void compileAndLoad();
 
-    virtual Module * getModule () const {return module.getModule();}
+    virtual void * getCompiledFunction(Function * f) const;
 
 protected:
-    virtual void * getCompiledFunction(Function * f);
+    virtual void optimizeModule(Module * M);
 };
 
-#endif /* RAW_CPU_PIPELINE_HPP_ */
+#endif /* RAW_GPU_MODULE_HPP_ */

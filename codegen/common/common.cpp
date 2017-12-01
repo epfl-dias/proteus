@@ -70,7 +70,7 @@ bool verifyTestResult(const char *testsPath, const char *testLabel)	{
 	/* current */
 	stat(testLabel, &statbuf);
 	size_t fsize2 = statbuf.st_size;
-	int fd2 = open(testLabel, O_RDONLY);
+	int fd2 = shm_open(testLabel, O_RDONLY, S_IRWXU);
 	if (fd2 == -1) {
 		throw runtime_error(string(__func__) + string(".open: ")+testLabel);
 	}
@@ -89,11 +89,12 @@ bool verifyTestResult(const char *testsPath, const char *testLabel)	{
 
 	close(fd1);
 	munmap(correctBuf, fsize1);
-	close(fd2);
+	// close(fd2);
+	shm_unlink(testLabel);
 	munmap(currResultBuf, fsize2);
-	if (remove(testLabel) != 0) {
-		throw runtime_error(string("Error deleting file"));
-	}
+	// if (remove(testLabel) != 0) {
+	// 	throw runtime_error(string("Error deleting file"));
+	// }
 
 	return areEqual;
 }

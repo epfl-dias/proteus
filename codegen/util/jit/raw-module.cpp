@@ -21,27 +21,25 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef RAW_CPU_PIPELINE_HPP_
-#define RAW_CPU_PIPELINE_HPP_
+#include "util/jit/raw-module.hpp"
 
-#include "util/raw-pipeline.hpp"
-#include "util/jit/raw-cpu-module.hpp"
+using namespace llvm;
 
-class RawCpuPipelineGen: public RawPipelineGen {
-protected:
-    RawCpuModule                                        module;
+IRBuilder<> * RawModule::TheBuilder = nullptr;
 
-public:
-    RawCpuPipelineGen(  RawContext        * context                 , 
-                        std::string         pipName         = "pip" , 
-                        RawPipelineGen    * copyStateFrom   = NULL  );
+RawModule::RawModule(RawContext * context, std::string pipName): 
+    TheModule(new Module(pipName, context->getLLVMContext())),
+    pipName(pipName), 
+    context(context){
 
-    virtual void compileAndLoad();
+    if (TheBuilder == nullptr) init(context->getLLVMContext());
+}
 
-    virtual Module * getModule () const {return module.getModule();}
+void RawModule::init(LLVMContext &llvmContext){
+    assert(TheBuilder == nullptr && "Module already initialized");
+    TheBuilder = new IRBuilder<>(llvmContext);
+}
 
-protected:
-    virtual void * getCompiledFunction(Function * f);
-};
-
-#endif /* RAW_CPU_PIPELINE_HPP_ */
+Module * RawModule::getModule() const{
+    return TheModule;
+}

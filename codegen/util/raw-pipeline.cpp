@@ -133,22 +133,15 @@ void RawPipelineGen::init(){
 
 RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPipelineGen * copyStateFrom): 
             F(nullptr), pipName(pipName), context(context), copyStateFrom(copyStateFrom){
-    TheModule  = new Module(pipName, context->getLLVMContext());
+    // TheModule  = new Module(pipName, context->getLLVMContext());
     TheBuilder = new IRBuilder<>(context->getLLVMContext());
     
     state      = NULL;
 
-    Type * charPtrType  = Type::getInt8PtrTy(context->getLLVMContext());
     if (copyStateFrom){
+        Type * charPtrType  = Type::getInt8PtrTy(context->getLLVMContext());
         appendStateVar(charPtrType);
-
-        FunctionType * f_t = copyStateFrom->F->getFunctionType();
-        Function     * f   = Function::Create(f_t, Function::ExternalLinkage, copyStateFrom->F->getName(), getModule());
-
-        sys::DynamicLibrary::AddSymbol(copyStateFrom->F->getName(), copyStateFrom->getKernel()); //FIMXE: this can be a little bit more elegant... alos it may create name conflicts...
-        registerFunction("subpipeline_consume", f);
     }
-
     // ThePM = new legacy::PassManager();
     // {
     //     auto &LTM = static_cast<LLVMTargetMachine &>(*(((GpuRawContext *) context)->TheTargetMachine));
@@ -156,6 +149,16 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
     //     ThePM->add(TPC);
     // }
 };
+
+void RawPipelineGen::registerSubPipeline(){
+    if (copyStateFrom){
+        FunctionType * f_t = copyStateFrom->getLLVMConsume()->getFunctionType();
+        Function     * f   = Function::Create(f_t, Function::ExternalLinkage, copyStateFrom->getLLVMConsume()->getName(), getModule());
+
+        sys::DynamicLibrary::AddSymbol(copyStateFrom->getLLVMConsume()->getName(), copyStateFrom->getConsume()); //FIMXE: this can be a little bit more elegant... alos it may create name conflicts...
+        registerFunction("subpipeline_consume", f);
+    }
+}
 
 void RawPipelineGen::registerFunction(const char* funcName, Function* func) {
     availableFunctions[funcName] = func;

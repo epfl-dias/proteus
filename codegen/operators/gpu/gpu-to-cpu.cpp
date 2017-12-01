@@ -518,9 +518,15 @@ void GpuToCpu::generate_catch(){
 void kick_start(RawPipeline * cpip, int device){
         set_affinity_local_to_gpu(device);
     nvtxRangePushA("gpu2cpu_reads");
+        nvtxRangePushA("gpu2cpu_open");
         cpip->open ();
+        nvtxRangePop();
+        nvtxRangePushA("gpu2cpu_cons");
         cpip->consume(0);
-        cpip->close();
+        nvtxRangePop();
+        nvtxRangePushA("gpu2cpu_close");
+            cpip->close();
+        nvtxRangePop();
     nvtxRangePop();
 
 }

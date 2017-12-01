@@ -414,7 +414,9 @@ void Exchange::close(RawPipeline * pip){
     for (int i = 0 ; i < numOfParents ; ++i) ready_pool_cv[i].notify_all();
 
     if (rem == 0) {
+        nvtxRangePushA("Exchange_waiting_to_close");
         for (auto &t: firers) t.join();
         firers.clear();
+        nvtxRangePop();
     }
 }

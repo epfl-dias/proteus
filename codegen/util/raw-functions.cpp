@@ -22,7 +22,8 @@
 */
 
 #include "util/raw-functions.hpp"
-
+#include <ext/stdio_filebuf.h>
+#include <ostream>
 
 //Remember to add these functions as extern in .hpp too!
 extern "C" double putchari(int X) {
@@ -609,17 +610,36 @@ void flushOutput(char* fileName)	{
 	RawCatalog& catalog = RawCatalog::getInstance();
 	string name = string(fileName);
 	stringstream* strBuffer = catalog.getSerializer(name);
-	ofstream outFile;
-	cout << "Flushing to " << fileName << endl;
+	// cout << "Flushing to " << fileName << endl;
+	{
+		time_block t("Flushing to " + name + ": ");
+		int fd = shm_open(fileName, O_CREAT | O_RDWR, S_IRWXU);
+		// const string &tmp_str = strBuffer->str(); 	//more portable but it creates a copy, which will be problematic for big output files...
+		// write(fd, tmp_str.c_str(), tmp_str.size());
 
-	outFile.open(fileName,std::ofstream::out | std::ofstream::app);
-//	const char *toFlush = strBuffer->rdbuf()->str().c_str();
-//	cout << "Contents being flushed: " << toFlush << endl;
-//	cout << "Contents being flushed: " << std::endl << strBuffer->str() << std::flush << std::endl;
-	outFile << strBuffer->rdbuf();
-	//outFile << strBuffer->rdbuf();
+		__gnu_cxx::stdio_filebuf<char> filebuf(fd, std::ofstream::out | std::ofstream::app);
+		std::ostream outFile(&filebuf);
 
-	outFile.close();
+		outFile << strBuffer->rdbuf();
+		// shm_unlink(fileName); //REMEMBER to unlink at the end of the test
+	}
+// {
+	// time_block t("memfd_create: ");
+	//interestingly enough, opening /dev/null takes 0ms, while opening another 
+	//file takes from 4 to 25 (!) ms!
+	// ofstream outFile("/dev/null",std::ofstream::out | std::ofstream::app);
+	// ofstream outFile;
+// 	cout << "Flushing to " << fileName << endl;
+
+	// outFile.open("/dev/null",std::ofstream::out | std::ofstream::app);
+// //	const char *toFlush = strBuffer->rdbuf()->str().c_str();
+// //	cout << "Contents being flushed: " << toFlush << endl;
+// //	cout << "Contents being flushed: " << std::endl << strBuffer->str() << std::flush << std::endl;
+// 	outFile << strBuffer->rdbuf();
+// 	//outFile << strBuffer->rdbuf();
+
+// 	outFile.close();
+// }
 }
 
 /**

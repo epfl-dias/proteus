@@ -21,27 +21,32 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef RAW_CPU_PIPELINE_HPP_
-#define RAW_CPU_PIPELINE_HPP_
+#ifndef RAW_MODULE_HPP_
+#define RAW_MODULE_HPP_
 
-#include "util/raw-pipeline.hpp"
-#include "util/jit/raw-cpu-module.hpp"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/IRBuilder.h"
 
-class RawCpuPipelineGen: public RawPipelineGen {
+#include "util/raw-context.hpp"
+
+class RawModule {
 protected:
-    RawCpuModule                                        module;
+    static llvm::IRBuilder<>  * TheBuilder  ;
 
+    llvm::Module              * TheModule   ;
+    const std::string           pipName     ;
+    const RawContext          * context     ;
 public:
-    RawCpuPipelineGen(  RawContext        * context                 , 
-                        std::string         pipName         = "pip" , 
-                        RawPipelineGen    * copyStateFrom   = NULL  );
+    RawModule(RawContext * context, std::string pipName = "pip");
 
-    virtual void compileAndLoad();
+    virtual void compileAndLoad() = 0;
 
-    virtual Module * getModule () const {return module.getModule();}
+    Module * getModule() const;
+
+    virtual void * getCompiledFunction(Function * f) const = 0;
 
 protected:
-    virtual void * getCompiledFunction(Function * f);
+    static void init(LLVMContext &llvmContext);
 };
 
-#endif /* RAW_CPU_PIPELINE_HPP_ */
+#endif /* RAW_MODULE_HPP_ */

@@ -47,8 +47,6 @@ typedef void          (deinit_func_t)(llvm::Value *, llvm::Value *);
 // __device__ void devprinti64(uint64_t x);
 
 class RawPipelineGen {
-private:
-    Module                    * TheModule       ;
 protected:
     //Last (current) basic block. This changes every time a new scan is triggered
     BasicBlock* codeEnd;
@@ -120,6 +118,9 @@ public:
     virtual RawPipeline           * getPipeline(int group_id = 0);
     virtual void                  * getKernel  () const;
 
+    virtual void                  * getConsume() const{return getKernel();}
+    virtual Function              * getLLVMConsume() const {return F;}
+
     std::string                     getName() const{return pipName;}
 
     virtual BasicBlock * getEndingBlock()                            {return codeEnd;}
@@ -135,12 +136,12 @@ public:
 
     [[deprecated]] virtual Function              * getFunction() const;
 
-    virtual Module                * getModule () const {return TheModule ;}
+    virtual Module                * getModule () const = 0;//{return TheModule ;}
     virtual IRBuilder<>           * getBuilder() const {return TheBuilder;}
 
-    void registerFunction(const char *, Function *);
+    virtual void registerFunction(const char *, Function *);
 
-    Function * const getFunction(string funcName) const;
+    virtual Function * const getFunction(string funcName) const;
 
 
     std::vector<llvm::Type *> getStateVars() const;
@@ -148,8 +149,7 @@ public:
     static void init();
 
 protected:
-    virtual void                    optimizeModule(Module * M) = 0;
-
+    virtual void                    registerSubPipeline();
     virtual size_t                  prepareStateArgument();
     virtual llvm::Value           * getStateLLVMValue();
     virtual void                    prepareFunction();

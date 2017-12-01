@@ -16,7 +16,6 @@
 
     This code is distributed in the hope that it will be useful, but
     WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
@@ -25,25 +24,26 @@
 #define RAW_GPU_PIPELINE_HPP_
 
 #include "util/raw-pipeline.hpp"
+#include "util/jit/raw-gpu-module.hpp"
+#include "util/jit/raw-cpu-module.hpp"
 
 class RawGpuPipelineGen: public RawPipelineGen {
 protected:
-    static LLVMTargetMachine                          * TheTargetMachine    ;
-    static legacy::PassManager                          Passes              ;
-    static PassManagerBuilder                           Builder             ;
-    static std::unique_ptr<legacy::FunctionPassManager> FPasses             ;
+    RawGpuModule                                        module              ;
+    RawCpuModule                                        wrapper_module      ;
 
-protected:
-    CUmodule                                            * cudaModule        ;
-    legacy::PassManager                                 * ThePM             ;
+    bool                                                wrapperModuleActive ;
+    size_t                                              kernel_id           ;
+    size_t                                              strm_id             ;
 
-    ExecutionEngine                                     * TheExecutionEngine;
+    Function                                          * Fconsume            ;
+    Function                                          * subpipelineSync     ;
+    map<string, Function*>                              availableWrapperFunctions   ;
 public:
     RawGpuPipelineGen(  RawContext        * context                 , 
                         std::string         pipName         = "pip" , 
                         RawPipelineGen    * copyStateFrom   = NULL  );
 
-    static void                     init();
     virtual void                    compileAndLoad();
 
     virtual Function              * prepare();
@@ -51,12 +51,30 @@ public:
     virtual RawPipeline           * getPipeline(int group_id = 0);
     virtual void                  * getKernel  () const;
 
+    // virtual size_t appendStateVar (llvm::Type * ptype);
+    // virtual size_t appendStateVar (llvm::Type * ptype, std::function<init_func_t> init, std::function<deinit_func_t> deinit);
+    virtual Module                * getModule () const {
+        if (wrapperModuleActive) return wrapper_module.getModule();
+        return module.getModule();
+    }
+
+    virtual void                  * getConsume() const;
+    virtual Function              * getLLVMConsume() const {return Fconsume;}
+
+    virtual void registerFunction(const char *, Function *);
+    virtual Function * const getFunction(string funcName) const;
+
 protected:
-    virtual void                    optimizeModule(Module * M);
     virtual size_t                  prepareStateArgument();
     virtual llvm::Value           * getStateLLVMValue();
 
-    virtual void * getCompiledFunction(Function * f);
+    virtual void                    prepareInitDeinit();
+
+    virtual void                  * getCompiledFunction(Function * f);
+
+    virtual void                    registerFunctions();
+    virtual Function              * prepareConsumeWrapper();
+
 };
 
 #endif /* RAW_GPU_PIPELINE_HPP_ */

@@ -121,7 +121,7 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, const char 
 
 	Document document; // Default template parameter uses UTF8 and MemoryPoolAllocator.
 	if (document.Parse(bufJSON).HasParseError()) {
-		const char *err = "[PlanExecutor: ] Error parsing physical plan";
+		const char *err = "[PlanExecutor: ] Error parsing physical plan (JSON parsing error)";
 		LOG(ERROR)<< err;
 		throw runtime_error(err);
 	}

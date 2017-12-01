@@ -530,9 +530,7 @@ size_t Reduce::resetAccumulator(expressions::Expression* outputExpr,
 						FunctionType * f_t  = f->getFunctionType();
 
 						Type  * substate_t  = f_t->getParamType(f_t->getNumParams()-1);
-						((GpuRawContext *) context)->getSubStateVar()->dump();
-						((GpuRawContext *) context)->getSubStateVar()->getType()->dump();
-						substate_t->dump();
+						
 						Value * substate    = Builder->CreateBitCast(((GpuRawContext *) context)->getSubStateVar(), substate_t);
 						args.emplace_back(substate);
 

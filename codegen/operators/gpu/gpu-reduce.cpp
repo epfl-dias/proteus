@@ -183,6 +183,11 @@ void GpuReduce::consume(GpuRawContext* const context, const OperatorState& child
      * END Block
      */
     Builder->SetInsertPoint(endBlock);
+
+
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+
 }
 
 
@@ -294,30 +299,146 @@ void GpuReduce::generate(const Monoid &m, expressions::Expression* outputExpr,
 }
 
 void GpuReduce::open(RawPipeline * pip) const{
-    for (size_t i = 0 ; i < out_ids.size() ; ++i){
+    for (size_t i = 0 ; i < mem_accumulators.size() ; ++i){
         Type * llvm_type = ((const PrimitiveType *) outputExprs[i]->getExpressionType())->getLLVMType(context->getLLVMContext());
 
         size_t size_in_bytes = (llvm_type->getPrimitiveSizeInBits() + 7)/8;
 
-        void * acc;
-        gpu_run(cudaMalloc(&acc,    size_in_bytes));
+        void * acc = pip->getStateVar<void *>(mem_accumulators[i]);
 
         gpu_run(cudaMemset( acc, 0, size_in_bytes)); //FIXME: reset every type of (data, monoid)
 
-        pip->setStateVar(out_ids[i], acc);
+        // pip->setStateVar(mem_accumulators[i], acc);s
     }
 }
 
 void GpuReduce::close(RawPipeline * pip) const{
-    // for (size_t i = 0 ; i < out_ids.size() ; ++i){
-    //     gpu_run(cudaFree(pip->getStateVar<uint32_t *>(context, out_ids[i])));
+    // for (size_t i = 0 ; i < mem_accumulators.size() ; ++i){
+    //     gpu_run(cudaFree(pip->getStateVar<uint32_t *>(context, mem_accumulators[i])));
     // }
-    for (size_t i = 0 ; i < out_ids.size() ; ++i){
-        uint32_t r;
-        gpu_run(cudaMemcpy(&r, pip->getStateVar<uint32_t *>(out_ids[i]), sizeof(uint32_t), cudaMemcpyDefault));
-        std::cout << r << std::endl;
-    }
+
+    //create stream
+    //call consume
+    //sync
+
+    // for (size_t i = 0 ; i < mem_accumulators.size() ; ++i){
+    //     uint32_t r;
+    //     gpu_run(cudaMemcpy(&r, pip->getStateVar<void *>(mem_accumulators[i]), sizeof(uint32_t), cudaMemcpyDefault));
+    //     std::cout << r << std::endl;
+    // }
 }
+
+size_t GpuReduce::resetAccumulator(expressions::Expression* outputExpr,
+        Monoid acc, bool flushDelim, bool is_first, bool is_last) const {
+    size_t mem_accum_id = ~((size_t) 0);
+
+    //Deal with 'memory allocations' as per monoid type requested
+    switch (acc) {
+        case SUM:
+        case MULTIPLY:
+        case MAX:
+        case OR:
+        case AND: {
+            Type * t = outputExpr->getExpressionType()
+                                    ->getLLVMType(context->getLLVMContext());
+
+            mem_accum_id = context->appendStateVar(
+                PointerType::getUnqual(t),
+
+                [=](llvm::Value *){
+                    IRBuilder<> * Builder = context->getBuilder();
+
+                    Value * mem_acc = context->allocateStateVar(t);
+
+                    // Constant * val_id = getIdentityElementIfSimple(
+                    //     acc,
+                    //     outputExpr->getExpressionType(),
+                    //     context
+                    // );
+                    // needs a memset to store...
+                    // Builder->CreateStore(val_id, mem_acc);
+
+                    return mem_acc;
+                },
+
+                [=](llvm::Value *, llvm::Value * s){
+                    // if (flushResults && is_first && accs.size() > 1) flusher->beginList();
+
+                    // Value* val_acc =  context->getBuilder()->CreateLoad(s);
+
+                    // if (outputExpr->isRegistered()){
+                    //  map<RecordAttribute, RawValueMemory> binding{};
+                    //  AllocaInst * acc_alloca = context->CreateEntryBlockAlloca(outputExpr->getRegisteredAttrName(), val_acc->getType());
+                    //  context->getBuilder()->CreateStore(val_acc, acc_alloca);
+                    //  RawValueMemory acc_mem{acc_alloca, context->createFalse()};
+                    //  binding[outputExpr->getRegisteredAs()] = acc_mem;
+                    // }
+
+                    if (is_first){  
+                        vector<Monoid                   >::const_iterator itAcc  = accs.begin();
+                        vector<expressions::Expression *>::const_iterator itExpr = outputExprs.begin();
+                        vector<size_t                   >::const_iterator itMem  = mem_accumulators.begin();
+
+                        vector<Value *> args;
+                        for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
+                            Monoid                      acc                 = *itAcc    ;
+                            expressions::Expression   * outputExpr          = *itExpr   ;
+                            Value                     * mem_accumulating    = NULL      ;
+
+                            if (*itMem == ~((size_t) 0)) continue;
+                            
+                            args.emplace_back(context->getStateVar(*itMem));
+                        }
+
+                        IRBuilder<> * Builder = context->getBuilder();
+
+                        Type  * charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
+
+                        Function * f        = context->getFunction("subpipeline_consume");
+                        FunctionType * f_t  = f->getFunctionType();
+
+                        Type  * substate_t  = f_t->getParamType(f_t->getNumParams()-1);
+
+                        Value * substate    = Builder->CreateBitCast(((GpuRawContext *) context)->getSubStateVar(), substate_t);
+                        args.emplace_back(substate);
+
+                        Builder->CreateCall(f, args);
+                    }
+
+                    // if (flushResults){
+                    //  flusher->flushValue(val_acc, outputExpr->getExpressionType()->getTypeID());
+                    //  if (flushDelim) flusher->flushDelim();
+                    // }
+
+                    context->deallocateStateVar(s);
+
+                    // if (flushResults && is_last  && accs.size() > 1) flusher->endList();
+
+                    // if (flushResults && is_last  ) flusher->flushOutput();
+                }
+            );
+            break;
+        }
+        case UNION: {
+            string error_msg = string("[Reduce: ] Not implemented yet");
+            LOG(ERROR)<< error_msg;
+            throw runtime_error(error_msg);
+        }
+        case BAGUNION:
+        case APPEND: {
+            /*XXX Bags and Lists can be processed in streaming fashion -> No accumulator needed */
+            break;
+        }
+        default: {
+            string error_msg = string("[Reduce: ] Unknown accumulator");
+            LOG(ERROR)<< error_msg;
+            throw runtime_error(error_msg);
+        }
+    }
+
+    return mem_accum_id;
+}
+
 
 
 
