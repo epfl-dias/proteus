@@ -1,0 +1,1078 @@
+Processing: 0 0
+MAIN 0
+BLAH: max(p_retailprice)
+BLAH: max(p_partkey)
+select max(p_retailprice), max(p_partkey), 
+from part, 
+where p_retailprice  >  990.1
+and p_retailprice  <  1000
+ParseSQL 1
+--> Add From Table: part - 0
+From Clause Map:
+-----------------
+From Clause Map:
+part - 0
+-----------------
+ParseSQL 2
+Searching for p_retailprice
+relName : customer
+	AttrName: ->c_acctbal<- ->p_retailprice<- 
+	AttrName: ->c_address<- ->p_retailprice<- 
+	AttrName: ->c_comment<- ->p_retailprice<- 
+	AttrName: ->c_custkey<- ->p_retailprice<- 
+	AttrName: ->c_mktsegment<- ->p_retailprice<- 
+	AttrName: ->c_name<- ->p_retailprice<- 
+	AttrName: ->c_nationkey<- ->p_retailprice<- 
+	AttrName: ->c_phone<- ->p_retailprice<- 
+relName : lineitem
+	AttrName: ->comment<- ->p_retailprice<- 
+	AttrName: ->commitdate<- ->p_retailprice<- 
+	AttrName: ->discount<- ->p_retailprice<- 
+	AttrName: ->extendedprice<- ->p_retailprice<- 
+	AttrName: ->linenumber<- ->p_retailprice<- 
+	AttrName: ->linestatus<- ->p_retailprice<- 
+	AttrName: ->orderkey<- ->p_retailprice<- 
+	AttrName: ->partkey<- ->p_retailprice<- 
+	AttrName: ->quantity<- ->p_retailprice<- 
+	AttrName: ->receiptdate<- ->p_retailprice<- 
+	AttrName: ->returnflag<- ->p_retailprice<- 
+	AttrName: ->shipdate<- ->p_retailprice<- 
+	AttrName: ->shipinstruct<- ->p_retailprice<- 
+	AttrName: ->shipmode<- ->p_retailprice<- 
+	AttrName: ->suppkey<- ->p_retailprice<- 
+	AttrName: ->tax<- ->p_retailprice<- 
+relName : nation
+	AttrName: ->n_comment<- ->p_retailprice<- 
+	AttrName: ->n_name<- ->p_retailprice<- 
+	AttrName: ->n_nationkey<- ->p_retailprice<- 
+	AttrName: ->n_regionkey<- ->p_retailprice<- 
+relName : orders
+	AttrName: ->o_clerk<- ->p_retailprice<- 
+	AttrName: ->o_comment<- ->p_retailprice<- 
+	AttrName: ->o_custkey<- ->p_retailprice<- 
+	AttrName: ->o_orderdate<- ->p_retailprice<- 
+	AttrName: ->o_orderkey<- ->p_retailprice<- 
+	AttrName: ->o_orderpriority<- ->p_retailprice<- 
+	AttrName: ->o_orderstatus<- ->p_retailprice<- 
+	AttrName: ->o_shippriority<- ->p_retailprice<- 
+	AttrName: ->o_totalprice<- ->p_retailprice<- 
+relName : part
+	AttrName: ->p_brand<- ->p_retailprice<- 
+	AttrName: ->p_comment<- ->p_retailprice<- 
+	AttrName: ->p_container<- ->p_retailprice<- 
+	AttrName: ->p_mfgr<- ->p_retailprice<- 
+	AttrName: ->p_name<- ->p_retailprice<- 
+	AttrName: ->p_partkey<- ->p_retailprice<- 
+	AttrName: ->p_retailprice<- ->p_retailprice<- 
+	AttrName: ->p_size<- ->p_retailprice<- 
+	AttrName: ->p_type<- ->p_retailprice<- 
+Projection List: max(p_retailprice)
+AggrFunction: 2 - part.p_retailprice Float
+	Record(p_partkey Int, p_name String, p_mfgr String, p_brand String, p_type String, p_size Int, p_container String, p_retailprice Float, p_comment String)
+Searching for p_partkey
+relName : customer
+	AttrName: ->c_acctbal<- ->p_partkey<- 
+	AttrName: ->c_address<- ->p_partkey<- 
+	AttrName: ->c_comment<- ->p_partkey<- 
+	AttrName: ->c_custkey<- ->p_partkey<- 
+	AttrName: ->c_mktsegment<- ->p_partkey<- 
+	AttrName: ->c_name<- ->p_partkey<- 
+	AttrName: ->c_nationkey<- ->p_partkey<- 
+	AttrName: ->c_phone<- ->p_partkey<- 
+relName : lineitem
+	AttrName: ->comment<- ->p_partkey<- 
+	AttrName: ->commitdate<- ->p_partkey<- 
+	AttrName: ->discount<- ->p_partkey<- 
+	AttrName: ->extendedprice<- ->p_partkey<- 
+	AttrName: ->linenumber<- ->p_partkey<- 
+	AttrName: ->linestatus<- ->p_partkey<- 
+	AttrName: ->orderkey<- ->p_partkey<- 
+	AttrName: ->partkey<- ->p_partkey<- 
+	AttrName: ->quantity<- ->p_partkey<- 
+	AttrName: ->receiptdate<- ->p_partkey<- 
+	AttrName: ->returnflag<- ->p_partkey<- 
+	AttrName: ->shipdate<- ->p_partkey<- 
+	AttrName: ->shipinstruct<- ->p_partkey<- 
+	AttrName: ->shipmode<- ->p_partkey<- 
+	AttrName: ->suppkey<- ->p_partkey<- 
+	AttrName: ->tax<- ->p_partkey<- 
+relName : nation
+	AttrName: ->n_comment<- ->p_partkey<- 
+	AttrName: ->n_name<- ->p_partkey<- 
+	AttrName: ->n_nationkey<- ->p_partkey<- 
+	AttrName: ->n_regionkey<- ->p_partkey<- 
+relName : orders
+	AttrName: ->o_clerk<- ->p_partkey<- 
+	AttrName: ->o_comment<- ->p_partkey<- 
+	AttrName: ->o_custkey<- ->p_partkey<- 
+	AttrName: ->o_orderdate<- ->p_partkey<- 
+	AttrName: ->o_orderkey<- ->p_partkey<- 
+	AttrName: ->o_orderpriority<- ->p_partkey<- 
+	AttrName: ->o_orderstatus<- ->p_partkey<- 
+	AttrName: ->o_shippriority<- ->p_partkey<- 
+	AttrName: ->o_totalprice<- ->p_partkey<- 
+relName : part
+	AttrName: ->p_brand<- ->p_partkey<- 
+	AttrName: ->p_comment<- ->p_partkey<- 
+	AttrName: ->p_container<- ->p_partkey<- 
+	AttrName: ->p_mfgr<- ->p_partkey<- 
+	AttrName: ->p_name<- ->p_partkey<- 
+	AttrName: ->p_partkey<- ->p_partkey<- 
+	AttrName: ->p_retailprice<- ->p_partkey<- 
+	AttrName: ->p_size<- ->p_partkey<- 
+	AttrName: ->p_type<- ->p_partkey<- 
+Projection List: max(p_partkey)
+AggrFunction: 2 - part.p_partkey Int
+	Record(p_partkey Int, p_name String, p_mfgr String, p_brand String, p_type String, p_size Int, p_container String, p_retailprice Float, p_comment String)
+ParseSQL 3
+ParseSQL 3.1
+Searching for p_retailprice
+relName : customer
+	AttrName: ->c_acctbal<- ->p_retailprice<- 
+	AttrName: ->c_address<- ->p_retailprice<- 
+	AttrName: ->c_comment<- ->p_retailprice<- 
+	AttrName: ->c_custkey<- ->p_retailprice<- 
+	AttrName: ->c_mktsegment<- ->p_retailprice<- 
+	AttrName: ->c_name<- ->p_retailprice<- 
+	AttrName: ->c_nationkey<- ->p_retailprice<- 
+	AttrName: ->c_phone<- ->p_retailprice<- 
+relName : lineitem
+	AttrName: ->comment<- ->p_retailprice<- 
+	AttrName: ->commitdate<- ->p_retailprice<- 
+	AttrName: ->discount<- ->p_retailprice<- 
+	AttrName: ->extendedprice<- ->p_retailprice<- 
+	AttrName: ->linenumber<- ->p_retailprice<- 
+	AttrName: ->linestatus<- ->p_retailprice<- 
+	AttrName: ->orderkey<- ->p_retailprice<- 
+	AttrName: ->partkey<- ->p_retailprice<- 
+	AttrName: ->quantity<- ->p_retailprice<- 
+	AttrName: ->receiptdate<- ->p_retailprice<- 
+	AttrName: ->returnflag<- ->p_retailprice<- 
+	AttrName: ->shipdate<- ->p_retailprice<- 
+	AttrName: ->shipinstruct<- ->p_retailprice<- 
+	AttrName: ->shipmode<- ->p_retailprice<- 
+	AttrName: ->suppkey<- ->p_retailprice<- 
+	AttrName: ->tax<- ->p_retailprice<- 
+relName : nation
+	AttrName: ->n_comment<- ->p_retailprice<- 
+	AttrName: ->n_name<- ->p_retailprice<- 
+	AttrName: ->n_nationkey<- ->p_retailprice<- 
+	AttrName: ->n_regionkey<- ->p_retailprice<- 
+relName : orders
+	AttrName: ->o_clerk<- ->p_retailprice<- 
+	AttrName: ->o_comment<- ->p_retailprice<- 
+	AttrName: ->o_custkey<- ->p_retailprice<- 
+	AttrName: ->o_orderdate<- ->p_retailprice<- 
+	AttrName: ->o_orderkey<- ->p_retailprice<- 
+	AttrName: ->o_orderpriority<- ->p_retailprice<- 
+	AttrName: ->o_orderstatus<- ->p_retailprice<- 
+	AttrName: ->o_shippriority<- ->p_retailprice<- 
+	AttrName: ->o_totalprice<- ->p_retailprice<- 
+relName : part
+	AttrName: ->p_brand<- ->p_retailprice<- 
+	AttrName: ->p_comment<- ->p_retailprice<- 
+	AttrName: ->p_container<- ->p_retailprice<- 
+	AttrName: ->p_mfgr<- ->p_retailprice<- 
+	AttrName: ->p_name<- ->p_retailprice<- 
+	AttrName: ->p_partkey<- ->p_retailprice<- 
+	AttrName: ->p_retailprice<- ->p_retailprice<- 
+	AttrName: ->p_size<- ->p_retailprice<- 
+	AttrName: ->p_type<- ->p_retailprice<- 
+ParseSQL 3.2
+Searching for 990.1
+relName : customer
+	AttrName: ->c_acctbal<- ->990.1<- 
+	AttrName: ->c_address<- ->990.1<- 
+	AttrName: ->c_comment<- ->990.1<- 
+	AttrName: ->c_custkey<- ->990.1<- 
+	AttrName: ->c_mktsegment<- ->990.1<- 
+	AttrName: ->c_name<- ->990.1<- 
+	AttrName: ->c_nationkey<- ->990.1<- 
+	AttrName: ->c_phone<- ->990.1<- 
+relName : lineitem
+	AttrName: ->comment<- ->990.1<- 
+	AttrName: ->commitdate<- ->990.1<- 
+	AttrName: ->discount<- ->990.1<- 
+	AttrName: ->extendedprice<- ->990.1<- 
+	AttrName: ->linenumber<- ->990.1<- 
+	AttrName: ->linestatus<- ->990.1<- 
+	AttrName: ->orderkey<- ->990.1<- 
+	AttrName: ->partkey<- ->990.1<- 
+	AttrName: ->quantity<- ->990.1<- 
+	AttrName: ->receiptdate<- ->990.1<- 
+	AttrName: ->returnflag<- ->990.1<- 
+	AttrName: ->shipdate<- ->990.1<- 
+	AttrName: ->shipinstruct<- ->990.1<- 
+	AttrName: ->shipmode<- ->990.1<- 
+	AttrName: ->suppkey<- ->990.1<- 
+	AttrName: ->tax<- ->990.1<- 
+relName : nation
+	AttrName: ->n_comment<- ->990.1<- 
+	AttrName: ->n_name<- ->990.1<- 
+	AttrName: ->n_nationkey<- ->990.1<- 
+	AttrName: ->n_regionkey<- ->990.1<- 
+relName : orders
+	AttrName: ->o_clerk<- ->990.1<- 
+	AttrName: ->o_comment<- ->990.1<- 
+	AttrName: ->o_custkey<- ->990.1<- 
+	AttrName: ->o_orderdate<- ->990.1<- 
+	AttrName: ->o_orderkey<- ->990.1<- 
+	AttrName: ->o_orderpriority<- ->990.1<- 
+	AttrName: ->o_orderstatus<- ->990.1<- 
+	AttrName: ->o_shippriority<- ->990.1<- 
+	AttrName: ->o_totalprice<- ->990.1<- 
+relName : part
+	AttrName: ->p_brand<- ->990.1<- 
+	AttrName: ->p_comment<- ->990.1<- 
+	AttrName: ->p_container<- ->990.1<- 
+	AttrName: ->p_mfgr<- ->990.1<- 
+	AttrName: ->p_name<- ->990.1<- 
+	AttrName: ->p_partkey<- ->990.1<- 
+	AttrName: ->p_retailprice<- ->990.1<- 
+	AttrName: ->p_size<- ->990.1<- 
+	AttrName: ->p_type<- ->990.1<- 
+relName : partsupp
+	AttrName: ->ps_availqty<- ->990.1<- 
+	AttrName: ->ps_comment<- ->990.1<- 
+	AttrName: ->ps_partkey<- ->990.1<- 
+	AttrName: ->ps_suppkey<- ->990.1<- 
+	AttrName: ->ps_supplycost<- ->990.1<- 
+relName : region
+	AttrName: ->r_comment<- ->990.1<- 
+	AttrName: ->r_name<- ->990.1<- 
+	AttrName: ->r_regionkey<- ->990.1<- 
+relName : supplier
+	AttrName: ->s_acctbal<- ->990.1<- 
+	AttrName: ->s_address<- ->990.1<- 
+	AttrName: ->s_comment<- ->990.1<- 
+	AttrName: ->s_name<- ->990.1<- 
+	AttrName: ->s_nationkey<- ->990.1<- 
+	AttrName: ->s_phone<- ->990.1<- 
+	AttrName: ->s_suppkey<- ->990.1<- 
+ParseSQL 3.3
+ParseSQL 3.4
+ParseSQL 3.4.1
+ParseSQL 3.5
+ParseSQL 3.6
+ParseSQL 3.7
+ParseSQL 3.8
+ParseSQL 3.1
+Searching for p_retailprice
+relName : customer
+	AttrName: ->c_acctbal<- ->p_retailprice<- 
+	AttrName: ->c_address<- ->p_retailprice<- 
+	AttrName: ->c_comment<- ->p_retailprice<- 
+	AttrName: ->c_custkey<- ->p_retailprice<- 
+	AttrName: ->c_mktsegment<- ->p_retailprice<- 
+	AttrName: ->c_name<- ->p_retailprice<- 
+	AttrName: ->c_nationkey<- ->p_retailprice<- 
+	AttrName: ->c_phone<- ->p_retailprice<- 
+relName : lineitem
+	AttrName: ->comment<- ->p_retailprice<- 
+	AttrName: ->commitdate<- ->p_retailprice<- 
+	AttrName: ->discount<- ->p_retailprice<- 
+	AttrName: ->extendedprice<- ->p_retailprice<- 
+	AttrName: ->linenumber<- ->p_retailprice<- 
+	AttrName: ->linestatus<- ->p_retailprice<- 
+	AttrName: ->orderkey<- ->p_retailprice<- 
+	AttrName: ->partkey<- ->p_retailprice<- 
+	AttrName: ->quantity<- ->p_retailprice<- 
+	AttrName: ->receiptdate<- ->p_retailprice<- 
+	AttrName: ->returnflag<- ->p_retailprice<- 
+	AttrName: ->shipdate<- ->p_retailprice<- 
+	AttrName: ->shipinstruct<- ->p_retailprice<- 
+	AttrName: ->shipmode<- ->p_retailprice<- 
+	AttrName: ->suppkey<- ->p_retailprice<- 
+	AttrName: ->tax<- ->p_retailprice<- 
+relName : nation
+	AttrName: ->n_comment<- ->p_retailprice<- 
+	AttrName: ->n_name<- ->p_retailprice<- 
+	AttrName: ->n_nationkey<- ->p_retailprice<- 
+	AttrName: ->n_regionkey<- ->p_retailprice<- 
+relName : orders
+	AttrName: ->o_clerk<- ->p_retailprice<- 
+	AttrName: ->o_comment<- ->p_retailprice<- 
+	AttrName: ->o_custkey<- ->p_retailprice<- 
+	AttrName: ->o_orderdate<- ->p_retailprice<- 
+	AttrName: ->o_orderkey<- ->p_retailprice<- 
+	AttrName: ->o_orderpriority<- ->p_retailprice<- 
+	AttrName: ->o_orderstatus<- ->p_retailprice<- 
+	AttrName: ->o_shippriority<- ->p_retailprice<- 
+	AttrName: ->o_totalprice<- ->p_retailprice<- 
+relName : part
+	AttrName: ->p_brand<- ->p_retailprice<- 
+	AttrName: ->p_comment<- ->p_retailprice<- 
+	AttrName: ->p_container<- ->p_retailprice<- 
+	AttrName: ->p_mfgr<- ->p_retailprice<- 
+	AttrName: ->p_name<- ->p_retailprice<- 
+	AttrName: ->p_partkey<- ->p_retailprice<- 
+	AttrName: ->p_retailprice<- ->p_retailprice<- 
+	AttrName: ->p_size<- ->p_retailprice<- 
+	AttrName: ->p_type<- ->p_retailprice<- 
+ParseSQL 3.2
+Searching for 1000
+relName : customer
+	AttrName: ->c_acctbal<- ->1000<- 
+	AttrName: ->c_address<- ->1000<- 
+	AttrName: ->c_comment<- ->1000<- 
+	AttrName: ->c_custkey<- ->1000<- 
+	AttrName: ->c_mktsegment<- ->1000<- 
+	AttrName: ->c_name<- ->1000<- 
+	AttrName: ->c_nationkey<- ->1000<- 
+	AttrName: ->c_phone<- ->1000<- 
+relName : lineitem
+	AttrName: ->comment<- ->1000<- 
+	AttrName: ->commitdate<- ->1000<- 
+	AttrName: ->discount<- ->1000<- 
+	AttrName: ->extendedprice<- ->1000<- 
+	AttrName: ->linenumber<- ->1000<- 
+	AttrName: ->linestatus<- ->1000<- 
+	AttrName: ->orderkey<- ->1000<- 
+	AttrName: ->partkey<- ->1000<- 
+	AttrName: ->quantity<- ->1000<- 
+	AttrName: ->receiptdate<- ->1000<- 
+	AttrName: ->returnflag<- ->1000<- 
+	AttrName: ->shipdate<- ->1000<- 
+	AttrName: ->shipinstruct<- ->1000<- 
+	AttrName: ->shipmode<- ->1000<- 
+	AttrName: ->suppkey<- ->1000<- 
+	AttrName: ->tax<- ->1000<- 
+relName : nation
+	AttrName: ->n_comment<- ->1000<- 
+	AttrName: ->n_name<- ->1000<- 
+	AttrName: ->n_nationkey<- ->1000<- 
+	AttrName: ->n_regionkey<- ->1000<- 
+relName : orders
+	AttrName: ->o_clerk<- ->1000<- 
+	AttrName: ->o_comment<- ->1000<- 
+	AttrName: ->o_custkey<- ->1000<- 
+	AttrName: ->o_orderdate<- ->1000<- 
+	AttrName: ->o_orderkey<- ->1000<- 
+	AttrName: ->o_orderpriority<- ->1000<- 
+	AttrName: ->o_orderstatus<- ->1000<- 
+	AttrName: ->o_shippriority<- ->1000<- 
+	AttrName: ->o_totalprice<- ->1000<- 
+relName : part
+	AttrName: ->p_brand<- ->1000<- 
+	AttrName: ->p_comment<- ->1000<- 
+	AttrName: ->p_container<- ->1000<- 
+	AttrName: ->p_mfgr<- ->1000<- 
+	AttrName: ->p_name<- ->1000<- 
+	AttrName: ->p_partkey<- ->1000<- 
+	AttrName: ->p_retailprice<- ->1000<- 
+	AttrName: ->p_size<- ->1000<- 
+	AttrName: ->p_type<- ->1000<- 
+relName : partsupp
+	AttrName: ->ps_availqty<- ->1000<- 
+	AttrName: ->ps_comment<- ->1000<- 
+	AttrName: ->ps_partkey<- ->1000<- 
+	AttrName: ->ps_suppkey<- ->1000<- 
+	AttrName: ->ps_supplycost<- ->1000<- 
+relName : region
+	AttrName: ->r_comment<- ->1000<- 
+	AttrName: ->r_name<- ->1000<- 
+	AttrName: ->r_regionkey<- ->1000<- 
+relName : supplier
+	AttrName: ->s_acctbal<- ->1000<- 
+	AttrName: ->s_address<- ->1000<- 
+	AttrName: ->s_comment<- ->1000<- 
+	AttrName: ->s_name<- ->1000<- 
+	AttrName: ->s_nationkey<- ->1000<- 
+	AttrName: ->s_phone<- ->1000<- 
+	AttrName: ->s_suppkey<- ->1000<- 
+ParseSQL 3.3
+ParseSQL 3.4
+ParseSQL 3.4.1
+ParseSQL 3.5
+ParseSQL 3.6
+ParseSQL 3.7
+ParseSQL 3.8
+ParseSQL 4
+ParseSQL 5
+Projection List:
+-----------------
+Projection Aggr List:
+[0]: MAX(part.p_retailprice Float)
+[1]: MAX(part.p_partkey Int)
+-----------------
+From Clause:
+[0]: part
+    Filter Predicates:0,1,
+    Join Predicates:
+    Join Predicates Side:
+    Projection Attributes:
+    Projection Aggregate Attributes:0,1,
+    Group By Attrs:
+-----------------
+From Clause Map:
+part - 0
+-----------------
+Predicates:
+[0]: part.p_retailprice > 990.1
+[1]: part.p_retailprice < 1000
+-----------------
+Group By:
+-----------------
+MAIN 1
+MAIN 2
+RelName: part
+NumRows: 200 - AvgRowLen: 72
+p_partkey - Min: 1 - Max: 200 - NDV: 200
+p_name - Min: -1 - Max: -1 - NDV: 0
+p_mfgr - Min: -1 - Max: -1 - NDV: 0
+p_brand - Min: -1 - Max: -1 - NDV: 0
+p_type - Min: -1 - Max: -1 - NDV: 0
+p_size - Min: 1 - Max: 49 - NDV: 48
+p_container - Min: -1 - Max: -1 - NDV: 0
+p_retailprice - Min: 901 - Max: 1100.2 - NDV: 200
+p_comment - Min: -1 - Max: -1 - NDV: 0
+--------------------
+NumRows: 200 - AvgRowLen: 72
+p_partkey - Min: 1 - Max: 200 - NDV: 200
+p_name - Min: -1 - Max: -1 - NDV: 0
+p_mfgr - Min: -1 - Max: -1 - NDV: 0
+p_brand - Min: -1 - Max: -1 - NDV: 0
+p_type - Min: -1 - Max: -1 - NDV: 0
+p_size - Min: 1 - Max: 49 - NDV: 48
+p_container - Min: -1 - Max: -1 - NDV: 0
+p_retailprice - Min: 901 - Max: 1100.2 - NDV: 200
+p_comment - Min: -1 - Max: -1 - NDV: 0
+=================================
+MAIN 3
+edges(g) = 
+MAIN 4
+HERE 1
+StartExplore: 1
+########### 0
+[0]: part
+    Filter Predicates:0,1,
+    Join Predicates:
+    Join Predicates Side:
+    Projection Attributes:
+    Projection Aggregate Attributes:0,1,
+    Group By Attrs:
+NumFilters: 2
+filters[0]: 0
+[0]: part.p_retailprice > 990.1
+filters[1]: 1
+[1]: part.p_retailprice < 1000
+NumRows: 200 - AvgRowLen: 72
+p_partkey - Min: 1 - Max: 200 - NDV: 200
+p_name - Min: -1 - Max: -1 - NDV: 0
+p_mfgr - Min: -1 - Max: -1 - NDV: 0
+p_brand - Min: -1 - Max: -1 - NDV: 0
+p_type - Min: -1 - Max: -1 - NDV: 0
+p_size - Min: 1 - Max: 49 - NDV: 48
+p_container - Min: -1 - Max: -1 - NDV: 0
+p_retailprice - Min: 901 - Max: 1100.2 - NDV: 200
+p_comment - Min: -1 - Max: -1 - NDV: 0
+NumRows: 200 - AvgRowLen: 72
+p_partkey - Min: 1 - Max: 200 - NDV: 200
+p_name - Min: -1 - Max: -1 - NDV: 0
+p_mfgr - Min: -1 - Max: -1 - NDV: 0
+p_brand - Min: -1 - Max: -1 - NDV: 0
+p_type - Min: -1 - Max: -1 - NDV: 0
+p_size - Min: 1 - Max: 49 - NDV: 48
+p_container - Min: -1 - Max: -1 - NDV: 0
+p_retailprice - Min: 901 - Max: 1100.2 - NDV: 200
+p_comment - Min: -1 - Max: -1 - NDV: 0
+--> Base Cardinality: 200
+Filters[0]: 0
+UnpakcFilter - attrIdx: 0
+binExpr->getOp: 3
+Exit UnpackFilter
+Attr:p_retailprice
+----> ----> newNDVValue: 133.333
+p_retailprice - Min: 901 - Max: 1100.2 - NDV: 200
+Opr ID: 3
+Const: 
+990.1
+Filters[1]: 1
+UnpakcFilter - attrIdx: 0
+binExpr->getOp: 5
+Exit UnpackFilter
+Attr:p_retailprice
+----> ----> newNDVValue: 133.333
+p_retailprice - Min: 901 - Max: 1100.2 - NDV: 200
+Opr ID: 5
+Const: 
+1000
+--> Selectivity: 0.272498
+-->-->--> Base Cardinality: 54.4995
+1 : allPlans.size()
+Plan[0]: Scan :RelName: part - Filters: 0,1,
+Card: 54.4995 - Cost: 200
+	Children: [0] - 
+SearchSpace 3
+HERE 2
+BotTime: 7.7e-05 - BottomUpOut.size: 0
+HERE 3
+HERE 4
+[0, 0]: Str: 0 - NodeType: 2 - Cost: 200 - Card: 54.4995
+HERE 5
+RootNode: 0
+allPlans.size: 1
+Scan :RelName: part - Filters: 0,1,
+Card: 54.4995 - Cost: 200
+	Children: [0] - 
+HERE 5.1
+HERE 6
+HERE 7
+HERE 8
+HERE 9
+Final RootNode: 1
+Nest :ProjAttrs: ProjAggrAttrs: [0]: MAX(part.p_retailprice Float)
+[1]: MAX(part.p_partkey Int)
+GroupByAttrs: 
+Card: 0 - Cost: 0
+	Children: [1] - 0,
+Scan :RelName: part - Filters: 0,1,
+Card: 54.4995 - Cost: 200
+	Children: [0] - 
+Final allPlans.size(): 2
+==========
+Scan :RelName: part - Filters: 0,1,
+Card: 54.4995 - Cost: 200
+	Children: [0] - 
+==========
+==========
+Nest :ProjAttrs: ProjAggrAttrs: [0]: MAX(part.p_retailprice Float)
+[1]: MAX(part.p_partkey Int)
+GroupByAttrs: 
+Card: 0 - Cost: 0
+	Children: [1] - 0,
+Scan :RelName: part - Filters: 0,1,
+Card: 54.4995 - Cost: 200
+	Children: [0] - 
+==========
+MAIN 5
+MONOID NAME: MAX
+COLNAME: "part.p_retailprice"
+MONOID NAME: MAX
+COLNAME: "part.p_retailprice"
+MONOID NAME: MAX
+COLNAME: "part.p_partkey"
+Filter0
+UnpakcFilter - attrIdx: 0
+binExpr->getOp: 3
+Exit UnpackFilter
+Filter1
+UnpakcFilter - attrIdx: 0
+binExpr->getOp: 5
+Exit UnpackFilter
+  "e": [{
+    "expression": "recordProjection",
+	"type": {
+	"type": "float"
+	},
+"attribute": {
+       "type": {
+               "type": "float"
+       },
+       "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+       "attrName": "p_retailprice",
+        "attrNo":8
+},
+"e": {
+        "expression": "argument",
+        "argNo": 0,
+        "type": {
+            "type" : "record",
+            "attributes": [{
+            "type": {
+               "type": "float"
+       },
+       "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+       "attrName": "p_retailprice",
+        "attrNo":8
+    }]
+},
+      "attributes": [{
+      "type": {
+         "type": "float"
+       },
+       "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+       "attrName": "p_retailprice",
+       "attrNo":8
+    }]
+}
+  }
+, {
+    "expression": "recordProjection",
+	"type": {
+	"type": "int"
+	},
+"attribute": {
+       "type": {
+               "type": "int"
+       },
+       "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+       "attrName": "p_partkey",
+        "attrNo":1
+},
+"e": {
+        "expression": "argument",
+        "argNo": 0,
+        "type": {
+            "type" : "record",
+            "attributes": [{
+            "type": {
+               "type": "int"
+       },
+       "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+       "attrName": "p_partkey",
+        "attrNo":1
+    }]
+},
+      "attributes": [{
+      "type": {
+         "type": "int"
+       },
+       "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+       "attrName": "p_partkey",
+       "attrNo":1
+    }]
+}
+  }
+],
+"accumulator": ["max", "max"],
+  "operator": "reduce",
+  "p": {
+    "expression": "bool",
+    "v": true
+  },
+  "input": {
+      "operator": "select",
+       "p": {
+        "expression": "gt",
+          "left": {
+       "expression": "recordProjection",
+       "type": {
+     "type": "float"
+   },
+   "e": {
+      "expression": "argument",
+      "argNo": 0,
+      "type": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_partkey",
+          "attrNo": 1
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_name",
+          "attrNo": 2
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_mfgr",
+          "attrNo": 3
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_brand",
+          "attrNo": 4
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_type",
+          "attrNo": 5
+          }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_size",
+          "attrNo": 6
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_container",
+          "attrNo": 7
+          }, {
+          "type": {
+            "type": "float"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_retailprice",
+          "attrNo": 8
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_comment",
+          "attrNo": 9
+          }]
+    },
+      "attributes": [{
+          "type": {
+            "type": "float"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_retailprice",
+          "attrNo": 8
+          }]
+},
+     "attribute": {
+          "type": {
+            "type": "float"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_retailprice",
+          "attrNo": 8
+          }
+},
+     "right": {
+      "expression": "float",
+     "v": 990.1}
+},
+  "input": {
+      "operator": "select",
+       "p": {
+        "expression": "lt",
+          "left": {
+       "expression": "recordProjection",
+       "type": {
+     "type": "float"
+   },
+   "e": {
+      "expression": "argument",
+      "argNo": 0,
+      "type": {
+        "type": "record",
+        "attributes": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_partkey",
+          "attrNo": 1
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_name",
+          "attrNo": 2
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_mfgr",
+          "attrNo": 3
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_brand",
+          "attrNo": 4
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_type",
+          "attrNo": 5
+          }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_size",
+          "attrNo": 6
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_container",
+          "attrNo": 7
+          }, {
+          "type": {
+            "type": "float"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_retailprice",
+          "attrNo": 8
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_comment",
+          "attrNo": 9
+          }]
+    },
+      "attributes": [{
+          "type": {
+            "type": "float"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_retailprice",
+          "attrNo": 8
+          }]
+},
+     "attribute": {
+          "type": {
+            "type": "float"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_retailprice",
+          "attrNo": 8
+          }
+},
+     "right": {
+      "expression": "float",
+     "v": 1000.0}
+},
+  "input": {
+    "operator": "scan",
+    "plugin": {
+    "name": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+    "type": "csv",
+    "policy": 2,
+    "lines": 200,
+    "delimiter": "|",
+    "brackets": false,
+    "projections": [{
+          "type": {
+            "type": "int"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_partkey",
+          "attrNo": 1
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_name",
+          "attrNo": 2
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_mfgr",
+          "attrNo": 3
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_brand",
+          "attrNo": 4
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_type",
+          "attrNo": 5
+          }, {
+          "type": {
+            "type": "int"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_size",
+          "attrNo": 6
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_container",
+          "attrNo": 7
+          }, {
+          "type": {
+            "type": "float"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_retailprice",
+          "attrNo": 8
+          }, {
+          "type": {
+            "type": "string"
+          },
+          "relName": "/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl",
+          "attrName": "p_comment",
+          "attrNo": 9
+          }]
+    }
+}
+}
+}
+
+CatalogFile: /home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/tpchSchema_117_11_27_10_29_51.json
+JSONFile: /tmp/file_tahir_117_11_27_10_29_51.json
+test6.sql : sql filename
+
+Parsing catalog information:
+Key of member iscustomer
+BAG
+Key of member islineitem
+BAG
+Key of member isnation
+BAG
+Key of member isorders
+BAG
+Key of member ispart
+BAG
+Key of member ispartsupp
+BAG
+Key of member isregion
+BAG
+Key of member issupplier
+BAG
+
+Parsing physical plan:
+
+reduce : opName
+select : opName
+select : opName
+scan : opName
+---PROJECTIONS----
+/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl : p_partkey
+/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl : p_retailprice
+
+------------
+reduce : opName
+select : opName
+select : opName
+scan : opName
+/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl : CSV Plugin fname
+NEW (CSV) PM
+/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl , 9 : whichFields.size
+PREDICATE /home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl p_retailprice 2.22507e-308 1000
+1000 : MAXVALUE
+/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl : p_retailprice relanme : colname
+/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl.p_retailprice : looking to subsume this column
+ExprMaterializer
+PREDICATE /home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl p_retailprice 990.1 1.79769e+308
+990.1 : MAXVALUE
+/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl : p_retailprice relanme : colname
+/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl.p_retailprice : looking to subsume this column
+990.1 : MAXVALUE
+/home/sanca/ViDa/r_optimizer_raw_4thmarch2016/Test/inputs/tpch/part_0.001.tbl : p_retailprice relanme : colname
+Allocating 0x7fbe86fc5010 - size: 480485760
+480485760 : totalMemoryUsed 1
+9 : recAtts.size()
+p_partkey : recArgsVector[i]->attrName
+Allocating 0x7fbe487c4010 - size: 1048576000
+1529061760 : totalMemoryUsed 1
+Allocating 0x7fbe09fc3010 - size: 1048576000
+2577637760 : totalMemoryUsed 1
+p_name : recArgsVector[i]->attrName
+Allocating 0x7fbdcb7c2010 - size: 1048576000
+3626213760 : totalMemoryUsed 1
+Allocating 0x7fbd8cfc1010 - size: 1048576000
+4674789760 : totalMemoryUsed 1
+Allocating 0x7fbcd7467010 - size: 3048576000
+7723365760 : totalMemoryUsed 1
+p_mfgr : recArgsVector[i]->attrName
+Allocating 0x7fbc98c66010 - size: 1048576000
+8771941760 : totalMemoryUsed 1
+Allocating 0x7fbc5a465010 - size: 1048576000
+9820517760 : totalMemoryUsed 1
+Allocating 0x7fbba490b010 - size: 3048576000
+12869093760 : totalMemoryUsed 1
+p_brand : recArgsVector[i]->attrName
+Allocating 0x7fbb6610a010 - size: 1048576000
+13917669760 : totalMemoryUsed 1
+Allocating 0x7fbb27909010 - size: 1048576000
+14966245760 : totalMemoryUsed 1
+Allocating 0x7fba71daf010 - size: 3048576000
+18014821760 : totalMemoryUsed 1
+p_type : recArgsVector[i]->attrName
+Allocating 0x7fba335ae010 - size: 1048576000
+19063397760 : totalMemoryUsed 1
+Allocating 0x7fb9f4dad010 - size: 1048576000
+20111973760 : totalMemoryUsed 1
+Allocating 0x7fb93f253010 - size: 3048576000
+23160549760 : totalMemoryUsed 1
+p_size : recArgsVector[i]->attrName
+Allocating 0x7fb900a52010 - size: 1048576000
+24209125760 : totalMemoryUsed 1
+Allocating 0x7fb8c2251010 - size: 1048576000
+25257701760 : totalMemoryUsed 1
+p_container : recArgsVector[i]->attrName
+Allocating 0x7fb883a50010 - size: 1048576000
+26306277760 : totalMemoryUsed 1
+Allocating 0x7fb84524f010 - size: 1048576000
+27354853760 : totalMemoryUsed 1
+Allocating 0x7fb78f6f5010 - size: 3048576000
+30403429760 : totalMemoryUsed 1
+p_retailprice : recArgsVector[i]->attrName
+Allocating 0x7fb750ef4010 - size: 1048576000
+31452005760 : totalMemoryUsed 1
+Allocating 0x7fb7126f3010 - size: 1048576000
+32500581760 : totalMemoryUsed 1
+p_comment : recArgsVector[i]->attrName
+Allocating 0x7fb6d3ef2010 - size: 1048576000
+33549157760 : totalMemoryUsed 1
+Allocating 0x7fb6956f1010 - size: 1048576000
+34597733760 : totalMemoryUsed 1
+Allocating 0x7fb5dfb97010 - size: 3048576000
+37646309760 : totalMemoryUsed 1
+NO CSV PM
+9 : rec.getArgsNo
+READ (RAW) FIELD p_partkey
+READ (RAW) FIELD p_name
+READ (RAW) FIELD p_mfgr
+READ (RAW) FIELD p_brand
+READ (RAW) FIELD p_type
+READ (RAW) FIELD p_size
+READ (RAW) FIELD p_container
+READ (RAW) FIELD p_retailprice
+READ (RAW) FIELD p_comment
+Forwarding 11
+Consume 2
+No match out of 0 entries
+Registered in operator cache
+No match out of 0 entries
+p_partkey: pathVar parsed
+No match out of 0 entries
+
+No match out of 0 entries
+
+No match out of 0 entries
+
+No match out of 0 entries
+
+No match out of 0 entries
+p_size: pathVar parsed
+No match out of 0 entries
+
+No match out of 0 entries
+No match out of 0 entries
+
+No match out of 0 entries
+No match out of 0 entries
+2 : outputExpr->getExpressionType()->getTypeID()
+No match out of 0 entries
+p_partkey: pathVar parsed
+3 : outputExpr->getExpressionType()->getTypeID()
+[printFloat:] 999.090000
+printi: 99
+Flushing to query
+Contents being flushed: [999.09,99]
+(Already compiled) Execution took 0.002789 seconds
+Return flag: 114
