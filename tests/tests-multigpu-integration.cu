@@ -84,7 +84,9 @@ protected:
     void launch(void ** args, dim3 gridDim, dim3 blockDim);
     void launch(void ** args, dim3 gridDim);
     void launch(void ** args);
-
+    
+    void runAndVerify(const char *testLabel, const char* planPath);
+    
     bool flushResults = true;
     const char * testPath = TEST_OUTPUTS "/tests-output/";
 
@@ -140,21 +142,85 @@ void MultiGPUTest::SetUp   (){
 
     RawPipelineGen::init();
     RawMemoryManager::init();
+
+    gpu_run(cudaSetDevice(0));
 }
 
 void MultiGPUTest::TearDown(){
+    StorageManager::unloadAll();
     RawMemoryManager::destroy();
 }
 
-TEST_F(MultiGPUTest, gpuDriverSequential) {
+void MultiGPUTest::runAndVerify(const char *testLabel, const char* planPath){
     int devices = get_num_of_gpus();
     for (int i = 0 ; i < devices ; ++i) {
         gpu_run(cudaSetDevice(i));
         gpu_run(cudaProfilerStart());
     }
+    __itt_resume();
+
+    gpu_run(cudaSetDevice(0));
+    
+    GpuRawContext * ctx;
+
+    std::vector<RawPipeline *> pipelines;
+    {
+        time_block t("Tcodegen: ");
+        
+        ctx                   = new GpuRawContext(testLabel, false);
+        CatalogParser catalog = CatalogParser(catalogJSON);
+        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
+        
+        ctx->compileAndLoad();
+
+        pipelines = ctx->getPipelines();
+    }
+
+    //just to be sure...
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaDeviceSynchronize());
+    }
+
+    {
+        time_block     t("Texecute w sync: ");
+
+        {
+            time_block t("Texecute       : ");
+
+            for (RawPipeline * p: pipelines) {
+                nvtxRangePushA("pip");
+                {
+                    time_block t("T: ");
+                    p->open();
+                    p->consume(0);
+                    p->close();
+                }
+                nvtxRangePop();
+            }
+        }
+
+        //just to be sure...
+        for (int i = 0 ; i < devices ; ++i) {
+            gpu_run(cudaSetDevice(i));
+            gpu_run(cudaDeviceSynchronize());
+        }
+    }
+
+    __itt_pause();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStop());
+    }
 
     gpu_run(cudaSetDevice(0));
 
+    EXPECT_TRUE(verifyTestResult(TEST_OUTPUTS "/tests-multigpu-integration/", testLabel));
+    shm_unlink(testLabel);
+}
+
+
+TEST_F(MultiGPUTest, gpuDriverSequential) {
     // StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );//, GPU_RESIDENT);
     // StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );//, GPU_RESIDENT);
     // StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );//, GPU_RESIDENT);
@@ -170,146 +236,35 @@ TEST_F(MultiGPUTest, gpuDriverSequential) {
 
     StorageManager::load("inputs/ssbm/date.csv.d_datekey"             , PINNED);//GPU_RESIDENT);
     StorageManager::load("inputs/ssbm/date.csv.d_year"                , PINNED);//GPU_RESIDENT);
-
-    gpu_run(cudaSetDevice(0));
     
     const char *testLabel = "gpuSSBM_Q1_1c";
-    GpuRawContext * ctx;
-
-    const char* planPath = "inputs/plans/ssbm_q1_1c.json";
-
-    std::vector<RawPipeline *> pipelines;
-    {
-        time_block t("Tcodegen: ");
-        
-        ctx                   = new GpuRawContext(testLabel);
-        CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
-        
-        ctx->compileAndLoad();
-
-        pipelines = ctx->getPipelines();
-    }
-
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaDeviceSynchronize());
-    }
-
-    {
-    nvtxRangePushA("gen (hj build)");
-    {
-        time_block t("Tgen (hj build): ");
-        pipelines[0]->open();
-        pipelines[0]->consume(0);
-        pipelines[0]->close();
-    }
-    nvtxRangePop();
-    }
-
-    // int32_t * aggr;
-    {
-    nvtxRangePushA("Tgen (hj probe)");
-    {
-        time_block t("Tgen (hj probe): ");
-        pipelines[1]->open();
-        pipelines[1]->consume(0);
-        // aggr = pipelines[1]->getStateVar<int32_t **>(0)[0];
-        pipelines[1]->close();
-    }
-    nvtxRangePop();
-    }
-
-    __itt_pause();
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaProfilerStop());
-    }
-
-    // int32_t c_out;
-    // gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
-    // //for the current dataset, regenerating it may change the results
-    // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
-    // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
-
-    StorageManager::unloadAll();
+    const char *planPath  = "inputs/plans/ssbm_q1_1c.json";
+ 
+    runAndVerify(testLabel, planPath);
 }
 
 TEST_F(MultiGPUTest, gpuDriverMultiReduce) {
-    int devices = get_num_of_gpus();
-    // for (int i = 0 ; i < devices ; ++i) {
-    //     gpu_run(cudaSetDevice(i));
-    //     gpu_run(cudaProfilerStart());
-    // }
+    // StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
+    // StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
+    // StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
+    // StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
+    // StorageManager::loadToCpus("inputs/ssbm/lineorder.csv.lo_discount"      );
+    // StorageManager::loadToCpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
+    // StorageManager::loadToCpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
+    // StorageManager::loadToCpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
+    StorageManager::loadEverywhere("inputs/ssbm/lineorder.csv.lo_discount"      , 3, 1);
+    StorageManager::loadEverywhere("inputs/ssbm/lineorder.csv.lo_quantity"      , 3, 1);
+    StorageManager::loadEverywhere("inputs/ssbm/lineorder.csv.lo_orderdate"     , 3, 1);
+    StorageManager::loadEverywhere("inputs/ssbm/lineorder.csv.lo_extendedprice" , 3, 1);
 
-    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_discount"      );
-    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_quantity"      );
-    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_orderdate"     );
-    StorageManager::loadToGpus("inputs/ssbm/lineorder.csv.lo_extendedprice" );
-    
-    gpu_run(cudaSetDevice(0));
-
-    // __itt_resume();
     const char *testLabel = "gpuDriverMultiReduce";
-    GpuRawContext * ctx;
+    const char *planPath  = "inputs/plans/reduce-scan-multigpu.json";
 
-    const char* planPath = "inputs/plans/reduce-scan-multigpu.json";
-
-    std::vector<RawPipeline *> pipelines;
-    {
-        time_block t("Tcodegen: ");
-        
-        ctx                   = new GpuRawContext(testLabel, false);
-        CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
-        
-        ctx->compileAndLoad();
-
-        pipelines = ctx->getPipelines();
-    }
-
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaProfilerStart());
-    }
-    gpu_run(cudaSetDevice(0));
-
-    for (RawPipeline * p: pipelines) {
-        nvtxRangePushA("pip");
-        {
-            time_block t("T: ");
-            p->open();
-            p->consume(0);
-            p->close();
-        }
-        nvtxRangePop();
-    }
-    
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaProfilerStop());
-    }
-
-    EXPECT_TRUE(verifyTestResult(TEST_OUTPUTS "/tests-multigpu-integration/", testLabel));
-    shm_unlink(testLabel);
-    // int32_t c_out;
-    // gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
-    // //for the current dataset, regenerating it may change the results
-    // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
-    // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
-
-    StorageManager::unloadAll();
+    runAndVerify(testLabel, planPath);
+    //SF=10 => -799879732
 }
 
 TEST_F(MultiGPUTest, gpuDriverParallel) {
-    int devices = get_num_of_gpus();
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaProfilerStart());
-    }
-    
-    gpu_run(cudaSetDevice(0));
-
     StorageManager::load("inputs/ssbm/lineorder.csv.lo_discount"     , PINNED);
     StorageManager::load("inputs/ssbm/lineorder.csv.lo_quantity"     , PINNED);
     StorageManager::load("inputs/ssbm/lineorder.csv.lo_orderdate"    , PINNED);
@@ -318,47 +273,26 @@ TEST_F(MultiGPUTest, gpuDriverParallel) {
     StorageManager::load("inputs/ssbm/date.csv.d_datekey"            , PINNED);
     StorageManager::load("inputs/ssbm/date.csv.d_year"               , PINNED);
 
-    __itt_resume();
     const char *testLabel = "gpuSSBM_Q1_1_parallel";
-    GpuRawContext * ctx;
+    const char *planPath  = "inputs/plans/ssbm_q1_1_parallel.json";
 
-    const char* planPath = "inputs/plans/ssbm_q1_1_parallel.json";
+    runAndVerify(testLabel, planPath);
+}
 
-    std::vector<RawPipeline *> pipelines;
-    {
-        time_block t("Tcodegen: ");
-        
-        ctx                   = new GpuRawContext(testLabel);
-        CatalogParser catalog = CatalogParser(catalogJSON);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
-        
-        ctx->compileAndLoad();
 
-        pipelines = ctx->getPipelines();
-    }
+TEST_F(MultiGPUTest, gpuTest2) {
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_discount"     , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_quantity"     , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_orderdate"    , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_extendedprice", PINNED);
 
-    for (RawPipeline * p: pipelines) {
-        nvtxRangePushA("pip");
-        {
-            time_block t("T: ");
-            p->open();
-            p->consume(0);
-            p->close();
-        }
-        nvtxRangePop();
-    }
-    __itt_pause();
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaProfilerStop());
-    }
-    // int32_t c_out;
-    // gpu_run(cudaMemcpy(&c_out, aggr, sizeof(int32_t), cudaMemcpyDefault));
-    // //for the current dataset, regenerating it may change the results
-    // EXPECT_TRUE(c_out == UINT64_C(4472807765583) || ((uint32_t) c_out) == ((uint32_t) UINT64_C(4472807765583)));
-    // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
+    // StorageManager::load("inputs/ssbm/date.csv.d_datekey"            , PINNED);
+    // StorageManager::load("inputs/ssbm/date.csv.d_year"               , PINNED);
 
-    StorageManager::unloadAll();
+    const char *testLabel = "test2";
+    const char *planPath  = "inputs/plans/test2.json";
+
+    runAndVerify(testLabel, planPath);
 }
 
 TEST_F(MultiGPUTest, gpuDriverParallelOnGpu) {
@@ -940,4 +874,29 @@ TEST_F(MultiGPUTest, multicpuScanReduce) {
     // EXPECT_TRUE(0 && "How do I get the result now ?"); //FIXME: now it becomes too complex to get the result
 
     StorageManager::unloadAll();
+}
+
+
+TEST_F(MultiGPUTest, multigpuScanReduceWithTransfer) {
+    StorageManager::loadEverywhere("inputs/ssbm/lineorder.csv.lo_discount"      , 1, 0);
+    StorageManager::loadEverywhere("inputs/ssbm/lineorder.csv.lo_quantity"      , 1, 0);
+    StorageManager::loadEverywhere("inputs/ssbm/lineorder.csv.lo_orderdate"     , 1, 0);
+    StorageManager::loadEverywhere("inputs/ssbm/lineorder.csv.lo_extendedprice" , 1, 0);
+
+    const char *testLabel = "multicpuScanReduceWithTransfer";
+    const char *planPath  = "inputs/plans/reduce-scan-multigpu.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+TEST_F(MultiGPUTest, multicpuScanReduceWithTransfer) {
+    StorageManager::loadEverywhere("inputs/ssbm/lineorder.csv.lo_discount"      , 1, 0);
+    StorageManager::loadEverywhere("inputs/ssbm/lineorder.csv.lo_quantity"      , 1, 0);
+    StorageManager::loadEverywhere("inputs/ssbm/lineorder.csv.lo_orderdate"     , 1, 0);
+    StorageManager::loadEverywhere("inputs/ssbm/lineorder.csv.lo_extendedprice" , 1, 0);
+
+    const char *testLabel = "multicpuScanReduceWithTransfer";
+    const char *planPath  = "inputs/plans/reduce-scan-multicpu-storage-manager-w-mem-copy.json";
+
+    runAndVerify(testLabel, planPath);
 }

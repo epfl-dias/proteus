@@ -155,7 +155,8 @@ void GpuHashJoinChained::buildHashTableFormat(){
     build_mat_exprs.emplace_back(build_keyexpr                  , 0, 32);
 
     std::sort(build_mat_exprs.begin(), build_mat_exprs.end(), [](const GpuMatExpr& a, const GpuMatExpr& b){
-        return a.packet < b.packet || a.bitoffset < b.bitoffset;
+        if (a.packet == b.packet) return a.bitoffset < b.bitoffset;
+        return a.packet < b.packet;
     });
 
     Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
@@ -386,7 +387,7 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
 
     //from build side
     for (const GpuMatExpr &mexpr: build_mat_exprs){
-        if (mexpr.packet == 0 && mexpr.packind <= 1) continue;
+        if (mexpr.packet == 0 && mexpr.packind == 0) continue;
 
         // set activeLoop for build rel if not set (may be multiple ones!)
         { //NOTE: Is there a better way ?
@@ -434,11 +435,7 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = context->createFalse();
 
-        RecordAttribute * battr = new RecordAttribute(
-                                        mexpr.expr->getRegisteredRelName(), 
-                                        mexpr.expr->getRegisteredAttrName(), 
-                                        mexpr.expr->getExpressionType());
-        (*allJoinBindings)[*battr] = mem_valWrapper;
+        (*allJoinBindings)[mexpr.expr->getRegisteredAs()] = mem_valWrapper;
     }
 
     // Triggering parent

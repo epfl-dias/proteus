@@ -154,11 +154,15 @@ extern "C"{
 
     int get_rand_core_local_to_ptr(const void *p){
         int dev = get_device(p);
-        if (dev >= 0) return dev;
-        int node;
-        void * tmp = (void *) p;
-        move_pages(0, 1, &tmp, NULL, &node, MPOL_MF_MOVE);
-        cpu_set_t cset = cpu_numa_affinity[node];
+        cpu_set_t cset;
+        if (dev >= 0) {
+            cset = gpu_affinity[dev];
+        } else {
+            int node;
+            void * tmp = (void *) p;
+            move_pages(0, 1, &tmp, NULL, &node, MPOL_MF_MOVE);
+            cset = cpu_numa_affinity[node];
+         }
         while (true) {
             int r = rand();
             if (CPU_ISSET(r % cpu_cnt, &cset)) return r;

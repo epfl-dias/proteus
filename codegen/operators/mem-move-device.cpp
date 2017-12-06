@@ -39,7 +39,6 @@ buff_pair make_mem_move_device(char * src, size_t bytes, int target_device, MemM
     int dev = get_device(src);
 
     if (dev == target_device) return buff_pair{src, src}; // block already in correct device
-
     // set_device_on_scope d(dev);
 
     // if (dev >= 0) set_affinity_local_to_gpu(dev);
@@ -304,7 +303,6 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
 
 void MemMoveDevice::open (RawPipeline * pip){
     nvtxRangePushA("memmove::open");
-    int device = get_device();
     cudaStream_t strm;
     gpu_run(cudaStreamCreateWithFlags(&strm , cudaStreamNonBlocking));
 
@@ -336,7 +334,8 @@ void MemMoveDevice::open (RawPipeline * pip){
 
     mmc->worker = new std::thread(&MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
 
-
+    int device = -1;
+    if (!to_cpu) device = get_device();
     pip->setStateVar<int         >(device_id_var, device);
 
     // pip->setStateVar<cudaStream_t>(cu_stream_var, strm  );
@@ -345,7 +344,7 @@ void MemMoveDevice::open (RawPipeline * pip){
 }
 
 void MemMoveDevice::close(RawPipeline * pip){
-    int device = get_device();
+    // int device = get_device();
     // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
     MemMoveConf * mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
 

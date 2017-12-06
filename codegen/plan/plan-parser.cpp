@@ -982,8 +982,15 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			projections.push_back(recAttr);
 		}
 
+		bool to_cpu = false;
+		if (val.HasMember("to_cpu")){
+			assert(val["to_cpu"].IsBool());
+			to_cpu = val["to_cpu"].GetBool();
+		}
+
+
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new MemMoveDevice(childOp, ((GpuRawContext *) this->ctx), projections);
+		newOp =  new MemMoveDevice(childOp, ((GpuRawContext *) this->ctx), projections, to_cpu);
 		childOp->setParent(newOp);
 	} else if(strcmp(opName,"mem-move-local-to") == 0) {
 		/* parse operator input */
