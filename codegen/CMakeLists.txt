@@ -1,5 +1,6 @@
 file(GLOB codegen_src
 	common/*.cpp
+    common/*.cc
 	common/gpu/*.cpp
 	util/*.cpp
 	util/jit/*.cpp
@@ -12,7 +13,7 @@ file(GLOB codegen_src
 	plugins/*.cpp
 	plugins/output/*.cpp
 	operators/*.cpp
-	operators/gpu/*.cpp
+	# operators/gpu/*.cpp
 	memory/*.cpp
 	plan/*.cpp
 	postgres/*.cpp
@@ -20,7 +21,8 @@ file(GLOB codegen_src
 	# multigpu/operators/*.cu
 	# multigpu/buffer_pool.cu
 	# # src/output_composer.cu
-	# multigpu/buffer_manager.cu
+	multigpu/common.cpp
+    multigpu/buffer_manager.cpp
 	# multigpu/common.cu
 	)
 # foreach(target
@@ -78,14 +80,14 @@ add_custom_command(OUTPUT buffer_manager.cubin.o
 add_custom_target(buffer_manager     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin)
 add_custom_target(buffer_manager_obj DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o)
 
-add_library(codegen SHARED ${codegen_src} ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o)
+add_library(codegen SHARED ${codegen_src}) # ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o)
 set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
-target_link_libraries(codegen jsmn multigpu)
+target_link_libraries(codegen jsmn) # multigpu)
 
 # add_dependencies(codegen device_funcs_obj)
-add_dependencies(codegen buffer_manager_obj)
+# add_dependencies(codegen buffer_manager_obj)
 
-add_subdirectory(multigpu)
+# add_subdirectory(multigpu)
 
 install(TARGETS codegen
 	RUNTIME DESTINATION bin

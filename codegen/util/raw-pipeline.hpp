@@ -27,8 +27,8 @@
 #include <vector>
 #include "util/raw-context.hpp"
 
-#include "cuda.h"
-#include "cuda_runtime_api.h"
+// #include "cuda.h"
+// #include "cuda_runtime_api.h"
 #include "common/gpu/gpu-common.hpp"
 #include <utility>
 

@@ -65,6 +65,7 @@ include_directories(
 	"${PROJECT_SOURCE_DIR}/codegen"
 	"${LLVM_INCLUDE_DIRS}"
 	"${CMAKE_INSTALL_PREFIX}/include"
+	"${Boost_INCLUDE_DIRS}"
 	)
 
 include_directories(
@@ -91,14 +92,15 @@ add_definitions(-DTEST_OUTPUTS="${CMAKE_INSTALL_PREFIX}/raw/outputs")
 
 #set(GCC_COMPILE_FLAGS "-march=core-avx2 -msse4 -O0 -ftree-vectorize -march=native -mtune=native -g -ggdb -fno-omit-frame-pointer")
 set(WARNING_FLAGS "-Wno-unknown-warning-option -Wno-unused-variable -Wno-reorder -Wno-ignored-qualifiers -Wno-deprecated")
-set(LLVM_CXXFLAGS "-x cuda --cuda-gpu-arch=sm_61 -D__STRICT_ANSI__ -fPIC -stdlib=libstdc++ ${LLVM_CXXFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS}")
+set(LLVM_CXXFLAGS "-D__STRICT_ANSI__ -fPIC -stdlib=libstdc++ ${LLVM_CXXFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS} -DNCUDA -DNNUMA")
 set(LLVM_CFLAGS "${LLVM_CFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS}")
 
-set(CUDA_CXXFLAGS -Xcompiler -fPIC ${CUDA_CXXFLAGS} ${GCC_COMPILE_FLAGS} --expt-relaxed-constexpr --std=c++11 -arch=sm_61 -line-info)
-set(CUDA_CFLAGS "${CUDA_CFLAGS} ${GCC_COMPILE_FLAGS}")
+# set(CUDA_CXXFLAGS -Xcompiler -fPIC ${CUDA_CXXFLAGS} ${GCC_COMPILE_FLAGS} --expt-relaxed-constexpr --std=c++11 -arch=sm_61 -line-info)
+# set(CUDA_CFLAGS "${CUDA_CFLAGS} ${GCC_COMPILE_FLAGS}")
 
 
-set(default_libs codegen -lpthread -lnuma -lnvToolsExt -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -lcuda -lcudart -lnvidia-ml -lcudadevrt -ldl -lrt -lnvvm -pthread -littnotify)
+# set(default_libs codegen -lpthread -lnuma -lnvToolsExt -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -lcuda -lcudart -lnvidia-ml -lcudadevrt -ldl -lrt -lnvvm -pthread -littnotify)
+set(default_libs codegen -lpthread -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -ldl -lrt -pthread)
 set(gtest_libs -lgtest libgtest_main.a ${default_libs})
 
 #-----------------------------------------------------------------------
@@ -110,8 +112,8 @@ add_subdirectory(jsmn)
 
 # code generation library
 add_subdirectory(codegen)
-add_subdirectory(scratchpad/output_buffers)
-add_subdirectory(scratchpad/hash_partition)
+# add_subdirectory(scratchpad/output_buffers)
+# add_subdirectory(scratchpad/hash_partition)
 
 
 #-----------------------------------------------------------------------

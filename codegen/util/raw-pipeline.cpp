@@ -327,6 +327,10 @@ RawPipeline * RawPipelineGen::getPipeline(int group_id){
         openers.insert(openers.begin(), make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->open (); pip->setStateVar(0, copyFrom->state);}));
         // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
         closers.insert(closers.begin(), make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->close();                                      }));
+    } else {
+        openers.insert(openers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
+        // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
+        closers.insert(closers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
     }
 
     return new RawPipeline(func, (getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8, this, state_type, openers, closers, getCompiledFunction(open__function), getCompiledFunction(close_function), group_id);
@@ -374,10 +378,12 @@ void RawPipeline::open(){
     //     }
     //     if (is_last) (openers[i - 1].second)(this);
     // }
+    (openers[0].second)(this);
+
     assert(init_state);
     ((void (*)(RawPipeline *, void *)) init_state)(this, state);
 
-    for (size_t i = 0 ; i < openers.size() ; ++i) {
+    for (size_t i = 1 ; i < openers.size() ; ++i) {
         bool is_first = true;
         const void * owner = openers[i].first;
         for (size_t j = 0 ; j < i ; ++j) {
@@ -404,11 +410,7 @@ void RawPipeline::close(){
     //     }
     //     if (is_first) (closers[i].second)(this);
     // }
-
-    assert(deinit_state);
-    ((void (*)(RawPipeline *, void *)) deinit_state)(this, state);
-    
-    for (size_t i = closers.size() ; i > 0 ; --i) {
+    for (size_t i = closers.size() ; i > 1 ; --i) {
         bool is_last = true;
         const void * owner = closers[i - 1].first;
         for (size_t j = closers.size() ; j > i ; --j) {
@@ -420,6 +422,10 @@ void RawPipeline::close(){
         if (is_last) (closers[i - 1].second)(this);
     }
 
+    assert(deinit_state);
+    ((void (*)(RawPipeline *, void *)) deinit_state)(this, state);
+    
+    (closers[0].second)(this);
     // for (size_t i = closers.size() ; i > 0 ; --i) closers[i - 1](this);
 }
 

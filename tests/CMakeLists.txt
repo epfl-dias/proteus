@@ -3,6 +3,7 @@ foreach(target
 	tests-json
 	tests-output
 	tests-plan-parsing
+	tests-multigpu-integration
 	)
 	add_executable(unit-${target} ${target}.cpp)
 	set_target_properties(unit-${target} PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
@@ -24,8 +25,7 @@ endforeach(target)
 
 foreach(target
 	# tests-gpu2
-	tests-gpu-ssbm
-	tests-multigpu-integration
+	# tests-gpu-ssbm
 	)
 	# set(CMAKE_CXX_COMPILER "nvcc")
 	# find_program(CLANG_C_COMPILER "nvcc")

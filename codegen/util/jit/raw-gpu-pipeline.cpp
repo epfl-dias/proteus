@@ -413,9 +413,14 @@ extern "C"{
     };
 
     cudaStream_t    createCudaStream(){
+#ifndef NCUDA
         cudaStream_t strm;
         gpu(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
         return strm;
+#else
+        assert(false);
+        return NULL;
+#endif
     }
 
     void            sync_strm(cudaStream_t strm){

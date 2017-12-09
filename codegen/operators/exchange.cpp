@@ -23,8 +23,6 @@
 
 #include "operators/exchange.hpp"
 #include "expressions/expressions-generator.hpp"
-#include "nvToolsExt.h"
-#include "cuda_profiler_api.h"
 #include <cstring>
 
 void Exchange::produce() {

@@ -24,7 +24,6 @@
 #include "util/raw-memory-manager.hpp"
 #include "multigpu/buffer_manager.cuh"
 #include "multigpu/numa_utils.cuh"
-#include "nvToolsExt.h"
 
 constexpr size_t freed_cache_cap      = 16;
 
@@ -118,9 +117,14 @@ void   RawMemoryManager::freePinned  (void * ptr){
 }
 
 void * GpuMemAllocator::malloc(size_t bytes){
+#ifndef NCUDA
     void * ptr;
     gpu_run(cudaMalloc(&ptr, bytes));
     return ptr;
+#else 
+    assert(false);
+    return NULL;
+#endif
 }
 
 void GpuMemAllocator::free(void * ptr){
@@ -128,7 +132,11 @@ void GpuMemAllocator::free(void * ptr){
 }
 
 void * NUMAPinnedMemAllocator::malloc(size_t bytes){
+#ifndef NNUMA
     void *ptr = numa_alloc_onnode(bytes, numa_node_of_cpu(sched_getcpu()));
+#else
+    void *ptr = ::malloc(bytes);
+#endif
     assert(ptr && "Memory allocation failed!");
     gpu_run(cudaHostRegister(ptr, bytes, 0));
     sizes.emplace(ptr, bytes);
@@ -139,7 +147,11 @@ void NUMAPinnedMemAllocator::free(void * ptr){
     gpu_run(cudaHostUnregister(ptr));
     auto it = sizes.find(ptr);
     assert(it != sizes.end() && "Memory did not originate from this allocator (or is already released)!");
+#ifndef NNUMA
     numa_free(ptr, it->second);
+#else
+    ::free(ptr);
+#endif
     sizes.erase(it);
 }
 

@@ -153,6 +153,7 @@ extern "C"{
     }
 
     int get_rand_core_local_to_ptr(const void *p){
+#ifndef NNUMA
         int dev = get_device(p);
         cpu_set_t cset;
         if (dev >= 0) {
@@ -167,5 +168,8 @@ extern "C"{
             int r = rand();
             if (CPU_ISSET(r % cpu_cnt, &cset)) return r;
         }
+#else
+        return rand() % cpu_cnt;
+#endif
     }
 }

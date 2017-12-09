@@ -2,18 +2,20 @@
 #include "plugins/gpu-col-scan-plugin.hpp"
 #include "plugins/gpu-col-scan-to-blocks-plugin.hpp"
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
+#ifndef NCUDA
 #include "operators/gpu/gpu-join.hpp"
 #include "operators/gpu/gpu-hash-join-chained.hpp"
 #include "operators/gpu/gpu-hash-group-by-chained.hpp"
 #include "operators/gpu/gpu-reduce.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/cpu-to-gpu.hpp"
+#include "operators/gpu/gpu-hash-rearrange.hpp"
 #include "operators/gpu/gpu-to-cpu.hpp"
+#endif
 #include "operators/mem-move-device.hpp"
 #include "operators/mem-move-local-to.hpp"
 #include "operators/exchange.hpp"
 #include "operators/hash-rearrange.hpp"
-#include "operators/gpu/gpu-hash-rearrange.hpp"
 #include "operators/block-to-tuples.hpp"
 
 /* too primitive */
@@ -225,12 +227,16 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		expressions::Expression *p = parseExpression(val["p"]);
 
 		/* 'Multi-reduce' used */
+#ifndef NCUDA
 		if (val.HasMember("gpu") && val["gpu"].GetBool()){
 			assert(dynamic_cast<GpuRawContext *>(this->ctx));
 			newOp = new opt::GpuReduce(accs, e, p, childOp, dynamic_cast<GpuRawContext *>(this->ctx));
 		} else {
+#endif
 			newOp = new opt::Reduce(accs, e, p, childOp, this->ctx,true,moduleName);
+#ifndef NCUDA
 		}
+#endif
 		childOp->setParent(newOp);
 	} else if (strcmp(opName, "unnest") == 0) {
 
@@ -298,6 +304,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		newOp = new OuterUnnest(p, *projPath, childOp);
 		childOp->setParent(newOp);
+#ifndef NCUDA
 	} else if(strcmp(opName, "hashgroupby-chained") == 0)	{
 		/* parse operator input */
 		RawOperator* child = parseOperator(val["input"]);
@@ -449,8 +456,10 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		build_op->setParent(newOp);
 		probe_op->setParent(newOp);
+#endif
 	}
 	else if(strcmp(opName, "join") == 0)	{
+#ifndef NCUDA
 		if (val.HasMember("gpu") && val["gpu"].GetBool()){
 			/* parse operator input */
 			RawOperator* build_op = parseOperator(val["build_input"]);
@@ -523,7 +532,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			build_op->setParent(newOp);
 			probe_op->setParent(newOp);
 		} else {
-
+#endif
 			const char *keyMatLeft = "leftFields";
 			const char *keyMatRight = "rightFields";
 			const char *keyPred = "p";
@@ -664,7 +673,9 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			newOp = new RadixJoin(pred,leftOp,rightOp,this->ctx,"radixHashJoin",*matLeft,*matRight);
 			leftOp->setParent(newOp);
 			rightOp->setParent(newOp);
+#ifndef NCUDA
 		}
+#endif
 	}
 	else if (strcmp(opName, "nest") == 0) {
 
@@ -823,6 +834,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		GpuColScanPlugin * gpu_scan_pg = dynamic_cast<GpuColScanPlugin *>(pg);
 		if (gpu_scan_pg && gpu_scan_pg->getChild()) gpu_scan_pg->getChild()->setParent(newOp);
+#ifndef NCUDA
 	} else if(strcmp(opName,"cpu-to-gpu") == 0)	{
 		/* parse operator input */
 		assert(val.HasMember("input"));
@@ -843,6 +855,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
 		newOp =  new CpuToGpu(childOp, ((GpuRawContext *) this->ctx), projections);
 		childOp->setParent(newOp);
+#endif
 	} else if(strcmp(opName,"block-to-tuples") == 0)	{
 		/* parse operator input */
 		assert(val.HasMember("input"));
@@ -869,6 +882,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
 		newOp =  new BlockToTuples(childOp, ((GpuRawContext *) this->ctx), projections, gpu);
 		childOp->setParent(newOp);
+#ifndef NCUDA
 	} else if(strcmp(opName,"gpu-to-cpu") == 0)	{
 		/* parse operator input */
 		assert(val.HasMember("input"));
@@ -904,6 +918,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
 		newOp =  new GpuToCpu(childOp, ((GpuRawContext *) this->ctx), projections, size, g);
 		childOp->setParent(newOp);
+#endif
 	} else if(strcmp(opName,"hash-rearrange") == 0)	{
 		bool gpu = false;
 		if (val.HasMember("gpu")){
@@ -944,6 +959,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		expressions::Expression *hashExpr = parseExpression(val["e"]);
 
+#ifndef NCUDA
 		if (gpu){
 			vector<expressions::Expression *> projections;
 			for (SizeType i = 0; i < val["projections"].Size(); i++){
@@ -955,6 +971,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			newOp =  new GpuHashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
 			childOp->setParent(newOp);
 		} else {
+#endif
 			vector<RecordAttribute*> projections;
 			for (SizeType i = 0; i < val["projections"].Size(); i++){
 				assert(val["projections"][i].IsObject());
@@ -964,7 +981,9 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			assert(dynamic_cast<GpuRawContext *>(this->ctx));
 			newOp =  new HashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
 			childOp->setParent(newOp);
+#ifndef NCUDA
 		}
+#endif
 	} else if(strcmp(opName,"mem-move-device") == 0) {
 		/* parse operator input */
 		assert(val.HasMember("input"));
@@ -1072,6 +1091,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
 		newOp =  new Exchange(childOp, ((GpuRawContext *) this->ctx), numOfParents, projections, slack, hash, numa_local, rand_local_cpu, producers);
 		childOp->setParent(newOp);
+#ifndef NCUDA
 	} else if (strcmp(opName, "materializer") == 0){
 		/* parse operator input */
 		assert(val.HasMember("input"));
@@ -1115,6 +1135,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			assert(false && "Unimplemented");
 		}
 		childOp->setParent(newOp);
+#endif
 	}
 	else	{
 		string err = string("Unknown Operator: ") + opName;

@@ -25,9 +25,6 @@
 #define GPU_RAW_CONTEXT_HPP_
 
 #include "util/raw-context.hpp"
-#include "cuda.h"
-#include "cuda_runtime_api.h"
-
 #include "util/raw-pipeline.hpp"
 
 class GpuRawContext: public RawContext {

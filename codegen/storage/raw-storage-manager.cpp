@@ -60,7 +60,11 @@ void StorageManager::loadToGpus(std::string name){
 void StorageManager::loadToCpus(std::string name){
     time_block t("Topen (" + name + "): ");
 
+#ifndef NNUMA
     int devices = numa_num_task_nodes();
+#else
+    int devices = 1;
+#endif
 
     auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});
     assert(it.second && "File already loaded!");
@@ -83,7 +87,11 @@ void StorageManager::loadToCpus(std::string name){
 void StorageManager::loadEverywhere(std::string name, int pref_gpu_weight, int pref_cpu_weight){
     time_block t("Topen (" + name + "): ");
 
+#ifndef NNUMA
     int devices_sock = numa_num_task_nodes();
+#else
+    int devices_sock = 1;
+#endif
     int devices_gpus = get_num_of_gpus    ();
     int devices      = devices_sock * pref_cpu_weight + devices_gpus * pref_gpu_weight;
 
