@@ -1,0 +1,123 @@
+{
+  "e": [{
+    "expression": "multiply",
+    "left": {
+      "expression": "recordProjection",
+      "e": {
+        "expression": "argument",
+        "argNo": -1,
+        "type": {
+          "type": "record",
+          "relName": "inputs/ssbm/lineorder.csv"
+        },
+        "attributes": [{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_discount"
+        }]
+      },
+      "attribute": {
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_discount"
+      }
+    },
+    "right":{
+      "expression": "recordProjection",
+      "e": {
+        "expression": "argument",
+        "argNo": -1,
+        "type": {
+          "type": "record",
+          "relName": "inputs/ssbm/lineorder.csv"
+        },
+        "attributes": [{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_extendedprice"
+        }]
+      },
+      "attribute": {
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_extendedprice"
+      }
+    }
+  }],
+  "operator": "reduce",
+  "accumulator": ["sum"],
+  "p": {
+    "expression": "bool",
+    "v": true
+  },
+  "input": {
+    "operator": "block-to-tuples",
+    "gpu": false,
+    "projections": [{
+      "relName": "inputs/ssbm/lineorder.csv",
+      "attrName": "lo_discount"
+    },{
+      "relName": "inputs/ssbm/lineorder.csv",
+      "attrName": "lo_extendedprice"
+    }],
+    "input": {
+      "operator": "hash-rearrange",
+      "buckets": 2,
+      "projections": [{
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_discount"
+      },{
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_extendedprice"
+      }],
+      "hashProject": {
+        "type": {
+          "type": "int"
+        },
+        "relName": "inputs/ssbm/lineorder.csv",
+        "attrName": "lo_discount_hash",
+        "attrNo": -1
+      },
+      "e": {
+        "expression": "recordProjection",
+        "e": {
+          "expression": "argument",
+          "argNo": -1,
+          "type": {
+            "type": "record",
+            "relName": "inputs/ssbm/lineorder.csv"
+          },
+          "attributes": [{
+            "relName": "inputs/ssbm/lineorder.csv",
+            "attrName": "lo_discount"
+          }]
+        },
+        "attribute": {
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_discount"
+        }
+      },
+      "input": {
+        "operator": "block-to-tuples",
+        "gpu": false,
+        "projections": [{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_discount"
+        },{
+          "relName": "inputs/ssbm/lineorder.csv",
+          "attrName": "lo_extendedprice"
+        }],
+        "input": {
+          "operator": "scan",
+          "plugin": {
+            "name": "inputs/ssbm/lineorder.csv",
+            "type": "block",
+            "projections": [{
+              "relName": "inputs/ssbm/lineorder.csv",
+              "attrName": "lo_discount"
+            },{
+              "relName": "inputs/ssbm/lineorder.csv",
+              "attrName": "lo_extendedprice"
+            }]
+          }
+        }
+      }
+    }
+  }
+}
