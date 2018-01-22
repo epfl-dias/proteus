@@ -110,9 +110,26 @@ object PlanToJSON {
   }
 
   def emitBinaryOp(op: SqlBinaryOperator, args: ImmutableList[RexNode], opType: String, f: List[Binding]) : JValue =  {
+    var left : JValue = null;
+    var right: JValue = null;
 
-    val left = emitExpression(args.get(0), f)
-    val right = emitExpression(args.get(1), f)
+    if (args.size == 2){
+      left  = emitExpression(args.get(0), f)
+      right = emitExpression(args.get(1), f)
+    } else {
+      assert(args.size > 2);
+      val subSize = (args.size + 1) / 2
+      val left_args = args.subList(0, subSize)
+      val right_args = args.subList(subSize, args.size)
+
+      left = emitBinaryOp(op, left_args, opType, f)
+
+      if (right_args.size == 1){
+        right = emitExpression(right_args.get(0), f)
+      } else {
+        right = emitBinaryOp(op, right_args, opType, f)
+      }
+    }
 
     val opName : String = op.getKind match {
       case SqlKind.GREATER_THAN => "gt"
