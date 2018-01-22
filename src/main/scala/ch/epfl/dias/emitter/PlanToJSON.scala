@@ -9,6 +9,7 @@ import org.apache.calcite.rel.core.AggregateCall
 import org.apache.calcite.rex.{RexCall, RexInputRef, RexLiteral, RexNode}
 import org.apache.calcite.sql.fun.SqlCaseOperator
 import org.apache.calcite.sql.{SqlBinaryOperator, SqlFunction, SqlKind, SqlOperator}
+import org.apache.calcite.interpreter.Bindables.BindableTableScan
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -313,6 +314,20 @@ object PlanToJSON {
       val binding: Binding = Binding(srcName,getFields(s.getRowType))
       val ret: (Binding, JValue) = (binding,json)
       ret
+    }
+    case s : BindableTableScan => {
+      val op = ("operator" , "scan")
+      //TODO Cross-check: 0: schemaName, 1: tableName (?)
+      val srcName = s.getTable.getQualifiedName.get(1)
+      val rowType = emitSchema(srcName, s.getRowType)
+
+      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
+      val binding: Binding = Binding(srcName,getFields(s.getRowType))
+      val ret: (Binding, JValue) = (binding,json)
+      ret
+    }
+    case i : EnumerableInterpreter => {
+      emit_(i.getInput)
     }
     case sort: EnumerableSort => {
       val op = ("operator" , "sort")
