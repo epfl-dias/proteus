@@ -229,7 +229,7 @@ object PlanToJSON {
         e => emitExpression(e,List(childBinding))
       }
 
-      val json = op ~ ("tupleType", rowType) ~ ("e", exprsJS) ~ ("child" , childOp)
+      val json = op ~ ("tupleType", rowType) ~ ("e", exprsJS) ~ ("input" , childOp)
       val binding: Binding = Binding(alias,getFields(p.getRowType))
       val ret: (Binding, JValue) = (binding,json)
       ret
@@ -252,7 +252,7 @@ object PlanToJSON {
       val alias = "agg"+a.getId
       val rowType = emitSchema(alias, a.getRowType)
 
-      val json = op ~ ("tupleType", rowType) ~ ("groups", groupsJS) ~ ("aggs", aggsJS) ~ ("child" , childOp)
+      val json = op ~ ("tupleType", rowType) ~ ("groups", groupsJS) ~ ("aggs", aggsJS) ~ ("input" , childOp)
       val binding: Binding = Binding(alias,getFields(a.getRowType))
       val ret: (Binding, JValue) = (binding,json)
       ret
