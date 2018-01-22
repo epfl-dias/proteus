@@ -20,6 +20,12 @@ import org.apache.calcite.tools.Frameworks
 import org.apache.calcite.tools.Planner
 import org.apache.calcite.tools.Programs
 import org.apache.calcite.tools.RuleSets
+import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider
+import scala.collection.JavaConversions._
+import org.apache.calcite.config.CalciteConnectionConfig
+import org.apache.calcite.sql2rel.RelDecorrelator
+import org.apache.calcite.rel.core.RelFactories
+import org.apache.calcite.sql2rel.RelFieldTrimmer
 
 /**
   * Utility that produces a query plan corresponding to an input SQL query
@@ -42,75 +48,139 @@ class QueryToPlan(schema: SchemaPlus) {
       traitDefs.add(ConventionTraitDef.INSTANCE)
       traitDefs.add(RelCollationTraitDef.INSTANCE)
 
+      val rules = new util.ArrayList[RelOptRule]
+      rules.add(ReduceExpressionsRule.CALC_INSTANCE)
+      rules.add(TableScanRule.INSTANCE)
+      // push and merge filter rules
+      rules.add(FilterAggregateTransposeRule.INSTANCE)
+      rules.add(FilterProjectTransposeRule.INSTANCE)
+      rules.add(FilterMergeRule.INSTANCE)
+      rules.add(FilterJoinRule.FILTER_ON_JOIN)
+      rules.add(FilterJoinRule.JOIN)
+      /*push filter into the children of a join*/
+      rules.add(FilterTableScanRule.INSTANCE)
+      // push and merge projection rules
+      rules.add(ProjectRemoveRule.INSTANCE)
+      rules.add(ProjectJoinTransposeRule.INSTANCE)
+      rules.add(JoinProjectTransposeRule.BOTH_PROJECT)
+      rules.add(ProjectFilterTransposeRule.INSTANCE) //XXX causes non-termination
+      /*it is better to use filter first an then project*/
+      rules.add(ProjectTableScanRule.INSTANCE)
+      rules.add(ProjectMergeRule.INSTANCE)
+      //aggregate rules
+      rules.add(AggregateRemoveRule.INSTANCE)
+      rules.add(AggregateJoinTransposeRule.INSTANCE)
+      rules.add(AggregateProjectMergeRule.INSTANCE)
+      rules.add(AggregateProjectPullUpConstantsRule.INSTANCE)
+      rules.add(AggregateExpandDistinctAggregatesRule.INSTANCE)
+      rules.add(AggregateReduceFunctionsRule.INSTANCE)
+      //join rules
+      //        JoinToMultiJoinRule.INSTANCE,
+      //        LoptOptimizeJoinRule.INSTANCE,
+      //        MultiJoinOptimizeBushyRule.INSTANCE,
+      rules.add(JoinPushThroughJoinRule.RIGHT)
+      rules.add(JoinPushThroughJoinRule.LEFT)
+      // //        /*choose between right and left*/
+      rules.add(JoinPushExpressionsRule.INSTANCE)
+      rules.add(JoinAssociateRule.INSTANCE)
+      rules.add(JoinCommuteRule.INSTANCE)
+      // simplify expressions rules
+      rules.add(ReduceExpressionsRule.CALC_INSTANCE)
+      rules.add(ReduceExpressionsRule.FILTER_INSTANCE)
+      rules.add(ReduceExpressionsRule.PROJECT_INSTANCE)
+      // prune empty results rules
+      rules.add(PruneEmptyRules.FILTER_INSTANCE)
+      rules.add(PruneEmptyRules.PROJECT_INSTANCE)
+      rules.add(PruneEmptyRules.AGGREGATE_INSTANCE)
+      rules.add(PruneEmptyRules.JOIN_LEFT_INSTANCE)
+      rules.add(PruneEmptyRules.JOIN_RIGHT_INSTANCE)
+      /* Sort Rules*/
+      rules.add(SortJoinTransposeRule.INSTANCE)
+      rules.add(SortProjectTransposeRule.INSTANCE)
+      //SortRemoveRule.INSTANCE, //Too aggressive when triggered over enumerables; always removes Sort
+      rules.add(SortUnionTransposeRule.INSTANCE)
+      /*Enumerable Rules*/
+      rules.add(EnumerableRules.ENUMERABLE_FILTER_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_TABLE_SCAN_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_SORT_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_UNION_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_INTERSECT_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_MINUS_RULE)
+
+      val program1 = new Program {
+        def run(
+            planner: RelOptPlanner,
+            rel: RelNode,
+            requiredOutputTraits: RelTraitSet,
+            materializations: util.List[RelOptMaterialization],
+            lattices: util.List[RelOptLattice]
+          ): RelNode = {
+          planner.setRoot(rel);
+
+          for (materialization <- materializations) {
+            planner.addMaterialization(materialization);
+          }
+          for (lattice <- lattices) {
+            planner.addLattice(lattice);
+          }
+
+          val rootRel2: RelNode =
+              if (rel.getTraitSet().equals(requiredOutputTraits)) rel
+              else planner.changeTraits(rel, requiredOutputTraits);
+
+          planner.setRoot(rootRel2);
+          planner.chooseDelegate().findBestExp()
+        }
+      }
+
+      val decorrelateProgram = new Program {
+        def run(
+            planner: RelOptPlanner,
+            rel: RelNode,
+            requiredOutputTraits: RelTraitSet,
+            materializations: util.List[RelOptMaterialization],
+            lattices: util.List[RelOptLattice]
+          ): RelNode = {
+          val config = planner.getContext().unwrap(classOf[CalciteConnectionConfig])
+          if (config != null && config.forceDecorrelate()) 
+            RelDecorrelator.decorrelateQuery(rel)
+          else 
+            rel
+        }
+      }
+
+      val trimFieldsProgram = new Program {
+        def run(
+            planner: RelOptPlanner,
+            rel: RelNode,
+            requiredOutputTraits: RelTraitSet,
+            materializations: util.List[RelOptMaterialization],
+            lattices: util.List[RelOptLattice]
+          ): RelNode = {
+          val relBuilder = RelFactories.LOGICAL_BUILDER.create(rel.getCluster(), null);
+          new RelFieldTrimmer(null, relBuilder).trim(rel);
+        }
+      }
 
       //Can mix & match (& add)
-      //XXX Some combinations lead to a non-terminating QO process
-      val program: Program = Programs.ofRules(
-        ReduceExpressionsRule.CALC_INSTANCE,
-        TableScanRule.INSTANCE,
-        // push and merge filter rules
-        FilterAggregateTransposeRule.INSTANCE,
-        FilterProjectTransposeRule.INSTANCE,
-        FilterMergeRule.INSTANCE,
-        FilterJoinRule.FILTER_ON_JOIN,
-        FilterJoinRule.JOIN,
-        /*push filter into the children of a join*/
-        FilterTableScanRule.INSTANCE,
-        // push and merge projection rules
-        ProjectRemoveRule.INSTANCE,
-        ProjectJoinTransposeRule.INSTANCE,
-        JoinProjectTransposeRule.BOTH_PROJECT,
-//      ProjectFilterTransposeRule.INSTANCE, //XXX causes non-termination
-//      /*it is better to use filter first an then project*/
-        ProjectTableScanRule.INSTANCE,
-        ProjectMergeRule.INSTANCE,
-        //aggregate rules
-        AggregateRemoveRule.INSTANCE,
-        AggregateJoinTransposeRule.EXTENDED,
-        AggregateProjectMergeRule.INSTANCE,
-        AggregateProjectPullUpConstantsRule.INSTANCE,
-        AggregateExpandDistinctAggregatesRule.INSTANCE,
-        AggregateReduceFunctionsRule.INSTANCE,
-//        //join rules
-//        JoinToMultiJoinRule.INSTANCE,
-//        LoptOptimizeJoinRule.INSTANCE,
-//        MultiJoinOptimizeBushyRule.INSTANCE,
-//        JoinPushThroughJoinRule.RIGHT,
-//        JoinPushThroughJoinRule.LEFT,
-//        /*choose between right and left*/
-//        JoinPushExpressionsRule.INSTANCE,
-//        JoinAssociateRule.INSTANCE,
-//        JoinCommuteRule.INSTANCE,
-        // simplify expressions rules
-        ReduceExpressionsRule.CALC_INSTANCE,
-        ReduceExpressionsRule.FILTER_INSTANCE,
-        ReduceExpressionsRule.PROJECT_INSTANCE,
-//        // prune empty results rules
-//        PruneEmptyRules.FILTER_INSTANCE,
-//        PruneEmptyRules.PROJECT_INSTANCE,
-//        PruneEmptyRules.AGGREGATE_INSTANCE,
-//        PruneEmptyRules.JOIN_LEFT_INSTANCE,
-//        PruneEmptyRules.JOIN_RIGHT_INSTANCE,
-        /* Sort Rules*/
-        SortJoinTransposeRule.INSTANCE,
-        SortProjectTransposeRule.INSTANCE,
-        //SortRemoveRule.INSTANCE, //Too aggressive when triggered over enumerables; always removes Sort
-        SortUnionTransposeRule.INSTANCE,
-        /*Enumerable Rules*/
-        EnumerableRules.ENUMERABLE_FILTER_RULE,
-        EnumerableRules.ENUMERABLE_TABLE_SCAN_RULE,
-        EnumerableRules.ENUMERABLE_PROJECT_RULE,
-        EnumerableRules.ENUMERABLE_AGGREGATE_RULE,
-        EnumerableRules.ENUMERABLE_JOIN_RULE,
-        EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE,
-        EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE,
-        EnumerableRules.ENUMERABLE_SORT_RULE,
-        EnumerableRules.ENUMERABLE_UNION_RULE,
-        EnumerableRules.ENUMERABLE_INTERSECT_RULE,
-        EnumerableRules.ENUMERABLE_MINUS_RULE
-      )
+      // Sequence and programs used are based on Calcite's Programs.standard(): 
+      // https://github.com/apache/calcite/blob/be2fe5f95827eb911c49887882268749b45e372b/core/src/main/java/org/apache/calcite/tools/Programs.java
+      val program: Program = Programs.sequence(
+        Programs.subQuery(DefaultRelMetadataProvider.INSTANCE),
+        decorrelateProgram, // new DecorrelateProgram(),
+        trimFieldsProgram, // new TrimFieldsProgram(),
+        program1,
 
-
+        // Second planner pass to do physical "tweaks". This the first time that
+        // EnumerableCalcRel is introduced.
+        // Programs.calc(DefaultRelMetadataProvider.INSTANCE)
+        Programs.hep(rules, false, DefaultRelMetadataProvider.INSTANCE) // false => not DAG
+      ) //Programs.standard() //.hep(rules, false, DefaultRelMetadataProvider.INSTANCE)
 
       Frameworks.newConfigBuilder()
         .parserConfig(SqlParser.configBuilder().setLex(Lex.MYSQL).build())
@@ -134,6 +204,7 @@ class QueryToPlan(schema: SchemaPlus) {
 
     def getLogicalPlan(query: String) : RelNode = {
       try {
+        System.out.println(planner)
         val sqlNode = planner.parse(query)
         val validatedSqlNode = planner.validate(sqlNode)
         planner.rel(validatedSqlNode).project
