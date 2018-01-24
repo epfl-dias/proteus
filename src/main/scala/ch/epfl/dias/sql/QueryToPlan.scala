@@ -62,7 +62,7 @@ class QueryToPlan(schema: SchemaPlus) {
       // push and merge projection rules
       rules.add(ProjectRemoveRule.INSTANCE)
       rules.add(ProjectJoinTransposeRule.INSTANCE)
-      rules.add(JoinProjectTransposeRule.BOTH_PROJECT)
+      // rules.add(JoinProjectTransposeRule.BOTH_PROJECT)
       rules.add(ProjectFilterTransposeRule.INSTANCE) //XXX causes non-termination
       /*it is better to use filter first an then project*/
       rules.add(ProjectTableScanRule.INSTANCE)
@@ -74,13 +74,13 @@ class QueryToPlan(schema: SchemaPlus) {
       rules.add(AggregateProjectPullUpConstantsRule.INSTANCE)
       rules.add(AggregateExpandDistinctAggregatesRule.INSTANCE)
       rules.add(AggregateReduceFunctionsRule.INSTANCE)
-      //join rules
-      //        JoinToMultiJoinRule.INSTANCE,
-      //        LoptOptimizeJoinRule.INSTANCE,
-      //        MultiJoinOptimizeBushyRule.INSTANCE,
+      // //join rules
+      rules.add(JoinToMultiJoinRule.INSTANCE)
+      rules.add(LoptOptimizeJoinRule.INSTANCE)
+      // //        MultiJoinOptimizeBushyRule.INSTANCE,
       rules.add(JoinPushThroughJoinRule.RIGHT)
       rules.add(JoinPushThroughJoinRule.LEFT)
-      // //        /*choose between right and left*/
+      /*choose between right and left*/
       rules.add(JoinPushExpressionsRule.INSTANCE)
       rules.add(JoinAssociateRule.INSTANCE)
       rules.add(JoinCommuteRule.INSTANCE)
@@ -167,6 +167,7 @@ class QueryToPlan(schema: SchemaPlus) {
         }
       }
 
+
       //Can mix & match (& add)
       // Sequence and programs used are based on Calcite's Programs.standard(): 
       // https://github.com/apache/calcite/blob/be2fe5f95827eb911c49887882268749b45e372b/core/src/main/java/org/apache/calcite/tools/Programs.java
@@ -174,12 +175,13 @@ class QueryToPlan(schema: SchemaPlus) {
         Programs.subQuery(DefaultRelMetadataProvider.INSTANCE),
         decorrelateProgram, // new DecorrelateProgram(),
         trimFieldsProgram, // new TrimFieldsProgram(),
-        program1,
+        Programs.heuristicJoinOrder(rules, false, 3),
+        // program1,
 
-        // Second planner pass to do physical "tweaks". This the first time that
-        // EnumerableCalcRel is introduced.
-        // Programs.calc(DefaultRelMetadataProvider.INSTANCE)
-        Programs.hep(rules, false, DefaultRelMetadataProvider.INSTANCE) // false => not DAG
+        // // Second planner pass to do physical "tweaks". This the first time that
+        // // EnumerableCalcRel is introduced.
+        // // Programs.calc(DefaultRelMetadataProvider.INSTANCE)
+        // Programs.hep(rules, false, DefaultRelMetadataProvider.INSTANCE) // false => not DAG
       ) //Programs.standard() //.hep(rules, false, DefaultRelMetadataProvider.INSTANCE)
 
       Frameworks.newConfigBuilder()
