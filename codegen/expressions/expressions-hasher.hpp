@@ -49,6 +49,7 @@ public:
 			context(context), currState(currState),
 			activeRelation(activeRelation)								{}
 	RawValue visit(expressions::IntConstant *e);
+	RawValue visit(expressions::Int64Constant *e);
 	RawValue visit(expressions::FloatConstant *e);
 	RawValue visit(expressions::BoolConstant *e);
 	RawValue visit(expressions::StringConstant *e);

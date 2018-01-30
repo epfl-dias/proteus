@@ -29,16 +29,19 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec, 
 	pos = 0;
 	fd = -1;
 	buf = NULL;
-
+	fsize = 0;
+	
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
-	struct stat statbuf;
-	const char* name_c = fname.c_str();
-	stat(name_c, &statbuf);
-	fsize = statbuf.st_size;
+	if (whichFields.size() > 0){
+		struct stat statbuf;
+		const char* name_c = fname.c_str();
+		stat(name_c, &statbuf);
+		fsize = statbuf.st_size;
 
-	fd = open(name_c, O_RDONLY);
-	if (fd == -1) {
-		throw runtime_error(string("csv.open"));
+		fd = open(name_c, O_RDONLY);
+		if (fd == -1) {
+			throw runtime_error(string("csv.open"));
+		}
 	}
 }
 

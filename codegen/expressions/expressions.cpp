@@ -31,6 +31,10 @@ RawValue IntConstant::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
+RawValue Int64Constant::accept(ExprVisitor &v) {
+	return v.visit(this);
+}
+
 RawValue FloatConstant::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
@@ -128,6 +132,20 @@ RawValue IntConstant::acceptTandem(ExprTandemVisitor &v, expressions::Expression
 		Constant *rConst = dynamic_cast<Constant*>(expr);
 		if (rConst->getConstantType() == INT) {
 			IntConstant* rInt = dynamic_cast<IntConstant*>(expr);
+			return v.visit(this, rInt);
+		}
+	}
+	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
+	LOG(ERROR)<< error_msg;
+	throw runtime_error(string(error_msg));
+}
+
+/*XXX My responsibility to provide appropriate (i.e., compatible) input */
+RawValue Int64Constant::acceptTandem(ExprTandemVisitor &v, expressions::Expression* expr) {
+	if (this->getTypeID() == expr->getTypeID()) {
+		Constant *rConst = dynamic_cast<Constant*>(expr);
+		if (rConst->getConstantType() == INT64) {
+			Int64Constant* rInt = dynamic_cast<Int64Constant*>(expr);
 			return v.visit(this, rInt);
 		}
 	}

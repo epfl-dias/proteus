@@ -143,6 +143,8 @@ public:
 
     virtual Function * const getFunction(string funcName) const;
 
+    virtual Function    * const createHelperFunction(string funcName, std::vector<llvm::Type *> ins, std::vector<bool> readonly, std::vector<bool> noalias) const;
+    virtual llvm::Value *       invokeHelperFunction(Function * f, std::vector<llvm::Value *> args) const;
 
     std::vector<llvm::Type *> getStateVars() const;
 
@@ -154,7 +156,7 @@ protected:
     virtual llvm::Value           * getStateLLVMValue();
     virtual void                    prepareFunction();
     virtual void                    prepareInitDeinit();
-
+public:
     virtual void                  * getCompiledFunction(Function * f) = 0;
 protected:
     void registerFunctions();

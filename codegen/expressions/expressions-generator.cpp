@@ -33,6 +33,13 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::IntConstant *e) {
 	return valWrapper;
 }
 
+RawValue ExpressionGeneratorVisitor::visit(expressions::Int64Constant *e) {
+	RawValue valWrapper;
+	valWrapper.value = ConstantInt::get(context->getLLVMContext(), APInt(64, e->getVal()));
+	valWrapper.isNull = context->createFalse();
+	return valWrapper;
+}
+
 RawValue ExpressionGeneratorVisitor::visit(expressions::FloatConstant *e) {
 	RawValue valWrapper;
 	valWrapper.value = ConstantFP::get(context->getLLVMContext(), APFloat(e->getVal()));

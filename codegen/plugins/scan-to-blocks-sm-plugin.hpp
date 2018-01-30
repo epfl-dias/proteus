@@ -48,6 +48,7 @@ public:
      */
 
     ScanToBlockSMPlugin(GpuRawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields);
+    ScanToBlockSMPlugin(GpuRawContext* const context, string fnamePrefix, RecordType rec);
 //  ScanToBlockSMPlugin(GpuRawContext* const context, vector<RecordAttribute*>& whichFields, vector<CacheInfo> whichCaches);
     ~ScanToBlockSMPlugin();
     virtual string& getName() { return fnamePrefix; }

@@ -55,7 +55,7 @@ void BlockToTuples::nextEntry()   {
     Value* val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
     
     Value * inc;
-    if (gpu){
+    if (gpu && granularity == gran_t::GRID){
         inc = Builder->CreateIntCast(context->threadNum(), val_curr_itemCtr->getType(), false);
     } else {
         inc = ConstantInt::get((IntegerType *) val_curr_itemCtr->getType(), 1);

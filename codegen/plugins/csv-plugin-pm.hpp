@@ -119,7 +119,7 @@ public:
 	virtual PluginType getPluginType() { return PGCSV; }
 
 private:
-	string& fname;
+	string fname;
 	off_t fsize;
 	int fd;
 	char *buf;

@@ -15,6 +15,8 @@
 #include "operators/hash-rearrange.hpp"
 #include "operators/gpu/gpu-hash-rearrange.hpp"
 #include "operators/block-to-tuples.hpp"
+#include "operators/flush.hpp"
+#include "operators/project.hpp"
 
 /* too primitive */
 struct PlanHandler {
@@ -231,6 +233,50 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		} else {
 			newOp = new opt::Reduce(accs, e, p, childOp, this->ctx,true,moduleName);
 		}
+		childOp->setParent(newOp);
+	} else if (strcmp(opName, "print") == 0) {
+		/* "Multi - reduce"! */
+		/* parse operator input */
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		/*
+		 * parse output expressions
+		 * XXX Careful: Assuming numerous output expressions!
+		 */
+		assert(val.HasMember("e"));
+		assert(val["e"].IsArray());
+		vector<expressions::Expression*> e;
+		const rapidjson::Value& exprsJSON = val["e"];
+		for (SizeType i = 0; i < exprsJSON.Size(); i++)
+		{
+			expressions::Expression *outExpr = parseExpression(exprsJSON[i]);
+			e.push_back(outExpr);
+		}
+
+		newOp = new Flush(e, childOp, this->ctx, moduleName);
+		childOp->setParent(newOp);
+	} else if (strcmp(opName, "project") == 0) {
+		/* "Multi - reduce"! */
+		/* parse operator input */
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		/*
+		 * parse output expressions
+		 * XXX Careful: Assuming numerous output expressions!
+		 */
+		assert(val.HasMember("e"));
+		assert(val["e"].IsArray());
+		vector<expressions::Expression*> e;
+		const rapidjson::Value& exprsJSON = val["e"];
+		for (SizeType i = 0; i < exprsJSON.Size(); i++){
+			expressions::Expression *outExpr = parseExpression(exprsJSON[i]);
+			e.push_back(outExpr);
+		}
+
+		assert(val.HasMember("relName"));
+		assert(val["relName"].IsString());
+
+		newOp = new Project(e, val["relName"].GetString(), childOp, this->ctx);
 		childOp->setParent(newOp);
 	} else if (strcmp(opName, "unnest") == 0) {
 
@@ -852,10 +898,22 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val.HasMember("projections"));
 		assert(val["projections"].IsArray());
 
+		gran_t granularity = gran_t::GRID;
 		bool gpu = true;
 		if (val.HasMember("gpu")){
 			assert(val["gpu"].IsBool());
 			gpu = val["gpu"].GetBool();
+			if (!gpu) granularity = gran_t::THREAD;
+		}
+
+		if (val.HasMember("granularity")){
+			assert(val["granularity"].IsString());
+			std::string gran = val["granularity"].GetString();
+			std::transform(gran.begin(), gran.end(), gran.begin(), [](unsigned char c){ return std::tolower(c); });
+			if      (gran == "grid"  ) granularity = gran_t::GRID;
+			else if (gran == "block" ) granularity = gran_t::BLOCK;
+			else if (gran == "thread") granularity = gran_t::THREAD;
+			else 	assert(false && "granularity must be one of GRID, BLOCK, THREAD");
 		}
 
 		vector<RecordAttribute*> projections;
@@ -867,7 +925,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		}
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new BlockToTuples(childOp, ((GpuRawContext *) this->ctx), projections, gpu);
+		newOp =  new BlockToTuples(childOp, ((GpuRawContext *) this->ctx), projections, gpu, granularity);
 		childOp->setParent(newOp);
 	} else if(strcmp(opName,"gpu-to-cpu") == 0)	{
 		/* parse operator input */
@@ -1125,6 +1183,12 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 	return newOp;
 }
 
+inline bool ends_with(std::string const &value, std::string const &ending){
+	if (ending.size() > value.size()) return false;
+	return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
+}
+
+
 int lookupInDictionary(string s, const rapidjson::Value& val){
 	assert(val.IsObject());
 	assert(val.HasMember("path"));
@@ -1132,38 +1196,65 @@ int lookupInDictionary(string s, const rapidjson::Value& val){
 
 	//Input Path
 	const char *nameJSON = val["path"].GetString();
+	if (ends_with(nameJSON, ".dict")){
+		ifstream is(nameJSON);
+		string str;
+		string prefix = s + ":";
+		while(getline(is, str)){
+			if (strncmp(str.c_str(), prefix.c_str(), prefix.size()) == 0){
+				string encoding{str.c_str() + prefix.size()};
+				try {
+					size_t pos;
+					int enc = stoi(encoding, &pos);
+					if (pos + prefix.size() == str.size()) return enc;
+					const char *err = "encoded value has extra characters";
+					LOG(ERROR)<< err;
+					throw runtime_error(err);
+				} catch (const std::invalid_argument &){
+					const char *err = "invalid dict encoding";
+					LOG(ERROR)<< err;
+					throw runtime_error(err);
+				} catch (const std::out_of_range &){
+					const char *err = "out of range dict encoding";
+					LOG(ERROR)<< err;
+					throw runtime_error(err);
+				}
+			}
+		}
+		return -1;// FIXME: this is wrong, we need a binary search, otherwise it breaks ordering
+	} else {
+		//Prepare Input
+		struct stat statbuf;
+		stat(nameJSON, &statbuf);
+		size_t fsize = statbuf.st_size;
 
-	//Prepare Input
-	struct stat statbuf;
-	stat(nameJSON, &statbuf);
-	size_t fsize = statbuf.st_size;
+		int fd = open(nameJSON, O_RDONLY);
+		if (fd == -1) {
+			throw runtime_error(string("json.dict.open"));
+		}
 
-	int fd = open(nameJSON, O_RDONLY);
-	if (fd == -1) {
-		throw runtime_error(string("json.dict.open"));
+		const char *bufJSON = (const char*) mmap(NULL, fsize, PROT_READ,
+				MAP_PRIVATE, fd, 0);
+		if (bufJSON == MAP_FAILED ) {
+			const char *err = "json.dict.mmap";
+			LOG(ERROR)<< err;
+			throw runtime_error(err);
+		}
+
+		Document document; // Default template parameter uses UTF8 and MemoryPoolAllocator.
+		if (document.Parse(bufJSON).HasParseError()) {
+			const char *err = (string("[CatalogParser: ] Error parsing dictionary ") + string(val["path"].GetString())).c_str();
+			LOG(ERROR)<< err;
+			throw runtime_error(err);
+		}
+
+		assert(document.IsObject());
+
+		if (!document.HasMember(s.c_str())) return -1;// FIXME: this is wrong, we need a binary search, otherwise it breaks ordering
+
+		assert(document[s.c_str()].IsInt());
+		return document[s.c_str()].GetInt();
 	}
-
-	const char *bufJSON = (const char*) mmap(NULL, fsize, PROT_READ,
-			MAP_PRIVATE, fd, 0);
-	if (bufJSON == MAP_FAILED ) {
-		const char *err = "json.dict.mmap";
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
-
-	Document document; // Default template parameter uses UTF8 and MemoryPoolAllocator.
-	if (document.Parse(bufJSON).HasParseError()) {
-		const char *err = (string("[CatalogParser: ] Error parsing dictionary ") + string(val["path"].GetString())).c_str();
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
-
-	assert(document.IsObject());
-
-	if (!document.HasMember(s.c_str())) return -1;
-
-	assert(document[s.c_str()].IsInt());
-	return document[s.c_str()].GetInt();
 }
 /*
  *	enum ExpressionId	{ CONSTANT, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE };
@@ -1212,6 +1303,10 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val.HasMember("v"));
 		assert(val["v"].IsInt());
 		retValue = new expressions::IntConstant(val["v"].GetInt());
+	} else if (strcmp(valExpression, "int64") == 0) {
+		assert(val.HasMember("v"));
+		assert(val["v"].IsInt64());
+		retValue = new expressions::Int64Constant(val["v"].GetInt64());
 	} else if (strcmp(valExpression, "float") == 0) {
 		assert(val.HasMember("v"));
 		assert(val["v"].IsDouble());
@@ -1230,6 +1325,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 			assert(val.HasMember("dict"));
 
 			int sVal = lookupInDictionary(val["v"].GetString(), val["dict"]);
+			std::cout << sVal << " " << val["v"].GetString() << std::endl;
 			retValue = new expressions::IntConstant(sVal);
 		}
 	} else if (strcmp(valExpression, "argument") == 0) {
@@ -1502,10 +1598,11 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 	if (retValue && val.HasMember("register_as")){
 		assert(val["register_as"].IsObject());
 		RecordAttribute * reg_as = parseRecordAttr(val["register_as"]);
+		assert(reg_as && "Error registering expression as attribute");
 
-		InputInfo * datasetInfo = (this->catalogParser).getInputInfo(reg_as->getRelationName());
+		InputInfo * datasetInfo = (this->catalogParser).getOrCreateInputInfo(reg_as->getRelationName());
 		RecordType * rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfo->exprType)->getNestedType())};
-
+		std::cout << "Registered: " << reg_as->getRelationName() << "." << reg_as->getAttrName() << std::endl;
 		rec->appendAttribute(reg_as);
 
 		datasetInfo->exprType = new BagType{*rec};
@@ -1893,7 +1990,7 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 /**
  * {"datasetname": {"path": "foo", "type": { ... } }
  */
-CatalogParser::CatalogParser(const char *catalogPath): exprParser(*this) {
+CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context): exprParser(*this), context(context) {
 	//Input Path
 	const char *nameJSON = catalogPath;
 
@@ -1947,4 +2044,29 @@ CatalogParser::CatalogParser(const char *catalogPath): exprParser(*this) {
 //		(this->inputs)[itr->name.GetString()] = info;
 		(this->inputs)[info->path] = info;
 	}
+}
+
+
+InputInfo *CatalogParser::getOrCreateInputInfo(string inputName){
+	InputInfo * ret = getInputInfoIfKnown(inputName);
+	
+	if (!ret){
+		RecordType * rec = new RecordType();
+
+		ret            = new InputInfo()  ;
+		ret->exprType  = new BagType(*rec);
+		ret->path      = inputName;
+
+		RawCatalog& catalog = RawCatalog::getInstance();
+		
+		assert(context && "A GpuRawContext is required to register relationships on the fly");
+		vector<RecordAttribute *> projs;
+		Plugin * newPg = new pm::CSVPlugin(context, inputName, *rec, projs, ',', 10, 1, false);
+		catalog.registerPlugin(*(new string(inputName)), newPg);
+		ret->oidType   = newPg->getOIDType();
+
+		setInputInfo(inputName, ret);
+	}
+
+	return ret;
 }

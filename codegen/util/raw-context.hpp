@@ -258,4 +258,24 @@ typedef struct HashtableBucketMetadata {
 	size_t bucketSize;
 } HashtableBucketMetadata;
 
+class save_current_blocks_and_restore_at_exit_scope{
+	BasicBlock * current;
+	BasicBlock * entry  ;
+	BasicBlock * ending ;
+	RawContext * context;
+
+public:
+	save_current_blocks_and_restore_at_exit_scope(RawContext * context):
+		context(context),
+		entry   (context->getCurrentEntryBlock()),
+		ending  (context->getEndingBlock()      ),
+		current (context->getBuilder()->GetInsertBlock()){}
+
+	~save_current_blocks_and_restore_at_exit_scope(){
+		context->setCurrentEntryBlock			(entry  );
+		context->setEndingBlock					(ending );
+		context->getBuilder()->SetInsertPoint	(current);
+	}
+};
+
 #endif /* RAW_CONTEXT_HPP_ */

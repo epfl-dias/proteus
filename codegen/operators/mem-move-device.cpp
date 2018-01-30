@@ -302,6 +302,7 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
 }
 
 void MemMoveDevice::open (RawPipeline * pip){
+    std::cout << "MemMoveDevice:open" << std::endl;
     nvtxRangePushA("memmove::open");
     cudaStream_t strm;
     gpu_run(cudaStreamCreateWithFlags(&strm , cudaStreamNonBlocking));
@@ -344,6 +345,7 @@ void MemMoveDevice::open (RawPipeline * pip){
 }
 
 void MemMoveDevice::close(RawPipeline * pip){
+    std::cout << "MemMoveDevice:close" << std::endl;
     // int device = get_device();
     // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
     MemMoveConf * mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);

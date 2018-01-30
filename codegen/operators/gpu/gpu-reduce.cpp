@@ -186,7 +186,7 @@ void GpuReduce::consume(GpuRawContext* const context, const OperatorState& child
 
 
     ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 
 }
 
@@ -299,13 +299,13 @@ void GpuReduce::generate(const Monoid &m, expressions::Expression* outputExpr,
 }
 
 void GpuReduce::open(RawPipeline * pip) const{
+    std::cout << "GpuReduce:open" << std::endl;
     for (size_t i = 0 ; i < mem_accumulators.size() ; ++i){
         Type * llvm_type = ((const PrimitiveType *) outputExprs[i]->getExpressionType())->getLLVMType(context->getLLVMContext());
 
         size_t size_in_bytes = (llvm_type->getPrimitiveSizeInBits() + 7)/8;
 
         void * acc = pip->getStateVar<void *>(mem_accumulators[i]);
-
         gpu_run(cudaMemset( acc, 0, size_in_bytes)); //FIXME: reset every type of (data, monoid)
 
         // pip->setStateVar(mem_accumulators[i], acc);s
@@ -313,6 +313,7 @@ void GpuReduce::open(RawPipeline * pip) const{
 }
 
 void GpuReduce::close(RawPipeline * pip) const{
+    std::cout << "GpuReduce:close" << std::endl;
     // for (size_t i = 0 ; i < mem_accumulators.size() ; ++i){
     //     gpu_run(cudaFree(pip->getStateVar<uint32_t *>(context, mem_accumulators[i])));
     // }
@@ -322,9 +323,9 @@ void GpuReduce::close(RawPipeline * pip) const{
     //sync
 
     // for (size_t i = 0 ; i < mem_accumulators.size() ; ++i){
-    //     uint32_t r;
+    //     uint32_t r; //NOTE: here we are assuming 32bits unsigned integer output, change for correct display!
     //     gpu_run(cudaMemcpy(&r, pip->getStateVar<void *>(mem_accumulators[i]), sizeof(uint32_t), cudaMemcpyDefault));
-    //     std::cout << r << std::endl;
+    //     std::cout << r << " " << pip->getStateVar<void *>(mem_accumulators[i]) << std::endl;
     // }
 }
 

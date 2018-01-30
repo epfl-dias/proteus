@@ -155,6 +155,17 @@ size_t RawGpuPipelineGen::prepareStateArgument(){
     return state_id;
 }
 
+Value * RawGpuPipelineGen::getStateVar() const{
+    assert(state);
+    if (!wrapperModuleActive){
+        Function * Fcurrent = getBuilder()->GetInsertBlock()->getParent();
+        if (Fcurrent != F){
+            return Fcurrent->arg_end() - 1;
+        }
+    }
+    return state; //getArgument(args.size() - 1);
+}
+
 Value * RawGpuPipelineGen::getStateLLVMValue(){
     return getArgument(args.size() - 1);
 }
@@ -323,10 +334,7 @@ void RawGpuPipelineGen::prepareInitDeinit(){
     wrapperModuleActive = false;
 }
 
-Function * RawGpuPipelineGen::prepare(){
-    assert(!F);
-    RawPipelineGen::prepare();
-
+void RawGpuPipelineGen::markAsKernel(Function * F) const{
     LLVMContext &llvmContext = context->getLLVMContext();
 
     Type *int32Type           = Type::getInt32Ty(llvmContext);
@@ -344,6 +352,21 @@ Function * RawGpuPipelineGen::prepare(){
     MDNode * mdNode = MDNode::get(llvmContext, Vals);
 
     annot->addOperand(mdNode);
+}
+
+Function * const RawGpuPipelineGen::createHelperFunction(string funcName, std::vector<Type *> ins, std::vector<bool> readonly, std::vector<bool> noalias) const{
+    Function * F = RawPipelineGen::createHelperFunction(funcName, ins, readonly, noalias);
+
+    markAsKernel(F);
+    
+    return F;
+}
+
+Function * RawGpuPipelineGen::prepare(){
+    assert(!F);
+    RawPipelineGen::prepare();
+
+    markAsKernel(F);
 
     return F;
 }
@@ -368,6 +391,10 @@ RawPipeline * RawGpuPipelineGen::getPipeline(int group_id){
         openers.insert(openers.begin(), make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->open (); pip->setStateVar(0, copyFrom->state);}));
         // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
         closers.insert(closers.begin(), make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->close();                                      }));
+    } else {
+        openers.insert(openers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
+        // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
+        closers.insert(closers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
     }
     
     return new RawPipeline(func, (getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8, this, state_type, openers, closers, wrapper_module.getCompiledFunction(open__function), wrapper_module.getCompiledFunction(close_function), group_id);

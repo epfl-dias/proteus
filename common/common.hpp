@@ -210,4 +210,16 @@ public:
     size_t getFileSize() const;
 };
 
+class bytes{
+private:
+    size_t b;
+
+public:
+    bytes(size_t b): b(b){}
+
+    friend std::ostream& operator<<(std::ostream& out, const bytes& b);
+};
+
+std::ostream &operator<<(std::ostream &out, const bytes &b);
+
 #endif /* COMMON_HPP_ */

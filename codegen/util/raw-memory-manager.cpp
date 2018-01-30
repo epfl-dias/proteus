@@ -29,7 +29,7 @@
 constexpr size_t freed_cache_cap      = 16;
 
 void RawMemoryManager::init(){
-    buffer_manager<int32_t>::init(128);
+    buffer_manager<int32_t>::init(128, 1024);
     int gpus = get_num_of_gpus();
     int cpus = numa_num_task_nodes();
     gpu_managers = new SingleGpuMemoryManager *[gpus];
@@ -106,13 +106,15 @@ void * RawMemoryManager::mallocPinned(size_t bytes){
     int node = numa_node_of_cpu(cpu);
     void * ptr = cpu_managers[node]->malloc(bytes);
     nvtxRangePop();
+    std::cout << "Alloc: " << node << " " << ptr << std::endl;
     return ptr;
 }
 
 void   RawMemoryManager::freePinned  (void * ptr){
     nvtxRangePushA("freePinned");
-    int cpu  = sched_getcpu();
-    int node = numa_node_of_cpu(cpu);
+    int node;
+    move_pages(0, 1, &ptr, NULL, &node, MPOL_MF_MOVE);
+    std::cout << "Free: " << node << " " << ptr << std::endl;
     cpu_managers[node]->free(ptr);
     nvtxRangePop();
 }

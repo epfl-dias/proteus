@@ -106,6 +106,11 @@ void GpuToCpu::consume(GpuRawContext * const context, const OperatorState& child
     RecordAttribute tupleCnt = RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
 
     auto it = activeVars.find(tupleCnt);
+    if (it == activeVars.end()){
+        for (const auto &t : activeVars){
+            std::cout << t.first.getRelationName() << " " << t.first.getAttrName() << std::endl;
+        }
+    }
     assert(it != activeVars.end());
 
     RawValueMemory mem_cntWrapper = it->second;
@@ -532,6 +537,7 @@ void kick_start(RawPipeline * cpip, int device){
 }
 
 void GpuToCpu::open(RawPipeline * pip){
+    std::cout << "Gpu2Cpu:open" << std::endl;
     int64_t * store; //volatile
     int32_t * flags; //volatile
     int32_t * eof  ; //volatile
@@ -565,7 +571,6 @@ void GpuToCpu::open(RawPipeline * pip){
     pip->setStateVar<void    *>(storeVar_id, (void    *) store);
     pip->setStateVar<int32_t *>(eofVar_id  , (int32_t *) eof  );
 
-
     nvtxRangePushA("gpu2cpu_get_pipeline");
     RawPipeline * cpip = cpu_pip->getPipeline(pip->getGroup());
     nvtxRangePop();
@@ -587,7 +592,9 @@ void GpuToCpu::open(RawPipeline * pip){
 // }
 
 void GpuToCpu::close(RawPipeline * pip){
+    std::cout << "Gpu2Cpu:close" << pip << std::endl;
     volatile int32_t * eof = pip->getStateVar<volatile int32_t *>(eofVar_id);
+    assert(*eof == 0);
     *eof = 1;
 
     // // A kernel needs to be launched to be able to guarantee that the CPU will 
@@ -606,8 +613,8 @@ void GpuToCpu::close(RawPipeline * pip){
 
     nvtxRangePop();
 
-    RawMemoryManager::freePinned(pip->getStateVar<int32_t *>(flagsVar_id));
     RawMemoryManager::freePinned(pip->getStateVar<int64_t *>(storeVar_id));
+    RawMemoryManager::freePinned(pip->getStateVar<int32_t *>(flagsVar_id));
     RawMemoryManager::freeGpu   (pip->getStateVar<int32_t *>(lockVar_id ));
 
     // for (size_t i = 0 ; i < size ; ++i) std::cout << "=====> " << i << " " << fg[i] << " " << st[i * 6 + 5] << std::endl;

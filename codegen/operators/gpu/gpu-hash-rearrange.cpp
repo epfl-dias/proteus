@@ -622,181 +622,179 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
 }
 
 void GpuHashRearrange::consume_flush(){
-    std::vector<Type *> args{context->getStateVars()};
+    {
+        save_current_blocks_and_restore_at_exit_scope blks{context};
+        LLVMContext &llvmContext    = context->getLLVMContext();
 
-    context->pushNewPipeline();
+        flushingFunc = (*context)->createHelperFunction("flush", std::vector<Type *>{}, std::vector<bool>{}, std::vector<bool>{});
+        closingPip   = (context->operator->());
+        IRBuilder<> * Builder       = context->getBuilder    ();
+        BasicBlock  * insBB         = Builder->GetInsertBlock();
+        Function    * F             = insBB->getParent();
+        //Get the ENTRY BLOCK
+        context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
-    for (Type * t: args) context->appendStateVar(t);
+        BasicBlock *mainBB  = BasicBlock::Create(llvmContext, "main", F);
 
-    LLVMContext & llvmContext   = context->getLLVMContext();
+        Builder->SetInsertPoint(mainBB);
 
-    Plugin * pg       = RawCatalog::getInstance().getPlugin(matExpr[0]->getRegisteredRelName());
-    Type   * oid_type = pg->getOIDType()->getLLVMType(llvmContext);
+        BasicBlock *initBB  = BasicBlock::Create(llvmContext, "init", F);
+        BasicBlock *endIBB  = BasicBlock::Create(llvmContext, "endI", F);
 
-    Type        * charPtrType  = Type::getInt8PtrTy(llvmContext);
-    IntegerType * int32_type   = Type::getInt32Ty  (llvmContext);
-    IntegerType * int64_type   = Type::getInt64Ty  (llvmContext);
+        context->setEndingBlock(endIBB);
 
-    IntegerType * size_type;
-    if      (sizeof(size_t) == 4) size_type = int32_type;
-    else if (sizeof(size_t) == 8) size_type = int64_type;
-    else                          assert(false);
+        Plugin * pg       = RawCatalog::getInstance().getPlugin(matExpr[0]->getRegisteredRelName());
+        Type   * oid_type = pg->getOIDType()->getLLVMType(llvmContext);
 
-    IntegerType * target_type = size_type;
-    if (hashProject) target_type = (IntegerType *) hashProject->getLLVMType(llvmContext);
+        IntegerType * int32_type        = Type::getInt32Ty  (llvmContext);
+        IntegerType * int64_type        = Type::getInt64Ty  (llvmContext);
+        Type        * charPtrType       = Type::getInt8PtrTy(llvmContext);
+        Type        * bool_type         = context->createTrue()->getType();
 
-    context->setGlobalFunction();
+        IntegerType * size_type;
+        if      (sizeof(size_t) == 4) size_type = int32_type;
+        else if (sizeof(size_t) == 8) size_type = int64_type;
+        else                          assert(false);
 
-    IRBuilder<> * Builder       = context->getBuilder    ();
-    BasicBlock  * insBB         = Builder->GetInsertBlock();
-    Function    * F             = insBB->getParent();
-    //Get the ENTRY BLOCK
-    context->setCurrentEntryBlock(Builder->GetInsertBlock());
+        IntegerType * target_type = size_type;
+        if (hashProject) target_type = (IntegerType *) hashProject->getLLVMType(llvmContext);
 
-    BasicBlock *mainBB  = BasicBlock::Create(llvmContext, "main", F);
+        // if (threadIdx.x < parts){
+        //     buff[threadIdx.x] = (uint32_t *) get_buffers();
 
-    Builder->SetInsertPoint(mainBB);
+        //     cnt [threadIdx.x] = 0;
+        //     wcnt[threadIdx.x] = 0;
+        // }
+        // __syncthreads();
 
-    BasicBlock *initBB  = BasicBlock::Create(llvmContext, "init", F);
-    BasicBlock *endIBB  = BasicBlock::Create(llvmContext, "endI", F);
+        Value * thrd          = context->threadIdInBlock();
+        Value * target        = Builder->CreateZExtOrTrunc(thrd, target_type);
+        Value * numOfBucketsT = ConstantInt::get(target_type, numOfBuckets);
+        Value * cond          = Builder->CreateICmpULT(target, numOfBucketsT);
 
-    context->setEndingBlock(endIBB);
+        Builder->CreateCondBr(cond, initBB, endIBB);
 
-    // if (threadIdx.x < parts){
-    //     buff[threadIdx.x] = (uint32_t *) get_buffers();
+        Builder->SetInsertPoint(initBB);
+        
+        Function * get_buffers = context->getFunction("get_buffers");
+        Function * syncthreads = context->getFunction("syncthreads");
 
-    //     cnt [threadIdx.x] = 0;
-    //     wcnt[threadIdx.x] = 0;
-    // }
-    // __syncthreads();
+        std::vector<Value *> idx      {context->createInt32(0), thrd};
+        std::vector<Value *> idxStored{context->blockId()     , thrd};
 
-    Value * thrd          = context->threadIdInBlock();
-    Value * target        = Builder->CreateZExtOrTrunc(thrd, target_type);
-    Value * numOfBucketsT = ConstantInt::get(target_type, numOfBuckets);
-    Value * cond          = Builder->CreateICmpULT(target, numOfBucketsT);
+        std::vector<Value *> buff_ptrs;
+        for (size_t i = 0 ; i < matExpr.size() ; ++i){
+            std::cout << buffVar_id[i] << std::endl;
+            context->getStateVar(buffVar_id[i])->dump();
+            context->getStateVar(buffVar_id[i])->getType()->dump();
 
-    Builder->CreateCondBr(cond, initBB, endIBB);
+            Value * stored_buff_thrd = Builder->CreateInBoundsGEP(context->getStateVar(buffVar_id[i]), idxStored);
 
-    Builder->SetInsertPoint(initBB);
-    
-    Function * get_buffers = context->getFunction("get_buffers");
-    Function * syncthreads = context->getFunction("syncthreads");
+            buff_ptrs.push_back(Builder->CreateLoad (stored_buff_thrd));
+        }
 
-    std::vector<Value *> idx      {context->createInt32(0), thrd};
-    std::vector<Value *> idxStored{context->blockId()     , thrd};
+        // Value * cnt__thrd       = Builder->CreateInBoundsGEP(cnt , idx);
+        Value * stored_cnt_ptr  = Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id), idxStored);
+        Value * cnt             = Builder->CreateLoad(stored_cnt_ptr);
 
-    std::vector<Value *> buff_ptrs;
-    for (size_t i = 0 ; i < matExpr.size() ; ++i){
-        Value * stored_buff_thrd = Builder->CreateInBoundsGEP(context->getStateVar(buffVar_id[i]), idxStored);
+        BasicBlock *emptyBB     = BasicBlock::Create(llvmContext, "empty", F);
+        BasicBlock *non_emptyBB = BasicBlock::Create(llvmContext, "non_empty", F);
 
-        buff_ptrs.push_back(Builder->CreateLoad (stored_buff_thrd));
+        Value * empty_cond      = Builder->CreateICmpEQ(cnt, ConstantInt::get((IntegerType *) cnt->getType(), 0));
+        Builder->CreateCondBr(empty_cond, emptyBB, non_emptyBB);
+
+        Builder->SetInsertPoint(emptyBB);
+
+        Function * f = context->getFunction("release_buffers"); //FIXME: Assumes grid launch + Assumes 1 block per kernel!
+        
+        for (size_t i = 0 ; i < matExpr.size() ; ++i){
+            buff_ptrs[i]->getType()->dump();
+            Builder->CreateCall(f, std::vector<Value *>{Builder->CreateBitCast(buff_ptrs[i], charPtrType)});
+        }
+        
+        Builder->CreateBr(endIBB);
+
+
+
+        Builder->SetInsertPoint(non_emptyBB);
+
+        // call parent
+        map<RecordAttribute, RawValueMemory> variableBindings;
+
+        RecordAttribute tupCnt  = RecordAttribute(matExpr[0]->getRegisteredRelName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
+
+        AllocaInst * blockN_ptr      = context->CreateEntryBlockAlloca(F, "blockN_ptr", oid_type);
+
+        if (hashProject){
+            //Save hash in bindings
+            AllocaInst * hash_ptr = context->CreateEntryBlockAlloca(F, "hash_ptr", target_type);
+            Builder->CreateStore(target, hash_ptr);
+
+            RawValueMemory mem_hashWrapper;
+            mem_hashWrapper.mem      = hash_ptr;
+            mem_hashWrapper.isNull   = context->createFalse();
+            variableBindings[*hashProject] = mem_hashWrapper;
+        }
+
+        cnt = Builder->CreateZExt(cnt, oid_type);
+
+        Builder->CreateStore(cnt, blockN_ptr);
+
+        RawValueMemory mem_cntWrapper;
+        mem_cntWrapper.mem      = blockN_ptr;
+        mem_cntWrapper.isNull   = context->createFalse();
+        variableBindings[tupCnt] = mem_cntWrapper;
+
+        Value * new_oid = Builder->CreateAtomicRMW(AtomicRMWInst::BinOp::Add,
+                                ((GpuRawContext *) context)->getStateVar(oidVar_id),
+                                cnt,
+                                AtomicOrdering::Monotonic);
+        new_oid->setName("oid");
+
+        AllocaInst * new_oid_ptr = context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
+        Builder->CreateStore(new_oid, new_oid_ptr);
+
+        RecordAttribute tupleIdentifier = RecordAttribute(matExpr[0]->getRegisteredRelName(),  activeLoop, pg->getOIDType());
+        
+        RawValueMemory mem_oidWrapper;
+        mem_oidWrapper.mem      = new_oid_ptr;
+        mem_oidWrapper.isNull   = context->createFalse();
+        variableBindings[tupleIdentifier] = mem_oidWrapper;
+
+        for (size_t i = 0 ; i < matExpr.size() ; ++i){
+
+            AllocaInst * mem_arg = context->CreateEntryBlockAlloca(F,
+                                    "mem_" + matExpr[i]->getRegisteredAttrName(),
+                                    buff_ptrs[i]->getType());
+
+            Builder->CreateStore(buff_ptrs[i], mem_arg);
+
+            RawValueMemory mem_valWrapper;
+            mem_valWrapper.mem    = mem_arg;
+            mem_valWrapper.isNull = context->createFalse();
+
+            RecordAttribute battr(  RecordAttribute{
+                                        matExpr[i]->getRegisteredRelName() , 
+                                        matExpr[i]->getRegisteredAttrName(), 
+                                        matExpr[i]->getExpressionType()    
+                                    },
+                                    true
+                                );
+
+            variableBindings[battr] = mem_valWrapper;
+        }
+
+        OperatorState state{*this, variableBindings};
+        getParent()->consume(context, state);
+
+        Builder->CreateBr(endIBB);
+
+        Builder->SetInsertPoint(context->getCurrentEntryBlock());
+        Builder->CreateBr(mainBB);
+
+        Builder->SetInsertPoint(context->getEndingBlock());
+        Builder->CreateRetVoid();
     }
-
-    // Value * cnt__thrd       = Builder->CreateInBoundsGEP(cnt , idx);
-    Value * stored_cnt_ptr  = Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id), idxStored);
-    Value * cnt             = Builder->CreateLoad(stored_cnt_ptr);
-
-    BasicBlock *emptyBB     = BasicBlock::Create(llvmContext, "empty", F);
-    BasicBlock *non_emptyBB = BasicBlock::Create(llvmContext, "non_empty", F);
-
-    Value * empty_cond      = Builder->CreateICmpEQ(cnt, ConstantInt::get((IntegerType *) cnt->getType(), 0));
-    Builder->CreateCondBr(empty_cond, emptyBB, non_emptyBB);
-
-    Builder->SetInsertPoint(emptyBB);
-
-    Function * f = context->getFunction("release_buffers"); //FIXME: Assumes grid launch + Assumes 1 block per kernel!
-    
-    for (size_t i = 0 ; i < matExpr.size() ; ++i){
-        buff_ptrs[i]->getType()->dump();
-        Builder->CreateCall(f, std::vector<Value *>{Builder->CreateBitCast(buff_ptrs[i], charPtrType)});
-    }
-    
-    Builder->CreateBr(endIBB);
-
-
-
-    Builder->SetInsertPoint(non_emptyBB);
-
-    // call parent
-    map<RecordAttribute, RawValueMemory> variableBindings;
-
-    RecordAttribute tupCnt  = RecordAttribute(matExpr[0]->getRegisteredRelName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
-
-    AllocaInst * blockN_ptr      = context->CreateEntryBlockAlloca(F, "blockN_ptr", oid_type);
-
-    if (hashProject){
-        //Save hash in bindings
-        AllocaInst * hash_ptr = context->CreateEntryBlockAlloca(F, "hash_ptr", target_type);
-        Builder->CreateStore(target, hash_ptr);
-
-        RawValueMemory mem_hashWrapper;
-        mem_hashWrapper.mem      = hash_ptr;
-        mem_hashWrapper.isNull   = context->createFalse();
-        variableBindings[*hashProject] = mem_hashWrapper;
-    }
-
-    cnt = Builder->CreateZExt(cnt, oid_type);
-
-    Builder->CreateStore(cnt, blockN_ptr);
-
-    RawValueMemory mem_cntWrapper;
-    mem_cntWrapper.mem      = blockN_ptr;
-    mem_cntWrapper.isNull   = context->createFalse();
-    variableBindings[tupCnt] = mem_cntWrapper;
-
-    Value * new_oid = Builder->CreateAtomicRMW(AtomicRMWInst::BinOp::Add,
-                            ((GpuRawContext *) context)->getStateVar(oidVar_id),
-                            cnt,
-                            AtomicOrdering::Monotonic);
-    new_oid->setName("oid");
-
-    AllocaInst * new_oid_ptr = context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
-    Builder->CreateStore(new_oid, new_oid_ptr);
-
-    RecordAttribute tupleIdentifier = RecordAttribute(matExpr[0]->getRegisteredRelName(),  activeLoop, pg->getOIDType());
-    
-    RawValueMemory mem_oidWrapper;
-    mem_oidWrapper.mem      = new_oid_ptr;
-    mem_oidWrapper.isNull   = context->createFalse();
-    variableBindings[tupleIdentifier] = mem_oidWrapper;
-
-    for (size_t i = 0 ; i < matExpr.size() ; ++i){
-
-        AllocaInst * mem_arg = context->CreateEntryBlockAlloca(F,
-                                "mem_" + matExpr[i]->getRegisteredAttrName(),
-                                buff_ptrs[i]->getType());
-
-        Builder->CreateStore(buff_ptrs[i], mem_arg);
-
-        RawValueMemory mem_valWrapper;
-        mem_valWrapper.mem    = mem_arg;
-        mem_valWrapper.isNull = context->createFalse();
-
-        RecordAttribute battr(  RecordAttribute{
-                                    matExpr[i]->getRegisteredRelName() , 
-                                    matExpr[i]->getRegisteredAttrName(), 
-                                    matExpr[i]->getExpressionType()    
-                                },
-                                true
-                            );
-
-        variableBindings[battr] = mem_valWrapper;
-    }
-
-    OperatorState state{*this, variableBindings};
-    getParent()->consume(context, state);
-
-    Builder->CreateBr(endIBB);
-
-    Builder->SetInsertPoint(context->getCurrentEntryBlock());
-    Builder->CreateBr(mainBB);
-
-    Builder->SetInsertPoint(context->getEndingBlock());
-    // Builder->CreateRetVoid();
-
-    context->popNewPipeline();
-
-    closingPip = context->removeLatestPipeline();
 }
 
 __global__ void GpuHashRearrange_acq_buffs(void   ** buffs);
@@ -848,6 +846,8 @@ void GpuHashRearrange::open (RawPipeline * pip){
     }
     gpu_run(cudaStreamSynchronize(strm));
     gpu_run(cudaStreamDestroy(strm));
+
+    std::cout << "GpuHashRearrange:open" << std::endl;
 }
 
 #include <numeric>
@@ -887,6 +887,7 @@ __global__ void GpuHashRearrange_pack(mv_description * desc){
 }
 
 void GpuHashRearrange::close(RawPipeline * pip){
+    std::cout << "GpuHashRearrange:close" << std::endl;
     // ((void (*)(void *)) this->flushFunc)(pip->getState());
     cudaStream_t strm;
     gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
@@ -993,7 +994,7 @@ void GpuHashRearrange::close(RawPipeline * pip){
     }
 
     void *KernelParams[] = {pip->getState()};
-    launch_kernel((CUfunction) closingPip->getKernel(), KernelParams, strm);
+    launch_kernel((CUfunction) closingPip->getCompiledFunction(flushingFunc), KernelParams, strm);
     gpu_run(cudaStreamSynchronize(strm));
     gpu_run(cudaStreamDestroy    (strm));
  

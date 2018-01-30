@@ -64,16 +64,20 @@ public:
     virtual void registerFunction(const char *, Function *);
     virtual Function * const getFunction(string funcName) const;
 
+    virtual Function    * const createHelperFunction(string funcName, std::vector<llvm::Type *> ins, std::vector<bool> readonly, std::vector<bool> noalias) const;
+
 protected:
     virtual size_t                  prepareStateArgument();
     virtual llvm::Value           * getStateLLVMValue();
+    virtual llvm::Value           * getStateVar() const;
 
     virtual void                    prepareInitDeinit();
-
+public:
     virtual void                  * getCompiledFunction(Function * f);
-
+protected:
     virtual void                    registerFunctions();
     virtual Function              * prepareConsumeWrapper();
+    virtual void                    markAsKernel(Function * F) const;
 
 };
 

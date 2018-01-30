@@ -104,3 +104,19 @@ size_t getFileSize(const char* filename) {
     stat(filename, &st);
     return st.st_size;
 }
+
+
+std::ostream& operator<<(std::ostream& out, const bytes& b){
+	const char *units[]{"B", "KB", "MB", "GB", "TB", "ZB"};
+	constexpr size_t max_i = sizeof(units) / sizeof(units[0]);
+	size_t bs = b.b * 10;
+
+	size_t i = 0;
+	while (bs >= 10240 && i < max_i) {
+		bs /= 1024;
+		++i;
+	}
+
+	out << (bs/10.0) << units[i];
+	return out;
+}

@@ -70,7 +70,7 @@ include_directories(
 include_directories(
 	"/usr/local/cuda/include"
 	"/usr/local/cuda/nvvm/include"
-	"/opt/intel/vtune_amplifier_xe_2017/include"
+	"/opt/intel/vtune_amplifier/include"
 	"${CMAKE_INSTALL_PREFIX}/include"
 	)
 
@@ -82,7 +82,7 @@ link_directories(
 	"/usr/local/cuda/lib64"
 	"/usr/local/cuda/nvvm/lib64"
 	"/usr/local/cuda/nvml/lib64"
-	"/opt/intel/vtune_amplifier_xe_2017/lib64"
+	"/opt/intel/vtune_amplifier/lib64"
 	)
 
 # Define path to installed resources

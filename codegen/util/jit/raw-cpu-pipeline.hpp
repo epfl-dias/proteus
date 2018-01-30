@@ -40,7 +40,7 @@ public:
 
     virtual Module * getModule () const {return module.getModule();}
 
-protected:
+public:
     virtual void * getCompiledFunction(Function * f);
 };
 

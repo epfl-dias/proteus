@@ -48,6 +48,8 @@ public:
 			currStateRight(currStateRight) {}
 	RawValue visit(expressions::IntConstant *e1,
 			expressions::IntConstant *e2);
+	RawValue visit(expressions::Int64Constant *e1,
+			expressions::Int64Constant *e2);
 	RawValue visit(expressions::FloatConstant *e1,
 			expressions::FloatConstant *e2);
 	RawValue visit(expressions::BoolConstant *e1,

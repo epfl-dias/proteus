@@ -72,6 +72,10 @@ Argument * RawPipelineGen::getArgument(size_t id) const{
 
 Value * RawPipelineGen::getStateVar() const{
     assert(state);
+    Function * Fcurrent = getBuilder()->GetInsertBlock()->getParent();
+    if (Fcurrent != F){
+        return context->getBuilder()->CreateLoad(Fcurrent->arg_end() - 1);
+    }
     return state; //getArgument(args.size() - 1);
 }
 
@@ -87,6 +91,44 @@ Value * RawPipelineGen::getSubStateVar() const{
     subState->setName("subState");
     return subState;
 }
+
+
+Function * const RawPipelineGen::createHelperFunction(string funcName, std::vector<Type *> ins, std::vector<bool> readonly, std::vector<bool> noalias) const{
+    assert(readonly.size() == noalias.size());
+    assert(readonly.size() == 0 || readonly.size() == args.size());
+
+    ins.push_back(state_type);
+
+    FunctionType *ftype = FunctionType::get(Type::getVoidTy(context->getLLVMContext()), ins, false);
+    //use f_num to overcome an llvm bu with keeping dots in function names when generating PTX (which is invalid in PTX)
+    Function * helper = Function::Create(ftype, Function::ExternalLinkage, funcName, context->getModule());
+
+    if (readonly.size() == ins.size()) {
+        Attribute readOnly = Attribute::get(context->getLLVMContext(), Attribute::AttrKind::ReadOnly);
+        Attribute noAlias  = Attribute::get(context->getLLVMContext(), Attribute::AttrKind::NoAlias );
+
+        readonly.push_back(true);
+        noalias .push_back(true);
+        std::vector<std::pair<unsigned, Attribute>> attrs;
+        for (size_t i = 1 ; i <= ins.size() ; ++i){ //+1 because 0 is the return value
+            if (readonly[i - 1]) attrs.emplace_back(i, readOnly);
+            if (noalias [i - 1]) attrs.emplace_back(i, noAlias );
+        }
+
+        helper->setAttributes(AttributeList::get(context->getLLVMContext(), attrs));
+    }
+
+    BasicBlock *BB = BasicBlock::Create(context->getLLVMContext(), "entry", helper);
+    getBuilder()->SetInsertPoint(BB);
+
+    return helper;
+}
+
+Value *          RawPipelineGen::invokeHelperFunction(Function * f, std::vector<Value *> args) const{
+    args.push_back(getStateVar());
+    return getBuilder()->CreateCall(F, args);
+}
+
 
 extern "C"{
     void yield(){
@@ -327,6 +369,10 @@ RawPipeline * RawPipelineGen::getPipeline(int group_id){
         openers.insert(openers.begin(), make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->open (); pip->setStateVar(0, copyFrom->state);}));
         // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
         closers.insert(closers.begin(), make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->close();                                      }));
+    } else {
+        openers.insert(openers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
+        // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
+        closers.insert(closers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
     }
 
     return new RawPipeline(func, (getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8, this, state_type, openers, closers, getCompiledFunction(open__function), getCompiledFunction(close_function), group_id);
@@ -374,10 +420,12 @@ void RawPipeline::open(){
     //     }
     //     if (is_last) (openers[i - 1].second)(this);
     // }
+    (openers[0].second)(this);
+
     assert(init_state);
     ((void (*)(RawPipeline *, void *)) init_state)(this, state);
 
-    for (size_t i = 0 ; i < openers.size() ; ++i) {
+    for (size_t i = 1 ; i < openers.size() ; ++i) {
         bool is_first = true;
         const void * owner = openers[i].first;
         for (size_t j = 0 ; j < i ; ++j) {
@@ -386,7 +434,10 @@ void RawPipeline::open(){
                 break;
             }
         }
-        if (is_first) (openers[i].second)(this);
+        if (is_first){
+            // std::cout << "o:" << closers[i - 1].first  << std::endl;
+            (openers[i].second)(this);
+        }
     }
     // for (const auto &opener: openers) opener(this);
 }
@@ -404,11 +455,7 @@ void RawPipeline::close(){
     //     }
     //     if (is_first) (closers[i].second)(this);
     // }
-
-    assert(deinit_state);
-    ((void (*)(RawPipeline *, void *)) deinit_state)(this, state);
-    
-    for (size_t i = closers.size() ; i > 0 ; --i) {
+    for (size_t i = closers.size() ; i > 1 ; --i) {
         bool is_last = true;
         const void * owner = closers[i - 1].first;
         for (size_t j = closers.size() ; j > i ; --j) {
@@ -417,9 +464,17 @@ void RawPipeline::close(){
                 break;
             }
         }
-        if (is_last) (closers[i - 1].second)(this);
+        assert(closers[i - 1].second && "Null closer!");
+        if (is_last) {
+            // std::cout << "c:" << closers[i - 1].first  << std::endl;
+            (closers[i - 1].second)(this);
+        }
     }
 
+    assert(deinit_state);
+    ((void (*)(RawPipeline *, void *)) deinit_state)(this, state);
+    
+    (closers[0].second)(this);
     // for (size_t i = closers.size() ; i > 0 ; --i) closers[i - 1](this);
 }
 

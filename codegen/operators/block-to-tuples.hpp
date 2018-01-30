@@ -31,11 +31,16 @@ public:
     BlockToTuples(RawOperator * const           child,
                 GpuRawContext * const           context,
                 const vector<RecordAttribute*> &wantedFields,
-                bool                            gpu = true) :
+                bool                            gpu = true,
+                gran_t                          granularity = gran_t::GRID) :
                     UnaryRawOperator(child), 
                     context(context), 
                     wantedFields(wantedFields),
-                    gpu(gpu){}
+                    gpu(gpu),
+                    granularity(granularity){
+                        assert((gpu || granularity == gran_t::THREAD) && "CPU can only have a THREAD-granularity block2tuples");
+                        assert(granularity != gran_t::BLOCK && "BLOCK granurality is not supported yet"); //TODO: support BLOCK granularity
+                    }
 
     virtual ~BlockToTuples()                                             { LOG(INFO)<<"Collapsing BlockToTuples operator";}
 
@@ -53,6 +58,7 @@ private:
     std::vector<size_t>             old_buffs   ;
     GpuRawContext * const           context     ;
     AllocaInst                    * mem_itemCtr ;
+    gran_t                          granularity ;
 
     bool                            gpu         ;
 };

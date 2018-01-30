@@ -115,6 +115,9 @@ void StorageManager::unloadAll(){
 }
 
 std::vector<mem_file> StorageManager::getFile(std::string name){
+    if (files.count(name) == 0){
+        LOG(ERROR) << "File " << name << " not loaded";
+    }
     assert(files.count(name) > 0 && "File not loaded!");
     const auto &f = files[name];
     std::vector<mem_file> mfiles{f.size()};

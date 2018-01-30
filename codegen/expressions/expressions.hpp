@@ -127,7 +127,7 @@ struct less_map: std::binary_function<const Expression *,
 class Constant : public Expression		{
 public:
 	enum ConstantType {
-		INT, BOOL, FLOAT, STRING
+		INT, INT64, BOOL, FLOAT, STRING
 	};
 	Constant(const ExpressionType* type) : Expression(type)	{}
 	~Constant()										  	{}
@@ -165,6 +165,39 @@ public:
 	}
 private:
 	int val;
+};
+
+class Int64Constant : public Constant		{
+public:
+	Int64Constant(int64_t val)
+		: Constant(new Int64Type()), val(val) 		{}
+	~Int64Constant()									{}
+
+	int64_t getVal() const								{ return val; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const					{ return CONSTANT; }
+	ConstantType getConstantType() const			{ return INT64; }
+	inline bool operator<(const expressions::Expression& r) const {
+		if (this->getTypeID() == r.getTypeID()) {
+			const Constant& rConst = dynamic_cast<const Constant&>(r);
+			if (rConst.getConstantType() == INT) {
+				const Int64Constant& rInt = dynamic_cast<const Int64Constant&>(r);
+				cout << "1. Compatible (int64)! " << rConst.getConstantType() << endl;
+				cout << this->getVal() << " vs " << rInt.getVal() << endl;
+				return this->getVal() < rInt.getVal();
+			}
+			else {
+				return this->getConstantType() < rConst.getConstantType();
+			}
+
+		}
+		cout << "Not compatible (int64) " << this->getTypeID() << endl;
+		return this->getTypeID() < r.getTypeID();
+
+	}
+private:
+	int64_t val;
 };
 
 class BoolConstant : public Constant	{
@@ -1303,6 +1336,7 @@ class ExprVisitor
 {
 public:
 	virtual RawValue visit(expressions::IntConstant *e)    		= 0;
+	virtual RawValue visit(expressions::Int64Constant *e) 		= 0;
 	virtual RawValue visit(expressions::FloatConstant *e)  		= 0;
 	virtual RawValue visit(expressions::BoolConstant *e)   		= 0;
 	virtual RawValue visit(expressions::StringConstant *e) 		= 0;
@@ -1334,6 +1368,8 @@ class ExprTandemVisitor
 public:
 	virtual RawValue visit(expressions::IntConstant *e1,
 			expressions::IntConstant *e2) = 0;
+	virtual RawValue visit(expressions::Int64Constant *e1,
+			expressions::Int64Constant *e2) = 0;
 	virtual RawValue visit(expressions::FloatConstant *e1,
 			expressions::FloatConstant *e2) = 0;
 	virtual RawValue visit(expressions::BoolConstant *e1,

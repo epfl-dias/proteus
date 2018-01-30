@@ -68,6 +68,7 @@ private:
     string                  opLabel;
 
     std::vector<GpuMatExpr> build_mat_exprs;
+    std::vector<GpuMatExpr> probe_mat_exprs;
     std::vector<size_t>     build_packet_widths;
     expressions::Expression *build_keyexpr;
 
@@ -85,8 +86,8 @@ private:
     int                     hash_bits  ;
     size_t                  maxBuildInputSize;
 
-    GpuExprMaterializer *   build_mat  ;
-    GpuExprMaterializer *   probe_mat  ;
+    // GpuExprMaterializer *   build_mat  ;
+    // GpuExprMaterializer *   probe_mat  ;
     GpuRawContext *         context;
 
     std::unordered_map<int32_t, std::vector<void *>> confs;

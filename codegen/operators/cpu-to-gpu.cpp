@@ -218,6 +218,7 @@ void CpuToGpu::consume(RawContext* const context, const OperatorState& childStat
     Builder->CreateCall(launchk, kernel_args);
 
     ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){
+        std::cout << "Cpu2Gpu:open" << std::endl;
         cudaStream_t strm;
         gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
         pip->setStateVar<void       *>(this->childVar_id, gpu_pip->getKernel());
@@ -225,6 +226,7 @@ void CpuToGpu::consume(RawContext* const context, const OperatorState& childStat
     });
 
     ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){
+        std::cout << "Cpu2Gpu:close" << std::endl;
         cudaStream_t strm = pip->getStateVar<cudaStream_t>(this->strmVar_id   );
         gpu_run(cudaStreamSynchronize(strm));
         gpu_run(cudaStreamDestroy    (strm));

@@ -66,6 +66,7 @@ protected:
     expressions::Expression               * hashExpr        ;
 
     RawPipelineGen                        * closingPip      ;
+    Function                              * flushingFunc    ;
 
     std::vector<size_t>                     buffVar_id      ;
     size_t                                  cntVar_id       ;

@@ -39,14 +39,18 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 	std::sort(wantedFields.begin(), wantedFields.end());
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
-	struct stat statbuf;
-	const char* name_c = fname.c_str();
-	stat(name_c, &statbuf);
-	fsize = statbuf.st_size;
+	if (whichFields.size() > 0){
+		struct stat statbuf;
+		const char* name_c = fname.c_str();
+		stat(name_c, &statbuf);
+		fsize = statbuf.st_size;
 
-	fd = open(name_c, O_RDONLY);
-	if (fd == -1) {
-		throw runtime_error(string("csv.open"));
+		fd = open(name_c, O_RDONLY);
+		if (fd == -1) {
+			throw runtime_error(string("csv.open"));
+		}
+	} else {
+		fsize = 0;
 	}
 	this->delimInner = ';';
 	this->delimEnd = '\n';
@@ -116,14 +120,18 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 	std::sort(wantedFields.begin(), wantedFields.end(), orderByNumber);
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
-	struct stat statbuf;
-	const char* name_c = fname.c_str();
-	stat(name_c, &statbuf);
-	fsize = statbuf.st_size;
+	if (whichFields.size() > 0){
+		struct stat statbuf;
+		const char* name_c = fname.c_str();
+		stat(name_c, &statbuf);
+		fsize = statbuf.st_size;
 
-	fd = open(name_c, O_RDONLY);
-	if (fd == -1) {
-		throw runtime_error(string("csv.open"));
+		fd = open(name_c, O_RDONLY);
+		if (fd == -1) {
+			throw runtime_error(string("csv.open"));
+		}
+	} else {
+		fsize = 0;
 	}
 	this->delimInner = delimInner;
 	this->delimEnd = '\n';
@@ -188,14 +196,18 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 	std::sort(wantedFields.begin(), wantedFields.end());
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
-	struct stat statbuf;
-	const char* name_c = fname.c_str();
-	stat(name_c, &statbuf);
-	fsize = statbuf.st_size;
+	if (whichFields.size() > 0){
+		struct stat statbuf;
+		const char* name_c = fname.c_str();
+		stat(name_c, &statbuf);
+		fsize = statbuf.st_size;
 
-	fd = open(name_c, O_RDONLY);
-	if (fd == -1) {
-		throw runtime_error(string("csv.open"));
+		fd = open(name_c, O_RDONLY);
+		if (fd == -1) {
+			throw runtime_error(string("csv.open"));
+		}
+	} else {
+		fsize = 0;
 	}
 
 	/* PM */
@@ -221,16 +233,20 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 	std::sort(wantedFields.begin(), wantedFields.end());
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
-	struct stat statbuf;
-	const char* name_c = fname.c_str();
-	stat(name_c, &statbuf);
-	fsize = statbuf.st_size;
+	if (whichFields.size() > 0){
+		struct stat statbuf;
+		const char* name_c = fname.c_str();
+		stat(name_c, &statbuf);
+		fsize = statbuf.st_size;
 
-	fd = open(name_c, O_RDONLY);
-	if (fd == -1) {
-		throw runtime_error(string("csv.open"));
+		fd = open(name_c, O_RDONLY);
+		if (fd == -1) {
+			throw runtime_error(string("csv.open"));
+		}
+	} else {
+		fsize = 0;
 	}
-
+	
 	/* PM */
 	hasPM = true;
 	this->newlines = newlines;
@@ -525,6 +541,15 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
 	{
 		vector<Value*> ArgsV;
 		flushFunc = context->getFunction("flushInt");
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc,ArgsV);
+		return;
+	}
+	case INT64:
+	{
+		vector<Value*> ArgsV;
+		flushFunc = context->getFunction("flushInt64");
 		ArgsV.push_back(val_attr);
 		ArgsV.push_back(fileName);
 		context->getBuilder()->CreateCall(flushFunc,ArgsV);

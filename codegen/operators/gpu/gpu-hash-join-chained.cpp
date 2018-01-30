@@ -42,6 +42,7 @@ GpuHashJoinChained::GpuHashJoinChained(
             size_t                              maxBuildInputSize,
             string                              opLabel): 
                 build_mat_exprs(build_mat_exprs),
+                probe_mat_exprs(probe_mat_exprs),
                 build_packet_widths(build_packet_widths),
                 build_keyexpr(build_keyexpr),
                 probe_keyexpr(probe_keyexpr),
@@ -379,10 +380,90 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
 
     //Reconstruct tuples
     map<RecordAttribute, RawValueMemory>* allJoinBindings = new map<RecordAttribute, RawValueMemory>();
+
+    if (probe_keyexpr->isRegistered()){
+        AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
+                                "mem_" +  probe_keyexpr->getRegisteredAttrName(),
+                                keyWrapper.value->getType());
+
+        Builder->CreateStore(keyWrapper.value, mem_arg);
+
+        RawValueMemory mem_valWrapper;
+        mem_valWrapper.mem    = mem_arg;
+        mem_valWrapper.isNull = keyWrapper.isNull;
+        (*allJoinBindings)[probe_keyexpr->getRegisteredAs()] = mem_valWrapper;
+    }
+
+    if (build_keyexpr->isRegistered()){
+        AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
+                                "mem_" +  build_keyexpr->getRegisteredAttrName(),
+                                build_key->getType());
+
+        Builder->CreateStore(build_key, mem_arg);
+
+        RawValueMemory mem_valWrapper;
+        mem_valWrapper.mem    = mem_arg;
+        mem_valWrapper.isNull = context->createFalse(); //FIMXE: is this correct ?
+        (*allJoinBindings)[build_keyexpr->getRegisteredAs()] = mem_valWrapper;
+    }
     
+    // //from probe side
+    // for (const auto &binding: childState.getBindings()){ //FIXME: deprecated...
+    //     // std::cout << binding.first.getRelationName() << "--" << binding.first.getAttrName() << std::endl;
+    //     allJoinBindings->emplace(binding.first, binding.second);
+    // }
+
     //from probe side
-    for (const auto &binding: childState.getBindings()){
-        allJoinBindings->emplace(binding.first, binding.second);
+    for (const GpuMatExpr &mexpr: probe_mat_exprs){
+        if (mexpr.packet == 0 && mexpr.packind == 0) continue;
+
+        // set activeLoop for build rel if not set (may be multiple ones!)
+        { //NOTE: Is there a better way ?
+            RawCatalog& catalog             = RawCatalog::getInstance();
+            string probeRel                 = mexpr.expr->getRegisteredRelName();
+            Plugin* pg                      = catalog.getPlugin(probeRel);
+            assert(pg);
+            RecordAttribute * probe_oid     = new RecordAttribute(probeRel, activeLoop, pg->getOIDType());
+
+            PrimitiveType * pr_oid_type = dynamic_cast<PrimitiveType *>(pg->getOIDType());
+            if (!pr_oid_type){
+                string error_msg("[GpuHashJoinChained: ] Only primitive OIDs are supported.");
+                LOG(ERROR)<< error_msg;
+                throw runtime_error(error_msg);
+            }
+
+            llvm::Type * llvm_oid_type = pr_oid_type->getLLVMType(llvmContext);
+
+            AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
+                                    "mem_" + probeRel + "_" + activeLoop,
+                                    llvm_oid_type);
+
+            Builder->CreateStore(UndefValue::get(llvm_oid_type), mem_arg);
+
+            RawValueMemory mem_valWrapper;
+            mem_valWrapper.mem    = mem_arg;
+            mem_valWrapper.isNull = context->createFalse();
+
+            if (allJoinBindings->count(*probe_oid) == 0){
+                (*allJoinBindings)[*probe_oid] = mem_valWrapper;
+            }
+        }
+
+        ExpressionGeneratorVisitor exprGenerator(context, childState);
+
+        RawValue val = mexpr.expr->accept(exprGenerator);
+
+        AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
+                                "mem_" +  mexpr.expr->getRegisteredAttrName(),
+                                val.value->getType());
+
+        Builder->CreateStore(val.value, mem_arg);
+
+        RawValueMemory mem_valWrapper;
+        mem_valWrapper.mem    = mem_arg;
+        mem_valWrapper.isNull = context->createFalse();
+
+        (*allJoinBindings)[mexpr.expr->getRegisteredAs()] = mem_valWrapper;
     }
 
     //from build side
@@ -421,7 +502,7 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
             }
         }
 
-        ExpressionGeneratorVisitor exprGenerator(context, childState);
+        // ExpressionGeneratorVisitor exprGenerator(context, childState);
 
         Value * val = Builder->CreateExtractValue(in_vals[mexpr.packet], mexpr.packind);
 

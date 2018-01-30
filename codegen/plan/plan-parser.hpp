@@ -25,7 +25,7 @@
 #define PLAN_PARSER_HPP_
 
 #include "common/common.hpp"
-#include "util/raw-context.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 #include "util/raw-functions.hpp"
 #include "util/raw-caching.hpp"
 #include "operators/operators.hpp"
@@ -62,7 +62,7 @@ typedef struct InputInfo	{
 class CatalogParser;
 
 class ExpressionParser {
-	CatalogParser& catalogParser;
+	CatalogParser &catalogParser;
 public:
 	ExpressionParser(CatalogParser& catalogParser): catalogParser(catalogParser) {};
 	expressions::Expression* parseExpression(const rapidjson::Value& val);
@@ -75,8 +75,9 @@ private:
 };
 
 class CatalogParser {
+	GpuRawContext *context;
 public:
-	CatalogParser(const char *catalogPath);
+	CatalogParser(const char *catalogPath, GpuRawContext *context = NULL);
 
 	InputInfo *getInputInfoIfKnown(string inputName){
 		map<string,InputInfo*>::iterator it;
@@ -93,6 +94,9 @@ public:
 		LOG(ERROR)<< err;
 		throw runtime_error(err);
 	}
+
+	InputInfo *getOrCreateInputInfo(string inputName);
+
 
 	void setInputInfo(string inputName, InputInfo *info) {
 		inputs[inputName] = info;

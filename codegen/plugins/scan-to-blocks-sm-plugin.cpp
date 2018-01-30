@@ -62,6 +62,13 @@ ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext* const context, string fn
     parts_arrays_type = StructType::get(context->getLLVMContext(), parts_array);
 }
 
+ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext* const context, string fnamePrefix, RecordType rec)
+    : fnamePrefix(fnamePrefix), rec(rec), context(context),
+      posVar("offset"), bufVar("buf"), fsizeVar("fileSize"), sizeVar("size"), itemCtrVar("itemCtr"),
+      isCached(false), val_size(NULL) {
+    Nparts = 0;
+}
+
 ScanToBlockSMPlugin::~ScanToBlockSMPlugin() {std::cout << "freeing plugin..." << std::endl;}
 
 void ScanToBlockSMPlugin::init()    {
@@ -87,12 +94,12 @@ RawValueMemory ScanToBlockSMPlugin::readPath(string activeRelation, Bindings bin
             string error_msg = string(
                     "[Binary Col. plugin - readPath ]: Unknown variable name ")
                     + pathVar;
-//          for (it = binProjections.begin(); it != binProjections.end();
-//                  it++) {
-//              RecordAttribute attr = it->first;
-//              cout << attr.getRelationName() << "_" << attr.getAttrName()
-//                      << endl;
-//          }
+         for (it = binProjections.begin(); it != binProjections.end();
+                 it++) {
+             RecordAttribute attr = it->first;
+             cout << attr.getRelationName() << "_" << attr.getAttrName()
+                     << endl;
+         }
             cout << "How many bindings? " << binProjections.size();
             LOG(ERROR)<< error_msg;
             throw runtime_error(error_msg);
