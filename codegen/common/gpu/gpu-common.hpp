@@ -56,12 +56,8 @@ struct dim3{
 };
 
 
-inline void nvtxRangePushA(const char *x){
-    dclab_trace::mark_a(x);
-}
-inline void nvtxRangePop  (){
-    dclab_trace::mark_a("pop");
-}
+inline void nvtxRangePushA(const char *x){}
+inline void nvtxRangePop  (){}
 
 #endif
 
