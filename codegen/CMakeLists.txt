@@ -20,12 +20,17 @@ file(GLOB codegen_src
 	# multigpu/operators/*.cu
 	# multigpu/buffer_pool.cu
 	# # src/output_composer.cu
-	# multigpu/buffer_manager.cu
+	multigpu/common.cpp
+    multigpu/buffer_manager.cpp
 	# multigpu/common.cu
 	)
 # foreach(target
 # 	${codegen_src}
 # 	)
+
+# if (${CUDA} STREQUAL "CUDA-NOTFOUND")
+# list(REMOVE_ITEM codegen_src ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/operators/gpu_to_cpu.cu)
+# endif()
 
 # 	SET_SOURCE_FILES_PROPERTIES(${target} PROPERTIES LANGUAGE CXX)
 # endforeach(target)
@@ -63,8 +68,9 @@ string(REGEX REPLACE "([^;]+)" "-I\\1" inc_dirs2 "${inc_dirs}")
 # add_custom_target(device_funcs     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/device_funcs.cubin)
 # add_custom_target(device_funcs_obj DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/device_funcs.cubin.o)
 
+if (NOT (${CUDA} STREQUAL "CUDA-NOTFOUND"))
 add_custom_command(OUTPUT buffer_manager.cubin
-                   COMMAND nvcc ${CUDA_CXXFLAGS} -O3 --generate-line-info ${inc_dirs2} -dc --cubin ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu -o ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin
+                   COMMAND nvcc ${CUDA_CUFLAGS} -O3 --generate-line-info ${inc_dirs2} -dc --cubin ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu -o ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin
                    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu
                    # WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                    )
@@ -75,17 +81,26 @@ add_custom_command(OUTPUT buffer_manager.cubin.o
                    # WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                    )
 
+add_subdirectory(multigpu)
+endif()
+
 add_custom_target(buffer_manager     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin)
 add_custom_target(buffer_manager_obj DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o)
 
-add_library(codegen SHARED ${codegen_src} ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o)
+if (${CUDA} STREQUAL "CUDA-NOTFOUND")
+    add_library(codegen SHARED ${codegen_src})
+else()
+    add_library(codegen SHARED ${codegen_src} ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o)
+endif()
 set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
-target_link_libraries(codegen jsmn multigpu)
+if (${CUDA} STREQUAL "CUDA-NOTFOUND")
+    target_link_libraries(codegen jsmn)
+else()
+    target_link_libraries(codegen jsmn multigpu)
+    add_dependencies(codegen buffer_manager_obj)
+endif()
 
 # add_dependencies(codegen device_funcs_obj)
-add_dependencies(codegen buffer_manager_obj)
-
-add_subdirectory(multigpu)
 
 install(TARGETS codegen
 	RUNTIME DESTINATION bin

@@ -3,6 +3,7 @@ foreach(target
 	tests-json
 	tests-output
 	tests-plan-parsing
+	tests-multigpu-integration
 	)
 	add_executable(unit-${target} ${target}.cpp)
 	set_target_properties(unit-${target} PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
@@ -22,25 +23,24 @@ endforeach(target)
 # find_program(CLANG_C_COMPILER "nvcc")
 # set(CMAKE_C_COMPILER "nvcc")
 
-foreach(target
-	# tests-gpu2
-	tests-gpu-ssbm
-	tests-multigpu-integration
-	)
-	# set(CMAKE_CXX_COMPILER "nvcc")
-	# find_program(CLANG_C_COMPILER "nvcc")
-	# set(CMAKE_C_COMPILER "nvcc")
+# foreach(target
+# 	# tests-gpu2
+# 	# tests-gpu-ssbm
+# 	)
+# 	# set(CMAKE_CXX_COMPILER "nvcc")
+# 	# find_program(CLANG_C_COMPILER "nvcc")
+# 	# set(CMAKE_C_COMPILER "nvcc")
 
-	SET_SOURCE_FILES_PROPERTIES(${target}.cu PROPERTIES LANGUAGE CXX)
-	add_executable(unit-${target} ${target}.cu)
-	set_target_properties(unit-${target} PROPERTIES COMPILE_FLAGS "${LLVM_CXXFLAGS} -march=native")
-	target_link_libraries(unit-${target} ${gtest_libs})
-	install(TARGETS unit-${target}
-		RUNTIME DESTINATION raw
-		LIBRARY DESTINATION lib
-		ARCHIVE DESTINATION lib
-		)
-endforeach(target)
+# 	SET_SOURCE_FILES_PROPERTIES(${target}.cu PROPERTIES LANGUAGE CXX)
+# 	add_executable(unit-${target} ${target}.cu)
+# 	set_target_properties(unit-${target} PROPERTIES COMPILE_FLAGS "${LLVM_CXXFLAGS} -march=native")
+# 	target_link_libraries(unit-${target} ${gtest_libs})
+# 	install(TARGETS unit-${target}
+# 		RUNTIME DESTINATION raw
+# 		LIBRARY DESTINATION lib
+# 		ARCHIVE DESTINATION lib
+# 		)
+# endforeach(target)
 
 # find_program(CLANG_CXX_COMPILER "clang++")
 # set(CMAKE_CXX_COMPILER "${CLANG_CXX_COMPILER}")

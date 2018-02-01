@@ -27,7 +27,6 @@
 // #include "cuda_runtime_api.h"
 #include "multigpu/buffer_manager.cuh"
 #include "multigpu/numa_utils.cuh"
-#include "nvToolsExt.h"
 
 struct buff_pair{
     char * new_buff;
@@ -311,8 +310,10 @@ void MemMoveDevice::open (RawPipeline * pip){
     gpu_run(cudaStreamCreateWithFlags(&strm2, cudaStreamNonBlocking));
     
     MemMoveConf * mmc   = new MemMoveConf;
+#ifndef NCUDA
     mmc->strm           = strm;
     mmc->strm2          = strm2;
+#endif
     mmc->slack          = slack;
     mmc->next_e         = 0;
     mmc->events         = new cudaEvent_t[slack];
@@ -416,8 +417,6 @@ extern "C"{
         mmc->idle.push(buff);
     }
 }
-
-#include "nvToolsExt.h"
 
 void MemMoveDevice::catcher(MemMoveConf * mmc, int group_id, const exec_location &target_dev){
     set_exec_location_on_scope d(target_dev);

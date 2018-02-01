@@ -31,7 +31,7 @@
 #include <queue>
 #include <iostream>
 
-#include "nvToolsExt.h"
+#include "common/gpu/gpu-common.hpp"
 
 template<typename T>
 class AsyncStackSPSC{

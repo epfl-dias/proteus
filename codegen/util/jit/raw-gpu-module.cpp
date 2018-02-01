@@ -182,6 +182,7 @@ char error_log[BUFFER_SIZE];
 char info_log [BUFFER_SIZE];
 
 void RawGpuModule::compileAndLoad(){
+#ifndef NCUDA
     LOG(INFO) << "[Prepare Function: ] Exit"; //and dump code so far";
     time_block t(pipName + " G: ");
 
@@ -309,11 +310,19 @@ void RawGpuModule::compileAndLoad(){
         gpu_run(cuLinkDestroy (linkState));
     }
     // func_name = F->getName().str();
+#else
+    assert(false);
+#endif
 }
 
 void * RawGpuModule::getCompiledFunction(Function * f) const{
+#ifndef NCUDA
     CUfunction func;
     gpu_run(cuModuleGetFunction(&func, cudaModule[get_current_gpu()], f->getName().str().c_str()));
     
     return (void *) func;
+#else
+    assert(false);
+    return NULL;
+#endif
 }

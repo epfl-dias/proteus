@@ -27,12 +27,13 @@
 //
 // Don't forget gtest.h, which declares the testing framework.
 #include "gtest/gtest.h"
+// #include "cuda.h"
+// #include "cuda_runtime_api.h"
 
-#include "cuda.h"
-#include "cuda_runtime_api.h"
+// #include "nvToolsExt.h"
 
-#include "nvToolsExt.h"
 #include <ittnotify.h>
+
 // #include "llvm/DerivedTypes.h"
 // Step 2. Use the TEST macro to define your tests.
 //
@@ -58,7 +59,7 @@
 //
 // </TechnicalDetails>
 
-// #include "common/gpu/gpu-common.hpp"
+#include "common/gpu/gpu-common.hpp"
 #include "common/common.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 #include "util/raw-functions.hpp"
@@ -67,7 +68,7 @@
 #include "util/raw-memory-manager.hpp"
 #include "storage/raw-storage-manager.hpp"
 #include "multigpu/numa_utils.cuh"
-#include <cuda_profiler_api.h>
+// #include <cuda_profiler_api.h>
 
 #include <vector>
 #include <thread>
@@ -81,9 +82,9 @@ protected:
     virtual void SetUp();
     virtual void TearDown();
 
-    void launch(void ** args, dim3 gridDim, dim3 blockDim);
-    void launch(void ** args, dim3 gridDim);
-    void launch(void ** args);
+    // void launch(void ** args, dim3 gridDim, dim3 blockDim);
+    // void launch(void ** args, dim3 gridDim);
+    // void launch(void ** args);
     
     void runAndVerify(const char *testLabel, const char* planPath);
     
@@ -92,8 +93,8 @@ protected:
 
     const char * catalogJSON = "inputs/plans/catalog.json";
 public:
-    CUdevice  *device ;
-    CUcontext *context;
+    // CUdevice  *device ;
+    // CUcontext *context;
 
     // sys::PrintStackTraceOnErrorSignal;
     // llvm::PrettyStackTraceProgram X;
@@ -181,7 +182,7 @@ void MultiGPUTest::runAndVerify(const char *testLabel, const char* planPath){
         gpu_run(cudaSetDevice(i));
         gpu_run(cudaDeviceSynchronize());
     }
-
+    
     {
         time_block     t("Texecute w sync: ");
 
@@ -192,6 +193,7 @@ void MultiGPUTest::runAndVerify(const char *testLabel, const char* planPath){
                 nvtxRangePushA("pip");
                 {
                     time_block t("T: ");
+    
                     p->open();
                     p->consume(0);
                     p->close();
@@ -291,11 +293,25 @@ TEST_F(MultiGPUTest, gpuDriverParallel) {
     runAndVerify(testLabel, planPath);
 }
 
+TEST_F(MultiGPUTest, gpuTest1) {
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_discount"     , PINNED);
+    // StorageManager::load("inputs/ssbm/lineorder.csv.lo_quantity"     , PINNED);
+    // StorageManager::load("inputs/ssbm/lineorder.csv.lo_orderdate"    , PINNED);
+    StorageManager::load("inputs/ssbm/lineorder.csv.lo_extendedprice", PINNED);
+
+    // StorageManager::load("inputs/ssbm/date.csv.d_datekey"            , PINNED);
+    // StorageManager::load("inputs/ssbm/date.csv.d_year"               , PINNED);
+
+    const char *testLabel = "test1";
+    const char *planPath  = "inputs/plans/test1.json";
+
+    runAndVerify(testLabel, planPath);
+}
 
 TEST_F(MultiGPUTest, gpuTest2) {
     StorageManager::load("inputs/ssbm/lineorder.csv.lo_discount"     , PINNED);
-    StorageManager::load("inputs/ssbm/lineorder.csv.lo_quantity"     , PINNED);
-    StorageManager::load("inputs/ssbm/lineorder.csv.lo_orderdate"    , PINNED);
+    // StorageManager::load("inputs/ssbm/lineorder.csv.lo_quantity"     , PINNED);
+    // StorageManager::load("inputs/ssbm/lineorder.csv.lo_orderdate"    , PINNED);
     StorageManager::load("inputs/ssbm/lineorder.csv.lo_extendedprice", PINNED);
 
     // StorageManager::load("inputs/ssbm/date.csv.d_datekey"            , PINNED);
@@ -406,6 +422,21 @@ std::pair<size_t, size_t> filter_non_negative_avx2(int32_t *__restrict__ dst, in
     } while (src < endp);
     return make_pair(cnt, len - cnt);
 }
+
+std::pair<size_t, size_t> func(int32_t *__restrict__ dst, int32_t *__restrict__ dst1, int32_t *__restrict__ ndst, int32_t *__restrict__ ndst1, const int32_t *__restrict__ src, const int32_t *__restrict__ src1, size_t len) {
+    size_t j = 0;
+    size_t nj = 0;
+    for (size_t i = 0 ; i < len ; ++i){
+        if (src[i] & 1) {
+            dst  [j   ] = src [i];
+            dst1 [j++ ] = src1[i];
+        } else {
+            ndst [nj  ] = src [i];
+            ndst1[nj++] = src1[i];
+        }
+    }
+    return make_pair(j, nj);
+}
 // #ifdef __AVX512F__     // build with -mavx512f
 // size_t filter_non_negative_avx512(float *__restrict__ dst, const float *__restrict__ src, size_t len) {
 //     const float *endp = src+len;
@@ -486,18 +517,7 @@ TEST_F(MultiGPUTest, gpuTest3) {
         time_block t("Tc: ");
         {
             time_block t("T: ");
-            size_t j = 0;
-            size_t nj = 0;
-            for (size_t i = 0 ; i < size ; ++i){
-                if (src[i] & 1) {
-                    dst  [j   ] = src [i];
-                    dst1 [j++ ] = src1[i];
-                } else {
-                    ndst [nj  ] = src [i];
-                    ndst1[nj++] = src1[i];
-                }
-            }
-            len = make_pair(j, nj);
+            len = func(dst, dst1, ndst, ndst1, src, src1, size);
         }
 
         for (size_t i = 0 ; i < len.first  ; ++i) s += dst [i] * dst1[i];

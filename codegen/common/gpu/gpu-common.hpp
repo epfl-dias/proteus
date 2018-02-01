@@ -24,17 +24,56 @@
 #ifndef GPU_COMMON_HPP_
 #define GPU_COMMON_HPP_
 
-// #include "common/common.hpp"
+#ifndef NCUDA
+#include "common/common.hpp"
 #include "cuda.h"
 #include "cuda_runtime_api.h"
+#include "cuda_profiler_api.h"
 #include "nvml.h"
+#include "nvToolsExt.h"
+#else 
+#define __device__ 
+#define __host__
+#define __constant__ 
+#define __global__ 
+#define __forceinline__ inline
+
+#define CUfunction void *
+#define cudaStream_t void *
+#define CUmodule void *
+#define cudaEvent_t void *
+
+constexpr int cudaProfilerStart(){return 0;}
+constexpr int cudaProfilerStop(){return 0;}
+
+struct dim3{
+    int x;
+    int y;
+    int z;
+
+    constexpr dim3(int x, int y, int z): x(x), y(y), z(z){}
+    constexpr dim3(int x): x(x), y(1), z(1){}
+};
+
+
+inline void nvtxRangePushA(const char *x){
+    dclab_trace::mark_a(x);
+}
+inline void nvtxRangePop  (){
+    dclab_trace::mark_a("pop");
+}
+
+#endif
+
 #include <numaif.h>
 #include <numa.h>
+
 #include <thread>
 
 // #include "multigpu/src/common.cuh"
 #include <cstdint>
 #include <iostream>
+#include <cassert>
 
 #ifndef WARPSIZE
 #define WARPSIZE (32)
@@ -64,6 +103,7 @@ enum class gran_t {
     THREAD
 };
 
+#ifndef NCUDA
 #define gpu_run(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 
 __host__ __device__ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true){
@@ -119,11 +159,24 @@ inline int get_num_of_gpus(){
     gpu_run(cudaGetDeviceCount(&devices));
     return devices;
 }
+#else
+#define gpu_run(ans)
+inline constexpr int get_num_of_gpus() {return 0;}
+#endif
 
-inline int get_current_gpu(){
+int get_device(const void *p);
+inline int get_device(){
+#ifndef NCUDA
     int device;
     gpu_run(cudaGetDevice(&device));
     return device;
+#else
+    return 0;
+#endif
+}
+
+inline int get_current_gpu(){
+    return get_device();
 }
 
 std::ostream& operator<<(std::ostream& out, const cpu_set_t& cpus);
@@ -166,7 +219,7 @@ private:
     int device;
 public:
     inline set_device_on_scope(int set){
-        gpu_run(cudaGetDevice(&device));
+        device = get_current_gpu();
         if (set >= 0) gpu_run(cudaSetDevice(set));
     }
 
@@ -201,6 +254,7 @@ public:
     }
 };
 
+#ifndef NCUDA
 __device__ __forceinline__ uint32_t get_laneid(){
     uint32_t laneid;
     asm("mov.u32 %0, %%laneid;" : "=r"(laneid));
@@ -327,7 +381,7 @@ template<typename T,
 __device__ __forceinline__ T atomicAdd_block(T *address, T val){
     return (T) atomicAdd_block((int*) address, (int) val);
 }
-
+#endif
 
 
 const dim3 defaultBlockDim(1024, 1, 1);
@@ -356,13 +410,6 @@ struct execution_conf {
 void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim, cudaStream_t strm = 0);
 void launch_kernel(CUfunction function, void ** args, dim3 gridDim, cudaStream_t strm = 0);
 void launch_kernel(CUfunction function, void ** args, cudaStream_t strm = 0);
-
-int get_device(const void *p);
-inline int get_device(){
-    int device;
-    gpu_run(cudaGetDevice(&device));
-    return device;
-}
 
 extern "C"{
     int get_ptr_device(const void *p);
