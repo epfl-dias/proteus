@@ -85,11 +85,10 @@ public:
 	 * XXX Assume linehint is NECESSARY to be provided */
 	/* Deprecated */
 //	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema);
-	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint = 1000);
-	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint, bool staticSchema);
+	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint = 1000, bool staticSchema = false);
 	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint, jsmntok_t **tokens);
 	~JSONPlugin();
-	void init()															{}
+	void init();
 	void generate(const RawOperator& producer);
 	void finish();
 	string& getName() 													{ return fname; }
@@ -212,6 +211,11 @@ private:
 	void skipToEnd();
 	RawValueMemory readPathInternal(RawValueMemory mem_parentTokenId, const char* pathVar);
 
+	void constructPlugin();
+	void createPM();
+	void reusePM(pmJSON *pm);
+	void initPM();
+	void loadPMfromDisk(const char* pmPath, struct stat &pmStatBuffer);
 };
 
 }

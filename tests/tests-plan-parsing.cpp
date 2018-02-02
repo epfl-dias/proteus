@@ -31,6 +31,9 @@
 #include "plan/plan-parser.hpp"
 #include "common/common.hpp"
 
+#include "util/raw-memory-manager.hpp"
+#include "storage/raw-storage-manager.hpp"
+
 // Step 2. Use the TEST macro to define your tests.
 //
 // TEST has two parameters: the test case name and the test name.
@@ -55,6 +58,25 @@
 //
 // </TechnicalDetails>
 
+class RawTestEnvironment : public ::testing::Environment {
+public:
+	virtual void SetUp();
+	virtual void TearDown();
+};
+
+::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+
+void RawTestEnvironment::SetUp(){
+	google::InstallFailureSignalHandler();
+
+	RawPipelineGen::init();
+	RawMemoryManager::init();
+}
+
+void RawTestEnvironment::TearDown(){
+	RawMemoryManager::destroy();
+}
+
 class PlanTest : public ::testing::Test {
 protected:
 	virtual void SetUp() {
@@ -67,10 +89,36 @@ protected:
 	virtual void TearDown() {}
 
 	bool executePlan(const char * planPath, const char * testLabel) {
-		CatalogParser catalog = CatalogParser(catalogJSON);
-		PlanExecutor exec = PlanExecutor(planPath, catalog, testLabel);
+		std::vector<RawPipeline *> pipelines;
+		{
+			time_block t("Tcodegen: ");
 
-		return verifyTestResult(testPath, testLabel);
+			GpuRawContext * ctx   = new GpuRawContext(testLabel, false);
+			CatalogParser catalog = CatalogParser(catalogJSON, ctx);
+			PlanExecutor  exec    = PlanExecutor(planPath, catalog, testLabel, ctx);
+
+			ctx->compileAndLoad();
+
+			pipelines = ctx->getPipelines();
+		}
+
+		{
+			time_block t("Texecute       : ");
+
+			for (RawPipeline * p: pipelines) {
+				{
+					time_block t("T: ");
+
+					p->open();
+					p->consume(0);
+					p->close();
+				}
+			}
+		}
+
+		bool res = verifyTestResult(testPath, testLabel);
+		shm_unlink(testLabel);
+		return res;
 	}
 
 	bool flushResults = true;

@@ -6,6 +6,7 @@
  */
 
 #include "util/atois.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 
 /* (buf[0] - '0') */
 void atoi1(Value *buf, AllocaInst *mem_result, RawContext* const context) {
@@ -805,7 +806,6 @@ void atois(Value *buf, Value* len, AllocaInst *mem_result, RawContext* const con
 
 	/* Handle 'error' case */
 	Builder->SetInsertPoint(defaultBlock);
-	Value *val_error = Builder->getInt32(-1);
 #ifdef DEBUGATOIS
 	{
 		vector<Value*> ArgsV;
@@ -818,8 +818,13 @@ void atois(Value *buf, Value* len, AllocaInst *mem_result, RawContext* const con
 		Builder->CreateCall(debugInt, ArgsV);
 	}
 #endif
-	Builder->CreateRet(val_error);
-
+	if (dynamic_cast<GpuRawContext *>(context)){
+		Builder->CreateCall(Intrinsic::getDeclaration(context->getModule(), Intrinsic::trap));
+		Builder->CreateUnreachable();
+	} else {
+		Value *val_error = Builder->getInt32(-1);
+		Builder->CreateRet(val_error);
+	}
 	/* Back to normal */
 	Builder->SetInsertPoint(returnBlock);
 }

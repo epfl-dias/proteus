@@ -39,8 +39,9 @@ public:
 	virtual bool isPrimitive() const = 0;
 	virtual Type *getLLVMType(LLVMContext &ctx) const {
 		string error_msg = string("Type " + getType() + " is not mapped into an LLVM-type.");
-		LOG(ERROR) << error_msg;
-		throw runtime_error(error_msg);
+		LOG(INFO) << error_msg;
+		// throw runtime_error(error_msg);
+		return NULL;
 	}
 };
 
