@@ -90,7 +90,8 @@ link_directories(
 add_definitions(-DTEST_INPUTS="${CMAKE_INSTALL_PREFIX}/raw/inputs")
 add_definitions(-DTEST_OUTPUTS="${CMAKE_INSTALL_PREFIX}/raw/outputs")
 
-if ($ENV{USEGPUS})
+find_program(EXISTS_NVCC nvcc)
+if (EXISTS_NVCC)
 set(CUDA_CUFLAGS -Xcompiler -fPIC ${CUDA_CXXFLAGS} ${GCC_COMPILE_FLAGS} --expt-relaxed-constexpr --std=c++11 -arch=sm_61 -line-info)
 set(CUDA_CXXFLAGS "-x cuda --cuda-gpu-arch=sm_61")
 set(CUDA_libs -lnvToolsExt -lcuda -lcudart -lnvidia-ml -lcudadevrt -lnvvm)
