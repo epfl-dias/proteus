@@ -21,13 +21,14 @@ setMethod("dbGetInfo", "ViDaRDriver", def = function(dbObj, ...)
   )
 
 # Overloading dbConnect
-setMethod("dbConnect", "ViDaRDriver", def = function(drv, vida_sh_path="~/Desktop/vida.sh", schema_path, schema_name, tmp_folder, ...){
+setMethod("dbConnect", "ViDaRDriver", def = function(drv, vida_sh_path="~/Desktop/vida.sh", schema_path, schema_name, tmp_folder, query_out, ...){
 
   connenv <- new.env(parent = emptyenv())
   connenv$sh_path <- vida_sh_path
   connenv$schema_name <- schema_name
   connenv$schema_path <- schema_path
   connenv$tmp_folder <- tmp_folder
+  connenv$query_output <- query_out
   connenv$is_open <- TRUE
 
   # create a simple query to generate the schema
@@ -37,6 +38,8 @@ setMethod("dbConnect", "ViDaRDriver", def = function(drv, vida_sh_path="~/Deskto
   return(conn)
 },
 valueClass = "ViDaRConnection")
+
+
 
 
 # ========== ViDaR DBI Connection ========== #
@@ -93,7 +96,9 @@ setMethod("dbReadTable", signature(conn="ViDaRConnection", name="character"), de
     if(!dbExistsTable(conn, name))
       stop(paste("Table: ", name, " - does not exist"))
 
-    dbGetQuery(conn, paste0("SELECT * FROM", name))
+    # select * from workaround - concat the list of fields with ','
+    fields<-paste(dbListFields(con, name),collapse=',')
+    dbGetQuery(conn, paste0("SELECT ",fields," FROM ", name, ";"))
   }
   )
 
@@ -101,9 +106,48 @@ setMethod("dbRemoveTable", signature(conn="ViDaRConnection", name="character"), 
   invisible(TRUE)
   )
 
+# process the query to suit ViDa
+processQuery <- function(query, con, ...) {
+
+  ret <- tolower(query)
+
+  ret <- gsub('<sql> ','',ret)
+  ret <- gsub('from','\nfrom',ret)
+  ret <- gsub('where','\nwhere', ret)
+  ret <- gsub(';','\n;', ret)
+
+  #split <- gsub('"','',regmatches(ret, gregexpr("(?<=\")(.*?)(?=\")", ret, perl = TRUE))) # split to extract the table name from first quotes
+
+  ret <- gsub('\\*',paste(dbListFields(con, 'part'),collapse=','), ret)
+
+  ret <- gsub("\"","", ret)
+  ret <- gsub("where [(]0 = 1[)]","",ret)
+
+  # UNQOUTE!
+  ret <- gsub("limit 10","",ret)
+
+  if(!grepl(';',ret))
+    ret <- paste0(ret,'\n;')
+
+  ret <- gsub('\n\n','\n', ret)
+  #ret <- gsub('\n;',';', ret)
+
+  # REMOVE PARENTHESES
+  ret <- gsub("\\(", "", ret)
+  ret <- gsub("\\)", "", ret)
+
+  return(ret)
+}
+
 setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"), def = function(conn, statement, ...){
   env <- new.env(parent = emptyenv())
 
+  print("Query:")
+  print(statement)
+
+  statement<-processQuery(statement, conn)
+
+  print("Processed query:")
   print(statement)
 
   # create a file as vida query input
@@ -111,18 +155,19 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
   writeLines(statement, query_file)
   close(query_file)
 
-  # send query to vida
-  out <- system2(command = "sh", args = paste(conn@env$sh_path, " ", conn@env$tmp_folder, "tmp.sql", " ", conn@env$schema_name, sep=""), stdout = TRUE, stderr = FALSE)
-
+  # send query to vida - old vesion, which printed the whole output to a file
+  # out <- system2(command = "sh", args = paste(conn@env$sh_path, " ", conn@env$tmp_folder, "tmp.sql", " ", conn@env$schema_name, sep=""), stdout = TRUE, stderr = FALSE)
+  # CURRENT VERSION - WRITES TO A SPECIFIC FILE
+  system2(command = "sh", args = paste(conn@env$sh_path, " ", conn@env$tmp_folder, "tmp.sql", " ", conn@env$schema_name, sep=""), stdout = FALSE, stderr = FALSE)
   # write output to file
-  out_file <- file(paste0(conn@env$tmp_folder,'tmp.txt'))
-  writeLines(out, out_file)
-  close(out_file)
+  #out_file <- file(paste0(conn@env$tmp_folder,'tmp.txt'))
+  #writeLines(out, out_file)
+  #close(out_file)
 
   env$success = TRUE
   env$conn <- conn
   env$query <- statement
-  # env$resp <- response
+  env$resp_path <- conn@env$query_output
 
   invisible(new("ViDaRResult", env=env))
   })
@@ -130,6 +175,9 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
 setMethod("dbWriteTable", signature(conn="ViDaRConnection", name="character", value="ANY"), def = function(conn, name, value, ...)
   invisible(TRUE)
   )
+
+
+
 
 # ========== ViDaR DBI Result ========== #
 
@@ -144,9 +192,24 @@ setMethod("dbColumnInfo", "ViDaRResult", def = function(res, ...)
   invisible(TRUE)
   )
 
-setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(res, n, ...)
-  invisible(TRUE)
-  )
+setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(res, n, ...) {
+
+  #result_file <- file(res@env$resp_path)
+  #print("Result:")
+  #print(readLines(result_file))
+
+  #schema <- jsonlite::read_json(
+
+  # THIS HAS TO BE MORE ELEGANT AND FASTER (MAYBE RCPP)
+  #tryCatch(
+  #  {
+      #return(as.tbl(jsonlite::fromJSON(res@env$resp_path)))
+  #  },
+  #  error=function(cond){
+     return(as.data.frame(jsonlite::fromJSON(res@env$resp_path)))
+  #  }
+  #)
+  })
 
 setMethod("dbGetRowCount", "ViDaRResult", def = function(res, ...)
   invisible(TRUE)
