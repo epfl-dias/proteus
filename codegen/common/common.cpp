@@ -76,13 +76,13 @@ bool verifyTestResult(const char *testsPath, const char *testLabel)	{
 	}
 	char *currResultBuf = (char*) mmap(NULL, fsize2, PROT_READ | PROT_WRITE,
 			MAP_PRIVATE, fd2, 0);
-	bool areEqual = ((fsize1 == fsize2) && ((fsize1 == 0) || (strcmp(correctBuf, currResultBuf) == 0))) ? true : false;
+	bool areEqual = ((fsize1 == fsize2) && ((fsize1 == 0) || (memcmp(correctBuf, currResultBuf, fsize1) == 0))) ? true : false;
 	if (!areEqual) {
 		fprintf(stderr, "######################################################################\n");
 		fprintf(stderr, "FAILURE:\n");
-		if (fsize1 > 0) fprintf(stderr, "* Expected:\n%s\n", correctBuf);
+		if (fsize1 > 0) fprintf(stderr, "* Expected (size: %zu):\n%s\n", fsize1, correctBuf);
 		else 			fprintf(stderr, "* Expected empty file\n");
-		if (fsize2 > 0) fprintf(stderr, "* Obtained:\n%s\n", currResultBuf);
+		if (fsize2 > 0) fprintf(stderr, "* Obtained (size: %zu):\n%s\n", fsize2, currResultBuf);
 		else 			fprintf(stderr, "* Obtained empty file\n");
 		fprintf(stderr, "######################################################################\n");
 	}
