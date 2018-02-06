@@ -54,11 +54,12 @@ RawCpuPipelineGen::RawCpuPipelineGen(   RawContext        * context         ,
 // #endif
 
     // TheFPM->doInitialization();
-    Type * bool_type    = Type::getInt1Ty   (context->getLLVMContext());
-    Type * int32_type   = Type::getInt32Ty  (context->getLLVMContext());
-    Type * int64_type   = Type::getInt64Ty  (context->getLLVMContext());
-    Type * void_type    = Type::getVoidTy   (context->getLLVMContext());
-    Type * charPtrType  = Type::getInt8PtrTy(context->getLLVMContext());
+    Type * bool_type    = Type::getInt1Ty    (context->getLLVMContext());
+    Type * int32_type   = Type::getInt32Ty   (context->getLLVMContext());
+    Type * int64_type   = Type::getInt64Ty   (context->getLLVMContext());
+    Type * void_type    = Type::getVoidTy    (context->getLLVMContext());
+    Type * charPtrType  = Type::getInt8PtrTy (context->getLLVMContext());
+    Type * int32PtrType = Type::getInt32PtrTy(context->getLLVMContext());
 
     Type * size_type;
     if      (sizeof(size_t) == 4) size_type = int32_type;
@@ -208,6 +209,36 @@ RawCpuPipelineGen::RawCpuPipelineGen(   RawContext        * context         ,
     FunctionType *mem_move_local_to_releaseWorkUnit = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType}, false);
     Function *fmem_move_local_to_releaseWorkUnit = Function::Create(mem_move_local_to_releaseWorkUnit, Function::ExternalLinkage, "mem_move_local_to_releaseWorkUnit", getModule());
     registerFunction("mem_move_local_to_releaseWorkUnit", fmem_move_local_to_releaseWorkUnit);
+
+
+    FunctionType *getClusterCounts = FunctionType::get(int32PtrType, std::vector<Type *>{charPtrType, charPtrType}, false);
+    Function *fgetClusterCounts = Function::Create(getClusterCounts, Function::ExternalLinkage, "getClusterCounts", getModule());
+    registerFunction("getClusterCounts", fgetClusterCounts);
+
+    FunctionType *getRelationMem = FunctionType::get(charPtrType, std::vector<Type *>{charPtrType, charPtrType}, false);
+    Function *fgetRelationMem = Function::Create(getRelationMem, Function::ExternalLinkage, "getRelationMem", getModule());
+    registerFunction("getRelationMem", fgetRelationMem);
+
+    FunctionType *getHTMemKV = FunctionType::get(charPtrType, std::vector<Type *>{charPtrType, charPtrType}, false);
+    Function *fgetHTMemKV = Function::Create(getHTMemKV, Function::ExternalLinkage, "getHTMemKV", getModule());
+    registerFunction("getHTMemKV", fgetHTMemKV);
+
+
+    FunctionType *registerClusterCounts = FunctionType::get(void_type, std::vector<Type *>{charPtrType, int32PtrType, charPtrType}, false);
+    Function *fregisterClusterCounts = Function::Create(registerClusterCounts, Function::ExternalLinkage, "registerClusterCounts", getModule());
+    registerFunction("registerClusterCounts", fregisterClusterCounts);
+
+    FunctionType *registerRelationMem = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType, charPtrType}, false);
+    Function *fregisterRelationMem = Function::Create(registerRelationMem, Function::ExternalLinkage, "registerRelationMem", getModule());
+    registerFunction("registerRelationMem", fregisterRelationMem);
+
+    FunctionType *registerHTMemKV = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType, charPtrType}, false);
+    Function *fregisterHTMemKV = Function::Create(registerHTMemKV, Function::ExternalLinkage, "registerHTMemKV", getModule());
+    registerFunction("registerHTMemKV", fregisterHTMemKV);
+
+    FunctionType *cfree = FunctionType::get(void_type, std::vector<Type *>{charPtrType}, false);
+    Function *fcfree = Function::Create(cfree, Function::ExternalLinkage, "free", getModule());
+    registerFunction("free", fcfree);
 
     registerFunctions(); //FIXME: do we have to register them every time ?
 }

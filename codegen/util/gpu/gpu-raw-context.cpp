@@ -250,6 +250,11 @@ RawPipelineGen * GpuRawContext::removeLatestPipeline(){
     return p;
 }
 
+RawPipelineGen * GpuRawContext::getCurrentPipeline(){
+    assert(!pipelines.empty());
+    return pipelines.back();
+}
+
 void GpuRawContext::compileAndLoad(){
     popNewPipeline();
     assert(generators.size() == 0 && "Leftover pipelines!");

@@ -28,6 +28,7 @@
 #include "util/radix/joins/radix-join.hpp"
 #include "util/raw-functions.hpp"
 #include "util/raw-caching.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 
 //#define DEBUGRADIX
 
@@ -41,58 +42,152 @@ struct relationBuf	{
 	/* Mem layout:
 	 * Consecutive <payload> chunks - payload type defined at runtime
 	 */
-	AllocaInst *mem_relation;
-	/* Size in bytes */
-	AllocaInst *mem_tuplesNo;
-	/* Size in bytes */
-	AllocaInst *mem_size;
-	/* (Current) Offset in bytes */
-	AllocaInst *mem_offset;
-	AllocaInst *mem_cachedTuplesNo;
+	// AllocaInst *mem_relation;
+	// /* Size in bytes */
+	// AllocaInst *mem_tuplesNo;
+	// /* Size in bytes */
+	// AllocaInst *mem_size;
+	// /* (Current) Offset in bytes */
+	// AllocaInst *mem_offset;
+	// AllocaInst *mem_cachedTuplesNo;
+    size_t mem_relation_id         ;
+    /* Size in bytes */
+    size_t mem_tuplesNo_id         ;
+    /* Size in bytes */
+    size_t mem_size_id             ;
+    /* (Current) Offset in bytes */
+    size_t mem_offset_id           ;
+    size_t mem_cachedTuplesNo_id   ;
 };
 
 struct kvBuf	{
-	/* Mem layout:
-	 * Pairs of (int32 key, size_t payloadPtr)
-	 */
-	AllocaInst *mem_kv;
-	/* Size in bytes */
-	AllocaInst *mem_tuplesNo;
-	/* Size in bytes */
-	AllocaInst *mem_size;
-	/* (Current) Offset in bytes */
-	AllocaInst *mem_offset;
+	// /* Mem layout:
+	//  * Pairs of (int32 key, size_t payloadPtr)
+	//  */
+	// AllocaInst *mem_kv;
+	// /* Size in bytes */
+	// AllocaInst *mem_tuplesNo;
+	// /* Size in bytes */
+	// AllocaInst *mem_size;
+	// /* (Current) Offset in bytes */
+	// AllocaInst *mem_offset;
+    /* Mem layout:
+     * Pairs of (int32 key, size_t payloadPtr)
+     */
+    size_t mem_kv_id        ;
+    /* Size in bytes */
+    size_t mem_tuplesNo_id  ;
+    /* Size in bytes */
+    size_t mem_size_id      ;
+    /* (Current) Offset in bytes */
+    size_t mem_offset_id    ;
 };
 
 
+class RadixJoinBuild: public UnaryRawOperator {
+public:
+    RadixJoinBuild( expressions::Expression       * keyExpr     ,
+                    RawOperator                   * child       ,
+                    GpuRawContext* const            context     ,
+                    string                          opLabel     ,
+                    Materializer                  & mat         ,
+                    StructType                    * htEntryType ,
+                    size_t                          size
+#ifdef LOCAL_EXEC
+                                                        = 15000,
+#else
+                                                        = 30000000000,
+#endif
+                    size_t                          kvSize
+#ifdef LOCAL_EXEC
+                                                        = 15000
+#else
+                                                        = 30000000000
+#endif
+                );
+    virtual ~RadixJoinBuild() ;
+    virtual void produce() ;
+//  void produceNoCache() ;
+    virtual void consume(RawContext* const context,
+            const OperatorState& childState);
+    virtual void consume(GpuRawContext* const context,
+            const OperatorState& childState);
+    Materializer& getMaterializer() {return mat;}
+    virtual bool isFiltering() const {return true;}
+    
+    virtual int32_t * getClusterCounts     (RawPipeline * pip                 );
+    virtual void      registerClusterCounts(RawPipeline * pip, int32_t * cnts );
+    virtual void    * getHTMemKV           (RawPipeline * pip                 );
+    virtual void      registerHTMemKV      (RawPipeline * pip, void * mem_kv  );
+    virtual void    * getRelationMem       (RawPipeline * pip                 );
+    virtual void      registerRelationMem  (RawPipeline * pip, void * rel_mem );
+
+    virtual StructType *getPayloadType(){ return payloadType; }
+private:
+//     OperatorState* generate(RawOperator* op, OperatorState* childState);
+
+//     void runRadix() const;
+//     Value *radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const;
+    Value * radix_cluster_nopadding(Value * mem_tuplesNo, Value * mem_kv_id) const;
+    void initializeState();
+
+// //  char** findSideInCache(Materializer &mat) const;
+//     Scan* findSideInCache(Materializer &mat, bool isLeft) const;
+//     void placeInCache(Materializer &mat, bool isLeft) const;
+//     void updateRelationPointers() const;
+//     void freeArenas() const;
+    relationBuf                 rel             ;
+    kvBuf                       ht              ;
+
+    size_t                      size            ;
+    size_t                      kvSize          ;
+
+    bool                        cached          ;
+
+    string                      htLabel         ;
+    GpuRawContext * const       context         ;
+    expressions::Expression    *keyExpr         ;
+
+    Materializer               &mat             ;
+    StructType                 *htEntryType     ;
+    StructType                 *payloadType     ;
+
+    std::map<int32_t, int32_t *>    clusterCounts   ;
+    std::map<int32_t, void    *>    ht_mem_kv       ;
+    std::map<int32_t, void    *>    relation_mem    ;
+};
 
 class RadixJoin: public BinaryRawOperator {
 public:
 	RadixJoin(expressions::BinaryExpression* predicate,
 			RawOperator *leftChild, RawOperator *rightChild,
-			RawContext* const context, const char* opLabel, Materializer& matLeft,
+			RawContext* const context, const char* opLabel,
+			Materializer& matLeft,
 			Materializer& matRight);
 	virtual ~RadixJoin() ;
 	virtual void produce() ;
 //	void produceNoCache() ;
 	virtual void consume(RawContext* const context,
 			const OperatorState& childState);
-	Materializer& getMaterializerLeft() {return matLeft;}
-	Materializer& getMaterializerRight() {return matRight;}
-	virtual bool isFiltering() const {return true;}
+	Materializer& getMaterializerLeft () const {return buildR->getMaterializer();}
+	Materializer& getMaterializerRight() const {return buildS->getMaterializer();}
+	virtual bool isFiltering() const     {return true;}
 private:
-	OperatorState* generate(RawOperator* op, OperatorState* childState);
+    void runRadix() const;
+    // Value *radix_cluster_nopadding(size_t mem_tuplesNo_id, size_t mem_kv_id) const;
 
-	void runRadix() const;
-	Value *radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const;
+    // void initializeStateOneSide(size_t       size, 
+    //                             relationBuf &rel,
+    //                             size_t       kvSize,
+    //                             kvBuf       &ht);
 
 //	char** findSideInCache(Materializer &mat) const;
-	Scan* findSideInCache(Materializer &mat, bool isLeft) const;
-	void placeInCache(Materializer &mat, bool isLeft) const;
-	void updateRelationPointers() const;
-	void freeArenas() const;
-	struct relationBuf relR;
-	struct relationBuf relS;
+	// Scan* findSideInCache(Materializer &mat, bool isLeft) const;
+	// void placeInCache(Materializer &mat, bool isLeft) const;
+	// void updateRelationPointers() const;
+	// void freeArenas() const;
+	// struct relationBuf relR;
+	// struct relationBuf relS;
 
 	/* What the keyType is */
 	/* XXX int32 FOR NOW   */
@@ -100,29 +195,32 @@ private:
 	Type *keyType;
 	StructType *htEntryType;
 
-	struct kvBuf htR;
-	struct kvBuf htS;
+    RadixJoinBuild * buildR;
+    RadixJoinBuild * buildS;
 
-	HT *HT_per_cluster;
+    // size_t htR_mem_kv_id;
+    // size_t htS_mem_kv_id;
+
+    // size_t relR_mem_relation_id;
+    // size_t relS_mem_relation_id;
+
+	// struct kvBuf htR;
+	// struct kvBuf htS;
+
+	// HT *HT_per_cluster;
 	StructType *htClusterType;
 
-	StructType *rPayloadType;
-	StructType *sPayloadType;
-
-	char *relationR;
-	char *relationS;
-	char **ptr_relationR;
-	char **ptr_relationS;
-	char *kvR;
-	char *kvS;
+	// char *relationR;
+	// char *relationS;
+	// char **ptr_relationR;
+	// char **ptr_relationS;
+	// char *kvR;
+	// char *kvS;
 
 	string htLabel;
-	RawContext* const context;
-	expressions::BinaryExpression* pred;
-	Materializer& matLeft;
-	Materializer& matRight;
+	GpuRawContext * const context;
 
-	/* Cache- related */
-	bool cachedLeft;
-	bool cachedRight;
+	// /* Cache- related */
+	// bool cachedLeft;
+	// bool cachedRight;
 };

@@ -75,36 +75,17 @@
 
 using namespace llvm;
 
-
-
-class MultiGPUTest : public ::testing::Test {
-protected:
+class RawTestEnvironment2 : public ::testing::Environment {
+public:
     virtual void SetUp();
     virtual void TearDown();
-
-    // void launch(void ** args, dim3 gridDim, dim3 blockDim);
-    // void launch(void ** args, dim3 gridDim);
-    // void launch(void ** args);
-    
-    void runAndVerify(const char *testLabel, const char* planPath);
-    
-    bool flushResults = true;
-    const char * testPath = TEST_OUTPUTS "/tests-output/";
-
-    const char * catalogJSON = "inputs/plans/catalog.json";
-public:
-    // CUdevice  *device ;
-    // CUcontext *context;
-
-    // sys::PrintStackTraceOnErrorSignal;
-    // llvm::PrettyStackTraceProgram X;
-
-    // llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
 };
+
+::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment2);
 
 void thread_warm_up(){}
 
-void MultiGPUTest::SetUp   (){
+void RawTestEnvironment2::SetUp(){
     setbuf(stdout, NULL);
 
     google::InstallFailureSignalHandler();
@@ -147,9 +128,41 @@ void MultiGPUTest::SetUp   (){
     gpu_run(cudaSetDevice(0));
 }
 
+void RawTestEnvironment2::TearDown(){
+    RawMemoryManager::destroy();
+}
+
+class MultiGPUTest : public ::testing::Test {
+protected:
+    virtual void SetUp();
+    virtual void TearDown();
+
+    // void launch(void ** args, dim3 gridDim, dim3 blockDim);
+    // void launch(void ** args, dim3 gridDim);
+    // void launch(void ** args);
+    
+    void runAndVerify(const char *testLabel, const char* planPath);
+    
+    bool flushResults = true;
+    const char * testPath = TEST_OUTPUTS "/tests-output/";
+
+    const char * catalogJSON = "inputs/plans/catalog.json";
+public:
+    // CUdevice  *device ;
+    // CUcontext *context;
+
+    // sys::PrintStackTraceOnErrorSignal;
+    // llvm::PrettyStackTraceProgram X;
+
+    // llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
+};
+
+void MultiGPUTest::SetUp   (){
+    gpu_run(cudaSetDevice(0));
+}
+
 void MultiGPUTest::TearDown(){
     StorageManager::unloadAll();
-    RawMemoryManager::destroy();
 }
 
 void MultiGPUTest::runAndVerify(const char *testLabel, const char* planPath){

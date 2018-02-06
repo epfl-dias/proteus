@@ -63,8 +63,9 @@ public:
 	virtual ~UnaryRawOperator() 												{ LOG(INFO) << "Collapsing unary operator"; }
 
 	RawOperator* const getChild() 		const									{ return child; }
+	void setChild(RawOperator* const child)										{ this->child = child; }
 private:
-	RawOperator* const child;
+	RawOperator* child;
 };
 
 class BinaryRawOperator : public RawOperator {
