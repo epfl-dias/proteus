@@ -107,6 +107,8 @@ install(TARGETS codegen
 	ARCHIVE DESTINATION lib
 	)
 
+install(DIRECTORY DESTINATION raw/generated_code)
+
 # install(FILES ${CMAKE_CURRENT_BINARY_DIR}/device_funcs.cubin
 # 	DESTINATION res
 # 	# LIBRARY DESTINATION lib
