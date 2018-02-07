@@ -642,6 +642,13 @@ RawValue ExpressionFlusherVisitor::visit(expressions::MinExpression *e)	{
 	return e->getCond()->accept(*this);
 }
 
+RawValue ExpressionFlusherVisitor::visit(expressions::HashExpression *e)	{
+	ExpressionGeneratorVisitor v(context, currState);
+	RawValue rv = e->accept(v);
+	expressions::RawValueExpression rve(e->getExpressionType(), rv);
+	return rve.accept(*this);
+}
+
 /* Code almost identical to CSVPlugin::flushValue */
 void ExpressionFlusherVisitor::flushValue(Value *val, typeID val_type) {
 	outputFileLLVM = context->CreateGlobalString(this->outputFile);

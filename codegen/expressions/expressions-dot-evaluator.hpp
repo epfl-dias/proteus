@@ -93,6 +93,8 @@ public:
 			expressions::MaxExpression *e2);
 	RawValue visit(expressions::MinExpression *e1,
 			expressions::MinExpression *e2);
+	RawValue visit(expressions::HashExpression *e1,
+			expressions::HashExpression *e2);
 
 private:
 	RawContext* const context;

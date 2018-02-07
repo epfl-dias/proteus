@@ -71,6 +71,7 @@ public:
 	RawValue visit(expressions::RawValueExpression *e);
 	RawValue visit(expressions::MinExpression *e);
 	RawValue visit(expressions::MaxExpression *e);
+	RawValue visit(expressions::HashExpression *e);
 	/**
 	 *
 	 */

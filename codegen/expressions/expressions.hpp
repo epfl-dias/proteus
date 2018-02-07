@@ -37,7 +37,7 @@ namespace expressions
 {
 
 
-enum ExpressionId	{ CONSTANT, RAWVALUE, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE};
+enum ExpressionId	{ CONSTANT, RAWVALUE, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE, EXPRESSION_HASHER};
 
 class Expression	{
 public:
@@ -466,6 +466,29 @@ public:
 private:
 	Expression* expr;
 	RecordAttribute attribute;
+};
+
+class HashExpression : public Expression	{
+public:
+	HashExpression(Expression* expr):
+			Expression(new Int64Type()), expr(expr) {}
+
+	~HashExpression()								{}
+
+	Expression* getExpr() const						{ return expr; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const					{ return EXPRESSION_HASHER; }
+	inline bool operator<(const expressions::Expression& r) const {
+			if (this->getTypeID() == r.getTypeID()) {
+				const HashExpression& rHash = dynamic_cast<const HashExpression&>(r);
+				return *(this->getExpr()) < *(rHash.getExpr());
+			} else {
+				return this->getTypeID() < r.getTypeID();
+			}
+		}
+private:
+	Expression* expr;
 };
 
 class RawValueExpression : public Expression	{
@@ -1359,6 +1382,7 @@ public:
 	virtual RawValue visit(expressions::RawValueExpression *e)  = 0;
 	virtual RawValue visit(expressions::MinExpression *e) 		= 0;
 	virtual RawValue visit(expressions::MaxExpression *e) 		= 0;
+	virtual RawValue visit(expressions::HashExpression *e) 		= 0;
 //	virtual RawValue visit(expressions::MergeExpression *e)  	= 0;
 	virtual ~ExprVisitor() {}
 };
@@ -1414,6 +1438,8 @@ public:
 			expressions::MinExpression *e2) = 0;
 	virtual RawValue visit(expressions::MaxExpression *e1,
 			expressions::MaxExpression *e2) = 0;
+	virtual RawValue visit(expressions::HashExpression *e1,
+			expressions::HashExpression *e2) = 0;
 	virtual ~ExprTandemVisitor() {}
 };
 

@@ -87,6 +87,7 @@ public:
 	RawValue visit(expressions::RawValueExpression *e);
 	RawValue visit(expressions::MinExpression *e);
 	RawValue visit(expressions::MaxExpression *e);
+	RawValue visit(expressions::HashExpression *e);
 	/* Reduce produces accumulated value internally.
 	 * It makes no sense to probe a plugin in order to flush this value out */
 	void flushValue(Value *val, typeID val_type);

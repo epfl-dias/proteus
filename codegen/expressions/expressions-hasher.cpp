@@ -810,3 +810,8 @@ RawValue ExpressionHasherVisitor::visit(expressions::MaxExpression *e)	{
 RawValue ExpressionHasherVisitor::visit(expressions::MinExpression *e)	{
 	return e->getCond()->accept(*this);
 }
+
+RawValue ExpressionHasherVisitor::visit(expressions::HashExpression *e)	{
+	assert(false && "This does not really make sense... Why to hash a hash?");
+	return e->getExpr()->accept(*this);
+}

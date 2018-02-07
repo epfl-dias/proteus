@@ -22,6 +22,7 @@
 */
 
 #include "expressions/expressions-generator.hpp"
+#include "expressions/expressions-hasher.hpp"
 
 #pragma push_macro("DEBUG") //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
 #undef DEBUG //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
@@ -1739,6 +1740,11 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::MaxExpression *e)	{
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::MinExpression *e)	{
 	return e->getCond()->accept(*this);
+}
+
+RawValue ExpressionGeneratorVisitor::visit(expressions::HashExpression *e)	{
+	ExpressionHasherVisitor h(context, currState);
+	return e->getExpr()->accept(h);
 }
 
 #pragma pop_macro("DEBUG") //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side

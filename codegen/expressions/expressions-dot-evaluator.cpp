@@ -433,6 +433,12 @@ RawValue ExpressionDotVisitor::visit(expressions::RecordConstruction *e1,
 	return val_resultWrapper;
 }
 
+RawValue ExpressionDotVisitor::visit(expressions::HashExpression *e1,
+		expressions::HashExpression *e2)	{
+	assert(false && "This does not really make sense");
+	return e1->getExpr()->acceptTandem(*this, e2->getExpr());
+}
+
 
 RawValue ExpressionDotVisitor::visit(expressions::InputArgument *e1,
 		expressions::InputArgument *e2) {
