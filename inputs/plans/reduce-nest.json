@@ -36,12 +36,7 @@
       "attrNo": 1
     }
   }],
-  "operator": "reduce",
-  "accumulator": ["bagunion"],
-  "p": {
-    "expression": "bool",
-    "v": true
-  },
+  "operator": "print",
   "input": {
     "operator": "nest",
     "accumulator": ["sum"],

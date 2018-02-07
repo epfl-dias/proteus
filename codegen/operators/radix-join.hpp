@@ -21,6 +21,9 @@
  RESULTING FROM THE USE OF THIS SOFTWARE.
  */
 
+#ifndef _RADIX_JOIN_HPP_
+#define _RADIX_JOIN_HPP_
+
 #include "operators/operators.hpp"
 #include "operators/scan.hpp"
 #include "plugins/binary-internal-plugin.hpp"
@@ -100,10 +103,11 @@ public:
 #endif
                     size_t                          kvSize
 #ifdef LOCAL_EXEC
-                                                        = 15000
+                                                        = 15000,
 #else
-                                                        = 30000000000
+                                                        = 30000000000,
 #endif
+                    bool                            is_agg = false
                 );
     virtual ~RadixJoinBuild() ;
     virtual void produce() ;
@@ -143,6 +147,7 @@ private:
     size_t                      kvSize          ;
 
     bool                        cached          ;
+    bool                        is_agg          ;
 
     string                      htLabel         ;
     GpuRawContext * const       context         ;
@@ -224,3 +229,5 @@ private:
 	// bool cachedLeft;
 	// bool cachedRight;
 };
+
+#endif /* _RADIX_JOIN_HPP_ */

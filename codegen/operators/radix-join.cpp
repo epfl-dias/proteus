@@ -30,10 +30,11 @@ RadixJoinBuild::RadixJoinBuild( expressions::Expression   * keyExpr     ,
                                 Materializer              & mat         ,
                                 StructType                * htEntryType ,
                                 size_t                      size        ,
-                                size_t                      kvSize      ):
+                                size_t                      kvSize      ,
+                                bool                        is_agg      ):
     UnaryRawOperator(child), keyExpr(keyExpr), context(context), mat(mat), 
         htEntryType(htEntryType), htLabel(opLabel), size(size), kvSize(kvSize),
-        cached(false){
+        cached(false), is_agg(is_agg){
         //TODO initializations
 }
 
@@ -448,13 +449,6 @@ void RadixJoinBuild::consume(   GpuRawContext* const context    ,
         ExpressionGeneratorVisitor exprGenerator{context, childState};
 
         RawValue key = keyExpr->accept(exprGenerator);
-        Type* keyType = (key.value)->getType();
-        // only 32bit integers keys are supported
-        if (!keyType->isIntegerTy(32)) {
-            string error_msg = "--A-- Only INT32 keys considered atm";
-            LOG(ERROR)<< error_msg;
-            throw runtime_error(error_msg);
-        }
 
         PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
 
@@ -522,8 +516,7 @@ void RadixJoinBuild::consume(   GpuRawContext* const context    ,
         idxList.push_back(context->createInt32(offsetInStruct));
 
         Value* structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
-        StoreInst *store_key = Builder->CreateStore(key.value,
-                structPtr);
+        StoreInst *store_key = Builder->CreateStore(key.value, structPtr);
         store_key->setAlignment(4);
 
         /* 2b. kv_cast->payloadPtr = &payload */
@@ -557,7 +550,15 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
         context((GpuRawContext * const) context), 
         htLabel(opLabel) {
     assert(dynamic_cast<GpuRawContext * const>(context) && "Should update caller to use the new context!");
+
     LLVMContext& llvmContext = context->getLLVMContext();
+
+    // only 32bit integers keys are supported
+    if (context->getSizeOf(predicate->getLeftOperand()->getExpressionType()->getLLVMType(llvmContext)) != 32/8) {
+        string error_msg = "--A-- Only INT32 keys considered atm";
+        LOG(ERROR)<< error_msg;
+        throw runtime_error(error_msg);
+    }
 
     Type *int64_type = Type::getInt64Ty(llvmContext);
     Type *int32_type = Type::getInt32Ty(llvmContext);
@@ -707,29 +708,30 @@ void RadixJoin::produce() {
     // //Still need HTs...
     // // Should I mat. them too?
 
-    auto radix_pip = context->getCurrentPipeline();
-    context->pushNewCpuPipeline(radix_pip); //FIXME: find a better way to do this
+    // auto radix_pip = context->getCurrentPipeline();
+    context->pushNewCpuPipeline(); //FIXME: find a better way to do this
+    // context->setChainedPipeline(radix_pip);
 
-    context->appendStateVar(
-        Type::getInt32Ty(context->getLLVMContext()),
-        [=](llvm::Value *){
-            return UndefValue::get(Type::getInt32Ty(context->getLLVMContext()));
-        },
-        [=](llvm::Value *, llvm::Value * s){
-            IRBuilder<> * Builder = context->getBuilder();
+    // context->appendStateVar(
+    //     Type::getInt32Ty(context->getLLVMContext()),
+    //     [=](llvm::Value *){
+    //         return UndefValue::get(Type::getInt32Ty(context->getLLVMContext()));
+    //     },
+    //     [=](llvm::Value *, llvm::Value * s){
+    //         IRBuilder<> * Builder = context->getBuilder();
 
-            Type  * charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
+    //         Type  * charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
 
-            Function * f = context->getFunction("subpipeline_consume");
-            FunctionType * f_t  = f->getFunctionType();
+    //         Function * f = context->getFunction("subpipeline_consume");
+    //         FunctionType * f_t  = f->getFunctionType();
 
-            Type  * substate_t  = f_t->getParamType(f_t->getNumParams()-1);
+    //         Type  * substate_t  = f_t->getParamType(f_t->getNumParams()-1);
             
-            Value * substate    = Builder->CreateBitCast(context->getSubStateVar(), substate_t);
+    //         Value * substate    = Builder->CreateBitCast(context->getSubStateVar(), substate_t);
 
-            Builder->CreateCall(f, vector<Value *>{substate});
-        }
-    );
+    //         Builder->CreateCall(f, vector<Value *>{substate});
+    //     }
+    // );
 
     RawOperator *rightChild = getRightChild();
     rightChild->setParent(buildS);
@@ -760,7 +762,7 @@ Value *RadixJoinBuild::radix_cluster_nopadding(Value * mem_tuplesNo, Value * mem
     Function *F = context->getGlobalFunction();
     IRBuilder<> *Builder = context->getBuilder();
 
-    Function *partitionHT = context->getFunction("partitionHT");
+    Function *partitionHT = context->getFunction(is_agg ? "partitionAggHT" : "partitionHT");
     vector<Value*> ArgsPartition;
     Value *val_tuplesNo = Builder->CreateLoad(mem_tuplesNo);
     Value *val_ht       = Builder->CreateLoad(mem_kv_id   );
@@ -933,7 +935,7 @@ void RadixJoin::runRadix() const    {
     /* Request memory for HT(s) construction        */
     /* Note: Does not allocate mem. for buckets too */
     size_t htSize = (1 << NUM_RADIX_BITS) * sizeof(HT);
-    HT * HT_per_cluster = (HT *) getMemoryChunk(htSize);
+    HT * HT_per_cluster = (HT *) getMemoryChunk(htSize); //FIXME: do in codegen, otherwise it prevent parallelization!!!!
 
     Builder->CreateAlloca(htClusterType, 0, "HTimpl");
     PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
@@ -1214,7 +1216,7 @@ void RadixJoin::runRadix() const    {
                             i++;
                         }
 
-                        for (RecordAttribute * attr2: getMaterializerLeft().getWantedOIDs()) {
+                        for (RecordAttribute * attr2: getMaterializerLeft().getWantedFields()) {
                             string currField = attr2->getName();
                             AllocaInst * mem_field = context->CreateEntryBlockAlloca(F,
                                     "mem_" + currField,
@@ -1288,7 +1290,7 @@ void RadixJoin::runRadix() const    {
 #endif
                         }
 
-                        for (RecordAttribute *attr2: getMaterializerRight().getWantedOIDs()) {
+                        for (RecordAttribute *attr2: getMaterializerRight().getWantedFields()) {
                             string currField = attr2->getName();
                             AllocaInst * mem_field = context->CreateEntryBlockAlloca(F,
                                     "mem_" + currField,

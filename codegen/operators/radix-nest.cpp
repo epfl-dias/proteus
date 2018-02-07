@@ -40,31 +40,25 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs,
 		const char *opLabel, Materializer& mat) :
 		UnaryRawOperator(child), accs(accs), outputExprs(outputExprs), aggregateLabels(
 				aggrLabels), pred(pred), g_nullToZero(g_nullToZero), f_grouping(
-				f_grouping), mat(mat), htName(opLabel), context(context)
+				f_grouping), mat(mat), htName(opLabel), context((GpuRawContext * const) context)
 {
-	Function *F = context->getGlobalFunction();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	IRBuilder<> *Builder = context->getBuilder();
-
 	if (accs.size() != outputExprs.size() || accs.size() != aggrLabels.size()) {
 		string error_msg = string("[NEST: ] Erroneous constructor args");
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
 
-	/* HT-related */
-	/* Request memory for HT(s) construction 		*/
-	Type* int64_type = Type::getInt64Ty(llvmContext);
-	Type* int32_type = Type::getInt32Ty(llvmContext);
-	Type *int8_type = Type::getInt8Ty(llvmContext);
-	PointerType *int32_ptr_type = PointerType::get(int32_type, 0);
-	PointerType *void_ptr_type = PointerType::get(int8_type, 0);
-	PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
-	Value *zero = context->createInt64(0);
-	keyType = int32_type;
-	/* Note: Does not allocate mem. for buckets too */
-	size_t htSize = (1 << NUM_RADIX_BITS) * sizeof(HT);
-	HT_per_cluster = (HT *) getMemoryChunk(htSize);
+    RawCatalog& catalog = RawCatalog::getInstance();
+    Plugin *htPlugin = new BinaryInternalPlugin(context, htName);
+    catalog.registerPlugin(htName, htPlugin);
+
+    assert(dynamic_cast<GpuRawContext * const>(context) && "Should update caller to use the new context!");
+    LLVMContext& llvmContext = context->getLLVMContext();
+
+    Type *int64_type = Type::getInt64Ty(llvmContext);
+    Type *int32_type = Type::getInt32Ty(llvmContext);
+
+    Type *int32_ptr_type = PointerType::getUnqual(int32_type);
 
 	/* What the type of internal radix HT per cluster is 	*/
 	/* (int32*, int32*, unit32_t, void*, int32) */
@@ -76,9 +70,19 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs,
 	 */
 	htRadixClusterMembers.push_back(int32_type);
 	htRadixClusterMembers.push_back(int32_type);
-	htClusterType = StructType::get(context->getLLVMContext(),
-			htRadixClusterMembers);
-	PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
+	htClusterType = StructType::get(context->getLLVMContext(),htRadixClusterMembers);
+
+    expressions::Expression * he = new expressions::HashExpression(f_grouping);
+    const ExpressionType * he_type = he->getExpressionType();
+	/* XXX What the type of HT entries is */
+	/* (size_t, size_t) */
+	vector<Type*> htEntryMembers;
+	htEntryMembers.push_back(he_type->getLLVMType(llvmContext)); //32 ?
+	htEntryMembers.push_back(int64_type);
+	htEntryType = StructType::get(context->getLLVMContext(), htEntryMembers);
+    int htEntrySize = context->getSizeOf(htEntryType); //sizeof(int32_t) + ...
+
+	keyType = htEntryMembers[0];
 
 	/* Arbitrary initial buffer sizes */
 	/* No realloc will be required with these sizes for synthetic large-scale numbers */
@@ -86,90 +90,181 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs,
 	//XXX Meant for tpch-sf100. Reduce for smaller datasets
 	//size_t sizeR = 15000000000; //Not enough
 #ifdef LOCAL_EXEC
-	size_t sizeR = 30000;
+	size_t size = 30000;
 #else
-	size_t sizeR = 30000000000;
+	size_t size = 30000000000;
 #endif
-	//size_t sizeR = 1000;
-	Value *val_sizeR = context->createInt64(sizeR);
+	//size_t size = 1000;
+	size_t kvSize = size;
 
-	/* Request memory to store relation R 			*/
-	relR.mem_relation = context->CreateEntryBlockAlloca(F, string("relationR"),
-			char_ptr_type);
-	(relR.mem_relation)->setAlignment(8);
-	relR.mem_tuplesNo = context->CreateEntryBlockAlloca(F, string("tuplesR"),
-			int64_type);
-	relR.mem_size = context->CreateEntryBlockAlloca(F, string("sizeR"),
-			int64_type);
-	relR.mem_offset = context->CreateEntryBlockAlloca(F, string("offsetRelR"),
-			int64_type);
-	relationR = (char*) getMemoryChunk(sizeR);
-	ptr_relationR = (char**) malloc(sizeof(char*));
-	*ptr_relationR = relationR;
-	Value *val_relationR = context->CastPtrToLlvmPtr(char_ptr_type, relationR);
-	Builder->CreateStore(val_relationR, relR.mem_relation);
-	Builder->CreateStore(zero, relR.mem_tuplesNo);
-	Builder->CreateStore(zero, relR.mem_offset);
-	Builder->CreateStore(val_sizeR, relR.mem_size);
-
-	/* XXX What the type of HT entries is */
-	/* (size_t, size_t) */
-	vector<Type*> htEntryMembers;
-	htEntryMembers.push_back(int64_type);
-	htEntryMembers.push_back(int64_type);
-	int htEntrySize = sizeof(size_t) + sizeof(size_t);
-	htEntryType = StructType::get(context->getLLVMContext(), htEntryMembers);
-	PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
-
-	/* Request memory to store HT entries of R */
-	htR.mem_kv = context->CreateEntryBlockAlloca(F, string("htR"),
-			htEntryPtrType);
-	(htR.mem_kv)->setAlignment(8);
-
-	htR.mem_tuplesNo = context->CreateEntryBlockAlloca(F, string("tuplesR"),
-			int64_type);
-	htR.mem_size = context->CreateEntryBlockAlloca(F, string("sizeR"),
-			int64_type);
-	htR.mem_offset = context->CreateEntryBlockAlloca(F, string("offsetRelR"),
-			int64_type);
-	size_t kvSizeR = sizeR; // * htEntrySize;
-	kvR = (char*) getMemoryChunk(kvSizeR);
-	Value *val_kvR = context->CastPtrToLlvmPtr(htEntryPtrType, kvR);
-
-	StoreInst *store_htR = Builder->CreateStore(val_kvR, htR.mem_kv);
-	store_htR->setAlignment(8);
-	Builder->CreateStore(zero, htR.mem_tuplesNo);
-	Builder->CreateStore(context->createInt64(kvSizeR), htR.mem_size);
-	Builder->CreateStore(zero, htR.mem_offset);
-
-	/* Defined in consume() */
-	payloadType = NULL;
+    build = new RadixJoinBuild( he,
+                                child,
+                                this->context,
+                                htName,
+                                mat,
+                                htEntryType,
+                                size,
+                                kvSize,
+                                true);
 }
 
-void Nest::updateRelationPointers() const {
-	Function *F = context->getGlobalFunction();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	IRBuilder<> *Builder = context->getBuilder();
-	PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
-	PointerType *char_ptr_ptr_type = PointerType::get(char_ptr_type, 0);
+// void Nest::updateRelationPointers() const {
+// 	Function *F = context->getGlobalFunction();
+// 	LLVMContext& llvmContext = context->getLLVMContext();
+// 	IRBuilder<> *Builder = context->getBuilder();
+// 	PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
+// 	PointerType *char_ptr_ptr_type = PointerType::get(char_ptr_type, 0);
 
-	Value *val_ptrRelationR = context->CastPtrToLlvmPtr(char_ptr_ptr_type,
-			ptr_relationR);
-	Value *val_relationR = Builder->CreateLoad(relR.mem_relation);
-	Builder->CreateStore(val_relationR, val_ptrRelationR);
-}
+// 	Value *val_ptrRelationR = context->CastPtrToLlvmPtr(char_ptr_ptr_type,
+// 			ptr_relationR);
+// 	Value *val_relationR = Builder->CreateLoad(relR.mem_relation);
+// 	Builder->CreateStore(val_relationR, val_ptrRelationR);
+// }
 
 void Nest::produce() {
-	getChild()->produce();
+    context->pushNewCpuPipeline();
+
+    // context->appendStateVar(
+    //     Type::getInt32Ty(context->getLLVMContext()),
+    //     [=](llvm::Value *){
+    //         return UndefValue::get(Type::getInt32Ty(context->getLLVMContext()));
+    //     },
+    //     [=](llvm::Value *, llvm::Value * s){
+    //         IRBuilder<> * Builder = context->getBuilder();
+
+    //         Type  * charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
+
+    //         Function * f = context->getFunction("subpipeline_consume");
+    //         FunctionType * f_t  = f->getFunctionType();
+
+    //         Type  * substate_t  = f_t->getParamType(f_t->getNumParams()-1);
+            
+    //         Value * substate    = Builder->CreateBitCast(context->getSubStateVar(), substate_t);
+
+    //         Builder->CreateCall(f, vector<Value *>{substate});
+    //     }
+    // );
+
+    RawOperator *child = getChild();
+    child->setParent(build);
+    build->setParent(this);
+    setChild(build);
+    
+    build->produce();
+
+    context->popNewPipeline();
+
+// 																				/* Note: Does not allocate mem. for buckets too */
+// 																				size_t htSize = (1 << NUM_RADIX_BITS) * sizeof(HT);
+// 																				HT_per_cluster = (HT *) getMemoryChunk(htSize);
+
+
+// 	Function *F = context->getGlobalFunction();
+// 	LLVMContext& llvmContext = context->getLLVMContext();
+// 	IRBuilder<> *Builder = context->getBuilder();
+
+// 	/* HT-related */
+// 	/* Request memory for HT(s) construction 		*/
+// 	Type* int64_type = Type::getInt64Ty(llvmContext);
+// 	Type* int32_type = Type::getInt32Ty(llvmContext);
+// 	Type *int8_type = Type::getInt8Ty(llvmContext);
+// 	PointerType *int32_ptr_type = PointerType::get(int32_type, 0);
+// 	PointerType *void_ptr_type = PointerType::get(int8_type, 0);
+// 	PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
+// 	Value *zero = context->createInt64(0);
+// 	keyType = int32_type;
+// 	/* Note: Does not allocate mem. for buckets too */
+// 	size_t htSize = (1 << NUM_RADIX_BITS) * sizeof(HT);
+// 	HT_per_cluster = (HT *) getMemoryChunk(htSize);
+
+// 	/* What the type of internal radix HT per cluster is 	*/
+// 	/* (int32*, int32*, unit32_t, void*, int32) */
+// 	vector<Type*> htRadixClusterMembers;
+// 	htRadixClusterMembers.push_back(int32_ptr_type);
+// 	htRadixClusterMembers.push_back(int32_ptr_type);
+// 	/* LLVM does not make a distinction between signed and unsigned integer type:
+// 	 * Both are lowered to i32
+// 	 */
+// 	htRadixClusterMembers.push_back(int32_type);
+// 	htRadixClusterMembers.push_back(int32_type);
+// 	htClusterType = StructType::get(context->getLLVMContext(),
+// 			htRadixClusterMembers);
+// 	PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
+
+// 	/* Arbitrary initial buffer sizes */
+// 	/* No realloc will be required with these sizes for synthetic large-scale numbers */
+
+// 	//XXX Meant for tpch-sf100. Reduce for smaller datasets
+// 	//size_t sizeR = 15000000000; //Not enough
+// #ifdef LOCAL_EXEC
+// 	size_t sizeR = 30000;
+// #else
+// 	size_t sizeR = 30000000000;
+// #endif
+// 	//size_t sizeR = 1000;
+// 	Value *val_sizeR = context->createInt64(sizeR);
+
+// 	/* Request memory to store relation R 			*/
+// 	relR.mem_relation = context->CreateEntryBlockAlloca(F, string("relationR"),
+// 			char_ptr_type);
+// 	(relR.mem_relation)->setAlignment(8);
+// 	relR.mem_tuplesNo = context->CreateEntryBlockAlloca(F, string("tuplesR"),
+// 			int64_type);
+// 	relR.mem_size = context->CreateEntryBlockAlloca(F, string("sizeR"),
+// 			int64_type);
+// 	relR.mem_offset = context->CreateEntryBlockAlloca(F, string("offsetRelR"),
+// 			int64_type);
+// 	relationR = (char*) getMemoryChunk(sizeR);
+// 	ptr_relationR = (char**) malloc(sizeof(char*));
+// 	*ptr_relationR = relationR;
+// 	Value *val_relationR = context->CastPtrToLlvmPtr(char_ptr_type, relationR);
+// 	Builder->CreateStore(val_relationR, relR.mem_relation);
+// 	Builder->CreateStore(zero, relR.mem_tuplesNo);
+// 	Builder->CreateStore(zero, relR.mem_offset);
+// 	Builder->CreateStore(val_sizeR, relR.mem_size);
+
+// 	/* XXX What the type of HT entries is */
+// 	/* (size_t, size_t) */
+// 	vector<Type*> htEntryMembers;
+// 	htEntryMembers.push_back(int64_type);
+// 	htEntryMembers.push_back(int64_type);
+// 	int htEntrySize = sizeof(size_t) + sizeof(size_t);
+// 	htEntryType = StructType::get(context->getLLVMContext(), htEntryMembers);
+// 	PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
+
+// 	/* Request memory to store HT entries of R */
+// 	htR.mem_kv = context->CreateEntryBlockAlloca(F, string("htR"),
+// 			htEntryPtrType);
+// 	(htR.mem_kv)->setAlignment(8);
+
+// 	htR.mem_tuplesNo = context->CreateEntryBlockAlloca(F, string("tuplesR"),
+// 			int64_type);
+// 	htR.mem_size = context->CreateEntryBlockAlloca(F, string("sizeR"),
+// 			int64_type);
+// 	htR.mem_offset = context->CreateEntryBlockAlloca(F, string("offsetRelR"),
+// 			int64_type);
+// 	size_t kvSizeR = sizeR; // * htEntrySize;
+// 	kvR = (char*) getMemoryChunk(kvSizeR);
+// 	Value *val_kvR = context->CastPtrToLlvmPtr(htEntryPtrType, kvR);
+
+// 	StoreInst *store_htR = Builder->CreateStore(val_kvR, htR.mem_kv);
+// 	store_htR->setAlignment(8);
+// 	Builder->CreateStore(zero, htR.mem_tuplesNo);
+// 	Builder->CreateStore(context->createInt64(kvSizeR), htR.mem_size);
+// 	Builder->CreateStore(zero, htR.mem_offset);
+
+// 	/* Defined in consume() */
+	payloadType = build->getPayloadType();
+
+// 	getChild()->produce();
 
 	//generateProbe(this->context);
-	updateRelationPointers();
+	// updateRelationPointers();
 	probeHT();
 }
 
 void Nest::consume(RawContext* const context, const OperatorState& childState) {
-//	generateInsert(context, childState);
-	buildHT(context,childState);
+    assert(false && "Function should not be called! Is RadixJoinBuilders correctly set as child of this operator?");
 }
 
 //map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(
@@ -254,7 +349,7 @@ void Nest::consume(RawContext* const context, const OperatorState& childState) {
 //	OperatorState* newState = new OperatorState(*this, *allGroupBindings);
 //}
 
-map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, Value *idx) const {
+map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, Value *idx, size_t relR_mem_relation_id) const {
 
 	LLVMContext& llvmContext = context->getLLVMContext();
 	RawCatalog& catalog = RawCatalog::getInstance();
@@ -277,7 +372,8 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 	/* Cast payload */
 	PointerType *payloadPtrType = PointerType::get(payloadType, 0);
 
-	Value *val_relR = Builder->CreateLoad(relR.mem_relation);
+	Value *val_relR = context->getStateVar(relR_mem_relation_id);
+
 	Value *val_ptr_payloadR = Builder->CreateInBoundsGEP(val_relR,
 			val_payload_r_offset);
 
@@ -351,172 +447,230 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 	return allGroupBindings;
 }
 
-/**
- * This function will be launched twice, since both outer unnest + join
- * cause two code paths to be generated.
- */
-void Nest::generateInsert(RawContext* context, const OperatorState& childState)
-{
-	this->context = context;
+// /**
+//  * This function will be launched twice, since both outer unnest + join
+//  * cause two code paths to be generated.
+//  */
+// void Nest::generateInsert(RawContext* context, const OperatorState& childState)
+// {
+// 	this->context = context;
 
-	IRBuilder<>* Builder = context->getBuilder();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	Function *TheFunction = Builder->GetInsertBlock()->getParent();
-	RawCatalog& catalog = RawCatalog::getInstance();
-	vector<Value*> ArgsV;
-	Function* debugInt = context->getFunction("printi");
+// 	IRBuilder<>* Builder = context->getBuilder();
+// 	LLVMContext& llvmContext = context->getLLVMContext();
+// 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+// 	RawCatalog& catalog = RawCatalog::getInstance();
+// 	vector<Value*> ArgsV;
+// 	Function* debugInt = context->getFunction("printi");
 
-#ifdef DEBUG
-//	ArgsV.clear();
-//	ArgsV.push_back(context->createInt32(-6));
-//	Builder->CreateCall(debugInt, ArgsV);
-//	ArgsV.clear();
-#endif
+// #ifdef DEBUG
+// //	ArgsV.clear();
+// //	ArgsV.push_back(context->createInt32(-6));
+// //	Builder->CreateCall(debugInt, ArgsV);
+// //	ArgsV.clear();
+// #endif
 
-	/**
-	 * STEP: Perform aggregation. Create buckets and fill them up IF g satisfied
-	 * Technically, this check should be made after the buckets have been filled.
-	 * Is this 'rewrite' correct?
-	 */
+// 	/**
+// 	 * STEP: Perform aggregation. Create buckets and fill them up IF g satisfied
+// 	 * Technically, this check should be made after the buckets have been filled.
+// 	 * Is this 'rewrite' correct?
+// 	 */
 
-	/**
-	 * TODO do null check based on g!!!
-	 * Essentially a conjunctive predicate
-	 */
+// 	/**
+// 	 * TODO do null check based on g!!!
+// 	 * Essentially a conjunctive predicate
+// 	 */
 
-	//1. Compute HASH key based on grouping expression
-	ExpressionHasherVisitor aggrExprGenerator = ExpressionHasherVisitor(context, childState);
-	RawValue groupKey = f_grouping->accept(aggrExprGenerator);
+// 	//1. Compute HASH key based on grouping expression
+// 	ExpressionHasherVisitor aggrExprGenerator = ExpressionHasherVisitor(context, childState);
+// 	RawValue groupKey = f_grouping->accept(aggrExprGenerator);
 
-	//2. Create 'payload' --> What is to be inserted in the bucket
-	LOG(INFO) << "[NEST: ] Creating payload";
-	const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
-	OutputPlugin *pg = new OutputPlugin(context, mat, bindings);
+// 	//2. Create 'payload' --> What is to be inserted in the bucket
+// 	LOG(INFO) << "[NEST: ] Creating payload";
+// 	const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
+// 	OutputPlugin *pg = new OutputPlugin(context, mat, bindings);
 
-	//Result type specified during output plugin construction
-	llvm::StructType *payloadType = pg->getPayloadType();
-	//Creating space for the payload. XXX Might have to set alignment explicitly
-	AllocaInst *mem_payload = context->CreateEntryBlockAlloca(TheFunction,string("valueInHT"),payloadType);
+// 	//Result type specified during output plugin construction
+// 	llvm::StructType *payloadType = pg->getPayloadType();
+// 	//Creating space for the payload. XXX Might have to set alignment explicitly
+// 	AllocaInst *mem_payload = context->CreateEntryBlockAlloca(TheFunction,string("valueInHT"),payloadType);
 
-	//Registering payload type of HT in RAW CATALOG
-	catalog.insertTableInfo(string(this->htName),payloadType);
+// 	//Registering payload type of HT in RAW CATALOG
+// 	catalog.insertTableInfo(string(this->htName),payloadType);
 
-	// Creating and Populating Payload Struct
-	int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
-	vector<Type*>* materializedTypes = pg->getMaterializedTypes();
-
-
-
-	//Storing values in struct to be materialized in HT. Two steps
-	//2a. Materializing all 'activeTuples' (i.e. positional indices) met so far
-	RawValueMemory mem_activeTuple;
-	{
-		map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
-		for(memSearch = bindings.begin(); memSearch != bindings.end(); memSearch++)	{
-			RecordAttribute currAttr = memSearch->first;
-			if(currAttr.getAttrName() == activeLoop)	{
-				mem_activeTuple = memSearch->second;
-				Value* val_activeTuple = Builder->CreateLoad(mem_activeTuple.mem);
-				//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
-				vector<Value*> idxList = vector<Value*>();
-				idxList.push_back(context->createInt32(0));
-				idxList.push_back(context->createInt32(offsetInStruct++));
-				//Shift in struct ptr
-				Value* structPtr = Builder->CreateGEP(mem_payload, idxList);
-				Builder->CreateStore(val_activeTuple,structPtr);
-			}
-		}
-	}
-
-	//2b. Materializing all explicitly requested fields
-	int offsetInWanted = 0;
-	const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
-	for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!=wantedFields.end(); ++it)
-	{
-		map<RecordAttribute, RawValueMemory>::const_iterator memSearch = bindings.find(*(*it));
-
-		Value* llvmCurrVal = NULL;
-		if (memSearch != bindings.end())
-		{
-			RawValueMemory currValMem = memSearch->second;
-			llvmCurrVal = Builder->CreateLoad(currValMem.mem);
-		}
-		else
-		{
-//			/* Not in bindings yet => must actively materialize
-//			   This code would be relevant if materializer also
-//			   supported 'expressions to be materialized 	*/
-//			cout << "Must actively materialize field now" << endl;
-//			const vector<expressions::Expression*>& wantedExpressions =
-//					mat.getWantedExpressions();
-//			expressions::Expression* currExpr = wantedExpressions.at(offsetInWanted);
-//			ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
-//			RawValue currVal = currExpr->accept(exprGenerator);
-//			llvmCurrVal = currVal.value;
-
-			string error_msg = string("[NEST: ] Binding not found") + (*it)->getAttrName();
-			LOG(ERROR) << error_msg;
-			throw runtime_error(error_msg);
-		}
-
-		//FIXME FIX THE NECESSARY CONVERSIONS HERE
-		Value* valToMaterialize = pg->convert(llvmCurrVal->getType(),materializedTypes->at(offsetInWanted),llvmCurrVal);
-		vector<Value*> idxList = vector<Value*>();
-		idxList.push_back(context->createInt32(0));
-		idxList.push_back(context->createInt32(offsetInStruct));
-		//Shift in struct ptr
-		Value* structPtr = Builder->CreateGEP(mem_payload, idxList);
-		Builder->CreateStore(valToMaterialize,structPtr);
-		offsetInStruct++;
-		offsetInWanted++;
-	}
+// 	// Creating and Populating Payload Struct
+// 	int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
+// 	vector<Type*>* materializedTypes = pg->getMaterializedTypes();
 
 
 
-	//3. Inserting payload in HT
-	PointerType* voidType = PointerType::get(IntegerType::get(llvmContext, 8), 0);
-	Value* voidCast = Builder->CreateBitCast(mem_payload, voidType,"valueVoidCast");
-	Value* globalStr = context->CreateGlobalString(htName);
-	//Prepare hash_insert_function arguments
-	ArgsV.clear();
-	ArgsV.push_back(globalStr);
-	ArgsV.push_back(groupKey.value);
-	ArgsV.push_back(voidCast);
-	//Passing size as well
-	ArgsV.push_back(context->createInt32(pg->getPayloadTypeSize()));
-	Function* insert = context->getFunction("insertHT");
-	Builder->CreateCall(insert, ArgsV);
-#ifdef DEBUG
-//			ArgsV.clear();
-//			ArgsV.push_back(context->createInt32(-7));
-//			Builder->CreateCall(debugInt, ArgsV);
-//			ArgsV.clear();
-#endif
-}
+// 	//Storing values in struct to be materialized in HT. Two steps
+// 	//2a. Materializing all 'activeTuples' (i.e. positional indices) met so far
+// 	RawValueMemory mem_activeTuple;
+// 	{
+// 		map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+// 		for(memSearch = bindings.begin(); memSearch != bindings.end(); memSearch++)	{
+// 			RecordAttribute currAttr = memSearch->first;
+// 			if(currAttr.getAttrName() == activeLoop)	{
+// 				mem_activeTuple = memSearch->second;
+// 				Value* val_activeTuple = Builder->CreateLoad(mem_activeTuple.mem);
+// 				//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
+// 				vector<Value*> idxList = vector<Value*>();
+// 				idxList.push_back(context->createInt32(0));
+// 				idxList.push_back(context->createInt32(offsetInStruct++));
+// 				//Shift in struct ptr
+// 				Value* structPtr = Builder->CreateGEP(mem_payload, idxList);
+// 				Builder->CreateStore(val_activeTuple,structPtr);
+// 			}
+// 		}
+// 	}
+
+// 	//2b. Materializing all explicitly requested fields
+// 	int offsetInWanted = 0;
+// 	const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
+// 	for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!=wantedFields.end(); ++it)
+// 	{
+// 		map<RecordAttribute, RawValueMemory>::const_iterator memSearch = bindings.find(*(*it));
+
+// 		Value* llvmCurrVal = NULL;
+// 		if (memSearch != bindings.end())
+// 		{
+// 			RawValueMemory currValMem = memSearch->second;
+// 			llvmCurrVal = Builder->CreateLoad(currValMem.mem);
+// 		}
+// 		else
+// 		{
+// //			/* Not in bindings yet => must actively materialize
+// //			   This code would be relevant if materializer also
+// //			   supported 'expressions to be materialized 	*/
+// //			cout << "Must actively materialize field now" << endl;
+// //			const vector<expressions::Expression*>& wantedExpressions =
+// //					mat.getWantedExpressions();
+// //			expressions::Expression* currExpr = wantedExpressions.at(offsetInWanted);
+// //			ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
+// //			RawValue currVal = currExpr->accept(exprGenerator);
+// //			llvmCurrVal = currVal.value;
+
+// 			string error_msg = string("[NEST: ] Binding not found") + (*it)->getAttrName();
+// 			LOG(ERROR) << error_msg;
+// 			throw runtime_error(error_msg);
+// 		}
+
+// 		//FIXME FIX THE NECESSARY CONVERSIONS HERE
+// 		Value* valToMaterialize = pg->convert(llvmCurrVal->getType(),materializedTypes->at(offsetInWanted),llvmCurrVal);
+// 		vector<Value*> idxList = vector<Value*>();
+// 		idxList.push_back(context->createInt32(0));
+// 		idxList.push_back(context->createInt32(offsetInStruct));
+// 		//Shift in struct ptr
+// 		Value* structPtr = Builder->CreateGEP(mem_payload, idxList);
+// 		Builder->CreateStore(valToMaterialize,structPtr);
+// 		offsetInStruct++;
+// 		offsetInWanted++;
+// 	}
+
+
+
+// 	//3. Inserting payload in HT
+// 	PointerType* voidType = PointerType::get(IntegerType::get(llvmContext, 8), 0);
+// 	Value* voidCast = Builder->CreateBitCast(mem_payload, voidType,"valueVoidCast");
+// 	Value* globalStr = context->CreateGlobalString(htName);
+// 	//Prepare hash_insert_function arguments
+// 	ArgsV.clear();
+// 	ArgsV.push_back(globalStr);
+// 	ArgsV.push_back(groupKey.value);
+// 	ArgsV.push_back(voidCast);
+// 	//Passing size as well
+// 	ArgsV.push_back(context->createInt32(pg->getPayloadTypeSize()));
+// 	Function* insert = context->getFunction("insertHT");
+// 	Builder->CreateCall(insert, ArgsV);
+// #ifdef DEBUG
+// //			ArgsV.clear();
+// //			ArgsV.push_back(context->createInt32(-7));
+// //			Builder->CreateCall(debugInt, ArgsV);
+// //			ArgsV.clear();
+// #endif
+// }
 void Nest::probeHT() const	{
-	context->setGlobalFunction();
+    LLVMContext & llvmContext   = context->getLLVMContext();
+    IRBuilder<> * Builder       = context->getBuilder();
+    RawCatalog  & catalog       = RawCatalog::getInstance();
 
-	LLVMContext& llvmContext = context->getLLVMContext();
-	RawCatalog& catalog = RawCatalog::getInstance();
-	Function *F = context->getGlobalFunction();
-	IRBuilder<> *Builder = context->getBuilder();
+    Type        * int64_type    = Type::getInt64Ty  (llvmContext);
+    Type        * int32_type    = Type::getInt32Ty  (llvmContext);
+    PointerType * char_ptr_type = Type::getInt8PtrTy(llvmContext);
 
-	Function* debugInt = context->getFunction("printi");
-	Function* debugInt64 = context->getFunction("printi64");
+    size_t clusterCountR_id = context->appendStateVar(
+        PointerType::getUnqual(int32_type),
+        [=](llvm::Value * pip){
+            LLVMContext & llvmContext   = context->getLLVMContext();
+            IRBuilder<> * Builder       = context->getBuilder();
 
-	Type *int32_type = Type::getInt32Ty(llvmContext);
-	Type *int64_type = Type::getInt64Ty(llvmContext);
+            Value       * build         = context->CastPtrToLlvmPtr(char_ptr_type, this->build);
+            Function    * clusterCnts   = context->getFunction("getClusterCounts");
+            return Builder->CreateCall(clusterCnts, vector<Value *>{pip, build});
+        },
+        [=](llvm::Value *, llvm::Value * s){
+            Function    * f = context->getFunction("free");
+            s = Builder->CreateBitCast(s, char_ptr_type);
+            Builder->CreateCall(f, s);
+        },
+        "clusterCountR"
+    );
+
+    size_t htR_mem_kv_id = context->appendStateVar(
+        PointerType::getUnqual(htEntryType),
+        [=](llvm::Value * pip){
+            LLVMContext & llvmContext   = context->getLLVMContext();
+            IRBuilder<> * Builder       = context->getBuilder();
+
+            Value       * build         = context->CastPtrToLlvmPtr(char_ptr_type, this->build);
+            Function    * ht_mem_kv     = context->getFunction("getHTMemKV");
+            Value       * char_ht_mem   = Builder->CreateCall(ht_mem_kv, vector<Value *>{pip, build});
+            return Builder->CreateBitCast(char_ht_mem, PointerType::getUnqual(htEntryType));
+        },
+        [=](llvm::Value *, llvm::Value * s){
+            Function    * f = context->getFunction("releaseMemoryChunk");
+            s = Builder->CreateBitCast(s, char_ptr_type);
+            Builder->CreateCall(f, s);
+        },
+        "htR_mem_kv"
+    ); //FIXME: read-only, we do not even have to maintain it as state variable
+
+    size_t relR_mem_relation_id = context->appendStateVar(
+        char_ptr_type,
+        [=](llvm::Value * pip){
+            LLVMContext & llvmContext   = context->getLLVMContext();
+            IRBuilder<> * Builder       = context->getBuilder();
+
+            Value       * build         = context->CastPtrToLlvmPtr(char_ptr_type, this->build);
+            Function    * rel_mem       = context->getFunction("getRelationMem");
+            return Builder->CreateCall(rel_mem, vector<Value *>{pip, build});
+        },
+        [=](llvm::Value *, llvm::Value * s){
+            Function    * f = context->getFunction("releaseMemoryChunk");
+            s = Builder->CreateBitCast(s, char_ptr_type);
+            Builder->CreateCall(f, s);
+        },
+        "relR_mem_relation"
+    ); //FIXME: read-only, we do not even have to maintain it as state variable
+
+    context->setGlobalFunction();
+    Function * F = context->getGlobalFunction();
+
+    Value *val_zero = context->createInt32(0);
+    Value *val_one = context->createInt32(1);
+
+	// Function* debugInt = context->getFunction("printi");
+	// Function* debugInt64 = context->getFunction("printi64");
+
 	Type *int8_type = Type::getInt8Ty(llvmContext);
 	PointerType *bool_ptr_type = PointerType::get(int8_type,0);
-	Value *val_zero = context->createInt32(0);
-	Value *val_one = context->createInt32(1);
 	Value *val_true = context->createInt8(1);
 	Value *val_false = context->createInt8(0);
 
-	context->setCurrentEntryBlock(Builder->GetInsertBlock());
-
 	/* Partition and Cluster 'R' (the corresponding htEntries) */
-	Value *clusterCountR = radix_cluster_nopadding(relR, htR);
+    Value *clusterCountR = context->getStateVar(clusterCountR_id);
+
+    context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
 	/* Bookkeeping for next steps - not sure which ones we will end up using */
 	AllocaInst *mem_rCount = Builder->CreateAlloca(int32_type, 0, "rCount");
@@ -527,6 +681,11 @@ void Nest::probeHT() const	{
 
 	uint32_t clusterNo = (1 << NUM_RADIX_BITS);
 	Value *val_clusterNo = context->createInt32(clusterNo);
+
+    /* Request memory for HT(s) construction        */
+    /* Note: Does not allocate mem. for buckets too */
+    size_t htSize = (1 << NUM_RADIX_BITS) * sizeof(HT);
+    HT * HT_per_cluster = (HT *) getMemoryChunk(htSize); //FIXME: do in codegen, otherwise it prevent parallelization!!!!
 
 	Builder->CreateAlloca(htClusterType, 0, "HTimpl");
 	PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
@@ -586,7 +745,7 @@ void Nest::probeHT() const	{
 		Value *val_rCount = Builder->CreateLoad(mem_rCount);
 
 		/* tmpR.tuples = relR->tuples + r; */
-		Value *val_htR = Builder->CreateLoad(htR.mem_kv);
+        Value *val_htR = context->getStateVar(htR_mem_kv_id);
 		Value* htRshiftedPtr = Builder->CreateInBoundsGEP(val_htR, val_rCount);
 
 		Function *bucketChainingAggPrepare = context->getFunction(
@@ -699,7 +858,7 @@ void Nest::probeHT() const	{
 
 			/* Also getting value to reassemble ACTUAL KEY when needed */
 			map<RecordAttribute, RawValueMemory> *currKeyBindings =
-					reconstructResults(htRshiftedPtr,val_j);
+					reconstructResults(htRshiftedPtr,val_j, relR_mem_relation_id);
 			OperatorState *currKeyState =
 					new OperatorState(*this,*currKeyBindings);
 			map<RecordAttribute, RawValueMemory> *retrievedBindings;
@@ -755,7 +914,7 @@ void Nest::probeHT() const	{
 						"htMatchIfCond", &ifKeyMatch, hitLoopInc);
 				{
 					retrievedBindings =
-							reconstructResults(htRshiftedPtr,val_hit_idx_dec);
+							reconstructResults(htRshiftedPtr,val_hit_idx_dec, relR_mem_relation_id);
 					OperatorState *retrievedState = new OperatorState(*this,*retrievedBindings);
 
 					/* Condition: Checking dot equality */
@@ -841,11 +1000,8 @@ void Nest::probeHT() const	{
 						}
 						}
 
-						Plugin *htPlugin = new BinaryInternalPlugin(context,
-								htName);
 						RecordAttribute attr_aggr = RecordAttribute(htName,
 								aggregateName, outputExpr->getExpressionType());
-						catalog.registerPlugin(htName, htPlugin);
 						//cout << "Registering custom pg for " << htName << endl;
 						RawValueMemory mem_aggrWrapper;
 						mem_aggrWrapper.mem = mem_accumulating;
@@ -978,720 +1134,331 @@ void Nest::probeHT() const	{
 	Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-/**
- * @param rel the materialized input relation
- * @param ht  the htEntries corresp. to the relation
- *
- * @return item count per resulting cluster
- */
-Value* Nest::radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const	{
-
-	LLVMContext& llvmContext = context->getLLVMContext();
-	RawCatalog& catalog = RawCatalog::getInstance();
-	Function *F = context->getGlobalFunction();
-	IRBuilder<> *Builder = context->getBuilder();
-
-	/* Difference from radix-join */
-	Function *partitionAggHT = context->getFunction("partitionAggHT");
-	vector<Value*> ArgsPartition;
-	Value *val_tuplesNo = Builder->CreateLoad(rel.mem_tuplesNo);
-	Value *val_ht 		= Builder->CreateLoad(ht.mem_kv);
-	ArgsPartition.push_back(val_tuplesNo);
-	ArgsPartition.push_back(val_ht);
-
-	return  Builder->CreateCall(partitionAggHT, ArgsPartition);
-}
-
-void Nest::buildHT(RawContext* context, const OperatorState& childState) {
-	/* Prepare codegen utils */
-	LLVMContext& llvmContext = context->getLLVMContext();
-	RawCatalog& catalog = RawCatalog::getInstance();
-	Function *F = context->getGlobalFunction();
-	IRBuilder<> *Builder = context->getBuilder();
-	Function *debugInt = context->getFunction("printi");
-	Function *debugInt64 = context->getFunction("printi64");
-	//Function *debug = context->getFunction("debug");
-
-	PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
-	Type *int8_type = Type::getInt8Ty(llvmContext);
-	PointerType *void_ptr_type = PointerType::get(int8_type, 0);
-	Type *int64_type = Type::getInt64Ty(llvmContext);
-	Type *int32_type = Type::getInt32Ty(llvmContext);
-
-	Value *kvSize = ConstantExpr::getSizeOf(htEntryType);
-
-	const map<RecordAttribute, RawValueMemory>& bindings =
-			childState.getBindings();
-	OutputPlugin* pg = new OutputPlugin(context, mat, bindings);
-
-	/* Result type specified during output plugin construction */
-	payloadType = pg->getPayloadType();
-
-	/* Place info in cache */
-	{
-		CachingService& cache = CachingService::getInstance();
-		bool fullRelation = !(this->getChild())->isFiltering();
-		const vector<expressions::Expression*>& exps =
-				mat.getWantedExpressions();
-		const vector<RecordAttribute*>& fields = mat.getWantedFields();
-		/* Note: wantedFields do not include activeTuple */
-		vector<RecordAttribute*>::const_iterator itRec = fields.begin();
-		size_t fieldNo = 0;
-		CacheInfo info;
-		const vector<RecordAttribute*>& oids = mat.getWantedOIDs();
-		vector<RecordAttribute*>::const_iterator itOids = oids.begin();
-		for (; itOids != oids.end(); itOids++) {
-			RecordAttribute *attr = *itOids;
-			cout << "OID mat'ed" << endl;
-			info.objectTypes.push_back(attr->getOriginalType()->getTypeID());
-		}
-		for (; itRec != fields.end(); itRec++) {
-			cout << "Field mat'ed" << endl;
-			info.objectTypes.push_back(
-					(*itRec)->getOriginalType()->getTypeID());
-		}
-		itRec = fields.begin();
-		/* Explicit OID ('activeTuple') will be field 0 */
-		if (!exps.empty()) {
-			//FIXME When this code is activated, CSV use case 'TEST(Plan, MultiNest)' breaks!!
-			/* By default, cache looks sth like custom_struct*.
-			 * Is it possible to isolate cache for just ONE of the expressions??
-			 * Group of expressions probably more palpable */
-			vector<expressions::Expression*>::const_iterator it =
-					exps.begin();
-			for (; it != exps.end(); it++) {
-				//info.objectType = rPayloadType;
-				info.structFieldNo = fieldNo;
-				info.payloadPtr = ptr_relationR;
-				//XXX Have LLVM exec. fill this up!
-				info.itemCount = new size_t[1];
-				*(info.itemCount) = 0;
-				cache.registerCache(*it, info, fullRelation);
-
-				/* Having skipped OIDs */
-				if (fieldNo >= mat.getWantedOIDs().size()) {
-					cout << "[Radix: ] Field Cached: "
-							<< (*itRec)->getAttrName() << endl;
-					itRec++;
-				} else {
-					cout << "[Radix: ] Field Cached: " << activeLoop << endl;
-				}
-
-				fieldNo++;
-			}
-		}
-	}
-
-	/* 3rd Method to calculate size */
-	/* REMEMBER: PADDING DOES MATTER! */
-	Value* val_payloadSize = ConstantExpr::getSizeOf(payloadType);
-
-	/*
-	 * Prepare payload.
-	 * What the 'output plugin + materializer' have decided is orthogonal
-	 * to this materialization policy
-	 * (i.e., whether we keep payload with the key, or just point to it)
-	 *
-	 * Instead of allocating space for payload and then copying it again,
-	 * do it ONCE on the pre-allocated buffer
-	 */
-
-	Value *val_arena = Builder->CreateLoad(relR.mem_relation);
-	Value *offsetInArena = Builder->CreateLoad(relR.mem_offset);
-	Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena,
-			val_payloadSize);
-	Value *arenaSize = Builder->CreateLoad(relR.mem_size);
-	Value* val_tuplesNo = Builder->CreateLoad(relR.mem_tuplesNo);
-
-	/* if(offsetInArena + payloadSize >= arenaSize) */
-	BasicBlock* entryBlock = Builder->GetInsertBlock();
-	BasicBlock *endBlockArenaFull = BasicBlock::Create(llvmContext,
-			"IfArenaFullEnd", F);
-	BasicBlock *ifArenaFull;
-	context->CreateIfBlock(F, "IfArenaFullCond", &ifArenaFull,
-			endBlockArenaFull);
-	Value *offsetCond = Builder->CreateICmpSGE(offsetPlusPayload, arenaSize);
-
-	Builder->CreateCondBr(offsetCond, ifArenaFull, endBlockArenaFull);
-
-	/* true => realloc() */
-	Builder->SetInsertPoint(ifArenaFull);
-
-	vector<Value*> ArgsRealloc;
-	Function* reallocLLVM = context->getFunction("increaseMemoryChunk");
-	AllocaInst* mem_arena_void = Builder->CreateAlloca(void_ptr_type, 0,
-			"voidArenaPtr");
-	Builder->CreateStore(val_arena, mem_arena_void);
-	Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
-	ArgsRealloc.push_back(val_arena_void);
-	ArgsRealloc.push_back(arenaSize);
-	Value* val_newArenaVoidPtr = Builder->CreateCall(reallocLLVM, ArgsRealloc);
-
-	Builder->CreateStore(val_newArenaVoidPtr, relR.mem_relation);
-	Value* val_size = Builder->CreateLoad(relR.mem_size);
-	val_size = Builder->CreateMul(val_size, context->createInt64(2));
-	Builder->CreateStore(val_size, relR.mem_size);
-	Builder->CreateBr(endBlockArenaFull);
-
-	/* 'Normal' flow again */
-	Builder->SetInsertPoint(endBlockArenaFull);
-
-	/* Repeat load - realloc() might have occurred */
-	val_arena = Builder->CreateLoad(relR.mem_relation);
-	val_size = Builder->CreateLoad(relR.mem_size);
-
-	/* XXX STORING PAYLOAD */
-	/* 1. arena += (offset) */
-	Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(val_arena,
-			offsetInArena);
-
-	/* 2. Casting */
-	PointerType *ptr_payloadType = PointerType::get(payloadType, 0);
-	Value *cast_arenaShifted = Builder->CreateBitCast(ptr_arenaShifted,
-			ptr_payloadType);
-
-	/* 3. Storing payload, one field at a time */
-	vector<Type*>* materializedTypes = pg->getMaterializedTypes();
-	//Storing all activeTuples met so far
-	int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
-	RawValueMemory mem_activeTuple;
-	{
-		map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
-		for (memSearch = bindings.begin(); memSearch != bindings.end();
-				memSearch++) {
-			RecordAttribute currAttr = memSearch->first;
-			if (currAttr.getAttrName() == activeLoop) {
-				mem_activeTuple = memSearch->second;
-				Value* val_activeTuple = Builder->CreateLoad(
-						mem_activeTuple.mem);
-				//OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
-				vector<Value*> idxList = vector<Value*>();
-				idxList.push_back(context->createInt32(0));
-				idxList.push_back(context->createInt32(offsetInStruct));
-				//Shift in struct ptr
-				Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
-						idxList);
-				StoreInst *store_activeTuple = Builder->CreateStore(
-						val_activeTuple, structPtr);
-				store_activeTuple->setAlignment(8);
-				offsetInStruct++;
-			}
-		}
-	}
-
-	/* Backing up to incorporate caching-aware code */
-	int offsetInWanted = 0;
-	const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
-	for (vector<RecordAttribute*>::const_iterator it = wantedFields.begin();
-			it != wantedFields.end(); ++it) {
-
-		Value* valToMaterialize = NULL;
-		//Check if cached - already done in output pg..
-		bool isCached = false;
-		CacheInfo info;
-		CachingService& cache = CachingService::getInstance();
-		/* expr does not participate in caching search, so don't need it explicitly => mock */
-		list<RecordAttribute*> mockAtts = list<RecordAttribute*>();
-		mockAtts.push_back(*it);
-		list<RecordAttribute> mockProjections;
-		RecordType mockRec = RecordType(mockAtts);
-		expressions::InputArgument *mockExpr = new expressions::InputArgument(
-				&mockRec, 0, mockProjections);
-		expressions::RecordProjection *e = new expressions::RecordProjection(
-				(*it)->getOriginalType(), mockExpr, *(*it));
-		info = cache.getCache(e);
-		if (info.structFieldNo != -1) {
-			if (!cache.getCacheIsFull(e)) {
-			} else {
-				isCached = true;
-				cout << "[OUTPUT PG: ] *Cached* Expression found for "
-						<< e->getOriginalRelationName() << "."
-						<< e->getAttribute().getAttrName() << "!" << endl;
-			}
-		}
-
-		if (isCached) {
-			string activeRelation = e->getOriginalRelationName();
-			string projName = e->getProjectionName();
-			Plugin* plugin = catalog.getPlugin(activeRelation);
-			valToMaterialize = (plugin->readCachedValue(info, bindings)).value;
-		} else {
-			map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
-					bindings.find(*(*it));
-			RawValueMemory currValMem = memSearch->second;
-			/* FIX THE NECESSARY CONVERSIONS HERE */
-			Value* currVal = Builder->CreateLoad(currValMem.mem);
-			valToMaterialize = pg->convert(currVal->getType(),
-					materializedTypes->at(offsetInWanted), currVal);
-		}
-		vector<Value*> idxList = vector<Value*>();
-		idxList.push_back(context->createInt32(0));
-		idxList.push_back(context->createInt32(offsetInStruct));
-
-		//Shift in struct ptr
-		Value* structPtr = Builder->CreateGEP(cast_arenaShifted, idxList);
-
-		Builder->CreateStore(valToMaterialize, structPtr);
-		offsetInStruct++;
-		offsetInWanted++;
-	}
-
-//	/* Backing up to incorporate caching-aware code */
-//	int offsetInWanted = 0;
-//	const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
-//	for (vector<RecordAttribute*>::const_iterator it = wantedFields.begin();
-//			it != wantedFields.end(); ++it) {
-//		map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
-//				bindings.find(*(*it));
-//		RawValueMemory currValMem = memSearch->second;
-//		/* FIX THE NECESSARY CONVERSIONS HERE */
-//		Value* currVal = Builder->CreateLoad(currValMem.mem);
-//		Value* valToMaterialize = pg->convert(currVal->getType(),
-//				materializedTypes->at(offsetInWanted), currVal);
-//
-//		vector<Value*> idxList = vector<Value*>();
-//		idxList.push_back(context->createInt32(0));
-//		idxList.push_back(context->createInt32(offsetInStruct));
-//
-//		//Shift in struct ptr
-//		Value* structPtr = Builder->CreateGEP(cast_arenaShifted, idxList);
-//
-//		Builder->CreateStore(valToMaterialize, structPtr);
-//		offsetInStruct++;
-//		offsetInWanted++;
-//	}
-
-	/* CONSTRUCT HTENTRY PAIR   	  */
-	/* payloadPtr: relative offset from relBuffer beginning */
-	/* (int64 key, int64 payloadPtr)  */
-	/*  -> BOOST HASH PRODUCES INT64!! */
-	/* Prepare key/pieces of key */
-	/* XXX Note: key will be already hashed
-	 * W/e I need to store to retrieve key will be placed in payload
-	 * (if not there already)
-	 */
-
-
-	ExpressionHasherVisitor aggrExprGenerator = ExpressionHasherVisitor(context,childState);
-
-	/* XXX Actually, this is work that the MATERIALIZER should do!!!
-	 * Executor should remain agnostic!!!
-	 * At the time of HT probing, we will go ahead and use
-	 * an ExpressionGeneratorVisitor accordingly (for the dot product */
-//	if(f_grouping->getTypeID() != expressions::RECORD_CONSTRUCTION)	{
-//		/* Don't need to examine key piece by piece */
-//	}
-//	else
-//	{
-//		ExpressionGeneratorVisitor exprGenerator =
-//				ExpressionGeneratorVisitor(context, childState);
-//		/*
-//		 * Need to make sure I have all that is needed to evaluate
-//		 * the Record Construction
-//		 */
-//		expressions::RecordConstruction *recCons =
-//				(expressions::RecordConstruction *) f_grouping;
-//		list<expressions::AttributeConstruction>::const_iterator it;
-//		for(it = recCons->getAtts().begin(); it != recCons->getAtts().end(); it++)	{
-//
-//			expressions::AttributeConstruction attr = *it;
-//			expressions::Expression *attrExpr = attr.getExpression();
-//			if(attrExpr->getTypeID() == expressions::RECORD_PROJECTION)
-//			{
-//
-//			}
-//			else
-//			{
-//				/* No need to do anything */
-//				/* Can recreate from activeTuple */
-//			}
-//			/* const map<RecordAttribute, RawValueMemory>& bindings =
-//			childState.getBindings();*/
-//		}
-//	}
-
-	RawValue groupHashKey = f_grouping->accept(aggrExprGenerator);
-
-	PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
-
-	BasicBlock *endBlockHTFull = BasicBlock::Create(llvmContext, "IfHTFullEnd",
-			F);
-	BasicBlock *ifHTFull;
-	context->CreateIfBlock(F, "IfHTFullCond", &ifHTFull, endBlockHTFull);
-
-	LoadInst *val_ht = Builder->CreateLoad(htR.mem_kv);
-	val_ht->setAlignment(8);
-
-	Value *offsetInHT = Builder->CreateLoad(htR.mem_offset);
-	Value *offsetPlusKVPair = Builder->CreateAdd(offsetInHT, kvSize);
-
-	Value *htSize = Builder->CreateLoad(htR.mem_size);
-	offsetCond = Builder->CreateICmpSGE(offsetPlusKVPair, htSize);
-
-	Builder->CreateCondBr(offsetCond, ifHTFull, endBlockHTFull);
-
-	/* true => realloc() */
-	Builder->SetInsertPoint(ifHTFull);
-
-	/* Casting htEntry* to void* requires a cast */
-	Value *cast_htEntries = Builder->CreateBitCast(val_ht, void_ptr_type);
-	ArgsRealloc.clear();
-	ArgsRealloc.push_back(cast_htEntries);
-	ArgsRealloc.push_back(htSize);
-	Value *val_newVoidHTPtr = Builder->CreateCall(reallocLLVM, ArgsRealloc);
-
-	Value *val_newHTPtr = Builder->CreateBitCast(val_newVoidHTPtr,
-			htEntryPtrType);
-	Builder->CreateStore(val_newHTPtr, htR.mem_kv);
-	val_size = Builder->CreateLoad(htR.mem_size);
-	val_size = Builder->CreateMul(val_size, context->createInt64(2));
-	Builder->CreateStore(val_size, htR.mem_size);
-	Builder->CreateBr(endBlockHTFull);
-
-	/* Insert ht entry in HT */
-	Builder->SetInsertPoint(endBlockHTFull);
-
-	/* Repeat load - realloc() might have occurred */
-	val_ht = Builder->CreateLoad(htR.mem_kv);
-	val_ht->setAlignment(8);
-
-	val_size = Builder->CreateLoad(htR.mem_size);
-
-	/* 1. kv += offset */
-	/* Note that we already have a htEntry ptr here */
-	Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht, val_tuplesNo);
-
-	/* 2a. kv_cast->keyPtr = &key */
-	offsetInStruct = 0;
-	//Shift in htEntry (struct) ptr
-	vector<Value*> idxList = vector<Value*>();
-	idxList.push_back(context->createInt32(0));
-	idxList.push_back(context->createInt32(offsetInStruct));
-
-	Value* structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
-	StoreInst *store_key = Builder->CreateStore(groupHashKey.value, structPtr);
-	store_key->setAlignment(8); //Used to be 4
-
-	/* 2b. kv_cast->payloadPtr = &payload */
-	offsetInStruct = 1;
-	idxList.clear();
-	idxList.push_back(context->createInt32(0));
-	idxList.push_back(context->createInt32(offsetInStruct));
-	structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
-
-	StoreInst *store_payloadPtr = Builder->CreateStore(offsetInArena,
-			structPtr);
-	store_payloadPtr->setAlignment(8);
-
-	/* 4. Increment counts - both Rel and HT */
-	Builder->CreateStore(offsetPlusPayload, relR.mem_offset);
-	Builder->CreateStore(offsetPlusKVPair, htR.mem_offset);
-	val_tuplesNo = Builder->CreateAdd(val_tuplesNo, context->createInt64(1));
-	Builder->CreateStore(val_tuplesNo, relR.mem_tuplesNo);
-	Builder->CreateStore(val_tuplesNo, htR.mem_tuplesNo);
-}
-
-void Nest::generateProbe(RawContext* const context) const
-{
-	IRBuilder<>* Builder = context->getBuilder();
-	LLVMContext& llvmContext = context->getLLVMContext();
-	Function *TheFunction = Builder->GetInsertBlock()->getParent();
-	RawCatalog& catalog = RawCatalog::getInstance();
-	vector<Value*> ArgsV;
-	Value* globalStr = context->CreateGlobalString(htName);
-	Type* int64_type = IntegerType::get(llvmContext, 64);
-
-	/**
-	 * Start injecting code at previous 'ending' point
-	 * Must also update what is considered the ending point
-	 * (-> loopEndHT)
-	 */
-	Builder->SetInsertPoint(context->getEndingBlock());
-
-	/**
-	 * STEP: Foreach key, loop through corresponding bucket.
-	 */
-
-	//1. Find out each bucket's size
-	//Get an array of structs containing (hashKey, bucketSize)
-	//XXX Correct way to do this: have your HT implementation maintain this info
-	//Result type specified
-	StructType *metadataType = context->getHashtableMetadataType();
-	PointerType *metadataArrayType = PointerType::get(metadataType, 0);
-
-	//Get HT Metadata
-	ArgsV.clear();
-	ArgsV.push_back(globalStr);
-	Function* getMetadata = context->getFunction("getMetadataHT");
-	//Given that I changed the return type in raw-context,
-	//no casting should be needed
-	Value* metadataArray = Builder->CreateCall(getMetadata, ArgsV);
-
-	//2. Loop through buckets
-	/**
-	 * foreach key in HT:
-	 * 		...
-	 */
-	BasicBlock *loopCondHT, *loopBodyHT, *loopIncHT, *loopEndHT;
-	context->CreateForLoop("LoopCondHT", "LoopBodyHT", "LoopIncHT", "LoopEndHT",
-			&loopCondHT, &loopBodyHT, &loopIncHT, &loopEndHT);
-	context->setEndingBlock(loopEndHT);
-	//Entry Block of bucket loop - Initializing counter
-	BasicBlock* codeSpot = Builder->GetInsertBlock();
-	PointerType* i8_ptr = PointerType::get(IntegerType::get(llvmContext, 8), 0);
-//	ConstantPointerNull* const_null = ConstantPointerNull::get(i8_ptr);
-	AllocaInst * mem_bucketCounter = context->createAlloca(
-											codeSpot,
-											"mem_bucketCnt",
-											IntegerType::get(llvmContext, 64)
-										);
-	Builder->CreateStore(context->createInt64(0), mem_bucketCounter);
-	Builder->CreateBr(loopCondHT);
-
-	Builder->SetInsertPoint(loopCondHT);
-	//Condition:  current bucketSize in result array positions examined is set to 0
-	Value* bucketCounter = Builder->CreateLoad(mem_bucketCounter);
-	Value* mem_arrayShifted = context->getArrayElemMem(metadataArray, bucketCounter);
-	Value* bucketSize = context->getStructElem(mem_arrayShifted,1);
-	Value* htKeysEnd = Builder->CreateICmpNE(bucketSize, context->createInt64(0),
-			"cmpMatchesEnd");
-	Builder->CreateCondBr(htKeysEnd, loopBodyHT, loopEndHT);
-
-	//Body per Key
-	Builder->SetInsertPoint(loopBodyHT);
-
-	//3. (nested) Loop through EACH bucket chain (i.e. all results for a key)
-	/**
-	 * foreach value in HT[key]:
-	 * 		...
-	 *
-	 * (Should be) very relevant to join
-	 */
-	AllocaInst* mem_metadataStruct = context->CreateEntryBlockAlloca(TheFunction,
-				"currKeyNest", metadataType);
-	Value* arrayShifted = Builder->CreateLoad(mem_arrayShifted);
-
-	Builder->CreateStore(arrayShifted,mem_metadataStruct);
-	Value* currKey = context->getStructElem(mem_metadataStruct,0);
-	Value* currBucketSize = context->getStructElem(mem_metadataStruct,1);
-
-	//Retrieve HT[key] (Perform the actual probe)
-	ArgsV.clear();
-	ArgsV.push_back(globalStr);
-	ArgsV.push_back(currKey);
-
-	Function* probe = context->getFunction("probeHT");
-	Value* voidHTBindings = Builder->CreateCall(probe, ArgsV);
-
-	BasicBlock *loopCondBucket, *loopBodyBucket, *loopIncBucket, *loopEndBucket;
-	context->CreateForLoop("LoopCondBucket", "LoopBodyBucket", "LoopIncBucket",
-			"LoopEndBucket", &loopCondBucket, &loopBodyBucket, &loopIncBucket,
-			&loopEndBucket);
-
-	//Setting up entry block
-	AllocaInst* mem_valuesCounter = context->CreateEntryBlockAlloca(
-							TheFunction, "ht_val_counter", int64_type);
-	Builder->CreateStore(context->createInt64(0),mem_valuesCounter);
-
-
-	vector<Monoid>::const_iterator itAcc = accs.begin();
-	vector<expressions::Expression*>::const_iterator itExpr =
-			outputExprs.begin();
-	vector<AllocaInst*> mem_accumulators;
-	/* Prepare accumulator FOREACH outputExpr */
-	for (; itAcc != accs.end(); itAcc++, itExpr++) {
-		Monoid acc = *itAcc;
-		expressions::Expression *outputExpr = *itExpr;
-		AllocaInst *mem_accumulator = resetAccumulator(outputExpr, acc);
-		mem_accumulators.push_back(mem_accumulator);
-	}
-	Builder->CreateBr(loopCondBucket);
-
-	//Condition: are there any more values in the bucket?
-	Builder->SetInsertPoint(loopCondBucket);
-	Value* valuesCounter = Builder->CreateLoad(mem_valuesCounter);
-	Value* cond = Builder->CreateICmpEQ(valuesCounter,currBucketSize);
-	Builder->CreateCondBr(cond,loopEndBucket,loopBodyBucket);
-
-	/**
-	 * [BODY] Time to do work per value:
-	 * -> 3a. find out what this value actually is (i.e., build OperatorState)
-	 * -> 3b. Differentiate behavior based on monoid type. Foreach, do:
-	 * ->-> evaluate predicate
-	 * ->-> compute expression
-	 * ->-> partially compute operator output
-	 */
-	Builder->SetInsertPoint(loopBodyBucket);
-
-	//3a. Loop through bindings and recreate/assemble OperatorState (i.e., deserialize)
-	Value* currValue = context->getArrayElem(voidHTBindings,valuesCounter);
-
-	//Result (payload) type and appropriate casts
-	int typeIdx = RawCatalog::getInstance().getTypeIndex(string(this->htName));
-	Value* idx = context->createInt32(typeIdx);
-	Type* structType = RawCatalog::getInstance().getTypeInternal(typeIdx);
-	PointerType* structPtrType = context->getPointerType(structType);
-	StructType* str = (llvm::StructType*) structType;
-
-	//Casting currValue from void* back to appropriate type
-	AllocaInst *mem_currValueCasted = context->CreateEntryBlockAlloca(TheFunction,"mem_currValueCasted",structPtrType);
-	Value* currValueCasted = Builder->CreateBitCast(currValue,structPtrType);
-	Builder->CreateStore(currValueCasted,mem_currValueCasted);
-
-	unsigned elemNo = str->getNumElements();
-	map<RecordAttribute, RawValueMemory>* allBucketBindings = new map<RecordAttribute, RawValueMemory>();
-	int i = 0;
-	//Retrieving activeTuple(s) from HT
-	AllocaInst *mem_activeTuple = NULL;
-	Value *activeTuple = NULL;
-	const vector<RecordAttribute*>& tuplesIdentifiers = mat.getWantedOIDs();
-	for (vector<RecordAttribute*>::const_iterator it =
-			tuplesIdentifiers.begin(); it != tuplesIdentifiers.end(); it++) {
-		RecordAttribute *attr = *it;
-		mem_activeTuple = context->CreateEntryBlockAlloca(TheFunction,
-				"mem_activeTuple", str->getElementType(i));
-		Value* currValueCasted = Builder->CreateLoad(mem_currValueCasted);
-		activeTuple = context->getStructElem(currValueCasted, i);
-		Builder->CreateStore(activeTuple, mem_activeTuple);
-
-		RawValueMemory mem_valWrapper;
-		mem_valWrapper.mem = mem_activeTuple;
-		mem_valWrapper.isNull = context->createFalse();
-		(*allBucketBindings)[*attr] = mem_valWrapper;
-		i++;
-	}
-
-	const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
-	Value *field = NULL;
-	for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!= wantedFields.end(); ++it) {
-		string currField = (*it)->getName();
-		AllocaInst *mem_field = context->CreateEntryBlockAlloca(TheFunction,currField+"mem",str->getElementType(i));
-
-		field = context->getStructElem(mem_currValueCasted,i);
-		Builder->CreateStore(field,mem_field);
-		i++;
-
-		RawValueMemory mem_valWrapper;
-		mem_valWrapper.mem = mem_field;
-		mem_valWrapper.isNull = context->createFalse();
-		(*allBucketBindings)[*(*it)] = mem_valWrapper;
-		LOG(INFO) << "[HT Bucket Traversal: ] Binding name: "<<currField;
-	}
-	OperatorState newState = OperatorState(*this, *allBucketBindings);
-
-	itAcc = accs.begin();
-	itExpr = outputExprs.begin();
-	vector<AllocaInst*>::const_iterator itMem = mem_accumulators.begin();
-	vector<string>::const_iterator itLabels = aggregateLabels.begin();
-	/* Accumulate FOREACH outputExpr */
-	for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++, itLabels++) {
-		Monoid acc = *itAcc;
-		expressions::Expression *outputExpr = *itExpr;
-		AllocaInst *mem_accumulating = *itMem;
-		string aggregateName = *itLabels;
-
-		switch (acc) {
-		case SUM:
-			generateSum(outputExpr, context, newState, mem_accumulating);
-			break;
-		case MULTIPLY:
-			generateMul(outputExpr, context, newState, mem_accumulating);
-			break;
-		case MAX:
-			generateMax(outputExpr, context, newState, mem_accumulating);
-			break;
-		case OR:
-			generateOr(outputExpr, context, newState, mem_accumulating);
-			break;
-		case AND:
-			generateAnd(outputExpr, context, newState, mem_accumulating);
-			break;
-		case UNION:
-			//		generateUnion(context, childState);
-			//		break;
-		case BAGUNION:
-			//		generateBagUnion(context, childState);
-			//		break;
-		case APPEND:
-			//		generateAppend(context, childState);
-			//		break;
-		default: {
-			string error_msg = string(
-					"[Nest: ] Unknown / Still Unsupported accumulator");
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(error_msg);
-		}
-		}
-
-		Plugin *htPlugin = new BinaryInternalPlugin(context, htName);
-		RecordAttribute attr_aggr = RecordAttribute(htName, aggregateName,
-				outputExpr->getExpressionType());
-		catalog.registerPlugin(htName, htPlugin);
-		//cout << "Registering custom pg for " << htName << endl;
-		RawValueMemory mem_aggrWrapper;
-		mem_aggrWrapper.mem = mem_accumulating;
-		mem_aggrWrapper.isNull = context->createFalse();
-		(*allBucketBindings)[attr_aggr] = mem_aggrWrapper;
-	}
-
-	/**
-	 * [INC - HT CHAIN NO.] Increase value counter in (specific) bucket
-	 * Continue inner loop
-	 */
-	Builder->CreateBr(loopIncBucket);
-	Builder->SetInsertPoint(loopIncBucket);
-
-	valuesCounter = Builder->CreateLoad(mem_valuesCounter);
-	Value* inc_valuesCounter = Builder->CreateAdd(valuesCounter,
-			context->createInt64(1));
-	Builder->CreateStore(inc_valuesCounter, mem_valuesCounter);
-	Builder->CreateBr(loopCondBucket);
-
-	/**
-	* [END - HT CHAIN LOOP.] End inner loop
-	* 4. Time to produce output tuple & forward to next operator
-	*/
-	Builder->SetInsertPoint(loopEndBucket);
-
-	/* Explicit oid (i.e., bucketNo) materialization */
-	RawValueMemory mem_oidWrapper;
-	mem_oidWrapper.mem = mem_bucketCounter;
-	mem_oidWrapper.isNull = context->createFalse();
-	ExpressionType *oidType = new IntType();
-	RecordAttribute attr_oid = RecordAttribute(htName,activeLoop,oidType);
-	(*allBucketBindings)[attr_oid] = mem_oidWrapper;
-//#ifdef DEBUG
-//		ArgsV.clear();
-//		Function* debugInt64 = context->getFunction("printi");
-//		Value* finalResult = Builder->CreateLoad(mem_accumulating);
-//		ArgsV.push_back(finalResult);
-//		Builder->CreateCall(debugInt64, ArgsV);
-//		ArgsV.clear();
-//		ArgsV.push_back(context->createInt32(-7));
-//		Builder->CreateCall(debugInt64, ArgsV);
-//		ArgsV.clear();
-//#endif
-
-	OperatorState *groupState = new OperatorState(*this, *allBucketBindings);
-	getParent()->consume(context, *groupState);
-
-
-	/**
-	 * [INC - HT BUCKET NO.] Continue outer loop
-	 */
-	bucketCounter = Builder->CreateLoad(mem_bucketCounter);
-	Value *val_inc = Builder->getInt64(1);
-	Value* val_new = Builder->CreateAdd(bucketCounter, val_inc);
-	Builder->CreateStore(val_new, mem_bucketCounter);
-	Builder->CreateBr(loopIncHT);
-
-
-	Builder->SetInsertPoint(loopIncHT);
-	Builder->CreateBr(loopCondHT);
-
-	//Ending block of buckets loop
-	Builder->SetInsertPoint(loopEndHT);
-}
+// /**
+//  * @param rel the materialized input relation
+//  * @param ht  the htEntries corresp. to the relation
+//  *
+//  * @return item count per resulting cluster
+//  */
+// Value* Nest::radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const	{
+
+// 	LLVMContext& llvmContext = context->getLLVMContext();
+// 	RawCatalog& catalog = RawCatalog::getInstance();
+// 	Function *F = context->getGlobalFunction();
+// 	IRBuilder<> *Builder = context->getBuilder();
+
+// 	/* Difference from radix-join */
+// 	Function *partitionAggHT = context->getFunction("partitionAggHT");
+// 	vector<Value*> ArgsPartition;
+// 	Value *val_tuplesNo = Builder->CreateLoad(rel.mem_tuplesNo);
+// 	Value *val_ht 		= Builder->CreateLoad(ht.mem_kv);
+// 	ArgsPartition.push_back(val_tuplesNo);
+// 	ArgsPartition.push_back(val_ht);
+
+// 	return  Builder->CreateCall(partitionAggHT, ArgsPartition);
+// }
+
+// void Nest::generateProbe(RawContext* const context) const
+// {
+// 	IRBuilder<>* Builder = context->getBuilder();
+// 	LLVMContext& llvmContext = context->getLLVMContext();
+// 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
+// 	RawCatalog& catalog = RawCatalog::getInstance();
+// 	vector<Value*> ArgsV;
+// 	Value* globalStr = context->CreateGlobalString(htName);
+// 	Type* int64_type = IntegerType::get(llvmContext, 64);
+
+// 	/**
+// 	 * Start injecting code at previous 'ending' point
+// 	 * Must also update what is considered the ending point
+// 	 * (-> loopEndHT)
+// 	 */
+// 	Builder->SetInsertPoint(context->getEndingBlock());
+
+// 	/**
+// 	 * STEP: Foreach key, loop through corresponding bucket.
+// 	 */
+
+// 	//1. Find out each bucket's size
+// 	//Get an array of structs containing (hashKey, bucketSize)
+// 	//XXX Correct way to do this: have your HT implementation maintain this info
+// 	//Result type specified
+// 	StructType *metadataType = context->getHashtableMetadataType();
+// 	PointerType *metadataArrayType = PointerType::get(metadataType, 0);
+
+// 	//Get HT Metadata
+// 	ArgsV.clear();
+// 	ArgsV.push_back(globalStr);
+// 	Function* getMetadata = context->getFunction("getMetadataHT");
+// 	//Given that I changed the return type in raw-context,
+// 	//no casting should be needed
+// 	Value* metadataArray = Builder->CreateCall(getMetadata, ArgsV);
+
+// 	//2. Loop through buckets
+// 	/**
+// 	 * foreach key in HT:
+// 	 * 		...
+// 	 */
+// 	BasicBlock *loopCondHT, *loopBodyHT, *loopIncHT, *loopEndHT;
+// 	context->CreateForLoop("LoopCondHT", "LoopBodyHT", "LoopIncHT", "LoopEndHT",
+// 			&loopCondHT, &loopBodyHT, &loopIncHT, &loopEndHT);
+// 	context->setEndingBlock(loopEndHT);
+// 	//Entry Block of bucket loop - Initializing counter
+// 	BasicBlock* codeSpot = Builder->GetInsertBlock();
+// 	PointerType* i8_ptr = PointerType::get(IntegerType::get(llvmContext, 8), 0);
+// //	ConstantPointerNull* const_null = ConstantPointerNull::get(i8_ptr);
+// 	AllocaInst * mem_bucketCounter = context->createAlloca(
+// 											codeSpot,
+// 											"mem_bucketCnt",
+// 											IntegerType::get(llvmContext, 64)
+// 										);
+// 	Builder->CreateStore(context->createInt64(0), mem_bucketCounter);
+// 	Builder->CreateBr(loopCondHT);
+
+// 	Builder->SetInsertPoint(loopCondHT);
+// 	//Condition:  current bucketSize in result array positions examined is set to 0
+// 	Value* bucketCounter = Builder->CreateLoad(mem_bucketCounter);
+// 	Value* mem_arrayShifted = context->getArrayElemMem(metadataArray, bucketCounter);
+// 	Value* bucketSize = context->getStructElem(mem_arrayShifted,1);
+// 	Value* htKeysEnd = Builder->CreateICmpNE(bucketSize, context->createInt64(0),
+// 			"cmpMatchesEnd");
+// 	Builder->CreateCondBr(htKeysEnd, loopBodyHT, loopEndHT);
+
+// 	//Body per Key
+// 	Builder->SetInsertPoint(loopBodyHT);
+
+// 	//3. (nested) Loop through EACH bucket chain (i.e. all results for a key)
+// 	/**
+// 	 * foreach value in HT[key]:
+// 	 * 		...
+// 	 *
+// 	 * (Should be) very relevant to join
+// 	 */
+// 	AllocaInst* mem_metadataStruct = context->CreateEntryBlockAlloca(TheFunction,
+// 				"currKeyNest", metadataType);
+// 	Value* arrayShifted = Builder->CreateLoad(mem_arrayShifted);
+
+// 	Builder->CreateStore(arrayShifted,mem_metadataStruct);
+// 	Value* currKey = context->getStructElem(mem_metadataStruct,0);
+// 	Value* currBucketSize = context->getStructElem(mem_metadataStruct,1);
+
+// 	//Retrieve HT[key] (Perform the actual probe)
+// 	ArgsV.clear();
+// 	ArgsV.push_back(globalStr);
+// 	ArgsV.push_back(currKey);
+
+// 	Function* probe = context->getFunction("probeHT");
+// 	Value* voidHTBindings = Builder->CreateCall(probe, ArgsV);
+
+// 	BasicBlock *loopCondBucket, *loopBodyBucket, *loopIncBucket, *loopEndBucket;
+// 	context->CreateForLoop("LoopCondBucket", "LoopBodyBucket", "LoopIncBucket",
+// 			"LoopEndBucket", &loopCondBucket, &loopBodyBucket, &loopIncBucket,
+// 			&loopEndBucket);
+
+// 	//Setting up entry block
+// 	AllocaInst* mem_valuesCounter = context->CreateEntryBlockAlloca(
+// 							TheFunction, "ht_val_counter", int64_type);
+// 	Builder->CreateStore(context->createInt64(0),mem_valuesCounter);
+
+
+// 	vector<Monoid>::const_iterator itAcc = accs.begin();
+// 	vector<expressions::Expression*>::const_iterator itExpr =
+// 			outputExprs.begin();
+// 	vector<AllocaInst*> mem_accumulators;
+// 	/* Prepare accumulator FOREACH outputExpr */
+// 	for (; itAcc != accs.end(); itAcc++, itExpr++) {
+// 		Monoid acc = *itAcc;
+// 		expressions::Expression *outputExpr = *itExpr;
+// 		AllocaInst *mem_accumulator = resetAccumulator(outputExpr, acc);
+// 		mem_accumulators.push_back(mem_accumulator);
+// 	}
+// 	Builder->CreateBr(loopCondBucket);
+
+// 	//Condition: are there any more values in the bucket?
+// 	Builder->SetInsertPoint(loopCondBucket);
+// 	Value* valuesCounter = Builder->CreateLoad(mem_valuesCounter);
+// 	Value* cond = Builder->CreateICmpEQ(valuesCounter,currBucketSize);
+// 	Builder->CreateCondBr(cond,loopEndBucket,loopBodyBucket);
+
+// 	/**
+// 	 * [BODY] Time to do work per value:
+// 	 * -> 3a. find out what this value actually is (i.e., build OperatorState)
+// 	 * -> 3b. Differentiate behavior based on monoid type. Foreach, do:
+// 	 * ->-> evaluate predicate
+// 	 * ->-> compute expression
+// 	 * ->-> partially compute operator output
+// 	 */
+// 	Builder->SetInsertPoint(loopBodyBucket);
+
+// 	//3a. Loop through bindings and recreate/assemble OperatorState (i.e., deserialize)
+// 	Value* currValue = context->getArrayElem(voidHTBindings,valuesCounter);
+
+// 	//Result (payload) type and appropriate casts
+// 	int typeIdx = RawCatalog::getInstance().getTypeIndex(string(this->htName));
+// 	Value* idx = context->createInt32(typeIdx);
+// 	Type* structType = RawCatalog::getInstance().getTypeInternal(typeIdx);
+// 	PointerType* structPtrType = context->getPointerType(structType);
+// 	StructType* str = (llvm::StructType*) structType;
+
+// 	//Casting currValue from void* back to appropriate type
+// 	AllocaInst *mem_currValueCasted = context->CreateEntryBlockAlloca(TheFunction,"mem_currValueCasted",structPtrType);
+// 	Value* currValueCasted = Builder->CreateBitCast(currValue,structPtrType);
+// 	Builder->CreateStore(currValueCasted,mem_currValueCasted);
+
+// 	unsigned elemNo = str->getNumElements();
+// 	map<RecordAttribute, RawValueMemory>* allBucketBindings = new map<RecordAttribute, RawValueMemory>();
+// 	int i = 0;
+// 	//Retrieving activeTuple(s) from HT
+// 	AllocaInst *mem_activeTuple = NULL;
+// 	Value *activeTuple = NULL;
+// 	const vector<RecordAttribute*>& tuplesIdentifiers = mat.getWantedOIDs();
+// 	for (vector<RecordAttribute*>::const_iterator it =
+// 			tuplesIdentifiers.begin(); it != tuplesIdentifiers.end(); it++) {
+// 		RecordAttribute *attr = *it;
+// 		mem_activeTuple = context->CreateEntryBlockAlloca(TheFunction,
+// 				"mem_activeTuple", str->getElementType(i));
+// 		Value* currValueCasted = Builder->CreateLoad(mem_currValueCasted);
+// 		activeTuple = context->getStructElem(currValueCasted, i);
+// 		Builder->CreateStore(activeTuple, mem_activeTuple);
+
+// 		RawValueMemory mem_valWrapper;
+// 		mem_valWrapper.mem = mem_activeTuple;
+// 		mem_valWrapper.isNull = context->createFalse();
+// 		(*allBucketBindings)[*attr] = mem_valWrapper;
+// 		i++;
+// 	}
+
+// 	const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
+// 	Value *field = NULL;
+// 	for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it!= wantedFields.end(); ++it) {
+// 		string currField = (*it)->getName();
+// 		AllocaInst *mem_field = context->CreateEntryBlockAlloca(TheFunction,currField+"mem",str->getElementType(i));
+
+// 		field = context->getStructElem(mem_currValueCasted,i);
+// 		Builder->CreateStore(field,mem_field);
+// 		i++;
+
+// 		RawValueMemory mem_valWrapper;
+// 		mem_valWrapper.mem = mem_field;
+// 		mem_valWrapper.isNull = context->createFalse();
+// 		(*allBucketBindings)[*(*it)] = mem_valWrapper;
+// 		LOG(INFO) << "[HT Bucket Traversal: ] Binding name: "<<currField;
+// 	}
+// 	OperatorState newState = OperatorState(*this, *allBucketBindings);
+
+// 	itAcc = accs.begin();
+// 	itExpr = outputExprs.begin();
+// 	vector<AllocaInst*>::const_iterator itMem = mem_accumulators.begin();
+// 	vector<string>::const_iterator itLabels = aggregateLabels.begin();
+// 	/* Accumulate FOREACH outputExpr */
+// 	for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++, itLabels++) {
+// 		Monoid acc = *itAcc;
+// 		expressions::Expression *outputExpr = *itExpr;
+// 		AllocaInst *mem_accumulating = *itMem;
+// 		string aggregateName = *itLabels;
+
+// 		switch (acc) {
+// 		case SUM:
+// 			generateSum(outputExpr, context, newState, mem_accumulating);
+// 			break;
+// 		case MULTIPLY:
+// 			generateMul(outputExpr, context, newState, mem_accumulating);
+// 			break;
+// 		case MAX:
+// 			generateMax(outputExpr, context, newState, mem_accumulating);
+// 			break;
+// 		case OR:
+// 			generateOr(outputExpr, context, newState, mem_accumulating);
+// 			break;
+// 		case AND:
+// 			generateAnd(outputExpr, context, newState, mem_accumulating);
+// 			break;
+// 		case UNION:
+// 			//		generateUnion(context, childState);
+// 			//		break;
+// 		case BAGUNION:
+// 			//		generateBagUnion(context, childState);
+// 			//		break;
+// 		case APPEND:
+// 			//		generateAppend(context, childState);
+// 			//		break;
+// 		default: {
+// 			string error_msg = string(
+// 					"[Nest: ] Unknown / Still Unsupported accumulator");
+// 			LOG(ERROR)<< error_msg;
+// 			throw runtime_error(error_msg);
+// 		}
+// 		}
+
+// 		Plugin *htPlugin = new BinaryInternalPlugin(context, htName);
+// 		RecordAttribute attr_aggr = RecordAttribute(htName, aggregateName,
+// 				outputExpr->getExpressionType());
+// 		catalog.registerPlugin(htName, htPlugin);
+// 		//cout << "Registering custom pg for " << htName << endl;
+// 		RawValueMemory mem_aggrWrapper;
+// 		mem_aggrWrapper.mem = mem_accumulating;
+// 		mem_aggrWrapper.isNull = context->createFalse();
+// 		(*allBucketBindings)[attr_aggr] = mem_aggrWrapper;
+// 	}
+
+// 	/**
+// 	 * [INC - HT CHAIN NO.] Increase value counter in (specific) bucket
+// 	 * Continue inner loop
+// 	 */
+// 	Builder->CreateBr(loopIncBucket);
+// 	Builder->SetInsertPoint(loopIncBucket);
+
+// 	valuesCounter = Builder->CreateLoad(mem_valuesCounter);
+// 	Value* inc_valuesCounter = Builder->CreateAdd(valuesCounter,
+// 			context->createInt64(1));
+// 	Builder->CreateStore(inc_valuesCounter, mem_valuesCounter);
+// 	Builder->CreateBr(loopCondBucket);
+
+// 	/**
+// 	* [END - HT CHAIN LOOP.] End inner loop
+// 	* 4. Time to produce output tuple & forward to next operator
+// 	*/
+// 	Builder->SetInsertPoint(loopEndBucket);
+
+// 	/* Explicit oid (i.e., bucketNo) materialization */
+// 	RawValueMemory mem_oidWrapper;
+// 	mem_oidWrapper.mem = mem_bucketCounter;
+// 	mem_oidWrapper.isNull = context->createFalse();
+// 	ExpressionType *oidType = new IntType();
+// 	RecordAttribute attr_oid = RecordAttribute(htName,activeLoop,oidType);
+// 	(*allBucketBindings)[attr_oid] = mem_oidWrapper;
+// //#ifdef DEBUG
+// //		ArgsV.clear();
+// //		Function* debugInt64 = context->getFunction("printi");
+// //		Value* finalResult = Builder->CreateLoad(mem_accumulating);
+// //		ArgsV.push_back(finalResult);
+// //		Builder->CreateCall(debugInt64, ArgsV);
+// //		ArgsV.clear();
+// //		ArgsV.push_back(context->createInt32(-7));
+// //		Builder->CreateCall(debugInt64, ArgsV);
+// //		ArgsV.clear();
+// //#endif
+
+// 	OperatorState *groupState = new OperatorState(*this, *allBucketBindings);
+// 	getParent()->consume(context, *groupState);
+
+
+// 	/**
+// 	 * [INC - HT BUCKET NO.] Continue outer loop
+// 	 */
+// 	bucketCounter = Builder->CreateLoad(mem_bucketCounter);
+// 	Value *val_inc = Builder->getInt64(1);
+// 	Value* val_new = Builder->CreateAdd(bucketCounter, val_inc);
+// 	Builder->CreateStore(val_new, mem_bucketCounter);
+// 	Builder->CreateBr(loopIncHT);
+
+
+// 	Builder->SetInsertPoint(loopIncHT);
+// 	Builder->CreateBr(loopCondHT);
+
+// 	//Ending block of buckets loop
+// 	Builder->SetInsertPoint(loopEndHT);
+// }
 
 void Nest::generateSum(expressions::Expression* outputExpr,
 		RawContext* const context, const OperatorState& state,

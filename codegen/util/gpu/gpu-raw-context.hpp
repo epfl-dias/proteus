@@ -51,7 +51,8 @@ public:
     void pushNewCpuPipeline (RawPipelineGen *copyStateFrom = NULL);
     void popNewPipeline();
     RawPipelineGen * removeLatestPipeline();
-    RawPipelineGen * getCurrentPipeline();
+    RawPipelineGen * getCurrentPipeline()  ;
+    void             setChainedPipeline(RawPipelineGen * next);
 
     virtual Module      * getModule () const {
         return generators.back()->getModule ();

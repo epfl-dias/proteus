@@ -83,6 +83,8 @@ protected:
 
     RawPipelineGen            * copyStateFrom   ;
 
+    RawPipelineGen            * execute_after_close;
+
 //     //Used to include optimization passes
 //     legacy::FunctionPassManager * TheFPM        ;
 // #if MODULEPASS
@@ -117,6 +119,11 @@ public:
     virtual Function              * prepare();
     virtual RawPipeline           * getPipeline(int group_id = 0);
     virtual void                  * getKernel  () const;
+
+    virtual void                    setChainedPipeline(RawPipelineGen * next){
+        assert(!execute_after_close && "No support for multiple pipelines after a single one, create a chain");
+        execute_after_close = next;
+    }
 
     virtual void                  * getConsume() const{return getKernel();}
     virtual Function              * getLLVMConsume() const {return F;}
@@ -176,12 +183,15 @@ protected:
     void              * init_state;
     void              * deinit_state;
 
+    RawPipeline       * execute_after_close;
+
     RawPipeline(void * cons, size_t state_size, RawPipelineGen * gen, llvm::StructType * state_type,
         const std::vector<std::pair<const void *, std::function<opener_t>>> &openers,
         const std::vector<std::pair<const void *, std::function<closer_t>>> &closers,
         void *init_state,
         void *deinit_state,
-        int32_t group_id = 0); //FIXME: group id should be handled to comply with the requirements!
+        int32_t group_id = 0, //FIXME: group id should be handled to comply with the requirements!
+        RawPipeline * execute_after_close = NULL);
 
     // void copyStateFrom  (RawPipeline * p){
     //     std::cout << p->state_size << std::endl;

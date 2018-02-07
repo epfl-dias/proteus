@@ -74,6 +74,7 @@ void RawTestEnvironment::SetUp(){
 }
 
 void RawTestEnvironment::TearDown(){
+	StorageManager::unloadAll();
 	RawMemoryManager::destroy();
 }
 
@@ -88,7 +89,7 @@ protected:
 
 	virtual void TearDown() {}
 
-	bool executePlan(const char * planPath, const char * testLabel) {
+	bool executePlan(const char * planPath, const char * testLabel, const char * catalogJSON) {
 		std::vector<RawPipeline *> pipelines;
 		{
 			time_block t("Tcodegen: ");
@@ -119,6 +120,10 @@ protected:
 		bool res = verifyTestResult(testPath, testLabel);
 		shm_unlink(testLabel);
 		return res;
+	}
+
+	bool executePlan(const char * planPath, const char * testLabel) {
+		return executePlan(planPath, testLabel, catalogJSON);
 	}
 
 	bool flushResults = true;
@@ -212,11 +217,8 @@ TEST_F(PlanTest, JoinRecordBNonselective) {
 	const char* catalogJSON = "inputs/parser/catalog.json";
 	const char* planPath = "inputs/plans/reduce-join-record-nonselective.json";
 	const char *testLabel = "reduce-join-record-nonselective-log.json";
-
-	CatalogParser catalog = CatalogParser(catalogJSON);
-	PlanExecutor exec1 = PlanExecutor (planPath, catalog, testLabel);
-
-	EXPECT_TRUE(verifyTestResult(testPath, testLabel));
+	
+	EXPECT_TRUE(executePlan(planPath, testLabel, catalogJSON));
 }
 
 TEST_F(PlanTest, ScanBin) {

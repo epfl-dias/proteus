@@ -71,7 +71,7 @@ private:
 	void generate(RawContext* const context, const OperatorState& childState) const;
 	//Used to enable chaining with subsequent operators
 	void generateBagUnion(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state) const;
+			const OperatorState& state, Value * cnt_mem) const;
 	void generateAppend(expressions::Expression* outputExpr, RawContext* const context,
 			const OperatorState& state, AllocaInst *mem_accumulating) const;
 

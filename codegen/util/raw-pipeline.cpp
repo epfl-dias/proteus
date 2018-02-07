@@ -174,7 +174,7 @@ void RawPipelineGen::init(){
 }
 
 RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPipelineGen * copyStateFrom): 
-            F(nullptr), pipName(pipName), context(context), copyStateFrom(copyStateFrom){
+            F(nullptr), pipName(pipName), context(context), copyStateFrom(copyStateFrom), execute_after_close(NULL){
     // TheModule  = new Module(pipName, context->getLLVMContext());
     TheBuilder = new IRBuilder<>(context->getLLVMContext());
     
@@ -375,7 +375,7 @@ RawPipeline * RawPipelineGen::getPipeline(int group_id){
         closers.insert(closers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
     }
 
-    return new RawPipeline(func, (getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8, this, state_type, openers, closers, getCompiledFunction(open__function), getCompiledFunction(close_function), group_id);
+    return new RawPipeline(func, (getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8, this, state_type, openers, closers, getCompiledFunction(open__function), getCompiledFunction(close_function), group_id, execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);
 }
 
 RawPipeline::RawPipeline(void * f, size_t state_size, RawPipelineGen * gen, StructType * state_type,
@@ -383,8 +383,9 @@ RawPipeline::RawPipeline(void * f, size_t state_size, RawPipelineGen * gen, Stru
         const std::vector<std::pair<const void *, std::function<closer_t>>> &closers,
         void *init_state,
         void *deinit_state,
-        int32_t group_id): 
-            cons(f), state_type(state_type), openers(openers), closers(closers), group_id(group_id), layout(gen->getModule()->getDataLayout()), state_size(state_size), init_state(init_state), deinit_state(deinit_state){
+        int32_t group_id,
+        RawPipeline * execute_after_close): 
+            cons(f), state_type(state_type), openers(openers), closers(closers), group_id(group_id), layout(gen->getModule()->getDataLayout()), state_size(state_size), init_state(init_state), deinit_state(deinit_state), execute_after_close(execute_after_close){
     state = malloc(state_size); //(getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8);
     assert(state);
 }
@@ -476,6 +477,12 @@ void RawPipeline::close(){
     
     (closers[0].second)(this);
     // for (size_t i = closers.size() ; i > 0 ; --i) closers[i - 1](this);
+
+    if (execute_after_close){
+        execute_after_close->open();
+        execute_after_close->consume(0);
+        execute_after_close->close();
+    }
 }
 
 

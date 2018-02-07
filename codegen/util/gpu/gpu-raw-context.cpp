@@ -251,8 +251,11 @@ RawPipelineGen * GpuRawContext::removeLatestPipeline(){
 }
 
 RawPipelineGen * GpuRawContext::getCurrentPipeline(){
-    assert(!pipelines.empty());
-    return pipelines.back();
+    return generators.back();
+}
+
+void GpuRawContext::setChainedPipeline(RawPipelineGen * next){
+    generators.back()->setChainedPipeline(next);
 }
 
 void GpuRawContext::compileAndLoad(){

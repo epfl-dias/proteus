@@ -33,6 +33,8 @@
 #include "expressions/expressions.hpp"
 #include "plugins/binary-internal-plugin.hpp"
 #include "util/radix/aggregations/radix-aggr.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
+#include "operators/radix-join.hpp"
 
 #define DEBUGRADIX_NEST
 /**
@@ -97,11 +99,11 @@ public:
 	Materializer& getMaterializer() {return mat;}
 	virtual bool isFiltering() const {return true;}
 private:
-	void generateInsert(RawContext* context, const OperatorState& childState);
+	// void generateInsert(RawContext* context, const OperatorState& childState);
 	/* Very similar to radix join building phase! */
-	void buildHT(RawContext* context, const OperatorState& childState);
+	// void buildHT(RawContext* context, const OperatorState& childState);
 	void probeHT() const;
-	Value* radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const;
+	// Value* radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const;
 	/**
 	 * Once HT has been fully materialized, it is time to resume execution.
 	 * Note: generateProbe (should) not require any info reg. the previous op that was called.
@@ -114,12 +116,12 @@ private:
 	void generateOr(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
 	void generateAnd(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
 
-	map<RecordAttribute, RawValueMemory>* reconstructResults(Value *htBuffer, Value *idx) const;
+	map<RecordAttribute, RawValueMemory>* reconstructResults(Value *htBuffer, Value *idx, size_t relR_mem_relation_id) const;
 	/**
 	 * We need a new accumulator for every resulting bucket of the HT
 	 */
 	AllocaInst* resetAccumulator(expressions::Expression* outputExpr, Monoid acc) const;
-	void updateRelationPointers() const;
+	// void updateRelationPointers() const;
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> outputExprs;
@@ -131,7 +133,8 @@ private:
 
 	const char *htName;
 	Materializer& mat;
-	RawContext* __attribute__((unused)) context;
+	GpuRawContext * context;
+	RadixJoinBuild * build;
 
 	/**
 	 * Relevant to radix-based HT
@@ -142,8 +145,8 @@ private:
 	StructType *payloadType;
 	Type *keyType;
 	StructType *htEntryType;
-	struct relationBuf relR;
-	struct kvBuf htR;
+	// struct relationBuf relR;
+	// struct kvBuf htR;
 	HT *HT_per_cluster;
 	StructType *htClusterType;
 	// Raw Buffers

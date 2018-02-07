@@ -397,7 +397,7 @@ RawPipeline * RawGpuPipelineGen::getPipeline(int group_id){
         closers.insert(closers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
     }
     
-    return new RawPipeline(func, (getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8, this, state_type, openers, closers, wrapper_module.getCompiledFunction(open__function), wrapper_module.getCompiledFunction(close_function), group_id);
+    return new RawPipeline(func, (getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8, this, state_type, openers, closers, wrapper_module.getCompiledFunction(open__function), wrapper_module.getCompiledFunction(close_function), group_id, execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);
 }
 
 void * RawGpuPipelineGen::getCompiledFunction(Function * f){

@@ -194,7 +194,7 @@ void Reduce::generate(RawContext* const context,
 			break;
 		}
 		case BAGUNION:
-			generateBagUnion(outputExpr, context, childState);
+			generateBagUnion(outputExpr, context, childState, context->getStateVar(*itMem));
 			break;
 		case APPEND:
 			//		generateAppend(context, childState);
@@ -220,7 +220,7 @@ void Reduce::generate(RawContext* const context,
 //Flush out whatever you received
 //FIXME Need 'output plugin' / 'serializer'
 void Reduce::generateBagUnion(expressions::Expression* outputExpr,
-				RawContext* const context, const OperatorState& state) const {
+				RawContext* const context, const OperatorState& state, Value * cnt_mem) const {
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -240,8 +240,7 @@ void Reduce::generateBagUnion(expressions::Expression* outputExpr,
 	Builder->SetInsertPoint(currBlock);
 
 	//results so far
-	Value* mem_resultCtr = context->getMemResultCtr();
-	Value* resultCtr = Builder->CreateLoad(mem_resultCtr);
+	Value* resultCtr = Builder->CreateLoad(cnt_mem);
 
 	//flushing out delimiter (IF NEEDED)
 	flusher.flushDelim(resultCtr);
@@ -250,7 +249,7 @@ void Reduce::generateBagUnion(expressions::Expression* outputExpr,
 
 	//increase result ctr
 	Value* resultCtrInc = Builder->CreateAdd(resultCtr,context->createInt64(1));
-	Builder->CreateStore(resultCtrInc, mem_resultCtr);
+	Builder->CreateStore(resultCtrInc, cnt_mem);
 
 	//Backing up insertion block
 	currBlock = Builder->GetInsertBlock();
@@ -392,7 +391,7 @@ void Reduce::generate_flush(){
 			expressions::Expression	  * outputExpr			= *itExpr	;
 			Value					  * mem_accumulating	= NULL 		;
 
-			if (*itMem == ~((size_t) 0)) {
+			if (*itMem == ~((size_t) 0) || acc == BAGUNION) {
 				string error_msg = string("[Reduce: ] Not implemented yet");
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
@@ -431,7 +430,7 @@ void Reduce::generate_flush(){
 			expressions::Expression	  * outputExpr			= *itExpr	;
 			Value					  * mem_accumulating	= NULL 		;
 
-			if (*itMem == ~((size_t) 0)) continue;
+			if (*itMem == ~((size_t) 0) || acc == BAGUNION) continue;
 			
 			Value      * val_mem    = ((GpuRawContext *) context)->getArgument(*itMem);
 			Value      * val_acc    = Builder->CreateLoad(val_mem);
@@ -517,7 +516,7 @@ size_t Reduce::resetAccumulator(expressions::Expression* outputExpr,
 							expressions::Expression	  * outputExpr			= *itExpr	;
 							Value					  * mem_accumulating	= NULL 		;
 
-							if (*itMem == ~((size_t) 0)) continue;
+							if (*itMem == ~((size_t) 0) || acc == BAGUNION) continue;
 							
 							args.emplace_back(context->getStateVar(*itMem));
 						}
@@ -555,7 +554,25 @@ size_t Reduce::resetAccumulator(expressions::Expression* outputExpr,
 			LOG(ERROR)<< error_msg;
 			throw runtime_error(error_msg);
 		}
-		case BAGUNION:
+		case BAGUNION:{
+			Type * t = Type::getInt64Ty(context->getLLVMContext());
+
+			mem_accum_id = context->appendStateVar(
+				PointerType::getUnqual(t),
+
+				[=](llvm::Value *){
+					Value * m = context->allocateStateVar(t);
+					IRBuilder<> * Builder = context->getBuilder();
+					Builder->CreateStore(context->createInt64(0), m);
+					return m;
+				},
+
+				[=](llvm::Value *, llvm::Value * s){
+					context->deallocateStateVar(s);
+				}
+			);
+			break;
+		}
 		case APPEND: {
 			/*XXX Bags and Lists can be processed in streaming fashion -> No accumulator needed */
 			break;
