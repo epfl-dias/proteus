@@ -21,19 +21,19 @@ file(GLOB codegen_src
 	# multigpu/buffer_pool.cu
 	# # src/output_composer.cu
 	multigpu/common.cpp
-    multigpu/buffer_manager.cpp
+    multigpu/buffer_manager.cu
 	# multigpu/common.cu
 	)
-# foreach(target
-# 	${codegen_src}
-# 	)
+foreach(target
+	${codegen_src}
+	)
 
 # if (${CUDA} STREQUAL "CUDA-NOTFOUND")
 # list(REMOVE_ITEM codegen_src ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/operators/gpu_to_cpu.cu)
 # endif()
 
-# 	SET_SOURCE_FILES_PROPERTIES(${target} PROPERTIES LANGUAGE CXX)
-# endforeach(target)
+	SET_SOURCE_FILES_PROPERTIES(${target} PROPERTIES LANGUAGE CXX)
+endforeach(target)
 
 # # SET_SOURCE_FILES_PROPERTIES(device_funcs_link.o EXTERNAL_OBJECT TRUE GENERATED true)
 
@@ -81,7 +81,7 @@ add_custom_command(OUTPUT buffer_manager.cubin.o
                    # WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                    )
 
-add_subdirectory(multigpu)
+# add_subdirectory(multigpu)
 endif()
 
 add_custom_target(buffer_manager     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin)
@@ -93,10 +93,9 @@ else()
     add_library(codegen SHARED ${codegen_src} ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o)
 endif()
 set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
-if (${CUDA} STREQUAL "CUDA-NOTFOUND")
-    target_link_libraries(codegen jsmn)
-else()
-    target_link_libraries(codegen jsmn multigpu)
+
+target_link_libraries(codegen jsmn) # multigpu)
+if (NOT (${CUDA} STREQUAL "CUDA-NOTFOUND"))
     add_dependencies(codegen buffer_manager_obj)
 endif()
 
