@@ -176,6 +176,18 @@ void thread_warm_up(){}
  *                  The file path is either an absolute path, or a path relative
  *                  to the current working directory
  *
+ *     echo <object_to_echo>
+ *          Switched on/off the echoing of types of results. When switched on,
+ *          in general, replies with the specific type of object that were
+ *          to be written in files, are also echoed to stdout
+ *
+ *          Valid to-echo-objects:
+ *              results (on/off)
+ *                  Prints results in output as well.
+ *                  Use with causion! Results may be binary or contain new lines
+ *                  with keywords!
+ *                  Default: off
+ *
  * Output commands:
  *      ready
  *          Send to the client when the raw-jit-executor is ready to start
@@ -192,13 +204,15 @@ void thread_warm_up(){}
  *                  The result is saved in file pointed by the <file_path>
  *                  The file path is either an absolute path, or a path relative
  *                  to the current working directory
+ *              echo
+ *                  The following line/lines are results printed into stdout
  */
 int main(int argc, char* argv[]){
     // Initialize Google's logging library.
     google::InitGoogleLogging(argv[0]);
     LOG(INFO)<< "Starting up server...";
 
-
+    bool echo = false;
 
     google::InstallFailureSignalHandler();
 
@@ -294,42 +308,50 @@ int main(int argc, char* argv[]){
 
             LOG(INFO)<< "Command received: " << cmd;
 
-            if (cmd == "quit") break;
-            else if (starts_with(cmd, "execute plan ")){
+            if (cmd == "quit") {
+                std::cout << "quiting..." << std::endl;
+                break;
+            } else if (starts_with(cmd, "execute plan ")){
                 if (starts_with(cmd, "execute plan from file ")){
                     constexpr size_t prefix_size = clen("execute plan from file ");
                     std::string plan  = cmd.substr(prefix_size);
                     std::string label = uue.inc_label();
                     executePlan(label.c_str(), plan.c_str());
 
-                    /* current */
-                    // int fd2 = shm_open(label.c_str(), O_RDONLY, S_IRWXU);
-                    // if (fd2 == -1) {
-                    //     throw runtime_error(string(__func__) + string(".open (output): ")+label);
-                    // }
-                    // struct stat statbuf;
-                    // if (fstat(fd2, &statbuf)) {
-                    //     fprintf(stderr, "FAILURE to stat test results! (%s)\n", std::strerror(errno));
-                    //     assert(false);
-                    // }
-                    // size_t fsize2 = statbuf.st_size;
-                    // char *currResultBuf = (char*) mmap(NULL, fsize2, PROT_READ | PROT_WRITE,
-                    //         MAP_PRIVATE, fd2, 0);
-                    // for (size_t j = 0 ; j < fsize2 ; ++j){
-                    //     std::cout << currResultBuf[j] << std::endl;
-                    // }
-                    // std::cout << "----" << std::endl;
-                    // std::cout << currResultBuf << std::endl;
-                    // fprintf(stderr, "* Obtained (size: %zu):\n%s\n", fsize2, currResultBuf);
-                    // // shm_unlink(label.c_str());
-                    // munmap(currResultBuf, fsize2);
+                    if (echo){
+                        std::cout << "result echo" << std::endl;
+                        /* current */
+                        int fd2 = shm_open(label.c_str(), O_RDONLY, S_IRWXU);
+                        if (fd2 == -1) {
+                            throw runtime_error(string(__func__) + string(".open (output): ")+label);
+                        }
+                        struct stat statbuf;
+                        if (fstat(fd2, &statbuf)) {
+                            fprintf(stderr, "FAILURE to stat test results! (%s)\n", std::strerror(errno));
+                            assert(false);
+                        }
+                        size_t fsize2 = statbuf.st_size;
+                        char *currResultBuf = (char*) mmap(NULL, fsize2, PROT_READ | PROT_WRITE,
+                                MAP_PRIVATE, fd2, 0);
+                        fwrite(currResultBuf, sizeof(char), fsize2, stdout);
+                        std::cout << std::endl;
+                        // shm_unlink(label.c_str());
+                        munmap(currResultBuf, fsize2);
+                    }
 
                     std::cout << "result in file /dev/shm/" << label << std::endl;
                 } else {
                     std::cout << "error (command not supported)" << std::endl;
                 }
+            } else if (starts_with(cmd, "echo")){
+                if (cmd == "echo results on"){
+                    echo = true;
+                } else if (cmd == "echo results off"){
+                    echo = false;
+                } else {
+                    std::cout << "error (unknown echo, please specify what to echo)" << std::endl;
+                }
             }
-
         }
     }
     LOG(INFO)<< "Shutting down...";
