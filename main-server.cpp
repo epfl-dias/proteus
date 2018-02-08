@@ -146,7 +146,7 @@ public:
 
     std::string inc_label(){
         if (query > 0) shm_unlink(last_label.c_str());
-        last_label = "raw_server_q" + std::to_string(query++);
+        last_label = label_prefix + std::to_string(query++);
         return last_label;
     }
 };
