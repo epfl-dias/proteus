@@ -110,11 +110,6 @@ private:
 	 * Any info needed is (should be) in the HT that will now be probed.
 	 */
 	void generateProbe(RawContext* const context) const;
-	void generateSum(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateMul(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateMax(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateOr(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateAnd(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
 
 	map<RecordAttribute, RawValueMemory>* reconstructResults(Value *htBuffer, Value *idx, size_t relR_mem_relation_id) const;
 	/**
