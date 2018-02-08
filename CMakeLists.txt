@@ -140,6 +140,7 @@ foreach(target
 	main-nest
 	main-str
 	main-reduce
+	main-server # this is not a test, but an interface to the executor
 	)
 	add_executable(raw${target} ${target}.cpp)
 	set_target_properties(raw${target} PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
