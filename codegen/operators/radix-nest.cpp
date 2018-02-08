@@ -1,7 +1,7 @@
 /*
 	RAW -- High-performance querying over raw, never-seen-before data.
 
-							Copyright (c) 2014
+							Copyright (c) 2017
 		Data Intensive Applications and Systems Labaratory (DIAS)
 				École Polytechnique Fédérale de Lausanne
 

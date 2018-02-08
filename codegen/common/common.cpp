@@ -58,7 +58,10 @@ bool verifyTestResult(const char *testsPath, const char *testLabel)	{
 	/* correct */
 	struct stat statbuf;
 	string correctResult = string(testsPath) + testLabel;
-	stat(correctResult.c_str(), &statbuf);
+	if (stat(correctResult.c_str(), &statbuf)) {
+		fprintf(stderr, "FAILURE to stat test verification! (%s)\n", std::strerror(errno));
+		return false;
+	}
 	size_t fsize1 = statbuf.st_size;
 	int fd1 = open(correctResult.c_str(), O_RDONLY);
 	if (fd1 == -1) {
@@ -68,12 +71,15 @@ bool verifyTestResult(const char *testsPath, const char *testLabel)	{
 			MAP_PRIVATE, fd1, 0);
 
 	/* current */
-	stat(testLabel, &statbuf);
-	size_t fsize2 = statbuf.st_size;
 	int fd2 = shm_open(testLabel, O_RDONLY, S_IRWXU);
 	if (fd2 == -1) {
 		throw runtime_error(string(__func__) + string(".open (output): ")+testLabel);
 	}
+	if (fstat(fd2, &statbuf)) {
+		fprintf(stderr, "FAILURE to stat test results! (%s)\n", std::strerror(errno));
+		return false;
+	}
+	size_t fsize2 = statbuf.st_size;
 	char *currResultBuf = (char*) mmap(NULL, fsize2, PROT_READ | PROT_WRITE,
 			MAP_PRIVATE, fd2, 0);
 	bool areEqual = ((fsize1 == fsize2) && ((fsize1 == 0) || (memcmp(correctBuf, currResultBuf, fsize1) == 0))) ? true : false;
