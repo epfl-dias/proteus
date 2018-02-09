@@ -41,8 +41,6 @@ enum ExpressionId	{ CONSTANT, RAWVALUE, ARGUMENT, RECORD_PROJECTION, RECORD_CONS
 
 class Expression	{
 public:
-	[[deprecated]]
-	Expression(ExpressionType* type) : type(type), registered(false){}
 	Expression(const ExpressionType* type) : type(type), registered(false){}
 	virtual ~Expression()								{}
 
@@ -536,6 +534,10 @@ public:
 			const list<AttributeConstruction>& atts) :
 			Expression(type), atts(atts) 							{
 				assert(type->getTypeID() == RECORD);
+			}
+
+	RecordConstruction(const list<AttributeConstruction>& atts) :
+			Expression(new RecordType()), atts(atts) 							{
 			}
 	~RecordConstruction()											{}
 

@@ -29,7 +29,24 @@ Flush::Flush(vector<expressions::Expression*> outputExprs,
 		RawOperator* const child,
 		RawContext* context,
 		const char *outPath) :
-		UnaryRawOperator(child), outputExprs(outputExprs), context(context), outPath(outPath) {
+		UnaryRawOperator(child), context(context), outPath(outPath) {
+	if (outputExprs.size() > 1){
+		list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
+		for (auto expr: outputExprs){
+			assert(expr->isRegistered() && "All output expressions must be registered!");
+			expressions::AttributeConstruction *newAttr =
+											new expressions::AttributeConstruction(
+												expr->getRegisteredAttrName(),
+												expr
+											);
+			attrs->push_back(*newAttr);
+		}
+
+		outputExpr = new expressions::RecordConstruction(new RecordType(), *attrs);
+	} else {
+		assert(outputExprs.size() > 0 && "Must have some output");
+		outputExpr = outputExprs[0];
+	}
 }
 
 void Flush::produce() {
@@ -79,21 +96,18 @@ void Flush::generate(RawContext* const context,
 	Builder->SetInsertPoint(currBlock);
 
 
-	for (const auto &outputExpr: outputExprs){
-		//results so far
-		Value* mem_resultCtr = context->getStateVar(result_cnt_id);
-		Value* resultCtr = Builder->CreateLoad(mem_resultCtr);
-		
-		//flushing out delimiter (IF NEEDED)
-		flusher.flushDelim(resultCtr);
-		
-		outputExpr->accept(flusher);
+	//results so far
+	Value* mem_resultCtr = context->getStateVar(result_cnt_id);
+	Value* resultCtr = Builder->CreateLoad(mem_resultCtr);
+	
+	//flushing out delimiter (IF NEEDED)
+	flusher.flushDelim(resultCtr);
+	
+	outputExpr->accept(flusher);
 
-		//increase result ctr
-		Value* resultCtrInc = Builder->CreateAdd(resultCtr,context->createInt64(1));
-		Builder->CreateStore(resultCtrInc, mem_resultCtr);
-	}
-
+	//increase result ctr
+	Value* resultCtrInc = Builder->CreateAdd(resultCtr,context->createInt64(1));
+	Builder->CreateStore(resultCtrInc, mem_resultCtr);
 
 	//Backing up insertion block
 	currBlock = Builder->GetInsertBlock();

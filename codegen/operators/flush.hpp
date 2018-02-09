@@ -47,7 +47,7 @@ protected:
 	RawContext *context;
 	size_t      result_cnt_id;
 
-	vector<expressions::Expression*> outputExprs;
+	expressions::Expression *outputExpr;
 	
 	const char *outPath;
 private:
