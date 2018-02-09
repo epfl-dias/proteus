@@ -30,23 +30,18 @@ Flush::Flush(vector<expressions::Expression*> outputExprs,
 		RawContext* context,
 		const char *outPath) :
 		UnaryRawOperator(child), context(context), outPath(outPath) {
-	if (outputExprs.size() > 1){
-		list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
-		for (auto expr: outputExprs){
-			assert(expr->isRegistered() && "All output expressions must be registered!");
-			expressions::AttributeConstruction *newAttr =
-											new expressions::AttributeConstruction(
-												expr->getRegisteredAttrName(),
-												expr
-											);
-			attrs->push_back(*newAttr);
-		}
-
-		outputExpr = new expressions::RecordConstruction(new RecordType(), *attrs);
-	} else {
-		assert(outputExprs.size() > 0 && "Must have some output");
-		outputExpr = outputExprs[0];
+	list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
+	for (auto expr: outputExprs){
+		assert(expr->isRegistered() && "All output expressions must be registered!");
+		expressions::AttributeConstruction *newAttr =
+										new expressions::AttributeConstruction(
+											expr->getRegisteredAttrName(),
+											expr
+										);
+		attrs->push_back(*newAttr);
 	}
+
+	outputExpr = new expressions::RecordConstruction(new RecordType(), *attrs);
 }
 
 void Flush::produce() {
