@@ -16,6 +16,9 @@ import org.apache.calcite.plan.hep.{HepPlanner, HepProgramBuilder}
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.sql.SqlExplainLevel
 import org.json4s.JsonAST.JValue
+import org.apache.calcite.sql.parser.SqlParseException
+import org.apache.calcite.sql.validate.SqlValidatorException
+import org.apache.calcite.tools.ValidationException
 
 import scala.io.{BufferedSource, Source, StdIn}
 
@@ -49,10 +52,11 @@ object Repl extends App {
     print("sql > ")
     val input = StdIn.readLine()
 
-      if (input == null || input == "" || input == "exit" || input == "quit") {
-        System.exit(0)
-      }
+    if (input == null || input == "" || input == "exit" || input == "quit") {
+      System.exit(0)
+    }
 
+    try {
       //Parse, validate, optimize query
       val queryPlanner: QueryToPlan = new QueryToPlan(rootSchema)
       val rel: RelNode = queryPlanner.getLogicalPlan(input)
@@ -93,6 +97,12 @@ object Repl extends App {
           System.exit(-1)
         }
       }
+    } catch {
+      case e: SqlParseException =>
+        System.out.println("Query parsing error: " + e.getMessage)
+      case e: ValidationException =>
+        System.out.println("Query parsing error: " + e.getMessage)
+    }
   }
 }
 

@@ -13,7 +13,6 @@ import org.apache.calcite.rel.`type`.RelDataTypeSystem
 import org.apache.calcite.tools.Program
 import org.apache.calcite.schema.SchemaPlus
 import org.apache.calcite.sql.fun.SqlStdOperatorTable
-import org.apache.calcite.sql.parser.SqlParseException
 import org.apache.calcite.sql.parser.SqlParser
 import org.apache.calcite.tools.FrameworkConfig
 import org.apache.calcite.tools.Frameworks
@@ -205,16 +204,10 @@ class QueryToPlan(schema: SchemaPlus) {
     val planner : Planner = Frameworks.getPlanner(config)
 
     def getLogicalPlan(query: String) : RelNode = {
-      try {
-        System.out.println(planner)
-        val sqlNode = planner.parse(query)
-        val validatedSqlNode = planner.validate(sqlNode)
-        planner.rel(validatedSqlNode).project
-      }
-      catch {
-        case e: SqlParseException =>
-          throw new RuntimeException("Query parsing error.", e)
-      }
+      System.out.println(planner)
+      val sqlNode = planner.parse(query)
+      val validatedSqlNode = planner.validate(sqlNode)
+      planner.rel(validatedSqlNode).project
     }
 
 }
