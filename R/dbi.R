@@ -6,13 +6,6 @@ setClass("ViDaRDriver", contains = "DBIDriver")
 # Instantiation of ViDaRDriver
 ViDaR <- function() new ("ViDaRDriver")
 
-
-# Overloading dbIsValid
-setMethod("dbIsValid", "ViDaRDriver", def = function(dbObj, ...) invisible(TRUE))
-
-# Overloading dbUnloadDriver
-setMethod("dbUnloadDriver", "ViDaRDriver", def = function(drv, ...) invisible(TRUE))
-
 # Overloading dbGetInfo
 setMethod("dbGetInfo", "ViDaRDriver", def = function(dbObj, ...)
 
@@ -20,25 +13,39 @@ setMethod("dbGetInfo", "ViDaRDriver", def = function(dbObj, ...)
 
   )
 
+# Overloading dbIsValid
+setMethod("dbIsValid", "ViDaRDriver", def = function(dbObj, ...) invisible(TRUE))
+
+# Overloading dbUnloadDriver
+setMethod("dbUnloadDriver", "ViDaRDriver", def = function(drv, ...) invisible(TRUE))
+
+
 # Overloading dbConnect
-setMethod("dbConnect", "ViDaRDriver", def = function(drv, vida_sh_path="~/Desktop/vida.sh", schema_path, schema_name, tmp_folder, query_out, ...){
+setMethod("dbConnect", "ViDaRDriver", def = function(drv, dbhost="localhost", dbport=50001, ...){
 
   connenv <- new.env(parent = emptyenv())
-  connenv$sh_path <- vida_sh_path
-  connenv$schema_name <- schema_name
-  connenv$schema_path <- schema_path
-  connenv$tmp_folder <- tmp_folder
-  connenv$query_output <- query_out
-  connenv$is_open <- TRUE
+  connenv$host <- dbhost
+  connenv$port <- dbport
 
-  # create a simple query to generate the schema
-  system2(command = "sh", args = paste(vida_sh_path, " ", tmp_folder, "tmp.sql", " ", schema_name, sep=""), stdout = FALSE, stderr = FALSE)
+  # establish socket connection and check connectivity - blocking set to true, to wait for execution
+  # in DBI it is specified that it has to be sequential execution!
+  tryCatch(
+   {
+      sockcon <- socketConnection(host=dbhost, port=dbport, blocking = TRUE)
+      connenv$conn <- sockcon
+      connenv$is_open <- TRUE
+    },
+   error=function(cond){
+      message("Cannot establish connection for given parameters.")
+      #message(cond)
+      connenv$is_open <- FALSE
+    }
+  )
 
   conn <- new("ViDaRConnection", env=connenv)
   return(conn)
 },
 valueClass = "ViDaRConnection")
-
 
 
 
@@ -51,18 +58,31 @@ setMethod("dbDataType", signature(dbObj="ViDaRConnection", obj="ANY"), def = fun
   invisible(TRUE) # Data type conversion
   )
 
-setMethod("dbDisconnect", "ViDaRConnection", def = function(conn, ...)
-  invisible(TRUE)
-  )
+setMethod("dbDisconnect", "ViDaRConnection", def = function(conn, ...){
 
-setMethod("dbGetInfo", "ViDaRConnection", def = function(dbObj, ...)
-  invisible(TRUE) # Connection info
-  )
+  # send termination command for now
+  writeLines("exit", conn@env$conn)
+
+  # close socket connection and set flag
+  close(conn@env$conn)
+  conn@env$is_open <- FALSE
+  conn@env$host <- NULL
+  conn@env$port <- NULL
+
+  invisible(TRUE)
+  })
+
+setMethod("dbGetInfo", "ViDaRConnection", def = function(dbObj, ...){
+  #info = list()
+  #info$host <- dbObj@env$host
+  #info$port <- dbObj@env$port
+  invisible(TRUE)
+  #return(info)
+  })
 
 setMethod("dbExistsTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
     return(as.character(name) %in% dbListTables(conn))
-  }
-  )
+  })
 
 setMethod("dbGetException", "ViDaRConnection", def = function(conn, ...)
   invisible(TRUE)
@@ -73,101 +93,98 @@ setMethod("dbIsValid", "ViDaRConnection", def = function(dbObj, ...)
   )
 
 setMethod("dbListFields", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
-    schema <- jsonlite::read_json(paste(conn@env$schema_path, conn@env$schema_name, sep = ""))
+    # go through csv file and parse it
+    # reads the JSON from schema, then tables file names from folder
 
-    fields <- schema[[name]]$type$inner$attributes
+    path <- "/home/sanca/ViDa/pelago/src/SQLPlanner/src/main/resources/"
+    # for now we refer to json schema directly (make it as call from socket)
+    json<-jsonlite::read_json(paste0(path,"schema.json"))
 
-    list_fields <- list()
-    for(field in fields){
-      list_fields <- c(list_fields, field$attrName)
+    fields_ret <- list()
+
+    for(schema in json$schemas){
+      for(tbl in list.files(paste0(path,schema$operand$directory)))
+        if(strsplit(tbl,"\\.")[[1]][1]==name){
+          fields_unparsed<-read.csv(paste0(path,schema$operand$directory,'/',tbl), header = FALSE, as.is = TRUE)
+
+          for(f in fields_unparsed){
+            fields_ret <- c(fields_ret, strsplit(f,":")[[1]][1])
+          }
+        }
     }
 
-    return(as.character(list_fields))
-  }
-  )
+    return(unlist(fields_ret))
+  })
 
 setMethod("dbListTables", "ViDaRConnection", def = function(conn, ...) {
-    # reads the JSON from schema
-    schema <- jsonlite::read_json(paste(conn@env$schema_path, conn@env$schema_name, sep = ""))
-    return(names(schema))
+    # reads the JSON from schema, then tables file names from folder
+
+    path <- "/home/sanca/ViDa/pelago/src/SQLPlanner/src/main/resources/"
+    # for now we refer to json schema directly (make it as call from socket)
+    json<-jsonlite::read_json(paste0(path,"schema.json"))
+
+    tables <- list()
+
+    for(schema in json$schemas){
+      for(tbl in list.files(paste0(path,schema$operand$directory)))
+        tables <- c(tables, strsplit(tbl,"\\.")[[1]][1])
+    }
+
+    return(unlist(tables))
   })
 
 setMethod("dbReadTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
     if(!dbExistsTable(conn, name))
       stop(paste("Table: ", name, " - does not exist"))
 
-    # select * from workaround - concat the list of fields with ','
-    fields<-paste(dbListFields(con, name),collapse=',')
-    dbGetQuery(conn, paste0("SELECT ",fields," FROM ", name, ";"))
-  }
-  )
+
+    dbGetQuery(conn, paste0("SELECT * FROM ", name))
+  })
 
 setMethod("dbRemoveTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...)
   invisible(TRUE)
   )
 
-# process the query to suit ViDa
-processQuery <- function(query, con, ...) {
+processQuery <- function(query) {
+  ret_query <- gsub("<SQL>", "", query)
+  ret_query <- gsub("\"","", ret_query)
+  ret_query <- gsub("\n"," ", ret_query)
 
-  ret <- tolower(query)
-
-  ret <- gsub('<sql> ','',ret)
-  ret <- gsub('from','\nfrom',ret)
-  ret <- gsub('where','\nwhere', ret)
-  ret <- gsub(';','\n;', ret)
-
-  #split <- gsub('"','',regmatches(ret, gregexpr("(?<=\")(.*?)(?=\")", ret, perl = TRUE))) # split to extract the table name from first quotes
-
-  ret <- gsub('\\*',paste(dbListFields(con, 'part'),collapse=','), ret)
-
-  ret <- gsub("\"","", ret)
-  ret <- gsub("where [(]0 = 1[)]","",ret)
-
-  # UNQOUTE!
-  ret <- gsub("limit 10","",ret)
-
-  if(!grepl(';',ret))
-    ret <- paste0(ret,'\n;')
-
-  ret <- gsub('\n\n','\n', ret)
-  #ret <- gsub('\n;',';', ret)
-
-  # REMOVE PARENTHESES
-  ret <- gsub("\\(", "", ret)
-  ret <- gsub("\\)", "", ret)
-
-  return(ret)
+  return(ret_query)
 }
 
 setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"), def = function(conn, statement, ...){
+  # environment for ViDaRResult to return
   env <- new.env(parent = emptyenv())
 
-  print("Query:")
-  print(statement)
+  # send the query to ViDa for execution
+  if(conn@env$is_open){
 
-  statement<-processQuery(statement, conn)
+    print('raw statement:')
+    print(as.character(statement))
 
-  print("Processed query:")
-  print(statement)
+    writeLines(processQuery(as.character(statement)), conn@env$conn)
 
-  # create a file as vida query input
-  query_file <- file(paste0(conn@env$tmp_folder,'tmp.sql'))
-  writeLines(statement, query_file)
-  close(query_file)
+    print('sent statement:')
+    print(processQuery(as.character(statement)))
 
-  # send query to vida - old vesion, which printed the whole output to a file
-  # out <- system2(command = "sh", args = paste(conn@env$sh_path, " ", conn@env$tmp_folder, "tmp.sql", " ", conn@env$schema_name, sep=""), stdout = TRUE, stderr = FALSE)
-  # CURRENT VERSION - WRITES TO A SPECIFIC FILE
-  system2(command = "sh", args = paste(conn@env$sh_path, " ", conn@env$tmp_folder, "tmp.sql", " ", conn@env$schema_name, sep=""), stdout = FALSE, stderr = FALSE)
-  # write output to file
-  #out_file <- file(paste0(conn@env$tmp_folder,'tmp.txt'))
-  #writeLines(out, out_file)
-  #close(out_file)
+    response <- readLines(conn@env$conn, 1)
+    env$response = response
 
-  env$success = TRUE
+    if(startsWith(response, "result in file")){
+      env$success = TRUE
+      # for now parse the message 'result in file PATH' and save it in the environment
+      env$path = strsplit(response, "result in file ")[[1]][2]
+    } else {
+      env$success = FALSE
+    }
+
+  } else {
+    env$success = FALSE
+  }
+
   env$conn <- conn
   env$query <- statement
-  env$resp_path <- conn@env$query_output
 
   invisible(new("ViDaRResult", env=env))
   })
@@ -175,8 +192,6 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
 setMethod("dbWriteTable", signature(conn="ViDaRConnection", name="character", value="ANY"), def = function(conn, name, value, ...)
   invisible(TRUE)
   )
-
-
 
 
 # ========== ViDaR DBI Result ========== #
@@ -192,6 +207,44 @@ setMethod("dbColumnInfo", "ViDaRResult", def = function(res, ...)
   invisible(TRUE)
   )
 
+# table name - find path
+getPath <- function(table_name){
+  path <- "/home/sanca/ViDa/pelago/src/SQLPlanner/src/main/resources/"
+
+  json<-jsonlite::read_json(paste0(path,"schema.json"))
+
+  for(schema in json$schemas){
+    for(tbl in list.files(paste0(path,schema$operand$directory)))
+      if(strsplit(tbl,"\\.")[[1]][1]==table_name){
+        return(paste0(path,schema$operand$directory,'/',table_name,'.csv'))
+      }
+  }
+
+  return(NULL)
+}
+
+# for case of creating a tbl (return 0 rows), R magic with lazy evaluation
+schema2tbl <- function(con, table){
+
+  tmp <- read.csv(getPath(table))
+
+  build_cmd <- "list("
+  type_map <- list(int="integer(0)", string="character(0)")
+
+  for(col in colnames(tmp)){
+
+    name <- strsplit(col,"\\.")[[1]][1]
+    type <- strsplit(col,"\\.")[[1]][2]
+
+    build_cmd <- paste0(build_cmd, name, "=", type_map[type], ",")
+  }
+
+  build_cmd<-substr(build_cmd, 1, nchar(build_cmd)-1)
+  build_cmd<-paste0(build_cmd,")")
+
+  return(as.tbl(data.frame(lazyeval::lazy_eval(build_cmd))))
+}
+
 setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(res, n, ...) {
 
   #result_file <- file(res@env$resp_path)
@@ -206,9 +259,29 @@ setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(r
       #return(as.tbl(jsonlite::fromJSON(res@env$resp_path)))
   #  },
   #  error=function(cond){
-     return(as.data.frame(jsonlite::fromJSON(res@env$resp_path)))
+     return(as.tbl(jsonlite::fromJSON(res@env$path)))
   #  }
   #)
+
+  ### NEW - make data frame out of CSV schema
+  # s <- read.csv("customer.csv")
+  #
+  # build_cmd <- "list("
+  # type_map <- list(int="integer(0)", string="character(0)")
+  #
+  # for(col in colnames(s)){
+  #
+  #   name <- strsplit(col,"\\.")[[1]][1]
+  #   type <- strsplit(col,"\\.")[[1]][2]
+  #
+  #   build_cmd <- paste0(build_cmd, name, "=", type_map[type], ",")
+  # }
+  #
+  # build_cmd<-substr(build_cmd, 1, nchar(build_cmd)-1)
+  # build_cmd<-paste0(build_cmd,")")
+  #
+  # df <- data.frame(lazyeval::lazy_eval(build_cmd))
+
   })
 
 setMethod("dbGetRowCount", "ViDaRResult", def = function(res, ...)
