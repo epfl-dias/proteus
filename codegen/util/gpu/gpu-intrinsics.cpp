@@ -38,7 +38,7 @@ Value * all(GpuRawContext * const context, Value * val_in){
     InlineAsm       * all_fun   = InlineAsm::get(all_sig, 
                                         "vote.all.pred $0, $1;",
                                         "=b,b",
-                                        false);
+                                        true);
 
     Value           * all       = Builder->CreateCall(all_fun,
                                         std::vector<Value *>{val_in},
@@ -57,7 +57,7 @@ Value * any(GpuRawContext * const context, Value * val_in){
     InlineAsm       * any_fun   = InlineAsm::get(any_sig, 
                                         "vote.any.pred $0, $1;",
                                         "=b,b",
-                                        false);
+                                        true);
 
     Value           * any       = Builder->CreateCall(  any_fun,
                                         std::vector<Value *>{val_in},
@@ -78,7 +78,7 @@ Value * ballot(GpuRawContext * const context, Value * val_in){
     InlineAsm       * ballot_fun    = InlineAsm::get(ballot_sig, 
                                         "vote.ballot.b32 $0, $1;",
                                         "=r,b",
-                                        false);
+                                        true);
 
     Value           * ballot        = Builder->CreateCall(  ballot_fun,
                                         std::vector<Value *>{val_in},
