@@ -582,6 +582,11 @@ void RawPipelineGen::registerFunctions()    {
     ArgsFlushInt.insert(ArgsFlushInt.begin(),char_ptr_type);
     ArgsFlushInt.insert(ArgsFlushInt.begin(),int32_type);
 
+    vector<Type*> ArgsFlushDString;
+    ArgsFlushDString.insert(ArgsFlushDString.begin(),char_ptr_type);
+    ArgsFlushDString.insert(ArgsFlushDString.begin(),char_ptr_type);
+    ArgsFlushDString.insert(ArgsFlushDString.begin(),int32_type);
+
     vector<Type*> ArgsFlushInt64;
     ArgsFlushInt64.insert(ArgsFlushInt64.begin(),char_ptr_type);
     ArgsFlushInt64.insert(ArgsFlushInt64.begin(),int64_type);
@@ -659,6 +664,7 @@ void RawPipelineGen::registerFunctions()    {
     FunctionType *FThashBoolean           = FunctionType::get(int64_type, ArgsHashBoolean, false);
     FunctionType *FThashCombine           = FunctionType::get(int64_type, ArgsHashCombine, false);
     FunctionType *FTflushInt              = FunctionType::get(void_type, ArgsFlushInt, false);
+    FunctionType *FTflushDString          = FunctionType::get(void_type, ArgsFlushDString, false);
     FunctionType *FTflushInt64            = FunctionType::get(void_type, ArgsFlushInt64, false);
     FunctionType *FTflushDouble           = FunctionType::get(void_type, ArgsFlushDouble, false);
     FunctionType *FTflushStringC          = FunctionType::get(void_type, ArgsFlushStringC, false);
@@ -742,6 +748,8 @@ void RawPipelineGen::registerFunctions()    {
     */
     Function *flushInt_ = Function::Create(FTflushInt,
             Function::ExternalLinkage, "flushInt", TheModule);
+    Function *flushDString_ = Function::Create(FTflushDString,
+            Function::ExternalLinkage, "flushDString", TheModule);
     Function *flushInt64_ = Function::Create(FTflushInt64,
                 Function::ExternalLinkage, "flushInt64", TheModule);
     Function *flushDouble_ = Function::Create(FTflushDouble,
@@ -947,6 +955,7 @@ void RawPipelineGen::registerFunctions()    {
     registerFunction("combineHashesNoOrder", hashCombineNoOrder_);
 
     registerFunction("flushInt", flushInt_);
+    registerFunction("flushDString", flushDString_);
     registerFunction("flushInt64", flushInt64_);
     registerFunction("flushDouble", flushDouble_);
     registerFunction("flushStringC", flushStringC_);

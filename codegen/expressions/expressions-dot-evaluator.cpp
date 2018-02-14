@@ -38,6 +38,21 @@ RawValue ExpressionDotVisitor::visit(expressions::IntConstant *e1,
 	return valWrapper;
 }
 
+RawValue ExpressionDotVisitor::visit(expressions::DStringConstant *e1,
+		expressions::DStringConstant *e2) {
+	IRBuilder<>* const Builder = context->getBuilder();
+	Value *val_int1 = ConstantInt::get(context->getLLVMContext(),
+			APInt(32, e1->getVal()));
+	Value *val_int2 = ConstantInt::get(context->getLLVMContext(),
+			APInt(32, e2->getVal()));
+
+	Value *val_result = Builder->CreateICmpEQ(val_int1, val_int2);
+	RawValue valWrapper;
+	valWrapper.value = val_result;
+	valWrapper.isNull = context->createFalse();
+	return valWrapper;
+}
+
 RawValue ExpressionDotVisitor::visit(expressions::Int64Constant *e1,
 		expressions::Int64Constant *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();

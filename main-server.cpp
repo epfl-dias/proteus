@@ -251,33 +251,39 @@ int main(int argc, char* argv[]){
         auto load = [](string filename){
             StorageManager::load(filename, PINNED);
         };
+        
+        load("inputs/ssbm100/customer.csv.c_city");
+        load("inputs/ssbm100/customer.csv.c_custkey");
+        load("inputs/ssbm100/customer.csv.c_nation");
+        load("inputs/ssbm100/customer.csv.c_region");
 
         load("inputs/ssbm100/date.csv.d_datekey");
-        load("inputs/ssbm100/date.csv.d_year");
-        load("inputs/ssbm100/date.csv.d_yearmonthnum");
         load("inputs/ssbm100/date.csv.d_weeknuminyear");
+        load("inputs/ssbm100/date.csv.d_year");
+        load("inputs/ssbm100/date.csv.d_yearmonth");
+        load("inputs/ssbm100/date.csv.d_yearmonthnum");
+        load("inputs/ssbm100/date.csv.d_date");
 
-        load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-        load("inputs/ssbm100/lineorder.csv.lo_quantity");
-        load("inputs/ssbm100/lineorder.csv.lo_extendedprice");
-        load("inputs/ssbm100/lineorder.csv.lo_discount");
-        load("inputs/ssbm100/lineorder.csv.lo_partkey");
-        load("inputs/ssbm100/lineorder.csv.lo_suppkey");
-        load("inputs/ssbm100/lineorder.csv.lo_revenue");
         load("inputs/ssbm100/lineorder.csv.lo_custkey");
+        load("inputs/ssbm100/lineorder.csv.lo_discount");
+        load("inputs/ssbm100/lineorder.csv.lo_extendedprice");
+        load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+        load("inputs/ssbm100/lineorder.csv.lo_partkey");
+        load("inputs/ssbm100/lineorder.csv.lo_quantity");
+        load("inputs/ssbm100/lineorder.csv.lo_revenue");
+        load("inputs/ssbm100/lineorder.csv.lo_suppkey");
         load("inputs/ssbm100/lineorder.csv.lo_supplycost");
 
-        load("inputs/ssbm100/part.csv.p_partkey");
+        load("inputs/ssbm100/part.csv.p_brand1");
         load("inputs/ssbm100/part.csv.p_category");
-        load("inputs/ssbm100/part.csv.p_size");
         load("inputs/ssbm100/part.csv.p_mfgr");
-
-        load("inputs/ssbm100/supplier.csv.s_suppkey");
-        load("inputs/ssbm100/supplier.csv.s_region");
+        load("inputs/ssbm100/part.csv.p_partkey");
+        load("inputs/ssbm100/part.csv.p_size");
+        
+        load("inputs/ssbm100/supplier.csv.s_city");
         load("inputs/ssbm100/supplier.csv.s_nation");
-
-        load("inputs/ssbm100/customer.csv.c_custkey");
-        load("inputs/ssbm100/customer.csv.c_region");
+        load("inputs/ssbm100/supplier.csv.s_region");
+        load("inputs/ssbm100/supplier.csv.s_suppkey");
 
         // load("inputs/ssbm100/date.csv.d_datekey");
         // load("inputs/ssbm100/date.csv.d_year");

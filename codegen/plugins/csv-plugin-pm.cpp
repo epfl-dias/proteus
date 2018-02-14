@@ -464,6 +464,7 @@ RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* ty
 		return valWrapper;
 	}
 	case INT:
+	case DSTRING:
 	{
 		Function *hashInt = context->getFunction("hashInt");
 		vector<Value*> ArgsV;
@@ -551,6 +552,22 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
 		vector<Value*> ArgsV;
 		flushFunc = context->getFunction("flushInt64");
 		ArgsV.push_back(val_attr);
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc,ArgsV);
+		return;
+	}
+	case DSTRING:
+	{
+		vector<Value*> ArgsV;
+		flushFunc = context->getFunction("flushDString");
+		void * dict = ((DStringType *) type)->getDictionary();
+		LLVMContext &llvmContext = context->getLLVMContext();
+		Value * llvmDict = context->CastPtrToLlvmPtr(
+										PointerType::getInt8PtrTy(llvmContext),
+										dict
+									);
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(llvmDict);
 		ArgsV.push_back(fileName);
 		context->getBuilder()->CreateCall(flushFunc,ArgsV);
 		return;

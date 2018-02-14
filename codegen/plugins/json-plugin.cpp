@@ -2699,6 +2699,23 @@ void JSONPlugin::flushValueEager(RawValue valWrapper,
 		context->getBuilder()->CreateCall(flushFunc,ArgsV);
 		return;
 	}
+	case DSTRING:
+	{
+		std::cout << "-----------------------------------------------------------------00000000000000------------" << std::endl;
+		vector<Value*> ArgsV;
+		flushFunc = context->getFunction("flushDString");
+		void * dict = ((DStringType *) type)->getDictionary();
+		LLVMContext &llvmContext = context->getLLVMContext();
+		Value * llvmDict = context->CastPtrToLlvmPtr(
+										PointerType::getInt8PtrTy(llvmContext),
+										dict
+									);
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(llvmDict);
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc,ArgsV);
+		return;
+	}
 	case BAG:
 	case LIST:
 	case SET:
@@ -2777,6 +2794,14 @@ Value* JSONPlugin::getValueSize(RawValueMemory mem_value,
 JSONPlugin::~JSONPlugin()
 {
 //	delete[] tokens;
+}
+
+
+void JSONPlugin::flushDString(RawValueMemory mem_value, const ExpressionType *type, Value* fileName){
+	RawValue tmp;
+	tmp.value = context->getBuilder()->CreateLoad(mem_value.mem);
+	tmp.isNull = context->createFalse();
+	flushValueEager(tmp, type, fileName);
 }
 
 }

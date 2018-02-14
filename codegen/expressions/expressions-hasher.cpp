@@ -46,6 +46,29 @@ RawValue ExpressionHasherVisitor::visit(expressions::IntConstant *e) {
 	return valWrapper;
 }
 
+RawValue ExpressionHasherVisitor::visit(expressions::DStringConstant *e) {
+	IRBuilder<>* const TheBuilder = context->getBuilder();
+	Function *hashInt = context->getFunction("hashInt");
+	std::vector<Value*> ArgsV;
+	Value *val_int = ConstantInt::get(context->getLLVMContext(), APInt(32, e->getVal()));
+	ArgsV.push_back(val_int);
+	Value *hashResult = context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
+
+	RawValue valWrapper;
+	valWrapper.value = hashResult;
+	valWrapper.isNull = context->createFalse();
+
+#ifdef DEBUG_HASH
+	vector<Value*> argsV;
+	argsV.clear();
+	argsV.push_back(hashResult);
+	Function* debugInt64 = context->getFunction("printi64");
+	TheBuilder->CreateCall(debugInt64, argsV);
+#endif
+
+	return valWrapper;
+}
+
 RawValue ExpressionHasherVisitor::visit(expressions::Int64Constant *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 	Function *hashInt64 = context->getFunction("hashInt64");
@@ -128,7 +151,6 @@ RawValue ExpressionHasherVisitor::visit(expressions::StringConstant *e) {
 #endif
 	return valWrapper;
 }
-
 
 RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 {

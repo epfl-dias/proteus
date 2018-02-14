@@ -47,6 +47,10 @@ RawValue StringConstant::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
+RawValue DStringConstant::accept(ExprVisitor &v) {
+	return v.visit(this);
+}
+
 RawValue InputArgument::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
@@ -192,6 +196,20 @@ RawValue StringConstant::acceptTandem(ExprTandemVisitor &v,
 		Constant *rConst = dynamic_cast<Constant*>(expr);
 		if (rConst->getConstantType() == STRING) {
 			StringConstant* rString = dynamic_cast<StringConstant*>(expr);
+			return v.visit(this, rString);
+		}
+	}
+	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
+	LOG(ERROR)<< error_msg;
+	throw runtime_error(string(error_msg));
+}
+
+RawValue DStringConstant::acceptTandem(ExprTandemVisitor &v,
+		expressions::Expression* expr) {
+	if (this->getTypeID() == expr->getTypeID()) {
+		Constant *rConst = dynamic_cast<Constant*>(expr);
+		if (rConst->getConstantType() == DSTRING) {
+			DStringConstant* rString = dynamic_cast<DStringConstant*>(expr);
 			return v.visit(this, rString);
 		}
 	}

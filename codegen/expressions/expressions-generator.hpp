@@ -47,6 +47,7 @@ public:
 	RawValue visit(expressions::FloatConstant *e);
 	RawValue visit(expressions::BoolConstant *e);
 	RawValue visit(expressions::StringConstant *e);
+	RawValue visit(expressions::DStringConstant *e);
 	RawValue visit(expressions::InputArgument *e);
 	RawValue visit(expressions::RecordProjection *e);
 	/*

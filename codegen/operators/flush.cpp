@@ -55,10 +55,19 @@ void Flush::produce() {
 
 			Builder->CreateStore(context->createInt64(0), mem_acc);
 
+
+			OperatorState childState{*this, map<RecordAttribute, RawValueMemory>{}};
+			ExpressionFlusherVisitor flusher{context, childState, outPath};
+			flusher.beginList();
+
 			return mem_acc;
 		},
 
 		[=](llvm::Value *, llvm::Value * s){
+			OperatorState childState{*this, map<RecordAttribute, RawValueMemory>{}};
+			ExpressionFlusherVisitor flusher{context, childState, outPath};
+			flusher.endList();
+			flusher.flushOutput();
 			context->deallocateStateVar(s);
 		}
 	);
@@ -77,20 +86,7 @@ void Flush::generate(RawContext* const context,
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
 	ExpressionFlusherVisitor flusher{context, childState, outPath};
-
-	//Backing up insertion block
-	BasicBlock *currBlock = Builder->GetInsertBlock();
-
-	//Preparing collection output (e.g., flushing out '{' in the case of JSON)
-	BasicBlock *loopEntryBlock = context->getCurrentEntryBlock();
-
-	Builder->SetInsertPoint(loopEntryBlock);
-	flusher.beginList();
-
-	//Restoring
-	Builder->SetInsertPoint(currBlock);
-
-
+	
 	//results so far
 	Value* mem_resultCtr = context->getStateVar(result_cnt_id);
 	Value* resultCtr = Builder->CreateLoad(mem_resultCtr);
@@ -103,18 +99,5 @@ void Flush::generate(RawContext* const context,
 	//increase result ctr
 	Value* resultCtrInc = Builder->CreateAdd(resultCtr,context->createInt64(1));
 	Builder->CreateStore(resultCtrInc, mem_resultCtr);
-
-	//Backing up insertion block
-	currBlock = Builder->GetInsertBlock();
-
-	//Prepare final result output (e.g., flushing out '}' in the case of JSON)
-	Builder->SetInsertPoint(context->getEndingBlock());
-	flusher.endList();
-	flusher.flushOutput();
-
-	/**
-	 * END Block
-	 */
-	Builder->SetInsertPoint(currBlock);
 }
 

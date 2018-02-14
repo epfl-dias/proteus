@@ -66,6 +66,7 @@ struct mem_file {
 class StorageManager{
 private:
     static std::map<std::string, std::vector<std::unique_ptr<mmap_file>>> files;
+    static std::map<std::string, std::map<int, std::string> *>            dicts;
 public:
     // void load  (const RawStorageDescription &desc);
     // void unload(const RawStorageDescription &desc);
@@ -73,6 +74,8 @@ public:
     static void loadToGpus      (std::string name);
     static void loadToCpus      (std::string name);
     static void loadEverywhere  (std::string name, int pref_gpu_weight = 1, int pref_cpu_weight = 1);
+
+    static void * getDictionaryOf(std::string name);
 
     static void unloadAll();
     // void unload(std::string name);

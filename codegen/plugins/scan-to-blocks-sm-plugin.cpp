@@ -42,6 +42,12 @@ ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext* const context, string fn
         // Type * t = PointerType::get(((const PrimitiveType *) tin)->getLLVMType(context->getLLVMContext()), /* address space */ 0);
 
         // wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
+
+        if (in->getOriginalType()->getTypeID() == DSTRING){
+            //fetch the dictionary
+            void * dict = StorageManager::getDictionaryOf(fileName);
+            ((DStringType *) (in->getOriginalType()))->setDictionary(dict);
+        }
     }
 
     Nparts = wantedFieldsFiles[0].size();

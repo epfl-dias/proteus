@@ -56,6 +56,8 @@ public:
 			expressions::BoolConstant *e2);
 	RawValue visit(expressions::StringConstant *e1,
 			expressions::StringConstant *e2);
+	RawValue visit(expressions::DStringConstant *e1,
+			expressions::DStringConstant *e2);
 	RawValue visit(expressions::InputArgument *e1,
 			expressions::InputArgument *e2);
 	RawValue visit(expressions::RawValueExpression *e1,

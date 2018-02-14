@@ -67,7 +67,7 @@ public:
 	ExpressionParser(CatalogParser& catalogParser): catalogParser(catalogParser) {};
 	expressions::Expression* parseExpression(const rapidjson::Value& val);
 	ExpressionType* 		 parseExpressionType(const rapidjson::Value& val);
-	RecordAttribute* 		 parseRecordAttr(const rapidjson::Value& val);
+	RecordAttribute* 		 parseRecordAttr(const rapidjson::Value& val, const ExpressionType * defaultType = NULL);
 	Monoid parseAccumulator(const char *acc);
 private:
 	RecordType * 			 getRecordType(string relName);

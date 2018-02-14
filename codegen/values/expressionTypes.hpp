@@ -29,7 +29,7 @@
 /* Original.*/
 //enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, BLOCK };
 /* Extended due to caching (for now)*/
-enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, INT64, COMPOSITE, BLOCK};
+enum typeID	{ BOOL, DSTRING, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, INT64, COMPOSITE, BLOCK};
 
 class ExpressionType {
 public:
@@ -68,6 +68,28 @@ public:
 	typeID getTypeID() 	const	{ return STRING; }
 	bool isPrimitive() 	const	{ return true; }
 	Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt8PtrTy(ctx);}
+};
+
+class DStringType : public PrimitiveType {
+public:
+	DStringType(void * dictionary = NULL): dictionary(dictionary){}
+	string getType() 	const	{ return string("DString"); }
+	typeID getTypeID() 	const	{ return DSTRING; }
+	bool isPrimitive() 	const	{ return true; }
+	Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt32Ty(ctx);}
+
+	void *getDictionary() const {
+		assert(dictionary);
+		return dictionary;
+	}
+
+	void  setDictionary(void * dict) {
+		assert(!dictionary);
+		dictionary = dict;
+	}
+
+private:
+	void * dictionary;
 };
 
 class FloatType : public PrimitiveType {

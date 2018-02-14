@@ -23,8 +23,10 @@
 
 #include "storage/raw-storage-manager.hpp"
 #include <algorithm>
+#include <fstream>
 
 std::map<std::string, std::vector<std::unique_ptr<mmap_file>>> StorageManager::files;
+std::map<std::string, std::map<int, std::string> *>            StorageManager::dicts;
 
 void StorageManager::load(std::string name, data_loc loc){
     time_block t("Topen (" + name + "): ");
@@ -133,4 +135,26 @@ std::vector<mem_file> StorageManager::getOrLoadFile(std::string name, data_loc l
         load(name, loc);
     }
     return getFile(name);
+}
+
+
+void * StorageManager::getDictionaryOf(std::string name){
+    if (dicts.count(name) == 0){
+        std::ifstream dictfile(name + ".dict");
+
+        std::map<int, std::string> * d = new std::map<int, std::string>;
+
+        std::string line;
+        while (std::getline(dictfile, line)){
+            size_t index = line.find_last_of(":");
+            assert(index != std::string::npos && "Invalid file");
+
+            int encoding = std::stoi(line.substr(index + 1, line.size()-1));
+            d->emplace(encoding, line.substr(0, index));
+        }
+
+        dicts[name] = d;
+    }
+
+    return dicts[name];
 }

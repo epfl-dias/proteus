@@ -1618,7 +1618,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 
 	if (retValue && val.HasMember("register_as")){
 		assert(val["register_as"].IsObject());
-		RecordAttribute * reg_as = parseRecordAttr(val["register_as"]);
+		RecordAttribute * reg_as = parseRecordAttr(val["register_as"], retValue->getExpressionType());
 		assert(reg_as && "Error registering expression as attribute");
 
 		InputInfo * datasetInfo = (this->catalogParser).getOrCreateInputInfo(reg_as->getRelationName());
@@ -1664,7 +1664,7 @@ ExpressionType* ExpressionParser::parseExpressionType(const rapidjson::Value& va
 	} else if (strcmp(valExprType, "string") == 0) {
 		return new StringType();
 	} else if (strcmp(valExprType, "dstring") == 0) {
-		return new IntType();
+		return new DStringType(NULL);
 	} else if (strcmp(valExprType, "set") == 0) {
 		assert(val.HasMember("inner"));
 		assert(val["inner"].IsObject());
@@ -1739,7 +1739,7 @@ const RecordAttribute * ExpressionParser::getAttribute(string relName, string at
 	return recType->getArg(attrName);
 }
 
-RecordAttribute* ExpressionParser::parseRecordAttr(const rapidjson::Value& val) {
+RecordAttribute* ExpressionParser::parseRecordAttr(const rapidjson::Value& val, const ExpressionType * defaultType) {
 
 	const char *keyRecAttrType = "type";
 	const char *keyRelName = "relName";
@@ -1771,8 +1771,12 @@ RecordAttribute* ExpressionParser::parseRecordAttr(const rapidjson::Value& val) 
 		assert(val[keyRecAttrType].IsObject());
 		recArgType = parseExpressionType(val[keyRecAttrType]);
 	} else {
-		assert(attr && "Attribute not found");
-		recArgType = attr->getOriginalType();
+		if (attr){
+			recArgType = attr->getOriginalType();
+		} else {
+			if (defaultType) recArgType = defaultType;
+			else             assert(false && "Attribute not found");
+		}
 	}
 
 	bool is_block = false;

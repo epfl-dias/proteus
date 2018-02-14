@@ -111,7 +111,10 @@ public:
 	 * Both also assume that input is an OID (complex one)
 	 */
 	virtual void flushTuple(RawValueMemory mem_value, Value* fileName)	{ flushChunk(mem_value, fileName); }
-	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName)  { flushChunk(mem_value, fileName); }
+	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName)  { 
+		if (type->getTypeID() != DSTRING) 	flushChunk(mem_value, fileName);
+		else 								flushDString(mem_value, type, fileName);
+	}
 	virtual void flushValueEager(RawValue value, const ExpressionType *type, Value* fileName);
 	void flushChunk(RawValueMemory mem_value, Value* fileName);
 
@@ -216,6 +219,8 @@ private:
 	void reusePM(pmJSON *pm);
 	void initPM();
 	void loadPMfromDisk(const char* pmPath, struct stat &pmStatBuffer);
+
+	virtual void flushDString(RawValueMemory mem_value, const ExpressionType *type, Value* fileName);
 };
 
 }

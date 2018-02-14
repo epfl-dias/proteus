@@ -125,7 +125,7 @@ struct less_map: std::binary_function<const Expression *,
 class Constant : public Expression		{
 public:
 	enum ConstantType {
-		INT, INT64, BOOL, FLOAT, STRING
+		INT, INT64, BOOL, FLOAT, STRING, DSTRING
 	};
 	Constant(const ExpressionType* type) : Expression(type)	{}
 	~Constant()										  	{}
@@ -158,6 +158,39 @@ public:
 
 		}
 		cout << "Not compatible (int) " << this->getTypeID() << endl;
+		return this->getTypeID() < r.getTypeID();
+
+	}
+private:
+	int val;
+};
+
+class DStringConstant : public Constant		{
+public:
+	DStringConstant(int val, void * dictionary)
+		: Constant(new DStringType(dictionary)), val(val) 		{}
+	~DStringConstant()									{}
+
+	int getVal() const								{ return val; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const					{ return CONSTANT; }
+	ConstantType getConstantType() const			{ return DSTRING; }
+	inline bool operator<(const expressions::Expression& r) const {
+		if (this->getTypeID() == r.getTypeID()) {
+			const Constant& rConst = dynamic_cast<const Constant&>(r);
+			if (rConst.getConstantType() == DSTRING) {
+				const DStringConstant& rInt = dynamic_cast<const DStringConstant&>(r);
+				cout << "1. Compatible (DSTRING)! " << rConst.getConstantType() << endl;
+				cout << this->getVal() << " vs " << rInt.getVal() << endl;
+				return this->getVal() < rInt.getVal();
+			}
+			else {
+				return this->getConstantType() < rConst.getConstantType();
+			}
+
+		}
+		cout << "Not compatible (dstring) " << this->getTypeID() << endl;
 		return this->getTypeID() < r.getTypeID();
 
 	}
@@ -1365,6 +1398,7 @@ public:
 	virtual RawValue visit(expressions::FloatConstant *e)  		= 0;
 	virtual RawValue visit(expressions::BoolConstant *e)   		= 0;
 	virtual RawValue visit(expressions::StringConstant *e) 		= 0;
+	virtual RawValue visit(expressions::DStringConstant *e) 	= 0;
 	virtual RawValue visit(expressions::InputArgument *e)  		= 0;
 	virtual RawValue visit(expressions::RecordProjection *e)	= 0;
 	virtual RawValue visit(expressions::RecordConstruction *e)	= 0;
@@ -1402,6 +1436,8 @@ public:
 			expressions::BoolConstant *e2) = 0;
 	virtual RawValue visit(expressions::StringConstant *e1,
 			expressions::StringConstant *e2) = 0;
+	virtual RawValue visit(expressions::DStringConstant *e1,
+			expressions::DStringConstant *e2) = 0;
 	virtual RawValue visit(expressions::InputArgument *e1,
 			expressions::InputArgument *e2) = 0;
 	virtual RawValue visit(expressions::RecordProjection *e1,

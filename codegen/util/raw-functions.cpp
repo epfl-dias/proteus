@@ -502,6 +502,16 @@ int *partitionAggHTLLVM(size_t num_tuples, agg::tuple_t *inTuples)	{
 //	w.EndArray();
 //}
 
+
+void flushDString(int toFlush, void * dict, char* fileName){
+	assert(dict && "Dictionary should not be null!");
+	map<int, std::string> *actual_dict{(map<int, std::string> *) dict};
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream *strBuffer = catalog.getSerializer(name);
+	(*strBuffer) << '"' << actual_dict->at(toFlush) << '"';
+}
+
 void flushInt(int toFlush, char* fileName)	{
 	RawCatalog& catalog = RawCatalog::getInstance();
 	string name = string(fileName);

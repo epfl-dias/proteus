@@ -124,6 +124,8 @@ extern "C" void flushArrayEnd(char* fileName);
 
 extern "C" void flushInt(int toFlush, char* fileName);
 
+extern "C" void flushDString(int toFlush, void * dict, char* fileName);
+
 extern "C" void flushInt64(size_t toFlush, char* fileName);
 
 extern "C" void flushDouble(double toFlush, char* fileName);

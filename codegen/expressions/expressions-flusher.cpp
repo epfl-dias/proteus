@@ -59,7 +59,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::FloatConstant *e) {
 
 RawValue ExpressionFlusherVisitor::visit(expressions::BoolConstant *e) {
 	outputFileLLVM = context->CreateGlobalString(this->outputFile);
-	Function *flushBoolean = context->getFunction("floatBoolean");
+	Function *flushBoolean = context->getFunction("flushBoolean");
 	vector<Value*> ArgsV;
 	Value *val_boolean = ConstantInt::get(context->getLLVMContext(), APInt(1, e->getVal()));
 	ArgsV.push_back(val_boolean);
@@ -67,6 +67,12 @@ RawValue ExpressionFlusherVisitor::visit(expressions::BoolConstant *e) {
 	context->getBuilder()->CreateCall(flushBoolean, ArgsV);
 	return placeholder;
 
+}
+
+RawValue ExpressionFlusherVisitor::visit(expressions::DStringConstant *e) {
+	string error_msg = string("[Expression Flusher: ] No support for flushing DString constants");
+	LOG(ERROR) << error_msg;
+	throw runtime_error(error_msg);
 }
 
 RawValue ExpressionFlusherVisitor::visit(expressions::StringConstant *e) {
@@ -237,7 +243,8 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordProjection *e) {
 			}
 			mem_path = it->second;
 		}
-		plugin->flushValue(mem_path, e->getExpressionType(),outputFileLLVM);
+		std::cout << e->getExpressionType()->getType() << std::endl;
+		plugin->flushValue(mem_path, e->getExpressionType(), outputFileLLVM);
 	}
 	return placeholder;
 }

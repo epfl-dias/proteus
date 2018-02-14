@@ -55,6 +55,13 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::BoolConstant *e) {
 	return valWrapper;
 }
 
+RawValue ExpressionGeneratorVisitor::visit(expressions::DStringConstant *e) {
+	RawValue valWrapper;
+	valWrapper.value = ConstantInt::get(context->getLLVMContext(), APInt(32, e->getVal()));
+	valWrapper.isNull = context->createFalse();
+	return valWrapper;
+}
+
 RawValue ExpressionGeneratorVisitor::visit(expressions::StringConstant *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 
