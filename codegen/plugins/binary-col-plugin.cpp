@@ -178,7 +178,7 @@ BinaryColPlugin::~BinaryColPlugin() {}
 
 
 void BinaryColPlugin::init()	{
-	context->setGlobalFunction();
+	context->setGlobalFunction(true);
 
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Type* charPtrType = Type::getInt8PtrTy(llvmContext);

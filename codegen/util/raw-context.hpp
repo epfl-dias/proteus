@@ -86,7 +86,8 @@ public:
 
 	ExecutionEngine const * const getExecEngine() {return TheExecutionEngine;}
 
-	virtual void setGlobalFunction(Function *F = nullptr);
+	virtual void setGlobalFunction(bool leaf);
+	virtual void setGlobalFunction(Function *F = nullptr, bool leaf = false);
 	Function * getGlobalFunction() const {return TheFunction;}
 	virtual Module * getModule() const {return TheModule;}
 	virtual IRBuilder<> * getBuilder() const {return TheBuilder;}

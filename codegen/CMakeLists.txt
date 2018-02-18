@@ -71,7 +71,7 @@ string(REGEX REPLACE "([^;]+)" "-I\\1" inc_dirs2 "${inc_dirs}")
 if (NOT (${CUDA} STREQUAL "CUDA-NOTFOUND"))
 add_custom_command(OUTPUT buffer_manager.cubin
                    COMMAND nvcc ${CUDA_CUFLAGS} -O3 --generate-line-info ${inc_dirs2} -dc --cubin ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu -o ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin
-                   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu
+                   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cuh ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/threadsafe_device_stack.cuh ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/threadsafe_stack.cuh
                    # WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                    )
 

@@ -178,7 +178,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 }
 
 void JSONPlugin::initPM(){
-	context->setGlobalFunction();
+	context->setGlobalFunction(true);
 
 	IRBuilder<>* Builder = context->getBuilder();
 	PointerType *int64PtrType = PointerType::getInt64PtrTy(context->getLLVMContext());

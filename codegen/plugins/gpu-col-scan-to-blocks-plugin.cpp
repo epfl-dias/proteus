@@ -78,7 +78,7 @@ void GpuColScanToBlockPlugin::generate(const RawOperator &producer) {
     else if (sizeof(size_t) == 8) size_type = Type::getInt64Ty(context->getLLVMContext());
     else                          assert(false);
 
-    context->setGlobalFunction();
+    context->setGlobalFunction(true);
 
     Function* F = context->getGlobalFunction();
     IRBuilder<>* Builder = context->getBuilder();

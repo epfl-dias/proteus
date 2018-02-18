@@ -116,7 +116,11 @@ RawContext::RawContext(const string& moduleName, bool setGlobFunction) {
 	}
 }
 
-void RawContext::setGlobalFunction(Function *F){
+void RawContext::setGlobalFunction(bool leaf){
+	setGlobalFunction(nullptr, leaf);
+}
+
+void RawContext::setGlobalFunction(Function *F, bool leaf){
 	if (TheFunction){
 		assert(F == nullptr && "Should only be called if global function has not be set.");
 		return;

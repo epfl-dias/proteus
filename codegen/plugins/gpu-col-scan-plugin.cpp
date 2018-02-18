@@ -57,7 +57,7 @@ void GpuColScanPlugin::init()    {
 
     tupleCntArg_id = context->appendParameter(size_type, false, false);
 
-    context->setGlobalFunction();
+    context->setGlobalFunction(true);
 
     Function* F = context->getGlobalFunction();
     LLVMContext& llvmContext = context->getLLVMContext();

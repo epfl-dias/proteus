@@ -209,7 +209,11 @@ GpuRawContext::~GpuRawContext() {
     //FIMXE: free pipelines
 }
 
-void GpuRawContext::setGlobalFunction(Function *F){
+void GpuRawContext::setGlobalFunction(bool leaf){
+    setGlobalFunction(NULL, leaf);
+}
+
+void GpuRawContext::setGlobalFunction(Function *F, bool leaf){
     if (F){
         string error_msg("[GpuRawContext: ] Should not set global function for GPU context!");
         std::cout << error_msg << std::endl;
@@ -217,6 +221,7 @@ void GpuRawContext::setGlobalFunction(Function *F){
     }
 
     TheFunction = generators.back()->prepare();
+    leafgen.push_back(leaf);
 
     // RawContext::setGlobalFunction(generators.back()->prepare());
 }
@@ -236,6 +241,7 @@ void GpuRawContext::popNewPipeline(){
     getBuilder()->CreateRetVoid();
     
     pipelines.push_back(generators.back());
+    leafpip.push_back(leafgen.back());
     pipelines.back()->compileAndLoad();
     
     generators.pop_back();
@@ -247,6 +253,7 @@ RawPipelineGen * GpuRawContext::removeLatestPipeline(){
     assert(!pipelines.empty());
     RawPipelineGen * p = pipelines.back();
     pipelines.pop_back();
+    leafpip.pop_back();
     return p;
 }
 
@@ -266,8 +273,10 @@ void GpuRawContext::compileAndLoad(){
 std::vector<RawPipeline *> GpuRawContext::getPipelines(){
     std::vector<RawPipeline *> pips;
 
-    for (const auto &p: pipelines) {
-        pips.emplace_back(p->getPipeline());
+    assert(pipelines.size() == leafpip.size());
+    for (size_t i = 0 ; i < pipelines.size() ; ++i) {
+        if (!leafpip[i]) continue;
+        pips.emplace_back(pipelines[i]->getPipeline());
     }
 
     return pips;

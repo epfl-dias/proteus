@@ -836,7 +836,7 @@ void ScanToBlockSMPlugin::prepareArray(RecordAttribute attName) {
 void ScanToBlockSMPlugin::scan(const RawOperator& producer){
     LLVMContext& llvmContext = context->getLLVMContext();
 
-    context->setGlobalFunction();
+    context->setGlobalFunction(true);
 
     Function* F = context->getGlobalFunction();
     IRBuilder<>* Builder = context->getBuilder();

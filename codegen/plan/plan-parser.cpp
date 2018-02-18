@@ -351,7 +351,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		newOp = new OuterUnnest(p, *projPath, childOp);
 		childOp->setParent(newOp);
 #ifndef NCUDA
-	} else if(strcmp(opName, "hashgroupby-chained") == 0)	{
+	} else if(strcmp(opName, "groupby") == 0 || strcmp(opName, "hashgroupby-chained") == 0)	{
 		/* parse operator input */
 		RawOperator* child = parseOperator(val["input"]);
 
@@ -361,15 +361,15 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val["hash_bits"].IsInt());
 		int hash_bits = val["hash_bits"].GetInt();
 
-		assert(val.HasMember("w"));
-		assert(val["w"].IsArray());
-		vector<size_t> widths;
+		// assert(val.HasMember("w"));
+		// assert(val["w"].IsArray());
+		// vector<size_t> widths;
 
-		const rapidjson::Value& wJSON = val["w"];
-		for (SizeType i = 0; i < wJSON.Size(); i++){
-			assert(wJSON[i].IsInt());
-			widths.push_back(wJSON[i].GetInt());
-		}
+		// const rapidjson::Value& wJSON = val["w"];
+		// for (SizeType i = 0; i < wJSON.Size(); i++){
+		// 	assert(wJSON[i].IsInt());
+		// 	widths.push_back(wJSON[i].GetInt());
+		// }
 
 		/*
 		 * parse output expressions
@@ -406,7 +406,9 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		size_t maxInputSize = val["maxInputSize"].GetUint64();
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp = new GpuHashGroupByChained(e, widths, key_expr, child, hash_bits,
+		// newOp = new GpuHashGroupByChained(e, widths, key_expr, child, hash_bits,
+		// 					dynamic_cast<GpuRawContext *>(this->ctx), maxInputSize);
+		newOp = new GpuHashGroupByChained(e, key_expr, child, hash_bits,
 							dynamic_cast<GpuRawContext *>(this->ctx), maxInputSize);
 
 		child->setParent(newOp);

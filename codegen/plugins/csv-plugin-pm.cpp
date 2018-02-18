@@ -258,7 +258,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 CSVPlugin::~CSVPlugin() {}
 
 void CSVPlugin::init()	{
-	context->setGlobalFunction();
+	context->setGlobalFunction(true);
 
 	/* Preparing the codegen part */
 	Function* F = context->getGlobalFunction();

@@ -57,7 +57,7 @@ class GpuHashGroupByChained : public UnaryRawOperator {
 public:
     GpuHashGroupByChained(
         const std::vector<GpuAggrMatExpr>              &agg_exprs, 
-        const std::vector<size_t>                      &packet_widths,
+        // const std::vector<size_t>                      &packet_widths,
         const std::vector<expressions::Expression *>    key_expr,
         RawOperator * const                             child,
 
@@ -91,6 +91,7 @@ private:
     std::vector<GpuAggrMatExpr>             agg_exprs       ;
     std::vector<size_t>                     packet_widths   ;
     std::vector<expressions::Expression *>  key_expr        ;
+    std::vector<llvm::Type *>               ptr_types       ;
 
     int                                     head_param_id   ;
     std::vector<int>                        out_param_ids   ;
@@ -100,6 +101,8 @@ private:
     size_t                                  maxInputSize    ;
 
     GpuRawContext *                         context         ;
+
+    RawPipelineGen *                        probe_gen       ;
 };
 
 #endif /* GPU_HASH_GROUP_BY_CHAINED_HPP_ */

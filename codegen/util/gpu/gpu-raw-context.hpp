@@ -50,6 +50,7 @@ public:
     void pushNewPipeline    (RawPipelineGen *copyStateFrom = NULL);
     void pushNewCpuPipeline (RawPipelineGen *copyStateFrom = NULL);
     void popNewPipeline();
+
     RawPipelineGen * removeLatestPipeline();
     RawPipelineGen * getCurrentPipeline()  ;
     void             setChainedPipeline(RawPipelineGen * next);
@@ -66,7 +67,8 @@ public:
         return generators.back()->getFunction(funcName);
     }
 
-    virtual void setGlobalFunction(Function *F = nullptr);
+    virtual void setGlobalFunction(bool leaf);
+    virtual void setGlobalFunction(Function *F = nullptr, bool leaf = false);
     virtual void prepareFunction(Function *F){}
 
     virtual llvm::Value * threadId ();
@@ -115,6 +117,10 @@ protected:
     std::vector<RawPipelineGen *> pipelines ;
 
     std::vector<RawPipelineGen *> generators;
+
+    std::vector<bool            > leafpip   ;
+
+    std::vector<bool            > leafgen   ;
 };
 
 #endif /* GPU_RAW_CONTEXT_HPP_ */
