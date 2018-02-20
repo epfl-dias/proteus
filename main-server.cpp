@@ -284,6 +284,7 @@ int main(int argc, char* argv[]){
         load("inputs/ssbm100/supplier.csv.s_nation");
         load("inputs/ssbm100/supplier.csv.s_region");
         load("inputs/ssbm100/supplier.csv.s_suppkey");
+        load("inputs/ssbm100/supplier.csv.s_name");
 
         // load("inputs/ssbm100/date.csv.d_datekey");
         // load("inputs/ssbm100/date.csv.d_year");
@@ -356,6 +357,16 @@ int main(int argc, char* argv[]){
                     echo = false;
                 } else {
                     std::cout << "error (unknown echo, please specify what to echo)" << std::endl;
+                }
+            } else if (starts_with(cmd, "codegen")){
+                if (cmd == "codegen print on"){
+                    print_generated_code = true;
+                } else if (cmd == "codegen print off"){
+                    print_generated_code = false;
+                } else if (cmd == "codegen print query"){
+                    std::cout << print_generated_code << std::endl;
+                } else {
+                    std::cout << "error (unknown codegen option, please specify what to echo)" << std::endl;
                 }
             }
         }

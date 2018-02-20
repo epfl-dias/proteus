@@ -76,7 +76,6 @@ Value * RawPipelineGen::getStateVar() const{
     if (Fcurrent == close_function) return state;
     if (Fcurrent == open__function) return state;
     if (Fcurrent != F){
-        (Fcurrent->arg_end() - 1)->getType()->dump();
         return context->getBuilder()->CreateLoad(Fcurrent->arg_end() - 1);
     }
     return state; //getArgument(args.size() - 1);
@@ -277,8 +276,6 @@ void RawPipelineGen::prepareInitDeinit(){
 
         getBuilder()->SetInsertPoint(closeBB);
         Value * tmp = state;
-        tmp->getType()->dump();
-        args[1]->getType()->dump();
         state = getBuilder()->CreateLoad(args[1]);
 
         for (size_t i = 0 ; i < state_vars.size() ; ++i){

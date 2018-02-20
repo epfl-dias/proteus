@@ -59,7 +59,7 @@ void __attribute__((unused)) addOptimizerPipelineInlining(ModulePassManager * Th
 
 void __attribute__((unused)) addOptimizerPipelineVectorization(legacy::FunctionPassManager * TheFPM);
 
-
+extern bool print_generated_code;
 
 class RawContext {
 public:

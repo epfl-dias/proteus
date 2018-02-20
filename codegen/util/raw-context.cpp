@@ -23,6 +23,8 @@
 
 #include "util/raw-context.hpp"
 
+bool print_generated_code = true;
+
 void RawContext::createJITEngine() {
 	LLVMLinkInMCJIT();
 	LLVMInitializeNativeTarget();

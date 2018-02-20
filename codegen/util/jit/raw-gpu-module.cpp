@@ -189,7 +189,7 @@ void RawGpuModule::compileAndLoad(){
 #ifdef DEBUGCTX
     // getModule()->dump();
 
-    {
+    if (print_generated_code){
         std::error_code EC;
         raw_fd_ostream out("generated_code/" + pipName + ".ll", EC, (llvm::sys::fs::OpenFlags) 0); // FIXME: llvm::sys::fs::OpenFlags::F_NONE is the correct one but it gives a compilation error
 
@@ -203,7 +203,7 @@ void RawGpuModule::compileAndLoad(){
 #ifdef DEBUGCTX
     // getModule()->dump();
     
-    {
+    if (print_generated_code){
         std::error_code EC;
         raw_fd_ostream out("generated_code/" + pipName + "_opt.ll", EC, (llvm::sys::fs::OpenFlags) 0); // FIXME: llvm::sys::fs::OpenFlags::F_NONE is the correct one but it gives a compilation error
 
@@ -224,7 +224,7 @@ void RawGpuModule::compileAndLoad(){
         PM.run(*(getModule()));
     } // flushes stream and ostream
 #ifdef DEBUGCTX
-    {
+    if (print_generated_code){
         std::ofstream optx("generated_code/" + pipName + ".ptx");
         optx << ptx;
     }
