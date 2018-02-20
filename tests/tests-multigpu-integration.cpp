@@ -1524,3 +1524,17 @@ TEST_F(MultiGPUTest, q4_3_sql_bare) {
 
     runAndVerify(testLabel, planPath);
 }
+
+TEST_F(MultiGPUTest, q2_1_sql_bare_w_groupby) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+
+    const char *testLabel = "q2_1_sql_bare_w_groupby";
+    const char *planPath  = "inputs/plans/proteus_bare_plans/q2_1.sql_bare_w_groupby.json";
+
+    runAndVerify(testLabel, planPath);
+}

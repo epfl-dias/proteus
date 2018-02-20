@@ -133,7 +133,7 @@ private:
 	 */
 	char delimInner;
 	char delimEnd;
-	int lines;
+	size_t lines;
 	int policy;
 	/* Indicates whether a PM was provided at construction time*/
 	bool hasPM;

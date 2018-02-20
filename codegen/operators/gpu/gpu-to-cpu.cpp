@@ -515,7 +515,7 @@ void GpuToCpu::generate_catch(){
 
     //  Finish up with end (the AfterLoop)
     //  Any new code will be inserted in AfterBB.
-    Builder->SetInsertPoint(endBB);
+    Builder->SetInsertPoint(context->getEndingBlock());
 }
 
 #include "nvToolsExt.h"

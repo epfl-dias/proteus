@@ -931,12 +931,10 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			else 	assert(false && "granularity must be one of GRID, BLOCK, THREAD");
 		}
 
-		vector<RecordAttribute*> projections;
-		for (SizeType i = 0; i < val["projections"].Size(); i++)
-		{
+		vector<expressions::Expression *> projections;
+		for (SizeType i = 0; i < val["projections"].Size(); i++) {
 			assert(val["projections"][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
-			projections.push_back(recAttr);
+			projections.push_back(this->parseExpression(val["projections"][i]));
 		}
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
@@ -979,6 +977,43 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		newOp =  new GpuToCpu(childOp, ((GpuRawContext *) this->ctx), projections, size, g);
 		childOp->setParent(newOp);
 #endif
+	} else if(strcmp(opName, "tuples-to-block") == 0) {
+		bool gpu = false;
+		if (val.HasMember("gpu")){
+			assert(val["gpu"].IsBool());
+			gpu = val["gpu"].GetBool();
+		}
+
+		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsObject());
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		assert(val.HasMember("projections"));
+		assert(val["projections"].IsArray());
+
+		int numOfBuckets = 1;
+		RecordAttribute * hashAttr = NULL;
+		expressions::Expression *hashExpr = new expressions::IntConstant(0);
+
+		vector<expressions::Expression *> projections;
+		for (SizeType i = 0; i < val["projections"].Size(); i++){
+			assert(val["projections"][i].IsObject());
+			projections.push_back(this->parseExpression(val["projections"][i]));
+		}
+		
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+#ifndef NCUDA
+		if (gpu){
+
+			newOp =  new GpuHashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
+		} else {
+#endif
+			newOp =  new HashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
+#ifndef NCUDA
+		}
+#endif
+		childOp->setParent(newOp);
 	} else if(strcmp(opName,"hash-rearrange") == 0)	{
 		bool gpu = false;
 		if (val.HasMember("gpu")){
@@ -1019,31 +1054,24 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		expressions::Expression *hashExpr = parseExpression(val["e"]);
 
+		vector<expressions::Expression *> projections;
+		for (SizeType i = 0; i < val["projections"].Size(); i++){
+			assert(val["projections"][i].IsObject());
+			projections.push_back(this->parseExpression(val["projections"][i]));
+		}
+		
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+
 #ifndef NCUDA
 		if (gpu){
-			vector<expressions::Expression *> projections;
-			for (SizeType i = 0; i < val["projections"].Size(); i++){
-				assert(val["projections"][i].IsObject());
-				projections.push_back(this->parseExpression(val["projections"][i]));
-			}
-
-			assert(dynamic_cast<GpuRawContext *>(this->ctx));
 			newOp =  new GpuHashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
-			childOp->setParent(newOp);
 		} else {
 #endif
-			vector<RecordAttribute*> projections;
-			for (SizeType i = 0; i < val["projections"].Size(); i++){
-				assert(val["projections"][i].IsObject());
-				projections.push_back(this->parseRecordAttr(val["projections"][i]));
-			}
-
-			assert(dynamic_cast<GpuRawContext *>(this->ctx));
 			newOp =  new HashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
-			childOp->setParent(newOp);
 #ifndef NCUDA
 		}
 #endif
+		childOp->setParent(newOp);
 	} else if(strcmp(opName,"mem-move-device") == 0) {
 		/* parse operator input */
 		assert(val.HasMember("input"));
@@ -1924,6 +1952,7 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 			stringBrackets = val[keyBrackets].GetBool();
 		}
 
+		std::cout << *pathDynamicCopy << std::endl;
 		newPg = new pm::CSVPlugin(this->ctx, *pathDynamicCopy, *recType,
 				projections, delim, linehint, policy, stringBrackets);
 	} else if (strcmp(pgType, "json") == 0) {

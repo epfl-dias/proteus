@@ -83,8 +83,8 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
 
     Type   * idx_type = int32_type;
 
-    IntegerType * target_type = size_type;
-    if (hashProject) target_type = (IntegerType *) hashProject->getLLVMType(llvmContext);
+    IntegerType * target_type = (IntegerType *) hashExpr->getExpressionType()->getLLVMType(llvmContext);
+    // if (hashProject) target_type = (IntegerType *) hashProject->getLLVMType(llvmContext);
 
     Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
@@ -684,10 +684,6 @@ void GpuHashRearrange::consume_flush(){
 
         std::vector<Value *> buff_ptrs;
         for (size_t i = 0 ; i < matExpr.size() ; ++i){
-            std::cout << buffVar_id[i] << std::endl;
-            context->getStateVar(buffVar_id[i])->dump();
-            context->getStateVar(buffVar_id[i])->getType()->dump();
-
             Value * stored_buff_thrd = Builder->CreateInBoundsGEP(context->getStateVar(buffVar_id[i]), idxStored);
 
             buff_ptrs.push_back(Builder->CreateLoad (stored_buff_thrd));
@@ -708,7 +704,6 @@ void GpuHashRearrange::consume_flush(){
         Function * f = context->getFunction("release_buffers"); //FIXME: Assumes grid launch + Assumes 1 block per kernel!
         
         for (size_t i = 0 ; i < matExpr.size() ; ++i){
-            buff_ptrs[i]->getType()->dump();
             Builder->CreateCall(f, std::vector<Value *>{Builder->CreateBitCast(buff_ptrs[i], charPtrType)});
         }
         

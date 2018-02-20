@@ -57,8 +57,12 @@ void CpuToGpu::generateGpuSide(){
     else if (sizeof(size_t) == 8) size_type = Type::getInt64Ty(llvmContext);
     else                          assert(false);
 
-    size_t tupleOIDArg_id = context->appendParameter(size_type, false, false);
-    size_t tupleCntArg_id = context->appendParameter(size_type, false, false);
+    Plugin * pg       = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+    IntegerType * oid_type     = (IntegerType *) pg->getOIDType()->getLLVMType(llvmContext);
+    size_t tupleOIDArg_id = context->appendParameter(oid_type, false, false);
+    size_t tupleCntArg_id = context->appendParameter(oid_type, false, false);
+    // std::cout << "<----------------> " << oid_type->getType()->dump();
+    // std::cout << "<----------------> " << oid_type->getType()->dump();
 
     context->setGlobalFunction();
 
@@ -88,8 +92,6 @@ void CpuToGpu::generateGpuSide(){
         variableBindings[*(wantedFields[i])] = tmp;
     }
     
-    Plugin     * pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
-
     {
         RecordAttribute tupleOID = RecordAttribute(wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType()); //FIXME: OID type for blocks ?
 
@@ -181,6 +183,7 @@ void CpuToGpu::consume(RawContext* const context, const OperatorState& childStat
 
     RawValueMemory mem_oidWrapper = it->second;
 
+    // std::cout << "-----------------> " << mem_oidWrapper.mem->getType()->dump();
     kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(mem_oidWrapper.mem, charPtrType), wantedFields.size()    );
 
     RecordAttribute tupleCnt = RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
@@ -190,6 +193,7 @@ void CpuToGpu::consume(RawContext* const context, const OperatorState& childStat
 
     RawValueMemory mem_cntWrapper = it->second;
 
+    // std::cout << "-----------------> " << mem_cntWrapper.mem->getType()->dump();
     kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(mem_cntWrapper.mem, charPtrType), wantedFields.size() + 1);
 
     Value * subState   = ((GpuRawContext *) context)->getSubStateVar();

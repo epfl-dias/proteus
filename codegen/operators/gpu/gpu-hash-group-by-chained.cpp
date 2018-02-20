@@ -1022,7 +1022,7 @@ void GpuHashGroupByChained::generate_scan() {
 
     //  Finish up with end (the AfterLoop)
     //  Any new code will be inserted in AfterBB.
-    Builder->SetInsertPoint(AfterBB);
+    Builder->SetInsertPoint(context->getEndingBlock());
 
     // ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
     // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});

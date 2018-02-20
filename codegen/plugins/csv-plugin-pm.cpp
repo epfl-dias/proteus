@@ -2054,14 +2054,14 @@ void CSVPlugin::scanPM(const RawOperator& producer)
 	val_lineCtr = Builder->CreateLoad(mem_lineCtr);
 	val_lineCtr = Builder->CreateAdd(val_lineCtr,val_1);
 	Builder->CreateStore(val_lineCtr,mem_lineCtr);
-#ifdef DEBUG
-	{
-		vector<Value*> ArgsV;
-		Function* debugInt = context->getFunction("printi");
-		ArgsV.push_back(context->createInt32(100001));
-		Builder->CreateCall(debugInt, ArgsV);
-	}
-#endif
+// #ifdef DEBUG
+// 	{
+// 		vector<Value*> ArgsV;
+// 		Function* debugInt = context->getFunction("printi");
+// 		ArgsV.push_back(context->createInt32(100001));
+// 		Builder->CreateCall(debugInt, ArgsV);
+// 	}
+// #endif
 	Builder->CreateBr(pmScanCond);
 
 	Builder->SetInsertPoint(context->getCurrentEntryBlock());

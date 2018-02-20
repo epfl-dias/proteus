@@ -73,7 +73,10 @@ Argument * RawPipelineGen::getArgument(size_t id) const{
 Value * RawPipelineGen::getStateVar() const{
     assert(state);
     Function * Fcurrent = getBuilder()->GetInsertBlock()->getParent();
+    if (Fcurrent == close_function) return state;
+    if (Fcurrent == open__function) return state;
     if (Fcurrent != F){
+        (Fcurrent->arg_end() - 1)->getType()->dump();
         return context->getBuilder()->CreateLoad(Fcurrent->arg_end() - 1);
     }
     return state; //getArgument(args.size() - 1);
@@ -97,7 +100,7 @@ Function * const RawPipelineGen::createHelperFunction(string funcName, std::vect
     assert(readonly.size() == noalias.size());
     assert(readonly.size() == 0 || readonly.size() == args.size());
 
-    ins.push_back(state_type);
+    ins.push_back(PointerType::getUnqual(state_type));
 
     FunctionType *ftype = FunctionType::get(Type::getVoidTy(context->getLLVMContext()), ins, false);
     //use f_num to overcome an llvm bu with keeping dots in function names when generating PTX (which is invalid in PTX)
@@ -274,6 +277,8 @@ void RawPipelineGen::prepareInitDeinit(){
 
         getBuilder()->SetInsertPoint(closeBB);
         Value * tmp = state;
+        tmp->getType()->dump();
+        args[1]->getType()->dump();
         state = getBuilder()->CreateLoad(args[1]);
 
         for (size_t i = 0 ; i < state_vars.size() ; ++i){

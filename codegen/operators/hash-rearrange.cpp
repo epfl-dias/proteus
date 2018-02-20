@@ -31,7 +31,7 @@ extern "C"{
 void HashRearrange::produce() {
     LLVMContext & llvmContext   = context->getLLVMContext();
 
-    Plugin * pg         = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+    Plugin * pg         = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRegisteredRelName());
     Type   * oid_type   = pg->getOIDType()->getLLVMType(llvmContext);
     Type   * cnt_type   = PointerType::getUnqual(ArrayType::get(oid_type, numOfBuckets));
     cntVar_id           = context->appendStateVar(cnt_type);
@@ -40,7 +40,7 @@ void HashRearrange::produce() {
 
     std::vector<Type *> block_types;
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        block_types.emplace_back(RecordAttribute(*(wantedFields[i]), true).getLLVMType(llvmContext));
+        block_types.emplace_back(RecordAttribute(wantedFields[i]->getRegisteredAs(), true).getLLVMType(llvmContext));
     }
 
     Type * block_stuct = StructType::get(llvmContext, block_types);
@@ -59,7 +59,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
     map<RecordAttribute, RawValueMemory> bindings{childState.getBindings()};
 
 
-    Plugin * pg       = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+    Plugin * pg       = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRegisteredRelName());
     IntegerType * oid_type     = (IntegerType *) pg->getOIDType()->getLLVMType(llvmContext);
 
     IntegerType * int32_type   = Type::getInt32Ty  (llvmContext);
@@ -69,9 +69,6 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
     if      (sizeof(size_t) == 4) size_type = int32_type;
     else if (sizeof(size_t) == 8) size_type = int64_type;
     else                          assert(false);
-
-    IntegerType * target_type = size_type;
-    if (hashProject) target_type = (IntegerType *) hashProject->getLLVMType(llvmContext);
 
     Builder->SetInsertPoint(context->getCurrentEntryBlock());
     AllocaInst * blockN_ptr = context->CreateEntryBlockAlloca(F, "blockN", oid_type);
@@ -84,12 +81,13 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
 
 
 
-    // map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
+    map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
 
     //Generate target
     ExpressionGeneratorVisitor exprGenerator{context, childState};
     Value * target            = hashExpr->accept(exprGenerator).value;
 
+    IntegerType * target_type = (IntegerType *) target->getType();
     Value * numOfBucketsV = ConstantInt::get(target_type, numOfBuckets);
 
     target = Builder->CreateURem(target, numOfBucketsV);
@@ -97,7 +95,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
 
     vector<Type *> members;
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        RecordAttribute tblock{*(wantedFields[i]), true};
+        RecordAttribute tblock{wantedFields[i]->getRegisteredAs(), true};
         members.push_back(tblock.getLLVMType(llvmContext));
     }
     members.push_back(target->getType());
@@ -124,7 +122,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
 
         Value * el_ptr    = Builder->CreateInBoundsGEP(block, indx);
 
-        Value * el        = Builder->CreateLoad(bindings[*(wantedFields[i])].mem);
+        Value * el        = Builder->CreateLoad(bindings[wantedFields[i]->getRegisteredAs()].mem);
 
         Builder->CreateStore(el, el_ptr);
         els.push_back(block);
@@ -132,96 +130,22 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
 
     // if indx  >= vectorSize - 1
     BasicBlock *fullBB  = BasicBlock::Create(llvmContext, "propagate", F);
-    // BasicBlock *elseBB  = BasicBlock::Create(llvmContext, "else", F);
+    BasicBlock *elseBB  = BasicBlock::Create(llvmContext, "else", F);
     BasicBlock *mergeBB = BasicBlock::Create(llvmContext, "merge", F);
 
     Value * limt = ConstantInt::get(oid_type, blockSize - 1);
-    Value * cond = Builder->CreateICmpEQ(indx, limt);
+    Value * cond = Builder->CreateICmpUGE(indx, limt);
 
-    Builder->CreateStore(
-        Builder->CreateURem(
-            Builder->CreateAdd(indx, ConstantInt::get(oid_type, 1)), 
-            ConstantInt::get((IntegerType *) indx->getType(), blockSize)
-        ),
-        indx_addr);
-
-    Builder->CreateCondBr(cond, mergeBB /* fullBB */, mergeBB);
+    Builder->CreateCondBr(cond, fullBB, elseBB);
 
     Builder->SetInsertPoint(fullBB);
 
-    Value * r = Builder->CreateInBoundsGEP(ready, std::vector<Value *>{context->createInt32(0), Builder->CreateLoad(ready_cnt)});
-
-    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        Value * el = Builder->CreateInBoundsGEP(r, std::vector<Value *>{context->createInt32(0), context->createInt32(i)});
-        Builder->CreateStore(els[i], el);
-    }
-
-    Value * el = Builder->CreateInBoundsGEP(r, std::vector<Value *>{context->createInt32(0), context->createInt32(wantedFields.size())});
-    Builder->CreateStore(target, el);
-
-    Builder->CreateStore(Builder->CreateAdd(Builder->CreateLoad(ready_cnt), ConstantInt::get(int32_type, 1)), ready_cnt);
-
-    // Function * get_buffer = context->getFunction("get_buffer");
-
-    // for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-    //     RecordAttribute tblock{*(wantedFields[i]), true};
-    //     Value * size     = context->createSizeT(blockSize * context->getSizeOf(wantedFields[i]->getLLVMType(llvmContext)));
-
-    //     Value * new_buff = Builder->CreateCall(get_buffer, std::vector<Value *>{size});
-
-    //     new_buff = Builder->CreateBitCast(new_buff, tblock.getLLVMType(llvmContext));
-
-    //     Builder->CreateStore(new_buff, Builder->CreateInBoundsGEP(curblk, std::vector<Value *>{context->createInt32(0), context->createInt32(i)}));
-    // }
-
-    // Builder->CreateStore(ConstantInt::get(oid_type, 0), indx_addr);
-
-    Builder->CreateBr(mergeBB);
-
-    // else
-    // Builder->SetInsertPoint(elseBB);
-
-    // Builder->CreateStore(Builder->CreateAdd(indx, ConstantInt::get(oid_type, 1)), indx_addr);
-
-    // Builder->CreateBr(mergeBB);
-
-
-    Builder->SetInsertPoint(context->getEndingBlock());
-
-    //process completed blocks
-    BasicBlock *pre_processBB = BasicBlock::Create(llvmContext, "pre_process", F);
-
-    Builder->CreateBr(pre_processBB);
-    Builder->SetInsertPoint(pre_processBB);
-
-    BasicBlock *processBB = BasicBlock::Create(llvmContext, "process", F);
-    BasicBlock *after_processBB = BasicBlock::Create(llvmContext, "after_process", F);
-
-    Value * ready_i_mem = context->CreateEntryBlockAlloca(F, "ready_i", int32_type);
-    Builder->CreateStore(ConstantInt::get(int32_type, 0), ready_i_mem);
-
-    BasicBlock *cond_processBB = BasicBlock::Create(llvmContext, "cond_process", F);
-
-    Builder->CreateBr(cond_processBB);
-    Builder->SetInsertPoint(cond_processBB);
-
-    Value * ready_i     = Builder->CreateLoad(ready_i_mem);
-    Builder->CreateStore(Builder->CreateAdd(ready_i, ConstantInt::get(int32_type, 1)), ready_i_mem);
-
-    Value * more_ready  = Builder->CreateICmpULT(ready_i, Builder->CreateLoad(ready_cnt));
-
-    Builder->CreateCondBr(more_ready, processBB, after_processBB);
-    Builder->SetInsertPoint(processBB);
-
-
-    RecordAttribute tupCnt  = RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
-
-    map<RecordAttribute, RawValueMemory> variableBindings;
+    RecordAttribute tupCnt  = RecordAttribute(wantedFields[0]->getRegisteredRelName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
 
     RawValueMemory mem_cntWrapper;
     mem_cntWrapper.mem      = blockN_ptr;
     mem_cntWrapper.isNull   = context->createFalse();
-    variableBindings[tupCnt] = mem_cntWrapper;
+    (*variableBindings)[tupCnt] = mem_cntWrapper;
 
 
     Value * new_oid = Builder->CreateLoad(((GpuRawContext *) context)->getStateVar(oidVar_id), "oid");
@@ -230,49 +154,52 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
     AllocaInst * new_oid_ptr = context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
     Builder->CreateStore(new_oid, new_oid_ptr);
 
-    RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRelationName(),  activeLoop, pg->getOIDType());
+    RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRegisteredRelName(),  activeLoop, pg->getOIDType());
     
     RawValueMemory mem_oidWrapper;
     mem_oidWrapper.mem      = new_oid_ptr;
     mem_oidWrapper.isNull   = context->createFalse();
-    variableBindings[tupleIdentifier] = mem_oidWrapper;
-
-    r = Builder->CreateInBoundsGEP(ready, std::vector<Value *>{context->createInt32(0), ready_i});
+    (*variableBindings)[tupleIdentifier] = mem_oidWrapper;
 
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        RecordAttribute tblock{*(wantedFields[i]), true};
+        RecordAttribute tblock{wantedFields[i]->getRegisteredAs(), true};
 
-        AllocaInst * tblock_ptr = context->CreateEntryBlockAlloca(F, wantedFields[i]->getAttrName() + "_ptr", tblock.getLLVMType(llvmContext));
-        Value * el = Builder->CreateInBoundsGEP(r, std::vector<Value *>{context->createInt32(0), context->createInt32(i)});
+        AllocaInst * tblock_ptr = context->CreateEntryBlockAlloca(F, wantedFields[i]->getRegisteredAttrName() + "_ptr", tblock.getLLVMType(llvmContext));
 
-        Builder->CreateStore(Builder->CreateLoad(el), tblock_ptr);
+        Builder->CreateStore(els[i], tblock_ptr);
 
         RawValueMemory memWrapper;
         memWrapper.mem      = tblock_ptr;
         memWrapper.isNull   = context->createFalse();
-        variableBindings[tblock] = memWrapper;
+        (*variableBindings)[tblock] = memWrapper;
     }
 
-    if (hashProject){
-        //Save hash in bindings
-        AllocaInst * hash_ptr = context->CreateEntryBlockAlloca(F, "hash_ptr", target_type);
-        Value * target_mem    = Builder->CreateInBoundsGEP(r, std::vector<Value *>{context->createInt32(0), context->createInt32(wantedFields.size())});
-        Builder->CreateStore(Builder->CreateLoad(target_mem), hash_ptr);
-
-        RawValueMemory mem_hashWrapper;
-        mem_hashWrapper.mem      = hash_ptr;
-        mem_hashWrapper.isNull   = context->createFalse();
-        variableBindings[*hashProject] = mem_hashWrapper;
-    }
-
-
-    context->setEndingBlock(after_processBB);
-
-    OperatorState state{*this, variableBindings};
+    OperatorState state{*this, *variableBindings};
     getParent()->consume(context, state);
 
+    Function * get_buffer = context->getFunction("get_buffer");
 
-    Builder->CreateBr(cond_processBB);
+    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
+        RecordAttribute tblock{wantedFields[i]->getRegisteredAs(), true};
+        Value * size     = context->createSizeT(blockSize * context->getSizeOf(wantedFields[i]->getExpressionType()->getLLVMType(llvmContext)));
+
+        Value * new_buff = Builder->CreateCall(get_buffer, std::vector<Value *>{size});
+
+        new_buff = Builder->CreateBitCast(new_buff, tblock.getLLVMType(llvmContext));
+
+        Builder->CreateStore(new_buff, Builder->CreateInBoundsGEP(curblk, std::vector<Value *>{context->createInt32(0), context->createInt32(i)}));
+    }
+
+    Builder->CreateStore(ConstantInt::get(oid_type, 0), indx_addr);
+
+    Builder->CreateBr(mergeBB);
+
+    // else
+    Builder->SetInsertPoint(elseBB);
+
+    Builder->CreateStore(Builder->CreateAdd(indx, ConstantInt::get(oid_type, 1)), indx_addr);
+
+    Builder->CreateBr(mergeBB);
 
     // merge
     Builder->SetInsertPoint(mergeBB);
@@ -285,15 +212,30 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
 }
 
 void HashRearrange::consume_flush(){
-    std::vector<Type *> args{context->getStateVars()};
+    save_current_blocks_and_restore_at_exit_scope blks{context};
+    LLVMContext &llvmContext    = context->getLLVMContext();
 
-    context->pushNewCpuPipeline();
+    flushingFunc = (*context)->createHelperFunction("flush", std::vector<Type *>{}, std::vector<bool>{}, std::vector<bool>{});
+    closingPip   = (context->operator->());
+    IRBuilder<> * Builder       = context->getBuilder    ();
+    BasicBlock  * insBB         = Builder->GetInsertBlock();
+    Function    * F             = insBB->getParent();
+    //Get the ENTRY BLOCK
+    context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
-    for (Type * t: args) context->appendStateVar(t);
 
-    LLVMContext & llvmContext   = context->getLLVMContext();
 
-    Plugin * pg       = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+
+
+    // std::vector<Type *> args{context->getStateVars()};
+
+    // context->pushNewCpuPipeline();
+
+    // for (Type * t: args) context->appendStateVar(t);
+
+    // LLVMContext & llvmContext   = context->getLLVMContext();
+
+    Plugin * pg       = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRegisteredRelName());
     Type   * oid_type = pg->getOIDType()->getLLVMType(llvmContext);
 
     IntegerType * int32_type   = Type::getInt32Ty  (llvmContext);
@@ -304,13 +246,13 @@ void HashRearrange::consume_flush(){
     else if (sizeof(size_t) == 8) size_type = int64_type;
     else                          assert(false);
 
-    context->setGlobalFunction();
+    // context->setGlobalFunction();
 
-    IRBuilder<> * Builder       = context->getBuilder    ();
-    BasicBlock  * insBB         = Builder->GetInsertBlock();
-    Function    * F             = insBB->getParent();
+    // IRBuilder<> * Builder       = context->getBuilder    ();
+    // BasicBlock  * insBB         = Builder->GetInsertBlock();
+    // Function    * F             = insBB->getParent();
     //Get the ENTRY BLOCK
-    context->setCurrentEntryBlock(Builder->GetInsertBlock());
+    // context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
     BasicBlock *CondBB = BasicBlock::Create(llvmContext, "flushCond", F);
 
@@ -383,7 +325,7 @@ void HashRearrange::consume_flush(){
         block_ptr_addrs.push_back(block);
     }
     
-    RecordAttribute tupCnt{wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()}; //FIXME: OID type for blocks ?
+    RecordAttribute tupCnt{wantedFields[0]->getRegisteredRelName(), "activeCnt", pg->getOIDType()}; //FIXME: OID type for blocks ?
 
     RawValueMemory mem_cntWrapper;
     mem_cntWrapper.mem      = blockN_ptr;
@@ -396,7 +338,7 @@ void HashRearrange::consume_flush(){
     AllocaInst * new_oid_ptr = context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
     Builder->CreateStore(new_oid, new_oid_ptr);
 
-    RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRelationName(),  activeLoop, pg->getOIDType());
+    RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRegisteredRelName(),  activeLoop, pg->getOIDType());
     
     RawValueMemory mem_oidWrapper;
     mem_oidWrapper.mem      = new_oid_ptr;
@@ -405,9 +347,9 @@ void HashRearrange::consume_flush(){
 
 
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        RecordAttribute tblock{*(wantedFields[i]), true};
+        RecordAttribute tblock{wantedFields[i]->getRegisteredAs(), true};
 
-        AllocaInst * tblock_ptr = context->CreateEntryBlockAlloca(F, wantedFields[i]->getAttrName() + "_ptr", tblock.getLLVMType(llvmContext));
+        AllocaInst * tblock_ptr = context->CreateEntryBlockAlloca(F, wantedFields[i]->getRegisteredAttrName() + "_ptr", tblock.getLLVMType(llvmContext));
 
         Builder->CreateStore(block_ptr_addrs[i], tblock_ptr);
 
@@ -417,7 +359,7 @@ void HashRearrange::consume_flush(){
         variableBindings[tblock] = memWrapper;
     }
 
-    Function * f = context->getFunction("printi64");
+    Function * f = context->getFunction("printi");
     Builder->CreateCall(f, indx);
 
     OperatorState state{*this, variableBindings};
@@ -436,20 +378,25 @@ void HashRearrange::consume_flush(){
 
 
 
-
     Builder->SetInsertPoint(context->getCurrentEntryBlock());
-    // Insert an explicit fall through from the current (entry) block to the CondBB.
     Builder->CreateBr(CondBB);
 
-
     Builder->SetInsertPoint(context->getEndingBlock());
-    // Builder->CreateRetVoid();
+    Builder->CreateRetVoid();
+
+    // Builder->SetInsertPoint(context->getCurrentEntryBlock());
+    // // Insert an explicit fall through from the current (entry) block to the CondBB.
+    // Builder->CreateBr(CondBB);
 
 
-    context->popNewPipeline();
+    // Builder->SetInsertPoint(context->getEndingBlock());
+    // // Builder->CreateRetVoid();
 
-    RawPipelineGen * closingPip = context->removeLatestPipeline();
-    flushFunc                   = closingPip->getKernel();
+
+    // context->popNewPipeline();
+
+    // RawPipelineGen * closingPip = context->removeLatestPipeline();
+    // flushFunc                   = closingPip->getKernel();
 }
 
 void HashRearrange::open (RawPipeline * pip){
@@ -463,7 +410,7 @@ void HashRearrange::open (RawPipeline * pip){
 
     for (int i = 0 ; i < numOfBuckets ; ++i){
         for (size_t j = 0 ; j < wantedFields.size() ; ++j){
-            blocks[i * wantedFields.size() + j] = get_buffer(pip->getSizeOf(RecordAttribute(*(wantedFields[i]), true).getLLVMType(context->getLLVMContext())));
+            blocks[i * wantedFields.size() + j] = get_buffer(pip->getSizeOf(wantedFields[i]->getExpressionType()->getLLVMType(context->getLLVMContext())) * blockSize);
         }
     }
 
@@ -473,7 +420,8 @@ void HashRearrange::open (RawPipeline * pip){
 }
 
 void HashRearrange::close(RawPipeline * pip){
-    ((void (*)(void *)) this->flushFunc)(pip->getState());
+    // ((void (*)(void *)) this->flushFunc)(pip->getState());
+    ((void (*)(void *)) closingPip->getCompiledFunction(flushingFunc))(pip->getState());
 
     free(pip->getStateVar<size_t *>(cntVar_id));
     free(pip->getStateVar<void   *>(blkVar_id)); //FIXME: release buffers before freeing memory!

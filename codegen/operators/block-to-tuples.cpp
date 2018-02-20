@@ -31,7 +31,7 @@ void BlockToTuples::produce()    {
         old_buffs.push_back(
                                 context->appendStateVar(
                                     PointerType::getUnqual(
-                                        RecordAttribute{*(wantedFields[i]), true}.
+                                        RecordAttribute{wantedFields[i]->getRegisteredAs(), true}.
                                             getLLVMType(context->getLLVMContext())
                                     )
                                 )
@@ -99,7 +99,7 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
     Builder->SetInsertPoint(releaseBB);
 
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        RecordAttribute attr{*(wantedFields[i]), true};
+        RecordAttribute attr{wantedFields[i]->getRegisteredAs(), true};
         Value        * arg = Builder->CreateLoad(oldBindings[attr].mem);
         Value        * old = Builder->CreateLoad(context->getStateVar(old_buffs[i]));
         old                = Builder->CreateBitCast(old, charPtrType);
@@ -136,17 +136,18 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
 
     // Builder->SetInsertPoint(context->getCurrentEntryBlock());
     
-    Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+    Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRegisteredRelName());
     
-    mem_itemCtr = context->CreateEntryBlockAlloca(F, "i_ptr", pg->getOIDType()->getLLVMType(llvmContext));
+
+    RecordAttribute tupleCnt{wantedFields[0]->getRegisteredRelName(), "activeCnt", pg->getOIDType()}; //FIXME: OID type for blocks ?
+    Value * cnt = Builder->CreateLoad(oldBindings[tupleCnt].mem, "cnt");
+
+    mem_itemCtr = context->CreateEntryBlockAlloca(F, "i_ptr", cnt->getType());
     Builder->CreateStore(
                 Builder->CreateIntCast(context->threadId(),
-                                        pg->getOIDType()->getLLVMType(llvmContext),
+                                        cnt->getType(),
                                         false),
                 mem_itemCtr);
-
-    RecordAttribute tupleCnt{wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()}; //FIXME: OID type for blocks ?
-    Value * cnt = Builder->CreateLoad(oldBindings[tupleCnt].mem, "cnt");
 
     // Function * f = context->getFunction("devprinti64");
     // Builder->CreateCall(f, std::vector<Value *>{cnt});
@@ -199,7 +200,7 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
     //More general/lazy plugins will only perform this action,
     //instead of eagerly 'converting' fields
     //FIXME This action corresponds to materializing the oid. Do we want this?
-    RecordAttribute tupleIdentifier{wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType()};
+    RecordAttribute tupleIdentifier{wantedFields[0]->getRegisteredRelName(), activeLoop, pg->getOIDType()};
 
     RawValueMemory mem_posWrapper;
     mem_posWrapper.mem = mem_itemCtr;
@@ -208,7 +209,7 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
 
     //Actual Work (Loop through attributes etc.)
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        RecordAttribute attr{*(wantedFields[i]), true};
+        RecordAttribute attr{wantedFields[i]->getRegisteredAs(), true};
 
         // Argument * arg = context->getArgument(wantedFieldsArg_id[i]);
         // arg->setName(attr.getAttrName() + "_ptr");
@@ -236,7 +237,7 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
 
         // string posVarStr = string(posVar);
         // string currPosVar = posVarStr + "." + attr.getAttrName();
-        string bufVarStr  = wantedFields[0]->getRelationName();
+        string bufVarStr  = wantedFields[0]->getRegisteredRelName();
         string currBufVar = bufVarStr + "." + attr.getAttrName();
 
         // Value *parsed = Builder->CreateLoad(bufShiftedPtr); //attr_alloca
@@ -265,7 +266,7 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem = mem_currResult;
         mem_valWrapper.isNull = context->createFalse();
-        variableBindings[*(wantedFields[i])] = mem_valWrapper;
+        variableBindings[wantedFields[i]->getRegisteredAs()] = mem_valWrapper;
     }
 
     // Start insertion in IncBB.

@@ -30,7 +30,7 @@ class BlockToTuples : public UnaryRawOperator {
 public:
     BlockToTuples(RawOperator * const           child,
                 GpuRawContext * const           context,
-                const vector<RecordAttribute*> &wantedFields,
+                const vector<expressions::Expression *> &wantedFields,
                 bool                            gpu = true,
                 gran_t                          granularity = gran_t::GRID) :
                     UnaryRawOperator(child), 
@@ -54,7 +54,7 @@ private:
     virtual void open (RawPipeline * pip);
     virtual void close(RawPipeline * pip);
 
-    const vector<RecordAttribute *> wantedFields;
+    const vector<expressions::Expression *> wantedFields;
     std::vector<size_t>             old_buffs   ;
     GpuRawContext * const           context     ;
     AllocaInst                    * mem_itemCtr ;

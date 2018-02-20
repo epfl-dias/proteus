@@ -355,11 +355,36 @@ void RawGpuPipelineGen::markAsKernel(Function * F) const{
 }
 
 Function * const RawGpuPipelineGen::createHelperFunction(string funcName, std::vector<Type *> ins, std::vector<bool> readonly, std::vector<bool> noalias) const{
-    Function * F = RawPipelineGen::createHelperFunction(funcName, ins, readonly, noalias);
+    assert(readonly.size() == noalias.size());
+    assert(readonly.size() == 0 || readonly.size() == args.size());
 
-    markAsKernel(F);
+    ins.push_back(state_type);
+
+    FunctionType *ftype = FunctionType::get(Type::getVoidTy(context->getLLVMContext()), ins, false);
+    //use f_num to overcome an llvm bu with keeping dots in function names when generating PTX (which is invalid in PTX)
+    Function * helper = Function::Create(ftype, Function::ExternalLinkage, funcName, context->getModule());
+
+    if (readonly.size() == ins.size()) {
+        Attribute readOnly = Attribute::get(context->getLLVMContext(), Attribute::AttrKind::ReadOnly);
+        Attribute noAlias  = Attribute::get(context->getLLVMContext(), Attribute::AttrKind::NoAlias );
+
+        readonly.push_back(true);
+        noalias .push_back(true);
+        std::vector<std::pair<unsigned, Attribute>> attrs;
+        for (size_t i = 1 ; i <= ins.size() ; ++i){ //+1 because 0 is the return value
+            if (readonly[i - 1]) attrs.emplace_back(i, readOnly);
+            if (noalias [i - 1]) attrs.emplace_back(i, noAlias );
+        }
+
+        helper->setAttributes(AttributeList::get(context->getLLVMContext(), attrs));
+    }
+
+    BasicBlock *BB = BasicBlock::Create(context->getLLVMContext(), "entry", helper);
+    getBuilder()->SetInsertPoint(BB);
+
+    markAsKernel(helper);
     
-    return F;
+    return helper;
 }
 
 Function * RawGpuPipelineGen::prepare(){

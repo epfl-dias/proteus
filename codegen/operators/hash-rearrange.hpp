@@ -31,7 +31,7 @@ public:
     HashRearrange(  RawOperator * const             child,
                     GpuRawContext * const           context,
                     int                             numOfBuckets,
-                    const vector<RecordAttribute*> &wantedFields,
+                    const vector<expressions::Expression *> &wantedFields,
                     expressions::Expression        *hashExpr,
                     RecordAttribute                *hashProject = NULL) :
                         UnaryRawOperator(child), 
@@ -55,13 +55,13 @@ protected:
     virtual void open (RawPipeline * pip);
     virtual void close(RawPipeline * pip);
 
-    const vector<RecordAttribute *> wantedFields;
+    const vector<expressions::Expression *> wantedFields;
     const int                       numOfBuckets;
     RecordAttribute               * hashProject ;
 
     expressions::Expression *       hashExpr    ;
 
-    void *                          flushFunc   ;
+    // void *                          flushFunc   ;
 
     size_t                          blkVar_id   ;
     size_t                          cntVar_id   ;
@@ -70,6 +70,9 @@ protected:
     size_t                          blockSize   ;
 
     GpuRawContext * const           context     ;
+
+    RawPipelineGen                        * closingPip      ;
+    Function                              * flushingFunc    ;
 };
 
 #endif /* HASH_REARRANGE_HPP_ */

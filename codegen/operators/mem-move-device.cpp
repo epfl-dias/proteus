@@ -236,6 +236,7 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
     Value * N               = Builder->CreateLoad(mem_cntWrapper.mem);
 
 
+
     RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRelationName(),  activeLoop, pg->getOIDType()); 
     it = old_bindings.find(tupleIdentifier);
     assert(it != old_bindings.end());
@@ -261,7 +262,8 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
         Type  * mv_block_type   = mem_valWrapper.mem->getType()->getPointerElementType()->getPointerElementType();
 
         Value * size            = ConstantInt::get(llvmContext, APInt(64, context->getSizeOf(mv_block_type)));
-        size                    = Builder->CreateMul(size, N);
+        Value * Nloc            = Builder->CreateZExtOrBitCast(N, size->getType());
+        size                    = Builder->CreateMul(size, Nloc);
 
         vector<Value *> mv_args{mv, size, device_id, memmv};
 
@@ -436,7 +438,9 @@ void MemMoveDevice::catcher(MemMoveConf * mmc, int group_id, const exec_location
 
             gpu_run(cudaEventSynchronize(p->event));
             nvtxRangePushA("memmove::catch_cons");
+            std::cout << *((void **) p->data) << " " << get_device(*((void **) p->data)) << " Started.............................." << std::endl;
             pip->consume(0, p->data);
+            std::cout << *((void **) p->data) << " " << get_device(*((void **) p->data)) << " Finished............................." << std::endl;
             nvtxRangePop();
 
             releaseWorkUnit(mmc, p); //FIXME: move this inside the generated code
