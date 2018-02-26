@@ -31,7 +31,11 @@ setMethod("dbConnect", "ViDaRDriver", def = function(drv, dbhost="localhost", db
   # in DBI it is specified that it has to be sequential execution!
   tryCatch(
    {
-      sockcon <- socketConnection(host=dbhost, port=dbport, blocking = TRUE)
+      sockcon <- socketConnection(host=dbhost, port=dbport, blocking = TRUE, timeout=1234)
+      response <- readLines(sockcon, 1)
+
+      print("response:")
+      print(response)
       connenv$conn <- sockcon
       connenv$is_open <- TRUE
     },
@@ -93,52 +97,28 @@ setMethod("dbIsValid", "ViDaRConnection", def = function(dbObj, ...)
   )
 
 setMethod("dbListFields", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
-    # go through csv file and parse it
-    # reads the JSON from schema, then tables file names from folder
-
-    path <- "/home/sanca/ViDa/pelago/src/SQLPlanner/src/main/resources/"
-    # for now we refer to json schema directly (make it as call from socket)
-    json<-jsonlite::read_json(paste0(path,"schema.json"))
-
-    fields_ret <- list()
-
-    for(schema in json$schemas){
-      for(tbl in list.files(paste0(path,schema$operand$directory)))
-        if(strsplit(tbl,"\\.")[[1]][1]==name){
-          fields_unparsed<-read.csv(paste0(path,schema$operand$directory,'/',tbl), header = FALSE, as.is = TRUE)
-
-          for(f in fields_unparsed){
-            fields_ret <- c(fields_ret, strsplit(f,":")[[1]][1])
-          }
-        }
+    if(dbExistsTable(conn,name)){
+      if(conn@env$is_open){
+        writeLines(paste0("list fields ", name), conn@env$conn)
+        return(jsonlite::fromJSON(readLines(conn@env$conn,1)))
+      }
     }
-
-    return(unlist(fields_ret))
   })
 
 setMethod("dbListTables", "ViDaRConnection", def = function(conn, ...) {
-    # reads the JSON from schema, then tables file names from folder
-
-    path <- "/home/sanca/ViDa/pelago/src/SQLPlanner/src/main/resources/"
-    # for now we refer to json schema directly (make it as call from socket)
-    json<-jsonlite::read_json(paste0(path,"schema.json"))
-
-    tables <- list()
-
-    for(schema in json$schemas){
-      for(tbl in list.files(paste0(path,schema$operand$directory)))
-        tables <- c(tables, strsplit(tbl,"\\.")[[1]][1])
+    if(conn@env$is_open){
+      writeLines("list tables", conn@env$conn)
+      return(jsonlite::fromJSON(readLines(conn@env$conn,1)))
     }
-
-    return(unlist(tables))
   })
 
 setMethod("dbReadTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
     if(!dbExistsTable(conn, name))
       stop(paste("Table: ", name, " - does not exist"))
 
-
+    ## this is the practical effect of invocation - just read the whole file
     dbGetQuery(conn, paste0("SELECT * FROM ", name))
+
   })
 
 setMethod("dbRemoveTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...)
@@ -148,14 +128,35 @@ setMethod("dbRemoveTable", signature(conn="ViDaRConnection", name="character"), 
 processQuery <- function(query) {
   ret_query <- gsub("<SQL>", "", query)
   ret_query <- gsub("\"","", ret_query)
+  ret_query <- gsub("LIMIT 10", "", ret_query)
   ret_query <- gsub("\n"," ", ret_query)
+  ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
 
   return(ret_query)
+}
+
+extractFrom <- function(query) {
+  from <- strsplit(processQuery(query), "FROM ")[[1]][2]
+  from <- strsplit(from, " ")[[1]][1]
+  return(from)
 }
 
 setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"), def = function(conn, statement, ...){
   # environment for ViDaRResult to return
   env <- new.env(parent = emptyenv())
+
+  # case for loading 0 rows
+  if(grepl("(0 = 1)",as.character(statement))){
+    print('raw statement:')
+    print(as.character(statement))
+
+    env$conn <- conn
+    env$query <- statement
+    env$lazy <- TRUE
+    env$table_name <- extractFrom(as.character(statement))
+
+    return(new("ViDaRResult", env=env))
+  }
 
   # send the query to ViDa for execution
   if(conn@env$is_open){
@@ -185,6 +186,7 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
 
   env$conn <- conn
   env$query <- statement
+  env$lazy <- FALSE
 
   invisible(new("ViDaRResult", env=env))
   })
@@ -223,13 +225,17 @@ getPath <- function(table_name){
   return(NULL)
 }
 
-# for case of creating a tbl (return 0 rows), R magic with lazy evaluation
-schema2tbl <- function(con, table){
+# mapping between types in CSV and R types
+type_map <- list(int="integer(0)", string="character(0)", boolean="logical(0)")
 
-  tmp <- read.csv(getPath(table))
+# for case of creating a tbl (return 0 rows), R magic with lazy evaluation
+schema2tbl <- function(table){
+
+  suppressWarnings(tmp <- read.csv(getPath(table)))
+
 
   build_cmd <- "list("
-  type_map <- list(int="integer(0)", string="character(0)")
+
 
   for(col in colnames(tmp)){
 
@@ -245,7 +251,29 @@ schema2tbl <- function(con, table){
   return(as.tbl(data.frame(lazyeval::lazy_eval(build_cmd))))
 }
 
-setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(res, n, ...) {
+setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(res, n=1, ...) {
+
+  if(res@env$lazy){
+    print("Lazy get table: ")
+    print(res@env$table_name)
+    return(schema2tbl(res@env$table_name))
+  } else {
+
+    fetch_query <- paste0("fetch ",res@env$path, " ", as.character(n))
+    writeLines(fetch_query, res@env$conn@env$conn)
+    json_res <- jsonlite::fromJSON(readLines(res@env$conn@env$conn,1))
+
+    tryCatch({
+      #return(as.tbl(jsonlite::fromJSON(res@env$path)))
+      return(as.tbl(json_res))
+    },
+    error=function(cond){
+      # TODO: better handling of empty result
+      #return(as.tbl(as.data.frame(jsonlite::fromJSON(res@env$path))))
+      return(as.tbl(as.data.frame(json_res)))
+    })
+
+  }
 
   #result_file <- file(res@env$resp_path)
   #print("Result:")
@@ -259,7 +287,7 @@ setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(r
       #return(as.tbl(jsonlite::fromJSON(res@env$resp_path)))
   #  },
   #  error=function(cond){
-     return(as.tbl(jsonlite::fromJSON(res@env$path)))
+  #   return(as.tbl(jsonlite::fromJSON(res@env$path)))
   #  }
   #)
 
