@@ -1037,8 +1037,10 @@ void GpuHashGroupByChained::open(RawPipeline * pip){
         next.emplace_back(RawMemoryManager::mallocGpu((w/8) * maxInputSize));
     }
 
-    gpu_run(cudaMemset(  cnt,  0,                    sizeof(int32_t)));
-    gpu_run(cudaMemset(first, -1, (1 << hash_bits) * sizeof(int32_t)));
+    cudaStream_t strm;
+    gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+    gpu_run(cudaMemsetAsync(  cnt,  0,                    sizeof(int32_t), strm));
+    gpu_run(cudaMemsetAsync(first, -1, (1 << hash_bits) * sizeof(int32_t), strm));
     // gpu_run(cudaMemset(next[0], -1, (packet_widths[0]/8) * maxInputSize));
 
     pip->setStateVar<int32_t  *>(cnt_param_id , cnt);
@@ -1047,6 +1049,9 @@ void GpuHashGroupByChained::open(RawPipeline * pip){
     for (size_t i = 0 ; i < out_param_ids.size() ; ++i){
         pip->setStateVar<void *>(out_param_ids[i], next[i]);
     }
+
+    gpu_run(cudaStreamSynchronize(strm));
+    gpu_run(cudaStreamDestroy(strm));
 
     // std::cout << cnt << " " << get_device(cnt) << std::endl;
     // std::cout << first << " " << get_device(first) << std::endl;

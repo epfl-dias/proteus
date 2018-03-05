@@ -126,9 +126,11 @@ public:
 	//Utility functions, similar to ones from Impala
 	AllocaInst* CreateEntryBlockAlloca(Function *TheFunction,
 			const std::string &VarName,
-			Type* varType);
+			Type* varType,
+			Value * arraySize = nullptr);
 
-	AllocaInst* CreateEntryBlockAlloca(const std::string &VarName, Type* varType);
+	AllocaInst* CreateEntryBlockAlloca(const std::string &VarName, Type* varType,
+		Value * arraySize = nullptr);
 	
 	AllocaInst * createAlloca(	BasicBlock   * InsertAtBB, 
 								const string & VarName   , 
@@ -161,6 +163,9 @@ public:
 	//Not used atm
 	void CodegenMemcpy(Value* dst, Value* src, int size);
 	void CodegenMemcpy(Value* dst, Value* src, Value* size);
+
+	void CodegenMemset(Value* dst, Value* byte , int size   );
+	void CodegenMemset(Value* dst, Value* bytes, Value* size);
 
 	virtual void registerFunction(const char*, Function*);
 	virtual BasicBlock* getEndingBlock() {return codeEnd;}

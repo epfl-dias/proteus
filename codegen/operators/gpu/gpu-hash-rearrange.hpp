@@ -54,16 +54,20 @@ public:
     virtual bool isFiltering() const {return false;}
 
 protected:
-    virtual void consume_flush();
+    virtual void consume_flush(llvm::IntegerType * target_type);
 
     virtual void open (RawPipeline * pip);
     virtual void close(RawPipeline * pip);
+
+    llvm::Value * hash(llvm::Value * key, llvm::Value * old_seed = NULL);
+    llvm::Value * hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState);
 
     std::vector<expressions::Expression *>  matExpr         ;
     const int                               numOfBuckets    ;
     RecordAttribute                       * hashProject     ;
 
     expressions::Expression               * hashExpr        ;
+    expressions::RecordConstruction       * mexpr           ;
 
     RawPipelineGen                        * closingPip      ;
     Function                              * flushingFunc    ;

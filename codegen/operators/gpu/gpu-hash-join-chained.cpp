@@ -533,13 +533,16 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
 }
 
 void GpuHashJoinChained::open_build(RawPipeline * pip){
+    std::cout << "GpuHashJoinChained::open::build_" << pip->getGroup() << std::endl;
     std::vector<void *> next_w_values;
 
     uint32_t * head = (uint32_t *) RawMemoryManager::mallocGpu(sizeof(uint32_t) * (1 << hash_bits) + sizeof(int32_t));
     int32_t  * cnt  = (int32_t *) (head + (1 << hash_bits));
 
-    gpu_run(cudaMemset(head, -1, sizeof(uint32_t) * (1 << hash_bits)));
-    gpu_run(cudaMemset( cnt,  0, sizeof( int32_t)                   ));
+    cudaStream_t strm;
+    gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+    gpu_run(cudaMemsetAsync(head, -1, sizeof(uint32_t) * (1 << hash_bits), strm));
+    gpu_run(cudaMemsetAsync( cnt,  0, sizeof( int32_t)                   , strm));
 
     for (const auto &w: build_packet_widths){
         next_w_values.emplace_back(RawMemoryManager::mallocGpu((w/8) * maxBuildInputSize));
@@ -554,9 +557,14 @@ void GpuHashJoinChained::open_build(RawPipeline * pip){
 
     next_w_values.emplace_back(head);
     confs.emplace(pip->getGroup(), next_w_values);
+
+    gpu_run(cudaStreamSynchronize(strm));
+    gpu_run(cudaStreamDestroy(strm));
+    std::cout << "GpuHashJoinChained::open::build2" << std::endl;
 }
 
 void GpuHashJoinChained::open_probe(RawPipeline * pip){
+    std::cout << "GpuHashJoinChained::open::build_" << pip->getGroup() << std::endl;
     std::vector<void *> next_w_values = confs[pip->getGroup()];
     uint32_t *          head          = (uint32_t *) next_w_values.back();
 
@@ -567,11 +575,19 @@ void GpuHashJoinChained::open_probe(RawPipeline * pip){
     for (size_t i = 0 ; i < build_packet_widths.size() ; ++i){
         pip->setStateVar(in_param_ids[i], next_w_values[i]);
     }
+    std::cout << "GpuHashJoinChained::open::probe2" << std::endl;
 }
 
 void GpuHashJoinChained::close_build(RawPipeline * pip){
+    std::cout << "GpuHashJoinChained::close::build_" << pip->getGroup() << std::endl;
+    int32_t h_cnt;
+    gpu_run(cudaMemcpy(&h_cnt, pip->getStateVar<int32_t *>(cnt_param_id), sizeof(int32_t), cudaMemcpyDefault));
+    assert(((size_t) h_cnt) <= maxBuildInputSize && "Build input sized exceeded given parameter");
+    std::cout << "GpuHashJoinChained::close::build2" << std::endl;
 }
 
 void GpuHashJoinChained::close_probe(RawPipeline * pip){
+    std::cout << "GpuHashJoinChained::close::probe_" << pip->getGroup() << std::endl;
     for (const auto &p: confs[pip->getGroup()]) RawMemoryManager::freeGpu(p);
+    std::cout << "GpuHashJoinChained::close::probe2" << std::endl;
 }

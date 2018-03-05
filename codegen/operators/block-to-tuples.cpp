@@ -308,7 +308,11 @@ void BlockToTuples::open (RawPipeline * pip){
 
     if (gpu) {
         buffs = (void **) RawMemoryManager::mallocGpu(sizeof(void  *) * wantedFields.size());
-        gpu_run(cudaMemset(buffs, 0, sizeof(void  *) * wantedFields.size()));
+        cudaStream_t strm;
+        gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+        gpu_run(cudaMemsetAsync(buffs, 0, sizeof(void  *) * wantedFields.size(), strm));
+        gpu_run(cudaStreamSynchronize(strm));
+        gpu_run(cudaStreamDestroy(strm));
     } else {
         buffs = (void **) RawMemoryManager::mallocPinned(sizeof(void  *) * wantedFields.size());
         memset(buffs, 0, sizeof(void  *) * wantedFields.size());
@@ -335,10 +339,12 @@ void BlockToTuples::close(RawPipeline * pip){
         h_buffs = buffs;
     }
 
-    if (gpu) RawMemoryManager::freeGpu(buffs);
-    else     RawMemoryManager::freePinned(buffs);
-
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
         buffer_manager<int32_t>::release_buffer((int32_t *) h_buffs[i]);
     }
+
+    if (gpu) RawMemoryManager::freeGpu(buffs);
+    else     RawMemoryManager::freePinned(buffs);
+
+    if (gpu) free(h_buffs);
 }

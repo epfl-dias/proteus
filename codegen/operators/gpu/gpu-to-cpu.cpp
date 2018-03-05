@@ -559,7 +559,10 @@ void GpuToCpu::open(RawPipeline * pip){
     eof = flags + size;
 
     lock = (int32_t *) RawMemoryManager::mallocGpu(sizeof(int32_t) * 2);
-    gpu_run(cudaMemset(        lock, 0, sizeof(int32_t) * 2));
+
+    cudaStream_t strm;
+    gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+    gpu_run(cudaMemsetAsync(lock, 0, sizeof(int32_t) * 2, strm));
     last = lock + 1;
 
     nvtxRangePushA("gpu2cpu_set_state_init");
@@ -579,6 +582,9 @@ void GpuToCpu::open(RawPipeline * pip){
     cpip->setStateVar<void    *>(storeVar_id_catch, (void    *) store);
     cpip->setStateVar<int32_t *>(eofVar_id_catch  , (int32_t *) eof  );
     nvtxRangePop();
+
+    gpu_run(cudaStreamSynchronize(strm));
+    gpu_run(cudaStreamDestroy(strm));
 
     std::thread * t = new std::thread(kick_start, cpip, device);
 

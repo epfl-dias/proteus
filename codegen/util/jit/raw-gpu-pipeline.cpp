@@ -104,7 +104,15 @@ RawGpuPipelineGen::RawGpuPipelineGen(RawContext * context, std::string pipName, 
     FunctionType *intrprinti64 = FunctionType::get(void_type, std::vector<Type *>{int64_type}, false);
     Function *intr_pprinti64 = Function::Create(intrprinti64, Function::ExternalLinkage, "dprinti64", getModule());
     registerFunction("printi64", intr_pprinti64);
-    
+
+    FunctionType *intrprinti = FunctionType::get(void_type, std::vector<Type *>{int32_type}, false);
+    Function *intr_pprinti = Function::Create(intrprinti, Function::ExternalLinkage, "dprinti", getModule());
+    registerFunction("printi", intr_pprinti);
+
+    FunctionType *intrprintptr = FunctionType::get(void_type, std::vector<Type *>{charPtrType}, false);
+    Function *intr_pprintptr = Function::Create(intrprintptr, Function::ExternalLinkage, "dprintptr", getModule());
+    registerFunction("printptr", intr_pprintptr);
+
     FunctionType *intrget_buffers = FunctionType::get(charPtrType, std::vector<Type *>{}, false);
     Function *intr_pget_buffers = Function::Create(intrget_buffers, Function::ExternalLinkage, "get_buffers", getModule());
     registerFunction("get_buffers", intr_pget_buffers);
@@ -259,6 +267,8 @@ void RawGpuPipelineGen::prepareInitDeinit(){
     wrapperModuleActive = true ;
 
     Type * void_type    = Type::getVoidTy   (context->getLLVMContext());
+    Type * int32_type   = Type::getInt32Ty  (context->getLLVMContext());
+    Type * size_type    = context->createSizeT(0)->getType();
     Type * charPtrType  = Type::getInt8PtrTy(context->getLLVMContext());
 
     FunctionType * FTlaunch_kernel        = FunctionType::get(
@@ -321,6 +331,10 @@ void RawGpuPipelineGen::prepareInitDeinit(){
     FunctionType *intrdestroyCudaStream = FunctionType::get(void_type, std::vector<Type *>{charPtrType}, false);
     Function *intr_pdestroyCudaStream = Function::Create(intrdestroyCudaStream, Function::ExternalLinkage, "destroyCudaStream", getModule());
     registerFunction("destroyCudaStream", intr_pdestroyCudaStream);
+
+    FunctionType *intrmemset = FunctionType::get(void_type, std::vector<Type *>{charPtrType, int32_type, size_type}, false);
+    Function *intr_pmemset = Function::Create(intrmemset, Function::ExternalLinkage, "gpu_memset", getModule());
+    registerFunction("memset", intr_pmemset);
 
     registerSubPipeline();
     registerFunctions();

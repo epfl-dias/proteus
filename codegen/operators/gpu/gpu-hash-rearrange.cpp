@@ -25,6 +25,7 @@
 #include "common/gpu/gpu-common.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"
 #include "expressions/expressions-generator.hpp"
+#include "expressions/expressions-hasher.hpp"
 #include <algorithm>
 #include "multigpu/buffer_manager.cuh"
 #include "util/raw-memory-manager.hpp"
@@ -60,6 +61,56 @@ void GpuHashRearrange::consume(RawContext* const context, const OperatorState& c
     consume(ctx, childState);
 }
 
+//NOTE: no MOD hashtable_size here!
+Value * GpuHashRearrange::hash(Value * key, Value * old_seed){
+    IRBuilder<>    *Builder     = context->getBuilder();
+
+    Value * hash = key;
+
+    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
+    hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0x85ebca6b));
+    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 13));
+    hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0xc2b2ae35));
+    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
+
+    if (old_seed){
+        //boost::hash_combine
+        // seed ^= hash_value(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        Value * hv = hash;
+        
+        hv = Builder->CreateAdd(hv, ConstantInt::get(hv->getType(), 0x9e3779b9));
+        hv = Builder->CreateAdd(hv, Builder->CreateShl (old_seed,  6));
+        hv = Builder->CreateAdd(hv, Builder->CreateLShr(old_seed,  2));
+        hv = Builder->CreateXor(hv, old_seed);
+
+        hash = hv;
+    }
+
+    return hash;
+}
+
+Value * GpuHashRearrange::hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState){
+    ExpressionGeneratorVisitor exprGenerator(context, childState);
+    Value * hash = NULL;
+
+    for (size_t i = 0 ; i < exprs.size() ; ++i){
+        if (exprs[i]->getTypeID() == expressions::RECORD_CONSTRUCTION){
+            const auto &attrs = ((expressions::RecordConstruction *) exprs[i])->getAtts();
+
+            std::vector<expressions::Expression *> exprs;
+            for (const auto &attr: attrs) exprs.push_back(attr.getExpression());
+
+            Value * hv = GpuHashRearrange::hash(exprs, context, childState);
+            hash = GpuHashRearrange::hash(hv, hash);
+        } else {
+            RawValue keyWrapper = exprs[i]->accept(exprGenerator); //FIXME hash composite key!
+            hash = GpuHashRearrange::hash(keyWrapper.value, hash);
+        }
+    }
+
+    return hash;
+}
+
 void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState& childState) {
     LLVMContext & llvmContext   = context->getLLVMContext();
     IRBuilder<> * Builder       = context->getBuilder    ();
@@ -82,9 +133,6 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     else                          assert(false);
 
     Type   * idx_type = int32_type;
-
-    IntegerType * target_type = (IntegerType *) hashExpr->getExpressionType()->getLLVMType(llvmContext);
-    // if (hashProject) target_type = (IntegerType *) hashProject->getLLVMType(llvmContext);
 
     Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
@@ -143,10 +191,10 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     // }
 
     size_t max_width = 0;
-
+    std::cerr << "---" << std::endl;
     for (const auto &e: matExpr){
         PointerType * t_ptr = PointerType::get(e->getExpressionType()->getLLVMType(llvmContext), /* address space */ 0);
-
+        e->getExpressionType()->getLLVMType(llvmContext)->dump();
         Value * buff = new GlobalVariable(
                                         *(context->getModule()),
                                         ArrayType::get(t_ptr, numOfBuckets),
@@ -164,7 +212,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
 
         buffs.push_back(buff);
 
-        max_width = std::max(max_width, context->getSizeOf(buff));
+        max_width = std::max(max_width, context->getSizeOf(e->getExpressionType()->getLLVMType(llvmContext)));
     }
 
     Value * cnt  = new GlobalVariable(  *(context->getModule()),
@@ -198,10 +246,12 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
 
     assert(numOfBuckets < 32);
 
-    Value * numOfBucketsV = ConstantInt::get(target_type, numOfBuckets);
     Value * zero_oid      = ConstantInt::get(idx_type   , 0);
 
+    std::cerr << max_width << std::endl;
     cap                   = blockSize / max_width;
+
+    std::cerr << cap << std::endl;
     Value * capacity      = ConstantInt::get(idx_type   , cap);
     Value * last_index    = ConstantInt::get(idx_type   , cap - 1);
 
@@ -313,9 +363,17 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     Builder->SetInsertPoint(insBB);
 
     //Generate target
-    ExpressionGeneratorVisitor exprGenerator{context, childState};
-    Value * target            = hashExpr->accept(exprGenerator).value;
+    // ExpressionHasherVisitor exprGenerator{context, childState};
+    Value * target            = GpuHashRearrange::hash(std::vector<expressions::Expression *>{hashExpr}, context, childState);
+    target->getType()->dump();
 
+    IntegerType * target_type = (IntegerType *) target->getType();
+    if (hashProject) {
+        target_type = (IntegerType *) hashProject->getLLVMType(llvmContext);
+        target = Builder->CreateZExtOrTrunc(target, target_type);
+    }
+
+    Value * numOfBucketsV = ConstantInt::get(target_type, numOfBuckets);
     target = Builder->CreateURem(target, numOfBucketsV);
     target->setName("target");
 
@@ -615,13 +673,13 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     // Builder->SetInsertPoint(mergeBB);
 
     // flush remaining elements
-    consume_flush();
+    consume_flush(target_type);
 
     ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
     ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
-void GpuHashRearrange::consume_flush(){
+void GpuHashRearrange::consume_flush(IntegerType * target_type){
     {
         save_current_blocks_and_restore_at_exit_scope blks{context};
         LLVMContext &llvmContext    = context->getLLVMContext();
@@ -655,9 +713,6 @@ void GpuHashRearrange::consume_flush(){
         if      (sizeof(size_t) == 4) size_type = int32_type;
         else if (sizeof(size_t) == 8) size_type = int64_type;
         else                          assert(false);
-
-        IntegerType * target_type = size_type;
-        if (hashProject) target_type = (IntegerType *) hashProject->getLLVMType(llvmContext);
 
         // if (threadIdx.x < parts){
         //     buff[threadIdx.x] = (uint32_t *) get_buffers();
@@ -768,13 +823,7 @@ void GpuHashRearrange::consume_flush(){
             mem_valWrapper.mem    = mem_arg;
             mem_valWrapper.isNull = context->createFalse();
 
-            RecordAttribute battr(  RecordAttribute{
-                                        matExpr[i]->getRegisteredRelName() , 
-                                        matExpr[i]->getRegisteredAttrName(), 
-                                        matExpr[i]->getExpressionType()    
-                                    },
-                                    true
-                                );
+            RecordAttribute battr(matExpr[i]->getRegisteredAs(), true);
 
             variableBindings[battr] = mem_valWrapper;
         }
@@ -849,8 +898,8 @@ void GpuHashRearrange::open (RawPipeline * pip){
 
 struct mv_description{
     const char * __restrict__ from ;
-    char * __restrict__ to   ;
     size_t bytes;
+    char * __restrict__ to;//[16];
 };
 
 __device__ void GpuHashRearrange_copy(int4 * __restrict__ to, const int4 * __restrict__ from){
@@ -879,10 +928,12 @@ __global__ void GpuHashRearrange_pack(mv_description * desc){
     if (threadIdx.x < rem){
         d.to[d.bytes - rem + threadIdx.x] = d.from[packs * 16 + offset + threadIdx.x];
     }
+
+    // if (threadIdx.x == 0) release_buffer(from);
 }
 
 void GpuHashRearrange::close(RawPipeline * pip){
-    std::cout << "GpuHashRearrange:close" << std::endl;
+    std::cout << "GpuHashRearrange:close" << get_device() << std::endl;
     // ((void (*)(void *)) this->flushFunc)(pip->getState());
     cudaStream_t strm;
     gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
@@ -940,20 +991,27 @@ void GpuHashRearrange::close(RawPipeline * pip){
     //     }
     // }
 
+    nvtxRangePushA("waiting_to_release");
+
+    size_t  * attr_size = (size_t *) RawMemoryManager::mallocPinned(buffVar_id.size() * sizeof(size_t));
+    for (size_t attr_i = 0; attr_i < buffVar_id.size() ; ++attr_i){
+        attr_size[attr_i] = pip->getSizeOf(matExpr[attr_i]->getExpressionType()->getLLVMType(context->getLLVMContext()));
+        std::cerr << "s " << attr_size[attr_i] << std::endl;
+    }
+
+    std::cout << "<<<<<<<---------------------------->>>>>>>>>>>" << grid_size << " " << attr_size[0] << std::endl;
     // mv_description * mv_descs = new mv_description[part * grid_size];
     size_t mv_descs_i = 0;
     for (size_t part = 0 ; part < numOfBuckets ; ++part){
         std::vector<int32_t> idx(grid_size);
-        for (size_t i = 0 ; i < grid_size ; ++i) idx[i] = i * numOfBuckets + part;
+        for (size_t i = 0 ; i < grid_size ; ++i) {
+            idx[i] = i * numOfBuckets + part;
+            // std::cout << h_buffs[idx[i]] << std::endl;
+        }
         std::sort(idx.begin(), idx.end(), [&h_cnts](int32_t i, int32_t j) {return h_cnts[i] > h_cnts[j];});
 
         int32_t i = 0            ;
         int32_t j = grid_size - 1;
-
-        size_t attr_size[buffVar_id.size()];
-        for (size_t attr_i = 0; attr_i < buffVar_id.size() ; ++attr_i){
-            attr_size[attr_i] = pip->getSizeOf(matExpr[attr_i]->getExpressionType()->getLLVMType(context->getLLVMContext()));
-        }
 
         while (j >= 0 && h_cnts[idx[j]] <= 0) --j;
 
@@ -966,13 +1024,14 @@ void GpuHashRearrange::close(RawPipeline * pip){
                 ++i;
                 continue;
             }
-            //for (
-            size_t attr_i = 0;// attr_i < buffVar_id.size() ; ++attr_i){ //FIXME: generalize for attr_size.size() > 1
-                mv_descs[mv_descs_i].from  =  (char *) h_buffs[idx[j]];
-                mv_descs[mv_descs_i].to    = ((char *) h_buffs[idx[i]]) + h_cnts[idx[i]] * attr_size[attr_i];
+            assert(buffVar_id.size() < 16); //limited by the capacity of `to` in mv_descs
+            for (size_t attr_i = 0; attr_i < buffVar_id.size() ; ++attr_i){ //FIXME: generalize for attr_size.size() > 1
+                mv_descs[mv_descs_i].from  =  (char *) h_buffs[idx[j] + attr_i * numOfBuckets * grid_size];
+                mv_descs[mv_descs_i].to    = ((char *) h_buffs[idx[i] + attr_i * numOfBuckets * grid_size]) + h_cnts[idx[i]] * attr_size[attr_i];
                 mv_descs[mv_descs_i].bytes = h_cnts[idx[j]] * attr_size[attr_i];
+                // std::cout << (void *) mv_descs[mv_descs_i].from << " " << (void *) mv_descs[mv_descs_i].to << " " << mv_descs[mv_descs_i].bytes << std::endl;
                 mv_descs_i++;
-            // }
+            }
 
             h_cnts[idx[i]] += h_cnts[idx[j]];
             h_cnts[idx[j]]  = 0;
@@ -981,12 +1040,17 @@ void GpuHashRearrange::close(RawPipeline * pip){
         }
     }
     if (mv_descs_i > 0){
-        gpu_run(cudaMemcpyAsync(buffs, h_buffs, h_buffs_bytes + h_cnts_bytes, cudaMemcpyDefault, strm));
-        // gpu_run(cudaMemcpyAsync(buffs, h_buffs, sizeof(void  *) * numOfBuckets * buffVar_id.size() * grid_size, cudaMemcpyDefault, strm));
-        // gpu_run(cudaMemcpyAsync(cnts , h_cnts , sizeof(int32_t) * numOfBuckets                     * grid_size, cudaMemcpyDefault, strm));
+        assert(mv_descs_i < numOfBuckets * grid_size * buffVar_id.size());
+        // gpu_run(cudaMemcpyAsync(buffs, h_buffs, h_buffs_bytes + h_cnts_bytes, cudaMemcpyDefault, strm));
+                    // gpu_run(cudaMemcpyAsync(buffs, h_buffs, sizeof(void  *) * numOfBuckets * buffVar_id.size() * grid_size, cudaMemcpyDefault, strm));
+                    // gpu_run(cudaMemcpyAsync(cnts , h_cnts , sizeof(int32_t) * numOfBuckets                     * grid_size, cudaMemcpyDefault, strm));
 
-        GpuHashRearrange_pack<<<mv_descs_i, 1024, 0, strm>>>(mv_descs);
+        // GpuHashRearrange_pack<<<mv_descs_i, 1024, 0, strm>>>(mv_descs);
     }
+
+    RawMemoryManager::freePinned(attr_size);
+
+    nvtxRangePop();
 
     void *KernelParams[] = {pip->getState()};
     launch_kernel((CUfunction) closingPip->getCompiledFunction(flushingFunc), KernelParams, strm);

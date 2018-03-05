@@ -209,31 +209,8 @@ size_t RawContext::getSizeOf(llvm::Value * val ) const{
 
 void RawContext::CodegenMemcpy(Value* dst, Value* src, int size) {
 	LLVMContext& ctx = getLLVMContext();
-	// Cast src/dst to int8_t*.  If they already are, this will get optimized away
-	//  DCHECK(PointerType::classof(dst->getType()));
-	//  DCHECK(PointerType::classof(src->getType()));
-	llvm::PointerType* ptr_type = nullptr;
 
-	Value* false_value_ = ConstantInt::get(ctx,
-			APInt(1, false, true));
-	Value* size_ = ConstantInt::get(ctx, APInt(32, size));
-	Value* zero = ConstantInt::get(ctx, APInt(32, 0));
-
-	dst = getBuilder()->CreateBitCast(dst, ptr_type);
-	src = getBuilder()->CreateBitCast(src, ptr_type);
-
-	// Get intrinsic function.
-	Function* memcpy_fn = availableFunctions[string("memcpy")];
-	if (memcpy_fn == NULL) {
-		throw runtime_error(string("Could not load memcpy intrinsic"));
-	}
-
-	// The fourth argument is the alignment.  For non-zero values, the caller
-	// must guarantee that the src and dst values are aligned to that byte boundary.
-	// TODO: We should try to take advantage of this since our tuples are well aligned.
-	Value* args[] = { dst, src, size_, zero, false_value_  // is_volatile.
-			};
-	getBuilder()->CreateCall(memcpy_fn, args);
+	CodegenMemcpy(dst, src, createSizeT(size));
 }
 
 void RawContext::CodegenMemcpy(Value* dst, Value* src, Value* size) {
@@ -244,16 +221,15 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, Value* size) {
 	Value* false_value_ = ConstantInt::get(ctx,
 			APInt(1, false, true));
 
+	PointerType * ptr_type = PointerType::getInt8PtrTy(ctx);
+
 	Value* zero = ConstantInt::get(ctx, APInt(32, 0));
 
-	dst->getType()->dump();
-	cout << endl;
-	src->getType()->dump();
-//	dst = getBuilder()->CreateBitCast(dst, ptr_type);
-//	src = getBuilder()->CreateBitCast(src, ptr_type);
+	dst = getBuilder()->CreateBitCast(dst, ptr_type);
+	src = getBuilder()->CreateBitCast(src, ptr_type);
 
 	// Get intrinsic function.
-	Function* memcpy_fn = availableFunctions[string("memcpy")];
+	Function* memcpy_fn = getFunction("memcpy");
 	if (memcpy_fn == NULL) {
 		throw runtime_error(string("Could not load memcpy intrinsic"));
 	}
@@ -265,6 +241,42 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, Value* size) {
 			};
 	getBuilder()->CreateCall(memcpy_fn, args);
 }
+
+void RawContext::CodegenMemset(Value* dst, Value* byte, int size){
+	LLVMContext& ctx = getLLVMContext();
+
+	CodegenMemset(dst, byte, createSizeT(size));
+}
+
+void RawContext::CodegenMemset(Value* dst, Value* bytes, Value* size){
+	LLVMContext& ctx = getLLVMContext();
+	// Cast src/dst to int8_t*.  If they already are, this will get optimized away
+	//  DCHECK(PointerType::classof(dst->getType()));
+	//  DCHECK(PointerType::classof(src->getType()));
+	Value* false_value_ = ConstantInt::get(ctx,
+			APInt(1, false, true));
+	PointerType * ptr_type = PointerType::getInt8PtrTy(ctx);\
+
+	Value* zero = ConstantInt::get(ctx, APInt(32, 0));
+
+	dst = getBuilder()->CreateBitCast(dst, ptr_type);
+
+	// Get intrinsic function.
+	Function* memset_fn = getFunction("memset");
+	if (memset_fn == NULL) {
+		throw runtime_error(string("Could not load memset intrinsic"));
+	}
+
+	Type  * int32_type 	= IntegerType::getInt32Ty(ctx);
+	Value * byte 		= getBuilder()->CreateZExtOrTrunc(bytes, int32_type);
+	
+	// The fourth argument is the alignment.  For non-zero values, the caller
+	// must guarantee that the src and dst values are aligned to that byte boundary.
+	// TODO: We should try to take advantage of this since our tuples are well aligned.
+	Value* args[] = {dst, byte, size};
+	getBuilder()->CreateCall(memset_fn, args);
+}
+
 
 ConstantInt* RawContext::createInt8(char val) {
 	return ConstantInt::get(getLLVMContext(), APInt(8, val));
@@ -391,15 +403,15 @@ void RawContext::CreateIfBlock(Function* fn, const string& if_label,
 }
 
 AllocaInst* RawContext::CreateEntryBlockAlloca(Function *TheFunction,
-		const string &VarName, Type* varType) {
+		const string &VarName, Type* varType, Value * arraySize) {
 	IRBuilder<> TmpBuilder(&TheFunction->getEntryBlock(),
 			TheFunction->getEntryBlock().begin());
-	return TmpBuilder.CreateAlloca(varType, 0, VarName.c_str());
+	return TmpBuilder.CreateAlloca(varType, arraySize, VarName.c_str());
 }
 
-AllocaInst* RawContext::CreateEntryBlockAlloca(const string &VarName, Type* varType) {
+AllocaInst* RawContext::CreateEntryBlockAlloca(const string &VarName, Type* varType, Value * arraySize) {
 	Function * F  = getBuilder()->GetInsertBlock()->getParent();
-	return CreateEntryBlockAlloca(F, VarName, varType);
+	return CreateEntryBlockAlloca(F, VarName, varType, arraySize);
 }
 
 AllocaInst* RawContext::createAlloca(	BasicBlock    * InsertAtBB,
