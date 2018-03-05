@@ -76,7 +76,7 @@ inline void nvtxRangePop  (){}
 #endif
 
 #ifndef DEFAULT_BUFF_CAP
-#define DEFAULT_BUFF_CAP (4*1024*1024)
+#define DEFAULT_BUFF_CAP (1024*1024/4)
 #endif
 
 extern int                                                 cpu_cnt;
