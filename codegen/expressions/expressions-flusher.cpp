@@ -224,6 +224,19 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordProjection *e) {
 		RawValueMemory mem_path;
 		//cout << "Active Relation: " << e->getProjectionName() << endl;
 		if (e->getProjectionName() != activeLoop) {
+			const RecordType * exprType = dynamic_cast<const RecordType *>(e->getExpr()->getExpressionType());
+			if (exprType){
+				RecordAttribute attr = e->getAttribute();
+				Value * val = exprType->projectArg(record.value, &attr, context->getBuilder());
+				if (val){
+					RawValue valWrapper;
+					valWrapper.value  = val;
+					valWrapper.isNull = record.isNull; //FIXME: what if only one attribute is NULL?
+
+					plugin->flushValueEager(valWrapper, e->getExpressionType(), outputFileLLVM);
+					return placeholder;
+				}
+			}
 			//Path involves a projection / an object
 			mem_path = plugin->readPath(activeRelation, bindings,
 					e->getProjectionName().c_str(),e->getAttribute());

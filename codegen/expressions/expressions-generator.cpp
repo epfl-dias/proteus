@@ -115,16 +115,16 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 			it = activeVars.find(relevantAttr);
 			if (it == activeVars.end()) {
 				string error_msg = string("[Expression Generator: ] Could not find tuple information for ") + activeRelation + "." + e->getProjections().front().getName();
-				// cout << activeVars.size() << endl;
-				// map<RecordAttribute, RawValueMemory>::const_iterator it = activeVars.begin();
-				// for(; it != activeVars.end(); it++)	{
-				// 	cout << it->first.getRelationName() << "-" << it->first.getAttrName() 
-				// 			<< "-" << it->first.getOriginalRelationName() << endl;
-				// }
-				// // cout << endl;
-				// // cout << activeRelation << endl;
-				// // cout << relevantAttr.getRelationName() << "-" << relevantAttr.getAttrName() 
-				// // 			<< "-" << relevantAttr.getOriginalRelationName() << endl;
+				cout << activeVars.size() << endl;
+				map<RecordAttribute, RawValueMemory>::const_iterator it = activeVars.begin();
+				for(; it != activeVars.end(); it++)	{
+					cout << it->first.getRelationName() << "-" << it->first.getAttrName() 
+							<< "-" << it->first.getOriginalRelationName() << endl;
+				}
+				// cout << endl;
+				// cout << activeRelation << endl;
+				// cout << relevantAttr.getRelationName() << "-" << relevantAttr.getAttrName() 
+				// 			<< "-" << relevantAttr.getOriginalRelationName() << endl;
 				LOG(ERROR) << error_msg;
 			 	throw runtime_error(error_msg);
 			}	else	{
