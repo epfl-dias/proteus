@@ -26,6 +26,7 @@
 #include "storage/raw-storage-manager.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 #include "plan/plan-parser.hpp"
+#include <ittnotify.h>
 
 //https://stackoverflow.com/a/25829178/1237824
 std::string trim(const std::string& str){
@@ -48,11 +49,11 @@ const char * catalogJSON = "inputs/plans/catalog.json";
 
 void executePlan(const char *label, const char *planPath, const char *catalogJSON){
     int devices = get_num_of_gpus();
-    // for (int i = 0 ; i < devices ; ++i) {
-    //     gpu_run(cudaSetDevice(i));
-    //     gpu_run(cudaProfilerStart());
-    // }
-    // __itt_resume();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStart());
+    }
+    __itt_resume();
     {
         RawCatalog     * catalog = &RawCatalog::getInstance();
         CachingService * caches  = &CachingService::getInstance();
@@ -60,7 +61,7 @@ void executePlan(const char *label, const char *planPath, const char *catalogJSO
         caches->clear();
     }
 
-    gpu_run(cudaSetDevice(0));
+    // gpu_run(cudaSetDevice(0));
 
     std::vector<RawPipeline *> pipelines;
     {
@@ -81,6 +82,8 @@ void executePlan(const char *label, const char *planPath, const char *catalogJSO
         gpu_run(cudaDeviceSynchronize());
     }
     
+    gpu_run(cudaSetDevice(0));
+    
     {
         time_block     t("Texecute w sync: ");
 
@@ -98,6 +101,8 @@ void executePlan(const char *label, const char *planPath, const char *catalogJSO
                 }
                 nvtxRangePop();
             }
+
+            std::cout << dec;
         }
 
         //just to be sure...
@@ -107,11 +112,11 @@ void executePlan(const char *label, const char *planPath, const char *catalogJSO
         }
     }
 
-    // __itt_pause();
-    // for (int i = 0 ; i < devices ; ++i) {
-    //     gpu_run(cudaSetDevice(i));
-    //     gpu_run(cudaProfilerStop());
-    // }
+    __itt_pause();
+    for (int i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStop());
+    }
 
     gpu_run(cudaSetDevice(0));
 }
@@ -249,7 +254,8 @@ int main(int argc, char* argv[]){
     //FIXME: remove, we should be loading files lazily
     {
         auto load = [](string filename){
-            StorageManager::load(filename, PINNED);
+            // StorageManager::load(filename, PINNED);
+            StorageManager::loadToCpus(filename);
         };
         
         load("inputs/ssbm100/customer.csv.c_city");
