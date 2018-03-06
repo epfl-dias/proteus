@@ -85,8 +85,8 @@ public:
 	 * XXX Assume linehint is NECESSARY to be provided */
 	/* Deprecated */
 //	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema);
-	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint = 1000, bool staticSchema = false);
-	JSONPlugin(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint, jsmntok_t **tokens);
+	JSONPlugin(RawContext* const context, string fname, ExpressionType* schema, size_t linehint = 1000, bool staticSchema = false);
+	JSONPlugin(RawContext* const context, string fname, ExpressionType* schema, size_t linehint, jsmntok_t **tokens);
 	~JSONPlugin();
 	void init();
 	void generate(const RawOperator& producer);
@@ -157,8 +157,72 @@ public:
 //		free(tokens);
 //	}
 
+	virtual void flushBeginList (Value *fileName                    ) {
+		Function *flushFunc = context->getFunction("flushChar");
+		vector<Value*> ArgsV;
+		//Start 'array'
+		ArgsV.push_back(context->createInt8('['));
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
+
+	virtual void flushBeginBag  (Value *fileName                    ) {
+		string error_msg = string(
+				"[JSONPlugin]: Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushBeginSet  (Value *fileName                    ) {
+		string error_msg = string(
+				"[JSONPlugin]: Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushEndList   (Value *fileName                    ) {
+		Function *flushFunc = context->getFunction("flushChar");
+		vector<Value*> ArgsV;
+		//Start 'array'
+		ArgsV.push_back(context->createInt8(']'));
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
+
+	virtual void flushEndBag    (Value *fileName                    ) {
+		string error_msg = string(
+				"[JSONPlugin]: Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushEndSet    (Value *fileName                    ) {
+		string error_msg = string(
+				"[JSONPlugin]: Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushDelim     (Value *fileName                    , int depth) {
+		Function *flushFunc = context->getFunction("flushChar");
+		vector<Value*> ArgsV;
+		//XXX JSON-specific -> Serializer business to differentiate
+		ArgsV.push_back(context->createInt8(','));
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
+
+	virtual void flushDelim     (Value *resultCtr, Value* fileName  , int depth) {
+		Function *flushFunc = context->getFunction("flushDelim");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(resultCtr);
+		//XXX JSON-specific -> Serializer business to differentiate
+		ArgsV.push_back(context->createInt8(','));
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
 private:
-	string& fname;
+	string fname;
 	size_t fsize;
 	int fd;
 	const char* buf;

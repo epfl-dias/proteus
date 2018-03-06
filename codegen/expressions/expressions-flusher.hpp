@@ -42,10 +42,11 @@
 class ExpressionFlusherVisitor: public ExprVisitor
 {
 public:
+	//TODO: should we remove this constructor ?
 	ExpressionFlusherVisitor(RawContext* const context,
 			const OperatorState& currState, const char* outputFile) :
 			context(context), currState(currState), outputFile(outputFile),
-			activeRelation("")
+			activeRelation(""), pg(NULL)
 	{
 		//Only used as a token return value that is passed along by each visitor
 		placeholder.isNull = context->createTrue();
@@ -53,7 +54,7 @@ public:
 		outputFileLLVM = NULL;
 	}
 	ExpressionFlusherVisitor(RawContext* const context,
-			const OperatorState& currState, char* outputFile,
+			const OperatorState& currState, const char* outputFile,
 			string activeRelation) :
 			context(context), currState(currState), outputFile(outputFile),
 			activeRelation(activeRelation)
@@ -61,6 +62,7 @@ public:
 		placeholder.isNull = context->createTrue();
 		placeholder.value = NULL;
 		outputFileLLVM = NULL;
+		pg = RawCatalog::getInstance().getPlugin(activeRelation);
 	}
 	RawValue visit(expressions::IntConstant *e);
 	RawValue visit(expressions::Int64Constant *e);
@@ -93,7 +95,14 @@ public:
 	 * It makes no sense to probe a plugin in order to flush this value out */
 	void flushValue(Value *val, typeID val_type);
 
-	void setActiveRelation(string relName)		{ activeRelation = relName; }
+	void setActiveRelation(string relName)		{ 
+		activeRelation = relName; 
+		if (relName != ""){
+			pg = RawCatalog::getInstance().getPlugin(activeRelation);
+		} else {
+			pg = NULL;
+		}
+	}
 	string getActiveRelation(string relName)	{ return activeRelation; }
 
 	/**
@@ -102,50 +111,52 @@ public:
 	 */
 	void beginList()
 	{	outputFileLLVM = context->CreateGlobalString(this->outputFile);
-		Function *flushFunc = context->getFunction("flushChar");
-		vector<Value*> ArgsV;
-		//Start 'array'
-		ArgsV.push_back(context->createInt8('['));
-		ArgsV.push_back(outputFileLLVM);
-		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		if (!pg){
+			//TODO: remove. deprecated exectuion path
+			Function *flushFunc = context->getFunction("flushChar");
+			vector<Value*> ArgsV;
+			//Start 'array'
+			ArgsV.push_back(context->createInt8('['));
+			ArgsV.push_back(outputFileLLVM);
+			context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		} else {
+			pg->flushBeginList(outputFileLLVM);
+		}
 	}
 	void beginBag()
 	{
-		string error_msg = string(
-				"[ExpressionFlusherVisitor]: Not implemented yet");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
+		outputFileLLVM = context->CreateGlobalString(this->outputFile);
+		pg->flushBeginBag(outputFileLLVM);
 	}
 	void beginSet()
 	{
-		string error_msg = string(
-				"[ExpressionFlusherVisitor]: Not implemented yet");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
+		outputFileLLVM = context->CreateGlobalString(this->outputFile);
+		pg->flushBeginSet(outputFileLLVM);
 	}
 	void endList()
 	{
 		outputFileLLVM = context->CreateGlobalString(this->outputFile);
-		Function *flushFunc = context->getFunction("flushChar");
-		vector<Value*> ArgsV;
-		//Start 'array'
-		ArgsV.push_back(context->createInt8(']'));
-		ArgsV.push_back(outputFileLLVM);
-		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		if (!pg){
+			//TODO: remove. deprecated exectuion path
+			Function *flushFunc = context->getFunction("flushChar");
+			vector<Value*> ArgsV;
+			//Start 'array'
+			ArgsV.push_back(context->createInt8(']'));
+			ArgsV.push_back(outputFileLLVM);
+			context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		} else {
+			pg->flushEndList(outputFileLLVM);
+		}
 	}
 	void endBag()
 	{
-		string error_msg = string(
-				"[ExpressionFlusherVisitor]: Not implemented yet");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
+		outputFileLLVM = context->CreateGlobalString(this->outputFile);
+		pg->flushEndBag(outputFileLLVM);
 	}
 	void endSet()
 	{
-		string error_msg = string(
-				"[ExpressionFlusherVisitor]: Not implemented yet");
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
+		outputFileLLVM = context->CreateGlobalString(this->outputFile);
+		pg->flushEndSet(outputFileLLVM);
 	}
 	void flushOutput()
 	{
@@ -156,25 +167,35 @@ public:
 		ArgsV.push_back(outputFileLLVM);
 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
 	}
-	void flushDelim(Value* resultCtr)
+	void flushDelim(Value* resultCtr, int depth = 0)
 	{
 		outputFileLLVM = context->CreateGlobalString(this->outputFile);
-		Function *flushFunc = context->getFunction("flushDelim");
-		vector<Value*> ArgsV;
-		ArgsV.push_back(resultCtr);
-		//XXX JSON-specific -> Serializer business to differentiate
-		ArgsV.push_back(context->createInt8(','));
-		ArgsV.push_back(outputFileLLVM);
-		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		if (!pg){
+			//TODO: remove. deprecated exectuion path
+			Function *flushFunc = context->getFunction("flushDelim");
+			vector<Value*> ArgsV;
+			ArgsV.push_back(resultCtr);
+			//XXX JSON-specific -> Serializer business to differentiate
+			ArgsV.push_back(context->createInt8(','));
+			ArgsV.push_back(outputFileLLVM);
+			context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		} else {
+			pg->flushDelim(resultCtr, outputFileLLVM, depth);
+		}
 	}
-	void flushDelim() {
+	void flushDelim(int depth = 0) {
 		outputFileLLVM = context->CreateGlobalString(this->outputFile);
-		Function *flushFunc = context->getFunction("flushChar");
-		vector<Value*> ArgsV;
-		//XXX JSON-specific -> Serializer business to differentiate
-		ArgsV.push_back(context->createInt8(','));
-		ArgsV.push_back(outputFileLLVM);
-		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		if (!pg){
+			//TODO: remove. deprecated exectuion path
+			Function *flushFunc = context->getFunction("flushChar");
+			vector<Value*> ArgsV;
+			//XXX JSON-specific -> Serializer business to differentiate
+			ArgsV.push_back(context->createInt8(','));
+			ArgsV.push_back(outputFileLLVM);
+			context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		} else {
+			pg->flushDelim(outputFileLLVM, depth);
+		}
 	}
 
 private:
@@ -185,7 +206,7 @@ private:
 
 	RawValue placeholder;
 	string activeRelation;
-
+	Plugin * pg;
 };
 
 #endif /* EXPRESSIONS_FLUSHER_VISITOR_HPP_ */

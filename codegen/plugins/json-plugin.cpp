@@ -147,7 +147,7 @@ namespace jsonPipelined
 //
 //}
 
-JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
+JSONPlugin::JSONPlugin(RawContext* const context, string fname,
 		ExpressionType* schema, size_t linehint, bool staticSchema) :
 		context(context), fname(fname), schema(schema), var_buf("bufPtr"), var_tokenPtr(
 				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash"),
@@ -155,7 +155,7 @@ JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
 	tokenType = context->CreateJSMNStruct();
 }
 
-JSONPlugin::JSONPlugin(RawContext* const context, string& fname,
+JSONPlugin::JSONPlugin(RawContext* const context, string fname,
 		ExpressionType* schema, size_t linehint, jsmntok_t **tokens) :
 		context(context), fname(fname), schema(schema), var_buf("bufPtr"), var_tokenPtr(
 				"tokens"), var_tokenOffset("tokenOffset"), var_tokenOffsetHash("tokenOffsetHash"),
@@ -2701,7 +2701,6 @@ void JSONPlugin::flushValueEager(RawValue valWrapper,
 	}
 	case DSTRING:
 	{
-		std::cout << "-----------------------------------------------------------------00000000000000------------" << std::endl;
 		vector<Value*> ArgsV;
 		flushFunc = context->getFunction("flushDString");
 		void * dict = ((DStringType *) type)->getDictionary();
@@ -2725,8 +2724,55 @@ void JSONPlugin::flushValueEager(RawValue valWrapper,
 	}
 	case RECORD:
 	{
-		LOG(ERROR)<< "[JSON Plugin: ] Record-valued datatypes not supported yet";
-		throw runtime_error(string("[JSON Plugin: ] Record-valued datatypes not supported yet"));
+		char delim = ',';
+
+		Function *flushStr = context->getFunction("flushStringCv2");
+		Function *flushFunc = context->getFunction("flushChar");
+		vector<Value*> ArgsV;
+
+		const list<RecordAttribute *> &attrs = ((RecordType *) type)->getArgs();
+		list<expressions::AttributeConstruction>::const_iterator it;
+		//Start 'record'
+		ArgsV.push_back(context->createInt8('{'));
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+
+		size_t i = 0;
+		for (const auto &attr: attrs) {
+			//attrName
+			Value* attrName = context->CreateGlobalString(
+					attr->getAttrName().c_str());
+			ArgsV.clear();
+			ArgsV.push_back(attrName);
+			ArgsV.push_back(fileName);
+			context->getBuilder()->CreateCall(flushStr, ArgsV);
+
+			//:
+			ArgsV.clear();
+			ArgsV.push_back(context->createInt8(':'));
+			ArgsV.push_back(fileName);
+			context->getBuilder()->CreateCall(flushFunc, ArgsV);
+
+			//value
+			RawValue partialFlush;
+			partialFlush.value  = Builder->CreateExtractValue(val_attr, i);
+			partialFlush.isNull = valWrapper.isNull;
+			flushValueEager(partialFlush, attr->getOriginalType(), fileName);
+
+			//comma, if needed
+			++i;
+			if (i != attrs.size()) {
+				ArgsV.clear();
+				ArgsV.push_back(context->createInt8(delim));
+				ArgsV.push_back(fileName);
+				context->getBuilder()->CreateCall(flushFunc, ArgsV);
+			}
+		}
+		ArgsV.clear();
+		ArgsV.push_back(context->createInt8('}'));
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return;
 	}
 	default:
 	{

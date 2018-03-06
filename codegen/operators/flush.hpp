@@ -50,6 +50,7 @@ protected:
 	expressions::Expression *outputExpr;
 	
 	const char *outPath;
+	std::string relName;
 private:
 	void generate(RawContext* const context, const OperatorState& childState) const;
 };

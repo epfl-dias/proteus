@@ -31,6 +31,7 @@ Flush::Flush(vector<expressions::Expression*> outputExprs,
 		const char *outPath) :
 		UnaryRawOperator(child), context(context), outPath(outPath) {
 	list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
+	std::vector<RecordAttribute *> recattr;
 	for (auto expr: outputExprs){
 		assert(expr->isRegistered() && "All output expressions must be registered!");
 		expressions::AttributeConstruction *newAttr =
@@ -39,9 +40,12 @@ Flush::Flush(vector<expressions::Expression*> outputExprs,
 											expr
 										);
 		attrs->push_back(*newAttr);
+		recattr.push_back(new RecordAttribute{expr->getRegisteredAs()});
 	}
 
-	outputExpr = new expressions::RecordConstruction(new RecordType(), *attrs);
+	outputExpr = new expressions::RecordConstruction(new RecordType(recattr), *attrs);
+
+	relName = outputExprs[0]->getRegisteredRelName();
 }
 
 void Flush::produce() {
@@ -57,7 +61,7 @@ void Flush::produce() {
 
 
 			OperatorState childState{*this, map<RecordAttribute, RawValueMemory>{}};
-			ExpressionFlusherVisitor flusher{context, childState, outPath};
+			ExpressionFlusherVisitor flusher{context, childState, outPath, relName};
 			flusher.beginList();
 
 			return mem_acc;
@@ -65,7 +69,7 @@ void Flush::produce() {
 
 		[=](llvm::Value *, llvm::Value * s){
 			OperatorState childState{*this, map<RecordAttribute, RawValueMemory>{}};
-			ExpressionFlusherVisitor flusher{context, childState, outPath};
+			ExpressionFlusherVisitor flusher{context, childState, outPath, relName};
 			flusher.endList();
 			flusher.flushOutput();
 			context->deallocateStateVar(s);
@@ -85,7 +89,7 @@ void Flush::generate(RawContext* const context,
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-	ExpressionFlusherVisitor flusher{context, childState, outPath};
+	ExpressionFlusherVisitor flusher{context, childState, outPath, relName};
 	
 	//results so far
 	Value* mem_resultCtr = context->getStateVar(result_cnt_id);

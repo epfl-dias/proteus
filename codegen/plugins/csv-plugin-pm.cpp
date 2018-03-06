@@ -577,9 +577,33 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
 	case SET:
 	LOG(ERROR) << "[CSV PLUGIN: ] CSV files do not contain collections";
 	throw runtime_error(string("[CSV PLUGIN: ] CSV files do not contain collections"));
-	case RECORD:
-	LOG(ERROR) << "[CSV PLUGIN: ] CSV files do not contain record-valued attributes";
-	throw runtime_error(string("[CSV PLUGIN: ] CSV files do not contain record-valued attributes"));
+	case RECORD:{
+		char delim = ',';
+
+		Function *flushStr = context->getFunction("flushStringCv2");
+		Function *flushFunc = context->getFunction("flushChar");
+		vector<Value*> ArgsV{context->createInt8(delim), fileName};
+
+		const list<RecordAttribute *> &attrs = ((RecordType *) type)->getArgs();
+		list<expressions::AttributeConstruction>::const_iterator it;
+
+		size_t i = 0;
+		for (const auto &attr: attrs) {
+			//value
+			RawValue partialFlush;
+			partialFlush.value  = Builder->CreateExtractValue(val_attr, i);
+			partialFlush.isNull = mem_value.isNull;
+			flushValueEager(partialFlush, attr->getOriginalType(), fileName);
+
+			//comma, if needed
+			++i;
+			if (i != attrs.size()) {
+				context->getBuilder()->CreateCall(flushFunc, ArgsV);
+			}
+		}
+
+		return;
+	}
 	default:
 	LOG(ERROR) << "[CSV PLUGIN: ] Unknown datatype";
 	throw runtime_error(string("[CSV PLUGIN: ] Unknown datatype"));

@@ -602,55 +602,66 @@ RawValue ExpressionFlusherVisitor::visit(expressions::DivExpression *e) {
 	throw runtime_error(string("[ExpressionFlusherVisitor]: input of binary expression can only be primitive"));
 }
 
+// #include "plugins/json-plugin.hpp"
+#include "plugins/csv-plugin-pm.hpp"
+
 RawValue ExpressionFlusherVisitor::visit(expressions::RecordConstruction *e)
 {
 	outputFileLLVM = context->CreateGlobalString(this->outputFile);
-	char delim = ',';
+	// char delim = ',';
 
-	Function *flushStr = context->getFunction("flushStringCv2");
-	Function *flushFunc = context->getFunction("flushChar");
-	vector<Value*> ArgsV;
+	// Function *flushStr = context->getFunction("flushStringCv2");
+	// Function *flushFunc = context->getFunction("flushChar");
+	// vector<Value*> ArgsV;
 
-	const list<expressions::AttributeConstruction> atts = e->getAtts();
-	list<expressions::AttributeConstruction>::const_iterator it;
-	//Start 'record'
-	ArgsV.push_back(context->createInt8('{'));
-	ArgsV.push_back(outputFileLLVM);
-	context->getBuilder()->CreateCall(flushFunc, ArgsV);
-	for (it = atts.begin(); it != atts.end();)
-	{
-		//attrName
-		Value* val_attr = context->CreateGlobalString(
-				it->getBindingName().c_str());
-		ArgsV.clear();
-		ArgsV.push_back(val_attr);
-		ArgsV.push_back(outputFileLLVM);
-		context->getBuilder()->CreateCall(flushStr, ArgsV);
+	// const list<expressions::AttributeConstruction> atts = e->getAtts();
+	// list<expressions::AttributeConstruction>::const_iterator it;
+	// //Start 'record'
+	// ArgsV.push_back(context->createInt8('{'));
+	// ArgsV.push_back(outputFileLLVM);
+	// context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	// for (it = atts.begin(); it != atts.end();)
+	// {
+	// 	//attrName
+	// 	Value* val_attr = context->CreateGlobalString(
+	// 			it->getBindingName().c_str());
+	// 	ArgsV.clear();
+	// 	ArgsV.push_back(val_attr);
+	// 	ArgsV.push_back(outputFileLLVM);
+	// 	context->getBuilder()->CreateCall(flushStr, ArgsV);
 
-		//:
-		ArgsV.clear();
-		ArgsV.push_back(context->createInt8(':'));
-		ArgsV.push_back(outputFileLLVM);
-		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	// 	//:
+	// 	ArgsV.clear();
+	// 	ArgsV.push_back(context->createInt8(':'));
+	// 	ArgsV.push_back(outputFileLLVM);
+	// 	context->getBuilder()->CreateCall(flushFunc, ArgsV);
 
-		//value
-		expressions::Expression* expr = (*it).getExpression();
-		RawValue partialFlush = expr->accept(*this);
+	// 	//value
+	// 	expressions::Expression* expr = (*it).getExpression();
+	// 	RawValue partialFlush = expr->accept(*this);
 
-		//comma, if needed
-		it++;
-		if (it != atts.end())
-		{
-			ArgsV.clear();
-			ArgsV.push_back(context->createInt8(delim));
-			ArgsV.push_back(outputFileLLVM);
-			context->getBuilder()->CreateCall(flushFunc, ArgsV);
-		}
-	}
-	ArgsV.clear();
-	ArgsV.push_back(context->createInt8('}'));
-	ArgsV.push_back(outputFileLLVM);
-	context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	// 	//comma, if needed
+	// 	it++;
+	// 	if (it != atts.end())
+	// 	{
+	// 		ArgsV.clear();
+	// 		ArgsV.push_back(context->createInt8(delim));
+	// 		ArgsV.push_back(outputFileLLVM);
+	// 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	// 	}
+	// }
+	// ArgsV.clear();
+	// ArgsV.push_back(context->createInt8('}'));
+	// ArgsV.push_back(outputFileLLVM);
+	// context->getBuilder()->CreateCall(flushFunc, ArgsV);
+
+	//FIXME: this may break JSON plugin!!!! can we materialize lists and objects like that ?! NEED TO TEST
+	RecordType recType = *((RecordType *) e->getExpressionType());
+	
+	ExpressionGeneratorVisitor exprGen(context, currState);
+	RawValue recValue = e->accept(exprGen);
+	pg->flushValueEager(recValue, e->getExpressionType(), outputFileLLVM);
+
 	return placeholder;
 }
 

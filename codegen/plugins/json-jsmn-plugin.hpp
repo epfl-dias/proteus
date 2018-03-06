@@ -125,6 +125,70 @@ public:
 
 	virtual PluginType getPluginType() { return PGJSON; }
 
+	virtual void flushBeginList (Value *fileName                    ) {
+		Function *flushFunc = context->getFunction("flushChar");
+		vector<Value*> ArgsV;
+		//Start 'array'
+		ArgsV.push_back(context->createInt8('['));
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
+
+	virtual void flushBeginBag  (Value *fileName                    ) {
+		string error_msg = string(
+				"[JSONPlugin]: Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushBeginSet  (Value *fileName                    ) {
+		string error_msg = string(
+				"[JSONPlugin]: Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushEndList   (Value *fileName                    ) {
+		Function *flushFunc = context->getFunction("flushChar");
+		vector<Value*> ArgsV;
+		//Start 'array'
+		ArgsV.push_back(context->createInt8(']'));
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
+
+	virtual void flushEndBag    (Value *fileName                    ) {
+		string error_msg = string(
+				"[JSONPlugin]: Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushEndSet    (Value *fileName                    ) {
+		string error_msg = string(
+				"[JSONPlugin]: Not implemented yet");
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushDelim     (Value *fileName                    , int depth) {
+		Function *flushFunc = context->getFunction("flushChar");
+		vector<Value*> ArgsV;
+		//XXX JSON-specific -> Serializer business to differentiate
+		ArgsV.push_back(context->createInt8(','));
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
+
+	virtual void flushDelim     (Value *resultCtr, Value* fileName  , int depth) {
+		Function *flushFunc = context->getFunction("flushDelim");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(resultCtr);
+		//XXX JSON-specific -> Serializer business to differentiate
+		ArgsV.push_back(context->createInt8(','));
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
 private:
 	string& fname;
 	size_t fsize;

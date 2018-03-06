@@ -118,6 +118,52 @@ public:
 
 	virtual PluginType getPluginType() { return PGCSV; }
 
+	virtual void flushBeginList	(Value *fileName					) {}
+
+	virtual void flushBeginBag	(Value *fileName					) {
+		string error_msg = "[CSVPlugin: ] CSV files do not contain BAGs";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushBeginSet	(Value *fileName					) {
+		string error_msg = "[CSVPlugin: ] CSV files do not contain SETs";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushEndList	(Value *fileName					) {}
+
+	virtual void flushEndBag	(Value *fileName					) {
+		string error_msg = "[CSVPlugin: ] CSV files do not contain BAGs";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushEndSet	(Value *fileName					) {
+		string error_msg = "[CSVPlugin: ] CSV files do not contain SETs";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushDelim		(Value *fileName					, int depth) {
+		Function *flushFunc = context->getFunction("flushChar");
+		vector<Value*> ArgsV;
+		//XXX JSON-specific -> Serializer business to differentiate
+		ArgsV.push_back(context->createInt8((depth == 0) ? '\n' : ','));
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
+
+	virtual void flushDelim		(Value *resultCtr, Value* fileName	, int depth) {
+		Function *flushFunc = context->getFunction("flushDelim");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(resultCtr);
+		//XXX JSON-specific -> Serializer business to differentiate
+		ArgsV.push_back(context->createInt8((depth == 0) ? '\n' : ','));
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	}
 private:
 	string fname;
 	off_t fsize;

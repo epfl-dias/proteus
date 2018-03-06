@@ -118,5 +118,16 @@ public:
 //	virtual typeID getOIDSize() = 0;
 	virtual ExpressionType *getOIDType() = 0;
 	virtual PluginType getPluginType() = 0;
+
+	virtual void flushBeginList	(Value *fileName					) = 0;
+	virtual void flushBeginBag	(Value *fileName					) = 0;
+	virtual void flushBeginSet	(Value *fileName					) = 0;
+
+	virtual void flushEndList	(Value *fileName					) = 0;
+	virtual void flushEndBag	(Value *fileName					) = 0;
+	virtual void flushEndSet	(Value *fileName					) = 0;
+
+	virtual void flushDelim		(Value *fileName					, int depth = 0) = 0;
+	virtual void flushDelim		(Value *resultCtr, Value* fileName	, int depth = 0) = 0;
 };
 #endif /* PLUGINS_LLVM_HPP_ */

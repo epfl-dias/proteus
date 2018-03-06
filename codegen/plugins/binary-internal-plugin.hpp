@@ -103,6 +103,54 @@ public:
 
 	virtual PluginType getPluginType() { return PGBINARY; }
 
+	virtual void flushBeginList	(Value *fileName					) {
+		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushBeginBag	(Value *fileName					) {
+		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushBeginSet	(Value *fileName					) {
+		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushEndList	(Value *fileName					) {
+		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushEndBag	(Value *fileName					) {
+		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushEndSet	(Value *fileName					) {
+		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushDelim		(Value *fileName					, int depth) {
+		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
+	virtual void flushDelim		(Value *resultCtr, Value* fileName	, int depth) {
+		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
+		LOG(ERROR)<< error_msg;
+		throw runtime_error(error_msg);
+	}
+
 private:
 	string structName;
 

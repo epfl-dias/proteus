@@ -114,6 +114,54 @@ public:
     virtual PluginType getPluginType() { return PGBINARY; }
 
     RawOperator * getChild(){ return child; }
+
+    virtual void flushBeginList (llvm::Value *fileName                    ) {
+        string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
+        LOG(ERROR)<< error_msg;
+        throw runtime_error(error_msg);
+    }
+
+    virtual void flushBeginBag  (llvm::Value *fileName                    ) {
+        string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
+        LOG(ERROR)<< error_msg;
+        throw runtime_error(error_msg);
+    }
+
+    virtual void flushBeginSet  (llvm::Value *fileName                    ) {
+        string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
+        LOG(ERROR)<< error_msg;
+        throw runtime_error(error_msg);
+    }
+
+    virtual void flushEndList   (llvm::Value *fileName                    ) {
+        string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
+        LOG(ERROR)<< error_msg;
+        throw runtime_error(error_msg);
+    }
+
+    virtual void flushEndBag    (llvm::Value *fileName                    ) {
+        string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
+        LOG(ERROR)<< error_msg;
+        throw runtime_error(error_msg);
+    }
+
+    virtual void flushEndSet    (llvm::Value *fileName                    ) {
+        string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
+        LOG(ERROR)<< error_msg;
+        throw runtime_error(error_msg);
+    }
+
+    virtual void flushDelim     (llvm::Value *fileName                    , int depth) {
+        string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
+        LOG(ERROR)<< error_msg;
+        throw runtime_error(error_msg);
+    }
+
+    virtual void flushDelim     (llvm::Value *resultCtr, llvm::Value* fileName  , int depth) {
+        string error_msg = "[GpuColScanPlugin: ] Flush not implemented yet";
+        LOG(ERROR)<< error_msg;
+        throw runtime_error(error_msg);
+    }
 private:
     //Schema info provided
     RecordType rec;
