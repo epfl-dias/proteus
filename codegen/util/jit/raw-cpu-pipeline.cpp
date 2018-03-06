@@ -55,6 +55,8 @@ RawCpuPipelineGen::RawCpuPipelineGen(   RawContext        * context         ,
 
     // TheFPM->doInitialization();
     Type * bool_type    = Type::getInt1Ty    (context->getLLVMContext());
+    // Type * cpp_bool_type = Type::getInt8Ty   (context->getLLVMContext());
+    // static_assert(sizeof(bool) == 1, "Fix datatype");
     Type * int32_type   = Type::getInt32Ty   (context->getLLVMContext());
     Type * int64_type   = Type::getInt64Ty   (context->getLLVMContext());
     Type * void_type    = Type::getVoidTy    (context->getLLVMContext());
@@ -100,6 +102,10 @@ RawCpuPipelineGen::RawCpuPipelineGen(   RawContext        * context         ,
     FunctionType *make_mem_move_device = FunctionType::get(pair_type, std::vector<Type *>{charPtrType, size_type, int32_type, charPtrType}, false);
     Function *fmake_mem_move_device = Function::Create(make_mem_move_device, Function::ExternalLinkage, "make_mem_move_device", getModule());
     registerFunction("make_mem_move_device", fmake_mem_move_device);
+
+    FunctionType *make_mem_move_broadcast_device = FunctionType::get(pair_type, std::vector<Type *>{charPtrType, size_type, int32_type, charPtrType, bool_type}, false); // cpp_bool_type
+    Function *fmake_mem_move_broadcast_device = Function::Create(make_mem_move_broadcast_device, Function::ExternalLinkage, "make_mem_move_broadcast_device", getModule());
+    registerFunction("make_mem_move_broadcast_device", fmake_mem_move_broadcast_device);
 
     FunctionType *make_mem_move_local_to = FunctionType::get(pair_type, std::vector<Type *>{charPtrType, size_type, int32_type, charPtrType}, false);
     Function *fmake_mem_move_local_to = Function::Create(make_mem_move_local_to, Function::ExternalLinkage, "make_mem_move_local_to", getModule());
@@ -193,6 +199,22 @@ RawCpuPipelineGen::RawCpuPipelineGen(   RawContext        * context         ,
     FunctionType *releaseWorkUnit = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType}, false);
     Function *freleaseWorkUnit = Function::Create(releaseWorkUnit, Function::ExternalLinkage, "releaseWorkUnit", getModule());
     registerFunction("releaseWorkUnit", freleaseWorkUnit);
+
+    FunctionType *acquireWorkUnitBroadcast = FunctionType::get(charPtrType, std::vector<Type *>{charPtrType}, false);
+    Function *facquireWorkUnitBroadcast = Function::Create(acquireWorkUnitBroadcast, Function::ExternalLinkage, "acquireWorkUnitBroadcast", getModule());
+    registerFunction("acquireWorkUnitBroadcast", facquireWorkUnitBroadcast);
+
+    FunctionType *propagateWorkUnitBroadcast = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType, int32_type}, false);
+    Function *fpropagateWorkUnitBroadcast = Function::Create(propagateWorkUnitBroadcast, Function::ExternalLinkage, "propagateWorkUnitBroadcast", getModule());
+    registerFunction("propagateWorkUnitBroadcast", fpropagateWorkUnitBroadcast);
+
+    FunctionType *acquirePendingWorkUnitBroadcast = FunctionType::get(bool_type, std::vector<Type *>{charPtrType, charPtrType}, false);
+    Function *facquirePendingWorkUnitBroadcast = Function::Create(acquirePendingWorkUnitBroadcast, Function::ExternalLinkage, "acquirePendingWorkUnitBroadcast", getModule());
+    registerFunction("acquirePendingWorkUnitBroadcast", facquirePendingWorkUnitBroadcast);
+
+    FunctionType *releaseWorkUnitBroadcast = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType}, false);
+    Function *freleaseWorkUnitBroadcast = Function::Create(releaseWorkUnitBroadcast, Function::ExternalLinkage, "releaseWorkUnitBroadcast", getModule());
+    registerFunction("releaseWorkUnitBroadcast", freleaseWorkUnitBroadcast);
 
     FunctionType *mem_move_local_to_acquireWorkUnit = FunctionType::get(charPtrType, std::vector<Type *>{charPtrType}, false);
     Function *fmem_move_local_to_acquireWorkUnit = Function::Create(mem_move_local_to_acquireWorkUnit, Function::ExternalLinkage, "mem_move_local_to_acquireWorkUnit", getModule());

@@ -12,6 +12,7 @@
 #include "operators/gpu/gpu-hash-rearrange.hpp"
 #include "operators/gpu/gpu-to-cpu.hpp"
 #endif
+#include "operators/mem-broadcast-device.hpp"
 #include "operators/mem-move-device.hpp"
 #include "operators/mem-move-local-to.hpp"
 #include "operators/exchange.hpp"
@@ -993,7 +994,6 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val["projections"].IsArray());
 
 		int numOfBuckets = 1;
-		RecordAttribute * hashAttr = NULL;
 		expressions::Expression *hashExpr = new expressions::IntConstant(0);
 
 		vector<expressions::Expression *> projections;
@@ -1006,10 +1006,10 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 #ifndef NCUDA
 		if (gpu){
 
-			newOp =  new GpuHashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
+			newOp =  new GpuHashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr);
 		} else {
 #endif
-			newOp =  new HashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
+			newOp =  new HashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr);
 #ifndef NCUDA
 		}
 #endif
@@ -1098,6 +1098,42 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
 		newOp =  new MemMoveDevice(childOp, ((GpuRawContext *) this->ctx), projections, to_cpu);
+		childOp->setParent(newOp);
+	} else if(strcmp(opName,"mem-broadcast-device") == 0) {
+		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsObject());
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		assert(val.HasMember("projections"));
+		assert(val["projections"].IsArray());
+
+		vector<RecordAttribute*> projections;
+		for (SizeType i = 0; i < val["projections"].Size(); i++)
+		{
+			assert(val["projections"][i].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+			projections.push_back(recAttr);
+		}
+
+		bool to_cpu = false;
+		if (val.HasMember("to_cpu")){
+			assert(val["to_cpu"].IsBool());
+			to_cpu = val["to_cpu"].GetBool();
+		}
+
+		std::string relName = projections[0]->getRelationName();
+
+		InputInfo * datasetInfo = (this->catalogParser).getOrCreateInputInfo(relName);
+		RecordType * rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfo->exprType)->getNestedType())};
+		RecordAttribute * reg_as = new RecordAttribute(relName, "__broadcastTarget", new IntType()); 
+		std::cout << "Registered: " << reg_as->getRelationName() << "." << reg_as->getAttrName() << std::endl;
+		rec->appendAttribute(reg_as);
+
+		datasetInfo->exprType = new BagType{*rec};
+		
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+		newOp =  new MemBroadcastDevice(childOp, ((GpuRawContext *) this->ctx), projections, to_cpu);
 		childOp->setParent(newOp);
 	} else if(strcmp(opName,"mem-move-local-to") == 0) {
 		/* parse operator input */
@@ -1724,11 +1760,12 @@ ExpressionType* ExpressionParser::parseExpressionType(const rapidjson::Value& va
 				atts.push_back(recAttr);
 			}
 			return new RecordType(atts);
-		} else {
-			assert(val.HasMember("relName"));
+		} else if (val.HasMember("relName")){
 			assert(val["relName"].IsString());
 
 			return getRecordType(val["relName"].GetString());
+		} else {
+			return new RecordType();
 		}
 	} else if (strcmp(valExprType, "composite") == 0) {
 		string err = string("(Still) Unsupported expression type: ")
