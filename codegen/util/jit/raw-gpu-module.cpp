@@ -248,7 +248,7 @@ void RawGpuModule::compileAndLoad(){
 
         CUlinkState linkState;
         
-        constexpr size_t opt_size = 3;
+        constexpr size_t opt_size = 4;
         CUjit_option options[opt_size];
         void       * values [opt_size];
 
@@ -258,10 +258,12 @@ void RawGpuModule::compileAndLoad(){
         values  [1] = (void *) error_log;
         options [2] = CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES;
         values  [2] = (void *) BUFFER_SIZE;
-        // options [3] = CU_JIT_INFO_LOG_BUFFER;
-        // values  [3] = (void *) info_log;
-        // options [4] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
-        // values  [4] = (void *) BUFFER_SIZE;
+        options [3] = CU_JIT_MAX_REGISTERS;
+        values  [3] = (void *) ((uint64_t) 32);
+        // options [4] = CU_JIT_INFO_LOG_BUFFER;
+        // values  [4] = (void *) info_log;
+        // options [5] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
+        // values  [5] = (void *) BUFFER_SIZE;
 
         // size_t size = _binary_device_funcs_cubin_end - _binary_device_funcs_cubin_start;
         size_t size = _binary_buffer_manager_cubin_end - _binary_buffer_manager_cubin_start;
@@ -277,7 +279,7 @@ void RawGpuModule::compileAndLoad(){
         // auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN, "/home/chrysoge/Documents/pelago/opt/res/buffer_manager.cubin", 0, NULL, NULL));
             // libmultigpu.a", 0, NULL, NULL));
         if (x != CUDA_SUCCESS) {
-            printf("[CUcompile: ] %s\n", info_log );
+            // printf("[CUcompile: ] %s\n", info_log );
             printf("[CUcompile: ] %s\n", error_log);
             gpu_run(x);
         }
@@ -285,11 +287,13 @@ void RawGpuModule::compileAndLoad(){
         // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX, ("generated_code/" + pipName + ".ptx").c_str(), 0, NULL, NULL));
         x = cuLinkAddData (linkState, CU_JIT_INPUT_PTX, (void *) ptx.c_str(), ptx.length() + 1, NULL, 0, NULL, NULL);
         if (x != CUDA_SUCCESS) {
+            // printf("[CUcompile: ] %s\n", info_log );
             printf("[CUcompile: ] %s\n", error_log);
             gpu_run(x);
         }
         x = cuLinkComplete(linkState, &cubin, &cubinSize);
         if (x != CUDA_SUCCESS) {
+            // printf("[CUcompile: ] %s\n", info_log );
             printf("[CUcompile: ] %s\n", error_log);
             gpu_run(x);
         }
