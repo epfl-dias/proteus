@@ -1,6 +1,8 @@
 package ch.epfl.dias.emitter
 
 import java.io.{PrintWriter, StringWriter}
+
+import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.adapter.enumerable._
 import org.apache.calcite.rel.RelNode
@@ -308,6 +310,17 @@ object PlanToJSON {
       val op = ("operator" , "scan")
       //TODO Cross-check: 0: schemaName, 1: tableName (?)
       val srcName = s.getTable.getQualifiedName.get(1)
+      val rowType = emitSchema(srcName, s.getRowType)
+
+      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
+      val binding: Binding = Binding(srcName,getFields(s.getRowType))
+      val ret: (Binding, JValue) = (binding,json)
+      ret
+    }
+    case s : PelagoTableScan => {
+      val op = ("operator" , "scan")
+      //TODO Cross-check: 0: schemaName, 1: tableName (?)
+      val srcName = s.getPelagoRelName //s.getTable.getQualifiedName.get(1)
       val rowType = emitSchema(srcName, s.getRowType)
 
       val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
