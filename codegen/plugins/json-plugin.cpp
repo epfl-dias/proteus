@@ -2149,7 +2149,7 @@ RawValue JSONPlugin::readCachedValue(CacheInfo info,
 	Value *val_oid = context->getStructElem(mem_oidCompositeWrapper.mem, 1);
 
 	StructType *cacheType = context->ReproduceCustomStruct(info.objectTypes);
-	Value *typeSize = ConstantExpr::getSizeOf(cacheType);
+	// Value *typeSize = ConstantExpr::getSizeOf(cacheType);
 	char* rawPtr = *(info.payloadPtr);
 	int posInStruct = info.structFieldNo;
 

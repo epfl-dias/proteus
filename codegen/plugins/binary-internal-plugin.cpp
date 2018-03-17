@@ -608,7 +608,7 @@ Value* BinaryInternalPlugin::getValueSize(RawValueMemory mem_value,
 	case INT:
 	case FLOAT: {
 		Type *explicitType = (mem_value.mem)->getAllocatedType();
-		return ConstantExpr::getSizeOf(explicitType);
+		return context->createInt64(context->getSizeOf(explicitType));
 		//return context->createInt32(explicitType->getPrimitiveSizeInBits() / 8);
 	}
 	case STRING: {

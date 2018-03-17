@@ -635,7 +635,7 @@ Value* CSVPlugin::getValueSize(RawValueMemory mem_value,
 	case FLOAT:
 	case STRING: {
 		Type *explicitType = (mem_value.mem)->getAllocatedType();
-		return ConstantExpr::getSizeOf(explicitType);
+		return context->createInt64(context->getSizeOf(explicitType));
 	}
 	case BAG:
 	case LIST:

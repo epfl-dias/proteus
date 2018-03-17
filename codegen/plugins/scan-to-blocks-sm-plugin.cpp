@@ -147,7 +147,7 @@ RawValue ScanToBlockSMPlugin::readCachedValue(CacheInfo info, const map<RecordAt
     /* Need to find appropriate position in cache now -- should be OK(?) */
 
     StructType *cacheType = context->ReproduceCustomStruct(info.objectTypes);
-    Value *typeSize = ConstantExpr::getSizeOf(cacheType);
+    // Value *typeSize = ConstantExpr::getSizeOf(cacheType);
     char* rawPtr = *(info.payloadPtr);
     int posInStruct = info.structFieldNo;
 

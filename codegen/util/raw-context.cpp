@@ -199,8 +199,9 @@ Function* const RawContext::getFunction(string funcName) const {
 	return it->second;
 }
 
+//bytes
 size_t RawContext::getSizeOf(llvm::Type  * type) const{
-    return getModule()->getDataLayout().getTypeSizeInBits(type)/8;
+    return getModule()->getDataLayout().getTypeAllocSize(type);
 }
 
 size_t RawContext::getSizeOf(llvm::Value * val ) const{
