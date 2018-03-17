@@ -127,7 +127,7 @@ private:
 class OutputPlugin {
 public:
 	OutputPlugin(RawContext* const context, Materializer& materializer,
-			const map<RecordAttribute, RawValueMemory>& bindings);
+			const map<RecordAttribute, RawValueMemory> *bindings);
 	~OutputPlugin() {
 	}
 
@@ -150,8 +150,11 @@ public:
 	 */
 	Value* getRuntimePayloadTypeSize();
 
+	void setBindings(const map<RecordAttribute, RawValueMemory> *bindings){
+		currentBindings = bindings;
+	}
 	const map<RecordAttribute, RawValueMemory>& getBindings() const {
-		return currentBindings;
+		return *currentBindings;
 	}
 	vector<Type*>* getMaterializedTypes() {
 		return materializedTypes;
@@ -164,7 +167,7 @@ private:
 
 	//Code-generation-related
 	RawContext* const context;
-	const map<RecordAttribute, RawValueMemory>& currentBindings;
+	const map<RecordAttribute, RawValueMemory> *currentBindings;
 	llvm::StructType* payloadType;
 	vector<Type*>* materializedTypes;
 

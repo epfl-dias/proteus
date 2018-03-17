@@ -56,7 +56,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		LOG(INFO) << "[JOIN: ] Building side";
 #endif
 		const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
-		OutputPlugin* pg = new OutputPlugin(context, mat, bindings);
+		OutputPlugin* pg = new OutputPlugin(context, mat, &bindings);
 
 		//Result type specified during output plugin construction
 		payloadType = pg->getPayloadType();

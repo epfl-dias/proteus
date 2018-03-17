@@ -122,7 +122,7 @@ void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 	//2. Create 'payload' --> What is to be inserted in the bucket
 	LOG(INFO) << "[NEST: ] Creating payload";
 	const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
-	OutputPlugin *pg = new OutputPlugin(context, mat, bindings);
+	OutputPlugin *pg = new OutputPlugin(context, mat, &bindings);
 
 	//Result type specified during output plugin construction
 	llvm::StructType *payloadType = pg->getPayloadType();

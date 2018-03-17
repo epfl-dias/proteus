@@ -22,6 +22,7 @@
 */
 
 #include "plugins/output/plugins-output.hpp"
+#include "expressions/expressions-generator.hpp"
 
 Materializer::Materializer(vector<RecordAttribute*> wantedFields,
 //		const vector<expressions::Expression*>& wantedExpressions,
@@ -68,7 +69,7 @@ Materializer::Materializer(vector<expressions::Expression*> wantedExpressions) {
 
 OutputPlugin::OutputPlugin(RawContext* const context,
 		Materializer& materializer,
-		const map<RecordAttribute, RawValueMemory>& bindings) :
+		const map<RecordAttribute, RawValueMemory> *bindings) :
 		context(context), materializer(materializer), currentBindings(bindings) {
 
 	/**
@@ -85,26 +86,25 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 	isComplex = false;
 	//XXX Always materializing the 'active tuples' pointer
 	{
-		map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
 		//FIXME use 'find' instead of looping
-		for (memSearch = currentBindings.begin();
-				memSearch != currentBindings.end(); memSearch++) {
+		for (const auto &oid: materializer.getWantedOIDs()) {
 
-			RecordAttribute currAttr = memSearch->first;
+			// RecordAttribute currAttr = memSearch->first;
 //			cout << "HINT: " << currAttr.getOriginalRelationName() << " -- "
 //					<< currAttr.getRelationName() << "_" << currAttr.getName()
 //					<< endl;
-			if (currAttr.getAttrName() == activeLoop) {
-//				cout << "HINT - OID MAT'D: " << currAttr.getOriginalRelationName() << " -- "
-//									<< currAttr.getRelationName() << "_" << currAttr.getName()
-//									<< endl;
-				Type* currType = (memSearch->second).mem->getAllocatedType();
+			// if (currAttr.getAttrName() == activeLoop) {
+				cout << "HINT - OID MAT'D: " << oid->getOriginalRelationName() << " -- "
+									<< oid->getRelationName() << "_" << oid->getName()
+									<< endl;
+				Type* currType = oid->getOriginalType()->getLLVMType(context->getLLVMContext());//currentBindings.find(*oid)->second.mem->getAllocatedType();
+				currType->dump();
 				materializedTypes->push_back(currType);
 				payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
 				//cout << "Active Tuple Size "<< (currType->getPrimitiveSizeInBits() / 8) << endl;
 				tupleIdentifiers++;
-				materializer.addTupleIdentifier(currAttr);
-			}
+				materializer.addTupleIdentifier(*oid);
+			// }
 		}
 	}
 	identifiersTypeSize = payload_type_size;
@@ -115,7 +115,7 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 	 * Atm, that's always the case when dealing with e.g. JSON that is lazily materialized
 	 */
 	for(vector<RecordAttribute*>::const_iterator it = wantedFields.begin(); it != wantedFields.end(); it++)	{
-		map<RecordAttribute, RawValueMemory>::const_iterator itSearch = currentBindings.find(*(*it));
+		// map<RecordAttribute, RawValueMemory>::const_iterator itSearch = currentBindings.find(*(*it));
 
 		CachingService& cache = CachingService::getInstance();
 		/* expr does not participate in caching search, so don't need it explicitly => mock */
@@ -124,7 +124,7 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 		list<RecordAttribute> mockProjections;
 		RecordType mockRec = RecordType(mockAtts);
 		expressions::InputArgument *mockExpr = new expressions::InputArgument(&mockRec, 0, mockProjections);
-		expressions::RecordProjection *e = new expressions::RecordProjection((*it)->getOriginalType(),mockExpr,*(*it));
+		expressions::RecordProjection *e = new expressions::RecordProjection(mockExpr,*(*it));
 		CacheInfo info = cache.getCache(e);
 		bool isCached = false;
 		if (info.structFieldNo != -1) {
@@ -142,47 +142,34 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 			LOG(INFO)<<"[MATERIALIZER: ] *CACHED* PART OF PAYLOAD: "<<(*it)->getAttrName();
 			materialization_mode mode = (materializer.getOutputMode()).at(attrNo++);
 			//gather datatypes: caches can only have int32 or float!!!
-			Type* requestedType;
+			Type* requestedType = (*it)->getLLVMType(context->getLLVMContext());
 			isComplex = false;
-			typeID id = (*it)->getOriginalType()->getTypeID();
-			switch(id) {
-				case BOOL: {
-					requestedType = Type::getInt1Ty(context->getLLVMContext());
-					break;
-				}
-				case INT: {
-					requestedType = Type::getInt32Ty(context->getLLVMContext());
-					break;
-				}
-				case FLOAT: {
-					requestedType = Type::getDoubleTy(context->getLLVMContext());
-					break;
-				}
-				default: {
-					string error_msg = string("[OUTPUT PG: ] UNEXPECTED, NON-NUMERIC CACHED VALUE ") + (*it)->getAttrName();
-					LOG(ERROR) << error_msg;
-					throw runtime_error(error_msg);
-				}
-			}
 			materializedTypes->push_back(requestedType);
 			int fieldSize = requestedType->getPrimitiveSizeInBits() / 8;
 			fieldSizes.push_back(fieldSize);
 			payload_type_size += fieldSize;
 		}
-		else if(itSearch != currentBindings.end())
+		else 
 		{
 			LOG(INFO)<<"[MATERIALIZER: ] PART OF PAYLOAD: "<<(*it)->getAttrName();
-//			cout << "[MATERIALIZER: ] PART OF PAYLOAD: "<<(*it)->getAttrName() << endl;
+			cout << "[MATERIALIZER: ] PART OF PAYLOAD: "<<(*it)->getAttrName() << endl;
+
 			materialization_mode mode = (materializer.getOutputMode()).at(attrNo++);
 			//gather datatypes
-			Type* currType = (itSearch->second).mem->getAllocatedType();
+			Type* currType;
+			// if (itSearch != bindings.end()){
+			// 	currType = itSearch->second.mem->getType()->getPointerElementType();//(*it)->getLLVMType(context->getLLVMContext());//->getAllocatedType();
+			// } else {
+				currType = (*it)->getLLVMType(context->getLLVMContext());
+			// }
 			Type* requestedType = chooseType((*it)->getOriginalType(),currType, mode);
+			requestedType->dump();
 			materializedTypes->push_back(requestedType);
 			int fieldSize = requestedType->getPrimitiveSizeInBits() / 8;
 			fieldSizes.push_back(fieldSize);
 			payload_type_size += fieldSize;
 			//cout << "Field Size "<< fieldSize << endl;
-			typeID id = itSearch->first.getOriginalType()->getTypeID();
+			typeID id = (*it)->getOriginalType()->getTypeID();
 			switch(id) {
 				case BOOL:
 				case INT:
@@ -190,29 +177,29 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 				default: isComplex = true;
 			}
 		}
-		else {
-			string error_msg = string("[OUTPUT PG: ] INPUT ERROR AT OPERATOR - UNKNOWN WANTED FIELD ") + (*it)->getAttrName();
-			map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+		// else {
+		// 	string error_msg = string("[OUTPUT PG: ] INPUT ERROR AT OPERATOR - UNKNOWN WANTED FIELD ") + (*it)->getAttrName();
+		// 	map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
 
-			for (memSearch = currentBindings.begin();
-					memSearch != currentBindings.end(); memSearch++) {
+		// 	for (memSearch = currentBindings.begin();
+		// 			memSearch != currentBindings.end(); memSearch++) {
 
-				RecordAttribute currAttr = memSearch->first;
-				cout << "HINT: " << currAttr.getOriginalRelationName() << " -- "
-				<< currAttr.getRelationName() << "_" << currAttr.getName()
-				<< endl;
-				if (currAttr.getAttrName() == activeLoop) {
-					Type* currType = (memSearch->second).mem->getAllocatedType();
-					materializedTypes->push_back(currType);
-					payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
-					//cout << "Active Tuple Size "<< (currType->getPrimitiveSizeInBits() / 8) << endl;
-					tupleIdentifiers++;
-					materializer.addTupleIdentifier(currAttr);
-				}
-			}
-			LOG(ERROR) << error_msg;
-			throw runtime_error(error_msg);
-		}
+		// 		RecordAttribute currAttr = memSearch->first;
+		// 		cout << "HINT: " << currAttr.getOriginalRelationName() << " -- "
+		// 		<< currAttr.getRelationName() << "_" << currAttr.getName()
+		// 		<< endl;
+		// 		if (currAttr.getAttrName() == activeLoop) {
+		// 			Type* currType = (memSearch->second).mem->getAllocatedType();
+		// 			materializedTypes->push_back(currType);
+		// 			payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
+		// 			//cout << "Active Tuple Size "<< (currType->getPrimitiveSizeInBits() / 8) << endl;
+		// 			tupleIdentifiers++;
+		// 			materializer.addTupleIdentifier(currAttr);
+		// 		}
+		// 	}
+		// 	LOG(ERROR) << error_msg;
+		// 	throw runtime_error(error_msg);
+		// }
 	}
 	LOG(INFO)<<"[OUTPUT PLUGIN: ] Size of tuple (payload): "<<payload_type_size;
 
@@ -238,9 +225,9 @@ Value* OutputPlugin::getRuntimePayloadTypeSize() {
 	vector<RecordAttribute*>::const_iterator it = wantedFields.begin();
 	for (; it != wantedFields.end(); it++) {
 		map<RecordAttribute, RawValueMemory>::const_iterator itSearch =
-				currentBindings.find(*(*it));
+				currentBindings->find(*(*it));
 		//Field needed
-		if (itSearch != currentBindings.end()) {
+		if (itSearch != currentBindings->end()) {
 			materialization_mode mode = (materializer.getOutputMode()).at(attrNo);
 			Value *val_attr_size = NULL;
 			if (mode == EAGER) {
@@ -283,6 +270,7 @@ Type* OutputPlugin::chooseType(const ExpressionType* exprType, Type* currType, m
 		LOG(ERROR) << "[OUTPUT PG: ] DEALING WITH RECORD TYPE - NOT SUPPORTED YET";
 		throw runtime_error(string("[OUTPUT PG: ] DEALING WITH RECORD TYPE - NOT SUPPORTED YET"));
 	case BOOL:
+	case DSTRING:
 	case STRING:
 	case FLOAT:
 	case INT64:

@@ -225,7 +225,7 @@ void Reduce::generateBagUnion(expressions::Expression* outputExpr,
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-	ExpressionFlusherVisitor flusher{context, state, outPath};
+	ExpressionFlusherVisitor flusher{context, state, outPath, outputExpr->getRegisteredRelName()};
 
 	//Backing up insertion block
 	BasicBlock *currBlock = Builder->GetInsertBlock();
@@ -416,7 +416,7 @@ void Reduce::generate_flush(){
 
 	if (flushResults){
 		OperatorState state{*this, variableBindings};
-		ExpressionFlusherVisitor flusher{context, state, outPath};
+		ExpressionFlusherVisitor flusher{context, state, outPath, outputExprs[0]->getRegisteredRelName()};
 
 		if (accs.size() > 1) flusher.beginList();
 
