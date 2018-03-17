@@ -367,7 +367,6 @@ void Reduce::generate_flush(){
 
 		{
 			RecordAttribute tupleCnt = RecordAttribute(rel_name, "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
-
 			Value      * N   = ConstantInt::get(pg->getOIDType()->getLLVMType(llvmContext), 1);
 			N->setName("cnt");
 			AllocaInst * mem = context->CreateEntryBlockAlloca(F, "activeCnt_ptr", N->getType());

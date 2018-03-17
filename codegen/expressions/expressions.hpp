@@ -233,7 +233,7 @@ private:
 
 class BoolConstant : public Constant	{
 public:
-	BoolConstant(int val)
+	BoolConstant(bool val)
 		: Constant(new BoolType()), val(val) 		{}
 	~BoolConstant()									{}
 

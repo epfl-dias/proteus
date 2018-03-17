@@ -377,7 +377,7 @@ RawPipeline * RawPipelineGen::getPipeline(int group_id){
         closers.insert(closers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
     }
 
-    return new RawPipeline(func, (getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8, this, state_type, openers, closers, getCompiledFunction(open__function), getCompiledFunction(close_function), group_id, execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);
+    return new RawPipeline(func, getModule()->getDataLayout().getTypeAllocSize(state_type), this, state_type, openers, closers, getCompiledFunction(open__function), getCompiledFunction(close_function), group_id, execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);
 }
 
 RawPipeline::RawPipeline(void * f, size_t state_size, RawPipelineGen * gen, StructType * state_type,
@@ -402,8 +402,9 @@ RawPipeline::~RawPipeline(){
     free(state);
 }
 
+//bytes
 size_t RawPipeline::getSizeOf(llvm::Type * t) const{
-    return layout.getTypeSizeInBits(t)/8;
+    return layout.getTypeAllocSize(t);
 }
 
 int32_t RawPipeline::getGroup() const{

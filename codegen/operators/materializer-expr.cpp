@@ -244,7 +244,7 @@ void ExprMaterializer::consume(RawContext* const context, const OperatorState& c
 	types.push_back(val_toMat->getType());
 	toMatType = context->CreateCustomStruct(types);
 
-	Value* val_exprSize = ConstantExpr::getSizeOf(val_toMat->getType());
+	Value* val_exprSize = context->createInt64(context->getSizeOf(val_toMat->getType()));
 
 #ifdef DEBUG
 	{

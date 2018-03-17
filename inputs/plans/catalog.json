@@ -552,7 +552,7 @@
 					"attrNo": 2
 				}, {
 					"type": {
-						"type": "dstring"
+						"type": "string"
 					},
 					"relName": "inputs/reserves.csv",
 					"attrName": "day",
@@ -569,7 +569,7 @@
 				"type": "record",
 				"attributes": [{
 					"type": {
-						"type": "dstring"
+						"type": "string"
 					},
 					"relName": "inputs/json/employees-flat.json",
 					"attrName": "name",
@@ -586,7 +586,7 @@
 						"type": "record",
 						"attributes": [{
 							"type": {
-								"type": "dstring"
+								"type": "string"
 							},
 							"relName": "inputs/json/employees-flat.json",
 							"attrName": "name",

@@ -132,6 +132,7 @@ void GpuHashGroupByChained::buildHashTableFormat(){
         // }
             bindex = v;
         }
+
         packet_widths.push_back(bindex);
         Type * t     = StructType::create(body, opLabel + "_struct_" + std::to_string(p), true);
         Type * t_ptr = PointerType::get(t, /* address space */ 0);
@@ -1066,17 +1067,17 @@ struct entry{
 };
 
 void GpuHashGroupByChained::close(RawPipeline * pip){
-    int32_t * cnt_ptr = pip->getStateVar<int32_t  *>(cnt_param_id);
+    // int32_t * cnt_ptr = pip->getStateVar<int32_t  *>(cnt_param_id);
     // entry * h_next;
     // int32_t * h_first;
-    int32_t cnt;
+    // int32_t cnt;
     // std::cout << packet_widths[0]/8 << " " << sizeof(entry) << std::endl;
     // assert(packet_widths[0]/8 == sizeof(entry));
     // size_t size = (packet_widths[0]/8) * maxInputSize;
     // gpu_run(cudaMallocHost((void **) &h_next , size));
     // gpu_run(cudaMallocHost((void **) &h_first, sizeof(int32_t  ) * (1 << hash_bits)));
-    gpu_run(cudaMemcpy(&cnt  , cnt_ptr, sizeof(int32_t), cudaMemcpyDefault));
-    std::cout << "---------------------------> " << cnt << " " << maxInputSize << std::endl;
+    // gpu_run(cudaMemcpy(&cnt  , cnt_ptr, sizeof(int32_t), cudaMemcpyDefault));
+    // std::cout << "---------------------------> " << cnt << " " << maxInputSize << std::endl;
     // gpu_run(cudaMemcpy(h_next, pip->getStateVar<void *>(out_param_ids[0]), cnt * (packet_widths[0]/8), cudaMemcpyDefault));
     // gpu_run(cudaMemcpy(h_first, pip->getStateVar<void *>(head_param_id), sizeof(int32_t  ) * (1 << hash_bits), cudaMemcpyDefault));
     // for (int32_t i = 0 ; i < cnt ; ++i){
@@ -1129,9 +1130,6 @@ void GpuHashGroupByChained::close(RawPipeline * pip){
 
 
     probe_pip->close();
-
-
-
 
 
 

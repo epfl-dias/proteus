@@ -61,15 +61,12 @@ void CpuToGpu::generateGpuSide(){
     IntegerType * oid_type     = (IntegerType *) pg->getOIDType()->getLLVMType(llvmContext);
     size_t tupleOIDArg_id = context->appendParameter(oid_type, false, false);
     size_t tupleCntArg_id = context->appendParameter(oid_type, false, false);
-    // std::cout << "<----------------> " << oid_type->getType()->dump();
-    // std::cout << "<----------------> " << oid_type->getType()->dump();
 
     context->setGlobalFunction();
 
     IRBuilder<> * Builder       = context->getBuilder    ();
     BasicBlock  * insBB         = Builder->GetInsertBlock();
     Function    * F             = insBB->getParent();
-
 
     BasicBlock * AfterBB = BasicBlock::Create(llvmContext, "end" , F);
     BasicBlock * MainBB  = BasicBlock::Create(llvmContext, "main", F);
@@ -183,7 +180,6 @@ void CpuToGpu::consume(RawContext* const context, const OperatorState& childStat
 
     RawValueMemory mem_oidWrapper = it->second;
 
-    // std::cout << "-----------------> " << mem_oidWrapper.mem->getType()->dump();
     kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(mem_oidWrapper.mem, charPtrType), wantedFields.size()    );
 
     RecordAttribute tupleCnt = RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
@@ -193,7 +189,6 @@ void CpuToGpu::consume(RawContext* const context, const OperatorState& childStat
 
     RawValueMemory mem_cntWrapper = it->second;
 
-    // std::cout << "-----------------> " << mem_cntWrapper.mem->getType()->dump();
     kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(mem_cntWrapper.mem, charPtrType), wantedFields.size() + 1);
 
     Value * subState   = ((GpuRawContext *) context)->getSubStateVar();
@@ -201,7 +196,6 @@ void CpuToGpu::consume(RawContext* const context, const OperatorState& childStat
     kernel_params = Builder->CreateInsertValue(kernel_params, subState, wantedFields.size() + 2);
 
     Builder->CreateStore(kernel_params, kernel_params_addr);
-
 
     Value * entry   = ((GpuRawContext *) context)->getStateVar(childVar_id);
     Value * strm    = ((GpuRawContext *) context)->getStateVar(strmVar_id );

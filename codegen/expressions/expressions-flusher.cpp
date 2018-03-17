@@ -656,7 +656,7 @@ RawValue ExpressionFlusherVisitor::visit(expressions::RecordConstruction *e)
 	// context->getBuilder()->CreateCall(flushFunc, ArgsV);
 
 	//FIXME: this may break JSON plugin!!!! can we materialize lists and objects like that ?! NEED TO TEST
-	RecordType recType = *((RecordType *) e->getExpressionType());
+	RecordType recType = *((const RecordType *) e->getExpressionType());
 	
 	ExpressionGeneratorVisitor exprGen(context, currState);
 	RawValue recValue = e->accept(exprGen);

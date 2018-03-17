@@ -301,7 +301,6 @@ void Exchange::consume(RawContext* const context, const OperatorState& childStat
 
         params = Builder->CreateInsertValue(params, Builder->CreateLoad(mem_valWrapper.mem), i);
     }
-    Value * numOfParentsV = ConstantInt::get(llvmContext, APInt(32, ((uint64_t) numOfParents)));
 
     BasicBlock *tryBB = BasicBlock::Create(llvmContext, "tryAcq", F);
     Builder->CreateBr(tryBB);
@@ -336,6 +335,8 @@ void Exchange::consume(RawContext* const context, const OperatorState& childStat
         target            = Builder->CreateCall(crand, vector<Value *>{});
         retry             = true;
     }
+
+    Value * numOfParentsV = ConstantInt::get((IntegerType *) target->getType(), ((uint64_t) numOfParents));
 
     target = Builder->CreateURem(target, numOfParentsV);
     target->setName("target");

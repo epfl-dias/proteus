@@ -174,13 +174,37 @@ public:
 		cout << "ANONYMOUS CONSTRUCTOR!!" << endl;
 	}
 	RecordAttribute(int no, string relName, string attrName, const ExpressionType* type, bool make_block = false)
-		: attrNo(no), relName(relName), originalRelName(relName), attrName(attrName), type(make_block ? new BlockType(*type) : type), projected(false) 	{}
+		: attrNo(no), relName(relName), originalRelName(relName), attrName(attrName), type(make_block ? new BlockType(*type) : type), projected(false) 	{
+		if(relName == "")	{
+			string error_msg = string("Unexpected, no-relname attribute: ") + attrName;
+			LOG(ERROR) << error_msg;
+			throw runtime_error(error_msg);
+		}
+	}
+
 	RecordAttribute(int no, string relName, const char* attrName, const ExpressionType* type)
 			: attrNo(no), relName(relName), originalRelName(relName), type(type), projected(false) 	{
 		this->attrName = string(attrName);
+		if(relName == "")	{
+			string error_msg = string("Unexpected, no-relname attribute: ") + attrName;
+			LOG(ERROR) << error_msg;
+			throw runtime_error(error_msg);
+		}
 	}
+
 	RecordAttribute(int no, string originalRelName, string relName, string attrName, const ExpressionType* type)
-			: attrNo(no), relName(relName), originalRelName(originalRelName), attrName(attrName), type(type), projected(false) 	{}
+			: attrNo(no), relName(relName), originalRelName(originalRelName), attrName(attrName), type(type), projected(false) 	{
+		if(relName == "")	{
+			string error_msg = string("Unexpected, no-relname attribute: ") + attrName;
+			LOG(ERROR) << error_msg;
+			throw runtime_error(error_msg);
+		}
+		if(originalRelName == "")	{
+			string error_msg = string("Unexpected, no-origrelname attribute: ") + attrName;
+			LOG(ERROR) << error_msg;
+			throw runtime_error(error_msg);
+		}
+	}
 
 	//Constructor used STRICTLY for comparisons in maps
 //	RecordAttribute(string relName, string attrName)
@@ -189,7 +213,7 @@ public:
 	/* OID Type needed so that we know what we materialize
 	 * => Subsequent functions / programs use info to parse caches */
 	RecordAttribute(string relName, string attrName, const ExpressionType* type)
-			: attrNo(-1), relName(relName), attrName(attrName), type(type), projected(false) 	{
+			: attrNo(-1), relName(relName), originalRelName(relName), attrName(attrName), type(type), projected(false) 	{
 		//cout << "RELNAME:[" << relName << "]" << endl;
 		if(relName == "")	{
 			string error_msg = string("Unexpected, no-relname attribute: ") + attrName;

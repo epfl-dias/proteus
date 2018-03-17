@@ -27,7 +27,7 @@
 #include "common/common.hpp"
 #include "plugins/plugins.hpp"
 #include "expressions/expressions-generator.hpp"
-
+#include "plugins/json-plugin.hpp"
 #ifdef DEBUG
 #define DEBUG_FLUSH
 #endif
@@ -52,6 +52,7 @@ public:
 		placeholder.isNull = context->createTrue();
 		placeholder.value = NULL;
 		outputFileLLVM = NULL;
+		pg = new jsonPipelined::JSONPlugin(context, outputFile, NULL);
 	}
 	ExpressionFlusherVisitor(RawContext* const context,
 			const OperatorState& currState, const char* outputFile,
@@ -100,7 +101,7 @@ public:
 		if (relName != ""){
 			pg = RawCatalog::getInstance().getPlugin(activeRelation);
 		} else {
-			pg = NULL;
+			pg = RawCatalog::getInstance().getPlugin(outputFile);
 		}
 	}
 	string getActiveRelation(string relName)	{ return activeRelation; }
