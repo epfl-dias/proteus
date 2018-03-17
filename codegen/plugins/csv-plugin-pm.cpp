@@ -39,19 +39,17 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 	std::sort(wantedFields.begin(), wantedFields.end());
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
-	if (whichFields.size() > 0){
-		struct stat statbuf;
-		const char* name_c = fname.c_str();
-		stat(name_c, &statbuf);
-		fsize = statbuf.st_size;
 
-		fd = open(name_c, O_RDONLY);
-		if (fd == -1) {
-			throw runtime_error(string("csv.open"));
-		}
-	} else {
-		fsize = 0;
+	struct stat statbuf;
+	const char* name_c = fname.c_str();
+	stat(name_c, &statbuf);
+	fsize = statbuf.st_size;
+
+	fd = open(name_c, O_RDONLY);
+	if (fd == -1 && whichFields.size() > 0) {
+		throw runtime_error(string("csv.open"));
 	}
+
 	this->delimInner = ';';
 	this->delimEnd = '\n';
 
@@ -79,7 +77,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 		LOG(INFO)<< "PM will have " << pmFields << " field(s)";
 		pm = (short**) malloc(lines * sizeof(short*));
 		short *pm_ = (short*) malloc(lines * pmFields * sizeof(short));
-		for (int i = 0; i < lines; i++) {
+		for (size_t i = 0; i < lines; i++) {
 			pm[i] = (pm_ + i * pmFields);
 		}
 
@@ -120,19 +118,16 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 	std::sort(wantedFields.begin(), wantedFields.end(), orderByNumber);
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
-	if (whichFields.size() > 0){
-		struct stat statbuf;
-		const char* name_c = fname.c_str();
-		stat(name_c, &statbuf);
-		fsize = statbuf.st_size;
+	struct stat statbuf;
+	const char* name_c = fname.c_str();
+	stat(name_c, &statbuf);
+	fsize = statbuf.st_size;
 
-		fd = open(name_c, O_RDONLY);
-		if (fd == -1) {
-			throw runtime_error(string("csv.open"));
-		}
-	} else {
-		fsize = 0;
+	fd = open(name_c, O_RDONLY);
+	if (fd == -1 && whichFields.size() > 0) {
+		throw runtime_error(string("csv.open"));
 	}
+
 	this->delimInner = delimInner;
 	this->delimEnd = '\n';
 
@@ -160,7 +155,7 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 		LOG(INFO)<< "PM will have " << pmFields << " field(s)";
 		pm = (short**) malloc(lines * sizeof(short*));
 		short *pm_ = (short*) malloc(lines * pmFields * sizeof(short));
-		for (int i = 0; i < lines; i++) {
+		for (size_t i = 0; i < lines; i++) {
 			pm[i] = (pm_ + i * pmFields);
 		}
 
@@ -196,18 +191,14 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 	std::sort(wantedFields.begin(), wantedFields.end());
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
-	if (whichFields.size() > 0){
-		struct stat statbuf;
-		const char* name_c = fname.c_str();
-		stat(name_c, &statbuf);
-		fsize = statbuf.st_size;
+	struct stat statbuf;
+	const char* name_c = fname.c_str();
+	stat(name_c, &statbuf);
+	fsize = statbuf.st_size;
 
-		fd = open(name_c, O_RDONLY);
-		if (fd == -1) {
-			throw runtime_error(string("csv.open"));
-		}
-	} else {
-		fsize = 0;
+	fd = open(name_c, O_RDONLY);
+	if (fd == -1 && whichFields.size() > 0) {
+		throw runtime_error(string("csv.open"));
 	}
 
 	/* PM */
@@ -233,18 +224,14 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 	std::sort(wantedFields.begin(), wantedFields.end());
 
 	LOG(INFO) << "[CSVPlugin: ] " << fname;
-	if (whichFields.size() > 0){
-		struct stat statbuf;
-		const char* name_c = fname.c_str();
-		stat(name_c, &statbuf);
-		fsize = statbuf.st_size;
+	struct stat statbuf;
+	const char* name_c = fname.c_str();
+	stat(name_c, &statbuf);
+	fsize = statbuf.st_size;
 
-		fd = open(name_c, O_RDONLY);
-		if (fd == -1) {
-			throw runtime_error(string("csv.open"));
-		}
-	} else {
-		fsize = 0;
+	fd = open(name_c, O_RDONLY);
+	if (fd == -1 && whichFields.size() > 0) {
+		throw runtime_error(string("csv.open"));
 	}
 	
 	/* PM */
@@ -289,9 +276,13 @@ void CSVPlugin::init()	{
 	Builder->CreateStore(val_zero, mem_lineCtr);
 
 	/* Pages may be read AND WRITTEN (to compute hashes in-place when needed) */
-	buf = (char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE /*| MAP_POPULATE*/, fd, 0);
-	if (buf == MAP_FAILED) {
-		throw runtime_error(string("csv.mmap"));
+	if (fd != -1){
+		buf = (char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE /*| MAP_POPULATE*/, fd, 0);
+		if (buf == MAP_FAILED) {
+			throw runtime_error(string("csv.mmap"));
+		}
+	} else {
+		buf = NULL;
 	}
 
 	//Allocating memory
@@ -384,7 +375,7 @@ RawValue CSVPlugin::readCachedValue(CacheInfo info, const map<RecordAttribute, R
 	Value *val_oid = Builder->CreateLoad(mem_oidWrapper.mem);
 
 	StructType *cacheType = context->ReproduceCustomStruct(info.objectTypes);
-	Value *typeSize = ConstantExpr::getSizeOf(cacheType);
+	// Value *typeSize = ConstantExpr::getSizeOf(cacheType);
 	char* rawPtr = *(info.payloadPtr);
 	int posInStruct = info.structFieldNo;
 
@@ -560,7 +551,7 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
 	{
 		vector<Value*> ArgsV;
 		flushFunc = context->getFunction("flushDString");
-		void * dict = ((DStringType *) type)->getDictionary();
+		void * dict = ((const DStringType *) type)->getDictionary();
 		LLVMContext &llvmContext = context->getLLVMContext();
 		Value * llvmDict = context->CastPtrToLlvmPtr(
 										PointerType::getInt8PtrTy(llvmContext),
@@ -584,7 +575,7 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
 		Function *flushFunc = context->getFunction("flushChar");
 		vector<Value*> ArgsV{context->createInt8(delim), fileName};
 
-		const list<RecordAttribute *> &attrs = ((RecordType *) type)->getArgs();
+		const list<RecordAttribute *> &attrs = ((const RecordType *) type)->getArgs();
 		list<expressions::AttributeConstruction>::const_iterator it;
 
 		size_t i = 0;
