@@ -53,58 +53,6 @@ exception(const char *err)
     exit(1);
 }
 
-bool verifyTestResult(const char *testsPath, const char *testLabel)	{
-	/* Compare with template answer */
-	/* correct */
-	struct stat statbuf;
-	string correctResult = string(testsPath) + testLabel;
-	if (stat(correctResult.c_str(), &statbuf)) {
-		fprintf(stderr, "FAILURE to stat test verification! (%s)\n", std::strerror(errno));
-		return false;
-	}
-	size_t fsize1 = statbuf.st_size;
-	int fd1 = open(correctResult.c_str(), O_RDONLY);
-	if (fd1 == -1) {
-		throw runtime_error(string(__func__) + string(".open (verification): ")+correctResult);
-	}
-	char *correctBuf = (char*) mmap(NULL, fsize1, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE, fd1, 0);
-
-	/* current */
-	int fd2 = shm_open(testLabel, O_RDONLY, S_IRWXU);
-	if (fd2 == -1) {
-		throw runtime_error(string(__func__) + string(".open (output): ")+testLabel);
-	}
-	if (fstat(fd2, &statbuf)) {
-		fprintf(stderr, "FAILURE to stat test results! (%s)\n", std::strerror(errno));
-		return false;
-	}
-	size_t fsize2 = statbuf.st_size;
-	char *currResultBuf = (char*) mmap(NULL, fsize2, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE, fd2, 0);
-	bool areEqual = ((fsize1 == fsize2) && ((fsize1 == 0) || (memcmp(correctBuf, currResultBuf, fsize1) == 0))) ? true : false;
-	if (!areEqual) {
-		fprintf(stderr, "######################################################################\n");
-		fprintf(stderr, "FAILURE:\n");
-		if (fsize1 > 0) fprintf(stderr, "* Expected (size: %zu):\n%s\n", fsize1, correctBuf);
-		else 			fprintf(stderr, "* Expected empty file\n");
-		if (fsize2 > 0) fprintf(stderr, "* Obtained (size: %zu):\n%s\n", fsize2, currResultBuf);
-		else 			fprintf(stderr, "* Obtained empty file\n");
-		fprintf(stderr, "######################################################################\n");
-	}
-
-	close(fd1);
-	munmap(correctBuf, fsize1);
-	// close(fd2);
-	shm_unlink(testLabel);
-	munmap(currResultBuf, fsize2);
-	// if (remove(testLabel) != 0) {
-	// 	throw runtime_error(string("Error deleting file"));
-	// }
-
-	return areEqual;
-}
-
 size_t getFileSize(const char* filename) {
     struct stat st;
     stat(filename, &st);

@@ -1,11 +1,12 @@
 foreach(target
 	tests-joins
 	tests-json
+	tests-gpu-ssb
 	tests-output
 	tests-plan-parsing
 	tests-multigpu-integration
 	)
-	add_executable(unit-${target} ${target}.cpp)
+	add_executable(unit-${target} ${target}.cpp test-utils.cpp)
 	set_target_properties(unit-${target} PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
 	target_link_libraries(unit-${target} ${gtest_libs})
 	install(TARGETS unit-${target}

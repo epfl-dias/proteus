@@ -27,6 +27,7 @@
 //
 // Don't forget gtest.h, which declares the testing framework.
 #include "gtest/gtest.h"
+#include "test-utils.hpp"
 
 #include "common/common.hpp"
 #include "util/raw-context.hpp"

@@ -27,6 +27,7 @@
 //
 // Don't forget gtest.h, which declares the testing framework.
 #include "gtest/gtest.h"
+#include "test-utils.hpp"
 
 #include "plan/plan-parser.hpp"
 #include "common/common.hpp"
@@ -58,25 +59,7 @@
 //
 // </TechnicalDetails>
 
-class RawTestEnvironment : public ::testing::Environment {
-public:
-	virtual void SetUp();
-	virtual void TearDown();
-};
-
 ::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
-
-void RawTestEnvironment::SetUp(){
-	google::InstallFailureSignalHandler();
-
-	RawPipelineGen::init();
-	RawMemoryManager::init();
-}
-
-void RawTestEnvironment::TearDown(){
-	StorageManager::unloadAll();
-	RawMemoryManager::destroy();
-}
 
 class PlanTest : public ::testing::Test {
 protected:

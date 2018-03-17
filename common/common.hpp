@@ -136,8 +136,6 @@ void fatal(const char *err);
 
 void exception(const char *err);
 
-bool verifyTestResult(const char *testPath, const char *testLabel);
-
 /**
  * Wrappers for LLVM Value and Alloca.
  * Maintain information such as whether the corresponding value is 'NULL'

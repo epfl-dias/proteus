@@ -69,68 +69,15 @@
 #include "storage/raw-storage-manager.hpp"
 #include "multigpu/numa_utils.cuh"
 // #include <cuda_profiler_api.h>
+#include "test-utils.hpp"
 
 #include <vector>
 #include <thread>
 
 using namespace llvm;
 
-class RawTestEnvironment2 : public ::testing::Environment {
-public:
-    virtual void SetUp();
-    virtual void TearDown();
-};
+::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
 
-::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment2);
-
-void thread_warm_up(){}
-
-void RawTestEnvironment2::SetUp(){
-    setbuf(stdout, NULL);
-
-    google::InstallFailureSignalHandler();
-    // int devCount;
-
-    // gpu_run(cuInit(0));
-    // gpu_run(cuDeviceGetCount(&devCount));
-
-    // device  = new CUdevice [devCount];
-    // context = new CUcontext[devCount];
-
-    // for (int i = 0 ; i < devCount ; ++i){
-    //     gpu_run(cuDeviceGet(device  + i, i));
-    //     gpu_run(cuCtxCreate(context + i, 0, device[i]));
-    // }
-
-    // gpu_run(cudaSetDeviceFlags(cudaDeviceScheduleYield));
-
-    int devices = get_num_of_gpus();
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaFree(0));
-    }
-    
-    // gpu_run(cudaSetDevice(0));
-
-    gpu_run(cudaFree(0));
-
-    // gpu_run(cudaDeviceSetLimit(cudaLimitStackSize, 40960));
-
-    std::vector<std::thread> thrds;
-    for (int i = 0 ; i < 32 ; ++i) thrds.emplace_back(thread_warm_up);
-    for (auto &t: thrds) t.join();
-
-    // srand(time(0));
-
-    RawPipelineGen::init();
-    RawMemoryManager::init();
-
-    gpu_run(cudaSetDevice(0));
-}
-
-void RawTestEnvironment2::TearDown(){
-    RawMemoryManager::destroy();
-}
 
 class MultiGPUTest : public ::testing::Test {
 protected:
@@ -141,7 +88,7 @@ protected:
     // void launch(void ** args, dim3 gridDim);
     // void launch(void ** args);
     
-    void runAndVerify(const char *testLabel, const char* planPath);
+    void runAndVerify(const char *testLabel, const char* planPath, bool unordered = false);
     
     bool flushResults = true;
     const char * testPath = TEST_OUTPUTS "/tests-output/";
@@ -165,73 +112,8 @@ void MultiGPUTest::TearDown(){
     StorageManager::unloadAll();
 }
 
-void MultiGPUTest::runAndVerify(const char *testLabel, const char* planPath){
-    int devices = get_num_of_gpus();
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaProfilerStart());
-    }
-    __itt_resume();
-
-    gpu_run(cudaSetDevice(0));
-    
-    GpuRawContext * ctx;
-
-    std::vector<RawPipeline *> pipelines;
-    {
-        time_block t("Tcodegen: ");
-        
-        ctx                   = new GpuRawContext(testLabel, false);
-        CatalogParser catalog = CatalogParser(catalogJSON, ctx);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
-        
-        ctx->compileAndLoad();
-
-        pipelines = ctx->getPipelines();
-    }
-
-    //just to be sure...
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaDeviceSynchronize());
-    }
-    
-    {
-        time_block     t("Texecute w sync: ");
-
-        {
-            time_block t("Texecute       : ");
-
-            for (RawPipeline * p: pipelines) {
-                nvtxRangePushA("pip");
-                {
-                    time_block t("T: ");
-    
-                    p->open();
-                    p->consume(0);
-                    p->close();
-                }
-                nvtxRangePop();
-            }
-        }
-
-        //just to be sure...
-        for (int i = 0 ; i < devices ; ++i) {
-            gpu_run(cudaSetDevice(i));
-            gpu_run(cudaDeviceSynchronize());
-        }
-    }
-
-    __itt_pause();
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaProfilerStop());
-    }
-
-    gpu_run(cudaSetDevice(0));
-
-    EXPECT_TRUE(verifyTestResult(TEST_OUTPUTS "/tests-multigpu-integration/", testLabel));
-    shm_unlink(testLabel);
+void MultiGPUTest::runAndVerify(const char *testLabel, const char* planPath, bool unordered){
+    ::runAndVerify(testLabel, planPath, testPath, catalogJSON, unordered);
 }
 
 
@@ -1537,4 +1419,603 @@ TEST_F(MultiGPUTest, q2_1_sql_bare_w_groupby) {
     const char *planPath  = "inputs/plans/proteus_bare_plans/q2_1.sql_bare_w_groupby.json";
 
     runAndVerify(testLabel, planPath);
+}
+
+TEST_F(MultiGPUTest, lineorder_cnt_gpu) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+
+    const char *testLabel = "lineorder_cnt_gpu";
+    const char *planPath  = "inputs/plans/lineorder-cnt-gpu.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+TEST_F(MultiGPUTest, lineorder_sum_gpu) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    // load("inputs/ssbm100/date.csv.d_datekey");
+
+    const char *testLabel = "lineorder_sum_gpu";
+    const char *planPath  = "inputs/plans/lineorder-sum-gpu.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+TEST_F(MultiGPUTest, lineorder_sum_cpu) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    // load("inputs/ssbm100/date.csv.d_datekey");
+
+    const char *testLabel = "lineorder_sum_cpu";
+    const char *planPath  = "inputs/plans/lineorder-sum-cpu.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select sum(lo_extendedprice*lo_discount) as revenue
+//     from lineorder, dates
+//     where lo_orderdate = d_datekey
+//     and d_year = 1993
+//     and lo_discount between 1 and 3
+//     and lo_quantity < 25;
+TEST_F(MultiGPUTest, ssb_q1_1_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_quantity");
+    load("inputs/ssbm100/lineorder.csv.lo_extendedprice");
+    load("inputs/ssbm100/lineorder.csv.lo_discount");
+
+    const char *testLabel = "ssb_q1_1_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q1_1_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select sum(lo_extendedprice*lo_discount) as revenue
+//     from lineorder, dates
+//     where lo_orderdate = d_datekey
+//     and d_yearmonthnum = 199401
+//     and lo_discount between 4 and 6
+//     and lo_quantity between 26 and 35;
+TEST_F(MultiGPUTest, ssb_q1_2_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_yearmonthnum");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_quantity");
+    load("inputs/ssbm100/lineorder.csv.lo_extendedprice");
+    load("inputs/ssbm100/lineorder.csv.lo_discount");
+
+    const char *testLabel = "ssb_q1_2_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q1_2_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select sum(lo_extendedprice*lo_discount) as revenue
+//     from lineorder, dates
+//     where lo_orderdate = d_datekey
+//     and d_weeknuminyear = 6
+//     and d_year = 1994
+//     and lo_discount between 5 and 7
+//     and lo_quantity between 26 and 35;
+TEST_F(MultiGPUTest, ssb_q1_3_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/date.csv.d_weeknuminyear");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_quantity");
+    load("inputs/ssbm100/lineorder.csv.lo_extendedprice");
+    load("inputs/ssbm100/lineorder.csv.lo_discount");
+
+    const char *testLabel = "ssb_q1_3_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q1_3_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select sum(lo_revenue) as lo_revenue, d_year, p_brand1
+//     from lineorder, dates, part, supplier
+//     where lo_orderdate = d_datekey
+//     and lo_partkey = p_partkey
+//     and lo_suppkey = s_suppkey
+//     and p_category = 'MFGR#12'
+//     and s_region = 'AMERICA'
+//     group by d_year, p_brand1;
+TEST_F(MultiGPUTest, ssb_q2_1_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/part.csv.p_partkey");
+    load("inputs/ssbm100/part.csv.p_category");
+    load("inputs/ssbm100/part.csv.p_brand1");
+    load("inputs/ssbm100/supplier.csv.s_suppkey");
+    load("inputs/ssbm100/supplier.csv.s_region");
+    load("inputs/ssbm100/lineorder.csv.lo_partkey");
+    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_revenue");
+
+    const char *testLabel = "ssb_q2_1_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q2_1_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select sum(lo_revenue) as lo_revenue, d_year, p_brand1
+//     from lineorder, dates, part, supplier
+//     where lo_orderdate = d_datekey
+//     and lo_partkey = p_partkey
+//     and lo_suppkey = s_suppkey
+//     and p_brand1 between 'MFGR#2221'
+//     and 'MFGR#2228'
+//     and s_region = 'ASIA'
+//     group by d_year, p_brand1;
+TEST_F(MultiGPUTest, ssb_q2_2_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/part.csv.p_partkey");
+    load("inputs/ssbm100/part.csv.p_brand1");
+    load("inputs/ssbm100/supplier.csv.s_suppkey");
+    load("inputs/ssbm100/supplier.csv.s_region");
+    load("inputs/ssbm100/lineorder.csv.lo_partkey");
+    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_revenue");
+
+    const char *testLabel = "ssb_q2_2_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q2_2_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select sum(lo_revenue) as lo_revenue, d_year, p_brand1
+//     from lineorder, dates, part, supplier
+//     where lo_orderdate = d_datekey
+//     and lo_partkey = p_partkey
+//     and lo_suppkey = s_suppkey
+//     and p_brand1 = 'MFGR#2239'
+//     and s_region = 'EUROPE'
+//     group by d_year, p_brand1;
+TEST_F(MultiGPUTest, ssb_q2_3_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/part.csv.p_partkey");
+    load("inputs/ssbm100/part.csv.p_brand1");
+    load("inputs/ssbm100/supplier.csv.s_suppkey");
+    load("inputs/ssbm100/supplier.csv.s_region");
+    load("inputs/ssbm100/lineorder.csv.lo_partkey");
+    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_revenue");
+
+    const char *testLabel = "ssb_q2_3_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q2_3_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select c_nation, s_nation, d_year, sum(lo_revenue) as lo_revenue
+//     from customer, lineorder, supplier, dates
+//     where lo_custkey = c_custkey
+//     and lo_suppkey = s_suppkey
+//     and lo_orderdate = d_datekey
+//     and c_region = 'ASIA'
+//     and s_region = 'ASIA'
+//     and d_year >= 1992
+//     and d_year <= 1997
+//     group by c_nation, s_nation, d_year;
+TEST_F(MultiGPUTest, ssb_q3_1_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/supplier.csv.s_suppkey");
+    load("inputs/ssbm100/supplier.csv.s_nation");
+    load("inputs/ssbm100/supplier.csv.s_region");
+    load("inputs/ssbm100/customer.csv.c_custkey");
+    load("inputs/ssbm100/customer.csv.c_nation");
+    load("inputs/ssbm100/customer.csv.c_region");
+    load("inputs/ssbm100/lineorder.csv.lo_custkey");
+    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_revenue");
+
+    const char *testLabel = "ssb_q3_1_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q3_1_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select c_city, s_city, d_year, sum(lo_revenue) as lo_revenue
+//     from customer, lineorder, supplier, dates
+//     where lo_custkey = c_custkey
+//     and lo_suppkey = s_suppkey
+//     and lo_orderdate = d_datekey
+//     and c_nation = 'UNITED STATES'
+//     and s_nation = 'UNITED STATES'
+//     and d_year >= 1992
+//     and d_year <= 1997
+//     group by c_city, s_city, d_year;
+TEST_F(MultiGPUTest, ssb_q3_2_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/supplier.csv.s_suppkey");
+    load("inputs/ssbm100/supplier.csv.s_city");
+    load("inputs/ssbm100/supplier.csv.s_nation");
+    load("inputs/ssbm100/customer.csv.c_custkey");
+    load("inputs/ssbm100/customer.csv.c_city");
+    load("inputs/ssbm100/customer.csv.c_nation");
+    load("inputs/ssbm100/lineorder.csv.lo_custkey");
+    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_revenue");
+
+    const char *testLabel = "ssb_q3_2_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q3_2_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select c_city, s_city, d_year, sum(lo_revenue) as lo_revenue
+//     from customer, lineorder, supplier, dates
+//     where lo_custkey = c_custkey
+//     and lo_suppkey = s_suppkey
+//     and lo_orderdate = d_datekey
+//     and (c_city='UNITED KI1' or c_city='UNITED KI5')
+//     and (s_city='UNITED KI1' or s_city='UNITED KI5')
+//     and d_year >= 1992
+//     and d_year <= 1997
+//     group by c_city, s_city, d_year;
+TEST_F(MultiGPUTest, ssb_q3_3_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/supplier.csv.s_suppkey");
+    load("inputs/ssbm100/supplier.csv.s_city");
+    load("inputs/ssbm100/customer.csv.c_custkey");
+    load("inputs/ssbm100/customer.csv.c_city");
+    load("inputs/ssbm100/lineorder.csv.lo_custkey");
+    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_revenue");
+
+    const char *testLabel = "ssb_q3_3_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q3_3_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select c_city, s_city, d_year, sum(lo_revenue) as lo_revenue
+//     from customer, lineorder, supplier, dates
+//     where lo_custkey = c_custkey
+//     and lo_suppkey = s_suppkey
+//     and lo_orderdate = d_datekey
+//     and (c_city='UNITED KI1' or c_city='UNITED KI5')
+//     and (s_city='UNITED KI1' or s_city='UNITED KI5')
+//     and d_yearmonth = 'Dec1997'
+//     group by c_city, s_city, d_year;
+TEST_F(MultiGPUTest, ssb_q3_4_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/customer.csv.c_custkey");
+    load("inputs/ssbm100/customer.csv.c_city");
+    load("inputs/ssbm100/supplier.csv.s_suppkey");
+    load("inputs/ssbm100/supplier.csv.s_city");
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/date.csv.d_yearmonth");
+    load("inputs/ssbm100/lineorder.csv.lo_custkey");
+    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_revenue");
+
+    const char *testLabel = "ssb_q3_4_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q3_4_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select d_year, c_nation, sum(lo_revenue - lo_supplycost) as profit
+//     from dates, customer, supplier, part, lineorder
+//     where lo_custkey = c_custkey
+//     and lo_suppkey = s_suppkey
+//     and lo_partkey = p_partkey
+//     and lo_orderdate = d_datekey
+//     and c_region = 'AMERICA'
+//     and s_region = 'AMERICA'
+//     and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2')
+//     group by d_year, c_nation;
+TEST_F(MultiGPUTest, ssb_q4_1_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/part.csv.p_partkey");
+    load("inputs/ssbm100/part.csv.p_mfgr");
+    load("inputs/ssbm100/customer.csv.c_custkey");
+    load("inputs/ssbm100/customer.csv.c_nation");
+    load("inputs/ssbm100/customer.csv.c_region");
+    load("inputs/ssbm100/supplier.csv.s_suppkey");
+    load("inputs/ssbm100/supplier.csv.s_region");
+    load("inputs/ssbm100/lineorder.csv.lo_custkey");
+    load("inputs/ssbm100/lineorder.csv.lo_partkey");
+    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_revenue");
+    load("inputs/ssbm100/lineorder.csv.lo_supplycost");
+
+    const char *testLabel = "ssb_q4_1_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q4_1_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select d_year, s_nation, p_category, sum(lo_revenue - lo_supplycost) as profit
+//     from dates, customer, supplier, part, lineorder
+//     where lo_custkey = c_custkey
+//     and lo_suppkey = s_suppkey
+//     and lo_partkey = p_partkey
+//     and lo_orderdate = d_datekey
+//     and c_region = 'AMERICA'
+//     and s_region = 'AMERICA'
+//     and (d_year = 1997 or d_year = 1998)
+//     and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2')
+//     group by d_year, s_nation, p_category;
+TEST_F(MultiGPUTest, ssb_q4_2_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/part.csv.p_partkey");
+    load("inputs/ssbm100/part.csv.p_mfgr");
+    load("inputs/ssbm100/part.csv.p_category");
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/supplier.csv.s_suppkey");
+    load("inputs/ssbm100/supplier.csv.s_nation");
+    load("inputs/ssbm100/supplier.csv.s_region");
+    load("inputs/ssbm100/customer.csv.c_custkey");
+    load("inputs/ssbm100/customer.csv.c_region");
+    load("inputs/ssbm100/lineorder.csv.lo_custkey");
+    load("inputs/ssbm100/lineorder.csv.lo_partkey");
+    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_revenue");
+    load("inputs/ssbm100/lineorder.csv.lo_supplycost");
+
+    const char *testLabel = "ssb_q4_2_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q4_2_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : False
+//     memcpy      : False
+//     cpu_only    : False
+//
+// Query:
+//     select d_year, s_city, p_brand1, sum(lo_revenue - lo_supplycost) as profit
+//     from dates, customer, supplier, part, lineorder
+//     where lo_custkey = c_custkey
+//     and lo_suppkey = s_suppkey
+//     and lo_partkey = p_partkey
+//     and lo_orderdate = d_datekey
+//     and c_region = 'AMERICA'
+//     and s_nation = 'UNITED STATES'
+//     and (d_year = 1997 or d_year = 1998)
+//     and p_category = 'MFGR#14'
+//     group by d_year, s_city, p_brand1;
+TEST_F(MultiGPUTest, ssb_q4_3_seq_uva_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/supplier.csv.s_suppkey");
+    load("inputs/ssbm100/supplier.csv.s_city");
+    load("inputs/ssbm100/supplier.csv.s_nation");
+    load("inputs/ssbm100/part.csv.p_partkey");
+    load("inputs/ssbm100/part.csv.p_category");
+    load("inputs/ssbm100/part.csv.p_brand1");
+    load("inputs/ssbm100/customer.csv.c_custkey");
+    load("inputs/ssbm100/customer.csv.c_region");
+    load("inputs/ssbm100/lineorder.csv.lo_custkey");
+    load("inputs/ssbm100/lineorder.csv.lo_partkey");
+    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_revenue");
+    load("inputs/ssbm100/lineorder.csv.lo_supplycost");
+
+    const char *testLabel = "ssb_q4_3_seq_uva_plan";
+    const char *planPath  = "inputs/plans/ssb100_seq_uva/ssb_q4_3_seq_uva_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : True
+//     memcpy      : True
+//     cpu_only    : False
+// Query:
+//     select c_city, s_city, d_year, sum(lo_revenue) as lo_revenue
+//     from customer, lineorder, supplier, dates
+//     where lo_custkey = c_custkey
+//      and lo_suppkey = s_suppkey
+//      and lo_orderdate = d_datekey
+//      and (c_city='UNITED KI1' or c_city='UNITED KI5')
+//      and (s_city='UNITED KI1' or s_city='UNITED KI5')
+//      and d_year >= 1992
+//      and d_year <= 1997 
+//     group by c_city, s_city, d_year;
+TEST_F(MultiGPUTest, ssb_q3_3_par_cpy_plan) {
+    auto load = [](string filename){
+        StorageManager::load(filename, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/supplier.csv.s_suppkey");
+    load("inputs/ssbm100/supplier.csv.s_city");
+    load("inputs/ssbm100/customer.csv.c_custkey");
+    load("inputs/ssbm100/customer.csv.c_city");
+    load("inputs/ssbm100/lineorder.csv.lo_custkey");
+    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_revenue");
+
+    const char *testLabel = "ssb_q3_3_par_cpy_plan";
+    const char *planPath  = "inputs/plans/ssb_q3_3_par_cpy_plan.json";
+
+    runAndVerify(testLabel, planPath);
+}
+
+// Options during generation:
+//     parallel    : True
+//     memcpy      : True
+//     cpu_only    : False
+// Query:
+//     select d_year, s_city, p_brand1, sum(lo_revenue - lo_supplycost) as profit
+//     from dates, customer, supplier, part, lineorder
+//     where lo_custkey = c_custkey
+//      and lo_suppkey = s_suppkey
+//      and lo_partkey = p_partkey
+//      and lo_orderdate = d_datekey
+//      and c_region = 'AMERICA'
+//      and s_nation = 'UNITED STATES'
+//      and (d_year = 1997 or d_year = 1998)
+//      and p_category = 'MFGR#14' 
+//     group by d_year, s_city, p_brand1;
+TEST_F(MultiGPUTest, ssb_q4_3_par_cpy_plan) {
+    auto load = [](string filename){
+        StorageManager::loadToCpus(filename);//, PINNED);
+    };
+    load("inputs/ssbm100/date.csv.d_datekey");
+    load("inputs/ssbm100/date.csv.d_year");
+    load("inputs/ssbm100/supplier.csv.s_suppkey");
+    load("inputs/ssbm100/supplier.csv.s_city");
+    load("inputs/ssbm100/supplier.csv.s_nation");
+    load("inputs/ssbm100/part.csv.p_partkey");
+    load("inputs/ssbm100/part.csv.p_category");
+    load("inputs/ssbm100/part.csv.p_brand1");
+    load("inputs/ssbm100/customer.csv.c_custkey");
+    load("inputs/ssbm100/customer.csv.c_region");
+    load("inputs/ssbm100/lineorder.csv.lo_custkey");
+    load("inputs/ssbm100/lineorder.csv.lo_partkey");
+    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+    load("inputs/ssbm100/lineorder.csv.lo_revenue");
+    load("inputs/ssbm100/lineorder.csv.lo_supplycost");
+
+    const char *testLabel = "ssb_q4_3_par_cpy_plan";
+    const char *planPath  = "inputs/plans/ssb_q4_3_par_cpy_plan.json";
+
+    runAndVerify(testLabel, planPath, true);
 }

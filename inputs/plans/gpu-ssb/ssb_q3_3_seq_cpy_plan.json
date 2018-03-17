@@ -1,0 +1,3068 @@
+{
+    "e": [
+        {
+            "e": {
+                "e": {
+                    "argNo": -1, 
+                    "attributes": [
+                        {
+                            "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                            "relName": "agg75546"
+                        }
+                    ], 
+                    "expression": "argument", 
+                    "type": {
+                        "attributes": [
+                            {
+                                "attrName": "c_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "s_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "d_year", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "lo_revenue", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }
+                        ], 
+                        "type": "record"
+                    }
+                }, 
+                "expression": "recordProjection", 
+                "attribute": {
+                    "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                    "relName": "agg75546", 
+                    "type": {
+                        "attributes": [
+                            {
+                                "attrName": "c_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "s_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "d_year", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "lo_revenue", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }
+                        ], 
+                        "type": "record"
+                    }, 
+                    "attrNo": -1
+                }
+            }, 
+            "expression": "recordProjection", 
+            "attribute": {
+                "attrName": "c_city", 
+                "relName": "agg75546"
+            }
+        }, 
+        {
+            "e": {
+                "e": {
+                    "argNo": -1, 
+                    "attributes": [
+                        {
+                            "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                            "relName": "agg75546"
+                        }
+                    ], 
+                    "expression": "argument", 
+                    "type": {
+                        "attributes": [
+                            {
+                                "attrName": "c_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "s_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "d_year", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "lo_revenue", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }
+                        ], 
+                        "type": "record"
+                    }
+                }, 
+                "expression": "recordProjection", 
+                "attribute": {
+                    "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                    "relName": "agg75546", 
+                    "type": {
+                        "attributes": [
+                            {
+                                "attrName": "c_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "s_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "d_year", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "lo_revenue", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }
+                        ], 
+                        "type": "record"
+                    }, 
+                    "attrNo": -1
+                }
+            }, 
+            "expression": "recordProjection", 
+            "attribute": {
+                "attrName": "s_city", 
+                "relName": "agg75546"
+            }
+        }, 
+        {
+            "e": {
+                "e": {
+                    "argNo": -1, 
+                    "attributes": [
+                        {
+                            "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                            "relName": "agg75546"
+                        }
+                    ], 
+                    "expression": "argument", 
+                    "type": {
+                        "attributes": [
+                            {
+                                "attrName": "c_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "s_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "d_year", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "lo_revenue", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }
+                        ], 
+                        "type": "record"
+                    }
+                }, 
+                "expression": "recordProjection", 
+                "attribute": {
+                    "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                    "relName": "agg75546", 
+                    "type": {
+                        "attributes": [
+                            {
+                                "attrName": "c_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "s_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "d_year", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "lo_revenue", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }
+                        ], 
+                        "type": "record"
+                    }, 
+                    "attrNo": -1
+                }
+            }, 
+            "expression": "recordProjection", 
+            "attribute": {
+                "attrName": "d_year", 
+                "relName": "agg75546"
+            }
+        }, 
+        {
+            "e": {
+                "e": {
+                    "argNo": -1, 
+                    "attributes": [
+                        {
+                            "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                            "relName": "agg75546"
+                        }
+                    ], 
+                    "expression": "argument", 
+                    "type": {
+                        "attributes": [
+                            {
+                                "attrName": "c_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "s_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "d_year", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "lo_revenue", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }
+                        ], 
+                        "type": "record"
+                    }
+                }, 
+                "expression": "recordProjection", 
+                "attribute": {
+                    "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                    "relName": "agg75546", 
+                    "type": {
+                        "attributes": [
+                            {
+                                "attrName": "c_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "s_city", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "d_year", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            {
+                                "attrName": "lo_revenue", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }
+                        ], 
+                        "type": "record"
+                    }, 
+                    "attrNo": -1
+                }
+            }, 
+            "expression": "recordProjection", 
+            "attribute": {
+                "attrName": "lo_revenue", 
+                "relName": "agg75546"
+            }
+        }
+    ], 
+    "output": [], 
+    "blockwise": false, 
+    "gpu": false, 
+    "operator": "print", 
+    "input": {
+        "operator": "block-to-tuples", 
+        "input": {
+            "blockwise": true, 
+            "gpu": false, 
+            "projections": [
+                {
+                    "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                    "relName": "agg75546", 
+                    "isBlock": true
+                }
+            ], 
+            "output": [
+                {
+                    "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                    "relName": "agg75546", 
+                    "isBlock": false, 
+                    "must_unpack": [
+                        "c_city", 
+                        "s_city", 
+                        "d_year", 
+                        "lo_revenue"
+                    ]
+                }
+            ], 
+            "operator": "mem-move-device", 
+            "input": {
+                "blockwise": true, 
+                "granularity": "thread", 
+                "projections": [
+                    {
+                        "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                        "relName": "agg75546", 
+                        "isBlock": true
+                    }
+                ], 
+                "output": [
+                    {
+                        "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                        "relName": "agg75546", 
+                        "isBlock": true, 
+                        "must_unpack": [
+                            "c_city", 
+                            "s_city", 
+                            "d_year", 
+                            "lo_revenue"
+                        ]
+                    }
+                ], 
+                "operator": "gpu-to-cpu", 
+                "input": {
+                    "operator": "tuples-to-block", 
+                    "input": {
+                        "hash_bits": 10, 
+                        "e": [
+                            {
+                                "m": "sum", 
+                                "e": {
+                                    "e": {
+                                        "argNo": -1, 
+                                        "attributes": [
+                                            {
+                                                "attrName": "lo_revenue", 
+                                                "relName": "join75545"
+                                            }
+                                        ], 
+                                        "expression": "argument", 
+                                        "type": {
+                                            "relName": "join75545", 
+                                            "type": "record"
+                                        }
+                                    }, 
+                                    "register_as": {
+                                        "attrName": "lo_revenue", 
+                                        "relName": "agg75546", 
+                                        "attrNo": -1
+                                    }, 
+                                    "expression": "recordProjection", 
+                                    "attribute": {
+                                        "attrName": "lo_revenue", 
+                                        "relName": "join75545"
+                                    }
+                                }, 
+                                "packet": 1, 
+                                "offset": 0
+                            }
+                        ], 
+                        "maxInputSize": 131072, 
+                        "k": [
+                            {
+                                "e": {
+                                    "argNo": -1, 
+                                    "attributes": [
+                                        {
+                                            "attrName": "c_city", 
+                                            "relName": "join75545"
+                                        }
+                                    ], 
+                                    "expression": "argument", 
+                                    "type": {
+                                        "relName": "join75545", 
+                                        "type": "record"
+                                    }
+                                }, 
+                                "register_as": {
+                                    "attrName": "c_city", 
+                                    "relName": "agg75546", 
+                                    "attrNo": -1
+                                }, 
+                                "expression": "recordProjection", 
+                                "attribute": {
+                                    "attrName": "c_city", 
+                                    "relName": "join75545"
+                                }
+                            }, 
+                            {
+                                "e": {
+                                    "argNo": -1, 
+                                    "attributes": [
+                                        {
+                                            "attrName": "s_city", 
+                                            "relName": "join75545"
+                                        }
+                                    ], 
+                                    "expression": "argument", 
+                                    "type": {
+                                        "relName": "join75545", 
+                                        "type": "record"
+                                    }
+                                }, 
+                                "register_as": {
+                                    "attrName": "s_city", 
+                                    "relName": "agg75546", 
+                                    "attrNo": -1
+                                }, 
+                                "expression": "recordProjection", 
+                                "attribute": {
+                                    "attrName": "s_city", 
+                                    "relName": "join75545"
+                                }
+                            }, 
+                            {
+                                "e": {
+                                    "argNo": -1, 
+                                    "attributes": [
+                                        {
+                                            "attrName": "d_year", 
+                                            "relName": "join75545"
+                                        }
+                                    ], 
+                                    "expression": "argument", 
+                                    "type": {
+                                        "relName": "join75545", 
+                                        "type": "record"
+                                    }
+                                }, 
+                                "register_as": {
+                                    "attrName": "d_year", 
+                                    "relName": "agg75546", 
+                                    "attrNo": -1
+                                }, 
+                                "expression": "recordProjection", 
+                                "attribute": {
+                                    "attrName": "d_year", 
+                                    "relName": "join75545"
+                                }
+                            }
+                        ], 
+                        "gpu": true, 
+                        "jumpTo": "cpu", 
+                        "max_line_estimate": 920218499172000000000000, 
+                        "output": [
+                            {
+                                "attrName": "c_city", 
+                                "relName": "agg75546"
+                            }, 
+                            {
+                                "attrName": "s_city", 
+                                "relName": "agg75546"
+                            }, 
+                            {
+                                "attrName": "d_year", 
+                                "relName": "agg75546"
+                            }, 
+                            {
+                                "attrName": "lo_revenue", 
+                                "relName": "agg75546"
+                            }
+                        ], 
+                        "operator": "groupby", 
+                        "input": {
+                            "build_k": {
+                                "e": {
+                                    "argNo": -1, 
+                                    "attributes": [
+                                        {
+                                            "attrName": "d_datekey", 
+                                            "relName": "projection75544"
+                                        }
+                                    ], 
+                                    "expression": "argument", 
+                                    "type": {
+                                        "relName": "projection75544", 
+                                        "type": "record"
+                                    }
+                                }, 
+                                "type": {
+                                    "type": "int"
+                                }, 
+                                "register_as": {
+                                    "attrName": "d_datekey", 
+                                    "relName": "join75545", 
+                                    "attrNo": -1
+                                }, 
+                                "expression": "recordProjection", 
+                                "attribute": {
+                                    "attrName": "d_datekey", 
+                                    "relName": "projection75544"
+                                }
+                            }, 
+                            "hash_bits": 13, 
+                            "probe_input": {
+                                "build_k": {
+                                    "e": {
+                                        "argNo": -1, 
+                                        "attributes": [
+                                            {
+                                                "attrName": "s_suppkey", 
+                                                "relName": "projection75541"
+                                            }
+                                        ], 
+                                        "expression": "argument", 
+                                        "type": {
+                                            "relName": "projection75541", 
+                                            "type": "record"
+                                        }
+                                    }, 
+                                    "type": {
+                                        "type": "int"
+                                    }, 
+                                    "register_as": {
+                                        "attrName": "s_suppkey", 
+                                        "relName": "join75542", 
+                                        "attrNo": -1
+                                    }, 
+                                    "expression": "recordProjection", 
+                                    "attribute": {
+                                        "attrName": "s_suppkey", 
+                                        "relName": "projection75541"
+                                    }
+                                }, 
+                                "hash_bits": 19, 
+                                "probe_input": {
+                                    "build_k": {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "c_custkey", 
+                                                    "relName": "projection75538"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "projection75538", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "type": {
+                                            "type": "int"
+                                        }, 
+                                        "register_as": {
+                                            "attrName": "c_custkey", 
+                                            "relName": "join75539", 
+                                            "attrNo": -1
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "c_custkey", 
+                                            "relName": "projection75538"
+                                        }
+                                    }, 
+                                    "hash_bits": 23, 
+                                    "probe_input": {
+                                        "e": [
+                                            {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "lo_custkey", 
+                                                            "relName": "inputs/ssbm100/lineorder.csv"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "inputs/ssbm100/lineorder.csv", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "register_as": {
+                                                    "attrName": "lo_custkey", 
+                                                    "relName": "projection75536", 
+                                                    "attrNo": -1
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "lo_custkey", 
+                                                    "relName": "inputs/ssbm100/lineorder.csv"
+                                                }
+                                            }, 
+                                            {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "lo_suppkey", 
+                                                            "relName": "inputs/ssbm100/lineorder.csv"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "inputs/ssbm100/lineorder.csv", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "register_as": {
+                                                    "attrName": "lo_suppkey", 
+                                                    "relName": "projection75536", 
+                                                    "attrNo": -1
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "lo_suppkey", 
+                                                    "relName": "inputs/ssbm100/lineorder.csv"
+                                                }
+                                            }, 
+                                            {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "lo_orderdate", 
+                                                            "relName": "inputs/ssbm100/lineorder.csv"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "inputs/ssbm100/lineorder.csv", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "register_as": {
+                                                    "attrName": "lo_orderdate", 
+                                                    "relName": "projection75536", 
+                                                    "attrNo": -1
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "lo_orderdate", 
+                                                    "relName": "inputs/ssbm100/lineorder.csv"
+                                                }
+                                            }, 
+                                            {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "lo_revenue", 
+                                                            "relName": "inputs/ssbm100/lineorder.csv"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "inputs/ssbm100/lineorder.csv", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "register_as": {
+                                                    "attrName": "lo_revenue", 
+                                                    "relName": "projection75536", 
+                                                    "attrNo": -1
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "lo_revenue", 
+                                                    "relName": "inputs/ssbm100/lineorder.csv"
+                                                }
+                                            }
+                                        ], 
+                                        "blockwise": false, 
+                                        "gpu": true, 
+                                        "relName": "projection75536", 
+                                        "max_line_estimate": 600038145, 
+                                        "output": [
+                                            {
+                                                "attrName": "lo_custkey", 
+                                                "relName": "projection75536"
+                                            }, 
+                                            {
+                                                "attrName": "lo_suppkey", 
+                                                "relName": "projection75536"
+                                            }, 
+                                            {
+                                                "attrName": "lo_orderdate", 
+                                                "relName": "projection75536"
+                                            }, 
+                                            {
+                                                "attrName": "lo_revenue", 
+                                                "relName": "projection75536"
+                                            }
+                                        ], 
+                                        "operator": "project", 
+                                        "input": {
+                                            "operator": "block-to-tuples", 
+                                            "input": {
+                                                "blockwise": true, 
+                                                "projections": [
+                                                    {
+                                                        "attrName": "lo_custkey", 
+                                                        "relName": "inputs/ssbm100/lineorder.csv", 
+                                                        "isBlock": true
+                                                    }, 
+                                                    {
+                                                        "attrName": "lo_suppkey", 
+                                                        "relName": "inputs/ssbm100/lineorder.csv", 
+                                                        "isBlock": true
+                                                    }, 
+                                                    {
+                                                        "attrName": "lo_orderdate", 
+                                                        "relName": "inputs/ssbm100/lineorder.csv", 
+                                                        "isBlock": true
+                                                    }, 
+                                                    {
+                                                        "attrName": "lo_revenue", 
+                                                        "relName": "inputs/ssbm100/lineorder.csv", 
+                                                        "isBlock": true
+                                                    }
+                                                ], 
+                                                "output": [
+                                                    {
+                                                        "attrName": "lo_custkey", 
+                                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                                    }, 
+                                                    {
+                                                        "attrName": "lo_suppkey", 
+                                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                                    }, 
+                                                    {
+                                                        "attrName": "lo_orderdate", 
+                                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                                    }, 
+                                                    {
+                                                        "attrName": "lo_revenue", 
+                                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                                    }
+                                                ], 
+                                                "operator": "cpu-to-gpu", 
+                                                "input": {
+                                                    "blockwise": true, 
+                                                    "gpu": false, 
+                                                    "projections": [
+                                                        {
+                                                            "attrName": "lo_custkey", 
+                                                            "relName": "inputs/ssbm100/lineorder.csv", 
+                                                            "isBlock": true
+                                                        }, 
+                                                        {
+                                                            "attrName": "lo_suppkey", 
+                                                            "relName": "inputs/ssbm100/lineorder.csv", 
+                                                            "isBlock": true
+                                                        }, 
+                                                        {
+                                                            "attrName": "lo_orderdate", 
+                                                            "relName": "inputs/ssbm100/lineorder.csv", 
+                                                            "isBlock": true
+                                                        }, 
+                                                        {
+                                                            "attrName": "lo_revenue", 
+                                                            "relName": "inputs/ssbm100/lineorder.csv", 
+                                                            "isBlock": true
+                                                        }
+                                                    ], 
+                                                    "output": [
+                                                        {
+                                                            "attrName": "lo_custkey", 
+                                                            "relName": "inputs/ssbm100/lineorder.csv"
+                                                        }, 
+                                                        {
+                                                            "attrName": "lo_suppkey", 
+                                                            "relName": "inputs/ssbm100/lineorder.csv"
+                                                        }, 
+                                                        {
+                                                            "attrName": "lo_orderdate", 
+                                                            "relName": "inputs/ssbm100/lineorder.csv"
+                                                        }, 
+                                                        {
+                                                            "attrName": "lo_revenue", 
+                                                            "relName": "inputs/ssbm100/lineorder.csv"
+                                                        }
+                                                    ], 
+                                                    "operator": "mem-move-device", 
+                                                    "input": {
+                                                        "blockwise": true, 
+                                                        "gpu": false, 
+                                                        "projections": [
+                                                            {
+                                                                "attrName": "lo_custkey", 
+                                                                "relName": "inputs/ssbm100/lineorder.csv", 
+                                                                "isBlock": true
+                                                            }, 
+                                                            {
+                                                                "attrName": "lo_suppkey", 
+                                                                "relName": "inputs/ssbm100/lineorder.csv", 
+                                                                "isBlock": true
+                                                            }, 
+                                                            {
+                                                                "attrName": "lo_orderdate", 
+                                                                "relName": "inputs/ssbm100/lineorder.csv", 
+                                                                "isBlock": true
+                                                            }, 
+                                                            {
+                                                                "attrName": "lo_revenue", 
+                                                                "relName": "inputs/ssbm100/lineorder.csv", 
+                                                                "isBlock": true
+                                                            }
+                                                        ], 
+                                                        "output": [
+                                                            {
+                                                                "attrName": "lo_custkey", 
+                                                                "relName": "inputs/ssbm100/lineorder.csv"
+                                                            }, 
+                                                            {
+                                                                "attrName": "lo_suppkey", 
+                                                                "relName": "inputs/ssbm100/lineorder.csv"
+                                                            }, 
+                                                            {
+                                                                "attrName": "lo_orderdate", 
+                                                                "relName": "inputs/ssbm100/lineorder.csv"
+                                                            }, 
+                                                            {
+                                                                "attrName": "lo_revenue", 
+                                                                "relName": "inputs/ssbm100/lineorder.csv"
+                                                            }
+                                                        ], 
+                                                        "operator": "mem-move-local-to", 
+                                                        "input": {
+                                                            "plugin": {
+                                                                "type": "block", 
+                                                                "name": "inputs/ssbm100/lineorder.csv", 
+                                                                "projections": [
+                                                                    {
+                                                                        "attrName": "lo_custkey", 
+                                                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                                                    }, 
+                                                                    {
+                                                                        "attrName": "lo_suppkey", 
+                                                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                                                    }, 
+                                                                    {
+                                                                        "attrName": "lo_orderdate", 
+                                                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                                                    }, 
+                                                                    {
+                                                                        "attrName": "lo_revenue", 
+                                                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                                                    }
+                                                                ]
+                                                            }, 
+                                                            "blockwise": true, 
+                                                            "jumpTo": "gpu", 
+                                                            "max_line_estimate": 600038145, 
+                                                            "gpu": false, 
+                                                            "operator": "scan", 
+                                                            "output": [
+                                                                {
+                                                                    "attrName": "lo_custkey", 
+                                                                    "relName": "inputs/ssbm100/lineorder.csv"
+                                                                }, 
+                                                                {
+                                                                    "attrName": "lo_suppkey", 
+                                                                    "relName": "inputs/ssbm100/lineorder.csv"
+                                                                }, 
+                                                                {
+                                                                    "attrName": "lo_orderdate", 
+                                                                    "relName": "inputs/ssbm100/lineorder.csv"
+                                                                }, 
+                                                                {
+                                                                    "attrName": "lo_revenue", 
+                                                                    "relName": "inputs/ssbm100/lineorder.csv"
+                                                                }
+                                                            ]
+                                                        }, 
+                                                        "to_cpu": false
+                                                    }, 
+                                                    "to_cpu": false
+                                                }, 
+                                                "queueSize": 131072
+                                            }, 
+                                            "output": [
+                                                {
+                                                    "attrName": "lo_custkey", 
+                                                    "relName": "inputs/ssbm100/lineorder.csv", 
+                                                    "isBlock": false
+                                                }, 
+                                                {
+                                                    "attrName": "lo_suppkey", 
+                                                    "relName": "inputs/ssbm100/lineorder.csv", 
+                                                    "isBlock": false
+                                                }, 
+                                                {
+                                                    "attrName": "lo_orderdate", 
+                                                    "relName": "inputs/ssbm100/lineorder.csv", 
+                                                    "isBlock": false
+                                                }, 
+                                                {
+                                                    "attrName": "lo_revenue", 
+                                                    "relName": "inputs/ssbm100/lineorder.csv", 
+                                                    "isBlock": false
+                                                }
+                                            ], 
+                                            "projections": [
+                                                {
+                                                    "e": {
+                                                        "argNo": -1, 
+                                                        "attributes": [
+                                                            {
+                                                                "attrName": "lo_custkey", 
+                                                                "relName": "inputs/ssbm100/lineorder.csv"
+                                                            }
+                                                        ], 
+                                                        "expression": "argument", 
+                                                        "type": {
+                                                            "relName": "inputs/ssbm100/lineorder.csv", 
+                                                            "type": "record"
+                                                        }
+                                                    }, 
+                                                    "expression": "recordProjection", 
+                                                    "attribute": {
+                                                        "attrName": "lo_custkey", 
+                                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                                    }
+                                                }, 
+                                                {
+                                                    "e": {
+                                                        "argNo": -1, 
+                                                        "attributes": [
+                                                            {
+                                                                "attrName": "lo_suppkey", 
+                                                                "relName": "inputs/ssbm100/lineorder.csv"
+                                                            }
+                                                        ], 
+                                                        "expression": "argument", 
+                                                        "type": {
+                                                            "relName": "inputs/ssbm100/lineorder.csv", 
+                                                            "type": "record"
+                                                        }
+                                                    }, 
+                                                    "expression": "recordProjection", 
+                                                    "attribute": {
+                                                        "attrName": "lo_suppkey", 
+                                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                                    }
+                                                }, 
+                                                {
+                                                    "e": {
+                                                        "argNo": -1, 
+                                                        "attributes": [
+                                                            {
+                                                                "attrName": "lo_orderdate", 
+                                                                "relName": "inputs/ssbm100/lineorder.csv"
+                                                            }
+                                                        ], 
+                                                        "expression": "argument", 
+                                                        "type": {
+                                                            "relName": "inputs/ssbm100/lineorder.csv", 
+                                                            "type": "record"
+                                                        }
+                                                    }, 
+                                                    "expression": "recordProjection", 
+                                                    "attribute": {
+                                                        "attrName": "lo_orderdate", 
+                                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                                    }
+                                                }, 
+                                                {
+                                                    "e": {
+                                                        "argNo": -1, 
+                                                        "attributes": [
+                                                            {
+                                                                "attrName": "lo_revenue", 
+                                                                "relName": "inputs/ssbm100/lineorder.csv"
+                                                            }
+                                                        ], 
+                                                        "expression": "argument", 
+                                                        "type": {
+                                                            "relName": "inputs/ssbm100/lineorder.csv", 
+                                                            "type": "record"
+                                                        }
+                                                    }, 
+                                                    "expression": "recordProjection", 
+                                                    "attribute": {
+                                                        "attrName": "lo_revenue", 
+                                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                                    }
+                                                }
+                                            ], 
+                                            "gpu": true
+                                        }
+                                    }, 
+                                    "probe_e": [
+                                        {
+                                            "e": {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "lo_suppkey", 
+                                                            "relName": "projection75536"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "projection75536", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "register_as": {
+                                                    "attrName": "lo_suppkey", 
+                                                    "relName": "join75539", 
+                                                    "attrNo": -1
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "lo_suppkey", 
+                                                    "relName": "projection75536"
+                                                }
+                                            }, 
+                                            "packet": 1, 
+                                            "offset": 0
+                                        }, 
+                                        {
+                                            "e": {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "lo_orderdate", 
+                                                            "relName": "projection75536"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "projection75536", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "register_as": {
+                                                    "attrName": "lo_orderdate", 
+                                                    "relName": "join75539", 
+                                                    "attrNo": -1
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "lo_orderdate", 
+                                                    "relName": "projection75536"
+                                                }
+                                            }, 
+                                            "packet": 2, 
+                                            "offset": 0
+                                        }, 
+                                        {
+                                            "e": {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "lo_revenue", 
+                                                            "relName": "projection75536"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "projection75536", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "register_as": {
+                                                    "attrName": "lo_revenue", 
+                                                    "relName": "join75539", 
+                                                    "attrNo": -1
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "lo_revenue", 
+                                                    "relName": "projection75536"
+                                                }
+                                            }, 
+                                            "packet": 3, 
+                                            "offset": 0
+                                        }
+                                    ], 
+                                    "blockwise": false, 
+                                    "build_k_part": {
+                                        "attribute": {
+                                            "attrName": "c_custkey", 
+                                            "relName": "projection75538"
+                                        }, 
+                                        "type": {
+                                            "type": "int"
+                                        }, 
+                                        "e": {
+                                            "attributes": [
+                                                {
+                                                    "attrName": "c_custkey", 
+                                                    "relName": "projection75538"
+                                                }
+                                            ], 
+                                            "argNo": -1, 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "projection75538", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "register_as": {
+                                            "attrName": "c_custkey", 
+                                            "relName": "join75539", 
+                                            "attrNo": -1
+                                        }
+                                    }, 
+                                    "build_e": [
+                                        {
+                                            "e": {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "c_city", 
+                                                            "relName": "projection75538"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "projection75538", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "register_as": {
+                                                    "attrName": "c_city", 
+                                                    "relName": "join75539", 
+                                                    "attrNo": -1
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "c_city", 
+                                                    "relName": "projection75538"
+                                                }
+                                            }, 
+                                            "packet": 1, 
+                                            "offset": 0
+                                        }
+                                    ], 
+                                    "maxBuildInputSize": 3600000, 
+                                    "probe_k": {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "lo_custkey", 
+                                                    "relName": "projection75536"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "projection75536", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "type": {
+                                            "type": "int"
+                                        }, 
+                                        "register_as": {
+                                            "attrName": "lo_custkey", 
+                                            "relName": "join75539", 
+                                            "attrNo": -1
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "lo_custkey", 
+                                            "relName": "projection75536"
+                                        }
+                                    }, 
+                                    "max_line_estimate": 1800114435000000, 
+                                    "gpu": true, 
+                                    "operator": "hashjoin-chained", 
+                                    "output": [
+                                        {
+                                            "attrName": "lo_suppkey", 
+                                            "relName": "join75539"
+                                        }, 
+                                        {
+                                            "attrName": "lo_orderdate", 
+                                            "relName": "join75539"
+                                        }, 
+                                        {
+                                            "attrName": "lo_revenue", 
+                                            "relName": "join75539"
+                                        }, 
+                                        {
+                                            "attrName": "c_city", 
+                                            "relName": "join75539"
+                                        }
+                                    ], 
+                                    "build_input": {
+                                        "e": [
+                                            {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "c_custkey", 
+                                                            "relName": "inputs/ssbm100/customer.csv"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "inputs/ssbm100/customer.csv", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "register_as": {
+                                                    "attrName": "c_custkey", 
+                                                    "relName": "projection75538", 
+                                                    "attrNo": -1
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "c_custkey", 
+                                                    "relName": "inputs/ssbm100/customer.csv"
+                                                }
+                                            }, 
+                                            {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "c_city", 
+                                                            "relName": "inputs/ssbm100/customer.csv"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "inputs/ssbm100/customer.csv", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "register_as": {
+                                                    "attrName": "c_city", 
+                                                    "relName": "projection75538", 
+                                                    "attrNo": -1
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "c_city", 
+                                                    "relName": "inputs/ssbm100/customer.csv"
+                                                }
+                                            }
+                                        ], 
+                                        "blockwise": false, 
+                                        "gpu": true, 
+                                        "relName": "projection75538", 
+                                        "max_line_estimate": 3000000, 
+                                        "output": [
+                                            {
+                                                "attrName": "c_custkey", 
+                                                "relName": "projection75538"
+                                            }, 
+                                            {
+                                                "attrName": "c_city", 
+                                                "relName": "projection75538"
+                                            }
+                                        ], 
+                                        "operator": "project", 
+                                        "input": {
+                                            "blockwise": false, 
+                                            "gpu": true, 
+                                            "p": {
+                                                "expression": "or", 
+                                                "right": {
+                                                    "expression": "eq", 
+                                                    "right": {
+                                                        "dict": {
+                                                            "path": "inputs/ssbm100/customer.csv.c_city.dict"
+                                                        }, 
+                                                        "expression": "dstring", 
+                                                        "v": "UNITED KI5"
+                                                    }, 
+                                                    "type": "bool", 
+                                                    "depends_on": [
+                                                        {
+                                                            "attrName": "c_city", 
+                                                            "relName": "inputs/ssbm100/customer.csv"
+                                                        }
+                                                    ], 
+                                                    "left": {
+                                                        "e": {
+                                                            "argNo": -1, 
+                                                            "attributes": [
+                                                                {
+                                                                    "attrName": "c_city", 
+                                                                    "relName": "inputs/ssbm100/customer.csv"
+                                                                }
+                                                            ], 
+                                                            "expression": "argument", 
+                                                            "type": {
+                                                                "relName": "inputs/ssbm100/customer.csv", 
+                                                                "type": "record"
+                                                            }
+                                                        }, 
+                                                        "expression": "recordProjection", 
+                                                        "attribute": {
+                                                            "attrName": "c_city", 
+                                                            "relName": "inputs/ssbm100/customer.csv"
+                                                        }
+                                                    }
+                                                }, 
+                                                "type": "bool", 
+                                                "depends_on": [
+                                                    {
+                                                        "attrName": "c_city", 
+                                                        "relName": "inputs/ssbm100/customer.csv"
+                                                    }, 
+                                                    {
+                                                        "attrName": "c_city", 
+                                                        "relName": "inputs/ssbm100/customer.csv"
+                                                    }
+                                                ], 
+                                                "left": {
+                                                    "expression": "eq", 
+                                                    "right": {
+                                                        "dict": {
+                                                            "path": "inputs/ssbm100/customer.csv.c_city.dict"
+                                                        }, 
+                                                        "expression": "dstring", 
+                                                        "v": "UNITED KI1"
+                                                    }, 
+                                                    "type": "bool", 
+                                                    "depends_on": [
+                                                        {
+                                                            "attrName": "c_city", 
+                                                            "relName": "inputs/ssbm100/customer.csv"
+                                                        }
+                                                    ], 
+                                                    "left": {
+                                                        "e": {
+                                                            "argNo": -1, 
+                                                            "attributes": [
+                                                                {
+                                                                    "attrName": "c_city", 
+                                                                    "relName": "inputs/ssbm100/customer.csv"
+                                                                }
+                                                            ], 
+                                                            "expression": "argument", 
+                                                            "type": {
+                                                                "relName": "inputs/ssbm100/customer.csv", 
+                                                                "type": "record"
+                                                            }
+                                                        }, 
+                                                        "expression": "recordProjection", 
+                                                        "attribute": {
+                                                            "attrName": "c_city", 
+                                                            "relName": "inputs/ssbm100/customer.csv"
+                                                        }
+                                                    }
+                                                }
+                                            }, 
+                                            "max_line_estimate": 3000000, 
+                                            "input": {
+                                                "operator": "block-to-tuples", 
+                                                "input": {
+                                                    "blockwise": true, 
+                                                    "projections": [
+                                                        {
+                                                            "attrName": "c_custkey", 
+                                                            "relName": "inputs/ssbm100/customer.csv", 
+                                                            "isBlock": true
+                                                        }, 
+                                                        {
+                                                            "attrName": "c_city", 
+                                                            "relName": "inputs/ssbm100/customer.csv", 
+                                                            "isBlock": true
+                                                        }
+                                                    ], 
+                                                    "output": [
+                                                        {
+                                                            "attrName": "c_custkey", 
+                                                            "relName": "inputs/ssbm100/customer.csv"
+                                                        }, 
+                                                        {
+                                                            "attrName": "c_city", 
+                                                            "relName": "inputs/ssbm100/customer.csv"
+                                                        }
+                                                    ], 
+                                                    "operator": "cpu-to-gpu", 
+                                                    "input": {
+                                                        "blockwise": true, 
+                                                        "gpu": false, 
+                                                        "projections": [
+                                                            {
+                                                                "attrName": "c_custkey", 
+                                                                "relName": "inputs/ssbm100/customer.csv", 
+                                                                "isBlock": true
+                                                            }, 
+                                                            {
+                                                                "attrName": "c_city", 
+                                                                "relName": "inputs/ssbm100/customer.csv", 
+                                                                "isBlock": true
+                                                            }
+                                                        ], 
+                                                        "output": [
+                                                            {
+                                                                "attrName": "c_custkey", 
+                                                                "relName": "inputs/ssbm100/customer.csv"
+                                                            }, 
+                                                            {
+                                                                "attrName": "c_city", 
+                                                                "relName": "inputs/ssbm100/customer.csv"
+                                                            }
+                                                        ], 
+                                                        "operator": "mem-move-device", 
+                                                        "input": {
+                                                            "blockwise": true, 
+                                                            "gpu": false, 
+                                                            "projections": [
+                                                                {
+                                                                    "attrName": "c_custkey", 
+                                                                    "relName": "inputs/ssbm100/customer.csv", 
+                                                                    "isBlock": true
+                                                                }, 
+                                                                {
+                                                                    "attrName": "c_city", 
+                                                                    "relName": "inputs/ssbm100/customer.csv", 
+                                                                    "isBlock": true
+                                                                }
+                                                            ], 
+                                                            "output": [
+                                                                {
+                                                                    "attrName": "c_custkey", 
+                                                                    "relName": "inputs/ssbm100/customer.csv"
+                                                                }, 
+                                                                {
+                                                                    "attrName": "c_city", 
+                                                                    "relName": "inputs/ssbm100/customer.csv"
+                                                                }
+                                                            ], 
+                                                            "operator": "mem-move-local-to", 
+                                                            "input": {
+                                                                "plugin": {
+                                                                    "type": "block", 
+                                                                    "name": "inputs/ssbm100/customer.csv", 
+                                                                    "projections": [
+                                                                        {
+                                                                            "attrName": "c_custkey", 
+                                                                            "relName": "inputs/ssbm100/customer.csv"
+                                                                        }, 
+                                                                        {
+                                                                            "attrName": "c_city", 
+                                                                            "relName": "inputs/ssbm100/customer.csv"
+                                                                        }
+                                                                    ]
+                                                                }, 
+                                                                "blockwise": true, 
+                                                                "jumpTo": "gpu", 
+                                                                "max_line_estimate": 3000000, 
+                                                                "gpu": false, 
+                                                                "operator": "scan", 
+                                                                "output": [
+                                                                    {
+                                                                        "attrName": "c_custkey", 
+                                                                        "relName": "inputs/ssbm100/customer.csv"
+                                                                    }, 
+                                                                    {
+                                                                        "attrName": "c_city", 
+                                                                        "relName": "inputs/ssbm100/customer.csv"
+                                                                    }
+                                                                ]
+                                                            }, 
+                                                            "to_cpu": false
+                                                        }, 
+                                                        "to_cpu": false
+                                                    }, 
+                                                    "queueSize": 131072
+                                                }, 
+                                                "output": [
+                                                    {
+                                                        "attrName": "c_custkey", 
+                                                        "relName": "inputs/ssbm100/customer.csv", 
+                                                        "isBlock": false
+                                                    }, 
+                                                    {
+                                                        "attrName": "c_city", 
+                                                        "relName": "inputs/ssbm100/customer.csv", 
+                                                        "isBlock": false
+                                                    }
+                                                ], 
+                                                "projections": [
+                                                    {
+                                                        "e": {
+                                                            "argNo": -1, 
+                                                            "attributes": [
+                                                                {
+                                                                    "attrName": "c_custkey", 
+                                                                    "relName": "inputs/ssbm100/customer.csv"
+                                                                }
+                                                            ], 
+                                                            "expression": "argument", 
+                                                            "type": {
+                                                                "relName": "inputs/ssbm100/customer.csv", 
+                                                                "type": "record"
+                                                            }
+                                                        }, 
+                                                        "expression": "recordProjection", 
+                                                        "attribute": {
+                                                            "attrName": "c_custkey", 
+                                                            "relName": "inputs/ssbm100/customer.csv"
+                                                        }
+                                                    }, 
+                                                    {
+                                                        "e": {
+                                                            "argNo": -1, 
+                                                            "attributes": [
+                                                                {
+                                                                    "attrName": "c_city", 
+                                                                    "relName": "inputs/ssbm100/customer.csv"
+                                                                }
+                                                            ], 
+                                                            "expression": "argument", 
+                                                            "type": {
+                                                                "relName": "inputs/ssbm100/customer.csv", 
+                                                                "type": "record"
+                                                            }
+                                                        }, 
+                                                        "expression": "recordProjection", 
+                                                        "attribute": {
+                                                            "attrName": "c_city", 
+                                                            "relName": "inputs/ssbm100/customer.csv"
+                                                        }
+                                                    }
+                                                ], 
+                                                "gpu": true
+                                            }, 
+                                            "operator": "select", 
+                                            "output": [
+                                                {
+                                                    "attrName": "c_custkey", 
+                                                    "relName": "inputs/ssbm100/customer.csv"
+                                                }, 
+                                                {
+                                                    "attrName": "c_city", 
+                                                    "relName": "inputs/ssbm100/customer.csv"
+                                                }
+                                            ]
+                                        }
+                                    }, 
+                                    "probe_w": [
+                                        64, 
+                                        32, 
+                                        32, 
+                                        32
+                                    ], 
+                                    "probe_k_part": {
+                                        "attribute": {
+                                            "attrName": "lo_custkey", 
+                                            "relName": "projection75536"
+                                        }, 
+                                        "type": {
+                                            "type": "int"
+                                        }, 
+                                        "e": {
+                                            "attributes": [
+                                                {
+                                                    "attrName": "lo_custkey", 
+                                                    "relName": "projection75536"
+                                                }
+                                            ], 
+                                            "argNo": -1, 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "projection75536", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "register_as": {
+                                            "attrName": "lo_custkey", 
+                                            "relName": "join75539", 
+                                            "attrNo": -1
+                                        }
+                                    }, 
+                                    "build_w": [
+                                        64, 
+                                        32
+                                    ]
+                                }, 
+                                "probe_e": [
+                                    {
+                                        "e": {
+                                            "e": {
+                                                "argNo": -1, 
+                                                "attributes": [
+                                                    {
+                                                        "attrName": "lo_orderdate", 
+                                                        "relName": "join75539"
+                                                    }
+                                                ], 
+                                                "expression": "argument", 
+                                                "type": {
+                                                    "relName": "join75539", 
+                                                    "type": "record"
+                                                }
+                                            }, 
+                                            "register_as": {
+                                                "attrName": "lo_orderdate", 
+                                                "relName": "join75542", 
+                                                "attrNo": -1
+                                            }, 
+                                            "expression": "recordProjection", 
+                                            "attribute": {
+                                                "attrName": "lo_orderdate", 
+                                                "relName": "join75539"
+                                            }
+                                        }, 
+                                        "packet": 1, 
+                                        "offset": 0
+                                    }, 
+                                    {
+                                        "e": {
+                                            "e": {
+                                                "argNo": -1, 
+                                                "attributes": [
+                                                    {
+                                                        "attrName": "lo_revenue", 
+                                                        "relName": "join75539"
+                                                    }
+                                                ], 
+                                                "expression": "argument", 
+                                                "type": {
+                                                    "relName": "join75539", 
+                                                    "type": "record"
+                                                }
+                                            }, 
+                                            "register_as": {
+                                                "attrName": "lo_revenue", 
+                                                "relName": "join75542", 
+                                                "attrNo": -1
+                                            }, 
+                                            "expression": "recordProjection", 
+                                            "attribute": {
+                                                "attrName": "lo_revenue", 
+                                                "relName": "join75539"
+                                            }
+                                        }, 
+                                        "packet": 2, 
+                                        "offset": 0
+                                    }, 
+                                    {
+                                        "e": {
+                                            "e": {
+                                                "argNo": -1, 
+                                                "attributes": [
+                                                    {
+                                                        "attrName": "c_city", 
+                                                        "relName": "join75539"
+                                                    }
+                                                ], 
+                                                "expression": "argument", 
+                                                "type": {
+                                                    "relName": "join75539", 
+                                                    "type": "record"
+                                                }
+                                            }, 
+                                            "register_as": {
+                                                "attrName": "c_city", 
+                                                "relName": "join75542", 
+                                                "attrNo": -1
+                                            }, 
+                                            "expression": "recordProjection", 
+                                            "attribute": {
+                                                "attrName": "c_city", 
+                                                "relName": "join75539"
+                                            }
+                                        }, 
+                                        "packet": 3, 
+                                        "offset": 0
+                                    }
+                                ], 
+                                "blockwise": false, 
+                                "build_k_part": {
+                                    "attribute": {
+                                        "attrName": "s_suppkey", 
+                                        "relName": "projection75541"
+                                    }, 
+                                    "type": {
+                                        "type": "int"
+                                    }, 
+                                    "e": {
+                                        "attributes": [
+                                            {
+                                                "attrName": "s_suppkey", 
+                                                "relName": "projection75541"
+                                            }
+                                        ], 
+                                        "argNo": -1, 
+                                        "expression": "argument", 
+                                        "type": {
+                                            "relName": "projection75541", 
+                                            "type": "record"
+                                        }
+                                    }, 
+                                    "expression": "recordProjection", 
+                                    "register_as": {
+                                        "attrName": "s_suppkey", 
+                                        "relName": "join75542", 
+                                        "attrNo": -1
+                                    }
+                                }, 
+                                "build_e": [
+                                    {
+                                        "e": {
+                                            "e": {
+                                                "argNo": -1, 
+                                                "attributes": [
+                                                    {
+                                                        "attrName": "s_city", 
+                                                        "relName": "projection75541"
+                                                    }
+                                                ], 
+                                                "expression": "argument", 
+                                                "type": {
+                                                    "relName": "projection75541", 
+                                                    "type": "record"
+                                                }
+                                            }, 
+                                            "register_as": {
+                                                "attrName": "s_city", 
+                                                "relName": "join75542", 
+                                                "attrNo": -1
+                                            }, 
+                                            "expression": "recordProjection", 
+                                            "attribute": {
+                                                "attrName": "s_city", 
+                                                "relName": "projection75541"
+                                            }
+                                        }, 
+                                        "packet": 1, 
+                                        "offset": 0
+                                    }
+                                ], 
+                                "maxBuildInputSize": 240000, 
+                                "probe_k": {
+                                    "e": {
+                                        "argNo": -1, 
+                                        "attributes": [
+                                            {
+                                                "attrName": "lo_suppkey", 
+                                                "relName": "join75539"
+                                            }
+                                        ], 
+                                        "expression": "argument", 
+                                        "type": {
+                                            "relName": "join75539", 
+                                            "type": "record"
+                                        }
+                                    }, 
+                                    "type": {
+                                        "type": "int"
+                                    }, 
+                                    "register_as": {
+                                        "attrName": "lo_suppkey", 
+                                        "relName": "join75542", 
+                                        "attrNo": -1
+                                    }, 
+                                    "expression": "recordProjection", 
+                                    "attribute": {
+                                        "attrName": "lo_suppkey", 
+                                        "relName": "join75539"
+                                    }
+                                }, 
+                                "max_line_estimate": 360022887000000000000, 
+                                "gpu": true, 
+                                "operator": "hashjoin-chained", 
+                                "output": [
+                                    {
+                                        "attrName": "lo_orderdate", 
+                                        "relName": "join75542"
+                                    }, 
+                                    {
+                                        "attrName": "lo_revenue", 
+                                        "relName": "join75542"
+                                    }, 
+                                    {
+                                        "attrName": "c_city", 
+                                        "relName": "join75542"
+                                    }, 
+                                    {
+                                        "attrName": "s_city", 
+                                        "relName": "join75542"
+                                    }
+                                ], 
+                                "build_input": {
+                                    "e": [
+                                        {
+                                            "e": {
+                                                "argNo": -1, 
+                                                "attributes": [
+                                                    {
+                                                        "attrName": "s_suppkey", 
+                                                        "relName": "inputs/ssbm100/supplier.csv"
+                                                    }
+                                                ], 
+                                                "expression": "argument", 
+                                                "type": {
+                                                    "relName": "inputs/ssbm100/supplier.csv", 
+                                                    "type": "record"
+                                                }
+                                            }, 
+                                            "register_as": {
+                                                "attrName": "s_suppkey", 
+                                                "relName": "projection75541", 
+                                                "attrNo": -1
+                                            }, 
+                                            "expression": "recordProjection", 
+                                            "attribute": {
+                                                "attrName": "s_suppkey", 
+                                                "relName": "inputs/ssbm100/supplier.csv"
+                                            }
+                                        }, 
+                                        {
+                                            "e": {
+                                                "argNo": -1, 
+                                                "attributes": [
+                                                    {
+                                                        "attrName": "s_city", 
+                                                        "relName": "inputs/ssbm100/supplier.csv"
+                                                    }
+                                                ], 
+                                                "expression": "argument", 
+                                                "type": {
+                                                    "relName": "inputs/ssbm100/supplier.csv", 
+                                                    "type": "record"
+                                                }
+                                            }, 
+                                            "register_as": {
+                                                "attrName": "s_city", 
+                                                "relName": "projection75541", 
+                                                "attrNo": -1
+                                            }, 
+                                            "expression": "recordProjection", 
+                                            "attribute": {
+                                                "attrName": "s_city", 
+                                                "relName": "inputs/ssbm100/supplier.csv"
+                                            }
+                                        }
+                                    ], 
+                                    "blockwise": false, 
+                                    "gpu": true, 
+                                    "relName": "projection75541", 
+                                    "max_line_estimate": 200000, 
+                                    "output": [
+                                        {
+                                            "attrName": "s_suppkey", 
+                                            "relName": "projection75541"
+                                        }, 
+                                        {
+                                            "attrName": "s_city", 
+                                            "relName": "projection75541"
+                                        }
+                                    ], 
+                                    "operator": "project", 
+                                    "input": {
+                                        "blockwise": false, 
+                                        "gpu": true, 
+                                        "p": {
+                                            "expression": "or", 
+                                            "right": {
+                                                "expression": "eq", 
+                                                "right": {
+                                                    "dict": {
+                                                        "path": "inputs/ssbm100/supplier.csv.s_city.dict"
+                                                    }, 
+                                                    "expression": "dstring", 
+                                                    "v": "UNITED KI5"
+                                                }, 
+                                                "type": "bool", 
+                                                "depends_on": [
+                                                    {
+                                                        "attrName": "s_city", 
+                                                        "relName": "inputs/ssbm100/supplier.csv"
+                                                    }
+                                                ], 
+                                                "left": {
+                                                    "e": {
+                                                        "argNo": -1, 
+                                                        "attributes": [
+                                                            {
+                                                                "attrName": "s_city", 
+                                                                "relName": "inputs/ssbm100/supplier.csv"
+                                                            }
+                                                        ], 
+                                                        "expression": "argument", 
+                                                        "type": {
+                                                            "relName": "inputs/ssbm100/supplier.csv", 
+                                                            "type": "record"
+                                                        }
+                                                    }, 
+                                                    "expression": "recordProjection", 
+                                                    "attribute": {
+                                                        "attrName": "s_city", 
+                                                        "relName": "inputs/ssbm100/supplier.csv"
+                                                    }
+                                                }
+                                            }, 
+                                            "type": "bool", 
+                                            "depends_on": [
+                                                {
+                                                    "attrName": "s_city", 
+                                                    "relName": "inputs/ssbm100/supplier.csv"
+                                                }, 
+                                                {
+                                                    "attrName": "s_city", 
+                                                    "relName": "inputs/ssbm100/supplier.csv"
+                                                }
+                                            ], 
+                                            "left": {
+                                                "expression": "eq", 
+                                                "right": {
+                                                    "dict": {
+                                                        "path": "inputs/ssbm100/supplier.csv.s_city.dict"
+                                                    }, 
+                                                    "expression": "dstring", 
+                                                    "v": "UNITED KI1"
+                                                }, 
+                                                "type": "bool", 
+                                                "depends_on": [
+                                                    {
+                                                        "attrName": "s_city", 
+                                                        "relName": "inputs/ssbm100/supplier.csv"
+                                                    }
+                                                ], 
+                                                "left": {
+                                                    "e": {
+                                                        "argNo": -1, 
+                                                        "attributes": [
+                                                            {
+                                                                "attrName": "s_city", 
+                                                                "relName": "inputs/ssbm100/supplier.csv"
+                                                            }
+                                                        ], 
+                                                        "expression": "argument", 
+                                                        "type": {
+                                                            "relName": "inputs/ssbm100/supplier.csv", 
+                                                            "type": "record"
+                                                        }
+                                                    }, 
+                                                    "expression": "recordProjection", 
+                                                    "attribute": {
+                                                        "attrName": "s_city", 
+                                                        "relName": "inputs/ssbm100/supplier.csv"
+                                                    }
+                                                }
+                                            }
+                                        }, 
+                                        "max_line_estimate": 200000, 
+                                        "input": {
+                                            "operator": "block-to-tuples", 
+                                            "input": {
+                                                "blockwise": true, 
+                                                "projections": [
+                                                    {
+                                                        "attrName": "s_suppkey", 
+                                                        "relName": "inputs/ssbm100/supplier.csv", 
+                                                        "isBlock": true
+                                                    }, 
+                                                    {
+                                                        "attrName": "s_city", 
+                                                        "relName": "inputs/ssbm100/supplier.csv", 
+                                                        "isBlock": true
+                                                    }
+                                                ], 
+                                                "output": [
+                                                    {
+                                                        "attrName": "s_suppkey", 
+                                                        "relName": "inputs/ssbm100/supplier.csv"
+                                                    }, 
+                                                    {
+                                                        "attrName": "s_city", 
+                                                        "relName": "inputs/ssbm100/supplier.csv"
+                                                    }
+                                                ], 
+                                                "operator": "cpu-to-gpu", 
+                                                "input": {
+                                                    "blockwise": true, 
+                                                    "gpu": false, 
+                                                    "projections": [
+                                                        {
+                                                            "attrName": "s_suppkey", 
+                                                            "relName": "inputs/ssbm100/supplier.csv", 
+                                                            "isBlock": true
+                                                        }, 
+                                                        {
+                                                            "attrName": "s_city", 
+                                                            "relName": "inputs/ssbm100/supplier.csv", 
+                                                            "isBlock": true
+                                                        }
+                                                    ], 
+                                                    "output": [
+                                                        {
+                                                            "attrName": "s_suppkey", 
+                                                            "relName": "inputs/ssbm100/supplier.csv"
+                                                        }, 
+                                                        {
+                                                            "attrName": "s_city", 
+                                                            "relName": "inputs/ssbm100/supplier.csv"
+                                                        }
+                                                    ], 
+                                                    "operator": "mem-move-device", 
+                                                    "input": {
+                                                        "blockwise": true, 
+                                                        "gpu": false, 
+                                                        "projections": [
+                                                            {
+                                                                "attrName": "s_suppkey", 
+                                                                "relName": "inputs/ssbm100/supplier.csv", 
+                                                                "isBlock": true
+                                                            }, 
+                                                            {
+                                                                "attrName": "s_city", 
+                                                                "relName": "inputs/ssbm100/supplier.csv", 
+                                                                "isBlock": true
+                                                            }
+                                                        ], 
+                                                        "output": [
+                                                            {
+                                                                "attrName": "s_suppkey", 
+                                                                "relName": "inputs/ssbm100/supplier.csv"
+                                                            }, 
+                                                            {
+                                                                "attrName": "s_city", 
+                                                                "relName": "inputs/ssbm100/supplier.csv"
+                                                            }
+                                                        ], 
+                                                        "operator": "mem-move-local-to", 
+                                                        "input": {
+                                                            "plugin": {
+                                                                "type": "block", 
+                                                                "name": "inputs/ssbm100/supplier.csv", 
+                                                                "projections": [
+                                                                    {
+                                                                        "attrName": "s_suppkey", 
+                                                                        "relName": "inputs/ssbm100/supplier.csv"
+                                                                    }, 
+                                                                    {
+                                                                        "attrName": "s_city", 
+                                                                        "relName": "inputs/ssbm100/supplier.csv"
+                                                                    }
+                                                                ]
+                                                            }, 
+                                                            "blockwise": true, 
+                                                            "jumpTo": "gpu", 
+                                                            "max_line_estimate": 200000, 
+                                                            "gpu": false, 
+                                                            "operator": "scan", 
+                                                            "output": [
+                                                                {
+                                                                    "attrName": "s_suppkey", 
+                                                                    "relName": "inputs/ssbm100/supplier.csv"
+                                                                }, 
+                                                                {
+                                                                    "attrName": "s_city", 
+                                                                    "relName": "inputs/ssbm100/supplier.csv"
+                                                                }
+                                                            ]
+                                                        }, 
+                                                        "to_cpu": false
+                                                    }, 
+                                                    "to_cpu": false
+                                                }, 
+                                                "queueSize": 131072
+                                            }, 
+                                            "output": [
+                                                {
+                                                    "attrName": "s_suppkey", 
+                                                    "relName": "inputs/ssbm100/supplier.csv", 
+                                                    "isBlock": false
+                                                }, 
+                                                {
+                                                    "attrName": "s_city", 
+                                                    "relName": "inputs/ssbm100/supplier.csv", 
+                                                    "isBlock": false
+                                                }
+                                            ], 
+                                            "projections": [
+                                                {
+                                                    "e": {
+                                                        "argNo": -1, 
+                                                        "attributes": [
+                                                            {
+                                                                "attrName": "s_suppkey", 
+                                                                "relName": "inputs/ssbm100/supplier.csv"
+                                                            }
+                                                        ], 
+                                                        "expression": "argument", 
+                                                        "type": {
+                                                            "relName": "inputs/ssbm100/supplier.csv", 
+                                                            "type": "record"
+                                                        }
+                                                    }, 
+                                                    "expression": "recordProjection", 
+                                                    "attribute": {
+                                                        "attrName": "s_suppkey", 
+                                                        "relName": "inputs/ssbm100/supplier.csv"
+                                                    }
+                                                }, 
+                                                {
+                                                    "e": {
+                                                        "argNo": -1, 
+                                                        "attributes": [
+                                                            {
+                                                                "attrName": "s_city", 
+                                                                "relName": "inputs/ssbm100/supplier.csv"
+                                                            }
+                                                        ], 
+                                                        "expression": "argument", 
+                                                        "type": {
+                                                            "relName": "inputs/ssbm100/supplier.csv", 
+                                                            "type": "record"
+                                                        }
+                                                    }, 
+                                                    "expression": "recordProjection", 
+                                                    "attribute": {
+                                                        "attrName": "s_city", 
+                                                        "relName": "inputs/ssbm100/supplier.csv"
+                                                    }
+                                                }
+                                            ], 
+                                            "gpu": true
+                                        }, 
+                                        "operator": "select", 
+                                        "output": [
+                                            {
+                                                "attrName": "s_suppkey", 
+                                                "relName": "inputs/ssbm100/supplier.csv"
+                                            }, 
+                                            {
+                                                "attrName": "s_city", 
+                                                "relName": "inputs/ssbm100/supplier.csv"
+                                            }
+                                        ]
+                                    }
+                                }, 
+                                "probe_w": [
+                                    64, 
+                                    32, 
+                                    32, 
+                                    32
+                                ], 
+                                "probe_k_part": {
+                                    "attribute": {
+                                        "attrName": "lo_suppkey", 
+                                        "relName": "join75539"
+                                    }, 
+                                    "type": {
+                                        "type": "int"
+                                    }, 
+                                    "e": {
+                                        "attributes": [
+                                            {
+                                                "attrName": "lo_suppkey", 
+                                                "relName": "join75539"
+                                            }
+                                        ], 
+                                        "argNo": -1, 
+                                        "expression": "argument", 
+                                        "type": {
+                                            "relName": "join75539", 
+                                            "type": "record"
+                                        }
+                                    }, 
+                                    "expression": "recordProjection", 
+                                    "register_as": {
+                                        "attrName": "lo_suppkey", 
+                                        "relName": "join75542", 
+                                        "attrNo": -1
+                                    }
+                                }, 
+                                "build_w": [
+                                    64, 
+                                    32
+                                ]
+                            }, 
+                            "probe_e": [
+                                {
+                                    "e": {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "lo_revenue", 
+                                                    "relName": "join75542"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "join75542", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "register_as": {
+                                            "attrName": "lo_revenue", 
+                                            "relName": "join75545", 
+                                            "attrNo": -1
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "lo_revenue", 
+                                            "relName": "join75542"
+                                        }
+                                    }, 
+                                    "packet": 1, 
+                                    "offset": 0
+                                }, 
+                                {
+                                    "e": {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "c_city", 
+                                                    "relName": "join75542"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "join75542", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "register_as": {
+                                            "attrName": "c_city", 
+                                            "relName": "join75545", 
+                                            "attrNo": -1
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "c_city", 
+                                            "relName": "join75542"
+                                        }
+                                    }, 
+                                    "packet": 2, 
+                                    "offset": 0
+                                }, 
+                                {
+                                    "e": {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "s_city", 
+                                                    "relName": "join75542"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "join75542", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "register_as": {
+                                            "attrName": "s_city", 
+                                            "relName": "join75545", 
+                                            "attrNo": -1
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "s_city", 
+                                            "relName": "join75542"
+                                        }
+                                    }, 
+                                    "packet": 3, 
+                                    "offset": 0
+                                }
+                            ], 
+                            "blockwise": false, 
+                            "build_k_part": {
+                                "attribute": {
+                                    "attrName": "d_datekey", 
+                                    "relName": "projection75544"
+                                }, 
+                                "type": {
+                                    "type": "int"
+                                }, 
+                                "e": {
+                                    "attributes": [
+                                        {
+                                            "attrName": "d_datekey", 
+                                            "relName": "projection75544"
+                                        }
+                                    ], 
+                                    "argNo": -1, 
+                                    "expression": "argument", 
+                                    "type": {
+                                        "relName": "projection75544", 
+                                        "type": "record"
+                                    }
+                                }, 
+                                "expression": "recordProjection", 
+                                "register_as": {
+                                    "attrName": "d_datekey", 
+                                    "relName": "join75545", 
+                                    "attrNo": -1
+                                }
+                            }, 
+                            "build_e": [
+                                {
+                                    "e": {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "d_year", 
+                                                    "relName": "projection75544"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "projection75544", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "register_as": {
+                                            "attrName": "d_year", 
+                                            "relName": "join75545", 
+                                            "attrNo": -1
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "d_year", 
+                                            "relName": "projection75544"
+                                        }
+                                    }, 
+                                    "packet": 1, 
+                                    "offset": 0
+                                }
+                            ], 
+                            "maxBuildInputSize": 3067, 
+                            "probe_k": {
+                                "e": {
+                                    "argNo": -1, 
+                                    "attributes": [
+                                        {
+                                            "attrName": "lo_orderdate", 
+                                            "relName": "join75542"
+                                        }
+                                    ], 
+                                    "expression": "argument", 
+                                    "type": {
+                                        "relName": "join75542", 
+                                        "type": "record"
+                                    }
+                                }, 
+                                "type": {
+                                    "type": "int"
+                                }, 
+                                "register_as": {
+                                    "attrName": "lo_orderdate", 
+                                    "relName": "join75545", 
+                                    "attrNo": -1
+                                }, 
+                                "expression": "recordProjection", 
+                                "attribute": {
+                                    "attrName": "lo_orderdate", 
+                                    "relName": "join75542"
+                                }
+                            }, 
+                            "max_line_estimate": 920218499172000000000000, 
+                            "gpu": true, 
+                            "operator": "hashjoin-chained", 
+                            "output": [
+                                {
+                                    "attrName": "lo_revenue", 
+                                    "relName": "join75545"
+                                }, 
+                                {
+                                    "attrName": "c_city", 
+                                    "relName": "join75545"
+                                }, 
+                                {
+                                    "attrName": "s_city", 
+                                    "relName": "join75545"
+                                }, 
+                                {
+                                    "attrName": "d_year", 
+                                    "relName": "join75545"
+                                }
+                            ], 
+                            "build_input": {
+                                "e": [
+                                    {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "d_datekey", 
+                                                    "relName": "inputs/ssbm100/date.csv"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "inputs/ssbm100/date.csv", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "register_as": {
+                                            "attrName": "d_datekey", 
+                                            "relName": "projection75544", 
+                                            "attrNo": -1
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "d_datekey", 
+                                            "relName": "inputs/ssbm100/date.csv"
+                                        }
+                                    }, 
+                                    {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "d_year", 
+                                                    "relName": "inputs/ssbm100/date.csv"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "inputs/ssbm100/date.csv", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "register_as": {
+                                            "attrName": "d_year", 
+                                            "relName": "projection75544", 
+                                            "attrNo": -1
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "d_year", 
+                                            "relName": "inputs/ssbm100/date.csv"
+                                        }
+                                    }
+                                ], 
+                                "blockwise": false, 
+                                "gpu": true, 
+                                "relName": "projection75544", 
+                                "max_line_estimate": 2556, 
+                                "output": [
+                                    {
+                                        "attrName": "d_datekey", 
+                                        "relName": "projection75544"
+                                    }, 
+                                    {
+                                        "attrName": "d_year", 
+                                        "relName": "projection75544"
+                                    }
+                                ], 
+                                "operator": "project", 
+                                "input": {
+                                    "blockwise": false, 
+                                    "gpu": true, 
+                                    "p": {
+                                        "expression": "and", 
+                                        "right": {
+                                            "expression": "le", 
+                                            "right": {
+                                                "expression": "int", 
+                                                "v": 1997
+                                            }, 
+                                            "type": "bool", 
+                                            "depends_on": [
+                                                {
+                                                    "attrName": "d_year", 
+                                                    "relName": "inputs/ssbm100/date.csv"
+                                                }
+                                            ], 
+                                            "left": {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "d_year", 
+                                                            "relName": "inputs/ssbm100/date.csv"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "inputs/ssbm100/date.csv", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "d_year", 
+                                                    "relName": "inputs/ssbm100/date.csv"
+                                                }
+                                            }
+                                        }, 
+                                        "type": "bool", 
+                                        "depends_on": [
+                                            {
+                                                "attrName": "d_year", 
+                                                "relName": "inputs/ssbm100/date.csv"
+                                            }, 
+                                            {
+                                                "attrName": "d_year", 
+                                                "relName": "inputs/ssbm100/date.csv"
+                                            }
+                                        ], 
+                                        "left": {
+                                            "expression": "ge", 
+                                            "right": {
+                                                "expression": "int", 
+                                                "v": 1992
+                                            }, 
+                                            "type": "bool", 
+                                            "depends_on": [
+                                                {
+                                                    "attrName": "d_year", 
+                                                    "relName": "inputs/ssbm100/date.csv"
+                                                }
+                                            ], 
+                                            "left": {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "d_year", 
+                                                            "relName": "inputs/ssbm100/date.csv"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "inputs/ssbm100/date.csv", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "d_year", 
+                                                    "relName": "inputs/ssbm100/date.csv"
+                                                }
+                                            }
+                                        }
+                                    }, 
+                                    "max_line_estimate": 2556, 
+                                    "input": {
+                                        "operator": "block-to-tuples", 
+                                        "input": {
+                                            "blockwise": true, 
+                                            "projections": [
+                                                {
+                                                    "attrName": "d_datekey", 
+                                                    "relName": "inputs/ssbm100/date.csv", 
+                                                    "isBlock": true
+                                                }, 
+                                                {
+                                                    "attrName": "d_year", 
+                                                    "relName": "inputs/ssbm100/date.csv", 
+                                                    "isBlock": true
+                                                }
+                                            ], 
+                                            "output": [
+                                                {
+                                                    "attrName": "d_datekey", 
+                                                    "relName": "inputs/ssbm100/date.csv"
+                                                }, 
+                                                {
+                                                    "attrName": "d_year", 
+                                                    "relName": "inputs/ssbm100/date.csv"
+                                                }
+                                            ], 
+                                            "operator": "cpu-to-gpu", 
+                                            "input": {
+                                                "blockwise": true, 
+                                                "gpu": false, 
+                                                "projections": [
+                                                    {
+                                                        "attrName": "d_datekey", 
+                                                        "relName": "inputs/ssbm100/date.csv", 
+                                                        "isBlock": true
+                                                    }, 
+                                                    {
+                                                        "attrName": "d_year", 
+                                                        "relName": "inputs/ssbm100/date.csv", 
+                                                        "isBlock": true
+                                                    }
+                                                ], 
+                                                "output": [
+                                                    {
+                                                        "attrName": "d_datekey", 
+                                                        "relName": "inputs/ssbm100/date.csv"
+                                                    }, 
+                                                    {
+                                                        "attrName": "d_year", 
+                                                        "relName": "inputs/ssbm100/date.csv"
+                                                    }
+                                                ], 
+                                                "operator": "mem-move-device", 
+                                                "input": {
+                                                    "blockwise": true, 
+                                                    "gpu": false, 
+                                                    "projections": [
+                                                        {
+                                                            "attrName": "d_datekey", 
+                                                            "relName": "inputs/ssbm100/date.csv", 
+                                                            "isBlock": true
+                                                        }, 
+                                                        {
+                                                            "attrName": "d_year", 
+                                                            "relName": "inputs/ssbm100/date.csv", 
+                                                            "isBlock": true
+                                                        }
+                                                    ], 
+                                                    "output": [
+                                                        {
+                                                            "attrName": "d_datekey", 
+                                                            "relName": "inputs/ssbm100/date.csv"
+                                                        }, 
+                                                        {
+                                                            "attrName": "d_year", 
+                                                            "relName": "inputs/ssbm100/date.csv"
+                                                        }
+                                                    ], 
+                                                    "operator": "mem-move-local-to", 
+                                                    "input": {
+                                                        "plugin": {
+                                                            "type": "block", 
+                                                            "name": "inputs/ssbm100/date.csv", 
+                                                            "projections": [
+                                                                {
+                                                                    "attrName": "d_datekey", 
+                                                                    "relName": "inputs/ssbm100/date.csv"
+                                                                }, 
+                                                                {
+                                                                    "attrName": "d_year", 
+                                                                    "relName": "inputs/ssbm100/date.csv"
+                                                                }
+                                                            ]
+                                                        }, 
+                                                        "blockwise": true, 
+                                                        "jumpTo": "gpu", 
+                                                        "max_line_estimate": 2556, 
+                                                        "gpu": false, 
+                                                        "operator": "scan", 
+                                                        "output": [
+                                                            {
+                                                                "attrName": "d_datekey", 
+                                                                "relName": "inputs/ssbm100/date.csv"
+                                                            }, 
+                                                            {
+                                                                "attrName": "d_year", 
+                                                                "relName": "inputs/ssbm100/date.csv"
+                                                            }
+                                                        ]
+                                                    }, 
+                                                    "to_cpu": false
+                                                }, 
+                                                "to_cpu": false
+                                            }, 
+                                            "queueSize": 131072
+                                        }, 
+                                        "output": [
+                                            {
+                                                "attrName": "d_datekey", 
+                                                "relName": "inputs/ssbm100/date.csv", 
+                                                "isBlock": false
+                                            }, 
+                                            {
+                                                "attrName": "d_year", 
+                                                "relName": "inputs/ssbm100/date.csv", 
+                                                "isBlock": false
+                                            }
+                                        ], 
+                                        "projections": [
+                                            {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "d_datekey", 
+                                                            "relName": "inputs/ssbm100/date.csv"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "inputs/ssbm100/date.csv", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "d_datekey", 
+                                                    "relName": "inputs/ssbm100/date.csv"
+                                                }
+                                            }, 
+                                            {
+                                                "e": {
+                                                    "argNo": -1, 
+                                                    "attributes": [
+                                                        {
+                                                            "attrName": "d_year", 
+                                                            "relName": "inputs/ssbm100/date.csv"
+                                                        }
+                                                    ], 
+                                                    "expression": "argument", 
+                                                    "type": {
+                                                        "relName": "inputs/ssbm100/date.csv", 
+                                                        "type": "record"
+                                                    }
+                                                }, 
+                                                "expression": "recordProjection", 
+                                                "attribute": {
+                                                    "attrName": "d_year", 
+                                                    "relName": "inputs/ssbm100/date.csv"
+                                                }
+                                            }
+                                        ], 
+                                        "gpu": true
+                                    }, 
+                                    "operator": "select", 
+                                    "output": [
+                                        {
+                                            "attrName": "d_datekey", 
+                                            "relName": "inputs/ssbm100/date.csv"
+                                        }, 
+                                        {
+                                            "attrName": "d_year", 
+                                            "relName": "inputs/ssbm100/date.csv"
+                                        }
+                                    ]
+                                }
+                            }, 
+                            "probe_w": [
+                                64, 
+                                32, 
+                                32, 
+                                32
+                            ], 
+                            "probe_k_part": {
+                                "attribute": {
+                                    "attrName": "lo_orderdate", 
+                                    "relName": "join75542"
+                                }, 
+                                "type": {
+                                    "type": "int"
+                                }, 
+                                "e": {
+                                    "attributes": [
+                                        {
+                                            "attrName": "lo_orderdate", 
+                                            "relName": "join75542"
+                                        }
+                                    ], 
+                                    "argNo": -1, 
+                                    "expression": "argument", 
+                                    "type": {
+                                        "relName": "join75542", 
+                                        "type": "record"
+                                    }
+                                }, 
+                                "expression": "recordProjection", 
+                                "register_as": {
+                                    "attrName": "lo_orderdate", 
+                                    "relName": "join75545", 
+                                    "attrNo": -1
+                                }
+                            }, 
+                            "build_w": [
+                                64, 
+                                32
+                            ]
+                        }, 
+                        "blockwise": false, 
+                        "k_part": [
+                            {
+                                "register_as": {
+                                    "attrName": "c_city", 
+                                    "relName": "agg75546", 
+                                    "attrNo": -1
+                                }, 
+                                "e": {
+                                    "attributes": [
+                                        {
+                                            "attrName": "c_city", 
+                                            "relName": "join75545"
+                                        }
+                                    ], 
+                                    "argNo": -1, 
+                                    "expression": "argument", 
+                                    "type": {
+                                        "relName": "join75545", 
+                                        "type": "record"
+                                    }
+                                }, 
+                                "expression": "recordProjection", 
+                                "attribute": {
+                                    "attrName": "c_city", 
+                                    "relName": "join75545"
+                                }
+                            }, 
+                            {
+                                "register_as": {
+                                    "attrName": "s_city", 
+                                    "relName": "agg75546", 
+                                    "attrNo": -1
+                                }, 
+                                "e": {
+                                    "attributes": [
+                                        {
+                                            "attrName": "s_city", 
+                                            "relName": "join75545"
+                                        }
+                                    ], 
+                                    "argNo": -1, 
+                                    "expression": "argument", 
+                                    "type": {
+                                        "relName": "join75545", 
+                                        "type": "record"
+                                    }
+                                }, 
+                                "expression": "recordProjection", 
+                                "attribute": {
+                                    "attrName": "s_city", 
+                                    "relName": "join75545"
+                                }
+                            }, 
+                            {
+                                "register_as": {
+                                    "attrName": "d_year", 
+                                    "relName": "agg75546", 
+                                    "attrNo": -1
+                                }, 
+                                "e": {
+                                    "attributes": [
+                                        {
+                                            "attrName": "d_year", 
+                                            "relName": "join75545"
+                                        }
+                                    ], 
+                                    "argNo": -1, 
+                                    "expression": "argument", 
+                                    "type": {
+                                        "relName": "join75545", 
+                                        "type": "record"
+                                    }
+                                }, 
+                                "expression": "recordProjection", 
+                                "attribute": {
+                                    "attrName": "d_year", 
+                                    "relName": "join75545"
+                                }
+                            }
+                        ]
+                    }, 
+                    "output": [
+                        {
+                            "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                            "relName": "agg75546", 
+                            "isBlock": true, 
+                            "must_unpack": [
+                                "c_city", 
+                                "s_city", 
+                                "d_year", 
+                                "lo_revenue"
+                            ]
+                        }
+                    ], 
+                    "projections": [
+                        {
+                            "type": {
+                                "attributes": [
+                                    {
+                                        "attrName": "c_city", 
+                                        "relName": "agg75546"
+                                    }, 
+                                    {
+                                        "attrName": "s_city", 
+                                        "relName": "agg75546"
+                                    }, 
+                                    {
+                                        "attrName": "d_year", 
+                                        "relName": "agg75546"
+                                    }, 
+                                    {
+                                        "attrName": "lo_revenue", 
+                                        "relName": "agg75546"
+                                    }
+                                ], 
+                                "type": "record"
+                            }, 
+                            "register_as": {
+                                "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                                "relName": "agg75546", 
+                                "attrNo": -1
+                            }, 
+                            "expression": "recordConstruction", 
+                            "attributes": [
+                                {
+                                    "e": {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "c_city", 
+                                                    "relName": "agg75546"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "agg75546", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "c_city", 
+                                            "relName": "agg75546"
+                                        }
+                                    }, 
+                                    "name": "c_city"
+                                }, 
+                                {
+                                    "e": {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "s_city", 
+                                                    "relName": "agg75546"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "agg75546", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "s_city", 
+                                            "relName": "agg75546"
+                                        }
+                                    }, 
+                                    "name": "s_city"
+                                }, 
+                                {
+                                    "e": {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "d_year", 
+                                                    "relName": "agg75546"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "agg75546", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "d_year", 
+                                            "relName": "agg75546"
+                                        }
+                                    }, 
+                                    "name": "d_year"
+                                }, 
+                                {
+                                    "e": {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "lo_revenue", 
+                                                    "relName": "agg75546"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "agg75546", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "lo_revenue", 
+                                            "relName": "agg75546"
+                                        }
+                                    }, 
+                                    "name": "lo_revenue"
+                                }
+                            ]
+                        }
+                    ], 
+                    "gpu": true
+                }, 
+                "queueSize": 131072
+            }, 
+            "to_cpu": true
+        }, 
+        "output": [
+            {
+                "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                "relName": "agg75546", 
+                "isBlock": false, 
+                "must_unpack": [
+                    "c_city", 
+                    "s_city", 
+                    "d_year", 
+                    "lo_revenue"
+                ]
+            }
+        ], 
+        "projections": [
+            {
+                "e": {
+                    "argNo": -1, 
+                    "attributes": [
+                        {
+                            "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                            "relName": "agg75546"
+                        }
+                    ], 
+                    "expression": "argument", 
+                    "type": {
+                        "relName": "agg75546", 
+                        "type": "record"
+                    }
+                }, 
+                "expression": "recordProjection", 
+                "attribute": {
+                    "attrName": "record_c_city_s_city_d_year_lo_revenue", 
+                    "relName": "agg75546"
+                }
+            }
+        ], 
+        "gpu": false
+    }
+}
