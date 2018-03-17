@@ -29,13 +29,19 @@ RadixJoinBuild::RadixJoinBuild( expressions::Expression   * keyExpr     ,
                                 string                      opLabel     ,
                                 Materializer              & mat         ,
                                 StructType                * htEntryType ,
-                                size_t                      size        ,
-                                size_t                      kvSize      ,
+                                size_t                      size        , //bytes
+                                size_t                      kvSize      , //bytes
                                 bool                        is_agg      ):
     UnaryRawOperator(child), keyExpr(keyExpr), context(context), mat(mat), 
         htEntryType(htEntryType), htLabel(opLabel), size(size), kvSize(kvSize),
         cached(false), is_agg(is_agg){
         //TODO initializations
+    
+    pg = new OutputPlugin(context, mat, NULL);
+
+    /* What (ht* + payload) points to: TBD */
+    /* Result type specified during output plugin construction */
+    payloadType = pg->getPayloadType();
 }
 
 RadixJoinBuild::~RadixJoinBuild() {
@@ -236,21 +242,18 @@ void RadixJoinBuild::consume(   GpuRawContext* const context    ,
     RawCatalog  &catalog        = RawCatalog::getInstance()     ;
     
     Type        *int8_type      = Type::getInt8Ty(llvmContext)  ;
+    Type        *int64_type     = Type::getInt64Ty(llvmContext) ;
     PointerType *void_ptr_type  = PointerType::get(int8_type, 0);
 
     if(!cached){
         const map<RecordAttribute, RawValueMemory>& bindings =
                  childState.getBindings();
 
-        OutputPlugin *pg = new OutputPlugin(context, mat, bindings);
-
-        /* What (ht* + payload) points to: TBD */
-        /* Result type specified during output plugin construction */
-        payloadType = pg->getPayloadType();
+        pg->setBindings(&bindings);
 
         /* 3rd Method to calculate size */
         /* REMEMBER: PADDING DOES MATTER! */
-        Value *val_payloadSize  = ConstantExpr::getSizeOf(payloadType);
+        Value *val_payloadSize  = ConstantInt::get((IntegerType *) int64_type, context->getSizeOf(payloadType));
 
         /* Registering payload type of HT in RAW CATALOG */
         /**
@@ -328,37 +331,37 @@ void RadixJoinBuild::consume(   GpuRawContext* const context    ,
         vector<Type*> *materializedTypes = pg->getMaterializedTypes();
         //Storing all activeTuples met so far
         int offsetInStruct = 0; //offset inside the struct (+current field manipulated)
-        RawValueMemory mem_activeTuple;
-        {
+        // RawValueMemory mem_activeTuple;
+        // {
             //cout << "ORDER OF LEFT FIELDS MATERIALIZED"<<endl;
-            map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
-            for (memSearch = bindings.begin(); memSearch != bindings.end();
-                    memSearch++) {
-                RecordAttribute currAttr = memSearch->first;
-                //cout << currAttr.getRelationName() << "_" << currAttr.getAttrName() << endl;
-                if (currAttr.getAttrName() == activeLoop) {
-                    mem_activeTuple = memSearch->second;
-                    Value* val_activeTuple = Builder->CreateLoad(
-                            mem_activeTuple.mem);
-                    //OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
-                    vector<Value*> idxList = vector<Value*>();
-                    idxList.push_back(context->createInt32(0));
-                    idxList.push_back(context->createInt32(offsetInStruct));
-                    //Shift in struct ptr
-                    Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
-                            idxList);
-                    StoreInst *store_activeTuple = Builder->CreateStore(
-                            val_activeTuple, structPtr);
-                    store_activeTuple->setAlignment(8);
-                    offsetInStruct++;
-                }
-            }
-        }
+            // map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+            // for (memSearch = bindings.begin(); memSearch != bindings.end();
+            //         memSearch++) {
+            //     RecordAttribute currAttr = memSearch->first;
+            //     //cout << currAttr.getRelationName() << "_" << currAttr.getAttrName() << endl;
+            //     if (currAttr.getAttrName() == activeLoop) {
+            //         mem_activeTuple = memSearch->second;
+            //         Value* val_activeTuple = Builder->CreateLoad(
+            //                 mem_activeTuple.mem);
+            //         //OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR EXTRA OFFSET
+            //         vector<Value*> idxList = vector<Value*>();
+            //         idxList.push_back(context->createInt32(0));
+            //         idxList.push_back(context->createInt32(offsetInStruct));
+            //         //Shift in struct ptr
+            //         Value* structPtr = Builder->CreateGEP(cast_arenaShifted,
+            //                 idxList);
+            //         StoreInst *store_activeTuple = Builder->CreateStore(
+            //                 val_activeTuple, structPtr);
+            //         store_activeTuple->setAlignment(8);
+            //         offsetInStruct++;
+            //     }
+            // }
+        // }
 
 
         /* XXX Careful: Cache-aware */
         int offsetInWanted = 0;
-        for (RecordAttribute * const &wf: mat.getWantedFields()) {
+        for (const auto &we: mat.getWantedExpressions()) {
 
             Value* valToMaterialize = NULL;
             //Check if cached - already done in output pg..
@@ -367,14 +370,14 @@ void RadixJoinBuild::consume(   GpuRawContext* const context    ,
             CachingService& cache = CachingService::getInstance();
             /* expr does not participate in caching search, so don't need it explicitly => mock */
             list<RecordAttribute*> mockAtts = list<RecordAttribute*>();
-            mockAtts.push_back(wf);
+            mockAtts.push_back(new RecordAttribute(we->getRegisteredAs()));
             list<RecordAttribute> mockProjections;
             RecordType mockRec = RecordType(mockAtts);
             expressions::InputArgument *mockExpr =
                     new expressions::InputArgument(&mockRec, 0,
                             mockProjections);
             expressions::RecordProjection *e =
-                    new expressions::RecordProjection(mockExpr, *wf);
+                    new expressions::RecordProjection(mockExpr, we->getRegisteredAs());
             info = cache.getCache(e);
             if (info.structFieldNo != -1) {
                 if (!cache.getCacheIsFull(e)) {
@@ -395,12 +398,19 @@ void RadixJoinBuild::consume(   GpuRawContext* const context    ,
                         (plugin->readCachedValue(info, bindings)).value;
             } else {
                 map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
-                        bindings.find(*wf);
-                RawValueMemory currValMem = memSearch->second;
-                /* FIX THE NECESSARY CONVERSIONS HERE */
-                Value* currVal = Builder->CreateLoad(currValMem.mem);
-                valToMaterialize = pg->convert(currVal->getType(),
-                        materializedTypes->at(offsetInWanted), currVal);
+                        bindings.find(we->getRegisteredAs());
+                if (memSearch != bindings.end()){
+                    RawValueMemory currValMem = memSearch->second;
+                    /* FIX THE NECESSARY CONVERSIONS HERE */
+                    Value* currVal = Builder->CreateLoad(currValMem.mem);
+                    valToMaterialize = pg->convert(currVal->getType(),
+                            materializedTypes->at(offsetInWanted), currVal);
+                } else {
+                    ExpressionGeneratorVisitor exprGen{context, childState};
+                    RawValue currVal = we->accept(exprGen);
+                    /* FIX THE NECESSARY CONVERSIONS HERE */
+                    valToMaterialize = currVal.value;
+                }
             }
             vector<Value*> idxList = vector<Value*>();
             idxList.push_back(context->createInt32(0));
@@ -466,7 +476,7 @@ void RadixJoinBuild::consume(   GpuRawContext* const context    ,
 //      int payloadPtrSize = sizeof(size_t);
 //      Value *val_payloadPtrSize = context->createInt64(payloadPtrSize);
 //      Value *offsetPlusPayloadPtr = Builder->CreateAdd(offsetPlusKey,val_payloadPtrSize);
-        Value *kvSize = ConstantExpr::getSizeOf(htEntryType);
+        Value *kvSize = ConstantInt::get((IntegerType *) int64_type, context->getSizeOf(htEntryType));
         Value *offsetPlusKVPair = Builder->CreateAdd(offsetInHT, kvSize);
 
         Value *htSize = Builder->CreateLoad(context->getStateVar(ht.mem_size_id));
@@ -482,7 +492,7 @@ void RadixJoinBuild::consume(   GpuRawContext* const context    ,
                 void_ptr_type);
         ArgsRealloc.clear();
         ArgsRealloc.push_back(cast_htEntries);
-        ArgsRealloc.push_back(htSize);
+        ArgsRealloc.push_back(htSize); //realloc takes old size (and doubles mem)
         Value *val_newVoidHTPtr = Builder->CreateCall(reallocLLVM,
                 ArgsRealloc);
 
@@ -625,34 +635,40 @@ RadixJoin::~RadixJoin() {
 }
 
 int32_t * RadixJoinBuild::getClusterCounts(RawPipeline * pip) {
+    assert(pip->getGroup() < 128);
     int32_t * cnts = clusterCounts[pip->getGroup()];
     assert(cnts);
     return cnts;
 }
 
 void RadixJoinBuild::registerClusterCounts(RawPipeline * pip, int32_t * cnts) {
+    assert(pip->getGroup() < 128);
     assert(cnts);
     clusterCounts[pip->getGroup()] = cnts;
 }
 
 void * RadixJoinBuild::getHTMemKV(RawPipeline * pip) {
+    assert(pip->getGroup() < 128);
     void * mem_kv = ht_mem_kv[pip->getGroup()];
     assert(mem_kv);
     return mem_kv;
 }
 
 void RadixJoinBuild::registerHTMemKV(RawPipeline * pip, void * mem_kv) {
+    assert(pip->getGroup() < 128);
     assert(mem_kv);
     ht_mem_kv[pip->getGroup()] = mem_kv;
 }
 
 void * RadixJoinBuild::getRelationMem(RawPipeline * pip) {
+    assert(pip->getGroup() < 128);
     void * rel_mem = relation_mem[pip->getGroup()];
     assert(rel_mem);
     return rel_mem;
 }
 
 void RadixJoinBuild::registerRelationMem(RawPipeline * pip, void * rel_mem) {
+    assert(pip->getGroup() < 128);
     assert(rel_mem);
     relation_mem[pip->getGroup()] = rel_mem;
 }
@@ -686,6 +702,13 @@ void      registerRelationMem   (RawPipeline * pip, void * rel_mem  , RadixJoinB
 }
 
 void RadixJoin::produce() {
+    runRadix();
+
+    context->popNewPipeline();
+
+    auto flush_pip = context->removeLatestPipeline();
+    flush_fun = flush_pip->getKernel();
+
     context->pushNewCpuPipeline(); //FIXME: find a better way to do this
 
     RawOperator *leftChild = getLeftChild();
@@ -710,7 +733,14 @@ void RadixJoin::produce() {
 
     // auto radix_pip = context->getCurrentPipeline();
     context->pushNewCpuPipeline(); //FIXME: find a better way to do this
-    // context->setChainedPipeline(radix_pip);
+
+
+    RawOperator *rightChild = getRightChild();
+    rightChild->setParent(buildS);
+    buildS->setParent(this);
+    setRightChild(buildS);
+
+    // context->appendStateVar(llvm::Type *ptype)
 
     // context->appendStateVar(
     //     Type::getInt32Ty(context->getLLVMContext()),
@@ -732,17 +762,10 @@ void RadixJoin::produce() {
     //         Builder->CreateCall(f, vector<Value *>{substate});
     //     }
     // );
-
-    RawOperator *rightChild = getRightChild();
-    rightChild->setParent(buildS);
-    buildS->setParent(this);
-    setRightChild(buildS);
     
+    context->setChainedPipeline(flush_pip);
+
     buildS->produce();
-
-    context->popNewPipeline();
-
-    runRadix();
 }
 
 void RadixJoin::consume(RawContext* const context,
@@ -919,12 +942,18 @@ void RadixJoin::runRadix() const    {
 
     context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
+    std::string relName = getMaterializerRight().getWantedExpressions().back()->getRegisteredRelName();
+    Plugin * pg = RawCatalog::getInstance().getPlugin(relName);
+    ExpressionType * oid_type = pg->getOIDType();
+    IntegerType * llvm_oid_type = (IntegerType *) oid_type->getLLVMType(llvmContext);
+    AllocaInst *mem_outCount = Builder->CreateAlloca(llvm_oid_type, 0, "join_oid");
     AllocaInst *mem_rCount =
                 Builder->CreateAlloca(int32_type,0,"rCount");
     AllocaInst *mem_sCount =
                 Builder->CreateAlloca(int32_type,0,"sCount");
     AllocaInst *mem_clusterCount =
                 Builder->CreateAlloca(int32_type,0,"clusterCount");
+    Builder->CreateStore(ConstantInt::get(llvm_oid_type, 0), mem_outCount);
     Builder->CreateStore(val_zero,mem_rCount);
     Builder->CreateStore(val_zero,mem_sCount);
     Builder->CreateStore(val_zero,mem_clusterCount);
@@ -935,12 +964,12 @@ void RadixJoin::runRadix() const    {
     /* Request memory for HT(s) construction        */
     /* Note: Does not allocate mem. for buckets too */
     size_t htSize = (1 << NUM_RADIX_BITS) * sizeof(HT);
-    HT * HT_per_cluster = (HT *) getMemoryChunk(htSize); //FIXME: do in codegen, otherwise it prevent parallelization!!!!
 
     Builder->CreateAlloca(htClusterType, 0, "HTimpl");
     PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
-    Value *val_htPerCluster =
-            context->CastPtrToLlvmPtr(htClusterPtrType, HT_per_cluster);
+    Function *f_getMemoryChunk = context->getFunction("getMemoryChunk");
+    Value * HT_mem = Builder->CreateCall(f_getMemoryChunk, vector<Value *>{context->createSizeT(htSize)});
+    Value * val_htPerCluster = Builder->CreateBitCast(HT_mem, htClusterPtrType);
 
     AllocaInst *mem_probesNo = Builder->CreateAlloca(int32_type,0,"mem_counter");
     Builder->CreateStore(val_zero,mem_probesNo);
@@ -1189,35 +1218,35 @@ void RadixJoin::runRadix() const    {
                     /* LEFT SIDE (RELATION R)*/
                     //Retrieving activeTuple(s) from HT
                     {
-                        AllocaInst *mem_activeTuple = NULL;
+//                         AllocaInst *mem_activeTuple = NULL;
                         int i = 0;
-//                      const set<RecordAttribute>& tuplesIdentifiers =
-//                              matLeft.getTupleIdentifiers();
-                        for (RecordAttribute *attr: getMaterializerLeft().getWantedOIDs()) {
-                            mem_activeTuple = context->CreateEntryBlockAlloca(F,
-                                    "mem_activeTuple",
-                                    rPayloadType->getElementType(i));
-                            vector<Value*> idxList = vector<Value*>();
-                            idxList.push_back(context->createInt32(0));
-                            idxList.push_back(context->createInt32(i));
+// //                      const set<RecordAttribute>& tuplesIdentifiers =
+// //                              matLeft.getTupleIdentifiers();
+//                         for (RecordAttribute *attr: getMaterializerLeft().getWantedOIDs()) {
+//                             mem_activeTuple = context->CreateEntryBlockAlloca(F,
+//                                     "mem_activeTuple",
+//                                     rPayloadType->getElementType(i));
+//                             vector<Value*> idxList = vector<Value*>();
+//                             idxList.push_back(context->createInt32(0));
+//                             idxList.push_back(context->createInt32(i));
 
-                            Value *elem_ptr = Builder->CreateGEP(mem_payload_r,
-                                    idxList);
-                            Value *val_activeTuple = Builder->CreateLoad(
-                                    elem_ptr);
-                            StoreInst *store_activeTuple = Builder->CreateStore(
-                                    val_activeTuple, mem_activeTuple);
-                            store_activeTuple->setAlignment(8);
+//                             Value *elem_ptr = Builder->CreateGEP(mem_payload_r,
+//                                     idxList);
+//                             Value *val_activeTuple = Builder->CreateLoad(
+//                                     elem_ptr);
+//                             StoreInst *store_activeTuple = Builder->CreateStore(
+//                                     val_activeTuple, mem_activeTuple);
+//                             store_activeTuple->setAlignment(8);
 
-                            RawValueMemory mem_valWrapper;
-                            mem_valWrapper.mem = mem_activeTuple;
-                            mem_valWrapper.isNull = context->createFalse();
-                            (*allJoinBindings)[*attr] = mem_valWrapper;
-                            i++;
-                        }
+//                             RawValueMemory mem_valWrapper;
+//                             mem_valWrapper.mem = mem_activeTuple;
+//                             mem_valWrapper.isNull = context->createFalse();
+//                             (*allJoinBindings)[*attr] = mem_valWrapper;
+//                             i++;
+//                         }
 
-                        for (RecordAttribute * attr2: getMaterializerLeft().getWantedFields()) {
-                            string currField = attr2->getName();
+                        for (const auto &expr2: getMaterializerLeft().getWantedExpressions()) {
+                            string currField = expr2->getRegisteredAttrName();
                             AllocaInst * mem_field = context->CreateEntryBlockAlloca(F,
                                     "mem_" + currField,
                                     rPayloadType->getElementType(i));
@@ -1243,7 +1272,7 @@ void RadixJoin::runRadix() const    {
 //                          Builder->CreateCall(debugInt, ArgsV);
 #endif
 
-                            (*allJoinBindings)[*attr2] = mem_valWrapper;
+                            (*allJoinBindings)[expr2->getRegisteredAs()] = mem_valWrapper;
                             i++;
                         }
                     }
@@ -1257,41 +1286,41 @@ void RadixJoin::runRadix() const    {
 #endif
                     /* RIGHT SIDE (RELATION S) */
                     {
-                        AllocaInst *mem_activeTuple = NULL;
+                        // AllocaInst *mem_activeTuple = NULL;
                         int i = 0;
-                        for (RecordAttribute *attr: getMaterializerRight().getWantedOIDs()) {
-                            mem_activeTuple = context->CreateEntryBlockAlloca(F,
-                                    "mem_activeTuple",
-                                    sPayloadType->getElementType(i));
-                            vector<Value*> idxList = vector<Value*>();
-                            idxList.push_back(context->createInt32(0));
-                            idxList.push_back(context->createInt32(i));
+//                         for (RecordAttribute *attr: getMaterializerRight().getWantedOIDs()) {
+//                             mem_activeTuple = context->CreateEntryBlockAlloca(F,
+//                                     "mem_activeTuple",
+//                                     sPayloadType->getElementType(i));
+//                             vector<Value*> idxList = vector<Value*>();
+//                             idxList.push_back(context->createInt32(0));
+//                             idxList.push_back(context->createInt32(i));
 
-                            Value *elem_ptr = Builder->CreateGEP(mem_payload_s,
-                                    idxList);
-                            Value *val_activeTuple = Builder->CreateLoad(
-                                    elem_ptr);
-                            StoreInst *store_activeTuple = Builder->CreateStore(
-                                    val_activeTuple, mem_activeTuple);
-                            store_activeTuple->setAlignment(8);
+//                             Value *elem_ptr = Builder->CreateGEP(mem_payload_s,
+//                                     idxList);
+//                             Value *val_activeTuple = Builder->CreateLoad(
+//                                     elem_ptr);
+//                             StoreInst *store_activeTuple = Builder->CreateStore(
+//                                     val_activeTuple, mem_activeTuple);
+//                             store_activeTuple->setAlignment(8);
 
-                            RawValueMemory mem_valWrapper;
-                            mem_valWrapper.mem = mem_activeTuple;
-                            mem_valWrapper.isNull = context->createFalse();
-                            (*allJoinBindings)[*attr] = mem_valWrapper;
-                            i++;
-#ifdef DEBUGRADIX
-                            {
-                                /* Printing key(s) */
-                                vector<Value*> ArgsV;
-                                ArgsV.push_back(val_activeTuple);
-                                Builder->CreateCall(debugInt64, ArgsV);
-                            }
-#endif
-                        }
+//                             RawValueMemory mem_valWrapper;
+//                             mem_valWrapper.mem = mem_activeTuple;
+//                             mem_valWrapper.isNull = context->createFalse();
+//                             (*allJoinBindings)[*attr] = mem_valWrapper;
+//                             i++;
+// #ifdef DEBUGRADIX
+//                             {
+//                                 /* Printing key(s) */
+//                                 vector<Value*> ArgsV;
+//                                 ArgsV.push_back(val_activeTuple);
+//                                 Builder->CreateCall(debugInt64, ArgsV);
+//                             }
+// #endif
+//                         }
 
-                        for (RecordAttribute *attr2: getMaterializerRight().getWantedFields()) {
-                            string currField = attr2->getName();
+                        for (const auto &expr2: getMaterializerRight().getWantedExpressions()) {
+                            string currField = expr2->getRegisteredAttrName();
                             AllocaInst * mem_field = context->CreateEntryBlockAlloca(F,
                                     "mem_" + currField,
                                     sPayloadType->getElementType(i));
@@ -1315,10 +1344,16 @@ void RadixJoin::runRadix() const    {
 //                          ArgsV.push_back(Builder->CreateLoad(mem_field));
 //                          Builder->CreateCall(debugInt, ArgsV);
 #endif
-                            (*allJoinBindings)[*attr2] = mem_valWrapper;
+                            (*allJoinBindings)[expr2->getRegisteredAs()] = mem_valWrapper;
                             i++;
                         }
                     }
+
+                    RecordAttribute oid{-1, relName, activeLoop, oid_type};
+                    RawValueMemory oid_mem;
+                    oid_mem.mem = mem_outCount;
+                    oid_mem.isNull = context->createFalse();
+                    (*allJoinBindings)[oid] = oid_mem;
 #ifdef DEBUGRADIX
                     {
                     /* Printing key(s) */
@@ -1330,6 +1365,10 @@ void RadixJoin::runRadix() const    {
                     /* Trigger Parent */
                     OperatorState newState{*this, *allJoinBindings};
                     getParent()->consume(context, newState);
+
+                    Value * old_oid = Builder->CreateLoad(mem_outCount);
+                    Value * nxt_oid = Builder->CreateAdd(old_oid, ConstantInt::get(llvm_oid_type, 1));
+                    Builder->CreateStore(nxt_oid, mem_outCount);
 
                     Builder->CreateBr(hitLoopInc);
                 }

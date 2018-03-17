@@ -153,13 +153,19 @@ private:
     GpuRawContext * const       context         ;
     expressions::Expression    *keyExpr         ;
 
+    OutputPlugin               *pg              ;
+
     Materializer               &mat             ;
     StructType                 *htEntryType     ;
     StructType                 *payloadType     ;
 
-    std::map<int32_t, int32_t *>    clusterCounts   ;
-    std::map<int32_t, void    *>    ht_mem_kv       ;
-    std::map<int32_t, void    *>    relation_mem    ;
+    int32_t *    clusterCounts[128]  ;
+    void    *    ht_mem_kv    [128]  ;
+    void    *    relation_mem [128]  ;
+
+    // std::map<int32_t, int32_t *>    clusterCounts   ;
+    // std::map<int32_t, void    *>    ht_mem_kv       ;
+    // std::map<int32_t, void    *>    relation_mem    ;
 };
 
 class RadixJoin: public BinaryRawOperator {
@@ -224,6 +230,7 @@ private:
 
 	string htLabel;
 	GpuRawContext * const context;
+    void * flush_fun;
 
 	// /* Cache- related */
 	// bool cachedLeft;
