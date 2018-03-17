@@ -25,6 +25,7 @@
 #define MEMORY_ALLOCATOR_HPP_
 
 #include "common/common.hpp"
+#include <mutex>
 
 /**
  * TODO
@@ -49,11 +50,13 @@ public:
 	}
 
 	void registerChunk(void* mem_chunk) {
+		std::lock_guard<std::mutex> lock(m);
 //		cout << "Registering " << mem_chunk << endl;
 		memoryChunks.push_back(mem_chunk);
 	}
 
 	void removeChunk(void* mem_chunk) {
+		std::lock_guard<std::mutex> lock(m);
 //		cout << "Removing " << mem_chunk << endl;
 
 		vector<void*>::iterator it = memoryChunks.begin();
@@ -71,17 +74,20 @@ public:
 	}
 
 	void updateChunk(void *mem_before, void *mem_after) {
-		vector<void*>::iterator it = memoryChunks.begin();
-		for (; it != memoryChunks.end(); it++) {
-			void* currChunk = (*it);
-			if (currChunk == mem_before)
-				memoryChunks.erase(it);
-			memoryChunks.push_back(mem_after);
-			break;
-		}
+		removeChunk(mem_before);
+		registerChunk(mem_after);
+		// vector<void*>::iterator it = memoryChunks.begin();
+		// for (; it != memoryChunks.end(); it++) {
+		// 	void* currChunk = (*it);
+		// 	if (currChunk == mem_before)
+		// 		memoryChunks.erase(it);
+		// 	memoryChunks.push_back(mem_after);
+		// 	break;
+		// }
 	}
 
 	void clear() {
+		std::lock_guard<std::mutex> lock(m);
 		vector<void*>::iterator it = memoryChunks.begin();
 		for (; it != memoryChunks.end(); it++) {
 			void* currChunk = (*it);
@@ -92,6 +98,8 @@ public:
 	}
 private:
 	vector<void*> memoryChunks;
+	std::mutex    m;
+
 	MemoryService()  {}
 	~MemoryService() {}
 
