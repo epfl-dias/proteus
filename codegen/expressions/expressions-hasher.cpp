@@ -302,9 +302,22 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 		RawValue mem_val;
 		//cout << "Active Relation: " << e->getProjectionName() << endl;
 		if (e->getProjectionName() != activeLoop) {
+			const RecordType * exprType = dynamic_cast<const RecordType *>(e->getExpr()->getExpressionType());
+			if (exprType){
+				RecordAttribute attr = e->getAttribute();
+				Value * val = exprType->projectArg(record.value, &attr, context->getBuilder());
+				if (val){
+					RawValue valWrapper;
+					valWrapper.value  = val;
+					valWrapper.isNull = record.isNull; //FIXME: what if only one attribute is NULL?
+
+					return plugin->hashValueEager(valWrapper, attr.getOriginalType());
+				}
+			}
+
 			//Path involves a projection / an object
 			mem_path = plugin->readPath(activeRelation, bindings,
-					e->getProjectionName().c_str(),e->getAttribute());
+					e->getProjectionName().c_str(), e->getAttribute());
 		} else {
 			//Path involves a primitive datatype
 			//(e.g., the result of unnesting a list of primitives)
