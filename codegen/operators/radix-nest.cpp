@@ -22,8 +22,22 @@
 */
 
 #include "operators/radix-nest.hpp"
+#include  "plugins/csv-plugin-pm.hpp"
+#include "expressions/expressions-flusher.hpp"
 
 namespace radix	{
+
+
+
+Nest::Nest(RawContext* const context, vector<Monoid> accs,
+            vector<expressions::Expression*> outputExprs,
+            vector<string> aggrLabels,
+            expressions::Expression *pred,
+            expressions::Expression *f_grouping,
+            expressions::Expression *g_nullToZero,
+            RawOperator* const child, const char* opLabel, Materializer& mat):
+Nest(context, accs, outputExprs, aggrLabels, pred, std::vector<expressions::Expression *>{f_grouping}, g_nullToZero, child, opLabel, mat)
+{}
 /**
  * XXX NOTE on materializer:
  * While in the case of JSON the OID is enough to reconstruct anything needed,
@@ -35,12 +49,11 @@ namespace radix	{
  */
 Nest::Nest(RawContext* const context, vector<Monoid> accs,
 		vector<expressions::Expression*> outputExprs, vector<string> aggrLabels,
-		expressions::Expression *pred, expressions::Expression *f_grouping,
+		expressions::Expression *pred, std::vector<expressions::Expression *> f_grouping,
 		expressions::Expression *g_nullToZero, RawOperator* const child,
 		const char *opLabel, Materializer& mat) :
 		UnaryRawOperator(child), accs(accs), outputExprs(outputExprs), aggregateLabels(
-				aggrLabels), pred(pred), g_nullToZero(g_nullToZero), f_grouping(
-				f_grouping), mat(mat), htName(opLabel), context((GpuRawContext * const) context)
+				aggrLabels), pred(pred), g_nullToZero(g_nullToZero), mat(mat), htName(opLabel), context((GpuRawContext * const) context)
 {
 	if (accs.size() != outputExprs.size() || accs.size() != aggrLabels.size()) {
 		string error_msg = string("[NEST: ] Erroneous constructor args");
@@ -49,8 +62,19 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs,
 	}
 
     RawCatalog& catalog = RawCatalog::getInstance();
-    Plugin *htPlugin = new BinaryInternalPlugin(context, htName);
-    catalog.registerPlugin(htName, htPlugin);
+
+    Plugin * htPlugin;
+    {
+        //TODO: using a binary internal plugin seems more appropriate, but creates some problems, especially with records and lists for now
+        RecordType * rec = new RecordType();
+
+        vector<RecordAttribute *> projs;
+        std::string * htString = new std::string(htName);
+        htPlugin = new pm::CSVPlugin(context, *htString, *rec, projs, 1, 1);
+        catalog.registerPlugin(*htString, htPlugin);
+    }
+    // Plugin *htPlugin = new BinaryInternalPlugin(context, htName);
+    // catalog.registerPlugin(htName, htPlugin);
 
     assert(dynamic_cast<GpuRawContext * const>(context) && "Should update caller to use the new context!");
     LLVMContext& llvmContext = context->getLLVMContext();
@@ -59,6 +83,34 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs,
     Type *int32_type = Type::getInt32Ty(llvmContext);
 
     Type *int32_ptr_type = PointerType::getUnqual(int32_type);
+
+    if (f_grouping.size() > 1){
+        list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
+        std::vector<RecordAttribute *> recattr;
+        std::string attrName = "__key";
+        for (auto expr: f_grouping){
+            assert(expr->isRegistered() && "All output expressions must be registered!");
+            expressions::AttributeConstruction *newAttr =
+                                            new expressions::AttributeConstruction(
+                                                expr->getRegisteredAttrName(),
+                                                expr
+                                            );
+            attrs->push_back(*newAttr);
+            recattr.push_back(new RecordAttribute{expr->getRegisteredAs()});
+            attrName += "_" + expr->getRegisteredAttrName();
+            f_grouping_vec.push_back(expr);
+        }
+
+        this->f_grouping = new expressions::RecordConstruction(new RecordType(recattr), *attrs);
+        this->f_grouping->registerAs(f_grouping[0]->getRegisteredRelName(), attrName);
+    } else {
+        this->f_grouping = f_grouping[0];
+        f_grouping_vec.push_back(this->f_grouping);
+    }
+
+
+
+
 
 	/* What the type of internal radix HT per cluster is 	*/
 	/* (int32*, int32*, unit32_t, void*, int32) */
@@ -72,7 +124,7 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs,
 	htRadixClusterMembers.push_back(int32_type);
 	htClusterType = StructType::get(context->getLLVMContext(),htRadixClusterMembers);
 
-    expressions::Expression * he = new expressions::HashExpression(f_grouping);
+    expressions::Expression * he = new expressions::HashExpression(this->f_grouping);
     const ExpressionType * he_type = he->getExpressionType();
 	/* XXX What the type of HT entries is */
 	/* (size_t, size_t) */
@@ -97,6 +149,7 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs,
 	//size_t size = 1000;
 	size_t kvSize = size;
 
+    assert(context->getSizeOf(he_type->getLLVMType(llvmContext)) == (64/8));
     build = new RadixJoinBuild( he,
                                 child,
                                 this->context,
@@ -106,9 +159,18 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs,
                                 size,
                                 kvSize,
                                 true);
+
+//  /* Defined in consume() */
+    payloadType = build->getPayloadType();
 }
 
 void Nest::produce() {
+    probeHT();
+    
+    context->popNewPipeline();
+
+    auto flush_pip = context->removeLatestPipeline();
+
     context->pushNewCpuPipeline();
 
     // context->appendStateVar(
@@ -137,18 +199,16 @@ void Nest::produce() {
     build->setParent(this);
     setChild(build);
     
+    context->setChainedPipeline(flush_pip);
     build->produce();
 
-    context->popNewPipeline();
+    // context->popNewPipeline();
 
-// 	/* Defined in consume() */
-	payloadType = build->getPayloadType();
 
 // 	getChild()->produce();
 
 	//generateProbe(this->context);
 	// updateRelationPointers();
-	probeHT();
 }
 
 void Nest::consume(RawContext* const context, const OperatorState& childState) {
@@ -187,49 +247,50 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 			payloadPtrType);
 	Value *val_payload_r = Builder->CreateLoad(mem_payload);
 
-
 	{
 		//Retrieving activeTuple(s) from HT
-		AllocaInst *mem_activeTuple = NULL;
+		// AllocaInst *mem_activeTuple = NULL;
 		int i = 0;
-//		const set<RecordAttribute>& tuplesIdentifiers =
-//				mat.getTupleIdentifiers();
-		const vector<RecordAttribute*>& tuplesIdentifiers = mat.getWantedOIDs();
-//		cout << "How many OIDs? " << tuplesIdentifiers.size() << endl;
-		vector<RecordAttribute*>::const_iterator it = tuplesIdentifiers.begin();
-		for (; it != tuplesIdentifiers.end(); it++) {
-			RecordAttribute *attr = *it;
+// //		const set<RecordAttribute>& tuplesIdentifiers =
+// //				mat.getTupleIdentifiers();
+// 		const vector<RecordAttribute*>& tuplesIdentifiers = mat.getWantedOIDs();
+// //		cout << "How many OIDs? " << tuplesIdentifiers.size() << endl;
+// 		vector<RecordAttribute*>::const_iterator it = tuplesIdentifiers.begin();
+// 		for (; it != tuplesIdentifiers.end(); it++) {
+// 			RecordAttribute *attr = *it;
+// //			cout << "Dealing with " << attr->getRelationName() << "_"
+// //					<< attr->getAttrName() << endl;
+// 			mem_activeTuple = context->CreateEntryBlockAlloca(F,
+// 					"mem_activeTuple", payloadType->getElementType(i));
+// 			vector<Value*> idxList = vector<Value*>();
+// 			idxList.push_back(context->createInt32(0));
+// 			idxList.push_back(context->createInt32(i));
+
+// 			Value *elem_ptr = Builder->CreateGEP(mem_payload, idxList);
+// 			Value *val_activeTuple = Builder->CreateLoad(elem_ptr);
+// 			StoreInst *store_activeTuple = Builder->CreateStore(val_activeTuple,
+// 					mem_activeTuple);
+// 			store_activeTuple->setAlignment(8);
+
+// 			RawValueMemory mem_valWrapper;
+// 			mem_valWrapper.mem = mem_activeTuple;
+// 			mem_valWrapper.isNull = context->createFalse();
+// 			(*allGroupBindings)[*attr] = mem_valWrapper;
+// 			i++;
+// 		}
+
+		// AllocaInst *mem_field = NULL;
+// 		const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
+// 		vector<RecordAttribute*>::const_iterator it2 = wantedFields.begin();
+// 		for (; it2 != wantedFields.end(); it2++) {
+        for (const auto &expr2: mat.getWantedExpressions()) {
+			// RecordAttribute *attr = *it2;
 //			cout << "Dealing with " << attr->getRelationName() << "_"
 //					<< attr->getAttrName() << endl;
-			mem_activeTuple = context->CreateEntryBlockAlloca(F,
-					"mem_activeTuple", payloadType->getElementType(i));
-			vector<Value*> idxList = vector<Value*>();
-			idxList.push_back(context->createInt32(0));
-			idxList.push_back(context->createInt32(i));
 
-			Value *elem_ptr = Builder->CreateGEP(mem_payload, idxList);
-			Value *val_activeTuple = Builder->CreateLoad(elem_ptr);
-			StoreInst *store_activeTuple = Builder->CreateStore(val_activeTuple,
-					mem_activeTuple);
-			store_activeTuple->setAlignment(8);
-
-			RawValueMemory mem_valWrapper;
-			mem_valWrapper.mem = mem_activeTuple;
-			mem_valWrapper.isNull = context->createFalse();
-			(*allGroupBindings)[*attr] = mem_valWrapper;
-			i++;
-		}
-
-		AllocaInst *mem_field = NULL;
-		const vector<RecordAttribute*>& wantedFields = mat.getWantedFields();
-		vector<RecordAttribute*>::const_iterator it2 = wantedFields.begin();
-		for (; it2 != wantedFields.end(); it2++) {
-			RecordAttribute *attr = *it2;
-//			cout << "Dealing with " << attr->getRelationName() << "_"
-//					<< attr->getAttrName() << endl;
-
-			string currField = (*it2)->getName();
-			mem_field = context->CreateEntryBlockAlloca(F, "mem_" + currField,
+			// string currField = (*it2)->getName();
+            string currField = expr2->getRegisteredAttrName();
+			AllocaInst * mem_field = context->CreateEntryBlockAlloca(F, "mem_" + currField,
 					payloadType->getElementType(i));
 			vector<Value*> idxList = vector<Value*>();
 			idxList.push_back(context->createInt32(0));
@@ -243,7 +304,7 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 			mem_valWrapper.mem = mem_field;
 			mem_valWrapper.isNull = context->createFalse();
 
-			(*allGroupBindings)[*(*it2)] = mem_valWrapper;
+			(*allGroupBindings)[expr2->getRegisteredAs()] = mem_valWrapper;
 			i++;
 		}
 	}
@@ -349,12 +410,15 @@ void Nest::probeHT() const	{
     /* Request memory for HT(s) construction        */
     /* Note: Does not allocate mem. for buckets too */
     size_t htSize = (1 << NUM_RADIX_BITS) * sizeof(HT);
-    HT * HT_per_cluster = (HT *) getMemoryChunk(htSize); //FIXME: do in codegen, otherwise it prevent parallelization!!!!
+    // HT * HT_per_cluster = (HT *) getMemoryChunk(htSize); //FIXME: do in codegen, otherwise it prevent parallelization!!!!
 
 	Builder->CreateAlloca(htClusterType, 0, "HTimpl");
 	PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
-	Value *val_htPerCluster = context->CastPtrToLlvmPtr(htClusterPtrType,
-			HT_per_cluster);
+	// Value *val_htPerCluster = context->CastPtrToLlvmPtr(htClusterPtrType,
+	// 		HT_per_cluster);
+    Function *f_getMemoryChunk = context->getFunction("getMemoryChunk");
+    Value * HT_mem = Builder->CreateCall(f_getMemoryChunk, vector<Value *>{context->createSizeT(htSize)});
+    Value * val_htPerCluster = Builder->CreateBitCast(HT_mem, htClusterPtrType);
 
 	AllocaInst *mem_probesNo = Builder->CreateAlloca(int32_type, 0,
 			"mem_counter");
@@ -511,7 +575,13 @@ void Nest::probeHT() const	{
 			Value *val_num_radix_bits64 = context->createInt64(NUM_RADIX_BITS);
 			Value *val_mask =
 					context->getStructElem(val_htPerClusterShiftedPtr,2);
-			Value *val_mask64 = Builder->CreateSExt(val_mask,int64_type);
+            {Function* debugInt = context->getFunction("printi");
+                vector<Value*> ArgsV;
+                ArgsV.clear();
+                ArgsV.push_back(val_mask);
+                Builder->CreateCall(debugInt, ArgsV);
+            }
+			Value *val_mask64 = Builder->CreateZExt(val_mask,int64_type);
 			//Get key of current tuple (tmpR[j])
 			Value *htRshiftedPtr_j = Builder->CreateInBoundsGEP(htRshiftedPtr,
 					val_j);
@@ -526,6 +596,7 @@ void Nest::probeHT() const	{
 			OperatorState *currKeyState =
 					new OperatorState(*this,*currKeyBindings);
 			map<RecordAttribute, RawValueMemory> *retrievedBindings;
+
 			/**
 			 * Checking actual hits (when applicable)
 			 * for(int hit = (ht->bucket)[idx]; hit > 0; hit = (ht->next)[hit-1])
@@ -551,6 +622,7 @@ void Nest::probeHT() const	{
 				Builder->SetInsertPoint(hitLoopCond);
 				Value *val_hit = Builder->CreateLoad(mem_hit);
 				val_cond = Builder->CreateICmpSGT(val_hit, val_zero);
+
 				Builder->CreateCondBr(val_cond, hitLoopBody, hitLoopEnd);
 
 				/* 2. Body */
@@ -582,10 +654,38 @@ void Nest::probeHT() const	{
 					OperatorState *retrievedState = new OperatorState(*this,*retrievedBindings);
 
 					/* Condition: Checking dot equality */
-					ExpressionDotVisitor dotVisitor =
-							ExpressionDotVisitor(context,*currKeyState,*retrievedState);
-					RawValue val_condWrapper = f_grouping->acceptTandem(dotVisitor,f_grouping);
-					Value *val_cond = val_condWrapper.value;
+					ExpressionDotVisitor dotVisitor{context,*currKeyState,*retrievedState};
+
+                    Value * val_cond = context->createTrue();
+
+                    for (const auto &k: f_grouping_vec){
+                        RawValueMemory currKeyMem = currKeyState->getBindings().at(k->getRegisteredAs());
+                        Value *        currKey    = Builder->CreateLoad(currKeyMem.mem);
+                        RawValueMemory retrKeyMem = retrievedState->getBindings().at(k->getRegisteredAs());
+                        Value *        retrKey    = Builder->CreateLoad(retrKeyMem.mem);
+         //                expressions::RawValueExpression currKey{f_grouping->getExpressionType(), };
+
+
+         //                RecordAttribute                 att{f_grouping->getRegisteredAs()};
+         //                expressions::InputArgument      arg{att.getOriginalType(), -1, list<RecordAttribute>{att}};
+         //                expressions::RecordProjection   key{&arg, att};
+
+                        // std::cout << "=1?" << k->getRegisteredAs().getOriginalRelationName() << std::endl;
+                        // std::cout << "=2?" << k->getRegisteredAs().getRelationName() << std::endl;
+                        // std::cout << "=3?" << k->getRegisteredAs().getAttrName() << std::endl;
+                        // std::cout << "=4?" << k->getRegisteredAs().getType() << std::endl;
+                        // // RawValue val_condWrapper = key.acceptTandem(dotVisitor, &key);
+                        // if (k->getRegisteredAs().getOriginalType()->getTypeID() == DSTRING){
+                        //     // ExpressionFlusherVisitor fl{context, *currKeyState, "tmp.txt"};
+                        //     // RawValue v{currKey, context->createFalse()};
+                        //     // expressions::RawValueExpression{k->getExpressionType(), v}.accept(fl);
+                        //     Function *f = context->getFunction("printi");
+                        //     Builder->CreateCall(f, currKey);
+                        // }
+
+                        // FIMXE: do it using an (dot) equality expression of RawValueExpressions!!! (which should also handle lazy materializations)
+                        val_cond = Builder->CreateAnd(val_cond, Builder->CreateICmpEQ(retrKey, currKey));
+                    }
 					//Value *val_cond = context->createTrue();
 					//val_cond = Builder->CreateICmpEQ(tmp, tmp);
 					Builder->CreateCondBr(val_cond, ifKeyMatch, hitLoopInc);
@@ -631,6 +731,7 @@ void Nest::probeHT() const	{
                     Builder->SetInsertPoint(entryBlock);
 
                     Builder->CreateCondBr(condition.value, ifBlock, hitLoopInc);
+                    // Builder->CreateBr(ifBlock);
 
                     Builder->SetInsertPoint(ifBlock);
 
@@ -642,7 +743,7 @@ void Nest::probeHT() const	{
 							aggregateLabels.begin();
 					/* Accumulate FOREACH outputExpr */
 					for (; itAcc != accs.end();
-							itAcc++, itExpr++, itMem++, itLabels++) {
+							itAcc++, itExpr++, itMem++, itLabels++) { // increment only when using materialized results: 
 						Monoid acc = *itAcc;
 						expressions::Expression *outputExpr = *itExpr;
 						AllocaInst *mem_accumulating = *itMem;
@@ -661,9 +762,22 @@ void Nest::probeHT() const	{
                             acc_value.value  = Builder->CreateLoad(mem_accumulating);
                             acc_value.isNull = context->createFalse();
 
+                            const auto &f = retrievedState->getBindings().find(outputExpr->getRegisteredAs());
+                            RawValue acc_value2;
+                            if (f != retrievedState->getBindings().end()){
+                                RawValueMemory mem_val = f->second;
+                                acc_value2.value = Builder->CreateLoad(mem_val.mem);
+                                acc_value2.isNull = mem_val.isNull;
+                                // itExpr++;
+                            } else {
+                                acc_value2 = outputExpr->accept(outputExprGenerator);
+                            }
+
+
                             // new_value = acc_value op outputExpr
                             expressions::Expression * val = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc_value);
-                            expressions::Expression * upd = toExpression(acc, val, outputExpr);
+                            expressions::Expression * val2 = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc_value2);
+                            expressions::Expression * upd = toExpression(acc, val, val2);//outputExpr);
                             assert(upd && "Monoid is not convertible to expression!");
                             RawValue new_val = upd->accept(outputExprGenerator);
 

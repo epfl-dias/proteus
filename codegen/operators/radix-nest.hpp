@@ -89,6 +89,13 @@ public:
 			vector<expressions::Expression*> outputExprs,
 			vector<string> aggrLabels,
 			expressions::Expression *pred,
+			std::vector<expressions::Expression *>f_grouping,
+			expressions::Expression *g_nullToZero,
+			RawOperator* const child, const char* opLabel, Materializer& mat);
+	Nest(RawContext* const context, vector<Monoid> accs,
+			vector<expressions::Expression*> outputExprs,
+			vector<string> aggrLabels,
+			expressions::Expression *pred,
 			expressions::Expression *f_grouping,
 			expressions::Expression *g_nullToZero,
 			RawOperator* const child, const char* opLabel, Materializer& mat);
@@ -123,6 +130,7 @@ private:
 	expressions::Expression* pred;
 	expressions::Expression* f_grouping;
 	expressions::Expression* __attribute__((unused)) g_nullToZero;
+	vector<expressions::Expression *> f_grouping_vec;
 
 	vector<string> aggregateLabels;
 
