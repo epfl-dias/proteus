@@ -35,21 +35,49 @@ struct buff_pair_brdcst{
 
 extern "C"{
 buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int target_device, MemBroadcastDevice::MemMoveConf * mmc, bool disable_noop){
-    int dev = get_device(src);
+    if (mmc->to_cpu){
+        int dev = get_device(src);
 
-    // assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager should be able to provide blocks of arbitary size
-    if (!disable_noop && dev == target_device) return buff_pair_brdcst{src, NULL}; // block already in correct device
-    // set_device_on_scope d(dev);
+        // assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager should be able to provide blocks of arbitary size
+        if (!disable_noop && dev == target_device) return buff_pair_brdcst{src, NULL}; // block already in correct device
+        // set_device_on_scope d(dev);
 
-    // std::cout << target_device << std::endl;
+        // std::cout << target_device << std::endl;
 
-    // if (dev >= 0) set_affinity_local_to_gpu(dev);
-    assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager should be able to provide blocks of arbitary size
-    char * buff = (char *) buffer_manager<int32_t>::h_get_buffer(target_device);
+        // if (dev >= 0) set_affinity_local_to_gpu(dev);
+        assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager should be able to provide blocks of arbitary size
+        char * buff = (char *) buffer_manager<int32_t>::h_get_buffer(target_device);
 
-    if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm[target_device], false);
+        assert(target_device >= 0);
+        if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm[target_device], false);
 
-    return buff_pair_brdcst{buff, src};
+        return buff_pair_brdcst{buff, src};
+    } else {
+        int dev = get_device(src);
+
+        if (dev < 0){
+            char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(numa_node_of_cpu(target_device));
+            assert(target_device >= 0);
+            if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm[target_device], false);
+
+            return buff_pair_brdcst{buff, src};
+        } else {
+            int node;
+            void * tmp = (void *) src;
+            move_pages(0, 1, &tmp, NULL, &node, MPOL_MF_MOVE);
+
+            int target_node = numa_node_of_cpu(target_device);
+            if (!disable_noop && node == target_node) {
+                return buff_pair_brdcst{src, NULL};
+            } else {
+                char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(target_node);
+                assert(target_device >= 0);
+                if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm[target_device], false);
+
+                return buff_pair_brdcst{buff, src};
+            }
+        }
+    }
 }
 }
 
@@ -341,6 +369,9 @@ void MemBroadcastDevice::open (RawPipeline * pip){
     }
     // mmc->strm2          = strm2;
 #endif
+
+    mmc->num_of_targets = targets.size();
+    mmc->to_cpu         = to_cpu;
     // mmc->slack          = slack;
     // mmc->next_e         = 0;
     // // mmc->events         = new cudaEvent_t[slack];

@@ -45,6 +45,9 @@ public:
 
         std::thread               * worker   ;
         std::unordered_map<int, cudaStream_t> strm     ;
+
+        int                         num_of_targets;
+        bool                        to_cpu;
         // cudaStream_t                strm2    ;
 
         // cudaEvent_t               * lastEvent;
@@ -58,12 +61,14 @@ public:
     MemBroadcastDevice(  RawOperator * const             child,
                     GpuRawContext * const           context,
                     const vector<RecordAttribute*> &wantedFields,
+                    int                             num_of_targets,
                     bool                            to_cpu) :
                         UnaryRawOperator(child), 
                         context(context), 
                         wantedFields(wantedFields),
-                        slack(8 * get_num_of_gpus()), to_cpu(to_cpu){
-        for (int i = 0 ; i < get_num_of_gpus() ; ++i){
+                        slack(8*num_of_targets),
+                        to_cpu(to_cpu){
+        for (int i = 0 ; i < num_of_targets ; ++i){
             targets.push_back(i);
         }
     }
