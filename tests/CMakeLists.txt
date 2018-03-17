@@ -1,6 +1,7 @@
 foreach(target
 	tests-joins
 	tests-json
+	tests-cpu-ssb
 	tests-gpu-ssb
 	tests-output
 	tests-plan-parsing

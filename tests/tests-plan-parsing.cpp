@@ -126,7 +126,7 @@ TEST_F(PlanTest, Scan) {
 	EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
-/* SELECT COUNT(*), MAX(age) FROM SAILORS s; */
+/* SELECT COUNT(*) as cnt, MAX(age) as max_age FROM SAILORS s; */
 TEST_F(PlanTest, ScanTwoFields) {
 	const char* planPath = "inputs/plans/reduce-twofields-scan.json";
 	const char *testLabel = "reduce-twofields-scan-log.json";

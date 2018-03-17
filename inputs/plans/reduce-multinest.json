@@ -1,126 +1,102 @@
 {
 	"e": [{
-			"expression": "recordConstruction",
+		"expression": "recordProjection",
+		"type": {
+			"type": "int"
+		},
+		"e": {
+			"expression": "argument",
+			"argNo": 1,
 			"type": {
 				"type": "record",
 				"attributes": [{
 					"type": {
 						"type": "int"
 					},
-					"relName": "output",
-					"attrName": "outputCnt",
+					"relName": "radixNest",
+					"attrName": "_groupCount",
 					"attrNo": 1
 				}, {
 					"type": {
 						"type": "int"
 					},
-					"relName": "output",
-					"attrName": "outputMax",
+					"relName": "radixNest",
+					"attrName": "_groupMax",
 					"attrNo": 2
 				}]
 			},
 			"attributes": [{
-				"name": "outputCnt",
-				"e": {
-					"expression": "recordProjection",
-					"type": {
-						"type": "int"
-					},
-					"e": {
-						"expression": "argument",
-						"argNo": 1,
-						"type": {
-							"type": "record",
-							"attributes": [{
-								"type": {
-									"type": "int"
-								},
-								"relName": "radixNest",
-								"attrName": "_groupCount",
-								"attrNo": 1
-							}, {
-								"type": {
-									"type": "int"
-								},
-								"relName": "radixNest",
-								"attrName": "_groupMax",
-								"attrNo": 2
-							}]
-						},
-						"attributes": [{
-							"type": {
-								"type": "int"
-							},
-							"relName": "radixNest",
-							"attrName": "_groupCount",
-							"attrNo": 1
-						}]
-					},
-					"attribute": {
-						"type": {
-							"type": "int"
-						},
-						"relName": "radixNest",
-						"attrName": "_groupCount",
-						"attrNo": 1
-					}
-				}
-			}, {
-				"name": "outputMax",
-				"e": {
-					"expression": "recordProjection",
-					"type": {
-						"type": "int"
-					},
-					"e": {
-						"expression": "argument",
-						"argNo": 1,
-						"type": {
-							"type": "record",
-							"attributes": [{
-								"type": {
-									"type": "int"
-								},
-								"relName": "radixNest",
-								"attrName": "_groupCount",
-								"attrNo": 1
-							}, {
-								"type": {
-									"type": "int"
-								},
-								"relName": "radixNest",
-								"attrName": "_groupMax",
-								"attrNo": 2
-							}]
-						},
-						"attributes": [{
-							"type": {
-								"type": "int"
-							},
-							"relName": "radixNest",
-							"attrName": "_groupMax",
-							"attrNo": 2
-						}]
-					},
-					"attribute": {
-						"type": {
-							"type": "int"
-						},
-						"relName": "radixNest",
-						"attrName": "_groupMax",
-						"attrNo": 2
-					}
-				}
+				"type": {
+					"type": "int"
+				},
+				"relName": "radixNest",
+				"attrName": "_groupCount",
+				"attrNo": 1
 			}]
+		},
+		"attribute": {
+			"type": {
+				"type": "int"
+			},
+			"relName": "radixNest",
+			"attrName": "_groupCount",
+			"attrNo": 1
+		},
+		"todo_register_as": {
+			"relName": "agg",
+			"attrName": "outputCnt",
+			"attrNo": -1
 		}
-
-	],
-	"operator": "reduce",
-	"accumulator": ["bagunion"],
-	"p": {
-		"expression": "bool",
-		"v": true
-	},
+	}, {
+		"expression": "recordProjection",
+		"type": {
+			"type": "int"
+		},
+		"e": {
+			"expression": "argument",
+			"argNo": 1,
+			"type": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "radixNest",
+					"attrName": "_groupCount",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "radixNest",
+					"attrName": "_groupMax",
+					"attrNo": 2
+				}]
+			},
+			"attributes": [{
+				"type": {
+					"type": "int"
+				},
+				"relName": "radixNest",
+				"attrName": "_groupMax",
+				"attrNo": 2
+			}]
+		},
+		"attribute": {
+			"type": {
+				"type": "int"
+			},
+			"relName": "radixNest",
+			"attrName": "_groupMax",
+			"attrNo": 2
+		},
+		"todo_register_as": {
+			"relName": "agg",
+			"attrName": "outputMax",
+			"attrNo": -1
+		}
+	}],
+	"operator": "print",
 	"input": {
 		"operator": "nest",
 		"accumulator": ["sum", "max"],

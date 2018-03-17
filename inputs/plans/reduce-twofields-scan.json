@@ -1,109 +1,137 @@
 {
-	"e": [{
-		"expression": "int",
-		"v": 1
-	}, {
-		"expression": "recordProjection",
-		"type": {
-			"type": "float"
-		},
-		"e": {
-			"expression": "argument",
-			"argNo": 1,
-			"type": {
-				"type": "record",
-				"attributes": [{
-					"type": {
-						"type": "int"
-					},
-					"relName": "inputs/sailors.csv",
-					"attrName": "sid",
-					"attrNo": 1
-				}, {
-					"type": {
-						"type": "string"
-					},
-					"relName": "inputs/sailors.csv",
-					"attrName": "sname",
-					"attrNo": 2
-				}, {
-					"type": {
-						"type": "int"
-					},
-					"relName": "inputs/sailors.csv",
-					"attrName": "rating",
-					"attrNo": 3
-				}, {
-					"type": {
-						"type": "float"
-					},
-					"relName": "inputs/sailors.csv",
-					"attrName": "age",
-					"attrNo": 4
-				}]
-			},
-			"attributes": [{
-				"type": {
-					"type": "float"
-				},
-				"relName": "inputs/sailors.csv",
-				"attrName": "age",
-				"attrNo": 4
-			}]
-		},
-		"attribute": {
-			"type": {
-				"type": "float"
-			},
-			"relName": "inputs/sailors.csv",
-			"attrName": "age",
-			"attrNo": 4
-		}
-	}],
-	"operator": "reduce",
-	"accumulator": ["sum", "max"],
-	"p": {
-		"expression": "bool",
-		"v": true
-	},
-	"input": {
-		"operator": "scan",
-		"plugin": {
-			"name": "inputs/sailors.csv",
-			"type": "csv",
-			"policy": 2,
-			"lines": 10,
-			"delimiter": ";",
-			"brackets": false,
-			"projections": [{
-				"type": {
-					"type": "int"
-				},
-				"relName": "inputs/sailors.csv",
-				"attrName": "sid",
-				"attrNo": 1
-			}, {
-				"type": {
-					"type": "string"
-				},
-				"relName": "inputs/sailors.csv",
-				"attrName": "sname",
-				"attrNo": 2
-			}, {
-				"type": {
-					"type": "int"
-				},
-				"relName": "inputs/sailors.csv",
-				"attrName": "rating",
-				"attrNo": 3
-			}, {
-				"type": {
-					"type": "float"
-				},
-				"relName": "inputs/sailors.csv",
-				"attrName": "age",
-				"attrNo": 4
-			}]
-		}
-	}
+    "e": [
+        {
+            "e": {
+                "argNo": -1, 
+                "attributes": [
+                    {
+                        "attrName": "cnt", 
+                        "relName": "agg29"
+                    }
+                ], 
+                "expression": "argument", 
+                "type": {
+                    "relName": "agg29", 
+                    "type": "record"
+                }
+            }, 
+            "expression": "recordProjection", 
+            "attribute": {
+                "attrName": "cnt", 
+                "relName": "agg29"
+            }
+        }, 
+        {
+            "e": {
+                "argNo": -1, 
+                "attributes": [
+                    {
+                        "attrName": "max_age", 
+                        "relName": "agg29"
+                    }
+                ], 
+                "expression": "argument", 
+                "type": {
+                    "relName": "agg29", 
+                    "type": "record"
+                }
+            }, 
+            "expression": "recordProjection", 
+            "attribute": {
+                "attrName": "max_age", 
+                "relName": "agg29"
+            }
+        }
+    ], 
+    "output": [], 
+    "blockwise": false, 
+    "gpu": false, 
+    "operator": "print", 
+    "input": {
+        "e": [
+            {
+                "register_as": {
+                    "attrName": "cnt", 
+                    "relName": "agg29", 
+                    "attrNo": -1
+                }, 
+                "expression": "int64", 
+                "v": 1
+            }, 
+            {
+                "e": {
+                    "argNo": -1, 
+                    "attributes": [
+                        {
+                            "attrName": "age", 
+                            "relName": "inputs/sailors.csv"
+                        }
+                    ], 
+                    "expression": "argument", 
+                    "type": {
+                        "relName": "inputs/sailors.csv", 
+                        "type": "record"
+                    }
+                }, 
+                "register_as": {
+                    "attrName": "max_age", 
+                    "relName": "agg29", 
+                    "attrNo": -1
+                }, 
+                "expression": "recordProjection", 
+                "attribute": {
+                    "attrName": "age", 
+                    "relName": "inputs/sailors.csv"
+                }
+            }
+        ], 
+        "accumulator": [
+            "sum", 
+            "max"
+        ], 
+        "blockwise": false, 
+        "gpu": false, 
+        "p": {
+            "expression": "bool", 
+            "v": true
+        }, 
+        "max_line_estimate": 1, 
+        "output": [
+            {
+                "attrName": "cnt", 
+                "relName": "agg29"
+            }, 
+            {
+                "attrName": "max_age", 
+                "relName": "agg29"
+            }
+        ], 
+        "operator": "reduce", 
+        "input": {
+            "plugin": {
+                "name": "inputs/sailors.csv", 
+                "brackets": false, 
+                "lines": 10, 
+                "delimiter": ";", 
+                "projections": [
+                    {
+                        "attrName": "age", 
+                        "relName": "inputs/sailors.csv"
+                    }
+                ], 
+                "policy": 2, 
+                "type": "csv"
+            }, 
+            "blockwise": false, 
+            "max_line_estimate": 10, 
+            "gpu": false, 
+            "operator": "scan", 
+            "output": [
+                {
+                    "attrName": "age", 
+                    "relName": "inputs/sailors.csv"
+                }
+            ]
+        }
+    }
 }

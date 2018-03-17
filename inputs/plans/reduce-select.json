@@ -1,99 +1,127 @@
 {
-  "e": [{
-    "expression": "int",
-    "v": 1
-  }],
-  "operator": "reduce",
-  "accumulator": ["sum"],
-  "p": {
-    "expression": "bool",
-    "v": true
-  },
-  "input": {
-    "operator": "select",
-    "p": {
-      "expression": "eq",
-      "left": {
-        "expression": "recordProjection",
-        "type": {
-          "type": "int"
-        },
-        "e": {
-          "expression": "argument",
-          "argNo": 1,
-          "type": {
-            "type": "record",
-            "attributes": [{
-              "type": {
-                "type": "int"
-              },
-              "relName": "inputs/reserves.csv",
-              "attrName": "sid",
-              "attrNo": 1
-            }, {
-              "type": {
-                "type": "int"
-              },
-              "relName": "inputs/reserves.csv",
-              "attrName": "bid",
-              "attrNo": 2
-            }, {
-              "type": {
-                "type": "string"
-              },
-              "relName": "inputs/reserves.csv",
-              "attrName": "day",
-              "attrNo": 3
-            }, {
-              "type": {
-                "type": "float"
-              },
-              "relName": "inputs/sailors.csv",
-              "attrName": "age",
-              "attrNo": 4
-            }]
-          },
-          "attributes": [{
-            "type": {
-              "type": "int"
-            },
-            "relName": "inputs/reserves.csv",
-            "attrName": "sid",
-            "attrNo": 1
-          }]
-        },
-        "attribute": {
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/reserves.csv",
-          "attrName": "sid",
-          "attrNo": 1
+    "e": [
+        {
+            "e": {
+                "argNo": -1, 
+                "attributes": [
+                    {
+                        "attrName": "cnt", 
+                        "relName": "agg211"
+                    }
+                ], 
+                "expression": "argument", 
+                "type": {
+                    "relName": "agg211", 
+                    "type": "record"
+                }
+            }, 
+            "expression": "recordProjection", 
+            "attribute": {
+                "attrName": "cnt", 
+                "relName": "agg211"
+            }
         }
-      },
-      "right": {
-        "expression": "int",
-        "v": 22
-      }
-    },
+    ], 
+    "output": [], 
+    "blockwise": false, 
+    "gpu": false, 
+    "operator": "print", 
     "input": {
-      "operator": "scan",
-      "plugin": {
-        "name": "inputs/reserves.csv",
-        "type": "csv",
-        "policy": 2,
-        "lines": 10,
-        "delimiter": ";",
-        "brackets": false,
-        "projections": [{
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/reserves.csv",
-          "attrName": "sid",
-          "attrNo": 1
-        }]
-      }
+        "e": [
+            {
+                "register_as": {
+                    "attrName": "cnt", 
+                    "relName": "agg211", 
+                    "attrNo": -1
+                }, 
+                "expression": "int64", 
+                "v": 1
+            }
+        ], 
+        "accumulator": [
+            "sum"
+        ], 
+        "blockwise": false, 
+        "gpu": false, 
+        "p": {
+            "expression": "bool", 
+            "v": true
+        }, 
+        "max_line_estimate": 1, 
+        "output": [
+            {
+                "attrName": "cnt", 
+                "relName": "agg211"
+            }
+        ], 
+        "operator": "reduce", 
+        "input": {
+            "blockwise": false, 
+            "gpu": false, 
+            "p": {
+                "expression": "eq", 
+                "right": {
+                    "expression": "int", 
+                    "v": 22
+                }, 
+                "type": "bool", 
+                "depends_on": [
+                    {
+                        "attrName": "sid", 
+                        "relName": "inputs/reserves.csv"
+                    }
+                ], 
+                "left": {
+                    "e": {
+                        "argNo": -1, 
+                        "attributes": [
+                            {
+                                "attrName": "sid", 
+                                "relName": "inputs/reserves.csv"
+                            }
+                        ], 
+                        "expression": "argument", 
+                        "type": {
+                            "relName": "inputs/reserves.csv", 
+                            "type": "record"
+                        }
+                    }, 
+                    "expression": "recordProjection", 
+                    "attribute": {
+                        "attrName": "sid", 
+                        "relName": "inputs/reserves.csv"
+                    }
+                }
+            }, 
+            "max_line_estimate": 10, 
+            "input": {
+                "plugin": {
+                    "name": "inputs/reserves.csv", 
+                    "brackets": false, 
+                    "lines": 10, 
+                    "delimiter": ";", 
+                    "projections": [
+                        {
+                            "attrName": "sid", 
+                            "relName": "inputs/reserves.csv"
+                        }
+                    ], 
+                    "policy": 2, 
+                    "type": "csv"
+                }, 
+                "blockwise": false, 
+                "max_line_estimate": 10, 
+                "gpu": false, 
+                "operator": "scan", 
+                "output": [
+                    {
+                        "attrName": "sid", 
+                        "relName": "inputs/reserves.csv"
+                    }
+                ]
+            }, 
+            "operator": "select", 
+            "output": []
+        }
     }
-  }
 }

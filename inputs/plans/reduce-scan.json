@@ -1,52 +1,75 @@
 {
-  "e": [{
-    "expression": "int",
-    "v": 1
-  }],
-  "operator": "reduce",
-  "accumulator": ["sum"],
-  "p": {
-    "expression": "bool",
-    "v": true
-  },
-  "input": {
-    "operator": "scan",
-    "plugin": {
-      "name": "inputs/sailors.csv",
-      "type": "csv",
-      "policy": 2,
-      "lines": 10,
-      "delimiter": ";",
-      "brackets": false,
-      "projections": [{
-        "type": {
-          "type": "int"
-        },
-        "relName": "inputs/sailors.csv",
-        "attrName": "sid",
-        "attrNo": 1
-      }, {
-        "type": {
-          "type": "string"
-        },
-        "relName": "inputs/sailors.csv",
-        "attrName": "sname",
-        "attrNo": 2
-      }, {
-        "type": {
-          "type": "int"
-        },
-        "relName": "inputs/sailors.csv",
-        "attrName": "rating",
-        "attrNo": 3
-      }, {
-        "type": {
-          "type": "float"
-        },
-        "relName": "inputs/sailors.csv",
-        "attrName": "age",
-        "attrNo": 4
-      }]
+    "e": [
+        {
+            "e": {
+                "argNo": -1, 
+                "attributes": [
+                    {
+                        "attrName": "cnt", 
+                        "relName": "agg60"
+                    }
+                ], 
+                "expression": "argument", 
+                "type": {
+                    "relName": "agg60", 
+                    "type": "record"
+                }
+            }, 
+            "expression": "recordProjection", 
+            "attribute": {
+                "attrName": "cnt", 
+                "relName": "agg60"
+            }
+        }
+    ], 
+    "output": [], 
+    "blockwise": false, 
+    "gpu": false, 
+    "operator": "print", 
+    "input": {
+        "e": [
+            {
+                "register_as": {
+                    "attrName": "cnt", 
+                    "relName": "agg60", 
+                    "attrNo": -1
+                }, 
+                "expression": "int64", 
+                "v": 1
+            }
+        ], 
+        "accumulator": [
+            "sum"
+        ], 
+        "blockwise": false, 
+        "gpu": false, 
+        "p": {
+            "expression": "bool", 
+            "v": true
+        }, 
+        "max_line_estimate": 1, 
+        "output": [
+            {
+                "attrName": "cnt", 
+                "relName": "agg60"
+            }
+        ], 
+        "operator": "reduce", 
+        "input": {
+            "plugin": {
+                "name": "inputs/sailors.csv", 
+                "brackets": false, 
+                "lines": 10, 
+                "delimiter": ";", 
+                "projections": [], 
+                "policy": 2, 
+                "type": "csv"
+            }, 
+            "blockwise": false, 
+            "max_line_estimate": 10, 
+            "gpu": false, 
+            "operator": "scan", 
+            "output": []
+        }
     }
-  }
 }

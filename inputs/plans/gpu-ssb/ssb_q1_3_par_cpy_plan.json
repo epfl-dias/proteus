@@ -1,7 +1,7 @@
 {
     "partitioning": {
         "attrName": "revenue", 
-        "relName": "agg8831", 
+        "relName": "agg7340", 
         "isBlock": false
     }, 
     "e": [
@@ -11,19 +11,19 @@
                 "attributes": [
                     {
                         "attrName": "revenue", 
-                        "relName": "agg8831"
+                        "relName": "agg7340"
                     }
                 ], 
                 "expression": "argument", 
                 "type": {
-                    "relName": "agg8831", 
+                    "relName": "agg7340", 
                     "type": "record"
                 }
             }, 
             "expression": "recordProjection", 
             "attribute": {
                 "attrName": "revenue", 
-                "relName": "agg8831"
+                "relName": "agg7340"
             }
         }
     ], 
@@ -34,7 +34,7 @@
     "input": {
         "partitioning": {
             "attrName": "revenue", 
-            "relName": "agg8831", 
+            "relName": "agg7340", 
             "isBlock": false
         }, 
         "e": [
@@ -44,19 +44,19 @@
                     "attributes": [
                         {
                             "attrName": "revenue", 
-                            "relName": "agg8831"
+                            "relName": "agg7340"
                         }
                     ], 
                     "expression": "argument", 
                     "type": {
-                        "relName": "agg8831", 
+                        "relName": "agg7340", 
                         "type": "record"
                     }
                 }, 
                 "expression": "recordProjection", 
                 "attribute": {
                     "attrName": "revenue", 
-                    "relName": "agg8831"
+                    "relName": "agg7340"
                 }
             }
         ], 
@@ -73,7 +73,7 @@
         "output": [
             {
                 "attrName": "revenue", 
-                "relName": "agg8831"
+                "relName": "agg7340"
             }
         ], 
         "operator": "reduce", 
@@ -83,7 +83,7 @@
             "projections": [
                 {
                     "attrName": "revenue", 
-                    "relName": "agg8831", 
+                    "relName": "agg7340", 
                     "isBlock": false
                 }
             ], 
@@ -98,14 +98,14 @@
                 "projections": [
                     {
                         "attrName": "revenue", 
-                        "relName": "agg8831", 
+                        "relName": "agg7340", 
                         "isBlock": false
                     }
                 ], 
                 "output": [
                     {
                         "attrName": "revenue", 
-                        "relName": "agg8831", 
+                        "relName": "agg7340", 
                         "isBlock": false
                     }
                 ], 
@@ -114,7 +114,7 @@
                     "output": [
                         {
                             "attrName": "revenue", 
-                            "relName": "agg8831"
+                            "relName": "agg7340"
                         }
                     ], 
                     "gpu": true, 
@@ -130,25 +130,25 @@
                                 "argNo": -1, 
                                 "attributes": [
                                     {
-                                        "attrName": "*", 
-                                        "relName": "join8830"
+                                        "attrName": "$f0", 
+                                        "relName": "projection7339"
                                     }
                                 ], 
                                 "expression": "argument", 
                                 "type": {
-                                    "relName": "join8830", 
+                                    "relName": "projection7339", 
                                     "type": "record"
                                 }
                             }, 
                             "register_as": {
                                 "attrName": "revenue", 
-                                "relName": "agg8831", 
+                                "relName": "agg7340", 
                                 "attrNo": -1
                             }, 
                             "expression": "recordProjection", 
                             "attribute": {
-                                "attrName": "*", 
-                                "relName": "join8830"
+                                "attrName": "$f0", 
+                                "relName": "projection7339"
                             }
                         }
                     ], 
@@ -162,147 +162,114 @@
                     }, 
                     "max_line_estimate": 1, 
                     "input": {
-                        "build_k": {
-                            "e": {
-                                "argNo": -1, 
-                                "attributes": [
-                                    {
-                                        "attrName": "d_datekey", 
-                                        "relName": "projection8827"
-                                    }
-                                ], 
-                                "expression": "argument", 
-                                "type": {
-                                    "relName": "projection8827", 
-                                    "type": "record"
-                                }
-                            }, 
-                            "type": {
-                                "type": "int"
-                            }, 
-                            "register_as": {
-                                "attrName": "d_datekey", 
-                                "relName": "join8830", 
-                                "attrNo": -1
-                            }, 
-                            "expression": "recordProjection", 
-                            "attribute": {
-                                "attrName": "d_datekey", 
-                                "relName": "projection8827"
-                            }
+                        "partitioning": {
+                            "attrName": "lo_discount", 
+                            "relName": "inputs/ssbm100/lineorder.csv", 
+                            "isBlock": true
                         }, 
-                        "hash_bits": 13, 
-                        "probe_input": {
-                            "partitioning": {
-                                "attrName": "lo_discount", 
-                                "relName": "inputs/ssbm100/lineorder.csv", 
-                                "isBlock": true
-                            }, 
-                            "e": [
-                                {
+                        "e": [
+                            {
+                                "right": {
                                     "e": {
                                         "argNo": -1, 
                                         "attributes": [
                                             {
-                                                "attrName": "lo_orderdate", 
-                                                "relName": "inputs/ssbm100/lineorder.csv"
+                                                "attrName": "lo_discount", 
+                                                "relName": "join7338"
                                             }
                                         ], 
                                         "expression": "argument", 
                                         "type": {
-                                            "relName": "inputs/ssbm100/lineorder.csv", 
+                                            "relName": "join7338", 
                                             "type": "record"
                                         }
                                     }, 
-                                    "register_as": {
-                                        "attrName": "lo_orderdate", 
-                                        "relName": "projection8829", 
-                                        "attrNo": -1
+                                    "expression": "recordProjection", 
+                                    "attribute": {
+                                        "attrName": "lo_discount", 
+                                        "relName": "join7338"
+                                    }
+                                }, 
+                                "type": "int", 
+                                "register_as": {
+                                    "attrName": "$f0", 
+                                    "relName": "projection7339", 
+                                    "attrNo": -1
+                                }, 
+                                "depends_on": [
+                                    {
+                                        "attrName": "lo_discount", 
+                                        "relName": "join7338"
+                                    }, 
+                                    {
+                                        "attrName": "lo_extendedprice", 
+                                        "relName": "join7338"
+                                    }
+                                ], 
+                                "expression": "multiply", 
+                                "left": {
+                                    "e": {
+                                        "argNo": -1, 
+                                        "attributes": [
+                                            {
+                                                "attrName": "lo_extendedprice", 
+                                                "relName": "join7338"
+                                            }
+                                        ], 
+                                        "expression": "argument", 
+                                        "type": {
+                                            "relName": "join7338", 
+                                            "type": "record"
+                                        }
                                     }, 
                                     "expression": "recordProjection", 
                                     "attribute": {
-                                        "attrName": "lo_orderdate", 
-                                        "relName": "inputs/ssbm100/lineorder.csv"
+                                        "attrName": "lo_extendedprice", 
+                                        "relName": "join7338"
                                     }
-                                }, 
-                                {
-                                    "right": {
-                                        "e": {
-                                            "argNo": -1, 
-                                            "attributes": [
-                                                {
-                                                    "attrName": "lo_discount", 
-                                                    "relName": "inputs/ssbm100/lineorder.csv"
-                                                }
-                                            ], 
-                                            "expression": "argument", 
-                                            "type": {
-                                                "relName": "inputs/ssbm100/lineorder.csv", 
-                                                "type": "record"
-                                            }
-                                        }, 
-                                        "expression": "recordProjection", 
-                                        "attribute": {
-                                            "attrName": "lo_discount", 
-                                            "relName": "inputs/ssbm100/lineorder.csv"
-                                        }
-                                    }, 
-                                    "type": "int", 
-                                    "register_as": {
-                                        "attrName": "*", 
-                                        "relName": "projection8829", 
-                                        "attrNo": -1
-                                    }, 
-                                    "depends_on": [
+                                }
+                            }
+                        ], 
+                        "blockwise": false, 
+                        "gpu": true, 
+                        "relName": "projection7339", 
+                        "max_line_estimate": 1533697498620, 
+                        "output": [
+                            {
+                                "attrName": "$f0", 
+                                "relName": "projection7339"
+                            }
+                        ], 
+                        "operator": "project", 
+                        "input": {
+                            "build_k": {
+                                "e": {
+                                    "argNo": -1, 
+                                    "attributes": [
                                         {
-                                            "attrName": "lo_discount", 
-                                            "relName": "inputs/ssbm100/lineorder.csv"
-                                        }, 
-                                        {
-                                            "attrName": "lo_extendedprice", 
-                                            "relName": "inputs/ssbm100/lineorder.csv"
+                                            "attrName": "d_datekey", 
+                                            "relName": "inputs/ssbm100/date.csv"
                                         }
                                     ], 
-                                    "expression": "multiply", 
-                                    "left": {
-                                        "e": {
-                                            "argNo": -1, 
-                                            "attributes": [
-                                                {
-                                                    "attrName": "lo_extendedprice", 
-                                                    "relName": "inputs/ssbm100/lineorder.csv"
-                                                }
-                                            ], 
-                                            "expression": "argument", 
-                                            "type": {
-                                                "relName": "inputs/ssbm100/lineorder.csv", 
-                                                "type": "record"
-                                            }
-                                        }, 
-                                        "expression": "recordProjection", 
-                                        "attribute": {
-                                            "attrName": "lo_extendedprice", 
-                                            "relName": "inputs/ssbm100/lineorder.csv"
-                                        }
+                                    "expression": "argument", 
+                                    "type": {
+                                        "relName": "inputs/ssbm100/date.csv", 
+                                        "type": "record"
                                     }
-                                }
-                            ], 
-                            "blockwise": false, 
-                            "gpu": true, 
-                            "relName": "projection8829", 
-                            "max_line_estimate": 600038145, 
-                            "output": [
-                                {
-                                    "attrName": "lo_orderdate", 
-                                    "relName": "projection8829"
                                 }, 
-                                {
-                                    "attrName": "*", 
-                                    "relName": "projection8829"
+                                "register_as": {
+                                    "attrName": "d_datekey", 
+                                    "relName": "join7338", 
+                                    "attrNo": -1
+                                }, 
+                                "expression": "recordProjection", 
+                                "attribute": {
+                                    "attrName": "d_datekey", 
+                                    "relName": "inputs/ssbm100/date.csv"
                                 }
-                            ], 
-                            "operator": "project", 
-                            "input": {
+                            }, 
+                            "hash_bits": 13, 
+                            "probe_input": {
                                 "partitioning": {
                                     "attrName": "lo_discount", 
                                     "relName": "inputs/ssbm100/lineorder.csv", 
@@ -898,175 +865,181 @@
                                 ], 
                                 "dop": 2
                             }, 
-                            "dop": 2
-                        }, 
-                        "probe_e": [
-                            {
-                                "e": {
+                            "probe_e": [
+                                {
                                     "e": {
-                                        "argNo": -1, 
-                                        "attributes": [
-                                            {
-                                                "attrName": "*", 
-                                                "relName": "projection8829"
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "lo_extendedprice", 
+                                                    "relName": "inputs/ssbm100/lineorder.csv"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "inputs/ssbm100/lineorder.csv", 
+                                                "type": "record"
                                             }
-                                        ], 
-                                        "expression": "argument", 
-                                        "type": {
-                                            "relName": "projection8829", 
-                                            "type": "record"
+                                        }, 
+                                        "register_as": {
+                                            "attrName": "lo_extendedprice", 
+                                            "relName": "join7338", 
+                                            "attrNo": -1
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "lo_extendedprice", 
+                                            "relName": "inputs/ssbm100/lineorder.csv"
                                         }
                                     }, 
-                                    "register_as": {
-                                        "attrName": "*", 
-                                        "relName": "join8830", 
-                                        "attrNo": -1
-                                    }, 
-                                    "expression": "recordProjection", 
-                                    "attribute": {
-                                        "attrName": "*", 
-                                        "relName": "projection8829"
-                                    }
+                                    "packet": 1, 
+                                    "offset": 0
                                 }, 
-                                "packet": 1, 
-                                "offset": 0
-                            }
-                        ], 
-                        "blockwise": false, 
-                        "partitioning": {
-                            "attrName": "lo_discount", 
-                            "relName": "inputs/ssbm100/lineorder.csv", 
-                            "isBlock": true
-                        }, 
-                        "build_e": [], 
-                        "maxBuildInputSize": 3067, 
-                        "dop": 2, 
-                        "probe_k": {
-                            "e": {
-                                "argNo": -1, 
-                                "attributes": [
-                                    {
-                                        "attrName": "lo_orderdate", 
-                                        "relName": "projection8829"
-                                    }
-                                ], 
-                                "expression": "argument", 
-                                "type": {
-                                    "relName": "projection8829", 
-                                    "type": "record"
+                                {
+                                    "e": {
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "lo_discount", 
+                                                    "relName": "inputs/ssbm100/lineorder.csv"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "inputs/ssbm100/lineorder.csv", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "register_as": {
+                                            "attrName": "lo_discount", 
+                                            "relName": "join7338", 
+                                            "attrNo": -1
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "lo_discount", 
+                                            "relName": "inputs/ssbm100/lineorder.csv"
+                                        }
+                                    }, 
+                                    "packet": 2, 
+                                    "offset": 0
                                 }
-                            }, 
-                            "type": {
-                                "type": "int"
-                            }, 
-                            "register_as": {
-                                "attrName": "lo_orderdate", 
-                                "relName": "join8830", 
-                                "attrNo": -1
-                            }, 
-                            "expression": "recordProjection", 
-                            "attribute": {
-                                "attrName": "lo_orderdate", 
-                                "relName": "projection8829"
-                            }
-                        }, 
-                        "build_k_part": [], 
-                        "max_line_estimate": 1533697498620, 
-                        "gpu": true, 
-                        "operator": "hashjoin-chained", 
-                        "output": [
-                            {
-                                "attrName": "*", 
-                                "relName": "join8830"
-                            }
-                        ], 
-                        "build_input": {
+                            ], 
+                            "blockwise": false, 
                             "partitioning": {
-                                "attrName": "d_datekey", 
-                                "relName": "projection8827", 
+                                "attrName": "lo_discount", 
+                                "relName": "inputs/ssbm100/lineorder.csv", 
                                 "isBlock": true
                             }, 
-                            "gpu": true, 
-                            "projections": [
-                                {
-                                    "e": {
-                                        "argNo": -1, 
-                                        "attributes": [
-                                            {
-                                                "attrName": "d_datekey", 
-                                                "relName": "projection8827"
-                                            }
-                                        ], 
-                                        "expression": "argument", 
-                                        "type": {
-                                            "relName": "projection8827", 
-                                            "type": "record"
+                            "build_e": [], 
+                            "maxBuildInputSize": 3067, 
+                            "dop": 2, 
+                            "probe_k": {
+                                "e": {
+                                    "argNo": -1, 
+                                    "attributes": [
+                                        {
+                                            "attrName": "lo_orderdate", 
+                                            "relName": "inputs/ssbm100/lineorder.csv"
                                         }
-                                    }, 
-                                    "expression": "recordProjection", 
-                                    "attribute": {
-                                        "attrName": "d_datekey", 
-                                        "relName": "projection8827"
+                                    ], 
+                                    "expression": "argument", 
+                                    "type": {
+                                        "relName": "inputs/ssbm100/lineorder.csv", 
+                                        "type": "record"
                                     }
+                                }, 
+                                "register_as": {
+                                    "attrName": "lo_orderdate", 
+                                    "relName": "join7338", 
+                                    "attrNo": -1
+                                }, 
+                                "expression": "recordProjection", 
+                                "attribute": {
+                                    "attrName": "lo_orderdate", 
+                                    "relName": "inputs/ssbm100/lineorder.csv"
                                 }
-                            ], 
+                            }, 
+                            "build_k_part": [], 
+                            "max_line_estimate": 1533697498620, 
+                            "gpu": true, 
+                            "operator": "hashjoin-chained", 
                             "output": [
                                 {
-                                    "attrName": "d_datekey", 
-                                    "relName": "projection8827", 
-                                    "isBlock": false
+                                    "attrName": "lo_extendedprice", 
+                                    "relName": "join7338"
+                                }, 
+                                {
+                                    "attrName": "lo_discount", 
+                                    "relName": "join7338"
                                 }
                             ], 
-                            "operator": "block-to-tuples", 
-                            "input": {
+                            "build_input": {
                                 "partitioning": {
                                     "attrName": "d_datekey", 
-                                    "relName": "projection8827", 
+                                    "relName": "inputs/ssbm100/date.csv", 
                                     "isBlock": true
                                 }, 
-                                "blockwise": true, 
+                                "gpu": true, 
                                 "projections": [
                                     {
-                                        "attrName": "d_datekey", 
-                                        "relName": "projection8827", 
-                                        "isBlock": true
+                                        "e": {
+                                            "argNo": -1, 
+                                            "attributes": [
+                                                {
+                                                    "attrName": "d_datekey", 
+                                                    "relName": "inputs/ssbm100/date.csv"
+                                                }
+                                            ], 
+                                            "expression": "argument", 
+                                            "type": {
+                                                "relName": "inputs/ssbm100/date.csv", 
+                                                "type": "record"
+                                            }
+                                        }, 
+                                        "expression": "recordProjection", 
+                                        "attribute": {
+                                            "attrName": "d_datekey", 
+                                            "relName": "inputs/ssbm100/date.csv"
+                                        }
                                     }
                                 ], 
                                 "output": [
                                     {
                                         "attrName": "d_datekey", 
-                                        "relName": "projection8827", 
-                                        "isBlock": true
+                                        "relName": "inputs/ssbm100/date.csv", 
+                                        "isBlock": false
                                     }
                                 ], 
-                                "operator": "cpu-to-gpu", 
+                                "operator": "block-to-tuples", 
                                 "input": {
                                     "partitioning": {
                                         "attrName": "d_datekey", 
-                                        "relName": "projection8827", 
+                                        "relName": "inputs/ssbm100/date.csv", 
                                         "isBlock": true
                                     }, 
                                     "blockwise": true, 
-                                    "gpu": false, 
                                     "projections": [
                                         {
                                             "attrName": "d_datekey", 
-                                            "relName": "projection8827", 
+                                            "relName": "inputs/ssbm100/date.csv", 
                                             "isBlock": true
                                         }
                                     ], 
                                     "output": [
                                         {
                                             "attrName": "d_datekey", 
-                                            "relName": "projection8827", 
+                                            "relName": "inputs/ssbm100/date.csv", 
                                             "isBlock": true
                                         }
                                     ], 
-                                    "operator": "mem-move-device", 
+                                    "operator": "cpu-to-gpu", 
                                     "input": {
                                         "partitioning": {
                                             "attrName": "d_datekey", 
-                                            "relName": "projection8827", 
+                                            "relName": "inputs/ssbm100/date.csv", 
                                             "isBlock": true
                                         }, 
                                         "blockwise": true, 
@@ -1074,69 +1047,64 @@
                                         "projections": [
                                             {
                                                 "attrName": "d_datekey", 
-                                                "relName": "projection8827", 
+                                                "relName": "inputs/ssbm100/date.csv", 
                                                 "isBlock": true
                                             }
                                         ], 
                                         "output": [
                                             {
                                                 "attrName": "d_datekey", 
-                                                "relName": "projection8827", 
+                                                "relName": "inputs/ssbm100/date.csv", 
                                                 "isBlock": true
                                             }
                                         ], 
-                                        "operator": "mem-move-local-to", 
+                                        "operator": "mem-move-device", 
                                         "input": {
-                                            "producers": 2, 
+                                            "partitioning": {
+                                                "attrName": "d_datekey", 
+                                                "relName": "inputs/ssbm100/date.csv", 
+                                                "isBlock": true
+                                            }, 
+                                            "blockwise": true, 
+                                            "gpu": false, 
                                             "projections": [
                                                 {
                                                     "attrName": "d_datekey", 
-                                                    "relName": "projection8827", 
+                                                    "relName": "inputs/ssbm100/date.csv", 
                                                     "isBlock": true
                                                 }
                                             ], 
                                             "output": [
                                                 {
                                                     "attrName": "d_datekey", 
-                                                    "relName": "projection8827", 
+                                                    "relName": "inputs/ssbm100/date.csv", 
                                                     "isBlock": true
                                                 }
                                             ], 
-                                            "operator": "exchange", 
-                                            "slack": 8, 
-                                            "partitioning": {
-                                                "attrName": "d_datekey", 
-                                                "relName": "projection8827", 
-                                                "isBlock": true
-                                            }, 
+                                            "operator": "mem-move-local-to", 
                                             "input": {
-                                                "partitioning": {
-                                                    "attrName": "d_weeknuminyear", 
-                                                    "relName": "inputs/ssbm100/date.csv", 
-                                                    "isBlock": true
-                                                }, 
-                                                "blockwise": true, 
-                                                "gpu": false, 
+                                                "producers": 2, 
                                                 "projections": [
                                                     {
                                                         "attrName": "d_datekey", 
-                                                        "relName": "projection8827", 
+                                                        "relName": "inputs/ssbm100/date.csv", 
                                                         "isBlock": true
                                                     }
                                                 ], 
                                                 "output": [
                                                     {
                                                         "attrName": "d_datekey", 
-                                                        "relName": "projection8827", 
+                                                        "relName": "inputs/ssbm100/date.csv", 
                                                         "isBlock": true
-                                                    }, 
-                                                    {
-                                                        "attrName": "__broadcastTarget", 
-                                                        "relName": "projection8827", 
-                                                        "isBlock": false
                                                     }
                                                 ], 
-                                                "operator": "mem-broadcast-device", 
+                                                "operator": "exchange", 
+                                                "slack": 8, 
+                                                "partitioning": {
+                                                    "attrName": "d_datekey", 
+                                                    "relName": "inputs/ssbm100/date.csv", 
+                                                    "isBlock": true
+                                                }, 
                                                 "input": {
                                                     "partitioning": {
                                                         "attrName": "d_weeknuminyear", 
@@ -1144,67 +1112,59 @@
                                                         "isBlock": true
                                                     }, 
                                                     "blockwise": true, 
-                                                    "granularity": "thread", 
+                                                    "gpu": false, 
+                                                    "dop": 2, 
                                                     "projections": [
                                                         {
                                                             "attrName": "d_datekey", 
-                                                            "relName": "projection8827", 
+                                                            "relName": "inputs/ssbm100/date.csv", 
                                                             "isBlock": true
                                                         }
                                                     ], 
                                                     "output": [
                                                         {
                                                             "attrName": "d_datekey", 
-                                                            "relName": "projection8827", 
+                                                            "relName": "inputs/ssbm100/date.csv", 
                                                             "isBlock": true
+                                                        }, 
+                                                        {
+                                                            "attrName": "__broadcastTarget", 
+                                                            "relName": "inputs/ssbm100/date.csv", 
+                                                            "isBlock": false
                                                         }
                                                     ], 
-                                                    "operator": "gpu-to-cpu", 
+                                                    "operator": "mem-broadcast-device", 
                                                     "input": {
                                                         "partitioning": {
                                                             "attrName": "d_weeknuminyear", 
                                                             "relName": "inputs/ssbm100/date.csv", 
                                                             "isBlock": true
                                                         }, 
-                                                        "gpu": true, 
+                                                        "blockwise": true, 
+                                                        "granularity": "thread", 
                                                         "projections": [
                                                             {
-                                                                "e": {
-                                                                    "argNo": -1, 
-                                                                    "attributes": [
-                                                                        {
-                                                                            "attrName": "d_datekey", 
-                                                                            "relName": "projection8827"
-                                                                        }
-                                                                    ], 
-                                                                    "expression": "argument", 
-                                                                    "type": {
-                                                                        "relName": "projection8827", 
-                                                                        "type": "record"
-                                                                    }
-                                                                }, 
-                                                                "expression": "recordProjection", 
-                                                                "attribute": {
-                                                                    "attrName": "d_datekey", 
-                                                                    "relName": "projection8827"
-                                                                }
+                                                                "attrName": "d_datekey", 
+                                                                "relName": "inputs/ssbm100/date.csv", 
+                                                                "isBlock": true
                                                             }
                                                         ], 
                                                         "output": [
                                                             {
                                                                 "attrName": "d_datekey", 
-                                                                "relName": "projection8827", 
+                                                                "relName": "inputs/ssbm100/date.csv", 
                                                                 "isBlock": true
                                                             }
                                                         ], 
-                                                        "operator": "tuples-to-block", 
+                                                        "operator": "gpu-to-cpu", 
                                                         "input": {
                                                             "partitioning": {
                                                                 "attrName": "d_weeknuminyear", 
                                                                 "relName": "inputs/ssbm100/date.csv", 
                                                                 "isBlock": true
                                                             }, 
-                                                            "e": [
+                                                            "gpu": true, 
+                                                            "projections": [
                                                                 {
                                                                     "e": {
                                                                         "argNo": -1, 
@@ -1220,11 +1180,6 @@
                                                                             "type": "record"
                                                                         }
                                                                     }, 
-                                                                    "register_as": {
-                                                                        "attrName": "d_datekey", 
-                                                                        "relName": "projection8827", 
-                                                                        "attrNo": -1
-                                                                    }, 
                                                                     "expression": "recordProjection", 
                                                                     "attribute": {
                                                                         "attrName": "d_datekey", 
@@ -1232,17 +1187,14 @@
                                                                     }
                                                                 }
                                                             ], 
-                                                            "blockwise": false, 
-                                                            "gpu": true, 
-                                                            "relName": "projection8827", 
-                                                            "max_line_estimate": 2556, 
                                                             "output": [
                                                                 {
                                                                     "attrName": "d_datekey", 
-                                                                    "relName": "projection8827"
+                                                                    "relName": "inputs/ssbm100/date.csv", 
+                                                                    "isBlock": true
                                                                 }
                                                             ], 
-                                                            "operator": "project", 
+                                                            "operator": "tuples-to-block", 
                                                             "input": {
                                                                 "partitioning": {
                                                                     "attrName": "d_weeknuminyear", 
@@ -1656,61 +1608,62 @@
                                                             }, 
                                                             "dop": 2
                                                         }, 
-                                                        "dop": 2
+                                                        "dop": 2, 
+                                                        "queueSize": 131072
                                                     }, 
-                                                    "dop": 2, 
-                                                    "queueSize": 131072
+                                                    "to_cpu": false, 
+                                                    "num_of_targets": 2
                                                 }, 
-                                                "to_cpu": false, 
-                                                "dop": 2
-                                            }, 
-                                            "blockwise": true, 
-                                            "numOfParents": 2, 
-                                            "max_line_estimate": 5112, 
-                                            "target": {
-                                                "e": {
-                                                    "argNo": -1, 
-                                                    "attributes": [
-                                                        {
-                                                            "attrName": "__broadcastTarget", 
-                                                            "relName": "projection8827"
+                                                "blockwise": true, 
+                                                "numOfParents": 2, 
+                                                "max_line_estimate": 5112, 
+                                                "target": {
+                                                    "e": {
+                                                        "argNo": -1, 
+                                                        "attributes": [
+                                                            {
+                                                                "attrName": "__broadcastTarget", 
+                                                                "relName": "inputs/ssbm100/date.csv"
+                                                            }
+                                                        ], 
+                                                        "expression": "argument", 
+                                                        "type": {
+                                                            "relName": "inputs/ssbm100/date.csv", 
+                                                            "type": "record"
                                                         }
-                                                    ], 
-                                                    "expression": "argument", 
-                                                    "type": {
-                                                        "relName": "projection8827", 
-                                                        "type": "record"
+                                                    }, 
+                                                    "expression": "recordProjection", 
+                                                    "attribute": {
+                                                        "attrName": "__broadcastTarget", 
+                                                        "relName": "inputs/ssbm100/date.csv"
                                                     }
                                                 }, 
-                                                "expression": "recordProjection", 
-                                                "attribute": {
-                                                    "attrName": "__broadcastTarget", 
-                                                    "relName": "projection8827"
-                                                }
+                                                "gpu": false, 
+                                                "dop": 2
                                             }, 
-                                            "gpu": false, 
+                                            "to_cpu": false, 
                                             "dop": 2
                                         }, 
                                         "to_cpu": false, 
                                         "dop": 2
                                     }, 
-                                    "to_cpu": false, 
-                                    "dop": 2
+                                    "dop": 2, 
+                                    "queueSize": 131072
                                 }, 
-                                "dop": 2, 
-                                "queueSize": 131072
+                                "dop": 2
                             }, 
-                            "dop": 2
+                            "probe_w": [
+                                64, 
+                                32, 
+                                32
+                            ], 
+                            "probe_k_part": [], 
+                            "build_w": [
+                                64
+                            ], 
+                            "broadcast-based": true
                         }, 
-                        "probe_w": [
-                            64, 
-                            32
-                        ], 
-                        "probe_k_part": [], 
-                        "build_w": [
-                            64
-                        ], 
-                        "broadcast-based": true
+                        "dop": 2
                     }, 
                     "dop": 2
                 }, 
@@ -1721,7 +1674,7 @@
             "numa_local": false, 
             "partitioning": {
                 "attrName": "revenue", 
-                "relName": "agg8831", 
+                "relName": "agg7340", 
                 "isBlock": false
             }, 
             "slack": 8, 
@@ -1730,7 +1683,7 @@
             "output": [
                 {
                     "attrName": "revenue", 
-                    "relName": "agg8831"
+                    "relName": "agg7340"
                 }
             ]
         }, 

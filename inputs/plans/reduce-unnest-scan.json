@@ -1,7 +1,12 @@
 {
   "e": [{
     "expression": "int",
-    "v": 1
+    "v": 1,
+    "register_as": {
+      "relName": "agg",
+      "attrName": "cnt",
+      "attrNo": -1
+    }
   }],
   "operator": "reduce",
   "accumulator": ["sum"],
