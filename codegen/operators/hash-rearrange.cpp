@@ -41,6 +41,7 @@ void HashRearrange::produce() {
     std::vector<Type *> block_types;
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
         block_types.emplace_back(RecordAttribute(wantedFields[i]->getRegisteredAs(), true).getLLVMType(llvmContext));
+        wfSizes.emplace_back(context->getSizeOf(wantedFields[i]->getExpressionType()->getLLVMType(llvmContext)));
     }
 
     Type * block_stuct = StructType::get(llvmContext, block_types);
@@ -48,6 +49,56 @@ void HashRearrange::produce() {
     blkVar_id           = context->appendStateVar(PointerType::getUnqual(ArrayType::get(block_stuct, numOfBuckets)));
 
     getChild()->produce();
+}
+
+//NOTE: no MOD hashtable_size here!
+Value * HashRearrange::hash(Value * key, Value * old_seed){
+    IRBuilder<>    *Builder     = context->getBuilder();
+
+    Value * hash = key;
+
+    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
+    hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0x85ebca6b));
+    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 13));
+    hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0xc2b2ae35));
+    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
+
+    if (old_seed){
+        //boost::hash_combine
+        // seed ^= hash_value(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        Value * hv = hash;
+        
+        hv = Builder->CreateAdd(hv, ConstantInt::get(hv->getType(), 0x9e3779b9));
+        hv = Builder->CreateAdd(hv, Builder->CreateShl (old_seed,  6));
+        hv = Builder->CreateAdd(hv, Builder->CreateLShr(old_seed,  2));
+        hv = Builder->CreateXor(hv, old_seed);
+
+        hash = hv;
+    }
+
+    return hash;
+}
+
+Value * HashRearrange::hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState){
+    ExpressionGeneratorVisitor exprGenerator(context, childState);
+    Value * hash = NULL;
+
+    for (size_t i = 0 ; i < exprs.size() ; ++i){
+        if (exprs[i]->getTypeID() == expressions::RECORD_CONSTRUCTION){
+            const auto &attrs = ((expressions::RecordConstruction *) exprs[i])->getAtts();
+
+            std::vector<expressions::Expression *> exprs;
+            for (const auto &attr: attrs) exprs.push_back(attr.getExpression());
+
+            Value * hv = HashRearrange::hash(exprs, context, childState);
+            hash = HashRearrange::hash(hv, hash);
+        } else {
+            RawValue keyWrapper = exprs[i]->accept(exprGenerator); //FIXME hash composite key!
+            hash = HashRearrange::hash(keyWrapper.value, hash);
+        }
+    }
+
+    return hash;
 }
 
 void HashRearrange::consume(RawContext* const context, const OperatorState& childState) {
@@ -70,24 +121,43 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
     else if (sizeof(size_t) == 8) size_type = int64_type;
     else                          assert(false);
 
+    size_t max_width = 0;
+    for (const auto &e: wantedFields){
+        std::cout << e->getExpressionType()->getType() << std::endl;
+        max_width = std::max(max_width, context->getSizeOf(e->getExpressionType()->getLLVMType(llvmContext)));
+    }
+
+    cap                   = blockSize / max_width;
+    Value * capacity      = ConstantInt::get(oid_type, cap);
+    Value * last_index    = ConstantInt::get(oid_type, cap - 1);
+
     Builder->SetInsertPoint(context->getCurrentEntryBlock());
     AllocaInst * blockN_ptr = context->CreateEntryBlockAlloca(F, "blockN", oid_type);
-    Builder->CreateStore(ConstantInt::get(oid_type, blockSize), blockN_ptr);
+    Builder->CreateStore(capacity, blockN_ptr);
     AllocaInst * ready_cnt  = context->CreateEntryBlockAlloca(F, "readyN", int32_type);
     Builder->CreateStore(ConstantInt::get(int32_type, 0), ready_cnt);
 
     Builder->SetInsertPoint(insBB);
 
 
-
-
     map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
-
     //Generate target
     ExpressionGeneratorVisitor exprGenerator{context, childState};
-    Value * target            = hashExpr->accept(exprGenerator).value;
-
+    Value * target            = HashRearrange::hash(std::vector<expressions::Expression *>{hashExpr}, context, childState);
     IntegerType * target_type = (IntegerType *) target->getType();
+    // Value * target            = hashExpr->accept(exprGenerator).value;
+    if (hashProject){
+        //Save hash in bindings
+        AllocaInst * hash_ptr = context->CreateEntryBlockAlloca(F, "hash_ptr", target_type);
+        
+        Builder->CreateStore(target, hash_ptr);
+
+        RawValueMemory mem_hashWrapper;
+        mem_hashWrapper.mem      = hash_ptr;
+        mem_hashWrapper.isNull   = context->createFalse();
+        (*variableBindings)[*hashProject] = mem_hashWrapper;
+    }
+
     Value * numOfBucketsV = ConstantInt::get(target_type, numOfBuckets);
 
     target = Builder->CreateURem(target, numOfBucketsV);
@@ -122,7 +192,9 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
 
         Value * el_ptr    = Builder->CreateInBoundsGEP(block, indx);
 
-        Value * el        = Builder->CreateLoad(bindings[wantedFields[i]->getRegisteredAs()].mem);
+        ExpressionGeneratorVisitor exprGenerator(context, childState);
+        RawValue valWrapper = wantedFields[i]->accept(exprGenerator);
+        Value * el          = valWrapper.value;
 
         Builder->CreateStore(el, el_ptr);
         els.push_back(block);
@@ -133,8 +205,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
     BasicBlock *elseBB  = BasicBlock::Create(llvmContext, "else", F);
     BasicBlock *mergeBB = BasicBlock::Create(llvmContext, "merge", F);
 
-    Value * limt = ConstantInt::get(oid_type, blockSize - 1);
-    Value * cond = Builder->CreateICmpUGE(indx, limt);
+    Value * cond = Builder->CreateICmpUGE(indx, last_index);
 
     Builder->CreateCondBr(cond, fullBB, elseBB);
 
@@ -149,7 +220,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
 
 
     Value * new_oid = Builder->CreateLoad(((GpuRawContext *) context)->getStateVar(oidVar_id), "oid");
-    Builder->CreateStore(Builder->CreateAdd(new_oid, ConstantInt::get(oid_type, blockSize)), ((GpuRawContext *) context)->getStateVar(oidVar_id));
+    Builder->CreateStore(Builder->CreateAdd(new_oid, capacity), ((GpuRawContext *) context)->getStateVar(oidVar_id));
     
     AllocaInst * new_oid_ptr = context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
     Builder->CreateStore(new_oid, new_oid_ptr);
@@ -181,7 +252,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
 
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
         RecordAttribute tblock{wantedFields[i]->getRegisteredAs(), true};
-        Value * size     = context->createSizeT(blockSize * context->getSizeOf(wantedFields[i]->getExpressionType()->getLLVMType(llvmContext)));
+        Value * size     = context->createSizeT(cap * context->getSizeOf(wantedFields[i]->getExpressionType()->getLLVMType(llvmContext)));
 
         Value * new_buff = Builder->CreateCall(get_buffer, std::vector<Value *>{size});
 
@@ -359,8 +430,8 @@ void HashRearrange::consume_flush(){
         variableBindings[tblock] = memWrapper;
     }
 
-    Function * f = context->getFunction("printi");
-    Builder->CreateCall(f, indx);
+    // Function * f = context->getFunction("printi");
+    // Builder->CreateCall(f, indx);
 
     OperatorState state{*this, variableBindings};
     getParent()->consume(context, state);
@@ -410,7 +481,7 @@ void HashRearrange::open (RawPipeline * pip){
 
     for (int i = 0 ; i < numOfBuckets ; ++i){
         for (size_t j = 0 ; j < wantedFields.size() ; ++j){
-            blocks[i * wantedFields.size() + j] = get_buffer(pip->getSizeOf(wantedFields[i]->getExpressionType()->getLLVMType(context->getLLVMContext())) * blockSize);
+            blocks[i * wantedFields.size() + j] = get_buffer(wfSizes[j] * cap);
         }
     }
 

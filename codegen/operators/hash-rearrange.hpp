@@ -40,7 +40,7 @@ public:
                         wantedFields(wantedFields),
                         hashExpr(hashExpr),
                         hashProject(hashProject),
-                        blockSize(h_vector_size){
+                        blockSize(h_vector_size * sizeof(int32_t)){
     }//FIMXE: default blocksize...
 
     virtual ~HashRearrange()                                             { LOG(INFO)<<"Collapsing HashRearrange operator";}
@@ -48,6 +48,9 @@ public:
     virtual void produce();
     virtual void consume(RawContext* const context, const OperatorState& childState);
     virtual bool isFiltering() const {return false;}
+
+    llvm::Value * hash(llvm::Value * key, llvm::Value * old_seed = NULL);
+    llvm::Value * hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState);
 
 protected:
     virtual void consume_flush();
@@ -67,12 +70,16 @@ protected:
     size_t                          cntVar_id   ;
     size_t                          oidVar_id   ;
 
-    size_t                          blockSize   ;
+    size_t                          blockSize       ; //bytes
+
+    int64_t                         cap             ;
 
     GpuRawContext * const           context     ;
 
     RawPipelineGen                        * closingPip      ;
     Function                              * flushingFunc    ;
+
+    std::vector<size_t>             wfSizes;
 };
 
 #endif /* HASH_REARRANGE_HPP_ */
