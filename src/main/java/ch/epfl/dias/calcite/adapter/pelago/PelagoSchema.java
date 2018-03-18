@@ -66,9 +66,37 @@ public class PelagoSchema extends AbstractSchema {
         }
         Source source = Sources.of(new File((String) ((Map<String, ?>) e.getValue()).get("path")));
 
-        long linehint = (source.path().endsWith("lineorder.csv") ? 100000 : 10);//FIXME: add a better linehint...
+        Map<String, ?> plugin = (Map<String, ?>) ((Map<String, ?>) e.getValue()).getOrDefault("plugin", null);
+        if (plugin == null) {
+            System.err.println("Error in catalog: plugin information not found for table");
+            System.out.println("Ignoring table: " + e.getKey());
+            continue;
+        }
 
-        final Table table = new PelagoTable(source, lineType, linehint);
+        Object obj_linehint = plugin.getOrDefault("lines",  null);
+        if (obj_linehint == null){
+            obj_linehint = plugin.getOrDefault("linehint",  null);
+        }
+        Long linehint = null;
+        if (obj_linehint != null) {
+            if (obj_linehint instanceof Integer) {
+                linehint = ((Integer) obj_linehint).longValue();
+            } else if (obj_linehint instanceof Long){
+                linehint = (Long) obj_linehint;
+            } else {
+                System.err.println("Error in catalog: unrecognized type for \"lines\"");
+                System.out.println("Ignoring table: " + e.getKey());
+                continue;
+            }
+        }
+
+        if (linehint == null) {
+            System.err.println("Error in catalog: \"lines\" not found for table");
+            System.out.println("Ignoring table: " + e.getKey());
+            continue;
+        }
+
+        final Table table = new PelagoTable(source, lineType, plugin, linehint);
         builder.put(e.getKey(), table); //.toUpperCase(Locale.getDefault())
     }
     return builder.build();

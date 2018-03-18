@@ -14,6 +14,8 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 
 import java.util.List;
+import java.util.Map;
+
 
 /**
  * Relational expression representing a scan of a Pelago file.
@@ -91,6 +93,14 @@ public class PelagoTableScan extends TableScan implements EnumerableRel {
 
   public String getPelagoRelName(){
       return pelagoTable.getPelagoRelName();
+  }
+
+  public Map<String, ?> getPluginInfo(){
+    return pelagoTable.getPluginInfo();
+  }
+
+  public Long getLineHint(){
+    return pelagoTable.getLineHint();
   }
 }
 

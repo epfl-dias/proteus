@@ -15,12 +15,14 @@ import org.apache.calcite.interpreter.Bindables.BindableTableScan
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
+import org.json4s.jackson.Serialization
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks._
 
 object PlanToJSON {
+  implicit val formats = DefaultFormats
 
   case class Binding(rel: String, fields: List[RelDataTypeField])
 
@@ -320,10 +322,12 @@ object PlanToJSON {
     case s : PelagoTableScan => {
       val op = ("operator" , "scan")
       //TODO Cross-check: 0: schemaName, 1: tableName (?)
-      val srcName = s.getPelagoRelName //s.getTable.getQualifiedName.get(1)
-      val rowType = emitSchema(srcName, s.getRowType)
+      val srcName  = s.getPelagoRelName //s.getTable.getQualifiedName.get(1)
+      val rowType  = emitSchema(srcName, s.getRowType)
+      val plugin   = Extraction.decompose(s.getPluginInfo.asScala)
+      val linehint = s.getLineHint.longValue
 
-      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
+      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName) ~ ("plugin", plugin) ~ ("linehint", linehint)
       val binding: Binding = Binding(srcName,getFields(s.getRowType))
       val ret: (Binding, JValue) = (binding,json)
       ret

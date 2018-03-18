@@ -25,6 +25,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     protected final Source              source      ;
     protected RelDataType               rowType     ;
     protected Map<String, ?>            type        ;
+    protected Map<String, ?>            plugin      ;
     protected Long                      linehint    ;
 
     PelagoTable(Source source, RelProtoDataType protoRowType) {
@@ -35,11 +36,12 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         this.protoRowType   = protoRowType;
     }
 
-    PelagoTable(Source source, Map<String, ?> type, long linehint) {
+    PelagoTable(Source source, Map<String, ?> type, Map<String, ?> plugin, long linehint) {
         this.source     = source    ;
         this.type       = type      ;
         this.rowType    = null      ;
         this.linehint   = linehint  ;
+        this.plugin     = plugin    ;
 
         this.protoRowType = null;
     }
@@ -84,5 +86,13 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
 
     public String getPelagoRelName(){
         return source.path();
+    }
+
+    public Map<String, ?> getPluginInfo(){
+        return plugin;
+    }
+
+    public Long getLineHint(){
+        return linehint;
     }
 }
