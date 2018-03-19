@@ -41,6 +41,7 @@
 #include "values/expressionTypes.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
+#include "operators/flush.hpp"
 
 class JSONTest : public ::testing::Test {
 protected:
@@ -56,6 +57,7 @@ protected:
 	jsonPipelined::JSONPlugin * openJSON(RawContext* const context, string& fname, ExpressionType* schema, size_t linehint = 1000) {
 		jsonPipelined::JSONPlugin * plugin = new jsonPipelined::JSONPlugin(context, fname, schema, linehint);
 		catalog->registerPlugin(fname, plugin);
+
 		return plugin;
 	}
 
@@ -355,8 +357,9 @@ TEST_F(JSONTest, unnestJSON) {
 	accs.push_back(BAGUNION);
 	exprs.push_back(projToPrint);
 
-	opt::Reduce reduce = opt::Reduce(accs, exprs, predicateRed, &unnestOp, &ctx,
-			flushResults, testLabel);
+	Flush reduce(exprs, &unnestOp, &ctx, testLabel);
+	// opt::Reduce reduce = opt::Reduce(accs, exprs, predicateRed, &unnestOp, &ctx,
+	// 		flushResults, testLabel);
 	unnestOp.setParent(&reduce);
 
 	reduce.produce();

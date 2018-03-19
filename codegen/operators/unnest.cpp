@@ -83,7 +83,7 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 //	}
 #endif
 	RawValueMemory nestedValueItem =  pg->collectionGetNext(mem_currentObjId);
-#ifdef DEBUGUNNEST
+// #ifdef DEBUGUNNEST
 	{	Function* debugInt = context->getFunction("printi64");
 
 		Value* val_currentTokenId = Builder->CreateLoad(nestedValueItem.mem);
@@ -104,12 +104,13 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 	ArgsV.push_back(val_currentTokenNo);
 	Builder->CreateCall(debugInt, ArgsV);
 	}
-#endif
+// #endif
 
 	//Preparing call to parent
-	map<RecordAttribute, RawValueMemory>* unnestBindings = new map<RecordAttribute, RawValueMemory>(childState.getBindings());
+	map<RecordAttribute, RawValueMemory> unnestBindings{childState.getBindings()};
 	RawCatalog& catalog = RawCatalog::getInstance();
 	LOG(INFO) << "[Unnest: ] Registering plugin of "<< path.toString();
+	std::cout << "[Unnest: ] Registering plugin of "<< path.toString() << std::endl;
 	catalog.registerPlugin(path.toString(),pg);
 
 	//attrNo does not make a difference
@@ -118,8 +119,8 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 			activeLoop,
 			pathProj->getExpressionType());
 
-	(*unnestBindings)[unnestedAttr] = nestedValueItem;
-	OperatorState* newState = new OperatorState(*this,*unnestBindings);
+	unnestBindings[unnestedAttr] = nestedValueItem;
+	OperatorState newState{*this, unnestBindings};
 
 	/**
 	 * Predicate Evaluation:
@@ -129,7 +130,7 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 									&ifBlock, &elseBlock,loopInc);
 
 	//Generate condition
-	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, *newState);
+	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, newState);
 	RawValue condition = pred->accept(predExprGenerator);
 	Builder->CreateCondBr(condition.value,ifBlock,elseBlock);
 
@@ -139,7 +140,7 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 	 */
 	Builder->SetInsertPoint(ifBlock);
 	//Triggering parent
-	getParent()->consume(context, *newState);
+	getParent()->consume(context, newState);
 	Builder->CreateBr(loopInc);
 
 	/**

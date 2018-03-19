@@ -299,8 +299,6 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val.HasMember("path"));
 		assert(val["path"].IsObject());
 
-		assert(val["path"]["name"].IsString());
-		string pathAlias = val["path"]["name"].GetString();
 
 		assert(val["path"]["e"].IsObject());
 		expressions::Expression *exprToUnnest = parseExpression(
@@ -312,6 +310,14 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 					"[Unnest: ] Cannot cast to record projection");
 			LOG(ERROR)<< error_msg;
 			throw runtime_error(string(error_msg));
+		}
+		
+		string pathAlias;
+		if (exprToUnnest->isRegistered()){
+			pathAlias = exprToUnnest->getRegisteredAttrName();
+		} else {
+			assert(val["path"]["name"].IsString());
+			pathAlias = val["path"]["name"].GetString();
 		}
 
 		Path *projPath = new Path(pathAlias,proj);
@@ -2260,9 +2266,8 @@ RecordAttribute* ExpressionParser::parseRecordAttr(const rapidjson::Value& val, 
 		assert(val[keyAttrNo].IsInt());
 		attrNo = val[keyAttrNo].GetInt();
 	} else {
-		if (!attr) std::cout << relName << "." << attrName << std::endl;
-		assert(attr && "Attribute not found");
-		attrNo = attr->getAttrNo();
+		if (!attr) attrNo = -1;
+		else       attrNo = attr->getAttrNo();
 	}
 
 	const ExpressionType* recArgType;

@@ -27,6 +27,7 @@
 #include "operators/operators.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "expressions/path.hpp"
+#include "util/raw-catalog.hpp"
 
 //#define DEBUGUNNEST
 /**
@@ -35,7 +36,10 @@
 class Unnest : public UnaryRawOperator {
 public:
 	Unnest(expressions::Expression* pred, Path& path, RawOperator* const child) :
-		  UnaryRawOperator(child), path(path), pred(pred)								 		{}
+		UnaryRawOperator(child), path(path), pred(pred)								 		{
+		RawCatalog &catalog = RawCatalog::getInstance();
+		catalog.registerPlugin(path.toString(), path.getRelevantPlugin());
+	}
 	virtual ~Unnest() 																			{ LOG(INFO)<<"Collapsing Unnest operator"; }
 	virtual void produce();
 	virtual void consume(RawContext* const context, const OperatorState& childState);
