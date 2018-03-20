@@ -35,7 +35,7 @@ struct buff_pair_brdcst{
 
 extern "C"{
 buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int target_device, MemBroadcastDevice::MemMoveConf * mmc, bool disable_noop){
-    if (mmc->to_cpu){
+    if (!(mmc->to_cpu)){
         int dev = get_device(src);
 
         // assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager should be able to provide blocks of arbitary size
@@ -55,7 +55,7 @@ buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int ta
     } else {
         int dev = get_device(src);
 
-        if (dev < 0){
+        if (dev >= 0){
             char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(numa_node_of_cpu(target_device));
             assert(target_device >= 0);
             if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm[target_device], false);
@@ -67,15 +67,18 @@ buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int ta
             move_pages(0, 1, &tmp, NULL, &node, MPOL_MF_MOVE);
 
             int target_node = numa_node_of_cpu(target_device);
-            if (!disable_noop && node == target_node) {
-                return buff_pair_brdcst{src, NULL};
-            } else {
-                char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(target_node);
-                assert(target_device >= 0);
-                if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm[target_device], false);
-
-                return buff_pair_brdcst{buff, src};
+            if (node == target_node) {
+                if (!disable_noop) return buff_pair_brdcst{src, NULL};
+                if (buffer_manager<int32_t>::share_host_buffer((int32_t *) src)) {
+                    return buff_pair_brdcst{src, src};
+                }
             }
+
+            char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(target_node);
+            assert(target_device >= 0);
+            if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm[target_device], false);
+
+            return buff_pair_brdcst{buff, src};
         }
     }
 }
