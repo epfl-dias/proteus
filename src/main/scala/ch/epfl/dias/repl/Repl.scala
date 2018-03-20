@@ -40,9 +40,8 @@ object Repl extends App {
   val is = getClass.getResourceAsStream("/schema.json")
   val model = IOUtils.toString(is)
   */
-
   //TODO Not the cleanest way to provide this path, but sbt crashes otherwise. Incompatible with assembly jar
-  val schemaPath: String = new java.io.File(".").getCanonicalPath+"/src/main/resources/schema.json"
+  val schemaPath: String = if (args.length >= 1) args(0) else (new java.io.File(".").getCanonicalPath+"/src/main/resources/schema.json")
   val connection = DriverManager.getConnection("jdbc:calcite:model=" + schemaPath, info)
   val calciteConnection: CalciteConnection = connection.unwrap(classOf[CalciteConnection])
   val rootSchema = calciteConnection.getRootSchema.getSubSchema("SSB") //or SALES
