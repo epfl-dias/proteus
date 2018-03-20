@@ -257,7 +257,7 @@ int main(int argc, char* argv[]){
             // StorageManager::load(filename, PINNED);
             StorageManager::loadToCpus(filename);
         };
-        
+
         load("inputs/ssbm100/customer.csv.c_city");
         load("inputs/ssbm100/customer.csv.c_custkey");
         load("inputs/ssbm100/customer.csv.c_nation");
@@ -285,27 +285,12 @@ int main(int argc, char* argv[]){
         load("inputs/ssbm100/part.csv.p_mfgr");
         load("inputs/ssbm100/part.csv.p_partkey");
         load("inputs/ssbm100/part.csv.p_size");
-        
+
         load("inputs/ssbm100/supplier.csv.s_city");
         load("inputs/ssbm100/supplier.csv.s_nation");
         load("inputs/ssbm100/supplier.csv.s_region");
         load("inputs/ssbm100/supplier.csv.s_suppkey");
         load("inputs/ssbm100/supplier.csv.s_name");
-
-        // load("inputs/ssbm100/date.csv.d_datekey");
-        // load("inputs/ssbm100/date.csv.d_year");
-        // load("inputs/ssbm100/supplier.csv.s_suppkey");
-        // load("inputs/ssbm100/supplier.csv.s_nation");
-        // load("inputs/ssbm100/customer.csv.c_custkey");
-        // load("inputs/ssbm100/customer.csv.c_region");
-        // load("inputs/ssbm100/part.csv.p_partkey");
-        // load("inputs/ssbm100/part.csv.p_category");
-        // load("inputs/ssbm100/lineorder.csv.lo_custkey");
-        // load("inputs/ssbm100/lineorder.csv.lo_partkey");
-        // load("inputs/ssbm100/lineorder.csv.lo_suppkey");
-        // load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-        // load("inputs/ssbm100/lineorder.csv.lo_revenue");
-        // load("inputs/ssbm100/lineorder.csv.lo_supplycost");
     }
     gpu_run(cudaSetDevice(0));
     LOG(INFO)<< "Finished initialization";

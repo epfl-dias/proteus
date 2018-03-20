@@ -134,6 +134,7 @@ TEST_F(PlanTest, ScanTwoFields) {
 	EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
+/* SELECT COUNT(*) as cnt FROM employees e, unnest(e.children); */
 TEST_F(PlanTest, Unnest) {
 	const char* planPath = "inputs/plans/reduce-unnest-scan.json";
 	const char *testLabel = "reduce-unnest-scan-log.json";

@@ -274,7 +274,7 @@ TEST_F(JSONTest, unnestJSON) {
 
 	string childName = string("name");
 	RecordAttribute child1 = RecordAttribute(1, fname, childName, &stringType);
-	string childAge = string("age");
+	string childAge = string("age2");
 	RecordAttribute child2 = RecordAttribute(2, fname, childAge, &intType);
 	list<RecordAttribute*> attsNested = list<RecordAttribute*>();
 	attsNested.push_back(&child1);

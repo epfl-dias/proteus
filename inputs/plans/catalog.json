@@ -35,6 +35,13 @@
 					"attrNo": 4
 				}]
 			}
+		},
+		"plugin": {
+			"type": "csv",
+			"brackets": false,
+			"lines": 10,
+			"delimiter": ";",
+			"policy": 2
 		}
 	},
 	"ssbm_supplier": {
@@ -559,12 +566,19 @@
 					"attrNo": 3
 				}]
 			}
+		},
+		"plugin": {
+			"type": "csv",
+			"policy": 2,
+			"lines": 10,
+			"delimiter": ";",
+			"brackets": false
 		}
 	},
 	"employees": {
 		"path": "inputs/json/employees-flat.json",
 		"type": {
-			"type": "list",
+			"type": "bag",
 			"inner": {
 				"type": "record",
 				"attributes": [{
@@ -583,28 +597,39 @@
 					"attrNo": 2
 				}, {
 					"type": {
-						"type": "record",
-						"attributes": [{
-							"type": {
-								"type": "string"
-							},
-							"relName": "inputs/json/employees-flat.json",
-							"attrName": "name",
-							"attrNo": 1
-						}, {
-							"type": {
-								"type": "int"
-							},
-							"relName": "inputs/json/employees-flat.json",
-							"attrName": "age",
-							"attrNo": 2
-						}]
+						"type": "list",
+						"inner": {
+							"type": "record",
+							"attributes": [
+								{
+									"type": {
+										"type": "string"
+									},
+									"relName": "inputs/json/employees-flat.json",
+									"attrName": "name2",
+									"attrNo": 1
+								},
+								{
+									"type": {
+										"type": "int"
+									},
+									"relName": "inputs/json/employees-flat.json",
+									"attrName": "age2",
+									"attrNo": 2
+								}
+							]
+						}
 					},
 					"relName": "inputs/json/employees-flat.json",
 					"attrName": "children",
 					"attrNo": 3
 				}]
 			}
+		},
+		"plugin": {
+			"type": "json",
+			"lines": 3,
+			"policy": 2
 		}
 	},
 	"A": {
@@ -636,6 +661,13 @@
 					"attrNo": 3
 				}]
 			}
+		},
+		"plugin": {
+			"type": "csv",
+			"policy": 2,
+			"lines": 4,
+			"delimiter": ";",
+			"brackets": false
 		}
 	},
 	"B": {
@@ -667,6 +699,13 @@
 					"attrNo": 3
 				}]
 			}
+		},
+		"plugin": {
+			"type": "csv",
+			"policy": 2,
+			"lines": 4,
+			"delimiter": ";",
+			"brackets": false
 		}
 	},
 	"100-30cols-fixed": {
@@ -952,6 +991,10 @@
 					"attrNo": 7
 				}]
 			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 200000
 		}
 	},
 	"ssbm_customer": {
@@ -1025,6 +1068,10 @@
 					"attrNo": 8
 				}]
 			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 3000000
 		}
 	},
 	"ssbm_part": {
@@ -1106,6 +1153,10 @@
 					"attrNo": 9
 				}]
 			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 1400000
 		}
 	},
 	"ssbm_lineorder": {
@@ -1251,6 +1302,10 @@
 					"attrNo": 17
 				}]
 			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 600038145
 		}
 	},
 	"ssbm_date": {
@@ -1380,6 +1435,10 @@
 					"attrNo": 17
 				}]
 			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 2556
 		}
 	},
     "ssbm_supplier_csv": {
@@ -1445,7 +1504,14 @@
                     "attrNo": 7
                 }]
             }
-        }
+        },
+		"plugin": {
+			"type": "csv",
+			"lines": 200000,
+			"delimiter": "|",
+			"brackets": false,
+			"policy": 2
+		}
     },
     "ssbm_customer_csv": {
         "path": "inputs/ssbm100/customer2.tbl",
@@ -1518,7 +1584,14 @@
                     "attrNo": 8
                 }]
             }
-        }
+        },
+		"plugin": {
+			"type": "csv",
+			"lines": 3000000,
+			"delimiter": "|",
+			"brackets": false,
+			"policy": 2
+		}
     },
     "ssbm_part_csv": {
         "path": "inputs/ssbm100/part2.tbl",
@@ -1599,7 +1672,14 @@
                     "attrNo": 9
                 }]
             }
-        }
+        },
+		"plugin": {
+			"type": "csv",
+			"lines": 1400000,
+			"delimiter": "|",
+			"brackets": false,
+			"policy": 2
+		}
     },
     "ssbm_lineorder_csv": {
         "path": "inputs/ssbm100/lineorder2.tbl",
@@ -1744,7 +1824,14 @@
                     "attrNo": 17
                 }]
             }
-        }
+        },
+		"plugin": {
+			"type": "csv",
+			"lines": 600038145,
+			"delimiter": "|",
+			"brackets": false,
+			"policy": 2
+		}
     },
     "ssbm_date_csv": {
         "path": "inputs/ssbm100/date2.tbl",
@@ -1873,6 +1960,13 @@
                     "attrNo": 17
                 }]
             }
-        }
+        },
+		"plugin": {
+			"type": "csv",
+			"lines": 2556,
+			"delimiter": "|",
+			"brackets": false,
+			"policy": 2
+		}
     }
 }
