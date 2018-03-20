@@ -5,6 +5,7 @@
 #ifndef NCUDA
 #include "operators/gpu/gpu-join.hpp"
 #include "operators/gpu/gpu-hash-join-chained.hpp"
+#include "operators/hash-join-chained.hpp"
 #include "operators/gpu/gpu-hash-group-by-chained.hpp"
 #include "operators/gpu/gpu-reduce.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
@@ -639,8 +640,8 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val.HasMember("probe_k"));
 		expressions::Expression *probe_key_expr = parseExpression(val["probe_k"]);
 
-#ifndef NCUDA
-		if (val.HasMember("gpu") && val["gpu"].GetBool()){
+// #ifndef NCUDA
+// 		if (val.HasMember("gpu") && val["gpu"].GetBool()){
 			assert(val.HasMember("hash_bits"));
 			assert(val["hash_bits"].IsInt());
 			int hash_bits = val["hash_bits"].GetInt();
@@ -709,233 +710,240 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			size_t maxBuildInputSize = val["maxBuildInputSize"].GetUint64();
 
 			assert(dynamic_cast<GpuRawContext *>(this->ctx));
+			if (val.HasMember("gpu") && val["gpu"].GetBool()){
 			newOp = new GpuHashJoinChained(build_e, build_widths, build_key_expr, build_op,
 								probe_e, probe_widths, probe_key_expr, probe_op, hash_bits,
 								dynamic_cast<GpuRawContext *>(this->ctx), maxBuildInputSize);
-		} else {
-#endif
-			expressions::BinaryExpression *predExpr = new expressions::EqExpression(build_key_expr, probe_key_expr);
+			} else {
+				newOp = new HashJoinChained(build_e, build_widths, build_key_expr, build_op,
+									probe_e, probe_widths, probe_key_expr, probe_op, hash_bits,
+									dynamic_cast<GpuRawContext *>(this->ctx), maxBuildInputSize);
 
-			/*
-			 * *** WHAT TO MATERIALIZE ***
-			 * XXX v0: JSON file contains a list of **RecordProjections**
-			 * EXPLICIT OIDs injected by PARSER (not in json file by default)
-			 * XXX Eager materialization atm
-			 *
-			 * XXX Why am I not using minimal constructor for materializer yet, as use cases do?
-			 * 	-> Because then I would have to encode the OID type in JSON -> can be messy
-			 */
-
-			//LEFT SIDE
-
-			/*
-			 * parse output expressions
-			 * XXX Careful: Assuming numerous output expressions!
-			 */
-			assert(val.HasMember("build_e"));
-			assert(val["build_e"].IsArray());
-			vector<expressions::Expression *> exprBuild   ;
-			vector<RecordAttribute         *> fieldsBuild ;
-			map<string, RecordAttribute    *> mapOidsBuild;
-			vector<materialization_mode>      outputModesBuild;
-
-			{
-				exprBuild.emplace_back(build_key_expr);
-				
-				expressions::Expression * exprR = exprBuild.back();
-
-				outputModesBuild.insert(outputModesBuild.begin(), EAGER);
-
-				expressions::RecordProjection *projBuild =
-						dynamic_cast<expressions::RecordProjection *>(exprR);
-				if(projBuild == NULL)
-				{
-					string error_msg = string(
-							"[Join: ] Cannot cast to rec projection. Original: ")
-							+ exprR->getExpressionType()->getType();
-					LOG(ERROR)<< error_msg;
-					throw runtime_error(string(error_msg));
-				}
-
-				//Added in 'wanted fields'
-				RecordAttribute *recAttr = new RecordAttribute(projBuild->getAttribute());
-				fieldsBuild.push_back(new RecordAttribute(exprR->getRegisteredAs()));
-
-				string relName = recAttr->getRelationName();
-				if (mapOidsBuild.find(relName) == mapOidsBuild.end()) {
-					InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
-							relName);
-					RecordAttribute *oid = new RecordAttribute(
-							recAttr->getRelationName(), activeLoop,
-							datasetInfo->oidType);
-					mapOidsBuild[relName] = oid;
-					expressions::RecordProjection *oidR =
-							new expressions::RecordProjection(exprR, *oid);
-					// oidR->registerAs(exprR->getRegisteredRelName(), exprR->getRegisteredAttrName());
-					//Added in 'wanted expressions'
-					exprBuild.insert(exprBuild.begin(),oidR);
-					cout << "Injecting build OID for " << relName << endl;
-					outputModesBuild.insert(outputModesBuild.begin(), EAGER);
-				}
 			}
+// 		} else {
+// #endif
+// 			expressions::BinaryExpression *predExpr = new expressions::EqExpression(build_key_expr, probe_key_expr);
 
-			const rapidjson::Value& build_exprsJSON = val["build_e"];
-			for (SizeType i = 0; i < build_exprsJSON.Size(); i++){
-				assert(build_exprsJSON[i].HasMember("e"     ));
-				assert(build_exprsJSON[i].HasMember("packet"));
-				assert(build_exprsJSON[i]["packet"].IsInt());
-				assert(build_exprsJSON[i].HasMember("offset"));
-				assert(build_exprsJSON[i]["offset"].IsInt());
-				exprBuild.emplace_back(parseExpression(build_exprsJSON[i]["e"]));
+// 			/*
+// 			 * *** WHAT TO MATERIALIZE ***
+// 			 * XXX v0: JSON file contains a list of **RecordProjections**
+// 			 * EXPLICIT OIDs injected by PARSER (not in json file by default)
+// 			 * XXX Eager materialization atm
+// 			 *
+// 			 * XXX Why am I not using minimal constructor for materializer yet, as use cases do?
+// 			 * 	-> Because then I would have to encode the OID type in JSON -> can be messy
+// 			 */
+
+// 			//LEFT SIDE
+
+// 			/*
+// 			 * parse output expressions
+// 			 * XXX Careful: Assuming numerous output expressions!
+// 			 */
+// 			assert(val.HasMember("build_e"));
+// 			assert(val["build_e"].IsArray());
+// 			vector<expressions::Expression *> exprBuild   ;
+// 			vector<RecordAttribute         *> fieldsBuild ;
+// 			map<string, RecordAttribute    *> mapOidsBuild;
+// 			vector<materialization_mode>      outputModesBuild;
+
+// 			{
+// 				exprBuild.emplace_back(build_key_expr);
 				
-				expressions::Expression * exprR = exprBuild.back();
+// 				expressions::Expression * exprR = exprBuild.back();
 
-				outputModesBuild.insert(outputModesBuild.begin(), EAGER);
+// 				outputModesBuild.insert(outputModesBuild.begin(), EAGER);
 
-				expressions::RecordProjection *projBuild =
-						dynamic_cast<expressions::RecordProjection *>(exprR);
-				if(projBuild == NULL)
-				{
-					string error_msg = string(
-							"[Join: ] Cannot cast to rec projection. Original: ")
-							+ exprR->getExpressionType()->getType();
-					LOG(ERROR)<< error_msg;
-					throw runtime_error(string(error_msg));
-				}
+// 				expressions::RecordProjection *projBuild =
+// 						dynamic_cast<expressions::RecordProjection *>(exprR);
+// 				if(projBuild == NULL)
+// 				{
+// 					string error_msg = string(
+// 							"[Join: ] Cannot cast to rec projection. Original: ")
+// 							+ exprR->getExpressionType()->getType();
+// 					LOG(ERROR)<< error_msg;
+// 					throw runtime_error(string(error_msg));
+// 				}
 
-				//Added in 'wanted fields'
-				RecordAttribute *recAttr = new RecordAttribute(projBuild->getAttribute());
-				fieldsBuild.push_back(new RecordAttribute(exprR->getRegisteredAs()));
+// 				//Added in 'wanted fields'
+// 				RecordAttribute *recAttr = new RecordAttribute(projBuild->getAttribute());
+// 				fieldsBuild.push_back(new RecordAttribute(exprR->getRegisteredAs()));
 
-				string relName = recAttr->getRelationName();
-				if (mapOidsBuild.find(relName) == mapOidsBuild.end()) {
-					InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
-							relName);
-					RecordAttribute *oid = new RecordAttribute(
-							recAttr->getRelationName(), activeLoop,
-							datasetInfo->oidType);
-					mapOidsBuild[relName] = oid;
-					expressions::RecordProjection *oidR =
-							new expressions::RecordProjection(exprR, *oid);
-					// oidR->registerAs(exprR->getRegisteredRelName(), exprR->getRegisteredAttrName());
-					//Added in 'wanted expressions'
-					exprBuild.insert(exprBuild.begin(),oidR);
-					cout << "Injecting build OID for " << relName << endl;
-					outputModesBuild.insert(outputModesBuild.begin(), EAGER);
-				}
-			}
-			vector<RecordAttribute*> oidsBuild;
-			MapToVec(mapOidsBuild, oidsBuild);
-			Materializer* matBuild = new Materializer(fieldsBuild, exprBuild,
-					oidsBuild, outputModesBuild);
+// 				string relName = recAttr->getRelationName();
+// 				if (mapOidsBuild.find(relName) == mapOidsBuild.end()) {
+// 					InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
+// 							relName);
+// 					RecordAttribute *oid = new RecordAttribute(
+// 							recAttr->getRelationName(), activeLoop,
+// 							datasetInfo->oidType);
+// 					mapOidsBuild[relName] = oid;
+// 					expressions::RecordProjection *oidR =
+// 							new expressions::RecordProjection(exprR, *oid);
+// 					// oidR->registerAs(exprR->getRegisteredRelName(), exprR->getRegisteredAttrName());
+// 					//Added in 'wanted expressions'
+// 					exprBuild.insert(exprBuild.begin(),oidR);
+// 					cout << "Injecting build OID for " << relName << endl;
+// 					outputModesBuild.insert(outputModesBuild.begin(), EAGER);
+// 				}
+// 			}
 
-			/*
-			 * parse output expressions
-			 * XXX Careful: Assuming numerous output expressions!
-			 */
-			assert(val.HasMember("probe_e"));
-			assert(val["probe_e"].IsArray());
-			vector<expressions::Expression *> exprProbe   ;
-			vector<RecordAttribute         *> fieldsProbe ;
-			map<string, RecordAttribute    *> mapOidsProbe;
-			vector<materialization_mode>      outputModesProbe;
-
-			{
-				exprProbe.emplace_back(probe_key_expr);
+// 			const rapidjson::Value& build_exprsJSON = val["build_e"];
+// 			for (SizeType i = 0; i < build_exprsJSON.Size(); i++){
+// 				assert(build_exprsJSON[i].HasMember("e"     ));
+// 				assert(build_exprsJSON[i].HasMember("packet"));
+// 				assert(build_exprsJSON[i]["packet"].IsInt());
+// 				assert(build_exprsJSON[i].HasMember("offset"));
+// 				assert(build_exprsJSON[i]["offset"].IsInt());
+// 				exprBuild.emplace_back(parseExpression(build_exprsJSON[i]["e"]));
 				
-				expressions::Expression * exprR = exprProbe.back();
+// 				expressions::Expression * exprR = exprBuild.back();
 
-				outputModesProbe.insert(outputModesProbe.begin(), EAGER);
+// 				outputModesBuild.insert(outputModesBuild.begin(), EAGER);
 
-				expressions::RecordProjection *projProbe =
-						dynamic_cast<expressions::RecordProjection *>(exprR);
-				if(projProbe == NULL)
-				{
-					string error_msg = string(
-							"[Join: ] Cannot cast to rec projection. Original: ")
-							+ exprR->getExpressionType()->getType();
-					LOG(ERROR)<< error_msg;
-					throw runtime_error(string(error_msg));
-				}
+// 				expressions::RecordProjection *projBuild =
+// 						dynamic_cast<expressions::RecordProjection *>(exprR);
+// 				if(projBuild == NULL)
+// 				{
+// 					string error_msg = string(
+// 							"[Join: ] Cannot cast to rec projection. Original: ")
+// 							+ exprR->getExpressionType()->getType();
+// 					LOG(ERROR)<< error_msg;
+// 					throw runtime_error(string(error_msg));
+// 				}
 
-				//Added in 'wanted fields'
-				RecordAttribute *recAttr = new RecordAttribute(projProbe->getAttribute());
-				fieldsProbe.push_back(new RecordAttribute(exprR->getRegisteredAs()));
+// 				//Added in 'wanted fields'
+// 				RecordAttribute *recAttr = new RecordAttribute(projBuild->getAttribute());
+// 				fieldsBuild.push_back(new RecordAttribute(exprR->getRegisteredAs()));
 
-				string relName = recAttr->getRelationName();
-				std::cout << "relName" << " " << relName << std::endl;
-				if (mapOidsProbe.find(relName) == mapOidsProbe.end()) {
-					InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
-							relName);
-					RecordAttribute *oid = new RecordAttribute(
-							recAttr->getRelationName(), activeLoop,
-							datasetInfo->oidType);
-					mapOidsProbe[relName] = oid;
-					expressions::RecordProjection *oidR =
-							new expressions::RecordProjection(exprR, *oid);
-					// oidR->registerAs(exprR->getRegisteredRelName(), exprR->getRegisteredAttrName());
-					//Added in 'wanted expressions'
-					exprProbe.insert(exprProbe.begin(),oidR);
-					cout << "Injecting probe OID for " << relName << endl;
-					outputModesProbe.insert(outputModesProbe.begin(), EAGER);
-				}
-			}
+// 				string relName = recAttr->getRelationName();
+// 				if (mapOidsBuild.find(relName) == mapOidsBuild.end()) {
+// 					InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
+// 							relName);
+// 					RecordAttribute *oid = new RecordAttribute(
+// 							recAttr->getRelationName(), activeLoop,
+// 							datasetInfo->oidType);
+// 					mapOidsBuild[relName] = oid;
+// 					expressions::RecordProjection *oidR =
+// 							new expressions::RecordProjection(exprR, *oid);
+// 					// oidR->registerAs(exprR->getRegisteredRelName(), exprR->getRegisteredAttrName());
+// 					//Added in 'wanted expressions'
+// 					exprBuild.insert(exprBuild.begin(),oidR);
+// 					cout << "Injecting build OID for " << relName << endl;
+// 					outputModesBuild.insert(outputModesBuild.begin(), EAGER);
+// 				}
+// 			}
+// 			vector<RecordAttribute*> oidsBuild;
+// 			MapToVec(mapOidsBuild, oidsBuild);
+// 			Materializer* matBuild = new Materializer(fieldsBuild, exprBuild,
+// 					oidsBuild, outputModesBuild);
 
-			const rapidjson::Value& probe_exprsJSON = val["probe_e"];
-			for (SizeType i = 0; i < probe_exprsJSON.Size(); i++){
-				assert(probe_exprsJSON[i].HasMember("e"     ));
-				assert(probe_exprsJSON[i].HasMember("packet"));
-				assert(probe_exprsJSON[i]["packet"].IsInt());
-				assert(probe_exprsJSON[i].HasMember("offset"));
-				assert(probe_exprsJSON[i]["offset"].IsInt());
-				exprProbe.emplace_back(parseExpression(probe_exprsJSON[i]["e"]));
+// 			/*
+// 			 * parse output expressions
+// 			 * XXX Careful: Assuming numerous output expressions!
+// 			 */
+// 			assert(val.HasMember("probe_e"));
+// 			assert(val["probe_e"].IsArray());
+// 			vector<expressions::Expression *> exprProbe   ;
+// 			vector<RecordAttribute         *> fieldsProbe ;
+// 			map<string, RecordAttribute    *> mapOidsProbe;
+// 			vector<materialization_mode>      outputModesProbe;
+
+// 			{
+// 				exprProbe.emplace_back(probe_key_expr);
 				
-				expressions::Expression * exprR = exprProbe.back();
+// 				expressions::Expression * exprR = exprProbe.back();
 
-				outputModesProbe.insert(outputModesProbe.begin(), EAGER);
+// 				outputModesProbe.insert(outputModesProbe.begin(), EAGER);
 
-				expressions::RecordProjection *projProbe =
-						dynamic_cast<expressions::RecordProjection *>(exprR);
-				if(projProbe == NULL)
-				{
-					string error_msg = string(
-							"[Join: ] Cannot cast to rec projection. Original: ")
-							+ exprR->getExpressionType()->getType();
-					LOG(ERROR)<< error_msg;
-					throw runtime_error(string(error_msg));
-				}
+// 				expressions::RecordProjection *projProbe =
+// 						dynamic_cast<expressions::RecordProjection *>(exprR);
+// 				if(projProbe == NULL)
+// 				{
+// 					string error_msg = string(
+// 							"[Join: ] Cannot cast to rec projection. Original: ")
+// 							+ exprR->getExpressionType()->getType();
+// 					LOG(ERROR)<< error_msg;
+// 					throw runtime_error(string(error_msg));
+// 				}
 
-				//Added in 'wanted fields'
-				RecordAttribute *recAttr = new RecordAttribute(projProbe->getAttribute());
-				fieldsProbe.push_back(new RecordAttribute(exprR->getRegisteredAs()));
+// 				//Added in 'wanted fields'
+// 				RecordAttribute *recAttr = new RecordAttribute(projProbe->getAttribute());
+// 				fieldsProbe.push_back(new RecordAttribute(exprR->getRegisteredAs()));
 
-				string relName = recAttr->getRelationName();
-				std::cout << "relName" << " " << relName << std::endl;
-				if (mapOidsProbe.find(relName) == mapOidsProbe.end()) {
-					InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
-							relName);
-					RecordAttribute *oid = new RecordAttribute(
-							recAttr->getRelationName(), activeLoop,
-							datasetInfo->oidType);
-					mapOidsProbe[relName] = oid;
-					expressions::RecordProjection *oidR =
-							new expressions::RecordProjection(exprR, *oid);
-					// oidR->registerAs(exprR->getRegisteredRelName(), exprR->getRegisteredAttrName());
-					//Added in 'wanted expressions'
-					exprProbe.insert(exprProbe.begin(),oidR);
-					cout << "Injecting probe OID for " << relName << endl;
-					outputModesProbe.insert(outputModesProbe.begin(), EAGER);
-				}
-			}
-			vector<RecordAttribute*> oidsProbe;
-			MapToVec(mapOidsProbe, oidsProbe);
-			Materializer* matProbe = new Materializer(fieldsProbe, exprProbe,
-					oidsProbe, outputModesProbe);
+// 				string relName = recAttr->getRelationName();
+// 				std::cout << "relName" << " " << relName << std::endl;
+// 				if (mapOidsProbe.find(relName) == mapOidsProbe.end()) {
+// 					InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
+// 							relName);
+// 					RecordAttribute *oid = new RecordAttribute(
+// 							recAttr->getRelationName(), activeLoop,
+// 							datasetInfo->oidType);
+// 					mapOidsProbe[relName] = oid;
+// 					expressions::RecordProjection *oidR =
+// 							new expressions::RecordProjection(exprR, *oid);
+// 					// oidR->registerAs(exprR->getRegisteredRelName(), exprR->getRegisteredAttrName());
+// 					//Added in 'wanted expressions'
+// 					exprProbe.insert(exprProbe.begin(),oidR);
+// 					cout << "Injecting probe OID for " << relName << endl;
+// 					outputModesProbe.insert(outputModesProbe.begin(), EAGER);
+// 				}
+// 			}
 
-			newOp = new RadixJoin(predExpr, build_op, probe_op, this->ctx, "radixHashJoin", *matBuild, *matProbe);
-#ifndef NCUDA
-		}
-#endif
+// 			const rapidjson::Value& probe_exprsJSON = val["probe_e"];
+// 			for (SizeType i = 0; i < probe_exprsJSON.Size(); i++){
+// 				assert(probe_exprsJSON[i].HasMember("e"     ));
+// 				assert(probe_exprsJSON[i].HasMember("packet"));
+// 				assert(probe_exprsJSON[i]["packet"].IsInt());
+// 				assert(probe_exprsJSON[i].HasMember("offset"));
+// 				assert(probe_exprsJSON[i]["offset"].IsInt());
+// 				exprProbe.emplace_back(parseExpression(probe_exprsJSON[i]["e"]));
+				
+// 				expressions::Expression * exprR = exprProbe.back();
+
+// 				outputModesProbe.insert(outputModesProbe.begin(), EAGER);
+
+// 				expressions::RecordProjection *projProbe =
+// 						dynamic_cast<expressions::RecordProjection *>(exprR);
+// 				if(projProbe == NULL)
+// 				{
+// 					string error_msg = string(
+// 							"[Join: ] Cannot cast to rec projection. Original: ")
+// 							+ exprR->getExpressionType()->getType();
+// 					LOG(ERROR)<< error_msg;
+// 					throw runtime_error(string(error_msg));
+// 				}
+
+// 				//Added in 'wanted fields'
+// 				RecordAttribute *recAttr = new RecordAttribute(projProbe->getAttribute());
+// 				fieldsProbe.push_back(new RecordAttribute(exprR->getRegisteredAs()));
+
+// 				string relName = recAttr->getRelationName();
+// 				std::cout << "relName" << " " << relName << std::endl;
+// 				if (mapOidsProbe.find(relName) == mapOidsProbe.end()) {
+// 					InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
+// 							relName);
+// 					RecordAttribute *oid = new RecordAttribute(
+// 							recAttr->getRelationName(), activeLoop,
+// 							datasetInfo->oidType);
+// 					mapOidsProbe[relName] = oid;
+// 					expressions::RecordProjection *oidR =
+// 							new expressions::RecordProjection(exprR, *oid);
+// 					// oidR->registerAs(exprR->getRegisteredRelName(), exprR->getRegisteredAttrName());
+// 					//Added in 'wanted expressions'
+// 					exprProbe.insert(exprProbe.begin(),oidR);
+// 					cout << "Injecting probe OID for " << relName << endl;
+// 					outputModesProbe.insert(outputModesProbe.begin(), EAGER);
+// 				}
+// 			}
+// 			vector<RecordAttribute*> oidsProbe;
+// 			MapToVec(mapOidsProbe, oidsProbe);
+// 			Materializer* matProbe = new Materializer(fieldsProbe, exprProbe,
+// 					oidsProbe, outputModesProbe);
+
+// 			newOp = new RadixJoin(predExpr, build_op, probe_op, this->ctx, "radixHashJoin", *matBuild, *matProbe);
+// #ifndef NCUDA
+// 		}
+// #endif
 		build_op->setParent(newOp);
 		probe_op->setParent(newOp);
 	}

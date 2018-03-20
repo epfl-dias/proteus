@@ -1,7 +1,7 @@
 {
     "partitioning": {
         "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-        "relName": "projection77468", 
+        "relName": "projection15384", 
         "isBlock": true, 
         "must_unpack": [
             "c_city", 
@@ -18,7 +18,7 @@
                     "attributes": [
                         {
                             "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                            "relName": "projection77468"
+                            "relName": "projection15384"
                         }
                     ], 
                     "expression": "argument", 
@@ -26,22 +26,22 @@
                         "attributes": [
                             {
                                 "attrName": "c_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "s_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "d_year", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "lo_revenue", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }
                         ], 
@@ -51,27 +51,27 @@
                 "expression": "recordProjection", 
                 "attribute": {
                     "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                    "relName": "projection77468", 
+                    "relName": "projection15384", 
                     "type": {
                         "attributes": [
                             {
                                 "attrName": "c_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "s_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "d_year", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "lo_revenue", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }
                         ], 
@@ -83,7 +83,7 @@
             "expression": "recordProjection", 
             "attribute": {
                 "attrName": "c_city", 
-                "relName": "projection77468"
+                "relName": "projection15384"
             }
         }, 
         {
@@ -93,7 +93,7 @@
                     "attributes": [
                         {
                             "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                            "relName": "projection77468"
+                            "relName": "projection15384"
                         }
                     ], 
                     "expression": "argument", 
@@ -101,22 +101,22 @@
                         "attributes": [
                             {
                                 "attrName": "c_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "s_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "d_year", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "lo_revenue", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }
                         ], 
@@ -126,27 +126,27 @@
                 "expression": "recordProjection", 
                 "attribute": {
                     "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                    "relName": "projection77468", 
+                    "relName": "projection15384", 
                     "type": {
                         "attributes": [
                             {
                                 "attrName": "c_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "s_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "d_year", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "lo_revenue", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }
                         ], 
@@ -158,7 +158,7 @@
             "expression": "recordProjection", 
             "attribute": {
                 "attrName": "s_city", 
-                "relName": "projection77468"
+                "relName": "projection15384"
             }
         }, 
         {
@@ -168,7 +168,7 @@
                     "attributes": [
                         {
                             "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                            "relName": "projection77468"
+                            "relName": "projection15384"
                         }
                     ], 
                     "expression": "argument", 
@@ -176,22 +176,22 @@
                         "attributes": [
                             {
                                 "attrName": "c_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "s_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "d_year", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "lo_revenue", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }
                         ], 
@@ -201,27 +201,27 @@
                 "expression": "recordProjection", 
                 "attribute": {
                     "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                    "relName": "projection77468", 
+                    "relName": "projection15384", 
                     "type": {
                         "attributes": [
                             {
                                 "attrName": "c_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "s_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "d_year", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "lo_revenue", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }
                         ], 
@@ -233,7 +233,7 @@
             "expression": "recordProjection", 
             "attribute": {
                 "attrName": "d_year", 
-                "relName": "projection77468"
+                "relName": "projection15384"
             }
         }, 
         {
@@ -243,7 +243,7 @@
                     "attributes": [
                         {
                             "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                            "relName": "projection77468"
+                            "relName": "projection15384"
                         }
                     ], 
                     "expression": "argument", 
@@ -251,22 +251,22 @@
                         "attributes": [
                             {
                                 "attrName": "c_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "s_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "d_year", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "lo_revenue", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }
                         ], 
@@ -276,27 +276,27 @@
                 "expression": "recordProjection", 
                 "attribute": {
                     "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                    "relName": "projection77468", 
+                    "relName": "projection15384", 
                     "type": {
                         "attributes": [
                             {
                                 "attrName": "c_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "s_city", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "d_year", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             {
                                 "attrName": "lo_revenue", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }
                         ], 
@@ -308,7 +308,7 @@
             "expression": "recordProjection", 
             "attribute": {
                 "attrName": "lo_revenue", 
-                "relName": "projection77468"
+                "relName": "projection15384"
             }
         }
     ], 
@@ -319,7 +319,7 @@
     "input": {
         "partitioning": {
             "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-            "relName": "projection77468", 
+            "relName": "projection15384", 
             "isBlock": true, 
             "must_unpack": [
                 "c_city", 
@@ -336,26 +336,26 @@
                     "attributes": [
                         {
                             "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                            "relName": "projection77468"
+                            "relName": "projection15384"
                         }
                     ], 
                     "expression": "argument", 
                     "type": {
-                        "relName": "projection77468", 
+                        "relName": "projection15384", 
                         "type": "record"
                     }
                 }, 
                 "expression": "recordProjection", 
                 "attribute": {
                     "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                    "relName": "projection77468"
+                    "relName": "projection15384"
                 }
             }
         ], 
         "output": [
             {
                 "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                "relName": "projection77468", 
+                "relName": "projection15384", 
                 "isBlock": false, 
                 "must_unpack": [
                     "c_city", 
@@ -369,7 +369,7 @@
         "input": {
             "partitioning": {
                 "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                "relName": "projection77468", 
+                "relName": "projection15384", 
                 "isBlock": true, 
                 "must_unpack": [
                     "c_city", 
@@ -383,14 +383,14 @@
             "projections": [
                 {
                     "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                    "relName": "projection77468", 
+                    "relName": "projection15384", 
                     "isBlock": true
                 }
             ], 
             "output": [
                 {
                     "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                    "relName": "projection77468", 
+                    "relName": "projection15384", 
                     "isBlock": false, 
                     "must_unpack": [
                         "c_city", 
@@ -402,11 +402,11 @@
             ], 
             "operator": "mem-move-device", 
             "input": {
-                "producers": 24, 
+                "producers": 32, 
                 "projections": [
                     {
                         "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                        "relName": "projection77468", 
+                        "relName": "projection15384", 
                         "isBlock": true, 
                         "must_unpack": [
                             "c_city", 
@@ -419,7 +419,7 @@
                 "output": [
                     {
                         "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                        "relName": "projection77468", 
+                        "relName": "projection15384", 
                         "isBlock": true, 
                         "must_unpack": [
                             "c_city", 
@@ -433,7 +433,7 @@
                 "numa_local": false, 
                 "partitioning": {
                     "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                    "relName": "projection77468", 
+                    "relName": "projection15384", 
                     "isBlock": true, 
                     "must_unpack": [
                         "c_city", 
@@ -444,8 +444,8 @@
                 }, 
                 "input": {
                     "partitioning": {
-                        "attrName": "partition_hash_join77466", 
-                        "relName": "join77466", 
+                        "attrName": "partition_hash_join15382", 
+                        "relName": "join15382", 
                         "attrNo": -1
                     }, 
                     "gpu": false, 
@@ -455,26 +455,26 @@
                                 "attributes": [
                                     {
                                         "attrName": "c_city", 
-                                        "relName": "projection77468"
+                                        "relName": "projection15384"
                                     }, 
                                     {
                                         "attrName": "s_city", 
-                                        "relName": "projection77468"
+                                        "relName": "projection15384"
                                     }, 
                                     {
                                         "attrName": "d_year", 
-                                        "relName": "projection77468"
+                                        "relName": "projection15384"
                                     }, 
                                     {
                                         "attrName": "lo_revenue", 
-                                        "relName": "projection77468"
+                                        "relName": "projection15384"
                                     }
                                 ], 
                                 "type": "record"
                             }, 
                             "register_as": {
                                 "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                                "relName": "projection77468", 
+                                "relName": "projection15384", 
                                 "attrNo": -1
                             }, 
                             "expression": "recordConstruction", 
@@ -486,19 +486,19 @@
                                             "attributes": [
                                                 {
                                                     "attrName": "c_city", 
-                                                    "relName": "projection77468"
+                                                    "relName": "projection15384"
                                                 }
                                             ], 
                                             "expression": "argument", 
                                             "type": {
-                                                "relName": "projection77468", 
+                                                "relName": "projection15384", 
                                                 "type": "record"
                                             }
                                         }, 
                                         "expression": "recordProjection", 
                                         "attribute": {
                                             "attrName": "c_city", 
-                                            "relName": "projection77468"
+                                            "relName": "projection15384"
                                         }
                                     }, 
                                     "name": "c_city"
@@ -510,19 +510,19 @@
                                             "attributes": [
                                                 {
                                                     "attrName": "s_city", 
-                                                    "relName": "projection77468"
+                                                    "relName": "projection15384"
                                                 }
                                             ], 
                                             "expression": "argument", 
                                             "type": {
-                                                "relName": "projection77468", 
+                                                "relName": "projection15384", 
                                                 "type": "record"
                                             }
                                         }, 
                                         "expression": "recordProjection", 
                                         "attribute": {
                                             "attrName": "s_city", 
-                                            "relName": "projection77468"
+                                            "relName": "projection15384"
                                         }
                                     }, 
                                     "name": "s_city"
@@ -534,19 +534,19 @@
                                             "attributes": [
                                                 {
                                                     "attrName": "d_year", 
-                                                    "relName": "projection77468"
+                                                    "relName": "projection15384"
                                                 }
                                             ], 
                                             "expression": "argument", 
                                             "type": {
-                                                "relName": "projection77468", 
+                                                "relName": "projection15384", 
                                                 "type": "record"
                                             }
                                         }, 
                                         "expression": "recordProjection", 
                                         "attribute": {
                                             "attrName": "d_year", 
-                                            "relName": "projection77468"
+                                            "relName": "projection15384"
                                         }
                                     }, 
                                     "name": "d_year"
@@ -558,19 +558,19 @@
                                             "attributes": [
                                                 {
                                                     "attrName": "lo_revenue", 
-                                                    "relName": "projection77468"
+                                                    "relName": "projection15384"
                                                 }
                                             ], 
                                             "expression": "argument", 
                                             "type": {
-                                                "relName": "projection77468", 
+                                                "relName": "projection15384", 
                                                 "type": "record"
                                             }
                                         }, 
                                         "expression": "recordProjection", 
                                         "attribute": {
                                             "attrName": "lo_revenue", 
-                                            "relName": "projection77468"
+                                            "relName": "projection15384"
                                         }
                                     }, 
                                     "name": "lo_revenue"
@@ -581,7 +581,7 @@
                     "output": [
                         {
                             "attrName": "record_c_city_s_city_d_year_lo_revenue", 
-                            "relName": "projection77468", 
+                            "relName": "projection15384", 
                             "isBlock": true, 
                             "must_unpack": [
                                 "c_city", 
@@ -594,8 +594,8 @@
                     "operator": "tuples-to-block", 
                     "input": {
                         "partitioning": {
-                            "attrName": "partition_hash_join77466", 
-                            "relName": "join77466", 
+                            "attrName": "partition_hash_join15382", 
+                            "relName": "join15382", 
                             "attrNo": -1
                         }, 
                         "e": [
@@ -605,24 +605,24 @@
                                     "attributes": [
                                         {
                                             "attrName": "c_city", 
-                                            "relName": "agg77467"
+                                            "relName": "agg15383"
                                         }
                                     ], 
                                     "expression": "argument", 
                                     "type": {
-                                        "relName": "agg77467", 
+                                        "relName": "agg15383", 
                                         "type": "record"
                                     }
                                 }, 
                                 "register_as": {
                                     "attrName": "c_city", 
-                                    "relName": "projection77468", 
+                                    "relName": "projection15384", 
                                     "attrNo": -1
                                 }, 
                                 "expression": "recordProjection", 
                                 "attribute": {
                                     "attrName": "c_city", 
-                                    "relName": "agg77467"
+                                    "relName": "agg15383"
                                 }
                             }, 
                             {
@@ -631,24 +631,24 @@
                                     "attributes": [
                                         {
                                             "attrName": "s_city", 
-                                            "relName": "agg77467"
+                                            "relName": "agg15383"
                                         }
                                     ], 
                                     "expression": "argument", 
                                     "type": {
-                                        "relName": "agg77467", 
+                                        "relName": "agg15383", 
                                         "type": "record"
                                     }
                                 }, 
                                 "register_as": {
                                     "attrName": "s_city", 
-                                    "relName": "projection77468", 
+                                    "relName": "projection15384", 
                                     "attrNo": -1
                                 }, 
                                 "expression": "recordProjection", 
                                 "attribute": {
                                     "attrName": "s_city", 
-                                    "relName": "agg77467"
+                                    "relName": "agg15383"
                                 }
                             }, 
                             {
@@ -657,24 +657,24 @@
                                     "attributes": [
                                         {
                                             "attrName": "d_year", 
-                                            "relName": "agg77467"
+                                            "relName": "agg15383"
                                         }
                                     ], 
                                     "expression": "argument", 
                                     "type": {
-                                        "relName": "agg77467", 
+                                        "relName": "agg15383", 
                                         "type": "record"
                                     }
                                 }, 
                                 "register_as": {
                                     "attrName": "d_year", 
-                                    "relName": "projection77468", 
+                                    "relName": "projection15384", 
                                     "attrNo": -1
                                 }, 
                                 "expression": "recordProjection", 
                                 "attribute": {
                                     "attrName": "d_year", 
-                                    "relName": "agg77467"
+                                    "relName": "agg15383"
                                 }
                             }, 
                             {
@@ -683,47 +683,47 @@
                                     "attributes": [
                                         {
                                             "attrName": "lo_revenue", 
-                                            "relName": "agg77467"
+                                            "relName": "agg15383"
                                         }
                                     ], 
                                     "expression": "argument", 
                                     "type": {
-                                        "relName": "agg77467", 
+                                        "relName": "agg15383", 
                                         "type": "record"
                                     }
                                 }, 
                                 "register_as": {
                                     "attrName": "lo_revenue", 
-                                    "relName": "projection77468", 
+                                    "relName": "projection15384", 
                                     "attrNo": -1
                                 }, 
                                 "expression": "recordProjection", 
                                 "attribute": {
                                     "attrName": "lo_revenue", 
-                                    "relName": "agg77467"
+                                    "relName": "agg15383"
                                 }
                             }
                         ], 
                         "blockwise": false, 
                         "gpu": false, 
-                        "relName": "projection77468", 
+                        "relName": "projection15384", 
                         "max_line_estimate": 920218499172000000000000, 
                         "output": [
                             {
                                 "attrName": "c_city", 
-                                "relName": "projection77468"
+                                "relName": "projection15384"
                             }, 
                             {
                                 "attrName": "s_city", 
-                                "relName": "projection77468"
+                                "relName": "projection15384"
                             }, 
                             {
                                 "attrName": "d_year", 
-                                "relName": "projection77468"
+                                "relName": "projection15384"
                             }, 
                             {
                                 "attrName": "lo_revenue", 
-                                "relName": "projection77468"
+                                "relName": "projection15384"
                             }
                         ], 
                         "operator": "project", 
@@ -739,7 +739,7 @@
                                                 "attributes": [
                                                     {
                                                         "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                                        "relName": "join77466"
+                                                        "relName": "join15382"
                                                     }
                                                 ], 
                                                 "expression": "argument", 
@@ -747,22 +747,22 @@
                                                     "attributes": [
                                                         {
                                                             "attrName": "lo_revenue", 
-                                                            "relName": "join77466", 
+                                                            "relName": "join15382", 
                                                             "attrNo": -1
                                                         }, 
                                                         {
                                                             "attrName": "d_year", 
-                                                            "relName": "join77466", 
+                                                            "relName": "join15382", 
                                                             "attrNo": -1
                                                         }, 
                                                         {
                                                             "attrName": "s_city", 
-                                                            "relName": "join77466", 
+                                                            "relName": "join15382", 
                                                             "attrNo": -1
                                                         }, 
                                                         {
                                                             "attrName": "c_city", 
-                                                            "relName": "join77466", 
+                                                            "relName": "join15382", 
                                                             "attrNo": -1
                                                         }
                                                     ], 
@@ -772,27 +772,27 @@
                                             "expression": "recordProjection", 
                                             "attribute": {
                                                 "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                                "relName": "join77466", 
+                                                "relName": "join15382", 
                                                 "type": {
                                                     "attributes": [
                                                         {
                                                             "attrName": "lo_revenue", 
-                                                            "relName": "join77466", 
+                                                            "relName": "join15382", 
                                                             "attrNo": -1
                                                         }, 
                                                         {
                                                             "attrName": "d_year", 
-                                                            "relName": "join77466", 
+                                                            "relName": "join15382", 
                                                             "attrNo": -1
                                                         }, 
                                                         {
                                                             "attrName": "s_city", 
-                                                            "relName": "join77466", 
+                                                            "relName": "join15382", 
                                                             "attrNo": -1
                                                         }, 
                                                         {
                                                             "attrName": "c_city", 
-                                                            "relName": "join77466", 
+                                                            "relName": "join15382", 
                                                             "attrNo": -1
                                                         }
                                                     ], 
@@ -803,13 +803,13 @@
                                         }, 
                                         "register_as": {
                                             "attrName": "lo_revenue", 
-                                            "relName": "agg77467", 
+                                            "relName": "agg15383", 
                                             "attrNo": -1
                                         }, 
                                         "expression": "recordProjection", 
                                         "attribute": {
                                             "attrName": "lo_revenue", 
-                                            "relName": "join77466"
+                                            "relName": "join15382"
                                         }
                                     }, 
                                     "packet": 1, 
@@ -825,7 +825,7 @@
                                             "attributes": [
                                                 {
                                                     "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                                    "relName": "join77466"
+                                                    "relName": "join15382"
                                                 }
                                             ], 
                                             "expression": "argument", 
@@ -833,22 +833,22 @@
                                                 "attributes": [
                                                     {
                                                         "attrName": "lo_revenue", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "d_year", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "s_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "c_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }
                                                 ], 
@@ -858,27 +858,27 @@
                                         "expression": "recordProjection", 
                                         "attribute": {
                                             "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                            "relName": "join77466", 
+                                            "relName": "join15382", 
                                             "type": {
                                                 "attributes": [
                                                     {
                                                         "attrName": "lo_revenue", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "d_year", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "s_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "c_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }
                                                 ], 
@@ -889,13 +889,13 @@
                                     }, 
                                     "register_as": {
                                         "attrName": "d_year", 
-                                        "relName": "agg77467", 
+                                        "relName": "agg15383", 
                                         "attrNo": -1
                                     }, 
                                     "expression": "recordProjection", 
                                     "attribute": {
                                         "attrName": "d_year", 
-                                        "relName": "join77466"
+                                        "relName": "join15382"
                                     }
                                 }, 
                                 {
@@ -905,7 +905,7 @@
                                             "attributes": [
                                                 {
                                                     "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                                    "relName": "join77466"
+                                                    "relName": "join15382"
                                                 }
                                             ], 
                                             "expression": "argument", 
@@ -913,22 +913,22 @@
                                                 "attributes": [
                                                     {
                                                         "attrName": "lo_revenue", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "d_year", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "s_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "c_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }
                                                 ], 
@@ -938,27 +938,27 @@
                                         "expression": "recordProjection", 
                                         "attribute": {
                                             "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                            "relName": "join77466", 
+                                            "relName": "join15382", 
                                             "type": {
                                                 "attributes": [
                                                     {
                                                         "attrName": "lo_revenue", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "d_year", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "s_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "c_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }
                                                 ], 
@@ -969,13 +969,13 @@
                                     }, 
                                     "register_as": {
                                         "attrName": "s_city", 
-                                        "relName": "agg77467", 
+                                        "relName": "agg15383", 
                                         "attrNo": -1
                                     }, 
                                     "expression": "recordProjection", 
                                     "attribute": {
                                         "attrName": "s_city", 
-                                        "relName": "join77466"
+                                        "relName": "join15382"
                                     }
                                 }, 
                                 {
@@ -985,7 +985,7 @@
                                             "attributes": [
                                                 {
                                                     "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                                    "relName": "join77466"
+                                                    "relName": "join15382"
                                                 }
                                             ], 
                                             "expression": "argument", 
@@ -993,22 +993,22 @@
                                                 "attributes": [
                                                     {
                                                         "attrName": "lo_revenue", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "d_year", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "s_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "c_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }
                                                 ], 
@@ -1018,27 +1018,27 @@
                                         "expression": "recordProjection", 
                                         "attribute": {
                                             "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                            "relName": "join77466", 
+                                            "relName": "join15382", 
                                             "type": {
                                                 "attributes": [
                                                     {
                                                         "attrName": "lo_revenue", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "d_year", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "s_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     {
                                                         "attrName": "c_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }
                                                 ], 
@@ -1049,46 +1049,46 @@
                                     }, 
                                     "register_as": {
                                         "attrName": "c_city", 
-                                        "relName": "agg77467", 
+                                        "relName": "agg15383", 
                                         "attrNo": -1
                                     }, 
                                     "expression": "recordProjection", 
                                     "attribute": {
                                         "attrName": "c_city", 
-                                        "relName": "join77466"
+                                        "relName": "join15382"
                                     }
                                 }
                             ], 
                             "gpu": false, 
                             "partitioning": {
-                                "attrName": "partition_hash_join77466", 
-                                "relName": "join77466", 
+                                "attrName": "partition_hash_join15382", 
+                                "relName": "join15382", 
                                 "attrNo": -1
                             }, 
                             "max_line_estimate": 920218499172000000000000, 
                             "output": [
                                 {
                                     "attrName": "d_year", 
-                                    "relName": "agg77467"
+                                    "relName": "agg15383"
                                 }, 
                                 {
                                     "attrName": "s_city", 
-                                    "relName": "agg77467"
+                                    "relName": "agg15383"
                                 }, 
                                 {
                                     "attrName": "c_city", 
-                                    "relName": "agg77467"
+                                    "relName": "agg15383"
                                 }, 
                                 {
                                     "attrName": "lo_revenue", 
-                                    "relName": "agg77467"
+                                    "relName": "agg15383"
                                 }
                             ], 
                             "operator": "groupby", 
                             "input": {
                                 "partitioning": {
-                                    "attrName": "partition_hash_join77466", 
-                                    "relName": "join77466", 
+                                    "attrName": "partition_hash_join15382", 
+                                    "relName": "join15382", 
                                     "attrNo": -1
                                 }, 
                                 "gpu": false, 
@@ -1099,26 +1099,26 @@
                                             "attributes": [
                                                 {
                                                     "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                                    "relName": "join77466"
+                                                    "relName": "join15382"
                                                 }
                                             ], 
                                             "expression": "argument", 
                                             "type": {
-                                                "relName": "join77466", 
+                                                "relName": "join15382", 
                                                 "type": "record"
                                             }
                                         }, 
                                         "expression": "recordProjection", 
                                         "attribute": {
                                             "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                            "relName": "join77466"
+                                            "relName": "join15382"
                                         }
                                     }
                                 ], 
                                 "output": [
                                     {
                                         "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                        "relName": "join77466", 
+                                        "relName": "join15382", 
                                         "isBlock": false, 
                                         "must_unpack": [
                                             "lo_revenue", 
@@ -1131,8 +1131,8 @@
                                 "operator": "block-to-tuples", 
                                 "input": {
                                     "partitioning": {
-                                        "attrName": "partition_hash_join77466", 
-                                        "relName": "join77466", 
+                                        "attrName": "partition_hash_join15382", 
+                                        "relName": "join15382", 
                                         "attrNo": -1
                                     }, 
                                     "blockwise": true, 
@@ -1140,14 +1140,14 @@
                                     "projections": [
                                         {
                                             "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                            "relName": "join77466", 
+                                            "relName": "join15382", 
                                             "isBlock": true
                                         }
                                     ], 
                                     "output": [
                                         {
                                             "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                            "relName": "join77466", 
+                                            "relName": "join15382", 
                                             "isBlock": false, 
                                             "must_unpack": [
                                                 "lo_revenue", 
@@ -1159,18 +1159,18 @@
                                     ], 
                                     "operator": "mem-move-device", 
                                     "input": {
-                                        "producers": 24, 
+                                        "producers": 32, 
                                         "projections": [
                                             {
                                                 "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                                "relName": "join77466", 
+                                                "relName": "join15382", 
                                                 "isBlock": true
                                             }
                                         ], 
                                         "output": [
                                             {
                                                 "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                                "relName": "join77466", 
+                                                "relName": "join15382", 
                                                 "isBlock": true, 
                                                 "must_unpack": [
                                                     "lo_revenue", 
@@ -1183,14 +1183,14 @@
                                         "operator": "exchange", 
                                         "slack": 16, 
                                         "partitioning": {
-                                            "attrName": "partition_hash_join77466", 
-                                            "relName": "join77466", 
+                                            "attrName": "partition_hash_join15382", 
+                                            "relName": "join15382", 
                                             "attrNo": -1
                                         }, 
                                         "input": {
                                             "partitioning": {
-                                                "attrName": "partition_hash_join77466", 
-                                                "relName": "join77466", 
+                                                "attrName": "partition_hash_join15382", 
+                                                "relName": "join15382", 
                                                 "attrNo": -1
                                             }, 
                                             "e": {
@@ -1205,20 +1205,20 @@
                                                                 "attributes": [
                                                                     {
                                                                         "attrName": "d_year", 
-                                                                        "relName": "join77466"
+                                                                        "relName": "join15382"
                                                                     }
                                                                 ], 
                                                                 "argNo": -1, 
                                                                 "expression": "argument", 
                                                                 "type": {
-                                                                    "relName": "join77466", 
+                                                                    "relName": "join15382", 
                                                                     "type": "record"
                                                                 }
                                                             }, 
                                                             "expression": "recordProjection", 
                                                             "attribute": {
                                                                 "attrName": "d_year", 
-                                                                "relName": "join77466"
+                                                                "relName": "join15382"
                                                             }
                                                         }, 
                                                         "name": "d_year"
@@ -1229,20 +1229,20 @@
                                                                 "attributes": [
                                                                     {
                                                                         "attrName": "s_city", 
-                                                                        "relName": "join77466"
+                                                                        "relName": "join15382"
                                                                     }
                                                                 ], 
                                                                 "argNo": -1, 
                                                                 "expression": "argument", 
                                                                 "type": {
-                                                                    "relName": "join77466", 
+                                                                    "relName": "join15382", 
                                                                     "type": "record"
                                                                 }
                                                             }, 
                                                             "expression": "recordProjection", 
                                                             "attribute": {
                                                                 "attrName": "s_city", 
-                                                                "relName": "join77466"
+                                                                "relName": "join15382"
                                                             }
                                                         }, 
                                                         "name": "s_city"
@@ -1253,27 +1253,27 @@
                                                                 "attributes": [
                                                                     {
                                                                         "attrName": "c_city", 
-                                                                        "relName": "join77466"
+                                                                        "relName": "join15382"
                                                                     }
                                                                 ], 
                                                                 "argNo": -1, 
                                                                 "expression": "argument", 
                                                                 "type": {
-                                                                    "relName": "join77466", 
+                                                                    "relName": "join15382", 
                                                                     "type": "record"
                                                                 }
                                                             }, 
                                                             "expression": "recordProjection", 
                                                             "attribute": {
                                                                 "attrName": "c_city", 
-                                                                "relName": "join77466"
+                                                                "relName": "join15382"
                                                             }
                                                         }, 
                                                         "name": "c_city"
                                                     }
                                                 ]
                                             }, 
-                                            "buckets": 24, 
+                                            "buckets": 32, 
                                             "gpu": false, 
                                             "projections": [
                                                 {
@@ -1281,26 +1281,26 @@
                                                         "attributes": [
                                                             {
                                                                 "attrName": "lo_revenue", 
-                                                                "relName": "join77466"
+                                                                "relName": "join15382"
                                                             }, 
                                                             {
                                                                 "attrName": "d_year", 
-                                                                "relName": "join77466"
+                                                                "relName": "join15382"
                                                             }, 
                                                             {
                                                                 "attrName": "s_city", 
-                                                                "relName": "join77466"
+                                                                "relName": "join15382"
                                                             }, 
                                                             {
                                                                 "attrName": "c_city", 
-                                                                "relName": "join77466"
+                                                                "relName": "join15382"
                                                             }
                                                         ], 
                                                         "type": "record"
                                                     }, 
                                                     "register_as": {
                                                         "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     "expression": "recordConstruction", 
@@ -1312,19 +1312,19 @@
                                                                     "attributes": [
                                                                         {
                                                                             "attrName": "lo_revenue", 
-                                                                            "relName": "join77466"
+                                                                            "relName": "join15382"
                                                                         }
                                                                     ], 
                                                                     "expression": "argument", 
                                                                     "type": {
-                                                                        "relName": "join77466", 
+                                                                        "relName": "join15382", 
                                                                         "type": "record"
                                                                     }
                                                                 }, 
                                                                 "expression": "recordProjection", 
                                                                 "attribute": {
                                                                     "attrName": "lo_revenue", 
-                                                                    "relName": "join77466"
+                                                                    "relName": "join15382"
                                                                 }
                                                             }, 
                                                             "name": "lo_revenue"
@@ -1336,19 +1336,19 @@
                                                                     "attributes": [
                                                                         {
                                                                             "attrName": "d_year", 
-                                                                            "relName": "join77466"
+                                                                            "relName": "join15382"
                                                                         }
                                                                     ], 
                                                                     "expression": "argument", 
                                                                     "type": {
-                                                                        "relName": "join77466", 
+                                                                        "relName": "join15382", 
                                                                         "type": "record"
                                                                     }
                                                                 }, 
                                                                 "expression": "recordProjection", 
                                                                 "attribute": {
                                                                     "attrName": "d_year", 
-                                                                    "relName": "join77466"
+                                                                    "relName": "join15382"
                                                                 }
                                                             }, 
                                                             "name": "d_year"
@@ -1360,19 +1360,19 @@
                                                                     "attributes": [
                                                                         {
                                                                             "attrName": "s_city", 
-                                                                            "relName": "join77466"
+                                                                            "relName": "join15382"
                                                                         }
                                                                     ], 
                                                                     "expression": "argument", 
                                                                     "type": {
-                                                                        "relName": "join77466", 
+                                                                        "relName": "join15382", 
                                                                         "type": "record"
                                                                     }
                                                                 }, 
                                                                 "expression": "recordProjection", 
                                                                 "attribute": {
                                                                     "attrName": "s_city", 
-                                                                    "relName": "join77466"
+                                                                    "relName": "join15382"
                                                                 }
                                                             }, 
                                                             "name": "s_city"
@@ -1384,19 +1384,19 @@
                                                                     "attributes": [
                                                                         {
                                                                             "attrName": "c_city", 
-                                                                            "relName": "join77466"
+                                                                            "relName": "join15382"
                                                                         }
                                                                     ], 
                                                                     "expression": "argument", 
                                                                     "type": {
-                                                                        "relName": "join77466", 
+                                                                        "relName": "join15382", 
                                                                         "type": "record"
                                                                     }
                                                                 }, 
                                                                 "expression": "recordProjection", 
                                                                 "attribute": {
                                                                     "attrName": "c_city", 
-                                                                    "relName": "join77466"
+                                                                    "relName": "join15382"
                                                                 }
                                                             }, 
                                                             "name": "c_city"
@@ -1407,7 +1407,7 @@
                                             "output": [
                                                 {
                                                     "attrName": "record_lo_revenue_d_year_s_city_c_city", 
-                                                    "relName": "join77466", 
+                                                    "relName": "join15382", 
                                                     "isBlock": true, 
                                                     "must_unpack": [
                                                         "lo_revenue", 
@@ -1417,8 +1417,8 @@
                                                     ]
                                                 }, 
                                                 {
-                                                    "attrName": "partition_hash_join77466", 
-                                                    "relName": "join77466", 
+                                                    "attrName": "partition_hash_join15382", 
+                                                    "relName": "join15382", 
                                                     "attrNo": -1
                                                 }
                                             ], 
@@ -1475,7 +1475,7 @@
                                                     }, 
                                                     "register_as": {
                                                         "attrName": "c_custkey", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     "expression": "recordProjection", 
@@ -1537,7 +1537,7 @@
                                                         }, 
                                                         "register_as": {
                                                             "attrName": "s_suppkey", 
-                                                            "relName": "join77464", 
+                                                            "relName": "join15380", 
                                                             "attrNo": -1
                                                         }, 
                                                         "expression": "recordProjection", 
@@ -1599,7 +1599,7 @@
                                                             }, 
                                                             "register_as": {
                                                                 "attrName": "d_datekey", 
-                                                                "relName": "join77462", 
+                                                                "relName": "join15378", 
                                                                 "attrNo": -1
                                                             }, 
                                                             "expression": "recordProjection", 
@@ -1830,8 +1830,6 @@
                                                                     "input": {
                                                                         "partitioning": [], 
                                                                         "plugin": {
-                                                                            "type": "block", 
-                                                                            "name": "inputs/ssbm100/lineorder.csv", 
                                                                             "projections": [
                                                                                 {
                                                                                     "attrName": "lo_custkey", 
@@ -1849,7 +1847,11 @@
                                                                                     "attrName": "lo_revenue", 
                                                                                     "relName": "inputs/ssbm100/lineorder.csv"
                                                                                 }
-                                                                            ]
+                                                                            ], 
+                                                                            "depends_on": [], 
+                                                                            "type": "block", 
+                                                                            "linehint": 600038145, 
+                                                                            "name": "inputs/ssbm100/lineorder.csv"
                                                                         }, 
                                                                         "blockwise": true, 
                                                                         "max_line_estimate": 600038145, 
@@ -1880,15 +1882,15 @@
                                                                         "dop": 1
                                                                     }, 
                                                                     "blockwise": true, 
-                                                                    "numOfParents": 24, 
+                                                                    "numOfParents": 32, 
                                                                     "max_line_estimate": 600038145, 
                                                                     "gpu": false, 
-                                                                    "dop": 24
+                                                                    "dop": 32
                                                                 }, 
                                                                 "to_cpu": true, 
-                                                                "dop": 24
+                                                                "dop": 32
                                                             }, 
-                                                            "dop": 24
+                                                            "dop": 32
                                                         }, 
                                                         "probe_e": [
                                                             {
@@ -1909,7 +1911,7 @@
                                                                     }, 
                                                                     "register_as": {
                                                                         "attrName": "lo_custkey", 
-                                                                        "relName": "join77462", 
+                                                                        "relName": "join15378", 
                                                                         "attrNo": -1
                                                                     }, 
                                                                     "expression": "recordProjection", 
@@ -1939,7 +1941,7 @@
                                                                     }, 
                                                                     "register_as": {
                                                                         "attrName": "lo_suppkey", 
-                                                                        "relName": "join77462", 
+                                                                        "relName": "join15378", 
                                                                         "attrNo": -1
                                                                     }, 
                                                                     "expression": "recordProjection", 
@@ -1969,7 +1971,7 @@
                                                                     }, 
                                                                     "register_as": {
                                                                         "attrName": "lo_revenue", 
-                                                                        "relName": "join77462", 
+                                                                        "relName": "join15378", 
                                                                         "attrNo": -1
                                                                     }, 
                                                                     "expression": "recordProjection", 
@@ -2041,7 +2043,7 @@
                                                                     }, 
                                                                     "register_as": {
                                                                         "attrName": "d_year", 
-                                                                        "relName": "join77462", 
+                                                                        "relName": "join15378", 
                                                                         "attrNo": -1
                                                                     }, 
                                                                     "expression": "recordProjection", 
@@ -2055,7 +2057,7 @@
                                                             }
                                                         ], 
                                                         "maxBuildInputSize": 3067, 
-                                                        "dop": 24, 
+                                                        "dop": 32, 
                                                         "probe_k": {
                                                             "e": {
                                                                 "argNo": -1, 
@@ -2073,7 +2075,7 @@
                                                             }, 
                                                             "register_as": {
                                                                 "attrName": "lo_orderdate", 
-                                                                "relName": "join77462", 
+                                                                "relName": "join15378", 
                                                                 "attrNo": -1
                                                             }, 
                                                             "expression": "recordProjection", 
@@ -2089,19 +2091,19 @@
                                                         "output": [
                                                             {
                                                                 "attrName": "lo_custkey", 
-                                                                "relName": "join77462"
+                                                                "relName": "join15378"
                                                             }, 
                                                             {
                                                                 "attrName": "lo_suppkey", 
-                                                                "relName": "join77462"
+                                                                "relName": "join15378"
                                                             }, 
                                                             {
                                                                 "attrName": "lo_revenue", 
-                                                                "relName": "join77462"
+                                                                "relName": "join15378"
                                                             }, 
                                                             {
                                                                 "attrName": "d_year", 
-                                                                "relName": "join77462"
+                                                                "relName": "join15378"
                                                             }
                                                         ], 
                                                         "build_input": {
@@ -2174,7 +2176,7 @@
                                                                 ], 
                                                                 "operator": "mem-move-device", 
                                                                 "input": {
-                                                                    "producers": 24, 
+                                                                    "producers": 32, 
                                                                     "projections": [
                                                                         {
                                                                             "attrName": "record_d_datekey_d_year", 
@@ -2194,6 +2196,7 @@
                                                                         }
                                                                     ], 
                                                                     "operator": "exchange", 
+                                                                    "to_cpu": true, 
                                                                     "slack": 8, 
                                                                     "partitioning": {
                                                                         "attrName": "record_d_datekey_d_year", 
@@ -2208,7 +2211,7 @@
                                                                         }, 
                                                                         "blockwise": true, 
                                                                         "gpu": false, 
-                                                                        "dop": 24, 
+                                                                        "dop": 32, 
                                                                         "projections": [
                                                                             {
                                                                                 "attrName": "record_d_datekey_d_year", 
@@ -2542,8 +2545,6 @@
                                                                                             "input": {
                                                                                                 "partitioning": [], 
                                                                                                 "plugin": {
-                                                                                                    "type": "block", 
-                                                                                                    "name": "inputs/ssbm100/date.csv", 
                                                                                                     "projections": [
                                                                                                         {
                                                                                                             "attrName": "d_datekey", 
@@ -2557,7 +2558,11 @@
                                                                                                             "attrName": "d_yearmonth", 
                                                                                                             "relName": "inputs/ssbm100/date.csv"
                                                                                                         }
-                                                                                                    ]
+                                                                                                    ], 
+                                                                                                    "depends_on": [], 
+                                                                                                    "type": "block", 
+                                                                                                    "linehint": 2556, 
+                                                                                                    "name": "inputs/ssbm100/date.csv"
                                                                                                 }, 
                                                                                                 "blockwise": true, 
                                                                                                 "max_line_estimate": 2556, 
@@ -2589,14 +2594,14 @@
                                                                                             }, 
                                                                                             "slack": 2, 
                                                                                             "blockwise": true, 
-                                                                                            "numOfParents": 24, 
+                                                                                            "numOfParents": 32, 
                                                                                             "gpu": false, 
-                                                                                            "dop": 24
+                                                                                            "dop": 32
                                                                                         }, 
                                                                                         "to_cpu": true, 
-                                                                                        "dop": 24
+                                                                                        "dop": 32
                                                                                     }, 
-                                                                                    "dop": 24
+                                                                                    "dop": 32
                                                                                 }, 
                                                                                 "operator": "select", 
                                                                                 "output": [
@@ -2609,16 +2614,16 @@
                                                                                         "relName": "inputs/ssbm100/date.csv"
                                                                                     }
                                                                                 ], 
-                                                                                "dop": 24
+                                                                                "dop": 32
                                                                             }, 
-                                                                            "dop": 24
+                                                                            "dop": 32
                                                                         }, 
-                                                                        "to_cpu": false, 
-                                                                        "num_of_targets": 24
+                                                                        "to_cpu": true, 
+                                                                        "num_of_targets": 32
                                                                     }, 
                                                                     "blockwise": true, 
-                                                                    "numOfParents": 24, 
-                                                                    "max_line_estimate": 61344, 
+                                                                    "numOfParents": 32, 
+                                                                    "max_line_estimate": 81792, 
                                                                     "target": {
                                                                         "e": {
                                                                             "argNo": -1, 
@@ -2641,12 +2646,12 @@
                                                                         }
                                                                     }, 
                                                                     "gpu": false, 
-                                                                    "dop": 24
+                                                                    "dop": 32
                                                                 }, 
                                                                 "to_cpu": true, 
-                                                                "dop": 24
+                                                                "dop": 32
                                                             }, 
-                                                            "dop": 24
+                                                            "dop": 32
                                                         }, 
                                                         "probe_w": [
                                                             64, 
@@ -2669,24 +2674,24 @@
                                                                     "attributes": [
                                                                         {
                                                                             "attrName": "lo_custkey", 
-                                                                            "relName": "join77462"
+                                                                            "relName": "join15378"
                                                                         }
                                                                     ], 
                                                                     "expression": "argument", 
                                                                     "type": {
-                                                                        "relName": "join77462", 
+                                                                        "relName": "join15378", 
                                                                         "type": "record"
                                                                     }
                                                                 }, 
                                                                 "register_as": {
                                                                     "attrName": "lo_custkey", 
-                                                                    "relName": "join77464", 
+                                                                    "relName": "join15380", 
                                                                     "attrNo": -1
                                                                 }, 
                                                                 "expression": "recordProjection", 
                                                                 "attribute": {
                                                                     "attrName": "lo_custkey", 
-                                                                    "relName": "join77462"
+                                                                    "relName": "join15378"
                                                                 }
                                                             }, 
                                                             "packet": 1, 
@@ -2699,24 +2704,24 @@
                                                                     "attributes": [
                                                                         {
                                                                             "attrName": "lo_revenue", 
-                                                                            "relName": "join77462"
+                                                                            "relName": "join15378"
                                                                         }
                                                                     ], 
                                                                     "expression": "argument", 
                                                                     "type": {
-                                                                        "relName": "join77462", 
+                                                                        "relName": "join15378", 
                                                                         "type": "record"
                                                                     }
                                                                 }, 
                                                                 "register_as": {
                                                                     "attrName": "lo_revenue", 
-                                                                    "relName": "join77464", 
+                                                                    "relName": "join15380", 
                                                                     "attrNo": -1
                                                                 }, 
                                                                 "expression": "recordProjection", 
                                                                 "attribute": {
                                                                     "attrName": "lo_revenue", 
-                                                                    "relName": "join77462"
+                                                                    "relName": "join15378"
                                                                 }
                                                             }, 
                                                             "packet": 2, 
@@ -2729,24 +2734,24 @@
                                                                     "attributes": [
                                                                         {
                                                                             "attrName": "d_year", 
-                                                                            "relName": "join77462"
+                                                                            "relName": "join15378"
                                                                         }
                                                                     ], 
                                                                     "expression": "argument", 
                                                                     "type": {
-                                                                        "relName": "join77462", 
+                                                                        "relName": "join15378", 
                                                                         "type": "record"
                                                                     }
                                                                 }, 
                                                                 "register_as": {
                                                                     "attrName": "d_year", 
-                                                                    "relName": "join77464", 
+                                                                    "relName": "join15380", 
                                                                     "attrNo": -1
                                                                 }, 
                                                                 "expression": "recordProjection", 
                                                                 "attribute": {
                                                                     "attrName": "d_year", 
-                                                                    "relName": "join77462"
+                                                                    "relName": "join15378"
                                                                 }
                                                             }, 
                                                             "packet": 3, 
@@ -2812,7 +2817,7 @@
                                                                 }, 
                                                                 "register_as": {
                                                                     "attrName": "s_city", 
-                                                                    "relName": "join77464", 
+                                                                    "relName": "join15380", 
                                                                     "attrNo": -1
                                                                 }, 
                                                                 "expression": "recordProjection", 
@@ -2826,31 +2831,31 @@
                                                         }
                                                     ], 
                                                     "maxBuildInputSize": 240000, 
-                                                    "dop": 24, 
+                                                    "dop": 32, 
                                                     "probe_k": {
                                                         "e": {
                                                             "argNo": -1, 
                                                             "attributes": [
                                                                 {
                                                                     "attrName": "lo_suppkey", 
-                                                                    "relName": "join77462"
+                                                                    "relName": "join15378"
                                                                 }
                                                             ], 
                                                             "expression": "argument", 
                                                             "type": {
-                                                                "relName": "join77462", 
+                                                                "relName": "join15378", 
                                                                 "type": "record"
                                                             }
                                                         }, 
                                                         "register_as": {
                                                             "attrName": "lo_suppkey", 
-                                                            "relName": "join77464", 
+                                                            "relName": "join15380", 
                                                             "attrNo": -1
                                                         }, 
                                                         "expression": "recordProjection", 
                                                         "attribute": {
                                                             "attrName": "lo_suppkey", 
-                                                            "relName": "join77462"
+                                                            "relName": "join15378"
                                                         }
                                                     }, 
                                                     "build_k_part": [], 
@@ -2860,19 +2865,19 @@
                                                     "output": [
                                                         {
                                                             "attrName": "lo_custkey", 
-                                                            "relName": "join77464"
+                                                            "relName": "join15380"
                                                         }, 
                                                         {
                                                             "attrName": "lo_revenue", 
-                                                            "relName": "join77464"
+                                                            "relName": "join15380"
                                                         }, 
                                                         {
                                                             "attrName": "d_year", 
-                                                            "relName": "join77464"
+                                                            "relName": "join15380"
                                                         }, 
                                                         {
                                                             "attrName": "s_city", 
-                                                            "relName": "join77464"
+                                                            "relName": "join15380"
                                                         }
                                                     ], 
                                                     "build_input": {
@@ -2945,7 +2950,7 @@
                                                             ], 
                                                             "operator": "mem-move-device", 
                                                             "input": {
-                                                                "producers": 24, 
+                                                                "producers": 32, 
                                                                 "projections": [
                                                                     {
                                                                         "attrName": "record_s_suppkey_s_city", 
@@ -2965,6 +2970,7 @@
                                                                     }
                                                                 ], 
                                                                 "operator": "exchange", 
+                                                                "to_cpu": true, 
                                                                 "slack": 8, 
                                                                 "partitioning": {
                                                                     "attrName": "record_s_suppkey_s_city", 
@@ -2979,7 +2985,7 @@
                                                                     }, 
                                                                     "blockwise": true, 
                                                                     "gpu": false, 
-                                                                    "dop": 24, 
+                                                                    "dop": 32, 
                                                                     "projections": [
                                                                         {
                                                                             "attrName": "record_s_suppkey_s_city", 
@@ -3320,8 +3326,6 @@
                                                                                         "input": {
                                                                                             "partitioning": [], 
                                                                                             "plugin": {
-                                                                                                "type": "block", 
-                                                                                                "name": "inputs/ssbm100/supplier.csv", 
                                                                                                 "projections": [
                                                                                                     {
                                                                                                         "attrName": "s_suppkey", 
@@ -3331,7 +3335,11 @@
                                                                                                         "attrName": "s_city", 
                                                                                                         "relName": "inputs/ssbm100/supplier.csv"
                                                                                                     }
-                                                                                                ]
+                                                                                                ], 
+                                                                                                "depends_on": [], 
+                                                                                                "type": "block", 
+                                                                                                "linehint": 200000, 
+                                                                                                "name": "inputs/ssbm100/supplier.csv"
                                                                                             }, 
                                                                                             "blockwise": true, 
                                                                                             "max_line_estimate": 200000, 
@@ -3358,14 +3366,14 @@
                                                                                         }, 
                                                                                         "slack": 2, 
                                                                                         "blockwise": true, 
-                                                                                        "numOfParents": 24, 
+                                                                                        "numOfParents": 32, 
                                                                                         "gpu": false, 
-                                                                                        "dop": 24
+                                                                                        "dop": 32
                                                                                     }, 
                                                                                     "to_cpu": true, 
-                                                                                    "dop": 24
+                                                                                    "dop": 32
                                                                                 }, 
-                                                                                "dop": 24
+                                                                                "dop": 32
                                                                             }, 
                                                                             "operator": "select", 
                                                                             "output": [
@@ -3378,16 +3386,16 @@
                                                                                     "relName": "inputs/ssbm100/supplier.csv"
                                                                                 }
                                                                             ], 
-                                                                            "dop": 24
+                                                                            "dop": 32
                                                                         }, 
-                                                                        "dop": 24
+                                                                        "dop": 32
                                                                     }, 
-                                                                    "to_cpu": false, 
-                                                                    "num_of_targets": 24
+                                                                    "to_cpu": true, 
+                                                                    "num_of_targets": 32
                                                                 }, 
                                                                 "blockwise": true, 
-                                                                "numOfParents": 24, 
-                                                                "max_line_estimate": 4800000, 
+                                                                "numOfParents": 32, 
+                                                                "max_line_estimate": 6400000, 
                                                                 "target": {
                                                                     "e": {
                                                                         "argNo": -1, 
@@ -3410,12 +3418,12 @@
                                                                     }
                                                                 }, 
                                                                 "gpu": false, 
-                                                                "dop": 24
+                                                                "dop": 32
                                                             }, 
                                                             "to_cpu": true, 
-                                                            "dop": 24
+                                                            "dop": 32
                                                         }, 
-                                                        "dop": 24
+                                                        "dop": 32
                                                     }, 
                                                     "probe_w": [
                                                         64, 
@@ -3438,24 +3446,24 @@
                                                                 "attributes": [
                                                                     {
                                                                         "attrName": "lo_revenue", 
-                                                                        "relName": "join77464"
+                                                                        "relName": "join15380"
                                                                     }
                                                                 ], 
                                                                 "expression": "argument", 
                                                                 "type": {
-                                                                    "relName": "join77464", 
+                                                                    "relName": "join15380", 
                                                                     "type": "record"
                                                                 }
                                                             }, 
                                                             "register_as": {
                                                                 "attrName": "lo_revenue", 
-                                                                "relName": "join77466", 
+                                                                "relName": "join15382", 
                                                                 "attrNo": -1
                                                             }, 
                                                             "expression": "recordProjection", 
                                                             "attribute": {
                                                                 "attrName": "lo_revenue", 
-                                                                "relName": "join77464"
+                                                                "relName": "join15380"
                                                             }
                                                         }, 
                                                         "packet": 1, 
@@ -3468,24 +3476,24 @@
                                                                 "attributes": [
                                                                     {
                                                                         "attrName": "d_year", 
-                                                                        "relName": "join77464"
+                                                                        "relName": "join15380"
                                                                     }
                                                                 ], 
                                                                 "expression": "argument", 
                                                                 "type": {
-                                                                    "relName": "join77464", 
+                                                                    "relName": "join15380", 
                                                                     "type": "record"
                                                                 }
                                                             }, 
                                                             "register_as": {
                                                                 "attrName": "d_year", 
-                                                                "relName": "join77466", 
+                                                                "relName": "join15382", 
                                                                 "attrNo": -1
                                                             }, 
                                                             "expression": "recordProjection", 
                                                             "attribute": {
                                                                 "attrName": "d_year", 
-                                                                "relName": "join77464"
+                                                                "relName": "join15380"
                                                             }
                                                         }, 
                                                         "packet": 2, 
@@ -3498,24 +3506,24 @@
                                                                 "attributes": [
                                                                     {
                                                                         "attrName": "s_city", 
-                                                                        "relName": "join77464"
+                                                                        "relName": "join15380"
                                                                     }
                                                                 ], 
                                                                 "expression": "argument", 
                                                                 "type": {
-                                                                    "relName": "join77464", 
+                                                                    "relName": "join15380", 
                                                                     "type": "record"
                                                                 }
                                                             }, 
                                                             "register_as": {
                                                                 "attrName": "s_city", 
-                                                                "relName": "join77466", 
+                                                                "relName": "join15382", 
                                                                 "attrNo": -1
                                                             }, 
                                                             "expression": "recordProjection", 
                                                             "attribute": {
                                                                 "attrName": "s_city", 
-                                                                "relName": "join77464"
+                                                                "relName": "join15380"
                                                             }
                                                         }, 
                                                         "packet": 3, 
@@ -3581,7 +3589,7 @@
                                                             }, 
                                                             "register_as": {
                                                                 "attrName": "c_city", 
-                                                                "relName": "join77466", 
+                                                                "relName": "join15382", 
                                                                 "attrNo": -1
                                                             }, 
                                                             "expression": "recordProjection", 
@@ -3595,31 +3603,31 @@
                                                     }
                                                 ], 
                                                 "maxBuildInputSize": 3600000, 
-                                                "dop": 24, 
+                                                "dop": 32, 
                                                 "probe_k": {
                                                     "e": {
                                                         "argNo": -1, 
                                                         "attributes": [
                                                             {
                                                                 "attrName": "lo_custkey", 
-                                                                "relName": "join77464"
+                                                                "relName": "join15380"
                                                             }
                                                         ], 
                                                         "expression": "argument", 
                                                         "type": {
-                                                            "relName": "join77464", 
+                                                            "relName": "join15380", 
                                                             "type": "record"
                                                         }
                                                     }, 
                                                     "register_as": {
                                                         "attrName": "lo_custkey", 
-                                                        "relName": "join77466", 
+                                                        "relName": "join15382", 
                                                         "attrNo": -1
                                                     }, 
                                                     "expression": "recordProjection", 
                                                     "attribute": {
                                                         "attrName": "lo_custkey", 
-                                                        "relName": "join77464"
+                                                        "relName": "join15380"
                                                     }
                                                 }, 
                                                 "build_k_part": [], 
@@ -3629,19 +3637,19 @@
                                                 "output": [
                                                     {
                                                         "attrName": "lo_revenue", 
-                                                        "relName": "join77466"
+                                                        "relName": "join15382"
                                                     }, 
                                                     {
                                                         "attrName": "d_year", 
-                                                        "relName": "join77466"
+                                                        "relName": "join15382"
                                                     }, 
                                                     {
                                                         "attrName": "s_city", 
-                                                        "relName": "join77466"
+                                                        "relName": "join15382"
                                                     }, 
                                                     {
                                                         "attrName": "c_city", 
-                                                        "relName": "join77466"
+                                                        "relName": "join15382"
                                                     }
                                                 ], 
                                                 "build_input": {
@@ -3714,7 +3722,7 @@
                                                         ], 
                                                         "operator": "mem-move-device", 
                                                         "input": {
-                                                            "producers": 24, 
+                                                            "producers": 32, 
                                                             "projections": [
                                                                 {
                                                                     "attrName": "record_c_custkey_c_city", 
@@ -3734,6 +3742,7 @@
                                                                 }
                                                             ], 
                                                             "operator": "exchange", 
+                                                            "to_cpu": true, 
                                                             "slack": 8, 
                                                             "partitioning": {
                                                                 "attrName": "record_c_custkey_c_city", 
@@ -3748,7 +3757,7 @@
                                                                 }, 
                                                                 "blockwise": true, 
                                                                 "gpu": false, 
-                                                                "dop": 24, 
+                                                                "dop": 32, 
                                                                 "projections": [
                                                                     {
                                                                         "attrName": "record_c_custkey_c_city", 
@@ -4089,8 +4098,6 @@
                                                                                     "input": {
                                                                                         "partitioning": [], 
                                                                                         "plugin": {
-                                                                                            "type": "block", 
-                                                                                            "name": "inputs/ssbm100/customer.csv", 
                                                                                             "projections": [
                                                                                                 {
                                                                                                     "attrName": "c_custkey", 
@@ -4100,7 +4107,11 @@
                                                                                                     "attrName": "c_city", 
                                                                                                     "relName": "inputs/ssbm100/customer.csv"
                                                                                                 }
-                                                                                            ]
+                                                                                            ], 
+                                                                                            "depends_on": [], 
+                                                                                            "type": "block", 
+                                                                                            "linehint": 3000000, 
+                                                                                            "name": "inputs/ssbm100/customer.csv"
                                                                                         }, 
                                                                                         "blockwise": true, 
                                                                                         "max_line_estimate": 3000000, 
@@ -4127,14 +4138,14 @@
                                                                                     }, 
                                                                                     "slack": 2, 
                                                                                     "blockwise": true, 
-                                                                                    "numOfParents": 24, 
+                                                                                    "numOfParents": 32, 
                                                                                     "gpu": false, 
-                                                                                    "dop": 24
+                                                                                    "dop": 32
                                                                                 }, 
                                                                                 "to_cpu": true, 
-                                                                                "dop": 24
+                                                                                "dop": 32
                                                                             }, 
-                                                                            "dop": 24
+                                                                            "dop": 32
                                                                         }, 
                                                                         "operator": "select", 
                                                                         "output": [
@@ -4147,16 +4158,16 @@
                                                                                 "relName": "inputs/ssbm100/customer.csv"
                                                                             }
                                                                         ], 
-                                                                        "dop": 24
+                                                                        "dop": 32
                                                                     }, 
-                                                                    "dop": 24
+                                                                    "dop": 32
                                                                 }, 
-                                                                "to_cpu": false, 
-                                                                "num_of_targets": 24
+                                                                "to_cpu": true, 
+                                                                "num_of_targets": 32
                                                             }, 
                                                             "blockwise": true, 
-                                                            "numOfParents": 24, 
-                                                            "max_line_estimate": 72000000, 
+                                                            "numOfParents": 32, 
+                                                            "max_line_estimate": 96000000, 
                                                             "target": {
                                                                 "e": {
                                                                     "argNo": -1, 
@@ -4179,12 +4190,12 @@
                                                                 }
                                                             }, 
                                                             "gpu": false, 
-                                                            "dop": 24
+                                                            "dop": 32
                                                         }, 
                                                         "to_cpu": true, 
-                                                        "dop": 24
+                                                        "dop": 32
                                                     }, 
-                                                    "dop": 24
+                                                    "dop": 32
                                                 }, 
                                                 "probe_w": [
                                                     64, 
@@ -4199,10 +4210,10 @@
                                                 ], 
                                                 "broadcast-based": true
                                             }, 
-                                            "dop": 24, 
+                                            "dop": 32, 
                                             "hashProject": {
-                                                "attrName": "partition_hash_join77466", 
-                                                "relName": "join77466", 
+                                                "attrName": "partition_hash_join15382", 
+                                                "relName": "join15382", 
                                                 "type": {
                                                     "type": "int"
                                                 }, 
@@ -4210,122 +4221,122 @@
                                             }
                                         }, 
                                         "blockwise": true, 
-                                        "numOfParents": 24, 
+                                        "numOfParents": 32, 
                                         "target": {
                                             "e": {
                                                 "argNo": -1, 
                                                 "attributes": [
                                                     {
-                                                        "attrName": "partition_hash_join77466", 
-                                                        "relName": "join77466"
+                                                        "attrName": "partition_hash_join15382", 
+                                                        "relName": "join15382"
                                                     }
                                                 ], 
                                                 "expression": "argument", 
                                                 "type": {
-                                                    "relName": "join77466", 
+                                                    "relName": "join15382", 
                                                     "type": "record"
                                                 }
                                             }, 
                                             "expression": "recordProjection", 
                                             "attribute": {
-                                                "attrName": "partition_hash_join77466", 
-                                                "relName": "join77466"
+                                                "attrName": "partition_hash_join15382", 
+                                                "relName": "join15382"
                                             }
                                         }, 
                                         "gpu": false, 
-                                        "dop": 24
+                                        "dop": 32
                                     }, 
                                     "to_cpu": true, 
-                                    "dop": 24
+                                    "dop": 32
                                 }, 
-                                "dop": 24
+                                "dop": 32
                             }, 
-                            "dop": 24, 
+                            "dop": 32, 
                             "blockwise": false, 
                             "k_part": [
                                 {
                                     "register_as": {
                                         "attrName": "d_year", 
-                                        "relName": "agg77467", 
+                                        "relName": "agg15383", 
                                         "attrNo": -1
                                     }, 
                                     "e": {
                                         "attributes": [
                                             {
                                                 "attrName": "d_year", 
-                                                "relName": "join77466"
+                                                "relName": "join15382"
                                             }
                                         ], 
                                         "argNo": -1, 
                                         "expression": "argument", 
                                         "type": {
-                                            "relName": "join77466", 
+                                            "relName": "join15382", 
                                             "type": "record"
                                         }
                                     }, 
                                     "expression": "recordProjection", 
                                     "attribute": {
                                         "attrName": "d_year", 
-                                        "relName": "join77466"
+                                        "relName": "join15382"
                                     }
                                 }, 
                                 {
                                     "register_as": {
                                         "attrName": "s_city", 
-                                        "relName": "agg77467", 
+                                        "relName": "agg15383", 
                                         "attrNo": -1
                                     }, 
                                     "e": {
                                         "attributes": [
                                             {
                                                 "attrName": "s_city", 
-                                                "relName": "join77466"
+                                                "relName": "join15382"
                                             }
                                         ], 
                                         "argNo": -1, 
                                         "expression": "argument", 
                                         "type": {
-                                            "relName": "join77466", 
+                                            "relName": "join15382", 
                                             "type": "record"
                                         }
                                     }, 
                                     "expression": "recordProjection", 
                                     "attribute": {
                                         "attrName": "s_city", 
-                                        "relName": "join77466"
+                                        "relName": "join15382"
                                     }
                                 }, 
                                 {
                                     "register_as": {
                                         "attrName": "c_city", 
-                                        "relName": "agg77467", 
+                                        "relName": "agg15383", 
                                         "attrNo": -1
                                     }, 
                                     "e": {
                                         "attributes": [
                                             {
                                                 "attrName": "c_city", 
-                                                "relName": "join77466"
+                                                "relName": "join15382"
                                             }
                                         ], 
                                         "argNo": -1, 
                                         "expression": "argument", 
                                         "type": {
-                                            "relName": "join77466", 
+                                            "relName": "join15382", 
                                             "type": "record"
                                         }
                                     }, 
                                     "expression": "recordProjection", 
                                     "attribute": {
                                         "attrName": "c_city", 
-                                        "relName": "join77466"
+                                        "relName": "join15382"
                                     }
                                 }
                             ]
                         }, 
-                        "dop": 24
+                        "dop": 32
                     }, 
-                    "dop": 24
+                    "dop": 32
                 }, 
                 "blockwise": true, 
                 "numOfParents": 1, 
