@@ -8,7 +8,7 @@ import org.apache.calcite.adapter.enumerable._
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeField, RelRecordType}
 import org.apache.calcite.rel.core.AggregateCall
-import org.apache.calcite.rex.{RexCall, RexInputRef, RexLiteral, RexNode}
+import org.apache.calcite.rex._
 import org.apache.calcite.sql.fun.SqlCaseOperator
 import org.apache.calcite.sql.{SqlBinaryOperator, SqlFunction, SqlKind, SqlOperator}
 import org.apache.calcite.interpreter.Bindables.BindableTableScan
@@ -180,6 +180,10 @@ object PlanToJSON {
   }
 
   def emitArg(arg: RexInputRef, f: List[Binding]) : JValue = {
+    emitArg(arg, f, true) // FIXME: this is confusing, the default case changes based on the overload!
+  }
+
+  def emitArg(arg: RexInputRef, f: List[Binding], with_type: Boolean) : JValue = {
     var rel : String = ""
     var attr : String = ""
     var fieldCount = 0
@@ -194,13 +198,22 @@ object PlanToJSON {
       fieldCountCurr += b.fields.size
     } }
 
-    val json : JObject = ("expression" -> "argument") ~ ("type",arg.getType.toString) ~ ("rel",rel) ~ ("attr",attr)
-    json
+    val json : JObject = ("expression" -> "argument") ~ ("rel",rel) ~ ("attr",attr)
+    if (with_type){
+      json ~ ("type",arg.getType.toString)
+    } else {
+      json
+    }
   }
 
   def emitArg(arg: Integer, f: List[Binding]) : JValue = {
+    emitArg(arg, f, false)
+  }
+
+  def emitArg(arg: Integer, f: List[Binding], with_type: Boolean) : JValue = {
     var rel : String = ""
     var attr : String = ""
+    var t : String = ""
     var fieldCount = 0
     var fieldCountCurr = 0
     breakable { for(b <- f) {
@@ -208,13 +221,18 @@ object PlanToJSON {
       if(arg < fieldCount)  {
         rel = b.rel
         attr = b.fields(arg - fieldCountCurr).getName
+        t = b.fields(arg - fieldCountCurr).getType.toString
         break
       }
       fieldCountCurr += b.fields.size
     } }
 
     val json : JObject = ("rel",rel) ~ ("attr",attr)
-    json
+    if (with_type){
+      json ~ ("type",t)
+    } else {
+      json
+    }
   }
 
   def emitSchema(relName: String, t: RelDataType): JValue = t match {
@@ -360,6 +378,49 @@ object PlanToJSON {
 
       val json : JValue = op ~ ("tupleType", rowType) ~ ("args", args) ~ ("input", childOp)
       val ret: (Binding, JValue) = (childBinding,json)
+      ret
+    }
+    case c: EnumerableCorrelate => {
+      val op = ("operator" , "unnest")
+      val l = emit_(c.getLeft)
+      val leftBinding: Binding = l._1
+      val leftChildOp = l._2
+      val proj = c.getRight.asInstanceOf[EnumerableUncollect].getInput.asInstanceOf[EnumerableProject]
+
+      val unnest_exprs = proj.getNamedProjects.asScala.map {
+        p => {
+          val expr = p.left.asInstanceOf[RexFieldAccess]
+          assert(expr.getReferenceExpr().asInstanceOf[RexCorrelVariable].id == c.getCorrelationId)
+          val f = emitArg(p.left.asInstanceOf[RexFieldAccess].getField.getIndex, List(leftBinding))
+
+          ("e", f) ~ ("name", "__unnest".concat(c.getId.toString).concat("_").concat(f.\("attr").extract[String]))
+        }
+      }
+      val alias = "unnest"+c.getId
+      val rowType = emitSchema("unnest"+c.getId, c.getRowType)
+
+      val proj_exprs = leftChildOp\"tupleType"
+      val nested_exprs = unnest_exprs.map{
+        p => {
+          ("attr", p\"name") ~ ("rel", (p\"e"\"rel").extract[String].concat(".").concat((p\"e"\"attr").extract[String]))
+        }
+      }
+
+      val unnest_json = op ~ ("tupleType", proj_exprs ++ nested_exprs) ~ ("input" , leftChildOp) ~ ("path" , unnest_exprs)
+
+      val unnest_attr = (nested_exprs.head\"rel").extract[String]
+      val tmpBinding: Binding = Binding(unnest_attr, getFields(c.getRowType))
+
+      val unnest_e: JValue = getFields(c.getRowType).slice(c.getLeft.getRowType.getFieldCount, getFields(c.getRowType).size).map{
+        p => {
+          emitArg(p.getIndex, List(tmpBinding), true) // ~ ("rel", (p\"e"\"rel").extract[String].concat(".").concat((p\"e"\"attr").extract[String]))
+        }
+      }
+
+      val json = ("operator", "projection") ~ ("tupleType", rowType) ~ ("e", proj_exprs ++ unnest_e) ~ ("input" , unnest_json)
+
+      val binding: Binding = Binding("unnest"+c.getId,getFields(c.getRowType))
+      val ret: (Binding, JValue) = (binding,json)
       ret
     }
     case _  => {

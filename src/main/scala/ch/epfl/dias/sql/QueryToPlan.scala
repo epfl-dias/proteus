@@ -104,12 +104,32 @@ class QueryToPlan(schema: SchemaPlus) {
       rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE)
       rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE)
       rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE) //FIMXE: no mergejoin yet
+      rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_SORT_RULE)       //FIMXE: no support for SORT yet
+//      rules.add(EnumerableRules.ENUMERABLE_UNION_RULE)      //FIMXE: no support for UNION yet
+//      rules.add(EnumerableRules.ENUMERABLE_INTERSECT_RULE)  //FIMXE: no support for INTERSECT yet
+//      rules.add(EnumerableRules.ENUMERABLE_MINUS_RULE)      //FIMXE: no support for MINUS yet
+      rules.add(EnumerableRules.ENUMERABLE_COLLECT_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_UNCOLLECT_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_CORRELATE_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_VALUES_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE)
+      
       rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE)
       rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_CORRELATE_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_FILTER_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE)
       rules.add(EnumerableRules.ENUMERABLE_SORT_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_LIMIT_RULE)
       rules.add(EnumerableRules.ENUMERABLE_UNION_RULE)
       rules.add(EnumerableRules.ENUMERABLE_INTERSECT_RULE)
       rules.add(EnumerableRules.ENUMERABLE_MINUS_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_TABLE_MODIFICATION_RULE)
+      rules.add(EnumerableRules.ENUMERABLE_VALUES_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_WINDOW_RULE)
 
       val program1 = new Program {
         def run(
