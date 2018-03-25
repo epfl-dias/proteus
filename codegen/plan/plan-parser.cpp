@@ -21,6 +21,7 @@
 #include "operators/block-to-tuples.hpp"
 #include "operators/flush.hpp"
 #include "operators/project.hpp"
+#include "operators/sort.hpp"
 
 /* too primitive */
 struct PlanHandler {
@@ -262,6 +263,38 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		}
 
 		newOp = new Flush(e, childOp, this->ctx, moduleName);
+		childOp->setParent(newOp);
+	} else if (strcmp(opName, "sort") == 0) {
+		/* "Multi - reduce"! */
+		/* parse operator input */
+		RawOperator* childOp = parseOperator(val["input"]);
+
+		/*
+		 * parse output expressions
+		 * XXX Careful: Assuming numerous output expressions!
+		 */
+		assert(val.HasMember("e"));
+		assert(val["e"].IsArray());
+		vector<expressions::Expression *> e;
+		vector<direction                > d;
+		const rapidjson::Value& exprsJSON = val["e"];
+		for (SizeType i = 0; i < exprsJSON.Size(); i++)
+		{	
+			assert(exprsJSON[i].IsObject());
+			assert(exprsJSON[i].HasMember("expression"));
+			assert(exprsJSON[i]["expression"].IsObject());
+			expressions::Expression *outExpr = parseExpression(exprsJSON[i]["expression"]);
+			e.push_back(outExpr);
+			assert(exprsJSON[i].HasMember("direction"));
+			assert(exprsJSON[i]["direction"].IsString());
+			std::string dir = exprsJSON[i]["direction"].GetString();
+			if      (dir == "ASC" ) d.push_back(ASC );
+			else if (dir == "NONE") d.push_back(NONE);
+			else if (dir == "DESC") d.push_back(DESC);
+			else 					assert(false);
+		}
+
+		newOp = new Sort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e, d);
 		childOp->setParent(newOp);
 	} else if (strcmp(opName, "project") == 0) {
 		/* "Multi - reduce"! */

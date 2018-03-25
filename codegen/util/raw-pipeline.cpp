@@ -97,7 +97,7 @@ Value * RawPipelineGen::getSubStateVar() const{
 
 Function * const RawPipelineGen::createHelperFunction(string funcName, std::vector<Type *> ins, std::vector<bool> readonly, std::vector<bool> noalias) const{
     assert(readonly.size() == noalias.size());
-    assert(readonly.size() == 0 || readonly.size() == args.size());
+    assert(readonly.size() == 0 || readonly.size() == ins.size());
 
     ins.push_back(PointerType::getUnqual(state_type));
 
