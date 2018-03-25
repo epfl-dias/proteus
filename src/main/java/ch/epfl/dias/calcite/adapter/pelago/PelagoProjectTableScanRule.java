@@ -69,4 +69,4 @@ public class PelagoProjectTableScanRule extends RelOptRule {
   }
 }
 
-// End CsvProjectTableScanRule.java
+// End PelagoProjectTableScanRule.java

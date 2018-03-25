@@ -72,8 +72,8 @@ class QueryToPlan(schema: SchemaPlus) {
       rules.add(AggregateProjectMergeRule.INSTANCE)
       rules.add(AggregateProjectPullUpConstantsRule.INSTANCE)
       rules.add(AggregateExpandDistinctAggregatesRule.INSTANCE)
-      rules.add(AggregateReduceFunctionsRule.INSTANCE)
-      // //join rules
+//    rules.add(AggregateReduceFunctionsRule.INSTANCE) //optimizes out required sorting in some cases!
+       //join rules
       rules.add(JoinToMultiJoinRule.INSTANCE)
       rules.add(LoptOptimizeJoinRule.INSTANCE)
       // //        MultiJoinOptimizeBushyRule.INSTANCE,

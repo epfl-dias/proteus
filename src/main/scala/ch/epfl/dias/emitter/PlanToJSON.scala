@@ -369,15 +369,34 @@ object PlanToJSON {
       val child = emit_(sort.getInput)
       val childBinding: Binding = child._1
       val childOp = child._2
-      val rowType = emitSchema(childBinding.rel, sort.getRowType)
+      val rowType = emitSchema("sort"+sort.getId, sort.getRowType)
 
       val args : JValue =
       sort.getCollation.getFieldCollations.asScala.map {
-        col => ("expression", emitArg(col.getFieldIndex,List(childBinding))) ~ ("direction", col.getDirection.shortString)
+        col => {
+          val arg = emitArg(col.getFieldIndex,List(childBinding))
+          val regas = ("rel", "sort"+sort.getId) ~ ("attr", arg.\("attr"))
+          ("expression", arg) ~ ("direction", col.getDirection.shortString) ~ ("register_as", regas)
+        }
       }
 
-      val json : JValue = op ~ ("tupleType", rowType) ~ ("args", args) ~ ("input", childOp)
-      val ret: (Binding, JValue) = (childBinding,json)
+      val keyIndexes =
+      sort.getCollation.getFieldCollations.asScala.map {
+       col => col.getFieldIndex
+      }
+
+      val args2: JValue =
+      sort.getRowType.getFieldList.asScala.filter(p => !keyIndexes.contains(p.getIndex)).map{
+        col => {
+          val arg = emitArg(col.getIndex,List(childBinding))
+          val regas = ("rel", "sort"+sort.getId) ~ ("attr", arg.\("attr"))
+          ("expression", arg) ~ ("direction", "NONE") ~ ("register_as", regas)
+        }
+      }
+
+      val json : JValue = op ~ ("tupleType", rowType) ~ ("args", args ++ args2) ~ ("input", childOp)
+      val binding: Binding = Binding("sort"+sort.getId,getFields(sort.getRowType))
+      val ret: (Binding, JValue) = (binding,json)
       ret
     }
     case c: EnumerableCorrelate => {
