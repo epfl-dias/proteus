@@ -55,4 +55,4 @@ private:
 	void generate(RawContext* const context, const OperatorState& childState) const;
 };
 
-#endif /* REDUCE_HPP_ */
+#endif /* FLUSH_HPP_ */
