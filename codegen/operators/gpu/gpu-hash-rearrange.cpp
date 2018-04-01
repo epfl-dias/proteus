@@ -48,6 +48,9 @@ void GpuHashRearrange::produce() {
     wcntVar_id = context->appendStateVar(PointerType::getUnqual(ArrayType::get(idx_type , numOfBuckets)));
     oidVar_id  = context->appendStateVar(PointerType::getUnqual(oid_type));
 
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+
     getChild()->produce();
 }
 
@@ -674,9 +677,6 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
 
     // flush remaining elements
     consume_flush(target_type);
-
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
 void GpuHashRearrange::consume_flush(IntegerType * target_type){

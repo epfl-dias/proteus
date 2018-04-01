@@ -48,6 +48,9 @@ void HashRearrange::produce() {
 
     blkVar_id           = context->appendStateVar(PointerType::getUnqual(ArrayType::get(block_stuct, numOfBuckets)));
 
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+    
     getChild()->produce();
 }
 
@@ -277,9 +280,6 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
 
     // flush remaining elements
     consume_flush();
-
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
 void HashRearrange::consume_flush(){

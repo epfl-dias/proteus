@@ -53,10 +53,10 @@ protected:
     //Current entry basic block. This changes every time a new scan is triggered
     BasicBlock* currentCodeEntry;
 
-    std::vector<std::function<  init_func_t>> open_var;
+    std::vector<std::pair<std::function<  init_func_t>, size_t>> open_var;
     Function *                  open__function  ;
 
-    std::vector<std::function<deinit_func_t>> close_var;
+    std::vector<std::pair<std::function<deinit_func_t>, size_t>> close_var;
     Function *                  close_function  ;
 
     std::vector<llvm::Type *>   inputs          ;
@@ -107,6 +107,9 @@ public:
     virtual size_t appendParameter(llvm::Type * ptype, bool noalias  = false, bool readonly = false);
     virtual size_t appendStateVar (llvm::Type * ptype);
     virtual size_t appendStateVar (llvm::Type * ptype, std::function<init_func_t> init, std::function<deinit_func_t> deinit);
+
+    void callPipRegisteredOpen (size_t indx, RawPipeline * pip);
+    void callPipRegisteredClose(size_t indx, RawPipeline * pip);
 
     virtual llvm::Argument* getArgument(size_t id) const;
     virtual llvm::Value   * getStateVar(size_t id) const;

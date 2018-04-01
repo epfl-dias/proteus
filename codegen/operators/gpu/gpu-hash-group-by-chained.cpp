@@ -53,6 +53,9 @@ void GpuHashGroupByChained::produce() {
 
     buildHashTableFormat();
     
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+    
     getChild()->produce();
 
     context->popNewPipeline();
@@ -485,9 +488,6 @@ void GpuHashGroupByChained::generate_build(RawContext* const context, const Oper
     Builder->CreateCondBr(Builder->CreateExtractValue(new_next, 1), MergeBB, ThenBB);
 
     Builder->SetInsertPoint(MergeBB);
-
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
                                 // void GpuHashGroupByChained::generate_build(RawContext* const context, const OperatorState& childState) {

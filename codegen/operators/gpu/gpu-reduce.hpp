@@ -50,8 +50,8 @@ public:
     virtual void consume(RawContext* const context, const OperatorState& childState);
     virtual void consume(GpuRawContext* const context, const OperatorState& childState);
 
-    virtual void open (RawPipeline * pip) const;
-    virtual void close(RawPipeline * pip) const;
+    // virtual void open (RawPipeline * pip) const;
+    // virtual void close(RawPipeline * pip) const;
 
 protected:
     virtual size_t resetAccumulator(expressions::Expression* outputExpr,

@@ -68,6 +68,8 @@ void GpuHashJoinChained::produce() {
     context->pushNewPipeline(); //FIXME: find a better way to do this
     buildHashTableFormat();
 
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open_build (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close_build(pip);});
     getLeftChild()->produce();
 
     // context->compileAndLoad(); //FIXME: Remove!!!! causes an extra compilation! this compile will be done again later!
@@ -76,6 +78,9 @@ void GpuHashJoinChained::produce() {
     context->popNewPipeline(); //FIXME: find a better way to do this
 
     probeHashTableFormat();
+    
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open_probe (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close_probe(pip);});
     getRightChild()->produce();
 }
 
@@ -300,9 +305,6 @@ void GpuHashJoinChained::generate_build(RawContext* const context, const Operato
         // Builder->CreateStore(out_vals[i], out_ptrs[i]);
         Builder->CreateAlignedStore(out_vals[i], out_ptrs[i], build_packet_widths[i]/8);
     }
-
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open_build (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close_build(pip);});
 }
 
 void GpuHashJoinChained::generate_probe(RawContext* const context, const OperatorState& childState) {
@@ -527,9 +529,6 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
 
     // TheFunction->getBasicBlockList().push_back(MergeBB);
     Builder->SetInsertPoint(MergeBB);
-
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open_probe (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close_probe(pip);});
 }
 
 void GpuHashJoinChained::open_build(RawPipeline * pip){

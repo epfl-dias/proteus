@@ -200,6 +200,9 @@ void MemMoveDevice::produce() {
     // cu_stream_var       = context->appendStateVar(charPtrType);
     memmvconf_var       = context->appendStateVar(charPtrType);
 
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+
     getChild()->produce();
 }
 
@@ -297,9 +300,6 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
 
     Function * propagate = context->getFunction("propagateWorkUnit");
     Builder->CreateCall(propagate, std::vector<Value *>{memmv, workunit_ptr8, is_noop});
-
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
 void MemMoveDevice::open (RawPipeline * pip){

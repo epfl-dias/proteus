@@ -16,18 +16,62 @@ size_t RawPipelineGen::appendParameter(llvm::Type * ptype, bool noalias, bool re
 }
 
 size_t RawPipelineGen::appendStateVar(llvm::Type * ptype){
-    state_vars.push_back(ptype);
-    open_var  .emplace_back([ptype](Value *){return UndefValue::get(ptype);});
-    close_var .emplace_back([](Value *, Value *){});
-    return state_vars.size() - 1;
+    return appendStateVar(ptype, [ptype](Value *){return UndefValue::get(ptype);}, [](Value *, Value *){});
 }
-
 
 size_t RawPipelineGen::appendStateVar(llvm::Type * ptype, std::function<init_func_t> init, std::function<deinit_func_t> deinit){
     state_vars.push_back(ptype);
-    open_var  .emplace_back(init);
-    close_var .emplace_back(deinit);
-    return state_vars.size() - 1;
+    size_t var_id = state_vars.size() - 1;
+    open_var  .emplace_back(init  , var_id);
+    close_var .emplace_back(deinit, var_id);
+    return var_id;
+}
+
+void RawPipelineGen::registerOpen (const void * owner, std::function<void (RawPipeline * pip)> open ){
+    openers.emplace_back(owner, open );
+    size_t indx = openers.size() - 1;
+    open_var.emplace_back([=](Value * pip){
+            Function    * f            = context->getFunction("callPipRegisteredOpen");
+            PointerType * charPtrType  = Type::getInt8PtrTy(context->getLLVMContext());
+            Value       * this_ptr     = context->CastPtrToLlvmPtr(charPtrType, this);
+            Value       * this_opener  = context->createSizeT(indx);
+            getBuilder()->CreateCall(f, std::vector<Value *>{this_ptr, this_opener, pip});
+            return (Value *) NULL;
+        }, 
+        ~((size_t) 0)
+    );
+}
+
+void RawPipelineGen::registerClose(const void * owner, std::function<void (RawPipeline * pip)> close){
+    closers.emplace_back(owner, close);
+    size_t indx = closers.size() - 1;
+    close_var.emplace_back([=](Value * pip, Value *){
+            Function    * f            = context->getFunction("callPipRegisteredClose");
+            PointerType * charPtrType  = Type::getInt8PtrTy(context->getLLVMContext());
+            Value       * this_ptr     = context->CastPtrToLlvmPtr(charPtrType, this);
+            Value       * this_closer  = context->createSizeT(indx);
+            getBuilder()->CreateCall(f, std::vector<Value *>{this_ptr, this_closer, pip});
+        }, 
+        ~((size_t) 0)
+    );
+}
+
+void RawPipelineGen::callPipRegisteredOpen(size_t indx, RawPipeline * pip){
+    (openers[indx].second)(pip);
+}
+
+void RawPipelineGen::callPipRegisteredClose(size_t indx, RawPipeline * pip){
+    (closers[indx].second)(pip);
+}
+
+extern "C" {
+    void callPipRegisteredOpen (RawPipelineGen * pipgen, size_t indx, RawPipeline * pip){
+        pipgen->callPipRegisteredOpen (indx, pip);
+    }
+
+    void callPipRegisteredClose(RawPipelineGen * pipgen, size_t indx, RawPipeline * pip){
+        pipgen->callPipRegisteredClose(indx, pip);
+    }
 }
 
 std::vector<llvm::Type *> RawPipelineGen::getStateVars() const{
@@ -247,6 +291,7 @@ void RawPipelineGen::prepareInitDeinit(){
         if (inputs_noalias [i - 1]) attrs.emplace_back(i, noAlias);
     }
 
+    size_t s = 0;
     {
         open__function = Function::Create(ftype, Function::ExternalLinkage, pipName + "_open" , context->getModule());
         open__function->setAttributes(AttributeList::get(context->getLLVMContext(), attrs));
@@ -258,9 +303,11 @@ void RawPipelineGen::prepareInitDeinit(){
         getBuilder()->SetInsertPoint(openBB);
         Value * state = UndefValue::get(state_type);
 
-        for (size_t i = 0 ; i < state_vars.size() ; ++i){
-            Value * var = open_var[i](args[0]);
-            state = getBuilder()->CreateInsertValue(state, var, i);
+        for (size_t i = 0 ; i < open_var.size() ; ++i){
+            Value * var = (open_var[i].first)(args[0]);
+            if (open_var[i].second != ~((size_t) 0)){
+                state = getBuilder()->CreateInsertValue(state, var, s++);
+            }
         }
 
         getBuilder()->CreateStore(state, args[1]);
@@ -278,14 +325,19 @@ void RawPipelineGen::prepareInitDeinit(){
         Value * tmp = state;
         state = getBuilder()->CreateLoad(args[1]);
 
-        for (size_t i = 0 ; i < state_vars.size() ; ++i){
-            close_var[i](args[0], getStateVar(i));
+        for (size_t i = close_var.size() ; i > 0  ; --i){
+            Value * var = NULL;
+            if (close_var[i - 1].second != ~((size_t) 0)){
+                var = getBuilder()->CreateExtractValue(state, --s);
+            }
+            (close_var[i - 1].first)(args[0], var);
         }
 
         getBuilder()->CreateRetVoid();
 
         state = tmp;
     }
+    assert(s == 0);
 
     getBuilder()->SetInsertPoint(BB);
 }
@@ -349,15 +401,6 @@ void * RawPipelineGen::getKernel() const{
     // assert(!F);
     return (void *) func;
 }
-
-void RawPipelineGen::registerOpen (const void * owner, std::function<void (RawPipeline * pip)> open ){
-    openers.emplace_back(owner, open );
-}
-
-void RawPipelineGen::registerClose(const void * owner, std::function<void (RawPipeline * pip)> close){
-    closers.emplace_back(owner, close);
-}
-
 
 RawPipeline * RawPipelineGen::getPipeline(int group_id){
     void       * func       = getKernel();
@@ -429,20 +472,20 @@ void RawPipeline::open(){
     assert(init_state);
     ((void (*)(RawPipeline *, void *)) init_state)(this, state);
 
-    for (size_t i = 1 ; i < openers.size() ; ++i) {
-        bool is_first = true;
-        const void * owner = openers[i].first;
-        for (size_t j = 0 ; j < i ; ++j) {
-            if (openers[j].first == owner){
-                is_first = false;
-                break;
-            }
-        }
-        if (is_first){
-            // std::cout << "o:" << closers[i - 1].first  << std::endl;
-            (openers[i].second)(this);
-        }
-    }
+    // for (size_t i = 1 ; i < openers.size() ; ++i) {
+    //     bool is_first = true;
+    //     const void * owner = openers[i].first;
+    //     for (size_t j = 0 ; j < i ; ++j) {
+    //         if (openers[j].first == owner){
+    //             is_first = false;
+    //             break;
+    //         }
+    //     }
+    //     if (is_first){
+    //         // std::cout << "o:" << closers[i - 1].first  << std::endl;
+    //         (openers[i].second)(this);
+    //     }
+    // }
     // for (const auto &opener: openers) opener(this);
 }
 
@@ -459,21 +502,21 @@ void RawPipeline::close(){
     //     }
     //     if (is_first) (closers[i].second)(this);
     // }
-    for (size_t i = closers.size() ; i > 1 ; --i) {
-        bool is_last = true;
-        const void * owner = closers[i - 1].first;
-        for (size_t j = closers.size() ; j > i ; --j) {
-            if (closers[j - 1].first == owner){
-                is_last = false;
-                break;
-            }
-        }
-        assert(closers[i - 1].second && "Null closer!");
-        if (is_last) {
-            // std::cout << "c:" << closers[i - 1].first  << std::endl;
-            (closers[i - 1].second)(this);
-        }
-    }
+    // for (size_t i = closers.size() ; i > 1 ; --i) {
+    //     bool is_last = true;
+    //     const void * owner = closers[i - 1].first;
+    //     for (size_t j = closers.size() ; j > i ; --j) {
+    //         if (closers[j - 1].first == owner){
+    //             is_last = false;
+    //             break;
+    //         }
+    //     }
+    //     assert(closers[i - 1].second && "Null closer!");
+    //     if (is_last) {
+    //         // std::cout << "c:" << closers[i - 1].first  << std::endl;
+    //         (closers[i - 1].second)(this);
+    //     }
+    // }
 
     assert(deinit_state);
     ((void (*)(RawPipeline *, void *)) deinit_state)(this, state);
@@ -924,6 +967,24 @@ void RawPipelineGen::registerFunctions()    {
     Function *parse_line_json = Function::Create(FT_parse_line_json,
             Function::ExternalLinkage, "parseLineJSON", TheModule);
 
+    Type * size_type;
+    if      (sizeof(size_t) == 4) size_type = int32_type;
+    else if (sizeof(size_t) == 8) size_type = int64_type;
+    else                          assert(false);
+
+    FunctionType *intrcallPipRegistered     = FunctionType::get(void_type, std::vector<Type *>{char_ptr_type, size_type, char_ptr_type}, false);
+    Function *intr_pcallPipRegisteredOpen   = Function::Create(intrcallPipRegistered, Function::ExternalLinkage, "callPipRegisteredOpen" , getModule());
+    Function *intr_pcallPipRegisteredClose  = Function::Create(intrcallPipRegistered, Function::ExternalLinkage, "callPipRegisteredClose", getModule());
+    registerFunction("callPipRegisteredOpen" , intr_pcallPipRegisteredOpen );
+    registerFunction("callPipRegisteredClose", intr_pcallPipRegisteredClose);
+
+    FunctionType *intrget_dev_buffer = FunctionType::get(char_ptr_type, std::vector<Type *>{}, false);
+    Function *intr_pget_dev_buffer = Function::Create(intrget_dev_buffer, Function::ExternalLinkage, "get_dev_buffer", getModule());
+    registerFunction("get_dev_buffer", intr_pget_dev_buffer);
+
+    FunctionType *intrprintptr = FunctionType::get(void_type, std::vector<Type *>{char_ptr_type}, false);
+    Function *intr_pprintptr = Function::Create(intrprintptr, Function::ExternalLinkage, "printptr", getModule());
+    registerFunction("printptr", intr_pprintptr);
 
     registerFunction("printi", printi_);
     registerFunction("printi64", printi64_);

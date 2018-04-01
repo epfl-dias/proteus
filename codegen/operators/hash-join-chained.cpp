@@ -68,6 +68,8 @@ void HashJoinChained::produce() {
     context->pushNewCpuPipeline(); //FIXME: find a better way to do this
     buildHashTableFormat();
 
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open_build (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close_build(pip);});
     getLeftChild()->produce();
 
     // context->compileAndLoad(); //FIXME: Remove!!!! causes an extra compilation! this compile will be done again later!
@@ -76,6 +78,9 @@ void HashJoinChained::produce() {
     context->popNewPipeline(); //FIXME: find a better way to do this
 
     probeHashTableFormat();
+
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open_probe (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close_probe(pip);});
     getRightChild()->produce();
 }
 
@@ -93,7 +98,7 @@ void HashJoinChained::probeHashTableFormat(){
     //assumes than build has already run
 
     Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
-    Type *t_head_ptr = PointerType::get(int32_type, /* address space */ 1);
+    Type *t_head_ptr = PointerType::getUnqual(int32_type);//, /* address space */ 1);
     probe_head_param_id = context->appendStateVar(t_head_ptr);//, true, true);
 
     size_t i = 0;
@@ -135,7 +140,7 @@ void HashJoinChained::probeHashTableFormat(){
         }
 
         Type * t     = StructType::create(body, opLabel + "_struct_" + std::to_string(p), true);
-        Type * t_ptr = PointerType::get(t, /* address space */ 1);
+        Type * t_ptr = PointerType::getUnqual(t);//, /* address space */ 1);
 
         in_param_ids.push_back(context->appendStateVar(t_ptr));//, true, true));
     }
@@ -161,7 +166,7 @@ void HashJoinChained::buildHashTableFormat(){
     });
 
     Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
-    Type *t_head_ptr = PointerType::get(int32_type, /* address space */ 1);
+    Type *t_head_ptr = PointerType::getUnqual(int32_type);//, /* address space */ 1);
     head_param_id = context->appendStateVar(t_head_ptr);//, true, false);
 
     size_t i = 0;
@@ -203,7 +208,7 @@ void HashJoinChained::buildHashTableFormat(){
         }
 
         Type * t     = StructType::create(body, opLabel + "_struct_" + std::to_string(p), true);
-        Type * t_ptr = PointerType::get(t, /* address space */ 1);
+        Type * t_ptr = PointerType::getUnqual(t);//, /* address space */ 1);
 
         out_param_ids.push_back(context->appendStateVar(t_ptr));//, true, false));
     }
@@ -214,7 +219,7 @@ void HashJoinChained::buildHashTableFormat(){
     // Type * t     = PointerType::get(((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext()), /* address space */ 1);
     // out_param_id = context->appendParameter(t    , true, false);
 
-    Type * t_cnt = PointerType::get(int32_type, /* address space */ 1);
+    Type * t_cnt = PointerType::getUnqual(int32_type);//, /* address space */ 1);
     cnt_param_id = context->appendStateVar(t_cnt);//, true, false);
 }
 
@@ -306,9 +311,6 @@ void HashJoinChained::generate_build(RawContext* const context, const OperatorSt
         // Builder->CreateStore(out_vals[i], out_ptrs[i]);
         Builder->CreateAlignedStore(out_vals[i], out_ptrs[i], build_packet_widths[i]/8);
     }
-
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open_build (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close_build(pip);});
 }
 
 void HashJoinChained::generate_probe(RawContext* const context, const OperatorState& childState) {
@@ -322,8 +324,27 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
     // Type *int64_type = Type::getInt64Ty(llvmContext);
     // Type *int32_type = Type::getInt32Ty(llvmContext);
 
+    BasicBlock * insBB = Builder->GetInsertBlock();
+
+    Builder->SetInsertPoint(context->getCurrentEntryBlock());
     Value * head_ptr = ((const GpuRawContext *) context)->getStateVar(probe_head_param_id);
     head_ptr->setName(opLabel + "_head_ptr");
+
+    std::vector<Value *> in_data_ptr;
+    for (size_t i = 0 ; i < in_param_ids.size() ; ++i) {
+        Value * in_ptr = ((const GpuRawContext *) context)->getStateVar(in_param_ids[i]);
+        if (in_param_ids.size() != 1){
+            in_ptr->setName(opLabel + "_data" + std::to_string(i) + "_ptr");
+        } else {
+            in_ptr->setName(opLabel + "_data_ptr");
+        }
+        // in_ptrs.push_back(in_ptr);
+        
+        in_data_ptr.push_back(in_ptr);
+    }
+
+
+    Builder->SetInsertPoint(insBB);
 
     ExpressionGeneratorVisitor exprGenerator(context, childState);
     RawValue keyWrapper = probe_keyexpr->accept(exprGenerator);
@@ -359,15 +380,7 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
     std::vector<Value *> in_ptrs;
     std::vector<Value *> in_vals;
     for (size_t i = 0 ; i < in_param_ids.size() ; ++i) {
-        Value * in_ptr = ((const GpuRawContext *) context)->getStateVar(in_param_ids[i]);
-        if (in_param_ids.size() != 1){
-            in_ptr->setName(opLabel + "_data" + std::to_string(i) + "_ptr");
-        } else {
-            in_ptr->setName(opLabel + "_data_ptr");
-        }
-        // in_ptrs.push_back(in_ptr);
-        
-        in_ptrs.push_back(Builder->CreateInBoundsGEP(in_ptr, Builder->CreateLoad(mem_current)));
+        in_ptrs.push_back(Builder->CreateInBoundsGEP(in_data_ptr[i], Builder->CreateLoad(mem_current)));
         in_vals.push_back(Builder->CreateAlignedLoad(in_ptrs.back(), context->getSizeOf(in_ptrs.back()->getType()->getPointerElementType())));
     }
 
@@ -534,8 +547,8 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
     // TheFunction->getBasicBlockList().push_back(MergeBB);
     Builder->SetInsertPoint(MergeBB);
 
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open_probe (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close_probe(pip);});
+    // ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open_probe (pip);});
+    // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close_probe(pip);});
 }
 
 // void HashJoinChained::open_build(RawPipeline * pip){

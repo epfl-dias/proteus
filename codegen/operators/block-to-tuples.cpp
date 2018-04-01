@@ -27,6 +27,9 @@
 
 void BlockToTuples::produce()    {
 
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
         old_buffs.push_back(
                                 context->appendStateVar(
@@ -37,7 +40,6 @@ void BlockToTuples::produce()    {
                                 )
                             );
     }
-
 
     getChild()->produce();
 }
@@ -290,9 +292,6 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
     //  Finish up with end (the AfterLoop)
     //  Any new code will be inserted in AfterBB.
     Builder->SetInsertPoint(AfterBB);
-
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
 

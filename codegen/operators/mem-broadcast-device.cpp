@@ -216,6 +216,8 @@ void MemBroadcastDevice::produce() {
     // cu_stream_var       = context->appendStateVar(charPtrType);
     memmvconf_var       = context->appendStateVar(charPtrType);
 
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
     getChild()->produce();
 }
 
@@ -296,11 +298,6 @@ void MemBroadcastDevice::consume(RawContext* const context, const OperatorState&
             vector<Value *> mv_args{mv, size, target_id, memmv, any_noop}; //Builder->CreateZExtOrBitCast(any_noop, cpp_bool_type)};
 
             // Do actual mem move
-            make_mem_move->getFunctionType()->dump();
-            mv->getType()->dump();
-            size->getType()->dump();
-            target_id->getType()->dump();
-            memmv->getType()->dump();
             Builder->CreateZExtOrBitCast(any_noop, cpp_bool_type)->getType()->dump();
             Value * moved_buffpair  = Builder->CreateCall(make_mem_move, mv_args);
             Value * moved           = Builder->CreateExtractValue(moved_buffpair, 0);
@@ -352,9 +349,6 @@ void MemBroadcastDevice::consume(RawContext* const context, const OperatorState&
         propagate->getFunctionType()->dump();
         Builder->CreateCall(propagate, std::vector<Value *>{memmv, workunit_ptr8, target_id});
     }
-
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
 void MemBroadcastDevice::open (RawPipeline * pip){

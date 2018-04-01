@@ -60,6 +60,9 @@ void GpuToCpu::produce() {
     threadVar_id    = context->appendStateVar(charPtrType);
     eofVar_id       = context->appendStateVar(PointerType::get(int32_type , 0));
 
+    context->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    context->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+    
     getChild()->produce();
 }
 
@@ -347,9 +350,6 @@ void GpuToCpu::consume(GpuRawContext * const context, const OperatorState& child
     Builder->CreateBr(afterBB);
 
     Builder->SetInsertPoint(afterBB);
-
-    context->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    context->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 #include <x86intrin.h>
 #include <sched.h>

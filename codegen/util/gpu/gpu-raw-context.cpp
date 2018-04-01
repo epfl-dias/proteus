@@ -227,11 +227,13 @@ void GpuRawContext::setGlobalFunction(Function *F, bool leaf){
 }
 
 void GpuRawContext::pushNewPipeline   (RawPipelineGen * copyStateFrom){
+    time_block t("TregpipsG: ");
     TheFunction = nullptr;
     generators.emplace_back(new RawGpuPipelineGen(this, kernelName + "_pip" + std::to_string(pip_cnt++), copyStateFrom));
 }
 
 void GpuRawContext::pushNewCpuPipeline(RawPipelineGen * copyStateFrom){
+    time_block t("TregpipsC: ");
     TheFunction = nullptr;
     generators.emplace_back(new RawCpuPipelineGen(this, kernelName + "_pip" + std::to_string(pip_cnt++), copyStateFrom));
 }

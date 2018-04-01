@@ -145,6 +145,10 @@ void Exchange::produce() {
 
     //push new pipeline for the throw part
     context->pushNewCpuPipeline();
+
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+
     getChild()->produce();
 }
 
@@ -159,7 +163,7 @@ void * Exchange::acquireBuffer(int target, bool polling){
             return NULL;
         }
         nvtxRangePushA("cv_buff");
-        std::cout << "Blocking" << std::endl;
+        // std::cout << "Blocking" << std::endl;
         free_pool_cv[target].wait(lock, [this, target](){return !free_pool[target].empty();});
         nvtxRangePop();
     }
@@ -178,20 +182,22 @@ void   Exchange::releaseBuffer(int target, void * buff){
     nvtxRangePop();
     std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
     ready_pool[target].emplace(buff);
-    lock.unlock();
     ready_pool_cv[target].notify_all();
+    lock.unlock();
     nvtxRangePop();
 }
 
 void   Exchange::freeBuffer(int target, void * buff){
+    nvtxRangePushA("waiting_to_release");
     std::unique_lock<std::mutex> lock(free_pool_mutex[target]);
+    nvtxRangePop();
     free_pool[target].emplace(buff);
-    lock.unlock();
     free_pool_cv[target].notify_all();
+    lock.unlock();
 }
 
 bool   Exchange::get_ready(int target, void * &buff){
-    while (ready_pool[target].empty() && remaining_producers > 0);
+    // while (ready_pool[target].empty() && remaining_producers > 0);
 
     std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
 
@@ -227,7 +233,7 @@ void   Exchange::fire(int target, RawPipelineGen * pipGen){
     nvtxRangePop();
     
     {
-        // time_block t("Texchange consume (target=" + std::to_string(target) + "): ");
+        time_block t("Texchange consume (target=" + std::to_string(target) + "): ");
         do {
             void * p;
             if (!get_ready(target, p)) break;
@@ -384,9 +390,6 @@ void Exchange::consume(RawContext* const context, const OperatorState& childStat
     kernel_args.push_back(Builder->CreateBitCast(param_ptr, charPtrType));
 
     Builder->CreateCall(releaseBuffer, kernel_args);
-
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
 
