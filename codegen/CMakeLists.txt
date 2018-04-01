@@ -7,6 +7,7 @@ file(GLOB codegen_src
 	util/radix/*.cpp
 	util/radix/joins/*.cpp
 	util/radix/aggregations/*.cpp
+    #util/sort/gpu/sort-util.cu #DO NOT INCLUDE THIS FILE! it should be compiled with nvcc (due to thrust's incompatiblity with clang)
 	values/*.cpp
 	expressions/*.cpp
 	plugins/*.cpp
@@ -68,6 +69,18 @@ string(REGEX REPLACE "([^;]+)" "-I\\1" inc_dirs2 "${inc_dirs}")
 # add_custom_target(device_funcs     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/device_funcs.cubin)
 # add_custom_target(device_funcs_obj DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/device_funcs.cubin.o)
 
+add_custom_command(OUTPUT sort-util.o
+                   COMMAND nvcc ${CUDA_CUFLAGS} -O3 --generate-line-info ${inc_dirs2} -c ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cu -o ${CMAKE_CURRENT_BINARY_DIR}/sort-util.o
+                   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cu ${CMAKE_CURRENT_SOURCE_DIR}/common/gpu/gpu-common.hpp  ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cuh
+                   # WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                   )
+
+# add_custom_command(OUTPUT buffer_manager.o
+#                    COMMAND ld -r -b binary buffer_manager.cubin -o ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.o
+#                    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin
+#                    # WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+#                    )
+
 if (NOT (${CUDA} STREQUAL "CUDA-NOTFOUND"))
 add_custom_command(OUTPUT buffer_manager.cubin
                    COMMAND nvcc ${CUDA_CUFLAGS} -O3 --generate-line-info ${inc_dirs2} -dc --cubin ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu -o ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin
@@ -90,7 +103,7 @@ add_custom_target(buffer_manager_obj DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_
 if (${CUDA} STREQUAL "CUDA-NOTFOUND")
     add_library(codegen SHARED ${codegen_src})
 else()
-    add_library(codegen SHARED ${codegen_src} ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o)
+    add_library(codegen SHARED ${codegen_src} ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o ${CMAKE_CURRENT_BINARY_DIR}/sort-util.o)
 endif()
 set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
 

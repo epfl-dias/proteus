@@ -39,6 +39,7 @@ RawGpuPipelineGen::RawGpuPipelineGen(RawContext * context, std::string pipName, 
             wrapper_module      (context, pipName + "_wrapper"),
             wrapperModuleActive (false){
     registerSubPipeline();
+    registerFunctions();
 
     Type * int32_type   = Type::getInt32Ty  (context->getLLVMContext());
     Type * int64_type   = Type::getInt64Ty  (context->getLLVMContext());
@@ -120,8 +121,6 @@ RawGpuPipelineGen::RawGpuPipelineGen(RawContext * context, std::string pipName, 
     FunctionType *intrrelease_buffers = FunctionType::get(void_type, std::vector<Type *>{charPtrType}, false);
     Function *intr_prelease_buffers = Function::Create(intrrelease_buffers, Function::ExternalLinkage, "release_buffers", getModule());
     registerFunction("release_buffers", intr_prelease_buffers);
-
-    registerFunctions();
 }
 
 void RawGpuPipelineGen::registerFunctions(){
@@ -130,6 +129,7 @@ void RawGpuPipelineGen::registerFunctions(){
     Type * int64_type   = Type::getInt64Ty  (context->getLLVMContext());
     Type * void_type    = Type::getVoidTy   (context->getLLVMContext());
     Type * charPtrType  = Type::getInt8PtrTy(context->getLLVMContext());
+    Type * bool_type    = Type::getInt1Ty   (context->getLLVMContext());
 
     Type * size_type;
     if      (sizeof(size_t) == 4) size_type = int32_type;
@@ -147,6 +147,104 @@ void RawGpuPipelineGen::registerFunctions(){
     FunctionType *deallocate = FunctionType::get(void_type, std::vector<Type *>{charPtrType}, false);
     Function *fdeallocate = Function::Create(deallocate, Function::ExternalLinkage, "deallocate_gpu", getModule());
     registerFunction("deallocate", fdeallocate);
+
+
+    FunctionType *memcpy = FunctionType::get(void_type, std::vector<Type *>{charPtrType, charPtrType, size_type, bool_type}, false);
+    Function *fmemcpy = Function::Create(memcpy, Function::ExternalLinkage, "memcpy_gpu", getModule());
+    registerFunction("memcpy", fmemcpy);
+
+    FunctionType *intrqsort = FunctionType::get(void_type, std::vector<Type *>{charPtrType, size_type}, false);
+    Function *intr_pqsort_i = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_i", getModule());
+    registerFunction("qsort_i", intr_pqsort_i);
+
+    Function *intr_pqsort_l = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_l", getModule());
+    registerFunction("qsort_l", intr_pqsort_l);
+
+    Function *intr_pqsort_ii = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_ii", getModule());
+    registerFunction("qsort_ii", intr_pqsort_ii);
+
+    Function *intr_pqsort_il = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_il", getModule());
+    registerFunction("qsort_il", intr_pqsort_il);
+
+    Function *intr_pqsort_li = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_li", getModule());
+    registerFunction("qsort_li", intr_pqsort_li);
+
+    Function *intr_pqsort_ll = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_ll", getModule());
+    registerFunction("qsort_ll", intr_pqsort_ll);
+
+
+    Function *intr_pqsort_iii = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_iii", getModule());
+    registerFunction("qsort_iii", intr_pqsort_iii);
+
+    Function *intr_pqsort_iil = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_iil", getModule());
+    registerFunction("qsort_iil", intr_pqsort_iil);
+
+    Function *intr_pqsort_ili = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_ili", getModule());
+    registerFunction("qsort_ili", intr_pqsort_ili);
+
+    Function *intr_pqsort_ill = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_ill", getModule());
+    registerFunction("qsort_ill", intr_pqsort_ill);
+
+    Function *intr_pqsort_lii = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_lii", getModule());
+    registerFunction("qsort_lii", intr_pqsort_lii);
+
+    Function *intr_pqsort_lil = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_lil", getModule());
+    registerFunction("qsort_lil", intr_pqsort_lil);
+
+    Function *intr_pqsort_lli = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_lli", getModule());
+    registerFunction("qsort_lli", intr_pqsort_lli);
+
+    Function *intr_pqsort_lll = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_lll", getModule());
+    registerFunction("qsort_lll", intr_pqsort_lll);
+
+
+    Function *intr_pqsort_iiii = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_iiii", getModule());
+    registerFunction("qsort_iiii", intr_pqsort_iiii);
+
+    Function *intr_pqsort_iiil = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_iiil", getModule());
+    registerFunction("qsort_iiil", intr_pqsort_iiil);
+
+    Function *intr_pqsort_iili = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_iili", getModule());
+    registerFunction("qsort_iili", intr_pqsort_iili);
+
+    Function *intr_pqsort_iill = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_iill", getModule());
+    registerFunction("qsort_iill", intr_pqsort_iill);
+
+    Function *intr_pqsort_ilii = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_ilii", getModule());
+    registerFunction("qsort_ilii", intr_pqsort_ilii);
+
+    Function *intr_pqsort_ilil = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_ilil", getModule());
+    registerFunction("qsort_ilil", intr_pqsort_ilil);
+
+    Function *intr_pqsort_illi = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_illi", getModule());
+    registerFunction("qsort_illi", intr_pqsort_illi);
+
+    Function *intr_pqsort_illl = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_illl", getModule());
+    registerFunction("qsort_illl", intr_pqsort_illl);
+
+    Function *intr_pqsort_liii = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_liii", getModule());
+    registerFunction("qsort_liii", intr_pqsort_liii);
+
+    Function *intr_pqsort_liil = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_liil", getModule());
+    registerFunction("qsort_liil", intr_pqsort_liil);
+
+    Function *intr_pqsort_lili = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_lili", getModule());
+    registerFunction("qsort_lili", intr_pqsort_lili);
+
+    Function *intr_pqsort_lill = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_lill", getModule());
+    registerFunction("qsort_lill", intr_pqsort_lill);
+
+    Function *intr_pqsort_llii = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_llii", getModule());
+    registerFunction("qsort_llii", intr_pqsort_llii);
+
+    Function *intr_pqsort_llil = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_llil", getModule());
+    registerFunction("qsort_llil", intr_pqsort_llil);
+
+    Function *intr_pqsort_llli = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_llli", getModule());
+    registerFunction("qsort_llli", intr_pqsort_llli);
+
+    Function *intr_pqsort_llll = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_llll", getModule());
+    registerFunction("qsort_llll", intr_pqsort_llll);
 }
 
 size_t RawGpuPipelineGen::prepareStateArgument(){

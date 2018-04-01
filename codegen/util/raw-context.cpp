@@ -224,8 +224,6 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, Value* size) {
 
 	PointerType * ptr_type = PointerType::getInt8PtrTy(ctx);
 
-	Value* zero = ConstantInt::get(ctx, APInt(32, 0));
-
 	dst = getBuilder()->CreateBitCast(dst, ptr_type);
 	src = getBuilder()->CreateBitCast(src, ptr_type);
 
@@ -238,7 +236,7 @@ void RawContext::CodegenMemcpy(Value* dst, Value* src, Value* size) {
 	// The fourth argument is the alignment.  For non-zero values, the caller
 	// must guarantee that the src and dst values are aligned to that byte boundary.
 	// TODO: We should try to take advantage of this since our tuples are well aligned.
-	Value* args[] = { dst, src, size, zero, false_value_  // is_volatile.
+	Value* args[] = { dst, src, size, false_value_  // is_volatile.
 			};
 	getBuilder()->CreateCall(memcpy_fn, args);
 }

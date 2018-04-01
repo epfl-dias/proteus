@@ -138,6 +138,8 @@ __host__ __device__ inline void gpuAssert(nvmlReturn_t code, const char *file, i
     }
 }
 
+extern "C" void memcpy_gpu(void *dst, const void *src, size_t size, bool is_volatile = false);
+
 // __host__ __device__ inline void gpuAssert(nvrtcResult code, const char *file, int line, bool abort=true){
 //     if (code != NVML_SUCCESS) {
 // #ifndef __CUDA_ARCH__

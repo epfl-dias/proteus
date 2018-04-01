@@ -168,4 +168,17 @@ extern "C"{
             if (CPU_ISSET(r % cpu_cnt, &cset)) return r;
         }
     }
+
+    void memcpy_gpu(void *dst, const void *src, size_t size, bool is_volatile){
+        assert(!is_volatile);
+#ifndef NCUDA
+        cudaStream_t strm;
+        gpu_run(cudaStreamCreate     (&strm));
+        gpu_run(cudaMemcpyAsync      (dst, src, size, cudaMemcpyDefault, strm));
+        gpu_run(cudaStreamSynchronize( strm));
+        gpu_run(cudaStreamDestroy    ( strm));
+#else
+        memcpy(dst, src, size);
+#endif
+    }
 }

@@ -22,6 +22,7 @@
 #include "operators/flush.hpp"
 #include "operators/project.hpp"
 #include "operators/sort.hpp"
+#include "operators/gpu/gpu-sort.hpp"
 
 /* too primitive */
 struct PlanHandler {
@@ -277,6 +278,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val["e"].IsArray());
 		vector<expressions::Expression *> e;
 		vector<direction                > d;
+		vector<RecordAttribute         *> recattr;
 		const rapidjson::Value& exprsJSON = val["e"];
 		for (SizeType i = 0; i < exprsJSON.Size(); i++)
 		{	
@@ -292,9 +294,31 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			else if (dir == "NONE") d.push_back(NONE);
 			else if (dir == "DESC") d.push_back(DESC);
 			else 					assert(false);
+
+
+			recattr.push_back(new RecordAttribute{outExpr->getRegisteredAs()});
 		}
 
-		newOp = new Sort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e, d);
+		std::string relName = e[0]->getRegisteredRelName();
+
+		InputInfo * datasetInfo = (this->catalogParser).getOrCreateInputInfo(relName);
+		RecordType * rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfo->exprType)->getNestedType())};
+		RecordAttribute * reg_as = new RecordAttribute(relName, "__sorted", new RecordType(recattr)); 
+		std::cout << "Registered: " << reg_as->getRelationName() << "." << reg_as->getAttrName() << std::endl;
+		rec->appendAttribute(reg_as);
+
+		datasetInfo->exprType = new BagType{*rec};
+
+#ifndef NCUDA
+		if (val.HasMember("gpu") && val["gpu"].GetBool()){
+			assert(dynamic_cast<GpuRawContext *>(this->ctx));
+			newOp = new GpuSort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e, d);
+		} else {
+#endif
+			newOp = new Sort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e, d);
+#ifndef NCUDA
+		}
+#endif
 		childOp->setParent(newOp);
 	} else if (strcmp(opName, "project") == 0) {
 		/* "Multi - reduce"! */

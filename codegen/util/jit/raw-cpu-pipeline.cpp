@@ -111,6 +111,10 @@ RawCpuPipelineGen::RawCpuPipelineGen(   RawContext        * context         ,
     Function *fmake_mem_move_local_to = Function::Create(make_mem_move_local_to, Function::ExternalLinkage, "make_mem_move_local_to", getModule());
     registerFunction("make_mem_move_local_to", fmake_mem_move_local_to);
 
+    FunctionType *step_mmc_mem_move_broadcast_device = FunctionType::get(void_type, std::vector<Type *>{charPtrType}, false);
+    Function *fstep_mmc_mem_move_broadcast_device = Function::Create(step_mmc_mem_move_broadcast_device, Function::ExternalLinkage, "step_mmc_mem_move_broadcast_device", getModule());
+    registerFunction("step_mmc_mem_move_broadcast_device", fstep_mmc_mem_move_broadcast_device);
+
     FunctionType *acquireBuffer = FunctionType::get(charPtrType, std::vector<Type *>{int32_type, charPtrType}, false);
     Function *facquireBuffer = Function::Create(acquireBuffer, Function::ExternalLinkage, "acquireBuffer", getModule());
     {
@@ -261,6 +265,11 @@ RawCpuPipelineGen::RawCpuPipelineGen(   RawContext        * context         ,
     FunctionType *cfree = FunctionType::get(void_type, std::vector<Type *>{charPtrType}, false);
     Function *fcfree = Function::Create(cfree, Function::ExternalLinkage, "free", getModule());
     registerFunction("free", fcfree);
+
+    FunctionType *qsort_cmp = FunctionType::get(int32_type, std::vector<Type *>{charPtrType, charPtrType}, false);
+    FunctionType *qsort = FunctionType::get(void_type, std::vector<Type *>{charPtrType, size_type, size_type, PointerType::getUnqual(qsort_cmp)}, false);
+    Function *fqsort = Function::Create(qsort, Function::ExternalLinkage, "qsort", getModule());
+    registerFunction("qsort", fqsort);
 
     registerFunctions(); //FIXME: do we have to register them every time ?
 }

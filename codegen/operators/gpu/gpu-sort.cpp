@@ -21,26 +21,43 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "operators/sort.hpp"
+#include "operators/gpu/gpu-sort.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-flusher.hpp"
 
-Sort::Sort(   RawOperator * const           child,
+GpuSort::GpuSort(   RawOperator * const           child,
             GpuRawContext * const           context,
             const vector<expressions::Expression *> &orderByFields,
             const vector<direction                > &dirs) :
                 UnaryRawOperator(child), 
                 context(context),
                 orderByFields(orderByFields),
-                dirs(dirs){
+                dirs(dirs),
+                suffix(""){
     list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
     std::vector<RecordAttribute *> recattr;
+    size_t i = 0;
+    
     for (auto expr: orderByFields){
         assert(expr->isRegistered() && "All expressions must be registered!");
+
+        size_t size = context->getSizeOf(expr->getExpressionType()->getLLVMType(context->getLLVMContext()));
+
+        if (size == 32/8){
+            suffix += "i";
+        } else if (size == 64/8){
+            suffix += "l";
+        } else {
+            assert(false && "GPU-sorting by attributes with size different than 32/64-bits is not supported yet");
+        }
+
+        expressions::Expression * e = expr;
+        if (dirs[i++] == DESC) e = new expressions::NegExpression(e);
+
         expressions::AttributeConstruction *newAttr =
                                         new expressions::AttributeConstruction(
                                             expr->getRegisteredAttrName(),
-                                            expr
+                                            e
                                         );
         attrs->push_back(*newAttr);
         recattr.push_back(new RecordAttribute{expr->getRegisteredAs()});
@@ -53,7 +70,7 @@ Sort::Sort(   RawOperator * const           child,
     relName     = orderByFields[0]->getRegisteredRelName();
 }
 
-void Sort::produce() {
+void GpuSort::produce() {
     LLVMContext & llvmContext   = context->getLLVMContext();
 
     Plugin * pg         = RawCatalog::getInstance().getPlugin(relName);
@@ -74,7 +91,7 @@ void Sort::produce() {
     // blkVar_id           = context->appendStateVar(PointerType::getUnqual(ArrayType::get(block_stuct, numOfBuckets)));
 
     Type * elemPointer = outputExpr->getExpressionType()->getLLVMType(llvmContext);
-    mem_type           = ArrayType::get(elemPointer, 1024*1024);
+    mem_type           = ArrayType::get(elemPointer, h_vector_size * sizeof(int32_t) / context->getSizeOf(elemPointer));
 
     flush_sorted();
 
@@ -83,21 +100,14 @@ void Sort::produce() {
     auto flush_pip = context->removeLatestPipeline();
     // flush_fun = flush_pip->getKernel();
 
-    context->pushNewCpuPipeline(flush_pip);
+    context->pushNewPipeline(flush_pip);
 
     memVar_id = context->appendStateVar(
         PointerType::getUnqual(mem_type),
-        // [=](llvm::Value *){
-        //     return context->allocateStateVar(mem_type);
-        // },
-
-        // [=](llvm::Value *, llvm::Value * s){
-        //     context->deallocateStateVar(s);
-        // }
         [=](llvm::Value *){
-            Function *gb = context->getFunction("get_buffer");
+            Function *gb = context->getFunction("get_dev_buffer");
             IRBuilder<> *Builder = context->getBuilder();
-            Value * mem = Builder->CreateCall(gb, context->createSizeT(sizeof(int32_t) * h_vector_size));
+            Value * mem = Builder->CreateCall(gb);
             mem = Builder->CreateBitCast(mem, PointerType::getUnqual(mem_type));
             return mem;//context->allocateStateVar(mem_type);
         },
@@ -114,8 +124,8 @@ void Sort::produce() {
 
             Value * mem_acc = context->allocateStateVar(oid_type);
 
-            Builder->CreateStore(ConstantInt::get(oid_type, 0), mem_acc);
-
+            // Builder->CreateStore(ConstantInt::get(oid_type, 0), mem_acc);
+            context->CodegenMemset(mem_acc, ConstantInt::get(oid_type, 0), context->getSizeOf(oid_type));
 
             // OperatorState childState{*this, map<RecordAttribute, RawValueMemory>{}};
             // ExpressionFlusherVisitor flusher{context, childState, outPath.c_str(), relName};
@@ -135,7 +145,13 @@ void Sort::produce() {
 
             Type  * substate_t  = f_t->getParamType(f_t->getNumParams()-1);
             
-            vector<Value *> args{context->getStateVar(memVar_id), Builder->CreateLoad(s)};
+            Type * size_type    = s->getType()->getPointerElementType();
+
+            Function * F        = Builder->GetInsertBlock()->getParent();
+            Value * size_mem    = context->CreateEntryBlockAlloca(F, "size_mem", size_type);
+            context->CodegenMemcpy(size_mem, s, context->getSizeOf(size_type));
+            Value * size        = Builder->CreateLoad(size_mem);
+            vector<Value *> args{context->getStateVar(memVar_id), size};
 
             this->call_sort(args[0], args[1]);
 
@@ -155,13 +171,13 @@ void Sort::produce() {
     getChild()->produce();
 }
 
-void Sort::consume(RawContext * const context, const OperatorState& childState) {
+void GpuSort::consume(RawContext * const context, const OperatorState& childState) {
     GpuRawContext * const ctx = dynamic_cast<GpuRawContext * const>(context);
     assert(ctx);
     consume(ctx, childState);
 }
 
-void Sort::consume(GpuRawContext * const context, const OperatorState& childState) {
+void GpuSort::consume(GpuRawContext * const context, const OperatorState& childState) {
     LLVMContext & llvmContext   = context->getLLVMContext();
     IRBuilder<> * Builder       = context->getBuilder    ();
     BasicBlock  * insBB         = Builder->GetInsertBlock();
@@ -190,15 +206,14 @@ void Sort::consume(GpuRawContext * const context, const OperatorState& childStat
     // Value * capacity      = ConstantInt::get(oid_type, cap);
     // Value * last_index    = ConstantInt::get(oid_type, cap - 1);
 
-    Value * s_cnt_mem       = context->getStateVar(cntVar_id);
-    AllocaInst * ready_cnt_mem = context->CreateEntryBlockAlloca(F, "readyN", oid_type);
-
     Builder->SetInsertPoint(context->getCurrentEntryBlock());
-    Builder->CreateStore(Builder->CreateLoad(s_cnt_mem), ready_cnt_mem);
+    Value * s_cnt_mem       = context->getStateVar(cntVar_id);
+    // AllocaInst * ready_cnt_mem = context->CreateEntryBlockAlloca(F, "readyN", oid_type);
+    // Builder->CreateStore(Builder->CreateLoad(s_cnt_mem), ready_cnt_mem);
     Value * mem_ptr         = context->getStateVar(memVar_id);
 
-    Builder->SetInsertPoint(context->getEndingBlock      ());
-    Builder->CreateStore(Builder->CreateLoad(ready_cnt_mem), s_cnt_mem);
+    // Builder->SetInsertPoint(context->getEndingBlock      ());
+    // Builder->CreateStore(Builder->CreateLoad(ready_cnt_mem), s_cnt_mem);
 
 
     Builder->SetInsertPoint(insBB);
@@ -214,7 +229,12 @@ void Sort::consume(GpuRawContext * const context, const OperatorState& childStat
     // StructType * partition = StructType::get(llvmContext, members);
 
 
-    Value * indx = Builder->CreateLoad(ready_cnt_mem);
+    Value * indx = Builder->CreateAtomicRMW(AtomicRMWInst::BinOp::Add, 
+                                        s_cnt_mem, 
+                                        ConstantInt::get(oid_type, 1),
+                                        AtomicOrdering::Monotonic);
+
+    // Value * indx = Builder->CreateLoad(ready_cnt_mem);
 
     Value * el_ptr          = Builder->CreateInBoundsGEP(mem_ptr, std::vector<Value *>{context->createInt64(0), indx});
 
@@ -224,8 +244,8 @@ void Sort::consume(GpuRawContext * const context, const OperatorState& childStat
 
     Builder->CreateStore(el, el_ptr);
 
-    Value * next_indx = Builder->CreateAdd(indx, ConstantInt::get((IntegerType *) indx->getType(), 1));
-    Builder->CreateStore(next_indx, ready_cnt_mem);
+    // Value * next_indx = Builder->CreateAdd(indx, ConstantInt::get((IntegerType *) indx->getType(), 1));
+    // Builder->CreateStore(next_indx, ready_cnt_mem);
 
     // RecordAttribute tupCnt  = RecordAttribute(relName, "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
 
@@ -238,154 +258,7 @@ void Sort::consume(GpuRawContext * const context, const OperatorState& childStat
     // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 }
 
-// void Sort::flush_sorted(){
-//     LLVMContext &llvmContext    = context->getLLVMContext();
-
-//     Plugin * pg       = RawCatalog::getInstance().getPlugin(relName);
-//     IntegerType * oid_type = (IntegerType *) pg->getOIDType()->getLLVMType(llvmContext);
-
-//     // flushingFunc = (*context)->createHelperFunction("flush", std::vector<Type *>{mem, oid_type}, std::vector<bool>{true, true}, std::vector<bool>{true, false});
-//     // closingPip   = (context->operator->());
-//     // IRBuilder<> * Builder       = context->getBuilder    ();
-//     // BasicBlock  * insBB         = Builder->GetInsertBlock();
-//     // Function    * F             = insBB->getParent();
-//     // //Get the ENTRY BLOCK
-//     // context->setCurrentEntryBlock(Builder->GetInsertBlock());
-
-
-//     vector<size_t> params;
-//     params.emplace_back(context->appendParameter(PointerType::getUnqual(mem_type), true , true));
-//     params.emplace_back(context->appendParameter(oid_type, false, false));
-
-//     context->setGlobalFunction();
-
-
-//     IRBuilder<> * Builder       = context->getBuilder    ();
-//     BasicBlock  * insBB         = Builder->GetInsertBlock();
-//     Function    * F             = insBB->getParent();
-
-
-//     BasicBlock * AfterBB = BasicBlock::Create(llvmContext, "end" , F);
-//     BasicBlock * MainBB  = BasicBlock::Create(llvmContext, "main", F);
-
-//     context->setCurrentEntryBlock(Builder->GetInsertBlock());
-//     context->setEndingBlock(AfterBB);
-
-//     // std::vector<Type *> args{context->getStateVars()};
-
-//     // context->pushNewCpuPipeline();
-
-//     // for (Type * t: args) context->appendStateVar(t);
-
-//     // LLVMContext & llvmContext   = context->getLLVMContext();
-
-
-//     IntegerType * int32_type   = Type::getInt32Ty  (llvmContext);
-//     IntegerType * int64_type   = Type::getInt64Ty  (llvmContext);
-
-//     IntegerType * size_type;
-//     if      (sizeof(size_t) == 4) size_type = int32_type;
-//     else if (sizeof(size_t) == 8) size_type = int64_type;
-//     else                          assert(false);
-
-//     // context->setGlobalFunction();
-
-//     // IRBuilder<> * Builder       = context->getBuilder    ();
-//     // BasicBlock  * insBB         = Builder->GetInsertBlock();
-//     // Function    * F             = insBB->getParent();
-//     //Get the ENTRY BLOCK
-//     // context->setCurrentEntryBlock(Builder->GetInsertBlock());
-
-//     BasicBlock *CondBB = BasicBlock::Create(llvmContext, "flushCond", F);
-
-//     // // Start insertion in CondBB.
-//     // Builder->SetInsertPoint(CondBB);
-
-//     // Make the new basic block for the loop header (BODY), inserting after current block.
-//     BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "flushBody", F);
-
-//     // Make the new basic block for the increment, inserting after current block.
-//     BasicBlock *IncBB = BasicBlock::Create(llvmContext, "flushInc", F);
-
-//     // // Create the "AFTER LOOP" block and insert it.
-//     // BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "flushEnd", F);
-//     // context->setEndingBlock(AfterBB);
-
-
-
-
-//     Builder->SetInsertPoint(context->getCurrentEntryBlock());
-//     AllocaInst * blockN_ptr = context->CreateEntryBlockAlloca(F, "i", oid_type);
-//     Builder->CreateStore(ConstantInt::get(oid_type, 0), blockN_ptr);
-//     // Value * cnt         = Builder->CreateLoad(context->getStateVar(cntVar_id));
-//     Value * mem_ptr     = context->getArgument(params[0]);
-//     Value * cnt         = context->getArgument(params[1]);
-
-//     Builder->SetInsertPoint(CondBB);
-
-//     Value * indx = Builder->CreateLoad(blockN_ptr);
-
-//     Value * cond = Builder->CreateICmpSLT(indx, cnt);
-//     // Insert the conditional branch into the end of CondBB.
-//     Builder->CreateCondBr(cond, LoopBB, AfterBB);
-
-//     // Start insertion in LoopBB.
-//     Builder->SetInsertPoint(LoopBB);
-
-//     map<RecordAttribute, RawValueMemory> variableBindings;
-
-//     Value * rec_ptr = Builder->CreateInBoundsGEP(mem_ptr, std::vector<Value *>{context->createInt64(0), indx});
-
-//     Value * rec     = Builder->CreateLoad(rec_ptr);
-//     // RawValue v{rec, context->createFalse()};
-//     // expressions::RawValueExpression r{outputExpr->getExpressionType(), v};
-
-//     // OperatorState state{*this, variableBindings};
-//     // ExpressionFlusherVisitor flusher{context, state, outPath.c_str(), relName};
-
-//     // //flushing out delimiter (IF NEEDED)
-//     // flusher.flushDelim(Builder->CreateZExtOrBitCast(indx, int64_type));
-
-//     // r.accept(flusher);
-    
-//     RecordType *t = (RecordType *) outputExpr->getExpressionType();
-//     for (const auto &e: orderByFields){
-//         RecordAttribute attr = e->getRegisteredAs();
-//         Value         * p    = t->projectArg(rec, &attr, Builder);
-
-//         RawValueMemory mem;
-//         mem.mem    = context->CreateEntryBlockAlloca(F, attr.getAttrName(), p->getType());
-//         mem.isNull = context->createFalse();
-
-//         Builder->CreateStore(p, mem.mem);
-
-//         variableBindings[attr] = mem;
-//     }
-
-//     RecordAttribute oid{relName, activeLoop, pg->getOIDType()};
-//     variableBindings[oid] = RawValueMemory{blockN_ptr, context->createFalse()};
-
-//     OperatorState state{*this, variableBindings};
-//     getParent()->consume(context, state);
-
-//     // Insert an explicit fall through from the current (body) block to IncBB.
-//     Builder->CreateBr(IncBB);
-
-
-//     Builder->SetInsertPoint(IncBB);
-    
-//     Value * next = Builder->CreateAdd(indx, ConstantInt::get(oid_type, 1));
-//     Builder->CreateStore(next, blockN_ptr);
-    
-//     Builder->CreateBr(CondBB);
-
-//     Builder->SetInsertPoint(context->getCurrentEntryBlock());
-//     Builder->CreateBr(CondBB);
-
-//     Builder->SetInsertPoint(context->getEndingBlock());
-// }
-
-void Sort::flush_sorted(){
+void GpuSort::flush_sorted(){
     LLVMContext &llvmContext    = context->getLLVMContext();
 
     Plugin * pg       = RawCatalog::getInstance().getPlugin(relName);
@@ -560,7 +433,7 @@ void Sort::flush_sorted(){
     Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-// void Sort::open (RawPipeline * pip){
+// void GpuSort::open (RawPipeline * pip){
 //     size_t * cnts = (size_t *) malloc(sizeof(size_t) * (numOfBuckets + 1)); //FIXME: is it always size_t the correct type ?
 
 //     for (int i = 0 ; i < numOfBuckets + 1; ++i) cnts[i] = 0;
@@ -580,7 +453,7 @@ void Sort::flush_sorted(){
 //     pip->setStateVar<size_t *>(oidVar_id, cnts + numOfBuckets);
 // }
 
-// void Sort::close(RawPipeline * pip){
+// void GpuSort::close(RawPipeline * pip){
 //     // ((void (*)(void *)) this->flushFunc)(pip->getState());
 //     ((void (*)(void *)) closingPip->getCompiledFunction(flushingFunc))(pip->getState());
 
@@ -590,7 +463,7 @@ void Sort::flush_sorted(){
 // }
 
 
-void Sort::call_sort(Value * mem, Value * N){
+void GpuSort::call_sort(Value * mem, Value * N){
     LLVMContext & llvmContext   = context->getLLVMContext();
     IRBuilder<> * Builder       = context->getBuilder    ();
 
@@ -604,116 +477,119 @@ void Sort::call_sort(Value * mem, Value * N){
 
     Value * count = Builder->CreateZExtOrBitCast(N, size_type);
 
-    Type  * entry = outputExpr->getExpressionType()->getLLVMType(llvmContext);
-    Value * size  = context->createSizeT(context->getSizeOf(entry));
+    // Type  * entry = outputExpr->getExpressionType()->getLLVMType(llvmContext);
+    // Value * size  = context->createSizeT(context->getSizeOf(entry));
 
-    Type  * entry_pointer = PointerType::get(entry, 0);
+    // Type  * entry_pointer = PointerType::get(entry, 0);
 
     Type  * charPtrType  = Type::getInt8PtrTy(llvmContext);
-    Function    * cmp;
-    {
-        save_current_blocks_and_restore_at_exit_scope save{context};
+    // Function    * cmp;
+    // {
+    //     save_current_blocks_and_restore_at_exit_scope save{context};
 
-        FunctionType *ftype = FunctionType::get(int32_type, std::vector<Type *>{charPtrType, charPtrType}, false);
-        //use f_num to overcome an llvm bu with keeping dots in function names when generating PTX (which is invalid in PTX)
-        cmp = Function::Create(ftype, Function::ExternalLinkage, "cmp", context->getModule());
+    //     FunctionType *ftype = FunctionType::get(int32_type, std::vector<Type *>{charPtrType, charPtrType}, false);
+    //     //use f_num to overcome an llvm bu with keeping dots in function names when generating PTX (which is invalid in PTX)
+    //     cmp = Function::Create(ftype, Function::ExternalLinkage, "cmp", context->getModule());
 
-        {
-            Attribute readOnly = Attribute::get(context->getLLVMContext(), Attribute::AttrKind::ReadOnly);
-            Attribute noAlias  = Attribute::get(context->getLLVMContext(), Attribute::AttrKind::NoAlias );
+    //     {
+    //         Attribute readOnly = Attribute::get(context->getLLVMContext(), Attribute::AttrKind::ReadOnly);
+    //         Attribute noAlias  = Attribute::get(context->getLLVMContext(), Attribute::AttrKind::NoAlias );
 
-            std::vector<std::pair<unsigned, Attribute>> attrs;
-            for (size_t i = 1 ; i <= 2 ; ++i){ //+1 because 0 is the return value
-                attrs.emplace_back(i, readOnly);
-                attrs.emplace_back(i, noAlias );
-            }
+    //         std::vector<std::pair<unsigned, Attribute>> attrs;
+    //         for (size_t i = 1 ; i <= 2 ; ++i){ //+1 because 0 is the return value
+    //             attrs.emplace_back(i, readOnly);
+    //             attrs.emplace_back(i, noAlias );
+    //         }
 
-            cmp->setAttributes(AttributeList::get(context->getLLVMContext(), attrs));
-        }
+    //         cmp->setAttributes(AttributeList::get(context->getLLVMContext(), attrs));
+    //     }
 
-        BasicBlock *insBB           = BasicBlock::Create(context->getLLVMContext(), "entry", cmp);
-        Builder->SetInsertPoint(insBB);
-        Function    * F             = cmp;
-        //Get the ENTRY BLOCK
-        context->setCurrentEntryBlock(insBB);
-        BasicBlock  * endBB   = BasicBlock::Create(llvmContext, "end", F);
-        context->setEndingBlock(endBB);
+    //     BasicBlock *insBB           = BasicBlock::Create(context->getLLVMContext(), "entry", cmp);
+    //     Builder->SetInsertPoint(insBB);
+    //     Function    * F             = cmp;
+    //     //Get the ENTRY BLOCK
+    //     context->setCurrentEntryBlock(insBB);
+    //     BasicBlock  * endBB   = BasicBlock::Create(llvmContext, "end", F);
+    //     context->setEndingBlock(endBB);
         
-        auto args = cmp->args().begin();
+    //     auto args = cmp->args().begin();
 
-        map<RecordAttribute, RawValueMemory>    bindings[2];
-        Value                                 * recs    [2]{
-            Builder->CreateLoad(Builder->CreateBitCast(args++, entry_pointer)),
-            Builder->CreateLoad(Builder->CreateBitCast(args++, entry_pointer))
-        };
+    //     map<RecordAttribute, RawValueMemory>    bindings[2];
+    //     Value                                 * recs    [2]{
+    //         Builder->CreateLoad(Builder->CreateBitCast(args++, entry_pointer)),
+    //         Builder->CreateLoad(Builder->CreateBitCast(args++, entry_pointer))
+    //     };
 
-        for (size_t i = 0 ; i < 2 ; ++i){
-            RecordType *t = (RecordType *) outputExpr->getExpressionType();
-            for (const auto &e: orderByFields){
-                RecordAttribute attr = e->getRegisteredAs();
-                Value         * p    = t->projectArg(recs[i], &attr, Builder);
+    //     for (size_t i = 0 ; i < 2 ; ++i){
+    //         RecordType *t = (RecordType *) outputExpr->getExpressionType();
+    //         for (const auto &e: orderByFields){
+    //             RecordAttribute attr = e->getRegisteredAs();
+    //             Value         * p    = t->projectArg(recs[i], &attr, Builder);
 
-                RawValueMemory mem;
-                mem.mem    = context->CreateEntryBlockAlloca(F, attr.getAttrName(), p->getType());
-                mem.isNull = context->createFalse();
+    //             RawValueMemory mem;
+    //             mem.mem    = context->CreateEntryBlockAlloca(F, attr.getAttrName(), p->getType());
+    //             mem.isNull = context->createFalse();
 
-                Builder->CreateStore(p, mem.mem);
+    //             Builder->CreateStore(p, mem.mem);
 
-                bindings[i][attr] = mem;
-            }
-        }
+    //             bindings[i][attr] = mem;
+    //         }
+    //     }
 
-        BasicBlock  * mainBB   = BasicBlock::Create(llvmContext, "main", F);
+    //     BasicBlock  * mainBB   = BasicBlock::Create(llvmContext, "main", F);
 
 
-        BasicBlock *greaterBB = BasicBlock::Create(llvmContext, "greater", F);
-        Builder->SetInsertPoint(greaterBB);
-        Builder->CreateRet(context->createInt32(1));
+    //     BasicBlock *greaterBB = BasicBlock::Create(llvmContext, "greater", F);
+    //     Builder->SetInsertPoint(greaterBB);
+    //     Builder->CreateRet(context->createInt32(1));
 
-        BasicBlock *lessBB    = BasicBlock::Create(llvmContext, "less"   , F);
-        Builder->SetInsertPoint(lessBB);
-        Builder->CreateRet(context->createInt32(-1));
+    //     BasicBlock *lessBB    = BasicBlock::Create(llvmContext, "less"   , F);
+    //     Builder->SetInsertPoint(lessBB);
+    //     Builder->CreateRet(context->createInt32(-1));
 
-        Builder->SetInsertPoint(mainBB);
+    //     Builder->SetInsertPoint(mainBB);
 
-        size_t i = 0;
-        for (const auto &e: orderByFields){
-            const auto &d = dirs[i++];
-            if (d == NONE) continue;
-            RecordAttribute attr = e->getRegisteredAs();
+    //     size_t i = 0;
+    //     for (const auto &e: orderByFields){
+    //         const auto &d = dirs[i++];
+    //         if (d == NONE) continue;
+    //         RecordAttribute attr = e->getRegisteredAs();
 
-            //FIXME: replace with expressions
-            Value * arg0  = Builder->CreateLoad(bindings[0][attr].mem);
-            Value * arg1  = Builder->CreateLoad(bindings[1][attr].mem);
+    //         //FIXME: replace with expressions
+    //         Value * arg0  = Builder->CreateLoad(bindings[0][attr].mem);
+    //         Value * arg1  = Builder->CreateLoad(bindings[1][attr].mem);
 
-            if (d == DESC) std::swap(arg0, arg1);
+    //         if (d == DESC) std::swap(arg0, arg1);
 
-            BasicBlock *eqPreBB = BasicBlock::Create(llvmContext, "eqPre", F);
-            BasicBlock *notGTBB = BasicBlock::Create(llvmContext, "notGT", F);
+    //         BasicBlock *eqPreBB = BasicBlock::Create(llvmContext, "eqPre", F);
+    //         BasicBlock *notGTBB = BasicBlock::Create(llvmContext, "notGT", F);
 
-            Value * condG = Builder->CreateICmpSGT(arg0, arg1);
-            Builder->CreateCondBr(condG, greaterBB, notGTBB);
+    //         Value * condG = Builder->CreateICmpSGT(arg0, arg1);
+    //         Builder->CreateCondBr(condG, greaterBB, notGTBB);
 
-            Builder->SetInsertPoint(notGTBB);
-            Value * condL = Builder->CreateICmpSLT(arg0, arg1);
-            Builder->CreateCondBr(condL, lessBB   , eqPreBB);
+    //         Builder->SetInsertPoint(notGTBB);
+    //         Value * condL = Builder->CreateICmpSLT(arg0, arg1);
+    //         Builder->CreateCondBr(condL, lessBB   , eqPreBB);
 
-            Builder->SetInsertPoint(eqPreBB);
-        }
+    //         Builder->SetInsertPoint(eqPreBB);
+    //     }
 
-        Builder->CreateBr(endBB);
+    //     Builder->CreateBr(endBB);
 
-        Builder->SetInsertPoint(context->getCurrentEntryBlock());
-        Builder->CreateBr(mainBB);
+    //     Builder->SetInsertPoint(context->getCurrentEntryBlock());
+    //     Builder->CreateBr(mainBB);
 
-        Builder->SetInsertPoint(context->getEndingBlock());
-        Builder->CreateRet(context->createInt32(0));
-    }
+    //     Builder->SetInsertPoint(context->getEndingBlock());
+    //     Builder->CreateRet(context->createInt32(0));
+    // }
 
 
     Value * mem_char_ptr = Builder->CreateBitCast(mem, charPtrType);
-    std::vector<Value *> args{mem_char_ptr, count, size, cmp};
+    // std::vector<Value *> args{mem_char_ptr, count, size, cmp};
+    std::vector<Value *> args{mem_char_ptr, count};
 
-    Function * qsort = context->getFunction("qsort");
+    Function * qsort = context->getFunction("qsort_" + suffix);
     Builder->CreateCall(qsort, args);
 }
+
+

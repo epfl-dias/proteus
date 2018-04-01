@@ -75,6 +75,10 @@ int printi64(size_t X) {
 	return 0;
 }
 
+extern "C" void printptr(void * ptr) {
+	printf("[printptr:] Generated code called %p\n", ptr);
+}
+
 int printc(char* X) {
 	printf("[printc:] Generated code -- char read: %c\n", X[0]);
 	return 0;
