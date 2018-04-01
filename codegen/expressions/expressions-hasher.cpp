@@ -850,3 +850,67 @@ RawValue ExpressionHasherVisitor::visit(expressions::HashExpression *e)	{
 	assert(false && "This does not really make sense... Why to hash a hash?");
 	return e->getExpr()->accept(*this);
 }
+
+RawValue ExpressionHasherVisitor::visit(expressions::NegExpression *e) {
+	IRBuilder<>* const TheBuilder	= context->getBuilder();
+	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
+	RawValue exprResult = e->accept(exprGenerator);
+
+	const ExpressionType* childType = e->getExpr()->getExpressionType();
+	Function *hashFunc = NULL;
+	string instructionLabel;
+
+	if (childType->isPrimitive()) {
+		typeID id = childType->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
+
+		switch (id) {
+		case INT:
+			instructionLabel = string("hashInt");
+			break;
+		case FLOAT:
+			instructionLabel = string("hashDouble");
+			break;
+		case BOOL:
+			instructionLabel = string("hashBoolean");
+			break;
+		case STRING:
+			LOG(ERROR)<< "[ExpressionHasherVisitor]: string operations not supported yet";
+			throw runtime_error(string("[ExpressionHasherVisitor]: string operations not supported yet"));
+		case BAG:
+		case LIST:
+		case SET:
+			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
+			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
+		case RECORD:
+			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
+			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
+		default:
+			LOG(ERROR) << "[ExpressionHasherVisitor]: Unknown Input";
+			throw runtime_error(string("[ExpressionHasherVisitor]: Unknown Input"));
+		}
+		hashFunc = context->getFunction(instructionLabel);
+		vector<Value*> ArgsV;
+		ArgsV.push_back(exprResult.value);
+		Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
+
+		RawValue hashValWrapper;
+		hashValWrapper.value = hashResult;
+		hashValWrapper.isNull = context->createFalse();
+#ifdef DEBUG_HASH
+	vector<Value*> argsV;
+	argsV.clear();
+	argsV.push_back(hashResult);
+	Function* debugInt64 = context->getFunction("printi64");
+	TheBuilder->CreateCall(debugInt64, argsV);
+#endif
+		return hashValWrapper;
+	}
+	throw runtime_error(string("[ExpressionHasherVisitor]: input of negate expression can only be primitive"));
+}
+
+
+
+
+

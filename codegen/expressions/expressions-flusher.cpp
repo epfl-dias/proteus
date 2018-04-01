@@ -740,4 +740,55 @@ void ExpressionFlusherVisitor::flushValue(Value *val, typeID val_type) {
 	}
 }
 
+RawValue ExpressionFlusherVisitor::visit(expressions::NegExpression *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
+	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
+	RawValue exprResult = e->accept(exprGenerator);
 
+	const ExpressionType* childType = e->getExpr()->getExpressionType();
+	Function *flushFunc = NULL;
+	string instructionLabel;
+
+	if (childType->isPrimitive()) {
+		typeID id = childType->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
+
+		switch (id) {
+		case INT64:
+			instructionLabel = string("flushInt64");
+			break;
+		case INT:
+			instructionLabel = string("flushInt");
+			break;
+		case FLOAT:
+			instructionLabel = string("flushDouble");
+			break;
+		case BOOL:
+			instructionLabel = string("flushBoolean");
+			break;
+		case STRING:
+			LOG(ERROR)<< "[ExpressionFlusherVisitor]: string operations not supported yet";
+			throw runtime_error(string("[ExpressionFlusherVisitor]: string operations not supported yet"));
+		case BAG:
+		case LIST:
+		case SET:
+			LOG(ERROR) << "[ExpressionFlusherVisitor]: invalid expression type";
+			throw runtime_error(string("[ExpressionFlusherVisitor]: invalid expression type"));
+		case RECORD:
+			LOG(ERROR) << "[ExpressionFlusherVisitor]: invalid expression type";
+			throw runtime_error(string("[ExpressionFlusherVisitor]: invalid expression type"));
+		default:
+			LOG(ERROR) << "[ExpressionFlusherVisitor]: Unknown Input";
+			throw runtime_error(string("[ExpressionFlusherVisitor]: Unknown Input"));
+		}
+		flushFunc = context->getFunction(instructionLabel);
+		vector<Value*> ArgsV;
+		ArgsV.push_back(exprResult.value);
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return placeholder;
+
+	}
+	throw runtime_error(string("[ExpressionFlusherVisitor]: input of binary expression can only be primitive"));
+}

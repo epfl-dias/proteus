@@ -2110,8 +2110,8 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
 
-		ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
-		retValue = new expressions::AddExpression(exprType,leftExpr,rightExpr);
+		// ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
+		retValue = new expressions::AddExpression(leftExpr, rightExpr);
 	} else if (strcmp(valExpression, "sub") == 0) {
 		/* left child */
 		assert(val.HasMember(leftArg));
@@ -2123,8 +2123,15 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
 
-		ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
-		retValue = new expressions::SubExpression(exprType,leftExpr,rightExpr);
+		// ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
+		retValue = new expressions::SubExpression(leftExpr, rightExpr);
+	} else if (strcmp(valExpression, "neg") == 0) {
+		/* right child */
+		assert(val.HasMember(keyInnerExpr));
+		assert(val[keyInnerExpr].IsObject());
+		expressions::Expression *expr = parseExpression(val[keyInnerExpr]);
+
+		retValue = new expressions::NegExpression(expr);
 	} else if (strcmp(valExpression, "multiply") == 0) {
 		/* left child */
 		assert(val.HasMember(leftArg));

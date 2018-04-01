@@ -97,6 +97,8 @@ public:
 			expressions::MinExpression *e2);
 	RawValue visit(expressions::HashExpression *e1,
 			expressions::HashExpression *e2);
+	RawValue visit(expressions::NegExpression *e1,
+			expressions::NegExpression *e2);
 
 private:
 	RawContext* const context;

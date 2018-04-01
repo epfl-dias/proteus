@@ -134,6 +134,10 @@ RawValue HashExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
+RawValue NegExpression::accept(ExprVisitor &v) {
+	return v.visit(this);
+}
+
 /*XXX My responsibility to provide appropriate (i.e., compatible) input */
 RawValue IntConstant::acceptTandem(ExprTandemVisitor &v, expressions::Expression* expr) {
 	if (this->getTypeID() == expr->getTypeID()) {
@@ -449,6 +453,17 @@ RawValue HashExpression::acceptTandem(ExprTandemVisitor &v,
 		expressions::Expression* expr) {
 	if (this->getTypeID() == expr->getTypeID()) {
 		HashExpression *r = dynamic_cast<HashExpression*>(expr);
+		return v.visit(this, r);
+	}
+	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
+	LOG(ERROR)<< error_msg;
+	throw runtime_error(string(error_msg));
+}
+
+RawValue NegExpression::acceptTandem(ExprTandemVisitor &v,
+		expressions::Expression* expr) {
+	if (this->getTypeID() == expr->getTypeID()) {
+		NegExpression *r = dynamic_cast<NegExpression*>(expr);
 		return v.visit(this, r);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");

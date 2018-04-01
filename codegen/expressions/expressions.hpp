@@ -37,7 +37,7 @@ namespace expressions
 {
 
 
-enum ExpressionId	{ CONSTANT, RAWVALUE, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE, EXPRESSION_HASHER};
+enum ExpressionId	{ CONSTANT, RAWVALUE, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE, EXPRESSION_HASHER, NEG_EXPRESSION};
 
 class Expression	{
 public:
@@ -1067,6 +1067,31 @@ public:
 	}
 };
 
+
+
+class NegExpression : public Expression	{
+public:
+	NegExpression(Expression* expr):
+			Expression(expr->getExpressionType()), expr(expr) {}
+
+	~NegExpression()								{}
+
+	Expression* getExpr() const						{ return expr; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const					{ return NEG_EXPRESSION; }
+	inline bool operator<(const expressions::Expression& r) const {
+			if (this->getTypeID() == r.getTypeID()) {
+				const NegExpression& rHash = dynamic_cast<const NegExpression&>(r);
+				return *(this->getExpr()) < *(rHash.getExpr());
+			} else {
+				return this->getTypeID() < r.getTypeID();
+			}
+		}
+private:
+	Expression* expr;
+};
+
 class MultExpression : public BinaryExpression	{
 public:
 	MultExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
@@ -1419,6 +1444,7 @@ public:
 	virtual RawValue visit(expressions::MinExpression *e) 		= 0;
 	virtual RawValue visit(expressions::MaxExpression *e) 		= 0;
 	virtual RawValue visit(expressions::HashExpression *e) 		= 0;
+	virtual RawValue visit(expressions::NegExpression *e) 		= 0;
 //	virtual RawValue visit(expressions::MergeExpression *e)  	= 0;
 	virtual ~ExprVisitor() {}
 };
@@ -1478,6 +1504,8 @@ public:
 			expressions::MaxExpression *e2) = 0;
 	virtual RawValue visit(expressions::HashExpression *e1,
 			expressions::HashExpression *e2) = 0;
+	virtual RawValue visit(expressions::NegExpression *e1,
+			expressions::NegExpression *e2) = 0;
 	virtual ~ExprTandemVisitor() {}
 };
 

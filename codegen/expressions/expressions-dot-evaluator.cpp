@@ -616,3 +616,40 @@ RawValue ExpressionDotVisitor::visit(expressions::MinExpression *e1,
 		expressions::MinExpression *e2) {
 	return e1->getCond()->acceptTandem(*this, e2->getCond());
 }
+
+RawValue ExpressionDotVisitor::visit(expressions::NegExpression *e1,
+		expressions::NegExpression *e2) {
+	IRBuilder<>* const Builder = context->getBuilder();
+	const OperatorState& currState1 = currStateLeft;
+	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
+			context, currState1);
+	RawValue left = e1->accept(exprGenerator1);
+
+	const OperatorState& currState2 = currStateRight;
+	ExpressionGeneratorVisitor exprGenerator2 = ExpressionGeneratorVisitor(
+			context, currState2);
+	RawValue right = e2->accept(exprGenerator2);
+
+	typeID id = e1->getExpressionType()->getTypeID();
+	RawValue valWrapper;
+	valWrapper.isNull = context->createFalse();
+
+	switch (id) {
+	case DSTRING:
+	case INT:
+		valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
+		return valWrapper;
+	case FLOAT:
+		valWrapper.value = Builder->CreateFCmpOEQ(left.value, right.value);
+		return valWrapper;
+	case BOOL:
+		valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
+		return valWrapper;
+	default:
+		LOG(ERROR)<< "[ExpressionDotVisitor]: Invalid Input";
+		throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
+	}
+
+	valWrapper.isNull = context->createFalse();
+	return valWrapper;
+}

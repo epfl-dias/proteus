@@ -1760,4 +1760,11 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::HashExpression *e)	{
 	return e->getExpr()->accept(h);
 }
 
+RawValue ExpressionGeneratorVisitor::visit(expressions::NegExpression *e)	{
+	RawValue v = e->getExpr()->accept(*this);
+	v.value->getType()->dump();
+	v.value = context->getBuilder()->CreateNeg(v.value);
+	return v;
+}
+
 #pragma pop_macro("DEBUG") //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
