@@ -6,19 +6,19 @@
                 "attributes": [
                     {
                         "attrName": "revenue", 
-                        "relName": "agg5881"
+                        "relName": "agg3021"
                     }
                 ], 
                 "expression": "argument", 
                 "type": {
-                    "relName": "agg5881", 
+                    "relName": "agg3021", 
                     "type": "record"
                 }
             }, 
             "expression": "recordProjection", 
             "attribute": {
                 "attrName": "revenue", 
-                "relName": "agg5881"
+                "relName": "agg3021"
             }
         }
     ], 
@@ -32,14 +32,14 @@
         "projections": [
             {
                 "attrName": "revenue", 
-                "relName": "agg5881", 
+                "relName": "agg3021", 
                 "isBlock": false
             }
         ], 
         "output": [
             {
                 "attrName": "revenue", 
-                "relName": "agg5881"
+                "relName": "agg3021"
             }
         ], 
         "operator": "gpu-to-cpu", 
@@ -51,24 +51,24 @@
                         "attributes": [
                             {
                                 "attrName": "*", 
-                                "relName": "join5880"
+                                "relName": "join3020"
                             }
                         ], 
                         "expression": "argument", 
                         "type": {
-                            "relName": "join5880", 
+                            "relName": "join3020", 
                             "type": "record"
                         }
                     }, 
                     "register_as": {
                         "attrName": "revenue", 
-                        "relName": "agg5881", 
+                        "relName": "agg3021", 
                         "attrNo": -1
                     }, 
                     "expression": "recordProjection", 
                     "attribute": {
                         "attrName": "*", 
-                        "relName": "join5880"
+                        "relName": "join3020"
                     }
                 }
             ], 
@@ -85,7 +85,7 @@
             "output": [
                 {
                     "attrName": "revenue", 
-                    "relName": "agg5881"
+                    "relName": "agg3021"
                 }
             ], 
             "operator": "reduce", 
@@ -96,27 +96,24 @@
                         "attributes": [
                             {
                                 "attrName": "d_datekey", 
-                                "relName": "projection5879"
+                                "relName": "projection3017"
                             }
                         ], 
                         "expression": "argument", 
                         "type": {
-                            "relName": "projection5879", 
+                            "relName": "projection3017", 
                             "type": "record"
                         }
                     }, 
-                    "type": {
-                        "type": "int"
-                    }, 
                     "register_as": {
                         "attrName": "d_datekey", 
-                        "relName": "join5880", 
+                        "relName": "join3020", 
                         "attrNo": -1
                     }, 
                     "expression": "recordProjection", 
                     "attribute": {
                         "attrName": "d_datekey", 
-                        "relName": "projection5879"
+                        "relName": "projection3017"
                     }
                 }, 
                 "hash_bits": 13, 
@@ -139,7 +136,7 @@
                             }, 
                             "register_as": {
                                 "attrName": "lo_orderdate", 
-                                "relName": "projection5877", 
+                                "relName": "projection3019", 
                                 "attrNo": -1
                             }, 
                             "expression": "recordProjection", 
@@ -173,7 +170,7 @@
                             "type": "int", 
                             "register_as": {
                                 "attrName": "*", 
-                                "relName": "projection5877", 
+                                "relName": "projection3019", 
                                 "attrNo": -1
                             }, 
                             "depends_on": [
@@ -212,16 +209,16 @@
                     ], 
                     "blockwise": false, 
                     "gpu": true, 
-                    "relName": "projection5877", 
+                    "relName": "projection3019", 
                     "max_line_estimate": 600038145, 
                     "output": [
                         {
                             "attrName": "lo_orderdate", 
-                            "relName": "projection5877"
+                            "relName": "projection3019"
                         }, 
                         {
                             "attrName": "*", 
-                            "relName": "projection5877"
+                            "relName": "projection3019"
                         }
                     ], 
                     "operator": "project", 
@@ -554,8 +551,6 @@
                                         "operator": "mem-move-local-to", 
                                         "input": {
                                             "plugin": {
-                                                "type": "block", 
-                                                "name": "inputs/ssbm100/lineorder.csv", 
                                                 "projections": [
                                                     {
                                                         "attrName": "lo_orderdate", 
@@ -573,7 +568,11 @@
                                                         "attrName": "lo_discount", 
                                                         "relName": "inputs/ssbm100/lineorder.csv"
                                                     }
-                                                ]
+                                                ], 
+                                                "depends_on": [], 
+                                                "type": "block", 
+                                                "linehint": 600038145, 
+                                                "name": "inputs/ssbm100/lineorder.csv"
                                             }, 
                                             "blockwise": true, 
                                             "jumpTo": "gpu", 
@@ -740,24 +739,24 @@
                                 "attributes": [
                                     {
                                         "attrName": "*", 
-                                        "relName": "projection5877"
+                                        "relName": "projection3019"
                                     }
                                 ], 
                                 "expression": "argument", 
                                 "type": {
-                                    "relName": "projection5877", 
+                                    "relName": "projection3019", 
                                     "type": "record"
                                 }
                             }, 
                             "register_as": {
                                 "attrName": "*", 
-                                "relName": "join5880", 
+                                "relName": "join3020", 
                                 "attrNo": -1
                             }, 
                             "expression": "recordProjection", 
                             "attribute": {
                                 "attrName": "*", 
-                                "relName": "projection5877"
+                                "relName": "projection3019"
                             }
                         }, 
                         "packet": 1, 
@@ -766,32 +765,29 @@
                 ], 
                 "blockwise": false, 
                 "build_k_part": {
-                    "attribute": {
+                    "register_as": {
                         "attrName": "d_datekey", 
-                        "relName": "projection5879"
-                    }, 
-                    "type": {
-                        "type": "int"
+                        "relName": "join3020", 
+                        "attrNo": -1
                     }, 
                     "e": {
                         "attributes": [
                             {
                                 "attrName": "d_datekey", 
-                                "relName": "projection5879"
+                                "relName": "projection3017"
                             }
                         ], 
                         "argNo": -1, 
                         "expression": "argument", 
                         "type": {
-                            "relName": "projection5879", 
+                            "relName": "projection3017", 
                             "type": "record"
                         }
                     }, 
                     "expression": "recordProjection", 
-                    "register_as": {
+                    "attribute": {
                         "attrName": "d_datekey", 
-                        "relName": "join5880", 
-                        "attrNo": -1
+                        "relName": "projection3017"
                     }
                 }, 
                 "build_e": [], 
@@ -802,27 +798,24 @@
                         "attributes": [
                             {
                                 "attrName": "lo_orderdate", 
-                                "relName": "projection5877"
+                                "relName": "projection3019"
                             }
                         ], 
                         "expression": "argument", 
                         "type": {
-                            "relName": "projection5877", 
+                            "relName": "projection3019", 
                             "type": "record"
                         }
                     }, 
-                    "type": {
-                        "type": "int"
-                    }, 
                     "register_as": {
                         "attrName": "lo_orderdate", 
-                        "relName": "join5880", 
+                        "relName": "join3020", 
                         "attrNo": -1
                     }, 
                     "expression": "recordProjection", 
                     "attribute": {
                         "attrName": "lo_orderdate", 
-                        "relName": "projection5877"
+                        "relName": "projection3019"
                     }
                 }, 
                 "max_line_estimate": 1533697498620, 
@@ -831,7 +824,7 @@
                 "output": [
                     {
                         "attrName": "*", 
-                        "relName": "join5880"
+                        "relName": "join3020"
                     }
                 ], 
                 "build_input": {
@@ -853,7 +846,7 @@
                             }, 
                             "register_as": {
                                 "attrName": "d_datekey", 
-                                "relName": "projection5879", 
+                                "relName": "projection3017", 
                                 "attrNo": -1
                             }, 
                             "expression": "recordProjection", 
@@ -865,12 +858,12 @@
                     ], 
                     "blockwise": false, 
                     "gpu": true, 
-                    "relName": "projection5879", 
+                    "relName": "projection3017", 
                     "max_line_estimate": 2556, 
                     "output": [
                         {
                             "attrName": "d_datekey", 
-                            "relName": "projection5879"
+                            "relName": "projection3017"
                         }
                     ], 
                     "operator": "project", 
@@ -994,8 +987,6 @@
                                         "operator": "mem-move-local-to", 
                                         "input": {
                                             "plugin": {
-                                                "type": "block", 
-                                                "name": "inputs/ssbm100/date.csv", 
                                                 "projections": [
                                                     {
                                                         "attrName": "d_datekey", 
@@ -1005,7 +996,11 @@
                                                         "attrName": "d_yearmonthnum", 
                                                         "relName": "inputs/ssbm100/date.csv"
                                                     }
-                                                ]
+                                                ], 
+                                                "depends_on": [], 
+                                                "type": "block", 
+                                                "linehint": 2556, 
+                                                "name": "inputs/ssbm100/date.csv"
                                             }, 
                                             "blockwise": true, 
                                             "jumpTo": "gpu", 
@@ -1101,32 +1096,29 @@
                     32
                 ], 
                 "probe_k_part": {
-                    "attribute": {
+                    "register_as": {
                         "attrName": "lo_orderdate", 
-                        "relName": "projection5877"
-                    }, 
-                    "type": {
-                        "type": "int"
+                        "relName": "join3020", 
+                        "attrNo": -1
                     }, 
                     "e": {
                         "attributes": [
                             {
                                 "attrName": "lo_orderdate", 
-                                "relName": "projection5877"
+                                "relName": "projection3019"
                             }
                         ], 
                         "argNo": -1, 
                         "expression": "argument", 
                         "type": {
-                            "relName": "projection5877", 
+                            "relName": "projection3019", 
                             "type": "record"
                         }
                     }, 
                     "expression": "recordProjection", 
-                    "register_as": {
+                    "attribute": {
                         "attrName": "lo_orderdate", 
-                        "relName": "join5880", 
-                        "attrNo": -1
+                        "relName": "projection3019"
                     }
                 }, 
                 "build_w": [
