@@ -321,7 +321,11 @@ public:
 		auto inserted = 
 #endif
 		argsMap.emplace(attr->getAttrName(), attr);
-		assert(inserted.second && "Attribute already exists!");
+		if (!inserted.second) {
+			// assert(*(attr->getType()) == inserted.first->getTypeID());
+			return;
+		}
+		// assert(inserted.second && "Attribute already exists!");
 		args.push_back(attr);
 	}
 

@@ -26,6 +26,22 @@
 #include <cstring>
 
 void Exchange::produce() {
+    generate_catch();
+    
+    context->popNewPipeline();
+
+    catch_pip = context->removeLatestPipeline();
+
+    //push new pipeline for the throw part
+    context->pushNewCpuPipeline();
+
+    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+
+    getChild()->produce();
+}
+
+void Exchange::generate_catch(){
     LLVMContext & llvmContext   = context->getLLVMContext();
     // IRBuilder<> * Builder       = context->getBuilder    ();
     // BasicBlock  * insBB         = Builder->GetInsertBlock();
@@ -137,19 +153,6 @@ void Exchange::produce() {
 
     Builder->SetInsertPoint(context->getEndingBlock());
     // Builder->CreateRetVoid();
-
-
-    context->popNewPipeline();
-
-    catch_pip = context->removeLatestPipeline();
-
-    //push new pipeline for the throw part
-    context->pushNewCpuPipeline();
-
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
-
-    getChild()->produce();
 }
 
 void * Exchange::acquireBuffer(int target, bool polling){

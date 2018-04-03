@@ -37,7 +37,7 @@ class RawOperator {
 public:
 	RawOperator()	:	parent(NULL)				{}
 	virtual ~RawOperator() 							{ LOG(INFO) << "Collapsing operator"; }
-	void setParent(RawOperator* parent)				{ this->parent = parent; }
+	virtual void setParent(RawOperator* parent)		{ this->parent = parent; }
 	RawOperator* const getParent() const			{ return parent; }
 	//Overloaded operator used in checks for children of Join op. More complex cases may require different handling
 	bool operator == (const RawOperator& i) const 	{ /*if(this != &i) LOG(INFO) << "NOT EQUAL OPERATORS"<<this<<" vs "<<&i;*/ return this == &i; }

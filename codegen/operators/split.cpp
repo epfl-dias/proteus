@@ -1,0 +1,61 @@
+/*
+    RAW -- High-performance querying over raw, never-seen-before data.
+
+                            Copyright (c) 2017
+        Data Intensive Applications and Systems Labaratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
+
+                            All Rights Reserved.
+
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
+
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
+*/
+
+#include "operators/split.hpp"
+#include "expressions/expressions-generator.hpp"
+#include <cstring>
+
+void Split::produce() {
+    UnaryRawOperator::setParent(parent[produce_calls]);
+    generate_catch();
+
+    catch_pip.push_back(context->operator->());
+
+    std::cout << produce_calls << " " << numOfParents << " oaisdajdhakjsdhajsdh" << std::endl;
+    if (++produce_calls != numOfParents) return;
+
+    context->popNewPipeline();
+
+    //push new pipeline for the throw part
+    context->pushNewCpuPipeline();
+
+    context->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    context->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+
+    getChild()->produce();
+}
+
+void Split::open (RawPipeline * pip){
+    // time_block t("Tinit_exchange: ");
+
+    std::lock_guard<std::mutex> guard(init_mutex);
+    
+    if (firers.empty()){
+        remaining_producers = producers;
+        for (int i = 0 ; i < numOfParents ; ++i){
+            firers.emplace_back(&Split::fire, this, i, catch_pip[i]);
+        }
+    }
+}
+
+

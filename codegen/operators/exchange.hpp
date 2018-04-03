@@ -85,19 +85,23 @@ public:
     virtual void consume(RawContext* const context, const OperatorState& childState);
     virtual bool isFiltering() const {return false;}
 
+protected:
+    virtual void generate_catch();
+
+    void   fire         (int target, RawPipelineGen * pipGen);
+
 private:
     void * acquireBuffer(int target, bool polling = false);
     void   releaseBuffer(int target, void * buff);
     void   freeBuffer   (int target, void * buff);
     bool   get_ready    (int target, void * &buff);
 
-    void   fire         (int target, RawPipelineGen * pipGen);
-
     friend void * acquireBuffer    (int target, Exchange * xch);
     friend void * try_acquireBuffer(int target, Exchange * xch);
     friend void   releaseBuffer    (int target, Exchange * xch, void * buff);
     friend void   freeBuffer       (int target, Exchange * xch, void * buff);
 
+protected:
     void open (RawPipeline * pip);
     void close(RawPipeline * pip);
 
@@ -132,3 +136,5 @@ private:
 };
 
 #endif /* EXCHANGE_HPP_ */
+
+

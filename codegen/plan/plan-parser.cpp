@@ -23,6 +23,8 @@
 #include "operators/project.hpp"
 #include "operators/sort.hpp"
 #include "operators/gpu/gpu-sort.hpp"
+#include "operators/unionall.hpp"
+#include "operators/split.hpp"
 
 /* too primitive */
 struct PlanHandler {
@@ -157,6 +159,7 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, const char 
 
 
 void PlanExecutor::parsePlan(const rapidjson::Document& doc, bool execute)	{
+	splitOps.clear();
 	RawOperator* planRootOp = parseOperator(doc);
 
 	planRootOp->produce();
@@ -1592,9 +1595,14 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			to_cpu = val["to_cpu"].GetBool();
 		}
 
+		int slack = 8;
+		if (val.HasMember("slack")){
+			assert(val["slack"].IsInt());
+			slack = val["slack"].GetInt();
+		}
 
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new MemMoveDevice(childOp, ((GpuRawContext *) this->ctx), projections, to_cpu);
+		newOp =  new MemMoveDevice(childOp, ((GpuRawContext *) this->ctx), projections, slack, to_cpu);
 		childOp->setParent(newOp);
 	} else if(strcmp(opName,"mem-broadcast-device") == 0) {
 		/* parse operator input */
@@ -1655,8 +1663,14 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			projections.push_back(recAttr);
 		}
 
+		int slack = 8;
+		if (val.HasMember("slack")){
+			assert(val["slack"].IsInt());
+			slack = val["slack"].GetInt();
+		}
+
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new MemMoveLocalTo(childOp, ((GpuRawContext *) this->ctx), projections);
+		newOp =  new MemMoveLocalTo(childOp, ((GpuRawContext *) this->ctx), projections, slack);
 		childOp->setParent(newOp);
 	} else if(strcmp(opName,"exchange") == 0) {
 		/* parse operator input */
@@ -1718,6 +1732,91 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
 		newOp =  new Exchange(childOp, ((GpuRawContext *) this->ctx), numOfParents, projections, slack, hash, numa_local, rand_local_cpu, producers);
 		childOp->setParent(newOp);
+	} else if(strcmp(opName,"union-all") == 0) {
+		/* parse operator input */
+		assert(val.HasMember("input"));
+		assert(val["input"].IsArray());
+		std::vector<RawOperator *> children;
+		for (SizeType i = 0; i < val["input"].Size(); ++i){
+			assert(val["input"][i].IsObject());
+			children.push_back(parseOperator(val["input"][i]));
+		}
+
+		assert(val.HasMember("projections"));
+		assert(val["projections"].IsArray());
+
+		vector<RecordAttribute*> projections;
+		for (SizeType i = 0; i < val["projections"].Size(); i++){
+			assert(val["projections"][i].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+			projections.push_back(recAttr);
+		}
+
+		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+		newOp =  new UnionAll(children, ((GpuRawContext *) this->ctx), projections);
+		for (const auto &childOp: children) childOp->setParent(newOp);
+	} else if(strcmp(opName,"split") == 0) {
+		assert(val.HasMember("split_id"));
+		assert(val["split_id"].IsInt());
+		size_t split_id = val["split_id"].GetInt();
+
+		if (splitOps.count(split_id) == 0){
+			/* parse operator input */
+			assert(val.HasMember("input"));
+			assert(val["input"].IsObject());
+			RawOperator* childOp = parseOperator(val["input"]);
+
+			assert(val.HasMember("numOfParents"));
+			assert(val["numOfParents"].IsInt());
+			int numOfParents = val["numOfParents"].GetInt();
+
+			assert(val.HasMember("projections"));
+			assert(val["projections"].IsArray());
+
+			vector<RecordAttribute*> projections;
+			for (SizeType i = 0; i < val["projections"].Size(); i++){
+				assert(val["projections"][i].IsObject());
+				RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+				projections.push_back(recAttr);
+			}
+
+			int slack = 8;
+			if (val.HasMember("slack")){
+				assert(val["slack"].IsInt());
+				slack = val["slack"].GetInt();
+			}
+
+			bool numa_local = true;
+			bool rand_local_cpu = false;
+			expressions::Expression * hash = NULL;
+			if (val.HasMember("target")){
+				assert(val["target"].IsObject());
+				hash = parseExpression(val["target"]);
+				numa_local = false;
+			}
+
+			if (val.HasMember("rand_local_cpu")){
+				assert(hash == NULL && "Can not have both flags set");
+				assert(val["rand_local_cpu"].IsBool());
+				rand_local_cpu = val["rand_local_cpu"].GetBool();
+				numa_local = false;
+			}
+
+			if (val.HasMember("numa_local")){
+				assert(hash == NULL && "Can not have both flags set");
+				assert(!rand_local_cpu);
+				assert(numa_local);
+				assert(val["numa_local"].IsBool());
+				numa_local = val["numa_local"].GetBool();
+			}
+
+			assert(dynamic_cast<GpuRawContext *>(this->ctx));
+			newOp = new Split(childOp, ((GpuRawContext *) this->ctx), numOfParents, projections, slack, hash, numa_local, rand_local_cpu);
+			splitOps[split_id] = newOp;
+			childOp->setParent(newOp);
+		} else {
+			newOp = splitOps[split_id];
+		}
 #ifndef NCUDA
 	} else if (strcmp(opName, "materializer") == 0){
 		/* parse operator input */

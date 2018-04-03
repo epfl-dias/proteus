@@ -117,6 +117,7 @@ private:
 	const char *moduleName;
 	CatalogParser& catalogParser;
 	vector<Plugin*> activePlugins;
+	std::map<size_t, RawOperator *> splitOps;
 
 	RawContext * ctx;
 	void		 			 parsePlan(const rapidjson::Document& doc, bool execute = false);
