@@ -58,9 +58,9 @@ valueClass = "ViDaRConnection")
 # DBI Connection for ViDaR
 setClass("ViDaRConnection", contains = "DBIConnection", slots = list(env="environment"))
 
-setMethod("dbDataType", signature(dbObj="ViDaRConnection", obj="ANY"), def = function(dbObj, obj, ...)
-  invisible(TRUE) # Data type conversion
-  )
+#setMethod("dbDataType", signature(dbObj="ViDaRConnection", obj="ANY"), def = function(dbObj, obj, ...)
+#  invisible(TRUE) # Data type conversion
+#  )
 
 setMethod("dbDisconnect", "ViDaRConnection", def = function(conn, ...){
 
@@ -195,6 +195,13 @@ setMethod("dbWriteTable", signature(conn="ViDaRConnection", name="character", va
   invisible(TRUE)
   )
 
+setMethod("dbBegin", signature = (conn="ViDaRConnection"), def = function(conn, ...)
+  invisible(TRUE)
+  )
+
+#setMethod("dbBegin", signature = (conn="ViDaRConnection"), def = function(conn, ...)
+#  invisible(TRUE)
+#)
 
 # ========== ViDaR DBI Result ========== #
 
@@ -230,6 +237,14 @@ type_map <- list(int="integer(0)", string="character(0)", boolean="logical(0)")
 
 # for case of creating a tbl (return 0 rows), R magic with lazy evaluation
 schema2tbl <- function(table){
+
+  # TEST PURPOSES
+  if(table=="emp") {
+    emp_jsn = '{"name":"string", "age":"int", "children":[{"name2":"string", "age2":"int"}]}'
+    df_emp <- data.frame(jsonlite::fromJSON(emp_jsn, flatten = TRUE, simplifyDataFrame = TRUE))
+    emp <- as.tbl(df_emp)
+    return(emp)
+  }
 
   suppressWarnings(tmp <- read.csv(getPath(table)))
 
