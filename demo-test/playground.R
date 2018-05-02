@@ -1,14 +1,27 @@
-# loading the libraries
 library(ViDaR)
 library(DBI)
 library(dbplyr)
 library(dplyr)
 library(ggplot2)
+library(rlang)
 
 ### DBI ###
 
 # establishing the connection
 con <- dbConnect(ViDaR(), dbport=50001)
+
+
+# unnest try
+emp_jsn = '{"name":"string", "age":"int", "children":[{"name2":"string", "age2":"int"}]}'
+df_emp <- data.frame(jsonlite::fromJSON(emp_jsn, flatten = TRUE, simplifyDataFrame = TRUE))
+emp <- as.tbl(df_emp)
+emp <- tbl(con, "emp")
+
+test <- emp %>% for_all(name) %>% sql_build(.)
+test <- emp %>% for_all(name, name1) %>% filter(age>15) %>% filter(age>18) %>% select(name) %>% sql_build(.)
+test <- emp %>% filter(age>18) %>% for_all(name, blabla) %>% sql_build(.)
+emp %>% filter(age>15) %>% select(name)
+
 
 #writeLines(".memcpy off", con@env$conn)
 writeLines(".echo results on", con@env$conn)

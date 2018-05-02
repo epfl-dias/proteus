@@ -6,28 +6,23 @@ setClass("ViDaRDriver", contains = "DBIDriver")
 # Instantiation of ViDaRDriver
 ViDaR <- function() new ("ViDaRDriver")
 
-# Overloading dbGetInfo
 setMethod("dbGetInfo", "ViDaRDriver", def = function(dbObj, ...)
 
   list(name="ViDaRDriver", driver.version = utils::packageVersion("ViDaR"), DBI.version = utils::packageVersion("DBI"))
 
   )
 
-# Overloading dbIsValid
 setMethod("dbIsValid", "ViDaRDriver", def = function(dbObj, ...) invisible(TRUE))
 
-# Overloading dbUnloadDriver
 setMethod("dbUnloadDriver", "ViDaRDriver", def = function(drv, ...) invisible(TRUE))
 
-
-# Overloading dbConnect
 setMethod("dbConnect", "ViDaRDriver", def = function(drv, dbhost="localhost", dbport=50001, ...){
 
   connenv <- new.env(parent = emptyenv())
   connenv$host <- dbhost
   connenv$port <- dbport
 
-  # establish socket connection and check connectivity - blocking set to true, to wait for execution
+  # Establish socket connection and check connectivity - blocking set to true, to wait for execution
   # in DBI it is specified that it has to be sequential execution!
   tryCatch(
    {
@@ -125,22 +120,6 @@ setMethod("dbRemoveTable", signature(conn="ViDaRConnection", name="character"), 
   invisible(TRUE)
   )
 
-processQuery <- function(query) {
-  ret_query <- gsub("<SQL>", "", query)
-  ret_query <- gsub("\"","", ret_query)
-  ret_query <- gsub("LIMIT 10", "", ret_query)
-  ret_query <- gsub("\n"," ", ret_query)
-  ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
-
-  return(ret_query)
-}
-
-extractFrom <- function(query) {
-  from <- strsplit(processQuery(query), "FROM ")[[1]][2]
-  from <- strsplit(from, " ")[[1]][1]
-  return(from)
-}
-
 setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"), def = function(conn, statement, ...){
   # environment for ViDaRResult to return
   env <- new.env(parent = emptyenv())
@@ -163,11 +142,10 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
 
     print('raw statement:')
     print(as.character(statement))
-
-    writeLines(processQuery(as.character(statement)), conn@env$conn)
-
     print('sent statement:')
-    print(processQuery(as.character(statement)))
+    print(textProcessQuery(as.character(statement)))
+
+    writeLines(textProcessQuery(as.character(statement)), conn@env$conn)
 
     response <- readLines(conn@env$conn, 1)
     env$response = response
@@ -215,56 +193,6 @@ setMethod("dbClearResult", "ViDaRResult", def = function(res, ...)
 setMethod("dbColumnInfo", "ViDaRResult", def = function(res, ...)
   invisible(TRUE)
   )
-
-# table name - find path
-getPath <- function(table_name){
-  path <- "/home/sanca/ViDa/pelago/src/SQLPlanner/src/main/resources/"
-
-  json<-jsonlite::read_json(paste0(path,"schema.json"))
-
-  for(schema in json$schemas){
-    for(tbl in list.files(paste0(path,schema$operand$directory)))
-      if(strsplit(tbl,"\\.")[[1]][1]==table_name){
-        return(paste0(path,schema$operand$directory,'/',table_name,'.csv'))
-      }
-  }
-
-  return(NULL)
-}
-
-# mapping between types in CSV and R types
-type_map <- list(int="integer(0)", string="character(0)", boolean="logical(0)")
-
-# for case of creating a tbl (return 0 rows), R magic with lazy evaluation
-schema2tbl <- function(table){
-
-  # TEST PURPOSES
-  if(table=="emp") {
-    emp_jsn = '{"name":"string", "age":"int", "children":[{"name2":"string", "age2":"int"}]}'
-    df_emp <- data.frame(jsonlite::fromJSON(emp_jsn, flatten = TRUE, simplifyDataFrame = TRUE))
-    emp <- as.tbl(df_emp)
-    return(emp)
-  }
-
-  suppressWarnings(tmp <- read.csv(getPath(table)))
-
-
-  build_cmd <- "list("
-
-
-  for(col in colnames(tmp)){
-
-    name <- strsplit(col,"\\.")[[1]][1]
-    type <- strsplit(col,"\\.")[[1]][2]
-
-    build_cmd <- paste0(build_cmd, name, "=", type_map[type], ",")
-  }
-
-  build_cmd<-substr(build_cmd, 1, nchar(build_cmd)-1)
-  build_cmd<-paste0(build_cmd,")")
-
-  return(as.tbl(data.frame(lazyeval::lazy_eval(build_cmd))))
-}
 
 setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(res, n=1, ...) {
 
