@@ -23,9 +23,6 @@ sql_select.ViDaRConnection <- function(con, select, from, where = NULL,
       out$from <- build_sql(sql("FROM"), " ", escape(from, collapse = ", ", con = con), ", ",
                             sql("UNNEST("), " ", escape(con@env$unnest, collapse = ", ", con = con), ") ")
 
-      # Retain the unnest fields information for possible future use
-      out$unnest <- con@env$unnest
-
       # Dealocate the unnest from the environment in case of nested queries -
       # we need to see them only the first time they appear
       con@env$unnest <- NULL

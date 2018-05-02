@@ -20,7 +20,7 @@ emp <- tbl(con, "emp")
 test <- emp %>% for_all(name) %>% sql_build(.)
 test <- emp %>% for_all(name, name1) %>% filter(age>15) %>% filter(age>18) %>% select(name) %>% sql_build(.)
 test <- emp %>% filter(age>18) %>% for_all(name, blabla) %>% sql_build(.)
-emp %>% filter(age>15) %>% select(name)
+emp %>% filter(age>15) %>% for_all(children) %>% summarise(card = count(name))
 
 
 #writeLines(".memcpy off", con@env$conn)
