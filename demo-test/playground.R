@@ -4,6 +4,7 @@ library(dbplyr)
 library(dplyr)
 library(ggplot2)
 library(rlang)
+library(jsonlite)
 
 ### DBI ###
 
