@@ -7,10 +7,8 @@ for_all <- function(.data, ...) {
 # sql_build definition of a function - definition of behavior
 sql_build.op_for_all <- function(op, con, ...) {
 
-  unnest <- get_unnests(op$dots)
-
   # assign the unnest fields to the connection environment
-  con@env$unnest <- unnest
+  con@env$unnest <- get_unnests(op$dots)
 
   # pass the operations further on without any modifications
   return(sql_build(op$x, con, ...))

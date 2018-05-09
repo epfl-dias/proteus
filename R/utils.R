@@ -11,7 +11,7 @@ textProcessQuery <- function(query) {
 
 # Util function for extracting the table name in FROM clause
 extractFrom <- function(query) {
-  from <- strsplit(processQuery(query), "FROM ")[[1]][2]
+  from <- strsplit(textProcessQuery(query), "FROM ")[[1]][2]
   from <- strsplit(from, " ")[[1]][1]
   return(from)
 }

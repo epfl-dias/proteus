@@ -4,11 +4,10 @@ sql_select.ViDaRConnection <- function(con, select, from, where = NULL,
                                        order_by = NULL,
                                        limit = NULL,
                                        distinct = FALSE,
-                                       unnest = NULL,
                                        ...) {
 
-  out <- vector("list", 8)
-  names(out) <- c("select", "from", "where", "group_by", "having", "order_by", "limit", "unnest")
+  out <- vector("list", 7)
+  names(out) <- c("select", "from", "where", "group_by", "having", "order_by", "limit")
 
   out$select <- dbplyr:::sql_clause_select(select, con, distinct)
 
@@ -20,8 +19,9 @@ sql_select.ViDaRConnection <- function(con, select, from, where = NULL,
       out$from <- dbplyr:::sql_clause_from(from, con)
     } else {
       # Otherwise modify the regular from clause with unnest part
+
       out$from <- build_sql(sql("FROM"), " ", escape(from, collapse = ", ", con = con), ", ",
-                            sql("UNNEST("), " ", escape(con@env$unnest, collapse = ", ", con = con), ") ")
+                            sql("UNNEST("), escape(con@env$unnest, collapse = ", ", con = con), ")")
 
       # Dealocate the unnest from the environment in case of nested queries -
       # we need to see them only the first time they appear
@@ -58,12 +58,13 @@ sql_translate_env.ViDaRConnection <- function(con) {
   sql_variant(
     sql_translator(.parent = base_scalar,
                    count = sql_prefix("cardinality"),
-                   get_all = sql_prefix("collect"),
+                   collect = sql_prefix("collect"),
                    slice_index = function(what, ind) {
                      build_sql(sql(deparse(substitute(what))), sql("["), ind, sql("]"))
                    }
     ),
     sql_translator(.parent = base_agg
+                   #collect = sql_prefix("collect")
                    # e.g. for_all = sql_aggregate_2("unnest")
     ),
     sql_translator(.parent = base_no_win
