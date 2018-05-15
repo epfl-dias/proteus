@@ -4,14 +4,15 @@ lazy_eval_type <- function(con, type) {
 
 create_table_level <- function(list, parent_name){
 
-  query <- paste0(parent_name, " BAG \n (")
+  query <- paste0(sqlRownamesToColumn(parent_name, NULL), " BAG \n (")
 
   for(el in names(list)){
 
     if(typeof(list[[el]])=="list"){
       query <- paste0(query, create_table_level(list[[el]], el), ",\n")
     } else {
-      query <- paste0(query, " ", el, "    ", lazy_eval_type(con, type_map[[list[[el]]]]), ",\n")
+      query <- paste0(query, " ", sqlRownamesToColumn(el, NULL),
+                      "  ", lazy_eval_type(con, type_map[[list[[el]]]]), ",\n")
     }
 
   }
@@ -41,7 +42,8 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
                 if(typeof(fields[[el]])=="list"){
                   query <- paste0(query, " ", create_table_level(fields[[el]], el), ",\n")
                 } else {
-                  query <- paste0(query, " ", el, "    ", lazy_eval_type(con, type_map[[fields[[el]]]]), ",\n")
+                  query <- paste0(query, " ", sqlRownamesToColumn(el, NULL),
+                                  "  ", lazy_eval_type(con, type_map[[fields[[el]]]]), ",\n")
                 }
 
               }

@@ -8,7 +8,8 @@ for_all <- function(.data, ...) {
 sql_build.op_for_all <- function(op, con, ...) {
 
   # assign the unnest fields to the connection environment
-  con@env$unnest <- get_unnests(op$dots)
+  if(!is.null(con))
+    con@env$unnest <- get_unnests(op$dots)
 
   # pass the operations further on without any modifications
   return(sql_build(op$x, con, ...))

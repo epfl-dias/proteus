@@ -33,6 +33,11 @@ sql_select.ViDaRConnection <- function(con, select, from, where = NULL,
     }
   )
   out$where <- dbplyr:::sql_clause_where(where, con)
+
+  # case for not querying when the condition is (0 = 1) - lazy load
+  if(where == translate_sql(0L == 1L))
+    return(escape(build_sql(sql("LAZY "), from)))
+
   out$group_by <- dbplyr:::sql_clause_group_by(group_by, con)
   out$having <- dbplyr:::sql_clause_having(having, con)
   out$order_by <- dbplyr:::sql_clause_order_by(order_by, con)
