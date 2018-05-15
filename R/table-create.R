@@ -1,7 +1,80 @@
-setMethod("dbCreateTable", signature("ViDaRConnection"),
-          def = function(conn, name, fields, ..., temporary = FALSE, path) {
+lazy_eval_type <- function(con, type) {
+  DBI::dbDataType(con, lazyeval::lazy_eval(type))
+}
 
-            query <- sqlViDaCreateTable(
+create_table_level <- function(list, parent_name){
+
+  query <- paste0(parent_name, " BAG \n (")
+
+  for(el in names(list)){
+
+    if(typeof(list[[el]])=="list"){
+      query <- paste0(query, create_table_level(list[[el]], el), ",\n")
+    } else {
+      query <- paste0(query, " ", el, "    ", lazy_eval_type(con, type_map[[list[[el]]]]), ",\n")
+    }
+
+  }
+
+  # remove last comma
+  query <- gsub(",\n$", "\n", query)
+
+  query <- paste0(query, ")\n")
+
+  return(query)
+}
+
+setMethod("sqlCreateTable", signature("ViDaRConnection"),
+          function(con, table, fields,  temporary = FALSE, path, ...) {
+
+            table <- dbQuoteIdentifier(con, table)
+
+            # Cover the JSON case and add the information about path and/or other options.
+            # In general JSON is a nested list - so recursive calls will be necessary while building
+            # the SQL string. On each level a keyword will be added indicating that we are entering
+            # a nested level
+            if(is.list(fields) & !is.data.frame(fields)){
+
+              query <- paste0("CREATE ", if(temporary) "TEMPORARY ", "TABLE ", table, " (\n ")
+
+              for(el in names(fields)){
+                if(typeof(fields[[el]])=="list"){
+                  query <- paste0(query, " ", create_table_level(fields[[el]], el), ",\n")
+                } else {
+                  query <- paste0(query, " ", el, "    ", lazy_eval_type(con, type_map[[fields[[el]]]]), ",\n")
+                }
+
+              }
+
+              # remove last comma
+              query <- gsub(",\n$", "\n", query)
+              query <- SQL(paste0(query, "\n)\n"))
+
+            } else {
+
+              if (is.data.frame(fields)) {
+                fields <- sqlRownamesToColumn(fields, NULL)
+                fields <- vapply(fields, function(x) DBI::dbDataType(con, x), character(1))
+              }
+
+              field_names <- dbQuoteIdentifier(con, names(fields))
+              field_types <- unname(fields)
+              fields <- paste0(field_names, " ", field_types)
+
+              query <- SQL(paste0(
+                "CREATE ", if (temporary) "TEMPORARY ", "TABLE ", table, " (\n",
+                "  ", paste(fields, collapse = ",\n  "), "\n)\n"
+              ))
+            }
+
+            return(query)
+          }
+)
+
+setMethod("dbCreateTable", signature("ViDaRConnection"),
+          def = function(conn, name, fields, ..., path, row.names = NULL, temporary = FALSE) {
+
+            query <- sqlCreateTable(
               con = conn,
               table = name,
               fields = fields,
@@ -15,28 +88,3 @@ setMethod("dbCreateTable", signature("ViDaRConnection"),
 
           })
 
-setMethod("sqlViDaCreateTable", signature("ViDaRConnection"),
-          function(con, table, fields,  temporary = FALSE, path, ...) {
-
-            table <- dbQuoteIdentifier(con, table)
-
-            # Cover the JSON case and add the information about path and/or other options.
-            # In general JSON is a nested list - so recursive calls will be necessary while building
-            # the SQL string. On each level a keyword will be added indicating that we are entering
-            # a nested level
-
-            if (is.data.frame(fields)) {
-              fields <- sqlRownamesToColumn(fields, NULL)
-              fields <- vapply(fields, function(x) DBI::dbDataType(con, x), character(1))
-            }
-
-            field_names <- dbQuoteIdentifier(con, names(fields))
-            field_types <- unname(fields)
-            fields <- paste0(field_names, " ", field_types)
-
-            SQL(paste0(
-              "CREATE ", if (temporary) "TEMPORARY ", "TABLE ", table, " (\n",
-              "  ", paste(fields, collapse = ",\n  "), "\n)\n"
-            ))
-          }
-)

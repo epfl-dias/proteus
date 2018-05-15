@@ -4,6 +4,7 @@
 # escaped quotes are deletd from the query
 textProcessQuery <- function(query) {
   ret_query <- gsub("\"","", query)
+  ret_query <- gsub("\\\n", "", ret_query)
   #ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
 
   return(ret_query)
@@ -49,9 +50,7 @@ schema2tbl <- function(table){
 
   suppressWarnings(tmp <- read.csv(getPath(table)))
 
-
   build_cmd <- "list("
-
 
   for(col in colnames(tmp)){
 
