@@ -68,18 +68,26 @@ setMethod("dbGetInfo", "ViDaRConnection", def = function(dbObj, ...){
 #  invisible(TRUE)
 #  )
 
-#setMethod("dbListFields", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
-#    if(dbExistsTable(conn,name)){
-#      if(conn@env$is_open){
-#        writeLines(paste0("list fields ", name), conn@env$conn)
-#        return(jsonlite::fromJSON(readLines(conn@env$conn,1)))
-#      }
-#    }
-#  })
+setMethod("dbListFields", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
 
-#setMethod("dbListTables", "ViDaRConnection", def = function(conn, ...) {
-#  dbListTables(as(conn, "JDBCConnection"))
-#  })
+    if(dbExistsTable(conn,name)){
+
+      metaData <- .jcall(conn@jc, "Ljava/sql/DatabaseMetaData;", "getMetaData", check=FALSE)
+      resultSet <- .jcall(metaData, "Ljava/sql/ResultSet;", "getColumns",
+                          .jnull("java/lang/String"), .jnull("java/lang/String"), name, "%", check=FALSE)
+
+      fields <- c()
+
+      while(.jcall(resultSet, "Z", "next")) {
+        fields <- c(fields, .jcall(resultSet, "S", "getString", "COLUMN_NAME"))
+      }
+
+      return(fields)
+    } else {
+      stop(paste0("Table ", name, " does not exist."))
+    }
+
+  })
 
 #setMethod("dbReadTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
 #    if(!dbExistsTable(conn, name))
@@ -106,7 +114,7 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
     env$conn <- conn
     env$query <- statement
     env$lazy <- TRUE
-    env$table_name <- extractFrom(as.character(statement))
+    env$table_name <- extractFrom(as.character(statement), conn@identifier.quote)
 
     return(new("ViDaRResult", env=env))
   }
@@ -115,9 +123,9 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
   print('raw statement:')
   print(as.character(statement))
   print('sent statement:')
-  print(textProcessQuery(as.character(statement)))
+  print(textProcessQuery(as.character(statement), conn@identifier.quote))
 
-  jdbcres <- RJDBC::dbSendQuery(as(conn, "JDBCConnection"), textProcessQuery(as.character(statement)))
+  jdbcres <- RJDBC::dbSendQuery(as(conn, "JDBCConnection"), textProcessQuery(as.character(statement), conn@identifier.quote))
 
   env$conn <- conn
   env$query <- statement
@@ -126,17 +134,26 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
   invisible(new("ViDaRResult", jr=jdbcres@jr, md=jdbcres@md, stat=jdbcres@stat, pull=jdbcres@pull,  env=env))
   })
 
+setMethod("dbSendStatement", signature(conn="ViDaRConnection", statement="character"), def = function(conn, statement, ...){
+
+  RJDBC::dbSendUpdate(as(conn, "JDBCConnection"), textProcessQuery(statement))
+
+})
+
+setMethod("dbSendUpdate", signature(conn="ViDaRConnection", statement="character"), def = function(conn, statement, ...){
+
+  RJDBC::dbSendUpdate(as(conn, "JDBCConnection"), textProcessQuery(statement))
+
+})
+
 #setMethod("dbWriteTable", signature(conn="ViDaRConnection", name="character", value="ANY"), def = function(conn, name, value, ...)
 #  invisible(TRUE)
 #  )
 
-#setMethod("dbBegin", signature = (conn="ViDaRConnection"), def = function(conn, ...)
-#  invisible(TRUE)
-#  )
-
-#setMethod("dbBegin", signature = (conn="ViDaRConnection"), def = function(conn, ...)
-#  invisible(TRUE)
-#)
+# JDBC consideres every query a transaction unless otherwise specified
+setMethod("dbBegin", signature = (conn="ViDaRConnection"), def = function(conn, ...)
+  invisible(TRUE)
+  )
 
 # ========== ViDaR DBI Result ========== #
 

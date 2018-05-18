@@ -23,14 +23,16 @@ res <- dbCreateTable(conn, "test5432", c(b="integer"))
 con <- dbConnect(ViDaR())
 date_tbl <- tbl(con, "ssbm_date")
 
-date_tbl <- dbFe
 
 r <- dbSendQuery(con, "SELECT * FROM ssbm_date")
 
 
 dbListTables(con)
-dbCreateTable(con, "test", c(a="integer"))
+dbCreateTable(con, "iris", iris)
 
 
 dbListFields(con, "ssbm_date")
 
+copy_to(con, iris, "iris")
+
+dbSendQuery(con, "SELECT * FROM `emp` WHERE (`age` > 18.0)")

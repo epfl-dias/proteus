@@ -1,3 +1,3 @@
-import(DBI, methods, codetools, utils, RJDBC, dplyr, dbplyr)
+import(DBI, methods, codetools, utils, RJDBC, dplyr, dbplyr, rlang)
 
 exportPattern("^[[:alpha:]]+")

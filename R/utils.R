@@ -2,17 +2,18 @@
 
 # Utility function for preprocessing the text of the query -
 # escaped quotes are deletd from the query
-textProcessQuery <- function(query) {
-  ret_query <- gsub("\"","", query)
-  ret_query <- gsub("\\\n", "", ret_query)
+textProcessQuery <- function(query, quoteChar = "`") {
+  ret_query <- gsub("\"", quoteChar, query)
+  #ret_query <- gsub("\\\n", "", ret_query)
   #ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
+  ret_query <- gsub("LIMIT 0", "", ret_query)
 
   return(ret_query)
 }
 
 # Util function for extracting the table name in FROM clause
-extractFrom <- function(query) {
-  from <- strsplit(textProcessQuery(query), "FROM ")[[1]][2]
+extractFrom <- function(query, quoteChar = "`") {
+  from <- strsplit(textProcessQuery(query, quoteChar), "FROM ")[[1]][2]
   from <- strsplit(from, " ")[[1]][1]
   return(from)
 }
@@ -32,19 +33,6 @@ getPath <- function(table_name){
   }
 
   return(NULL)
-}
-
-# mapping between types in CSV and R types
-type_map <- list(integer="integer(0)", varchar="character(0)", boolean="logical(0)")
-
-mapJDBCType <- function(JDBCType) {
-
-  type <- tolower(JDBCType)
-
-  if(grepl("varchar", type))
-    type <- "varchar"
-
-  return(type_map[[type]])
 }
 
 # for case of creating a tbl (return 0 rows), R magic with lazy evaluation
