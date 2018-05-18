@@ -85,7 +85,7 @@ setMethod("dbCreateTable", signature("ViDaRConnection"),
               ...
             )
 
-            dbExecute(conn, query)
+            dbSendUpdate(conn, textProcessQuery(as.character(query)))
             invisible(TRUE)
 
           })

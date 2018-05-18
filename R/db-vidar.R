@@ -34,9 +34,9 @@ sql_select.ViDaRConnection <- function(con, select, from, where = NULL,
   )
   out$where <- dbplyr:::sql_clause_where(where, con)
 
-  # case for not querying when the condition is (0 = 1) - lazy load
-  if(where == translate_sql(0L == 1L))
-    return(escape(build_sql(sql("LAZY "), from)))
+  # TO CHECK case for not querying when the condition is (0 = 1) - lazy load
+  #if(where == translate_sql(0L == 1L))
+  #  return(escape(build_sql(sql("LAZY "), from)))
 
   out$group_by <- dbplyr:::sql_clause_group_by(group_by, con)
   out$having <- dbplyr:::sql_clause_having(having, con)
@@ -45,7 +45,7 @@ sql_select.ViDaRConnection <- function(con, select, from, where = NULL,
   # Limits are not supported (yet)
   #out$limit <- dbplyr:::sql_clause_limit(limit, con)
 
-  escape(unname(dbplyr:::compact(out)), collapse = " ", parens = FALSE, con = con)
+  dbplyr::escape(unname(dbplyr:::compact(out)), collapse = " ", parens = FALSE, con = con)
 }
 
 # Future use - checking for presence of certain vector functions in parts of queries

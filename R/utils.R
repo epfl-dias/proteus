@@ -35,10 +35,21 @@ getPath <- function(table_name){
 }
 
 # mapping between types in CSV and R types
-type_map <- list(int="integer(0)", string="character(0)", boolean="logical(0)")
+type_map <- list(integer="integer(0)", varchar="character(0)", boolean="logical(0)")
+
+mapJDBCType <- function(JDBCType) {
+
+  type <- tolower(JDBCType)
+
+  if(grepl("varchar", type))
+    type <- "varchar"
+
+  return(type_map[[type]])
+}
 
 # for case of creating a tbl (return 0 rows), R magic with lazy evaluation
-schema2tbl <- function(table){
+# WILL NEED TO COVER THE CASE FOR NON-STANDARD TYPES (e.g. generate dataFrame first, then flatten it if nested types are present)
+schema2tbl <- function(table, con){
 
   # TEST PURPOSES FOR NESTED SCHEMAS
   if(table=="emp") {
@@ -48,22 +59,30 @@ schema2tbl <- function(table){
     return(emp)
   }
 
-  suppressWarnings(tmp <- read.csv(getPath(table)))
+  metaData <- .jcall(con@jc, "Ljava/sql/DatabaseMetaData;", "getMetaData", check=FALSE)
+  resultSet <- .jcall(metaData, "Ljava/sql/ResultSet;", "getColumns",
+                      .jnull("java/lang/String"), .jnull("java/lang/String"), table, "%", check=FALSE)
 
-  build_cmd <- "list("
 
-  for(col in colnames(tmp)){
+  build_cmd <- c()
 
-    name <- strsplit(col,"\\.")[[1]][1]
-    type <- strsplit(col,"\\.")[[1]][2]
+  colName <- character()
+  colType <- character()
+  while(.jcall(resultSet, "Z", "next")) {
+    cn <- .jcall(resultSet, "S", "getString", "COLUMN_NAME")
+    ct <- .jcall(resultSet, "S", "getString", "TYPE_NAME")
 
-    build_cmd <- paste0(build_cmd, name, "=", type_map[type], ",")
+    build_cmd <- c(build_cmd, paste0(cn, "=", mapJDBCType(ct)))
+
+    colName <- c(colName, cn)
+    colType <- c(colType, ct)
   }
 
-  build_cmd<-substr(build_cmd, 1, nchar(build_cmd)-1)
-  build_cmd<-paste0(build_cmd,")")
+  cmd <- paste0("data.frame(", paste(build_cmd, collapse = ","), ")")
 
-  return(as.tbl(data.frame(lazyeval::lazy_eval(build_cmd))))
+  on.exit(.jcall(resultSet, "V", "close"))
+
+  return(as.tbl(lazyeval::lazy_eval(cmd)))
 }
 
 #' @export

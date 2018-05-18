@@ -1,47 +1,36 @@
 # ========== ViDaR DBI Driver ========== #
-# --- don't forget to load library(DBI) ---
 # DBI Driver for ViDaR
-setClass("ViDaRDriver", contains = "DBIDriver")
+setClass("ViDaRDriver", contains = "JDBCDriver")
 
-# Instantiation of ViDaRDriver
-ViDaR <- function() new ("ViDaRDriver")
+# Instantiation of ViDaRDriver - using RJDBC
+ViDaR <- function(driverClass="ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver", driverLocation="/home/sanca/sqlline/sqlline/bin/SQLPlanner-assembly-0.1.jar", quoteChar = "`") {
+  tmp <- JDBC(driverClass, driverLocation, quoteChar)
+  drv <- new ("ViDaRDriver")
+
+  drv@jdrv <- tmp@jdrv
+  drv@identifier.quote <- tmp@identifier.quote
+
+  return(drv)
+}
+
 
 setMethod("dbGetInfo", "ViDaRDriver", def = function(dbObj, ...)
-
   list(name="ViDaRDriver", driver.version = utils::packageVersion("ViDaR"), DBI.version = utils::packageVersion("DBI"))
-
-  )
+)
 
 setMethod("dbIsValid", "ViDaRDriver", def = function(dbObj, ...) invisible(TRUE))
 
-setMethod("dbUnloadDriver", "ViDaRDriver", def = function(drv, ...) invisible(TRUE))
+#
+setMethod("dbConnect", "ViDaRDriver", def = function(drv, connectionString = "jdbc:pelago:model=/home/sanca/sqlline/sqlline/bin/schema.json", ...){
 
-setMethod("dbConnect", "ViDaRDriver", def = function(drv, dbhost="localhost", dbport=50001, ...){
+  jdbcconn <- RJDBC::dbConnect(as(drv,"JDBCDriver"), connectionString, ...)
 
   connenv <- new.env(parent = emptyenv())
-  connenv$host <- dbhost
-  connenv$port <- dbport
+  connenv$connectionString <- connectionString
+  connenv$is_open <- TRUE
 
-  # Establish socket connection and check connectivity - blocking set to true, to wait for execution
-  # in DBI it is specified that it has to be sequential execution!
-  tryCatch(
-   {
-      sockcon <- socketConnection(host=dbhost, port=dbport, blocking = TRUE, timeout=1234)
-      response <- readLines(sockcon, 1)
+  conn <- new("ViDaRConnection", jc = jdbcconn@jc , identifier.quote = jdbcconn@identifier.quote, env=connenv)
 
-      print("response:")
-      print(response)
-      connenv$conn <- sockcon
-      connenv$is_open <- TRUE
-    },
-   error=function(cond){
-      message("Cannot establish connection for given parameters.")
-      #message(cond)
-      connenv$is_open <- FALSE
-    }
-  )
-
-  conn <- new("ViDaRConnection", env=connenv)
   return(conn)
 },
 valueClass = "ViDaRConnection")
@@ -50,8 +39,8 @@ valueClass = "ViDaRConnection")
 
 # ========== ViDaR DBI Connection ========== #
 
-# DBI Connection for ViDaR
-setClass("ViDaRConnection", contains = "DBIConnection", slots = list(env="environment"))
+# DBI Connection for ViDaR - inherits JDBC connection
+setClass("ViDaRConnection", contains = "JDBCConnection", slots = list(env="environment"))
 
 #setMethod("dbDataType", signature(dbObj="ViDaRConnection", obj="ANY"), def = function(dbObj, obj, ...)
 #  invisible(TRUE) # Data type conversion
@@ -59,66 +48,51 @@ setClass("ViDaRConnection", contains = "DBIConnection", slots = list(env="enviro
 
 setMethod("dbDisconnect", "ViDaRConnection", def = function(conn, ...){
 
-  # send termination command for now
-  writeLines("exit", conn@env$conn)
-
-  # close socket connection and set flag
-  close(conn@env$conn)
+  RJDBC::dbDisconnect(as(conn, "JDBCConnection"))
   conn@env$is_open <- FALSE
-  conn@env$host <- NULL
-  conn@env$port <- NULL
-
-  invisible(TRUE)
   })
 
 setMethod("dbGetInfo", "ViDaRConnection", def = function(dbObj, ...){
-  #info = list()
-  #info$host <- dbObj@env$host
-  #info$port <- dbObj@env$port
-  invisible(TRUE)
-  #return(info)
+  info = list(connectionString = dbObj@env$connectionString, identifierQuote = dbObj@identifier.quote)
   })
 
-setMethod("dbExistsTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
-    return(as.character(name) %in% dbListTables(conn))
-  })
+#setMethod("dbExistsTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
+#    return(as.character(name) %in% dbListTables(conn))
+#  })
 
-setMethod("dbGetException", "ViDaRConnection", def = function(conn, ...)
-  invisible(TRUE)
-  )
+#setMethod("dbGetException", "ViDaRConnection", def = function(conn, ...)
+#  invisible(TRUE)
+#  )
 
-setMethod("dbIsValid", "ViDaRConnection", def = function(dbObj, ...)
-  invisible(TRUE)
-  )
+#setMethod("dbIsValid", "ViDaRConnection", def = function(dbObj, ...)
+#  invisible(TRUE)
+#  )
 
-setMethod("dbListFields", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
-    if(dbExistsTable(conn,name)){
-      if(conn@env$is_open){
-        writeLines(paste0("list fields ", name), conn@env$conn)
-        return(jsonlite::fromJSON(readLines(conn@env$conn,1)))
-      }
-    }
-  })
+#setMethod("dbListFields", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
+#    if(dbExistsTable(conn,name)){
+#      if(conn@env$is_open){
+#        writeLines(paste0("list fields ", name), conn@env$conn)
+#        return(jsonlite::fromJSON(readLines(conn@env$conn,1)))
+#      }
+#    }
+#  })
 
-setMethod("dbListTables", "ViDaRConnection", def = function(conn, ...) {
-    if(conn@env$is_open){
-      writeLines("list tables", conn@env$conn)
-      return(jsonlite::fromJSON(readLines(conn@env$conn,1)))
-    }
-  })
+#setMethod("dbListTables", "ViDaRConnection", def = function(conn, ...) {
+#  dbListTables(as(conn, "JDBCConnection"))
+#  })
 
-setMethod("dbReadTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
-    if(!dbExistsTable(conn, name))
-      stop(paste("Table: ", name, " - does not exist"))
+#setMethod("dbReadTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
+#    if(!dbExistsTable(conn, name))
+#      stop(paste("Table: ", name, " - does not exist"))
 
     ## this is the practical effect of invocation - just read the whole file
-    dbGetQuery(conn, paste0("SELECT * FROM ", name))
+#    dbGetQuery(conn, paste0("SELECT * FROM ", name))
 
-  })
+#  })
 
-setMethod("dbRemoveTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...)
-  invisible(TRUE)
-  )
+#setMethod("dbRemoveTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...)
+#  invisible(TRUE)
+#  )
 
 setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"), def = function(conn, statement, ...){
   # environment for ViDaRResult to return
@@ -138,44 +112,27 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
   }
 
   # send the query to ViDa for execution
-  if(conn@env$is_open){
+  print('raw statement:')
+  print(as.character(statement))
+  print('sent statement:')
+  print(textProcessQuery(as.character(statement)))
 
-    print('raw statement:')
-    print(as.character(statement))
-    print('sent statement:')
-    print(textProcessQuery(as.character(statement)))
-
-    writeLines(textProcessQuery(as.character(statement)), conn@env$conn)
-
-    response <- readLines(conn@env$conn, 1)
-    env$response = response
-
-    if(startsWith(response, "result in file")){
-      env$success = TRUE
-      # for now parse the message 'result in file PATH' and save it in the environment
-      env$path = strsplit(response, "result in file ")[[1]][2]
-    } else {
-      env$success = FALSE
-    }
-
-  } else {
-    env$success = FALSE
-  }
+  jdbcres <- RJDBC::dbSendQuery(as(conn, "JDBCConnection"), textProcessQuery(as.character(statement)))
 
   env$conn <- conn
   env$query <- statement
   env$lazy <- FALSE
 
-  invisible(new("ViDaRResult", env=env))
+  invisible(new("ViDaRResult", jr=jdbcres@jr, md=jdbcres@md, stat=jdbcres@stat, pull=jdbcres@pull,  env=env))
   })
 
-setMethod("dbWriteTable", signature(conn="ViDaRConnection", name="character", value="ANY"), def = function(conn, name, value, ...)
-  invisible(TRUE)
-  )
+#setMethod("dbWriteTable", signature(conn="ViDaRConnection", name="character", value="ANY"), def = function(conn, name, value, ...)
+#  invisible(TRUE)
+#  )
 
-setMethod("dbBegin", signature = (conn="ViDaRConnection"), def = function(conn, ...)
-  invisible(TRUE)
-  )
+#setMethod("dbBegin", signature = (conn="ViDaRConnection"), def = function(conn, ...)
+#  invisible(TRUE)
+#  )
 
 #setMethod("dbBegin", signature = (conn="ViDaRConnection"), def = function(conn, ...)
 #  invisible(TRUE)
@@ -184,93 +141,34 @@ setMethod("dbBegin", signature = (conn="ViDaRConnection"), def = function(conn, 
 # ========== ViDaR DBI Result ========== #
 
 # DBI Result for ViDaR
-setClass("ViDaRResult", contains = "DBIResult", slots = list(env="environment"))
+setClass("ViDaRResult", contains = "JDBCResult", slots = list(env="environment"))
 
-setMethod("dbClearResult", "ViDaRResult", def = function(res, ...)
-  invisible(TRUE)
-  )
 
-setMethod("dbColumnInfo", "ViDaRResult", def = function(res, ...)
-  invisible(TRUE)
-  )
+# TODO: FIX THE ERROR WHEN res@jr is null
+setMethod("dbClearResult", "ViDaRResult", def = function(res, ...) {
 
-setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(res, n=1, ...) {
-
-  if(res@env$lazy){
-    print("Lazy get table: ")
-    print(res@env$table_name)
-    return(schema2tbl(res@env$table_name))
-  } else {
-
-    fetch_query <- paste0("fetch ",res@env$path, " ", as.character(n))
-    writeLines(fetch_query, res@env$conn@env$conn)
-    json_res <- jsonlite::fromJSON(readLines(res@env$conn@env$conn,1))
-
-    tryCatch({
-      #return(as.tbl(jsonlite::fromJSON(res@env$path)))
-      return(as.tbl(json_res))
-    },
-    error=function(cond){
-      # TODO: better handling of empty result
-      #return(as.tbl(as.data.frame(jsonlite::fromJSON(res@env$path))))
-      return(as.tbl(as.data.frame(json_res)))
-    })
-
-  }
-
-  #result_file <- file(res@env$resp_path)
-  #print("Result:")
-  #print(readLines(result_file))
-
-  #schema <- jsonlite::read_json(
-
-  # THIS HAS TO BE MORE ELEGANT AND FASTER (MAYBE RCPP)
-  #tryCatch(
-  #  {
-      #return(as.tbl(jsonlite::fromJSON(res@env$resp_path)))
-  #  },
-  #  error=function(cond){
-  #   return(as.tbl(jsonlite::fromJSON(res@env$path)))
-  #  }
-  #)
-
-  ### NEW - make data frame out of CSV schema
-  # s <- read.csv("customer.csv")
-  #
-  # build_cmd <- "list("
-  # type_map <- list(int="integer(0)", string="character(0)")
-  #
-  # for(col in colnames(s)){
-  #
-  #   name <- strsplit(col,"\\.")[[1]][1]
-  #   type <- strsplit(col,"\\.")[[1]][2]
-  #
-  #   build_cmd <- paste0(build_cmd, name, "=", type_map[type], ",")
-  # }
-  #
-  # build_cmd<-substr(build_cmd, 1, nchar(build_cmd)-1)
-  # build_cmd<-paste0(build_cmd,")")
-  #
-  # df <- data.frame(lazyeval::lazy_eval(build_cmd))
+    if(!is.jnull(res@jr)) {
+      .jcall(res@jr, "V", "close")
+      .jcall(res@stat, "V", "close")
+      invisible(TRUE)
+    }
 
   })
 
-setMethod("dbGetRowCount", "ViDaRResult", def = function(res, ...)
-  invisible(TRUE)
-  )
+#setMethod("dbColumnInfo", "ViDaRResult", def = function(res, ...)
+#  invisible(TRUE)
+#  )
 
-setMethod("dbGetRowsAffected", "ViDaRResult", def = function(res, ...)
-  invisible(TRUE)
-  )
+setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(res, n=1, ...) {
 
-setMethod("dbGetStatement", "ViDaRResult", def = function(res, ...)
-  invisible(TRUE)
-  )
+    if(res@env$lazy){
+      print("Lazy get table: ")
+      print(res@env$table_name)
 
-setMethod("dbHasCompleted", "ViDaRResult", def = function(res, ...)
-  invisible(TRUE)
-  )
+      return(tibble())
 
-setMethod("dbIsValid", "ViDaRResult", def = function(dbObj, ...)
-  invisible(TRUE)
-  )
+      return(schema2tbl(res@env$table_name, res@env$conn))
+    } else {
+      return(RJDBC::fetch(as(res, "JDBCResult"), n))
+    }
+  })

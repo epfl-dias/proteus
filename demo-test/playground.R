@@ -9,7 +9,7 @@ library(jsonlite)
 ### DBI ###
 
 # establishing the connection
-con <- dbConnect(ViDaR(), dbport=50001)
+con <- dbConnect(ViDaR())
 
 
 # unnest try
@@ -22,6 +22,7 @@ test <- emp %>% for_all(name) %>% sql_build(.)
 test <- emp %>% for_all(name, name1) %>% filter(age>15) %>% filter(age>18) %>% select(name) %>% sql_build(.)
 test <- emp %>% filter(age>18) %>% for_all(name, blabla) %>% sql_build(.)
 test <- emp %>% filter(age>15) %>% for_all(emp.children) %>% summarise(card = count(name), collected = collect(age)) %>% sql_build(.)
+
 
 
 #writeLines(".memcpy off", con@env$conn)

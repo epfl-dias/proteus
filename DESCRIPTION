@@ -1,13 +1,13 @@
 Package: ViDaR
 Type: Package
 Title: DBI interface for ViDa
-Version: 0.1.0
+Version: 0.1.5
 Author: Viktor Sanca [aut, cre]
 Maintainer: Viktor Sanca <viktor.sanca@epfl.ch>
 Description: Enables using ViDa from R.
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
-Imports: DBI(>= 0.6.0), methods, codetools, jsonlite, dbplyr, dplyr, rlang
-Enhances: dplyr (>= 0.7.0)
+Imports: DBI(>= 0.6.0), methods, codetools, jsonlite, dbplyr, dplyr, rlang, RJDBC
+Enhances: dplyr (>= 0.7.0), RJDBC, dbplyr
 Suggests: DBItest, testthat
