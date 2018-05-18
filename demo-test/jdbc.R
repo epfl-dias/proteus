@@ -1,5 +1,6 @@
 library(RJDBC)
 library(dplyr)
+library(DBI)
 
 driverClass <- "ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver"
 driverLocation <- "/home/sanca/sqlline/sqlline/bin/SQLPlanner-assembly-0.1.jar"
@@ -21,17 +22,17 @@ res <- dbCreateTable(conn, "test5432", c(b="integer"))
 
 
 con <- dbConnect(ViDaR())
-date_tbl <- tbl(con, "ssbm_date")
+emp_tbl <- tbl(con, "employees")
 
 
-r <- dbSendQuery(con, "SELECT * FROM ssbm_date")
+schema2tbl("employees", con)
 
 
 dbListTables(con)
 dbCreateTable(con, "iris", iris)
 
 
-dbListFields(con, "ssbm_date")
+dbListFields(con, "employees")
 
 copy_to(con, iris, "iris")
 

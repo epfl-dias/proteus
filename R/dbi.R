@@ -182,8 +182,6 @@ setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(r
       print("Lazy get table: ")
       print(res@env$table_name)
 
-      return(tibble())
-
       return(schema2tbl(res@env$table_name, res@env$conn))
     } else {
       return(RJDBC::fetch(as(res, "JDBCResult"), n))

@@ -4,7 +4,7 @@ lazy_eval_type <- function(con, type) {
 
 create_table_level <- function(list, parent_name){
 
-  query <- paste0(sqlRownamesToColumn(parent_name, NULL), " BAG \n (")
+  query <- paste0(sqlRownamesToColumn(parent_name, NULL), " RECORD TYPE \n (")
 
   for(el in names(list)){
 

@@ -60,7 +60,10 @@ schema2tbl <- function(table, con){
     cn <- .jcall(resultSet, "S", "getString", "COLUMN_NAME")
     ct <- .jcall(resultSet, "S", "getString", "TYPE_NAME")
 
-    build_cmd <- c(build_cmd, paste0(cn, "=", mapJDBCType(ct)))
+    if(!grepl("^recordtype", tolower(ct)))
+      build_cmd <- c(build_cmd, paste0(cn, "=", mapJDBCType(ct)))
+    else
+      build_cmd <- c(build_cmd, parseRecordType(ct))
 
     colName <- c(colName, cn)
     colType <- c(colType, ct)
@@ -69,6 +72,8 @@ schema2tbl <- function(table, con){
   cmd <- paste0("data.frame(", paste(build_cmd, collapse = ","), ")")
 
   on.exit(.jcall(resultSet, "V", "close"))
+
+  print(cmd)
 
   return(as.tbl(lazyeval::lazy_eval(cmd)))
 }
