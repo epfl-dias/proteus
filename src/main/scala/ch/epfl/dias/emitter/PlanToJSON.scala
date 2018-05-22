@@ -21,10 +21,10 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks._
 
+case class Binding(rel: String, fields: List[RelDataTypeField])
+
 object PlanToJSON {
   implicit val formats = DefaultFormats
-
-  case class Binding(rel: String, fields: List[RelDataTypeField])
 
   //-> TODO What about degree of materialization for joins?
   //---> Join behavior can be handled implicitly by executor:
@@ -256,111 +256,111 @@ object PlanToJSON {
   def emit_(n: RelNode) : (Binding, JValue) = n match {
     //Note: Project can appear in multiple parts of a plan!
     //For example: if we use 'GROUP BY id+9, a Project operator will put the new bindings together
-    case p: EnumerableProject => {
-      val op = ("operator" , "projection")
-      val alias = "projection"+p.getId
-      val rowType = emitSchema(alias, p.getRowType)
-      val child = emit_(p.getInput)
-      val childBinding: Binding = child._1
-      val childOp = child._2
-      //TODO Could also use p.getNamedProjects
-      val exprs = p.getProjects
-      val exprsJS: JValue = exprs.asScala.map {
-        e => emitExpression(e,List(childBinding))
-      }
-
-      val json = op ~ ("tupleType", rowType) ~ ("e", exprsJS) ~ ("input" , childOp)
-      val binding: Binding = Binding(alias,getFields(p.getRowType))
-      val ret: (Binding, JValue) = (binding,json)
-      ret
-    }
-    case a: EnumerableAggregate => {
-      val op = ("operator" , "agg")
-      val child = emit_(a.getInput)
-      val childBinding: Binding = child._1
-      val childOp = child._2
-
-      val groups: List[Integer] = a.getGroupSet.toList.asScala.toList
-      val groupsJS: JValue = groups.map {
-        g => emitArg(g,List(childBinding))
-      }
-
-      val aggs: List[AggregateCall] = a.getAggCallList.asScala.toList
-      val aggsJS = aggs.map {
-        agg => emitAggExpression(agg,List(childBinding))
-      }
-      val alias = "agg"+a.getId
-      val rowType = emitSchema(alias, a.getRowType)
-
-      val json = op ~ ("tupleType", rowType) ~ ("groups", groupsJS) ~ ("aggs", aggsJS) ~ ("input" , childOp)
-      val binding: Binding = Binding(alias,getFields(a.getRowType))
-      val ret: (Binding, JValue) = (binding,json)
-      ret
-    }
-    case j: EnumerableJoin => {
-      val op = ("operator" , "join")
-      val l = emit_(j.getLeft)
-      val leftBinding: Binding = l._1
-      val leftChildOp = l._2
-      val r = emit_(j.getRight)
-      val rightBinding: Binding = r._1
-      val rightChildOp = r._2
-      val cond = emitExpression(j.getCondition,List(leftBinding,rightBinding))
-      val alias = "join"+j.getId
-      val rowType = emitSchema(alias, j.getRowType)
-
-      val json = op ~ ("tupleType", rowType) ~ ("cond", cond) ~ ("left" , leftChildOp) ~ ("right" , rightChildOp)
-      val binding: Binding = Binding(alias,leftBinding.fields ++ rightBinding.fields)
-      val ret: (Binding, JValue) = (binding,json)
-      ret
-    }
-    case f: EnumerableFilter => {
-      val op = ("operator" , "select")
-      val child = emit_(f.getInput)
-      val childBinding: Binding = child._1
-      val childOp = child._2
-      val rowType = emitSchema(childBinding.rel, f.getRowType)
-      val cond = emitExpression(f.getCondition,List(childBinding))
-
-      val json = op ~ ("tupleType", rowType) ~ ("cond", cond) ~ ("input", childOp)
-      val ret: (Binding, JValue) = (childBinding,json)
-      ret
-    }
-    case s : EnumerableTableScan => {
-      val op = ("operator" , "scan")
-      //TODO Cross-check: 0: schemaName, 1: tableName (?)
-      val srcName = s.getTable.getQualifiedName.get(1)
-      val rowType = emitSchema(srcName, s.getRowType)
-
-      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
-      val binding: Binding = Binding(srcName,getFields(s.getRowType))
-      val ret: (Binding, JValue) = (binding,json)
-      ret
-    }
-    case s : PelagoTableScan => {
-      val op = ("operator" , "scan")
-      //TODO Cross-check: 0: schemaName, 1: tableName (?)
-      val srcName  = s.getPelagoRelName //s.getTable.getQualifiedName.get(1)
-      val rowType  = emitSchema(srcName, s.getRowType)
-      val plugin   = Extraction.decompose(s.getPluginInfo.asScala)
-      val linehint = s.getLineHint.longValue
-
-      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName) ~ ("plugin", plugin) ~ ("linehint", linehint)
-      val binding: Binding = Binding(srcName,getFields(s.getRowType))
-      val ret: (Binding, JValue) = (binding,json)
-      ret
-    }
-    case s : BindableTableScan => {
-      val op = ("operator" , "scan")
-      //TODO Cross-check: 0: schemaName, 1: tableName (?)
-      val srcName = s.getTable.getQualifiedName.get(1)
-      val rowType = emitSchema(srcName, s.getRowType)
-
-      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
-      val binding: Binding = Binding(srcName,getFields(s.getRowType))
-      val ret: (Binding, JValue) = (binding,json)
-      ret
-    }
+//    case p: EnumerableProject => {
+//      val op = ("operator" , "projection")
+//      val alias = "projection"+p.getId
+//      val rowType = emitSchema(alias, p.getRowType)
+//      val child = emit_(p.getInput)
+//      val childBinding: Binding = child._1
+//      val childOp = child._2
+//      //TODO Could also use p.getNamedProjects
+//      val exprs = p.getProjects
+//      val exprsJS: JValue = exprs.asScala.map {
+//        e => emitExpression(e,List(childBinding))
+//      }
+//
+//      val json = op ~ ("tupleType", rowType) ~ ("e", exprsJS) ~ ("input" , childOp)
+//      val binding: Binding = Binding(alias,getFields(p.getRowType))
+//      val ret: (Binding, JValue) = (binding,json)
+//      ret
+//    }
+//    case a: EnumerableAggregate => {
+//      val op = ("operator" , "agg")
+//      val child = emit_(a.getInput)
+//      val childBinding: Binding = child._1
+//      val childOp = child._2
+//
+//      val groups: List[Integer] = a.getGroupSet.toList.asScala.toList
+//      val groupsJS: JValue = groups.map {
+//        g => emitArg(g,List(childBinding))
+//      }
+//
+//      val aggs: List[AggregateCall] = a.getAggCallList.asScala.toList
+//      val aggsJS = aggs.map {
+//        agg => emitAggExpression(agg,List(childBinding))
+//      }
+//      val alias = "agg"+a.getId
+//      val rowType = emitSchema(alias, a.getRowType)
+//
+//      val json = op ~ ("tupleType", rowType) ~ ("groups", groupsJS) ~ ("aggs", aggsJS) ~ ("input" , childOp)
+//      val binding: Binding = Binding(alias,getFields(a.getRowType))
+//      val ret: (Binding, JValue) = (binding,json)
+//      ret
+//    }
+//    case j: EnumerableJoin => {
+//      val op = ("operator" , "join")
+//      val l = emit_(j.getLeft)
+//      val leftBinding: Binding = l._1
+//      val leftChildOp = l._2
+//      val r = emit_(j.getRight)
+//      val rightBinding: Binding = r._1
+//      val rightChildOp = r._2
+//      val cond = emitExpression(j.getCondition,List(leftBinding,rightBinding))
+//      val alias = "join"+j.getId
+//      val rowType = emitSchema(alias, j.getRowType)
+//
+//      val json = op ~ ("tupleType", rowType) ~ ("cond", cond) ~ ("left" , leftChildOp) ~ ("right" , rightChildOp)
+//      val binding: Binding = Binding(alias,leftBinding.fields ++ rightBinding.fields)
+//      val ret: (Binding, JValue) = (binding,json)
+//      ret
+//    }
+//    case f: EnumerableFilter => {
+//      val op = ("operator" , "select")
+//      val child = emit_(f.getInput)
+//      val childBinding: Binding = child._1
+//      val childOp = child._2
+//      val rowType = emitSchema(childBinding.rel, f.getRowType)
+//      val cond = emitExpression(f.getCondition,List(childBinding))
+//
+//      val json = op ~ ("tupleType", rowType) ~ ("cond", cond) ~ ("input", childOp)
+//      val ret: (Binding, JValue) = (childBinding,json)
+//      ret
+//    }
+//    case s : EnumerableTableScan => {
+//      val op = ("operator" , "scan")
+//      //TODO Cross-check: 0: schemaName, 1: tableName (?)
+//      val srcName = s.getTable.getQualifiedName.get(1)
+//      val rowType = emitSchema(srcName, s.getRowType)
+//
+//      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
+//      val binding: Binding = Binding(srcName,getFields(s.getRowType))
+//      val ret: (Binding, JValue) = (binding,json)
+//      ret
+//    }
+//    case s : PelagoTableScan => {
+//      val op = ("operator" , "scan")
+//      //TODO Cross-check: 0: schemaName, 1: tableName (?)
+//      val srcName  = s.getPelagoRelName //s.getTable.getQualifiedName.get(1)
+//      val rowType  = emitSchema(srcName, s.getRowType)
+//      val plugin   = Extraction.decompose(s.getPluginInfo.asScala)
+//      val linehint = s.getLineHint.longValue
+//
+//      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName) ~ ("plugin", plugin) ~ ("linehint", linehint)
+//      val binding: Binding = Binding(srcName,getFields(s.getRowType))
+//      val ret: (Binding, JValue) = (binding,json)
+//      ret
+//    }
+//    case s : BindableTableScan => {
+//      val op = ("operator" , "scan")
+//      //TODO Cross-check: 0: schemaName, 1: tableName (?)
+//      val srcName = s.getTable.getQualifiedName.get(1)
+//      val rowType = emitSchema(srcName, s.getRowType)
+//
+//      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
+//      val binding: Binding = Binding(srcName,getFields(s.getRowType))
+//      val ret: (Binding, JValue) = (binding,json)
+//      ret
+//    }
     case i : EnumerableInterpreter => {
       emit_(i.getInput)
     }

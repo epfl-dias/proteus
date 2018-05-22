@@ -62,7 +62,7 @@ public class PelagoTypeParser {
     }
 
     public static RelDataType parseBoolean(RelDataTypeFactory typeFactory, Map<String, ?> type){
-        assert(type.getOrDefault("type", null).equals("boolean"));
+        assert(type.getOrDefault("type", null).equals("bool"));
         RelDataType javaType = typeFactory.createJavaType(Primitive.BOOLEAN.boxClass);
         RelDataType sqlType = typeFactory.createSqlType(javaType.getSqlTypeName());
         return typeFactory.createTypeWithNullability(sqlType, true);

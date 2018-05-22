@@ -1,15 +1,15 @@
 {
   "version": "1.0",
-  "defaultSchema": "SALES",
+  "defaultSchema": "SSB",
   "schemas": [
-    {
+    /*{
       "name": "SALES",
       "type": "custom",
       "factory": "ch.epfl.dias.calcite.adapter.pelago.PelagoSchemaFactory",
       "operand": {
         "directory": "schema"
       }
-    },
+    },*/
     {
       "name": "SSB",
       "type": "custom",

@@ -6,8 +6,7 @@ import org.apache.calcite.adapter.enumerable.EnumerableRules
 import org.apache.calcite.config.Lex
 import org.apache.calcite.plan._
 import org.apache.calcite.prepare.CalcitePrepareImpl
-import org.apache.calcite.rel.RelCollationTraitDef
-import org.apache.calcite.rel.RelNode
+import org.apache.calcite.rel.{RelCollationTraitDef, RelDistributionTraitDef, RelDistributions, RelNode}
 import org.apache.calcite.rel.rules._
 import org.apache.calcite.rel.`type`.RelDataTypeSystem
 import org.apache.calcite.tools.Program
@@ -20,6 +19,7 @@ import org.apache.calcite.tools.Planner
 import org.apache.calcite.tools.Programs
 import org.apache.calcite.tools.RuleSets
 import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider
+
 import scala.collection.JavaConversions._
 import org.apache.calcite.config.CalciteConnectionConfig
 import org.apache.calcite.sql2rel.RelDecorrelator
@@ -46,6 +46,7 @@ class QueryToPlan(schema: SchemaPlus) {
       val traitDefs = new util.ArrayList[RelTraitDef[_ <: RelTrait]]
       traitDefs.add(ConventionTraitDef.INSTANCE)
       traitDefs.add(RelCollationTraitDef.INSTANCE)
+      traitDefs.add(RelDistributionTraitDef.INSTANCE)
 
       val rules = new util.ArrayList[RelOptRule]
       rules.add(ReduceExpressionsRule.CALC_INSTANCE)
@@ -76,7 +77,7 @@ class QueryToPlan(schema: SchemaPlus) {
        //join rules
       rules.add(JoinToMultiJoinRule.INSTANCE)
       rules.add(LoptOptimizeJoinRule.INSTANCE)
-      // //        MultiJoinOptimizeBushyRule.INSTANCE,
+       //        MultiJoinOptimizeBushyRule.INSTANCE,
       rules.add(JoinPushThroughJoinRule.RIGHT)
       rules.add(JoinPushThroughJoinRule.LEFT)
       /*choose between right and left*/
@@ -106,7 +107,7 @@ class QueryToPlan(schema: SchemaPlus) {
       rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE)
 //      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE) //FIMXE: no mergejoin yet
       rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE)
-//      rules.add(EnumerableRules.ENUMERABLE_SORT_RULE)       //FIMXE: no support for SORT yet
+      rules.add(EnumerableRules.ENUMERABLE_SORT_RULE)       //FIMXE: no support for SORT yet
 //      rules.add(EnumerableRules.ENUMERABLE_UNION_RULE)      //FIMXE: no support for UNION yet
 //      rules.add(EnumerableRules.ENUMERABLE_INTERSECT_RULE)  //FIMXE: no support for INTERSECT yet
 //      rules.add(EnumerableRules.ENUMERABLE_MINUS_RULE)      //FIMXE: no support for MINUS yet
@@ -114,88 +115,91 @@ class QueryToPlan(schema: SchemaPlus) {
       rules.add(EnumerableRules.ENUMERABLE_UNCOLLECT_RULE)
       rules.add(EnumerableRules.ENUMERABLE_CORRELATE_RULE)
       rules.add(EnumerableRules.ENUMERABLE_VALUES_RULE)
-      rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE)
       
-      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE)
-      rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE)
-      rules.add(EnumerableRules.ENUMERABLE_CORRELATE_RULE)
-      rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE)
-      rules.add(EnumerableRules.ENUMERABLE_FILTER_RULE)
-      rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE)
-      rules.add(EnumerableRules.ENUMERABLE_SORT_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_CORRELATE_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_FILTER_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_SORT_RULE)
 //      rules.add(EnumerableRules.ENUMERABLE_LIMIT_RULE)
       rules.add(EnumerableRules.ENUMERABLE_UNION_RULE)
       rules.add(EnumerableRules.ENUMERABLE_INTERSECT_RULE)
       rules.add(EnumerableRules.ENUMERABLE_MINUS_RULE)
       rules.add(EnumerableRules.ENUMERABLE_TABLE_MODIFICATION_RULE)
-      rules.add(EnumerableRules.ENUMERABLE_VALUES_RULE)
+//      rules.add(EnumerableRules.ENUMERABLE_VALUES_RULE)
 //      rules.add(EnumerableRules.ENUMERABLE_WINDOW_RULE)
 
-      val program1 = new Program {
-        def run(
-            planner: RelOptPlanner,
-            rel: RelNode,
-            requiredOutputTraits: RelTraitSet,
-            materializations: util.List[RelOptMaterialization],
-            lattices: util.List[RelOptLattice]
-          ): RelNode = {
-          planner.setRoot(rel);
-
-          for (materialization <- materializations) {
-            planner.addMaterialization(materialization);
-          }
-          for (lattice <- lattices) {
-            planner.addLattice(lattice);
-          }
-
-          val rootRel2: RelNode =
-              if (rel.getTraitSet().equals(requiredOutputTraits)) rel
-              else planner.changeTraits(rel, requiredOutputTraits);
-
-          planner.setRoot(rootRel2);
-          planner.chooseDelegate().findBestExp()
-        }
-      }
-
-      val decorrelateProgram = new Program {
-        def run(
-            planner: RelOptPlanner,
-            rel: RelNode,
-            requiredOutputTraits: RelTraitSet,
-            materializations: util.List[RelOptMaterialization],
-            lattices: util.List[RelOptLattice]
-          ): RelNode = {
-          val config = planner.getContext().unwrap(classOf[CalciteConnectionConfig])
-          if (config != null && config.forceDecorrelate()) 
-            RelDecorrelator.decorrelateQuery(rel)
-          else 
-            rel
-        }
-      }
-
-      val trimFieldsProgram = new Program {
-        def run(
-            planner: RelOptPlanner,
-            rel: RelNode,
-            requiredOutputTraits: RelTraitSet,
-            materializations: util.List[RelOptMaterialization],
-            lattices: util.List[RelOptLattice]
-          ): RelNode = {
-          val relBuilder = RelFactories.LOGICAL_BUILDER.create(rel.getCluster(), null);
-          new RelFieldTrimmer(null, relBuilder).trim(rel);
-        }
-      }
+//      val program1 = new Program {
+//        def run(
+//            planner: RelOptPlanner,
+//            rel: RelNode,
+//            requiredOutputTraits: RelTraitSet,
+//            materializations: util.List[RelOptMaterialization],
+//            lattices: util.List[RelOptLattice]
+//          ): RelNode = {
+//          planner.setRoot(rel);
+//
+//          for (materialization <- materializations) {
+//            planner.addMaterialization(materialization);
+//          }
+//          for (lattice <- lattices) {
+//            planner.addLattice(lattice);
+//          }
+//
+//          System.out.println(rel.getTraitSet());
+//          System.out.println(requiredOutputTraits);
+//
+//          val rootRel2: RelNode =
+//              if (rel.getTraitSet().equals(requiredOutputTraits)) rel
+//              else planner.changeTraits(rel, requiredOutputTraits);
+//
+//          planner.setRoot(rootRel2);
+//          planner.chooseDelegate().findBestExp()
+//        }
+//      }
+//
+//      val decorrelateProgram = new Program {
+//        def run(
+//            planner: RelOptPlanner,
+//            rel: RelNode,
+//            requiredOutputTraits: RelTraitSet,
+//            materializations: util.List[RelOptMaterialization],
+//            lattices: util.List[RelOptLattice]
+//          ): RelNode = {
+//          val config = planner.getContext().unwrap(classOf[CalciteConnectionConfig])
+//          if (config != null && config.forceDecorrelate())
+//            RelDecorrelator.decorrelateQuery(rel)
+//          else
+//            rel
+//        }
+//      }
+//
+//      val trimFieldsProgram = new Program {
+//        def run(
+//            planner: RelOptPlanner,
+//            rel: RelNode,
+//            requiredOutputTraits: RelTraitSet,
+//            materializations: util.List[RelOptMaterialization],
+//            lattices: util.List[RelOptLattice]
+//          ): RelNode = {
+//          val relBuilder = RelFactories.LOGICAL_BUILDER.create(rel.getCluster(), null);
+//          new RelFieldTrimmer(null, relBuilder).trim(rel);
+//        }
+//      }
 
 
       //Can mix & match (& add)
       // Sequence and programs used are based on Calcite's Programs.standard(): 
       // https://github.com/apache/calcite/blob/be2fe5f95827eb911c49887882268749b45e372b/core/src/main/java/org/apache/calcite/tools/Programs.java
       val program: Program = Programs.sequence(
-        Programs.subQuery(DefaultRelMetadataProvider.INSTANCE),
-        decorrelateProgram, // new DecorrelateProgram(),
-        trimFieldsProgram, // new TrimFieldsProgram(),
+//        Programs.subQuery(DefaultRelMetadataProvider.INSTANCE),
+//        decorrelateProgram, // new DecorrelateProgram(),
+//        trimFieldsProgram, // new TrimFieldsProgram(),
         Programs.heuristicJoinOrder(rules, false, 3),
-        // program1,
+//        program1,
 
         // // Second planner pass to do physical "tweaks". This the first time that
         // // EnumerableCalcRel is introduced.
@@ -207,7 +211,7 @@ class QueryToPlan(schema: SchemaPlus) {
         .parserConfig(SqlParser.configBuilder().setLex(Lex.MYSQL).build())
         .defaultSchema(schema)
         .operatorTable(SqlStdOperatorTable.instance())
-        //.traitDefs(traitDefs)
+//        .traitDefs(traitDefs)
         .context(Contexts.EMPTY_CONTEXT)
         // Rule sets to use in transformation phases.
         // Each transformation phase can use a different set of rules.
@@ -224,10 +228,10 @@ class QueryToPlan(schema: SchemaPlus) {
     val planner : Planner = Frameworks.getPlanner(config)
 
     def getLogicalPlan(query: String) : RelNode = {
-      System.out.println(planner)
       val sqlNode = planner.parse(query)
       val validatedSqlNode = planner.validate(sqlNode)
       planner.rel(validatedSqlNode).project
     }
 
 }
+//select count(*) from ssbm_lineorder, ssbm_date where lo_orderdate = d_datekey and d_year = 1997

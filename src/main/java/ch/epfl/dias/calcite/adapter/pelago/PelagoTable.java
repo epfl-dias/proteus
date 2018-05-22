@@ -2,7 +2,16 @@ package ch.epfl.dias.calcite.adapter.pelago;
 
 import ch.epfl.dias.calcite.adapter.pelago.types.PelagoTypeParser;
 import com.google.common.collect.Lists;
+import org.apache.calcite.DataContext;
+import org.apache.calcite.adapter.csv.CsvEnumerator;
+import org.apache.calcite.linq4j.*;
+import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelDeviceType;
+import org.apache.calcite.rel.RelDistribution;
+import org.apache.calcite.rel.RelDistributionTraitDef;
+import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -13,8 +22,10 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Source;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Based on:
@@ -79,9 +90,10 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
             RelOptTable.ToRelContext context,
             RelOptTable relOptTable) {
         // Request all fields.
+        context.getCluster().getPlanner().addRelTraitDef(RelDistributionTraitDef.INSTANCE);
         final int fieldCount = relOptTable.getRowType().getFieldCount();
         final int[] fields = identityList(fieldCount);
-        return new PelagoTableScan(context.getCluster(), relOptTable, this, fields);
+        return PelagoTableScan.create(context.getCluster(), relOptTable, this, fields);
     }
 
     public String getPelagoRelName(){
@@ -95,4 +107,24 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     public Long getLineHint(){
         return linehint;
     }
+
+    public Enumerable<Object[]> scan(DataContext root) {
+        final int[] fields = PelagoEnumerator.identityList(rowType.getFieldCount());
+        final AtomicBoolean cancelFlag = DataContext.Variable.CANCEL_FLAG.get(root);
+        return new AbstractEnumerable<Object[]>() {
+            public Enumerator<Object[]> enumerator() {
+                return new PelagoEnumerator<>(source, cancelFlag, false, null,
+                        new PelagoEnumerator.ArrayRowConverter(rowType.getFieldList(), fields, false));
+            }
+        };
+    }
+
+    public RelDeviceType   getDeviceType(){
+        return RelDeviceType.NVPTX;
+    }
+
+    public RelDistribution getDistribution(){
+        return RelDistributions.SINGLETON;
+    }
+
 }

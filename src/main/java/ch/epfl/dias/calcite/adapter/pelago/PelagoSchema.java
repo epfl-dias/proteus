@@ -2,12 +2,14 @@ package ch.epfl.dias.calcite.adapter.pelago;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.calcite.config.Lex;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.util.Source;
 import org.apache.calcite.util.Sources;
 
 import com.google.common.collect.ImmutableMap;
+import org.xml.sax.ext.LexicalHandler;
 
 import java.io.File;
 import java.nio.file.Paths;
@@ -48,8 +50,8 @@ public class PelagoSchema extends AbstractSchema {
     }
 
     for (Map.Entry<String, ?> e: catalog.entrySet()) {
-        System.out.println("Table Found: " + e.getKey());
-        System.out.println("   Row Type: " + ((Map<String, ?>) e.getValue()).get("type").toString());
+//        System.out.println("Table Found: " + e.getKey());
+//        System.out.println("   Row Type: " + ((Map<String, ?>) e.getValue()).get("type").toString());
         Map<String, ?> fileEntry = (Map<String, ?>) ((Map<String, ?>) e.getValue()).get("type");
         String fileType = (String) fileEntry.getOrDefault("type", null);
         if (!fileType.equals("bag")) {

@@ -1,0 +1,86 @@
+package ch.epfl.dias.calcite.adapter.pelago
+
+import ch.epfl.dias.emitter.Binding
+import ch.epfl.dias.emitter.PlanToJSON
+import com.google.common.base.Supplier
+import org.apache.calcite.adapter.java.JavaTypeFactory
+import org.apache.calcite.plan.RelOptCluster
+import org.apache.calcite.plan.RelOptCost
+import org.apache.calcite.plan.RelOptPlanner
+import org.apache.calcite.plan.RelTraitSet
+import org.apache.calcite.rel._
+import org.apache.calcite.rel.core.Project
+import org.apache.calcite.rel.metadata.{RelMdCollation, RelMdDeviceType, RelMdDistribution, RelMetadataQuery}
+import org.apache.calcite.rel
+import org.apache.calcite.rel.`type`.RelDataType
+import org.json4s.JsonDSL._
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
+import org.json4s.jackson.Serialization
+import org.apache.calcite.rex.RexNode
+import org.json4s.JsonAST
+
+import scala.collection.JavaConverters._
+import scala.Tuple2
+import java.util
+
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMdDeviceType
+import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, emit_, getFields}
+import org.apache.calcite.adapter.enumerable.EnumerableConvention
+
+/**
+  * Implementation of {@link org.apache.calcite.rel.core.Project}
+  * relational expression in Pelago.
+  */
+class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, projects: util.List[_ <: RexNode], rowType: RelDataType) //        assert getConvention() == input.getConvention();
+  extends Project(cluster, traitSet, input, projects, rowType) with PelagoRel {
+//  assert(getConvention eq PelagoRel.CONVENTION)
+
+  override def copy(traitSet: RelTraitSet, input: RelNode, projects: util.List[RexNode], rowType: RelDataType) = {
+    PelagoProject.create(input, projects, rowType)
+  }
+
+  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = super.computeSelfCost(planner, mq).multiplyBy(0.1)
+
+  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
+
+  //almost 0 cost in Pelago
+  override def implement: (Binding, JsonAST.JValue) = {
+    val op = ("operator" , "projection")
+    val alias = "projection"+getId
+    val rowType = emitSchema(alias, getRowType)
+    val child = getInput.asInstanceOf[PelagoRel].implement
+    val childBinding: Binding = child._1
+    val childOp = child._2
+    //TODO Could also use p.getNamedProjects
+    val exprs = getProjects
+    val exprsJS: JValue = exprs.asScala.map {
+      e => emitExpression(e,List(childBinding))
+    }
+
+    val json = op ~ ("tupleType", rowType) ~ ("e", exprsJS) ~ ("input" , childOp)
+    val binding: Binding = Binding(alias,getFields(getRowType))
+    val ret: (Binding, JValue) = (binding,json)
+    ret
+  }
+}
+
+
+object PelagoProject{
+  def create(input: RelNode, projects: util.List[_ <: RexNode], rowType: RelDataType): PelagoProject = {
+    val cluster  = input.getCluster
+    val mq       = cluster.getMetadataQuery
+    val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
+      .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
+        override def get: RelDistribution = {
+          return RelMdDistribution.project(mq, input, projects)
+        }
+      })
+      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType]() {
+        override def get: RelDeviceType = {
+          return PelagoRelMdDeviceType.project(mq, input, projects)
+        }
+      });
+    new PelagoProject(cluster, traitSet, input, projects, rowType)
+  }
+}
