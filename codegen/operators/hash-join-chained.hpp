@@ -24,8 +24,6 @@
 #ifndef HASH_JOIN_CHAINED_HPP_
 #define HASH_JOIN_CHAINED_HPP_
 
-#include "cuda.h"
-#include "cuda_runtime_api.h"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 #include <unordered_map>

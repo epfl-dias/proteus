@@ -39,7 +39,13 @@
 #include "values/expressionTypes.hpp"
 #include "memory/memory-allocator.hpp"
 
+#include "llvm/LinkAllPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Vectorize.h"
 
 #define MODULEPASS 0
 

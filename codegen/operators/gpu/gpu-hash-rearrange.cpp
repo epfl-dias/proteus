@@ -273,6 +273,9 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     Value * numOfBucketsT = ConstantInt::get(thrd->getType(), numOfBuckets);
     Value * cond = Builder->CreateICmpULT(thrd, numOfBucketsT);
 
+    std::vector<Value *> idx      {context->createInt32(0), thrd};
+    std::vector<Value *> idxStored{context->blockId()     , thrd};
+    
     Builder->CreateCondBr(cond, initBB, endIBB);
 
     Builder->SetInsertPoint(initBB);
@@ -280,8 +283,6 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     Function * get_buffers = context->getFunction("get_buffers");
     Function * syncthreads = context->getFunction("syncthreads");
 
-    std::vector<Value *> idx      {context->createInt32(0), thrd};
-    std::vector<Value *> idxStored{context->blockId()     , thrd};
     for (size_t i = 0 ; i < buffs.size() ; ++i){
         Value * buff_thrd        = Builder->CreateInBoundsGEP(buffs[i], idx);
         Value * stored_buff_thrd = Builder->CreateInBoundsGEP(context->getStateVar(buffVar_id[i]), idxStored);

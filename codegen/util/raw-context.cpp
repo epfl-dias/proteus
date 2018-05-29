@@ -22,6 +22,9 @@
 */
 
 #include "util/raw-context.hpp"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/Passes.h"
+#include "llvm/IR/Verifier.h"
 
 bool print_generated_code = true;
 

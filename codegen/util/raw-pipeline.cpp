@@ -6,6 +6,7 @@
 #include "util/raw-memory-manager.hpp"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Support/TargetSelect.h"
 
 size_t RawPipelineGen::appendParameter(llvm::Type * ptype, bool noalias, bool readonly){
     inputs.push_back(ptype);
@@ -214,7 +215,8 @@ void RawPipelineGen::init(){
     initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
     initializeGlobalMergePass(Registry);
     initializeInterleavedAccessPass(Registry);
-    initializeCountingFunctionInserterPass(Registry);
+    initializeEntryExitInstrumenterPass(Registry);
+    initializePostInlineEntryExitInstrumenterPass(Registry);
     initializeUnreachableBlockElimLegacyPassPass(Registry);
     initializeExpandReductionsPass(Registry);
 }

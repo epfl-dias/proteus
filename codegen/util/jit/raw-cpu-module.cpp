@@ -24,6 +24,9 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/Passes.h"
+#include "llvm/IR/PassManager.h"
 
 #include "util/jit/raw-cpu-module.hpp"
 
@@ -97,7 +100,8 @@ void RawCpuModule::init(){
     TheTargetMachine = (LLVMTargetMachine *) Target->createTargetMachine(TargetTriple, CPU, 
                                                     "",//Features.getString(), //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
                                                     opt, RM, 
-                                                    CodeModel::Model::Default, 
+                                                    Optional<CodeModel::Model>{},//CodeModel::Model::Default, 
+                                                    // CodeModel::Model::Default, 
                                                     CodeGenOpt::Aggressive);
 
                                   // // Override function attributes based on CPUStr, FeaturesStr, and command line

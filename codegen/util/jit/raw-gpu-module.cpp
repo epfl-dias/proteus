@@ -24,6 +24,9 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/Passes.h"
+#include "llvm/IR/PassManager.h"
 
 #include "multigpu/buffer_manager.cuh" //initializeModule
 
@@ -105,7 +108,7 @@ void RawGpuModule::init(){
     TheTargetMachine = (LLVMTargetMachine *) Target->createTargetMachine(TargetTriple, GPU, 
                                                     "+ptx50,+satom", //PTX 5.0 + Scoped Atomics
                                                     opt, RM, 
-                                                    CodeModel::Model::Default, 
+                                                    Optional<CodeModel::Model>{},//CodeModel::Model::Default, 
                                                     CodeGenOpt::Aggressive);
 
                                   // // Override function attributes based on CPUStr, FeaturesStr, and command line
