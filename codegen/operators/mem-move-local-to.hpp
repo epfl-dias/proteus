@@ -53,11 +53,12 @@ public:
 
     MemMoveLocalTo(  RawOperator * const             child,
                     GpuRawContext * const           context,
-                    const vector<RecordAttribute*> &wantedFields) :
+                    const vector<RecordAttribute*> &wantedFields,
+                    size_t                          slack = 8) :
                         UnaryRawOperator(child), 
                         context(context), 
                         wantedFields(wantedFields),
-                        slack(8){}
+                        slack(slack){}
 
     virtual ~MemMoveLocalTo()                                             { LOG(INFO)<<"Collapsing MemMoveLocalTo operator";}
 

@@ -54,11 +54,12 @@ public:
     MemMoveDevice(  RawOperator * const             child,
                     GpuRawContext * const           context,
                     const vector<RecordAttribute*> &wantedFields,
+                    size_t                          slack,
                     bool                            to_cpu) :
                         UnaryRawOperator(child), 
                         context(context), 
                         wantedFields(wantedFields),
-                        slack(8), to_cpu(to_cpu){}
+                        slack(slack), to_cpu(to_cpu){}
 
     virtual ~MemMoveDevice()                                             { LOG(INFO)<<"Collapsing MemMoveDevice operator";}
 
