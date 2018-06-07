@@ -81,6 +81,7 @@ link_directories(
 
 link_directories(
 	"/usr/local/cuda/lib64"
+	"/usr/local/cuda/lib64/stubs"
 	"/usr/local/cuda/nvvm/lib64"
 	"/usr/local/cuda/nvml/lib64"
 	"/opt/intel/vtune_amplifier/lib64"
