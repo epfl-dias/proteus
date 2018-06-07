@@ -70,7 +70,9 @@ protected:
 		caches->clear();
 	}
 
-	virtual void TearDown() {}
+	virtual void TearDown() {
+		StorageManager::unloadAll();
+	}
 
 	bool executePlan(const char * planPath, const char * testLabel, const char * catalogJSON) {
 		std::vector<RawPipeline *> pipelines;

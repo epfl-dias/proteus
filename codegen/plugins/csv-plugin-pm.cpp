@@ -67,27 +67,30 @@ CSVPlugin::CSVPlugin(RawContext* const context, string& fname, RecordType& rec,
 			throw runtime_error(error_msg);
 		}
 
-		/* -1 bc field 0 does not have to be indexed */
-		int pmFields = (rec.getArgsNo() / policy) - 1;
-		if (pmFields < 0) {
-			string error_msg = "[CSVPlugin: ] Erroneous PM policy";
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(error_msg);
-		}
-		LOG(INFO)<< "PM will have " << pmFields << " field(s)";
-		pm = (short**) malloc(lines * sizeof(short*));
-		short *pm_ = (short*) malloc(lines * pmFields * sizeof(short));
-		for (size_t i = 0; i < lines; i++) {
-			pm[i] = (pm_ + i * pmFields);
-		}
+		if (fd != -1){
+			/* -1 bc field 0 does not have to be indexed */
+			int pmFields = (rec.getArgsNo() / policy) - 1;
+			if (pmFields < 0) {
+				std::cout << pmFields << " " << rec.getArgsNo() << " " << policy << std::endl;
+				string error_msg = "[CSVPlugin: ] Erroneous PM policy";
+				LOG(ERROR)<< error_msg;
+				throw runtime_error(error_msg);
+			}
+			LOG(INFO)<< "PM will have " << pmFields << " field(s)";
+			pm = (short**) malloc(lines * sizeof(short*));
+			short *pm_ = (short*) malloc(lines * pmFields * sizeof(short));
+			for (size_t i = 0; i < lines; i++) {
+				pm[i] = (pm_ + i * pmFields);
+			}
 
-		/* Store PM in cache */
-		/* To be used by subsequent queries */
-		pmCSV *pmStruct = new pmCSV();
-		pmStruct->newlines = newlines;
-		pmStruct->offsets = pm;
-		pmCast = (char*) pmStruct;
-		cache.registerPM(fname, pmCast);
+			/* Store PM in cache */
+			/* To be used by subsequent queries */
+			pmCSV *pmStruct = new pmCSV();
+			pmStruct->newlines = newlines;
+			pmStruct->offsets = pm;
+			pmCast = (char*) pmStruct;
+			cache.registerPM(fname, pmCast);
+		}
 	} else {
 		//cout << "(CSV) PM REUSE" << endl;
 		hasPM = true;

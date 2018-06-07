@@ -125,7 +125,12 @@
 					"attrNo": 3
 				}
 			}
-		}]
+		}],
+		"register_as": {
+			"attrName": "output",
+			"relName": "outRel",
+			"attrNo": -1
+		}
 	}],
 	"operator": "reduce",
 	"accumulator": ["bagunion"],

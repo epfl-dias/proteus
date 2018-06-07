@@ -1350,9 +1350,10 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		MapToVec(mapOids, oids);
 		/* FIXME This constructor breaks nest use cases that trigger caching */
 		/* Check similar hook in radix-nest.cpp */
-//		Materializer *mat =
-//				new Materializer(fieldsToMat, exprsToMat, oids, outputModes);
-		Materializer* matCoarse = new Materializer(exprsToMat);
+		Materializer *matCoarse =
+				new Materializer(fieldsToMat, exprsToMat, oids, outputModes);
+		
+		// Materializer* matCoarse = new Materializer(exprsToMat);
 
 		//Put operator together
 		const char *opLabel = "radixNest";

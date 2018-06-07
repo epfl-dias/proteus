@@ -285,8 +285,8 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 // 		for (; it2 != wantedFields.end(); it2++) {
         for (const auto &expr2: mat.getWantedExpressions()) {
 			// RecordAttribute *attr = *it2;
-//			cout << "Dealing with " << attr->getRelationName() << "_"
-//					<< attr->getAttrName() << endl;
+			// cout << "Dealing with " << expr2->getRegisteredAs().getRelationName() << "_"
+			// 		<< expr2->getRegisteredAs().getAttrName() << endl;
 
 			// string currField = (*it2)->getName();
             string currField = expr2->getRegisteredAttrName();
@@ -659,6 +659,8 @@ void Nest::probeHT() const	{
                     Value * val_cond = context->createTrue();
 
                     for (const auto &k: f_grouping_vec){
+                        // std::cout << "===> " << k->getRegisteredAs().getRelationName() << " " << k->getRegisteredAs().getAttrName() <<std::endl;
+                        // for (const auto &t: currKeyState->getBindings()) std::cout << t.first.getRelationName() << " " << t.first.getAttrName() <<std::endl;
                         RawValueMemory currKeyMem = currKeyState->getBindings().at(k->getRegisteredAs());
                         Value *        currKey    = Builder->CreateLoad(currKeyMem.mem);
                         RawValueMemory retrKeyMem = retrievedState->getBindings().at(k->getRegisteredAs());
@@ -762,17 +764,20 @@ void Nest::probeHT() const	{
                             acc_value.value  = Builder->CreateLoad(mem_accumulating);
                             acc_value.isNull = context->createFalse();
 
-                            const auto &f = retrievedState->getBindings().find(outputExpr->getRegisteredAs());
                             RawValue acc_value2;
-                            if (f != retrievedState->getBindings().end()){
-                                RawValueMemory mem_val = f->second;
-                                acc_value2.value = Builder->CreateLoad(mem_val.mem);
-                                acc_value2.isNull = mem_val.isNull;
-                                // itExpr++;
-                            } else {
-                                acc_value2 = outputExpr->accept(outputExprGenerator);
+                            bool val_unset = true;
+                            if (outputExpr->isRegistered()){
+                                const auto &f = retrievedState->getBindings().find(outputExpr->getRegisteredAs());
+                                if (f != retrievedState->getBindings().end()){
+                                    RawValueMemory mem_val = f->second;
+                                    acc_value2.value = Builder->CreateLoad(mem_val.mem);
+                                    acc_value2.isNull = mem_val.isNull;
+                                    // itExpr++;
+                                    val_unset = false;
+                                }
                             }
 
+                            if (val_unset) acc_value2 = outputExpr->accept(outputExprGenerator);
 
                             // new_value = acc_value op outputExpr
                             expressions::Expression * val = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc_value);
