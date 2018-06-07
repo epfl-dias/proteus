@@ -152,7 +152,7 @@ TEST_F(PlanTest, Join) {
 	EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
-/* SELECT COUNT(*) FROM RESERVES GROUP BY sid; */
+/* SELECT COUNT(*) as count FROM RESERVES GROUP BY sid; */
 TEST_F(PlanTest, Nest) {
 	const char* planPath = "inputs/plans/reduce-nest.json";
 	const char *testLabel = "reduce-nest-log.json";
@@ -169,7 +169,7 @@ TEST_F(PlanTest, Select) {
 }
 
 /* Project out multiple cols:
- * SELECT COUNT(*), MAX(bid) FROM RESERVES GROUP BY sid; */
+ * SELECT COUNT(*) as outputCnt, MAX(bid) as outputMax FROM RESERVES GROUP BY sid; */
 TEST_F(PlanTest, MultiNest) {
 	const char* planPath = "inputs/plans/reduce-multinest.json";
 	const char *testLabel = "reduce-multinest-log.json";

@@ -2699,6 +2699,15 @@ void JSONPlugin::flushValueEager(RawValue valWrapper,
 		context->getBuilder()->CreateCall(flushFunc,ArgsV);
 		return;
 	}
+	case INT64:
+	{
+		vector<Value*> ArgsV;
+		flushFunc = context->getFunction("flushInt64");
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc,ArgsV);
+		return;
+	}
 	case DSTRING:
 	{
 		vector<Value*> ArgsV;

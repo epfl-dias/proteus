@@ -42,7 +42,7 @@
 			"attrName": "_groupCount",
 			"attrNo": 1
 		},
-		"todo_register_as": {
+		"register_as": {
 			"relName": "agg",
 			"attrName": "outputCnt",
 			"attrNo": -1
@@ -90,12 +90,17 @@
 			"attrName": "_groupMax",
 			"attrNo": 2
 		},
-		"todo_register_as": {
+		"register_as": {
 			"relName": "agg",
 			"attrName": "outputMax",
 			"attrNo": -1
 		}
 	}],
+	"plugin": {
+		"name": "agg",
+		"type": "json",
+		"lines": 4
+	},
 	"operator": "print",
 	"input": {
 		"operator": "nest",

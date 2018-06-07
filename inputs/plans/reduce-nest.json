@@ -34,8 +34,18 @@
       "relName": "radixNest",
       "attrName": "_groupCount",
       "attrNo": 1
+    },
+    "register_as": {
+      "relName": "output",
+      "attrName": "count",
+      "attrNo": 1
     }
   }],
+  "plugin": {
+    "name": "output",
+    "type": "json",
+    "lines": 1
+  },
   "operator": "print",
   "input": {
     "operator": "nest",

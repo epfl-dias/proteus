@@ -249,6 +249,11 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		childOp->setParent(newOp);
 	} else if (strcmp(opName, "print") == 0) {
 		/* "Multi - reduce"! */
+		if (val.HasMember("plugin")){
+			assert(val["plugin"].IsObject());
+			parsePlugin(val["plugin"]);
+		}
+
 		/* parse operator input */
 		RawOperator* childOp = parseOperator(val["input"]);
 
@@ -2545,7 +2550,19 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 	const char *pgType = val[keyPgType].GetString();
 
 	//Lookup in catalog based on name
-	InputInfo *datasetInfo = (this->catalogParser).getInputInfo(datasetName);
+	InputInfo *datasetInfo = (this->catalogParser).getInputInfoIfKnown(datasetName);
+	bool pluginExisted = true;
+
+	if (!datasetInfo){
+		RecordType * rec = new RecordType();
+
+		datasetInfo            = new InputInfo()  ;
+		datasetInfo->exprType  = new BagType(*rec);
+		datasetInfo->path      = datasetName;
+
+		pluginExisted = false;
+	}
+
 	//Dynamic allocation because I have to pass reference later on
 	string *pathDynamicCopy = new string(datasetInfo->path);
 

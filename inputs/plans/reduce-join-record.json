@@ -110,6 +110,11 @@
 			"attrNo": -1
 		}
 	}],
+	"plugin": {
+		"name": "AB",
+		"type": "json",
+		"lines": 24
+	},
 	"operator": "print",
 	"input": {
 		"operator": "join",
