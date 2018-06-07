@@ -1634,6 +1634,13 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			num_of_targets = val["num_of_targets"].GetInt();
 		}
 
+		bool always_share = false;
+		if (val.HasMember("always_share")){
+			assert(val["always_share"].IsBool());
+			always_share = val["always_share"].GetBool();
+		}
+
+
 		std::string relName = projections[0]->getRelationName();
 
 		InputInfo * datasetInfo = (this->catalogParser).getOrCreateInputInfo(relName);
@@ -1645,7 +1652,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		datasetInfo->exprType = new BagType{*rec};
 		
 		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new MemBroadcastDevice(childOp, ((GpuRawContext *) this->ctx), projections, num_of_targets, to_cpu);
+		newOp =  new MemBroadcastDevice(childOp, ((GpuRawContext *) this->ctx), projections, num_of_targets, to_cpu, always_share);
 		childOp->setParent(newOp);
 	} else if(strcmp(opName,"mem-move-local-to") == 0) {
 		/* parse operator input */

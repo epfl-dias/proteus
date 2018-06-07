@@ -40,14 +40,18 @@ public:
     };
 
     struct MemMoveConf{
-        AsyncQueueSPSC<workunit *>  idle     ;
-        AsyncQueueSPSC<workunit *>  tran     ;
+        AsyncQueueSPSC<workunit *>              idle     ;
+        AsyncQueueSPSC<workunit *>              tran     ;
 
-        std::thread               * worker   ;
-        std::unordered_map<int, cudaStream_t> strm     ;
+        std::thread                           * worker   ;
+        std::unordered_map<int, cudaStream_t>   strm     ;
 
-        int                         num_of_targets;
-        bool                        to_cpu;
+        int                                     num_of_targets;
+        bool                                    to_cpu;
+        bool                                    always_share;
+
+        void                                  * targetbuffer[16];
+
         // cudaStream_t                strm2    ;
 
         // cudaEvent_t               * lastEvent;
@@ -62,14 +66,16 @@ public:
                     GpuRawContext * const           context,
                     const vector<RecordAttribute*> &wantedFields,
                     int                             num_of_targets,
-                    bool                            to_cpu) :
+                    bool                            to_cpu,
+                    bool                            always_share = false) :
                         UnaryRawOperator(child), 
                         context(context), 
                         wantedFields(wantedFields),
                         slack(8*num_of_targets),
-                        to_cpu(to_cpu){
+                        to_cpu(to_cpu),
+                        always_share(always_share){
         for (int i = 0 ; i < num_of_targets ; ++i){
-            targets.push_back(i);
+            targets.push_back(always_share ? 0 : i); //FIXME: this is not correct, only to be used for SSB-broadcast benchmark!!!!!!!!!
         }
     }
 
@@ -92,6 +98,7 @@ private:
 
     size_t                          slack        ;
     bool                            to_cpu       ;
+    bool                            always_share ;
 
     GpuRawContext * const context;
 

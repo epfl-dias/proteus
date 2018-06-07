@@ -2,6 +2,7 @@
 #include "common/common.hpp"
 #include <cassert>
 #include "multigpu/numa_utils.cuh"
+#include "util/raw-memory-manager.hpp"
 
 void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim, cudaStream_t strm){
     gpu_run(cuLaunchKernel(function, gridDim.x, gridDim.y, gridDim.z,
@@ -24,6 +25,7 @@ void launch_kernel(CUfunction function, void ** args){
 
 void launch_kernel_strm(CUfunction function, void ** args, cudaStream_t strm){
     launch_kernel(function, args, strm);
+    gpu_run(cudaStreamSynchronize(strm));
 }
 
 void launch_kernel_strm_single(CUfunction function, void ** args, cudaStream_t strm){
@@ -63,7 +65,8 @@ mmap_file::mmap_file(std::string name, data_loc loc): loc(loc){
 
     // gpu_run(cudaHostRegister(data, filesize, 0));
     if (loc == PINNED){
-        void * data2 = cudaMallocHost_local_to_cpu(filesize);
+        void * data2 = RawMemoryManager::mallocPinned(filesize);
+        // void * data2 = cudaMallocHost_local_to_cpu(filesize);
 
         memcpy(data2, data, filesize);
         munmap(data, filesize);
@@ -96,13 +99,31 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes, size_t offset
     }
 
     //Execute mmap
-    data     = mmap(NULL, filesize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, offset);
-    assert(data != MAP_FAILED);
+   {
+        time_block t("Tmmap: ");
+        data     = mmap(NULL, filesize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, offset);
+        assert(data != MAP_FAILED);
+    }
 
     // gpu_run(cudaHostRegister(data, filesize, 0));
     if (loc == PINNED){
-        void * data2 = cudaMallocHost_local_to_cpu(filesize);
+        void * data2;
+        {
+            time_block t("Talloc: ");
 
+
+            // {
+            //     time_block t("Tmmap_alloc: ");
+            //     data2 = mmap(NULL, filesize, PROT_READ | PROT_WRITE, MAP_HUGETLB | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+            //     assert(data2 != MAP_FAILED);
+            //     numa_tonode_memory(data2, filesize, numa_node_of_cpu(sched_getcpu()));
+            //     // void * mem = numa_alloc_onnode(size, device);
+            //     // assert(mem);
+            // }
+            // gpu_run(cudaHostRegister(data2, filesize, 0));
+            data2 = RawMemoryManager::mallocPinned(filesize);
+            // gpu_run(cudaMallocHost(&data2, filesize));
+        }
         memcpy(data2, data, filesize);
         munmap(data, filesize);
         close (fd  );
@@ -119,12 +140,63 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes, size_t offset
         close (fd  );
     }
 }
+// mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes, size_t offset = 0): loc(loc), filesize(bytes){
+//     time_block t("Topen (" + name + ", " + std::to_string(offset) + ":" + std::to_string(offset + filesize) + "): ");
+
+//     size_t real_filesize = ::getFileSize(name.c_str());
+//     assert(offset + filesize <= real_filesize);
+//     fd       = open(name.c_str(), O_RDONLY, 0);
+
+//     if (fd == -1){
+//         string msg("[Storage: ] Failed to open input file " + name);
+//         LOG(ERROR) << msg;
+//         throw runtime_error(msg);
+//     }
+
+//     // gpu_run(cudaHostRegister(data, filesize, 0));
+//     if (loc == PINNED){
+//         void * data2 = cudaMallocHost_local_to_cpu(filesize);
+        
+//         lseek(fd, offset, SEEK_SET);
+
+//         char * data3 = (char *) data2;
+//         void * fptr = ((char *) data2) + filesize;
+//         size_t rem  = filesize;
+//         while (data3 < fptr){
+//             ssize_t rc = read(fd, data3, rem);
+//             std::cout << SSIZE_MAX << " " << rc << " " << filesize << " " << rem << std::endl;
+//             assert(rc > 0);
+//             data3 += rc;
+//             rem   -= rc;
+//         }
+
+//         // memcpy(data2, data, filesize);
+//         // munmap(data, filesize);
+//         close (fd  );
+//         data = data2;
+//     } else {
+//         //Execute mmap
+//         data     = mmap(NULL, filesize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, offset);
+//         assert(data != MAP_FAILED);
+//     }
+
+//     gpu_data = data;
+
+//     if (loc == GPU_RESIDENT){
+//         std::cout << "Dataset on device: " << get_device() << std::endl;
+//         gpu_run(cudaMalloc(&gpu_data,       filesize                   ));
+//         gpu_run(cudaMemcpy( gpu_data, data, filesize, cudaMemcpyDefault));
+//         munmap(data, filesize);
+//         close (fd  );
+//     }
+// }
 
 mmap_file::~mmap_file(){
     if (loc == GPU_RESIDENT) gpu_run(cudaFree(gpu_data));
 
     // gpu_run(cudaHostUnregister(data));
-    if (loc == PINNED)       cudaFreeHost_local_to_cpu(data, filesize);
+    // if (loc == PINNED)       gpu_run(cudaFreeHost(data));
+    if (loc == PINNED)       RawMemoryManager::freePinned(data);
 
     if (loc == PAGEABLE){
         munmap(data, filesize);

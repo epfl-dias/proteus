@@ -3,6 +3,7 @@ foreach(target
 	tests-json
 	tests-cpu-ssb
 	tests-gpu-ssb
+	tests-hyb-ssb
 	tests-output
 	tests-plan-parsing
 	tests-multigpu-integration

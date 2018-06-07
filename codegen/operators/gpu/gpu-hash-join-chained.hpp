@@ -90,7 +90,7 @@ private:
     // GpuExprMaterializer *   probe_mat  ;
     GpuRawContext *         context;
 
-    std::unordered_map<int32_t, std::vector<void *>> confs;
+    std::vector<void *> confs[128];
 };
 
 #endif /* GPU_HASH_JOIN_CHAINED_HPP_ */

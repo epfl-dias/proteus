@@ -198,10 +198,12 @@ void runAndVerify(const char *testLabel, const char* planPath, const char * test
                 nvtxRangePushA("pip");
                 {
                     time_block t("T: ");
-    
+
                     p->open();
                     p->consume(0);
                     p->close();
+
+                    std::cout << dec;
                 }
                 nvtxRangePop();
             }

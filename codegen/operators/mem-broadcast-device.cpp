@@ -34,6 +34,11 @@ struct buff_pair_brdcst{
 };
 
 extern "C"{
+void step_mmc_mem_move_broadcast_device(MemBroadcastDevice::MemMoveConf * mmc){
+    if (!mmc->to_cpu) return;
+    for (size_t i = 0 ; i < 16 ; ++i) mmc->targetbuffer[i] = NULL; //FIXME: can be much much more simple and optimal if codegen'ed
+}
+
 buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int target_device, MemBroadcastDevice::MemMoveConf * mmc, bool disable_noop){
     if (!(mmc->to_cpu)){
         int dev = get_device(src);
@@ -66,11 +71,24 @@ buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int ta
             void * tmp = (void *) src;
             move_pages(0, 1, &tmp, NULL, &node, MPOL_MF_MOVE);
 
-            int target_node = numa_node_of_cpu(target_device);
-            if (node == target_node) {
-                if (!disable_noop) return buff_pair_brdcst{src, NULL};
+            int target_node = mmc->always_share ? 0 : numa_node_of_cpu(target_device);
+            if (mmc->always_share || node == target_node) {
+                if (!disable_noop) {
+                    mmc->targetbuffer[target_node] = src;
+                    return buff_pair_brdcst{src, NULL};
+                }
                 if (buffer_manager<int32_t>::share_host_buffer((int32_t *) src)) {
+                    std::cout << "sharing" << std::endl;
+                    mmc->targetbuffer[target_node] = src;
                     return buff_pair_brdcst{src, src};
+                }
+            } else {
+                char * dst = (char *) mmc->targetbuffer[target_node];
+                if (dst) {
+                    if (buffer_manager<int32_t>::share_host_buffer((int32_t *) dst)) {
+                        mmc->targetbuffer[target_node] = dst;
+                        return buff_pair_brdcst{dst, dst};
+                    }
                 }
             }
 
@@ -78,6 +96,7 @@ buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int ta
             assert(target_device >= 0);
             if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm[target_device], false);
 
+            mmc->targetbuffer[target_node] = buff;
             return buff_pair_brdcst{buff, src};
         }
     }
@@ -291,6 +310,9 @@ void MemBroadcastDevice::consume(RawContext* const context, const OperatorState&
         Value * Nloc            = Builder->CreateZExtOrBitCast(N, size->getType());
         size                    = Builder->CreateMul(size, Nloc);
 
+        Function *step_mmc = context->getFunction("step_mmc_mem_move_broadcast_device");
+        Builder->CreateCall(step_mmc, std::vector<Value *>{memmv});
+
         Value * any_noop        = context->createFalse();
         for (size_t t_i = 0 ; t_i < targets.size() ; ++t_i){
             Value * target_id = context->createInt32(targets[t_i]);
@@ -369,6 +391,7 @@ void MemBroadcastDevice::open (RawPipeline * pip){
 
     mmc->num_of_targets = targets.size();
     mmc->to_cpu         = to_cpu;
+    mmc->always_share   = always_share;
     // mmc->slack          = slack;
     // mmc->next_e         = 0;
     // // mmc->events         = new cudaEvent_t[slack];
@@ -425,9 +448,13 @@ void MemBroadcastDevice::close(RawPipeline * pip){
     // RawMemoryManager::freeGpu(s);
     std::cout << "MemBroadcastDevice:close4" << std::endl;
 
-    for (const auto &t: targets) {
-        gpu_run(cudaStreamSynchronize(mmc->strm[t]));
-        gpu_run(cudaStreamDestroy    (mmc->strm[t]));
+    if (!always_share){
+        for (const auto &t: targets) {
+            gpu_run(cudaStreamSynchronize(mmc->strm[t]));
+            gpu_run(cudaStreamDestroy    (mmc->strm[t]));
+        }
+    } else {
+        gpu_run(cudaStreamSynchronize(mmc->strm[0]));
     }
 
     std::cout << "MemBroadcastDevice:close2" << std::endl;

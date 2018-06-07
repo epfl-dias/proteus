@@ -555,7 +555,7 @@ void GpuHashJoinChained::open_build(RawPipeline * pip){
     }
 
     next_w_values.emplace_back(head);
-    confs.emplace(pip->getGroup(), next_w_values);
+    confs[pip->getGroup()] = next_w_values;
 
     gpu_run(cudaStreamSynchronize(strm));
     gpu_run(cudaStreamDestroy(strm));
