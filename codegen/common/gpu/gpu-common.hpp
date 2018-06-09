@@ -55,6 +55,9 @@ struct dim3{
     constexpr dim3(int x): x(x), y(1), z(1){}
 };
 
+struct alignas(16) int4{
+     int x, y, z, w;
+};
 
 inline void nvtxRangePushA(const char *x){}
 inline void nvtxRangePop  (){}
@@ -413,6 +416,55 @@ extern "C"{
     int get_ptr_device(const void *p);
     int get_ptr_device_or_rand_for_host(const void *p);
     int get_rand_core_local_to_ptr(const void *p);
+}
+
+template<typename T, typename... Args>
+__host__ T * cuda_new(int dev, Args... args){
+    if (dev >= 0){
+        set_device_on_scope d(dev);
+        T *tmp = new T(args...);
+        T *res;
+        gpu_run(cudaMalloc((void**) &res, sizeof(T)));
+        gpu_run(cudaMemcpy(res, tmp, sizeof(T), cudaMemcpyDefault));
+        gpu_run(cudaDeviceSynchronize());
+        free(tmp);  //NOTE: bad practice ? we want to allocate tmp by new to
+                    //      trigger initialization but we want to free the 
+                    //      corresponding memory after moving to device 
+                    //      without triggering the destructor
+        return res;
+    } else {
+        T *tmp = new T(args...);
+        T *res;
+        gpu_run(cudaMallocHost((void**) &res, sizeof(T)));
+        gpu_run(cudaMemcpy(res, tmp, sizeof(T), cudaMemcpyDefault));
+        gpu_run(cudaDeviceSynchronize());
+        free(tmp);  //NOTE: bad practice ? we want to allocate tmp by new to
+                    //      trigger initialization but we want to free the 
+                    //      corresponding memory after moving to device 
+                    //      without triggering the destructor
+        return res;
+        // return new T(args...);
+    }
+}
+
+
+template<typename T, typename... Args>
+__host__ void cuda_delete(T *obj, Args... args){
+    int device = get_device(obj);
+    if (device >= 0){
+        T *tmp = (T *) malloc(sizeof(T));
+        gpu_run(cudaDeviceSynchronize());
+        gpu_run(cudaMemcpy(tmp, obj, sizeof(T), cudaMemcpyDefault));
+        gpu_run(cudaFree(obj));
+        delete tmp;
+    } else {
+        T *tmp = (T *) malloc(sizeof(T));
+        gpu_run(cudaDeviceSynchronize());
+        gpu_run(cudaMemcpy(tmp, obj, sizeof(T), cudaMemcpyDefault));
+        gpu_run(cudaFreeHost(obj));
+        delete tmp;
+        // delete obj;
+    }
 }
 
 #endif /* GPU_COMMON_HPP_ */
