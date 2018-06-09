@@ -18,6 +18,8 @@ foreach(target
 		)
 endforeach(target)
 
+# find_package(VTune)
+
 # find_package(CUDA REQUIRED)
 # set(CUDA_HOST_COMPILER "g++") #FIXME: workaround as nvcc does not support the current clang version
 

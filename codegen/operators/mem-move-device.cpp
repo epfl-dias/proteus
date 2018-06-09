@@ -438,9 +438,7 @@ void MemMoveDevice::catcher(MemMoveConf * mmc, int group_id, const exec_location
 
             gpu_run(cudaEventSynchronize(p->event));
             nvtxRangePushA("memmove::catch_cons");
-            std::cout << *((void **) p->data) << " " << get_device(*((void **) p->data)) << " Started.............................." << std::endl;
             pip->consume(0, p->data);
-            std::cout << *((void **) p->data) << " " << get_device(*((void **) p->data)) << " Finished............................." << std::endl;
             nvtxRangePop();
 
             releaseWorkUnit(mmc, p); //FIXME: move this inside the generated code

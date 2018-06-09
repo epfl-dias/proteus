@@ -579,7 +579,7 @@ extern "C"{
     cudaStream_t    createCudaStream(){
 #ifndef NCUDA
         cudaStream_t strm;
-        gpu(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+        gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
         return strm;
 #else
         assert(false);
@@ -588,11 +588,11 @@ extern "C"{
     }
 
     void            sync_strm(cudaStream_t strm){
-        gpu(cudaStreamSynchronize(strm));
+        gpu_run(cudaStreamSynchronize(strm));
     }
 
     void            destroyCudaStream(cudaStream_t strm){
-        gpu(cudaStreamSynchronize(strm));
-        gpu(cudaStreamDestroy    (strm));
+        gpu_run(cudaStreamSynchronize(strm));
+        gpu_run(cudaStreamDestroy    (strm));
     }
 }

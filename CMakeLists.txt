@@ -99,7 +99,7 @@ set(CUDA_libs -lnvToolsExt -lcuda -lcudart -lnvidia-ml -lcudadevrt -lnvvm)
 set(CUDA "CUDA-FOUND")
 else()
 message("Warning: Building without support for GPUs (nvcc not detected)")
-set(CUDA_CXXFLAGS "-DNCUDA")
+set(CUDA_CXXFLAGS "-x c++ -DNCUDA")
 set(CUDA "CUDA-NOTFOUND")
 endif()
 
@@ -113,7 +113,7 @@ set(LLVM_CFLAGS "${LLVM_CFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS}")
 
 
 # set(default_libs codegen -lpthread -lnuma -lnvToolsExt -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -lcuda -lcudart -lnvidia-ml -lcudadevrt -ldl -lrt -lnvvm -pthread -littnotify)
-set(default_libs codegen -lpthread ${CUDA_libs} -lnuma -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -ldl -lrt -pthread -littnotify)
+set(default_libs codegen -lpthread ${CUDA_libs} -lnuma -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -ldl -lrt -pthread) #-littnotify
 set(gtest_libs -lgtest libgtest_main.a ${default_libs})
 
 #-----------------------------------------------------------------------

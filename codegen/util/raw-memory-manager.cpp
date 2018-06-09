@@ -28,7 +28,7 @@
 constexpr size_t freed_cache_cap      = 16;
 
 void RawMemoryManager::init(){
-    buffer_manager<int32_t>::init(256, 4*4*1024); // (*4*4, )
+    buffer_manager<int32_t>::init(256, 1024); // (*4*4, *4*4)
     int gpus = get_num_of_gpus();
     int cpus = numa_num_task_nodes();
     gpu_managers = new SingleGpuMemoryManager *[gpus];

@@ -32,8 +32,6 @@
 
 // #include "nvToolsExt.h"
 
-#include <ittnotify.h>
-
 // #include "llvm/DerivedTypes.h"
 // Step 2. Use the TEST macro to define your tests.
 //

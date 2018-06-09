@@ -95,17 +95,16 @@ add_custom_command(OUTPUT buffer_manager.cubin.o
                    # WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                    )
 
-# add_subdirectory(multigpu)
-endif()
-
 add_custom_target(buffer_manager     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin)
 add_custom_target(buffer_manager_obj DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o)
 
-if (${CUDA} STREQUAL "CUDA-NOTFOUND")
-    add_library(codegen SHARED ${codegen_src})
+
+add_library(codegen SHARED ${codegen_src} ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o ${CMAKE_CURRENT_BINARY_DIR}/sort-util.o)
+# add_subdirectory(multigpu)
 else()
-    add_library(codegen SHARED ${codegen_src} ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o ${CMAKE_CURRENT_BINARY_DIR}/sort-util.o)
+    add_library(codegen SHARED ${codegen_src})
 endif()
+
 set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
 
 target_link_libraries(codegen jsmn) # multigpu)

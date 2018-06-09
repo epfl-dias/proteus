@@ -26,7 +26,13 @@
 #include "storage/raw-storage-manager.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 #include "plan/plan-parser.hpp"
-#include <ittnotify.h>
+#if __has_include("ittnotify.h")
+#   include <ittnotify.h>
+#else
+#   define __itt_resume() ((void) 0)
+#   define __itt_pause()  ((void) 0)
+#endif
+
 
 //https://stackoverflow.com/a/25829178/1237824
 std::string trim(const std::string& str){

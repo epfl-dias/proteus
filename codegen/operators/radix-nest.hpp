@@ -134,7 +134,7 @@ private:
 
 	vector<string> aggregateLabels;
 
-	const char *htName;
+	std::string  htName;
 	Materializer mat;
 	GpuRawContext * context;
 	RadixJoinBuild * build;
