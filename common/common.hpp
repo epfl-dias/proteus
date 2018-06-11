@@ -220,4 +220,81 @@ public:
 
 std::ostream &operator<<(std::ostream &out, const bytes &b);
 
+struct log_info;
+
+
+// <0  : point event
+// >=0 : start/stop events
+//     : % 2 == 0 ---> start
+//     : % 2 == 1 ---> stop 
+enum log_op {
+    EXCHANGE_PRODUCE             = -1,
+    EXCHANGE_CONSUME_OPEN_START  = 0,
+    EXCHANGE_CONSUME_OPEN_END    = 1,
+    EXCHANGE_CONSUME_CLOSE_START = 2,
+    EXCHANGE_CONSUME_CLOSE_END   = 3,
+    EXCHANGE_CONSUME_START       = 4,
+    EXCHANGE_CONSUME_END         = 5,
+    EXCHANGE_CONSUMER_WAIT_START = 6,
+    EXCHANGE_CONSUMER_WAIT_END   = 7,
+    EXCHANGE_PRODUCER_WAIT_START = 8,
+    EXCHANGE_PRODUCER_WAIT_END   = 9,
+    EXCHANGE_PRODUCER_WAIT_FOR_FREE_START = 10,
+    EXCHANGE_CONSUMER_WAIT_FOR_FREE_END   = 11,
+    MEMORY_MANAGER_ALLOC_PINNED_START     = 12,
+    MEMORY_MANAGER_ALLOC_PINNED_END       = 13,
+    MEMORY_MANAGER_ALLOC_GPU_START        = 14,
+    MEMORY_MANAGER_ALLOC_GPU_END          = 15,
+    EXCHANGE_PRODUCE_START                = 16,
+    EXCHANGE_PRODUCE_END                  = 17,
+    EXCHANGE_PRODUCE_PUSH_START           = 18,
+    EXCHANGE_PRODUCE_PUSH_END             = 19,
+    EXCHANGE_INIT_CONS_START              = 20,
+    EXCHANGE_INIT_CONS_END                = 21,
+    MEMMOVE_OPEN_START                    = 22,
+    MEMMOVE_OPEN_END                      = 23,
+    MEMMOVE_CONSUME_WAIT_START            = 24,
+    MEMMOVE_CONSUME_WAIT_END              = 25,
+    MEMMOVE_CONSUME_START                 = 26,
+    MEMMOVE_CONSUME_END                   = 27,
+    MEMMOVE_CLOSE_START                   = 28,
+    MEMMOVE_CLOSE_END                     = 29,
+    MEMMOVE_CLOSE_CLEAN_UP_START          = 30,
+    MEMMOVE_CLOSE_CLEAN_UP_END            = 31,
+    CPU2GPU_OPEN_START                    = 32,
+    CPU2GPU_OPEN_END                      = 33,
+    CPU2GPU_CLOSE_START                   = 34,
+    CPU2GPU_CLOSE_END                     = 35,
+    EXCHANGE_JOIN_START                   = 36,
+    EXCHANGE_JOIN_END                     = 37,
+    KERNEL_LAUNCH_START                   = 38,
+    KERNEL_LAUNCH_END                     = 39,
+    THREADPOOL_THREAD_START               = 40,
+    THREADPOOL_THREAD_END                 = 41,
+    BLOCK2TUPLES_OPEN_START               = 42,
+    BLOCK2TUPLES_OPEN_END                 = 43,
+};
+
+// #define NLOG
+
+#ifndef NLOG
+class logger{
+    std::deque<log_info> *data;
+
+public:
+    logger();
+
+    // ~logger();
+
+    void log(void * dop, log_op op);
+};
+#else
+class logger{
+public:
+    inline void log(void * dop, log_op op){};
+};
+#endif
+
+extern thread_local logger rawlogger;
+
 #endif /* COMMON_HPP_ */

@@ -37,18 +37,23 @@ void CpuToGpu::produce() {
     Type  * charPtrType         = Type::getInt8PtrTy(llvmContext);
 
     ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){
+        rawlogger.log(this, log_op::CPU2GPU_OPEN_START);
         std::cout << "Cpu2Gpu:open" << std::endl;
         cudaStream_t strm;
         gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
         pip->setStateVar<void       *>(this->childVar_id, gpu_pip->getKernel());
         pip->setStateVar<cudaStream_t>(this->strmVar_id , strm                );
+        rawlogger.log(this, log_op::CPU2GPU_OPEN_END);
     });
 
     ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){
+
+        rawlogger.log(this, log_op::CPU2GPU_CLOSE_START);
         std::cout << "Cpu2Gpu:close" << std::endl;
         cudaStream_t strm = pip->getStateVar<cudaStream_t>(this->strmVar_id   );
         gpu_run(cudaStreamSynchronize(strm));
         gpu_run(cudaStreamDestroy    (strm));
+        rawlogger.log(this, log_op::CPU2GPU_CLOSE_END);
     });
     
     childVar_id = context->appendStateVar(charPtrType);

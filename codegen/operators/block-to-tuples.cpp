@@ -297,6 +297,7 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
 
 
 void BlockToTuples::open (RawPipeline * pip){
+    rawlogger.log(this, log_op::BLOCK2TUPLES_OPEN_START);
     int device = get_device();
 
     execution_conf ec = pip->getExecConfiguration();
@@ -321,6 +322,7 @@ void BlockToTuples::open (RawPipeline * pip){
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
         pip->setStateVar<void *>(old_buffs[i], buffs + i);
     }
+    rawlogger.log(this, log_op::BLOCK2TUPLES_OPEN_END  );
 }
 
 void BlockToTuples::close(RawPipeline * pip){

@@ -43,7 +43,7 @@ public:
 };
 
 constexpr size_t unit_capacity_gpu =  16*1024*1024;
-constexpr size_t unit_capacity_cpu = 256*1024*1024;
+constexpr size_t unit_capacity_cpu = 1024*1024*1024;
 
 template<typename allocator, size_t unit_cap = unit_capacity_gpu>
 class SingleDeviceMemoryManager{

@@ -28,7 +28,7 @@
 constexpr size_t freed_cache_cap      = 16;
 
 void RawMemoryManager::init(){
-    buffer_manager<int32_t>::init(256, 4*4*1024); // (*4*4, )
+    buffer_manager<int32_t>::init(256, 1024); // (*4*4, *4*4)
     int gpus = get_num_of_gpus();
     int cpus = numa_num_task_nodes();
     gpu_managers = new SingleGpuMemoryManager *[gpus];
@@ -82,11 +82,13 @@ constexpr inline size_t fixSize(size_t bytes){
 }
 
 void * RawMemoryManager::mallocGpu(size_t bytes){
+    rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_GPU_START);
     nvtxRangePushA("mallocGpu");
     bytes = fixSize(bytes);
     int dev = get_device();
     void * ptr = gpu_managers[dev]->malloc(bytes);
     nvtxRangePop();
+    rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_GPU_END);
     return ptr;
 }
 
@@ -99,13 +101,16 @@ void   RawMemoryManager::freeGpu  (void * ptr){
 }
 
 void * RawMemoryManager::mallocPinned(size_t bytes){
+    time_block t;
+    rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_START);
     nvtxRangePushA("mallocPinned");
     bytes = fixSize(bytes);
     int cpu  = sched_getcpu();
     int node = numa_node_of_cpu(cpu);
     void * ptr = cpu_managers[node]->malloc(bytes);
     nvtxRangePop();
-    std::cout << "Alloc: " << node << " " << ptr << std::endl;
+    rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_END);
+    std::cout << "Alloc: " << node << " " << ptr << " " << bytes << " "; //std::endl;
     return ptr;
 }
 
