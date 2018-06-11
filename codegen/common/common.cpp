@@ -142,5 +142,3 @@ void log_info::flush() const{
     global_log << timestamp << "," << dop << "," << tid << "," << cpu_id << "," << op << "\n";
 }
 #endif
-
-

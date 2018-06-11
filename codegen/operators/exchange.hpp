@@ -72,7 +72,8 @@ public:
         ready_pool_mutex    = new std::mutex             [numOfParents];
         ready_pool_cv       = new std::condition_variable[numOfParents];
         
-        int devices = get_num_of_gpus();
+        // int devices = get_num_of_gpus();
+        int devices = numa_num_task_nodes();
 
         for (int i = 0 ; i < numOfParents ; ++i){
             target_processors.emplace_back(i % devices);

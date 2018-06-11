@@ -880,8 +880,9 @@ void GpuHashRearrange::open (RawPipeline * pip){
     // for (size_t i = 0 ; i < numOfBuckets * buffVar_id.size() * grid_size; ++i){
     //     h_buffs[i] = buffer_manager<int32_t>::h_get_buffer(device); // FIMXE: assumes that all buffers need at most a h_vector_size * sizeof(int32_t) size
     // }
-    GpuHashRearrange_acq_buffs<<<numOfBuckets * buffVar_id.size() * grid_size, 1, 0, strm>>>(buffs);
-
+#ifndef NCUDA
+    GpuHashRearrange_acq_buffs<<<numOfBuckets * buffVar_id.size() * grid_size, 1, 0, strm>>>(buffs); //TODO: wrap it in a nicer way, using the code-gen context
+#endif
     // gpu_run(cudaMemcpy(buffs, h_buffs, buffs_bytes, cudaMemcpyDefault));
 
     // free(h_buffs);
@@ -903,6 +904,7 @@ struct mv_description{
     char * __restrict__ to;//[16];
 };
 
+#ifndef NCUDA
 __device__ void GpuHashRearrange_copy(int4 * __restrict__ to, const int4 * __restrict__ from){
     *to = *from;
 }
@@ -932,6 +934,7 @@ __global__ void GpuHashRearrange_pack(mv_description * desc){
 
     // if (threadIdx.x == 0) release_buffer(from);
 }
+#endif
 
 void GpuHashRearrange::close(RawPipeline * pip){
     std::cout << "GpuHashRearrange:close" << get_device() << std::endl;

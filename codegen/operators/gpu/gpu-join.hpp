@@ -24,8 +24,6 @@
 #ifndef GPU_JOIN_HPP_
 #define GPU_JOIN_HPP_
 
-#include "cuda.h"
-#include "cuda_runtime_api.h"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 

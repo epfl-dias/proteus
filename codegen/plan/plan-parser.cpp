@@ -5,14 +5,14 @@
 #ifndef NCUDA
 #include "operators/gpu/gpu-join.hpp"
 #include "operators/gpu/gpu-hash-join-chained.hpp"
-#include "operators/hash-join-chained.hpp"
 #include "operators/gpu/gpu-hash-group-by-chained.hpp"
 #include "operators/gpu/gpu-reduce.hpp"
-#include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/cpu-to-gpu.hpp"
 #include "operators/gpu/gpu-hash-rearrange.hpp"
 #include "operators/gpu/gpu-to-cpu.hpp"
 #endif
+#include "operators/hash-join-chained.hpp"
+#include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/mem-broadcast-device.hpp"
 #include "operators/mem-move-device.hpp"
 #include "operators/mem-move-local-to.hpp"
@@ -506,7 +506,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			 */
 			assert(val.HasMember("e"));
 			assert(val["e"].IsArray());
-			vector<GpuAggrMatExpr> e;
+			// vector<GpuAggrMatExpr> e;
 			const rapidjson::Value& aggrJSON = val["e"];
 			vector<Monoid> accs;
 			vector<string> aggrLabels;
@@ -683,6 +683,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 			//Put operator together
 			const char *opLabel = outputExprs[0]->getRegisteredRelName().c_str();
+			std::cout << "regRelNAme" << opLabel << std::endl;
 			newOp = new radix::Nest(this->ctx, accs, outputExprs, aggrLabels, predExpr,
 					key_expr, nullsToZerosExpr, child, opLabel, *matCoarse);
 #ifndef NCUDA
@@ -775,16 +776,19 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			size_t maxBuildInputSize = val["maxBuildInputSize"].GetUint64();
 
 			assert(dynamic_cast<GpuRawContext *>(this->ctx));
+#ifndef NCUDA
 			if (val.HasMember("gpu") && val["gpu"].GetBool()){
-			newOp = new GpuHashJoinChained(build_e, build_widths, build_key_expr, build_op,
+				newOp = new GpuHashJoinChained(build_e, build_widths, build_key_expr, build_op,
 								probe_e, probe_widths, probe_key_expr, probe_op, hash_bits,
 								dynamic_cast<GpuRawContext *>(this->ctx), maxBuildInputSize);
 			} else {
+#endif
 				newOp = new HashJoinChained(build_e, build_widths, build_key_expr, build_op,
 									probe_e, probe_widths, probe_key_expr, probe_op, hash_bits,
 									dynamic_cast<GpuRawContext *>(this->ctx), maxBuildInputSize);
-
+#ifndef NCUDA
 			}
+#endif
 // 		} else {
 // #endif
 // 			expressions::BinaryExpression *predExpr = new expressions::EqExpression(build_key_expr, probe_key_expr);

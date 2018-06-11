@@ -53,8 +53,12 @@
 //
 // </TechnicalDetails>
 
-
-#include <ittnotify.h>
+#if __has_include("ittnotify.h")
+#   include <ittnotify.h>
+#else
+#   define __itt_resume() ((void) 0)
+#   define __itt_pause()  ((void) 0)
+#endif
 
 class RawTestEnvironment : public ::testing::Environment {
     bool        is_noop                 ;

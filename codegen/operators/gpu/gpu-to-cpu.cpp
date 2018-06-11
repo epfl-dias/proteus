@@ -518,8 +518,6 @@ void GpuToCpu::generate_catch(){
     Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-#include "nvToolsExt.h"
-
 void kick_start(RawPipeline * cpip, int device){
         set_affinity_local_to_gpu(device);
     nvtxRangePushA("gpu2cpu_reads");

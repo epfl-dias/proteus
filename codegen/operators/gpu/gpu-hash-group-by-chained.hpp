@@ -24,8 +24,6 @@
 #ifndef GPU_HASH_GROUP_BY_CHAINED_HPP_
 #define GPU_HASH_GROUP_BY_CHAINED_HPP_
 
-#include "cuda.h"
-#include "cuda_runtime_api.h"
 #include "util/gpu/gpu-raw-context.hpp"
 #include "operators/monoids.hpp"
 #include "operators/operators.hpp"
