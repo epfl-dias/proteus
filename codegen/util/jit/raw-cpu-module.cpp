@@ -83,8 +83,8 @@ void RawCpuModule::init(){
         exit(1);
     }
 
-    auto CPU      = "generic";//sys::getHostCPUName(); //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
-    // auto CPU      = sys::getHostCPUName(); //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
+    // auto CPU      = "generic";//sys::getHostCPUName(); //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
+    auto CPU      = sys::getHostCPUName(); //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
 
     SubtargetFeatures Features;
     StringMap<bool> HostFeatures;
@@ -98,7 +98,7 @@ void RawCpuModule::init(){
     TargetOptions opt;
     auto RM = Optional<Reloc::Model>();
     TheTargetMachine = (LLVMTargetMachine *) Target->createTargetMachine(TargetTriple, CPU, 
-                                                    "",//Features.getString(), //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
+                                                    Features.getString(), //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
                                                     opt, RM, 
                                                     Optional<CodeModel::Model>{},//CodeModel::Model::Default, 
                                                     // CodeModel::Model::Default, 
