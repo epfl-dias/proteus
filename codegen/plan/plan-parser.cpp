@@ -1799,7 +1799,8 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 				slack = val["slack"].GetInt();
 			}
 
-			bool numa_local = true;
+			//Does it make sense to have anything rather than rand local ?
+			bool numa_local = false; // = true;
 			bool rand_local_cpu = false;
 			expressions::Expression * hash = NULL;
 			if (val.HasMember("target")){
