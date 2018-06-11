@@ -61,8 +61,7 @@ void MemMoveLocalTo::produce() {
 
 
     Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
-    const PrimitiveType * ptoid = dynamic_cast<const PrimitiveType *>(pg->getOIDType());
-    Type  * oidType             = ptoid->getLLVMType(llvmContext);
+    Type  * oidType             = pg->getOIDType()->getLLVMType(llvmContext);
 
 
     std::vector<Type *> tr_types;
@@ -240,7 +239,8 @@ void MemMoveLocalTo::consume(RawContext* const context, const OperatorState& chi
         Type  * mv_block_type   = mem_valWrapper.mem->getType()->getPointerElementType()->getPointerElementType();
 
         Value * size            = ConstantInt::get(llvmContext, APInt(64, context->getSizeOf(mv_block_type)));
-        size                    = Builder->CreateMul(size, N);
+        Value * Nloc            = Builder->CreateZExtOrBitCast(N, size->getType());
+        size                    = Builder->CreateMul(size, Nloc);
 
         vector<Value *> mv_args{mv, size, device_id, memmv};
 
@@ -278,6 +278,8 @@ void MemMoveLocalTo::consume(RawContext* const context, const OperatorState& chi
 
 void MemMoveLocalTo::open (RawPipeline * pip){
     int device = get_device();
+
+    std::cout << "MemMoveLocalTo::Open" << std::endl;
 
     // set_device_on_scope d(1-device);
     
@@ -320,6 +322,8 @@ void MemMoveLocalTo::open (RawPipeline * pip){
 }
 
 void MemMoveLocalTo::close(RawPipeline * pip){
+    std::cout << "MemMoveLocalTo::Close" << std::endl;
+
     int device = get_device();
     // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
     MemMoveConf * mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
@@ -327,15 +331,15 @@ void MemMoveLocalTo::close(RawPipeline * pip){
     nvtxRangePushA("MemMoveLocal_running");
     nvtxRangePushA("MemMoveLocal_running2");
 
-    gpu_run(cudaStreamSynchronize(mmc->strm ));
-    gpu_run(cudaStreamDestroy    (mmc->strm ));
-    gpu_run(cudaStreamSynchronize(mmc->strm2));
-    gpu_run(cudaStreamDestroy    (mmc->strm2));
-
     nvtxRangePop();
     mmc->tran.close();
     nvtxRangePop();
     mmc->worker->join();
+
+    gpu_run(cudaStreamSynchronize(mmc->strm ));
+    gpu_run(cudaStreamDestroy    (mmc->strm ));
+    gpu_run(cudaStreamSynchronize(mmc->strm2));
+    gpu_run(cudaStreamDestroy    (mmc->strm2));
 
     nvtxRangePushA("MemMoveLocalTo::release");
     workunit * start_wu;

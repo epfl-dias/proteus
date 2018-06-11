@@ -26,6 +26,7 @@
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
 #include "multigpu/buffer_manager.cuh"
+#include "util/raw-memory-manager.hpp"
 #include "multigpu/numa_utils.cuh"
 
 struct buff_pair{
@@ -38,11 +39,13 @@ buff_pair make_mem_move_device(char * src, size_t bytes, int target_device, MemM
     int dev = get_device(src);
 
     if (dev == target_device) return buff_pair{src, src}; // block already in correct device
+
     // set_device_on_scope d(dev);
 
     // if (dev >= 0) set_affinity_local_to_gpu(dev);
 
     assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager should be able to provide blocks of arbitary size
+    // std::cout << "MemMoveTarget: " << target_device << std::endl;
     char * buff = (char *) buffer_manager<int32_t>::h_get_buffer(target_device);
     
     // int numa_target = numa_node_of_gpu(target_device);
@@ -71,6 +74,19 @@ buff_pair make_mem_move_device(char * src, size_t bytes, int target_device, MemM
     // }
 
     if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm, false);
+    // assert(bytes == sizeof(int32_t) * h_vector_size);
+    // std::cout << bytes << " " << sizeof(int32_t) * h_vector_size << std::endl;
+            // cudaStream_t strm;
+            // gpu_run(cudaStreamCreate(&(wu->strm)));
+            // gpu_run(cudaMemcpyAsync(buff, src, bytes, cudaMemcpyDefault, wu->strm));
+            // gpu_run(cudaMemcpyAsync(buff2, buff, bytes, cudaMemcpyDefault, wu->strm));
+            // std::cout << "alloc" << (void *) buff2 << std::endl;
+
+    // gpu_run(cudaMemcpy(buff, src, bytes, cudaMemcpyDefault));
+    // buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, wu->strm, false);
+    // buffer_manager<int32_t>::overwrite_bytes(buff2, buff, bytes, wu->strm, false);
+    // gpu_run(cudaStreamSynchronize(mmc->strm));
+    // gpu_run(cudaStreamSynchronize(wu->strm));
     // buffer_manager<int32_t>::release_buffer ((int32_t *) src                             );
 
     return buff_pair{buff, src};
@@ -85,8 +101,7 @@ void MemMoveDevice::produce() {
 
 
     Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
-    const PrimitiveType * ptoid = dynamic_cast<const PrimitiveType *>(pg->getOIDType());
-    Type  * oidType             = ptoid->getLLVMType(llvmContext);
+    Type  * oidType             = pg->getOIDType()->getLLVMType(llvmContext);
 
 
     std::vector<Type *> tr_types;
@@ -302,41 +317,160 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
     Builder->CreateCall(propagate, std::vector<Value *>{memmv, workunit_ptr8, is_noop});
 }
 
+// containers
+#include <vector>
+#include <queue>
+// threading
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
+#include <future>
+// utility wrappers
+#include <memory>
+#include <functional>
+// exceptions
+#include <stdexcept>
+
+// std::thread pool for resources recycling
+class ThreadPool {
+public:
+    // the constructor just launches some amount of workers
+    ThreadPool(size_t threads_n = std::thread::hardware_concurrency()) : stop(false)
+    {
+        if(!threads_n)
+            throw std::invalid_argument("more than zero threads expected");
+
+        this->workers.reserve(threads_n);
+        for(; threads_n; --threads_n)
+            this->workers.emplace_back(
+                [this]
+                {
+                    rawlogger.log(this, log_op::THREADPOOL_THREAD_START);
+                    while(true)
+                    {
+                        std::function<void()> task;
+
+                        {
+                            std::unique_lock<std::mutex> lock(this->queue_mutex);
+                            this->condition.wait(lock,
+                                [this]{ return this->stop || !this->tasks.empty(); });
+                            if(this->stop && this->tasks.empty())
+                                return;
+                            task = std::move(this->tasks.front());
+                            this->tasks.pop();
+                        }
+
+                        task();
+                    }
+                    rawlogger.log(this, log_op::THREADPOOL_THREAD_END  );
+                }
+            );
+    }
+    // deleted copy&move ctors&assignments
+    ThreadPool(const ThreadPool&) = delete;
+    ThreadPool& operator=(const ThreadPool&) = delete;
+    ThreadPool(ThreadPool&&) = delete;
+    ThreadPool& operator=(ThreadPool&&) = delete;
+    // add new work item to the pool
+    template<class F, class... Args>
+    std::future<typename std::result_of<F(Args...)>::type> enqueue(F&& f, Args&&... args)
+    {
+        using packaged_task_t = std::packaged_task<typename std::result_of<F(Args...)>::type ()>;
+
+        std::shared_ptr<packaged_task_t> task(new packaged_task_t(
+                std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+            ));
+        auto res = task->get_future();
+        {
+            std::unique_lock<std::mutex> lock(this->queue_mutex);
+            this->tasks.emplace([task](){ (*task)(); });
+        }
+        this->condition.notify_one();
+        return res;
+    }
+    // the destructor joins all threads
+    virtual ~ThreadPool()
+    {
+        this->stop = true;
+        this->condition.notify_all();
+        for(std::thread& worker : this->workers)
+            worker.join();
+    }
+private:
+    // need to keep track of threads so we can join them
+    std::vector< std::thread > workers;
+    // the task queue
+    std::queue< std::function<void()> > tasks;
+
+    // synchronization
+    std::mutex queue_mutex;
+    std::condition_variable condition;
+    // workers finalization flag
+    std::atomic_bool stop;
+};
+
+ThreadPool tp{64};
+
 void MemMoveDevice::open (RawPipeline * pip){
     std::cout << "MemMoveDevice:open" << std::endl;
-    nvtxRangePushA("memmove::open");
+    workunit * wu = (workunit *) RawMemoryManager::mallocPinned(sizeof(workunit) * slack);
+
+    // nvtxRangePushA("memmove::open");
     cudaStream_t strm;
     gpu_run(cudaStreamCreateWithFlags(&strm , cudaStreamNonBlocking));
 
-    cudaStream_t strm2;
-    gpu_run(cudaStreamCreateWithFlags(&strm2, cudaStreamNonBlocking));
+    // cudaStream_t strm2;
+    // gpu_run(cudaStreamCreateWithFlags(&strm2, cudaStreamNonBlocking));
     
-    MemMoveConf * mmc   = new MemMoveConf;
+    rawlogger.log(this, log_op::MEMMOVE_OPEN_START);
+    size_t data_size = (pip->getSizeOf(data_type) + 16 - 1) & ~((size_t) 0xF);
+
+    void        * pmmc  = RawMemoryManager::mallocPinned(sizeof(MemMoveConf));
+    MemMoveConf * mmc   = new (pmmc) MemMoveConf;
+
+    rawlogger.log(this, log_op::MEMMOVE_OPEN_END);
 #ifndef NCUDA
     mmc->strm           = strm;
-    mmc->strm2          = strm2;
+    // mmc->strm2          = strm2;
 #endif
     mmc->slack          = slack;
     mmc->next_e         = 0;
-    mmc->events         = new cudaEvent_t[slack];
-    mmc->old_buffs      = new void      *[slack];
-
-    workunit * wu = new workunit[slack];
-    size_t data_size = (pip->getSizeOf(data_type) + 16 - 1) & ~((size_t) 0xF);
-    // void * data_buff = malloc(data_size * slack);
-    nvtxRangePushA("memmove::open2");
+    // mmc->events         = new cudaEvent_t[slack];
+    // mmc->old_buffs      = new void      *[slack];
+    mmc->data_buffs     = RawMemoryManager::mallocPinned(data_size * slack);
+    char * data_buff = (char *) mmc->data_buffs;
+    rawlogger.log(this, log_op::MEMMOVE_OPEN_START);
     for (size_t i = 0 ; i < slack ; ++i){
-        wu[i].data  = malloc(data_size);//((void *) (((char *) data_buff) + i * data_size));
-        gpu_run(cudaEventCreateWithFlags(&(wu[i].event), cudaEventDisableTiming  | cudaEventBlockingSync));
+        wu[i].data  = ((void *) (data_buff + i * data_size));
+// // gpu_run(cudaEventCreateWithFlags(&(wu[i].event), cudaEventDisableTiming));//  | cudaEventBlockingSync));
+//         gpu_run(cudaEventCreate(&(wu[i].event)));
+//         gpu_run(cudaStreamCreate(&(wu[i].strm)));
 
         mmc->idle.push(wu + i);
 
-        gpu_run(cudaEventCreateWithFlags(mmc->events + i, cudaEventDisableTiming | cudaEventBlockingSync));
-        mmc->old_buffs[i] = NULL;
+        // gpu_run(cudaEventCreateWithFlags(mmc->events + i, cudaEventDisableTiming | cudaEventBlockingSync));
+        // gpu_run(cudaEventCreate(mmc->events + i));
+        // mmc->old_buffs[i] = NULL;
     }
-    nvtxRangePop();
+    rawlogger.log(this, log_op::MEMMOVE_OPEN_END);
+    // nvtxRangePushA("memmove::open2");
+    for (size_t i = 0 ; i < slack ; ++i){
+        gpu_run(cudaEventCreateWithFlags(&(wu[i].event), cudaEventDisableTiming  | cudaEventBlockingSync));
+// // gpu_run(cudaEventCreateWithFlags(&(wu[i].event), cudaEventDisableTiming));//  | cudaEventBlockingSync));
+//         gpu_run(cudaEventCreate(&(wu[i].event)));
+//         gpu_run(cudaStreamCreate(&(wu[i].strm)));
 
-    mmc->worker = new std::thread(&MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
+        // gpu_run(cudaEventCreateWithFlags(mmc->events + i, cudaEventDisableTiming | cudaEventBlockingSync));
+        // gpu_run(cudaEventCreate(mmc->events + i));
+        // mmc->old_buffs[i] = NULL;
+    }
+    // nvtxRangePop();
+
+    rawlogger.log(this, log_op::MEMMOVE_OPEN_START);
+    mmc->worker = tp.enqueue(&MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
+    // mmc->worker = new thread(&MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
+    rawlogger.log(this, log_op::MEMMOVE_OPEN_END);
 
     int device = -1;
     if (!to_cpu) device = get_device();
@@ -344,26 +478,43 @@ void MemMoveDevice::open (RawPipeline * pip){
 
     // pip->setStateVar<cudaStream_t>(cu_stream_var, strm  );
     pip->setStateVar<void      * >(memmvconf_var, mmc   );
-    nvtxRangePop();
+    // nvtxRangePop();
 }
 
 void MemMoveDevice::close(RawPipeline * pip){
+    rawlogger.log(this, log_op::MEMMOVE_CLOSE_START);
     std::cout << "MemMoveDevice:close" << std::endl;
     // int device = get_device();
     // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
     MemMoveConf * mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
 
+    mmc->tran.close();
+    std::cout << "MemMoveDevice:close3" << std::endl;
+
+    nvtxRangePop();
+    mmc->worker.get();
+    // mmc->worker->join();
+
+    rawlogger.log(this, log_op::MEMMOVE_CLOSE_END);
+
+    rawlogger.log(this, log_op::MEMMOVE_CLOSE_CLEAN_UP_START);
+    // gpu_run(cudaStreamSynchronize(g_strm));
+
+    // int32_t h_s;
+    // gpu_run(cudaMemcpy(&h_s, s, sizeof(int32_t), cudaMemcpyDefault));
+    // std::cout << "rrr" << h_s << std::endl;
+
+    // RawMemoryManager::freeGpu(s);
+    std::cout << "MemMoveDevice:close4" << std::endl;
+
     gpu_run(cudaStreamSynchronize(mmc->strm ));
+    std::cout << "MemMoveDevice:close2" << std::endl;
     gpu_run(cudaStreamDestroy    (mmc->strm ));
-    gpu_run(cudaStreamSynchronize(mmc->strm2));
-    gpu_run(cudaStreamDestroy    (mmc->strm2));
+    // gpu_run(cudaStreamSynchronize(mmc->strm2));
+    // gpu_run(cudaStreamDestroy    (mmc->strm2));
 
     nvtxRangePushA("MemMoveDev_running2");
     nvtxRangePushA("MemMoveDev_running");
-
-    mmc->tran.close();
-    nvtxRangePop();
-    mmc->worker->join();
 
     nvtxRangePushA("MemMoveDev_release");
     workunit * start_wu;
@@ -371,26 +522,34 @@ void MemMoveDevice::close(RawPipeline * pip){
     for (size_t i = 0 ; i < slack ; ++i){
         workunit * wu = mmc->idle.pop_unsafe();
 
-        if (mmc->old_buffs[i]) buffer_manager<int32_t>::release_buffer((int32_t *) mmc->old_buffs[i]);
+        // if (mmc->old_buffs[i]) buffer_manager<int32_t>::release_buffer((int32_t *) mmc->old_buffs[i]);
 
         gpu_run(cudaEventDestroy(wu->event     ));
-        gpu_run(cudaEventDestroy(mmc->events[i]));
-        free(wu->data);
+        // gpu_run(cudaEventDestroy(mmc->events[i]));
+        // free(wu->data);
 
         if (i == 0 || wu       < start_wu     ) start_wu      = wu;
         // if (i == 0 || wu->data < start_wu_data) start_wu_data = wu->data;
     }
     nvtxRangePop();
     nvtxRangePop();
+
+    RawMemoryManager::freePinned(mmc->data_buffs);
+    // assert(mmc->tran.empty_unsafe());
+    // assert(mmc->idle.empty_unsafe());
     // free(start_wu_data);
-    delete[] start_wu;
-    delete[] mmc->events   ;
-    delete[] mmc->old_buffs;
+    // delete[] start_wu;
+    RawMemoryManager::freePinned(start_wu);
+    // delete[] mmc->events   ;
+    // delete[] mmc->old_buffs;
 
     mmc->idle.close();
 
-    delete mmc->worker;
-    delete mmc;
+    // delete mmc->worker;
+    // delete mmc;
+    mmc->~MemMoveConf();
+    RawMemoryManager::freePinned(mmc);
+    rawlogger.log(this, log_op::MEMMOVE_CLOSE_CLEAN_UP_END);
 }
 
 
@@ -405,14 +564,53 @@ extern "C"{
         return ret;
     }
 
+#include <x86intrin.h>
+
     void propagateWorkUnit(MemMoveDevice::MemMoveConf * mmc, MemMoveDevice::workunit * buff, bool is_noop){
+        // if (!is_noop)
+        // gpu_run(cudaEventRecord(buff->event, mmc->strm));
+        // gpu_run(cudaEventDestroy(buff->event));
+        // gpu_run(cudaEventCreate(&(buff->event)));
+        // gpu_run(cudaEventRecord(buff->event, mmc->strm));
+        // gpu_run(cudaStreamSynchronize(mmc->strm));
+            // std::cout << (void *) buff->event << " " << (void *) mmc->strm << std::endl;
+        // std::cout << "rec" << (void *) buff->event << std::endl;
+
+        // gpu_run(cudaEventSynchronize(buff->event));
+        // gpu_run(cudaEventDestroy(buff->event));
+        // gpu_run(cudaEventRecord(buff->event, mmc->strm));
+        // gpu_run(cudaEventSynchronize(buff->event));
+        // gpu_run(cudaEventSynchronize(buff->event));
+        // gpu_run(cudaEventRecord(buff->event, mmc->strm));
+        // gpu_run(cudaStreamWaitEvent(buff->strm, buff->event, 0));
+        // std::cout << "asdasdasD" << __rdtsc() << " " << (void *) buff->event << std::endl;
+        // gpu_run(cudaStreamSynchronize(buff->strm));
+        // gpu_run(cudaStreamSynchronize(buff->strm));
+            // gpu_run(cudaStreamSynchronize(buff->strm));
+            // gpu_run(cudaStreamDestroy(buff->strm));
         if (!is_noop) gpu_run(cudaEventRecord(buff->event, mmc->strm));
 
         mmc->tran.push(buff);
     }
 
+
     bool acquirePendingWorkUnit(MemMoveDevice::MemMoveConf * mmc, MemMoveDevice::workunit ** ret){
-        return mmc->tran.pop(*ret);
+        if (!mmc->tran.pop(*ret)) return false;
+        gpu_run(cudaEventSynchronize((*ret)->event));
+            // gpu_run(cudaStreamSynchronize((*ret)->strm));
+            // gpu_run(cudaStreamDestroy((*ret)->strm));
+        // gpu_run(cudaStreamSynchronize((*ret)->strm));
+        // gpu_run(cudaEventSynchronize((*ret)->event));
+        // gpu_run(cudaEventDestroy((*ret)->event));
+        // gpu_run(cudaStreamSynchronize((*ret)->strm));
+        // gpu_run(cudaStreamSynchronize((*ret)->strm));
+        // gpu_run(cudaEventRecord((*ret)->event, mmc->strm));
+        // gpu_run(cudaStreamWaitEvent((*ret)->strm, (*ret)->event, 0));
+        // gpu_run(cudaStreamSynchronize((*ret)->strm));
+        // std::cout << "asdasdasD" << __rdtsc() << " " << (void *) (*ret)->event << std::endl;
+        // gpu_run(cudaStreamSynchronize(mmc->strm));
+        // std::cout << "asdasdasD" << __rdtsc() << " " << (void *) (*ret)->event << std::endl;
+        return true;
     }
 
     void releaseWorkUnit  (MemMoveDevice::MemMoveConf * mmc, MemMoveDevice::workunit * buff){
@@ -420,8 +618,10 @@ extern "C"{
     }
 }
 
-void MemMoveDevice::catcher(MemMoveConf * mmc, int group_id, const exec_location &target_dev){
+void MemMoveDevice::catcher(MemMoveConf * mmc, int group_id, exec_location target_dev){
+    // std::cout << target_dev. << std::endl;
     set_exec_location_on_scope d(target_dev);
+    std::this_thread::yield();
 
     nvtxRangePushA("memmove::catch");
 
@@ -430,17 +630,37 @@ void MemMoveDevice::catcher(MemMoveConf * mmc, int group_id, const exec_location
     nvtxRangePushA("memmove::catch_open");
     pip->open();
     nvtxRangePop();
-
+    // size_t cnt = 0;
+    // int32_t sum = 0;
+    // int32_t sum2 = 0;
+    // int64_t N = 0;
     {
         do {
             MemMoveDevice::workunit * p = nullptr;
+            // rawlogger.log(this, log_op::MEMMOVE_CONSUME_WAIT_START);
             if (!acquirePendingWorkUnit(mmc, &p)) break;
-
-            gpu_run(cudaEventSynchronize(p->event));
+            // rawlogger.log(this, log_op::MEMMOVE_CONSUME_WAIT_END  );
+            // ++cnt;
+            // std::cout << (void *) p->event << " " << (void *) mmc->strm << std::endl;
+            // gpu_run(cudaStreamSynchronize(mmc->strm));
             nvtxRangePushA("memmove::catch_cons");
-            std::cout << *((void **) p->data) << " " << get_device(*((void **) p->data)) << " Started.............................." << std::endl;
+            // N += ((int64_t *) p->data)[2];
+            // std::cout << *((void **) p->data) << " " << get_device(*((void **) p->data)) << " Started.............................." << std::endl;
+            // size_t x = ((int64_t *) p->data)[2];
+            // int32_t k = 0;
+            // for (size_t i = 0 ; i < x ; ++i){
+            //     k += ((int32_t **) p->data)[1][i];
+            // }
+            // sum2 += k;
+            // std::cout << "s" << ((int32_t **) p->data)[0] << " " << k << std::endl;
+            rawlogger.log(this, log_op::MEMMOVE_CONSUME_START);
             pip->consume(0, p->data);
-            std::cout << *((void **) p->data) << " " << get_device(*((void **) p->data)) << " Finished............................." << std::endl;
+            rawlogger.log(this, log_op::MEMMOVE_CONSUME_END  );
+            // // size_t x = ((int64_t *) p->data)[2];
+            // for (size_t i = 0 ; i < x ; ++i){
+            //     sum += ((int32_t **) p->data)[1][i];
+            // }
+            // std::cout << *((void **) p->data) << " " << get_device(*((void **) p->data)) << " Finished............................." << std::endl;
             nvtxRangePop();
 
             releaseWorkUnit(mmc, p); //FIXME: move this inside the generated code
@@ -452,4 +672,28 @@ void MemMoveDevice::catcher(MemMoveConf * mmc, int group_id, const exec_location
     nvtxRangePop();
 
     nvtxRangePop();
+
+    // std::cout << "MMMMM: " << cnt << " " << sum << " " << sum2 << std::endl;
 }
+
+// __global__ void sum_kernel(int32_t * A, size_t N, int32_t * acc){
+//     int32_t s = 0;
+//     for (size_t i = threadIdx.x * blockDim.x + blockIdx.x ; i < N ; i += gridDim.x * blockDim.x){
+//         s += A[i];
+//     }
+//     atomicAdd((int *) acc, (int) s);
+
+//     // __syncthreads();/
+//     // if (threadIdx.x == 0) printf("%d\n", *acc);
+// }
+
+
+// void run_sum_kernel(int32_t * A, size_t N, cudaStream_t strm){
+//     std::cout << A << " " << N << std::endl;
+//     sum_kernel<<<1024, 1024, 0, strm>>>(A, N, s);
+//     // gpu_run(cudaStreamSynchronize(strm));
+//     // int32_t h_s;
+//     // gpu_run(cudaMemcpy(&h_s, s, sizeof(int32_t), cudaMemcpyDefault));
+//     // std::cout << "rrr" << h_s << std::endl;
+//     g_strm = strm;
+// }

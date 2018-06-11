@@ -27,6 +27,7 @@
 #include "util/gpu/gpu-raw-context.hpp"
 #include "util/async_containers.hpp"
 #include <thread>
+#include <future>
 
 // void * make_mem_move_device(char * src, size_t bytes, int target_device, cudaStream_t strm);
 
@@ -35,20 +36,27 @@ public:
     struct workunit{
         void      * data ;
         cudaEvent_t event;
+        cudaStream_t strm;
     };
 
     struct MemMoveConf{
-        AsyncStackSPSC<workunit *>  idle     ;
-        AsyncQueueSPSC<workunit *>  tran     ;
+        AsyncQueueSPSC_lockfree<workunit *>  idle     ;
+        AsyncQueueSPSC_lockfree<workunit *>  tran     ;
 
-        std::thread               * worker   ;
+        std::future<void>           worker   ;
+        // std::thread               * worker   ;
         cudaStream_t                strm     ;
-        cudaStream_t                strm2    ;
+        // cudaStream_t                strm2    ;
+
+        cudaEvent_t               * lastEvent;
 
         size_t                      slack    ;
-        cudaEvent_t               * events   ;
-        void                     ** old_buffs;
+        // cudaEvent_t               * events   ;
+        // void                     ** old_buffs;
         size_t                      next_e   ;
+
+        void                      * data_buffs;
+        workunit                  * wus       ;
     };
 
     MemMoveDevice(  RawOperator * const             child,
@@ -85,7 +93,7 @@ private:
     void open (RawPipeline * pip);
     void close(RawPipeline * pip);
 
-    void catcher(MemMoveConf * conf, int group_id, const exec_location &target_dev);
+    void catcher(MemMoveConf * conf, int group_id, exec_location target_dev);
 };
 
 #endif /* MEM_MOVE_DEVICE_HPP_ */
