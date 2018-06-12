@@ -189,12 +189,16 @@ Value * GpuRawContext::getSubStateVar() const{
 GpuRawContext::GpuRawContext(const string& moduleName, bool gpu_root): 
             RawContext(moduleName, false), kernelName(moduleName), pip_cnt(0){
     createJITEngine();
-    if (gpu_root) pushNewPipeline();
-    else          pushNewCpuPipeline();
+    if (gpu_root) pushDeviceProvider(&(RawGpuPipelineGenFactory::getInstance()));
+    else          pushDeviceProvider(&(RawCpuPipelineGenFactory::getInstance()));
+
+    pushPipeline();
 }
 
 
 GpuRawContext::~GpuRawContext() {
+    popDeviceProvider();
+    assert(pipFactories.empty() && "someone forgot to pop a device provider");
     LOG(WARNING)<< "[GpuRawContext: ] Destructor";
     //XXX Has to be done in an appropriate sequence - segfaults otherwise
 //      delete Builder;
@@ -226,20 +230,33 @@ void GpuRawContext::setGlobalFunction(Function *F, bool leaf){
     // RawContext::setGlobalFunction(generators.back()->prepare());
 }
 
-void GpuRawContext::pushNewPipeline   (RawPipelineGen * copyStateFrom){
-    time_block t("TregpipsG: ");
-    TheFunction = nullptr;
-    generators.emplace_back(new RawGpuPipelineGen(this, kernelName + "_pip" + std::to_string(pip_cnt++), copyStateFrom));
+// void GpuRawContext::pushNewPipeline   (RawPipelineGen * copyStateFrom){
+//     time_block t("TregpipsG: ");
+//     TheFunction = nullptr;
+//     generators.emplace_back(new RawGpuPipelineGen(this, kernelName + "_pip" + std::to_string(pip_cnt++), copyStateFrom));
+// }
+
+// void GpuRawContext::pushNewCpuPipeline(RawPipelineGen * copyStateFrom){
+//     time_block t("TregpipsC: ");
+//     TheFunction = nullptr;
+//     generators.emplace_back(new RawCpuPipelineGen(this, kernelName + "_pip" + std::to_string(pip_cnt++), copyStateFrom));
+// }
+
+void GpuRawContext::pushDeviceProvider(RawPipelineGenFactory * factory){
+    pipFactories.emplace_back(factory);
 }
 
-void GpuRawContext::pushNewCpuPipeline(RawPipelineGen * copyStateFrom){
-    time_block t("TregpipsC: ");
-    TheFunction = nullptr;
-    generators.emplace_back(new RawCpuPipelineGen(this, kernelName + "_pip" + std::to_string(pip_cnt++), copyStateFrom));
+void GpuRawContext::popDeviceProvider(){
+    pipFactories.pop_back();
 }
 
+void GpuRawContext::pushPipeline(RawPipelineGen * copyStateFrom){
+    time_block t("Tregpips: ");
+    TheFunction = nullptr;
+    generators.emplace_back(pipFactories.back()->create(this, kernelName + "_pip" + std::to_string(pip_cnt++), copyStateFrom));
+}
 
-void GpuRawContext::popNewPipeline(){
+void GpuRawContext::popPipeline(){
     getBuilder()->CreateRetVoid();
     
     pipelines.push_back(generators.back());
@@ -268,7 +285,7 @@ void GpuRawContext::setChainedPipeline(RawPipelineGen * next){
 }
 
 void GpuRawContext::compileAndLoad(){
-    popNewPipeline();
+    popPipeline();
     assert(generators.size() == 0 && "Leftover pipelines!");
 }
 

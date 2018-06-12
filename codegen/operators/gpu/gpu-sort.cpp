@@ -95,12 +95,12 @@ void GpuSort::produce() {
 
     flush_sorted();
 
-    context->popNewPipeline();
+    context->popPipeline();
 
     auto flush_pip = context->removeLatestPipeline();
     // flush_fun = flush_pip->getKernel();
 
-    context->pushNewPipeline(flush_pip);
+    context->pushPipeline(flush_pip);
 
     memVar_id = context->appendStateVar(
         PointerType::getUnqual(mem_type),

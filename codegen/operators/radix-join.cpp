@@ -704,12 +704,12 @@ void      registerRelationMem   (RawPipeline * pip, void * rel_mem  , RadixJoinB
 void RadixJoin::produce() {
     runRadix();
 
-    context->popNewPipeline();
+    context->popPipeline();
 
     auto flush_pip = context->removeLatestPipeline();
     flush_fun = flush_pip->getKernel();
 
-    context->pushNewCpuPipeline(); //FIXME: find a better way to do this
+    context->pushPipeline();
 
     RawOperator *leftChild = getLeftChild();
     leftChild->setParent(buildR);
@@ -718,7 +718,7 @@ void RadixJoin::produce() {
 
     buildR->produce();
 
-    context->popNewPipeline(); //FIXME: find a better way to do this
+    context->popPipeline();
 
     // updateRelationPointers();
     // /* XXX Place info in cache */
@@ -732,7 +732,7 @@ void RadixJoin::produce() {
     // // Should I mat. them too?
 
     // auto radix_pip = context->getCurrentPipeline();
-    context->pushNewCpuPipeline(); //FIXME: find a better way to do this
+    context->pushPipeline();
 
 
     RawOperator *rightChild = getRightChild();

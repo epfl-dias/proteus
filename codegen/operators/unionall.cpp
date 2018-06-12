@@ -30,8 +30,8 @@ void UnionAll::produce() {
 
     //push new pipeline for the throw part
     for (const auto &child: children) {
-        context->popNewPipeline();
-        context->pushNewCpuPipeline();
+        context->popPipeline();
+        context->pushPipeline();
 
         context->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
         context->registerClose(this, [this](RawPipeline * pip){this->close(pip);});

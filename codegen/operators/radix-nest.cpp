@@ -167,11 +167,11 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs,
 void Nest::produce() {
     probeHT();
     
-    context->popNewPipeline();
+    context->popPipeline();
 
     auto flush_pip = context->removeLatestPipeline();
 
-    context->pushNewCpuPipeline();
+    context->pushPipeline();
 
     // context->appendStateVar(
     //     Type::getInt32Ty(context->getLLVMContext()),

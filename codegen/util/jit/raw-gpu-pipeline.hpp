@@ -39,11 +39,13 @@ protected:
     Function                                          * Fconsume            ;
     Function                                          * subpipelineSync     ;
     map<string, Function*>                              availableWrapperFunctions   ;
-public:
+protected:
     RawGpuPipelineGen(  RawContext        * context                 , 
                         std::string         pipName         = "pip" , 
                         RawPipelineGen    * copyStateFrom   = NULL  );
 
+    friend class RawGpuPipelineGenFactory;
+public:
     virtual void                    compileAndLoad();
 
     virtual Function              * prepare();
@@ -79,6 +81,20 @@ protected:
     virtual Function              * prepareConsumeWrapper();
     virtual void                    markAsKernel(Function * F) const;
 
+};
+
+class RawGpuPipelineGenFactory: public RawPipelineGenFactory{
+protected:
+    RawGpuPipelineGenFactory(){}
+public:
+    static RawPipelineGenFactory &getInstance(){
+        static RawGpuPipelineGenFactory instance;
+        return instance;
+    }
+
+    RawPipelineGen * create(RawContext * context, std::string pipName, RawPipelineGen * copyStateFrom){
+        return new RawGpuPipelineGen(context, pipName, copyStateFrom);
+    }
 };
 
 #endif /* RAW_GPU_PIPELINE_HPP_ */

@@ -50,14 +50,14 @@ GpuJoin::GpuJoin(
 }
 
 void GpuJoin::produce() {
-    context->pushNewPipeline(); //FIXME: find a better way to do this
+    context->pushPipeline();
 
     build_mat->produce();
 
     // context->compileAndLoad(); //FIXME: Remove!!!! causes an extra compilation! this compile will be done again later!
     // Get kernel function
     // probe_kernel = context->getKernel();
-    context->popNewPipeline(); //FIXME: find a better way to do this
+    context->popPipeline();
 
     probe_mat->produce();
 }

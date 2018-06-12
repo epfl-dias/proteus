@@ -31,17 +31,34 @@ class RawCpuPipelineGen: public RawPipelineGen {
 protected:
     RawCpuModule                                        module;
 
-public:
+private:
     RawCpuPipelineGen(  RawContext        * context                 , 
                         std::string         pipName         = "pip" , 
                         RawPipelineGen    * copyStateFrom   = NULL  );
 
+    friend class RawCpuPipelineGenFactory;
+public:
     virtual void compileAndLoad();
 
     virtual Module * getModule () const {return module.getModule();}
 
 public:
     virtual void * getCompiledFunction(Function * f);
+};
+
+class RawCpuPipelineGenFactory: public RawPipelineGenFactory {
+protected:
+    RawCpuPipelineGenFactory(){}
+public:
+    static RawPipelineGenFactory &getInstance(){
+        static RawCpuPipelineGenFactory instance;
+        return instance;
+    }
+
+
+    RawPipelineGen * create(RawContext * context, std::string pipName, RawPipelineGen * copyStateFrom){
+        return new RawCpuPipelineGen(context, pipName, copyStateFrom);
+    }
 };
 
 #endif /* RAW_CPU_PIPELINE_HPP_ */

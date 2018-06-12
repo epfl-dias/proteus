@@ -49,7 +49,7 @@ GpuHashGroupByChained::GpuHashGroupByChained(
 }
 
 void GpuHashGroupByChained::produce() {
-    context->pushNewPipeline();
+    context->pushPipeline();
 
     buildHashTableFormat();
     
@@ -58,7 +58,7 @@ void GpuHashGroupByChained::produce() {
     
     getChild()->produce();
 
-    context->popNewPipeline();
+    context->popPipeline();
 
     probe_gen = context->getCurrentPipeline();
     generate_scan();

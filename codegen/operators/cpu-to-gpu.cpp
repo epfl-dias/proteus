@@ -22,21 +22,19 @@
 */
 
 #include "operators/cpu-to-gpu.hpp"
+#include "util/jit/raw-cpu-pipeline.hpp"
 
 void CpuToGpu::produce() {
     generateGpuSide();
 
-    context->popNewPipeline();
+    context->popPipeline();
 
     gpu_pip                     = context->removeLatestPipeline();
-    // entry_point                 = (CUfunction) gpu_pip->getKernel();
 
-    context->pushNewCpuPipeline(gpu_pip);
+    context->pushDeviceProvider<RawCpuPipelineGenFactory>();
+    context->pushPipeline      (gpu_pip);
 
-    LLVMContext & llvmContext   = context->getLLVMContext();
-    Type  * charPtrType         = Type::getInt8PtrTy(llvmContext);
-
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){
+    context->registerOpen (this, [this](RawPipeline * pip){
         rawlogger.log(this, log_op::CPU2GPU_OPEN_START);
         std::cout << "Cpu2Gpu:open" << std::endl;
         cudaStream_t strm;
@@ -46,8 +44,7 @@ void CpuToGpu::produce() {
         rawlogger.log(this, log_op::CPU2GPU_OPEN_END);
     });
 
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){
-
+    context->registerClose(this, [this](RawPipeline * pip){
         rawlogger.log(this, log_op::CPU2GPU_CLOSE_START);
         std::cout << "Cpu2Gpu:close" << std::endl;
         cudaStream_t strm = pip->getStateVar<cudaStream_t>(this->strmVar_id   );
@@ -56,10 +53,15 @@ void CpuToGpu::produce() {
         rawlogger.log(this, log_op::CPU2GPU_CLOSE_END);
     });
     
+    LLVMContext & llvmContext   = context->getLLVMContext();
+    Type  * charPtrType         = Type::getInt8PtrTy(llvmContext);
+
     childVar_id = context->appendStateVar(charPtrType);
     strmVar_id  = context->appendStateVar(charPtrType);
 
     getChild()->produce();
+
+    context->popDeviceProvider();
 }
 
 void CpuToGpu::generateGpuSide(){
@@ -158,7 +160,7 @@ void CpuToGpu::generateGpuSide(){
     Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-void CpuToGpu::consume(RawContext* const context, const OperatorState& childState) {
+void CpuToGpu::consume(GpuRawContext * const context, const OperatorState& childState) {
     //Prepare
     LLVMContext & llvmContext   = context->getLLVMContext();
     IRBuilder<> * Builder       = context->getBuilder    ();
@@ -211,14 +213,14 @@ void CpuToGpu::consume(RawContext* const context, const OperatorState& childStat
 
     kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(mem_cntWrapper.mem, charPtrType), wantedFields.size() + 1);
 
-    Value * subState   = ((GpuRawContext *) context)->getSubStateVar();
+    Value * subState    = context->getSubStateVar();
 
     kernel_params = Builder->CreateInsertValue(kernel_params, subState, wantedFields.size() + 2);
 
     Builder->CreateStore(kernel_params, kernel_params_addr);
 
-    Value * entry   = ((GpuRawContext *) context)->getStateVar(childVar_id);
-    Value * strm    = ((GpuRawContext *) context)->getStateVar(strmVar_id );
+    Value * entry       = context->getStateVar(childVar_id);
+    Value * strm        = context->getStateVar(strmVar_id );
 
     // Value * entryPtr = ConstantInt::get(llvmContext, APInt(64, ((uint64_t) entry_point)));
     // Value * entry    = Builder->CreateIntToPtr(entryPtr, charPtrType);

@@ -224,12 +224,12 @@ void MemBroadcastDevice::produce() {
     // Builder->CreateRetVoid();
 
 
-    context->popNewPipeline();
+    context->popPipeline();
 
     catch_pip = context->removeLatestPipeline();
 
     //push new pipeline for the throw part
-    context->pushNewCpuPipeline();
+    context->pushPipeline();
 
     device_id_var       = context->appendStateVar(int32_type );
     // cu_stream_var       = context->appendStateVar(charPtrType);
@@ -320,7 +320,7 @@ void MemBroadcastDevice::consume(RawContext* const context, const OperatorState&
             vector<Value *> mv_args{mv, size, target_id, memmv, any_noop}; //Builder->CreateZExtOrBitCast(any_noop, cpp_bool_type)};
 
             // Do actual mem move
-            Builder->CreateZExtOrBitCast(any_noop, cpp_bool_type)->getType()->dump();
+            // Builder->CreateZExtOrBitCast(any_noop, cpp_bool_type)->getType()->dump();
             Value * moved_buffpair  = Builder->CreateCall(make_mem_move, mv_args);
             Value * moved           = Builder->CreateExtractValue(moved_buffpair, 0);
             Value * to_release      = Builder->CreateExtractValue(moved_buffpair, 1);
@@ -356,7 +356,7 @@ void MemBroadcastDevice::consume(RawContext* const context, const OperatorState&
 
         Function * acquire      = context->getFunction("acquireWorkUnitBroadcast");
 
-        acquire->getFunctionType()->dump();
+        // acquire->getFunctionType()->dump();
         Value * workunit_ptr8   = Builder->CreateCall(acquire, memmv);
         Value * workunit_ptr    = Builder->CreateBitCast(workunit_ptr8, PointerType::getUnqual(workunit_type));
 
@@ -368,7 +368,7 @@ void MemBroadcastDevice::consume(RawContext* const context, const OperatorState&
         Value * target_id = context->createInt32(targets[t_i]);
 
         Function * propagate = context->getFunction("propagateWorkUnitBroadcast");
-        propagate->getFunctionType()->dump();
+        // propagate->getFunctionType()->dump();
         Builder->CreateCall(propagate, std::vector<Value *>{memmv, workunit_ptr8, target_id});
     }
 }

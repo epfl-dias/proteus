@@ -40,8 +40,8 @@ public:
     };
 
     struct MemMoveConf{
-        AsyncQueueSPSC_lockfree<workunit *>  idle     ;
-        AsyncQueueSPSC_lockfree<workunit *>  tran     ;
+        AsyncQueueSPSC<workunit *>  idle     ; //_lockfree is slower and seems to have a bug
+        AsyncQueueSPSC<workunit *>  tran     ;
 
         std::future<void>           worker   ;
         // std::thread               * worker   ;

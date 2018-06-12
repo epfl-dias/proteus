@@ -28,12 +28,12 @@
 void Exchange::produce() {
     generate_catch();
     
-    context->popNewPipeline();
+    context->popPipeline();
 
     catch_pip = context->removeLatestPipeline();
 
     //push new pipeline for the throw part
-    context->pushNewCpuPipeline();
+    context->pushPipeline();
 
     ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
     ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});

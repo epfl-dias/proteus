@@ -34,10 +34,10 @@ void Split::produce() {
     std::cout << produce_calls << " " << numOfParents << " oaisdajdhakjsdhajsdh" << std::endl;
     if (++produce_calls != numOfParents) return;
 
-    context->popNewPipeline();
+    context->popPipeline();
 
     //push new pipeline for the throw part
-    context->pushNewCpuPipeline();
+    context->pushPipeline();
 
     context->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
     context->registerClose(this, [this](RawPipeline * pip){this->close(pip);});

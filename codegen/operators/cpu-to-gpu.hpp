@@ -25,21 +25,21 @@
 
 #include "operators/operators.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
+#include "operators/device-cross.hpp"
 
-class CpuToGpu : public UnaryRawOperator {
+class CpuToGpu : public DeviceCross {
 public:
     CpuToGpu(   RawOperator * const             child,
                 GpuRawContext * const           context,
                 const vector<RecordAttribute*> &wantedFields) :
-                    UnaryRawOperator(child), 
+                    DeviceCross(child), 
                     context(context), 
                     wantedFields(wantedFields){}
 
     virtual ~CpuToGpu()                                             { LOG(INFO)<<"Collapsing CpuToGpu operator";}
 
     virtual void produce();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return false;}
+    virtual void consume(GpuRawContext* const context, const OperatorState& childState);
 
     virtual void generateGpuSide();
 

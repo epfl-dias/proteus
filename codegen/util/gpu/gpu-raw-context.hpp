@@ -47,9 +47,25 @@ public:
     void registerOpen (const void * owner, std::function<void (RawPipeline * pip)> open );
     void registerClose(const void * owner, std::function<void (RawPipeline * pip)> close);
 
-    void pushNewPipeline    (RawPipelineGen *copyStateFrom = NULL);
-    void pushNewCpuPipeline (RawPipelineGen *copyStateFrom = NULL);
-    void popNewPipeline();
+    // void pushNewPipeline    (RawPipelineGen *copyStateFrom = NULL);
+    // void pushNewCpuPipeline (RawPipelineGen *copyStateFrom = NULL);
+
+private:
+    void pushDeviceProvider(RawPipelineGenFactory * factory);
+    
+    template<typename T>
+    void pushDeviceProvider(){
+        pushDeviceProvider(&(T::getInstance()));
+    }
+
+    void popDeviceProvider();
+
+    friend class DeviceCross;
+    friend class CpuToGpu;
+    friend class GpuToCpu;
+public:
+    void pushPipeline(RawPipelineGen * copyStateFrom = NULL);
+    void popPipeline();
 
     RawPipelineGen * removeLatestPipeline();
     RawPipelineGen * getCurrentPipeline()  ;
@@ -111,6 +127,8 @@ public:
 protected:
     string                      kernelName;
     size_t                      pip_cnt   ;
+
+    std::vector<RawPipelineGenFactory *> pipFactories;
 
     // Module * TheCPUModule;
 

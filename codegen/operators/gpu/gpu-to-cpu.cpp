@@ -25,6 +25,7 @@
 #include "multigpu/numa_utils.cuh"
 #include "util/gpu/gpu-intrinsics.hpp"
 #include "util/raw-memory-manager.hpp"
+#include "util/jit/raw-gpu-pipeline.hpp"
 
 void GpuToCpu::produce() {
     LLVMContext & llvmContext   = context->getLLVMContext();
@@ -47,11 +48,12 @@ void GpuToCpu::produce() {
 
     generate_catch();
 
-    context->popNewPipeline();
+    context->popPipeline();
 
     cpu_pip = context->removeLatestPipeline();
 
-    context->pushNewPipeline();
+    context->pushDeviceProvider<RawGpuPipelineGenFactory>();
+    context->pushPipeline();
 
     lockVar_id      = context->appendStateVar(PointerType::get(int32_type , 0));
     lastVar_id      = context->appendStateVar(PointerType::get(int32_type , 0));
@@ -64,16 +66,7 @@ void GpuToCpu::produce() {
     context->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
     
     getChild()->produce();
-}
-
-void GpuToCpu::consume(RawContext* const context, const OperatorState& childState) {
-    GpuRawContext * ctx = dynamic_cast<GpuRawContext *>(context);
-    if (!ctx){
-        string error_msg = "[GpuToCpu: ] Operator only supports code generation using the GpuRawContext";
-        LOG(ERROR) << error_msg;
-        throw runtime_error(error_msg);
-    }
-    consume(ctx, childState);
+    context->popDeviceProvider();
 }
 
 void GpuToCpu::consume(GpuRawContext * const context, const OperatorState& childState) {

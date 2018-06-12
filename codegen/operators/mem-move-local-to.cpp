@@ -164,12 +164,12 @@ void MemMoveLocalTo::produce() {
     // Builder->CreateRetVoid();
 
 
-    context->popNewPipeline();
+    context->popPipeline();
 
     catch_pip = context->removeLatestPipeline();
 
     //push new pipeline for the throw part
-    context->pushNewCpuPipeline();
+    context->pushPipeline();
 
     device_id_var       = context->appendStateVar(int32_type );
     // cu_stream_var       = context->appendStateVar(charPtrType);

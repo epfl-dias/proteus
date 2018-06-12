@@ -45,12 +45,12 @@ void GpuReduce::produce() {
     flushResults = flushResults && !getParent(); //TODO: is this the best way to do it ?
     generate_flush();
 
-    ((GpuRawContext *) context)->popNewPipeline();
+    ((GpuRawContext *) context)->popPipeline();
 
     auto flush_pip = ((GpuRawContext *) context)->removeLatestPipeline();
     flush_fun = flush_pip->getKernel();
 
-    ((GpuRawContext *) context)->pushNewPipeline(flush_pip);
+    ((GpuRawContext *) context)->pushPipeline(flush_pip);
 
     assert(mem_accumulators.empty());
     if (mem_accumulators.empty()){

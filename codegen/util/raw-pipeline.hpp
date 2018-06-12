@@ -318,4 +318,11 @@ public:
     }
 };
 
+class RawPipelineGenFactory{
+protected:
+    RawPipelineGenFactory(){}
+public:
+    virtual RawPipelineGen * create(RawContext * context, std::string pipName = "pip", RawPipelineGen * copyStateFrom = NULL) = 0;
+};
+
 #endif /* RAW_PIPELINE_HPP_ */

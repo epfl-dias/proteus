@@ -78,12 +78,12 @@ void Sort::produce() {
 
     flush_sorted();
 
-    context->popNewPipeline();
+    context->popPipeline();
 
     auto flush_pip = context->removeLatestPipeline();
     // flush_fun = flush_pip->getKernel();
 
-    context->pushNewCpuPipeline(flush_pip);
+    context->pushPipeline(flush_pip);
 
     memVar_id = context->appendStateVar(
         PointerType::getUnqual(mem_type),
@@ -515,7 +515,6 @@ void Sort::flush_sorted(){
     RecordAttribute brec{recs, true};
     mem_ptr = Builder->CreateBitCast(mem_ptr, brec.getLLVMType(llvmContext));
     AllocaInst * mem_mem_ptr = context->CreateEntryBlockAlloca(F, "__sorted_mem", mem_ptr->getType());
-    mem_ptr->dump();
     Builder->CreateStore(mem_ptr, mem_mem_ptr);
 
     // Function * p = context->getFunction("printptr");

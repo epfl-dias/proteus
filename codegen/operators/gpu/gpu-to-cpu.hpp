@@ -24,16 +24,17 @@
 #define GPU_TO_CPU_HPP_
 
 #include "operators/operators.hpp"
+#include "operators/device-cross.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 
-class GpuToCpu : public UnaryRawOperator {
+class GpuToCpu : public DeviceCross {
 public:
     GpuToCpu(   RawOperator   * const            child,
                 GpuRawContext * const            context,
                 const vector<RecordAttribute *> &wantedFields,
                 size_t                           size,
                 gran_t                           granularity = gran_t::GRID) :
-                    UnaryRawOperator(child), 
+                    DeviceCross(child), 
                     context(context), 
                     wantedFields(wantedFields),
                     size(size),
@@ -42,9 +43,7 @@ public:
     virtual ~GpuToCpu(){ LOG(INFO)<<"Collapsing GpuToCpu operator";}
 
     virtual void produce();
-    virtual void consume(RawContext    * const context, const OperatorState& childState);
     virtual void consume(GpuRawContext * const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return false;}
 
 private:
     void generate_catch();
