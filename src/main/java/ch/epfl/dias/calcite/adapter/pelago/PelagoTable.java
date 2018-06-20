@@ -34,23 +34,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class PelagoTable extends AbstractTable implements TranslatableTable {
     protected final RelProtoDataType    protoRowType;
     protected final Source              source      ;
-    protected RelDataType               rowType     ;
+//    protected RelDataType               rowType     ;
     protected Map<String, ?>            type        ;
     protected Map<String, ?>            plugin      ;
     protected Long                      linehint    ;
 
-    PelagoTable(Source source, RelProtoDataType protoRowType) {
+    private PelagoTable(Source source, RelProtoDataType protoRowType, Map<String, ?> plugin, long linehint) {
         this.source         = source    ;
         this.type           = null      ;
-        this.rowType        = null      ;
-        this.linehint       = null      ;
+//        this.rowType        = null      ;
+        this.linehint       = linehint  ;
+        this.plugin         = plugin    ;
+
         this.protoRowType   = protoRowType;
     }
 
-    PelagoTable(Source source, Map<String, ?> type, Map<String, ?> plugin, long linehint) {
+    private PelagoTable(Source source, Map<String, ?> type, Map<String, ?> plugin, long linehint) {
         this.source     = source    ;
         this.type       = type      ;
-        this.rowType    = null      ;
+//        this.rowType    = null      ;
         this.linehint   = linehint  ;
         this.plugin     = plugin    ;
 
@@ -108,17 +110,6 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         return linehint;
     }
 
-    public Enumerable<Object[]> scan(DataContext root) {
-        final int[] fields = PelagoEnumerator.identityList(rowType.getFieldCount());
-        final AtomicBoolean cancelFlag = DataContext.Variable.CANCEL_FLAG.get(root);
-        return new AbstractEnumerable<Object[]>() {
-            public Enumerator<Object[]> enumerator() {
-                return new PelagoEnumerator<>(source, cancelFlag, false, null,
-                        new PelagoEnumerator.ArrayRowConverter(rowType.getFieldList(), fields, false));
-            }
-        };
-    }
-
     public RelDeviceType   getDeviceType(){
         return RelDeviceType.NVPTX;
     }
@@ -127,4 +118,36 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         return RelDistributions.SINGLETON;
     }
 
+
+    private static Long getLineHintFromPlugin(String name, Map<String, ?> plugin) throws MalformedPlugin {
+        Object obj_linehint = plugin.getOrDefault("lines",  null);
+        if (obj_linehint == null){
+            obj_linehint = plugin.getOrDefault("linehint",  null);
+        }
+
+        Long linehint = null;
+        if (obj_linehint != null) {
+            if (obj_linehint instanceof Integer) {
+                linehint = ((Integer) obj_linehint).longValue();
+            } else if (obj_linehint instanceof Long){
+                linehint = (Long) obj_linehint;
+            } else {
+                throw new MalformedPlugin("\"lines\" unrecognized type for \"lines\" during creation of " + name, name);
+            }
+        }
+
+        if (linehint == null) {
+            throw new MalformedPlugin("\"lines\" not found for table " + name, name);
+        }
+
+        return linehint;
+    }
+
+    public static PelagoTable create(Source source, String name, Map<String, ?> plugin, Map<String, ?> lineType  ) throws MalformedPlugin {
+        return new PelagoTable(source, lineType, plugin, getLineHintFromPlugin(name, plugin));
+    }
+
+    public static PelagoTable create(Source source, String name, Map<String, ?> plugin, RelProtoDataType lineType) throws MalformedPlugin {
+        return new PelagoTable(source, lineType, plugin, getLineHintFromPlugin(name, plugin));
+    }
 }

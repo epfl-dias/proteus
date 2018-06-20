@@ -50,56 +50,39 @@ public class PelagoSchema extends AbstractSchema {
     }
 
     for (Map.Entry<String, ?> e: catalog.entrySet()) {
-//        System.out.println("Table Found: " + e.getKey());
-//        System.out.println("   Row Type: " + ((Map<String, ?>) e.getValue()).get("type").toString());
-        Map<String, ?> fileEntry = (Map<String, ?>) ((Map<String, ?>) e.getValue()).get("type");
-        String fileType = (String) fileEntry.getOrDefault("type", null);
-        if (!fileType.equals("bag")) {
-            System.err.println("Error in catalog: relation type is expected to be \"bag\", but \"" + fileType + "\" found");
-            System.out.println("Ignoring table: " + e.getKey());
-            continue;
-        }
-        Map<String, ?> lineType = (Map<String, ?>) fileEntry.getOrDefault("inner", null);
-        if (lineType != null && !lineType.getOrDefault("type", null).equals("record")) lineType = null;
-        if (lineType == null) {
-            System.err.println("Error in catalog: \"bag\" expected to contain records");
-            System.out.println("Ignoring table: " + e.getKey());
-            continue;
-        }
-        Source source = Sources.of(new File((String) ((Map<String, ?>) e.getValue()).get("path")));
+//      System.out.println("Table Found: " + e.getKey());
+//      System.out.println("   Row Type: " + ((Map<String, ?>) e.getValue()).get("type").toString());
+      Map<String, ?> fileEntry = (Map<String, ?>) ((Map<String, ?>) e.getValue()).get("type");
+      String fileType = (String) fileEntry.getOrDefault("type", null);
+      if (!fileType.equals("bag")) {
+          System.err.println("Error in catalog: relation type is expected to be \"bag\", but \"" + fileType + "\" found");
+          System.out.println("Ignoring table: " + e.getKey());
+          continue;
+      }
+      Map<String, ?> lineType = (Map<String, ?>) fileEntry.getOrDefault("inner", null);
+      if (lineType != null && !lineType.getOrDefault("type", null).equals("record")) lineType = null;
+      if (lineType == null) {
+          System.err.println("Error in catalog: \"bag\" expected to contain records");
+          System.out.println("Ignoring table: " + e.getKey());
+          continue;
+      }
+      Source source = Sources.of(new File((String) ((Map<String, ?>) e.getValue()).get("path")));
 
-        Map<String, ?> plugin = (Map<String, ?>) ((Map<String, ?>) e.getValue()).getOrDefault("plugin", null);
-        if (plugin == null) {
-            System.err.println("Error in catalog: plugin information not found for table");
-            System.out.println("Ignoring table: " + e.getKey());
-            continue;
-        }
+      Map<String, ?> plugin = (Map<String, ?>) ((Map<String, ?>) e.getValue()).getOrDefault("plugin", null);
+      if (plugin == null) {
+          System.err.println("Error in catalog: plugin information not found for table");
+          System.out.println("Ignoring table: " + e.getKey());
+          continue;
+      }
 
-        Object obj_linehint = plugin.getOrDefault("lines",  null);
-        if (obj_linehint == null){
-            obj_linehint = plugin.getOrDefault("linehint",  null);
-        }
-        Long linehint = null;
-        if (obj_linehint != null) {
-            if (obj_linehint instanceof Integer) {
-                linehint = ((Integer) obj_linehint).longValue();
-            } else if (obj_linehint instanceof Long){
-                linehint = (Long) obj_linehint;
-            } else {
-                System.err.println("Error in catalog: unrecognized type for \"lines\"");
-                System.out.println("Ignoring table: " + e.getKey());
-                continue;
-            }
-        }
-
-        if (linehint == null) {
-            System.err.println("Error in catalog: \"lines\" not found for table");
-            System.out.println("Ignoring table: " + e.getKey());
-            continue;
-        }
-
-        final Table table = new PelagoTable(source, lineType, plugin, linehint);
+      try {
+        final Table table = PelagoTable.create(source, e.getKey(), plugin, lineType);
         builder.put(e.getKey(), table); //.toUpperCase(Locale.getDefault())
+      } catch (MalformedPlugin malformedPlugin) {
+        System.out.println("Error in catalog: " + malformedPlugin.getMessage  ());
+        System.out.println("Ignoring table  : " + malformedPlugin.getTableName());
+        continue;
+      }
     }
     return builder.build();
   }

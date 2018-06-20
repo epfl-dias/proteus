@@ -5,6 +5,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.TableFactory;
 import org.apache.calcite.util.Source;
 import org.apache.calcite.util.Sources;
@@ -35,8 +36,15 @@ public class PelagoTableFactory implements TableFactory<PelagoTable> {
         final Source source = Sources.file(base, fileName);
         final RelProtoDataType protoRowType =
                 rowType != null ? RelDataTypeImpl.proto(rowType) : null;
-        return new PelagoTable(source, protoRowType);
+
+        try {
+            return PelagoTable.create(source, name, (Map<String, ?>) operand.get("plugin"), protoRowType);
+        } catch (MalformedPlugin malformedPlugin) {
+            malformedPlugin.printStackTrace();
+            return null;
+        }
     }
+
 }
 
 // End CsvTableFactory.java
