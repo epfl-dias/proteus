@@ -107,8 +107,17 @@ object Repl extends App {
     //      "from ssbm_lineorder1000, ssbm_customer1000, ssbm_supplier1000 " +
     //      "where lo_custkey = c_custkey " +
     //      "and lo_suppkey = s_suppkey ";
-    var input = "create table Test(t integer, p varchar)";
+    // Uncomment the line jplugin for pelago table creation
+    var input = "create table Test1234(a integer, b integer) jplugin `{\"plugin\":{ \"type\":\"block\", \"linehint\":200000 }, \"file\":\"/inputs/csv.csv\"}`";
     connection.createStatement().execute(input);
+
+    import java.sql.DatabaseMetaData
+    import java.sql.ResultSet
+    val md = connection.getMetaData
+    val rs = md.getTables(null, null, "%", null)
+    while (rs.next)
+      println(rs.getString(3))
+
 
     input = "select sum(d_year),sum(d_year*8) from ssbm_date";
     //  input = "select d_year from ssbm_date";
@@ -130,7 +139,7 @@ object Repl extends App {
         "order by d_year, c_nation";
 
 //    input = "select d_yearmonthnum, collect(d_datekey), collect(1) from ssbm_date1000 group by d_yearmonthnum";
-    input = "select * from employees";
+    input = "select sum(d_year),sum(d_year*8) from ssbm_date";
     var resultSet = connection.createStatement().executeQuery("explain plan for " + input)
     //    connection.createStatement().execute(input);
     //    var resultSet = connection.getMetaData.getTables(null, null, "%", null)

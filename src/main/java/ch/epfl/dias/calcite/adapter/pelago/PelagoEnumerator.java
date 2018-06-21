@@ -17,8 +17,8 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
 import au.com.bytecode.opencsv.CSVReader;
-import org.apache.calcite.adapter.csv.CsvSchemaFactory;
-import org.apache.calcite.adapter.csv.CsvStreamReader;
+//import org.apache.calcite.adapter.csv.CsvSchemaFactory;
+//import org.apache.calcite.adapter.csv.CsvStreamReader;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.linq4j.Enumerator;
@@ -76,11 +76,11 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
     this.rowConverter = rowConverter;
     this.filterValues = filterValues;
     try {
-      if (stream) {
+      /*if (stream) {
         this.reader = new CsvStreamReader(source);
-      } else {
+      } else {*/
         this.reader = openCsv(source);
-      }
+      //}
 //      this.reader.readNext(); // skip header row //we do not have a header!
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -186,10 +186,10 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
           return false;
         }
         final String[] strings = reader.readNext();
-        if (strings == null) {
+        /*if (strings == null) {
           if (reader instanceof CsvStreamReader) {
             try {
-              Thread.sleep(CsvStreamReader.DEFAULT_MONITOR_DELAY);
+              Thread.sleep(100);
             } catch (InterruptedException e) {
               throw new RuntimeException(e);
             }
@@ -198,7 +198,7 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
           current = null;
           reader.close();
           return false;
-        }
+        }*/
         if (filterValues != null) {
           for (int i = 0; i < strings.length; i++) {
             String filterValue = filterValues[i];

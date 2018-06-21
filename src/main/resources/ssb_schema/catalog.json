@@ -1,0 +1,2485 @@
+{
+	"sailors": {
+		"path": "inputs/sailors.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/sailors.csv",
+					"attrName": "sid",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "string"
+					},
+					"relName": "inputs/sailors.csv",
+					"attrName": "sname",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/sailors.csv",
+					"attrName": "rating",
+					"attrNo": 3
+				}, {
+					"type": {
+						"type": "float"
+					},
+					"relName": "inputs/sailors.csv",
+					"attrName": "age",
+					"attrNo": 4
+				}]
+			}
+		},
+		"plugin": {
+			"type": "csv",
+			"brackets": false,
+			"lines": 10,
+			"delimiter": ";",
+			"policy": 2
+		}
+	},
+	"ssbm_supplier": {
+		"path": "inputs/ssbm/supplier.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm/supplier.csv",
+					"attrName": "s_suppkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/supplier.csv",
+						"attrName": "s_name",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/supplier.csv",
+						"attrName": "s_address",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/supplier.csv",
+						"attrName": "s_city",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/supplier.csv",
+						"attrName": "s_nation",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/supplier.csv",
+						"attrName": "s_region",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/supplier.csv",
+						"attrName": "s_phone",
+						"attrNo": 7
+					}]
+			}
+		}
+	},
+	"ssbm_customer": {
+		"path": "inputs/ssbm/customer.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm/customer.csv",
+					"attrName": "c_custkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/customer.csv",
+						"attrName": "c_name",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/customer.csv",
+						"attrName": "c_address",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/customer.csv",
+						"attrName": "c_city",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/customer.csv",
+						"attrName": "c_nation",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/customer.csv",
+						"attrName": "c_region",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/customer.csv",
+						"attrName": "c_phone",
+						"attrNo": 7
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/customer.csv",
+						"attrName": "c_mktsegment",
+						"attrNo": 8
+					}]
+			}
+		}
+	},
+	"ssbm_part": {
+		"path": "inputs/ssbm/part.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm/part.csv",
+					"attrName": "p_partkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/part.csv",
+						"attrName": "p_name",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/part.csv",
+						"attrName": "p_mfgr",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/part.csv",
+						"attrName": "p_category",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/part.csv",
+						"attrName": "p_brand1",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/part.csv",
+						"attrName": "p_color",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/part.csv",
+						"attrName": "p_type",
+						"attrNo": 7
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/part.csv",
+						"attrName": "p_size",
+						"attrNo": 8
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/part.csv",
+						"attrName": "p_container",
+						"attrNo": 9
+					}]
+			}
+		}
+	},
+	"ssbm_lineorder": {
+		"path": "inputs/ssbm/lineorder.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm/lineorder.csv",
+					"attrName": "lo_orderkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_linenumber",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_custkey",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_partkey",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_suppkey",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_orderdate",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_orderpriority",
+						"attrNo": 7
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_shippriority",
+						"attrNo": 8
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_quantity",
+						"attrNo": 9
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_extendedprice",
+						"attrNo": 10
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_ordtotalprice",
+						"attrNo": 11
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_discount",
+						"attrNo": 12
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_revenue",
+						"attrNo": 13
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_supplycost",
+						"attrNo": 14
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_tax",
+						"attrNo": 15
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_commitdate",
+						"attrNo": 16
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm/lineorder.csv",
+						"attrName": "lo_shipmode",
+						"attrNo": 17
+					}]
+			}
+		}
+	},
+	"ssbm_date": {
+		"path": "inputs/ssbm/date.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_datekey",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_date",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_dayofweek",
+					"attrNo": 3
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_month",
+					"attrNo": 4
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_year",
+					"attrNo": 5
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_yearmonthnum",
+					"attrNo": 6
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_yearmonth",
+					"attrNo": 7
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_daynuminweek",
+					"attrNo": 8
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_daynuminmonth",
+					"attrNo": 9
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_daynuminyear",
+					"attrNo": 10
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_monthnuminyear",
+					"attrNo": 11
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_weeknuminyear",
+					"attrNo": 12
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_sellingseason",
+					"attrNo": 13
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_lastdayinweekfl",
+					"attrNo": 14
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_lastdayinmonthfl",
+					"attrNo": 15
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_holidayfl",
+					"attrNo": 16
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm/date.csv",
+					"attrName": "d_weekdayfl",
+					"attrNo": 17
+				}]
+			}
+		}
+	},
+	"reserves": {
+		"path": "inputs/reserves.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/reserves.csv",
+					"attrName": "sid",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/reserves.csv",
+					"attrName": "bid",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "string"
+					},
+					"relName": "inputs/reserves.csv",
+					"attrName": "day",
+					"attrNo": 3
+				}]
+			}
+		},
+		"plugin": {
+			"type": "csv",
+			"policy": 2,
+			"lines": 10,
+			"delimiter": ";",
+			"brackets": false
+		}
+	},
+	"employees": {
+		"path": "inputs/json/employees-flat.json",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "string"
+					},
+					"relName": "inputs/json/employees-flat.json",
+					"attrName": "name",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/json/employees-flat.json",
+					"attrName": "age",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "list",
+						"inner": {
+							"type": "record",
+							"attributes": [
+								{
+									"type": {
+										"type": "string"
+									},
+									"relName": "inputs/json/employees-flat.json",
+									"attrName": "name2",
+									"attrNo": 1
+								},
+								{
+									"type": {
+										"type": "int"
+									},
+									"relName": "inputs/json/employees-flat.json",
+									"attrName": "age2",
+									"attrNo": 2
+								}
+							]
+						}
+					},
+					"relName": "inputs/json/employees-flat.json",
+					"attrName": "children",
+					"attrNo": 3
+				}]
+			}
+		},
+		"plugin": {
+			"type": "json",
+			"lines": 3,
+			"policy": 2
+		}
+	},
+	"A": {
+		"path": "inputs/A.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/A.csv",
+					"attrName": "A1",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/A.csv",
+					"attrName": "A2",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/A.csv",
+					"attrName": "A3",
+					"attrNo": 3
+				}]
+			}
+		},
+		"plugin": {
+			"type": "csv",
+			"policy": 2,
+			"lines": 4,
+			"delimiter": ";",
+			"brackets": false
+		}
+	},
+	"B": {
+		"path": "inputs/B.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/B.csv",
+					"attrName": "B1",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/B.csv",
+					"attrName": "B2",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/B.csv",
+					"attrName": "B3",
+					"attrNo": 3
+				}]
+			}
+		},
+		"plugin": {
+			"type": "csv",
+			"policy": 2,
+			"lines": 4,
+			"delimiter": ";",
+			"brackets": false
+		}
+	},
+	"100-30cols-fixed": {
+		"path": "inputs/synthetic/100-30cols-fixed",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c1",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c2",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c3",
+					"attrNo": 3
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c4",
+					"attrNo": 4
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c5",
+					"attrNo": 5
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c6",
+					"attrNo": 6
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c7",
+					"attrNo": 7
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c8",
+					"attrNo": 8
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c9",
+					"attrNo": 9
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c10",
+					"attrNo": 10
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c11",
+					"attrNo": 11
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c12",
+					"attrNo": 12
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c13",
+					"attrNo": 13
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c14",
+					"attrNo": 14
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c15",
+					"attrNo": 15
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c16",
+					"attrNo": 16
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c17",
+					"attrNo": 17
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c18",
+					"attrNo": 18
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c19",
+					"attrNo": 19
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c20",
+					"attrNo": 20
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c21",
+					"attrNo": 21
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c22",
+					"attrNo": 22
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c23",
+					"attrNo": 23
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c24",
+					"attrNo": 24
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c25",
+					"attrNo": 25
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c26",
+					"attrNo": 26
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c27",
+					"attrNo": 27
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c28",
+					"attrNo": 28
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c29",
+					"attrNo": 29
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/synthetic/100-30cols-fixed",
+					"attrName": "c30",
+					"attrNo": 30
+				}]
+			}
+		}
+	},
+	"ssbm_supplier": {
+		"path": "inputs/ssbm100/supplier.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/supplier.csv",
+					"attrName": "s_suppkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/supplier.csv",
+						"attrName": "s_name",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/supplier.csv",
+						"attrName": "s_address",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/supplier.csv",
+						"attrName": "s_city",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/supplier.csv",
+						"attrName": "s_nation",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/supplier.csv",
+						"attrName": "s_region",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/supplier.csv",
+						"attrName": "s_phone",
+						"attrNo": 7
+					}]
+			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 200000
+		}
+	},
+	"ssbm_customer": {
+		"path": "inputs/ssbm100/customer.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/customer.csv",
+					"attrName": "c_custkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/customer.csv",
+						"attrName": "c_name",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/customer.csv",
+						"attrName": "c_address",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/customer.csv",
+						"attrName": "c_city",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/customer.csv",
+						"attrName": "c_nation",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/customer.csv",
+						"attrName": "c_region",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/customer.csv",
+						"attrName": "c_phone",
+						"attrNo": 7
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/customer.csv",
+						"attrName": "c_mktsegment",
+						"attrNo": 8
+					}]
+			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 3000000
+		}
+	},
+	"ssbm_part": {
+		"path": "inputs/ssbm100/part.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/part.csv",
+					"attrName": "p_partkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/part.csv",
+						"attrName": "p_name",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/part.csv",
+						"attrName": "p_mfgr",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/part.csv",
+						"attrName": "p_category",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/part.csv",
+						"attrName": "p_brand1",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/part.csv",
+						"attrName": "p_color",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/part.csv",
+						"attrName": "p_type",
+						"attrNo": 7
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/part.csv",
+						"attrName": "p_size",
+						"attrNo": 8
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/part.csv",
+						"attrName": "p_container",
+						"attrNo": 9
+					}]
+			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 1400000
+		}
+	},
+	"ssbm_lineorder": {
+		"path": "inputs/ssbm100/lineorder.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/lineorder.csv",
+					"attrName": "lo_orderkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_linenumber",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_custkey",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_partkey",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_suppkey",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_orderdate",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_orderpriority",
+						"attrNo": 7
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_shippriority",
+						"attrNo": 8
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_quantity",
+						"attrNo": 9
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_extendedprice",
+						"attrNo": 10
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_ordtotalprice",
+						"attrNo": 11
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_discount",
+						"attrNo": 12
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_revenue",
+						"attrNo": 13
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_supplycost",
+						"attrNo": 14
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_tax",
+						"attrNo": 15
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_commitdate",
+						"attrNo": 16
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm100/lineorder.csv",
+						"attrName": "lo_shipmode",
+						"attrNo": 17
+					}]
+			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 600038145
+		}
+	},
+	"ssbm_date": {
+		"path": "inputs/ssbm100/date.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_datekey",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_date",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_dayofweek",
+					"attrNo": 3
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_month",
+					"attrNo": 4
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_year",
+					"attrNo": 5
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_yearmonthnum",
+					"attrNo": 6
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_yearmonth",
+					"attrNo": 7
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_daynuminweek",
+					"attrNo": 8
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_daynuminmonth",
+					"attrNo": 9
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_daynuminyear",
+					"attrNo": 10
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_monthnuminyear",
+					"attrNo": 11
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_weeknuminyear",
+					"attrNo": 12
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_sellingseason",
+					"attrNo": 13
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_lastdayinweekfl",
+					"attrNo": 14
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_lastdayinmonthfl",
+					"attrNo": 15
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_holidayfl",
+					"attrNo": 16
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm100/date.csv",
+					"attrName": "d_weekdayfl",
+					"attrNo": 17
+				}]
+			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 2556
+		}
+	},
+	"ssbm_supplier1000": {
+		"path": "inputs/ssbm1000/supplier.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm1000/supplier.csv",
+					"attrName": "s_suppkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/supplier.csv",
+						"attrName": "s_name",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/supplier.csv",
+						"attrName": "s_address",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/supplier.csv",
+						"attrName": "s_city",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/supplier.csv",
+						"attrName": "s_nation",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/supplier.csv",
+						"attrName": "s_region",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/supplier.csv",
+						"attrName": "s_phone",
+						"attrNo": 7
+					}]
+			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 2000000
+		}
+	},
+	"ssbm_customer1000": {
+		"path": "inputs/ssbm1000/customer.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm1000/customer.csv",
+					"attrName": "c_custkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/customer.csv",
+						"attrName": "c_name",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/customer.csv",
+						"attrName": "c_address",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/customer.csv",
+						"attrName": "c_city",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/customer.csv",
+						"attrName": "c_nation",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/customer.csv",
+						"attrName": "c_region",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/customer.csv",
+						"attrName": "c_phone",
+						"attrNo": 7
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/customer.csv",
+						"attrName": "c_mktsegment",
+						"attrNo": 8
+					}]
+			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 30000000
+		}
+	},
+	"ssbm_part1000": {
+		"path": "inputs/ssbm1000/part.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm1000/part.csv",
+					"attrName": "p_partkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/part.csv",
+						"attrName": "p_name",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/part.csv",
+						"attrName": "p_mfgr",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/part.csv",
+						"attrName": "p_category",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/part.csv",
+						"attrName": "p_brand1",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/part.csv",
+						"attrName": "p_color",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/part.csv",
+						"attrName": "p_type",
+						"attrNo": 7
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/part.csv",
+						"attrName": "p_size",
+						"attrNo": 8
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/part.csv",
+						"attrName": "p_container",
+						"attrNo": 9
+					}]
+			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 2000000
+		}
+	},
+	"ssbm_lineorder1000": {
+		"path": "inputs/ssbm1000/lineorder.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm1000/lineorder.csv",
+					"attrName": "lo_orderkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_linenumber",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_custkey",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_partkey",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_suppkey",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_orderdate",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_orderpriority",
+						"attrNo": 7
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_shippriority",
+						"attrNo": 8
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_quantity",
+						"attrNo": 9
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_extendedprice",
+						"attrNo": 10
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_ordtotalprice",
+						"attrNo": 11
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_discount",
+						"attrNo": 12
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_revenue",
+						"attrNo": 13
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_supplycost",
+						"attrNo": 14
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_tax",
+						"attrNo": 15
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_commitdate",
+						"attrNo": 16
+					},
+					{
+						"type": {
+							"type": "dstring"
+						},
+						"relName": "inputs/ssbm1000/lineorder.csv",
+						"attrName": "lo_shipmode",
+						"attrNo": 17
+					}]
+			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 5999989813
+		}
+	},
+	"ssbm_date1000": {
+		"path": "inputs/ssbm1000/date.csv",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_datekey",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_date",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_dayofweek",
+					"attrNo": 3
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_month",
+					"attrNo": 4
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_year",
+					"attrNo": 5
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_yearmonthnum",
+					"attrNo": 6
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_yearmonth",
+					"attrNo": 7
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_daynuminweek",
+					"attrNo": 8
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_daynuminmonth",
+					"attrNo": 9
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_daynuminyear",
+					"attrNo": 10
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_monthnuminyear",
+					"attrNo": 11
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_weeknuminyear",
+					"attrNo": 12
+				}, {
+					"type": {
+						"type": "dstring"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_sellingseason",
+					"attrNo": 13
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_lastdayinweekfl",
+					"attrNo": 14
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_lastdayinmonthfl",
+					"attrNo": 15
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_holidayfl",
+					"attrNo": 16
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm1000/date.csv",
+					"attrName": "d_weekdayfl",
+					"attrNo": 17
+				}]
+			}
+		},
+		"plugin": {
+			"type": "block",
+			"linehint": 2556
+		}
+	},
+	"ssbm_supplier_csv": {
+		"path": "inputs/ssbm100/supplier2.tbl",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/supplier2.tbl",
+					"attrName": "s_suppkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/supplier2.tbl",
+						"attrName": "s_name",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/supplier2.tbl",
+						"attrName": "s_address",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/supplier2.tbl",
+						"attrName": "s_city",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/supplier2.tbl",
+						"attrName": "s_nation",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/supplier2.tbl",
+						"attrName": "s_region",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/supplier2.tbl",
+						"attrName": "s_phone",
+						"attrNo": 7
+					}]
+			}
+		},
+		"plugin": {
+			"type": "csv",
+			"lines": 200000,
+			"delimiter": "|",
+			"brackets": false,
+			"policy": 2
+		}
+	},
+	"ssbm_customer_csv": {
+		"path": "inputs/ssbm100/customer2.tbl",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/customer2.tbl",
+					"attrName": "c_custkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/customer2.tbl",
+						"attrName": "c_name",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/customer2.tbl",
+						"attrName": "c_address",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/customer2.tbl",
+						"attrName": "c_city",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/customer2.tbl",
+						"attrName": "c_nation",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/customer2.tbl",
+						"attrName": "c_region",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/customer2.tbl",
+						"attrName": "c_phone",
+						"attrNo": 7
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/customer2.tbl",
+						"attrName": "c_mktsegment",
+						"attrNo": 8
+					}]
+			}
+		},
+		"plugin": {
+			"type": "csv",
+			"lines": 3000000,
+			"delimiter": "|",
+			"brackets": false,
+			"policy": 2
+		}
+	},
+	"ssbm_part_csv": {
+		"path": "inputs/ssbm100/part2.tbl",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/part2.tbl",
+					"attrName": "p_partkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/part2.tbl",
+						"attrName": "p_name",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/part2.tbl",
+						"attrName": "p_mfgr",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/part2.tbl",
+						"attrName": "p_category",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/part2.tbl",
+						"attrName": "p_brand1",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/part2.tbl",
+						"attrName": "p_color",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/part2.tbl",
+						"attrName": "p_type",
+						"attrNo": 7
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/part2.tbl",
+						"attrName": "p_size",
+						"attrNo": 8
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/part2.tbl",
+						"attrName": "p_container",
+						"attrNo": 9
+					}]
+			}
+		},
+		"plugin": {
+			"type": "csv",
+			"lines": 1400000,
+			"delimiter": "|",
+			"brackets": false,
+			"policy": 2
+		}
+	},
+	"ssbm_lineorder_csv": {
+		"path": "inputs/ssbm100/lineorder2.tbl",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/lineorder2.tbl",
+					"attrName": "lo_orderkey",
+					"attrNo": 1
+				},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_linenumber",
+						"attrNo": 2
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_custkey",
+						"attrNo": 3
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_partkey",
+						"attrNo": 4
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_suppkey",
+						"attrNo": 5
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_orderdate",
+						"attrNo": 6
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_orderpriority",
+						"attrNo": 7
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_shippriority",
+						"attrNo": 8
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_quantity",
+						"attrNo": 9
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_extendedprice",
+						"attrNo": 10
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_ordtotalprice",
+						"attrNo": 11
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_discount",
+						"attrNo": 12
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_revenue",
+						"attrNo": 13
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_supplycost",
+						"attrNo": 14
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_tax",
+						"attrNo": 15
+					},
+					{
+						"type": {
+							"type": "int"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_commitdate",
+						"attrNo": 16
+					},
+					{
+						"type": {
+							"type": "string"
+						},
+						"relName": "inputs/ssbm100/lineorder2.tbl",
+						"attrName": "lo_shipmode",
+						"attrNo": 17
+					}]
+			}
+		},
+		"plugin": {
+			"type": "csv",
+			"lines": 600038145,
+			"delimiter": "|",
+			"brackets": false,
+			"policy": 2
+		}
+	},
+	"ssbm_date_csv": {
+		"path": "inputs/ssbm100/date2.tbl",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_datekey",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "string"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_date",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "string"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_dayofweek",
+					"attrNo": 3
+				}, {
+					"type": {
+						"type": "string"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_month",
+					"attrNo": 4
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_year",
+					"attrNo": 5
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_yearmonthnum",
+					"attrNo": 6
+				}, {
+					"type": {
+						"type": "string"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_yearmonth",
+					"attrNo": 7
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_daynuminweek",
+					"attrNo": 8
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_daynuminmonth",
+					"attrNo": 9
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_daynuminyear",
+					"attrNo": 10
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_monthnuminyear",
+					"attrNo": 11
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_weeknuminyear",
+					"attrNo": 12
+				}, {
+					"type": {
+						"type": "string"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_sellingseason",
+					"attrNo": 13
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_lastdayinweekfl",
+					"attrNo": 14
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_lastdayinmonthfl",
+					"attrNo": 15
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_holidayfl",
+					"attrNo": 16
+				}, {
+					"type": {
+						"type": "bool"
+					},
+					"relName": "inputs/ssbm100/date2.tbl",
+					"attrName": "d_weekdayfl",
+					"attrNo": 17
+				}]
+			}
+		},
+		"plugin": {
+			"type": "csv",
+			"lines": 2556,
+			"delimiter": "|",
+			"brackets": false,
+			"policy": 2
+		}
+	}
+}
