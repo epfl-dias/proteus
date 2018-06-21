@@ -3,6 +3,7 @@ package ch.epfl.dias.calcite.adapter.pelago
 import java.util
 import java.util.List
 
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution}
 import org.apache.calcite.rel.core.DeviceCross
 import org.apache.calcite.rel.logical.LogicalDeviceCross
 import org.apache.calcite.rel.metadata.RelMdDistribution
@@ -33,18 +34,19 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
       extends DeviceCross(cluster, traits, input, toDevice) with PelagoRel with Converter {
   protected var inTraits: RelTraitSet = input.getTraitSet
 
-  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("intrait", inTraits.toString)
+  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("intrait", inTraits.toString).item("inputRows", input.getCluster.getMetadataQuery.getRowCount(input))
+      .item("cost", input.getCluster.getMetadataQuery.getRowCount(this)*getRowType.getFieldCount * 4)
 
   def copy(traitSet: RelTraitSet, input: RelNode, deviceType: RelDeviceType) = PelagoDeviceCross.create(input, deviceType)
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Higher cost if rows are wider discourages pushing a project through an
     // exchange.
-//    val rowCount = mq.getRowCount(this)
-//    val bytesPerRow = getRowType.getFieldCount * 4
-//    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(0.01)
-//
-    if (input.getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == toDevice) planner.getCostFactory.makeHugeCost()
-    else planner.getCostFactory.makeTinyCost
+    val rowCount = mq.getRowCount(this)
+    val bytesPerRow = getRowType.getFieldCount * 4
+    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(0.1)
+
+//    if (input.getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == toDevice) planner.getCostFactory.makeHugeCost()
+//    else planner.getCostFactory.makeTinyCost
   }
 
   override def estimateRowCount(mq: RelMetadataQuery): Double = input.estimateRowCount(mq)
@@ -69,6 +71,7 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
 object PelagoDeviceCross {
   def create(input: RelNode, toDevice: RelDeviceType): PelagoDeviceCross = {
     val cluster = input.getCluster
+    val mq = cluster.getMetadataQuery
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(toDevice)
     new PelagoDeviceCross(input.getCluster, traitSet, input, toDevice)
   }

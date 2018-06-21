@@ -63,7 +63,7 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
     this(source, cancelFlag, fieldTypes, identityList(fieldTypes.size()), mock);
   }
 
-  PelagoEnumerator(Source source, AtomicBoolean cancelFlag,
+  public PelagoEnumerator(Source source, AtomicBoolean cancelFlag,
                    List<RelDataTypeField> fieldTypes, int[] fields, boolean mock) {
     //noinspection unchecked
     this(source, cancelFlag, false, null,

@@ -88,6 +88,10 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         }
     }
 
+    protected RelTraitSet getDesiredRootTraitSet(RelRoot root) {
+        return root.rel.getTraitSet().replace(this.resultConvention).replace(root.collation).replace(RelDeviceType.X86_64).simplify();
+    }
+
     /** Program that trims fields. */
     private static class TrimFieldsProgram implements Program {
         public RelNode run(RelOptPlanner planner, RelNode rel,

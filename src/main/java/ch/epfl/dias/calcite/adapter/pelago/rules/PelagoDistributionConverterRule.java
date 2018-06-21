@@ -21,9 +21,13 @@ import org.apache.calcite.tools.RelBuilderFactory;
 
 public class PelagoDistributionConverterRule extends ConverterRule {
     public static final ConverterRule BRDCST_INSTANCE =
-            new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED, RelDistributions.SINGLETON            , RelFactories.LOGICAL_BUILDER);
+            new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED, RelDistributions.ANY            , RelFactories.LOGICAL_BUILDER);
+    public static final ConverterRule BRDCST_INSTANCE2 =
+        new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , RelDistributions.ANY            , RelFactories.LOGICAL_BUILDER);
     public static final ConverterRule SEQNTL_INSTANCE =
             new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.RANDOM_DISTRIBUTED   , RelFactories.LOGICAL_BUILDER);
+    public static final ConverterRule SEQNTL_INSTANCE2 =
+        new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.ANY   , RelFactories.LOGICAL_BUILDER);
     public static final ConverterRule RANDOM_INSTANCE =
             new PelagoDistributionConverterRule(RelDistributions.RANDOM_DISTRIBUTED   , RelDistributions.SINGLETON            , RelFactories.LOGICAL_BUILDER);
 
@@ -35,7 +39,7 @@ public class PelagoDistributionConverterRule extends ConverterRule {
      * @param relBuilderFactory Builder for relational expressions
      */
     public PelagoDistributionConverterRule(RelDistribution distribution, RelDistribution from_distribution, RelBuilderFactory relBuilderFactory) {
-        super(RelNode.class, from_distribution, distribution,"PelagoDistributionConverterRule" + distribution);
+        super(RelNode.class, from_distribution, distribution,"PelagoDistributionConverterRule" + distribution + from_distribution);
         this.distribution = distribution;
     }
 
@@ -47,6 +51,7 @@ public class PelagoDistributionConverterRule extends ConverterRule {
 //        if (distribution == RelDistributions.RANDOM_DISTRIBUTED) {
 //            System.out.println(tmp);
 //        }
+//            System.out.println(distribution + " " + rel.getTraitSet() + " " + rel);
         return PelagoRouter.create(convert(rel, PelagoRel.CONVENTION), distribution);
     }
 

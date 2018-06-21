@@ -19,8 +19,11 @@ import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.plan.*;
+import org.apache.calcite.plan.volcano.AbstractConverter;
+import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.prepare.PelagoPreparingStmt;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelDeviceType;
 import org.apache.calcite.rel.RelDeviceTypeTraitDef;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelRoot;
@@ -76,6 +79,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         RelOptPlanner planner = super.createPlanner(prepareContext, externalContext, costFactory);
         planner.addRelTraitDef(RelDistributionTraitDef.INSTANCE);
         planner.addRelTraitDef(RelDeviceTypeTraitDef  .INSTANCE);
+
 //        COMMUTE
 //                ? JoinAssociateRule.INSTANCE
 //                : ProjectMergeRule.INSTANCE,
@@ -84,10 +88,11 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             planner.removeRule(r);
         }
 
+        ((VolcanoPlanner) planner).registerAbstractRelationalRules();
+        planner.addRule(AbstractConverter.ExpandConversionRule.INSTANCE);
 //        System.out.println(planner.getRules());
 
         List<RelOptRule> rules = new ArrayList<RelOptRule>();
-        rules.add(ReduceExpressionsRule.CALC_INSTANCE);
         rules.add(TableScanRule.INSTANCE);
         // push and merge filter rules
         rules.add(FilterAggregateTransposeRule.INSTANCE);
@@ -100,7 +105,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         // push and merge projection rules
         rules.add(ProjectRemoveRule.INSTANCE);
         rules.add(ProjectJoinTransposeRule.INSTANCE);
-        // rules.add(JoinProjectTransposeRule.BOTH_PROJECT)
+        rules.add(JoinProjectTransposeRule.BOTH_PROJECT);
         rules.add(ProjectFilterTransposeRule.INSTANCE); //XXX causes non-termination
         /*it is better to use filter first an then project*/
         rules.add(ProjectTableScanRule.INSTANCE);
@@ -126,12 +131,15 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         rules.add(ReduceExpressionsRule.CALC_INSTANCE);
         rules.add(ReduceExpressionsRule.FILTER_INSTANCE);
         rules.add(ReduceExpressionsRule.PROJECT_INSTANCE);
+        rules.add(ReduceExpressionsRule.JOIN_INSTANCE);
         // prune empty results rules
         rules.add(PruneEmptyRules.FILTER_INSTANCE);
         rules.add(PruneEmptyRules.PROJECT_INSTANCE);
         rules.add(PruneEmptyRules.AGGREGATE_INSTANCE);
         rules.add(PruneEmptyRules.JOIN_LEFT_INSTANCE);
         rules.add(PruneEmptyRules.JOIN_RIGHT_INSTANCE);
+        rules.add(ProjectTableScanRule.INSTANCE);
+        rules.add(AggregateProjectPullUpConstantsRule.INSTANCE2);
         /* Sort Rules*/
         rules.add(SortJoinTransposeRule.INSTANCE);
         rules.add(SortProjectTransposeRule.INSTANCE);
@@ -566,7 +574,10 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
                 statementType);
     }
 
-
+  protected RelTraitSet getDesiredRootTraitSet(RelRoot root) {
+      System.out.println("asdadasdadasdasdasdasdaDS");
+    return root.rel.getTraitSet().replace(EnumerableConvention.INSTANCE).replace(root.collation).replace(RelDeviceType.X86_64).simplify();
+  }
 
 
 
