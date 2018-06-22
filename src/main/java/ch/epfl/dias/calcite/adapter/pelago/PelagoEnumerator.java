@@ -186,19 +186,19 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
           return false;
         }
         final String[] strings = reader.readNext();
-        /*if (strings == null) {
-          if (reader instanceof CsvStreamReader) {
+        if (strings == null) {
+          /*if (reader instanceof CsvStreamReader) {
             try {
               Thread.sleep(100);
             } catch (InterruptedException e) {
               throw new RuntimeException(e);
             }
             continue;
-          }
+          }*/
           current = null;
           reader.close();
           return false;
-        }*/
+        }
         if (filterValues != null) {
           for (int i = 0; i < strings.length; i++) {
             String filterValue = filterValues[i];
