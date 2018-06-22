@@ -26,7 +26,7 @@ create_table_level <- function(list, parent_name){
 }
 
 setMethod("sqlCreateTable", signature("ViDaRConnection"),
-          function(con, table, fields,  temporary = FALSE, path, ...) {
+          function(con, table, fields,  temporary = FALSE, path, metadata, ...) {
 
             table <- dbQuoteIdentifier(con, table)
 
@@ -65,7 +65,7 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
 
               query <- SQL(paste0(
                 "CREATE ", if (temporary) "TEMPORARY ", "TABLE ", table, " (\n",
-                "  ", paste(fields, collapse = ",\n  "), "\n)\n"
+                "  ", paste(fields, collapse = ",\n  "), "\n)\n"#, "PATH: ", path, ",\n", "METADATA: ", adapter, "\n"
               ))
             }
 
@@ -74,7 +74,7 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
 )
 
 setMethod("dbCreateTable", signature("ViDaRConnection"),
-          def = function(conn, name, fields, ..., path, row.names = NULL, temporary = FALSE) {
+          def = function(conn, name, fields, ..., path, adapter, row.names = NULL, temporary = FALSE) {
 
             query <- sqlCreateTable(
               con = conn,
@@ -82,6 +82,7 @@ setMethod("dbCreateTable", signature("ViDaRConnection"),
               fields = fields,
               temporary = temporary,
               path = path,
+              adapter = adapter,
               ...
             )
 

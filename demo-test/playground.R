@@ -11,7 +11,6 @@ library(jsonlite)
 # establishing the connection
 con <- dbConnect(ViDaR())
 
-
 # unnest try
 emp_jsn = '{"name":"string", "age":"int", "children":[{"name2":"string", "age2":"int"}]}'
 df_emp <- data.frame(jsonlite::fromJSON(emp_jsn, flatten = TRUE, simplifyDataFrame = TRUE))
@@ -31,7 +30,7 @@ writeLines(".echo results on", con@env$conn)
 ### dplyr ###
 
 # creating placeholder tables (query results in 0 rows fetched (WHERE 0=1))
-dates <- tbl(con, "dates")
+dates <- tbl(con, "ssbm_date")
 lineorder <- tbl(con, "lineorder")
 customer <- tbl(con, "customer")
 supplier <- tbl(con, "supplier")

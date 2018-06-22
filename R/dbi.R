@@ -3,7 +3,7 @@
 setClass("ViDaRDriver", contains = "JDBCDriver")
 
 # Instantiation of ViDaRDriver - using RJDBC
-ViDaR <- function(driverClass="ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver", driverLocation="/home/sanca/sqlline/sqlline/bin/SQLPlanner-assembly-0.1.jar", quoteChar = "`") {
+ViDaR <- function(driverClass="ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver", driverLocation="/home/sanca/Desktop/sqlline/server/SQLPlanner-assembly-0.1.jar", quoteChar = "`") {
   tmp <- JDBC(driverClass, driverLocation, quoteChar)
   drv <- new ("ViDaRDriver")
 
