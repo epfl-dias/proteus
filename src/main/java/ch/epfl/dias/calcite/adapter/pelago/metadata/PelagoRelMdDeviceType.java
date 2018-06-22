@@ -48,6 +48,7 @@ public class PelagoRelMdDeviceType implements MetadataHandler<BuiltInMetadata.De
   }
 
   public RelDeviceType deviceType(PelagoTableScan scan, RelMetadataQuery mq) {
+//    System.out.println(scan.getDeviceType());
     return scan.getDeviceType();
   }
   public RelDeviceType deviceType(SingleRel rel, RelMetadataQuery mq) {
@@ -59,7 +60,7 @@ public class PelagoRelMdDeviceType implements MetadataHandler<BuiltInMetadata.De
   }
 
   public RelDeviceType deviceType(BiRel rel, RelMetadataQuery mq) {
-    return mq.deviceType(rel.getLeft());
+    return mq.deviceType(rel.getRight());
   }
 
   public RelDeviceType deviceType(SetOp rel, RelMetadataQuery mq) {

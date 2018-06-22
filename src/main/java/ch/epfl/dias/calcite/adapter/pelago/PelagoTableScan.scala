@@ -68,7 +68,7 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     //
     // For example, if table has 3 fields, project has 1 field,
     // then factor = (1 + 2) / (3 + 2) = 0.6
-    super.computeSelfCost(planner, mq).multiplyBy((fields.length.toDouble + 2D) / (table.getRowType.getFieldCount.toDouble + 2D))
+    super.computeSelfCost(planner, mq).multiplyBy((fields.length.toDouble * 10000 + 2D) / (table.getRowType.getFieldCount.toDouble + 2D))
   }
 
   def getPelagoRelName: String = pelagoTable.getPelagoRelName

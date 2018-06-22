@@ -1,6 +1,7 @@
 package ch.epfl.dias.calcite.adapter.pelago.rules;
 
 //import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
 //import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceType;
 //import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceTypeTraitDef;
@@ -47,7 +48,8 @@ public class PelagoDeviceTypeConverterRule extends ConverterRule {
 ////        if (distribution == RelDistributions.RANDOM_DISTRIBUTED) {
 ////            System.out.println(tmp);
 ////        }
-        return LogicalDeviceCross.create(rel, target_device);
+        return PelagoDeviceCross.create(convert(rel, PelagoRel.CONVENTION), target_device);
+//        return LogicalDeviceCross.create(rel, target_device);
 //        return PelagoDeviceCross.create(rel, target_device);
     }
 

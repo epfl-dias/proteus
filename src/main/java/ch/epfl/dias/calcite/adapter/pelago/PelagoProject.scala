@@ -24,7 +24,7 @@ import scala.collection.JavaConverters._
 import scala.Tuple2
 import java.util
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMdDeviceType
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution}
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, emit_, getFields}
 import org.apache.calcite.adapter.enumerable.EnumerableConvention
 
@@ -40,7 +40,7 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
     PelagoProject.create(input, projects, rowType)
   }
 
-  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = super.computeSelfCost(planner, mq).multiplyBy(0.1)
+  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = super.computeSelfCost(planner, mq).multiplyBy(0.01)
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
@@ -73,7 +73,7 @@ object PelagoProject{
     val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
       .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
         override def get: RelDistribution = {
-          return RelMdDistribution.project(mq, input, projects)
+          return PelagoRelMdDistribution.project(mq, input, projects)
         }
       })
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType]() {

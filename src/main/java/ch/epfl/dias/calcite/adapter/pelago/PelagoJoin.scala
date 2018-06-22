@@ -37,12 +37,16 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     PelagoJoin.create(left, right, conditionExpr, getVariablesSet, joinType)
   }
 
+  override def estimateRowCount(mq: RelMetadataQuery): Double = super.estimateRowCount(mq)
+
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Pelago does not support cross products
     if (condition.isAlwaysTrue) return planner.getCostFactory.makeInfiniteCost
 
 //    if (traitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX))) return planner.getCostFactory.makeTinyCost
 
-    if (traitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX))) return planner.getCostFactory.makeTinyCost
+//    if (getLeft.getRowType.getFieldCount > 1) return planner.getCostFactory.makeHugeCost
+//    if (traitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX))) return planner.getCostFactory.makeTinyCost
+//    var devFactor = if (traitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == RelDeviceType.NVPTX) 0.1 else 1
 
     var rowCount = mq.getRowCount(this)
     // Joins can be flipped, and for many algorithms, both versions are viable
