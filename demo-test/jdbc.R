@@ -47,3 +47,5 @@ dbListFields(con, "employees")
 
 copy_to(con, iris, "iris")
 
+csv <- readcsv(connection = con, path = "mock.csv", fields = list(a="integer", b="varchar"), linehint = 20000, local = TRUE)
+

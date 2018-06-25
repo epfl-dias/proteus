@@ -66,10 +66,11 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
 
               query <- SQL(paste0(
                 "CREATE ", if (temporary) "TEMPORARY ", "TABLE ", table, " (\n",
-                "  ", paste(fields, collapse = ",\n  "), "\n)\n"#, "PATH: ", path, ",\n", "METADATA: ", adapter, "\n"
+                "  ", paste(fields, collapse = ",\n  "), "\n)\n"
               ))
             }
 
+            # appending plugin info
             metadata <- ""
             if(!is.null(path) || !is.null(type) || !is.null(linehint)){
               metadata <- paste0(metadata, " JPLUGIN `{'plugin':{'type': '", if(!is.null(type)) type else "block", "',",
