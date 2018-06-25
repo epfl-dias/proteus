@@ -25,7 +25,7 @@ test <- emp %>% filter(age>15) %>% for_all(emp.children) %>% summarise(card = co
 
 
 #writeLines(".memcpy off", con@env$conn)
-writeLines(".echo results on", con@env$conn)
+#writeLines(".echo results on", con@env$conn)
 
 ### dplyr ###
 

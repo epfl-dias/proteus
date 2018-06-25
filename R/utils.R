@@ -4,11 +4,14 @@
 # escaped quotes are deletd from the query
 textProcessQuery <- function(query, quoteChar = "`") {
   ret_query <- gsub("\"", quoteChar, query)
+  ret_query <- gsub("\'", "\"", ret_query)
   #ret_query <- gsub("\\\n", "", ret_query)
   #ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
   ret_query <- gsub("LIMIT 0", "", ret_query)
 
+  #TODO: temporarly disable
   return(ret_query)
+  #return(query)
 }
 
 # Util function for extracting the table name in FROM clause
@@ -16,23 +19,6 @@ extractFrom <- function(query, quoteChar = "`") {
   from <- strsplit(textProcessQuery(query, quoteChar), "FROM ")[[1]][2]
   from <- strsplit(from, " ")[[1]][1]
   return(from)
-}
-
-# TO BE DEPRECATED AND REPLACED WITH CALCITE HANDLER
-# Table name - find path of the schema
-getPath <- function(table_name){
-  path <- "/home/sanca/ViDa/pelago/src/SQLPlanner/src/main/resources/"
-
-  json<-jsonlite::read_json(paste0(path,"schema.json"))
-
-  for(schema in json$schemas){
-    for(tbl in list.files(paste0(path,schema$operand$directory)))
-      if(strsplit(tbl,"\\.")[[1]][1]==table_name){
-        return(paste0(path,schema$operand$directory,'/',table_name,'.csv'))
-      }
-  }
-
-  return(NULL)
 }
 
 # for case of creating a tbl (return 0 rows), R magic with lazy evaluation

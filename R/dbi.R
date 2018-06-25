@@ -3,7 +3,7 @@
 setClass("ViDaRDriver", contains = "JDBCDriver")
 
 # Instantiation of ViDaRDriver - using RJDBC
-ViDaR <- function(driverClass="ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver", driverLocation="/home/sanca/Desktop/sqlline/server/SQLPlanner-assembly-0.1.jar", quoteChar = "`") {
+ViDaR <- function(driverClass="org.apache.calcite.avatica.remote.Driver", driverLocation="src/avatica-1.11.0.jar", quoteChar = "`") {
   tmp <- JDBC(driverClass, driverLocation, quoteChar)
   drv <- new ("ViDaRDriver")
 
@@ -21,7 +21,7 @@ setMethod("dbGetInfo", "ViDaRDriver", def = function(dbObj, ...)
 setMethod("dbIsValid", "ViDaRDriver", def = function(dbObj, ...) invisible(TRUE))
 
 #
-setMethod("dbConnect", "ViDaRDriver", def = function(drv, connectionString = "jdbc:pelago:model=/home/sanca/sqlline/sqlline/bin/schema.json", ...){
+setMethod("dbConnect", "ViDaRDriver", def = function(drv, connectionString = "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF", ...){
 
   jdbcconn <- RJDBC::dbConnect(as(drv,"JDBCDriver"), connectionString, ...)
 

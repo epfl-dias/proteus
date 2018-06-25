@@ -1,39 +1,48 @@
 library(RJDBC)
 library(dplyr)
 library(DBI)
+library(ViDaR)
 
-driverClass <- "ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver"
-driverLocation <- "/home/sanca/sqlline/sqlline/bin/SQLPlanner-assembly-0.1.jar"
-connectionString <- "jdbc:pelago:model=/home/sanca/sqlline/sqlline/bin/schema.json"
+driverClass <- "org.apache.calcite.avatica.remote.Driver"
+driverLocation <- "src/avatica-1.11.0.jar"
+connectionString <- "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF"
 
-
-drv <- JDBC(driverClass, driverLocation)
-conn <- dbConnect(drv, connectionString)
-
-
-statement <- "!tables"
-s <- .jcall(conn@jc, "Ljava/sql/Statement;", "createStatement")
-r <- .jcall(s, "Ljava/sql/ResultSet;", "executeQuery", check=FALSE)
-
-
-res <- dbCreateTable(conn, "test5432", c(b="integer"))
+# drv <- JDBC(driverClass, driverLocation, identifier.quote = '`')
+# conn <- dbConnect(drv, connectionString)
+#
+# statement <- "!tables"
+# s <- .jcall(conn@jc, "Ljava/sql/Statement;", "createStatement")
+# r <- .jcall(s, "Ljava/sql/ResultSet;", "executeQuery", check=FALSE)
+#
+# res <- dbCreateTable(conn, "test5432", c(b="integer"))
 
 # === VIDAR JDBC === #
 
 
-con <- dbConnect(ViDaR())
-emp_tbl <- tbl(con, "employees")
+con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation))
+
+#emp_tbl <- tbl(con, "employees")
 
 
-schema2tbl("employees", con)
+dbSendUpdate(con, "create table Test1234(a integer, b integer) jplugin `{\'plugin\':{ \'type\':\'block\', \'linehint\':200000 }, \'file\':\'/inputs/csv.csv\'}`")
+
+dbSendQuery(con, "select * from Test1234")
+
+test1234 <- tbl(con, "Test1234")
+test1234 %>% filter(a > 5L) %>% summarise(colb = b)
+
+dates <- tbl(con, "ssbm_date")
+
+#schema2tbl("employees", con)
 
 
 dbListTables(con)
 dbCreateTable(con, "iris", iris)
 
+iris <- tbl(con, "iris")
+iris %>% filter(Sepal.Length > 5.0)
 
 dbListFields(con, "employees")
 
 copy_to(con, iris, "iris")
 
-dbSendQuery(con, "SELECT * FROM `emp` WHERE (`age` > 18.0)")
