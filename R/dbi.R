@@ -1,8 +1,11 @@
+# ViDaR extensions of DBI library
+# TODO: Check license for RJDBC!
 # ========== ViDaR DBI Driver ========== #
 # DBI Driver for ViDaR
 setClass("ViDaRDriver", contains = "JDBCDriver")
 
-# Instantiation of ViDaRDriver - using RJDBC
+# Instantiation of ViDaRDriver - using RJDBC library
+# Default driver class and location are specified (Using Avatica JDBC Driver)
 ViDaR <- function(driverClass="org.apache.calcite.avatica.remote.Driver", driverLocation="src/avatica-1.11.0.jar", quoteChar = "`") {
   tmp <- JDBC(driverClass, driverLocation, quoteChar)
   drv <- new ("ViDaRDriver")
@@ -13,12 +16,11 @@ ViDaR <- function(driverClass="org.apache.calcite.avatica.remote.Driver", driver
   return(drv)
 }
 
-
 setMethod("dbGetInfo", "ViDaRDriver", def = function(dbObj, ...)
   list(name="ViDaRDriver", driver.version = utils::packageVersion("ViDaR"), DBI.version = utils::packageVersion("DBI"))
 )
 
-setMethod("dbIsValid", "ViDaRDriver", def = function(dbObj, ...) invisible(TRUE))
+#setMethod("dbIsValid", "ViDaRDriver", def = function(dbObj, ...) invisible(TRUE))
 
 #
 setMethod("dbConnect", "ViDaRDriver", def = function(drv, connectionString = "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF", ...){

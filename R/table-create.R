@@ -25,12 +25,13 @@ create_table_level <- function(list, parent_name){
   return(query)
 }
 
+# jplugin `{\'plugin\':{ \'type\':\'block\', \'linehint\':200000 }, \'file\':\'/inputs/csv.csv\'}`
 setMethod("sqlCreateTable", signature("ViDaRConnection"),
-          function(con, table, fields,  temporary = FALSE, path, metadata, ...) {
+          function(con, table, fields,  temporary = FALSE, path = NULL, type = NULL, linehint = NULL, ...) {
 
             table <- dbQuoteIdentifier(con, table)
 
-            # Cover the JSON case and add the information about path and/or other options.
+            # TODO: Cover the JSON case and add the information about path and/or other options.
             # In general JSON is a nested list - so recursive calls will be necessary while building
             # the SQL string. On each level a keyword will be added indicating that we are entering
             # a nested level
@@ -69,12 +70,21 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
               ))
             }
 
+            metadata <- ""
+            if(!is.null(path) || !is.null(type) || !is.null(linehint)){
+              metadata <- paste0(metadata, " JPLUGIN `{'plugin':{'type': '", if(!is.null(type)) type else "block", "',",
+                                 "'linehint': ", if(!is.null(linehint)) toString(as.integer(linehint)) else "20000", "}, ",
+                                 "'file': '", if(!is.null(type)) type else "default_path", "'}`")
+            }
+
+            query <- SQL(paste0(query, metadata))
+
             return(query)
           }
 )
 
 setMethod("dbCreateTable", signature("ViDaRConnection"),
-          def = function(conn, name, fields, ..., path, adapter, row.names = NULL, temporary = FALSE) {
+          def = function(conn, name, fields, ..., path = NULL, type = NULL, linehint = NULL, row.names = NULL, temporary = FALSE) {
 
             query <- sqlCreateTable(
               con = conn,
@@ -82,11 +92,12 @@ setMethod("dbCreateTable", signature("ViDaRConnection"),
               fields = fields,
               temporary = temporary,
               path = path,
-              adapter = adapter,
+              type = type,
+              linehint = linehint,
               ...
             )
 
-            dbSendUpdate(conn, textProcessQuery(as.character(query), conn@identifier.quote))
+            dbSendUpdate(conn, query)
             invisible(TRUE)
 
           })

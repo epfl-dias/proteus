@@ -2,10 +2,11 @@
 
 # Utility function for preprocessing the text of the query -
 # escaped quotes are deletd from the query
+# WARNING: MAKE SURE THE QUERY IS PREPROCESSED ONLY ONCE!
 textProcessQuery <- function(query, quoteChar = "`") {
   ret_query <- gsub("\"", quoteChar, query)
-  ret_query <- gsub("\'", "\"", ret_query)
-  #ret_query <- gsub("\\\n", "", ret_query)
+  ret_query <- gsub("'", "\\\"", ret_query)
+  ret_query <- gsub("\\\n", "", ret_query)
   #ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
   ret_query <- gsub("LIMIT 0", "", ret_query)
 
