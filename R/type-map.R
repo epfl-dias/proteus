@@ -1,5 +1,5 @@
 # mapping between types in CSV and R types
-type_map <- list(integer="integer(0)", varchar="character(0)", boolean="logical(0)", string = "character(0)", float ="numeric(0)")
+type_map <- list(integer="integer(0)", varchar="character(0)", boolean="logical(0)")
 
 # method used for mapping the types and handling some exceptions in direct type mapping
 mapJDBCType <- function(JDBCType) {

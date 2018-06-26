@@ -7,6 +7,7 @@ textProcessQuery <- function(query, quoteChar = "`") {
   ret_query <- gsub("\"", quoteChar, query)
   ret_query <- gsub("'", "\\\"", ret_query)
   ret_query <- gsub("\\\n", "", ret_query)
+  ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
   #ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
   ret_query <- gsub("LIMIT 0", "", ret_query)
 
@@ -19,6 +20,7 @@ textProcessQuery <- function(query, quoteChar = "`") {
 extractFrom <- function(query, quoteChar = "`") {
   from <- strsplit(textProcessQuery(query, quoteChar), "FROM ")[[1]][2]
   from <- strsplit(from, " ")[[1]][1]
+  from <- gsub("`", "", from)
   return(from)
 }
 
@@ -59,8 +61,6 @@ schema2tbl <- function(table, con){
   cmd <- paste0("data.frame(", paste(build_cmd, collapse = ","), ")")
 
   on.exit(.jcall(resultSet, "V", "close"))
-
-  print(cmd)
 
   return(as.tbl(lazyeval::lazy_eval(cmd)))
 }

@@ -9,7 +9,11 @@ library(jsonlite)
 ### DBI ###
 
 # establishing the connection
-con <- dbConnect(ViDaR())
+driverClass <- "org.apache.calcite.avatica.remote.Driver"
+driverLocation <- "src/avatica-1.11.0.jar"
+connectionString <- "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF"
+
+con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation))
 
 # unnest try
 emp_jsn = '{"name":"string", "age":"int", "children":[{"name2":"string", "age2":"int"}]}'
@@ -31,10 +35,10 @@ test <- emp %>% filter(age>15) %>% for_all(emp.children) %>% summarise(card = co
 
 # creating placeholder tables (query results in 0 rows fetched (WHERE 0=1))
 dates <- tbl(con, "ssbm_date")
-lineorder <- tbl(con, "lineorder")
-customer <- tbl(con, "customer")
-supplier <- tbl(con, "supplier")
-part <- tbl(con, "part")
+lineorder <- tbl(con, "ssbm_lineorder")
+customer <- tbl(con, "ssbm_customer")
+supplier <- tbl(con, "ssbm_supplier")
+part <- tbl(con, "ssbm_part")
 
 dates_csv <- tbl(con, "dates_csv")
 lineorder_csv <- tbl(con, "lineorder_csv")

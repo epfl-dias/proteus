@@ -44,9 +44,11 @@ valueClass = "ViDaRConnection")
 # DBI Connection for ViDaR - inherits JDBC connection
 setClass("ViDaRConnection", contains = "JDBCConnection", slots = list(env="environment"))
 
-#setMethod("dbDataType", signature(dbObj="ViDaRConnection", obj="ANY"), def = function(dbObj, obj, ...)
-#  invisible(TRUE) # Data type conversion
-#  )
+# TODO: R->SQL type mapping, consult PelagoEnumerator file for supported data types
+setMethod("dbDataType", signature(dbObj="ViDaRConnection", obj="ANY"), def = function(dbObj, obj, ...)
+  vidarDataType(obj)
+  #invisible(TRUE) # Data type conversion
+  )
 
 setMethod("dbDisconnect", "ViDaRConnection", def = function(conn, ...){
 
@@ -138,12 +140,14 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
 
 setMethod("dbSendStatement", signature(conn="ViDaRConnection", statement="character"), def = function(conn, statement, ...){
 
+  print(textProcessQuery(statement))
   RJDBC::dbSendUpdate(as(conn, "JDBCConnection"), textProcessQuery(statement))
 
 })
 
 setMethod("dbSendUpdate", signature(conn="ViDaRConnection", statement="character"), def = function(conn, statement, ...){
 
+  print(textProcessQuery(statement))
   RJDBC::dbSendUpdate(as(conn, "JDBCConnection"), textProcessQuery(statement))
 
 })
@@ -186,6 +190,6 @@ setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(r
 
       return(schema2tbl(res@env$table_name, res@env$conn))
     } else {
-      return(RJDBC::fetch(as(res, "JDBCResult"), n))
+      return(as.tbl(RJDBC::fetch(as(res, "JDBCResult"), n)))
     }
   })
