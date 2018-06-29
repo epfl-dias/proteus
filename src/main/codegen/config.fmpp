@@ -34,6 +34,7 @@ data: {
         "STORED"
         "VIRTUAL"
         "JPLUGIN"
+        "FROM_JSON"
       ]
 
       # List of keywords from "keywords" section that are not reserved.
@@ -43,6 +44,7 @@ data: {
         "STORED"
         "VIRTUAL"
         "JPLUGIN"
+        "FROM_JSON"
       ]
 
       # List of methods for parsing custom SQL statements.

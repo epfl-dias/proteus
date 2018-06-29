@@ -198,15 +198,17 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     SqlNodeList tableElementList = null;
     SqlNode query = null;
     String jsonPlugin = null;
+    String jsonTable = null;
 }
 {
     <TABLE> ifNotExists = IfNotExistsOpt() id = CompoundIdentifier()
     [ tableElementList = TableElementList() ]
     [ <AS> query = OrderedQueryOrExpr(ExprContext.ACCEPT_QUERY) ]
-    [ <JPLUGIN> jsonPlugin = Identifier() ]
+    [ <JPLUGIN> jsonPlugin = CustomIdentifier() ]
+    [ <FROM_JSON> jsonTable = CustomIdentifier() ]
     {
         return SqlDdlNodes.createTable(s.end(this), replace, ifNotExists, id,
-            tableElementList, query, jsonPlugin);
+            tableElementList, query, jsonPlugin, jsonTable);
     }
 }
 
@@ -289,6 +291,65 @@ SqlDrop SqlDropMaterializedView(Span s, boolean replace) :
 {
     <MATERIALIZED> <VIEW> ifExists = IfExistsOpt() id = CompoundIdentifier() {
         return SqlDdlNodes.dropMaterializedView(s.end(this), ifExists, id);
+    }
+}
+
+/**
+ * Parses a custom identifier as a string.
+ */
+String CustomIdentifier() :
+{
+    String id;
+    char unicodeEscapeChar = BACKSLASH;
+}
+{
+    (
+        <IDENTIFIER>
+        {
+            id = unquotedIdentifier();
+        }
+    |
+        <QUOTED_IDENTIFIER> {
+            id = SqlParserUtil.strip(getToken(0).image, DQ, DQ, DQDQ,
+                quotedCasing);
+        }
+    |
+        <BACK_QUOTED_IDENTIFIER> {
+            id = SqlParserUtil.strip(getToken(0).image, "`", "`", "``",
+                quotedCasing);
+        }
+    |
+        <BRACKET_QUOTED_IDENTIFIER> {
+            id = SqlParserUtil.strip(getToken(0).image, "[", "]", "]]",
+                quotedCasing);
+        }
+    |
+        <UNICODE_QUOTED_IDENTIFIER> {
+            id = getToken(0).image;
+            id = id.substring(id.indexOf('"'));
+            id = SqlParserUtil.strip(id, DQ, DQ, DQDQ, quotedCasing);
+        }
+        [
+            <UESCAPE> <QUOTED_STRING> {
+                String s = SqlParserUtil.parseString(token.image);
+                unicodeEscapeChar = SqlParserUtil.checkUnicodeEscapeChar(s);
+            }
+        ]
+        {
+            SqlLiteral lit = SqlLiteral.createCharString(id, "UTF16", getPos());
+            lit = lit.unescapeUnicode(unicodeEscapeChar);
+            return lit.toValue();
+        }
+    |
+        id = NonReservedKeyWord()
+    )
+    {
+        //NO CONSTRAINTS ON LENGTH - but keep the other implementation of identifier for SQL purposes
+        //if (id.length() > this.identifierMaxLength) {
+        //    throw SqlUtil.newContextException(getPos(),
+        //        RESOURCE.identifierTooLong(id, this.identifierMaxLength));
+        //}
+        return id;
     }
 }
 

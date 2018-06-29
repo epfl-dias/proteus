@@ -259,6 +259,7 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
 //    }
 
     protected Object convert(RelDataTypeField fieldType, String string) {
+
       if (fieldType == null) {
         return string;
       }
@@ -287,11 +288,17 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
           return null;
         }
         return Double.parseDouble(string);
-      } else if (fieldType.getType().getSqlTypeName() == SqlTypeName.VARCHAR) {
+      } else if (fieldType.getType().getSqlTypeName() == SqlTypeName.DOUBLE) {
+        if (mock) return rand.nextDouble();
+        if (string.length() == 0) {
+          return null;
+        }
+        return Double.parseDouble(string);
+      }else if (fieldType.getType().getSqlTypeName() == SqlTypeName.VARCHAR) {
         if (mock) return UUID.randomUUID().toString().replace("-", "");
         return string;
       } else {
-        throw new AssertionError("unrecognized type");
+        throw new AssertionError("unrecognized type "+string+", fieldtype: "+fieldType.getName());
       }
     }
   }

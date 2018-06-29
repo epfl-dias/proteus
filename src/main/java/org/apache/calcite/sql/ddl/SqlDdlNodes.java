@@ -60,9 +60,9 @@ public class SqlDdlNodes {
   /** Creates a CREATE TABLE. */
   public static SqlCreateTable createTable(SqlParserPos pos, boolean replace,
                                            boolean ifNotExists, SqlIdentifier name, SqlNodeList columnList,
-                                           SqlNode query, String jsonPlugin) {
+                                           SqlNode query, String jsonPlugin, String jsonTable) {
     return new SqlCreateTable(pos, replace, ifNotExists, name, columnList,
-        query, jsonPlugin);
+        query, jsonPlugin, jsonTable);
   }
 
   /** Creates a CREATE VIEW. */

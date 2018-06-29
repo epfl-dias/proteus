@@ -54,7 +54,7 @@ object Repl extends App {
     }
   }
 
-  val options = nextOption(Map('server -> false, 'mockfile -> defaultMock, 'schema -> defaultSchema), arglist)
+  val options = nextOption(Map('server -> true, 'mockfile -> defaultMock, 'schema -> defaultSchema), arglist)
   System.out.println(options);
 
   val mockfile = options.get('mockfile).get.asInstanceOf[String]

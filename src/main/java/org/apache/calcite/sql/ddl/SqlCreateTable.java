@@ -16,7 +16,10 @@
  */
 package org.apache.calcite.sql.ddl;
 
+import ch.epfl.dias.calcite.adapter.pelago.MalformedPlugin;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoTable;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoTableFactory;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
@@ -48,13 +51,13 @@ import org.apache.calcite.sql2rel.InitializerExpressionFactory;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
 import org.apache.calcite.util.ImmutableNullableList;
 import org.apache.calcite.util.Pair;
+import org.apache.calcite.util.Source;
+import org.apache.calcite.util.Sources;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 import static org.apache.calcite.util.Static.RESOURCE;
 
@@ -67,6 +70,7 @@ public class SqlCreateTable extends SqlCreate
   private final SqlNodeList columnList;
   private final SqlNode query;
   private final String jsonPlugin;
+  private final String jsonTable;
 
   private static final SqlOperator OPERATOR =
       new SqlSpecialOperator("CREATE TABLE", SqlKind.CREATE_TABLE);
@@ -74,12 +78,13 @@ public class SqlCreateTable extends SqlCreate
   /** Creates a SqlCreateTable. */
   SqlCreateTable(SqlParserPos pos, boolean replace, boolean ifNotExists,
                  SqlIdentifier name, SqlNodeList columnList,
-                 SqlNode query, String jsonPlugin) {
+                 SqlNode query, String jsonPlugin, String jsonTable) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Preconditions.checkNotNull(name);
     this.columnList = columnList; // may be null
     this.query = query; // for "CREATE TABLE ... AS query"; may be null
     this.jsonPlugin = jsonPlugin;
+    this.jsonTable = jsonTable;
   }
 
   public List<SqlNode> getOperandList() {
@@ -140,10 +145,18 @@ public class SqlCreateTable extends SqlCreate
       columnList = this.columnList.getList();
     } else {
       if (queryRowType == null) {
+        // FIXME If we enable CREATE TABLE t RAW <json> this will not be the case
         // "CREATE TABLE t" is invalid; because there is no "AS query" we need
         // a list of column names and types, "CREATE TABLE t (INT c)".
-        throw SqlUtil.newContextException(name.getParserPosition(),
-            RESOURCE.createTableRequiresColumnList());
+          // But it is fine if we define table from JSON text.
+        if(jsonTable == null) {
+            throw SqlUtil.newContextException(name.getParserPosition(),
+                    RESOURCE.createTableRequiresColumnList());
+        } else {
+            // Parse the JSON and add to schema.
+            pair.left.add(pair.right, createTableJSON(jsonTable));
+            return;
+        }
       }
       columnList = new ArrayList<>();
       for (String name : queryRowType.getFieldNames()) {
@@ -246,6 +259,58 @@ public class SqlCreateTable extends SqlCreate
       SqlDdlNodes.populate(name, query, context);
     }
   }
+
+    // TODO As in PelagoSchema, read the json and add it to tables
+    // FIXME probably it should be placed in PelagoTable class
+    private PelagoTable createTableJSON(String jsonTable) {
+
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, ?> tableDescription = null;
+
+        try {
+            tableDescription = mapper.readValue(jsonTable, new TypeReference<Map<String, ?>>() {});
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+        for (Map.Entry<String, ?> e: tableDescription.entrySet()) {
+            Map<String, ?> fileEntry = (Map<String, ?>) ((Map<String, ?>) e.getValue()).get("type");
+            String fileType = (String) fileEntry.getOrDefault("type", null);
+            if (!fileType.equals("bag")) {
+                System.err.println("Error in catalog: relation type is expected to be \"bag\", but \"" + fileType + "\" found");
+                System.out.println("Ignoring table: " + e.getKey());
+                continue;
+            }
+            Map<String, ?> lineType = (Map<String, ?>) fileEntry.getOrDefault("inner", null);
+            if (lineType != null && !lineType.getOrDefault("type", null).equals("record")) lineType = null;
+            if (lineType == null) {
+                System.err.println("Error in catalog: \"bag\" expected to contain records");
+                System.out.println("Ignoring table: " + e.getKey());
+                continue;
+            }
+            Source source = Sources.of(new File((String) ((Map<String, ?>) e.getValue()).get("path")));
+
+            Map<String, ?> plugin = (Map<String, ?>) ((Map<String, ?>) e.getValue()).getOrDefault("plugin", null);
+            if (plugin == null) {
+                System.err.println("Error in catalog: plugin information not found for table");
+                System.out.println("Ignoring table: " + e.getKey());
+                continue;
+            }
+
+            try {
+                // at this point we create the table
+                Table table = PelagoTable.create(source, e.getKey(), plugin, lineType);
+                return (PelagoTable)table;
+            } catch (MalformedPlugin malformedPlugin) {
+                System.out.println("Error in catalog: " + malformedPlugin.getMessage  ());
+                System.out.println("Ignoring table  : " + malformedPlugin.getTableName());
+                continue;
+            }
+        }
+
+        return null;
+    }
 
   /** Column definition. */
   private static class ColumnDef {
