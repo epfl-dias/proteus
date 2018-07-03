@@ -102,7 +102,7 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
 
 object PelagoTableScan {
   def create(cluster: RelOptCluster, table: RelOptTable, pelagoTable: PelagoTable, fields: Array[Int]) = {
-    val traitSet = cluster.traitSet.plus(PelagoRel.CONVENTION).replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
+      val traitSet = cluster.traitSet.plus(PelagoRel.CONVENTION).replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
       override def get: RelDistribution = {
         return pelagoTable.getDistribution
       }

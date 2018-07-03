@@ -61,9 +61,12 @@ public class PelagoRelMdDistribution implements MetadataHandler<BuiltInMetadata.
   }
 
   public static RelDistribution project(RelMetadataQuery mq, RelNode input, List<? extends RexNode> projects) {
-    return mq.distribution(input);
+//    return mq.distribution(input);
 //    Mappings.TargetMapping mapping = Project.getPartialMapping(input.getRowType().getFieldCount(), projects);
 //    return inputDistribution.apply(mapping);
+    RelDistribution inputDistribution = mq.distribution(input);
+    Mappings.TargetMapping mapping = Project.getPartialMapping(input.getRowType().getFieldCount(), projects);
+    return inputDistribution.apply(mapping);
   }
 
 }

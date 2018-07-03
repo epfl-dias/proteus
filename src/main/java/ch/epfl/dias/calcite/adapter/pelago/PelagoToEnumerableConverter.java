@@ -68,7 +68,7 @@ public class PelagoToEnumerableConverter
 
     public static RelNode create(RelNode input){
         RelOptCluster cluster  = input.getCluster();
-        RelTraitSet traitSet = cluster.traitSet().replace(EnumerableConvention.INSTANCE)
+        RelTraitSet traitSet = input.getTraitSet().replace(EnumerableConvention.INSTANCE)
             .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
                 public RelDistribution get() {
                     return cluster.getMetadataQuery().distribution(input);
@@ -84,6 +84,7 @@ public class PelagoToEnumerableConverter
 
     @Override public RelOptCost computeSelfCost(RelOptPlanner planner,
                                                 RelMetadataQuery mq) {
+//        System.out.println(super.computeSelfCost(planner, mq));
         return super.computeSelfCost(planner, mq)
                 .multiplyBy(((double) getRowType().getFieldCount()) * 0.1);
 

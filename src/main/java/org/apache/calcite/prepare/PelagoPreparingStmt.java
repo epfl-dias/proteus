@@ -29,6 +29,7 @@ import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.runtime.Bindable;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.Typed;
+import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql2rel.RelDecorrelator;
 import org.apache.calcite.sql2rel.RelFieldTrimmer;
@@ -39,6 +40,8 @@ import org.apache.calcite.tools.Programs;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
 import org.apache.calcite.util.Pair;
+
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -88,8 +91,9 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         }
     }
 
-    protected RelTraitSet getDesiredRootTraitSet(RelRoot root) {
+    protected RelTraitSet getDesiredRootTraitSet(RelRoot root) {//this.resultConvention
         return root.rel.getTraitSet().replace(this.resultConvention).replace(root.collation).replace(RelDeviceType.X86_64).simplify();
+//        return root.rel.getTraitSet().replace(this.resultConvention).replace(root.collation).replace(RelDeviceType.X86_64).simplify();
     }
 
     /** Program that trims fields. */
@@ -104,6 +108,18 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         }
     }
 
+
+//    /** Program that trims fields. */
+//    private static class PelagoProgram implements Program {
+//        public RelNode run(RelOptPlanner planner, RelNode rel,
+//            RelTraitSet requiredOutputTraits,
+//            List<RelOptMaterialization> materializations,
+//            List<RelOptLattice> lattices) {
+//            System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.ALL_ATTRIBUTES));
+//            return rel;
+//        }
+//    }
+
     protected Program getProgram() {
         // Allow a test to override the default program.
         final Holder<Program> holder = Holder.of(null);
@@ -111,7 +127,8 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         if (holder.get() != null) {
             return holder.get();
         }
-        return Programs.sequence(Programs.subQuery(DefaultRelMetadataProvider.INSTANCE),
+        return Programs.sequence(
+                Programs.subQuery(DefaultRelMetadataProvider.INSTANCE),
                 new DecorrelateProgram(),
                 new TrimFieldsProgram(),
                 Programs.heuristicJoinOrder(planner.getRules(), false, 2)
