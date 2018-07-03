@@ -120,7 +120,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         //join rules
 //                                                                                                                rules.add(JoinToMultiJoinRule.INSTANCE);
 //                                                                                                                rules.add(LoptOptimizeJoinRule.INSTANCE);
-//                                                                                                                //        MultiJoinOptimizeBushyRule.INSTANCE,
+//                                                                                                              rules.add(MultiJoinOptimizeBushyRule.INSTANCE);//,
                                                                                                                 rules.add(JoinPushThroughJoinRule.RIGHT);
                                                                                                                 rules.add(JoinPushThroughJoinRule.LEFT);
                                                                                                                 /*choose between right and left*/
@@ -573,12 +573,4 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
                 bindable,
                 statementType);
     }
-
-  protected RelTraitSet getDesiredRootTraitSet(RelRoot root) {
-      System.out.println("asdadasdadasdasdasdasdaDS");
-    return root.rel.getTraitSet().replace(EnumerableConvention.INSTANCE).replace(root.collation).replace(RelDeviceType.X86_64).simplify();
-  }
-
-
-
 }

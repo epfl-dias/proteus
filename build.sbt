@@ -33,6 +33,9 @@ libraryDependencies += slf4j
 libraryDependencies += slf4j_simple
 libraryDependencies += json4sJackson
 
+// https://mvnrepository.com/artifact/junit/junit
+libraryDependencies += "junit" % "junit" % "4.12" % Test
+
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", "services", xs @ _*) => MergeStrategy.first
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard

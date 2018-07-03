@@ -22,6 +22,7 @@ import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMdDeviceType;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.rules.MultiJoin;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.BuiltInMethod;
 
@@ -61,6 +62,10 @@ public class PelagoRelMdDeviceType implements MetadataHandler<BuiltInMetadata.De
 
   public RelDeviceType deviceType(BiRel rel, RelMetadataQuery mq) {
     return mq.deviceType(rel.getRight());
+  }
+
+  public RelDeviceType deviceType(MultiJoin rel, RelMetadataQuery mq) {
+    return mq.deviceType(rel.getInputs().get(0));
   }
 
   public RelDeviceType deviceType(SetOp rel, RelMetadataQuery mq) {

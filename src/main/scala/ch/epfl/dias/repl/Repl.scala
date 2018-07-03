@@ -101,45 +101,29 @@ object Repl extends App {
     //      System.exit(0)
     //    }
 
-//        val input = "select sum(d_datekey), max(d_datekey) from ssbm_date";
-//        val input = "select sum(lo_revenue), count(*) from ssbm_lineorder1000, ssbm_date1000 where lo_orderdate = d_datekey and d_year = 1997"
-    //  val input = "select sum(lo_revenue - lo_supplycost) as profit " +
-    //      "from ssbm_lineorder1000, ssbm_customer1000, ssbm_supplier1000 " +
-    //      "where lo_custkey = c_custkey " +
-    //      "and lo_suppkey = s_suppkey ";
-//    var input = "create table Test(t integer, p varchar)";
-//    connection.createStatement().execute(input);
 
-//    input = "select sum(d_year), sum(d_year*8) from ssbm_date";
-    //  input = "select d_year from ssbm_date";
-//    input = "select sum(lo_revenue) from ssbm_lineorder1000, ssbm_date1000 where lo_orderdate = d_datekey group by d_year"; // and d_year = 1997"
+//          input = "select count(*) " + //sum(lo_revenue - lo_supplycost) as profit " +
+//            "from ssbm_lineorder1000, ssbm_date1000, ssbm_customer1000, ssbm_supplier1000, ssbm_part1000 " +
+//            "where lo_custkey = c_custkey " +
+//            "and lo_suppkey = s_suppkey " +
+//            "and lo_partkey = p_partkey " +
+//            "and lo_orderdate = d_datekey " +
+//            "and c_region = 'AMERICA' " +
+//            "and s_region = 'AMERICA' " +
+//            "and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2') " //+
+////            "group by d_year";//+
+//    //        "order by d_year, c_nation";
 
-    //  input = "select d_year, d_year*8 from ssbm_date1000";
-    //    var resultSet = connection.createStatement().executeQuery("explain plan for " + input)
-
-//      input = "select d_year, c_nation, sum(lo_revenue - lo_supplycost) as profit " +
-//        "from ssbm_lineorder1000, ssbm_date1000, ssbm_customer1000, ssbm_supplier1000, ssbm_part1000 " +
-//        "where lo_custkey = c_custkey " +
-//        "and lo_suppkey = s_suppkey "+
-//        "and lo_partkey = p_partkey "+
-//        "and lo_orderdate = d_datekey "+
-//        "and c_region = 'AMERICA' "+
-//        "and s_region = 'AMERICA' "+
-//        "and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2') " +
-//        "group by d_year, c_nation "+
-//        "order by d_year, c_nation";
-
-          input = "select count(*) " + //sum(lo_revenue - lo_supplycost) as profit " +
-            "from ssbm_lineorder1000, ssbm_date1000, ssbm_customer1000, ssbm_supplier1000, ssbm_part1000 " +
-            "where lo_custkey = c_custkey " +
-            "and lo_suppkey = s_suppkey " +
-            "and lo_partkey = p_partkey " +
-            "and lo_orderdate = d_datekey " +
-            "and c_region = 'AMERICA' " +
-            "and s_region = 'AMERICA' " +
-            "and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2') " //+
-//            "group by d_year";//+
-    //        "order by d_year, c_nation";
+    input =
+      "select sum(lo_revenue), d_year, p_brand1 " +
+      "from ssbm_date1000, ssbm_lineorder1000, ssbm_part1000, ssbm_supplier1000 " +
+      "where lo_orderdate = d_datekey " +
+      " and lo_partkey = p_partkey " +
+      " and lo_suppkey = s_suppkey " +
+      " and p_category = 'MFGR#12' " +
+      " and s_region = 'AMERICA' " +
+      "group by d_year, p_brand1 " +
+      "order by d_year, p_brand1"
 
 //    input = "select max(d_yearmonthnum), d_year from ssbm_date1000 group by d_year order by d_year";
 //    input = "select * from employees";
@@ -178,6 +162,14 @@ object Repl extends App {
       System.out.println("")
     }
 
+    System.out.println("")
+    System.out.println("")
+    System.out.println("")
+    System.out.println("")
+    System.out.println("")
+    System.out.println("rr")
+    System.out.println("rr")
+    System.out.println("rr")
     resultSet = connection.createStatement().executeQuery(input)
     rsmd = resultSet.getMetaData
     columnsNumber = rsmd.getColumnCount

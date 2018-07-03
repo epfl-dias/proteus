@@ -41,6 +41,7 @@ public class PelagoRules {
         PelagoDeviceCrossRule.INSTANCE,
         PelagoProjectRule.INSTANCE,
         PelagoAggregateRule.INSTANCE,
+        PelagoSortRule.INSTANCE,
         PelagoFilterRule.INSTANCE,
         PelagoRouterRule.INSTANCE,
         PelagoJoinRule2.INSTANCE,
@@ -50,7 +51,7 @@ public class PelagoRules {
 //        PelagoJoinRule.SEQUENTIAL_X8664,
         PelagoJoinRule.BROADCAST_NVPTX ,
 //        PelagoJoinRule.BROADCAST_X8664 ,
-        PelagoJoinRuleHash.INSTANCE    ,
+//        PelagoJoinRuleHash.INSTANCE    ,
 //        PelagoJoinRule3.INSTANCE,
 //        PelagoBroadCastJoinRule.INSTANCE,
 //        PelagoBroadCastJoinRule2.INSTANCE
@@ -163,6 +164,78 @@ public class PelagoRules {
                 RelNode r = PelagoAggregate.create(inp, agg.indicator, agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList());
 //                System.out.println(r.getTraitSet());
                 return r;
+//            }
+        }
+    }
+
+    /**
+     * Rule to convert a {@link org.apache.calcite.rel.logical.LogicalSort}
+     * to a {@link PelagoSort}.
+     */
+    private static class PelagoSortRule extends PelagoConverterRule {
+        private static final PelagoSortRule INSTANCE = new PelagoSortRule();
+
+        private PelagoSortRule() {
+            super(Sort.class, "PelagoSortRule");
+        }
+
+        public boolean matches(RelOptRuleCall call) {
+            return true;
+//            return call.rel(0).getTraitSet().contains(RelDistributions.SINGLETON);
+        }
+
+        public RelNode convert(RelNode rel) {
+            final Sort sort = (Sort) rel;
+
+//            RelNode inp = convert(agg.getInput(), out);
+////            if (!inp.getTraitSet().satisfies(RelTraitSet.createEmpty().plus(RelDistributions.SINGLETON))){
+////                inp = PelagoAggregate.create(inp, agg.indicator, agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList());
+//
+////                Mappings.
+//
+//                inp = convert(inp, RelDistributions.SINGLETON);
+
+//            System.out.println(agg.getTraitSet());
+            RelTraitSet traitSet = rel.getCluster().traitSet().replace(PelagoRel.CONVENTION)
+                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                    public RelDistribution get() {
+                        return RelDistributions.SINGLETON;
+                    }
+                })
+                ;
+
+//            System.out.println("=====" + traitSet);
+            RelNode inp = convert(convert(sort.getInput(), out), RelDistributions.SINGLETON);
+//            RelNode inp = convert(agg.getInput(), traitSet);
+
+//                List<AggregateCall> alist = new ArrayList<AggregateCall>();
+//                for (AggregateCall aggr: agg.getAggCallList()){
+//                    SqlAggFunction ag = aggr.getAggregation();
+////                    ag.
+////                    if (ag instanceof SqlSplittableAggFunction){
+//                    AggregateCall a = ag.unwrap(SqlSplittableAggFunction.class).split(aggr, Mappings.createIdentity(agg.getInput().getRowType().getFieldCount() - 1));
+////                                aggr.isDistinct(),
+////                                aggr.isApproximate(),
+////                                aggr.getArgList(),
+////                                aggr.filterArg,
+////                                agg.getGroupCount(),
+////                                inp,
+////                                null,
+////                                "");
+//                     alist.add(a);
+////                    } else {
+////                        System.out.println("adasdasdasdasdasd" + ag);
+////                        return null;
+////                    }
+//                }
+//
+//                System.out.println(agg.getAggCallList() + " " + alist);
+//
+//                return PelagoAggregate.create(inp, agg.indicator, agg.getGroupSet(), agg.getGroupSets(), alist);
+//            } else {
+            RelNode r = PelagoSort.create(inp, sort.collation, sort.offset, sort.fetch);
+//                System.out.println(r.getTraitSet());
+            return r;
 //            }
         }
     }
