@@ -66,3 +66,11 @@ string2list <- function(str, delimiter = ":") {
 
   return(lazyeval::lazy_eval(paste0("list(",repl,")")))
 }
+
+readjson <- function(connection, name, json, json_quote="\"") {
+  json_sub <- gsub(json_quote, "%", json)
+
+  query <- SQL(paste0("CREATE TABLE ", name, " FROM_JSON `", json_sub, "`"))
+  dbSendUpdate(con, query)
+  return(tbl(connection, name))
+}

@@ -20,6 +20,10 @@ test_header <- readcsv(connection = con, name="test_header", path = "demo-test/t
 
 test_fields <- readcsv(connection = con, name="test_fields", path = "/random_path/test_header.csv", linehint = 5, colClasses = c("integer", "varchar"))
 
+# TODO - unparsing nested tables
+#json <- '{"employees": { "path": "inputs/json/employees-flat.json", "type": { "type": "bag", "inner": { "type": "record", "attributes": [{ "type": { "type": "string" }, "relName": "inputs/json/employees-flat.json", "attrName": "name", "attrNo": 1 }, { "type": { "type": "int" }, "relName": "inputs/json/employees-flat.json", "attrName": "age", "attrNo": 2 }, { "type": { "type": "list", "inner": { "type": "record", "attributes": [ { "type": { "type": "string" }, "relName": "inputs/json/employees-flat.json", "attrName": "name2", "attrNo": 1 }, { "type": { "type": "int" }, "relName": "inputs/json/employees-flat.json", "attrName": "age2", "attrNo": 2 } ] } }, "relName": "inputs/json/employees-flat.json", "attrName": "children", "attrNo": 3 }] } }, "plugin": { "type": "json", "lines": 3, "policy": 2 } } }'
+#test_json <- readjson(connection = con, name = "test_json", json = json)
+
 ### dplyr ###
 # creating placeholder tables (query results in 0 rows fetched (WHERE 0=1))
 dates <- tbl(con, "ssbm_date")
