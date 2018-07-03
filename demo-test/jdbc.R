@@ -39,6 +39,6 @@ iris_tbl %>% summarise(Sepal.Length)
 
 #dbListFields(con, "employees")
 
-copy_to(con, iris, "iris")
+copy_to(con, iris, "iris3")
 
 csv <- readcsv(connection = con, path = "mock.csv", fields = list(a="integer", b="varchar"), linehint = 20000, local = TRUE)

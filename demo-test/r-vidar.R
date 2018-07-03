@@ -7,7 +7,6 @@ library(rlang)
 library(jsonlite)
 
 ### DBI ###
-
 # establishing the connection
 driverClass <- "org.apache.calcite.avatica.remote.Driver"
 driverLocation <- "src/avatica-1.11.0.jar"
@@ -15,24 +14,13 @@ connectionString <- "jdbc:avatica:remote:url=http://localhost:8081;serialization
 
 con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation))
 
-# unnest try
-emp_jsn = '{"name":"string", "age":"int", "children":[{"name2":"string", "age2":"int"}]}'
-df_emp <- data.frame(jsonlite::fromJSON(emp_jsn, flatten = TRUE, simplifyDataFrame = TRUE))
-emp <- as.tbl(df_emp)
-emp <- tbl(con, "emp")
+test_noheader <- readcsv(connection = con, path = "demo-test/test.csv", linehint = 5, header = FALSE)
 
-test <- emp %>% for_all(name) %>% sql_build(.)
-test <- emp %>% for_all(name, name1) %>% filter(age>15) %>% filter(age>18) %>% select(name) %>% sql_build(.)
-test <- emp %>% filter(age>18) %>% for_all(name, blabla) %>% sql_build(.)
-test <- emp %>% filter(age>15) %>% for_all(emp.children) %>% summarise(card = count(name), collected = collect(age)) %>% sql_build(.)
+test_header <- readcsv(connection = con, name="test_header", path = "demo-test/test_header.csv", linehint = 5)
 
-
-
-#writeLines(".memcpy off", con@env$conn)
-#writeLines(".echo results on", con@env$conn)
+test_fields <- readcsv(connection = con, name="test_fields", path = "/random_path/test_header.csv", linehint = 5, colClasses = c("integer", "varchar"))
 
 ### dplyr ###
-
 # creating placeholder tables (query results in 0 rows fetched (WHERE 0=1))
 dates <- tbl(con, "ssbm_date")
 lineorder <- tbl(con, "ssbm_lineorder")
@@ -40,11 +28,20 @@ customer <- tbl(con, "ssbm_customer")
 supplier <- tbl(con, "ssbm_supplier")
 part <- tbl(con, "ssbm_part")
 
-dates_csv <- tbl(con, "dates_csv")
-lineorder_csv <- tbl(con, "lineorder_csv")
-customer_csv <- tbl(con, "customer_csv")
-supplier_csv <- tbl(con, "supplier_csv")
-part_csv <- tbl(con, "part_csv")
+#REPLACE THE TABLES FROM SCHEMA WITH TABLES CREATED IN R
+dates_sch <- paste0("d_datekey:int,d_date:string,d_dayofweek:string,d_month:string,",
+                    "d_year:int,d_yearmonthnum:int,d_yearmonth:string,d_daynuminweek:int,",
+                    "d_daynuminmonth:int,d_daynuminyear:int,d_monthnuminyear:int,d_weeknuminyear:int,",
+                    "d_sellingseason:string,d_lastdayinweekfl:boolean,d_lastdayinmonthfl:boolean,",
+                    "d_holidayfl:boolean,d_weekdayfl:boolean")
+
+dates <- readcsv(connection = con, fields = dates_sch, path = "/path/to/dates.csv", linehint = 5000, name = "date")
+
+# dates_csv <- tbl(con, "dates_csv")
+# lineorder_csv <- tbl(con, "lineorder_csv")
+# customer_csv <- tbl(con, "customer_csv")
+# supplier_csv <- tbl(con, "supplier_csv")
+# part_csv <- tbl(con, "part_csv")
 
 dates %>% filter(d_yearmonthnum==199401L) %>% select(d_yearmonthnum, d_datekey)
 
@@ -54,6 +51,7 @@ dates %>% summarise(sum1=sum(d_year, na.rm = TRUE))
 
 dates %>% inner_join(lineorder, by = c("d_datekey"="lo_orderdate")) %>% count()
 
+supplier %>% filter(s_name == 'Supplier#000047861')
 
 # selected supplier profit over years (monthly granularity) - line chart
 supplier_profit <- inner_join(supplier, lineorder, by=c("s_suppkey"="lo_suppkey")) %>%
@@ -68,17 +66,17 @@ supplier_profit %>% collect() %>% ggplot(., aes(x=d_yearmonthnum, y=profit, grou
   ggtitle(paste("Profits for Supplier#000047861"))
 
 
-# profit for selected product in regions in 1997 - barchart
-product_year_profit <- inner_join(dates, lineorder, by=c("d_datekey"="lo_orderdate")) %>%
-  inner_join(., supplier, by=c("lo_suppkey"="s_suppkey")) %>%
-  inner_join(., customer, by=c("lo_custkey"="c_custkey")) %>%
-  inner_join(., part, by=c("lo_partkey"="p_partkey")) %>%
-  filter(c_region=='AMERICA' & s_region=='AMERICA' & p_mfgr=='MFGR#1' & d_year==1997L) %>%
-  group_by(d_yearmonthnum) %>%
-  summarize(profit=sum(lo_revenue-lo_supplycost, na.rm = TRUE))
-
-product_year_profit %>% collect() %>% ggplot(.) + geom_bar(aes(x = d_yearmonthnum, y = profit), stat="identity") +
-  ggtitle("Profits for MFGR#1 in USA")
+# profit for selected product in regions in 1997 - barchart - execution bug
+# product_year_profit <- inner_join(dates, lineorder, by=c("d_datekey"="lo_orderdate")) %>%
+#   inner_join(., supplier, by=c("lo_suppkey"="s_suppkey")) %>%
+#   inner_join(., customer, by=c("lo_custkey"="c_custkey")) %>%
+#   inner_join(., part, by=c("lo_partkey"="p_partkey")) %>%
+#   filter(c_region=='AMERICA' & s_region=='AMERICA' & p_mfgr=='MFGR#1' & d_year==1997L) %>%
+#   group_by(d_yearmonthnum) %>%
+#   summarize(profit=sum(lo_revenue-lo_supplycost, na.rm = TRUE))
+#
+# product_year_profit %>% collect() %>% ggplot(.) + geom_bar(aes(x = d_yearmonthnum, y = profit), stat="identity") +
+#   ggtitle("Profits for MFGR#1 in USA")
 
 
 # histogram - suppliers by profit in 1997 and 1998

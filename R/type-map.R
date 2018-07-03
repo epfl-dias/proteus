@@ -1,5 +1,8 @@
 # mapping between types in CSV and R types
-type_map <- list(integer="integer(0)", varchar="character(0)", boolean="logical(0)")
+type_map <- list(integer="integer(0)", int="integer(0)", smallint="integer(0)",
+                 varchar="character(0)", string="character(0)",
+                 boolean="logical(0)",
+                 double="double(0)", dbl="double(0)")
 
 # method used for mapping the types and handling some exceptions in direct type mapping
 mapJDBCType <- function(JDBCType) {
@@ -37,6 +40,7 @@ parseRecordType <- function(parent, string){
   return(str_build)
 }
 
+# list of keywords indicating that nesting is in place, used for parsing the nested fields from string
 nesting_keywords <- c("recordtype")
 
 # pairs of corresponding opening and closing brackets in the string

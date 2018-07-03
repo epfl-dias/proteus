@@ -5,7 +5,7 @@
 # WARNING: MAKE SURE THE QUERY IS PREPROCESSED ONLY ONCE!
 textProcessQuery <- function(query, quoteChar = "`") {
   ret_query <- gsub("\"", quoteChar, query)
-  ret_query <- gsub("'", "\\\"", ret_query)
+  ret_query <- gsub("%", "\\\"", ret_query)
   ret_query <- gsub("\\\n", "", ret_query)
   ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
   #ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)

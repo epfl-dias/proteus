@@ -4,7 +4,7 @@ for_all <- function(.data, ...) {
   add_op_single("for_all", .data, dots = dots)
 }
 
-# sql_build definition of a function - definition of behavior
+# sql_build definition of a function - definition of behavior of dbplyr function
 sql_build.op_for_all <- function(op, con, ...) {
 
   # assign the unnest fields to the connection environment
@@ -23,24 +23,5 @@ get_unnests <- function(quosures) {
   }
 
   return(ident(unnests))
-}
-
-getLastChars <- function(string, n)
-  return(substr(string, nchar(string)-n+1, nchar(string)))
-
-# Simple wrapper for opening CSV files and retrieving a dataframe
-# TODO: the difference is that we need to specify the fields and types, linehint...
-# Fields - example: list(a="integer", b="varchar")
-readcsv <- function(connection, fields, path, linehint, local = TRUE, name = NULL) {
-  if(!local){
-    print("Some logic to transfer the file to server")
-  }
-
-  if(is.null(name))
-    name = getLastChars(path,10);
-
-  dbCreateTable(conn = con, name = name, fields = fields, path = path, linehint = linehint, type = "csv")
-
-  return(tbl(connection, name))
 }
 

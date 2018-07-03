@@ -70,12 +70,12 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
               ))
             }
 
-            # appending plugin info
+            # appending plugin info - % will be replaced by \\\" in query text processing
             metadata <- ""
             if(!is.null(path) || !is.null(type) || !is.null(linehint)){
-              metadata <- paste0(metadata, " JPLUGIN `{'plugin':{'type': '", if(!is.null(type)) type else "block", "',",
-                                 "'linehint': ", if(!is.null(linehint)) toString(as.integer(linehint)) else "20000", "}, ",
-                                 "'file': '", if(!is.null(type)) type else "default_path", "'}`")
+              metadata <- paste0(metadata, " JPLUGIN `{%plugin%:{%type%: %", if(!is.null(type)) type else "block", "%,",
+                                 "%linehint%: ", if(!is.null(linehint)) toString(as.integer(linehint)) else "20000", "}, ",
+                                 "%file%: %", if(!is.null(type)) type else "default_path", "%}`")
             }
 
             query <- SQL(paste0(query, metadata))

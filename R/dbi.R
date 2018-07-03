@@ -20,9 +20,6 @@ setMethod("dbGetInfo", "ViDaRDriver", def = function(dbObj, ...)
   list(name="ViDaRDriver", driver.version = utils::packageVersion("ViDaR"), DBI.version = utils::packageVersion("DBI"))
 )
 
-#setMethod("dbIsValid", "ViDaRDriver", def = function(dbObj, ...) invisible(TRUE))
-
-#
 setMethod("dbConnect", "ViDaRDriver", def = function(drv, connectionString = "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF", ...){
 
   jdbcconn <- RJDBC::dbConnect(as(drv,"JDBCDriver"), connectionString, ...)
@@ -47,7 +44,6 @@ setClass("ViDaRConnection", contains = "JDBCConnection", slots = list(env="envir
 # TODO: R->SQL type mapping, consult PelagoEnumerator file for supported data types
 setMethod("dbDataType", signature(dbObj="ViDaRConnection", obj="ANY"), def = function(dbObj, obj, ...)
   vidarDataType(obj)
-  #invisible(TRUE) # Data type conversion
   )
 
 setMethod("dbDisconnect", "ViDaRConnection", def = function(conn, ...){
@@ -59,18 +55,6 @@ setMethod("dbDisconnect", "ViDaRConnection", def = function(conn, ...){
 setMethod("dbGetInfo", "ViDaRConnection", def = function(dbObj, ...){
   info = list(connectionString = dbObj@env$connectionString, identifierQuote = dbObj@identifier.quote)
   })
-
-#setMethod("dbExistsTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
-#    return(as.character(name) %in% dbListTables(conn))
-#  })
-
-#setMethod("dbGetException", "ViDaRConnection", def = function(conn, ...)
-#  invisible(TRUE)
-#  )
-
-#setMethod("dbIsValid", "ViDaRConnection", def = function(dbObj, ...)
-#  invisible(TRUE)
-#  )
 
 setMethod("dbListFields", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
 
@@ -92,15 +76,6 @@ setMethod("dbListFields", signature(conn="ViDaRConnection", name="character"), d
     }
 
   })
-
-#setMethod("dbReadTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...){
-#    if(!dbExistsTable(conn, name))
-#      stop(paste("Table: ", name, " - does not exist"))
-
-    ## this is the practical effect of invocation - just read the whole file
-#    dbGetQuery(conn, paste0("SELECT * FROM ", name))
-
-#  })
 
 #setMethod("dbRemoveTable", signature(conn="ViDaRConnection", name="character"), def = function(conn, name, ...)
 #  invisible(TRUE)
