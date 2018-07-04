@@ -77,47 +77,49 @@ readjson2 <- function(connection, name, json, json_quote="\"") {
   return(tbl(connection, name))
 }
 
-readjson <- function(connection, fields, path, linehint, local = TRUE, name = NULL, remotePath = NULL) {
-
-  if(is.null(path))
-    stop("Path cannot be undefined")
-
-  if(is.null(linehint))
-    stop("Linehing cannot be undefined")
-
-  if(is.null(name))
-    name = getLastChars(path,10)
-
-  # if fields are specified
-  if(!is.null(fields)){
-    # if fields are specified as string, consider it is as col_name:col_type list
-    if(is.character(fields))
-      fields = string2list(fields)
-  } else {
-    stop("Fields cannot be undefined")
-  }
-
-  # TODO - generating JSON from the string
-
-  if(!local){
-    if(is.null(remotePath))
-      stop("remote path has to be defined")
-    else{
-      print("Some logic to transfer the file to a remote")
-
-      json_sub <- gsub(json_quote, "%", json)
-
-      query <- SQL(paste0("CREATE TABLE ", name, " FROM_JSON `", json_sub, "`"))
-      dbSendUpdate(con, query)
-    }
-  } else {
-
-    json_sub <- gsub(json_quote, "%", json)
-
-    query <- SQL(paste0("CREATE TABLE ", name, " FROM_JSON `", json_sub, "`"))
-    dbSendUpdate(con, query)
-  }
-
-
-  return(tbl(connection, name))
-}
+# TODO - reading JSON from fields, which is of type list (nesting is achieved with lists of lists)
+# readjson <- function(connection, fields, path, linehint, local = TRUE, name = NULL, remotePath = NULL) {
+#
+#   if(is.null(path))
+#     stop("Path cannot be undefined")
+#
+#   if(is.null(linehint))
+#     stop("Linehing cannot be undefined")
+#
+#   if(is.null(name))
+#     name = getLastChars(path,10)
+#
+#   # if fields are specified
+#   if(!is.null(fields)){
+#     # if fields are specified as string, consider it is as col_name:col_type list
+#     if(is.character(fields))
+#       fields = string2list(fields)
+#   } else {
+#     stop("Fields cannot be undefined")
+#   }
+#
+#   # TODO - generating JSON from the string
+#   #json <- ...
+#
+#   if(!local){
+#     if(is.null(remotePath))
+#       stop("remote path has to be defined")
+#     else{
+#       print("Some logic to transfer the file to a remote")
+#
+#       json_sub <- gsub(json_quote, "%", json)
+#
+#       query <- SQL(paste0("CREATE TABLE ", name, " FROM_JSON `", json_sub, "`"))
+#       dbSendUpdate(con, query)
+#     }
+#   } else {
+#
+#     json_sub <- gsub(json_quote, "%", json)
+#
+#     query <- SQL(paste0("CREATE TABLE ", name, " FROM_JSON `", json_sub, "`"))
+#     dbSendUpdate(con, query)
+#   }
+#
+#
+#   return(tbl(connection, name))
+# }
