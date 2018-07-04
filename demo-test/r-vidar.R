@@ -16,10 +16,14 @@ con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocatio
 
 # creating table only from csv, linehint still necessary
 test_noheader <- readcsv(connection = con, path = "demo-test/test.csv", linehint = 5, header = FALSE)
+test_noheader
+
 test_header <- readcsv(connection = con, name="test_header", path = "demo-test/test_header.csv", linehint = 5)
+test_header
 
 # creating from specified column classes
 test_fields <- readcsv(connection = con, name="test_fields", path = "/random_path/test_header.csv", linehint = 5, colClasses = c("integer", "varchar"))
+test_fields
 
 # creating if there exists an external file specification
 test_string <- paste0("d_datekey:int,d_date:string,d_dayofweek:string,d_month:string,",
@@ -29,6 +33,7 @@ test_string <- paste0("d_datekey:int,d_date:string,d_dayofweek:string,d_month:st
                     "d_holidayfl:boolean,d_weekdayfl:boolean")
 
 test_sch <- readcsv(connection = con, fields = test_string, path = "/path/to/dates.csv", linehint = 5000, name = "test_sch")
+test_sch
 
 # creating table from json specification, this needs to be wrapped with something more convenient
 json <- paste0('{"employees": { "path": "inputs/json/employees-flat.json",',
@@ -39,32 +44,37 @@ json <- paste0('{"employees": { "path": "inputs/json/employees-flat.json",',
                ' "attributes": [ { "type": { "type": "string" }, "relName": "inputs/json/employees-flat.json",',
                ' "attrName": "name2", "attrNo": 1 }, { "type": { "type": "int" }, "relName": "inputs/json/employees-flat.json",',
                ' "attrName": "age2", "attrNo": 2 } ] } }, "relName": "inputs/json/employees-flat.json",',
-               ' "attrName": "children", "attrNo": 3 }] } }, "plugin": { "type": "json", "lines": 3, "policy": 2 } } }'
+               ' "attrName": "children", "attrNo": 3 }] } }, "plugin": { "type": "json", "lines": 3, "policy": 2 } } }')
 
 test_json <- readjson2(connection = con, name = "test_json", json = json)
+test_json %>% select (name, age)
 
-#
-# test_json %>% select (name, age)
-
-### dplyr ###
-# creating placeholder tables (query results in 0 rows fetched (WHERE 0=1))
+# creating placeholder tables
 dates <- tbl(con, "ssbm_date")
 lineorder <- tbl(con, "ssbm_lineorder")
-customer <- tbl(con, "ssbm_customer")
 supplier <- tbl(con, "ssbm_supplier")
-part <- tbl(con, "ssbm_part")
 
+# loading from "csv", in this case the difference is that the csv has trailing separator, requiring additional column (marked as "nl"- newline)
+customer <-  readcsv(connection = con, name="ssbm_customer1", path = "~/data/customer.tbl", linehint = 5,
+                     colNames = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"), header = FALSE, sep = '|')
+
+part <-  readcsv(connection = con, name="ssbm_part1", path = "~/data/part.tbl", linehint = 5,
+                 colNames = c("p_partkey", "p_name", "p_mfgr", "p_category", "p_brand1", "p_color", "p_type", "p_size", "p_container", "nl"), header = FALSE, sep = '|')
+
+### read.csv (default R implementation) - reminder, this takes quite a long time to execute ###
+customer_csv <- read.csv("~/data/customer.tbl", header = FALSE, sep = '|', col.names = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"))
+part_csv <- read.csv("~/data/part.tbl", header = FALSE, sep = '|', col.names = c("p_partkey", "p_name", "p_mfgr", "p_category", "p_brand1", "p_color", "p_type", "p_size", "p_container", "nl"))
+
+customer_csv %>% filter(c_nation=='MOROCCO') %>% select(c_name, c_phone)
+customer %>% filter(c_nation=='MOROCCO') %>% select(c_name, c_phone)
+
+
+# loading the nested table as well, no support yet for nested queries
 employees <- tbl(con, "employees")
+employees %>% select(name, age)
 
-#REPLACE THE TABLES FROM SCHEMA WITH TABLES CREATED IN R
 
-
-# dates_csv <- tbl(con, "dates_csv")
-# lineorder_csv <- tbl(con, "lineorder_csv")
-# customer_csv <- tbl(con, "customer_csv")
-# supplier_csv <- tbl(con, "supplier_csv")
-# part_csv <- tbl(con, "part_csv")
-
+# dplyr demonstration - filtering, summarising, selecting, joining
 dates %>% filter(d_yearmonthnum==199401L) %>% select(d_yearmonthnum, d_datekey)
 
 dates %>% filter(d_yearmonthnum==199401L) %>% select(d_yearmonthnum, d_datekey) %>% count()
@@ -75,6 +85,7 @@ dates %>% inner_join(lineorder, by = c("d_datekey"="lo_orderdate")) %>% count()
 
 supplier %>% filter(s_name == 'Supplier#000047861')
 
+# some more advanced demonstration
 # selected supplier profit over years (monthly granularity) - line chart
 supplier_profit <- inner_join(supplier, lineorder, by=c("s_suppkey"="lo_suppkey")) %>%
   filter(s_name=='Supplier#000047861') %>%
@@ -88,6 +99,7 @@ supplier_profit %>% collect() %>% ggplot(., aes(x=d_yearmonthnum, y=profit, grou
   ggtitle(paste("Profits for Supplier#000047861"))
 
 
+# query lasts for too long
 # profit for selected product in regions in 1997 - barchart - execution bug
 # product_year_profit <- inner_join(dates, lineorder, by=c("d_datekey"="lo_orderdate")) %>%
 #   inner_join(., supplier, by=c("lo_suppkey"="s_suppkey")) %>%
@@ -116,14 +128,15 @@ suppliers_by_profit %>% collect() %>% ggplot(., aes(x=profit, group=d_year, fill
 
 
 
-# pure SQL query - DBI
+# SQL vs DBI+dplyr
+# SQL
 query <- paste0("SELECT sum(d_year), count(*), sum(lo_revenue-lo_supplycost) as profit ",
-                "from dates, customer, supplier, part, lineorder ",
+                "from ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part, ssbm_lineorder ",
                 "where lo_custkey=c_custkey and lo_suppkey=s_suppkey and lo_partkey=p_partkey ",
                 "and lo_orderdate=d_datekey and c_region='AMERICA' and s_region='AMERICA' ",
                 "and (p_mfgr='MFGR#1' or p_mfgr='MFGR#2')")
 
-tmp_tbl <- dbGetQuery(con, query) # wraps around dbSendQuery and dbFetch
+tmp_tbl <- dbGetQuery(con, query)
 tmp_tbl
 
 # equivalent to previous SQL query
@@ -135,15 +148,6 @@ result <- inner_join(lineorder, customer, by=c("lo_custkey"="c_custkey")) %>%
   summarize(sumY=sum(d_year, na.rm = TRUE), cnt=count(), profit=sum(lo_revenue-lo_supplycost, na.rm = TRUE))
 
 result
-
-
-
-# listing the tables in available schemas
-#dbListTables(con)
-
-#dbExistsTable(con, "dates")
-#dbExistsTable(con, "dates1")
-#dbListFields(con, "dates")
 
 dbDisconnect(con)
 

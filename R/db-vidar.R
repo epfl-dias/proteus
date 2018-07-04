@@ -62,7 +62,7 @@ check_operators <- function(clause, operator) {
 sql_translate_env.ViDaRConnection <- function(con) {
   sql_variant(
     sql_translator(.parent = base_scalar,
-                   count = sql_prefix("cardinality"),
+                   count = sql_prefix("count"),
                    collect = sql_prefix("collect"),
                    slice_index = function(what, ind) {
                      build_sql(sql(deparse(substitute(what))), sql("["), ind, sql("]"))

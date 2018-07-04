@@ -26,8 +26,12 @@ readcsv <- function(connection, fields = NULL, path, linehint, local = TRUE, nam
       fields = string2list(fields)
   } else {
     # read fields as dataframe and use that information, if column classes are not defined
-    if(is.null(colClasses))
-      fields <-read.csv(path, sep = sep, nrows = 10, header = header)
+    if(is.null(colClasses)) {
+      if(is.null(colNames))
+        fields <-read.csv(path, sep = sep, nrows = 10, header = header)
+      else
+        fields <-read.csv(path, sep = sep, nrows = 10, header = header, col.names = colNames)
+    }
     else {
       # if column names are undefined, then generate them, else use the ones in colNames list
       if(is.null(colNames)){
