@@ -26,10 +26,10 @@ extractFrom <- function(query, quoteChar = "`") {
 
 # for case of creating a tbl (return 0 rows), R magic with lazy evaluation
 # WILL NEED TO COVER THE CASE FOR NON-STANDARD TYPES (e.g. generate dataFrame first, then flatten it if nested types are present)
-schema2tbl <- function(table, con){
+schema2tbl <- function(table, con, debug = FALSE){
 
   # TEST PURPOSES FOR NESTED SCHEMAS
-  if(table=="emp") {
+  if(debug) {
     emp_jsn = '{"name":"string", "age":"int", "children":[{"name2":"string", "age2":"int"}]}'
     df_emp <- data.frame(jsonlite::fromJSON(emp_jsn, flatten = TRUE, simplifyDataFrame = TRUE))
     emp <- as.tbl(df_emp)
@@ -64,6 +64,30 @@ schema2tbl <- function(table, con){
 
   return(as.tbl(lazyeval::lazy_eval(cmd)))
 }
+
+# TODO - future work for creating JSON, R->Pelago
+# json <- paste0('{"employees": { "path": "inputs/json/employees-flat.json",',
+#               # ' "type": { "type": "bag", "inner": { "type": "record", "attributes":',
+#                ' [{ "type": { "type": "string" }, "relName": "inputs/json/employees-flat.json",',
+#                ' "attrName": "name", "attrNo": 1 }, { "type": { "type": "int" }, "relName": "inputs/json/employees-flat.json",',
+#                ' "attrName": "age", "attrNo": 2 }, { "type": { "type": "list", "inner": { "type": "record",',
+#                ' "attributes": [ { "type": { "type": "string" }, "relName": "inputs/json/employees-flat.json",',
+#                ' "attrName": "name2", "attrNo": 1 }, { "type": { "type": "int" }, "relName": "inputs/json/employees-flat.json",',
+#                ' "attrName": "age2", "attrNo": 2 } ] } }, "relName": "inputs/json/employees-flat.json",',
+#                ' "attrName": "children", "attrNo": 3 }] } }, "plugin": { "type": "json", "lines": 3, "policy": 2 } } }')
+#
+# quote_str <- function(string, quote_char = "\"") {
+#   return(paste0(quote_char, string, quote_char))
+# }
+#
+# list2json <- function(fields, name, path, linehint, quo = "\"", type = "bag") {
+#   output <- "{"
+#
+#   output <- paste0(output, quote_str(name), ": { ", quote_str("path"), ": ", quote_str(path), ", ", quote_str("type"), ": {", quote_str("type"),": ")
+#   output <- paste0(output, quote_str(type), ", ", quote_str("inner"), ": { ", quote_str("type"), ": ")
+#
+#   return(paste0(output,"}"))
+# }
 
 #' @export
 #' @rdname tbl_lazy

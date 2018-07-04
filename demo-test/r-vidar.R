@@ -6,23 +6,45 @@ library(ggplot2)
 library(rlang)
 library(jsonlite)
 
-### DBI ###
-# establishing the connection
+# connection parameters
 driverClass <- "org.apache.calcite.avatica.remote.Driver"
 driverLocation <- "src/avatica-1.11.0.jar"
 connectionString <- "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF"
 
+# establishing the connection
 con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation))
 
+# creating table only from csv, linehint still necessary
 test_noheader <- readcsv(connection = con, path = "demo-test/test.csv", linehint = 5, header = FALSE)
-
 test_header <- readcsv(connection = con, name="test_header", path = "demo-test/test_header.csv", linehint = 5)
 
+# creating from specified column classes
 test_fields <- readcsv(connection = con, name="test_fields", path = "/random_path/test_header.csv", linehint = 5, colClasses = c("integer", "varchar"))
 
-# TODO - unparsing nested tables
-#json <- '{"employees": { "path": "inputs/json/employees-flat.json", "type": { "type": "bag", "inner": { "type": "record", "attributes": [{ "type": { "type": "string" }, "relName": "inputs/json/employees-flat.json", "attrName": "name", "attrNo": 1 }, { "type": { "type": "int" }, "relName": "inputs/json/employees-flat.json", "attrName": "age", "attrNo": 2 }, { "type": { "type": "list", "inner": { "type": "record", "attributes": [ { "type": { "type": "string" }, "relName": "inputs/json/employees-flat.json", "attrName": "name2", "attrNo": 1 }, { "type": { "type": "int" }, "relName": "inputs/json/employees-flat.json", "attrName": "age2", "attrNo": 2 } ] } }, "relName": "inputs/json/employees-flat.json", "attrName": "children", "attrNo": 3 }] } }, "plugin": { "type": "json", "lines": 3, "policy": 2 } } }'
-#test_json <- readjson(connection = con, name = "test_json", json = json)
+# creating if there exists an external file specification
+test_string <- paste0("d_datekey:int,d_date:string,d_dayofweek:string,d_month:string,",
+                    "d_year:int,d_yearmonthnum:int,d_yearmonth:string,d_daynuminweek:int,",
+                    "d_daynuminmonth:int,d_daynuminyear:int,d_monthnuminyear:int,d_weeknuminyear:int,",
+                    "d_sellingseason:string,d_lastdayinweekfl:boolean,d_lastdayinmonthfl:boolean,",
+                    "d_holidayfl:boolean,d_weekdayfl:boolean")
+
+test_sch <- readcsv(connection = con, fields = test_string, path = "/path/to/dates.csv", linehint = 5000, name = "test_sch")
+
+# creating table from json specification, this needs to be wrapped with something more convenient
+json <- paste0('{"employees": { "path": "inputs/json/employees-flat.json",',
+               ' "type": { "type": "bag", "inner": { "type": "record", "attributes":',
+               ' [{ "type": { "type": "string" }, "relName": "inputs/json/employees-flat.json",',
+               ' "attrName": "name", "attrNo": 1 }, { "type": { "type": "int" }, "relName": "inputs/json/employees-flat.json",',
+               ' "attrName": "age", "attrNo": 2 }, { "type": { "type": "list", "inner": { "type": "record",',
+               ' "attributes": [ { "type": { "type": "string" }, "relName": "inputs/json/employees-flat.json",',
+               ' "attrName": "name2", "attrNo": 1 }, { "type": { "type": "int" }, "relName": "inputs/json/employees-flat.json",',
+               ' "attrName": "age2", "attrNo": 2 } ] } }, "relName": "inputs/json/employees-flat.json",',
+               ' "attrName": "children", "attrNo": 3 }] } }, "plugin": { "type": "json", "lines": 3, "policy": 2 } } }'
+
+test_json <- readjson2(connection = con, name = "test_json", json = json)
+
+#
+# test_json %>% select (name, age)
 
 ### dplyr ###
 # creating placeholder tables (query results in 0 rows fetched (WHERE 0=1))
@@ -32,14 +54,10 @@ customer <- tbl(con, "ssbm_customer")
 supplier <- tbl(con, "ssbm_supplier")
 part <- tbl(con, "ssbm_part")
 
-#REPLACE THE TABLES FROM SCHEMA WITH TABLES CREATED IN R
-dates_sch <- paste0("d_datekey:int,d_date:string,d_dayofweek:string,d_month:string,",
-                    "d_year:int,d_yearmonthnum:int,d_yearmonth:string,d_daynuminweek:int,",
-                    "d_daynuminmonth:int,d_daynuminyear:int,d_monthnuminyear:int,d_weeknuminyear:int,",
-                    "d_sellingseason:string,d_lastdayinweekfl:boolean,d_lastdayinmonthfl:boolean,",
-                    "d_holidayfl:boolean,d_weekdayfl:boolean")
+employees <- tbl(con, "employees")
 
-dates <- readcsv(connection = con, fields = dates_sch, path = "/path/to/dates.csv", linehint = 5000, name = "date")
+#REPLACE THE TABLES FROM SCHEMA WITH TABLES CREATED IN R
+
 
 # dates_csv <- tbl(con, "dates_csv")
 # lineorder_csv <- tbl(con, "lineorder_csv")
@@ -128,30 +146,5 @@ result
 #dbListFields(con, "dates")
 
 dbDisconnect(con)
-
-path <- "/home/sanca/ViDa/pelago/opt/raw/inputs/ssbm100/"
-
-start<-Sys.time()
-lineorder <- fread(paste0(path,"lineorder2.tbl"), sep = '|', header = FALSE)
-dates <- fread(paste0(path,"date2.tbl"), sep = '|', header = FALSE)
-customer <- fread(paste0(path,"customer2.tbl"), sep = '|', header = FALSE)
-part <- fread(paste0(path,"part2.tbl"), sep = '|', header = FALSE)
-supplier <- fread(paste0(path,"supplier2.tbl"), sep = '|', header = FALSE)
-end<-Sys.time()
-
-names(lineorder) <- names(schema2tbl("lineorder"))
-names(dates) <- names(schema2tbl("dates"))
-names(customer) <- names(schema2tbl("customer"))
-names(part) <- names(schema2tbl("part"))
-names(supplier) <- names(schema2tbl("supplier"))
-
-start<-Sys.time()
-hist_data = inner_join(lineorder, customer, by=c("lo_custkey"="c_custkey")) %>%
-  inner_join(., supplier, by=c("lo_suppkey"="s_suppkey")) %>%
-  inner_join(., part, c("lo_partkey"="p_partkey")) %>%
-  inner_join(., dates, by=c("lo_orderdate"="d_datekey")) %>%
-  filter(c_region=='AMERICA' & s_region=='AMERICA' & p_mfgr=='MFGR#1' & d_date=='January 6, 1994') %>%
-  select(lo_revenue)
-end<-Sys.time()
 
 

@@ -1,3 +1,5 @@
+# Contains utility functions intended for opening and creating a table from files (e.g. CSV, JSON)
+
 # Utility function for getting the last n characters from a string
 getLastChars <- function(string, n)
   return(substr(string, nchar(string)-n+1, nchar(string)))
@@ -7,15 +9,15 @@ getLastChars <- function(string, n)
 # Fields - example: list(a="integer", b="varchar")
 readcsv <- function(connection, fields = NULL, path, linehint, local = TRUE, name = NULL, remotePath = NULL,
                     sep = ',', header = TRUE, colClasses = NULL, colNames = NULL) {
-  # if name is not specified, extract it from path
-  if(is.null(name))
-    name = getLastChars(path,10)
-
   if(is.null(path))
     stop("Path cannot be undefined")
 
   if(is.null(linehint))
     stop("Linehing cannot be undefined")
+
+  # if name is not specified, extract it from path
+  if(is.null(name))
+    name = getLastChars(path,10)
 
   # if fields are specified
   if(!is.null(fields)){
@@ -67,10 +69,55 @@ string2list <- function(str, delimiter = ":") {
   return(lazyeval::lazy_eval(paste0("list(",repl,")")))
 }
 
-readjson <- function(connection, name, json, json_quote="\"") {
+readjson2 <- function(connection, name, json, json_quote="\"") {
   json_sub <- gsub(json_quote, "%", json)
 
   query <- SQL(paste0("CREATE TABLE ", name, " FROM_JSON `", json_sub, "`"))
   dbSendUpdate(con, query)
+  return(tbl(connection, name))
+}
+
+readjson <- function(connection, fields, path, linehint, local = TRUE, name = NULL, remotePath = NULL) {
+
+  if(is.null(path))
+    stop("Path cannot be undefined")
+
+  if(is.null(linehint))
+    stop("Linehing cannot be undefined")
+
+  if(is.null(name))
+    name = getLastChars(path,10)
+
+  # if fields are specified
+  if(!is.null(fields)){
+    # if fields are specified as string, consider it is as col_name:col_type list
+    if(is.character(fields))
+      fields = string2list(fields)
+  } else {
+    stop("Fields cannot be undefined")
+  }
+
+  # TODO - generating JSON from the string
+
+  if(!local){
+    if(is.null(remotePath))
+      stop("remote path has to be defined")
+    else{
+      print("Some logic to transfer the file to a remote")
+
+      json_sub <- gsub(json_quote, "%", json)
+
+      query <- SQL(paste0("CREATE TABLE ", name, " FROM_JSON `", json_sub, "`"))
+      dbSendUpdate(con, query)
+    }
+  } else {
+
+    json_sub <- gsub(json_quote, "%", json)
+
+    query <- SQL(paste0("CREATE TABLE ", name, " FROM_JSON `", json_sub, "`"))
+    dbSendUpdate(con, query)
+  }
+
+
   return(tbl(connection, name))
 }
