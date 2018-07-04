@@ -1,4 +1,4 @@
-string <- "RecordType(VARCHAR CHARACTER SET \"ISO-8859-1\" COLLATE \"ISO-8859-1$en_US$primary\" name2, INTEGER age2, RecordType(VARCHAR A, VARCHAR B, RecordType(VARCHAR A) ch1) ch1, RecordType(VARCHAR A, VARCHAR B) ch2) NOT NULL ARRAY"
+#string <- "RecordType(VARCHAR CHARACTER SET \"ISO-8859-1\" COLLATE \"ISO-8859-1$en_US$primary\" name2, INTEGER age2, RecordType(VARCHAR A, VARCHAR B, RecordType(VARCHAR A) ch1) ch1, RecordType(VARCHAR A, VARCHAR B) ch2) NOT NULL ARRAY"
 
 processRecord <- function(string) {
   # remove everything until first parens from left and right
@@ -16,9 +16,11 @@ tokenize <- function(string) {
   return(strsplit(s, " "))
 }
 
-parse <- function(string, parent){
+nestings <- c("recordtype")
 
-  output <- ""
+parseRecordType <- function(string, parent, verbose = FALSE){
+
+  output <- c()
   lookahead <- c()
   names <- c()
   types <- c()
@@ -45,10 +47,12 @@ parse <- function(string, parent){
           types <- c(types, paste(lookahead[1:length(lookahead)-1], collapse=" "))
           names <- c(names, paste0(parent,".",lookahead[length(lookahead)]))
 
-          print("types")
-          print(types)
-          print("names")
-          print(names)
+          if(verbose){
+            print("types")
+            print(types)
+            print("names")
+            print(names)
+          }
 
           lookahead <- c()
         }
@@ -82,10 +86,12 @@ parse <- function(string, parent){
           types <- c(types, paste(lookahead[1:length(lookahead)-1], collapse=" "))
           names <- c(names, paste0(parent,".",lookahead[length(lookahead)]))
 
-          print("types")
-          print(types)
-          print("names")
-          print(names)
+          if(verbose) {
+            print("types")
+            print(types)
+            print("names")
+            print(names)
+          }
 
           lookahead <- c()
         }
@@ -104,16 +110,18 @@ parse <- function(string, parent){
 
       lookahead <- c()
 
-      print("RECURSIVELY:")
-      print(input)
+      if(verbose){
+        print("RECURSIVELY:")
+        print(input)
+      }
 
-      parse(input, name)
+      output <- c(output, parseRecordType(input, name))
 
     }
   }
 
+  output <- c(output,  paste0(names, "=", mapJDBCType(types)))
+
+  return(output)
 }
 
-nestings <- c("recordtype")
-
-parse(string, "abcd")
