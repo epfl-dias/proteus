@@ -22,8 +22,9 @@ import java.util.Properties;
 
 @RunWith(Parameterized.class)
 public class PelagoPlannerTest {
-  private static final String schemaPath = "../raw-jit-executor/inputs/plans/schema.json";
-//    String schemaPath = new java.io.File(".").getCanonicalPath() + "/src/main/resources/schema.json";
+  //private static final String schemaPath = "../raw-jit-executor/inputs/plans/schema.json";
+  private static String schemaPath;
+
   private static Connection connection;
 
   private static final String queries[] = {
@@ -308,6 +309,13 @@ public class PelagoPlannerTest {
   @BeforeClass
   public static void init() throws SQLException, ClassNotFoundException {
     Class.forName("ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver");
+
+      try {
+        schemaPath = new java.io.File(".").getCanonicalPath() + "/src/main/resources/schema.json";
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+
 
     Properties info = new Properties();
     connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);

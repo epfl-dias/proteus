@@ -33,9 +33,6 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
                       groupSet: ImmutableBitSet, groupSets: util.List[ImmutableBitSet],
                       aggCalls: util.List[AggregateCall])
         extends Aggregate(cluster, traitSet, input, indicator, groupSet, groupSets, aggCalls) with PelagoRel {
-  
-  assert(getConvention eq PelagoRel.CONVENTION)
-  assert(getConvention eq input.getConvention)
 
   override def copy(traitSet: RelTraitSet, input: RelNode, indicator: Boolean, groupSet: ImmutableBitSet,
                     groupSets: util.List[ImmutableBitSet], aggCalls: util.List[AggregateCall])
