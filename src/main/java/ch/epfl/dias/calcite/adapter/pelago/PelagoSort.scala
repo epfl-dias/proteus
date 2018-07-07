@@ -36,11 +36,19 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
   extends Sort(cluster, traits, child, collation, offset, fetch) with PelagoRel {
   //  assert(getConvention eq PelagoRel.CONVENTION)
 
-  override def copy(traitSet: RelTraitSet, input: RelNode, collation: RelCollation, offset: RexNode, fetch: RexNode): Sort = {
-    PelagoSort.create(input, collation, offset, fetch);
+  override def copy(traitSet: RelTraitSet, input: RelNode, collation: RelCollation, offset: RexNode, fetch: RexNode): PelagoSort = {
+    PelagoSort.create(input, collation, offset, fetch)
   }
 
-  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = super.computeSelfCost(planner, mq).multiplyBy(0.01)
+  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    if (getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) != null && getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == RelDeviceType.NVPTX) {
+      super.computeSelfCost(planner, mq).multiplyBy(0.001)
+    } else {
+      super.computeSelfCost(planner, mq).multiplyBy(1000)
+    }
+  }
+
+  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
   //almost 0 cost in Pelago
   override def implement: (Binding, JsonAST.JValue) = {

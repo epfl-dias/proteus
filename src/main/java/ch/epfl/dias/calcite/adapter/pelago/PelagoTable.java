@@ -3,7 +3,6 @@ package ch.epfl.dias.calcite.adapter.pelago;
 import ch.epfl.dias.calcite.adapter.pelago.types.PelagoTypeParser;
 import com.google.common.collect.Lists;
 import org.apache.calcite.DataContext;
-import org.apache.calcite.adapter.csv.CsvEnumerator;
 import org.apache.calcite.linq4j.*;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.RelOptTable;

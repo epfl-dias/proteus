@@ -20,8 +20,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.apache.calcite.test.CalciteAssert;
 
@@ -32,8 +30,11 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
   private static Connection connection;
 
   private PelagoTestConnectionFactory() throws SQLException {
+//    Class.forName("ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver");
     Properties info = new Properties();
     connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
+
+    connection.createStatement().executeQuery("explain plan for select * from ssbm_date1000");
   }
 
   public static PelagoTestConnectionFactory get() throws SQLException {
@@ -41,7 +42,7 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
     return instance;
   }
 
-  @Override public Connection createConnection() throws SQLException {
+  @Override public Connection createConnection() {
     return connection;
   }
 }
@@ -305,7 +306,7 @@ public class PelagoPlannerTest {
 
   private final String sql;
 
-  public PelagoPlannerTest(String sql) throws SQLException, ClassNotFoundException {
+  public PelagoPlannerTest(String sql) {
     this.sql = sql;
   }
 
@@ -324,27 +325,34 @@ public class PelagoPlannerTest {
     }
   }
 
-  @Test
-  public void testParse() throws ClassNotFoundException, IOException, SQLException {
+  @Test(timeout = 10000)
+  public void testParse() throws SQLException {
 //    String sql = "select d_year, d_year*8 from ssbm_date1000";
-    System.out.println(RelDeviceTypeTraitDef.INSTANCE.getDefault());
+    CalciteAssert.that()
+      .with(PelagoTestConnectionFactory.get())
+      .query(sql)
+      .explainContains("PLAN=PelagoToEnumerableConverter")
+      ;
 
-    plan(sql);
+//    plan(sql);
   }
 
   @BeforeClass
-  public static void init() throws SQLException, ClassNotFoundException {
-    Class.forName("ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver");
+  public static void init() throws SQLException {
+//    Class.forName("ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver");
 
-    Properties info = new Properties();
-    connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
+//    Properties info = new Properties();
+//    connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
+//
+//    // warm-up connection
+//    connection.createStatement().executeQuery("explain plan for select * from ssbm_date1000");
 
-    // warm-up connection
-    connection.createStatement().executeQuery("explain plan for select * from ssbm_date1000");
+    // warm-up connection and load classes
+    PelagoTestConnectionFactory.get();
   }
 
   @Parameters(name = "{0}")
-  public static Collection<Object[]> data() throws ClassNotFoundException, SQLException {
+  public static Collection<Object[]> data() {
     Collection<Object[]> data = new ArrayList<Object[]>();
     for (String sql: queries) data.add(new Object[]{sql});
     return data;

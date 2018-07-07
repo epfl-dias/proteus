@@ -2,8 +2,6 @@ package ch.epfl.dias.calcite.adapter.pelago;
 
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
 import org.apache.calcite.DataContext;
-import org.apache.calcite.adapter.csv.CsvTranslatableTable;
-import org.apache.calcite.adapter.csv.JsonTable;
 import org.apache.calcite.adapter.enumerable.*;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.interpreter.Row;

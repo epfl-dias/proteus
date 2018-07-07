@@ -109,16 +109,16 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
     }
 
 
-//    /** Program that trims fields. */
-//    private static class PelagoProgram implements Program {
-//        public RelNode run(RelOptPlanner planner, RelNode rel,
-//            RelTraitSet requiredOutputTraits,
-//            List<RelOptMaterialization> materializations,
-//            List<RelOptLattice> lattices) {
-//            System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.ALL_ATTRIBUTES));
-//            return rel;
-//        }
-//    }
+    /** Program that trims fields. */
+    private static class PelagoProgram implements Program {
+        public RelNode run(RelOptPlanner planner, RelNode rel,
+            RelTraitSet requiredOutputTraits,
+            List<RelOptMaterialization> materializations,
+            List<RelOptLattice> lattices) {
+            System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.ALL_ATTRIBUTES));
+            return rel;
+        }
+    }
 
     protected Program getProgram() {
         // Allow a test to override the default program.
@@ -131,7 +131,8 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                 Programs.subQuery(DefaultRelMetadataProvider.INSTANCE),
                 new DecorrelateProgram(),
                 new TrimFieldsProgram(),
-                Programs.heuristicJoinOrder(planner.getRules(), false, 2)
+                Programs.heuristicJoinOrder(planner.getRules(), false, 2),
+                new PelagoProgram()
 
                 // Second planner pass to do physical "tweaks". This the first time that
                 // EnumerableCalcRel is introduced.
