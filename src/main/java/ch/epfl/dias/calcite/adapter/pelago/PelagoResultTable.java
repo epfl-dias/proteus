@@ -3,8 +3,6 @@ package ch.epfl.dias.calcite.adapter.pelago;
 import ch.epfl.dias.calcite.adapter.pelago.types.PelagoTypeParser;
 import com.google.common.collect.Lists;
 import org.apache.calcite.DataContext;
-import org.apache.calcite.adapter.csv.CsvEnumerator;
-import org.apache.calcite.adapter.csv.CsvTableScan;
 import org.apache.calcite.linq4j.*;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.RelOptTable;
@@ -130,7 +128,7 @@ public class PelagoResultTable extends AbstractTable implements ScannableTable {
             RelOptTable relOptTable) {
         // Request all fields.
         final int fieldCount = relOptTable.getRowType().getFieldCount();
-        final int[] fields = CsvEnumerator.identityList(fieldCount);
+        final int[] fields = identityList(fieldCount);
         return new PelagoResultScan(context.getCluster(), relOptTable, this, fields);
     }
 }

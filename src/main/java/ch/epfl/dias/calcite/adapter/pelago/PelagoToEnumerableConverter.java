@@ -84,7 +84,6 @@ public class PelagoToEnumerableConverter
 
     @Override public RelOptCost computeSelfCost(RelOptPlanner planner,
                                                 RelMetadataQuery mq) {
-//        System.out.println(super.computeSelfCost(planner, mq));
         return super.computeSelfCost(planner, mq)
                 .multiplyBy(((double) getRowType().getFieldCount()) * 0.1);
 

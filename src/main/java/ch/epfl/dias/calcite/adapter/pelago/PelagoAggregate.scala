@@ -41,7 +41,7 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
   }
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-    if (getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE).satisfies(RelDeviceType.NVPTX)) {
+    if (getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) != null && getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE).satisfies(RelDeviceType.NVPTX)) {
       return planner.getCostFactory.makeZeroCost
     }
     super.computeSelfCost(planner, mq).multiplyBy(0.1)

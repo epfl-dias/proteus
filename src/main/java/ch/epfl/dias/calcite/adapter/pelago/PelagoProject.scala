@@ -40,7 +40,13 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
     PelagoProject.create(input, projects, rowType)
   }
 
-  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = super.computeSelfCost(planner, mq).multiplyBy(0.01)
+  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    if (getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == RelDeviceType.NVPTX) {
+      super.computeSelfCost(planner, mq).multiplyBy(0.0001)
+    } else {
+      super.computeSelfCost(planner, mq).multiplyBy(0.01)
+    }
+  }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 

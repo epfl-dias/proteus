@@ -92,7 +92,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
             RelOptTable.ToRelContext context,
             RelOptTable relOptTable) {
         // Request all fields.
-        context.getCluster().getPlanner().addRelTraitDef(RelDistributionTraitDef.INSTANCE);
+//        context.getCluster().getPlanner().addRelTraitDef(RelDistributionTraitDef.INSTANCE);
         final int fieldCount = relOptTable.getRowType().getFieldCount();
         final int[] fields = identityList(fieldCount);
         return PelagoTableScan.create(context.getCluster(), relOptTable, this, fields);

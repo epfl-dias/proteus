@@ -20,12 +20,12 @@ import org.apache.calcite.rel.logical.LogicalExchange;
 import org.apache.calcite.tools.RelBuilderFactory;
 
 public class PelagoDistributionConverterRule extends ConverterRule {
-    public static final ConverterRule BRDCST_INSTANCE =
-            new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED, RelDistributions.ANY            , RelFactories.LOGICAL_BUILDER);
+//    public static final ConverterRule BRDCST_INSTANCE =
+//            new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED, RelDistributions.ANY            , RelFactories.LOGICAL_BUILDER);
     public static final ConverterRule BRDCST_INSTANCE2 =
         new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , RelDistributions.ANY            , RelFactories.LOGICAL_BUILDER);
-    public static final ConverterRule SEQNTL_INSTANCE =
-            new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.RANDOM_DISTRIBUTED   , RelFactories.LOGICAL_BUILDER);
+//    public static final ConverterRule SEQNTL_INSTANCE =
+//            new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.RANDOM_DISTRIBUTED   , RelFactories.LOGICAL_BUILDER);
     public static final ConverterRule SEQNTL_INSTANCE2 =
         new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.ANY   , RelFactories.LOGICAL_BUILDER);
     public static final ConverterRule RANDOM_INSTANCE =

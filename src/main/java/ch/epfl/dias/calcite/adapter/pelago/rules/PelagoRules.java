@@ -29,9 +29,9 @@ public class PelagoRules {
     }
 
     public static final RelOptRule[] RULES = {
-        PelagoDistributionConverterRule.BRDCST_INSTANCE,
+//        PelagoDistributionConverterRule.BRDCST_INSTANCE,
         PelagoDistributionConverterRule.BRDCST_INSTANCE2,
-        PelagoDistributionConverterRule.SEQNTL_INSTANCE,
+//        PelagoDistributionConverterRule.SEQNTL_INSTANCE,
         PelagoDistributionConverterRule.SEQNTL_INSTANCE2,
         PelagoDistributionConverterRule.RANDOM_INSTANCE,
         PelagoDeviceTypeConverterRule.TO_NVPTX_INSTANCE ,
@@ -54,7 +54,8 @@ public class PelagoRules {
 //        PelagoJoinRuleHash.INSTANCE    ,
 //        PelagoJoinRule3.INSTANCE,
 //        PelagoBroadCastJoinRule.INSTANCE,
-//        PelagoBroadCastJoinRule2.INSTANCE
+//        PelagoBroadCastJoinRule2.INSTANCE,
+//        PelagoProjectPushBelowDeviceCross.INSTANCE,
     };
 
     /** Base class for planner rules that convert a relational expression to
@@ -92,7 +93,20 @@ public class PelagoRules {
 
         public RelNode convert(RelNode rel) {
             final Project project = (Project) rel;
-            return PelagoProject.create(convert(project.getInput(), out), project.getProjects(), project.getRowType());
+
+            RelTraitSet traitSet = project.getInput().getTraitSet().replace(out)//rel.getCluster().traitSet()
+//                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+//                    public RelDeviceType get() {
+//                        return RelDeviceType.X86_64;//.SINGLETON;
+//                    }
+//                })
+                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                    public RelDistribution get() {
+                        return RelDistributions.SINGLETON;
+                    }
+                })
+                ;
+            return PelagoProject.create(convert(project.getInput(), traitSet), project.getProjects(), project.getRowType());
         }
     }
 
@@ -124,7 +138,7 @@ public class PelagoRules {
 //                inp = convert(inp, RelDistributions.SINGLETON);
 
 //            System.out.println(agg.getTraitSet());
-            RelTraitSet traitSet = rel.getCluster().traitSet().replace(PelagoRel.CONVENTION)
+            RelTraitSet traitSet = agg.getInput().getTraitSet().replace(PelagoRel.CONVENTION)//rel.getCluster().traitSet()
                 .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
                     public RelDistribution get() {
                         return RelDistributions.SINGLETON;
@@ -133,7 +147,7 @@ public class PelagoRules {
                 ;
 
 //            System.out.println("=====" + traitSet);
-            RelNode inp = convert(convert(agg.getInput(), out), RelDistributions.SINGLETON);
+            RelNode inp = convert(agg.getInput(), traitSet);//, RelDistributions.SINGLETON);
 //            RelNode inp = convert(agg.getInput(), traitSet);
 
 //                List<AggregateCall> alist = new ArrayList<AggregateCall>();
@@ -205,8 +219,8 @@ public class PelagoRules {
                 ;
 
 //            System.out.println("=====" + traitSet);
-            RelNode inp = convert(convert(sort.getInput(), out), RelDistributions.SINGLETON);
-//            RelNode inp = convert(agg.getInput(), traitSet);
+//            RelNode inp = convert(convert(sort.getInput(), out), RelDistributions.SINGLETON);
+            RelNode inp = convert(sort.getInput(), traitSet);
 
 //                List<AggregateCall> alist = new ArrayList<AggregateCall>();
 //                for (AggregateCall aggr: agg.getAggCallList()){
@@ -294,7 +308,7 @@ public class PelagoRules {
         private static final PelagoFilterRule INSTANCE = new PelagoFilterRule();
 
         private PelagoFilterRule() {
-            super(LogicalFilter.class, "PelagoFilterRule");
+            super(Filter.class, "PelagoFilterRule");
         }
 
         @Override
@@ -303,7 +317,7 @@ public class PelagoRules {
         }
 
         public RelNode convert(RelNode rel) {
-            final LogicalFilter filter = (LogicalFilter) rel;
+            final Filter filter = (Filter) rel;
             return PelagoFilter.create(convert(filter.getInput(), out), filter.getCondition());
         }
     }
@@ -555,8 +569,8 @@ public class PelagoRules {
                     }
                 });
 
-            RelNode left  = convert(convert(convert(join.getLeft (), out) , leftDeviceType ), leftDistribution ); //convert(join.getLeft (), leftTraitSet );//
-            RelNode right = convert(convert(convert(join.getRight(), out) , rightDeviceType), rightDistribution); //convert(join.getRight(), rightTraitSet);//
+            RelNode left  = convert(join.getLeft (), leftTraitSet );//
+            RelNode right = convert(join.getRight(), rightTraitSet);//
 //            RelNode right = convert(join.getRight(), rightTraitSet);
 
             return PelagoJoin.create(
@@ -582,7 +596,7 @@ public class PelagoRules {
         private final RelDistribution rightDistribution = RelDistributions.SINGLETON;
 
         protected PelagoJoinSeq(String description) {
-            super(LogicalJoin.class, description);
+            super(Join.class, description);
         }
 
         @Override

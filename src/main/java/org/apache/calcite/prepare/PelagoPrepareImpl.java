@@ -146,14 +146,14 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         //SortRemoveRule.INSTANCE, //Too aggressive when triggered over enumerables; always removes Sort
         rules.add(SortUnionTransposeRule.INSTANCE);
         /*Enumerable Rules*/
-        rules.add(EnumerableRules.ENUMERABLE_FILTER_RULE);
-        rules.add(EnumerableRules.ENUMERABLE_TABLE_SCAN_RULE);
+//        rules.add(EnumerableRules.ENUMERABLE_FILTER_RULE);
+//        rules.add(EnumerableRules.ENUMERABLE_TABLE_SCAN_RULE);
 //        rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE);
-        rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
+//        rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
 //        rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE);
 //      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE) //FIMXE: no mergejoin yet
         rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE);
-        rules.add(EnumerableRules.ENUMERABLE_SORT_RULE);       //FIMXE: no support for SORT yet
+//        rules.add(EnumerableRules.ENUMERABLE_SORT_RULE);       //FIMXE: no support for SORT yet
 //      rules.add(EnumerableRules.ENUMERABLE_UNION_RULE)      //FIMXE: no support for UNION yet
 //      rules.add(EnumerableRules.ENUMERABLE_INTERSECT_RULE)  //FIMXE: no support for INTERSECT yet
 //      rules.add(EnumerableRules.ENUMERABLE_MINUS_RULE)      //FIMXE: no support for MINUS yet

@@ -45,19 +45,19 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
 //        RelNode inp = LogicalExchange.create(rel, RelDistributions.SINGLETON);
 //        System.out.println(inp.getTraitSet());
 
-//        RelTraitSet traitSet = rel.getCluster().traitSet().replace(PelagoRel.CONVENTION)
-//                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-//                    public RelDistribution get() {
-//                        return RelDistributions.SINGLETON;
-//                    }
-//                }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-//                    public RelDeviceType get() {
-//                        return RelDeviceType.X86_64;
-//                    }
-//                });
+        RelTraitSet traitSet = rel.getTraitSet().replace(PelagoRel.CONVENTION) //rel.getCluster().traitSet()
+                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                    public RelDistribution get() {
+                        return RelDistributions.SINGLETON;
+                    }
+                }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                    public RelDeviceType get() {
+                        return RelDeviceType.X86_64;
+                    }
+                });
 
-        RelNode inp = rel;//convert(convert(rel, RelDistributions.SINGLETON), RelDeviceType.X86_64); //Convert to sequential
-//        RelNode inp = convert(rel, traitSet);
+//        RelNode inp = rel;//convert(convert(rel, RelDistributions.SINGLETON), RelDeviceType.X86_64); //Convert to sequential
+        RelNode inp = convert(rel, traitSet);
 
         RelNode tmp = PelagoToEnumerableConverter.create(inp);
         return tmp;
@@ -66,7 +66,7 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
     public boolean matches(RelOptRuleCall call) {
 //        return true;
 //        if (!call.rel(0).getTraitSet().satisfies(RelTraitSet.createEmpty().plus(RelDistributions.SINGLETON))) return false;
-        if (!call.rel(0).getTraitSet().contains(RelDeviceType.X86_64)) return false;
+//        if (!call.rel(0).getTraitSet().contains(RelDeviceType.X86_64)) return false;
         return true;
     }
 }

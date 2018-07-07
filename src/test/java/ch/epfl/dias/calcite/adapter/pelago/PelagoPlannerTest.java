@@ -1,6 +1,7 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
 import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
 import org.apache.calcite.rel.RelDeviceTypeTraitDef;
 
@@ -19,6 +20,32 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.apache.calcite.test.CalciteAssert;
+
+class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
+  private static final String schemaPath = "../raw-jit-executor/inputs/plans/schema.json";
+
+  private static PelagoTestConnectionFactory instance = null;
+  private static Connection connection;
+
+  private PelagoTestConnectionFactory() throws SQLException {
+    Properties info = new Properties();
+    connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
+  }
+
+  public static PelagoTestConnectionFactory get() throws SQLException {
+    if (instance == null) instance = new PelagoTestConnectionFactory();
+    return instance;
+  }
+
+  @Override public Connection createConnection() throws SQLException {
+    return connection;
+  }
+}
+
 
 @RunWith(Parameterized.class)
 public class PelagoPlannerTest {
@@ -311,9 +338,12 @@ public class PelagoPlannerTest {
 
     Properties info = new Properties();
     connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
+
+    // warm-up connection
+    connection.createStatement().executeQuery("explain plan for select * from ssbm_date1000");
   }
 
-  @Parameters
+  @Parameters(name = "{0}")
   public static Collection<Object[]> data() throws ClassNotFoundException, SQLException {
     Collection<Object[]> data = new ArrayList<Object[]>();
     for (String sql: queries) data.add(new Object[]{sql});
