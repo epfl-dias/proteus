@@ -23,8 +23,6 @@ import org.apache.calcite.plan.volcano.AbstractConverter;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.prepare.PelagoPreparingStmt;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelDeviceType;
-import org.apache.calcite.rel.RelDeviceTypeTraitDef;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.rules.*;
@@ -52,7 +50,9 @@ import org.apache.calcite.tools.Programs;
 import org.apache.calcite.util.Holder;
 import org.apache.calcite.util.Util;
 
+import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
 
 import java.lang.reflect.Type;
 import java.sql.DatabaseMetaData;
@@ -91,6 +91,10 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         ((VolcanoPlanner) planner).registerAbstractRelationalRules();
         planner.addRule(AbstractConverter.ExpandConversionRule.INSTANCE);
 //        System.out.println(planner.getRules());
+
+        for (RelOptRule rule: PelagoRules.RULES) {
+            planner.addRule(rule);
+        }
 
         List<RelOptRule> rules = new ArrayList<RelOptRule>();
         rules.add(TableScanRule.INSTANCE);
@@ -227,7 +231,8 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
     /** Factory method for cluster. */
     protected RelOptCluster createCluster(RelOptPlanner planner,
         RexBuilder rexBuilder) {
-        RelOptCluster cluster = super.createCluster(planner, rexBuilder);
+
+        RelOptCluster cluster = PelagoRelOptCluster.create(planner, rexBuilder);//super.createCluster(planner, rexBuilder);
         cluster.setMetadataProvider(PelagoRelMetadataProvider.INSTANCE);
         return cluster;
     }

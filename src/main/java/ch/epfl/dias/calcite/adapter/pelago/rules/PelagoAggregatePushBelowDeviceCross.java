@@ -19,7 +19,7 @@ public class PelagoAggregatePushBelowDeviceCross extends RelOptRule {
     PelagoDeviceCross decross = (PelagoDeviceCross) call.rel(1);
 
     PelagoAggregate new_agg = agg.copy(null, decross.getInput(), agg.indicator, agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList());
-    call.transformTo(decross.copy(null, new_agg, decross.deviceType));
+    call.transformTo(decross.copy(null, new_agg, decross.getDeviceType()));
 
 
 //

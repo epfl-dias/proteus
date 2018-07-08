@@ -2,12 +2,12 @@ package ch.epfl.dias.calcite.adapter.pelago.rules;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
+import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
+import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 //import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceType;
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.RelDeviceType;
-import org.apache.calcite.rel.RelDeviceTypeTraitDef;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelDistributions;

@@ -10,7 +10,7 @@ import org.apache.calcite.plan.RelOptPlanner
 import org.apache.calcite.plan.RelTraitSet
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.{Project, Sort}
-import org.apache.calcite.rel.metadata.{RelMdCollation, RelMdDeviceType, RelMdDistribution, RelMetadataQuery}
+import org.apache.calcite.rel.metadata.{RelMdCollation, RelMdDistribution, RelMetadataQuery}
 import org.apache.calcite.rel
 import org.apache.calcite.rel.`type`.RelDataType
 import org.json4s.JsonDSL._
@@ -24,7 +24,7 @@ import scala.collection.JavaConverters._
 import scala.Tuple2
 import java.util
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution}
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution, RelMdDeviceType}
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, emit_, getFields}
 import org.apache.calcite.adapter.enumerable.EnumerableConvention
 

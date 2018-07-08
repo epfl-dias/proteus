@@ -8,7 +8,7 @@ import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.Aggregate
 import org.apache.calcite.rel.core.AggregateCall
 import org.apache.calcite.rel.core.Project
-import org.apache.calcite.rel.metadata.{RelMdDeviceType, RelMdDistribution, RelMetadataQuery}
+import org.apache.calcite.rel.metadata.{RelMdDistribution, RelMetadataQuery}
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rex.RexNode
 import org.apache.calcite.util.ImmutableBitSet

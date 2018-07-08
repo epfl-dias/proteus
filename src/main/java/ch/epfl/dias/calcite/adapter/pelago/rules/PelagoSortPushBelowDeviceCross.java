@@ -24,7 +24,7 @@ public class PelagoSortPushBelowDeviceCross extends RelOptRule {
 
     PelagoSort new_sort = PelagoSort.create(decross.getInput(), sort.collation, sort.fetch, sort.offset);
 
-    call.transformTo(decross.copy(null, new_sort, decross.deviceType));
+    call.transformTo(decross.copy(null, new_sort, decross.getDeviceType()));
 
 
 //

@@ -2,7 +2,6 @@ package ch.epfl.dias.calcite.adapter.pelago.metadata;
 
 import org.apache.calcite.rel.metadata.ChainedRelMetadataProvider;
 import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
-import org.apache.calcite.rel.metadata.RelMdDeviceType;
 
 import com.google.common.collect.ImmutableList;
 

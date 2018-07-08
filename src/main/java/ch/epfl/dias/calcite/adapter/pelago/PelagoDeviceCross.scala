@@ -4,10 +4,8 @@ import java.util
 import java.util.List
 
 import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution}
-import org.apache.calcite.rel.core.DeviceCross
-import org.apache.calcite.rel.logical.LogicalDeviceCross
 import org.apache.calcite.rel.metadata.RelMdDistribution
-import org.apache.calcite.rel.{RelDeviceType, RelDeviceTypeTraitDef, RelDistribution, RelDistributionTraitDef}
+import org.apache.calcite.rel.{RelDistribution, RelDistributionTraitDef}
 
 //import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceType
 //import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceTypeTraitDef
@@ -30,8 +28,8 @@ import org.apache.calcite.rel.core.Exchange
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.util.Util
 
-class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, input: RelNode, toDevice: RelDeviceType)
-      extends DeviceCross(cluster, traits, input, toDevice) with PelagoRel with Converter {
+class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, input: RelNode, val deviceType: RelDeviceType)
+      extends SingleRel(cluster, traits, input) with PelagoRel with Converter {
   protected var inTraits: RelTraitSet = input.getTraitSet
 
   override def explainTerms(pw: RelWriter): RelWriter = {
@@ -44,6 +42,10 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
       .item("inputRows", input.getCluster.getMetadataQuery.getRowCount(input))
       .item("cost", cost)
   }
+
+  def getDeviceType() = deviceType;
+
+  override def copy(traitSet: RelTraitSet, inputs: List[RelNode]): PelagoDeviceCross = copy(traitSet, inputs.get(0), deviceType)
 
   def copy(traitSet: RelTraitSet, input: RelNode, deviceType: RelDeviceType) = PelagoDeviceCross.create(input, deviceType)
 
@@ -66,7 +68,7 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
     val childOp = child._2
     val rowType = emitSchema(childBinding.rel, getRowType)
 
-    val json = op ~ ("tupleType", rowType) ~ ("target", toDevice.toString) ~ ("input", childOp) ~ ("trait", getTraitSet.toString)
+    val json = op ~ ("tupleType", rowType) ~ ("target", getDeviceType().toString) ~ ("input", childOp) ~ ("trait", getTraitSet.toString)
     val ret = (childBinding, json)
     ret
   }

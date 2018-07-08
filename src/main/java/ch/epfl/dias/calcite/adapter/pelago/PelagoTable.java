@@ -7,7 +7,7 @@ import org.apache.calcite.linq4j.*;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelDeviceType;
+//import org.apache.calcite.rel.RelDeviceType;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelDistributions;
@@ -110,7 +110,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     }
 
     public RelDeviceType   getDeviceType(){
-        return RelDeviceType.NVPTX;
+        return RelDeviceType.X86_64;
     }
 
     public RelDistribution getDistribution(){

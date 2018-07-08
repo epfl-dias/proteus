@@ -5,7 +5,6 @@ import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.DeviceCross;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.metadata.BuiltInMetadata;
 import org.apache.calcite.rel.metadata.ChainedRelMetadataProvider;
@@ -55,7 +54,7 @@ public class PelagoRelMdDistribution implements MetadataHandler<BuiltInMetadata.
     return scan.getDistribution();
   }
 
-  public RelDistribution distribution(DeviceCross devcross, RelMetadataQuery mq) {
+  public RelDistribution distribution(PelagoDeviceCross devcross, RelMetadataQuery mq) {
 //    System.out.println("asdasd");
     return mq.distribution(devcross.getInput());
   }

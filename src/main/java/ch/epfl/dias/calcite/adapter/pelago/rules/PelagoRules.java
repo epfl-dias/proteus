@@ -29,8 +29,6 @@ public class PelagoRules {
     }
 
     public static final RelOptRule[] RULES = {
-        PelagoDeviceTypeConverterRule.TO_NVPTX_INSTANCE,
-        PelagoDeviceTypeConverterRule.TO_x86_64_INSTANCE,
         PelagoProjectTableScanRule.INSTANCE,
         PelagoToEnumerableConverterRule.INSTANCE,
 //        PelagoDeviceCrossRule.INSTANCE,
@@ -50,15 +48,17 @@ public class PelagoRules {
 //        PelagoJoinRule3.INSTANCE,
 //        PelagoBroadCastJoinRule.INSTANCE,
 //        PelagoBroadCastJoinRule2.INSTANCE,
-//    };
-//
-//    public static final RelOptRule[] RULES2 = {
+    };
+
+    public static final RelOptRule[] RULES2 = {
 //        PelagoDistributionConverterRule.BRDCST_INSTANCE,
         PelagoDistributionConverterRule.BRDCST_INSTANCE2,
 //        PelagoDistributionConverterRule.SEQNTL_INSTANCE,
         PelagoDistributionConverterRule.SEQNTL_INSTANCE2,
         PelagoDistributionConverterRule.RANDOM_INSTANCE,
 
+        PelagoDeviceTypeConverterRule.TO_NVPTX_INSTANCE,
+        PelagoDeviceTypeConverterRule.TO_x86_64_INSTANCE,
 
 //        PelagoProjectPushBelowDeviceCross.INSTANCE,
 //        PelagoSortPushBelowDeviceCross.INSTANCE,
@@ -275,28 +275,28 @@ public class PelagoRules {
         }
     }
 
-    /**
-     * Rule to convert a {@link org.apache.calcite.rel.logical.LogicalAggregate}
-     * to a {@link PelagoRouter}.
-     */
-    private static class PelagoDeviceCrossRule extends PelagoConverterRule {
-        private static final PelagoDeviceCrossRule INSTANCE = new PelagoDeviceCrossRule();
-
-        private PelagoDeviceCrossRule() {
-            super(LogicalDeviceCross.class, "PelagoDeviceCrossRule");
-        }
-
-        @Override public boolean matches(RelOptRuleCall call) {
-            //Do we have any limitations for the reduce?
-            return true;
-        }
-
-        public RelNode convert(RelNode rel) {
-            final LogicalDeviceCross xchange = (LogicalDeviceCross) rel;
-            //convert(xchange.getInput(), RelDeviceType.x86_64)
-            return PelagoDeviceCross.create(convert(xchange.getInput(), out), xchange.deviceType);
-        }
-    }
+//    /**
+//     * Rule to convert a {@link org.apache.calcite.rel.logical.LogicalAggregate}
+//     * to a {@link PelagoRouter}.
+//     */
+//    private static class PelagoDeviceCrossRule extends PelagoConverterRule {
+//        private static final PelagoDeviceCrossRule INSTANCE = new PelagoDeviceCrossRule();
+//
+//        private PelagoDeviceCrossRule() {
+//            super(LogicalDeviceCross.class, "PelagoDeviceCrossRule");
+//        }
+//
+//        @Override public boolean matches(RelOptRuleCall call) {
+//            //Do we have any limitations for the reduce?
+//            return true;
+//        }
+//
+//        public RelNode convert(RelNode rel) {
+//            final LogicalDeviceCross xchange = (LogicalDeviceCross) rel;
+//            //convert(xchange.getInput(), RelDeviceType.x86_64)
+//            return PelagoDeviceCross.create(convert(xchange.getInput(), out), xchange.deviceType);
+//        }
+//    }
 
     /**
      * Rule to convert a {@link org.apache.calcite.rel.logical.LogicalAggregate}

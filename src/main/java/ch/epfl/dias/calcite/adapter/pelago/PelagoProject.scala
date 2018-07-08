@@ -10,7 +10,7 @@ import org.apache.calcite.plan.RelOptPlanner
 import org.apache.calcite.plan.RelTraitSet
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.Project
-import org.apache.calcite.rel.metadata.{RelMdCollation, RelMdDeviceType, RelMdDistribution, RelMetadataQuery}
+import org.apache.calcite.rel.metadata.{RelMdCollation, RelMdDistribution, RelMetadataQuery}
 import org.apache.calcite.rel
 import org.apache.calcite.rel.`type`.RelDataType
 import org.json4s.JsonDSL._

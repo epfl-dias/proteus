@@ -19,7 +19,7 @@ public class PelagoFilterPushBelowDeviceCross extends RelOptRule {
     PelagoDeviceCross decross = (PelagoDeviceCross) call.rel(1);
 
     PelagoFilter new_filter = filter.create(decross.getInput(), filter.getCondition());
-    call.transformTo(decross.copy(null, new_filter, decross.deviceType));
+    call.transformTo(decross.copy(null, new_filter, decross.getDeviceType()));
 
 
 //

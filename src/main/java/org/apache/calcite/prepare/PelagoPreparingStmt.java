@@ -14,7 +14,8 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.*;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelDeviceType;
+import org.apache.calcite.rel.RelDistribution;
+import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.RelFactories;
@@ -42,6 +43,7 @@ import org.apache.calcite.util.Holder;
 import org.apache.calcite.util.Pair;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
+import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -92,7 +94,13 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
     }
 
     protected RelTraitSet getDesiredRootTraitSet(RelRoot root) {//this.resultConvention
-        return root.rel.getTraitSet().replace(this.resultConvention).replace(root.collation).replace(RelDeviceType.X86_64).simplify();
+        return root.rel.getTraitSet()
+            .replace(this.resultConvention)
+//            .replace(PelagoRel.CONVENTION) //this.resultConvention)
+            .replace(root.collation)
+            .replace(RelDistributions.SINGLETON)
+            .replace(RelDeviceType.X86_64)
+            .simplify();
 //        return root.rel.getTraitSet().replace(this.resultConvention).replace(root.collation).replace(RelDeviceType.X86_64).simplify();
     }
 

@@ -6,7 +6,7 @@ import org.apache.calcite.linq4j.tree.Primitive
 import org.apache.calcite.plan._
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.TableScan
-import org.apache.calcite.rel.metadata.{RelMdDeviceType, RelMetadataQuery}
+import org.apache.calcite.rel.metadata.{RelMetadataQuery}
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.`type`.RelDataTypeFactory
 import org.apache.calcite.rel.`type`.RelDataTypeField

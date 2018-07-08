@@ -11,8 +11,6 @@ import org.apache.calcite.linq4j.tree.*;
 import org.apache.calcite.materialize.MaterializationService;
 import org.apache.calcite.plan.*;
 import org.apache.calcite.prepare.RelOptTableImpl;
-import org.apache.calcite.rel.RelDeviceType;
-import org.apache.calcite.rel.RelDeviceTypeTraitDef;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelDistributions;
@@ -20,7 +18,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.convert.ConverterImpl;
 import org.apache.calcite.rel.core.TableScan;
-import org.apache.calcite.rel.metadata.RelMdDeviceType;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.*;
 import org.apache.calcite.rex.RexBuilder;
@@ -32,6 +29,7 @@ import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.BuiltInMethod;
 
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery;
 import ch.epfl.dias.repl.Repl;
 import org.json4s.JsonAST;
 
@@ -76,7 +74,7 @@ public class PelagoToEnumerableConverter
             })
             .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
                 public RelDeviceType get() {
-                    return cluster.getMetadataQuery().deviceType(input);
+                    return ((PelagoRelMetadataQuery) cluster.getMetadataQuery()).deviceType(input);
                 }
             });
         return new PelagoToEnumerableConverter(input.getCluster(), traitSet, input);

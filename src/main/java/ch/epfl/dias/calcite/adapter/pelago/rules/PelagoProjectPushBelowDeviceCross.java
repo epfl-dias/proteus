@@ -20,7 +20,7 @@ public class PelagoProjectPushBelowDeviceCross extends RelOptRule {
     PelagoDeviceCross decross = (PelagoDeviceCross) call.rel(1);
 
     PelagoProject new_project = project.copy(null, decross.getInput(), project.getProjects(), project.getRowType());
-    call.transformTo(decross.copy(null, new_project, decross.deviceType));
+    call.transformTo(decross.copy(null, new_project, decross.getDeviceType()));
 
 
 //
