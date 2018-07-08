@@ -3,7 +3,6 @@ package ch.epfl.dias.calcite.adapter.pelago;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
-import org.apache.calcite.rel.RelDeviceTypeTraitDef;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -22,6 +21,8 @@ import java.util.Collection;
 import java.util.Properties;
 
 import org.apache.calcite.test.CalciteAssert;
+import org.apache.calcite.util.trace.CalciteLogger;
+import org.apache.calcite.util.trace.CalciteTrace;
 
 class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
   private static final String schemaPath = "../raw-jit-executor/inputs/plans/schema.json";

@@ -84,6 +84,28 @@ public class PelagoRules {
             super(clazz, predicate, Convention.NONE, PelagoRel.CONVENTION, RelFactories.LOGICAL_BUILDER, description);
             this.out = PelagoRel.CONVENTION;
         }
+
+        public void onMatch(RelOptRuleCall call) {
+            RelNode rel = call.rel(0);
+            if (rel.getTraitSet().contains(Convention.NONE)) {
+                final RelNode converted = convert(rel);
+                if (converted != null) {
+                    call.transformTo(converted);
+
+                    // exclude unconverted node from the search space
+                    // this is a good idea only if _all_ the non-converter rules
+                    // operate over the {@link org.apache.calcite.rel.core} nodes (and not the logical ones)
+                    call.getPlanner().setImportance(rel, 0);
+                    // Without the above line, the planner was giving a higher priority to the logical nodes
+                    // rather than the pelago nodes. This was resulting in an (almost) exhaustive search over
+                    // all the logical plans, before moving to the pelago nodes, resulting in huge planning times.
+                    // Thankfully, after we convert a logical node into a pelago node, we should not care about the
+                    // logical one, as long as all the (general, non-converter) optimization rules reference the
+                    // core nodes instead of the logical ones. If this is not the case, we should revisit the above
+                    // line.
+                }
+            }
+        }
     }
 
     /**
