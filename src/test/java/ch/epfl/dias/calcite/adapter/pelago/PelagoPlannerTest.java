@@ -74,8 +74,8 @@ public class PelagoPlannerTest {
     "select sum(d_datekey), max(d_datekey) "
       + "from ssbm_date",
 
-    "select sum(lo_revenue), count(*) from "
-      + "ssbm_lineorder1000, ssbm_date1000 "
+    "select sum(lo_revenue), count(*) "
+      + "from ssbm_lineorder1000, ssbm_date1000 "
       + "where lo_orderdate = d_datekey "
       + "  and d_year = 1997",
 

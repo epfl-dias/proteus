@@ -44,6 +44,8 @@ object Repl extends App {
       case Nil => map
       case "--server" :: tail =>
         nextOption(map ++ Map('server -> true), tail)
+      case "--port" :: value :: tail =>
+        nextOption(map ++ Map('port -> value.toInt), tail)
       case "--mock" :: value :: tail =>
         nextOption(map ++ Map('mockfile -> value), tail)
       case string :: Nil => nextOption(map ++ Map('schema -> string), list.tail)
@@ -54,7 +56,7 @@ object Repl extends App {
     }
   }
 
-  val options = nextOption(Map('server -> false, 'mockfile -> defaultMock, 'schema -> defaultSchema), arglist)
+  val options = nextOption(Map('server -> false, 'port -> 8081, 'mockfile -> defaultMock, 'schema -> defaultSchema), arglist)
   System.out.println(options);
 
   var mockfile = options.get('mockfile).get.asInstanceOf[String]
@@ -74,7 +76,7 @@ object Repl extends App {
   if (options.get('server).get.asInstanceOf[Boolean]) {
     val meta = new JdbcMeta("jdbc:pelago:model=" + schemaPath)
     val service = new LocalService(meta)
-    val server = new HttpServer.Builder().withHandler(service, Serialization.PROTOBUF).withPort(8081).build();
+    val server = new HttpServer.Builder().withHandler(service, Serialization.PROTOBUF).withPort(options.get('port).asInstanceOf[Int]).build();
     server.start();
     server.join();
   } else {
