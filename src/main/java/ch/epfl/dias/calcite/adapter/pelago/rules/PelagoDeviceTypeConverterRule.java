@@ -3,28 +3,27 @@ package ch.epfl.dias.calcite.adapter.pelago.rules;
 //import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
+import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 //import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceType;
 //import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceTypeTraitDef;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTrait;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.RelDeviceType;
-import org.apache.calcite.rel.RelDeviceTypeTraitDef;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.convert.ConverterRule;
 import org.apache.calcite.rel.core.RelFactories;
-import org.apache.calcite.rel.logical.LogicalDeviceCross;
 import org.apache.calcite.tools.RelBuilderFactory;
 
 public class PelagoDeviceTypeConverterRule extends ConverterRule {
     public static final ConverterRule TO_NVPTX_INSTANCE  =
-            new PelagoDeviceTypeConverterRule(RelDeviceType.NVPTX , RelDeviceType.X86_64, RelFactories.LOGICAL_BUILDER);
+            new PelagoDeviceTypeConverterRule(RelDeviceType.NVPTX , RelDeviceType.X86_64, PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule TO_x86_64_INSTANCE =
-            new PelagoDeviceTypeConverterRule(RelDeviceType.X86_64, RelDeviceType.NVPTX , RelFactories.LOGICAL_BUILDER);
+            new PelagoDeviceTypeConverterRule(RelDeviceType.X86_64, RelDeviceType.NVPTX , PelagoRelFactories.PELAGO_BUILDER);
 
     private final RelDeviceType target_device;
     private final RelDeviceType from_device  ;
@@ -54,7 +53,7 @@ public class PelagoDeviceTypeConverterRule extends ConverterRule {
     }
 
     public boolean matches(RelOptRuleCall call) {
-//        if (call.rel(0).getConvention() != PelagoRel.CONVENTION) return false;
+        if (call.rel(0).getConvention() != PelagoRel.CONVENTION) return false;
         return true;
 //        return !call.rel(0).getTraitSet().satisfies(RelTraitSet.createEmpty().plus(target_device));
     }

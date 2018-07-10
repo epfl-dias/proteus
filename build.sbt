@@ -9,12 +9,12 @@ val calciteVersion = "1.16.0"
 // https://mvnrepository.com/artifact/org.json4s/json4s-jackson_2.10
 val json4sJackson = "org.json4s" % "json4s-jackson_2.12" % "3.5.3"
 // https://mvnrepository.com/artifact/org.apache.calcite/calcite-core
-val calciteCore = "org.apache.calcite" % "calcite-core" % calciteVersion
+val calciteCore = "org.apache.calcite" % "calcite-core" % calciteVersion % "test" classifier "tests"
 // https://mvnrepository.com/artifact/org.apache.calcite/calcite-server
 val calciteServer = "org.apache.calcite" % "calcite-server" % calciteVersion
 //val calciteCSV = "org.apache.calcite" % "calcite-example-csv" % "1.14.0"
 val slf4j = "org.slf4j" % "slf4j-api" % "1.7.13"
-val slf4j_simple = "org.slf4j" % "slf4j-simple" % "1.7.13"
+val slf4j_log4j12 = "org.slf4j" % "slf4j-log4j12" % "1.7.13"
 
 // https://mvnrepository.com/artifact/org.apache.calcite.avatica/avatica
 libraryDependencies += "org.apache.calcite.avatica" % "avatica-server" % "1.11.0"
@@ -30,7 +30,7 @@ libraryDependencies += calciteCore
 libraryDependencies += calciteServer
 //libraryDependencies += calciteCSV
 libraryDependencies += slf4j
-libraryDependencies += slf4j_simple
+libraryDependencies += slf4j_log4j12
 libraryDependencies += json4sJackson
 
 // https://mvnrepository.com/artifact/junit/junit

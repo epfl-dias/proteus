@@ -3,12 +3,11 @@ package ch.epfl.dias.calcite.adapter.pelago;
 import ch.epfl.dias.calcite.adapter.pelago.types.PelagoTypeParser;
 import com.google.common.collect.Lists;
 import org.apache.calcite.DataContext;
-//import org.apache.calcite.adapter.csv.CsvEnumerator;
 import org.apache.calcite.linq4j.*;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelDeviceType;
+//import org.apache.calcite.rel.RelDeviceType;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelDistributions;
@@ -92,7 +91,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
             RelOptTable.ToRelContext context,
             RelOptTable relOptTable) {
         // Request all fields.
-        context.getCluster().getPlanner().addRelTraitDef(RelDistributionTraitDef.INSTANCE);
+//        context.getCluster().getPlanner().addRelTraitDef(RelDistributionTraitDef.INSTANCE);
         final int fieldCount = relOptTable.getRowType().getFieldCount();
         final int[] fields = identityList(fieldCount);
         return PelagoTableScan.create(context.getCluster(), relOptTable, this, fields);
@@ -111,7 +110,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     }
 
     public RelDeviceType   getDeviceType(){
-        return RelDeviceType.NVPTX;
+        return RelDeviceType.X86_64;
     }
 
     public RelDistribution getDistribution(){

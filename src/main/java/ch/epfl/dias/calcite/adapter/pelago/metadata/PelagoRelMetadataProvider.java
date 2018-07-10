@@ -24,6 +24,7 @@ public class PelagoRelMetadataProvider extends ChainedRelMetadataProvider {
         ImmutableList.of(
             PelagoRelMdDeviceType.SOURCE,
             PelagoRelMdDistribution.SOURCE,
+            RelMdDeviceType.SOURCE,
             DefaultRelMetadataProvider.INSTANCE));
   }
 }

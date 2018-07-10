@@ -1,0 +1,1192 @@
+{
+  "operator" : "print",
+  "gpu" : false,
+  "e" : [ {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument",
+      "attributes" : [ {
+        "attrName" : "profit",
+        "relName" : "agg5595",
+        "type" : {
+          "type" : "int"
+        }
+      } ],
+      "type" : {
+        "relName" : "agg5595",
+        "type" : "record"
+      },
+      "argNo" : -1
+    },
+    "attribute" : {
+      "attrName" : "profit",
+      "relName" : "agg5595",
+      "type" : {
+        "type" : "int"
+      }
+    }
+  } ],
+  "input" : {
+    "operator" : "reduce",
+    "gpu" : false,
+    "e" : [ {
+      "expression" : "recordProjection",
+      "e" : {
+        "expression" : "argument",
+        "attributes" : [ {
+          "attrName" : "-",
+          "relName" : "join5594",
+          "type" : {
+            "type" : "int"
+          }
+        } ],
+        "type" : {
+          "relName" : "join5594",
+          "type" : "record"
+        },
+        "argNo" : -1
+      },
+      "attribute" : {
+        "attrName" : "-",
+        "relName" : "join5594",
+        "type" : {
+          "type" : "int"
+        }
+      },
+      "register_as" : {
+        "attrName" : "profit",
+        "relName" : "agg5595"
+      }
+    } ],
+    "accumulator" : [ "sum" ],
+    "p" : {
+      "expression" : "bool",
+      "v" : true
+    },
+    "input" : {
+      "operator" : "hashjoin-chained",
+      "gpu" : false,
+      "build_k" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument",
+          "attributes" : [ {
+            "attrName" : "p_partkey",
+            "relName" : "inputs/ssbm100/part.csv",
+            "type" : {
+              "type" : "int"
+            }
+          } ],
+          "type" : {
+            "relName" : "inputs/ssbm100/part.csv",
+            "type" : "record"
+          },
+          "argNo" : -1
+        },
+        "attribute" : {
+          "attrName" : "p_partkey",
+          "relName" : "inputs/ssbm100/part.csv",
+          "type" : {
+            "type" : "int"
+          }
+        },
+        "register_as" : {
+          "attrName" : "$2",
+          "relName" : "join5594"
+        }
+      },
+      "build_e" : [ {
+        "e" : {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument",
+            "attributes" : [ {
+              "attrName" : "lo_partkey",
+              "relName" : "projection5593",
+              "type" : {
+                "type" : "int"
+              }
+            } ],
+            "type" : {
+              "relName" : "projection5593",
+              "type" : "record"
+            },
+            "argNo" : -1
+          },
+          "attribute" : {
+            "attrName" : "lo_partkey",
+            "relName" : "projection5593",
+            "type" : {
+              "type" : "int"
+            }
+          },
+          "register_as" : {
+            "attrName" : "lo_partkey",
+            "relName" : "join5594"
+          }
+        },
+        "packet" : 1,
+        "offset" : 0
+      }, {
+        "e" : {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument",
+            "attributes" : [ {
+              "attrName" : "-",
+              "relName" : "projection5593",
+              "type" : {
+                "type" : "int"
+              }
+            } ],
+            "type" : {
+              "relName" : "projection5593",
+              "type" : "record"
+            },
+            "argNo" : -1
+          },
+          "attribute" : {
+            "attrName" : "-",
+            "relName" : "projection5593",
+            "type" : {
+              "type" : "int"
+            }
+          },
+          "register_as" : {
+            "attrName" : "-",
+            "relName" : "join5594"
+          }
+        },
+        "packet" : 2,
+        "offset" : 0
+      } ],
+      "build_w" : [ 64, 32, 32 ],
+      "build_input" : {
+        "operator" : "project",
+        "gpu" : false,
+        "relName" : "projection5593",
+        "e" : [ {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument",
+            "attributes" : [ {
+              "attrName" : "lo_partkey",
+              "relName" : "join5592",
+              "type" : {
+                "type" : "int"
+              }
+            } ],
+            "type" : {
+              "relName" : "join5592",
+              "type" : "record"
+            },
+            "argNo" : -1
+          },
+          "attribute" : {
+            "attrName" : "lo_partkey",
+            "relName" : "join5592",
+            "type" : {
+              "type" : "int"
+            }
+          },
+          "register_as" : {
+            "attrName" : "lo_partkey",
+            "relName" : "projection5593"
+          }
+        }, {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument",
+            "attributes" : [ {
+              "attrName" : "-",
+              "relName" : "join5592",
+              "type" : {
+                "type" : "int"
+              }
+            } ],
+            "type" : {
+              "relName" : "join5592",
+              "type" : "record"
+            },
+            "argNo" : -1
+          },
+          "attribute" : {
+            "attrName" : "-",
+            "relName" : "join5592",
+            "type" : {
+              "type" : "int"
+            }
+          },
+          "register_as" : {
+            "attrName" : "-",
+            "relName" : "projection5593"
+          }
+        } ],
+        "input" : {
+          "operator" : "hashjoin-chained",
+          "gpu" : false,
+          "build_k" : {
+            "expression" : "recordProjection",
+            "e" : {
+              "expression" : "argument",
+              "attributes" : [ {
+                "attrName" : "lo_suppkey",
+                "relName" : "projection5589",
+                "type" : {
+                  "type" : "int"
+                }
+              } ],
+              "type" : {
+                "relName" : "projection5589",
+                "type" : "record"
+              },
+              "argNo" : -1
+            },
+            "attribute" : {
+              "attrName" : "lo_suppkey",
+              "relName" : "projection5589",
+              "type" : {
+                "type" : "int"
+              }
+            },
+            "register_as" : {
+              "attrName" : "$1",
+              "relName" : "join5592"
+            }
+          },
+          "build_e" : [ {
+            "e" : {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument",
+                "attributes" : [ {
+                  "attrName" : "lo_partkey",
+                  "relName" : "projection5589",
+                  "type" : {
+                    "type" : "int"
+                  }
+                } ],
+                "type" : {
+                  "relName" : "projection5589",
+                  "type" : "record"
+                },
+                "argNo" : -1
+              },
+              "attribute" : {
+                "attrName" : "lo_partkey",
+                "relName" : "projection5589",
+                "type" : {
+                  "type" : "int"
+                }
+              },
+              "register_as" : {
+                "attrName" : "lo_partkey",
+                "relName" : "join5592"
+              }
+            },
+            "packet" : 1,
+            "offset" : 0
+          }, {
+            "e" : {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument",
+                "attributes" : [ {
+                  "attrName" : "-",
+                  "relName" : "projection5589",
+                  "type" : {
+                    "type" : "int"
+                  }
+                } ],
+                "type" : {
+                  "relName" : "projection5589",
+                  "type" : "record"
+                },
+                "argNo" : -1
+              },
+              "attribute" : {
+                "attrName" : "-",
+                "relName" : "projection5589",
+                "type" : {
+                  "type" : "int"
+                }
+              },
+              "register_as" : {
+                "attrName" : "-",
+                "relName" : "join5592"
+              }
+            },
+            "packet" : 2,
+            "offset" : 0
+          } ],
+          "build_w" : [ 64, 32, 32 ],
+          "build_input" : {
+            "operator" : "project",
+            "gpu" : false,
+            "relName" : "projection5589",
+            "e" : [ {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument",
+                "attributes" : [ {
+                  "attrName" : "lo_partkey",
+                  "relName" : "join5588",
+                  "type" : {
+                    "type" : "int"
+                  }
+                } ],
+                "type" : {
+                  "relName" : "join5588",
+                  "type" : "record"
+                },
+                "argNo" : -1
+              },
+              "attribute" : {
+                "attrName" : "lo_partkey",
+                "relName" : "join5588",
+                "type" : {
+                  "type" : "int"
+                }
+              },
+              "register_as" : {
+                "attrName" : "lo_partkey",
+                "relName" : "projection5589"
+              }
+            }, {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument",
+                "attributes" : [ {
+                  "attrName" : "lo_suppkey",
+                  "relName" : "join5588",
+                  "type" : {
+                    "type" : "int"
+                  }
+                } ],
+                "type" : {
+                  "relName" : "join5588",
+                  "type" : "record"
+                },
+                "argNo" : -1
+              },
+              "attribute" : {
+                "attrName" : "lo_suppkey",
+                "relName" : "join5588",
+                "type" : {
+                  "type" : "int"
+                }
+              },
+              "register_as" : {
+                "attrName" : "lo_suppkey",
+                "relName" : "projection5589"
+              }
+            }, {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument",
+                "attributes" : [ {
+                  "attrName" : "-",
+                  "relName" : "join5588",
+                  "type" : {
+                    "type" : "int"
+                  }
+                } ],
+                "type" : {
+                  "relName" : "join5588",
+                  "type" : "record"
+                },
+                "argNo" : -1
+              },
+              "attribute" : {
+                "attrName" : "-",
+                "relName" : "join5588",
+                "type" : {
+                  "type" : "int"
+                }
+              },
+              "register_as" : {
+                "attrName" : "-",
+                "relName" : "projection5589"
+              }
+            } ],
+            "input" : {
+              "operator" : "hashjoin-chained",
+              "gpu" : false,
+              "build_k" : {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument",
+                  "attributes" : [ {
+                    "attrName" : "d_datekey",
+                    "relName" : "inputs/ssbm100/date.csv",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  } ],
+                  "type" : {
+                    "relName" : "inputs/ssbm100/date.csv",
+                    "type" : "record"
+                  },
+                  "argNo" : -1
+                },
+                "attribute" : {
+                  "attrName" : "d_datekey",
+                  "relName" : "inputs/ssbm100/date.csv",
+                  "type" : {
+                    "type" : "int"
+                  }
+                },
+                "register_as" : {
+                  "attrName" : "$4",
+                  "relName" : "join5588"
+                }
+              },
+              "build_e" : [ {
+                "e" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument",
+                    "attributes" : [ {
+                      "attrName" : "lo_partkey",
+                      "relName" : "projection5587",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    } ],
+                    "type" : {
+                      "relName" : "projection5587",
+                      "type" : "record"
+                    },
+                    "argNo" : -1
+                  },
+                  "attribute" : {
+                    "attrName" : "lo_partkey",
+                    "relName" : "projection5587",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "lo_partkey",
+                    "relName" : "join5588"
+                  }
+                },
+                "packet" : 1,
+                "offset" : 0
+              }, {
+                "e" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument",
+                    "attributes" : [ {
+                      "attrName" : "lo_suppkey",
+                      "relName" : "projection5587",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    } ],
+                    "type" : {
+                      "relName" : "projection5587",
+                      "type" : "record"
+                    },
+                    "argNo" : -1
+                  },
+                  "attribute" : {
+                    "attrName" : "lo_suppkey",
+                    "relName" : "projection5587",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "lo_suppkey",
+                    "relName" : "join5588"
+                  }
+                },
+                "packet" : 2,
+                "offset" : 0
+              }, {
+                "e" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument",
+                    "attributes" : [ {
+                      "attrName" : "lo_orderdate",
+                      "relName" : "projection5587",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    } ],
+                    "type" : {
+                      "relName" : "projection5587",
+                      "type" : "record"
+                    },
+                    "argNo" : -1
+                  },
+                  "attribute" : {
+                    "attrName" : "lo_orderdate",
+                    "relName" : "projection5587",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "lo_orderdate",
+                    "relName" : "join5588"
+                  }
+                },
+                "packet" : 3,
+                "offset" : 0
+              }, {
+                "e" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument",
+                    "attributes" : [ {
+                      "attrName" : "-",
+                      "relName" : "projection5587",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    } ],
+                    "type" : {
+                      "relName" : "projection5587",
+                      "type" : "record"
+                    },
+                    "argNo" : -1
+                  },
+                  "attribute" : {
+                    "attrName" : "-",
+                    "relName" : "projection5587",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "-",
+                    "relName" : "join5588"
+                  }
+                },
+                "packet" : 4,
+                "offset" : 0
+              } ],
+              "build_w" : [ 64, 32, 32, 32, 32 ],
+              "build_input" : {
+                "operator" : "project",
+                "gpu" : false,
+                "relName" : "projection5587",
+                "e" : [ {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument",
+                    "attributes" : [ {
+                      "attrName" : "lo_partkey",
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    } ],
+                    "type" : {
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "type" : "record"
+                    },
+                    "argNo" : -1
+                  },
+                  "attribute" : {
+                    "attrName" : "lo_partkey",
+                    "relName" : "inputs/ssbm100/lineorder.csv",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "lo_partkey",
+                    "relName" : "projection5587"
+                  }
+                }, {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument",
+                    "attributes" : [ {
+                      "attrName" : "lo_suppkey",
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    } ],
+                    "type" : {
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "type" : "record"
+                    },
+                    "argNo" : -1
+                  },
+                  "attribute" : {
+                    "attrName" : "lo_suppkey",
+                    "relName" : "inputs/ssbm100/lineorder.csv",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "lo_suppkey",
+                    "relName" : "projection5587"
+                  }
+                }, {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument",
+                    "attributes" : [ {
+                      "attrName" : "lo_orderdate",
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    } ],
+                    "type" : {
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "type" : "record"
+                    },
+                    "argNo" : -1
+                  },
+                  "attribute" : {
+                    "attrName" : "lo_orderdate",
+                    "relName" : "inputs/ssbm100/lineorder.csv",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "lo_orderdate",
+                    "relName" : "projection5587"
+                  }
+                }, {
+                  "type" : "int",
+                  "expression" : "sub",
+                  "left" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument",
+                      "attributes" : [ {
+                        "attrName" : "lo_revenue",
+                        "relName" : "inputs/ssbm100/lineorder.csv",
+                        "type" : {
+                          "type" : "int"
+                        }
+                      } ],
+                      "type" : {
+                        "relName" : "inputs/ssbm100/lineorder.csv",
+                        "type" : "record"
+                      },
+                      "argNo" : -1
+                    },
+                    "attribute" : {
+                      "attrName" : "lo_revenue",
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    }
+                  },
+                  "right" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument",
+                      "attributes" : [ {
+                        "attrName" : "lo_supplycost",
+                        "relName" : "inputs/ssbm100/lineorder.csv",
+                        "type" : {
+                          "type" : "int"
+                        }
+                      } ],
+                      "type" : {
+                        "relName" : "inputs/ssbm100/lineorder.csv",
+                        "type" : "record"
+                      },
+                      "argNo" : -1
+                    },
+                    "attribute" : {
+                      "attrName" : "lo_supplycost",
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "-",
+                    "relName" : "projection5587"
+                  }
+                } ],
+                "input" : {
+                  "operator" : "scan",
+                  "gpu" : false,
+                  "plugin" : {
+                    "projections" : [ {
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "attrName" : "lo_partkey"
+                    }, {
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "attrName" : "lo_suppkey"
+                    }, {
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "attrName" : "lo_orderdate"
+                    }, {
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "attrName" : "lo_revenue"
+                    }, {
+                      "relName" : "inputs/ssbm100/lineorder.csv",
+                      "attrName" : "lo_supplycost"
+                    } ],
+                    "sizeInFile" : false,
+                    "name" : "inputs/ssbm100/lineorder.csv",
+                    "linehint" : 600038145,
+                    "type" : "bincol"
+                  }
+                }
+              },
+              "probe_k" : {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument",
+                  "attributes" : [ {
+                    "attrName" : "lo_orderdate",
+                    "relName" : "projection5587",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  } ],
+                  "type" : {
+                    "relName" : "projection5587",
+                    "type" : "record"
+                  },
+                  "argNo" : -1
+                },
+                "attribute" : {
+                  "attrName" : "lo_orderdate",
+                  "relName" : "projection5587",
+                  "type" : {
+                    "type" : "int"
+                  }
+                },
+                "register_as" : {
+                  "attrName" : "lo_orderdate",
+                  "relName" : "join5588"
+                }
+              },
+              "probe_e" : [ {
+                "e" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument",
+                    "attributes" : [ {
+                      "attrName" : "lo_suppkey",
+                      "relName" : "projection5587",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    } ],
+                    "type" : {
+                      "relName" : "projection5587",
+                      "type" : "record"
+                    },
+                    "argNo" : -1
+                  },
+                  "attribute" : {
+                    "attrName" : "lo_suppkey",
+                    "relName" : "projection5587",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "lo_suppkey",
+                    "relName" : "join5588"
+                  }
+                },
+                "packet" : 1,
+                "offset" : 0
+              }, {
+                "e" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument",
+                    "attributes" : [ {
+                      "attrName" : "-",
+                      "relName" : "projection5587",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    } ],
+                    "type" : {
+                      "relName" : "projection5587",
+                      "type" : "record"
+                    },
+                    "argNo" : -1
+                  },
+                  "attribute" : {
+                    "attrName" : "-",
+                    "relName" : "projection5587",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "-",
+                    "relName" : "join5588"
+                  }
+                },
+                "packet" : 2,
+                "offset" : 0
+              }, {
+                "e" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument",
+                    "attributes" : [ {
+                      "attrName" : "d_datekey",
+                      "relName" : "inputs/ssbm100/date.csv",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    } ],
+                    "type" : {
+                      "relName" : "inputs/ssbm100/date.csv",
+                      "type" : "record"
+                    },
+                    "argNo" : -1
+                  },
+                  "attribute" : {
+                    "attrName" : "d_datekey",
+                    "relName" : "inputs/ssbm100/date.csv",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "d_datekey",
+                    "relName" : "join5588"
+                  }
+                },
+                "packet" : 3,
+                "offset" : 0
+              } ],
+              "probe_w" : [ 64, 32, 32, 32 ],
+              "hash_bits" : 59,
+              "maxBuildInputSize" : 135266304,
+              "probe_input" : {
+                "operator" : "scan",
+                "gpu" : false,
+                "plugin" : {
+                  "projections" : [ {
+                    "relName" : "inputs/ssbm100/date.csv",
+                    "attrName" : "d_datekey"
+                  } ],
+                  "sizeInFile" : false,
+                  "name" : "inputs/ssbm100/date.csv",
+                  "linehint" : 2556,
+                  "type" : "bincol"
+                }
+              }
+            }
+          },
+          "probe_k" : {
+            "expression" : "recordProjection",
+            "e" : {
+              "expression" : "argument",
+              "attributes" : [ {
+                "attrName" : "s_suppkey",
+                "relName" : "projection5591",
+                "type" : {
+                  "type" : "int"
+                }
+              } ],
+              "type" : {
+                "relName" : "projection5591",
+                "type" : "record"
+              },
+              "argNo" : -1
+            },
+            "attribute" : {
+              "attrName" : "s_suppkey",
+              "relName" : "projection5591",
+              "type" : {
+                "type" : "int"
+              }
+            },
+            "register_as" : {
+              "attrName" : "s_suppkey",
+              "relName" : "join5592"
+            }
+          },
+          "probe_e" : [ {
+            "e" : {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument",
+                "attributes" : [ {
+                  "attrName" : "lo_suppkey",
+                  "relName" : "projection5589",
+                  "type" : {
+                    "type" : "int"
+                  }
+                } ],
+                "type" : {
+                  "relName" : "projection5589",
+                  "type" : "record"
+                },
+                "argNo" : -1
+              },
+              "attribute" : {
+                "attrName" : "lo_suppkey",
+                "relName" : "projection5589",
+                "type" : {
+                  "type" : "int"
+                }
+              },
+              "register_as" : {
+                "attrName" : "lo_suppkey",
+                "relName" : "join5592"
+              }
+            },
+            "packet" : 1,
+            "offset" : 0
+          }, {
+            "e" : {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument",
+                "attributes" : [ {
+                  "attrName" : "-",
+                  "relName" : "projection5589",
+                  "type" : {
+                    "type" : "int"
+                  }
+                } ],
+                "type" : {
+                  "relName" : "projection5589",
+                  "type" : "record"
+                },
+                "argNo" : -1
+              },
+              "attribute" : {
+                "attrName" : "-",
+                "relName" : "projection5589",
+                "type" : {
+                  "type" : "int"
+                }
+              },
+              "register_as" : {
+                "attrName" : "-",
+                "relName" : "join5592"
+              }
+            },
+            "packet" : 2,
+            "offset" : 0
+          } ],
+          "probe_w" : [ 64, 32, 32 ],
+          "hash_bits" : 76,
+          "maxBuildInputSize" : 135266304,
+          "probe_input" : {
+            "operator" : "project",
+            "gpu" : false,
+            "relName" : "projection5591",
+            "e" : [ {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument",
+                "attributes" : [ {
+                  "attrName" : "s_suppkey",
+                  "relName" : "inputs/ssbm100/supplier.csv",
+                  "type" : {
+                    "type" : "int"
+                  }
+                } ],
+                "type" : {
+                  "relName" : "inputs/ssbm100/supplier.csv",
+                  "type" : "record"
+                },
+                "argNo" : -1
+              },
+              "attribute" : {
+                "attrName" : "s_suppkey",
+                "relName" : "inputs/ssbm100/supplier.csv",
+                "type" : {
+                  "type" : "int"
+                }
+              },
+              "register_as" : {
+                "attrName" : "s_suppkey",
+                "relName" : "projection5591"
+              }
+            } ],
+            "input" : {
+              "operator" : "select",
+              "gpu" : false,
+              "p" : {
+                "type" : "bool",
+                "expression" : "eq",
+                "left" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument",
+                    "attributes" : [ {
+                      "attrName" : "s_name",
+                      "relName" : "inputs/ssbm100/supplier.csv",
+                      "type" : {
+                        "type" : "dstring"
+                      }
+                    } ],
+                    "type" : {
+                      "relName" : "inputs/ssbm100/supplier.csv",
+                      "type" : "record"
+                    },
+                    "argNo" : -1
+                  },
+                  "attribute" : {
+                    "attrName" : "s_name",
+                    "relName" : "inputs/ssbm100/supplier.csv",
+                    "type" : {
+                      "type" : "dstring"
+                    }
+                  }
+                },
+                "right" : {
+                  "expression" : "dstring",
+                  "v" : "'Supplier#000047861'"
+                }
+              },
+              "input" : {
+                "operator" : "scan",
+                "gpu" : false,
+                "plugin" : {
+                  "projections" : [ {
+                    "relName" : "inputs/ssbm100/supplier.csv",
+                    "attrName" : "s_suppkey"
+                  }, {
+                    "relName" : "inputs/ssbm100/supplier.csv",
+                    "attrName" : "s_name"
+                  } ],
+                  "sizeInFile" : false,
+                  "name" : "inputs/ssbm100/supplier.csv",
+                  "linehint" : 200000,
+                  "type" : "bincol"
+                }
+              }
+            }
+          }
+        }
+      },
+      "probe_k" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument",
+          "attributes" : [ {
+            "attrName" : "lo_partkey",
+            "relName" : "projection5593",
+            "type" : {
+              "type" : "int"
+            }
+          } ],
+          "type" : {
+            "relName" : "projection5593",
+            "type" : "record"
+          },
+          "argNo" : -1
+        },
+        "attribute" : {
+          "attrName" : "lo_partkey",
+          "relName" : "projection5593",
+          "type" : {
+            "type" : "int"
+          }
+        },
+        "register_as" : {
+          "attrName" : "$0",
+          "relName" : "join5594"
+        }
+      },
+      "probe_e" : [ {
+        "e" : {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument",
+            "attributes" : [ {
+              "attrName" : "-",
+              "relName" : "projection5593",
+              "type" : {
+                "type" : "int"
+              }
+            } ],
+            "type" : {
+              "relName" : "projection5593",
+              "type" : "record"
+            },
+            "argNo" : -1
+          },
+          "attribute" : {
+            "attrName" : "-",
+            "relName" : "projection5593",
+            "type" : {
+              "type" : "int"
+            }
+          },
+          "register_as" : {
+            "attrName" : "-",
+            "relName" : "join5594"
+          }
+        },
+        "packet" : 1,
+        "offset" : 0
+      }, {
+        "e" : {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument",
+            "attributes" : [ {
+              "attrName" : "p_partkey",
+              "relName" : "inputs/ssbm100/part.csv",
+              "type" : {
+                "type" : "int"
+              }
+            } ],
+            "type" : {
+              "relName" : "inputs/ssbm100/part.csv",
+              "type" : "record"
+            },
+            "argNo" : -1
+          },
+          "attribute" : {
+            "attrName" : "p_partkey",
+            "relName" : "inputs/ssbm100/part.csv",
+            "type" : {
+              "type" : "int"
+            }
+          },
+          "register_as" : {
+            "attrName" : "p_partkey",
+            "relName" : "join5594"
+          }
+        },
+        "packet" : 2,
+        "offset" : 0
+      } ],
+      "probe_w" : [ 64, 32, 32 ],
+      "hash_bits" : 100,
+      "maxBuildInputSize" : 135266304,
+      "probe_input" : {
+        "operator" : "scan",
+        "gpu" : false,
+        "plugin" : {
+          "projections" : [ {
+            "relName" : "inputs/ssbm100/part.csv",
+            "attrName" : "p_partkey"
+          } ],
+          "sizeInFile" : false,
+          "name" : "inputs/ssbm100/part.csv",
+          "linehint" : 1400000,
+          "type" : "bincol"
+        }
+      }
+    }
+  }
+}

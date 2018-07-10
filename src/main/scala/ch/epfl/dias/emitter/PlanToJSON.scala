@@ -12,6 +12,8 @@ import org.apache.calcite.rex._
 import org.apache.calcite.sql.fun.SqlCaseOperator
 import org.apache.calcite.sql.{SqlBinaryOperator, SqlFunction, SqlKind, SqlOperator}
 import org.apache.calcite.interpreter.Bindables.BindableTableScan
+import org.apache.calcite.sql.`type`.SqlTypeName
+import org.json4s.JsonAST.JValue
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -56,7 +58,7 @@ object PlanToJSON {
   }
 
   def emitExpression(e: RexNode, f: List[Binding]) : JValue = {
-    val exprType : String = e.getType.toString
+    val exprType : String = emitType(e.getType)
     val json : JValue = e match {
       case call: RexCall => {
         emitOp(call.op, call.operands, exprType, f)
@@ -65,7 +67,20 @@ object PlanToJSON {
         val arg = emitArg(inputRef,f)
         arg
       }
-      case lit: RexLiteral => ("expression",exprType) ~ ("v",toJavaString(lit))
+      case lit: RexLiteral => {
+        val v: JValue = lit.getType.getSqlTypeName match {
+          case SqlTypeName.INTEGER => new           Integer(lit.toString).asInstanceOf[Int    ]
+          case SqlTypeName.BIGINT  => new java.lang.Long   (lit.toString).asInstanceOf[Long   ]
+          case SqlTypeName.BOOLEAN => new java.lang.Boolean(lit.toString).asInstanceOf[Boolean]
+          case SqlTypeName.VARCHAR => lit.toString
+          case _ => {
+            val msg : String = "Unknown constant type"
+            throw new PlanConversionException(msg)
+            //List[RelDataTypeField]()
+          }
+        }
+        ("expression", exprType) ~ ("v", v)
+      }
       case _ => {
         val msg : String = "Unsupported expression "+e.toString
         throw new PlanConversionException(msg)
@@ -98,11 +113,11 @@ object PlanToJSON {
     }
     if(aggExpr.getArgList.size() == 1)  {
       val e: JValue = emitArg(aggExpr.getArgList.get(0),f)
-      val json : JValue = ("type", aggExpr.getType.toString) ~ ("op",opType) ~ ("e",e)
+      val json : JValue = ("type", emitType(aggExpr.getType)) ~ ("op",opType) ~ ("e",e)
       json
     } else  {
       //val e: JValue =
-      val json : JValue = ("type", aggExpr.getType.toString) ~ ("op",opType) ~ ("e","")
+      val json : JValue = ("type", emitType(aggExpr.getType)) ~ ("op",opType) ~ ("e","")
       json
     }
   }
@@ -145,7 +160,7 @@ object PlanToJSON {
       case SqlKind.NOT_EQUALS => "neq"
       case SqlKind.AND => "and"
       case SqlKind.OR => "or"
-      case SqlKind.TIMES => "mult"
+      case SqlKind.TIMES => "multiply"
       case SqlKind.DIVIDE => "div"
       case SqlKind.PLUS => "add"
       case SqlKind.MINUS => "sub"
@@ -155,6 +170,7 @@ object PlanToJSON {
     val json = ("type", opType) ~ ("expression",opName) ~ ("left", left) ~ ("right", right)
     json
   }
+  
 
   def emitFunc(func: SqlFunction, args: ImmutableList[RexNode], retType: String, f: List[Binding]) : JValue =  {
     val json = func.getKind match  {
@@ -198,16 +214,36 @@ object PlanToJSON {
       fieldCountCurr += b.fields.size
     } }
 
-    val json : JObject = ("expression" -> "argument") ~ ("rel",rel) ~ ("attr",attr)
-    if (with_type){
-      json ~ ("type",arg.getType.toString)
-    } else {
-      json
+    val jsonAttr: JObject = {
+      val json = ("attrName", attr) ~ ("relName", rel)
+
+      if (with_type){
+        json ~ ("type", ("type", emitType(arg.getType)))
+      } else {
+        json
+      }
     }
+
+    val jsonArg: JObject =
+      ("expression" , "argument"                            ) ~
+      ("attributes" , List(jsonAttr)                        ) ~
+      ("type"       , ("relName", rel) ~ ("type", "record") ) ~
+      ("argNo"      , -1                                    )
+
+
+    ("expression", "recordProjection") ~ ("e", jsonArg) ~ ("attribute", jsonAttr)
   }
 
   def emitArg(arg: Integer, f: List[Binding]) : JValue = {
     emitArg(arg, f, false)
+  }
+
+  def emitType(arg: RelDataType): String = arg.getSqlTypeName match {
+    case SqlTypeName.INTEGER => "int"
+    case SqlTypeName.BIGINT  => "int64"
+    case SqlTypeName.VARCHAR => "dstring"
+    case SqlTypeName.BOOLEAN => "bool"
+    case _ => throw new PlanConversionException("Unknown type: " + arg.getSqlTypeName)
   }
 
   def emitArg(arg: Integer, f: List[Binding], with_type: Boolean) : JValue = {
@@ -221,7 +257,7 @@ object PlanToJSON {
       if(arg < fieldCount)  {
         rel = b.rel
         attr = b.fields(arg - fieldCountCurr).getName
-        t = b.fields(arg - fieldCountCurr).getType.toString
+        t = emitType(b.fields(arg - fieldCountCurr).getType)
         break
       }
       fieldCountCurr += b.fields.size
@@ -229,7 +265,7 @@ object PlanToJSON {
 
     val json : JObject = ("rel",rel) ~ ("attr",attr)
     if (with_type){
-      json ~ ("type",t)
+      json ~ ("type", t)
     } else {
       json
     }
@@ -243,7 +279,7 @@ object PlanToJSON {
   def emitRowType(relName: String, t: RelRecordType): JValue = {
     val fields = t.getFieldList.asScala.map {
       f => {
-        ("rel", relName) ~ ("attr", f.getName) ~ ("type", f.getType.toString)
+        ("relName", relName) ~ ("attrName", f.getName) //~ ("type", emitType(f.getType))
       }
     }
     fields

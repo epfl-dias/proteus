@@ -3,6 +3,8 @@ package ch.epfl.dias.calcite.adapter.pelago.rules;
 import ch.epfl.dias.calcite.adapter.pelago.*;
 //import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceType;
 //import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceTypeTraitDef;
+import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
+import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
@@ -29,32 +31,43 @@ public class PelagoRules {
     }
 
     public static final RelOptRule[] RULES = {
-        PelagoDistributionConverterRule.BRDCST_INSTANCE,
-        PelagoDistributionConverterRule.BRDCST_INSTANCE2,
-        PelagoDistributionConverterRule.SEQNTL_INSTANCE,
-        PelagoDistributionConverterRule.SEQNTL_INSTANCE2,
-        PelagoDistributionConverterRule.RANDOM_INSTANCE,
-        PelagoDeviceTypeConverterRule.TO_NVPTX_INSTANCE ,
-        PelagoDeviceTypeConverterRule.TO_x86_64_INSTANCE,
-        PelagoProjectTableScanRule.INSTANCE,
-        PelagoToEnumerableConverterRule.INSTANCE,
-        PelagoDeviceCrossRule.INSTANCE,
-        PelagoProjectRule.INSTANCE,
-        PelagoAggregateRule.INSTANCE,
-        PelagoSortRule.INSTANCE,
-        PelagoFilterRule.INSTANCE,
-        PelagoRouterRule.INSTANCE,
-        PelagoJoinRule2.INSTANCE,
+            PelagoProjectTableScanRule.INSTANCE,
+            PelagoToEnumerableConverterRule.INSTANCE,
+//        PelagoDeviceCrossRule.INSTANCE,
+            PelagoProjectRule.INSTANCE,
+            PelagoAggregateRule.INSTANCE,
+            PelagoSortRule.INSTANCE,
+            PelagoFilterRule.INSTANCE,
+//        PelagoRouterRule.INSTANCE,
+//                                                PelagoJoinRule2.INSTANCE,
 //        JoinCommuteRule.INSTANCE,
-//        PelagoJoinSeq.INSTANCE,
+            PelagoJoinSeq.INSTANCE,
 //        PelagoJoinRule.SEQUENTIAL_NVPTX,
 //        PelagoJoinRule.SEQUENTIAL_X8664,
-        PelagoJoinRule.BROADCAST_NVPTX ,
+//                                                PelagoJoinRule.BROADCAST_NVPTX ,
 //        PelagoJoinRule.BROADCAST_X8664 ,
 //        PelagoJoinRuleHash.INSTANCE    ,
 //        PelagoJoinRule3.INSTANCE,
 //        PelagoBroadCastJoinRule.INSTANCE,
-//        PelagoBroadCastJoinRule2.INSTANCE
+//        PelagoBroadCastJoinRule2.INSTANCE,
+    };
+
+    public static final RelOptRule[] RULES2 = {
+//        PelagoDistributionConverterRule.BRDCST_INSTANCE,
+            PelagoDistributionConverterRule.BRDCST_INSTANCE2,
+//        PelagoDistributionConverterRule.SEQNTL_INSTANCE,
+            PelagoDistributionConverterRule.SEQNTL_INSTANCE2,
+            PelagoDistributionConverterRule.RANDOM_INSTANCE,
+
+            PelagoDeviceTypeConverterRule.TO_NVPTX_INSTANCE,
+            PelagoDeviceTypeConverterRule.TO_x86_64_INSTANCE,
+
+//        PelagoProjectPushBelowDeviceCross.INSTANCE,
+//        PelagoSortPushBelowDeviceCross.INSTANCE,
+//        PelagoAggregatePushBelowDeviceCross.INSTANCE,
+//        PelagoJoinPushBelowDeviceCross.INSTANCE,
+//        PelagoFilterPushBelowDeviceCross.INSTANCE,
+//        PelagoProjectPushBelowRouter.INSTANCE,
     };
 
     /** Base class for planner rules that convert a relational expression to
@@ -63,15 +76,37 @@ public class PelagoRules {
         protected final Convention out;
 
         PelagoConverterRule(Class<? extends RelNode> clazz,
-                               String description) {
+                            String description) {
             this(clazz, Predicates.<RelNode>alwaysTrue(), description);
         }
 
         <R extends RelNode> PelagoConverterRule(Class<R> clazz,
-                                                   Predicate<? super R> predicate,
-                                                   String description) {
-            super(clazz, predicate, Convention.NONE, PelagoRel.CONVENTION, RelFactories.LOGICAL_BUILDER, description);
+                                                Predicate<? super R> predicate,
+                                                String description) {
+            super(clazz, predicate, Convention.NONE, PelagoRel.CONVENTION, PelagoRelFactories.PELAGO_BUILDER, description);
             this.out = PelagoRel.CONVENTION;
+        }
+
+        public void onMatch(RelOptRuleCall call) {
+            RelNode rel = call.rel(0);
+            if (rel.getTraitSet().contains(Convention.NONE)) {
+                final RelNode converted = convert(rel);
+                if (converted != null) {
+                    call.transformTo(converted);
+
+                    // exclude unconverted node from the search space
+                    // this is a good idea only if _all_ the non-converter rules
+                    // operate over the {@link org.apache.calcite.rel.core} nodes (and not the logical ones)
+                    call.getPlanner().setImportance(rel, 0);
+                    // Without the above line, the planner was giving a higher priority to the logical nodes
+                    // rather than the pelago nodes. This was resulting in an (almost) exhaustive search over
+                    // all the logical plans, before moving to the pelago nodes, resulting in huge planning times.
+                    // Thankfully, after we convert a logical node into a pelago node, we should not care about the
+                    // logical one, as long as all the (general, non-converter) optimization rules reference the
+                    // core nodes instead of the logical ones. If this is not the case, we should revisit the above
+                    // line.
+                }
+            }
         }
     }
 
@@ -83,7 +118,7 @@ public class PelagoRules {
         private static final PelagoProjectRule INSTANCE = new PelagoProjectRule();
 
         private PelagoProjectRule() {
-            super(Project.class, "PelagoProjectRule");
+            super(LogicalProject.class, "PelagoProjectRule");
         }
 
         @Override public boolean matches(RelOptRuleCall call) {
@@ -92,7 +127,21 @@ public class PelagoRules {
 
         public RelNode convert(RelNode rel) {
             final Project project = (Project) rel;
-            return PelagoProject.create(convert(project.getInput(), out), project.getProjects(), project.getRowType());
+
+            RelTraitSet traitSet = project.getInput().getTraitSet().replace(out)//rel.getCluster().traitSet()
+                    .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                        public RelDeviceType get() {
+                            return RelDeviceType.X86_64;//.SINGLETON;
+                        }
+                    })
+                    .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                        public RelDistribution get() {
+                            return RelDistributions.SINGLETON;
+                        }
+                    })
+                    ;
+
+            return PelagoProject.create(convert(project.getInput(), traitSet), project.getProjects(), project.getRowType());
         }
     }
 
@@ -104,7 +153,7 @@ public class PelagoRules {
         private static final PelagoAggregateRule INSTANCE = new PelagoAggregateRule();
 
         private PelagoAggregateRule() {
-            super(Aggregate.class, "PelagoAggregateRule");
+            super(LogicalAggregate.class, "PelagoAggregateRule");
         }
 
         public boolean matches(RelOptRuleCall call) {
@@ -124,16 +173,21 @@ public class PelagoRules {
 //                inp = convert(inp, RelDistributions.SINGLETON);
 
 //            System.out.println(agg.getTraitSet());
-            RelTraitSet traitSet = rel.getCluster().traitSet().replace(PelagoRel.CONVENTION)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return RelDistributions.SINGLETON;
-                    }
-                })
-                ;
+            RelTraitSet traitSet = agg.getInput().getTraitSet().replace(PelagoRel.CONVENTION)//rel.getCluster().traitSet()
+                    .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                        public RelDeviceType get() {
+                            return RelDeviceType.X86_64;
+                        }
+                    })
+                    .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                        public RelDistribution get() {
+                            return RelDistributions.SINGLETON;
+                        }
+                    })
+                    ;
 
 //            System.out.println("=====" + traitSet);
-            RelNode inp = convert(convert(agg.getInput(), out), RelDistributions.SINGLETON);
+            RelNode inp = convert(agg.getInput(), traitSet);//, RelDistributions.SINGLETON);
 //            RelNode inp = convert(agg.getInput(), traitSet);
 
 //                List<AggregateCall> alist = new ArrayList<AggregateCall>();
@@ -161,9 +215,9 @@ public class PelagoRules {
 //
 //                return PelagoAggregate.create(inp, agg.indicator, agg.getGroupSet(), agg.getGroupSets(), alist);
 //            } else {
-                RelNode r = PelagoAggregate.create(inp, agg.indicator, agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList());
+            RelNode r = PelagoAggregate.create(inp, agg.indicator, agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList());
 //                System.out.println(r.getTraitSet());
-                return r;
+            return r;
 //            }
         }
     }
@@ -176,7 +230,7 @@ public class PelagoRules {
         private static final PelagoSortRule INSTANCE = new PelagoSortRule();
 
         private PelagoSortRule() {
-            super(Sort.class, "PelagoSortRule");
+            super(LogicalSort.class, "PelagoSortRule");
         }
 
         public boolean matches(RelOptRuleCall call) {
@@ -187,6 +241,7 @@ public class PelagoRules {
         public RelNode convert(RelNode rel) {
             final Sort sort = (Sort) rel;
 
+
 //            RelNode inp = convert(agg.getInput(), out);
 ////            if (!inp.getTraitSet().satisfies(RelTraitSet.createEmpty().plus(RelDistributions.SINGLETON))){
 ////                inp = PelagoAggregate.create(inp, agg.indicator, agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList());
@@ -196,17 +251,22 @@ public class PelagoRules {
 //                inp = convert(inp, RelDistributions.SINGLETON);
 
 //            System.out.println(agg.getTraitSet());
-            RelTraitSet traitSet = rel.getCluster().traitSet().replace(PelagoRel.CONVENTION)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return RelDistributions.SINGLETON;
-                    }
-                })
-                ;
+            RelTraitSet traitSet = sort.getInput().getTraitSet().replace(PelagoRel.CONVENTION)
+                    .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                        public RelDeviceType get() {
+                            return RelDeviceType.X86_64;
+                        }
+                    })
+                    .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                        public RelDistribution get() {
+                            return RelDistributions.SINGLETON;
+                        }
+                    })
+                    ;
 
 //            System.out.println("=====" + traitSet);
-            RelNode inp = convert(convert(sort.getInput(), out), RelDistributions.SINGLETON);
-//            RelNode inp = convert(agg.getInput(), traitSet);
+//            RelNode inp = convert(convert(sort.getInput(), out), RelDistributions.SINGLETON);
+            RelNode inp = convert(sort.getInput(), traitSet);
 
 //                List<AggregateCall> alist = new ArrayList<AggregateCall>();
 //                for (AggregateCall aggr: agg.getAggCallList()){
@@ -240,28 +300,28 @@ public class PelagoRules {
         }
     }
 
-    /**
-     * Rule to convert a {@link org.apache.calcite.rel.logical.LogicalAggregate}
-     * to a {@link PelagoRouter}.
-     */
-    private static class PelagoDeviceCrossRule extends PelagoConverterRule {
-        private static final PelagoDeviceCrossRule INSTANCE = new PelagoDeviceCrossRule();
-
-        private PelagoDeviceCrossRule() {
-            super(LogicalDeviceCross.class, "PelagoDeviceCrossRule");
-        }
-
-        @Override public boolean matches(RelOptRuleCall call) {
-            //Do we have any limitations for the reduce?
-            return true;
-        }
-
-        public RelNode convert(RelNode rel) {
-            final LogicalDeviceCross xchange = (LogicalDeviceCross) rel;
-            //convert(xchange.getInput(), RelDeviceType.x86_64)
-            return PelagoDeviceCross.create(convert(xchange.getInput(), out), xchange.deviceType);
-        }
-    }
+//    /**
+//     * Rule to convert a {@link org.apache.calcite.rel.logical.LogicalAggregate}
+//     * to a {@link PelagoRouter}.
+//     */
+//    private static class PelagoDeviceCrossRule extends PelagoConverterRule {
+//        private static final PelagoDeviceCrossRule INSTANCE = new PelagoDeviceCrossRule();
+//
+//        private PelagoDeviceCrossRule() {
+//            super(LogicalDeviceCross.class, "PelagoDeviceCrossRule");
+//        }
+//
+//        @Override public boolean matches(RelOptRuleCall call) {
+//            //Do we have any limitations for the reduce?
+//            return true;
+//        }
+//
+//        public RelNode convert(RelNode rel) {
+//            final LogicalDeviceCross xchange = (LogicalDeviceCross) rel;
+//            //convert(xchange.getInput(), RelDeviceType.x86_64)
+//            return PelagoDeviceCross.create(convert(xchange.getInput(), out), xchange.deviceType);
+//        }
+//    }
 
     /**
      * Rule to convert a {@link org.apache.calcite.rel.logical.LogicalAggregate}
@@ -303,8 +363,21 @@ public class PelagoRules {
         }
 
         public RelNode convert(RelNode rel) {
-            final LogicalFilter filter = (LogicalFilter) rel;
-            return PelagoFilter.create(convert(filter.getInput(), out), filter.getCondition());
+            final Filter filter = (Filter) rel;
+
+            RelTraitSet traitSet = filter.getInput().getTraitSet().replace(out)//rel.getCluster().traitSet()
+                    .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                        public RelDeviceType get() {
+                            return RelDeviceType.X86_64;//.SINGLETON;
+                        }
+                    })
+                    .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                        public RelDistribution get() {
+                            return RelDistributions.SINGLETON;
+                        }
+                    })
+                    ;
+            return PelagoFilter.create(convert(filter.getInput(), traitSet), filter.getCondition());
         }
     }
 
@@ -406,10 +479,10 @@ public class PelagoRules {
         public void onMatch(RelOptRuleCall call) {
             RelNode rel = call.rel(0);
 //            if (rel.getTraitSet().contains(this.inTrait)) {
-                RelNode converted = this.convert(rel);
-                if (converted != null) {
-                    call.transformTo(converted);
-                }
+            RelNode converted = this.convert(rel);
+            if (converted != null) {
+                call.transformTo(converted);
+            }
 //            }
         }
 
@@ -431,28 +504,28 @@ public class PelagoRules {
 //            RelNode right = convert(convert(join.getRight(), out), RelDistributions.BROADCAST_DISTRIBUTED);//RelDistributionTraitDef.INSTANCE.convert(rel.getCluster().getPlanner(), join.getRight(), rdr, true);
 
             RelTraitSet leftTraitSet = rel.getCluster().traitSet().replace(PelagoRel.CONVENTION)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return RelDistributions.RANDOM_DISTRIBUTED;
-                    }
-                }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return RelDeviceType.NVPTX;
-                    }
-                })
-                ;
+                    .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                        public RelDistribution get() {
+                            return RelDistributions.RANDOM_DISTRIBUTED;
+                        }
+                    }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                        public RelDeviceType get() {
+                            return RelDeviceType.NVPTX;
+                        }
+                    })
+                    ;
 
             RelTraitSet rightTraitSet = rel.getCluster().traitSet().replace(PelagoRel.CONVENTION)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return RelDistributions.BROADCAST_DISTRIBUTED;
-                    }
-                }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return RelDeviceType.NVPTX;
-                    }
-                })
-                ;
+                    .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                        public RelDistribution get() {
+                            return RelDistributions.BROADCAST_DISTRIBUTED;
+                        }
+                    }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                        public RelDeviceType get() {
+                            return RelDeviceType.NVPTX;
+                        }
+                    })
+                    ;
 
             RelNode left  = convert(join.getLeft (), leftTraitSet );//convert(convert(convert(join.getLeft (), out) , leftDeviceType ), leftDistribution );
             RelNode right = convert(join.getRight(), rightTraitSet);//convert(convert(convert(join.getRight(), out) , rightDeviceType), rightDistribution);
@@ -478,7 +551,7 @@ public class PelagoRules {
         private static final PelagoJoinRule BROADCAST_NVPTX  = new PelagoJoinRule(RelDeviceType.NVPTX , RelDeviceType.NVPTX , RelDistributions.BROADCAST_DISTRIBUTED, RelDistributions.RANDOM_DISTRIBUTED, "PelagoJoinRuleBrdNVPTX");
         private static final PelagoJoinRule BROADCAST_X8664  = new PelagoJoinRule(RelDeviceType.X86_64, RelDeviceType.X86_64, RelDistributions.BROADCAST_DISTRIBUTED, RelDistributions.RANDOM_DISTRIBUTED, "PelagoJoinRuleBrdX8664");
 
-        private final RelDeviceType   leftDeviceType   ;
+        private final RelDeviceType leftDeviceType   ;
         private final RelDeviceType   rightDeviceType  ;
         private final RelDistribution leftDistribution ;
         private final RelDistribution rightDistribution;
@@ -488,7 +561,7 @@ public class PelagoRules {
                                     RelDistribution leftDistribution  ,
                                     RelDistribution rightDistribution ,
                                     String          description       ){
-            super(Join.class, description);
+            super(LogicalJoin.class, description);
             this.leftDeviceType    = leftDeviceType   ;
             this.rightDeviceType   = rightDeviceType  ;
             this.leftDistribution  = leftDistribution ;
@@ -532,39 +605,39 @@ public class PelagoRules {
             condition = disjunctions.get(0);
 
             RelTraitSet leftTraitSet = rel.getCluster().traitSet().replace(out)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return leftDistribution;
-                    }
-                })
-                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return leftDeviceType;
-                    }
-                });
+                    .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                        public RelDistribution get() {
+                            return leftDistribution;
+                        }
+                    })
+                    .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                        public RelDeviceType get() {
+                            return leftDeviceType;
+                        }
+                    });
 
             RelTraitSet rightTraitSet = rel.getCluster().traitSet().replace(out)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return rightDistribution;
-                    }
-                })
-                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return rightDeviceType;
-                    }
-                });
+                    .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                        public RelDistribution get() {
+                            return rightDistribution;
+                        }
+                    })
+                    .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                        public RelDeviceType get() {
+                            return rightDeviceType;
+                        }
+                    });
 
-            RelNode left  = convert(convert(convert(join.getLeft (), out) , leftDeviceType ), leftDistribution ); //convert(join.getLeft (), leftTraitSet );//
-            RelNode right = convert(convert(convert(join.getRight(), out) , rightDeviceType), rightDistribution); //convert(join.getRight(), rightTraitSet);//
+            RelNode left  = convert(join.getLeft (), leftTraitSet );//
+            RelNode right = convert(join.getRight(), rightTraitSet);//
 //            RelNode right = convert(join.getRight(), rightTraitSet);
 
             return PelagoJoin.create(
-                left,
-                right,
-                condition,
-                join.getVariablesSet(),
-                join.getJoinType()
+                    left,
+                    right,
+                    condition,
+                    join.getVariablesSet(),
+                    join.getJoinType()
             );
         }
     }
@@ -576,8 +649,8 @@ public class PelagoRules {
             this("PelagoJoinSeqRule");
         }
 
-        private final RelDeviceType   leftDeviceType    = RelDeviceType.NVPTX;
-        private final RelDeviceType   rightDeviceType   = RelDeviceType.NVPTX;
+        private final RelDeviceType   leftDeviceType    = RelDeviceType.X86_64;//.NVPTX;
+        private final RelDeviceType   rightDeviceType   = RelDeviceType.X86_64;//.NVPTX;
         private final RelDistribution leftDistribution  = RelDistributions.SINGLETON;
         private final RelDistribution rightDistribution = RelDistributions.SINGLETON;
 
@@ -593,7 +666,7 @@ public class PelagoRules {
 
             RexNode condition = join.getCondition();
 
-            if (condition.isAlwaysTrue()) return false;
+//            if (condition.isAlwaysTrue()) return false;
 
             List<RexNode> disjunctions = RelOptUtil.disjunctions(condition);
             if (disjunctions.size() != 1)  return false;
@@ -620,41 +693,42 @@ public class PelagoRules {
             condition = disjunctions.get(0);
 
             RelTraitSet leftTraitSet = rel.getCluster().traitSet().replace(out)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return leftDistribution;
-                    }
-                }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return leftDeviceType  ;
-                    }
-                });
+                    .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                        public RelDistribution get() {
+                            return leftDistribution;
+                        }
+                    }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                        public RelDeviceType get() {
+                            return leftDeviceType  ;
+                        }
+                    });
 
             RelTraitSet rightTraitSet = rel.getCluster().traitSet().replace(out)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return rightDistribution;
-                    }
-                }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return rightDeviceType  ;
-                    }
-                });
+                    .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                        public RelDistribution get() {
+                            return rightDistribution;
+                        }
+                    }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                        public RelDeviceType get() {
+                            return rightDeviceType  ;
+                        }
+                    });
 
             RelNode left  = convert(join.getLeft (), leftTraitSet );
             RelNode right = convert(join.getRight(), rightTraitSet);
 
             join = PelagoJoin.create(
-                left                  ,
-                right                 ,
-                condition             ,
-                join.getVariablesSet(),
-                join.getJoinType()
+                    left                  ,
+                    right                 ,
+                    condition             ,
+                    join.getVariablesSet(),
+                    join.getJoinType()
             );
 
-            final RelNode  swapped = JoinCommuteRule.swap(join, false);
+            final RelNode  swapped = join;//JoinCommuteRule.swap(join, false);
             if (swapped == null) return null;
 
+//            rel.getCluster().getPlanner().setImportance(rel, 0);
             return swapped;
         }
     }

@@ -185,7 +185,7 @@ class QueryToPlan(schema: SchemaPlus) {
 //            materializations: util.List[RelOptMaterialization],
 //            lattices: util.List[RelOptLattice]
 //          ): RelNode = {
-//          val relBuilder = RelFactories.LOGICAL_BUILDER.create(rel.getCluster(), null);
+//          val relBuilder = PelagoRelFactories.PELAGO_BUILDER.create(rel.getCluster(), null);
 //          new RelFieldTrimmer(null, relBuilder).trim(rel);
 //        }
 //      }
@@ -198,7 +198,7 @@ class QueryToPlan(schema: SchemaPlus) {
 //        Programs.subQuery(DefaultRelMetadataProvider.INSTANCE),
 //        decorrelateProgram, // new DecorrelateProgram(),
 //        trimFieldsProgram, // new TrimFieldsProgram(),
-        Programs.heuristicJoinOrder(rules, false, 3),
+        Programs.heuristicJoinOrder(rules, false, 3)
 //        program1,
 
         // // Second planner pass to do physical "tweaks". This the first time that

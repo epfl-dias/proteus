@@ -3,3 +3,5 @@
 .idea
 target
 classes
+.fuse_*
+current.json

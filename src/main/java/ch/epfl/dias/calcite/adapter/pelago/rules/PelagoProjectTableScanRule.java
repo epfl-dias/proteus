@@ -17,6 +17,7 @@ import org.apache.calcite.util.mapping.Mappings;
 import com.google.common.collect.ImmutableList;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoProject;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan;
 
 import java.util.ArrayList;
@@ -35,7 +36,7 @@ import java.util.TreeSet;
  */
 public class PelagoProjectTableScanRule extends RelOptRule {
   public static final PelagoProjectTableScanRule INSTANCE =
-      new PelagoProjectTableScanRule(RelFactories.LOGICAL_BUILDER);
+      new PelagoProjectTableScanRule(PelagoRelFactories.PELAGO_BUILDER);
 
   /**
    * Creates a PelagoProjectTableScanRule.
@@ -54,7 +55,6 @@ public class PelagoProjectTableScanRule extends RelOptRule {
     final Project project = call.rel(0);
     final PelagoTableScan scan = call.rel(1);
 
-
     final Mappings.TargetMapping mapping = project.getMapping();
 
     SortedSet<Integer> projects2 = new TreeSet();
@@ -64,11 +64,12 @@ public class PelagoProjectTableScanRule extends RelOptRule {
       projects2.addAll(vis.inputPosReferenced);
     }
 
+    int[] scanfields = scan.fields();
     int[] fields = new int[projects2.size()]; //getProjectFields(project.getProjects(), scan);
     int[] revfields = new int[scan.getRowType().getFieldCount()];
     int i = 0;
     for (Integer j: projects2){//int i = 0; i < projects2.size(); i++) {
-      fields[i] = j;
+      fields[i] = scanfields[j];
       revfields[j] = i - j;
       i++;
     }

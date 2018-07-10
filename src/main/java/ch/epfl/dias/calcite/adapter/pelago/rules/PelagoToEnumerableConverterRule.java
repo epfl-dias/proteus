@@ -1,13 +1,14 @@
 package ch.epfl.dias.calcite.adapter.pelago.rules;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
+import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
+import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 //import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceType;
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.RelDeviceType;
-import org.apache.calcite.rel.RelDeviceTypeTraitDef;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelDistributions;
@@ -25,7 +26,7 @@ import com.google.common.base.Supplier;
  */
 public class PelagoToEnumerableConverterRule extends ConverterRule {
     public static final ConverterRule INSTANCE =
-            new PelagoToEnumerableConverterRule(RelFactories.LOGICAL_BUILDER);
+            new PelagoToEnumerableConverterRule(PelagoRelFactories.PELAGO_BUILDER);
 
     /**
      * Creates a CassandraToEnumerableConverterRule.
@@ -45,19 +46,20 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
 //        RelNode inp = LogicalExchange.create(rel, RelDistributions.SINGLETON);
 //        System.out.println(inp.getTraitSet());
 
-//        RelTraitSet traitSet = rel.getCluster().traitSet().replace(PelagoRel.CONVENTION)
+        RelTraitSet traitSet = rel.getTraitSet().replace(PelagoRel.CONVENTION) //rel.getCluster().traitSet()
 //                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
 //                    public RelDistribution get() {
 //                        return RelDistributions.SINGLETON;
 //                    }
-//                }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-//                    public RelDeviceType get() {
-//                        return RelDeviceType.X86_64;
-//                    }
-//                });
+//                })
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                    public RelDeviceType get() {
+                        return RelDeviceType.X86_64;
+                    }
+                });
 
-        RelNode inp = rel;//convert(convert(rel, RelDistributions.SINGLETON), RelDeviceType.X86_64); //Convert to sequential
-//        RelNode inp = convert(rel, traitSet);
+//        RelNode inp = rel;//convert(convert(rel, RelDistributions.SINGLETON), RelDeviceType.X86_64); //Convert to sequential
+        RelNode inp = convert(rel, traitSet);
 
         RelNode tmp = PelagoToEnumerableConverter.create(inp);
         return tmp;
@@ -66,7 +68,7 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
     public boolean matches(RelOptRuleCall call) {
 //        return true;
 //        if (!call.rel(0).getTraitSet().satisfies(RelTraitSet.createEmpty().plus(RelDistributions.SINGLETON))) return false;
-        if (!call.rel(0).getTraitSet().contains(RelDeviceType.X86_64)) return false;
+//        if (!call.rel(0).getTraitSet().contains(RelDeviceType.X86_64)) return false;
         return true;
     }
 }

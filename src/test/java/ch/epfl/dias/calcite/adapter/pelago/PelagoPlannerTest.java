@@ -1,9 +1,10 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
 import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
-import org.apache.calcite.rel.RelDeviceTypeTraitDef;
 
+import ch.epfl.dias.repl.Repl;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -20,6 +21,36 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Properties;
 
+import org.apache.calcite.test.CalciteAssert;
+import org.apache.calcite.util.trace.CalciteLogger;
+import org.apache.calcite.util.trace.CalciteTrace;
+
+class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
+  private static final String schemaPath = "../raw-jit-executor/inputs/plans/schema.json";
+
+  private static PelagoTestConnectionFactory instance = null;
+  private static Connection connection;
+
+  private PelagoTestConnectionFactory() throws SQLException {
+//    Class.forName("ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver");
+    Properties info = new Properties();
+    connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
+
+    Repl.mockfile_$eq("/home/periklis/Documents/EPFL/pelago/src/SQLPlanner/src/main/resources/mock.csv");
+    connection.createStatement().executeQuery("explain plan for select * from ssbm_date1000");
+  }
+
+  public static PelagoTestConnectionFactory get() throws SQLException {
+    if (instance == null) instance = new PelagoTestConnectionFactory();
+    return instance;
+  }
+
+  @Override public Connection createConnection() {
+    return connection;
+  }
+}
+
+
 @RunWith(Parameterized.class)
 public class PelagoPlannerTest {
   //private static final String schemaPath = "../raw-jit-executor/inputs/plans/schema.json";
@@ -31,7 +62,7 @@ public class PelagoPlannerTest {
     "select d_year, d_year*8 "
       + "from ssbm_date1000",
 
-    "select sum(lo_revenue), d_year, p_brand1 "
+    "select sum(lo_revenue), d_yea>>>>>>> 381ef6181f2bfa3f0f37b1be588b3d82cd8b8e0er, p_brand1 "
       + "from ssbm_date1000, ssbm_lineorder1000, ssbm_part1000, ssbm_supplier1000 "
       + "where lo_orderdate = d_datekey "
       + "  and lo_partkey = p_partkey "
@@ -279,7 +310,7 @@ public class PelagoPlannerTest {
 
   private final String sql;
 
-  public PelagoPlannerTest(String sql) throws SQLException, ClassNotFoundException {
+  public PelagoPlannerTest(String sql) {
     this.sql = sql;
   }
 
@@ -298,18 +329,22 @@ public class PelagoPlannerTest {
     }
   }
 
-  @Test
-  public void testParse() throws ClassNotFoundException, IOException, SQLException {
+  @Test(timeout = 10000)
+  public void testParse() throws SQLException {
 //    String sql = "select d_year, d_year*8 from ssbm_date1000";
-    System.out.println(RelDeviceTypeTraitDef.INSTANCE.getDefault());
+    CalciteAssert.that()
+      .with(PelagoTestConnectionFactory.get())
+      .query(sql)
+      .explainContains("PLAN=PelagoToEnumerableConverter")
+//      .runs()
+      ;
 
-    plan(sql);
+//    plan(sql);
   }
 
   @BeforeClass
-  public static void init() throws SQLException, ClassNotFoundException {
-    Class.forName("ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver");
-
+  public static void init() throws SQLException {
+//    Class.forName("ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver");
       try {
         schemaPath = new java.io.File(".").getCanonicalPath() + "/src/main/resources/schema.json";
       } catch (IOException e) {
@@ -319,10 +354,18 @@ public class PelagoPlannerTest {
 
     Properties info = new Properties();
     connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
+//    Properties info = new Properties();
+//    connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
+//
+//    // warm-up connection
+//    connection.createStatement().executeQuery("explain plan for select * from ssbm_date1000");
+
+    // warm-up connection and load classes
+    PelagoTestConnectionFactory.get();
   }
 
-  @Parameters
-  public static Collection<Object[]> data() throws ClassNotFoundException, SQLException {
+  @Parameters(name = "{0}")
+  public static Collection<Object[]> data() {
     Collection<Object[]> data = new ArrayList<Object[]>();
     for (String sql: queries) data.add(new Object[]{sql});
     return data;

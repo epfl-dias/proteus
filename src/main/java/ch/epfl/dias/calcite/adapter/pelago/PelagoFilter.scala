@@ -8,7 +8,7 @@ import org.apache.calcite.plan.RelOptCluster
 import org.apache.calcite.plan.RelOptCost
 import org.apache.calcite.plan.RelOptPlanner
 import org.apache.calcite.plan.RelTraitSet
-import org.apache.calcite.rel.{RelDeviceType, RelNode, RelWriter}
+import org.apache.calcite.rel.{RelNode, RelWriter}
 import org.apache.calcite.rel.core.{AggregateCall, Filter}
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rex.RexNode
@@ -20,7 +20,6 @@ import org.json4s.jackson.Serialization
 
 class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, condition: RexNode) extends Filter(cluster, traitSet, input, condition) with PelagoRel {
   assert(getConvention eq PelagoRel.CONVENTION)
-  assert(getConvention eq input.getConvention)
 
   override def copy(traitSet: RelTraitSet, input: RelNode, condition: RexNode) = PelagoFilter.create(input, condition)
 
@@ -39,7 +38,11 @@ class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
     val rowType = emitSchema(childBinding.rel, getRowType)
     val cond = emitExpression(getCondition, List(childBinding))
 
-    val json = op ~ ("tupleType", rowType) ~ ("cond", cond) ~ ("input", childOp)
+    val json : JValue = op ~
+      ("gpu"      , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+      ("p"        , cond                                                  ) ~
+      ("input"    , childOp                                               )
+
     val ret: (Binding, JValue) = (childBinding, json)
     ret
   }

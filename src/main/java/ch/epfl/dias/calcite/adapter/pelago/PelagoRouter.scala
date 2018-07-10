@@ -8,7 +8,7 @@ import org.apache.calcite.rel.convert.ConverterImpl
 import org.apache.calcite.rel.core.Aggregate
 import org.apache.calcite.rel.core.AggregateCall
 import org.apache.calcite.rel.core.Exchange
-import org.apache.calcite.rel.metadata.{RelMdDeviceType, RelMetadataQuery}
+import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.json4s.JsonAST
 import java.util
 
@@ -32,6 +32,8 @@ import org.json4s.JsonAST
 
 import scala.collection.JavaConverters._
 import java.util
+
+import ch.epfl.dias.calcite.adapter.pelago.metadata.RelMdDeviceType
 
 //import ch.epfl.dias.calcite.adapter.pelago.`trait`.{RelDeviceType, RelDeviceTypeTraitDef}
 import com.google.common.base.Supplier

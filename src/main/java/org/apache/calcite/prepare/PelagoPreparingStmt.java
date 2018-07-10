@@ -14,7 +14,8 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.*;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelDeviceType;
+import org.apache.calcite.rel.RelDistribution;
+import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.RelFactories;
@@ -29,8 +30,12 @@ import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.runtime.Bindable;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.Typed;
+import org.apache.calcite.sql.SqlExplain;
+import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.RelDecorrelator;
 import org.apache.calcite.sql2rel.RelFieldTrimmer;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
@@ -42,6 +47,9 @@ import org.apache.calcite.util.Holder;
 import org.apache.calcite.util.Pair;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
+import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -92,7 +100,13 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
     }
 
     protected RelTraitSet getDesiredRootTraitSet(RelRoot root) {//this.resultConvention
-        return root.rel.getTraitSet().replace(this.resultConvention).replace(root.collation).replace(RelDeviceType.X86_64).simplify();
+        return root.rel.getTraitSet()
+            .replace(this.resultConvention)
+//            .replace(PelagoRel.CONVENTION) //this.resultConvention)
+            .replace(root.collation)
+            .replace(RelDistributions.ANY)
+            .replace(RelDeviceType.X86_64)
+            .simplify();
 //        return root.rel.getTraitSet().replace(this.resultConvention).replace(root.collation).replace(RelDeviceType.X86_64).simplify();
     }
 
@@ -103,22 +117,33 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                            List<RelOptMaterialization> materializations,
                            List<RelOptLattice> lattices) {
             final RelBuilder relBuilder =
-                    RelFactories.LOGICAL_BUILDER.create(rel.getCluster(), null);
+                RelFactories.LOGICAL_BUILDER.create(rel.getCluster(), null);
             return new RelFieldTrimmer(null, relBuilder).trim(rel);
         }
     }
 
 
-//    /** Program that trims fields. */
-//    private static class PelagoProgram implements Program {
-//        public RelNode run(RelOptPlanner planner, RelNode rel,
-//            RelTraitSet requiredOutputTraits,
-//            List<RelOptMaterialization> materializations,
-//            List<RelOptLattice> lattices) {
-//            System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.ALL_ATTRIBUTES));
-//            return rel;
-//        }
-//    }
+    /** Program that trims fields. */
+    private static class PelagoProgram implements Program {
+        public RelNode run(RelOptPlanner planner, RelNode rel,
+            RelTraitSet requiredOutputTraits,
+            List<RelOptMaterialization> materializations,
+            List<RelOptLattice> lattices) {
+            System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.ALL_ATTRIBUTES));
+            return rel;
+        }
+    }
+
+    @Override
+    protected SqlToRelConverter getSqlToRelConverter(
+        SqlValidator validator,
+        CatalogReader catalogReader,
+        SqlToRelConverter.Config config) {
+//        SqlToRelConverter.Config hijacked_config = SqlToRelConverter.configBuilder().withConfig(config).withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER).build();
+        final RelOptCluster cluster = prepare.createCluster(planner, rexBuilder);
+        return new SqlToRelConverter(this, validator, catalogReader, cluster,
+            convertletTable, config);
+    }
 
     protected Program getProgram() {
         // Allow a test to override the default program.
@@ -128,10 +153,11 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             return holder.get();
         }
         return Programs.sequence(
-                Programs.subQuery(DefaultRelMetadataProvider.INSTANCE),
+                Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
                 new DecorrelateProgram(),
                 new TrimFieldsProgram(),
-                Programs.heuristicJoinOrder(planner.getRules(), false, 2)
+                Programs.heuristicJoinOrder(planner.getRules(), false, 2),
+                new PelagoProgram()
 
                 // Second planner pass to do physical "tweaks". This the first time that
                 // EnumerableCalcRel is introduced.
@@ -199,4 +225,103 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             }
         };
     }
+
+
+    public PreparedResult prepareSql(
+        SqlNode sqlQuery,
+        SqlNode sqlNodeOriginal,
+        Class runtimeContextClass,
+        SqlValidator validator,
+        boolean needsValidation) {
+        init(runtimeContextClass);
+
+        final SqlToRelConverter.ConfigBuilder builder =
+            SqlToRelConverter.configBuilder()
+                .withTrimUnusedFields(true)
+                .withExpand(THREAD_EXPAND.get())
+                .withExplain(sqlQuery.getKind() == SqlKind.EXPLAIN);
+//                .withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER);
+        final SqlToRelConverter sqlToRelConverter =
+            getSqlToRelConverter(validator, catalogReader, builder.build());
+
+        SqlExplain sqlExplain = null;
+        if (sqlQuery.getKind() == SqlKind.EXPLAIN) {
+            // dig out the underlying SQL statement
+            sqlExplain = (SqlExplain) sqlQuery;
+            sqlQuery = sqlExplain.getExplicandum();
+            sqlToRelConverter.setDynamicParamCountInExplain(
+                sqlExplain.getDynamicParamCount());
+        }
+
+        RelRoot root =
+            sqlToRelConverter.convertQuery(sqlQuery, needsValidation, true);
+        Hook.CONVERTED.run(root.rel);
+
+        if (timingTracer != null) {
+            timingTracer.traceTime("end sql2rel");
+        }
+
+        final RelDataType resultType = validator.getValidatedNodeType(sqlQuery);
+        fieldOrigins = validator.getFieldOrigins(sqlQuery);
+        assert fieldOrigins.size() == resultType.getFieldCount();
+
+        parameterRowType = validator.getParameterRowType(sqlQuery);
+
+        // Display logical plans before view expansion, plugging in physical
+        // storage and decorrelation
+        if (sqlExplain != null) {
+            SqlExplain.Depth explainDepth = sqlExplain.getDepth();
+            SqlExplainFormat format = sqlExplain.getFormat();
+            SqlExplainLevel detailLevel = sqlExplain.getDetailLevel();
+            switch (explainDepth) {
+            case TYPE:
+                return createPreparedExplanation(resultType, parameterRowType, null,
+                    format, detailLevel);
+            case LOGICAL:
+                return createPreparedExplanation(null, parameterRowType, root, format,
+                    detailLevel);
+            default:
+            }
+        }
+
+        // Structured type flattening, view expansion, and plugging in physical
+        // storage.
+        root = root.withRel(flattenTypes(root.rel, true));
+
+        if (this.context.config().forceDecorrelate()) {
+            // Sub-query decorrelation.
+            root = root.withRel(decorrelate(sqlToRelConverter, sqlQuery, root.rel));
+        }
+
+        // Trim unused fields.
+        root = trimUnusedFields(root);
+
+        Hook.TRIMMED.run(root.rel);
+
+        // Display physical plan after decorrelation.
+        if (sqlExplain != null) {
+            switch (sqlExplain.getDepth()) {
+            case PHYSICAL:
+            default:
+                root = optimize(root, getMaterializations(), getLattices());
+                return createPreparedExplanation(null, parameterRowType, root,
+                    sqlExplain.getFormat(), sqlExplain.getDetailLevel());
+            }
+        }
+
+        root = optimize(root, getMaterializations(), getLattices());
+
+        if (timingTracer != null) {
+            timingTracer.traceTime("end optimization");
+        }
+
+        // For transformation from DML -> DML, use result of rewrite
+        // (e.g. UPDATE -> MERGE).  For anything else (e.g. CALL -> SELECT),
+        // use original kind.
+        if (!root.kind.belongsTo(SqlKind.DML)) {
+            root = root.withKind(sqlNodeOriginal.getKind());
+        }
+        return implement(root);
+    }
+
 }

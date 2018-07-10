@@ -10,7 +10,7 @@ import org.apache.calcite.plan.RelOptPlanner
 import org.apache.calcite.plan.RelTraitSet
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.Project
-import org.apache.calcite.rel.metadata.{RelMdCollation, RelMdDeviceType, RelMdDistribution, RelMetadataQuery}
+import org.apache.calcite.rel.metadata.{RelMdCollation, RelMdDistribution, RelMetadataQuery}
 import org.apache.calcite.rel
 import org.apache.calcite.rel.`type`.RelDataType
 import org.json4s.JsonDSL._
@@ -40,25 +40,35 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
     PelagoProject.create(input, projects, rowType)
   }
 
-  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = super.computeSelfCost(planner, mq).multiplyBy(0.01)
+  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    if (getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == RelDeviceType.NVPTX) {
+      super.computeSelfCost(planner, mq).multiplyBy(0.0001)
+    } else {
+      super.computeSelfCost(planner, mq).multiplyBy(0.01)
+    }
+  }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
   //almost 0 cost in Pelago
   override def implement: (Binding, JsonAST.JValue) = {
-    val op = ("operator" , "projection")
-    val alias = "projection"+getId
+    val op      = ("operator" , "project")
+    val alias   = "projection" + getId
     val rowType = emitSchema(alias, getRowType)
-    val child = getInput.asInstanceOf[PelagoRel].implement
+    val child   = getInput.asInstanceOf[PelagoRel].implement
     val childBinding: Binding = child._1
     val childOp = child._2
     //TODO Could also use p.getNamedProjects
-    val exprs = getProjects
+    val exprs = getNamedProjects
     val exprsJS: JValue = exprs.asScala.map {
-      e => emitExpression(e,List(childBinding))
+      e => emitExpression(e.left,List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", ("attrName", e.right) ~ ("relName", alias))
     }
 
-    val json = op ~ ("tupleType", rowType) ~ ("e", exprsJS) ~ ("input" , childOp)
+    val json = op ~
+      ("gpu"          , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+      ("relName"      , alias                                                 ) ~
+      ("e"            , exprsJS                                               ) ~
+      ("input"        , childOp          ) // ~ ("tupleType", rowType)
     val binding: Binding = Binding(alias,getFields(getRowType))
     val ret: (Binding, JValue) = (binding,json)
     ret

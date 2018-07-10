@@ -6,7 +6,7 @@ import org.apache.calcite.linq4j.tree.Primitive
 import org.apache.calcite.plan._
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.TableScan
-import org.apache.calcite.rel.metadata.{RelMdDeviceType, RelMetadataQuery}
+import org.apache.calcite.rel.metadata.{RelMetadataQuery}
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.`type`.RelDataTypeFactory
 import org.apache.calcite.rel.`type`.RelDataTypeField
@@ -55,9 +55,9 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
   }
 
   override def register(planner: RelOptPlanner): Unit = {
-    for (rule <- PelagoRules.RULES) {
-      planner.addRule(rule)
-    }
+//    for (rule <- PelagoRules.RULES) {
+//      planner.addRule(rule)
+//    }
     //    planner.addRule(PelagoProjectTableScanRule.INSTANCE);
   }
 
@@ -77,15 +77,35 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
 
   def getLineHint: Long = pelagoTable.getLineHint
 
+//  override def implement: (Binding, JValue) = {
+//    val op = ("operator" , "scan")
+//    //TODO Cross-check: 0: schemaName, 1: tableName (?)
+//    val srcName  = getPelagoRelName //s.getTable.getQualifiedName.get(1)
+//    val rowType  = emitSchema(srcName, getRowType)
+//    val plugin   = Extraction.decompose(getPluginInfo.asScala)
+//    val linehint = getLineHint.longValue
+//
+//    val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName) ~ ("plugin", plugin) ~ ("linehint", linehint)
+//    val binding: Binding = Binding(srcName, getFields(getRowType))
+//    val ret: (Binding, JValue) = (binding,json)
+//    ret
+//  }
+
   override def implement: (Binding, JValue) = {
     val op = ("operator" , "scan")
     //TODO Cross-check: 0: schemaName, 1: tableName (?)
     val srcName  = getPelagoRelName //s.getTable.getQualifiedName.get(1)
+
     val rowType  = emitSchema(srcName, getRowType)
-    val plugin   = Extraction.decompose(getPluginInfo.asScala)
     val linehint = getLineHint.longValue
 
-    val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName) ~ ("plugin", plugin) ~ ("linehint", linehint)
+    val pluginfo = getPluginInfo.asScala.+(("name", srcName)).+(("projections", rowType))
+      .+(("type", "bincol")).+(("sizeInFile", false)) //FIXME: to be removed!!! (removing it requires unpack operator)
+    val plugin   = Extraction.decompose(pluginfo)
+
+    val json : JValue = op ~
+      ("gpu"      , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX))       ~
+      ("plugin"   , plugin  )
     val binding: Binding = Binding(srcName, getFields(getRowType))
     val ret: (Binding, JValue) = (binding,json)
     ret
@@ -102,15 +122,16 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
 
 object PelagoTableScan {
   def create(cluster: RelOptCluster, table: RelOptTable, pelagoTable: PelagoTable, fields: Array[Int]) = {
-      val traitSet = cluster.traitSet.plus(PelagoRel.CONVENTION).replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
-      override def get: RelDistribution = {
-        return pelagoTable.getDistribution
-      }
-    }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType]() {
-      override def get: RelDeviceType = {
-        return pelagoTable.getDeviceType
-      }
-    });
+      val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
+          .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
+              override def get: RelDistribution = {
+                return pelagoTable.getDistribution
+              }
+          }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType]() {
+              override def get: RelDeviceType = {
+                return pelagoTable.getDeviceType
+              }
+          });
     new PelagoTableScan(cluster, traitSet, table, pelagoTable, fields)
   }
 }
