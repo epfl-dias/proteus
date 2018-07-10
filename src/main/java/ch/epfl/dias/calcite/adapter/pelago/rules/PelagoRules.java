@@ -81,7 +81,7 @@ public class PelagoRules {
         <R extends RelNode> PelagoConverterRule(Class<R> clazz,
                                                    Predicate<? super R> predicate,
                                                    String description) {
-            super(clazz, predicate, Convention.NONE, PelagoRel.CONVENTION, RelFactories.LOGICAL_BUILDER, description);
+            super(clazz, predicate, Convention.NONE, PelagoRel.CONVENTION, PelagoRelFactories.PELAGO_BUILDER, description);
             this.out = PelagoRel.CONVENTION;
         }
 
@@ -138,6 +138,7 @@ public class PelagoRules {
                     }
                 })
                 ;
+
             return PelagoProject.create(convert(project.getInput(), traitSet), project.getProjects(), project.getRowType());
         }
     }
@@ -663,7 +664,7 @@ public class PelagoRules {
 
             RexNode condition = join.getCondition();
 
-            if (condition.isAlwaysTrue()) return false;
+//            if (condition.isAlwaysTrue()) return false;
 
             List<RexNode> disjunctions = RelOptUtil.disjunctions(condition);
             if (disjunctions.size() != 1)  return false;
@@ -725,6 +726,7 @@ public class PelagoRules {
             final RelNode  swapped = join;//JoinCommuteRule.swap(join, false);
             if (swapped == null) return null;
 
+//            rel.getCluster().getPlanner().setImportance(rel, 0);
             return swapped;
         }
     }

@@ -4,6 +4,7 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
 
+import ch.epfl.dias.repl.Repl;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,6 +36,7 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
     Properties info = new Properties();
     connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
 
+    Repl.mockfile_$eq("/home/periklis/Documents/EPFL/pelago/src/SQLPlanner/src/main/resources/mock.csv");
     connection.createStatement().executeQuery("explain plan for select * from ssbm_date1000");
   }
 
@@ -333,6 +335,7 @@ public class PelagoPlannerTest {
       .with(PelagoTestConnectionFactory.get())
       .query(sql)
       .explainContains("PLAN=PelagoToEnumerableConverter")
+//      .runs()
       ;
 
 //    plan(sql);

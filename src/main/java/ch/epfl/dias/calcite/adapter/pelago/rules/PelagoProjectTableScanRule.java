@@ -17,6 +17,7 @@ import org.apache.calcite.util.mapping.Mappings;
 import com.google.common.collect.ImmutableList;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoProject;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan;
 
 import java.util.ArrayList;
@@ -35,7 +36,7 @@ import java.util.TreeSet;
  */
 public class PelagoProjectTableScanRule extends RelOptRule {
   public static final PelagoProjectTableScanRule INSTANCE =
-      new PelagoProjectTableScanRule(RelFactories.LOGICAL_BUILDER);
+      new PelagoProjectTableScanRule(PelagoRelFactories.PELAGO_BUILDER);
 
   /**
    * Creates a PelagoProjectTableScanRule.

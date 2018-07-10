@@ -1,6 +1,7 @@
 package org.apache.calcite.prepare;
 
 //import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceTypeTraitDef;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.calcite.DataContext;
@@ -24,12 +25,29 @@ import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.prepare.PelagoPreparingStmt;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistributionTraitDef;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.core.Aggregate;
+import org.apache.calcite.rel.core.Calc;
+import org.apache.calcite.rel.core.Filter;
+import org.apache.calcite.rel.core.Join;
+import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.calcite.rel.core.Project;
+import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.core.Sort;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.core.Values;
+import org.apache.calcite.rel.logical.LogicalAggregate;
+import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.calcite.rel.logical.LogicalJoin;
+import org.apache.calcite.rel.logical.LogicalProject;
+import org.apache.calcite.rel.logical.LogicalSort;
 import org.apache.calcite.rel.rules.*;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.runtime.Bindable;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.Typed;
@@ -50,6 +68,7 @@ import org.apache.calcite.tools.Programs;
 import org.apache.calcite.util.Holder;
 import org.apache.calcite.util.Util;
 
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
@@ -60,8 +79,11 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.LogManager;
+
+import static org.apache.calcite.plan.RelOptRule.any;
+import static org.apache.calcite.plan.RelOptRule.none;
+import static org.apache.calcite.plan.RelOptRule.operand;
+import static org.apache.calcite.plan.RelOptRule.some;
 
 public class PelagoPrepareImpl extends CalcitePrepareImpl {
     /** Creates a query planner and initializes it with a default set of
@@ -87,7 +109,8 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         for (RelOptRule r: planner.getRules()){
             planner.removeRule(r);
         }
-
+        //FIXME: not so certain any more about which RelFactory we should use and which rules should be applied to the core RelNodes oand which ones to the Logical ones.\
+        //this may as well be disabling some rules...
         ((VolcanoPlanner) planner).registerAbstractRelationalRules();
         planner.addRule(AbstractConverter.ExpandConversionRule.INSTANCE);
 //        System.out.println(planner.getRules());
@@ -97,56 +120,84 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         }
 
         List<RelOptRule> rules = new ArrayList<RelOptRule>();
-        rules.add(TableScanRule.INSTANCE);
+        rules.add(new TableScanRule(PelagoRelFactories.PELAGO_BUILDER));
         // push and merge filter rules
-        rules.add(FilterAggregateTransposeRule.INSTANCE);
-        rules.add(FilterProjectTransposeRule.INSTANCE);
-        rules.add(FilterMergeRule.INSTANCE);
-        rules.add(FilterJoinRule.FILTER_ON_JOIN);
-        rules.add(FilterJoinRule.JOIN);
+        rules.add(new FilterAggregateTransposeRule(Filter.class, PelagoRelFactories.PELAGO_BUILDER, Aggregate.class));
+//        rules.add(new FilterProjectTransposeRule  (Filter.class, Project.class, true, true, PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(new FilterMergeRule(PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(new FilterJoinRule.FilterIntoJoinRule(true, PelagoRelFactories.PELAGO_BUILDER,
+            new FilterJoinRule.Predicate() {
+                public boolean apply(Join join, JoinRelType joinType, RexNode exp) {
+                    return true;
+                }
+            }));
+        rules.add(new FilterJoinRule.JoinConditionPushRule(PelagoRelFactories.PELAGO_BUILDER,  new FilterJoinRule.Predicate() {
+            public boolean apply(Join join, JoinRelType joinType, RexNode exp) {
+                return true;
+            }
+        }));
         /*push filter into the children of a join*/
         rules.add(FilterTableScanRule.INSTANCE);
         // push and merge projection rules
-        rules.add(ProjectRemoveRule.INSTANCE);
-        rules.add(ProjectJoinTransposeRule.INSTANCE);
-        rules.add(JoinProjectTransposeRule.BOTH_PROJECT);
-        rules.add(ProjectFilterTransposeRule.INSTANCE); //XXX causes non-termination
+        rules.add(new ProjectRemoveRule(PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(new ProjectJoinTransposeRule(PushProjector.ExprCondition.TRUE, PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(new JoinProjectTransposeRule(
+            RelOptRule.operand(Join.class,
+                RelOptRule.operand(Project.class, RelOptRule.any()),
+                RelOptRule.operand(Project.class, RelOptRule.any())),
+            "JoinProjectTransposeRule(Project-Project)",
+            false, PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(new ProjectFilterTransposeRule(
+            LogicalProject.class, LogicalFilter.class, PelagoRelFactories.PELAGO_BUILDER,
+            PushProjector.ExprCondition.FALSE)); //XXX causes non-termination
         /*it is better to use filter first an then project*/
         rules.add(ProjectTableScanRule.INSTANCE);
-        rules.add(ProjectMergeRule.INSTANCE);
+        rules.add(new ProjectMergeRule(true, PelagoRelFactories.PELAGO_BUILDER));
         //aggregate rules
         rules.add(AggregateRemoveRule.INSTANCE);
         rules.add(AggregateJoinTransposeRule.INSTANCE);
-        rules.add(AggregateProjectMergeRule.INSTANCE);
-        rules.add(AggregateProjectPullUpConstantsRule.INSTANCE);
-        rules.add(AggregateExpandDistinctAggregatesRule.INSTANCE);
-//    rules.add(AggregateReduceFunctionsRule.INSTANCE) //optimizes out required sorting in some cases!
+        rules.add(new AggregateProjectMergeRule(Aggregate.class, Project.class, PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(new AggregateProjectPullUpConstantsRule(Aggregate.class,
+            Project.class, PelagoRelFactories.PELAGO_BUILDER,
+            "AggregateProjectPullUpConstantsRule"));
+        rules.add(new AggregateExpandDistinctAggregatesRule(Aggregate.class, true, PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(new AggregateReduceFunctionsRule(RelOptRule.operand(Aggregate.class, any()), PelagoRelFactories.PELAGO_BUILDER)); //optimizes out required sorting in some cases!
         //join rules
 //                                                                                                                rules.add(JoinToMultiJoinRule.INSTANCE);
 //                                                                                                                rules.add(LoptOptimizeJoinRule.INSTANCE);
 //                                                                                                              rules.add(MultiJoinOptimizeBushyRule.INSTANCE);//,
+                                                                                                                rules.add(JoinPushThroughJoinRule.LEFT );
                                                                                                                 rules.add(JoinPushThroughJoinRule.RIGHT);
-                                                                                                                rules.add(JoinPushThroughJoinRule.LEFT);
                                                                                                                 /*choose between right and left*/
                                                                                                                 rules.add(JoinPushExpressionsRule.INSTANCE);
                                                                                                                 rules.add(JoinAssociateRule.INSTANCE);
                                                                                                                 rules.add(JoinCommuteRule.INSTANCE);
         // simplify expressions rules
-        rules.add(ReduceExpressionsRule.CALC_INSTANCE);
-        rules.add(ReduceExpressionsRule.FILTER_INSTANCE);
-        rules.add(ReduceExpressionsRule.PROJECT_INSTANCE);
-        rules.add(ReduceExpressionsRule.JOIN_INSTANCE);
+        rules.add(new ReduceExpressionsRule.CalcReduceExpressionsRule(Calc.class, true,
+            PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(new ReduceExpressionsRule.FilterReduceExpressionsRule(Filter.class, true,
+            PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(new ReduceExpressionsRule.ProjectReduceExpressionsRule(Project.class, true,
+            PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(new ReduceExpressionsRule.JoinReduceExpressionsRule(Join.class, true,
+            PelagoRelFactories.PELAGO_BUILDER));
         // prune empty results rules
-        rules.add(PruneEmptyRules.FILTER_INSTANCE);
-        rules.add(PruneEmptyRules.PROJECT_INSTANCE);
-        rules.add(PruneEmptyRules.AGGREGATE_INSTANCE);
+        rules.add(new PruneEmptyRules.RemoveEmptySingleRule(Filter.class, "PruneEmptyFilter"));
+        rules.add(new PruneEmptyRules.RemoveEmptySingleRule(Project.class, Predicates.<Project>alwaysTrue(),
+            PelagoRelFactories.PELAGO_BUILDER, "PruneEmptyProject"));
+        rules.add(new PruneEmptyRules.RemoveEmptySingleRule(Aggregate.class, Aggregate.IS_NOT_GRAND_TOTAL,
+            PelagoRelFactories.PELAGO_BUILDER, "PruneEmptyAggregate"));
         rules.add(PruneEmptyRules.JOIN_LEFT_INSTANCE);
         rules.add(PruneEmptyRules.JOIN_RIGHT_INSTANCE);
         rules.add(ProjectTableScanRule.INSTANCE);
-        rules.add(AggregateProjectPullUpConstantsRule.INSTANCE2);
+        rules.add(new AggregateProjectPullUpConstantsRule(Aggregate.class,
+            RelNode.class, PelagoRelFactories.PELAGO_BUILDER,
+            "AggregatePullUpConstantsRule"));
         /* Sort Rules*/
-        rules.add(SortJoinTransposeRule.INSTANCE);
-        rules.add(SortProjectTransposeRule.INSTANCE);
+        rules.add(new SortJoinTransposeRule(Sort.class,
+            Join.class, PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(new SortProjectTransposeRule(Sort.class, Project.class,
+            PelagoRelFactories.PELAGO_BUILDER, null));
         //SortRemoveRule.INSTANCE, //Too aggressive when triggered over enumerables; always removes Sort
         rules.add(SortUnionTransposeRule.INSTANCE);
         /*Enumerable Rules*/

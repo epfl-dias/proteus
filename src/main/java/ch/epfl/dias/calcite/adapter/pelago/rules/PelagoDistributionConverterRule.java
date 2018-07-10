@@ -1,6 +1,7 @@
 package ch.epfl.dias.calcite.adapter.pelago.rules;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
 import com.google.common.base.Predicates;
@@ -21,15 +22,15 @@ import org.apache.calcite.tools.RelBuilderFactory;
 
 public class PelagoDistributionConverterRule extends ConverterRule {
 //    public static final ConverterRule BRDCST_INSTANCE =
-//            new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED, RelDistributions.ANY            , RelFactories.LOGICAL_BUILDER);
+//            new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED, RelDistributions.ANY            , PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule BRDCST_INSTANCE2 =
-        new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , RelDistributions.ANY            , RelFactories.LOGICAL_BUILDER);
+        new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , RelDistributions.ANY            , PelagoRelFactories.PELAGO_BUILDER);
 //    public static final ConverterRule SEQNTL_INSTANCE =
-//            new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.RANDOM_DISTRIBUTED   , RelFactories.LOGICAL_BUILDER);
+//            new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.RANDOM_DISTRIBUTED   , PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule SEQNTL_INSTANCE2 =
-        new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.ANY   , RelFactories.LOGICAL_BUILDER);
+        new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.ANY   , PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule RANDOM_INSTANCE =
-            new PelagoDistributionConverterRule(RelDistributions.RANDOM_DISTRIBUTED   , RelDistributions.SINGLETON            , RelFactories.LOGICAL_BUILDER);
+            new PelagoDistributionConverterRule(RelDistributions.RANDOM_DISTRIBUTED   , RelDistributions.SINGLETON            , PelagoRelFactories.PELAGO_BUILDER);
 
     private final RelDistribution distribution;
 

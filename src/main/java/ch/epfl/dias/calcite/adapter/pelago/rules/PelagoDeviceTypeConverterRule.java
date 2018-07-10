@@ -3,6 +3,7 @@ package ch.epfl.dias.calcite.adapter.pelago.rules;
 //import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 //import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceType;
 //import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceTypeTraitDef;
@@ -20,9 +21,9 @@ import org.apache.calcite.tools.RelBuilderFactory;
 
 public class PelagoDeviceTypeConverterRule extends ConverterRule {
     public static final ConverterRule TO_NVPTX_INSTANCE  =
-            new PelagoDeviceTypeConverterRule(RelDeviceType.NVPTX , RelDeviceType.X86_64, RelFactories.LOGICAL_BUILDER);
+            new PelagoDeviceTypeConverterRule(RelDeviceType.NVPTX , RelDeviceType.X86_64, PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule TO_x86_64_INSTANCE =
-            new PelagoDeviceTypeConverterRule(RelDeviceType.X86_64, RelDeviceType.NVPTX , RelFactories.LOGICAL_BUILDER);
+            new PelagoDeviceTypeConverterRule(RelDeviceType.X86_64, RelDeviceType.NVPTX , PelagoRelFactories.PELAGO_BUILDER);
 
     private final RelDeviceType target_device;
     private final RelDeviceType from_device  ;
