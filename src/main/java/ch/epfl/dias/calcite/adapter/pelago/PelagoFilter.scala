@@ -20,7 +20,6 @@ import org.json4s.jackson.Serialization
 
 class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, condition: RexNode) extends Filter(cluster, traitSet, input, condition) with PelagoRel {
   assert(getConvention eq PelagoRel.CONVENTION)
-  assert(getConvention eq input.getConvention)
 
   override def copy(traitSet: RelTraitSet, input: RelNode, condition: RexNode) = PelagoFilter.create(input, condition)
 
@@ -39,7 +38,11 @@ class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
     val rowType = emitSchema(childBinding.rel, getRowType)
     val cond = emitExpression(getCondition, List(childBinding))
 
-    val json = op ~ ("tupleType", rowType) ~ ("cond", cond) ~ ("input", childOp)
+    val json : JValue = op ~
+      ("gpu"      , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+      ("p"        , cond                                                  ) ~
+      ("input"    , childOp                                               )
+
     val ret: (Binding, JValue) = (childBinding, json)
     ret
   }

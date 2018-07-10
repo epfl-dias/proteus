@@ -55,9 +55,9 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
   }
 
   override def register(planner: RelOptPlanner): Unit = {
-    for (rule <- PelagoRules.RULES) {
-      planner.addRule(rule)
-    }
+//    for (rule <- PelagoRules.RULES) {
+//      planner.addRule(rule)
+//    }
     //    planner.addRule(PelagoProjectTableScanRule.INSTANCE);
   }
 
@@ -77,15 +77,35 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
 
   def getLineHint: Long = pelagoTable.getLineHint
 
+//  override def implement: (Binding, JValue) = {
+//    val op = ("operator" , "scan")
+//    //TODO Cross-check: 0: schemaName, 1: tableName (?)
+//    val srcName  = getPelagoRelName //s.getTable.getQualifiedName.get(1)
+//    val rowType  = emitSchema(srcName, getRowType)
+//    val plugin   = Extraction.decompose(getPluginInfo.asScala)
+//    val linehint = getLineHint.longValue
+//
+//    val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName) ~ ("plugin", plugin) ~ ("linehint", linehint)
+//    val binding: Binding = Binding(srcName, getFields(getRowType))
+//    val ret: (Binding, JValue) = (binding,json)
+//    ret
+//  }
+
   override def implement: (Binding, JValue) = {
     val op = ("operator" , "scan")
     //TODO Cross-check: 0: schemaName, 1: tableName (?)
     val srcName  = getPelagoRelName //s.getTable.getQualifiedName.get(1)
+
     val rowType  = emitSchema(srcName, getRowType)
-    val plugin   = Extraction.decompose(getPluginInfo.asScala)
     val linehint = getLineHint.longValue
 
-    val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName) ~ ("plugin", plugin) ~ ("linehint", linehint)
+    val pluginfo = getPluginInfo.asScala.+(("name", srcName)).+(("projections", rowType))
+      .+(("type", "bincol")).+(("sizeInFile", false)) //FIXME: to be removed!!! (removing it requires unpack operator)
+    val plugin   = Extraction.decompose(pluginfo)
+
+    val json : JValue = op ~
+      ("gpu"      , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX))       ~
+      ("plugin"   , plugin  )
     val binding: Binding = Binding(srcName, getFields(getRowType))
     val ret: (Binding, JValue) = (binding,json)
     ret

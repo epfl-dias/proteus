@@ -52,19 +52,23 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
 
   //almost 0 cost in Pelago
   override def implement: (Binding, JsonAST.JValue) = {
-    val op = ("operator" , "projection")
-    val alias = "projection"+getId
+    val op      = ("operator" , "project")
+    val alias   = "projection" + getId
     val rowType = emitSchema(alias, getRowType)
-    val child = getInput.asInstanceOf[PelagoRel].implement
+    val child   = getInput.asInstanceOf[PelagoRel].implement
     val childBinding: Binding = child._1
     val childOp = child._2
     //TODO Could also use p.getNamedProjects
-    val exprs = getProjects
+    val exprs = getNamedProjects
     val exprsJS: JValue = exprs.asScala.map {
-      e => emitExpression(e,List(childBinding))
+      e => emitExpression(e.left,List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", ("attrName", e.right) ~ ("relName", alias))
     }
 
-    val json = op ~ ("tupleType", rowType) ~ ("e", exprsJS) ~ ("input" , childOp)
+    val json = op ~
+      ("gpu"          , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+      ("relName"      , alias                                                 ) ~
+      ("e"            , exprsJS                                               ) ~
+      ("input"        , childOp          ) // ~ ("tupleType", rowType)
     val binding: Binding = Binding(alias,getFields(getRowType))
     val ret: (Binding, JValue) = (binding,json)
     ret

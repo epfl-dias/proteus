@@ -1,6 +1,7 @@
 package ch.epfl.dias.calcite.adapter.pelago.rules;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
@@ -25,7 +26,7 @@ import com.google.common.base.Supplier;
  */
 public class PelagoToEnumerableConverterRule extends ConverterRule {
     public static final ConverterRule INSTANCE =
-            new PelagoToEnumerableConverterRule(RelFactories.LOGICAL_BUILDER);
+            new PelagoToEnumerableConverterRule(PelagoRelFactories.PELAGO_BUILDER);
 
     /**
      * Creates a CassandraToEnumerableConverterRule.
@@ -46,11 +47,12 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
 //        System.out.println(inp.getTraitSet());
 
         RelTraitSet traitSet = rel.getTraitSet().replace(PelagoRel.CONVENTION) //rel.getCluster().traitSet()
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return RelDistributions.SINGLETON;
-                    }
-                }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+//                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+//                    public RelDistribution get() {
+//                        return RelDistributions.SINGLETON;
+//                    }
+//                })
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
                     public RelDeviceType get() {
                         return RelDeviceType.X86_64;
                     }
