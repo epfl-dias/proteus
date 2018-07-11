@@ -168,12 +168,12 @@ object PelagoToEnumerableConverter {
   private var pt      : PelagoResultTable = null
   private var rowType : RelDataType       = null
 
-  var builder = new ProcessBuilder("./rawmain-server")
-  var process = builder.start()
+  var builder = if(Repl.isMockRun) null else new ProcessBuilder("./rawmain-server")
+  var process = if(Repl.isMockRun) null else builder.start()
 
-  var stdinWriter  = new java.io.PrintWriter  ((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true)
-  var stdoutReader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))
-  var stderrReader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getErrorStream()))
+  var stdinWriter  = if(Repl.isMockRun) null else new java.io.PrintWriter  ((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true)
+  var stdoutReader = if(Repl.isMockRun) null else new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))
+  var stderrReader = if(Repl.isMockRun) null else new java.io.BufferedReader(new java.io.InputStreamReader(process.getErrorStream()))
 
   var line: String = ""
 
