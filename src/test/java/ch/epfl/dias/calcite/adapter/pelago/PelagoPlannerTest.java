@@ -36,7 +36,8 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
     Properties info = new Properties();
     connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
 
-    Repl.mockfile_$eq("/home/periklis/Documents/EPFL/pelago/src/SQLPlanner/src/main/resources/mock.csv");
+    Repl.mockfile_$eq ("/home/periklis/Documents/EPFL/pelago/src/SQLPlanner/src/main/resources/mock.csv");
+    Repl.isMockRun_$eq(true);
     connection.createStatement().executeQuery("explain plan for select * from ssbm_date1000");
   }
 
@@ -335,7 +336,7 @@ public class PelagoPlannerTest {
       .with(PelagoTestConnectionFactory.get())
       .query(sql)
       .explainContains("PLAN=PelagoToEnumerableConverter")
-//      .runs()
+      .runs()
       ;
 
 //    plan(sql);

@@ -46,20 +46,23 @@ object Repl extends App {
         nextOption(map ++ Map('server -> true), tail)
       case "--port" :: value :: tail =>
         nextOption(map ++ Map('port -> value.toInt), tail)
-      case "--mock" :: value :: tail =>
-        nextOption(map ++ Map('mockfile -> value), tail)
+      case "--mockfile" :: value :: tail =>
+        nextOption(map ++ Map('mockfile -> value) ++ Map('mock -> true), tail)
+      case "--mock" :: tail =>
+        nextOption(map ++ Map('mock -> true), tail)
       case string :: Nil => nextOption(map ++ Map('schema -> string), list.tail)
       case option :: tail => println("Unknown option " + option)
-        println("Usage: [--server] [--mock <path-to-mock-file>] [path-to-schema.json]")
+        println("Usage: [--server [--port]] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]")
         System.exit(1)
         null
     }
   }
 
-  val options = nextOption(Map('server -> false, 'port -> 8081, 'mockfile -> defaultMock, 'schema -> defaultSchema), arglist)
+  val options = nextOption(Map('server -> false, 'port -> 8081, 'mock -> false, 'mockfile -> defaultMock, 'schema -> defaultSchema), arglist)
   System.out.println(options);
 
-  var mockfile = options.get('mockfile).get.asInstanceOf[String]
+  var mockfile  = options.get('mockfile).get.asInstanceOf[String]
+  var isMockRun = options.get('mock).get.asInstanceOf[Boolean]
 
   /*
   //Getting the actual model doesn't do us any good, unless we put it together programmatically on our own
@@ -76,7 +79,7 @@ object Repl extends App {
   if (options.get('server).get.asInstanceOf[Boolean]) {
     val meta = new JdbcMeta("jdbc:pelago:model=" + schemaPath)
     val service = new LocalService(meta)
-    val server = new HttpServer.Builder().withHandler(service, Serialization.PROTOBUF).withPort(options.get('port).asInstanceOf[Int]).build();
+    val server = new HttpServer.Builder().withHandler(service, Serialization.PROTOBUF).withPort(options.get('port).get.asInstanceOf[Int]).build();
     server.start();
     server.join();
   } else {

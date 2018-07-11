@@ -68,40 +68,44 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
 
 
   override def implement: (Binding, JValue) = {
-    if (getGroupCount == 0) {
-      val op = ("operator", "reduce")
-      val alias = "agg" + getId
-      val child = getInput.asInstanceOf[PelagoRel].implement
-      val childBinding: Binding = child._1
-      val childOp = child._2
+    val op = ("operator", if (getGroupCount == 0) "reduce" else "groupby")
+    val child = getInput.asInstanceOf[PelagoRel].implement
+    val childBinding: Binding = child._1
+    val childOp = child._2
 
+    val alias = "agg" + getId
+
+    val aggs: List[AggregateCall] = getAggCallList.asScala.toList
+
+    val aggsJS = aggs.map {
+      //        agg => emitAggExpression(agg, List(childBinding))
+      agg => aggKind(agg.getAggregation)
+    }
+
+    val offset = getGroupCount
+
+    val aggsExpr = aggs.zipWithIndex.map {
+      //        agg => emitAggExpression(agg, List(childBinding))
+      agg => {
+        val arg    = agg._1.getArgList
+        val reg_as = ("attrName", getRowType.getFieldNames.get(agg._2 + offset)) ~ ("relName", alias)
+        if (arg.size() == 1 && agg._1.getAggregation.getKind != SqlKind.COUNT) {
+          emitExpression(RexInputRef.of(arg.get(0), getInput.getRowType), List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", reg_as)
+          //            emitArg(arg.get(0), List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", reg_as)
+        } else if (arg.size() == 0 && agg._1.getAggregation.getKind == SqlKind.COUNT) {
+          ("expression", "int64") ~ ("v", 1) ~ ("register_as", reg_as)
+        } else {
+          //count() has 0 arguments; the rest expected to have 1
+          val msg : String = "size of aggregate's input expected to be 0 or 1 - actually is " + arg.size()
+          throw new PlanConversionException(msg)
+        }
+      }
+    }
+
+    if (getGroupCount == 0) {
       val groups: List[Integer] = getGroupSet.toList.asScala.toList
       val groupsJS: JValue = groups.map {
         g => emitArg(g, List(childBinding))
-      }
-
-      val aggs: List[AggregateCall] = getAggCallList.asScala.toList
-      val aggsJS = aggs.map {
-//        agg => emitAggExpression(agg, List(childBinding))
-        agg => aggKind(agg.getAggregation)
-      }
-      val aggsExpr = aggs.zipWithIndex.map {
-        //        agg => emitAggExpression(agg, List(childBinding))
-        agg => {
-          val arg    = agg._1.getArgList
-          val reg_as = ("attrName", getRowType.getFieldNames.get(agg._2)) ~ ("relName", alias)
-          if (arg.size() == 1 && agg._1.getAggregation.getKind != SqlKind.COUNT) {
-            emitExpression(RexInputRef.of(arg.get(0), getInput.getRowType), List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", reg_as)
-//            emitArg(arg.get(0), List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", reg_as)
-          } else if (arg.size() == 0 && agg._1.getAggregation.getKind == SqlKind.COUNT) {
-            ("expression", "int64") ~ ("v", 1) ~ ("register_as", reg_as)
-          } else {
-            //count() has 0 arguments; the rest expected to have 1
-            val msg : String = "size of aggregate's input expected to be 0 or 1 - actually is " + arg.size()
-            throw new PlanConversionException(msg)
-          }
-
-        }
       }
 
       val rowType = emitSchema(alias, getRowType)
@@ -116,8 +120,36 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
       val ret: (Binding, JValue) = (binding, json)
       ret
     } else {
-      assert(false)
-      null
+      val aggK = getGroupSet.asScala.zipWithIndex.map(f => {
+        val reg_as = ("attrName", getRowType.getFieldNames.get(f._2)) ~ ("relName", alias)
+        emitExpression(RexInputRef.of(f._1, getInput.getRowType), List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", reg_as)
+      })
+
+      val aggE =  aggsJS.zip(aggsExpr).zipWithIndex.map {
+        z => {
+          ("m"     , z._1._1 ) ~
+          ("e"     , z._1._2 ) ~
+          ("packet", z._2 + 1) ~
+          ("offset", 0       )        //FIXME: using different packets for each of them is the worst performance-wise
+        }
+      }
+
+      //FIXME: reconsider these upper limits
+      val rowEst = Math.min(getInput.estimateRowCount(getCluster.getMetadataQuery), 128*1024*1024)
+      val maxEst = Math.min(getCluster.getMetadataQuery.getMaxRowCount(getInput  ), 128*1024*1024)
+
+      val hash_bits = Math.max(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 15)
+
+      val json = op ~
+        ("gpu"          , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+        ("k"            , aggK                                                  ) ~
+        ("e"            , aggE                                                  ) ~
+        ("hash_bits"    , hash_bits                                             ) ~
+        ("maxInputSize" , maxEst.asInstanceOf[Int]                              ) ~
+        ("input"        , childOp                                               )
+      val binding: Binding = Binding(alias, getFields(getRowType))
+      val ret: (Binding, JValue) = (binding, json)
+      ret
     }
   }
 }

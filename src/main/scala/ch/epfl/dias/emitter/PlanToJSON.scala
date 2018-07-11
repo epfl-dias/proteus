@@ -12,6 +12,8 @@ import org.apache.calcite.rex._
 import org.apache.calcite.sql.fun.SqlCaseOperator
 import org.apache.calcite.sql.{SqlBinaryOperator, SqlFunction, SqlKind, SqlOperator}
 import org.apache.calcite.interpreter.Bindables.BindableTableScan
+import org.apache.calcite.plan.RelOptUtil
+import org.apache.calcite.plan.RelOptUtil.InputFinder
 import org.apache.calcite.sql.`type`.SqlTypeName
 import org.json4s.JsonAST.JValue
 import org.json4s.JsonDSL._
@@ -58,13 +60,17 @@ object PlanToJSON {
   }
 
   def emitExpression(e: RexNode, f: List[Binding]) : JValue = {
+    emitExpression(e, f, null)
+  }
+
+  def emitExpression(e: RexNode, f: List[Binding], other: RexNode) : JValue = {
     val exprType : String = emitType(e.getType)
     val json : JValue = e match {
       case call: RexCall => {
         emitOp(call.op, call.operands, exprType, f)
       }
       case inputRef: RexInputRef => {
-        val arg = emitArg(inputRef,f)
+        val arg = emitArg(inputRef,f, false)
         arg
       }
       case lit: RexLiteral => {
@@ -72,14 +78,25 @@ object PlanToJSON {
           case SqlTypeName.INTEGER => new           Integer(lit.toString).asInstanceOf[Int    ]
           case SqlTypeName.BIGINT  => new java.lang.Long   (lit.toString).asInstanceOf[Long   ]
           case SqlTypeName.BOOLEAN => new java.lang.Boolean(lit.toString).asInstanceOf[Boolean]
-          case SqlTypeName.VARCHAR => lit.toString
+          case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)
+          case SqlTypeName.CHAR    => lit.getValueAs(classOf[String])
           case _ => {
             val msg : String = "Unknown constant type"
             throw new PlanConversionException(msg)
             //List[RelDataTypeField]()
           }
         }
-        ("expression", exprType) ~ ("v", v)
+        if (other != null && lit.getType.getSqlTypeName == SqlTypeName.VARCHAR || lit.getType.getSqlTypeName == SqlTypeName.CHAR) {
+          // Only comparisons of input fields with string constants are supported
+          // otherwise, which dictionary should we use?
+
+          val info = findAttrInfo(other.asInstanceOf[RexInputRef], f)
+          val path = info._2 + "." + info._1 + ".dict"
+
+          ("expression", exprType) ~ ("v", v) ~ ("dict", ("path", path))
+        } else {
+          ("expression", exprType) ~ ("v", v)
+        }
       }
       case _ => {
         val msg : String = "Unsupported expression "+e.toString
@@ -134,8 +151,8 @@ object PlanToJSON {
     var right: JValue = null;
 
     if (args.size == 2){
-      left  = emitExpression(args.get(0), f)
-      right = emitExpression(args.get(1), f)
+      left  = emitExpression(args.get(0), f, args.get(1))
+      right = emitExpression(args.get(1), f, args.get(0))
     } else {
       assert(args.size > 2);
       val subSize = (args.size + 1) / 2
@@ -199,7 +216,7 @@ object PlanToJSON {
     emitArg(arg, f, true) // FIXME: this is confusing, the default case changes based on the overload!
   }
 
-  def emitArg(arg: RexInputRef, f: List[Binding], with_type: Boolean) : JValue = {
+  def findAttrInfo(arg: RexInputRef, f: List[Binding]) = {
     var rel : String = ""
     var attr : String = ""
     var fieldCount = 0
@@ -207,12 +224,19 @@ object PlanToJSON {
     breakable { for(b <- f) {
       fieldCount += b.fields.size
       if(arg.getIndex < fieldCount)  {
-        rel = b.rel
-        attr = b.fields(arg.getIndex - fieldCountCurr).getName
-        break
-      }
+      rel = b.rel
+      attr = b.fields(arg.getIndex - fieldCountCurr).getName
+      break
+    }
       fieldCountCurr += b.fields.size
     } }
+    (attr, rel)
+  }
+
+  def emitArg(arg: RexInputRef, f: List[Binding], with_type: Boolean) : JValue = {
+    val info = findAttrInfo(arg, f)
+    val attr = info._1
+    val rel  = info._2
 
     val jsonAttr: JObject = {
       val json = ("attrName", attr) ~ ("relName", rel)
@@ -242,6 +266,7 @@ object PlanToJSON {
     case SqlTypeName.INTEGER => "int"
     case SqlTypeName.BIGINT  => "int64"
     case SqlTypeName.VARCHAR => "dstring"
+    case SqlTypeName.CHAR    => "dstring"
     case SqlTypeName.BOOLEAN => "bool"
     case _ => throw new PlanConversionException("Unknown type: " + arg.getSqlTypeName)
   }

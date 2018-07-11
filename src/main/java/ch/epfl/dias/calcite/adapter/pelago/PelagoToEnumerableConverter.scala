@@ -73,8 +73,11 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
     val childOp = child._2
 
     val exprs = getRowType
-    val exprsJS: JValue = exprs.getFieldList.asScala.map {
-      e => emitExpression(RexInputRef.of(e.getIndex, getRowType), List(childBinding))
+    val exprsJS: JValue = exprs.getFieldList.asScala.zipWithIndex.map {
+      e => {
+        val reg_as = ("attrName", getRowType.getFieldNames.get(e._2)) ~ ("relName", alias)
+        emitExpression(RexInputRef.of(e._1.getIndex, getRowType), List(childBinding)).asInstanceOf[JObject] ~ ("register_as", reg_as)
+      }
     }
 
     op ~
@@ -84,16 +87,15 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
   }
 
   override def implement(implementor: EnumerableRelImplementor, pref: EnumerableRel.Prefer): EnumerableRel.Result = {
-    val mock = true //TODO: change!!!
+    val mock = Repl.isMockRun //TODO: change!!!
 
     val plan = getPlan
     System.out.println(pretty(render(plan)))
 
     new PrintWriter("plan.json") { write(pretty(render(plan))); close }
 
-    if (mock) {
+    if (mock == true) {
       PelagoToEnumerableConverter.pt = new PelagoResultTable(Sources.of(new File(Repl.mockfile)), getRowType, mock) //TODO: fix path
-
     } else {
 
       val builder = new ProcessBuilder("./rawmain-server")
@@ -104,12 +106,21 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
       val stderrReader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getErrorStream()))
 
       var line: String = "";
-      while ((line = stdoutReader.readLine()) != null && line != "ready") {}
+      while ({line = stdoutReader.readLine(); line != null} && line != "ready") {}
 
+      stdinWriter.println("echo results on");
       stdinWriter.println("execute plan from file plan.json");
 
-      while ((line = stdoutReader.readLine()) != null && !line.startsWith("result in file")) {
+
+      while ({line = stdoutReader.readLine(); line != null} && !line.startsWith("result in file")) {
         System.out.println("pelago: " + line);
+      }
+
+      System.out.println(line)
+      if (line == null){
+        while ({line = stderrReader.readLine(); line != null}) {
+          System.out.println("pelago:err: " + line);
+        }
       }
 
       val path = line.substring("result in file ".length);

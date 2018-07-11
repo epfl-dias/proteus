@@ -152,6 +152,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         if (holder.get() != null) {
             return holder.get();
         }
+
         return Programs.sequence(
                 Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
                 new DecorrelateProgram(),
@@ -174,16 +175,16 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             bindable = Interpreters.bindable(root.rel);
         } else {
             EnumerableRel enumerable = (EnumerableRel) root.rel;
-            if (!root.isRefTrivial()) {
-                final List<RexNode> projects = new ArrayList<>();
-                final RexBuilder rexBuilder = enumerable.getCluster().getRexBuilder();
-                for (int field : Pair.left(root.fields)) {
-                    projects.add(rexBuilder.makeInputRef(enumerable, field));
-                }
-                RexProgram program = RexProgram.create(enumerable.getRowType(),
-                        projects, null, root.validatedRowType, rexBuilder);
-                enumerable = EnumerableCalc.create(enumerable, program);
-            }
+//            if (!root.isRefTrivial()) {
+//                final List<RexNode> projects = new ArrayList<>();
+//                final RexBuilder rexBuilder = enumerable.getCluster().getRexBuilder();
+//                for (int field : Pair.left(root.fields)) {
+//                    projects.add(rexBuilder.makeInputRef(enumerable, field));
+//                }
+//                RexProgram program = RexProgram.create(enumerable.getRowType(),
+//                        projects, null, root.validatedRowType, rexBuilder);
+//                enumerable = EnumerableCalc.create(enumerable, program);
+//            }
 
             try {
                 CatalogReader.THREAD_LOCAL.set(catalogReader);

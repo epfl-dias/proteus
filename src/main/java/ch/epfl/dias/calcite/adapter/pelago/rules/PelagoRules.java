@@ -39,7 +39,8 @@ public class PelagoRules {
 //        PelagoRouterRule.INSTANCE,
 //                                                PelagoJoinRule2.INSTANCE,
 //        JoinCommuteRule.INSTANCE,
-        PelagoJoinSeq.INSTANCE,
+//        PelagoJoinSeq.INSTANCE,
+        PelagoJoinSeq.INSTANCE2, //Use the instance that swaps, as Lopt seems to generate left deep plans only
 //        PelagoJoinRule.SEQUENTIAL_NVPTX,
 //        PelagoJoinRule.SEQUENTIAL_X8664,
 //                                                PelagoJoinRule.BROADCAST_NVPTX ,
@@ -641,7 +642,8 @@ public class PelagoRules {
     }
 
     private static class PelagoJoinSeq extends PelagoConverterRule {
-        private static final PelagoJoinSeq INSTANCE = new PelagoJoinSeq();
+        private static final PelagoJoinSeq INSTANCE  = new PelagoJoinSeq("PelagoJoinSeqRule" , false);
+        private static final PelagoJoinSeq INSTANCE2 = new PelagoJoinSeq("PelagoJoinSeqRule2", true );
 
         private PelagoJoinSeq(){
             this("PelagoJoinSeqRule");
@@ -652,8 +654,15 @@ public class PelagoRules {
         private final RelDistribution leftDistribution  = RelDistributions.SINGLETON;
         private final RelDistribution rightDistribution = RelDistributions.SINGLETON;
 
+        private final boolean swap;
+
         protected PelagoJoinSeq(String description) {
+            this(description, false);
+        }
+
+        protected PelagoJoinSeq(String description, boolean swap) {
             super(LogicalJoin.class, description);
+            this.swap = swap;
         }
 
         @Override
@@ -723,7 +732,7 @@ public class PelagoRules {
                 join.getJoinType()
             );
 
-            final RelNode  swapped = join;//JoinCommuteRule.swap(join, false);
+            final RelNode  swapped = (swap) ? JoinCommuteRule.swap(join, false) : join;
             if (swapped == null) return null;
 
 //            rel.getCluster().getPlanner().setImportance(rel, 0);

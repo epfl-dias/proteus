@@ -17,7 +17,7 @@ import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.json4s.jackson.Serialization
-import org.apache.calcite.rex.RexNode
+import org.apache.calcite.rex.{RexInputRef, RexNode}
 import org.json4s.JsonAST
 
 import scala.collection.JavaConverters._
@@ -27,6 +27,9 @@ import java.util
 import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution, RelMdDeviceType}
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, emit_, getFields}
 import org.apache.calcite.adapter.enumerable.EnumerableConvention
+import org.json4s
+
+import scala.collection.mutable
 
 /**
   * Implementation of {@link org.apache.calcite.rel.core.Sort}
@@ -50,27 +53,119 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
-  //almost 0 cost in Pelago
   override def implement: (Binding, JsonAST.JValue) = {
-    val op = ("operator" , "sort")
-    val alias = "sort"+getId
+    val op = ("operator", "project")
+    val alias = "sort" + getId
+    val rowType = emitSchema(alias, getRowType)
+    val child = implementUnpack
+    val childBinding: Binding = child._1
+    val childOp = child._2
+
+    val projs = getRowType.getFieldList.asScala.map {
+      f => {
+        ("e",
+          ("e",
+            ("attributes" , List(("attrName", "__sorted") ~ ("relName", "__sort" + getId))) ~
+            ("expression" , "argument"                                                    ) ~
+            ("type"       , ("type", "record") ~ ("relName", "__sort" + getId)            ) ~
+            ("argNo"      , 1                                                             )
+          ) ~
+          ("expression", "recordProjection"                                             ) ~
+          ("attribute" , ("attrName", "__sorted") ~ ("relName", "__sort" + getId)       )
+        ) ~
+        ("expression" , "recordProjection") ~
+        ("attribute"  , ("attrName", f.getName) ~ ("relName", "__sort" + getId)) ~
+        ("register_as",
+          ("attrName", f.getName) ~
+          ("relName", alias)
+        )
+      }
+    }
+
+    val json = op ~
+      ("gpu"    , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+      ("e"      , projs                                                 ) ~
+      ("relName", alias                                                 ) ~
+      ("input"  , childOp                                               )
+    val binding: Binding = Binding(alias, getFields(getRowType))
+    val ret: (Binding, JValue) = (binding, json)
+    ret
+  }
+
+  def implementUnpack: (Binding, JsonAST.JValue) = {
+    val op = ("operator", "block-to-tuples")
+    val alias = "__sort_unpack" + getId
+    val child = implementSort
+    val childOp = child._2
+
+    val json = op ~
+      ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+      ("projections",
+        List(
+          ("e",
+            ("attributes" , List(("attrName", "__sorted") ~ ("relName", "__sort" + getId))) ~
+            ("expression" , "argument"                                                    ) ~
+            ("type"       , ("type", "record") ~ ("relName", "__sort" + getId)            ) ~
+            ("argNo"      , 1                                                             )
+          ) ~
+          ("expression", "recordProjection"                                             ) ~
+          ("attribute" , ("attrName", "__sorted") ~ ("relName", "__sort" + getId)       )
+        )
+      ) ~
+      ("input"      , childOp                                               )
+    val binding: Binding = Binding(alias, getFields(getRowType))
+    val ret: (Binding, JValue) = (binding, json)
+    ret
+  }
+
+  def implementSort: (Binding, JsonAST.JValue) = {
+    val op = ("operator", "sort")
+    val alias = "__sort" + getId
     val rowType = emitSchema(alias, getRowType)
     val child = getInput.asInstanceOf[PelagoRel].implement
     val childBinding: Binding = child._1
     val childOp = child._2
-    //TODO Could also use p.getNamedProjects
-//    val exprs = getProjects
-//    val exprsJS: JValue = exprs.asScala.map {
-//      e => emitExpression(e,List(childBinding))
-//    }
 
-    val json = op ~ ("tupleType", rowType) ~ ("input" , childOp) // ~ ("e", exprsJS)
-    val binding: Binding = Binding(alias,getFields(getRowType))
-    val ret: (Binding, JValue) = (binding,json)
+    val colList = getCollation.getFieldCollations.asScala.map { f => f.getFieldIndex }
+    val exprKey = getCollation.getFieldCollations.asScala.map {
+      f => {
+        ("direction", f.direction.shortString) ~
+        ("expression",
+          emitExpression(RexInputRef.of(f.getFieldIndex, getInput.getRowType), List(childBinding)).asInstanceOf[JObject] ~
+          ("register_as",
+            ("attrName", getRowType.getFieldNames.get(f.getFieldIndex)) ~ ("relName", alias)
+          )
+        )
+      }
+    }.toList
+    val exprVal = getRowType.getFieldList.asScala.flatMap {
+      f => {
+        if (colList.contains(f.getIndex)){
+          List()
+        } else {
+          List(
+            ("direction", "NONE") ~
+            ("expression",
+              emitExpression(RexInputRef.of(f.getIndex, getInput.getRowType), List(childBinding)).asInstanceOf[JObject] ~
+              ("register_as",
+                ("attrName", f.getName) ~ ("relName", alias)
+              )
+            )
+          )
+        }
+      }
+    }.toList
+
+    val json = op ~
+      ("gpu"  , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+      ("rowType", rowType) ~
+      ("e"    , exprKey ++ exprVal                                    ) ~
+      ("input", childOp                                               )
+    val binding: Binding = Binding(alias, getFields(getRowType))
+    val ret: (Binding, JValue) = (binding, json)
     ret
   }
 }
-
 
 object PelagoSort{
   def create(input: RelNode, collation: RelCollation, offset: RexNode, fetch: RexNode): PelagoSort = {

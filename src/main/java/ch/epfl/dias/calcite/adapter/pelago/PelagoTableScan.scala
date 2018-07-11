@@ -6,7 +6,7 @@ import org.apache.calcite.linq4j.tree.Primitive
 import org.apache.calcite.plan._
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.TableScan
-import org.apache.calcite.rel.metadata.{RelMetadataQuery}
+import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.`type`.RelDataTypeFactory
 import org.apache.calcite.rel.`type`.RelDataTypeField
@@ -22,6 +22,8 @@ import scala.Tuple2
 import java.util
 
 import com.google.common.base.Supplier
+import org.apache.calcite.rex.RexInputRef
+import org.json4s
 
 //import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceType
 import ch.epfl.dias.emitter.PlanToJSON._
@@ -92,6 +94,29 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
 //  }
 
   override def implement: (Binding, JValue) = {
+    val op = ("operator", "block-to-tuples")
+    val child = implementScan
+    val childBinding: Binding = child._1
+    val childOp = child._2
+    val alias = childBinding.rel
+
+
+    val projs = getRowType.getFieldList.asScala.zipWithIndex.map {
+      f => {
+        emitExpression(RexInputRef.of(f._2, /*child.*/ getRowType), List(childBinding))
+      }
+    }
+
+    val json = op ~
+      ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+      ("projections", projs                                                 ) ~
+      ("input"      , childOp                                               )
+    val binding: Binding = Binding(alias, getFields(getRowType))
+    val ret: (Binding, JValue) = (binding, json)
+    ret
+  }
+
+  def implementScan: (Binding, JValue) = {
     val op = ("operator" , "scan")
     //TODO Cross-check: 0: schemaName, 1: tableName (?)
     val srcName  = getPelagoRelName //s.getTable.getQualifiedName.get(1)
@@ -100,7 +125,7 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     val linehint = getLineHint.longValue
 
     val pluginfo = getPluginInfo.asScala.+(("name", srcName)).+(("projections", rowType))
-      .+(("type", "bincol")).+(("sizeInFile", false)) //FIXME: to be removed!!! (removing it requires unpack operator)
+//      .+(("type", "bincol")).+(("sizeInFile", false)) //FIXME: to be removed!!! (removing it requires unpack operator)
     val plugin   = Extraction.decompose(pluginfo)
 
     val json : JValue = op ~

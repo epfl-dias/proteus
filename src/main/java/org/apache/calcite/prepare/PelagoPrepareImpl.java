@@ -4,7 +4,7 @@ package org.apache.calcite.prepare;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.calcite.DataContext;
+
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.adapter.enumerable.EnumerableRel;
 import org.apache.calcite.adapter.enumerable.EnumerableRules;
@@ -15,33 +15,23 @@ import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.interpreter.BindableConvention;
 import org.apache.calcite.jdbc.CalcitePrepare;
-import org.apache.calcite.linq4j.Enumerable;
-import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.plan.*;
 import org.apache.calcite.plan.volcano.AbstractConverter;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
-import org.apache.calcite.prepare.PelagoPreparingStmt;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.Calc;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Project;
-import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.core.Sort;
-import org.apache.calcite.rel.core.TableScan;
-import org.apache.calcite.rel.core.Values;
-import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalFilter;
-import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
-import org.apache.calcite.rel.logical.LogicalSort;
 import org.apache.calcite.rel.rules.*;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -63,9 +53,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.ChainedSqlOperatorTable;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlValidator;
-import org.apache.calcite.tools.Program;
-import org.apache.calcite.tools.Programs;
-import org.apache.calcite.util.Holder;
 import org.apache.calcite.util.Util;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
@@ -81,9 +68,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.apache.calcite.plan.RelOptRule.any;
-import static org.apache.calcite.plan.RelOptRule.none;
 import static org.apache.calcite.plan.RelOptRule.operand;
-import static org.apache.calcite.plan.RelOptRule.some;
 
 public class PelagoPrepareImpl extends CalcitePrepareImpl {
     /** Creates a query planner and initializes it with a default set of
@@ -112,9 +97,9 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         //FIXME: not so certain any more about which RelFactory we should use and which rules should be applied to the core RelNodes oand which ones to the Logical ones.\
         //this may as well be disabling some rules...
         ((VolcanoPlanner) planner).registerAbstractRelationalRules();
+
         planner.addRule(AbstractConverter.ExpandConversionRule.INSTANCE);
 //        System.out.println(planner.getRules());
-
         for (RelOptRule rule: PelagoRules.RULES) {
             planner.addRule(rule);
         }

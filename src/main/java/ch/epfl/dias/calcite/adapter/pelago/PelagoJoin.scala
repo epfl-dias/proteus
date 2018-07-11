@@ -87,7 +87,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       //TODO: Cost should change for radix-HJ
     }
     rowCount *= right.getRowType.getFieldCount
-    planner.getCostFactory.makeCost(rowCount*10, rowCount, 0).multiplyBy(0.1)
+    planner.getCostFactory.makeCost(rowCount, rowCount, 0).multiplyBy(0.1)
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("build", left.getRowType.toString).item("lcount", Util.nLogN(left.estimateRowCount(left.getCluster.getMetadataQuery) * left.getRowType.getFieldCount)).item("rcount", right.estimateRowCount(right.getCluster.getMetadataQuery)).item("buildcountrow", left.estimateRowCount(left.getCluster.getMetadataQuery)).item("probecountrow", right.estimateRowCount(right.getCluster.getMetadataQuery))
@@ -139,11 +139,11 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
           )
 //          List(("relName", alias) ~ ("attrName", f._1.getName) ~ ("type", f._1.getType.toString))
         } else {
-          if (f._2 <  getRight.getRowType.getFieldCount) build_keyName = f._1.getName
+          if (f._2 <  getLeft.getRowType.getFieldCount) build_keyName = f._1.getName
           List()
         }
       }
-    }.zipWithIndex.map{e => ("e", e._1) ~ ("packet", e._2 + 1) ~ ("offset", 0)}
+    }.zipWithIndex.map{e => ("e", e._1) ~ ("packet", e._2 + 1) ~ ("offset", 0)} //FIXME: using different packets for each of them is the worst performance-wise
 
 
     var probe_keyRexInputRef = joinCondOperands.get(0).asInstanceOf[RexInputRef]
@@ -152,7 +152,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     var probe_keyName = probe_keyRexInputRef.asInstanceOf[RexInputRef].getName
     val probe_e = getRowType.getFieldList.asScala.zipWithIndex.flatMap {
       f => {
-        if (f._2 != probe_keyRexInputRef.asInstanceOf[RexInputRef].getIndex && f._2 >= getRight.getRowType.getFieldCount) {
+        if (f._2 != probe_keyRexInputRef.asInstanceOf[RexInputRef].getIndex && f._2 >= getLeft.getRowType.getFieldCount) {
           probe_w += getTypeSize(f._1.getType)
           List(
             emitExpression(RexInputRef.of(f._2, getRowType), List(build_binding, probe_binding))
@@ -161,27 +161,30 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
           )
 //          List(("relName", alias) ~ ("attrName", f._1.getName) ~ ("type", f._1.getType.toString))
         } else {
-          if (f._2 >= getRight.getRowType.getFieldCount) probe_keyName = f._1.getName
+          if (f._2 >= getLeft.getRowType.getFieldCount) probe_keyName = f._1.getName
           List()
         }
       }
-    }.zipWithIndex.map{e => ("e", e._1) ~ ("packet", e._2 + 1) ~ ("offset", 0)}
+    }.zipWithIndex.map{e => ("e", e._1) ~ ("packet", e._2 + 1) ~ ("offset", 0)} //FIXME: using different packets for each of them is the worst performance-wise
 
+    val rowEst = Math.min(getLeft.estimateRowCount(getCluster.getMetadataQuery), 128*1024*1024)
+    val maxEst = Math.min(getCluster.getMetadataQuery.getMaxRowCount(getLeft  ), 128*1024*1024)
 
+    val hash_bits = 1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int]
 
     val json = op ~
-//      ("tupleType"    , rowType     ) ~
-      ("gpu"              , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)                      ) ~
-      ("build_k"          , build_k ~ ("register_as", ("attrName", build_keyName) ~ ("relName", alias))) ~
-      ("build_e"          , build_e     ) ~
-      ("build_w"          , build_w     ) ~
-      ("build_input"      , build_child ) ~
-      ("probe_k"          , probe_k ~ ("register_as", ("attrName", probe_keyName) ~ ("relName", alias))) ~
-      ("probe_e"          , probe_e     ) ~
-      ("probe_w"          , probe_w     ) ~
-      ("hash_bits"        ,           Math.ceil(2 * Math.log(getLeft.estimateRowCount(getCluster.getMetadataQuery)) / Math.log(2)).asInstanceOf[Int])                 ~
-      ("maxBuildInputSize", Math.min (Math.ceil(    Math.log(getCluster.getMetadataQuery.getMaxRowCount(getLeft  )) / Math.log(2)).asInstanceOf[Int], 129*1024*1024)) ~
-      ("probe_input"      , probe_child )
+//      ("tupleType"        , rowType     ) ~
+      ("gpu"              , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)                       ) ~
+      ("build_k"          , build_k ~ ("register_as", ("attrName", build_keyName) ~ ("relName", alias)) ) ~
+      ("build_e"          , build_e                                                                     ) ~
+      ("build_w"          , build_w                                                                     ) ~
+      ("build_input"      , build_child                                                                 ) ~
+      ("probe_k"          , probe_k ~ ("register_as", ("attrName", probe_keyName) ~ ("relName", alias)) ) ~
+      ("probe_e"          , probe_e                                                                     ) ~
+      ("probe_w"          , probe_w                                                                     ) ~
+      ("hash_bits"        , hash_bits                                                                   ) ~
+      ("maxBuildInputSize", maxEst.asInstanceOf[Int]                                                    ) ~
+      ("probe_input"      , probe_child                                                                 )
     val binding: Binding = Binding(alias,build_binding.fields ++ probe_binding.fields)
     val ret: (Binding, JValue) = (binding,json)
     ret
