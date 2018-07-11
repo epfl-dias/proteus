@@ -5,3 +5,4 @@ target
 .fuse_*
 current.json
 plan.json
+src/main/resources/ssb_schema/catalog.json
