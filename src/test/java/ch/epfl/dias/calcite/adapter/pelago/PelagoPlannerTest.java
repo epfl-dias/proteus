@@ -54,8 +54,8 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
 
 @RunWith(Parameterized.class)
 public class PelagoPlannerTest {
-  private static final String schemaPath = "../raw-jit-executor/inputs/plans/schema.json";
-//    String schemaPath = new java.io.File(".").getCanonicalPath() + "/src/main/resources/schema.json";
+  //private static final String schemaPath = "../raw-jit-executor/inputs/plans/schema.json";
+
   private static Connection connection;
 
   private static final String queries[] = {

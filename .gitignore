@@ -2,6 +2,7 @@
 .project
 .idea
 target
+classes
 .fuse_*
 current.json
 plan.json

@@ -12,7 +12,7 @@ public class PelagoRelMetadataQuery extends RelMetadataQuery {
   private DeviceType.Handler deviceTypeHandler;
 
   protected PelagoRelMetadataQuery(JaninoRelMetadataProvider metadataProvider,
-      RelMetadataQuery prototype) {
+                                   RelMetadataQuery prototype) {
     super(metadataProvider, prototype);
     deviceTypeHandler = initialHandler(DeviceType.Handler.class);
   }

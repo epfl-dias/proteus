@@ -32,7 +32,7 @@ object Repl extends App {
   Class.forName("ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver")
 
   val arglist = args.toList
-  val defaultMock = "mock.csv"
+  val defaultMock = new java.io.File(".").getCanonicalPath+"/src/main/resources/mock.csv"
   val defaultSchema = new java.io.File(".").getCanonicalPath+"/src/main/resources/schema.json"
 
   type OptionMap = Map[Symbol, Any]
@@ -135,6 +135,17 @@ object Repl extends App {
 
 //    input = "select max(d_yearmonthnum), d_year from ssbm_date1000 group by d_year order by d_year";
 //    input = "select * from employees";
+
+//    input = "create table Test1234(a integer, b integer) jplugin `{\"plugin\":{ \"type\":\"block\", \"linehint\":200000 }, \"file\":\"/inputs/csv.csv\"}`";
+//    connection.createStatement().execute(input);
+//
+//    val md = connection.getMetaData
+//    val rs = md.getTables(null, null, "%", null)
+//    while (rs.next)
+//      println(rs.getString(3))
+//
+//    input = "select count(*) from Test1234"
+
     var resultSet = connection.createStatement().executeQuery("explain plan for " + input)
     //    connection.createStatement().execute(input);
     //    var resultSet = connection.getMetaData.getTables(null, null, "%", null)
