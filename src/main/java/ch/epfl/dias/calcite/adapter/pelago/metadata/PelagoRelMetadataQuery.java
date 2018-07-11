@@ -7,14 +7,17 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import com.google.common.base.Preconditions;
 
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
+import ch.epfl.dias.calcite.adapter.pelago.RelPacking;
 
 public class PelagoRelMetadataQuery extends RelMetadataQuery {
   private DeviceType.Handler deviceTypeHandler;
+  private Packing.Handler    packingHandler;
 
   protected PelagoRelMetadataQuery(JaninoRelMetadataProvider metadataProvider,
                                    RelMetadataQuery prototype) {
     super(metadataProvider, prototype);
     deviceTypeHandler = initialHandler(DeviceType.Handler.class);
+    packingHandler    = initialHandler(Packing   .Handler.class);
   }
 
   public static PelagoRelMetadataQuery instance() {
@@ -26,8 +29,6 @@ public class PelagoRelMetadataQuery extends RelMetadataQuery {
    * statistic.
    *
    * @param rel         the relational expression
-   * @return List of sorted column combinations, or
-   * null if not enough information is available to make that determination
    */
   public RelDeviceType deviceType(RelNode rel) {
     for (;;) {
@@ -38,5 +39,20 @@ public class PelagoRelMetadataQuery extends RelMetadataQuery {
       }
     }
   }
-
+  /**
+   * Returns the
+   * {@link Packing#packing()}
+   * statistic.
+   *
+   * @param rel         the relational expression
+   */
+  public RelPacking packing(RelNode rel) {
+    for (;;) {
+      try {
+        return packingHandler.packing(rel, this);
+      } catch (JaninoRelMetadataProvider.NoHandler e) {
+        packingHandler = revise(e.relClass, Packing.DEF);
+      }
+    }
+  }
 }

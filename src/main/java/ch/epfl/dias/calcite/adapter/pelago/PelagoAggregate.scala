@@ -136,7 +136,8 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
 
       //FIXME: reconsider these upper limits
       val rowEst = Math.min(getInput.estimateRowCount(getCluster.getMetadataQuery), 128*1024*1024)
-      val maxEst = Math.min(getCluster.getMetadataQuery.getMaxRowCount(getInput  ), 128*1024*1024)
+      val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getInput  )
+      val maxEst = if (maxrow != null) Math.min(maxrow, 128*1024*1024) else 128*1024*1024
 
       val hash_bits = Math.max(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 15)
 

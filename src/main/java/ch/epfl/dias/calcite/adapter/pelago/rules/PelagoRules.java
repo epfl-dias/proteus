@@ -31,6 +31,9 @@ public class PelagoRules {
     public static final RelOptRule[] RULES = {
         PelagoProjectTableScanRule.INSTANCE,
         PelagoToEnumerableConverterRule.INSTANCE,
+        PelagoPackingConverterRule.TO_PACKED_INSTANCE,
+        PelagoPackingConverterRule.TO_UNPCKD_INSTANCE,
+        PelagoProjectPushBelowUnpack.INSTANCE,
 //        PelagoDeviceCrossRule.INSTANCE,
         PelagoProjectRule.INSTANCE,
         PelagoAggregateRule.INSTANCE,
@@ -138,6 +141,11 @@ public class PelagoRules {
                         return RelDistributions.SINGLETON;
                     }
                 })
+                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+                    public RelPacking get() {
+                        return RelPacking.UnPckd;
+                    }
+                })
                 ;
 
             return PelagoProject.create(convert(project.getInput(), traitSet), project.getProjects(), project.getRowType());
@@ -181,6 +189,11 @@ public class PelagoRules {
                 .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
                     public RelDistribution get() {
                         return RelDistributions.SINGLETON;
+                    }
+                })
+                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+                    public RelPacking get() {
+                        return RelPacking.UnPckd;
                     }
                 })
                 ;
@@ -259,6 +272,11 @@ public class PelagoRules {
                 .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
                     public RelDistribution get() {
                         return RelDistributions.SINGLETON;
+                    }
+                })
+                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+                    public RelPacking get() {
+                        return RelPacking.UnPckd;
                     }
                 })
                 ;
@@ -375,6 +393,11 @@ public class PelagoRules {
                         return RelDistributions.SINGLETON;
                     }
                 })
+                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+                    public RelPacking get() {
+                        return RelPacking.UnPckd;
+                    }
+                })
                 ;
             return PelagoFilter.create(convert(filter.getInput(), traitSet), filter.getCondition());
         }
@@ -428,6 +451,11 @@ public class PelagoRules {
             RelDistribution rdl = RelDistributions.hash(inf.leftKeys );
             RelDistribution rdr = RelDistributions.hash(inf.rightKeys);
 
+//                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+//                public RelPacking get() {
+//                    return RelPacking.UnPckd;
+//                }
+//            })
             RelNode left  = convert(convert(join.getLeft (), out), rdl);//RelDistributionTraitDef.INSTANCE.convert(rel.getCluster().getPlanner(), join.getLeft (), rdl, true);
             RelNode right = convert(convert(join.getRight(), out), rdr);//RelDistributionTraitDef.INSTANCE.convert(rel.getCluster().getPlanner(), join.getRight(), rdr, true);
 
@@ -512,6 +540,11 @@ public class PelagoRules {
                         return RelDeviceType.NVPTX;
                     }
                 })
+                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+                    public RelPacking get() {
+                        return RelPacking.UnPckd;
+                    }
+                })
                 ;
 
             RelTraitSet rightTraitSet = rel.getCluster().traitSet().replace(PelagoRel.CONVENTION)
@@ -522,6 +555,11 @@ public class PelagoRules {
                 }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
                     public RelDeviceType get() {
                         return RelDeviceType.NVPTX;
+                    }
+                })
+                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+                    public RelPacking get() {
+                        return RelPacking.UnPckd;
                     }
                 })
                 ;
@@ -613,6 +651,11 @@ public class PelagoRules {
                     public RelDeviceType get() {
                         return leftDeviceType;
                     }
+                })
+                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+                    public RelPacking get() {
+                        return RelPacking.UnPckd;
+                    }
                 });
 
             RelTraitSet rightTraitSet = rel.getCluster().traitSet().replace(out)
@@ -624,6 +667,11 @@ public class PelagoRules {
                 .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
                     public RelDeviceType get() {
                         return rightDeviceType;
+                    }
+                })
+                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+                    public RelPacking get() {
+                        return RelPacking.UnPckd;
                     }
                 });
 
@@ -708,6 +756,11 @@ public class PelagoRules {
                     public RelDeviceType get() {
                         return leftDeviceType  ;
                     }
+                })
+                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+                    public RelPacking get() {
+                        return RelPacking.UnPckd;
+                    }
                 });
 
             RelTraitSet rightTraitSet = rel.getCluster().traitSet().replace(out)
@@ -718,6 +771,11 @@ public class PelagoRules {
                 }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
                     public RelDeviceType get() {
                         return rightDeviceType  ;
+                    }
+                })
+                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+                    public RelPacking get() {
+                        return RelPacking.UnPckd;
                     }
                 });
 
@@ -785,6 +843,11 @@ public class PelagoRules {
 //            RelDistribution rdl = RelDistributions.hash(inf.leftKeys );
 //            RelDistribution rdr = RelDistributions.hash(inf.rightKeys);
 
+//                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+//                public RelPacking get() {
+//                    return RelPacking.UnPckd;
+//                }
+//            })
 //            RelNode left  = convert(convert(join.getLeft (), out), rdl);//RelDistributionTraitDef.INSTANCE.convert(rel.getCluster().getPlanner(), join.getLeft (), rdl, true);
             RelNode left  = convert(convert(join.getLeft (), out), RelDistributions.BROADCAST_DISTRIBUTED);//RelDistributionTraitDef.INSTANCE.convert(rel.getCluster().getPlanner(), join.getLeft (), rdl, true);
 //            RelNode right = convert(convert(join.getRight(), out), rdr);//RelDistributionTraitDef.INSTANCE.convert(rel.getCluster().getPlanner(), join.getRight(), rdr, true);

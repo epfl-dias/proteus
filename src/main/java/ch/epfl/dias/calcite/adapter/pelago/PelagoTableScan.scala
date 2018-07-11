@@ -93,30 +93,30 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
 //    ret
 //  }
 
-  override def implement: (Binding, JValue) = {
-    val op = ("operator", "block-to-tuples")
-    val child = implementScan
-    val childBinding: Binding = child._1
-    val childOp = child._2
-    val alias = childBinding.rel
+//  override def implement: (Binding, JValue) = {
+//    val op = ("operator", "block-to-tuples")
+//    val child = implementScan
+//    val childBinding: Binding = child._1
+//    val childOp = child._2
+//    val alias = childBinding.rel
+//
+//
+//    val projs = getRowType.getFieldList.asScala.zipWithIndex.map {
+//      f => {
+//        emitExpression(RexInputRef.of(f._2, /*child.*/ getRowType), List(childBinding))
+//      }
+//    }
+//
+//    val json = op ~
+//      ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+//      ("projections", projs                                                 ) ~
+//      ("input"      , childOp                                               )
+//    val binding: Binding = Binding(alias, getFields(getRowType))
+//    val ret: (Binding, JValue) = (binding, json)
+//    ret
+//  }
 
-
-    val projs = getRowType.getFieldList.asScala.zipWithIndex.map {
-      f => {
-        emitExpression(RexInputRef.of(f._2, /*child.*/ getRowType), List(childBinding))
-      }
-    }
-
-    val json = op ~
-      ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
-      ("projections", projs                                                 ) ~
-      ("input"      , childOp                                               )
-    val binding: Binding = Binding(alias, getFields(getRowType))
-    val ret: (Binding, JValue) = (binding, json)
-    ret
-  }
-
-  def implementScan: (Binding, JValue) = {
+  def implement: (Binding, JValue) = {
     val op = ("operator" , "scan")
     //TODO Cross-check: 0: schemaName, 1: tableName (?)
     val srcName  = getPelagoRelName //s.getTable.getQualifiedName.get(1)
@@ -152,10 +152,14 @@ object PelagoTableScan {
               override def get: RelDistribution = {
                 return pelagoTable.getDistribution
               }
-          }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType]() {
+          }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType  ]() {
               override def get: RelDeviceType = {
                 return pelagoTable.getDeviceType
               }
+          }).replaceIf(RelPackingTraitDef   .INSTANCE, new Supplier[RelPacking     ]() {
+            override def get: RelPacking = {
+              return pelagoTable.getPacking
+            }
           });
     new PelagoTableScan(cluster, traitSet, table, pelagoTable, fields)
   }

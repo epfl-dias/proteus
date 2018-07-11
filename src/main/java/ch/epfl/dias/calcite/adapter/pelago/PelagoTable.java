@@ -149,4 +149,9 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     public static PelagoTable create(Source source, String name, Map<String, ?> plugin, RelProtoDataType lineType) throws MalformedPlugin {
         return new PelagoTable(source, lineType, plugin, getLineHintFromPlugin(name, plugin));
     }
+
+    public RelPacking getPacking() {
+        if (plugin.get("type").toString().equalsIgnoreCase("block")) return RelPacking.Packed;
+        return RelPacking.UnPckd;
+    }
 }

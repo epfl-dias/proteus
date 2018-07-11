@@ -4,6 +4,7 @@ import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelOptUtil.RexInputConverter;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.logical.LogicalProject;
@@ -55,6 +56,10 @@ public class PelagoProjectTableScanRule extends RelOptRule {
     final Project project = call.rel(0);
     final PelagoTableScan scan = call.rel(1);
 
+    call.transformTo(merge(project, scan));
+  }
+
+  public static RelNode merge(Project project, PelagoTableScan scan) {
     final Mappings.TargetMapping mapping = project.getMapping();
 
     SortedSet<Integer> projects2 = new TreeSet();
@@ -80,16 +85,14 @@ public class PelagoProjectTableScanRule extends RelOptRule {
       projs.add(project.getProjects().get(j).accept(conv));
     }
 
-    call.transformTo(
-      PelagoProject.create(
-          PelagoTableScan.create(
-              scan.getCluster(),
-              scan.getTable(),
-              scan.pelagoTable(),
-              fields),
-          projs,
-          project.getRowType()
-      )
+    return PelagoProject.create(
+        PelagoTableScan.create(
+            scan.getCluster(),
+            scan.getTable(),
+            scan.pelagoTable(),
+            fields),
+        projs,
+        project.getRowType()
     );
 //
 //    call.transformTo(

@@ -57,6 +57,7 @@ import org.apache.calcite.util.Util;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
+import ch.epfl.dias.calcite.adapter.pelago.RelPackingTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
 
@@ -86,6 +87,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         RelOptPlanner planner = super.createPlanner(prepareContext, externalContext, costFactory);
         planner.addRelTraitDef(RelDistributionTraitDef.INSTANCE);
         planner.addRelTraitDef(RelDeviceTypeTraitDef  .INSTANCE);
+        planner.addRelTraitDef(RelPackingTraitDef     .INSTANCE);
 
 //        COMMUTE
 //                ? JoinAssociateRule.INSTANCE

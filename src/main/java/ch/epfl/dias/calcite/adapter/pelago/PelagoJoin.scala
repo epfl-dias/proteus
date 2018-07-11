@@ -168,7 +168,8 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     }.zipWithIndex.map{e => ("e", e._1) ~ ("packet", e._2 + 1) ~ ("offset", 0)} //FIXME: using different packets for each of them is the worst performance-wise
 
     val rowEst = Math.min(getLeft.estimateRowCount(getCluster.getMetadataQuery), 128*1024*1024)
-    val maxEst = Math.min(getCluster.getMetadataQuery.getMaxRowCount(getLeft  ), 128*1024*1024)
+    val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getLeft  )
+    val maxEst = if (maxrow != null) Math.min(maxrow, 128*1024*1024) else 128*1024*1024
 
     val hash_bits = 1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int]
 
