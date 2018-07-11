@@ -1,1 +1,0 @@
-s_suppkey:int,s_name:string,s_address:string,s_city:string,s_nation:string,s_region:string,s_phone:string

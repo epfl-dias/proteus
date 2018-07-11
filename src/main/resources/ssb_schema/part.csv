@@ -1,1 +1,0 @@
-p_partkey:int,p_name:string,p_mfgr:string,p_category:string,p_brand1:string,p_color:string,p_type:string,p_size:int,p_container:string
