@@ -22,6 +22,7 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s.jackson.Serialization
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.Buffer
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks._
 
@@ -204,12 +205,14 @@ object PlanToJSON {
   //First n-1 args: Consecutive if-then pairs
   //Last arg: 'Else' clause
   def emitCaseOp(op: SqlCaseOperator, args: ImmutableList[RexNode], opType: String, f: List[Binding]) : JValue =  {
-    val cases: JValue = args.asScala.dropRight(1).grouped(2).toList.map  {
-      case ArrayBuffer(first: RexNode,second: RexNode) => ("if",emitExpression(first,f)) ~ ("then",emitExpression(second,f))
-    }
-    val elseNode : RexNode = args.get(args.size() - 1)
-    val json : JValue = ("expression", "case") ~ ("cases", cases) ~ ("else", emitExpression(elseNode,f))
-    json
+    buildCaseExpr(args.asScala.dropRight(1).grouped(2).toList, args.get(args.size() - 1), f)
+  }
+
+  def buildCaseExpr(args: List[Buffer[RexNode]], elseNode: RexNode, f: List[Binding]): JValue = {
+    ("expression", "if") ~
+      ("cond", emitExpression(args(0)(0), f)) ~
+      ("then", emitExpression(args(0)(1), f)) ~
+      ("else", if (args.size == 1) emitExpression(elseNode, f) else buildCaseExpr(args.tail, elseNode, f))
   }
 
   def emitArg(arg: RexInputRef, f: List[Binding]) : JValue = {

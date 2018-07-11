@@ -139,7 +139,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             PushProjector.ExprCondition.FALSE)); //XXX causes non-termination
         /*it is better to use filter first an then project*/
         rules.add(ProjectTableScanRule.INSTANCE);
-        rules.add(new ProjectMergeRule(true, PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(ProjectMergeRule.INSTANCE);//new ProjectMergeRule(true, PelagoRelFactories.PELAGO_BUILDER));
         //aggregate rules
         rules.add(AggregateRemoveRule.INSTANCE);
         rules.add(AggregateJoinTransposeRule.INSTANCE);

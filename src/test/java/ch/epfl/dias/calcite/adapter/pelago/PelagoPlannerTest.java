@@ -305,7 +305,11 @@ public class PelagoPlannerTest {
       + " and (d_year = 1997 or d_year = 1998)\n"
       + " and p_category = 'MFGR#14' \n"
       + "group by d_year, s_city, p_brand1\n"
-      + "order by d_year, s_city, p_brand1"
+      + "order by d_year, s_city, p_brand1",
+
+     // "case" query
+    "select case when d_year < 15 then case when d_year > 0 then 2 else 0 end else 1 end "
+      + "from ssbm_date"
   };
 
   private final String sql;
