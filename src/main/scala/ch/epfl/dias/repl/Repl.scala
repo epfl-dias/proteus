@@ -44,6 +44,8 @@ object Repl extends App {
       case Nil => map
       case "--server" :: tail =>
         nextOption(map ++ Map('server -> true), tail)
+      case "--echo-results" :: tail =>
+        nextOption(map ++ Map('echoResults -> true), tail)
       case "--port" :: value :: tail =>
         nextOption(map ++ Map('port -> value.toInt), tail)
       case "--mockfile" :: value :: tail =>
@@ -52,17 +54,18 @@ object Repl extends App {
         nextOption(map ++ Map('mock -> true), tail)
       case string :: Nil => nextOption(map ++ Map('schema -> string), list.tail)
       case option :: tail => println("Unknown option " + option)
-        println("Usage: [--server [--port]] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]")
+        println("Usage: [--server [--port]] [--echo-results] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]")
         System.exit(1)
         null
     }
   }
 
-  val options = nextOption(Map('server -> false, 'port -> 8081, 'mock -> false, 'mockfile -> defaultMock, 'schema -> defaultSchema), arglist)
+  val options = nextOption(Map('server -> false, 'port -> 8081, 'echoResults -> false, 'mock -> false, 'mockfile -> defaultMock, 'schema -> defaultSchema), arglist)
   System.out.println(options);
 
-  var mockfile  = options.get('mockfile).get.asInstanceOf[String]
-  var isMockRun = options.get('mock).get.asInstanceOf[Boolean]
+  var mockfile    = options('mockfile   ).asInstanceOf[String ]
+  var isMockRun   = options('mock       ).asInstanceOf[Boolean]
+  var echoResults = options('echoResults).asInstanceOf[Boolean]
 
   /*
   //Getting the actual model doesn't do us any good, unless we put it together programmatically on our own
