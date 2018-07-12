@@ -79,6 +79,8 @@ object PlanToJSON {
           case SqlTypeName.INTEGER => new           Integer(lit.toString).asInstanceOf[Int    ]
           case SqlTypeName.BIGINT  => new java.lang.Long   (lit.toString).asInstanceOf[Long   ]
           case SqlTypeName.BOOLEAN => new java.lang.Boolean(lit.toString).asInstanceOf[Boolean]
+          case SqlTypeName.FLOAT   => new java.lang.Double (lit.toString).asInstanceOf[Double ]
+          case SqlTypeName.DOUBLE  => new java.lang.Double (lit.toString).asInstanceOf[Double ]
           case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)
           case SqlTypeName.CHAR    => lit.getValueAs(classOf[String])
           case _ => {
@@ -271,6 +273,8 @@ object PlanToJSON {
     case SqlTypeName.VARCHAR => "dstring"
     case SqlTypeName.CHAR    => "dstring"
     case SqlTypeName.BOOLEAN => "bool"
+    case SqlTypeName.DOUBLE  => "float" // proteu's float is a c++ double
+    case SqlTypeName.FLOAT   => "float" // proteu's float is a c++ double
     case _ => throw new PlanConversionException("Unknown type: " + arg.getSqlTypeName)
   }
 
