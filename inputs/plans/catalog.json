@@ -632,6 +632,63 @@
 			"policy": 2
 		}
 	},
+	"employeesnum": {
+		"path": "inputs/json/employees-numeric-only.json",
+		"type": {
+			"type": "bag",
+			"inner": {
+				"type": "record",
+				"attributes": [{
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/json/employees-numeric-only.json",
+					"attrName": "height",
+					"attrNo": 1
+				}, {
+					"type": {
+						"type": "int"
+					},
+					"relName": "inputs/json/employees-numeric-only.json",
+					"attrName": "age",
+					"attrNo": 2
+				}, {
+					"type": {
+						"type": "list",
+						"inner": {
+							"type": "record",
+							"attributes": [
+								{
+									"type": {
+										"type": "int"
+									},
+									"relName": "inputs/json/employees-numeric-only.json",
+									"attrName": "height2",
+									"attrNo": 1
+								},
+								{
+									"type": {
+										"type": "int"
+									},
+									"relName": "inputs/json/employees-numeric-only.json",
+									"attrName": "age2",
+									"attrNo": 2
+								}
+							]
+						}
+					},
+					"relName": "inputs/json/employees-numeric-only.json",
+					"attrName": "children",
+					"attrNo": 3
+				}]
+			}
+		},
+		"plugin": {
+			"type": "json",
+			"lines": 3,
+			"policy": 2
+		}
+	},
 	"A": {
 		"path": "inputs/A.csv",
 		"type": {
