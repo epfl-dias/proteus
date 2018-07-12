@@ -2119,11 +2119,6 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		retValue = new expressions::RecordConstruction(exprType,*newAtts);
 
 	} else if (strcmp(valExpression,"if") == 0)	{
-		/* exprType */
-		assert(val.HasMember(keyExprType));
-		assert(val[keyExprType].IsObject());
-		ExpressionType *exprType = parseExpressionType(val[keyExprType]);
-
 		/* if cond */
 		assert(val.HasMember(keyCond));
 		assert(val[keyCond].IsObject());
@@ -2139,7 +2134,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[keyElse].IsObject());
 		expressions::Expression *elseExpr = parseExpression(val[keyElse]);
 
-		retValue = new expressions::IfThenElse(exprType,condExpr,thenExpr,elseExpr);
+		retValue = new expressions::IfThenElse(condExpr,thenExpr,elseExpr);
 	}
 	/*
 	 * BINARY EXPRESSIONS
