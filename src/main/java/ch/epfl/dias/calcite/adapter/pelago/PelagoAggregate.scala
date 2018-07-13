@@ -60,6 +60,7 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
     //'Sum0 is an aggregator which returns the sum of the values which go into it like Sum.'
     //'It differs in that when no non null values are applied zero is returned instead of null.'
     case SqlKind.SUM0    => "sum0"
+    case SqlKind.COLLECT => "bagunion"
     case _ => {
       val msg : String = "unknown aggr. function " + agg.getKind.toString
       throw new PlanConversionException(msg)

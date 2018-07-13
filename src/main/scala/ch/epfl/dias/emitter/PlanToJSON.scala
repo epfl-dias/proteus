@@ -293,6 +293,9 @@ object PlanToJSON {
         }
       )
     }
+    case SqlTypeName.MULTISET   => {
+      ("type", "bag") ~ ("inner", emitType(arg.getComponentType, binding))
+    }
     case _ => throw new PlanConversionException("Unknown type: " + arg)
   }
 
@@ -321,15 +324,28 @@ object PlanToJSON {
     }
   }
 
-  def emitSchema(relName: String, t: RelDataType): JValue = t match {
-    case recType : RelRecordType => emitRowType(relName, recType)
+  def emitSchema(relName: String, t: RelDataType): JValue = {
+    emitSchema(relName, t, false)
+  }
+
+  def emitSchema(relName: String, t: RelDataType, with_attrNo: Boolean): JValue = t match {
+    case recType : RelRecordType => emitRowType(relName, recType, with_attrNo)
     case _ => throw new PlanConversionException("Unknown schema type (non-record one)")
   }
 
   def emitRowType(relName: String, t: RelRecordType): JValue = {
-    val fields = t.getFieldList.asScala.map {
+    emitRowType(relName, t, false)
+  }
+
+  def emitRowType(relName: String, t: RelRecordType, with_attrNo: Boolean): JValue = {
+    val bindings = List(Binding(relName, getFields(t)))
+    val fields = t.getFieldList.asScala.zipWithIndex.map {
       f => {
-        ("relName", relName) ~ ("attrName", f.getName) //~ ("type", emitType(f.getType))
+        if (with_attrNo) {
+          ("relName", relName) ~ ("attrName", f._1.getName) ~ ("type", emitType(f._1.getType, bindings)) ~ ("attrNo", f._2 + 1)
+        } else {
+          ("relName", relName) ~ ("attrName", f._1.getName) ~ ("type", emitType(f._1.getType, bindings))
+        }
       }
     }
     fields
