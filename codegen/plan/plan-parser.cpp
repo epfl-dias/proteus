@@ -2556,9 +2556,32 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 	if (!datasetInfo){
 		RecordType * rec = new RecordType();
 
+		if (val.HasMember("schema")){
+			const auto &schema = val["schema"];
+			assert(schema.IsArray());
+
+			for (SizeType i = 0; i < schema.Size(); i++)
+			{
+				assert(schema[i].IsObject());
+				RecordAttribute *recAttr = parseRecordAttr(schema[i]);
+				
+				std::cout << "Plugin Registered: " << 
+					recAttr->getRelationName() << "." << 
+					recAttr->getAttrName() << std::endl;
+				
+				rec->appendAttribute(recAttr);
+			}
+		}
+
 		datasetInfo            = new InputInfo()  ;
 		datasetInfo->exprType  = new BagType(*rec);
 		datasetInfo->path      = datasetName;
+
+		if (val.HasMember("schema")){
+			// Register it to make it visible to the plugin
+			datasetInfo->oidType = NULL;
+			(this->catalogParser).setInputInfo(datasetName, datasetInfo);
+		}
 
 		pluginExisted = false;
 	}
