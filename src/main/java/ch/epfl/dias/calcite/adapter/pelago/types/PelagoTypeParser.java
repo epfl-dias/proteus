@@ -85,21 +85,21 @@ public class PelagoTypeParser {
     public static RelDataType parseSet(RelDataTypeFactory typeFactory, Map<String, ?> type) throws IOException {
         assert(type.getOrDefault("type", null).equals("set"));
         RelDataType innerType = parseType(typeFactory, (Map<String, ?>) type.get("inner"));
-        RelDataType sqlType = typeFactory.createMultisetType(innerType, Long.MAX_VALUE); //TODO: not really a multiset
+        RelDataType sqlType = typeFactory.createMultisetType(innerType, -1); //TODO: not really a multiset
         return typeFactory.createTypeWithNullability(sqlType, true);
     }
 
     public static RelDataType parseBag(RelDataTypeFactory typeFactory, Map<String, ?> type) throws IOException {
         assert(type.getOrDefault("type", null).equals("bag"));
         RelDataType innerType = parseType(typeFactory, (Map<String, ?>) type.get("inner"));
-        RelDataType sqlType = typeFactory.createMultisetType(innerType, Long.MAX_VALUE);
+        RelDataType sqlType = typeFactory.createMultisetType(innerType, -1);
         return typeFactory.createTypeWithNullability(sqlType, true);
     }
 
     public static RelDataType parseList(RelDataTypeFactory typeFactory, Map<String, ?> type) throws IOException {
         assert(type.getOrDefault("type", null).equals("list"));
         RelDataType innerType = parseType(typeFactory, (Map<String, ?>) type.get("inner"));
-        RelDataType sqlType = typeFactory.createArrayType(innerType, Long.MAX_VALUE);
+        RelDataType sqlType = typeFactory.createArrayType(innerType, -1);
         return typeFactory.createTypeWithNullability(sqlType, true);
     }
 

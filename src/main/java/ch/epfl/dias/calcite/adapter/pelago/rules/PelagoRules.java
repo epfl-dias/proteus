@@ -39,6 +39,7 @@ public class PelagoRules {
         PelagoAggregateRule.INSTANCE,
         PelagoSortRule.INSTANCE,
         PelagoFilterRule.INSTANCE,
+        PelagoUnnestRule.INSTANCE,
 //        PelagoRouterRule.INSTANCE,
 //                                                PelagoJoinRule2.INSTANCE,
 //        JoinCommuteRule.INSTANCE,
@@ -231,6 +232,103 @@ public class PelagoRules {
 //                System.out.println(r.getTraitSet());
                 return r;
 //            }
+        }
+    }
+
+    /**
+     * Rule to create a {@link PelagoUnnest}.
+     */
+    private static class PelagoUnnestRule extends RelOptRule {
+        private static final PelagoUnnestRule INSTANCE = new PelagoUnnestRule();
+
+        private PelagoUnnestRule() {
+            super(//LogicalCorrelate.class,
+                operand(
+                    LogicalCorrelate.class,
+                    operand(
+                        RelNode.class,
+                        any()
+                    ),
+                    operand(
+                        Uncollect.class,
+                        operand(
+                            LogicalProject.class,
+                            any()
+                        )
+                    )
+                ),
+                PelagoRelFactories.PELAGO_BUILDER,
+                "PelagoUnnestRule"
+            );
+        }
+
+        public boolean matches(RelOptRuleCall call) {
+            return true;
+//            Correlate correlate = (Correlate) call.rel(0);
+//
+//            if (!(correlate.getRight() instanceof Uncollect)) return false;
+//            Uncollect uncollect = (Uncollect) correlate.getRight();
+//            return true;
+
+//            if (!(uncollect.getInput() instanceof Project )) return false;
+//            Project   proj      = (Project  ) uncollect.getInput();
+//
+//            if (!(proj     .getInput() instanceof Values  )) return false;
+//            Values    val       = (Values   ) proj.getInput();
+
+//            return val.tuples.size() == 1;
+        }
+
+        @Override public void onMatch(final RelOptRuleCall call) {
+            RelNode rel = call.rel(0);
+            if (!(rel.getTraitSet().contains(Convention.NONE))) return;
+//                final RelNode converted = convert(rel);
+//                if (converted != null) {
+//                    call.transformTo(converted);
+//                }
+//            }
+//        }
+//
+//        public RelNode convert(RelNode rel) {
+            RelNode   input     =             call.rel(1);
+            Correlate correlate = (Correlate) call.rel(0);
+            Uncollect uncollect = (Uncollect) call.rel(2);//correlate.getRight();
+            Project   proj      = (Project  ) call.rel(3);//uncollect.getInput();
+
+
+            RelTraitSet traitSet = uncollect.getTraitSet().replace(PelagoRel.CONVENTION)//rel.getCluster().traitSet()
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
+                    public RelDeviceType get() {
+                        return RelDeviceType.X86_64;
+                    }
+                })
+                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                    public RelDistribution get() {
+                        return RelDistributions.SINGLETON;
+                    }
+                })
+                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
+                    public RelPacking get() {
+                        return RelPacking.UnPckd;
+                    }
+                })
+                ;
+
+//            System.out.println("=====" + traitSet);
+            RelNode inp = convert(input, traitSet);//, RelDistributions.SINGLETON);
+
+            call.transformTo(
+                PelagoUnnest.create(
+                    inp,
+//                    uncollect,
+                    correlate.getCorrelationId(),
+//                    correlate.getRequiredColumns(),
+//                    correlate.getJoinType(),
+//                    correlate.getRowType()
+                    proj.getNamedProjects(),
+                    uncollect.getRowType()
+                )
+            );
         }
     }
 
