@@ -66,11 +66,13 @@ sql_translate_env.ViDaRConnection <- function(con) {
                    collect = sql_prefix("collect"),
                    slice_index = function(what, ind) {
                      build_sql(sql(deparse(substitute(what))), sql("["), ind, sql("]"))
-                   }
+                   }#,
+                   #kmeans1 = function(data, k=10, max.iter=5) {
+                  #  build_sql(sql("KMEANS") , sql("k = "), sql(k))
     ),
     sql_translator(.parent = base_agg
                    #collect = sql_prefix("collect")
-                   # e.g. for_all = sql_aggregate_2("unnest")
+                   #for_all = sql_aggregate_2("unnest")
     ),
     sql_translator(.parent = base_no_win
     )

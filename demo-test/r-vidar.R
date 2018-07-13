@@ -9,10 +9,10 @@ library(jsonlite)
 # connection parameters
 driverClass <- "org.apache.calcite.avatica.remote.Driver"
 driverLocation <- "src/avatica-1.11.0.jar"
-connectionString <- "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF"
+connectionString <- "jdbc:avatica:remote:url=http://diascld36.epfl.ch:8081;serialization=PROTOBUF"
 
 # establishing the connection
-con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation))
+con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString = connectionString)
 
 # creating table only from csv, linehint still necessary
 test_noheader <- readcsv(connection = con, path = "demo-test/test.csv", linehint = 5, header = FALSE)
@@ -71,7 +71,7 @@ customer %>% filter(c_nation=='MOROCCO') %>% select(c_name, c_phone)
 
 # loading the nested table as well, no support yet for nested queries
 employees <- tbl(con, "employees")
-employees %>% select(name, age)
+employees %>% select(age)
 
 
 # dplyr demonstration - filtering, summarising, selecting, joining
@@ -97,7 +97,6 @@ supplier_profit <- inner_join(supplier, lineorder, by=c("s_suppkey"="lo_suppkey"
 supplier_profit %>% collect() %>% ggplot(., aes(x=d_yearmonthnum, y=profit, group=1)) +
   geom_line() +
   ggtitle(paste("Profits for Supplier#000047861"))
-
 
 # query lasts for too long
 # profit for selected product in regions in 1997 - barchart - execution bug

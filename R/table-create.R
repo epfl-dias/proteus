@@ -27,7 +27,9 @@ create_table_level <- function(list, parent_name){
 
 # jplugin `{\'plugin\':{ \'type\':\'block\', \'linehint\':200000 }, \'file\':\'/inputs/csv.csv\'}`
 setMethod("sqlCreateTable", signature("ViDaRConnection"),
-          function(con, table, fields,  temporary = FALSE, path = NULL, type = NULL, linehint = NULL, ...) {
+          function(con, table, fields,  temporary = FALSE, path = NULL, type = NULL, linehint = NULL,
+                   lines = NULL, policy= NULL, delimiter = NULL, brackets = NULL,
+                   ...) {
 
             table <- dbQuoteIdentifier(con, table)
 
@@ -72,10 +74,18 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
 
             # appending plugin info - % will be replaced by \\\" in query text processing
             metadata <- ""
-            if(!is.null(path) || !is.null(type) || !is.null(linehint)){
-              metadata <- paste0(metadata, " JPLUGIN `{%plugin%:{%type%: %", if(!is.null(type)) type else "block", "%,",
-                                 "%linehint%: ", if(!is.null(linehint)) toString(as.integer(linehint)) else "20000", "}, ",
-                                 "%file%: %", if(!is.null(type)) type else "default_path", "%}`")
+            if(!is.null(path) || !is.null(type) || !is.null(linehint) || !is.null(lines) || !is.null(policy) || !is.null(delimiter)
+               || !is.null(brackets)){
+              metadata <- paste0(metadata, " JPLUGIN `{%plugin%:{",
+                                 if(!is.null(lines)) paste0("%lines%: ", toString(as.integer(lines)), ","),
+                                 if(!is.null(linehint)) paste0("%linehint%: ", toString(as.integer(linehint)), ","),
+                                 if(!is.null(policy)) paste0("%policy%: ", toString(as.integer(policy)), ","),
+                                 if(!is.null(delimiter)) paste0("%delimiter%: %", delimiter, "% ,"),
+                                 if(!is.null(brackets)) paste0("%brackets%: ", if(brackets) "true" else "false", ","),
+
+                                 "%type%: %", if(!is.null(type)) type else "block", "%",
+                                 "}, ",
+                                 "%file%: %", if(!is.null(path)) path else "default_path", "%}`")
             }
 
             query <- SQL(paste0(query, metadata))
@@ -85,7 +95,9 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
 )
 
 setMethod("dbCreateTable", signature("ViDaRConnection"),
-          def = function(conn, name, fields, ..., path = NULL, type = NULL, linehint = NULL, row.names = NULL, temporary = FALSE) {
+          def = function(conn, name, fields, ..., path = NULL, type = NULL, linehint = NULL, lines = NULL, policy = NULL, delimiter = NULL, brackets = NULL,
+                         row.names = NULL, temporary = FALSE # rownames and temporary always in the end per contract
+                         ) {
 
             query <- sqlCreateTable(
               con = conn,
@@ -95,6 +107,10 @@ setMethod("dbCreateTable", signature("ViDaRConnection"),
               path = path,
               type = type,
               linehint = linehint,
+              lines = lines,
+              policy = policy,
+              delimiter = delimiter,
+              brackets = brackets,
               ...
             )
 

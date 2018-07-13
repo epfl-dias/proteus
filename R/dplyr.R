@@ -24,4 +24,3 @@ get_unnests <- function(quosures) {
 
   return(ident(unnests))
 }
-

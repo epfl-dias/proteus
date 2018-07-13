@@ -11,21 +11,38 @@ library(jsonlite)
 # establishing the connection
 driverClass <- "org.apache.calcite.avatica.remote.Driver"
 driverLocation <- "src/avatica-1.11.0.jar"
-connectionString <- "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF"
+#connectionString <- "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF"
+connectionString <- "jdbc:avatica:remote:url=http://diascld36.epfl.ch:8081;serialization=PROTOBUF"
 
-con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation))
+
+con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString=connectionString)
+
+i <- readcsv(connection = con, path = "~/data/iris.csv", lines = 150,
+                       fields = list(s_length="double", s_width="double",
+                                     p_length="double", p_width="double",
+                                     species="varchar"),
+             delimiter = ",", policy = 2, brackets = FALSE)
+
+
+d <- tbl(con, "ssbm_date")
 
 # unnest try
-emp_jsn = '{"name":"string", "age":"int", "children":[{"name2":"string", "age2":"int"}]}'
-df_emp <- data.frame(jsonlite::fromJSON(emp_jsn, flatten = TRUE, simplifyDataFrame = TRUE))
-emp <- as.tbl(df_emp)
-emp <- tbl(con, "emp")
+#emp_jsn = '{"name":"string", "age":"int", "children":[{"name2":"string", "age2":"int"}]}'
+#df_emp <- data.frame(jsonlite::fromJSON(emp_jsn, flatten = TRUE, simplifyDataFrame = TRUE))
+#emp <- as.tbl(df_emp)
+#emp <- tbl(con, "emp")
+emp <- tbl(con, "employees")
 
 test <- emp %>% for_all(name) %>% sql_build(.)
 test <- emp %>% for_all(name, name1) %>% filter(age>15) %>% filter(age>18) %>% select(name) %>% sql_build(.)
 test <- emp %>% filter(age>18) %>% for_all(name, blabla) %>% sql_build(.)
 test <- emp %>% filter(age>15) %>% for_all(emp.children) %>% summarise(card = count(name), collected = collect(age)) %>% sql_build(.)
 
+
+# creating table only from csv, linehint still necessary
+points <- readcsv(connection = con, path = "~/data/iris.csv", linehint = 5,
+                  fields = list(a="integer", b="integer"))
+test_noheader
 
 
 #writeLines(".memcpy off", con@env$conn)

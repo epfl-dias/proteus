@@ -7,13 +7,14 @@ getLastChars <- function(string, n)
 # Simple wrapper for opening CSV files and retrieving a dataframe
 # TODO: the difference is that we need to specify the fields and types, linehint...
 # Fields - example: list(a="integer", b="varchar")
-readcsv <- function(connection, fields = NULL, path, linehint, local = TRUE, name = NULL, remotePath = NULL,
-                    sep = ',', header = TRUE, colClasses = NULL, colNames = NULL) {
+readcsv <- function(connection, fields = NULL, path, linehint = NULL, local = TRUE, name = NULL, remotePath = NULL,
+                    sep = ',', header = TRUE, colClasses = NULL, colNames = NULL, lines = NULL, policy = NULL,
+                    delimiter = NULL, brackets = NULL) {
   if(is.null(path))
     stop("Path cannot be undefined")
 
-  if(is.null(linehint))
-    stop("Linehing cannot be undefined")
+  if(is.null(linehint) && is.null(lines))
+    stop("Either linehint or lines has to be defined")
 
   # if name is not specified, extract it from path
   if(is.null(name))
@@ -54,10 +55,12 @@ readcsv <- function(connection, fields = NULL, path, linehint, local = TRUE, nam
     else{
       print("Some logic to transfer the file to a remote")
 
-      dbCreateTable(conn = con, name = name, fields = fields, path = remotePath, linehint = linehint, type = "csv")
+      dbCreateTable(conn = con, name = name, fields = fields, path = remotePath, linehint = linehint, lines = lines, type = "csv",
+                    policy = policy, delimiter = delimiter, brackets = brackets)
     }
   } else {
-    dbCreateTable(conn = con, name = name, fields = fields, path = path, linehint = linehint, type = "csv")
+    dbCreateTable(conn = con, name = name, fields = fields, path = path, linehint = linehint, lines = lines, type = "csv",
+                  policy = policy, delimiter = delimiter, brackets = brackets)
   }
 
   return(tbl(connection, name))

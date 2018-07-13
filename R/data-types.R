@@ -1,8 +1,8 @@
 # mapping between types SQL->R, received from JDBC
 type_map <- list(integer="integer(0)", int="integer(0)", smallint="integer(0)",
-                 varchar="character(0)", string="character(0)",
+                 varchar="character(0)", string="character(0)", character="character(0)",
                  boolean="logical(0)",
-                 double="double(0)", dbl="double(0)")
+                 double="double(0)", dbl="double(0)", numeric="double(0)")
 
 # method used for mapping the types and handling some exceptions in direct type mapping
 mapJDBCType <- function(JDBCType) {
@@ -51,7 +51,7 @@ setOldClass("AsIs")
 setMethod("vidarDataType", signature("data.frame"), data_frame_data_type)
 setMethod("vidarDataType", signature("integer"),    function(x) "INT")
 setMethod("vidarDataType", signature("numeric"),    function(x) "DOUBLE")
-setMethod("vidarDataType", signature("double"),     function(x) "DOUBLE")
+#setMethod("vidarDataType", signature("double"),     function(x) "DOUBLE")
 setMethod("vidarDataType", signature("logical"),    function(x) "BOOLEAN")
 setMethod("vidarDataType", signature("Date"),       function(x) "DATE")
 setMethod("vidarDataType", signature("difftime"),   function(x) "TIME")
