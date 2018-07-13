@@ -317,6 +317,9 @@ public class PelagoPlannerTest {
     // unnest + group by query
     "select sum(age), age2 from employeesnum e, unnest(e.children) as c group by age2",
 
+    // unnest + group by query
+    "select count(A1) from A",
+
 //    // nest
 //    "select d_yearmonthnum, collect(d_datekey), collect(1) from ssbm_date group by d_yearmonthnum",
 //

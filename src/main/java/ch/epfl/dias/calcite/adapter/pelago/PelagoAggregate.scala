@@ -93,7 +93,8 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
         if (arg.size() == 1 && agg._1.getAggregation.getKind != SqlKind.COUNT) {
           emitExpression(RexInputRef.of(arg.get(0), getInput.getRowType), List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", reg_as)
           //            emitArg(arg.get(0), List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", reg_as)
-        } else if (arg.size() == 0 && agg._1.getAggregation.getKind == SqlKind.COUNT) {
+        } else if (arg.size() <= 1 && agg._1.getAggregation.getKind == SqlKind.COUNT) {
+          //FIXME: currently, count(A) ignores NULLs, so it is the same as count(*)
           ("expression", "int64") ~ ("v", 1) ~ ("register_as", reg_as)
         } else {
           //count() has 0 arguments; the rest expected to have 1
