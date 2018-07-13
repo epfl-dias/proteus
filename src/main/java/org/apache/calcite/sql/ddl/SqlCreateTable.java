@@ -230,11 +230,10 @@ public class SqlCreateTable extends SqlCreate
       try {
         JsonNode root = mapper.readTree(jsonPlugin);
 
-        HashMap<String, Object> info = new HashMap<>();
-        HashMap<String, Object> pluginInfo = new HashMap<>();
+        Map<String, Object> info = new HashMap<>();
+        Map<String, Object> pluginInfo = new HashMap<>();
 
-        pluginInfo.put("type", root.path("plugin").path("type").textValue());
-        pluginInfo.put("linehint", root.path("plugin").path("linehint").intValue());
+        pluginInfo = mapper.convertValue(root.path("plugin"), Map.class);
 
         info.put("plugin", pluginInfo);
         info.put("file", root.path("file").textValue());
