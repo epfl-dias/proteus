@@ -286,6 +286,12 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
           return null;
         }
         return Double.parseDouble(string);
+      } else if (fieldType.getType().getSqlTypeName() == SqlTypeName.DECIMAL) {
+        if (mock) return rand.nextFloat();
+        if (string.length() == 0) {
+          return null;
+        }
+        return new java.math.BigDecimal(string);
       } else if (fieldType.getType().getSqlTypeName() == SqlTypeName.DOUBLE) {
         if (mock) return rand.nextDouble();
         if (string.length() == 0) {

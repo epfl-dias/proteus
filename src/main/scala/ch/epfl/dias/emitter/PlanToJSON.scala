@@ -89,6 +89,7 @@ object PlanToJSON {
           case SqlTypeName.BOOLEAN => new java.lang.Boolean(lit.toString).asInstanceOf[Boolean]
           case SqlTypeName.FLOAT   => new java.lang.Double (lit.toString).asInstanceOf[Double ]
           case SqlTypeName.DOUBLE  => new java.lang.Double (lit.toString).asInstanceOf[Double ]
+          case SqlTypeName.DECIMAL => new java.lang.Double (lit.toString).asInstanceOf[Double ]
           case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)
           case SqlTypeName.CHAR    => lit.getValueAs(classOf[String])
           case _ => {
@@ -281,6 +282,7 @@ object PlanToJSON {
     case SqlTypeName.VARCHAR => ("type", "dstring")
     case SqlTypeName.CHAR    => ("type", "dstring")
     case SqlTypeName.BOOLEAN => ("type", "bool"   )
+    case SqlTypeName.DECIMAL => ("type", "float")
     case SqlTypeName.DOUBLE  => ("type", "float"  ) // proteu's float is a c++ double
     case SqlTypeName.FLOAT   => ("type", "float"  ) // proteu's float is a c++ double
     case SqlTypeName.ARRAY   => {
