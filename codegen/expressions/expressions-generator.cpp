@@ -1762,9 +1762,37 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::HashExpression *e)	{
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::NegExpression *e)	{
 	RawValue v = e->getExpr()->accept(*this);
-	v.value->getType()->dump();
 	v.value = context->getBuilder()->CreateNeg(v.value);
 	return v;
 }
+
+RawValue ExpressionGeneratorVisitor::visit(expressions::CastExpression *e)	{
+	IRBuilder<>* const TheBuilder  = context->getBuilder    ();
+	LLVMContext      & llvmContext = context->getLLVMContext();
+
+	RawValue v = e->getExpr()->accept(*this);
+
+	const ExpressionType  * etype_to   = e->getExpressionType();
+	llvm::Type            * ltype_to   = etype_to->getLLVMType(llvmContext);
+
+	const ExpressionType  * etype_from = e->getExpr()->getExpressionType();
+	llvm::Type            * ltype_from = etype_from->getLLVMType(llvmContext);
+
+	bool fromFP = ltype_from->isIntegerTy();
+	bool toFP   = ltype_to  ->isIntegerTy();
+
+	if        ( toFP &&  fromFP){
+		v.value = TheBuilder->CreateSExtOrTrunc(v.value, ltype_to);
+	} else if (!toFP &&  fromFP){
+		v.value = TheBuilder->CreateSIToFP     (v.value, ltype_to);
+	} else if ( toFP && !fromFP){
+		v.value = TheBuilder->CreateFPToSI     (v.value, ltype_to);
+	} else                      {
+		v.value = TheBuilder->CreateFPCast     (v.value, ltype_to);
+	}
+	
+	return v;
+}
+
 
 #pragma pop_macro("DEBUG") //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side

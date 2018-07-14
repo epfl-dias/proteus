@@ -37,7 +37,7 @@ namespace expressions
 {
 
 
-enum ExpressionId	{ CONSTANT, RAWVALUE, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE, EXPRESSION_HASHER, NEG_EXPRESSION};
+enum ExpressionId	{ CONSTANT, RAWVALUE, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE, EXPRESSION_HASHER, NEG_EXPRESSION, CAST_EXPRESSION};
 
 class Expression	{
 public:
@@ -1092,6 +1092,29 @@ private:
 	Expression* expr;
 };
 
+class CastExpression : public Expression	{
+public:
+	CastExpression(ExpressionType *cast_to, Expression* expr):
+			Expression(cast_to), expr(expr) {}
+
+	~CastExpression()								{}
+
+	Expression* getExpr() const						{ return expr; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const					{ return CAST_EXPRESSION; }
+	inline bool operator<(const expressions::Expression& r) const {
+			if (this->getTypeID() == r.getTypeID()) {
+				const CastExpression& rHash = dynamic_cast<const CastExpression&>(r);
+				return *(this->getExpr()) < *(rHash.getExpr());
+			} else {
+				return this->getTypeID() < r.getTypeID();
+			}
+		}
+private:
+	Expression* expr;
+};
+
 class MultExpression : public BinaryExpression	{
 public:
 	MultExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
@@ -1445,6 +1468,7 @@ public:
 	virtual RawValue visit(expressions::MaxExpression *e) 		= 0;
 	virtual RawValue visit(expressions::HashExpression *e) 		= 0;
 	virtual RawValue visit(expressions::NegExpression *e) 		= 0;
+	virtual RawValue visit(expressions::CastExpression *e1) 	= 0;
 //	virtual RawValue visit(expressions::MergeExpression *e)  	= 0;
 	virtual ~ExprVisitor() {}
 };
@@ -1506,6 +1530,8 @@ public:
 			expressions::HashExpression *e2) = 0;
 	virtual RawValue visit(expressions::NegExpression *e1,
 			expressions::NegExpression *e2) = 0;
+	virtual RawValue visit(expressions::CastExpression *e1,
+			expressions::CastExpression *e2) = 0;
 	virtual ~ExprTandemVisitor() {}
 };
 

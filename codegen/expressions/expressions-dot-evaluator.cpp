@@ -653,3 +653,8 @@ RawValue ExpressionDotVisitor::visit(expressions::NegExpression *e1,
 	valWrapper.isNull = context->createFalse();
 	return valWrapper;
 }
+
+RawValue ExpressionDotVisitor::visit(expressions::CastExpression *e1,
+		expressions::CastExpression *e2) {
+	return e1->getExpr()->acceptTandem(*this, e2->getExpr());
+}

@@ -65,7 +65,7 @@ class ExpressionParser {
 	CatalogParser &catalogParser;
 public:
 	ExpressionParser(CatalogParser& catalogParser): catalogParser(catalogParser) {};
-	expressions::Expression* parseExpression(const rapidjson::Value& val);
+	expressions::Expression* parseExpression(const rapidjson::Value& val, RawContext * ctx);
 	ExpressionType* 		 parseExpressionType(const rapidjson::Value& val);
 	RecordAttribute* 		 parseRecordAttr(const rapidjson::Value& val, const ExpressionType * defaultType = NULL);
 	Monoid parseAccumulator(const char *acc);
@@ -124,7 +124,7 @@ private:
 	/* When processing tree root, parent will be NULL */
 	RawOperator* 			 parseOperator(const rapidjson::Value& val);
 	expressions::Expression* parseExpression(const rapidjson::Value& val) {
-		return exprParser.parseExpression(val);
+		return exprParser.parseExpression(val, ctx);
 	}
 	ExpressionType* parseExpressionType(const rapidjson::Value& val) {
 		return exprParser.parseExpressionType(val);

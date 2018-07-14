@@ -1969,7 +1969,7 @@ int lookupInDictionary(string s, const rapidjson::Value& val){
  *	TODO Add NotExpression ?
  */
 
-expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Value& val) {
+expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Value& val, RawContext * ctx) {
 
 	const char *keyExpression = "expression";
 	const char *keyArgNo = "argNo";
@@ -2002,41 +2002,77 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 
 	expressions::Expression* retValue = NULL;
 
-	if (strcmp(valExpression, "bool") == 0) {
-		assert(val.HasMember("v"));
-		assert(val["v"].IsBool());
-		retValue = new expressions::BoolConstant(val["v"].GetBool());
-	} else if (strcmp(valExpression, "int") == 0) {
-		assert(val.HasMember("v"));
-		assert(val["v"].IsInt());
-		retValue = new expressions::IntConstant(val["v"].GetInt());
-	} else if (strcmp(valExpression, "int64") == 0) {
-		assert(val.HasMember("v"));
-		assert(val["v"].IsInt64());
-		retValue = new expressions::Int64Constant(val["v"].GetInt64());
-	} else if (strcmp(valExpression, "float") == 0) {
-		assert(val.HasMember("v"));
-		assert(val["v"].IsDouble());
-		retValue = new expressions::FloatConstant(val["v"].GetDouble());
-	} else if (strcmp(valExpression, "string") == 0) {
-		assert(val.HasMember("v"));
-		assert(val["v"].IsString());
-		string *stringVal = new string(val["v"].GetString());
-		retValue = new expressions::StringConstant(*stringVal);
-	} else if (strcmp(valExpression, "dstring") == 0) { //FIMXE: do something better, include the dictionary
-		assert(val.HasMember("v"));
-		if (val["v"].IsInt()){
-			retValue = new expressions::IntConstant(val["v"].GetInt());
-		} else {
-			assert(val["v"].IsString());
-			assert(val.HasMember("dict"));
+	assert(!val.HasMember("isNull") || val["isNull"].IsBool());
+	bool isNull = val.HasMember("isNull") && val["isNull"].GetBool();
 
-			int sVal = lookupInDictionary(val["v"].GetString(), val["dict"]);
-			std::cout << sVal << " " << val["v"].GetString() << std::endl;
-			retValue = new expressions::IntConstant(sVal);
+	const auto &createNull=[&](ExpressionType * b){
+		RawValue rv{
+			UndefValue::get(b->getLLVMType(ctx->getLLVMContext())),
+			ctx->createTrue()
+		};
+
+		return new expressions::RawValueExpression(b, rv);
+	};
+
+	if (strcmp(valExpression, "bool") == 0) {
+		if (isNull) {
+			retValue = createNull(new BoolType());
+		} else {
+			assert(val.HasMember("v"));
+			assert(val["v"].IsBool());
+			retValue = new expressions::BoolConstant(val["v"].GetBool());
+		}
+	} else if (strcmp(valExpression, "int") == 0) {
+		if (isNull) {
+			retValue = createNull(new IntType());
+		} else {
+			assert(val.HasMember("v"));
+			assert(val["v"].IsInt());
+			retValue = new expressions::IntConstant(val["v"].GetInt());
+		}
+	} else if (strcmp(valExpression, "int64") == 0) {
+		if (isNull) {
+			retValue = createNull(new Int64Type());
+		} else {
+			assert(val.HasMember("v"));
+			assert(val["v"].IsInt64());
+			retValue = new expressions::Int64Constant(val["v"].GetInt64());
+		}
+	} else if (strcmp(valExpression, "float") == 0) {
+		if (isNull) {
+			retValue = createNull(new FloatType());
+		} else {
+			assert(val.HasMember("v"));
+			assert(val["v"].IsDouble());
+			retValue = new expressions::FloatConstant(val["v"].GetDouble());
+		}
+	} else if (strcmp(valExpression, "string") == 0) {
+		if (isNull) {
+			retValue = createNull(new StringType());
+		} else {
+			assert(val.HasMember("v"));
+			assert(val["v"].IsString());
+			string *stringVal = new string(val["v"].GetString());
+			retValue = new expressions::StringConstant(*stringVal);
+		}
+	} else if (strcmp(valExpression, "dstring") == 0) { //FIMXE: do something better, include the dictionary
+		if (isNull) {
+			retValue = createNull(new DStringType());
+		} else {
+			assert(val.HasMember("v"));
+			if (val["v"].IsInt()){
+				retValue = new expressions::IntConstant(val["v"].GetInt());
+			} else {
+				assert(val["v"].IsString());
+				assert(val.HasMember("dict"));
+
+				int sVal = lookupInDictionary(val["v"].GetString(), val["dict"]);
+				std::cout << sVal << " " << val["v"].GetString() << std::endl;
+				retValue = new expressions::IntConstant(sVal);
+			}
 		}
 	} else if (strcmp(valExpression, "argument") == 0) {
-
+		assert(!isNull);
 		/* exprType */
 		assert(val.HasMember(keyExprType));
 		assert(val[keyExprType].IsObject());
@@ -2061,11 +2097,12 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		retValue = new expressions::InputArgument(exprType, argNo, atts);
 
 	} else if (strcmp(valExpression, "recordProjection") == 0) {
+		assert(!isNull);
 
 		/* e: expression over which projection is calculated */
 		assert(val.HasMember(keyInnerExpr));
 		assert(val[keyInnerExpr].IsObject());
-		expressions::Expression *expr = parseExpression(val[keyInnerExpr]);
+		expressions::Expression *expr = parseExpression(val[keyInnerExpr], ctx);
 
 		/* projected attribute */
 		assert(val.HasMember(keyProjectedAttr));
@@ -2091,6 +2128,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 			retValue = new expressions::RecordProjection(expr, *recAttr);
 		}
 	} else if (strcmp(valExpression, "recordConstruction") == 0) {
+		assert(!isNull);
 		/* exprType */
 		assert(val.HasMember(keyExprType));
 		assert(val[keyExprType].IsObject());
@@ -2110,7 +2148,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 
 			assert(attributeConstructs[i].HasMember(keyAttrExpr));
 			assert(attributeConstructs[i][keyAttrExpr].IsObject());
-			expressions::Expression *newAttrExpr = parseExpression(attributeConstructs[i][keyAttrExpr]);
+			expressions::Expression *newAttrExpr = parseExpression(attributeConstructs[i][keyAttrExpr], ctx);
 
 			expressions::AttributeConstruction *newAttr =
 					new expressions::AttributeConstruction(newAttrName,newAttrExpr);
@@ -2119,20 +2157,21 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		retValue = new expressions::RecordConstruction(exprType,*newAtts);
 
 	} else if (strcmp(valExpression,"if") == 0)	{
+		assert(!isNull);
 		/* if cond */
 		assert(val.HasMember(keyCond));
 		assert(val[keyCond].IsObject());
-		expressions::Expression *condExpr = parseExpression(val[keyCond]);
+		expressions::Expression *condExpr = parseExpression(val[keyCond], ctx);
 
 		/* then expression */
 		assert(val.HasMember(keyThen));
 		assert(val[keyThen].IsObject());
-		expressions::Expression *thenExpr = parseExpression(val[keyThen]);
+		expressions::Expression *thenExpr = parseExpression(val[keyThen], ctx);
 
 		/* else expression */
 		assert(val.HasMember(keyElse));
 		assert(val[keyElse].IsObject());
-		expressions::Expression *elseExpr = parseExpression(val[keyElse]);
+		expressions::Expression *elseExpr = parseExpression(val[keyElse], ctx);
 
 		retValue = new expressions::IfThenElse(condExpr,thenExpr,elseExpr);
 	}
@@ -2140,161 +2179,188 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 	 * BINARY EXPRESSIONS
 	 */
 	else if (strcmp(valExpression, "eq") == 0) {
+		assert(!isNull);
 		/* left child */
 		assert(val.HasMember(leftArg));
 		assert(val[leftArg].IsObject());
-		expressions::Expression *leftExpr = parseExpression(val[leftArg]);
+		expressions::Expression *leftExpr = parseExpression(val[leftArg], ctx);
 
 		/* right child */
 		assert(val.HasMember(rightArg));
 		assert(val[rightArg].IsObject());
-		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
+		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
 		retValue = new expressions::EqExpression(new BoolType(),leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "neq") == 0) {
+		assert(!isNull);
 		/* left child */
 				assert(val.HasMember(leftArg));
 				assert(val[leftArg].IsObject());
-				expressions::Expression *leftExpr = parseExpression(val[leftArg]);
+				expressions::Expression *leftExpr = parseExpression(val[leftArg], ctx);
 
 				/* right child */
 				assert(val.HasMember(rightArg));
 				assert(val[rightArg].IsObject());
-				expressions::Expression *rightExpr = parseExpression(val[rightArg]);
+				expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
 				retValue = new expressions::NeExpression(new BoolType(),leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "lt") == 0) {
+		assert(!isNull);
 		/* left child */
 				assert(val.HasMember(leftArg));
 				assert(val[leftArg].IsObject());
-				expressions::Expression *leftExpr = parseExpression(val[leftArg]);
+				expressions::Expression *leftExpr = parseExpression(val[leftArg], ctx);
 
 				/* right child */
 				assert(val.HasMember(rightArg));
 				assert(val[rightArg].IsObject());
-				expressions::Expression *rightExpr = parseExpression(val[rightArg]);
+				expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
 				retValue = new expressions::LtExpression(new BoolType(),leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "le") == 0) {
+		assert(!isNull);
 		/* left child */
 		assert(val.HasMember(leftArg));
 		assert(val[leftArg].IsObject());
-		expressions::Expression *leftExpr = parseExpression(val[leftArg]);
+		expressions::Expression *leftExpr = parseExpression(val[leftArg], ctx);
 
 		/* right child */
 		assert(val.HasMember(rightArg));
 		assert(val[rightArg].IsObject());
-		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
+		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
 		retValue = new expressions::LeExpression(new BoolType(),leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "gt") == 0) {
+		assert(!isNull);
 		/* left child */
 		assert(val.HasMember(leftArg));
 		assert(val[leftArg].IsObject());
-		expressions::Expression *leftExpr = parseExpression(val[leftArg]);
+		expressions::Expression *leftExpr = parseExpression(val[leftArg], ctx);
 
 		/* right child */
 		assert(val.HasMember(rightArg));
 		assert(val[rightArg].IsObject());
-		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
+		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
 		retValue = new expressions::GtExpression(new BoolType(),leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "ge") == 0) {
+		assert(!isNull);
 		/* left child */
 		assert(val.HasMember(leftArg));
 		assert(val[leftArg].IsObject());
-		expressions::Expression *leftExpr = parseExpression(val[leftArg]);
+		expressions::Expression *leftExpr = parseExpression(val[leftArg], ctx);
 
 		/* right child */
 		assert(val.HasMember(rightArg));
 		assert(val[rightArg].IsObject());
-		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
+		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
 		retValue = new expressions::GeExpression(new BoolType(),leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "and") == 0) {
+		assert(!isNull);
 		/* left child */
 		assert(val.HasMember(leftArg));
 		assert(val[leftArg].IsObject());
-		expressions::Expression *leftExpr = parseExpression(val[leftArg]);
+		expressions::Expression *leftExpr = parseExpression(val[leftArg], ctx);
 
 		/* right child */
 		assert(val.HasMember(rightArg));
 		assert(val[rightArg].IsObject());
-		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
+		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
 		retValue = new expressions::AndExpression(new BoolType(),leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "or") == 0) {
+		assert(!isNull);
 		/* left child */
 		assert(val.HasMember(leftArg));
 		assert(val[leftArg].IsObject());
-		expressions::Expression *leftExpr = parseExpression(val[leftArg]);
+		expressions::Expression *leftExpr = parseExpression(val[leftArg], ctx);
 
 		/* right child */
 		assert(val.HasMember(rightArg));
 		assert(val[rightArg].IsObject());
-		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
+		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
 		retValue = new expressions::OrExpression(new BoolType(),leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "add") == 0) {
+		assert(!isNull);
 		/* left child */
 		assert(val.HasMember(leftArg));
 		assert(val[leftArg].IsObject());
-		expressions::Expression *leftExpr = parseExpression(val[leftArg]);
+		expressions::Expression *leftExpr = parseExpression(val[leftArg], ctx);
 
 		/* right child */
 		assert(val.HasMember(rightArg));
 		assert(val[rightArg].IsObject());
-		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
+		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
 		// ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
 		retValue = new expressions::AddExpression(leftExpr, rightExpr);
 	} else if (strcmp(valExpression, "sub") == 0) {
+		assert(!isNull);
 		/* left child */
 		assert(val.HasMember(leftArg));
 		assert(val[leftArg].IsObject());
-		expressions::Expression *leftExpr = parseExpression(val[leftArg]);
+		expressions::Expression *leftExpr = parseExpression(val[leftArg], ctx);
 
 		/* right child */
 		assert(val.HasMember(rightArg));
 		assert(val[rightArg].IsObject());
-		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
+		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
 		// ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
 		retValue = new expressions::SubExpression(leftExpr, rightExpr);
 	} else if (strcmp(valExpression, "neg") == 0) {
+		assert(!isNull);
 		/* right child */
 		assert(val.HasMember(keyInnerExpr));
 		assert(val[keyInnerExpr].IsObject());
-		expressions::Expression *expr = parseExpression(val[keyInnerExpr]);
+		expressions::Expression *expr = parseExpression(val[keyInnerExpr], ctx);
 
 		retValue = new expressions::NegExpression(expr);
+	} else if (strcmp(valExpression, "cast") == 0) {
+		assert(!isNull);
+		/* right child */
+		assert(val.HasMember(keyInnerExpr));
+		assert(val[keyInnerExpr].IsObject());
+		expressions::Expression *expr = parseExpression(val[keyInnerExpr], ctx);
+
+		assert(val.HasMember(keyExprType));
+		assert(val[keyExprType].IsObject());
+
+		ExpressionType * t = parseExpressionType(val[keyExprType]);
+
+		retValue = new expressions::CastExpression(t, expr);
 	} else if (strcmp(valExpression, "multiply") == 0) {
+		assert(!isNull);
 		/* left child */
 		assert(val.HasMember(leftArg));
 		assert(val[leftArg].IsObject());
-		expressions::Expression *leftExpr = parseExpression(val[leftArg]);
+		expressions::Expression *leftExpr = parseExpression(val[leftArg], ctx);
 
 		/* right child */
 		assert(val.HasMember(rightArg));
 		assert(val[rightArg].IsObject());
-		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
+		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
 		ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
 		retValue = new expressions::MultExpression(exprType,leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "div") == 0) {
+		assert(!isNull);
 		/* left child */
 		assert(val.HasMember(leftArg));
 		assert(val[leftArg].IsObject());
-		expressions::Expression *leftExpr = parseExpression(val[leftArg]);
+		expressions::Expression *leftExpr = parseExpression(val[leftArg], ctx);
 
 		/* right child */
 		assert(val.HasMember(rightArg));
 		assert(val[rightArg].IsObject());
-		expressions::Expression *rightExpr = parseExpression(val[rightArg]);
+		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
 		ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
 		retValue = new expressions::DivExpression(exprType,leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "merge") == 0) {
+		assert(!isNull);
 		string err = string("(Still) unsupported expression: ") + valExpression;
 		LOG(ERROR)<< err;
 		throw runtime_error(err);
