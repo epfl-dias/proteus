@@ -230,16 +230,8 @@ public class SqlCreateTable extends SqlCreate
       try {
         JsonNode root = mapper.readTree(jsonPlugin);
 
-        Map<String, Object> info = new HashMap<>();
-        Map<String, Object> pluginInfo = new HashMap<>();
-
-        pluginInfo = mapper.convertValue(root.path("plugin"), Map.class);
-
-        info.put("plugin", pluginInfo);
-        info.put("file", root.path("file").textValue());
-
         // pair.left - Calcite Schema, is this correct?
-        pair.left.add(pair.right, new PelagoTableFactory().create(pair.left.plus(), pair.right, info, rowType));
+        pair.left.add(pair.right, new PelagoTableFactory().create(pair.left.plus(), pair.right, mapper.convertValue(root, Map.class), rowType));
 
       } catch (IOException e) {
         e.printStackTrace();

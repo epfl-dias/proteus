@@ -124,13 +124,15 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     val rowType  = emitSchema(srcName, getRowType)
     val linehint = getLineHint.longValue
 
-    val pluginfo = getPluginInfo.asScala.+(("name", srcName)).+(("projections", rowType))
-//      .+(("type", "bincol")).+(("sizeInFile", false)) //FIXME: to be removed!!! (removing it requires unpack operator)
-    val plugin   = Extraction.decompose(pluginfo)
+    val plugin = Extraction.decompose(getPluginInfo.asScala).asInstanceOf[JObject] ~
+      ("name"       , srcName) ~
+      ("projections", rowType) ~
+      ("schema"     , emitSchema(srcName, table.getRowType, true))
 
     val json : JValue = op ~
       ("gpu"      , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX))       ~
       ("plugin"   , plugin  )
+
     val binding: Binding = Binding(srcName, getFields(getRowType))
     val ret: (Binding, JValue) = (binding,json)
     ret

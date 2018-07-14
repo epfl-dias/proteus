@@ -55,6 +55,7 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.Util;
 
+import ch.epfl.dias.calcite.adapter.pelago.PelagoAggregate;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelPackingTraitDef;
@@ -142,13 +143,14 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         rules.add(ProjectMergeRule.INSTANCE);//new ProjectMergeRule(true, PelagoRelFactories.PELAGO_BUILDER));
         //aggregate rules
         rules.add(AggregateRemoveRule.INSTANCE);
+//        rules.add(AggregateReduceFunctionsRule.INSTANCE);
+        rules.add(new AggregateReduceFunctionsRule(operand(PelagoAggregate.class, any()), PelagoRelFactories.PELAGO_BUILDER));
         rules.add(AggregateJoinTransposeRule.INSTANCE);
         rules.add(new AggregateProjectMergeRule(Aggregate.class, Project.class, PelagoRelFactories.PELAGO_BUILDER));
         rules.add(new AggregateProjectPullUpConstantsRule(Aggregate.class,
             Project.class, PelagoRelFactories.PELAGO_BUILDER,
             "AggregateProjectPullUpConstantsRule"));
         rules.add(new AggregateExpandDistinctAggregatesRule(Aggregate.class, true, PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(new AggregateReduceFunctionsRule(RelOptRule.operand(Aggregate.class, any()), PelagoRelFactories.PELAGO_BUILDER)); //optimizes out required sorting in some cases!
         //join rules
 //                                                                                                                rules.add(JoinToMultiJoinRule.INSTANCE);
 //                                                                                                                rules.add(LoptOptimizeJoinRule.INSTANCE);

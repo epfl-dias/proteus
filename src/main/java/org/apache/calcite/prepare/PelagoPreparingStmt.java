@@ -154,9 +154,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         }
 
         return Programs.sequence(
-                new PelagoProgram(),
                 Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
-                new PelagoProgram(),
                 new DecorrelateProgram(),
                 new TrimFieldsProgram(),
                 Programs.heuristicJoinOrder(planner.getRules(), false, 2),

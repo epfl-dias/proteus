@@ -3,18 +3,19 @@ package ch.epfl.dias.emitter
 import java.io.{PrintWriter, StringWriter}
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan
+import ch.epfl.dias.emitter.PlanToJSON.emitPrimitiveType
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.adapter.enumerable._
 import org.apache.calcite.rel.RelNode
-import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeField, RelRecordType}
+import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory, RelDataTypeField, RelRecordType}
 import org.apache.calcite.rel.core.AggregateCall
 import org.apache.calcite.rex._
-import org.apache.calcite.sql.fun.SqlCaseOperator
-import org.apache.calcite.sql.{SqlBinaryOperator, SqlFunction, SqlKind, SqlOperator}
+import org.apache.calcite.sql.fun.{SqlCaseOperator, SqlCastFunction, SqlStdOperatorTable}
+import org.apache.calcite.sql.{pretty => _, _}
 import org.apache.calcite.interpreter.Bindables.BindableTableScan
 import org.apache.calcite.plan.RelOptUtil
 import org.apache.calcite.plan.RelOptUtil.InputFinder
-import org.apache.calcite.sql.`type`.{ArraySqlType, SqlTypeName}
+import org.apache.calcite.sql.`type`.{ArraySqlType, SqlTypeName, SqlTypeUtil}
 import org.json4s.JsonAST.JValue
 import org.json4s.JsonDSL._
 import org.json4s._
@@ -83,31 +84,35 @@ object PlanToJSON {
         arg
       }
       case lit: RexLiteral => {
-        val v: JValue = lit.getType.getSqlTypeName match {
-          case SqlTypeName.INTEGER => new           Integer(lit.toString).asInstanceOf[Int    ]
-          case SqlTypeName.BIGINT  => new java.lang.Long   (lit.toString).asInstanceOf[Long   ]
-          case SqlTypeName.BOOLEAN => new java.lang.Boolean(lit.toString).asInstanceOf[Boolean]
-          case SqlTypeName.FLOAT   => new java.lang.Double (lit.toString).asInstanceOf[Double ]
-          case SqlTypeName.DOUBLE  => new java.lang.Double (lit.toString).asInstanceOf[Double ]
-          case SqlTypeName.DECIMAL => new java.lang.Double (lit.toString).asInstanceOf[Double ]
-          case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)
-          case SqlTypeName.CHAR    => lit.getValueAs(classOf[String])
-          case _ => {
-            val msg : String = "Unknown constant type"
-            throw new PlanConversionException(msg)
-            //List[RelDataTypeField]()
-          }
-        }
-        if (other != null && lit.getType.getSqlTypeName == SqlTypeName.VARCHAR || lit.getType.getSqlTypeName == SqlTypeName.CHAR) {
-          // Only comparisons of input fields with string constants are supported
-          // otherwise, which dictionary should we use?
-
-          val info = findAttrInfo(other.asInstanceOf[RexInputRef], f)
-          val path = info._2 + "." + info._1 + ".dict"
-
-          ("expression", exprType\"type") ~ ("v", v) ~ ("dict", ("path", path))
+        if (lit.isNull) {
+          ("expression", exprType \ "type") ~ ("isNull", true)
         } else {
-          ("expression", exprType\"type") ~ ("v", v)
+          val v: JValue = lit.getType.getSqlTypeName match {
+            case SqlTypeName.INTEGER => new Integer(lit.toString).asInstanceOf[Int]
+            case SqlTypeName.BIGINT => new java.lang.Long(lit.toString).asInstanceOf[Long]
+            case SqlTypeName.BOOLEAN => new java.lang.Boolean(lit.toString).asInstanceOf[Boolean]
+            case SqlTypeName.FLOAT => new java.lang.Double(lit.toString).asInstanceOf[Double]
+            case SqlTypeName.DOUBLE => new java.lang.Double(lit.toString).asInstanceOf[Double]
+            case SqlTypeName.DECIMAL => new java.lang.Double (lit.toString).asInstanceOf[Double ]
+            case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)
+            case SqlTypeName.CHAR => lit.getValueAs(classOf[String])
+            case _ => {
+              val msg: String = "Unknown constant type"
+              throw new PlanConversionException(msg)
+              //List[RelDataTypeField]()
+            }
+          }
+          if (other != null && lit.getType.getSqlTypeName == SqlTypeName.VARCHAR || lit.getType.getSqlTypeName == SqlTypeName.CHAR) {
+            // Only comparisons of input fields with string constants are supported
+            // otherwise, which dictionary should we use?
+
+            val info = findAttrInfo(other.asInstanceOf[RexInputRef], f)
+            val path = info._2 + "." + info._1 + ".dict"
+
+            ("expression", exprType \ "type") ~ ("v", v) ~ ("dict", ("path", path))
+          } else {
+            ("expression", exprType \ "type") ~ ("v", v)
+          }
         }
       }
       case _ => {
@@ -118,22 +123,26 @@ object PlanToJSON {
     json
   }
 
+  def aggKind(agg: SqlAggFunction): String = agg.getKind match {
+    case SqlKind.AVG     => "avg"
+    case SqlKind.COUNT   => "sum"
+    case SqlKind.MAX     => "max"
+    case SqlKind.MIN     => "min"
+    case SqlKind.SUM     => "sum"
+    //'Sum0 is an aggregator which returns the sum of the values which go into it like Sum.'
+    //'It differs in that when no non null values are applied zero is returned instead of null.'
+    case SqlKind.SUM0    => "sum"
+    case SqlKind.COLLECT => "bagunion"
+    case _ => {
+      val msg : String = "unknown aggr. function " + agg.getKind.toString
+      throw new PlanConversionException(msg)
+    }
+  }
+
+
   //TODO Assumming unary ops
   def emitAggExpression(aggExpr: AggregateCall, f: List[Binding]) : JValue = {
-    val opType : String = aggExpr.getAggregation.getKind match {
-      case SqlKind.AVG    => "avg"
-      case SqlKind.COUNT  => "cnt"
-      case SqlKind.MAX    => "max"
-      case SqlKind.MIN    => "min"
-      case SqlKind.SUM    => "sum"
-      //'Sum0 is an aggregator which returns the sum of the values which go into it like Sum.'
-      //'It differs in that when no non null values are applied zero is returned instead of null.'
-      case SqlKind.SUM0    => "sum0"
-      case _ => {
-        val msg : String = "unknown aggr. function "+aggExpr.getAggregation.getKind.toString
-        throw new PlanConversionException(msg)
-      }
-    }
+    val opType : String = aggKind(aggExpr.getAggregation)
 
     if(aggExpr.getArgList.size() > 1)  {
       //count() has 0 arguments; the rest expected to have 1
@@ -158,13 +167,89 @@ object PlanToJSON {
     case _ => throw new PlanConversionException("Unknown operator: "+op.getKind.sql)
   }
 
+  def emitCast(arg: RexNode, retType: JValue, f: List[Binding]): JValue = {
+    ("expression", "cast") ~ ("type", retType) ~ ("e", emitExpression(arg, f))
+  }
+
+  def castLeft(ltype: RelDataType, rtype: RelDataType): Boolean = {
+    val l_isInt = SqlTypeUtil.isIntType(ltype)
+    val r_isInt = SqlTypeUtil.isIntType(rtype)
+    if (l_isInt != r_isInt){
+      if (l_isInt){
+        true
+      } else {
+        false
+      }
+    } else if (SqlTypeUtil.comparePrecision(ltype.getPrecision, rtype.getPrecision) < 0){
+      true
+    } else {
+      //if they have the same precision, what should we check next?
+      false
+    }
+  }
+
   def emitBinaryOp(op: SqlBinaryOperator, args: ImmutableList[RexNode], opType: JValue, f: List[Binding]) : JValue =  {
     var left : JValue = null;
     var right: JValue = null;
 
     if (args.size == 2){
-      left  = emitExpression(args.get(0), f, args.get(1))
-      right = emitExpression(args.get(1), f, args.get(0))
+      //the following casting may also be necessary in the non-binary case, but its probably safer not to do it
+      //as long as we do not have examples invoking it
+      val ltype = args.get(0).getType
+      val rtype = args.get(1).getType
+
+      val notnums = !SqlTypeUtil.isNumeric(ltype) || !SqlTypeUtil.isNumeric(rtype)
+
+      //Binary operations containing string only operate on strings, so its safe to pass null as other
+
+      val l_isInt   = SqlTypeUtil.isIntType(ltype)
+      val r_isInt   = SqlTypeUtil.isIntType(rtype)
+      // NOTE: should re-check all this... especially the div cases
+      if (op == SqlStdOperatorTable.DIVIDE) {
+        // Make sure that both sides are doubles
+        if (ltype.getSqlTypeName != SqlTypeName.DOUBLE) {
+          left = emitCast(args.get(0), emitPrimitiveType(SqlTypeName.DOUBLE), f)
+        } else {
+          left  = emitExpression(args.get(0), f, args.get(1))
+        }
+
+        if (rtype.getSqlTypeName != SqlTypeName.DOUBLE) {
+          right = emitCast(args.get(1), emitPrimitiveType(SqlTypeName.DOUBLE), f)
+        } else {
+          right = emitExpression(args.get(1), f, args.get(0))
+        }
+      } else if (op == SqlStdOperatorTable.DIVIDE_INTEGER) {
+        if (!l_isInt || !r_isInt){
+          // If any input is not int, cast both to int(64)
+          left  = emitCast(args.get(0), emitPrimitiveType(SqlTypeName.BIGINT), f)
+          right = emitCast(args.get(1), emitPrimitiveType(SqlTypeName.BIGINT), f)
+        } else {
+          //otherwise, cast to the bigger integer
+          if (castLeft(ltype, rtype)){
+            System.out.println("Cast: " + ltype + "->" + rtype)
+            left  = emitCast      (args.get(0), emitType(rtype, f), f)
+            right = emitExpression(args.get(1), f, args.get(0))
+          } else {
+            System.out.println("Cast: " + rtype + "->" + ltype)
+            left  = emitExpression(args.get(0), f, args.get(1))
+            right = emitCast      (args.get(1), emitType(ltype, f), f)
+          }
+        }
+      } else if (notnums || SqlTypeUtil.sameNamedType(ltype, rtype)) {
+        left  = emitExpression(args.get(0), f, args.get(1))
+        right = emitExpression(args.get(1), f, args.get(0))
+      } else {
+        assert(SqlTypeUtil.comparePrecision(ltype.getPrecision, rtype.getPrecision) != 0)
+        if (castLeft(ltype, rtype)){
+          System.out.println("Cast: " + ltype + "->" + rtype)
+          left  = emitCast      (args.get(0), emitType(rtype, f), f)
+          right = emitExpression(args.get(1), f, args.get(0))
+        } else {
+          System.out.println("Cast: " + rtype + "->" + ltype)
+          left  = emitExpression(args.get(0), f, args.get(1))
+          right = emitCast      (args.get(1), emitType(ltype, f), f)
+        }
+      }
     } else {
       assert(args.size > 2);
       val subSize = (args.size + 1) / 2
@@ -193,10 +278,13 @@ object PlanToJSON {
       case SqlKind.DIVIDE => "div"
       case SqlKind.PLUS => "add"
       case SqlKind.MINUS => "sub"
-      case _ => throw new PlanConversionException("Unsupported binary operator: "+op.getKind.sql)
+      case _ => {
+        if (op == SqlStdOperatorTable.DIVIDE_INTEGER) "div"
+        else throw new PlanConversionException("Unsupported binary operator: "+op.getKind.sql)
+      }
     }
 
-    val json = ("type", opType) ~ ("expression",opName) ~ ("left", left) ~ ("right", right)
+    val json = ("expression",opName) ~ ("left", left) ~ ("right", right)
     json
   }
   
@@ -204,9 +292,8 @@ object PlanToJSON {
   def emitFunc(func: SqlFunction, args: ImmutableList[RexNode], retType: JValue, f: List[Binding]) : JValue =  {
     val json = func.getKind match  {
       case SqlKind.CAST => {
-        val funcName = "cast"
-        val arg : JValue = List(emitExpression(args.get(0), f))
-        ("type",retType) ~ ("expression",funcName) ~ ("args", arg)
+        assert(args.size == 1)
+        emitCast(args.get(0), retType, f)
       }
       case _ => throw new PlanConversionException("Unsupported function: "+func.getKind.sql)
     }
@@ -276,15 +363,19 @@ object PlanToJSON {
     emitArg(arg, f, false)
   }
 
+  def emitPrimitiveType(k: SqlTypeName): JValue = k match {
+    case SqlTypeName.INTEGER  => ("type", "int"     )
+    case SqlTypeName.BIGINT   => ("type", "int64"   )
+    case SqlTypeName.VARCHAR  => ("type", "dstring" )
+    case SqlTypeName.CHAR     => ("type", "dstring" )
+    case SqlTypeName.BOOLEAN  => ("type", "bool"    )
+    case SqlTypeName.DOUBLE   => ("type", "float"   ) // proteu's float is a c++ double
+    case SqlTypeName.FLOAT    => ("type", "float"   ) // proteu's float is a c++ double
+    case _ => throw new PlanConversionException("Unknown type: " + k)
+  }
+
+
   def emitType(arg: RelDataType, binding: List[Binding]): JValue = arg.getSqlTypeName match {
-    case SqlTypeName.INTEGER => ("type", "int"    )
-    case SqlTypeName.BIGINT  => ("type", "int64"  )
-    case SqlTypeName.VARCHAR => ("type", "dstring")
-    case SqlTypeName.CHAR    => ("type", "dstring")
-    case SqlTypeName.BOOLEAN => ("type", "bool"   )
-    case SqlTypeName.DECIMAL => ("type", "float")
-    case SqlTypeName.DOUBLE  => ("type", "float"  ) // proteu's float is a c++ double
-    case SqlTypeName.FLOAT   => ("type", "float"  ) // proteu's float is a c++ double
     case SqlTypeName.ARRAY   => {
       ("type", "list") ~ ("inner", emitType(arg.getComponentType, binding))
     }
@@ -295,7 +386,10 @@ object PlanToJSON {
         }
       )
     }
-    case _ => throw new PlanConversionException("Unknown type: " + arg)
+    case SqlTypeName.MULTISET   => {
+      ("type", "bag") ~ ("inner", emitType(arg.getComponentType, binding))
+    }
+    case _ => emitPrimitiveType(arg.getSqlTypeName)
   }
 
   def emitArg(arg: Integer, f: List[Binding], with_type: Boolean) : JValue = {
@@ -323,15 +417,28 @@ object PlanToJSON {
     }
   }
 
-  def emitSchema(relName: String, t: RelDataType): JValue = t match {
-    case recType : RelRecordType => emitRowType(relName, recType)
+  def emitSchema(relName: String, t: RelDataType): JValue = {
+    emitSchema(relName, t, false)
+  }
+
+  def emitSchema(relName: String, t: RelDataType, with_attrNo: Boolean): JValue = t match {
+    case recType : RelRecordType => emitRowType(relName, recType, with_attrNo)
     case _ => throw new PlanConversionException("Unknown schema type (non-record one)")
   }
 
   def emitRowType(relName: String, t: RelRecordType): JValue = {
-    val fields = t.getFieldList.asScala.map {
+    emitRowType(relName, t, false)
+  }
+
+  def emitRowType(relName: String, t: RelRecordType, with_attrNo: Boolean): JValue = {
+    val bindings = List(Binding(relName, getFields(t)))
+    val fields = t.getFieldList.asScala.zipWithIndex.map {
       f => {
-        ("relName", relName) ~ ("attrName", f.getName) //~ ("type", emitType(f.getType))
+        if (with_attrNo) {
+          ("relName", relName) ~ ("attrName", f._1.getName) ~ ("type", emitType(f._1.getType, bindings)) ~ ("attrNo", f._2 + 1)
+        } else {
+          ("relName", relName) ~ ("attrName", f._1.getName) ~ ("type", emitType(f._1.getType, bindings))
+        }
       }
     }
     fields
