@@ -16,6 +16,7 @@ import org.apache.calcite.rel.metadata.RelMdDistribution;
 import org.apache.calcite.rel.rules.JoinCommuteRule;
 import org.apache.calcite.rex.*;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.tools.RelBuilder.AggCall;
 
 import java.util.List;
 
@@ -165,6 +166,9 @@ public class PelagoRules {
         }
 
         public boolean matches(RelOptRuleCall call) {
+//            for (AggregateCall agg: ((Aggregate) call.rel(0)).getAggCallList()){
+//                if (agg.getAggregation().getKind() == SqlKind.AVG) return false;
+//            }
             return true;
 //            return call.rel(0).getTraitSet().contains(RelDistributions.SINGLETON);
         }

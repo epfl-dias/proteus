@@ -36,7 +36,7 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
     Properties info = new Properties();
     connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
 
-    Repl.mockfile_$eq ("/home/periklis/Documents/EPFL/pelago/src/SQLPlanner/src/main/resources/mock.csv");
+    Repl.mockfile_$eq ("../../src/SQLPlanner/src/main/resources/mock.csv");
     Repl.isMockRun_$eq(true);
     connection.createStatement().executeQuery("explain plan for select * from ssbm_date1000");
   }
@@ -320,6 +320,12 @@ public class PelagoPlannerTest {
     // unnest + group by query
     "select count(A1) from A",
 
+    "select avg(A1) from A",
+
+    "select avg(A1 + 1) from A",
+
+    "select avg(cast(A1 as double)) from A",
+
 //    // nest
 //    "select d_yearmonthnum, collect(d_datekey), collect(1) from ssbm_date group by d_yearmonthnum",
 //
@@ -328,7 +334,7 @@ public class PelagoPlannerTest {
 //      + "from ( "
 //      + " select d_yearmonthnum, collect(d_datekey) as x, collect(1) as y from ssbm_date group by d_yearmonthnum "
 //      + ") as c, unnest(c.x) "
-//      + "where d_yearmonthnum > 199810 "
+//      + "where d_yearmonthnum > 199810 ",
   };
 
   private final String sql;

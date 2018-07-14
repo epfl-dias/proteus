@@ -43,6 +43,10 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
   }
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    for (agg <- getAggCallList().asScala){
+        if (agg.getAggregation().getKind() == SqlKind.AVG) return getCluster.getPlanner.getCostFactory.makeHugeCost();
+    }
+
     if (getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) != null && getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE).satisfies(RelDeviceType.NVPTX)) {
       return planner.getCostFactory.makeZeroCost
     }
@@ -50,23 +54,6 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
-
-  def aggKind(agg: SqlAggFunction): String = agg.getKind match {
-    case SqlKind.AVG    => "avg"
-    case SqlKind.COUNT  => "sum"
-    case SqlKind.MAX    => "max"
-    case SqlKind.MIN    => "min"
-    case SqlKind.SUM    => "sum"
-    //'Sum0 is an aggregator which returns the sum of the values which go into it like Sum.'
-    //'It differs in that when no non null values are applied zero is returned instead of null.'
-    case SqlKind.SUM0    => "sum0"
-    case SqlKind.COLLECT => "bagunion"
-    case _ => {
-      val msg : String = "unknown aggr. function " + agg.getKind.toString
-      throw new PlanConversionException(msg)
-    }
-  }
-
 
   override def implement: (Binding, JValue) = {
     val op = ("operator", if (getGroupCount == 0) "reduce" else "groupby")
