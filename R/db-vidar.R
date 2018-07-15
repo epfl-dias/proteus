@@ -20,8 +20,10 @@ sql_select.ViDaRConnection <- function(con, select, from, where = NULL,
     } else {
       # Otherwise modify the regular from clause with unnest part
 
-      out$from <- build_sql(sql("FROM"), " ", escape(from, collapse = ", ", con = con), ", ",
-                            sql("UNNEST("), escape(con@env$unnest, collapse = ", ", con = con), ")")
+      # TODO fix this! maybe save the information about nestings in the tbl for automatic generation
+      # in any case, table name has to be randomized
+      out$from <- build_sql(sql("FROM"), " ", escape(from, collapse = ", ", con = con), " e, ",
+                            sql("UNNEST(e."), escape(con@env$unnest, collapse = ", ", con = con), ")")
 
       # Dealocate the unnest from the environment in case of nested queries -
       # we need to see them only the first time they appear

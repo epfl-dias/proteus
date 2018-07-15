@@ -17,12 +17,17 @@ connectionString <- "jdbc:avatica:remote:url=http://diascld36.epfl.ch:8081;seria
 
 con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString=connectionString)
 
-i <- readcsv(connection = con, path = "~/data/iris.csv", lines = 150,
-                       fields = list(s_length="double", s_width="double",
-                                     p_length="double", p_width="double",
-                                     species="varchar"),
-             delimiter = ",", policy = 2, brackets = FALSE)
+# i <- readcsv(connection = con, path = "/home/sanca/data/iris.csv", lines = 150,
+#                        fields = list(s_length="double", s_width="double",
+#                                      p_length="double", p_width="double",
+#                                      species="character"),
+#              delimiter = ",", policy = 2, brackets = FALSE, name = "iris1")
 
+
+i <- tbl(con, "iris")
+
+res1<-k_means(i %>% select(sepal_len, sepal_wid), k=3, max.iter=10)
+kmeans(iris%>%select(Sepal.Length, Sepal.Width), 3, iter.max=10)
 
 d <- tbl(con, "ssbm_date")
 
@@ -31,7 +36,7 @@ d <- tbl(con, "ssbm_date")
 #df_emp <- data.frame(jsonlite::fromJSON(emp_jsn, flatten = TRUE, simplifyDataFrame = TRUE))
 #emp <- as.tbl(df_emp)
 #emp <- tbl(con, "emp")
-emp <- tbl(con, "employees")
+emp <- tbl(con, "employeesnum")
 
 test <- emp %>% for_all(name) %>% sql_build(.)
 test <- emp %>% for_all(name, name1) %>% filter(age>15) %>% filter(age>18) %>% select(name) %>% sql_build(.)

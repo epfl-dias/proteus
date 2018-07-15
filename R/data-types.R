@@ -9,10 +9,16 @@ mapJDBCType <- function(JDBCType) {
 
   type <- trimws(tolower(JDBCType))
 
-  if(grepl("^varchar", type))
-    type <- "varchar"
+  ret <- c()
 
-  return(type_map[[type]])
+  for(el in type) {
+    if(grepl("^varchar", el))
+      el <- "varchar"
+
+    ret <- c(ret, type_map[[el]])
+  }
+
+  return(ret)
 }
 
 # Setting up the R->SQL type mapping

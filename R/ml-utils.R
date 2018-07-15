@@ -25,7 +25,7 @@ k_means <- function(data, k=3, max.iter=5){
   # assert that data is numeric
   # con <- data[[1]]$con
 
-  centroids <- randomCentroids(data, k)
+  centroids <- randomCentroids(data, k = k)
 
   iters <- 0
   oldCentroids <- NULL
@@ -44,6 +44,7 @@ k_means <- function(data, k=3, max.iter=5){
 
   # query generation depending on the conditions (e.g. parameter K)
 
+  # TODO push this as max.iter nested queries
   while(iters<max.iter){ # add delta as loop termination as well
     oldCentroids <- centroids
 
@@ -52,6 +53,8 @@ k_means <- function(data, k=3, max.iter=5){
 
     iters <- iters + 1
   }
+
+  return(centroids)
 }
 
 calculateCentroids <- function(data, k, oldCentroids) {
@@ -69,22 +72,29 @@ calculateCentroids <- function(data, k, oldCentroids) {
 
   distances_query <- generateDistances(data, k, oldCentroids, templateEuclidean)
 
-  select_clause <- paste0("SELECT ", paste0("SUM(", col_names,") AS sum_", col_names, ", COUNT(",col_names,") AS cnt_", col_names, collapse = ", "))
+  # select_clause <- paste0("SELECT ", paste0("SUM(", col_names,") AS sum_", col_names, ", COUNT(",col_names,") AS cnt_", col_names, collapse = ", "))
+  select_clause <- paste0("SELECT ", paste0("AVG(", col_names,") AS avg_", col_names, collapse = ", "))
 
   case_clause <- generateCase(k, tmp_table_name)
 
   # result of the query has to be processed (to get the actual centroids)
-  query <- paste0(select_clause, ", (", case_clause, ") AS `member`` ", "FROM (", distances_query, ") ", tmp_table_name, " GROUP BY `member`")
+  query <- paste0(select_clause, ", (", case_clause, ") AS `member` ", "FROM (", distances_query, ") ", tmp_table_name, " GROUP BY (", case_clause,")")
 
-  #result <- dbFetch(dbExecute(data[[1]]$con, query))
+  result <- dbFetch(dbSendQuery(data[[1]]$con, query))
 
-  return(query)
+  # divide sum with count (sums - 1) because we have the member column as odd included
+  #r <- result[seq(1, ncol(result)-1, 2)] / result[seq(2, ncol(result), 2)]
+
+  # TODO
+  # check if result has k rows, if not, generate some
+
+  return(result)
 }
 
 generateCase <- function(k, table_name) {
   case_clause <- c()
 
-  # TODO can i do (k-1)+(k-2)... or for if-else I need to do k*k
+  # TODO can i do (k-1)+(k-2)... or for if-else I need to do k*k - tested, should be ok
   for(i in 1:(k-1)) {
     tmp <- c()
 
@@ -106,6 +116,11 @@ generateDistances <- function(data, k, oldCentroids, metricTemplate = templateEu
   col_names <- colnames(data)
   dim <- ncol(data)
 
+  # if oldCentroids are a dataframe, convert them to vector
+  if(is.data.frame(oldCentroids)) {
+    oldCentroids <- as.numeric(as.vector(t(oldCentroids[, 1:(ncol(oldCentroids)-1)])))
+  }
+
   distances_query <- paste0("SELECT ", paste(col_names, collapse = ", "), ", ")
 
   generator <- c()
@@ -116,15 +131,18 @@ generateDistances <- function(data, k, oldCentroids, metricTemplate = templateEu
 
   }
 
+  print("TABLE NAME:")
+  print(as.character(data[[2]]$x))
   # TODO uncomment when the source is tbl
-  distances_query <- paste0(distances_query, paste(generator, collapse = ", "), " FROM TEST")#, as.character(data[[2]]$x)) # as.character(data[[2]]$x) - internal table name
+  distances_query <- paste0(distances_query, paste(generator, collapse = ", "), " FROM ", as.character(data[[2]]$x)) # as.character(data[[2]]$x) - internal table name
 
-  return(distances_query)
+  return(distances_query[[1]])
 }
 
 templateEuclidean <- function(data_column_names, point_coordinates) {
   #generates the list which is equivalent to (SUM(POW(data-point, 2)))
-  paste0("(",data_column_names, "-", point_coordinates, ")*(",data_column_names, "-", point_coordinates, ")", collapse = "+")
+  sign <- sapply(point_coordinates, function(x) if(x<0) "+" else "-")
+  paste0("(",data_column_names, sign, abs(point_coordinates), ")*(",data_column_names, sign, abs(point_coordinates), ")", collapse = "+")
 }
 
 # Function for generating random centroids, bounded by ranges in data (in order to have a sense of scale of data)
@@ -133,7 +151,8 @@ randomCentroids <- function(data, k) {
   list <- c()
 
   for(name in colnames(data)) {
-    list <- c(list, paste0("max_",name,"=max(",name,", na.rm=TRUE), min_",name,"=min(",name,", na.rm=TRUE)"))
+    #list <- c(list, paste0("max_",name,"=max(",name,", na.rm=TRUE), min_",name,"=min(",name,", na.rm=TRUE)"))
+    list <- c(list, paste0("max_",name,"=max(",name,", na.rm=TRUE)"))
   }
 
   cmd <- paste0(cmd, paste0(list, collapse = ","), ")")
@@ -142,10 +161,13 @@ randomCentroids <- function(data, k) {
 
   ncols <- ncol(bounds)
   # return k random centroids in the given bounds (with given dimensionalities), calculate them from the vector
-  max_list <- as.numeric(bounds[1, seq(1, ncols, 2)])
-  min_list <- as.numeric(bounds[1, seq(2, ncols, 2)])
+  #max_list <- as.numeric(bounds[1, seq(1, ncols, 2)])
+  #min_list <- as.numeric(bounds[1, seq(2, ncols, 2)])
+  max_list <- as.numeric(bounds)
+  min_list <- as.numeric(0.5*bounds)
 
   # returns a list of numbers (dimensionality * k), first dim numbers represent a single centroid, arrange in order of data columns
-  centroids <- runif(k*ncols/2, min_list, max_list)
+  #centroids <- runif(k*ncols/2, min_list, max_list)
+  centroids <- runif(k*ncols, min_list, max_list)
   return(centroids)
 }
