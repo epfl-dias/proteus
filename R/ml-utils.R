@@ -44,7 +44,7 @@ k_means <- function(data, k=3, max.iter=5){
 
   # query generation depending on the conditions (e.g. parameter K)
 
-  # TODO push this as max.iter nested queries
+  # TODO push this as max.iter nested queries (one step )
   while(iters<max.iter){ # add delta as loop termination as well
     oldCentroids <- centroids
 

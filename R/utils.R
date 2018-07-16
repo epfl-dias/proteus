@@ -16,6 +16,11 @@ textProcessQuery <- function(query, quoteChar = "`") {
   #return(query)
 }
 
+# Generating random table name
+random_table_name <- function(n = 10) {
+  paste0(sample(letters, n, replace = TRUE), collapse = "")
+}
+
 # Util function for extracting the table name in FROM clause
 extractFrom <- function(query, quoteChar = "`") {
   from <- strsplit(textProcessQuery(query, quoteChar), "FROM ")[[1]][2]

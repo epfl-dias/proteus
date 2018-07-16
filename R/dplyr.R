@@ -1,5 +1,5 @@
 # for_all - dplyr definition of function acting as unnest alias
-for_all <- function(.data, ...) {
+for_all.tbl_lazy <- function(.data, ...) {
   dots <- quos(...)
   add_op_single("for_all", .data, dots = dots)
 }

@@ -22,12 +22,22 @@ con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocatio
 #                                      p_length="double", p_width="double",
 #                                      species="character"),
 #              delimiter = ",", policy = 2, brackets = FALSE, name = "iris1")
+# unnest test
+emp <- tbl(con, "employeesnum")
+
+emp %>% for_each("children") %>% select(age, age2)
+
+emp %>% for_each("children") %>% select(age, age2)
+
+
+
+emp %>% select(A1, A2) %>% for_each("bla") %>% summarise(bc=sum(A2))
 
 
 i <- tbl(con, "iris")
 
-res1<-k_means(i %>% select(sepal_len, sepal_wid), k=3, max.iter=10)
-kmeans(iris%>%select(Sepal.Length, Sepal.Width), 3, iter.max=10)
+k_means(i %>% select(sepal_len, sepal_wid), k=3, max.iter=20)
+kmeans(iris%>%select(Sepal.Length, Sepal.Width), 3, iter.max=20)
 
 d <- tbl(con, "ssbm_date")
 
