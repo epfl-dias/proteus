@@ -15,7 +15,9 @@ driverLocation <- "src/avatica-1.11.0.jar"
 connectionString <- "jdbc:avatica:remote:url=http://diascld36.epfl.ch:8081;serialization=PROTOBUF"
 
 
-con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString=connectionString)
+con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString=connectionString, debug = FALSE)
+#con@env$debug = TRUE
+#con@env@debug = NULL
 
 # i <- readcsv(connection = con, path = "/home/sanca/data/iris.csv", lines = 150,
 #                        fields = list(s_length="double", s_width="double",
@@ -25,7 +27,7 @@ con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocatio
 # unnest test
 emp <- tbl(con, "employeesnum")
 
-emp %>% for_each("children") %>% select(age, age2)
+emp %>% for_each(children) %>% select(age, children.age2)
 
 emp %>% for_each("children") %>% select(age, age2)
 

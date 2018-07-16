@@ -9,31 +9,35 @@ sql_select.ViDaRConnection <- function(con, select, from, where = NULL,
   out <- vector("list", 7)
   names(out) <- c("select", "from", "where", "group_by", "having", "order_by", "limit")
 
+  if(is.ident(from)){
+    con@env$last_from <- from
+  }
+
+  from_chr <- as.character(con@env$last_from)
+
+
+
+  if(!is.null(con@env$name_map)){
+    if(!is.null(con@env$name_map[[from_chr]])) {
+
+      new_select <- c()
+
+      for(el in select){
+        if(!is.null(con@env$name_map[[from_chr]][[el]]))
+          new_select <- c(new_select, ident(con@env$name_map[[from_chr]][[el]]))
+        else
+          new_select <- c(new_select, el)
+      }
+
+      select <- ident(new_select)
+    }
+  }
+
+
   out$select <- dbplyr:::sql_clause_select(select, con, distinct)
 
-  # We use the connection environment to carry the information about unnest from for_all function
-  # Try catch in certain cases (e.g. test connections) is required
-  tryCatch(expr = {
-    if(is.null(con@env$unnest)){
-      # Unnest is not requested (NULL) - regular from clause
-      out$from <- dbplyr:::sql_clause_from(from, con)
-    } else {
-      # Otherwise modify the regular from clause with unnest part
+  out$from <- dbplyr:::sql_clause_from(from, con)
 
-      # TODO fix this! maybe save the information about nestings in the tbl for automatic generation
-      # in any case, table name has to be randomized
-      out$from <- build_sql(sql("FROM"), " ", escape(from, collapse = ", ", con = con), " e, ",
-                            sql("UNNEST(e."), escape(con@env$unnest, collapse = ", ", con = con), ")")
-
-      # Dealocate the unnest from the environment in case of nested queries -
-      # we need to see them only the first time they appear
-      con@env$unnest <- NULL
-    }},
-    # in case of test connection which does not have @env
-    error = function(cond){
-      out$from <<- dbplyr:::sql_clause_from(from, con)
-    }
-  )
   out$where <- dbplyr:::sql_clause_where(where, con)
 
   # TO CHECK case for not querying when the condition is (0 = 1) - lazy load

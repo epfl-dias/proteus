@@ -20,7 +20,7 @@ setMethod("dbGetInfo", "ViDaRDriver", def = function(dbObj, ...)
   list(name="ViDaRDriver", driver.version = utils::packageVersion("ViDaR"), DBI.version = utils::packageVersion("DBI"))
 )
 
-setMethod("dbConnect", "ViDaRDriver", def = function(drv, connectionString = "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF", ...){
+setMethod("dbConnect", "ViDaRDriver", def = function(drv, connectionString = "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF", debug = FALSE, ...){
 
   jdbcconn <- RJDBC::dbConnect(as(drv,"JDBCDriver"), connectionString, ...)
 
@@ -29,6 +29,7 @@ setMethod("dbConnect", "ViDaRDriver", def = function(drv, connectionString = "jd
   connenv$is_open <- TRUE
 
   conn <- new("ViDaRConnection", jc = jdbcconn@jc , identifier.quote = jdbcconn@identifier.quote, env=connenv)
+  conn@env$debug = debug
 
   return(conn)
 },
@@ -85,10 +86,18 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
   # environment for ViDaRResult to return
   env <- new.env(parent = emptyenv())
 
+  if(conn@env$debug)
+    is.print = TRUE
+  else
+    is.print = FALSE
+
   # case for loading 0 rows
   if(grepl("(0 = 1)",as.character(statement))){
-    print('raw statement:')
-    print(as.character(statement))
+
+    if(is.print) {
+      print('raw statement:')
+      print(as.character(statement))
+    }
 
     env$conn <- conn
     env$query <- statement
@@ -99,10 +108,12 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
   }
 
   # send the query to ViDa for execution
-  print('raw statement:')
-  print(as.character(statement))
-  print('sent statement:')
-  print(textProcessQuery(as.character(statement), conn@identifier.quote))
+  if(is.print) {
+    print('raw statement:')
+    print(as.character(statement))
+    print('sent statement:')
+    print(textProcessQuery(as.character(statement), conn@identifier.quote))
+  }
 
   jdbcres <- RJDBC::dbSendQuery(as(conn, "JDBCConnection"), textProcessQuery(as.character(statement), conn@identifier.quote))
 
@@ -115,14 +126,18 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
 
 setMethod("dbSendStatement", signature(conn="ViDaRConnection", statement="character"), def = function(conn, statement, ...){
 
-  print(textProcessQuery(statement))
+  if(conn@env$debug)
+    print(textProcessQuery(statement))
+
   RJDBC::dbSendUpdate(as(conn, "JDBCConnection"), textProcessQuery(statement))
 
 })
 
 setMethod("dbSendUpdate", signature(conn="ViDaRConnection", statement="character"), def = function(conn, statement, ...){
 
-  print(textProcessQuery(statement))
+  if(conn@env$debug)
+    print(textProcessQuery(statement))
+
   RJDBC::dbSendUpdate(as(conn, "JDBCConnection"), textProcessQuery(statement))
 
 })
@@ -160,8 +175,8 @@ setMethod("dbClearResult", "ViDaRResult", def = function(res, ...) {
 setMethod("dbFetch", signature(res="ViDaRResult", n="numeric"), def = function(res, n=1, ...) {
 
     if(res@env$lazy){
-      print("Lazy get table: ")
-      print(res@env$table_name)
+      #print("Lazy get table: ")
+      #print(res@env$table_name)
 
       return(schema2tbl(res@env$table_name, res@env$conn))
     } else {

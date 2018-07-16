@@ -1,6 +1,6 @@
 for_each <- function(.data, ...) {
-  dots <- quos(...)
-  add_op_single("for_each", .data, dots = ...)
+  dots <- as.character(quos(...))
+  add_op_single("for_each", .data, dots = dots)
 }
 
 
@@ -30,6 +30,10 @@ sql_unnest <- function(con, select, from, unnest, ...) {
   out <- vector("list", 3)
   names(out) <- c("select", "from", "unnest")
 
+  if(is.ident(from)){
+    con@env$last_from <- from
+  }
+
   out$select <- dbplyr:::sql_clause_select(select, con, distinct = FALSE)
 
   out$from <- sql_clause_unnest(from, unnest, con)
@@ -53,9 +57,7 @@ sql_render.unnest_query <- function(query, con = NULL, ..., root = FALSE) {
   from <- sql_subquery(con, sql_render(query$from, con, ..., root = root), name = NULL)
 
   sql_unnest(
-    con, query$select, from, query$unnest, where = query$where, group_by = query$group_by,
-    having = query$having, order_by = query$order_by, limit = query$limit,
-    distinct = query$distinct,
+    con, query$select, from, query$unnest,
     ...
   )
 }

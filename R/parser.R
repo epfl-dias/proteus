@@ -18,6 +18,7 @@ tokenize <- function(string) {
 
 nestings <- c("recordtype")
 
+# DEPRECATED - use parseRecordList
 parseRecordType <- function(string, parent, verbose = FALSE){
 
   output <- c()
@@ -125,3 +126,125 @@ parseRecordType <- function(string, parent, verbose = FALSE){
   return(output)
 }
 
+
+
+parseRecordTypeList <- function(string, parent, con, table_name, verbose = FALSE){
+
+  output <- c()
+  lookahead <- c()
+  names <- c()
+  types <- c()
+  lookaheadRecord <- FALSE
+  getName <- FALSE
+  matchingParens <- 0
+
+  s <- processRecord(string)
+  tokens <- tokenize(s)
+
+  # if not initialized before, create the name map for all tables
+  if(is.null(con@env$name_map))
+    con@env$name_map <- list()
+
+  # if not initialized before, create the name map for a particular table
+  if(is.null(con@env$name_map[[table_name]]))
+    con@env$name_map[[table_name]] <- list()
+
+  for(token in tokens[[1]]){
+
+    if(token %in% nestings){
+      # look ahead the longest matching parens and call recursively
+      lookaheadRecord <- TRUE
+      lookahead <- c(lookahead, token)
+      next
+    }
+
+    if(token == ","){
+      # in this case, take the last one as name, and other as type
+      if(!lookaheadRecord) {
+        if(length(lookahead)>0){
+          types <- c(types, paste(lookahead[1:length(lookahead)-1], collapse=" "))
+          names <- c(names, lookahead[length(lookahead)])
+
+          if(verbose){
+            print("types")
+            print(types)
+            print("names")
+            print(names)
+          }
+
+          lookahead <- c()
+        }
+      } else {
+        lookahead <- c(lookahead, token)
+      }
+      next
+    }
+
+    if(token == "(") {
+      if(lookaheadRecord){
+        lookahead <- c(lookahead, token)
+        matchingParens <- matchingParens+1
+      }
+      next
+    }
+
+    if(token == ")") {
+      if(lookaheadRecord){
+        lookahead <- c(lookahead, token)
+        matchingParens <- matchingParens-1
+
+        # longest match found, read one more token that is the name of the structure
+        if(matchingParens==0){
+          lookaheadRecord <- FALSE
+          getName <- TRUE
+        }
+
+      } else {
+        if(length(lookahead)>0){
+          types <- c(types, paste(lookahead[1:length(lookahead)-1], collapse=" "))
+          names <- c(names, lookahead[length(lookahead)])
+
+          if(verbose) {
+            print("types")
+            print(types)
+            print("names")
+            print(names)
+          }
+
+          lookahead <- c()
+        }
+      }
+      next
+    }
+
+    # regular case
+    lookahead <- c(lookahead, token)
+
+    if(getName){
+      getName <- FALSE
+      # last token in the name of the structure, and pass it to function call
+      input <- paste(lookahead[1:length(lookahead)-1], collapse = " ")
+      name <- lookahead[length(lookahead)]
+
+      lookahead <- c()
+
+      if(verbose){
+        print("RECURSIVELY:")
+        print(input)
+      }
+
+      output <- c(output, parseRecordTypeList(input, name, con, table))
+    }
+  }
+
+  output <- c(output,  paste0(names, "=", mapJDBCType(types)))
+
+  # adding to name map
+  con@env$name_map[[table_name]][paste0(parent,".",names)] = names
+
+  #output <- paste0(parent, " = list(", paste(output, collapse = ","), ")")
+  # TODO reconsider this: adding a "mock" type parent field
+  output <- paste0(parent, " = list(", paste(output, collapse = ","), "), ", parent, " = integer(0)")
+
+  return(output)
+}

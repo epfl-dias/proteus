@@ -57,7 +57,7 @@ schema2tbl <- function(table, con, debug = FALSE){
     if(!grepl("^recordtype", tolower(ct)))
       build_cmd <- c(build_cmd, paste0(cn, "=", mapJDBCType(ct)))
     else
-      build_cmd <- c(build_cmd, parseRecordType(ct, cn))
+      build_cmd <- c(build_cmd, parseRecordTypeList(ct, cn, con, table))
 
     colName <- c(colName, cn)
     colType <- c(colType, ct)
