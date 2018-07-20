@@ -16,8 +16,6 @@ connectionString <- "jdbc:avatica:remote:url=http://diascld36.epfl.ch:8081;seria
 
 
 con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString=connectionString, debug = FALSE)
-#con@env$debug = TRUE
-#con@env@debug = NULL
 
 # i <- readcsv(connection = con, path = "/home/sanca/data/iris.csv", lines = 150,
 #                        fields = list(s_length="double", s_width="double",
@@ -29,19 +27,55 @@ emp <- tbl(con, "employeesnum")
 
 emp %>% for_each(children) %>% select(age, children.age2)
 
-emp %>% for_each("children") %>% select(age, age2)
-
-
-
-emp %>% select(A1, A2) %>% for_each("bla") %>% summarise(bc=sum(A2))
 
 
 i <- tbl(con, "iris")
 
-k_means(i %>% select(sepal_len, sepal_wid), k=3, max.iter=20)
-kmeans(iris%>%select(Sepal.Length, Sepal.Width), 3, iter.max=20)
+time.start <- Sys.time()
+
+k_means(i %>% select(sepal_len, sepal_wid), k=3, iter.max=10)
+
+time.end <- Sys.time()
+print(paste0("Pelago kmeans: ", time.end-time.start))
+
+
+time.start <- Sys.time()
+
+path = "/cloud_store/sanca/data/iris2.csv"
+#path = "~/ViDa/pelago/opt/raw/inputs/iris.csv"
+
+iris_local <- read.csv(path, header = FALSE,
+                       col.names = c("s_len", "s_wid", "p_len", "p_wid", "label"))
+
+time.end <- Sys.time()
+print(paste0("Loading: ", time.end-time.start))
+
+time.start <- Sys.time()
+
+#kmeans(iris%>%select(Sepal.Length, Sepal.Width), 3, iter.max=3)
+
+kmeans(iris_local%>%select(s_len, s_wid), 3, iter.max=10, algorithm = "Lloyd")
+
+time.end <- Sys.time()
+print(paste0("K means: ", time.end-time.start))
+
 
 d <- tbl(con, "ssbm_date")
+
+time.start <- Sys.time()
+
+k_means(d %>% select(d_datekey, d_yearmonthnum), k=3, max.iter=20)
+
+time.end <- Sys.time()
+print(time.end-time.start)
+
+
+time.start <- Sys.time()
+
+kmeans(iris%>%select(Sepal.Length, Sepal.Width), 3, iter.max=20)
+
+time.end <- Sys.time()
+print(time.end-time.start)
 
 # unnest try
 #emp_jsn = '{"name":"string", "age":"int", "children":[{"name2":"string", "age2":"int"}]}'

@@ -18,7 +18,7 @@
 #   select_query(op$x, con, ...)
 # }
 
-k_means <- function(data, k=3, max.iter=5){
+k_means <- function(data, k=3, iter.max=5) {
 
   # dimensionality is of the number of columns
   dim <- ncol(data)
@@ -30,26 +30,27 @@ k_means <- function(data, k=3, max.iter=5){
   iters <- 0
   oldCentroids <- NULL
 
-
-  # for each centroid check which points belong (lowest distance)
-
-  # e.g. for k=3
-  # SELECT SUM(aaa.x) AS sum_x, COUNT(aaa.x) AS cnt_x, SUM(aaa.y) as sum_y, CNT(aaa.y) as cnt_y, (CASE
-  #                                 WHEN (aaa.p1<aaa.p2) AND (aaa.p1<aaa.p3) THEN 1
-  #                                 WHEN (aaa.p2<aaa.p1) AND (aaa.p2<aaa.p3) THEN 2
-  #                                 ELSE 3 END) AS member
-  # FROM(SELECT x, y, SQRT(POW(x+1,2)+POW(y+2,2)) AS P1, SQRT(POW(x+1,2)+POW(y-1,2)) AS P2,
-  #      SQRT(POW(x-3,2)+POW(y+3,2)) AS P3 FROM points) aaa
-  # GROUP BY member;
-
   # query generation depending on the conditions (e.g. parameter K)
 
   # TODO push this as max.iter nested queries (one step )
-  while(iters<max.iter){ # add delta as loop termination as well
+  while(iters<iter.max){ # add delta as loop termination as well
     oldCentroids <- centroids
 
     # generate query using old centroids
-    centroids <- calculateCentroids(data, k, oldCentroids)
+    query_result <- calculateCentroids(data, k, oldCentroids)
+    centroids <- query_result[seq(1, ncol(query_result), 2)]
+    counts <- query_result[c(seq(2, ncol(query_result), 2), ncol(query_result))]
+
+    if(length(as.vector(t(centroids)))!=(dim+1)*k){
+      print("One or more centroids lost, returning the last result")
+      return(centroids)
+    }
+
+    if(iters>1)
+      if(identical(oldCentroids[order(oldCentroids$member)], centroids[order(centroids$member)])){
+        print(paste0("Centroids are equal, early termination at step: ", iters))
+        return(centroids)
+      }
 
     iters <- iters + 1
   }
@@ -73,7 +74,7 @@ calculateCentroids <- function(data, k, oldCentroids) {
   distances_query <- generateDistances(data, k, oldCentroids, templateEuclidean)
 
   # select_clause <- paste0("SELECT ", paste0("SUM(", col_names,") AS sum_", col_names, ", COUNT(",col_names,") AS cnt_", col_names, collapse = ", "))
-  select_clause <- paste0("SELECT ", paste0("AVG(", col_names,") AS avg_", col_names, collapse = ", "))
+  select_clause <- paste0("SELECT ", paste0("AVG(", col_names,") AS avg_", col_names, ", COUNT(", col_names, ") AS cnt_", col_names, collapse = ", "))
 
   case_clause <- generateCase(k, tmp_table_name)
 
@@ -131,8 +132,6 @@ generateDistances <- function(data, k, oldCentroids, metricTemplate = templateEu
 
   }
 
-  print("TABLE NAME:")
-  print(as.character(data[[2]]$x))
   # TODO uncomment when the source is tbl
   distances_query <- paste0(distances_query, paste(generator, collapse = ", "), " FROM ", as.character(data[[2]]$x)) # as.character(data[[2]]$x) - internal table name
 
@@ -141,8 +140,9 @@ generateDistances <- function(data, k, oldCentroids, metricTemplate = templateEu
 
 templateEuclidean <- function(data_column_names, point_coordinates) {
   #generates the list which is equivalent to (SUM(POW(data-point, 2)))
-  sign <- sapply(point_coordinates, function(x) if(x<0) "+" else "-")
-  paste0("(",data_column_names, sign, abs(point_coordinates), ")*(",data_column_names, sign, abs(point_coordinates), ")", collapse = "+")
+  # DEBUG the case when there are NA (no cluster)
+  #sign <- sapply(point_coordinates, function(x) if(x<0) "+" else "-")
+  paste0("(",data_column_names, "-(", round(point_coordinates, 8), "))*(",data_column_names, "-(", round(point_coordinates, 8), "))", collapse = "+")
 }
 
 # Function for generating random centroids, bounded by ranges in data (in order to have a sense of scale of data)
@@ -151,8 +151,8 @@ randomCentroids <- function(data, k) {
   list <- c()
 
   for(name in colnames(data)) {
-    #list <- c(list, paste0("max_",name,"=max(",name,", na.rm=TRUE), min_",name,"=min(",name,", na.rm=TRUE)"))
-    list <- c(list, paste0("max_",name,"=max(",name,", na.rm=TRUE)"))
+    list <- c(list, paste0("max_",name,"=max(",name,", na.rm=TRUE), min_",name,"=max(0-(",name,"), na.rm=TRUE)"))
+    #list <- c(list, paste0("max_",name,"=max(",name,", na.rm=TRUE)"))
   }
 
   cmd <- paste0(cmd, paste0(list, collapse = ","), ")")
@@ -161,13 +161,32 @@ randomCentroids <- function(data, k) {
 
   ncols <- ncol(bounds)
   # return k random centroids in the given bounds (with given dimensionalities), calculate them from the vector
-  #max_list <- as.numeric(bounds[1, seq(1, ncols, 2)])
-  #min_list <- as.numeric(bounds[1, seq(2, ncols, 2)])
-  max_list <- as.numeric(bounds)
-  min_list <- as.numeric(0.5*bounds)
+  max_list <- as.numeric(bounds[1, seq(1, ncols, 2)])
+  min_list <- as.numeric(-bounds[1, seq(2, ncols, 2)])
+  #max_list <- as.numeric(bounds)
+  #min_list <- as.numeric(0.5*bounds)
 
   # returns a list of numbers (dimensionality * k), first dim numbers represent a single centroid, arrange in order of data columns
   #centroids <- runif(k*ncols/2, min_list, max_list)
-  centroids <- runif(k*ncols, min_list, max_list)
+  # INITIAL SEED IS VERY IMPORTANT (having min would be nice)
+  #centroids <- runif(k*ncols, min_list, max_list)
+  centroids <- centroidSampling(k*ncols, min_list, max_list)
+
   return(centroids)
+}
+
+
+centroidSampling <- function(total_num, min_list, max_list) {
+
+  vals <- list()
+  cmd <- c()
+
+  for(i in 1:length(min_list)) {
+    vals[[i]] <- seq(min_list[[i]], max_list[[i]], length.out = total_num/length(min_list))
+    cmd <- c(cmd, paste0("vals[[", i,"]]"))
+  }
+
+  samples <- eval(parse(text = paste0("c(rbind(", paste(cmd, collapse = ","),"))")))
+
+  return(samples)
 }
