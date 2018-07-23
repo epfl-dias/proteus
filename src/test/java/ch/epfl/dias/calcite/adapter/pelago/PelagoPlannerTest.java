@@ -38,6 +38,9 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
 
     Repl.mockfile_$eq ("../../src/SQLPlanner/src/main/resources/mock.csv");
     Repl.isMockRun_$eq(true);
+
+//    connection.createStatement().execute("ALTER SESSION SET cpuonly = true");
+
     connection.createStatement().executeQuery("explain plan for select * from ssbm_date1000");
   }
 

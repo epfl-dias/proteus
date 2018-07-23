@@ -42,8 +42,11 @@ import org.apache.calcite.runtime.Bindable;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.Typed;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperatorTable;
+import org.apache.calcite.sql.SqlSetOperator;
+import org.apache.calcite.sql.SqlSetOption;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -61,11 +64,13 @@ import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelPackingTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
+import ch.epfl.dias.repl.Repl;
 
 import java.lang.reflect.Type;
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -89,6 +94,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         planner.addRelTraitDef(RelDistributionTraitDef.INSTANCE);
         planner.addRelTraitDef(RelDeviceTypeTraitDef  .INSTANCE);
         planner.addRelTraitDef(RelPackingTraitDef     .INSTANCE);
+//        planner.addRelTraitDef(RelDataLocalityTraitDef.INSTANCE);
 
 //        COMMUTE
 //                ? JoinAssociateRule.INSTANCE
@@ -481,6 +487,28 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         }
         return columns;
     }
+
+    @Override
+    public void executeDdl(Context context, SqlNode node) {
+        if (node.getKind().belongsTo(Arrays.asList(SqlKind.SET_OPTION))){
+            if (node instanceof SqlSetOption){
+                SqlSetOption setOption = (SqlSetOption) node;
+                switch (setOption.getName().names.get(0)){
+                case "cpuonly":
+                    SqlNode value = setOption.getValue();
+                    if (value instanceof SqlLiteral){
+                        SqlLiteral lit = (SqlLiteral) value;
+                        Repl.cpuonly_$eq(lit.booleanValue());
+                        return;
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+                }
+            }
+        }
+        super.executeDdl(context, node);
+    }
+
 
     @Override
     <T> CalciteSignature<T> prepare2_(
