@@ -24,15 +24,15 @@ class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
   override def copy(traitSet: RelTraitSet, input: RelNode, condition: RexNode) = PelagoFilter.create(input, condition)
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-    if (getTraitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX))) super.computeSelfCost(planner, mq).multiplyBy(0.001)
-    else super.computeSelfCost(planner, mq).multiplyBy(0.1)
+    if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) super.computeSelfCost(planner, mq).multiplyBy(0.001)
+    else super.computeSelfCost(planner, mq).multiplyBy(10)
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("isS", getTraitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX)).toString)
 
-  override def implement(): (Binding, JValue) = {
+  override def implement(target: RelDeviceType): (Binding, JValue) = {
     val op = ("operator" , "select")
-    val child = getInput.asInstanceOf[PelagoRel].implement
+    val child = getInput.asInstanceOf[PelagoRel].implement(target)
     val childBinding: Binding = child._1
     val childOp = child._2
     val rowType = emitSchema(childBinding.rel, getRowType)

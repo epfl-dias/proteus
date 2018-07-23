@@ -1,9 +1,8 @@
 package org.apache.calcite.prepare;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import org.apache.calcite.adapter.enumerable.EnumerableCalc;
+
 import org.apache.calcite.adapter.enumerable.EnumerableInterpretable;
 import org.apache.calcite.adapter.enumerable.EnumerableRel;
 import org.apache.calcite.avatica.Meta;
@@ -14,19 +13,12 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.*;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.RelFactories;
-import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
-import org.apache.calcite.rel.metadata.RelMetadataProvider;
-import org.apache.calcite.rel.rules.JoinCommuteRule;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rex.RexBuilder;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.runtime.Bindable;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.Typed;
@@ -44,15 +36,16 @@ import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.Programs;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
-import org.apache.calcite.util.Pair;
+import org.apache.commons.lang.ArrayUtils;
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPackTransfers;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossDown;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushRouterDown;
+import ch.epfl.dias.repl.Repl;
 
 import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -153,14 +146,28 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             return holder.get();
         }
 
+        boolean cpu_only = Repl.cpuonly();
+
+        ImmutableList.Builder<RelOptRule> hetRuleBuilder = ImmutableList.builder();
+
+        if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossDown.RULES);
+
+        hetRuleBuilder.add(PelagoPushRouterDown.RULES);
+        hetRuleBuilder.add(PelagoPackTransfers.RULES );
+
         return Programs.sequence(
                 Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
                 new DecorrelateProgram(),
                 new TrimFieldsProgram(),
                 Programs.heuristicJoinOrder(planner.getRules(), false, 2),
+                new PelagoProgram(),
+                Programs.ofRules(hetRuleBuilder.build()),
+//                Programs.ofRules(PelagoPushDeviceCrossDown.RULES),
+//                new PelagoProgram(),
+//                Programs.ofRules(PelagoPushRouterDown.RULES),
                 new PelagoProgram()
 
-                // Second planner pass to do physical "tweaks". This the first time that
+        // Second planner pass to do physical "tweaks". This the first time that
                 // EnumerableCalcRel is introduced.
 //                calc(metadataProvider)
         );

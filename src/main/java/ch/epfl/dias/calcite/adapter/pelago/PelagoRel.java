@@ -12,6 +12,6 @@ public interface PelagoRel extends RelNode {
     /** Calling convention for relational operations that occur in Pelago. */
     Convention CONVENTION = new Convention.Impl("Pelago", PelagoRel.class);
 
-    public Tuple2<Binding, JsonAST.JValue> implement();
+    public Tuple2<Binding, JsonAST.JValue> implement(RelDeviceType target);
 }
 

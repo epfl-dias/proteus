@@ -93,6 +93,7 @@ object PlanToJSON {
             case SqlTypeName.BOOLEAN => new java.lang.Boolean(lit.toString).asInstanceOf[Boolean]
             case SqlTypeName.FLOAT => new java.lang.Double(lit.toString).asInstanceOf[Double]
             case SqlTypeName.DOUBLE => new java.lang.Double(lit.toString).asInstanceOf[Double]
+            case SqlTypeName.DECIMAL => new java.lang.Double(lit.toString).asInstanceOf[Double]
             case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)
             case SqlTypeName.CHAR => lit.getValueAs(classOf[String])
             case _ => {
@@ -238,7 +239,7 @@ object PlanToJSON {
         left  = emitExpression(args.get(0), f, args.get(1))
         right = emitExpression(args.get(1), f, args.get(0))
       } else {
-        assert(SqlTypeUtil.comparePrecision(ltype.getPrecision, rtype.getPrecision) != 0)
+//        assert(SqlTypeUtil.comparePrecision(ltype.getPrecision, rtype.getPrecision) != 0) //FIXME: !!! have to be similar, but from proteus side!
         if (castLeft(ltype, rtype)){
           System.out.println("Cast: " + ltype + "->" + rtype)
           left  = emitCast      (args.get(0), emitType(rtype, f), f)
@@ -370,6 +371,7 @@ object PlanToJSON {
     case SqlTypeName.BOOLEAN  => ("type", "bool"    )
     case SqlTypeName.DOUBLE   => ("type", "float"   ) // proteu's float is a c++ double
     case SqlTypeName.FLOAT    => ("type", "float"   ) // proteu's float is a c++ double
+    case SqlTypeName.DECIMAL  => ("type", "float"   )
     case _ => throw new PlanConversionException("Unknown type: " + k)
   }
 
@@ -417,27 +419,26 @@ object PlanToJSON {
   }
 
   def emitSchema(relName: String, t: RelDataType): JValue = {
-    emitSchema(relName, t, false)
+    emitSchema(relName, t, false, false)
   }
 
-  def emitSchema(relName: String, t: RelDataType, with_attrNo: Boolean): JValue = t match {
-    case recType : RelRecordType => emitRowType(relName, recType, with_attrNo)
+  def emitSchema(relName: String, t: RelDataType, with_attrNo: Boolean, is_packed: Boolean): JValue = t match {
+    case recType : RelRecordType => emitRowType(relName, recType, with_attrNo, is_packed)
     case _ => throw new PlanConversionException("Unknown schema type (non-record one)")
   }
 
   def emitRowType(relName: String, t: RelRecordType): JValue = {
-    emitRowType(relName, t, false)
+    emitRowType(relName, t, false, false)
   }
 
-  def emitRowType(relName: String, t: RelRecordType, with_attrNo: Boolean): JValue = {
+  def emitRowType(relName: String, t: RelRecordType, with_attrNo: Boolean, is_packed: Boolean): JValue = {
     val bindings = List(Binding(relName, getFields(t)))
     val fields = t.getFieldList.asScala.zipWithIndex.map {
       f => {
-        if (with_attrNo) {
-          ("relName", relName) ~ ("attrName", f._1.getName) ~ ("type", emitType(f._1.getType, bindings)) ~ ("attrNo", f._2 + 1)
-        } else {
-          ("relName", relName) ~ ("attrName", f._1.getName) ~ ("type", emitType(f._1.getType, bindings))
-        }
+        var t = ("relName", relName) ~ ("attrName", f._1.getName) //~ ("type", emitType(f._1.getType, bindings))
+        if (with_attrNo) t = t ~ ("attrNo", f._2 + 1)
+        if (is_packed  ) t = t ~ ("isBlock", true)
+        t
       }
     }
     fields

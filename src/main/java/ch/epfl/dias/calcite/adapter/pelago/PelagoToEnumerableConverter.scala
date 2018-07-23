@@ -68,7 +68,7 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
     val op = ("operator" , "print")
     val alias = "print" + getId
     val rowType = emitSchema(alias, getRowType)
-    val child = getInput.asInstanceOf[PelagoRel].implement
+    val child = getInput.asInstanceOf[PelagoRel].implement(RelDeviceType.X86_64)
     val childBinding: Binding = child._1
     val childOp = child._2
 
@@ -90,9 +90,9 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
     val mock = Repl.isMockRun //TODO: change!!!
 
     val plan = getPlan
-    System.out.println(pretty(render(plan)))
+//    System.out.println(pretty(render(plan)))
 
-    new PrintWriter("plan.json") { write(pretty(render(plan))); close }
+    new PrintWriter(Repl.planfile) { write(pretty(render(plan))); close }
 
     if (mock == true) {
       PelagoToEnumerableConverter.pt = new PelagoResultTable(Sources.of(new File(Repl.mockfile)), getRowType, mock) //TODO: fix path
@@ -194,7 +194,7 @@ object PelagoToEnumerableConverter {
       if (Repl.echoResults) stdinWriter.println("echo results on" )
       else                  stdinWriter.println("echo results off")
 
-      stdinWriter.println("execute plan from file plan.json")
+      stdinWriter.println("execute plan from file " + Repl.planfile)
 
       while ({line = stdoutReader.readLine(); line != null} && !line.startsWith("result in file")) {
         System.out.println("pelago: " + line)

@@ -29,6 +29,7 @@ import org.apache.commons.lang3.time.FastDateFormat;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.math.BigDecimal;
 import java.text.ParseException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -292,6 +293,12 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
           return null;
         }
         return Double.parseDouble(string);
+      } else if (fieldType.getType().getSqlTypeName() == SqlTypeName.DECIMAL) {
+        if (mock) return rand.nextDouble();
+        if (string.length() == 0) {
+          return null;
+        }
+        return new BigDecimal(Double.parseDouble(string));
       } else if (fieldType.getType().getSqlTypeName() == SqlTypeName.VARCHAR) {
         if (mock) return UUID.randomUUID().toString().replace("-", "");
         return string;

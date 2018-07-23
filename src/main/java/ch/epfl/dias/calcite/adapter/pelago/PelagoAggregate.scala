@@ -33,13 +33,14 @@ import scala.collection.parallel.immutable
 
 class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, indicator: Boolean,
                       groupSet: ImmutableBitSet, groupSets: util.List[ImmutableBitSet],
-                      aggCalls: util.List[AggregateCall])
+                      aggCalls: util.List[AggregateCall],
+                      var isGlobalAgg: Boolean)
         extends Aggregate(cluster, traitSet, input, indicator, groupSet, groupSets, aggCalls) with PelagoRel {
 
   override def copy(traitSet: RelTraitSet, input: RelNode, indicator: Boolean, groupSet: ImmutableBitSet,
                     groupSets: util.List[ImmutableBitSet], aggCalls: util.List[AggregateCall])
                           = {
-    PelagoAggregate.create(input, indicator, groupSet, groupSets, aggCalls)
+    PelagoAggregate.create(input, indicator, groupSet, groupSets, aggCalls, isGlobalAgg)
   }
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
@@ -47,17 +48,24 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
         if (agg.getAggregation().getKind() == SqlKind.AVG) return getCluster.getPlanner.getCostFactory.makeHugeCost();
     }
 
-    if (getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) != null && getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE).satisfies(RelDeviceType.NVPTX)) {
-      return planner.getCostFactory.makeZeroCost
+    val rf = {
+      if (getTraitSet.containsIfApplicable(RelDistributions.RANDOM_DISTRIBUTED)) 1e-3
+      else 1e2
     }
-    super.computeSelfCost(planner, mq).multiplyBy(0.1)
+
+
+    if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
+      super.computeSelfCost(planner, mq).multiplyBy(0.1 * 1e2 * rf * Math.log(getInput.getRowType.getFieldCount))
+    } else {
+      super.computeSelfCost(planner, mq).multiplyBy(0.1 * 1e2 * rf * Math.log(getInput.getRowType.getFieldCount))
+    }
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
-  override def implement: (Binding, JValue) = {
+  override def implement(target: RelDeviceType): (Binding, JValue) = {
     val op = ("operator", if (getGroupCount == 0) "reduce" else "groupby")
-    val child = getInput.asInstanceOf[PelagoRel].implement
+    val child = getInput.asInstanceOf[PelagoRel].implement(target)
     val childBinding: Binding = child._1
     val childOp = child._2
 
@@ -128,7 +136,7 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
       val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getInput  )
       val maxEst = if (maxrow != null) Math.min(maxrow, 128*1024*1024) else 128*1024*1024
 
-      val hash_bits = Math.max(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 15)
+      val hash_bits = Math.min(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 15)
 
       val json = op ~
         ("gpu"          , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
@@ -146,14 +154,21 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
 
 object PelagoAggregate{
   def create(input: RelNode, indicator: Boolean, groupSet: ImmutableBitSet, groupSets: util.List[ImmutableBitSet], aggCalls: util.List[AggregateCall]): PelagoAggregate = {
+    create(input, indicator, groupSet, groupSets, aggCalls, false)
+  }
+
+  def create(input: RelNode, indicator: Boolean, groupSet: ImmutableBitSet, groupSets: util.List[ImmutableBitSet], aggCalls: util.List[AggregateCall], isGlobalAgg: Boolean): PelagoAggregate = {
     val cluster = input.getCluster
     val mq = cluster.getMetadataQuery
     val traitSet = cluster.traitSet
       .replace(PelagoRel.CONVENTION)
-      .replace(RelDistributions.SINGLETON)
+//      .replace(RelDistributions.SINGLETON)
+      .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
+        override def get: RelDistribution = mq.distribution(input);
+      })
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType]() {
         override def get: RelDeviceType = PelagoRelMdDeviceType.aggregate(mq, input)
       });
-    new PelagoAggregate(cluster, traitSet, input, indicator, groupSet, groupSets, aggCalls)
+    new PelagoAggregate(cluster, traitSet, input, indicator, groupSet, groupSets, aggCalls, isGlobalAgg)
   }
 }

@@ -41,7 +41,7 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
   }
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-    if (getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == RelDeviceType.NVPTX) {
+    if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
       super.computeSelfCost(planner, mq).multiplyBy(0.0001)
     } else {
       super.computeSelfCost(planner, mq).multiplyBy(0.01)
@@ -51,11 +51,11 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
   //almost 0 cost in Pelago
-  override def implement: (Binding, JsonAST.JValue) = {
+  override def implement(target: RelDeviceType): (Binding, JsonAST.JValue) = {
     val op      = ("operator" , "project")
     val alias   = "projection" + getId
     val rowType = emitSchema(alias, getRowType)
-    val child   = getInput.asInstanceOf[PelagoRel].implement
+    val child   = getInput.asInstanceOf[PelagoRel].implement(target)
     val childBinding: Binding = child._1
     val childOp = child._2
     //TODO Could also use p.getNamedProjects

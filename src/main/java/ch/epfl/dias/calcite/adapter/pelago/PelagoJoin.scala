@@ -13,7 +13,7 @@ import org.apache.calcite.rel.core.CorrelationId
 import org.apache.calcite.rel.core.Join
 import org.apache.calcite.rel.core.JoinRelType
 import org.apache.calcite.rel.metadata.{DefaultRelMetadataProvider, RelMdDistribution, RelMdParallelism, RelMetadataQuery}
-import org.apache.calcite.rex.{RexCall, RexFieldAccess, RexInputRef, RexNode}
+import org.apache.calcite.rex._
 import org.apache.calcite.util.{ImmutableIntList, Util}
 import org.json4s.{JValue, JsonAST}
 import org.json4s.JsonDSL._
@@ -46,12 +46,21 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     PelagoJoin.create(left, right, conditionExpr, getVariablesSet, joinType)
   }
 
-  override def estimateRowCount(mq: RelMetadataQuery): Double = super.estimateRowCount(mq)
+//  override def estimateRowCount(mq: RelMetadataQuery): Double = super.estimateRowCount(mq)
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Pelago does not support cross products
 //    if (condition.isAlwaysTrue) return planner.getCostFactory.makeInfiniteCost
 
-//    if (traitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX))) return planner.getCostFactory.makeTinyCost
+    val rf = {
+      if (!getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
+        if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.000001
+        else 1000//0.1
+      } else if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
+        1000 //0.01
+      } else {
+        1000
+      }
+    }
 
 //    if (getLeft.getRowType.getFieldCount > 1) return planner.getCostFactory.makeHugeCost
 //    if (traitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX))) return planner.getCostFactory.makeTinyCost
@@ -78,7 +87,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     if (leftRowCount.isInfinite) rowCount = leftRowCount
     else rowCount += Util.nLogN(leftRowCount * left.getRowType.getFieldCount)
 
-    rowCount *= left.getRowType.getFieldCount
+    rowCount *= left.getRowType.getFieldCount //* 0.001
 
     if (rightRowCount.isInfinite) {
       rowCount = rightRowCount
@@ -87,7 +96,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       //TODO: Cost should change for radix-HJ
     }
     rowCount *= right.getRowType.getFieldCount
-    planner.getCostFactory.makeCost(rowCount, rowCount, 0).multiplyBy(0.1)
+    planner.getCostFactory.makeCost(rowCount, rowCount, 0).multiplyBy(100 * rf)
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("build", left.getRowType.toString).item("lcount", Util.nLogN(left.estimateRowCount(left.getCluster.getMetadataQuery) * left.getRowType.getFieldCount)).item("rcount", right.estimateRowCount(right.getCluster.getMetadataQuery)).item("buildcountrow", left.estimateRowCount(left.getCluster.getMetadataQuery)).item("probecountrow", right.estimateRowCount(right.getCluster.getMetadataQuery))
@@ -102,12 +111,12 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     case _ => throw new PlanConversionException("Unsupported type: " + t)
   }
 
-  override def implement: (Binding, JsonAST.JValue) = {
+  override def implement(target: RelDeviceType): (Binding, JsonAST.JValue) = {
     val op = ("operator" , "hashjoin-chained")
-    val build = getLeft.asInstanceOf[PelagoRel].implement()
+    val build = getLeft.asInstanceOf[PelagoRel].implement(target)
     val build_binding: Binding = build._1
     val build_child = build._2
-    val probe = getRight.asInstanceOf[PelagoRel].implement()
+    val probe = getRight.asInstanceOf[PelagoRel].implement(target)
     val probe_binding: Binding = probe._1
     val probe_child = probe._2
 
@@ -116,6 +125,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     //TODO: while the executor supports it, we should update the translator
     assert(joinCondOperands.size() == 2, "Complex equi-join (executor supports it, but translator does not)")
 
+    //FIXME: joinCondOperands does not always belong to the probe side
 //    val cond = emitExpression(getCondition, List(leftBinding,rightBinding))
     val probe_k: JObject = emitExpression(joinCondOperands.get(0), List(build_binding, probe_binding)).asInstanceOf[JsonAST.JObject]
     val build_k: JObject = emitExpression(joinCondOperands.get(1), List(build_binding, probe_binding)).asInstanceOf[JsonAST.JObject]
@@ -167,11 +177,11 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       }
     }.zipWithIndex.map{e => ("e", e._1) ~ ("packet", e._2 + 1) ~ ("offset", 0)} //FIXME: using different packets for each of them is the worst performance-wise
 
-    val rowEst = Math.min(getLeft.estimateRowCount(getCluster.getMetadataQuery), 128*1024*1024)
+    val rowEst = Math.min(getLeft.estimateRowCount(getCluster.getMetadataQuery), 64*1024*1024)
     val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getLeft  )
-    val maxEst = if (maxrow != null) Math.min(maxrow, 128*1024*1024) else 128*1024*1024
+    val maxEst = if (maxrow != null) Math.min(maxrow, 64*1024*1024) else 64*1024*1024
 
-    val hash_bits = 1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int]
+    val hash_bits = Math.min(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 15)
 
     val json = op ~
 //      ("tupleType"        , rowType     ) ~

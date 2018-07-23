@@ -47,11 +47,11 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
 //        System.out.println(inp.getTraitSet());
 
         RelTraitSet traitSet = rel.getTraitSet().replace(PelagoRel.CONVENTION) //rel.getCluster().traitSet()
-//                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-//                    public RelDistribution get() {
-//                        return RelDistributions.SINGLETON;
-//                    }
-//                })
+                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
+                    public RelDistribution get() {
+                        return RelDistributions.SINGLETON;
+                    }
+                })
                 .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
                     public RelDeviceType get() {
                         return RelDeviceType.X86_64;

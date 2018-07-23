@@ -52,13 +52,19 @@ class PelagoUnnest protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
 //    )
   }
 
+  override def estimateRowCount(mq: RelMetadataQuery): Double = input.estimateRowCount(mq) * 8
+
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-    super.computeSelfCost(planner, mq)
+    if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
+      super.computeSelfCost(planner, mq).multiplyBy(100)
+    } else {
+      super.computeSelfCost(planner, mq).multiplyBy(1000)
+    }
   }
 
-  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("isS", getTraitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX)).toString)
+  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
-  override def implement(): (Binding, JValue) = {
+  override def implement(target: RelDeviceType): (Binding, JValue) = {
     val op    = ("operator" , "project")
     val alias = "unnest" + getId
 
@@ -105,7 +111,7 @@ class PelagoUnnest protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
   def implementUnnest(): (Binding, JValue) = {
     val op    = ("operator" , "unnest")
     val alias = "__unnest" + getId
-    val child = input.asInstanceOf[PelagoRel].implement
+    val child = input.asInstanceOf[PelagoRel].implement(getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE))
     val childBinding: Binding = child._1
     val childOp = child._2
 //    val rowType = emitSchema(childBinding.rel, getRowType)

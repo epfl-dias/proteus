@@ -4,6 +4,8 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
+import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
+
 import com.google.common.base.Predicates;
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.plan.RelOptRuleCall;
@@ -24,11 +26,13 @@ public class PelagoDistributionConverterRule extends ConverterRule {
 //    public static final ConverterRule BRDCST_INSTANCE =
 //            new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED, RelDistributions.ANY            , PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule BRDCST_INSTANCE2 =
-        new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , RelDistributions.ANY            , PelagoRelFactories.PELAGO_BUILDER);
+        new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , RelDistributions.RANDOM_DISTRIBUTED            , PelagoRelFactories.PELAGO_BUILDER);
+    public static final ConverterRule BRDCST_INSTANCE3 =
+        new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , RelDistributions.SINGLETON                     , PelagoRelFactories.PELAGO_BUILDER);
 //    public static final ConverterRule SEQNTL_INSTANCE =
 //            new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.RANDOM_DISTRIBUTED   , PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule SEQNTL_INSTANCE2 =
-        new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.ANY   , PelagoRelFactories.PELAGO_BUILDER);
+        new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.RANDOM_DISTRIBUTED   , PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule RANDOM_INSTANCE =
             new PelagoDistributionConverterRule(RelDistributions.RANDOM_DISTRIBUTED   , RelDistributions.SINGLETON            , PelagoRelFactories.PELAGO_BUILDER);
 
@@ -52,8 +56,9 @@ public class PelagoDistributionConverterRule extends ConverterRule {
 //        if (distribution == RelDistributions.RANDOM_DISTRIBUTED) {
 //            System.out.println(tmp);
 //        }
+        RelTraitSet traitSet = rel.getTraitSet().replace(PelagoRel.CONVENTION).replace(RelDeviceType.X86_64);
 //            System.out.println(distribution + " " + rel.getTraitSet() + " " + rel);
-        return PelagoRouter.create(convert(rel, PelagoRel.CONVENTION), distribution);
+        return PelagoRouter.create(convert(rel, traitSet), distribution);
     }
 
     public boolean matches(RelOptRuleCall call) {
