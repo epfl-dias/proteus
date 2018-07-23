@@ -17,8 +17,12 @@ import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.runtime.Bindable;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.Typed;
@@ -36,6 +40,7 @@ import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.Programs;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
+import org.apache.calcite.util.Pair;
 import org.apache.commons.lang.ArrayUtils;
 
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
@@ -46,6 +51,7 @@ import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushRouterDown;
 import ch.epfl.dias.repl.Repl;
 
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -156,6 +162,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         hetRuleBuilder.add(PelagoPackTransfers.RULES );
 
         return Programs.sequence(
+//                new PelagoProjectRootProgram(),
                 Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
                 new DecorrelateProgram(),
                 new TrimFieldsProgram(),
@@ -234,102 +241,18 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         };
     }
 
-
-    public PreparedResult prepareSql(
-        SqlNode sqlQuery,
-        SqlNode sqlNodeOriginal,
-        Class runtimeContextClass,
-        SqlValidator validator,
-        boolean needsValidation) {
-        init(runtimeContextClass);
-
-        final SqlToRelConverter.ConfigBuilder builder =
-            SqlToRelConverter.configBuilder()
-                .withTrimUnusedFields(true)
-                .withExpand(THREAD_EXPAND.get())
-                .withExplain(sqlQuery.getKind() == SqlKind.EXPLAIN);
-//                .withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER);
-        final SqlToRelConverter sqlToRelConverter =
-            getSqlToRelConverter(validator, catalogReader, builder.build());
-
-        SqlExplain sqlExplain = null;
-        if (sqlQuery.getKind() == SqlKind.EXPLAIN) {
-            // dig out the underlying SQL statement
-            sqlExplain = (SqlExplain) sqlQuery;
-            sqlQuery = sqlExplain.getExplicandum();
-            sqlToRelConverter.setDynamicParamCountInExplain(
-                sqlExplain.getDynamicParamCount());
-        }
-
-        RelRoot root =
-            sqlToRelConverter.convertQuery(sqlQuery, needsValidation, true);
-        Hook.CONVERTED.run(root.rel);
-
-        if (timingTracer != null) {
-            timingTracer.traceTime("end sql2rel");
-        }
-
-        final RelDataType resultType = validator.getValidatedNodeType(sqlQuery);
-        fieldOrigins = validator.getFieldOrigins(sqlQuery);
-        assert fieldOrigins.size() == resultType.getFieldCount();
-
-        parameterRowType = validator.getParameterRowType(sqlQuery);
-
-        // Display logical plans before view expansion, plugging in physical
-        // storage and decorrelation
-        if (sqlExplain != null) {
-            SqlExplain.Depth explainDepth = sqlExplain.getDepth();
-            SqlExplainFormat format = sqlExplain.getFormat();
-            SqlExplainLevel detailLevel = sqlExplain.getDetailLevel();
-            switch (explainDepth) {
-            case TYPE:
-                return createPreparedExplanation(resultType, parameterRowType, null,
-                    format, detailLevel);
-            case LOGICAL:
-                return createPreparedExplanation(null, parameterRowType, root, format,
-                    detailLevel);
-            default:
+    protected RelRoot optimize(RelRoot root,
+        final List<Materialization> materializations,
+        final List<CalciteSchema.LatticeEntry> lattices) {
+        if (!root.isRefTrivial()) {
+            final List<RexNode> projects = new ArrayList<>();
+            final RexBuilder rexBuilder = root.rel.getCluster().getRexBuilder();
+            for (int field : Pair.left(root.fields)) {
+                projects.add(rexBuilder.makeInputRef(root.rel, field));
             }
+            root = root.withRel(LogicalProject.create(root.rel, projects, root.validatedRowType));
         }
-
-        // Structured type flattening, view expansion, and plugging in physical
-        // storage.
-        root = root.withRel(flattenTypes(root.rel, true));
-
-        if (this.context.config().forceDecorrelate()) {
-            // Sub-query decorrelation.
-            root = root.withRel(decorrelate(sqlToRelConverter, sqlQuery, root.rel));
-        }
-
-        // Trim unused fields.
-        root = trimUnusedFields(root);
-
-        Hook.TRIMMED.run(root.rel);
-
-        // Display physical plan after decorrelation.
-        if (sqlExplain != null) {
-            switch (sqlExplain.getDepth()) {
-            case PHYSICAL:
-            default:
-                root = optimize(root, getMaterializations(), getLattices());
-                return createPreparedExplanation(null, parameterRowType, root,
-                    sqlExplain.getFormat(), sqlExplain.getDetailLevel());
-            }
-        }
-
-        root = optimize(root, getMaterializations(), getLattices());
-
-        if (timingTracer != null) {
-            timingTracer.traceTime("end optimization");
-        }
-
-        // For transformation from DML -> DML, use result of rewrite
-        // (e.g. UPDATE -> MERGE).  For anything else (e.g. CALL -> SELECT),
-        // use original kind.
-        if (!root.kind.belongsTo(SqlKind.DML)) {
-            root = root.withKind(sqlNodeOriginal.getKind());
-        }
-        return implement(root);
+        return super.optimize(root, materializations, lattices);
     }
 
 }

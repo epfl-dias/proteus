@@ -80,7 +80,7 @@ object PelagoProject{
   def create(input: RelNode, projects: util.List[_ <: RexNode], rowType: RelDataType): PelagoProject = {
     val cluster  = input.getCluster
     val mq       = cluster.getMetadataQuery
-    val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
+    val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
       .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
         override def get: RelDistribution = {
           return PelagoRelMdDistribution.project(mq, input, projects)
