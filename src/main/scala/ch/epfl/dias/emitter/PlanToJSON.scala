@@ -369,7 +369,6 @@ object PlanToJSON {
     case SqlTypeName.VARCHAR  => ("type", "dstring" )
     case SqlTypeName.CHAR     => ("type", "dstring" )
     case SqlTypeName.BOOLEAN  => ("type", "bool"    )
-    case SqlTypeName.DECIMAL  => ("type", "float"   )
     case SqlTypeName.DOUBLE   => ("type", "float"   ) // proteu's float is a c++ double
     case SqlTypeName.FLOAT    => ("type", "float"   ) // proteu's float is a c++ double
     case SqlTypeName.DECIMAL  => ("type", "float"   )
