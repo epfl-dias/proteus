@@ -142,7 +142,7 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     val plugin = Extraction.decompose(getPluginInfo.asScala).asInstanceOf[JObject] ~
       ("name"       , srcName) ~
       ("projections", rowType) ~
-      ("schema"     , emitSchema(srcName, table.getRowType, true, false))
+      ("schema"     , emitSchema(srcName, table.getRowType, true, false, true))
 
     val json : JValue = op ~
       ("gpu"      , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX))       ~

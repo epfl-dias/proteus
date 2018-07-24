@@ -419,23 +419,28 @@ object PlanToJSON {
   }
 
   def emitSchema(relName: String, t: RelDataType): JValue = {
-    emitSchema(relName, t, false, false)
+    emitSchema(relName, t, false, false, false)
   }
 
-  def emitSchema(relName: String, t: RelDataType, with_attrNo: Boolean, is_packed: Boolean): JValue = t match {
-    case recType : RelRecordType => emitRowType(relName, recType, with_attrNo, is_packed)
+  def emitSchema(relName: String, t: RelDataType, with_attrNo: Boolean, is_packed: Boolean): JValue = {
+    emitSchema(relName, t, with_attrNo, is_packed, false)
+  }
+
+  def emitSchema(relName: String, t: RelDataType, with_attrNo: Boolean, is_packed: Boolean, with_type: Boolean): JValue = t match {
+    case recType : RelRecordType => emitRowType(relName, recType, with_attrNo, is_packed, with_type)
     case _ => throw new PlanConversionException("Unknown schema type (non-record one)")
   }
 
   def emitRowType(relName: String, t: RelRecordType): JValue = {
-    emitRowType(relName, t, false, false)
+    emitRowType(relName, t, false, false, false)
   }
 
-  def emitRowType(relName: String, t: RelRecordType, with_attrNo: Boolean, is_packed: Boolean): JValue = {
+  def emitRowType(relName: String, t: RelRecordType, with_attrNo: Boolean, is_packed: Boolean, with_type: Boolean): JValue = {
     val bindings = List(Binding(relName, getFields(t)))
     val fields = t.getFieldList.asScala.zipWithIndex.map {
       f => {
-        var t = ("relName", relName) ~ ("attrName", f._1.getName) //~ ("type", emitType(f._1.getType, bindings))
+        var t = ("relName", relName) ~ ("attrName", f._1.getName)
+        if (with_type  ) t = t ~ ("type", emitType(f._1.getType, bindings))
         if (with_attrNo) t = t ~ ("attrNo", f._2 + 1)
         if (is_packed  ) t = t ~ ("isBlock", true)
         t
