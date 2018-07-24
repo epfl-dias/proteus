@@ -3,6 +3,7 @@ package ch.epfl.dias.calcite.adapter.pelago
 import java.util
 
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, getFields}
+import org.apache.calcite.rel.{RelDistribution, RelDistributions}
 import org.apache.calcite.rex.RexInputRef
 
 //import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceType
@@ -45,20 +46,31 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
   def copy(traitSet: RelTraitSet, input: RelNode, packing: RelPacking) = PelagoUnpack.create(input, packing)
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Higher cost if rows are wider discourages pushing a project through an
+    val rf = {
+//      if (!getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
+//        if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.0001
+//        else 0.001
+//      } else
+      if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
+        0.001
+      } else {
+        0.1
+      }
+    }
     // exchange.
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
-    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(0.1)
+    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(rf)
 
 //    if (input.getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == toDevice) planner.getCostFactory.makeHugeCost()
 //    else planner.getCostFactory.makeTinyCost
   }
 
-  override def estimateRowCount(mq: RelMetadataQuery): Double = input.estimateRowCount(mq)
+  override def estimateRowCount(mq: RelMetadataQuery): Double = input.estimateRowCount(mq) * (1024)
 
-  override def implement: (Binding, JValue) = {
+  override def implement(target: RelDeviceType): (Binding, JValue) = {
     val op = ("operator", "block-to-tuples")
-    val child = getInput.asInstanceOf[PelagoRel].implement
+    val child = getInput.asInstanceOf[PelagoRel].implement(getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE))
     val childBinding: Binding = child._1
     val childOp = child._2
     val alias   = childBinding.rel  //"unpack" + getId
@@ -68,11 +80,11 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
         emitExpression(RexInputRef.of(f._2, getInput.getRowType), List(childBinding))
       }
     }
-
     val json = op ~
       ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
       ("projections", projs                                                 ) ~
       ("input"      , childOp                                               )
+
     val binding: Binding = Binding(alias, getFields(getRowType))
     val ret: (Binding, JValue) = (binding, json)
     ret

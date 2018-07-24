@@ -54,6 +54,7 @@ public class PelagoRules {
 //        PelagoJoinRule3.INSTANCE,
 //        PelagoBroadCastJoinRule.INSTANCE,
 //        PelagoBroadCastJoinRule2.INSTANCE,
+//        PelagoPushRouterBelowAggregate.INSTANCE,
     };
 
     public static final RelOptRule[] RULES2 = {
@@ -185,7 +186,8 @@ public class PelagoRules {
 //                inp = convert(inp, RelDistributions.SINGLETON);
 
 //            System.out.println(agg.getTraitSet());
-            RelTraitSet traitSet = agg.getInput().getTraitSet().replace(PelagoRel.CONVENTION)//rel.getCluster().traitSet()
+//            RelTraitSet traitSet = agg.getInput().getTraitSet().replace(PelagoRel.CONVENTION)//rel.getCluster().traitSet()
+            RelTraitSet traitSet = agg.getTraitSet().replace(PelagoRel.CONVENTION)//rel.getCluster().traitSet()
                 .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
                     public RelDeviceType get() {
                         return RelDeviceType.X86_64;

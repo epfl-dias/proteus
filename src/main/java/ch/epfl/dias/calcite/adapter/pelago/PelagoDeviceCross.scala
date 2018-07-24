@@ -5,7 +5,7 @@ import java.util.List
 
 import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution}
 import org.apache.calcite.rel.metadata.RelMdDistribution
-import org.apache.calcite.rel.{RelDistribution, RelDistributionTraitDef}
+import org.apache.calcite.rel.{RelDistribution, RelDistributionTraitDef, RelDistributions}
 
 //import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceType
 //import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceTypeTraitDef
@@ -50,25 +50,51 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
   def copy(traitSet: RelTraitSet, input: RelNode, deviceType: RelDeviceType) = PelagoDeviceCross.create(input, deviceType)
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Higher cost if rows are wider discourages pushing a project through an
+//    if (traitSet.containsIfApplicable(RelPacking.UnPckd)) return planner.getCostFactory.makeHugeCost()
     // exchange.
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
-    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(0.1)
+    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(2)
 
+//    planner.getCostFactory.makeZeroCost()
 //    if (input.getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == toDevice) planner.getCostFactory.makeHugeCost()
-//    else planner.getCostFactory.makeTinyCost
+//    else
+//    planner.getCostFactory.makeTinyCost
   }
 
   override def estimateRowCount(mq: RelMetadataQuery): Double = input.estimateRowCount(mq)
 
-  override def implement: (Binding, JValue) = {
-    val op = ("operator" , "devcross")
-    val child = getInput.asInstanceOf[PelagoRel].implement
+  override def implement(target: RelDeviceType): (Binding, JValue) = {
+    val op = ("operator" ,
+      if (getDeviceType eq RelDeviceType.NVPTX) "cpu-to-gpu"
+      else "gpu-to-cpu"
+    )
+    val child = getInput.asInstanceOf[PelagoRel].implement(if (getDeviceType() == RelDeviceType.X86_64) null else target)
     val childBinding = child._1
-    val childOp = child._2
-    val rowType = emitSchema(childBinding.rel, getRowType)
+    var childOp = child._2
+    val rowType = emitSchema(childBinding.rel, getRowType, false, getTraitSet.containsIfApplicable(RelPacking.Packed))
+//
+//    if (target != null && getDeviceType() == RelDeviceType.NVPTX && getTraitSet.containsIfApplicable(RelPacking.Packed) && !getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
+//      childOp = ("operator", "mem-move-device") ~
+//        ("projections", emitSchema(childBinding.rel, getRowType, false, true)) ~
+//        ("input", childOp) ~
+//        ("to_cpu", target != RelDeviceType.NVPTX)
+//    }
 
-    val json = op ~ ("tupleType", rowType) ~ ("target", getDeviceType().toString) ~ ("input", childOp) ~ ("trait", getTraitSet.toString)
+    var json = op ~
+      ("projections", rowType) ~
+      ("queueSize", 1024*1024/4) ~ //FIXME: make adaptive
+      ("granularity", "thread") ~ //FIXME: not always
+      ("input", childOp)
+
+
+    if (target != null && getDeviceType() == RelDeviceType.X86_64 && getTraitSet.containsIfApplicable(RelPacking.Packed)) {
+      json = ("operator", "mem-move-device") ~
+        ("projections", emitSchema(childBinding.rel, getRowType, false, true)) ~
+        ("input", json) ~
+        ("to_cpu", target != RelDeviceType.NVPTX)
+    }
+
     val ret = (childBinding, json)
     ret
   }

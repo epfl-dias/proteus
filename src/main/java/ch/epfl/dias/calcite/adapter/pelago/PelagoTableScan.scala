@@ -116,7 +116,7 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
 //    ret
 //  }
 
-  def implement: (Binding, JValue) = {
+  def implement(target: RelDeviceType): (Binding, JValue) = {
     val op = ("operator" , "scan")
     //TODO Cross-check: 0: schemaName, 1: tableName (?)
     val srcName  = getPelagoRelName //s.getTable.getQualifiedName.get(1)
@@ -124,10 +124,25 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     val rowType  = emitSchema(srcName, getRowType)
     val linehint = getLineHint.longValue
 
+    val tableBinding: Binding = Binding(srcName, table.getRowType.getFieldList.asScala.toList)
+
+//    val projs = fields.map{
+//      f => {
+//        emitExpression(RexInputRef.of(f, table.getRowType), List(tableBinding)).asInstanceOf[JObject]
+//      }
+//    }.toList
+//
+//    val schema = table.getRowType.getFieldList.asScala.map{
+//      f => {
+//        emitExpression(RexInputRef.of(f.getIndex, table.getRowType), List(tableBinding)).asInstanceOf[JObject]
+//      }
+//    }.toList
+
+
     val plugin = Extraction.decompose(getPluginInfo.asScala).asInstanceOf[JObject] ~
       ("name"       , srcName) ~
       ("projections", rowType) ~
-      ("schema"     , emitSchema(srcName, table.getRowType, true))
+      ("schema"     , emitSchema(srcName, table.getRowType, true, false, true))
 
     val json : JValue = op ~
       ("gpu"      , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX))       ~

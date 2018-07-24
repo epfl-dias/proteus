@@ -2,6 +2,7 @@ package ch.epfl.dias.calcite.adapter.pelago.rules;
 
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
+import org.apache.calcite.rel.RelNode;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoJoin;
@@ -14,8 +15,10 @@ public class PelagoJoinPushBelowDeviceCross extends RelOptRule {
     super(
       operand(
         PelagoJoin.class,
-        operand(PelagoDeviceCross.class, any()),
-        operand(PelagoDeviceCross.class, any())
+        operand(PelagoDeviceCross.class,
+          operand(RelNode.class, any())),
+        operand(PelagoDeviceCross.class,
+          operand(RelNode.class, any()))
       )
     );
   }
@@ -27,11 +30,13 @@ public class PelagoJoinPushBelowDeviceCross extends RelOptRule {
   public void onMatch(RelOptRuleCall call) {
     PelagoJoin        join          = (PelagoJoin       ) call.rel(0);
     PelagoDeviceCross left_decross  = ((PelagoDeviceCross) call.rel(1));
-    PelagoDeviceCross right_decross = ((PelagoDeviceCross) call.rel(2));
+    PelagoDeviceCross right_decross = ((PelagoDeviceCross) call.rel(3));
 
     if (left_decross.getDeviceType() == right_decross.getDeviceType()) {
+      RelNode lidecross = call.rel(2);
+      RelNode ridecross = call.rel(4);
 
-      PelagoJoin new_join = join.copy(null, join.getCondition(), left_decross.getInput(), right_decross.getInput(), join.getJoinType(), join.isSemiJoinDone());
+      PelagoJoin new_join = join.copy(null, join.getCondition(), lidecross, ridecross, join.getJoinType(), join.isSemiJoinDone());
 
       call.transformTo(PelagoDeviceCross.create(new_join, left_decross.getDeviceType()));
     }

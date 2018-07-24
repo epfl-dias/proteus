@@ -47,28 +47,35 @@ object Repl extends App {
         nextOption(map ++ Map('echoResults -> true), tail)
       case "--port" :: value :: tail =>
         nextOption(map ++ Map('port -> value.toInt), tail)
+      case "--cpuonly" :: value :: tail =>
+        nextOption(map ++ Map('cpuonly -> true), tail)
       case "--mockfile" :: value :: tail =>
         nextOption(map ++ Map('mockfile -> value) ++ Map('mock -> true), tail)
+      case "--planfile" :: value :: tail =>
+        nextOption(map ++ Map('planfile -> value), tail)
       case "--mock" :: tail =>
         nextOption(map ++ Map('mock -> true), tail)
       case string :: Nil => nextOption(map ++ Map('schema -> string), list.tail)
       case option :: tail => println("Unknown option " + option)
-        println("Usage: [--server [--port]] [--echo-results] [--report-server [--report-port]] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]")
+        println("Usage: [--server [--port]] [--echo-results] [--planfile <path-to-write-plan>] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]")
         System.exit(1)
         null
     }
   }
 
-  val options = nextOption(Map('server -> false, 'port -> 8081, 'echoResults -> false, 'mock -> false, 'mockfile -> defaultMock, 'schema -> defaultSchema), arglist)
+  val options = nextOption(Map('server -> false, 'port -> 8081, 'echoResults -> false, 'mock -> false, 'mockfile -> defaultMock, 'cpuonly -> false, 'planfile -> "plan.json", 'schema -> defaultSchema), arglist)
 
   System.out.println(options);
 
   var mockfile    = options('mockfile   ).asInstanceOf[String ]
   var isMockRun   = options('mock       ).asInstanceOf[Boolean]
   var echoResults = options('echoResults).asInstanceOf[Boolean]
+  var planfile    = options('planfile   ).asInstanceOf[String ]
+  var cpuonly     = options('cpuonly    ).asInstanceOf[Boolean]
+
 
   /*
-  //Getting the actual model doesn't do us any good, unless we put it together programmatically on our own
+  //Getting the actual model doesn't do us any good, unless we put it together progtln("Unknown option " + option)         println("Usage: [--server [--port]] [--echo-results] [--planfile <path-to-write-plan>] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]")         System.exit(1)rammatically on our own
   //See https://calcite.apache.org/docs/model.html
   var schemaPath : String = getClass.getResource("/schema.json").getPath
   import java.io.InputStream

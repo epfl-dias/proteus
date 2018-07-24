@@ -25,6 +25,7 @@ public class PelagoRelMetadataProvider extends ChainedRelMetadataProvider {
             PelagoRelMdDeviceType     .SOURCE,
             PelagoRelMdDistribution   .SOURCE,
             PelagoRelMdPacking        .SOURCE,
+            PelagoRelMdRowCount       .SOURCE,
             RelMdDeviceType           .SOURCE,
             DefaultRelMetadataProvider.INSTANCE));
   }

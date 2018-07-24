@@ -1,17 +1,19 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
-import java.util.List
+import java.util
 
-//import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceType
-//import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceTypeTraitDef
 import ch.epfl.dias.emitter.Binding
-import ch.epfl.dias.emitter.PlanToJSON.emitSchema
+import ch.epfl.dias.emitter.PlanToJSON._
 import org.apache.calcite.plan._
 import org.apache.calcite.rel.convert.Converter
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.{RelNode, RelWriter, SingleRel}
+import org.apache.calcite.rex.RexInputRef
 import org.json4s.JValue
+import org.json4s.JsonAST.JObject
 import org.json4s.JsonDSL._
+
+import scala.collection.JavaConverters._
 
 class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: RelNode, val toPacking: RelPacking)
       extends SingleRel(cluster, traits, input) with PelagoRel with Converter {
@@ -30,30 +32,43 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
 
   def getPacking() = toPacking;
 
-  override def copy(traitSet: RelTraitSet, inputs: List[RelNode]): PelagoPack = copy(traitSet, inputs.get(0), toPacking)
+  override def copy(traitSet: RelTraitSet, inputs: util.List[RelNode]): PelagoPack = copy(traitSet, inputs.get(0), toPacking)
 
   def copy(traitSet: RelTraitSet, input: RelNode, packing: RelPacking) = PelagoPack.create(input, packing)
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Higher cost if rows are wider discourages pushing a project through an
     // exchange.
+    val rf = {
+      if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.001
+      else 1
+    }
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
-    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(0.1)
+    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(rf * 10)
 
 //    if (input.getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == toDevice) planner.getCostFactory.makeHugeCost()
 //    else planner.getCostFactory.makeTinyCost
+//    planner.getCostFactory.makeZeroCost
   }
 
-  override def estimateRowCount(mq: RelMetadataQuery): Double = input.estimateRowCount(mq)
+  override def estimateRowCount(mq: RelMetadataQuery): Double = Math.ceil(input.estimateRowCount(mq) / (1024))
 
-  override def implement: (Binding, JValue) = {
+  override def implement(target: RelDeviceType): (Binding, JValue) = {
     val op = ("operator" , "tuples-to-block")
-    val child = getInput.asInstanceOf[PelagoRel].implement
+    val child = getInput.asInstanceOf[PelagoRel].implement(target)
     val childBinding = child._1
     val childOp = child._2
     val rowType = emitSchema(childBinding.rel, getRowType)
 
-    val json = op ~ ("tupleType", rowType) ~ ("target", getPacking().toString) ~ ("input", childOp) ~ ("trait", getTraitSet.toString)
+    val projs = getRowType.getFieldList.asScala.zipWithIndex.map{
+      f => {
+        emitExpression(RexInputRef.of(f._2, getInput.getRowType), List(childBinding)).asInstanceOf[JObject]
+      }
+    }
+
+    val json = op ~
+      ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+      ("projections", projs) ~ ("input", childOp) ~ ("trait", getTraitSet.toString)
     val ret = (childBinding, json)
     ret
   }

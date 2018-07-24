@@ -38,6 +38,9 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
 
     Repl.mockfile_$eq ("../../src/SQLPlanner/src/main/resources/mock.csv");
     Repl.isMockRun_$eq(true);
+
+//    connection.createStatement().execute("ALTER SESSION SET cpuonly = true");
+
     connection.createStatement().executeQuery("explain plan for select * from ssbm_date1000");
   }
 
@@ -159,7 +162,7 @@ public class PelagoPlannerTest {
 
     // SSB Q1.1
     "select sum(lo_extendedprice*lo_discount) as revenue "
-      + "from ssbm_lineorder1000, ssbm_date1000 "
+      + "from ssbm_lineorder, ssbm_date "
       + "where lo_orderdate = d_datekey "
       + " and d_year = 1993 "
       + " and lo_discount between 1 and 3 "
@@ -326,6 +329,17 @@ public class PelagoPlannerTest {
 
     "select avg(cast(A1 as double)) from A",
 
+    "select avg(cast(A1 + 1.5 as double)) from A",
+
+    "select avg(A1 + 1.5) from A",
+
+    "select avg(A1 + 0.0) from A",
+
+    "select count(lo_orderdate) from ssbm_lineorder_csv",
+
+    "SELECT AVG(sepal_len) AS avg_sepal_len, AVG(sepal_wid) AS avg_sepal_wid, (CASE WHEN (aaa.P1<aaa.P2) AND (aaa.P1<aaa.P3) THEN 1 WHEN (aaa.P2<aaa.P3) THEN 2 ELSE 3 END) AS `member` FROM (SELECT sepal_len, sepal_wid, ((sepal_len-7.48677641861141)*(sepal_len-7.48677641861141)+(sepal_wid-4.21831973535009)*(sepal_wid-4.21831973535009)) AS P1, ((sepal_len-4.38052375022089)*(sepal_len-4.38052375022089)+(sepal_wid-4.07804339565337)*(sepal_wid-4.07804339565337)) AS P2, ((sepal_len-5.6342051673797)*(sepal_len-5.6342051673797)+(sepal_wid-4.20594438808039)*(sepal_wid-4.20594438808039)) AS P3 FROM iris) aaa GROUP BY (CASE WHEN (aaa.P1<aaa.P2) AND (aaa.P1<aaa.P3) THEN 1 WHEN (aaa.P2<aaa.P3) THEN 2 ELSE 3 END)",
+
+//    "SELECT AVG(sepal_len) AS avg_sepal_len, AVG(sepal_wid) AS avg_sepal_wid, (CASE WHEN (aaa.P1<aaa.P2) AND (aaa.P1<aaa.P3) THEN 1 WHEN (aaa.P2<aaa.P3) THEN 2 ELSE 3 END) AS `member` FROM (SELECT sepal_len, sepal_wid, ((sepal_len-7.48677641861141)*(sepal_len-7.48677641861141)+(sepal_wid-4.21831973535009)*(sepal_wid-4.21831973535009)) AS P1, ((sepal_len-4.38052375022089)*(sepal_len-4.38052375022089)+(sepal_wid-4.07804339565337)*(sepal_wid-4.07804339565337)) AS P2, ((sepal_len-5.6342051673797)*(sepal_len-5.6342051673797)+(sepal_wid-4.20594438808039)*(sepal_wid-4.20594438808039)) AS P3 FROM iris) aaa GROUP BY (CASE WHEN (aaa.P1<aaa.P2) AND (aaa.P1<aaa.P3) THEN 1 WHEN (aaa.P2<aaa.P3) THEN 2 ELSE 3 END)",
 //    // nest
 //    "select d_yearmonthnum, collect(d_datekey), collect(1) from ssbm_date group by d_yearmonthnum",
 //
@@ -358,7 +372,7 @@ public class PelagoPlannerTest {
     }
   }
 
-  @Test //(timeout = 10000)
+  @Test (timeout = 10000)
   public void testParse() throws SQLException {
 //    String sql = "select d_year, d_year*8 from ssbm_date1000";
     CalciteAssert.that()
