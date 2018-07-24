@@ -73,6 +73,13 @@ import static org.apache.calcite.plan.RelOptRule.any;
 import static org.apache.calcite.plan.RelOptRule.operand;
 
 public class PelagoPrepareImpl extends CalcitePrepareImpl {
+
+    public PelagoPrepareImpl() {
+        super();
+
+
+    }
+
     /** Creates a query planner and initializes it with a default set of
      * rules. */
     protected RelOptPlanner createPlanner(CalcitePrepare.Context prepareContext) {

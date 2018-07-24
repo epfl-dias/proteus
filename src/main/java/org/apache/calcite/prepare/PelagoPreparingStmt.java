@@ -1,9 +1,9 @@
 package org.apache.calcite.prepare;
 
+import ch.epfl.dias.calcite.adapter.pelago.reporting.PelagoTimeInterval;
+import ch.epfl.dias.calcite.adapter.pelago.reporting.TimeKeeper;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import org.apache.calcite.adapter.enumerable.EnumerableCalc;
 import org.apache.calcite.adapter.enumerable.EnumerableInterpretable;
 import org.apache.calcite.adapter.enumerable.EnumerableRel;
 import org.apache.calcite.avatica.Meta;
@@ -14,19 +14,12 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.*;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.RelFactories;
-import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
-import org.apache.calcite.rel.metadata.RelMetadataProvider;
-import org.apache.calcite.rel.rules.JoinCommuteRule;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rex.RexBuilder;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.runtime.Bindable;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.Typed;
@@ -44,15 +37,11 @@ import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.Programs;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
-import org.apache.calcite.util.Pair;
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 
 import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -130,9 +119,92 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             List<RelOptMaterialization> materializations,
             List<RelOptLattice> lattices) {
             System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.ALL_ATTRIBUTES));
+
             return rel;
         }
     }
+
+    /** Program that does time measurement between pairs invocations with same PelagoTimeInterval object */
+    private static class PelagoTimer implements Program {
+        private PelagoTimeInterval tm;
+        private String message;
+
+        public PelagoTimer(PelagoTimeInterval tm) {
+            this.tm = tm;
+            this.message = "Time difference: ";
+        }
+
+        public PelagoTimer(PelagoTimeInterval tm, String message) {
+            this.tm = tm;
+            this.message = message;
+        }
+
+        @Override
+        public RelNode run(RelOptPlanner planner, RelNode rel,
+                           RelTraitSet requiredOutputTraits,
+                           List<RelOptMaterialization> materializations,
+                           List<RelOptLattice> lattices) {
+
+            if(!tm.getStarted()){
+                tm.start();
+            } else {
+                tm.stop();
+                TimeKeeper.getInstance().addTcalcite(tm.getDifferenceMilli());
+                TimeKeeper.getInstance().addTimestamp();
+                System.out.println(message + tm.getDifferenceMilli() + "ms");
+            }
+
+            return rel;
+        }
+    }
+
+    /** Timed sequence - helper class for timedSequence method */
+    private static class PelagoTimedSequence implements Program {
+        private final ImmutableList<Program> programs;
+        private final PelagoTimeInterval timer;
+
+        PelagoTimedSequence(Program... programs) {
+            timer = new PelagoTimeInterval();
+
+            PelagoTimer startTimer = new PelagoTimer(timer);
+            PelagoTimer endTimer = new PelagoTimer(timer);
+
+            this.programs =  new ImmutableList.Builder<Program>().add(startTimer).addAll(ImmutableList.copyOf(programs)).add(endTimer).build();
+
+        }
+
+        PelagoTimedSequence(String message, Program... programs) {
+            timer = new PelagoTimeInterval();
+
+            PelagoTimer startTimer = new PelagoTimer(timer, message);
+            PelagoTimer endTimer = new PelagoTimer(timer, message);
+
+            this.programs =  new ImmutableList.Builder<Program>().add(startTimer).addAll(ImmutableList.copyOf(programs)).add(endTimer).build();
+
+        }
+
+        public RelNode run(RelOptPlanner planner, RelNode rel,
+                           RelTraitSet requiredOutputTraits,
+                           List<RelOptMaterialization> materializations,
+                           List<RelOptLattice> lattices) {
+            for (Program program : programs) {
+                rel = program.run(
+                        planner, rel, requiredOutputTraits, materializations, lattices);
+            }
+            return rel;
+        }
+    }
+
+    /**  */
+    private Program timedSequence(Program... programs) {
+        return new PelagoTimedSequence(programs);
+    }
+
+    /** */
+    private Program timedSequence(String message, Program... programs) {
+        return new PelagoTimedSequence(message, programs);
+    }
+
 
     @Override
     protected SqlToRelConverter getSqlToRelConverter(
@@ -153,12 +225,16 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             return holder.get();
         }
 
+        PelagoTimeInterval tm = new PelagoTimeInterval();
+
         return Programs.sequence(
+                timedSequence("Calcite time: ",
                 Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
                 new DecorrelateProgram(),
                 new TrimFieldsProgram(),
                 Programs.heuristicJoinOrder(planner.getRules(), false, 2),
                 new PelagoProgram()
+                )
 
                 // Second planner pass to do physical "tweaks". This the first time that
                 // EnumerableCalcRel is introduced.

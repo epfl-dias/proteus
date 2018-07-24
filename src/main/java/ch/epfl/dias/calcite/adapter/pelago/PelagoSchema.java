@@ -1,8 +1,10 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
+import ch.epfl.dias.calcite.adapter.pelago.reporting.TimeKeeperTable;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.calcite.config.Lex;
+import org.apache.calcite.schema.SchemaFactory;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.util.Source;
@@ -34,6 +36,7 @@ public class PelagoSchema extends AbstractSchema {
 
   @Override protected Map<String, Table> getTableMap() {
     if (tableMap == null) tableMap = createTableMap();
+
     return tableMap;
   }
 
@@ -84,6 +87,10 @@ public class PelagoSchema extends AbstractSchema {
         continue;
       }
     }
+
+    // FIXME adding the time keeper table
+    builder.put("PelagoTimeKeeper", TimeKeeperTable.getInstance());
+
     return builder.build();
   }
 }

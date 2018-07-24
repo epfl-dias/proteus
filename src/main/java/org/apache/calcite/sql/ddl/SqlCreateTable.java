@@ -46,6 +46,7 @@ import org.apache.calcite.schema.impl.ViewTableMacro;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.InitializerExpressionFactory;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
@@ -348,9 +349,9 @@ public class SqlCreateTable extends SqlCreate
   }
 
   /** Table backed by a Java list. */
-  static class MutableArrayTable extends AbstractModifiableTable
+  public static class MutableArrayTable extends AbstractModifiableTable
       implements Wrapper {
-    final List rows = new ArrayList();
+    protected final List rows = new ArrayList();
     private final RelProtoDataType protoStoredRowType;
     private final RelProtoDataType protoRowType;
     private final InitializerExpressionFactory initializerExpressionFactory;
@@ -363,7 +364,7 @@ public class SqlCreateTable extends SqlCreate
      * @param protoRowType Prototype of row type (all columns)
      * @param initializerExpressionFactory How columns are populated
      */
-    MutableArrayTable(String name, RelProtoDataType protoStoredRowType,
+    public MutableArrayTable(String name, RelProtoDataType protoStoredRowType,
         RelProtoDataType protoRowType,
         InitializerExpressionFactory initializerExpressionFactory) {
       super(name);

@@ -25,7 +25,6 @@ import org.apache.calcite.avatica.remote.Driver.Serialization
 import org.apache.calcite.avatica.jdbc.JdbcMeta
 import org.apache.calcite.avatica.remote.LocalService
 
-
 import scala.io.{BufferedSource, Source, StdIn}
 
 object Repl extends App {
@@ -54,13 +53,14 @@ object Repl extends App {
         nextOption(map ++ Map('mock -> true), tail)
       case string :: Nil => nextOption(map ++ Map('schema -> string), list.tail)
       case option :: tail => println("Unknown option " + option)
-        println("Usage: [--server [--port]] [--echo-results] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]")
+        println("Usage: [--server [--port]] [--echo-results] [--report-server [--report-port]] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]")
         System.exit(1)
         null
     }
   }
 
   val options = nextOption(Map('server -> false, 'port -> 8081, 'echoResults -> false, 'mock -> false, 'mockfile -> defaultMock, 'schema -> defaultSchema), arglist)
+
   System.out.println(options);
 
   var mockfile    = options('mockfile   ).asInstanceOf[String ]
@@ -83,6 +83,7 @@ object Repl extends App {
     val meta = new JdbcMeta("jdbc:pelago:model=" + schemaPath)
     val service = new LocalService(meta)
     val server = new HttpServer.Builder().withHandler(service, Serialization.PROTOBUF).withPort(options.get('port).get.asInstanceOf[Int]).build();
+
     server.start();
     server.join();
   } else {

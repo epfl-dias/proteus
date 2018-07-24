@@ -38,7 +38,9 @@ import java.io.{File, PrintWriter}
 import java.util
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter.process
+import ch.epfl.dias.calcite.adapter.pelago.reporting.TimeKeeper
 import ch.epfl.dias.emitter.PlanToJSON._
+import org.apache.calcite.avatica.remote.AvaticaHttpClientFactoryImpl
 import org.json4s.{JValue, JsonAST}
 import org.json4s.JsonDSL._
 import org.json4s._
@@ -196,8 +198,25 @@ object PelagoToEnumerableConverter {
 
       stdinWriter.println("execute plan from file plan.json")
 
+      val tk = TimeKeeper.getInstance()
+      var first_texec = true
+
       while ({line = stdoutReader.readLine(); line != null} && !line.startsWith("result in file")) {
         System.out.println("pelago: " + line)
+
+        if(line.contains("Texecute")){
+          val texec = java.lang.Long.parseLong("(\\d+)".r.findFirstIn(line).get)
+          if(first_texec) {
+            tk.addTexec(texec)
+            first_texec = false
+          }
+
+        }
+
+        if(line.contains("Tcodegen")){
+          val tcodegen = java.lang.Long.parseLong("(\\d+)".r.findFirstIn(line).get)
+          tk.addTcodegen(tcodegen);
+        }
       }
 
       if (line == null){
@@ -209,6 +228,11 @@ object PelagoToEnumerableConverter {
       }
 
       val path = line.substring("result in file ".length)
+
+      // print the times
+      System.out.println(tk);
+      // refresh the times
+      tk.refreshTable();
 
       new PelagoResultTable(Sources.of(new File(path)), rowType, false).scan(root)
     }
