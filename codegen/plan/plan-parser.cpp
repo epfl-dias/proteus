@@ -26,6 +26,7 @@
 #include "operators/unionall.hpp"
 #include "operators/split.hpp"
 
+#include "rapidjson/error/en.h"
 /* too primitive */
 struct PlanHandler {
     bool Null() { cout << "Null()" << endl; return true; }
@@ -104,7 +105,6 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, const char 
 	return;
 }
 
-
 PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, const char *moduleName, RawContext * ctx) :
 		planPath(planPath), moduleName(moduleName), catalogParser(cat), ctx(ctx), exprParser(cat) {
 	RawCatalog& catalog = RawCatalog::getInstance();
@@ -130,7 +130,10 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, const char 
 	}
 
 	Document document; // Default template parameter uses UTF8 and MemoryPoolAllocator.
-	if (document.Parse(bufJSON).HasParseError()) {
+	auto & parsed = document.Parse(bufJSON);
+	if (parsed.HasParseError()) {
+		ParseResult ok = (ParseResult) parsed;
+		fprintf(stderr, "JSON parse error: %s (%lu)", RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
 		const char *err = "[PlanExecutor: ] Error parsing physical plan (JSON parsing error)";
 		LOG(ERROR)<< err;
 		throw runtime_error(err);
@@ -2509,6 +2512,7 @@ RecordAttribute* ExpressionParser::parseRecordAttr(const rapidjson::Value& val, 
 	assert(val[keyAttrName].IsString());
 	string attrName = val[keyAttrName].GetString();
 
+	std::cout << relName << " " << attrName << std::endl;
 	const RecordAttribute * attr = getAttribute(relName, attrName);
 
 	int attrNo;
@@ -2832,9 +2836,12 @@ CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context): e
 	}
 
 	Document document; // Default template parameter uses UTF8 and MemoryPoolAllocator.
-	if (document.Parse(bufJSON).HasParseError()) {
-		const char *err = "[CatalogParser: ] Error parsing physical plan";
-		LOG(ERROR)<< err;
+	auto & parsed = document.Parse(bufJSON);
+	if (parsed.HasParseError()) {
+		ParseResult ok = (ParseResult) parsed;
+		fprintf(stderr, "[CatalogParser: ] Error parsing physical plan: %s (%lu)", RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
+			const char *err = "[CatalogParser: ] Error parsing physical plan";
+		LOG(ERROR)<< err << ": " << RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()) << "(" << ok.Offset() << ")";
 		throw runtime_error(err);
 	}
 
