@@ -54,7 +54,7 @@ void Exchange::generate_catch(){
     Type  * int64Type           = Type::getInt64Ty  (llvmContext);
     Type  * ptr_t               = PointerType::get(charPtrType, 0);
 
-    const PrimitiveType * ptoid = dynamic_cast<const PrimitiveType *>(pg->getOIDType());
+    const ExpressionType * ptoid = pg->getOIDType();
 
     Type  * oidType             = ptoid->getLLVMType(llvmContext);
 
@@ -63,16 +63,21 @@ void Exchange::generate_catch(){
 
     std::vector<Type *> param_typelist;
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        param_typelist.push_back(wantedFields[i]->getOriginalType()->getLLVMType(llvmContext));
+        Type * wtype = wantedFields[i]->getLLVMType(llvmContext);
+        if (wtype == NULL) wtype = oidType; //FIXME: dirty hack for JSON inner lists
+
+        param_typelist.push_back(wtype);
+        need_cnt = need_cnt || (wantedFields[i]->getOriginalType()->getTypeID() == BLOCK);
     }
-    param_typelist.push_back(oidType); //cnt
+
     param_typelist.push_back(oidType); //oid
+    if (need_cnt) param_typelist.push_back(oidType); //cnt
 
     // param_typelist.push_back(subStatePtr->getType());
 
     params_type = StructType::get(llvmContext, param_typelist);
 
-    size_t buf_size = context->getModule()->getDataLayout().getTypeSizeInBits(params_type);
+    size_t buf_size = context->getSizeOf(params_type);
     for (int i = 0 ; i < numOfParents ; ++i){
         for (int j = 0 ; j < slack ; ++j) {
             free_pool[i].push(malloc(buf_size));
@@ -108,8 +113,11 @@ void Exchange::generate_catch(){
 
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
         RawValueMemory mem_valWrapper;
+        
+        Type * wtype = wantedFields[i]->getLLVMType(llvmContext);
+        if (wtype == NULL) wtype = oidType; //FIXME: dirty hack for JSON inner lists
 
-        mem_valWrapper.mem    = context->CreateEntryBlockAlloca(F, wantedFields[i]->getAttrName() + "_ptr", wantedFields[i]->getOriginalType()->getLLVMType(llvmContext));
+        mem_valWrapper.mem    = context->CreateEntryBlockAlloca(F, wantedFields[i]->getAttrName() + "_ptr", wtype);
         mem_valWrapper.isNull = context->createFalse(); //FIMXE: should we alse transfer this information ?
 
         Value * param = Builder->CreateExtractValue(params, i);
@@ -119,25 +127,25 @@ void Exchange::generate_catch(){
         variableBindings[*(wantedFields[i])] = mem_valWrapper;
     }
 
-    RawValueMemory mem_cntWrapper;
-    mem_cntWrapper.mem    = context->CreateEntryBlockAlloca(F, "activeCnt", oidType);
-    mem_cntWrapper.isNull = context->createFalse(); //FIMXE: should we alse transfer this information ?
-
-    Value * cnt = Builder->CreateExtractValue(params, wantedFields.size()    );
-    Builder->CreateStore(cnt, mem_cntWrapper.mem);
-
-    variableBindings[tupleCnt] = mem_cntWrapper;
-
-
-
     RawValueMemory mem_oidWrapper;
     mem_oidWrapper.mem    = context->CreateEntryBlockAlloca(F, activeLoop, oidType);
     mem_oidWrapper.isNull = context->createFalse(); //FIMXE: should we alse transfer this information ?
 
-    Value * oid = Builder->CreateExtractValue(params, wantedFields.size() + 1);
+    Value * oid = Builder->CreateExtractValue(params, wantedFields.size()    );
     Builder->CreateStore(oid, mem_oidWrapper.mem);
 
     variableBindings[tupleIdentifier] = mem_oidWrapper;
+
+    if (need_cnt){
+        RawValueMemory mem_cntWrapper;
+        mem_cntWrapper.mem    = context->CreateEntryBlockAlloca(F, "activeCnt", oidType);
+        mem_cntWrapper.isNull = context->createFalse(); //FIMXE: should we alse transfer this information ?
+
+        Value * cnt = Builder->CreateExtractValue(params, wantedFields.size() + 1);
+        Builder->CreateStore(cnt, mem_cntWrapper.mem);
+
+        variableBindings[tupleCnt] = mem_cntWrapper;
+    }
 
     Builder->SetInsertPoint(mainBB);
 
@@ -370,21 +378,22 @@ void Exchange::consume(RawContext* const context, const OperatorState& childStat
     target = Builder->CreateURem(target, numOfParentsV);
     target->setName("target");
 
-    RecordAttribute tupleCnt        = RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
     RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRelationName(),  activeLoop, pg->getOIDType()); 
     
-    auto it = activeVars.find(tupleCnt);
-    assert(it != activeVars.end());
-
-    RawValueMemory mem_cntWrapper = it->second;
-
-    params = Builder->CreateInsertValue(params, Builder->CreateLoad(mem_cntWrapper.mem), wantedFields.size()    );
-
-    it = activeVars.find(tupleIdentifier);
+    auto it = activeVars.find(tupleIdentifier);
     assert(it != activeVars.end());
 
     RawValueMemory mem_oidWrapper = it->second;
-    params = Builder->CreateInsertValue(params, Builder->CreateLoad(mem_oidWrapper.mem), wantedFields.size() + 1);
+    params = Builder->CreateInsertValue(params, Builder->CreateLoad(mem_oidWrapper.mem), wantedFields.size()    );
+
+    if (need_cnt){
+        RecordAttribute tupleCnt        = RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
+        it = activeVars.find(tupleCnt);
+        assert(it != activeVars.end());
+
+        RawValueMemory mem_cntWrapper = it->second;
+        params = Builder->CreateInsertValue(params, Builder->CreateLoad(mem_cntWrapper.mem), wantedFields.size() + 1);
+    }
 
     Value * exchangePtr = ConstantInt::get(llvmContext, APInt(64, ((uint64_t) this)));
     Value * exchange    = Builder->CreateIntToPtr(exchangePtr, charPtrType);

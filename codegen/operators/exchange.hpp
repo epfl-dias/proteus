@@ -61,7 +61,8 @@ public:
                     numa_local(numa_local),
                     rand_local_cpu(rand_local_cpu),
                     producers(producers),
-                    remaining_producers(producers){
+                    remaining_producers(producers),
+                    need_cnt(false){
         assert((!hash || !numa_local) && "Just to make it more clear that hash has precedence over numa_local");
         
         free_pool           = new std::stack<void *>     [numOfParents];
@@ -134,6 +135,8 @@ protected:
     expressions::Expression       * hashExpr;
     bool                            numa_local;
     bool                            rand_local_cpu;
+
+    bool                            need_cnt;
 };
 
 #endif /* EXCHANGE_HPP_ */
