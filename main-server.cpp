@@ -241,7 +241,7 @@ int main(int argc, char* argv[]){
     LOG(INFO)<< "Warming up threads...";
 
     std::vector<std::thread> thrds;
-    for (int i = 0 ; i < 32 ; ++i) thrds.emplace_back(thread_warm_up);
+    for (int i = 0 ; i < 1024 ; ++i) thrds.emplace_back(thread_warm_up);
     for (auto &t: thrds) t.join();
 
     // srand(time(0));
@@ -364,6 +364,38 @@ int main(int argc, char* argv[]){
                     std::cout << print_generated_code << std::endl;
                 } else {
                     std::cout << "error (unknown codegen option, please specify what to echo)" << std::endl;
+                }
+            } else if (cmd == "unloadall"){
+                StorageManager::unloadAll();
+                std::cout << "done" << std::endl;
+            } else if (starts_with(cmd, "load ")){
+                if (starts_with(cmd, "load locally ")){
+                    constexpr size_t prefix_size = clen("load locally ");
+                    std::string path             = cmd.substr(prefix_size);
+                    StorageManager::load(path, PINNED);
+                    std::cout << "done" << std::endl;
+                } else if (starts_with(cmd, "load cpus ")){
+                    constexpr size_t prefix_size = clen("load cpus ");
+                    std::string path             = cmd.substr(prefix_size);
+                    StorageManager::loadToCpus(path);
+                    std::cout << "done" << std::endl;
+                } else if (starts_with(cmd, "load gpus ")){
+                    constexpr size_t prefix_size = clen("load gpus ");
+                    std::string path             = cmd.substr(prefix_size);
+                    StorageManager::loadToGpus(path);
+                    std::cout << "done" << std::endl;
+                } else if (starts_with(cmd, "load localgpu ")){
+                    constexpr size_t prefix_size = clen("load localgpu ");
+                    std::string path             = cmd.substr(prefix_size);
+                    StorageManager::load(path, GPU_RESIDENT);
+                    std::cout << "done" << std::endl;
+                } else if (starts_with(cmd, "load everywhere ")){
+                    constexpr size_t prefix_size = clen("load everywhere ");
+                    std::string path             = cmd.substr(prefix_size);
+                    StorageManager::loadEverywhere(path);
+                    std::cout << "done" << std::endl;
+                } else {
+                    std::cout << "error (unknown load option, please specify where to load)" << std::endl;
                 }
             }
         }
