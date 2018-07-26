@@ -159,10 +159,6 @@ RawCpuPipelineGen::RawCpuPipelineGen(   RawContext        * context         ,
     Function *fcrand = Function::Create(crand, Function::ExternalLinkage, "rand", getModule());
     registerFunction("rand", fcrand);
 
-    FunctionType *cprintTime = FunctionType::get(void_type, std::vector<Type *>{}, false);
-    Function *fcprintTime = Function::Create(cprintTime, Function::ExternalLinkage, "printTime", getModule());
-    registerFunction("printTime", fcprintTime);
-
     FunctionType *get_buffer = FunctionType::get(charPtrType, std::vector<Type *>{size_type}, false);
     Function *fget_buffer = Function::Create(get_buffer, Function::ExternalLinkage, "get_buffer", getModule());
     registerFunction("get_buffer", fget_buffer);

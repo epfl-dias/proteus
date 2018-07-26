@@ -4,7 +4,6 @@
 #include "common/common.hpp"
 #include "util/radix/aggregations/types.h" /* relation_t */
 #include "util/radix/aggregations/prj_params.h"
-#include "util/radix/rdtsc.h"
 
 #ifdef DEBUG
 //#define DEBUGRADIX

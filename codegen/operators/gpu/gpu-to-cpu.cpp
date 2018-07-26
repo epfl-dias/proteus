@@ -344,16 +344,6 @@ void GpuToCpu::consume(GpuRawContext * const context, const OperatorState& child
 
     Builder->SetInsertPoint(afterBB);
 }
-#include <x86intrin.h>
-#include <sched.h>
-
-extern "C"{
-void printTime(){
-    std::cout << __rdtsc();
-    int dev = get_device();
-    std::cout << " " << dev << " " << sched_getcpu() << std::endl;
-}
-}
 
 void GpuToCpu::generate_catch(){
     context->setGlobalFunction();
@@ -433,9 +423,6 @@ void GpuToCpu::generate_catch(){
 
     // flags[front] = 0;           //volatile
     Builder->CreateStore(zero, cflg_ptr, true);
-
-    // Function * printTime = context->getFunction("printTime");
-    // Builder->CreateCall(printTime);
 
     //      front = (front + 1) % size;
     Value * new_front   = Builder->CreateAdd(front, 
