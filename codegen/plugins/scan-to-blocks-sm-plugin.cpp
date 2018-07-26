@@ -37,7 +37,8 @@ ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext* const context, string fn
     for (const auto &in: wantedFields){
         string fileName = fnamePrefix + "." + in->getAttrName();
         
-        wantedFieldsFiles.emplace_back(StorageManager::getFile(fileName));
+        wantedFieldsFiles.emplace_back(StorageManager::getOrLoadFile(fileName));
+        // wantedFieldsFiles.emplace_back(StorageManager::getFile(fileName));
         //FIXME: consider if address space should be global memory rather than generic
         // Type * t = PointerType::get(((const PrimitiveType *) tin)->getLLVMType(context->getLLVMContext()), /* address space */ 0);
 

@@ -132,8 +132,12 @@ std::vector<mem_file> StorageManager::getFile(std::string name){
 
 std::vector<mem_file> StorageManager::getOrLoadFile(std::string name, data_loc loc){
     if (files.count(name) == 0){
+        LOG(INFO) << "File " << name << " not loaded, loading it to " << loc;
+        std::cout << "File " << name << " not loaded, loading it to " << loc << std::endl;
         load(name, loc);
     }
+    LOG(INFO) << "Using loaded version of file " << name;
+    std::cout << "Using loaded version of file " << name << std::endl;
     return getFile(name);
 }
 
