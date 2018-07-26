@@ -30,6 +30,8 @@
 namespace gpu {
     class Monoid {
     public:
+        virtual ~Monoid(){}
+    
         virtual Value * create(RawContext * const context, 
                                 Value * val_accumulating,
                                 Value * val_in) = 0;

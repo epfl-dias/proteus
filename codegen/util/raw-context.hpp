@@ -73,7 +73,7 @@ public:
 	typedef void          (deinit_func_t)(llvm::Value *, llvm::Value *);
 
 	RawContext(const string& moduleName, bool setGlobalFunction = true);
-	~RawContext() {
+	virtual ~RawContext() {
 		LOG(WARNING)<< "[RawContext: ] Destructor";
 		//XXX Has to be done in an appropriate sequence - segfaults otherwise
 //		delete Builder;

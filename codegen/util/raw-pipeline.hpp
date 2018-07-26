@@ -104,7 +104,8 @@ public:
 
 protected:
     RawPipelineGen(RawContext * context, std::string pipName = "pip", RawPipelineGen * copyStateFrom = NULL);
-    // ~RawPipelineGen();
+    
+    virtual ~RawPipelineGen(){}
 
 public:
     virtual size_t appendParameter(llvm::Type * ptype, bool noalias  = false, bool readonly = false);
@@ -266,6 +267,8 @@ public:
 class RawPipelineGenFactory{
 protected:
     RawPipelineGenFactory(){}
+
+    virtual ~RawPipelineGenFactory(){}
 public:
     virtual RawPipelineGen * create(RawContext * context, std::string pipName = "pip", RawPipelineGen * copyStateFrom = NULL) = 0;
 };
