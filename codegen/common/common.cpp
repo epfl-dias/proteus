@@ -23,6 +23,7 @@
 
 #include "common/common.hpp"
 #include <thread>
+#include <mutex>
 
 double
 diff(struct timespec st, struct timespec end)
@@ -92,8 +93,15 @@ struct log_info{
 stringstream                    global_log         ;
 // std::mutex                      global_log_lock    ;
 
+#if defined(__powerpc64__) || defined(__ppc64__)
+uint64_t __rdtsc(){
+    uint64_t c;
+    asm volatile ("mfspr %0, 268": "=r" (c));
+    return c;
+}
+#else
 #include <x86intrin.h>
-
+#endif
 
 // logger::~logger(){
 //     std::lock_guard<std::mutex> lg(global_log_lock);

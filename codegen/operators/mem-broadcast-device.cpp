@@ -506,8 +506,6 @@ extern "C"{
         return ret;
     }
 
-#include <x86intrin.h>
-
     void propagateWorkUnitBroadcast(MemBroadcastDevice::MemMoveConf * mmc, MemBroadcastDevice::workunit * buff, int target_device){
         gpu_run(cudaEventRecord(buff->event, mmc->strm[target_device]));
 
