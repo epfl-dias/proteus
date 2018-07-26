@@ -43,7 +43,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <set>
-
+#include <queue>
 #include <chrono>
 
 #include <cstdlib>
@@ -97,8 +97,6 @@
 #define TIMING
 
 #include <glog/logging.h>
-
-#include <boost/functional/hash.hpp>
 
 //#define DEBUG
 // #define LOCAL_EXEC
@@ -217,6 +215,12 @@ public:
 
     friend std::ostream& operator<<(std::ostream& out, const bytes& b);
 };
+
+template<class T>
+inline void hash_combine(std::size_t& seed, const T& v){
+    std::hash<T> hasher;
+    seed ^= hasher(v);
+}
 
 std::ostream &operator<<(std::ostream &out, const bytes &b);
 

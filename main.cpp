@@ -170,7 +170,7 @@ void joinQueryRelationalRadixCache();
 template<class T>
 inline void my_hash_combine(std::size_t& seed, const T& v)
 {
-	boost::hash<T> hasher;
+	std::hash<T> hasher;
 	seed ^= hasher(v);
 }
 
@@ -432,10 +432,10 @@ void hashConstants()	{
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	//Non-generated counterparts
-	boost::hash<int> hasherInt;
-	boost::hash<double> hasherFloat;
-	boost::hash<bool> hasherBool;
-	boost::hash<string> hasherString;
+	std::hash<int> hasherInt;
+	std::hash<double> hasherFloat;
+	std::hash<bool> hasherBool;
+	std::hash<string> hasherString;
 
 	cout<<"[Int - not generated:] "<<hasherInt(inputInt)<<endl;
 	cout<<"[Float - not generated:] "<<hasherFloat(inputFloat)<<endl;
@@ -478,9 +478,9 @@ void hashBinaryExpressions()	{
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	//Non-generated counterparts
-	boost::hash<int> hasherInt;
-	boost::hash<double> hasherFloat;
-	boost::hash<bool> hasherBool;
+	std::hash<int> hasherInt;
+	std::hash<double> hasherFloat;
+	std::hash<bool> hasherBool;
 
 	cout<<"[Bool - not generated:] " << hasherBool(inputInt != inputInt) << endl;
 	cout<<"[Bool - not generated:] " << hasherBool(inputFloat == inputFloat) << endl;
@@ -518,7 +518,7 @@ void hashIfThenElse()	{
 	ctx.prepareFunction(ctx.getGlobalFunction());
 
 	//Non-generated counterparts
-	boost::hash<int> hasherInt;
+	std::hash<int> hasherInt;
 
 	int toHash = inputFloat == inputFloat ? inputInt + inputInt : inputInt - inputInt;
 	cout<<"[Int - not generated:] " << hasherInt(toHash) << endl;
@@ -529,25 +529,25 @@ void hashTests()
 	/**
 	 * HASHER TESTS
 	 */
-//    boost::hash<int> hasher;
+//    std::hash<int> hasher;
 //    cout << hasher(15) << endl;
-//    boost::hash<string> hasherStr;
+//    std::hash<string> hasherStr;
 //    cout << hasherStr("15") << endl;
-	boost::hash<int> hasher;
+	std::hash<int> hasher;
 	size_t seed = 0;
 
-	boost::hash_combine(seed, 15);
-	boost::hash_combine(seed, 20);
-	boost::hash_combine(seed, 29);
+	hash_combine(seed, 15);
+	hash_combine(seed, 20);
+	hash_combine(seed, 29);
 	cout << "Seed 1: " << seed << endl;
 
 	seed = 0;
 	size_t seedPartial = 0;
-	boost::hash_combine(seed, 15);
+	hash_combine(seed, 15);
 
-	boost::hash_combine(seedPartial, 20);
-	boost::hash_combine(seedPartial, 29);
-	boost::hash_combine(seed, seedPartial);
+	hash_combine(seedPartial, 20);
+	hash_combine(seedPartial, 29);
+	hash_combine(seed, seedPartial);
 	cout << "Seed 2: " << seed << endl;
 
 	seed = 0;

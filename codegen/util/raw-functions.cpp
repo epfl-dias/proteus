@@ -325,17 +325,17 @@ bool convertBoolean64(const char* buf, size_t start, size_t end)	{
 }
 
 size_t hashInt(int toHash)	{
-	boost::hash<int> hasher;
+	std::hash<int> hasher;
 	return hasher(toHash);
 }
 
 size_t hashDouble(double toHash) {
-	boost::hash<double> hasher;
+	std::hash<double> hasher;
 	return hasher(toHash);
 }
 
 size_t hashString(string toHash)	{
-	boost::hash<string> hasher;
+	std::hash<string> hasher;
 	size_t result = hasher(toHash);
 	return result;
 }
@@ -344,14 +344,14 @@ size_t hashString(string toHash)	{
 size_t hashStringC(char* toHash, size_t start, size_t end)	{
 	char tmp = toHash[end];
 	toHash[end] = '\0';
-	boost::hash<string> hasher;
+	std::hash<string> hasher;
 	size_t result = hasher(toHash + start);
 	toHash[end] = tmp;
 	return result;
 }
 
 size_t hashBoolean(bool toHash) {
-	boost::hash<bool> hasher;
+	std::hash<bool> hasher;
 	return hasher(toHash);
 }
 
@@ -361,7 +361,7 @@ size_t hashStringObject(StringObject obj)	{
 	obj.start[obj.len] = '\0';
 	//	obj.start[obj.len+1] = '\0';
 	//cout << "To Hash: " << obj.start << endl;
-	boost::hash<string> hasher;
+	std::hash<string> hasher;
 	size_t result = hasher(obj.start);
 	obj.start[obj.len+1] = tmp;
 	return result;
@@ -370,15 +370,15 @@ size_t hashStringObject(StringObject obj)	{
 
 //size_t combineHashes(size_t hash1, size_t hash2) {
 //	 size_t seed = 0;
-//	 boost::hash_combine(seed, hash1);
-//	 boost::hash_combine(seed, hash2);
+//	 std::hash_combine(seed, hash1);
+//	 std::hash_combine(seed, hash2);
 //	 return seed;
 //}
 //
 //template <class T>
 //inline void hash_combine_no_order(size_t& seed, const T& v)
 //{
-//    boost::hash<T> hasher;
+//    std::hash<T> hasher;
 //    seed ^= hasher(v);
 //}
 //
@@ -390,14 +390,14 @@ size_t hashStringObject(StringObject obj)	{
 //}
 
 size_t combineHashes(size_t hash1, size_t hash2) {
-	 boost::hash_combine(hash1, hash2);
-	 return hash1;
+	hash_combine(hash1, hash2);
+	return hash1;
 }
 
 template <class T>
 inline void hash_combine_no_order(size_t& seed, const T& v)
 {
-    boost::hash<T> hasher;
+    std::hash<T> hasher;
     seed ^= hasher(v);
 }
 

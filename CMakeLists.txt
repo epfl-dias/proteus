@@ -32,9 +32,6 @@ endif()
 
 # list(APPEND CMAKE_CXX_SOURCE_FILE_EXTENSIONS cu)
 
-# look for Boost related compilation flags
-find_package(Boost REQUIRED)
-
 #-----------------------------------------------------------------------
 # look for LLVM related compilation flags slightly complicated way, the
 # Ubuntu cmake module file is wrong and we have to hack something instead.
@@ -65,7 +62,6 @@ include_directories(
 	"${PROJECT_SOURCE_DIR}/codegen"
 	"${LLVM_INCLUDE_DIRS}"
 	"${CMAKE_INSTALL_PREFIX}/include"
-	"${Boost_INCLUDE_DIRS}"
 	)
 
 include_directories(
