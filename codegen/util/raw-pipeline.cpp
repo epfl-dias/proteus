@@ -226,6 +226,9 @@ RawPipelineGen::RawPipelineGen(RawContext * context, std::string pipName, RawPip
     // TheModule  = new Module(pipName, context->getLLVMContext());
     TheBuilder = new IRBuilder<>(context->getLLVMContext());
     
+    maxBlockSize = 1;
+    maxGridSize  = 1;
+    
     state      = NULL;
 
     if (copyStateFrom){

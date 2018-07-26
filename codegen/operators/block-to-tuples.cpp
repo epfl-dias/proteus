@@ -27,8 +27,8 @@
 
 void BlockToTuples::produce()    {
 
-    ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+    context->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
+    context->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
         old_buffs.push_back(
@@ -48,8 +48,8 @@ void BlockToTuples::nextEntry()   {
 
     //Prepare
     LLVMContext& llvmContext = context->getLLVMContext();
-    Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-    Type* int64Type = Type::getInt64Ty(llvmContext);
+    // Type* charPtrType = Type::getInt8PtrTy(llvmContext);
+    // Type* int64Type = Type::getInt64Ty(llvmContext);
     IRBuilder<>* Builder = context->getBuilder();
 
     //Increment and store back
@@ -84,7 +84,7 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
     Function *F = Builder->GetInsertBlock()->getParent();
 
     Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-    Type* int64Type = Type::getInt64Ty(llvmContext);
+    // Type* int64Type = Type::getInt64Ty(llvmContext);
 
     //Container for the variable bindings
     map<RecordAttribute, RawValueMemory> oldBindings{childState.getBindings()};
@@ -298,11 +298,10 @@ void BlockToTuples::consume(GpuRawContext* const context, const OperatorState& c
 
 void BlockToTuples::open (RawPipeline * pip){
     rawlogger.log(this, log_op::BLOCK2TUPLES_OPEN_START);
-    int device = get_device();
 
     execution_conf ec = pip->getExecConfiguration();
 
-    size_t grid_size  = ec.gridSize();
+    // size_t grid_size  = ec.gridSize();
 
     void ** buffs;
 

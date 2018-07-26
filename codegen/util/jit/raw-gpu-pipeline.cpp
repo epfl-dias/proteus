@@ -38,6 +38,11 @@ RawGpuPipelineGen::RawGpuPipelineGen(RawContext * context, std::string pipName, 
             module              (context, pipName),
             wrapper_module      (context, pipName + "_wrapper"),
             wrapperModuleActive (false){
+    //overide defaults
+    //NOTE: should we set this ones for the CPU submodule as well?
+    maxBlockSize = defaultBlockDim.x * defaultBlockDim.y * defaultBlockDim.z;
+    maxGridSize  = defaultGridDim .x * defaultGridDim .y * defaultGridDim .z;
+
     registerSubPipeline();
     registerFunctions();
 
@@ -329,10 +334,12 @@ Function * RawGpuPipelineGen::prepareConsumeWrapper(){
     vector<Value *> kernel_args{
                                 entry, 
                                 Builder->CreateBitCast(params, ptr_t),
-                                strm
+                                strm,
+                                context->createInt32(maxBlockSize),
+                                context->createInt32(maxGridSize )
                                 };
 
-    Function      * launch      = getFunction("launch_kernel_strm_single");
+    Function      * launch      = getFunction("launch_kernel_strm_sized");
 
     Builder->CreateCall(launch, kernel_args);
 
@@ -413,6 +420,20 @@ void RawGpuPipelineGen::prepareInitDeinit(){
                                                 );
 
     registerFunction("launch_kernel_strm_single",launch_kernel_strm_single_);
+
+    FunctionType * FTlaunch_kernel_strm_sized   = FunctionType::get(
+                                                    void_type, 
+                                                    std::vector<Type *>{charPtrType, PointerType::get(charPtrType, 0), charPtrType, int32_type, int32_type}, 
+                                                    false
+                                                );
+    Function * launch_kernel_strm_sized_        = Function::Create(
+                                                    FTlaunch_kernel_strm_sized,
+                                                    Function::ExternalLinkage, 
+                                                    "launch_kernel_strm_sized", 
+                                                    getModule()
+                                                );
+
+    registerFunction("launch_kernel_strm_sized",launch_kernel_strm_sized_);
 
     FunctionType *intrgetPipKernel = FunctionType::get(charPtrType, std::vector<Type *>{charPtrType}, false);
     Function *intr_pgetPipKernel = Function::Create(intrgetPipKernel, Function::ExternalLinkage, "getPipKernel", getModule());

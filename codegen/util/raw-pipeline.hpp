@@ -54,36 +54,36 @@ protected:
     BasicBlock* currentCodeEntry;
 
     std::vector<std::pair<std::function<  init_func_t>, size_t>> open_var;
-    Function *                  open__function  ;
+    Function *                  open__function      ;
 
     std::vector<std::pair<std::function<deinit_func_t>, size_t>> close_var;
-    Function *                  close_function  ;
+    Function *                  close_function      ;
 
-    std::vector<llvm::Type *>   inputs          ;
-    std::vector<bool     >      inputs_noalias  ;
-    std::vector<bool     >      inputs_readonly ;
+    std::vector<llvm::Type *>   inputs              ;
+    std::vector<bool     >      inputs_noalias      ;
+    std::vector<bool     >      inputs_readonly     ;
 
-    std::vector<llvm::Type *>   state_vars      ;
-    std::vector<Argument *>     args            ;
+    std::vector<llvm::Type *>   state_vars          ;
+    std::vector<Argument *>     args                ;
 
     std::vector<std::pair<const void *, std::function<opener_t>>> openers;
     std::vector<std::pair<const void *, std::function<closer_t>>> closers;
 
-    std::string                 pipName         ;
-    RawContext                * context         ;
+    std::string                 pipName             ;
+    RawContext                * context             ;
 
-    std::string                 func_name       ;
+    std::string                 func_name           ;
 
-    void                      * func            ;
+    void                      * func                ;
 
-    llvm::Value               * state           ;
-    llvm::StructType          * state_type      ;
+    llvm::Value               * state               ;
+    llvm::StructType          * state_type          ;
 
-    IRBuilder<>               * TheBuilder      ;
+    IRBuilder<>               * TheBuilder          ;
 
-    RawPipelineGen            * copyStateFrom   ;
+    RawPipelineGen            * copyStateFrom       ;
 
-    RawPipelineGen            * execute_after_close;
+    RawPipelineGen            * execute_after_close ;
 
 //     //Used to include optimization passes
 //     legacy::FunctionPassManager * TheFPM        ;
@@ -95,7 +95,10 @@ protected:
 
     // ExecutionEngine             * TheExecutionEngine;
 
-    map<string, Function*>    availableFunctions   ;
+    map<string, Function*>      availableFunctions  ;
+
+    unsigned int                maxBlockSize        ;
+    unsigned int                maxGridSize         ;
 public:
     Function *                  F               ;
 
@@ -138,6 +141,10 @@ public:
     virtual BasicBlock * getCurrentEntryBlock()                      {return currentCodeEntry;}
     virtual void         setCurrentEntryBlock(BasicBlock* codeEntry) {this->currentCodeEntry = codeEntry;}
 
+    virtual void                    setMaxWorkerSize(unsigned int maxBlock, unsigned int maxGrid){
+        maxBlockSize = std::min(maxBlockSize, maxBlock);
+        maxGridSize  = std::min(maxGridSize , maxGrid );
+    }
 
     virtual void compileAndLoad() = 0;
 
@@ -253,69 +260,7 @@ public:
         ((void (*)(const Tin * ..., void *)) cons)(src..., state);
     }//;// cnt_t N, vid_t v, cid_t c){
 
-    // template<typename... Tin>
-    // void consume(cnt_t N, const Tin * ... src){ //FIXME: cleanup + remove synchronization
-    //     consume(N, 0, 0, src...);
-    // }
-
-
-    template<typename... Tin>
-    void consume_gpu(size_t N, const Tin * ... src){ //FIXME: cleanup + remove synchronization
-        void *KernelParams[] = {(&src)...,
-                                &N,
-                                state};
-
-        launch_kernel((CUfunction) cons, KernelParams);
-
-        // gpu_run(cudaDeviceSynchronize());
-    }//;// cnt_t N, vid_t v, cid_t c){
-
     virtual void close();
-};
-
-// class GpuRawPipeline: public RawPipeline{
-// private:
-//     GpuRawPipeline(void * cons, size_t state_size, RawPipelineGen * gen, llvm::StructType * state_type,
-//         const std::vector<std::function<void (RawPipeline * pip)>> &openers,
-//         const std::vector<std::function<void (RawPipeline * pip)>> &closers,
-//         int32_t group_id = 0); //FIXME: group id should be handled to comply with the requirements!
-
-//     friend class GpuRawPipelineGen;
-// public:
-//     ~GpuRawPipeline();
-    
-    // template<typename... Tin>
-    // virtual void consume(size_t N, const Tin * ... src){ //FIXME: cleanup + remove synchronization
-    //     void *KernelParams[] = {(&src)...,
-    //                             &N,
-    //                             state};
-
-    //     launch_kernel((CUfunction) cons, KernelParams);
-
-    //     // gpu_run(cudaDeviceSynchronize());
-    // }//;// cnt_t N, vid_t v, cid_t c){
-// };
-
-
-template<typename... Tin>
-class RawPipelineOp{
-private:
-    RawPipeline * const pip;
-
-public:
-    RawPipelineOp(RawPipeline * pip): pip(pip){}
-
-    void open(){
-        pip->open();
-    }
-    
-    void consume(const Tin * ... src, cnt_t N, vid_t v, cid_t c){ //FIXME: cleanup + remove synchronization
-        pip->consume(N, src...);
-    }
-
-    void close(){
-        pip->close();
-    }
 };
 
 class RawPipelineGenFactory{

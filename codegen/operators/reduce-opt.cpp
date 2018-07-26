@@ -283,6 +283,8 @@ void Reduce::generateAppend(expressions::Expression* outputExpr,
 void Reduce::generate_flush(){
 	LLVMContext & llvmContext   = context->getLLVMContext();
 
+	(*((GpuRawContext *) context))->setMaxWorkerSize(1, 1);
+
 	vector<size_t> params;
 
 	vector<Monoid					>::const_iterator itAcc  = accs.begin();
