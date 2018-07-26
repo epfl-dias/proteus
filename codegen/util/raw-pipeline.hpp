@@ -225,7 +225,7 @@ protected:
 public:
     void     * state;
 
-    ~RawPipeline();
+    virtual ~RawPipeline();
 
     void * getState() const{
         return state;
