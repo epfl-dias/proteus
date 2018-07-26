@@ -23,33 +23,6 @@
 
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 
-#ifdef SYNCSTATS
-#define SYNC_TIMERS_START(A, TID)               \
-    do {                                        \
-        uint64_t tnow;                          \
-        startTimer(&tnow);                      \
-        A->localtimer.sync1[0]      = tnow;     \
-        A->localtimer.sync1[1]      = tnow;     \
-        A->localtimer.sync3         = tnow;     \
-        A->localtimer.sync4         = tnow;     \
-        A->localtimer.finish_time   = tnow;     \
-        if(TID == 0) {                          \
-            A->globaltimer->sync1[0]    = tnow; \
-            A->globaltimer->sync1[1]    = tnow; \
-            A->globaltimer->sync3       = tnow; \
-            A->globaltimer->sync4       = tnow; \
-            A->globaltimer->finish_time = tnow; \
-        }                                       \
-    } while(0)
-
-#define SYNC_TIMER_STOP(T) stopTimer(T)
-#define SYNC_GLOBAL_STOP(T, TID) if(TID==0){ stopTimer(T); }
-#else
-#define SYNC_TIMERS_START(A, TID)
-#define SYNC_TIMER_STOP(T)
-#define SYNC_GLOBAL_STOP(T, TID)
-#endif
-
 /** Debug msg logging method */
 #ifdef DEBUG
 #define DEBUGMSG(COND, MSG, ...)                                    \
@@ -86,6 +59,7 @@
 void
 radix_cluster_nopadding(joins::relation_t * outRel, joins::relation_t * inRel, int R, int D)
 {
+    time_block t("Trad_clust2:");
     joins::tuple_t ** dst;
     joins::tuple_t * input;
     /* joins::tuple_t ** dst_end; */
@@ -141,6 +115,7 @@ radix_cluster_nopadding(joins::relation_t * outRel, joins::relation_t * inRel, i
 void
 radix_cluster_nopadding(joins::tuple_t * outTuples, joins::tuple_t * inTuples, size_t num_tuples, int R, int D)
 {
+    time_block t("Trad_clust:");
     joins::tuple_t ** dst;
     joins::tuple_t * input;
     /* joins::tuple_t ** dst_end; */
@@ -159,39 +134,48 @@ radix_cluster_nopadding(joins::tuple_t * outTuples, joins::tuple_t * inTuples, s
     /* dst_end = (joins::tuple_t**)malloc(sizeof(joins::tuple_t*)*fanOut); */
 
     input = inTuples;
-    /* count tuples per cluster */
-    for( i=0; i < ntuples; i++ ){
-    	uint32_t idx = (uint32_t)(HASH_BIT_MODULO(input->key, M, R));
-    	tuples_per_cluster[idx]++;
-        input++;
+    {
+        time_block t("Trad_clust_p1:");
+        /* count tuples per cluster */
+        for( i=0; i < ntuples; i++ ){
+        	uint32_t idx = (uint32_t)(HASH_BIT_MODULO(input->key, M, R));
+        	tuples_per_cluster[idx]++;
+            input++;
+        }
     }
 
     offset = 0;
     /* determine the start and end of each cluster depending on the counts. */
-    for ( i=0; i < fanOut; i++ ) {
-        dst[i]      = outTuples + offset;
-        offset     += tuples_per_cluster[i];
-        /* dst_end[i]  = outRel->tuples + offset; */
+    {
+        time_block t("Trad_clust_p2:");
+        for ( i=0; i < fanOut; i++ ) {
+            dst[i]      = outTuples + offset;
+            offset     += tuples_per_cluster[i];
+            /* dst_end[i]  = outRel->tuples + offset; */
+        }
     }
 
     input = inTuples;
     // int cnt = 0;
     /* copy tuples to their corresponding clusters at appropriate offsets */
-    for( i=0; i < ntuples; i++ ){
-    	uint32_t idx   = (uint32_t)(HASH_BIT_MODULO(input->key, M, R));
-//    	cout << "[radix_cluster_nopadding: ] cluster: "<< idx <<" key? " << input->key << endl;
-//        if(R!=0)	{
-//        	cout << input->key << endl;
-//        	cnt++;
-//        }
-        *dst[idx] = *input;
-        ++dst[idx];
-        input++;
-        /* we pre-compute the start and end of each cluster, so the following
-           check is unnecessary */
-        /* if(++dst[idx] >= dst_end[idx]) */
-        /*     REALLOCATE(dst[idx], dst_end[idx]); */
+    {
+        time_block t("Trad_clust_p3:");
+        for( i=0; i < ntuples; i++ ){
+        	uint32_t idx   = (uint32_t)(HASH_BIT_MODULO(input->key, M, R));
+    //    	cout << "[radix_cluster_nopadding: ] cluster: "<< idx <<" key? " << input->key << endl;
+    //        if(R!=0)	{
+    //        	cout << input->key << endl;
+    //        	cnt++;
+    //        }
+            *dst[idx] = *input;
+            ++dst[idx];
+            input++;
+            /* we pre-compute the start and end of each cluster, so the following
+               check is unnecessary */
+            /* if(++dst[idx] >= dst_end[idx]) */
+            /*     REALLOCATE(dst[idx], dst_end[idx]); */
 
+        }
     }
 //    if(R!=0)
 //    	cout << "How many tuples? " << cnt << endl;
@@ -221,6 +205,7 @@ radix_cluster_nopadding(joins::tuple_t * outTuples, joins::tuple_t * inTuples, s
  */
 
 void bucket_chaining_join_prepare(const joins::relation_t * const R, HT * ht)	{
+    time_block t("Tbucket_chaining_join_prepare1:");
     const uint32_t numR = R->num_tuples;
     uint32_t N = numR;
 
@@ -266,6 +251,7 @@ int64_t
 bucket_chaining_join_probe(const joins::relation_t * const R, HT * ht,
                      const joins::tuple_t * const s)
 {
+    time_block t("Tbucket_chaining_join_probe:");
 	int64_t matches = 0;
     uint32_t idx = HASH_BIT_MODULO(s->key, ht->mask, NUM_RADIX_BITS);
     const joins::tuple_t * const Rtuples = R->tuples;
@@ -298,6 +284,7 @@ void bucket_chaining_join_finish(HT * ht)
  * @return item count per cluster defined
  */
 int *partitionHT(size_t num_tuples, joins::tuple_t *inTuples)	{
+    time_block t("TpartitionHT:");
 	size_t sz = num_tuples * sizeof(joins::tuple_t) + RELATION_PADDING_JOIN;
 	joins::tuple_t* outTuples = (joins::tuple_t*) malloc(sz);
 

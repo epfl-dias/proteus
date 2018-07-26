@@ -23,33 +23,6 @@
 
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 
-#ifdef SYNCSTATS
-#define SYNC_TIMERS_START(A, TID)               \
-    do {                                        \
-        uint64_t tnow;                          \
-        startTimer(&tnow);                      \
-        A->localtimer.sync1[0]      = tnow;     \
-        A->localtimer.sync1[1]      = tnow;     \
-        A->localtimer.sync3         = tnow;     \
-        A->localtimer.sync4         = tnow;     \
-        A->localtimer.finish_time   = tnow;     \
-        if(TID == 0) {                          \
-            A->globaltimer->sync1[0]    = tnow; \
-            A->globaltimer->sync1[1]    = tnow; \
-            A->globaltimer->sync3       = tnow; \
-            A->globaltimer->sync4       = tnow; \
-            A->globaltimer->finish_time = tnow; \
-        }                                       \
-    } while(0)
-
-#define SYNC_TIMER_STOP(T) stopTimer(T)
-#define SYNC_GLOBAL_STOP(T, TID) if(TID==0){ stopTimer(T); }
-#else
-#define SYNC_TIMERS_START(A, TID)
-#define SYNC_TIMER_STOP(T)
-#define SYNC_GLOBAL_STOP(T, TID)
-#endif
-
 /** Debug msg logging method */
 #ifdef DEBUG
 #define DEBUGMSG(COND, MSG, ...)                                    \

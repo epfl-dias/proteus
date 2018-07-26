@@ -564,8 +564,6 @@ extern "C"{
         return ret;
     }
 
-#include <x86intrin.h>
-
     void propagateWorkUnit(MemMoveDevice::MemMoveConf * mmc, MemMoveDevice::workunit * buff, bool is_noop){
         // if (!is_noop)
         // gpu_run(cudaEventRecord(buff->event, mmc->strm));
