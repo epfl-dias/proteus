@@ -86,7 +86,11 @@ void RawGpuModule::init(){
         exit(1);
     }
 
-    auto GPU      = "sm_61";//sys::getHostCPUName(); //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
+    int dev;
+    gpu_run(cudaGetDevice(&dev));
+    cudaDeviceProp deviceProp;
+    gpu_run(cudaGetDeviceProperties(&deviceProp, dev));
+    auto GPU      = "sm_" + std::to_string(deviceProp.major * 10 + deviceProp.minor);
 
     // SubtargetFeatures Features;
     // StringMap<bool> HostFeatures;
@@ -104,9 +108,11 @@ void RawGpuModule::init(){
     // opt.MCOptions.AsmVerbose            = 1;
     opt.MCOptions.PreserveAsmComments   = 1;
 
+    std::cout << GPU << std::endl;
+
     auto RM = Optional<Reloc::Model>();
     TheTargetMachine = (LLVMTargetMachine *) Target->createTargetMachine(TargetTriple, GPU, 
-                                                    "+ptx50,+satom", //PTX 5.0 + Scoped Atomics
+                                                    "+ptx50,+ptx60,+satom", //PTX 5.0 + Scoped Atomics
                                                     opt, RM, 
                                                     Optional<CodeModel::Model>{},//CodeModel::Model::Default, 
                                                     CodeGenOpt::Aggressive);
@@ -251,7 +257,7 @@ void RawGpuModule::compileAndLoad(){
 
         CUlinkState linkState;
         
-        constexpr size_t opt_size = 4;
+        constexpr size_t opt_size = 6;
         CUjit_option options[opt_size];
         void       * values [opt_size];
 
@@ -263,10 +269,10 @@ void RawGpuModule::compileAndLoad(){
         values  [2] = (void *) BUFFER_SIZE;
         options [3] = CU_JIT_MAX_REGISTERS;
         values  [3] = (void *) ((uint64_t) 32);
-        // options [4] = CU_JIT_INFO_LOG_BUFFER;
-        // values  [4] = (void *) info_log;
-        // options [5] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
-        // values  [5] = (void *) BUFFER_SIZE;
+        options [4] = CU_JIT_INFO_LOG_BUFFER;
+        values  [4] = (void *) info_log;
+        options [5] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
+        values  [5] = (void *) BUFFER_SIZE;
 
         // size_t size = _binary_device_funcs_cubin_end - _binary_device_funcs_cubin_start;
         size_t size = _binary_buffer_manager_cubin_end - _binary_buffer_manager_cubin_start;
@@ -282,7 +288,9 @@ void RawGpuModule::compileAndLoad(){
         // auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN, "/home/chrysoge/Documents/pelago/opt/res/buffer_manager.cubin", 0, NULL, NULL));
             // libmultigpu.a", 0, NULL, NULL));
         if (x != CUDA_SUCCESS) {
-            // printf("[CUcompile: ] %s\n", info_log );
+            //If you get an error message similar to "no kernel image is available for execution on the device"
+            //it usually means that the target sm_xy in root CMakeLists.txt is not set to the current GPU's CC.
+            printf("[CUcompile: ] %s\n", info_log );
             printf("[CUcompile: ] %s\n", error_log);
             gpu_run(x);
         }
@@ -290,13 +298,13 @@ void RawGpuModule::compileAndLoad(){
         // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX, ("generated_code/" + pipName + ".ptx").c_str(), 0, NULL, NULL));
         x = cuLinkAddData (linkState, CU_JIT_INPUT_PTX, (void *) ptx.c_str(), ptx.length() + 1, NULL, 0, NULL, NULL);
         if (x != CUDA_SUCCESS) {
-            // printf("[CUcompile: ] %s\n", info_log );
+            printf("[CUcompile: ] %s\n", info_log );
             printf("[CUcompile: ] %s\n", error_log);
             gpu_run(x);
         }
         x = cuLinkComplete(linkState, &cubin, &cubinSize);
         if (x != CUDA_SUCCESS) {
-            // printf("[CUcompile: ] %s\n", info_log );
+            printf("[CUcompile: ] %s\n", info_log );
             printf("[CUcompile: ] %s\n", error_log);
             gpu_run(x);
         }
