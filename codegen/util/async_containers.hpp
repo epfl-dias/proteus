@@ -231,7 +231,7 @@ public:
 
 
 
-template<typename T>
+template<typename T, T eof = nullptr>
 class AsyncQueueSPSC_lockfree{
     static constexpr int size = 32;
 
@@ -248,18 +248,19 @@ private:
 public:
     AsyncQueueSPSC_lockfree(): terminating(false), _tail(0), _head(0){}
 
-    void close(){
+    void close(bool wait = true){
         // push(NULL);
         nvtxRangePushA("AsyncQueue_o");
         // std::unique_lock<std::mutex> lock(m);
-        terminating = true;
+        // terminating = true;
+        push(eof);
         // cv.notify_all();
 
         // nvtxRangePushA("AsyncQueue_t");
 
         // cv.wait(lock, [this](){return data.empty();});
 
-        while (_head.load() != _tail.load());
+        if (wait) while (_head.load() != _tail.load());
 
 
         // lock.unlock();
@@ -297,15 +298,15 @@ public:
     bool pop(T &item){
         int current_head = _head.load(std::memory_order_relaxed);
         while (current_head == _tail.load(std::memory_order_acquire)) {
-            if (terminating.load(std::memory_order_acquire)){
-                return false;
-            }
+            // if (terminating.load(std::memory_order_acquire)){
+            //     return false;
+            // }
         // } return false; // empty queue
         }
 
         item = _array[current_head]; 
         _head.store((current_head + 1) % size, std::memory_order_release); 
-        return true;
+        return item != eof;
     }
 
     T pop_unsafe(){

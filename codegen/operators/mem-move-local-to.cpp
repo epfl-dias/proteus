@@ -27,6 +27,8 @@
 // #include "cuda_runtime_api.h"
 #include "multigpu/buffer_manager.cuh"
 #include "multigpu/numa_utils.cuh"
+#include "threadpool/threadpool.hpp"
+#include <future>
 
 struct buff_pair{
     char * new_buff;
@@ -312,7 +314,7 @@ void MemMoveLocalTo::open (RawPipeline * pip){
         mmc->old_buffs[i] = NULL;
     }
 
-    mmc->worker = new std::thread(&MemMoveLocalTo::catcher, this, mmc, pip->getGroup(), exec_location{});
+    mmc->worker = ThreadPool::getInstance().enqueue(&MemMoveLocalTo::catcher, this, mmc, pip->getGroup(), exec_location{});
 
 
     pip->setStateVar<int         >(device_id_var, device);
@@ -334,7 +336,7 @@ void MemMoveLocalTo::close(RawPipeline * pip){
     nvtxRangePop();
     mmc->tran.close();
     nvtxRangePop();
-    mmc->worker->join();
+    mmc->worker.get();
 
     gpu_run(cudaStreamSynchronize(mmc->strm ));
     gpu_run(cudaStreamDestroy    (mmc->strm ));
@@ -364,7 +366,7 @@ void MemMoveLocalTo::close(RawPipeline * pip){
 
     mmc->idle.close();
 
-    delete mmc->worker;
+    // delete mmc->worker;
     delete mmc;
 }
 

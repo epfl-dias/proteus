@@ -27,6 +27,7 @@
 // #include "cuda_runtime_api.h"
 #include "multigpu/buffer_manager.cuh"
 #include "multigpu/numa_utils.cuh"
+#include "threadpool/threadpool.hpp"
 
 struct buff_pair_brdcst{
     char * new_buff;
@@ -416,7 +417,7 @@ void MemBroadcastDevice::open (RawPipeline * pip){
     }
     nvtxRangePop();
 
-    mmc->worker = new std::thread(&MemBroadcastDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
+    mmc->worker = ThreadPool::getInstance().enqueue(&MemBroadcastDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
 
     int device = -1;
     if (!to_cpu) device = get_device();
@@ -437,7 +438,7 @@ void MemBroadcastDevice::close(RawPipeline * pip){
     std::cout << "MemBroadcastDevice:close3" << std::endl;
 
     nvtxRangePop();
-    mmc->worker->join();
+    mmc->worker.get();
 
     // gpu_run(cudaStreamSynchronize(g_strm));
 
@@ -490,7 +491,7 @@ void MemBroadcastDevice::close(RawPipeline * pip){
 
     mmc->idle.close();
 
-    delete mmc->worker;
+    // delete mmc->worker;
     delete mmc;
 }
 
