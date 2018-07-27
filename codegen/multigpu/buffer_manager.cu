@@ -105,6 +105,17 @@ __global__ void get_buffer_host(void **buff, int buffs){
 }
 #endif
 
+int num_of_gpus;
+int num_of_cpus;
+
+inline int get_gpu_count(){
+    return  num_of_gpus;
+}
+
+inline int get_cpu_numa_node_count(){
+    return num_of_cpus;
+}
+
 int                                                 cpu_cnt;
 cpu_set_t                                          *gpu_affinity;
 cpu_set_t                                          *cpu_numa_affinity;
@@ -158,7 +169,6 @@ __host__ void buffer_manager<T>::init(int size, int h_size, int buff_buffer_size
     }
     
     gpu_run(cudaSetDevice(0));
-
 
     // P2P check & enable
     for (int j = 0; j < devices; ++j) {
@@ -256,9 +266,18 @@ __host__ void buffer_manager<T>::init(int size, int h_size, int buff_buffer_size
 #endif
     }
 
+    num_of_gpus = devices;
+    num_of_cpus = 0;
+
     for (int j = 0 ; j < cores ; ++j){
         CPU_SET(j, &cpu_numa_affinity[numa_node_of_cpu(j)]);
     }
+
+    for (int j = 0 ; j < cpu_numa_nodes ; ++j){
+        if (CPU_COUNT(&cpu_numa_affinity[j]) > 0) ++num_of_cpus;
+    }
+
+
 
     //numa_node_of_cpu must be set prior to this
     for (int j = 0 ; j < devices        ; ++j) gpu_numa_node[j] = calc_numa_node_of_gpu(j);
@@ -347,7 +366,9 @@ __host__ void buffer_manager<T>::init(int size, int h_size, int buff_buffer_size
     }
 
 
-    for (int i = 0 ; i < cpu_numa_nodes ; ++i){
+    for (int i = 0 ; i < get_cpu_numa_node_count() ; ++i){
+        if (CPU_COUNT(&cpu_numa_affinity[i]) == 0) continue;
+
         buffer_pool_constrs.emplace_back([i, h_size, cores, &buff_cache]{
             set_affinity(&cpu_numa_affinity[i]);
 
@@ -497,7 +518,8 @@ __host__ void buffer_manager<T>::destroy(){
     
     size_t h_size = buffer_manager<T>::h_size;
 
-    for (int i = 0 ; i < cpu_numa_nodes ; ++i){
+    for (int i = 0 ; i < get_cpu_numa_node_count() ; ++i){
+        if (CPU_COUNT(&cpu_numa_affinity[i]) == 0) continue;
         buffer_pool_constrs.emplace_back([i, h_size]{
             set_affinity(&cpu_numa_affinity[i]);
 

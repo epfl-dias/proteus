@@ -27,6 +27,11 @@ constexpr void * buff_start = nullptr;
 constexpr void * buff_end   = nullptr;
 #endif
 
+extern int num_of_gpus;
+extern int num_of_cpus;
+
+inline int get_gpu_count();
+inline int get_cpu_numa_node_count();
 
 template<typename T>
 class buffer_manager;
