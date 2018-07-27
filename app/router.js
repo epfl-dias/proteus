@@ -7,6 +7,9 @@ const Router = EmberRouter.extend({
 });
 
 Router.map(function() {
+  this.route('timeline');
+  this.route('plan');
+  this.route('sqltab');
 });
 
 export default Router;
