@@ -24,55 +24,56 @@
 #include "util/raw-memory-manager.hpp"
 #include "multigpu/buffer_manager.cuh"
 #include "multigpu/numa_utils.cuh"
+#include "topology/topology.hpp"
+#include "topology/affinity_manager.hpp"
 
 constexpr size_t freed_cache_cap      = 16;
 
 void RawMemoryManager::init(){
     buffer_manager<int32_t>::init(256, 1024); // (*4*4, *4*4)
-    int gpus = get_num_of_gpus();
-    int cpus = numa_num_task_nodes();
-    gpu_managers = new SingleGpuMemoryManager *[gpus];
-    for (int device = 0 ; device < gpus ; ++device){
-        set_device_on_scope d(device);
-        gpu_managers[device] = new SingleGpuMemoryManager();
+    const auto &topo = topology::getInstance();
+
+    gpu_managers = new SingleGpuMemoryManager *[topo.getGpuCount()];
+    for (const auto &gpu: topo.getGpus()){
+        set_device_on_scope d(gpu);
+        gpu_managers[gpu.index_in_topo] = new SingleGpuMemoryManager();
         //warm-up
         //NOTE: how many buffers should we warm up ? how do we calibrate that without cheating ?
         void * ptrs[8];
         for (size_t i = 0 ; i < 8 ; ++i){
-            ptrs[i] = gpu_managers[device]->malloc((unit_capacity_gpu/4) * 3);
+            ptrs[i] = gpu_managers[gpu.index_in_topo]->malloc((unit_capacity_gpu/4) * 3);
         }
         for (size_t i = 0 ; i < 8 ; ++i){
-            gpu_managers[device]->free(ptrs[i]);
+            gpu_managers[gpu.index_in_topo]->free(ptrs[i]);
         }
     }
-    cpu_managers = new SingleCpuMemoryManager *[cpus];
-    for (int device = 0 ; device < cpus ; ++device){
-        set_exec_location_on_scope d(cpu_numa_affinity[device]);
-        cpu_managers[device] = new SingleCpuMemoryManager();
+    cpu_managers = new SingleCpuMemoryManager *[topo.getCpuNumaNodeCount()];
+    for (const auto &cpu: topo.getCpuNumaNodes()){
+        set_exec_location_on_scope d(cpu);
+        cpu_managers[cpu.index_in_topo] = new SingleCpuMemoryManager();
         //warm-up
         //NOTE: how many buffers should we warm up ? how do we calibrate that without cheating ?
         void * ptrs[8];
         for (size_t i = 0 ; i < 8 ; ++i){
-            ptrs[i] = cpu_managers[device]->malloc((unit_capacity_cpu/4) * 3);
+            ptrs[i] = cpu_managers[cpu.index_in_topo]->malloc((unit_capacity_cpu/4) * 3);
         }
         for (size_t i = 0 ; i < 8 ; ++i){
-            cpu_managers[device]->free(ptrs[i]);
+            cpu_managers[cpu.index_in_topo]->free(ptrs[i]);
         }
     }
 }
 
 void RawMemoryManager::destroy(){
     buffer_manager<int32_t>::destroy();
-    int gpus = get_num_of_gpus();
-    for (int device = 0 ; device < gpus ; ++device){
-        set_device_on_scope d(device);
-        delete gpu_managers[device];
+    const auto &topo = topology::getInstance();
+    for (const auto &gpu: topo.getGpus()){
+        set_device_on_scope d(gpu);
+        delete gpu_managers[gpu.index_in_topo];
     }
     delete[] gpu_managers;
-    int cpus = numa_num_task_nodes();
-    for (int device = 0 ; device < cpus ; ++device){
-        set_exec_location_on_scope d(cpu_numa_affinity[device]);
-        delete cpu_managers[device];
+    for (const auto &cpu: topo.getCpuNumaNodes()){
+        set_exec_location_on_scope d(cpu);
+        delete cpu_managers[cpu.index_in_topo];
     }
     delete[] cpu_managers;
 }
@@ -85,8 +86,8 @@ void * RawMemoryManager::mallocGpu(size_t bytes){
     rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_GPU_START);
     nvtxRangePushA("mallocGpu");
     bytes = fixSize(bytes);
-    int dev = get_device();
-    void * ptr = gpu_managers[dev]->malloc(bytes);
+    const auto & dev = topology::getInstance().getActiveGpu();
+    void * ptr = gpu_managers[dev.id]->malloc(bytes);
     nvtxRangePop();
     rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_GPU_END);
     return ptr;
@@ -94,9 +95,10 @@ void * RawMemoryManager::mallocGpu(size_t bytes){
 
 void   RawMemoryManager::freeGpu  (void * ptr){
     nvtxRangePushA("freeGpu");
-    int dev = get_device(ptr);
-    set_device_on_scope d(dev);
-    gpu_managers[dev]->free(ptr);
+    const auto * dev = topology::getInstance().getGpuAddressed(ptr);
+    assert(dev);
+    set_device_on_scope d(*dev);
+    gpu_managers[dev->id]->free(ptr);
     nvtxRangePop();
 }
 
@@ -116,8 +118,9 @@ void * RawMemoryManager::mallocPinned(size_t bytes){
 
 void   RawMemoryManager::freePinned  (void * ptr){
     nvtxRangePushA("freePinned");
-    int node;
-    move_pages(0, 1, &ptr, NULL, &node, MPOL_MF_MOVE);
+    const auto *dev = topology::getInstance().getCpuNumaNodeAddressed(ptr);
+    assert(dev);
+    int node = dev->id;
     std::cout << "Free: " << node << " " << ptr << std::endl;
     cpu_managers[node]->free(ptr);
     nvtxRangePop();

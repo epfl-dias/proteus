@@ -31,6 +31,7 @@
 #include <condition_variable>
 #include <atomic>
 #include <thread>
+#include "topology/affinity_manager.hpp"
 
 class Exchange;
 

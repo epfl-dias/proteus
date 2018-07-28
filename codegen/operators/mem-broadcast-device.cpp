@@ -41,8 +41,9 @@ void step_mmc_mem_move_broadcast_device(MemBroadcastDevice::MemMoveConf * mmc){
 }
 
 buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int target_device, MemBroadcastDevice::MemMoveConf * mmc, bool disable_noop){
+    const auto &topo = topology::getInstance();
     if (!(mmc->to_cpu)){
-        int dev = get_device(src);
+        int dev = topo.getGpuAddressed(src)->id;
 
         // assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager should be able to provide blocks of arbitary size
         if (!disable_noop && dev == target_device) return buff_pair_brdcst{src, NULL}; // block already in correct device
@@ -59,9 +60,7 @@ buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int ta
 
         return buff_pair_brdcst{buff, src};
     } else {
-        int dev = get_device(src);
-
-        if (dev >= 0){
+        if (topo.getGpuAddressed(src)){
             char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(numa_node_of_cpu(target_device));
             assert(target_device >= 0);
             if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm[target_device], false);
@@ -420,7 +419,7 @@ void MemBroadcastDevice::open (RawPipeline * pip){
     mmc->worker = ThreadPool::getInstance().enqueue(&MemBroadcastDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
 
     int device = -1;
-    if (!to_cpu) device = get_device();
+    if (!to_cpu) device = topology::getInstance().getActiveGpu().id;
     pip->setStateVar<int         >(device_id_var, device);
 
     // pip->setStateVar<cudaStream_t>(cu_stream_var, strm  );

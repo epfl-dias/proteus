@@ -29,6 +29,7 @@
 #include <thread>
 #include <unordered_map>
 #include <future>
+#include "topology/affinity_manager.hpp"
 
 // void * make_mem_move_device(char * src, size_t bytes, int target_device, cudaStream_t strm);
 

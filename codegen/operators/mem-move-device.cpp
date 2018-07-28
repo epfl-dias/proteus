@@ -28,7 +28,6 @@
 #include "multigpu/buffer_manager.cuh"
 #include "util/raw-memory-manager.hpp"
 #include "multigpu/numa_utils.cuh"
-
 #include "threadpool/threadpool.hpp"
 
 struct buff_pair{
@@ -38,7 +37,8 @@ struct buff_pair{
 
 extern "C"{
 buff_pair make_mem_move_device(char * src, size_t bytes, int target_device, MemMoveDevice::MemMoveConf * mmc){
-    int dev = get_device(src);
+    const auto *d = topology::getInstance().getGpuAddressed(src);
+    int dev = d ? d->id : -1;
 
     if (dev == target_device) return buff_pair{src, src}; // block already in correct device
 
@@ -380,7 +380,7 @@ void MemMoveDevice::open (RawPipeline * pip){
     rawlogger.log(this, log_op::MEMMOVE_OPEN_END);
 
     int device = -1;
-    if (!to_cpu) device = get_device();
+    if (!to_cpu) device = topology::getInstance().getActiveGpu().id;
     pip->setStateVar<int         >(device_id_var, device);
 
     // pip->setStateVar<cudaStream_t>(cu_stream_var, strm  );

@@ -99,8 +99,11 @@ void RawCpuModule::init(){
     auto RM = Optional<Reloc::Model>();
     TheTargetMachine = (LLVMTargetMachine *) Target->createTargetMachine(TargetTriple, CPU, 
                                                     Features.getString(), //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
-                                                    opt, RM, 
-                                                    Optional<CodeModel::Model>{},//CodeModel::Model::Default, 
+                                                    opt, 
+                                                    // RM, 
+                                                    Reloc::Model::PIC_,
+                                                    // Optional<CodeModel::Model>{},//
+                                                    CodeModel::Model::Small, 
                                                     // CodeModel::Model::Default, 
                                                     CodeGenOpt::Aggressive);
 

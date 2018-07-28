@@ -27,6 +27,7 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/IR/PassManager.h"
+#include "topology/affinity_manager.hpp"
 
 #include "multigpu/buffer_manager.cuh" //initializeModule
 
@@ -38,7 +39,8 @@ PassManagerBuilder  RawGpuModule::Builder                   ;
 
 RawGpuModule::RawGpuModule(RawContext * context, std::string pipName):
     RawModule(context, pipName){
-    cudaModule = (CUmodule *) malloc(get_num_of_gpus() * sizeof(CUmodule));
+    uint32_t gpu_cnt = topology::getInstance().getGpuCount();
+    cudaModule = (CUmodule *) malloc(gpu_cnt * sizeof(CUmodule));
 
     if (TheTargetMachine == nullptr) init();
 
@@ -309,16 +311,15 @@ void RawGpuModule::compileAndLoad(){
             gpu_run(x);
         }
 
-        int devices = get_num_of_gpus();
-        for (int i = 0 ; i < devices ; ++i){
+        for (const auto &gpu: topology::getInstance().getGpus()){
             time_block t("TloadModule: ");
-            set_device_on_scope d(i);
+            set_device_on_scope d(gpu);
 
             // gpu_run(cuModuleLoadDataEx(&cudaModule[i], ptx.c_str(), 0, 0, 0));
-            gpu_run(cuModuleLoadFatBinary(&cudaModule[i], cubin));
+            gpu_run(cuModuleLoadFatBinary(&cudaModule[gpu.id], cubin));
             {
                 time_block t("TinitModule: ");
-                initializeModule(cudaModule[i]);
+                initializeModule(cudaModule[gpu.id]);
             }
         }
         
@@ -333,7 +334,7 @@ void RawGpuModule::compileAndLoad(){
 void * RawGpuModule::getCompiledFunction(Function * f) const{
 #ifndef NCUDA
     CUfunction func;
-    gpu_run(cuModuleGetFunction(&func, cudaModule[get_current_gpu()], f->getName().str().c_str()));
+    gpu_run(cuModuleGetFunction(&func, cudaModule[topology::getInstance().getActiveGpu().id], f->getName().str().c_str()));
     
     return (void *) func;
 #else

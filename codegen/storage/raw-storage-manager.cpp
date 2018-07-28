@@ -24,6 +24,8 @@
 #include "storage/raw-storage-manager.hpp"
 #include <algorithm>
 #include <fstream>
+#include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
 
 std::map<std::string, std::vector<std::unique_ptr<mmap_file>>> StorageManager::files;
 std::map<std::string, std::map<int, std::string> *>            StorageManager::dicts;
@@ -38,8 +40,9 @@ void StorageManager::load(std::string name, data_loc loc){
 
 void StorageManager::loadToGpus(std::string name){
     time_block t("Topen (" + name + "): ");
+    const auto &topo = topology::getInstance();
 
-    int devices = get_num_of_gpus();
+    auto devices = topo.getGpuCount();
 
     auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});
     assert(it.second && "File already loaded!");
@@ -51,18 +54,21 @@ void StorageManager::loadToGpus(std::string name){
 
     size_t part_size = (((filesize + pack_alignment - 1)/pack_alignment + devices - 1) / devices) * pack_alignment; //FIXME: assumes maximum record size of 128Bytes
 
-    for (int d = 0 ; d < devices ; ++d){
+    int d = 0;
+    for (const auto &gpu: topo.getGpus()){
         if (part_size * d < filesize){
-            set_device_on_scope cd(d);
+            set_device_on_scope cd(gpu);
             it.first->second.emplace_back(new mmap_file(name, GPU_RESIDENT, std::min(part_size, filesize - part_size * d), part_size * d));
         }
+        ++d;
     }
 }
 
 void StorageManager::loadToCpus(std::string name){
     time_block t("Topen (" + name + "): ");
+    const auto &topo = topology::getInstance();
 
-    int devices = numa_num_task_nodes();
+    auto devices = topo.getCpuNumaNodeCount();
 
     auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});
     assert(it.second && "File already loaded!");
@@ -74,19 +80,22 @@ void StorageManager::loadToCpus(std::string name){
 
     size_t part_size = (((filesize + pack_alignment - 1)/pack_alignment + devices - 1) / devices) * pack_alignment; //FIXME: assumes maximum record size of 128Bytes
 
-    for (int d = 0 ; d < devices ; ++d){
+    int d = 0;
+    for (const auto &cpu: topo.getCpuNumaNodes()){
         if (part_size * d < filesize){
-            set_exec_location_on_scope cd(cpu_numa_affinity[d]);
+            set_exec_location_on_scope cd(cpu);
             it.first->second.emplace_back(new mmap_file(name, PINNED, std::min(part_size, filesize - part_size * d), part_size * d));
         }
+        ++d;
     }
 }
 
 void StorageManager::loadEverywhere(std::string name, int pref_gpu_weight, int pref_cpu_weight){
     time_block t("Topen (" + name + "): ");
+    const auto &topo = topology::getInstance();
 
-    int devices_sock = numa_num_task_nodes();
-    int devices_gpus = get_num_of_gpus    ();
+    auto devices_gpus = topo.getGpuCount();
+    auto devices_sock = topo.getCpuNumaNodeCount();
     int devices      = devices_sock * pref_cpu_weight + devices_gpus * pref_gpu_weight;
 
     auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});
@@ -99,13 +108,16 @@ void StorageManager::loadEverywhere(std::string name, int pref_gpu_weight, int p
 
     size_t part_size = (((filesize + pack_alignment - 1)/pack_alignment + devices - 1) / devices) * pack_alignment; //FIXME: assumes maximum record size of 128Bytes
 
+    const auto &gpu_vec = topo.getGpus();
+    const auto &sck_vec = topo.getCpuNumaNodes();
+
     for (int d = 0 ; d < devices ; ++d){
         if (part_size * d < filesize){
             if (d < devices_sock * pref_cpu_weight){
-                set_exec_location_on_scope cd(cpu_numa_affinity[d % devices_sock]);
+                set_exec_location_on_scope cd(sck_vec[d % devices_sock]);
                 it.first->second.emplace_back(new mmap_file(name, PINNED      , std::min(part_size, filesize - part_size * d), part_size * d));
             } else {
-                set_device_on_scope cd((d - devices_sock * pref_cpu_weight) % devices_gpus);
+                set_device_on_scope cd(gpu_vec[(d - devices_sock * pref_cpu_weight) % devices_gpus]);
                 it.first->second.emplace_back(new mmap_file(name, GPU_RESIDENT, std::min(part_size, filesize - part_size * d), part_size * d));
             }
         }

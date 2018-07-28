@@ -82,10 +82,10 @@ inline void nvtxRangePop  (){}
 #define DEFAULT_BUFF_CAP (1024*1024/4)
 #endif
 
-extern int                                                 cpu_cnt;
-extern cpu_set_t                                          *gpu_affinity;
-extern cpu_set_t                                          *cpu_numa_affinity;
-extern int                                                *gpu_numa_node;
+//extern int                                                 cpu_cnt;
+//extern cpu_set_t                                          *gpu_affinity;
+//extern cpu_set_t                                          *cpu_numa_affinity;
+//extern int                                                *gpu_numa_node;
 
 typedef size_t   vid_t;
 typedef uint32_t cid_t;
@@ -155,105 +155,32 @@ extern "C" void memcpy_gpu(void *dst, const void *src, size_t size, bool is_vola
 //     }
 // }
 
-inline int get_num_of_gpus(){
-    int devices;
-    gpu_run(cudaGetDeviceCount(&devices));
-    return devices;
-}
+// inline int get_num_of_gpus(){
+//     int devices;
+//     gpu_run(cudaGetDeviceCount(&devices));
+//     return devices;
+// }
 #else
 #define gpu_run(ans)
-inline constexpr int get_num_of_gpus() {return 0;}
+// inline constexpr int get_num_of_gpus() {return 0;}
 #endif
 
-int get_device(const void *p);
-inline int get_device(){
-#ifndef NCUDA
-    int device;
-    gpu_run(cudaGetDevice(&device));
-    return device;
-#else
-    return 0;
-#endif
-}
+// int get_device(const void *p);
+// inline int get_device(){
+// #ifndef NCUDA
+//     int device;
+//     gpu_run(cudaGetDevice(&device));
+//     return device;
+// #else
+//     return 0;
+// #endif
+// }
 
-inline int get_current_gpu(){
-    return get_device();
-}
+// inline int get_current_gpu(){
+//     return get_device();
+// }
 
 std::ostream& operator<<(std::ostream& out, const cpu_set_t& cpus);
-
-class exec_location{
-private:
-    int         gpu_device;
-    cpu_set_t   cpus;
-
-public:
-    exec_location(){
-        gpu_run(cudaGetDevice(&gpu_device));
-
-        CPU_ZERO(&cpus);
-        pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpus);
-    }
-
-    exec_location(int gpu): gpu_device(gpu){
-        cpus = gpu_affinity[gpu_device];
-    }
-
-    exec_location(int gpu, cpu_set_t cpus): gpu_device(gpu), cpus(cpus){
-    }
-
-    exec_location(cpu_set_t cpus): cpus(cpus){
-        gpu_device = -1;
-    }
-
-public:
-    void activate() const{
-        // std::cout << "d" << gpu_device << " " << cpus << std::endl;
-        if (gpu_device >= 0) gpu_run(cudaSetDevice(gpu_device));
-        pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpus);
-    }
-
-};
-
-class set_device_on_scope{
-private:
-    int device;
-public:
-    inline set_device_on_scope(int set){
-        device = get_current_gpu();
-        if (set >= 0) gpu_run(cudaSetDevice(set));
-    }
-
-    inline ~set_device_on_scope(){
-        gpu_run(cudaSetDevice(device));
-    }
-};
-
-
-class set_exec_location_on_scope{
-private:
-    exec_location old;
-public:
-    inline set_exec_location_on_scope(int gpu){
-        exec_location{gpu}.activate();
-    }
-
-    inline set_exec_location_on_scope(int gpu, cpu_set_t cpus){
-        exec_location{gpu, cpus}.activate();
-    }
-
-    inline set_exec_location_on_scope(cpu_set_t cpus){
-        exec_location{cpus}.activate();
-    }
-
-    inline set_exec_location_on_scope(const exec_location &loc){
-        loc.activate();
-    }
-
-    inline ~set_exec_location_on_scope(){
-        old.activate();
-    }
-};
 
 #ifndef NCUDA
 __device__ __forceinline__ uint32_t get_laneid(){
@@ -416,55 +343,6 @@ extern "C"{
     int get_ptr_device(const void *p);
     int get_ptr_device_or_rand_for_host(const void *p);
     int get_rand_core_local_to_ptr(const void *p);
-}
-
-template<typename T, typename... Args>
-__host__ T * cuda_new(int dev, Args... args){
-    if (dev >= 0){
-        set_device_on_scope d(dev);
-        T *tmp = new T(args...);
-        T *res;
-        gpu_run(cudaMalloc((void**) &res, sizeof(T)));
-        gpu_run(cudaMemcpy(res, tmp, sizeof(T), cudaMemcpyDefault));
-        gpu_run(cudaDeviceSynchronize());
-        free(tmp);  //NOTE: bad practice ? we want to allocate tmp by new to
-                    //      trigger initialization but we want to free the 
-                    //      corresponding memory after moving to device 
-                    //      without triggering the destructor
-        return res;
-    } else {
-        T *tmp = new T(args...);
-        T *res;
-        gpu_run(cudaMallocHost((void**) &res, sizeof(T)));
-        gpu_run(cudaMemcpy(res, tmp, sizeof(T), cudaMemcpyDefault));
-        gpu_run(cudaDeviceSynchronize());
-        free(tmp);  //NOTE: bad practice ? we want to allocate tmp by new to
-                    //      trigger initialization but we want to free the 
-                    //      corresponding memory after moving to device 
-                    //      without triggering the destructor
-        return res;
-        // return new T(args...);
-    }
-}
-
-
-template<typename T, typename... Args>
-__host__ void cuda_delete(T *obj, Args... args){
-    int device = get_device(obj);
-    if (device >= 0){
-        T *tmp = (T *) malloc(sizeof(T));
-        gpu_run(cudaDeviceSynchronize());
-        gpu_run(cudaMemcpy(tmp, obj, sizeof(T), cudaMemcpyDefault));
-        gpu_run(cudaFree(obj));
-        delete tmp;
-    } else {
-        T *tmp = (T *) malloc(sizeof(T));
-        gpu_run(cudaDeviceSynchronize());
-        gpu_run(cudaMemcpy(tmp, obj, sizeof(T), cudaMemcpyDefault));
-        gpu_run(cudaFreeHost(obj));
-        delete tmp;
-        // delete obj;
-    }
 }
 
 #endif /* GPU_COMMON_HPP_ */

@@ -128,27 +128,27 @@ private:
     static __host__ __forceinline__ void __release_buffer_host(T * buff){
         if (!buff) return;
         nvtxRangePushA("release_buffer_host");
-        int dev = get_device(buff);
-        if (dev >= 0){
+        const auto *gpu = topology::getInstance().getGpuAddressed(buff);
+        if (gpu){
 #ifndef NCUDA
-            if (buff < h_buff_start[dev] || buff >= h_buff_end[dev]) return;
+            if (buff < h_buff_start[gpu->id] || buff >= h_buff_end[gpu->id]) return;
 
             nvtxRangePushA("release_buffer_host_devbuffer");
-            set_device_on_scope d(dev);
-            std::unique_lock<std::mutex> lock(device_buffs_mutex[dev]);
-            device_buffs_pool[dev].push_back(buff);
-            size_t size = device_buffs_pool[dev].size();
+            set_device_on_scope d(*gpu);
+            std::unique_lock<std::mutex> lock(device_buffs_mutex[gpu->id]);
+            device_buffs_pool[gpu->id].push_back(buff);
+            size_t size = device_buffs_pool[gpu->id].size();
             if (size > keep_threshold){
                 nvtxRangePushA("release_buffer_host_devbuffer_overflow");
-                for (int i = 0 ; i < device_buff_size ; ++i) device_buff[dev][i] = device_buffs_pool[dev][size-i-1];
-                device_buffs_pool[dev].erase(device_buffs_pool[dev].end()-device_buff_size, device_buffs_pool[dev].end());
-                release_buffer_host<<<1, 1, 0, release_streams[dev]>>>((void **) device_buff[dev], device_buff_size);
-                gpu_run(cudaStreamSynchronize(release_streams[dev]));
+                for (int i = 0 ; i < device_buff_size ; ++i) device_buff[gpu->id][i] = device_buffs_pool[gpu->id][size-i-1];
+                device_buffs_pool[gpu->id].erase(device_buffs_pool[gpu->id].end()-device_buff_size, device_buffs_pool[gpu->id].end());
+                release_buffer_host<<<1, 1, 0, release_streams[gpu->id]>>>((void **) device_buff[gpu->id], device_buff_size);
+                gpu_run(cudaStreamSynchronize(release_streams[gpu->id]));
                 // gpu_run(cudaPeekAtLastError()  );
                 // gpu_run(cudaDeviceSynchronize());
                 nvtxRangePop();
             }
-            device_buffs_cv[dev].notify_all();
+            device_buffs_cv[gpu->id].notify_all();
             nvtxRangePop();
 #else
             assert(false);

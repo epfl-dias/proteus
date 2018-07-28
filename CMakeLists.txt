@@ -32,6 +32,9 @@ endif()
 
 # list(APPEND CMAKE_CXX_SOURCE_FILE_EXTENSIONS cu)
 
+# look for Boost related compilation flags
+find_package(Boost REQUIRED)
+
 #-----------------------------------------------------------------------
 # look for LLVM related compilation flags slightly complicated way, the
 # Ubuntu cmake module file is wrong and we have to hack something instead.
@@ -62,6 +65,7 @@ include_directories(
 	"${PROJECT_SOURCE_DIR}/codegen"
 	"${LLVM_INCLUDE_DIRS}"
 	"${CMAKE_INSTALL_PREFIX}/include"
+	"${Boost_INCLUDE_DIRS}"
 	)
 
 include_directories(
@@ -73,6 +77,7 @@ include_directories(
 
 link_directories(
 	"${CMAKE_INSTALL_PREFIX}/lib"
+	"${Boost_LINK_DIRS}"
 	)
 
 link_directories(
@@ -89,8 +94,8 @@ add_definitions(-DTEST_OUTPUTS="${CMAKE_INSTALL_PREFIX}/raw/outputs")
 
 find_program(EXISTS_NVCC nvcc)
 if (EXISTS_NVCC)
-set(CUDA_CUFLAGS -Xcompiler -fPIC ${CUDA_CXXFLAGS} ${GCC_COMPILE_FLAGS} --expt-relaxed-constexpr --std=c++11 -arch=sm_61 -line-info)
-set(CUDA_CXXFLAGS "-x cuda --cuda-gpu-arch=sm_61")
+set(CUDA_CUFLAGS -Xcompiler -fPIC ${CUDA_CXXFLAGS} ${GCC_COMPILE_FLAGS} --expt-relaxed-constexpr --std=c++11 -arch=sm_70 -line-info)
+set(CUDA_CXXFLAGS "-x cuda --cuda-gpu-arch=sm_70")
 set(CUDA_libs -lnvToolsExt -lcuda -lcudart -lnvidia-ml -lcudadevrt -lnvvm)
 set(CUDA "CUDA-FOUND")
 else()
@@ -109,7 +114,7 @@ set(LLVM_CFLAGS "${LLVM_CFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS}")
 
 
 # set(default_libs codegen -lpthread -lnuma -lnvToolsExt -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -lcuda -lcudart -lnvidia-ml -lcudadevrt -ldl -lrt -lnvvm -pthread -littnotify)
-set(default_libs codegen -lpthread ${CUDA_libs} -lnuma -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -ldl -lrt -pthread) #-littnotify
+set(default_libs codegen -lpthread ${CUDA_libs} -lnuma -lboost_fiber -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -ldl -lrt -pthread) #-littnotify
 
 # add ittnotify if found
 # FIXME: deduplicate path+there seems to be a FindVTune.cmake even inside llvm!
@@ -118,7 +123,7 @@ if (VTune_LIB)
 set(default_libs ${default_libs} -littnotify)
 endif()
 
-set(gtest_libs -lgtest libgtest_main.a ${default_libs})
+set(gtest_libs -lgtest -lboost_fiber libgtest_main.a ${default_libs})
 
 #-----------------------------------------------------------------------
 # Build our libraries
