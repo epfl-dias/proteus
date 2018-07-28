@@ -41,14 +41,13 @@ public:
 
     exec_location(int gpu);
 
-    exec_location(int gpu, cpu_set_t cpus): gpu_device(gpu), cpus(cpus){
-    }
+    exec_location(int gpu, cpu_set_t cpus): gpu_device(gpu), cpus(cpus){}
 
-    exec_location(cpu_set_t cpus): cpus(cpus){
-        gpu_device = -1;
-    }
+    exec_location(cpu_set_t cpus):
+        gpu_device(-1), cpus(cpus){}
 
-    exec_location(const topology::cpunumanode &cpu): cpus(cpu.local_cpu_set){}
+    exec_location(const topology::cpunumanode &cpu):
+        gpu_device(-1), cpus(cpu.local_cpu_set){}
 
     exec_location(const topology::gpunode     &gpu);
 

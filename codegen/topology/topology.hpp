@@ -164,7 +164,7 @@ public:
     const cpunumanode * getCpuNumaNodeAddressed(const T * m) const{
         int numa_id = -1;
         get_mempolicy(&numa_id, NULL, 0, (void *) m, MPOL_F_NODE | MPOL_F_ADDR);
-        return &(getCpuNumaNodeById(numa_id));
+        return (cpu_info.data() + cpunuma_index[numa_id]);
     }
 
 // int get_device(const void *p){

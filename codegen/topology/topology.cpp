@@ -25,7 +25,7 @@ topology::topology(){
         max_numa_id = std::max(max_numa_id, cpu_info.back().id);
     }
     
-    cpunuma_index.resize(max_numa_id);
+    cpunuma_index.resize(max_numa_id + 1);
     for (auto &ci: cpunuma_index) ci = 0;
 
     for (size_t i = 0 ; i < cpu_info.size() ; ++i) {
@@ -113,7 +113,7 @@ std::ostream &operator<<(std::ostream &out, const topology &topo){
         out << '\n';
     }
 
-    for (const auto &node: topo.cpu_info) {
+    for (const auto &node: topo.getCpuNumaNodes()) {
         out << "node: " << std::setw(6) << node.id << " | ";
 
         out << std::setw(4 + 4 + 3) << ' ' << " | ";
@@ -133,7 +133,7 @@ std::ostream &operator<<(std::ostream &out, const topology &topo){
 
     out << '\n';
 
-    for (const auto &gpu: topo.gpu_info) {
+    for (const auto &gpu: topo.getGpus()) {
         unsigned int nvml_ind;
         gpu_run(nvmlDeviceGetIndex(gpu.handle, &nvml_ind));
         out << "gpu : "  << std::setw(2) << gpu.id;
@@ -158,7 +158,7 @@ std::ostream &operator<<(std::ostream &out, const topology &topo){
 
     out << '\n';
 
-    for (const auto &node: topo.cpu_info) {
+    for (const auto &node: topo.getCpuNumaNodes()) {
         out << "node: ";
         out << node.id << " | ";
         for (auto d: node.distance) out << std::setw(4) << d;
@@ -167,7 +167,7 @@ std::ostream &operator<<(std::ostream &out, const topology &topo){
 
     out << '\n';
 
-    for (const auto &gpu: topo.gpu_info) {
+    for (const auto &gpu: topo.getGpus()) {
         out << "gpu : ";
         out << gpu.id          << " | ";
         for (auto d: gpu.connectivity) out << std::setw(4) << d;

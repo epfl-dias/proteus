@@ -100,11 +100,8 @@ void RawCpuModule::init(){
     TheTargetMachine = (LLVMTargetMachine *) Target->createTargetMachine(TargetTriple, CPU, 
                                                     Features.getString(), //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
                                                     opt, 
-                                                    // RM, 
-                                                    Reloc::Model::PIC_,
-                                                    // Optional<CodeModel::Model>{},//
-                                                    CodeModel::Model::Small, 
-                                                    // CodeModel::Model::Default, 
+                                                    RM, 
+                                                    Optional<CodeModel::Model>{},
                                                     CodeGenOpt::Aggressive);
 
                                   // // Override function attributes based on CPUStr, FeaturesStr, and command line
@@ -205,7 +202,7 @@ void RawCpuModule::compileAndLoad(){
             legacy::PassManager PM;
 
             // Ask the target to add backend passes as necessary.
-            TheTargetMachine->addPassesToEmitFile(PM, ostream, llvm::TargetMachine::CGFT_AssemblyFile, false);
+            TheTargetMachine->addPassesToEmitFile(PM, ostream, llvm::TargetMachine::CGFT_AssemblyFile, false); //NULL for LLVM7.0
 
             PM.run(*(getModule()));
         }

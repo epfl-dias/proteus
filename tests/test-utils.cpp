@@ -117,7 +117,7 @@ bool verifyTestResult(const char *testsPath, const char *testLabel, bool unorder
             std::stringstream ss(currResultBuf);
             std::string str;
             while (std::getline(ss, str)) lines.emplace_back(str);
-            sort(lines.begin(), lines.end());
+            std::sort(lines.begin(), lines.end());
             ss.clear();
             for (const auto &s: lines) ss << s << '\n';
             areEqual = (fsize1 == 0) || (memcmp(correctBuf, ss.str().c_str(), fsize1) == 0);
