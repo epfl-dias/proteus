@@ -107,6 +107,17 @@ RawGpuPipelineGen::RawGpuPipelineGen(RawContext * context, std::string pipName, 
 
     registerFunction("llvm.ctpop"                           , Intrinsic::getDeclaration(getModule(), Intrinsic::ctpop         , int32_type     ));
 
+
+
+
+    registerFunction("llvm.nvvm.bar.warp.sync"              , Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_bar_warp_sync)             );
+    
+    registerFunction("llvm.nvvm.shfl.sync.bfly.i32"         , Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_shfl_sync_bfly_i32)        );
+    registerFunction("llvm.nvvm.shfl.sync.idx.i32"          , Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_shfl_sync_idx_i32)         );
+
+
+
+
     FunctionType *intrprinti64 = FunctionType::get(void_type, std::vector<Type *>{int64_type}, false);
     Function *intr_pprinti64 = Function::Create(intrprinti64, Function::ExternalLinkage, "dprinti64", getModule());
     registerFunction("printi64", intr_pprinti64);
