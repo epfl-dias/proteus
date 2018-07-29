@@ -62,7 +62,7 @@ public:
 
 class set_device_on_scope{
 private:
-    const topology::gpunode device;
+    const topology::gpunode &device;
 public:
     inline set_device_on_scope(int set):
             device(topology::getInstance().getActiveGpu()){

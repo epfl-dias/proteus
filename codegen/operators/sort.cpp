@@ -190,10 +190,10 @@ void Sort::consume(GpuRawContext * const context, const OperatorState& childStat
     // Value * capacity      = ConstantInt::get(oid_type, cap);
     // Value * last_index    = ConstantInt::get(oid_type, cap - 1);
 
-    Value * s_cnt_mem       = context->getStateVar(cntVar_id);
     AllocaInst * ready_cnt_mem = context->CreateEntryBlockAlloca(F, "readyN", oid_type);
 
     Builder->SetInsertPoint(context->getCurrentEntryBlock());
+    Value * s_cnt_mem       = context->getStateVar(cntVar_id);
     Builder->CreateStore(Builder->CreateLoad(s_cnt_mem), ready_cnt_mem);
     Value * mem_ptr         = context->getStateVar(memVar_id);
 
