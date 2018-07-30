@@ -79,7 +79,6 @@ public:
 private:
     const vector<RecordAttribute *> wantedFields ;
     size_t                          device_id_var;
-    size_t                          cu_stream_var;
     size_t                          memmvconf_var;
 
     RawPipelineGen                * catch_pip    ;

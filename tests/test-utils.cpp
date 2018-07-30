@@ -26,6 +26,7 @@
 #include "util/raw-memory-manager.hpp"
 #include "storage/raw-storage-manager.hpp"
 #include "topology/topology.hpp"
+#include "topology/affinity_manager.hpp"
 
 #include "util/gpu/gpu-raw-context.hpp"
 #include "util/raw-functions.hpp"

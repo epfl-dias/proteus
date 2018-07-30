@@ -64,9 +64,6 @@ inline void nvtxRangePop  (){}
 
 #endif
 
-#include <numaif.h>
-#include <numa.h>
-
 #include <thread>
 
 // #include "multigpu/src/common.cuh"

@@ -27,7 +27,6 @@
 // #include "cuda_runtime_api.h"
 #include "multigpu/buffer_manager.cuh"
 #include "util/raw-memory-manager.hpp"
-#include "multigpu/numa_utils.cuh"
 #include "threadpool/threadpool.hpp"
 
 struct buff_pair{

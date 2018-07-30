@@ -10,6 +10,18 @@
 
 #include "topology/affinity_manager.hpp"
 
+#include "nvml.h"
+
+#include <numaif.h>
+#include <numa.h>
+
+// template<typename T>
+const topology::cpunumanode * topology::getCpuNumaNodeAddressed(const void * m) const{
+    int numa_id = -1;
+    get_mempolicy(&numa_id, NULL, 0, const_cast<void *>(m), MPOL_F_NODE | MPOL_F_ADDR);
+    return (cpu_info.data() + cpunuma_index[numa_id]);
+}
+
 topology::topology(){
     gpu_run(nvmlInit());
 

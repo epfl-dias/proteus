@@ -32,17 +32,15 @@
 
 #include "nvml.h"
 
-class gpu_id{
-protected:
-    uint32_t id;
-};
+// class gpu_id{
+// protected:
+//     uint32_t id;
+// };
 
-class cpunumanode_id{
-protected:
-    uint32_t id;
-};
-
-
+// class cpunumanode_id{
+// protected:
+//     uint32_t id;
+// };
 
 /**
  * A describing the system topology of a single server.
@@ -160,25 +158,12 @@ public:
         return gpu_info[device];
     }
 
-    template<typename T>
-    const cpunumanode * getCpuNumaNodeAddressed(const T * m) const{
-        int numa_id = -1;
-        get_mempolicy(&numa_id, NULL, 0, const_cast<T *>(m), MPOL_F_NODE | MPOL_F_ADDR);
-        return (cpu_info.data() + cpunuma_index[numa_id]);
+    const cpunumanode * getCpuNumaNodeAddressed(const void * m) const;
+
+    [[deprecated]]
+    uint32_t getCpuNumaNodeOfCore(uint32_t core_id) const {
+        return core_info[core_id].local_cpu;
     }
-
-// int get_device(const void *p){
-// #ifndef NCUDA
-//     cudaPointerAttributes attrs;
-//     cudaError_t error = cudaPointerGetAttributes(&attrs, p);
-//     if (error == cudaErrorInvalidValue) return -1;
-//     gpu_run(error);
-//     return (attrs.memoryType == cudaMemoryTypeHost) ? -1 : attrs.device;
-// #else
-//     return -1;
-// #endif
-// }
-
 
     template<typename T>
     const gpunode * getGpuAddressed(const T * p) const{

@@ -23,9 +23,11 @@
 
 #include "util/raw-memory-manager.hpp"
 #include "multigpu/buffer_manager.cuh"
-#include "multigpu/numa_utils.cuh"
 #include "topology/topology.hpp"
 #include "topology/affinity_manager.hpp"
+
+#include <numaif.h>
+#include <numa.h>
 
 constexpr size_t freed_cache_cap      = 16;
 
@@ -103,12 +105,13 @@ void   RawMemoryManager::freeGpu  (void * ptr){
 }
 
 void * RawMemoryManager::mallocPinned(size_t bytes){
+    const auto &topo = topology::getInstance();
     time_block t;
     rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_START);
     nvtxRangePushA("mallocPinned");
     bytes = fixSize(bytes);
     int cpu  = sched_getcpu();
-    int node = numa_node_of_cpu(cpu);
+    int node = topo.getCpuNumaNodeOfCore(cpu);
     void * ptr = cpu_managers[node]->malloc(bytes);
     nvtxRangePop();
     rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_END);
@@ -142,7 +145,7 @@ void GpuMemAllocator::free(void * ptr){
 }
 
 void * NUMAPinnedMemAllocator::malloc(size_t bytes){
-    void *ptr = numa_alloc_onnode(bytes, numa_node_of_cpu(sched_getcpu()));
+    void *ptr = numa_alloc_onnode(bytes, topology::getInstance().getCpuNumaNodeOfCore(sched_getcpu()));
     assert(ptr && "Memory allocation failed!");
     gpu_run(cudaHostRegister(ptr, bytes, 0));
     sizes.emplace(ptr, bytes);

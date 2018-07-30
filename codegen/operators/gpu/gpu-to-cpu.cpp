@@ -22,7 +22,6 @@
 */
 
 #include "operators/gpu/gpu-to-cpu.hpp"
-#include "multigpu/numa_utils.cuh"
 #include "util/gpu/gpu-intrinsics.hpp"
 #include "util/raw-memory-manager.hpp"
 #include "util/jit/raw-gpu-pipeline.hpp"

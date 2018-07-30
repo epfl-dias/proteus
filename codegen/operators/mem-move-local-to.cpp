@@ -26,7 +26,6 @@
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
 #include "multigpu/buffer_manager.cuh"
-#include "multigpu/numa_utils.cuh"
 #include "threadpool/threadpool.hpp"
 #include <future>
 #include "topology/affinity_manager.hpp"

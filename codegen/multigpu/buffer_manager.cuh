@@ -6,7 +6,6 @@
 #include "threadsafe_stack.cuh"
 #include <mutex>
 #include <vector>
-#include <numaif.h>
 #include <unordered_map>
 #include <atomic>
 #include <thread>
@@ -56,8 +55,8 @@ public:
     static thread                                            **device_buffs_thrds;
     static vector<T *>                                        *device_buffs_pool;
     static T                                                ***device_buff;
-    static int                                                 device_buff_size;
-    static int                                                 keep_threshold;
+    static size_t                                              device_buff_size;
+    static size_t                                              keep_threshold;
     static void                                              **h_buff_start;
     static void                                              **h_buff_end  ;
 
@@ -77,7 +76,7 @@ public:
 
 
 
-    static __host__ void init(int size = 64, int h_size = 64, int buff_buffer_size = 8, int buff_keep_threshold = 16);
+    static __host__ void init(int size = 64, int h_size = 64, size_t buff_buffer_size = 8, size_t buff_keep_threshold = 16);
 
     static void dev_buff_manager(int dev);
 
@@ -139,11 +138,12 @@ private:
             device_buffs_pool[gpu->id].push_back(buff);
             size_t size = device_buffs_pool[gpu->id].size();
             if (size > keep_threshold){
+                uint32_t devid = gpu->id;
                 nvtxRangePushA("release_buffer_host_devbuffer_overflow");
-                for (int i = 0 ; i < device_buff_size ; ++i) device_buff[gpu->id][i] = device_buffs_pool[gpu->id][size-i-1];
-                device_buffs_pool[gpu->id].erase(device_buffs_pool[gpu->id].end()-device_buff_size, device_buffs_pool[gpu->id].end());
-                release_buffer_host<<<1, 1, 0, release_streams[gpu->id]>>>((void **) device_buff[gpu->id], device_buff_size);
-                gpu_run(cudaStreamSynchronize(release_streams[gpu->id]));
+                for (int i = 0 ; i < device_buff_size ; ++i) device_buff[devid][i] = device_buffs_pool[devid][size-i-1];
+                device_buffs_pool[devid].erase(device_buffs_pool[devid].end()-device_buff_size, device_buffs_pool[devid].end());
+                release_buffer_host<<<1, 1, 0, release_streams[devid]>>>((void **) device_buff[devid], device_buff_size);
+                gpu_run(cudaStreamSynchronize(release_streams[devid]));
                 // gpu_run(cudaPeekAtLastError()  );
                 // gpu_run(cudaDeviceSynchronize());
                 nvtxRangePop();
@@ -162,12 +162,10 @@ private:
             if (occ == 1){
                 // assert(buff->device < 0);
                 // assert(get_device(buff->data) < 0);
-                int status = 0;
-                int ret_code = move_pages(0 /*self memory */, 1, (void **) &buff, NULL, &status, 0);
-                // printf("-=Memory at %p is at %d node (retcode %d) cpu: %d\n", buff->data, status[0], ret_code, sched_getcpu());
-                assert(ret_code == 0);
-                // printf("===============================================================> %d %p %d %d\n", buff->device, buff->data, get_device(buff->data), status[0]);
-                h_pool_numa[status]->push(buff);
+
+                const auto &topo = topology::getInstance();
+                uint32_t node = topo.getCpuNumaNodeAddressed(buff)->id;
+                h_pool_numa[node]->push(buff);
                 // printf("%d %p %d\n", buff->device, buff->data, status[0]);
             }
             nvtxRangePop();
@@ -303,10 +301,10 @@ template<typename T>
 T                                                ***buffer_manager<T>::device_buff;
 
 template<typename T>
-int                                                 buffer_manager<T>::device_buff_size;
+size_t                                              buffer_manager<T>::device_buff_size;
 
 template<typename T>
-int                                                 buffer_manager<T>::keep_threshold;
+size_t                                              buffer_manager<T>::keep_threshold;
 
 template<typename T>
 cudaStream_t                                       *buffer_manager<T>::release_streams;

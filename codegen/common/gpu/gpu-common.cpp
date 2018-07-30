@@ -1,7 +1,6 @@
 #include "common/gpu/gpu-common.hpp"
 #include "common/common.hpp"
 #include <cassert>
-#include "multigpu/numa_utils.cuh"
 #include "util/raw-memory-manager.hpp"
 #include "topology/topology.hpp"
 

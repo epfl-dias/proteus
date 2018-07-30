@@ -26,7 +26,6 @@
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
 #include "multigpu/buffer_manager.cuh"
-#include "multigpu/numa_utils.cuh"
 #include "threadpool/threadpool.hpp"
 
 struct buff_pair_brdcst{
@@ -60,18 +59,17 @@ buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int ta
 
         return buff_pair_brdcst{buff, src};
     } else {
+        uint32_t numa_id = topo.getCpuNumaNodeOfCore(target_device);
         if (topo.getGpuAddressed(src)){
-            char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(numa_node_of_cpu(target_device));
+            char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(numa_id);
             assert(target_device >= 0);
             if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm[target_device], false);
 
             return buff_pair_brdcst{buff, src};
         } else {
-            int node;
-            void * tmp = (void *) src;
-            move_pages(0, 1, &tmp, NULL, &node, MPOL_MF_MOVE);
+            int node = topo.getCpuNumaNodeAddressed(src)->id;
 
-            int target_node = mmc->always_share ? 0 : numa_node_of_cpu(target_device);
+            int target_node = mmc->always_share ? 0 : numa_id;
             if (mmc->always_share || node == target_node) {
                 if (!disable_noop) {
                     mmc->targetbuffer[target_node] = src;

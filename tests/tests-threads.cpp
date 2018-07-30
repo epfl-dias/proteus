@@ -65,7 +65,6 @@
 #include "plan/plan-parser.hpp"
 #include "util/raw-memory-manager.hpp"
 #include "storage/raw-storage-manager.hpp"
-#include "multigpu/numa_utils.cuh"
 // #include <cuda_profiler_api.h>
 #include "test-utils.hpp"
 #include "topology/topology.hpp"
@@ -141,7 +140,7 @@ TEST_F(ThreadTest, affinity) {
     const auto &cpus = topo.getCpuNumaNodes();
 
     for (size_t i = 0 ; i < spawned_threads ; ++i){
-        threads.emplace_back([&cpus, &tests, &topo, i]{
+        threads.emplace_back([&cpus, &tests, i]{
             const auto &cpu = cpus[i % cpus.size()];
             set_exec_location_on_scope el{cpu};
 
@@ -161,9 +160,9 @@ TEST_F(ThreadTest, local_memory_allocation) {
 
     constexpr size_t spawned_threads = 1024;
 
-    int tests[spawned_threads];
+    uint32_t tests[spawned_threads];
 
-    for (size_t i = 0 ; i < spawned_threads ; ++i) tests[i] = -1;
+    for (size_t i = 0 ; i < spawned_threads ; ++i) tests[i] = ~0;
 
     std::vector<std::thread> threads;
     const auto &cpus = topo.getCpuNumaNodes();

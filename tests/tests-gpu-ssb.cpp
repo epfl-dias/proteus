@@ -65,7 +65,6 @@
 #include "plan/plan-parser.hpp"
 #include "util/raw-memory-manager.hpp"
 #include "storage/raw-storage-manager.hpp"
-#include "multigpu/numa_utils.cuh"
 // #include <cuda_profiler_api.h>
 #include "test-utils.hpp"
 

@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "numa_utils.cuh"
 // #include <cinttypes>
 
 // __device__ __constant__ threadsafe_device_stack<int32_t *, (int32_t *) NULL> * pool;
@@ -211,7 +210,7 @@ __device__ T * buffer_manager<T>::try_get_buffer(){
 #include <topology/topology.hpp>
 
 template<typename T>
-__host__ void buffer_manager<T>::init(int size, int h_size, int buff_buffer_size, int buff_keep_threshold){
+__host__ void buffer_manager<T>::init(int size, int h_size, size_t buff_buffer_size, size_t buff_keep_threshold){
     const topology &topo = topology::getInstance();
     std::cout << topo << std::endl;
 
@@ -464,10 +463,7 @@ __host__ void buffer_manager<T>::init(int size, int h_size, int buff_buffer_size
             
             h_pool_numa[cpu.id] = p;
 
-
-            for (int j = 0 ; j < cores ; ++j){
-                if (CPU_ISSET(j, &(cpu.local_cpu_set))) h_pool[j] = p;
-            }
+            for (const auto &core: cpu.local_cores) h_pool[core] = p;
         });
     }
 
