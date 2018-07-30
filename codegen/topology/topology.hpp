@@ -163,7 +163,7 @@ public:
     template<typename T>
     const cpunumanode * getCpuNumaNodeAddressed(const T * m) const{
         int numa_id = -1;
-        get_mempolicy(&numa_id, NULL, 0, (void *) m, MPOL_F_NODE | MPOL_F_ADDR);
+        get_mempolicy(&numa_id, NULL, 0, const_cast<T *>(m), MPOL_F_NODE | MPOL_F_ADDR);
         return (cpu_info.data() + cpunuma_index[numa_id]);
     }
 
