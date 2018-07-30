@@ -346,8 +346,8 @@ Function * RawGpuPipelineGen::prepareConsumeWrapper(){
                                 entry, 
                                 Builder->CreateBitCast(params, ptr_t),
                                 strm,
-                                context->createInt32(maxBlockSize),
-                                context->createInt32(maxGridSize )
+                                context->createInt32(maxGridSize ),
+                                context->createInt32(maxBlockSize)
                                 };
 
     Function      * launch      = getFunction("launch_kernel_strm_sized");
