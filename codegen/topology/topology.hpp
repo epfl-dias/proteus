@@ -69,6 +69,9 @@ public:
         cpunumanode(const boost::fibers::numa::node &b, uint32_t index_in_topo,
                 //do not remove argument!!! 
                 topologyonly_construction);
+
+        void * alloc(size_t bytes) const;
+        static void free(void * mem, size_t bytes);
     };
 
     class core{
@@ -180,6 +183,14 @@ public:
     }
 
 private:
+    [[deprecated]]
+    inline const cpunumanode &findCpuNumaNodes(cpu_set_t cpus) const{
+        for (const auto &t: getCpuNumaNodes()){
+            if (CPU_EQUAL(&t.local_cpu_set, &cpus)) return t;
+        }
+        throw new std::runtime_error("unsupported affinity");
+    }
+
     inline const gpunode &getGpuByIndex(uint32_t index) const{
         return gpu_info[index];
     }
@@ -189,6 +200,7 @@ private:
     }
 
     friend class exec_location;
+    friend const topology::cpunumanode &get_affinity();
     friend int numa_node_of_gpu(int device);
     friend std::ostream &operator<<(std::ostream& stream, const topology &topo);
 };

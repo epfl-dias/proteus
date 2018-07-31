@@ -14,6 +14,7 @@
 
 #include "multigpu/buffer_manager.cuh"
 #include "topology/affinity_manager.hpp"
+#include "util/raw-memory-manager.hpp"
 
 #include <thread>
 // #include <utmpx.h>
@@ -182,7 +183,7 @@ __device__ T * buffer_manager<T>::get_buffer(){
 
 template<typename T>
 __host__   T * buffer_manager<T>::get_buffer(){
-    return get_buffer_numa(sched_getcpu());
+    return get_buffer_numa(get_affinity());
 }
 #else
 template<typename T>
@@ -190,7 +191,7 @@ __host__ __device__ T * buffer_manager<T>::get_buffer(){
 #ifdef __CUDA_ARCH__
     return pool->pop();
 #else
-    return get_buffer_numa(sched_getcpu());
+    return get_buffer_numa(get_affinity());
 #endif
 }
 #endif
@@ -212,7 +213,7 @@ __device__ T * buffer_manager<T>::try_get_buffer(){
 template<typename T>
 __host__ void buffer_manager<T>::init(int size, int h_size, size_t buff_buffer_size, size_t buff_keep_threshold){
     const topology &topo = topology::getInstance();
-    std::cout << topo << std::endl;
+    // std::cout << topo << std::endl;
 
     uint32_t devices = topo.getGpuCount();
     buffer_manager<T>::h_size = h_size;
@@ -439,6 +440,7 @@ __host__ void buffer_manager<T>::init(int size, int h_size, size_t buff_buffer_s
             printf("Memory at %p is at %d node (cpu %d)\n", mem, topo.getCpuNumaNodeAddressed(mem)->id, sched_getcpu());
 
             assert(topo.getCpuNumaNodeAddressed(mem)->id == cpu.id);
+            printf("Memory at %p is at node %d (expected: %d)\n", mem, topo.getCpuNumaNodeAddressed(mem)->id, get_affinity().id);
 
             h_h_buff_start[cpu.id] = mem;
 

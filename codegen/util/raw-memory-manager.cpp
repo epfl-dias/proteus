@@ -110,12 +110,13 @@ void * RawMemoryManager::mallocPinned(size_t bytes){
     rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_START);
     nvtxRangePushA("mallocPinned");
     bytes = fixSize(bytes);
-    int cpu  = sched_getcpu();
-    int node = topo.getCpuNumaNodeOfCore(cpu);
+    const auto &cpu = get_affinity();
+    uint32_t node = cpu.index_in_topo;
+    std::cout << "node: " << cpu.id << " index: " << node << std::endl;
     void * ptr = cpu_managers[node]->malloc(bytes);
     nvtxRangePop();
     rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_END);
-    std::cout << "Alloc: " << node << " " << ptr << " " << bytes << " "; //std::endl;
+    std::cout << "Alloc: " << node << " " << ptr << " " << bytes << " " << topo.getCpuNumaNodeAddressed(ptr)->id; //std::endl;
     return ptr;
 }
 
@@ -123,8 +124,8 @@ void   RawMemoryManager::freePinned  (void * ptr){
     nvtxRangePushA("freePinned");
     const auto *dev = topology::getInstance().getCpuNumaNodeAddressed(ptr);
     assert(dev);
-    int node = dev->id;
-    std::cout << "Free: " << node << " " << ptr << std::endl;
+    uint32_t node = dev->index_in_topo;
+    std::cout << "Free: " << dev->id << " (" << node << ") " << ptr << std::endl;
     cpu_managers[node]->free(ptr);
     nvtxRangePop();
 }

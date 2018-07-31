@@ -80,8 +80,19 @@ public:
 
     static void dev_buff_manager(int dev);
 
+    [[deprecated]]
     static __host__ T * get_buffer_numa(int numa_node){
         T * b = h_pool[numa_node]->pop();
+#ifndef NDEBUG
+        int old = 
+#endif
+        buffer_cache[b]++;
+        assert(old == 0);
+        return b;
+    }
+
+    static __host__ T * get_buffer_numa(const topology::cpunumanode &cpu){
+        T * b = h_pool_numa[cpu.id]->pop();
 #ifndef NDEBUG
         int old = 
 #endif

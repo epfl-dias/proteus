@@ -26,36 +26,53 @@
 
 #include "topology/topology.hpp"
 
+
+void set_affinity(const topology::cpunumanode &cpu);
+const topology::cpunumanode &get_affinity();
+
 class exec_location{
 private:
-    int         gpu_device;
-    cpu_set_t   cpus;
+    int                             gpu_device  ;
+    const topology::cpunumanode    &cpu         ;
 
 public:
-    exec_location(){
+    exec_location(): cpu(get_affinity()){
         gpu_run(cudaGetDevice(&gpu_device));
 
-        CPU_ZERO(&cpus);
-        pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpus);
+        // CPU_ZERO(&cpus);
+        // pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpus);
     }
 
     exec_location(int gpu);
 
-    exec_location(int gpu, cpu_set_t cpus): gpu_device(gpu), cpus(cpus){}
+    [[deprecated]]
+    exec_location(int gpu, cpu_set_t cpus): 
+        gpu_device(gpu),
+        cpu(topology::getInstance().findCpuNumaNodes(cpus)){}
 
+    [[deprecated]]
     exec_location(cpu_set_t cpus):
-        gpu_device(-1), cpus(cpus){}
+        exec_location(-1, cpus){}
 
     exec_location(const topology::cpunumanode &cpu):
-        gpu_device(-1), cpus(cpu.local_cpu_set){}
+        gpu_device(-1), cpu(cpu){}
 
     exec_location(const topology::gpunode     &gpu);
 
 public:
     void activate() const{
-        // std::cout << "d" << gpu_device << " " << cpus << std::endl;
+        std::cout << "d" << gpu_device << " " << cpu.local_cpu_set << std::endl;
         if (gpu_device >= 0) gpu_run(cudaSetDevice(gpu_device));
-        pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpus);
+        // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpus);
+        set_affinity(cpu);
+        // std::this_thread::yield();
+        // cpu_set_t d;
+        // err = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &d);
+        // assert(err == 0);
+
+        // std::cout << d << std::endl;
+        // std::cout << sched_getcpu() << std::endl;
+        // assert(CPU_ISSET(sched_getcpu(), &d));
     }
 
 };

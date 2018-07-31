@@ -25,15 +25,43 @@
 #include "topology/topology.hpp"
 
 
-exec_location::exec_location(int gpu): gpu_device(gpu){
-    cpus = topology::getInstance().getGpuByIndex(gpu_device).local_cpu_set;
+static thread_local uint32_t thread_cpu_numa_node_affinity = 0;
+
+exec_location::exec_location(int gpu):
+    exec_location(topology::getInstance().getGpuByIndex(gpu)){
 }
 
 int numa_node_of_gpu(int device){
     return topology::getInstance().getGpuByIndex(device).local_cpu;
 }
 
-
-exec_location::exec_location(const topology::gpunode &gpu): gpu_device(gpu.id){
-    cpus = gpu.local_cpu_set;
+exec_location::exec_location(const topology::gpunode &gpu):
+    gpu_device(gpu.id),
+    cpu(topology::getInstance().getCpuNumaNodeById(gpu.local_cpu)){
 }
+
+void set_affinity(const topology::cpunumanode &cpu){
+    thread_cpu_numa_node_affinity = cpu.id;
+
+#ifndef NDEBUG
+    int err =
+#endif
+    pthread_setaffinity_np(pthread_self(),
+                            sizeof(cpu_set_t),
+                            &(cpu.local_cpu_set));
+    assert(!err);
+}
+
+const topology::cpunumanode &get_affinity(){
+    const auto &topo = topology::getInstance();
+    return topo.getCpuNumaNodeById(thread_cpu_numa_node_affinity);
+}
+
+// inline set_device_on_scope(const topology::gpunode &gpu):
+//         device(topology::getInstance().getActiveGpu()){
+//     gpu_run(cudaSetDevice(gpu.getId()));
+// }
+
+// inline ~set_device_on_scope(){
+//     gpu_run(cudaSetDevice(device.getId()));
+// }

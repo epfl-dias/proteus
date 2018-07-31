@@ -22,6 +22,14 @@ const topology::cpunumanode * topology::getCpuNumaNodeAddressed(const void * m) 
     return (cpu_info.data() + cpunuma_index[numa_id]);
 }
 
+void * topology::cpunumanode::alloc(size_t bytes) const{
+    return numa_alloc_onnode(bytes, id);
+}
+
+void topology::cpunumanode::free(void * mem, size_t bytes){
+    numa_free(mem, bytes);
+}
+
 topology::topology(){
     gpu_run(nvmlInit());
 
