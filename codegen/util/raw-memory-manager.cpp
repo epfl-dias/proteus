@@ -26,14 +26,11 @@
 #include "topology/topology.hpp"
 #include "topology/affinity_manager.hpp"
 
-#include <numaif.h>
-#include <numa.h>
-
 constexpr size_t freed_cache_cap      = 16;
 
 void RawMemoryManager::init(){
-    buffer_manager<int32_t>::init(256, 1024); // (*4*4, *4*4)
-    const auto &topo = topology::getInstance();
+    const topology &topo = topology::getInstance();
+    std::cout << topo << std::endl;
 
     gpu_managers = new SingleGpuMemoryManager *[topo.getGpuCount()];
     for (const auto &gpu: topo.getGpus()){
@@ -63,6 +60,7 @@ void RawMemoryManager::init(){
             cpu_managers[cpu.index_in_topo]->free(ptrs[i]);
         }
     }
+    buffer_manager<int32_t>::init(256, 1024); // (*4*4, *4*4)
 }
 
 void RawMemoryManager::destroy(){
@@ -146,8 +144,12 @@ void GpuMemAllocator::free(void * ptr){
 }
 
 void * NUMAPinnedMemAllocator::malloc(size_t bytes){
-    void *ptr = numa_alloc_onnode(bytes, topology::getInstance().getCpuNumaNodeOfCore(sched_getcpu()));
+    void *ptr = get_affinity().alloc(bytes);
     assert(ptr && "Memory allocation failed!");
+    assert(bytes > 4);
+    ((int *) ptr)[0] = 0; //force allocation of first 4bytes
+    //NOTE: do we want to force allocation of all pages? If yes, use:
+    //memset(mem, 0, bytes);
     gpu_run(cudaHostRegister(ptr, bytes, 0));
     sizes.emplace(ptr, bytes);
     return ptr;
@@ -157,7 +159,7 @@ void NUMAPinnedMemAllocator::free(void * ptr){
     gpu_run(cudaHostUnregister(ptr));
     auto it = sizes.find(ptr);
     assert(it != sizes.end() && "Memory did not originate from this allocator (or is already released)!");
-    numa_free(ptr, it->second);
+    topology::cpunumanode::free(ptr, it->second);
     sizes.erase(it);
 }
 
