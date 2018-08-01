@@ -59,7 +59,7 @@ public:
         const uint32_t                      id              ;
         const uint32_t                      index_in_topo   ;
 
-        // std::vector<uint32_t>               distance        ;
+        std::vector<uint32_t>               distance        ;
 
         std::vector<uint32_t>               local_cores     ;
         cpu_set_t                           local_cpu_set   ;

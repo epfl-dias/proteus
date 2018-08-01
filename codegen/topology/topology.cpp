@@ -59,6 +59,12 @@ topology::topology(){
         max_numa_id = std::max(max_numa_id, cpu_info.back().id);
     }
 
+    for (auto &n: cpu_info){
+        for (const auto &n2: cpu_info){
+            n.distance.emplace_back(numa_distance(n.id, n2.id));
+        }
+    }
+
     cpunuma_index.resize(max_numa_id + 1);
     for (auto &ci: cpunuma_index) ci = 0;
 
@@ -189,14 +195,14 @@ std::ostream &operator<<(std::ostream &out, const topology &topo){
 
     out << '\n';
 
-    // for (const auto &node: topo.getCpuNumaNodes()) {
-    //     out << "node: ";
-    //     out << node.id << " | ";
-    //     for (auto d: node.distance) out << std::setw(4) << d;
-    //     out << '\n';
-    // }
+    for (const auto &node: topo.getCpuNumaNodes()) {
+        out << "node: ";
+        out << node.id << " | ";
+        for (auto d: node.distance) out << std::setw(4) << d;
+        out << '\n';
+    }
 
-    // out << '\n';
+    out << '\n';
 
     for (const auto &gpu: topo.getGpus()) {
         out << "gpu : ";
