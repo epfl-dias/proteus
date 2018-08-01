@@ -104,10 +104,14 @@ void ThreadTest::runAndVerify(const char *testLabel, const char* planPath, bool 
 }
 
 TEST_F(ThreadTest, power9_getcpu) {
+    const auto &topo = topology::getInstance();
+
+    uint32_t target = std::min(topo.getCoreCount()/2 + 1, topo.getCoreCount());
+
     cpu_set_t c;
 
     CPU_ZERO(&c);
-    for (int i = 64; i < 68; ++i) CPU_SET(i, &c);
+    CPU_SET(target, &c);
 
     int s = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &c);
     assert(s == 0);
@@ -115,7 +119,9 @@ TEST_F(ThreadTest, power9_getcpu) {
     int s2 = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &c);
     assert(s2 == 0);
 
-    for (int i = 0; i < 68; ++i) if (CPU_ISSET(i, &c)) std::cout << i << std::endl;
+    for (int i = 0; i < topo.getCoreCount(); ++i) {
+        if (CPU_ISSET(i, &c)) std::cout << i << std::endl;
+    }
 
     std::this_thread::yield(); //btw, is this necessary?
 
@@ -123,8 +129,9 @@ TEST_F(ThreadTest, power9_getcpu) {
     // for (int i = 0 ; i < 12310391023910 ; ++i) s3 += std::pow(5, i);
     // std::cout << s3 << std::endl;
 
-    EXPECT_NE(sched_getcpu(), 0);
     std::cout << "sched:" << sched_getcpu() << std::endl;
+    EXPECT_NE(sched_getcpu(), 0);
+    EXPECT_EQ(sched_getcpu(), target);
 }
 
 TEST_F(ThreadTest, affinity) {
