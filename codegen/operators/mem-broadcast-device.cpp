@@ -26,7 +26,7 @@
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
 #include "multigpu/buffer_manager.cuh"
-#include "multigpu/numa_utils.cuh"
+#include "threadpool/threadpool.hpp"
 
 struct buff_pair_brdcst{
     char * new_buff;
@@ -40,8 +40,9 @@ void step_mmc_mem_move_broadcast_device(MemBroadcastDevice::MemMoveConf * mmc){
 }
 
 buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int target_device, MemBroadcastDevice::MemMoveConf * mmc, bool disable_noop){
+    const auto &topo = topology::getInstance();
     if (!(mmc->to_cpu)){
-        int dev = get_device(src);
+        int dev = topo.getGpuAddressed(src)->id;
 
         // assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager should be able to provide blocks of arbitary size
         if (!disable_noop && dev == target_device) return buff_pair_brdcst{src, NULL}; // block already in correct device
@@ -58,20 +59,17 @@ buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int ta
 
         return buff_pair_brdcst{buff, src};
     } else {
-        int dev = get_device(src);
-
-        if (dev >= 0){
-            char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(numa_node_of_cpu(target_device));
+        uint32_t numa_id = topo.getCpuNumaNodeOfCore(target_device);
+        if (topo.getGpuAddressed(src)){
+            char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(numa_id);
             assert(target_device >= 0);
             if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm[target_device], false);
 
             return buff_pair_brdcst{buff, src};
         } else {
-            int node;
-            void * tmp = (void *) src;
-            move_pages(0, 1, &tmp, NULL, &node, MPOL_MF_MOVE);
+            int node = topo.getCpuNumaNodeAddressed(src)->id;
 
-            int target_node = mmc->always_share ? 0 : numa_node_of_cpu(target_device);
+            int target_node = mmc->always_share ? 0 : numa_id;
             if (mmc->always_share || node == target_node) {
                 if (!disable_noop) {
                     mmc->targetbuffer[target_node] = src;
@@ -416,10 +414,10 @@ void MemBroadcastDevice::open (RawPipeline * pip){
     }
     nvtxRangePop();
 
-    mmc->worker = new std::thread(&MemBroadcastDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
+    mmc->worker = ThreadPool::getInstance().enqueue(&MemBroadcastDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
 
     int device = -1;
-    if (!to_cpu) device = get_device();
+    if (!to_cpu) device = topology::getInstance().getActiveGpu().id;
     pip->setStateVar<int         >(device_id_var, device);
 
     // pip->setStateVar<cudaStream_t>(cu_stream_var, strm  );
@@ -437,7 +435,7 @@ void MemBroadcastDevice::close(RawPipeline * pip){
     std::cout << "MemBroadcastDevice:close3" << std::endl;
 
     nvtxRangePop();
-    mmc->worker->join();
+    mmc->worker.get();
 
     // gpu_run(cudaStreamSynchronize(g_strm));
 
@@ -490,7 +488,7 @@ void MemBroadcastDevice::close(RawPipeline * pip){
 
     mmc->idle.close();
 
-    delete mmc->worker;
+    // delete mmc->worker;
     delete mmc;
 }
 

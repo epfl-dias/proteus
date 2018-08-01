@@ -29,7 +29,6 @@
 #include <algorithm>
 #include "multigpu/buffer_manager.cuh"
 #include "util/raw-memory-manager.hpp"
-#include "multigpu/numa_utils.cuh"
 
 void GpuHashRearrange::produce() {
     LLVMContext & llvmContext   = context->getLLVMContext();
@@ -845,7 +844,7 @@ void GpuHashRearrange::consume_flush(IntegerType * target_type){
 __global__ void GpuHashRearrange_acq_buffs(void   ** buffs);
 
 void GpuHashRearrange::open (RawPipeline * pip){
-    int device = get_device();
+    // int device = get_device();
 
     execution_conf ec = pip->getExecConfiguration();
 
@@ -937,7 +936,6 @@ __global__ void GpuHashRearrange_pack(mv_description * desc){
 #endif
 
 void GpuHashRearrange::close(RawPipeline * pip){
-    std::cout << "GpuHashRearrange:close" << get_device() << std::endl;
     // ((void (*)(void *)) this->flushFunc)(pip->getState());
     cudaStream_t strm;
     gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));

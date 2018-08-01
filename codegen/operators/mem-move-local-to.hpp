@@ -27,6 +27,8 @@
 #include "util/gpu/gpu-raw-context.hpp"
 #include "util/async_containers.hpp"
 #include <thread>
+#include <future>
+#include "topology/affinity_manager.hpp"
 
 // void * make_mem_move_device(char * src, size_t bytes, int target_device, cudaStream_t strm);
 
@@ -41,7 +43,7 @@ public:
         AsyncStackSPSC<workunit *>  idle     ;
         AsyncQueueSPSC<workunit *>  tran     ;
 
-        std::thread               * worker   ;
+        std::future<void>           worker   ;
         cudaStream_t                strm     ;
         cudaStream_t                strm2    ;
 

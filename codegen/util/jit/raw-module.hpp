@@ -38,6 +38,7 @@ protected:
     const RawContext          * context     ;
 public:
     RawModule(RawContext * context, std::string pipName = "pip");
+    virtual ~RawModule(){}
 
     virtual void compileAndLoad() = 0;
 

@@ -18,11 +18,12 @@ file(GLOB codegen_src
 	plan/*.cpp
 	postgres/*.cpp
 	storage/*.cpp
+	topology/*.cpp
 	# multigpu/operators/*.cu
 	# multigpu/buffer_pool.cu
 	# # src/output_composer.cu
 	multigpu/common.cpp
-    multigpu/buffer_manager.cu
+	multigpu/buffer_manager.cu
 	# multigpu/common.cu
 	)
 foreach(target

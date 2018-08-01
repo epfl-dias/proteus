@@ -28,6 +28,8 @@
 #include "util/async_containers.hpp"
 #include <thread>
 #include <unordered_map>
+#include <future>
+#include "topology/affinity_manager.hpp"
 
 // void * make_mem_move_device(char * src, size_t bytes, int target_device, cudaStream_t strm);
 
@@ -43,7 +45,7 @@ public:
         AsyncQueueSPSC<workunit *>              idle     ;
         AsyncQueueSPSC<workunit *>              tran     ;
 
-        std::thread                           * worker   ;
+        std::future<void>                       worker   ;
         std::unordered_map<int, cudaStream_t>   strm     ;
 
         int                                     num_of_targets;
@@ -88,7 +90,6 @@ public:
 private:
     const vector<RecordAttribute *> wantedFields ;
     size_t                          device_id_var;
-    size_t                          cu_stream_var;
     size_t                          memmvconf_var;
 
     RawPipelineGen                * catch_pip    ;

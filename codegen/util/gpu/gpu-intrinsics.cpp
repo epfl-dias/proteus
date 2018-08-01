@@ -28,6 +28,7 @@
 
 namespace gpu_intrinsic{
 
+[[deprecated]]
 Value * all(GpuRawContext * const context, Value * val_in){
     IRBuilder<>* Builder        = context->getBuilder();
 
@@ -47,6 +48,7 @@ Value * all(GpuRawContext * const context, Value * val_in){
     return all;
 }
 
+[[deprecated]]
 Value * any(GpuRawContext * const context, Value * val_in){
     IRBuilder<>* Builder        = context->getBuilder();
     
@@ -66,6 +68,7 @@ Value * any(GpuRawContext * const context, Value * val_in){
     return any;
 }
 
+[[deprecated]]
 Value * ballot(GpuRawContext * const context, Value * val_in){
     IRBuilder<>* Builder            = context->getBuilder();
     LLVMContext &llvmContext        = context->getLLVMContext();
@@ -106,7 +109,7 @@ Value * shfl_bfly(GpuRawContext * const context,
     IntegerType *int1_type      = Type::getInt1Ty (llvmContext);
 
     // Aggregate internally to each warp
-    Function *shfl_bfly = context->getFunction("llvm.nvvm.shfl.bfly.i32");
+    Function *shfl_bfly = context->getFunction("llvm.nvvm.shfl.sync.bfly.i32");
     assert(shfl_bfly);
     
     unsigned int bits = 0;
@@ -144,6 +147,9 @@ Value * shfl_bfly(GpuRawContext * const context,
     Value * val_shfl = Builder->CreateBitCast      (val_in, packtype, "pack");
 
     std::vector<Value *> ArgsV;
+    // For whatever reason, LLVM has the membermask first,
+    // instead of last, as in PTX...
+    ArgsV.push_back(context->createInt32(~0));
     ArgsV.push_back(NULL);
     ArgsV.push_back(vxor);
     ArgsV.push_back(mask);
@@ -151,7 +157,9 @@ Value * shfl_bfly(GpuRawContext * const context,
     Value * val_out = UndefValue::get(packtype);//ConstantVector::getSplat(elems, context->createInt32(0));
 
     for (unsigned int i = 0 ; i < elems ; ++i){
-        ArgsV[0]    = Builder->CreateExtractElement(val_shfl, i);
+        // ArgsV[0]    = Builder->CreateExtractElement(val_shfl, i);
+        ArgsV[1]    = Builder->CreateExtractElement(val_shfl, i);
+
 
         Value * tmp = Builder->CreateCall(shfl_bfly, ArgsV, 
                                             "shfl_res_" + std::to_string(i));

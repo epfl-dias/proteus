@@ -1,8 +1,9 @@
 #include "common/gpu/gpu-common.hpp"
 #include "common/common.hpp"
 #include <cassert>
-#include "multigpu/numa_utils.cuh"
 #include "util/raw-memory-manager.hpp"
+#include "topology/topology.hpp"
+
 
 void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim, cudaStream_t strm){
     gpu_run(cuLaunchKernel(function, gridDim.x, gridDim.y, gridDim.z,
@@ -28,8 +29,8 @@ void launch_kernel_strm(CUfunction function, void ** args, cudaStream_t strm){
     gpu_run(cudaStreamSynchronize(strm));
 }
 
-void launch_kernel_strm_sized(CUfunction function, void ** args, cudaStream_t strm, unsigned int blockX, unsigned int gridX){
-    launch_kernel(function, args, blockX, gridX, strm);
+void launch_kernel_strm_sized(CUfunction function, void ** args, cudaStream_t strm, unsigned int gridX, unsigned int blockX){
+    launch_kernel(function, args, gridX, blockX, strm);
 }
 
 void launch_kernel_strm_single(CUfunction function, void ** args, cudaStream_t strm){
@@ -81,7 +82,7 @@ mmap_file::mmap_file(std::string name, data_loc loc): loc(loc){
     gpu_data = data;
 
     if (loc == GPU_RESIDENT){
-        std::cout << "Dataset on device: " << get_device() << std::endl;
+        std::cout << "Dataset on device: " << topology::getInstance().getActiveGpu().id << std::endl;
         gpu_run(cudaMalloc(&gpu_data,       filesize));
         gpu_run(cudaMemcpy( gpu_data, data, filesize, cudaMemcpyDefault));
         munmap(data, filesize);
@@ -137,7 +138,7 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes, size_t offset
     gpu_data = data;
 
     if (loc == GPU_RESIDENT){
-        std::cout << "Dataset on device: " << get_device() << std::endl;
+        std::cout << "Dataset on device: " << topology::getInstance().getActiveGpu().id << std::endl;
         gpu_run(cudaMalloc(&gpu_data,       filesize                   ));
         gpu_run(cudaMemcpy( gpu_data, data, filesize, cudaMemcpyDefault));
         munmap(data, filesize);
@@ -219,30 +220,14 @@ size_t mmap_file::getFileSize() const{
 
 extern "C"{
     int get_ptr_device(const void *p){
-        return get_device(p);
+        const auto * g = topology::getInstance().getGpuAddressed(p);
+        return g ? NULL : g->id;
     }
 
     int get_ptr_device_or_rand_for_host(const void *p){
-        int dev = get_device(p);
-        if (dev >= 0) return dev;
+        const auto * g = topology::getInstance().getGpuAddressed(p);
+        if (g) return g->id;
         return rand();
-    }
-
-    int get_rand_core_local_to_ptr(const void *p){
-        int dev = get_device(p);
-        cpu_set_t cset;
-        if (dev >= 0) {
-            cset = gpu_affinity[dev];
-        } else {
-            int node;
-            void * tmp = (void *) p;
-            move_pages(0, 1, &tmp, NULL, &node, MPOL_MF_MOVE);
-            cset = cpu_numa_affinity[node];
-         }
-        while (true) {
-            int r = rand();
-            if (CPU_ISSET(r % cpu_cnt, &cset)) return r;
-        }
     }
 
     void memcpy_gpu(void *dst, const void *src, size_t size, bool is_volatile){
@@ -257,16 +242,4 @@ extern "C"{
         memcpy(dst, src, size);
 #endif
     }
-}
-
-int get_device(const void *p){
-#ifndef NCUDA
-    cudaPointerAttributes attrs;
-    cudaError_t error = cudaPointerGetAttributes(&attrs, p);
-    if (error == cudaErrorInvalidValue) return -1;
-    gpu_run(error);
-    return (attrs.memoryType == cudaMemoryTypeHost) ? -1 : attrs.device;
-#else
-    return -1;
-#endif
 }

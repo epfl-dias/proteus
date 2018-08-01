@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <vector>
 #include <type_traits>
+#include "topology/affinity_manager.hpp"
 
 using namespace std;
 
@@ -53,7 +54,8 @@ public:
 
         gpu_run(cudaFree((T *) data));
 
-        cout << "--------------------------------------------------------->dev" << get_device() << "_stack: " << cnt << " " << size << endl;
+        int dev = topology::getInstance().getActiveGpu().id;
+        cout << "--------------------------------------------------------->dev" << dev << "_stack: " << cnt << " " << size << endl;
         // assert(cnt == size);
     }
 

@@ -26,7 +26,9 @@
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
 #include "multigpu/buffer_manager.cuh"
-#include "multigpu/numa_utils.cuh"
+#include "threadpool/threadpool.hpp"
+#include <future>
+#include "topology/affinity_manager.hpp"
 
 struct buff_pair{
     char * new_buff;
@@ -35,13 +37,12 @@ struct buff_pair{
 
 extern "C"{
 buff_pair make_mem_move_local_to(char * src, size_t bytes, int target_device, MemMoveLocalTo::MemMoveConf * mmc){
-    int dev = get_device(src);
+    const auto *d2 = topology::getInstance().getGpuAddressed(src);
+    int dev = d2 ? d2->id : -1;
 
     if (dev == target_device || bytes <= 0 || dev < 0 || numa_node_of_gpu(dev) == numa_node_of_gpu(target_device)) return buff_pair{src, src}; // block already in correct device
 
-    set_device_on_scope d(dev);
-
-    if (dev >= 0) set_affinity_local_to_gpu(dev);
+    set_exec_location_on_scope d(*d2);
 
     assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager should be able to provide blocks of arbitary size
     char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(numa_node_of_gpu(target_device));
@@ -277,7 +278,7 @@ void MemMoveLocalTo::consume(RawContext* const context, const OperatorState& chi
 }
 
 void MemMoveLocalTo::open (RawPipeline * pip){
-    int device = get_device();
+    int device = topology::getInstance().getActiveGpu().id;
 
     std::cout << "MemMoveLocalTo::Open" << std::endl;
 
@@ -312,7 +313,7 @@ void MemMoveLocalTo::open (RawPipeline * pip){
         mmc->old_buffs[i] = NULL;
     }
 
-    mmc->worker = new std::thread(&MemMoveLocalTo::catcher, this, mmc, pip->getGroup(), exec_location{});
+    mmc->worker = ThreadPool::getInstance().enqueue(&MemMoveLocalTo::catcher, this, mmc, pip->getGroup(), exec_location{});
 
 
     pip->setStateVar<int         >(device_id_var, device);
@@ -324,7 +325,7 @@ void MemMoveLocalTo::open (RawPipeline * pip){
 void MemMoveLocalTo::close(RawPipeline * pip){
     std::cout << "MemMoveLocalTo::Close" << std::endl;
 
-    int device = get_device();
+    int device = topology::getInstance().getActiveGpu().id;
     // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
     MemMoveConf * mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
 
@@ -334,7 +335,7 @@ void MemMoveLocalTo::close(RawPipeline * pip){
     nvtxRangePop();
     mmc->tran.close();
     nvtxRangePop();
-    mmc->worker->join();
+    mmc->worker.get();
 
     gpu_run(cudaStreamSynchronize(mmc->strm ));
     gpu_run(cudaStreamDestroy    (mmc->strm ));
@@ -364,7 +365,7 @@ void MemMoveLocalTo::close(RawPipeline * pip){
 
     mmc->idle.close();
 
-    delete mmc->worker;
+    // delete mmc->worker;
     delete mmc;
 }
 

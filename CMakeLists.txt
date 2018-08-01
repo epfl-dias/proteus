@@ -30,8 +30,6 @@ if(${GTEST} STREQUAL "GTEST-NOTFOUND")
     message(FATAL_ERROR "GoogleTest not found!")
 endif()
 
-# list(APPEND CMAKE_CXX_SOURCE_FILE_EXTENSIONS cu)
-
 #-----------------------------------------------------------------------
 # look for LLVM related compilation flags slightly complicated way, the
 # Ubuntu cmake module file is wrong and we have to hack something instead.

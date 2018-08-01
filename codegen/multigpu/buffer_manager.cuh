@@ -6,7 +6,6 @@
 #include "threadsafe_stack.cuh"
 #include <mutex>
 #include <vector>
-#include <numaif.h>
 #include <unordered_map>
 #include <atomic>
 #include <thread>
@@ -27,6 +26,11 @@ constexpr void * buff_start = nullptr;
 constexpr void * buff_end   = nullptr;
 #endif
 
+extern int num_of_gpus;
+extern int num_of_cpus;
+
+inline int get_gpu_count();
+inline int get_cpu_numa_node_count();
 
 template<typename T>
 class buffer_manager;
@@ -51,8 +55,8 @@ public:
     static thread                                            **device_buffs_thrds;
     static vector<T *>                                        *device_buffs_pool;
     static T                                                ***device_buff;
-    static int                                                 device_buff_size;
-    static int                                                 keep_threshold;
+    static size_t                                              device_buff_size;
+    static size_t                                              keep_threshold;
     static void                                              **h_buff_start;
     static void                                              **h_buff_end  ;
 
@@ -72,12 +76,23 @@ public:
 
 
 
-    static __host__ void init(int size = 64, int h_size = 64, int buff_buffer_size = 8, int buff_keep_threshold = 16);
+    static __host__ void init(int size = 64, int h_size = 64, size_t buff_buffer_size = 8, size_t buff_keep_threshold = 16);
 
     static void dev_buff_manager(int dev);
 
+    [[deprecated]]
     static __host__ T * get_buffer_numa(int numa_node){
         T * b = h_pool[numa_node]->pop();
+#ifndef NDEBUG
+        int old = 
+#endif
+        buffer_cache[b]++;
+        assert(old == 0);
+        return b;
+    }
+
+    static __host__ T * get_buffer_numa(const topology::cpunumanode &cpu){
+        T * b = h_pool_numa[cpu.id]->pop();
 #ifndef NDEBUG
         int old = 
 #endif
@@ -123,27 +138,28 @@ private:
     static __host__ __forceinline__ void __release_buffer_host(T * buff){
         if (!buff) return;
         nvtxRangePushA("release_buffer_host");
-        int dev = get_device(buff);
-        if (dev >= 0){
+        const auto *gpu = topology::getInstance().getGpuAddressed(buff);
+        if (gpu){
 #ifndef NCUDA
-            if (buff < h_buff_start[dev] || buff >= h_buff_end[dev]) return;
+            if (buff < h_buff_start[gpu->id] || buff >= h_buff_end[gpu->id]) return;
 
             nvtxRangePushA("release_buffer_host_devbuffer");
-            set_device_on_scope d(dev);
-            std::unique_lock<std::mutex> lock(device_buffs_mutex[dev]);
-            device_buffs_pool[dev].push_back(buff);
-            size_t size = device_buffs_pool[dev].size();
+            set_device_on_scope d(*gpu);
+            std::unique_lock<std::mutex> lock(device_buffs_mutex[gpu->id]);
+            device_buffs_pool[gpu->id].push_back(buff);
+            size_t size = device_buffs_pool[gpu->id].size();
             if (size > keep_threshold){
+                uint32_t devid = gpu->id;
                 nvtxRangePushA("release_buffer_host_devbuffer_overflow");
-                for (int i = 0 ; i < device_buff_size ; ++i) device_buff[dev][i] = device_buffs_pool[dev][size-i-1];
-                device_buffs_pool[dev].erase(device_buffs_pool[dev].end()-device_buff_size, device_buffs_pool[dev].end());
-                release_buffer_host<<<1, 1, 0, release_streams[dev]>>>((void **) device_buff[dev], device_buff_size);
-                gpu_run(cudaStreamSynchronize(release_streams[dev]));
+                for (int i = 0 ; i < device_buff_size ; ++i) device_buff[devid][i] = device_buffs_pool[devid][size-i-1];
+                device_buffs_pool[devid].erase(device_buffs_pool[devid].end()-device_buff_size, device_buffs_pool[devid].end());
+                release_buffer_host<<<1, 1, 0, release_streams[devid]>>>((void **) device_buff[devid], device_buff_size);
+                gpu_run(cudaStreamSynchronize(release_streams[devid]));
                 // gpu_run(cudaPeekAtLastError()  );
                 // gpu_run(cudaDeviceSynchronize());
                 nvtxRangePop();
             }
-            device_buffs_cv[dev].notify_all();
+            device_buffs_cv[gpu->id].notify_all();
             nvtxRangePop();
 #else
             assert(false);
@@ -157,12 +173,10 @@ private:
             if (occ == 1){
                 // assert(buff->device < 0);
                 // assert(get_device(buff->data) < 0);
-                int status = 0;
-                int ret_code = move_pages(0 /*self memory */, 1, (void **) &buff, NULL, &status, 0);
-                // printf("-=Memory at %p is at %d node (retcode %d) cpu: %d\n", buff->data, status[0], ret_code, sched_getcpu());
-                assert(ret_code == 0);
-                // printf("===============================================================> %d %p %d %d\n", buff->device, buff->data, get_device(buff->data), status[0]);
-                h_pool_numa[status]->push(buff);
+
+                const auto &topo = topology::getInstance();
+                uint32_t node = topo.getCpuNumaNodeAddressed(buff)->id;
+                h_pool_numa[node]->push(buff);
                 // printf("%d %p %d\n", buff->device, buff->data, status[0]);
             }
             nvtxRangePop();
@@ -298,10 +312,10 @@ template<typename T>
 T                                                ***buffer_manager<T>::device_buff;
 
 template<typename T>
-int                                                 buffer_manager<T>::device_buff_size;
+size_t                                              buffer_manager<T>::device_buff_size;
 
 template<typename T>
-int                                                 buffer_manager<T>::keep_threshold;
+size_t                                              buffer_manager<T>::keep_threshold;
 
 template<typename T>
 cudaStream_t                                       *buffer_manager<T>::release_streams;

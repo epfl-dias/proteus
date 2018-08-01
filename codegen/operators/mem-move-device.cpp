@@ -27,7 +27,7 @@
 // #include "cuda_runtime_api.h"
 #include "multigpu/buffer_manager.cuh"
 #include "util/raw-memory-manager.hpp"
-#include "multigpu/numa_utils.cuh"
+#include "threadpool/threadpool.hpp"
 
 struct buff_pair{
     char * new_buff;
@@ -36,7 +36,8 @@ struct buff_pair{
 
 extern "C"{
 buff_pair make_mem_move_device(char * src, size_t bytes, int target_device, MemMoveDevice::MemMoveConf * mmc){
-    int dev = get_device(src);
+    const auto *d = topology::getInstance().getGpuAddressed(src);
+    int dev = d ? d->id : -1;
 
     if (dev == target_device) return buff_pair{src, src}; // block already in correct device
 
@@ -317,101 +318,6 @@ void MemMoveDevice::consume(RawContext* const context, const OperatorState& chil
     Builder->CreateCall(propagate, std::vector<Value *>{memmv, workunit_ptr8, is_noop});
 }
 
-// containers
-#include <vector>
-#include <queue>
-// threading
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <atomic>
-#include <future>
-// utility wrappers
-#include <memory>
-#include <functional>
-// exceptions
-#include <stdexcept>
-
-// std::thread pool for resources recycling
-class ThreadPool {
-public:
-    // the constructor just launches some amount of workers
-    ThreadPool(size_t threads_n = std::thread::hardware_concurrency()) : stop(false)
-    {
-        if(!threads_n)
-            throw std::invalid_argument("more than zero threads expected");
-
-        this->workers.reserve(threads_n);
-        for(; threads_n; --threads_n)
-            this->workers.emplace_back(
-                [this]
-                {
-                    rawlogger.log(this, log_op::THREADPOOL_THREAD_START);
-                    while(true)
-                    {
-                        std::function<void()> task;
-
-                        {
-                            std::unique_lock<std::mutex> lock(this->queue_mutex);
-                            this->condition.wait(lock,
-                                [this]{ return this->stop || !this->tasks.empty(); });
-                            if(this->stop && this->tasks.empty())
-                                return;
-                            task = std::move(this->tasks.front());
-                            this->tasks.pop();
-                        }
-
-                        task();
-                    }
-                    rawlogger.log(this, log_op::THREADPOOL_THREAD_END  );
-                }
-            );
-    }
-    // deleted copy&move ctors&assignments
-    ThreadPool(const ThreadPool&) = delete;
-    ThreadPool& operator=(const ThreadPool&) = delete;
-    ThreadPool(ThreadPool&&) = delete;
-    ThreadPool& operator=(ThreadPool&&) = delete;
-    // add new work item to the pool
-    template<class F, class... Args>
-    std::future<typename std::result_of<F(Args...)>::type> enqueue(F&& f, Args&&... args)
-    {
-        using packaged_task_t = std::packaged_task<typename std::result_of<F(Args...)>::type ()>;
-
-        std::shared_ptr<packaged_task_t> task(new packaged_task_t(
-                std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-            ));
-        auto res = task->get_future();
-        {
-            std::unique_lock<std::mutex> lock(this->queue_mutex);
-            this->tasks.emplace([task](){ (*task)(); });
-        }
-        this->condition.notify_one();
-        return res;
-    }
-    // the destructor joins all threads
-    virtual ~ThreadPool()
-    {
-        this->stop = true;
-        this->condition.notify_all();
-        for(std::thread& worker : this->workers)
-            worker.join();
-    }
-private:
-    // need to keep track of threads so we can join them
-    std::vector< std::thread > workers;
-    // the task queue
-    std::queue< std::function<void()> > tasks;
-
-    // synchronization
-    std::mutex queue_mutex;
-    std::condition_variable condition;
-    // workers finalization flag
-    std::atomic_bool stop;
-};
-
-ThreadPool tp{64};
-
 void MemMoveDevice::open (RawPipeline * pip){
     std::cout << "MemMoveDevice:open" << std::endl;
     workunit * wu = (workunit *) RawMemoryManager::mallocPinned(sizeof(workunit) * slack);
@@ -468,12 +374,12 @@ void MemMoveDevice::open (RawPipeline * pip){
     // nvtxRangePop();
 
     rawlogger.log(this, log_op::MEMMOVE_OPEN_START);
-    mmc->worker = tp.enqueue(&MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
+    mmc->worker = ThreadPool::getInstance().enqueue(&MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
     // mmc->worker = new thread(&MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
     rawlogger.log(this, log_op::MEMMOVE_OPEN_END);
 
     int device = -1;
-    if (!to_cpu) device = get_device();
+    if (!to_cpu) device = topology::getInstance().getActiveGpu().id;
     pip->setStateVar<int         >(device_id_var, device);
 
     // pip->setStateVar<cudaStream_t>(cu_stream_var, strm  );
@@ -543,7 +449,7 @@ void MemMoveDevice::close(RawPipeline * pip){
     // delete[] mmc->events   ;
     // delete[] mmc->old_buffs;
 
-    mmc->idle.close();
+    mmc->idle.close();//false);
 
     // delete mmc->worker;
     // delete mmc;
@@ -628,10 +534,7 @@ void MemMoveDevice::catcher(MemMoveConf * mmc, int group_id, exec_location targe
     nvtxRangePushA("memmove::catch_open");
     pip->open();
     nvtxRangePop();
-    // size_t cnt = 0;
-    // int32_t sum = 0;
-    // int32_t sum2 = 0;
-    // int64_t N = 0;
+    
     {
         do {
             MemMoveDevice::workunit * p = nullptr;
@@ -670,28 +573,4 @@ void MemMoveDevice::catcher(MemMoveConf * mmc, int group_id, exec_location targe
     nvtxRangePop();
 
     nvtxRangePop();
-
-    // std::cout << "MMMMM: " << cnt << " " << sum << " " << sum2 << std::endl;
 }
-
-// __global__ void sum_kernel(int32_t * A, size_t N, int32_t * acc){
-//     int32_t s = 0;
-//     for (size_t i = threadIdx.x * blockDim.x + blockIdx.x ; i < N ; i += gridDim.x * blockDim.x){
-//         s += A[i];
-//     }
-//     atomicAdd((int *) acc, (int) s);
-
-//     // __syncthreads();/
-//     // if (threadIdx.x == 0) printf("%d\n", *acc);
-// }
-
-
-// void run_sum_kernel(int32_t * A, size_t N, cudaStream_t strm){
-//     std::cout << A << " " << N << std::endl;
-//     sum_kernel<<<1024, 1024, 0, strm>>>(A, N, s);
-//     // gpu_run(cudaStreamSynchronize(strm));
-//     // int32_t h_s;
-//     // gpu_run(cudaMemcpy(&h_s, s, sizeof(int32_t), cudaMemcpyDefault));
-//     // std::cout << "rrr" << h_s << std::endl;
-//     g_strm = strm;
-// }

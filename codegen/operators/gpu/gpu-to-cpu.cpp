@@ -22,10 +22,11 @@
 */
 
 #include "operators/gpu/gpu-to-cpu.hpp"
-#include "multigpu/numa_utils.cuh"
 #include "util/gpu/gpu-intrinsics.hpp"
 #include "util/raw-memory-manager.hpp"
 #include "util/jit/raw-gpu-pipeline.hpp"
+#include "topology/topology.hpp"
+#include "topology/affinity_manager.hpp"
 
 void GpuToCpu::produce() {
     LLVMContext & llvmContext   = context->getLLVMContext();
@@ -499,7 +500,8 @@ void GpuToCpu::generate_catch(){
 }
 
 void kick_start(RawPipeline * cpip, int device){
-        set_affinity_local_to_gpu(device);
+    set_exec_location_on_scope d(topology::getInstance().getGpus()[device]);
+
     nvtxRangePushA("gpu2cpu_reads");
         nvtxRangePushA("gpu2cpu_open");
         cpip->open ();

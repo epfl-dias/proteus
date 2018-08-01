@@ -6,6 +6,7 @@ foreach(target
 	tests-hyb-ssb
 	tests-output
 	tests-plan-parsing
+	tests-threads
 	)
 	add_executable(unit-${target} ${target}.cpp test-utils.cpp)
 	set_target_properties(unit-${target} PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})

@@ -26,6 +26,7 @@
 #include "storage/raw-storage-manager.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 #include "plan/plan-parser.hpp"
+#include "topology/topology.hpp"
 #if __has_include("ittnotify.h")
 #   include <ittnotify.h>
 #else
@@ -54,8 +55,8 @@ constexpr size_t clen(const char* str){
 const char * catalogJSON = "inputs/plans/catalog.json";
 
 void executePlan(const char *label, const char *planPath, const char *catalogJSON){
-    int devices = get_num_of_gpus();
-    for (int i = 0 ; i < devices ; ++i) {
+    uint32_t devices = topology::getInstance().getGpuCount();
+    for (uint32_t i = 0 ; i < devices ; ++i) {
         gpu_run(cudaSetDevice(i));
         gpu_run(cudaProfilerStart());
     }
@@ -83,7 +84,7 @@ void executePlan(const char *label, const char *planPath, const char *catalogJSO
     }
 
     //just to be sure...
-    for (int i = 0 ; i < devices ; ++i) {
+    for (uint32_t i = 0 ; i < devices ; ++i) {
         gpu_run(cudaSetDevice(i));
         gpu_run(cudaDeviceSynchronize());
     }
@@ -112,14 +113,14 @@ void executePlan(const char *label, const char *planPath, const char *catalogJSO
         }
 
         //just to be sure...
-        for (int i = 0 ; i < devices ; ++i) {
+        for (uint32_t i = 0 ; i < devices ; ++i) {
             gpu_run(cudaSetDevice(i));
             gpu_run(cudaDeviceSynchronize());
         }
     }
 
     __itt_pause();
-    for (int i = 0 ; i < devices ; ++i) {
+    for (uint32_t i = 0 ; i < devices ; ++i) {
         gpu_run(cudaSetDevice(i));
         gpu_run(cudaProfilerStop());
     }
@@ -228,8 +229,8 @@ int main(int argc, char* argv[]){
     google::InstallFailureSignalHandler();
 
     LOG(INFO)<< "Warming up GPUs...";
-    int devices = get_num_of_gpus();
-    for (int i = 0 ; i < devices ; ++i) {
+    uint32_t devices = topology::getInstance().getGpuCount();
+    for (uint32_t i = 0 ; i < devices ; ++i) {
         gpu_run(cudaSetDevice(i));
         gpu_run(cudaFree(0));
     }

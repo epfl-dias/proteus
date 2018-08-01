@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "numa_utils.cuh"
 // #include <cinttypes>
 
 // __device__ __constant__ threadsafe_device_stack<int32_t *, (int32_t *) NULL> * pool;
@@ -14,10 +13,65 @@
 #include "common/gpu/gpu-common.hpp"
 
 #include "multigpu/buffer_manager.cuh"
+#include "topology/affinity_manager.hpp"
+#include "util/raw-memory-manager.hpp"
 
 #include <thread>
 // #include <utmpx.h>
 // #include <unistd.h>
+
+
+template<typename T, typename... Args>
+__host__ T * cuda_new(int dev, Args... args){
+    if (dev >= 0){
+        set_device_on_scope d(dev);
+        T *tmp = new T(args...);
+        T *res;
+        gpu_run(cudaMalloc((void**) &res, sizeof(T)));
+        gpu_run(cudaMemcpy(res, tmp, sizeof(T), cudaMemcpyDefault));
+        gpu_run(cudaDeviceSynchronize());
+        free(tmp);  //NOTE: bad practice ? we want to allocate tmp by new to
+                    //      trigger initialization but we want to free the 
+                    //      corresponding memory after moving to device 
+                    //      without triggering the destructor
+        return res;
+    } else {
+        T *tmp = new T(args...);
+        T *res;
+        gpu_run(cudaMallocHost((void**) &res, sizeof(T)));
+        gpu_run(cudaMemcpy(res, tmp, sizeof(T), cudaMemcpyDefault));
+        gpu_run(cudaDeviceSynchronize());
+        free(tmp);  //NOTE: bad practice ? we want to allocate tmp by new to
+                    //      trigger initialization but we want to free the 
+                    //      corresponding memory after moving to device 
+                    //      without triggering the destructor
+        return res;
+        // return new T(args...);
+    }
+}
+
+
+template<typename T, typename... Args>
+__host__ void cuda_delete(T *obj, Args... args){
+    if (topology::getInstance().getGpuAddressed(obj)){
+        T *tmp = (T *) malloc(sizeof(T));
+        gpu_run(cudaDeviceSynchronize());
+        gpu_run(cudaMemcpy(tmp, obj, sizeof(T), cudaMemcpyDefault));
+        gpu_run(cudaFree(obj));
+        delete tmp;
+    } else {
+        T *tmp = (T *) malloc(sizeof(T));
+        gpu_run(cudaDeviceSynchronize());
+        gpu_run(cudaMemcpy(tmp, obj, sizeof(T), cudaMemcpyDefault));
+        gpu_run(cudaFreeHost(obj));
+        delete tmp;
+        // delete obj;
+    }
+}
+
+
+
+
 
 extern "C"{
 
@@ -41,7 +95,7 @@ __device__ int32_t * get_buffers(){
 }
 
 void * get_dev_buffer(){
-    return buffer_manager<int32_t>::h_get_buffer(get_device());
+    return buffer_manager<int32_t>::h_get_buffer(topology::getInstance().getActiveGpu().id);
 }
 
 __device__ void release_buffers(int32_t * buff){
@@ -105,8 +159,19 @@ __global__ void get_buffer_host(void **buff, int buffs){
 }
 #endif
 
+int num_of_gpus;
+int num_of_cpus;
+
+inline int get_gpu_count(){
+    return  num_of_gpus;
+}
+
+inline int get_cpu_numa_node_count(){
+    return num_of_cpus;
+}
+
 int                                                 cpu_cnt;
-cpu_set_t                                          *gpu_affinity;
+// cpu_set_t                                          *gpu_affinity;
 cpu_set_t                                          *cpu_numa_affinity;
 int                                                *gpu_numa_node;
 
@@ -118,7 +183,7 @@ __device__ T * buffer_manager<T>::get_buffer(){
 
 template<typename T>
 __host__   T * buffer_manager<T>::get_buffer(){
-    return get_buffer_numa(sched_getcpu());
+    return get_buffer_numa(get_affinity());
 }
 #else
 template<typename T>
@@ -126,7 +191,7 @@ __host__ __device__ T * buffer_manager<T>::get_buffer(){
 #ifdef __CUDA_ARCH__
     return pool->pop();
 #else
-    return get_buffer_numa(sched_getcpu());
+    return get_buffer_numa(get_affinity());
 #endif
 }
 #endif
@@ -143,87 +208,77 @@ __device__ T * buffer_manager<T>::try_get_buffer(){
 #endif
 }
 
+#include <topology/topology.hpp>
+
 template<typename T>
-__host__ void buffer_manager<T>::init(int size, int h_size, int buff_buffer_size, int buff_keep_threshold){
-    int devices = get_num_of_gpus();
+__host__ void buffer_manager<T>::init(int size, int h_size, size_t buff_buffer_size, size_t buff_keep_threshold){
+    const topology &topo = topology::getInstance();
+    // std::cout << topo << std::endl;
+
+    uint32_t devices = topo.getGpuCount();
     buffer_manager<T>::h_size = h_size;
     
-    long cores = sysconf(_SC_NPROCESSORS_ONLN);
-    assert(cores > 0);
-    cpu_cnt = cores;
+    uint32_t cores   = topo.getCoreCount();
 
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaFree(0));
-    }
-    
-    gpu_run(cudaSetDevice(0));
+    {
 
-
-    // P2P check & enable
-    for (int j = 0; j < devices; ++j) {
-        set_device_on_scope d(j);
-        for (int i = 0 ; i < devices ; ++i) {
-            if (i != j) {
-                int t;
-                gpu_run(cudaDeviceCanAccessPeer(&t, j, i));
-                if (t){
-                    gpu_run(cudaDeviceEnablePeerAccess(i, 0));
-                } else {
-                    cout << "Warning: P2P disabled for : " << j << "->" << i << endl;
-                }
-            }
+        //FIXME: Generalize
+        uint32_t cpu_numa_nodes = topo.getCpuNumaNodeCount();
+        uint32_t max_numa_id    = 0;
+        for (const auto &n: topo.getCpuNumaNodes()){
+            max_numa_id = std::max(max_numa_id, n.id);
         }
+
+        // std::cout << "CPU numa nodes : " << cpu_numa_nodes << std::endl;
+        // std::cout << "CPU cores      : " << cores << std::endl;
+        // std::cout << "GPU devices    : " << devices << std::endl;
+
+        terminating        = false;
+        device_buffs_mutex = new mutex              [devices];
+        device_buffs_cv    = new condition_variable [devices];
+        device_buffs_thrds = new thread *           [devices];
+        device_buffs_pool  = new vector<T *>        [devices];
+        release_streams    = new cudaStream_t       [devices];
+
+        h_pool             = new h_pool_t *         [cores  ];
+        h_pool_numa        = new h_pool_t *         [max_numa_id + 1];
+
+        h_d_pool           = new pool_t            *[devices];
+
+        h_buff_start       = new void              *[devices];
+        h_buff_end         = new void              *[devices];
+
+        h_h_buff_start     = new void              *[max_numa_id + 1];
+
+        device_buff        = new T **[devices];
+        device_buff_size   = buff_buffer_size;
+        keep_threshold     = buff_keep_threshold;
+
+        buffer_cache.clear();
+
     }
-
-    //FIXME: Generalize
-    int cpu_numa_nodes = numa_num_task_nodes();
-    std::cout << "numa nodes: " << cpu_numa_nodes << std::endl;
-
-    // std::cout << "CPU numa nodes : " << cpu_numa_nodes << std::endl;
-    // std::cout << "CPU cores      : " << cores << std::endl;
-    // std::cout << "GPU devices    : " << devices << std::endl;
-
-    terminating        = false;
-    device_buffs_mutex = new mutex              [devices];
-    device_buffs_cv    = new condition_variable [devices];
-    device_buffs_thrds = new thread *           [devices];
-    device_buffs_pool  = new vector<T *>        [devices];
-    release_streams    = new cudaStream_t       [devices];
-
-    h_pool             = new h_pool_t *         [cores  ];
-    h_pool_numa        = new h_pool_t *         [cpu_numa_nodes];
-
-    h_d_pool           = new pool_t            *[devices];
-
-    h_buff_start       = new void              *[devices];
-    h_buff_end         = new void              *[devices];
-
-    h_h_buff_start     = new void              *[cpu_numa_nodes];
-
-    device_buff        = new T **[devices];
-    device_buff_size   = buff_buffer_size;
-    keep_threshold     = buff_keep_threshold;
-
-    buffer_cache.clear();
 
     // gpu_run(cudaMallocHost(&tmp, device_buff_size*sizeof(buffer_t *)*devices));
     // for (int i = 0 ; i < devices ; ++i) {
         // device_buff[i] = tmp + device_buff_size*sizeof(buffer_t *)*i;
     // }
 
-    gpu_run(nvmlInit());
-    unsigned int device_count = 0;
-    gpu_run(nvmlDeviceGetCount(&device_count));
-    assert(device_count == devices && "NMVL disagrees with cuda about the number of GPUs");
+    // gpu_run(nvmlInit());
+    // unsigned int device_count = 0;
+    // gpu_run(nvmlDeviceGetCount(&device_count));
+    // assert(device_count == devices && "NMVL disagrees with cuda about the number of GPUs");
 
 
-    gpu_affinity       = new cpu_set_t[devices];
-    cpu_numa_affinity  = new cpu_set_t[cpu_numa_nodes];
-    gpu_numa_node      = new int      [devices];
+    // gpu_affinity       = new cpu_set_t[devices];
+    // cpu_numa_affinity  = new cpu_set_t[cpu_numa_nodes];
+    // gpu_numa_node      = new int      [devices];
 
-    for (int j = 0 ; j < devices        ; ++j) CPU_ZERO(&gpu_affinity[j]);
-    for (int j = 0 ; j < cpu_numa_nodes ; ++j) CPU_ZERO(&cpu_numa_affinity[j]);
+    // for (int j = 0 ; j < devices        ; ++j) CPU_ZERO(&gpu_affinity[j]);
+    // for (int j = 0 ; j < cpu_numa_nodes ; ++j) CPU_ZERO(&cpu_numa_affinity[j]);
+
+
+    // for (int j = 0 ; j < devices        ; ++j) std::cout << gpu_affinity[j]      << std::endl;
+    // for (int j = 0 ; j < cpu_numa_nodes ; ++j) std::cout << cpu_numa_affinity[j] << std::endl;
 
     // diascld36
     // //FIXME: Generalize
@@ -235,33 +290,51 @@ __host__ void buffer_manager<T>::init(int size, int h_size, int buff_buffer_size
     // for (int i = 0 ; i < 48 ; i += 2) CPU_SET(i, &cpu_numa_affinity[0]);
     // for (int i = 1 ; i < 48 ; i += 2) CPU_SET(i, &cpu_numa_affinity[1]);
 
-    for (int j = 0 ; j < devices ; ++j){
-#ifndef NCUDA
-        int sets = ((cores + 63) / 64);
-        uint64_t cpuSet[sets];
-        for (int i = 0 ; i < sets ; ++i) cpuSet[i] = 0;
-        nvmlDevice_t device;
+//     for (int j = 0 ; j < devices ; ++j){
+// #ifndef NCUDA
+//         int sets = ((cores + 63) / 64);
+//         uint64_t cpuSet[sets];
+//         for (int i = 0 ; i < sets ; ++i) cpuSet[i] = 0;
+//         nvmlDevice_t device;
 
-        nvmlDeviceGetHandleByIndex(j, &device);
-        nvmlDeviceGetCpuAffinity(device, sets, cpuSet);
-        for (int i = 0 ; i < sets ; ++i){
-            for (int k = 0 ; k < 64 ; ++k){
-                if ((cpuSet[i] >> k) & 1){
-                    CPU_SET(64 * i + k, &gpu_affinity[j]);
-                }
-            }
-        }
-#else
-        assert(false);
-#endif
-    }
+//         nvmlDeviceGetHandleByIndex(j, &device);
+//         nvmlDeviceGetCpuAffinity(device, sets, cpuSet);
+//         for (int i = 0 ; i < sets ; ++i){
+//             for (int k = 0 ; k < 64 ; ++k){
+//                 if ((cpuSet[i] >> k) & 1){
+//                     std::cout << "d" << j << " " << (64 * i + k) << std::endl;
+//                     CPU_SET(64 * i + k, &gpu_affinity[j]);
+//                 }
+//             }
+//         }
+// #else
+//         assert(false);
+// #endif
+//     }
 
-    for (int j = 0 ; j < cores ; ++j){
-        CPU_SET(j, &cpu_numa_affinity[numa_node_of_cpu(j)]);
-    }
+    // for (int j = 0 ; j < devices        ; ++j) std::cout << gpu_affinity[j]      << std::endl;
+    // for (int j = 0 ; j < cpu_numa_nodes ; ++j) std::cout << cpu_numa_affinity[j] << std::endl;
+
+    // num_of_gpus = devices;
+    // num_of_cpus = 0;
+
+    // std::cout << devices << std::endl;
+    // std::cout << cores   << std::endl;
+
+    // for (int j = 0 ; j < cores ; ++j){
+    //     std::cout << j << " " << numa_node_of_cpu(j) << std::endl;
+    //     CPU_SET(j, &cpu_numa_affinity[numa_node_of_cpu(j)]);
+    // }
+
+    // for (int j = 0 ; j < cpu_numa_nodes ; ++j){
+    //     std::cout << cpu_numa_affinity[j] << std::endl;
+    //     if (CPU_COUNT(&cpu_numa_affinity[j]) > 0) ++num_of_cpus;
+    // }
+
+
 
     //numa_node_of_cpu must be set prior to this
-    for (int j = 0 ; j < devices        ; ++j) gpu_numa_node[j] = calc_numa_node_of_gpu(j);
+    // for (int j = 0 ; j < devices        ; ++j) gpu_numa_node[j] = calc_numa_node_of_gpu(j);
 
     // for (int i = 0 ; i < cores ; ++i){
     //     std::cout << "CPU " << i << " local to GPU ";
@@ -295,79 +368,73 @@ __host__ void buffer_manager<T>::init(int size, int h_size, int buff_buffer_size
     mutex buff_cache;
 
     vector<thread> buffer_pool_constrs;
-    for (int j = 0; j < devices; ++j) {
-        buffer_pool_constrs.emplace_back([j, size, &buff_cache]{
-                set_device_on_scope d(j);
+    for (const auto &gpu: topo.getGpus()){
+        buffer_pool_constrs.emplace_back([gpu, size, &buff_cache]{
+            uint32_t j = gpu.id;
 
-                set_affinity(&gpu_affinity[j]);
+            set_exec_location_on_scope d(j);
 
-                T      *mem;
-                size_t  pitch;
-                gpu_run(cudaMallocPitch(&mem, &pitch, h_vector_size*sizeof(T), size));
-                
-                vector<T *> buffs;
-                
-                buffs.reserve(size);
-                for (size_t i = 0 ; i < size ; ++i) {
-                    T        * m = (T *) (((char *) mem) + i*pitch);
-                    // buffer_t * b = cuda_new<buffer_t>(j, m, j);
-                    buffs.push_back(m);
+            T      *mem;
+            size_t  pitch;
+            gpu_run(cudaMallocPitch(&mem, &pitch, h_vector_size*sizeof(T), size));
+            
+            vector<T *> buffs;
+            
+            buffs.reserve(size);
+            for (size_t i = 0 ; i < size ; ++i) {
+                T        * m = (T *) (((char *) mem) + i*pitch);
+                // buffer_t * b = cuda_new<buffer_t>(j, m, j);
+                buffs.push_back(m);
 
-                    // cout << "Device " << j << " : data = " << m << endl;
-                    assert(get_device(m) == j);
-                }
-                {   //FIXME: why are we including device buffers in the cache?
-                    lock_guard<mutex> guard(buff_cache);
-                    for (const auto b: buffs) buffer_cache[b] = 0;
-                }
-                
-                pool_t * tmp =  cuda_new<pool_t>(j, size, buffs, j);
-                gpu_run(cudaMemcpyToSymbol(pool      , &tmp, sizeof(pool_t *)));
-                gpu_run(cudaMemcpyToSymbol(deviceId  ,   &j, sizeof(int     )));
-                gpu_run(cudaMemcpyToSymbol(buff_start, &mem, sizeof(void   *)));
-                void * e = (void *) (((char *) mem) + size*pitch);
-                gpu_run(cudaMemcpyToSymbol(buff_end  ,   &e, sizeof(void   *)));
+                // cout << "Device " << j << " : data = " << m << endl;
+                assert(topology::getInstance().getGpuAddressed(m)->id == j);
+            }
+            {   //FIXME: why are we including device buffers in the cache?
+                lock_guard<mutex> guard(buff_cache);
+                for (const auto b: buffs) buffer_cache[b] = 0;
+            }
+            
+            pool_t * tmp =  cuda_new<pool_t>(j, size, buffs, j);
+            gpu_run(cudaMemcpyToSymbol(pool      , &tmp, sizeof(pool_t *)));
+            gpu_run(cudaMemcpyToSymbol(deviceId  ,   &j, sizeof(int     )));
+            gpu_run(cudaMemcpyToSymbol(buff_start, &mem, sizeof(void   *)));
+            void * e = (void *) (((char *) mem) + size*pitch);
+            gpu_run(cudaMemcpyToSymbol(buff_end  ,   &e, sizeof(void   *)));
 
-                h_d_pool    [j] = tmp;
-                h_buff_start[j] = mem;
-                h_buff_end  [j] = e  ;
-                
-                int greatest;
-                int lowest;
-                gpu_run(cudaDeviceGetStreamPriorityRange(&greatest, &lowest));
-                std::cout << greatest << " " << lowest << std::endl;
-                gpu_run(cudaStreamCreateWithPriority(&(release_streams[j]), cudaStreamNonBlocking, lowest));
+            h_d_pool    [j] = tmp;
+            h_buff_start[j] = mem;
+            h_buff_end  [j] = e  ;
+            
+            int greatest;
+            int lowest;
+            gpu_run(cudaDeviceGetStreamPriorityRange(&greatest, &lowest));
+            // std::cout << greatest << " " << lowest << std::endl;
+            gpu_run(cudaStreamCreateWithPriority(&(release_streams[j]), cudaStreamNonBlocking, lowest));
 
-                T **bf;
-                gpu_run(cudaMallocHost(&bf, std::max(device_buff_size, keep_threshold)*sizeof(T *)));
-                device_buff[j] = bf;
+            T **bf;
+            gpu_run(cudaMallocHost(&bf, std::max(device_buff_size, keep_threshold)*sizeof(T *)));
+            device_buff[j] = bf;
 
-                device_buffs_thrds[j] = new thread(dev_buff_manager, j);
-            });
+            device_buffs_thrds[j] = new thread(dev_buff_manager, j);
+        });
     }
 
 
-    for (int i = 0 ; i < cpu_numa_nodes ; ++i){
-        buffer_pool_constrs.emplace_back([i, h_size, cores, &buff_cache]{
-            set_affinity(&cpu_numa_affinity[i]);
+    for (const auto &cpu: topo.getCpuNumaNodes()){
+        buffer_pool_constrs.emplace_back([cpu, h_size, cores, &buff_cache]{
+            set_exec_location_on_scope cu{cpu};
+            const auto &topo = topology::getInstance();
 
-            T      *mem = (T *) numa_alloc_onnode(h_vector_size*sizeof(T)*h_size, i);
+            size_t bytes = h_vector_size * sizeof(T) * h_size;
+            T      *mem = (T *) RawMemoryManager::mallocPinned(bytes);
             assert(mem);
-
-            //force actual allocation of _all_ the pages
-            memset(mem, 0, h_vector_size*sizeof(T)*h_size);
-            // mem[0] = 0; //this will only force the instantiation of first pg
-
-            gpu_run(cudaHostRegister(mem, h_vector_size*sizeof(T)*h_size, 0));
 
             // T * mem;
             // gpu_run(cudaMallocHost(&mem, h_vector_size*sizeof(T)*h_size));
+            printf("Memory at %p is at node %d (expected: %d)\n", mem, topo.getCpuNumaNodeAddressed(mem)->id, get_affinity().id);
+            // assert(topo.getCpuNumaNodeAddressed(mem)->id == cpu.id); //FIXME: fails on power9, should reenable after we fix it
 
-            printf("Memory at %p is at %d node (cpu %d)\n", mem, get_numa_addressed(mem), sched_getcpu());
-
-            numa_assert(get_numa_addressed(mem) == i);
-
-            h_h_buff_start[i] = mem;
+            h_h_buff_start[cpu.id] = mem;
 
             vector<T *> buffs;
             buffs.reserve(h_size);
@@ -377,8 +444,8 @@ __host__ void buffer_manager<T>::init(int size, int h_size, int buff_buffer_size
                 buffs.push_back(m);
 
                 m[0] = 0; //force allocation of first page of each buffer
-                // cout << "NUMA " << get_numa_addressed(m) << " : data = " << m << endl;
-                numa_assert(get_numa_addressed(m) == i);
+                // cout << "NUMA " << topo.getCpuNumaNodeAddressed(m)->id << " : data = " << m << endl;
+                // assert(topo.getCpuNumaNodeAddressed(m)->id == cpu.id); //FIXME: fails on power9, should reenable after we fix it
             }
 
             {
@@ -388,12 +455,9 @@ __host__ void buffer_manager<T>::init(int size, int h_size, int buff_buffer_size
 
             h_pool_t *p         = new h_pool_t(h_size, buffs);
             
-            h_pool_numa[i]      = p;
+            h_pool_numa[cpu.id] = p;
 
-
-            for (int j = 0 ; j < cores ; ++j){
-                if (CPU_ISSET(j, &cpu_numa_affinity[i])) h_pool[j] = p;
-            }
+            for (const auto &core: cpu.local_cores) h_pool[core] = p;
         });
     }
 
@@ -437,10 +501,10 @@ __host__ void buffer_manager<T>::destroy(){
     int devices;
     gpu_run(cudaGetDeviceCount(&devices));
 
-    long cores = sysconf(_SC_NPROCESSORS_ONLN);
-    assert(cores > 0);
+    // long cores = sysconf(_SC_NPROCESSORS_ONLN);
+    // assert(cores > 0);
 
-    int cpu_numa_nodes = numa_num_task_nodes();
+    // int cpu_numa_nodes = numa_num_task_nodes();
 
     terminating = true;
 
@@ -460,36 +524,39 @@ __host__ void buffer_manager<T>::destroy(){
 
     // mutex buff_cache;
 
+    const auto &topo = topology::getInstance();
+
     vector<thread> buffer_pool_constrs;
-    for (int j = 0; j < devices; ++j) {
+    for (const auto &gpu: topo.getGpus()) {
 #ifndef NCUDA
-        buffer_pool_constrs.emplace_back([j]{
-                set_device_on_scope d(j);
+        buffer_pool_constrs.emplace_back([gpu]{
+            uint32_t j = gpu.id;
+            set_device_on_scope d(j);
 
-                device_buffs_cv[j].notify_all();
-                device_buffs_thrds[j]->join();
+            device_buffs_cv[j].notify_all();
+            device_buffs_thrds[j]->join();
 
-                std::unique_lock<std::mutex> lock(device_buffs_mutex[j]);
+            std::unique_lock<std::mutex> lock(device_buffs_mutex[j]);
 
-                size_t size = device_buffs_pool[j].size();
-                assert(size <= keep_threshold);
-                for (size_t i = 0 ; i < size ; ++i) device_buff[j][i] = device_buffs_pool[j][i];
+            size_t size = device_buffs_pool[j].size();
+            assert(size <= keep_threshold);
+            for (size_t i = 0 ; i < size ; ++i) device_buff[j][i] = device_buffs_pool[j][i];
 
-                release_buffer_host<<<1, 1, 0, release_streams[j]>>>((void **) device_buff[j], size);
-                gpu_run(cudaStreamSynchronize(release_streams[j]));
+            release_buffer_host<<<1, 1, 0, release_streams[j]>>>((void **) device_buff[j], size);
+            gpu_run(cudaStreamSynchronize(release_streams[j]));
 
-                pool_t *tmp;
-                gpu_run(cudaMemcpyFromSymbol(&tmp, pool, sizeof(pool_t *)));
-                cuda_delete(tmp);
+            pool_t *tmp;
+            gpu_run(cudaMemcpyFromSymbol(&tmp, pool, sizeof(pool_t *)));
+            cuda_delete(tmp);
 
-                T * mem;
-                gpu_run(cudaMemcpyFromSymbol(&mem, buff_start, sizeof(void   *)));
-                gpu_run(cudaFree(mem));
+            T * mem;
+            gpu_run(cudaMemcpyFromSymbol(&mem, buff_start, sizeof(void   *)));
+            gpu_run(cudaFree(mem));
 
-                gpu_run(cudaStreamDestroy(release_streams[j]));
+            gpu_run(cudaStreamDestroy(release_streams[j]));
 
-                gpu_run(cudaFreeHost(device_buff[j]));
-            });
+            gpu_run(cudaFreeHost(device_buff[j]));
+        });
 #else
         assert(false);
 #endif
@@ -497,14 +564,11 @@ __host__ void buffer_manager<T>::destroy(){
     
     size_t h_size = buffer_manager<T>::h_size;
 
-    for (int i = 0 ; i < cpu_numa_nodes ; ++i){
-        buffer_pool_constrs.emplace_back([i, h_size]{
-            set_affinity(&cpu_numa_affinity[i]);
-
-            gpu_run(cudaHostUnregister(h_h_buff_start[i]));
-            numa_free(h_h_buff_start[i], h_vector_size * sizeof(T) * h_size);
-            
-            delete h_pool_numa[i];
+    for (const auto &cpu: topo.getCpuNumaNodes()){
+        buffer_pool_constrs.emplace_back([cpu, h_size]{
+            set_exec_location_on_scope cu{cpu};
+            RawMemoryManager::freePinned(h_h_buff_start[cpu.id]);
+            delete h_pool_numa[cpu.id];
         });
     }
 
@@ -587,19 +651,20 @@ void buffer_manager<T>::dev_buff_manager(int dev){
     }
 #endif
 }
-
+ 
 template<typename T>
 __host__ void buffer_manager<T>::log_buffers(){
     return;
-    int devices = get_num_of_gpus();
+    const auto &topo = topology::getInstance();
+    uint32_t devices = topo.getGpuCount();
     if (devices <= 0) return;
 
     uint32_t        cnts[devices];
     cudaStream_t    strs[devices];
     
-    for (int i = 0 ; i < devices ; ++i){
-        set_device_on_scope d(i);
-        gpu_run(cudaStreamCreateWithFlags(strs+i, cudaStreamNonBlocking));
+    for (const auto &gpu: topo.getGpus()){
+        set_device_on_scope d(gpu);
+        gpu_run(cudaStreamCreateWithFlags(strs+gpu.id, cudaStreamNonBlocking));
     }
 
     char progress[]{"-\\|/"};
@@ -607,22 +672,22 @@ __host__ void buffer_manager<T>::log_buffers(){
 
     while (!terminating){
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
-        for (int i = 0 ; i < devices ; ++i){
+        for (uint32_t i = 0 ; i < devices ; ++i){
             gpu_run(cudaMemcpyAsync(cnts + i, (void *) &(h_d_pool[i]->cnt), sizeof(decltype(pool_t::cnt)), cudaMemcpyDefault, strs[i]));
         }
-        for (int i = 0 ; i < devices ; ++i) gpu_run(cudaStreamSynchronize(strs[i]));
+        for (uint32_t i = 0 ; i < devices ; ++i) gpu_run(cudaStreamSynchronize(strs[i]));
         std::cerr << "\0337\033[H\r";
-        for (int i = 0 ; i < 80 ; ++i) std::cerr << ' ';
+        for (uint32_t i = 0 ; i < 80 ; ++i) std::cerr << ' ';
         std::cerr << "\rBuffers on device: ";
-        for (int i = 0 ; i < devices ; ++i) std::cerr << cnts[i] << "(+" << device_buffs_pool[i].size() << ") ";
+        for (uint32_t i = 0 ; i < devices ; ++i) std::cerr << cnts[i] << "(+" << device_buffs_pool[i].size() << ") ";
         std::cerr << "\t\t" << progress[(iter++) % (sizeof(progress) - 1)]; //for null character
         std::cerr << "\0338";
         std::cerr.flush();
     }
 
-    for (int i = 0 ; i < devices ; ++i){
-        set_device_on_scope d(i);
-        gpu_run(cudaStreamDestroy(strs[i]));
+    for (const auto &gpu: topo.getGpus()){
+        set_device_on_scope d(gpu);
+        gpu_run(cudaStreamDestroy(strs[gpu.id]));
     }
 }
 

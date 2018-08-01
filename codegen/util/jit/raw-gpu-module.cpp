@@ -27,6 +27,7 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/IR/PassManager.h"
+#include "topology/affinity_manager.hpp"
 
 #include "multigpu/buffer_manager.cuh" //initializeModule
 
@@ -38,7 +39,8 @@ PassManagerBuilder  RawGpuModule::Builder                   ;
 
 RawGpuModule::RawGpuModule(RawContext * context, std::string pipName):
     RawModule(context, pipName){
-    cudaModule = (CUmodule *) malloc(get_num_of_gpus() * sizeof(CUmodule));
+    uint32_t gpu_cnt = topology::getInstance().getGpuCount();
+    cudaModule = (CUmodule *) malloc(gpu_cnt * sizeof(CUmodule));
 
     if (TheTargetMachine == nullptr) init();
 
@@ -86,7 +88,11 @@ void RawGpuModule::init(){
         exit(1);
     }
 
-    auto GPU      = "sm_61";//sys::getHostCPUName(); //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
+    int dev;
+    gpu_run(cudaGetDevice(&dev));
+    cudaDeviceProp deviceProp;
+    gpu_run(cudaGetDeviceProperties(&deviceProp, dev));
+    auto GPU      = "sm_" + std::to_string(deviceProp.major * 10 + deviceProp.minor);
 
     // SubtargetFeatures Features;
     // StringMap<bool> HostFeatures;
@@ -104,9 +110,11 @@ void RawGpuModule::init(){
     // opt.MCOptions.AsmVerbose            = 1;
     opt.MCOptions.PreserveAsmComments   = 1;
 
+    std::cout << GPU << std::endl;
+
     auto RM = Optional<Reloc::Model>();
     TheTargetMachine = (LLVMTargetMachine *) Target->createTargetMachine(TargetTriple, GPU, 
-                                                    "+ptx50,+satom", //PTX 5.0 + Scoped Atomics
+                                                    "+ptx50,+ptx60,+satom", //PTX 5.0 + Scoped Atomics
                                                     opt, RM, 
                                                     Optional<CodeModel::Model>{},//CodeModel::Model::Default, 
                                                     CodeGenOpt::Aggressive);
@@ -222,7 +230,7 @@ void RawGpuModule::compileAndLoad(){
         legacy::PassManager PM;
 
         // Ask the target to add backend passes as necessary.
-        TheTargetMachine->addPassesToEmitFile(PM, ostream, llvm::TargetMachine::CGFT_AssemblyFile, false);
+        TheTargetMachine->addPassesToEmitFile(PM, ostream, llvm::TargetMachine::CGFT_AssemblyFile, false); //NULL for LLVM7.0
 
         PM.run(*(getModule()));
     } // flushes stream and ostream
@@ -251,7 +259,7 @@ void RawGpuModule::compileAndLoad(){
 
         CUlinkState linkState;
         
-        constexpr size_t opt_size = 4;
+        constexpr size_t opt_size = 6;
         CUjit_option options[opt_size];
         void       * values [opt_size];
 
@@ -263,10 +271,10 @@ void RawGpuModule::compileAndLoad(){
         values  [2] = (void *) BUFFER_SIZE;
         options [3] = CU_JIT_MAX_REGISTERS;
         values  [3] = (void *) ((uint64_t) 32);
-        // options [4] = CU_JIT_INFO_LOG_BUFFER;
-        // values  [4] = (void *) info_log;
-        // options [5] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
-        // values  [5] = (void *) BUFFER_SIZE;
+        options [4] = CU_JIT_INFO_LOG_BUFFER;
+        values  [4] = (void *) info_log;
+        options [5] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
+        values  [5] = (void *) BUFFER_SIZE;
 
         // size_t size = _binary_device_funcs_cubin_end - _binary_device_funcs_cubin_start;
         size_t size = _binary_buffer_manager_cubin_end - _binary_buffer_manager_cubin_start;
@@ -282,7 +290,9 @@ void RawGpuModule::compileAndLoad(){
         // auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN, "/home/chrysoge/Documents/pelago/opt/res/buffer_manager.cubin", 0, NULL, NULL));
             // libmultigpu.a", 0, NULL, NULL));
         if (x != CUDA_SUCCESS) {
-            // printf("[CUcompile: ] %s\n", info_log );
+            //If you get an error message similar to "no kernel image is available for execution on the device"
+            //it usually means that the target sm_xy in root CMakeLists.txt is not set to the current GPU's CC.
+            printf("[CUcompile: ] %s\n", info_log );
             printf("[CUcompile: ] %s\n", error_log);
             gpu_run(x);
         }
@@ -290,27 +300,26 @@ void RawGpuModule::compileAndLoad(){
         // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX, ("generated_code/" + pipName + ".ptx").c_str(), 0, NULL, NULL));
         x = cuLinkAddData (linkState, CU_JIT_INPUT_PTX, (void *) ptx.c_str(), ptx.length() + 1, NULL, 0, NULL, NULL);
         if (x != CUDA_SUCCESS) {
-            // printf("[CUcompile: ] %s\n", info_log );
+            printf("[CUcompile: ] %s\n", info_log );
             printf("[CUcompile: ] %s\n", error_log);
             gpu_run(x);
         }
         x = cuLinkComplete(linkState, &cubin, &cubinSize);
         if (x != CUDA_SUCCESS) {
-            // printf("[CUcompile: ] %s\n", info_log );
+            printf("[CUcompile: ] %s\n", info_log );
             printf("[CUcompile: ] %s\n", error_log);
             gpu_run(x);
         }
 
-        int devices = get_num_of_gpus();
-        for (int i = 0 ; i < devices ; ++i){
+        for (const auto &gpu: topology::getInstance().getGpus()){
             time_block t("TloadModule: ");
-            set_device_on_scope d(i);
+            set_device_on_scope d(gpu);
 
             // gpu_run(cuModuleLoadDataEx(&cudaModule[i], ptx.c_str(), 0, 0, 0));
-            gpu_run(cuModuleLoadFatBinary(&cudaModule[i], cubin));
+            gpu_run(cuModuleLoadFatBinary(&cudaModule[gpu.id], cubin));
             {
                 time_block t("TinitModule: ");
-                initializeModule(cudaModule[i]);
+                initializeModule(cudaModule[gpu.id]);
             }
         }
         
@@ -325,7 +334,7 @@ void RawGpuModule::compileAndLoad(){
 void * RawGpuModule::getCompiledFunction(Function * f) const{
 #ifndef NCUDA
     CUfunction func;
-    gpu_run(cuModuleGetFunction(&func, cudaModule[get_current_gpu()], f->getName().str().c_str()));
+    gpu_run(cuModuleGetFunction(&func, cudaModule[topology::getInstance().getActiveGpu().id], f->getName().str().c_str()));
     
     return (void *) func;
 #else

@@ -25,6 +25,8 @@
 
 #include "util/raw-memory-manager.hpp"
 #include "storage/raw-storage-manager.hpp"
+#include "topology/topology.hpp"
+#include "topology/affinity_manager.hpp"
 
 #include "util/gpu/gpu-raw-context.hpp"
 #include "util/raw-functions.hpp"
@@ -55,16 +57,6 @@ void RawTestEnvironment::SetUp(){
     // }
 
     // gpu_run(cudaSetDeviceFlags(cudaDeviceScheduleYield));
-
-    int devices = get_num_of_gpus();
-    for (int i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaFree(0));
-    }
-    
-    // gpu_run(cudaSetDevice(0));
-
-    gpu_run(cudaFree(0));
 
     // gpu_run(cudaDeviceSetLimit(cudaLimitStackSize, 40960));
 
@@ -126,7 +118,7 @@ bool verifyTestResult(const char *testsPath, const char *testLabel, bool unorder
             std::stringstream ss(currResultBuf);
             std::string str;
             while (std::getline(ss, str)) lines.emplace_back(str);
-            sort(lines.begin(), lines.end());
+            std::sort(lines.begin(), lines.end());
             ss.clear();
             for (const auto &s: lines) ss << s << '\n';
             areEqual = (fsize1 == 0) || (memcmp(correctBuf, ss.str().c_str(), fsize1) == 0);
@@ -158,8 +150,8 @@ bool verifyTestResult(const char *testsPath, const char *testLabel, bool unorder
 }
 
 void runAndVerify(const char *testLabel, const char* planPath, const char * testPath, const char * catalogJSON, bool unordered){
-    int devices = get_num_of_gpus();
-    for (int i = 0 ; i < devices ; ++i) {
+    uint32_t devices = topology::getInstance().getGpuCount();
+    for (uint32_t i = 0 ; i < devices ; ++i) {
         gpu_run(cudaSetDevice(i));
         gpu_run(cudaProfilerStart());
     }
@@ -183,7 +175,7 @@ void runAndVerify(const char *testLabel, const char* planPath, const char * test
     }
 
     //just to be sure...
-    for (int i = 0 ; i < devices ; ++i) {
+    for (uint32_t i = 0 ; i < devices ; ++i) {
         gpu_run(cudaSetDevice(i));
         gpu_run(cudaDeviceSynchronize());
     }
@@ -212,14 +204,14 @@ void runAndVerify(const char *testLabel, const char* planPath, const char * test
         }
 
         //just to be sure...
-        for (int i = 0 ; i < devices ; ++i) {
+        for (uint32_t i = 0 ; i < devices ; ++i) {
             gpu_run(cudaSetDevice(i));
             gpu_run(cudaDeviceSynchronize());
         }
     }
 
     __itt_pause();
-    for (int i = 0 ; i < devices ; ++i) {
+    for (uint32_t i = 0 ; i < devices ; ++i) {
         gpu_run(cudaSetDevice(i));
         gpu_run(cudaProfilerStop());
     }
