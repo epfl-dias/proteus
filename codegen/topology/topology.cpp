@@ -2,6 +2,8 @@
 #include <iomanip>
 #include <cmath>
 #include <stdexcept>
+#include <map>
+#include <vector>
 
 #include "cuda.h"
 #include "cuda_runtime_api.h"
@@ -30,30 +32,39 @@ void topology::cpunumanode::free(void * mem, size_t bytes){
     numa_free(mem, bytes);
 }
 
+
+void cpu_numa_node_topology(){
+}
+
 topology::topology(){
     gpu_run(nvmlInit());
 
+
     // Creating gpunodes requires that we know the number of cores,
     // so start by reading the CPU configuration
-    const auto &bcpu_info = boost::fibers::numa::topology();
+    core_cnt = sysconf(_SC_NPROCESSORS_ONLN);
+    assert(core_cnt > 0);
+
+    std::map<uint32_t, std::vector<uint32_t>> numa_to_cores_mapping;
+
+    uint32_t core_cnt = sysconf(_SC_NPROCESSORS_ONLN);
+    for (uint32_t j = 0 ; j < core_cnt ; ++j){
+        numa_to_cores_mapping[numa_node_of_cpu(j)].emplace_back(j);
+    }
 
     uint32_t max_numa_id = 0;
-    for (auto &bcpu: bcpu_info) {
-        cpu_info.emplace_back(bcpu, cpu_info.size(), 
+    for (const auto &numa: numa_to_cores_mapping){
+        cpu_info.emplace_back(numa.first, numa.second, cpu_info.size(), 
             topologyonly_construction{});
-
         max_numa_id = std::max(max_numa_id, cpu_info.back().id);
     }
-    
+
     cpunuma_index.resize(max_numa_id + 1);
     for (auto &ci: cpunuma_index) ci = 0;
 
     for (size_t i = 0 ; i < cpu_info.size() ; ++i) {
         cpunuma_index[cpu_info[i].id] = i;
     }
-
-    core_cnt = sysconf(_SC_NPROCESSORS_ONLN);
-    assert(core_cnt > 0);
     
     for (const auto &cpu: cpu_info) {
         for (const auto &core: cpu.local_cores){
@@ -178,14 +189,14 @@ std::ostream &operator<<(std::ostream &out, const topology &topo){
 
     out << '\n';
 
-    for (const auto &node: topo.getCpuNumaNodes()) {
-        out << "node: ";
-        out << node.id << " | ";
-        for (auto d: node.distance) out << std::setw(4) << d;
-        out << '\n';
-    }
+    // for (const auto &node: topo.getCpuNumaNodes()) {
+    //     out << "node: ";
+    //     out << node.id << " | ";
+    //     for (auto d: node.distance) out << std::setw(4) << d;
+    //     out << '\n';
+    // }
 
-    out << '\n';
+    // out << '\n';
 
     for (const auto &gpu: topo.getGpus()) {
         out << "gpu : ";
@@ -243,12 +254,13 @@ topology::gpunode::gpunode(uint32_t id, uint32_t index_in_topo,
 #endif
 }
 
-topology::cpunumanode::cpunumanode( const       boost::fibers::numa::node &b,
-                                    uint32_t    index_in_topo,
+topology::cpunumanode::cpunumanode( uint32_t                     id           ,
+                                    const std::vector<uint32_t> &local_cores  ,
+                                    uint32_t                     index_in_topo,
                                     topologyonly_construction):
-        id(b.id),
-        distance(b.distance),
-        local_cores(b.logical_cpus.begin(), b.logical_cpus.end()),
+        id(id),
+        // distance(b.distance),
+        local_cores(local_cores),
         index_in_topo(index_in_topo){
     CPU_ZERO(&local_cpu_set);
     for (const auto &c: local_cores) CPU_SET(c, &local_cpu_set);

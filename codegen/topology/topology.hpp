@@ -25,8 +25,8 @@
 #define TOPOLOGY_HPP_
 
 #include <unordered_map>
-#include <boost/fiber/numa/topology.hpp>
 #include <iostream>
+#include <vector>
 
 #include "common/gpu/gpu-common.hpp"
 
@@ -59,16 +59,17 @@ public:
         const uint32_t                      id              ;
         const uint32_t                      index_in_topo   ;
 
-
-        std::vector<uint32_t>               distance        ;
+        // std::vector<uint32_t>               distance        ;
 
         std::vector<uint32_t>               local_cores     ;
         cpu_set_t                           local_cpu_set   ;
 
     public:
-        cpunumanode(const boost::fibers::numa::node &b, uint32_t index_in_topo,
-                //do not remove argument!!! 
-                topologyonly_construction);
+        cpunumanode(uint32_t                id,
+            const std::vector<uint32_t>    &local_cores, 
+            uint32_t                        index_in_topo,
+            //do not remove argument!!! 
+            topologyonly_construction);
 
         void * alloc(size_t bytes) const;
         static void free(void * mem, size_t bytes);
