@@ -18,6 +18,7 @@
 #   select_query(op$x, con, ...)
 # }
 
+#' @export
 k_means <- function(data, k=3, iter.max=5) {
 
   # dimensionality is of the number of columns
