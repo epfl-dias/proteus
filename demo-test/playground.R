@@ -9,11 +9,11 @@ library(jsonlite)
 ### DBI ###
 
 # establishing the connection
-driverClass <- "org.apache.calcite.avatica.remote.Driver"
-driverLocation <- "src/avatica-1.11.0.jar"
-#connectionString <- "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF"
-connectionString <- "jdbc:avatica:remote:url=http://diascld36.epfl.ch:8081;serialization=PROTOBUF"
 
+driverClass <- "org.apache.calcite.avatica.remote.Driver"
+driverLocation <- "~/ViDaR/avatica-1.11.0.jar"
+#connectionString <- "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF"
+connectionString <- "jdbc:avatica:remote:url=http://diascld37.iccluster.epfl.ch:8081;serialization=PROTOBUF"
 
 con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString=connectionString, debug = FALSE)
 
@@ -23,6 +23,10 @@ con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocatio
 #                                      species="character"),
 #              delimiter = ",", policy = 2, brackets = FALSE, name = "iris1")
 # unnest test
+
+a <- tbl(con, "A")
+a %>% select(A1)
+
 emp <- tbl(con, "employeesnum")
 
 emp %>% for_each(children) %>% select(age, children.age2)
@@ -33,7 +37,7 @@ i <- tbl(con, "iris")
 
 time.start <- Sys.time()
 
-k_means(i %>% select(sepal_len, sepal_wid), k=3, iter.max=10)
+k_means(i %>% select(sepal_len, sepal_wid), k=3, iter.max=3)
 
 time.end <- Sys.time()
 print(paste0("Pelago kmeans: ", time.end-time.start))

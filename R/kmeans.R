@@ -142,7 +142,7 @@ templateEuclidean <- function(data_column_names, point_coordinates) {
   #generates the list which is equivalent to (SUM(POW(data-point, 2)))
   # DEBUG the case when there are NA (no cluster)
   #sign <- sapply(point_coordinates, function(x) if(x<0) "+" else "-")
-  paste0("(",data_column_names, "-(", round(point_coordinates, 8), "))*(",data_column_names, "-(", round(point_coordinates, 8), "))", collapse = "+")
+  paste0("(",data_column_names, "-(", point_coordinates, "))*(",data_column_names, "-(", point_coordinates, "))", collapse = "+")
 }
 
 # Function for generating random centroids, bounded by ranges in data (in order to have a sense of scale of data)
@@ -190,3 +190,56 @@ centroidSampling <- function(total_num, min_list, max_list) {
 
   return(samples)
 }
+
+
+# batchCalculateCentroids <- function(data, k, initialQuery, batchSize = 5) {
+#   col_names <- colnames(data)
+#   dim <- ncol(data)
+#
+#   distances_query <- generateDistances(data, k, oldCentroids, templateEuclidean)
+#
+#   select_clause <- paste0("SELECT ", paste0("AVG(", col_names,") AS avg_", col_names, ", COUNT(", col_names, ") AS cnt_", col_names, collapse = ", "))
+#
+#   case_clause <- generateCase(k, tmp_table_name)
+#
+#   query <- paste0(select_clause, ", (", case_clause, ") AS `member` ", "FROM (", distances_query, ") ", tmp_table_name, " GROUP BY (", case_clause,")")
+#
+#   for(i in 2:batchSize) {
+#     paste0(select_clause)
+#   }
+#
+#   result <- dbFetch(dbSendQuery(data[[1]]$con, query))
+#
+#   return(result)
+# }
+
+# batchGetMemberRow <- function(from, columns, member, member_name= "`member`") {
+#   return(paste0("SELECT ", paste0(columns, collapse = ", "), " FROM (", from, ") WHERE ", member_name, " = ", member))
+# }
+#
+# batchGenerateFrom <- function(data, k, initialQuery, metricTemplate = templateEuclidean) {
+#   col_names <- colnames(data)
+#   dim <- ncol(data)
+#
+#   distances_query <- paste0("SELECT ", paste(col_names, collapse = ", "), ", ")
+#
+#   generator <- c()
+#
+#   oldCentroidsQuery <- c()
+#
+#   for(i in 1:k) {
+#     for(col in col_names)
+#       oldCentroidsQuery <- c(oldCentroidsQuery, batchGetMemberRow(initialQuery, paste0("avg_", col), i))
+#   }
+#
+#   for(i in 0:(k-1)) {
+#
+#     generator <- c(generator, paste0("(", metricTemplate(col_names, oldCentroidsQuery[(1+i*dim):(dim+i*dim)]), ") AS P", (i+1)))
+#
+#   }
+#
+#   # TODO uncomment when the source is tbl
+#   distances_query <- paste0(distances_query, paste(generator, collapse = ", "), " FROM ", as.character(data[[2]]$x)) # as.character(data[[2]]$x) - internal table name
+#
+#   return(distances_query[[1]])
+# }
