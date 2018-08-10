@@ -672,6 +672,10 @@ void releaseMemoryChunk(void* chunk)	{
 	return freeRegion(chunk);
 }
 
+#ifdef __AVX2__
+#include <immintrin.h>
+#endif
+
 /**
  * Parsing
  */
