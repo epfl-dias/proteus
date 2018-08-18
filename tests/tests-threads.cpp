@@ -114,12 +114,12 @@ TEST_F(ThreadTest, power9_getcpu) {
     CPU_SET(target, &c);
 
     int s = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &c);
-    assert(s == 0);
+    EXPECT_EQ(s , 0);
 
     int s2 = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &c);
-    assert(s2 == 0);
+    EXPECT_EQ(s2, 0);
 
-    for (int i = 0; i < topo.getCoreCount(); ++i) {
+    for (size_t i = 0; i < topo.getCoreCount(); ++i) {
         if (CPU_ISSET(i, &c)) std::cout << i << std::endl;
     }
 
@@ -131,7 +131,7 @@ TEST_F(ThreadTest, power9_getcpu) {
 
     std::cout << "sched:" << sched_getcpu() << std::endl;
     EXPECT_NE(sched_getcpu(), 0);
-    EXPECT_EQ(sched_getcpu(), target);
+    EXPECT_EQ(sched_getcpu(), (long) target);
 }
 
 TEST_F(ThreadTest, affinity) {
