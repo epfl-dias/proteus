@@ -87,7 +87,7 @@ topology::topology(){
     // Now create the GPU nodes
     for (uint32_t i = 0 ; i < gpu_cnt ; ++i) {
         gpu_info.emplace_back(i, i, topologyonly_construction{});
-        cpu_info[gpu_info.back().local_cpu].local_gpus.push_back(i);
+        cpu_info[cpunuma_index[gpu_info.back().local_cpu]].local_gpus.push_back(i);
     }
 
     // warp-up GPUs
