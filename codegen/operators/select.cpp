@@ -29,32 +29,10 @@ void Select::consume(RawContext* const context, const OperatorState& childState)
 	generate(context, childState);
 }
 
-void Select::generate(RawContext* const context, const OperatorState& childState) const
-{
-	IRBuilder<>* TheBuilder = context->getBuilder();
-	LLVMContext& llvmContext = context->getLLVMContext();
-
-	//Generate condition
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
-	RawValue condition = this->expr->accept(exprGenerator);
-
-	//Get entry point
-	Function *TheFunction = TheBuilder->GetInsertBlock()->getParent();
-
-	// Create blocks for the then cases.  Insert the 'then' block at the end of the function.
-	// Note: No 'else' in this case
-	BasicBlock *ThenBB = BasicBlock::Create(llvmContext, "selectionThen", TheFunction);
-	BasicBlock *MergeBB = BasicBlock::Create(llvmContext, "selectionIfCont");
-
-	TheBuilder->CreateCondBr(condition.value, ThenBB, MergeBB);
-	TheBuilder->SetInsertPoint(ThenBB);
-
-	//Triggering parent
-	OperatorState* newState = new OperatorState(*this,childState.getBindings());
-	getParent()->consume(context, *newState);
-
-	TheBuilder->CreateBr(MergeBB);
-
-	TheFunction->getBasicBlockList().push_back(MergeBB);
-	TheBuilder->SetInsertPoint(MergeBB);
+void Select::generate(RawContext* const context, const OperatorState& childState) const {
+	context->gen_if(expr, childState)([&]{
+		//Triggering parent
+		OperatorState newState{*this, childState.getBindings()};
+		getParent()->consume(context, newState);
+	});
 }
