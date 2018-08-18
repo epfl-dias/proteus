@@ -47,7 +47,6 @@ topology::topology(){
 
     std::map<uint32_t, std::vector<uint32_t>> numa_to_cores_mapping;
 
-    uint32_t core_cnt = sysconf(_SC_NPROCESSORS_ONLN);
     for (uint32_t j = 0 ; j < core_cnt ; ++j){
         numa_to_cores_mapping[numa_node_of_cpu(j)].emplace_back(j);
     }
@@ -88,6 +87,7 @@ topology::topology(){
     // Now create the GPU nodes
     for (uint32_t i = 0 ; i < gpu_cnt ; ++i) {
         gpu_info.emplace_back(i, i, topologyonly_construction{});
+        cpu_info[gpu_info.back().local_cpu].local_gpus.push_back(i);
     }
 
     // warp-up GPUs
@@ -310,10 +310,33 @@ topology topology::instance;
 
 extern "C" {
     int get_rand_core_local_to_ptr(const void *p){
+        // const auto *dev = topology::getInstance().getGpuAddressed(p);
+        // if (dev) return dev->local_cores[rand() % dev->local_cores.size()];
+        // const auto *cpu = topology::getInstance().getCpuNumaNodeAddressed(p);
+        // return cpu->local_cores[rand() % cpu->local_cores.size()];
+
+
+
+
+        // actually, for the current exchange implementation we should return 
+        // the integer i such that (i % #gpus) is a _gpu_ local to the current
+        // numa node addressed. (and yes, this will cause problems on machines
+        // without GPUs, but such machines need issue #16 to be resolved)
+        // FIXME: related to issue #16 and the above comment
+
+        const auto &topo      = topology::getInstance();
+        const auto  gpu_count = topo.getGpuCount();
+
         const auto *dev = topology::getInstance().getGpuAddressed(p);
-        if (dev) return dev->local_cores[rand() % dev->local_cores.size()];
+        if (dev) return dev->id + ((rand() / gpu_count) * gpu_count);
 
         const auto *cpu = topology::getInstance().getCpuNumaNodeAddressed(p);
-        return cpu->local_cores[rand() % cpu->local_cores.size()];
+
+        const auto &local_gpus = cpu->local_gpus;
+        size_t local_gpu_count = local_gpus.size();
+        if (local_gpu_count == 0) return rand();
+
+        const auto &sdev = local_gpus[rand() % local_gpu_count];
+        return sdev + ((rand() / gpu_count) * gpu_count);
     }
 }

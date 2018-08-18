@@ -62,6 +62,7 @@ public:
         std::vector<uint32_t>               distance        ;
 
         std::vector<uint32_t>               local_cores     ;
+        std::vector<uint32_t>               local_gpus      ;
         cpu_set_t                           local_cpu_set   ;
 
     public:
@@ -203,6 +204,7 @@ private:
     friend class exec_location;
     friend const topology::cpunumanode &get_affinity();
     friend int numa_node_of_gpu(int device);
+    friend int get_rand_core_local_to_ptr(const void *p);
     friend std::ostream &operator<<(std::ostream& stream, const topology &topo);
 };
 

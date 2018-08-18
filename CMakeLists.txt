@@ -78,7 +78,6 @@ link_directories(
 	"/usr/local/cuda/lib64/stubs"
 	"/usr/local/cuda/nvvm/lib64"
 	"/usr/local/cuda/nvml/lib64"
-	"/opt/intel/vtune_amplifier/lib64"
 	)
 
 # Define path to installed resources
@@ -106,14 +105,14 @@ set(LLVM_CFLAGS "${LLVM_CFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS}")
 # set(CUDA_CFLAGS "${CUDA_CFLAGS} ${GCC_COMPILE_FLAGS}")
 
 
-# set(default_libs codegen -lpthread -lnuma -lnvToolsExt -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -lcuda -lcudart -lnvidia-ml -lcudadevrt -ldl -lrt -lnvvm -pthread -littnotify)
-set(default_libs codegen -lpthread ${CUDA_libs} -lnuma -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -ldl -lrt -pthread) #-littnotify
+# set(default_libs codegen -lpthread -lnuma -lnvToolsExt -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -lcuda -lcudart -lnvidia-ml -lcudadevrt -ldl -lrt -lnvvm -pthread)
+set(default_libs codegen -lpthread ${CUDA_libs} -lnuma -lglog ${LLVM_LIBS} ${CUDA_LIBRARIES} -lstdc++ ${LLVM_SYSTEM_LIBS} ${LLVM_LDFLAGS} -ldl -lrt -pthread)
 
 # add ittnotify if found
 # FIXME: deduplicate path+there seems to be a FindVTune.cmake even inside llvm!
 find_library(VTune_LIB ittnotify HINTS "/opt/intel/vtune_amplifier/lib64")
 if (VTune_LIB)
-set(default_libs ${default_libs} -littnotify)
+    set(default_libs ${default_libs} /opt/intel/vtune_amplifier/lib64/libittnotify.a)
 endif()
 
 set(gtest_libs -lgtest libgtest_main.a ${default_libs})

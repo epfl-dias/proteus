@@ -61,7 +61,7 @@ public:
 
 public:
     void activate() const{
-        std::cout << "d" << gpu_device << " " << cpu.local_cpu_set << std::endl;
+        // std::cout << "d" << gpu_device << " " << cpu.local_cpu_set << std::endl;
         if (gpu_device >= 0) gpu_run(cudaSetDevice(gpu_device));
         // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpus);
         set_affinity(cpu);
