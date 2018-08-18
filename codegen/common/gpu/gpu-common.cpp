@@ -221,7 +221,7 @@ size_t mmap_file::getFileSize() const{
 extern "C"{
     int get_ptr_device(const void *p){
         const auto * g = topology::getInstance().getGpuAddressed(p);
-        return g ? NULL : g->id;
+        return g ? -1 : g->id;
     }
 
     int get_ptr_device_or_rand_for_host(const void *p){

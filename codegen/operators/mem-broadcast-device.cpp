@@ -59,12 +59,13 @@ buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int ta
 
         return buff_pair_brdcst{buff, src};
     } else {
-        uint32_t numa_id = topo.getCpuNumaNodeOfCore(target_device);
+        const auto &gpus = topo.getGpus();
+        uint32_t numa_id = gpus[target_device % gpus.size()].local_cpu;
         if (topo.getGpuAddressed(src)){
             char * buff = (char *) buffer_manager<int32_t>::get_buffer_numa(numa_id);
             assert(target_device >= 0);
             if (bytes > 0) buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm[target_device], false);
-
+            
             return buff_pair_brdcst{buff, src};
         } else {
             int node = topo.getCpuNumaNodeAddressed(src)->id;
@@ -76,7 +77,6 @@ buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int ta
                     return buff_pair_brdcst{src, NULL};
                 }
                 if (buffer_manager<int32_t>::share_host_buffer((int32_t *) src)) {
-                    std::cout << "sharing" << std::endl;
                     mmc->targetbuffer[target_node] = src;
                     return buff_pair_brdcst{src, src};
                 }
@@ -341,7 +341,7 @@ void MemBroadcastDevice::consume(RawContext* const context, const OperatorState&
     }
     
     for (size_t t_i = 0 ; t_i < targets.size() ; ++t_i){
-        pushed[t_i].push_back(context->createInt32(targets[t_i]));
+        pushed[t_i].push_back(context->createInt32(t_i));
         pushed[t_i].push_back(N);
         pushed[t_i].push_back(oid);
     }
