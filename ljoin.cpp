@@ -28,7 +28,7 @@
 #include "operators/split.hpp"
 #include "operators/split-opt.hpp"
 
-void Query () {
+void Query () { 
 	{
         RawCatalog     * catalog = &RawCatalog::getInstance();
         CachingService * caches  = &CachingService::getInstance();
