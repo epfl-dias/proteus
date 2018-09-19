@@ -2538,5 +2538,929 @@
 			"brackets": false,
 			"policy": 2
 		}
-    }
+    },
+	"A_1000000": {
+        "path": "inputs/micro/A_1000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_1000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_1000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_1000000.bin",
+                    "attrName": "d_val2",
+                    "attrNo": 3
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_1000000.bin",
+                    "attrName": "d_val3",
+                    "attrNo": 4
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_1000000.bin",
+                    "attrName": "d_val4",
+                    "attrNo": 5
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 1000000
+        }
+    },
+	"A_2000000": {
+        "path": "inputs/micro/A_2000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_2000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_2000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_2000000.bin",
+                    "attrName": "d_val2",
+                    "attrNo": 3
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_2000000.bin",
+                    "attrName": "d_val3",
+                    "attrNo": 4
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_2000000.bin",
+                    "attrName": "d_val4",
+                    "attrNo": 5
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 2000000
+        }
+    },
+	"A_4000000": {
+        "path": "inputs/micro/A_4000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_4000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_4000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_4000000.bin",
+                    "attrName": "d_val2",
+                    "attrNo": 3
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_4000000.bin",
+                    "attrName": "d_val3",
+                    "attrNo": 4
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_4000000.bin",
+                    "attrName": "d_val4",
+                    "attrNo": 5
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 4000000
+        }
+    },
+	"A_8000000": {
+        "path": "inputs/micro/A_8000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_8000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_8000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_8000000.bin",
+                    "attrName": "d_val2",
+                    "attrNo": 3
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_8000000.bin",
+                    "attrName": "d_val3",
+                    "attrNo": 4
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_8000000.bin",
+                    "attrName": "d_val4",
+                    "attrNo": 5
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 8000000
+        }
+    },
+	"A_16000000": {
+        "path": "inputs/micro/A_16000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_16000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_16000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_16000000.bin",
+                    "attrName": "d_val2",
+                    "attrNo": 3
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_16000000.bin",
+                    "attrName": "d_val3",
+                    "attrNo": 4
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_16000000.bin",
+                    "attrName": "d_val4",
+                    "attrNo": 5
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 16000000
+        }
+    },
+	"A_32000000": {
+        "path": "inputs/micro/A_32000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_32000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_32000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_32000000.bin",
+                    "attrName": "d_val2",
+                    "attrNo": 3
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_32000000.bin",
+                    "attrName": "d_val3",
+                    "attrNo": 4
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_32000000.bin",
+                    "attrName": "d_val4",
+                    "attrNo": 5
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 32000000
+        }
+    },
+	"A_64000000": {
+        "path": "inputs/micro/A_64000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_64000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_64000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_64000000.bin",
+                    "attrName": "d_val2",
+                    "attrNo": 3
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_64000000.bin",
+                    "attrName": "d_val3",
+                    "attrNo": 4
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_64000000.bin",
+                    "attrName": "d_val4",
+                    "attrNo": 5
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 64000000
+        }
+    },
+	"A_128000000": {
+        "path": "inputs/micro/A_128000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_128000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_128000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_128000000.bin",
+                    "attrName": "d_val2",
+                    "attrNo": 3
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_128000000.bin",
+                    "attrName": "d_val3",
+                    "attrNo": 4
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_128000000.bin",
+                    "attrName": "d_val4",
+                    "attrNo": 5
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 128000000
+        }
+    },
+	"A_256000000": {
+        "path": "inputs/micro/A_256000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_256000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_256000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_256000000.bin",
+                    "attrName": "d_val2",
+                    "attrNo": 3
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_256000000.bin",
+                    "attrName": "d_val3",
+                    "attrNo": 4
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_256000000.bin",
+                    "attrName": "d_val4",
+                    "attrNo": 5
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 256000000
+        }
+    },
+	"A_512000000": {
+        "path": "inputs/micro/A_512000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_512000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_512000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_512000000.bin",
+                    "attrName": "d_val2",
+                    "attrNo": 3
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_512000000.bin",
+                    "attrName": "d_val3",
+                    "attrNo": 4
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_512000000.bin",
+                    "attrName": "d_val4",
+                    "attrNo": 5
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 512000000
+        }
+    },
+	"A_1024000000": {
+        "path": "inputs/micro/A_1024000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_1024000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_1024000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_1024000000.bin",
+                    "attrName": "d_val2",
+                    "attrNo": 3
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_1024000000.bin",
+                    "attrName": "d_val3",
+                    "attrNo": 4
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_1024000000.bin",
+                    "attrName": "d_val4",
+                    "attrNo": 5
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 1024000000
+        }
+    },
+	"A_2048000000": {
+        "path": "inputs/micro/A_2048000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_2048000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_2048000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_2048000000.bin",
+                    "attrName": "d_val2",
+                    "attrNo": 3
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_2048000000.bin",
+                    "attrName": "d_val3",
+                    "attrNo": 4
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/A_2048000000.bin",
+                    "attrName": "d_val4",
+                    "attrNo": 5
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 2048000000
+        }
+    },
+	"B_1000000": {
+        "path": "inputs/micro/B_1000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_1000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_1000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 1000000
+        }
+    },
+	"B_2000000": {
+        "path": "inputs/micro/B_2000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_2000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_2000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 2000000
+        }
+    },
+	"B_4000000": {
+        "path": "inputs/micro/B_4000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_4000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_4000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 4000000
+        }
+    },
+	"B_8000000": {
+        "path": "inputs/micro/B_8000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_8000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_8000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 8000000
+        }
+    },
+	"B_16000000": {
+        "path": "inputs/micro/B_16000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_16000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_16000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 16000000
+        }
+    },
+	"B_32000000": {
+        "path": "inputs/micro/B_32000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_32000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_32000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 32000000
+        }
+    },
+	"B_64000000": {
+        "path": "inputs/micro/B_64000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_64000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_64000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 64000000
+        }
+    },
+	"B_128000000": {
+        "path": "inputs/micro/B_128000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_128000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_128000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 128000000
+        }
+    },
+	"B_256000000": {
+        "path": "inputs/micro/B_256000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_256000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_256000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 256000000
+        }
+	},
+	"B_512000000": {
+        "path": "inputs/micro/B_512000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_512000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_512000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 512000000
+        }
+    },
+	"B_1024000000": {
+        "path": "inputs/micro/B_1024000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_1024000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_1024000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 1024000000
+        }
+    },
+	"B_2048000000": {
+        "path": "inputs/micro/B_2048000000.bin",
+        "type": {
+            "type": "bag",
+            "inner": {
+                "type": "record",
+                "attributes": [{
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_2048000000.bin",
+                    "attrName": "d_key",
+                    "attrNo": 1
+                }, {
+                    "type": {
+                        "type": "int"
+                    },
+                    "relName": "inputs/micro/B_2048000000.bin",
+                    "attrName": "d_val",
+                    "attrNo": 2
+                }]
+            }
+        },
+        "plugin": {
+            "type": "block",
+            "linehint": 2048000000
+        }
+    }   
 }

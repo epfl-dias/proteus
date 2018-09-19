@@ -615,7 +615,7 @@ void HashJoinChained::open_build(RawPipeline * pip){
 
 void HashJoinChained::open_probe(RawPipeline * pip){
     std::cout << "HashJoinChained::open::build_" << pip->getGroup() << std::endl;
-    std::vector<void *> next_w_values = confs[pip->getGroup()];
+    std::vector<void *> next_w_values = confs[0];
     uint32_t *          head          = (uint32_t *) next_w_values.back();
 
     // next_w_values.pop_back();
@@ -638,6 +638,7 @@ void HashJoinChained::close_build(RawPipeline * pip){
 
 void HashJoinChained::close_probe(RawPipeline * pip){
     std::cout << "HashJoinChained::close::probe_" << pip->getGroup() << std::endl;
+    if (pip->getGroup() != 0)
     for (const auto &p: confs[pip->getGroup()]) free(p);
     std::cout << "HashJoinChained::close::probe2" << std::endl;
 }

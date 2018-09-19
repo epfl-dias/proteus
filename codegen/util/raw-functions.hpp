@@ -37,6 +37,8 @@ RawContext * prepareContext(string moduleName);
 // "Library" functions that can be "extern'd" from user code.
 //===----------------------------------------------------------------------===//
 
+extern "C" void nonTemporalCopy (char* out, char* in, int n);
+
 extern "C" int printi(int X);
 
 extern "C" int printShort(short X);

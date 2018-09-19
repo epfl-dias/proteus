@@ -28,6 +28,16 @@
 
 namespace gpu_intrinsic{
 
+Value * load_ca(GpuRawContext * const context, Value * address);
+
+Value * load_ca16(GpuRawContext * const context, Value * address);
+
+Value * load_cs(GpuRawContext * const context, Value * address);
+
+void store_wb32(GpuRawContext * const context, Value * address, Value * value);
+
+void store_wb16(GpuRawContext * const context, Value * address, Value * value); 
+
 /**
  * @brief Creates a vote.all(i1) call
  *

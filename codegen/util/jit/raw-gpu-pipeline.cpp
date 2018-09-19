@@ -107,16 +107,10 @@ RawGpuPipelineGen::RawGpuPipelineGen(RawContext * context, std::string pipName, 
 
     registerFunction("llvm.ctpop"                           , Intrinsic::getDeclaration(getModule(), Intrinsic::ctpop         , int32_type     ));
 
-
-
-
-    registerFunction("llvm.nvvm.bar.warp.sync"              , Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_bar_warp_sync)             );
+	registerFunction("llvm.nvvm.bar.warp.sync"              , Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_bar_warp_sync)             );
     
     registerFunction("llvm.nvvm.shfl.sync.bfly.i32"         , Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_shfl_sync_bfly_i32)        );
     registerFunction("llvm.nvvm.shfl.sync.idx.i32"          , Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_shfl_sync_idx_i32)         );
-
-
-
 
     FunctionType *intrprinti64 = FunctionType::get(void_type, std::vector<Type *>{int64_type}, false);
     Function *intr_pprinti64 = Function::Create(intrprinti64, Function::ExternalLinkage, "dprinti64", getModule());
@@ -346,8 +340,8 @@ Function * RawGpuPipelineGen::prepareConsumeWrapper(){
                                 entry, 
                                 Builder->CreateBitCast(params, ptr_t),
                                 strm,
-                                context->createInt32(maxGridSize ),
-                                context->createInt32(maxBlockSize)
+                                context->createInt32(maxBlockSize),
+                                context->createInt32(maxGridSize )
                                 };
 
     Function      * launch      = getFunction("launch_kernel_strm_sized");
@@ -549,7 +543,7 @@ void * RawGpuPipelineGen::getKernel() const{
 }
 
 RawPipeline * RawGpuPipelineGen::getPipeline(int group_id){
-    void       * func       = getKernel();
+    void       * func       = getConsume();
 
     std::vector<std::pair<const void *, std::function<opener_t>>> openers{this->openers};
     std::vector<std::pair<const void *, std::function<closer_t>>> closers{this->closers};

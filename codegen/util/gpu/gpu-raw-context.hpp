@@ -90,6 +90,8 @@ public:
     virtual llvm::Value * threadId ();
     virtual llvm::Value * threadIdInBlock();
     virtual llvm::Value * blockId  ();
+    virtual llvm::Value * blockDim ();
+    virtual llvm::Value * gridDim  ();
     virtual llvm::Value * threadNum();
     virtual llvm::Value * laneId   ();
     virtual void          createMembar_gl();

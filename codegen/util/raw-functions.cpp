@@ -24,11 +24,23 @@
 #include "util/raw-functions.hpp"
 #include <ext/stdio_filebuf.h>
 #include <ostream>
+#include <immintrin.h>
 
 //Remember to add these functions as extern in .hpp too!
 extern "C" double putchari(int X) {
 	putchar((char) X);
 	return 0;
+}
+
+#define CACHE_CAP 1024
+
+void nonTemporalCopy (char* out, char* in, int n){
+	//__m256i* out_m;
+	//__m256i* in_m;
+    for (int i = 0; i < n*CACHE_CAP; i += 32) {
+        _mm256_stream_si256 ((__m256i*) (out + i), *((__m256i*) (in + i)));
+    	//out[i] = in[i];
+    }
 }
 
 void printBoolean(bool in)	{
@@ -672,10 +684,6 @@ void releaseMemoryChunk(void* chunk)	{
 	return freeRegion(chunk);
 }
 
-#ifdef __AVX2__
-#include <immintrin.h>
-#endif
-
 /**
  * Parsing
  */
@@ -1091,6 +1099,10 @@ static void registerFunctions(RawContext * context)	{
 	vector<Type*> ArgsRelMemoryChunk;
 	ArgsRelMemoryChunk.insert(ArgsRelMemoryChunk.begin(),void_ptr_type);
 
+
+	vector<Type*> ArgsCopyNT;
+	ArgsCopyNT.push_back(char_ptr_type);
+	ArgsCopyNT.push_back(char_ptr_type);
 	/**
 	 * Args of timing functions
 	 */
@@ -1130,11 +1142,15 @@ static void registerFunctions(RawContext * context)	{
 	FunctionType *FTflushDelim 			  =	FunctionType::get(void_type, ArgsFlushDelim, false);
 	FunctionType *FTflushOutput 		  =	FunctionType::get(void_type, ArgsFlushOutput, false);
 
+	FunctionType *FTcopynt                = FunctionType::get(void_type, ArgsCopyNT, false);
+
 	FunctionType *FTmemoryChunk 		  = FunctionType::get(void_ptr_type, ArgsMemoryChunk, false);
 	FunctionType *FTincrMemoryChunk 	  =	FunctionType::get(void_ptr_type, ArgsIncrMemoryChunk, false);
 	FunctionType *FTreleaseMemoryChunk 	  = FunctionType::get(void_type, ArgsRelMemoryChunk, false);
 
 	FunctionType *FTtiming 			   	  = FunctionType::get(void_type, ArgsTiming, false);
+
+	Function *nonTemporalCopy_       = Function::Create(FTcopynt, Function::ExternalLinkage,"nonTemporalCopy", TheModule);
 
 	Function *printi_ 		= Function::Create(FTint, Function::ExternalLinkage,"printi", TheModule);
 	Function *printi64_ 	= Function::Create(FTint64, Function::ExternalLinkage,"printi64", TheModule);
@@ -1372,6 +1388,7 @@ static void registerFunctions(RawContext * context)	{
 	Function *parse_line_json = Function::Create(FT_parse_line_json,
 			Function::ExternalLinkage, "parseLineJSON", TheModule);
 
+	context->registerFunction("nonTemporalCopy", nonTemporalCopy_);
 
 	context->registerFunction("printi", printi_);
 	context->registerFunction("printi64", printi64_);
