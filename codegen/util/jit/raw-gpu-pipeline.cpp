@@ -23,7 +23,6 @@
 
 #include "raw-gpu-pipeline.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
-#include "multigpu/buffer_manager.cuh"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -318,7 +317,7 @@ Function * RawGpuPipelineGen::prepareConsumeWrapper(){
     auto            args        = cons->arg_begin();
     vector<Value *> mems    ;
     for (size_t i = 0 ; i < inputs.size() - 1 ; ++i, ++args){ //handle state separately
-        mems.push_back(context->CreateEntryBlockAlloca("arg_" + to_string(i), inputs[i]));
+        mems.push_back(context->CreateEntryBlockAlloca("arg_" + std::to_string(i), inputs[i]));
         Builder->CreateStore(args, mems.back());
     }
     mems.push_back(args);
@@ -557,13 +556,13 @@ RawPipeline * RawGpuPipelineGen::getPipeline(int group_id){
     if (copyStateFrom){
         RawPipeline * copyFrom = copyStateFrom->getPipeline(group_id);
 
-        openers.insert(openers.begin(), make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->open (); pip->setStateVar(0, copyFrom->state);}));
+        openers.insert(openers.begin(), std::make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->open (); pip->setStateVar(0, copyFrom->state);}));
         // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
-        closers.insert(closers.begin(), make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->close();                                      }));
+        closers.insert(closers.begin(), std::make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->close();                                      }));
     } else {
-        openers.insert(openers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
+        openers.insert(openers.begin(), std::make_pair(this, [        ](RawPipeline * pip){                                                        }));
         // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
-        closers.insert(closers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
+        closers.insert(closers.begin(), std::make_pair(this, [        ](RawPipeline * pip){                                                        }));
     }
     
     return new RawPipeline(func, getModule()->getDataLayout().getTypeAllocSize(state_type), this, state_type, openers, closers, wrapper_module.getCompiledFunction(open__function), wrapper_module.getCompiledFunction(close_function), group_id, execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);

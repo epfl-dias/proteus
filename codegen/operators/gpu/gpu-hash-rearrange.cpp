@@ -1004,7 +1004,7 @@ void GpuHashRearrange::close(RawPipeline * pip){
     std::cout << "<<<<<<<---------------------------->>>>>>>>>>>" << grid_size << " " << attr_size[0] << std::endl;
     // mv_description * mv_descs = new mv_description[part * grid_size];
     size_t mv_descs_i = 0;
-    for (size_t part = 0 ; part < numOfBuckets ; ++part){
+    for (int part = 0 ; part < numOfBuckets ; ++part){
         std::vector<int32_t> idx(grid_size);
         for (size_t i = 0 ; i < grid_size ; ++i) {
             idx[i] = i * numOfBuckets + part;

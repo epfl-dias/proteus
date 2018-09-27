@@ -28,10 +28,9 @@
 #include "llvm/Analysis/Passes.h"
 #include "llvm/IR/PassManager.h"
 #include "topology/affinity_manager.hpp"
-
-#include "multigpu/buffer_manager.cuh" //initializeModule
-
 #include "util/jit/raw-gpu-module.hpp"
+
+void initializeModule(CUmodule & cudaModule);
 
 LLVMTargetMachine * RawGpuModule::TheTargetMachine = nullptr;
 legacy::PassManager RawGpuModule::Passes                    ;
@@ -230,7 +229,7 @@ void RawGpuModule::compileAndLoad(){
         legacy::PassManager PM;
 
         // Ask the target to add backend passes as necessary.
-        TheTargetMachine->addPassesToEmitFile(PM, ostream, llvm::TargetMachine::CGFT_AssemblyFile, false); //NULL for LLVM7.0
+        TheTargetMachine->addPassesToEmitFile(PM, ostream, nullptr, llvm::TargetMachine::CGFT_AssemblyFile, false);
 
         PM.run(*(getModule()));
     } // flushes stream and ostream

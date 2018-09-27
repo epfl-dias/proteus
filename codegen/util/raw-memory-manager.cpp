@@ -22,11 +22,13 @@
 */
 
 #include "util/raw-memory-manager.hpp"
-#include "multigpu/buffer_manager.cuh"
 #include "topology/topology.hpp"
 #include "topology/affinity_manager.hpp"
 
 constexpr size_t freed_cache_cap      = 16;
+
+void buffer_manager_init(size_t gpu_buffs, size_t cpu_buffs);
+void buffer_manager_destroy();
 
 void RawMemoryManager::init(){
     const topology &topo = topology::getInstance();
@@ -60,11 +62,11 @@ void RawMemoryManager::init(){
             cpu_managers[cpu.index_in_topo]->free(ptrs[i]);
         }
     }
-    buffer_manager<int32_t>::init(256, 1024); // (*4*4, *4*4)
+    buffer_manager_init(256, 1024); // (*4*4, *4*4)
 }
 
 void RawMemoryManager::destroy(){
-    buffer_manager<int32_t>::destroy();
+    buffer_manager_destroy();
     const auto &topo = topology::getInstance();
     for (const auto &gpu: topo.getGpus()){
         set_device_on_scope d(gpu);

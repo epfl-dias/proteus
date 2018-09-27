@@ -76,7 +76,7 @@ public:
 
 
 
-    static __host__ void init(int size = 64, int h_size = 64, size_t buff_buffer_size = 8, size_t buff_keep_threshold = 16);
+    static __host__ void init(size_t size = 64, size_t h_size = 64, size_t buff_buffer_size = 8, size_t buff_keep_threshold = 16);
 
     static void dev_buff_manager(int dev);
 
@@ -121,7 +121,7 @@ public:
 //         return false;
 //     }
 
-    static __host__ inline T * h_get_buffer(int dev);
+    static __host__ T * h_get_buffer(int dev);
 
 private:
     static __device__ __forceinline__ void __release_buffer_device(T * buff){
@@ -151,7 +151,7 @@ private:
             if (size > keep_threshold){
                 uint32_t devid = gpu->id;
                 nvtxRangePushA("release_buffer_host_devbuffer_overflow");
-                for (int i = 0 ; i < device_buff_size ; ++i) device_buff[devid][i] = device_buffs_pool[devid][size-i-1];
+                for (size_t i = 0 ; i < device_buff_size ; ++i) device_buff[devid][i] = device_buffs_pool[devid][size-i-1];
                 device_buffs_pool[devid].erase(device_buffs_pool[devid].end()-device_buff_size, device_buffs_pool[devid].end());
                 release_buffer_host<<<1, 1, 0, release_streams[devid]>>>((void **) device_buff[devid], device_buff_size);
                 gpu_run(cudaStreamSynchronize(release_streams[devid]));

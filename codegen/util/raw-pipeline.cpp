@@ -2,7 +2,6 @@
 #include "common/gpu/gpu-common.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 #include <thread>
-#include "multigpu/buffer_manager.cuh"
 #include "util/raw-memory-manager.hpp"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/InitializePasses.h"
@@ -416,13 +415,13 @@ RawPipeline * RawPipelineGen::getPipeline(int group_id){
     if (copyStateFrom){
         RawPipeline * copyFrom = copyStateFrom->getPipeline(group_id);
 
-        openers.insert(openers.begin(), make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->open (); pip->setStateVar(0, copyFrom->state);}));
+        openers.insert(openers.begin(), std::make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->open (); pip->setStateVar(0, copyFrom->state);}));
         // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
-        closers.insert(closers.begin(), make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->close();                                      }));
+        closers.insert(closers.begin(), std::make_pair(this, [copyFrom](RawPipeline * pip){copyFrom->close();                                      }));
     } else {
-        openers.insert(openers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
+        openers.insert(openers.begin(), std::make_pair(this, [        ](RawPipeline * pip){                                                        }));
         // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
-        closers.insert(closers.begin(), make_pair(this, [        ](RawPipeline * pip){                                                        }));
+        closers.insert(closers.begin(), std::make_pair(this, [        ](RawPipeline * pip){                                                        }));
     }
 
     return new RawPipeline(func, getModule()->getDataLayout().getTypeAllocSize(state_type), this, state_type, openers, closers, getCompiledFunction(open__function), getCompiledFunction(close_function), group_id, execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);

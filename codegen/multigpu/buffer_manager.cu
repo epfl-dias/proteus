@@ -20,6 +20,13 @@
 // #include <utmpx.h>
 // #include <unistd.h>
 
+void buffer_manager_init(size_t gpu_buffs, size_t cpu_buffs){
+    buffer_manager<int32_t>::init(gpu_buffs, cpu_buffs);
+}
+
+void buffer_manager_destroy(){
+    buffer_manager<int32_t>::destroy();
+}
 
 template<typename T, typename... Args>
 __host__ T * cuda_new(int dev, Args... args){
@@ -211,7 +218,7 @@ __device__ T * buffer_manager<T>::try_get_buffer(){
 #include <topology/topology.hpp>
 
 template<typename T>
-__host__ void buffer_manager<T>::init(int size, int h_size, size_t buff_buffer_size, size_t buff_keep_threshold){
+__host__ void buffer_manager<T>::init(size_t size, size_t h_size, size_t buff_buffer_size, size_t buff_keep_threshold){
     const topology &topo = topology::getInstance();
     // std::cout << topo << std::endl;
 
@@ -421,7 +428,7 @@ __host__ void buffer_manager<T>::init(int size, int h_size, size_t buff_buffer_s
 
 
     for (const auto &cpu: topo.getCpuNumaNodes()){
-        buffer_pool_constrs.emplace_back([cpu, h_size, cores, &buff_cache]{
+        buffer_pool_constrs.emplace_back([cpu, h_size, &buff_cache]{
             set_exec_location_on_scope cu{cpu};
             const auto &topo = topology::getInstance();
 
@@ -565,7 +572,7 @@ __host__ void buffer_manager<T>::destroy(){
     size_t h_size = buffer_manager<T>::h_size;
 
     for (const auto &cpu: topo.getCpuNumaNodes()){
-        buffer_pool_constrs.emplace_back([cpu, h_size]{
+        buffer_pool_constrs.emplace_back([cpu]{
             set_exec_location_on_scope cu{cpu};
             RawMemoryManager::freePinned(h_h_buff_start[cpu.id]);
             delete h_pool_numa[cpu.id];

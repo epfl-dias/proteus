@@ -29,7 +29,7 @@ private:
 
 
     // int          lock;      //consider changing the orde of parameters to : data, cnt, lock (128bits) to load the important part of the DS
-    volatile int lock;      //consider changing the orde of parameters to : data, cnt, lock (128bits) to load the important part of the DS
+    /*volatile if any op is not atomic*/ int lock;      //consider changing the orde of parameters to : data, cnt, lock (128bits) to load the important part of the DS
     volatile T * data;      //OR cnt, size, data, lock to load the non-atomic part of the DS with a single 128bit load
 
 public:
@@ -39,7 +39,7 @@ public:
         gpu_run(cudaMalloc(&data, size*sizeof(T)));
 
         if (fill.size() > 0){
-            gpu_run(cudaMemcpy((void *) data, fill.data(), fill.size()*sizeof(T), cudaMemcpyDefault));
+            gpu_run(cudaMemcpy(const_cast<T *>(data), fill.data(), fill.size()*sizeof(T), cudaMemcpyDefault));
             cnt = fill.size();
         }
     }
@@ -52,7 +52,7 @@ public:
         // }
         // printf("\n");
 
-        gpu_run(cudaFree((T *) data));
+        gpu_run(cudaFree(const_cast<T *>(data)));
 
         int dev = topology::getInstance().getActiveGpu().id;
         cout << "--------------------------------------------------------->dev" << dev << "_stack: " << cnt << " " << size << endl;
@@ -64,7 +64,7 @@ public:
     __device__ __forceinline__ void push(T v){
         // assert(__popc(__ballot(1)) == 1);
 
-        while (atomicCAS((int *) &lock, 0, 1) != 0);
+        while (atomicCAS(const_cast<int *>(&lock), 0, 1) != 0);
 
         // assert(cnt < size);
         data[cnt++] = v;
@@ -73,17 +73,17 @@ public:
         // lock = 0;       //FIXME: atomicExch() is probably needed here. This should have undef behavior
         __threadfence();
 
-        atomicExch((int *) &lock, 0);
+        atomicExch(const_cast<int *>(&lock), 0);
     }
 
     __device__ __forceinline__ bool try_pop(T *ret){
         // assert(__popc(__ballot(1)) == 1);
 
-        if (atomicCAS((int *) &lock, 0, 1) != 0) return false;
+        if (atomicCAS(const_cast<int *>(&lock), 0, 1) != 0) return false;
 
         if (cnt == 0) {
             // lock = 0;   //FIXME: atomicExch() is probably needed here. This should have undef behavior
-            atomicExch((int *) &lock, 0);
+            atomicExch(const_cast<int *>(&lock), 0);
             // printf("popped empty\n");
             return false;
         }
@@ -95,7 +95,7 @@ public:
 
         __threadfence();
 
-        atomicExch((int *) &lock, 0);
+        atomicExch(const_cast<int *>(&lock), 0);
 
         return true;
     }
@@ -105,11 +105,11 @@ public:
 
         if (cnt == 0) return false;
 
-        while (atomicCAS((int *) &lock, 0, 1) != 0);
+        while (atomicCAS(const_cast<int *>(&lock), 0, 1) != 0);
 
         if (cnt == 0) {
             // lock = 0;   //FIXME: atomicExch() is probably needed here. This should have undef behavior
-            atomicExch((int *) &lock, 0);
+            atomicExch(const_cast<int *>(&lock), 0);
             // printf("popped empty\n");
             return false;
         }
@@ -121,7 +121,7 @@ public:
 
         __threadfence();
 
-        atomicExch((int *) &lock, 0);
+        atomicExch(const_cast<int *>(&lock), 0);
 
         return true;
     }

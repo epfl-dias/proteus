@@ -202,7 +202,7 @@ void RawCpuModule::compileAndLoad(){
             legacy::PassManager PM;
 
             // Ask the target to add backend passes as necessary.
-            TheTargetMachine->addPassesToEmitFile(PM, ostream, llvm::TargetMachine::CGFT_AssemblyFile, false); //NULL for LLVM7.0
+            TheTargetMachine->addPassesToEmitFile(PM, ostream, nullptr, llvm::TargetMachine::CGFT_AssemblyFile, false);
 
             PM.run(*(getModule()));
         }
