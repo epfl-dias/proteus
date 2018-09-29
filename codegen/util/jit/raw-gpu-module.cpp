@@ -229,7 +229,15 @@ void RawGpuModule::compileAndLoad(){
         legacy::PassManager PM;
 
         // Ask the target to add backend passes as necessary.
-        TheTargetMachine->addPassesToEmitFile(PM, ostream, nullptr, llvm::TargetMachine::CGFT_AssemblyFile, false);
+        TheTargetMachine->addPassesToEmitFile(
+            PM, 
+            ostream, 
+#if CLANG_VERSION_MAJOR >= 7
+            nullptr, 
+#endif
+            llvm::TargetMachine::CGFT_AssemblyFile,
+            false
+        );
 
         PM.run(*(getModule()));
     } // flushes stream and ostream

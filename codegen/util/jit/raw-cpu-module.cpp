@@ -68,6 +68,15 @@ RawCpuModule::RawCpuModule(RawContext * context, std::string pipName):
 }
 
 void RawCpuModule::init(){
+    LLVMLinkInMCJIT();
+    LLVMInitializeAllTargets();
+    // LLVMInitializeNativeAsmPrinter();
+    // LLVMInitializeNativeAsmParser();
+    // LLVMInitializeNVPTXTarget();
+    // LLVMInitializeNVPTXTargetInfo();
+    // LLVMInitializeNVPTXTargetMC();
+    // LLVMInitializeNVPTXAsmPrinter();
+
     //Get the triplet for current CPU
     auto TargetTriple = sys::getDefaultTargetTriple();
 
@@ -92,17 +101,21 @@ void RawCpuModule::init(){
       for (auto &F : HostFeatures) Features.AddFeature(F.first(), F.second);
     }
 
-    // std::cout << CPU.str()            << std::endl;
-    // std::cout << Features.getString() << std::endl;
+    std::cout << TargetTriple         << std::endl;
+    std::cout << Target               << std::endl;
+    std::cout << CPU.str()            << std::endl;
+    std::cout << Features.getString() << std::endl;
+
+    assert(Target->hasTargetMachine());
 
     TargetOptions opt;
-    auto RM = Optional<Reloc::Model>();
+    Optional<Reloc::Model> RM;
     TheTargetMachine = (LLVMTargetMachine *) Target->createTargetMachine(TargetTriple, CPU, 
-                                                    Features.getString(), //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
+                                                    "",//Features.getString(), //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
                                                     opt, 
-                                                    RM, 
-                                                    Optional<CodeModel::Model>{},
-                                                    CodeGenOpt::Aggressive);
+                                                    RM);//, 
+                                                    // Optional<CodeModel::Model>{},
+                                                    // CodeGenOpt::Aggressive);
 
                                   // // Override function attributes based on CPUStr, FeaturesStr, and command line
                                   // // flags.
@@ -202,7 +215,15 @@ void RawCpuModule::compileAndLoad(){
             legacy::PassManager PM;
 
             // Ask the target to add backend passes as necessary.
-            TheTargetMachine->addPassesToEmitFile(PM, ostream, nullptr, llvm::TargetMachine::CGFT_AssemblyFile, false);
+            TheTargetMachine->addPassesToEmitFile(
+                PM, 
+                ostream, 
+#if CLANG_VERSION_MAJOR >= 7
+                nullptr, 
+#endif
+                llvm::TargetMachine::CGFT_AssemblyFile,
+                false
+            );
 
             PM.run(*(getModule()));
         }
