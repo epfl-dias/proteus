@@ -62,7 +62,7 @@ void RawMemoryManager::init(){
             cpu_managers[cpu.index_in_topo]->free(ptrs[i]);
         }
     }
-    buffer_manager_init(256, 1024); // (*4*4, *4*4)
+    buffer_manager_init(4*256, 1024); // (*4*4, *4*4)
 }
 
 void RawMemoryManager::destroy(){
@@ -90,6 +90,7 @@ void * RawMemoryManager::mallocGpu(size_t bytes){
     bytes = fixSize(bytes);
     const auto & dev = topology::getInstance().getActiveGpu();
     void * ptr = gpu_managers[dev.id]->malloc(bytes);
+    assert(ptr);
     nvtxRangePop();
     rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_GPU_END);
     return ptr;
@@ -110,10 +111,11 @@ void * RawMemoryManager::mallocPinned(size_t bytes){
     rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_START);
     nvtxRangePushA("mallocPinned");
     bytes = fixSize(bytes);
-    const auto &cpu = get_affinity();
+    const auto &cpu = affinity::get();
     uint32_t node = cpu.index_in_topo;
     std::cout << "node: " << cpu.id << " index: " << node << std::endl;
     void * ptr = cpu_managers[node]->malloc(bytes);
+    assert(ptr);
     nvtxRangePop();
     rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_END);
     std::cout << "Alloc: " << node << " " << ptr << " " << bytes << " " << topo.getCpuNumaNodeAddressed(ptr)->id; //std::endl;
@@ -146,7 +148,7 @@ void GpuMemAllocator::free(void * ptr){
 }
 
 void * NUMAPinnedMemAllocator::malloc(size_t bytes){
-    void *ptr = get_affinity().alloc(bytes);
+    void *ptr = affinity::get().alloc(bytes);
     assert(ptr && "Memory allocation failed!");
     assert(bytes > 4);
     ((int *) ptr)[0] = 0; //force allocation of first 4bytes

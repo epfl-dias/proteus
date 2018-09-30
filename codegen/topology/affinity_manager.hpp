@@ -26,9 +26,21 @@
 
 #include "topology/topology.hpp"
 
+template<typename T> class buffer_manager;
 
-void set_affinity(const topology::cpunumanode &cpu);
-const topology::cpunumanode &get_affinity();
+class affinity{
+private:
+    static void set(const topology::cpunumanode &cpu );
+    static void set(const topology::core        &core);
+
+    static const topology::cpunumanode &get         ();
+    static cpu_set_t                    get_cpu_set ();
+
+    friend class exec_location;
+    friend class RawMemoryManager;
+    friend class NUMAPinnedMemAllocator;
+    friend class buffer_manager<int32_t>;
+};
 
 class exec_location{
 private:
@@ -36,7 +48,7 @@ private:
     const topology::cpunumanode    &cpu         ;
 
 public:
-    exec_location(): cpu(get_affinity()){
+    exec_location(): cpu(affinity::get()){
         gpu_run(cudaGetDevice(&gpu_device));
 
         // CPU_ZERO(&cpus);
@@ -64,7 +76,7 @@ public:
         // std::cout << "d" << gpu_device << " " << cpu.local_cpu_set << std::endl;
         if (gpu_device >= 0) gpu_run(cudaSetDevice(gpu_device));
         // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpus);
-        set_affinity(cpu);
+        affinity::set(cpu);
         // std::this_thread::yield();
         // cpu_set_t d;
         // err = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &d);

@@ -190,7 +190,7 @@ __device__ T * buffer_manager<T>::get_buffer(){
 
 template<typename T>
 __host__   T * buffer_manager<T>::get_buffer(){
-    return get_buffer_numa(get_affinity());
+    return get_buffer_numa(affinity::get());
 }
 #else
 template<typename T>
@@ -198,7 +198,7 @@ __host__ __device__ T * buffer_manager<T>::get_buffer(){
 #ifdef __CUDA_ARCH__
     return pool->pop();
 #else
-    return get_buffer_numa(get_affinity());
+    return get_buffer_numa(affinity::get());
 #endif
 }
 #endif
@@ -438,7 +438,7 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size, size_t buff_bu
 
             // T * mem;
             // gpu_run(cudaMallocHost(&mem, h_vector_size*sizeof(T)*h_size));
-            printf("Memory at %p is at node %d (expected: %d)\n", mem, topo.getCpuNumaNodeAddressed(mem)->id, get_affinity().id);
+            printf("Memory at %p is at node %d (expected: %d)\n", mem, topo.getCpuNumaNodeAddressed(mem)->id, affinity::get().id);
             // assert(topo.getCpuNumaNodeAddressed(mem)->id == cpu.id); //FIXME: fails on power9, should reenable after we fix it
 
             h_h_buff_start[cpu.id] = mem;
