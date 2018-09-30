@@ -232,7 +232,7 @@ void RawGpuModule::compileAndLoad(){
         TheTargetMachine->addPassesToEmitFile(
             PM, 
             ostream, 
-#if CLANG_VERSION_MAJOR >= 7
+#if LLVM_VERSION_MAJOR >= 7
             nullptr, 
 #endif
             llvm::TargetMachine::CGFT_AssemblyFile,

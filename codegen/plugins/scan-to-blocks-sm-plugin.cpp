@@ -914,6 +914,12 @@ void ScanToBlockSMPlugin::scan(const RawOperator& producer){
         max_pack_size = std::max(pack_N, max_pack_size);
     }
 
+    size_t max_field_size = 0;
+    for (const auto &f: wantedFields) {
+        size_t field_size = context->getSizeOf(f->getLLVMType(llvmContext));
+        max_field_size = std::max(field_size, max_field_size);
+    }
+
     Builder->CreateStore(
                             ConstantArray::get(arr_type, N_parts_init),
                             N_parts_ptr
@@ -933,9 +939,7 @@ void ScanToBlockSMPlugin::scan(const RawOperator& producer){
     Builder->CreateStore(zero_idx, mem_itemCtr);
     NamedValuesBinaryCol[itemCtrVar] = mem_itemCtr;
 
-
-
-    blockSize = ConstantInt::get(size_type, h_vector_size);
+    blockSize = ConstantInt::get(size_type, (h_vector_size*sizeof(int32_t))/max_field_size);
 
     BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanCond", F);
 

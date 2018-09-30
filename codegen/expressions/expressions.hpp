@@ -125,7 +125,7 @@ struct less_map: std::binary_function<const Expression *,
 class Constant : public Expression		{
 public:
 	enum ConstantType {
-		INT, INT64, BOOL, FLOAT, STRING, DSTRING
+		INT, INT64, BOOL, FLOAT, STRING, DSTRING, DATE
 	};
 	Constant(const ExpressionType* type) : Expression(type)	{}
 	~Constant()										  	{}
@@ -212,7 +212,7 @@ public:
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
 			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == INT) {
+			if (rConst.getConstantType() == INT64) {
 				const Int64Constant& rInt = dynamic_cast<const Int64Constant&>(r);
 				cout << "1. Compatible (int64)! " << rConst.getConstantType() << endl;
 				cout << this->getVal() << " vs " << rInt.getVal() << endl;
@@ -229,6 +229,40 @@ public:
 	}
 private:
 	int64_t val;
+};
+
+class DateConstant : public Constant		{
+public:
+	DateConstant(int64_t val)
+		: Constant(new DateType()), val(val) 		{}
+	~DateConstant()									{}
+
+	int64_t getVal() const								{ return val; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const					{ return CONSTANT; }
+	ConstantType getConstantType() const			{ return DATE; }
+	inline bool operator<(const expressions::Expression& r) const {
+		if (this->getTypeID() == r.getTypeID()) {
+			const Constant& rConst = dynamic_cast<const Constant&>(r);
+			if (rConst.getConstantType() == DATE) {
+				const DateConstant& rInt = dynamic_cast<const DateConstant&>(r);
+				cout << "1. Compatible (date)! " << rConst.getConstantType() << endl;
+				cout << this->getVal() << " vs " << rInt.getVal() << endl;
+				return this->getVal() < rInt.getVal();
+			}
+			else {
+				return this->getConstantType() < rConst.getConstantType();
+			}
+
+		}
+		cout << "Not compatible (date) " << this->getTypeID() << endl;
+		return this->getTypeID() < r.getTypeID();
+
+	}
+private:
+	int64_t val;
+	static_assert(sizeof(time_t) == sizeof(int64_t), "expected 64bit time_t");
 };
 
 class BoolConstant : public Constant	{
@@ -1443,6 +1477,7 @@ class ExprVisitor
 public:
 	virtual RawValue visit(expressions::IntConstant *e)    		= 0;
 	virtual RawValue visit(expressions::Int64Constant *e) 		= 0;
+	virtual RawValue visit(expressions::DateConstant *e) 		= 0;
 	virtual RawValue visit(expressions::FloatConstant *e)  		= 0;
 	virtual RawValue visit(expressions::BoolConstant *e)   		= 0;
 	virtual RawValue visit(expressions::StringConstant *e) 		= 0;
@@ -1480,6 +1515,8 @@ public:
 			expressions::IntConstant *e2) = 0;
 	virtual RawValue visit(expressions::Int64Constant *e1,
 			expressions::Int64Constant *e2) = 0;
+	virtual RawValue visit(expressions::DateConstant *e1,
+			expressions::DateConstant *e2) = 0;
 	virtual RawValue visit(expressions::FloatConstant *e1,
 			expressions::FloatConstant *e2) = 0;
 	virtual RawValue visit(expressions::BoolConstant *e1,

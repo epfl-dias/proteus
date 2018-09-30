@@ -41,6 +41,13 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::Int64Constant *e) {
 	return valWrapper;
 }
 
+RawValue ExpressionGeneratorVisitor::visit(expressions::DateConstant *e) {
+	RawValue valWrapper;
+	valWrapper.value = ConstantInt::get(context->getLLVMContext(), APInt(64, e->getVal()));
+	valWrapper.isNull = context->createFalse();
+	return valWrapper;
+}
+
 RawValue ExpressionGeneratorVisitor::visit(expressions::FloatConstant *e) {
 	RawValue valWrapper;
 	valWrapper.value = ConstantFP::get(context->getLLVMContext(), APFloat(e->getVal()));
@@ -1336,6 +1343,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::NeExpression *e) {
 		switch (id) {
 		case DSTRING:
 		case INT64:
+		case DATE:
 		case INT:
 			valWrapper.value = TheBuilder->CreateICmpNE(left.value, right.value);
 			return valWrapper;
@@ -1378,6 +1386,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::GeExpression *e) {
 		switch (id) {
 		case DSTRING:
 		case INT64:
+		case DATE:
 		case INT:
 			valWrapper.value = TheBuilder->CreateICmpSGE(left.value, right.value);
 			return valWrapper;
@@ -1420,6 +1429,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
 		switch (id) {
 		case DSTRING:
 		case INT64:
+		case DATE:
 		case INT:
 			valWrapper.value = TheBuilder->CreateICmpSGT(left.value, right.value);
 			return valWrapper;
@@ -1471,6 +1481,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::LeExpression *e) {
 		switch (id) {
 		case DSTRING:
 		case INT64:
+		case DATE:
 		case INT:
 			valWrapper.value = TheBuilder->CreateICmpSLE(left.value, right.value);
 			return valWrapper;
@@ -1513,6 +1524,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::LtExpression *e) {
 		switch (id) {
 		case DSTRING:
 		case INT64:
+		case DATE:
 		case INT:
 #ifdef DEBUG
 {
@@ -1572,6 +1584,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::AddExpression *e) {
 
 		switch (id) {
 		case INT64:
+		case DATE:
 		case INT:
 			valWrapper.value = TheBuilder->CreateAdd(left.value, right.value);
 			return valWrapper;
@@ -1613,6 +1626,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::SubExpression *e) {
 
 		switch (id) {
 		case INT64:
+		case DATE:
 		case INT:
 			valWrapper.value = TheBuilder->CreateSub(left.value, right.value);
 			return valWrapper;

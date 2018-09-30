@@ -2538,5 +2538,605 @@
 			"brackets": false,
 			"policy": 2
 		}
+    },
+    "tpch1_partsupp": {
+        "path": "inputs/tpch1/partsupp.csv", 
+        "type": {
+            "type": "bag", 
+            "inner": {
+                "attributes": [
+                    {
+                        "attrName": "ps_partkey", 
+                        "relName": "inputs/tpch1/partsupp.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 1
+                    }, 
+                    {
+                        "attrName": "ps_suppkey", 
+                        "relName": "inputs/tpch1/partsupp.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 2
+                    }, 
+                    {
+                        "attrName": "ps_availqty", 
+                        "relName": "inputs/tpch1/partsupp.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 3
+                    }, 
+                    {
+                        "attrName": "ps_supplycost", 
+                        "relName": "inputs/tpch1/partsupp.csv", 
+                        "type": {
+                            "type": "float"
+                        }, 
+                        "attrNo": 4
+                    }, 
+                    {
+                        "attrName": "ps_comment", 
+                        "relName": "inputs/tpch1/partsupp.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 5
+                    }
+                ], 
+                "type": "record"
+            }
+        }, 
+        "plugin": {
+            "type": "block", 
+            "linehint": 800000
+        }
+    }, 
+    "tpch1_part": {
+        "path": "inputs/tpch1/part.csv", 
+        "type": {
+            "type": "bag", 
+            "inner": {
+                "attributes": [
+                    {
+                        "attrName": "p_partkey", 
+                        "relName": "inputs/tpch1/part.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 1
+                    }, 
+                    {
+                        "attrName": "p_name", 
+                        "relName": "inputs/tpch1/part.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 2
+                    }, 
+                    {
+                        "attrName": "p_mfgr", 
+                        "relName": "inputs/tpch1/part.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 3
+                    }, 
+                    {
+                        "attrName": "p_brand", 
+                        "relName": "inputs/tpch1/part.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 4
+                    }, 
+                    {
+                        "attrName": "p_type", 
+                        "relName": "inputs/tpch1/part.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 5
+                    }, 
+                    {
+                        "attrName": "p_size", 
+                        "relName": "inputs/tpch1/part.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 6
+                    }, 
+                    {
+                        "attrName": "p_retailprice", 
+                        "relName": "inputs/tpch1/part.csv", 
+                        "type": {
+                            "type": "float"
+                        }, 
+                        "attrNo": 7
+                    }, 
+                    {
+                        "attrName": "p_comment", 
+                        "relName": "inputs/tpch1/part.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 8
+                    }
+                ], 
+                "type": "record"
+            }
+        }, 
+        "plugin": {
+            "type": "block", 
+            "linehint": 200000
+        }
+    }, 
+    "tpch1_orders": {
+        "path": "inputs/tpch1/orders.csv", 
+        "type": {
+            "type": "bag", 
+            "inner": {
+                "attributes": [
+                    {
+                        "attrName": "o_orderkey", 
+                        "relName": "inputs/tpch1/orders.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 1
+                    }, 
+                    {
+                        "attrName": "o_custkey", 
+                        "relName": "inputs/tpch1/orders.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 2
+                    }, 
+                    {
+                        "attrName": "o_orderstatus", 
+                        "relName": "inputs/tpch1/orders.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 3
+                    }, 
+                    {
+                        "attrName": "o_totalprice", 
+                        "relName": "inputs/tpch1/orders.csv", 
+                        "type": {
+                            "type": "float"
+                        }, 
+                        "attrNo": 4
+                    }, 
+                    {
+                        "attrName": "o_orderdate", 
+                        "relName": "inputs/tpch1/orders.csv", 
+                        "type": {
+                            "type": "date"
+                        }, 
+                        "attrNo": 5
+                    }, 
+                    {
+                        "attrName": "o_orderpriority", 
+                        "relName": "inputs/tpch1/orders.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 6
+                    }, 
+                    {
+                        "attrName": "o_clerk", 
+                        "relName": "inputs/tpch1/orders.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 7
+                    }, 
+                    {
+                        "attrName": "o_shippriority", 
+                        "relName": "inputs/tpch1/orders.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 8
+                    }, 
+                    {
+                        "attrName": "o_comment", 
+                        "relName": "inputs/tpch1/orders.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 9
+                    }
+                ], 
+                "type": "record"
+            }
+        }, 
+        "plugin": {
+            "type": "block", 
+            "linehint": 1500000
+        }
+    }, 
+    "tpch1_supplier": {
+        "path": "inputs/tpch1/supplier.csv", 
+        "type": {
+            "type": "bag", 
+            "inner": {
+                "attributes": [
+                    {
+                        "attrName": "s_suppkey", 
+                        "relName": "inputs/tpch1/supplier.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 1
+                    }, 
+                    {
+                        "attrName": "s_name", 
+                        "relName": "inputs/tpch1/supplier.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 2
+                    }, 
+                    {
+                        "attrName": "s_address", 
+                        "relName": "inputs/tpch1/supplier.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 3
+                    }, 
+                    {
+                        "attrName": "s_nationkey", 
+                        "relName": "inputs/tpch1/supplier.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 4
+                    }, 
+                    {
+                        "attrName": "s_phone", 
+                        "relName": "inputs/tpch1/supplier.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 5
+                    }, 
+                    {
+                        "attrName": "s_acctbal", 
+                        "relName": "inputs/tpch1/supplier.csv", 
+                        "type": {
+                            "type": "float"
+                        }, 
+                        "attrNo": 6
+                    }, 
+                    {
+                        "attrName": "s_comment", 
+                        "relName": "inputs/tpch1/supplier.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 7
+                    }
+                ], 
+                "type": "record"
+            }
+        }, 
+        "plugin": {
+            "type": "block", 
+            "linehint": 10000
+        }
+    }, 
+    "tpch1_nation": {
+        "path": "inputs/tpch1/nation.csv", 
+        "type": {
+            "type": "bag", 
+            "inner": {
+                "attributes": [
+                    {
+                        "attrName": "n_nationkey", 
+                        "relName": "inputs/tpch1/nation.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 1
+                    }, 
+                    {
+                        "attrName": "n_name", 
+                        "relName": "inputs/tpch1/nation.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 2
+                    }, 
+                    {
+                        "attrName": "n_regionkey", 
+                        "relName": "inputs/tpch1/nation.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 3
+                    }, 
+                    {
+                        "attrName": "n_comment", 
+                        "relName": "inputs/tpch1/nation.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 4
+                    }
+                ], 
+                "type": "record"
+            }
+        }, 
+        "plugin": {
+            "type": "block", 
+            "linehint": 25
+        }
+    }, 
+    "tpch1_region": {
+        "path": "inputs/tpch1/region.csv", 
+        "type": {
+            "type": "bag", 
+            "inner": {
+                "attributes": [
+                    {
+                        "attrName": "r_regionkey", 
+                        "relName": "inputs/tpch1/region.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 1
+                    }, 
+                    {
+                        "attrName": "r_name", 
+                        "relName": "inputs/tpch1/region.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 2
+                    }, 
+                    {
+                        "attrName": "r_comment", 
+                        "relName": "inputs/tpch1/region.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 3
+                    }
+                ], 
+                "type": "record"
+            }
+        }, 
+        "plugin": {
+            "type": "block", 
+            "linehint": 5
+        }
+    }, 
+    "tpch1_lineitem": {
+        "path": "inputs/tpch1/lineitem.csv", 
+        "type": {
+            "type": "bag", 
+            "inner": {
+                "attributes": [
+                    {
+                        "attrName": "l_orderkey", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 1
+                    }, 
+                    {
+                        "attrName": "l_partkey", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 2
+                    }, 
+                    {
+                        "attrName": "l_suppkey", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 3
+                    }, 
+                    {
+                        "attrName": "l_linenumber", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 4
+                    }, 
+                    {
+                        "attrName": "l_quantity", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "float"
+                        }, 
+                        "attrNo": 5
+                    }, 
+                    {
+                        "attrName": "l_extendedprice", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "float"
+                        }, 
+                        "attrNo": 6
+                    }, 
+                    {
+                        "attrName": "l_discount", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "float"
+                        }, 
+                        "attrNo": 7
+                    }, 
+                    {
+                        "attrName": "l_tax", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "float"
+                        }, 
+                        "attrNo": 8
+                    }, 
+                    {
+                        "attrName": "l_returnflag", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 9
+                    }, 
+                    {
+                        "attrName": "l_linestatus", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 10
+                    }, 
+                    {
+                        "attrName": "l_shipdate", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "date"
+                        }, 
+                        "attrNo": 11
+                    }, 
+                    {
+                        "attrName": "l_commitdate", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "date"
+                        }, 
+                        "attrNo": 12
+                    }, 
+                    {
+                        "attrName": "l_receiptdate", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "date"
+                        }, 
+                        "attrNo": 13
+                    }, 
+                    {
+                        "attrName": "l_shipinstruct", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 14
+                    }, 
+                    {
+                        "attrName": "l_shipmode", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 15
+                    }, 
+                    {
+                        "attrName": "l_comment", 
+                        "relName": "inputs/tpch1/lineitem.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 16
+                    }
+                ], 
+                "type": "record"
+            }
+        }, 
+        "plugin": {
+            "type": "block", 
+            "linehint": 6001215
+        }
+    }, 
+    "tpch1_customer": {
+        "path": "inputs/tpch1/customer.csv", 
+        "type": {
+            "type": "bag", 
+            "inner": {
+                "attributes": [
+                    {
+                        "attrName": "c_custkey", 
+                        "relName": "inputs/tpch1/customer.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 1
+                    }, 
+                    {
+                        "attrName": "c_name", 
+                        "relName": "inputs/tpch1/customer.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 2
+                    }, 
+                    {
+                        "attrName": "c_address", 
+                        "relName": "inputs/tpch1/customer.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 3
+                    }, 
+                    {
+                        "attrName": "c_nationkey", 
+                        "relName": "inputs/tpch1/customer.csv", 
+                        "type": {
+                            "type": "int"
+                        }, 
+                        "attrNo": 4
+                    }, 
+                    {
+                        "attrName": "c_phone", 
+                        "relName": "inputs/tpch1/customer.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 5
+                    }, 
+                    {
+                        "attrName": "c_acctbal", 
+                        "relName": "inputs/tpch1/customer.csv", 
+                        "type": {
+                            "type": "float"
+                        }, 
+                        "attrNo": 6
+                    }, 
+                    {
+                        "attrName": "c_mktsegment", 
+                        "relName": "inputs/tpch1/customer.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 7
+                    }, 
+                    {
+                        "attrName": "c_comment", 
+                        "relName": "inputs/tpch1/customer.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 8
+                    }
+                ], 
+                "type": "record"
+            }
+        }, 
+        "plugin": {
+            "type": "block", 
+            "linehint": 150000
+        }
     }
 }

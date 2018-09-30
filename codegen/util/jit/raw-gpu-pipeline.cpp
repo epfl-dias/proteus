@@ -49,6 +49,10 @@ RawGpuPipelineGen::RawGpuPipelineGen(RawContext * context, std::string pipName, 
     Type * int64_type   = Type::getInt64Ty  (context->getLLVMContext());
     Type * void_type    = Type::getVoidTy   (context->getLLVMContext());
     Type * charPtrType  = Type::getInt8PtrTy(context->getLLVMContext());
+    Type * f32PtrType   = Type::getFloatPtrTy(context->getLLVMContext());
+    Type * f32Type      = Type::getFloatTy(context->getLLVMContext());
+    Type * f64PtrType   = Type::getDoublePtrTy(context->getLLVMContext());
+    Type * f64Type      = Type::getDoubleTy(context->getLLVMContext());
 
     Type * size_type;
     if      (sizeof(size_t) == 4) size_type = int32_type;
@@ -74,6 +78,9 @@ RawGpuPipelineGen::RawGpuPipelineGen(RawContext * context, std::string pipName, 
                                     getBuilder()->CreateCall(f, strm);
                                 }
                             );
+
+    registerFunction("atomicAdd_double"                     , Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_atomic_load_add_f64, f64PtrType));
+    registerFunction("atomicAdd_float"                      , Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_atomic_load_add_f32, f32PtrType));
 
     registerFunction("llvm.nvvm.shfl.bfly.i32"              , Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_shfl_bfly_i32)             );
 
@@ -260,6 +267,12 @@ void RawGpuPipelineGen::registerFunctions(){
 
     Function *intr_pqsort_llll = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_llll", getModule());
     registerFunction("qsort_llll", intr_pqsort_llll);
+
+    Function *intr_pqsort_iillllllll = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_iillllllll", getModule());
+    registerFunction("qsort_iillllllll", intr_pqsort_iillllllll);
+
+    Function *intr_pqsort_llllllllll = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_llllllllll", getModule());
+    registerFunction("qsort_llllllllll", intr_pqsort_llllllllll);
 }
 
 size_t RawGpuPipelineGen::prepareStateArgument(){

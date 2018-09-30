@@ -50,6 +50,8 @@ public:
 			expressions::IntConstant *e2);
 	RawValue visit(expressions::Int64Constant *e1,
 			expressions::Int64Constant *e2);
+	RawValue visit(expressions::DateConstant *e1,
+			expressions::DateConstant *e2);
 	RawValue visit(expressions::FloatConstant *e1,
 			expressions::FloatConstant *e2);
 	RawValue visit(expressions::BoolConstant *e1,

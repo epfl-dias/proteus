@@ -109,7 +109,7 @@ void RawCpuModule::init(){
     assert(Target->hasTargetMachine());
 
     TargetOptions opt;
-    Optional<Reloc::Model> RM;
+    Optional<Reloc::Model> RM{llvm::None};
     TheTargetMachine = (LLVMTargetMachine *) Target->createTargetMachine(TargetTriple, CPU, 
                                                     "",//Features.getString(), //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
                                                     opt, 
@@ -218,7 +218,7 @@ void RawCpuModule::compileAndLoad(){
             TheTargetMachine->addPassesToEmitFile(
                 PM, 
                 ostream, 
-#if CLANG_VERSION_MAJOR >= 7
+#if LLVM_VERSION_MAJOR >= 7
                 nullptr, 
 #endif
                 llvm::TargetMachine::CGFT_AssemblyFile,

@@ -2049,6 +2049,14 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 			assert(val["v"].IsDouble());
 			retValue = new expressions::FloatConstant(val["v"].GetDouble());
 		}
+	} else if (strcmp(valExpression, "date") == 0) {
+		if (isNull) {
+			retValue = createNull(new DateType());
+		} else {
+			assert(val.HasMember("v"));
+			assert(val["v"].IsInt64());
+			retValue = new expressions::DateConstant(val["v"].IsInt64());
+		}
 	} else if (strcmp(valExpression, "string") == 0) {
 		if (isNull) {
 			retValue = createNull(new StringType());
@@ -2418,6 +2426,8 @@ ExpressionType* ExpressionParser::parseExpressionType(const rapidjson::Value& va
 		return new Int64Type();
 	} else if (strcmp(valExprType, "float") == 0) {
 		return new FloatType();
+	} else if (strcmp(valExprType, "date") == 0) {
+		return new DateType();
 	} else if (strcmp(valExprType, "string") == 0) {
 		return new StringType();
 	} else if (strcmp(valExprType, "dstring") == 0) {

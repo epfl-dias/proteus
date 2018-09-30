@@ -45,6 +45,17 @@ RawValue ExpressionFlusherVisitor::visit(expressions::Int64Constant *e) {
 	return placeholder;
 }
 
+RawValue ExpressionFlusherVisitor::visit(expressions::DateConstant *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
+	Function *flushInt = context->getFunction("flushDate");
+	vector<Value*> ArgsV;
+	Value *val_int64 = ConstantInt::get(context->getLLVMContext(), APInt(64, e->getVal()));
+	ArgsV.push_back(val_int64);
+	ArgsV.push_back(outputFileLLVM);
+	context->getBuilder()->CreateCall(flushInt, ArgsV);
+	return placeholder;
+}
+
 RawValue ExpressionFlusherVisitor::visit(expressions::FloatConstant *e) {
 	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	Function *flushDouble = context->getFunction("flushDouble");

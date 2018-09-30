@@ -550,6 +550,15 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
 		context->getBuilder()->CreateCall(flushFunc,ArgsV);
 		return;
 	}
+	case DATE:
+	{
+		vector<Value*> ArgsV;
+		flushFunc = context->getFunction("flushDate");
+		ArgsV.push_back(val_attr);
+		ArgsV.push_back(fileName);
+		context->getBuilder()->CreateCall(flushFunc,ArgsV);
+		return;
+	}
 	case DSTRING:
 	{
 		vector<Value*> ArgsV;

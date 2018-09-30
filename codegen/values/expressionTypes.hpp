@@ -29,7 +29,7 @@
 /* Original.*/
 //enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, BLOCK };
 /* Extended due to caching (for now)*/
-enum typeID	{ BOOL, DSTRING, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, INT64, COMPOSITE, BLOCK};
+enum typeID	{ BOOL, DSTRING, STRING, FLOAT, INT, DATE, RECORD, LIST, BAG, SET, INT64, COMPOSITE, BLOCK};
 
 class ExpressionType {
 public:
@@ -112,6 +112,14 @@ class Int64Type : public PrimitiveType {
 public:
 	string getType() 	const 	{ return string("Int64"); }
 	typeID getTypeID()	const	{ return INT64; }
+	bool isPrimitive() 	const	{ return true; }
+	Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt64Ty(ctx);}
+};
+
+class DateType : public PrimitiveType {
+public:
+	string getType() 	const 	{ return string("Date"); }
+	typeID getTypeID()	const	{ return DATE; }
 	bool isPrimitive() 	const	{ return true; }
 	Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt64Ty(ctx);}
 };
@@ -350,6 +358,7 @@ public:
 	virtual void visit(IntType type) = 0;
 	virtual void visit(BoolType type) = 0;
 	virtual void visit(FloatType type) = 0;
+	virtual void visit(DateType type) = 0;
 	virtual void visit(StringType type) = 0;
 	virtual void visit(RecordType type) = 0;
 	virtual ~ExprTypeVisitor();

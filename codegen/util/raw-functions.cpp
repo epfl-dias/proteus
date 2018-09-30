@@ -24,6 +24,11 @@
 #include "util/raw-functions.hpp"
 #include <ext/stdio_filebuf.h>
 #include <ostream>
+#include <iostream>
+#include <chrono>
+#include <iomanip>
+#include <ctime>
+
 
 //Remember to add these functions as extern in .hpp too!
 extern "C" double putchari(int X) {
@@ -528,6 +533,14 @@ void flushInt64(size_t toFlush, char* fileName)	{
 	string name = string(fileName);
 	stringstream *strBuffer = catalog.getSerializer(name);
 	(*strBuffer) << toFlush;
+}
+
+void flushDate(int64_t toFlush, char* fileName)	{
+	RawCatalog& catalog = RawCatalog::getInstance();
+	string name = string(fileName);
+	stringstream *strBuffer = catalog.getSerializer(name);
+	time_t t = toFlush;
+	(*strBuffer) << t; //std::put_time(std::localtime(&t), L"%Y-%m-%d");
 }
 
 void flushDouble(double toFlush, char* fileName)	{
@@ -1046,6 +1059,10 @@ static void registerFunctions(RawContext * context)	{
 	ArgsFlushInt64.insert(ArgsFlushInt64.begin(),char_ptr_type);
 	ArgsFlushInt64.insert(ArgsFlushInt64.begin(),int64_type);
 
+	vector<Type*> ArgsFlushDate;
+	ArgsFlushDate.insert(ArgsFlushDate.begin(),char_ptr_type);
+	ArgsFlushDate.insert(ArgsFlushDate.begin(),int64_type);
+
 	vector<Type*> ArgsFlushDouble;
 	ArgsFlushDouble.insert(ArgsFlushDouble.begin(),char_ptr_type);
 	ArgsFlushDouble.insert(ArgsFlushDouble.begin(),double_type);
@@ -1120,6 +1137,7 @@ static void registerFunctions(RawContext * context)	{
 	FunctionType *FThashCombine 		  = FunctionType::get(int64_type, ArgsHashCombine, false);
 	FunctionType *FTflushInt 			  = FunctionType::get(void_type, ArgsFlushInt, false);
 	FunctionType *FTflushInt64 			  = FunctionType::get(void_type, ArgsFlushInt64, false);
+	FunctionType *FTflushDate 			  = FunctionType::get(void_type, ArgsFlushDate, false);
 	FunctionType *FTflushDouble 		  = FunctionType::get(void_type, ArgsFlushDouble, false);
 	FunctionType *FTflushStringC 		  = FunctionType::get(void_type, ArgsFlushStringC, false);
 	FunctionType *FTflushStringCv2 		  = FunctionType::get(void_type, ArgsFlushStringCv2, false);
@@ -1203,6 +1221,8 @@ static void registerFunctions(RawContext * context)	{
 			Function::ExternalLinkage, "flushInt", TheModule);
 	Function *flushInt64_ = Function::Create(FTflushInt64,
 				Function::ExternalLinkage, "flushInt64", TheModule);
+	Function *flushDate_ = Function::Create(FTflushDate,
+				Function::ExternalLinkage, "flushDate", TheModule);
 	Function *flushDouble_ = Function::Create(FTflushDouble,
 			Function::ExternalLinkage, "flushDouble", TheModule);
 	Function *flushStringC_ = Function::Create(FTflushStringC,
