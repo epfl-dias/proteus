@@ -92,13 +92,12 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
     val mock = Repl.isMockRun //TODO: change!!!
 
     val plan = getPlan
-//    System.out.println(pretty(render(plan)))
-
-    new PrintWriter(Repl.planfile) { write(pretty(render(plan))); close }
 
     if (mock == true) {
+      System.out.println(pretty(render(plan)))
       PelagoToEnumerableConverter.pt = new PelagoResultTable(Sources.of(new File(Repl.mockfile)), getRowType, mock) //TODO: fix path
     } else {
+      new PrintWriter(Repl.planfile) { write(pretty(render(plan))); close }
       PelagoToEnumerableConverter.rowType = getRowType
 //      val builder = new ProcessBuilder("./rawmain-server")
 //      val process = builder.start()

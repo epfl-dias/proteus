@@ -1,9 +1,5 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
-import org.apache.calcite.jdbc.CalcitePrepare;
-import org.apache.calcite.plan.RelOptPlanner;
-import org.apache.calcite.prepare.CalcitePrepareImpl;
-
 import ch.epfl.dias.repl.Repl;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -11,7 +7,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -22,8 +17,6 @@ import java.util.Collection;
 import java.util.Properties;
 
 import org.apache.calcite.test.CalciteAssert;
-import org.apache.calcite.util.trace.CalciteLogger;
-import org.apache.calcite.util.trace.CalciteTrace;
 
 class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
   private static final String schemaPath = "../raw-jit-executor/inputs/plans/schema.json";
@@ -349,6 +342,8 @@ public class PelagoPlannerTest {
 //      + " select d_yearmonthnum, collect(d_datekey) as x, collect(1) as y from ssbm_date group by d_yearmonthnum "
 //      + ") as c, unnest(c.x) "
 //      + "where d_yearmonthnum > 199810 ",
+
+      "select sum(l_orderkey) from tpch1_lineitem"
   };
 
   private final String sql;
