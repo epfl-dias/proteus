@@ -38,20 +38,12 @@ int numa_node_of_gpu(int device){
 
 exec_location::exec_location(const topology::gpunode &gpu):
     gpu_device(gpu.id),
-    cpu(topology::getInstance().getCpuNumaNodeById(gpu.local_cpu)){
+    cpu(topology::getInstance().getCpuNumaNodeById(gpu.local_cpu)),
+    cores(topology::getInstance().getCpuNumaNodeById(gpu.local_cpu).local_cpu_set){
 }
 
 void affinity::set(const topology::cpunumanode &cpu){
-    thread_cpu_numa_node_affinity = cpu.id;
-    thread_core_affinity          = cpu.local_cpu_set;
-
-#ifndef NDEBUG
-    int err =
-#endif
-    pthread_setaffinity_np(pthread_self(),
-                            sizeof(cpu_set_t),
-                            &(cpu.local_cpu_set));
-    assert(!err);
+    affinity_cpu_set::set(cpu, cpu.local_cpu_set);
 }
 
 void affinity::set(const topology::core &core){
@@ -73,7 +65,18 @@ const topology::cpunumanode &affinity::get(){
     return topo.getCpuNumaNodeById(thread_cpu_numa_node_affinity);
 }
 
-cpu_set_t affinity::get_cpu_set(){
+void affinity_cpu_set::set(const topology::cpunumanode &cpu, cpu_set_t cores){
+    thread_core_affinity = cores;
+    thread_cpu_numa_node_affinity = cpu.id;
+
+#ifndef NDEBUG
+    int err =
+#endif
+    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cores);
+    assert(!err);
+}
+
+cpu_set_t affinity_cpu_set::get(){
     return thread_core_affinity;
 }
 

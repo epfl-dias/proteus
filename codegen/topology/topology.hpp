@@ -87,6 +87,17 @@ public:
                 //do not remove argument!!! 
                 topologyonly_construction):
             id(id), local_cpu(local_cpu), index_in_topo(index_in_topo){}
+
+        // const cpunumanode &getNumaNode() const;
+    private:
+        operator cpu_set_t() const{
+            cpu_set_t tmp;
+            CPU_ZERO(&tmp);
+            CPU_SET(id, &tmp);
+            return tmp;
+        }
+
+        friend class exec_location;
     };
 
     class gpunode{
