@@ -557,7 +557,10 @@ void * RawGpuPipelineGen::getConsume() const{
 }
 
 void * RawGpuPipelineGen::getKernel() const{
-    return module.getCompiledFunction(F);
+    assert(F);
+    auto k = module.getCompiledFunction(F);
+    assert(k);
+    return k;
 }
 
 RawPipeline * RawGpuPipelineGen::getPipeline(int group_id){

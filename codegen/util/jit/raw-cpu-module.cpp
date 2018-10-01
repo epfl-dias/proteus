@@ -68,15 +68,6 @@ RawCpuModule::RawCpuModule(RawContext * context, std::string pipName):
 }
 
 void RawCpuModule::init(){
-    LLVMLinkInMCJIT();
-    LLVMInitializeAllTargets();
-    // LLVMInitializeNativeAsmPrinter();
-    // LLVMInitializeNativeAsmParser();
-    // LLVMInitializeNVPTXTarget();
-    // LLVMInitializeNVPTXTargetInfo();
-    // LLVMInitializeNVPTXTargetMC();
-    // LLVMInitializeNVPTXAsmPrinter();
-
     //Get the triplet for current CPU
     auto TargetTriple = sys::getDefaultTargetTriple();
 
@@ -101,21 +92,16 @@ void RawCpuModule::init(){
       for (auto &F : HostFeatures) Features.AddFeature(F.first(), F.second);
     }
 
-    std::cout << TargetTriple         << std::endl;
-    std::cout << Target               << std::endl;
-    std::cout << CPU.str()            << std::endl;
-    std::cout << Features.getString() << std::endl;
-
     assert(Target->hasTargetMachine());
 
     TargetOptions opt;
     Optional<Reloc::Model> RM{llvm::None};
     TheTargetMachine = (LLVMTargetMachine *) Target->createTargetMachine(TargetTriple, CPU, 
-                                                    "",//Features.getString(), //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
+                                                    Features.getString(), //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
                                                     opt, 
-                                                    RM);//, 
-                                                    // Optional<CodeModel::Model>{},
-                                                    // CodeGenOpt::Aggressive);
+                                                    RM, 
+                                                    Optional<CodeModel::Model>{},
+                                                    CodeGenOpt::Aggressive);
 
                                   // // Override function attributes based on CPUStr, FeaturesStr, and command line
                                   // // flags.

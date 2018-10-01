@@ -25,7 +25,7 @@
 #include "topology/topology.hpp"
 
 
-static thread_local cpu_set_t thread_core_affinity;
+static thread_local cpu_set_t thread_core_affinity = cpu_set_t{1};
 static thread_local uint32_t  thread_cpu_numa_node_affinity = 0;
 
 exec_location::exec_location(int gpu):
