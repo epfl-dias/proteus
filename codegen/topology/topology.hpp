@@ -24,28 +24,18 @@
 #ifndef TOPOLOGY_HPP_
 #define TOPOLOGY_HPP_
 
-#include <unordered_map>
 #include <iostream>
+#include <unordered_map>
 #include <vector>
 
 #include "common/gpu/gpu-common.hpp"
 
 #include "nvml.h"
 
-// class gpu_id{
-// protected:
-//     uint32_t id;
-// };
-
-// class cpunumanode_id{
-// protected:
-//     uint32_t id;
-// };
-
 /**
  * A describing the system topology of a single server.
  */
-class topology{
+class topology {
 private:
     class topologyonly_construction{
     private:
@@ -54,7 +44,7 @@ private:
     };
 
 public:
-    class cpunumanode{
+    class cpunumanode {
     public:
         const uint32_t                      id              ;
         const uint32_t                      index_in_topo   ;
@@ -70,13 +60,13 @@ public:
             const std::vector<uint32_t>    &local_cores, 
             uint32_t                        index_in_topo,
             //do not remove argument!!! 
-            topologyonly_construction);
+            topologyonly_construction = {});
 
         void * alloc(size_t bytes) const;
         static void free(void * mem, size_t bytes);
     };
 
-    class core{
+    class core {
     public:
         const uint32_t                      id              ;
         const uint32_t                      local_cpu       ;
@@ -84,8 +74,8 @@ public:
 
     public:
         core(uint32_t id, uint32_t local_cpu, uint32_t index_in_topo,
-                //do not remove argument!!! 
-                topologyonly_construction):
+                // do not remove argument!!!
+                topologyonly_construction = {}):
             id(id), local_cpu(local_cpu), index_in_topo(index_in_topo){}
 
         // const cpunumanode &getNumaNode() const;
@@ -100,7 +90,7 @@ public:
         friend class exec_location;
     };
 
-    class gpunode{
+    class gpunode {
     public:
         const uint32_t                      id              ;
         const nvmlDevice_t                  handle          ;
@@ -120,8 +110,8 @@ public:
 
     public:
         gpunode(uint32_t id, uint32_t index_in_topo, 
-                //do not remove argument!!! 
-                topologyonly_construction);
+                // do not remove argument!!!
+                topologyonly_construction = {});
     };
 
 private:
@@ -220,9 +210,5 @@ private:
 };
 
 std::ostream &operator<<(std::ostream &stream, const topology &topo);
-
-// class local_topology{
-    
-// };
 
 #endif /* TOPOLOGY_HPP_ */
