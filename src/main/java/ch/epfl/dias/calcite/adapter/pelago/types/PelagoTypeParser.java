@@ -8,6 +8,7 @@ import org.apache.calcite.util.Pair;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -25,6 +26,8 @@ public class PelagoTypeParser {
                 return parseBoolean(typeFactory, type);
             case "dstring":
                 return parseDString(typeFactory, type);
+            case "date":
+                return parseDate(typeFactory, type);
             case "string":
                 return parseString(typeFactory, type);
             case "set":
@@ -58,6 +61,12 @@ public class PelagoTypeParser {
         assert(type.getOrDefault("type", null).equals("float"));
         RelDataType javaType = typeFactory.createJavaType(Primitive.DOUBLE.boxClass);
         RelDataType sqlType = typeFactory.createSqlType(javaType.getSqlTypeName());
+        return typeFactory.createTypeWithNullability(sqlType, true);
+    }
+
+    public static RelDataType parseDate(RelDataTypeFactory typeFactory, Map<String, ?> type){
+        assert(type.getOrDefault("type", null).equals("date"));
+        RelDataType sqlType = typeFactory.createSqlType(SqlTypeName.DATE);
         return typeFactory.createTypeWithNullability(sqlType, true);
     }
 

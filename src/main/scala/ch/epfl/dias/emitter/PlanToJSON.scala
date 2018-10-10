@@ -6,6 +6,7 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan
 import ch.epfl.dias.emitter.PlanToJSON.emitPrimitiveType
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.adapter.enumerable._
+import org.apache.calcite.avatica.util.DateTimeUtils
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory, RelDataTypeField, RelRecordType}
 import org.apache.calcite.rel.core.AggregateCall
@@ -94,6 +95,7 @@ object PlanToJSON {
             case SqlTypeName.FLOAT => new java.lang.Double(lit.toString).asInstanceOf[Double]
             case SqlTypeName.DOUBLE => new java.lang.Double(lit.toString).asInstanceOf[Double]
             case SqlTypeName.DECIMAL => new java.lang.Double(lit.toString).asInstanceOf[Double]
+            case SqlTypeName.DATE => new java.lang.Long(DateTimeUtils.timestampStringToUnixDate(lit.toString)).asInstanceOf[Long]
             case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)
             case SqlTypeName.CHAR => lit.getValueAs(classOf[String])
             case _ => {
@@ -369,6 +371,7 @@ object PlanToJSON {
     case SqlTypeName.VARCHAR  => ("type", "dstring" )
     case SqlTypeName.CHAR     => ("type", "dstring" )
     case SqlTypeName.BOOLEAN  => ("type", "bool"    )
+    case SqlTypeName.DATE     => ("type", "date"    )
     case SqlTypeName.DOUBLE   => ("type", "float"   ) // proteu's float is a c++ double
     case SqlTypeName.FLOAT    => ("type", "float"   ) // proteu's float is a c++ double
     case SqlTypeName.DECIMAL  => ("type", "float"   )

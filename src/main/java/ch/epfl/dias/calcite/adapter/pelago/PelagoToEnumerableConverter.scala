@@ -34,7 +34,8 @@ import ch.epfl.dias.repl.Repl
 import com.google.common.base.Function
 import com.google.common.collect.Lists
 import org.apache.calcite.util.Sources
-import java.io.{File, PrintWriter}
+import java.io.{File, FileOutputStream, PrintWriter}
+import java.nio.file.{Files, Paths}
 import java.util
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter.process
@@ -98,6 +99,7 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
       PelagoToEnumerableConverter.pt = new PelagoResultTable(Sources.of(new File(Repl.mockfile)), getRowType, mock) //TODO: fix path
     } else {
       new PrintWriter(Repl.planfile) { write(pretty(render(plan))); close }
+      if (Files.exists(Paths.get("../../src/panorama/public/assets"))) {new PrintWriter(new FileOutputStream("../../src/panorama/public/assets/flare.json", false)) { write(pretty(render(plan))); close } }
       PelagoToEnumerableConverter.rowType = getRowType
 //      val builder = new ProcessBuilder("./rawmain-server")
 //      val process = builder.start()

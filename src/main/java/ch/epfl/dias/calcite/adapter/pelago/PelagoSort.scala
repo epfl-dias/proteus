@@ -83,10 +83,10 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
     }
 
     val json = op ~
-      ("gpu"    , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
-      ("e"      , projs                                                 ) ~
-      ("relName", alias                                                 ) ~
-      ("input"  , childOp                                               )
+      ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+      ("e"          , projs                                                 ) ~
+      ("relName"    , alias                                                 ) ~
+      ("input"      , childOp                                               )
     val binding: Binding = Binding(alias, getFields(getRowType))
     val ret: (Binding, JValue) = (binding, json)
     ret
@@ -157,10 +157,11 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
     }.toList
 
     val json = op ~
-      ("gpu"  , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
-      ("rowType", rowType) ~
-      ("e"    , exprKey ++ exprVal                                    ) ~
-      ("input", childOp                                               )
+      ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+      ("rowType"    , rowType                                               ) ~
+      ("e"          , exprKey ++ exprVal                                    ) ~
+      ("granularity", "thread"                                              ) ~
+      ("input"      , childOp                                               )
     val binding: Binding = Binding(alias, getFields(getRowType))
     val ret: (Binding, JValue) = (binding, json)
     ret

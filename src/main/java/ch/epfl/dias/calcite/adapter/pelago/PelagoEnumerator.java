@@ -302,8 +302,21 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
       } else if (fieldType.getType().getSqlTypeName() == SqlTypeName.VARCHAR) {
         if (mock) return UUID.randomUUID().toString().replace("-", "");
         return string;
+      } else if (fieldType.getType().getSqlTypeName() == SqlTypeName.DATE) {
+        if (mock) string = Long.toString(rand.nextLong());
+        if (string.length() == 0) {
+          return null;
+        }
+        System.out.println(string);
+        return (int) (Long.parseLong(string) / DateTimeUtils.MILLIS_PER_DAY);
+//        try {
+//          Date date = TIME_FORMAT_DATE.parse(string);
+//          return (int) (date.getTime() / DateTimeUtils.MILLIS_PER_DAY);
+//        } catch (ParseException e) {
+//          return null;
+//        }
       } else {
-        throw new AssertionError("unrecognized type "+string+", fieldtype: "+fieldType.getName());
+        throw new AssertionError("unrecognized type, value: "+string+", fieldtype: "+fieldType.getName());
       }
     }
   }
