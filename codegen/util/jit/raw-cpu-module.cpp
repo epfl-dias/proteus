@@ -69,7 +69,7 @@ RawCpuModule::RawCpuModule(RawContext * context, std::string pipName):
 
 void RawCpuModule::init(){
     //Get the triplet for current CPU
-    auto TargetTriple = sys::getProcessTriple();
+    auto TargetTriple = sys::getDefaultTargetTriple();
 
     string ErrStr;
     auto Target = TargetRegistry::lookupTarget(TargetTriple, ErrStr);
