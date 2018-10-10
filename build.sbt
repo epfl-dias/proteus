@@ -36,6 +36,11 @@ libraryDependencies += json4sJackson
 // https://mvnrepository.com/artifact/junit/junit
 libraryDependencies += "junit" % "junit" % "4.12" % Test
 
+// junit tests (invoke with `sbt test`)
+libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test"
+// disable tests during `sbt assembly`
+test in assembly := {}
+
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", "services", xs @ _*) => MergeStrategy.first
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
