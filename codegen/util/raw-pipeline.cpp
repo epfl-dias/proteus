@@ -409,8 +409,8 @@ void * RawPipelineGen::getKernel() const{
 RawPipeline * RawPipelineGen::getPipeline(int group_id){
     void       * func       = getKernel();
 
-    std::vector<std::pair<const void *, std::function<opener_t>>> openers{this->openers};
-    std::vector<std::pair<const void *, std::function<closer_t>>> closers{this->closers};
+    std::vector<std::pair<const void *, std::function<opener_t>>> openers{};//this->openers};
+    std::vector<std::pair<const void *, std::function<closer_t>>> closers{};//this->closers};
 
     if (copyStateFrom){
         RawPipeline * copyFrom = copyStateFrom->getPipeline(group_id);
@@ -423,7 +423,6 @@ RawPipeline * RawPipelineGen::getPipeline(int group_id){
         // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
         closers.insert(closers.begin(), std::make_pair(this, [        ](RawPipeline * pip){                                                        }));
     }
-
     return new RawPipeline(func, getModule()->getDataLayout().getTypeAllocSize(state_type), this, state_type, openers, closers, getCompiledFunction(open__function), getCompiledFunction(close_function), group_id, execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);
 }
 
@@ -435,6 +434,11 @@ RawPipeline::RawPipeline(void * f, size_t state_size, RawPipelineGen * gen, Stru
         int32_t group_id,
         RawPipeline * execute_after_close): 
             cons(f), state_type(state_type), openers(openers), closers(closers), group_id(group_id), layout(gen->getModule()->getDataLayout()), state_size(state_size), init_state(init_state), deinit_state(deinit_state), execute_after_close(execute_after_close){
+    assert(!openers.empty() && "Openers should be non-empty");
+    assert(!closers.empty() && "Closers should be non-empty");
+    assert(openers.size() == 1 && "Openers should contain a single element");
+    assert(closers.size() == 1 && "Closers should contain a single element");
+    
     state = malloc(state_size); //(getModule()->getDataLayout().getTypeSizeInBits(state_type) + 7) / 8);
     assert(state);
 }
@@ -471,6 +475,7 @@ void RawPipeline::open(){
     //     }
     //     if (is_last) (openers[i - 1].second)(this);
     // }
+    assert(!openers.empty());
     (openers[0].second)(this);
 
     assert(init_state);
@@ -525,6 +530,7 @@ void RawPipeline::close(){
     assert(deinit_state);
     ((void (*)(RawPipeline *, void *)) deinit_state)(this, state);
     
+    assert(!closers.empty());
     (closers[0].second)(this);
     // for (size_t i = closers.size() ; i > 0 ; --i) closers[i - 1](this);
 
@@ -641,6 +647,10 @@ void RawPipelineGen::registerFunctions()    {
     ArgsFlushInt64.insert(ArgsFlushInt64.begin(),char_ptr_type);
     ArgsFlushInt64.insert(ArgsFlushInt64.begin(),int64_type);
 
+    vector<Type*> ArgsFlushDate;
+    ArgsFlushDate.insert(ArgsFlushDate.begin(),char_ptr_type);
+    ArgsFlushDate.insert(ArgsFlushDate.begin(),int64_type);
+
     vector<Type*> ArgsFlushDouble;
     ArgsFlushDouble.insert(ArgsFlushDouble.begin(),char_ptr_type);
     ArgsFlushDouble.insert(ArgsFlushDouble.begin(),double_type);
@@ -716,6 +726,7 @@ void RawPipelineGen::registerFunctions()    {
     FunctionType *FTflushInt              = FunctionType::get(void_type, ArgsFlushInt, false);
     FunctionType *FTflushDString          = FunctionType::get(void_type, ArgsFlushDString, false);
     FunctionType *FTflushInt64            = FunctionType::get(void_type, ArgsFlushInt64, false);
+    FunctionType *FTflushDate             = FunctionType::get(void_type, ArgsFlushDate, false);
     FunctionType *FTflushDouble           = FunctionType::get(void_type, ArgsFlushDouble, false);
     FunctionType *FTflushStringC          = FunctionType::get(void_type, ArgsFlushStringC, false);
     FunctionType *FTflushStringCv2        = FunctionType::get(void_type, ArgsFlushStringCv2, false);
@@ -802,6 +813,8 @@ void RawPipelineGen::registerFunctions()    {
             Function::ExternalLinkage, "flushDString", TheModule);
     Function *flushInt64_ = Function::Create(FTflushInt64,
                 Function::ExternalLinkage, "flushInt64", TheModule);
+    Function *flushDate_ = Function::Create(FTflushDate,
+                Function::ExternalLinkage, "flushDate", TheModule);
     Function *flushDouble_ = Function::Create(FTflushDouble,
             Function::ExternalLinkage, "flushDouble", TheModule);
     Function *flushStringC_ = Function::Create(FTflushStringC,
@@ -1025,6 +1038,7 @@ void RawPipelineGen::registerFunctions()    {
     registerFunction("flushInt", flushInt_);
     registerFunction("flushDString", flushDString_);
     registerFunction("flushInt64", flushInt64_);
+    registerFunction("flushDate", flushDate_);
     registerFunction("flushDouble", flushDouble_);
     registerFunction("flushStringC", flushStringC_);
     registerFunction("flushStringCv2", flushStringCv2_);

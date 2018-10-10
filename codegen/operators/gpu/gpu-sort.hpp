@@ -33,7 +33,8 @@ public:
     GpuSort(RawOperator  * const                     child,
             GpuRawContext * const                    context,
             const vector<expressions::Expression *> &orderByFields,
-            const vector<direction                > &dirs);
+            const vector<direction                > &dirs,
+            gran_t                                   granularity = gran_t::GRID);
 
     virtual ~GpuSort()                                             { LOG(INFO)<<"Collapsing GpuSort operator";}
 
@@ -57,6 +58,7 @@ protected:
     std::string                     relName     ;
 
     // size_t                          width       ;
+    gran_t                          granularity         ;
 
     size_t                          cntVar_id   ;
     size_t                          memVar_id   ;

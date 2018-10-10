@@ -128,6 +128,8 @@ extern "C" void flushDString(int toFlush, void * dict, char* fileName);
 
 extern "C" void flushInt64(size_t toFlush, char* fileName);
 
+extern "C" void flushDate(int64_t toFlush, char* fileName);
+
 extern "C" void flushDouble(double toFlush, char* fileName);
 
 extern "C" void flushBoolean(bool toFlush, char* fileName);

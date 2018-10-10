@@ -25,15 +25,19 @@
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-flusher.hpp"
 
-GpuSort::GpuSort(   RawOperator * const           child,
-            GpuRawContext * const           context,
-            const vector<expressions::Expression *> &orderByFields,
-            const vector<direction                > &dirs) :
+GpuSort::GpuSort(   RawOperator * const                 child,
+            GpuRawContext * const                       context,
+            const vector<expressions::Expression *>    &orderByFields,
+            const vector<direction                >    &dirs,
+            gran_t                                      granularity) :
                 UnaryRawOperator(child), 
                 context(context),
                 orderByFields(orderByFields),
                 dirs(dirs),
-                suffix(""){
+                suffix(""),
+                granularity(granularity){
+    assert(granularity == gran_t::GRID || granularity == gran_t::THREAD);
+
     list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
     std::vector<RecordAttribute *> recattr;
     size_t i = 0;
@@ -343,7 +347,9 @@ void GpuSort::flush_sorted(){
 
     Value * indx = context->threadId();
 
-    Value * cond = Builder->CreateICmpEQ(indx, ConstantInt::get(indx->getType(), 0));
+    Value * cond;
+    if (granularity == gran_t::THREAD) cond = context->createTrue(); 
+    else cond = Builder->CreateICmpEQ(indx, ConstantInt::get(indx->getType(), 0));
     // Insert the conditional branch into the end of CondBB.
     Builder->CreateCondBr(cond, LoopBB, AfterBB);
 

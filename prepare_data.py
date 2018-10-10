@@ -73,7 +73,7 @@ def prepare_attr(relName, attrName, attrIndex, type, relPathName):
         clean_up(columnFileTxt)
         pelago_type = "dstring"
     elif type == "date":
-        parse_cmd = "cat " + relName + ".tbl | cut -d '|' -f" + str(argNo) + " | " + r"""perl -MTime::Piece -pE '$_=pack("q",Time::Piece->strptime($_, "%Y-%m-%d\n")->epoch)' > """ + columnFileBin
+        parse_cmd = "cat " + relName + ".tbl | cut -d '|' -f" + str(argNo) + " | " + r"""perl -MTime::Piece -pE '$_=pack("q",Time::Piece->strptime($_, "%Y-%m-%d\n")->epoch * 1000)' > """ + columnFileBin
         run(parse_cmd)
     elif type == "float":
         parse_cmd = "cat " + relName + ".tbl | cut -d '|' -f" + str(argNo) + " | " + r"""perl -pe '$_=pack"d",$_' > """ + columnFileBin

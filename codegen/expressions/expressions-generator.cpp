@@ -509,6 +509,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 		valWrapper.isNull = context->createFalse();
 		switch (id) {
 		case DSTRING:
+		case DATE:
 		case INT64:
 		case INT:
 		{

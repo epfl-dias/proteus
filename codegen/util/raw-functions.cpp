@@ -1427,6 +1427,7 @@ static void registerFunctions(RawContext * context)	{
 
 	context->registerFunction("flushInt", flushInt_);
 	context->registerFunction("flushInt64", flushInt64_);
+	context->registerFunction("flushDate" , flushDate_);
 	context->registerFunction("flushDouble", flushDouble_);
 	context->registerFunction("flushStringC", flushStringC_);
 	context->registerFunction("flushStringCv2", flushStringCv2_);

@@ -97,4 +97,14 @@ public:
     }
 };
 
+extern "C"{
+    void *          getPipKernel(RawPipelineGen * pip);
+
+    cudaStream_t    createCudaStream();
+
+    void            sync_strm(cudaStream_t strm);
+
+    void            destroyCudaStream(cudaStream_t strm);
+}
+
 #endif /* RAW_GPU_PIPELINE_HPP_ */

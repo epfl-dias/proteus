@@ -42,7 +42,8 @@ void step_mmc_mem_move_broadcast_device(MemBroadcastDevice::MemMoveConf * mmc){
 buff_pair_brdcst make_mem_move_broadcast_device(char * src, size_t bytes, int target_device, MemBroadcastDevice::MemMoveConf * mmc, bool disable_noop){
     const auto &topo = topology::getInstance();
     if (!(mmc->to_cpu)){
-        int dev = topo.getGpuAddressed(src)->id;
+        const auto &dev_ptr = topo.getGpuAddressed(src);
+        int dev = (dev_ptr) ? dev_ptr->id : -1;
 
         // assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager should be able to provide blocks of arbitary size
         if (!disable_noop && dev == target_device) return buff_pair_brdcst{src, NULL}; // block already in correct device

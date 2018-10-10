@@ -116,6 +116,12 @@ public:
 	Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt64Ty(ctx);}
 };
 
+/**
+ * Represented as 64bit timestamps, in __msec__ (UTC) since (UTC) epoch time
+ * 
+ * Conversion in locale should be handled by the plugin during reading and by 
+ * the query parser!
+ */
 class DateType : public PrimitiveType {
 public:
 	string getType() 	const 	{ return string("Date"); }

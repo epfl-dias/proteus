@@ -322,8 +322,20 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 #ifndef NCUDA
 		if (val.HasMember("gpu") && val["gpu"].GetBool()){
+			gran_t granularity = gran_t::GRID;
+
+			if (val.HasMember("granularity")){
+				assert(val["granularity"].IsString());
+				std::string gran = val["granularity"].GetString();
+				std::transform(gran.begin(), gran.end(), gran.begin(), [](unsigned char c){ return std::tolower(c); });
+				if      (gran == "grid"  ) granularity = gran_t::GRID;
+				else if (gran == "block" ) granularity = gran_t::BLOCK;
+				else if (gran == "thread") granularity = gran_t::THREAD;
+				else 	assert(false && "granularity must be one of GRID, BLOCK, THREAD");
+			}
+
 			assert(dynamic_cast<GpuRawContext *>(this->ctx));
-			newOp = new GpuSort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e, d);
+			newOp = new GpuSort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e, d, granularity);
 		} else {
 #endif
 			newOp = new Sort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e, d);
@@ -2055,7 +2067,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		} else {
 			assert(val.HasMember("v"));
 			assert(val["v"].IsInt64());
-			retValue = new expressions::DateConstant(val["v"].IsInt64());
+			retValue = new expressions::DateConstant(val["v"].GetInt64());
 		}
 	} else if (strcmp(valExpression, "string") == 0) {
 		if (isNull) {

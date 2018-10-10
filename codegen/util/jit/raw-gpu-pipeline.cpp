@@ -566,8 +566,8 @@ void * RawGpuPipelineGen::getKernel() const{
 RawPipeline * RawGpuPipelineGen::getPipeline(int group_id){
     void       * func       = getKernel();
 
-    std::vector<std::pair<const void *, std::function<opener_t>>> openers{this->openers};
-    std::vector<std::pair<const void *, std::function<closer_t>>> closers{this->closers};
+    std::vector<std::pair<const void *, std::function<opener_t>>> openers{};//this->openers};
+    std::vector<std::pair<const void *, std::function<closer_t>>> closers{};//this->closers};
 
     if (copyStateFrom){
         RawPipeline * copyFrom = copyStateFrom->getPipeline(group_id);
@@ -580,7 +580,7 @@ RawPipeline * RawGpuPipelineGen::getPipeline(int group_id){
         // closers.emplace_back([copyFrom](RawPipeline * pip){pip->copyStateBackTo(copyFrom);});
         closers.insert(closers.begin(), std::make_pair(this, [        ](RawPipeline * pip){                                                        }));
     }
-    
+
     return new RawPipeline(func, getModule()->getDataLayout().getTypeAllocSize(state_type), this, state_type, openers, closers, wrapper_module.getCompiledFunction(open__function), wrapper_module.getCompiledFunction(close_function), group_id, execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);
 }
 

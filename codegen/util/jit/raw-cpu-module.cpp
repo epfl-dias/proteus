@@ -69,7 +69,7 @@ RawCpuModule::RawCpuModule(RawContext * context, std::string pipName):
 
 void RawCpuModule::init(){
     //Get the triplet for current CPU
-    auto TargetTriple = sys::getDefaultTargetTriple();
+    auto TargetTriple = sys::getProcessTriple();
 
     string ErrStr;
     auto Target = TargetRegistry::lookupTarget(TargetTriple, ErrStr);
@@ -95,7 +95,7 @@ void RawCpuModule::init(){
     assert(Target->hasTargetMachine());
 
     TargetOptions opt;
-    Optional<Reloc::Model> RM{llvm::None};
+    Optional<Reloc::Model> RM;
     TheTargetMachine = (LLVMTargetMachine *) Target->createTargetMachine(TargetTriple, CPU, 
                                                     Features.getString(), //FIXME: for now it produces faster code... LLVM 6.0.0 improves the scheduler for our system
                                                     opt, 

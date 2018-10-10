@@ -113,7 +113,8 @@ void RawGpuModule::init(){
 
     auto RM = Optional<Reloc::Model>();
     TheTargetMachine = (LLVMTargetMachine *) Target->createTargetMachine(TargetTriple, GPU, 
-                                                    "+ptx50,+ptx60,+satom", //PTX 5.0 + Scoped Atomics
+                                                    "+ptx60,+satom", //PTX 6.0 + Scoped Atomics
+                                                    //"+ptx60,+satom", //for V100
                                                     opt, RM, 
                                                     Optional<CodeModel::Model>{},//CodeModel::Model::Default, 
                                                     CodeGenOpt::Aggressive);

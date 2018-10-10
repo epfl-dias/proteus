@@ -529,6 +529,7 @@ llvm::Constant * getIdentityElementIfSimple(Monoid m, const ExpressionType * typ
 	switch (m) {
 		case SUM: {
 			switch (outputType) {
+				case DATE:
 				case INT64:
 				case INT: {
 					return ConstantInt::get((IntegerType *) llvmType, 0);
@@ -563,6 +564,7 @@ llvm::Constant * getIdentityElementIfSimple(Monoid m, const ExpressionType * typ
 		}
 		case MAX: {
 			switch (outputType) {
+				case DATE:
 				case INT64:{
 					return ConstantInt::get((IntegerType *) llvmType, 
 										std::numeric_limits<int64_t>::min());
