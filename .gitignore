@@ -1,9 +1,10 @@
 .classpath
 .project
 .idea
-target
-classes
 .fuse_*
+classes
+lib
+target
 current.json
 plan.json
 src/main/resources/ssb_schema/catalog.json
