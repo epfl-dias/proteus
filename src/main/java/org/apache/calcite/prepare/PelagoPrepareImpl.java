@@ -157,7 +157,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         //aggregate rules
         rules.add(AggregateRemoveRule.INSTANCE);
 //        rules.add(AggregateReduceFunctionsRule.INSTANCE);
-        rules.add(new AggregateReduceFunctionsRule(operand(PelagoAggregate.class, any()), PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(new AggregateReduceFunctionsRule(operand(Aggregate.class, any()), PelagoRelFactories.PELAGO_BUILDER));
         rules.add(AggregateJoinTransposeRule.INSTANCE);
         rules.add(new AggregateProjectMergeRule(Aggregate.class, Project.class, PelagoRelFactories.PELAGO_BUILDER));
         rules.add(new AggregateProjectPullUpConstantsRule(Aggregate.class,
@@ -175,14 +175,11 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
                                                                                                                 rules.add(JoinAssociateRule.INSTANCE);
                                                                                                                 rules.add(JoinCommuteRule.INSTANCE);
         // simplify expressions rules
-        rules.add(new ReduceExpressionsRule.CalcReduceExpressionsRule(Calc.class, true,
-            PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(new ReduceExpressionsRule.FilterReduceExpressionsRule(Filter.class, true,
-            PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(new ReduceExpressionsRule.ProjectReduceExpressionsRule(Project.class, true,
-            PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(new ReduceExpressionsRule.JoinReduceExpressionsRule(Join.class, true,
-            PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(ReduceExpressionsRule.CALC_INSTANCE);
+        rules.add(ReduceExpressionsRule.FILTER_INSTANCE);
+        rules.add(ReduceExpressionsRule.PROJECT_INSTANCE);
+        rules.add(ReduceExpressionsRule.JOIN_INSTANCE);
+
         // prune empty results rules
         rules.add(new PruneEmptyRules.RemoveEmptySingleRule(Filter.class, "PruneEmptyFilter"));
         rules.add(new PruneEmptyRules.RemoveEmptySingleRule(Project.class, Predicates.<Project>alwaysTrue(),
