@@ -142,12 +142,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         // push and merge projection rules
         rules.add(new ProjectRemoveRule(PelagoRelFactories.PELAGO_BUILDER));
         rules.add(new ProjectJoinTransposeRule(PushProjector.ExprCondition.TRUE, PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(new JoinProjectTransposeRule(
-            RelOptRule.operand(Join.class,
-                RelOptRule.operand(Project.class, RelOptRule.any()),
-                RelOptRule.operand(Project.class, RelOptRule.any())),
-            "JoinProjectTransposeRule(Project-Project)",
-            false, PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(JoinProjectTransposeRule.BOTH_PROJECT);
         rules.add(new ProjectFilterTransposeRule(
             LogicalProject.class, LogicalFilter.class, PelagoRelFactories.PELAGO_BUILDER,
             PushProjector.ExprCondition.FALSE)); //XXX causes non-termination
