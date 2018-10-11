@@ -306,35 +306,20 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::RecordConstruction *e) {
-	IRBuilder<>* const Builder = context->getBuilder();
-	Function *F 			   = Builder->GetInsertBlock()->getParent();
+	IRBuilder<>* const Builder 	= context->getBuilder();
+	Function *F 				= Builder->GetInsertBlock()->getParent();
+	LLVMContext& llvmContext	= context->getLLVMContext();
 
-	/* Evaluate new attribute expressions and keep their types */
-	vector<RawValue> valuesForStruct;
-	// vector<Type*> typesForStruct;
-	list<expressions::AttributeConstruction>::const_iterator it = e->getAtts().begin();
-	for(; it != e->getAtts().end(); it++)
-	{
-		RawValue val = (it->getExpression())->accept(*this);
-		valuesForStruct.push_back(val);
-		// typesForStruct.push_back(val.value->getType());
-	}
+	Type * recType  = e->getExpressionType()->getLLVMType(llvmContext);
+	auto mem_struct = context->CreateEntryBlockAlloca(F, "recConstr", recType);
 
-	/* Construct struct type to hold record */
-	Type* recStructType = e->getExpressionType()->getLLVMType(context->getLLVMContext());
-	AllocaInst* mem_struct =
-			context->CreateEntryBlockAlloca(F, "recConstr",recStructType);
-
-	vector<RawValue>::const_iterator itVal = valuesForStruct.begin();
 	int i = 0;
-	for (; itVal != valuesForStruct.end(); itVal++) {
-		context->updateStructElem(itVal->value,mem_struct,i++);
+	for (const auto & attr: e->getAtts()) {
+		RawValue val = attr.getExpression()->accept(*this);
+		context->updateStructElem(val.value, mem_struct, i++);
 	}
-	RawValue recStruct;
-	recStruct.value = Builder->CreateLoad(mem_struct);
-	recStruct.isNull = context->createFalse();
 
-	return recStruct;
+	return RawValue{Builder->CreateLoad(mem_struct), context->createFalse()};
 }
 
 //RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {

@@ -2453,7 +2453,6 @@ ExpressionType* ExpressionParser::parseExpressionType(const rapidjson::Value& va
 		assert(val.HasMember("inner"));
 		assert(val["inner"].IsObject());
 		ExpressionType *innerType = parseExpressionType(val["inner"]);
-		cout << "BAG" << endl;
 		return new BagType(*innerType);
 	} else if (strcmp(valExprType, "list") == 0) {
 		assert(val.HasMember("inner"));
@@ -2534,7 +2533,6 @@ RecordAttribute* ExpressionParser::parseRecordAttr(const rapidjson::Value& val, 
 	assert(val[keyAttrName].IsString());
 	string attrName = val[keyAttrName].GetString();
 
-	std::cout << relName << " " << attrName << std::endl;
 	const RecordAttribute * attr = getAttribute(relName, attrName);
 
 	int attrNo;
@@ -2873,7 +2871,7 @@ CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context): e
 
 	for (rapidjson::Value::ConstMemberIterator itr = document.MemberBegin();
 			itr != document.MemberEnd(); ++itr) {
-		printf("Key of member is %s\n", itr->name.GetString());
+		// printf("Key of member is %s\n", itr->name.GetString());
 
 		assert(itr->value.IsObject());
 		assert((itr->value)[keyInputPath].IsString());
