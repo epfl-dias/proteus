@@ -89,7 +89,7 @@ public class PelagoSchema extends AbstractSchema {
     }
 
     // FIXME adding the time keeper table
-    builder.put("PelagoTimeKeeper", TimeKeeperTable.getInstance());
+    builder.put("SessionTimings", TimeKeeperTable.INSTANCE);
 
     return builder.build();
   }

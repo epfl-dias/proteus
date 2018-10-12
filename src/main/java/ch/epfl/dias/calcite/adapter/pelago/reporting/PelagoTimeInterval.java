@@ -3,25 +3,20 @@ package ch.epfl.dias.calcite.adapter.pelago.reporting;
 
 /** Class used for measuring time between two intervals */
 public class PelagoTimeInterval {
-    private long startTime;
-    private long endTime;
-    private boolean started;
-
-    public PelagoTimeInterval(){
-        started = false;
-    }
+    private Long startTime;
+    private Long endTime  ;
 
     public void start() {
-        started = true;
         startTime = System.nanoTime();
     }
 
     public void stop() {
-        started = false;
+        assert(isStarted());
         endTime = System.nanoTime();
     }
 
     public long getDifferenceNano() {
+        assert(isStarted() && endTime != null);
         return endTime-startTime;
     }
 
@@ -29,7 +24,7 @@ public class PelagoTimeInterval {
         return (getDifferenceNano())/1000000;
     }
 
-    public boolean getStarted() {
-        return started;
+    public boolean isStarted() {
+        return startTime != null;
     }
 }

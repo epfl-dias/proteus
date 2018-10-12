@@ -1,125 +1,65 @@
 package ch.epfl.dias.calcite.adapter.pelago.reporting;
 
-import java.sql.Time;
+import ch.epfl.dias.repl.Repl;
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.List;
 
 /** Global singleton for time measurements */
 public class TimeKeeper {
-    private List<Long> texec;
-    private List<Long> tcodegen;
-    private List<Long> tcalcite;
-    private List<Timestamp> timestamps;
+    public static final TimeKeeper INSTANCE = new TimeKeeper();
 
-    private static TimeKeeper instance = null;
+    private long tPlanToJson;
+    private long tPlanning;
+    private long tExecutor;
+    private long tCodegen;
+    private long tExec;
 
-    private long lastTexec;
-    private long lastTcodegen;
-    private long lastTcalcite;
     private Timestamp lastTimestamp;
 
-    private TimeKeeper() {
-        texec = new ArrayList<>();
-        tcodegen = new ArrayList<>();
-        tcalcite = new ArrayList<>();
-        timestamps = new ArrayList<>();
+    private TimeKeeper() {}
+
+    public void addTexec(long time_ms) {
+        tExec = time_ms;
     }
 
-    public void addTexec(long texec) {
-        this.lastTexec = texec;
-        this.texec.add(texec);
+    public void addTcodegen(long time_ms) {
+        tCodegen = time_ms;
     }
 
-    public void addTcodegen(long tcodegen) {
-        this.lastTcodegen = tcodegen;
-        this.tcodegen.add(tcodegen);
+    public void addTplan2json(long time_ms) {
+        tPlanToJson = time_ms;
     }
 
-    public void addTcalcite(long tcalcite) {
-        this.lastTcalcite = tcalcite;
-        this.tcalcite.add(tcalcite);
+    public void addTexecutorTime(PelagoTimeInterval interval) {
+        tExecutor = interval.getDifferenceMilli();
+    }
+
+    public void addTplanning(PelagoTimeInterval interval) {
+        tPlanning = interval.getDifferenceMilli();
     }
 
     public void addTimestamp(){
-        this.lastTimestamp = new Timestamp(System.currentTimeMillis());
-        this.timestamps.add(lastTimestamp);
-    }
-
-    public static TimeKeeper getInstance(){
-        if(instance == null){
-            instance = new TimeKeeper();
-        }
-
-        return instance;
+        lastTimestamp = new Timestamp(System.currentTimeMillis());
     }
 
     public void refreshTable() {
-        // maybe a stack would be smarter option for getting the last element
-        int sizeTexec = texec.size();
-        int sizeTcodegen = tcodegen.size();
-        int sizeTcalcite = tcalcite.size();
-        int sizeTimestamps = timestamps.size();
-
-        assert ((sizeTcalcite == sizeTcodegen) && (sizeTcalcite == sizeTexec) && (sizeTcodegen == sizeTimestamps));
-
-        TimeKeeperTable.addTimings(lastTexec, lastTcodegen, lastTcalcite, lastTimestamp);
+        TimeKeeperTable.addTimings(tExecutor + tPlanning + tPlanToJson, tPlanning, tPlanToJson, tExecutor, tCodegen, tExec, lastTimestamp);
     }
 
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("ALL EXECUTION TIMES SINCE PELAGO STARTUP!\n");
-
-        sb.append("Timestamps: ");
-        sb.append(timestamps);
-        sb.append("\n");
-
-        sb.append("Execution times: ");
-        sb.append(texec);
-        sb.append("\n");
-
-        long sum_texec = 0;
-        for(long el : texec){
-            sum_texec += el;
+        String format;
+        if (Repl.timingscsv()) {
+            format = "Timings,%d,%d,%d,%d,%d,%d";
+        } else {
+            format = "Total time: %dms, "
+                    + "Planning time: %dms, "
+                    + "Flush plan time: %dms, "
+                    + "Total executor time: %dms, "
+                    + "Codegen time: %dms, "
+                    + "Execution time: %dms";
         }
-
-        sb.append("Total execution time: ");
-        sb.append(sum_texec);
-        sb.append("ms \n");
-
-        sb.append("Code generation times: ");
-        sb.append(tcodegen);
-        sb.append("ms \n");
-
-        long sum_tcodegen = 0;
-        for(long el : tcodegen){
-            sum_tcodegen += el;
-        }
-
-        sb.append("Total codegen time: ");
-        sb.append(sum_tcodegen);
-        sb.append("ms \n");
-
-        sb.append("Optimization and Calcite time: ");
-        sb.append(tcalcite);
-        sb.append("ms \n");
-
-        long sum_tcalcite = 0;
-        for(long el : tcalcite){
-            sum_tcalcite += el;
-        }
-
-        sb.append("Total calcite time: ");
-        sb.append(sum_tcalcite);
-        sb.append("ms \n");
-
-        sb.append("TOTAL TIME: ");
-        sb.append(sum_texec+sum_tcodegen+sum_tcalcite);
-        sb.append("ms \n");
-
-        return(sb.toString());
+        return String.format(format, tExecutor + tPlanning + tPlanToJson, tPlanning, tPlanToJson, tExecutor,
+                                tCodegen, tExec, lastTimestamp);
     }
 }

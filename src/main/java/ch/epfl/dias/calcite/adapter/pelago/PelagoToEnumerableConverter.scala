@@ -4,49 +4,32 @@ import com.google.common.base.Supplier
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.DataContext
 import org.apache.calcite.adapter.enumerable._
-import org.apache.calcite.config.CalciteConnectionConfig
-import org.apache.calcite.interpreter.Source
 import org.apache.calcite.linq4j._
 import org.apache.calcite.linq4j.tree._
-import org.apache.calcite.materialize.MaterializationService
 import org.apache.calcite.plan._
 import org.apache.calcite.prepare.RelOptTableImpl
 import org.apache.calcite.rel.RelDistribution
 import org.apache.calcite.rel.RelDistributionTraitDef
-import org.apache.calcite.rel.RelDistributions
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.RelWriter
 import org.apache.calcite.rel.convert.ConverterImpl
-import org.apache.calcite.rel.core.TableScan
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.`type`._
-import org.apache.calcite.rex.RexBuilder
 import org.apache.calcite.rex.RexInputRef
-import org.apache.calcite.rex.RexNode
-import org.apache.calcite.rex.RexProgram
-import org.apache.calcite.schema._
-import org.apache.calcite.sql.SqlCall
-import org.apache.calcite.sql.SqlNode
-import org.apache.calcite.util.BuiltInMethod
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
-import ch.epfl.dias.emitter.{Binding, PlanToJSON}
+import ch.epfl.dias.emitter.{Binding}
 import ch.epfl.dias.repl.Repl
-import com.google.common.base.Function
-import com.google.common.collect.Lists
 import org.apache.calcite.util.Sources
 import java.io.{File, FileOutputStream, PrintWriter}
 import java.nio.file.{Files, Paths}
 import java.util
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter.process
-import ch.epfl.dias.calcite.adapter.pelago.reporting.TimeKeeper
+import ch.epfl.dias.calcite.adapter.pelago.reporting.{PelagoTimeInterval, TimeKeeper}
 import ch.epfl.dias.emitter.PlanToJSON._
-import org.apache.calcite.avatica.remote.AvaticaHttpClientFactoryImpl
-import org.json4s.{JValue, JsonAST}
+import org.json4s.{JValue}
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.{JsonMethods, Serialization}
 
 import scala.collection.JavaConverters._
 
@@ -92,6 +75,9 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
   override def implement(implementor: EnumerableRelImplementor, pref: EnumerableRel.Prefer): EnumerableRel.Result = {
     val mock = Repl.isMockRun //TODO: change!!!
 
+    val planTimer = new PelagoTimeInterval
+    planTimer.start()
+
     val plan = getPlan
 
     if (mock == true) {
@@ -101,40 +87,11 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
       new PrintWriter(Repl.planfile) { write(pretty(render(plan))); close }
       if (Files.exists(Paths.get("../../src/panorama/public/assets"))) {new PrintWriter(new FileOutputStream("../../src/panorama/public/assets/flare.json", false)) { write(pretty(render(plan))); close } }
       PelagoToEnumerableConverter.rowType = getRowType
-//      val builder = new ProcessBuilder("./rawmain-server")
-//      val process = builder.start()
-//
-//      val stdinWriter = new java.io.PrintWriter((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true);
-//      val stdoutReader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))
-//      val stderrReader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getErrorStream()))
-//
-//      var line: String = "";
-//      while ({line = stdoutReader.readLine(); line != null} && line != "ready") {}
-//
-//      stdinWriter.println("echo results on");
-//      stdinWriter.println("execute plan from file plan.json");
-//
-//
-//      while ({line = stdoutReader.readLine(); line != null} && !line.startsWith("result in file")) {
-//        System.out.println("pelago: " + line);
-//      }
-//
-//      System.out.println(line)
-//      if (line == null){
-//        while ({line = stderrReader.readLine(); line != null}) {
-//          System.out.println("pelago:err: " + line);
-//        }
-//      }
-//
-//      val path = line.substring("result in file ".length);
-//      System.out.println("path: " + path);
-//
-//      PelagoToEnumerableConverter.pt = new PelagoResultTable(Sources.of(new File(path)), getRowType, false)
-//
-//
-//      input.foreach(stdinWriter.write(_))
-//      stdinWriter.close()
     }
+
+    // report time to create the json and flush it
+    planTimer.stop()
+    TimeKeeper.INSTANCE.addTplan2json(planTimer.getDifferenceMilli)
 
     val table = RelOptTableImpl.create(null, getRowType, ImmutableList.of[String](),
       Expressions.call(
@@ -197,26 +154,22 @@ object PelagoToEnumerableConverter {
       if (Repl.echoResults) stdinWriter.println("echo results on" )
       else                  stdinWriter.println("echo results off")
 
-      stdinWriter.println("execute plan from file " + Repl.planfile)
+      val executorTimer = new PelagoTimeInterval
+      executorTimer.start()
 
-      val tk = TimeKeeper.getInstance()
-      var first_texec = true
+      stdinWriter.println("execute plan from file " + Repl.planfile)
 
       while ({line = stdoutReader.readLine(); line != null} && !line.startsWith("result in file")) {
         System.out.println("pelago: " + line)
 
-        if(line.contains("Texecute")){
+        if(line.contains("Texecute w sync: ")){
           val texec = java.lang.Long.parseLong("(\\d+)".r.findFirstIn(line).get)
-          if(first_texec) {
-            tk.addTexec(texec)
-            first_texec = false
-          }
-
+          TimeKeeper.INSTANCE.addTexec(texec)
         }
 
-        if(line.contains("Tcodegen")){
+        if(line.contains("Tcodegen: ")){
           val tcodegen = java.lang.Long.parseLong("(\\d+)".r.findFirstIn(line).get)
-          tk.addTcodegen(tcodegen);
+          TimeKeeper.INSTANCE.addTcodegen(tcodegen)
         }
       }
 
@@ -230,22 +183,17 @@ object PelagoToEnumerableConverter {
 
       val path = line.substring("result in file ".length)
 
-      // print the times
-      System.out.println(tk);
-      // refresh the times
-      tk.refreshTable();
+      executorTimer.stop()
+      TimeKeeper.INSTANCE.addTexecutorTime(executorTimer)
+      
+      if (Repl.timings) {
+        // print the times
+        System.out.println(TimeKeeper.INSTANCE)
+        // refresh the times
+        TimeKeeper.INSTANCE.refreshTable()
+      }
 
       new PelagoResultTable(Sources.of(new File(path)), rowType, false).scan(root)
     }
   }
-//
-//  /** E.g. {@code constantArrayList("x", "y")} returns
-//    * "Arrays.asList('x', 'y')". */
-//  private def constantArrayList[T](values: util.List[T], clazz: Class[_]) = Expressions.call(BuiltInMethod.ARRAYS_AS_LIST.method, Expressions.newArrayInit(clazz, constantList(values)))
-//
-//  /** E.g. {@code constantList("x", "y")} returns
-//    * {@code {ConstantExpression("x"), ConstantExpression("y")}}. */
-//  private def constantList[T](values: util.List[T]) = Lists.transform(values, new Function[T, Expression]() {
-//    override def apply(a0: T): Expression = return Expressions.constant(a0)
-//  })
 }
