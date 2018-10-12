@@ -220,6 +220,11 @@ void thread_warm_up(){}
  *                  The following line/lines are results printed into stdout
  */
 int main(int argc, char* argv[]){
+    if (argc >= 2 && strcmp(argv[1], "--query-topology") == 0){
+        std::cout << topology::getInstance() << std::endl;
+        return 0;
+    }
+
     // Initialize Google's logging library.
     google::InitGoogleLogging(argv[0]);
     LOG(INFO)<< "Starting up server...";
