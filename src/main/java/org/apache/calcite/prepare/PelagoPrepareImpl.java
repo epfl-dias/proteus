@@ -41,6 +41,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.runtime.Bindable;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.Typed;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
@@ -493,13 +494,70 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             if (node instanceof SqlSetOption){
                 SqlSetOption setOption = (SqlSetOption) node;
                 switch (setOption.getName().names.get(0)){
-                case "cpuonly":
-                    SqlNode value = setOption.getValue();
-                    if (value instanceof SqlLiteral){
-                        SqlLiteral lit = (SqlLiteral) value;
-                        Repl.cpuonly_$eq(lit.booleanValue());
-                        return;
-                    } else {
+                    case "cpuonly": {
+                        SqlNode value = setOption.getValue();
+                        if (value instanceof SqlLiteral) {
+                            SqlLiteral lit = (SqlLiteral) value;
+                            Repl.cpuonly_$eq(lit.booleanValue());
+                            return;
+                        } else {
+                            throw new UnsupportedOperationException();
+                        }
+                    }
+                    case "cpudop": {
+                        SqlNode value = setOption.getValue();
+                        if (value instanceof SqlLiteral) {
+                            SqlLiteral lit = (SqlLiteral) value;
+                            int new_cpudop = lit.intValue(true);
+                            if (new_cpudop > 0) {
+                                Repl.cpudop_$eq(new_cpudop);
+                                return;
+                            }
+                        }
+                        throw new UnsupportedOperationException();
+                    }
+                    case "gpudop": {
+                        SqlNode value = setOption.getValue();
+                        if (value instanceof SqlLiteral) {
+                            SqlLiteral lit = (SqlLiteral) value;
+                            int new_gpudop = lit.intValue(true);
+                            if (new_gpudop >= 0) {
+                                Repl.gpudop_$eq(new_gpudop);
+                                return;
+                            }
+                        }
+                        throw new UnsupportedOperationException();
+                    }
+                    case "timings": {
+                        SqlNode value = setOption.getValue();
+                        String option;
+                        if (value instanceof SqlIdentifier) {
+                            SqlIdentifier id = (SqlIdentifier) value;
+                            option = id.toString();
+                        } else if (value instanceof SqlLiteral) {
+                            SqlLiteral lit = (SqlLiteral) value;
+                            option = lit.getStringValue();
+                        } else {
+                            throw new UnsupportedOperationException();
+                        }
+                        option = option.toLowerCase();
+                        switch (option){
+                            case "csv":{
+                                Repl.timingscsv_$eq(true);
+                                Repl.timings_$eq(true);
+                                return;
+                            }
+                            case "text":
+                            case "on":{
+                                Repl.timingscsv_$eq(false);
+                                Repl.timings_$eq(true);
+                                return;
+                            }
+                            case "off":{
+                                Repl.timings_$eq(false);
+                                return;
+                            }
+                        }
                         throw new UnsupportedOperationException();
                     }
                 }

@@ -3,6 +3,7 @@ package org.apache.calcite.prepare;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
+import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumerableInterpretable;
 import org.apache.calcite.adapter.enumerable.EnumerableRel;
 import org.apache.calcite.avatica.Meta;
@@ -11,6 +12,8 @@ import org.apache.calcite.interpreter.BindableConvention;
 import org.apache.calcite.interpreter.Interpreters;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.linq4j.Enumerable;
+import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.plan.*;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistributions;
@@ -143,8 +146,7 @@ public class                                                                    
         private String message;
 
         public PelagoTimer(PelagoTimeInterval tm) {
-            this.tm = tm;
-            this.message = "Time difference: ";
+            this(tm, "");
         }
 
         public PelagoTimer(PelagoTimeInterval tm, String message) {
@@ -157,16 +159,14 @@ public class                                                                    
                            RelTraitSet requiredOutputTraits,
                            List<RelOptMaterialization> materializations,
                            List<RelOptLattice> lattices) {
-
-            if(!tm.getStarted()){
+            if(!tm.isStarted()){
                 tm.start();
             } else {
                 tm.stop();
-                TimeKeeper.getInstance().addTcalcite(tm.getDifferenceMilli());
-                TimeKeeper.getInstance().addTimestamp();
+                TimeKeeper.INSTANCE.addTplanning(tm);
                 System.out.println(message + tm.getDifferenceMilli() + "ms");
             }
-
+            TimeKeeper.INSTANCE.addTimestamp();
             return rel;
         }
     }
@@ -177,13 +177,7 @@ public class                                                                    
         private final PelagoTimeInterval timer;
 
         PelagoTimedSequence(Program... programs) {
-            timer = new PelagoTimeInterval();
-
-            PelagoTimer startTimer = new PelagoTimer(timer);
-            PelagoTimer endTimer = new PelagoTimer(timer);
-
-            this.programs =  new ImmutableList.Builder<Program>().add(startTimer).addAll(ImmutableList.copyOf(programs)).add(endTimer).build();
-
+            this("", programs);
         }
 
         PelagoTimedSequence(String message, Program... programs) {
@@ -192,8 +186,7 @@ public class                                                                    
             PelagoTimer startTimer = new PelagoTimer(timer, message);
             PelagoTimer endTimer = new PelagoTimer(timer, message);
 
-            this.programs =  new ImmutableList.Builder<Program>().add(startTimer).addAll(ImmutableList.copyOf(programs)).add(endTimer).build();
-
+            this.programs = new ImmutableList.Builder<Program>().add(startTimer).add(programs).add(endTimer).build();
         }
 
         public RelNode run(RelOptPlanner planner, RelNode rel,
@@ -201,8 +194,7 @@ public class                                                                    
                            List<RelOptMaterialization> materializations,
                            List<RelOptLattice> lattices) {
             for (Program program : programs) {
-                rel = program.run(
-                        planner, rel, requiredOutputTraits, materializations, lattices);
+                rel = program.run(planner, rel, requiredOutputTraits, materializations, lattices);
             }
             return rel;
         }
@@ -241,12 +233,14 @@ public class                                                                    
         PelagoTimeInterval tm = new PelagoTimeInterval();
 
         boolean cpu_only = Repl.cpuonly();
+        int     cpudop   = Repl.cpudop();
 
         ImmutableList.Builder<RelOptRule> hetRuleBuilder = ImmutableList.builder();
 
         if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossDown.RULES);
 
-        hetRuleBuilder.add(PelagoPushRouterDown.RULES);
+        if (!(cpu_only && cpudop == 1)) hetRuleBuilder.add(PelagoPushRouterDown.RULES);
+
         hetRuleBuilder.add(PelagoPackTransfers.RULES );
 
         return Programs.sequence(timedSequence("Calcite time: ",

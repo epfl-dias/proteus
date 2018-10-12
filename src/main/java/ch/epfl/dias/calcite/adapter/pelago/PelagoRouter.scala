@@ -1,40 +1,25 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
-import ch.epfl.dias.emitter.Binding
-import ch.epfl.dias.emitter.PlanToJSON
 import org.apache.calcite.plan._
 import org.apache.calcite.rel._
-import org.apache.calcite.rel.convert.ConverterImpl
-import org.apache.calcite.rel.core.Aggregate
-import org.apache.calcite.rel.core.AggregateCall
 import org.apache.calcite.rel.core.Exchange
-import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.json4s.JsonAST
-import java.util
 
-import ch.epfl.dias.emitter.PlanToJSON.{emitAggExpression, emitArg, emitExpression, emitSchema, emit_, getFields}
+import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema}
 import ch.epfl.dias.emitter.Binding
 import org.apache.calcite.plan.RelOptCluster
 import org.apache.calcite.plan.RelOptCost
 import org.apache.calcite.plan.RelOptPlanner
 import org.apache.calcite.plan.RelTraitSet
 import org.apache.calcite.rel.RelNode
-import org.apache.calcite.rel.core.{AggregateCall, Filter}
 import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.rex.{RexInputRef, RexNode}
+import org.apache.calcite.rex.RexInputRef
 import org.json4s.JsonDSL._
 import org.json4s._
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization
-import org.apache.calcite.rex.RexNode
-import org.json4s.JsonAST
 
 import scala.collection.JavaConverters._
-import java.util
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.RelMdDeviceType
+import ch.epfl.dias.repl.Repl
 
-//import ch.epfl.dias.calcite.adapter.pelago.`trait`.{RelDeviceType, RelDeviceTypeTraitDef}
 import com.google.common.base.Supplier
 import org.apache.calcite.rel.convert.Converter
 
@@ -71,12 +56,12 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
     var childOp = child._2
     val rowType = emitSchema(childBinding.rel, getRowType, false, getTraitSet.containsIfApplicable(RelPacking.Packed))
 
-    var out_dop = 2 //if (target == RelDeviceType.NVPTX) 2 else 24
+    var out_dop = Repl.gpudop // if (target == RelDeviceType.NVPTX) Repl.gpudop else Repl.cpudop
     if (getDistribution.getType eq RelDistribution.Type.SINGLETON) {
       out_dop = 1
     }
 
-    var in_dop = 2 //if (target == RelDeviceType.NVPTX) 2 else 24
+    var in_dop = Repl.gpudop // if (target == RelDeviceType.NVPTX) Repl.gpudop else Repl.cpudop //FIXME: this is wrong... we should detect where it came from!
     if (input.getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
       in_dop = 1
     }

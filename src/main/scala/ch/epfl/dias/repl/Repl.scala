@@ -26,6 +26,7 @@ import org.apache.calcite.avatica.jdbc.JdbcMeta
 import org.apache.calcite.avatica.remote.LocalService
 
 import scala.io.{BufferedSource, Source, StdIn}
+import scala.sys.process.Process
 
 object Repl extends App {
   Class.forName("ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver")
@@ -49,21 +50,46 @@ object Repl extends App {
         nextOption(map ++ Map('port -> value.toInt), tail)
       case "--cpuonly" :: value :: tail =>
         nextOption(map ++ Map('cpuonly -> true), tail)
+      case "--timings-csv" :: value :: tail =>
+        nextOption(map ++ Map('timingscsv -> true), tail)
       case "--mockfile" :: value :: tail =>
         nextOption(map ++ Map('mockfile -> value) ++ Map('mock -> true), tail)
       case "--planfile" :: value :: tail =>
         nextOption(map ++ Map('planfile -> value), tail)
+      case "--gpudop" :: value :: tail =>
+        nextOption(map ++ Map('gpudop -> value.toInt), tail)
+      case "--cpudop" :: value :: tail =>
+        nextOption(map ++ Map('cpudop -> value.toInt), tail)
       case "--mock" :: tail =>
         nextOption(map ++ Map('mock -> true), tail)
       case string :: Nil => nextOption(map ++ Map('schema -> string), list.tail)
       case option :: tail => println("Unknown option " + option)
-        println("Usage: [--server [--port]] [--echo-results] [--planfile <path-to-write-plan>] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]")
+        println("Usage: [--server [--port]] [--echo-results] [--timings-csv] [--planfile <path-to-write-plan>] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]")
         System.exit(1)
         null
     }
   }
 
-  val options = nextOption(Map('server -> false, 'port -> 8081, 'echoResults -> false, 'mock -> false, 'mockfile -> defaultMock, 'cpuonly -> false, 'planfile -> "plan.json", 'schema -> defaultSchema), arglist)
+  val topology = Process("./rawmain-server --query-topology").!!
+  val gpudop_regex = """gpu  count: (\d+)""".r.unanchored
+  val detected_gpudop = topology match {
+    case gpudop_regex(g) => g.toInt
+    case _ => 0
+  }
+  val cpudop_regex = """core count: (\d+)""".r.unanchored
+  val detected_cpudop = topology match {
+    case cpudop_regex(c) => c.toInt/2             // We want by default to ignore hyperthreads
+    case _ => 48
+  }
+
+  System.out.println(topology)
+
+  val options = nextOption(Map(
+                                'server -> false, 'port -> 8081, 'cpudop -> detected_cpudop, 'gpudop -> detected_gpudop,
+                                'echoResults -> false, 'mock -> false, 'timings -> true, 'timingscsv -> false,
+                                'mockfile -> defaultMock,
+                                'cpuonly -> (detected_gpudop <= 0), 'planfile -> "plan.json", 'schema -> defaultSchema
+                              ), arglist)
 
   System.out.println(options);
 
@@ -71,7 +97,12 @@ object Repl extends App {
   var isMockRun   = options('mock       ).asInstanceOf[Boolean]
   var echoResults = options('echoResults).asInstanceOf[Boolean]
   var planfile    = options('planfile   ).asInstanceOf[String ]
+  var timingscsv  = options('timingscsv ).asInstanceOf[Boolean]
+  var timings     = options('timings    ).asInstanceOf[Boolean]
+
   var cpuonly     = options('cpuonly    ).asInstanceOf[Boolean]
+  var cpudop      = options('cpudop     ).asInstanceOf[Int    ]
+  var gpudop      = options('gpudop     ).asInstanceOf[Int    ]
 
 
   /*

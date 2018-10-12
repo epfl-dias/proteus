@@ -33,6 +33,11 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
     Repl.isMockRun_$eq(true);
 
 //    connection.createStatement().execute("ALTER SESSION SET cpuonly = true");
+//    connection.createStatement().execute("ALTER SESSION SET cpudop = 32");
+//    connection.createStatement().execute("ALTER SESSION SET timings = CSV");
+//    connection.createStatement().execute("ALTER SESSION SET timings = off");
+//    connection.createStatement().execute("ALTER SESSION SET timings = TEXT");
+//    connection.createStatement().execute("ALTER SESSION SET timings = on");
 
     connection.createStatement().executeQuery("explain plan for select * from ssbm_date1000");
   }
