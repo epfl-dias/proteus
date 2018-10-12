@@ -31,6 +31,21 @@ std::map<std::string, std::vector<std::unique_ptr<mmap_file>>> StorageManager::f
 std::map<std::string, std::map<int, std::string> *>            StorageManager::dicts;
 
 void StorageManager::load(std::string name, data_loc loc){
+    if (loc == ALLSOCKETS) {
+        loadToCpus(name);
+        return;
+    }
+
+    if (loc == ALLGPUS) {
+        loadToGpus(name);
+        return;
+    }
+
+    if (loc == EVERYWHERE) {
+        loadEverywhere(name, 1, 1);
+        return;
+    }
+
     time_block t("Topen (" + name + "): ");
 
     auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});

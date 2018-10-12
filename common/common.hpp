@@ -185,7 +185,10 @@ size_t getFileSize(const char* filename);
 enum data_loc{
     GPU_RESIDENT,
     PINNED,
-    PAGEABLE
+    PAGEABLE,
+    ALLSOCKETS,
+    ALLGPUS,
+    EVERYWHERE,
 };
 
 struct mmap_file{
