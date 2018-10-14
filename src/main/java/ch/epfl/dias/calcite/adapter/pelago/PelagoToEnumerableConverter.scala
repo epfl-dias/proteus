@@ -80,12 +80,12 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
 
     val plan = getPlan
 
+    new PrintWriter(Repl.planfile) { write(pretty(render(plan))); close }
+    if (Files.exists(Paths.get("../../src/panorama/public/assets"))) {new PrintWriter(new FileOutputStream("../../src/panorama/public/assets/flare.json", false)) { write(pretty(render(plan))); close } }
+
     if (mock == true) {
-      System.out.println(pretty(render(plan)))
       PelagoToEnumerableConverter.pt = new PelagoResultTable(Sources.of(new File(Repl.mockfile)), getRowType, mock) //TODO: fix path
     } else {
-      new PrintWriter(Repl.planfile) { write(pretty(render(plan))); close }
-      if (Files.exists(Paths.get("../../src/panorama/public/assets"))) {new PrintWriter(new FileOutputStream("../../src/panorama/public/assets/flare.json", false)) { write(pretty(render(plan))); close } }
       PelagoToEnumerableConverter.rowType = getRowType
     }
 

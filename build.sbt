@@ -33,13 +33,24 @@ libraryDependencies += slf4j
 libraryDependencies += slf4j_log4j12
 libraryDependencies += json4sJackson
 
-// https://mvnrepository.com/artifact/junit/junit
-libraryDependencies += "junit" % "junit" % "4.12" % Test
+//// https://mvnrepository.com/artifact/junit/junit
+//libraryDependencies += "junit" % "junit" % "4.12" % Test
+//libraryDependencies += "junit" % "junit" % "4.12" % Test
+
+// https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
+libraryDependencies += "org.junit.jupiter" % "junit-jupiter-api" % "5.3.1" % Test
+libraryDependencies += "org.junit.jupiter" % "junit-jupiter-params" % "5.3.1" % Test
 
 // junit tests (invoke with `sbt test`)
 libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test"
 // disable tests during `sbt assembly`
 test in assembly := {}
+
+//fork in Test := true
+//baseDirectory in Test := file("/cloud_store/periklis/pelago_cidr2/opt/raw")
+
+resolvers += Resolver.jcenterRepo
+testOptions += Tests.Argument(TestFrameworks.JUnit, "-q")
 
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", "services", xs @ _*) => MergeStrategy.first
