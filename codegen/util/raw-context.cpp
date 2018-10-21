@@ -26,7 +26,19 @@
 #include "llvm/Analysis/Passes.h"
 #include "llvm/IR/Verifier.h"
 
+#include "expressions/expressions-generator.hpp"
+
 bool print_generated_code = true;
+
+
+if_branch::if_branch(	expressions::Expression *expr	,
+						const OperatorState 	&state	,
+						RawContext 				*context):
+		context(context){
+	ExpressionGeneratorVisitor egv{context, state};
+	condition = expr->accept(egv);
+}
+
 
 void RawContext::createJITEngine() {
 	LLVMLinkInMCJIT();

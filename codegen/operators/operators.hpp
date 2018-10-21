@@ -94,8 +94,13 @@ public:
 			producer(opState.producer),
 			activeVariables(opState.activeVariables)			{ LOG(INFO)<< "[Operator State: ] Copy Constructor"; }
 
+	[[deprecated]]
 	const map<RecordAttribute, RawValueMemory>& getBindings() 	const 	{ return activeVariables; }
 	const RawOperator& getProducer() 							const 	{ return producer; }
+
+	const RawValueMemory & operator[](const RecordAttribute &key) const{
+		return activeVariables.at(key);
+	}
 private:
 	const RawOperator& producer;
 	//Variable bindings produced by operator and provided to its parent
