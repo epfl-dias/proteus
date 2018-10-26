@@ -450,6 +450,7 @@ void MemMoveDevice::close(RawPipeline * pip){
     // delete[] mmc->old_buffs;
 
     mmc->idle.close();//false);
+    std::cout << "MemMoveDevice:close1" << std::endl;
 
     // delete mmc->worker;
     // delete mmc;

@@ -685,8 +685,10 @@ void Nest::probeHT() const	{
                         //     Builder->CreateCall(f, currKey);
                         // }
 
-                        // FIMXE: do it using an (dot) equality expression of RawValueExpressions!!! (which should also handle lazy materializations)
-                        val_cond = Builder->CreateAnd(val_cond, Builder->CreateICmpEQ(retrKey, currKey));
+                        expressions::RawValueExpression curre{k->getExpressionType(), RawValue{currKey, currKeyMem.isNull}};
+                        expressions::RawValueExpression retre{k->getExpressionType(), RawValue{retrKey, retrKeyMem.isNull}};
+                        RawValue eq = curre.acceptTandem(dotVisitor, &retre);
+                        val_cond = Builder->CreateAnd(val_cond, eq.value);
                     }
 					//Value *val_cond = context->createTrue();
 					//val_cond = Builder->CreateICmpEQ(tmp, tmp);
