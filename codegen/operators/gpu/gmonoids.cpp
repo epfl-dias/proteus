@@ -115,7 +115,11 @@ void MaxMonoid::createAtomicUpdate(RawContext* const context,
 Value * SumMonoid::create(RawContext* const context, 
                             Value * val_accumulating, 
                             Value * val_in) {
-    return context->getBuilder()->CreateAdd(val_in, val_accumulating);
+    if (val_in->getType()->isIntegerTy()){
+        return context->getBuilder()->CreateAdd(val_in, val_accumulating);
+    } else {
+        return context->getBuilder()->CreateFAdd(val_in, val_accumulating);
+    }
 }
 
 void SumMonoid::createAtomicUpdate(RawContext* const context,
