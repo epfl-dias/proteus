@@ -804,6 +804,72 @@ RawValue ExpressionFlusherVisitor::visit(expressions::NegExpression *e) {
 	throw runtime_error(string("[ExpressionFlusherVisitor]: input of negate expression can only be primitive"));
 }
 
+RawValue ExpressionFlusherVisitor::visit(expressions::ExtractExpression *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
+	ExpressionGeneratorVisitor exprGenerator{context, currState};
+	RawValue exprResult = e->accept(exprGenerator);
+
+	const ExpressionType* type = e->getExpressionType();
+	Function *flushFunc = NULL;
+	string instructionLabel;
+
+	if (type->isPrimitive()) {
+		typeID id = type->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
+
+		switch (id) {
+		case INT64:
+			instructionLabel = string("flushInt64");
+			break;
+		case INT:
+			instructionLabel = string("flushInt");
+			break;
+		case FLOAT:
+			instructionLabel = string("flushDouble");
+			break;
+		case BOOL:
+			instructionLabel = string("flushBoolean");
+			break;
+		case STRING:
+			LOG(ERROR)<< "[ExpressionFlusherVisitor]: string operations not supported yet";
+			throw runtime_error(string("[ExpressionFlusherVisitor]: string operations not supported yet"));
+		case BAG:
+		case LIST:
+		case SET:
+			LOG(ERROR) << "[ExpressionFlusherVisitor]: invalid expression type";
+			throw runtime_error(string("[ExpressionFlusherVisitor]: invalid expression type"));
+		case RECORD:
+			LOG(ERROR) << "[ExpressionFlusherVisitor]: invalid expression type";
+			throw runtime_error(string("[ExpressionFlusherVisitor]: invalid expression type"));
+		default:
+			LOG(ERROR) << "[ExpressionFlusherVisitor]: Unknown Input";
+			throw runtime_error(string("[ExpressionFlusherVisitor]: Unknown Input"));
+		}
+		flushFunc = context->getFunction(instructionLabel);
+		vector<Value*> ArgsV;
+		ArgsV.push_back(exprResult.value);
+		ArgsV.push_back(outputFileLLVM);
+		context->getBuilder()->CreateCall(flushFunc, ArgsV);
+		return placeholder;
+
+	}
+	throw runtime_error(string("[ExpressionFlusherVisitor]: input of negate expression can only be primitive"));
+}
+
+RawValue ExpressionFlusherVisitor::visit(expressions::TestNullExpression *e) {
+	outputFileLLVM = context->CreateGlobalString(this->outputFile);
+	ExpressionGeneratorVisitor exprGenerator{context, currState};
+	RawValue exprResult = e->accept(exprGenerator);
+	
+	Function * flushFunc = context->getFunction("flushBoolean");
+	vector<Value*> ArgsV;
+	ArgsV.push_back(exprResult.value);
+	ArgsV.push_back(outputFileLLVM);
+	context->getBuilder()->CreateCall(flushFunc, ArgsV);
+	return placeholder;
+}
+
 RawValue ExpressionFlusherVisitor::visit(expressions::CastExpression *e) {
 	outputFileLLVM = context->CreateGlobalString(this->outputFile);
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);

@@ -37,7 +37,7 @@ namespace expressions
 {
 
 
-enum ExpressionId	{ CONSTANT, RAWVALUE, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE, EXPRESSION_HASHER, NEG_EXPRESSION, CAST_EXPRESSION};
+enum ExpressionId	{ CONSTANT, RAWVALUE, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE, EXPRESSION_HASHER, TESTNULL_EXPRESSION, EXTRACT, NEG_EXPRESSION, CAST_EXPRESSION};
 
 class Expression	{
 public:
@@ -597,6 +597,7 @@ private:
  */
 class RecordConstruction : public Expression	{
 public:
+	[[deprecated]]
 	RecordConstruction(const ExpressionType* type,
 			const list<AttributeConstruction>& atts) :
 			Expression(type), atts(atts) 							{
@@ -604,7 +605,7 @@ public:
 			}
 
 	RecordConstruction(const list<AttributeConstruction>& atts) :
-			Expression(new RecordType()), atts(atts) 							{
+			Expression(constructRecordType(atts)), atts(atts) {
 			}
 	~RecordConstruction()											{}
 
@@ -637,6 +638,16 @@ public:
 		} else {
 			return this->getTypeID() < r.getTypeID();
 		}
+	}
+
+	RecordType *constructRecordType(const list<AttributeConstruction> &attrs){
+		vector<RecordAttribute *> recs;
+		for (const auto &a: attrs) {
+			auto *type = a.getExpression()->getExpressionType();
+			auto  attr = new RecordAttribute{"tmp", a.getBindingName(), type};
+			recs.emplace_back(attr);
+		}
+		return new RecordType(recs);
 	}
 private:
 	const list<AttributeConstruction>& atts;
@@ -1126,6 +1137,79 @@ private:
 	Expression* expr;
 };
 
+class TestNullExpression : public Expression	{
+public:
+	TestNullExpression(Expression * expr, bool nullTest = true):
+			Expression(new BoolType()), expr(expr), nullTest(nullTest) {}
+
+	~TestNullExpression()								{}
+	
+	bool isNullTest() const { return nullTest; }
+	Expression * getExpr() const						{ return expr; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const				{ return TESTNULL_EXPRESSION; }
+	inline bool operator<(const expressions::Expression& r) const {
+			if (this->getTypeID() == r.getTypeID()) {
+				const TestNullExpression& rHash = dynamic_cast<const TestNullExpression&>(r);
+				return *(this->getExpr()) < *(rHash.getExpr());
+			} else {
+				return this->getTypeID() < r.getTypeID();
+			}
+		}
+private:
+	Expression* expr;
+	bool nullTest;
+};
+
+enum class extract_unit{
+	MILLISECOND,
+	SECOND,
+	MINUTE,
+	HOUR,
+	DAYOFWEEK,
+	ISO_DAYOFWEEK,
+	DAYOFMONTH,
+	DAYOFYEAR,
+	WEEK,
+	MONTH,
+	QUARTER,
+	YEAR,
+	ISO_YEAR,
+	DECADE,
+	CENTURY,
+	MILLENNIUM
+};
+
+class ExtractExpression : public Expression	{
+public:
+	ExtractExpression(Expression * expr, extract_unit unit):
+			Expression(createReturnType(unit)), expr(expr), unit(unit) {
+		assert(expr->getExpressionType()->getTypeID() == DATE);
+	}
+
+	~ExtractExpression()								{}
+
+	extract_unit getExtractUnit() 						{ return unit; }
+	Expression * getExpr() const						{ return expr; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const						{ return EXTRACT; }
+	inline bool operator<(const expressions::Expression& r) const {
+		if (this->getTypeID() == r.getTypeID()) {
+			const ExtractExpression& rHash = dynamic_cast<const ExtractExpression&>(r);
+			return *(this->getExpr()) < *(rHash.getExpr());
+		} else {
+			return this->getTypeID() < r.getTypeID();
+		}
+	}
+private:
+	static ExpressionType * createReturnType(extract_unit u);
+
+	Expression * expr;
+	extract_unit unit;
+};
+
 class CastExpression : public Expression	{
 public:
 	CastExpression(ExpressionType *cast_to, Expression* expr):
@@ -1502,7 +1586,9 @@ public:
 	virtual RawValue visit(expressions::MinExpression *e) 		= 0;
 	virtual RawValue visit(expressions::MaxExpression *e) 		= 0;
 	virtual RawValue visit(expressions::HashExpression *e) 		= 0;
+	virtual RawValue visit(expressions::TestNullExpression *e) 	= 0;
 	virtual RawValue visit(expressions::NegExpression *e) 		= 0;
+	virtual RawValue visit(expressions::ExtractExpression *e) 	= 0;
 	virtual RawValue visit(expressions::CastExpression *e1) 	= 0;
 //	virtual RawValue visit(expressions::MergeExpression *e)  	= 0;
 	virtual ~ExprVisitor() {}
@@ -1567,6 +1653,10 @@ public:
 			expressions::HashExpression *e2) = 0;
 	virtual RawValue visit(expressions::NegExpression *e1,
 			expressions::NegExpression *e2) = 0;
+	virtual RawValue visit(expressions::ExtractExpression *e1,
+			expressions::ExtractExpression *e2) = 0;
+	virtual RawValue visit(expressions::TestNullExpression *e1,
+			expressions::TestNullExpression *e2) = 0;
 	virtual RawValue visit(expressions::CastExpression *e1,
 			expressions::CastExpression *e2) = 0;
 	virtual ~ExprTandemVisitor() {}

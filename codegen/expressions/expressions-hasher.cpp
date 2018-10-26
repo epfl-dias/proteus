@@ -933,6 +933,71 @@ RawValue ExpressionHasherVisitor::visit(expressions::NegExpression *e) {
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of negate expression can only be primitive"));
 }
 
+RawValue ExpressionHasherVisitor::visit(expressions::ExtractExpression *e) {
+	IRBuilder<>* const TheBuilder	= context->getBuilder();
+	ExpressionGeneratorVisitor exprGenerator{context, currState};
+	RawValue exprResult = e->accept(exprGenerator);
+
+	const ExpressionType* type = e->getExpressionType();
+	Function *hashFunc = NULL;
+	string instructionLabel;
+
+	if (type->isPrimitive()) {
+		typeID id = type->getTypeID();
+		RawValue valWrapper;
+		valWrapper.isNull = context->createFalse();
+
+		switch (id) {
+		case INT:
+			instructionLabel = string("hashInt");
+			break;
+		case FLOAT:
+			instructionLabel = string("hashDouble");
+			break;
+		case BOOL:
+			instructionLabel = string("hashBoolean");
+			break;
+		case STRING:
+			LOG(ERROR)<< "[ExpressionHasherVisitor]: string operations not supported yet";
+			throw runtime_error(string("[ExpressionHasherVisitor]: string operations not supported yet"));
+		case BAG:
+		case LIST:
+		case SET:
+			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
+			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
+		case RECORD:
+			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
+			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
+		default:
+			LOG(ERROR) << "[ExpressionHasherVisitor]: Unknown Input";
+			throw runtime_error(string("[ExpressionHasherVisitor]: Unknown Input"));
+		}
+		hashFunc = context->getFunction(instructionLabel);
+		vector<Value*> ArgsV;
+		ArgsV.push_back(exprResult.value);
+		Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
+
+		RawValue hashValWrapper;
+		hashValWrapper.value = hashResult;
+		hashValWrapper.isNull = context->createFalse();
+		return hashValWrapper;
+	}
+	throw runtime_error(string("[ExpressionHasherVisitor]: input of negate expression can only be primitive"));
+}
+
+RawValue ExpressionHasherVisitor::visit(expressions::TestNullExpression *e) {
+	IRBuilder<>* const TheBuilder	= context->getBuilder();
+	ExpressionGeneratorVisitor exprGenerator{context, currState};
+	RawValue exprResult = e->accept(exprGenerator);
+	
+	Function * hashFunc = context->getFunction("hashBoolean");
+	// vector<Value*> ArgsV;
+	// ArgsV.push_back(exprResult.value);
+	Value *hashResult = context->getBuilder()->CreateCall(hashFunc, {exprResult.value}, "hashBoolean");
+
+	return RawValue{hashResult, context->createFalse()};
+}
+
 RawValue ExpressionHasherVisitor::visit(expressions::CastExpression *e) {
 	//do not _just_ cast the inner expression, as hash may be different between the casted and non-casted expressions
 	IRBuilder<>* const TheBuilder	= context->getBuilder();

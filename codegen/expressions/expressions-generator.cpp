@@ -313,9 +313,11 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordConstruction *e) {
 	Type * recType  = e->getExpressionType()->getLLVMType(llvmContext);
 	auto mem_struct = context->CreateEntryBlockAlloca(F, "recConstr", recType);
 
+	recType->dump();
 	int i = 0;
 	for (const auto & attr: e->getAtts()) {
 		RawValue val = attr.getExpression()->accept(*this);
+		val.value->dump();
 		context->updateStructElem(val.value, mem_struct, i++);
 	}
 
@@ -487,46 +489,55 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 	RawValue left = e->getLeftOperand()->accept(*this);
 	RawValue right = e->getRightOperand()->accept(*this);
 
+
 	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
-	if (childType->isPrimitive()) {
-		typeID id = childType->getTypeID();
-		RawValue valWrapper;
-		valWrapper.isNull = context->createFalse();
-		switch (id) {
-		case DSTRING:
-		case DATE:
-		case INT64:
-		case INT:
-		{
-#ifdef DEBUG
-{
-			vector<Value*> ArgsV;
-			ArgsV.clear();
-			ArgsV.push_back(left.value);
-			Function* debugInt = context->getFunction("printi");
-			TheBuilder->CreateCall(debugInt, ArgsV);
-}
-#endif
-			valWrapper.value = TheBuilder->CreateICmpEQ(left.value, right.value);
-			return valWrapper;
+
+	typeID id = childType->getTypeID();
+	RawValue valWrapper;
+	valWrapper.isNull = context->createFalse();
+	switch (id) {
+	case DSTRING:
+	case DATE:
+	case INT64:
+	case INT:
+	{
+		valWrapper.value = TheBuilder->CreateICmpEQ(left.value, right.value);
+		return valWrapper;
+	}
+	case FLOAT:
+		valWrapper.value = TheBuilder->CreateFCmpOEQ(left.value, right.value);
+		return valWrapper;
+	case BOOL:
+		valWrapper.value = TheBuilder->CreateICmpEQ(left.value, right.value);
+		return valWrapper;
+	//XXX Does this code work if we are iterating over a json primitive array?
+	//Example: ["alpha","beta","gamma"]
+	case STRING: {
+		vector<Value*> ArgsV;
+		ArgsV.push_back(left.value);
+		ArgsV.push_back(right.value);
+		Function* stringEquality = context->getFunction("equalStringObjs");
+		valWrapper.value = TheBuilder->CreateCall(stringEquality, ArgsV,
+				"equalStringObjsCall");
+		return valWrapper;
+	}
+	case RECORD: {
+		Value * res = context->createTrue();
+		const auto &al = dynamic_cast<const RecordType *>(e->getLeftOperand ()->getExpressionType())->getArgs();
+		const auto &ar = dynamic_cast<const RecordType *>(e->getRightOperand()->getExpressionType())->getArgs();
+		auto it_al = al.begin();
+		auto it_ar = ar.begin();
+		assert(al.size() == ar.size() && al.size() > 0);
+		for (size_t i = 0 ; i < al.size() ; ++i, ++it_al, ++it_ar){
+			auto e_l = new expressions::RawValueExpression{(*it_al)->getOriginalType(), RawValue{TheBuilder->CreateExtractValue(left.value , i), context->createFalse()}};
+			auto e_r = new expressions::RawValueExpression{(*it_ar)->getOriginalType(), RawValue{TheBuilder->CreateExtractValue(right.value, i), context->createFalse()}};
+			expressions::EqExpression eq{e_l, e_r};
+			auto r = eq.accept(*this);
+			res = TheBuilder->CreateAnd(res, r.value);
 		}
-		case FLOAT:
-			valWrapper.value = TheBuilder->CreateFCmpOEQ(left.value, right.value);
-			return valWrapper;
-		case BOOL:
-			valWrapper.value = TheBuilder->CreateICmpEQ(left.value, right.value);
-			return valWrapper;
-		//XXX Does this code work if we are iterating over a json primitive array?
-		//Example: ["alpha","beta","gamma"]
-		case STRING: {
-			vector<Value*> ArgsV;
-			ArgsV.push_back(left.value);
-			ArgsV.push_back(right.value);
-			Function* stringEquality = context->getFunction("equalStringObjs");
-			valWrapper.value = TheBuilder->CreateCall(stringEquality, ArgsV,
-					"equalStringObjsCall");
-			return valWrapper;
-		}
+
+		return RawValue{res, context->createFalse()};
+	}
 //		case STRING: {
 //			//{ i8*, i32 }
 //			StructType *stringObjType = context->CreateStringStruct();
@@ -546,62 +557,57 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 //			valWrapper.value = TheBuilder->CreateICmpEQ(mystrncmp(ptr_s1,ptr_s2,len2).value,toCmp);
 //			return valWrapper;
 //		}
-		/*case STRING: {
-			//{ i8*, i32 }
-			StructType *stringObjType = context->CreateStringStruct();
-			AllocaInst *mem_str_obj_left = context->CreateEntryBlockAlloca(F,
-					string("revertedStringObjLeft"), stringObjType);
-			AllocaInst *mem_str_obj_right = context->CreateEntryBlockAlloca(F,
-					string("revertedStringObjRight"), stringObjType);
-			TheBuilder->CreateStore(left.value, mem_str_obj_left);
-			TheBuilder->CreateStore(right.value, mem_str_obj_right);
+	/*case STRING: {
+		//{ i8*, i32 }
+		StructType *stringObjType = context->CreateStringStruct();
+		AllocaInst *mem_str_obj_left = context->CreateEntryBlockAlloca(F,
+				string("revertedStringObjLeft"), stringObjType);
+		AllocaInst *mem_str_obj_right = context->CreateEntryBlockAlloca(F,
+				string("revertedStringObjRight"), stringObjType);
+		TheBuilder->CreateStore(left.value, mem_str_obj_left);
+		TheBuilder->CreateStore(right.value, mem_str_obj_right);
 
-			Value *ptr_s1 = context->getStructElem(mem_str_obj_left, 0);
-			Value *ptr_s2 = context->getStructElem(mem_str_obj_right, 0);
-			Value *len1 = context->getStructElem(mem_str_obj_left, 1);
-			Value *len2 = context->getStructElem(mem_str_obj_right, 1);
-
-
-			this->declareLLVMFunc();
-			IRBuilder<>* Builder = context->getBuilder();
-			LLVMContext& llvmContext = context->getLLVMContext();
-			Function *F = Builder->GetInsertBlock()->getParent();
-			Module *mod = context->getModule();
-
-			std::vector<Value*> int32_call_params;
-			int32_call_params.push_back(ptr_s1);
-			int32_call_params.push_back(ptr_s2);
-			int32_call_params.push_back(len1);
-			int32_call_params.push_back(len2);
-
-			Function* func_mystrncmpllvm = context->getModule()->getFunction("mystrncmpllvm");
-			CallInst* int32_call = CallInst::Create(func_mystrncmpllvm, int32_call_params, "callStrncmp",Builder->GetInsertBlock());
-			int32_call->setCallingConv(CallingConv::C);
-			int32_call->setTailCall(false);
-			cout << "Not Inlined?? " << int32_call->isNoInline() << endl;
-			AttributeSet int32_call_PAL;
-			int32_call->setAttributes(int32_call_PAL);
+		Value *ptr_s1 = context->getStructElem(mem_str_obj_left, 0);
+		Value *ptr_s2 = context->getStructElem(mem_str_obj_right, 0);
+		Value *len1 = context->getStructElem(mem_str_obj_left, 1);
+		Value *len2 = context->getStructElem(mem_str_obj_right, 1);
 
 
-			Value *toCmp = context->createInt32(0);
-			valWrapper.value = TheBuilder->CreateICmpEQ(
-					int32_call, toCmp);
-			return valWrapper;
-				}*/
-		case BAG:
-		case LIST:
-		case SET:
-			LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
-		case RECORD:
-			LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
-		default:
-			LOG(ERROR) << "[ExpressionGeneratorVisitor]: Unknown Input";
-			throw runtime_error(string("[ExpressionGeneratorVisitor]: Unknown Input"));
-		}
+		this->declareLLVMFunc();
+		IRBuilder<>* Builder = context->getBuilder();
+		LLVMContext& llvmContext = context->getLLVMContext();
+		Function *F = Builder->GetInsertBlock()->getParent();
+		Module *mod = context->getModule();
+
+		std::vector<Value*> int32_call_params;
+		int32_call_params.push_back(ptr_s1);
+		int32_call_params.push_back(ptr_s2);
+		int32_call_params.push_back(len1);
+		int32_call_params.push_back(len2);
+
+		Function* func_mystrncmpllvm = context->getModule()->getFunction("mystrncmpllvm");
+		CallInst* int32_call = CallInst::Create(func_mystrncmpllvm, int32_call_params, "callStrncmp",Builder->GetInsertBlock());
+		int32_call->setCallingConv(CallingConv::C);
+		int32_call->setTailCall(false);
+		cout << "Not Inlined?? " << int32_call->isNoInline() << endl;
+		AttributeSet int32_call_PAL;
+		int32_call->setAttributes(int32_call_PAL);
+
+
+		Value *toCmp = context->createInt32(0);
+		valWrapper.value = TheBuilder->CreateICmpEQ(
+				int32_call, toCmp);
+		return valWrapper;
+			}*/
+	case BAG:
+	case LIST:
+	case SET:
+		LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
+		throw runtime_error(string("[ExpressionGeneratorVisitor]: invalid expression type"));
+	default:
+		LOG(ERROR) << "[ExpressionGeneratorVisitor]: Unknown Input";
+		throw runtime_error(string("[ExpressionGeneratorVisitor]: Unknown Input"));
 	}
-	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
 int mystrncmp(const char *s1, const char *s2, size_t n)
@@ -1762,8 +1768,387 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::HashExpression *e)	{
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::NegExpression *e)	{
 	RawValue v = e->getExpr()->accept(*this);
-	v.value = context->getBuilder()->CreateNeg(v.value);
+	if (v.value->getType()->isFloatingPointTy()){
+		v.value = context->getBuilder()->CreateFNeg(v.value);
+	} else {
+		v.value = context->getBuilder()->CreateNeg(v.value);
+	}
 	return v;
+}
+
+int getYearDiv(expressions::extract_unit unit){
+	switch (unit){
+		case expressions::extract_unit::YEAR 		: return 1;
+		case expressions::extract_unit::DECADE		: return 10;
+		case expressions::extract_unit::CENTURY 	: return 100;
+		case expressions::extract_unit::MILLENNIUM 	: return 1000;
+		default 		: {
+			assert(false);
+			LOG(ERROR) << "[ExpressionGeneratorVisitor]: Unknown extract unit";
+			throw runtime_error(string("[ExpressionGeneratorVisitor]: Unknown extract unit"));
+		}
+	}
+}
+
+int getYearAbsOffset(expressions::extract_unit unit){
+	switch (unit){
+		case expressions::extract_unit::YEAR 		: return 0;
+		case expressions::extract_unit::DECADE		: return 0;
+		case expressions::extract_unit::CENTURY 	: return 99;
+		case expressions::extract_unit::MILLENNIUM 	: return 999;
+		default 		: {
+			assert(false);
+			LOG(ERROR) << "[ExpressionGeneratorVisitor]: Unknown extract unit";
+			throw runtime_error(string("[ExpressionGeneratorVisitor]: Unknown extract unit"));
+		}
+	}
+}
+
+/**
+ * Mimic Calcite's julianExtract
+ *
+ * based on: 
+ * https://github.com/apache/calcite-avatica/blob/d86f3722885ea4fb8a13ef1f86976c0941576630/core/src/main/java/org/apache/calcite/avatica/util/DateTimeUtils.java#L746
+ *
+ * ( https://github.com/apache/calcite-avatica/blob/master/core/src/main/java/org/apache/calcite/avatica/util/DateTimeUtils.java )
+ */
+
+RawValue ExpressionGeneratorVisitor::visit(expressions::ExtractExpression *e){
+	/**
+	 * Mimic Calcite's julianExtract
+	 *
+	 * based on: 
+	 * https://github.com/apache/calcite-avatica/blob/d86f3722885ea4fb8a13ef1f86976c0941576630/core/src/main/java/org/apache/calcite/avatica/util/DateTimeUtils.java#L746
+	 *
+	 * ( https://github.com/apache/calcite-avatica/blob/master/core/src/main/java/org/apache/calcite/avatica/util/DateTimeUtils.java )
+	 */
+	IRBuilder<>* const TheBuilder  = context->getBuilder    ();
+	LLVMContext      & llvmContext = context->getLLVMContext();
+
+	auto floorDiv = [=](Value * x, Value * y){
+		//java: long r = x / y;
+		auto r = TheBuilder->CreateSDiv(x, y);
+
+		// if ((x ^ y) < 0 && (r * y != x)) {
+		//   r--;
+		// }
+		// return r;
+
+		// ((x ^ y) < 0 && (r * y != x)) ? r - 1 : r
+		return TheBuilder->CreateSelect(
+			TheBuilder->CreateAnd(
+				TheBuilder->CreateICmpSLT(
+					TheBuilder->CreateXor(x, y),
+					context->createInt64(0)
+				),
+				TheBuilder->CreateICmpNE(
+					TheBuilder->CreateMul(r, y),
+					x
+				)
+			),
+			TheBuilder->CreateSub(r, context->createInt64(1)),
+			r
+		);
+	};
+
+	auto floorMod = [=](Value * x, Value * y){
+		//java: x - floorDiv(x, y) * y;
+		return TheBuilder->CreateSub(
+			x,
+			TheBuilder->CreateMul(floorDiv(x, y), y)
+		);
+	};
+
+	auto v = e->getExpr()->accept(*this);
+	auto u = e->getExtractUnit();
+
+	constexpr int32_t MS_PER_S    {1000};
+	constexpr int32_t MS_PER_M    {60 * MS_PER_S};
+	constexpr int32_t MS_PER_H    {60 * MS_PER_M};
+	constexpr int64_t MS_PER_DAY  {24 * MS_PER_H};
+	constexpr int64_t EPOCH_JULIAN{2440588}; //days
+
+	auto julian = TheBuilder->CreateAdd(
+		TheBuilder->CreateUDiv(v.value, context->createInt64(MS_PER_DAY)),
+		context->createInt64(EPOCH_JULIAN)
+	);
+	//java: int j = julian + 32044;
+	auto j = TheBuilder->CreateAdd(julian, context->createInt64(32044));
+	//java: int g = j / 146097;
+	auto g = TheBuilder->CreateSDiv(j, context->createInt64(146097));
+	//java: int dg = j % 146097;
+	auto dg = TheBuilder->CreateSRem(j, context->createInt64(146097));
+	//java: int c = (dg / 36524 + 1) * 3 / 4;
+	auto c = TheBuilder->CreateSDiv(
+		TheBuilder->CreateMul(
+			TheBuilder->CreateAdd(
+				TheBuilder->CreateSDiv(dg, context->createInt64(36524)),
+				context->createInt64(1)
+			),
+			context->createInt64(3)
+		),
+		context->createInt64(4)
+	);
+	//java: int dc = dg - c * 36524;
+	auto dc = TheBuilder->CreateSub(
+		dg,
+		TheBuilder->CreateMul(c, context->createInt64(36524))
+	);
+	//java: int b = dc / 1461;
+	auto b = TheBuilder->CreateSDiv(
+		dc,
+		context->createInt64(1461)
+	);
+	//java: int db = dc % 1461;
+	auto db = TheBuilder->CreateSRem(
+		dc,
+		context->createInt64(1461)
+	);
+	//java: int a = (db / 365 + 1) * 3 / 4;
+	auto a = TheBuilder->CreateSDiv(
+		TheBuilder->CreateMul(
+			TheBuilder->CreateAdd(
+				TheBuilder->CreateSDiv(db, context->createInt64(365)),
+				context->createInt64(1)
+			),
+			context->createInt64(3)
+		),
+		context->createInt64(4)
+	);
+	//java: int da = db - a * 365;
+	auto da = TheBuilder->CreateSub(
+		db,
+		TheBuilder->CreateMul(a, context->createInt64(365))
+	);
+
+	// integer number of full years elapsed since March 1, 4801 BC
+	//java: int y = g * 400 + c * 100 + b * 4 + a;
+	auto y = TheBuilder->CreateAdd(
+		TheBuilder->CreateAdd( //g * 400 + c * 100
+			TheBuilder->CreateMul(g, context->createInt64(400)),
+			TheBuilder->CreateMul(c, context->createInt64(100))
+		),
+		TheBuilder->CreateAdd( //b * 4 + a
+			TheBuilder->CreateMul(b, context->createInt64(4)),
+			a
+		)
+	);
+
+	// integer number of full months elapsed since the last March 1
+	//java: int m = (da * 5 + 308) / 153 - 2;
+	auto m = TheBuilder->CreateSub(
+		TheBuilder->CreateSDiv(
+			TheBuilder->CreateAdd(
+				TheBuilder->CreateMul(da, context->createInt64(5)),
+				context->createInt64(308)
+			),
+			context->createInt64(153)
+		),
+		context->createInt64(2)
+	);
+
+	// number of days elapsed since day 1 of the month
+	//java: int d = da - (m + 4) * 153 / 5 + 122;
+	auto d = TheBuilder->CreateAdd(
+		TheBuilder->CreateSub(
+			da,
+			TheBuilder->CreateSDiv(
+				TheBuilder->CreateMul(
+					TheBuilder->CreateAdd(
+						m,
+						context->createInt64(4)
+					),
+					context->createInt64(153)
+				),
+				context->createInt64(5)
+			)
+		),
+		context->createInt64(122)
+	);
+	//java: int year = y - 4800 + (m + 2) / 12;
+	auto year = TheBuilder->CreateAdd(
+		TheBuilder->CreateSub(
+			y,
+			context->createInt64(4800)
+		),
+		TheBuilder->CreateSDiv(
+			TheBuilder->CreateAdd(
+				m,
+				context->createInt64(2)
+			),
+			context->createInt64(12)
+		)
+	);
+	//java: int month = (m + 2) % 12 + 1;
+	auto month = TheBuilder->CreateAdd(
+		TheBuilder->CreateSRem(
+			TheBuilder->CreateAdd(
+				m,
+				context->createInt64(2)
+			),
+			context->createInt64(12)
+		),
+		context->createInt64(1)
+	);
+	//java: int day = d + 1;
+	auto day = TheBuilder->CreateAdd(
+		d,
+		context->createInt64(1)
+	);
+
+	auto vtime = TheBuilder->CreateTrunc(
+		floorMod(v.value, context->createInt64(MS_PER_DAY)),
+		Type::getInt32Ty(llvmContext)
+	);
+
+	switch (u){
+		case expressions::extract_unit::MILLISECOND 	: {
+			v.value = TheBuilder->CreateURem(
+				vtime,
+				context->createInt32(MS_PER_S)
+			);
+			break;
+		}
+		case expressions::extract_unit::SECOND 			: {
+			v.value = TheBuilder->CreateURem(
+				TheBuilder->CreateUDiv(vtime, context->createInt32(MS_PER_S)),
+				context->createInt32(60)
+			);
+			break;
+		}
+		case expressions::extract_unit::MINUTE 			: {
+			v.value = TheBuilder->CreateURem(
+				TheBuilder->CreateUDiv(vtime, context->createInt32(MS_PER_M)),
+				context->createInt32(60)
+			);
+			break;
+		}
+		case expressions::extract_unit::HOUR 			: {
+			v.value = TheBuilder->CreateUDiv(vtime, context->createInt32(MS_PER_H));
+			break;
+		}
+		case expressions::extract_unit::DAYOFWEEK 		: { // sun = 1, sat = 7
+			v.value = TheBuilder->CreateAdd(
+				floorMod(
+					TheBuilder->CreateAdd(julian, context->createInt64(1)),
+					context->createInt64(7)
+				),
+				context->createInt64(1)
+			);
+			break;
+		}
+		case expressions::extract_unit::ISO_DAYOFWEEK 	: { // mon = 1, sun = 7
+			v.value = TheBuilder->CreateAdd(
+				floorMod(
+					julian,
+					context->createInt64(7)
+				),
+				context->createInt64(1)
+			);
+			break;
+		}
+		case expressions::extract_unit::DAYOFMONTH 		: { //DAY
+			v.value = day;
+			break;
+		}
+		case expressions::extract_unit::DAYOFYEAR 		: {
+			//    int a = (14 - month) / 12;
+			//    int y = year + 4800 - a;
+			//    int m = month + 12 * a - 3;
+			//    return day + (153 * m + 2) / 5
+			//        + 365 * y
+			//        + y / 4
+			//        - y / 100
+			//        + y / 400
+			//        - 32045;
+
+			//    int a = (14 - 1) / 12;
+			//    int y = year + 4800 - a;
+			//    int m = 1 + 12 * a - 3;
+			//    return 1 + (153 * m + 2) / 5
+			//        + 365 * y
+			//        + y / 4
+			//        - y / 100
+			//        + y / 400
+			//        - 32045;
+
+			//    int y = year + 4799;
+			//    return 365 * y
+			//        + y / 4
+			//        - y / 100
+			//        + y / 400
+			//        - 31738;
+			auto y = TheBuilder->CreateAdd(year, context->createInt64(4799));
+			v.value = TheBuilder->CreateAdd(
+				TheBuilder->CreateSub(
+					TheBuilder->CreateAdd(
+						TheBuilder->CreateMul(
+							context->createInt64(365),
+							y
+						),
+						TheBuilder->CreateSDiv(y, context->createInt64(4))
+					),
+					TheBuilder->CreateSDiv(y, context->createInt64(100))
+				),
+				TheBuilder->CreateSub( //y / 400 - 31738
+					TheBuilder->CreateSDiv(y, context->createInt64(400)),
+					context->createInt64(31738)
+				)
+			);
+			break;
+		}
+		case expressions::extract_unit::WEEK 			: {
+			LOG(ERROR) << "[ExpressionGeneratorVisitor]: Unknown extract unit";
+			throw runtime_error(string("[ExpressionGeneratorVisitor]: Unknown extract unit"));
+		}
+		case expressions::extract_unit::MONTH 			: {
+			v.value = month;
+			break;
+		}
+		case expressions::extract_unit::QUARTER 		: {
+			v.value = TheBuilder->CreateUDiv(
+				TheBuilder->CreateAdd(
+					month,
+					context->createInt64(2)
+				),
+				context->createInt64(3)
+			);
+			break;
+		}
+		case expressions::extract_unit::ISO_YEAR 		:  {
+			LOG(ERROR) << "[ExpressionGeneratorVisitor]: Unknown extract unit";
+			throw runtime_error(string("[ExpressionGeneratorVisitor]: Unknown extract unit"));
+		}
+		case expressions::extract_unit::YEAR 			: 
+		case expressions::extract_unit::DECADE			: 
+		case expressions::extract_unit::CENTURY 		: 
+		case expressions::extract_unit::MILLENNIUM 		: {
+			int     aoff = getYearAbsOffset(u);
+			Value * soff = TheBuilder->CreateSelect(
+				TheBuilder->CreateICmpSGT(year, context->createInt64(0)),
+				context->createInt64(+aoff),
+				context->createInt64(-aoff)
+			);
+			Value * fxty = TheBuilder->CreateAdd(year, soff);
+			v.value = TheBuilder->CreateSDiv(fxty, context->createInt64(getYearDiv(u)));
+			break;
+		}
+		default 		: {
+			LOG(ERROR) << "[ExpressionGeneratorVisitor]: Unknown extract unit";
+			throw runtime_error(string("[ExpressionGeneratorVisitor]: Unknown extract unit"));
+		}
+	}
+
+	v.value = TheBuilder->CreateSExtOrTrunc(v.value, e->getExpressionType()->getLLVMType(llvmContext));
+	return v;
+}
+
+RawValue ExpressionGeneratorVisitor::visit(expressions::TestNullExpression *e)	{
+	RawValue v  = e->getExpr()->accept(*this);
+	Value * result;
+	if (e->isNullTest()) result = v.isNull;
+	else result = context->getBuilder()->CreateNot(v.isNull);
+	return RawValue{result, context->createFalse()};
 }
 
 RawValue ExpressionGeneratorVisitor::visit(expressions::CastExpression *e)	{

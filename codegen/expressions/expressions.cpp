@@ -142,6 +142,14 @@ RawValue NegExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
 
+RawValue ExtractExpression::accept(ExprVisitor &v) {
+	return v.visit(this);
+}
+
+RawValue TestNullExpression::accept(ExprVisitor &v) {
+	return v.visit(this);
+}
+
 RawValue CastExpression::accept(ExprVisitor &v) {
 	return v.visit(this);
 }
@@ -493,6 +501,28 @@ RawValue NegExpression::acceptTandem(ExprTandemVisitor &v,
 	throw runtime_error(string(error_msg));
 }
 
+RawValue ExtractExpression::acceptTandem(ExprTandemVisitor &v,
+		expressions::Expression* expr) {
+	if (this->getTypeID() == expr->getTypeID()) {
+		ExtractExpression *r = dynamic_cast<ExtractExpression*>(expr);
+		return v.visit(this, r);
+	}
+	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
+	LOG(ERROR)<< error_msg;
+	throw runtime_error(string(error_msg));
+}
+
+RawValue TestNullExpression::acceptTandem(ExprTandemVisitor &v,
+		expressions::Expression* expr) {
+	if (this->getTypeID() == expr->getTypeID()) {
+		TestNullExpression *r = dynamic_cast<TestNullExpression*>(expr);
+		return v.visit(this, r);
+	}
+	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
+	LOG(ERROR)<< error_msg;
+	throw runtime_error(string(error_msg));
+}
+
 RawValue CastExpression::acceptTandem(ExprTandemVisitor &v,
 		expressions::Expression* expr) {
 	if (this->getTypeID() == expr->getTypeID()) {
@@ -616,5 +646,28 @@ llvm::Constant * getIdentityElementIfSimple(Monoid m, const ExpressionType * typ
 	}
 }
 
-
-
+ExpressionType * expressions::ExtractExpression::createReturnType(extract_unit u){
+	switch (u){
+		case extract_unit::SECOND:
+		case extract_unit::MINUTE:
+		case extract_unit::HOUR:
+		case extract_unit::DAYOFWEEK:
+		case extract_unit::DAYOFMONTH:
+		case extract_unit::DAYOFYEAR:
+		case extract_unit::WEEK:
+		case extract_unit::MONTH:
+		case extract_unit::QUARTER:
+		case extract_unit::YEAR:
+		case extract_unit::MILLENNIUM:
+		case extract_unit::CENTURY:
+		case extract_unit::DECADE: {
+			return new IntType();
+		}
+		default: {
+			string error_msg =
+					"[extract_unit: ] Unknown return type for extract unit";
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(error_msg);
+		}
+	}
+}
