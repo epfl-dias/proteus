@@ -70,6 +70,7 @@ public:
 	RecordAttribute* 		 parseRecordAttr(const rapidjson::Value& val, const ExpressionType * defaultType = NULL);
 	Monoid parseAccumulator(const char *acc);
 private:
+	expressions::extract_unit parseUnitRange(std::string range, RawContext * ctx);
 	RecordType * 			 getRecordType(string relName);
 	const RecordAttribute *	 getAttribute (string relName, string attrName);
 };

@@ -25,6 +25,7 @@
 #include "operators/gpu/gpu-sort.hpp"
 #include "operators/unionall.hpp"
 #include "operators/split.hpp"
+#include "operators/dict-scan.hpp"
 
 #include "rapidjson/error/en.h"
 /* too primitive */
@@ -1408,6 +1409,32 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		GpuColScanPlugin * gpu_scan_pg = dynamic_cast<GpuColScanPlugin *>(pg);
 		if (gpu_scan_pg && gpu_scan_pg->getChild()) gpu_scan_pg->getChild()->setParent(newOp);
+	} else if(strcmp(opName, "dict-scan") == 0) {
+		assert(val.HasMember("relName"));
+		assert(val["relName"].IsString());
+		auto relName = val["relName"].GetString();
+
+		assert(val.HasMember("attrName"));
+		assert(val["attrName"].IsString());
+		auto attrName = val["attrName"].GetString();
+
+		assert(val.HasMember("regex"));
+		assert(val["regex"].IsString());
+		auto regex = val["regex"].GetString();
+
+		auto dictRelName = relName + std::string{"$dict$"} + attrName;
+
+		void * dict = StorageManager::getDictionaryOf(relName + std::string{"."} + attrName);
+
+		InputInfo * datasetInfo = (this->catalogParser).getOrCreateInputInfo(dictRelName);
+		RecordType * rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfo->exprType)->getNestedType())};
+		RecordAttribute * reg_as = new RecordAttribute(dictRelName, attrName, new DStringType(dict)); 
+		std::cout << "Registered: " << reg_as->getRelationName() << "." << reg_as->getAttrName() << std::endl;
+		rec->appendAttribute(reg_as);
+
+		datasetInfo->exprType = new BagType{*rec};
+
+		newOp =  new DictScan(this->ctx, RecordAttribute{relName, attrName, new DStringType(dict)}, regex, *reg_as);
 #ifndef NCUDA
 	} else if(strcmp(opName,"cpu-to-gpu") == 0)	{
 		/* parse operator input */
@@ -1978,6 +2005,40 @@ int lookupInDictionary(string s, const rapidjson::Value& val){
 		return document[s.c_str()].GetInt();
 	}
 }
+
+
+
+expressions::extract_unit ExpressionParser::parseUnitRange(std::string range, RawContext * ctx) {
+	if (range == "YEAR" 		) return expressions::extract_unit::YEAR;
+	if (range == "MONTH" 		) return expressions::extract_unit::MONTH;
+	if (range == "DAY" 			) return expressions::extract_unit::DAYOFMONTH;
+	if (range == "HOUR" 		) return expressions::extract_unit::HOUR;
+	if (range == "MINUTE" 		) return expressions::extract_unit::MINUTE;
+	if (range == "SECOND" 		) return expressions::extract_unit::SECOND;
+	if (range == "QUARTER" 		) return expressions::extract_unit::QUARTER;
+	if (range == "WEEK" 		) return expressions::extract_unit::WEEK;
+	if (range == "MILLISECOND" 	) return expressions::extract_unit::MILLISECOND;
+	if (range == "DOW" 			) return expressions::extract_unit::DAYOFWEEK;
+	if (range == "DOY" 			) return expressions::extract_unit::DAYOFYEAR;
+	if (range == "DECADE" 		) return expressions::extract_unit::DECADE;
+	if (range == "CENTURY" 		) return expressions::extract_unit::CENTURY;
+	if (range == "MILLENNIUM" 	) return expressions::extract_unit::MILLENNIUM;
+	// case "YEAR_TO_MONTH" 	:
+	// case "DAY_TO_HOUR" 		:
+	// case "DAY_TO_MINUTE" 	:
+	// case "DAY_TO_SECOND" 	:
+	// case "HOUR_TO_MINUTE" 	:
+	// case "HOUR_TO_SECOND" 	:
+	// case "MINUTE_TO_SECOND" :
+	// case "EPOCH" 			:
+	// default:{
+	string err = string("Unsupoport TimeUnitRange: ") + range;
+	LOG(ERROR)<< err;
+	throw runtime_error(err);
+	// }
+}
+
+
 /*
  *	enum ExpressionId	{ CONSTANT, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE };
  *	FIXME / TODO No Merge yet!! Will be needed for parallelism!
@@ -2153,9 +2214,9 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 	} else if (strcmp(valExpression, "recordConstruction") == 0) {
 		assert(!isNull);
 		/* exprType */
-		assert(val.HasMember(keyExprType));
-		assert(val[keyExprType].IsObject());
-		ExpressionType *exprType = parseExpressionType(val[keyExprType]);
+		// assert(val.HasMember(keyExprType));
+		// assert(val[keyExprType].IsObject());
+		// ExpressionType *exprType = parseExpressionType(val[keyExprType]);
 
 		/* attribute construction(s) */
 		assert(val.HasMember(keyAttsConstruction));
@@ -2177,8 +2238,17 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 					new expressions::AttributeConstruction(newAttrName,newAttrExpr);
 			newAtts->push_back(*newAttr);
 		}
-		retValue = new expressions::RecordConstruction(exprType,*newAtts);
+		retValue = new expressions::RecordConstruction(*newAtts);
+	} else if (strcmp(valExpression, "extract") == 0) {
+		assert(val.HasMember("unitrange"));
+		assert(val["unitrange"].IsString());
 
+		assert(val.HasMember(keyInnerExpr));
+		assert(val[keyInnerExpr].IsObject());
+		expressions::Expression *expr = parseExpression(val[keyInnerExpr], ctx);
+
+		auto u = parseUnitRange(val["unitrange"].GetString(), ctx);
+		retValue = new expressions::ExtractExpression(expr, u);
 	} else if (strcmp(valExpression,"if") == 0)	{
 		assert(!isNull);
 		/* if cond */
@@ -2341,6 +2411,22 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		expressions::Expression *expr = parseExpression(val[keyInnerExpr], ctx);
 
 		retValue = new expressions::NegExpression(expr);
+	} else if (strcmp(valExpression, "is_not_null") == 0) {
+		assert(!isNull);
+		/* right child */
+		assert(val.HasMember(keyInnerExpr));
+		assert(val[keyInnerExpr].IsObject());
+		expressions::Expression *expr = parseExpression(val[keyInnerExpr], ctx);
+
+		retValue = new expressions::TestNullExpression(expr, false);
+	} else if (strcmp(valExpression, "is_null") == 0) {
+		assert(!isNull);
+		/* right child */
+		assert(val.HasMember(keyInnerExpr));
+		assert(val[keyInnerExpr].IsObject());
+		expressions::Expression *expr = parseExpression(val[keyInnerExpr], ctx);
+
+		retValue = new expressions::TestNullExpression(expr, true);
 	} else if (strcmp(valExpression, "cast") == 0) {
 		assert(!isNull);
 		/* right child */

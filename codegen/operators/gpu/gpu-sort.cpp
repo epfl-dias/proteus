@@ -39,7 +39,7 @@ GpuSort::GpuSort(   RawOperator * const                 child,
     assert(granularity == gran_t::GRID || granularity == gran_t::THREAD);
 
     list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
-    std::vector<RecordAttribute *> recattr;
+    // std::vector<RecordAttribute *> recattr;
     size_t i = 0;
     
     for (auto expr: orderByFields){
@@ -64,10 +64,10 @@ GpuSort::GpuSort(   RawOperator * const                 child,
                                             e
                                         );
         attrs->push_back(*newAttr);
-        recattr.push_back(new RecordAttribute{expr->getRegisteredAs()});
+        // recattr.push_back(new RecordAttribute{expr->getRegisteredAs()});
     }
 
-    outputExpr  = new expressions::RecordConstruction(new RecordType(recattr), *attrs);
+    outputExpr  = new expressions::RecordConstruction(*attrs);
 
     // width       = context->getSizeOf(outputExpr->getExpressionType()->getLLVMType(context->getLLVMContext()));
 
@@ -589,7 +589,10 @@ void GpuSort::call_sort(Value * mem, Value * N){
     //     Builder->CreateRet(context->createInt32(0));
     // }
 
-
+    std::cerr << "-------------------------------" << std::endl;
+    mem->getType()->getPointerElementType()->dump();
+    mem->getType()->getPointerElementType()->getArrayElementType()->dump();
+    std::cerr << "__" << context->getSizeOf(mem->getType()->getPointerElementType()->getArrayElementType()) << "__" << suffix << std::endl;
     Value * mem_char_ptr = Builder->CreateBitCast(mem, charPtrType);
     // std::vector<Value *> args{mem_char_ptr, count, size, cmp};
     std::vector<Value *> args{mem_char_ptr, count};
