@@ -85,6 +85,8 @@ extern "C" int atois(const char* buf, int len);
 
 extern "C" size_t hashInt(int toHash);
 
+extern "C" size_t hashInt64(int64_t toHash);
+
 extern "C" size_t hashDouble(double toHash);
 
 extern "C" size_t hashStringC(char* toHash, size_t start, size_t end);
