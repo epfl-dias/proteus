@@ -157,15 +157,16 @@ void GpuHashGroupByChained::buildHashTableFormat(){
 }
 
 //NOTE: no MOD hashtable_size here!
+// FIXME: shouldn't hashes be 64bit ?
 Value * GpuHashGroupByChained::hash(Value * key){
     IRBuilder<>    *Builder     = context->getBuilder();
 
-    Value * hash = key;
+    Value * hash = Builder->CreateZExtOrBitCast(key, Type::getInt64Ty(context->getLLVMContext()));
 
     hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
-    hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0x85ebca6b));
+    hash = Builder->CreateMul(hash, ConstantInt::get(hash->getType(), 0x85ebca6b));
     hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 13));
-    hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0xc2b2ae35));
+    hash = Builder->CreateMul(hash, ConstantInt::get(hash->getType(), 0xc2b2ae35));
     hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
 
     return hash;
@@ -377,9 +378,13 @@ void GpuHashGroupByChained::generate_build(RawContext* const context, const Oper
         RawValue keyWrapper = key_expr[i]->accept(exprGenerator);
 
         Value  * key        = Builder->CreateExtractValue(next_bucket, i);
-        Value  * key_comp   = Builder->CreateICmpEQ(key, keyWrapper.value);
 
-        bucket_cond         = Builder->CreateAnd(bucket_cond, key_comp);
+        expressions::RawValueExpression kexpr{key_expr[i]->getExpressionType(), keyWrapper};
+        expressions::RawValueExpression kbuck{key_expr[i]->getExpressionType(), RawValue{key, context->createFalse()}};
+        expressions::EqExpression eq{&kexpr, &kbuck};
+
+        RawValue eq_v = eq.accept(exprGenerator);
+        bucket_cond         = Builder->CreateAnd(bucket_cond, eq_v.value);
     }
                 // if (next[current].key == key) {
     Builder->CreateCondBr(bucket_cond, BucketFoundBB, ContFollowBB);

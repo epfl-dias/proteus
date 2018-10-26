@@ -120,16 +120,10 @@ void GpuHashJoinChained::probeHashTableFormat(){
 
             const ExpressionType * out_type = build_mat_exprs[i].expr->getExpressionType();
 
-            if (!out_type->isPrimitive()){
-                string error_msg("[GpuExprMaterializer: ] Currently only supports materialization of primitive types");
-                LOG(ERROR)<< error_msg;
-                throw runtime_error(error_msg);
-            }
-
-            Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
+            Type * llvm_type = out_type->getLLVMType(context->getLLVMContext());
 
             body.push_back(llvm_type);
-            bindex = build_mat_exprs[i].bitoffset + llvm_type->getPrimitiveSizeInBits();
+            bindex = build_mat_exprs[i].bitoffset + context->getSizeOf(llvm_type) * 8;
             build_mat_exprs[i].packind = packind++;
             ++i;
         }
@@ -179,6 +173,7 @@ void GpuHashJoinChained::buildHashTableFormat(){
 
         std::vector<Type *> body;
         while (i < build_mat_exprs.size() && build_mat_exprs[i].packet == p){
+            std::cout << build_mat_exprs[i].bitoffset << " " << bindex << std::endl;
             if (build_mat_exprs[i].bitoffset != bindex){
                 //insert space
                 assert(build_mat_exprs[i].bitoffset > bindex);
@@ -188,19 +183,15 @@ void GpuHashJoinChained::buildHashTableFormat(){
 
             const ExpressionType * out_type = build_mat_exprs[i].expr->getExpressionType();
 
-            if (!out_type->isPrimitive()){
-                string error_msg("[GpuExprMaterializer: ] Currently only supports materialization of primitive types");
-                LOG(ERROR)<< error_msg;
-                throw runtime_error(error_msg);
-            }
+            Type * llvm_type = out_type->getLLVMType(context->getLLVMContext());
 
-            Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
-
+            llvm_type->dump();
             body.push_back(llvm_type);
-            bindex = build_mat_exprs[i].bitoffset + llvm_type->getPrimitiveSizeInBits();
+            bindex = build_mat_exprs[i].bitoffset + context->getSizeOf(llvm_type) * 8;
             build_mat_exprs[i].packind = packind++;
             ++i;
         }
+        StructType::get(context->getLLVMContext(), body, true)->dump();
         assert(build_packet_widths[p] >= bindex);
 
         if (build_packet_widths[p] > bindex) {
@@ -223,6 +214,7 @@ void GpuHashJoinChained::buildHashTableFormat(){
     cnt_param_id = context->appendStateVar(t_cnt);//, true, false);
 }
 
+//NOTE: no MOD hashtable_size here!
 Value * GpuHashJoinChained::hash(Value * key){
     IRBuilder<>    *Builder     = context->getBuilder();
 
@@ -233,8 +225,48 @@ Value * GpuHashJoinChained::hash(Value * key){
     hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 13));
     hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0xc2b2ae35));
     hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
-    hash = Builder->CreateAnd(hash, ConstantInt::get(hash->getType(), ((size_t(1)) << hash_bits) - 1));
 
+    return hash;
+}
+
+//boost::hash_combine
+// seed ^= hash_value(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+
+//NOTE: no MOD hashtable_size here!
+Value * GpuHashJoinChained::hash(Value * old_seed, Value * key){
+    IRBuilder<>    *Builder     = context->getBuilder();
+
+    Value * hv = hash(key);
+    
+    hv = Builder->CreateAdd(hv, ConstantInt::get(hv->getType(), 0x9e3779b9));
+    hv = Builder->CreateAdd(hv, Builder->CreateShl (old_seed,  6));
+    hv = Builder->CreateAdd(hv, Builder->CreateLShr(old_seed,  2));
+    hv = Builder->CreateXor(hv, old_seed);
+
+    return hv;
+}
+
+Value * GpuHashJoinChained::hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState){
+    if (exprs.size() == 1 && exprs[0]->getExpressionType()->getTypeID() == RECORD){
+        std::vector<expressions::Expression *> vexprs;
+        auto rc = dynamic_cast<expressions::RecordConstruction *>(exprs[0]);
+        for (const auto &a: rc->getAtts()){
+            vexprs.emplace_back(a.getExpression());
+        }
+        return GpuHashJoinChained::hash(vexprs, context, childState);
+    }
+
+    IRBuilder<>    *Builder     = context->getBuilder();
+    ExpressionGeneratorVisitor exprGenerator(context, childState);
+    RawValue keyWrapper = exprs[0]->accept(exprGenerator); //FIXME hash composite key!
+    Value * hash = GpuHashJoinChained::hash(keyWrapper.value);
+
+    for (size_t i = 1 ; i < exprs.size() ; ++i){
+        RawValue keyWrapper = exprs[i]->accept(exprGenerator); //FIXME hash composite key!
+        hash = GpuHashJoinChained::hash(hash, keyWrapper.value);
+    }
+
+    hash = Builder->CreateURem(hash, ConstantInt::get(hash->getType(), (size_t(1) << hash_bits)));
     return hash;
 }
 
@@ -255,9 +287,7 @@ void GpuHashJoinChained::generate_build(RawContext* const context, const Operato
     Value * head_ptr = ((const GpuRawContext *) context)->getStateVar(head_param_id);
     head_ptr->setName(opLabel + "_head_ptr");
 
-    ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue keyWrapper = build_keyexpr->accept(exprGenerator);
-    Value * hash = GpuHashJoinChained::hash(keyWrapper.value);
+    Value * hash = GpuHashJoinChained::hash(std::vector<expressions::Expression *>{build_keyexpr}, context, childState);
 
     //TODO: consider using just the object id as the index, instead of the atomic
     //index
@@ -302,8 +332,8 @@ void GpuHashJoinChained::generate_build(RawContext* const context, const Operato
     }
 
     for (size_t i = 0 ; i < out_ptrs.size() ; ++i){
-        // Builder->CreateStore(out_vals[i], out_ptrs[i]);
-        Builder->CreateAlignedStore(out_vals[i], out_ptrs[i], build_packet_widths[i]/8);
+        Builder->CreateStore(out_vals[i], out_ptrs[i]);
+        // Builder->CreateAlignedStore(out_vals[i], out_ptrs[i], build_packet_widths[i]/8);
     }
 }
 
@@ -323,10 +353,12 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
 
     ExpressionGeneratorVisitor exprGenerator(context, childState);
     RawValue keyWrapper = probe_keyexpr->accept(exprGenerator);
-    Value * hash = GpuHashJoinChained::hash(keyWrapper.value);
+    Value * hash = GpuHashJoinChained::hash(std::vector<expressions::Expression *>{probe_keyexpr}, context, childState);
 
     //current = head[hash(key)]
-    Value * current = Builder->CreateAlignedLoad(Builder->CreateInBoundsGEP(head_ptr, hash), context->getSizeOf(head_ptr->getType()->getPointerElementType()));
+    size_t s = context->getSizeOf(head_ptr->getType()->getPointerElementType());
+    // Value * current = Builder->CreateAlignedLoad(Builder->CreateInBoundsGEP(head_ptr, hash), s & -s);
+    Value * current = Builder->CreateLoad(Builder->CreateInBoundsGEP(head_ptr, hash));
     current->setName("current");
 
     AllocaInst *mem_current = context->CreateEntryBlockAlloca(TheFunction, "mem_current", current->getType());
@@ -345,6 +377,8 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
 
     //check end of chain
 
+
+    auto * f = context->getFunction("printi");
     Value * condition = Builder->CreateICmpNE(Builder->CreateLoad(mem_current), ConstantInt::get(current->getType(), ~((size_t) 0)));
 
     Builder->CreateCondBr(condition, ThenBB, MergeBB);
@@ -364,7 +398,9 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
         // in_ptrs.push_back(in_ptr);
         
         in_ptrs.push_back(Builder->CreateInBoundsGEP(in_ptr, Builder->CreateLoad(mem_current)));
-        in_vals.push_back(Builder->CreateAlignedLoad(in_ptrs.back(), context->getSizeOf(in_ptrs.back()->getType()->getPointerElementType())));
+        size_t s = context->getSizeOf(in_ptrs.back()->getType()->getPointerElementType());
+        // in_vals.push_back(Builder->CreateAlignedLoad(in_ptrs.back(), s & -s));
+        in_vals.push_back(Builder->CreateLoad(in_ptrs.back()));
     }
 
     Value * next      = Builder->CreateExtractValue(in_vals[0], 0);
@@ -372,7 +408,10 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
 
     Builder->CreateStore(next, mem_current);
 
-    Value * match_condition = Builder->CreateICmpEQ(keyWrapper.value, build_key); //FIXME replace with EQ expression to support multiple types!
+    ExpressionGeneratorVisitor eqGenerator{context, childState};
+    auto build_expr = new expressions::RawValueExpression{probe_keyexpr->getExpressionType(), RawValue{build_key, context->createFalse()}};
+    expressions::EqExpression match_expr{probe_keyexpr, build_expr};
+    Value * match_condition = match_expr.accept(eqGenerator).value;
 
     BasicBlock *MatchThenBB  = BasicBlock::Create(llvmContext, "matchChainFollow"    , TheFunction);
 
@@ -383,7 +422,7 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
     //Reconstruct tuples
     map<RecordAttribute, RawValueMemory>* allJoinBindings = new map<RecordAttribute, RawValueMemory>();
 
-    if (probe_keyexpr->isRegistered()){
+    if (probe_keyexpr->isRegistered()) {
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
                                 "mem_" +  probe_keyexpr->getRegisteredAttrName(),
                                 keyWrapper.value->getType());
@@ -392,11 +431,35 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
 
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem    = mem_arg;
-        mem_valWrapper.isNull = keyWrapper.isNull;
+        mem_valWrapper.isNull = context->createFalse(); //FIMXE: is this correct ?
         (*allJoinBindings)[probe_keyexpr->getRegisteredAs()] = mem_valWrapper;
     }
 
-    if (build_keyexpr->isRegistered()){
+    if (probe_keyexpr->getExpressionType()->getTypeID() == RECORD) {
+        auto rc = dynamic_cast<expressions::RecordConstruction *>(probe_keyexpr);
+
+        size_t i = 0;
+        for (const auto &a: rc->getAtts()){
+            auto e = a.getExpression();
+            if (e->isRegistered()){
+                Value * d = Builder->CreateExtractValue(keyWrapper.value, i);
+
+                AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
+                                        "mem_" +  e->getRegisteredAttrName(),
+                                        d->getType());
+
+                Builder->CreateStore(d, mem_arg);
+
+                RawValueMemory mem_valWrapper;
+                mem_valWrapper.mem    = mem_arg;
+                mem_valWrapper.isNull = context->createFalse(); //FIMXE: is this correct ?
+                (*allJoinBindings)[e->getRegisteredAs()] = mem_valWrapper;
+            }
+            ++i;
+        }
+    }
+
+    if (build_keyexpr->isRegistered()) {
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
                                 "mem_" +  build_keyexpr->getRegisteredAttrName(),
                                 build_key->getType());
@@ -407,6 +470,30 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = context->createFalse(); //FIMXE: is this correct ?
         (*allJoinBindings)[build_keyexpr->getRegisteredAs()] = mem_valWrapper;
+    }
+
+    if (build_keyexpr->getExpressionType()->getTypeID() == RECORD) {
+        auto rc = dynamic_cast<expressions::RecordConstruction *>(build_keyexpr);
+
+        size_t i = 0;
+        for (const auto &a: rc->getAtts()){
+            auto e = a.getExpression();
+            if (e->isRegistered()){
+                Value * d = Builder->CreateExtractValue(build_key, i);
+
+                AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
+                                        "mem_" +  e->getRegisteredAttrName(),
+                                        d->getType());
+
+                Builder->CreateStore(d, mem_arg);
+
+                RawValueMemory mem_valWrapper;
+                mem_valWrapper.mem    = mem_arg;
+                mem_valWrapper.isNull = context->createFalse(); //FIMXE: is this correct ?
+                (*allJoinBindings)[e->getRegisteredAs()] = mem_valWrapper;
+            }
+            ++i;
+        }
     }
     
     // //from probe side
@@ -582,7 +669,7 @@ void GpuHashJoinChained::close_build(RawPipeline * pip){
     int32_t h_cnt;
     gpu_run(cudaMemcpy(&h_cnt, pip->getStateVar<int32_t *>(cnt_param_id), sizeof(int32_t), cudaMemcpyDefault));
     assert(((size_t) h_cnt) <= maxBuildInputSize && "Build input sized exceeded given parameter");
-    std::cout << "GpuHashJoinChained::close::build2" << std::endl;
+    std::cout << "GpuHashJoinChained::close::build2-" << h_cnt << std::endl;
 }
 
 void GpuHashJoinChained::close_probe(RawPipeline * pip){
