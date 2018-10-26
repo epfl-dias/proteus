@@ -2649,12 +2649,20 @@
                         "attrNo": 6
                     }, 
                     {
+                        "attrName": "p_container", 
+                        "relName": "inputs/tpch1/part.csv", 
+                        "type": {
+                            "type": "dstring"
+                        }, 
+                        "attrNo": 7
+                    }, 
+                    {
                         "attrName": "p_retailprice", 
                         "relName": "inputs/tpch1/part.csv", 
                         "type": {
                             "type": "float"
                         }, 
-                        "attrNo": 7
+                        "attrNo": 8
                     }, 
                     {
                         "attrName": "p_comment", 
@@ -2662,7 +2670,7 @@
                         "type": {
                             "type": "dstring"
                         }, 
-                        "attrNo": 8
+                        "attrNo": 9
                     }
                 ], 
                 "type": "record"
@@ -2672,7 +2680,7 @@
             "type": "block", 
             "linehint": 200000
         }
-    }, 
+    },
     "tpch1_orders": {
         "path": "inputs/tpch1/orders.csv", 
         "type": {

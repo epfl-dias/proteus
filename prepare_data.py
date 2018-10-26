@@ -11,7 +11,7 @@ supplier = r"""s_suppkey:int,s_name:string,s_address:string,s_city:string,s_nati
 part = r"""p_partkey:int,p_name:string,p_mfgr:string,p_category:string,p_brand1:string,p_color:string,p_type:string,p_size:int,p_container:string"""
 lineorder = r"""lo_orderkey:int,lo_linenumber:int,lo_custkey:int,lo_partkey:int,lo_suppkey:int,lo_orderdate:int,lo_orderpriority:string,lo_shippriority:string,lo_quantity:int,lo_extendedprice:int,lo_ordtotalprice:int,lo_discount:int,lo_revenue:int,lo_supplycost:int,lo_tax:int,lo_commitdate:int,lo_shipmode:string"""
 
-tpch_part = r"""p_partkey:int,p_name:string,p_mfgr:string,p_brand:string,p_type:string,p_size:int,p_retailprice:float,p_comment:string"""
+tpch_part = r"""p_partkey:int,p_name:string,p_mfgr:string,p_brand:string,p_type:string,p_size:int,p_container:string,p_retailprice:float,p_comment:string"""
 tpch_supplier = r"""s_suppkey:int,s_name:string,s_address:string,s_nationkey:int,s_phone:string,s_acctbal:float,s_comment:string"""
 tpch_partsupp = r"""ps_partkey:int,ps_suppkey:int,ps_availqty:int,ps_supplycost:float,ps_comment:string"""
 tpch_customer = r"""c_custkey:int,c_name:string,c_address:string,c_nationkey:int,c_phone:string,c_acctbal:float,c_mktsegment:string,c_comment:string"""
