@@ -613,6 +613,9 @@ void RawPipelineGen::registerFunctions()    {
     vector<Type*> ArgsHashInt;
     ArgsHashInt.insert(ArgsHashInt.begin(),int32_type);
 
+    vector<Type*> ArgsHashInt64;
+    ArgsHashInt64.insert(ArgsHashInt64.begin(),int64_type);
+
     vector<Type*> ArgsHashDouble;
     ArgsHashDouble.insert(ArgsHashDouble.begin(),double_type);
 
@@ -718,6 +721,7 @@ void RawPipelineGen::registerFunctions()    {
     FunctionType *FTcompareStringObjs     = FunctionType::get(int1_bool_type, ArgsStringObjCmp, false);
     FunctionType *FTcompareString         = FunctionType::get(int1_bool_type, ArgsStringCmp, false);
     FunctionType *FThashInt               = FunctionType::get(int64_type, ArgsHashInt, false);
+    FunctionType *FThashInt64             = FunctionType::get(int64_type, ArgsHashInt64, false);
     FunctionType *FThashDouble            = FunctionType::get(int64_type, ArgsHashDouble, false);
     FunctionType *FThashStringC           = FunctionType::get(int64_type, ArgsHashStringC, false);
     FunctionType *FThashStringObj         = FunctionType::get(int64_type, ArgsHashStringObj, false);
@@ -780,6 +784,8 @@ void RawPipelineGen::registerFunctions()    {
      */
     Function *hashInt_ = Function::Create(FThashInt, Function::ExternalLinkage,
             "hashInt", TheModule);
+    Function *hashInt64_ = Function::Create(FThashInt64, Function::ExternalLinkage,
+            "hashInt64", TheModule);
     Function *hashDouble_ = Function::Create(FThashDouble,
             Function::ExternalLinkage, "hashDouble", TheModule);
     Function *hashStringC_ = Function::Create(FThashStringC,
@@ -1028,6 +1034,7 @@ void RawPipelineGen::registerFunctions()    {
     registerFunction("equalStrings", stringEquality);
 
     registerFunction("hashInt", hashInt_);
+    registerFunction("hashInt64", hashInt64_);
     registerFunction("hashDouble", hashDouble_);
     registerFunction("hashStringC", hashStringC_);
     registerFunction("hashStringObject", hashStringObj_);
