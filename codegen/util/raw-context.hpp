@@ -139,6 +139,7 @@ public:
 	ConstantInt* createInt32(int val);
 	ConstantInt* createInt64(int val);
 	ConstantInt* createInt64(size_t val);
+	ConstantInt* createInt64(int64_t val);
 	ConstantInt* createSizeT(size_t val);
 	ConstantInt* createTrue();
 	ConstantInt* createFalse();

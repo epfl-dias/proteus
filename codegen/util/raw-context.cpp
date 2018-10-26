@@ -308,6 +308,9 @@ ConstantInt* RawContext::createInt64(size_t val) {
 	return ConstantInt::get(getLLVMContext(), APInt(64, val));
 }
 
+ConstantInt* RawContext::createInt64(int64_t val) {
+	return ConstantInt::get(getLLVMContext(), APInt(64, val));
+}
 
 ConstantInt* RawContext::createSizeT(size_t val) {
 	IntegerType * size_type = Type::getIntNTy(getLLVMContext(), sizeof(size_t)*8);
