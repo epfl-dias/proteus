@@ -29,6 +29,8 @@
 #include "gtest/gtest.h"
 #include "test-utils.hpp"
 
+#include "storage/raw-storage-manager.hpp"
+
 #include "common/common.hpp"
 #include "util/raw-context.hpp"
 #include "util/raw-functions.hpp"
@@ -73,16 +75,12 @@
 //
 // </TechnicalDetails>
 
+::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+
 class OutputTest : public ::testing::Test {
 protected:
-	virtual void SetUp() {
-		catalog = &RawCatalog::getInstance();
-		caches = &CachingService::getInstance();
-		catalog->clear();
-		caches->clear();
-	}
-
-	virtual void TearDown() {}
+	virtual void SetUp();
+	virtual void TearDown();
 
 	pm::CSVPlugin * openCSV(RawContext* const context, string& fname,
 		RecordType& rec, vector<RecordAttribute*> whichFields,
@@ -102,6 +100,21 @@ private:
 	CachingService * caches;
 };
 
+void OutputTest::SetUp   (){
+	gpu_run(cudaSetDevice(0));
+
+	catalog = &RawCatalog::getInstance();
+	caches = &CachingService::getInstance();
+	catalog->clear();
+	caches->clear();
+}
+
+void OutputTest::TearDown(){
+	StorageManager::unloadAll();
+}
+
+// works on new planner
+// select max(sid) from sailors where age > 40 ;
 TEST_F(OutputTest, ReduceNumeric) {
  	const char *testLabel = "reduceNumeric.json";
 	RawContext& ctx = *prepareContext(testLabel);
@@ -175,6 +188,8 @@ TEST_F(OutputTest, ReduceNumeric) {
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
+// works on new planner BUT planner does not request the output as json
+// select sum(sid), max(sid) from sailors where age > 40 ;
 TEST_F(OutputTest, MultiReduceNumeric) {
 	const char *testLabel = "multiReduceNumeric.json";
 	RawContext& ctx = *prepareContext(testLabel);
@@ -250,6 +265,8 @@ TEST_F(OutputTest, MultiReduceNumeric) {
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
+// works on new planner BUT planner does not request the output as json
+// select sid from sailors where age > 40 ;
 TEST_F(OutputTest, ReduceBag) {
 	const char *testLabel = "reduceBag.json";
 	RawContext& ctx = *prepareContext(testLabel);
@@ -325,6 +342,8 @@ TEST_F(OutputTest, ReduceBag) {
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
+// works on new planner BUT planner does not request the output as json
+// select sid as id, age as age from sailors where age > 40 ;
 TEST_F(OutputTest, ReduceBagRecord) {
 	const char *testLabel = "reduceBagRecord.json";
 	RawContext& ctx = *prepareContext(testLabel);
@@ -419,6 +438,7 @@ TEST_F(OutputTest, ReduceBagRecord) {
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
+// table not in catalog/repo
 TEST_F(OutputTest, NestBagTPCH) {
 	const char *testLabel = "nestBagTPCH.json";
 	RawContext& ctx = *prepareContext(testLabel);
