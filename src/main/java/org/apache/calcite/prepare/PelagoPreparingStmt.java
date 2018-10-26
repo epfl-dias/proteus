@@ -3,7 +3,6 @@ package org.apache.calcite.prepare;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
-import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumerableInterpretable;
 import org.apache.calcite.adapter.enumerable.EnumerableRel;
 import org.apache.calcite.avatica.Meta;
@@ -12,9 +11,10 @@ import org.apache.calcite.interpreter.BindableConvention;
 import org.apache.calcite.interpreter.Interpreters;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
-import org.apache.calcite.linq4j.Enumerable;
-import org.apache.calcite.linq4j.Linq4j;
+import org.apache.calcite.linq4j.function.Function2;
 import org.apache.calcite.plan.*;
+import org.apache.calcite.plan.hep.HepPlanner;
+import org.apache.calcite.plan.hep.HepProgram;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
@@ -25,15 +25,11 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.runtime.Bindable;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.Typed;
-import org.apache.calcite.sql.SqlExplain;
-import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.RelDecorrelator;
 import org.apache.calcite.sql2rel.RelFieldTrimmer;
@@ -44,10 +40,10 @@ import org.apache.calcite.tools.Programs;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
 import org.apache.calcite.util.Pair;
-import org.apache.commons.lang.ArrayUtils;
 
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
+import ch.epfl.dias.calcite.adapter.pelago.rules.LikeToJoinRule;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPackTransfers;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushRouterDown;
@@ -101,6 +97,32 @@ public class                                                                    
                 return RelDecorrelator.decorrelateQuery(rel);
             }
             return rel;
+        }
+    }
+
+    private static class DeLikeProgram implements Program {
+        public RelNode run(RelOptPlanner p, RelNode rel,
+            RelTraitSet requiredOutputTraits,
+            List<RelOptMaterialization> materializations,
+            List<RelOptLattice> lattices) {
+
+            HepProgram program = HepProgram.builder()
+                .addRuleInstance(LikeToJoinRule.INSTANCE)
+                .build();
+
+            HepPlanner planner = new HepPlanner(
+                program,
+                p.getContext(),
+                true,
+                new Function2<RelNode, RelNode, Void>() {
+                    public Void apply(RelNode oldNode, RelNode newNode) {
+                        return null;
+                    }
+                },
+                RelOptCostImpl.FACTORY);
+
+            planner.setRoot(rel);
+            return planner.findBestExp();
         }
     }
 
@@ -248,6 +270,9 @@ public class                                                                    
                 Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
                 new DecorrelateProgram(),
                 new TrimFieldsProgram(),
+                new PelagoProgram(),
+                new DeLikeProgram(),
+                new PelagoProgram(),
                 Programs.heuristicJoinOrder(planner.getRules(), false, 2),
                 new PelagoProgram(),
                 Programs.ofRules(hetRuleBuilder.build()),

@@ -1,6 +1,5 @@
 package org.apache.calcite.prepare;
 
-//import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceTypeTraitDef;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,14 +23,11 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
-import org.apache.calcite.rel.core.Calc;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.Sort;
-import org.apache.calcite.rel.logical.LogicalFilter;
-import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.rules.*;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -46,7 +42,6 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperatorTable;
-import org.apache.calcite.sql.SqlSetOperator;
 import org.apache.calcite.sql.SqlSetOption;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
@@ -59,7 +54,6 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.Util;
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoAggregate;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelPackingTraitDef;
@@ -126,7 +120,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         // push and merge filter rules
         rules.add(new FilterAggregateTransposeRule(Filter.class, PelagoRelFactories.PELAGO_BUILDER, Aggregate.class));
 //        rules.add(new FilterProjectTransposeRule  (Filter.class, Project.class, true, true, PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(new FilterMergeRule(PelagoRelFactories.PELAGO_BUILDER));
+//        rules.add(new FilterMergeRule(PelagoRelFactories.PELAGO_BUILDER));
         rules.add(new FilterJoinRule.FilterIntoJoinRule(true, PelagoRelFactories.PELAGO_BUILDER,
             new FilterJoinRule.Predicate() {
                 public boolean apply(Join join, JoinRelType joinType, RexNode exp) {
@@ -138,6 +132,21 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
                 return true;
             }
         }));
+//      rules.add(new FilterJoinRule.FilterIntoJoinRule(true, RelFactories.LOGICAL_BUILDER, //PelagoRelFactories.PELAGO_BUILDER,
+//          new FilterJoinRule.Predicate() {
+//            public boolean apply(Join join, JoinRelType joinType, RexNode exp) {
+//              return exp.isA(SqlKind.EQUALS);
+//            }
+//          }));
+//      rules.add(new FilterJoinRule.JoinConditionPushRule(RelFactories.LOGICAL_BUILDER, /*PelagoRelFactories.PELAGO_BUILDER, */  new FilterJoinRule.Predicate() {
+//        public boolean apply(Join join, JoinRelType joinType, RexNode exp) {
+//          return exp.isA(SqlKind.EQUALS);
+//        }
+//      }));
+
+
+//      rules.add(FilterJoinRule.FILTER_ON_JOIN);
+//      rules.add(FilterJoinRule.JOIN);
         /*push filter into the children of a join*/
         rules.add(FilterTableScanRule.INSTANCE);
         // push and merge projection rules
@@ -145,7 +154,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         rules.add(new ProjectJoinTransposeRule(PushProjector.ExprCondition.TRUE, PelagoRelFactories.PELAGO_BUILDER));
         rules.add(JoinProjectTransposeRule.BOTH_PROJECT);
         rules.add(new ProjectFilterTransposeRule(
-            LogicalProject.class, LogicalFilter.class, PelagoRelFactories.PELAGO_BUILDER,
+            Project.class, Filter.class, PelagoRelFactories.PELAGO_BUILDER,
             PushProjector.ExprCondition.FALSE)); //XXX causes non-termination
         /*it is better to use filter first an then project*/
         rules.add(ProjectTableScanRule.INSTANCE);

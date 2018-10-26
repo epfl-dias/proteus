@@ -15,10 +15,16 @@ import org.apache.calcite.rel.logical.*;
 import org.apache.calcite.rel.metadata.RelMdDistribution;
 import org.apache.calcite.rel.rules.JoinCommuteRule;
 import org.apache.calcite.rex.*;
+import org.apache.calcite.schema.Schemas;
+import org.apache.calcite.sql.SqlBinaryOperator;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlOperator;
+import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.tools.RelBuilder.AggCall;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Rules and relational operators for
@@ -729,9 +735,14 @@ public class PelagoRules {
                 if (!predicate.isA(SqlKind.EQUALS)) return false;
             }
 
+            JoinInfo inf = join.analyzeCondition();
+            assert inf.isEqui();
+
+            return inf.isEqui();
+
 //            if (join.getRight().getTraitSet().getTrait(RelDistributionTraitDef.INSTANCE) != rightDistribution) return false;
 //            if (join.getLeft() .getTraitSet().getTrait(RelDistributionTraitDef.INSTANCE) != leftDistribution ) return false;
-            return true;
+//            return true;
         }
 
         public RelNode convert(RelNode rel) {
@@ -825,31 +836,74 @@ public class PelagoRules {
 
             RexNode condition = join.getCondition();
 
-//            if (condition.isAlwaysTrue()) return false;
+            if (condition.isAlwaysTrue()) return false;
 
-            List<RexNode> disjunctions = RelOptUtil.disjunctions(condition);
-            if (disjunctions.size() != 1)  return false;
+            JoinInfo inf = join.analyzeCondition();
+            if (inf.isEqui()) return true;
+
+            condition = RexUtil.toCnf(join.getCluster().getRexBuilder(), condition);
+//            List<RexNode> disjunctions = RelOptUtil.disjunctions(condition);
+//            if (disjunctions.size() != 1)  return false;
 
             // Check that all conjunctions are equalities (only hashjoin supported)
-            condition = disjunctions.get(0);
+//            condition = disjunctions.get(0);
 
             for (RexNode predicate : RelOptUtil.conjunctions(condition)) {
-                if (!predicate.isA(SqlKind.EQUALS)) return false;
+                if (predicate.isA(SqlKind.EQUALS)) return true;
             }
 
-            return true;
+            return false;
         }
 
         public RelNode convert(RelNode rel) {
             Join join = (Join) rel;
 
+            RexNode cond = join.getCondition();
+
             JoinInfo inf = join.analyzeCondition();
-            assert inf.isEqui();
+            List<RexNode> equalities = new ArrayList();
+            List<RexNode> rest       = new ArrayList();
+            List<RexNode> rest0      = new ArrayList();
+            List<RexNode> rest1      = new ArrayList();
+            int thr = join.getLeft().getRowType().getFieldCount();
+            if (inf.isEqui()) {
+                equalities.add(cond);
+            } else {
+                RexNode condition = RexUtil.pullFactors(join.getCluster().getRexBuilder(), cond);
+                assert(condition.isA(SqlKind.AND));
+                for (RexNode predicate: ((RexCall) condition).getOperands()){
+                    // Needs a little bit of fixing... not completely correct checking
+                    RelOptUtil.InputFinder vis = new RelOptUtil.InputFinder();
+                    predicate.accept(vis);
+                    boolean rel0 = false;
+                    boolean rel1 = false;
+                    for (int acc: RelOptUtil.InputFinder.bits(predicate)){
+                        rel0 = rel0 || (acc <  thr);
+                        rel1 = rel1 || (acc >= thr);
+                    }
+                    if (predicate.isA(SqlKind.EQUALS)) {
+                        if (rel0 && rel1) {
+                            equalities.add(predicate);
+                            continue;
+                        }
+                    }
 
-            RexNode condition = join.getCondition();
-            List<RexNode> disjunctions = RelOptUtil.disjunctions(condition);
+                    if (rel0 && !rel1) {
+                        rest0.add(predicate);
+                    } else if (!rel0 && rel1){
+                        rest1.add(predicate);
+                    } else {
+                        rest.add(predicate);
+                    }
+                }
+            }
 
-            condition = disjunctions.get(0);
+            final RexBuilder rexBuilder = join.getCluster().getRexBuilder();
+
+            RexNode joinCond  = RexUtil.composeConjunction(rexBuilder, equalities, false);
+            RexNode leftCond  = RexUtil.composeConjunction(rexBuilder, rest0, false);
+            RexNode rightCond = RexUtil.shift(RexUtil.composeConjunction(rexBuilder, rest1, false), -thr);
+            RexNode aboveCond = RexUtil.composeConjunction(rexBuilder, rest, false);
 
             RelTraitSet leftTraitSet = rel.getCluster().traitSet().replace(out)
                 .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
@@ -883,22 +937,41 @@ public class PelagoRules {
                     }
                 });
 
-            RelNode left  = convert(join.getLeft (), leftTraitSet );
-            RelNode right = convert(join.getRight(), rightTraitSet);
+
+            RelNode preLeft  = convert(join.getLeft (), leftTraitSet );
+            RelNode left     = (!rest0.isEmpty()) ? PelagoFilter.create(preLeft , leftCond ) : preLeft ;
+
+            RelNode preRight = convert(join.getRight(), rightTraitSet);
+            RelNode right    = (!rest1.isEmpty()) ? PelagoFilter.create(preRight, rightCond) : preRight;
 
             join = PelagoJoin.create(
                 left                  ,
                 right                 ,
-                condition             ,
+                joinCond              ,
                 join.getVariablesSet(),
                 join.getJoinType()
             );
 
+
+//            final RelNode  swapped = (swap) ? convert(JoinCommuteRule.swap(join, false), PelagoRel.CONVENTION) : join;
             final RelNode  swapped = (swap) ? JoinCommuteRule.swap(join, false) : join;
             if (swapped == null) return null;
 
 //            rel.getCluster().getPlanner().setImportance(rel, 0);
-            return swapped;
+            if (rest.isEmpty()) return swapped;
+
+//            RexNode cond = RexUtil.composeConjunction(join.getCluster().getRexBuilder(), rest, false);
+//            cond = RexUtil.toDnf(join.getCluster().getRexBuilder(), join.getCondition());
+//            cond = RexUtil.flatten(join.getCluster().getRexBuilder(), cond);
+//            if (swapped instanceof PelagoRel) return PelagoFilter.create(swapped, cond);//RexUtil.composeConjunction(join.getCluster().getRexBuilder(), rest, false));
+//            return PelagoRelFactories.PELAGO_FILTER_FACTORY.createFilter(
+//                swapped,
+//                aboveCond
+//            );
+            return LogicalFilter.create(
+                swapped,
+                aboveCond
+            );
         }
     }
 

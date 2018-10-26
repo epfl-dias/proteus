@@ -6,12 +6,12 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan
 import ch.epfl.dias.emitter.PlanToJSON.emitPrimitiveType
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.adapter.enumerable._
-import org.apache.calcite.avatica.util.DateTimeUtils
+import org.apache.calcite.avatica.util.{DateTimeUtils, TimeUnit, TimeUnitRange}
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory, RelDataTypeField, RelRecordType}
 import org.apache.calcite.rel.core.AggregateCall
 import org.apache.calcite.rex._
-import org.apache.calcite.sql.fun.{SqlCaseOperator, SqlCastFunction, SqlStdOperatorTable}
+import org.apache.calcite.sql.fun.{SqlCaseOperator, SqlCastFunction, SqlLikeOperator, SqlStdOperatorTable}
 import org.apache.calcite.sql.{pretty => _, _}
 import org.apache.calcite.interpreter.Bindables.BindableTableScan
 import org.apache.calcite.plan.RelOptUtil
@@ -166,11 +166,21 @@ object PlanToJSON {
     case binOp: SqlBinaryOperator => emitBinaryOp(binOp, args, dataType, f)
     case func: SqlFunction => emitFunc(func, args, dataType, f)
     case caseOp: SqlCaseOperator => emitCaseOp(caseOp, args, dataType, f)
+    case postOp: SqlPostfixOperator => emitPostfixOp(postOp, args, dataType, f)
+    case likeOp: SqlLikeOperator => throw new PlanConversionException("Unconverted like operation!")
     case _ => throw new PlanConversionException("Unknown operator: "+op.getKind.sql)
   }
 
   def emitCast(arg: RexNode, retType: JValue, f: List[Binding]): JValue = {
     ("expression", "cast") ~ ("type", retType) ~ ("e", emitExpression(arg, f))
+  }
+
+  def emitPostfixOp(op: SqlPostfixOperator, args: ImmutableList[RexNode], opType: JValue, f: List[Binding]) : JValue = {
+    op.getKind match {
+      case SqlKind.IS_NOT_NULL => ("expression", "is_not_null") ~ ("e", emitExpression(args.get(0), f))
+      case SqlKind.IS_NULL     => ("expression", "is_null"    ) ~ ("e", emitExpression(args.get(0), f))
+      case _ => throw new PlanConversionException("Unknown sql operator: "+op.getKind.sql)
+    }
   }
 
   def castLeft(ltype: RelDataType, rtype: RelDataType): Boolean = {
@@ -296,6 +306,10 @@ object PlanToJSON {
       case SqlKind.CAST => {
         assert(args.size == 1)
         emitCast(args.get(0), retType, f)
+      }
+      case SqlKind.EXTRACT => {
+        val range = args.get(0).asInstanceOf[RexLiteral].getValue.asInstanceOf[TimeUnitRange]
+        ("expression", "extract") ~ ("unitrange", range.name()) ~ ("e", emitExpression(args.get(1), f))
       }
       case _ => throw new PlanConversionException("Unsupported function: "+func.getKind.sql)
     }
@@ -443,7 +457,13 @@ object PlanToJSON {
     val fields = t.getFieldList.asScala.zipWithIndex.map {
       f => {
         var t = ("relName", relName) ~ ("attrName", f._1.getName)
-        if (with_type  ) t = t ~ ("type", emitType(f._1.getType, bindings))
+        if (with_type) {
+//          var ty = emitType(f._1.getType, bindings)
+//          if (f._1.getType.getSqlTypeName == SqlTypeName.VARCHAR || f._1.getType.getSqlTypeName == SqlTypeName.CHAR){
+//            ty = ty.asInstanceOf[JObject] ~ ("dict", ("path", relName + "." + f._1.getName + ".dict"))
+//          }
+          t = t ~ ("type", emitType(f._1.getType, bindings)) //  ("dict", ("path", path)))
+        }
         if (with_attrNo) t = t ~ ("attrNo", f._2 + 1)
         if (is_packed  ) t = t ~ ("isBlock", true)
         t

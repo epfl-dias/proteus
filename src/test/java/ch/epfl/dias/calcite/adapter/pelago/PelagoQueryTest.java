@@ -93,7 +93,7 @@ public class PelagoQueryTest {
             // create the test
             return (DynamicNode) dynamicTest(file.getFileName().toString(),
               () -> assertTimeoutPreemptively(
-                  ofSeconds((isDebug) ? Long.MAX_VALUE : 10),
+                  ofSeconds((isDebug) ? Long.MAX_VALUE/1000 : 200),
                   () -> test.accept(q, resultFile)
               ));
           } catch (IOException e) {
