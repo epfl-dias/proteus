@@ -99,7 +99,7 @@ endif()
 
 #set(GCC_COMPILE_FLAGS "-march=core-avx2 -msse4 -O0 -ftree-vectorize -march=native -mtune=native -g -ggdb -fno-omit-frame-pointer")
 set(WARNING_FLAGS "-Wno-unknown-warning-option -Wno-unused-variable -Wno-reorder -Wno-ignored-qualifiers -Wno-deprecated")
-set(LLVM_CXXFLAGS "${CUDA_CXXFLAGS} -D__STRICT_ANSI__ -fPIC -stdlib=libstdc++ ${LLVM_CXXFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS} -march=native")
+set(LLVM_CXXFLAGS "-D__STRICT_ANSI__ -fPIC -stdlib=libstdc++ ${LLVM_CXXFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS} -march=native ${CUDA_CXXFLAGS}")
 set(LLVM_CFLAGS "${LLVM_CFLAGS} ${WARNING_FLAGS} ${GCC_COMPILE_FLAGS}")
 
 # set(CUDA_CXXFLAGS -Xcompiler -fPIC ${CUDA_CXXFLAGS} ${GCC_COMPILE_FLAGS} --expt-relaxed-constexpr --std=c++11 -arch=sm_61 -line-info)
