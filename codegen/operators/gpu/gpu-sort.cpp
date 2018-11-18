@@ -394,7 +394,6 @@ void GpuSort::flush_sorted(){
     RecordAttribute brec{recs, true};
     mem_ptr = Builder->CreateBitCast(mem_ptr, brec.getLLVMType(llvmContext));
     AllocaInst * mem_mem_ptr = context->CreateEntryBlockAlloca(F, "__sorted_mem", mem_ptr->getType());
-    mem_ptr->dump();
     Builder->CreateStore(mem_ptr, mem_mem_ptr);
 
     // Function * p = context->getFunction("printptr");
@@ -473,132 +472,21 @@ void GpuSort::call_sort(Value * mem, Value * N){
     LLVMContext & llvmContext   = context->getLLVMContext();
     IRBuilder<> * Builder       = context->getBuilder    ();
 
-    IntegerType * int32_type    = Type::getInt32Ty  (llvmContext);
-    IntegerType * int64_type    = Type::getInt64Ty  (llvmContext);
+    IntegerType * int32_type    = Type::getInt32Ty(llvmContext);
+    IntegerType * int64_type    = Type::getInt64Ty(llvmContext);
 
-    IntegerType * size_type;
+    IntegerType * size_type = context->createSizeType();
     if      (sizeof(size_t) == 4) size_type = int32_type;
     else if (sizeof(size_t) == 8) size_type = int64_type;
     else                          assert(false);
 
     Value * count = Builder->CreateZExtOrBitCast(N, size_type);
 
-    // Type  * entry = outputExpr->getExpressionType()->getLLVMType(llvmContext);
-    // Value * size  = context->createSizeT(context->getSizeOf(entry));
-
-    // Type  * entry_pointer = PointerType::get(entry, 0);
-
     Type  * charPtrType  = Type::getInt8PtrTy(llvmContext);
-    // Function    * cmp;
-    // {
-    //     save_current_blocks_and_restore_at_exit_scope save{context};
-
-    //     FunctionType *ftype = FunctionType::get(int32_type, std::vector<Type *>{charPtrType, charPtrType}, false);
-    //     //use f_num to overcome an llvm bu with keeping dots in function names when generating PTX (which is invalid in PTX)
-    //     cmp = Function::Create(ftype, Function::ExternalLinkage, "cmp", context->getModule());
-
-    //     {
-    //         Attribute readOnly = Attribute::get(context->getLLVMContext(), Attribute::AttrKind::ReadOnly);
-    //         Attribute noAlias  = Attribute::get(context->getLLVMContext(), Attribute::AttrKind::NoAlias );
-
-    //         std::vector<std::pair<unsigned, Attribute>> attrs;
-    //         for (size_t i = 1 ; i <= 2 ; ++i){ //+1 because 0 is the return value
-    //             attrs.emplace_back(i, readOnly);
-    //             attrs.emplace_back(i, noAlias );
-    //         }
-
-    //         cmp->setAttributes(AttributeList::get(context->getLLVMContext(), attrs));
-    //     }
-
-    //     BasicBlock *insBB           = BasicBlock::Create(context->getLLVMContext(), "entry", cmp);
-    //     Builder->SetInsertPoint(insBB);
-    //     Function    * F             = cmp;
-    //     //Get the ENTRY BLOCK
-    //     context->setCurrentEntryBlock(insBB);
-    //     BasicBlock  * endBB   = BasicBlock::Create(llvmContext, "end", F);
-    //     context->setEndingBlock(endBB);
-        
-    //     auto args = cmp->args().begin();
-
-    //     map<RecordAttribute, RawValueMemory>    bindings[2];
-    //     Value                                 * recs    [2]{
-    //         Builder->CreateLoad(Builder->CreateBitCast(args++, entry_pointer)),
-    //         Builder->CreateLoad(Builder->CreateBitCast(args++, entry_pointer))
-    //     };
-
-    //     for (size_t i = 0 ; i < 2 ; ++i){
-    //         RecordType *t = (RecordType *) outputExpr->getExpressionType();
-    //         for (const auto &e: orderByFields){
-    //             RecordAttribute attr = e->getRegisteredAs();
-    //             Value         * p    = t->projectArg(recs[i], &attr, Builder);
-
-    //             RawValueMemory mem;
-    //             mem.mem    = context->CreateEntryBlockAlloca(F, attr.getAttrName(), p->getType());
-    //             mem.isNull = context->createFalse();
-
-    //             Builder->CreateStore(p, mem.mem);
-
-    //             bindings[i][attr] = mem;
-    //         }
-    //     }
-
-    //     BasicBlock  * mainBB   = BasicBlock::Create(llvmContext, "main", F);
-
-
-    //     BasicBlock *greaterBB = BasicBlock::Create(llvmContext, "greater", F);
-    //     Builder->SetInsertPoint(greaterBB);
-    //     Builder->CreateRet(context->createInt32(1));
-
-    //     BasicBlock *lessBB    = BasicBlock::Create(llvmContext, "less"   , F);
-    //     Builder->SetInsertPoint(lessBB);
-    //     Builder->CreateRet(context->createInt32(-1));
-
-    //     Builder->SetInsertPoint(mainBB);
-
-    //     size_t i = 0;
-    //     for (const auto &e: orderByFields){
-    //         const auto &d = dirs[i++];
-    //         if (d == NONE) continue;
-    //         RecordAttribute attr = e->getRegisteredAs();
-
-    //         //FIXME: replace with expressions
-    //         Value * arg0  = Builder->CreateLoad(bindings[0][attr].mem);
-    //         Value * arg1  = Builder->CreateLoad(bindings[1][attr].mem);
-
-    //         if (d == DESC) std::swap(arg0, arg1);
-
-    //         BasicBlock *eqPreBB = BasicBlock::Create(llvmContext, "eqPre", F);
-    //         BasicBlock *notGTBB = BasicBlock::Create(llvmContext, "notGT", F);
-
-    //         Value * condG = Builder->CreateICmpSGT(arg0, arg1);
-    //         Builder->CreateCondBr(condG, greaterBB, notGTBB);
-
-    //         Builder->SetInsertPoint(notGTBB);
-    //         Value * condL = Builder->CreateICmpSLT(arg0, arg1);
-    //         Builder->CreateCondBr(condL, lessBB   , eqPreBB);
-
-    //         Builder->SetInsertPoint(eqPreBB);
-    //     }
-
-    //     Builder->CreateBr(endBB);
-
-    //     Builder->SetInsertPoint(context->getCurrentEntryBlock());
-    //     Builder->CreateBr(mainBB);
-
-    //     Builder->SetInsertPoint(context->getEndingBlock());
-    //     Builder->CreateRet(context->createInt32(0));
-    // }
-
-    std::cerr << "-------------------------------" << std::endl;
-    mem->getType()->getPointerElementType()->dump();
-    mem->getType()->getPointerElementType()->getArrayElementType()->dump();
-    std::cerr << "__" << context->getSizeOf(mem->getType()->getPointerElementType()->getArrayElementType()) << "__" << suffix << std::endl;
     Value * mem_char_ptr = Builder->CreateBitCast(mem, charPtrType);
-    // std::vector<Value *> args{mem_char_ptr, count, size, cmp};
-    std::vector<Value *> args{mem_char_ptr, count};
 
     Function * qsort = context->getFunction("qsort_" + suffix);
-    Builder->CreateCall(qsort, args);
+    Builder->CreateCall(qsort, {mem_char_ptr, count});
 }
 
 
