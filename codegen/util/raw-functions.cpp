@@ -649,7 +649,7 @@ void flushOutput(char* fileName)	{
 	{
 		time_block t("Flushing to " + name + ": ");
 		int fd = shm_open(fileName, O_CREAT | O_RDWR, S_IRWXU);
-		std::ofstream{fileName} << strBuffer->rdbuf();
+		std::ofstream{std::string{"/dev/shm/"} + fileName} << strBuffer->rdbuf();
 		// const string &tmp_str = strBuffer->str(); 	//more portable but it creates a copy, which will be problematic for big output files...
 		// write(fd, tmp_str.c_str(), tmp_str.size());
 
