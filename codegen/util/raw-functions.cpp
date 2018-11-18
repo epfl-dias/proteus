@@ -23,7 +23,7 @@
 
 #include "util/gpu/gpu-raw-context.hpp"
 #include "util/raw-functions.hpp"
-#include <ext/stdio_filebuf.h>
+// #include <ext/stdio_filebuf.h>
 #include <ostream>
 #include <iostream>
 #include <chrono>
@@ -639,6 +639,8 @@ void flushDelim(size_t resultCtr, char whichDelim, char* fileName) {
 	}
 }
 
+#include <fstream>
+
 void flushOutput(char* fileName)	{
 	RawCatalog& catalog = RawCatalog::getInstance();
 	string name = string(fileName);
@@ -647,13 +649,15 @@ void flushOutput(char* fileName)	{
 	{
 		time_block t("Flushing to " + name + ": ");
 		int fd = shm_open(fileName, O_CREAT | O_RDWR, S_IRWXU);
+		std::ofstream{fileName} << strBuffer->rdbuf();
 		// const string &tmp_str = strBuffer->str(); 	//more portable but it creates a copy, which will be problematic for big output files...
 		// write(fd, tmp_str.c_str(), tmp_str.size());
 
-		__gnu_cxx::stdio_filebuf<char> filebuf(fd, std::ofstream::out | std::ofstream::app);
-		std::ostream outFile(&filebuf);
+		// __gnu_cxx::stdio_filebuf<char> filebuf(fd, std::ofstream::out | std::ofstream::app);
+		// std::ostream outFile(&filebuf);
 
-		outFile << strBuffer->rdbuf();
+		// write(fd, strBuffer->str());//->rdbuf());
+		// outFile << strBuffer->rdbuf();
 		// shm_unlink(fileName); //REMEMBER to unlink at the end of the test
 	}
 // {
