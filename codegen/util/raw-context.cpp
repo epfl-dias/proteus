@@ -313,8 +313,11 @@ ConstantInt* RawContext::createInt64(int64_t val) {
 }
 
 ConstantInt* RawContext::createSizeT(size_t val) {
-	IntegerType * size_type = Type::getIntNTy(getLLVMContext(), sizeof(size_t)*8);
-	return ConstantInt::get(size_type, val);
+	return ConstantInt::get(createSizeType(), val);
+}
+
+IntegerType *RawContext::createSizeType() {
+	return Type::getIntNTy(getLLVMContext(), sizeof(size_t)*8);
 }
 
 ConstantInt* RawContext::createTrue() {
@@ -326,7 +329,7 @@ ConstantInt* RawContext::createFalse() {
 }
 
 Value* RawContext::CastPtrToLlvmPtr(PointerType* type, const void* ptr) {
-	Constant* const_int = ConstantInt::get(Type::getInt64Ty(getLLVMContext()),(uint64_t) ptr);
+	Constant* const_int = createInt64((uint64_t) ptr);
 	Value* llvmPtr = ConstantExpr::getIntToPtr(const_int, type);
 	return llvmPtr;
 }

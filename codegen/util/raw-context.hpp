@@ -143,6 +143,8 @@ public:
 	ConstantInt* createSizeT(size_t val);
 	ConstantInt* createTrue();
 	ConstantInt* createFalse();
+
+	IntegerType *createSizeType();
 	
     virtual size_t getSizeOf(llvm::Type  * type) const;
     virtual size_t getSizeOf(llvm::Value * val ) const;
