@@ -167,7 +167,11 @@ private:
         } else {
             nvtxRangePushA("release_buffer_host_hostbuffer");
             const auto &it = buffer_cache.find(buff);
-            if (it == buffer_cache.end()) return;
+            if (it == buffer_cache.end()) {
+                nvtxRangePop(); /* release_buffer_host_hostbuffer */
+                nvtxRangePop(); /* release_buffer_host */
+                return;
+            }
             nvtxRangePushA("release_buffer_host_actual_release");
             int occ = (it->second)--;
             if (occ == 1){
