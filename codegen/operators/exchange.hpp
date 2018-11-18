@@ -32,6 +32,7 @@
 #include <atomic>
 #include <thread>
 #include "topology/affinity_manager.hpp"
+#include "util/async_containers.hpp"
 
 class Exchange;
 
@@ -70,9 +71,11 @@ public:
         free_pool_mutex     = new std::mutex             [numOfParents];
         free_pool_cv        = new std::condition_variable[numOfParents];
 
-        ready_pool          = new std::queue<void *>     [numOfParents];
-        ready_pool_mutex    = new std::mutex             [numOfParents];
-        ready_pool_cv       = new std::condition_variable[numOfParents];
+        // ready_pool          = new std::queue<void *>     [numOfParents];
+        // ready_pool_mutex    = new std::mutex             [numOfParents];
+        // ready_pool_cv       = new std::condition_variable[numOfParents];
+
+        ready_fifo          = new AsyncQueueMPSC<void *> [numOfParents];
         
         const auto &vec = topology::getInstance().getGpus();
         // const auto &vec = topology::getInstance().getCpuNumaNodes();
@@ -121,9 +124,11 @@ protected:
 
     std::vector<std::thread>        firers;
 
-    std::queue<void *>            * ready_pool;
-    std::mutex                    * ready_pool_mutex;
-    std::condition_variable       * ready_pool_cv;
+    // std::queue<void *>            * ready_pool;
+    // std::mutex                    * ready_pool_mutex;
+    // std::condition_variable       * ready_pool_cv;
+
+    AsyncQueueMPSC<void *>        * ready_fifo;
 
     std::stack<void *>            * free_pool;
     std::mutex                    * free_pool_mutex;
