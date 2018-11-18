@@ -52,7 +52,7 @@ constexpr size_t clen(const char* str){
     return (*str == 0) ? 0 : clen(str + 1) + 1;
 }
 
-const char * catalogJSON = "inputs/plans/catalog.json";
+const char * catalogJSON = "inputs/plans";
 
 void executePlan(const char *label, const char *planPath, const char *catalogJSON){
     uint32_t devices = topology::getInstance().getGpuCount();

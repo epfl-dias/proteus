@@ -113,7 +113,7 @@ protected:
 
 	bool flushResults = true;
 	const char * testPath = TEST_OUTPUTS "/tests-plan-parsing/";
-	const char * catalogJSON = "inputs/plans/catalog.json";
+	const char * catalogJSON = "inputs/plans";
 
 private:
 	RawCatalog * catalog;
@@ -200,7 +200,7 @@ TEST_F(PlanTest, JoinRecordBNonselective) {
 	//LSC: FIXME: Why this one alone uses other files? Can't we use the same
 	//            inputs, or add a specific file for that test there instead
 	//            of using a different catalog, and different test data?
-	const char* catalogJSON = "inputs/parser/catalog.json";
+	const char* catalogJSON = "inputs/parser";
 	const char* planPath = "inputs/plans/reduce-join-record-nonselective.json";
 	const char *testLabel = "reduce-join-record-nonselective-log.json";
 	

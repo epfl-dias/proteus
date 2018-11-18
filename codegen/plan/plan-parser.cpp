@@ -2912,31 +2912,29 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 	return newPg;
 }
 
-/**
- * {"datasetname": {"path": "foo", "type": { ... } }
- */
-CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context): exprParser(*this), context(context) {
-	//Input Path
-	const char *nameJSON = catalogPath;
+#include <dirent.h>
+#include <stdlib.h>
 
+void CatalogParser::parseCatalogFile(std::string file){
 	//key aliases
 	const char *keyInputPath = "path";
 	const char *keyExprType =  "type";
 
 	//Prepare Input
 	struct stat statbuf;
-	stat(nameJSON, &statbuf);
+	stat(file.c_str(), &statbuf);
 	size_t fsize = statbuf.st_size;
 
-	int fd = open(nameJSON, O_RDONLY);
-	if (fd == -1) {
-		throw runtime_error(string("json.open"));
+	int fd = open(file.c_str(), O_RDONLY);
+	if (fd < 0) {
+		std::string err = "failed to open file: " + file;
+		LOG(ERROR)<< err;
+		throw runtime_error(err);
 	}
-
 	const char *bufJSON = (const char*) mmap(NULL, fsize, PROT_READ,
 			MAP_PRIVATE, fd, 0);
 	if (bufJSON == MAP_FAILED ) {
-		const char *err = "json.mmap";
+		std::string err = "json.mmap";
 		LOG(ERROR)<< err;
 		throw runtime_error(err);
 	}
@@ -2969,9 +2967,54 @@ CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context): e
 		info->path = inputPath;
 		//Initialized by parsePlugin() later on
 		info->oidType = NULL;
-//		(this->inputs)[itr->name.GetString()] = info;
+//			(this->inputs)[itr->name.GetString()] = info;
 		(this->inputs)[info->path] = info;
+
+		setInputInfo(info->path, info);
 	}
+}
+
+void CatalogParser::parseDir(std::string dir){
+	//FIXME: we can do that in a portable way with C++17, but for now because we
+	// are using libstdc++, upgrading to C++17 and using <filesystem> causes 
+	// linking problems in machines with old gcc version
+	DIR *d = opendir(dir.c_str());
+	if (!d) {
+		std::string err = "Failed to open dir: " + dir + " (" + strerror(errno) + ")";
+		LOG(ERROR)<< err;
+		throw runtime_error(err);
+	}
+
+	dirent *entry;
+	while ((entry = readdir(d)) != NULL) {
+		std::string fname{entry->d_name};
+
+		if (strcmp(entry->d_name, "..") == 0) continue;
+		if (strcmp(entry->d_name, "." ) == 0) continue;
+
+		std::string origd{dir + "/" + fname};
+		//Use this to canonicalize paths:
+		// std::string pathd{realpath(origd.c_str(), NULL)};
+		std::string pathd{origd};
+
+		struct stat s;
+		stat(pathd.c_str(), &s);
+
+		if (S_ISDIR(s.st_mode)) {
+			parseDir(pathd);
+		} else if (fname == "catalog.json" && S_ISREG(s.st_mode)){
+			parseCatalogFile(pathd);
+		} /* else skipping */
+	}
+	closedir(d);
+}
+
+
+/**
+ * {"datasetname": {"path": "foo", "type": { ... } }
+ */
+CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context): exprParser(*this), context(context) {
+	parseDir(catalogPath);
 }
 
 

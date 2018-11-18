@@ -48,6 +48,9 @@
 #include "expressions/expressions.hpp"
 #include "expressions/expressions-hasher.hpp"
 
+#include "rapidjson/reader.h"
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
 
 using namespace rapidjson;
 using namespace std;
@@ -103,6 +106,9 @@ public:
 		inputs[inputName] = info;
 	}
 private:
+	void parseCatalogFile	(std::string file);
+	void parseDir 			(std::string dir );
+
 	ExpressionParser exprParser;
 	map<string,InputInfo*> inputs;
 };
