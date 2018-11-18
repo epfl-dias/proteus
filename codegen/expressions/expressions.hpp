@@ -132,230 +132,93 @@ public:
 	virtual ConstantType getConstantType() const = 0;
 };
 
-class IntConstant : public Constant		{
-public:
-	IntConstant(int val)
-		: Constant(new IntType()), val(val) 		{}
-	~IntConstant()									{}
-
-	int getVal() const								{ return val; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return INT; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == INT) {
-				const IntConstant& rInt = dynamic_cast<const IntConstant&>(r);
-				cout << "1. Compatible (int)! " << rConst.getConstantType() << endl;
-				cout << this->getVal() << " vs " << rInt.getVal() << endl;
-				return this->getVal() < rInt.getVal();
-			}
-			else {
-				return this->getConstantType() < rConst.getConstantType();
-			}
-
-		}
-		cout << "Not compatible (int) " << this->getTypeID() << endl;
-		return this->getTypeID() < r.getTypeID();
-
-	}
+template<typename T, typename Tproteus, Constant::ConstantType TcontType>
+class TConstant: public Constant{
 private:
-	int val;
-};
-
-class DStringConstant : public Constant		{
+	T val;
+protected:
+	TConstant(T val, const ExpressionType *type): Constant(type), val(val){}
 public:
-	DStringConstant(int val, void * dictionary)
-		: Constant(new DStringType(dictionary)), val(val) 		{}
-	~DStringConstant()									{}
+	TConstant(T val): TConstant(val, new Tproteus()){}
+	~TConstant(){}
 
-	int getVal() const								{ return val; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	T getVal() const								{ return val; }
+
+	RawValue accept(ExprVisitor &v) = 0;
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*) = 0;
+
 	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return DSTRING; }
+
+	ConstantType getConstantType() const { return TcontType; }
+
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
 			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == DSTRING) {
-				const DStringConstant& rInt = dynamic_cast<const DStringConstant&>(r);
-				cout << "1. Compatible (DSTRING)! " << rConst.getConstantType() << endl;
-				cout << this->getVal() << " vs " << rInt.getVal() << endl;
-				return this->getVal() < rInt.getVal();
-			}
-			else {
-				return this->getConstantType() < rConst.getConstantType();
-			}
-
-		}
-		cout << "Not compatible (dstring) " << this->getTypeID() << endl;
-		return this->getTypeID() < r.getTypeID();
-
-	}
-private:
-	int val;
-};
-
-class Int64Constant : public Constant		{
-public:
-	Int64Constant(int64_t val)
-		: Constant(new Int64Type()), val(val) 		{}
-	~Int64Constant()									{}
-
-	int64_t getVal() const								{ return val; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return INT64; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == INT64) {
-				const Int64Constant& rInt = dynamic_cast<const Int64Constant&>(r);
-				cout << "1. Compatible (int64)! " << rConst.getConstantType() << endl;
-				cout << this->getVal() << " vs " << rInt.getVal() << endl;
-				return this->getVal() < rInt.getVal();
-			}
-			else {
-				return this->getConstantType() < rConst.getConstantType();
-			}
-
-		}
-		cout << "Not compatible (int64) " << this->getTypeID() << endl;
-		return this->getTypeID() < r.getTypeID();
-
-	}
-private:
-	int64_t val;
-};
-
-class DateConstant : public Constant		{
-public:
-	DateConstant(int64_t val)
-		: Constant(new DateType()), val(val) 		{}
-	~DateConstant()									{}
-
-	int64_t getVal() const								{ return val; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return DATE; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == DATE) {
-				const DateConstant& rInt = dynamic_cast<const DateConstant&>(r);
-				cout << "1. Compatible (date)! " << rConst.getConstantType() << endl;
-				cout << this->getVal() << " vs " << rInt.getVal() << endl;
-				return this->getVal() < rInt.getVal();
-			}
-			else {
-				return this->getConstantType() < rConst.getConstantType();
-			}
-
-		}
-		cout << "Not compatible (date) " << this->getTypeID() << endl;
-		return this->getTypeID() < r.getTypeID();
-
-	}
-private:
-	int64_t val;
-	static_assert(sizeof(time_t) == sizeof(int64_t), "expected 64bit time_t");
-};
-
-class BoolConstant : public Constant	{
-public:
-	BoolConstant(bool val)
-		: Constant(new BoolType()), val(val) 		{}
-	~BoolConstant()									{}
-
-	bool getVal() const								{ return val; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return BOOL; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == BOOL) {
-				const BoolConstant& rBool = dynamic_cast<const BoolConstant&>(r);
-				return this->getVal() < rBool.getVal();
-			}
-			else
-			{
-				return this->getConstantType() < rConst.getConstantType();
-			}
-		}
-		cout << "Not compatible (bool)" << endl;
-		return this->getTypeID() < r.getTypeID();
-	}
-private:
-	bool val;
-};
-
-class FloatConstant : public Constant	{
-public:
-	FloatConstant(double val) :
-		Constant(new FloatType()), val(val) 		{}
-	~FloatConstant()								{}
-
-	double getVal()	const							{ return val; }
-
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return FLOAT; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == FLOAT) {
-				const FloatConstant& rFloat =
-						dynamic_cast<const FloatConstant&>(r);
-				cout << "1. Not compatible (float) " << rConst.getConstantType() << endl;
-				return this->getVal() < rFloat.getVal();
-			}
-			else
-			{
-				return this->getConstantType() < rConst.getConstantType();
-			}
-		}
-		cout << "Not compatible (float) " << r.getTypeID() << endl;
-		return this->getTypeID() < r.getTypeID();
-	}
-private:
-	double val;
-};
-
-class StringConstant : public Constant	{
-public:
-	StringConstant(string& val) :
-		Constant(new StringType()), val(val) 		{}
-	~StringConstant()								{}
-
-	string& getVal() const							{ return val; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return STRING; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == STRING) {
-				const StringConstant& rString =
-						dynamic_cast<const StringConstant&>(r);
+			if (rConst.getConstantType() == getConstantType()) {
+				const auto &rString = 
+					dynamic_cast<const TConstant<T, Tproteus, TcontType> &>(r);
 				return this->getVal() < rString.getVal();
 			}
 			else {
 				return this->getConstantType() < rConst.getConstantType();
 			}
 		}
-		cout << "Not compatible (string)" << endl;
+		cout << "Not compatible" << endl;
 		return this->getTypeID() < r.getTypeID();
 	}
-private:
-	string& val;
+};
+
+class IntConstant    : public TConstant<int        , IntType    , Constant::ConstantType::INT   > {
+public:
+	using TConstant::TConstant;
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class StringConstant : public TConstant<std::string, StringType , Constant::ConstantType::STRING> {
+public:
+	using TConstant::TConstant;
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class Int64Constant  : public TConstant<int64_t    , Int64Type  , Constant::ConstantType::INT64 > {
+public:
+	using TConstant::TConstant;
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class DateConstant   : public TConstant<int64_t    , DateType   , Constant::ConstantType::DATE  > {
+static_assert(sizeof(time_t) == sizeof(int64_t), "expected 64bit time_t");
+public:
+	using TConstant::TConstant;
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class BoolConstant   : public TConstant<bool       , BoolType   , Constant::ConstantType::BOOL  > {
+public:
+	using TConstant::TConstant;
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class FloatConstant  : public TConstant<double     , FloatType  , Constant::ConstantType::FLOAT > {
+public:
+	using TConstant::TConstant;
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class DStringConstant : public TConstant<int       , DStringType, Constant::ConstantType::FLOAT > {
+public:
+	DStringConstant(int val, void * dictionary)
+		: TConstant(val, new DStringType(dictionary)){}
+	~DStringConstant()									{}
+
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
 };
 
 /*
