@@ -156,11 +156,11 @@ void symantecBinJSON1(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 		expressions::Expression* predExpr3 = new expressions::IntConstant(
 				dimHigh);
@@ -171,20 +171,20 @@ void symantecBinJSON1(map<string, dataset> datasetCatalog) {
 
 		//dim
 		expressions::Expression* predicate3 = new expressions::LtExpression(
-				new BoolType(), selDim, predExpr3);
+				selDim, predExpr3);
 		//cluster
 		expressions::Expression* predicate4 = new expressions::GtExpression(
-				new BoolType(), selCluster, predExpr4);
+				selCluster, predExpr4);
 		expressions::Expression* predicateAnd2 = new expressions::AndExpression(
-				new BoolType(), predicate3, predicate4);
+				predicate3, predicate4);
 
 		expressions::Expression* predicate5 = new expressions::LeExpression(
-				new BoolType(), selCluster, predExpr5);
+				selCluster, predExpr5);
 
 		expressions::Expression* predicateAnd3 = new expressions::AndExpression(
-				new BoolType(), predicateAnd2, predicate5);
+				predicateAnd2, predicate5);
 
-		predicateBin = new expressions::AndExpression(new BoolType(),
+		predicateBin = new expressions::AndExpression(
 				predicateAnd1, predicateAnd3);
 	}
 
@@ -230,11 +230,11 @@ void symantecBinJSON1(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		predicateJSON = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 	}
 
 	Select *selJSON = new Select(predicateJSON, scanJSON);
@@ -264,7 +264,7 @@ void symantecBinJSON1(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - dim needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -341,7 +341,7 @@ void symantecBinJSON1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join,
 			&ctx);
@@ -433,7 +433,7 @@ void symantecBinJSON2(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 
 		expressions::Expression* predExpr3 = new expressions::IntConstant(
 				dimHigh);
@@ -443,19 +443,19 @@ void symantecBinJSON2(map<string, dataset> datasetCatalog) {
 						clusterHighIncl);
 
 		expressions::Expression* predicate3 = new expressions::LtExpression(
-				new BoolType(), selDim, predExpr3);
+				selDim, predExpr3);
 		expressions::Expression* predicate4 = new expressions::GtExpression(
-				new BoolType(), selCluster, predExpr4);
+				selCluster, predExpr4);
 		expressions::Expression* predicateAnd2 = new expressions::AndExpression(
-				new BoolType(), predicate3, predicate4);
+				predicate3, predicate4);
 
 		expressions::Expression* predicate5 = new expressions::LeExpression(
-				new BoolType(), selCluster, predExpr5);
+				selCluster, predExpr5);
 
 		expressions::Expression* predicateAnd3 = new expressions::AndExpression(
-				new BoolType(), predicateAnd2, predicate5);
+				predicateAnd2, predicate5);
 
-		predicateBin = new expressions::AndExpression(new BoolType(),
+		predicateBin = new expressions::AndExpression(
 				predicate1, predicateAnd3);
 	}
 
@@ -499,7 +499,7 @@ void symantecBinJSON2(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
 				idHigh);
 		predicateJSON = new expressions::LtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 	}
 
 	Select *selJSON = new Select(predicateJSON, scanJSON);
@@ -529,7 +529,7 @@ void symantecBinJSON2(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - dim needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -607,7 +607,7 @@ void symantecBinJSON2(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join,
 			&ctx);
@@ -710,19 +710,19 @@ void symantecBinJSON3(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 						sizeHigh);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-						new BoolType(), selSize, predExpr2);
+						selSize, predExpr2);
 		expressions::Expression* predicateNum = new expressions::AndExpression(
-								new BoolType(), predicate1, predicate2);
+								predicate1, predicate2);
 
 		expressions::Expression* predExpr3 = new expressions::StringConstant(
 								langName);
 				expressions::Expression* predicateStr = new expressions::EqExpression(
-								new BoolType(), selLang, predExpr3);
+								selLang, predExpr3);
 		Select *selNum = new Select(predicateNum, scanJSON);
 		scanJSON->setParent(selNum);
 
@@ -753,7 +753,7 @@ void symantecBinJSON3(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - no fields needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -885,7 +885,7 @@ void symantecBinJSON4(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
 				dimNo);
 		predicateBin = new expressions::EqExpression(
-				new BoolType(), selDim, predExpr1);
+				selDim, predExpr1);
 	}
 
 	Select *selBin = new Select(predicateBin, scanBin);
@@ -934,7 +934,7 @@ void symantecBinJSON4(map<string, dataset> datasetCatalog) {
 
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
 				monthNo);
-		predicateJSON = new expressions::EqExpression(new BoolType(), selMonth,
+		predicateJSON = new expressions::EqExpression(selMonth,
 				predExpr1);
 	}
 
@@ -964,7 +964,7 @@ void symantecBinJSON4(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - dim needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -1092,7 +1092,7 @@ void symantecBinJSON5(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
 				sizeLow);
 		predicateBin = new expressions::GtExpression(
-				new BoolType(), selSize, predExpr1);
+				selSize, predExpr1);
 	}
 
 	Select *selBin = new Select(predicateBin, scanBin);
@@ -1141,7 +1141,7 @@ void symantecBinJSON5(map<string, dataset> datasetCatalog) {
 
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
 				yearNo);
-		predicateJSON = new expressions::EqExpression(new BoolType(), selYear,
+		predicateJSON = new expressions::EqExpression(selYear,
 				predExpr1);
 	}
 
@@ -1171,7 +1171,7 @@ void symantecBinJSON5(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - dim needed */
 	vector<RecordAttribute*> fieldsLeft;

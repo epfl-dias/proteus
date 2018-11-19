@@ -117,7 +117,7 @@ void reduceMultipleNumeric()
 			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 //	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scan, &ctx);
 //	Reduce reduce = Reduce(MULTIPLY, outputExpr, predicate, &scan, &ctx);
 
@@ -195,7 +195,7 @@ void reduceNumeric()
 			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scan, &ctx);
 //	Reduce reduce = Reduce(MULTIPLY, outputExpr, predicate, &scan, &ctx);
 //	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);

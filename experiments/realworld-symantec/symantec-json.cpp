@@ -119,7 +119,7 @@ int main()	{
 //			new expressions::RecordProjection(size->getOriginalType(),arg,*size);
 //	expressions::Expression* vakey = new expressions::IntConstant(predicateVal);
 //	expressions::Expression* predicate = new expressions::LtExpression(
-//				new BoolType(), selOrderkey, vakey);
+//				selOrderkey, vakey);
 //
 //	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan, &ctx);
 //	scan->setParent(reduce);
@@ -190,11 +190,11 @@ void symantecProjection1(map<string,dataset> datasetCatalog, int predicateVal)	{
 	expressions::Expression* vakey = new expressions::IntConstant(predicateVal);
 	expressions::Expression* vakey2 = new expressions::IntConstant(0);
 	expressions::Expression* predicate1 = new expressions::LtExpression(
-				new BoolType(), selOrderkey, vakey);
+				selOrderkey, vakey);
 	expressions::Expression* predicate2 = new expressions::GtExpression(
-					new BoolType(), selOrderkey, vakey2);
+					selOrderkey, vakey2);
 	expressions::Expression* predicate = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
+			predicate1, predicate2);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan, &ctx);
 	scan->setParent(reduce);

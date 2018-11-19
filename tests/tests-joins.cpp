@@ -220,7 +220,7 @@ TEST_F(SailorsTest, Select) {
 			new FloatType(), arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 	Select sel = Select(predicate, &scanSailors);
 	scanSailors.setParent(&sel);
 
@@ -427,7 +427,7 @@ TEST_F(SailorsTest, JoinLeft3) {
 	Materializer* matReserves = new Materializer(exprsToMatReserves);
 
 	expressions::BinaryExpression* joinPred =
-			new expressions::EqExpression(new BoolType(),sailorSIDProj,reservesSIDProj);
+			new expressions::EqExpression(sailorSIDProj,reservesSIDProj);
 
 	char joinLabel[] = "sailors_reserves";
 	RadixJoin join = RadixJoin(joinPred, &scanSailors, &scanReserves, &ctx, joinLabel, *matSailor, *matReserves);
@@ -486,7 +486,7 @@ TEST_F(SailorsTest, JoinLeft3) {
 	Materializer* matBoats = new Materializer(exprsToMatBoats);
 
 	expressions::BinaryExpression* joinPred2 =
-			new expressions::EqExpression(new BoolType(),previousJoinBIDProj,boatsBIDProj);
+			new expressions::EqExpression(previousJoinBIDProj,boatsBIDProj);
 
 	char joinLabel2[] = "sailors_reserves_boats";
 	RadixJoin join2 = RadixJoin(joinPred2, &join, &scanBoats, &ctx, joinLabel2, *matPreviousJoin, *matBoats);
@@ -636,7 +636,7 @@ TEST_F(SailorsTest, JoinRight3) {
 	Materializer* matBoats = new Materializer(exprsToMatBoats);
 
 	expressions::BinaryExpression* joinPred2 = new expressions::EqExpression(
-			new BoolType(), reservesBIDProj, boatsBIDProj);
+			reservesBIDProj, boatsBIDProj);
 
 	char joinLabel2[] = "reserves_boats";
 	RadixJoin join2 = RadixJoin(joinPred2, &scanReserves, &scanBoats, &ctx,
@@ -706,7 +706,7 @@ TEST_F(SailorsTest, JoinRight3) {
 	Materializer* matPreviousJoin = new Materializer(exprsToMatPreviousJoin);
 
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), sailorSIDProj, reservesSIDProj);
+			sailorSIDProj, reservesSIDProj);
 
 	char joinLabel[] = "sailors_(reserves_boats)";
 	RadixJoin join = RadixJoin(joinPred, &scanSailors, &join2, &ctx, joinLabel,

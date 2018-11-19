@@ -169,7 +169,7 @@ TEST_F(OutputTest, ReduceNumeric) {
 			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> exprs;
@@ -244,7 +244,7 @@ TEST_F(OutputTest, MultiReduceNumeric) {
 			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> exprs;
@@ -321,7 +321,7 @@ TEST_F(OutputTest, ReduceBag) {
 			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> exprs;
@@ -419,7 +419,7 @@ TEST_F(OutputTest, ReduceBagRecord) {
 			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> exprs;
@@ -536,7 +536,7 @@ TEST_F(OutputTest, NestBagTPCH) {
 			l_orderkey->getOriginalType(), arg, *l_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(4);
 	expressions::Expression* pred = new expressions::LtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select *sel = new Select(pred, scan);
 	scan->setParent(sel);
@@ -561,7 +561,7 @@ TEST_F(OutputTest, NestBagTPCH) {
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* predNest = new expressions::EqExpression(
-			new BoolType(), lhsNest, rhsNest);
+			lhsNest, rhsNest);
 
 	//mat.
 //	vector<RecordAttribute*> fields;
@@ -772,7 +772,7 @@ TEST_F(OutputTest, JoinLeft3) {
 	Materializer* matReserves = new Materializer(exprsToMatReserves);
 
 	expressions::BinaryExpression* joinPred =
-			new expressions::EqExpression(new BoolType(),sailorSIDProj,reservesSIDProj);
+			new expressions::EqExpression(sailorSIDProj,reservesSIDProj);
 
 	char joinLabel[] = "sailors_reserves";
 	RadixJoin join = RadixJoin(joinPred, &scanSailors, &scanReserves, &ctx, joinLabel, *matSailor, *matReserves);
@@ -831,7 +831,7 @@ TEST_F(OutputTest, JoinLeft3) {
 	Materializer* matBoats = new Materializer(exprsToMatBoats);
 
 	expressions::BinaryExpression* joinPred2 =
-			new expressions::EqExpression(new BoolType(),previousJoinBIDProj,boatsBIDProj);
+			new expressions::EqExpression(previousJoinBIDProj,boatsBIDProj);
 
 	char joinLabel2[] = "sailors_reserves_boats";
 	RadixJoin join2 = RadixJoin(joinPred2, &join, &scanBoats, &ctx, joinLabel2, *matPreviousJoin, *matBoats);

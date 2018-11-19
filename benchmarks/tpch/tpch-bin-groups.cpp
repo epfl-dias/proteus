@@ -291,7 +291,7 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 			l_orderkey->getOriginalType(), arg, *l_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(predicate);
 	expressions::Expression* pred = new expressions::LtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select *sel = new Select(pred, scan);
 	scan->setParent(sel);
@@ -326,7 +326,7 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate, int aggregate
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* predNest = new expressions::EqExpression(
-			new BoolType(), lhsNest, rhsNest);
+			lhsNest, rhsNest);
 
 
 	//mat.

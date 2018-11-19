@@ -104,7 +104,7 @@ void JsmnString()	{
 		expressions::Expression* rhs = new expressions::StringConstant(neededName);
 
 		expressions::Expression* predicate = new expressions::EqExpression(
-				new BoolType(), lhs, rhs);
+				lhs, rhs);
 
 		Select sel = Select(predicate, &scan);
 		scan.setParent(&sel);
@@ -173,7 +173,7 @@ void JsonString()	{
 		expressions::Expression* rhs = new expressions::StringConstant(neededName);
 
 		expressions::Expression* predicate = new expressions::EqExpression(
-				new BoolType(), lhs, rhs);
+				lhs, rhs);
 
 		Select sel = Select(predicate, &scan);
 		scan.setParent(&sel);
@@ -245,7 +245,7 @@ void CsvString() {
 	expressions::Expression* rhs = new expressions::StringConstant(neededName);
 
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
@@ -335,7 +335,7 @@ void nestRadixString()
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);

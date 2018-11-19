@@ -142,7 +142,7 @@ void nest()
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -284,7 +284,7 @@ void nestMultipleAggs()
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -448,7 +448,7 @@ void nestRadixMultipleAggs()
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -619,7 +619,7 @@ void nestRadixFull()
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -794,7 +794,7 @@ void nestRadixTwoKeys()
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);

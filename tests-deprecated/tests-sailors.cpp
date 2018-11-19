@@ -148,7 +148,7 @@ TEST(Sailors, Select) {
 	expressions::Expression* lhsArg = new expressions::InputArgument(new FloatType(),0,projections);
 	expressions::Expression* lhs = new expressions::RecordProjection(new FloatType(),lhsArg,*age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40);
-	expressions::Expression* predicate = new expressions::GtExpression(new BoolType(),lhs,rhs);
+	expressions::Expression* predicate = new expressions::GtExpression(lhs,rhs);
 	Select sel = Select(predicate,&scan);
 	scan.setParent(&sel);
 
@@ -286,7 +286,7 @@ TEST(Sailors, JoinLeft3) {
 	expressions::Expression* rightArg = new expressions::InputArgument(intType,1,projectionsR);
 	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,*sidReserves);
 
-	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(left,right);
 
 	vector<materialization_mode> outputModes;
 	//Active Loop Too
@@ -333,7 +333,7 @@ TEST(Sailors, JoinLeft3) {
 	expressions::Expression* rightArg2 = new expressions::InputArgument(intType,1,projectionsBoats);
 	expressions::Expression* right2 = new expressions::RecordProjection(intType,rightArg2,*bidBoats);
 
-	expressions::BinaryExpression* joinPred2 = new expressions::EqExpression(new BoolType(),left2,right2);
+	expressions::BinaryExpression* joinPred2 = new expressions::EqExpression(left2,right2);
 	vector<materialization_mode> outputModes2;
 	//1 + activeLoop
 	outputModes2.insert(outputModes2.begin(),EAGER);
@@ -435,7 +435,7 @@ TEST(Sailors, JoinRight3) {
 	expressions::Expression* rightArg2 = new expressions::InputArgument(intType,1,projectionsBoats);
 	expressions::Expression* right2 = new expressions::RecordProjection(intType,rightArg2,*bidBoats);
 
-	expressions::BinaryExpression* joinPred2 = new expressions::EqExpression(new BoolType(),left2,right2);
+	expressions::BinaryExpression* joinPred2 = new expressions::EqExpression(left2,right2);
 	vector<materialization_mode> outputModes2;
 	outputModes2.insert(outputModes2.begin(),EAGER);
 	outputModes2.insert(outputModes2.begin(),EAGER);
@@ -486,7 +486,7 @@ TEST(Sailors, JoinRight3) {
 	//For 100% correctness, I should have a new projections list, and not just the ones from reserves
 	expressions::Expression* rightArg = new expressions::InputArgument(intType,1,projectionsReserves);
 	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,*sidReserves);
-	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(left,right);
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(),EAGER);
 	outputModes.insert(outputModes.begin(),EAGER);
@@ -595,7 +595,7 @@ TEST(Sailors, Join) {
 	expressions::Expression* rightArg = new expressions::InputArgument(intType,
 			1, projectionsReserves);
 	expressions::Expression* right = new expressions::RecordProjection(intType,rightArg,*sidReserves);
-	expressions::BinaryExpression* joinPred = new expressions::EqExpression(new BoolType(),left,right);
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(left,right);
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(),EAGER);
 	outputModes.insert(outputModes.begin(),EAGER);

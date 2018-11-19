@@ -161,32 +161,32 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 		expressions::Expression* predExpr3 = new expressions::FloatConstant(
 				p_eventLow);
 		expressions::Expression* predExpr4 = new expressions::FloatConstant(
 				valueLow);
 		expressions::Expression* predicate3 = new expressions::GtExpression(
-				new BoolType(), selEvent, predExpr3);
+				selEvent, predExpr3);
 		expressions::Expression* predicate4 = new expressions::GtExpression(
-				new BoolType(), selValue, predExpr4);
+				selValue, predExpr4);
 		expressions::Expression* predicateOr = new expressions::OrExpression(
-				new BoolType(), predicate3, predicate4);
+				predicate3, predicate4);
 
 		expressions::Expression* predExpr5 = new expressions::IntConstant(
 				clusterLow);
 		expressions::Expression* predicate5 = new expressions::GtExpression(
-				new BoolType(), selCluster, predExpr5);
+				selCluster, predExpr5);
 
 		expressions::Expression* predicateAnd2 = new expressions::AndExpression(
-				new BoolType(), predicateOr, predicate5);
+				predicateOr, predicate5);
 
-		predicateBin = new expressions::AndExpression(new BoolType(),
+		predicateBin = new expressions::AndExpression(
 				predicateAnd1, predicateAnd2);
 	}
 
@@ -240,18 +240,18 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 		expressions::Expression* predExpr3 = new expressions::IntConstant(
 				classaHigh);
 		expressions::Expression* predicate3 = new expressions::LtExpression(
-				new BoolType(), selClassa, predExpr3);
+				selClassa, predExpr3);
 
-		predicateCSV = new expressions::AndExpression(new BoolType(),
+		predicateCSV = new expressions::AndExpression(
 				predicateAnd1, predicate3);
 
 	}
@@ -283,7 +283,7 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - dim needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -354,7 +354,7 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join,
 			&ctx);
@@ -452,33 +452,33 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 		expressions::Expression* predExpr3 = new expressions::FloatConstant(
 				p_eventLow);
 		expressions::Expression* predExpr4 = new expressions::FloatConstant(
 				valueLow);
 		expressions::Expression* predicate3 = new expressions::GtExpression(
-				new BoolType(), selEvent, predExpr3);
+				selEvent, predExpr3);
 		expressions::Expression* predicate4 = new expressions::GtExpression(
-				new BoolType(), selValue, predExpr4);
+				selValue, predExpr4);
 
 		expressions::Expression* predicateOr = new expressions::OrExpression(
-				new BoolType(), predicate3, predicate4);
+				predicate3, predicate4);
 
 		expressions::Expression* predExpr5 = new expressions::IntConstant(
 				clusterLow);
 		expressions::Expression* predicate5 = new expressions::GtExpression(
-				new BoolType(), selCluster, predExpr5);
+				selCluster, predExpr5);
 
 		expressions::Expression* predicateAnd2 = new expressions::AndExpression(
-				new BoolType(), predicateOr, predicate5);
+				predicateOr, predicate5);
 
-		predicateBin = new expressions::AndExpression(new BoolType(),
+		predicateBin = new expressions::AndExpression(
 				predicateAnd1, predicateAnd2);
 	}
 
@@ -531,18 +531,18 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 		expressions::Expression* predExpr3 = new expressions::IntConstant(
 				classaHigh);
 		expressions::Expression* predicate3 = new expressions::LtExpression(
-				new BoolType(), selClassa, predExpr3);
+				selClassa, predExpr3);
 
-		predicateCSV = new expressions::AndExpression(new BoolType(),
+		predicateCSV = new expressions::AndExpression(
 				predicateAnd1, predicate3);
 
 	}
@@ -574,7 +574,7 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - dim needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -645,7 +645,7 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join,
 			&ctx);
@@ -724,11 +724,11 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		predicateBin = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 	}
 
 	Select *selBin = new Select(predicateBin, scanBin);
@@ -779,11 +779,11 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
 	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predicate1 = new expressions::GtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr2);
+			selID, predExpr2);
 	expressions::Expression* predicateNum = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
+			predicate1, predicate2);
 
 	Select *selNum = new Select(predicateNum, scanCSV);
 	scanCSV->setParent(selNum);
@@ -791,7 +791,7 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr3 = new expressions::StringConstant(
 			botName);
 	expressions::Expression* predicateStr = new expressions::EqExpression(
-			new BoolType(), selBot, predExpr3);
+			selBot, predExpr3);
 
 	selCSV = new Select(predicateStr, selNum);
 	selNum->setParent(selCSV);
@@ -821,7 +821,7 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - neighbors needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -892,7 +892,7 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join,
 			&ctx);
@@ -973,11 +973,11 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		predicateBin = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 	}
 
 	Select *selBin = new Select(predicateBin, scanBin);
@@ -1032,11 +1032,11 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
 	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predicate1 = new expressions::GtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr2);
+			selID, predExpr2);
 	expressions::Expression* predicateNum = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
+			predicate1, predicate2);
 
 	Select *selNum = new Select(predicateNum, scanCSV);
 	scanCSV->setParent(selNum);
@@ -1046,11 +1046,11 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr4 = new expressions::StringConstant(
 			countryCodeName);
 	expressions::Expression* predicateStr1 = new expressions::EqExpression(
-			new BoolType(), selBot, predExpr3);
+			selBot, predExpr3);
 	expressions::Expression* predicateStr2 = new expressions::EqExpression(
-			new BoolType(), selCountryCode, predExpr4);
+			selCountryCode, predExpr4);
 	expressions::Expression* predicateStr = new expressions::AndExpression(
-			new BoolType(), predicateStr1, predicateStr2);
+			predicateStr1, predicateStr2);
 
 	selCSV = new Select(predicateStr, selNum);
 	selNum->setParent(selCSV);
@@ -1080,7 +1080,7 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - neighbors needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -1151,7 +1151,7 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join,
 			&ctx);
@@ -1228,11 +1228,11 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		predicateBin = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 	}
 
 	Select *selBin = new Select(predicateBin, scanBin);
@@ -1300,16 +1300,16 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExprNum3 = new expressions::IntConstant(
 			classaHigh);
 	expressions::Expression* predicateNum1 = new expressions::GtExpression(
-			new BoolType(), selID, predExprNum1);
+			selID, predExprNum1);
 	expressions::Expression* predicateNum2 = new expressions::LtExpression(
-			new BoolType(), selID, predExprNum2);
+			selID, predExprNum2);
 	expressions::Expression* predicateNum3 = new expressions::LtExpression(
-			new BoolType(), selClassa, predExprNum3);
+			selClassa, predExprNum3);
 
 	expressions::Expression* predicateNum_ = new expressions::AndExpression(
-			new BoolType(), predicateNum1, predicateNum2);
+			predicateNum1, predicateNum2);
 	expressions::Expression* predicateNum = new expressions::AndExpression(
-			new BoolType(), predicateNum_, predicateNum3);
+			predicateNum_, predicateNum3);
 
 	Select *selNum = new Select(predicateNum, scanCSV);
 	scanCSV->setParent(selNum);
@@ -1319,11 +1319,11 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr4 = new expressions::StringConstant(
 			countryCodeName);
 	expressions::Expression* predicateStr1 = new expressions::EqExpression(
-			new BoolType(), selBot, predExpr3);
+			selBot, predExpr3);
 	expressions::Expression* predicateStr2 = new expressions::EqExpression(
-			new BoolType(), selCountryCode, predExpr4);
+			selCountryCode, predExpr4);
 	expressions::Expression* predicateStr = new expressions::AndExpression(
-			new BoolType(), predicateStr1, predicateStr2);
+			predicateStr1, predicateStr2);
 
 	selCSV = new Select(predicateStr, selNum);
 	selNum->setParent(selCSV);
@@ -1352,7 +1352,7 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - neighbors needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -1422,7 +1422,7 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* predNest = new expressions::EqExpression(
-			new BoolType(), lhsNest, rhsNest);
+			lhsNest, rhsNest);
 
 	//mat.
 	vector<RecordAttribute*> fields;

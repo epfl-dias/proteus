@@ -175,10 +175,10 @@ TEST(Hashing, BinaryExpressions)	{
 	expressions::BoolConstant* val_bool = new expressions::BoolConstant(inputBool);
 	expressions::StringConstant* val_string = new expressions::StringConstant(inputString);
 
-	expressions::NeExpression* bool_ne = new expressions::NeExpression(new BoolType(),val_int,val_int);
-	expressions::EqExpression* bool_eq = new expressions::EqExpression(new BoolType(),val_float,val_float);
-	expressions::AddExpression* int_add = new expressions::AddExpression(new IntType(),val_int,val_int);
-	expressions::MultExpression* float_mult = new expressions::MultExpression(new FloatType(),val_float,val_float);
+	expressions::NeExpression* bool_ne = new expressions::NeExpression(val_int,val_int);
+	expressions::EqExpression* bool_eq = new expressions::EqExpression(val_float,val_float);
+	expressions::AddExpression* int_add = new expressions::AddExpression(val_int,val_int);
+	expressions::MultExpression* float_mult = new expressions::MultExpression(val_float,val_float);
 
 	hasher.visit(bool_ne);
 	hasher.visit(bool_eq);
@@ -219,11 +219,11 @@ TEST(Hashing, IfThenElse)	{
 	expressions::BoolConstant* val_bool = new expressions::BoolConstant(inputBool);
 	expressions::StringConstant* val_string = new expressions::StringConstant(inputString);
 
-	expressions::EqExpression* bool_eq = new expressions::EqExpression(new BoolType(),val_float,val_float);
-	expressions::AddExpression* int_add = new expressions::AddExpression(new IntType(),val_int,val_int);
-	expressions::SubExpression* int_sub = new expressions::SubExpression(new IntType(),val_int,val_int);
+	expressions::EqExpression* bool_eq = new expressions::EqExpression(val_float,val_float);
+	expressions::AddExpression* int_add = new expressions::AddExpression(val_int,val_int);
+	expressions::SubExpression* int_sub = new expressions::SubExpression(val_int,val_int);
 
-	expressions::Expression* ifElse = new expressions::IfThenElse(new BoolType(),bool_eq,int_add,int_sub);
+	expressions::Expression* ifElse = new expressions::IfThenElse(bool_eq,int_add,int_sub);
 	ifElse->accept(hasher);
 
 	ctx.prepareFunction(ctx.getGlobalFunction());

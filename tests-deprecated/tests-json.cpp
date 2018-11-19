@@ -119,7 +119,7 @@ TEST(JSON, SelectJSON) {
 	expressions::Expression* rhs = new expressions::IntConstant(5);
 
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
@@ -202,7 +202,7 @@ TEST(JSON, unnestJSON) {
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Unnest unnestOp = Unnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -305,7 +305,7 @@ TEST(JSON, reduceListObjectFlat) {
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 	Reduce reduce = Reduce(UNION, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -376,7 +376,7 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -469,7 +469,7 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -559,7 +559,7 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
