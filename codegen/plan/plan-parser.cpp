@@ -1,6 +1,5 @@
 #include "plan/plan-parser.hpp"
 #include "plugins/gpu-col-scan-plugin.hpp"
-#include "plugins/gpu-col-scan-to-blocks-plugin.hpp"
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
 #ifndef NCUDA
 #include "operators/gpu/gpu-join.hpp"
@@ -2283,7 +2282,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		retValue = new expressions::EqExpression(new BoolType(),leftExpr,rightExpr);
+		retValue = new expressions::EqExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "neq") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2296,7 +2295,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 				assert(val[rightArg].IsObject());
 				expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-				retValue = new expressions::NeExpression(new BoolType(),leftExpr,rightExpr);
+				retValue = new expressions::NeExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "lt") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2309,7 +2308,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 				assert(val[rightArg].IsObject());
 				expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-				retValue = new expressions::LtExpression(new BoolType(),leftExpr,rightExpr);
+				retValue = new expressions::LtExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "le") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2322,7 +2321,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		retValue = new expressions::LeExpression(new BoolType(),leftExpr,rightExpr);
+		retValue = new expressions::LeExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "gt") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2335,7 +2334,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		retValue = new expressions::GtExpression(new BoolType(),leftExpr,rightExpr);
+		retValue = new expressions::GtExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "ge") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2348,7 +2347,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		retValue = new expressions::GeExpression(new BoolType(),leftExpr,rightExpr);
+		retValue = new expressions::GeExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "and") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2361,7 +2360,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		retValue = new expressions::AndExpression(new BoolType(),leftExpr,rightExpr);
+		retValue = new expressions::AndExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "or") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2374,7 +2373,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		retValue = new expressions::OrExpression(new BoolType(),leftExpr,rightExpr);
+		retValue = new expressions::OrExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "add") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2452,8 +2451,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
-		retValue = new expressions::MultExpression(exprType,leftExpr,rightExpr);
+		retValue = new expressions::MultExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "div") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2466,8 +2464,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
-		retValue = new expressions::DivExpression(exprType,leftExpr,rightExpr);
+		retValue = new expressions::DivExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "merge") == 0) {
 		assert(!isNull);
 		string err = string("(Still) unsupported expression: ") + valExpression;
