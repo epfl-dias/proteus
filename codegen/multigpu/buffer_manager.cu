@@ -29,32 +29,18 @@ void buffer_manager_destroy(){
 }
 
 template<typename T, typename... Args>
-__host__ T * cuda_new(int dev, Args... args){
-    if (dev >= 0){
-        set_device_on_scope d(dev);
-        T *tmp = new T(args...);
-        T *res;
-        gpu_run(cudaMalloc((void**) &res, sizeof(T)));
-        gpu_run(cudaMemcpy(res, tmp, sizeof(T), cudaMemcpyDefault));
-        gpu_run(cudaDeviceSynchronize());
-        free(tmp);  //NOTE: bad practice ? we want to allocate tmp by new to
-                    //      trigger initialization but we want to free the 
-                    //      corresponding memory after moving to device 
-                    //      without triggering the destructor
-        return res;
-    } else {
-        T *tmp = new T(args...);
-        T *res;
-        gpu_run(cudaMallocHost((void**) &res, sizeof(T)));
-        gpu_run(cudaMemcpy(res, tmp, sizeof(T), cudaMemcpyDefault));
-        gpu_run(cudaDeviceSynchronize());
-        free(tmp);  //NOTE: bad practice ? we want to allocate tmp by new to
-                    //      trigger initialization but we want to free the 
-                    //      corresponding memory after moving to device 
-                    //      without triggering the destructor
-        return res;
-        // return new T(args...);
-    }
+__host__ T * cuda_new(const topology::gpunode &gpu, Args... args){
+    set_device_on_scope d{gpu};
+    T *tmp = new T(args...);
+    T *res;
+    gpu_run(cudaMalloc((void**) &res, sizeof(T)));
+    gpu_run(cudaMemcpy(res, tmp, sizeof(T), cudaMemcpyDefault));
+    gpu_run(cudaDeviceSynchronize());
+    free(tmp);  //NOTE: bad practice ? we want to allocate tmp by new to
+                //      trigger initialization but we want to free the 
+                //      corresponding memory after moving to device 
+                //      without triggering the destructor
+    return res;
 }
 
 
@@ -379,7 +365,7 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size, size_t buff_bu
         buffer_pool_constrs.emplace_back([gpu, size, &buff_cache]{
             uint32_t j = gpu.id;
 
-            set_exec_location_on_scope d(j);
+            set_exec_location_on_scope d(gpu);
 
             T      *mem;
             size_t  pitch;
@@ -390,7 +376,7 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size, size_t buff_bu
             buffs.reserve(size);
             for (size_t i = 0 ; i < size ; ++i) {
                 T        * m = (T *) (((char *) mem) + i*pitch);
-                // buffer_t * b = cuda_new<buffer_t>(j, m, j);
+                // buffer_t * b = cuda_new<buffer_t>(gpu, m, gpu);
                 buffs.push_back(m);
 
                 // cout << "Device " << j << " : data = " << m << endl;
@@ -401,7 +387,7 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size, size_t buff_bu
                 for (const auto b: buffs) buffer_cache[b] = 0;
             }
             
-            pool_t * tmp =  cuda_new<pool_t>(j, size, buffs, j);
+            pool_t * tmp =  cuda_new<pool_t>(gpu, size, buffs, gpu);
             gpu_run(cudaMemcpyToSymbol(pool      , &tmp, sizeof(pool_t *)));
             gpu_run(cudaMemcpyToSymbol(deviceId  ,   &j, sizeof(int     )));
             gpu_run(cudaMemcpyToSymbol(buff_start, &mem, sizeof(void   *)));

@@ -178,7 +178,7 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
 
         for (auto cpu_id: gpu.local_cores) core_mask[cpu_id] = 'x';
 
-        out << core_mask << '\n';
+        out << core_mask << " | name: " << gpu.properties.name << '\n';
         // for ( auto cpu_id : gpu.local_cores  ) {
         //     if (cpu_id)
         //     out << std::setw(4) << cpu_id << " ";

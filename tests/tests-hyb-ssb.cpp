@@ -66,6 +66,7 @@
 #include "util/raw-memory-manager.hpp"
 #include "storage/raw-storage-manager.hpp"
 #include "test-utils.hpp"
+#include "topology/topology.hpp"
 
 #include <vector>
 #include <thread>
@@ -113,6 +114,8 @@ void HYBSSBTest::runAndVerify(const char *testLabel, const char* planPath, bool 
 //      and lo_discount between 1 and 3
 //      and lo_quantity < 25;
 TEST_F(HYBSSBTest, ssb_q1_1_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };
@@ -141,6 +144,8 @@ TEST_F(HYBSSBTest, ssb_q1_1_par_cpy) {
 //      and lo_discount between 4 and 6
 //      and lo_quantity between 26 and 35;
 TEST_F(HYBSSBTest, ssb_q1_2_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };
@@ -170,6 +175,8 @@ TEST_F(HYBSSBTest, ssb_q1_2_par_cpy) {
 //      and lo_discount between 5 and 7
 //      and lo_quantity between 26 and 35;
 TEST_F(HYBSSBTest, ssb_q1_3_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };
@@ -201,6 +208,8 @@ TEST_F(HYBSSBTest, ssb_q1_3_par_cpy) {
 //      and s_region = 'AMERICA' 
 //     group by d_year, p_brand1;
 TEST_F(HYBSSBTest, ssb_q2_1_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };
@@ -237,6 +246,8 @@ TEST_F(HYBSSBTest, ssb_q2_1_par_cpy) {
 //      and s_region = 'ASIA' 
 //     group by d_year, p_brand1;
 TEST_F(HYBSSBTest, ssb_q2_2_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };
@@ -271,6 +282,8 @@ TEST_F(HYBSSBTest, ssb_q2_2_par_cpy) {
 //      and s_region = 'EUROPE' 
 //     group by d_year, p_brand1;
 TEST_F(HYBSSBTest, ssb_q2_3_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };
@@ -307,6 +320,8 @@ TEST_F(HYBSSBTest, ssb_q2_3_par_cpy) {
 //      and d_year <= 1997 
 //     group by c_nation, s_nation, d_year;
 TEST_F(HYBSSBTest, ssb_q3_1_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };
@@ -345,6 +360,8 @@ TEST_F(HYBSSBTest, ssb_q3_1_par_cpy) {
 //      and d_year <= 1997 
 //     group by c_city, s_city, d_year;
 TEST_F(HYBSSBTest, ssb_q3_2_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };
@@ -383,6 +400,8 @@ TEST_F(HYBSSBTest, ssb_q3_2_par_cpy) {
 //      and d_year <= 1997 
 //     group by c_city, s_city, d_year;
 TEST_F(HYBSSBTest, ssb_q3_3_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };
@@ -418,6 +437,8 @@ TEST_F(HYBSSBTest, ssb_q3_3_par_cpy) {
 //      and d_yearmonth = 'Dec1997' 
 //     group by c_city, s_city, d_year;
 TEST_F(HYBSSBTest, ssb_q3_4_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };
@@ -455,6 +476,8 @@ TEST_F(HYBSSBTest, ssb_q3_4_par_cpy) {
 //      and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2') 
 //     group by d_year, c_nation;
 TEST_F(HYBSSBTest, ssb_q4_1_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };
@@ -497,6 +520,8 @@ TEST_F(HYBSSBTest, ssb_q4_1_par_cpy) {
 //      and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2') 
 //     group by d_year, s_nation, p_category;
 TEST_F(HYBSSBTest, ssb_q4_2_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };
@@ -540,6 +565,8 @@ TEST_F(HYBSSBTest, ssb_q4_2_par_cpy) {
 //      and p_category = 'MFGR#14' 
 //     group by d_year, s_city, p_brand1;
 TEST_F(HYBSSBTest, ssb_q4_3_par_cpy) {
+    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+
     auto load = [](string filename){
         StorageManager::loadToCpus(filename);
     };

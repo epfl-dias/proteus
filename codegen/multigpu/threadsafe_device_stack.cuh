@@ -8,6 +8,7 @@
 #include <vector>
 #include <type_traits>
 #include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
 
 using namespace std;
 
@@ -33,9 +34,9 @@ private:
     volatile T * data;      //OR cnt, size, data, lock to load the non-atomic part of the DS with a single 128bit load
 
 public:
-    __host__ threadsafe_device_stack(uint32_t size, std::vector<T> fill, int device):
+    __host__ threadsafe_device_stack(uint32_t size, std::vector<T> fill, const topology::gpunode &device):
                 cnt(0), size(size), lock(0){
-        set_device_on_scope d(device);
+        set_device_on_scope d{device};
         gpu_run(cudaMalloc(&data, size*sizeof(T)));
 
         if (fill.size() > 0){
