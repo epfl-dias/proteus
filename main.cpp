@@ -5191,7 +5191,7 @@ void columnarQuerySum()
 
 void columnarMax1()
 {
-	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
+	string filenamePrefix = string("inputs/synthetic/100m-30cols-fixed");
 
 	RawContext& ctx = *prepareContext("columnarMax1");
 	RawCatalog& catalog = RawCatalog::getInstance();
@@ -5263,7 +5263,7 @@ void columnarMax1()
 /* Result: 999999994 */
 void columnarMax2()
 {
-	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
+	string filenamePrefix = string("inputs/synthetic/100m-30cols-fixed");
 
 	RawContext& ctx = *prepareContext("columnarMax2");
 
@@ -5350,7 +5350,7 @@ void columnarMax2()
 /* Result: 999998187 */
 void columnarMax3()
 {
-	string filenamePrefix = string("/cloud_store/manosk/data/vida-engine/synthetic/500m-30cols-fixed");
+	string filenamePrefix = string("inputs/synthetic/500m-30cols-fixed");
 
 	RawContext& ctx = *prepareContext("columnarMax3");
 	RawCatalog& catalog = RawCatalog::getInstance();
@@ -5457,16 +5457,16 @@ void columnarJoin1()
 	PrimitiveType* int64Type = new Int64Type();
 
 	/* Segfault */
-	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
-	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
+	string filenamePrefixLeft = string("inputs/synthetic/100m-30cols-fixed-shuffled");
+	string filenamePrefixRight = string("inputs/synthetic/100m-30cols-fixed");
 
 	/* Works */
-//	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed-shuffled");
-//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed");
+//	string filenamePrefixLeft = string("inputs/synthetic/10k-30cols-fixed-shuffled");
+//	string filenamePrefixRight = string("inputs/synthetic/10k-30cols-fixed");
 
 	/* Works */
-//	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100-30cols-fixed");
-//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/500-30cols-fixed");
+//	string filenamePrefixLeft = string("inputs/synthetic/100-30cols-fixed");
+//	string filenamePrefixRight = string("inputs/synthetic/500-30cols-fixed");
 
 	/**
 	 * SCAN1
@@ -5673,16 +5673,16 @@ void columnarCachedJoin1()
 	PrimitiveType* intType = new IntType();
 
 	/* Works */
-	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed-shuffled");
-	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/100m-30cols-fixed");
+	string filenamePrefixLeft = string("inputs/synthetic/100m-30cols-fixed-shuffled");
+	string filenamePrefixRight = string("inputs/synthetic/100m-30cols-fixed");
 
 	/* Works */
-//	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed-shuffled");
-//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/10k-30cols-fixed");
+//	string filenamePrefixLeft = string("inputs/synthetic/10k-30cols-fixed-shuffled");
+//	string filenamePrefixRight = string("inputs/synthetic/10k-30cols-fixed");
 
 	/* Works */
-//	string filenamePrefixLeft = string("/cloud_store/manosk/data/vida-engine/synthetic/100-30cols-fixed");
-//	string filenamePrefixRight = string("/cloud_store/manosk/data/vida-engine/synthetic/500-30cols-fixed");
+//	string filenamePrefixLeft = string("inputs/synthetic/100-30cols-fixed");
+//	string filenamePrefixRight = string("inputs/synthetic/500-30cols-fixed");
 
 //	string filenamePrefixLeft = string("inputs/synthetic/500-30cols-fixed");
 //	string filenamePrefixRight = string("inputs/synthetic/100-30cols-fixed");

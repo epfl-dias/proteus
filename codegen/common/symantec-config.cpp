@@ -45,19 +45,19 @@ void symantecSchema(map<string, dataset>& datasetCatalog) {
 	#endif
 	#ifdef SYMANTEC_SERVER
 
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams56m.json");
+//	string path = string("inputs/symantec/spams56m.json");
 //	symantec.linehint = 55833807;
 
-	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams1m.json");
+	string path = string("inputs/symantec/spams1m.json");
 	symantec.linehint = 999582;
 
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams10m.json");
+//	string path = string("inputs/symantec/spams10m.json");
 //	symantec.linehint = 9995329;
 
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams100k.json");
+//	string path = string("inputs/symantec/spams100k.json");
 //	symantec.linehint = 99967;
 
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spams_head.json");
+//	string path = string("inputs/symantec/spams_head.json");
 //	symantec.linehint = 100000;
 	#endif
 	symantec.path = path;
@@ -208,20 +208,20 @@ void symantecCoreSchema(map<string, dataset>& datasetCatalog) {
 //	symantec.linehint = 1000000;
 	#endif
 	#ifdef SYMANTEC_SERVER
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreID28m.json");
+//	string path = string("inputs/symantec/spamsCoreID28m.json");
 //	symantec.linehint = 28000000;
 
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreID1m.json");
+//	string path = string("inputs/symantec/spamsCoreID1m.json");
 //	symantec.linehint = 1000000;
 
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreID28m.json");
+//	string path = string("inputs/symantec/spamsCoreID28m.json");
 //	//symantec.linehint = 27991113; //no-sanitize
 //	symantec.linehint = 23806486; //after-sanitize
 
-	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreID28m.json");
+	string path = string("inputs/symantec/spamsCoreID28m.json");
 	symantec.linehint = 27991116;
 
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreID100.json");
+//	string path = string("inputs/symantec/spamsCoreID100.json");
 //	symantec.linehint = 100;
 	#endif
 	symantec.path = path;
@@ -378,10 +378,10 @@ void symantecCoreIDDatesSchema(map<string, dataset>& datasetCatalog) {
 	#endif
 	#ifdef SYMANTEC_SERVER
 	cout << "[SYMANTEC: ] SERVER MODE ON!" << endl;
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreIDDates100.json");
+//	string path = string("inputs/symantec/spamsCoreIDDates100.json");
 //	symantec.linehint = 100;
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreIDDates28m-edit.json");
-	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreIDDates28m-bigids.json");
+//	string path = string("inputs/symantec/spamsCoreIDDates28m-edit.json");
+	string path = string("inputs/symantec/spamsCoreIDDates28m-bigids.json");
 	symantec.linehint = 27991116;
 //	string path = string("/tmp/prob.json");
 //	symantec.linehint = 4;
@@ -553,7 +553,7 @@ void symantecBinSchema(map<string, dataset>& datasetCatalog) {
 	symantecBin.linehint = 500000000;
 	#endif
 	#ifdef SYMANTEC_SERVER
-	string path = string("/cloud_store/manosk/data/vida-engine/symantec/col/symantec");
+	string path = string("inputs/symantec/col/symantec");
 	symantecBin.linehint = 500000000;
 	#endif
 	symantecBin.path = path;
@@ -634,13 +634,13 @@ void symantecCSVSchema(map<string, dataset>& datasetCatalog) {
 	symantecCSV.linehint = 2;
 	#endif
 	#ifdef SYMANTEC_SERVER
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsClasses1000-unordered-nocomma.csv");
+//	string path = string("inputs/symantec/spamsClasses1000-unordered-nocomma.csv");
 //	symantecCSV.linehint = 1000;
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsClasses1-unordered-nocomma.csv");
+//	string path = string("inputs/symantec/spamsClasses1-unordered-nocomma.csv");
 //	symantecCSV.linehint = 3;
-	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsClasses400m-unordered-nocomma.csv");
+	string path = string("inputs/symantec/spamsClasses400m-unordered-nocomma.csv");
 	symantecCSV.linehint = 400000000;
-//	string path = string("/cloud_store/manosk/data/vida-engine/symantec/spamsClasses1000-unordered.csv");
+//	string path = string("inputs/symantec/spamsClasses1000-unordered.csv");
 //	symantecCSV.linehint = 1000;
 	#endif
 	symantecCSV.path = path;
