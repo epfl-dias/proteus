@@ -15,7 +15,7 @@
       "type": "custom",
       "factory": "ch.epfl.dias.calcite.adapter.pelago.PelagoSchemaFactory",
       "operand": {
-        "directory": "."
+        "directory": ".."
       }
     }
   ]
