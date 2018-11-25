@@ -272,6 +272,7 @@ Type* OutputPlugin::chooseType(const ExpressionType* exprType, Type* currType, m
 	case BOOL:
 	case DSTRING:
 	case STRING:
+	case DATE:
 	case FLOAT:
 	case INT64:
 	case INT:

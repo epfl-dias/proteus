@@ -63,3 +63,5 @@ generated_code/**
 
 #Scratchpad
 scratchpad/**
+cmake-build-debug
+.idea

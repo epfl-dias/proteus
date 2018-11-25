@@ -87,7 +87,7 @@
 //}
 
 //int main() {
-//	const char* catalogJSON = "inputs/plans/catalog.json";
+//	const char* catalogJSON = "inputs";
 //	const char* plan1JSON = "inputs/plans/reduce-scan.json";
 //	const char* plan2JSON = "inputs/plans/reduce-unnest-scan.json";
 //	const char* plan3JSON = "inputs/plans/reduce-join.json";

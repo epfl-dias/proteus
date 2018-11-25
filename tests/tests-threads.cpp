@@ -87,7 +87,7 @@ protected:
     bool flushResults = true;
     const char * testPath = TEST_OUTPUTS "/tests-threads/";
 
-    const char * catalogJSON = "inputs/plans/catalog.json";
+    const char * catalogJSON = "inputs";
 public:
 };
 

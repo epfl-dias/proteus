@@ -241,7 +241,7 @@ void tpchUnnestCachingPred(map<string, dataset> datasetCatalog, int predicate, b
 			o_orderkey->getOriginalType(), outerArg, *o_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(predicate);
 	expressions::Expression* pred = new expressions::LtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Unnest *unnestOp = new Unnest(pred, path, mat);
 	mat->setParent(unnestOp);
@@ -323,7 +323,7 @@ void tpchUnnest(map<string, dataset> datasetCatalog, int predicate, bool exploit
 			o_orderkey->getOriginalType(), outerArg, *o_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(predicate);
 	expressions::Expression* pred = new expressions::LtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Unnest *unnestOp = new Unnest(pred, path, scan);
 	scan->setParent(unnestOp);

@@ -29,6 +29,8 @@
 #include "gtest/gtest.h"
 #include "test-utils.hpp"
 
+#include "storage/raw-storage-manager.hpp"
+
 #include "common/common.hpp"
 #include "util/raw-context.hpp"
 #include "util/raw-functions.hpp"
@@ -73,16 +75,12 @@
 //
 // </TechnicalDetails>
 
+::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+
 class OutputTest : public ::testing::Test {
 protected:
-	virtual void SetUp() {
-		catalog = &RawCatalog::getInstance();
-		caches = &CachingService::getInstance();
-		catalog->clear();
-		caches->clear();
-	}
-
-	virtual void TearDown() {}
+	virtual void SetUp();
+	virtual void TearDown();
 
 	pm::CSVPlugin * openCSV(RawContext* const context, string& fname,
 		RecordType& rec, vector<RecordAttribute*> whichFields,
@@ -102,6 +100,21 @@ private:
 	CachingService * caches;
 };
 
+void OutputTest::SetUp   (){
+	gpu_run(cudaSetDevice(0));
+
+	catalog = &RawCatalog::getInstance();
+	caches = &CachingService::getInstance();
+	catalog->clear();
+	caches->clear();
+}
+
+void OutputTest::TearDown(){
+	StorageManager::unloadAll();
+}
+
+// works on new planner
+// select max(sid) from sailors where age > 40 ;
 TEST_F(OutputTest, ReduceNumeric) {
  	const char *testLabel = "reduceNumeric.json";
 	RawContext& ctx = *prepareContext(testLabel);
@@ -156,7 +169,7 @@ TEST_F(OutputTest, ReduceNumeric) {
 			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> exprs;
@@ -175,6 +188,8 @@ TEST_F(OutputTest, ReduceNumeric) {
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
+// works on new planner BUT planner does not request the output as json
+// select sum(sid), max(sid) from sailors where age > 40 ;
 TEST_F(OutputTest, MultiReduceNumeric) {
 	const char *testLabel = "multiReduceNumeric.json";
 	RawContext& ctx = *prepareContext(testLabel);
@@ -229,7 +244,7 @@ TEST_F(OutputTest, MultiReduceNumeric) {
 			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> exprs;
@@ -250,6 +265,8 @@ TEST_F(OutputTest, MultiReduceNumeric) {
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
+// works on new planner BUT planner does not request the output as json
+// select sid from sailors where age > 40 ;
 TEST_F(OutputTest, ReduceBag) {
 	const char *testLabel = "reduceBag.json";
 	RawContext& ctx = *prepareContext(testLabel);
@@ -304,7 +321,7 @@ TEST_F(OutputTest, ReduceBag) {
 			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> exprs;
@@ -325,6 +342,8 @@ TEST_F(OutputTest, ReduceBag) {
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
+// works on new planner BUT planner does not request the output as json
+// select sid as id, age as age from sailors where age > 40 ;
 TEST_F(OutputTest, ReduceBagRecord) {
 	const char *testLabel = "reduceBagRecord.json";
 	RawContext& ctx = *prepareContext(testLabel);
@@ -400,7 +419,7 @@ TEST_F(OutputTest, ReduceBagRecord) {
 			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> exprs;
@@ -419,6 +438,7 @@ TEST_F(OutputTest, ReduceBagRecord) {
 	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
 }
 
+// table not in catalog/repo
 TEST_F(OutputTest, NestBagTPCH) {
 	const char *testLabel = "nestBagTPCH.json";
 	RawContext& ctx = *prepareContext(testLabel);
@@ -516,7 +536,7 @@ TEST_F(OutputTest, NestBagTPCH) {
 			l_orderkey->getOriginalType(), arg, *l_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(4);
 	expressions::Expression* pred = new expressions::LtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select *sel = new Select(pred, scan);
 	scan->setParent(sel);
@@ -541,7 +561,7 @@ TEST_F(OutputTest, NestBagTPCH) {
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* predNest = new expressions::EqExpression(
-			new BoolType(), lhsNest, rhsNest);
+			lhsNest, rhsNest);
 
 	//mat.
 //	vector<RecordAttribute*> fields;
@@ -752,7 +772,7 @@ TEST_F(OutputTest, JoinLeft3) {
 	Materializer* matReserves = new Materializer(exprsToMatReserves);
 
 	expressions::BinaryExpression* joinPred =
-			new expressions::EqExpression(new BoolType(),sailorSIDProj,reservesSIDProj);
+			new expressions::EqExpression(sailorSIDProj,reservesSIDProj);
 
 	char joinLabel[] = "sailors_reserves";
 	RadixJoin join = RadixJoin(joinPred, &scanSailors, &scanReserves, &ctx, joinLabel, *matSailor, *matReserves);
@@ -811,7 +831,7 @@ TEST_F(OutputTest, JoinLeft3) {
 	Materializer* matBoats = new Materializer(exprsToMatBoats);
 
 	expressions::BinaryExpression* joinPred2 =
-			new expressions::EqExpression(new BoolType(),previousJoinBIDProj,boatsBIDProj);
+			new expressions::EqExpression(previousJoinBIDProj,boatsBIDProj);
 
 	char joinLabel2[] = "sailors_reserves_boats";
 	RadixJoin join2 = RadixJoin(joinPred2, &join, &scanBoats, &ctx, joinLabel2, *matPreviousJoin, *matBoats);

@@ -465,10 +465,10 @@ void hashBinaryExpressions()	{
 	expressions::BoolConstant* val_bool = new expressions::BoolConstant(inputBool);
 	expressions::StringConstant* val_string = new expressions::StringConstant(inputString);
 
-	expressions::NeExpression* bool_ne = new expressions::NeExpression(new BoolType(),val_int,val_int);
-	expressions::EqExpression* bool_eq = new expressions::EqExpression(new BoolType(),val_float,val_float);
-	expressions::AddExpression* int_add = new expressions::AddExpression(new IntType(),val_int,val_int);
-	expressions::MultExpression* float_mult = new expressions::MultExpression(new FloatType(),val_float,val_float);
+	expressions::NeExpression* bool_ne = new expressions::NeExpression(val_int,val_int);
+	expressions::EqExpression* bool_eq = new expressions::EqExpression(val_float,val_float);
+	expressions::AddExpression* int_add = new expressions::AddExpression(val_int,val_int);
+	expressions::MultExpression* float_mult = new expressions::MultExpression(val_float,val_float);
 
 	hasher.visit(bool_ne);
 	hasher.visit(bool_eq);
@@ -508,11 +508,11 @@ void hashIfThenElse()	{
 	expressions::BoolConstant* val_bool = new expressions::BoolConstant(inputBool);
 	expressions::StringConstant* val_string = new expressions::StringConstant(inputString);
 
-	expressions::EqExpression* bool_eq = new expressions::EqExpression(new BoolType(),val_float,val_float);
-	expressions::AddExpression* int_add = new expressions::AddExpression(new IntType(),val_int,val_int);
-	expressions::SubExpression* int_sub = new expressions::SubExpression(new IntType(),val_int,val_int);
+	expressions::EqExpression* bool_eq = new expressions::EqExpression(val_float,val_float);
+	expressions::AddExpression* int_add = new expressions::AddExpression(val_int,val_int);
+	expressions::SubExpression* int_sub = new expressions::SubExpression(val_int,val_int);
 
-	expressions::Expression* ifElse = new expressions::IfThenElse(new BoolType(),bool_eq,int_add,int_sub);
+	expressions::Expression* ifElse = new expressions::IfThenElse(bool_eq,int_add,int_sub);
 	ifElse->accept(hasher);
 
 	ctx.prepareFunction(ctx.getGlobalFunction());
@@ -808,7 +808,7 @@ void unnestJsmn()
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	Unnest unnestOp = Unnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -908,7 +908,7 @@ void unnestJSONFlat()
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	Unnest unnestOp = Unnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -1011,7 +1011,7 @@ void outerUnnest()
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -1119,7 +1119,7 @@ void outerUnnestNull1()
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -1233,7 +1233,7 @@ void nest()
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -1378,7 +1378,7 @@ void unnestJsmnDeeper()
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	Unnest unnestOp = Unnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -1495,7 +1495,7 @@ void unnestJsmnFiltering()
 	expressions::Expression* lhs = projToFilter;
 	expressions::Expression* rhs = new expressions::IntConstant(20);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	Unnest unnestOp = Unnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -1947,7 +1947,7 @@ void selectionCSV()
 			lhsArg, *sid);
 	expressions::Expression* rhs = new expressions::IntConstant(40);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
@@ -2017,7 +2017,7 @@ void joinQueryRelational()
 			lhsArg, *attr1);
 	expressions::Expression* rhs = new expressions::IntConstant(555);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
 
@@ -2067,7 +2067,7 @@ void joinQueryRelational()
 	expressions::Expression* right = new expressions::RecordProjection(intType,
 			rightArg, *attr2_f2);
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), left, right);
+			 left, right);
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
@@ -2181,7 +2181,7 @@ void joinQueryRelationalRadix()
 	expressions::Expression* right = new expressions::RecordProjection(intType,
 			rightArg, *attr2_f2);
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), left, right);
+			 left, right);
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
@@ -2340,7 +2340,7 @@ void joinQueryRelationalRadixCache()
 	expressions::Expression* right = new expressions::RecordProjection(intType,
 			rightArg, *attr2_f2);
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), left, right);
+			 left, right);
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
@@ -2534,7 +2534,7 @@ void selectionJsmn()
 	expressions::Expression* rhs = new expressions::IntConstant(5);
 
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
@@ -2603,7 +2603,7 @@ void selectionJSONFlat()
 	expressions::Expression* rhs = new expressions::IntConstant(5);
 
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
@@ -2689,7 +2689,7 @@ void reduceListInt()
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 	Reduce reduce = Reduce(UNION, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -2755,7 +2755,7 @@ void reduceListIntCSV()
 			arg, *sid);
 	expressions::Expression* rhs = new expressions::IntConstant(70);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 	Reduce reduce = Reduce(UNION, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -2825,7 +2825,7 @@ void reduceListObject()
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 	Reduce reduce = Reduce(UNION, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -2961,7 +2961,7 @@ void reduceListObjectFlat()
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 	Reduce reduce = Reduce(UNION, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -3054,7 +3054,7 @@ void reduceJSONMaxFlat(bool longRun)
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -3130,7 +3130,7 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname, jsmntok_t
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -3216,7 +3216,7 @@ void reduceJSONDeeperMaxFlat(bool longRun)
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -3306,7 +3306,7 @@ void reduceListRecordConstruction()
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	//Actual operator called
 	Reduce reduce = Reduce(UNION, &newRec, predicate, &scan, &ctx);
@@ -3384,7 +3384,7 @@ void reduceListRecordOriginal()
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	//Actual operator called
 	Reduce reduce = Reduce(UNION, arg, predicate, &scan, &ctx);
@@ -3449,7 +3449,7 @@ void reduceListRecordOriginalCSV()
 			arg, *sid);
 	expressions::Expression* rhs = new expressions::IntConstant(70);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 	Reduce reduce = Reduce(UNION, arg, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -3517,7 +3517,7 @@ void recordProjectionsJSON()
 
 	//obj.c.c2 > 110 --> Only 1 must qualify
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
@@ -3598,7 +3598,7 @@ void reduceNumeric()
 			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 //	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scan, &ctx);
 //	Reduce reduce = Reduce(MULTIPLY, outputExpr, predicate, &scan, &ctx);
 	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
@@ -3843,7 +3843,7 @@ void reduceBoolean()
 			arg, *amount);
 	expressions::Expression* rhs = new expressions::IntConstant(1400);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			 lhs, rhs);
 	Reduce reduce = Reduce(AND, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -3972,7 +3972,7 @@ void cidrBinStrConstant()
 	expressions::Expression* arg1str = new expressions::StringConstant(const1);
 	expressions::Expression* arg2str = new expressions::StringConstant(const2);
 	expressions::Expression* selPredicate = new expressions::EqExpression(
-			new BoolType(), arg1str, arg2str);
+			 arg1str, arg2str);
 	Select selStr = Select(selPredicate, &scanBin);
 	scanBin.setParent(&selStr);
 
@@ -4071,7 +4071,7 @@ void cidrBinStr()
 	expressions::Expression* arg2str = new expressions::StringConstant(
 			constStr);
 	expressions::Expression* selPredicate = new expressions::EqExpression(
-			new BoolType(), lhsProj, arg2str);
+			 lhsProj, arg2str);
 	Select selStr = Select(selPredicate, &scanBin);
 	scanBin.setParent(&selStr);
 
@@ -4179,7 +4179,7 @@ void cidrQuery3()
 			new expressions::RecordProjection(intType, argClinical, *age);
 	expressions::Expression* rhs = new expressions::IntConstant(50);
 	expressions::Expression* selPredicate = new expressions::GtExpression(
-			new BoolType(), clinicalAge, rhs);
+			 clinicalAge, rhs);
 	Select selClinical = Select(selPredicate, &scanClinical);
 	scanClinical.setParent(&selClinical);
 
@@ -4235,7 +4235,7 @@ void cidrQuery3()
 			new expressions::RecordProjection(intType, argGenetic, *iid);
 
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), argClinicalProj, argGeneticProj);
+			 argClinicalProj, argGeneticProj);
 	vector<materialization_mode> outputModes;
 	//active loop too
 	outputModes.insert(outputModes.begin(), EAGER);
@@ -4267,7 +4267,7 @@ void cidrQuery3()
 
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), val_true, val_true);
+			 val_true, val_true);
 	Reduce reduce = Reduce(SUM, outputExpr, predicate, &join, &ctx);
 //	Reduce reduce = Reduce(MAX, outputExpr, predicate, &join, &ctx);
 	join.setParent(&reduce);
@@ -4359,7 +4359,7 @@ void cidrQuery3Radix()
 			new expressions::RecordProjection(intType, argClinical, *age);
 	expressions::Expression* rhs = new expressions::IntConstant(50);
 	expressions::Expression* selPredicate = new expressions::GtExpression(
-			new BoolType(), clinicalAge, rhs);
+			 clinicalAge, rhs);
 	Select selClinical = Select(selPredicate, &scanClinical);
 	scanClinical.setParent(&selClinical);
 
@@ -4416,7 +4416,7 @@ void cidrQuery3Radix()
 			new expressions::RecordProjection(intType, argGenetic, *iid);
 
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), argClinicalProj, argGeneticProj);
+			 argClinicalProj, argGeneticProj);
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
@@ -4464,7 +4464,7 @@ void cidrQuery3Radix()
 
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), val_true, val_true);
+			 val_true, val_true);
 	Reduce reduce = Reduce(SUM, outputExpr, predicate, &join, &ctx);
 	//Reduce reduce = Reduce(MAX, outputExpr, predicate, &join, &ctx);
 	join.setParent(&reduce);
@@ -4556,7 +4556,7 @@ void cidrQuery3RadixMax()
 			new expressions::RecordProjection(intType, argClinical, *age);
 	expressions::Expression* rhs = new expressions::IntConstant(50);
 	expressions::Expression* selPredicate = new expressions::GtExpression(
-			new BoolType(), clinicalAge, rhs);
+			 clinicalAge, rhs);
 	Select selClinical = Select(selPredicate, &scanClinical);
 	scanClinical.setParent(&selClinical);
 
@@ -4613,7 +4613,7 @@ void cidrQuery3RadixMax()
 			new expressions::RecordProjection(intType, argGenetic, *iid);
 
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), argClinicalProj, argGeneticProj);
+			 argClinicalProj, argGeneticProj);
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
@@ -4663,7 +4663,7 @@ void cidrQuery3RadixMax()
 
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), val_true, val_true);
+			 val_true, val_true);
 	Reduce reduce = Reduce(MAX, outputExpr, predicate, &join, &ctx);
 	//Reduce reduce = Reduce(MAX, outputExpr, predicate, &join, &ctx);
 	join.setParent(&reduce);
@@ -4738,7 +4738,7 @@ void cidrQueryCount()
 	expressions::Expression* outputExpr = new expressions::IntConstant(1);
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), val_true, val_true);
+			 val_true, val_true);
 	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scanGenetic, &ctx);
 	scanGenetic.setParent(&reduce);
 
@@ -4823,7 +4823,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 			new expressions::RecordProjection(intType, argClinical, *age);
 	expressions::Expression* rhsAge = new expressions::IntConstant(ageParam);
 	expressions::Expression* selPredicate1 = new expressions::GtExpression(
-			new BoolType(), clinicalAge, rhsAge);
+			 clinicalAge, rhsAge);
 
 	expressions::RecordProjection* clinicalCity =
 			new expressions::RecordProjection(stringType, argClinical, *city);
@@ -4831,10 +4831,10 @@ void cidrQueryWarm(int ageParam, int volParam)
 	expressions::Expression* rhsCity = new expressions::StringConstant(
 			cityName);
 	expressions::Expression* selPredicate2 = new expressions::EqExpression(
-			new BoolType(), clinicalCity, rhsCity);
+			 clinicalCity, rhsCity);
 
 	expressions::Expression* selPredicate = new expressions::AndExpression(
-			new BoolType(), selPredicate1, selPredicate2);
+			 selPredicate1, selPredicate2);
 
 	Select selClinical = Select(selPredicate, &scanClinical);
 	scanClinical.setParent(&selClinical);
@@ -4876,7 +4876,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 			new expressions::RecordProjection(intType, argRegions, *vol);
 	expressions::Expression* rhsVol = new expressions::IntConstant(volParam);
 	expressions::Expression* selPredicateRegions =
-			new expressions::LeExpression(new BoolType(), regionsVol, rhsVol);
+			new expressions::LeExpression( regionsVol, rhsVol);
 	Select selRegions = Select(selPredicateRegions, &scanRegions);
 	scanRegions.setParent(&selRegions);
 
@@ -4889,7 +4889,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 	expressions::RecordProjection* argRegionsId =
 			new expressions::RecordProjection(intType, argRegions, *iidRegions);
 	expressions::BinaryExpression* joinPredClinical =
-			new expressions::EqExpression(new BoolType(), argClinicalId,
+			new expressions::EqExpression( argClinicalId,
 					argRegionsId);
 	//Don't need fields from left side
 	vector<materialization_mode> outputModes;
@@ -4940,7 +4940,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 	string fidName = string("ALZHM");
 	expressions::Expression* rhsFid = new expressions::StringConstant(fidName);
 	expressions::Expression* selPredicateGenetic =
-			new expressions::EqExpression(new BoolType(), geneticFid, rhsFid);
+			new expressions::EqExpression( geneticFid, rhsFid);
 	Select selGenetic = Select(selPredicateGenetic, &scanGenetic);
 	scanGenetic.setParent(&selGenetic);
 
@@ -4952,7 +4952,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 	expressions::RecordProjection* argGeneticId =
 			new expressions::RecordProjection(intType, argGenetic, *iid);
 	expressions::BinaryExpression* joinPredGenetic =
-			new expressions::EqExpression(new BoolType(), argRegionsId,
+			new expressions::EqExpression( argRegionsId,
 					argGeneticId);
 	vector<materialization_mode> outputModes2;
 	outputModes2.insert(outputModes.begin(), EAGER);
@@ -4987,7 +4987,7 @@ void cidrQueryWarm(int ageParam, int volParam)
 			new expressions::RecordProjection(intType, argRegions, *vol);
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), val_true, val_true);
+			 val_true, val_true);
 	Reduce reduce = Reduce(MAX, outputExpr, predicate, &joinGenetic, &ctx);
 	joinGenetic.setParent(&reduce);
 
@@ -5042,13 +5042,13 @@ void ifThenElse()	{
 	expressions::Expression* arg 	= new expressions::InputArgument(&rec1,0,projections);
 	expressions::Expression* ifLhs  = new expressions::RecordProjection(boolType,arg,*amount);
 	expressions::Expression* ifRhs  = new expressions::IntConstant(200);
-	expressions::Expression* ifCond = new expressions::GtExpression(boolType,ifLhs,ifRhs);
+	expressions::Expression* ifCond = new expressions::GtExpression(ifLhs,ifRhs);
 
 	expressions::Expression* trueCons  = new expressions::BoolConstant(true);
 	expressions::Expression* falseCons = new expressions::BoolConstant(false);
-	expressions::Expression* ifElse = new expressions::IfThenElse(boolType,ifCond,trueCons,falseCons);
+	expressions::Expression* ifElse = new expressions::IfThenElse(ifCond,trueCons,falseCons);
 
-	expressions::Expression* predicate = new expressions::EqExpression(new BoolType(),trueCons,trueCons);
+	expressions::Expression* predicate = new expressions::EqExpression(trueCons,trueCons);
 	Reduce reduce = Reduce(AND, ifElse, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -5101,7 +5101,7 @@ void columnarQueryCount()
 	expressions::Expression* outputExpr = new expressions::IntConstant(1);
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), val_true, val_true);
+			 val_true, val_true);
 	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scanRegions, &ctx);
 	scanRegions.setParent(&reduce);
 
@@ -5165,7 +5165,7 @@ void columnarQuerySum()
 
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), val_true, val_true);
+			 val_true, val_true);
 	Reduce reduce = Reduce(SUM, projRid, predicate, &scanRegions, &ctx);
 	scanRegions.setParent(&reduce);
 
@@ -5239,7 +5239,7 @@ void columnarMax1()
 
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), val_true, val_true);
+			 val_true, val_true);
 	Reduce reduce = Reduce(MAX, projRid, predicate, &scanRegions, &ctx);
 	scanRegions.setParent(&reduce);
 
@@ -5317,7 +5317,7 @@ void columnarMax2()
 		lhsArg, *selectProj);
 	expressions::Expression* rhs = new expressions::IntConstant(100000000);
 	expressions::Expression* predicate = new expressions::LtExpression(
-		new BoolType(), lhs, rhs);
+		 lhs, rhs);
 
 	/**
 	 * REDUCE
@@ -5410,22 +5410,22 @@ void columnarMax3()
 		lhsArg, *selectProj1);
 	expressions::Expression* rhs1 = new expressions::IntConstant(100000000);
 	expressions::Expression* predicate1 = new expressions::LtExpression(
-		new BoolType(), lhs1, rhs1);
+		 lhs1, rhs1);
 
 	expressions::Expression* lhs2 = new expressions::RecordProjection(intType,
 			lhsArg, *selectProj2);
 	expressions::Expression* rhs2a = new expressions::IntConstant(200000000);
 	expressions::Expression* predicate2a = new expressions::LtExpression(
-			new BoolType(), lhs2, rhs2a);
+			 lhs2, rhs2a);
 
 	expressions::Expression* rhs2b = new expressions::IntConstant(100000000);
 	expressions::Expression* predicate2b = new expressions::GtExpression(
-				new BoolType(), lhs2, rhs2b);
+				 lhs2, rhs2b);
 
 	expressions::Expression* predicate2 = new expressions::AndExpression(
-					new BoolType(), predicate2a, predicate2b);
+					 predicate2a, predicate2b);
 	expressions::Expression* predicate = new expressions::AndExpression(
-						new BoolType(), predicate1, predicate2);
+						 predicate1, predicate2);
 	/**
 	 * REDUCE
 	 * (MAX)
@@ -5528,7 +5528,7 @@ void columnarJoin1()
 		lhsArg, *selectProjLeft1);
 	expressions::Expression* rhs = new expressions::IntConstant(100000000);
 	expressions::Expression* predicate = new expressions::LtExpression(
-		new BoolType(), lhs, rhs);
+		 lhs, rhs);
 	Select sel = Select(predicate, &scanLeft);
 	scanLeft.setParent(&sel);
 
@@ -5596,7 +5596,7 @@ void columnarJoin1()
 	expressions::Expression* right = new expressions::RecordProjection(intType,
 			rightJoinArg, *toProjectRight);
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), left, right);
+			 left, right);
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(), EAGER);
 	vector<RecordAttribute*> whichFieldsLeft2;
@@ -5643,14 +5643,14 @@ void columnarJoin1()
 		new expressions::RecordProjection(intType, rightJoinArg, *selectProjRight1);
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* reducePredicate = new expressions::EqExpression(
-		new BoolType(), val_true, val_true);
+		 val_true, val_true);
 	Reduce reduce = Reduce(MAX, outputExpr, reducePredicate, &join, &ctx);
 
 //	/* Count */
 //	expressions::Expression* outputExpr = new expressions::IntConstant(1);
 //	expressions::Expression* val_true = new expressions::BoolConstant(1);
 //	expressions::Expression* reducePredicate = new expressions::EqExpression(
-//		new BoolType(), val_true, val_true);
+//		 val_true, val_true);
 //	Reduce reduce = Reduce(SUM, outputExpr, reducePredicate, &join, &ctx);
 
 	join.setParent(&reduce);
@@ -5746,7 +5746,7 @@ void columnarCachedJoin1()
 		lhsArg, *selectProjLeft1);
 	expressions::Expression* rhs = new expressions::IntConstant(100000000);
 	expressions::Expression* predicate = new expressions::LtExpression(
-		new BoolType(), lhs, rhs);
+		 lhs, rhs);
 	Select sel = Select(predicate, &scanLeft);
 	scanLeft.setParent(&sel);
 
@@ -5814,7 +5814,7 @@ void columnarCachedJoin1()
 	expressions::Expression* right = new expressions::RecordProjection(intType,
 			rightJoinArg, *toProjectRight);
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), left, right);
+			 left, right);
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(), EAGER);
 	vector<RecordAttribute*> whichFieldsLeft2;
@@ -5860,14 +5860,14 @@ void columnarCachedJoin1()
 		new expressions::RecordProjection(intType, rightJoinArg, *selectProjRight1);
 	expressions::Expression* val_true = new expressions::BoolConstant(1);
 	expressions::Expression* reducePredicate = new expressions::EqExpression(
-		new BoolType(), val_true, val_true);
+		 val_true, val_true);
 	Reduce reduce = Reduce(MAX, outputExpr, reducePredicate, &join, &ctx);
 
 //	/* Count */
 //	expressions::Expression* outputExpr = new expressions::IntConstant(1);
 //	expressions::Expression* val_true = new expressions::BoolConstant(1);
 //	expressions::Expression* reducePredicate = new expressions::EqExpression(
-//		new BoolType(), val_true, val_true);
+//		 val_true, val_true);
 //	Reduce reduce = Reduce(SUM, outputExpr, reducePredicate, &join, &ctx);
 
 	join.setParent(&reduce);

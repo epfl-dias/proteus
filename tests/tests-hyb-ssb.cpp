@@ -85,7 +85,7 @@ protected:
     bool flushResults = true;
     const char * testPath = TEST_OUTPUTS "/tests-hyb-ssb/";
 
-    const char * catalogJSON = "inputs/plans/catalog.json";
+    const char * catalogJSON = "inputs";
 public:
 };
 

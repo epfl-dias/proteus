@@ -364,7 +364,10 @@ size_t GpuReduce::resetAccumulator(expressions::Expression* outputExpr,
                     // FIXME: Assumes that we val_id is a byte to be repeated, not so general...
                     // needs a memset to store...
                     // Builder->CreateStore(val_id, mem_acc);
-                    context->CodegenMemset(mem_acc, val_id, (t->getPrimitiveSizeInBits() + 7) / 8);
+
+                    // Even for floating points, 00000000 = 0.0, so cast to integer type of same length to avoid problems with initialization of floats
+                    Value * val = Builder->CreateBitCast(val_id, Type::getIntNTy(context->getLLVMContext(), context->getSizeOf(val_id) * 8));
+                    context->CodegenMemset(mem_acc, val, (t->getPrimitiveSizeInBits() + 7) / 8);
 
                     return mem_acc;
                 },

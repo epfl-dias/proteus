@@ -37,7 +37,7 @@ namespace expressions
 {
 
 
-enum ExpressionId	{ CONSTANT, RAWVALUE, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE, EXPRESSION_HASHER, NEG_EXPRESSION, CAST_EXPRESSION};
+enum ExpressionId	{ CONSTANT, RAWVALUE, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE, EXPRESSION_HASHER, TESTNULL_EXPRESSION, EXTRACT, NEG_EXPRESSION, CAST_EXPRESSION};
 
 class Expression	{
 public:
@@ -132,230 +132,93 @@ public:
 	virtual ConstantType getConstantType() const = 0;
 };
 
-class IntConstant : public Constant		{
+template<typename T, typename Tproteus, Constant::ConstantType TcontType>
+class TConstant: public Constant{
+private:
+	T val;
+protected:
+	TConstant(T val, const ExpressionType *type): Constant(type), val(val){}
 public:
-	IntConstant(int val)
-		: Constant(new IntType()), val(val) 		{}
-	~IntConstant()									{}
+	TConstant(T val): TConstant(val, new Tproteus()){}
+	~TConstant(){}
 
-	int getVal() const								{ return val; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	T getVal() const								{ return val; }
+
+	RawValue accept(ExprVisitor &v) = 0;
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*) = 0;
+
 	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return INT; }
+
+	ConstantType getConstantType() const { return TcontType; }
+
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
 			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == INT) {
-				const IntConstant& rInt = dynamic_cast<const IntConstant&>(r);
-				cout << "1. Compatible (int)! " << rConst.getConstantType() << endl;
-				cout << this->getVal() << " vs " << rInt.getVal() << endl;
-				return this->getVal() < rInt.getVal();
+			if (rConst.getConstantType() == getConstantType()) {
+				const auto &r2 = 
+					dynamic_cast<const TConstant<T, Tproteus, TcontType> &>(r);
+				return this->getVal() < r2.getVal();
 			}
 			else {
 				return this->getConstantType() < rConst.getConstantType();
 			}
-
 		}
-		cout << "Not compatible (int) " << this->getTypeID() << endl;
+		cout << "Not compatible" << endl;
 		return this->getTypeID() < r.getTypeID();
-
 	}
-private:
-	int val;
 };
 
-class DStringConstant : public Constant		{
+class IntConstant    : public TConstant<int        , IntType    , Constant::ConstantType::INT   > {
+public:
+	using TConstant::TConstant;
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class StringConstant : public TConstant<std::string, StringType , Constant::ConstantType::STRING> {
+public:
+	using TConstant::TConstant;
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class Int64Constant  : public TConstant<int64_t    , Int64Type  , Constant::ConstantType::INT64 > {
+public:
+	using TConstant::TConstant;
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class DateConstant   : public TConstant<int64_t    , DateType   , Constant::ConstantType::DATE  > {
+static_assert(sizeof(time_t) == sizeof(int64_t), "expected 64bit time_t");
+public:
+	using TConstant::TConstant;
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class BoolConstant   : public TConstant<bool       , BoolType   , Constant::ConstantType::BOOL  > {
+public:
+	using TConstant::TConstant;
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class FloatConstant  : public TConstant<double     , FloatType  , Constant::ConstantType::FLOAT > {
+public:
+	using TConstant::TConstant;
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class DStringConstant : public TConstant<int       , DStringType, Constant::ConstantType::FLOAT > {
 public:
 	DStringConstant(int val, void * dictionary)
-		: Constant(new DStringType(dictionary)), val(val) 		{}
+		: TConstant(val, new DStringType(dictionary)){}
 	~DStringConstant()									{}
 
-	int getVal() const								{ return val; }
 	RawValue accept(ExprVisitor &v);
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return DSTRING; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == DSTRING) {
-				const DStringConstant& rInt = dynamic_cast<const DStringConstant&>(r);
-				cout << "1. Compatible (DSTRING)! " << rConst.getConstantType() << endl;
-				cout << this->getVal() << " vs " << rInt.getVal() << endl;
-				return this->getVal() < rInt.getVal();
-			}
-			else {
-				return this->getConstantType() < rConst.getConstantType();
-			}
-
-		}
-		cout << "Not compatible (dstring) " << this->getTypeID() << endl;
-		return this->getTypeID() < r.getTypeID();
-
-	}
-private:
-	int val;
-};
-
-class Int64Constant : public Constant		{
-public:
-	Int64Constant(int64_t val)
-		: Constant(new Int64Type()), val(val) 		{}
-	~Int64Constant()									{}
-
-	int64_t getVal() const								{ return val; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return INT64; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == INT64) {
-				const Int64Constant& rInt = dynamic_cast<const Int64Constant&>(r);
-				cout << "1. Compatible (int64)! " << rConst.getConstantType() << endl;
-				cout << this->getVal() << " vs " << rInt.getVal() << endl;
-				return this->getVal() < rInt.getVal();
-			}
-			else {
-				return this->getConstantType() < rConst.getConstantType();
-			}
-
-		}
-		cout << "Not compatible (int64) " << this->getTypeID() << endl;
-		return this->getTypeID() < r.getTypeID();
-
-	}
-private:
-	int64_t val;
-};
-
-class DateConstant : public Constant		{
-public:
-	DateConstant(int64_t val)
-		: Constant(new DateType()), val(val) 		{}
-	~DateConstant()									{}
-
-	int64_t getVal() const								{ return val; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return DATE; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == DATE) {
-				const DateConstant& rInt = dynamic_cast<const DateConstant&>(r);
-				cout << "1. Compatible (date)! " << rConst.getConstantType() << endl;
-				cout << this->getVal() << " vs " << rInt.getVal() << endl;
-				return this->getVal() < rInt.getVal();
-			}
-			else {
-				return this->getConstantType() < rConst.getConstantType();
-			}
-
-		}
-		cout << "Not compatible (date) " << this->getTypeID() << endl;
-		return this->getTypeID() < r.getTypeID();
-
-	}
-private:
-	int64_t val;
-	static_assert(sizeof(time_t) == sizeof(int64_t), "expected 64bit time_t");
-};
-
-class BoolConstant : public Constant	{
-public:
-	BoolConstant(bool val)
-		: Constant(new BoolType()), val(val) 		{}
-	~BoolConstant()									{}
-
-	bool getVal() const								{ return val; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return BOOL; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == BOOL) {
-				const BoolConstant& rBool = dynamic_cast<const BoolConstant&>(r);
-				return this->getVal() < rBool.getVal();
-			}
-			else
-			{
-				return this->getConstantType() < rConst.getConstantType();
-			}
-		}
-		cout << "Not compatible (bool)" << endl;
-		return this->getTypeID() < r.getTypeID();
-	}
-private:
-	bool val;
-};
-
-class FloatConstant : public Constant	{
-public:
-	FloatConstant(double val) :
-		Constant(new FloatType()), val(val) 		{}
-	~FloatConstant()								{}
-
-	double getVal()	const							{ return val; }
-
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return FLOAT; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == FLOAT) {
-				const FloatConstant& rFloat =
-						dynamic_cast<const FloatConstant&>(r);
-				cout << "1. Not compatible (float) " << rConst.getConstantType() << endl;
-				return this->getVal() < rFloat.getVal();
-			}
-			else
-			{
-				return this->getConstantType() < rConst.getConstantType();
-			}
-		}
-		cout << "Not compatible (float) " << r.getTypeID() << endl;
-		return this->getTypeID() < r.getTypeID();
-	}
-private:
-	double val;
-};
-
-class StringConstant : public Constant	{
-public:
-	StringConstant(string& val) :
-		Constant(new StringType()), val(val) 		{}
-	~StringConstant()								{}
-
-	string& getVal() const							{ return val; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CONSTANT; }
-	ConstantType getConstantType() const			{ return STRING; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const Constant& rConst = dynamic_cast<const Constant&>(r);
-			if (rConst.getConstantType() == STRING) {
-				const StringConstant& rString =
-						dynamic_cast<const StringConstant&>(r);
-				return this->getVal() < rString.getVal();
-			}
-			else {
-				return this->getConstantType() < rConst.getConstantType();
-			}
-		}
-		cout << "Not compatible (string)" << endl;
-		return this->getTypeID() < r.getTypeID();
-	}
-private:
-	string& val;
 };
 
 /*
@@ -597,6 +460,7 @@ private:
  */
 class RecordConstruction : public Expression	{
 public:
+	[[deprecated]]
 	RecordConstruction(const ExpressionType* type,
 			const list<AttributeConstruction>& atts) :
 			Expression(type), atts(atts) 							{
@@ -604,7 +468,7 @@ public:
 			}
 
 	RecordConstruction(const list<AttributeConstruction>& atts) :
-			Expression(new RecordType()), atts(atts) 							{
+			Expression(constructRecordType(atts)), atts(atts) {
 			}
 	~RecordConstruction()											{}
 
@@ -637,6 +501,16 @@ public:
 		} else {
 			return this->getTypeID() < r.getTypeID();
 		}
+	}
+
+	RecordType *constructRecordType(const list<AttributeConstruction> &attrs){
+		vector<RecordAttribute *> recs;
+		for (const auto &a: attrs) {
+			auto *type = a.getExpression()->getExpressionType();
+			auto  attr = new RecordAttribute{"tmp", a.getBindingName(), type};
+			recs.emplace_back(attr);
+		}
+		return new RecordType(recs);
 	}
 private:
 	const list<AttributeConstruction>& atts;
@@ -736,16 +610,15 @@ private:
 	BinaryOperator* op;
 };
 
-class EqExpression: public BinaryExpression {
+template<typename Top>
+class TBinaryExpression: public BinaryExpression{
+protected:
+	TBinaryExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
+			BinaryExpression(type, new Top(), lhs, rhs) {
+	}
+
 public:
-	[[deprecated]]
-	EqExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
-			BinaryExpression(type, new Eq(), lhs, rhs) {
-	}
-	EqExpression(Expression* lhs, Expression* rhs) :
-			BinaryExpression(new BoolType(), new Eq(), lhs, rhs) {
-	}
-	~EqExpression() {
+	~TBinaryExpression() {
 	}
 
 	RawValue accept(ExprVisitor &v);
@@ -753,33 +626,32 @@ public:
 	ExpressionId getTypeID() const {
 		return BINARY;
 	}
+
 	inline bool operator<(const expressions::Expression& r) const {
 		if (this->getTypeID() == r.getTypeID()) {
 			const BinaryExpression& rBin =
 					dynamic_cast<const BinaryExpression&>(r);
 			if (this->getOp()->getID() == rBin.getOp()->getID()) {
-				const EqExpression& rEq = dynamic_cast<const EqExpression&>(r);
+				const TBinaryExpression<Top> &rOp = 
+					dynamic_cast<const TBinaryExpression<Top> &>(r);
 				Expression *l1 = this->getLeftOperand();
 				Expression *l2 = this->getRightOperand();
 
-				Expression *r1 = rEq.getLeftOperand();
-				Expression *r2 = rEq.getRightOperand();				
+				Expression *r1 = rOp.getLeftOperand();
+				Expression *r2 = rOp.getRightOperand();
 
-				bool lt1 = *l1 < *r1;
-				bool lt2 = *r1 < *l1;
+				bool eq1 = *l1 < *r1;
+				bool eq2 = *l2 < *r2;
 
-				if (!lt1 && !lt2) {
-				  bool lt11 = *l2 < *r2;
-				  bool lt22 = *r2 < *l2;
-
-				  if (!lt11 && !lt22) {
-				    return false;
-				  }
-
-				  return lt11;
+				if (eq1) {
+					if (eq2) {
+						return false;
+					} else {
+						return *l2 < *r2;
+					}
+				} else {
+					return *l1 < *r1;
 				}
-				
-				return lt1;
 			} else {
 				return this->getOp()->getID() < rBin.getOp()->getID();
 			}
@@ -788,540 +660,128 @@ public:
 	}
 };
 
-class NeExpression : public BinaryExpression	{
+
+class EqExpression: public TBinaryExpression<Eq> {
 public:
-	[[deprecated]]
-	NeExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
-		BinaryExpression(type,new Neq(),lhs,rhs) 	{}
+	// [[deprecated]]
+	// EqExpression(const ExpressionType* type, Expression* lhs, Expression* rhs):
+	// 	TBinaryExpression(type, lhs, rhs){}
+	EqExpression(Expression* lhs, Expression* rhs) :
+		TBinaryExpression(new BoolType(), lhs, rhs){}
+	~EqExpression(){}
+
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+};
+
+class NeExpression: public TBinaryExpression<Neq> {
+public:
 	NeExpression(Expression* lhs, Expression* rhs) :
-		BinaryExpression(new BoolType(),new Neq(),lhs,rhs) 	{}
-	~NeExpression()									{}
+		TBinaryExpression(new BoolType(), lhs, rhs){}
+	~NeExpression(){}
 
 	RawValue accept(ExprVisitor &v);
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return BINARY; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const BinaryExpression& rBin =
-					dynamic_cast<const BinaryExpression&>(r);
-			if (this->getOp()->getID() == rBin.getOp()->getID()) {
-				const NeExpression& rNe = dynamic_cast<const NeExpression&>(r);
-				Expression *l1 = this->getLeftOperand();
-				Expression *l2 = this->getRightOperand();
-
-				Expression *r1 = rNe.getLeftOperand();
-				Expression *r2 = rNe.getRightOperand();
-
-				bool eq1 = *l1 < *r1;
-				bool eq2 = *l2 < *r2;
-
-				if (eq1) {
-					if (eq2) {
-						return false;
-					} else {
-						return *l2 < *r2;
-					}
-				} else {
-					return *l1 < *r1;
-				}
-			} else {
-				return this->getOp()->getID() < rBin.getOp()->getID();
-			}
-		}
-		return this->getTypeID() < r.getTypeID();
-	}
 };
 
-class GeExpression : public BinaryExpression	{
+class GeExpression: public TBinaryExpression<Ge> {
 public:
-	[[deprecated]]
-	GeExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
-		BinaryExpression(type,new Ge(),lhs,rhs) 	{}
 	GeExpression(Expression* lhs, Expression* rhs) :
-		BinaryExpression(new BoolType(),new Ge(),lhs,rhs) 	{}
-	~GeExpression()									{}
+		TBinaryExpression(new BoolType(), lhs, rhs){}
+	~GeExpression(){}
 
 	RawValue accept(ExprVisitor &v);
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return BINARY; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const BinaryExpression& rBin =
-					dynamic_cast<const BinaryExpression&>(r);
-			if (this->getOp()->getID() == rBin.getOp()->getID()) {
-				const GeExpression& rGe = dynamic_cast<const GeExpression&>(r);
-				Expression *l1 = this->getLeftOperand();
-				Expression *l2 = this->getRightOperand();
-
-				Expression *r1 = rGe.getLeftOperand();
-				Expression *r2 = rGe.getRightOperand();
-
-				bool eq1 = *l1 < *r1;
-				bool eq2 = *l2 < *r2;
-
-				if (eq1) {
-					if (eq2) {
-						return false;
-					} else {
-						return *l2 < *r2;
-					}
-				} else {
-					return *l1 < *r1;
-				}
-			} else {
-				return this->getOp()->getID() < rBin.getOp()->getID();
-			}
-		}
-		return this->getTypeID() < r.getTypeID();
-	}
 };
 
-class GtExpression : public BinaryExpression	{
+class GtExpression: public TBinaryExpression<Gt> {
 public:
-	[[deprecated]]
-	GtExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
-		BinaryExpression(type,new Gt(),lhs,rhs)		{}
 	GtExpression(Expression* lhs, Expression* rhs) :
-		BinaryExpression(new BoolType(),new Gt(),lhs,rhs)		{}
-	~GtExpression()									{}
+		TBinaryExpression(new BoolType(), lhs, rhs){}
+	~GtExpression(){}
 
 	RawValue accept(ExprVisitor &v);
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return BINARY; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const BinaryExpression& rBin =
-					dynamic_cast<const BinaryExpression&>(r);
-			if (this->getOp()->getID() == rBin.getOp()->getID()) {
-				const GtExpression& rGt = dynamic_cast<const GtExpression&>(r);
-				Expression *l1 = this->getLeftOperand();
-				Expression *l2 = this->getRightOperand();
-
-				Expression *r1 = rGt.getLeftOperand();
-				Expression *r2 = rGt.getRightOperand();
-
-				bool eq1 = *l1 < *r1;
-				bool eq2 = *l2 < *r2;
-
-				if (eq1) {
-					if (eq2) {
-						return false;
-					} else {
-						return *l2 < *r2;
-					}
-				} else {
-					return *l1 < *r1;
-				}
-			} else {
-				return this->getOp()->getID() < rBin.getOp()->getID();
-			}
-		}
-		return this->getTypeID() < r.getTypeID();
-	}
 };
 
-class LeExpression : public BinaryExpression	{
+class LeExpression: public TBinaryExpression<Le> {
 public:
-	[[deprecated]]
-	LeExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
-		BinaryExpression(type,new Le(),lhs,rhs) 	{}
 	LeExpression(Expression* lhs, Expression* rhs) :
-		BinaryExpression(new BoolType(),new Le(),lhs,rhs) 	{}
-	~LeExpression()									{}
+		TBinaryExpression(new BoolType(), lhs, rhs){}
+	~LeExpression(){}
 
 	RawValue accept(ExprVisitor &v);
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return BINARY; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const BinaryExpression& rBin =
-					dynamic_cast<const BinaryExpression&>(r);
-			if (this->getOp()->getID() == rBin.getOp()->getID()) {
-				const LeExpression& rNe = dynamic_cast<const LeExpression&>(r);
-				Expression *l1 = this->getLeftOperand();
-				Expression *l2 = this->getRightOperand();
-
-				Expression *r1 = rNe.getLeftOperand();
-				Expression *r2 = rNe.getRightOperand();
-
-				bool eq1 = *l1 < *r1;
-				bool eq2 = *l2 < *r2;
-
-				if (eq1) {
-					if (eq2) {
-						return false;
-					} else {
-						return *l2 < *r2;
-					}
-				} else {
-					return *l1 < *r1;
-				}
-			} else {
-				return this->getOp()->getID() < rBin.getOp()->getID();
-			}
-		}
-		return this->getTypeID() < r.getTypeID();
-	}
 };
 
-class LtExpression : public BinaryExpression	{
+class LtExpression: public TBinaryExpression<Lt> {
 public:
-	[[deprecated]]
-	LtExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
-		BinaryExpression(type,new Lt(),lhs,rhs) 	{}
 	LtExpression(Expression* lhs, Expression* rhs) :
-		BinaryExpression(new BoolType(),new Lt(),lhs,rhs) 	{}
-	~LtExpression()									{}
+		TBinaryExpression(new BoolType(), lhs, rhs){}
+	~LtExpression(){}
 
 	RawValue accept(ExprVisitor &v);
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return BINARY; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const BinaryExpression& rBin =
-					dynamic_cast<const BinaryExpression&>(r);
-			if (this->getOp()->getID() == rBin.getOp()->getID()) {
-				const LtExpression& rNe = dynamic_cast<const LtExpression&>(r);
-				Expression *l1 = this->getLeftOperand();
-				Expression *l2 = this->getRightOperand();
-
-				Expression *r1 = rNe.getLeftOperand();
-				Expression *r2 = rNe.getRightOperand();
-
-				bool lt1 = *l1 < *r1;
-				bool lt2 = *r1 < *l1;
-
-				if (!lt1 && !lt2) {
-				  bool lt11 = *l2 < *r2;
-				  bool lt22 = *r2 < *l2;
-
-				  if (!lt11 && !lt22) {
-				    return false;
-				  }
-
-				  return lt11;
-				}
-				
-				return lt1;				
-			} else {
-				return this->getOp()->getID() < rBin.getOp()->getID();
-			}
-		}
-		return this->getTypeID() < r.getTypeID();
-	}
 };
 
-class AddExpression : public BinaryExpression	{
+class AddExpression: public TBinaryExpression<Add> {
 public:
-	[[deprecated]]
-	AddExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
-		BinaryExpression(type,new Add(),lhs,rhs) 	{}
 	AddExpression(Expression* lhs, Expression* rhs) :
-		BinaryExpression(lhs->getExpressionType(), new Add(),lhs,rhs) 	{}
-	~AddExpression()								{}
+		TBinaryExpression(lhs->getExpressionType(), lhs, rhs){}
+	~AddExpression(){}
 
 	RawValue accept(ExprVisitor &v);
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return BINARY; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const BinaryExpression& rBin =
-					dynamic_cast<const BinaryExpression&>(r);
-			if (this->getOp()->getID() == rBin.getOp()->getID()) {
-				const AddExpression& rAdd =
-						dynamic_cast<const AddExpression&>(r);
-				Expression *l1 = this->getLeftOperand();
-				Expression *l2 = this->getRightOperand();
-
-				Expression *r1 = rAdd.getLeftOperand();
-				Expression *r2 = rAdd.getRightOperand();
-
-				bool eq1 = *l1 < *r1;
-				bool eq2 = *l2 < *r2;
-
-				if (eq1) {
-					if (eq2) {
-						return false;
-					} else {
-						return *l2 < *r2;
-					}
-				} else {
-					return *l1 < *r1;
-				}
-			} else {
-				return this->getOp()->getID() < rBin.getOp()->getID();
-			}
-		}
-		return this->getTypeID() < r.getTypeID();
-	}
 };
 
-class SubExpression : public BinaryExpression	{
+class SubExpression: public TBinaryExpression<Sub> {
 public:
-	[[deprecated]]
-	SubExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
-		BinaryExpression(type,new Sub(),lhs,rhs) 	{}
 	SubExpression(Expression* lhs, Expression* rhs) :
-		BinaryExpression(lhs->getExpressionType(),new Sub(),lhs,rhs) 	{}
-	~SubExpression()								{}
+		TBinaryExpression(lhs->getExpressionType(), lhs, rhs){}
+	~SubExpression(){}
 
 	RawValue accept(ExprVisitor &v);
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return BINARY; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const BinaryExpression& rBin =
-					dynamic_cast<const BinaryExpression&>(r);
-			if (this->getOp()->getID() == rBin.getOp()->getID()) {
-				const SubExpression& rSub =
-						dynamic_cast<const SubExpression&>(r);
-				Expression *l1 = this->getLeftOperand();
-				Expression *l2 = this->getRightOperand();
-
-				Expression *r1 = rSub.getLeftOperand();
-				Expression *r2 = rSub.getRightOperand();
-
-				bool eq1 = *l1 < *r1;
-				bool eq2 = *l2 < *r2;
-
-				if (eq1) {
-					if (eq2) {
-						return false;
-					} else {
-						return *l2 < *r2;
-					}
-				} else {
-					return *l1 < *r1;
-				}
-			} else {
-				return this->getOp()->getID() < rBin.getOp()->getID();
-			}
-		}
-		return this->getTypeID() < r.getTypeID();
-	}
 };
 
-
-
-class NegExpression : public Expression	{
+class MultExpression: public TBinaryExpression<Mult> {
 public:
-	NegExpression(Expression* expr):
-			Expression(expr->getExpressionType()), expr(expr) {}
-
-	~NegExpression()								{}
-
-	Expression* getExpr() const						{ return expr; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return NEG_EXPRESSION; }
-	inline bool operator<(const expressions::Expression& r) const {
-			if (this->getTypeID() == r.getTypeID()) {
-				const NegExpression& rHash = dynamic_cast<const NegExpression&>(r);
-				return *(this->getExpr()) < *(rHash.getExpr());
-			} else {
-				return this->getTypeID() < r.getTypeID();
-			}
-		}
-private:
-	Expression* expr;
-};
-
-class CastExpression : public Expression	{
-public:
-	CastExpression(ExpressionType *cast_to, Expression* expr):
-			Expression(cast_to), expr(expr) {}
-
-	~CastExpression()								{}
-
-	Expression* getExpr() const						{ return expr; }
-	RawValue accept(ExprVisitor &v);
-	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return CAST_EXPRESSION; }
-	inline bool operator<(const expressions::Expression& r) const {
-			if (this->getTypeID() == r.getTypeID()) {
-				const CastExpression& rHash = dynamic_cast<const CastExpression&>(r);
-				return *(this->getExpr()) < *(rHash.getExpr());
-			} else {
-				return this->getTypeID() < r.getTypeID();
-			}
-		}
-private:
-	Expression* expr;
-};
-
-class MultExpression : public BinaryExpression	{
-public:
-	MultExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
-		BinaryExpression(type,new Mult(),lhs,rhs) 	{}
 	MultExpression(Expression* lhs, Expression* rhs) :
-		BinaryExpression(lhs->getExpressionType(),new Mult(),lhs,rhs) 	{}
-	~MultExpression()								{}
+		TBinaryExpression(lhs->getExpressionType(), lhs, rhs){}
+	~MultExpression(){}
 
 	RawValue accept(ExprVisitor &v);
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return BINARY; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const BinaryExpression& rBin =
-					dynamic_cast<const BinaryExpression&>(r);
-			if (this->getOp()->getID() == rBin.getOp()->getID()) {
-				const MultExpression& rMul =
-						dynamic_cast<const MultExpression&>(r);
-				Expression *l1 = this->getLeftOperand();
-				Expression *l2 = this->getRightOperand();
-
-				Expression *r1 = rMul.getLeftOperand();
-				Expression *r2 = rMul.getRightOperand();
-
-				bool eq1 = *l1 < *r1;
-				bool eq2 = *l2 < *r2;
-
-				if (eq1) {
-					if (eq2) {
-						return false;
-					} else {
-						return *l2 < *r2;
-					}
-				} else {
-					return *l1 < *r1;
-				}
-			} else {
-				return this->getOp()->getID() < rBin.getOp()->getID();
-			}
-		}
-		return this->getTypeID() < r.getTypeID();
-	}
 };
 
-class DivExpression : public BinaryExpression	{
+class DivExpression: public TBinaryExpression<Div> {
 public:
-	DivExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
-		BinaryExpression(type,new Div(),lhs,rhs) 	{}
 	DivExpression(Expression* lhs, Expression* rhs) :
-		BinaryExpression(lhs->getExpressionType(),new Div(),lhs,rhs) 	{}
-	~DivExpression()								{}
+		TBinaryExpression(lhs->getExpressionType(), lhs, rhs){}
+	~DivExpression(){}
 
 	RawValue accept(ExprVisitor &v);
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return BINARY; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const BinaryExpression& rBin =
-					dynamic_cast<const BinaryExpression&>(r);
-			if (this->getOp()->getID() == rBin.getOp()->getID()) {
-				const DivExpression& rDiv =
-						dynamic_cast<const DivExpression&>(r);
-				Expression *l1 = this->getLeftOperand();
-				Expression *l2 = this->getRightOperand();
-
-				Expression *r1 = rDiv.getLeftOperand();
-				Expression *r2 = rDiv.getRightOperand();
-
-				bool eq1 = *l1 < *r1;
-				bool eq2 = *l2 < *r2;
-
-				if (eq1) {
-					if (eq2) {
-						return false;
-					} else {
-						return *l2 < *r2;
-					}
-				} else {
-					return *l1 < *r1;
-				}
-			} else {
-				return this->getOp()->getID() < rBin.getOp()->getID();
-			}
-		}
-		return this->getTypeID() < r.getTypeID();
-	}
 };
 
-class AndExpression : public BinaryExpression	{
+class AndExpression: public TBinaryExpression<And> {
 public:
-	AndExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
-		BinaryExpression(type,new And(),lhs,rhs) 	{}
 	AndExpression(Expression* lhs, Expression* rhs) :
-		BinaryExpression(lhs->getExpressionType(),new And(),lhs,rhs) 	{}
-	~AndExpression()								{}
+		TBinaryExpression(lhs->getExpressionType(), lhs, rhs){}
+	~AndExpression(){}
 
 	RawValue accept(ExprVisitor &v);
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return BINARY; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const BinaryExpression& rBin =
-					dynamic_cast<const BinaryExpression&>(r);
-			if (this->getOp()->getID() == rBin.getOp()->getID()) {
-				const AndExpression& rSub =
-						dynamic_cast<const AndExpression&>(r);
-				Expression *l1 = this->getLeftOperand();
-				Expression *l2 = this->getRightOperand();
-
-				Expression *r1 = rSub.getLeftOperand();
-				Expression *r2 = rSub.getRightOperand();
-
-				bool eq1 = *l1 < *r1;
-				bool eq2 = *l2 < *r2;
-
-				if (eq1) {
-					if (eq2) {
-						return false;
-					} else {
-						return *l2 < *r2;
-					}
-				} else {
-					return *l1 < *r1;
-				}
-			} else {
-				return this->getOp()->getID() < rBin.getOp()->getID();
-			}
-		}
-		return this->getTypeID() < r.getTypeID();
-	}
 };
 
-class OrExpression : public BinaryExpression	{
+class OrExpression: public TBinaryExpression<Or> {
 public:
-	OrExpression(const ExpressionType* type, Expression* lhs, Expression* rhs) :
-		BinaryExpression(type,new Or(),lhs,rhs) 	{}
 	OrExpression(Expression* lhs, Expression* rhs) :
-		BinaryExpression(lhs->getExpressionType(),new Or(),lhs,rhs) 	{}
-	~OrExpression()									{}
+		TBinaryExpression(lhs->getExpressionType(), lhs, rhs){}
+	~OrExpression(){}
 
 	RawValue accept(ExprVisitor &v);
 	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
-	ExpressionId getTypeID() const					{ return BINARY; }
-	inline bool operator<(const expressions::Expression& r) const {
-		if (this->getTypeID() == r.getTypeID()) {
-			const BinaryExpression& rBin =
-					dynamic_cast<const BinaryExpression&>(r);
-			if (this->getOp()->getID() == rBin.getOp()->getID()) {
-				const OrExpression& rSub = dynamic_cast<const OrExpression&>(r);
-				Expression *l1 = this->getLeftOperand();
-				Expression *l2 = this->getRightOperand();
-
-				Expression *r1 = rSub.getLeftOperand();
-				Expression *r2 = rSub.getRightOperand();
-
-				bool eq1 = *l1 < *r1;
-				bool eq2 = *l2 < *r2;
-
-				if (eq1) {
-					if (eq2) {
-						return false;
-					} else {
-						return *l2 < *r2;
-					}
-				} else {
-					return *l1 < *r1;
-				}
-			} else {
-				return this->getOp()->getID() < rBin.getOp()->getID();
-			}
-		}
-		return this->getTypeID() < r.getTypeID();
-	}
 };
 
 class MaxExpression: public BinaryExpression {
@@ -1394,6 +854,128 @@ public:
 
 private:
 	IfThenElse cond;
+};
+
+
+
+
+class NegExpression : public Expression	{
+public:
+	NegExpression(Expression* expr):
+			Expression(expr->getExpressionType()), expr(expr) {}
+
+	~NegExpression()								{}
+
+	Expression* getExpr() const						{ return expr; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const					{ return NEG_EXPRESSION; }
+	inline bool operator<(const expressions::Expression& r) const {
+			if (this->getTypeID() == r.getTypeID()) {
+				const NegExpression& rHash = dynamic_cast<const NegExpression&>(r);
+				return *(this->getExpr()) < *(rHash.getExpr());
+			} else {
+				return this->getTypeID() < r.getTypeID();
+			}
+		}
+private:
+	Expression* expr;
+};
+
+class TestNullExpression : public Expression	{
+public:
+	TestNullExpression(Expression * expr, bool nullTest = true):
+			Expression(new BoolType()), expr(expr), nullTest(nullTest) {}
+
+	~TestNullExpression()								{}
+	
+	bool isNullTest() const { return nullTest; }
+	Expression * getExpr() const						{ return expr; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const				{ return TESTNULL_EXPRESSION; }
+	inline bool operator<(const expressions::Expression& r) const {
+			if (this->getTypeID() == r.getTypeID()) {
+				const TestNullExpression& rHash = dynamic_cast<const TestNullExpression&>(r);
+				return *(this->getExpr()) < *(rHash.getExpr());
+			} else {
+				return this->getTypeID() < r.getTypeID();
+			}
+		}
+private:
+	Expression* expr;
+	bool nullTest;
+};
+
+enum class extract_unit{
+	MILLISECOND,
+	SECOND,
+	MINUTE,
+	HOUR,
+	DAYOFWEEK,
+	ISO_DAYOFWEEK,
+	DAYOFMONTH,
+	DAYOFYEAR,
+	WEEK,
+	MONTH,
+	QUARTER,
+	YEAR,
+	ISO_YEAR,
+	DECADE,
+	CENTURY,
+	MILLENNIUM
+};
+
+class ExtractExpression : public Expression	{
+public:
+	ExtractExpression(Expression * expr, extract_unit unit):
+			Expression(createReturnType(unit)), expr(expr), unit(unit) {
+		assert(expr->getExpressionType()->getTypeID() == DATE);
+	}
+
+	~ExtractExpression()								{}
+
+	extract_unit getExtractUnit() 						{ return unit; }
+	Expression * getExpr() const						{ return expr; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const						{ return EXTRACT; }
+	inline bool operator<(const expressions::Expression& r) const {
+		if (this->getTypeID() == r.getTypeID()) {
+			const ExtractExpression& rHash = dynamic_cast<const ExtractExpression&>(r);
+			return *(this->getExpr()) < *(rHash.getExpr());
+		} else {
+			return this->getTypeID() < r.getTypeID();
+		}
+	}
+private:
+	static ExpressionType * createReturnType(extract_unit u);
+
+	Expression * expr;
+	extract_unit unit;
+};
+
+class CastExpression : public Expression	{
+public:
+	CastExpression(ExpressionType *cast_to, Expression* expr):
+			Expression(cast_to), expr(expr) {}
+
+	~CastExpression()								{}
+
+	Expression* getExpr() const						{ return expr; }
+	RawValue accept(ExprVisitor &v);
+	RawValue acceptTandem(ExprTandemVisitor &v, expressions::Expression*);
+	ExpressionId getTypeID() const					{ return CAST_EXPRESSION; }
+	inline bool operator<(const expressions::Expression& r) const {
+			if (this->getTypeID() == r.getTypeID()) {
+				const CastExpression& rHash = dynamic_cast<const CastExpression&>(r);
+				return *(this->getExpr()) < *(rHash.getExpr());
+			} else {
+				return this->getTypeID() < r.getTypeID();
+			}
+		}
+private:
+	Expression* expr;
 };
 
 inline bool operator<(const expressions::BinaryExpression& l,
@@ -1502,7 +1084,9 @@ public:
 	virtual RawValue visit(expressions::MinExpression *e) 		= 0;
 	virtual RawValue visit(expressions::MaxExpression *e) 		= 0;
 	virtual RawValue visit(expressions::HashExpression *e) 		= 0;
+	virtual RawValue visit(expressions::TestNullExpression *e) 	= 0;
 	virtual RawValue visit(expressions::NegExpression *e) 		= 0;
+	virtual RawValue visit(expressions::ExtractExpression *e) 	= 0;
 	virtual RawValue visit(expressions::CastExpression *e1) 	= 0;
 //	virtual RawValue visit(expressions::MergeExpression *e)  	= 0;
 	virtual ~ExprVisitor() {}
@@ -1567,6 +1151,10 @@ public:
 			expressions::HashExpression *e2) = 0;
 	virtual RawValue visit(expressions::NegExpression *e1,
 			expressions::NegExpression *e2) = 0;
+	virtual RawValue visit(expressions::ExtractExpression *e1,
+			expressions::ExtractExpression *e2) = 0;
+	virtual RawValue visit(expressions::TestNullExpression *e1,
+			expressions::TestNullExpression *e2) = 0;
 	virtual RawValue visit(expressions::CastExpression *e1,
 			expressions::CastExpression *e2) = 0;
 	virtual ~ExprTandemVisitor() {}

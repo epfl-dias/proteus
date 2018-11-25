@@ -119,7 +119,7 @@ TEST_F(JSONTest, String) {
 	expressions::Expression* rhs = new expressions::StringConstant(neededName);
 
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
@@ -236,7 +236,7 @@ TEST_F(JSONTest, SelectJSON) {
 	expressions::Expression* rhs = new expressions::IntConstant(5);
 
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
@@ -318,7 +318,7 @@ TEST_F(JSONTest, unnestJSON) {
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Unnest unnestOp = Unnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -431,7 +431,7 @@ TEST_F(JSONTest, reduceListObjectFlat) {
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> exprs;
@@ -509,7 +509,7 @@ bool JSONTest::reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> exprs;
@@ -606,7 +606,7 @@ TEST_F(JSONTest, reduceMax) {
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> exprs;
@@ -702,7 +702,7 @@ TEST_F(JSONTest, reduceDeeperMax) {
 			arg, attr2);
 	expressions::Expression* rhs = new expressions::IntConstant(43.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	vector<Monoid> accs;
 	vector<expressions::Expression*> exprs;

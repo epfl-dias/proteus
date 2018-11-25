@@ -30,6 +30,7 @@
 #include <atomic>
 #include <queue>
 #include <iostream>
+#include <algorithm>
 
 #include "common/gpu/gpu-common.hpp"
 
@@ -110,8 +111,11 @@ private:
     std::queue<T>           data;
 
     std::atomic<bool>       terminating;
+
+    std::atomic<int>        cache_size;
+    T                       cache_data[8];
 public:
-    AsyncQueueSPSC(): terminating(false){}
+    AsyncQueueSPSC(): terminating(false), cache_size(0){}
 
     void close(){
         // push(NULL);
@@ -122,7 +126,7 @@ public:
 
         nvtxRangePushA("AsyncQueue_t");
 
-        cv.wait(lock, [this](){return data.empty();});
+        cv.wait(lock, [this](){return (cache_size == 0) && data.empty();});
 
         lock.unlock();
         nvtxRangePop();
@@ -130,19 +134,24 @@ public:
     }
 
     void push(const T x){
-        nvtxRangePushA(("AsyncQueue_push" + std::to_string((uint64_t) x)).c_str());
+        // nvtxRangePushA(("AsyncQueue_push" + std::to_string((uint64_t) x)).c_str());
         assert(!terminating);
         std::unique_lock<std::mutex> lock(m);
-        nvtxRangePushA("AsyncQueue_push_w_lock");
+        // nvtxRangePushA("AsyncQueue_push_w_lock");
         data.push(x);
         cv.notify_all();
-        nvtxRangePop();
+        // nvtxRangePop();
         lock.unlock();
-        nvtxRangePop();
+        // nvtxRangePop();
     }
 
     bool pop(T &x){
-        nvtxRangePushA("AsyncQueue_pop");
+        if (cache_size > 0){
+            x = cache_data[--cache_size];
+            return true;
+        }
+
+        // nvtxRangePushA("AsyncQueue_pop");
         std::unique_lock<std::mutex> lock(m);
 
         // while (data.empty()){
@@ -155,33 +164,45 @@ public:
             lock.unlock();
 
             cv.notify_all();
-            nvtxRangePop();
+            // nvtxRangePop();
             return false;
         }
 
         x = data.front();
-        nvtxRangePushA(("AsyncQueue_pop" + std::to_string((uint64_t) x)).c_str());
+        // nvtxRangePushA(("AsyncQueue_pop" + std::to_string((uint64_t) x)).c_str());
         data.pop();
+
+        size_t to_retrieve = std::min(data.size(), (size_t) 8);
+        cache_size = to_retrieve;
+        for (size_t i = 0 ; i < to_retrieve ; ++i){
+            cache_data[to_retrieve - i - 1] = data.front();
+            data.pop();
+        }
 
         // assert(x != NULL || data.empty());
 
         lock.unlock();
-        nvtxRangePop();
-        nvtxRangePop();
+        // nvtxRangePop();
+        // nvtxRangePop();
         return true;
         // return x != NULL;
     }
 
     T pop_unsafe(){
+        if (cache_size > 0) return cache_data[--cache_size];
+
         T x = data.front();
         data.pop();
         return x;
     }
     
     bool empty_unsafe(){
-        return data.empty();
+        return (cache_size == 0) && data.empty();
     }
 };
+
+template<typename T>
+using AsyncQueueMPSC = AsyncQueueSPSC<T>;
 
 // template<typename T, size_t size>
 // class AsyncQueueSPSC_spin{

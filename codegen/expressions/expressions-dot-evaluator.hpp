@@ -101,6 +101,10 @@ public:
 			expressions::HashExpression *e2);
 	RawValue visit(expressions::NegExpression *e1,
 			expressions::NegExpression *e2);
+	RawValue visit(expressions::ExtractExpression *e1,
+			expressions::ExtractExpression *e2);
+	RawValue visit(expressions::TestNullExpression *e1,
+			expressions::TestNullExpression *e2);
 	RawValue visit(expressions::CastExpression *e1,
 			expressions::CastExpression *e2);
 

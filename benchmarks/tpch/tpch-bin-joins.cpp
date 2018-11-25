@@ -367,7 +367,7 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 			expressions::Expression* rhs = new expressions::IntConstant(
 					predicate);
 			expressions::Expression* pred = new expressions::LtExpression(
-					new BoolType(), lhs, rhs);
+					lhs, rhs);
 
 			Select *sel = new Select(pred, scanLineitem);
 			scanLineitem->setParent(sel);
@@ -389,7 +389,7 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - no explicit field needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -516,7 +516,7 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(predicate);
 	expressions::Expression* pred = new expressions::LtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select *sel = new Select(pred, scanOrders);
 	scanOrders->setParent(sel);
@@ -538,9 +538,9 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 
 	/* join pred. */
 //	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-//			new BoolType(), leftPred, rightPred);
+//			leftPred, rightPred);
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-				new BoolType(), rightPred, leftPred);
+				rightPred, leftPred);
 
 	/* left materializer - no explicit field needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -670,7 +670,7 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(predicate);
 	expressions::Expression* pred = new expressions::LtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select *sel = new Select(pred, scanLineitem);
 	scanLineitem->setParent(sel);
@@ -692,7 +692,7 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - no explicit field needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -819,7 +819,7 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 //			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
 //	expressions::Expression* rhs = new expressions::IntConstant(predicate);
 //	expressions::Expression* pred = new expressions::LtExpression(
-//			new BoolType(), lhs, rhs);
+//			lhs, rhs);
 //
 //	Select *sel = new Select(pred, scanOrders);
 //	scanOrders->setParent(sel);
@@ -835,7 +835,7 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(predicate);
 	expressions::Expression* pred = new expressions::LtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select *sel = new Select(pred, scanLineitem);
 	scanLineitem->setParent(sel);
@@ -862,7 +862,7 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - no explicit field needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -993,7 +993,7 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(predicate);
 	expressions::Expression* pred = new expressions::LtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select *sel = new Select(pred, scanLineitem);
 	scanLineitem->setParent(sel);
@@ -1015,7 +1015,7 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - no explicit field needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -1157,7 +1157,7 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 	//			o_orderkey->getOriginalType(), leftArg, *o_orderkey);
 	//	expressions::Expression* rhs = new expressions::IntConstant(predicate);
 	//	expressions::Expression* pred = new expressions::LtExpression(
-	//			new BoolType(), lhs, rhs);
+	//			lhs, rhs);
 	//
 	//	Select *sel = new Select(pred, scanOrders);
 	//	scanOrders->setParent(sel);
@@ -1173,7 +1173,7 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
 	expressions::Expression* rhs = new expressions::IntConstant(predicate);
 	expressions::Expression* pred = new expressions::LtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select *sel = new Select(pred, scanLineitem);
 	scanLineitem->setParent(sel);
@@ -1200,7 +1200,7 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - no explicit field needed */
 	vector<RecordAttribute*> fieldsLeft;

@@ -67,6 +67,42 @@ void __attribute__((unused)) addOptimizerPipelineVectorization(legacy::FunctionP
 
 extern bool print_generated_code;
 
+class RawContext;
+
+class if_then;
+
+namespace expressions{
+	class Expression;
+}
+class ExpressionGeneratorVisitor;
+class OperatorState;
+
+class if_branch{
+private:
+	RawValue 			condition	;
+	RawContext * const 	context		;
+private:
+
+	inline constexpr if_branch(RawValue condition, RawContext *context):
+		condition(condition), context(context){}
+
+	// inline constexpr if_branch(	expressions::Expression *expr	,
+	// 							const OperatorState 	&state	,
+	// 							RawContext 				*context);
+
+	if_branch(	expressions::Expression *expr	,
+				const OperatorState 	&state	,
+				RawContext 				*context);
+
+public:
+	template<typename Fthen>
+	void operator()(Fthen then){
+		if_then{condition, then, context};
+	}
+
+	friend class RawContext;
+};
+
 class RawContext {
 public:
 	typedef llvm::Value * (  init_func_t)(llvm::Value *);
@@ -103,9 +139,12 @@ public:
 	ConstantInt* createInt32(int val);
 	ConstantInt* createInt64(int val);
 	ConstantInt* createInt64(size_t val);
+	ConstantInt* createInt64(int64_t val);
 	ConstantInt* createSizeT(size_t val);
 	ConstantInt* createTrue();
 	ConstantInt* createFalse();
+
+	IntegerType *createSizeType();
 	
     virtual size_t getSizeOf(llvm::Type  * type) const;
     virtual size_t getSizeOf(llvm::Value * val ) const;
@@ -182,6 +221,13 @@ public:
 		return currentCodeEntry;
 	}
 	virtual void setCurrentEntryBlock(BasicBlock* codeEntry) {this->currentCodeEntry = codeEntry;}
+
+	virtual if_branch gen_if(RawValue cond){ return if_branch(cond, this); }
+
+	virtual if_branch gen_if(	expressions::Expression *expr	,
+								const OperatorState 	&state	){
+		return if_branch(expr, state, this);
+	}
 
 	/**
 	 * Not sure the HT methods belong here
@@ -287,6 +333,82 @@ public:
 		context->setCurrentEntryBlock			(entry  );
 		context->setEndingBlock					(ending );
 		context->getBuilder()->SetInsertPoint	(current);
+	}
+};
+
+class if_then{
+public:
+	// template<typename Fcond, typename Fthen>
+	// if_then_else(Fcond cond, Fthen then, const RawContext *context){
+
+	// }
+
+	// template<typename Fthen>
+	// if_then_else(llvm::Value * cond, Fthen then, const RawContext *context){
+	// 	BasicBlock *ThenBB  = BasicBlock::Create(llvmContext, "IfThen" );
+	// 	BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "IfAfter");
+	// }
+
+
+	template<typename Fthen>
+	if_then(RawValue cond, Fthen then, RawContext *context){
+		IRBuilder<> *Builder     = context->getBuilder();
+		LLVMContext &llvmContext = context->getLLVMContext();
+		Function    *F           = Builder->GetInsertBlock()->getParent();
+		
+		BasicBlock *ThenBB  = BasicBlock::Create(llvmContext, "IfThen" , F);
+		BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "IfAfter", F);
+
+		//if (cond.value) { 
+		Builder->CreateCondBr(cond.value, ThenBB, AfterBB);
+		
+		Builder->SetInsertPoint(ThenBB);
+		then();
+		Builder->CreateBr(AfterBB);
+
+		// }
+		Builder->SetInsertPoint(AfterBB);
+	}
+};
+
+class if_then_else{
+public:
+	// template<typename Fcond, typename Fthen>
+	// if_then_else(Fcond cond, Fthen then, const RawContext *context){
+
+	// }
+
+	// template<typename Fthen>
+	// if_then_else(llvm::Value * cond, Fthen then, const RawContext *context){
+	// 	BasicBlock *ThenBB  = BasicBlock::Create(llvmContext, "IfThen" );
+	// 	BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "IfAfter");
+	// }
+
+
+	template<typename Fthen, typename Felse>
+	if_then_else(RawValue cond, Fthen then, Felse el, RawContext *context){
+		IRBuilder<> *Builder     = context->getBuilder();
+		LLVMContext &llvmContext = context->getLLVMContext();
+		Function    *F           = Builder->GetInsertBlock()->getParent();
+		
+		BasicBlock *ThenBB  = BasicBlock::Create(llvmContext, "IfThen" , F);
+		BasicBlock *ElseBB  = BasicBlock::Create(llvmContext, "IfElse" , F);
+		BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "IfAfter", F);
+
+		//if (cond.value) { 
+		Builder->CreateCondBr(cond.value, ThenBB, ElseBB);
+		
+		Builder->SetInsertPoint(ThenBB);
+		then();
+		Builder->CreateBr(AfterBB);
+
+		// } else {
+
+		Builder->SetInsertPoint(ElseBB);
+		el();
+		Builder->CreateBr(AfterBB);
+		// }
+		Builder->SetInsertPoint(AfterBB);
 	}
 };
 

@@ -233,11 +233,11 @@ void symantecCSV1Caching(map<string,dataset> datasetCatalog)	{
 	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
 	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
-					new BoolType(), selID, predExpr2);
+					selID, predExpr2);
 	expressions::Expression* predicate = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
+			predicate1, predicate2);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, lastMat, &ctx);
 	lastMat->setParent(reduce);
@@ -366,11 +366,11 @@ void symantecCSV1CachingB(map<string,dataset> datasetCatalog)	{
 	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
 	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
-					new BoolType(), selID, predExpr2);
+					selID, predExpr2);
 	expressions::Expression* predicate = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
+			predicate1, predicate2);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, lastMat, &ctx);
 	lastMat->setParent(reduce);
@@ -458,11 +458,11 @@ void symantecCSV1(map<string,dataset> datasetCatalog)	{
 	expressions::Expression* predExpr1 = new expressions::IntConstant(idLow);
 	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
-					new BoolType(), selID, predExpr2);
+					selID, predExpr2);
 	expressions::Expression* predicate = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
+			predicate1, predicate2);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan, &ctx);
 	scan->setParent(reduce);
@@ -569,7 +569,7 @@ void symantecCSV2Caching(map<string,dataset> datasetCatalog)	{
 			new expressions::RecordProjection(classa->getOriginalType(),arg,*classa);
 	expressions::Expression* predExpr1 = new expressions::IntConstant(classNo);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), selClass, predExpr1);
+			selClass, predExpr1);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, mat, &ctx);
 	mat->setParent(reduce);
@@ -669,7 +669,7 @@ void symantecCSV2(map<string,dataset> datasetCatalog)	{
 			new expressions::RecordProjection(classa->getOriginalType(),arg,*classa);
 	expressions::Expression* predExpr1 = new expressions::IntConstant(classNo);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), selClass, predExpr1);
+			selClass, predExpr1);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan, &ctx);
 	scan->setParent(reduce);
@@ -749,7 +749,7 @@ void symantecCSV3(map<string,dataset> datasetCatalog)	{
 	expressions::Expression* predExpr1 = new expressions::StringConstant(
 			botName);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), selBot, predExpr1);
+			selBot, predExpr1);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan, &ctx);
 	scan->setParent(reduce);
@@ -830,14 +830,14 @@ void symantecCSV4(map<string, dataset> datasetCatalog) {
 
 
 	expressions::Expression* predicate1 = new expressions::GtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr2);
+			selID, predExpr2);
 	expressions::Expression* predicateNum = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 	expressions::Expression* predicateStr = new expressions::EqExpression(
-				new BoolType(), selBot, predExpr3);
+				selBot, predExpr3);
 
 	Select *selNum = new Select(predicateNum, scan);
 	scan->setParent(selNum);
@@ -867,7 +867,7 @@ void symantecCSV4(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* predNest = new expressions::EqExpression(
-			new BoolType(), lhsNest, rhsNest);
+			lhsNest, rhsNest);
 
 	//mat.
 	vector<RecordAttribute*> fields;
@@ -1052,39 +1052,39 @@ void symantecCSV5(map<string, dataset> datasetCatalog) {
 
 	//id > 90000000 and id < 130000000
 	expressions::Expression* predicate1 = new expressions::GtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr2);
+			selID, predExpr2);
 	expressions::Expression* predicateNum1 = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 	Select *selNum1 = new Select(predicateNum1, scan);
 	scan->setParent(selNum1);
 
 	// size < 1500
 	expressions::Expression* predicateNum2 = new expressions::LtExpression(
-			new BoolType(), selSize, predExpr3);
+			selSize, predExpr3);
 
 	Select *selNum2 = new Select(predicateNum2, selNum1);
 	selNum1->setParent(selNum2);
 
 	//bot = 'FESTI'
 	expressions::Expression* predicateStr1 = new expressions::EqExpression(
-			new BoolType(), selBot, predExpr4);
+			selBot, predExpr4);
 	Select *selStr1 = new Select(predicateStr1, selNum2);
 		selNum2->setParent(selStr1);
 
 	//(country_code = 'US' OR country_code = 'RU' OR country_code = 'IN')
 	expressions::Expression* predicateCodeStrA = new expressions::EqExpression(
-				new BoolType(), selCode, predExpr5a);
+				selCode, predExpr5a);
 	expressions::Expression* predicateCodeStrB = new expressions::EqExpression(
-					new BoolType(), selCode, predExpr5b);
+					selCode, predExpr5b);
 	expressions::Expression* predicateCodeStrC = new expressions::EqExpression(
-					new BoolType(), selCode, predExpr5c);
+					selCode, predExpr5c);
 
 	expressions::Expression* predicateOr_ = new expressions::OrExpression(
-				new BoolType(), predicateCodeStrA, predicateCodeStrB);
+				predicateCodeStrA, predicateCodeStrB);
 	expressions::Expression* predicateStr2 = new expressions::OrExpression(
-					new BoolType(), predicateOr_, predicateCodeStrC);
+					predicateOr_, predicateCodeStrC);
 
 	//rest of preds
 	Select *sel = new Select(predicateStr2, selStr1);
@@ -1111,7 +1111,7 @@ void symantecCSV5(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* predNest = new expressions::EqExpression(
-			new BoolType(), lhsNest, rhsNest);
+			lhsNest, rhsNest);
 
 	//mat.
 	vector<RecordAttribute*> fields;
@@ -1275,17 +1275,17 @@ void symantecCSV6(map<string, dataset> datasetCatalog) {
 
 
 	expressions::Expression* predicate1 = new expressions::GtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr2);
+			selID, predExpr2);
 	expressions::Expression* predicateAnd = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 	Select *selNum = new Select(predicateAnd, scan);
 	scan->setParent(selNum);
 
 	expressions::Expression* predicate3 = new expressions::LtExpression(
-				new BoolType(), selClass, predExpr3);
+				selClass, predExpr3);
 
 	Select *sel = new Select(predicate3, selNum);
 	selNum->setParent(sel);
@@ -1311,7 +1311,7 @@ void symantecCSV6(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* predNest = new expressions::EqExpression(
-			new BoolType(), lhsNest, rhsNest);
+			lhsNest, rhsNest);
 
 	//mat.
 	vector<RecordAttribute*> fields;
@@ -1464,26 +1464,26 @@ void symantecCSV7(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr5 = new expressions::IntConstant(classHigh);
 
 	expressions::Expression* predicate1 = new expressions::GtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr2);
+			selID, predExpr2);
 	expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
+			predicate1, predicate2);
 
 	Select *selNum1 = new Select(predicateAnd1, scan);
 	scan->setParent(selNum1);
 
 	expressions::Expression* predicate3 = new expressions::LtExpression(
-			new BoolType(), selSize, predExpr3);
+			selSize, predExpr3);
 	Select *selNum2 = new Select(predicate3, selNum1);
 	selNum1->setParent(selNum2);
 
 	expressions::Expression* predicate4 = new expressions::GtExpression(
-			new BoolType(), selClass, predExpr4);
+			selClass, predExpr4);
 	expressions::Expression* predicate5 = new expressions::LtExpression(
-			new BoolType(), selClass, predExpr5);
+			selClass, predExpr5);
 	expressions::Expression* predicateAnd2 = new expressions::AndExpression(
-			new BoolType(), predicate4, predicate5);
+			predicate4, predicate5);
 	Select *selNum3 = new Select(predicateAnd2, selNum2);
 	selNum2->setParent(selNum3);
 
@@ -1512,7 +1512,7 @@ void symantecCSV7(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* predNest = new expressions::EqExpression(
-			new BoolType(), lhsNest, rhsNest);
+			lhsNest, rhsNest);
 
 	//mat.
 	vector<RecordAttribute*> fields;

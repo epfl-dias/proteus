@@ -457,6 +457,19 @@ RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* ty
 		valWrapper.isNull = context->createFalse();
 		return valWrapper;
 	}
+	case INT64:
+	case DATE:
+	{
+		Function *hashInt = context->getFunction("hashInt64");
+		vector<Value*> ArgsV;
+		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+		Value *hashResult = context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt64");
+
+		RawValue valWrapper;
+		valWrapper.value = hashResult;
+		valWrapper.isNull = context->createFalse();
+		return valWrapper;
+	}
 	case INT:
 	case DSTRING:
 	{

@@ -49,9 +49,9 @@
 #include <cstdlib>
 #include <cstddef>
 
-#include "rapidjson/reader.h"
-#include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
+// #include "rapidjson/reader.h"
+// #include "rapidjson/document.h"
+// #include "rapidjson/stringbuffer.h"
 
 //LLVM Includes
 // #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -185,7 +185,10 @@ size_t getFileSize(const char* filename);
 enum data_loc{
     GPU_RESIDENT,
     PINNED,
-    PAGEABLE
+    PAGEABLE,
+    ALLSOCKETS,
+    ALLGPUS,
+    EVERYWHERE,
 };
 
 struct mmap_file{

@@ -197,11 +197,12 @@ void * Exchange::acquireBuffer(int target, bool polling){
 void   Exchange::releaseBuffer(int target, void * buff){
     rawlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_START);
     nvtxRangePop();
-    std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
-    rawlogger.log(this, log_op::EXCHANGE_PRODUCE);
-    ready_pool[target].emplace(buff);
-    ready_pool_cv[target].notify_one();
-    lock.unlock();
+    // std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
+    // rawlogger.log(this, log_op::EXCHANGE_PRODUCE);
+    // ready_pool[target].emplace(buff);
+    // ready_pool_cv[target].notify_one();
+    // lock.unlock();
+    ready_fifo[target].push(buff);
     nvtxRangePop();
     rawlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_END);
 }
@@ -216,27 +217,29 @@ void   Exchange::freeBuffer(int target, void * buff){
 }
 
 bool   Exchange::get_ready(int target, void * &buff){
-    // while (ready_pool[target].empty() && remaining_producers > 0);
+    // // while (ready_pool[target].empty() && remaining_producers > 0);
 
-    std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
+    // std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
 
-    if (ready_pool[target].empty()){
-        rawlogger.log(this, log_op::EXCHANGE_CONSUMER_WAIT_START);
-        ready_pool_cv[target].wait(lock, [this, target](){return !ready_pool[target].empty() || (ready_pool[target].empty() && remaining_producers <= 0);});
-        rawlogger.log(this, log_op::EXCHANGE_CONSUMER_WAIT_END  );
-    }
+    // if (ready_pool[target].empty()){
+    //     rawlogger.log(this, log_op::EXCHANGE_CONSUMER_WAIT_START);
+    //     ready_pool_cv[target].wait(lock, [this, target](){return !ready_pool[target].empty() || (ready_pool[target].empty() && remaining_producers <= 0);});
+    //     rawlogger.log(this, log_op::EXCHANGE_CONSUMER_WAIT_END  );
+    // }
     
-    if (ready_pool[target].empty()){
-        assert(remaining_producers == 0);
-        lock.unlock();
-        return false;
-    }
+    // if (ready_pool[target].empty()){
+    //     assert(remaining_producers == 0);
+    //     lock.unlock();
+    //     return false;
+    // }
 
-    buff = ready_pool[target].front();
-    ready_pool[target].pop();
+    // buff = ready_pool[target].front();
+    // ready_pool[target].pop();
 
-    lock.unlock();
-    return true;
+    // lock.unlock();
+    // return true;
+
+    return ready_fifo[target].pop(buff);
 }
 
 void   Exchange::fire(int target, RawPipelineGen * pipGen){
@@ -265,7 +268,7 @@ void   Exchange::fire(int target, RawPipelineGen * pipGen){
             void * p;
             if (!get_ready(target, p)) break;
             // ++packets;
-            nvtxRangePushA((pipGen->getName() + ":" + std::to_string(target) + "cons").c_str());
+            nvtxRangePushA((pipGen->getName() + ":cons").c_str());
 
             // if (numOfParents > 1){
             //     int node;
@@ -447,9 +450,11 @@ void Exchange::close(RawPipeline * pip){
     int rem = --remaining_producers;
     assert(rem >= 0);
 
-    for (int i = 0 ; i < numOfParents ; ++i) ready_pool_cv[i].notify_all();
+    // for (int i = 0 ; i < numOfParents ; ++i) ready_pool_cv[i].notify_all();
 
     if (rem == 0) {
+        for (int i = 0 ; i < numOfParents ; ++i) ready_fifo[i].close();
+
         rawlogger.log(this, log_op::EXCHANGE_JOIN_START);
         nvtxRangePushA("Exchange_waiting_to_close");
         for (auto &t: firers) t.join();

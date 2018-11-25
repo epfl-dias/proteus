@@ -52,7 +52,7 @@ constexpr size_t clen(const char* str){
     return (*str == 0) ? 0 : clen(str + 1) + 1;
 }
 
-const char * catalogJSON = "inputs/plans/catalog.json";
+const char * catalogJSON = "inputs";
 
 void executePlan(const char *label, const char *planPath, const char *catalogJSON){
     uint32_t devices = topology::getInstance().getGpuCount();
@@ -152,7 +152,7 @@ public:
         if (last_label != "") shm_unlink(last_label.c_str());
     }
 
-    std::string get_label(){
+    std::string get_label() const{
         return last_label;
     }
 
@@ -162,6 +162,34 @@ public:
         return last_label;
     }
 };
+
+std::string runPlanFile(std::string plan, unlink_upon_exit &uue, bool echo = true){
+    std::string label = uue.inc_label();
+    executePlan(label.c_str(), plan.c_str());
+
+    if (echo){
+        std::cout << "result echo" << std::endl;
+        /* current */
+        int fd2 = shm_open(label.c_str(), O_RDONLY, S_IRWXU);
+        if (fd2 == -1) {
+            throw runtime_error(string(__func__) + string(".open (output): ")+label);
+        }
+        struct stat statbuf;
+        if (fstat(fd2, &statbuf)) {
+            fprintf(stderr, "FAILURE to stat test results! (%s)\n", std::strerror(errno));
+            assert(false);
+        }
+        size_t fsize2 = statbuf.st_size;
+        char *currResultBuf = (char*) mmap(NULL, fsize2, PROT_READ | PROT_WRITE,
+                MAP_PRIVATE, fd2, 0);
+        fwrite(currResultBuf, sizeof(char), fsize2, stdout);
+        std::cout << std::endl;
+
+        munmap(currResultBuf, fsize2);
+    }
+
+    return label;
+}
 
 void thread_warm_up(){}
 
@@ -220,6 +248,11 @@ void thread_warm_up(){}
  *                  The following line/lines are results printed into stdout
  */
 int main(int argc, char* argv[]){
+    if (argc >= 2 && strcmp(argv[1], "--query-topology") == 0){
+        std::cout << topology::getInstance() << std::endl;
+        return 0;
+    }
+
     // Initialize Google's logging library.
     google::InitGoogleLogging(argv[0]);
     LOG(INFO)<< "Starting up server...";
@@ -263,9 +296,12 @@ int main(int argc, char* argv[]){
     std::string line;
     std::string prefix("--foo=");
 
-    {
-        unlink_upon_exit uue;
 
+    if (argc >= 2){
+        unlink_upon_exit uue;
+        runPlanFile(argv[1], uue, true);
+    } else {
+        unlink_upon_exit uue;
         while (std::getline(std::cin, line)) {
             std::string cmd = trim(line);
 
@@ -278,29 +314,7 @@ int main(int argc, char* argv[]){
                 if (starts_with(cmd, "execute plan from file ")){
                     constexpr size_t prefix_size = clen("execute plan from file ");
                     std::string plan  = cmd.substr(prefix_size);
-                    std::string label = uue.inc_label();
-                    executePlan(label.c_str(), plan.c_str());
-
-                    if (echo){
-                        std::cout << "result echo" << std::endl;
-                        /* current */
-                        int fd2 = shm_open(label.c_str(), O_RDONLY, S_IRWXU);
-                        if (fd2 == -1) {
-                            throw runtime_error(string(__func__) + string(".open (output): ")+label);
-                        }
-                        struct stat statbuf;
-                        if (fstat(fd2, &statbuf)) {
-                            fprintf(stderr, "FAILURE to stat test results! (%s)\n", std::strerror(errno));
-                            assert(false);
-                        }
-                        size_t fsize2 = statbuf.st_size;
-                        char *currResultBuf = (char*) mmap(NULL, fsize2, PROT_READ | PROT_WRITE,
-                                MAP_PRIVATE, fd2, 0);
-                        fwrite(currResultBuf, sizeof(char), fsize2, stdout);
-                        std::cout << std::endl;
-                        // shm_unlink(label.c_str());
-                        munmap(currResultBuf, fsize2);
-                    }
+                    std::string label = runPlanFile(plan, uue, echo);
 
                     std::cout << "result in file /dev/shm/" << label << std::endl;
                 } else {

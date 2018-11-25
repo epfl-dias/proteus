@@ -31,32 +31,142 @@
 #include <thrust/system/cuda/execution_policy.h>
 
 template<typename T, typename... Trest>
-struct qsort_t{
-    T                   a;
-    qsort_t<Trest...>   r;
+struct minalignof{
+    static constexpr size_t get(){
+        // pre c++14
+        return alignof(T) >= minalignof<Trest...>::get() ? minalignof<Trest...>::get() : alignof(T);
+        // requires c++14
+        // return min(minalignof<Trest...>::get(), alignof(T));
+    }
+};
 
-    __host__ __device__ bool operator<(const qsort_t<T, Trest...> &other) const{
-        if (a != other.a) return a < other.a;
-        return r < other.r;
+template<typename T>
+struct minalignof<T>{
+    static constexpr size_t get(){
+        return alignof(T);
+    }
+};
+
+// template<typename T, typename... Trest>
+// struct maxalignof{
+//     static constexpr size_t get(){
+//         // pre c++14
+//         return alignof(T) <= maxalignof<Trest...>::get() ? maxalignof<Trest...>::get() : alignof(T);
+//         // requires c++14
+//         // return max(minalignof<Trest...>::get(), alignof(T));
+//     }
+// };
+
+// template<typename T>
+// struct maxalignof<T>{
+//     static constexpr size_t get(){
+//         return alignof(T);
+//     }
+// };
+
+/**
+ * Bacerafull! it expects the template arguments to be the reverse order of the wanted!
+ */
+template<typename T, typename... Trest>
+struct alignas(minalignof<T, Trest...>::get()) qsort_packed_t{
+    qsort_packed_t<Trest...>   r;
+    char pad[sizeof(qsort_packed_t<Trest...>) % alignof(T)];
+    T                   a;
+
+    __host__ __device__ bool operator==(const qsort_packed_t<T, Trest...> &other) const{
+        return (r == other.r) && (a == other.a);
+    }
+
+    __host__ __device__ bool operator<(const qsort_packed_t<T, Trest...> &other) const{
+        return (r == other.r) ? (a < other.a) : (r < other.r);
     }
 } __attribute__((packed));
 
 template<typename T>
-struct qsort_t<T>{
+struct qsort_packed_t<T>{
     T                   a;
 
-    __host__ __device__ bool operator<(const qsort_t<T> &other) const{
+    __host__ __device__ bool operator==(const qsort_packed_t<T> &other) const{
+        return a == other.a;
+    }
+
+    __host__ __device__ bool operator<(const qsort_packed_t<T> &other) const{
         return a < other.a;
     }
-} __attribute__((packed));
+};
+
+template<typename T, typename... Trest>
+struct qsort_unaligned_t{
+    // if there is space at the end of the nested struct that fits the current 
+    // element, then we should place it there, in order to be equivalent to
+    // the LLVM structs.
+    // The space inside the nested struct is generated for alignemnt reasons.
+    // There is the non-standard __attribute__((packed)) but somethings breaks
+    // thrust's sort. (maybe an alignment issue?)
+    union {
+        qsort_unaligned_t<Trest...> r;
+        T a[((sizeof(qsort_packed_t<Trest...>) + alignof(T) - 1) / alignof(T)) + 1];
+    };
+
+    __host__ __device__ bool operator==(const qsort_unaligned_t<T, Trest...> &other) const{
+        return (r == other.r) && (curr() == other.curr());
+    }
+
+    __host__ __device__ bool operator<(const qsort_unaligned_t<T, Trest...> &other) const{
+        return (r == other.r) ? (curr() < other.curr()) : (r < other.r);
+    }
+
+    T curr() const{
+        return a[(sizeof(qsort_packed_t<Trest...>) / sizeof(T))];
+    }
+};
+
+template<typename T>
+struct qsort_unaligned_t<T>{
+    T                   a;
+
+    __host__ __device__ bool operator==(const qsort_unaligned_t<T> &other) const{
+        return a == other.a;
+    }
+
+    __host__ __device__ bool operator<(const qsort_unaligned_t<T> &other) const{
+        return a < other.a;
+    }
+
+    T curr() const{
+        return a;
+    }
+};
+
+template<typename... T>
+struct qsort_t{
+public:
+    qsort_unaligned_t<T...> a;
+
+public:
+    __host__ __device__ bool operator==(const qsort_t<T...> &other) const{
+        return a == other.a;
+    }
+
+    __host__ __device__ bool operator<(const qsort_t<T...> &other) const{
+        return a < other.a;
+    }
+};
 
 template<typename... T>
 void gpu_qsort(void * ptr, size_t N){
+    time_block t{"Tsort: "};
     typedef qsort_t<T...> to_sort_t;
     thrust::device_ptr<to_sort_t> mem{(to_sort_t *) ptr};
     assert(N * sizeof(to_sort_t) <= h_vector_size * sizeof(int32_t) && "Overflow in GPUSort's buffer");
+    std::cout << "Sorting started..." << sizeof...(T) << " " << sizeof(to_sort_t) << " " << N << std::endl;
     thrust::sort(thrust::system::cuda::par, mem, mem + N);
+    std::cout << "Sorting finished" << std::endl;
 }
+
+/**
+ * WARNING: TEMPLATES should be in the REVERSE order wrt to the layout!!!!!!!!!!
+ */
 
 // 1 attribute:
 extern "C" void qsort_i(void * ptr, size_t N){
@@ -73,11 +183,11 @@ extern "C" void qsort_ii(void * ptr, size_t N){
 }
 
 extern "C" void qsort_il(void * ptr, size_t N){
-    gpu_qsort<int32_t, int64_t>(ptr, N);
+    gpu_qsort<int64_t, int32_t>(ptr, N);
 }
 
 extern "C" void qsort_li(void * ptr, size_t N){
-    gpu_qsort<int64_t, int32_t>(ptr, N);
+    gpu_qsort<int32_t, int64_t>(ptr, N);
 }
 
 extern "C" void qsort_ll(void * ptr, size_t N){
@@ -92,7 +202,7 @@ extern "C" void qsort_iii(void * ptr, size_t N){
 extern "C" void qsort_iil(void * ptr, size_t N){
     //this assertion is false! very unexpected...
     // static_assert(sizeof(int32_t, int32_t, int64_t>) == sizeof({int32_t, int32_t, int64_t}), "!!!");
-    gpu_qsort<int32_t, int32_t, int64_t>(ptr, N);
+    gpu_qsort<int64_t, int32_t, int32_t>(ptr, N);
 }
 
 extern "C" void qsort_ili(void * ptr, size_t N){
@@ -100,11 +210,11 @@ extern "C" void qsort_ili(void * ptr, size_t N){
 }
 
 extern "C" void qsort_ill(void * ptr, size_t N){
-    gpu_qsort<int32_t, int64_t, int64_t>(ptr, N);
+    gpu_qsort<int64_t, int64_t, int32_t>(ptr, N);
 }
 
 extern "C" void qsort_lii(void * ptr, size_t N){
-    gpu_qsort<int64_t, int32_t, int32_t>(ptr, N);
+    gpu_qsort<int32_t, int32_t, int64_t>(ptr, N);
 }
 
 extern "C" void qsort_lil(void * ptr, size_t N){
@@ -112,7 +222,7 @@ extern "C" void qsort_lil(void * ptr, size_t N){
 }
 
 extern "C" void qsort_lli(void * ptr, size_t N){
-    gpu_qsort<int64_t, int64_t, int32_t>(ptr, N);
+    gpu_qsort<int32_t, int64_t, int64_t>(ptr, N);
 }
 
 extern "C" void qsort_lll(void * ptr, size_t N){
@@ -125,23 +235,23 @@ extern "C" void qsort_iiii(void * ptr, size_t N){
 }
 
 extern "C" void qsort_iiil(void * ptr, size_t N){
-    gpu_qsort<int32_t, int32_t, int32_t, int64_t>(ptr, N);
+    gpu_qsort<int64_t, int32_t, int32_t, int32_t>(ptr, N);
 }
 
 extern "C" void qsort_iili(void * ptr, size_t N){
-    gpu_qsort<int32_t, int32_t, int64_t, int32_t>(ptr, N);
-}
-
-extern "C" void qsort_iill(void * ptr, size_t N){
-    gpu_qsort<int32_t, int32_t, int64_t, int64_t>(ptr, N);
-}
-
-extern "C" void qsort_ilii(void * ptr, size_t N){
     gpu_qsort<int32_t, int64_t, int32_t, int32_t>(ptr, N);
 }
 
+extern "C" void qsort_iill(void * ptr, size_t N){
+    gpu_qsort<int64_t, int64_t, int32_t, int32_t>(ptr, N);
+}
+
+extern "C" void qsort_ilii(void * ptr, size_t N){
+    gpu_qsort<int32_t, int32_t, int64_t, int32_t>(ptr, N);
+}
+
 extern "C" void qsort_ilil(void * ptr, size_t N){
-    gpu_qsort<int32_t, int64_t, int32_t, int64_t>(ptr, N);
+    gpu_qsort<int64_t, int32_t, int64_t, int32_t>(ptr, N);
 }
 
 extern "C" void qsort_illi(void * ptr, size_t N){
@@ -149,11 +259,11 @@ extern "C" void qsort_illi(void * ptr, size_t N){
 }
 
 extern "C" void qsort_illl(void * ptr, size_t N){
-    gpu_qsort<int32_t, int64_t, int64_t, int64_t>(ptr, N);
+    gpu_qsort<int64_t, int64_t, int64_t, int32_t>(ptr, N);
 }
 
 extern "C" void qsort_liii(void * ptr, size_t N){
-    gpu_qsort<int64_t, int32_t, int32_t, int32_t>(ptr, N);
+    gpu_qsort<int32_t, int32_t, int32_t, int64_t>(ptr, N);
 }
 
 extern "C" void qsort_liil(void * ptr, size_t N){
@@ -161,29 +271,37 @@ extern "C" void qsort_liil(void * ptr, size_t N){
 }
 
 extern "C" void qsort_lili(void * ptr, size_t N){
-    gpu_qsort<int64_t, int32_t, int64_t, int32_t>(ptr, N);
+    gpu_qsort<int32_t, int64_t, int32_t, int64_t>(ptr, N);
 }
 
 extern "C" void qsort_lill(void * ptr, size_t N){
-    gpu_qsort<int64_t, int32_t, int64_t, int64_t>(ptr, N);
-}
-
-extern "C" void qsort_llii(void * ptr, size_t N){
-    gpu_qsort<int64_t, int64_t, int32_t, int32_t>(ptr, N);
-}
-
-extern "C" void qsort_llil(void * ptr, size_t N){
     gpu_qsort<int64_t, int64_t, int32_t, int64_t>(ptr, N);
 }
 
+extern "C" void qsort_llii(void * ptr, size_t N){
+    gpu_qsort<int32_t, int32_t, int64_t, int64_t>(ptr, N);
+}
+
+extern "C" void qsort_llil(void * ptr, size_t N){
+    gpu_qsort<int64_t, int32_t, int64_t, int64_t>(ptr, N);
+}
+
 extern "C" void qsort_llli(void * ptr, size_t N){
-    gpu_qsort<int64_t, int64_t, int64_t, int32_t>(ptr, N);
+    gpu_qsort<int32_t, int64_t, int64_t, int64_t>(ptr, N);
 }
 
 extern "C" void qsort_llll(void * ptr, size_t N){
     gpu_qsort<int64_t, int64_t, int64_t, int64_t>(ptr, N);
 }
 
-extern "C" void qsort_iillllllll(void * ptr, size_t N){
-    gpu_qsort<int32_t, int32_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t>(ptr, N);
+extern "C" void qsort_lliiil(void * ptr, size_t N){
+    gpu_qsort<int64_t, int32_t, int32_t, int32_t, int64_t, int64_t>(ptr, N);
 }
+
+extern "C" void qsort_iillllllll(void * ptr, size_t N){
+    gpu_qsort<int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int32_t, int32_t>(ptr, N);
+}
+
+/**
+ * WARNING: TEMPLATES should be in the REVERSE order wrt to the layout!!!!!!!!!!
+ */

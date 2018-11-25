@@ -277,7 +277,7 @@ void tpchLineitemProjection3(map<string,dataset> datasetCatalog, int predicateVa
 			new expressions::RecordProjection(l_orderkey->getOriginalType(),arg,*l_orderkey);
 	expressions::Expression* val_key = new expressions::IntConstant(predicateVal);
 	expressions::Expression* predicate = new expressions::LtExpression(
-				new BoolType(), selOrderkey, val_key);
+				selOrderkey, val_key);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan, &ctx);
 	scan->setParent(reduce);
@@ -458,7 +458,7 @@ void tpchLineitemProjection3CachingPred(map<string,dataset> datasetCatalog, int 
 			new expressions::RecordProjection(l_orderkey->getOriginalType(),arg,*l_orderkey);
 	expressions::Expression* val_key = new expressions::IntConstant(predicateVal);
 	expressions::Expression* predicate = new expressions::LtExpression(
-				new BoolType(), selOrderkey, val_key);
+				selOrderkey, val_key);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan, &ctx);
 	mat->setParent(reduce);
@@ -651,7 +651,7 @@ void tpchLineitemProjection3CachingAgg(map<string, dataset> datasetCatalog,
 	expressions::Expression* val_key = new expressions::IntConstant(
 			predicateVal);
 	expressions::Expression* predicate = new expressions::LtExpression(
-			new BoolType(), selOrderkey, val_key);
+			selOrderkey, val_key);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan,
 			&ctx);
@@ -857,7 +857,7 @@ void tpchLineitemProjection3CachingPredAgg(map<string, dataset> datasetCatalog,
 	expressions::Expression* val_key = new expressions::IntConstant(
 			predicateVal);
 	expressions::Expression* predicate = new expressions::LtExpression(
-			new BoolType(), selOrderkey, val_key);
+			selOrderkey, val_key);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan,
 			&ctx);

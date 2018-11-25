@@ -652,6 +652,8 @@ __host__ void buffer_manager<T>::log_buffers(){
     uint32_t devices = topo.getGpuCount();
     if (devices <= 0) return;
 
+    ostream &out = std::cerr;
+
     uint32_t        cnts[devices];
     cudaStream_t    strs[devices];
     
@@ -669,13 +671,13 @@ __host__ void buffer_manager<T>::log_buffers(){
             gpu_run(cudaMemcpyAsync(cnts + i, (void *) &(h_d_pool[i]->cnt), sizeof(decltype(pool_t::cnt)), cudaMemcpyDefault, strs[i]));
         }
         for (uint32_t i = 0 ; i < devices ; ++i) gpu_run(cudaStreamSynchronize(strs[i]));
-        std::cerr << "\0337\033[H\r";
-        for (uint32_t i = 0 ; i < 80 ; ++i) std::cerr << ' ';
-        std::cerr << "\rBuffers on device: ";
-        for (uint32_t i = 0 ; i < devices ; ++i) std::cerr << cnts[i] << "(+" << device_buffs_pool[i].size() << ") ";
-        std::cerr << "\t\t" << progress[(iter++) % (sizeof(progress) - 1)]; //for null character
-        std::cerr << "\0338";
-        std::cerr.flush();
+        out << "\0337\033[H\r";
+        for (uint32_t i = 0 ; i < 80 ; ++i) out << ' ';
+        out << "\rBuffers on device: ";
+        for (uint32_t i = 0 ; i < devices ; ++i) out << cnts[i] << "(+" << device_buffs_pool[i].size() << ") ";
+        out << "\t\t" << progress[(iter++) % (sizeof(progress) - 1)]; //for null character
+        out << "\0338";
+        out.flush();
     }
 
     for (const auto &gpu: topo.getGpus()){

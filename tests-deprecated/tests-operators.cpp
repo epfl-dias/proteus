@@ -148,7 +148,7 @@ TEST(Relational, SPJ) {
 			lhsArg, *attr1);
 	expressions::Expression* rhs = new expressions::IntConstant(555);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
 
@@ -198,7 +198,7 @@ TEST(Relational, SPJ) {
 	expressions::Expression* right = new expressions::RecordProjection(intType,
 			rightArg, *attr2_f2);
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), left, right);
+			left, right);
 	vector<materialization_mode> outputModes;
 	//Active Loop Too
 	outputModes.insert(outputModes.begin(), EAGER);
@@ -288,7 +288,7 @@ TEST(Hierarchical, TwoProjections) {
 
 	//obj.c.c2 > 110 --> Only 1 must qualify
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
@@ -368,7 +368,7 @@ TEST(Hierarchical, Unnest) {
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Unnest unnestOp = Unnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -478,7 +478,7 @@ TEST(Hierarchical, UnnestDeeper) {
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Unnest unnestOp = Unnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -596,7 +596,7 @@ TEST(Hierarchical, UnnestFiltering) {
 	expressions::Expression* lhs = projToFilter;
 	expressions::Expression* rhs = new expressions::IntConstant(20);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Unnest unnestOp = Unnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -678,7 +678,7 @@ TEST(Generic, ReduceNumeric) {
 			arg, *age);
 	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 	//	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scan, &ctx);
 	//	Reduce reduce = Reduce(MULTIPLY, outputExpr, predicate, &scan, &ctx);
 	Reduce reduce = Reduce(MAX, outputExpr, predicate, &scan, &ctx);
@@ -744,7 +744,7 @@ TEST(Generic, ReduceBoolean) {
 			arg, *amount);
 	expressions::Expression* rhs = new expressions::IntConstant(1400);
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 	Reduce reduce = Reduce(AND, outputExpr, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -800,16 +800,14 @@ TEST(Generic, IfThenElse) {
 	expressions::Expression* ifLhs = new expressions::RecordProjection(boolType,
 			arg, *amount);
 	expressions::Expression* ifRhs = new expressions::IntConstant(200);
-	expressions::Expression* ifCond = new expressions::GtExpression(boolType,
-			ifLhs, ifRhs);
+	expressions::Expression* ifCond = new expressions::GtExpression(ifLhs, ifRhs);
 
 	expressions::Expression* trueCons = new expressions::BoolConstant(true);
 	expressions::Expression* falseCons = new expressions::BoolConstant(false);
-	expressions::Expression* ifElse = new expressions::IfThenElse(boolType,
-			ifCond, trueCons, falseCons);
+	expressions::Expression* ifElse = new expressions::IfThenElse(ifCond, trueCons, falseCons);
 
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), trueCons, trueCons);
+			trueCons, trueCons);
 	Reduce reduce = Reduce(AND, ifElse, predicate, &scan, &ctx);
 	scan.setParent(&reduce);
 
@@ -877,7 +875,7 @@ TEST(Hierarchical,OuterUnnest1)
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);

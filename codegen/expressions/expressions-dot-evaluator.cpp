@@ -22,6 +22,7 @@
 */
 
 #include "expressions/expressions-dot-evaluator.hpp"
+#include "expressions/expressions-generator.hpp"
 
 RawValue ExpressionDotVisitor::visit(expressions::IntConstant *e1,
 		expressions::IntConstant *e2) {
@@ -482,12 +483,10 @@ RawValue ExpressionDotVisitor::visit(expressions::InputArgument *e1,
 
 RawValue ExpressionDotVisitor::visit(expressions::RawValueExpression *e1,
 		expressions::RawValueExpression *e2) {
-	/* What would be needed is a per-pg 'dotCmp' method
-	 * -> compare piece by piece at this level, don't reconstruct here*/
-	string error_msg = string(
-			"[Expression Dot: ] No explicit RawValueExpression support yet");
-	LOG(ERROR)<< error_msg;
-	throw runtime_error(error_msg);
+	// left or right should not matter for RawValueExpressions, as 
+	// the bindings will not be used
+	ExpressionGeneratorVisitor visitor{context, currStateLeft};
+	return expressions::EqExpression{e1, e2}.accept(visitor);
 }
 
 /* Probably insufficient for complex datatypes */
@@ -665,6 +664,59 @@ RawValue ExpressionDotVisitor::visit(expressions::NegExpression *e1,
 		throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
 	}
 
+	valWrapper.isNull = context->createFalse();
+	return valWrapper;
+}
+
+RawValue ExpressionDotVisitor::visit(expressions::ExtractExpression *e1,
+		expressions::ExtractExpression *e2) {
+	IRBuilder<>* const Builder = context->getBuilder();
+	const OperatorState& currState1 = currStateLeft;
+	ExpressionGeneratorVisitor exprGenerator1{context, currState1};
+	RawValue left = e1->accept(exprGenerator1);
+
+	const OperatorState& currState2 = currStateRight;
+	ExpressionGeneratorVisitor exprGenerator2{context, currState2};
+	RawValue right = e2->accept(exprGenerator2);
+
+	typeID id = e1->getExpressionType()->getTypeID();
+	RawValue valWrapper;
+	valWrapper.isNull = context->createFalse();
+
+	switch (id) {
+	case DSTRING:
+	case INT:
+		valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
+		return valWrapper;
+	case FLOAT:
+		valWrapper.value = Builder->CreateFCmpOEQ(left.value, right.value);
+		return valWrapper;
+	case BOOL:
+		valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
+		return valWrapper;
+	default:
+		LOG(ERROR)<< "[ExpressionDotVisitor]: Invalid Input";
+		throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
+	}
+
+	valWrapper.isNull = context->createFalse();
+	return valWrapper;
+}
+
+RawValue ExpressionDotVisitor::visit(expressions::TestNullExpression *e1,
+		expressions::TestNullExpression *e2) {
+	IRBuilder<>* const Builder = context->getBuilder();
+	const OperatorState& currState1 = currStateLeft;
+	ExpressionGeneratorVisitor exprGenerator1{context, currState1};
+	RawValue left = e1->accept(exprGenerator1);
+
+	const OperatorState& currState2 = currStateRight;
+	ExpressionGeneratorVisitor exprGenerator2{context, currState2};
+	RawValue right = e2->accept(exprGenerator2);
+
+	typeID id = e1->getExpressionType()->getTypeID();
+	RawValue valWrapper;
+	valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
 	valWrapper.isNull = context->createFalse();
 	return valWrapper;
 }

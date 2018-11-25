@@ -91,15 +91,15 @@ void symantecJSON1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr3 = new expressions::StringConstant(
 			cteType);
 	expressions::Expression* predicate1 = new expressions::LtExpression(
-			new BoolType(), selSize, predExpr1);
+			selSize, predExpr1);
 	expressions::Expression* predicate2 = new expressions::EqExpression(
-			new BoolType(), selCharset, predExpr2);
+			selCharset, predExpr2);
 	expressions::Expression* predicate3 = new expressions::EqExpression(
-			new BoolType(), selCte, predExpr3);
+			selCte, predExpr3);
 	expressions::Expression* predicateAnd = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
+			predicate1, predicate2);
 	expressions::Expression* predicate = new expressions::AndExpression(
-			new BoolType(), predicateAnd, predicate3);
+			predicateAnd, predicate3);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, scan,
 			&ctx);
@@ -235,15 +235,15 @@ void symantecJSON1Caching(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr3 = new expressions::StringConstant(
 			cteType);
 	expressions::Expression* predicate1 = new expressions::LtExpression(
-			new BoolType(), selSize, predExpr1);
+			selSize, predExpr1);
 	expressions::Expression* predicate2 = new expressions::EqExpression(
-			new BoolType(), selCharset, predExpr2);
+			selCharset, predExpr2);
 	expressions::Expression* predicate3 = new expressions::EqExpression(
-			new BoolType(), selCte, predExpr3);
+			selCte, predExpr3);
 	expressions::Expression* predicateAnd = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
+			predicate1, predicate2);
 	expressions::Expression* predicate = new expressions::AndExpression(
-			new BoolType(), predicateAnd, predicate3);
+			predicateAnd, predicate3);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predicate, lastMat,
 			&ctx);
@@ -322,17 +322,17 @@ void symantecJSON2(map<string, dataset> datasetCatalog) {
 			langType);
 
 	expressions::Expression* predicate1 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
-			new BoolType(), selSize, predExpr2);
+			selSize, predExpr2);
 	expressions::Expression* predicateNum = new expressions::AndExpression(
-			new BoolType(), predicate1, predicate2);
+			predicate1, predicate2);
 
 	Select *selNum = new Select(predicateNum,scan);
 	scan->setParent(selNum);
 
 	expressions::Expression* predicateStr = new expressions::EqExpression(
-				new BoolType(), selLang, predExpr3);
+				selLang, predExpr3);
 	Select *sel = new Select(predicateStr,selNum);
 	selNum->setParent(sel);
 
@@ -419,12 +419,12 @@ void symantecJSON2v1(map<string, dataset> datasetCatalog) {
 			langType);
 
 	expressions::Expression* predicateNum1 = new expressions::LtExpression(
-				new BoolType(), selSize, predExpr1);
+				selSize, predExpr1);
 	expressions::Expression* predicateNum2 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr2);
+			selID, predExpr2);
 
 //	expressions::Expression* predicateNum = new expressions::AndExpression(
-//			new BoolType(), predicate1, predicate2);
+//			predicate1, predicate2);
 
 	Select *selNum1 = new Select(predicateNum1,scan);
 	scan->setParent(selNum1);
@@ -433,7 +433,7 @@ void symantecJSON2v1(map<string, dataset> datasetCatalog) {
 	selNum1->setParent(selNum2);
 
 	expressions::Expression* predicateStr = new expressions::EqExpression(
-				new BoolType(), selLang, predExpr3);
+				selLang, predExpr3);
 	Select *sel = new Select(predicateStr,selNum2);
 	selNum2->setParent(sel);
 
@@ -464,7 +464,7 @@ void symantecJSON2v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, sel,
 			&ctx);
@@ -544,18 +544,18 @@ void symantecJSON3(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr3 = new expressions::StringConstant(cityType);
 
 	expressions::Expression* predicate1 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 
 	Select *selNum = new Select(predicate1,scan);
 		scan->setParent(selNum);
 
 	expressions::Expression* predicate2 = new expressions::EqExpression(
-			new BoolType(), selCountryCode, predExpr2);
+			selCountryCode, predExpr2);
 	expressions::Expression* predicate3 = new expressions::EqExpression(
-				new BoolType(), selCity, predExpr3);
+				selCity, predExpr3);
 
 	expressions::Expression* predicateStr = new expressions::AndExpression(
-				new BoolType(), predicate2, predicate3);
+				predicate2, predicate3);
 
 	Select *sel = new Select(predicateStr,selNum);
 	selNum->setParent(sel);
@@ -646,18 +646,18 @@ void symantecJSON3v1(map<string, dataset> datasetCatalog) {
 //	expressions::Expression* predExpr3 = new expressions::StringConstant(cityType);
 
 	expressions::Expression* predicate1 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 
 	Select *selNum = new Select(predicate1,scan);
 		scan->setParent(selNum);
 
 	expressions::Expression* predicate2 = new expressions::EqExpression(
-			new BoolType(), selCountryCode, predExpr2);
+			selCountryCode, predExpr2);
 //	expressions::Expression* predicate3 = new expressions::EqExpression(
-//				new BoolType(), selCity, predExpr3);
+//				selCity, predExpr3);
 //
 //	expressions::Expression* predicateStr = new expressions::AndExpression(
-//				new BoolType(), predicate2, predicate3);
+//				predicate2, predicate3);
 	expressions::Expression* predicateStr = predicate2;
 	Select *sel = new Select(predicateStr,selNum);
 	selNum->setParent(sel);
@@ -688,7 +688,7 @@ void symantecJSON3v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, sel,
 			&ctx);
@@ -755,11 +755,11 @@ void symantecJSON4(map<string, dataset> datasetCatalog) {
 
 
 	expressions::Expression* predicate1 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 	expressions::Expression* predicate = new expressions::AndExpression(
-						new BoolType(), predicate1, predicate2);
+						predicate1, predicate2);
 
 	Select *sel = new Select(predicate, scan);
 	scan->setParent(sel);
@@ -835,11 +835,11 @@ void symantecJSON4v1(map<string, dataset> datasetCatalog) {
 
 
 	expressions::Expression* predicate1 = new expressions::LtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 	expressions::Expression* predicate = new expressions::AndExpression(
-						new BoolType(), predicate1, predicate2);
+						predicate1, predicate2);
 
 	Select *sel = new Select(predicate, scan);
 	scan->setParent(sel);
@@ -876,7 +876,7 @@ void symantecJSON4v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, sel,
 			&ctx);
@@ -941,7 +941,7 @@ void symantecJSON5(map<string, dataset> datasetCatalog) {
 			id->getOriginalType(), arg, *id);
 	expressions::Expression* predExpr1 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predicate = new expressions::LtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 
 	Select *sel = new Select(predicate, scan);
 	scan->setParent(sel);
@@ -960,7 +960,7 @@ void symantecJSON5(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* predUnnest = new expressions::EqExpression(
-			new BoolType(), lhsUnnest, rhsUnnest);
+			lhsUnnest, rhsUnnest);
 
 	OuterUnnest *unnestOp = new OuterUnnest(predUnnest, path, sel);
 //	Unnest *unnestOp = new Unnest(predicate, path, scan);
@@ -1062,7 +1062,7 @@ void symantecJSON5v1(map<string, dataset> datasetCatalog) {
 			id->getOriginalType(), arg, *id);
 	expressions::Expression* predExpr1 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predicate = new expressions::LtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 
 	Select *sel = new Select(predicate, scan);
 	scan->setParent(sel);
@@ -1081,7 +1081,7 @@ void symantecJSON5v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* predUnnest = new expressions::EqExpression(
-			new BoolType(), lhsUnnest, rhsUnnest);
+			lhsUnnest, rhsUnnest);
 
 	OuterUnnest *unnestOp = new OuterUnnest(predUnnest, path, sel);
 //	Unnest *unnestOp = new Unnest(predicate, path, scan);
@@ -1133,7 +1133,7 @@ void symantecJSON5v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed,
 			nullFilter, &ctx);
@@ -1198,7 +1198,7 @@ void symantecJSON6(map<string, dataset> datasetCatalog) {
 			city->getOriginalType(), arg, *city);
 	expressions::Expression* predExpr1 = new expressions::StringConstant(cityType);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), selCity, predExpr1);
+			selCity, predExpr1);
 
 	Select *sel = new Select(predicate, scan);
 	scan->setParent(sel);
@@ -1217,7 +1217,7 @@ void symantecJSON6(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* predUnnest = new expressions::EqExpression(
-			new BoolType(), lhsUnnest, rhsUnnest);
+			lhsUnnest, rhsUnnest);
 
 	OuterUnnest *unnestOp = new OuterUnnest(predUnnest, path, sel);
 //	Unnest *unnestOp = new Unnest(predicate, path, scan);
@@ -1322,9 +1322,9 @@ void symantecJSON6v1(map<string, dataset> datasetCatalog) {
 //	expressions::Expression* predExpr1 = new expressions::StringConstant(cityType);
 	expressions::Expression* predExpr1 = new expressions::StringConstant(country_codeType);
 //	expressions::Expression* predicate = new expressions::EqExpression(
-//			new BoolType(), selCity, predExpr1);
+//			selCity, predExpr1);
 	expressions::Expression* predicate = new expressions::EqExpression(
-				new BoolType(), selCountryCode, predExpr1);
+				selCountryCode, predExpr1);
 
 	Select *sel = new Select(predicate, scan);
 	scan->setParent(sel);
@@ -1343,7 +1343,7 @@ void symantecJSON6v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* predUnnest = new expressions::EqExpression(
-			new BoolType(), lhsUnnest, rhsUnnest);
+			lhsUnnest, rhsUnnest);
 
 	OuterUnnest *unnestOp = new OuterUnnest(predUnnest, path, sel);
 //	Unnest *unnestOp = new Unnest(predicate, path, scan);
@@ -1395,7 +1395,7 @@ void symantecJSON6v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed,
 			nullFilter, &ctx);
@@ -1464,7 +1464,7 @@ void symantecJSON7(map<string, dataset> datasetCatalog) {
 			id->getOriginalType(), arg, *id);
 	expressions::Expression* predExpr1 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predicate = new expressions::LtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 
 	Select *sel = new Select(predicate, scan);
 	scan->setParent(sel);
@@ -1483,7 +1483,7 @@ void symantecJSON7(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* predUnnest = new expressions::EqExpression(
-			new BoolType(), lhsUnnest, rhsUnnest);
+			lhsUnnest, rhsUnnest);
 
 	OuterUnnest *unnestOp = new OuterUnnest(predUnnest, path, sel);
 //	Unnest *unnestOp = new Unnest(predicate, path, scan);
@@ -1582,7 +1582,7 @@ void symantecJSON7v1(map<string, dataset> datasetCatalog) {
 			id->getOriginalType(), arg, *id);
 	expressions::Expression* predExpr1 = new expressions::IntConstant(idHigh);
 	expressions::Expression* predicate = new expressions::LtExpression(
-			new BoolType(), selID, predExpr1);
+			selID, predExpr1);
 
 	Select *sel = new Select(predicate, scan);
 	scan->setParent(sel);
@@ -1601,7 +1601,7 @@ void symantecJSON7v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* predUnnest = new expressions::EqExpression(
-			new BoolType(), lhsUnnest, rhsUnnest);
+			lhsUnnest, rhsUnnest);
 
 	OuterUnnest *unnestOp = new OuterUnnest(predUnnest, path, sel);
 //	Unnest *unnestOp = new Unnest(predicate, path, scan);
@@ -1653,7 +1653,7 @@ void symantecJSON7v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed,
 			nullFilter, &ctx);
@@ -1727,11 +1727,11 @@ void symantecJSON8(map<string, dataset> datasetCatalog) {
 //	expressions::Expression* predExpr1 = new expressions::StringConstant(botName);
 	expressions::Expression* predExpr2 = new expressions::StringConstant(langName);
 //	expressions::Expression* predicate1 = new expressions::EqExpression(
-//			new BoolType(), selBot, predExpr1);
+//			selBot, predExpr1);
 	expressions::Expression* predicate = new expressions::EqExpression(
-				new BoolType(), selLang, predExpr2);
+				selLang, predExpr2);
 //	expressions::Expression* predicate = new expressions::OrExpression(
-//					new BoolType(), predicate1, predicate2);
+//					predicate1, predicate2);
 
 	Select *sel = new Select(predicate, scan);
 	scan->setParent(sel);
@@ -1750,7 +1750,7 @@ void symantecJSON8(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* predUnnest = new expressions::EqExpression(
-			new BoolType(), lhsUnnest, rhsUnnest);
+			lhsUnnest, rhsUnnest);
 
 	OuterUnnest *unnestOp = new OuterUnnest(predUnnest, path, sel);
 	sel->setParent(unnestOp);
@@ -1850,7 +1850,7 @@ void symantecJSON9(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr1 = new expressions::IntConstant(yearNo);
 
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), selYear, predExpr1);
+			selYear, predExpr1);
 
 	Select *sel = new Select(predicate,scan);
 	scan->setParent(sel);
@@ -1931,7 +1931,7 @@ void symantecJSON9v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr1 = new expressions::IntConstant(yearNo);
 
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), selYear, predExpr1);
+			selYear, predExpr1);
 
 	Select *sel = new Select(predicate,scan);
 	scan->setParent(sel);
@@ -1962,7 +1962,7 @@ void symantecJSON9v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, sel,
 			&ctx);
@@ -2031,7 +2031,7 @@ void symantecJSON10(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr1 = new expressions::IntConstant(monthNo);
 
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), selMonth, predExpr1);
+			selMonth, predExpr1);
 
 	Select *sel = new Select(predicate,scan);
 	scan->setParent(sel);
@@ -2109,7 +2109,7 @@ void symantecJSON10v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr1 = new expressions::IntConstant(monthNo);
 
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), selMonth, predExpr1);
+			selMonth, predExpr1);
 
 	Select *sel = new Select(predicate,scan);
 	scan->setParent(sel);
@@ -2140,7 +2140,7 @@ void symantecJSON10v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, sel,
 			&ctx);
@@ -2209,11 +2209,11 @@ void symantecJSON11(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
 
 	expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
-					new BoolType(), selID, predExpr2);
+					selID, predExpr2);
 	expressions::Expression* predicate = new expressions::AndExpression(
-						new BoolType(), predicate1, predicate2);
+						predicate1, predicate2);
 
 	Select *sel = new Select(predicate,scan);
 	scan->setParent(sel);
@@ -2245,7 +2245,7 @@ void symantecJSON11(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* predNest = new expressions::EqExpression(
-			new BoolType(), lhsNest, rhsNest);
+			lhsNest, rhsNest);
 
 	//mat.
 	vector<RecordAttribute*> fields;
@@ -2358,11 +2358,11 @@ void symantecJSON11v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* predExpr2 = new expressions::IntConstant(idHigh);
 
 	expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 	expressions::Expression* predicate2 = new expressions::LtExpression(
-					new BoolType(), selID, predExpr2);
+					selID, predExpr2);
 	expressions::Expression* predicate = new expressions::AndExpression(
-						new BoolType(), predicate1, predicate2);
+						predicate1, predicate2);
 
 	Select *sel = new Select(predicate,scan);
 	scan->setParent(sel);
@@ -2394,7 +2394,7 @@ void symantecJSON11v1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* predNest = new expressions::EqExpression(
-			new BoolType(), lhsNest, rhsNest);
+			lhsNest, rhsNest);
 
 	//mat.
 	vector<RecordAttribute*> fields;

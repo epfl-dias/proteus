@@ -160,11 +160,11 @@ void symantecCSVJSON1(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		expressions::Expression* predicateNum = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 		Select *selNum = new Select(predicateNum, scanCSV);
 		scanCSV->setParent(selNum);
@@ -172,7 +172,7 @@ void symantecCSVJSON1(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr3 = new expressions::StringConstant(
 						botName);
 		expressions::Expression* predicateStr = new expressions::EqExpression(
-				new BoolType(), selBot, predExpr3);
+				selBot, predExpr3);
 
 		selCSV = new Select(predicateStr,selNum);
 		selNum->setParent(selCSV);
@@ -215,11 +215,11 @@ void symantecCSVJSON1(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		predicateJSON = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 	}
 
 	Select *selJSON = new Select(predicateJSON, scanJSON);
@@ -250,7 +250,7 @@ void symantecCSVJSON1(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - dim needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -330,7 +330,7 @@ void symantecCSVJSON1(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join,
 			&ctx);
@@ -426,11 +426,11 @@ void symantecCSVJSON2(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		expressions::Expression* predicateNum = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 		Select *selNum = new Select(predicateNum, scanCSV);
 		scanCSV->setParent(selNum);
@@ -438,7 +438,7 @@ void symantecCSVJSON2(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr3 = new expressions::StringConstant(
 						botName);
 		expressions::Expression* predicateStr = new expressions::EqExpression(
-				new BoolType(), selBot, predExpr3);
+				selBot, predExpr3);
 
 		selCSV = new Select(predicateStr,selNum);
 		selNum->setParent(selCSV);
@@ -484,19 +484,19 @@ void symantecCSVJSON2(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		expressions::Expression* predicateAnd = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 		expressions::Expression* predExpr3 = new expressions::IntConstant(
 						sizeLow);
 		expressions::Expression* predicate3 = new expressions::GtExpression(
-						new BoolType(), selSize, predExpr3);
+						selSize, predExpr3);
 
 		predicateJSON = new expressions::AndExpression(
-						new BoolType(), predicateAnd, predicate3);
+						predicateAnd, predicate3);
 	}
 
 	Select *selJSON = new Select(predicateJSON, scanJSON);
@@ -527,7 +527,7 @@ void symantecCSVJSON2(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - dim needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -607,7 +607,7 @@ void symantecCSVJSON2(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join,
 			&ctx);
@@ -703,11 +703,11 @@ void symantecCSVJSON3(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		expressions::Expression* predicateNum = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 		Select *selNum = new Select(predicateNum, scanCSV);
 		scanCSV->setParent(selNum);
@@ -715,7 +715,7 @@ void symantecCSVJSON3(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr3 = new expressions::StringConstant(
 						botName);
 		expressions::Expression* predicateStr = new expressions::EqExpression(
-				new BoolType(), selBot, predExpr3);
+				selBot, predExpr3);
 
 		selCSV = new Select(predicateStr,selNum);
 		selNum->setParent(selCSV);
@@ -766,19 +766,19 @@ void symantecCSVJSON3(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		expressions::Expression* predicateAnd = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 		expressions::Expression* predExpr3 = new expressions::IntConstant(
 						yearNo);
 		expressions::Expression* predicate3 = new expressions::EqExpression(
-						new BoolType(), selYear, predExpr3);
+						selYear, predExpr3);
 
 		predicateJSON = new expressions::AndExpression(
-						new BoolType(), predicateAnd, predicate3);
+						predicateAnd, predicate3);
 	}
 
 	Select *selJSON = new Select(predicateJSON, scanJSON);
@@ -809,7 +809,7 @@ void symantecCSVJSON3(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - dim needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -889,7 +889,7 @@ void symantecCSVJSON3(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join,
 			&ctx);
@@ -991,16 +991,16 @@ void symantecCSVJSON4(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr3 = new expressions::IntConstant(
 						classaHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		expressions::Expression* predicate3 = new expressions::LtExpression(
-						new BoolType(), selClassa, predExpr3);
+						selClassa, predExpr3);
 
 		expressions::Expression* predicateNum_ = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 		expressions::Expression* predicateNum = new expressions::AndExpression(
-						new BoolType(), predicateNum_, predicate3);
+						predicateNum_, predicate3);
 
 		Select *selNum = new Select(predicateNum, scanCSV);
 		scanCSV->setParent(selNum);
@@ -1008,7 +1008,7 @@ void symantecCSVJSON4(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr4 = new expressions::StringConstant(
 						botName);
 		expressions::Expression* predicateStr = new expressions::EqExpression(
-				new BoolType(), selBot, predExpr4);
+				selBot, predExpr4);
 
 		selCSV = new Select(predicateStr,selNum);
 		selNum->setParent(selCSV);
@@ -1060,19 +1060,19 @@ void symantecCSVJSON4(map<string, dataset> datasetCatalog) {
 		expressions::Expression* predExpr2 = new expressions::IntConstant(
 				idHigh);
 		expressions::Expression* predicate1 = new expressions::GtExpression(
-				new BoolType(), selID, predExpr1);
+				selID, predExpr1);
 		expressions::Expression* predicate2 = new expressions::LtExpression(
-				new BoolType(), selID, predExpr2);
+				selID, predExpr2);
 		expressions::Expression* predicateAnd = new expressions::AndExpression(
-				new BoolType(), predicate1, predicate2);
+				predicate1, predicate2);
 
 		expressions::Expression* predExpr3 = new expressions::IntConstant(
 						yearNo);
 		expressions::Expression* predicate3 = new expressions::EqExpression(
-						new BoolType(), selYear, predExpr3);
+						selYear, predExpr3);
 
 		predicateJSON = new expressions::AndExpression(
-						new BoolType(), predicateAnd, predicate3);
+						predicateAnd, predicate3);
 	}
 
 	Select *selJSON = new Select(predicateJSON, scanJSON);
@@ -1103,7 +1103,7 @@ void symantecCSVJSON4(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - dim needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -1175,7 +1175,7 @@ void symantecCSVJSON4(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
 	expressions::Expression* predNest = new expressions::EqExpression(
-			new BoolType(), lhsNest, rhsNest);
+			lhsNest, rhsNest);
 
 	//mat.
 	vector<RecordAttribute*> fields;
@@ -1315,7 +1315,7 @@ void symantecCSVJSON5(map<string, dataset> datasetCatalog) {
 		//id
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
 				idHigh);
-		predicateCSV = new expressions::LtExpression(new BoolType(), selID,
+		predicateCSV = new expressions::LtExpression(selID,
 				predExpr1);
 
 		selCSV = new Select(predicateCSV, scanCSV);
@@ -1357,7 +1357,7 @@ void symantecCSVJSON5(map<string, dataset> datasetCatalog) {
 
 		expressions::Expression* predExpr1 = new expressions::IntConstant(
 				idHigh);
-		predicateJSON = new expressions::LtExpression(new BoolType(), selID,
+		predicateJSON = new expressions::LtExpression(selID,
 				predExpr1);
 
 	}
@@ -1390,7 +1390,7 @@ void symantecCSVJSON5(map<string, dataset> datasetCatalog) {
 
 	/* join pred. */
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), leftPred, rightPred);
+			leftPred, rightPred);
 
 	/* left materializer - dim needed */
 	vector<RecordAttribute*> fieldsLeft;
@@ -1452,7 +1452,7 @@ void symantecCSVJSON5(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* rhsUnnest = new expressions::BoolConstant(true);
 	expressions::Expression* predUnnest = new expressions::EqExpression(
-			new BoolType(), lhsUnnest, rhsUnnest);
+			lhsUnnest, rhsUnnest);
 
 	OuterUnnest *unnestOp = new OuterUnnest(predUnnest, path, join);
 	join->setParent(unnestOp);
@@ -1508,7 +1508,7 @@ void symantecCSVJSON5(map<string, dataset> datasetCatalog) {
 	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
 	expressions::Expression* predRed = new expressions::EqExpression(
-			new BoolType(), lhsRed, rhsRed);
+			lhsRed, rhsRed);
 
 	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed,
 			nullFilter, &ctx);

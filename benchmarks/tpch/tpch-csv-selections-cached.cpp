@@ -237,7 +237,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, scan);
 		scan->setParent(sel1);
@@ -253,7 +253,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, scan);
 		scan->setParent(sel1);
@@ -263,7 +263,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
 		expressions::Expression* pred2 = new expressions::LtExpression(
-				new BoolType(), lhs2, rhs2);
+				lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
 		sel1->setParent(sel2);
@@ -281,7 +281,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, scan);
 		scan->setParent(sel1);
@@ -291,7 +291,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
 		expressions::Expression* pred2 = new expressions::LtExpression(
-				new BoolType(), lhs2, rhs2);
+				lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
 		sel1->setParent(sel2);
@@ -301,7 +301,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 		expressions::Expression* rhs3 = new expressions::IntConstant(
 				predicates.at(2));
 		expressions::Expression* pred3 = new expressions::LtExpression(
-				new BoolType(), lhs3, rhs3);
+				lhs3, rhs3);
 
 		Select *sel3 = new Select(pred3, sel2);
 		sel2->setParent(sel3);
@@ -320,7 +320,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, scan);
 		scan->setParent(sel1);
@@ -330,7 +330,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
 		expressions::Expression* pred2 = new expressions::LtExpression(
-				new BoolType(), lhs2, rhs2);
+				lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
 		sel1->setParent(sel2);
@@ -340,7 +340,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 		expressions::Expression* rhs3 = new expressions::IntConstant(
 				predicates.at(2));
 		expressions::Expression* pred3 = new expressions::LtExpression(
-				new BoolType(), lhs3, rhs3);
+				lhs3, rhs3);
 
 		Select *sel3 = new Select(pred3, sel2);
 		sel2->setParent(sel3);
@@ -350,7 +350,7 @@ void tpchOrderSelection1(map<string,dataset> datasetCatalog, vector<int> predica
 		expressions::Expression* rhs4 = new expressions::FloatConstant(
 				predicates.at(3));
 		expressions::Expression* pred4 = new expressions::LtExpression(
-				new BoolType(), lhs4, rhs4);
+				lhs4, rhs4);
 
 		Select *sel4 = new Select(pred4, sel3);
 		sel3->setParent(sel4);
@@ -476,7 +476,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, mat);
 		mat->setParent(sel1);
@@ -487,7 +487,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, mat);
 		mat->setParent(sel1);
@@ -497,7 +497,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
 		expressions::Expression* pred2 = new expressions::LtExpression(
-				new BoolType(), lhs2, rhs2);
+				lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
 		sel1->setParent(sel2);
@@ -510,7 +510,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, mat);
 		mat->setParent(sel1);
@@ -520,7 +520,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
 		expressions::Expression* pred2 = new expressions::LtExpression(
-				new BoolType(), lhs2, rhs2);
+				lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
 		sel1->setParent(sel2);
@@ -530,7 +530,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs3 = new expressions::IntConstant(
 				predicates.at(2));
 		expressions::Expression* pred3 = new expressions::LtExpression(
-				new BoolType(), lhs3, rhs3);
+				lhs3, rhs3);
 
 		Select *sel3 = new Select(pred3, sel2);
 		sel2->setParent(sel3);
@@ -542,7 +542,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, mat);
 		mat->setParent(sel1);
@@ -552,7 +552,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
 		expressions::Expression* pred2 = new expressions::LtExpression(
-				new BoolType(), lhs2, rhs2);
+				lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
 		sel1->setParent(sel2);
@@ -562,7 +562,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs3 = new expressions::IntConstant(
 				predicates.at(2));
 		expressions::Expression* pred3 = new expressions::LtExpression(
-				new BoolType(), lhs3, rhs3);
+				lhs3, rhs3);
 
 		Select *sel3 = new Select(pred3, sel2);
 		sel2->setParent(sel3);
@@ -572,7 +572,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs4 = new expressions::FloatConstant(
 				predicates.at(3));
 		expressions::Expression* pred4 = new expressions::LtExpression(
-				new BoolType(), lhs4, rhs4);
+				lhs4, rhs4);
 
 		Select *sel4 = new Select(pred4, sel3);
 		sel3->setParent(sel4);
@@ -712,7 +712,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, mat2);
 		mat2->setParent(sel1);
@@ -723,7 +723,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, mat2);
 		mat2->setParent(sel1);
@@ -733,7 +733,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
 		expressions::Expression* pred2 = new expressions::LtExpression(
-				new BoolType(), lhs2, rhs2);
+				lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
 		sel1->setParent(sel2);
@@ -746,7 +746,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, mat2);
 		mat2->setParent(sel1);
@@ -756,7 +756,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
 		expressions::Expression* pred2 = new expressions::LtExpression(
-				new BoolType(), lhs2, rhs2);
+				lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
 		sel1->setParent(sel2);
@@ -766,7 +766,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs3 = new expressions::IntConstant(
 				predicates.at(2));
 		expressions::Expression* pred3 = new expressions::LtExpression(
-				new BoolType(), lhs3, rhs3);
+				lhs3, rhs3);
 
 		Select *sel3 = new Select(pred3, sel2);
 		sel2->setParent(sel3);
@@ -778,7 +778,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, mat2);
 		mat2->setParent(sel1);
@@ -788,7 +788,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
 		expressions::Expression* pred2 = new expressions::LtExpression(
-				new BoolType(), lhs2, rhs2);
+				lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
 		sel1->setParent(sel2);
@@ -798,7 +798,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs3 = new expressions::IntConstant(
 				predicates.at(2));
 		expressions::Expression* pred3 = new expressions::LtExpression(
-				new BoolType(), lhs3, rhs3);
+				lhs3, rhs3);
 
 		Select *sel3 = new Select(pred3, sel2);
 		sel2->setParent(sel3);
@@ -808,7 +808,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs4 = new expressions::FloatConstant(
 				predicates.at(3));
 		expressions::Expression* pred4 = new expressions::LtExpression(
-				new BoolType(), lhs4, rhs4);
+				lhs4, rhs4);
 
 		Select *sel4 = new Select(pred4, sel3);
 		sel3->setParent(sel4);
@@ -959,7 +959,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, mat2);
 		mat2->setParent(sel1);
@@ -970,7 +970,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, mat2);
 		mat2->setParent(sel1);
@@ -980,7 +980,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
 		expressions::Expression* pred2 = new expressions::LtExpression(
-				new BoolType(), lhs2, rhs2);
+				lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
 		sel1->setParent(sel2);
@@ -993,7 +993,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, mat2);
 		mat2->setParent(sel1);
@@ -1003,7 +1003,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
 		expressions::Expression* pred2 = new expressions::LtExpression(
-				new BoolType(), lhs2, rhs2);
+				lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
 		sel1->setParent(sel2);
@@ -1013,7 +1013,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs3 = new expressions::IntConstant(
 				predicates.at(2));
 		expressions::Expression* pred3 = new expressions::LtExpression(
-				new BoolType(), lhs3, rhs3);
+				lhs3, rhs3);
 
 		Select *sel3 = new Select(pred3, sel2);
 		sel2->setParent(sel3);
@@ -1025,7 +1025,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs1 = new expressions::IntConstant(
 				predicates.at(0));
 		expressions::Expression* pred1 = new expressions::LtExpression(
-				new BoolType(), lhs1, rhs1);
+				lhs1, rhs1);
 
 		Select *sel1 = new Select(pred1, mat2);
 		mat2->setParent(sel1);
@@ -1035,7 +1035,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs2 = new expressions::FloatConstant(
 				predicates.at(1));
 		expressions::Expression* pred2 = new expressions::LtExpression(
-				new BoolType(), lhs2, rhs2);
+				lhs2, rhs2);
 
 		Select *sel2 = new Select(pred2, sel1);
 		sel1->setParent(sel2);
@@ -1045,7 +1045,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs3 = new expressions::IntConstant(
 				predicates.at(2));
 		expressions::Expression* pred3 = new expressions::LtExpression(
-				new BoolType(), lhs3, rhs3);
+				lhs3, rhs3);
 
 		Select *sel3 = new Select(pred3, sel2);
 		sel2->setParent(sel3);
@@ -1055,7 +1055,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
 		expressions::Expression* rhs4 = new expressions::FloatConstant(
 				predicates.at(3));
 		expressions::Expression* pred4 = new expressions::LtExpression(
-				new BoolType(), lhs4, rhs4);
+				lhs4, rhs4);
 
 		Select *sel4 = new Select(pred4, sel3);
 		sel3->setParent(sel4);

@@ -102,39 +102,39 @@ enum class gran_t {
 #ifndef NCUDA
 #define gpu_run(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 
-__host__ __device__ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true){
+__host__ __device__ inline void gpuAssert(cudaError_t code, const char *file, int line, bool doAbort=true){
     if (code != cudaSuccess) {
 #ifndef __CUDA_ARCH__
         fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-        if (abort) exit(code);
 #else
         printf("GPUassert: %s %s %d\n", "error", file, line);
 #endif
+        if (doAbort) exit(code);
     }
 }
 
-__host__ __device__ inline void gpuAssert(CUresult code, const char *file, int line, bool abort=true){
+__host__ __device__ inline void gpuAssert(CUresult code, const char *file, int line, bool doAbort=true){
     if (code != CUDA_SUCCESS) {
 #ifndef __CUDA_ARCH__
         const char * msg;
         cuGetErrorString(code, &msg);
         fprintf(stderr,"GPUassert: %s %s %d\n", msg, file, line);
-        if (abort) exit(code);
 #else
         printf("GPUassert: %s %s %d\n", "error", file, line);
 #endif
+        if (doAbort) exit(code);
     }
 }
 
-__host__ __device__ inline void gpuAssert(nvmlReturn_t code, const char *file, int line, bool abort=true){
+__host__ __device__ inline void gpuAssert(nvmlReturn_t code, const char *file, int line, bool doAbort=true){
     if (code != NVML_SUCCESS) {
 #ifndef __CUDA_ARCH__
         const char * msg = nvmlErrorString(code);
         fprintf(stderr,"GPUassert: %s %s %d\n", msg, file, line);
-        if (abort) exit(code);
 #else
         printf("GPUassert: %s %s %d\n", "error", file, line);
 #endif
+        if (doAbort) exit(code);
     }
 }
 

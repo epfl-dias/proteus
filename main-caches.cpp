@@ -277,7 +277,7 @@ void joinQueryRelationalRadixCache() {
 	expressions::Expression* right = new expressions::RecordProjection(intType,
 			rightArg, *attr2_f2);
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			new BoolType(), left, right);
+			left, right);
 	vector<materialization_mode> outputModes;
 	outputModes.insert(outputModes.begin(), EAGER);
 	outputModes.insert(outputModes.begin(), EAGER);
@@ -403,7 +403,7 @@ void materializer()
 	expressions::Expression* rhs = new expressions::IntConstant(5);
 
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 	Select sel = Select(predicate, &mat);
 	mat.setParent(&sel);
 
@@ -471,7 +471,7 @@ void selectionJSONFlat()
 	expressions::Expression* rhs = new expressions::IntConstant(5);
 
 	expressions::Expression* predicate = new expressions::GtExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);

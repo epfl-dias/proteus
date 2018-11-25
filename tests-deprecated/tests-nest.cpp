@@ -118,7 +118,7 @@ TEST(JSON, Nest) {
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);
@@ -292,7 +292,7 @@ TEST(JSON, NestTwoKeys) {
 	expressions::Expression* lhs = new expressions::BoolConstant(true);
 	expressions::Expression* rhs = new expressions::BoolConstant(true);
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	OuterUnnest unnestOp = OuterUnnest(predicate, path, &scan);
 	scan.setParent(&unnestOp);

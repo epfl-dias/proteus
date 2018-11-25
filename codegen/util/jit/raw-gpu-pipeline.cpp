@@ -268,6 +268,9 @@ void RawGpuPipelineGen::registerFunctions(){
     Function *intr_pqsort_llll = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_llll", getModule());
     registerFunction("qsort_llll", intr_pqsort_llll);
 
+    Function *intr_pqsort_lliiil = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_lliiil", getModule());
+    registerFunction("qsort_lliiil", intr_pqsort_lliiil);
+
     Function *intr_pqsort_iillllllll = Function::Create(intrqsort, Function::ExternalLinkage, "qsort_iillllllll", getModule());
     registerFunction("qsort_iillllllll", intr_pqsort_iillllllll);
 

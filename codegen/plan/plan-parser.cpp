@@ -1,6 +1,5 @@
 #include "plan/plan-parser.hpp"
 #include "plugins/gpu-col-scan-plugin.hpp"
-#include "plugins/gpu-col-scan-to-blocks-plugin.hpp"
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
 #ifndef NCUDA
 #include "operators/gpu/gpu-join.hpp"
@@ -25,6 +24,7 @@
 #include "operators/gpu/gpu-sort.hpp"
 #include "operators/unionall.hpp"
 #include "operators/split.hpp"
+#include "operators/dict-scan.hpp"
 
 #include "rapidjson/error/en.h"
 /* too primitive */
@@ -1408,6 +1408,32 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		GpuColScanPlugin * gpu_scan_pg = dynamic_cast<GpuColScanPlugin *>(pg);
 		if (gpu_scan_pg && gpu_scan_pg->getChild()) gpu_scan_pg->getChild()->setParent(newOp);
+	} else if(strcmp(opName, "dict-scan") == 0) {
+		assert(val.HasMember("relName"));
+		assert(val["relName"].IsString());
+		auto relName = val["relName"].GetString();
+
+		assert(val.HasMember("attrName"));
+		assert(val["attrName"].IsString());
+		auto attrName = val["attrName"].GetString();
+
+		assert(val.HasMember("regex"));
+		assert(val["regex"].IsString());
+		auto regex = val["regex"].GetString();
+
+		auto dictRelName = relName + std::string{"$dict$"} + attrName;
+
+		void * dict = StorageManager::getDictionaryOf(relName + std::string{"."} + attrName);
+
+		InputInfo * datasetInfo = (this->catalogParser).getOrCreateInputInfo(dictRelName);
+		RecordType * rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfo->exprType)->getNestedType())};
+		RecordAttribute * reg_as = new RecordAttribute(dictRelName, attrName, new DStringType(dict)); 
+		std::cout << "Registered: " << reg_as->getRelationName() << "." << reg_as->getAttrName() << std::endl;
+		rec->appendAttribute(reg_as);
+
+		datasetInfo->exprType = new BagType{*rec};
+
+		newOp =  new DictScan(this->ctx, RecordAttribute{relName, attrName, new DStringType(dict)}, regex, *reg_as);
 #ifndef NCUDA
 	} else if(strcmp(opName,"cpu-to-gpu") == 0)	{
 		/* parse operator input */
@@ -1978,6 +2004,40 @@ int lookupInDictionary(string s, const rapidjson::Value& val){
 		return document[s.c_str()].GetInt();
 	}
 }
+
+
+
+expressions::extract_unit ExpressionParser::parseUnitRange(std::string range, RawContext * ctx) {
+	if (range == "YEAR" 		) return expressions::extract_unit::YEAR;
+	if (range == "MONTH" 		) return expressions::extract_unit::MONTH;
+	if (range == "DAY" 			) return expressions::extract_unit::DAYOFMONTH;
+	if (range == "HOUR" 		) return expressions::extract_unit::HOUR;
+	if (range == "MINUTE" 		) return expressions::extract_unit::MINUTE;
+	if (range == "SECOND" 		) return expressions::extract_unit::SECOND;
+	if (range == "QUARTER" 		) return expressions::extract_unit::QUARTER;
+	if (range == "WEEK" 		) return expressions::extract_unit::WEEK;
+	if (range == "MILLISECOND" 	) return expressions::extract_unit::MILLISECOND;
+	if (range == "DOW" 			) return expressions::extract_unit::DAYOFWEEK;
+	if (range == "DOY" 			) return expressions::extract_unit::DAYOFYEAR;
+	if (range == "DECADE" 		) return expressions::extract_unit::DECADE;
+	if (range == "CENTURY" 		) return expressions::extract_unit::CENTURY;
+	if (range == "MILLENNIUM" 	) return expressions::extract_unit::MILLENNIUM;
+	// case "YEAR_TO_MONTH" 	:
+	// case "DAY_TO_HOUR" 		:
+	// case "DAY_TO_MINUTE" 	:
+	// case "DAY_TO_SECOND" 	:
+	// case "HOUR_TO_MINUTE" 	:
+	// case "HOUR_TO_SECOND" 	:
+	// case "MINUTE_TO_SECOND" :
+	// case "EPOCH" 			:
+	// default:{
+	string err = string("Unsupoport TimeUnitRange: ") + range;
+	LOG(ERROR)<< err;
+	throw runtime_error(err);
+	// }
+}
+
+
 /*
  *	enum ExpressionId	{ CONSTANT, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE };
  *	FIXME / TODO No Merge yet!! Will be needed for parallelism!
@@ -2153,9 +2213,9 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 	} else if (strcmp(valExpression, "recordConstruction") == 0) {
 		assert(!isNull);
 		/* exprType */
-		assert(val.HasMember(keyExprType));
-		assert(val[keyExprType].IsObject());
-		ExpressionType *exprType = parseExpressionType(val[keyExprType]);
+		// assert(val.HasMember(keyExprType));
+		// assert(val[keyExprType].IsObject());
+		// ExpressionType *exprType = parseExpressionType(val[keyExprType]);
 
 		/* attribute construction(s) */
 		assert(val.HasMember(keyAttsConstruction));
@@ -2177,8 +2237,17 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 					new expressions::AttributeConstruction(newAttrName,newAttrExpr);
 			newAtts->push_back(*newAttr);
 		}
-		retValue = new expressions::RecordConstruction(exprType,*newAtts);
+		retValue = new expressions::RecordConstruction(*newAtts);
+	} else if (strcmp(valExpression, "extract") == 0) {
+		assert(val.HasMember("unitrange"));
+		assert(val["unitrange"].IsString());
 
+		assert(val.HasMember(keyInnerExpr));
+		assert(val[keyInnerExpr].IsObject());
+		expressions::Expression *expr = parseExpression(val[keyInnerExpr], ctx);
+
+		auto u = parseUnitRange(val["unitrange"].GetString(), ctx);
+		retValue = new expressions::ExtractExpression(expr, u);
 	} else if (strcmp(valExpression,"if") == 0)	{
 		assert(!isNull);
 		/* if cond */
@@ -2213,7 +2282,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		retValue = new expressions::EqExpression(new BoolType(),leftExpr,rightExpr);
+		retValue = new expressions::EqExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "neq") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2226,7 +2295,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 				assert(val[rightArg].IsObject());
 				expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-				retValue = new expressions::NeExpression(new BoolType(),leftExpr,rightExpr);
+				retValue = new expressions::NeExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "lt") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2239,7 +2308,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 				assert(val[rightArg].IsObject());
 				expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-				retValue = new expressions::LtExpression(new BoolType(),leftExpr,rightExpr);
+				retValue = new expressions::LtExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "le") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2252,7 +2321,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		retValue = new expressions::LeExpression(new BoolType(),leftExpr,rightExpr);
+		retValue = new expressions::LeExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "gt") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2265,7 +2334,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		retValue = new expressions::GtExpression(new BoolType(),leftExpr,rightExpr);
+		retValue = new expressions::GtExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "ge") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2278,7 +2347,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		retValue = new expressions::GeExpression(new BoolType(),leftExpr,rightExpr);
+		retValue = new expressions::GeExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "and") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2291,7 +2360,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		retValue = new expressions::AndExpression(new BoolType(),leftExpr,rightExpr);
+		retValue = new expressions::AndExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "or") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2304,7 +2373,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		retValue = new expressions::OrExpression(new BoolType(),leftExpr,rightExpr);
+		retValue = new expressions::OrExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "add") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2341,6 +2410,22 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		expressions::Expression *expr = parseExpression(val[keyInnerExpr], ctx);
 
 		retValue = new expressions::NegExpression(expr);
+	} else if (strcmp(valExpression, "is_not_null") == 0) {
+		assert(!isNull);
+		/* right child */
+		assert(val.HasMember(keyInnerExpr));
+		assert(val[keyInnerExpr].IsObject());
+		expressions::Expression *expr = parseExpression(val[keyInnerExpr], ctx);
+
+		retValue = new expressions::TestNullExpression(expr, false);
+	} else if (strcmp(valExpression, "is_null") == 0) {
+		assert(!isNull);
+		/* right child */
+		assert(val.HasMember(keyInnerExpr));
+		assert(val[keyInnerExpr].IsObject());
+		expressions::Expression *expr = parseExpression(val[keyInnerExpr], ctx);
+
+		retValue = new expressions::TestNullExpression(expr, true);
 	} else if (strcmp(valExpression, "cast") == 0) {
 		assert(!isNull);
 		/* right child */
@@ -2366,8 +2451,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
-		retValue = new expressions::MultExpression(exprType,leftExpr,rightExpr);
+		retValue = new expressions::MultExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "div") == 0) {
 		assert(!isNull);
 		/* left child */
@@ -2380,8 +2464,7 @@ expressions::Expression* ExpressionParser::parseExpression(const rapidjson::Valu
 		assert(val[rightArg].IsObject());
 		expressions::Expression *rightExpr = parseExpression(val[rightArg], ctx);
 
-		ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
-		retValue = new expressions::DivExpression(exprType,leftExpr,rightExpr);
+		retValue = new expressions::DivExpression(leftExpr,rightExpr);
 	} else if (strcmp(valExpression, "merge") == 0) {
 		assert(!isNull);
 		string err = string("(Still) unsupported expression: ") + valExpression;
@@ -2453,7 +2536,6 @@ ExpressionType* ExpressionParser::parseExpressionType(const rapidjson::Value& va
 		assert(val.HasMember("inner"));
 		assert(val["inner"].IsObject());
 		ExpressionType *innerType = parseExpressionType(val["inner"]);
-		cout << "BAG" << endl;
 		return new BagType(*innerType);
 	} else if (strcmp(valExprType, "list") == 0) {
 		assert(val.HasMember("inner"));
@@ -2534,7 +2616,6 @@ RecordAttribute* ExpressionParser::parseRecordAttr(const rapidjson::Value& val, 
 	assert(val[keyAttrName].IsString());
 	string attrName = val[keyAttrName].GetString();
 
-	std::cout << relName << " " << attrName << std::endl;
 	const RecordAttribute * attr = getAttribute(relName, attrName);
 
 	int attrNo;
@@ -2828,31 +2909,29 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 	return newPg;
 }
 
-/**
- * {"datasetname": {"path": "foo", "type": { ... } }
- */
-CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context): exprParser(*this), context(context) {
-	//Input Path
-	const char *nameJSON = catalogPath;
+#include <dirent.h>
+#include <stdlib.h>
 
+void CatalogParser::parseCatalogFile(std::string file){
 	//key aliases
 	const char *keyInputPath = "path";
 	const char *keyExprType =  "type";
 
 	//Prepare Input
 	struct stat statbuf;
-	stat(nameJSON, &statbuf);
+	stat(file.c_str(), &statbuf);
 	size_t fsize = statbuf.st_size;
 
-	int fd = open(nameJSON, O_RDONLY);
-	if (fd == -1) {
-		throw runtime_error(string("json.open"));
+	int fd = open(file.c_str(), O_RDONLY);
+	if (fd < 0) {
+		std::string err = "failed to open file: " + file;
+		LOG(ERROR)<< err;
+		throw runtime_error(err);
 	}
-
 	const char *bufJSON = (const char*) mmap(NULL, fsize, PROT_READ,
 			MAP_PRIVATE, fd, 0);
 	if (bufJSON == MAP_FAILED ) {
-		const char *err = "json.mmap";
+		std::string err = "json.mmap";
 		LOG(ERROR)<< err;
 		throw runtime_error(err);
 	}
@@ -2873,7 +2952,7 @@ CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context): e
 
 	for (rapidjson::Value::ConstMemberIterator itr = document.MemberBegin();
 			itr != document.MemberEnd(); ++itr) {
-		printf("Key of member is %s\n", itr->name.GetString());
+		// printf("Key of member is %s\n", itr->name.GetString());
 
 		assert(itr->value.IsObject());
 		assert((itr->value)[keyInputPath].IsString());
@@ -2885,9 +2964,54 @@ CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context): e
 		info->path = inputPath;
 		//Initialized by parsePlugin() later on
 		info->oidType = NULL;
-//		(this->inputs)[itr->name.GetString()] = info;
+//			(this->inputs)[itr->name.GetString()] = info;
 		(this->inputs)[info->path] = info;
+
+		setInputInfo(info->path, info);
 	}
+}
+
+void CatalogParser::parseDir(std::string dir){
+	//FIXME: we can do that in a portable way with C++17, but for now because we
+	// are using libstdc++, upgrading to C++17 and using <filesystem> causes 
+	// linking problems in machines with old gcc version
+	DIR *d = opendir(dir.c_str());
+	if (!d) {
+		std::string err = "Failed to open dir: " + dir + " (" + strerror(errno) + ")";
+		LOG(ERROR)<< err;
+		throw runtime_error(err);
+	}
+
+	dirent *entry;
+	while ((entry = readdir(d)) != NULL) {
+		std::string fname{entry->d_name};
+
+		if (strcmp(entry->d_name, "..") == 0) continue;
+		if (strcmp(entry->d_name, "." ) == 0) continue;
+
+		std::string origd{dir + "/" + fname};
+		//Use this to canonicalize paths:
+		// std::string pathd{realpath(origd.c_str(), NULL)};
+		std::string pathd{origd};
+
+		struct stat s;
+		stat(pathd.c_str(), &s);
+
+		if (S_ISDIR(s.st_mode)) {
+			parseDir(pathd);
+		} else if (fname == "catalog.json" && S_ISREG(s.st_mode)){
+			parseCatalogFile(pathd);
+		} /* else skipping */
+	}
+	closedir(d);
+}
+
+
+/**
+ * {"datasetname": {"path": "foo", "type": { ... } }
+ */
+CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context): exprParser(*this), context(context) {
+	parseDir(catalogPath);
 }
 
 

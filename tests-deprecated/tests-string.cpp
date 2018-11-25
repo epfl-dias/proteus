@@ -97,7 +97,7 @@ TEST(JSMN, String) {
 	expressions::Expression* rhs = new expressions::StringConstant(neededName);
 
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
@@ -167,7 +167,7 @@ TEST(JSON, String) {
 	expressions::Expression* rhs = new expressions::StringConstant(neededName);
 
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);
@@ -239,7 +239,7 @@ TEST(CSV, String) {
 	expressions::Expression* rhs = new expressions::StringConstant(neededName);
 
 	expressions::Expression* predicate = new expressions::EqExpression(
-			new BoolType(), lhs, rhs);
+			lhs, rhs);
 
 	Select sel = Select(predicate, &scan);
 	scan.setParent(&sel);

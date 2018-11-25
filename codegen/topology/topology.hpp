@@ -59,7 +59,7 @@ public:
         cpunumanode(uint32_t                id,
             const std::vector<uint32_t>    &local_cores, 
             uint32_t                        index_in_topo,
-            //do not remove argument!!! 
+            //do not remove argument!!!
             topologyonly_construction = {});
 
         void * alloc(size_t bytes) const;

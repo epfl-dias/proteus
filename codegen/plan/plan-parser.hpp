@@ -48,6 +48,9 @@
 #include "expressions/expressions.hpp"
 #include "expressions/expressions-hasher.hpp"
 
+#include "rapidjson/reader.h"
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
 
 using namespace rapidjson;
 using namespace std;
@@ -70,6 +73,7 @@ public:
 	RecordAttribute* 		 parseRecordAttr(const rapidjson::Value& val, const ExpressionType * defaultType = NULL);
 	Monoid parseAccumulator(const char *acc);
 private:
+	expressions::extract_unit parseUnitRange(std::string range, RawContext * ctx);
 	RecordType * 			 getRecordType(string relName);
 	const RecordAttribute *	 getAttribute (string relName, string attrName);
 };
@@ -102,6 +106,9 @@ public:
 		inputs[inputName] = info;
 	}
 private:
+	void parseCatalogFile	(std::string file);
+	void parseDir 			(std::string dir );
+
 	ExpressionParser exprParser;
 	map<string,InputInfo*> inputs;
 };
