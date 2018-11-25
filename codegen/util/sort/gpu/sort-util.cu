@@ -64,33 +64,47 @@ struct minalignof<T>{
 //     }
 // };
 
-/**
- * Bacerafull! it expects the template arguments to be the reverse order of the wanted!
- */
 template<typename T, typename... Trest>
-struct alignas(minalignof<T, Trest...>::get()) qsort_packed_t{
-    qsort_packed_t<Trest...>   r;
-    char pad[sizeof(qsort_packed_t<Trest...>) % alignof(T)];
+struct qsort_helper_t; //to get over gcc not believing constexpr is constexpr...
+
+/**
+ * Bacerafull!
+ * It expects the template arguments to be the reverse order of the wanted!
+ */
+template<size_t alignment, /* alignment is needed because of a bug in gcc... */
+    typename T, typename... Trest>
+struct alignas(alignment) qsort_packed_t{
+    qsort_helper_t<Trest...>   r;
+    char pad[sizeof(qsort_helper_t<Trest...>) % alignof(T)];
     T                   a;
 
-    __host__ __device__ bool operator==(const qsort_packed_t<T, Trest...> &other) const{
+    __host__ __device__ bool operator==(const qsort_packed_t<alignment, T, Trest...> &other) const{
         return (r == other.r) && (a == other.a);
     }
 
-    __host__ __device__ bool operator<(const qsort_packed_t<T, Trest...> &other) const{
+    __host__ __device__ bool operator<(const qsort_packed_t<alignment, T, Trest...> &other) const{
         return (r == other.r) ? (a < other.a) : (r < other.r);
     }
 } __attribute__((packed));
 
-template<typename T>
-struct qsort_packed_t<T>{
+template<typename T, typename... Trest>
+struct qsort_helper_t{
+    qsort_packed_t<minalignof<T, Trest...>::get(), T, Trest...> r;
+
+    __host__ __device__ bool operator==(const qsort_helper_t<T, Trest...> &other) const{
+        return (r == other.r);
+    }
+};
+
+template<size_t alignment, typename T>
+struct qsort_packed_t<alignment, T>{
     T                   a;
 
-    __host__ __device__ bool operator==(const qsort_packed_t<T> &other) const{
+    __host__ __device__ bool operator==(const qsort_packed_t<alignment, T> &other) const{
         return a == other.a;
     }
 
-    __host__ __device__ bool operator<(const qsort_packed_t<T> &other) const{
+    __host__ __device__ bool operator<(const qsort_packed_t<alignment, T> &other) const{
         return a < other.a;
     }
 };
@@ -105,7 +119,7 @@ struct qsort_unaligned_t{
     // thrust's sort. (maybe an alignment issue?)
     union {
         qsort_unaligned_t<Trest...> r;
-        T a[((sizeof(qsort_packed_t<Trest...>) + alignof(T) - 1) / alignof(T)) + 1];
+        T a[((sizeof(qsort_helper_t<Trest...>) + alignof(T) - 1) / alignof(T)) + 1];
     };
 
     __host__ __device__ bool operator==(const qsort_unaligned_t<T, Trest...> &other) const{
@@ -117,7 +131,7 @@ struct qsort_unaligned_t{
     }
 
     T curr() const{
-        return a[(sizeof(qsort_packed_t<Trest...>) / sizeof(T))];
+        return a[(sizeof(qsort_helper_t<Trest...>) / sizeof(T))];
     }
 };
 
