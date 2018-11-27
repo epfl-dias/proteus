@@ -10,5 +10,3 @@ foreach(target
 		ARCHIVE DESTINATION lib
 		)
 endforeach(target)
-
-# One test to rule them all
