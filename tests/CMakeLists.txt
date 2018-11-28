@@ -21,7 +21,7 @@ endforeach(target)
 # One test to rule them all
 file(GLOB gtest_src *.cpp *.cu)
 add_executable(unit-tests ${gtest_src})
-set_target_properties(unit-tests PROPERTIES COMPILE_FLAGS "${LLVM_CXXFLAGS} -march=native")
+set_target_properties(unit-tests PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
 target_link_libraries(unit-tests ${gtest_libs})
 install(TARGETS unit-tests
 	RUNTIME DESTINATION raw
