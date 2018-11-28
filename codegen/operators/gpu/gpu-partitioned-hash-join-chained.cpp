@@ -789,7 +789,7 @@ GpuPartitionedHashJoinChained::GpuPartitionedHashJoinChained(
                 probe_keyexpr(probe_keyexpr),
                 build_minor_keyexpr(build_minor_keyexpr),
                 probe_minor_keyexpr(probe_minor_keyexpr),
-                hash_bits(hash_bits),
+                hash_bits(HT_LOGSIZE),
                 BinaryRawOperator(build_child, probe_child),
                 maxBuildInputSize(maxBuildInputSize),
                 maxProbeInputSize(maxProbeInputSize),
@@ -811,8 +811,6 @@ GpuPartitionedHashJoinChained::GpuPartitionedHashJoinChained(
     //log_parts = 15;
     log_parts2 = log_parts / 2;
     log_parts1 = log_parts - log_parts2;
-
-	this->hash_bits = HT_LOGSIZE;
 }
 
 

@@ -1,8 +1,7 @@
-file(GLOB jsmn_src
-	*.c
-    )
+set(jsmn_src
+	jsmn.c
+	)
 add_library(jsmn SHARED ${jsmn_src})
-set_target_properties(jsmn PROPERTIES COMPILE_FLAGS ${LLVM_CFLAGS})
 
 install(TARGETS jsmn
 	RUNTIME DESTINATION bin

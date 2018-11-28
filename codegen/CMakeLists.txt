@@ -1,70 +1,168 @@
-file(GLOB codegen_src
-	common/*.cpp
-	common/gpu/*.cpp
-	util/*.cpp
-	util/jit/*.cpp
-	util/gpu/*.cpp
-	util/radix/*.cpp
-	util/radix/joins/*.cpp
-	util/radix/aggregations/*.cpp
-	values/*.cpp
-	expressions/*.cpp
-	plugins/*.cpp
-	plugins/output/*.cpp
-	operators/*.cpp
-	operators/gpu/*.cpp
-	memory/*.cpp
-	plan/*.cpp
-	postgres/*.cpp
-	storage/*.cpp
-	topology/*.cpp
-	multigpu/common.cpp
+# Pure, regular C++ files
+set(codegen_cxx
+	common/common.cpp
+	common/gpu/gpu-common.cpp
+	common/symantec-config.cpp
+	expressions/binary-operators.cpp
+	expressions/expressions-dot-evaluator.cpp
+	expressions/expressions-flusher.cpp
+	expressions/expressions-generator.cpp
+	expressions/expressions.cpp
+	expressions/path.cpp
+	expressions/expressions-hasher.cpp
+	memory/memory-allocator.cpp
+	operators/cpu-to-gpu.cpp
+	operators/dict-scan.cpp
+	operators/flush.cpp
+	operators/gpu/gpu-join.cpp
+	operators/gpu/gpu-materializer-expr.cpp
+	operators/gpu/gpu-reduce.cpp
+	operators/gpu/gpu-sort.cpp
+	operators/gpu/gpu-to-cpu.cpp
+	operators/gpu/gmonoids.cpp
+	operators/gpu/gpu-hash-group-by-chained.cpp
+	operators/gpu/gpu-hash-join-chained.cpp
+	operators/join.cpp
+	operators/materializer-expr.cpp
+	operators/nest-opt.cpp
+	operators/nest.cpp
+	operators/null-filter.cpp
+	operators/outer-unnest.cpp
+	operators/print.cpp
+	operators/project.cpp
+	operators/radix-join.cpp
+	operators/radix-nest.cpp
+	operators/reduce-nopred.cpp
+	operators/reduce-opt-nopred.cpp
+	operators/reduce-opt.cpp
+	operators/reduce.cpp
+	operators/root.cpp
+	operators/scan.cpp
+	operators/select.cpp
+	operators/sort.cpp
+	operators/split.cpp
+	operators/unionall.cpp
+	operators/unnest.cpp
+	operators/exchange.cpp
+	operators/hash-group-by-chained.cpp
+	operators/hash-join-chained.cpp
+	operators/hash-rearrange-buffered.cpp
+	operators/hash-rearrange.cpp
+	operators/packet-zip.cpp
+	plan/plan-parser.cpp
+	plugins/binary-col-plugin.cpp
+	plugins/binary-internal-plugin.cpp
+	plugins/binary-row-plugin.cpp
+	plugins/csv-plugin.cpp
+	plugins/json-jsmn-plugin.cpp
+	plugins/json-plugin.cpp
+	plugins/output/plugins-output.cpp
+	plugins/csv-plugin-pm.cpp
+	plugins/scan-to-blocks-sm-plugin.cpp
+	storage/raw-storage-manager.cpp
+	topology/affinity_manager.cpp
+	topology/topology.cpp
+	util/atois.cpp
+	util/gpu/gpu-intrinsics.cpp
+	util/gpu/gpu-raw-context.cpp
+	util/jit/raw-cpu-module.cpp
+	util/jit/raw-gpu-module.cpp
+	util/jit/raw-module.cpp
+	util/jit/raw-cpu-pipeline.cpp
+	util/jit/raw-gpu-pipeline.cpp
+	util/jsmn/jsmn.cpp
+	util/radix/aggregations/radix-aggr.cpp
+	util/radix/joins/radix-join.cpp
+	util/raw-caching.cpp
+	util/raw-catalog.cpp
+	util/raw-pipeline.cpp
+	util/raw-context.cpp
+	util/raw-functions.cpp
+	util/raw-memory-manager.cpp
+	values/expressionTypes.cpp
+	)
+
+# C++ files requiring CUDA headers
+set(codegen_cxx_cu
+	operators/block-to-tuples.cpp
+	operators/gpu/gpu-hash-rearrange.cpp
+	operators/gpu/gpu-partitioned-hash-join-chained.cpp
+	operators/mem-broadcast-device.cpp
+	operators/mem-move-local-to.cpp
+	operators/mem-move-device.cpp
+	)
+
+# Pure CUDA files
+set(codegen_cu
+# LSC: 30.11.2018
+#       Work around issue in:
+#         /usr/local/cuda/targets/x86_64-linux/include/thrust/system/cuda/detail/cub/util_debug.cuh 117-136
+#       Which fails with va_printf undefined.
+	#util/sort/gpu/sort-util.cu
+
+# LSC: 30.11.2018
+#       For now we build two times this, as otherwise we get linking and/or
+#       runtime error as LLVM cannot yet generate relocatable ptx code.
 	multigpu/buffer_manager.cu
 	)
-foreach(target
-	${codegen_src}
+
+foreach(target ${codegen_cu})
+	set_source_files_properties(${target} PROPERTIES LANGUAGE CXX)
+endforeach()
+
+foreach(target ${codegen_cxx_cu} ${codegen_cu})
+	set_source_files_properties(${target} PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
+endforeach()
+
+#-----------------------------------------------------------------------------
+# LSC: Hopefully we will soon be able to remove this section, where we call
+#      straight to NVCC
+set(CUDA_WORKDIR ${CMAKE_CURRENT_BINARY_DIR})
+
+if(NOT (${CUDA} STREQUAL "CUDA-NOTFOUND"))
+	set(codegen_cu_objs
+		"buffer_manager.cubin.o"
+		"sort-util.o"
 	)
-	SET_SOURCE_FILES_PROPERTIES(${target} PROPERTIES LANGUAGE CXX)
-endforeach(target)
+endif()
 
-get_property(inc_dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-string(REGEX REPLACE "([^;]+)" "-I\\1" inc_dirs2 "${inc_dirs}")
-
-if (NOT (${CUDA} STREQUAL "CUDA-NOTFOUND"))
 add_custom_command(OUTPUT sort-util.o
-                   COMMAND nvcc ${CUDA_CUFLAGS} -O3 --generate-line-info ${inc_dirs2} -c ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cu -o ${CMAKE_CURRENT_BINARY_DIR}/sort-util.o
-                   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cu ${CMAKE_CURRENT_SOURCE_DIR}/common/gpu/gpu-common.hpp ${CMAKE_CURRENT_SOURCE_DIR}/../common/common.hpp ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cuh
-                   # WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                   )
+	COMMAND nvcc ${CUDA_CUFLAGS}
+		-c ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cu
+		-o sort-util.o
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cu
+	IMPLICIT_DEPENDS CXX ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cu
+	WORKING_DIRECTORY ${CUDA_WORKDIR}
+	COMMENT "Building CUDA object ${CUDA_WORKDIR}/sort-util.o"
+)
 
 add_custom_command(OUTPUT buffer_manager.cubin
-                   COMMAND nvcc ${CUDA_CUFLAGS} -O3 --generate-line-info ${inc_dirs2} -dc --cubin ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu -o ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin
-                   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cuh ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/threadsafe_device_stack.cuh ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/threadsafe_stack.cuh
-                   # WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                   )
+	COMMAND nvcc ${CUDA_CUFLAGS}
+		-dc --cubin ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu
+		-o buffer_manager.cubin
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu
+	IMPLICIT_DEPENDS CXX ${CMAKE_CURRENT_SOURCE_DIR}/multigpu/buffer_manager.cu
+	WORKING_DIRECTORY ${CUDA_WORKDIR}
+	COMMENT "Building CUDA object ${CUDA_WORKDIR}/buffer_manager.cubin"
+)
 
 add_custom_command(OUTPUT buffer_manager.cubin.o
-                   COMMAND ld -r -b binary buffer_manager.cubin -o ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o
-                   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin
-                   # WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                   )
+	COMMAND ld -r -b binary
+		buffer_manager.cubin
+		-o buffer_manager.cubin.o
+	DEPENDS buffer_manager.cubin
+	WORKING_DIRECTORY ${CUDA_WORKDIR}
+	COMMENT "Linking CUDA object ${CUDA_WORKDIR}/buffer_manager.cubin.o"
+)
+#-----------------------------------------------------------------------------
 
-add_custom_target(buffer_manager     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin)
-add_custom_target(buffer_manager_obj DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o)
-
-
-add_library(codegen SHARED ${codegen_src} ${CMAKE_CURRENT_BINARY_DIR}/buffer_manager.cubin.o ${CMAKE_CURRENT_BINARY_DIR}/sort-util.o)
-else()
-    add_library(codegen SHARED ${codegen_src})
-endif()
-
-set_target_properties(codegen PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
-
-target_link_libraries(codegen jsmn)
-if (NOT (${CUDA} STREQUAL "CUDA-NOTFOUND"))
-    add_dependencies(codegen buffer_manager_obj)
-endif()
-
+add_library(codegen SHARED
+		${codegen_cxx_cu}
+		${codegen_cu}
+		${codegen_cu_objs}
+		${codegen_cxx}
+	)
+target_link_libraries(codegen ${LLVM_LIBS} jsmn -lnuma)
 install(TARGETS codegen
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
@@ -72,3 +170,5 @@ install(TARGETS codegen
 	)
 
 install(DIRECTORY DESTINATION raw/generated_code)
+#enable_testing()
+#add_test(UT codegen-tests) # Add codegen-specific tests?

@@ -1,3 +1,5 @@
+set(gtest_libs ${GTEST_MAIN} ${GTEST} ${default_libs})
+
 foreach(target
 	tests-joins
 	tests-json
@@ -9,7 +11,6 @@ foreach(target
 	tests-threads
 	)
 	add_executable(unit-${target} ${target}.cpp test-utils.cpp)
-	set_target_properties(unit-${target} PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
 	target_link_libraries(unit-${target} ${gtest_libs})
 	install(TARGETS unit-${target}
 		RUNTIME DESTINATION raw
@@ -21,7 +22,6 @@ endforeach(target)
 # One test to rule them all
 file(GLOB gtest_src *.cpp *.cu)
 add_executable(unit-tests ${gtest_src})
-set_target_properties(unit-tests PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
 target_link_libraries(unit-tests ${gtest_libs})
 install(TARGETS unit-tests
 	RUNTIME DESTINATION raw

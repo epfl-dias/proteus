@@ -24,7 +24,6 @@ foreach(target
 	tpch-json-unnests
 	)
 	add_executable(${target} ${target}.cpp)
-	set_target_properties(${target} PROPERTIES COMPILE_FLAGS ${LLVM_CXXFLAGS})
 	target_link_libraries(${target} ${default_libs})
 	install(TARGETS ${target}
 		RUNTIME DESTINATION raw
