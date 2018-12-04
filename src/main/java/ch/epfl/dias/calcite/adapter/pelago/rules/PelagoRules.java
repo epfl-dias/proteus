@@ -968,10 +968,14 @@ public class PelagoRules {
 //                swapped,
 //                aboveCond
 //            );
-            return LogicalFilter.create(
+
+            RelNode root = LogicalFilter.create(
                 swapped,
                 aboveCond
             );
+
+            rel.getCluster().getPlanner().ensureRegistered(root, join);
+            return root;
         }
     }
 

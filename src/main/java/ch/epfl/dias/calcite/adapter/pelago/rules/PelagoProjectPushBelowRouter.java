@@ -19,7 +19,7 @@ public class PelagoProjectPushBelowRouter extends RelOptRule {
     PelagoRouter  router  = (PelagoRouter ) call.rel(1);
 
     PelagoProject new_project = project.copy(null, router.getInput(), project.getProjects(), project.getRowType());
-    call.transformTo(router.copy(null, new_project, router.distribution));
+    call.transformTo(router.copy(null, new_project, router.getDistribution()));
 
 
 //

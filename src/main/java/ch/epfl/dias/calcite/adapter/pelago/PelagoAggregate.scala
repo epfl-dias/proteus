@@ -57,7 +57,7 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
     if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
       super.computeSelfCost(planner, mq).multiplyBy(0.1 * 1e2 * rf * Math.log(getInput.getRowType.getFieldCount))
     } else {
-      super.computeSelfCost(planner, mq).multiplyBy(0.1 * 1e2 * rf * Math.log(getInput.getRowType.getFieldCount))
+      super.computeSelfCost(planner, mq).multiplyBy(10 * 1e2 * rf * Math.log(getInput.getRowType.getFieldCount))
     }
   }
 

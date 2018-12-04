@@ -47,11 +47,10 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Higher cost if rows are wider discourages pushing a project through an
     val rf = {
-//      if (!getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
-//        if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.0001
-//        else 0.001
-//      } else
-      if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
+      if (!getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
+        if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.0001
+        else 0.001
+      } else if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
         0.001
       } else {
         0.1
@@ -60,7 +59,7 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
     // exchange.
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
-    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(rf)
+    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(rf * 100)
 
 //    if (input.getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == toDevice) planner.getCostFactory.makeHugeCost()
 //    else planner.getCostFactory.makeTinyCost

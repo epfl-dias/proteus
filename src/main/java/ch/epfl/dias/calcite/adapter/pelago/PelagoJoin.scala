@@ -46,9 +46,9 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     val rf = {
       if (!getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
         if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.000001
-        else 1000//0.1
+        else 100//0.1
       } else if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
-        1000 //0.01
+        10 //0.01
       } else {
         1000
       }
@@ -213,11 +213,11 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       }
     }.zipWithIndex.map{e => ("e", e._1) ~ ("packet", e._2 + 1) ~ ("offset", 0)} //FIXME: using different packets for each of them is the worst performance-wise
 
-    val rowEst = Math.min(getLeft.estimateRowCount(getCluster.getMetadataQuery), 64*1024*1024)
+    val rowEst = Math.min(getLeft.estimateRowCount(getCluster.getMetadataQuery), 512*1024*1024)
     val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getLeft  )
-    val maxEst = if (maxrow != null) Math.min(maxrow, 64*1024*1024) else 64*1024*1024
+    val maxEst = if (maxrow != null) Math.min(maxrow, 32*1024*1024) else 32*1024*1024
 
-    val hash_bits = Math.min(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 15)
+    val hash_bits = Math.min(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 20)
 
     val json = op ~
 //      ("tupleType"        , rowType     ) ~
