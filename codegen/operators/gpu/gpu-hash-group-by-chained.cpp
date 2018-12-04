@@ -79,7 +79,7 @@ void GpuHashGroupByChained::buildHashTableFormat(){
 
         Type * llvm_type = out_type->getLLVMType(context->getLLVMContext());
 
-        bitoffset += llvm_type->getPrimitiveSizeInBits();
+        bitoffset += context->getSizeOf(llvm_type) * 8;
     }
 
     std::sort(agg_exprs.begin(), agg_exprs.end(), [](const GpuAggrMatExpr& a, const GpuAggrMatExpr& b){
@@ -114,7 +114,7 @@ void GpuHashGroupByChained::buildHashTableFormat(){
             Type * llvm_type = out_type->getLLVMType(context->getLLVMContext());
 
             body.push_back(llvm_type);
-            bindex = agg_exprs[i].bitoffset + llvm_type->getPrimitiveSizeInBits();
+            bindex = agg_exprs[i].bitoffset + context->getSizeOf(llvm_type) * 8;
             agg_exprs[i].packind = packind++;
             ++i;
         }
@@ -278,7 +278,7 @@ void GpuHashGroupByChained::generate_build(RawContext* const context, const Oper
     for (const GpuAggrMatExpr &mexpr: agg_exprs){
         ExpressionGeneratorVisitor exprGenerator(context, childState);
         RawValue valWrapper = mexpr.expr->accept(exprGenerator);
-        
+
         out_vals[mexpr.packet] = Builder->CreateInsertValue(out_vals[mexpr.packet], valWrapper.value, mexpr.packind);
     }
 
@@ -352,6 +352,7 @@ void GpuHashGroupByChained::generate_build(RawContext* const context, const Oper
 
     ((GpuRawContext *) context)->createMembar_gl();
 
+    // Keys
     Value * next_bucket_ptr = Builder->CreateInBoundsGEP(((const GpuRawContext *) context)->getStateVar(out_param_ids[1]), current);
     Value * next_bucket     = Builder->CreateAlignedLoad(next_bucket_ptr, packet_widths[1]/8, true, "next_bucket");
 
@@ -998,7 +999,7 @@ void GpuHashGroupByChained::generate_scan() {
         RawValueMemory val_mem;
         val_mem.mem = v_mem;
         val_mem.isNull = context->createFalse();
-        
+
         variableBindings[mexpr.expr->getRegisteredAs()] = val_mem;
     }
 
@@ -1071,6 +1072,13 @@ struct entry{
     // int32_t gb;
 };
 
+// struct keys{
+//     // int32_t index;
+//     int32_t key0;
+//     int32_t key1;
+//     // int32_t gb;
+// };
+
 void GpuHashGroupByChained::close(RawPipeline * pip){
     // int32_t * cnt_ptr = pip->getStateVar<int32_t  *>(cnt_param_id);
     // entry * h_next;
@@ -1085,6 +1093,8 @@ void GpuHashGroupByChained::close(RawPipeline * pip){
     // std::cout << "---------------------------> " << cnt << " " << maxInputSize << std::endl;
     // gpu_run(cudaMemcpy(h_next, pip->getStateVar<void *>(out_param_ids[0]), cnt * (packet_widths[0]/8), cudaMemcpyDefault));
     // gpu_run(cudaMemcpy(h_first, pip->getStateVar<void *>(head_param_id), sizeof(int32_t  ) * (1 << hash_bits), cudaMemcpyDefault));
+
+    
     // for (int32_t i = 0 ; i < cnt ; ++i){
     //     if (h_next[i].index != i){
     //         std::cout << i << " " << h_next[i].index << std::endl;//" " << h_next[i].key0 << " " << h_next[i].key1 << std::endl;
@@ -1102,8 +1112,18 @@ void GpuHashGroupByChained::close(RawPipeline * pip){
     //         std::cout << i << " " << h_next[h_first[i]].index << std::endl;
     //     }
     // }
-    // std::cout << "---------------------------> " << cnt << std::endl;
 
+    // keys * h_keys;
+    // gpu_run(cudaMallocHost((void **) &h_keys, sizeof(keys) * cnt));
+    // gpu_run(cudaMemcpy(h_keys, pip->getStateVar<void *>(out_param_ids[1]), cnt * (packet_widths[1]/8), cudaMemcpyDefault));
+
+    // std::cout << "---+=+" << std::endl;
+    // for (int32_t i = 0 ; i < cnt ; ++i){
+    //     std::cout << i << " " << h_keys[i].key0 << " " << h_keys[i].key1 << std::endl;
+    // }
+
+    // for (const auto &w: packet_widths) std::cout << "w" << w << " "; std::cout << std::endl;
+    // std::cout << "---------------------------> " << cnt << std::endl;
 
     cudaStream_t strm;
     gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
@@ -1135,8 +1155,6 @@ void GpuHashGroupByChained::close(RawPipeline * pip){
 
 
     probe_pip->close();
-
-
 
     RawMemoryManager::freeGpu(pip->getStateVar<int32_t  *>(cnt_param_id ));
     RawMemoryManager::freeGpu(pip->getStateVar<int32_t  *>(head_param_id));
