@@ -84,7 +84,7 @@ public:
 	}
 
 	void  setDictionary(void * dict) {
-		assert(!dictionary);
+		assert(dict);
 		dictionary = dict;
 	}
 
