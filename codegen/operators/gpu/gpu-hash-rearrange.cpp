@@ -193,10 +193,8 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     // }
 
     size_t max_width = 0;
-    std::cerr << "---" << std::endl;
     for (const auto &e: matExpr){
         PointerType * t_ptr = PointerType::get(e->getExpressionType()->getLLVMType(llvmContext), /* address space */ 0);
-        e->getExpressionType()->getLLVMType(llvmContext)->dump();
         Value * buff = new GlobalVariable(
                                         *(context->getModule()),
                                         ArrayType::get(t_ptr, numOfBuckets),
@@ -250,10 +248,8 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
 
     Value * zero_oid      = ConstantInt::get(idx_type   , 0);
 
-    std::cerr << max_width << std::endl;
     cap                   = blockSize / max_width;
 
-    std::cerr << cap << std::endl;
     Value * capacity      = ConstantInt::get(idx_type   , cap);
     Value * last_index    = ConstantInt::get(idx_type   , cap - 1);
 
@@ -368,7 +364,6 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     //Generate target
     // ExpressionHasherVisitor exprGenerator{context, childState};
     Value * target            = GpuHashRearrange::hash(std::vector<expressions::Expression *>{hashExpr}, context, childState);
-    target->getType()->dump();
 
     IntegerType * target_type = (IntegerType *) target->getType();
     if (hashProject) {
@@ -846,6 +841,7 @@ __global__ void GpuHashRearrange_acq_buffs(void   ** buffs);
 void GpuHashRearrange::open (RawPipeline * pip){
     // int device = get_device();
 
+    std::cout << "GpuHashRearrange:open_start" << std::endl;
     execution_conf ec = pip->getExecConfiguration();
 
     size_t grid_size  = ec.gridSize();
@@ -892,7 +888,7 @@ void GpuHashRearrange::open (RawPipeline * pip){
     gpu_run(cudaStreamSynchronize(strm));
     gpu_run(cudaStreamDestroy(strm));
 
-    std::cout << "GpuHashRearrange:open" << std::endl;
+    std::cout << "GpuHashRearrange:open_end" << std::endl;
 }
 
 #include <numeric>

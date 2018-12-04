@@ -120,16 +120,10 @@ void HashJoinChained::probeHashTableFormat(){
 
             const ExpressionType * out_type = build_mat_exprs[i].expr->getExpressionType();
 
-            if (!out_type->isPrimitive()){
-                string error_msg("[GpuExprMaterializer: ] Currently only supports materialization of primitive types");
-                LOG(ERROR)<< error_msg;
-                throw runtime_error(error_msg);
-            }
-
-            Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
+            Type * llvm_type = out_type->getLLVMType(context->getLLVMContext());
 
             body.push_back(llvm_type);
-            bindex = build_mat_exprs[i].bitoffset + llvm_type->getPrimitiveSizeInBits();
+            bindex = build_mat_exprs[i].bitoffset + context->getSizeOf(llvm_type) * 8;
             build_mat_exprs[i].packind = packind++;
             ++i;
         }
@@ -188,16 +182,10 @@ void HashJoinChained::buildHashTableFormat(){
 
             const ExpressionType * out_type = build_mat_exprs[i].expr->getExpressionType();
 
-            if (!out_type->isPrimitive()){
-                string error_msg("[GpuExprMaterializer: ] Currently only supports materialization of primitive types");
-                LOG(ERROR)<< error_msg;
-                throw runtime_error(error_msg);
-            }
-
-            Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
+            Type * llvm_type = out_type->getLLVMType(context->getLLVMContext());
 
             body.push_back(llvm_type);
-            bindex = build_mat_exprs[i].bitoffset + llvm_type->getPrimitiveSizeInBits();
+            bindex = build_mat_exprs[i].bitoffset + context->getSizeOf(llvm_type) * 8;
             build_mat_exprs[i].packind = packind++;
             ++i;
         }
