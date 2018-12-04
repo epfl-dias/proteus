@@ -697,7 +697,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 					oids, outputModes);
 
 			//Put operator together
-			const char *opLabel = outputExprs[0]->getRegisteredRelName().c_str();
+			const char *opLabel = key_expr[0]->getRegisteredRelName().c_str();
 			std::cout << "regRelNAme" << opLabel << std::endl;
 			newOp = new radix::Nest(this->ctx, accs, outputExprs, aggrLabels, predExpr,
 					key_expr, nullsToZerosExpr, child, opLabel, *matCoarse);

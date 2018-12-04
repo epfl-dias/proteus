@@ -114,7 +114,7 @@ void CPUSSBTest::runAndVerify(const char *testLabel, const char* planPath, bool 
 //      and lo_quantity < 25;
 TEST_F(CPUSSBTest, ssb_q1_1_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -142,7 +142,7 @@ TEST_F(CPUSSBTest, ssb_q1_1_par_cpy_cpu_plan) {
 //      and lo_quantity < 25;
 TEST_F(CPUSSBTest, ssb_q1_1_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -170,7 +170,7 @@ TEST_F(CPUSSBTest, ssb_q1_1_seq_cpy_cpu_plan) {
 //      and lo_quantity between 26 and 35;
 TEST_F(CPUSSBTest, ssb_q1_2_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_yearmonthnum");
@@ -198,7 +198,7 @@ TEST_F(CPUSSBTest, ssb_q1_2_par_cpy_cpu_plan) {
 //      and lo_quantity between 26 and 35;
 TEST_F(CPUSSBTest, ssb_q1_2_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_yearmonthnum");
@@ -227,7 +227,7 @@ TEST_F(CPUSSBTest, ssb_q1_2_seq_cpy_cpu_plan) {
 //      and lo_quantity between 26 and 35;
 TEST_F(CPUSSBTest, ssb_q1_3_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -257,7 +257,7 @@ TEST_F(CPUSSBTest, ssb_q1_3_par_cpy_cpu_plan) {
 //      and lo_quantity between 26 and 35;
 TEST_F(CPUSSBTest, ssb_q1_3_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -288,7 +288,7 @@ TEST_F(CPUSSBTest, ssb_q1_3_seq_cpy_cpu_plan) {
 //     group by d_year, p_brand1;
 TEST_F(CPUSSBTest, ssb_q2_1_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -323,7 +323,7 @@ TEST_F(CPUSSBTest, ssb_q2_1_par_cpy_cpu_plan) {
 //     group by d_year, p_brand1;
 TEST_F(CPUSSBTest, ssb_q2_1_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -359,7 +359,7 @@ TEST_F(CPUSSBTest, ssb_q2_1_seq_cpy_cpu_plan) {
 //     group by d_year, p_brand1;
 TEST_F(CPUSSBTest, ssb_q2_2_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -394,7 +394,7 @@ TEST_F(CPUSSBTest, ssb_q2_2_par_cpy_cpu_plan) {
 //     group by d_year, p_brand1;
 TEST_F(CPUSSBTest, ssb_q2_2_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -428,7 +428,7 @@ TEST_F(CPUSSBTest, ssb_q2_2_seq_cpy_cpu_plan) {
 //     group by d_year, p_brand1;
 TEST_F(CPUSSBTest, ssb_q2_3_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -462,7 +462,7 @@ TEST_F(CPUSSBTest, ssb_q2_3_par_cpy_cpu_plan) {
 //     group by d_year, p_brand1;
 TEST_F(CPUSSBTest, ssb_q2_3_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -498,7 +498,7 @@ TEST_F(CPUSSBTest, ssb_q2_3_seq_cpy_cpu_plan) {
 //     group by c_nation, s_nation, d_year;
 TEST_F(CPUSSBTest, ssb_q3_1_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -536,7 +536,7 @@ TEST_F(CPUSSBTest, ssb_q3_1_par_cpy_cpu_plan) {
 //     group by c_nation, s_nation, d_year;
 TEST_F(CPUSSBTest, ssb_q3_1_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -574,7 +574,7 @@ TEST_F(CPUSSBTest, ssb_q3_1_seq_cpy_cpu_plan) {
 //     group by c_city, s_city, d_year;
 TEST_F(CPUSSBTest, ssb_q3_2_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -612,7 +612,7 @@ TEST_F(CPUSSBTest, ssb_q3_2_par_cpy_cpu_plan) {
 //     group by c_city, s_city, d_year;
 TEST_F(CPUSSBTest, ssb_q3_2_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -650,7 +650,7 @@ TEST_F(CPUSSBTest, ssb_q3_2_seq_cpy_cpu_plan) {
 //     group by c_city, s_city, d_year;
 TEST_F(CPUSSBTest, ssb_q3_3_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -686,7 +686,7 @@ TEST_F(CPUSSBTest, ssb_q3_3_par_cpy_cpu_plan) {
 //     group by c_city, s_city, d_year;
 TEST_F(CPUSSBTest, ssb_q3_3_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -721,7 +721,7 @@ TEST_F(CPUSSBTest, ssb_q3_3_seq_cpy_cpu_plan) {
 //     group by c_city, s_city, d_year;
 TEST_F(CPUSSBTest, ssb_q3_4_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/customer.csv.c_custkey");
     load("inputs/ssbm100/customer.csv.c_city");
@@ -757,7 +757,7 @@ TEST_F(CPUSSBTest, ssb_q3_4_par_cpy_cpu_plan) {
 //     group by c_city, s_city, d_year;
 TEST_F(CPUSSBTest, ssb_q3_4_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/customer.csv.c_custkey");
     load("inputs/ssbm100/customer.csv.c_city");
@@ -794,7 +794,7 @@ TEST_F(CPUSSBTest, ssb_q3_4_seq_cpy_cpu_plan) {
 //     group by d_year, c_nation;
 TEST_F(CPUSSBTest, ssb_q4_1_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -835,7 +835,7 @@ TEST_F(CPUSSBTest, ssb_q4_1_par_cpy_cpu_plan) {
 //     group by d_year, c_nation;
 TEST_F(CPUSSBTest, ssb_q4_1_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -877,7 +877,7 @@ TEST_F(CPUSSBTest, ssb_q4_1_seq_cpy_cpu_plan) {
 //     group by d_year, s_nation, p_category;
 TEST_F(CPUSSBTest, ssb_q4_2_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/part.csv.p_partkey");
     load("inputs/ssbm100/part.csv.p_mfgr");
@@ -920,7 +920,7 @@ TEST_F(CPUSSBTest, ssb_q4_2_par_cpy_cpu_plan) {
 //     group by d_year, s_nation, p_category;
 TEST_F(CPUSSBTest, ssb_q4_2_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/part.csv.p_partkey");
     load("inputs/ssbm100/part.csv.p_mfgr");
@@ -963,7 +963,7 @@ TEST_F(CPUSSBTest, ssb_q4_2_seq_cpy_cpu_plan) {
 //     group by d_year, s_city, p_brand1;
 TEST_F(CPUSSBTest, ssb_q4_3_par_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -1006,7 +1006,7 @@ TEST_F(CPUSSBTest, ssb_q4_3_par_cpy_cpu_plan) {
 //     group by d_year, s_city, p_brand1;
 TEST_F(CPUSSBTest, ssb_q4_3_seq_cpy_cpu_plan) {
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");

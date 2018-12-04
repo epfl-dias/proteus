@@ -117,7 +117,7 @@ TEST_F(GPUSSBTest, ssb_q1_1_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -147,7 +147,7 @@ TEST_F(GPUSSBTest, ssb_q1_1_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -177,7 +177,7 @@ TEST_F(GPUSSBTest, ssb_q1_2_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_yearmonthnum");
@@ -207,7 +207,7 @@ TEST_F(GPUSSBTest, ssb_q1_2_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_yearmonthnum");
@@ -238,7 +238,7 @@ TEST_F(GPUSSBTest, ssb_q1_3_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -270,7 +270,7 @@ TEST_F(GPUSSBTest, ssb_q1_3_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -303,7 +303,7 @@ TEST_F(GPUSSBTest, ssb_q2_1_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -340,7 +340,7 @@ TEST_F(GPUSSBTest, ssb_q2_1_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -378,7 +378,7 @@ TEST_F(GPUSSBTest, ssb_q2_2_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -415,7 +415,7 @@ TEST_F(GPUSSBTest, ssb_q2_2_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -451,7 +451,7 @@ TEST_F(GPUSSBTest, ssb_q2_3_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -487,7 +487,7 @@ TEST_F(GPUSSBTest, ssb_q2_3_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -525,7 +525,7 @@ TEST_F(GPUSSBTest, ssb_q3_1_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -565,7 +565,7 @@ TEST_F(GPUSSBTest, ssb_q3_1_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -605,7 +605,7 @@ TEST_F(GPUSSBTest, ssb_q3_2_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -645,7 +645,7 @@ TEST_F(GPUSSBTest, ssb_q3_2_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -685,7 +685,7 @@ TEST_F(GPUSSBTest, ssb_q3_3_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -723,7 +723,7 @@ TEST_F(GPUSSBTest, ssb_q3_3_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -760,7 +760,7 @@ TEST_F(GPUSSBTest, ssb_q3_4_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/customer.csv.c_custkey");
     load("inputs/ssbm100/customer.csv.c_city");
@@ -798,7 +798,7 @@ TEST_F(GPUSSBTest, ssb_q3_4_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/customer.csv.c_custkey");
     load("inputs/ssbm100/customer.csv.c_city");
@@ -837,7 +837,7 @@ TEST_F(GPUSSBTest, ssb_q4_1_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -880,7 +880,7 @@ TEST_F(GPUSSBTest, ssb_q4_1_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -924,7 +924,7 @@ TEST_F(GPUSSBTest, ssb_q4_2_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/part.csv.p_partkey");
     load("inputs/ssbm100/part.csv.p_mfgr");
@@ -969,7 +969,7 @@ TEST_F(GPUSSBTest, ssb_q4_2_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/part.csv.p_partkey");
     load("inputs/ssbm100/part.csv.p_mfgr");
@@ -1014,7 +1014,7 @@ TEST_F(GPUSSBTest, ssb_q4_3_par_cpy_plan) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");
@@ -1059,7 +1059,7 @@ TEST_F(GPUSSBTest, ssb_q4_3_seq_cpy_plan) {
     if (topology::getInstance().getGpuCount() == 0) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::load(filename, PINNED);
+        StorageManager::load(filename, sizeof(int32_t), PINNED);
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/date.csv.d_year");

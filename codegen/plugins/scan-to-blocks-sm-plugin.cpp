@@ -32,15 +32,20 @@ ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext* const context, string fn
         LOG(ERROR) << error_msg;
         throw runtime_error(error_msg);
     }
+    
+    LLVMContext& llvmContext = context->getLLVMContext();
 
     // std::vector<Type *> parts_array;
     for (const auto &in: wantedFields){
         string fileName = fnamePrefix + "." + in->getAttrName();
+
+        const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
+        size_t type_size = context->getSizeOf(llvm_type);
         
-        wantedFieldsFiles.emplace_back(StorageManager::getOrLoadFile(fileName, ALLSOCKETS));
+        wantedFieldsFiles.emplace_back(StorageManager::getOrLoadFile(fileName, type_size, ALLSOCKETS));
         // wantedFieldsFiles.emplace_back(StorageManager::getFile(fileName));
         //FIXME: consider if address space should be global memory rather than generic
-        // Type * t = PointerType::get(((const PrimitiveType *) tin)->getLLVMType(context->getLLVMContext()), /* address space */ 0);
+        // Type * t = PointerType::get(((const PrimitiveType *) tin)->getLLVMType(llvmContext), /* address space */ 0);
 
         // wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
 
@@ -63,10 +68,10 @@ ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext* const context, string fn
 
     for (const auto &in: wantedFields){
         RecordAttribute bin(*in, true);
-        parts_array.emplace_back(ArrayType::get(bin.getLLVMType(context->getLLVMContext()), Nparts));
+        parts_array.emplace_back(ArrayType::get(bin.getLLVMType(llvmContext), Nparts));
     }
 
-    parts_arrays_type = StructType::get(context->getLLVMContext(), parts_array);
+    parts_arrays_type = StructType::get(llvmContext, parts_array);
 }
 
 ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext* const context, string fnamePrefix, RecordType rec)
@@ -907,12 +912,35 @@ void ScanToBlockSMPlugin::scan(const RawOperator& producer){
     Value     * N_parts_ptr = context->CreateEntryBlockAlloca(F, "N_parts_ptr"   , arr_type);
     std::vector<Constant *> N_parts_init;
 
+#ifndef NDEBUG
+    std::vector<size_t> N_parts_init_sizes;
+#endif
+
     size_t max_pack_size = 0;
     for (const auto &t: wantedFieldsFiles[0]){
+        assert((t.size % context->getSizeOf(wantedFields[0]->getLLVMType(llvmContext))) == 0);
         size_t pack_N = t.size/context->getSizeOf(wantedFields[0]->getLLVMType(llvmContext));
+#ifndef NDEBUG
+        N_parts_init_sizes.push_back(pack_N);
+#endif
         N_parts_init.push_back(context->createInt64(pack_N));
         max_pack_size = std::max(pack_N, max_pack_size);
     }
+
+#ifndef NDEBUG
+    for (size_t j = 0 ; j < wantedFieldsFiles.size() ; ++j){
+        const auto &files = wantedFieldsFiles[j];
+        const size_t size = context->getSizeOf(wantedFields[j]->getLLVMType(llvmContext));
+        for (size_t i = 0 ; i < files.size() ; ++i){
+            const auto &t = files[i];
+            assert((t.size % size) == 0);
+            size_t pack_N = t.size/size;
+            std::cout << j << " " << pack_N << " " << i << " ";
+            std::cout << t.size << " " << size << std::endl;
+            assert(pack_N == N_parts_init_sizes[i]);
+        }
+    }
+#endif
 
     size_t max_field_size = 0;
     for (const auto &f: wantedFields) {

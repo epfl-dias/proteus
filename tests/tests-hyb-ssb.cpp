@@ -117,7 +117,7 @@ TEST_F(HYBSSBTest, ssb_q1_1_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/lineorder.csv.lo_quantity");
@@ -147,7 +147,7 @@ TEST_F(HYBSSBTest, ssb_q1_2_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/lineorder.csv.lo_quantity");
@@ -178,7 +178,7 @@ TEST_F(HYBSSBTest, ssb_q1_3_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/lineorder.csv.lo_quantity");
@@ -211,7 +211,7 @@ TEST_F(HYBSSBTest, ssb_q2_1_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/lineorder.csv.lo_revenue");
@@ -249,7 +249,7 @@ TEST_F(HYBSSBTest, ssb_q2_2_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/lineorder.csv.lo_revenue");
@@ -285,7 +285,7 @@ TEST_F(HYBSSBTest, ssb_q2_3_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/date.csv.d_datekey");
     load("inputs/ssbm100/lineorder.csv.lo_revenue");
@@ -323,7 +323,7 @@ TEST_F(HYBSSBTest, ssb_q3_1_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/customer.csv.c_custkey");
     load("inputs/ssbm100/date.csv.d_datekey");
@@ -363,7 +363,7 @@ TEST_F(HYBSSBTest, ssb_q3_2_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/customer.csv.c_city");
     load("inputs/ssbm100/customer.csv.c_custkey");
@@ -403,7 +403,7 @@ TEST_F(HYBSSBTest, ssb_q3_3_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/customer.csv.c_city");
     load("inputs/ssbm100/customer.csv.c_custkey");
@@ -440,7 +440,7 @@ TEST_F(HYBSSBTest, ssb_q3_4_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/customer.csv.c_city");
     load("inputs/ssbm100/customer.csv.c_custkey");
@@ -479,7 +479,7 @@ TEST_F(HYBSSBTest, ssb_q4_1_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/lineorder.csv.lo_supplycost");
     load("inputs/ssbm100/customer.csv.c_custkey");
@@ -523,7 +523,7 @@ TEST_F(HYBSSBTest, ssb_q4_2_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/lineorder.csv.lo_supplycost");
     load("inputs/ssbm100/customer.csv.c_custkey");
@@ -568,7 +568,7 @@ TEST_F(HYBSSBTest, ssb_q4_3_par_cpy) {
     if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
     auto load = [](string filename){
-        StorageManager::loadToCpus(filename);
+        StorageManager::loadToCpus(filename, sizeof(int32_t));
     };
     load("inputs/ssbm100/lineorder.csv.lo_supplycost");
     load("inputs/ssbm100/customer.csv.c_custkey");

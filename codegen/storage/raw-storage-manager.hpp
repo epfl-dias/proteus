@@ -70,10 +70,10 @@ private:
 public:
     // void load  (const RawStorageDescription &desc);
     // void unload(const RawStorageDescription &desc);
-    static void load            (std::string name, data_loc loc = PINNED);
-    static void loadToGpus      (std::string name);
-    static void loadToCpus      (std::string name);
-    static void loadEverywhere  (std::string name, int pref_gpu_weight = 1, int pref_cpu_weight = 1);
+    static void load            (std::string name, size_t type_size, data_loc loc = PINNED);
+    static void loadToGpus      (std::string name, size_t type_size);
+    static void loadToCpus      (std::string name, size_t type_size);
+    static void loadEverywhere  (std::string name, size_t type_size, int pref_gpu_weight = 1, int pref_cpu_weight = 1);
 
     static void * getDictionaryOf(std::string name);
 
@@ -81,7 +81,7 @@ public:
     // void unload(std::string name);
 
     static std::vector<mem_file> getFile(std::string name);
-    static std::vector<mem_file> getOrLoadFile(std::string name, data_loc loc = PINNED);
+    static std::vector<mem_file> getOrLoadFile(std::string name, size_t type_size, data_loc loc = PINNED);
 };
 
 #endif /* RAW_STORAGE_MANAGER_HPP_ */

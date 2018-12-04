@@ -30,19 +30,19 @@
 std::map<std::string, std::vector<std::unique_ptr<mmap_file>>> StorageManager::files;
 std::map<std::string, std::map<int, std::string> *>            StorageManager::dicts;
 
-void StorageManager::load(std::string name, data_loc loc){
+void StorageManager::load(std::string name, size_t type_size, data_loc loc){
     if (loc == ALLSOCKETS) {
-        loadToCpus(name);
+        loadToCpus(name, type_size);
         return;
     }
 
     if (loc == ALLGPUS) {
-        loadToGpus(name);
+        loadToGpus(name, type_size);
         return;
     }
 
     if (loc == EVERYWHERE) {
-        loadEverywhere(name, 1, 1);
+        loadEverywhere(name, type_size, 1, 1);
         return;
     }
 
@@ -53,19 +53,24 @@ void StorageManager::load(std::string name, data_loc loc){
     it.first->second.emplace_back(new mmap_file(name, loc));
 }
 
-void StorageManager::loadToGpus(std::string name){
+void StorageManager::loadToGpus(std::string name, size_t type_size){
     time_block t("Topen (" + name + "): ");
     const auto &topo = topology::getInstance();
+
+    size_t factor = type_size / sizeof(int32_t);
 
     auto devices = topo.getGpuCount();
 
     auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});
     assert(it.second && "File already loaded!");
 
-    size_t filesize  = ::getFileSize(name.c_str());
+    size_t filesize  = ::getFileSize(name.c_str()) / factor;
 
     size_t pack_alignment = sysconf(_SC_PAGE_SIZE); //required by mmap
-    pack_alignment = std::max(pack_alignment, (size_t) h_vector_size * 4);
+    // in order to do that without the schema, we have to take the worst case
+    // of a file with a single-byte column and a 64bit column and align based
+    // on that. Otherwise, the segments may be misaligned
+    pack_alignment = std::max(pack_alignment, (size_t) h_vector_size * sizeof(int32_t));
 
     size_t part_size = (((filesize + pack_alignment - 1)/pack_alignment + devices - 1) / devices) * pack_alignment; //FIXME: assumes maximum record size of 128Bytes
 
@@ -73,25 +78,30 @@ void StorageManager::loadToGpus(std::string name){
     for (const auto &gpu: topo.getGpus()){
         if (part_size * d < filesize){
             set_device_on_scope cd(gpu);
-            it.first->second.emplace_back(new mmap_file(name, GPU_RESIDENT, std::min(part_size, filesize - part_size * d), part_size * d));
+            it.first->second.emplace_back(new mmap_file(name, GPU_RESIDENT, std::min(part_size, filesize - part_size * d) * factor, part_size * d * factor));
         }
         ++d;
     }
 }
 
-void StorageManager::loadToCpus(std::string name){
+void StorageManager::loadToCpus(std::string name, size_t type_size){
     time_block t("Topen (" + name + "): ");
     const auto &topo = topology::getInstance();
+
+    size_t factor = type_size / sizeof(int32_t);
 
     auto devices = topo.getCpuNumaNodeCount();
 
     auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});
     assert(it.second && "File already loaded!");
 
-    size_t filesize  = ::getFileSize(name.c_str());
+    size_t filesize  = ::getFileSize(name.c_str()) / factor;
 
     size_t pack_alignment = sysconf(_SC_PAGE_SIZE); //required by mmap
-    pack_alignment = std::max(pack_alignment, (size_t) h_vector_size * 4);
+    // in order to do that without the schema, we have to take the worst case
+    // of a file with a single-byte column and a 64bit column and align based
+    // on that. Otherwise, the segments may be misaligned
+    pack_alignment = std::max(pack_alignment, (size_t) h_vector_size * sizeof(int32_t));
 
     size_t part_size = (((filesize + pack_alignment - 1)/pack_alignment + devices - 1) / devices) * pack_alignment; //FIXME: assumes maximum record size of 128Bytes
 
@@ -99,15 +109,17 @@ void StorageManager::loadToCpus(std::string name){
     for (const auto &cpu: topo.getCpuNumaNodes()){
         if (part_size * d < filesize){
             set_exec_location_on_scope cd(cpu);
-            it.first->second.emplace_back(new mmap_file(name, PINNED, std::min(part_size, filesize - part_size * d), part_size * d));
+            it.first->second.emplace_back(new mmap_file(name, PINNED, std::min(part_size, filesize - part_size * d) * factor, part_size * d * factor));
         }
         ++d;
     }
 }
 
-void StorageManager::loadEverywhere(std::string name, int pref_gpu_weight, int pref_cpu_weight){
+void StorageManager::loadEverywhere(std::string name, size_t type_size, int pref_gpu_weight, int pref_cpu_weight){
     time_block t("Topen (" + name + "): ");
     const auto &topo = topology::getInstance();
+
+    size_t factor = type_size / sizeof(int32_t);
 
     auto devices_gpus = topo.getGpuCount();
     auto devices_sock = topo.getCpuNumaNodeCount();
@@ -119,7 +131,10 @@ void StorageManager::loadEverywhere(std::string name, int pref_gpu_weight, int p
     size_t filesize  = ::getFileSize(name.c_str());
 
     size_t pack_alignment = sysconf(_SC_PAGE_SIZE); //required by mmap
-    pack_alignment = std::max(pack_alignment, (size_t) h_vector_size * 4);
+    // in order to do that without the schema, we have to take the worst case
+    // of a file with a single-byte column and a 64bit column and align based
+    // on that. Otherwise, the segments may be misaligned
+    pack_alignment = std::max(pack_alignment, (size_t) h_vector_size * sizeof(int32_t));
 
     size_t part_size = (((filesize + pack_alignment - 1)/pack_alignment + devices - 1) / devices) * pack_alignment; //FIXME: assumes maximum record size of 128Bytes
 
@@ -130,10 +145,10 @@ void StorageManager::loadEverywhere(std::string name, int pref_gpu_weight, int p
         if (part_size * d < filesize){
             if (d < devices_sock * pref_cpu_weight){
                 set_exec_location_on_scope cd(sck_vec[d % devices_sock]);
-                it.first->second.emplace_back(new mmap_file(name, PINNED      , std::min(part_size, filesize - part_size * d), part_size * d));
+                it.first->second.emplace_back(new mmap_file(name, PINNED      , std::min(part_size, filesize - part_size * d) * factor, part_size * d * factor));
             } else {
                 set_device_on_scope cd(gpu_vec[(d - devices_sock * pref_cpu_weight) % devices_gpus]);
-                it.first->second.emplace_back(new mmap_file(name, GPU_RESIDENT, std::min(part_size, filesize - part_size * d), part_size * d));
+                it.first->second.emplace_back(new mmap_file(name, GPU_RESIDENT, std::min(part_size, filesize - part_size * d) * factor, part_size * d * factor));
             }
         }
     }
@@ -157,7 +172,7 @@ std::vector<mem_file> StorageManager::getFile(std::string name){
     return mfiles;
 }
 
-std::vector<mem_file> StorageManager::getOrLoadFile(std::string name, data_loc loc){
+std::vector<mem_file> StorageManager::getOrLoadFile(std::string name, size_t type_size, data_loc loc){
     if (files.count(name) == 0){
         LOG(INFO) << "File " << name << " not loaded, loading it to " << loc;
         std::cout << "File " << name << " not loaded, loading it to " << loc << std::endl;
