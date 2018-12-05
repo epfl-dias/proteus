@@ -32,6 +32,7 @@ public class PelagoSchema extends AbstractSchema {
    */
   public PelagoSchema(File directoryFile) {
     super();
+    assert(directoryFile != null);
     this.directoryFile = directoryFile;
   }
 
@@ -113,9 +114,6 @@ public class PelagoSchema extends AbstractSchema {
 
     // Build a map from table name to table; each file becomes a table.
     final ImmutableMap.Builder<String, Table> builder = ImmutableMap.builder();
-    ObjectMapper mapper = new ObjectMapper();
-
-//    File f = Paths.get(directoryFile.toPath().toString()).toFile();
 
     recursiveParse(directoryFile, builder);
 
