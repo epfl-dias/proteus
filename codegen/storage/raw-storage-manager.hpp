@@ -70,7 +70,7 @@ private:
 public:
     // void load  (const RawStorageDescription &desc);
     // void unload(const RawStorageDescription &desc);
-    static void load            (std::string name, size_t type_size, data_loc loc = PINNED);
+    static void load            (std::string name, size_t type_size, data_loc loc);
     static void loadToGpus      (std::string name, size_t type_size);
     static void loadToCpus      (std::string name, size_t type_size);
     static void loadEverywhere  (std::string name, size_t type_size, int pref_gpu_weight = 1, int pref_cpu_weight = 1);
