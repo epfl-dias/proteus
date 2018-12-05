@@ -353,6 +353,44 @@ Value * GpuRawContext::blockId(){
     }
 }
 
+Value * GpuRawContext::blockDim(){
+    IntegerType * int64_type = Type::getInt64Ty(getLLVMContext());
+
+    if (dynamic_cast<RawGpuPipelineGen *>(generators.back())){
+        // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
+        Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x" );
+        // Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
+
+        std::vector<Value *> v{};
+
+        // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
+        Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
+        Value * bd_x       = getBuilder()->CreateZExt(blockDim_x, int64_type);
+        return bd_x;
+    } else {
+        return ConstantInt::get(int64_type, 0);
+    }
+}
+
+Value * GpuRawContext::gridDim(){
+    IntegerType * int64_type = Type::getInt64Ty(getLLVMContext());
+
+    if (dynamic_cast<RawGpuPipelineGen *>(generators.back())){
+        // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
+        Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.nctaid.x" );
+        // Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
+
+        std::vector<Value *> v{};
+
+        // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
+        Value * gridDim_x = getBuilder()->CreateCall(fnx, v, "gridDim_x");
+        Value * bd_x       = getBuilder()->CreateZExt(gridDim_x, int64_type);
+        return bd_x;
+    } else {
+        return ConstantInt::get(int64_type, 0);
+    }
+}
+
 Value * GpuRawContext::threadId(){
     IntegerType * int64_type = Type::getInt64Ty(getLLVMContext());
 

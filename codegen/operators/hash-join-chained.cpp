@@ -626,6 +626,7 @@ void HashJoinChained::close_build(RawPipeline * pip){
 
 void HashJoinChained::close_probe(RawPipeline * pip){
     std::cout << "HashJoinChained::close::probe_" << pip->getGroup() << std::endl;
+    
     for (const auto &p: confs[pip->getGroup()]) free(p);
     std::cout << "HashJoinChained::close::probe2" << std::endl;
 }
