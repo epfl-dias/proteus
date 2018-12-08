@@ -4,17 +4,14 @@ import java.util
 
 import ch.epfl.dias.emitter.Binding
 import ch.epfl.dias.emitter.PlanToJSON._
-import com.google.common.base.Supplier
 import org.apache.calcite.plan.{RelOptCluster, RelOptCost, RelOptPlanner, RelTraitSet}
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.{RelNode, RelWriter, SingleRel}
 import org.apache.calcite.rel.core._
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rex.{RexCorrelVariable, RexFieldAccess, RexInputRef, RexNode}
-import org.apache.calcite.sql.SemiJoinType
 import org.apache.calcite.util.Pair
 import org.json4s._
-import org.json4s.jackson.JsonMethods._
 import org.json4s.JsonAST.JValue
 import org.json4s.JsonDSL._
 
@@ -158,9 +155,7 @@ object PelagoUnnest{
 
   def create(input: RelNode, correlationId: CorrelationId, namedProjections: List[Pair[RexNode, String]], rowType: RelDataType): PelagoUnnest = {
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
-                    .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType]() {
-                      override def get: RelDeviceType = RelDeviceType.X86_64
-                    })
+      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
 
     new PelagoUnnest(input.getCluster, traitSet, input, correlationId, rowType, namedProjections)
   }

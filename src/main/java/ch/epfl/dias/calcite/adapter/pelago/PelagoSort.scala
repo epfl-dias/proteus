@@ -1,35 +1,22 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
 import ch.epfl.dias.emitter.Binding
-import ch.epfl.dias.emitter.PlanToJSON
-import com.google.common.base.Supplier
-import org.apache.calcite.adapter.java.JavaTypeFactory
 import org.apache.calcite.plan.RelOptCluster
 import org.apache.calcite.plan.RelOptCost
 import org.apache.calcite.plan.RelOptPlanner
 import org.apache.calcite.plan.RelTraitSet
 import org.apache.calcite.rel._
-import org.apache.calcite.rel.core.{Project, Sort}
-import org.apache.calcite.rel.metadata.{RelMdCollation, RelMdDistribution, RelMetadataQuery}
-import org.apache.calcite.rel
-import org.apache.calcite.rel.`type`.RelDataType
+import org.apache.calcite.rel.core.Sort
+import org.apache.calcite.rel.metadata.{RelMdDistribution, RelMetadataQuery}
 import org.json4s.JsonDSL._
 import org.json4s._
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization
 import org.apache.calcite.rex.{RexInputRef, RexNode}
 import org.json4s.JsonAST
 
 import scala.collection.JavaConverters._
-import scala.Tuple2
-import java.util
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution, RelMdDeviceType}
-import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, emit_, getFields}
-import org.apache.calcite.adapter.enumerable.EnumerableConvention
-import org.json4s
-
-import scala.collection.mutable
+import ch.epfl.dias.calcite.adapter.pelago.metadata.RelMdDeviceType
+import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, getFields}
 
 /**
   * Implementation of {@link org.apache.calcite.rel.core.Sort}
@@ -174,16 +161,8 @@ object PelagoSort{
     val mq       = cluster.getMetadataQuery
     val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
       .replace(RelCollationTraitDef.INSTANCE.canonize(collation))
-      .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
-        override def get: RelDistribution = {
-          return RelMdDistribution.sort(mq, input)
-        }
-      })
-      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType]() {
-        override def get: RelDeviceType = {
-          return RelMdDeviceType.sort(mq, input)
-        }
-      });
+      .replaceIf(RelDistributionTraitDef.INSTANCE, () => RelMdDistribution.sort(mq, input))
+      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelMdDeviceType.sort(mq, input));
     new PelagoSort(cluster, traitSet, input, collation, offset, fetch)
   }
 }

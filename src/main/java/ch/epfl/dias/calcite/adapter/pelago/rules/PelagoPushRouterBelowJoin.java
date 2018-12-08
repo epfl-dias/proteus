@@ -57,15 +57,9 @@ public class PelagoPushRouterBelowJoin extends RelOptRule {
     RelNode      build  = call.rel(2);
     RelNode      probe  = call.rel(3);
 
-    RelNode new_build = PelagoRouter.create(
-      convert(build, RelDeviceType.X86_64),
-      RelDistributions.BROADCAST_DISTRIBUTED
-    );
+    RelNode new_build = convert(build, RelDistributions.BROADCAST_DISTRIBUTED);
 
-    RelNode new_probe = PelagoRouter.create(
-        convert(probe, RelDeviceType.X86_64),
-        RelDistributions.RANDOM_DISTRIBUTED
-    );
+    RelNode new_probe = convert(probe, RelDistributions.RANDOM_DISTRIBUTED);
 
 
     call.transformTo(

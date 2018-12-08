@@ -1,31 +1,19 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules
-import ch.epfl.dias.emitter.{Binding, PlanToJSON}
+import ch.epfl.dias.emitter.Binding
 import org.apache.calcite.linq4j.tree.Primitive
 import org.apache.calcite.plan._
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.TableScan
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.`type`.RelDataType
-import org.apache.calcite.rel.`type`.RelDataTypeFactory
-import org.apache.calcite.rel.`type`.RelDataTypeField
 import org.json4s.JsonDSL._
 import org.json4s._
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization
 
 import scala.collection.JavaConverters._
-import org.json4s.JsonAST
 
-import scala.Tuple2
 import java.util
 
-import com.google.common.base.Supplier
-import org.apache.calcite.rex.RexInputRef
-import org.json4s
-
-//import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceType
 import ch.epfl.dias.emitter.PlanToJSON._
 
 /**
@@ -165,19 +153,9 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
 object PelagoTableScan {
   def create(cluster: RelOptCluster, table: RelOptTable, pelagoTable: PelagoTable, fields: Array[Int]) = {
       val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
-          .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
-              override def get: RelDistribution = {
-                return pelagoTable.getDistribution
-              }
-          }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType  ]() {
-              override def get: RelDeviceType = {
-                return pelagoTable.getDeviceType
-              }
-          }).replaceIf(RelPackingTraitDef   .INSTANCE, new Supplier[RelPacking     ]() {
-            override def get: RelPacking = {
-              return pelagoTable.getPacking
-            }
-          });
+        .replaceIf(RelDistributionTraitDef.INSTANCE, () => pelagoTable.getDistribution)
+        .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => pelagoTable.getDeviceType)
+        .replaceIf(RelPackingTraitDef.INSTANCE, () => pelagoTable.getPacking);
     new PelagoTableScan(cluster, traitSet, table, pelagoTable, fields)
   }
 }

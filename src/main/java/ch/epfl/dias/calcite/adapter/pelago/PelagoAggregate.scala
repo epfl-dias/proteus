@@ -7,29 +7,21 @@ import org.apache.calcite.plan.RelTraitSet
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.Aggregate
 import org.apache.calcite.rel.core.AggregateCall
-import org.apache.calcite.rel.core.Project
-import org.apache.calcite.rel.metadata.{RelMdDistribution, RelMetadataQuery}
-import org.apache.calcite.rel.`type`.RelDataType
-import org.apache.calcite.rex.{RexInputRef, RexNode}
+import org.apache.calcite.rel.metadata.RelMetadataQuery
+import org.apache.calcite.rex.RexInputRef
 import org.apache.calcite.util.ImmutableBitSet
 import org.json4s.JsonDSL._
 import org.json4s._
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization
 
 import scala.collection.JavaConverters._
 import java.util
 
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMdDeviceType
 import ch.epfl.dias.emitter.PlanConversionException
-import org.apache.calcite.sql.{SqlAggFunction, SqlKind}
+import org.apache.calcite.sql.SqlKind
 
-//import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceType
 import ch.epfl.dias.emitter.Binding
 import ch.epfl.dias.emitter.PlanToJSON._
-import com.google.common.base.Supplier
-
-import scala.collection.parallel.immutable
 
 class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, indicator: Boolean,
                       groupSet: ImmutableBitSet, groupSets: util.List[ImmutableBitSet],
@@ -163,12 +155,8 @@ object PelagoAggregate{
     val traitSet = cluster.traitSet
       .replace(PelagoRel.CONVENTION)
 //      .replace(RelDistributions.SINGLETON)
-      .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
-        override def get: RelDistribution = mq.distribution(input);
-      })
-      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType]() {
-        override def get: RelDeviceType = PelagoRelMdDeviceType.aggregate(mq, input)
-      });
+      .replaceIf(RelDistributionTraitDef.INSTANCE, () => mq.distribution(input))
+      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => PelagoRelMdDeviceType.aggregate(mq, input));
     new PelagoAggregate(cluster, traitSet, input, indicator, groupSet, groupSets, aggCalls, isGlobalAgg)
   }
 }

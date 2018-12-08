@@ -1,6 +1,5 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
-import com.google.common.base.Supplier
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.DataContext
 import org.apache.calcite.adapter.enumerable._
@@ -8,7 +7,6 @@ import org.apache.calcite.linq4j._
 import org.apache.calcite.linq4j.tree._
 import org.apache.calcite.plan._
 import org.apache.calcite.prepare.RelOptTableImpl
-import org.apache.calcite.rel.RelDistribution
 import org.apache.calcite.rel.RelDistributionTraitDef
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.RelWriter
@@ -116,11 +114,9 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
 object PelagoToEnumerableConverter {
   def create(input: RelNode): RelNode = {
     val cluster = input.getCluster
-    val traitSet = input.getTraitSet.replace(EnumerableConvention.INSTANCE).replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
-      override def get: RelDistribution = cluster.getMetadataQuery.distribution(input)
-    }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType]() {
-      override def get: RelDeviceType = cluster.getMetadataQuery.asInstanceOf[PelagoRelMetadataQuery].deviceType(input)
-    })
+    val traitSet = input.getTraitSet.replace(EnumerableConvention.INSTANCE)
+      .replaceIf(RelDistributionTraitDef.INSTANCE, () => cluster.getMetadataQuery.distribution(input))
+      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => cluster.getMetadataQuery.asInstanceOf[PelagoRelMetadataQuery].deviceType(input))
     new PelagoToEnumerableConverter(input.getCluster, traitSet, input)
   }
 

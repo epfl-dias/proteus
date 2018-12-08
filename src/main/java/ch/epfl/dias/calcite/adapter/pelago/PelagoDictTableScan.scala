@@ -76,19 +76,9 @@ class PelagoDictTableScan protected (cluster: RelOptCluster, traitSet: RelTraitS
 object PelagoDictTableScan {
   def create(cluster: RelOptCluster, table: RelOptTable, regex: String, attrIndex: Int) = {
     val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
-      .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
-        override def get: RelDistribution = {
-          return RelDistributions.SINGLETON
-        }
-      }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType  ]() {
-      override def get: RelDeviceType = {
-        return RelDeviceType.X86_64
-      }
-    }).replaceIf(RelPackingTraitDef   .INSTANCE, new Supplier[RelPacking     ]() {
-      override def get: RelPacking = {
-        return RelPacking.UnPckd
-      }
-    });
+      .replaceIf(RelDistributionTraitDef.INSTANCE, () => RelDistributions.SINGLETON)
+      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
+      .replaceIf(RelPackingTraitDef.INSTANCE, () => RelPacking.UnPckd);
     new PelagoDictTableScan(cluster, traitSet, table, regex, attrIndex)
   }
 }
