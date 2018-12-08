@@ -51,14 +51,15 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     //    planner.addRule(PelagoProjectTableScanRule.INSTANCE);
   }
 
-  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Multiply the cost by a factor that makes a scan more attractive if it
+  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    // Multiply the cost by a factor that makes a scan more attractive if it
     // has significantly fewer fields than the original scan.
-    //
-    // The "+ 2D" on top and bottom keeps the function fairly smooth.
-    //
-    // For example, if table has 3 fields, project has 1 field,
-    // then factor = (1 + 2) / (3 + 2) = 0.6
-    super.computeSelfCost(planner, mq).multiplyBy((fields.length.toDouble * 10000 + 2D) / (table.getRowType.getFieldCount.toDouble + 2D))
+    val s = super.computeSelfCost(planner, mq)
+    planner.getCostFactory.makeCost(
+      s.getRows,
+      s.getCpu * (fields.length.toDouble * 10000 + 2D) / (table.getRowType.getFieldCount.toDouble + 2D),
+      s.getIo * (fields.length.toDouble * 10000 + 2D) / (table.getRowType.getFieldCount.toDouble + 2D)
+    )
   }
 
   def getPelagoRelName: String = pelagoTable.getPelagoRelName
@@ -148,6 +149,8 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
   def getDeviceType: RelDeviceType = {
     pelagoTable.getDeviceType
   }
+
+  override def estimateRowCount(mq: RelMetadataQuery): Double = table.getRowCount / (if (pelagoTable.getPacking == RelPacking.Packed) 1024 else 1)
 }
 
 object PelagoTableScan {

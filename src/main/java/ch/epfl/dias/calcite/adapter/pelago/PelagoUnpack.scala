@@ -53,7 +53,7 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
     // exchange.
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
-    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(rf * 100)
+    planner.getCostFactory.makeCost(rowCount, rowCount * bytesPerRow * rf * 100, 0)
 
 //    if (input.getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == toDevice) planner.getCostFactory.makeHugeCost()
 //    else planner.getCostFactory.makeTinyCost

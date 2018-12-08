@@ -3,7 +3,6 @@ package ch.epfl.dias.calcite.adapter.pelago
 import org.apache.calcite.plan._
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.Exchange
-
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema}
 import ch.epfl.dias.emitter.Binding
 import org.apache.calcite.plan.RelOptCluster
@@ -17,10 +16,7 @@ import org.json4s.JsonDSL._
 import org.json4s._
 
 import scala.collection.JavaConverters._
-
 import ch.epfl.dias.repl.Repl
-
-import com.google.common.base.Supplier
 import org.apache.calcite.rel.convert.Converter
 
 class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, distribution: RelDistribution)

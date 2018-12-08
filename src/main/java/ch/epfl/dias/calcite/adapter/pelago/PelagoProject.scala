@@ -33,11 +33,17 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
   }
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-    if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
-      super.computeSelfCost(planner, mq).multiplyBy(0.0001)
+    val rf = if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
+      0.0001
     } else {
-      super.computeSelfCost(planner, mq).multiplyBy(0.01)
+      0.01
     }
+    val s = super.computeSelfCost(planner, mq)
+    planner.getCostFactory.makeCost(
+      s.getRows,
+      s.getCpu * rf,
+      s.getIo
+    )
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
