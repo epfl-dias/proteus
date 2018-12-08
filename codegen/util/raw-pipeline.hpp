@@ -235,6 +235,7 @@ public:
 
     template<typename T>
     void setStateVar(size_t state_id, const T &value){
+        std::cout << layout.getStructLayout(state_type)->getSizeInBytes() << " bytes" <<  state_id << std::endl;
         size_t offset = layout.getStructLayout(state_type)->getElementOffset(state_id);
 
         *((T *) (((char *) state) + offset)) = value;

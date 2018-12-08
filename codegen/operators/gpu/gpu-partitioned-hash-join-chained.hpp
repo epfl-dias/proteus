@@ -54,6 +54,7 @@ public:
             expressions::Expression *           parts_keyexpr,
             RawOperator * const                 parts_child,
             GpuRawContext *                     context,
+            size_t                              maxInputSize,
             int                                 log_parts,
             string                              opLabel);
 
@@ -74,6 +75,8 @@ public:
     llvm::StructType* getPayloadType () { return payloadType; }
 private:
     void matFormat();
+
+    size_t                  maxInputSize;
 
     int                     log_parts;           
     int                     log_parts1;
@@ -110,15 +113,20 @@ public:
             const std::vector<GpuMatExpr>      &build_mat_exprs, 
             const std::vector<size_t>          &build_packet_widths,
             expressions::Expression *           build_keyexpr,
+            expressions::Expression *           build_minor_keyexpr,
             HashPartitioner * const             build_child,
 
             const std::vector<GpuMatExpr>      &probe_mat_exprs, 
             const std::vector<size_t>          &probe_mat_packet_widths,
             expressions::Expression *           probe_keyexpr,
+            expressions::Expression *           probe_minor_keyexpr,
             HashPartitioner * const             probe_child,
 
             PartitionState&                     state_left,
             PartitionState&                     state_right,
+
+            size_t                              maxBuildInputSize,
+            size_t                              maxProbeInputSize,
 
             int                                 log_parts,
             GpuRawContext *                     context,
@@ -165,9 +173,12 @@ private:
     std::vector<GpuMatExpr> build_mat_exprs;
     std::vector<GpuMatExpr> probe_mat_exprs;
     std::vector<size_t>     build_packet_widths;
-    expressions::Expression *build_keyexpr;
 
+    expressions::Expression *build_keyexpr;
     expressions::Expression *probe_keyexpr;
+
+    expressions::Expression *build_minor_keyexpr;
+    expressions::Expression *probe_minor_keyexpr;
     
     std::vector<size_t>     packet_widths;
 
@@ -217,6 +228,7 @@ private:
 
     int                     hash_bits  ;
     size_t                  maxBuildInputSize;
+    size_t                  maxProbeInputSize;
 
     cudaEvent_t jstart[128];
     cudaEvent_t jstop[128];
