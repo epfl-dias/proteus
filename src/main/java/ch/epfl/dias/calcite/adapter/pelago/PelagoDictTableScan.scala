@@ -3,7 +3,6 @@ package ch.epfl.dias.calcite.adapter.pelago
 import java.util
 
 import ch.epfl.dias.emitter.Binding
-import com.google.common.base.Supplier
 import org.apache.calcite.plan._
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.`type`.RelDataType

@@ -15,7 +15,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.`type`._
 import org.apache.calcite.rex.RexInputRef
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
-import ch.epfl.dias.emitter.{Binding}
+import ch.epfl.dias.emitter.Binding
 import ch.epfl.dias.repl.Repl
 import org.apache.calcite.util.Sources
 import java.io.{File, FileOutputStream, PrintWriter}
@@ -24,7 +24,7 @@ import java.util
 
 import ch.epfl.dias.calcite.adapter.pelago.reporting.{PelagoTimeInterval, TimeKeeper}
 import ch.epfl.dias.emitter.PlanToJSON._
-import org.json4s.{JValue}
+import org.json4s.JValue
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._

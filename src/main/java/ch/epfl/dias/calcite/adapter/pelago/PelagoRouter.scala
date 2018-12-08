@@ -39,11 +39,12 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
   }
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-//    if (traitSet.containsIfApplicable(RelPacking.UnPckd)) return planner.getCostFactory.makeHugeCost()
-    var base = super.computeSelfCost(planner, mq).multiplyBy(if (distribution == RelDistributions.BROADCAST_DISTRIBUTED) 1000 else 1)
-//    if (getDistribution.getType eq RelDistribution.Type.HASH_DISTRIBUTED) base = base.multiplyBy(80)
-    base
-//    planner.getCostFactory.makeZeroCost()
+    //    if (traitSet.containsIfApplicable(RelPacking.UnPckd)) return planner.getCostFactory.makeHugeCost()
+    val rf = if (distribution == RelDistributions.BROADCAST_DISTRIBUTED) 10 else 1
+    var base = super.computeSelfCost(planner, mq)
+    //    if (getDistribution.getType eq RelDistribution.Type.HASH_DISTRIBUTED) base = base.multiplyBy(80)
+    planner.getCostFactory.makeCost(base.getRows, base.getCpu * rf, base.getIo)
+    //    planner.getCostFactory.makeZeroCost()
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
@@ -165,13 +166,7 @@ object PelagoRouter{
   def create(input: RelNode, distribution: RelDistribution): PelagoRouter = {
     val cluster  = input.getCluster
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(distribution)
-      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType]() {
-        override def get: RelDeviceType = {
-//          System.out.println(RelMdDeviceType.exchange(cluster.getMetadataQuery, input) + " " + input.getTraitSet + " " + input)
-//          return RelMdDeviceType.exchange(cluster.getMetadataQuery, input)
-          return RelDeviceType.X86_64;
-        }
-      });
+      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64);
     new PelagoRouter(input.getCluster, traitSet, input, distribution)
   }
 }

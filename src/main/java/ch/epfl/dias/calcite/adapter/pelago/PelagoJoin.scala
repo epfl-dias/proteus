@@ -41,24 +41,25 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Pelago does not support cross products
     if (condition.isAlwaysTrue) return planner.getCostFactory.makeHugeCost
-//    if (!getCondition.isA(SqlKind.EQUALS)) return planner.getCostFactory.makeHugeCost
+    //    if (!getCondition.isA(SqlKind.EQUALS)) return planner.getCostFactory.makeHugeCost
 
     val rf = {
       if (!getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
         if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.000001
         else 100//0.1
       } else if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
-        10 //0.01
+        10000000.0 //0.01
       } else {
-        1000
+        100000000.0
       }
     }
 
-//    if (getLeft.getRowType.getFieldCount > 1) return planner.getCostFactory.makeHugeCost
-//    if (traitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX))) return planner.getCostFactory.makeTinyCost
-//    var devFactor = if (traitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == RelDeviceType.NVPTX) 0.1 else 1
+    //    if (getLeft.getRowType.getFieldCount > 1) return planner.getCostFactory.makeHugeCost
+    //    if (traitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX))) return planner.getCostFactory.makeTinyCost
+    //    var devFactor = if (traitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == RelDeviceType.NVPTX) 0.1 else 1
 
-    var rowCount = mq.getRowCount(this)
+    val rowCount = mq.getRowCount(this)
+    var rc1 = rowCount
     // Joins can be flipped, and for many algorithms, both versions are viable
     // and have the same cost. To make the results stable between versions of
     // the planner, make one of the versions slightly more expensive.
@@ -76,19 +77,20 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     val rightRowCount = right.estimateRowCount(mq)
     val leftRowCount = left.estimateRowCount(mq)
 
-    if (leftRowCount.isInfinite) rowCount = leftRowCount
-    else rowCount += Util.nLogN(leftRowCount * left.getRowType.getFieldCount)
+    if (leftRowCount.isInfinite) rc1 = leftRowCount
+    else rc1 += Util.nLogN(leftRowCount * left.getRowType.getFieldCount)
 
-    rowCount *= left.getRowType.getFieldCount //* 0.001
+    rc1 *= left.getRowType.getFieldCount * 1
 
-    if (rightRowCount.isInfinite) {
-      rowCount = rightRowCount
+    var rc2 = if (rightRowCount.isInfinite) {
+      rightRowCount
     } else {
-      rowCount += rightRowCount //For the current HJ implementation, extra fields in the probing rel are 0-cost // * 0.1 * right.getRowType().getFieldCount();
+      rightRowCount //For the current HJ implementation, extra fields in the probing rel are 0-cost // * 0.1 * right.getRowType().getFieldCount();
       //TODO: Cost should change for radix-HJ
     }
-    rowCount *= right.getRowType.getFieldCount
-    planner.getCostFactory.makeCost(rowCount, rowCount, 0).multiplyBy(100 * rf)
+    rc1 += rc2
+    rc1 *= right.getRowType.getFieldCount * 1000
+    planner.getCostFactory.makeCost(rowCount* right.getRowType.getFieldCount* left.getRowType.getFieldCount, rc1 * 10000 * rf, 0)
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("build", left.getRowType.toString).item("lcount", Util.nLogN(left.estimateRowCount(left.getCluster.getMetadataQuery) * left.getRowType.getFieldCount)).item("rcount", right.estimateRowCount(right.getCluster.getMetadataQuery)).item("buildcountrow", left.estimateRowCount(left.getCluster.getMetadataQuery)).item("probecountrow", right.estimateRowCount(right.getCluster.getMetadataQuery))

@@ -1,32 +1,24 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
 import ch.epfl.dias.emitter.Binding
-import ch.epfl.dias.emitter.PlanToJSON
-import com.google.common.base.Supplier
-import org.apache.calcite.adapter.java.JavaTypeFactory
 import org.apache.calcite.plan.RelOptCluster
 import org.apache.calcite.plan.RelOptCost
 import org.apache.calcite.plan.RelOptPlanner
 import org.apache.calcite.plan.RelTraitSet
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.Project
-import org.apache.calcite.rel.metadata.{RelMdCollation, RelMdDistribution, RelMetadataQuery}
-import org.apache.calcite.rel
+import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.`type`.RelDataType
 import org.json4s.JsonDSL._
 import org.json4s._
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization
 import org.apache.calcite.rex.RexNode
 import org.json4s.JsonAST
 
 import scala.collection.JavaConverters._
-import scala.Tuple2
 import java.util
 
 import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution}
-import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, emit_, getFields}
-import org.apache.calcite.adapter.enumerable.EnumerableConvention
+import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, getFields}
 
 /**
   * Implementation of {@link org.apache.calcite.rel.core.Project}
@@ -81,16 +73,8 @@ object PelagoProject{
     val cluster  = input.getCluster
     val mq       = cluster.getMetadataQuery
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
-      .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier[RelDistribution]() {
-        override def get: RelDistribution = {
-          return PelagoRelMdDistribution.project(mq, input, projects)
-        }
-      })
-      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier[RelDeviceType]() {
-        override def get: RelDeviceType = {
-          return PelagoRelMdDeviceType.project(mq, input, projects)
-        }
-      });
+      .replaceIf(RelDistributionTraitDef.INSTANCE, () => PelagoRelMdDistribution.project(mq, input, projects))
+      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => PelagoRelMdDeviceType.project(mq, input, projects));
     new PelagoProject(cluster, traitSet, input, projects, rowType)
   }
 }
