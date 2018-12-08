@@ -1,30 +1,20 @@
 package ch.epfl.dias.calcite.adapter.pelago.rules;
 
 import ch.epfl.dias.calcite.adapter.pelago.*;
-//import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceType;
-//import ch.epfl.dias.calcite.adapter.pelago.trait.RelDeviceTypeTraitDef;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.base.Supplier;
 
 import org.apache.calcite.plan.*;
 import org.apache.calcite.rel.*;
 import org.apache.calcite.rel.convert.ConverterRule;
 import org.apache.calcite.rel.core.*;
 import org.apache.calcite.rel.logical.*;
-import org.apache.calcite.rel.metadata.RelMdDistribution;
 import org.apache.calcite.rel.rules.JoinCommuteRule;
 import org.apache.calcite.rex.*;
-import org.apache.calcite.schema.Schemas;
-import org.apache.calcite.sql.SqlBinaryOperator;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.tools.RelBuilder;
-import org.apache.calcite.tools.RelBuilder.AggCall;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 /**
  * Rules and relational operators for
@@ -140,22 +130,9 @@ public class PelagoRules {
             final Project project = (Project) rel;
 
             RelTraitSet traitSet = project.getInput().getTraitSet().replace(out)//rel.getCluster().traitSet()
-                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return RelDeviceType.X86_64;//.SINGLETON;
-                    }
-                })
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return RelDistributions.SINGLETON;
-                    }
-                })
-                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
-                    public RelPacking get() {
-                        return RelPacking.UnPckd;
-                    }
-                })
-                ;
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64)//.SINGLETON
+                .replaceIf(RelDistributionTraitDef.INSTANCE, () -> RelDistributions.SINGLETON)
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
             return PelagoProject.create(convert(project.getInput(), traitSet), project.getProjects(), project.getRowType());
         }
@@ -194,22 +171,9 @@ public class PelagoRules {
 //            System.out.println(agg.getTraitSet());
 //            RelTraitSet traitSet = agg.getInput().getTraitSet().replace(PelagoRel.CONVENTION)//rel.getCluster().traitSet()
             RelTraitSet traitSet = agg.getTraitSet().replace(PelagoRel.CONVENTION)//rel.getCluster().traitSet()
-                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return RelDeviceType.X86_64;
-                    }
-                })
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return RelDistributions.SINGLETON;
-                    }
-                })
-                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
-                    public RelPacking get() {
-                        return RelPacking.UnPckd;
-                    }
-                })
-                ;
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64)
+                .replaceIf(RelDistributionTraitDef.INSTANCE, () -> RelDistributions.SINGLETON)
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
 //            System.out.println("=====" + traitSet);
             RelNode inp = convert(agg.getInput(), traitSet);//, RelDistributions.SINGLETON);
@@ -309,22 +273,9 @@ public class PelagoRules {
 
 
             RelTraitSet traitSet = uncollect.getTraitSet().replace(PelagoRel.CONVENTION)//rel.getCluster().traitSet()
-                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return RelDeviceType.X86_64;
-                    }
-                })
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return RelDistributions.SINGLETON;
-                    }
-                })
-                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
-                    public RelPacking get() {
-                        return RelPacking.UnPckd;
-                    }
-                })
-                ;
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64)
+                .replaceIf(RelDistributionTraitDef.INSTANCE, () -> RelDistributions.SINGLETON)
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
 //            System.out.println("=====" + traitSet);
             RelNode inp = convert(input, traitSet);//, RelDistributions.SINGLETON);
@@ -374,22 +325,9 @@ public class PelagoRules {
 
 //            System.out.println(agg.getTraitSet());
             RelTraitSet traitSet = sort.getInput().getTraitSet().replace(PelagoRel.CONVENTION)
-                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return RelDeviceType.X86_64;
-                    }
-                })
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return RelDistributions.SINGLETON;
-                    }
-                })
-                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
-                    public RelPacking get() {
-                        return RelPacking.UnPckd;
-                    }
-                })
-                ;
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64)
+                .replaceIf(RelDistributionTraitDef.INSTANCE, () -> RelDistributions.SINGLETON)
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
 //            System.out.println("=====" + traitSet);
 //            RelNode inp = convert(convert(sort.getInput(), out), RelDistributions.SINGLETON);
@@ -493,22 +431,9 @@ public class PelagoRules {
             final Filter filter = (Filter) rel;
 
             RelTraitSet traitSet = filter.getInput().getTraitSet().replace(out)//rel.getCluster().traitSet()
-                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return RelDeviceType.X86_64;//.SINGLETON;
-                    }
-                })
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return RelDistributions.SINGLETON;
-                    }
-                })
-                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
-                    public RelPacking get() {
-                        return RelPacking.UnPckd;
-                    }
-                })
-                ;
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64)//.SINGLETON
+                .replaceIf(RelDistributionTraitDef.INSTANCE, () -> RelDistributions.SINGLETON)
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
             return PelagoFilter.create(convert(filter.getInput(), traitSet), filter.getCondition());
         }
     }
@@ -641,38 +566,14 @@ public class PelagoRules {
 //            RelNode right = convert(convert(join.getRight(), out), RelDistributions.BROADCAST_DISTRIBUTED);//RelDistributionTraitDef.INSTANCE.convert(rel.getCluster().getPlanner(), join.getRight(), rdr, true);
 
             RelTraitSet leftTraitSet = rel.getCluster().traitSet().replace(PelagoRel.CONVENTION)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return RelDistributions.RANDOM_DISTRIBUTED;
-                    }
-                }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return RelDeviceType.NVPTX;
-                    }
-                })
-                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
-                    public RelPacking get() {
-                        return RelPacking.UnPckd;
-                    }
-                })
-                ;
+                .replaceIf(RelDistributionTraitDef.INSTANCE, () -> RelDistributions.RANDOM_DISTRIBUTED)
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.NVPTX)
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
             RelTraitSet rightTraitSet = rel.getCluster().traitSet().replace(PelagoRel.CONVENTION)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return RelDistributions.BROADCAST_DISTRIBUTED;
-                    }
-                }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return RelDeviceType.NVPTX;
-                    }
-                })
-                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
-                    public RelPacking get() {
-                        return RelPacking.UnPckd;
-                    }
-                })
-                ;
+                .replaceIf(RelDistributionTraitDef.INSTANCE, () -> RelDistributions.BROADCAST_DISTRIBUTED)
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.NVPTX)
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
             RelNode left  = convert(join.getLeft (), leftTraitSet );//convert(convert(convert(join.getLeft (), out) , leftDeviceType ), leftDistribution );
             RelNode right = convert(join.getRight(), rightTraitSet);//convert(convert(convert(join.getRight(), out) , rightDeviceType), rightDistribution);
@@ -757,38 +658,14 @@ public class PelagoRules {
             condition = disjunctions.get(0);
 
             RelTraitSet leftTraitSet = rel.getCluster().traitSet().replace(out)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return leftDistribution;
-                    }
-                })
-                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return leftDeviceType;
-                    }
-                })
-                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
-                    public RelPacking get() {
-                        return RelPacking.UnPckd;
-                    }
-                });
+                .replaceIf(RelDistributionTraitDef.INSTANCE, () -> leftDistribution)
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> leftDeviceType)
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
             RelTraitSet rightTraitSet = rel.getCluster().traitSet().replace(out)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return rightDistribution;
-                    }
-                })
-                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return rightDeviceType;
-                    }
-                })
-                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
-                    public RelPacking get() {
-                        return RelPacking.UnPckd;
-                    }
-                });
+                .replaceIf(RelDistributionTraitDef.INSTANCE, () -> rightDistribution)
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> rightDeviceType)
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
             RelNode left  = convert(join.getLeft (), leftTraitSet );//
             RelNode right = convert(join.getRight(), rightTraitSet);//
@@ -906,36 +783,14 @@ public class PelagoRules {
             RexNode aboveCond = RexUtil.composeConjunction(rexBuilder, rest, false);
 
             RelTraitSet leftTraitSet = rel.getCluster().traitSet().replace(out)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return leftDistribution;
-                    }
-                }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return leftDeviceType  ;
-                    }
-                })
-                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
-                    public RelPacking get() {
-                        return RelPacking.UnPckd;
-                    }
-                });
+                .replaceIf(RelDistributionTraitDef.INSTANCE, () -> leftDistribution)
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> leftDeviceType)
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
             RelTraitSet rightTraitSet = rel.getCluster().traitSet().replace(out)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, new Supplier<RelDistribution>() {
-                    public RelDistribution get() {
-                        return rightDistribution;
-                    }
-                }).replaceIf(RelDeviceTypeTraitDef.INSTANCE, new Supplier<RelDeviceType>() {
-                    public RelDeviceType get() {
-                        return rightDeviceType  ;
-                    }
-                })
-                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
-                    public RelPacking get() {
-                        return RelPacking.UnPckd;
-                    }
-                });
+                .replaceIf(RelDistributionTraitDef.INSTANCE, () -> rightDistribution)
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> rightDeviceType)
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
 
             RelNode preLeft  = convert(join.getLeft (), leftTraitSet );

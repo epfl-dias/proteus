@@ -207,7 +207,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         /*Enumerable Rules*/
 //        rules.add(EnumerableRules.ENUMERABLE_FILTER_RULE);
 //        rules.add(EnumerableRules.ENUMERABLE_TABLE_SCAN_RULE);
-//        rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE);
+        rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE);
 //        rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
 //        rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE);
 //      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE) //FIMXE: no mergejoin yet
@@ -545,7 +545,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
                             option = id.toString();
                         } else if (value instanceof SqlLiteral) {
                             SqlLiteral lit = (SqlLiteral) value;
-                            option = lit.getStringValue();
+                            option = lit.toValue();
                         } else {
                             throw new UnsupportedOperationException();
                         }
