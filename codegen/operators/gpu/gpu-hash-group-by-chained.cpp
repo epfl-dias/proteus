@@ -156,53 +156,23 @@ void GpuHashGroupByChained::buildHashTableFormat(){
     cnt_param_id = context->appendStateVar(t_cnt);//, true, false);
 }
 
-//NOTE: no MOD hashtable_size here!
-// FIXME: shouldn't hashes be 64bit ?
-Value * GpuHashGroupByChained::hash(Value * key){
-    IRBuilder<>    *Builder     = context->getBuilder();
-
-    Value * hash = Builder->CreateZExtOrBitCast(key, Type::getInt64Ty(context->getLLVMContext()));
-
-    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
-    hash = Builder->CreateMul(hash, ConstantInt::get(hash->getType(), 0x85ebca6b));
-    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 13));
-    hash = Builder->CreateMul(hash, ConstantInt::get(hash->getType(), 0xc2b2ae35));
-    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
-
-    return hash;
-}
-
-//boost::hash_combine
-// seed ^= hash_value(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-
-//NOTE: no MOD hashtable_size here!
-Value * GpuHashGroupByChained::hash(Value * old_seed, Value * key){
-    IRBuilder<>    *Builder     = context->getBuilder();
-
-    Value * hv = hash(key);
-    
-    hv = Builder->CreateAdd(hv, ConstantInt::get(hv->getType(), 0x9e3779b9));
-    hv = Builder->CreateAdd(hv, Builder->CreateShl (old_seed,  6));
-    hv = Builder->CreateAdd(hv, Builder->CreateLShr(old_seed,  2));
-    hv = Builder->CreateXor(hv, old_seed);
-
-    return hv;
-}
-
 Value * GpuHashGroupByChained::hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState){
-    IRBuilder<>    *Builder     = context->getBuilder();
-    ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue keyWrapper = exprs[0]->accept(exprGenerator); //FIXME hash composite key!
-    Value * hash = GpuHashGroupByChained::hash(keyWrapper.value);
+    Value * hash;
+    if (exprs.size() == 1){
+        ExpressionHasherVisitor hasher{context, childState};
+        hash = exprs[0]->accept(hasher).value;
+    } else {
+        std::list<expressions::AttributeConstruction> a;
+        size_t i = 0;
+        for (const auto &e: exprs) a.emplace_back("k" + std::to_string(i++), e);
 
-    for (size_t i = 1 ; i < exprs.size() ; ++i){
-        RawValue keyWrapper = exprs[i]->accept(exprGenerator); //FIXME hash composite key!
-        hash = GpuHashGroupByChained::hash(hash, keyWrapper.value);
+        ExpressionHasherVisitor hasher{context, childState};
+        hash = expressions::RecordConstruction{a}.accept(hasher).value;
     }
-
-    hash = Builder->CreateURem(hash, ConstantInt::get(hash->getType(), (size_t(1) << hash_bits)));
-    return hash;
+    auto size = ConstantInt::get(hash->getType(), (size_t(1) << hash_bits));
+    return context->getBuilder()->CreateURem(hash, size);
 }
+
 void GpuHashGroupByChained::generate_build(RawContext* const context, const OperatorState& childState) {
     IRBuilder<>    *Builder     = context->getBuilder();
     LLVMContext    &llvmContext = context->getLLVMContext();

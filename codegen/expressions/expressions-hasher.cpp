@@ -23,138 +23,113 @@
 
 #include "expressions/expressions-hasher.hpp"
 
-RawValue ExpressionHasherVisitor::visit(expressions::IntConstant *e) {
+RawValue ExpressionHasherVisitor::hashInt32(expressions::Expression *e){
+	ExpressionGeneratorVisitor exprGenerator{context, currState};
+	return ::hashInt32(e->accept(exprGenerator), context);
+}
+
+RawValue hashInt32(RawValue v, RawContext * context){
+	IRBuilder<> * Builder = context->getBuilder();
+
+	//FIXME: hash-function (single step murmur) is designed for 32bit inputs
+
+	assert(v.value->getType()->isIntegerTy(32));
+
+	Type * int64Type = Type::getInt64Ty(context->getLLVMContext());
+
+	Value * key  = v.value;
+	Value * hash = Builder->CreateSExt(key, int64Type);
+
+	const auto type = key->getType();
+
+	hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
+	hash = Builder->CreateMul(hash, context->createInt64(0x85ebca6b));
+	hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 13));
+	hash = Builder->CreateMul(hash, context->createInt64(0xc2b2ae35));
+	hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
+
+	return RawValue{hash, v.isNull};
+}
+
+RawValue ExpressionHasherVisitor::hashPrimitive(expressions::Expression *e){
+	auto type = e->getExpressionType();
+
+	assert(type->isPrimitive() && "Non-primitive types should be handled by the corresponding visit function!");
+
+	ExpressionGeneratorVisitor exprGenerator{context, currState};
+	return ::hashPrimitive(e->accept(exprGenerator), type->getTypeID(), context);
+}
+
+RawValue hashPrimitive(RawValue v, typeID type, RawContext * context){
+	std::string instructionLabel;
+
+	switch (type) {
+	case INT:
+	case DSTRING:{
+		return hashInt32(v, context);
+	}
+	case INT64:
+	case DATE:
+		instructionLabel = "hashInt64";
+		break;
+	case FLOAT:
+		instructionLabel = "hashDouble";
+		break;
+	case BOOL:
+		instructionLabel = "hashBoolean";
+		break;
+	case STRING:{
+		IRBuilder<> * Builder = context->getBuilder();
+		Function * hashStringObj = context->getFunction("hashStringObject");
+
+		Value * hashResult = Builder->CreateCall(hashStringObj, v.value);
+
+		return RawValue{hashResult, context->createFalse()};
+	}
+	case BAG:
+	case LIST:
+	case SET:
+	case COMPOSITE:
+	case RECORD:
+	case BLOCK:
+		LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
+		throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
+	default:
+		LOG(ERROR) << "[ExpressionHasherVisitor]: Unknown Input";
+		throw runtime_error(string("[ExpressionHasherVisitor]: Unknown Input"));
+	}
+
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Function *hashInt = context->getFunction("hashInt");
-	std::vector<Value*> ArgsV;
-	Value *val_int = ConstantInt::get(context->getLLVMContext(), APInt(32, e->getVal()));
-	ArgsV.push_back(val_int);
-	Value *hashResult = context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
+	Function * hashFunc = context->getFunction(instructionLabel);
+	Value * hashResult = TheBuilder->CreateCall(hashFunc, v.value);
 
-	RawValue valWrapper;
-	valWrapper.value = hashResult;
-	valWrapper.isNull = context->createFalse();
+	return RawValue{hashResult, v.isNull};
+}
 
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
 
-	return valWrapper;
+
+RawValue ExpressionHasherVisitor::visit(expressions::IntConstant *e) {
+	return hashInt32(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::DStringConstant *e) {
-	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Function *hashInt = context->getFunction("hashInt");
-	std::vector<Value*> ArgsV;
-	Value *val_int = ConstantInt::get(context->getLLVMContext(), APInt(32, e->getVal()));
-	ArgsV.push_back(val_int);
-	Value *hashResult = context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
-
-	RawValue valWrapper;
-	valWrapper.value = hashResult;
-	valWrapper.isNull = context->createFalse();
-
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-
-	return valWrapper;
+	return hashInt32(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::Int64Constant *e) {
-	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Function *hashInt64 = context->getFunction("hashInt64");
-	std::vector<Value*> ArgsV;
-	Value *val_int64 = ConstantInt::get(context->getLLVMContext(), APInt(64, e->getVal()));
-	ArgsV.push_back(val_int64);
-	Value *hashResult = context->getBuilder()->CreateCall(hashInt64, ArgsV, "hashInt64");
-
-	RawValue valWrapper;
-	valWrapper.value = hashResult;
-	valWrapper.isNull = context->createFalse();
-
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-
-	return valWrapper;
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::DateConstant *e) {
-	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Function *hashInt64 = context->getFunction("hashInt64");
-	std::vector<Value*> ArgsV;
-	Value *val_int64 = ConstantInt::get(context->getLLVMContext(), APInt(64, e->getVal()));
-	ArgsV.push_back(val_int64);
-	Value *hashResult = context->getBuilder()->CreateCall(hashInt64, ArgsV, "hashInt64");
-
-	RawValue valWrapper;
-	valWrapper.value = hashResult;
-	valWrapper.isNull = context->createFalse();
-
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-
-	return valWrapper;
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::FloatConstant *e) {
-	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Function *hashDouble = context->getFunction("hashDouble");
-	std::vector<Value*> ArgsV;
-	Value *val_double = ConstantFP::get(context->getLLVMContext(), APFloat(e->getVal()));
-	ArgsV.push_back(val_double);
-	Value *hashResult = context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
-
-	RawValue valWrapper;
-	valWrapper.value = hashResult;
-	valWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-	return valWrapper;
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::BoolConstant *e) {
-	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Function *hashBoolean = context->getFunction("hashBoolean");
-	std::vector<Value*> ArgsV;
-	Value *val_boolean = ConstantInt::get(context->getLLVMContext(), APInt(1, e->getVal()));
-	ArgsV.push_back(val_boolean);
-	Value *hashResult = context->getBuilder()->CreateCall(hashBoolean, ArgsV, "hashBoolean");
-
-	RawValue valWrapper;
-	valWrapper.value = hashResult;
-	valWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-	return valWrapper;
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::StringConstant *e) {
@@ -246,6 +221,8 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::RawValueExpression *e) {
+	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
+
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 
 	Plugin* plugin 					= catalog.getPlugin(activeRelation);
@@ -322,7 +299,6 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 	}	else	{
 		Bindings bindings = { &currState, record };
 		RawValueMemory mem_path;
-		RawValue mem_val;
 		//cout << "Active Relation: " << e->getProjectionName() << endl;
 		if (e->getProjectionName() != activeLoop) {
 			const RecordType * exprType = dynamic_cast<const RecordType *>(e->getExpr()->getExpressionType());
@@ -357,9 +333,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 			}
 			mem_path = it->second;
 		}
-		mem_val = plugin->hashValue(mem_path, e->getExpressionType());
-
-		return mem_val;
+		return plugin->hashValue(mem_path, e->getExpressionType());
 	}
 }
 
@@ -408,457 +382,77 @@ RawValue ExpressionHasherVisitor::visit(expressions::IfThenElse *e) {
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::EqExpression *e)	{
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-
-	RawValue exprResult = e->accept(exprGenerator);
-	Function *hashFunc = context->getFunction("hashBoolean");
-	vector<Value*> ArgsV;
-	ArgsV.push_back(exprResult.value);
-	Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-	RawValue hashValWrapper;
-	hashValWrapper.value = hashResult;
-	hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-	return hashValWrapper;
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::NeExpression *e)	{
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-
-	RawValue exprResult = e->accept(exprGenerator);
-	Function *hashFunc = context->getFunction("hashBoolean");
-	vector<Value*> ArgsV;
-	ArgsV.push_back(exprResult.value);
-	Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-	RawValue hashValWrapper;
-	hashValWrapper.value = hashResult;
-	hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-	return hashValWrapper;
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::GeExpression *e)	{
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-
-	RawValue exprResult = e->accept(exprGenerator);
-	Function *hashFunc = context->getFunction("hashBoolean");
-	vector<Value*> ArgsV;
-	ArgsV.push_back(exprResult.value);
-	Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-	RawValue hashValWrapper;
-	hashValWrapper.value = hashResult;
-	hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-	return hashValWrapper;
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::GtExpression *e)	{
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-
-	RawValue exprResult = e->accept(exprGenerator);
-	Function *hashFunc = context->getFunction("hashBoolean");
-	vector<Value*> ArgsV;
-	ArgsV.push_back(exprResult.value);
-	Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-	RawValue hashValWrapper;
-	hashValWrapper.value = hashResult;
-	hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-	return hashValWrapper;
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::LeExpression *e)	{
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-
-	RawValue exprResult = e->accept(exprGenerator);
-	Function *hashFunc = context->getFunction("hashBoolean");
-	vector<Value*> ArgsV;
-	ArgsV.push_back(exprResult.value);
-	Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-	RawValue hashValWrapper;
-	hashValWrapper.value = hashResult;
-	hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-	return hashValWrapper;
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::LtExpression *e)	{
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-
-	RawValue exprResult = e->accept(exprGenerator);
-	Function *hashFunc = context->getFunction("hashBoolean");
-	vector<Value*> ArgsV;
-	ArgsV.push_back(exprResult.value);
-	Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-	RawValue hashValWrapper;
-	hashValWrapper.value = hashResult;
-	hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-	return hashValWrapper;
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::AndExpression *e)	{
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-
-	RawValue exprResult = e->accept(exprGenerator);
-	Function *hashFunc = context->getFunction("hashBoolean");
-	vector<Value*> ArgsV;
-	ArgsV.push_back(exprResult.value);
-	Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-	RawValue hashValWrapper;
-	hashValWrapper.value = hashResult;
-	hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-	return hashValWrapper;
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::OrExpression *e)	{
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-
-	RawValue exprResult = e->accept(exprGenerator);
-	Function *hashFunc = context->getFunction("hashBoolean");
-	vector<Value*> ArgsV;
-	ArgsV.push_back(exprResult.value);
-	Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-	RawValue hashValWrapper;
-	hashValWrapper.value = hashResult;
-	hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-	return hashValWrapper;
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::AddExpression *e) {
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-	RawValue exprResult = e->accept(exprGenerator);
-
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
-	Function *hashFunc = NULL;
-	string instructionLabel;
-
-	if (childType->isPrimitive()) {
-		typeID id = childType->getTypeID();
-		RawValue valWrapper;
-		valWrapper.isNull = context->createFalse();
-
-		switch (id) {
-		case INT:
-			instructionLabel = string("hashInt");
-			break;
-		case FLOAT:
-			instructionLabel = string("hashDouble");
-			break;
-		case BOOL:
-			instructionLabel = string("hashBoolean");
-			break;
-		case STRING:
-			LOG(ERROR)<< "[ExpressionHasherVisitor]: string operations not supported yet";
-			throw runtime_error(string("[ExpressionHasherVisitor]: string operations not supported yet"));
-		case BAG:
-		case LIST:
-		case SET:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		case RECORD:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		default:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: Unknown Input";
-			throw runtime_error(string("[ExpressionHasherVisitor]: Unknown Input"));
-		}
-		hashFunc = context->getFunction(instructionLabel);
-		vector<Value*> ArgsV;
-		ArgsV.push_back(exprResult.value);
-		Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-		RawValue hashValWrapper;
-		hashValWrapper.value = hashResult;
-		hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-		return hashValWrapper;
-	}
+	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of binary expression can only be primitive"));
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::SubExpression *e) {
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-	RawValue exprResult = e->accept(exprGenerator);
-
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
-	Function *hashFunc = NULL;
-	string instructionLabel;
-
-	if (childType->isPrimitive()) {
-		typeID id = childType->getTypeID();
-		RawValue valWrapper;
-		valWrapper.isNull = context->createFalse();
-
-		switch (id) {
-		case INT:
-			instructionLabel = string("hashInt");
-			break;
-		case FLOAT:
-			instructionLabel = string("hashDouble");
-			break;
-		case BOOL:
-			instructionLabel = string("hashBoolean");
-			break;
-		case STRING:
-			LOG(ERROR)<< "[ExpressionHasherVisitor]: string operations not supported yet";
-			throw runtime_error(string("[ExpressionHasherVisitor]: string operations not supported yet"));
-		case BAG:
-		case LIST:
-		case SET:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		case RECORD:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		default:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: Unknown Input";
-			throw runtime_error(string("[ExpressionHasherVisitor]: Unknown Input"));
-		}
-		hashFunc = context->getFunction(instructionLabel);
-		vector<Value*> ArgsV;
-		ArgsV.push_back(exprResult.value);
-		Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-		RawValue hashValWrapper;
-		hashValWrapper.value = hashResult;
-		hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-		return hashValWrapper;
-	}
+	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of binary expression can only be primitive"));
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::MultExpression *e) {
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-	RawValue exprResult = e->accept(exprGenerator);
-
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
-	Function *hashFunc = NULL;
-	string instructionLabel;
-
-	if (childType->isPrimitive()) {
-		typeID id = childType->getTypeID();
-		RawValue valWrapper;
-		valWrapper.isNull = context->createFalse();
-
-		switch (id) {
-		case INT:
-			instructionLabel = string("hashInt");
-			break;
-		case FLOAT:
-			instructionLabel = string("hashDouble");
-			break;
-		case BOOL:
-			instructionLabel = string("hashBoolean");
-			break;
-		case STRING:
-			LOG(ERROR)<< "[ExpressionHasherVisitor]: string operations not supported yet";
-			throw runtime_error(string("[ExpressionHasherVisitor]: string operations not supported yet"));
-		case BAG:
-		case LIST:
-		case SET:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		case RECORD:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		default:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: Unknown Input";
-			throw runtime_error(string("[ExpressionHasherVisitor]: Unknown Input"));
-		}
-		hashFunc = context->getFunction(instructionLabel);
-		vector<Value*> ArgsV;
-		ArgsV.push_back(exprResult.value);
-		Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-		RawValue hashValWrapper;
-		hashValWrapper.value = hashResult;
-		hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-		return hashValWrapper;
-	}
+	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of binary expression can only be primitive"));
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::DivExpression *e) {
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-	RawValue exprResult = e->accept(exprGenerator);
-
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
-	Function *hashFunc = NULL;
-	string instructionLabel;
-
-	if (childType->isPrimitive()) {
-		typeID id = childType->getTypeID();
-		RawValue valWrapper;
-		valWrapper.isNull = context->createFalse();
-
-		switch (id) {
-		case INT:
-			instructionLabel = string("hashInt");
-			break;
-		case FLOAT:
-			instructionLabel = string("hashDouble");
-			break;
-		case BOOL:
-			instructionLabel = string("hashBoolean");
-			break;
-		case STRING:
-			LOG(ERROR)<< "[ExpressionHasherVisitor]: string operations not supported yet";
-			throw runtime_error(string("[ExpressionHasherVisitor]: string operations not supported yet"));
-		case BAG:
-		case LIST:
-		case SET:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		case RECORD:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		default:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: Unknown Input";
-			throw runtime_error(string("[ExpressionHasherVisitor]: Unknown Input"));
-		}
-		hashFunc = context->getFunction(instructionLabel);
-		vector<Value*> ArgsV;
-		ArgsV.push_back(exprResult.value);
-		Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-		RawValue hashValWrapper;
-		hashValWrapper.value = hashResult;
-		hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-		return hashValWrapper;
-	}
+	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of binary expression can only be primitive"));
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::RecordConstruction *e) {
-	Function* const F = context->getGlobalFunction();
-	IRBuilder<>* const TheBuilder = context->getBuilder();
-	Type* int64Type = Type::getInt64Ty(context->getLLVMContext());
+	IRBuilder<>* const Builder = context->getBuilder();
+	Type * int64Type = Type::getInt64Ty(context->getLLVMContext());
 
-	Function *hashCombine = context->getFunction("combineHashes");
-	Value* hashedValue = context->createInt64(0);
-	std::vector<Value*> ArgsV;
-	//Initializing resulting hashed value
-	AllocaInst* mem_hashedValue = context->CreateEntryBlockAlloca(F,
-			std::string("hashValue"), int64Type);
-	TheBuilder->CreateStore(hashedValue, mem_hashedValue);
+	Value * seed = context->createInt64(0);
+	Value * comb = ConstantInt::get(int64Type, 0x9e3779b9);
 
-	const list<expressions::AttributeConstruction> atts = e->getAtts();
-	list<expressions::AttributeConstruction>::const_iterator it;
-	for (it = atts.begin(); it != atts.end(); it++)
-	{
-		expressions::Expression* expr = (*it).getExpression();
-		RawValue partialHash = expr->accept(*this);
+	for (const auto &attr: e->getAtts()){
+		expressions::Expression* expr = attr.getExpression();
+		Value * hv = expr->accept(*this).value;
 
-		ArgsV.clear();
-		ArgsV.push_back(hashedValue);
-		ArgsV.push_back(partialHash.value);
-		hashedValue = TheBuilder->CreateCall(hashCombine, ArgsV,
-			"combineHashesRes");
-		TheBuilder->CreateStore(hashedValue, mem_hashedValue);
+		hv = Builder->CreateAdd(hv, comb);
+		hv = Builder->CreateAdd(hv, Builder->CreateShl (seed,  6));
+		hv = Builder->CreateAdd(hv, Builder->CreateLShr(seed,  2));
+		hv = Builder->CreateXor(hv, seed);
+
+		seed = hv;
 	}
 
-	RawValue hashValWrapper;
-	hashValWrapper.value = TheBuilder->CreateLoad(mem_hashedValue);
-	hashValWrapper.isNull = context->createFalse();
-	return hashValWrapper;
+	return RawValue{seed, context->createFalse()};
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::MaxExpression *e)	{
@@ -875,192 +469,23 @@ RawValue ExpressionHasherVisitor::visit(expressions::HashExpression *e)	{
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::NegExpression *e) {
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-	RawValue exprResult = e->accept(exprGenerator);
-
-	const ExpressionType* childType = e->getExpr()->getExpressionType();
-	Function *hashFunc = NULL;
-	string instructionLabel;
-
-	if (childType->isPrimitive()) {
-		typeID id = childType->getTypeID();
-		RawValue valWrapper;
-		valWrapper.isNull = context->createFalse();
-
-		switch (id) {
-		case INT:
-			instructionLabel = string("hashInt");
-			break;
-		case FLOAT:
-			instructionLabel = string("hashDouble");
-			break;
-		case BOOL:
-			instructionLabel = string("hashBoolean");
-			break;
-		case STRING:
-			LOG(ERROR)<< "[ExpressionHasherVisitor]: string operations not supported yet";
-			throw runtime_error(string("[ExpressionHasherVisitor]: string operations not supported yet"));
-		case BAG:
-		case LIST:
-		case SET:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		case RECORD:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		default:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: Unknown Input";
-			throw runtime_error(string("[ExpressionHasherVisitor]: Unknown Input"));
-		}
-		hashFunc = context->getFunction(instructionLabel);
-		vector<Value*> ArgsV;
-		ArgsV.push_back(exprResult.value);
-		Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-		RawValue hashValWrapper;
-		hashValWrapper.value = hashResult;
-		hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-		return hashValWrapper;
-	}
+	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of negate expression can only be primitive"));
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::ExtractExpression *e) {
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator{context, currState};
-	RawValue exprResult = e->accept(exprGenerator);
-
-	const ExpressionType* type = e->getExpressionType();
-	Function *hashFunc = NULL;
-	string instructionLabel;
-
-	if (type->isPrimitive()) {
-		typeID id = type->getTypeID();
-		RawValue valWrapper;
-		valWrapper.isNull = context->createFalse();
-
-		switch (id) {
-		case INT:
-			instructionLabel = string("hashInt");
-			break;
-		case FLOAT:
-			instructionLabel = string("hashDouble");
-			break;
-		case BOOL:
-			instructionLabel = string("hashBoolean");
-			break;
-		case STRING:
-			LOG(ERROR)<< "[ExpressionHasherVisitor]: string operations not supported yet";
-			throw runtime_error(string("[ExpressionHasherVisitor]: string operations not supported yet"));
-		case BAG:
-		case LIST:
-		case SET:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		case RECORD:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		default:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: Unknown Input";
-			throw runtime_error(string("[ExpressionHasherVisitor]: Unknown Input"));
-		}
-		hashFunc = context->getFunction(instructionLabel);
-		vector<Value*> ArgsV;
-		ArgsV.push_back(exprResult.value);
-		Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-		RawValue hashValWrapper;
-		hashValWrapper.value = hashResult;
-		hashValWrapper.isNull = context->createFalse();
-		return hashValWrapper;
-	}
-	throw runtime_error(string("[ExpressionHasherVisitor]: input of negate expression can only be primitive"));
+	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
+	throw runtime_error(string("[ExpressionHasherVisitor]: input of extract expression can only be primitive"));
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::TestNullExpression *e) {
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator{context, currState};
-	RawValue exprResult = e->accept(exprGenerator);
-	
-	Function * hashFunc = context->getFunction("hashBoolean");
-	// vector<Value*> ArgsV;
-	// ArgsV.push_back(exprResult.value);
-	Value *hashResult = context->getBuilder()->CreateCall(hashFunc, {exprResult.value}, "hashBoolean");
-
-	return RawValue{hashResult, context->createFalse()};
+	return hashPrimitive(e);
 }
 
 RawValue ExpressionHasherVisitor::visit(expressions::CastExpression *e) {
-	//do not _just_ cast the inner expression, as hash may be different between the casted and non-casted expressions
-	IRBuilder<>* const TheBuilder	= context->getBuilder();
-	ExpressionGeneratorVisitor exprGenerator{context, currState};
-	RawValue exprResult = e->accept(exprGenerator);
-
-	const ExpressionType* childType = e->getExpr()->getExpressionType();
-	Function *hashFunc = NULL;
-	string instructionLabel;
-
-	if (childType->isPrimitive()) {
-		typeID id = childType->getTypeID();
-		RawValue valWrapper;
-		valWrapper.isNull = context->createFalse();
-
-		switch (id) {
-		case INT:
-			instructionLabel = string("hashInt");
-			break;
-		case FLOAT:
-			instructionLabel = string("hashDouble");
-			break;
-		case BOOL:
-			instructionLabel = string("hashBoolean");
-			break;
-		case STRING:
-			LOG(ERROR)<< "[ExpressionHasherVisitor]: string operations not supported yet";
-			throw runtime_error(string("[ExpressionHasherVisitor]: string operations not supported yet"));
-		case BAG:
-		case LIST:
-		case SET:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		case RECORD:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: invalid expression type";
-			throw runtime_error(string("[ExpressionHasherVisitor]: invalid expression type"));
-		default:
-			LOG(ERROR) << "[ExpressionHasherVisitor]: Unknown Input";
-			throw runtime_error(string("[ExpressionHasherVisitor]: Unknown Input"));
-		}
-		hashFunc = context->getFunction(instructionLabel);
-		vector<Value*> ArgsV;
-		ArgsV.push_back(exprResult.value);
-		Value *hashResult = context->getBuilder()->CreateCall(hashFunc, ArgsV,"hashBoolean");
-
-		RawValue hashValWrapper;
-		hashValWrapper.value = hashResult;
-		hashValWrapper.isNull = context->createFalse();
-#ifdef DEBUG_HASH
-	vector<Value*> argsV;
-	argsV.clear();
-	argsV.push_back(hashResult);
-	Function* debugInt64 = context->getFunction("printi64");
-	TheBuilder->CreateCall(debugInt64, argsV);
-#endif
-		return hashValWrapper;
-	}
-	throw runtime_error(string("[ExpressionHasherVisitor]: input of cast expression can only be primitive"));
+	// do not _just_ cast the inner expression, as hash may be different
+	// between the casted and non-casted expressions
+	// instead, hash the casted expression
+	if (e->getExpressionType()) return hashPrimitive(e);
+	throw runtime_error(string("[ExpressionHasherVisitor]: output of cast expression can only be primitive"));
 }
-
-
-
-
-
-
-

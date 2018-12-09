@@ -22,6 +22,7 @@
 */
 
 #include "plugins/csv-plugin-pm.hpp"
+#include "expressions/expressions-hasher.hpp"
 
 namespace pm	{
 
@@ -416,85 +417,9 @@ RawValue CSVPlugin::readCachedValue(CacheInfo info, const map<RecordAttribute, R
 
 
 RawValue CSVPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* type)	{
-	IRBuilder<>* Builder = context->getBuilder();
-	switch (type->getTypeID())
-	{
-	case BOOL:
-	{
-		Function *hashBoolean = context->getFunction("hashBoolean");
-		vector<Value*> ArgsV;
-		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
-		Value *hashResult = context->getBuilder()->CreateCall(hashBoolean,
-				ArgsV, "hashBoolean");
-
-		RawValue valWrapper;
-		valWrapper.value = hashResult;
-		valWrapper.isNull = context->createFalse();
-		return valWrapper;
-	}
-	case STRING:
-	{
-		Function *hashStringObj = context->getFunction("hashStringObject");
-		vector<Value*> ArgsV;
-		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
-		Value *hashResult = context->getBuilder()->CreateCall(hashStringObj,
-				ArgsV, "hashStringObject");
-
-		RawValue valWrapper;
-		valWrapper.value = hashResult;
-		valWrapper.isNull = context->createFalse();
-		return valWrapper;
-	}
-	case FLOAT:
-	{
-		Function *hashDouble = context->getFunction("hashDouble");
-		vector<Value*> ArgsV;
-		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
-		Value *hashResult = context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
-
-		RawValue valWrapper;
-		valWrapper.value = hashResult;
-		valWrapper.isNull = context->createFalse();
-		return valWrapper;
-	}
-	case INT64:
-	case DATE:
-	{
-		Function *hashInt = context->getFunction("hashInt64");
-		vector<Value*> ArgsV;
-		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
-		Value *hashResult = context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt64");
-
-		RawValue valWrapper;
-		valWrapper.value = hashResult;
-		valWrapper.isNull = context->createFalse();
-		return valWrapper;
-	}
-	case INT:
-	case DSTRING:
-	{
-		Function *hashInt = context->getFunction("hashInt");
-		vector<Value*> ArgsV;
-		ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
-		Value *hashResult = context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
-
-		RawValue valWrapper;
-		valWrapper.value = hashResult;
-		valWrapper.isNull = context->createFalse();
-		return valWrapper;
-	}
-	case BAG:
-	case LIST:
-	case SET:
-	LOG(ERROR) << "[CSV PLUGIN: ] CSV files do not contain collections";
-	throw runtime_error(string("[CSV PLUGIN: ] CSV files do not contain collections"));
-	case RECORD:
-	LOG(ERROR) << "[CSV PLUGIN: ] CSV files do not contain record-valued attributes";
-	throw runtime_error(string("[CSV PLUGIN: ] CSV files do not contain record-valued attributes"));
-	default:
-	LOG(ERROR) << "[CSV PLUGIN: ] Unknown datatype";
-	throw runtime_error(string("[CSV PLUGIN: ] Unknown datatype"));
-}
+    IRBuilder<>* Builder = context->getBuilder();
+    RawValue v{Builder->CreateLoad(mem_value.mem), mem_value.isNull};
+    return hashPrimitive(v, type->getTypeID(), context);
 }
 
 RawValue CSVPlugin::hashValueEager(RawValue valWrapper,

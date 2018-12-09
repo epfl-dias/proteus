@@ -61,7 +61,8 @@ private:
     void generate_probe(RawContext* const context, const OperatorState& childState);
     void buildHashTableFormat();
     void probeHashTableFormat();
-    llvm::Value * hash(llvm::Value * key);
+
+    llvm::Value * hash(expressions::Expression * exprs, RawContext* const context, const OperatorState& childState);
 
     string                  opLabel;
 

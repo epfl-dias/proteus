@@ -59,7 +59,6 @@ protected:
     virtual void open (RawPipeline * pip);
     virtual void close(RawPipeline * pip);
 
-    llvm::Value * hash(llvm::Value * key, llvm::Value * old_seed = NULL);
     llvm::Value * hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState);
 
     std::vector<expressions::Expression *>  matExpr         ;

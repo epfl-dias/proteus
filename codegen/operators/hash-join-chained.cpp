@@ -24,6 +24,7 @@
 #include "operators/hash-join-chained.hpp"
 #include "operators/gpu/gmonoids.hpp"
 #include "util/raw-memory-manager.hpp"
+#include "expressions/expressions-hasher.hpp"
 
 HashJoinChained::HashJoinChained(
             const std::vector<GpuMatExpr>      &build_mat_exprs, 
@@ -211,19 +212,11 @@ void HashJoinChained::buildHashTableFormat(){
     cnt_param_id = context->appendStateVar(t_cnt);//, true, false);
 }
 
-Value * HashJoinChained::hash(Value * key){
-    IRBuilder<>    *Builder     = context->getBuilder();
-
-    Value * hash = key;
-
-    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
-    hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0x85ebca6b));
-    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 13));
-    hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0xc2b2ae35));
-    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
-    hash = Builder->CreateAnd(hash, ConstantInt::get(hash->getType(), ((size_t(1)) << hash_bits) - 1));
-
-    return hash;
+Value * HashJoinChained::hash(expressions::Expression * exprs, RawContext* const context, const OperatorState& childState){
+    ExpressionHasherVisitor hasher{context, childState};
+    Value * hash = exprs->accept(hasher).value;
+    auto size = ConstantInt::get(hash->getType(), (size_t(1) << hash_bits));
+    return context->getBuilder()->CreateURem(hash, size);
 }
 
 void HashJoinChained::generate_build(RawContext* const context, const OperatorState& childState) {
@@ -243,9 +236,7 @@ void HashJoinChained::generate_build(RawContext* const context, const OperatorSt
     Value * head_ptr = ((const GpuRawContext *) context)->getStateVar(head_param_id);
     head_ptr->setName(opLabel + "_head_ptr");
 
-    ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue keyWrapper = build_keyexpr->accept(exprGenerator);
-    Value * hash = HashJoinChained::hash(keyWrapper.value);
+    Value * hash = HashJoinChained::hash(build_keyexpr, context, childState);
 
     //TODO: consider using just the object id as the index, instead of the atomic
     //index
@@ -334,9 +325,7 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
 
     Builder->SetInsertPoint(insBB);
 
-    ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue keyWrapper = probe_keyexpr->accept(exprGenerator);
-    Value * hash = HashJoinChained::hash(keyWrapper.value);
+    Value * hash = HashJoinChained::hash(probe_keyexpr, context, childState);
 
     //current = head[hash(key)]
     Value * current = Builder->CreateAlignedLoad(Builder->CreateInBoundsGEP(head_ptr, hash), context->getSizeOf(head_ptr->getType()->getPointerElementType()));
@@ -351,6 +340,9 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
     BasicBlock *CondBB  = BasicBlock::Create(llvmContext, "chainFollowCond", TheFunction);
     BasicBlock *ThenBB  = BasicBlock::Create(llvmContext, "chainFollow"    , TheFunction);
     BasicBlock *MergeBB = BasicBlock::Create(llvmContext, "cont"           , TheFunction);
+
+    ExpressionGeneratorVisitor exprGenerator(context, childState);
+    RawValue keyWrapper = probe_keyexpr->accept(exprGenerator);
 
     Builder->CreateBr(CondBB);
 

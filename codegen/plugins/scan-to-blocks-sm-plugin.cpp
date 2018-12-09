@@ -22,11 +22,11 @@
 */
 
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
+#include "expressions/expressions-hasher.hpp"
 
 ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext* const context, string fnamePrefix, RecordType rec, vector<RecordAttribute*>& whichFields)
     : fnamePrefix(fnamePrefix), rec(rec), wantedFields(whichFields), context(context),
-      posVar("offset"), bufVar("buf"), fsizeVar("fileSize"), sizeVar("size"), itemCtrVar("itemCtr"),
-      isCached(false), val_size(NULL) {
+      posVar("offset"), bufVar("buf"), itemCtrVar("itemCtr") {
     if (wantedFields.size() == 0) {
         string error_msg{"[ScanToBlockSMPlugin: ] Invalid number of fields"};
         LOG(ERROR) << error_msg;
@@ -76,8 +76,7 @@ ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext* const context, string fn
 
 ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext* const context, string fnamePrefix, RecordType rec)
     : fnamePrefix(fnamePrefix), rec(rec), context(context),
-      posVar("offset"), bufVar("buf"), fsizeVar("fileSize"), sizeVar("size"), itemCtrVar("itemCtr"),
-      isCached(false), val_size(NULL) {
+      posVar("offset"), bufVar("buf"), itemCtrVar("itemCtr") {
     Nparts = 0;
 }
 
@@ -194,69 +193,11 @@ RawValue ScanToBlockSMPlugin::readCachedValue(CacheInfo info, const map<RecordAt
     return valWrapper;
 }
 
-//RawValue ScanToBlockSMPlugin::hashValue(RawValueMemory mem_value, const ExpressionType* type) {
-//  IRBuilder<>* Builder = context->getBuilder();
-//  RawValue value;
-//  value.isNull = mem_value.isNull;
-//  value.value = Builder->CreateLoad(mem_value.mem);
-//  return value;
-//}
 RawValue ScanToBlockSMPlugin::hashValue(RawValueMemory mem_value,
         const ExpressionType* type) {
     IRBuilder<>* Builder = context->getBuilder();
-    switch (type->getTypeID()) {
-    case BOOL: {
-        Function *hashBoolean = context->getFunction("hashBoolean");
-        vector<Value*> ArgsV;
-        ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
-        Value *hashResult = context->getBuilder()->CreateCall(hashBoolean,
-                ArgsV, "hashBoolean");
-
-        RawValue valWrapper;
-        valWrapper.value = hashResult;
-        valWrapper.isNull = context->createFalse();
-        return valWrapper;
-    }
-    case STRING: {
-        LOG(ERROR)<< "[ScanToBlockSMPlugin: ] String datatypes not supported yet";
-        throw runtime_error(string("[ScanToBlockSMPlugin: ] String datatypes not supported yet"));
-    }
-    case FLOAT:
-    {
-        Function *hashDouble = context->getFunction("hashDouble");
-        vector<Value*> ArgsV;
-        ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
-        Value *hashResult = context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
-
-        RawValue valWrapper;
-        valWrapper.value = hashResult;
-        valWrapper.isNull = context->createFalse();
-        return valWrapper;
-    }
-    case INT:
-    {
-        Function *hashInt = context->getFunction("hashInt");
-        vector<Value*> ArgsV;
-        ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
-        Value *hashResult = context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
-
-        RawValue valWrapper;
-        valWrapper.value = hashResult;
-        valWrapper.isNull = context->createFalse();
-        return valWrapper;
-    }
-    case BAG:
-    case LIST:
-    case SET:
-    LOG(ERROR) << "[ScanToBlockSMPlugin: ] Cannot contain collections";
-    throw runtime_error(string("[ScanToBlockSMPlugin: ] Cannot contain collections"));
-    case RECORD:
-    LOG(ERROR) << "[ScanToBlockSMPlugin: ] Cannot contain record-valued attributes";
-    throw runtime_error(string("[ScanToBlockSMPlugin: ] Cannot contain record-valued attributes"));
-    default:
-    LOG(ERROR) << "[ScanToBlockSMPlugin: ] Unknown datatype";
-    throw runtime_error(string("[ScanToBlockSMPlugin: ] Unknown datatype"));
-}
+    RawValue v{Builder->CreateLoad(mem_value.mem), mem_value.isNull};
+    return hashPrimitive(v, type->getTypeID(), context);
 }
 
 RawValue ScanToBlockSMPlugin::hashValueEager(RawValue valWrapper,

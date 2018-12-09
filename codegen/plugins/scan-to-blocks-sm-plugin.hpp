@@ -168,7 +168,6 @@ public:
     }
 private:
     //Schema info provided
-    size_t                    Ntuples;
     RecordType rec;
     vector<RecordAttribute*>  wantedFields;
     vector<int>               wantedFieldsArg_id;
@@ -183,10 +182,7 @@ private:
 
     size_t                          Nparts;
 
-    CUfunction                  entry_point;
-
     /* Used when we treat the col. files as internal caches! */
-    bool isCached;
     vector<CacheInfo> whichCaches;
 
     string fnamePrefix;
@@ -210,13 +206,9 @@ private:
     //Used to store memory positions of offset, buf and filesize in the generated code
     map<string, AllocaInst*> NamedValuesBinaryCol;
     GpuRawContext* const context;
-    //To be initialized by init(). Dictates # of loops
-    llvm::Value *val_size;
 
     const char* posVar;     // = "offset";
     const char* bufVar;     // = "fileBuffer";
-    const char* __attribute__((unused)) fsizeVar;   // = "fileSize";
-    const char* __attribute__((unused)) sizeVar;    // = "size";
     const char* itemCtrVar; // = "itemCtr";
 
     //Used to generate code

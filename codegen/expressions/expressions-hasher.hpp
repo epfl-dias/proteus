@@ -89,6 +89,11 @@ private:
 
 	string activeRelation;
 
+	RawValue hashInt32(expressions::Expression *e);
+	RawValue hashPrimitive(expressions::Expression *e);
 };
+
+RawValue hashInt32(RawValue v, RawContext * context);
+RawValue hashPrimitive(RawValue v, typeID type, RawContext * context);
 
 #endif /* EXPRESSIONS_HASHER_VISITOR_HPP_ */

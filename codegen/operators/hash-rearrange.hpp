@@ -49,7 +49,6 @@ public:
     virtual void consume(RawContext* const context, const OperatorState& childState);
     virtual bool isFiltering() const {return false;}
 
-    llvm::Value * hash(llvm::Value * key, llvm::Value * old_seed = NULL);
     llvm::Value * hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState);
 
 protected:

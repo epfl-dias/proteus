@@ -24,6 +24,7 @@
 #include "operators/gpu/gpu-hash-join-chained.hpp"
 #include "operators/gpu/gmonoids.hpp"
 #include "util/raw-memory-manager.hpp"
+#include "expressions/expressions-hasher.hpp"
 
 GpuHashJoinChained::GpuHashJoinChained(
             const std::vector<GpuMatExpr>      &build_mat_exprs, 
@@ -214,60 +215,11 @@ void GpuHashJoinChained::buildHashTableFormat(){
     cnt_param_id = context->appendStateVar(t_cnt);//, true, false);
 }
 
-//NOTE: no MOD hashtable_size here!
-Value * GpuHashJoinChained::hash(Value * key){
-    IRBuilder<>    *Builder     = context->getBuilder();
-
-    Value * hash = key;
-
-    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
-    hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0x85ebca6b));
-    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 13));
-    hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0xc2b2ae35));
-    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
-
-    return hash;
-}
-
-//boost::hash_combine
-// seed ^= hash_value(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-
-//NOTE: no MOD hashtable_size here!
-Value * GpuHashJoinChained::hash(Value * old_seed, Value * key){
-    IRBuilder<>    *Builder     = context->getBuilder();
-
-    Value * hv = hash(key);
-    
-    hv = Builder->CreateAdd(hv, ConstantInt::get(hv->getType(), 0x9e3779b9));
-    hv = Builder->CreateAdd(hv, Builder->CreateShl (old_seed,  6));
-    hv = Builder->CreateAdd(hv, Builder->CreateLShr(old_seed,  2));
-    hv = Builder->CreateXor(hv, old_seed);
-
-    return hv;
-}
-
-Value * GpuHashJoinChained::hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState){
-    if (exprs.size() == 1 && exprs[0]->getExpressionType()->getTypeID() == RECORD){
-        std::vector<expressions::Expression *> vexprs;
-        auto rc = dynamic_cast<expressions::RecordConstruction *>(exprs[0]);
-        for (const auto &a: rc->getAtts()){
-            vexprs.emplace_back(a.getExpression());
-        }
-        return GpuHashJoinChained::hash(vexprs, context, childState);
-    }
-
-    IRBuilder<>    *Builder     = context->getBuilder();
-    ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue keyWrapper = exprs[0]->accept(exprGenerator); //FIXME hash composite key!
-    Value * hash = GpuHashJoinChained::hash(keyWrapper.value);
-
-    for (size_t i = 1 ; i < exprs.size() ; ++i){
-        RawValue keyWrapper = exprs[i]->accept(exprGenerator); //FIXME hash composite key!
-        hash = GpuHashJoinChained::hash(hash, keyWrapper.value);
-    }
-
-    hash = Builder->CreateURem(hash, ConstantInt::get(hash->getType(), (size_t(1) << hash_bits)));
-    return hash;
+Value * GpuHashJoinChained::hash(expressions::Expression * exprs, RawContext* const context, const OperatorState& childState){
+    ExpressionHasherVisitor hasher{context, childState};
+    Value * hash = exprs->accept(hasher).value;
+    auto size = ConstantInt::get(hash->getType(), (size_t(1) << hash_bits));
+    return context->getBuilder()->CreateURem(hash, size);
 }
 
 void GpuHashJoinChained::generate_build(RawContext* const context, const OperatorState& childState) {
@@ -287,7 +239,7 @@ void GpuHashJoinChained::generate_build(RawContext* const context, const Operato
     Value * head_ptr = ((const GpuRawContext *) context)->getStateVar(head_param_id);
     head_ptr->setName(opLabel + "_head_ptr");
 
-    Value * hash = GpuHashJoinChained::hash(std::vector<expressions::Expression *>{build_keyexpr}, context, childState);
+    Value * hash = GpuHashJoinChained::hash(build_keyexpr, context, childState);
 
     //TODO: consider using just the object id as the index, instead of the atomic
     //index
@@ -353,7 +305,7 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
 
     ExpressionGeneratorVisitor exprGenerator(context, childState);
     RawValue keyWrapper = probe_keyexpr->accept(exprGenerator);
-    Value * hash = GpuHashJoinChained::hash(std::vector<expressions::Expression *>{probe_keyexpr}, context, childState);
+    Value * hash = GpuHashJoinChained::hash(probe_keyexpr, context, childState);
 
     //current = head[hash(key)]
     size_t s = context->getSizeOf(head_ptr->getType()->getPointerElementType());

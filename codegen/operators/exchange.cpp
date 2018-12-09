@@ -380,6 +380,7 @@ void Exchange::consume(RawContext* const context, const OperatorState& childStat
 
     target = Builder->CreateURem(target, numOfParentsV);
     target->setName("target");
+    target = Builder->CreateTruncOrBitCast(target, Type::getInt32Ty(llvmContext));
 
     RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRelationName(),  activeLoop, pg->getOIDType()); 
     

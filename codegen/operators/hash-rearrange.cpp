@@ -23,6 +23,7 @@
 
 #include "operators/hash-rearrange.hpp"
 #include "expressions/expressions-generator.hpp"
+#include "expressions/expressions-hasher.hpp"
 
 extern "C"{
     void * get_buffer(size_t bytes);
@@ -54,54 +55,18 @@ void HashRearrange::produce() {
     getChild()->produce();
 }
 
-//NOTE: no MOD hashtable_size here!
-Value * HashRearrange::hash(Value * key, Value * old_seed){
-    IRBuilder<>    *Builder     = context->getBuilder();
-
-    Value * hash = key;
-
-    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
-    hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0x85ebca6b));
-    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 13));
-    hash = Builder->CreateMul(hash, ConstantInt::get(key->getType(), 0xc2b2ae35));
-    hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
-
-    if (old_seed){
-        //boost::hash_combine
-        // seed ^= hash_value(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        Value * hv = hash;
-        
-        hv = Builder->CreateAdd(hv, ConstantInt::get(hv->getType(), 0x9e3779b9));
-        hv = Builder->CreateAdd(hv, Builder->CreateShl (old_seed,  6));
-        hv = Builder->CreateAdd(hv, Builder->CreateLShr(old_seed,  2));
-        hv = Builder->CreateXor(hv, old_seed);
-
-        hash = hv;
-    }
-
-    return hash;
-}
-
 Value * HashRearrange::hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState){
-    ExpressionGeneratorVisitor exprGenerator(context, childState);
-    Value * hash = NULL;
+    if (exprs.size() == 1){
+        ExpressionHasherVisitor hasher{context, childState};
+        return exprs[0]->accept(hasher).value;
+    } else {
+        std::list<expressions::AttributeConstruction> a;
+        size_t i = 0;
+        for (const auto &e: exprs) a.emplace_back("k" + std::to_string(i++), e);
 
-    for (size_t i = 0 ; i < exprs.size() ; ++i){
-        if (exprs[i]->getTypeID() == expressions::RECORD_CONSTRUCTION){
-            const auto &attrs = ((expressions::RecordConstruction *) exprs[i])->getAtts();
-
-            std::vector<expressions::Expression *> exprs;
-            for (const auto &attr: attrs) exprs.push_back(attr.getExpression());
-
-            Value * hv = HashRearrange::hash(exprs, context, childState);
-            hash = HashRearrange::hash(hv, hash);
-        } else {
-            RawValue keyWrapper = exprs[i]->accept(exprGenerator); //FIXME hash composite key!
-            hash = HashRearrange::hash(keyWrapper.value, hash);
-        }
+        ExpressionHasherVisitor hasher{context, childState};
+        return expressions::RecordConstruction{a}.accept(hasher).value;
     }
-
-    return hash;
 }
 
 void HashRearrange::consume(RawContext* const context, const OperatorState& childState) {
@@ -147,6 +112,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
     //Generate target
     ExpressionGeneratorVisitor exprGenerator{context, childState};
     Value * target            = HashRearrange::hash(std::vector<expressions::Expression *>{hashExpr}, context, childState);
+    target = Builder->CreateTruncOrBitCast(target, int32_type);
     IntegerType * target_type = (IntegerType *) target->getType();
     // Value * target            = hashExpr->accept(exprGenerator).value;
     if (hashProject){

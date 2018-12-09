@@ -304,6 +304,10 @@ ConstantInt* RawContext::createInt64(int val) {
 	return ConstantInt::get(getLLVMContext(), APInt(64, val));
 }
 
+ConstantInt* RawContext::createInt64(unsigned int val) {
+	return ConstantInt::get(getLLVMContext(), APInt(64, val));
+}
+
 ConstantInt* RawContext::createInt64(size_t val) {
 	return ConstantInt::get(getLLVMContext(), APInt(64, val));
 }
