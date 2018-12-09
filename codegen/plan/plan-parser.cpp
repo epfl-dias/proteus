@@ -1,5 +1,4 @@
 #include "plan/plan-parser.hpp"
-#include "plugins/gpu-col-scan-plugin.hpp"
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
 #ifndef NCUDA
 #include "operators/gpu/gpu-join.hpp"
@@ -1538,9 +1537,6 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		Plugin *pg = this->parsePlugin(val[keyPg]);
 
 		newOp =  new Scan(this->ctx,*pg);
-
-		GpuColScanPlugin * gpu_scan_pg = dynamic_cast<GpuColScanPlugin *>(pg);
-		if (gpu_scan_pg && gpu_scan_pg->getChild()) gpu_scan_pg->getChild()->setParent(newOp);
 	} else if(strcmp(opName, "dict-scan") == 0) {
 		assert(val.HasMember("relName"));
 		assert(val["relName"].IsString());
@@ -2749,8 +2745,6 @@ RecordAttribute* ExpressionParser::parseRecordAttr(const rapidjson::Value& val, 
 	assert(val[keyAttrName].IsString());
 	string attrName = val[keyAttrName].GetString();
 
-	std::cout << "Checkpoint1 " << relName << " " << attrName << std::endl;
-
 	const RecordAttribute * attr = getAttribute(relName, attrName);
 
 	int attrNo;
@@ -2995,27 +2989,6 @@ Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
 		}
 		newPg = new BinaryColPlugin(this->ctx, *pathDynamicCopy, *recType,
 				*projections, sizeInFile);
-	} else if (strcmp(pgType, "gpu") == 0) {
-		assert(val.HasMember(keyProjectionsGPU));
-		assert(val[keyProjectionsGPU].IsArray());
-
-		vector<RecordAttribute*> projections;
-		for (SizeType i = 0; i < val[keyProjectionsGPU].Size(); i++)
-		{
-			assert(val[keyProjectionsGPU][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val[keyProjectionsGPU][i]);
-			projections.push_back(recAttr);
-		}
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-
-		RawOperator* childOp = NULL;
-		if (val.HasMember("input")) {
-			assert(val["input"].IsObject());
-			childOp = parseOperator(val["input"]);
-		}
-
-		newPg = new GpuColScanPlugin(dynamic_cast<GpuRawContext *>(this->ctx), *pathDynamicCopy, *recType, projections, childOp);
-
 	} else if (strcmp(pgType, "block") == 0) {
 		assert(val.HasMember(keyProjectionsGPU));
 		assert(val[keyProjectionsGPU].IsArray());
