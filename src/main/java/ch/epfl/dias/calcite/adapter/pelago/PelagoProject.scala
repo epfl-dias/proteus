@@ -81,6 +81,7 @@ object PelagoProject{
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
       .replaceIf(RelDistributionTraitDef.INSTANCE, () => PelagoRelMdDistribution.project(mq, input, projects))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => PelagoRelMdDeviceType.project(mq, input, projects));
+    assert(traitSet.containsIfApplicable(RelPacking.UnPckd))
     new PelagoProject(cluster, traitSet, input, projects, rowType)
   }
 }

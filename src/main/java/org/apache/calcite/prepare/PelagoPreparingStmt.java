@@ -263,7 +263,7 @@ public class                                                                    
 
         if (!(cpu_only && cpudop == 1)) hetRuleBuilder.add(PelagoPushRouterDown.RULES);
 
-        hetRuleBuilder.add(PelagoPackTransfers.RULES );
+        hetRuleBuilder.add(PelagoPackTransfers.RULES);
 
         return Programs.sequence(timedSequence("Calcite time: ",
 //                new PelagoProjectRootProgram(),

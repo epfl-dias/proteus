@@ -74,7 +74,7 @@ public class LikeToJoinRule extends RelOptRule {
     }
 
     public RexNode visitCall(RexCall call){
-      if (call.getKind() == SqlKind.LIKE){
+      if (call.getKind() == SqlKind.LIKE) {
         System.out.println("Found one!");
 //
 //        input.getTable().getRelOptSchema()
@@ -85,12 +85,13 @@ public class LikeToJoinRule extends RelOptRule {
 
         // FIXME: here we use "input", but "this" should be better
         Set<RexNode> ref = input.getCluster().getMetadataQuery().getExpressionLineage(input, call.getOperands().get(0));
+        assert(ref != null) : "Have you forgot to add an operator in the expression lineage metadata provider?";
         assert(ref.size() == 1);
-        System.out.println(((RexTableInputRef) ref.iterator().next()));
+        System.out.println(ref.iterator().next());
 
         // NOTE: ok! that's a good sign!
         int attrIndex = ((RexTableInputRef) ref.iterator().next()).getIndex();
-        String regex  = ((NlsString) ((RexLiteral) call.getOperands().get(1)).getValue()).getValue();
+        String regex = ((NlsString) ((RexLiteral) call.getOperands().get(1)).getValue()).getValue();
         RelOptTable table = ((RexTableInputRef) ref.iterator().next()).getTableRef().getTable();
         System.out.println(table);
         System.out.println();

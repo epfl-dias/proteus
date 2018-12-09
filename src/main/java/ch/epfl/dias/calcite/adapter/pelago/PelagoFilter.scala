@@ -2,14 +2,11 @@ package ch.epfl.dias.calcite.adapter.pelago
 
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema}
 import ch.epfl.dias.emitter.Binding
-import org.apache.calcite.plan.RelOptCluster
-import org.apache.calcite.plan.RelOptCost
-import org.apache.calcite.plan.RelOptPlanner
-import org.apache.calcite.plan.RelTraitSet
+import org.apache.calcite.plan._
 import org.apache.calcite.rel.{RelNode, RelWriter}
 import org.apache.calcite.rel.core.Filter
 import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.rex.RexNode
+import org.apache.calcite.rex.{RexNode, RexSimplify, RexUtil}
 import org.json4s.JsonDSL._
 import org.json4s._
 

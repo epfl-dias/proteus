@@ -58,7 +58,7 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     planner.getCostFactory.makeCost(
       s.getRows,
       s.getCpu * (fields.length.toDouble * 10000 + 2D) / (table.getRowType.getFieldCount.toDouble + 2D),
-      s.getIo * (fields.length.toDouble * 10000 + 2D) / (table.getRowType.getFieldCount.toDouble + 2D)
+      s.getRows * fields.length.toDouble
     )
   }
 

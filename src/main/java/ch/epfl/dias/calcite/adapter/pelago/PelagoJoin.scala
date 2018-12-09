@@ -80,17 +80,16 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     if (leftRowCount.isInfinite) rc1 = leftRowCount
     else rc1 += Util.nLogN(leftRowCount * left.getRowType.getFieldCount)
 
-    rc1 *= left.getRowType.getFieldCount * 1
+    rc1 *= left.getRowType.getFieldCount * 10000
 
-    var rc2 = if (rightRowCount.isInfinite) {
+    val rc2 = if (rightRowCount.isInfinite) {
       rightRowCount
     } else {
       rightRowCount //For the current HJ implementation, extra fields in the probing rel are 0-cost // * 0.1 * right.getRowType().getFieldCount();
       //TODO: Cost should change for radix-HJ
     }
-    rc1 += rc2
-    rc1 *= right.getRowType.getFieldCount * 1000
-    planner.getCostFactory.makeCost(rowCount* right.getRowType.getFieldCount* left.getRowType.getFieldCount, rc1 * 10000 * rf, 0)
+    rc1 += rc2 * right.getRowType.getFieldCount
+    planner.getCostFactory.makeCost(rowCount, rc1 * 10000 * rf, 0)
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("build", left.getRowType.toString).item("lcount", Util.nLogN(left.estimateRowCount(left.getCluster.getMetadataQuery) * left.getRowType.getFieldCount)).item("rcount", right.estimateRowCount(right.getCluster.getMetadataQuery)).item("buildcountrow", left.estimateRowCount(left.getCluster.getMetadataQuery)).item("probecountrow", right.estimateRowCount(right.getCluster.getMetadataQuery))
@@ -250,6 +249,10 @@ object PelagoJoin {
     val cluster = right.getCluster
     val mq = cluster.getMetadataQuery
     val traitSet = right.getTraitSet.replace(PelagoRel.CONVENTION)
+
+    assert(right.getTraitSet.containsIfApplicable(RelPacking.UnPckd))
+    assert(left.getTraitSet.containsIfApplicable(RelPacking.UnPckd))
+
     new PelagoJoin(cluster, traitSet, left, right, condition, info.leftKeys, info.rightKeys, variablesSet, joinType)
   }
 }
