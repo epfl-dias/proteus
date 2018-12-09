@@ -1,6 +1,7 @@
 import subprocess
 import os
 import json
+import re
 
 do_execute = True
 do_clean = True
@@ -11,14 +12,85 @@ supplier = r"""s_suppkey:int,s_name:string,s_address:string,s_city:string,s_nati
 part = r"""p_partkey:int,p_name:string,p_mfgr:string,p_category:string,p_brand1:string,p_color:string,p_type:string,p_size:int,p_container:string"""
 lineorder = r"""lo_orderkey:int,lo_linenumber:int,lo_custkey:int,lo_partkey:int,lo_suppkey:int,lo_orderdate:int,lo_orderpriority:string,lo_shippriority:string,lo_quantity:int,lo_extendedprice:int,lo_ordtotalprice:int,lo_discount:int,lo_revenue:int,lo_supplycost:int,lo_tax:int,lo_commitdate:int,lo_shipmode:string"""
 
-tpch_part = r"""p_partkey:int,p_name:string,p_mfgr:string,p_brand:string,p_type:string,p_size:int,p_container:string,p_retailprice:float,p_comment:string"""
-tpch_supplier = r"""s_suppkey:int,s_name:string,s_address:string,s_nationkey:int,s_phone:string,s_acctbal:float,s_comment:string"""
-tpch_partsupp = r"""ps_partkey:int,ps_suppkey:int,ps_availqty:int,ps_supplycost:float,ps_comment:string"""
-tpch_customer = r"""c_custkey:int,c_name:string,c_address:string,c_nationkey:int,c_phone:string,c_acctbal:float,c_mktsegment:string,c_comment:string"""
-tpch_orders = r"""o_orderkey:int,o_custkey:int,o_orderstatus:string,o_totalprice:float,o_orderdate:date,o_orderpriority:string,o_clerk:string,o_shippriority:int,o_comment:string"""
-tpch_lineitem = r"""l_orderkey:int,l_partkey:int,l_suppkey:int,l_linenumber:int,l_quantity:float,l_extendedprice:float,l_discount:float,l_tax:float,l_returnflag:string,l_linestatus:string,l_shipdate:date,l_commitdate:date,l_receiptdate:date,l_shipinstruct:string,l_shipmode:string,l_comment:string"""
-tpch_nation = r"""n_nationkey:int,n_name:string,n_regionkey:int,n_comment:string"""
-tpch_region = r"""r_regionkey:int,r_name:string,r_comment:string"""
+tpch = {
+    "part"      : r"""
+    p_partkey       int     PRIMARY KEY,
+    p_name          string,
+    p_mfgr          string,
+    p_brand         string,
+    p_type          string,
+    p_size          int,
+    p_container     string,
+    p_retailprice   float,
+    p_comment       string
+""",
+    "supplier"  : r"""
+    s_suppkey       int     PRIMARY KEY,
+    s_name          string,
+    s_address       string,
+    s_nationkey     int     FOREIGN KEY REFERENCES nation  (n_nationkey),
+    s_phone         string,
+    s_acctbal       float,
+    s_comment       string
+""",
+    "partsupp"  : r"""
+    ps_partkey      int     FOREIGN KEY REFERENCES part    (p_partkey ),
+    ps_suppkey      int     FOREIGN KEY REFERENCES supplier(s_suppkey ),
+    ps_availqty     int,
+    ps_supplycost   float,
+    ps_comment      string
+""",
+    "customer"  : r"""
+    c_custkey       int     PRIMARY KEY,
+    c_name          string,
+    c_address       string,
+    c_nationkey     int     FOREIGN KEY REFERENCES nation  (n_nationkey),
+    c_phone         string,
+    c_acctbal       float,
+    c_mktsegment    string,
+    c_comment       string
+""",
+    "orders"    : r"""
+    o_orderkey      int     PRIMARY KEY,
+    o_custkey       int     FOREIGN KEY REFERENCES customer(c_custkey),
+    o_orderstatus   string,
+    o_totalprice    float,
+    o_orderdate     date,
+    o_orderpriority string,
+    o_clerk         string,
+    o_shippriority  int,
+    o_comment       string
+""",
+    "lineitem"  : r"""
+    l_orderkey      int     FOREIGN KEY REFERENCES orders  (o_orderkey),
+    l_partkey       int     FOREIGN KEY REFERENCES part    (p_partkey ),
+    l_suppkey       int     FOREIGN KEY REFERENCES supplier(s_suppkey ),
+    l_linenumber    int,
+    l_quantity      float,
+    l_extendedprice float,
+    l_discount      float,
+    l_tax           float,
+    l_returnflag    string,
+    l_linestatus    string,
+    l_shipdate      date,
+    l_commitdate    date,
+    l_receiptdate   date,
+    l_shipinstruct  string,
+    l_shipmode      string,
+    l_comment       string
+""",
+    "nation"    : r"""
+    n_nationkey     int     PRIMARY KEY,
+    n_name          string,
+    n_regionkey     int,
+    n_comment       string
+""",
+    "region"    : r"""
+    r_regionkey     int     PRIMARY KEY,
+    r_name          string,
+    r_comment       string
+"""
+}
 
 def run(cmd):
     print(cmd)
@@ -89,18 +161,54 @@ def prepare_attr(relName, attrName, attrIndex, type, relPathName):
         "attrNo": argNo
     }
 
+def build_relname(schemaName, relName):
+    return schemaName + "_" + relName
 
-def prepare_rel(relName, schema, relFolder, schemaName):
-    columns = [tuple(attr.split(":")) for attr in schema.split(",")]
+def create_constraint(attrName, s, get_relname):
+    cs = []
+    s = " " + ' '.join(s.split()).lower() + " " #get rid of extra whitespaces
+    if " primary key " in s:
+        cs.append({
+            "type": "primary_key",
+            "columns": [attrName]
+        })
+    if " unique " in s:
+        cs.append({
+            "type": "unique",
+            "columns": [attrName]
+        })
+    if " foreign key references " in s:
+        assert(s.count(" foreign key references ") == 1)
+        m = re.match(r""".*foreign key references\s+(\w+)\s*\(\s*(\w+)\s*\).*""", s)
+        if not m:
+            print(s)
+        assert(m)
+        cs.append({
+            "type": "foreign_key",
+            "referencedTable": get_relname(m.group(1)),
+            "references": [{
+                "referee": attrName,
+                "referred": m.group(2)
+            }]
+        })
+    return cs
+
+def prepare_rel(relName, namespace, relFolder, schemaName):
+    schema = namespace[relName]
+    columns = [attr.split(None, 2) for attr in schema.split(",")]
     relPathName = relFolder + "/" + schemaName + "/" + relName + ".csv"
     with open(relName + ".tbl") as f:
         linehint = sum(1 for _ in f)
     
     attrs = []
+    constraints = []
     for (ind, c) in enumerate(columns):
         attrs.append(prepare_attr(relName, c[0], ind, c[1], relPathName))
+        if len(c) > 2 and len(c[2]) > 0:
+            constraints.extend(create_constraint(c[0], c[2], lambda x: build_relname(schemaName, x)))
+    
     return {
-        schemaName + "_" + relName: {
+        build_relname(schemaName, relName): {
             "path": relPathName,
             "type": {
                 "type": "bag",
@@ -112,31 +220,28 @@ def prepare_rel(relName, schema, relFolder, schemaName):
             "plugin": {
                 "type": "block",
                 "linehint": linehint
-            }
+            },
+            "constraints": constraints
         }
     }
 
 
 if __name__ == '__main__':
     relFolder  = "inputs"
-    schemaName = "tpch1"
+    schemaName = "tpch100"
     
-    catalog = {}
+    namespace  = tpch
+    catalog    = {}
     # print(json.dumps(prepare_rel("date", dates), indent = 4))
     # print(json.dumps(prepare_rel("customer", customer), indent = 4))
     # print(json.dumps(prepare_rel("supplier", supplier), indent = 4))
     # print(json.dumps(prepare_rel("part", part), indent = 4))
     # print(json.dumps(prepare_rel("lineorder", lineorder), indent = 4))
     
-    catalog.update(prepare_rel("part"     , tpch_part     , relFolder, schemaName))
-    catalog.update(prepare_rel("supplier" , tpch_supplier , relFolder, schemaName))
-    catalog.update(prepare_rel("partsupp" , tpch_partsupp , relFolder, schemaName))
-    catalog.update(prepare_rel("customer" , tpch_customer , relFolder, schemaName))
-    catalog.update(prepare_rel("orders"   , tpch_orders   , relFolder, schemaName))
-    catalog.update(prepare_rel("lineitem" , tpch_lineitem , relFolder, schemaName))
-    catalog.update(prepare_rel("nation"   , tpch_nation   , relFolder, schemaName))
-    catalog.update(prepare_rel("region"   , tpch_region   , relFolder, schemaName))
+    for name in namespace:
+        catalog.update(prepare_rel(name, namespace, relFolder, schemaName))
     
     with open('catalog.json', 'w') as out:
         out.write(json.dumps(catalog, indent = 4))
         out.write('\n')
+
