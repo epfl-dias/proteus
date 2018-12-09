@@ -16,6 +16,8 @@ import org.xml.sax.ext.LexicalHandler;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -55,7 +57,8 @@ public class PelagoSchema extends AbstractSchema {
     for (Map.Entry<String, ?> e: catalog.entrySet()) {
 //      System.out.println("Table Found: " + e.getKey());
 //      System.out.println("   Row Type: " + ((Map<String, ?>) e.getValue()).get("type").toString());
-      Map<String, ?> fileEntry = (Map<String, ?>) ((Map<String, ?>) e.getValue()).get("type");
+      Map<String, ?> description = (Map<String, ?>) e.getValue();
+      Map<String, ?> fileEntry = (Map<String, ?>) description.get("type");
       String fileType = (String) fileEntry.getOrDefault("type", null);
       if (!fileType.equals("bag")) {
         System.err.println("Error in catalog: relation type is expected to be \"bag\", but \"" + fileType + "\" found");
@@ -69,18 +72,21 @@ public class PelagoSchema extends AbstractSchema {
         System.out.println("Ignoring table: " + e.getKey());
         continue;
       }
-      Source source = Sources.of(new File((String) ((Map<String, ?>) e.getValue()).get("path")));
+      Source source = Sources.of(new File((String) description.get("path")));
 
-      Map<String, ?> plugin = (Map<String, ?>) ((Map<String, ?>) e.getValue()).getOrDefault("plugin", null);
+      Map<String, ?> plugin = (Map<String, ?>) description.getOrDefault("plugin", null);
       if (plugin == null) {
         System.err.println("Error in catalog: plugin information not found for table");
         System.out.println("Ignoring table: " + e.getKey());
         continue;
       }
 
+      List<Map<String, ?>> constraints = (List<Map<String, ?>>) description.getOrDefault("constraints", null);
+      if (constraints == null) constraints = new ArrayList<>();
+
       try {
-        final Table table = PelagoTable.create(source, e.getKey(), plugin, lineType);
-        System.out.println("Table: " + e.getKey());
+        final Table table = PelagoTable.create(source, e.getKey(), plugin, lineType, constraints);
+//        System.out.println("Table: " + e.getKey());
         builder.put(e.getKey(), table); //.toUpperCase(Locale.getDefault())
       } catch (MalformedPlugin malformedPlugin) {
         System.out.println("Error in catalog: " + malformedPlugin.getMessage  ());
@@ -120,7 +126,15 @@ public class PelagoSchema extends AbstractSchema {
     // FIXME adding the time keeper table
     builder.put("SessionTimings", TimeKeeperTable.INSTANCE);
 
-    return builder.build();
+    Map<String, Table> t = builder.build();
+
+    for (Table table: t.values()) {
+      if (table instanceof PelagoTable) {
+        ((PelagoTable) table).overwriteKnownTables(t);
+      }
+    }
+
+    return t;
   }
 }
 

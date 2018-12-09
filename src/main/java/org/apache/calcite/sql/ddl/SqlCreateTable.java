@@ -292,7 +292,7 @@ public class SqlCreateTable extends SqlCreate
 
             try {
                 // at this point we create the table
-                Table table = PelagoTable.create(source, e.getKey(), plugin, lineType);
+                Table table = PelagoTable.create(source, e.getKey(), plugin, lineType, null);
                 return (PelagoTable)table;
             } catch (MalformedPlugin malformedPlugin) {
                 System.out.println("Error in catalog: " + malformedPlugin.getMessage  ());

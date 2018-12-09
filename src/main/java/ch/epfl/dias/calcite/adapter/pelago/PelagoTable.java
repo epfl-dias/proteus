@@ -1,27 +1,38 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
 import ch.epfl.dias.calcite.adapter.pelago.types.PelagoTypeParser;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.apache.calcite.DataContext;
+import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.linq4j.*;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 //import org.apache.calcite.rel.RelDeviceType;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelReferentialConstraint;
+import org.apache.calcite.rel.RelReferentialConstraintImpl;
+import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.schema.*;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Source;
+import org.apache.calcite.util.mapping.IntPair;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,8 +48,11 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     protected Map<String, ?>            type        ;
     protected Map<String, ?>            plugin      ;
     protected Long                      linehint    ;
+    protected List<Map<String, ?>>      constraints ;
 
-    private PelagoTable(Source source, RelProtoDataType protoRowType, Map<String, ?> plugin, long linehint) {
+    protected Map<String, Table>        knownTables ;
+
+    private PelagoTable(Source source, RelProtoDataType protoRowType, Map<String, ?> plugin, long linehint, List<Map<String, ?>> constraints) {
         this.source         = source    ;
         this.type           = null      ;
 //        this.rowType        = null      ;
@@ -46,9 +60,15 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         this.plugin         = plugin    ;
 
         this.protoRowType   = protoRowType;
+
+        if (constraints != null) {
+            this.constraints = constraints;
+        } else {
+            this.constraints = new ArrayList<>();
+        }
     }
 
-    private PelagoTable(Source source, Map<String, ?> type, Map<String, ?> plugin, long linehint) {
+    private PelagoTable(Source source, Map<String, ?> type, Map<String, ?> plugin, long linehint, List<Map<String, ?>> constraints) {
         this.source     = source    ;
         this.type       = type      ;
 //        this.rowType    = null      ;
@@ -56,15 +76,32 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         this.plugin     = plugin    ;
 
         this.protoRowType = null;
+
+        if (constraints != null) {
+            this.constraints = constraints;
+        } else {
+            this.constraints = new ArrayList<>();
+        }
     }
 
     public RelDataType getRowType(RelDataTypeFactory typeFactory) {
+        if (protoRowType == null && typeFactory == null) typeFactory = new JavaTypeFactoryImpl();
+
         if (protoRowType != null) return protoRowType.apply(typeFactory);
+
         try {
             return PelagoTypeParser.parseType(typeFactory, type);
         } catch (IOException e) {
             return null;
         }
+    }
+
+    private int getColumnIndex(String col){
+        return getRowType(null).getField(col, false, true).getIndex();
+    }
+
+    public void overwriteKnownTables(Map<String, Table> t){
+        knownTables = t;
     }
 
     public Statistic getStatistic() {
@@ -77,7 +114,56 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
 //	    }
 //	  }
 //        keys.add(ImmutableBitSet.of(0));
-        return Statistics.of(rc, keys);
+
+        ImmutableList.Builder<RelReferentialConstraint> constr = ImmutableList.builder();
+
+        for (Map<String, ?> c: constraints){
+            String type = ((String) c.get("type")).toLowerCase();
+            switch (type) {
+            case "primary_key":
+            case "unique": {
+                List<String> columns = ((List<String>) c.get("columns"));
+                assert (columns.size() > 0);
+
+                ImmutableBitSet.Builder k = ImmutableBitSet.builder();
+                for (String col : columns) {
+                    k.set(getColumnIndex(col));
+                }
+                keys.add(k.build());
+                break;
+            }
+            case "foreign_key": {
+                List<String> columns = ((List<String>) c.get("columns"));
+                String tableName = knownTables.entrySet().stream().
+                    filter(x -> x.getValue() == this).findAny().get().getKey();
+
+                String ref = ((String) c.get("referencedTable"));
+
+                ImmutableList.Builder<IntPair> refs = ImmutableList.builder();
+
+                List<Map<String, String>> pairs = (List<Map<String, String>>) c.get("references");
+
+                for (Map<String, String> p: pairs){
+                    refs.add(IntPair.of(
+                        getColumnIndex(p.get("referee")),
+                        ((PelagoTable) knownTables.get(ref)).getColumnIndex(p.get("referred"))
+                    ));
+                }
+
+                constr.add(
+                    RelReferentialConstraintImpl.of(
+                        ImmutableList.of("SSB", tableName),
+                        ImmutableList.of("SSB", ref),
+                        refs.build()
+                    )
+                );
+                break;
+            }
+            default:
+                assert(false);
+            }
+        }
+        return Statistics.of(rc, keys, constr.build(), ImmutableList.of());
     }
 
     /** Returns an array of integers {0, ..., n - 1}. */
@@ -144,12 +230,12 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         return linehint;
     }
 
-    public static PelagoTable create(Source source, String name, Map<String, ?> plugin, Map<String, ?> lineType  ) throws MalformedPlugin {
-        return new PelagoTable(source, lineType, plugin, getLineHintFromPlugin(name, plugin));
+    public static PelagoTable create(Source source, String name, Map<String, ?> plugin, Map<String, ?> lineType  , List<Map<String, ?>> constraints) throws MalformedPlugin {
+        return new PelagoTable(source, lineType, plugin, getLineHintFromPlugin(name, plugin), constraints);
     }
 
     public static PelagoTable create(Source source, String name, Map<String, ?> plugin, RelProtoDataType lineType) throws MalformedPlugin {
-        return new PelagoTable(source, lineType, plugin, getLineHintFromPlugin(name, plugin));
+        return new PelagoTable(source, lineType, plugin, getLineHintFromPlugin(name, plugin), null);
     }
 
     public RelPacking getPacking() {
