@@ -94,7 +94,9 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
 //        context.getCluster().getPlanner().addRelTraitDef(RelDistributionTraitDef.INSTANCE);
         final int fieldCount = relOptTable.getRowType().getFieldCount();
         final int[] fields = identityList(fieldCount);
-        return PelagoTableScan.create(context.getCluster(), relOptTable, this, fields);
+        RelNode scan = PelagoTableScan.create(context.getCluster(), relOptTable, this, fields);
+        if (getPacking() == RelPacking.Packed) scan = PelagoUnpack.create(scan, RelPacking.UnPckd);
+        return scan;
     }
 
     public String getPelagoRelName(){

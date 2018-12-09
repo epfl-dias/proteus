@@ -1,6 +1,7 @@
 package ch.epfl.dias.calcite.adapter.pelago.metadata;
 
 import org.apache.calcite.rel.core.Aggregate;
+import org.apache.calcite.rel.core.EquiJoin;
 import org.apache.calcite.rel.metadata.BuiltInMetadata;
 import org.apache.calcite.rel.metadata.MetadataDef;
 import org.apache.calcite.rel.metadata.MetadataHandler;
@@ -58,5 +59,9 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
     double rc = rel.getTable().getRowCount();
     if (rel.getTraitSet().containsIfApplicable(RelPacking.Packed)) rc /= 1024;
     return rc;
+  }
+
+  public Double getRowCount(EquiJoin rel, RelMetadataQuery mq) {
+    return Math.max(mq.getRowCount(rel.getLeft()), mq.getRowCount(rel.getRight()));
   }
 }

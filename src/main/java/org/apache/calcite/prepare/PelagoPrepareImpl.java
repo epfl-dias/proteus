@@ -18,11 +18,13 @@ import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.plan.*;
 import org.apache.calcite.plan.volcano.AbstractConverter;
+import org.apache.calcite.plan.volcano.PelagoCostFactory;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
+import org.apache.calcite.rel.core.Calc;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -92,7 +94,8 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             final CalcitePrepare.Context prepareContext,
             org.apache.calcite.plan.Context externalContext,
             RelOptCostFactory costFactory) {
-        RelOptPlanner planner = super.createPlanner(prepareContext, externalContext, costFactory);
+        RelOptCostFactory cFactory = (costFactory == null) ? PelagoCostFactory.INSTANCE : costFactory;
+        RelOptPlanner planner = super.createPlanner(prepareContext, externalContext, cFactory);
         planner.addRelTraitDef(RelDistributionTraitDef.INSTANCE);
         planner.addRelTraitDef(RelDeviceTypeTraitDef  .INSTANCE);
         planner.addRelTraitDef(RelPackingTraitDef     .INSTANCE);
@@ -153,9 +156,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         rules.add(new ProjectRemoveRule(PelagoRelFactories.PELAGO_BUILDER));
         rules.add(new ProjectJoinTransposeRule(PushProjector.ExprCondition.TRUE, PelagoRelFactories.PELAGO_BUILDER));
         rules.add(JoinProjectTransposeRule.BOTH_PROJECT);
-        rules.add(new ProjectFilterTransposeRule(
-            Project.class, Filter.class, PelagoRelFactories.PELAGO_BUILDER,
-            PushProjector.ExprCondition.FALSE)); //XXX causes non-termination
+        rules.add(ProjectFilterTransposeRule.INSTANCE); //XXX causes non-termination
         /*it is better to use filter first an then project*/
         rules.add(ProjectTableScanRule.INSTANCE);
         rules.add(ProjectMergeRule.INSTANCE);//new ProjectMergeRule(true, PelagoRelFactories.PELAGO_BUILDER));
@@ -207,7 +208,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         /*Enumerable Rules*/
 //        rules.add(EnumerableRules.ENUMERABLE_FILTER_RULE);
 //        rules.add(EnumerableRules.ENUMERABLE_TABLE_SCAN_RULE);
-        rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE);
+//        rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE);
 //        rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
 //        rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE);
 //      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE) //FIMXE: no mergejoin yet
