@@ -28,6 +28,105 @@
 
 namespace gpu_intrinsic{
 
+Value * load_ca(GpuRawContext * const context, Value * address) {
+    IRBuilder<>* Builder        = context->getBuilder();
+
+    FunctionType    * lca_sig   = FunctionType::get(address->getType()->getPointerElementType(), 
+                                        std::vector<Type *>{address->getType()},
+                                        false);
+
+    InlineAsm       * lca_fun   = InlineAsm::get(lca_sig, 
+                                        "ld.ca.u32 $0, $1;",
+                                        "=r,m",
+                                        true);
+
+    Value           * lval      = Builder->CreateCall(lca_fun,
+                                        std::vector<Value *>{address},
+                                        "ld.ca.u32");
+
+    return lval;
+}
+
+Value * load_ca16(GpuRawContext * const context, Value * address) {
+    IRBuilder<>* Builder        = context->getBuilder();
+
+    FunctionType    * lca_sig   = FunctionType::get(address->getType()->getPointerElementType(), 
+                                        std::vector<Type *>{address->getType()},
+                                        false);
+
+    InlineAsm       * lca_fun   = InlineAsm::get(lca_sig, 
+                                        "ld.ca.u16 $0, $1;",
+                                        "=r,m",
+                                        true);
+
+    Value           * lval      = Builder->CreateCall(lca_fun,
+                                        std::vector<Value *>{address},
+                                        "ld.ca.u16");
+
+    return lval;
+}
+
+Value * load_cs(GpuRawContext * const context, Value * address) {
+    IRBuilder<>* Builder        = context->getBuilder();
+
+    FunctionType    * lcs_sig   = FunctionType::get(address->getType()->getPointerElementType(), 
+                                        std::vector<Type *>{address->getType()},
+                                        false);
+
+    InlineAsm       * lcs_fun   = InlineAsm::get(lcs_sig, 
+                                        "ld.cg.u32 $0, $1;",
+                                        "=r,m",
+                                        true);
+
+    Value           * lval      = Builder->CreateCall(lcs_fun,
+                                        std::vector<Value *>{address},
+                                        "ld.cg.u32");
+
+    return lval;
+}
+
+void store_wb32(GpuRawContext * const context, Value * address, Value * value) {
+    LLVMContext& ctx = context->getLLVMContext();
+    IRBuilder<>* Builder        = context->getBuilder();
+
+    Type* void_type = Type::getVoidTy(ctx);
+
+    FunctionType    * stw_sig   = FunctionType::get(void_type, 
+                                        std::vector<Type *>{address->getType(), address->getType()->getPointerElementType()},
+                                        false);
+
+    InlineAsm       * stw_fun   = InlineAsm::get(stw_sig, 
+                                        "st.wb.u32 $0, $1;",
+                                        "m,r",
+                                        true);
+
+    Builder->CreateCall(stw_fun,
+                        std::vector<Value *>{address, value});
+
+    return;
+}
+
+void store_wb16(GpuRawContext * const context, Value * address, Value * value) {
+    LLVMContext& ctx = context->getLLVMContext();
+    IRBuilder<>* Builder        = context->getBuilder();
+
+    Type* void_type = Type::getVoidTy(ctx);
+
+    FunctionType    * stw_sig   = FunctionType::get(void_type, 
+                                        std::vector<Type *>{address->getType(), address->getType()->getPointerElementType()},
+                                        false);
+
+    InlineAsm       * stw_fun   = InlineAsm::get(stw_sig, 
+                                        "st.wb.u16 $0, $1;",
+                                        "m,r",
+                                        true);
+
+    Builder->CreateCall(stw_fun,
+                        std::vector<Value *>{address, value});
+
+    return;
+}
+
 [[deprecated]]
 Value * all(GpuRawContext * const context, Value * val_in){
     IRBuilder<>* Builder        = context->getBuilder();

@@ -29,7 +29,7 @@ void launch_kernel_strm(CUfunction function, void ** args, cudaStream_t strm){
     gpu_run(cudaStreamSynchronize(strm));
 }
 
-void launch_kernel_strm_sized(CUfunction function, void ** args, cudaStream_t strm, unsigned int gridX, unsigned int blockX){
+void launch_kernel_strm_sized(CUfunction function, void ** args, cudaStream_t strm, unsigned int blockX, unsigned int gridX){
     launch_kernel(function, args, gridX, blockX, strm);
 }
 

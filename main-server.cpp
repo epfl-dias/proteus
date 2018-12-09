@@ -290,6 +290,16 @@ int main(int argc, char* argv[]){
     gpu_run(cudaSetDevice(0));
     LOG(INFO)<< "Eagerly loading files in memory...";
 
+    //FIXME: remove, we should be loading files lazily
+    //{
+    //    auto load = [](string filename){
+    //        // StorageManager::load(filename, PINNED);
+    //        StorageManager::loadToCpus(filename);
+    //    };
+    //
+    //     
+    // }
+
     gpu_run(cudaSetDevice(0));
     LOG(INFO)<< "Finished initialization";
     std::cout << "ready" << std::endl;

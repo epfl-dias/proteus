@@ -315,6 +315,9 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
 
     AllocaInst *mem_current = context->CreateEntryBlockAlloca(TheFunction, "mem_current", current->getType());
 
+    AllocaInst *mem_counter = context->CreateEntryBlockAlloca(TheFunction, "mem_counter", Type::getInt32Ty(llvmContext));
+    Builder->CreateStore(ConstantInt::get(Type::getInt32Ty(llvmContext), 0), mem_counter);
+
     Builder->CreateStore(current, mem_current);
 
     //while (current != eoc){
@@ -328,8 +331,9 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
     Builder->SetInsertPoint(CondBB);
 
     //check end of chain
-
-
+    
+    Builder->CreateStore(Builder->CreateAdd(ConstantInt::get(Type::getInt32Ty(llvmContext), 1),Builder->CreateLoad(mem_counter)), mem_counter);
+	
     auto * f = context->getFunction("printi");
     Value * condition = Builder->CreateICmpNE(Builder->CreateLoad(mem_current), ConstantInt::get(current->getType(), ~((size_t) 0)));
 
@@ -560,6 +564,13 @@ void GpuHashJoinChained::generate_probe(RawContext* const context, const Operato
         (*allJoinBindings)[mexpr.expr->getRegisteredAs()] = mem_valWrapper;
     }
 
+    //vector<Value*> ArgsV;
+    //Value* value = Builder->CreateLoad(mem_counter);
+    
+    //ArgsV.push_back(value);
+    //Function* debugInt = context->getFunction("printi");
+    //Builder->CreateCall(debugInt, ArgsV);
+
     // Triggering parent
     OperatorState* newState = new OperatorState(*this, *allJoinBindings);
     getParent()->consume(context, *newState);
@@ -620,8 +631,8 @@ void GpuHashJoinChained::close_build(RawPipeline * pip){
     std::cout << "GpuHashJoinChained::close::build_" << pip->getGroup() << std::endl;
     int32_t h_cnt;
     gpu_run(cudaMemcpy(&h_cnt, pip->getStateVar<int32_t *>(cnt_param_id), sizeof(int32_t), cudaMemcpyDefault));
-    assert(((size_t) h_cnt) <= maxBuildInputSize && "Build input sized exceeded given parameter");
     std::cout << "GpuHashJoinChained::close::build2-" << h_cnt << std::endl;
+    assert(((size_t) h_cnt) <= maxBuildInputSize && "Build input sized exceeded given parameter");
 }
 
 void GpuHashJoinChained::close_probe(RawPipeline * pip){

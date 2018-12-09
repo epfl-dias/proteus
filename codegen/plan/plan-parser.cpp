@@ -4,6 +4,7 @@
 #ifndef NCUDA
 #include "operators/gpu/gpu-join.hpp"
 #include "operators/gpu/gpu-hash-join-chained.hpp"
+#include "operators/gpu/gpu-partitioned-hash-join-chained.hpp"
 #include "operators/gpu/gpu-hash-group-by-chained.hpp"
 #include "operators/gpu/gpu-reduce.hpp"
 #include "operators/cpu-to-gpu.hpp"
@@ -705,6 +706,138 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		}
 #endif
 		child->setParent(newOp);
+	} else if(strcmp(opName, "partitioned-hashjoin-chained") == 0)	{
+		/* parse operator input */
+		assert(val.HasMember("probe_input"));
+		assert(val["probe_input"].IsObject());
+		RawOperator* probe_op = parseOperator(val["probe_input"]);
+		/* parse operator input */
+		assert(val.HasMember("build_input"));
+		assert(val["build_input"].IsObject());
+		RawOperator* build_op = parseOperator(val["build_input"]);
+
+		assert(val.HasMember("build_k"));
+		expressions::Expression *build_key_expr = parseExpression(val["build_k"]);
+
+		assert(val.HasMember("probe_k"));
+		expressions::Expression *probe_key_expr = parseExpression(val["probe_k"]);
+
+		assert(val.HasMember("build_k_minor"));
+		expressions::Expression *build_minorkey_expr = parseExpression(val["build_k_minor"]);
+
+		assert(val.HasMember("probe_k_minor"));
+		expressions::Expression *probe_minorkey_expr = parseExpression(val["probe_k_minor"]);
+
+// #ifndef NCUDA
+// 		if (val.HasMember("gpu") && val["gpu"].GetBool()){
+			assert(val.HasMember("hash_bits"));
+			assert(val["hash_bits"].IsInt());
+			int hash_bits = val["hash_bits"].GetInt();
+
+			assert(val.HasMember("build_w"));
+			assert(val["build_w"].IsArray());
+			vector<size_t> build_widths;
+
+			const rapidjson::Value& build_wJSON = val["build_w"];
+			for (SizeType i = 0; i < build_wJSON.Size(); i++){
+				assert(build_wJSON[i].IsInt());
+				build_widths.push_back(build_wJSON[i].GetInt());
+			}
+
+			/*
+			 * parse output expressions
+			 * XXX Careful: Assuming numerous output expressions!
+			 */
+			assert(val.HasMember("build_e"));
+			assert(val["build_e"].IsArray());
+			vector<GpuMatExpr> build_e;
+			const rapidjson::Value& build_exprsJSON = val["build_e"];
+			for (SizeType i = 0; i < build_exprsJSON.Size(); i++){
+				assert(build_exprsJSON[i].HasMember("e"     ));
+				assert(build_exprsJSON[i].HasMember("packet"));
+				assert(build_exprsJSON[i]["packet"].IsInt());
+				assert(build_exprsJSON[i].HasMember("offset"));
+				assert(build_exprsJSON[i]["offset"].IsInt());
+				expressions::Expression *outExpr = parseExpression(build_exprsJSON[i]["e"]);
+
+				build_e.emplace_back(outExpr, build_exprsJSON[i]["packet"].GetInt(), build_exprsJSON[i]["offset"].GetInt());
+			}
+
+			assert(val.HasMember("probe_w"));
+			assert(val["probe_w"].IsArray());
+			vector<size_t> probe_widths;
+
+			const rapidjson::Value& probe_wJSON = val["probe_w"];
+			for (SizeType i = 0; i < probe_wJSON.Size(); i++){
+				assert(probe_wJSON[i].IsInt());
+				probe_widths.push_back(probe_wJSON[i].GetInt());
+			}
+
+			/*
+			 * parse output expressions
+			 * XXX Careful: Assuming numerous output expressions!
+			 */
+			assert(val.HasMember("probe_e"));
+			assert(val["probe_e"].IsArray());
+			vector<GpuMatExpr> probe_e;
+			const rapidjson::Value& probe_exprsJSON = val["probe_e"];
+			for (SizeType i = 0; i < probe_exprsJSON.Size(); i++){
+				assert(probe_exprsJSON[i].HasMember("e"     ));
+				assert(probe_exprsJSON[i].HasMember("packet"));
+				assert(probe_exprsJSON[i]["packet"].IsInt());
+				assert(probe_exprsJSON[i].HasMember("offset"));
+				assert(probe_exprsJSON[i]["offset"].IsInt());
+				expressions::Expression *outExpr = parseExpression(probe_exprsJSON[i]["e"]);
+
+				probe_e.emplace_back(outExpr, probe_exprsJSON[i]["packet"].GetInt(), probe_exprsJSON[i]["offset"].GetInt());
+			}
+
+			assert(val.HasMember("maxBuildInputSize"));
+			assert(val["maxBuildInputSize"].IsUint64());
+			
+			size_t maxBuildInputSize = val["maxBuildInputSize"].GetUint64();
+
+			assert(val.HasMember("maxProbeInputSize"));
+			assert(val["maxProbeInputSize"].IsUint64());
+			
+			size_t maxProbeInputSize = val["maxProbeInputSize"].GetUint64();
+
+			assert(dynamic_cast<GpuRawContext *>(this->ctx));
+
+			int log_parts = 13;
+
+			HashPartitioner* part_left = new HashPartitioner (NULL, 
+									build_e, build_widths, build_key_expr, build_op,
+									dynamic_cast<GpuRawContext *>(this->ctx), 
+									maxBuildInputSize, log_parts, "part1");
+
+			cout << "build: " << build_e.size() << std::endl;
+
+			HashPartitioner* part_right = new HashPartitioner (NULL, 
+									probe_e, probe_widths, probe_key_expr, probe_op,
+									dynamic_cast<GpuRawContext *>(this->ctx), 
+									maxProbeInputSize, log_parts, "part1");
+
+			cout << "probe: " << probe_e.size() << std::endl;
+
+			newOp = new GpuPartitionedHashJoinChained(
+								build_e, build_widths, build_key_expr, build_minorkey_expr, part_left,
+								probe_e, probe_widths, probe_key_expr, probe_minorkey_expr, part_right,
+								part_left->getState(), part_right->getState(),
+								maxBuildInputSize, maxProbeInputSize,
+								log_parts, dynamic_cast<GpuRawContext *>(this->ctx),
+ 								"phjc", NULL, NULL);
+
+			build_op->setParent(part_left);
+			probe_op->setParent(part_right);
+
+			build_op = part_left;
+			probe_op = part_right;
+
+			build_op->setParent(newOp);
+			probe_op->setParent(newOp);
+
+
 	} else if(strcmp(opName, "hashjoin-chained") == 0)	{
 		/* parse operator input */
 		assert(val.HasMember("probe_input"));
@@ -2615,6 +2748,8 @@ RecordAttribute* ExpressionParser::parseRecordAttr(const rapidjson::Value& val, 
 	assert(val.HasMember(keyAttrName));
 	assert(val[keyAttrName].IsString());
 	string attrName = val[keyAttrName].GetString();
+
+	std::cout << "Checkpoint1 " << relName << " " << attrName << std::endl;
 
 	const RecordAttribute * attr = getAttribute(relName, attrName);
 
