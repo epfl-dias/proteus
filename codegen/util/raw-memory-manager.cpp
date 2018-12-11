@@ -63,9 +63,9 @@ void RawMemoryManager::init(){
         }
     }
 
-    buffer_manager_init(4*256, 1024); // (*4*4, *4*4)
+    //buffer_manager_init(4*256, 1024); // (*4*4, *4*4)
     //might need it for out of gpu
-    //buffer_manager<int32_t>::init(256, 1024*32); // (*4*4, *4*4)
+    buffer_manager_init(256, 1024*32); // (*4*4, *4*4)
 }
 
 void RawMemoryManager::destroy(){

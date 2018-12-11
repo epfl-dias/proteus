@@ -462,9 +462,9 @@ HashPartitioner::HashPartitioner (
         expr.push_back(parts_mat_exprs[i].expr);
     mat = new Materializer(expr);
 
-    pg_out = new OutputPlugin(context, *mat, NULL);
+    //pg_out = new OutputPlugin(context, *mat, NULL);
 
-    payloadType = pg_out->getPayloadType();
+    payloadType = NULL; //pg_out->getPayloadType();
 
     //log_parts = 15;
     log_parts2 = log_parts / 2;
@@ -530,10 +530,10 @@ void HashPartitioner::consume(RawContext* const context, const OperatorState& ch
     old_cnt->setName("index");
 
     const map<RecordAttribute, RawValueMemory>& bindings = childState.getBindings();
-    pg_out->setBindings(&childState.getBindings());
-    Value *val_payloadSize  = ConstantInt::get((IntegerType *) int64_type, context->getSizeOf(payloadType));
-    vector<Type*> *materializedTypes = pg_out->getMaterializedTypes();
-    PointerType *ptr_payloadType = PointerType::get(payloadType, 1);
+    //pg_out->setBindings(&childState.getBindings());
+    //Value *val_payloadSize  = ConstantInt::get((IntegerType *) int64_type, context->getSizeOf(payloadType));
+    //vector<Type*> *materializedTypes = pg_out->getMaterializedTypes();
+    //PointerType *ptr_payloadType = PointerType::get(payloadType, 1);
 
 
     ExpressionGeneratorVisitor exprGenerator(context, childState);
@@ -628,7 +628,7 @@ void HashPartitioner::close (RawPipeline * pip){
 
     int32_t h_cnt;
     gpu_run(cudaMemcpy(&h_cnt, cnts_ptr[pip->getGroup()], sizeof(int32_t), cudaMemcpyDefault));
-    std::cout << "Partition cnt " << std::dec << h_cnt << std::endl;
+    std::cout << "Partition cnt " << std::dec << h_cnt << this <<std::endl;
 
     uint32_t   parts2 = 1 << (log_parts1 + log_parts2);
 
@@ -690,7 +690,7 @@ void HashPartitioner::close (RawPipeline * pip){
     build_partitions  <<<64, 1024, (1024*4 + 4*(1 << log_parts1)) * sizeof(int32_t) + ((2 * (1 << log_parts1) + 1)* sizeof(int32_t)), strm>>> (
                     keys_init, payload_init, chains_init, 
                     buckets_used1, heads1, chains1, out_cnts1, keys1, payload1,
-                        0, log_parts1, log_parts2, buckets_used_init);
+                        0, log_parts1, log_parts2 + 4, buckets_used_init);
 
     //gpu_run(cudaStreamSynchronize(strm));
     //verify_partitions <<<64, 1024, 0, strm>>> (keys_init, payload_init, chains1, out_cnts1, keys1, payload1, log_parts1, error_cnt);
@@ -708,7 +708,7 @@ void HashPartitioner::close (RawPipeline * pip){
     build_partitions  <<<64, 1024, (1024*4 + 4*(1 << log_parts2)) * sizeof(int32_t) + ((2 * (1 << log_parts2) + 1)* sizeof(int32_t)), strm>>> (
                     keys1, payload1, chains1, 
                     buckets_used2, heads2, chains2, out_cnts2, keys2, payload2,
-                        log_parts1, log_parts2, 0, buckets_used1);
+                        log_parts1, log_parts2, 4, buckets_used1);
     gpu_run(cudaStreamSynchronize(strm));
 
     decompose_chains  <<<64, 1024, 0, strm>>> (pmeta.bucket_info, chains2, out_cnts2, log_parts1+log_parts2, 2*bucket_size);
@@ -739,6 +739,14 @@ void HashPartitioner::close (RawPipeline * pip){
     cudaEventElapsedTime(&milliseconds, start, stop);
     std::cout << "Time " << milliseconds << std::endl;
 
+
+    /*int* dummy = (int*) malloc(parts2*sizeof(int32_t));
+
+    cudaMemcpy(dummy, out_cnts2, parts2*sizeof(int32_t), cudaMemcpyDefault);
+    for (int i = 0; i < parts2; i++)
+        printf ("%d:%d:%d\n", pip->getGroup(), i, dummy[i]);
+
+    free(dummy);*/
 
     RawMemoryManager::freeGpu(keys1);
     RawMemoryManager::freeGpu(payload1);
@@ -1439,12 +1447,6 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
     Value* offset = Builder->CreateLoad(mem_offset);
     offset->setName(opLabel + "_inblock_offset_probe");
 
-    /*vector<Value*> ArgsV; 
-    Value* value = offset;
-    ArgsV.push_back(value);
-    Function* debugInt = context->getFunction("printi");
-    Builder->CreateCall(debugInt, ArgsV);*/
-
     Value* inblock_cond = Builder->CreateICmpSLT(offset, this_block_size);
     Builder->CreateCondBr(inblock_cond, InBlockLoopBB, BlockIncBB);
 
@@ -1503,11 +1505,15 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
     //Value* build_next = Builder->CreateLoad(Builder->CreateInBoundsGEP(next_cache, current));
     //Value* build_next = gpu_intrinsic::load_ca((GpuRawContext*) context, Builder->CreateInBoundsGEP(next_cache, current));
     Builder->CreateStore(build_next, mem_current);
+
+    //Builder->CreateStore(ConstantInt::get(current->getType(), ~((size_t) 0)), mem_current);
+    
     Builder->CreateBr(ChainCondBB);
 
     Builder->SetInsertPoint(ChainThenBB);
 
     Value* build_key = Builder->CreateLoad(Builder->CreateInBoundsGEP(keys_cache, current_v));
+
     //Value* build_key = Builder->CreateLoad(Builder->CreateInBoundsGEP(keys_cache, current));
     //Value* build_key = gpu_intrinsic::load_ca((GpuRawContext*)context, Builder->CreateInBoundsGEP(keys_cache, current));
     Value* condition_match = Builder->CreateICmpEQ(key_val, build_key);
@@ -1516,70 +1522,48 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
 
     Value* build_idx = Builder->CreateLoad(Builder->CreateInBoundsGEP(idxs_cache, current_v));
 
-
-    //BasicBlock *PrintBodyBB  = BasicBlock::Create(llvmContext, "printFollowThen", TheFunction);
-    //BasicBlock *PrintAfterBB     = BasicBlock::Create(llvmContext, "printFollow", TheFunction);
-
-    //Value* condition_print = Builder->CreateICmpSGT(idx_val, ConstantInt::get(idx_val->getType(), 1 << 27));
-    //Builder->CreateCondBr(condition_print, PrintBodyBB, PrintAfterBB);
-
-    //Builder->SetInsertPoint(PrintBodyBB);
-
-    /*vector<Value*> ArgsV; 
-    Value* value = idx_val;
-    ArgsV.push_back(idx_val);
-    Function* debugInt = context->getFunction("printi");
-    Builder->CreateCall(debugInt, ArgsV);
-    //Builder->CreateBr(PrintAfterBB);*/
-
-    //Builder->SetInsertPoint(PrintAfterBB);
-
-    //idx_val = ConstantInt::get(idx_val->getType(), 0);
-
-    //Value* build_idx = Builder->CreateLoad(Builder->CreateInBoundsGEP(idxs_cache, current));
-    //Value* build_idx = gpu_intrinsic::load_ca((GpuRawContext*) context, Builder->CreateInBoundsGEP(idxs_cache, current));
-
     Value* minor_probe = NULL;
     Value* minor_build = NULL;
 
-
-    for (size_t i = 1 ; i < probe_mat_exprs.size(); i++) {
-        GpuMatExpr &mexpr = probe_mat_exprs[i];
-
-        if (mexpr.expr->getRegisteredAttrName() == probe_minor_keyexpr->getRegisteredAttrName()) {
-            std::cout << mexpr.expr->getRegisteredAttrName() << std::endl;
-#ifndef PARTITION_PAYLOAD
-        Value* payload_right_ptr = gpu_context->getStateVar(probe_param_join_ids[i]);
-        Value* value_ptr = Builder->CreateInBoundsGEP(payload_right_ptr, idx_val);
-        Value* value_val = Builder->CreateLoad(value_ptr);
-#else
-        Value * value_val = idx_val;
-#endif
-
-        minor_probe = value_val;
+    if (probe_minor_keyexpr != NULL && build_minor_keyexpr != NULL) {
+        for (size_t i = 1 ; i < probe_mat_exprs.size(); i++) {
+            GpuMatExpr &mexpr = probe_mat_exprs[i];
+    
+            if (mexpr.expr->getRegisteredAttrName() == probe_minor_keyexpr->getRegisteredAttrName()) {
+                std::cout << mexpr.expr->getRegisteredAttrName() << std::endl;
+    #ifndef PARTITION_PAYLOAD
+            Value* payload_right_ptr = gpu_context->getStateVar(probe_param_join_ids[i]);
+            Value* value_ptr = Builder->CreateInBoundsGEP(payload_right_ptr, idx_val);
+            Value* value_val = Builder->CreateLoad(value_ptr);
+    #else
+            Value * value_val = idx_val;
+    #endif
+    
+            minor_probe = value_val;
+            }
         }
-    }
-
-    for (size_t i = 1 ; i < build_mat_exprs.size(); i++) {
-        GpuMatExpr &mexpr = build_mat_exprs[i];
-
-        if (mexpr.expr->getRegisteredAttrName() == build_minor_keyexpr->getRegisteredAttrName()) {
-            std::cout << mexpr.expr->getRegisteredAttrName() << std::endl;
-#ifndef PARTITION_PAYLOAD
-        Value* payload_left_ptr = gpu_context->getStateVar(build_param_join_ids[i]);
-        Value* value_ptr = Builder->CreateInBoundsGEP(payload_left_ptr, build_idx);
-        Value* val = Builder->CreateLoad(value_ptr);
-#else
-        Value * val = build_idx;
-#endif
-
-        minor_build = val;
+    
+        for (size_t i = 1 ; i < build_mat_exprs.size(); i++) {
+            GpuMatExpr &mexpr = build_mat_exprs[i];
+    
+            if (mexpr.expr->getRegisteredAttrName() == build_minor_keyexpr->getRegisteredAttrName()) {
+                std::cout << mexpr.expr->getRegisteredAttrName() << std::endl;
+    #ifndef PARTITION_PAYLOAD
+            Value* payload_left_ptr = gpu_context->getStateVar(build_param_join_ids[i]);
+            Value* value_ptr = Builder->CreateInBoundsGEP(payload_left_ptr, build_idx);
+            Value* val = Builder->CreateLoad(value_ptr);
+    #else
+            Value * val = build_idx;
+    #endif
+    
+            minor_build = val;
+            }
         }
+    
+        Value* condition_def_match = Builder->CreateICmpEQ(minor_probe, minor_build);
+        Builder->CreateCondBr(condition_def_match, ChainMatchDefBB, ChainIncBB);
+        Builder->SetInsertPoint(ChainMatchDefBB);
     }
-
-    Value* condition_def_match = Builder->CreateICmpEQ(minor_probe, minor_build);
-    Builder->CreateCondBr(condition_def_match, ChainMatchDefBB, ChainIncBB);
-    Builder->SetInsertPoint(ChainMatchDefBB);
 
     std::cout << "hi0" << std::endl;
 
@@ -1664,7 +1648,7 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
 
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
                                 "mem_" +  build_keyexpr->getRegisteredAttrName(),
-                                build_key->getType());
+                                build_keyexpr->getExpressionType()->getLLVMType(llvmContext));
 
         Builder->CreateStore(build_key, mem_arg);
 
@@ -1716,10 +1700,6 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
 
         std::cout << mexpr.expr->getRegisteredAttrName() << std::endl;
 
-        /*Value * in_ptr = gpu_context->getStateVar(probe_param_join_ids[i]);
-
-        Value* value_ptr = Builder->CreateInBoundsGEP(in_ptr, idx_val);*/
-
 #ifndef PARTITION_PAYLOAD
         Value* payload_right_ptr = gpu_context->getStateVar(probe_param_join_ids[i]);
         Value* value_ptr = Builder->CreateInBoundsGEP(payload_right_ptr, idx_val);
@@ -1731,10 +1711,10 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
 
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
                                 "mem_" +  mexpr.expr->getRegisteredAttrName(),
-                                value_val->getType());
+                                mexpr.expr->getExpressionType()->getLLVMType(llvmContext));
 
         Builder->CreateStore(value_val, mem_arg);
-        //Builder->CreateStore(UndefValue::get(value_val->getType()), mem_arg);
+        //Builder->CreateStore(UndefValue::get(mexpr.expr->getExpressionType()->getLLVMType(llvmContext)), mem_arg);
 
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem    = mem_arg;
@@ -1785,12 +1765,10 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
 
         // ExpressionGeneratorVisitor exprGenerator(context, childState);
 
-        /*Value * out_ptr = gpu_context->getStateVar(build_param_join_ids[i]);
 
-        Value* val = Builder->CreateLoad(Builder->CreateInBoundsGEP(out_ptr, build_idx));*/
 
         std::cout << mexpr.expr->getRegisteredAttrName() << std::endl;
-
+        
 #ifndef PARTITION_PAYLOAD
         Value* payload_left_ptr = gpu_context->getStateVar(build_param_join_ids[i]);
         Value* value_ptr = Builder->CreateInBoundsGEP(payload_left_ptr, build_idx);
@@ -1798,13 +1776,13 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
 #else
         Value * val = build_idx;
 #endif
-
+        
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
                                 "mem_" +  mexpr.expr->getRegisteredAttrName(),
-                                val->getType());
+                                mexpr.expr->getExpressionType()->getLLVMType(llvmContext));
 
         Builder->CreateStore(val, mem_arg);
-        //Builder->CreateStore(UndefValue::get(val->getType()), mem_arg);
+        //Builder->CreateStore(UndefValue::get(mexpr.expr->getExpressionType()->getLLVMType(llvmContext)), mem_arg);
 
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem    = mem_arg;

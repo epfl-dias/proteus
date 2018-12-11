@@ -1,6 +1,6 @@
 #include "packet-zip.hpp"
 
-#define CACHE_SIZE 2048*16 
+#define CACHE_SIZE 1024*1024
 
 ZipInitiate::ZipInitiate (
                         RecordAttribute *                           ptrAttr,
@@ -420,9 +420,15 @@ void ZipCollect::generate_cache_left(RawContext* const context, const OperatorSt
         RawValue currVal = wantedFieldsLeft[i]->accept(exprGen);
         Value* valToMaterialize = currVal.value;
 
+        std::cout << wantedFieldsLeft[i]->getExpressionType()->getType() << std::endl;
+        std::cout << "type === " << wantedFieldsLeft[i]->getExpressionType()->getLLVMType(llvmContext)->getTypeID() << std::endl;
+        std::cout << "type === " << valToMaterialize->getType()->getTypeID() << std::endl;
+
         //Value * blk_ptr            = Builder->CreatePointerCast(valToMaterialize, charPtrType);
         //Builder->CreateStore(blk_ptr, Builder->CreateInBoundsGEP(mem_blocks, offset_blk));
         Value * blk_ptr            = Builder->CreatePointerCast(Builder->CreateInBoundsGEP(mem_blocks, offset_blk), PointerType::get(wantedFieldsLeft[i]->getExpressionType()->getLLVMType(llvmContext), 0));
+        std::cout << "type === " << blk_ptr->getType()->getTypeID() << std::endl;
+
         Builder->CreateStore(valToMaterialize, blk_ptr);
         offset_blk = Builder->CreateAdd(offset_blk, context->createInt32(1));
 
@@ -499,9 +505,14 @@ void ZipCollect::generate_cache_right(RawContext* const context, const OperatorS
         RawValue currVal = wantedFieldsRight[i]->accept(exprGen);
         Value* valToMaterialize = currVal.value;
 
+        std::cout << "type === " << valToMaterialize->getType()->getTypeID() << std::endl;
+
         //Value * blk_ptr            = Builder->CreatePointerCast(valToMaterialize, charPtrType);
         //Builder->CreateStore(blk_ptr, Builder->CreateInBoundsGEP(mem_blocks, offset_blk));
         Value * blk_ptr = Builder->CreatePointerCast(Builder->CreateInBoundsGEP(mem_blocks, offset_blk), PointerType::get(wantedFieldsRight[i]->getExpressionType()->getLLVMType(llvmContext), 0));
+        
+        std::cout << "type === " << blk_ptr->getType()->getTypeID() << std::endl;
+
         Builder->CreateStore(valToMaterialize, blk_ptr);
         offset_blk = Builder->CreateAdd(offset_blk, context->createInt32(1));
     }
@@ -667,9 +678,20 @@ void ZipCollect::open_cache_left (RawPipeline * pip) {
 void ZipCollect::close_cache_left (RawPipeline * pip) {
     std::cout << "close cache left" << std::endl;
 
-    int sum;
+    int sum = offset_left[0][0];
 
     std::cout << "elements partitioned" << sum << std::endl;
+
+    int max = 0;
+    for (int i = 0; i < sum; i++) {
+        if (state_left.cnts[0][i] > max)
+            max = state_left.cnts[0][i];
+        for (int j = 0; j < wantedFieldsLeft.size(); j++)
+            if (state_left.blocks[0] == NULL)
+                printf ("i=%d empty\n", i);
+    }
+
+    std::cout << "max partitioned" << max << std::endl;
 }
 
 void ZipCollect::open_cache_right (RawPipeline * pip) {
@@ -710,23 +732,20 @@ void ZipCollect::open_cache_right (RawPipeline * pip) {
 void ZipCollect::close_cache_right (RawPipeline * pip) {
     std::cout << "close cache right" << std::endl;
 
-    /*int sum;
-
-    for (int n = 0; n < numOfBuckets; n++) {
-    sum = 0;
-    int bucket = state_right.blocks_head[0][n];
-
-    while (bucket != -1) {
-        sum += state_right.cnts[0][bucket];
-
-        bucket = state_right.blocks_chain[0][bucket];
-    }
-
-    //for (int i = 0; i < offset_right[0][0]; i++)
-    //    sum += state_right.cnts[0][i];
+    int sum = offset_right[0][0];
 
     std::cout << "elements partitioned" << sum << std::endl;
-    }*/
+
+    int max = 0;
+    for (int i = 0; i < sum; i++) {
+        if (state_right.cnts[0][i] > max)
+            max = state_right.cnts[0][i];
+        for (int j = 0; j < wantedFieldsRight.size(); j++)
+            if (state_right.blocks[0] == NULL)
+                printf ("i=%d empty\n", i);
+    }
+
+    std::cout << "max partitioned" << max << std::endl;
 }
 
 void ZipCollect::open_pipe (RawPipeline * pip) {
@@ -879,6 +898,16 @@ void ZipForward::consume (RawContext* const context, const OperatorState& childS
     mem_valWrapper1.isNull = context->createFalse();
     (*bindings)[tupleCnt] = mem_valWrapper1;
 
+    /*vector<Value*> ArgsV1; 
+    ArgsV1.push_back(N);
+    Function* debugInt = context->getFunction("printi64");
+    Builder->CreateCall(debugInt, ArgsV1);*/
+
+    /*vector<Value*> ArgsV2; 
+    ArgsV2.push_back(current);
+    Function* debugInt2 = context->getFunction("printi");
+    Builder->CreateCall(debugInt2, ArgsV2);*/
+
     Value * oid = Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_oids, current));    
     RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRegisteredRelName(),  activeLoop, pg->getOIDType());
     AllocaInst * mem_arg_oid = context->CreateEntryBlockAlloca(TheFunction, "mem_" + wantedFields[0]->getRegisteredRelName() + "_oid", pg->getOIDType()->getLLVMType(llvmContext));
@@ -892,19 +921,14 @@ void ZipForward::consume (RawContext* const context, const OperatorState& childS
 
     for (int i = 0; i < wantedFields.size(); i++) {
         RecordAttribute block_attr  ((wantedFields[i]->getRegisteredAs()), true);
-
-        Value * blk_ptr = Builder->CreatePointerCast(Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_blocks, offset_blk)),  wantedFields[i]->getExpressionType()->getLLVMType(llvmContext));
-        AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction, "mem_" + wantedFields[i]->getRegisteredAttrName(), wantedFields[i]->getExpressionType()->getLLVMType(llvmContext));
+        std::cout << wantedFields[i]->getExpressionType()->getType() << std::endl;
+        Value * blk_ptr = Builder->CreatePointerCast(Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_blocks, offset_blk)),  PointerType::get(wantedFields[i]->getExpressionType()->getLLVMType(llvmContext),0));
+        AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction, "mem_" + wantedFields[i]->getRegisteredAttrName(), PointerType::get(wantedFields[i]->getExpressionType()->getLLVMType(llvmContext),0));
         Builder->CreateStore(blk_ptr, mem_arg);
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = context->createFalse();
         (*bindings)[block_attr] = mem_valWrapper;
-
-        /*vector<Value*> ArgsV; 
-        ArgsV.push_back(Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_blocks, offset_blk)));
-        Function* debugInt = context->getFunction("printptr");
-        Builder->CreateCall(debugInt, ArgsV);*/
 
         offset_blk = Builder->CreateAdd(offset_blk, context->createInt32(1));
     }

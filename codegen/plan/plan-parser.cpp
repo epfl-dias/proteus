@@ -10,6 +10,7 @@
 #include "operators/gpu/gpu-hash-rearrange.hpp"
 #include "operators/gpu/gpu-to-cpu.hpp"
 #endif
+#include "operators/packet-zip.hpp"
 #include "operators/hash-join-chained.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/mem-broadcast-device.hpp"
@@ -705,6 +706,294 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		}
 #endif
 		child->setParent(newOp);
+	} else if(strcmp(opName, "out-of-gpu-join") == 0) {
+		/* parse operator input */
+		assert(val.HasMember("probe_input"));
+		assert(val["probe_input"].IsObject());
+		RawOperator* probe_op = parseOperator(val["probe_input"]);
+
+		/* parse operator input */
+		assert(val.HasMember("build_input"));
+		assert(val["build_input"].IsObject());
+		RawOperator* build_op = parseOperator(val["build_input"]);
+
+		/*number of cpu partitions*/
+		assert(val.HasMember("numOfBuckets"));
+		assert(val["numOfBuckets"].IsInt());
+		int numOfBuckets = val["numOfBuckets"].GetInt();
+		/*number of cpu threads in partitioning*/
+		assert(val.HasMember("numPartitioners"));
+		assert(val["numPartitioners"].IsInt());
+		int numPartitioners = val["numPartitioners"].GetInt();
+		/*number of tasks running concurrently in join phase*/
+		assert(val.HasMember("numConcurrent"));
+		assert(val["numConcurrent"].IsInt());
+		int numConcurrent = val["numConcurrent"].GetInt();
+
+		/*parameters for join buffers*/
+		assert(val.HasMember("maxBuildInputSize"));
+		assert(val["maxBuildInputSize"].IsInt());
+		int maxBuildInputSize = val["maxBuildInputSize"].GetInt();
+
+		assert(val.HasMember("maxProbeInputSize"));
+		assert(val["maxProbeInputSize"].IsInt());
+		int maxProbeInputSize = val["maxProbeInputSize"].GetInt();
+
+		assert(val.HasMember("slack"));
+		assert(val["slack"].IsInt());
+		int slack = val["slack"].GetInt();
+
+		assert(val["build_e"].IsArray());
+		vector<RecordAttribute*> build_attr;
+		vector<RecordAttribute*> build_attr_block;
+		vector<expressions::Expression *> build_expr;
+		vector<RecordAttribute*> build_hashed_attr;
+		vector<RecordAttribute*> build_hashed_attr_block;
+		vector<expressions::Expression *> build_hashed_expr;
+		vector<expressions::Expression *> build_hashed_expr_block;
+		vector<expressions::Expression *> build_prejoin_expr;
+		vector<RecordAttribute*> build_join_attr;
+		vector<RecordAttribute*> build_join_attr_block;
+		vector<GpuMatExpr> build_join_expr;
+
+		for (SizeType i = 0; i < val["build_e"].Size(); i++)
+		{
+			assert(val["build_e"][i].IsObject());
+
+			assert(val["build_e"][i]["original"].IsObject());
+			expressions::Expression *outExpr = parseExpression(val["build_e"][i]["original"]);
+			build_expr.emplace_back(outExpr);
+
+			assert(val["build_e"][i]["original"]["attribute"].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val["build_e"][i]["original"]["attribute"]);
+			build_attr.push_back(recAttr);
+			build_attr_block.push_back(new RecordAttribute(*recAttr, true));
+
+			assert(val["build_e"][i]["hashed"].IsObject());
+			expressions::Expression *outHashedExpr = parseExpression(val["build_e"][i]["hashed"]);
+			build_hashed_expr.emplace_back(outHashedExpr);
+
+			assert(val["build_e"][i]["hashed-block"].IsObject());
+			expressions::Expression *outHashedBlockExpr = parseExpression(val["build_e"][i]["hashed-block"]);
+			build_hashed_expr_block.emplace_back(outHashedBlockExpr);
+
+			assert(val["build_e"][i]["hashed"]["attribute"].IsObject());
+			RecordAttribute *recHashedAttr = this->parseRecordAttr(val["build_e"][i]["hashed"]["register_as"]);
+			build_hashed_attr.push_back(recHashedAttr);
+			build_hashed_attr_block.push_back(new RecordAttribute(*recHashedAttr, true));
+
+			assert(val["build_e"][i]["join"].IsObject());
+			assert(val["build_e"][i]["join"].HasMember("e"));
+			assert(val["build_e"][i]["join"].HasMember("packet"));
+			assert(val["build_e"][i]["join"]["packet"].IsInt());
+			assert(val["build_e"][i]["join"].HasMember("offset"));
+			assert(val["build_e"][i]["join"]["offset"].IsInt());
+			expressions::Expression *outJoinExpr = parseExpression(val["build_e"][i]["join"]["e"]);
+			build_join_expr.emplace_back(
+								outJoinExpr, 
+								val["build_e"][i]["join"]["packet"].GetInt(), 
+								val["build_e"][i]["join"]["offset"].GetInt());
+
+			assert(val["build_e"][i]["join"]["e"]["attribute"].IsObject());
+			RecordAttribute *recJoinAttr = this->parseRecordAttr(val["build_e"][i]["join"]["e"]["attribute"]);
+			build_join_attr.push_back(recJoinAttr);
+			build_join_attr_block.push_back(new RecordAttribute(*recJoinAttr, true));
+			expressions::Expression *outPreJoinExpr = parseExpression(val["build_e"][i]["join"]["e"]);
+			outPreJoinExpr->registerAs(recJoinAttr);
+			build_prejoin_expr.push_back(outPreJoinExpr);
+		}
+
+		assert(val.HasMember("build_hash"));
+		RecordAttribute* build_hash_attr = this->parseRecordAttr(val["build_hash"]["attribute"]);
+
+
+		assert(val.HasMember("build_w"));
+		assert(val["build_w"].IsArray());
+		vector<size_t> build_widths;
+
+		const rapidjson::Value& build_wJSON = val["build_w"];
+		for (SizeType i = 0; i < build_wJSON.Size(); i++){
+			assert(build_wJSON[i].IsInt());
+			build_widths.push_back(build_wJSON[i].GetInt());
+		}
+
+		assert(val["probe_e"].IsArray());
+		vector<RecordAttribute*> probe_attr;
+		vector<RecordAttribute*> probe_attr_block;
+		vector<expressions::Expression *> probe_expr;
+		vector<RecordAttribute*> probe_hashed_attr;
+		vector<RecordAttribute*> probe_hashed_attr_block;
+		vector<expressions::Expression *> probe_hashed_expr;
+		vector<expressions::Expression *> probe_hashed_expr_block;
+		vector<expressions::Expression *> probe_prejoin_expr;
+		vector<RecordAttribute*> probe_join_attr;
+		vector<RecordAttribute*> probe_join_attr_block;
+		vector<GpuMatExpr> probe_join_expr;
+
+		for (SizeType i = 0; i < val["probe_e"].Size(); i++)
+		{
+			assert(val["probe_e"][i].IsObject());
+
+			assert(val["probe_e"][i]["original"].IsObject());
+			expressions::Expression *outExpr = parseExpression(val["probe_e"][i]["original"]);
+			probe_expr.emplace_back(outExpr);
+
+			assert(val["probe_e"][i]["original"]["attribute"].IsObject());
+			RecordAttribute *recAttr = this->parseRecordAttr(val["probe_e"][i]["original"]["attribute"]);
+			probe_attr.push_back(recAttr);
+			probe_attr_block.push_back(new RecordAttribute(*recAttr, true));
+
+			assert(val["probe_e"][i]["hashed"].IsObject());
+			expressions::Expression *outHashedExpr = parseExpression(val["probe_e"][i]["hashed"]);
+			probe_hashed_expr.emplace_back(outHashedExpr);
+
+			assert(val["probe_e"][i]["hashed-block"].IsObject());
+			expressions::Expression *outHashedBlockExpr = parseExpression(val["probe_e"][i]["hashed-block"]);
+			probe_hashed_expr_block.emplace_back(outHashedBlockExpr);
+
+			assert(val["probe_e"][i]["hashed"]["attribute"].IsObject());
+			RecordAttribute *recHashedAttr = this->parseRecordAttr(val["probe_e"][i]["hashed"]["register_as"]);
+			probe_hashed_attr.push_back(recHashedAttr);
+			probe_hashed_attr_block.push_back(new RecordAttribute(*recHashedAttr, true));
+
+			assert(val["probe_e"][i]["join"].IsObject());
+			assert(val["probe_e"][i]["join"].HasMember("e"));
+			assert(val["probe_e"][i]["join"].HasMember("packet"));
+			assert(val["probe_e"][i]["join"]["packet"].IsInt());
+			assert(val["probe_e"][i]["join"].HasMember("offset"));
+			assert(val["probe_e"][i]["join"]["offset"].IsInt());
+			expressions::Expression *outJoinExpr = parseExpression(val["probe_e"][i]["join"]["e"]);
+			probe_join_expr.emplace_back(
+								outJoinExpr, 
+								val["probe_e"][i]["join"]["packet"].GetInt(), 
+								val["probe_e"][i]["join"]["offset"].GetInt());
+
+			assert(val["probe_e"][i]["join"]["e"]["attribute"].IsObject());
+			RecordAttribute *recJoinAttr = this->parseRecordAttr(val["probe_e"][i]["join"]["e"]["attribute"]);
+			probe_join_attr.push_back(recJoinAttr);
+			probe_join_attr_block.push_back(new RecordAttribute(*recJoinAttr, true));
+			expressions::Expression *outPreJoinExpr = parseExpression(val["probe_e"][i]["join"]["e"]);
+			outPreJoinExpr->registerAs(recJoinAttr);
+			probe_prejoin_expr.push_back(outPreJoinExpr);
+		}
+
+		assert(val.HasMember("probe_hash"));
+		RecordAttribute* probe_hash_attr = this->parseRecordAttr(val["probe_hash"]["attribute"]);
+
+
+		assert(val.HasMember("probe_w"));
+		assert(val["probe_w"].IsArray());
+		vector<size_t> probe_widths;
+
+		const rapidjson::Value& probe_wJSON = val["probe_w"];
+		for (SizeType i = 0; i < probe_wJSON.Size(); i++){
+			assert(probe_wJSON[i].IsInt());
+			probe_widths.push_back(probe_wJSON[i].GetInt());
+		}
+
+		
+
+		Exchange* xch_build      = new Exchange 	(build_op, (GpuRawContext *) ctx, numPartitioners, build_attr_block, slack, NULL, true);
+		build_op->setParent(xch_build);
+		RawOperator* btt_build   = new BlockToTuples(xch_build, (GpuRawContext *) ctx, build_expr, false, gran_t::THREAD);
+		xch_build->setParent(btt_build);
+		RawOperator* part_build  = new HashRearrange(btt_build, (GpuRawContext *) ctx, numOfBuckets, build_expr, build_expr[0], build_hash_attr);
+		btt_build->setParent(part_build);
+		build_attr_block.push_back(build_hash_attr);
+		Exchange* xch_build2  	 = new Exchange 	(part_build, (GpuRawContext *) ctx, 1, build_attr_block, slack, NULL, true, false, numPartitioners);
+		part_build->setParent(xch_build2);
+
+		Exchange* xch_probe      = new Exchange 	(probe_op, (GpuRawContext *) ctx, numPartitioners, probe_attr_block, slack, NULL, true);
+		probe_op->setParent(xch_probe);
+		RawOperator* btt_probe   = new BlockToTuples(xch_probe, (GpuRawContext *) ctx, probe_expr, false, gran_t::THREAD);
+		xch_probe->setParent(btt_probe);
+		RawOperator* part_probe  = new HashRearrange(btt_probe, (GpuRawContext *) ctx, numOfBuckets, probe_expr, probe_expr[0], probe_hash_attr);
+		btt_probe->setParent(part_probe);
+		probe_attr_block.push_back(probe_hash_attr);
+		Exchange* xch_probe2  	 = new Exchange 	(part_probe, (GpuRawContext *) ctx, 1, probe_attr_block, slack, NULL, true, false, numPartitioners);
+		part_probe->setParent(xch_probe2);
+
+		RecordAttribute* attr_ptr = new RecordAttribute(1, "coordinator", "ptr", new IntType(), true);
+		RecordAttribute* attr_target = new RecordAttribute(1, "coordinator", "target", new IntType(), false);
+		RecordAttribute* attr_target_block = new RecordAttribute(*attr_target, true);
+		RecordAttribute* attr_splitter = new RecordAttribute(2, "coordinator", "splitter", new IntType(), false);
+
+		InputInfo * datasetInfoCoord = catalogParser.getOrCreateInputInfo(attr_target->getRelationName());
+		RecordType * coord_rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfoCoord->exprType)->getNestedType())};
+		coord_rec->appendAttribute(attr_ptr);
+		coord_rec->appendAttribute(attr_target);
+		coord_rec->appendAttribute(attr_splitter);
+		datasetInfoCoord->exprType = new BagType{*coord_rec};
+
+		list<RecordAttribute*> f_atts_target;
+		f_atts_target.push_back(attr_ptr);
+		f_atts_target.push_back(attr_target);
+		f_atts_target.push_back(attr_splitter);
+		RecordType *recTypeTarget = new RecordType(f_atts_target);
+
+		list<RecordAttribute> f_atts_hash_d;
+		f_atts_hash_d.push_back(*attr_target);
+		expressions::Expression* fHtarg = new expressions::InputArgument(recTypeTarget, -1, f_atts_hash_d);
+		expressions::Expression* expr_target = new expressions::RecordProjection(fHtarg, *attr_target);
+
+		vector<RecordAttribute*> f_atts_target_v;
+		f_atts_target_v.push_back(attr_ptr);
+		f_atts_target_v.push_back(attr_target);
+		f_atts_target_v.push_back(attr_splitter);
+
+		ZipCollect* coord = new ZipCollect (attr_ptr, attr_splitter, attr_target, 
+										new RecordAttribute(*build_attr[0], true), new RecordAttribute(*probe_attr[0], true),
+										xch_build2, xch_probe2, (GpuRawContext *) ctx, numOfBuckets, 
+										build_hash_attr, build_hashed_expr_block,
+										probe_hash_attr, probe_hashed_expr_block, "coordinator");
+		xch_build2->setParent(coord);
+		xch_probe2->setParent(coord);
+
+		Exchange* xch_proc = new Exchange (coord, (GpuRawContext *) ctx, numConcurrent, f_atts_target_v, slack, expr_target, false);
+		coord->setParent(xch_proc);
+		ZipInitiate* initiator = new ZipInitiate (attr_ptr, attr_splitter, attr_target, xch_proc, (GpuRawContext *) ctx, numOfBuckets, 
+														coord->getStateLeft(), coord->getStateRight(), "launcher");
+		xch_proc->setParent(initiator);
+		RawPipelineGen** pip_rcv = initiator->pipeSocket();
+		
+		ZipForward* fwd_build = new ZipForward (attr_splitter, attr_target, new RecordAttribute(*build_attr[0], true), 
+														initiator, (GpuRawContext *) ctx, numOfBuckets, 
+														build_hashed_expr, "forwarder", coord->getStateLeft());
+		
+		RawOperator* mml_build  = new MemMoveLocalTo(fwd_build, (GpuRawContext *) ctx, build_hashed_attr_block, 4);
+		fwd_build->setParent(mml_build);
+		RawOperator* mmd_build  = new MemMoveDevice(mml_build, (GpuRawContext *) ctx, build_hashed_attr_block, 4, false);
+		mml_build->setParent(mmd_build);
+		RawOperator* ctg_build  = new CpuToGpu(mmd_build, (GpuRawContext *) ctx, build_hashed_attr_block);
+		mmd_build->setParent(ctg_build);
+		RawOperator* btt_build2 = new BlockToTuples(ctg_build, (GpuRawContext *) ctx, build_prejoin_expr, true, gran_t::GRID);
+		ctg_build->setParent(btt_build2);
+		HashPartitioner* hpart1 = new HashPartitioner(attr_target, build_join_expr, build_widths, build_prejoin_expr[0], 
+														btt_build2, (GpuRawContext *) ctx, maxBuildInputSize, 13, "partition_hash_1");
+		btt_build2->setParent(hpart1);
+
+		ZipForward* fwd_probe   = new ZipForward (attr_splitter, attr_target, new RecordAttribute(*probe_attr[0], true), 
+														initiator, (GpuRawContext *) ctx, numOfBuckets, 
+														probe_hashed_expr, "forwarder", coord->getStateRight());
+		
+		RawOperator* mml_probe  = new MemMoveLocalTo(fwd_probe, (GpuRawContext *) ctx, probe_hashed_attr_block, 4);
+		fwd_probe->setParent(mml_probe);
+		RawOperator* mmd_probe  = new MemMoveDevice(mml_probe, (GpuRawContext *) ctx, probe_hashed_attr_block, 4, false);
+		mml_probe->setParent(mmd_probe);
+		RawOperator* ctg_probe  = new CpuToGpu(mmd_probe, (GpuRawContext *) ctx, probe_hashed_attr_block);
+		mmd_probe->setParent(ctg_probe);
+		RawOperator* btt_probe2 = new BlockToTuples(ctg_probe, (GpuRawContext *) ctx, probe_prejoin_expr, true, gran_t::GRID);
+		ctg_probe->setParent(btt_probe2);
+		HashPartitioner* hpart2 = new HashPartitioner(attr_target, probe_join_expr, probe_widths, probe_prejoin_expr[0], 
+														btt_probe2, (GpuRawContext *) ctx, maxProbeInputSize, 13, "partition_hash_2");
+		btt_probe2->setParent(hpart2);
+
+		newOp       = new GpuPartitionedHashJoinChained(build_join_expr, build_widths, build_join_expr[0].expr, NULL, hpart1, 
+														probe_join_expr, probe_widths, probe_join_expr[0].expr, NULL, hpart2, 
+														hpart1->getState(), hpart2->getState(), maxBuildInputSize, maxProbeInputSize, 13, 
+														(GpuRawContext *) ctx, "hj_part", pip_rcv, NULL);
+		hpart1->setParent(newOp);
+		hpart2->setParent(newOp);
 	} else if(strcmp(opName, "partitioned-hashjoin-chained") == 0)	{
 		/* parse operator input */
 		assert(val.HasMember("probe_input"));
@@ -2744,6 +3033,8 @@ RecordAttribute* ExpressionParser::parseRecordAttr(const rapidjson::Value& val, 
 	assert(val.HasMember(keyAttrName));
 	assert(val[keyAttrName].IsString());
 	string attrName = val[keyAttrName].GetString();
+
+	std::cout << attrName << std::endl;
 
 	const RecordAttribute * attr = getAttribute(relName, attrName);
 
