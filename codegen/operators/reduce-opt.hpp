@@ -47,7 +47,7 @@ public:
 			const OperatorState& childState);
 	virtual bool isFiltering() const {return true;}
 
-	Value * getAccumulator(int index){return context->getStateVar(mem_accumulators[index]);}
+	llvm::Value * getAccumulator(int index){return context->getStateVar(mem_accumulators[index]);}
 protected:
 	RawContext* context;
 
@@ -71,7 +71,7 @@ private:
 	void generate(RawContext* const context, const OperatorState& childState) const;
 	//Used to enable chaining with subsequent operators
 	void generateBagUnion(expressions::Expression* outputExpr, RawContext* const context,
-			const OperatorState& state, Value * cnt_mem) const;
+			const OperatorState& state, llvm::Value * cnt_mem) const;
 	void generateAppend(expressions::Expression* outputExpr, RawContext* const context,
 			const OperatorState& state, AllocaInst *mem_accumulating) const;
 

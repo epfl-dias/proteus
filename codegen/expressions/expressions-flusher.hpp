@@ -99,7 +99,7 @@ public:
 	RawValue visit(expressions::CastExpression *e);
 	/* Reduce produces accumulated value internally.
 	 * It makes no sense to probe a plugin in order to flush this value out */
-	void flushValue(Value *val, typeID val_type);
+	void flushValue(llvm::Value *val, typeID val_type);
 
 	void setActiveRelation(string relName)		{ 
 		activeRelation = relName; 
@@ -120,7 +120,7 @@ public:
 		if (!pg){
 			//TODO: remove. deprecated exectuion path
 			Function *flushFunc = context->getFunction("flushChar");
-			vector<Value*> ArgsV;
+			vector<llvm::Value*> ArgsV;
 			//Start 'array'
 			ArgsV.push_back(context->createInt8('['));
 			ArgsV.push_back(outputFileLLVM);
@@ -145,7 +145,7 @@ public:
 		if (!pg){
 			//TODO: remove. deprecated exectuion path
 			Function *flushFunc = context->getFunction("flushChar");
-			vector<Value*> ArgsV;
+			vector<llvm::Value*> ArgsV;
 			//Start 'array'
 			ArgsV.push_back(context->createInt8(']'));
 			ArgsV.push_back(outputFileLLVM);
@@ -168,18 +168,18 @@ public:
 	{
 		outputFileLLVM = context->CreateGlobalString(this->outputFile);
 		Function *flushFunc = context->getFunction("flushOutput");
-		vector<Value*> ArgsV;
+		vector<llvm::Value*> ArgsV;
 		//Start 'array'
 		ArgsV.push_back(outputFileLLVM);
 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
 	}
-	void flushDelim(Value* resultCtr, int depth = 0)
+	void flushDelim(llvm::Value* resultCtr, int depth = 0)
 	{
 		outputFileLLVM = context->CreateGlobalString(this->outputFile);
 		if (!pg){
 			//TODO: remove. deprecated exectuion path
 			Function *flushFunc = context->getFunction("flushDelim");
-			vector<Value*> ArgsV;
+			vector<llvm::Value*> ArgsV;
 			ArgsV.push_back(resultCtr);
 			//XXX JSON-specific -> Serializer business to differentiate
 			ArgsV.push_back(context->createInt8(','));
@@ -194,7 +194,7 @@ public:
 		if (!pg){
 			//TODO: remove. deprecated exectuion path
 			Function *flushFunc = context->getFunction("flushChar");
-			vector<Value*> ArgsV;
+			vector<llvm::Value*> ArgsV;
 			//XXX JSON-specific -> Serializer business to differentiate
 			ArgsV.push_back(context->createInt8(','));
 			ArgsV.push_back(outputFileLLVM);
@@ -208,7 +208,7 @@ private:
 	RawContext* const context;
 	const OperatorState& currState;
 	const char *outputFile;
-	Value* outputFileLLVM;
+	llvm::Value* outputFileLLVM;
 
 	RawValue placeholder;
 	string activeRelation;

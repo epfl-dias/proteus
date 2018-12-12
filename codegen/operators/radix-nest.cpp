@@ -35,7 +35,9 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs,
             expressions::Expression *pred,
             expressions::Expression *f_grouping,
             expressions::Expression *g_nullToZero,
-            RawOperator* const child, const char* opLabel, Materializer& mat):
+            RawOperator* const child,
+            const std::string &opLabel,
+            Materializer& mat):
 Nest(context, accs, outputExprs, aggrLabels, pred, std::vector<expressions::Expression *>{f_grouping}, g_nullToZero, child, opLabel, mat)
 {}
 /**
@@ -48,10 +50,11 @@ Nest(context, accs, outputExprs, aggrLabels, pred, std::vector<expressions::Expr
  * Previous nest version performs it
  */
 Nest::Nest(RawContext* const context, vector<Monoid> accs,
-		vector<expressions::Expression*> outputExprs, vector<string> aggrLabels,
-		expressions::Expression *pred, std::vector<expressions::Expression *> f_grouping,
-		expressions::Expression *g_nullToZero, RawOperator* const child,
-		const char *opLabel, Materializer& mat) :
+            vector<expressions::Expression*> outputExprs, vector<string> aggrLabels,
+            expressions::Expression *pred, std::vector<expressions::Expression *> f_grouping,
+            expressions::Expression *g_nullToZero, RawOperator* const child,
+            const std::string &opLabel,
+            Materializer& mat):
 		UnaryRawOperator(child), accs(accs), outputExprs(outputExprs), aggregateLabels(
 				aggrLabels), pred(pred), g_nullToZero(g_nullToZero), mat(mat), htName(opLabel), context((GpuRawContext * const) context)
 {

@@ -69,14 +69,14 @@ public:
 	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
 	virtual RawValue hashValueEager(RawValue value, const ExpressionType* type);
 
-	virtual void flushTuple(RawValueMemory mem_value, Value* fileName)	{
+	virtual void flushTuple(RawValueMemory mem_value, llvm::Value* fileName)	{
 		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
 
-	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, Value* fileName);
-	virtual void flushValueEager(RawValue value, const ExpressionType *type, Value* fileName);
+	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, llvm::Value* fileName);
+	virtual void flushValueEager(RawValue value, const ExpressionType *type, llvm::Value* fileName);
 
 	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
 		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
@@ -95,7 +95,7 @@ public:
 		throw runtime_error(error_msg);
 	}
 
-	virtual Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);
+	virtual llvm::Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);
 
 	virtual ExpressionType *getOIDType() {
 		return new IntType();
@@ -103,46 +103,46 @@ public:
 
 	virtual PluginType getPluginType() { return PGBINARY; }
 
-	virtual void flushBeginList	(Value *fileName					) {}
+	virtual void flushBeginList	(llvm::Value *fileName					) {}
 
-	virtual void flushBeginBag	(Value *fileName					) {
+	virtual void flushBeginBag	(llvm::Value *fileName					) {
 		string error_msg = "[BinaryInternalPlugin: ] Binary-internal files do not contain BAGs";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
 
-	virtual void flushBeginSet	(Value *fileName					) {
+	virtual void flushBeginSet	(llvm::Value *fileName					) {
 		string error_msg = "[BinaryInternalPlugin: ] Binary-internal files do not contain SETs";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
 
-	virtual void flushEndList	(Value *fileName					) {}
+	virtual void flushEndList	(llvm::Value *fileName					) {}
 
-	virtual void flushEndBag	(Value *fileName					) {
+	virtual void flushEndBag	(llvm::Value *fileName					) {
 		string error_msg = "[BinaryInternalPlugin: ] Binary-internal files do not contain BAGs";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
 
-	virtual void flushEndSet	(Value *fileName					) {
+	virtual void flushEndSet	(llvm::Value *fileName					) {
 		string error_msg = "[BinaryInternalPlugin: ] Binary-internal files do not contain SETs";
 		LOG(ERROR)<< error_msg;
 		throw runtime_error(error_msg);
 	}
 
-	virtual void flushDelim		(Value *fileName					, int depth) {
+	virtual void flushDelim		(llvm::Value *fileName					, int depth) {
 		Function *flushFunc = context->getFunction("flushChar");
-		vector<Value*> ArgsV;
+		vector<llvm::Value*> ArgsV;
 		//XXX JSON-specific -> Serializer business to differentiate
 		ArgsV.push_back(context->createInt8((depth == 0) ? '\n' : ','));
 		ArgsV.push_back(fileName);
 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
 	}
 
-	virtual void flushDelim		(Value *resultCtr, Value* fileName	, int depth) {
+	virtual void flushDelim		(llvm::Value *resultCtr, llvm::Value* fileName, int depth) {
 		Function *flushFunc = context->getFunction("flushDelim");
-		vector<Value*> ArgsV;
+		vector<llvm::Value*> ArgsV;
 		ArgsV.push_back(resultCtr);
 		//XXX JSON-specific -> Serializer business to differentiate
 		ArgsV.push_back(context->createInt8((depth == 0) ? '\n' : ','));
@@ -163,15 +163,15 @@ private:
 	//
 	RecordType rec;
 	//Number of entries, if applicable
-	Value *val_entriesNo;
+	llvm::Value *val_entriesNo;
 	/* Necessary if we are to iterate over the internal caches */
 
 	vector<RecordAttribute*> fields;
 	vector<RecordAttribute*> OIDs;
 
 	StructType *payloadType;
-	Value *mem_buffer;
-	Value *val_structBufferPtr;
+	llvm::Value *mem_buffer;
+	llvm::Value *val_structBufferPtr;
 	/* Binary offset in file */
 	AllocaInst *mem_pos;
 	/* Tuple counter */
@@ -179,7 +179,7 @@ private:
 
 	/* Since we allow looping over cache, we must also extract fields
 	 * while looping */
-	void skipLLVM(Value* offset);
+	void skipLLVM(llvm::Value* offset);
 	void readAsIntLLVM(RecordAttribute attName,
 			map<RecordAttribute, RawValueMemory>& variables);
 	void readAsInt64LLVM(RecordAttribute attName,

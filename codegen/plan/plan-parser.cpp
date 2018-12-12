@@ -26,6 +26,15 @@
 #include "operators/unionall.hpp"
 #include "operators/split.hpp"
 #include "operators/dict-scan.hpp"
+#include "operators/scan.hpp"
+#include "operators/select.hpp"
+#include "operators/radix-join.hpp"
+#include "operators/unnest.hpp"
+#include "operators/outer-unnest.hpp"
+#include "operators/print.hpp"
+#include "operators/root.hpp"
+#include "operators/reduce-opt.hpp"
+#include "operators/radix-nest.hpp"
 
 #include "rapidjson/error/en.h"
 /* too primitive */
@@ -698,7 +707,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 					oids, outputModes);
 
 			//Put operator together
-			const char *opLabel = key_expr[0]->getRegisteredRelName().c_str();
+			auto opLabel = key_expr[0]->getRegisteredRelName();
 			std::cout << "regRelNAme" << opLabel << std::endl;
 			newOp = new radix::Nest(this->ctx, accs, outputExprs, aggrLabels, predExpr,
 					key_expr, nullsToZerosExpr, child, opLabel, *matCoarse);
@@ -1801,9 +1810,8 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		// Materializer* matCoarse = new Materializer(exprsToMat);
 
 		//Put operator together
-		const char *opLabel = "radixNest";
 		newOp = new radix::Nest(this->ctx, accs, outputExprs, aggrLabels, predExpr,
-				std::vector<expressions::Expression *>{groupByExpr}, nullsToZerosExpr, childOp, opLabel, *matCoarse);
+				std::vector<expressions::Expression *>{groupByExpr}, nullsToZerosExpr, childOp, "radixNest", *matCoarse);
 		childOp->setParent(newOp);
 	}
 	else if (strcmp(opName, "select") == 0) {

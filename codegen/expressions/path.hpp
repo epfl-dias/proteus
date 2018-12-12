@@ -38,14 +38,14 @@ public:
 		pg = catalog.getPlugin(originalRelation);
 	}
 
-	void setParentCollection(Value* collection)							{ val_parentColl = collection; }
+	void setParentCollection(llvm::Value* collection)					{ val_parentColl = collection; }
 	expressions::RecordProjection* get() 								{ return desugarizedPath; }
 	Plugin* getRelevantPlugin() 				const					{ return pg; }
 	string getNestedName()						const					{ return nestedName; }
 	string toString();
 private:
 	expressions::RecordProjection* const desugarizedPath;
-	const Value* val_parentColl;
+	const llvm::Value* val_parentColl;
 	string nestedName;
 	Plugin* pg;
 };

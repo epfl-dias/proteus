@@ -132,7 +132,7 @@ private:
 
 //     void runRadix() const;
 //     Value *radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht) const;
-    Value * radix_cluster_nopadding(Value * mem_tuplesNo, Value * mem_kv_id) const;
+    llvm::Value * radix_cluster_nopadding(llvm::Value * mem_tuplesNo, llvm::Value * mem_kv_id) const;
     void initializeState();
 
 // //  char** findSideInCache(Materializer &mat) const;
@@ -203,7 +203,7 @@ private:
 	/* What the keyType is */
 	/* XXX int32 FOR NOW   */
 	/* If it is not int32 to begin with, hash it to make it so */
-	Type *keyType;
+	llvm::Type *keyType;
 	StructType *htEntryType;
 
     RadixJoinBuild * buildR;

@@ -31,7 +31,6 @@
 #include "expressions/expressions-dot-evaluator.hpp"
 #include "expressions/path.hpp"
 #include "expressions/expressions.hpp"
-#include "plugins/binary-internal-plugin.hpp"
 #include "util/radix/aggregations/radix-aggr.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 #include "operators/radix-join.hpp"
@@ -91,14 +90,18 @@ public:
 			expressions::Expression *pred,
 			std::vector<expressions::Expression *>f_grouping,
 			expressions::Expression *g_nullToZero,
-			RawOperator* const child, const char* opLabel, Materializer& mat);
+			RawOperator* const child, 
+			const std::string &opLabel,
+			Materializer& mat);
 	Nest(RawContext* const context, vector<Monoid> accs,
 			vector<expressions::Expression*> outputExprs,
 			vector<string> aggrLabels,
 			expressions::Expression *pred,
 			expressions::Expression *f_grouping,
 			expressions::Expression *g_nullToZero,
-			RawOperator* const child, const char* opLabel, Materializer& mat);
+			RawOperator* const child, 
+			const std::string &opLabel,
+			Materializer& mat);
 	virtual ~Nest() {
 		LOG(INFO)<<"Collapsing Nest operator";}
 	virtual void produce();
@@ -118,7 +121,7 @@ private:
 	 */
 	void generateProbe(RawContext* const context) const;
 
-	map<RecordAttribute, RawValueMemory>* reconstructResults(Value *htBuffer, Value *idx, size_t relR_mem_relation_id) const;
+	map<RecordAttribute, RawValueMemory>* reconstructResults(llvm::Value *htBuffer, llvm::Value *idx, size_t relR_mem_relation_id) const;
 	/**
 	 * We need a new accumulator for every resulting bucket of the HT
 	 */
@@ -146,7 +149,7 @@ private:
 	/* XXX int32 FOR NOW   */
 	/* If it is not int32 to begin with, hash it to make it so */
 	StructType *payloadType;
-	Type *keyType;
+	llvm::Type *keyType;
 	StructType *htEntryType;
 	// struct relationBuf relR;
 	// struct kvBuf htR;
