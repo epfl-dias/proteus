@@ -39,8 +39,8 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Higher cost if rows are wider discourages pushing a project through an
     // exchange.
     val rf = {
-      if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.001
-      else 1
+      if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 10
+      else 10000
     }
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
@@ -51,7 +51,7 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
 //    planner.getCostFactory.makeZeroCost
   }
 
-  override def estimateRowCount(mq: RelMetadataQuery): Double = Math.ceil(input.estimateRowCount(mq) / (1024))
+  override def estimateRowCount(mq: RelMetadataQuery): Double = Math.ceil(mq.getRowCount(input) / (1024))
 
   override def implement(target: RelDeviceType): (Binding, JValue) = {
     val op = ("operator" , "tuples-to-block")

@@ -48,9 +48,9 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
         if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.000001
         else 100//0.1
       } else if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
-        10000000.0 //0.01
+        10000.0 //0.01
       } else {
-        100000000.0
+        1000000.0
       }
     }
 
@@ -216,7 +216,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
 
     val rowEst = Math.min(getLeft.estimateRowCount(getCluster.getMetadataQuery), 512*1024*1024)
     val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getLeft  )
-    val maxEst = if (maxrow != null) Math.min(maxrow, 32*1024*1024) else 32*1024*1024
+    val maxEst = if (maxrow != null) Math.min(maxrow, 64*1024*1024) else 64*1024*1024
 
     val hash_bits = Math.min(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 20)
 

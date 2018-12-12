@@ -164,7 +164,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         rules.add(AggregateRemoveRule.INSTANCE);
 //        rules.add(AggregateReduceFunctionsRule.INSTANCE);
         rules.add(new AggregateReduceFunctionsRule(operand(Aggregate.class, any()), PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(AggregateJoinTransposeRule.INSTANCE);
+        rules.add(AggregateJoinTransposeRule.EXTENDED);
         rules.add(new AggregateProjectMergeRule(Aggregate.class, Project.class, PelagoRelFactories.PELAGO_BUILDER));
         rules.add(new AggregateProjectPullUpConstantsRule(Aggregate.class,
             Project.class, PelagoRelFactories.PELAGO_BUILDER,

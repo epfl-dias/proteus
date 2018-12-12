@@ -36,7 +36,7 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     //    if (traitSet.containsIfApplicable(RelPacking.UnPckd)) return planner.getCostFactory.makeHugeCost()
-    val rf = if (distribution == RelDistributions.BROADCAST_DISTRIBUTED) 10 else 1
+    val rf = 1e-6 * (if (distribution == RelDistributions.BROADCAST_DISTRIBUTED) 10 else 1)
     var base = super.computeSelfCost(planner, mq)
     //    if (getDistribution.getType eq RelDistribution.Type.HASH_DISTRIBUTED) base = base.multiplyBy(80)
     planner.getCostFactory.makeCost(base.getRows, base.getCpu * rf, base.getIo)

@@ -41,19 +41,24 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
     }
 
     val rf = {
-      if (getTraitSet.containsIfApplicable(RelDistributions.RANDOM_DISTRIBUTED)) 1e-3
-      else 1e2
+      if (getTraitSet.containsIfApplicable(RelDistributions.RANDOM_DISTRIBUTED)) 1e3
+      else 1e6
     }
 
+    var base = super.computeSelfCost(planner, mq)
 
-    if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
-      super.computeSelfCost(planner, mq).multiplyBy(0.1 * 1e2 * rf * Math.log(getInput.getRowType.getFieldCount))
-    } else {
-      super.computeSelfCost(planner, mq).multiplyBy(10 * 1e2 * rf * Math.log(getInput.getRowType.getFieldCount))
-    }
+    val cpuCost = (if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) 1e-2 else 1e4) *
+      rf *
+      Math.log(getInput.getRowType.getFieldCount + 10) *
+      mq.getRowCount(getInput) *
+      1e5
+
+    planner.getCostFactory.makeCost(base.getRows, cpuCost, base.getIo)
   }
 
-  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
+  override def explainTerms(pw: RelWriter): RelWriter = {
+    super.explainTerms(pw).item("trait", getTraitSet.toString)
+  }
 
   override def implement(target: RelDeviceType): (Binding, JValue) = {
     val op = ("operator", if (getGroupCount == 0) "reduce" else "groupby")
@@ -126,7 +131,7 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
       //FIXME: reconsider these upper limits
       val rowEst = Math.min(getInput.estimateRowCount(getCluster.getMetadataQuery), 1*1024*1024) //1 vs 128 vs 64
       val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getInput  )
-      val maxEst = if (maxrow != null) Math.min(maxrow, 1*1024*1024) else 1*1024*1024 //1 vs 128 vs 64
+      val maxEst = if (maxrow != null) Math.min(maxrow, 32*1024*1024) else 32*1024*1024 //1 vs 128 vs 64
 
       val hash_bits = Math.min(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 15)
 
