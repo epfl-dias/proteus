@@ -776,77 +776,77 @@
                                                                 "isBlock" : true
                                                               } ],
                                                               "input" : {
-                                                              "operator" : "scan",
-                                                              "gpu" : false,
-                                                              "plugin" : {
-                                                                "type" : "block",
-                                                                "linehint" : 150000,
-                                                                "name" : "inputs/tpch100/customer.csv",
-                                                                "projections" : [ {
-                                                                  "relName" : "inputs/tpch100/customer.csv",
-                                                                  "attrName" : "c_custkey"
-                                                                }, {
-                                                                  "relName" : "inputs/tpch100/customer.csv",
-                                                                  "attrName" : "c_nationkey"
-                                                                } ],
-                                                                "schema" : [ {
-                                                                  "relName" : "inputs/tpch100/customer.csv",
-                                                                  "attrName" : "c_custkey",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 1
-                                                                }, {
-                                                                  "relName" : "inputs/tpch100/customer.csv",
-                                                                  "attrName" : "c_name",
-                                                                  "type" : {
-                                                                    "type" : "dstring"
-                                                                  },
-                                                                  "attrNo" : 2
-                                                                }, {
-                                                                  "relName" : "inputs/tpch100/customer.csv",
-                                                                  "attrName" : "c_address",
-                                                                  "type" : {
-                                                                    "type" : "dstring"
-                                                                  },
-                                                                  "attrNo" : 3
-                                                                }, {
-                                                                  "relName" : "inputs/tpch100/customer.csv",
-                                                                  "attrName" : "c_nationkey",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 4
-                                                                }, {
-                                                                  "relName" : "inputs/tpch100/customer.csv",
-                                                                  "attrName" : "c_phone",
-                                                                  "type" : {
-                                                                    "type" : "dstring"
-                                                                  },
-                                                                  "attrNo" : 5
-                                                                }, {
-                                                                  "relName" : "inputs/tpch100/customer.csv",
-                                                                  "attrName" : "c_acctbal",
-                                                                  "type" : {
-                                                                    "type" : "float"
-                                                                  },
-                                                                  "attrNo" : 6
-                                                                }, {
-                                                                  "relName" : "inputs/tpch100/customer.csv",
-                                                                  "attrName" : "c_mktsegment",
-                                                                  "type" : {
-                                                                    "type" : "dstring"
-                                                                  },
-                                                                  "attrNo" : 7
-                                                                }, {
-                                                                  "relName" : "inputs/tpch100/customer.csv",
-                                                                  "attrName" : "c_comment",
-                                                                  "type" : {
-                                                                    "type" : "dstring"
-                                                                  },
-                                                                  "attrNo" : 8
-                                                                } ]
-                                                              }
+                                                                "operator" : "scan",
+                                                                "gpu" : false,
+                                                                "plugin" : {
+                                                                  "type" : "block",
+                                                                  "linehint" : 150000,
+                                                                  "name" : "inputs/tpch100/customer.csv",
+                                                                  "projections" : [ {
+                                                                    "relName" : "inputs/tpch100/customer.csv",
+                                                                    "attrName" : "c_custkey"
+                                                                  }, {
+                                                                    "relName" : "inputs/tpch100/customer.csv",
+                                                                    "attrName" : "c_nationkey"
+                                                                  } ],
+                                                                  "schema" : [ {
+                                                                    "relName" : "inputs/tpch100/customer.csv",
+                                                                    "attrName" : "c_custkey",
+                                                                    "type" : {
+                                                                      "type" : "int"
+                                                                    },
+                                                                    "attrNo" : 1
+                                                                  }, {
+                                                                    "relName" : "inputs/tpch100/customer.csv",
+                                                                    "attrName" : "c_name",
+                                                                    "type" : {
+                                                                      "type" : "dstring"
+                                                                    },
+                                                                    "attrNo" : 2
+                                                                  }, {
+                                                                    "relName" : "inputs/tpch100/customer.csv",
+                                                                    "attrName" : "c_address",
+                                                                    "type" : {
+                                                                      "type" : "dstring"
+                                                                    },
+                                                                    "attrNo" : 3
+                                                                  }, {
+                                                                    "relName" : "inputs/tpch100/customer.csv",
+                                                                    "attrName" : "c_nationkey",
+                                                                    "type" : {
+                                                                      "type" : "int"
+                                                                    },
+                                                                    "attrNo" : 4
+                                                                  }, {
+                                                                    "relName" : "inputs/tpch100/customer.csv",
+                                                                    "attrName" : "c_phone",
+                                                                    "type" : {
+                                                                      "type" : "dstring"
+                                                                    },
+                                                                    "attrNo" : 5
+                                                                  }, {
+                                                                    "relName" : "inputs/tpch100/customer.csv",
+                                                                    "attrName" : "c_acctbal",
+                                                                    "type" : {
+                                                                      "type" : "float"
+                                                                    },
+                                                                    "attrNo" : 6
+                                                                  }, {
+                                                                    "relName" : "inputs/tpch100/customer.csv",
+                                                                    "attrName" : "c_mktsegment",
+                                                                    "type" : {
+                                                                      "type" : "dstring"
+                                                                    },
+                                                                    "attrNo" : 7
+                                                                  }, {
+                                                                    "relName" : "inputs/tpch100/customer.csv",
+                                                                    "attrName" : "c_comment",
+                                                                    "type" : {
+                                                                      "type" : "dstring"
+                                                                    },
+                                                                    "attrNo" : 8
+                                                                  } ]
+                                                                }
                                                               },
                                                               "to_cpu" : false
                                                             }

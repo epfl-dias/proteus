@@ -1,0 +1,983 @@
+{
+  "operator" : "print",
+  "gpu" : false,
+  "e" : [ {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument",
+      "attributes" : [ {
+        "attrName" : "revenue",
+        "relName" : "agg32093"
+      } ],
+      "type" : {
+        "relName" : "agg32093",
+        "type" : "record"
+      },
+      "argNo" : -1
+    },
+    "attribute" : {
+      "attrName" : "revenue",
+      "relName" : "agg32093"
+    },
+    "register_as" : {
+      "attrName" : "revenue",
+      "relName" : "print32094"
+    }
+  } ],
+  "input" : {
+    "operator" : "reduce",
+    "gpu" : false,
+    "e" : [ {
+      "expression" : "recordProjection",
+      "e" : {
+        "expression" : "argument",
+        "attributes" : [ {
+          "attrName" : "revenue",
+          "relName" : "agg32092"
+        } ],
+        "type" : {
+          "relName" : "agg32092",
+          "type" : "record"
+        },
+        "argNo" : -1
+      },
+      "attribute" : {
+        "attrName" : "revenue",
+        "relName" : "agg32092"
+      },
+      "register_as" : {
+        "attrName" : "revenue",
+        "relName" : "agg32093"
+      }
+    } ],
+    "accumulator" : [ "sum" ],
+    "p" : {
+      "expression" : "bool",
+      "v" : true
+    },
+    "input" : {
+      "operator" : "union-all",
+      "gpu" : false,
+      "projections" : [
+        {
+          "attrName" : "revenue",
+          "relName" : "agg32092"
+        }
+      ],
+      "input" : [
+        {
+          "operator" : "exchange",
+          "gpu" : false,
+          "projections" : [ {
+            "relName" : "agg32092",
+            "attrName" : "revenue"
+          } ],
+          "numOfParents" : 1,
+          "producers" : 2,
+          "slack" : 8,
+          "numa_local" : false,
+          "input" : {
+            "operator" : "gpu-to-cpu",
+            "projections" : [ {
+              "relName" : "agg32092",
+              "attrName" : "revenue"
+            } ],
+            "queueSize" : 262144,
+            "granularity" : "thread",
+            "input" : {
+              "operator" : "reduce",
+              "gpu" : true,
+              "e" : [ {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument",
+                  "attributes" : [ {
+                    "attrName" : "$f0",
+                    "relName" : "projection32091"
+                  } ],
+                  "type" : {
+                    "relName" : "projection32091",
+                    "type" : "record"
+                  },
+                  "argNo" : -1
+                },
+                "attribute" : {
+                  "attrName" : "$f0",
+                  "relName" : "projection32091"
+                },
+                "register_as" : {
+                  "attrName" : "revenue",
+                  "relName" : "agg32092"
+                }
+              } ],
+              "accumulator" : [ "sum" ],
+              "p" : {
+                "expression" : "bool",
+                "v" : true
+              },
+              "input" : {
+                "operator" : "project",
+                "gpu" : true,
+                "relName" : "projection32091",
+                "e" : [ {
+                  "expression" : "multiply",
+                  "left" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument",
+                      "attributes" : [ {
+                        "attrName" : "l_extendedprice",
+                        "relName" : "inputs/tpch100/lineitem.csv"
+                      } ],
+                      "type" : {
+                        "relName" : "inputs/tpch100/lineitem.csv",
+                        "type" : "record"
+                      },
+                      "argNo" : -1
+                    },
+                    "attribute" : {
+                      "attrName" : "l_extendedprice",
+                      "relName" : "inputs/tpch100/lineitem.csv"
+                    }
+                  },
+                  "right" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument",
+                      "attributes" : [ {
+                        "attrName" : "l_discount",
+                        "relName" : "inputs/tpch100/lineitem.csv"
+                      } ],
+                      "type" : {
+                        "relName" : "inputs/tpch100/lineitem.csv",
+                        "type" : "record"
+                      },
+                      "argNo" : -1
+                    },
+                    "attribute" : {
+                      "attrName" : "l_discount",
+                      "relName" : "inputs/tpch100/lineitem.csv"
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "$f0",
+                    "relName" : "projection32091"
+                  }
+                } ],
+                "input" : {
+                  "operator" : "select",
+                  "gpu" : true,
+                  "p" : {
+                    "expression" : "and",
+                    "left" : {
+                      "expression" : "and",
+                      "left" : {
+                        "expression" : "and",
+                        "left" : {
+                          "expression" : "ge",
+                          "left" : {
+                            "expression" : "recordProjection",
+                            "e" : {
+                              "expression" : "argument",
+                              "attributes" : [ {
+                                "attrName" : "l_shipdate",
+                                "relName" : "inputs/tpch100/lineitem.csv"
+                              } ],
+                              "type" : {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "type" : "record"
+                              },
+                              "argNo" : -1
+                            },
+                            "attribute" : {
+                              "attrName" : "l_shipdate",
+                              "relName" : "inputs/tpch100/lineitem.csv"
+                            }
+                          },
+                          "right" : {
+                            "expression" : "date",
+                            "v" : 757382400000
+                          }
+                        },
+                        "right" : {
+                          "expression" : "lt",
+                          "left" : {
+                            "expression" : "recordProjection",
+                            "e" : {
+                              "expression" : "argument",
+                              "attributes" : [ {
+                                "attrName" : "l_shipdate",
+                                "relName" : "inputs/tpch100/lineitem.csv"
+                              } ],
+                              "type" : {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "type" : "record"
+                              },
+                              "argNo" : -1
+                            },
+                            "attribute" : {
+                              "attrName" : "l_shipdate",
+                              "relName" : "inputs/tpch100/lineitem.csv"
+                            }
+                          },
+                          "right" : {
+                            "expression" : "date",
+                            "v" : 788918400000
+                          }
+                        }
+                      },
+                      "right" : {
+                        "expression" : "ge",
+                        "left" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument",
+                            "attributes" : [ {
+                              "attrName" : "l_discount",
+                              "relName" : "inputs/tpch100/lineitem.csv"
+                            } ],
+                            "type" : {
+                              "relName" : "inputs/tpch100/lineitem.csv",
+                              "type" : "record"
+                            },
+                            "argNo" : -1
+                          },
+                          "attribute" : {
+                            "attrName" : "l_discount",
+                            "relName" : "inputs/tpch100/lineitem.csv"
+                          }
+                        },
+                        "right" : {
+                          "expression" : "cast",
+                          "type" : {
+                            "type" : "float"
+                          },
+                          "e" : {
+                            "expression" : "float",
+                            "v" : 0.05
+                          }
+                        }
+                      }
+                    },
+                    "right" : {
+                      "expression" : "and",
+                      "left" : {
+                        "expression" : "le",
+                        "left" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument",
+                            "attributes" : [ {
+                              "attrName" : "l_discount",
+                              "relName" : "inputs/tpch100/lineitem.csv"
+                            } ],
+                            "type" : {
+                              "relName" : "inputs/tpch100/lineitem.csv",
+                              "type" : "record"
+                            },
+                            "argNo" : -1
+                          },
+                          "attribute" : {
+                            "attrName" : "l_discount",
+                            "relName" : "inputs/tpch100/lineitem.csv"
+                          }
+                        },
+                        "right" : {
+                          "expression" : "cast",
+                          "type" : {
+                            "type" : "float"
+                          },
+                          "e" : {
+                            "expression" : "float",
+                            "v" : 0.07
+                          }
+                        }
+                      },
+                      "right" : {
+                        "expression" : "lt",
+                        "left" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument",
+                            "attributes" : [ {
+                              "attrName" : "l_quantity",
+                              "relName" : "inputs/tpch100/lineitem.csv"
+                            } ],
+                            "type" : {
+                              "relName" : "inputs/tpch100/lineitem.csv",
+                              "type" : "record"
+                            },
+                            "argNo" : -1
+                          },
+                          "attribute" : {
+                            "attrName" : "l_quantity",
+                            "relName" : "inputs/tpch100/lineitem.csv"
+                          }
+                        },
+                        "right" : {
+                          "expression" : "cast",
+                          "type" : {
+                            "type" : "float"
+                          },
+                          "e" : {
+                            "expression" : "int",
+                            "v" : 24
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "input" : {
+                    "operator" : "block-to-tuples",
+                    "gpu" : true,
+                    "projections" : [ {
+                      "expression" : "recordProjection",
+                      "e" : {
+                        "expression" : "argument",
+                        "attributes" : [ {
+                          "attrName" : "l_quantity",
+                          "relName" : "inputs/tpch100/lineitem.csv"
+                        } ],
+                        "type" : {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "type" : "record"
+                        },
+                        "argNo" : -1
+                      },
+                      "attribute" : {
+                        "attrName" : "l_quantity",
+                        "relName" : "inputs/tpch100/lineitem.csv"
+                      }
+                    }, {
+                      "expression" : "recordProjection",
+                      "e" : {
+                        "expression" : "argument",
+                        "attributes" : [ {
+                          "attrName" : "l_extendedprice",
+                          "relName" : "inputs/tpch100/lineitem.csv"
+                        } ],
+                        "type" : {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "type" : "record"
+                        },
+                        "argNo" : -1
+                      },
+                      "attribute" : {
+                        "attrName" : "l_extendedprice",
+                        "relName" : "inputs/tpch100/lineitem.csv"
+                      }
+                    }, {
+                      "expression" : "recordProjection",
+                      "e" : {
+                        "expression" : "argument",
+                        "attributes" : [ {
+                          "attrName" : "l_discount",
+                          "relName" : "inputs/tpch100/lineitem.csv"
+                        } ],
+                        "type" : {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "type" : "record"
+                        },
+                        "argNo" : -1
+                      },
+                      "attribute" : {
+                        "attrName" : "l_discount",
+                        "relName" : "inputs/tpch100/lineitem.csv"
+                      }
+                    }, {
+                      "expression" : "recordProjection",
+                      "e" : {
+                        "expression" : "argument",
+                        "attributes" : [ {
+                          "attrName" : "l_shipdate",
+                          "relName" : "inputs/tpch100/lineitem.csv"
+                        } ],
+                        "type" : {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "type" : "record"
+                        },
+                        "argNo" : -1
+                      },
+                      "attribute" : {
+                        "attrName" : "l_shipdate",
+                        "relName" : "inputs/tpch100/lineitem.csv"
+                      }
+                    } ],
+                    "input" : {
+                      "operator" : "cpu-to-gpu",
+                      "projections" : [ {
+                        "relName" : "inputs/tpch100/lineitem.csv",
+                        "attrName" : "l_quantity",
+                        "isBlock" : true
+                      }, {
+                        "relName" : "inputs/tpch100/lineitem.csv",
+                        "attrName" : "l_extendedprice",
+                        "isBlock" : true
+                      }, {
+                        "relName" : "inputs/tpch100/lineitem.csv",
+                        "attrName" : "l_discount",
+                        "isBlock" : true
+                      }, {
+                        "relName" : "inputs/tpch100/lineitem.csv",
+                        "attrName" : "l_shipdate",
+                        "isBlock" : true
+                      } ],
+                      "queueSize" : 262144,
+                      "granularity" : "thread",
+                      "input" : {
+                        "operator" : "exchange",
+                        "gpu" : false,
+                        "numOfParents" : 2,
+                        "producers" : 1,
+                        "slack" : 8,
+                        "projections" : [ {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "attrName" : "l_quantity",
+                          "isBlock" : true
+                        }, {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "attrName" : "l_extendedprice",
+                          "isBlock" : true
+                        }, {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "attrName" : "l_discount",
+                          "isBlock" : true
+                        }, {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "attrName" : "l_shipdate",
+                          "isBlock" : true
+                        } ],
+                        "input" : {
+                          "operator" : "split",
+                          "gpu" : false,
+                          "split_id" : 5,
+                          "numOfParents" : 2,
+                          "projections" : [ {
+                            "relName" : "inputs/tpch100/lineitem.csv",
+                            "attrName" : "l_quantity",
+                            "isBlock" : true
+                          }, {
+                            "relName" : "inputs/tpch100/lineitem.csv",
+                            "attrName" : "l_extendedprice",
+                            "isBlock" : true
+                          }, {
+                            "relName" : "inputs/tpch100/lineitem.csv",
+                            "attrName" : "l_discount",
+                            "isBlock" : true
+                          }, {
+                            "relName" : "inputs/tpch100/lineitem.csv",
+                            "attrName" : "l_shipdate",
+                            "isBlock" : true
+                          } ],
+                          "input" : {
+                            "operator" : "scan",
+                            "gpu" : false,
+                            "plugin" : {
+                              "type" : "block",
+                              "linehint" : 600037902,
+                              "name" : "inputs/tpch100/lineitem.csv",
+                              "projections" : [ {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_quantity"
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_extendedprice"
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_discount"
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_shipdate"
+                              } ],
+                              "schema" : [ {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_orderkey",
+                                "type" : {
+                                  "type" : "int"
+                                },
+                                "attrNo" : 1
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_partkey",
+                                "type" : {
+                                  "type" : "int"
+                                },
+                                "attrNo" : 2
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_suppkey",
+                                "type" : {
+                                  "type" : "int"
+                                },
+                                "attrNo" : 3
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_linenumber",
+                                "type" : {
+                                  "type" : "int"
+                                },
+                                "attrNo" : 4
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_quantity",
+                                "type" : {
+                                  "type" : "float"
+                                },
+                                "attrNo" : 5
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_extendedprice",
+                                "type" : {
+                                  "type" : "float"
+                                },
+                                "attrNo" : 6
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_discount",
+                                "type" : {
+                                  "type" : "float"
+                                },
+                                "attrNo" : 7
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_tax",
+                                "type" : {
+                                  "type" : "float"
+                                },
+                                "attrNo" : 8
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_returnflag",
+                                "type" : {
+                                  "type" : "dstring"
+                                },
+                                "attrNo" : 9
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_linestatus",
+                                "type" : {
+                                  "type" : "dstring"
+                                },
+                                "attrNo" : 10
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_shipdate",
+                                "type" : {
+                                  "type" : "date"
+                                },
+                                "attrNo" : 11
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_commitdate",
+                                "type" : {
+                                  "type" : "date"
+                                },
+                                "attrNo" : 12
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_receiptdate",
+                                "type" : {
+                                  "type" : "date"
+                                },
+                                "attrNo" : 13
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_shipinstruct",
+                                "type" : {
+                                  "type" : "dstring"
+                                },
+                                "attrNo" : 14
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_shipmode",
+                                "type" : {
+                                  "type" : "dstring"
+                                },
+                                "attrNo" : 15
+                              }, {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "attrName" : "l_comment",
+                                "type" : {
+                                  "type" : "dstring"
+                                },
+                                "attrNo" : 16
+                              } ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "operator" : "exchange",
+          "gpu" : false,
+          "projections" : [ {
+            "relName" : "agg32092",
+            "attrName" : "revenue"
+          } ],
+          "numOfParents" : 1,
+          "producers" : 24,
+          "slack" : 8,
+          "numa_local" : false,
+            "input" : {
+              "operator" : "reduce",
+              "gpu" : false,
+              "e" : [ {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument",
+                  "attributes" : [ {
+                    "attrName" : "$f0",
+                    "relName" : "projection32091"
+                  } ],
+                  "type" : {
+                    "relName" : "projection32091",
+                    "type" : "record"
+                  },
+                  "argNo" : -1
+                },
+                "attribute" : {
+                  "attrName" : "$f0",
+                  "relName" : "projection32091"
+                },
+                "register_as" : {
+                  "attrName" : "revenue",
+                  "relName" : "agg32092"
+                }
+              } ],
+              "accumulator" : [ "sum" ],
+              "p" : {
+                "expression" : "bool",
+                "v" : true
+              },
+              "input" : {
+                "operator" : "project",
+                "gpu" : false,
+                "relName" : "projection32091",
+                "e" : [ {
+                  "expression" : "multiply",
+                  "left" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument",
+                      "attributes" : [ {
+                        "attrName" : "l_extendedprice",
+                        "relName" : "inputs/tpch100/lineitem.csv"
+                      } ],
+                      "type" : {
+                        "relName" : "inputs/tpch100/lineitem.csv",
+                        "type" : "record"
+                      },
+                      "argNo" : -1
+                    },
+                    "attribute" : {
+                      "attrName" : "l_extendedprice",
+                      "relName" : "inputs/tpch100/lineitem.csv"
+                    }
+                  },
+                  "right" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument",
+                      "attributes" : [ {
+                        "attrName" : "l_discount",
+                        "relName" : "inputs/tpch100/lineitem.csv"
+                      } ],
+                      "type" : {
+                        "relName" : "inputs/tpch100/lineitem.csv",
+                        "type" : "record"
+                      },
+                      "argNo" : -1
+                    },
+                    "attribute" : {
+                      "attrName" : "l_discount",
+                      "relName" : "inputs/tpch100/lineitem.csv"
+                    }
+                  },
+                  "register_as" : {
+                    "attrName" : "$f0",
+                    "relName" : "projection32091"
+                  }
+                } ],
+                "input" : {
+                  "operator" : "select",
+                  "gpu" : false,
+                  "p" : {
+                    "expression" : "and",
+                    "left" : {
+                      "expression" : "and",
+                      "left" : {
+                        "expression" : "and",
+                        "left" : {
+                          "expression" : "ge",
+                          "left" : {
+                            "expression" : "recordProjection",
+                            "e" : {
+                              "expression" : "argument",
+                              "attributes" : [ {
+                                "attrName" : "l_shipdate",
+                                "relName" : "inputs/tpch100/lineitem.csv"
+                              } ],
+                              "type" : {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "type" : "record"
+                              },
+                              "argNo" : -1
+                            },
+                            "attribute" : {
+                              "attrName" : "l_shipdate",
+                              "relName" : "inputs/tpch100/lineitem.csv"
+                            }
+                          },
+                          "right" : {
+                            "expression" : "date",
+                            "v" : 757382400000
+                          }
+                        },
+                        "right" : {
+                          "expression" : "lt",
+                          "left" : {
+                            "expression" : "recordProjection",
+                            "e" : {
+                              "expression" : "argument",
+                              "attributes" : [ {
+                                "attrName" : "l_shipdate",
+                                "relName" : "inputs/tpch100/lineitem.csv"
+                              } ],
+                              "type" : {
+                                "relName" : "inputs/tpch100/lineitem.csv",
+                                "type" : "record"
+                              },
+                              "argNo" : -1
+                            },
+                            "attribute" : {
+                              "attrName" : "l_shipdate",
+                              "relName" : "inputs/tpch100/lineitem.csv"
+                            }
+                          },
+                          "right" : {
+                            "expression" : "date",
+                            "v" : 788918400000
+                          }
+                        }
+                      },
+                      "right" : {
+                        "expression" : "ge",
+                        "left" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument",
+                            "attributes" : [ {
+                              "attrName" : "l_discount",
+                              "relName" : "inputs/tpch100/lineitem.csv"
+                            } ],
+                            "type" : {
+                              "relName" : "inputs/tpch100/lineitem.csv",
+                              "type" : "record"
+                            },
+                            "argNo" : -1
+                          },
+                          "attribute" : {
+                            "attrName" : "l_discount",
+                            "relName" : "inputs/tpch100/lineitem.csv"
+                          }
+                        },
+                        "right" : {
+                          "expression" : "cast",
+                          "type" : {
+                            "type" : "float"
+                          },
+                          "e" : {
+                            "expression" : "float",
+                            "v" : 0.05
+                          }
+                        }
+                      }
+                    },
+                    "right" : {
+                      "expression" : "and",
+                      "left" : {
+                        "expression" : "le",
+                        "left" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument",
+                            "attributes" : [ {
+                              "attrName" : "l_discount",
+                              "relName" : "inputs/tpch100/lineitem.csv"
+                            } ],
+                            "type" : {
+                              "relName" : "inputs/tpch100/lineitem.csv",
+                              "type" : "record"
+                            },
+                            "argNo" : -1
+                          },
+                          "attribute" : {
+                            "attrName" : "l_discount",
+                            "relName" : "inputs/tpch100/lineitem.csv"
+                          }
+                        },
+                        "right" : {
+                          "expression" : "cast",
+                          "type" : {
+                            "type" : "float"
+                          },
+                          "e" : {
+                            "expression" : "float",
+                            "v" : 0.07
+                          }
+                        }
+                      },
+                      "right" : {
+                        "expression" : "lt",
+                        "left" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument",
+                            "attributes" : [ {
+                              "attrName" : "l_quantity",
+                              "relName" : "inputs/tpch100/lineitem.csv"
+                            } ],
+                            "type" : {
+                              "relName" : "inputs/tpch100/lineitem.csv",
+                              "type" : "record"
+                            },
+                            "argNo" : -1
+                          },
+                          "attribute" : {
+                            "attrName" : "l_quantity",
+                            "relName" : "inputs/tpch100/lineitem.csv"
+                          }
+                        },
+                        "right" : {
+                          "expression" : "cast",
+                          "type" : {
+                            "type" : "float"
+                          },
+                          "e" : {
+                            "expression" : "int",
+                            "v" : 24
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "input" : {
+                    "operator" : "block-to-tuples",
+                    "gpu" : false,
+                    "projections" : [ {
+                      "expression" : "recordProjection",
+                      "e" : {
+                        "expression" : "argument",
+                        "attributes" : [ {
+                          "attrName" : "l_quantity",
+                          "relName" : "inputs/tpch100/lineitem.csv"
+                        } ],
+                        "type" : {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "type" : "record"
+                        },
+                        "argNo" : -1
+                      },
+                      "attribute" : {
+                        "attrName" : "l_quantity",
+                        "relName" : "inputs/tpch100/lineitem.csv"
+                      }
+                    }, {
+                      "expression" : "recordProjection",
+                      "e" : {
+                        "expression" : "argument",
+                        "attributes" : [ {
+                          "attrName" : "l_extendedprice",
+                          "relName" : "inputs/tpch100/lineitem.csv"
+                        } ],
+                        "type" : {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "type" : "record"
+                        },
+                        "argNo" : -1
+                      },
+                      "attribute" : {
+                        "attrName" : "l_extendedprice",
+                        "relName" : "inputs/tpch100/lineitem.csv"
+                      }
+                    }, {
+                      "expression" : "recordProjection",
+                      "e" : {
+                        "expression" : "argument",
+                        "attributes" : [ {
+                          "attrName" : "l_discount",
+                          "relName" : "inputs/tpch100/lineitem.csv"
+                        } ],
+                        "type" : {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "type" : "record"
+                        },
+                        "argNo" : -1
+                      },
+                      "attribute" : {
+                        "attrName" : "l_discount",
+                        "relName" : "inputs/tpch100/lineitem.csv"
+                      }
+                    }, {
+                      "expression" : "recordProjection",
+                      "e" : {
+                        "expression" : "argument",
+                        "attributes" : [ {
+                          "attrName" : "l_shipdate",
+                          "relName" : "inputs/tpch100/lineitem.csv"
+                        } ],
+                        "type" : {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "type" : "record"
+                        },
+                        "argNo" : -1
+                      },
+                      "attribute" : {
+                        "attrName" : "l_shipdate",
+                        "relName" : "inputs/tpch100/lineitem.csv"
+                      }
+                    } ],
+                      "input" : {
+                        "operator" : "exchange",
+                        "gpu" : false,
+                        "numOfParents" : 24,
+                        "producers" : 1,
+                        "slack" : 8,
+                        "projections" : [ {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "attrName" : "l_quantity",
+                          "isBlock" : true
+                        }, {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "attrName" : "l_extendedprice",
+                          "isBlock" : true
+                        }, {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "attrName" : "l_discount",
+                          "isBlock" : true
+                        }, {
+                          "relName" : "inputs/tpch100/lineitem.csv",
+                          "attrName" : "l_shipdate",
+                          "isBlock" : true
+                        } ],
+                        "input" : {
+                          "operator" : "split",
+                          "gpu" : false,
+                          "split_id" : 5
+                        }
+                      }
+                  }
+                }
+              }
+            }
+        }
+      ]
+    }
+  }
+}

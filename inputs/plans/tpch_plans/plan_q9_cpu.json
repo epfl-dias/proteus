@@ -1057,8 +1057,8 @@
                               "offset" : 0
                             } ],
                             "probe_w" : [ 64, 32, 32 ],
-                            "hash_bits" : 11,
-                            "maxBuildInputSize" : 67108864,
+                            "hash_bits" : 8,
+                            "maxBuildInputSize" : 2048,
                             "probe_input" : {
                               "operator" : "block-to-tuples",
                               "gpu" : false,
@@ -1114,7 +1114,7 @@
                                   "numOfParents" : 24,
                                   "producers" : 1,
                                   "slack" : 8,
-                                  "rand_local_cpu" : true,
+                                  "numa_local" : true,
                                   "input" : {
                                     "operator" : "scan",
                                     "gpu" : false,
@@ -1266,7 +1266,7 @@
                   } ],
                   "probe_w" : [ 64, 64, 64 ],
                   "hash_bits" : 20,
-                  "maxBuildInputSize" : 67108864,
+                  "maxBuildInputSize" : 8388608,
                   "probe_input" : {
                     "operator" : "block-to-tuples",
                     "gpu" : false,
@@ -1370,6 +1370,7 @@
                       "input" : {
                         "operator" : "hash-rearrange",
                         "gpu" : false,
+                        "buckets" : 24,
                         "projections" : [
                           {
                             "expression" : "recordProjection",
@@ -1999,7 +2000,7 @@
                               "offset" : 0
                             } ],
                             "probe_w" : [ 64, 32, 64 ],
-                            "hash_bits" : 20,
+                            "hash_bits" : 24,
                             "maxBuildInputSize" : 67108864,
                             "probe_input" : {
                               "operator" : "block-to-tuples",
@@ -2963,7 +2964,7 @@
                                         "offset" : 0
                                       } ],
                                       "probe_w" : [ 128, 32, 32, 32, 64, 64 ],
-                                      "hash_bits" : 20,
+                                      "hash_bits" : 24,
                                       "maxBuildInputSize" : 67108864,
                                       "probe_input" : {
                                         "operator" : "project",
@@ -3568,7 +3569,7 @@
                                                   "numOfParents" : 24,
                                                   "producers" : 1,
                                                   "slack" : 8,
-                                                  "rand_local_cpu" : true,
+                                                  "numa_local" : true,
                                                   "input" : {
                                                     "operator" : "scan",
                                                     "gpu" : false,

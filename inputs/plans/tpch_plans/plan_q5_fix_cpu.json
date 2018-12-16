@@ -747,7 +747,7 @@
                             32
                           ],
                           "hash_bits": 20,
-                          "maxBuildInputSize": 67108864,
+                          "maxBuildInputSize": 8388608,
                           "build_input": {
                             "operator": "block-to-tuples",
                             "gpu": false,
@@ -1200,68 +1200,6 @@
                                 }
                               }
                             ],
-                            "input": {
-                              "operator": "select",
-                              "gpu": false,
-                              "p": {
-                                "expression": "and",
-                                "left": {
-                                  "expression": "ge",
-                                  "left": {
-                                    "expression": "recordProjection",
-                                    "e": {
-                                      "expression": "argument",
-                                      "attributes": [
-                                        {
-                                          "attrName": "o_orderdate",
-                                          "relName": "inputs/tpch100/orders.csv"
-                                        }
-                                      ],
-                                      "type": {
-                                        "relName": "inputs/tpch100/orders.csv",
-                                        "type": "record"
-                                      },
-                                      "argNo": -1
-                                    },
-                                    "attribute": {
-                                      "attrName": "o_orderdate",
-                                      "relName": "inputs/tpch100/orders.csv"
-                                    }
-                                  },
-                                  "right": {
-                                    "expression": "date",
-                                    "v": 757382400000
-                                  }
-                                },
-                                "right": {
-                                  "expression": "lt",
-                                  "left": {
-                                    "expression": "recordProjection",
-                                    "e": {
-                                      "expression": "argument",
-                                      "attributes": [
-                                        {
-                                          "attrName": "o_orderdate",
-                                          "relName": "inputs/tpch100/orders.csv"
-                                        }
-                                      ],
-                                      "type": {
-                                        "relName": "inputs/tpch100/orders.csv",
-                                        "type": "record"
-                                      },
-                                      "argNo": -1
-                                    },
-                                    "attribute": {
-                                      "attrName": "o_orderdate",
-                                      "relName": "inputs/tpch100/orders.csv"
-                                    }
-                                  },
-                                  "right": {
-                                    "expression": "date",
-                                    "v": 788918400000
-                                  }
-                                }
-                              },
                               "input": {
                                 "operator": "block-to-tuples",
                                 "gpu": false,
@@ -1473,192 +1411,255 @@
                                         }
                                     },
                                     "input" : {
-                                      "operator": "block-to-tuples",
+                                      "operator": "select",
                                       "gpu": false,
-                                      "projections": [
-                                        {
-                                          "expression": "recordProjection",
-                                          "e": {
-                                            "expression": "argument",
-                                            "attributes": [
-                                              {
-                                                "attrName": "o_orderkey",
-                                                "relName": "inputs/tpch100/orders.csv"
-                                              }
-                                            ],
-                                            "type": {
-                                              "relName": "inputs/tpch100/orders.csv",
-                                              "type": "record"
+                                      "p": {
+                                        "expression": "and",
+                                        "left": {
+                                          "expression": "ge",
+                                          "left": {
+                                            "expression": "recordProjection",
+                                            "e": {
+                                              "expression": "argument",
+                                              "attributes": [
+                                                {
+                                                  "attrName": "o_orderdate",
+                                                  "relName": "inputs/tpch100/orders.csv"
+                                                }
+                                              ],
+                                              "type": {
+                                                "relName": "inputs/tpch100/orders.csv",
+                                                "type": "record"
+                                              },
+                                              "argNo": -1
                                             },
-                                            "argNo": -1
+                                            "attribute": {
+                                              "attrName": "o_orderdate",
+                                              "relName": "inputs/tpch100/orders.csv"
+                                            }
                                           },
-                                          "attribute": {
-                                            "attrName": "o_orderkey",
-                                            "relName": "inputs/tpch100/orders.csv"
+                                          "right": {
+                                            "expression": "date",
+                                            "v": 757382400000
                                           }
                                         },
-                                        {
-                                          "expression": "recordProjection",
-                                          "e": {
-                                            "expression": "argument",
-                                            "attributes": [
-                                              {
-                                                "attrName": "o_custkey",
-                                                "relName": "inputs/tpch100/orders.csv"
-                                              }
-                                            ],
-                                            "type": {
-                                              "relName": "inputs/tpch100/orders.csv",
-                                              "type": "record"
+                                        "right": {
+                                          "expression": "lt",
+                                          "left": {
+                                            "expression": "recordProjection",
+                                            "e": {
+                                              "expression": "argument",
+                                              "attributes": [
+                                                {
+                                                  "attrName": "o_orderdate",
+                                                  "relName": "inputs/tpch100/orders.csv"
+                                                }
+                                              ],
+                                              "type": {
+                                                "relName": "inputs/tpch100/orders.csv",
+                                                "type": "record"
+                                              },
+                                              "argNo": -1
                                             },
-                                            "argNo": -1
+                                            "attribute": {
+                                              "attrName": "o_orderdate",
+                                              "relName": "inputs/tpch100/orders.csv"
+                                            }
                                           },
-                                          "attribute": {
-                                            "attrName": "o_custkey",
-                                            "relName": "inputs/tpch100/orders.csv"
-                                          }
-                                        },
-                                        {
-                                          "expression": "recordProjection",
-                                          "e": {
-                                            "expression": "argument",
-                                            "attributes": [
-                                              {
-                                                "attrName": "o_orderdate",
-                                                "relName": "inputs/tpch100/orders.csv"
-                                              }
-                                            ],
-                                            "type": {
-                                              "relName": "inputs/tpch100/orders.csv",
-                                              "type": "record"
-                                            },
-                                            "argNo": -1
-                                          },
-                                          "attribute": {
-                                            "attrName": "o_orderdate",
-                                            "relName": "inputs/tpch100/orders.csv"
+                                          "right": {
+                                            "expression": "date",
+                                            "v": 788918400000
                                           }
                                         }
-                                      ],
+                                      },
                                       "input" : {
-                                        "operator": "exchange",
+                                        "operator": "block-to-tuples",
                                         "gpu": false,
                                         "projections": [
                                           {
-                                            "relName": "inputs/tpch100/orders.csv",
-                                            "attrName": "o_orderkey",
-                                            "isBlock": true
+                                            "expression": "recordProjection",
+                                            "e": {
+                                              "expression": "argument",
+                                              "attributes": [
+                                                {
+                                                  "attrName": "o_orderkey",
+                                                  "relName": "inputs/tpch100/orders.csv"
+                                                }
+                                              ],
+                                              "type": {
+                                                "relName": "inputs/tpch100/orders.csv",
+                                                "type": "record"
+                                              },
+                                              "argNo": -1
+                                            },
+                                            "attribute": {
+                                              "attrName": "o_orderkey",
+                                              "relName": "inputs/tpch100/orders.csv"
+                                            }
                                           },
                                           {
-                                            "relName": "inputs/tpch100/orders.csv",
-                                            "attrName": "o_custkey",
-                                            "isBlock": true
+                                            "expression": "recordProjection",
+                                            "e": {
+                                              "expression": "argument",
+                                              "attributes": [
+                                                {
+                                                  "attrName": "o_custkey",
+                                                  "relName": "inputs/tpch100/orders.csv"
+                                                }
+                                              ],
+                                              "type": {
+                                                "relName": "inputs/tpch100/orders.csv",
+                                                "type": "record"
+                                              },
+                                              "argNo": -1
+                                            },
+                                            "attribute": {
+                                              "attrName": "o_custkey",
+                                              "relName": "inputs/tpch100/orders.csv"
+                                            }
                                           },
                                           {
-                                            "relName": "inputs/tpch100/orders.csv",
-                                            "attrName": "o_orderdate",
-                                            "isBlock": true
+                                            "expression": "recordProjection",
+                                            "e": {
+                                              "expression": "argument",
+                                              "attributes": [
+                                                {
+                                                  "attrName": "o_orderdate",
+                                                  "relName": "inputs/tpch100/orders.csv"
+                                                }
+                                              ],
+                                              "type": {
+                                                "relName": "inputs/tpch100/orders.csv",
+                                                "type": "record"
+                                              },
+                                              "argNo": -1
+                                            },
+                                            "attribute": {
+                                              "attrName": "o_orderdate",
+                                              "relName": "inputs/tpch100/orders.csv"
+                                            }
                                           }
                                         ],
-                                        "numOfParents": 24,
-                                        "producers": 1,
-                                        "slack": 8,
-                                        "numa_local" : true,
-                                        "input": {
-                                          "operator": "scan",
+                                        "input" : {
+                                          "operator": "exchange",
                                           "gpu": false,
-                                          "plugin": {
-                                            "type": "block",
-                                            "linehint": 1500000,
-                                            "name": "inputs/tpch100/orders.csv",
-                                            "projections": [
-                                              {
-                                                "relName": "inputs/tpch100/orders.csv",
-                                                "attrName": "o_orderkey"
-                                              },
-                                              {
-                                                "relName": "inputs/tpch100/orders.csv",
-                                                "attrName": "o_custkey"
-                                              },
-                                              {
-                                                "relName": "inputs/tpch100/orders.csv",
-                                                "attrName": "o_orderdate"
-                                              }
-                                            ],
-                                            "schema": [
-                                              {
-                                                "relName": "inputs/tpch100/orders.csv",
-                                                "attrName": "o_orderkey",
-                                                "type": {
-                                                  "type": "int"
+                                          "projections": [
+                                            {
+                                              "relName": "inputs/tpch100/orders.csv",
+                                              "attrName": "o_orderkey",
+                                              "isBlock": true
+                                            },
+                                            {
+                                              "relName": "inputs/tpch100/orders.csv",
+                                              "attrName": "o_custkey",
+                                              "isBlock": true
+                                            },
+                                            {
+                                              "relName": "inputs/tpch100/orders.csv",
+                                              "attrName": "o_orderdate",
+                                              "isBlock": true
+                                            }
+                                          ],
+                                          "numOfParents": 24,
+                                          "producers": 1,
+                                          "slack": 8,
+                                          "numa_local" : true,
+                                          "input": {
+                                            "operator": "scan",
+                                            "gpu": false,
+                                            "plugin": {
+                                              "type": "block",
+                                              "linehint": 1500000,
+                                              "name": "inputs/tpch100/orders.csv",
+                                              "projections": [
+                                                {
+                                                  "relName": "inputs/tpch100/orders.csv",
+                                                  "attrName": "o_orderkey"
                                                 },
-                                                "attrNo": 1
-                                              },
-                                              {
-                                                "relName": "inputs/tpch100/orders.csv",
-                                                "attrName": "o_custkey",
-                                                "type": {
-                                                  "type": "int"
+                                                {
+                                                  "relName": "inputs/tpch100/orders.csv",
+                                                  "attrName": "o_custkey"
                                                 },
-                                                "attrNo": 2
-                                              },
-                                              {
-                                                "relName": "inputs/tpch100/orders.csv",
-                                                "attrName": "o_orderstatus",
-                                                "type": {
-                                                  "type": "dstring"
+                                                {
+                                                  "relName": "inputs/tpch100/orders.csv",
+                                                  "attrName": "o_orderdate"
+                                                }
+                                              ],
+                                              "schema": [
+                                                {
+                                                  "relName": "inputs/tpch100/orders.csv",
+                                                  "attrName": "o_orderkey",
+                                                  "type": {
+                                                    "type": "int"
+                                                  },
+                                                  "attrNo": 1
                                                 },
-                                                "attrNo": 3
-                                              },
-                                              {
-                                                "relName": "inputs/tpch100/orders.csv",
-                                                "attrName": "o_totalprice",
-                                                "type": {
-                                                  "type": "float"
+                                                {
+                                                  "relName": "inputs/tpch100/orders.csv",
+                                                  "attrName": "o_custkey",
+                                                  "type": {
+                                                    "type": "int"
+                                                  },
+                                                  "attrNo": 2
                                                 },
-                                                "attrNo": 4
-                                              },
-                                              {
-                                                "relName": "inputs/tpch100/orders.csv",
-                                                "attrName": "o_orderdate",
-                                                "type": {
-                                                  "type": "date"
+                                                {
+                                                  "relName": "inputs/tpch100/orders.csv",
+                                                  "attrName": "o_orderstatus",
+                                                  "type": {
+                                                    "type": "dstring"
+                                                  },
+                                                  "attrNo": 3
                                                 },
-                                                "attrNo": 5
-                                              },
-                                              {
-                                                "relName": "inputs/tpch100/orders.csv",
-                                                "attrName": "o_orderpriority",
-                                                "type": {
-                                                  "type": "dstring"
+                                                {
+                                                  "relName": "inputs/tpch100/orders.csv",
+                                                  "attrName": "o_totalprice",
+                                                  "type": {
+                                                    "type": "float"
+                                                  },
+                                                  "attrNo": 4
                                                 },
-                                                "attrNo": 6
-                                              },
-                                              {
-                                                "relName": "inputs/tpch100/orders.csv",
-                                                "attrName": "o_clerk",
-                                                "type": {
-                                                  "type": "dstring"
+                                                {
+                                                  "relName": "inputs/tpch100/orders.csv",
+                                                  "attrName": "o_orderdate",
+                                                  "type": {
+                                                    "type": "date"
+                                                  },
+                                                  "attrNo": 5
                                                 },
-                                                "attrNo": 7
-                                              },
-                                              {
-                                                "relName": "inputs/tpch100/orders.csv",
-                                                "attrName": "o_shippriority",
-                                                "type": {
-                                                  "type": "int"
+                                                {
+                                                  "relName": "inputs/tpch100/orders.csv",
+                                                  "attrName": "o_orderpriority",
+                                                  "type": {
+                                                    "type": "dstring"
+                                                  },
+                                                  "attrNo": 6
                                                 },
-                                                "attrNo": 8
-                                              },
-                                              {
-                                                "relName": "inputs/tpch100/orders.csv",
-                                                "attrName": "o_comment",
-                                                "type": {
-                                                  "type": "dstring"
+                                                {
+                                                  "relName": "inputs/tpch100/orders.csv",
+                                                  "attrName": "o_clerk",
+                                                  "type": {
+                                                    "type": "dstring"
+                                                  },
+                                                  "attrNo": 7
                                                 },
-                                                "attrNo": 9
-                                              }
-                                            ]
+                                                {
+                                                  "relName": "inputs/tpch100/orders.csv",
+                                                  "attrName": "o_shippriority",
+                                                  "type": {
+                                                    "type": "int"
+                                                  },
+                                                  "attrNo": 8
+                                                },
+                                                {
+                                                  "relName": "inputs/tpch100/orders.csv",
+                                                  "attrName": "o_comment",
+                                                  "type": {
+                                                    "type": "dstring"
+                                                  },
+                                                  "attrNo": 9
+                                                }
+                                              ]
+                                            }
                                           }
                                         }
                                       }
@@ -1666,7 +1667,6 @@
                                   }
                                 }
                               }
-                            }
                           }
                         }
                       }
@@ -1865,7 +1865,7 @@
                   32,
                   64
                 ],
-                "hash_bits": 20,
+                "hash_bits": 25,
                 "maxBuildInputSize": 67108864,
                 "probe_input" : {
                   "operator" : "block-to-tuples",
@@ -3571,8 +3571,8 @@
                                                             32,
                                                             32
                                                           ],
-                                                          "hash_bits": 11,
-                                                          "maxBuildInputSize": 67108864,
+                                                          "hash_bits": 8,
+                                                          "maxBuildInputSize": 2048,
                                                           "probe_input": {
                                                             "operator": "block-to-tuples",
                                                             "gpu": false,
@@ -3797,8 +3797,8 @@
                                                 32,
                                                 32
                                               ],
-                                              "hash_bits": 19,
-                                              "maxBuildInputSize": 67108864,
+                                              "hash_bits": 8,
+                                              "maxBuildInputSize": 2048,
                                               "probe_input": {
                                                 "operator": "block-to-tuples",
                                                 "gpu": false,
@@ -4076,7 +4076,7 @@
                             64
                           ],
                           "hash_bits": 20,
-                          "maxBuildInputSize": 67108864,
+                          "maxBuildInputSize": 8388608,
                           "probe_input": {
                             "operator": "project",
                             "gpu": false,
