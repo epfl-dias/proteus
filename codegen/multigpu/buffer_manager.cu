@@ -21,7 +21,7 @@
 // #include <unistd.h>
 
 void buffer_manager_init(size_t gpu_buffs, size_t cpu_buffs){
-    buffer_manager<int32_t>::init(gpu_buffs, cpu_buffs);
+    buffer_manager<int32_t>::init(gpu_buffs, cpu_buffs, 256, 512);
 }
 
 void buffer_manager_destroy(){

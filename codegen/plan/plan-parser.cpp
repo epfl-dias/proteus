@@ -1026,11 +1026,9 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		assert(val.HasMember("probe_k"));
 		expressions::Expression *probe_key_expr = parseExpression(val["probe_k"]);
 
-		assert(val.HasMember("build_k_minor"));
-		expressions::Expression *build_minorkey_expr = parseExpression(val["build_k_minor"]);
+		expressions::Expression *build_minorkey_expr = (val.HasMember("build_k_minor"))? parseExpression(val["build_k_minor"]) : NULL;
 
-		assert(val.HasMember("probe_k_minor"));
-		expressions::Expression *probe_minorkey_expr = parseExpression(val["probe_k_minor"]);
+		expressions::Expression *probe_minorkey_expr = (val.HasMember("probe_k_minor"))? parseExpression(val["probe_k_minor"]) : NULL;
 
 // #ifndef NCUDA
 // 		if (val.HasMember("gpu") && val["gpu"].GetBool()){

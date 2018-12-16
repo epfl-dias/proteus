@@ -56,11 +56,6 @@ const char * catalogJSON = "inputs";
 
 void executePlan(const char *label, const char *planPath, const char *catalogJSON){
     uint32_t devices = topology::getInstance().getGpuCount();
-    for (uint32_t i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaProfilerStart());
-    }
-    __itt_resume();
     {
         RawCatalog     * catalog = &RawCatalog::getInstance();
         CachingService * caches  = &CachingService::getInstance();
@@ -89,6 +84,13 @@ void executePlan(const char *label, const char *planPath, const char *catalogJSO
         gpu_run(cudaDeviceSynchronize());
     }
     
+    for (uint32_t i = 0 ; i < devices ; ++i) {
+        gpu_run(cudaSetDevice(i));
+        gpu_run(cudaProfilerStart());
+    }
+    __itt_resume();
+
+
     gpu_run(cudaSetDevice(0));
     
     {

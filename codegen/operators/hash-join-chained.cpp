@@ -288,6 +288,7 @@ void HashJoinChained::generate_build(RawContext* const context, const OperatorSt
 
     for (size_t i = 0 ; i < out_ptrs.size() ; ++i){
         // Builder->CreateStore(out_vals[i], out_ptrs[i]);
+        std::cout << build_packet_widths[i] << std::endl;
         Builder->CreateAlignedStore(out_vals[i], out_ptrs[i], build_packet_widths[i]/8);
     }
 }
@@ -369,7 +370,11 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
 
     Builder->CreateStore(next, mem_current);
 
-    Value * match_condition = Builder->CreateICmpEQ(keyWrapper.value, build_key); //FIXME replace with EQ expression to support multiple types!
+    //Value * match_condition = Builder->CreateICmpEQ(keyWrapper.value, build_key); //FIXME replace with EQ expression to support multiple types!
+    ExpressionGeneratorVisitor eqGenerator{context, childState};
+    auto build_expr = new expressions::RawValueExpression{probe_keyexpr->getExpressionType(), RawValue{build_key, context->createFalse()}};
+    expressions::EqExpression match_expr{probe_keyexpr, build_expr};
+    Value * match_condition = match_expr.accept(eqGenerator).value;
 
     BasicBlock *MatchThenBB  = BasicBlock::Create(llvmContext, "matchChainFollow"    , TheFunction);
 
