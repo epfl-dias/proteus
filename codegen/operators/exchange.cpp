@@ -166,7 +166,10 @@ void Exchange::generate_catch(){
 void * Exchange::acquireBuffer(int target, bool polling){
     nvtxRangePushA("acq_buff");
 
-    if (free_pool[target].empty() && polling) return NULL;
+    if (free_pool[target].empty() && polling) {
+        nvtxRangePop();
+        return NULL;
+    }
 
     std::unique_lock<std::mutex> lock(free_pool_mutex[target]);
 
