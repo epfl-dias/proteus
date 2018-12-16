@@ -37,7 +37,7 @@ namespace gpu {
                                 Value * val_in) = 0;
 
         virtual void createUpdate(RawContext * const context, 
-                                    AllocaInst * val_accumulating,
+                                    Value * val_accumulating,
                                     Value * val_in);
 
         virtual void createAtomicUpdate(RawContext * const context, 
@@ -65,7 +65,7 @@ namespace gpu {
                         Value * val_in);
 
         void createUpdate(RawContext * const context, 
-                            AllocaInst * val_accumulating,
+                            Value * val_accumulating,
                             Value * val_in);
 
         void createAtomicUpdate(RawContext * const context, 

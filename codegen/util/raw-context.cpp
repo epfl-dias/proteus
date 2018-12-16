@@ -282,12 +282,18 @@ void RawContext::CodegenMemset(Value* dst, Value* bytes, Value* size){
 	}
 
 	Type  * int32_type 	= IntegerType::getInt32Ty(ctx);
-	Value * byte 		= getBuilder()->CreateZExtOrTrunc(bytes, int32_type);
+	Value * byte 		= getBuilder()->CreateZExtOrTrunc(bytes, memset_fn->getFunctionType()->params()[1]);
 	
 	// The fourth argument is the alignment.  For non-zero values, the caller
 	// must guarantee that the src and dst values are aligned to that byte boundary.
 	// TODO: We should try to take advantage of this since our tuples are well aligned.
-	Value* args[] = {dst, byte, size};
+	std::vector<Value*> args = {dst, byte, size};
+	if (memset_fn->getFunctionType()->getNumParams() == 4){
+		//FIXME: for now assume CPU side if 4 attributes, in which case the fourth argume is `isvolatiles`
+		args.push_back(createFalse());
+	}
+	for (const auto &t : args) t->getType()->dump();
+	memset_fn->getFunctionType()->dump();
 	getBuilder()->CreateCall(memset_fn, args);
 }
 

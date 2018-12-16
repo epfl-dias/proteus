@@ -57,6 +57,7 @@ RawCpuPipelineGen::RawCpuPipelineGen(   RawContext        * context         ,
     Type * bool_type    = Type::getInt1Ty    (context->getLLVMContext());
     // Type * cpp_bool_type = Type::getInt8Ty   (context->getLLVMContext());
     // static_assert(sizeof(bool) == 1, "Fix datatype");
+    Type * int8_type    = Type::getInt8Ty   (context->getLLVMContext());
     Type * int32_type   = Type::getInt32Ty   (context->getLLVMContext());
     Type * int64_type   = Type::getInt64Ty   (context->getLLVMContext());
     Type * void_type    = Type::getVoidTy    (context->getLLVMContext());
@@ -97,6 +98,8 @@ RawCpuPipelineGen::RawCpuPipelineGen(   RawContext        * context         ,
                                                 );
 
     registerFunction("launch_kernel_strm",launch_kernel_strm_);
+
+    registerFunction("memset"                      , Intrinsic::getDeclaration(getModule(), Intrinsic::memset, {charPtrType, int64_type}));
 
     Type * pair_type = StructType::get(context->getLLVMContext(), std::vector<Type *>{charPtrType, charPtrType});
     FunctionType *make_mem_move_device = FunctionType::get(pair_type, std::vector<Type *>{charPtrType, size_type, int32_type, charPtrType}, false);

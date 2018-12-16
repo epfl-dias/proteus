@@ -28,11 +28,11 @@
 namespace gpu {
 
 void Monoid::createUpdate(RawContext* const context, 
-                                    AllocaInst * val_accumulating,
+                                    Value * val_accumulating,
                                     Value * val_in){
 
     context->getBuilder()->CreateStore(
-                                    create(context, val_accumulating, val_in),
+                                    create(context, context->getBuilder()->CreateLoad(val_accumulating), val_in),
                                     val_accumulating
                                 );
 }
@@ -59,7 +59,7 @@ Value * MaxMonoid::create(RawContext* const context,
 }
 
 void MaxMonoid::createUpdate(RawContext* const context,
-                                AllocaInst * mem_accumulating,
+                                Value * mem_accumulating,
                                 Value * val_in) {
 
     IRBuilder<>* Builder = context->getBuilder();

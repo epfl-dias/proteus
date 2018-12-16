@@ -10,6 +10,7 @@
 #include "operators/gpu/gpu-hash-rearrange.hpp"
 #include "operators/gpu/gpu-to-cpu.hpp"
 #endif
+#include "operators/hash-group-by-chained.hpp"
 #include "operators/packet-zip.hpp"
 #include "operators/hash-join-chained.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
@@ -455,7 +456,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		RawOperator* child = parseOperator(val["input"]);
 
 #ifndef NCUDA
-		if (val.HasMember("gpu") && val["gpu"].GetBool()){
+		// if (val.HasMember("gpu") && val["gpu"].GetBool()){
 			assert(val.HasMember("hash_bits"));
 			assert(val["hash_bits"].IsInt());
 			int hash_bits = val["hash_bits"].GetInt();
@@ -507,212 +508,218 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 			assert(dynamic_cast<GpuRawContext *>(this->ctx));
 			// newOp = new GpuHashGroupByChained(e, widths, key_expr, child, hash_bits,
 			// 					dynamic_cast<GpuRawContext *>(this->ctx), maxInputSize);
+
+		if (val.HasMember("gpu") && val["gpu"].GetBool()){
 			newOp = new GpuHashGroupByChained(e, key_expr, child, hash_bits,
 								dynamic_cast<GpuRawContext *>(this->ctx), maxInputSize);
 		} else {
-#endif
-			assert(val.HasMember("hash_bits"));
-			assert(val["hash_bits"].IsInt());
-			int hash_bits = val["hash_bits"].GetInt();
-
-			// assert(val.HasMember("w"));
-			// assert(val["w"].IsArray());
-			// vector<size_t> widths;
-
-			// const rapidjson::Value& wJSON = val["w"];
-			// for (SizeType i = 0; i < wJSON.Size(); i++){
-			// 	assert(wJSON[i].IsInt());
-			// 	widths.push_back(wJSON[i].GetInt());
-			// }
-
-			/*
-			 * parse output expressions
-			 * XXX Careful: Assuming numerous output expressions!
-			 */
-			assert(val.HasMember("e"));
-			assert(val["e"].IsArray());
-			// vector<GpuAggrMatExpr> e;
-			const rapidjson::Value& aggrJSON = val["e"];
-			vector<Monoid> accs;
-			vector<string> aggrLabels;
-			vector<expressions::Expression*> outputExprs;
-			vector<expressions::Expression*> exprsToMat;
-			vector<materialization_mode> outputModes;
-			map<string, RecordAttribute*> mapOids;
-			vector<RecordAttribute*> fieldsToMat;
-			for (SizeType i = 0; i < aggrJSON.Size(); i++){
-				assert(aggrJSON[i].HasMember("e"     ));
-				assert(aggrJSON[i].HasMember("m"     ));
-				assert(aggrJSON[i]["m"].IsString()    );
-				assert(aggrJSON[i].HasMember("packet"));
-				assert(aggrJSON[i]["packet"].IsInt()  );
-				assert(aggrJSON[i].HasMember("offset"));
-				assert(aggrJSON[i]["offset"].IsInt()  );
-				expressions::Expression *outExpr = parseExpression(aggrJSON[i]["e"]);
-
-				// e.emplace_back(outExpr, aggrJSON[i]["packet"].GetInt(), aggrJSON[i]["offset"].GetInt(), );
-
-				aggrLabels.push_back(outExpr->getRegisteredAttrName());
-				accs.push_back(parseAccumulator(aggrJSON[i]["m"].GetString()));
-
-				outputExprs.push_back(outExpr);
-
-				//XXX STRONG ASSUMPTION: Expression is actually a record projection!
-				expressions::RecordProjection *proj =
-						dynamic_cast<expressions::RecordProjection *>(outExpr);
-
-
-				if (proj == NULL) {
-					if (outExpr->getTypeID() != expressions::CONSTANT){
-						string error_msg = string(
-								"[Nest: ] Cannot cast to rec projection. Original: ")
-								+ outExpr->getExpressionType()->getType();
-						LOG(ERROR)<< error_msg;
-						throw runtime_error(string(error_msg));
-					}
-				} else {
-					exprsToMat.push_back(outExpr);
-					outputModes.insert(outputModes.begin(), EAGER);
-
-					//Added in 'wanted fields'
-					RecordAttribute *recAttr = new RecordAttribute(proj->getAttribute());
-					fieldsToMat.push_back(new RecordAttribute(outExpr->getRegisteredAs()));
-
-					string relName = recAttr->getRelationName();
-					if (mapOids.find(relName) == mapOids.end()) {
-						InputInfo *datasetInfo =
-								(this->catalogParser).getInputInfo(relName);
-						RecordAttribute *oid =
-								new RecordAttribute(recAttr->getRelationName(), activeLoop,
-								datasetInfo->oidType);
-						mapOids[relName] = oid;
-						expressions::RecordProjection *oidProj =
-								new expressions::RecordProjection(outExpr, *oid);
-						//Added in 'wanted expressions'
-						LOG(INFO)<< "[Plan Parser: ] Injecting OID for " << relName;
-						std::cout << "[Plan Parser: ] Injecting OID for " << relName << std::endl;
-						/* ORDER OF expression fields matters!! OIDs need to be placed first! */
-						exprsToMat.insert(exprsToMat.begin(), oidProj);
-						outputModes.insert(outputModes.begin(), EAGER);
-					}
-				}
-			}
-
-			/* Predicate */
-			expressions::Expression * predExpr = new expressions::BoolConstant(true);
-
-			assert(val.HasMember("k"));
-			assert(val["k"].IsArray());
-			vector<expressions::Expression *> key_expr;
-			const rapidjson::Value& keyJSON = val["k"];
-			for (SizeType i = 0; i < keyJSON.Size(); i++){
-				key_expr.emplace_back(parseExpression(keyJSON[i]));
-			}
-
-			assert(val.HasMember("maxInputSize"));
-			assert(val["maxInputSize"].IsUint64());
-			
-			size_t maxInputSize = val["maxInputSize"].GetUint64();
-
-
-
-			const char *keyGroup = "f";
-			const char *keyNull  = "g";
-			const char *keyPred  = "p";
-			const char *keyExprs = "e";
-			const char *keyAccum = "accumulator";
-			/* Physical Level Info */
-			const char *keyAggrNames = "aggrLabels";
-			//Materializer
-			const char *keyMat = "fields";
-
-			/* Group By */
-			// assert(key_expr.size() == 1);
-			// expressions::Expression *groupByExpr = key_expr[0];
-
-			for (const auto &e: key_expr){
-				//XXX STRONG ASSUMPTION: Expression is actually a record projection!
-				expressions::RecordProjection *proj =
-						dynamic_cast<expressions::RecordProjection *>(e);
-
-				if (proj == NULL) {
-					if (e->getTypeID() != expressions::CONSTANT){
-						string error_msg = string(
-								"[Nest: ] Cannot cast to rec projection. Original: ")
-								+ e->getExpressionType()->getType();
-						LOG(ERROR)<< error_msg;
-						throw runtime_error(string(error_msg));
-					}
-				} else {
-					exprsToMat.push_back(e);
-					outputModes.insert(outputModes.begin(), EAGER);
-
-					//Added in 'wanted fields'
-					RecordAttribute *recAttr = new RecordAttribute(proj->getAttribute());
-					fieldsToMat.push_back(new RecordAttribute(e->getRegisteredAs()));
-
-					string relName = recAttr->getRelationName();
-					if (mapOids.find(relName) == mapOids.end()) {
-						InputInfo *datasetInfo =
-								(this->catalogParser).getInputInfo(relName);
-						RecordAttribute *oid =
-								new RecordAttribute(recAttr->getRelationName(), activeLoop,
-								datasetInfo->oidType);
-						std::cout << datasetInfo->oidType->getType() << std::endl;
-						mapOids[relName] = oid;
-						expressions::RecordProjection *oidProj =
-								new expressions::RecordProjection(e, *oid);
-						//Added in 'wanted expressions'
-						LOG(INFO)<< "[Plan Parser: ] Injecting OID for " << relName;
-						std::cout << "[Plan Parser: ] Injecting OID for " << relName << std::endl;
-						/* ORDER OF expression fields matters!! OIDs need to be placed first! */
-						exprsToMat.insert(exprsToMat.begin(), oidProj);
-						outputModes.insert(outputModes.begin(), EAGER);
-					}
-				}
-			}
-			/* Null-to-zero Checks */
-			//FIXME not used in radix nest yet!
-			// assert(val.HasMember(keyNull));
-			// assert(val[keyNull].IsObject());
-			expressions::Expression *nullsToZerosExpr = NULL;//parseExpression(val[keyNull]);
-
-			/* Output aggregate expression(s) */
-			// assert(val.HasMember(keyExprs));
-			// assert(val[keyExprs].IsArray());
-			// vector<expressions::Expression*> outputExprs;
-			// for (SizeType i = 0; i < val[keyExprs].Size(); i++) {
-			// 	expressions::Expression *expr = parseExpression(val[keyExprs][i]);
-			// }
-
-			/*
-			 * *** WHAT TO MATERIALIZE ***
-			 * XXX v0: JSON file contains a list of **RecordProjections**
-			 * EXPLICIT OIDs injected by PARSER (not in json file by default)
-			 * XXX Eager materialization atm
-			 *
-			 * XXX Why am I not using minimal constructor for materializer yet, as use cases do?
-			 * 	-> Because then I would have to encode the OID type in JSON -> can be messy
-			 */
-			vector<RecordAttribute*> oids;
-			MapToVec(mapOids, oids);
-			/* FIXME This constructor breaks nest use cases that trigger caching */
-			/* Check similar hook in radix-nest.cpp */
-	//		Materializer *mat =
-	//				new Materializer(fieldsToMat, exprsToMat, oids, outputModes);
-			// for (const auto &e: exprsToMat) {
-			// 	std::cout << "mat: " << e->getRegisteredRelName() << " " << e->getRegisteredAttrName() << std::endl;
-			// }
-			Materializer* matCoarse = new Materializer(fieldsToMat, exprsToMat,
-					oids, outputModes);
-
-			//Put operator together
-			auto opLabel = key_expr[0]->getRegisteredRelName();
-			std::cout << "regRelNAme" << opLabel << std::endl;
-			newOp = new radix::Nest(this->ctx, accs, outputExprs, aggrLabels, predExpr,
-					key_expr, nullsToZerosExpr, child, opLabel, *matCoarse);
-#ifndef NCUDA
+			newOp = new HashGroupByChained(e, key_expr, child, hash_bits,
+								dynamic_cast<GpuRawContext *>(this->ctx), maxInputSize);
 		}
+		// } else {
+#endif
+	// 		assert(val.HasMember("hash_bits"));
+	// 		assert(val["hash_bits"].IsInt());
+	// 		int hash_bits = val["hash_bits"].GetInt();
+
+	// 		// assert(val.HasMember("w"));
+	// 		// assert(val["w"].IsArray());
+	// 		// vector<size_t> widths;
+
+	// 		// const rapidjson::Value& wJSON = val["w"];
+	// 		// for (SizeType i = 0; i < wJSON.Size(); i++){
+	// 		// 	assert(wJSON[i].IsInt());
+	// 		// 	widths.push_back(wJSON[i].GetInt());
+	// 		// }
+
+	// 		/*
+	// 		 * parse output expressions
+	// 		 * XXX Careful: Assuming numerous output expressions!
+	// 		 */
+	// 		assert(val.HasMember("e"));
+	// 		assert(val["e"].IsArray());
+	// 		// vector<GpuAggrMatExpr> e;
+	// 		const rapidjson::Value& aggrJSON = val["e"];
+	// 		vector<Monoid> accs;
+	// 		vector<string> aggrLabels;
+	// 		vector<expressions::Expression*> outputExprs;
+	// 		vector<expressions::Expression*> exprsToMat;
+	// 		vector<materialization_mode> outputModes;
+	// 		map<string, RecordAttribute*> mapOids;
+	// 		vector<RecordAttribute*> fieldsToMat;
+	// 		for (SizeType i = 0; i < aggrJSON.Size(); i++){
+	// 			assert(aggrJSON[i].HasMember("e"     ));
+	// 			assert(aggrJSON[i].HasMember("m"     ));
+	// 			assert(aggrJSON[i]["m"].IsString()    );
+	// 			assert(aggrJSON[i].HasMember("packet"));
+	// 			assert(aggrJSON[i]["packet"].IsInt()  );
+	// 			assert(aggrJSON[i].HasMember("offset"));
+	// 			assert(aggrJSON[i]["offset"].IsInt()  );
+	// 			expressions::Expression *outExpr = parseExpression(aggrJSON[i]["e"]);
+
+	// 			// e.emplace_back(outExpr, aggrJSON[i]["packet"].GetInt(), aggrJSON[i]["offset"].GetInt(), );
+
+	// 			aggrLabels.push_back(outExpr->getRegisteredAttrName());
+	// 			accs.push_back(parseAccumulator(aggrJSON[i]["m"].GetString()));
+
+	// 			outputExprs.push_back(outExpr);
+
+	// 			//XXX STRONG ASSUMPTION: Expression is actually a record projection!
+	// 			expressions::RecordProjection *proj =
+	// 					dynamic_cast<expressions::RecordProjection *>(outExpr);
+
+
+	// 			if (proj == NULL) {
+	// 				if (outExpr->getTypeID() != expressions::CONSTANT){
+	// 					string error_msg = string(
+	// 							"[Nest: ] Cannot cast to rec projection. Original: ")
+	// 							+ outExpr->getExpressionType()->getType();
+	// 					LOG(ERROR)<< error_msg;
+	// 					throw runtime_error(string(error_msg));
+	// 				}
+	// 			} else {
+	// 				exprsToMat.push_back(outExpr);
+	// 				outputModes.insert(outputModes.begin(), EAGER);
+
+	// 				//Added in 'wanted fields'
+	// 				RecordAttribute *recAttr = new RecordAttribute(proj->getAttribute());
+	// 				fieldsToMat.push_back(new RecordAttribute(outExpr->getRegisteredAs()));
+
+	// 				string relName = recAttr->getRelationName();
+	// 				if (mapOids.find(relName) == mapOids.end()) {
+	// 					InputInfo *datasetInfo =
+	// 							(this->catalogParser).getInputInfo(relName);
+	// 					RecordAttribute *oid =
+	// 							new RecordAttribute(recAttr->getRelationName(), activeLoop,
+	// 							datasetInfo->oidType);
+	// 					mapOids[relName] = oid;
+	// 					expressions::RecordProjection *oidProj =
+	// 							new expressions::RecordProjection(outExpr, *oid);
+	// 					//Added in 'wanted expressions'
+	// 					LOG(INFO)<< "[Plan Parser: ] Injecting OID for " << relName;
+	// 					std::cout << "[Plan Parser: ] Injecting OID for " << relName << std::endl;
+	// 					/* ORDER OF expression fields matters!! OIDs need to be placed first! */
+	// 					exprsToMat.insert(exprsToMat.begin(), oidProj);
+	// 					outputModes.insert(outputModes.begin(), EAGER);
+	// 				}
+	// 			}
+	// 		}
+
+	// 		/* Predicate */
+	// 		expressions::Expression * predExpr = new expressions::BoolConstant(true);
+
+	// 		assert(val.HasMember("k"));
+	// 		assert(val["k"].IsArray());
+	// 		vector<expressions::Expression *> key_expr;
+	// 		const rapidjson::Value& keyJSON = val["k"];
+	// 		for (SizeType i = 0; i < keyJSON.Size(); i++){
+	// 			key_expr.emplace_back(parseExpression(keyJSON[i]));
+	// 		}
+
+	// 		assert(val.HasMember("maxInputSize"));
+	// 		assert(val["maxInputSize"].IsUint64());
+			
+	// 		size_t maxInputSize = val["maxInputSize"].GetUint64();
+
+
+
+	// 		const char *keyGroup = "f";
+	// 		const char *keyNull  = "g";
+	// 		const char *keyPred  = "p";
+	// 		const char *keyExprs = "e";
+	// 		const char *keyAccum = "accumulator";
+	// 		/* Physical Level Info */
+	// 		const char *keyAggrNames = "aggrLabels";
+	// 		//Materializer
+	// 		const char *keyMat = "fields";
+
+	// 		/* Group By */
+	// 		// assert(key_expr.size() == 1);
+	// 		// expressions::Expression *groupByExpr = key_expr[0];
+
+	// 		for (const auto &e: key_expr){
+	// 			//XXX STRONG ASSUMPTION: Expression is actually a record projection!
+	// 			expressions::RecordProjection *proj =
+	// 					dynamic_cast<expressions::RecordProjection *>(e);
+
+	// 			if (proj == NULL) {
+	// 				if (e->getTypeID() != expressions::CONSTANT){
+	// 					string error_msg = string(
+	// 							"[Nest: ] Cannot cast to rec projection. Original: ")
+	// 							+ e->getExpressionType()->getType();
+	// 					LOG(ERROR)<< error_msg;
+	// 					throw runtime_error(string(error_msg));
+	// 				}
+	// 			} else {
+	// 				exprsToMat.push_back(e);
+	// 				outputModes.insert(outputModes.begin(), EAGER);
+
+	// 				//Added in 'wanted fields'
+	// 				RecordAttribute *recAttr = new RecordAttribute(proj->getAttribute());
+	// 				fieldsToMat.push_back(new RecordAttribute(e->getRegisteredAs()));
+
+	// 				string relName = recAttr->getRelationName();
+	// 				if (mapOids.find(relName) == mapOids.end()) {
+	// 					InputInfo *datasetInfo =
+	// 							(this->catalogParser).getInputInfo(relName);
+	// 					RecordAttribute *oid =
+	// 							new RecordAttribute(recAttr->getRelationName(), activeLoop,
+	// 							datasetInfo->oidType);
+	// 					std::cout << datasetInfo->oidType->getType() << std::endl;
+	// 					mapOids[relName] = oid;
+	// 					expressions::RecordProjection *oidProj =
+	// 							new expressions::RecordProjection(e, *oid);
+	// 					//Added in 'wanted expressions'
+	// 					LOG(INFO)<< "[Plan Parser: ] Injecting OID for " << relName;
+	// 					std::cout << "[Plan Parser: ] Injecting OID for " << relName << std::endl;
+	// 					/* ORDER OF expression fields matters!! OIDs need to be placed first! */
+	// 					exprsToMat.insert(exprsToMat.begin(), oidProj);
+	// 					outputModes.insert(outputModes.begin(), EAGER);
+	// 				}
+	// 			}
+	// 		}
+	// 		/* Null-to-zero Checks */
+	// 		//FIXME not used in radix nest yet!
+	// 		// assert(val.HasMember(keyNull));
+	// 		// assert(val[keyNull].IsObject());
+	// 		expressions::Expression *nullsToZerosExpr = NULL;//parseExpression(val[keyNull]);
+
+	// 		/* Output aggregate expression(s) */
+	// 		// assert(val.HasMember(keyExprs));
+	// 		// assert(val[keyExprs].IsArray());
+	// 		// vector<expressions::Expression*> outputExprs;
+	// 		// for (SizeType i = 0; i < val[keyExprs].Size(); i++) {
+	// 		// 	expressions::Expression *expr = parseExpression(val[keyExprs][i]);
+	// 		// }
+
+	// 		/*
+	// 		 * *** WHAT TO MATERIALIZE ***
+	// 		 * XXX v0: JSON file contains a list of **RecordProjections**
+	// 		 * EXPLICIT OIDs injected by PARSER (not in json file by default)
+	// 		 * XXX Eager materialization atm
+	// 		 *
+	// 		 * XXX Why am I not using minimal constructor for materializer yet, as use cases do?
+	// 		 * 	-> Because then I would have to encode the OID type in JSON -> can be messy
+	// 		 */
+	// 		vector<RecordAttribute*> oids;
+	// 		MapToVec(mapOids, oids);
+	// 		/* FIXME This constructor breaks nest use cases that trigger caching */
+	// 		/* Check similar hook in radix-nest.cpp */
+	// //		Materializer *mat =
+	// //				new Materializer(fieldsToMat, exprsToMat, oids, outputModes);
+	// 		// for (const auto &e: exprsToMat) {
+	// 		// 	std::cout << "mat: " << e->getRegisteredRelName() << " " << e->getRegisteredAttrName() << std::endl;
+	// 		// }
+	// 		Materializer* matCoarse = new Materializer(fieldsToMat, exprsToMat,
+	// 				oids, outputModes);
+
+	// 		//Put operator together
+	// 		auto opLabel = key_expr[0]->getRegisteredRelName();
+	// 		std::cout << "regRelNAme" << opLabel << std::endl;
+	// 		newOp = new radix::Nest(this->ctx, accs, outputExprs, aggrLabels, predExpr,
+	// 				key_expr, nullsToZerosExpr, child, opLabel, *matCoarse);
+#ifndef NCUDA
+		// }
 #endif
 		child->setParent(newOp);
 	} else if(strcmp(opName, "out-of-gpu-join") == 0) {
