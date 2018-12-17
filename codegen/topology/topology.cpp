@@ -308,6 +308,7 @@ extern "C" int get_rand_core_local_to_ptr(const void *p) {
     // numa node addressed. (and yes, this will cause problems on machines
     // without GPUs, but such machines need issue #16 to be resolved)
     // FIXME: related to issue #16 and the above comment
+    // FIXME: *up*
 
     const auto &topo      = topology::getInstance();
     const auto  gpu_count = topo.getGpuCount();

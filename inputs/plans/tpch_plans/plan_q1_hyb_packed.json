@@ -4326,7 +4326,7 @@
                                             "numOfParents" : 24,
                                             "producers" : 1,
                                             "slack" : 4,
-                                            "numa_local" : true,
+                                            "rand_local_cpu" : true,
                                             "input" : {
                                               "operator" : "split",
                                               "split_id" : 10,

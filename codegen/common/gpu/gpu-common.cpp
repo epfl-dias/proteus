@@ -3,6 +3,7 @@
 #include <cassert>
 #include "util/raw-memory-manager.hpp"
 #include "topology/topology.hpp"
+#include <cstdlib>
 
 
 void launch_kernel(CUfunction function, void ** args, dim3 gridDim, dim3 blockDim, cudaStream_t strm){
@@ -217,17 +218,21 @@ size_t mmap_file::getFileSize() const{
     return filesize;
 }
 
-
 extern "C"{
     int get_ptr_device(const void *p){
         const auto * g = topology::getInstance().getGpuAddressed(p);
         return g ? -1 : g->id;
     }
 
+    //FIXME: rename function...........
     int get_ptr_device_or_rand_for_host(const void *p){
         const auto * g = topology::getInstance().getGpuAddressed(p);
         if (g) return g->id;
-        return rand();
+        const auto * c = topology::getInstance().getCpuNumaNodeAddressed(p);
+        size_t local_gpus = c->local_gpus.size();
+        if (local_gpus == 1) return c->local_gpus[0];
+        else if (local_gpus > 0) return c->local_gpus[rand() % local_gpus];
+        else return rand();
     }
 
     void memcpy_gpu(void *dst, const void *src, size_t size, bool is_volatile){
