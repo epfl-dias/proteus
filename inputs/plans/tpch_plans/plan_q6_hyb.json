@@ -425,11 +425,7 @@
                       "queueSize" : 262144,
                       "granularity" : "thread",
                       "input" : {
-                        "operator" : "exchange",
-                        "gpu" : false,
-                        "numOfParents" : 2,
-                        "producers" : 1,
-                        "slack" : 8,
+                        "operator" : "mem-move-device",
                         "projections" : [ {
                           "relName" : "inputs/tpch100/lineitem.csv",
                           "attrName" : "l_quantity",
@@ -447,11 +443,13 @@
                           "attrName" : "l_shipdate",
                           "isBlock" : true
                         } ],
-                        "input" : {
-                          "operator" : "split",
+                        "input": {
+                          "operator" : "exchange",
                           "gpu" : false,
-                          "split_id" : 5,
                           "numOfParents" : 2,
+                          "producers" : 1,
+                          "slack" : 8,
+                          "numa_local": true,
                           "projections" : [ {
                             "relName" : "inputs/tpch100/lineitem.csv",
                             "attrName" : "l_quantity",
@@ -470,138 +468,161 @@
                             "isBlock" : true
                           } ],
                           "input" : {
-                            "operator" : "scan",
+                            "operator" : "split",
                             "gpu" : false,
-                            "plugin" : {
-                              "type" : "block",
-                              "linehint" : 600037902,
-                              "name" : "inputs/tpch100/lineitem.csv",
-                              "projections" : [ {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_quantity"
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_extendedprice"
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_discount"
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_shipdate"
-                              } ],
-                              "schema" : [ {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_orderkey",
-                                "type" : {
-                                  "type" : "int"
-                                },
-                                "attrNo" : 1
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_partkey",
-                                "type" : {
-                                  "type" : "int"
-                                },
-                                "attrNo" : 2
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_suppkey",
-                                "type" : {
-                                  "type" : "int"
-                                },
-                                "attrNo" : 3
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_linenumber",
-                                "type" : {
-                                  "type" : "int"
-                                },
-                                "attrNo" : 4
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_quantity",
-                                "type" : {
-                                  "type" : "float"
-                                },
-                                "attrNo" : 5
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_extendedprice",
-                                "type" : {
-                                  "type" : "float"
-                                },
-                                "attrNo" : 6
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_discount",
-                                "type" : {
-                                  "type" : "float"
-                                },
-                                "attrNo" : 7
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_tax",
-                                "type" : {
-                                  "type" : "float"
-                                },
-                                "attrNo" : 8
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_returnflag",
-                                "type" : {
-                                  "type" : "dstring"
-                                },
-                                "attrNo" : 9
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_linestatus",
-                                "type" : {
-                                  "type" : "dstring"
-                                },
-                                "attrNo" : 10
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_shipdate",
-                                "type" : {
-                                  "type" : "date"
-                                },
-                                "attrNo" : 11
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_commitdate",
-                                "type" : {
-                                  "type" : "date"
-                                },
-                                "attrNo" : 12
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_receiptdate",
-                                "type" : {
-                                  "type" : "date"
-                                },
-                                "attrNo" : 13
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_shipinstruct",
-                                "type" : {
-                                  "type" : "dstring"
-                                },
-                                "attrNo" : 14
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_shipmode",
-                                "type" : {
-                                  "type" : "dstring"
-                                },
-                                "attrNo" : 15
-                              }, {
-                                "relName" : "inputs/tpch100/lineitem.csv",
-                                "attrName" : "l_comment",
-                                "type" : {
-                                  "type" : "dstring"
-                                },
-                                "attrNo" : 16
-                              } ]
+                            "split_id" : 5,
+                            "numOfParents" : 2,
+                            "projections" : [ {
+                              "relName" : "inputs/tpch100/lineitem.csv",
+                              "attrName" : "l_quantity",
+                              "isBlock" : true
+                            }, {
+                              "relName" : "inputs/tpch100/lineitem.csv",
+                              "attrName" : "l_extendedprice",
+                              "isBlock" : true
+                            }, {
+                              "relName" : "inputs/tpch100/lineitem.csv",
+                              "attrName" : "l_discount",
+                              "isBlock" : true
+                            }, {
+                              "relName" : "inputs/tpch100/lineitem.csv",
+                              "attrName" : "l_shipdate",
+                              "isBlock" : true
+                            } ],
+                            "input" : {
+                              "operator" : "scan",
+                              "gpu" : false,
+                              "plugin" : {
+                                "type" : "block",
+                                "linehint" : 600037902,
+                                "name" : "inputs/tpch100/lineitem.csv",
+                                "projections" : [ {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_quantity"
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_extendedprice"
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_discount"
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_shipdate"
+                                } ],
+                                "schema" : [ {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_orderkey",
+                                  "type" : {
+                                    "type" : "int"
+                                  },
+                                  "attrNo" : 1
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_partkey",
+                                  "type" : {
+                                    "type" : "int"
+                                  },
+                                  "attrNo" : 2
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_suppkey",
+                                  "type" : {
+                                    "type" : "int"
+                                  },
+                                  "attrNo" : 3
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_linenumber",
+                                  "type" : {
+                                    "type" : "int"
+                                  },
+                                  "attrNo" : 4
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_quantity",
+                                  "type" : {
+                                    "type" : "float"
+                                  },
+                                  "attrNo" : 5
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_extendedprice",
+                                  "type" : {
+                                    "type" : "float"
+                                  },
+                                  "attrNo" : 6
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_discount",
+                                  "type" : {
+                                    "type" : "float"
+                                  },
+                                  "attrNo" : 7
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_tax",
+                                  "type" : {
+                                    "type" : "float"
+                                  },
+                                  "attrNo" : 8
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_returnflag",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 9
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_linestatus",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 10
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_shipdate",
+                                  "type" : {
+                                    "type" : "date"
+                                  },
+                                  "attrNo" : 11
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_commitdate",
+                                  "type" : {
+                                    "type" : "date"
+                                  },
+                                  "attrNo" : 12
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_receiptdate",
+                                  "type" : {
+                                    "type" : "date"
+                                  },
+                                  "attrNo" : 13
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_shipinstruct",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 14
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_shipmode",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 15
+                                }, {
+                                  "relName" : "inputs/tpch100/lineitem.csv",
+                                  "attrName" : "l_comment",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 16
+                                } ]
+                              }
                             }
                           }
                         }
@@ -949,6 +970,7 @@
                         "numOfParents" : 24,
                         "producers" : 1,
                         "slack" : 8,
+                        "rand_local_cpu": true,
                         "projections" : [ {
                           "relName" : "inputs/tpch100/lineitem.csv",
                           "attrName" : "l_quantity",
