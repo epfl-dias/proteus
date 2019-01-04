@@ -909,7 +909,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 
 		
 
-		Exchange* xch_build      = new Exchange 	(build_op, (GpuRawContext *) ctx, numPartitioners, build_attr_block, slack, NULL, true);
+		Exchange* xch_build      = new Exchange 	(build_op, (GpuRawContext *) ctx, numPartitioners, build_attr_block, slack, NULL, false, true);
 		build_op->setParent(xch_build);
 		RawOperator* btt_build   = new BlockToTuples(xch_build, (GpuRawContext *) ctx, build_expr, false, gran_t::THREAD);
 		xch_build->setParent(btt_build);
@@ -919,7 +919,7 @@ RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
 		Exchange* xch_build2  	 = new Exchange 	(part_build, (GpuRawContext *) ctx, 1, build_attr_block, slack, NULL, true, false, numPartitioners);
 		part_build->setParent(xch_build2);
 
-		Exchange* xch_probe      = new Exchange 	(probe_op, (GpuRawContext *) ctx, numPartitioners, probe_attr_block, slack, NULL, true);
+		Exchange* xch_probe      = new Exchange 	(probe_op, (GpuRawContext *) ctx, numPartitioners, probe_attr_block, slack, NULL, false, true);
 		probe_op->setParent(xch_probe);
 		RawOperator* btt_probe   = new BlockToTuples(xch_probe, (GpuRawContext *) ctx, probe_expr, false, gran_t::THREAD);
 		xch_probe->setParent(btt_probe);

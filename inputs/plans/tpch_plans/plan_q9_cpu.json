@@ -366,7 +366,7 @@
             "numOfParents" : 1,
             "producers" : 24,
             "slack" : 8,
-            "numa_local" : false,
+            "rand_cpu_local" : false,
             "input" : {
               "operator" : "groupby",
               "gpu" : false,
