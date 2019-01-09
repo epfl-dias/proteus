@@ -150,7 +150,7 @@ object Repl extends App {
 
 
 //          input = "select count(*) " + //sum(lo_revenue - lo_supplycost) as profit " +
-//            "from ssbm_lineorder1000, ssbm_date1000, ssbm_customer1000, ssbm_supplier1000, ssbm_part1000 " +
+//            "from ssbm_lineorder, ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part " +
 //            "where lo_custkey = c_custkey " +
 //            "and lo_suppkey = s_suppkey " +
 //            "and lo_partkey = p_partkey " +
@@ -163,7 +163,7 @@ object Repl extends App {
 
     input =
       "select sum(lo_revenue), d_year, p_brand1 " +
-      "from ssbm_date1000, ssbm_lineorder1000, ssbm_part1000, ssbm_supplier1000 " +
+      "from ssbm_date, ssbm_lineorder, ssbm_part, ssbm_supplier " +
       "where lo_orderdate = d_datekey " +
       " and lo_partkey = p_partkey " +
       " and lo_suppkey = s_suppkey " +
@@ -172,7 +172,7 @@ object Repl extends App {
       "group by d_year, p_brand1 " +
       "order by d_year, p_brand1"
 
-//    input = "select max(d_yearmonthnum), d_year from ssbm_date1000 group by d_year order by d_year";
+//    input = "select max(d_yearmonthnum), d_year from ssbm_date group by d_year order by d_year";
 //    input = "select * from employees";
 
 //    input = "create table Test1234(a integer, b integer) jplugin `{\"plugin\":{ \"type\":\"block\", \"linehint\":200000 }, \"file\":\"/inputs/csv.csv\"}`";
@@ -241,7 +241,7 @@ object Repl extends App {
     //    connection.createStatement().executeQuery(input)
     System.exit(0);
     //    val input = "select d_year, c_nation, sum(lo_revenue - lo_supplycost) as profit " +
-    //      "from ssbm_date1000, ssbm_customer1000, ssbm_supplier1000, ssbm_part1000, ssbm_lineorder1000 " +
+    //      "from ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part, ssbm_lineorder " +
     //      "where lo_custkey = c_custkey " +
     //      "and lo_suppkey = s_suppkey "+
     //      "and lo_partkey = p_partkey "+
@@ -254,7 +254,7 @@ object Repl extends App {
 
 
     //  val input = "select sum(lo_revenue - lo_supplycost) as profit " +
-    //    "from ssbm_customer1000, ssbm_supplier1000, ssbm_lineorder1000 " +
+    //    "from ssbm_customer, ssbm_supplier, ssbm_lineorder " +
     //    "where lo_custkey = c_custkey " +
     //    "and lo_suppkey = s_suppkey ";
     //    val input = "select sum(lo_revenue) as lo_revenue, d_year, p_brand1 from ssbm_lineorder, ssbm_date, ssbm_part, ssbm_supplier where lo_orderdate = d_datekey  and lo_partkey = p_partkey  and lo_suppkey = s_suppkey  and p_brand1 = 'MFGR#2239'  and s_region = 'EUROPE'  group by d_year, p_brand1 order by d_year asc, p_brand1 desc"

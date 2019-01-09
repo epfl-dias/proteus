@@ -14,10 +14,10 @@ import org.apache.calcite.test.CalciteAssert;
 public class PelagoPlannerTest {
   private static final String queries[] = {
     "select d_year, d_year*8 "
-      + "from ssbm_date1000",
+      + "from ssbm_date",
 
     "select sum(lo_revenue), d_year, p_brand1 "
-      + "from ssbm_date1000, ssbm_lineorder1000, ssbm_part1000, ssbm_supplier1000 "
+      + "from ssbm_date, ssbm_lineorder, ssbm_part, ssbm_supplier "
       + "where lo_orderdate = d_datekey "
       + "  and lo_partkey = p_partkey "
       + "  and lo_suppkey = s_suppkey "
@@ -30,12 +30,12 @@ public class PelagoPlannerTest {
       + "from ssbm_date",
 
     "select sum(lo_revenue), count(*) "
-      + "from ssbm_lineorder1000, ssbm_date1000 "
+      + "from ssbm_lineorder, ssbm_date "
       + "where lo_orderdate = d_datekey "
       + "  and d_year = 1997",
 
     "select sum(lo_revenue - lo_supplycost) as profit "
-      + "from ssbm_lineorder1000, ssbm_customer1000, ssbm_supplier1000 "
+      + "from ssbm_lineorder, ssbm_customer, ssbm_supplier "
       + "where lo_custkey = c_custkey "
       + "  and lo_suppkey = s_suppkey ",
 
@@ -46,18 +46,18 @@ public class PelagoPlannerTest {
       + "from ssbm_date",
 
     "select sum(lo_revenue) "
-      + "from ssbm_lineorder1000, ssbm_date1000 "
+      + "from ssbm_lineorder, ssbm_date "
       + "where lo_orderdate = d_datekey "
       + "group by d_year",
 
     "select sum(lo_revenue) "
-      + "from ssbm_lineorder1000, ssbm_date1000 "
+      + "from ssbm_lineorder, ssbm_date "
       + "where lo_orderdate = d_datekey "
       + "group by d_year "
       + "order by d_year desc",
 
     "select d_year, c_nation, sum(lo_revenue - lo_supplycost) as profit "
-      + "from ssbm_lineorder1000, ssbm_date1000, ssbm_customer1000, ssbm_supplier1000, ssbm_part1000 "
+      + "from ssbm_lineorder, ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part "
       + "where lo_custkey = c_custkey "
       + " and lo_suppkey = s_suppkey "
       + " and lo_partkey = p_partkey "
@@ -69,7 +69,7 @@ public class PelagoPlannerTest {
 //      + "order by d_year, c_nation",
 
     "select d_year, c_nation, sum(lo_revenue - lo_supplycost) as profit "
-      + "from ssbm_lineorder1000, ssbm_date1000, ssbm_customer1000, ssbm_supplier1000, ssbm_part1000 "
+      + "from ssbm_lineorder, ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part "
       + "where lo_custkey = c_custkey "
       + " and lo_suppkey = s_suppkey "
       + " and lo_partkey = p_partkey "
@@ -81,7 +81,7 @@ public class PelagoPlannerTest {
       + "order by d_year, c_nation",
 
     "select count(*) " //sum(lo_revenue - lo_supplycost) as profit " +
-      + "from ssbm_lineorder1000, ssbm_date1000, ssbm_customer1000, ssbm_supplier1000, ssbm_part1000 "
+      + "from ssbm_lineorder, ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part "
       + "where lo_custkey = c_custkey "
       + " and lo_suppkey = s_suppkey "
       + " and lo_partkey = p_partkey "
@@ -91,7 +91,7 @@ public class PelagoPlannerTest {
       + " and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2')",
 
     "select count(*), sum(lo_revenue - lo_supplycost) as profit "
-      + "from ssbm_lineorder1000, ssbm_date1000, ssbm_customer1000, ssbm_supplier1000, ssbm_part1000 "
+      + "from ssbm_lineorder, ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part "
       + "where lo_custkey = c_custkey "
       + " and lo_suppkey = s_suppkey "
       + " and lo_partkey = p_partkey "
@@ -101,7 +101,7 @@ public class PelagoPlannerTest {
       + " and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2')",
 
     "select count(*), sum(lo_revenue - lo_supplycost) as profit "
-      + "from ssbm_lineorder1000, ssbm_date1000, ssbm_customer1000, ssbm_supplier1000, ssbm_part1000 "
+      + "from ssbm_lineorder, ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part "
       + "where lo_custkey = c_custkey "
       + "  and lo_suppkey = s_suppkey "
       + "  and lo_partkey = p_partkey "
@@ -150,8 +150,6 @@ public class PelagoPlannerTest {
 //      + " select d_yearmonthnum, collect(d_datekey) as x, collect(1) as y from ssbm_date group by d_yearmonthnum "
 //      + ") as c, unnest(c.x) "
 //      + "where d_yearmonthnum > 199810 ",
-
-      "select sum(l_orderkey) from tpch1_lineitem",
   };
 
 
