@@ -65,6 +65,8 @@
 //
 // </TechnicalDetails>
 
+::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+
 class SailorsTest : public ::testing::Test {
 protected:
 	virtual void SetUp() {

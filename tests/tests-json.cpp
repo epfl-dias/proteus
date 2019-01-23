@@ -43,6 +43,8 @@
 #include "expressions/expressions.hpp"
 #include "operators/flush.hpp"
 
+::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+
 class JSONTest : public ::testing::Test {
 protected:
 	virtual void SetUp() {
