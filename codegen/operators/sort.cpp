@@ -25,32 +25,33 @@
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-flusher.hpp"
 
+expressions::RecordConstruction buildSortOutputExpression(
+            GpuRawContext * const       context,
+            const vector<expression_t> &orderByFields
+    ){
+    size_t i = 0;
+    
+    list<expressions::AttributeConstruction> attrs;
+    for (auto expr: orderByFields){
+        assert(expr.isRegistered() && "All expressions must be registered!");
+
+        attrs.emplace_back(expr.getRegisteredAttrName(), expr);
+        // recattr.push_back(new RecordAttribute{expr->getRegisteredAs()});
+    }
+
+    return {attrs};
+}
+
 Sort::Sort(   RawOperator * const           child,
             GpuRawContext * const           context,
-            const vector<expressions::Expression *> &orderByFields,
-            const vector<direction                > &dirs) :
+            const vector<expression_t>     &orderByFields,
+            const vector<direction   >     &dirs) :
                 UnaryRawOperator(child), 
                 context(context),
                 orderByFields(orderByFields),
-                dirs(dirs){
-    list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
-    std::vector<RecordAttribute *> recattr;
-    for (auto expr: orderByFields){
-        assert(expr->isRegistered() && "All expressions must be registered!");
-        expressions::AttributeConstruction *newAttr =
-                                        new expressions::AttributeConstruction(
-                                            expr->getRegisteredAttrName(),
-                                            expr
-                                        );
-        attrs->push_back(*newAttr);
-        recattr.push_back(new RecordAttribute{expr->getRegisteredAs()});
-    }
-
-    outputExpr  = new expressions::RecordConstruction(new RecordType(recattr), *attrs);
-
-    // width       = context->getSizeOf(outputExpr->getExpressionType()->getLLVMType(context->getLLVMContext()));
-
-    relName     = orderByFields[0]->getRegisteredRelName();
+                dirs(dirs),
+                outputExpr(buildSortOutputExpression(context, orderByFields)),
+                relName(orderByFields[0].getRegisteredRelName()){
 }
 
 void Sort::produce() {
@@ -73,7 +74,7 @@ void Sort::produce() {
 
     // blkVar_id           = context->appendStateVar(PointerType::getUnqual(ArrayType::get(block_stuct, numOfBuckets)));
 
-    Type * elemPointer = outputExpr->getExpressionType()->getLLVMType(llvmContext);
+    Type * elemPointer = outputExpr.getExpressionType()->getLLVMType(llvmContext);
     mem_type           = ArrayType::get(elemPointer, 1024*1024);
 
     flush_sorted();
@@ -219,7 +220,7 @@ void Sort::consume(GpuRawContext * const context, const OperatorState& childStat
     Value * el_ptr          = Builder->CreateInBoundsGEP(mem_ptr, std::vector<Value *>{context->createInt64(0), indx});
 
     ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue valWrapper     = outputExpr->accept(exprGenerator);
+    RawValue valWrapper     = outputExpr.accept(exprGenerator);
     Value * el              = valWrapper.value;
 
     Builder->CreateStore(el, el_ptr);
@@ -338,7 +339,7 @@ void Sort::consume(GpuRawContext * const context, const OperatorState& childStat
 
 //     Value * rec     = Builder->CreateLoad(rec_ptr);
 //     // RawValue v{rec, context->createFalse()};
-//     // expressions::RawValueExpression r{outputExpr->getExpressionType(), v};
+//     // expressions::RawValueExpression r{outputExpr.getExpressionType(), v};
 
 //     // OperatorState state{*this, variableBindings};
 //     // ExpressionFlusherVisitor flusher{context, state, outPath.c_str(), relName};
@@ -348,7 +349,7 @@ void Sort::consume(GpuRawContext * const context, const OperatorState& childStat
 
 //     // r.accept(flusher);
     
-//     RecordType *t = (RecordType *) outputExpr->getExpressionType();
+//     RecordType *t = (RecordType *) outputExpr.getExpressionType();
 //     for (const auto &e: orderByFields){
 //         RecordAttribute attr = e->getRegisteredAs();
 //         Value         * p    = t->projectArg(rec, &attr, Builder);
@@ -483,7 +484,7 @@ void Sort::flush_sorted(){
 
     // Value * rec     = Builder->CreateLoad(rec_ptr);
     // RawValue v{rec, context->createFalse()};
-    // expressions::RawValueExpression r{outputExpr->getExpressionType(), v};
+    // expressions::RawValueExpression r{outputExpr.getExpressionType(), v};
 
     // OperatorState state{*this, variableBindings};
     // ExpressionFlusherVisitor flusher{context, state, outPath.c_str(), relName};
@@ -493,7 +494,7 @@ void Sort::flush_sorted(){
 
     // r.accept(flusher);
     
-    // RecordType *t = (RecordType *) outputExpr->getExpressionType();
+    // RecordType *t = (RecordType *) outputExpr.getExpressionType();
     // size_t i = 0;
     // for (const auto &e: orderByFields){
     //     RecordAttribute attr = e->getRegisteredAs();
@@ -511,7 +512,7 @@ void Sort::flush_sorted(){
     // }
 
 
-    RecordAttribute recs{relName, "__sorted", outputExpr->getExpressionType()};
+    RecordAttribute recs{relName, "__sorted", outputExpr.getExpressionType()};
     RecordAttribute brec{recs, true};
     mem_ptr = Builder->CreateBitCast(mem_ptr, brec.getLLVMType(llvmContext));
     AllocaInst * mem_mem_ptr = context->CreateEntryBlockAlloca(F, "__sorted_mem", mem_ptr->getType());
@@ -603,7 +604,7 @@ void Sort::call_sort(Value * mem, Value * N){
 
     Value * count = Builder->CreateZExtOrBitCast(N, size_type);
 
-    Type  * entry = outputExpr->getExpressionType()->getLLVMType(llvmContext);
+    Type  * entry = outputExpr.getExpressionType()->getLLVMType(llvmContext);
     Value * size  = context->createSizeT(context->getSizeOf(entry));
 
     Type  * entry_pointer = PointerType::get(entry, 0);
@@ -647,10 +648,11 @@ void Sort::call_sort(Value * mem, Value * N){
         };
 
         for (size_t i = 0 ; i < 2 ; ++i){
-            RecordType *t = (RecordType *) outputExpr->getExpressionType();
+            RecordType *t = (RecordType *) outputExpr.getExpressionType();
             for (const auto &e: orderByFields){
-                RecordAttribute attr = e->getRegisteredAs();
+                RecordAttribute attr = e.getRegisteredAs();
                 Value         * p    = t->projectArg(recs[i], &attr, Builder);
+                assert(p);
 
                 RawValueMemory mem;
                 mem.mem    = context->CreateEntryBlockAlloca(F, attr.getAttrName(), p->getType());
@@ -679,7 +681,7 @@ void Sort::call_sort(Value * mem, Value * N){
         for (const auto &e: orderByFields){
             const auto &d = dirs[i++];
             if (d == NONE) continue;
-            RecordAttribute attr = e->getRegisteredAs();
+            RecordAttribute attr = e.getRegisteredAs();
 
             //FIXME: replace with expressions
             Value * arg0  = Builder->CreateLoad(bindings[0][attr].mem);

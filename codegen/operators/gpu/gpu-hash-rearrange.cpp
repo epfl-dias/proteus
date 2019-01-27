@@ -36,11 +36,11 @@ void GpuHashRearrange::produce() {
     Type   * idx_type           = Type::getInt32Ty(llvmContext);
 
     for (const auto &e: matExpr){
-        PointerType * t_ptr = PointerType::get(e->getExpressionType()->getLLVMType(llvmContext), /* address space */ 0);
+        PointerType * t_ptr = PointerType::get(e.getExpressionType()->getLLVMType(llvmContext), /* address space */ 0);
         buffVar_id.push_back(context->appendStateVar(PointerType::getUnqual(ArrayType::get(t_ptr, numOfBuckets))));
     }
 
-    Plugin * pg       = RawCatalog::getInstance().getPlugin(matExpr[0]->getRegisteredRelName());
+    Plugin * pg       = RawCatalog::getInstance().getPlugin(matExpr[0].getRegisteredRelName());
     Type   * oid_type = pg->getOIDType()->getLLVMType(llvmContext);
 
     cntVar_id  = context->appendStateVar(PointerType::getUnqual(ArrayType::get(idx_type , numOfBuckets)));
@@ -63,10 +63,10 @@ void GpuHashRearrange::consume(RawContext* const context, const OperatorState& c
     consume(ctx, childState);
 }
 
-Value * GpuHashRearrange::hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState){
+Value * GpuHashRearrange::hash(const std::vector<expression_t> &exprs, RawContext* const context, const OperatorState& childState){
     if (exprs.size() == 1){
         ExpressionHasherVisitor hasher{context, childState};
-        return exprs[0]->accept(hasher).value;
+        return exprs[0].accept(hasher).value;
     } else {
         std::list<expressions::AttributeConstruction> a;
         size_t i = 0;
@@ -86,7 +86,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     map<RecordAttribute, RawValueMemory> bindings{childState.getBindings()};
 
 
-    Plugin * pg       = RawCatalog::getInstance().getPlugin(matExpr[0]->getRegisteredRelName());
+    Plugin * pg       = RawCatalog::getInstance().getPlugin(matExpr[0].getRegisteredRelName());
     Type   * oid_type = pg->getOIDType()->getLLVMType(llvmContext);
 
     IntegerType * int32_type        = Type::getInt32Ty  (llvmContext);
@@ -158,7 +158,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
 
     size_t max_width = 0;
     for (const auto &e: matExpr){
-        PointerType * t_ptr = PointerType::get(e->getExpressionType()->getLLVMType(llvmContext), /* address space */ 0);
+        PointerType * t_ptr = PointerType::get(e.getExpressionType()->getLLVMType(llvmContext), /* address space */ 0);
         Value * buff = new GlobalVariable(
                                         *(context->getModule()),
                                         ArrayType::get(t_ptr, numOfBuckets),
@@ -176,7 +176,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
 
         buffs.push_back(buff);
 
-        max_width = std::max(max_width, context->getSizeOf(e->getExpressionType()->getLLVMType(llvmContext)));
+        max_width = std::max(max_width, context->getSizeOf(e.getExpressionType()->getLLVMType(llvmContext)));
     }
 
     Value * cnt  = new GlobalVariable(  *(context->getModule()),
@@ -327,7 +327,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
 
     //Generate target
     // ExpressionHasherVisitor exprGenerator{context, childState};
-    Value * target            = GpuHashRearrange::hash(std::vector<expressions::Expression *>{hashExpr}, context, childState);
+    Value * target            = GpuHashRearrange::hash({hashExpr}, context, childState);
     target = Builder->CreateTruncOrBitCast(target, int32_type);
 
     IntegerType * target_type = (IntegerType *) target->getType();
@@ -483,7 +483,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
         Value * out_ptr = Builder->CreateInBoundsGEP(buff_ptrs.back(), idx_g);
 
         ExpressionGeneratorVisitor exprGenerator(context, childState);
-        RawValue valWrapper = matExpr[i]->accept(exprGenerator);
+        RawValue valWrapper = matExpr[i].accept(exprGenerator);
         Builder->CreateStore(valWrapper.value, out_ptr);
     }
 
@@ -540,7 +540,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
 
 
     // call parent
-    RecordAttribute tupCnt  = RecordAttribute(matExpr[0]->getRegisteredRelName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
+    RecordAttribute tupCnt  = RecordAttribute(matExpr[0].getRegisteredRelName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
 
     AllocaInst * blockN_ptr      = context->CreateEntryBlockAlloca(F, "blockN_ptr", oid_type);
     Builder->CreateStore(ConstantInt::get(oid_type, cap), blockN_ptr);
@@ -561,7 +561,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     AllocaInst * new_oid_ptr = context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
     Builder->CreateStore(new_oid, new_oid_ptr);
 
-    RecordAttribute tupleIdentifier = RecordAttribute(matExpr[0]->getRegisteredRelName(),  activeLoop, pg->getOIDType());
+    RecordAttribute tupleIdentifier = RecordAttribute(matExpr[0].getRegisteredRelName(),  activeLoop, pg->getOIDType());
     
     RawValueMemory mem_oidWrapper;
     mem_oidWrapper.mem      = new_oid_ptr;
@@ -571,7 +571,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
     for (size_t i = 0 ; i < matExpr.size() ; ++i){
 
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(F,
-                                "mem_" + matExpr[i]->getRegisteredAttrName(),
+                                "mem_" + matExpr[i].getRegisteredAttrName(),
                                 buff_ptrs[i]->getType());
 
         Builder->CreateStore(buff_ptrs[i], mem_arg);
@@ -580,7 +580,7 @@ void GpuHashRearrange::consume(GpuRawContext* const context, const OperatorState
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = context->createFalse();
 
-        RecordAttribute battr(matExpr[i]->getRegisteredAs(), true);
+        RecordAttribute battr(matExpr[i].getRegisteredAs(), true);
 
         variableBindings[battr] = mem_valWrapper;
     }
@@ -661,7 +661,7 @@ void GpuHashRearrange::consume_flush(IntegerType * target_type){
 
         context->setEndingBlock(endIBB);
 
-        Plugin * pg       = RawCatalog::getInstance().getPlugin(matExpr[0]->getRegisteredRelName());
+        Plugin * pg       = RawCatalog::getInstance().getPlugin(matExpr[0].getRegisteredRelName());
         Type   * oid_type = pg->getOIDType()->getLLVMType(llvmContext);
 
         IntegerType * int32_type        = Type::getInt32Ty  (llvmContext);
@@ -731,7 +731,7 @@ void GpuHashRearrange::consume_flush(IntegerType * target_type){
         // call parent
         map<RecordAttribute, RawValueMemory> variableBindings;
 
-        RecordAttribute tupCnt  = RecordAttribute(matExpr[0]->getRegisteredRelName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
+        RecordAttribute tupCnt  = RecordAttribute(matExpr[0].getRegisteredRelName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
 
         AllocaInst * blockN_ptr      = context->CreateEntryBlockAlloca(F, "blockN_ptr", oid_type);
 
@@ -764,7 +764,7 @@ void GpuHashRearrange::consume_flush(IntegerType * target_type){
         AllocaInst * new_oid_ptr = context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
         Builder->CreateStore(new_oid, new_oid_ptr);
 
-        RecordAttribute tupleIdentifier = RecordAttribute(matExpr[0]->getRegisteredRelName(),  activeLoop, pg->getOIDType());
+        RecordAttribute tupleIdentifier = RecordAttribute(matExpr[0].getRegisteredRelName(),  activeLoop, pg->getOIDType());
         
         RawValueMemory mem_oidWrapper;
         mem_oidWrapper.mem      = new_oid_ptr;
@@ -774,7 +774,7 @@ void GpuHashRearrange::consume_flush(IntegerType * target_type){
         for (size_t i = 0 ; i < matExpr.size() ; ++i){
 
             AllocaInst * mem_arg = context->CreateEntryBlockAlloca(F,
-                                    "mem_" + matExpr[i]->getRegisteredAttrName(),
+                                    "mem_" + matExpr[i].getRegisteredAttrName(),
                                     buff_ptrs[i]->getType());
 
             Builder->CreateStore(buff_ptrs[i], mem_arg);
@@ -783,7 +783,7 @@ void GpuHashRearrange::consume_flush(IntegerType * target_type){
             mem_valWrapper.mem    = mem_arg;
             mem_valWrapper.isNull = context->createFalse();
 
-            RecordAttribute battr(matExpr[i]->getRegisteredAs(), true);
+            RecordAttribute battr(matExpr[i].getRegisteredAs(), true);
 
             variableBindings[battr] = mem_valWrapper;
         }
@@ -958,7 +958,7 @@ void GpuHashRearrange::close(RawPipeline * pip){
 
     size_t  * attr_size = (size_t *) RawMemoryManager::mallocPinned(buffVar_id.size() * sizeof(size_t));
     for (size_t attr_i = 0; attr_i < buffVar_id.size() ; ++attr_i){
-        attr_size[attr_i] = pip->getSizeOf(matExpr[attr_i]->getExpressionType()->getLLVMType(context->getLLVMContext()));
+        attr_size[attr_i] = pip->getSizeOf(matExpr[attr_i].getExpressionType()->getLLVMType(context->getLLVMContext()));
         std::cerr << "s " << attr_size[attr_i] << std::endl;
     }
 

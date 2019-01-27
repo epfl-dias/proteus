@@ -27,139 +27,139 @@ namespace expressions {
 
 BinaryExpression::~BinaryExpression() {}
 
-RawValue IntConstant::accept(ExprVisitor &v) {
+RawValue IntConstant::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue Int64Constant::accept(ExprVisitor &v) {
+RawValue Int64Constant::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue DateConstant::accept(ExprVisitor &v) {
+RawValue DateConstant::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue FloatConstant::accept(ExprVisitor &v) {
+RawValue FloatConstant::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue BoolConstant::accept(ExprVisitor &v) {
+RawValue BoolConstant::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue StringConstant::accept(ExprVisitor &v) {
+RawValue StringConstant::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue DStringConstant::accept(ExprVisitor &v) {
+RawValue DStringConstant::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue InputArgument::accept(ExprVisitor &v) {
+RawValue InputArgument::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue RecordProjection::accept(ExprVisitor &v) {
+RawValue RecordProjection::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue IfThenElse::accept(ExprVisitor &v) {
+RawValue IfThenElse::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue RecordConstruction::accept(ExprVisitor &v) {
+RawValue RecordConstruction::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
 /**
  * The binary expressions
  */
-RawValue EqExpression::accept(ExprVisitor &v) {
+RawValue EqExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue NeExpression::accept(ExprVisitor &v) {
+RawValue NeExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue GeExpression::accept(ExprVisitor &v) {
+RawValue GeExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue GtExpression::accept(ExprVisitor &v) {
+RawValue GtExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue LeExpression::accept(ExprVisitor &v) {
+RawValue LeExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue LtExpression::accept(ExprVisitor &v) {
+RawValue LtExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue AddExpression::accept(ExprVisitor &v) {
+RawValue AddExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue SubExpression::accept(ExprVisitor &v) {
+RawValue SubExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue MultExpression::accept(ExprVisitor &v) {
+RawValue MultExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue DivExpression::accept(ExprVisitor &v) {
+RawValue DivExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue AndExpression::accept(ExprVisitor &v) {
+RawValue AndExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue OrExpression::accept(ExprVisitor &v) {
+RawValue OrExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue RawValueExpression::accept(ExprVisitor &v) {
+RawValue RawValueExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue MaxExpression::accept(ExprVisitor &v) {
+RawValue MaxExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue MinExpression::accept(ExprVisitor &v) {
+RawValue MinExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue HashExpression::accept(ExprVisitor &v) {
+RawValue HashExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue NegExpression::accept(ExprVisitor &v) {
+RawValue NegExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue ExtractExpression::accept(ExprVisitor &v) {
+RawValue ExtractExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue TestNullExpression::accept(ExprVisitor &v) {
+RawValue TestNullExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
-RawValue CastExpression::accept(ExprVisitor &v) {
+RawValue CastExpression::accept(ExprVisitor &v) const {
 	return v.visit(this);
 }
 
 /*XXX My responsibility to provide appropriate (i.e., compatible) input */
-RawValue IntConstant::acceptTandem(ExprTandemVisitor &v, expressions::Expression* expr) {
+RawValue IntConstant::acceptTandem(ExprTandemVisitor &v, const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		Constant *rConst = dynamic_cast<Constant*>(expr);
+		auto rConst = dynamic_cast<const Constant*>(expr);
 		if (rConst->getConstantType() == INT) {
-			IntConstant* rInt = dynamic_cast<IntConstant*>(expr);
+			auto rInt = dynamic_cast<const IntConstant*>(expr);
 			return v.visit(this, rInt);
 		}
 	}
@@ -169,11 +169,11 @@ RawValue IntConstant::acceptTandem(ExprTandemVisitor &v, expressions::Expression
 }
 
 /*XXX My responsibility to provide appropriate (i.e., compatible) input */
-RawValue Int64Constant::acceptTandem(ExprTandemVisitor &v, expressions::Expression* expr) {
+RawValue Int64Constant::acceptTandem(ExprTandemVisitor &v, const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		Constant *rConst = dynamic_cast<Constant*>(expr);
+		auto rConst = dynamic_cast<const Constant*>(expr);
 		if (rConst->getConstantType() == INT64) {
-			Int64Constant* rInt = dynamic_cast<Int64Constant*>(expr);
+			auto rInt = dynamic_cast<const Int64Constant*>(expr);
 			return v.visit(this, rInt);
 		}
 	}
@@ -183,11 +183,11 @@ RawValue Int64Constant::acceptTandem(ExprTandemVisitor &v, expressions::Expressi
 }
 
 /*XXX My responsibility to provide appropriate (i.e., compatible) input */
-RawValue DateConstant::acceptTandem(ExprTandemVisitor &v, expressions::Expression* expr) {
+RawValue DateConstant::acceptTandem(ExprTandemVisitor &v, const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		Constant *rConst = dynamic_cast<Constant*>(expr);
+		auto rConst = dynamic_cast<const Constant*>(expr);
 		if (rConst->getConstantType() == DATE) {
-			DateConstant* rInt = dynamic_cast<DateConstant*>(expr);
+			auto rInt = dynamic_cast<const DateConstant*>(expr);
 			return v.visit(this, rInt);
 		}
 	}
@@ -197,11 +197,11 @@ RawValue DateConstant::acceptTandem(ExprTandemVisitor &v, expressions::Expressio
 }
 
 RawValue FloatConstant::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		Constant *rConst = dynamic_cast<Constant*>(expr);
+		auto rConst = dynamic_cast<const Constant*>(expr);
 		if (rConst->getConstantType() == FLOAT) {
-			FloatConstant* rFloat = dynamic_cast<FloatConstant*>(expr);
+			auto rFloat = dynamic_cast<const FloatConstant*>(expr);
 			return v.visit(this, rFloat);
 		}
 	}
@@ -211,11 +211,11 @@ RawValue FloatConstant::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue BoolConstant::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		Constant *rConst = dynamic_cast<Constant*>(expr);
+		auto rConst = dynamic_cast<const Constant*>(expr);
 		if (rConst->getConstantType() == BOOL) {
-			BoolConstant* rBool = dynamic_cast<BoolConstant*>(expr);
+			auto rBool = dynamic_cast<const BoolConstant*>(expr);
 			return v.visit(this, rBool);
 		}
 	}
@@ -225,11 +225,11 @@ RawValue BoolConstant::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue StringConstant::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		Constant *rConst = dynamic_cast<Constant*>(expr);
+		auto rConst = dynamic_cast<const Constant*>(expr);
 		if (rConst->getConstantType() == STRING) {
-			StringConstant* rString = dynamic_cast<StringConstant*>(expr);
+			auto rString = dynamic_cast<const StringConstant*>(expr);
 			return v.visit(this, rString);
 		}
 	}
@@ -239,11 +239,11 @@ RawValue StringConstant::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue DStringConstant::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		Constant *rConst = dynamic_cast<Constant*>(expr);
+		auto rConst = dynamic_cast<const Constant*>(expr);
 		if (rConst->getConstantType() == DSTRING) {
-			DStringConstant* rString = dynamic_cast<DStringConstant*>(expr);
+			auto rString = dynamic_cast<const DStringConstant*>(expr);
 			return v.visit(this, rString);
 		}
 	}
@@ -253,9 +253,9 @@ RawValue DStringConstant::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue InputArgument::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		InputArgument *rInputArg = dynamic_cast<InputArgument*>(expr);
+		auto rInputArg = dynamic_cast<const InputArgument*>(expr);
 		return v.visit(this, rInputArg);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -264,10 +264,10 @@ RawValue InputArgument::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue RecordProjection::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		RecordProjection *rRecordProjection =
-				dynamic_cast<RecordProjection*>(expr);
+		auto rRecordProjection =
+				dynamic_cast<const RecordProjection*>(expr);
 		return v.visit(this, rRecordProjection);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -276,9 +276,9 @@ RawValue RecordProjection::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue IfThenElse::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		IfThenElse *rIfThenElse = dynamic_cast<IfThenElse*>(expr);
+		auto rIfThenElse = dynamic_cast<const IfThenElse*>(expr);
 		return v.visit(this, rIfThenElse);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -287,10 +287,10 @@ RawValue IfThenElse::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue RecordConstruction::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		RecordConstruction *rRecordConstruction =
-				dynamic_cast<RecordConstruction*>(expr);
+		auto rRecordConstruction =
+				dynamic_cast<const RecordConstruction*>(expr);
 		return v.visit(this, rRecordConstruction);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -299,9 +299,9 @@ RawValue RecordConstruction::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue RawValueExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		RawValueExpression *rVariable = dynamic_cast<RawValueExpression*>(expr);
+		auto rVariable = dynamic_cast<const RawValueExpression*>(expr);
 		return v.visit(this, rVariable);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -314,10 +314,10 @@ RawValue RawValueExpression::acceptTandem(ExprTandemVisitor &v,
  */
 
 RawValue EqExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		EqExpression *rEqExpression =
-				dynamic_cast<EqExpression*>(expr);
+		auto rEqExpression =
+				dynamic_cast<const EqExpression*>(expr);
 		return v.visit(this, rEqExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -326,10 +326,10 @@ RawValue EqExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue NeExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		NeExpression *rNeExpression =
-				dynamic_cast<NeExpression*>(expr);
+		auto rNeExpression =
+				dynamic_cast<const NeExpression*>(expr);
 		return v.visit(this, rNeExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -338,10 +338,10 @@ RawValue NeExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue GtExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		GtExpression *rGtExpression =
-				dynamic_cast<GtExpression*>(expr);
+		auto rGtExpression =
+				dynamic_cast<const GtExpression*>(expr);
 		return v.visit(this, rGtExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -350,10 +350,10 @@ RawValue GtExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue GeExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		GeExpression *rGeExpression =
-				dynamic_cast<GeExpression*>(expr);
+		auto rGeExpression =
+				dynamic_cast<const GeExpression*>(expr);
 		return v.visit(this, rGeExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -362,10 +362,9 @@ RawValue GeExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue LeExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		LeExpression *rLeExpression =
-				dynamic_cast<LeExpression*>(expr);
+		auto rLeExpression = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, rLeExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -374,10 +373,9 @@ RawValue LeExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue LtExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		LtExpression *rLtExpression =
-				dynamic_cast<LtExpression*>(expr);
+		auto rLtExpression = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, rLtExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -386,10 +384,9 @@ RawValue LtExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue AddExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		AddExpression *rAddExpression =
-				dynamic_cast<AddExpression*>(expr);
+		auto rAddExpression = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, rAddExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -398,10 +395,9 @@ RawValue AddExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue SubExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		SubExpression *rSubExpression =
-				dynamic_cast<SubExpression*>(expr);
+		auto rSubExpression = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, rSubExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -410,10 +406,9 @@ RawValue SubExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue MultExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		MultExpression *rMultExpression =
-				dynamic_cast<MultExpression*>(expr);
+		auto rMultExpression = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, rMultExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -422,10 +417,9 @@ RawValue MultExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue DivExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		DivExpression *rDivExpression =
-				dynamic_cast<DivExpression*>(expr);
+		auto rDivExpression = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, rDivExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -434,10 +428,9 @@ RawValue DivExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue AndExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		AndExpression *rAndExpression =
-				dynamic_cast<AndExpression*>(expr);
+		auto rAndExpression = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, rAndExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -446,10 +439,9 @@ RawValue AndExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue OrExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		OrExpression *rOrExpression =
-				dynamic_cast<OrExpression*>(expr);
+		auto rOrExpression = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, rOrExpression);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -458,9 +450,9 @@ RawValue OrExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue MaxExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		MaxExpression *r = dynamic_cast<MaxExpression*>(expr);
+		auto r = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, r);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -469,9 +461,9 @@ RawValue MaxExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue MinExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		MinExpression *r = dynamic_cast<MinExpression*>(expr);
+		auto r = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, r);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -480,9 +472,9 @@ RawValue MinExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue HashExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		HashExpression *r = dynamic_cast<HashExpression*>(expr);
+		auto r = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, r);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -491,9 +483,9 @@ RawValue HashExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue NegExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		NegExpression *r = dynamic_cast<NegExpression*>(expr);
+		auto r = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, r);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -502,9 +494,9 @@ RawValue NegExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue ExtractExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		ExtractExpression *r = dynamic_cast<ExtractExpression*>(expr);
+		auto r = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, r);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -513,9 +505,9 @@ RawValue ExtractExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue TestNullExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		TestNullExpression *r = dynamic_cast<TestNullExpression*>(expr);
+		auto r = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, r);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -524,9 +516,9 @@ RawValue TestNullExpression::acceptTandem(ExprTandemVisitor &v,
 }
 
 RawValue CastExpression::acceptTandem(ExprTandemVisitor &v,
-		expressions::Expression* expr) {
+		const expressions::Expression* expr) const {
 	if (this->getTypeID() == expr->getTypeID()) {
-		CastExpression *r = dynamic_cast<CastExpression*>(expr);
+		auto r = dynamic_cast<decltype(this)>(expr);
 		return v.visit(this, r);
 	}
 	string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -536,20 +528,22 @@ RawValue CastExpression::acceptTandem(ExprTandemVisitor &v,
 
 }
 
-expressions::Expression * toExpression(Monoid m, expressions::Expression * lhs, expressions::Expression * rhs){
+expression_t toExpression(Monoid m, expression_t lhs, expression_t rhs){
 	switch (m){
 		case SUM:
-			return new expressions::AddExpression(lhs, rhs);
+			return lhs + rhs;
 		case MULTIPLY:
-			return new expressions::MultExpression(lhs, rhs);
+			return lhs * rhs;
 		case MAX:
-			return new expressions::MaxExpression(lhs, rhs);
+			return expression_t::make<expressions::MaxExpression>(lhs, rhs);
 		case OR:
-			return new expressions::OrExpression(lhs, rhs);
+			return lhs | rhs;
 		case AND:
-			return new expressions::AndExpression(lhs, rhs);
+			return lhs & rhs;
 		default:
-			return NULL;
+			string error_msg = string("Unknown monoid");
+			LOG(ERROR)<< error_msg;
+			throw runtime_error(string(error_msg));
 	}
 }
 

@@ -41,8 +41,8 @@ class GpuReduce: public Reduce {
 public:
 //FIXME get read of parameter global_accumulator_ptr, it should be created inside this class and the materializer should be responsible to write it to the host
     GpuReduce(vector<Monoid>                    accs,
-            vector<expressions::Expression *>   outputExprs,
-            expressions::Expression *           pred,
+            vector<expression_t>                outputExprs,
+            expression_t                        pred,
             RawOperator * const                 child,
             GpuRawContext *                     context);
     virtual ~GpuReduce() { LOG(INFO)<< "Collapsing GpuReduce operator";}
@@ -54,11 +54,11 @@ public:
     // virtual void close(RawPipeline * pip) const;
 
 protected:
-    virtual size_t resetAccumulator(expressions::Expression* outputExpr,
+    virtual size_t resetAccumulator(expression_t outputExpr,
         Monoid acc, bool flushDelim, bool is_first, bool is_last) const;
 private:
     void generate(RawContext* const context, const OperatorState& childState) const;
-    void generate(const Monoid &m, expressions::Expression* outputExpr, GpuRawContext* const context, const OperatorState& childState, llvm::Value *mem_accumulating, llvm::Value *global_accumulator_ptr) const;
+    void generate(const Monoid &m, expression_t outputExpr, GpuRawContext* const context, const OperatorState& childState, llvm::Value *mem_accumulating, llvm::Value *global_accumulator_ptr) const;
     
     std::vector<llvm::Value *> global_acc_ptr;
 

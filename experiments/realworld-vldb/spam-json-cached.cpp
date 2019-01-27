@@ -65,7 +65,7 @@ void symantecJSON1(map<string, dataset> datasetCatalog) {
 	 */
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(SUM);
 	expressions::Expression* outputExpr1 = new expressions::IntConstant(1);
@@ -209,7 +209,7 @@ void symantecJSON1Caching(map<string, dataset> datasetCatalog) {
 	 */
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(SUM);
 	expressions::Expression* outputExpr1 = new expressions::IntConstant(1);
@@ -448,7 +448,7 @@ void symantecJSON2v1(map<string, dataset> datasetCatalog) {
 			argsReduce);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	expressions::Expression* exprSize = new expressions::RecordProjection(
 			size->getOriginalType(), argRed, *size);
 
@@ -672,7 +672,7 @@ void symantecJSON3v1(map<string, dataset> datasetCatalog) {
 			argsReduce);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	expressions::Expression* exprSize = new expressions::RecordProjection(
 			size->getOriginalType(), argRed, *size);
 
@@ -854,7 +854,7 @@ void symantecJSON4v1(map<string, dataset> datasetCatalog) {
 			argsReduce);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	expressions::Expression* exprSize = new expressions::RecordProjection(
 			size->getOriginalType(), argRed, *size);
 
@@ -1117,7 +1117,7 @@ void symantecJSON5v1(map<string, dataset> datasetCatalog) {
 			argsReduce);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	expressions::Expression* exprSize = new expressions::RecordProjection(
 			size->getOriginalType(), argRed, *size);
 
@@ -1379,7 +1379,7 @@ void symantecJSON6v1(map<string, dataset> datasetCatalog) {
 			argsReduce);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	expressions::Expression* exprSize = new expressions::RecordProjection(
 			size->getOriginalType(), argRed, *size);
 
@@ -1637,7 +1637,7 @@ void symantecJSON7v1(map<string, dataset> datasetCatalog) {
 			argsReduce);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	expressions::Expression* exprSize = new expressions::RecordProjection(
 			size->getOriginalType(), argRed, *size);
 
@@ -1946,7 +1946,7 @@ void symantecJSON9v1(map<string, dataset> datasetCatalog) {
 			argsReduce);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	expressions::Expression* exprSize = new expressions::RecordProjection(
 			size->getOriginalType(), argRed, *size);
 
@@ -2124,7 +2124,7 @@ void symantecJSON10v1(map<string, dataset> datasetCatalog) {
 			argsReduce);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	expressions::Expression* exprSize = new expressions::RecordProjection(
 			size->getOriginalType(), argRed, *size);
 
@@ -2261,7 +2261,7 @@ void symantecJSON11(map<string, dataset> datasetCatalog) {
 	string aggrLabel = string(nestLabel);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -2410,7 +2410,7 @@ void symantecJSON11v1(map<string, dataset> datasetCatalog) {
 	string aggrLabel = string(nestLabel);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;

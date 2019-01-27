@@ -27,49 +27,49 @@
 #pragma push_macro("DEBUG") //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
 #undef DEBUG //FIXME: REMOVE!!! used to disable prints, as they are currently undefined for the gpu side
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::IntConstant *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::IntConstant *e) {
 	RawValue valWrapper;
 	valWrapper.value = ConstantInt::get(context->getLLVMContext(), APInt(32, e->getVal()));
 	valWrapper.isNull = context->createFalse();
 	return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::Int64Constant *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::Int64Constant *e) {
 	RawValue valWrapper;
 	valWrapper.value = ConstantInt::get(context->getLLVMContext(), APInt(64, e->getVal()));
 	valWrapper.isNull = context->createFalse();
 	return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::DateConstant *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::DateConstant *e) {
 	RawValue valWrapper;
 	valWrapper.value = ConstantInt::get(context->getLLVMContext(), APInt(64, e->getVal()));
 	valWrapper.isNull = context->createFalse();
 	return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::FloatConstant *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::FloatConstant *e) {
 	RawValue valWrapper;
 	valWrapper.value = ConstantFP::get(context->getLLVMContext(), APFloat(e->getVal()));
 	valWrapper.isNull = context->createFalse();
 	return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::BoolConstant *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::BoolConstant *e) {
 	RawValue valWrapper;
 	valWrapper.value = ConstantInt::get(context->getLLVMContext(), APInt(1, e->getVal()));
 	valWrapper.isNull = context->createFalse();
 	return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::DStringConstant *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::DStringConstant *e) {
 	RawValue valWrapper;
 	valWrapper.value = ConstantInt::get(context->getLLVMContext(), APInt(32, e->getVal()));
 	valWrapper.isNull = context->createFalse();
 	return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::StringConstant *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::StringConstant *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 
 	char* str = new char[e->getVal().length() + 1];
@@ -103,7 +103,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::StringConstant *e) {
 	return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::InputArgument *e) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 	AllocaInst* argMem = NULL;
@@ -203,7 +203,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::InputArgument *e) {
 	return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::RecordProjection *e) {
 	RawCatalog& catalog = RawCatalog::getInstance();
 	IRBuilder<>* const Builder = context->getBuilder();
 	activeRelation = e->getOriginalRelationName();
@@ -249,7 +249,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 	}
 
 
-	RawValue record = e->getExpr()->accept(*this);
+	RawValue record = e->getExpr().accept(*this);
 
 	//Resetting activeRelation here would break nested-record-projections
 	if (plugin == NULL) {
@@ -263,7 +263,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 		RawValueMemory mem_val;
 		//cout << "Active RelationProj: " << activeRelation << "_" << e->getProjectionName() << endl;
 		if (e->getProjectionName() != activeLoop) {
-			const RecordType * exprType = dynamic_cast<const RecordType *>(e->getExpr()->getExpressionType());
+			const RecordType * exprType = dynamic_cast<const RecordType *>(e->getExpr().getExpressionType());
 			if (exprType){
 				RecordAttribute attr = e->getAttribute();
 				Value * val = exprType->projectArg(record.value, &attr, Builder);
@@ -305,7 +305,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
 }
 
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::RecordConstruction *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::RecordConstruction *e) {
 	IRBuilder<>* const Builder 	= context->getBuilder();
 	Function *F 				= Builder->GetInsertBlock()->getParent();
 	LLVMContext& llvmContext	= context->getLLVMContext();
@@ -316,7 +316,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordConstruction *e) {
 	recType->dump();
 	int i = 0;
 	for (const auto & attr: e->getAtts()) {
-		RawValue val = attr.getExpression()->accept(*this);
+		RawValue val = attr.getExpression().accept(*this);
 		val.value->dump();
 		context->updateStructElem(val.value, mem_struct, i++);
 	}
@@ -324,7 +324,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordConstruction *e) {
 	return RawValue{Builder->CreateLoad(mem_struct), context->createFalse()};
 }
 
-//RawValue ExpressionGeneratorVisitor::visit(expressions::RecordProjection *e) {
+//RawValue ExpressionGeneratorVisitor::visit(const expressions::RecordProjection *e) {
 //	RawCatalog& catalog 			= RawCatalog::getInstance();
 //	IRBuilder<>* const Builder		= context->getBuilder();
 //	activeRelation 					= e->getOriginalRelationName();
@@ -435,12 +435,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::RecordConstruction *e) {
 //	}
 //}
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::IfThenElse *e) {
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	LLVMContext& llvmContext		= context->getLLVMContext();
 	Function *F 					= TheBuilder->GetInsertBlock()->getParent();
 
-	RawValue ifCond 		= e->getIfCond()->accept(*this);
+	RawValue ifCond 		= e->getIfCond().accept(*this);
 
 	//Prepare result
 //	AllocaInst* mem_result = context->CreateEntryBlockAlloca(F, "ifElseResult", (ifResult.value)->getType());
@@ -459,7 +459,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
 
 	//then
 	TheBuilder->SetInsertPoint(ThenBB);
-	RawValue ifResult = e->getIfResult()->accept(*this);
+	RawValue ifResult = e->getIfResult().accept(*this);
 	mem_result = context->CreateEntryBlockAlloca(F, "ifElseResult", (ifResult.value)->getType());
 	mem_result_isNull = context->CreateEntryBlockAlloca(F, "ifElseResultIsNull", (ifResult.isNull)->getType());
 
@@ -469,7 +469,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
 
 	//else
 	TheBuilder->SetInsertPoint(ElseBB);
-	RawValue elseResult = e->getElseResult()->accept(*this);
+	RawValue elseResult = e->getElseResult().accept(*this);
 	TheBuilder->CreateStore(elseResult.value,mem_result);
 	TheBuilder->CreateStore(elseResult.isNull,mem_result_isNull);
 	TheBuilder->CreateBr(MergeBB);
@@ -483,14 +483,14 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::IfThenElse *e) {
 	return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::EqExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 
-	RawValue left = e->getLeftOperand()->accept(*this);
-	RawValue right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand().accept(*this);
+	RawValue right = e->getRightOperand().accept(*this);
 
 
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand().getExpressionType();
 
 	typeID id = childType->getTypeID();
 	RawValue valWrapper;
@@ -523,16 +523,15 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::EqExpression *e) {
 	}
 	case RECORD: {
 		Value * res = context->createTrue();
-		const auto &al = dynamic_cast<const RecordType *>(e->getLeftOperand ()->getExpressionType())->getArgs();
-		const auto &ar = dynamic_cast<const RecordType *>(e->getRightOperand()->getExpressionType())->getArgs();
+		const auto &al = dynamic_cast<const RecordType *>(e->getLeftOperand ().getExpressionType())->getArgs();
+		const auto &ar = dynamic_cast<const RecordType *>(e->getRightOperand().getExpressionType())->getArgs();
 		auto it_al = al.begin();
 		auto it_ar = ar.begin();
 		assert(al.size() == ar.size() && al.size() > 0);
 		for (size_t i = 0 ; i < al.size() ; ++i, ++it_al, ++it_ar){
-			auto e_l = new expressions::RawValueExpression{(*it_al)->getOriginalType(), RawValue{TheBuilder->CreateExtractValue(left.value , i), context->createFalse()}};
-			auto e_r = new expressions::RawValueExpression{(*it_ar)->getOriginalType(), RawValue{TheBuilder->CreateExtractValue(right.value, i), context->createFalse()}};
-			expressions::EqExpression eq{e_l, e_r};
-			auto r = eq.accept(*this);
+			expressions::RawValueExpression e_l{(*it_al)->getOriginalType(), RawValue{TheBuilder->CreateExtractValue(left.value , i), context->createFalse()}};
+			expressions::RawValueExpression e_r{(*it_ar)->getOriginalType(), RawValue{TheBuilder->CreateExtractValue(right.value, i), context->createFalse()}};
+			auto r = eq(e_l, e_r).accept(*this);
 			res = TheBuilder->CreateAnd(res, r.value);
 		}
 
@@ -1321,12 +1320,12 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 
 /* returns true / false!!*/
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::NeExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::NeExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	RawValue left = e->getLeftOperand()->accept(*this);
-	RawValue right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand().accept(*this);
+	RawValue right = e->getRightOperand().accept(*this);
 
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand().getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -1364,12 +1363,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::NeExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::GeExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::GeExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	RawValue left = e->getLeftOperand()->accept(*this);
-	RawValue right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand().accept(*this);
+	RawValue right = e->getRightOperand().accept(*this);
 
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand().getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -1407,12 +1406,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::GeExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::GtExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	RawValue left = e->getLeftOperand()->accept(*this);
-	RawValue right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand().accept(*this);
+	RawValue right = e->getRightOperand().accept(*this);
 
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand().getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -1459,12 +1458,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::GtExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::LeExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::LeExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	RawValue left = e->getLeftOperand()->accept(*this);
-	RawValue right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand().accept(*this);
+	RawValue right = e->getRightOperand().accept(*this);
 
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand().getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -1502,12 +1501,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::LeExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::LtExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::LtExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	RawValue left = e->getLeftOperand()->accept(*this);
-	RawValue right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand().accept(*this);
+	RawValue right = e->getRightOperand().accept(*this);
 
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand().getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -1563,12 +1562,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::LtExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::AddExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::AddExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	RawValue left = e->getLeftOperand()->accept(*this);
-	RawValue right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand().accept(*this);
+	RawValue right = e->getRightOperand().accept(*this);
 
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand().getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -1605,12 +1604,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::AddExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::SubExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::SubExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	RawValue left = e->getLeftOperand()->accept(*this);
-	RawValue right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand().accept(*this);
+	RawValue right = e->getRightOperand().accept(*this);
 
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand().getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -1647,12 +1646,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::SubExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::MultExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::MultExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	RawValue left = e->getLeftOperand()->accept(*this);
-	RawValue right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand().accept(*this);
+	RawValue right = e->getRightOperand().accept(*this);
 
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand().getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -1688,12 +1687,12 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::MultExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::DivExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::DivExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	RawValue left = e->getLeftOperand()->accept(*this);
-	RawValue right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand().accept(*this);
+	RawValue right = e->getRightOperand().accept(*this);
 
-	const ExpressionType* childType = e->getLeftOperand()->getExpressionType();
+	const ExpressionType* childType = e->getLeftOperand().getExpressionType();
 	if (childType->isPrimitive()) {
 		typeID id = childType->getTypeID();
 		RawValue valWrapper;
@@ -1729,45 +1728,45 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::DivExpression *e) {
 	throw runtime_error(string("[ExpressionGeneratorVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::AndExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::AndExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-	RawValue left = e->getLeftOperand()->accept(*this);
-	RawValue right = e->getRightOperand()->accept(*this);
+	RawValue left = e->getLeftOperand().accept(*this);
+	RawValue right = e->getRightOperand().accept(*this);
 	RawValue valWrapper;
 	valWrapper.isNull = context->createFalse();
 	valWrapper.value = TheBuilder->CreateAnd(left.value, right.value);
 	return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::OrExpression *e) {
+RawValue ExpressionGeneratorVisitor::visit(const expressions::OrExpression *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
-		RawValue left = e->getLeftOperand()->accept(*this);
-		RawValue right = e->getRightOperand()->accept(*this);
+		RawValue left = e->getLeftOperand().accept(*this);
+		RawValue right = e->getRightOperand().accept(*this);
 		RawValue valWrapper;
 		valWrapper.isNull = context->createFalse();
 		valWrapper.value = TheBuilder->CreateOr(left.value, right.value);
 		return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::RawValueExpression *e){
+RawValue ExpressionGeneratorVisitor::visit(const expressions::RawValueExpression *e){
 	return e->getValue();
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::MaxExpression *e)	{
+RawValue ExpressionGeneratorVisitor::visit(const expressions::MaxExpression *e)	{
 	return e->getCond()->accept(*this);
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::MinExpression *e)	{
+RawValue ExpressionGeneratorVisitor::visit(const expressions::MinExpression *e)	{
 	return e->getCond()->accept(*this);
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::HashExpression *e)	{
+RawValue ExpressionGeneratorVisitor::visit(const expressions::HashExpression *e)	{
 	ExpressionHasherVisitor h(context, currState);
-	return e->getExpr()->accept(h);
+	return e->getExpr().accept(h);
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::NegExpression *e)	{
-	RawValue v = e->getExpr()->accept(*this);
+RawValue ExpressionGeneratorVisitor::visit(const expressions::NegExpression *e)	{
+	RawValue v = e->getExpr().accept(*this);
 	if (v.value->getType()->isFloatingPointTy()){
 		v.value = context->getBuilder()->CreateFNeg(v.value);
 	} else {
@@ -1813,7 +1812,7 @@ int getYearAbsOffset(expressions::extract_unit unit){
  * ( https://github.com/apache/calcite-avatica/blob/master/core/src/main/java/org/apache/calcite/avatica/util/DateTimeUtils.java )
  */
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::ExtractExpression *e){
+RawValue ExpressionGeneratorVisitor::visit(const expressions::ExtractExpression *e){
 	/**
 	 * Mimic Calcite's julianExtract
 	 *
@@ -1859,7 +1858,7 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::ExtractExpression *e){
 		);
 	};
 
-	auto v = e->getExpr()->accept(*this);
+	auto v = e->getExpr().accept(*this);
 	auto u = e->getExtractUnit();
 
 	constexpr int32_t MS_PER_S    {1000};
@@ -2143,24 +2142,24 @@ RawValue ExpressionGeneratorVisitor::visit(expressions::ExtractExpression *e){
 	return v;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::TestNullExpression *e)	{
-	RawValue v  = e->getExpr()->accept(*this);
+RawValue ExpressionGeneratorVisitor::visit(const expressions::TestNullExpression *e)	{
+	RawValue v  = e->getExpr().accept(*this);
 	Value * result;
 	if (e->isNullTest()) result = v.isNull;
 	else result = context->getBuilder()->CreateNot(v.isNull);
 	return RawValue{result, context->createFalse()};
 }
 
-RawValue ExpressionGeneratorVisitor::visit(expressions::CastExpression *e)	{
+RawValue ExpressionGeneratorVisitor::visit(const expressions::CastExpression *e)	{
 	IRBuilder<>* const TheBuilder  = context->getBuilder    ();
 	LLVMContext      & llvmContext = context->getLLVMContext();
 
-	RawValue v = e->getExpr()->accept(*this);
+	RawValue v = e->getExpr().accept(*this);
 
 	const ExpressionType  * etype_to   = e->getExpressionType();
 	llvm::Type            * ltype_to   = etype_to->getLLVMType(llvmContext);
 
-	const ExpressionType  * etype_from = e->getExpr()->getExpressionType();
+	const ExpressionType  * etype_from = e->getExpr().getExpressionType();
 	llvm::Type            * ltype_from = etype_from->getLLVMType(llvmContext);
 
 	bool fromFP = ltype_from->isIntegerTy();

@@ -61,7 +61,7 @@ public:
 	}
 
 	void registerPM(string fileName, char *payloadPtr) {
-		map<string, char*>::iterator it = pmCaches.find(fileName);
+		auto it = pmCaches.find(fileName);
 		if (it != pmCaches.end()) {
 			LOG(WARNING)<< "PM caches already contain " << fileName;
 			cout << "*Warning* PM caches already contain " << fileName << endl;
@@ -70,7 +70,7 @@ public:
 	}
 
 	char* getPM(string fileName) {
-		map<string, char*>::iterator it = pmCaches.find(fileName);
+		auto it = pmCaches.find(fileName);
 		if (it == pmCaches.end()) {
 			LOG(INFO)<< "No PM found for " << fileName;
 			/* NULL is a valid value (PM not found) */
@@ -79,11 +79,11 @@ public:
 		return it->second;
 	}
 
-	void registerCache(expressions::Expression* expr, CacheInfo payload, bool entireDataset) {
+	void registerCache(const expressions::Expression* expr, CacheInfo payload, bool entireDataset) {
 #ifdef CACHING_ON
-		map<expressions::Expression*, CacheInfo>::iterator it = binCaches.find(expr);
+		auto it = binCaches.find(expr);
 		bool found = false;
-		map<expressions::Expression*, bool>::iterator itBool;
+		decltype(binCacheIsFull)::iterator itBool;
 		if (it != binCaches.end()) {
 			LOG(WARNING) << "Bin. caches already contain expr " << expr->getTypeID();
 			found = true;
@@ -125,8 +125,8 @@ public:
 #endif
 	}
 
-	CacheInfo getCache(expressions::Expression* expr) {
-		map<expressions::Expression*, CacheInfo>::iterator it = binCaches.find(expr);
+	CacheInfo getCache(const expressions::Expression* expr) {
+		auto it = binCaches.find(expr);
 		if (it == binCaches.end()) {
 			//cout << "No match out of " << binCaches.size() << " entries" << endl;
 			LOG(INFO)<< "No Bin Cache found for expr of type " << expr->getExpressionType()->getType();
@@ -137,8 +137,8 @@ public:
 		return it->second;
 	}
 
-	bool getCacheIsFull(expressions::Expression* expr) {
-		map<expressions::Expression*, bool>::iterator it = binCacheIsFull.find(expr);
+	bool getCacheIsFull(const expressions::Expression* expr) {
+		auto it = binCacheIsFull.find(expr);
 		if (it == binCacheIsFull.end()) {
 			/* Should not occur - method should be used only
 			 * after establishing cache info exists */
@@ -160,11 +160,11 @@ private:
 	 * (i.e., replacing parts of the query subtree)
 	 * will only be triggered if dictated by the QO.
 	 */
-	map<expressions::Expression*, CacheInfo, less_map> binCaches;
+	map<const expressions::Expression*, CacheInfo, less_map> binCaches;
 	/* Answers whether the entire dataset contributes
 	 * to the cache, or whether some operator has
 	 * filtered some objects/tuples */
-	map<expressions::Expression*, bool, less_map> binCacheIsFull;
+	map<const expressions::Expression*, bool, less_map> binCacheIsFull;
 
 	/* From filename to (cast) PM */
 	map<string, char*> pmCaches;

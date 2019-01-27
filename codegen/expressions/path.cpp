@@ -23,21 +23,21 @@
 
 #include "expressions/path.hpp"
 
-string Path::toString() {
+string Path::toString() const{
 	stringstream ss;
 	ss << desugarizedPath->getRelationName();
-	expressions::Expression* currExpr = desugarizedPath;
+	expression_t currExpr = desugarizedPath;
 	list<string> projNames = list<string>();
-	while (currExpr->getTypeID() == expressions::RECORD_PROJECTION) {
-		expressions::RecordProjection* const currProj =
-				(expressions::RecordProjection*) currExpr;
+	while (currExpr.getTypeID() == expressions::RECORD_PROJECTION) {
+		auto currProj = dynamic_cast<const expressions::RecordProjection *>(currExpr.getUnderlyingExpression());
+		assert(currProj);
 		projNames.insert(projNames.begin(),currProj->getProjectionName());
 		currExpr = currProj->getExpr();
 	}
 
-	for(list<string>::iterator it = projNames.begin(); it != projNames.end(); it++)	{
+	for(const auto &str: projNames){
 		ss << ".";
-		ss << (*it);
+		ss << str;
 	}
 
 	LOG(INFO) << "[Unnest: ] path.toString = " << ss.str();

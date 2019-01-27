@@ -31,14 +31,14 @@ public:
     HashRearrange(  RawOperator * const             child,
                     GpuRawContext * const           context,
                     int                             numOfBuckets,
-                    const vector<expressions::Expression *> &wantedFields,
-                    expressions::Expression        *hashExpr,
+                    const vector<expression_t>     &wantedFields,
+                    expression_t                    hashExpr,
                     RecordAttribute                *hashProject = NULL) :
                         UnaryRawOperator(child), 
                         context(context), 
                         numOfBuckets(numOfBuckets),
                         wantedFields(wantedFields),
-                        hashExpr(hashExpr),
+                        hashExpr(std::move(hashExpr)),
                         hashProject(hashProject),
                         blockSize(h_vector_size * sizeof(int32_t)){
     }//FIMXE: default blocksize...
@@ -49,7 +49,7 @@ public:
     virtual void consume(RawContext* const context, const OperatorState& childState);
     virtual bool isFiltering() const {return false;}
 
-    llvm::Value * hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState);
+    llvm::Value * hash(const std::vector<expression_t> &exprs, RawContext* const context, const OperatorState& childState);
 
 protected:
     virtual void consume_flush();
@@ -57,11 +57,11 @@ protected:
     virtual void open (RawPipeline * pip);
     virtual void close(RawPipeline * pip);
 
-    const vector<expressions::Expression *> wantedFields;
+    const vector<expression_t>      wantedFields;
     const int                       numOfBuckets;
     RecordAttribute               * hashProject ;
 
-    expressions::Expression *       hashExpr    ;
+    expression_t                    hashExpr    ;
 
     // void *                          flushFunc   ;
 

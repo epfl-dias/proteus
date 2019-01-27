@@ -122,7 +122,7 @@ void reduceMultipleNumeric()
 //	Reduce reduce = Reduce(MULTIPLY, outputExpr, predicate, &scan, &ctx);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	/* Aggregate 1 */
 	accs.push_back(MAX);

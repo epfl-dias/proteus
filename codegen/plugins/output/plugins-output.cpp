@@ -25,7 +25,7 @@
 #include "expressions/expressions-generator.hpp"
 
 Materializer::Materializer(vector<RecordAttribute*> wantedFields,
-//		const vector<expressions::Expression*>& wantedExpressions,
+//		const vector<expression_t>& wantedExpressions,
 		vector<materialization_mode> outputMode) :
 //		wantedExpressions(wantedExpressions),
 		wantedFields(wantedFields), outputMode(outputMode)
@@ -34,7 +34,7 @@ Materializer::Materializer(vector<RecordAttribute*> wantedFields,
 }
 
 Materializer::Materializer(vector<RecordAttribute*> whichFields,
-		vector<expressions::Expression*> wantedExpressions,
+		vector<expression_t> wantedExpressions,
 		vector<RecordAttribute*> whichOIDs,
 		vector<materialization_mode> outputMode) :
 		wantedExpressions(wantedExpressions), wantedOIDs(whichOIDs), wantedFields(
@@ -42,13 +42,13 @@ Materializer::Materializer(vector<RecordAttribute*> whichFields,
 	oidsProvided = true;
 }
 
-Materializer::Materializer(vector<expressions::Expression*> wantedExpressions) {
+Materializer::Materializer(vector<expression_t> wantedExpressions) {
 	oidsProvided = true;
-	vector<expressions::Expression*>::const_iterator it =
+	vector<expression_t>::const_iterator it =
 			wantedExpressions.begin();
 	for (; it != wantedExpressions.end(); it++) {
-		expressions::RecordProjection *proj =
-				dynamic_cast<expressions::RecordProjection*>(*it);
+		auto proj =
+				dynamic_cast<const expressions::RecordProjection*>(it->getUnderlyingExpression());
 		if (proj != NULL) {
 			RecordAttribute *recAttr = new RecordAttribute(
 					proj->getAttribute());
@@ -123,17 +123,17 @@ OutputPlugin::OutputPlugin(RawContext* const context,
 		mockAtts.push_back(*it);
 		list<RecordAttribute> mockProjections;
 		RecordType mockRec = RecordType(mockAtts);
-		expressions::InputArgument *mockExpr = new expressions::InputArgument(&mockRec, 0, mockProjections);
-		expressions::RecordProjection *e = new expressions::RecordProjection(mockExpr,*(*it));
-		CacheInfo info = cache.getCache(e);
+		expressions::InputArgument mockExpr{&mockRec, 0, mockProjections};
+		expressions::RecordProjection e = expression_t{mockExpr}[*(*it)];
+		CacheInfo info = cache.getCache(&e);
 		bool isCached = false;
 		if (info.structFieldNo != -1) {
-			if (!cache.getCacheIsFull(e)) {
+			if (!cache.getCacheIsFull(&e)) {
 			} else {
 				isCached = true;
 				cout << "[OUTPUT PG: ] *Cached* Expression found for "
-						<< e->getOriginalRelationName() << "."
-						<< e->getAttribute().getAttrName() << "!" << endl;
+						<< e.getOriginalRelationName() << "."
+						<< e.getAttribute().getAttrName() << "!" << endl;
 			}
 		}
 

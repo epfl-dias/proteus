@@ -37,7 +37,7 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 
 	//Generate path. Value returned must be a collection
 	ExpressionGeneratorVisitor pathExprGenerator = ExpressionGeneratorVisitor(context, childState);
-	expressions::RecordProjection* pathProj = path.get();
+	const expressions::RecordProjection* pathProj = path.get();
 	RawValue nestedValueAll = pathProj->accept(pathExprGenerator);
 
 	/**
@@ -131,7 +131,7 @@ void Unnest::generate(RawContext* const context, const OperatorState& childState
 
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, newState);
-	RawValue condition = pred->accept(predExprGenerator);
+	RawValue condition = pred.accept(predExprGenerator);
 	Builder->CreateCondBr(condition.value,ifBlock,elseBlock);
 
 	/*

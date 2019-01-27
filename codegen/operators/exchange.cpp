@@ -351,7 +351,7 @@ void Exchange::consume(RawContext* const context, const OperatorState& childStat
 
     Value * target;
     bool retry = true;
-    if (hashExpr){
+    if (hashExpr.has_value()){
         ExpressionGeneratorVisitor exprGenerator{context, childState};
         target            = hashExpr->accept(exprGenerator).value;
         retry             = false;

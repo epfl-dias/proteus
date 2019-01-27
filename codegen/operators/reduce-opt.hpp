@@ -37,8 +37,8 @@ namespace opt {
 /* MULTIPLE ACCUMULATORS SUPPORTED */
 class Reduce: public UnaryRawOperator {
 public:
-	Reduce(vector<Monoid> accs, vector<expressions::Expression*> outputExprs,
-			expressions::Expression* pred, RawOperator* const child,
+	Reduce(vector<Monoid> accs, vector<expression_t> outputExprs,
+			expression_t pred, RawOperator* const child,
 			RawContext* context, bool flushResults = false, const char *outPath = "out.json");
 	virtual ~Reduce() {
 		LOG(INFO)<<"Collapsing Reduce operator";}
@@ -52,8 +52,8 @@ protected:
 	RawContext* context;
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
-	expressions::Expression* pred;
+	vector<expression_t> outputExprs;
+	expression_t pred;
 	vector<size_t> mem_accumulators;
 	
 	const char *outPath;
@@ -65,14 +65,14 @@ protected:
 
 	virtual void generate_flush();
 
-	virtual size_t resetAccumulator(expressions::Expression* outputExpr, Monoid acc, bool flushDelim = false, bool is_first = false, bool is_last = false) const;
+	virtual size_t resetAccumulator(expression_t outputExpr, Monoid acc, bool flushDelim = false, bool is_first = false, bool is_last = false) const;
 
 private:
 	void generate(RawContext* const context, const OperatorState& childState) const;
 	//Used to enable chaining with subsequent operators
-	void generateBagUnion(expressions::Expression* outputExpr, RawContext* const context,
+	void generateBagUnion(expression_t outputExpr, RawContext* const context,
 			const OperatorState& state, llvm::Value * cnt_mem) const;
-	void generateAppend(expressions::Expression* outputExpr, RawContext* const context,
+	void generateAppend(expression_t outputExpr, RawContext* const context,
 			const OperatorState& state, AllocaInst *mem_accumulating) const;
 
 	void flushResult();

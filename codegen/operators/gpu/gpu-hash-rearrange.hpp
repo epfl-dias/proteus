@@ -33,14 +33,14 @@ public:
     GpuHashRearrange(RawOperator  * const                           child,
                     GpuRawContext * const                           context,
                     int                                             numOfBuckets,
-                    const std::vector<expressions::Expression *>  & matExpr,
-                    expressions::Expression                       * hashExpr,
+                    const std::vector<expression_t>               & matExpr,
+                    expression_t                                    hashExpr,
                     RecordAttribute                               * hashProject = NULL) :
                         UnaryRawOperator(child), 
                         context(context), 
                         numOfBuckets(numOfBuckets),
                         matExpr(matExpr),
-                        hashExpr(hashExpr),
+                        hashExpr(std::move(hashExpr)),
                         hashProject(hashProject),
                         blockSize(h_vector_size * sizeof(int32_t)){
                         // packet_widths(packet_widths){
@@ -59,13 +59,13 @@ protected:
     virtual void open (RawPipeline * pip);
     virtual void close(RawPipeline * pip);
 
-    llvm::Value * hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState);
+    llvm::Value * hash(const std::vector<expression_t> &exprs, RawContext* const context, const OperatorState& childState);
 
-    std::vector<expressions::Expression *>  matExpr         ;
+    std::vector<expression_t>               matExpr         ;
     const int                               numOfBuckets    ;
     RecordAttribute                       * hashProject     ;
 
-    expressions::Expression               * hashExpr        ;
+    expression_t                            hashExpr        ;
     expressions::RecordConstruction       * mexpr           ;
 
     RawPipelineGen                        * closingPip      ;

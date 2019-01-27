@@ -27,13 +27,13 @@
 namespace opt {
 
 GpuReduce::GpuReduce(vector<Monoid>             accs,
-            vector<expressions::Expression*>    outputExprs,
-            expressions::Expression*            pred, 
+            vector<expression_t>                outputExprs,
+            expression_t                        pred, 
             RawOperator* const                  child,
             GpuRawContext*                      context)
-        : Reduce(accs, outputExprs, pred, child, context, false) {
+        : Reduce(accs, outputExprs, std::move(pred), child, context, false) {
     for (const auto &expr: outputExprs){
-        if (!expr->getExpressionType()->isPrimitive()){
+        if (!expr.getExpressionType()->isPrimitive()){
             string error_msg("[GpuReduce: ] Currently only supports primitive types");
             LOG(ERROR) << error_msg;
             throw runtime_error(error_msg);
@@ -55,7 +55,7 @@ void GpuReduce::produce() {
     assert(mem_accumulators.empty());
     if (mem_accumulators.empty()){
         vector<Monoid>::const_iterator itAcc;
-        vector<expressions::Expression*>::const_iterator itExpr;
+        vector<expression_t>::const_iterator itExpr;
         itAcc = accs.begin();
         itExpr = outputExprs.begin();
 
@@ -63,11 +63,10 @@ void GpuReduce::produce() {
         /* Prepare accumulator FOREACH outputExpr */
         for (; itAcc != accs.end(); itAcc++, itExpr++) {
             Monoid acc = *itAcc;
-            expressions::Expression *outputExpr = *itExpr;
             bool flushDelim = (aggsNo > 1) && (itAcc != accs.end() - 1);
             bool is_first   = (itAcc == accs.begin()  );
             bool is_last    = (itAcc == accs.end() - 1);
-            size_t mem_accumulator = resetAccumulator(outputExpr, acc, flushDelim, is_first, is_last);
+            size_t mem_accumulator = resetAccumulator(*itExpr, acc, flushDelim, is_first, is_last);
             mem_accumulators.push_back(mem_accumulator);
         }
     }
@@ -88,7 +87,7 @@ void GpuReduce::consume(GpuRawContext* const context, const OperatorState& child
 
     //Generate condition
     ExpressionGeneratorVisitor predExprGenerator{context, childState};
-    RawValue condition = pred->accept(predExprGenerator);
+    RawValue condition = pred.accept(predExprGenerator);
     /**
      * Predicate Evaluation:
      */
@@ -109,18 +108,15 @@ void GpuReduce::consume(GpuRawContext* const context, const OperatorState& child
 
     Builder->SetInsertPoint(ifBlock);
 
-    vector<Monoid                   >::const_iterator itAcc ;
-    vector<expressions::Expression *>::const_iterator itExpr;
-    vector<size_t                   >::const_iterator itMem ;
     /* Time to Compute Aggs */
-    itAcc  = accs.begin();
-    itExpr = outputExprs.begin();
-    itMem  = mem_accumulators.begin();
+    auto itAcc  = accs.begin();
+    auto itExpr = outputExprs.begin();
+    auto itMem  = mem_accumulators.begin();
 
     for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-        Monoid                      acc                 = *itAcc    ;
-        expressions::Expression   * outputExpr          = *itExpr   ;
-        Value                     * mem_accumulating    = NULL      ;
+        auto acc                    = *itAcc    ;
+        auto outputExpr             = *itExpr   ;
+        Value * mem_accumulating    = NULL      ;
 
         switch (acc) {
         case SUM:
@@ -135,7 +131,7 @@ void GpuReduce::consume(GpuRawContext* const context, const OperatorState& child
 
             Constant * acc_init = getIdentityElementIfSimple(
                 acc,
-                outputExpr->getExpressionType(),
+                outputExpr.getExpressionType(),
                 context
             );
             Value * acc_mem  = context->CreateEntryBlockAlloca("acc", acc_init->getType());
@@ -154,10 +150,9 @@ void GpuReduce::consume(GpuRawContext* const context, const OperatorState& child
             acc_value.isNull = context->createFalse();
 
             // new_value = acc_value op outputExpr
-            expressions::Expression * val = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc_value);
-            expressions::Expression * upd = toExpression(acc, val, outputExpr);
-            assert(upd && "Monoid is not convertible to expression!");
-            RawValue new_val = upd->accept(outputExprGenerator);
+            expressions::RawValueExpression val{outputExpr.getExpressionType(), acc_value};
+            expression_t upd = toExpression(acc, val, outputExpr);
+            RawValue new_val = upd.accept(outputExprGenerator);
 
             // store new_val to accumulator
             Builder->CreateStore(new_val.value, acc_mem);
@@ -251,7 +246,7 @@ void GpuReduce::consume(GpuRawContext* const context, const OperatorState& child
 //     ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
 // }
 
-void GpuReduce::generate(const Monoid &m, expressions::Expression* outputExpr,
+void GpuReduce::generate(const Monoid &m, expression_t outputExpr,
         GpuRawContext* const context, const OperatorState& state,
         Value * mem_accumulating, Value *global_accumulator_ptr) const {
 
@@ -333,7 +328,7 @@ void GpuReduce::generate(const Monoid &m, expressions::Expression* outputExpr,
 //     // }
 // }
 
-size_t GpuReduce::resetAccumulator(expressions::Expression* outputExpr,
+size_t GpuReduce::resetAccumulator(expression_t outputExpr,
         Monoid acc, bool flushDelim, bool is_first, bool is_last) const {
     size_t mem_accum_id = ~((size_t) 0);
 
@@ -344,7 +339,7 @@ size_t GpuReduce::resetAccumulator(expressions::Expression* outputExpr,
         case MAX:
         case OR:
         case AND: {
-            Type * t = outputExpr->getExpressionType()
+            Type * t = outputExpr.getExpressionType()
                                     ->getLLVMType(context->getLLVMContext());
 
             mem_accum_id = context->appendStateVar(
@@ -357,7 +352,7 @@ size_t GpuReduce::resetAccumulator(expressions::Expression* outputExpr,
 
                     Constant * val_id = getIdentityElementIfSimple(
                         acc,
-                        outputExpr->getExpressionType(),
+                        outputExpr.getExpressionType(),
                         context
                     );
 
@@ -377,24 +372,24 @@ size_t GpuReduce::resetAccumulator(expressions::Expression* outputExpr,
 
                     // Value* val_acc =  context->getBuilder()->CreateLoad(s);
 
-                    // if (outputExpr->isRegistered()){
+                    // if (outputExpr.isRegistered()){
                     //  map<RecordAttribute, RawValueMemory> binding{};
-                    //  AllocaInst * acc_alloca = context->CreateEntryBlockAlloca(outputExpr->getRegisteredAttrName(), val_acc->getType());
+                    //  AllocaInst * acc_alloca = context->CreateEntryBlockAlloca(outputExpr.getRegisteredAttrName(), val_acc->getType());
                     //  context->getBuilder()->CreateStore(val_acc, acc_alloca);
                     //  RawValueMemory acc_mem{acc_alloca, context->createFalse()};
-                    //  binding[outputExpr->getRegisteredAs()] = acc_mem;
+                    //  binding[outputExpr.getRegisteredAs()] = acc_mem;
                     // }
 
                     if (is_first){  
-                        vector<Monoid                   >::const_iterator itAcc  = accs.begin();
-                        vector<expressions::Expression *>::const_iterator itExpr = outputExprs.begin();
-                        vector<size_t                   >::const_iterator itMem  = mem_accumulators.begin();
+                        auto itAcc  = accs.begin();
+                        auto itExpr = outputExprs.begin();
+                        auto itMem  = mem_accumulators.begin();
 
                         vector<Value *> args;
                         for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-                            Monoid                      acc                 = *itAcc    ;
-                            expressions::Expression   * outputExpr          = *itExpr   ;
-                            Value                     * mem_accumulating    = NULL      ;
+                            auto acc        = *itAcc    ;
+                            auto outputExpr = *itExpr   ;
+                            Value * mem_accumulating    = NULL      ;
 
                             if (*itMem == ~((size_t) 0)) continue;
                             
@@ -417,7 +412,7 @@ size_t GpuReduce::resetAccumulator(expressions::Expression* outputExpr,
                     }
 
                     // if (flushResults){
-                    //  flusher->flushValue(val_acc, outputExpr->getExpressionType()->getTypeID());
+                    //  flusher->flushValue(val_acc, outputExpr.getExpressionType()->getTypeID());
                     //  if (flushDelim) flusher->flushDelim();
                     // }
 

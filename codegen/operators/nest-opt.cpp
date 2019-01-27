@@ -25,41 +25,35 @@
 
 namespace opt	{
 
+expression_t buildRecord(const list<expressions::InputArgument>& f_grouping){
+	//Prepare 'f' -> Turn it into expression (record construction)
+	list<expressions::InputArgument>::const_iterator it;
+	list<expressions::AttributeConstruction> atts;
+	string attrPlaceholder = string("attr_");
+	for(const auto &inp: f_grouping){
+		const ExpressionType* type = inp.getExpressionType();
+		int argNo = inp.getArgNo();
+		list<RecordAttribute> projections = inp.getProjections();
+		auto attrExpr = new expressions::InputArgument(type, argNo, projections);
+
+		atts.emplace_back(attrPlaceholder, attrExpr);
+	}
+	return expressions::RecordConstruction(atts);
+}
+
+
 /**
  * Identical constructor logic with the one of Reduce
  */
-Nest::Nest(vector<Monoid> accs, vector<expressions::Expression*> outputExprs, vector<string> aggrLabels,
-		expressions::Expression* pred, const list<expressions::InputArgument>& f_grouping,
+Nest::Nest(vector<Monoid> accs, vector<expression_t> outputExprs, vector<string> aggrLabels,
+		expression_t pred, const list<expressions::InputArgument>& f_grouping,
 		const list<expressions::InputArgument>& g_nullToZero, RawOperator* const child,
 		char* opLabel, Materializer& mat) :
 		UnaryRawOperator(child), accs(accs), outputExprs(outputExprs), aggregateLabels(aggrLabels),
 		g_nullToZero(g_nullToZero), pred(pred),
-		mat(mat), htName(opLabel), context(NULL)
+		mat(mat), htName(opLabel), context(NULL),
+		f_grouping(buildRecord(f_grouping))
 {
-	//Prepare 'f' -> Turn it into expression (record construction)
-	list<expressions::InputArgument>::const_iterator it;
-	list<expressions::AttributeConstruction>* atts = new list<expressions::AttributeConstruction>();
-	list<RecordAttribute*> recordAtts;
-	string attrPlaceholder = string("attr_");
-	for(it = f_grouping.begin(); it != f_grouping.end(); it++)	{
-
-		const ExpressionType* type = it->getExpressionType();
-		int argNo = it->getArgNo();
-		list<RecordAttribute> projections = it->getProjections();
-		expressions::InputArgument* attrExpr =
-				new expressions::InputArgument(type, argNo, projections);
-
-		expressions::AttributeConstruction attr =
-				expressions::AttributeConstruction(attrPlaceholder,attrExpr);
-		atts->push_back(attr);
-
-		//Only used as placeholder to kickstart hashing later
-		RecordAttribute* recAttr = new RecordAttribute();
-		recordAtts.push_back(recAttr);
-	}
-	RecordType *recType = new RecordType(recordAtts);
-	this->f_grouping = new expressions::RecordConstruction(recType,*atts);
-
 	if (accs.size() != outputExprs.size() || accs.size() != aggrLabels.size()) {
 		string error_msg = string("[NEST: ] Erroneous constructor args");
 		LOG(ERROR)<< error_msg;
@@ -116,7 +110,7 @@ void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 	 * XXX sth gets screwed up in f_grouping for the 6th entry
 	 */
 	ExpressionHasherVisitor aggrExprGenerator = ExpressionHasherVisitor(context, childState);
-	RawValue groupKey = f_grouping->accept(aggrExprGenerator);
+	RawValue groupKey = f_grouping.accept(aggrExprGenerator);
 
 	//2. Create 'payload' --> What is to be inserted in the bucket
 	LOG(INFO) << "[NEST: ] Creating payload";
@@ -177,9 +171,9 @@ void Nest::generateInsert(RawContext* context, const OperatorState& childState)
 //			   This code would be relevant if materializer also
 //			   supported 'expressions to be materialized 	*/
 //			cout << "Must actively materialize field now" << endl;
-//			const vector<expressions::Expression*>& wantedExpressions =
+//			const vector<expression_t>& wantedExpressions =
 //					mat.getWantedExpressions();
-//			expressions::Expression* currExpr = wantedExpressions.at(offsetInWanted);
+//			expression_t currExpr = wantedExpressions.at(offsetInWanted);
 //			ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
 //			RawValue currVal = currExpr->accept(exprGenerator);
 //			llvmCurrVal = currVal.value;
@@ -328,14 +322,13 @@ void Nest::generateProbe(RawContext* const context) const
 
 
 	vector<Monoid>::const_iterator itAcc = accs.begin();
-	vector<expressions::Expression*>::const_iterator itExpr =
+	vector<expression_t>::const_iterator itExpr =
 			outputExprs.begin();
 	vector<AllocaInst*> mem_accumulators;
 	/* Prepare accumulator FOREACH outputExpr */
 	for (; itAcc != accs.end(); itAcc++, itExpr++) {
 		Monoid acc = *itAcc;
-		expressions::Expression *outputExpr = *itExpr;
-		AllocaInst *mem_accumulator = resetAccumulator(outputExpr, acc);
+		AllocaInst *mem_accumulator = resetAccumulator(*itExpr, acc);
 		mem_accumulators.push_back(mem_accumulator);
 	}
 	Builder->CreateBr(loopCondBucket);
@@ -419,7 +412,7 @@ void Nest::generateProbe(RawContext* const context) const
 	/* Accumulate FOREACH outputExpr */
 	for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++, itLabels++) {
 		Monoid acc = *itAcc;
-		expressions::Expression *outputExpr = *itExpr;
+		auto outputExpr = *itExpr;
 		AllocaInst *mem_accumulating = *itMem;
 		string aggregateName = *itLabels;
 
@@ -458,7 +451,7 @@ void Nest::generateProbe(RawContext* const context) const
 
 		Plugin *htPlugin = new BinaryInternalPlugin(context, htName);
 		RecordAttribute attr_aggr = RecordAttribute(htName, aggregateName,
-				outputExpr->getExpressionType());
+				outputExpr.getExpressionType());
 		catalog.registerPlugin(htName, htPlugin);
 		//cout << "Registering custom pg for " << htName << endl;
 		RawValueMemory mem_aggrWrapper;
@@ -526,7 +519,7 @@ void Nest::generateProbe(RawContext* const context) const
 	Builder->SetInsertPoint(loopEndHT);
 }
 
-void Nest::generateSum(expressions::Expression* outputExpr,
+void Nest::generateSum(expression_t outputExpr,
 		RawContext* const context, const OperatorState& state,
 		AllocaInst *mem_accumulating) const {
 	IRBuilder<>* Builder = context->getBuilder();
@@ -535,7 +528,7 @@ void Nest::generateSum(expressions::Expression* outputExpr,
 
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, state);
-	RawValue condition = pred->accept(predExprGenerator);
+	RawValue condition = pred.accept(predExprGenerator);
 	/**
 	 * Predicate Evaluation:
 	 */
@@ -554,10 +547,10 @@ void Nest::generateSum(expressions::Expression* outputExpr,
 	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
 	Builder->SetInsertPoint(ifBlock);
-	val_output = outputExpr->accept(outputExprGenerator);
+	val_output = outputExpr.accept(outputExprGenerator);
 	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-	switch (outputExpr->getExpressionType()->getTypeID()) {
+	switch (outputExpr.getExpressionType()->getTypeID()) {
 	case INT: {
 #ifdef DEBUGNEST
 //		vector<Value*> ArgsV;
@@ -600,7 +593,7 @@ void Nest::generateSum(expressions::Expression* outputExpr,
 	Builder->SetInsertPoint(endBlock);
 }
 
-void Nest::generateMul(expressions::Expression* outputExpr,
+void Nest::generateMul(expression_t outputExpr,
 		RawContext* const context, const OperatorState& state,
 		AllocaInst *mem_accumulating) const {
 	IRBuilder<>* Builder = context->getBuilder();
@@ -609,7 +602,7 @@ void Nest::generateMul(expressions::Expression* outputExpr,
 
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, state);
-	RawValue condition = pred->accept(predExprGenerator);
+	RawValue condition = pred.accept(predExprGenerator);
 	/**
 	 * Predicate Evaluation:
 	 */
@@ -628,10 +621,10 @@ void Nest::generateMul(expressions::Expression* outputExpr,
 	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
 	Builder->SetInsertPoint(ifBlock);
-	val_output = outputExpr->accept(outputExprGenerator);
+	val_output = outputExpr.accept(outputExprGenerator);
 	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-	switch (outputExpr->getExpressionType()->getTypeID()) {
+	switch (outputExpr.getExpressionType()->getTypeID()) {
 	case INT: {
 #ifdef DEBUGNEST
 //		vector<Value*> ArgsV;
@@ -674,7 +667,7 @@ void Nest::generateMul(expressions::Expression* outputExpr,
 	Builder->SetInsertPoint(endBlock);
 }
 
-void Nest::generateMax(expressions::Expression* outputExpr,
+void Nest::generateMax(expression_t outputExpr,
 		RawContext* const context, const OperatorState& state,
 		AllocaInst *mem_accumulating) const {
 	IRBuilder<>* Builder = context->getBuilder();
@@ -684,7 +677,7 @@ void Nest::generateMax(expressions::Expression* outputExpr,
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(
 			context, state);
-	RawValue condition = pred->accept(predExprGenerator);
+	RawValue condition = pred.accept(predExprGenerator);
 	/**
 	 * Predicate Evaluation:
 	 */
@@ -705,10 +698,10 @@ void Nest::generateMax(expressions::Expression* outputExpr,
 	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
 	Builder->SetInsertPoint(ifBlock);
-	val_output = outputExpr->accept(outputExprGenerator);
+	val_output = outputExpr.accept(outputExprGenerator);
 	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-	switch (outputExpr->getExpressionType()->getTypeID()) {
+	switch (outputExpr.getExpressionType()->getTypeID()) {
 	case INT: {
 		/**
 		 * if(curr > max) max = curr;
@@ -782,7 +775,7 @@ void Nest::generateMax(expressions::Expression* outputExpr,
 	Builder->SetInsertPoint(endBlock);
 }
 
-void Nest::generateOr(expressions::Expression* outputExpr,
+void Nest::generateOr(expression_t outputExpr,
 		RawContext* const context, const OperatorState& state,
 		AllocaInst *mem_accumulating) const {
 	IRBuilder<>* Builder = context->getBuilder();
@@ -791,7 +784,7 @@ void Nest::generateOr(expressions::Expression* outputExpr,
 
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(context, state);
-	RawValue condition = pred->accept(predExprGenerator);
+	RawValue condition = pred.accept(predExprGenerator);
 	/**
 	 * Predicate Evaluation:
 	 */
@@ -810,14 +803,14 @@ void Nest::generateOr(expressions::Expression* outputExpr,
 	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
 	Builder->SetInsertPoint(ifBlock);
-	val_output = outputExpr->accept(outputExprGenerator);
+	val_output = outputExpr.accept(outputExprGenerator);
 	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-	switch (outputExpr->getExpressionType()->getTypeID()) {
+	switch (outputExpr.getExpressionType()->getTypeID()) {
 	case BOOL: {
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-		RawValue val_output = outputExpr->accept(outputExprGenerator);
+		RawValue val_output = outputExpr.accept(outputExprGenerator);
 		Value* val_new = Builder->CreateOr(val_accumulating, val_output.value);
 		Builder->CreateStore(val_new, mem_accumulating);
 
@@ -849,7 +842,7 @@ void Nest::generateOr(expressions::Expression* outputExpr,
 
 }
 
-void Nest::generateAnd(expressions::Expression* outputExpr,
+void Nest::generateAnd(expression_t outputExpr,
 		RawContext* const context, const OperatorState& state,
 		AllocaInst *mem_accumulating) const {
 	IRBuilder<>* Builder = context->getBuilder();
@@ -859,7 +852,7 @@ void Nest::generateAnd(expressions::Expression* outputExpr,
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator = ExpressionGeneratorVisitor(
 			context, state);
-	RawValue condition = pred->accept(predExprGenerator);
+	RawValue condition = pred.accept(predExprGenerator);
 	/**
 	 * Predicate Evaluation:
 	 */
@@ -880,14 +873,14 @@ void Nest::generateAnd(expressions::Expression* outputExpr,
 	Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
 	Builder->SetInsertPoint(ifBlock);
-	val_output = outputExpr->accept(outputExprGenerator);
+	val_output = outputExpr.accept(outputExprGenerator);
 	Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-	switch (outputExpr->getExpressionType()->getTypeID()) {
+	switch (outputExpr.getExpressionType()->getTypeID()) {
 	case BOOL: {
 		Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-		RawValue val_output = outputExpr->accept(outputExprGenerator);
+		RawValue val_output = outputExpr.accept(outputExprGenerator);
 		Value* val_new = Builder->CreateAnd(val_accumulating, val_output.value);
 		Builder->CreateStore(val_new, mem_accumulating);
 
@@ -918,7 +911,7 @@ void Nest::generateAnd(expressions::Expression* outputExpr,
 	Builder->SetInsertPoint(endBlock);
 }
 
-AllocaInst* Nest::resetAccumulator(expressions::Expression* outputExpr, Monoid acc) const
+AllocaInst* Nest::resetAccumulator(expression_t outputExpr, Monoid acc) const
 {
 	AllocaInst* mem_accumulating = NULL;
 
@@ -931,7 +924,7 @@ AllocaInst* Nest::resetAccumulator(expressions::Expression* outputExpr, Monoid a
 	Type* doubleType = Type::getDoubleTy(llvmContext);
 
 	//Deal with 'memory allocations' as per monoid type requested
-	typeID outputType = outputExpr->getExpressionType()->getTypeID();
+	typeID outputType = outputExpr.getExpressionType()->getTypeID();
 	switch (acc)
 	{
 	case SUM:

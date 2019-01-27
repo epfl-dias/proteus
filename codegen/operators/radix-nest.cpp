@@ -27,18 +27,42 @@
 
 namespace radix	{
 
+expression_t getGrouping(const std::vector<expression_t> &f_grouping){
+    if (f_grouping.size() > 1){
+        list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
+        std::string attrName = "__key";
+        for (auto expr: f_grouping){
+            assert(expr.isRegistered() && "All output expressions must be registered!");
+            expressions::AttributeConstruction *newAttr =
+                                            new expressions::AttributeConstruction(
+                                                expr.getRegisteredAttrName(),
+                                                expr
+                                            );
+            attrs->push_back(*newAttr);
+            attrName += "_" + expr.getRegisteredAttrName();
+        }
+
+        expressions::RecordConstruction f(*attrs);
+        f.registerAs(f_grouping[0].getRegisteredRelName(), attrName);
+        return f;
+    } else {
+        return f_grouping[0];
+    }
+}
+
+
 
 
 Nest::Nest(RawContext* const context, vector<Monoid> accs,
-            vector<expressions::Expression*> outputExprs,
+            vector<expression_t> outputExprs,
             vector<string> aggrLabels,
-            expressions::Expression *pred,
-            expressions::Expression *f_grouping,
-            expressions::Expression *g_nullToZero,
+            expression_t pred,
+            expression_t f_grouping,
+            expression_t g_nullToZero,
             RawOperator* const child,
             const std::string &opLabel,
             Materializer& mat):
-Nest(context, accs, outputExprs, aggrLabels, pred, std::vector<expressions::Expression *>{f_grouping}, g_nullToZero, child, opLabel, mat)
+Nest(context, accs, outputExprs, aggrLabels, pred, std::vector<expression_t>{f_grouping}, g_nullToZero, child, opLabel, mat)
 {}
 /**
  * XXX NOTE on materializer:
@@ -50,13 +74,13 @@ Nest(context, accs, outputExprs, aggrLabels, pred, std::vector<expressions::Expr
  * Previous nest version performs it
  */
 Nest::Nest(RawContext* const context, vector<Monoid> accs,
-            vector<expressions::Expression*> outputExprs, vector<string> aggrLabels,
-            expressions::Expression *pred, std::vector<expressions::Expression *> f_grouping,
-            expressions::Expression *g_nullToZero, RawOperator* const child,
+            vector<expression_t> outputExprs, vector<string> aggrLabels,
+            expression_t pred, std::vector<expression_t> f_grouping_v,
+            expression_t g_nullToZero, RawOperator* const child,
             const std::string &opLabel,
             Materializer& mat):
 		UnaryRawOperator(child), accs(accs), outputExprs(outputExprs), aggregateLabels(
-				aggrLabels), pred(pred), g_nullToZero(g_nullToZero), mat(mat), htName(opLabel), context((GpuRawContext * const) context)
+				aggrLabels), pred(pred), g_nullToZero(g_nullToZero), mat(mat), htName(opLabel), context((GpuRawContext * const) context), f_grouping(getGrouping(f_grouping_v))
 {
 	if (accs.size() != outputExprs.size() || accs.size() != aggrLabels.size()) {
 		string error_msg = string("[NEST: ] Erroneous constructor args");
@@ -87,33 +111,13 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs,
 
     Type *int32_ptr_type = PointerType::getUnqual(int32_type);
 
-    if (f_grouping.size() > 1){
-        list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
-        std::vector<RecordAttribute *> recattr;
-        std::string attrName = "__key";
-        for (auto expr: f_grouping){
-            assert(expr->isRegistered() && "All output expressions must be registered!");
-            expressions::AttributeConstruction *newAttr =
-                                            new expressions::AttributeConstruction(
-                                                expr->getRegisteredAttrName(),
-                                                expr
-                                            );
-            attrs->push_back(*newAttr);
-            recattr.push_back(new RecordAttribute{expr->getRegisteredAs()});
-            attrName += "_" + expr->getRegisteredAttrName();
+    if (f_grouping_v.size() > 1){
+        for (auto expr: f_grouping_v){
             f_grouping_vec.push_back(expr);
         }
-
-        this->f_grouping = new expressions::RecordConstruction(new RecordType(recattr), *attrs);
-        this->f_grouping->registerAs(f_grouping[0]->getRegisteredRelName(), attrName);
     } else {
-        this->f_grouping = f_grouping[0];
         f_grouping_vec.push_back(this->f_grouping);
     }
-
-
-
-
 
 	/* What the type of internal radix HT per cluster is 	*/
 	/* (int32*, int32*, unit32_t, void*, int32) */
@@ -127,8 +131,8 @@ Nest::Nest(RawContext* const context, vector<Monoid> accs,
 	htRadixClusterMembers.push_back(int32_type);
 	htClusterType = StructType::get(context->getLLVMContext(),htRadixClusterMembers);
 
-    expressions::Expression * he = new expressions::HashExpression(this->f_grouping);
-    const ExpressionType * he_type = he->getExpressionType();
+    expressions::HashExpression he(this->f_grouping);
+    const ExpressionType * he_type = he.getExpressionType();
 	/* XXX What the type of HT entries is */
 	/* (size_t, size_t) */
 	vector<Type*> htEntryMembers;
@@ -292,7 +296,7 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 			// 		<< expr2->getRegisteredAs().getAttrName() << endl;
 
 			// string currField = (*it2)->getName();
-            string currField = expr2->getRegisteredAttrName();
+            string currField = expr2.getRegisteredAttrName();
 			AllocaInst * mem_field = context->CreateEntryBlockAlloca(F, "mem_" + currField,
 					payloadType->getElementType(i));
 			vector<Value*> idxList = vector<Value*>();
@@ -307,7 +311,7 @@ map<RecordAttribute, RawValueMemory>* Nest::reconstructResults(Value *htBuffer, 
 			mem_valWrapper.mem = mem_field;
 			mem_valWrapper.isNull = context->createFalse();
 
-			(*allGroupBindings)[expr2->getRegisteredAs()] = mem_valWrapper;
+			(*allGroupBindings)[expr2.getRegisteredAs()] = mem_valWrapper;
 			i++;
 		}
 	}
@@ -428,7 +432,7 @@ void Nest::probeHT() const	{
 	Builder->CreateStore(val_zero, mem_probesNo);
 
 	vector<Monoid>::const_iterator itAcc;
-	vector<expressions::Expression*>::const_iterator itExpr;
+	vector<expression_t>::const_iterator itExpr;
 	vector<AllocaInst*> mem_accumulators;
 	/*************************************************************************/
 	/**
@@ -559,7 +563,7 @@ void Nest::probeHT() const	{
 			/* Prepare accumulator FOREACH outputExpr */
 			for (; itAcc != accs.end(); itAcc++, itExpr++) {
 				Monoid acc = *itAcc;
-				expressions::Expression *outputExpr = *itExpr;
+				expression_t outputExpr = *itExpr;
 				AllocaInst *mem_accumulator = resetAccumulator(outputExpr, acc);
 				mem_accumulators.push_back(mem_accumulator);
 			}
@@ -664,9 +668,9 @@ void Nest::probeHT() const	{
                     for (const auto &k: f_grouping_vec){
                         // std::cout << "===> " << k->getRegisteredAs().getRelationName() << " " << k->getRegisteredAs().getAttrName() <<std::endl;
                         // for (const auto &t: currKeyState->getBindings()) std::cout << t.first.getRelationName() << " " << t.first.getAttrName() <<std::endl;
-                        RawValueMemory currKeyMem = currKeyState->getBindings().at(k->getRegisteredAs());
+                        RawValueMemory currKeyMem = currKeyState->getBindings().at(k.getRegisteredAs());
                         Value *        currKey    = Builder->CreateLoad(currKeyMem.mem);
-                        RawValueMemory retrKeyMem = retrievedState->getBindings().at(k->getRegisteredAs());
+                        RawValueMemory retrKeyMem = retrievedState->getBindings().at(k.getRegisteredAs());
                         Value *        retrKey    = Builder->CreateLoad(retrKeyMem.mem);
          //                expressions::RawValueExpression currKey{f_grouping->getExpressionType(), };
 
@@ -688,8 +692,8 @@ void Nest::probeHT() const	{
                         //     Builder->CreateCall(f, currKey);
                         // }
 
-                        expressions::RawValueExpression curre{k->getExpressionType(), RawValue{currKey, currKeyMem.isNull}};
-                        expressions::RawValueExpression retre{k->getExpressionType(), RawValue{retrKey, retrKeyMem.isNull}};
+                        expressions::RawValueExpression curre{k.getExpressionType(), RawValue{currKey, currKeyMem.isNull}};
+                        expressions::RawValueExpression retre{k.getExpressionType(), RawValue{retrKey, retrKeyMem.isNull}};
                         RawValue eq = curre.acceptTandem(dotVisitor, &retre);
                         val_cond = Builder->CreateAnd(val_cond, eq.value);
                     }
@@ -721,7 +725,7 @@ void Nest::probeHT() const	{
 
                     //Generate condition
                     ExpressionGeneratorVisitor predExprGenerator{context, *retrievedState};
-                    RawValue condition = pred->accept(predExprGenerator);
+                    RawValue condition = pred.accept(predExprGenerator);
                     /**
                      * Predicate Evaluation:
                      */
@@ -752,7 +756,7 @@ void Nest::probeHT() const	{
 					for (; itAcc != accs.end();
 							itAcc++, itExpr++, itMem++, itLabels++) { // increment only when using materialized results: 
 						Monoid acc = *itAcc;
-						expressions::Expression *outputExpr = *itExpr;
+						expression_t outputExpr = *itExpr;
 						AllocaInst *mem_accumulating = *itMem;
 						string aggregateName = *itLabels;
 
@@ -771,8 +775,8 @@ void Nest::probeHT() const	{
 
                             RawValue acc_value2;
                             bool val_unset = true;
-                            if (outputExpr->isRegistered()){
-                                const auto &f = retrievedState->getBindings().find(outputExpr->getRegisteredAs());
+                            if (outputExpr.isRegistered()){
+                                const auto &f = retrievedState->getBindings().find(outputExpr.getRegisteredAs());
                                 if (f != retrievedState->getBindings().end()){
                                     RawValueMemory mem_val = f->second;
                                     acc_value2.value = Builder->CreateLoad(mem_val.mem);
@@ -782,14 +786,13 @@ void Nest::probeHT() const	{
                                 }
                             }
 
-                            if (val_unset) acc_value2 = outputExpr->accept(outputExprGenerator);
+                            if (val_unset) acc_value2 = outputExpr.accept(outputExprGenerator);
 
                             // new_value = acc_value op outputExpr
-                            expressions::Expression * val = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc_value);
-                            expressions::Expression * val2 = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc_value2);
-                            expressions::Expression * upd = toExpression(acc, val, val2);//outputExpr);
-                            assert(upd && "Monoid is not convertible to expression!");
-                            RawValue new_val = upd->accept(outputExprGenerator);
+                            expressions::RawValueExpression val {outputExpr.getExpressionType(), acc_value };
+                            expressions::RawValueExpression val2{outputExpr.getExpressionType(), acc_value2};
+                            expression_t upd = toExpression(acc, val, val2);
+                            RawValue new_val = upd.accept(outputExprGenerator);
 
                             // store new_val to accumulator
                             Builder->CreateStore(new_val.value, mem_accumulating);
@@ -814,7 +817,7 @@ void Nest::probeHT() const	{
 						}
 
 						RecordAttribute attr_aggr = RecordAttribute(htName,
-								aggregateName, outputExpr->getExpressionType());
+								aggregateName, outputExpr.getExpressionType());
 						//cout << "Registering custom pg for " << htName << endl;
 						RawValueMemory mem_aggrWrapper;
 						mem_aggrWrapper.mem = mem_accumulating;
@@ -947,12 +950,12 @@ void Nest::probeHT() const	{
 	Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-AllocaInst* Nest::resetAccumulator(expressions::Expression* outputExpr, Monoid acc) const {
+AllocaInst* Nest::resetAccumulator(expression_t outputExpr, Monoid acc) const {
     IRBuilder<>* Builder = context->getBuilder();
     LLVMContext& llvmContext = context->getLLVMContext();
     Function *f = Builder->GetInsertBlock()->getParent();
 
-    Type * t = outputExpr->getExpressionType()->getLLVMType(llvmContext);
+    Type * t = outputExpr.getExpressionType()->getLLVMType(llvmContext);
     AllocaInst * mem_acc = context->CreateEntryBlockAlloca(f, "dest_acc", t);
 
     switch (acc) {
@@ -963,7 +966,7 @@ AllocaInst* Nest::resetAccumulator(expressions::Expression* outputExpr, Monoid a
         case AND: {
             Constant * val_id = getIdentityElementIfSimple(
                 acc,
-                outputExpr->getExpressionType(),
+                outputExpr.getExpressionType(),
                 context
             );
             Builder->CreateStore(val_id, mem_acc);

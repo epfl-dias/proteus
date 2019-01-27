@@ -59,14 +59,15 @@ class ExpressionParser {
 	CatalogParser &catalogParser;
 public:
 	ExpressionParser(CatalogParser& catalogParser): catalogParser(catalogParser) {};
-	expressions::Expression* parseExpression(const rapidjson::Value& val, RawContext * ctx);
-	ExpressionType* 		 parseExpressionType(const rapidjson::Value& val);
-	RecordAttribute* 		 parseRecordAttr(const rapidjson::Value& val, const ExpressionType * defaultType = NULL);
-	Monoid parseAccumulator(const char *acc);
+	expression_t 				parseExpression(const rapidjson::Value& val, RawContext * ctx);
+	ExpressionType* 			parseExpressionType(const rapidjson::Value& val);
+	RecordAttribute* 			parseRecordAttr(const rapidjson::Value& val, const ExpressionType * defaultType = NULL);
+	Monoid 						parseAccumulator(const char *acc);
 private:
-	expressions::extract_unit parseUnitRange(std::string range, RawContext * ctx);
-	RecordType * 			 getRecordType(string relName);
-	const RecordAttribute *	 getAttribute (string relName, string attrName);
+	expression_t 				parseExpressionWithoutRegistering(const rapidjson::Value &val, RawContext * ctx);
+	expressions::extract_unit 	parseUnitRange(std::string range, RawContext * ctx);
+	RecordType * 				getRecordType(string relName);
+	const RecordAttribute *		getAttribute (string relName, string attrName);
 };
 
 class CatalogParser {
@@ -121,7 +122,7 @@ private:
 	void		 			 parsePlan(const rapidjson::Document& doc, bool execute = false);
 	/* When processing tree root, parent will be NULL */
 	RawOperator* 			 parseOperator(const rapidjson::Value& val);
-	expressions::Expression* parseExpression(const rapidjson::Value& val) {
+	expression_t parseExpression(const rapidjson::Value& val) {
 		return exprParser.parseExpression(val, ctx);
 	}
 	ExpressionType* parseExpressionType(const rapidjson::Value& val) {

@@ -38,9 +38,9 @@ public:
                     	GpuRawContext * const           			context,
                     	int                             			numOfBuckets,
                     	RecordAttribute*                            hash_key_left,
-                    	const vector<expressions::Expression*>&	wantedFieldsLeft,
+                    	const vector<expression_t>&	wantedFieldsLeft,
                     	RecordAttribute*                            hash_key_right,
-                    	const vector<expressions::Expression*>&	wantedFieldsRight,
+                    	const vector<expression_t>&	wantedFieldsRight,
                     	string                          			opLabel);
 
 	virtual ~ZipCollect() { LOG(INFO)<< "Collapsing PacketZip operator";}
@@ -77,8 +77,8 @@ private:
 
 	GpuRawContext* context;
 	string opLabel;
-	vector<expressions::Expression*>	wantedFieldsLeft;
-    vector<expressions::Expression*>	wantedFieldsRight;
+	vector<expression_t>	wantedFieldsLeft;
+    vector<expression_t>	wantedFieldsRight;
     RecordAttribute*            splitter;
     RecordAttribute*            hash_key_left;
     RecordAttribute*            hash_key_right;
@@ -173,7 +173,7 @@ public:
 						RawOperator * const	             			child,
                     	GpuRawContext * const           			context,
                     	int                             			numOfBuckets,
-                    	const vector<expressions::Expression*>&		wantedFields,
+                    	const vector<expression_t>&		wantedFields,
                     	string                          			opLabel,
                     	ZipState&                                   state);
 
@@ -193,7 +193,7 @@ private:
 
 	GpuRawContext* context;
 	string opLabel;
-	vector<expressions::Expression*>	wantedFields;
+	vector<expression_t>	wantedFields;
     RecordAttribute*            inputAttr;
     RecordAttribute*            targetAttr;
     RecordAttribute*                            splitter;

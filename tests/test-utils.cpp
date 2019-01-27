@@ -34,6 +34,11 @@
 
 #include "plan/plan-parser.hpp"
 
+#include "rapidjson/error/en.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/schema.h"
+
 void RawTestEnvironment::SetUp(){
     if (has_already_been_setup) {
         is_noop = true;
@@ -125,6 +130,32 @@ bool verifyTestResult(const char *testsPath, const char *testLabel, bool unorder
         } else {
             areEqual = (fsize1 == 0) || (memcmp(correctBuf, currResultBuf, fsize1) == 0);
         }
+        // Document document; // Default template parameter uses UTF8 and MemoryPoolAllocator.
+        // auto & parsed = document.Parse(currResultBuf);
+        // if (parsed.HasParseError()) {
+        //     ParseResult ok = (ParseResult) parsed;
+        //     fprintf(stderr, "JSON parse error: %s (%lu)", RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
+        //     const char *err = "[PlanExecutor: ] Error parsing physical plan (JSON parsing error)";
+        //     LOG(ERROR)<< err;
+        //     throw runtime_error(err);
+        // }
+
+        // Document document2; // Default template parameter uses UTF8 and MemoryPoolAllocator.
+        // auto & parsed2 = document2.Parse(correctBuf);
+        // if (parsed2.HasParseError()) {
+        //     ParseResult ok = (ParseResult) parsed2;
+        //     fprintf(stderr, "JSON parse error: %s (%lu)", RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
+        //     const char *err = "[PlanExecutor: ] Error parsing physical plan (JSON parsing error)";
+        //     LOG(ERROR)<< err;
+        //     throw runtime_error(err);
+        // }
+
+        // // if (parsed2.IsArray() && parsed.IsArray() && unordered){
+        // //     std::sort(parsed2.Begin(), parsed2.End());
+        // //     std::sort(parsed.Begin(), parsed.End());
+        // // }
+
+        // areEqual = (parsed2 == parsed);
     }
     
     if (!areEqual) {

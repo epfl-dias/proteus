@@ -32,13 +32,13 @@ public:
                     GpuRawContext * const           context,
                     int                             numOfBuckets,
                     const vector<expressions::Expression *> &wantedFields,
-                    expressions::Expression        *hashExpr,
+                    expression_t                    hashExpr,
                     RecordAttribute                *hashProject = NULL) :
                         UnaryRawOperator(child), 
                         context(context), 
                         numOfBuckets(numOfBuckets),
                         wantedFields(wantedFields),
-                        hashExpr(hashExpr),
+                        hashExpr(std::move(hashExpr)),
                         hashProject(hashProject),
                         blockSize(h_vector_size * sizeof(int32_t)){
     }//FIMXE: default blocksize...
@@ -50,7 +50,7 @@ public:
     virtual bool isFiltering() const {return false;}
 
     llvm::Value * hash(llvm::Value * key, llvm::Value * old_seed = NULL);
-    llvm::Value * hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState);
+    llvm::Value * hash(const std::vector<expression_t> &exprs, RawContext* const context, const OperatorState& childState);
 
 protected: 
     virtual void consume_flush();
@@ -63,7 +63,7 @@ protected:
     const int                       numOfBuckets;
     RecordAttribute               * hashProject ;
 
-    expressions::Expression *       hashExpr    ;
+    expression_t                    hashExpr    ;
 
     // void *                          flushFunc   ;
 

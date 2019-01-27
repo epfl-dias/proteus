@@ -35,7 +35,6 @@
 #include "operators/reduce.hpp"
 #include "operators/reduce-nopred.hpp"
 #include "operators/reduce-opt.hpp"
-#include "operators/reduce-opt-nopred.hpp"
 #include "operators/nest.hpp"
 #include "operators/nest-opt.hpp"
 #include "operators/radix-nest.hpp"
@@ -357,7 +356,7 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate,
 	string aggrLabel = string(nestLabel);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;

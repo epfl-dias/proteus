@@ -38,8 +38,7 @@ Value * RecordType::projectArg(Value * record, RecordAttribute * attr, IRBuilder
 int RecordType::getIndex(RecordAttribute * x) const{
 	int index = 0;
 	for (const auto &attr: args){
-		if (x->getRelationName() == attr->getRelationName() &&
-				x->getAttrName() == attr->getAttrName()) return index;
+		if (x->getAttrName() == attr->getAttrName()) return index;
 		++index;
 	}
 	return -1;

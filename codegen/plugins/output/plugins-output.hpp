@@ -50,7 +50,7 @@ class Materializer {
  */
 public:
 	Materializer(vector<RecordAttribute*> whichFields,
-				vector<expressions::Expression*> wantedExpressions,
+				vector<expression_t> wantedExpressions,
 				vector<RecordAttribute*> whichOIDs,
 				vector<materialization_mode> outputMode_);
 
@@ -65,7 +65,7 @@ public:
 	 *
 	 * XXX ORDER OF expression fields matters!! OIDs need to be placed first!
 	 */
-	Materializer(vector<expressions::Expression*> wantedExpressions);
+	Materializer(vector<expression_t> wantedExpressions);
 
 	~Materializer() {}
 
@@ -90,7 +90,7 @@ public:
 			return *newOIDs; //wantedOIDs;
 		}
 	}
-	const vector<expressions::Expression*>& getWantedExpressions() const {
+	const vector<expression_t>& getWantedExpressions() const {
 		return wantedExpressions;
 	}
 	const vector<materialization_mode>& getOutputMode() const {
@@ -113,7 +113,7 @@ private:
 	 *  wantedExpressions include activeTuple.
 	 *  wantedFields do not!
 	 */
-	vector<expressions::Expression*> wantedExpressions;
+	vector<expression_t> wantedExpressions;
 
 	vector<RecordAttribute*> wantedFields;
 	vector<RecordAttribute*> wantedOIDs;

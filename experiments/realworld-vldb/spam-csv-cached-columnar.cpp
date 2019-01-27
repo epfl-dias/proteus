@@ -111,7 +111,7 @@ void symantecCSV1Caching(map<string,dataset> datasetCatalog)	{
 
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -244,7 +244,7 @@ void symantecCSV1CachingB(map<string,dataset> datasetCatalog)	{
 
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -336,7 +336,7 @@ void symantecCSV1(map<string,dataset> datasetCatalog)	{
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -439,7 +439,7 @@ void symantecCSV2Caching(map<string,dataset> datasetCatalog)	{
 
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -539,7 +539,7 @@ void symantecCSV2(map<string,dataset> datasetCatalog)	{
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -633,7 +633,7 @@ void symantecCSV3(map<string,dataset> datasetCatalog)	{
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -734,7 +734,7 @@ void symantecCSV3v1(map<string,dataset> datasetCatalog)	{
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -887,7 +887,7 @@ void symantecCSV4(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -1088,7 +1088,7 @@ void symantecCSV4v1(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -1309,7 +1309,7 @@ void symantecCSV4v2(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -1553,7 +1553,7 @@ void symantecCSV5(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -1753,7 +1753,7 @@ void symantecCSV6(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -1954,7 +1954,7 @@ void symantecCSV7(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;

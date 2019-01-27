@@ -36,7 +36,6 @@
 #include "operators/reduce.hpp"
 #include "operators/reduce-nopred.hpp"
 #include "operators/reduce-opt.hpp"
-#include "operators/reduce-opt-nopred.hpp"
 #include "operators/nest.hpp"
 #include "operators/nest-opt.hpp"
 #include "operators/radix-nest.hpp"

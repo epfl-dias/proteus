@@ -139,7 +139,7 @@ public:
 		context->getBuilder()->CreateCall(flushFunc, ArgsV);
 	}
 private:
-	string& fname;
+	string fname;
 	off_t fsize;
 	int fd;
 	char *buf;
@@ -147,8 +147,8 @@ private:
 	off_t pos;
 
 	//Schema info provided
-	RecordType& rec;
-	vector<RecordAttribute*>& wantedFields;
+	RecordType rec;
+	vector<RecordAttribute*> wantedFields;
 
 	/**
 	 * Code-generation-related

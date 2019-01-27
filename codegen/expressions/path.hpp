@@ -30,7 +30,7 @@
 
 class Path	{
 public:
-	Path(string nestedName, expressions::RecordProjection* desugarizedPath) :
+	Path(string nestedName, const expressions::RecordProjection* desugarizedPath) :
 			desugarizedPath(desugarizedPath), nestedName(nestedName), val_parentColl(
 					NULL) {
 		RawCatalog& catalog = RawCatalog::getInstance();
@@ -39,12 +39,12 @@ public:
 	}
 
 	void setParentCollection(llvm::Value* collection)					{ val_parentColl = collection; }
-	expressions::RecordProjection* get() 								{ return desugarizedPath; }
+	const expressions::RecordProjection* get() 	const					{ return desugarizedPath; }
 	Plugin* getRelevantPlugin() 				const					{ return pg; }
 	string getNestedName()						const					{ return nestedName; }
-	string toString();
+	string toString() const;
 private:
-	expressions::RecordProjection* const desugarizedPath;
+	const expressions::RecordProjection* const desugarizedPath;
 	const llvm::Value* val_parentColl;
 	string nestedName;
 	Plugin* pg;

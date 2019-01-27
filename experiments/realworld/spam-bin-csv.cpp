@@ -300,7 +300,7 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 			pgBin->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -318,14 +318,14 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgCSV->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinBinCSV";
-	RadixJoin *join = new RadixJoin(joinPred, selBin, selCSV, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selBin, selCSV, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selBin->setParent(join);
 	selCSV->setParent(join);
@@ -340,7 +340,7 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
 			dim->getOriginalType(), leftArg, *dim);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = exprDim;
@@ -591,7 +591,7 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 			pgBin->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -609,14 +609,14 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgCSV->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinBinCSV";
-	RadixJoin *join = new RadixJoin(joinPred, selBin, selCSV, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selBin, selCSV, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selBin->setParent(join);
 	selCSV->setParent(join);
@@ -631,7 +631,7 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
 			dim->getOriginalType(), leftArg, *dim);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = exprDim;
@@ -838,7 +838,7 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 			pgBin->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -856,14 +856,14 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgCSV->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinBinCSV";
-	RadixJoin *join = new RadixJoin(joinPred, selBin, selCSV, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selBin, selCSV, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selBin->setParent(join);
 	selCSV->setParent(join);
@@ -878,7 +878,7 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
 			neighbors->getOriginalType(), leftArg, *neighbors);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = exprNeighbors;
@@ -1097,7 +1097,7 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 			pgBin->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -1115,14 +1115,14 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgCSV->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinBinCSV";
-	RadixJoin *join = new RadixJoin(joinPred, selBin, selCSV, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selBin, selCSV, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selBin->setParent(join);
 	selCSV->setParent(join);
@@ -1137,7 +1137,7 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
 			neighbors->getOriginalType(), leftArg, *neighbors);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = exprDim;
@@ -1367,7 +1367,7 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 			pgBin->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -1389,14 +1389,14 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgCSV->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinBinCSV";
-	RadixJoin *join = new RadixJoin(joinPred, selBin, selCSV, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selBin, selCSV, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selBin->setParent(join);
 	selCSV->setParent(join);
@@ -1438,7 +1438,7 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
 	string aggrLabel = string(nestLabel);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;

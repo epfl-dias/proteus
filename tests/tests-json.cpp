@@ -184,7 +184,7 @@ TEST_F(JSONTest, ScanJSON) {
 	expressions::RecordProjection* proj = new expressions::RecordProjection(&attrType, lhsArg, attr);
 	expressions::Expression* predicateRed = new expressions::BoolConstant(true);
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(BAGUNION);
 	exprs.push_back(proj);
 
@@ -247,7 +247,7 @@ TEST_F(JSONTest, SelectJSON) {
 	expressions::RecordProjection* proj = new expressions::RecordProjection(&attrType, lhsArg, attr);
 	expressions::Expression* predicateRed = new expressions::BoolConstant(true);
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(BAGUNION);
 	exprs.push_back(proj);
 
@@ -355,7 +355,7 @@ TEST_F(JSONTest, unnestJSON) {
 	expressions::Expression* predicateRed = new expressions::BoolConstant(true);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(BAGUNION);
 	exprs.push_back(projToPrint);
 
@@ -436,7 +436,7 @@ TEST_F(JSONTest, reduceListObjectFlat) {
 			lhs, rhs);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(BAGUNION);
 	exprs.push_back(outputExpr);
 
@@ -514,7 +514,7 @@ bool JSONTest::reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 			lhs, rhs);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(MAX);
 	exprs.push_back(outputExpr);
 	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &scan, &ctx, flushResults, testLabel);
@@ -611,7 +611,7 @@ TEST_F(JSONTest, reduceMax) {
 			lhs, rhs);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(MAX);
 	exprs.push_back(outputExpr);
 	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &scan, &ctx);
@@ -707,7 +707,7 @@ TEST_F(JSONTest, reduceDeeperMax) {
 			lhs, rhs);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(MAX);
 	exprs.push_back(outputExpr);
 	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &scan, &ctx, flushResults, testLabel);

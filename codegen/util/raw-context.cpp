@@ -31,12 +31,12 @@
 bool print_generated_code = true;
 
 
-if_branch::if_branch(	expressions::Expression *expr	,
+if_branch::if_branch(	const expression_t 		&expr	,
 						const OperatorState 	&state	,
 						RawContext 				*context):
 		context(context){
 	ExpressionGeneratorVisitor egv{context, state};
-	condition = expr->accept(egv);
+	condition = expr.accept(egv);
 }
 
 

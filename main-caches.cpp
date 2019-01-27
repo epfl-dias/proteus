@@ -289,7 +289,7 @@ void joinQueryRelationalRadixCache() {
 			intType, leftArg, *attr1);
 	expressions::Expression* exprLeftMat2 = new expressions::RecordProjection(
 			intType, leftArg, *attr2);
-	vector<expressions::Expression*> whichExpressionsLeft;
+	vector<expression_t> whichExpressionsLeft;
 	whichExpressionsLeft.push_back(exprLeftOID);
 	whichExpressionsLeft.push_back(exprLeftMat1);
 	whichExpressionsLeft.push_back(exprLeftMat2);
@@ -313,7 +313,7 @@ void joinQueryRelationalRadixCache() {
 			intType, rightArg, *attr1_f2);
 	expressions::Expression* exprRightMat2 = new expressions::RecordProjection(
 			intType, rightArg, *attr2_f2);
-	vector<expressions::Expression*> whichExpressionsRight;
+	vector<expression_t> whichExpressionsRight;
 	whichExpressionsRight.push_back(exprRightOID);
 	whichExpressionsRight.push_back(exprRightMat1);
 	whichExpressionsRight.push_back(exprRightMat2);
@@ -325,7 +325,7 @@ void joinQueryRelationalRadixCache() {
 			whichExpressionsRight, whichOIDRight, outputModes2);
 
 	char joinLabel[] = "radixJoin1";
-	RadixJoin join = RadixJoin(joinPred, &scan, &scan2, &ctx, joinLabel, *matLeft,
+	RadixJoin join = RadixJoin(*joinPred, &scan, &scan2, &ctx, joinLabel, *matLeft,
 			*matRight);
 	scan.setParent(&join);
 	scan2.setParent(&join);

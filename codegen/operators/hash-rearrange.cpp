@@ -32,7 +32,7 @@ extern "C"{
 void HashRearrange::produce() {
     LLVMContext & llvmContext   = context->getLLVMContext();
 
-    Plugin * pg         = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRegisteredRelName());
+    Plugin * pg         = RawCatalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
     Type   * oid_type   = pg->getOIDType()->getLLVMType(llvmContext);
     Type   * cnt_type   = PointerType::getUnqual(ArrayType::get(oid_type, numOfBuckets));
     cntVar_id           = context->appendStateVar(cnt_type);
@@ -41,8 +41,8 @@ void HashRearrange::produce() {
 
     std::vector<Type *> block_types;
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        block_types.emplace_back(RecordAttribute(wantedFields[i]->getRegisteredAs(), true).getLLVMType(llvmContext));
-        wfSizes.emplace_back(context->getSizeOf(wantedFields[i]->getExpressionType()->getLLVMType(llvmContext)));
+        block_types.emplace_back(RecordAttribute(wantedFields[i].getRegisteredAs(), true).getLLVMType(llvmContext));
+        wfSizes.emplace_back(context->getSizeOf(wantedFields[i].getExpressionType()->getLLVMType(llvmContext)));
     }
 
     Type * block_stuct = StructType::get(llvmContext, block_types);
@@ -55,10 +55,10 @@ void HashRearrange::produce() {
     getChild()->produce();
 }
 
-Value * HashRearrange::hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState){
+Value * HashRearrange::hash(const std::vector<expression_t> &exprs, RawContext* const context, const OperatorState& childState){
     if (exprs.size() == 1){
         ExpressionHasherVisitor hasher{context, childState};
-        return exprs[0]->accept(hasher).value;
+        return exprs[0].accept(hasher).value;
     } else {
         std::list<expressions::AttributeConstruction> a;
         size_t i = 0;
@@ -78,7 +78,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
     map<RecordAttribute, RawValueMemory> bindings{childState.getBindings()};
 
 
-    Plugin * pg       = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRegisteredRelName());
+    Plugin * pg       = RawCatalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
     IntegerType * oid_type     = (IntegerType *) pg->getOIDType()->getLLVMType(llvmContext);
 
     IntegerType * int32_type   = Type::getInt32Ty  (llvmContext);
@@ -91,8 +91,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
 
     size_t max_width = 0;
     for (const auto &e: wantedFields){
-        std::cout << e->getExpressionType()->getType() << std::endl;
-        max_width = std::max(max_width, context->getSizeOf(e->getExpressionType()->getLLVMType(llvmContext)));
+        max_width = std::max(max_width, context->getSizeOf(e.getExpressionType()->getLLVMType(llvmContext)));
     }
 
     cap                   = blockSize / max_width;
@@ -111,7 +110,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
     map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
     //Generate target
     ExpressionGeneratorVisitor exprGenerator{context, childState};
-    Value * target            = HashRearrange::hash(std::vector<expressions::Expression *>{hashExpr}, context, childState);
+    Value * target            = HashRearrange::hash({hashExpr}, context, childState);
     target = Builder->CreateTruncOrBitCast(target, int32_type);
     IntegerType * target_type = (IntegerType *) target->getType();
     // Value * target            = hashExpr->accept(exprGenerator).value;
@@ -134,7 +133,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
 
     vector<Type *> members;
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        RecordAttribute tblock{wantedFields[i]->getRegisteredAs(), true};
+        RecordAttribute tblock{wantedFields[i].getRegisteredAs(), true};
         members.push_back(tblock.getLLVMType(llvmContext));
     }
     members.push_back(target->getType());
@@ -162,7 +161,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
         Value * el_ptr    = Builder->CreateInBoundsGEP(block, indx);
 
         ExpressionGeneratorVisitor exprGenerator(context, childState);
-        RawValue valWrapper = wantedFields[i]->accept(exprGenerator);
+        RawValue valWrapper = wantedFields[i].accept(exprGenerator);
         Value * el          = valWrapper.value;
 
         Builder->CreateStore(el, el_ptr);
@@ -180,7 +179,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
 
     Builder->SetInsertPoint(fullBB);
 
-    RecordAttribute tupCnt  = RecordAttribute(wantedFields[0]->getRegisteredRelName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
+    RecordAttribute tupCnt  = RecordAttribute(wantedFields[0].getRegisteredRelName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
 
     RawValueMemory mem_cntWrapper;
     mem_cntWrapper.mem      = blockN_ptr;
@@ -194,7 +193,7 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
     AllocaInst * new_oid_ptr = context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
     Builder->CreateStore(new_oid, new_oid_ptr);
 
-    RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRegisteredRelName(),  activeLoop, pg->getOIDType());
+    RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0].getRegisteredRelName(),  activeLoop, pg->getOIDType());
     
     RawValueMemory mem_oidWrapper;
     mem_oidWrapper.mem      = new_oid_ptr;
@@ -202,9 +201,9 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
     (*variableBindings)[tupleIdentifier] = mem_oidWrapper;
 
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        RecordAttribute tblock{wantedFields[i]->getRegisteredAs(), true};
+        RecordAttribute tblock{wantedFields[i].getRegisteredAs(), true};
 
-        AllocaInst * tblock_ptr = context->CreateEntryBlockAlloca(F, wantedFields[i]->getRegisteredAttrName() + "_ptr", tblock.getLLVMType(llvmContext));
+        AllocaInst * tblock_ptr = context->CreateEntryBlockAlloca(F, wantedFields[i].getRegisteredAttrName() + "_ptr", tblock.getLLVMType(llvmContext));
 
         Builder->CreateStore(els[i], tblock_ptr);
 
@@ -220,8 +219,8 @@ void HashRearrange::consume(RawContext* const context, const OperatorState& chil
     Function * get_buffer = context->getFunction("get_buffer");
 
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        RecordAttribute tblock{wantedFields[i]->getRegisteredAs(), true};
-        Value * size     = context->createSizeT(cap * context->getSizeOf(wantedFields[i]->getExpressionType()->getLLVMType(llvmContext)));
+        RecordAttribute tblock{wantedFields[i].getRegisteredAs(), true};
+        Value * size     = context->createSizeT(cap * context->getSizeOf(wantedFields[i].getExpressionType()->getLLVMType(llvmContext)));
 
         Value * new_buff = Builder->CreateCall(get_buffer, std::vector<Value *>{size});
 
@@ -272,7 +271,7 @@ void HashRearrange::consume_flush(){
 
     // LLVMContext & llvmContext   = context->getLLVMContext();
 
-    Plugin * pg       = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRegisteredRelName());
+    Plugin * pg       = RawCatalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
     Type   * oid_type = pg->getOIDType()->getLLVMType(llvmContext);
 
     IntegerType * int32_type   = Type::getInt32Ty  (llvmContext);
@@ -362,7 +361,7 @@ void HashRearrange::consume_flush(){
         block_ptr_addrs.push_back(block);
     }
     
-    RecordAttribute tupCnt{wantedFields[0]->getRegisteredRelName(), "activeCnt", pg->getOIDType()}; //FIXME: OID type for blocks ?
+    RecordAttribute tupCnt{wantedFields[0].getRegisteredRelName(), "activeCnt", pg->getOIDType()}; //FIXME: OID type for blocks ?
 
     RawValueMemory mem_cntWrapper;
     mem_cntWrapper.mem      = blockN_ptr;
@@ -375,7 +374,7 @@ void HashRearrange::consume_flush(){
     AllocaInst * new_oid_ptr = context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
     Builder->CreateStore(new_oid, new_oid_ptr);
 
-    RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRegisteredRelName(),  activeLoop, pg->getOIDType());
+    RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0].getRegisteredRelName(),  activeLoop, pg->getOIDType());
     
     RawValueMemory mem_oidWrapper;
     mem_oidWrapper.mem      = new_oid_ptr;
@@ -384,9 +383,9 @@ void HashRearrange::consume_flush(){
 
 
     for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        RecordAttribute tblock{wantedFields[i]->getRegisteredAs(), true};
+        RecordAttribute tblock{wantedFields[i].getRegisteredAs(), true};
 
-        AllocaInst * tblock_ptr = context->CreateEntryBlockAlloca(F, wantedFields[i]->getRegisteredAttrName() + "_ptr", tblock.getLLVMType(llvmContext));
+        AllocaInst * tblock_ptr = context->CreateEntryBlockAlloca(F, wantedFields[i].getRegisteredAttrName() + "_ptr", tblock.getLLVMType(llvmContext));
 
         Builder->CreateStore(block_ptr_addrs[i], tblock_ptr);
 

@@ -156,14 +156,14 @@ public:
 	virtual PluginType getPluginType() { return PGBINARY; }
 
 private:
-	string& fname;
+	string fname;
 	off_t fsize;
 	int fd;
 	char *buf;
 
 	//Schema info provided
-	RecordType& rec;
-	vector<RecordAttribute*>& wantedFields;
+	RecordType rec;
+	vector<RecordAttribute*> wantedFields;
 
 	/**
 	 * Code-generation-related

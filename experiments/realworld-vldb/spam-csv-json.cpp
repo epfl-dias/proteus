@@ -208,7 +208,7 @@ void symantecCSVJSON1(map<string, dataset> datasetCatalog) {
 			pgCSV->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idCSV->getOriginalType(), leftArg, *idCSV);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -226,14 +226,14 @@ void symantecCSVJSON1(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinCSVJSON";
-	RadixJoin *join = new RadixJoin(joinPred, selCSV, selJSON, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selCSV, selJSON, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selCSV->setParent(join);
 	selJSON->setParent(join);
@@ -251,7 +251,7 @@ void symantecCSVJSON1(map<string, dataset> datasetCatalog) {
 				classb->getOriginalType(), leftArg, *classb);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = exprClassa;
@@ -487,7 +487,7 @@ void symantecCSVJSON2(map<string, dataset> datasetCatalog) {
 			pgCSV->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idCSV->getOriginalType(), leftArg, *idCSV);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -505,14 +505,14 @@ void symantecCSVJSON2(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinCSVJSON";
-	RadixJoin *join = new RadixJoin(joinPred, selCSV, selJSON, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selCSV, selJSON, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selCSV->setParent(join);
 	selJSON->setParent(join);
@@ -530,7 +530,7 @@ void symantecCSVJSON2(map<string, dataset> datasetCatalog) {
 				classb->getOriginalType(), leftArg, *classb);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = exprClassa;
@@ -770,7 +770,7 @@ void symantecCSVJSON3(map<string, dataset> datasetCatalog) {
 			pgCSV->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idCSV->getOriginalType(), leftArg, *idCSV);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -788,14 +788,14 @@ void symantecCSVJSON3(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinCSVJSON";
-	RadixJoin *join = new RadixJoin(joinPred, selCSV, selJSON, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selCSV, selJSON, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selCSV->setParent(join);
 	selJSON->setParent(join);
@@ -813,7 +813,7 @@ void symantecCSVJSON3(map<string, dataset> datasetCatalog) {
 				classb->getOriginalType(), leftArg, *classb);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = exprClassa;
@@ -1065,7 +1065,7 @@ void symantecCSVJSON4(map<string, dataset> datasetCatalog) {
 			pgCSV->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idCSV->getOriginalType(), leftArg, *idCSV);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -1083,14 +1083,14 @@ void symantecCSVJSON4(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinCSVJSON";
-	RadixJoin *join = new RadixJoin(joinPred, selCSV, selJSON, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selCSV, selJSON, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selCSV->setParent(join);
 	selJSON->setParent(join);
@@ -1134,7 +1134,7 @@ void symantecCSVJSON4(map<string, dataset> datasetCatalog) {
 	string aggrLabel = string(nestLabel);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -1351,7 +1351,7 @@ void symantecCSVJSON5(map<string, dataset> datasetCatalog) {
 			pgCSV->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idCSV->getOriginalType(), leftArg, *idCSV);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -1369,14 +1369,14 @@ void symantecCSVJSON5(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinCSVJSON";
-	RadixJoin *join = new RadixJoin(joinPred, selCSV, selJSON, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selCSV, selJSON, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selCSV->setParent(join);
 	selJSON->setParent(join);
@@ -1432,7 +1432,7 @@ void symantecCSVJSON5(map<string, dataset> datasetCatalog) {
 			size->getOriginalType(), leftArg, *size);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = exprSize;
@@ -1631,7 +1631,7 @@ void symantecCSVJSON5v1(map<string, dataset> datasetCatalog) {
 			pgCSV->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idCSV->getOriginalType(), leftArg, *idCSV);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -1649,14 +1649,14 @@ void symantecCSVJSON5v1(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinCSVJSON";
-	RadixJoin *join = new RadixJoin(joinPred, selCSV, selJSON, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selCSV, selJSON, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selCSV->setParent(join);
 	selJSON->setParent(join);
@@ -1712,7 +1712,7 @@ void symantecCSVJSON5v1(map<string, dataset> datasetCatalog) {
 			size->getOriginalType(), leftArg, *size);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = exprSize;

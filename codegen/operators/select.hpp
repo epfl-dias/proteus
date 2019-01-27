@@ -27,14 +27,14 @@
 
 class Select : public UnaryRawOperator {
 public:
-	Select(expressions::Expression* expr, RawOperator* const child) :
-		  UnaryRawOperator(child), expr(expr) 							{}
-	virtual ~Select() 													{ LOG(INFO) << "Collapsing selection operator"; }
+	Select(expression_t expr, RawOperator* const child) :
+		  UnaryRawOperator(child), expr(std::move(expr)) {}
+	virtual ~Select() { LOG(INFO) << "Collapsing selection operator"; }
 
 	virtual void produce();
 	virtual void consume(RawContext* const context, const OperatorState& childState);
 	virtual bool isFiltering() const {return true;}
 private:
-	expressions::Expression* expr;
+	expression_t expr;
 	void generate(RawContext* const context, const OperatorState& childState) const;
 };

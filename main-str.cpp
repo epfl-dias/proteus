@@ -404,7 +404,7 @@ void nestRadixString()
 	string aggrField2 = string("_aggrSum");
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	/* Aggregate 1 */
 	accs.push_back(MAX);

@@ -34,7 +34,6 @@
 #include "operators/reduce.hpp"
 #include "operators/reduce-nopred.hpp"
 #include "operators/reduce-opt.hpp"
-#include "operators/reduce-opt-nopred.hpp"
 #include "operators/radix-nest.hpp"
 #include "operators/materializer-expr.hpp"
 #include "plugins/csv-plugin-pm.hpp"

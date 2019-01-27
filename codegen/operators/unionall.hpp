@@ -36,7 +36,7 @@ public:
                                 1,
                                 wantedFields,
                                 8,
-                                NULL,
+                                std::nullopt,
                                 false,
                                 false,
                                 children.size()),

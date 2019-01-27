@@ -27,11 +27,11 @@
 
 namespace opt {
 Reduce::Reduce(vector<Monoid> accs,
-		vector<expressions::Expression*> outputExprs,
-		expressions::Expression* pred, RawOperator* const child,
+		vector<expression_t> outputExprs,
+		expression_t pred, RawOperator* const child,
 		RawContext* context, bool flushResults, const char *outPath) :
-		UnaryRawOperator(child), accs(accs), outputExprs(outputExprs), pred(
-				pred), context(context), flushResults(flushResults), outPath(outPath) {
+		UnaryRawOperator(child), accs(accs), outputExprs(outputExprs),
+		pred(std::move(pred)), context(context), flushResults(flushResults), outPath(outPath) {
 	if (accs.size() != outputExprs.size()) {
 		string error_msg = string("[REDUCE: ] Erroneous constructor args");
 		LOG(ERROR)<< error_msg;
@@ -53,15 +53,15 @@ void Reduce::produce() {
 	assert(mem_accumulators.empty());
 	if (mem_accumulators.empty()){
 		vector<Monoid>::const_iterator itAcc;
-		vector<expressions::Expression*>::const_iterator itExpr;
+		vector<expression_t>::const_iterator itExpr;
 		itAcc = accs.begin();
 		itExpr = outputExprs.begin();
 
 		int aggsNo = accs.size();
 		/* Prepare accumulator FOREACH outputExpr */
 		for (; itAcc != accs.end(); itAcc++, itExpr++) {
-			Monoid acc = *itAcc;
-			expressions::Expression *outputExpr = *itExpr;
+			auto acc = *itAcc;
+			auto outputExpr = *itExpr;
 			bool flushDelim = (aggsNo > 1) && (itAcc != accs.end() - 1);
 			bool is_first   = (itAcc == accs.begin()  );
 			bool is_last    = (itAcc == accs.end() - 1);
@@ -123,7 +123,7 @@ void Reduce::generate(RawContext* const context,
 
 	//Generate condition
 	ExpressionGeneratorVisitor predExprGenerator{context, childState};
-	RawValue condition = pred->accept(predExprGenerator);
+	RawValue condition = pred.accept(predExprGenerator);
 	/**
 	 * Predicate Evaluation:
 	 */
@@ -144,18 +144,15 @@ void Reduce::generate(RawContext* const context,
 
 	Builder->SetInsertPoint(ifBlock);
 
-	vector<Monoid					>::const_iterator itAcc ;
-	vector<expressions::Expression *>::const_iterator itExpr;
-	vector<size_t 					>::const_iterator itMem ;
 	/* Time to Compute Aggs */
-	itAcc  = accs.begin();
-	itExpr = outputExprs.begin();
-	itMem  = mem_accumulators.begin();
+	auto itAcc  = accs.begin();
+	auto itExpr = outputExprs.begin();
+	auto itMem  = mem_accumulators.begin();
 
 	for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-		Monoid						acc					= *itAcc	;
-		expressions::Expression	  * outputExpr			= *itExpr	;
-		Value					  * mem_accumulating	= NULL 		;
+		auto acc 					= *itAcc	;
+		auto outputExpr 			= *itExpr	;
+		Value * mem_accumulating	= NULL 		;
 
 		switch (acc) {
 		case SUM:
@@ -184,10 +181,9 @@ void Reduce::generate(RawContext* const context,
 			acc_value.isNull = context->createFalse();
 
 			// new_value = acc_value op outputExpr
-			expressions::Expression * val = new expressions::RawValueExpression(outputExpr->getExpressionType(), acc_value);
-			expressions::Expression * upd = toExpression(acc, val, outputExpr);
-			assert(upd && "Monoid is not convertible to expression!");
-			RawValue new_val = upd->accept(outputExprGenerator);
+			expressions::RawValueExpression val{outputExpr.getExpressionType(), acc_value};
+			auto upd = toExpression(acc, val, outputExpr);
+			RawValue new_val = upd.accept(outputExprGenerator);
 
 			// store new_val to accumulator
 			Builder->CreateStore(new_val.value, acc_mem);
@@ -219,13 +215,13 @@ void Reduce::generate(RawContext* const context,
 
 //Flush out whatever you received
 //FIXME Need 'output plugin' / 'serializer'
-void Reduce::generateBagUnion(expressions::Expression* outputExpr,
+void Reduce::generateBagUnion(expression_t outputExpr,
 				RawContext* const context, const OperatorState& state, Value * cnt_mem) const {
 	IRBuilder<>* Builder = context->getBuilder();
 	LLVMContext& llvmContext = context->getLLVMContext();
 	Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-	ExpressionFlusherVisitor flusher{context, state, outPath, outputExpr->getRegisteredRelName()};
+	ExpressionFlusherVisitor flusher{context, state, outPath, outputExpr.getRegisteredRelName()};
 
 	//Backing up insertion block
 	BasicBlock *currBlock = Builder->GetInsertBlock();
@@ -245,7 +241,7 @@ void Reduce::generateBagUnion(expressions::Expression* outputExpr,
 	//flushing out delimiter (IF NEEDED)
 	flusher.flushDelim(resultCtr);
 
-	outputExpr->accept(flusher);
+	outputExpr.accept(flusher);
 
 	//increase result ctr
 	Value* resultCtrInc = Builder->CreateAdd(resultCtr,context->createInt64(1));
@@ -274,7 +270,7 @@ void Reduce::generateBagUnion(expressions::Expression* outputExpr,
 
 //Materializes collection (in HT?)
 //Use the catalog for the materialization
-void Reduce::generateAppend(expressions::Expression* outputExpr,
+void Reduce::generateAppend(expression_t outputExpr,
 		RawContext* const context, const OperatorState& state,
 		AllocaInst *mem_accumulating) const {
 
@@ -287,8 +283,8 @@ void Reduce::generate_flush(){
 
 	vector<size_t> params;
 
-	vector<Monoid					>::const_iterator itAcc  = accs.begin();
-	vector<expressions::Expression *>::const_iterator itExpr = outputExprs.begin();
+	auto itAcc  = accs.begin();
+	auto itExpr = outputExprs.begin();
 
 	for (; itAcc != accs.end(); itAcc++, itExpr++) {
 		switch (*itAcc) {
@@ -300,7 +296,7 @@ void Reduce::generate_flush(){
 				params.emplace_back(
 					((GpuRawContext *) context)->appendParameter(
 						PointerType::getUnqual(
-							(*itExpr)->getExpressionType()->getLLVMType(llvmContext)
+							(*itExpr).getExpressionType()->getLLVMType(llvmContext)
 						),
 						true,
 						true
@@ -342,8 +338,8 @@ void Reduce::generate_flush(){
 	std::string rel_name;
 	bool found = false;
 	for (const auto& t: outputExprs){
-		if (t->isRegistered()){
-			rel_name = t->getRegisteredRelName();
+		if (t.isRegistered()){
+			rel_name = t.getRegisteredRelName();
 			found = true;
 			break;
 		}
@@ -384,13 +380,13 @@ void Reduce::generate_flush(){
 
 	itAcc  = accs.begin();
 	itExpr = outputExprs.begin();
-	vector<size_t 					>::const_iterator itMem  = params.begin();
+	auto itMem  = params.begin();
 
 	if (getParent()){
 		for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-			Monoid						acc					= *itAcc	;
-			expressions::Expression	  * outputExpr			= *itExpr	;
-			Value					  * mem_accumulating	= NULL 		;
+			auto acc 					= *itAcc	;
+			auto outputExpr 			= *itExpr	;
+			Value * mem_accumulating	= NULL 		;
 
 			if (*itMem == ~((size_t) 0) || acc == BAGUNION) {
 				string error_msg = string("[Reduce: ] Not implemented yet");
@@ -398,27 +394,27 @@ void Reduce::generate_flush(){
 				throw runtime_error(error_msg);
 			}
 
-			if (!outputExpr->isRegistered()) {
+			if (!outputExpr.isRegistered()) {
 				string error_msg = string("[Reduce: ] All expressions must be registered to forward them to the parent");
 				LOG(ERROR)<< error_msg;
 				throw runtime_error(error_msg);
 			}
 
 			Value      * val_mem    = ((GpuRawContext *) context)->getArgument(*itMem);
-			val_mem->setName(outputExpr->getRegisteredAttrName() + "_ptr");
+			val_mem->setName(outputExpr.getRegisteredAttrName() + "_ptr");
 			Value      * val_acc    = Builder->CreateLoad(val_mem);
-			AllocaInst * acc_alloca = context->CreateEntryBlockAlloca(outputExpr->getRegisteredAttrName(), val_acc->getType());
+			AllocaInst * acc_alloca = context->CreateEntryBlockAlloca(outputExpr.getRegisteredAttrName(), val_acc->getType());
 
 			context->getBuilder()->CreateStore(val_acc, acc_alloca);
 			
 			RawValueMemory acc_mem{acc_alloca, context->createFalse()};
-			variableBindings[outputExpr->getRegisteredAs()] = acc_mem;
+			variableBindings[outputExpr.getRegisteredAs()] = acc_mem;
 		}
 	}
 
 	if (flushResults){
 		OperatorState state{*this, variableBindings};
-		ExpressionFlusherVisitor flusher{context, state, outPath, outputExprs[0]->getRegisteredRelName()};
+		ExpressionFlusherVisitor flusher{context, state, outPath, outputExprs[0].getRegisteredRelName()};
 
 		if (accs.size() > 1) flusher.beginList();
 
@@ -427,16 +423,16 @@ void Reduce::generate_flush(){
 		itMem  = params.begin();
 
 		for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-			Monoid						acc					= *itAcc	;
-			expressions::Expression	  * outputExpr			= *itExpr	;
-			Value					  * mem_accumulating	= NULL 		;
+			auto acc 					= *itAcc	;
+			auto outputExpr 			= *itExpr	;
+			Value * mem_accumulating	= NULL 		;
 
 			if (*itMem == ~((size_t) 0) || acc == BAGUNION) continue;
 			
 			Value      * val_mem    = ((GpuRawContext *) context)->getArgument(*itMem);
 			Value      * val_acc    = Builder->CreateLoad(val_mem);
 			
-			flusher.flushValue(val_acc, outputExpr->getExpressionType()->getTypeID());
+			flusher.flushValue(val_acc, outputExpr.getExpressionType()->getTypeID());
 			bool flushDelim = (accs.size() > 1) && (itAcc != accs.end() - 1);
 			if (flushDelim) flusher.flushDelim();
 		}
@@ -461,7 +457,7 @@ void Reduce::generate_flush(){
 	Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-size_t Reduce::resetAccumulator(expressions::Expression* outputExpr,
+size_t Reduce::resetAccumulator(expression_t outputExpr,
 		Monoid acc, bool flushDelim, bool is_first, bool is_last) const {
 	size_t mem_accum_id = ~((size_t) 0);
 
@@ -472,7 +468,7 @@ size_t Reduce::resetAccumulator(expressions::Expression* outputExpr,
 		case MAX:
 		case OR:
 		case AND: {
-			Type * t = outputExpr->getExpressionType()
+			Type * t = outputExpr.getExpressionType()
 									->getLLVMType(context->getLLVMContext());
 
 			mem_accum_id = context->appendStateVar(
@@ -485,7 +481,7 @@ size_t Reduce::resetAccumulator(expressions::Expression* outputExpr,
 
 					Constant * val_id = getIdentityElementIfSimple(
 						acc,
-						outputExpr->getExpressionType(),
+						outputExpr.getExpressionType(),
 						context
 					);
 					Builder->CreateStore(val_id, mem_acc);
@@ -498,24 +494,24 @@ size_t Reduce::resetAccumulator(expressions::Expression* outputExpr,
 
 					// Value* val_acc =  context->getBuilder()->CreateLoad(s);
 
-					// if (outputExpr->isRegistered()){
+					// if (outputExpr.isRegistered()){
 					// 	map<RecordAttribute, RawValueMemory> binding{};
-					// 	AllocaInst * acc_alloca = context->CreateEntryBlockAlloca(outputExpr->getRegisteredAttrName(), val_acc->getType());
+					// 	AllocaInst * acc_alloca = context->CreateEntryBlockAlloca(outputExpr.getRegisteredAttrName(), val_acc->getType());
 					// 	context->getBuilder()->CreateStore(val_acc, acc_alloca);
 					// 	RawValueMemory acc_mem{acc_alloca, context->createFalse()};
-					// 	binding[outputExpr->getRegisteredAs()] = acc_mem;
+					// 	binding[outputExpr.getRegisteredAs()] = acc_mem;
 					// }
 
 					if (is_first){	
-						vector<Monoid					>::const_iterator itAcc  = accs.begin();
-						vector<expressions::Expression *>::const_iterator itExpr = outputExprs.begin();
-						vector<size_t 					>::const_iterator itMem  = mem_accumulators.begin();
+						auto itAcc  = accs.begin();
+						auto itExpr = outputExprs.begin();
+						auto itMem  = mem_accumulators.begin();
 
 						vector<Value *> args;
 						for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-							Monoid						acc					= *itAcc	;
-							expressions::Expression	  * outputExpr			= *itExpr	;
-							Value					  * mem_accumulating	= NULL 		;
+							auto acc 					= *itAcc	;
+							auto outputExpr 			= *itExpr	;
+							Value * mem_accumulating	= NULL 		;
 
 							if (*itMem == ~((size_t) 0) || acc == BAGUNION) continue;
 							
@@ -538,7 +534,7 @@ size_t Reduce::resetAccumulator(expressions::Expression* outputExpr,
 					}
 
 					// if (flushResults){
-					// 	flusher->flushValue(val_acc, outputExpr->getExpressionType()->getTypeID());
+					// 	flusher->flushValue(val_acc, outputExpr.getExpressionType()->getTypeID());
 					// 	if (flushDelim) flusher->flushDelim();
 					// }
 					context->deallocateStateVar(s);

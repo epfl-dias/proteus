@@ -46,67 +46,68 @@ public:
 			const OperatorState& currStateRight) :
 			context(context), currStateLeft(currStateLeft),
 			currStateRight(currStateRight) {}
-	RawValue visit(expressions::IntConstant *e1,
-			expressions::IntConstant *e2);
-	RawValue visit(expressions::Int64Constant *e1,
-			expressions::Int64Constant *e2);
-	RawValue visit(expressions::DateConstant *e1,
-			expressions::DateConstant *e2);
-	RawValue visit(expressions::FloatConstant *e1,
-			expressions::FloatConstant *e2);
-	RawValue visit(expressions::BoolConstant *e1,
-			expressions::BoolConstant *e2);
-	RawValue visit(expressions::StringConstant *e1,
-			expressions::StringConstant *e2);
-	RawValue visit(expressions::DStringConstant *e1,
-			expressions::DStringConstant *e2);
-	RawValue visit(expressions::InputArgument *e1,
-			expressions::InputArgument *e2);
-	RawValue visit(expressions::RawValueExpression *e1,
-			expressions::RawValueExpression *e2);
-	RawValue visit(expressions::RecordProjection *e1,
-			expressions::RecordProjection *e2);
-	RawValue visit(expressions::IfThenElse *e1, expressions::IfThenElse *e2);
-	RawValue visit(expressions::EqExpression *e1,
-			expressions::EqExpression *e2);
-	RawValue visit(expressions::NeExpression *e1,
-			expressions::NeExpression *e2);
-	RawValue visit(expressions::GeExpression *e1,
-			expressions::GeExpression *e2);
-	RawValue visit(expressions::GtExpression *e1,
-			expressions::GtExpression *e2);
-	RawValue visit(expressions::LeExpression *e1,
-			expressions::LeExpression *e2);
-	RawValue visit(expressions::LtExpression *e1,
-			expressions::LtExpression *e2);
-	RawValue visit(expressions::AddExpression *e1,
-			expressions::AddExpression *e2);
-	RawValue visit(expressions::SubExpression *e1,
-			expressions::SubExpression *e2);
-	RawValue visit(expressions::MultExpression *e1,
-			expressions::MultExpression *e2);
-	RawValue visit(expressions::DivExpression *e1,
-			expressions::DivExpression *e2);
-	RawValue visit(expressions::AndExpression *e1,
-			expressions::AndExpression *e2);
-	RawValue visit(expressions::OrExpression *e1,
-			expressions::OrExpression *e2);
-	RawValue visit(expressions::RecordConstruction *e1,
-			expressions::RecordConstruction *e2);
-	RawValue visit(expressions::MaxExpression *e1,
-			expressions::MaxExpression *e2);
-	RawValue visit(expressions::MinExpression *e1,
-			expressions::MinExpression *e2);
-	RawValue visit(expressions::HashExpression *e1,
-			expressions::HashExpression *e2);
-	RawValue visit(expressions::NegExpression *e1,
-			expressions::NegExpression *e2);
-	RawValue visit(expressions::ExtractExpression *e1,
-			expressions::ExtractExpression *e2);
-	RawValue visit(expressions::TestNullExpression *e1,
-			expressions::TestNullExpression *e2);
-	RawValue visit(expressions::CastExpression *e1,
-			expressions::CastExpression *e2);
+	RawValue visit(const expressions::IntConstant *e1,
+			const expressions::IntConstant *e2);
+	RawValue visit(const expressions::Int64Constant *e1,
+			const expressions::Int64Constant *e2);
+	RawValue visit(const expressions::DateConstant *e1,
+			const expressions::DateConstant *e2);
+	RawValue visit(const expressions::FloatConstant *e1,
+			const expressions::FloatConstant *e2);
+	RawValue visit(const expressions::BoolConstant *e1,
+			const expressions::BoolConstant *e2);
+	RawValue visit(const expressions::StringConstant *e1,
+			const expressions::StringConstant *e2);
+	RawValue visit(const expressions::DStringConstant *e1,
+			const expressions::DStringConstant *e2);
+	RawValue visit(const expressions::InputArgument *e1,
+			const expressions::InputArgument *e2);
+	RawValue visit(const expressions::RawValueExpression *e1,
+			const expressions::RawValueExpression *e2);
+	RawValue visit(const expressions::RecordProjection *e1,
+			const expressions::RecordProjection *e2);
+	RawValue visit(const expressions::IfThenElse *e1,
+			const expressions::IfThenElse *e2);
+	RawValue visit(const expressions::EqExpression *e1,
+			const expressions::EqExpression *e2);
+	RawValue visit(const expressions::NeExpression *e1,
+			const expressions::NeExpression *e2);
+	RawValue visit(const expressions::GeExpression *e1,
+			const expressions::GeExpression *e2);
+	RawValue visit(const expressions::GtExpression *e1,
+			const expressions::GtExpression *e2);
+	RawValue visit(const expressions::LeExpression *e1,
+			const expressions::LeExpression *e2);
+	RawValue visit(const expressions::LtExpression *e1,
+			const expressions::LtExpression *e2);
+	RawValue visit(const expressions::AddExpression *e1,
+			const expressions::AddExpression *e2);
+	RawValue visit(const expressions::SubExpression *e1,
+			const expressions::SubExpression *e2);
+	RawValue visit(const expressions::MultExpression *e1,
+			const expressions::MultExpression *e2);
+	RawValue visit(const expressions::DivExpression *e1,
+			const expressions::DivExpression *e2);
+	RawValue visit(const expressions::AndExpression *e1,
+			const expressions::AndExpression *e2);
+	RawValue visit(const expressions::OrExpression *e1,
+			const expressions::OrExpression *e2);
+	RawValue visit(const expressions::RecordConstruction *e1,
+			const expressions::RecordConstruction *e2);
+	RawValue visit(const expressions::MaxExpression *e1,
+			const expressions::MaxExpression *e2);
+	RawValue visit(const expressions::MinExpression *e1,
+			const expressions::MinExpression *e2);
+	RawValue visit(const expressions::HashExpression *e1,
+			const expressions::HashExpression *e2);
+	RawValue visit(const expressions::NegExpression *e1,
+			const expressions::NegExpression *e2);
+	RawValue visit(const expressions::ExtractExpression *e1,
+			const expressions::ExtractExpression *e2);
+	RawValue visit(const expressions::TestNullExpression *e1,
+			const expressions::TestNullExpression *e2);
+	RawValue visit(const expressions::CastExpression *e1,
+			const expressions::CastExpression *e2);
 
 
 private:

@@ -281,7 +281,7 @@ void symantecBinJSON1(map<string, dataset> datasetCatalog) {
 			pgBin->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -299,14 +299,14 @@ void symantecBinJSON1(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinBinJSON";
-	RadixJoin *join = new RadixJoin(joinPred, selBin, selJSON, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selBin, selJSON, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selBin->setParent(join);
 	selJSON->setParent(join);
@@ -323,7 +323,7 @@ void symantecBinJSON1(map<string, dataset> datasetCatalog) {
 				size->getOriginalType(), rightArg, *size);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = exprMDC;
@@ -546,7 +546,7 @@ void symantecBinJSON2(map<string, dataset> datasetCatalog) {
 			pgBin->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -564,14 +564,14 @@ void symantecBinJSON2(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinBinJSON";
-	RadixJoin *join = new RadixJoin(joinPred, selBin, selJSON, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selBin, selJSON, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selBin->setParent(join);
 	selJSON->setParent(join);
@@ -588,7 +588,7 @@ void symantecBinJSON2(map<string, dataset> datasetCatalog) {
 				size->getOriginalType(), rightArg, *size);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = exprMDC;
@@ -768,7 +768,7 @@ void symantecBinJSON3(map<string, dataset> datasetCatalog) {
 			pgBin->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -786,14 +786,14 @@ void symantecBinJSON3(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinBinJSON";
-	RadixJoin *join = new RadixJoin(joinPred, scanBin, selJSON, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, scanBin, selJSON, &ctx, joinLabel,
 			*matLeft, *matRight);
 	scanBin->setParent(join);
 	selJSON->setParent(join);
@@ -806,7 +806,7 @@ void symantecBinJSON3(map<string, dataset> datasetCatalog) {
 
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	expressions::Expression* outputExpr1 = new expressions::IntConstant(1);
 	ReduceNoPred *reduce = new ReduceNoPred(SUM, outputExpr1, join,
@@ -979,7 +979,7 @@ void symantecBinJSON4(map<string, dataset> datasetCatalog) {
 			pgBin->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -997,14 +997,14 @@ void symantecBinJSON4(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinBinJSON";
-	RadixJoin *join = new RadixJoin(joinPred, selBin, selJSON, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selBin, selJSON, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selBin->setParent(join);
 	selJSON->setParent(join);
@@ -1186,7 +1186,7 @@ void symantecBinJSON5(map<string, dataset> datasetCatalog) {
 			pgBin->getOIDType(), leftArg, *projTupleL);
 	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
 			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 	expressionsLeft.push_back(exprLeftKey);
 
@@ -1204,14 +1204,14 @@ void symantecBinJSON5(map<string, dataset> datasetCatalog) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoinBinJSON";
-	RadixJoin *join = new RadixJoin(joinPred, selBin, selJSON, &ctx, joinLabel,
+	RadixJoin *join = new RadixJoin(*joinPred, selBin, selJSON, &ctx, joinLabel,
 			*matLeft, *matRight);
 	selBin->setParent(join);
 	selJSON->setParent(join);

@@ -110,7 +110,7 @@ int main()	{
 //				new expressions::InputArgument(&rec,0,argProjections);
 //	/* Output: */
 //	vector<Monoid> accs;
-//	vector<expressions::Expression*> outputExprs;
+//	vector<expression_t> outputExprs;
 //	accs.push_back(SUM);
 //	expressions::Expression* outputExpr = new expressions::IntConstant(1);
 //	outputExprs.push_back(outputExpr);
@@ -177,7 +177,7 @@ void symantecProjection1(map<string,dataset> datasetCatalog, int predicateVal)	{
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	accs.push_back(SUM);
 	expressions::Expression* outputExpr =
 			new expressions::IntConstant(1);

@@ -69,6 +69,8 @@ string(STRIP "${COMPILER_FLAGS} -O2" COMPILER_FLAGS)
 
 # Turn warnings into errors
 string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
+# Disable warning-as-error for deprecated calls
+# string(STRIP "${WARNING_FLAGS} -Wno-error=deprecated" WARNING_FLAGS)
 
 # LLVM Code generates the following warnings
 string(STRIP "${WARNING_FLAGS} -Wno-unused-parameter" WARNING_FLAGS)

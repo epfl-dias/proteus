@@ -983,8 +983,8 @@ int atois(const char *buf, int len) {
 	}
 }
 
-RawContext * prepareContext(string moduleName)	{
-	RawContext * ctx = new GpuRawContext(moduleName);
+GpuRawContext * prepareContext(string moduleName){
+	GpuRawContext * ctx = new GpuRawContext(moduleName);
 	// registerFunctions(ctx);
 	return ctx;
 }

@@ -2192,7 +2192,7 @@ void joinQueryRelationalRadix()
 			intType, leftArg, *attr1);
 	expressions::Expression* exprLeftMat2 = new expressions::RecordProjection(
 			intType, leftArg, *attr2);
-	vector<expressions::Expression*> whichExpressionsLeft;
+	vector<expression_t> whichExpressionsLeft;
 	whichExpressionsLeft.push_back(exprLeftOID);
 	whichExpressionsLeft.push_back(exprLeftMat1);
 	whichExpressionsLeft.push_back(exprLeftMat2);
@@ -2209,7 +2209,7 @@ void joinQueryRelationalRadix()
 			intType, rightArg, *attr1_f2);
 	expressions::Expression* exprRightMat2 = new expressions::RecordProjection(
 			intType, rightArg, *attr2_f2);
-	vector<expressions::Expression*> whichExpressionsRight;
+	vector<expression_t> whichExpressionsRight;
 	whichExpressionsRight.push_back(exprRightOID);
 	whichExpressionsRight.push_back(exprRightMat1);
 	whichExpressionsRight.push_back(exprRightMat2);
@@ -2226,7 +2226,7 @@ void joinQueryRelationalRadix()
 
 
 	char joinLabel[] = "radixJoin1";
-	RadixJoin join = RadixJoin(joinPred, &scan, &scan2, &ctx, joinLabel, *matLeft, *matRight);
+	RadixJoin join = RadixJoin(*joinPred, &scan, &scan2, &ctx, joinLabel, *matLeft, *matRight);
 	scan.setParent(&join);
 	scan2.setParent(&join);
 
@@ -2352,7 +2352,7 @@ void joinQueryRelationalRadixCache()
 			intType, leftArg, *attr1);
 	expressions::Expression* exprLeftMat2 = new expressions::RecordProjection(
 			intType, leftArg, *attr2);
-	vector<expressions::Expression*> whichExpressionsLeft;
+	vector<expression_t> whichExpressionsLeft;
 	whichExpressionsLeft.push_back(exprLeftOID);
 	whichExpressionsLeft.push_back(exprLeftMat1);
 	whichExpressionsLeft.push_back(exprLeftMat2);
@@ -2376,7 +2376,7 @@ void joinQueryRelationalRadixCache()
 			intType, rightArg, *attr1_f2);
 	expressions::Expression* exprRightMat2 = new expressions::RecordProjection(
 			intType, rightArg, *attr2_f2);
-	vector<expressions::Expression*> whichExpressionsRight;
+	vector<expression_t> whichExpressionsRight;
 	whichExpressionsRight.push_back(exprRightOID);
 	whichExpressionsRight.push_back(exprRightMat1);
 	whichExpressionsRight.push_back(exprRightMat2);
@@ -2388,7 +2388,7 @@ void joinQueryRelationalRadixCache()
 			whichExpressionsRight, whichOIDRight, outputModes2);
 
 	char joinLabel[] = "radixJoin1";
-	RadixJoin join = RadixJoin(joinPred, &scan, &scan2, &ctx, joinLabel, *matLeft,
+	RadixJoin join = RadixJoin(*joinPred, &scan, &scan2, &ctx, joinLabel, *matLeft,
 			*matRight);
 	scan.setParent(&join);
 	scan2.setParent(&join);
@@ -4428,7 +4428,7 @@ void cidrQuery3Radix()
 			intType, argClinical, *rid);
 	expressions::Expression* exprLeftMat2 = new expressions::RecordProjection(
 			intType, argClinical, *age);
-	vector<expressions::Expression*> whichExpressionsLeft;
+	vector<expression_t> whichExpressionsLeft;
 	whichExpressionsLeft.push_back(exprLeftOID);
 	whichExpressionsLeft.push_back(exprLeftMat1);
 	whichExpressionsLeft.push_back(exprLeftMat2);
@@ -4444,14 +4444,14 @@ void cidrQuery3Radix()
 			int64Type, argGenetic, projTupleGenetic);
 	expressions::Expression* exprRightMat1 = new expressions::RecordProjection(
 			intType, argGenetic, *iid);
-	vector<expressions::Expression*> whichExpressionsRight;
+	vector<expression_t> whichExpressionsRight;
 	whichExpressionsLeft.push_back(exprRightOID);
 	whichExpressionsLeft.push_back(exprRightMat1);
 	Materializer* matRight = new Materializer(whichFieldsGenetic,
 			whichExpressionsRight, whichOIDsGenetic, outputModes);
 
 	char joinLabel[] = "joinPatients";
-	RadixJoin join = RadixJoin(joinPred, &selClinical, &scanGenetic, &ctx, joinLabel, *matLeft, *matRight);
+	RadixJoin join = RadixJoin(*joinPred, &selClinical, &scanGenetic, &ctx, joinLabel, *matLeft, *matRight);
 	selClinical.setParent(&join);
 	scanGenetic.setParent(&join);
 
@@ -4625,7 +4625,7 @@ void cidrQuery3RadixMax()
 			intType, argClinical, *rid);
 	expressions::Expression* exprLeftMat2 = new expressions::RecordProjection(
 			intType, argClinical, *age);
-	vector<expressions::Expression*> whichExpressionsLeft;
+	vector<expression_t> whichExpressionsLeft;
 	whichExpressionsLeft.push_back(exprLeftOID);
 	whichExpressionsLeft.push_back(exprLeftMat1);
 	whichExpressionsLeft.push_back(exprLeftMat2);
@@ -4641,7 +4641,7 @@ void cidrQuery3RadixMax()
 			int64Type, argGenetic, projTupleGenetic);
 	expressions::Expression* exprRightMat1 = new expressions::RecordProjection(
 			intType, argGenetic, *iid);
-	vector<expressions::Expression*> whichExpressionsRight;
+	vector<expression_t> whichExpressionsRight;
 	whichExpressionsLeft.push_back(exprRightOID);
 	whichExpressionsLeft.push_back(exprRightMat1);
 
@@ -4651,7 +4651,7 @@ void cidrQuery3RadixMax()
 			whichExpressionsRight, whichOIDsGenetic, outputModesGenetic);
 
 	char joinLabel[] = "joinPatients";
-	RadixJoin join = RadixJoin(joinPred, &selClinical, &scanGenetic, &ctx, joinLabel, *matLeft, *matRight);
+	RadixJoin join = RadixJoin(*joinPred, &selClinical, &scanGenetic, &ctx, joinLabel, *matLeft, *matRight);
 	selClinical.setParent(&join);
 	scanGenetic.setParent(&join);
 
@@ -5612,7 +5612,7 @@ void columnarJoin1()
 	expressions::Expression* selRight = new expressions::RecordProjection(
 			intType, rightJoinArg, *selectProjRight1);
 
-	vector<expressions::Expression*> whichExpressionsRight;
+	vector<expression_t> whichExpressionsRight;
 	whichExpressionsRight.push_back(exprRightOID);
 	whichExpressionsRight.push_back(selRight);
 	whichExpressionsRight.push_back(right);
@@ -5630,7 +5630,7 @@ void columnarJoin1()
 			whichExpressionsRight, whichOIDs, outputModes2);
 
 	char joinLabel[] = "join1";
-	RadixJoin join = RadixJoin(joinPred, &sel, &scanRight, &ctx, joinLabel, *matLeft, *matRight);
+	RadixJoin join = RadixJoin(*joinPred, &sel, &scanRight, &ctx, joinLabel, *matLeft, *matRight);
 	sel.setParent(&join);
 	scanRight.setParent(&join);
 
@@ -5830,7 +5830,7 @@ void columnarCachedJoin1()
 	expressions::Expression* selRight = new expressions::RecordProjection(
 			intType, rightJoinArg, *selectProjRight1);
 
-	vector<expressions::Expression*> whichExpressionsRight;
+	vector<expression_t> whichExpressionsRight;
 	whichExpressionsRight.push_back(exprRightOID);
 	whichExpressionsRight.push_back(selRight);
 	whichExpressionsRight.push_back(right);
@@ -5847,7 +5847,7 @@ void columnarCachedJoin1()
 	Materializer* matRight = new Materializer(whichFieldsRight, whichExpressionsRight, whichOIDs, outputModes2);
 
 	char joinLabel[] = "join1";
-	RadixJoin join = RadixJoin(joinPred, &sel, &scanRight, &ctx, joinLabel, *matLeft, *matRight);
+	RadixJoin join = RadixJoin(*joinPred, &sel, &scanRight, &ctx, joinLabel, *matLeft, *matRight);
 	sel.setParent(&join);
 	scanRight.setParent(&join);
 

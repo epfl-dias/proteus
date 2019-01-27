@@ -35,12 +35,12 @@ enum direction{
 
 class Sort : public UnaryRawOperator {
 public:
-    Sort(   RawOperator * const             child,
-            GpuRawContext * const           context,
-            const vector<expressions::Expression *> &orderByFields,
-            const vector<direction                > &dirs);
+    Sort(   RawOperator * const         child,
+            GpuRawContext * const       context,
+            const vector<expression_t> &orderByFields,
+            const vector<direction   > &dirs);
 
-    virtual ~Sort()                                             { LOG(INFO)<<"Collapsing Sort operator";}
+    virtual ~Sort(){ LOG(INFO)<<"Collapsing Sort operator";}
 
     virtual void produce();
     virtual void consume(RawContext    * const context, const OperatorState& childState);
@@ -55,10 +55,10 @@ protected:
 
     virtual void call_sort(llvm::Value * mem, llvm::Value * N);
 
-    std::vector<expressions::Expression *> orderByFields;
-    const vector<direction               > dirs         ;
+    std::vector<expression_t> orderByFields;
+    const vector<direction  > dirs         ;
 
-    expressions::Expression *       outputExpr  ;
+    expressions::RecordConstruction outputExpr  ;
     std::string                     relName     ;
 
     // size_t                          width       ;

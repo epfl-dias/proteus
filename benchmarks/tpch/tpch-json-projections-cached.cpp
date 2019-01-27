@@ -321,7 +321,7 @@ void tpchLineitemProjection3(map<string,dataset> datasetCatalog, int predicateVa
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	switch (aggregatesNo) {
 	case 1: {
 		accs.push_back(MAX);
@@ -476,7 +476,7 @@ void tpchLineitemProjection3Schema(map<string,dataset> datasetCatalog, int predi
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	switch (aggregatesNo) {
 	case 1: {
 		accs.push_back(MAX);
@@ -644,7 +644,7 @@ void tpchLineitemProjection3CachingPred(map<string,dataset> datasetCatalog, int 
 
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	switch (aggregatesNo) {
 	case 1: {
 		accs.push_back(MAX);
@@ -823,7 +823,7 @@ void tpchLineitemProjection3CachingAgg(map<string, dataset> datasetCatalog,
 
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	switch (aggregatesNo) {
 	case 1: {
 		accs.push_back(MAX);
@@ -1015,7 +1015,7 @@ void tpchLineitemProjection3CachingPredAgg(map<string, dataset> datasetCatalog,
 
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	switch (aggregatesNo) {
 	case 1: {
 		accs.push_back(MAX);

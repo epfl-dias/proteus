@@ -174,7 +174,7 @@ public:
 private:
 	//Schema info provided
 	RecordType rec;
-	vector<RecordAttribute*>& wantedFields;
+	vector<RecordAttribute*> wantedFields;
 
 	/* Used when we treat the col. files as internal caches! */
 	bool isCached;

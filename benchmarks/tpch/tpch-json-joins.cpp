@@ -36,7 +36,6 @@
 #include "operators/reduce.hpp"
 #include "operators/reduce-nopred.hpp"
 #include "operators/reduce-opt.hpp"
-#include "operators/reduce-opt-nopred.hpp"
 #include "operators/nest.hpp"
 #include "operators/nest-opt.hpp"
 #include "operators/radix-nest.hpp"
@@ -309,7 +308,7 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
 			pgOrders->getOIDType(), leftArg, *projTupleL);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 
 	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
@@ -326,14 +325,14 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgLineitem->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoin";
-	RadixJoin *join = new RadixJoin(joinPred, scanOrders, sel, &ctx,
+	RadixJoin *join = new RadixJoin(*joinPred, scanOrders, sel, &ctx,
 			joinLabel, *matLeft, *matRight);
 	scanOrders->setParent(join);
 	sel->setParent(join);
@@ -449,7 +448,7 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
 			pgOrders->getOIDType(), leftArg, *projTupleL);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 
 	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
@@ -470,7 +469,7 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 			pgLineitem->getOIDType(), rightArg, *projTupleR);
 //	expressions::Expression* exprOrderkey = new expressions::RecordProjection(
 //			l_orderkey->getOriginalType(), rightArg, *l_orderkey);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 //	expressionsRight.push_back(exprOrderkey);
 
@@ -478,7 +477,7 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoin";
-	RadixJoin *join = new RadixJoin(joinPred, sel, scanLineitem, &ctx,
+	RadixJoin *join = new RadixJoin(*joinPred, sel, scanLineitem, &ctx,
 			joinLabel, *matLeft, *matRight);
 
 	sel->setParent(join);
@@ -679,7 +678,7 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
 			pgOrders->getOIDType(), leftArg, *projTupleL);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 
 	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
@@ -696,14 +695,14 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgLineitem->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoin";
-	RadixJoin *join = new RadixJoin(joinPred, scanOrders, sel, &ctx,
+	RadixJoin *join = new RadixJoin(*joinPred, scanOrders, sel, &ctx,
 			joinLabel, *matLeft, *matRight);
 	scanOrders->setParent(join);
 	sel->setParent(join);
@@ -842,7 +841,7 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
 			pgOrders->getOIDType(), leftArg, *projTupleL);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 
 	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
@@ -859,14 +858,14 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgLineitem->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoin";
-	RadixJoin *join = new RadixJoin(joinPred, scanOrders, sel, &ctx,
+	RadixJoin *join = new RadixJoin(*joinPred, scanOrders, sel, &ctx,
 			joinLabel, *matLeft, *matRight);
 
 	scanOrders->setParent(join);
@@ -986,7 +985,7 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
 			pgOrders->getOIDType(), leftArg, *projTupleL);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 
 	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
@@ -1003,14 +1002,14 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgLineitem->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoin";
-	RadixJoin *join = new RadixJoin(joinPred, scanOrders, sel, &ctx,
+	RadixJoin *join = new RadixJoin(*joinPred, scanOrders, sel, &ctx,
 			joinLabel, *matLeft, *matRight);
 	scanOrders->setParent(join);
 	sel->setParent(join);
@@ -1025,15 +1024,15 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 	expressions::Expression* exprTotalprice = new expressions::RecordProjection(
 			o_totalprice->getOriginalType(), leftArg, *o_totalprice);
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	accs.push_back(MAX);
 	accs.push_back(MAX);
 	outputExprs.push_back(exprOrderkey);
 	outputExprs.push_back(exprTotalprice);
 
 	expressions::Expression* outputExpr = exprOrderkey;
-	opt::ReduceNoPred *reduce =
-			new opt::ReduceNoPred(accs, outputExprs, join,&ctx);
+	opt::Reduce *reduce =
+			new opt::Reduce(accs, outputExprs, true, join,&ctx);
 	join->setParent(reduce);
 
 	//Run function
@@ -1160,7 +1159,7 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 	OIDLeft.push_back(projTupleL);
 	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
 			pgOrders->getOIDType(), leftArg, *projTupleL);
-	vector<expressions::Expression*> expressionsLeft;
+	vector<expression_t> expressionsLeft;
 	expressionsLeft.push_back(exprLeftOID);
 
 	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
@@ -1177,14 +1176,14 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 	OIDRight.push_back(projTupleR);
 	expressions::Expression* exprRightOID = new expressions::RecordProjection(
 			pgLineitem->getOIDType(), rightArg, *projTupleR);
-	vector<expressions::Expression*> expressionsRight;
+	vector<expression_t> expressionsRight;
 	expressionsRight.push_back(exprRightOID);
 
 	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
 			OIDRight, outputModesRight);
 
 	char joinLabel[] = "radixJoin";
-	RadixJoin *join = new RadixJoin(joinPred, scanOrders, sel, &ctx,
+	RadixJoin *join = new RadixJoin(*joinPred, scanOrders, sel, &ctx,
 			joinLabel, *matLeft, *matRight);
 
 	scanOrders->setParent(join);
@@ -1202,13 +1201,13 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 					l_extendedprice->getOriginalType(), rightArg,
 					*l_extendedprice);
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	accs.push_back(MAX);
 	accs.push_back(MAX);
 	outputExprs.push_back(exprOrderkey);
 	outputExprs.push_back(exprExtendedprice);
 
-	opt::ReduceNoPred *reduce = new opt::ReduceNoPred(accs, outputExprs, join, &ctx);
+	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, true, join, &ctx);
 	join->setParent(reduce);
 
 	//Run function

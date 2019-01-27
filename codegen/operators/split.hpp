@@ -32,7 +32,7 @@ public:
             int                             numOfParents            ,
             const vector<RecordAttribute*> &wantedFields            ,
             int                             slack                   ,
-            expressions::Expression        *hash            = NULL  ,
+            std::optional<expression_t>     hash            = std::nullopt,
             bool                            numa_local      = true  ,
             bool                            rand_local_cpu  = false ) :
                     Exchange            (

@@ -25,7 +25,7 @@
 #include "util/raw-memory-manager.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 
-Project::Project(vector<expressions::Expression*> outputExprs,
+Project::Project(vector<expression_t> outputExprs,
 		string              relName,
 		RawOperator* const  child,
 		RawContext         *context) :
@@ -100,12 +100,12 @@ void Project::generate(RawContext* const context,
 	for (const auto &outputExpr: outputExprs){
 		ExpressionGeneratorVisitor exprGenerator{context, childState};
 
-		RawValue val = outputExpr->accept(exprGenerator);
+		RawValue val = outputExpr.accept(exprGenerator);
 		AllocaInst * mem = context->CreateEntryBlockAlloca(TheFunction, "proj", val.value->getType());
 		Builder->CreateStore(val.value, mem);
 
 		RawValueMemory mem_val{mem, val.isNull};
-		bindings[outputExpr->getRegisteredAs()] = mem_val;
+		bindings[outputExpr.getRegisteredAs()] = mem_val;
 	}
 
 	OperatorState state{*this, bindings};

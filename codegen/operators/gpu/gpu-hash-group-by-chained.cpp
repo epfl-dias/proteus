@@ -30,7 +30,7 @@
 GpuHashGroupByChained::GpuHashGroupByChained(
             const std::vector<GpuAggrMatExpr>              &agg_exprs, 
             // const std::vector<size_t>                      &packet_widths,
-            const std::vector<expressions::Expression *>    key_expr,
+            const std::vector<expression_t  >               key_expr,
             RawOperator * const                             child,
 
             int                                             hash_bits,
@@ -75,7 +75,7 @@ void GpuHashGroupByChained::buildHashTableFormat(){
     for (const auto &key: key_expr){
         agg_exprs.emplace_back(key                , 0, bitoffset);
 
-        const ExpressionType * out_type = key->getExpressionType();
+        const ExpressionType * out_type = key.getExpressionType();
 
         Type * llvm_type = out_type->getLLVMType(context->getLLVMContext());
 
@@ -109,7 +109,7 @@ void GpuHashGroupByChained::buildHashTableFormat(){
                 ++packind;
             }
 
-            const ExpressionType * out_type = agg_exprs[i].expr->getExpressionType();
+            const ExpressionType * out_type = agg_exprs[i].expr.getExpressionType();
 
             Type * llvm_type = out_type->getLLVMType(context->getLLVMContext());
 
@@ -156,11 +156,11 @@ void GpuHashGroupByChained::buildHashTableFormat(){
     cnt_param_id = context->appendStateVar(t_cnt);//, true, false);
 }
 
-Value * GpuHashGroupByChained::hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState){
+Value * GpuHashGroupByChained::hash(const std::vector<expression_t> &exprs, RawContext* const context, const OperatorState& childState){
     Value * hash;
     if (exprs.size() == 1){
         ExpressionHasherVisitor hasher{context, childState};
-        hash = exprs[0]->accept(hasher).value;
+        hash = exprs[0].accept(hasher).value;
     } else {
         std::list<expressions::AttributeConstruction> a;
         size_t i = 0;
@@ -205,7 +205,7 @@ void GpuHashGroupByChained::generate_build(RawContext* const context, const Oper
     // }
 
     // ExpressionHasherVisitor exphasher{context, childState};
-    // Value * hash = kexpr->accept(exphasher).value;
+    // Value * hash = kexpr.accept(exphasher).value;
     Value * hash = GpuHashGroupByChained::hash(key_expr, context, childState);
 
     Value * eochain   = ConstantInt::get((IntegerType *) head_ptr->getType()->getPointerElementType(), ~((size_t) 0));
@@ -247,7 +247,7 @@ void GpuHashGroupByChained::generate_build(RawContext* const context, const Oper
 
     for (const GpuAggrMatExpr &mexpr: agg_exprs){
         ExpressionGeneratorVisitor exprGenerator(context, childState);
-        RawValue valWrapper = mexpr.expr->accept(exprGenerator);
+        RawValue valWrapper = mexpr.expr.accept(exprGenerator);
 
         out_vals[mexpr.packet] = Builder->CreateInsertValue(out_vals[mexpr.packet], valWrapper.value, mexpr.packind);
     }
@@ -346,16 +346,15 @@ void GpuHashGroupByChained::generate_build(RawContext* const context, const Oper
     Value * bucket_cond = v_true;
     for (size_t i = 0 ; i < key_expr.size() ; ++i){
         ExpressionGeneratorVisitor exprGenerator(context, childState);
-        RawValue keyWrapper = key_expr[i]->accept(exprGenerator);
+        RawValue keyWrapper = key_expr[i].accept(exprGenerator);
 
         Value  * key        = Builder->CreateExtractValue(next_bucket, i);
 
-        expressions::RawValueExpression kexpr{key_expr[i]->getExpressionType(), keyWrapper};
-        expressions::RawValueExpression kbuck{key_expr[i]->getExpressionType(), RawValue{key, context->createFalse()}};
-        expressions::EqExpression eq{&kexpr, &kbuck};
+        expressions::RawValueExpression kexpr{key_expr[i].getExpressionType(), keyWrapper};
+        expressions::RawValueExpression kbuck{key_expr[i].getExpressionType(), RawValue{key, context->createFalse()}};
 
-        RawValue eq_v = eq.accept(exprGenerator);
-        bucket_cond         = Builder->CreateAnd(bucket_cond, eq_v.value);
+        RawValue eq_v = eq(kexpr, kbuck).accept(exprGenerator);
+        bucket_cond   = Builder->CreateAnd(bucket_cond, eq_v.value);
     }
                 // if (next[current].key == key) {
     Builder->CreateCondBr(bucket_cond, BucketFoundBB, ContFollowBB);
@@ -498,7 +497,7 @@ void GpuHashGroupByChained::generate_build(RawContext* const context, const Oper
                                 //     // }
 
                                 //     // ExpressionHasherVisitor exphasher{context, childState};
-                                //     // Value * hash = kexpr->accept(exphasher).value;
+                                //     // Value * hash = kexpr.accept(exphasher).value;
                                 //     Value * hash = GpuHashGroupByChained::hash(key_expr, context, childState);
 
                                 //     Value * eochain   = ConstantInt::get((IntegerType *) head_ptr->getType()->getPointerElementType(), ~((size_t) 0));
@@ -545,7 +544,7 @@ void GpuHashGroupByChained::generate_build(RawContext* const context, const Oper
 
                                 //     for (const GpuAggrMatExpr &mexpr: agg_exprs){
                                 //         ExpressionGeneratorVisitor exprGenerator(context, childState);
-                                //         RawValue valWrapper = mexpr.expr->accept(exprGenerator);
+                                //         RawValue valWrapper = mexpr.expr.accept(exprGenerator);
                                         
                                 //         out_vals[mexpr.packet] = Builder->CreateInsertValue(out_vals[mexpr.packet], valWrapper.value, mexpr.packind);
                                 //     }
@@ -739,7 +738,7 @@ void GpuHashGroupByChained::generate_build(RawContext* const context, const Oper
 //     head_ptr->setName(opLabel + "_head_ptr");
 
 //     ExpressionGeneratorVisitor exprGenerator(context, childState);
-//     RawValue keyWrapper = probe_keyexpr->accept(exprGenerator);
+//     RawValue keyWrapper = probe_keyexpr.accept(exprGenerator);
 //     Value * hash = GpuHashGroupByChained::hash(keyWrapper.value);
 
 //     //current = head[hash(key)]
@@ -861,7 +860,7 @@ void GpuHashGroupByChained::generate_scan() {
     // Builder->CreateBr      (CondBB);
 
     
-    std::string relName = agg_exprs[0].expr->getRegisteredRelName();
+    std::string relName = agg_exprs[0].expr.getRegisteredRelName();
     Plugin* pg = RawCatalog::getInstance().getPlugin(relName);
     
     AllocaInst * mem_itemCtr = context->CreateEntryBlockAlloca(F, "i_ptr", pg->getOIDType()->getLLVMType(llvmContext));
@@ -963,14 +962,14 @@ void GpuHashGroupByChained::generate_scan() {
     for (const GpuAggrMatExpr &mexpr: agg_exprs){
 
         Value * v = Builder->CreateExtractValue(in_vals[mexpr.packet], mexpr.packind);
-        AllocaInst * v_mem = context->CreateEntryBlockAlloca(mexpr.expr->getRegisteredAttrName(), v->getType());
+        AllocaInst * v_mem = context->CreateEntryBlockAlloca(mexpr.expr.getRegisteredAttrName(), v->getType());
         Builder->CreateStore(v, v_mem);
 
         RawValueMemory val_mem;
         val_mem.mem = v_mem;
         val_mem.isNull = context->createFalse();
 
-        variableBindings[mexpr.expr->getRegisteredAs()] = val_mem;
+        variableBindings[mexpr.expr.getRegisteredAs()] = val_mem;
     }
 
     //Triggering parent

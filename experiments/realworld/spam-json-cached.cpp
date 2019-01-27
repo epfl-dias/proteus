@@ -231,7 +231,7 @@ void symantecJSON1(map<string, dataset> datasetCatalog) {
 	 */
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(SUM);
 	expressions::Expression* outputExpr1 = new expressions::IntConstant(1);
@@ -375,7 +375,7 @@ void symantecJSON1Caching(map<string, dataset> datasetCatalog) {
 	 */
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(SUM);
 	expressions::Expression* outputExpr1 = new expressions::IntConstant(1);
@@ -1432,7 +1432,7 @@ void symantecJSON11(map<string, dataset> datasetCatalog) {
 	string aggrLabel = string(nestLabel);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;

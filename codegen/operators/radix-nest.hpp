@@ -85,20 +85,20 @@ struct kvBuf {
 class Nest: public UnaryRawOperator {
 public:
 	Nest(RawContext* const context, vector<Monoid> accs,
-			vector<expressions::Expression*> outputExprs,
+			vector<expression_t> outputExprs,
 			vector<string> aggrLabels,
-			expressions::Expression *pred,
-			std::vector<expressions::Expression *>f_grouping,
-			expressions::Expression *g_nullToZero,
+			expression_t pred,
+			std::vector<expression_t> f_grouping,
+			expression_t g_nullToZero,
 			RawOperator* const child, 
 			const std::string &opLabel,
 			Materializer& mat);
 	Nest(RawContext* const context, vector<Monoid> accs,
-			vector<expressions::Expression*> outputExprs,
+			vector<expression_t> outputExprs,
 			vector<string> aggrLabels,
-			expressions::Expression *pred,
-			expressions::Expression *f_grouping,
-			expressions::Expression *g_nullToZero,
+			expression_t pred,
+			expression_t f_grouping,
+			expression_t g_nullToZero,
 			RawOperator* const child, 
 			const std::string &opLabel,
 			Materializer& mat);
@@ -125,15 +125,15 @@ private:
 	/**
 	 * We need a new accumulator for every resulting bucket of the HT
 	 */
-	AllocaInst* resetAccumulator(expressions::Expression* outputExpr, Monoid acc) const;
+	AllocaInst* resetAccumulator(expression_t outputExpr, Monoid acc) const;
 	// void updateRelationPointers() const;
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
-	expressions::Expression* pred;
-	expressions::Expression* f_grouping;
-	expressions::Expression* __attribute__((unused)) g_nullToZero;
-	vector<expressions::Expression *> f_grouping_vec;
+	vector<expression_t> outputExprs;
+	expression_t pred;
+	expression_t f_grouping;
+	expression_t __attribute__((unused)) g_nullToZero;
+	vector<expression_t> f_grouping_vec;
 
 	vector<string> aggregateLabels;
 

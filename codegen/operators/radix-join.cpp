@@ -23,18 +23,18 @@
 
 #include "operators/radix-join.hpp"
 
-RadixJoinBuild::RadixJoinBuild( expressions::Expression   * keyExpr     ,
-                                RawOperator               * child       ,
-                                GpuRawContext* const        context     ,
-                                string                      opLabel     ,
-                                Materializer              & mat         ,
-                                StructType                * htEntryType ,
-                                size_t                      size        , //bytes
-                                size_t                      kvSize      , //bytes
-                                bool                        is_agg      ):
-    UnaryRawOperator(child), keyExpr(keyExpr), context(context), mat(mat), 
-        htEntryType(htEntryType), htLabel(opLabel), size(size), kvSize(kvSize),
-        cached(false), is_agg(is_agg){
+RadixJoinBuild::RadixJoinBuild( expression_t                    keyExpr     ,
+                                RawOperator                   * child       ,
+                                GpuRawContext* const            context     ,
+                                string                          opLabel     ,
+                                Materializer                  & mat         ,
+                                StructType                    * htEntryType ,
+                                size_t      /* bytes */         size        ,
+                                size_t      /* bytes */         kvSize      ,
+                                bool                            is_agg      ):
+    UnaryRawOperator(child), keyExpr(std::move(keyExpr)), context(context),
+        mat(mat), htEntryType(htEntryType), htLabel(opLabel), size(size),
+        kvSize(kvSize), cached(false), is_agg(is_agg){
         //TODO initializations
     
     pg = new OutputPlugin(context, mat, NULL);
@@ -370,35 +370,32 @@ void RadixJoinBuild::consume(   GpuRawContext* const context    ,
             CachingService& cache = CachingService::getInstance();
             /* expr does not participate in caching search, so don't need it explicitly => mock */
             list<RecordAttribute*> mockAtts = list<RecordAttribute*>();
-            mockAtts.push_back(new RecordAttribute(we->getRegisteredAs()));
+            mockAtts.push_back(new RecordAttribute(we.getRegisteredAs()));
             list<RecordAttribute> mockProjections;
             RecordType mockRec = RecordType(mockAtts);
-            expressions::InputArgument *mockExpr =
-                    new expressions::InputArgument(&mockRec, 0,
-                            mockProjections);
-            expressions::RecordProjection *e =
-                    new expressions::RecordProjection(mockExpr, we->getRegisteredAs());
-            info = cache.getCache(e);
+            expression_t mockExpr = expression_t::make<expressions::InputArgument>(&mockRec, 0, mockProjections);
+            auto e = mockExpr[we.getRegisteredAs()];
+            info = cache.getCache(&e);
             if (info.structFieldNo != -1) {
-                if (!cache.getCacheIsFull(e)) {
+                if (!cache.getCacheIsFull(&e)) {
                 } else {
                     isCached = true;
                     cout << "[OUTPUT PG: ] *Cached* Expression found for "
-                            << e->getOriginalRelationName() << "."
-                            << e->getAttribute().getAttrName() << "!"
+                            << e.getOriginalRelationName() << "."
+                            << e.getAttribute().getAttrName() << "!"
                             << endl;
                 }
             }
 
             if (isCached) {
-                string activeRelation = e->getOriginalRelationName();
-                string projName = e->getProjectionName();
+                string activeRelation = e.getOriginalRelationName();
+                string projName = e.getProjectionName();
                 Plugin* plugin = catalog.getPlugin(activeRelation);
                 valToMaterialize =
                         (plugin->readCachedValue(info, bindings)).value;
             } else {
                 map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
-                        bindings.find(we->getRegisteredAs());
+                        bindings.find(we.getRegisteredAs());
                 if (memSearch != bindings.end()){
                     RawValueMemory currValMem = memSearch->second;
                     /* FIX THE NECESSARY CONVERSIONS HERE */
@@ -407,7 +404,7 @@ void RadixJoinBuild::consume(   GpuRawContext* const context    ,
                             materializedTypes->at(offsetInWanted), currVal);
                 } else {
                     ExpressionGeneratorVisitor exprGen{context, childState};
-                    RawValue currVal = we->accept(exprGen);
+                    RawValue currVal = we.accept(exprGen);
                     /* FIX THE NECESSARY CONVERSIONS HERE */
                     valToMaterialize = currVal.value;
                 }
@@ -458,7 +455,7 @@ void RadixJoinBuild::consume(   GpuRawContext* const context    ,
         /* Prepare key */
         ExpressionGeneratorVisitor exprGenerator{context, childState};
 
-        RawValue key = keyExpr->accept(exprGenerator);
+        RawValue key = keyExpr.accept(exprGenerator);
 
         PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
 
@@ -552,7 +549,7 @@ void RadixJoinBuild::consume(   GpuRawContext* const context    ,
 }
 
 
-RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
+RadixJoin::RadixJoin(const expressions::BinaryExpression &predicate,
         RawOperator *leftChild, RawOperator *rightChild,
         RawContext* const context, const char* opLabel, Materializer& matLeft,
         Materializer& matRight) :
@@ -564,7 +561,7 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
     LLVMContext& llvmContext = context->getLLVMContext();
 
     // only 32bit integers keys are supported
-    if (context->getSizeOf(predicate->getLeftOperand()->getExpressionType()->getLLVMType(llvmContext)) != 32/8) {
+    if (context->getSizeOf(predicate.getLeftOperand().getExpressionType()->getLLVMType(llvmContext)) != 32/8) {
         string error_msg = "--A-- Only INT32 keys considered atm";
         LOG(ERROR)<< error_msg;
         throw runtime_error(error_msg);
@@ -610,7 +607,7 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
     size_t kvSizeR = sizeR;// * htEntrySize;
     size_t kvSizeS = sizeS;// * htEntrySize;
 
-    buildR = new RadixJoinBuild(predicate->getLeftOperand(),
+    buildR = new RadixJoinBuild(predicate.getLeftOperand(),
                                 leftChild,
                                 this->context,
                                 htLabel,
@@ -619,7 +616,7 @@ RadixJoin::RadixJoin(expressions::BinaryExpression* predicate,
                                 sizeR,
                                 kvSizeR);
 
-    buildS = new RadixJoinBuild(predicate->getRightOperand(),
+    buildS = new RadixJoinBuild(predicate.getRightOperand(),
                                 rightChild,
                                 this->context,
                                 htLabel,
@@ -942,7 +939,7 @@ void RadixJoin::runRadix() const    {
 
     context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
-    std::string relName = getMaterializerRight().getWantedExpressions().back()->getRegisteredRelName();
+    std::string relName = getMaterializerRight().getWantedExpressions().back().getRegisteredRelName();
     Plugin * pg = RawCatalog::getInstance().getPlugin(relName);
     ExpressionType * oid_type = pg->getOIDType();
     IntegerType * llvm_oid_type = (IntegerType *) oid_type->getLLVMType(llvmContext);
@@ -1246,7 +1243,7 @@ void RadixJoin::runRadix() const    {
 //                         }
 
                         for (const auto &expr2: getMaterializerLeft().getWantedExpressions()) {
-                            string currField = expr2->getRegisteredAttrName();
+                            string currField = expr2.getRegisteredAttrName();
                             AllocaInst * mem_field = context->CreateEntryBlockAlloca(F,
                                     "mem_" + currField,
                                     rPayloadType->getElementType(i));
@@ -1272,7 +1269,7 @@ void RadixJoin::runRadix() const    {
 //                          Builder->CreateCall(debugInt, ArgsV);
 #endif
 
-                            (*allJoinBindings)[expr2->getRegisteredAs()] = mem_valWrapper;
+                            (*allJoinBindings)[expr2.getRegisteredAs()] = mem_valWrapper;
                             i++;
                         }
                     }
@@ -1320,7 +1317,7 @@ void RadixJoin::runRadix() const    {
 //                         }
 
                         for (const auto &expr2: getMaterializerRight().getWantedExpressions()) {
-                            string currField = expr2->getRegisteredAttrName();
+                            string currField = expr2.getRegisteredAttrName();
                             AllocaInst * mem_field = context->CreateEntryBlockAlloca(F,
                                     "mem_" + currField,
                                     sPayloadType->getElementType(i));
@@ -1344,7 +1341,7 @@ void RadixJoin::runRadix() const    {
 //                          ArgsV.push_back(Builder->CreateLoad(mem_field));
 //                          Builder->CreateCall(debugInt, ArgsV);
 #endif
-                            (*allJoinBindings)[expr2->getRegisteredAs()] = mem_valWrapper;
+                            (*allJoinBindings)[expr2.getRegisteredAs()] = mem_valWrapper;
                             i++;
                         }
                     }

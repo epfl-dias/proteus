@@ -64,7 +64,7 @@ void symantecBin1(map<string,dataset> datasetCatalog)	{
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -165,7 +165,7 @@ void symantecBin2(map<string,dataset> datasetCatalog)	{
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -287,7 +287,7 @@ void symantecBin3(map<string,dataset> datasetCatalog)	{
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -397,7 +397,7 @@ void symantecBin4(map<string,dataset> datasetCatalog)	{
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -576,7 +576,7 @@ void symantecBin4v1(map<string,dataset> datasetCatalog)	{
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -655,7 +655,7 @@ void symantecBin5(map<string,dataset> datasetCatalog)	{
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr1 = new expressions::RecordProjection(
@@ -805,7 +805,7 @@ void symantecBin6(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -977,7 +977,7 @@ void symantecBin6v1(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -1151,7 +1151,7 @@ void symantecBin6v2(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -1345,7 +1345,7 @@ void symantecBin7(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -1541,7 +1541,7 @@ void symantecBin7v1(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -1740,7 +1740,7 @@ void symantecBin7v2(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -1947,7 +1947,7 @@ void symantecBin8(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -2156,7 +2156,7 @@ void symantecBin8v1(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -2368,7 +2368,7 @@ void symantecBin8v2(map<string, dataset> datasetCatalog) {
 
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;

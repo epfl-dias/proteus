@@ -26,7 +26,9 @@
 
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
-#include <unordered_map> 
+#include "operators/operators.hpp"
+#include <unordered_map>
+#include <optional>
 
 struct PartitionMetadata {
     int32_t  * keys;
@@ -51,7 +53,7 @@ public:
             RecordAttribute*                   targetAttr,
             const std::vector<GpuMatExpr>      &parts_mat_exprs, 
             const std::vector<size_t>          &parts_packet_widths,
-            expressions::Expression *           parts_keyexpr,
+            expression_t                        parts_keyexpr,
             RawOperator * const                 parts_child,
             GpuRawContext *                     context,
             size_t                              maxInputSize,
@@ -82,7 +84,6 @@ private:
     int                     log_parts1;
     int                     log_parts2;
 
-    Materializer*           mat;
     OutputPlugin*           pg_out;
 
     llvm::StructType*       payloadType;
@@ -93,7 +94,7 @@ private:
 
     std::vector<GpuMatExpr> parts_mat_exprs;
     std::vector<size_t>     parts_packet_widths;
-    expressions::Expression *parts_keyexpr;
+    expression_t            parts_keyexpr;
 
     std::vector<int>        param_pipe_ids;
 
@@ -112,14 +113,14 @@ public:
     GpuPartitionedHashJoinChained(
             const std::vector<GpuMatExpr>      &build_mat_exprs, 
             const std::vector<size_t>          &build_packet_widths,
-            expressions::Expression *           build_keyexpr,
-            expressions::Expression *           build_minor_keyexpr,
+            expression_t                        build_keyexpr,
+            std::optional<expression_t>         build_minor_keyexpr,
             HashPartitioner * const             build_child,
 
             const std::vector<GpuMatExpr>      &probe_mat_exprs, 
             const std::vector<size_t>          &probe_mat_packet_widths,
-            expressions::Expression *           probe_keyexpr,
-            expressions::Expression *           probe_minor_keyexpr,
+            expression_t                        probe_keyexpr,
+            std::optional<expression_t>         probe_minor_keyexpr,
             HashPartitioner * const             probe_child,
 
             PartitionState&                     state_left,
@@ -174,11 +175,11 @@ private:
     std::vector<GpuMatExpr> probe_mat_exprs;
     std::vector<size_t>     build_packet_widths;
 
-    expressions::Expression *build_keyexpr;
-    expressions::Expression *probe_keyexpr;
+    expression_t            build_keyexpr;
+    expression_t            probe_keyexpr;
 
-    expressions::Expression *build_minor_keyexpr;
-    expressions::Expression *probe_minor_keyexpr;
+    std::optional<expression_t> build_minor_keyexpr;
+    std::optional<expression_t> probe_minor_keyexpr;
     
     std::vector<size_t>     packet_widths;
 

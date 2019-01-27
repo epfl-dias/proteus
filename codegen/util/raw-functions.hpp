@@ -26,13 +26,14 @@
 
 #include "util/raw-catalog.hpp"
 #include "util/raw-context.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 #include "util/raw-timing.hpp"
 #include "util/radix/joins/radix-join.hpp"
 #include "util/radix/aggregations/radix-aggr.hpp"
 
 class RawContext;
 
-RawContext * prepareContext(string moduleName);
+GpuRawContext * prepareContext(string moduleName);
 //===----------------------------------------------------------------------===//
 // "Library" functions that can be "extern'd" from user code.
 //===----------------------------------------------------------------------===//

@@ -89,7 +89,7 @@ struct kvBuf	{
 
 class RadixJoinBuild: public UnaryRawOperator {
 public:
-    RadixJoinBuild( expressions::Expression       * keyExpr     ,
+    RadixJoinBuild( expression_t                    keyExpr     ,
                     RawOperator                   * child       ,
                     GpuRawContext* const            context     ,
                     string                          opLabel     ,
@@ -151,7 +151,7 @@ private:
 
     string                      htLabel         ;
     GpuRawContext * const       context         ;
-    expressions::Expression    *keyExpr         ;
+    expression_t                keyExpr      ;
 
     OutputPlugin               *pg              ;
 
@@ -170,7 +170,7 @@ private:
 
 class RadixJoin: public BinaryRawOperator {
 public:
-	RadixJoin(expressions::BinaryExpression* predicate,
+	RadixJoin(const expressions::BinaryExpression &predicate,
 			RawOperator *leftChild, RawOperator *rightChild,
 			RawContext* const context, const char* opLabel,
 			Materializer& matLeft,

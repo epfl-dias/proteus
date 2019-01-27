@@ -32,7 +32,7 @@
 
 class Flush: public UnaryRawOperator {
 public:
-	Flush(	vector<expressions::Expression*> outputExprs,
+	Flush(	vector<expression_t> outputExprs,
 			RawOperator* const child,
 			RawContext* context,
 			const char *outPath = "out.json");
@@ -47,7 +47,8 @@ protected:
 	RawContext *context;
 	size_t      result_cnt_id;
 
-	expressions::Expression *outputExpr;
+	expression_t outputExpr;
+	vector<expression_t> outputExprs_v;
 	
 	const char *outPath;
 	std::string relName;

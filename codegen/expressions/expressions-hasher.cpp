@@ -23,7 +23,7 @@
 
 #include "expressions/expressions-hasher.hpp"
 
-RawValue ExpressionHasherVisitor::hashInt32(expressions::Expression *e){
+RawValue ExpressionHasherVisitor::hashInt32(const expressions::Expression *e){
 	ExpressionGeneratorVisitor exprGenerator{context, currState};
 	return ::hashInt32(e->accept(exprGenerator), context);
 }
@@ -51,7 +51,7 @@ RawValue hashInt32(RawValue v, RawContext * context){
 	return RawValue{hash, v.isNull};
 }
 
-RawValue ExpressionHasherVisitor::hashPrimitive(expressions::Expression *e){
+RawValue ExpressionHasherVisitor::hashPrimitive(const expressions::Expression *e){
 	auto type = e->getExpressionType();
 
 	assert(type->isPrimitive() && "Non-primitive types should be handled by the corresponding visit function!");
@@ -108,31 +108,31 @@ RawValue hashPrimitive(RawValue v, typeID type, RawContext * context){
 
 
 
-RawValue ExpressionHasherVisitor::visit(expressions::IntConstant *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::IntConstant *e) {
 	return hashInt32(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::DStringConstant *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::DStringConstant *e) {
 	return hashInt32(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::Int64Constant *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::Int64Constant *e) {
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::DateConstant *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::DateConstant *e) {
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::FloatConstant *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::FloatConstant *e) {
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::BoolConstant *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::BoolConstant *e) {
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::StringConstant *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::StringConstant *e) {
 	IRBuilder<>* const TheBuilder = context->getBuilder();
 	size_t hashResultC = hashString(e->getVal());
 	Value* hashResult = ConstantInt::get(context->getLLVMContext(), APInt(64, hashResultC));
@@ -150,7 +150,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::StringConstant *e) {
 	return valWrapper;
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
+RawValue ExpressionHasherVisitor::visit(const expressions::InputArgument *e)
 {
 	RawCatalog& catalog = RawCatalog::getInstance();
 	Function* const F  = context->getGlobalFunction();
@@ -220,7 +220,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::InputArgument *e)
 	return hashValWrapper;
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::RawValueExpression *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::RawValueExpression *e) {
 	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 
 	RawCatalog& catalog 			= RawCatalog::getInstance();
@@ -238,7 +238,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::RawValueExpression *e) {
 	}
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::RecordProjection *e) {
 	RawCatalog& catalog 			= RawCatalog::getInstance();
 	activeRelation 					= e->getOriginalRelationName();
 
@@ -246,7 +246,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 	/* Need this 'hint' before launching generator,
 	 * otherwise (potential) InputArg visitor will crash */
 	exprGenerator.setActiveRelation(activeRelation);
-	RawValue record					= e->getExpr()->accept(exprGenerator);
+	RawValue record					= e->getExpr().accept(exprGenerator);
 	Plugin* plugin 					= catalog.getPlugin(activeRelation);
 
 		{
@@ -301,7 +301,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 		RawValueMemory mem_path;
 		//cout << "Active Relation: " << e->getProjectionName() << endl;
 		if (e->getProjectionName() != activeLoop) {
-			const RecordType * exprType = dynamic_cast<const RecordType *>(e->getExpr()->getExpressionType());
+			const RecordType * exprType = dynamic_cast<const RecordType *>(e->getExpr().getExpressionType());
 			if (exprType){
 				RecordAttribute attr = e->getAttribute();
 				Value * val = exprType->projectArg(record.value, &attr, context->getBuilder());
@@ -337,7 +337,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordProjection *e) {
 	}
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::IfThenElse *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::IfThenElse *e) {
 	IRBuilder<>* const TheBuilder	= context->getBuilder();
 	LLVMContext& llvmContext		= context->getLLVMContext();
 	Function *F 					= TheBuilder->GetInsertBlock()->getParent();
@@ -348,7 +348,7 @@ RawValue ExpressionHasherVisitor::visit(expressions::IfThenElse *e) {
 
 	//Need to evaluate, not hash!
 	ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, currState);
-	RawValue ifCond = e->getIfCond()->accept(exprGenerator);
+	RawValue ifCond = e->getIfCond().accept(exprGenerator);
 
 	//Prepare blocks
 	BasicBlock *ThenBB;
@@ -361,13 +361,13 @@ RawValue ExpressionHasherVisitor::visit(expressions::IfThenElse *e) {
 
 	//then
 	TheBuilder->SetInsertPoint(ThenBB);
-	hashResult = e->getIfResult()->accept(*this);
+	hashResult = e->getIfResult().accept(*this);
 	TheBuilder->CreateStore(hashResult.value,mem_hashResult);
 	TheBuilder->CreateBr(MergeBB);
 
 	//else
 	TheBuilder->SetInsertPoint(ElseBB);
-	hashResult = e->getElseResult()->accept(*this);
+	hashResult = e->getElseResult().accept(*this);
 	TheBuilder->CreateStore(hashResult.value,mem_hashResult);
 
 	TheBuilder->CreateBr(MergeBB);
@@ -381,59 +381,59 @@ RawValue ExpressionHasherVisitor::visit(expressions::IfThenElse *e) {
 	return valWrapper;
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::EqExpression *e)	{
+RawValue ExpressionHasherVisitor::visit(const expressions::EqExpression *e)	{
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::NeExpression *e)	{
+RawValue ExpressionHasherVisitor::visit(const expressions::NeExpression *e)	{
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::GeExpression *e)	{
+RawValue ExpressionHasherVisitor::visit(const expressions::GeExpression *e)	{
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::GtExpression *e)	{
+RawValue ExpressionHasherVisitor::visit(const expressions::GtExpression *e)	{
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::LeExpression *e)	{
+RawValue ExpressionHasherVisitor::visit(const expressions::LeExpression *e)	{
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::LtExpression *e)	{
+RawValue ExpressionHasherVisitor::visit(const expressions::LtExpression *e)	{
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::AndExpression *e)	{
+RawValue ExpressionHasherVisitor::visit(const expressions::AndExpression *e)	{
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::OrExpression *e)	{
+RawValue ExpressionHasherVisitor::visit(const expressions::OrExpression *e)	{
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::AddExpression *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::AddExpression *e) {
 	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::SubExpression *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::SubExpression *e) {
 	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::MultExpression *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::MultExpression *e) {
 	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::DivExpression *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::DivExpression *e) {
 	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of binary expression can only be primitive"));
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::RecordConstruction *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::RecordConstruction *e) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	Type * int64Type = Type::getInt64Ty(context->getLLVMContext());
 
@@ -441,8 +441,8 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordConstruction *e) {
 	Value * comb = ConstantInt::get(int64Type, 0x9e3779b9);
 
 	for (const auto &attr: e->getAtts()){
-		expressions::Expression* expr = attr.getExpression();
-		Value * hv = expr->accept(*this).value;
+		expression_t expr = attr.getExpression();
+		Value * hv = expr.accept(*this).value;
 
 		hv = Builder->CreateAdd(hv, comb);
 		hv = Builder->CreateAdd(hv, Builder->CreateShl (seed,  6));
@@ -455,34 +455,34 @@ RawValue ExpressionHasherVisitor::visit(expressions::RecordConstruction *e) {
 	return RawValue{seed, context->createFalse()};
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::MaxExpression *e)	{
+RawValue ExpressionHasherVisitor::visit(const expressions::MaxExpression *e)	{
 	return e->getCond()->accept(*this);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::MinExpression *e)	{
+RawValue ExpressionHasherVisitor::visit(const expressions::MinExpression *e)	{
 	return e->getCond()->accept(*this);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::HashExpression *e)	{
+RawValue ExpressionHasherVisitor::visit(const expressions::HashExpression *e)	{
 	assert(false && "This does not really make sense... Why to hash a hash?");
-	return e->getExpr()->accept(*this);
+	return e->getExpr().accept(*this);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::NegExpression *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::NegExpression *e) {
 	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of negate expression can only be primitive"));
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::ExtractExpression *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::ExtractExpression *e) {
 	if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 	throw runtime_error(string("[ExpressionHasherVisitor]: input of extract expression can only be primitive"));
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::TestNullExpression *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::TestNullExpression *e) {
 	return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(expressions::CastExpression *e) {
+RawValue ExpressionHasherVisitor::visit(const expressions::CastExpression *e) {
 	// do not _just_ cast the inner expression, as hash may be different
 	// between the casted and non-casted expressions
 	// instead, hash the casted expression

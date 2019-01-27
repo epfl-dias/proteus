@@ -14,8 +14,6 @@ set(codegen_cxx
 	operators/cpu-to-gpu.cpp
 	operators/dict-scan.cpp
 	operators/flush.cpp
-	operators/gpu/gpu-join.cpp
-	operators/gpu/gpu-materializer-expr.cpp
 	operators/gpu/gpu-reduce.cpp
 	operators/gpu/gpu-sort.cpp
 	operators/gpu/gpu-to-cpu.cpp
@@ -33,7 +31,6 @@ set(codegen_cxx
 	operators/radix-join.cpp
 	operators/radix-nest.cpp
 	operators/reduce-nopred.cpp
-	operators/reduce-opt-nopred.cpp
 	operators/reduce-opt.cpp
 	operators/reduce.cpp
 	operators/root.cpp

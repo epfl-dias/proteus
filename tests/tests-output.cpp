@@ -32,13 +32,14 @@
 #include "storage/raw-storage-manager.hpp"
 
 #include "common/common.hpp"
-#include "util/raw-context.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 #include "util/raw-functions.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "operators/print.hpp"
 #include "operators/root.hpp"
 #include "operators/join.hpp"
+#include "operators/flush.hpp"
 #include "operators/unnest.hpp"
 #include "operators/outer-unnest.hpp"
 #include "operators/reduce-opt.hpp"
@@ -95,6 +96,31 @@ protected:
 	bool flushResults = true;
 	const char * testPath = TEST_OUTPUTS "/tests-output/";
 
+	bool executePlan(GpuRawContext &ctx, const char * testLabel, std::vector<Plugin *> pgs) {
+		ctx.compileAndLoad();
+		auto pipelines = ctx.getPipelines();
+
+		{
+			time_block t("Texecute       : ");
+
+			for (RawPipeline * p: pipelines) {
+				{
+					time_block t("T: ");
+
+					p->open();
+					p->consume(0);
+					p->close();
+				}
+			}
+		}
+
+		for (auto &pg: pgs) pg->finish();
+
+		bool res = verifyTestResult(testPath, testLabel, true);
+		shm_unlink(testLabel);
+		return res;
+	}
+
 private:
 	RawCatalog * catalog;
 	CachingService * caches;
@@ -117,7 +143,7 @@ void OutputTest::TearDown(){
 // select max(sid) from sailors where age > 40 ;
 TEST_F(OutputTest, ReduceNumeric) {
  	const char *testLabel = "reduceNumeric.json";
-	RawContext& ctx = *prepareContext(testLabel);
+	GpuRawContext& ctx = *prepareContext(testLabel);
 
 	//SCAN1
 	string filename = string("inputs/sailors.csv");
@@ -154,45 +180,34 @@ TEST_F(OutputTest, ReduceNumeric) {
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop, pg->getOIDType());
-	list<RecordAttribute> projections = list<RecordAttribute>();
-	projections.push_back(projTuple);
-	projections.push_back(*sid);
-	projections.push_back(*age);
+	RecordAttribute projTuple{filename, activeLoop, pg->getOIDType()};
 
-	expressions::Expression* arg = new expressions::InputArgument(&rec1, 0,
-			projections);
-	expressions::Expression* outputExpr = new expressions::RecordProjection(
-			intType, arg, *sid);
+	list<RecordAttribute> projections{projTuple, *sid, *age};
 
-	expressions::Expression* lhs = new expressions::RecordProjection(floatType,
-			arg, *age);
-	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
-	expressions::Expression* predicate = new expressions::GtExpression(
-			lhs, rhs);
+	expressions::InputArgument arg{&rec1, 0, projections};
+	auto outputExpr = expression_t{arg}[*sid];
 
-	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
-	accs.push_back(MAX);
-	exprs.push_back(outputExpr);
-	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &scan, &ctx, flushResults, testLabel);
+	auto predicate = gt(expression_t{arg}[*age], 40.0);
+
+	vector<Monoid> accs{MAX};
+	vector<expression_t> exprs{outputExpr};
+	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &scan, &ctx, false, testLabel);
 	scan.setParent(&reduce);
 
-	reduce.produce();
 
-	//Run function
-	ctx.prepareFunction(ctx.getGlobalFunction());
+	Flush flush{exprs, &reduce, &ctx, testLabel};
+	reduce.setParent(&flush);
 
-	pg->finish();
+	flush.produce();
 
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(ctx, testLabel, {pg}));
 }
 
 // works on new planner BUT planner does not request the output as json
 // select sum(sid), max(sid) from sailors where age > 40 ;
 TEST_F(OutputTest, MultiReduceNumeric) {
 	const char *testLabel = "multiReduceNumeric.json";
-	RawContext& ctx = *prepareContext(testLabel);
+	GpuRawContext& ctx = *prepareContext(testLabel);
 
 	//SCAN1
 	string filename = string("inputs/sailors.csv");
@@ -229,47 +244,37 @@ TEST_F(OutputTest, MultiReduceNumeric) {
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop, pg->getOIDType());
-	list<RecordAttribute> projections = list<RecordAttribute>();
-	projections.push_back(projTuple);
-	projections.push_back(*sid);
-	projections.push_back(*age);
+	RecordAttribute projTuple{filename, activeLoop, pg->getOIDType()};
+	list<RecordAttribute> projections{projTuple, *sid, *age};
 
-	expressions::Expression* arg = new expressions::InputArgument(&rec1, 0,
-			projections);
-	expressions::Expression* outputExpr = new expressions::RecordProjection(
-			intType, arg, *sid);
+	expressions::InputArgument arg{&rec1, 0, projections};
+	auto outputExpr = expression_t{arg}[*sid];
+	auto outputExpr2 = expression_t{arg}[*sid];
+	outputExpr .registerAs(outputExpr.getRegisteredRelName(), outputExpr.getProjectionName() + "$0");
+	outputExpr2.registerAs(outputExpr.getRegisteredRelName(), outputExpr.getProjectionName() + "$1");
+	std::cout << outputExpr .getRegisteredRelName() << "+" << outputExpr.getRegisteredAttrName() << std::endl;
+	auto predicate = gt(expression_t{arg}[*age], 40.0);
 
-	expressions::Expression* lhs = new expressions::RecordProjection(floatType,
-			arg, *age);
-	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
-	expressions::Expression* predicate = new expressions::GtExpression(
-			lhs, rhs);
-
-	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
-	accs.push_back(SUM);
-	accs.push_back(MAX);
-	exprs.push_back(outputExpr);
-	exprs.push_back(outputExpr);
-	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &scan, &ctx, flushResults, testLabel);
+	vector<Monoid> accs{SUM, MAX};
+	vector<expression_t> exprs{outputExpr, outputExpr2};
+	opt::Reduce reduce{accs, exprs, predicate, &scan, &ctx, false, testLabel};
 	scan.setParent(&reduce);
 
-	reduce.produce();
+	vector<expression_t> exprs_flush{expression_t{arg}[outputExpr.getRegisteredAs()], expression_t{arg}[outputExpr2.getRegisteredAs()]};
+	Flush flush{exprs_flush, &reduce, &ctx, testLabel};
+	reduce.setParent(&flush);
+
+	flush.produce();
 
 	//Run function
-	ctx.prepareFunction(ctx.getGlobalFunction());
-
-	pg->finish();
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(ctx, testLabel, {pg}));
 }
 
 // works on new planner BUT planner does not request the output as json
 // select sid from sailors where age > 40 ;
 TEST_F(OutputTest, ReduceBag) {
 	const char *testLabel = "reduceBag.json";
-	RawContext& ctx = *prepareContext(testLabel);
+	GpuRawContext& ctx = *prepareContext(testLabel);
 
 	//SCAN1
 	string filename = string("inputs/sailors.csv");
@@ -306,47 +311,35 @@ TEST_F(OutputTest, ReduceBag) {
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop, pg->getOIDType());
-	list<RecordAttribute> projections = list<RecordAttribute>();
-	projections.push_back(projTuple);
-	projections.push_back(*sid);
-	projections.push_back(*age);
+	RecordAttribute projTuple{filename, activeLoop, pg->getOIDType()};
+	list<RecordAttribute> projections{projTuple, *sid, *age};
 
-	expressions::Expression* arg = new expressions::InputArgument(&rec1, 0,
-			projections);
-	expressions::Expression* outputExpr = new expressions::RecordProjection(
-			intType, arg, *sid);
+	expressions::InputArgument arg{&rec1, 0, projections};
+	auto outputExpr = expression_t{arg}[*sid];
+	auto predicate = gt(expression_t{arg}[*age], 40.0);
 
-	expressions::Expression* lhs = new expressions::RecordProjection(floatType,
-			arg, *age);
-	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
-	expressions::Expression* predicate = new expressions::GtExpression(
-			lhs, rhs);
+	vector<Monoid> accs{BAGUNION};
+	vector<expression_t> exprs{outputExpr};
 
-	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
-	accs.push_back(BAGUNION);
-	exprs.push_back(outputExpr);
+	Select filter{predicate, &scan};
+	scan.setParent(&filter);
+
 	//	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scan, &ctx);
 	//	Reduce reduce = Reduce(MULTIPLY, outputExpr, predicate, &scan, &ctx);
-	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &scan, &ctx, flushResults, testLabel);
-	scan.setParent(&reduce);
+	Flush flush{exprs, &filter, &ctx, testLabel};
+	filter.setParent(&flush);
 
-	reduce.produce();
+	flush.produce();
 
 	//Run function
-	ctx.prepareFunction(ctx.getGlobalFunction());
-
-	pg->finish();
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(ctx, testLabel, {pg}));
 }
 
 // works on new planner BUT planner does not request the output as json
 // select sid as id, age as age from sailors where age > 40 ;
 TEST_F(OutputTest, ReduceBagRecord) {
 	const char *testLabel = "reduceBagRecord.json";
-	RawContext& ctx = *prepareContext(testLabel);
+	GpuRawContext& ctx = *prepareContext(testLabel);
 
 	//SCAN1
 	string filename = string("inputs/sailors.csv");
@@ -383,65 +376,48 @@ TEST_F(OutputTest, ReduceBagRecord) {
 	/**
 	 * REDUCE
 	 */
-	RecordAttribute projTuple = RecordAttribute(filename, activeLoop, pg->getOIDType());
-	list<RecordAttribute> projections = list<RecordAttribute>();
-	projections.push_back(projTuple);
-	projections.push_back(*sid);
-	projections.push_back(*age);
+	RecordAttribute projTuple{filename, activeLoop, pg->getOIDType()};
+	list<RecordAttribute> projections{projTuple, *sid, *age};
 
-	expressions::Expression *arg = new expressions::InputArgument(&rec1, 0,
-			projections);
+	expressions::InputArgument arg{&rec1, 0, projections};
 
 	/* CONSTRUCT OUTPUT RECORD */
-	list<RecordAttribute*> newAttsTypes = list<RecordAttribute*>();
-	newAttsTypes.push_back(sid);
-	newAttsTypes.push_back(age);
-	RecordType newRecType = RecordType(newAttsTypes);
-	expressions::RecordProjection *projID = new expressions::RecordProjection(
-			intType, arg, *sid);
-	expressions::RecordProjection *projAge = new expressions::RecordProjection(
-			floatType, arg, *age);
+	list<RecordAttribute*> newAttsTypes{sid, age};
 
-	expressions::AttributeConstruction attrExpr1 =
-			expressions::AttributeConstruction("id", projID);
-	expressions::AttributeConstruction attrExpr2 =
-			expressions::AttributeConstruction("age", projAge);
-	list<expressions::AttributeConstruction> newAtts = list<
-			expressions::AttributeConstruction>();
+	RecordType newRecType{newAttsTypes};
+	auto projID = expression_t{arg}[*sid];
+	auto projAge = expression_t{arg}[*age];
+
+	expressions::AttributeConstruction attrExpr1{"id", projID};
+	expressions::AttributeConstruction attrExpr2{"age", projAge};
+	list<expressions::AttributeConstruction> newAtts;
 	newAtts.push_back(attrExpr1);
 	newAtts.push_back(attrExpr2);
-	expressions::RecordConstruction *outputExpr =
-			new expressions::RecordConstruction(&newRecType, newAtts);
+	expressions::RecordConstruction outputExpr{newAtts};
 
 
 	/* Construct filtering predicate */
-	expressions::Expression* lhs = new expressions::RecordProjection(floatType,
-			arg, *age);
-	expressions::Expression* rhs = new expressions::FloatConstant(40.0);
-	expressions::Expression* predicate = new expressions::GtExpression(
-			lhs, rhs);
+	auto predicate = gt(projAge, 40.0);
 
-	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
-	accs.push_back(BAGUNION);
-	exprs.push_back(outputExpr);
-	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &scan, &ctx, flushResults, testLabel);
-	scan.setParent(&reduce);
+	Select filter{predicate, &scan};
+	scan.setParent(&filter);
 
-	reduce.produce();
+	vector<expression_t> exprs{projID, projAge};
+	//	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scan, &ctx);
+	//	Reduce reduce = Reduce(MULTIPLY, outputExpr, predicate, &scan, &ctx);
+	Flush flush{exprs, &filter, &ctx, testLabel};
+	filter.setParent(&flush);
+
+	flush.produce();
 
 	//Run function
-	ctx.prepareFunction(ctx.getGlobalFunction());
-
-	pg->finish();
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(ctx, testLabel, {pg}));
 }
 
 // table not in catalog/repo
 TEST_F(OutputTest, NestBagTPCH) {
 	const char *testLabel = "nestBagTPCH.json";
-	RawContext& ctx = *prepareContext(testLabel);
+	GpuRawContext& ctx = *prepareContext(testLabel);
 
 	PrimitiveType *intType = new IntType();
 	PrimitiveType *floatType = new FloatType();
@@ -529,14 +505,9 @@ TEST_F(OutputTest, NestBagTPCH) {
 	argProjections.push_back(*l_orderkey);
 	argProjections.push_back(*l_quantity);
 
-	expressions::Expression *arg = new expressions::InputArgument(&rec, 0,
-			argProjections);
+	expressions::InputArgument arg{&rec, 0, argProjections};
 
-	expressions::Expression *lhs = new expressions::RecordProjection(
-			l_orderkey->getOriginalType(), arg, *l_orderkey);
-	expressions::Expression* rhs = new expressions::IntConstant(4);
-	expressions::Expression* pred = new expressions::LtExpression(
-			lhs, rhs);
+	auto pred = lt(expression_t{arg}[*l_orderkey], 4);
 
 	Select *sel = new Select(pred, scan);
 	scan->setParent(sel);
@@ -552,16 +523,11 @@ TEST_F(OutputTest, NestBagTPCH) {
 
 	nestProjections.push_back(*l_quantity);
 
-	expressions::Expression* nestArg = new expressions::InputArgument(&rec, 0,
-			nestProjections);
+	expressions::InputArgument nestArg{&rec, 0, nestProjections};
 	//f (& g)
-	expressions::RecordProjection* f = new expressions::RecordProjection(
-			l_linenumber->getOriginalType(), nestArg, *l_linenumber);
+	auto f = expression_t{nestArg}[*l_linenumber];
 	//p
-	expressions::Expression* lhsNest = new expressions::BoolConstant(true);
-	expressions::Expression* rhsNest = new expressions::BoolConstant(true);
-	expressions::Expression* predNest = new expressions::EqExpression(
-			lhsNest, rhsNest);
+	auto predNest = eq(true, true);
 
 	//mat.
 //	vector<RecordAttribute*> fields;
@@ -574,38 +540,28 @@ TEST_F(OutputTest, NestBagTPCH) {
 
 	//new mat.
 	RecordAttribute *oidAttr = new RecordAttribute(0,l_linenumber->getRelationName(),activeLoop,pg->getOIDType());
-	expressions::Expression *oidToMat = new expressions::RecordProjection(
-			oidAttr->getOriginalType(), nestArg, *oidAttr);
-	expressions::Expression *toMat1 = new expressions::RecordProjection(
-			l_linenumber->getOriginalType(), nestArg, *l_linenumber);
-	expressions::Expression *toMat2 = new expressions::RecordProjection(
-			l_quantity->getOriginalType(), nestArg, *l_quantity);
-	vector<expressions::Expression*> exprsToMat;
-	exprsToMat.push_back(oidToMat);
-	exprsToMat.push_back(toMat1);
-	exprsToMat.push_back(toMat2);
+	auto oidToMat = expression_t{nestArg}[*oidAttr];
+	auto toMat1 = expression_t{nestArg}[*l_linenumber];
+	auto toMat2 = expression_t{nestArg}[*l_quantity];
+	vector<expression_t> exprsToMat{oidToMat, toMat1, toMat2};
 	Materializer* mat = new Materializer(exprsToMat);
 
 	char nestLabel[] = "nest_lineitem";
 	string aggrLabel = string(nestLabel);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
-	string aggrField1;
-	string aggrField2;
 
 	/* Aggregate 1: COUNT(*) */
-	expressions::Expression* outputExpr1 = new expressions::IntConstant(1);
-	aggrField1 = string("_aggrCount");
+	std::string aggrField1{"_aggrCount"};
 	accs.push_back(SUM);
-	outputExprs.push_back(outputExpr1);
+	outputExprs.push_back(1);
 	aggrLabels.push_back(aggrField1);
 
 	/* + Aggregate 2: MAX(l_quantity) */
-	expressions::Expression* outputExpr2 = new expressions::RecordProjection(
-			l_quantity->getOriginalType(), nestArg, *l_quantity);
-	aggrField2 = string("_aggrMaxQuantity");
+	auto outputExpr2 = expression_t{nestArg}[*l_quantity];
+	std::string aggrField2{"_aggrMaxQuantity"};
 	accs.push_back(MAX);
 	outputExprs.push_back(outputExpr2);
 	aggrLabels.push_back(aggrField2);
@@ -625,54 +581,29 @@ TEST_F(OutputTest, NestBagTPCH) {
 	newArgTypes.push_back(*max_qty);
 
 	/* Used for record type construction */
-	list<RecordAttribute*> newAttsTypes = list<RecordAttribute*>();
+	list<RecordAttribute*> newAttsTypes;
 	newAttsTypes.push_back(cnt);
 	newAttsTypes.push_back(max_qty);
 	RecordType newRecType = RecordType(newAttsTypes);
 
-	expressions::Expression* nestResultArg = new expressions::InputArgument(
-			&newRecType, 0, newArgTypes);
-	expressions::RecordProjection *projCnt = new expressions::RecordProjection(
-			intType, nestResultArg, *cnt);
-	expressions::RecordProjection *projMax = new expressions::RecordProjection(
-			floatType, nestResultArg, *max_qty);
+	expressions::InputArgument nestResultArg{&newRecType, 0, newArgTypes};
+	auto projCnt = expression_t{nestResultArg}[*cnt];
+	auto projMax = expression_t{nestResultArg}[*max_qty];
 
-	expressions::AttributeConstruction attrExpr1 =
-				expressions::AttributeConstruction("cnt", projCnt);
-	expressions::AttributeConstruction attrExpr2 =
-			expressions::AttributeConstruction("max_qty", projMax);
-	list<expressions::AttributeConstruction> newAtts = list<
-			expressions::AttributeConstruction>();
-	newAtts.push_back(attrExpr1);
-	newAtts.push_back(attrExpr2);
-	expressions::RecordConstruction *outputExpr =
-			new expressions::RecordConstruction(&newRecType, newAtts);
+	// expressions::AttributeConstruction attrExpr1("cnt", projCnt);
+	// expressions::AttributeConstruction attrExpr2("max_qty", projMax);
 
-	/* Construct filtering predicate */
+	Flush *flush = new Flush({projCnt, projMax}, nestOp, &ctx, testLabel);
+	nestOp->setParent(flush);
+	flush->produce();
 
-	expressions::Expression *predicate = new expressions::BoolConstant(true);
-
-	vector<Monoid> reduceAccs;
-	vector<expressions::Expression*> exprs;
-	reduceAccs.push_back(BAGUNION);
-	exprs.push_back(outputExpr);
-	opt::Reduce *reduceOp = new opt::Reduce(reduceAccs, exprs, predicate,
-			nestOp, &ctx, flushResults, testLabel);
-	nestOp->setParent(reduceOp);
-	reduceOp->produce();
-
-	/* Execute */
-	ctx.prepareFunction(ctx.getGlobalFunction());
-
-	//Close all open files & clear
-	pg->finish();
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	//Run function
+	EXPECT_TRUE(executePlan(ctx, testLabel, {pg}));
 }
 
 TEST_F(OutputTest, JoinLeft3) {
 	const char *testLabel = "3wayJoin.json";
-	RawContext& ctx = *prepareContext(testLabel);
+	GpuRawContext& ctx = *prepareContext(testLabel);
 
 	/**
 	 * SCAN1
@@ -736,46 +667,32 @@ TEST_F(OutputTest, JoinLeft3) {
 	sailorAttsForArg.push_back(sailorOID);
 	sailorAttsForArg.push_back(*sid);
 	sailorAttsForArg.push_back(*age);
-	expressions::Expression *sailorArg = new expressions::InputArgument(intType,
-			0, sailorAttsForArg);
-	expressions::Expression *sailorOIDProj = new expressions::RecordProjection(
-			intType, sailorArg, sailorOID);
-	expressions::Expression*sailorSIDProj = new expressions::RecordProjection(
-			intType, sailorArg, *sid);
-	expressions::Expression *sailorAgeProj = new expressions::RecordProjection(
-			floatType, sailorArg, *age);
-	vector<expressions::Expression*> exprsToMatSailor;
-	exprsToMatSailor.push_back(sailorOIDProj);
-	exprsToMatSailor.push_back(sailorSIDProj);
-	exprsToMatSailor.push_back(sailorAgeProj);
-	Materializer* matSailor = new Materializer(exprsToMatSailor);
+	expression_t sailorArg{expressions::InputArgument{intType, 0, sailorAttsForArg}};
+	expression_t sailorOIDProj = sailorArg[sailorOID];
+	expression_t sailorSIDProj = sailorArg[*sid];
+	expression_t sailorAgeProj = sailorArg[*age];
+
+	vector<expression_t> exprsToMatSailor{sailorOIDProj, sailorSIDProj, sailorAgeProj};
+	Materializer matSailor{exprsToMatSailor};
 
 	/* Reserves: Right-side fields for materialization etc. */
-	RecordAttribute reservesOID = RecordAttribute(reservesPath, activeLoop, pgReserves->getOIDType());
-	list<RecordAttribute> reserveAttsForArg = list<RecordAttribute>();
-	reserveAttsForArg.push_back(reservesOID);
-	reserveAttsForArg.push_back(*sidReserves);
-	reserveAttsForArg.push_back(*bidReserves);
-	expressions::Expression *reservesArg = new expressions::InputArgument(intType,
-			1, reserveAttsForArg);
-	expressions::Expression *reservesOIDProj = new expressions::RecordProjection(
-			pgReserves->getOIDType(), reservesArg, reservesOID);
-	expressions::Expression* reservesSIDProj = new expressions::RecordProjection(
-			intType, reservesArg, *sidReserves);
-	expressions::Expression* reservesBIDProj = new expressions::RecordProjection(
-				intType, reservesArg, *bidReserves);
-	vector<expressions::Expression*> exprsToMatReserves;
+	RecordAttribute reservesOID(reservesPath, activeLoop, pgReserves->getOIDType());
+	list<RecordAttribute> reserveAttsForArg{reservesOID, *sidReserves, *bidReserves};
+	expression_t reservesArg{expressions::InputArgument{intType,
+			1, reserveAttsForArg}};
+	expression_t reservesOIDProj = reservesArg[reservesOID];
+	expression_t reservesSIDProj = reservesArg[*sidReserves];
+	expression_t reservesBIDProj = reservesArg[*bidReserves];
+	vector<expression_t> exprsToMatReserves;
 	exprsToMatReserves.push_back(reservesOIDProj);
 	//exprsToMatRight.push_back(resevesSIDProj);
 	exprsToMatReserves.push_back(reservesBIDProj);
 
-	Materializer* matReserves = new Materializer(exprsToMatReserves);
+	Materializer matReserves(exprsToMatReserves);
 
-	expressions::BinaryExpression* joinPred =
-			new expressions::EqExpression(sailorSIDProj,reservesSIDProj);
+	expressions::BinaryExpression* joinPred = new expressions::EqExpression(sailorSIDProj,reservesSIDProj);
 
-	char joinLabel[] = "sailors_reserves";
-	RadixJoin join = RadixJoin(joinPred, &scanSailors, &scanReserves, &ctx, joinLabel, *matSailor, *matReserves);
+	RadixJoin join(*joinPred, &scanSailors, &scanReserves, &ctx, "sailors_reserves", matSailor, matReserves);
 	scanSailors.setParent(&join);
 	scanReserves.setParent(&join);
 
@@ -804,84 +721,62 @@ TEST_F(OutputTest, JoinLeft3) {
 	/**
 	 * JOIN2: BOATS
 	 */
-	expressions::Expression *previousJoinArg =
-			new expressions::InputArgument(intType,0,reserveAttsForArg);
-	expressions::Expression *previousJoinBIDProj =
-			new expressions::RecordProjection(intType,previousJoinArg,*bidReserves);
-	vector<expressions::Expression*> exprsToMatPreviousJoin;
+	auto previousJoinArg = expression_t{expressions::InputArgument(intType,0,reserveAttsForArg)};
+	auto previousJoinBIDProj = previousJoinArg[*bidReserves];
+	vector<expression_t> exprsToMatPreviousJoin;
 	exprsToMatPreviousJoin.push_back(sailorOIDProj);
 	exprsToMatPreviousJoin.push_back(reservesOIDProj);
 	exprsToMatPreviousJoin.push_back(sailorSIDProj);
-	Materializer* matPreviousJoin = new Materializer(exprsToMatPreviousJoin);
+	Materializer matPreviousJoin{exprsToMatPreviousJoin};
 
-	RecordAttribute projTupleBoat = RecordAttribute(filenameBoats, activeLoop, pgBoats->getOIDType());
-	list<RecordAttribute> fieldsBoats = list<RecordAttribute>();
+	RecordAttribute projTupleBoat(filenameBoats, activeLoop, pgBoats->getOIDType());
+	list<RecordAttribute> fieldsBoats;
 	fieldsBoats.push_back(projTupleBoat);
 	fieldsBoats.push_back(*bidBoats);
-	expressions::Expression* boatsArg =
-			new expressions::InputArgument(intType,1,fieldsBoats);
-	expressions::Expression* boatsOIDProj =
-			new expressions::RecordProjection(pgBoats->getOIDType(),boatsArg,projTupleBoat);
-	expressions::Expression* boatsBIDProj =
-			new expressions::RecordProjection(intType,boatsArg,*bidBoats);
+	auto boatsArg = expression_t{expressions::InputArgument(intType,1,fieldsBoats)};
+	auto boatsOIDProj = boatsArg[projTupleBoat];
+	auto boatsBIDProj = boatsArg[*bidBoats];
 
-	vector<expressions::Expression*> exprsToMatBoats;
-	exprsToMatBoats.push_back(boatsOIDProj);
-	exprsToMatBoats.push_back(boatsBIDProj);
-	Materializer* matBoats = new Materializer(exprsToMatBoats);
+	vector<expression_t> exprsToMatBoats{boatsOIDProj, boatsBIDProj};
+	Materializer matBoats(exprsToMatBoats);
 
 	expressions::BinaryExpression* joinPred2 =
 			new expressions::EqExpression(previousJoinBIDProj,boatsBIDProj);
 
 	char joinLabel2[] = "sailors_reserves_boats";
-	RadixJoin join2 = RadixJoin(joinPred2, &join, &scanBoats, &ctx, joinLabel2, *matPreviousJoin, *matBoats);
+	RadixJoin join2(*joinPred2, &join, &scanBoats, &ctx, joinLabel2, matPreviousJoin, matBoats);
 	join.setParent(&join2);
 	scanBoats.setParent(&join2);
 
 	/**
 	 * REDUCE
 	 */
-	list<RecordAttribute> projections = list<RecordAttribute>();
-	projections.push_back(*sid);
-	projections.push_back(*age);
+	list<RecordAttribute> projections{*sid, *age};
 
-	expressions::Expression *arg =
-			new expressions::InputArgument(&sailorRec, 0,projections);
-	expressions::Expression *outputExpr =
-			new expressions::RecordProjection(intType, arg, *sid);
-	expressions::Expression *one = new expressions::IntConstant(1);
-
-	expressions::Expression *predicate = new expressions::BoolConstant(true);
+	auto arg = expression_t{expressions::InputArgument(&sailorRec, 0,projections)};
+	auto outputExpr = arg[*sid];
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(MAX);
 	exprs.push_back(outputExpr);
 	/* Sanity checks*/
 	accs.push_back(SUM);
 	exprs.push_back(outputExpr);
 	accs.push_back(SUM);
-	exprs.push_back(one);
-	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &join2, &ctx,
-			flushResults, testLabel);
+	exprs.push_back(1);
+	opt::Reduce reduce(accs, exprs, true, &join2, &ctx, flushResults, testLabel);
 	join2.setParent(&reduce);
 	reduce.produce();
 
 	//Run function
-	ctx.prepareFunction(ctx.getGlobalFunction());
-
-	//Close all open files & clear
-	pgSailors->finish();
-	pgReserves->finish();
-	pgBoats->finish();
-
-	EXPECT_TRUE(verifyTestResult(testPath,testLabel));
+	EXPECT_TRUE(executePlan(ctx, testLabel, {pgSailors, pgReserves, pgBoats}));
 }
 
 /* Corresponds to plan parser tests */
 TEST_F(OutputTest, NestReserves) {
 	const char *testLabel = "nestReserves.json";
-	RawContext& ctx = *prepareContext(testLabel);
+	GpuRawContext& ctx = *prepareContext(testLabel);
 
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();
@@ -932,7 +827,7 @@ TEST_F(OutputTest, NestReserves) {
 			pgReserves->getOIDType(), reservesArg, *reservesOID);
 	expressions::Expression* reservesSIDProj = new expressions::RecordProjection(
 			intType, reservesArg, *sidReserves);
-	vector<expressions::Expression*> exprsToMatReserves;
+	vector<expression_t> exprsToMatReserves;
 	exprsToMatReserves.push_back(reservesOIDProj);
 	exprsToMatReserves.push_back(reservesSIDProj);
 	Materializer* matReserves = new Materializer(exprsToMatReserves);
@@ -946,7 +841,7 @@ TEST_F(OutputTest, NestReserves) {
 
 	/* output of nest */
 	vector<Monoid> accsNest;
-	vector<expressions::Expression*> exprsNest;
+	vector<expression_t> exprsNest;
 	vector<string> aggrLabels;
 	expressions::Expression *one = new expressions::IntConstant(1);
 	accsNest.push_back(SUM);
@@ -976,7 +871,7 @@ TEST_F(OutputTest, NestReserves) {
 	expressions::Expression *predicate = new expressions::BoolConstant(true);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(BAGUNION);
 	exprs.push_back(outputExpr);
 	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &nest, &ctx,
@@ -995,7 +890,7 @@ TEST_F(OutputTest, NestReserves) {
 
 TEST_F(OutputTest, MultiNestReservesStaticAlloc) {
 	const char *testLabel = "multinestReserves.json";
-	RawContext& ctx = *prepareContext(testLabel);
+	GpuRawContext& ctx = *prepareContext(testLabel);
 
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();
@@ -1048,7 +943,7 @@ TEST_F(OutputTest, MultiNestReservesStaticAlloc) {
 			intType, reservesArg, *sidReserves);
 	expressions::Expression* reservesBIDProj = new expressions::RecordProjection(
 				intType, reservesArg, *bidReserves);
-	vector<expressions::Expression*> exprsToMatReserves;
+	vector<expression_t> exprsToMatReserves;
 	exprsToMatReserves.push_back(reservesOIDProj);
 	exprsToMatReserves.push_back(reservesSIDProj);
 	exprsToMatReserves.push_back(reservesBIDProj);
@@ -1063,7 +958,7 @@ TEST_F(OutputTest, MultiNestReservesStaticAlloc) {
 
 	/* output of nest */
 	vector<Monoid> accsNest;
-	vector<expressions::Expression*> exprsNest;
+	vector<expression_t> exprsNest;
 	vector<string> aggrLabels;
 	expressions::Expression *one = new expressions::IntConstant(1);
 	accsNest.push_back(SUM);
@@ -1118,7 +1013,7 @@ TEST_F(OutputTest, MultiNestReservesStaticAlloc) {
 	expressions::Expression *predicate = new expressions::BoolConstant(true);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(BAGUNION);
 	exprs.push_back(newRec);
 	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &nest, &ctx,
@@ -1137,7 +1032,7 @@ TEST_F(OutputTest, MultiNestReservesStaticAlloc) {
 
 TEST_F(OutputTest, MultiNestReservesDynAlloc) {
 	const char *testLabel = "multinestReserves.json";
-	RawContext& ctx = *prepareContext(testLabel);
+	GpuRawContext& ctx = *prepareContext(testLabel);
 
 	PrimitiveType* intType = new IntType();
 	PrimitiveType* floatType = new FloatType();
@@ -1190,7 +1085,7 @@ TEST_F(OutputTest, MultiNestReservesDynAlloc) {
 			intType, reservesArg, *sidReserves);
 	expressions::Expression* reservesBIDProj = new expressions::RecordProjection(
 				intType, reservesArg, *bidReserves);
-	vector<expressions::Expression*> exprsToMatReserves;
+	vector<expression_t> exprsToMatReserves;
 	exprsToMatReserves.push_back(reservesOIDProj);
 	exprsToMatReserves.push_back(reservesSIDProj);
 	exprsToMatReserves.push_back(reservesBIDProj);
@@ -1205,7 +1100,7 @@ TEST_F(OutputTest, MultiNestReservesDynAlloc) {
 
 	/* output of nest */
 	vector<Monoid> accsNest;
-	vector<expressions::Expression*> exprsNest;
+	vector<expression_t> exprsNest;
 	vector<string> aggrLabels;
 	expressions::Expression *one = new expressions::IntConstant(1);
 	accsNest.push_back(SUM);
@@ -1260,7 +1155,7 @@ TEST_F(OutputTest, MultiNestReservesDynAlloc) {
 	expressions::Expression *predicate = new expressions::BoolConstant(true);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(BAGUNION);
 	exprs.push_back(newRec);
 	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &nest, &ctx,

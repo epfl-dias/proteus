@@ -25,27 +25,33 @@
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-flusher.hpp"
 
-GpuSort::GpuSort(   RawOperator * const                 child,
-            GpuRawContext * const                       context,
-            const vector<expressions::Expression *>    &orderByFields,
-            const vector<direction                >    &dirs,
-            gran_t                                      granularity) :
-                UnaryRawOperator(child), 
-                context(context),
-                orderByFields(orderByFields),
-                dirs(dirs),
-                suffix(""),
-                granularity(granularity){
-    assert(granularity == gran_t::GRID || granularity == gran_t::THREAD);
-
-    list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
-    // std::vector<RecordAttribute *> recattr;
+expressions::RecordConstruction buildSortOutputExpression(
+            GpuRawContext * const       context,
+            const vector<expression_t> &orderByFields,
+            const vector<direction   > &dirs
+            ){
     size_t i = 0;
     
+    list<expressions::AttributeConstruction> attrs;
     for (auto expr: orderByFields){
-        assert(expr->isRegistered() && "All expressions must be registered!");
+        assert(expr.isRegistered() && "All expressions must be registered!");
 
-        size_t size = context->getSizeOf(expr->getExpressionType()->getLLVMType(context->getLLVMContext()));
+        auto e = expr;
+        if (dirs[i++] == DESC) e = -e;
+
+        attrs.emplace_back(expr.getRegisteredAttrName(), e);
+        // recattr.push_back(new RecordAttribute{expr->getRegisteredAs()});
+    }
+
+    return {attrs};
+}
+
+std::string computeSuffix(
+            GpuRawContext * const       context,
+            const vector<expression_t> &orderByFields){
+    std::string suffix = "";
+    for (auto expr: orderByFields){
+        size_t size = context->getSizeOf(expr.getExpressionType()->getLLVMType(context->getLLVMContext()));
 
         if (size == 32/8){
             suffix += "i";
@@ -54,24 +60,24 @@ GpuSort::GpuSort(   RawOperator * const                 child,
         } else {
             assert(false && "GPU-sorting by attributes with size different than 32/64-bits is not supported yet");
         }
-
-        expressions::Expression * e = expr;
-        if (dirs[i++] == DESC) e = new expressions::NegExpression(e);
-
-        expressions::AttributeConstruction *newAttr =
-                                        new expressions::AttributeConstruction(
-                                            expr->getRegisteredAttrName(),
-                                            e
-                                        );
-        attrs->push_back(*newAttr);
-        // recattr.push_back(new RecordAttribute{expr->getRegisteredAs()});
     }
+    return suffix;
+}
 
-    outputExpr  = new expressions::RecordConstruction(*attrs);
-
-    // width       = context->getSizeOf(outputExpr->getExpressionType()->getLLVMType(context->getLLVMContext()));
-
-    relName     = orderByFields[0]->getRegisteredRelName();
+GpuSort::GpuSort(   RawOperator * const child,
+            GpuRawContext * const       context,
+            const vector<expression_t> &orderByFields,
+            const vector<direction   > &dirs,
+            gran_t                      granularity) :
+                UnaryRawOperator(child), 
+                context(context),
+                orderByFields(orderByFields),
+                dirs(dirs),
+                granularity(granularity),
+                outputExpr(buildSortOutputExpression(context, orderByFields, dirs)),
+                relName(orderByFields[0].getRegisteredRelName()),
+                suffix(computeSuffix(context, orderByFields)){
+    assert(granularity == gran_t::GRID || granularity == gran_t::THREAD);
 }
 
 void GpuSort::produce() {
@@ -94,7 +100,7 @@ void GpuSort::produce() {
 
     // blkVar_id           = context->appendStateVar(PointerType::getUnqual(ArrayType::get(block_stuct, numOfBuckets)));
 
-    Type * elemPointer = outputExpr->getExpressionType()->getLLVMType(llvmContext);
+    Type * elemPointer = outputExpr.getExpressionType()->getLLVMType(llvmContext);
     mem_type           = ArrayType::get(elemPointer, h_vector_size * sizeof(int32_t) / context->getSizeOf(elemPointer));
 
     flush_sorted();
@@ -243,7 +249,7 @@ void GpuSort::consume(GpuRawContext * const context, const OperatorState& childS
     Value * el_ptr          = Builder->CreateInBoundsGEP(mem_ptr, std::vector<Value *>{context->createInt64(0), indx});
 
     ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue valWrapper     = outputExpr->accept(exprGenerator);
+    RawValue valWrapper     = outputExpr.accept(exprGenerator);
     Value * el              = valWrapper.value;
 
     Builder->CreateStore(el, el_ptr);
@@ -362,7 +368,7 @@ void GpuSort::flush_sorted(){
 
     // Value * rec     = Builder->CreateLoad(rec_ptr);
     // RawValue v{rec, context->createFalse()};
-    // expressions::RawValueExpression r{outputExpr->getExpressionType(), v};
+    // expressions::RawValueExpression r{outputExpr.getExpressionType(), v};
 
     // OperatorState state{*this, variableBindings};
     // ExpressionFlusherVisitor flusher{context, state, outPath.c_str(), relName};
@@ -372,7 +378,7 @@ void GpuSort::flush_sorted(){
 
     // r.accept(flusher);
     
-    // RecordType *t = (RecordType *) outputExpr->getExpressionType();
+    // RecordType *t = (RecordType *) outputExpr.getExpressionType();
     // size_t i = 0;
     // for (const auto &e: orderByFields){
     //     RecordAttribute attr = e->getRegisteredAs();
@@ -390,7 +396,7 @@ void GpuSort::flush_sorted(){
     // }
 
 
-    RecordAttribute recs{relName, "__sorted", outputExpr->getExpressionType()};
+    RecordAttribute recs{relName, "__sorted", outputExpr.getExpressionType()};
     RecordAttribute brec{recs, true};
     mem_ptr = Builder->CreateBitCast(mem_ptr, brec.getLLVMType(llvmContext));
     AllocaInst * mem_mem_ptr = context->CreateEntryBlockAlloca(F, "__sorted_mem", mem_ptr->getType());

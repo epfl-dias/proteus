@@ -95,21 +95,21 @@ Value * HashRearrangeBuffered::hash(Value * key, Value * old_seed){
     return hash;
 }
 
-Value * HashRearrangeBuffered::hash(const std::vector<expressions::Expression *> &exprs, RawContext* const context, const OperatorState& childState){
+Value * HashRearrangeBuffered::hash(const std::vector<expression_t> &exprs, RawContext* const context, const OperatorState& childState){
     ExpressionGeneratorVisitor exprGenerator(context, childState);
     Value * hash = NULL;
 
-    for (size_t i = 0 ; i < exprs.size() ; ++i){
-        if (exprs[i]->getTypeID() == expressions::RECORD_CONSTRUCTION){
-            const auto &attrs = ((expressions::RecordConstruction *) exprs[i])->getAtts();
+    for (const auto &e: exprs){
+        if (e.getTypeID() == expressions::RECORD_CONSTRUCTION){
+            const auto &attrs = ((expressions::RecordConstruction *) e.getUnderlyingExpression())->getAtts();
 
-            std::vector<expressions::Expression *> exprs;
+            std::vector<expression_t> exprs;
             for (const auto &attr: attrs) exprs.push_back(attr.getExpression());
 
             Value * hv = HashRearrangeBuffered::hash(exprs, context, childState);
             hash = HashRearrangeBuffered::hash(hv, hash);
         } else {
-            RawValue keyWrapper = exprs[i]->accept(exprGenerator); //FIXME hash composite key!
+            RawValue keyWrapper = e.accept(exprGenerator); //FIXME hash composite key!
             hash = HashRearrangeBuffered::hash(keyWrapper.value, hash);
         }
     }
@@ -165,7 +165,7 @@ void HashRearrangeBuffered::consume(RawContext* const context, const OperatorSta
     map<RecordAttribute, RawValueMemory>* variableBindings = new map<RecordAttribute, RawValueMemory>();
     //Generate target
     ExpressionGeneratorVisitor exprGenerator{context, childState};
-    Value * target            = HashRearrangeBuffered::hash(std::vector<expressions::Expression *>{hashExpr}, context, childState);
+    Value * target            = HashRearrangeBuffered::hash({hashExpr}, context, childState);
     IntegerType * target_type = (IntegerType *) target->getType();
     // Value * target            = hashExpr->accept(exprGenerator).value;
     if (hashProject){

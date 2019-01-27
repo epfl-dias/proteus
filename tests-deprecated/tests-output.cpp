@@ -171,7 +171,7 @@ TEST(Output, ReduceNumeric) {
 			lhs, rhs);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(MAX);
 	exprs.push_back(outputExpr);
 	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &scan, &ctx, flushResults, testLabel);
@@ -248,7 +248,7 @@ TEST(Output, MultiReduceNumeric) {
 			lhs, rhs);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(SUM);
 	accs.push_back(MAX);
 	exprs.push_back(outputExpr);
@@ -327,7 +327,7 @@ TEST(Output, ReduceBag) {
 			lhs, rhs);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(BAGUNION);
 	exprs.push_back(outputExpr);
 	//	Reduce reduce = Reduce(SUM, outputExpr, predicate, &scan, &ctx);
@@ -427,7 +427,7 @@ TEST(Output, ReduceBagRecord) {
 			lhs, rhs);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(BAGUNION);
 	exprs.push_back(outputExpr);
 	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &scan, &ctx, flushResults, testLabel);
@@ -538,7 +538,7 @@ TEST(Output, NestBagTPCH) {
 			l_linenumber->getOriginalType(), nestArg, *l_linenumber);
 	expressions::Expression *toMat2 = new expressions::RecordProjection(
 			l_quantity->getOriginalType(), nestArg, *l_quantity);
-	vector<expressions::Expression*> exprsToMat;
+	vector<expression_t> exprsToMat;
 	exprsToMat.push_back(oidToMat);
 	exprsToMat.push_back(toMat1);
 	exprsToMat.push_back(toMat2);
@@ -548,7 +548,7 @@ TEST(Output, NestBagTPCH) {
 	string aggrLabel = string(nestLabel);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	vector<string> aggrLabels;
 	string aggrField1;
 	string aggrField2;
@@ -611,7 +611,7 @@ TEST(Output, NestBagTPCH) {
 	expressions::Expression *predicate = new expressions::BoolConstant(true);
 
 	vector<Monoid> reduceAccs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	reduceAccs.push_back(BAGUNION);
 	exprs.push_back(outputExpr);
 	opt::Reduce *reduceOp = new opt::Reduce(reduceAccs, exprs, predicate,
@@ -712,7 +712,7 @@ TEST(Output, JoinLeft3) {
 			intType, leftArg, *sid);
 	expressions::Expression* ageProj = new expressions::RecordProjection(
 			floatType, leftArg, *age);
-	vector<expressions::Expression*> exprsToMatLeft;
+	vector<expression_t> exprsToMatLeft;
 	exprsToMatLeft.push_back(leftOidProj);
 	exprsToMatLeft.push_back(leftSidProj);
 	exprsToMatLeft.push_back(ageProj);
@@ -732,7 +732,7 @@ TEST(Output, JoinLeft3) {
 			intType, rightArg, *sidReserves);
 	expressions::Expression* rightBidProj = new expressions::RecordProjection(
 				intType, rightArg, *bidReserves);
-	vector<expressions::Expression*> exprsToMatRight;
+	vector<expression_t> exprsToMatRight;
 	exprsToMatRight.push_back(rightOidProj);
 	//exprsToMatRight.push_back(rightSidProj);
 	exprsToMatRight.push_back(rightBidProj);
@@ -742,7 +742,7 @@ TEST(Output, JoinLeft3) {
 	expressions::BinaryExpression* joinPred = new expressions::EqExpression(leftSidProj,rightSidProj);
 
 	char joinLabel[] = "sailors_reserves";
-	RadixJoin join = RadixJoin(joinPred, &scanSailors, &scanReserves, &ctx, joinLabel, *matLeft, *matRight);
+	RadixJoin join(*joinPred, &scanSailors, &scanReserves, &ctx, joinLabel, *matLeft, *matRight);
 	scanSailors.setParent(&join);
 	scanReserves.setParent(&join);
 
@@ -774,7 +774,7 @@ TEST(Output, JoinLeft3) {
 	 */
 	expressions::Expression* leftArg2 = new expressions::InputArgument(intType,0,projectionsR);
 	expressions::Expression* left2 = new expressions::RecordProjection(intType,leftArg2,*bidReserves);
-	vector<expressions::Expression*> exprsToMatPreviousJoin;
+	vector<expression_t> exprsToMatPreviousJoin;
 	exprsToMatPreviousJoin.push_back(leftOidProj);
 	exprsToMatPreviousJoin.push_back(rightOidProj);
 	exprsToMatPreviousJoin.push_back(leftSidProj);
@@ -788,7 +788,7 @@ TEST(Output, JoinLeft3) {
 	expressions::Expression* oidBoatsProj = new expressions::RecordProjection(pgBoats->getOIDType(),rightArg2,projTupleBoat);
 	expressions::Expression* bidBoatsProj = new expressions::RecordProjection(intType,rightArg2,*bidBoats);
 
-	vector<expressions::Expression*> exprsToMatBoats;
+	vector<expression_t> exprsToMatBoats;
 	exprsToMatBoats.push_back(oidBoatsProj);
 	exprsToMatBoats.push_back(bidBoatsProj);
 	Materializer* matBoats = new Materializer(exprsToMatBoats);
@@ -796,7 +796,7 @@ TEST(Output, JoinLeft3) {
 	expressions::BinaryExpression* joinPred2 = new expressions::EqExpression(left2,bidBoatsProj);
 
 	char joinLabel2[] = "sailors_reserves_boats";
-	RadixJoin join2 = RadixJoin(joinPred2, &join, &scanBoats, &ctx, joinLabel2, *matPreviousJoin, *matBoats);
+	RadixJoin join2(*joinPred2, &join, &scanBoats, &ctx, joinLabel2, *matPreviousJoin, *matBoats);
 	join.setParent(&join2);
 	scanBoats.setParent(&join2);
 
@@ -818,7 +818,7 @@ TEST(Output, JoinLeft3) {
 	expressions::Expression *predicate = new expressions::BoolConstant(true);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(MAX);
 	exprs.push_back(outputExpr);
 	/* Sanity checks*/

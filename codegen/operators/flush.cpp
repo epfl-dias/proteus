@@ -25,27 +25,27 @@
 #include "util/raw-memory-manager.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 
-Flush::Flush(vector<expressions::Expression*> outputExprs,
+expression_t buildOutputExpression(const vector<expression_t> &outputExprs){
+	list<expressions::AttributeConstruction> attrs;
+	std::vector<RecordAttribute *> recattr;
+	for (auto expr: outputExprs){
+		assert(expr.isRegistered() && "All output expressions must be registered!");
+		expressions::AttributeConstruction *newAttr =
+										new expressions::AttributeConstruction(
+											expr.getRegisteredAttrName(),
+											expr
+										);
+		attrs.push_back(*newAttr);
+		recattr.push_back(new RecordAttribute{expr.getRegisteredAs()});
+	}
+	return expression_t::make<expressions::RecordConstruction>(new RecordType(recattr), attrs);
+}
+
+Flush::Flush(vector<expression_t> outputExprs_v,
 		RawOperator* const child,
 		RawContext* context,
 		const char *outPath) :
-		UnaryRawOperator(child), context(context), outPath(outPath) {
-	list<expressions::AttributeConstruction> *attrs = new list<expressions::AttributeConstruction>();
-	std::vector<RecordAttribute *> recattr;
-	for (auto expr: outputExprs){
-		assert(expr->isRegistered() && "All output expressions must be registered!");
-		expressions::AttributeConstruction *newAttr =
-										new expressions::AttributeConstruction(
-											expr->getRegisteredAttrName(),
-											expr
-										);
-		attrs->push_back(*newAttr);
-		recattr.push_back(new RecordAttribute{expr->getRegisteredAs()});
-	}
-
-	outputExpr = new expressions::RecordConstruction(new RecordType(recattr), *attrs);
-
-	relName = outputExprs[0]->getRegisteredRelName();
+		UnaryRawOperator(child), context(context), outPath(outPath), outputExpr(buildOutputExpression(outputExprs_v)), relName(outputExprs_v[0].getRegisteredRelName()), outputExprs_v(outputExprs_v) {
 }
 
 void Flush::produce() {
@@ -94,11 +94,11 @@ void Flush::generate(RawContext* const context,
 	//results so far
 	Value* mem_resultCtr = context->getStateVar(result_cnt_id);
 	Value* resultCtr = Builder->CreateLoad(mem_resultCtr);
-	
+
 	//flushing out delimiter (IF NEEDED)
 	flusher.flushDelim(resultCtr);
-	
-	outputExpr->accept(flusher);
+
+	outputExpr.accept(flusher);
 
 	//increase result ctr
 	Value* resultCtrInc = Builder->CreateAdd(resultCtr,context->createInt64(1));

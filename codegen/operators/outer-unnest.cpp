@@ -62,13 +62,13 @@ void OuterUnnest::generate(RawContext* const context,
 				ElseMerge);
 
 		//Retrieving v using the projection -> Keeping v out of v.w
-		expressions::RecordProjection* pathProj = path.get();
-		expressions::Expression* expr_v = pathProj->getExpr();
+		auto pathProj = path.get();
+		expression_t expr_v = pathProj->getExpr();
 
 		//Evaluating v
 		ExpressionGeneratorVisitor vGenerator = ExpressionGeneratorVisitor(
 				context, childState, pathProj->getOriginalRelationName());
-		RawValue val_v = expr_v->accept(vGenerator);
+		RawValue val_v = expr_v.accept(vGenerator);
 		Value* val_v_isNull = val_v.isNull;
 
 		Value* nullCond = Builder->CreateICmpNE(val_v_isNull,
@@ -91,7 +91,7 @@ void OuterUnnest::generate(RawContext* const context,
 		//Generate path. Value returned must be a collection
 		ExpressionGeneratorVisitor pathExprGenerator =
 				ExpressionGeneratorVisitor(context, childState);
-		expressions::RecordProjection* pathProj = path.get();
+		auto pathProj = path.get();
 
 		RawValue nestedValueAll = pathProj->accept(pathExprGenerator);
 #ifdef DEBUG //pred condition printout
@@ -152,7 +152,7 @@ void OuterUnnest::generate(RawContext* const context,
 		//Predicate Evaluation: Generate condition
 		ExpressionGeneratorVisitor predExprGenerator =
 				ExpressionGeneratorVisitor(context, *newState);
-		RawValue condition = pred->accept(predExprGenerator);
+		RawValue condition = pred.accept(predExprGenerator);
 		Value* invert_condition = Builder->CreateNot(condition.value);
 		Value* val_acc_current = Builder->CreateLoad(mem_accumulating);
 		Value* val_acc_new = Builder->CreateAnd(invert_condition,
@@ -276,7 +276,7 @@ void OuterUnnest::generate(RawContext* const context,
 			//Generate condition
 			ExpressionGeneratorVisitor predExprGenerator =
 					ExpressionGeneratorVisitor(context, *newState2);
-			RawValue condition2 = pred->accept(predExprGenerator);
+			RawValue condition2 = pred.accept(predExprGenerator);
 			Builder->CreateCondBr(condition2.value, ifBlock, elseBlock);
 
 			/*

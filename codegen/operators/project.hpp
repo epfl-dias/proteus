@@ -32,7 +32,7 @@
 
 class Project: public UnaryRawOperator {
 public:
-	Project(vector<expressions::Expression*> outputExprs,
+	Project(vector<expression_t> outputExprs,
 			string             relName,
 			RawOperator* const child,
 			RawContext* context);
@@ -47,7 +47,7 @@ protected:
 	size_t      oid_id ;
 	string      relName;
 
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	
 	const char *outPath;
 private:

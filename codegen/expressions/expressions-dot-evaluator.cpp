@@ -24,8 +24,8 @@
 #include "expressions/expressions-dot-evaluator.hpp"
 #include "expressions/expressions-generator.hpp"
 
-RawValue ExpressionDotVisitor::visit(expressions::IntConstant *e1,
-		expressions::IntConstant *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::IntConstant *e1,
+		const expressions::IntConstant *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	Value *val_int1 = ConstantInt::get(context->getLLVMContext(),
 			APInt(32, e1->getVal()));
@@ -39,8 +39,8 @@ RawValue ExpressionDotVisitor::visit(expressions::IntConstant *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::DStringConstant *e1,
-		expressions::DStringConstant *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::DStringConstant *e1,
+		const expressions::DStringConstant *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	Value *val_int1 = ConstantInt::get(context->getLLVMContext(),
 			APInt(32, e1->getVal()));
@@ -54,8 +54,8 @@ RawValue ExpressionDotVisitor::visit(expressions::DStringConstant *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::Int64Constant *e1,
-		expressions::Int64Constant *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::Int64Constant *e1,
+		const expressions::Int64Constant *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	Value *val_int1 = ConstantInt::get(context->getLLVMContext(),
 			APInt(64, e1->getVal()));
@@ -69,8 +69,8 @@ RawValue ExpressionDotVisitor::visit(expressions::Int64Constant *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::DateConstant *e1,
-		expressions::DateConstant *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::DateConstant *e1,
+		const expressions::DateConstant *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	Value *val_int1 = ConstantInt::get(context->getLLVMContext(),
 			APInt(64, e1->getVal()));
@@ -84,8 +84,8 @@ RawValue ExpressionDotVisitor::visit(expressions::DateConstant *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::FloatConstant *e1,
-		expressions::FloatConstant *e2)	{
+RawValue ExpressionDotVisitor::visit(const expressions::FloatConstant *e1,
+		const expressions::FloatConstant *e2)	{
 	IRBuilder<>* const Builder = context->getBuilder();
 	Value *val_double1 = ConstantFP::get(context->getLLVMContext(),
 			APFloat(e1->getVal()));
@@ -100,8 +100,8 @@ RawValue ExpressionDotVisitor::visit(expressions::FloatConstant *e1,
 
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::BoolConstant *e1,
-		expressions::BoolConstant *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::BoolConstant *e1,
+		const expressions::BoolConstant *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	Value *val_int1 = ConstantInt::get(context->getLLVMContext(),
 			APInt(8, e1->getVal()));
@@ -115,8 +115,8 @@ RawValue ExpressionDotVisitor::visit(expressions::BoolConstant *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::StringConstant *e1,
-		expressions::StringConstant *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::StringConstant *e1,
+		const expressions::StringConstant *e2) {
 
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
@@ -140,8 +140,8 @@ RawValue ExpressionDotVisitor::visit(expressions::StringConstant *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::EqExpression *e1,
-		expressions::EqExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::EqExpression *e1,
+		const expressions::EqExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -159,8 +159,8 @@ RawValue ExpressionDotVisitor::visit(expressions::EqExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::NeExpression *e1,
-		expressions::NeExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::NeExpression *e1,
+		const expressions::NeExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -178,8 +178,8 @@ RawValue ExpressionDotVisitor::visit(expressions::NeExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::GeExpression *e1,
-		expressions::GeExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::GeExpression *e1,
+		const expressions::GeExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -197,8 +197,8 @@ RawValue ExpressionDotVisitor::visit(expressions::GeExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::GtExpression *e1,
-		expressions::GtExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::GtExpression *e1,
+		const expressions::GtExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -216,8 +216,8 @@ RawValue ExpressionDotVisitor::visit(expressions::GtExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::LeExpression *e1,
-		expressions::LeExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::LeExpression *e1,
+		const expressions::LeExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -235,8 +235,8 @@ RawValue ExpressionDotVisitor::visit(expressions::LeExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::LtExpression *e1,
-		expressions::LtExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::LtExpression *e1,
+		const expressions::LtExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -254,8 +254,8 @@ RawValue ExpressionDotVisitor::visit(expressions::LtExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::AndExpression *e1,
-		expressions::AndExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::AndExpression *e1,
+		const expressions::AndExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -273,8 +273,8 @@ RawValue ExpressionDotVisitor::visit(expressions::AndExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::OrExpression *e1,
-		expressions::OrExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::OrExpression *e1,
+		const expressions::OrExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -293,8 +293,8 @@ RawValue ExpressionDotVisitor::visit(expressions::OrExpression *e1,
 }
 
 
-RawValue ExpressionDotVisitor::visit(expressions::AddExpression *e1,
-		expressions::AddExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::AddExpression *e1,
+		const expressions::AddExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -329,8 +329,8 @@ RawValue ExpressionDotVisitor::visit(expressions::AddExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::SubExpression *e1,
-		expressions::SubExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::SubExpression *e1,
+		const expressions::SubExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -365,8 +365,8 @@ RawValue ExpressionDotVisitor::visit(expressions::SubExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::MultExpression *e1,
-		expressions::MultExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::MultExpression *e1,
+		const expressions::MultExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -401,8 +401,8 @@ RawValue ExpressionDotVisitor::visit(expressions::MultExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::DivExpression *e1,
-		expressions::DivExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::DivExpression *e1,
+		const expressions::DivExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -439,8 +439,8 @@ RawValue ExpressionDotVisitor::visit(expressions::DivExpression *e1,
 
 
 //XXX Careful here
-RawValue ExpressionDotVisitor::visit(expressions::RecordConstruction *e1,
-		expressions::RecordConstruction *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::RecordConstruction *e1,
+		const expressions::RecordConstruction *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	Value *val_true = context->createTrue();
 	Value *val_result = val_true;
@@ -452,10 +452,10 @@ RawValue ExpressionDotVisitor::visit(expressions::RecordConstruction *e1,
 	list<expressions::AttributeConstruction>::const_iterator it2 = atts2.begin();
 
 	for(; it1 != atts1.end() && it2 != atts2.end(); it1++ , it2++ )	{
-		expressions::Expression* expr1 = it1->getExpression();
-		expressions::Expression* expr2 = it2->getExpression();
+		auto expr1 = it1->getExpression();
+		auto expr2 = it2->getExpression();
 
-		RawValue val_partialWrapper = expr1->acceptTandem(*this,expr2);
+		RawValue val_partialWrapper = expr1.acceptTandem(*this,expr2);
 		val_result = Builder->CreateAnd(val_result,val_partialWrapper.value);
 	}
 	RawValue val_resultWrapper;
@@ -464,15 +464,15 @@ RawValue ExpressionDotVisitor::visit(expressions::RecordConstruction *e1,
 	return val_resultWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::HashExpression *e1,
-		expressions::HashExpression *e2)	{
+RawValue ExpressionDotVisitor::visit(const expressions::HashExpression *e1,
+		const expressions::HashExpression *e2)	{
 	assert(false && "This does not really make sense");
-	return e1->getExpr()->acceptTandem(*this, e2->getExpr());
+	return e1->getExpr().acceptTandem(*this, e2->getExpr());
 }
 
 
-RawValue ExpressionDotVisitor::visit(expressions::InputArgument *e1,
-		expressions::InputArgument *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::InputArgument *e1,
+		const expressions::InputArgument *e2) {
 	/* What would be needed is a per-pg 'dotCmp' method
 	 * -> compare piece by piece at this level, don't reconstruct here*/
 	string error_msg = string(
@@ -481,17 +481,17 @@ RawValue ExpressionDotVisitor::visit(expressions::InputArgument *e1,
 	throw runtime_error(error_msg);
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::RawValueExpression *e1,
-		expressions::RawValueExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::RawValueExpression *e1,
+		const expressions::RawValueExpression *e2) {
 	// left or right should not matter for RawValueExpressions, as 
 	// the bindings will not be used
 	ExpressionGeneratorVisitor visitor{context, currStateLeft};
-	return expressions::EqExpression{e1, e2}.accept(visitor);
+	return eq(*e1, *e2).accept(visitor);
 }
 
 /* Probably insufficient for complex datatypes */
-RawValue ExpressionDotVisitor::visit(expressions::RecordProjection *e1,
-		expressions::RecordProjection *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::RecordProjection *e1,
+		const expressions::RecordProjection *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 
 	typeID id = e1->getExpressionType()->getTypeID();
@@ -576,8 +576,8 @@ RawValue ExpressionDotVisitor::visit(expressions::RecordProjection *e1,
 	}
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::IfThenElse *e1,
-		expressions::IfThenElse *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::IfThenElse *e1,
+		const expressions::IfThenElse *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -621,18 +621,18 @@ RawValue ExpressionDotVisitor::visit(expressions::IfThenElse *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::MaxExpression *e1,
-		expressions::MaxExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::MaxExpression *e1,
+		const expressions::MaxExpression *e2) {
 	return e1->getCond()->acceptTandem(*this, e2->getCond());
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::MinExpression *e1,
-		expressions::MinExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::MinExpression *e1,
+		const expressions::MinExpression *e2) {
 	return e1->getCond()->acceptTandem(*this, e2->getCond());
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::NegExpression *e1,
-		expressions::NegExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::NegExpression *e1,
+		const expressions::NegExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1 = ExpressionGeneratorVisitor(
@@ -668,8 +668,8 @@ RawValue ExpressionDotVisitor::visit(expressions::NegExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::ExtractExpression *e1,
-		expressions::ExtractExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::ExtractExpression *e1,
+		const expressions::ExtractExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1{context, currState1};
@@ -703,8 +703,8 @@ RawValue ExpressionDotVisitor::visit(expressions::ExtractExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::TestNullExpression *e1,
-		expressions::TestNullExpression *e2) {
+RawValue ExpressionDotVisitor::visit(const expressions::TestNullExpression *e1,
+		const expressions::TestNullExpression *e2) {
 	IRBuilder<>* const Builder = context->getBuilder();
 	const OperatorState& currState1 = currStateLeft;
 	ExpressionGeneratorVisitor exprGenerator1{context, currState1};
@@ -721,7 +721,7 @@ RawValue ExpressionDotVisitor::visit(expressions::TestNullExpression *e1,
 	return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(expressions::CastExpression *e1,
-		expressions::CastExpression *e2) {
-	return e1->getExpr()->acceptTandem(*this, e2->getExpr());
+RawValue ExpressionDotVisitor::visit(const expressions::CastExpression *e1,
+		const expressions::CastExpression *e2) {
+	return e1->getExpr().acceptTandem(*this, e2->getExpr());
 }

@@ -74,6 +74,7 @@ class if_then;
 namespace expressions{
 	class Expression;
 }
+class expression_t;
 class ExpressionGeneratorVisitor;
 class OperatorState;
 
@@ -90,7 +91,7 @@ private:
 	// 							const OperatorState 	&state	,
 	// 							RawContext 				*context);
 
-	if_branch(	expressions::Expression *expr	,
+	if_branch(	const expression_t 		&expr	,
 				const OperatorState 	&state	,
 				RawContext 				*context);
 
@@ -225,8 +226,7 @@ public:
 
 	virtual if_branch gen_if(RawValue cond){ return if_branch(cond, this); }
 
-	virtual if_branch gen_if(	expressions::Expression *expr	,
-								const OperatorState 	&state	){
+	virtual if_branch gen_if(const expression_t &expr, const OperatorState &state){
 		return if_branch(expr, state, this);
 	}
 

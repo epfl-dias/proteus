@@ -1,4 +1,5 @@
 #include "packet-zip.hpp"
+#include "expressions/expressions-generator.hpp"
 
 #define CACHE_SIZE 1024*1024
 
@@ -229,9 +230,9 @@ ZipCollect::ZipCollect (RecordAttribute*                            ptrAttr,
                     	GpuRawContext * const           			context,
                     	int                             			numOfBuckets,
                     	RecordAttribute*                            hash_key_left,
-                        const vector<expressions::Expression*>&             wantedFieldsLeft,
+                        const vector<expression_t>&                 wantedFieldsLeft,
                         RecordAttribute*                            hash_key_right,
-                    	const vector<expressions::Expression*>&	            wantedFieldsRight,
+                    	const vector<expression_t>&                 wantedFieldsRight,
                     	string                          			opLabel) :
                             ptrAttr(ptrAttr),
                             splitter(splitter),
@@ -342,7 +343,7 @@ void ZipCollect::pipeFormat () {
     LLVMContext    &llvmContext = context->getLLVMContext();
     ZipParam p1, p2;
 
-    Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFieldsLeft[0]->getRegisteredRelName());
+    Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFieldsLeft[0].getRegisteredRelName());
 
     Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
     Type *int64_type = Type::getInt64Ty(context->getLLVMContext());
@@ -417,16 +418,16 @@ void ZipCollect::generate_cache_left(RawContext* const context, const OperatorSt
 
     for (int i = 0; i < wantedFieldsLeft.size(); i++) {
     	ExpressionGeneratorVisitor exprGen{context, childState};
-        RawValue currVal = wantedFieldsLeft[i]->accept(exprGen);
+        RawValue currVal = wantedFieldsLeft[i].accept(exprGen);
         Value* valToMaterialize = currVal.value;
 
-        std::cout << wantedFieldsLeft[i]->getExpressionType()->getType() << std::endl;
-        std::cout << "type === " << wantedFieldsLeft[i]->getExpressionType()->getLLVMType(llvmContext)->getTypeID() << std::endl;
+        std::cout << wantedFieldsLeft[i].getExpressionType()->getType() << std::endl;
+        std::cout << "type === " << wantedFieldsLeft[i].getExpressionType()->getLLVMType(llvmContext)->getTypeID() << std::endl;
         std::cout << "type === " << valToMaterialize->getType()->getTypeID() << std::endl;
 
         //Value * blk_ptr            = Builder->CreatePointerCast(valToMaterialize, charPtrType);
         //Builder->CreateStore(blk_ptr, Builder->CreateInBoundsGEP(mem_blocks, offset_blk));
-        Value * blk_ptr            = Builder->CreatePointerCast(Builder->CreateInBoundsGEP(mem_blocks, offset_blk), PointerType::get(wantedFieldsLeft[i]->getExpressionType()->getLLVMType(llvmContext), 0));
+        Value * blk_ptr            = Builder->CreatePointerCast(Builder->CreateInBoundsGEP(mem_blocks, offset_blk), PointerType::get(wantedFieldsLeft[i].getExpressionType()->getLLVMType(llvmContext), 0));
         std::cout << "type === " << blk_ptr->getType()->getTypeID() << std::endl;
 
         Builder->CreateStore(valToMaterialize, blk_ptr);
@@ -502,14 +503,14 @@ void ZipCollect::generate_cache_right(RawContext* const context, const OperatorS
 
     for (int i = 0; i < wantedFieldsRight.size(); i++) {
     	ExpressionGeneratorVisitor exprGen{context, childState};
-        RawValue currVal = wantedFieldsRight[i]->accept(exprGen);
+        RawValue currVal = wantedFieldsRight[i].accept(exprGen);
         Value* valToMaterialize = currVal.value;
 
         std::cout << "type === " << valToMaterialize->getType()->getTypeID() << std::endl;
 
         //Value * blk_ptr            = Builder->CreatePointerCast(valToMaterialize, charPtrType);
         //Builder->CreateStore(blk_ptr, Builder->CreateInBoundsGEP(mem_blocks, offset_blk));
-        Value * blk_ptr = Builder->CreatePointerCast(Builder->CreateInBoundsGEP(mem_blocks, offset_blk), PointerType::get(wantedFieldsRight[i]->getExpressionType()->getLLVMType(llvmContext), 0));
+        Value * blk_ptr = Builder->CreatePointerCast(Builder->CreateInBoundsGEP(mem_blocks, offset_blk), PointerType::get(wantedFieldsRight[i].getExpressionType()->getLLVMType(llvmContext), 0));
         
         std::cout << "type === " << blk_ptr->getType()->getTypeID() << std::endl;
 
@@ -791,7 +792,7 @@ ZipForward::ZipForward (
                 RawOperator * const                           child,
                 GpuRawContext * const                        context,
                 int                                          numOfBuckets,
-                const vector<expressions::Expression*>&      wantedFields,
+                const vector<expression_t>&      wantedFields,
                 string                                       opLabel,
                 ZipState&                                    state) :
                                 splitter(splitter),
@@ -819,7 +820,7 @@ void ZipForward::produce () {
 void ZipForward::cacheFormat () {
     LLVMContext    &llvmContext = context->getLLVMContext();
 
-    Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRegisteredRelName());
+    Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
 
     Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
     Type *int64_type = Type::getInt64Ty(context->getLLVMContext());
@@ -889,9 +890,9 @@ void ZipForward::consume (RawContext* const context, const OperatorState& childS
     map<RecordAttribute, RawValueMemory>* bindings = new map<RecordAttribute, RawValueMemory>();
 
     Value * N = Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_sizes, current));
-    Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRegisteredRelName());
-    RecordAttribute tupleCnt = RecordAttribute(wantedFields[0]->getRegisteredRelName(), "activeCnt", pg->getOIDType());
-    AllocaInst * mem_arg_N = context->CreateEntryBlockAlloca(TheFunction, "mem_" + wantedFields[0]->getRegisteredRelName() + "_N", pg->getOIDType()->getLLVMType(llvmContext));
+    Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
+    RecordAttribute tupleCnt = RecordAttribute(wantedFields[0].getRegisteredRelName(), "activeCnt", pg->getOIDType());
+    AllocaInst * mem_arg_N = context->CreateEntryBlockAlloca(TheFunction, "mem_" + wantedFields[0].getRegisteredRelName() + "_N", pg->getOIDType()->getLLVMType(llvmContext));
     Builder->CreateStore(Builder->CreateTrunc(N, int32_type), mem_arg_N);
     RawValueMemory mem_valWrapper1;
     mem_valWrapper1.mem    = mem_arg_N;
@@ -909,8 +910,8 @@ void ZipForward::consume (RawContext* const context, const OperatorState& childS
     Builder->CreateCall(debugInt2, ArgsV2);*/
 
     Value * oid = Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_oids, current));    
-    RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0]->getRegisteredRelName(),  activeLoop, pg->getOIDType());
-    AllocaInst * mem_arg_oid = context->CreateEntryBlockAlloca(TheFunction, "mem_" + wantedFields[0]->getRegisteredRelName() + "_oid", pg->getOIDType()->getLLVMType(llvmContext));
+    RecordAttribute tupleIdentifier = RecordAttribute(wantedFields[0].getRegisteredRelName(),  activeLoop, pg->getOIDType());
+    AllocaInst * mem_arg_oid = context->CreateEntryBlockAlloca(TheFunction, "mem_" + wantedFields[0].getRegisteredRelName() + "_oid", pg->getOIDType()->getLLVMType(llvmContext));
     Builder->CreateStore(Builder->CreateTrunc(oid, int32_type), mem_arg_oid);
     RawValueMemory mem_valWrapper2;
     mem_valWrapper2.mem    = mem_arg_oid;
@@ -920,10 +921,10 @@ void ZipForward::consume (RawContext* const context, const OperatorState& childS
     Value* offset_blk = Builder->CreateMul(current, step);
 
     for (int i = 0; i < wantedFields.size(); i++) {
-        RecordAttribute block_attr  ((wantedFields[i]->getRegisteredAs()), true);
-        std::cout << wantedFields[i]->getExpressionType()->getType() << std::endl;
-        Value * blk_ptr = Builder->CreatePointerCast(Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_blocks, offset_blk)),  PointerType::get(wantedFields[i]->getExpressionType()->getLLVMType(llvmContext),0));
-        AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction, "mem_" + wantedFields[i]->getRegisteredAttrName(), PointerType::get(wantedFields[i]->getExpressionType()->getLLVMType(llvmContext),0));
+        RecordAttribute block_attr  ((wantedFields[i].getRegisteredAs()), true);
+        std::cout << wantedFields[i].getExpressionType()->getType() << std::endl;
+        Value * blk_ptr = Builder->CreatePointerCast(Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_blocks, offset_blk)),  PointerType::get(wantedFields[i].getExpressionType()->getLLVMType(llvmContext),0));
+        AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction, "mem_" + wantedFields[i].getRegisteredAttrName(), PointerType::get(wantedFields[i].getExpressionType()->getLLVMType(llvmContext),0));
         Builder->CreateStore(blk_ptr, mem_arg);
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem    = mem_arg;

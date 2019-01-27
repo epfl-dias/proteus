@@ -50,7 +50,7 @@ public:
                 int                             numOfParents,
                 const vector<RecordAttribute*> &wantedFields,
                 int                             slack,
-                expressions::Expression       * hash = NULL,
+                std::optional<expression_t>     hash = std::nullopt,
                 bool                            numa_local = true,
                 bool                            rand_local_cpu = false,
                 int                             producers = 1) :
@@ -59,7 +59,7 @@ public:
                     numOfParents(numOfParents),
                     wantedFields(wantedFields),
                     slack(slack),
-                    hashExpr(hash),
+                    hashExpr(std::move(hash)),
                     numa_local(numa_local),
                     rand_local_cpu(rand_local_cpu),
                     producers(producers),
@@ -138,7 +138,7 @@ protected:
 
     std::vector<exec_location>      target_processors;
 
-    expressions::Expression       * hashExpr;
+    std::optional<expression_t>     hashExpr;
     bool                            numa_local;
     bool                            rand_local_cpu;
 

@@ -26,6 +26,7 @@
 
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
+#include "operators/operators.hpp"
 #include <unordered_map>
 
 class HashJoinChained : public BinaryRawOperator {
@@ -33,11 +34,11 @@ public:
     HashJoinChained(
             const std::vector<GpuMatExpr>      &build_mat_exprs, 
             const std::vector<size_t>          &build_packet_widths,
-            expressions::Expression *           build_keyexpr,
+            expression_t                        build_keyexpr,
             RawOperator * const                 build_child,
             const std::vector<GpuMatExpr>      &probe_mat_exprs, 
             const std::vector<size_t>          &probe_mat_packet_widths,
-            expressions::Expression *           probe_keyexpr,
+            expression_t                        probe_keyexpr,
             RawOperator * const                 probe_child,
             int                                 hash_bits,
             GpuRawContext *                     context,
@@ -62,16 +63,16 @@ private:
     void buildHashTableFormat();
     void probeHashTableFormat();
 
-    llvm::Value * hash(expressions::Expression * exprs, RawContext* const context, const OperatorState& childState);
+    llvm::Value * hash(expression_t exprs, RawContext* const context, const OperatorState& childState);
 
     string                  opLabel;
 
     std::vector<GpuMatExpr> build_mat_exprs;
     std::vector<GpuMatExpr> probe_mat_exprs;
     std::vector<size_t>     build_packet_widths;
-    expressions::Expression *build_keyexpr;
+    expression_t            build_keyexpr;
 
-    expressions::Expression *probe_keyexpr;
+    expression_t            probe_keyexpr;
     
     std::vector<size_t>     packet_widths;
 

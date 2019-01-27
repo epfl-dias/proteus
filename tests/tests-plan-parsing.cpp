@@ -102,7 +102,7 @@ protected:
 			}
 		}
 
-		bool res = verifyTestResult(testPath, testLabel);
+		bool res = verifyTestResult(testPath, testLabel, true);
 		shm_unlink(testLabel);
 		return res;
 	}

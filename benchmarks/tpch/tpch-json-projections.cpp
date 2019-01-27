@@ -154,7 +154,7 @@ void tpchLineitemProjection1(map<string,dataset> datasetCatalog, int predicateVa
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	accs.push_back(SUM);
 	expressions::Expression* outputExpr = new expressions::IntConstant(1);
 	outputExprs.push_back(outputExpr);
@@ -230,7 +230,7 @@ void tpchLineitemProjection2(map<string,dataset> datasetCatalog, int predicateVa
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	accs.push_back(MAX);
 	expressions::Expression* outputExpr =
 			new expressions::RecordProjection(quantity->getOriginalType(), arg, *quantity);
@@ -320,7 +320,7 @@ void tpchLineitemProjection3(map<string,dataset> datasetCatalog, int predicateVa
 				new expressions::InputArgument(&rec,0,argProjections);
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	switch (aggregatesNo) {
 	case 1: {
 		accs.push_back(MAX);
@@ -496,7 +496,7 @@ void tpchLineitemProjection3Caching(map<string,dataset> datasetCatalog, int pred
 
 	/* Output: */
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
+	vector<expression_t> outputExprs;
 	switch (aggregatesNo) {
 	case 1: {
 		accs.push_back(MAX);

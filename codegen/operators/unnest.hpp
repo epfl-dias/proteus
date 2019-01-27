@@ -35,8 +35,8 @@
  */
 class Unnest : public UnaryRawOperator {
 public:
-	Unnest(expressions::Expression* pred, Path& path, RawOperator* const child) :
-		UnaryRawOperator(child), path(path), pred(pred)								 		{
+	Unnest(expression_t pred, Path path, RawOperator* const child) :
+		UnaryRawOperator(child), path(path), pred(std::move(pred)){
 		RawCatalog &catalog = RawCatalog::getInstance();
 		catalog.registerPlugin(path.toString(), path.getRelevantPlugin());
 	}
@@ -46,8 +46,8 @@ public:
 	virtual bool isFiltering() const {return true;}
 private:
 	void generate(RawContext* const context, const OperatorState& childState) const;
-	expressions::Expression* pred;
-	Path& path;
+	expression_t pred;
+	Path path;
 };
 
 #endif /* UNNEST_HPP_ */

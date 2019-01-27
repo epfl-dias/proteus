@@ -46,8 +46,8 @@ namespace opt {
 
 class Nest: public UnaryRawOperator {
 public:
-	Nest(vector<Monoid> accs, vector<expressions::Expression*> outputExprs, vector<string> aggrLabels,
-			expressions::Expression* pred,
+	Nest(vector<Monoid> accs, vector<expression_t> outputExprs, vector<string> aggrLabels,
+			expression_t pred,
 			const list<expressions::InputArgument>& f_grouping,
 			const list<expressions::InputArgument>& g_nullToZero,
 			RawOperator* const child, char* opLabel, Materializer& mat);
@@ -65,20 +65,20 @@ private:
 	 * Any info needed is (should be) in the HT that will now be probed.
 	 */
 	void generateProbe(RawContext* const context) const;
-	void generateSum(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateMul(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateMax(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateOr(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
-	void generateAnd(expressions::Expression* outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
+	void generateSum(expression_t outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
+	void generateMul(expression_t outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
+	void generateMax(expression_t outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
+	void generateOr(expression_t outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
+	void generateAnd(expression_t outputExpr, RawContext* const context, const OperatorState& state, AllocaInst *mem_accumulating) const;
 	/**
 	 * We need a new accumulator for every resulting bucket of the HT
 	 */
-	AllocaInst* resetAccumulator(expressions::Expression* outputExpr, Monoid acc) const;
+	AllocaInst* resetAccumulator(expression_t outputExpr, Monoid acc) const;
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> outputExprs;
-	expressions::Expression* pred;
-	expressions::Expression* f_grouping;
+	vector<expression_t> outputExprs;
+	expression_t pred;
+	expression_t f_grouping;
 	const list<expressions::InputArgument>& __attribute__((unused)) g_nullToZero;
 
 	vector<string> aggregateLabels;

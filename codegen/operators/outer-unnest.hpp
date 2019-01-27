@@ -30,16 +30,16 @@
 
 class OuterUnnest : public UnaryRawOperator {
 public:
-	OuterUnnest(expressions::Expression* pred, Path& path, RawOperator* const child) :
-		  UnaryRawOperator(child), path(path), pred(pred)								 		{}
+	OuterUnnest(expression_t pred, Path path, RawOperator* const child) :
+		  UnaryRawOperator(child), path(std::move(path)), pred(std::move(pred)) {}
 	virtual ~OuterUnnest() 																		{ LOG(INFO)<<"Collapsing Outer Unnest operator"; }
 	virtual void produce() ;
 	virtual void consume(RawContext* const context, const OperatorState& childState);
 	virtual bool isFiltering() const {return true;}
 private:
 	void generate(RawContext* const context, const OperatorState& childState) const;
-	expressions::Expression* pred;
-	Path& path;
+	expression_t pred;
+	Path path;
 };
 
 #endif /* UNNEST_HPP_ */

@@ -29,12 +29,12 @@
 HashJoinChained::HashJoinChained(
             const std::vector<GpuMatExpr>      &build_mat_exprs, 
             const std::vector<size_t>          &build_packet_widths,
-            expressions::Expression *           build_keyexpr,
+            expression_t                        build_keyexpr,
             RawOperator * const                 build_child,
 
             const std::vector<GpuMatExpr>      &probe_mat_exprs, 
             const std::vector<size_t>          &probe_mat_packet_widths,
-            expressions::Expression *           probe_keyexpr,
+            expression_t                        probe_keyexpr,
             RawOperator * const                 probe_child,
             
             int                                 hash_bits,
@@ -45,8 +45,8 @@ HashJoinChained::HashJoinChained(
                 build_mat_exprs(build_mat_exprs),
                 probe_mat_exprs(probe_mat_exprs),
                 build_packet_widths(build_packet_widths),
-                build_keyexpr(build_keyexpr),
-                probe_keyexpr(probe_keyexpr),
+                build_keyexpr(std::move(build_keyexpr)),
+                probe_keyexpr(std::move(probe_keyexpr)),
                 hash_bits(hash_bits),
                 BinaryRawOperator(build_child, probe_child), 
                 context(context),
@@ -119,7 +119,7 @@ void HashJoinChained::probeHashTableFormat(){
                 ++packind;
             }
 
-            const ExpressionType * out_type = build_mat_exprs[i].expr->getExpressionType();
+            const ExpressionType * out_type = build_mat_exprs[i].expr.getExpressionType();
 
             Type * llvm_type = out_type->getLLVMType(context->getLLVMContext());
 
@@ -181,7 +181,7 @@ void HashJoinChained::buildHashTableFormat(){
                 ++packind;
             }
 
-            const ExpressionType * out_type = build_mat_exprs[i].expr->getExpressionType();
+            const ExpressionType * out_type = build_mat_exprs[i].expr.getExpressionType();
 
             Type * llvm_type = out_type->getLLVMType(context->getLLVMContext());
 
@@ -212,9 +212,9 @@ void HashJoinChained::buildHashTableFormat(){
     cnt_param_id = context->appendStateVar(t_cnt);//, true, false);
 }
 
-Value * HashJoinChained::hash(expressions::Expression * exprs, RawContext* const context, const OperatorState& childState){
+Value * HashJoinChained::hash(expression_t exprs, RawContext* const context, const OperatorState& childState){
     ExpressionHasherVisitor hasher{context, childState};
-    Value * hash = exprs->accept(hasher).value;
+    Value * hash = exprs.accept(hasher).value;
     auto size = ConstantInt::get(hash->getType(), (size_t(1) << hash_bits));
     return context->getBuilder()->CreateURem(hash, size);
 }
@@ -281,7 +281,7 @@ void HashJoinChained::generate_build(RawContext* const context, const OperatorSt
 
     for (const GpuMatExpr &mexpr: build_mat_exprs){
         ExpressionGeneratorVisitor exprGenerator(context, childState);
-        RawValue valWrapper = mexpr.expr->accept(exprGenerator);
+        RawValue valWrapper = mexpr.expr.accept(exprGenerator);
         
         out_vals[mexpr.packet] = Builder->CreateInsertValue(out_vals[mexpr.packet], valWrapper.value, mexpr.packind);
     }
@@ -343,7 +343,7 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
     BasicBlock *MergeBB = BasicBlock::Create(llvmContext, "cont"           , TheFunction);
 
     ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue keyWrapper = probe_keyexpr->accept(exprGenerator);
+    RawValue keyWrapper = probe_keyexpr.accept(exprGenerator);
 
     Builder->CreateBr(CondBB);
 
@@ -372,9 +372,8 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
 
     //Value * match_condition = Builder->CreateICmpEQ(keyWrapper.value, build_key); //FIXME replace with EQ expression to support multiple types!
     ExpressionGeneratorVisitor eqGenerator{context, childState};
-    auto build_expr = new expressions::RawValueExpression{probe_keyexpr->getExpressionType(), RawValue{build_key, context->createFalse()}};
-    expressions::EqExpression match_expr{probe_keyexpr, build_expr};
-    Value * match_condition = match_expr.accept(eqGenerator).value;
+    expressions::RawValueExpression build_expr{probe_keyexpr.getExpressionType(), RawValue{build_key, context->createFalse()}};
+    Value * match_condition = eq(probe_keyexpr, build_expr).accept(eqGenerator).value;
 
     BasicBlock *MatchThenBB  = BasicBlock::Create(llvmContext, "matchChainFollow"    , TheFunction);
 
@@ -385,9 +384,9 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
     //Reconstruct tuples
     map<RecordAttribute, RawValueMemory>* allJoinBindings = new map<RecordAttribute, RawValueMemory>();
 
-    if (probe_keyexpr->isRegistered()){
+    if (probe_keyexpr.isRegistered()){
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
-                                "mem_" +  probe_keyexpr->getRegisteredAttrName(),
+                                "mem_" +  probe_keyexpr.getRegisteredAttrName(),
                                 keyWrapper.value->getType());
 
         Builder->CreateStore(keyWrapper.value, mem_arg);
@@ -395,12 +394,12 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = keyWrapper.isNull;
-        (*allJoinBindings)[probe_keyexpr->getRegisteredAs()] = mem_valWrapper;
+        (*allJoinBindings)[probe_keyexpr.getRegisteredAs()] = mem_valWrapper;
     }
 
-    if (build_keyexpr->isRegistered()){
+    if (build_keyexpr.isRegistered()){
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
-                                "mem_" +  build_keyexpr->getRegisteredAttrName(),
+                                "mem_" +  build_keyexpr.getRegisteredAttrName(),
                                 build_key->getType());
 
         Builder->CreateStore(build_key, mem_arg);
@@ -408,7 +407,7 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = context->createFalse(); //FIMXE: is this correct ?
-        (*allJoinBindings)[build_keyexpr->getRegisteredAs()] = mem_valWrapper;
+        (*allJoinBindings)[build_keyexpr.getRegisteredAs()] = mem_valWrapper;
     }
     
     // //from probe side
@@ -424,7 +423,7 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
         // set activeLoop for build rel if not set (may be multiple ones!)
         { //NOTE: Is there a better way ?
             RawCatalog& catalog             = RawCatalog::getInstance();
-            string probeRel                 = mexpr.expr->getRegisteredRelName();
+            string probeRel                 = mexpr.expr.getRegisteredRelName();
             Plugin* pg                      = catalog.getPlugin(probeRel);
             assert(pg);
             RecordAttribute * probe_oid     = new RecordAttribute(probeRel, activeLoop, pg->getOIDType());
@@ -455,10 +454,10 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
 
         ExpressionGeneratorVisitor exprGenerator(context, childState);
 
-        RawValue val = mexpr.expr->accept(exprGenerator);
+        RawValue val = mexpr.expr.accept(exprGenerator);
 
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
-                                "mem_" +  mexpr.expr->getRegisteredAttrName(),
+                                "mem_" +  mexpr.expr.getRegisteredAttrName(),
                                 val.value->getType());
 
         Builder->CreateStore(val.value, mem_arg);
@@ -467,7 +466,7 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = context->createFalse();
 
-        (*allJoinBindings)[mexpr.expr->getRegisteredAs()] = mem_valWrapper;
+        (*allJoinBindings)[mexpr.expr.getRegisteredAs()] = mem_valWrapper;
     }
 
     //from build side
@@ -477,7 +476,7 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
         // set activeLoop for build rel if not set (may be multiple ones!)
         { //NOTE: Is there a better way ?
             RawCatalog& catalog             = RawCatalog::getInstance();
-            string buildRel                 = mexpr.expr->getRegisteredRelName();
+            string buildRel                 = mexpr.expr.getRegisteredRelName();
             Plugin* pg                      = catalog.getPlugin(buildRel);
             assert(pg);
             RecordAttribute * build_oid     = new RecordAttribute(buildRel, activeLoop, pg->getOIDType());
@@ -511,7 +510,7 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
         Value * val = Builder->CreateExtractValue(in_vals[mexpr.packet], mexpr.packind);
 
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
-                                "mem_" +  mexpr.expr->getRegisteredAttrName(),
+                                "mem_" +  mexpr.expr.getRegisteredAttrName(),
                                 val->getType());
 
         Builder->CreateStore(val, mem_arg);
@@ -520,7 +519,7 @@ void HashJoinChained::generate_probe(RawContext* const context, const OperatorSt
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = context->createFalse();
 
-        (*allJoinBindings)[mexpr.expr->getRegisteredAs()] = mem_valWrapper;
+        (*allJoinBindings)[mexpr.expr.getRegisteredAs()] = mem_valWrapper;
     }
 
     // Triggering parent

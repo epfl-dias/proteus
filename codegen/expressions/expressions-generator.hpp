@@ -42,42 +42,42 @@ public:
 			const OperatorState& currState, string activeRelation) :
 			context(context), currState(currState),
 			activeRelation(activeRelation)								{}
-	RawValue visit(expressions::IntConstant *e);
-	RawValue visit(expressions::Int64Constant *e);
-	RawValue visit(expressions::DateConstant *e);
-	RawValue visit(expressions::FloatConstant *e);
-	RawValue visit(expressions::BoolConstant *e);
-	RawValue visit(expressions::StringConstant *e);
-	RawValue visit(expressions::DStringConstant *e);
-	RawValue visit(expressions::InputArgument *e);
-	RawValue visit(expressions::RecordProjection *e);
+	RawValue visit(const expressions::IntConstant *e);
+	RawValue visit(const expressions::Int64Constant *e);
+	RawValue visit(const expressions::DateConstant *e);
+	RawValue visit(const expressions::FloatConstant *e);
+	RawValue visit(const expressions::BoolConstant *e);
+	RawValue visit(const expressions::StringConstant *e);
+	RawValue visit(const expressions::DStringConstant *e);
+	RawValue visit(const expressions::InputArgument *e);
+	RawValue visit(const expressions::RecordProjection *e);
 	/*
 	 * XXX How is NULL propagated? What if one of the attributes is NULL;
 	 * XXX Did not have to test it yet -> Applicable to output only
 	 */
-	RawValue visit(expressions::RecordConstruction *e);
-	RawValue visit(expressions::IfThenElse *e);
+	RawValue visit(const expressions::RecordConstruction *e);
+	RawValue visit(const expressions::IfThenElse *e);
 	//XXX Do binary operators require explicit handling of NULL?
-	RawValue visit(expressions::EqExpression *e);
-	RawValue visit(expressions::NeExpression *e);
-	RawValue visit(expressions::GeExpression *e);
-	RawValue visit(expressions::GtExpression *e);
-	RawValue visit(expressions::LeExpression *e);
-	RawValue visit(expressions::LtExpression *e);
-	RawValue visit(expressions::AddExpression *e);
-	RawValue visit(expressions::SubExpression *e);
-	RawValue visit(expressions::MultExpression *e);
-	RawValue visit(expressions::DivExpression *e);
-	RawValue visit(expressions::AndExpression *e);
-	RawValue visit(expressions::OrExpression *e);
-	RawValue visit(expressions::RawValueExpression *e);
-	RawValue visit(expressions::MinExpression *e);
-	RawValue visit(expressions::MaxExpression *e);
-	RawValue visit(expressions::HashExpression *e);
-	RawValue visit(expressions::NegExpression *e);
-	RawValue visit(expressions::ExtractExpression *e);
-	RawValue visit(expressions::TestNullExpression *e);
-	RawValue visit(expressions::CastExpression *e);
+	RawValue visit(const expressions::EqExpression *e);
+	RawValue visit(const expressions::NeExpression *e);
+	RawValue visit(const expressions::GeExpression *e);
+	RawValue visit(const expressions::GtExpression *e);
+	RawValue visit(const expressions::LeExpression *e);
+	RawValue visit(const expressions::LtExpression *e);
+	RawValue visit(const expressions::AddExpression *e);
+	RawValue visit(const expressions::SubExpression *e);
+	RawValue visit(const expressions::MultExpression *e);
+	RawValue visit(const expressions::DivExpression *e);
+	RawValue visit(const expressions::AndExpression *e);
+	RawValue visit(const expressions::OrExpression *e);
+	RawValue visit(const expressions::RawValueExpression *e);
+	RawValue visit(const expressions::MinExpression *e);
+	RawValue visit(const expressions::MaxExpression *e);
+	RawValue visit(const expressions::HashExpression *e);
+	RawValue visit(const expressions::NegExpression *e);
+	RawValue visit(const expressions::ExtractExpression *e);
+	RawValue visit(const expressions::TestNullExpression *e);
+	RawValue visit(const expressions::CastExpression *e);
 	/**
 	 *
 	 */

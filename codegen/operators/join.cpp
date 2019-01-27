@@ -110,7 +110,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 		}
 
 		//PREPARE KEY
-		expressions::Expression* leftKeyExpr = this->pred->getLeftOperand();
+		const expressions::Expression* leftKeyExpr = this->pred->getLeftOperand();
 		ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
 		RawValue leftKey = leftKeyExpr->accept(exprGenerator);
 
@@ -154,7 +154,7 @@ void Join::consume(RawContext* const context, const OperatorState& childState) {
 #endif
 
 		//PREPARE KEY
-		expressions::Expression* rightKeyExpr = this->pred->getRightOperand();
+		const expressions::Expression* rightKeyExpr = this->pred->getRightOperand();
 		ExpressionGeneratorVisitor exprGenerator = ExpressionGeneratorVisitor(context, childState);
 		RawValue rightKey = rightKeyExpr->accept(exprGenerator);
 		int typeIdx = RawCatalog::getInstance().getTypeIndex(string(this->htName));

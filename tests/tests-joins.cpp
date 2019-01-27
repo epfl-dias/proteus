@@ -121,7 +121,7 @@ TEST_F(SailorsTest, Scan) {
 	sailorAtts.push_back(sname);
 	sailorAtts.push_back(rating);
 	sailorAtts.push_back(age);
-	RecordType sailorRec = RecordType(sailorAtts);
+	RecordType sailorRec{sailorAtts};
 
 	vector<RecordAttribute*> sailorAttsToProject;
 	sailorAttsToProject.push_back(sid);
@@ -131,34 +131,18 @@ TEST_F(SailorsTest, Scan) {
 	int policy = 2;
 	pm::CSVPlugin * pgSailors = openCSV(&ctx, sailorsPath, sailorRec,
 		sailorAttsToProject, ';', linehint, policy, false);
-	Scan scanSailors = Scan(&ctx, *pgSailors);
+	Scan scanSailors{&ctx, *pgSailors};
 
 	/**
 	 * REDUCE
 	 */
-	list<RecordAttribute> projections = list<RecordAttribute>();
-	projections.push_back(*sid);
-	projections.push_back(*age);
+	expressions::InputArgument arg{&sailorRec, 0, {*sid, *age}};
+	expression_t outputExpr = expression_t{arg}[*sid];
 
-	expressions::Expression *arg = new expressions::InputArgument(&sailorRec, 0,
-			projections);
-	expressions::Expression *outputExpr = new expressions::RecordProjection(
-			intType, arg, *sid);
-	expressions::Expression *one = new expressions::IntConstant(1);
-
-	expressions::Expression *predicate = new expressions::BoolConstant(true);
-
-	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
-	accs.push_back(MAX);
-	exprs.push_back(outputExpr);
-	/* Sanity checks*/
-	accs.push_back(SUM);
-	exprs.push_back(outputExpr);
-	accs.push_back(SUM);
-	exprs.push_back(one);
-	opt::Reduce reduce = opt::Reduce(accs, exprs, predicate, &scanSailors, &ctx,
-			flushResults, testLabel);
+	vector<Monoid> accs{MAX, SUM, SUM};
+	vector<expression_t> exprs{outputExpr, /* sanity checks=> */ outputExpr, 1};
+	opt::Reduce reduce{accs, exprs, true, &scanSailors, &ctx,
+			flushResults, testLabel};
 	scanSailors.setParent(&reduce);
 	reduce.produce();
 
@@ -236,7 +220,7 @@ TEST_F(SailorsTest, Select) {
 	expressions::Expression *predicateRed = new expressions::BoolConstant(true);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(MAX);
 	exprs.push_back(outputExpr);
 	/* Sanity checks*/
@@ -305,7 +289,7 @@ TEST_F(SailorsTest, ScanBoats) {
 	expressions::Expression *predicateRed = new expressions::BoolConstant(true);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(MAX);
 	exprs.push_back(outputExpr);
 	/* Sanity checks*/
@@ -401,7 +385,7 @@ TEST_F(SailorsTest, JoinLeft3) {
 			intType, sailorArg, *sid);
 	expressions::Expression *sailorAgeProj = new expressions::RecordProjection(
 			floatType, sailorArg, *age);
-	vector<expressions::Expression*> exprsToMatSailor;
+	vector<expression_t> exprsToMatSailor;
 	exprsToMatSailor.push_back(sailorOIDProj);
 	exprsToMatSailor.push_back(sailorSIDProj);
 	exprsToMatSailor.push_back(sailorAgeProj);
@@ -421,7 +405,7 @@ TEST_F(SailorsTest, JoinLeft3) {
 			intType, reservesArg, *sidReserves);
 	expressions::Expression* reservesBIDProj = new expressions::RecordProjection(
 				intType, reservesArg, *bidReserves);
-	vector<expressions::Expression*> exprsToMatReserves;
+	vector<expression_t> exprsToMatReserves;
 	exprsToMatReserves.push_back(reservesOIDProj);
 	//exprsToMatRight.push_back(resevesSIDProj);
 	exprsToMatReserves.push_back(reservesBIDProj);
@@ -432,7 +416,7 @@ TEST_F(SailorsTest, JoinLeft3) {
 			new expressions::EqExpression(sailorSIDProj,reservesSIDProj);
 
 	char joinLabel[] = "sailors_reserves";
-	RadixJoin join = RadixJoin(joinPred, &scanSailors, &scanReserves, &ctx, joinLabel, *matSailor, *matReserves);
+	RadixJoin join(*joinPred, &scanSailors, &scanReserves, &ctx, joinLabel, *matSailor, *matReserves);
 	scanSailors.setParent(&join);
 	scanReserves.setParent(&join);
 
@@ -465,7 +449,7 @@ TEST_F(SailorsTest, JoinLeft3) {
 			new expressions::InputArgument(intType,0,reserveAttsForArg);
 	expressions::Expression *previousJoinBIDProj =
 			new expressions::RecordProjection(intType,previousJoinArg,*bidReserves);
-	vector<expressions::Expression*> exprsToMatPreviousJoin;
+	vector<expression_t> exprsToMatPreviousJoin;
 	exprsToMatPreviousJoin.push_back(sailorOIDProj);
 	exprsToMatPreviousJoin.push_back(reservesOIDProj);
 	exprsToMatPreviousJoin.push_back(sailorSIDProj);
@@ -482,7 +466,7 @@ TEST_F(SailorsTest, JoinLeft3) {
 	expressions::Expression* boatsBIDProj =
 			new expressions::RecordProjection(intType,boatsArg,*bidBoats);
 
-	vector<expressions::Expression*> exprsToMatBoats;
+	vector<expression_t> exprsToMatBoats;
 	exprsToMatBoats.push_back(boatsOIDProj);
 	exprsToMatBoats.push_back(boatsBIDProj);
 	Materializer* matBoats = new Materializer(exprsToMatBoats);
@@ -491,7 +475,7 @@ TEST_F(SailorsTest, JoinLeft3) {
 			new expressions::EqExpression(previousJoinBIDProj,boatsBIDProj);
 
 	char joinLabel2[] = "sailors_reserves_boats";
-	RadixJoin join2 = RadixJoin(joinPred2, &join, &scanBoats, &ctx, joinLabel2, *matPreviousJoin, *matBoats);
+	RadixJoin join2(*joinPred2, &join, &scanBoats, &ctx, joinLabel2, *matPreviousJoin, *matBoats);
 	join.setParent(&join2);
 	scanBoats.setParent(&join2);
 
@@ -511,7 +495,7 @@ TEST_F(SailorsTest, JoinLeft3) {
 	expressions::Expression *predicate = new expressions::BoolConstant(true);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(MAX);
 	exprs.push_back(outputExpr);
 	/* Sanity checks*/
@@ -614,7 +598,7 @@ TEST_F(SailorsTest, JoinRight3) {
 	expressions::Expression* reservesBIDProj =
 			new expressions::RecordProjection(intType, reservesArg,
 					*bidReserves);
-	vector<expressions::Expression*> exprsToMatReserves;
+	vector<expression_t> exprsToMatReserves;
 	exprsToMatReserves.push_back(reservesOIDProj);
 	exprsToMatReserves.push_back(reservesSIDProj);
 	exprsToMatReserves.push_back(reservesBIDProj);
@@ -632,7 +616,7 @@ TEST_F(SailorsTest, JoinRight3) {
 			pgBoats->getOIDType(), boatsArg, projTupleBoat);
 	expressions::Expression* boatsBIDProj = new expressions::RecordProjection(
 			intType, boatsArg, *bidBoats);
-	vector<expressions::Expression*> exprsToMatBoats;
+	vector<expression_t> exprsToMatBoats;
 	exprsToMatBoats.push_back(boatsOIDProj);
 	exprsToMatBoats.push_back(boatsBIDProj);
 	Materializer* matBoats = new Materializer(exprsToMatBoats);
@@ -641,7 +625,7 @@ TEST_F(SailorsTest, JoinRight3) {
 			reservesBIDProj, boatsBIDProj);
 
 	char joinLabel2[] = "reserves_boats";
-	RadixJoin join2 = RadixJoin(joinPred2, &scanReserves, &scanBoats, &ctx,
+	RadixJoin join2(*joinPred2, &scanReserves, &scanBoats, &ctx,
 			joinLabel2, *matReserves, *matBoats);
 	scanReserves.setParent(&join2);
 			scanBoats.setParent(&join2);
@@ -694,7 +678,7 @@ TEST_F(SailorsTest, JoinRight3) {
 			intType, sailorArg, sailorOID);
 	expressions::Expression*sailorSIDProj = new expressions::RecordProjection(
 			intType, sailorArg, *sid);
-	vector<expressions::Expression*> exprsToMatSailor;
+	vector<expression_t> exprsToMatSailor;
 	exprsToMatSailor.push_back(sailorOIDProj);
 	exprsToMatSailor.push_back(sailorSIDProj);
 	Materializer* matSailor = new Materializer(exprsToMatSailor);
@@ -702,7 +686,7 @@ TEST_F(SailorsTest, JoinRight3) {
 	expressions::Expression *previousJoinArg = new expressions::InputArgument(
 			intType, 0, reserveAttsForArg);
 
-	vector<expressions::Expression*> exprsToMatPreviousJoin;
+	vector<expression_t> exprsToMatPreviousJoin;
 	exprsToMatPreviousJoin.push_back(reservesOIDProj);
 	exprsToMatPreviousJoin.push_back(reservesSIDProj);
 	Materializer* matPreviousJoin = new Materializer(exprsToMatPreviousJoin);
@@ -711,7 +695,7 @@ TEST_F(SailorsTest, JoinRight3) {
 			sailorSIDProj, reservesSIDProj);
 
 	char joinLabel[] = "sailors_(reserves_boats)";
-	RadixJoin join = RadixJoin(joinPred, &scanSailors, &join2, &ctx, joinLabel,
+	RadixJoin join(*joinPred, &scanSailors, &join2, &ctx, joinLabel,
 			*matSailor, *matPreviousJoin);
 	scanSailors.setParent(&join);
 	join2.setParent(&join);
@@ -731,7 +715,7 @@ TEST_F(SailorsTest, JoinRight3) {
 	expressions::Expression *predicate = new expressions::BoolConstant(true);
 
 	vector<Monoid> accs;
-	vector<expressions::Expression*> exprs;
+	vector<expression_t> exprs;
 	accs.push_back(MAX);
 	exprs.push_back(outputExpr);
 	/* Sanity checks*/

@@ -23,6 +23,7 @@
 
 #include "operators/gpu/gpu-partitioned-hash-join-chained.hpp"
 #include "operators/gpu/gmonoids.hpp"
+#include "expressions/expressions-generator.hpp"
 #include "util/raw-memory-manager.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"
 
@@ -441,7 +442,7 @@ HashPartitioner::HashPartitioner (
             RecordAttribute*                   targetAttr,
             const std::vector<GpuMatExpr>      &parts_mat_exprs, 
             const std::vector<size_t>          &parts_packet_widths,
-            expressions::Expression *           parts_keyexpr,
+            expression_t                        parts_keyexpr,
             RawOperator * const                 parts_child,
             GpuRawContext *                     context,
             size_t                              maxInputSize,
@@ -457,10 +458,10 @@ HashPartitioner::HashPartitioner (
                     log_parts(log_parts),
                     opLabel(opLabel) 
 {
-    vector<expressions::Expression*> expr;
-    for (size_t i = 0; i < parts_mat_exprs.size(); i++)
-        expr.push_back(parts_mat_exprs[i].expr);
-    mat = new Materializer(expr);
+    // vector<expressions::Expression*> expr;
+    // for (size_t i = 0; i < parts_mat_exprs.size(); i++)
+    //     expr.push_back(parts_mat_exprs[i].expr);
+    // mat = new Materializer(expr);
 
     //pg_out = new OutputPlugin(context, *mat, NULL);
 
@@ -489,7 +490,7 @@ void HashPartitioner::matFormat(){
     Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
     //assumes than build has already run
     
-    const ExpressionType * out_type_key = parts_keyexpr->getExpressionType();
+    const ExpressionType * out_type_key = parts_keyexpr.getExpressionType();
     Type * llvm_type_key = ((const PrimitiveType *) out_type_key)->getLLVMType(context->getLLVMContext());
     Type * t_ptr_key = PointerType::get(llvm_type_key, 1);
     param_pipe_ids.push_back(context->appendStateVar(t_ptr_key));
@@ -499,7 +500,7 @@ void HashPartitioner::matFormat(){
 
     for (size_t i = 1; i < parts_mat_exprs.size(); i++) {
         GpuMatExpr& w = parts_mat_exprs[i];
-        const ExpressionType * out_type = w.expr->getExpressionType();
+        const ExpressionType * out_type = w.expr.getExpressionType();
         Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
         Type * t_ptr = PointerType::get(llvm_type, 1);
         param_pipe_ids.push_back(context->appendStateVar(t_ptr));
@@ -537,7 +538,7 @@ void HashPartitioner::consume(RawContext* const context, const OperatorState& ch
 
 
     ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue valWrapper = parts_keyexpr->accept(exprGenerator);
+    RawValue valWrapper = parts_keyexpr.accept(exprGenerator);
     Value * key_ptr = ((const GpuRawContext *) context)->getStateVar(param_pipe_ids[0]);
     key_ptr->setName(opLabel + "_key");
     Value* key_ptr_offset = Builder->CreateInBoundsGEP(key_ptr, old_cnt);
@@ -545,11 +546,11 @@ void HashPartitioner::consume(RawContext* const context, const OperatorState& ch
 
     for (size_t i = 1; i < parts_mat_exprs.size(); i++) {
         GpuMatExpr& w = parts_mat_exprs[i];
-        const ExpressionType * out_type = w.expr->getExpressionType();
+        const ExpressionType * out_type = w.expr.getExpressionType();
         Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
         Type * t_ptr = PointerType::get(llvm_type, 1);
 
-        RawValue valWrapper = w.expr->accept(exprGenerator);
+        RawValue valWrapper = w.expr.accept(exprGenerator);
         Value * col_ptr = ((const GpuRawContext *) context)->getStateVar(param_pipe_ids[i]);
         col_ptr->setName(opLabel + "_col");
         Value* col_ptr_offset = Builder->CreateInBoundsGEP(col_ptr, old_cnt);
@@ -624,7 +625,7 @@ void HashPartitioner::open(RawPipeline * pip){
 void HashPartitioner::close (RawPipeline * pip){
     std::cout << "Partition::close::probe_" << pip->getGroup() << std::endl;
 
-    std::cout << parts_mat_exprs[0].expr->getRegisteredAttrName() << std::endl;
+    std::cout << parts_mat_exprs[0].expr.getRegisteredAttrName() << std::endl;
 
     int32_t h_cnt;
     gpu_run(cudaMemcpy(&h_cnt, cnts_ptr[pip->getGroup()], sizeof(int32_t), cudaMemcpyDefault));
@@ -761,14 +762,14 @@ void HashPartitioner::close (RawPipeline * pip){
 GpuPartitionedHashJoinChained::GpuPartitionedHashJoinChained(
             const std::vector<GpuMatExpr>      &build_mat_exprs, 
             const std::vector<size_t>          &build_packet_widths,
-            expressions::Expression *           build_keyexpr,
-            expressions::Expression *           build_minor_keyexpr,
+            expression_t                        build_keyexpr,
+            std::optional<expression_t>         build_minor_keyexpr,
             HashPartitioner * const                 build_child,
 
             const std::vector<GpuMatExpr>      &probe_mat_exprs, 
             const std::vector<size_t>          &probe_mat_packet_widths,
-            expressions::Expression *           probe_keyexpr,
-            expressions::Expression *           probe_minor_keyexpr,
+            expression_t                        probe_keyexpr,
+            std::optional<expression_t>         probe_minor_keyexpr,
             HashPartitioner * const                 probe_child,
 
             PartitionState&                     state_left,
@@ -787,8 +788,8 @@ GpuPartitionedHashJoinChained::GpuPartitionedHashJoinChained(
                 build_packet_widths(build_packet_widths),
                 build_keyexpr(build_keyexpr),
                 probe_keyexpr(probe_keyexpr),
-                build_minor_keyexpr(build_minor_keyexpr),
-                probe_minor_keyexpr(probe_minor_keyexpr),
+                build_minor_keyexpr(std::move(build_minor_keyexpr)),
+                probe_minor_keyexpr(std::move(probe_minor_keyexpr)),
                 hash_bits(HT_LOGSIZE),
                 BinaryRawOperator(build_child, probe_child),
                 maxBuildInputSize(maxBuildInputSize),
@@ -886,7 +887,7 @@ void GpuPartitionedHashJoinChained::probeHashTableFormat(){
     Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
     //assumes than build has already run
 
-    const ExpressionType * out_type_key = probe_keyexpr->getExpressionType();
+    const ExpressionType * out_type_key = probe_keyexpr.getExpressionType();
     Type * llvm_type_key = ((const PrimitiveType *) out_type_key)->getLLVMType(context->getLLVMContext());
     Type * t_ptr_key = PointerType::get(llvm_type_key, 1);
     probe_param_join_ids.push_back(context->appendStateVar(t_ptr_key));
@@ -896,7 +897,7 @@ void GpuPartitionedHashJoinChained::probeHashTableFormat(){
 
     for (size_t i = 1; i < probe_mat_exprs.size(); i++) {
         GpuMatExpr& w = probe_mat_exprs[i];
-        const ExpressionType * out_type = w.expr->getExpressionType();
+        const ExpressionType * out_type = w.expr.getExpressionType();
         Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
         Type * t_ptr = PointerType::get(llvm_type, 1);
         probe_param_join_ids.push_back(context->appendStateVar(t_ptr));
@@ -924,7 +925,7 @@ void GpuPartitionedHashJoinChained::buildHashTableFormat(){
     Type *t_head_ptr = PointerType::get(int32_type, 1);
     //head_id = context->appendStateVar(t_head_ptr);//, true, false);
 
-    const ExpressionType * out_type_key = build_keyexpr->getExpressionType();
+    const ExpressionType * out_type_key = build_keyexpr.getExpressionType();
     Type * llvm_type_key = ((const PrimitiveType *) out_type_key)->getLLVMType(context->getLLVMContext());
     Type * t_ptr_key = PointerType::get(llvm_type_key, 1);
     build_param_join_ids.push_back(context->appendStateVar(t_ptr_key));
@@ -934,7 +935,7 @@ void GpuPartitionedHashJoinChained::buildHashTableFormat(){
 
     for (size_t i = 1; i < build_mat_exprs.size(); i++) {
         GpuMatExpr& w = build_mat_exprs[i];
-        const ExpressionType * out_type = w.expr->getExpressionType();
+        const ExpressionType * out_type = w.expr.getExpressionType();
         Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
         Type * t_ptr = PointerType::get(llvm_type, 1);
         build_param_join_ids.push_back(context->appendStateVar(t_ptr));
@@ -1523,12 +1524,12 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
     Value* minor_probe = NULL;
     Value* minor_build = NULL;
 
-    if (probe_minor_keyexpr != NULL && build_minor_keyexpr != NULL) {
+    if (probe_minor_keyexpr.has_value() && build_minor_keyexpr.has_value()) {
         for (size_t i = 1 ; i < probe_mat_exprs.size(); i++) {
             GpuMatExpr &mexpr = probe_mat_exprs[i];
     
-            if (mexpr.expr->getRegisteredAttrName() == probe_minor_keyexpr->getRegisteredAttrName()) {
-                std::cout << mexpr.expr->getRegisteredAttrName() << std::endl;
+            if (mexpr.expr.getRegisteredAttrName() == probe_minor_keyexpr->getRegisteredAttrName()) {
+                std::cout << mexpr.expr.getRegisteredAttrName() << std::endl;
     #ifndef PARTITION_PAYLOAD
             Value* payload_right_ptr = gpu_context->getStateVar(probe_param_join_ids[i]);
             Value* value_ptr = Builder->CreateInBoundsGEP(payload_right_ptr, idx_val);
@@ -1544,8 +1545,8 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
         for (size_t i = 1 ; i < build_mat_exprs.size(); i++) {
             GpuMatExpr &mexpr = build_mat_exprs[i];
     
-            if (mexpr.expr->getRegisteredAttrName() == build_minor_keyexpr->getRegisteredAttrName()) {
-                std::cout << mexpr.expr->getRegisteredAttrName() << std::endl;
+            if (mexpr.expr.getRegisteredAttrName() == build_minor_keyexpr->getRegisteredAttrName()) {
+                std::cout << mexpr.expr.getRegisteredAttrName() << std::endl;
     #ifndef PARTITION_PAYLOAD
             Value* payload_left_ptr = gpu_context->getStateVar(build_param_join_ids[i]);
             Value* value_ptr = Builder->CreateInBoundsGEP(payload_left_ptr, build_idx);
@@ -1567,10 +1568,10 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
 
     map<RecordAttribute, RawValueMemory>* allJoinBindings = new map<RecordAttribute, RawValueMemory>();
 
-    if (probe_keyexpr->isRegistered()){
+    if (probe_keyexpr.isRegistered()){
 		{ //NOTE: Is there a better way ?
             RawCatalog& catalog             = RawCatalog::getInstance();
-            string probeRel                 = probe_keyexpr->getRegisteredRelName();
+            string probeRel                 = probe_keyexpr.getRegisteredRelName();
             Plugin* pg                      = catalog.getPlugin(probeRel);
             assert(pg);
             RecordAttribute * probe_oid     = new RecordAttribute(probeRel, activeLoop, pg->getOIDType());
@@ -1600,7 +1601,7 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
         }
 
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
-                                "mem_" +  probe_keyexpr->getRegisteredAttrName(),
+                                "mem_" +  probe_keyexpr.getRegisteredAttrName(),
                                 key_val->getType());
 
         Builder->CreateStore(key_val, mem_arg);
@@ -1608,14 +1609,14 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = context->createFalse();
-        (*allJoinBindings)[probe_keyexpr->getRegisteredAs()] = mem_valWrapper;
+        (*allJoinBindings)[probe_keyexpr.getRegisteredAs()] = mem_valWrapper;
     }
 
-    if (build_keyexpr->isRegistered()){
+    if (build_keyexpr.isRegistered()){
 		// set activeLoop for build rel if not set (may be multiple ones!)
         { //NOTE: Is there a better way ?
             RawCatalog& catalog             = RawCatalog::getInstance();
-            string buildRel                 = build_keyexpr->getRegisteredRelName();
+            string buildRel                 = build_keyexpr.getRegisteredRelName();
             Plugin* pg                      = catalog.getPlugin(buildRel);
             assert(pg);
             RecordAttribute * build_oid     = new RecordAttribute(buildRel, activeLoop, pg->getOIDType());
@@ -1645,15 +1646,15 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
         }
 
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
-                                "mem_" +  build_keyexpr->getRegisteredAttrName(),
-                                build_keyexpr->getExpressionType()->getLLVMType(llvmContext));
+                                "mem_" +  build_keyexpr.getRegisteredAttrName(),
+                                build_keyexpr.getExpressionType()->getLLVMType(llvmContext));
 
         Builder->CreateStore(build_key, mem_arg);
 
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = context->createFalse(); //FIMXE: is this correct ?
-        (*allJoinBindings)[build_keyexpr->getRegisteredAs()] = mem_valWrapper;
+        (*allJoinBindings)[build_keyexpr.getRegisteredAs()] = mem_valWrapper;
     }
 
     //std::cout << "Flag001" << std::endl;
@@ -1667,7 +1668,7 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
 
         { //NOTE: Is there a better way ?
             RawCatalog& catalog             = RawCatalog::getInstance();
-            string probeRel                 = mexpr.expr->getRegisteredRelName();
+            string probeRel                 = mexpr.expr.getRegisteredRelName();
             Plugin* pg                      = catalog.getPlugin(probeRel);
             assert(pg);
             RecordAttribute * probe_oid     = new RecordAttribute(probeRel, activeLoop, pg->getOIDType());
@@ -1696,7 +1697,7 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
             }
         }
 
-        std::cout << mexpr.expr->getRegisteredAttrName() << std::endl;
+        std::cout << mexpr.expr.getRegisteredAttrName() << std::endl;
 
 #ifndef PARTITION_PAYLOAD
         Value* payload_right_ptr = gpu_context->getStateVar(probe_param_join_ids[i]);
@@ -1708,17 +1709,17 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
 
 
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
-                                "mem_" +  mexpr.expr->getRegisteredAttrName(),
-                                mexpr.expr->getExpressionType()->getLLVMType(llvmContext));
+                                "mem_" +  mexpr.expr.getRegisteredAttrName(),
+                                mexpr.expr.getExpressionType()->getLLVMType(llvmContext));
 
         Builder->CreateStore(value_val, mem_arg);
-        //Builder->CreateStore(UndefValue::get(mexpr.expr->getExpressionType()->getLLVMType(llvmContext)), mem_arg);
+        //Builder->CreateStore(UndefValue::get(mexpr.expr.getExpressionType()->getLLVMType(llvmContext)), mem_arg);
 
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = context->createFalse();
 
-        (*allJoinBindings)[mexpr.expr->getRegisteredAs()] = mem_valWrapper;
+        (*allJoinBindings)[mexpr.expr.getRegisteredAs()] = mem_valWrapper;
     }
 
     std::cout << "hi3" << std::endl;
@@ -1732,7 +1733,7 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
         // set activeLoop for build rel if not set (may be multiple ones!)
         { //NOTE: Is there a better way ?
             RawCatalog& catalog             = RawCatalog::getInstance();
-            string buildRel                 = mexpr.expr->getRegisteredRelName();
+            string buildRel                 = mexpr.expr.getRegisteredRelName();
             Plugin* pg                      = catalog.getPlugin(buildRel);
             assert(pg);
             RecordAttribute * build_oid     = new RecordAttribute(buildRel, activeLoop, pg->getOIDType());
@@ -1765,7 +1766,7 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
 
 
 
-        std::cout << mexpr.expr->getRegisteredAttrName() << std::endl;
+        std::cout << mexpr.expr.getRegisteredAttrName() << std::endl;
         
 #ifndef PARTITION_PAYLOAD
         Value* payload_left_ptr = gpu_context->getStateVar(build_param_join_ids[i]);
@@ -1776,17 +1777,17 @@ void GpuPartitionedHashJoinChained::generate_probe(RawContext* const context,  m
 #endif
         
         AllocaInst * mem_arg = context->CreateEntryBlockAlloca(TheFunction,
-                                "mem_" +  mexpr.expr->getRegisteredAttrName(),
-                                mexpr.expr->getExpressionType()->getLLVMType(llvmContext));
+                                "mem_" +  mexpr.expr.getRegisteredAttrName(),
+                                mexpr.expr.getExpressionType()->getLLVMType(llvmContext));
 
         Builder->CreateStore(val, mem_arg);
-        //Builder->CreateStore(UndefValue::get(mexpr.expr->getExpressionType()->getLLVMType(llvmContext)), mem_arg);
+        //Builder->CreateStore(UndefValue::get(mexpr.expr.getExpressionType()->getLLVMType(llvmContext)), mem_arg);
 
         RawValueMemory mem_valWrapper;
         mem_valWrapper.mem    = mem_arg;
         mem_valWrapper.isNull = context->createFalse();
 
-        (*allJoinBindings)[mexpr.expr->getRegisteredAs()] = mem_valWrapper;
+        (*allJoinBindings)[mexpr.expr.getRegisteredAs()] = mem_valWrapper;
     }
 
     std::cout << "hi5" << std::endl;    
@@ -1832,7 +1833,7 @@ void GpuPartitionedHashJoinChained::allocate (RawPipeline * pip) {
 
     /*for (size_t i = 0; i < build_mat_exprs.size(); i++) {
         GpuMatExpr& w = build_mat_exprs[i];
-        const ExpressionType * out_type = w.expr->getExpressionType();
+        const ExpressionType * out_type = w.expr.getExpressionType();
         Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
 
         //if (i == 0)
@@ -1850,7 +1851,7 @@ void GpuPartitionedHashJoinChained::allocate (RawPipeline * pip) {
 
     for (size_t i = 0; i < probe_mat_exprs.size(); i++) {
         GpuMatExpr& w = probe_mat_exprs[i];
-        const ExpressionType * out_type = w.expr->getExpressionType();
+        const ExpressionType * out_type = w.expr.getExpressionType();
         Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
 
         //if (i == 0)
@@ -1869,7 +1870,7 @@ void GpuPartitionedHashJoinChained::allocate (RawPipeline * pip) {
 
     for (size_t i = 1; i < build_mat_exprs.size(); i++) {
         GpuMatExpr& w = build_mat_exprs[i];
-        const ExpressionType * out_type = w.expr->getExpressionType();
+        const ExpressionType * out_type = w.expr.getExpressionType();
         Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
         build_param_ptr.emplace_back(RawMemoryManager::mallocGpu(((llvm_type->getPrimitiveSizeInBits()+7)/8) * maxBuildInputSize));
     }
@@ -1878,7 +1879,7 @@ void GpuPartitionedHashJoinChained::allocate (RawPipeline * pip) {
 
     for (size_t i = 1; i < probe_mat_exprs.size(); i++) {
         GpuMatExpr& w = probe_mat_exprs[i];
-        const ExpressionType * out_type = w.expr->getExpressionType();
+        const ExpressionType * out_type = w.expr.getExpressionType();
         Type * llvm_type = ((const PrimitiveType *) out_type)->getLLVMType(context->getLLVMContext());
         probe_param_ptr.emplace_back(RawMemoryManager::mallocGpu(((llvm_type->getPrimitiveSizeInBits()+7)/8) * maxProbeInputSize));
     }
