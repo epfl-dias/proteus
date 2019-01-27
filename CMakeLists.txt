@@ -12,7 +12,6 @@ set(MAINS main-server) # Interface to the executor
 # not too sure if we should build "main", it looks like it has the same
 # test cases as the gtests
 set(MAINS ${MAINS} main main-caches main-nest main-str main-reduce)
-set(PLAN_PARSING TRUE)
 set(UNIT_TESTS TRUE)
 
 # Benchmarks
@@ -291,11 +290,6 @@ foreach(target ${MAINS})
 		ARCHIVE DESTINATION lib
 		)
 endforeach(target)
-
-if(PLAN_PARSING)
-	add_executable(plan-parsing plan-parsing.cpp)
-	target_link_libraries(plan-parsing ${default_libs})
-endif()
 
 # Unit-tests
 if(UNIT_TESTS)
