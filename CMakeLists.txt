@@ -34,7 +34,7 @@ set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 # which point to directories outside the build tree to the install RPATH
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 # Otherwise the -std=gnu++XX is used instead of the -std=c++XX, as one
 # would expect from the property above
 set(CMAKE_CXX_EXTENSIONS FALSE)
