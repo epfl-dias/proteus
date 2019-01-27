@@ -56,7 +56,7 @@ inputs/CIDR15
 clinical*.csv
 genetic*.csv
 inputs/json/spam/*.json
-inputs/ssbm/**
+inputs/ssbm**
 
 #Generated code folder
 generated_code/**
