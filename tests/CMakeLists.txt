@@ -1,6 +1,6 @@
 set(gtest_libs ${GTEST_MAIN} ${GTEST} ${default_libs})
 
-foreach(target
+set(gtest_src
 	tests-joins
 	tests-json
 	tests-cpu-ssb
@@ -10,9 +10,12 @@ foreach(target
 	tests-plan-parsing
 	tests-threads
 	)
-	add_executable(unit-${target} ${target}.cpp test-utils.cpp)
-	target_link_libraries(unit-${target} ${gtest_libs})
-	install(TARGETS unit-${target}
+
+foreach(target ${gtest_src})
+	get_filename_component(target_name ${target} NAME_WE)
+	add_executable(unit-${target_name} ${target} test-utils.cpp)
+	target_link_libraries(unit-${target_name} ${gtest_libs})
+	install(TARGETS unit-${target_name}
 		RUNTIME DESTINATION raw
 		LIBRARY DESTINATION lib
 		ARCHIVE DESTINATION lib
@@ -20,8 +23,7 @@ foreach(target
 endforeach(target)
 
 # One test to rule them all
-file(GLOB gtest_src *.cpp *.cu)
-add_executable(unit-tests ${gtest_src})
+add_executable(unit-tests ${gtest_src} test-utils.cpp)
 target_link_libraries(unit-tests ${gtest_libs})
 install(TARGETS unit-tests
 	RUNTIME DESTINATION raw
