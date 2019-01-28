@@ -28,24 +28,27 @@
 #include "util/gpu/gpu-raw-context.hpp"
 
 class DeviceCross : public UnaryRawOperator {
-protected:
-    DeviceCross(RawOperator * const child): UnaryRawOperator(child){}
+ protected:
+  DeviceCross(RawOperator *const child) : UnaryRawOperator(child) {}
 
-public:
-    virtual void consume(GpuRawContext * const context, const OperatorState& childState) = 0;
+ public:
+  virtual void consume(GpuRawContext *const context,
+                       const OperatorState &childState) = 0;
 
-    virtual void consume(RawContext    * const context, const OperatorState& childState){
-        GpuRawContext * ctx = dynamic_cast<GpuRawContext *>(context);
-        if (!ctx){
-            string error_msg = "[DeviceCross: ] Operator only supports code generation using the GpuRawContext";
-            LOG(ERROR) << error_msg;
-            throw runtime_error(error_msg);
-        }
-        consume(ctx, childState);
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState) {
+    GpuRawContext *ctx = dynamic_cast<GpuRawContext *>(context);
+    if (!ctx) {
+      string error_msg =
+          "[DeviceCross: ] Operator only supports code "
+          "generation using the GpuRawContext";
+      LOG(ERROR) << error_msg;
+      throw runtime_error(error_msg);
     }
+    consume(ctx, childState);
+  }
 
-    virtual bool isFiltering() const { return false; }
+  virtual bool isFiltering() const { return false; }
 };
-
 
 #endif /* DEVICE_CROSS_HPP_ */

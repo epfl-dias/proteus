@@ -1,3245 +1,3524 @@
+/*
+    RAW -- High-performance querying over raw, never-seen-before data.
+
+                            Copyright (c) 2014
+        Data Intensive Applications and Systems Labaratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
+
+                            All Rights Reserved.
+
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
+
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
+*/
+
 #include "plan/plan-parser.hpp"
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
 #ifndef NCUDA
-#include "operators/gpu/gpu-hash-join-chained.hpp"
-#include "operators/gpu/gpu-partitioned-hash-join-chained.hpp"
-#include "operators/gpu/gpu-hash-group-by-chained.hpp"
-#include "operators/gpu/gpu-reduce.hpp"
 #include "operators/cpu-to-gpu.hpp"
+#include "operators/gpu/gpu-hash-group-by-chained.hpp"
+#include "operators/gpu/gpu-hash-join-chained.hpp"
 #include "operators/gpu/gpu-hash-rearrange.hpp"
+#include "operators/gpu/gpu-partitioned-hash-join-chained.hpp"
+#include "operators/gpu/gpu-reduce.hpp"
 #include "operators/gpu/gpu-to-cpu.hpp"
 #endif
-#include "operators/hash-group-by-chained.hpp"
-#include "operators/packet-zip.hpp"
-#include "operators/hash-join-chained.hpp"
+#include "operators/block-to-tuples.hpp"
+#include "operators/dict-scan.hpp"
+#include "operators/exchange.hpp"
+#include "operators/flush.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
+#include "operators/gpu/gpu-sort.hpp"
+#include "operators/hash-group-by-chained.hpp"
+#include "operators/hash-join-chained.hpp"
+#include "operators/hash-rearrange.hpp"
 #include "operators/mem-broadcast-device.hpp"
 #include "operators/mem-move-device.hpp"
 #include "operators/mem-move-local-to.hpp"
-#include "operators/exchange.hpp"
-#include "operators/hash-rearrange.hpp"
-#include "operators/block-to-tuples.hpp"
-#include "operators/flush.hpp"
+#include "operators/outer-unnest.hpp"
+#include "operators/packet-zip.hpp"
+#include "operators/print.hpp"
 #include "operators/project.hpp"
-#include "operators/sort.hpp"
-#include "operators/gpu/gpu-sort.hpp"
-#include "operators/unionall.hpp"
-#include "operators/split.hpp"
-#include "operators/dict-scan.hpp"
+#include "operators/radix-join.hpp"
+#include "operators/radix-nest.hpp"
+#include "operators/reduce-opt.hpp"
+#include "operators/root.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
-#include "operators/radix-join.hpp"
+#include "operators/sort.hpp"
+#include "operators/split.hpp"
+#include "operators/unionall.hpp"
 #include "operators/unnest.hpp"
-#include "operators/outer-unnest.hpp"
-#include "operators/print.hpp"
-#include "operators/root.hpp"
-#include "operators/reduce-opt.hpp"
-#include "operators/radix-nest.hpp"
 
 #include "rapidjson/error/en.h"
 /* too primitive */
 struct PlanHandler {
-    bool Null() { cout << "Null()" << endl; return true; }
-    bool Bool(bool b) { cout << "Bool(" << std::boolalpha << b << ")" << endl; return true; }
-    bool Int(int i) { cout << "Int(" << i << ")" << endl; return true; }
-    bool Uint(unsigned u) { cout << "Uint(" << u << ")" << endl; return true; }
-    bool Int64(int64_t i) { cout << "Int64(" << i << ")" << endl; return true; }
-    bool Uint64(uint64_t u) { cout << "Uint64(" << u << ")" << endl; return true; }
-    bool Double(double d) { cout << "Double(" << d << ")" << endl; return true; }
-    bool String(const char* str, SizeType length, bool copy) {
-        cout << "String(" << str << ", " << length << ", " << std::boolalpha << copy << ")" << std::endl;
-        return true;
-    }
-    bool StartObject() { cout << "StartObject()" << endl; return true; }
-    bool Key(const char* str, SizeType length, bool copy) {
-        cout << "Key(" << str << ", " << length << ", " << std::boolalpha << copy << ")" << std::endl;
-        return true;
-    }
-    bool EndObject(SizeType memberCount) { cout << "EndObject(" << memberCount << ")" << endl; return true; }
-    bool StartArray() { cout << "StartArray()" << endl; return true; }
-    bool EndArray(SizeType elementCount) { cout << "EndArray(" << elementCount << ")" << endl; return true; }
+  bool Null() {
+    cout << "Null()" << endl;
+    return true;
+  }
+  bool Bool(bool b) {
+    cout << "Bool(" << std::boolalpha << b << ")" << endl;
+    return true;
+  }
+  bool Int(int i) {
+    cout << "Int(" << i << ")" << endl;
+    return true;
+  }
+  bool Uint(unsigned u) {
+    cout << "Uint(" << u << ")" << endl;
+    return true;
+  }
+  bool Int64(int64_t i) {
+    cout << "Int64(" << i << ")" << endl;
+    return true;
+  }
+  bool Uint64(uint64_t u) {
+    cout << "Uint64(" << u << ")" << endl;
+    return true;
+  }
+  bool Double(double d) {
+    cout << "Double(" << d << ")" << endl;
+    return true;
+  }
+  bool String(const char *str, SizeType length, bool copy) {
+    cout << "String(" << str << ", " << length << ", " << std::boolalpha << copy
+         << ")" << std::endl;
+    return true;
+  }
+  bool StartObject() {
+    cout << "StartObject()" << endl;
+    return true;
+  }
+  bool Key(const char *str, SizeType length, bool copy) {
+    cout << "Key(" << str << ", " << length << ", " << std::boolalpha << copy
+         << ")" << std::endl;
+    return true;
+  }
+  bool EndObject(SizeType memberCount) {
+    cout << "EndObject(" << memberCount << ")" << endl;
+    return true;
+  }
+  bool StartArray() {
+    cout << "StartArray()" << endl;
+    return true;
+  }
+  bool EndArray(SizeType elementCount) {
+    cout << "EndArray(" << elementCount << ")" << endl;
+    return true;
+  }
 };
 
-PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, const char *moduleName) :
-		planPath(planPath), moduleName(moduleName), catalogParser(cat), exprParser(cat) {
+PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
+                           const char *moduleName)
+    : planPath(planPath),
+      moduleName(moduleName),
+      catalogParser(cat),
+      exprParser(cat) {
+  /* Init LLVM Context and catalog */
+  ctx = prepareContext(this->moduleName);
+  RawCatalog &catalog = RawCatalog::getInstance();
 
-	/* Init LLVM Context and catalog */
-	ctx = prepareContext(this->moduleName);
-	RawCatalog& catalog = RawCatalog::getInstance();
+  // Input Path
+  const char *nameJSON = planPath;
+  // Prepare Input
+  struct stat statbuf;
+  stat(nameJSON, &statbuf);
+  size_t fsize = statbuf.st_size;
 
-	//Input Path
-	const char* nameJSON = planPath;
-	//Prepare Input
-	struct stat statbuf;
-	stat(nameJSON, &statbuf);
-	size_t fsize = statbuf.st_size;
+  int fd = open(nameJSON, O_RDONLY);
+  if (fd == -1) {
+    throw runtime_error(string("json.open"));
+  }
 
-	int fd = open(nameJSON, O_RDONLY);
-	if (fd == -1) {
-		throw runtime_error(string("json.open"));
-	}
+  const char *bufJSON =
+      (const char *)mmap(NULL, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (bufJSON == MAP_FAILED) {
+    const char *err = "json.mmap";
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
 
-	const char *bufJSON = (const char*) mmap(NULL, fsize, PROT_READ,
-			MAP_PRIVATE, fd, 0);
-	if (bufJSON == MAP_FAILED ) {
-		const char *err = "json.mmap";
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
+  Document document;  // Default template parameter uses UTF8 and
+                      // MemoryPoolAllocator.
+  if (document.Parse(bufJSON).HasParseError()) {
+    const char *err = "[PlanExecutor: ] Error parsing physical plan";
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
 
-	Document document; // Default template parameter uses UTF8 and MemoryPoolAllocator.
-	if (document.Parse(bufJSON).HasParseError()) {
-		const char *err = "[PlanExecutor: ] Error parsing physical plan";
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
+  /* Start plan traversal. */
+  printf("\nParsing physical plan:\n");
+  assert(document.IsObject());
 
-	/* Start plan traversal. */
-	printf("\nParsing physical plan:\n");
-	assert(document.IsObject());
+  assert(document.HasMember("operator"));
+  assert(document["operator"].IsString());
+  printf("operator = %s\n", document["operator"].GetString());
 
-	assert(document.HasMember("operator"));
-	assert(document["operator"].IsString());
-	printf("operator = %s\n", document["operator"].GetString());
+  parsePlan(document);
 
-	parsePlan(document);
+  vector<Plugin *>::iterator pgIter = activePlugins.begin();
 
-	vector<Plugin*>::iterator pgIter = activePlugins.begin();
+  /* Cleanup */
+  for (; pgIter != activePlugins.end(); pgIter++) {
+    Plugin *currPg = *pgIter;
+    currPg->finish();
+  }
 
-	/* Cleanup */
-	for(; pgIter != activePlugins.end(); pgIter++)	{
-		Plugin *currPg = *pgIter;
-		currPg->finish();
-	}
-
-	return;
+  return;
 }
 
-PlanExecutor::PlanExecutor(const char *planPath, CatalogParser& cat, const char *moduleName, RawContext * ctx) :
-		planPath(planPath), moduleName(moduleName), catalogParser(cat), ctx(ctx), exprParser(cat) {
-	RawCatalog& catalog = RawCatalog::getInstance();
+PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
+                           const char *moduleName, RawContext *ctx)
+    : planPath(planPath),
+      moduleName(moduleName),
+      catalogParser(cat),
+      ctx(ctx),
+      exprParser(cat) {
+  RawCatalog &catalog = RawCatalog::getInstance();
 
-	//Input Path
-	const char* nameJSON = planPath;
-	//Prepare Input
-	struct stat statbuf;
-	stat(nameJSON, &statbuf);
-	size_t fsize = statbuf.st_size;
+  // Input Path
+  const char *nameJSON = planPath;
+  // Prepare Input
+  struct stat statbuf;
+  stat(nameJSON, &statbuf);
+  size_t fsize = statbuf.st_size;
 
-	int fd = open(nameJSON, O_RDONLY);
-	if (fd == -1) {
-		throw runtime_error(string("json.open"));
-	}
+  int fd = open(nameJSON, O_RDONLY);
+  if (fd == -1) {
+    throw runtime_error(string("json.open"));
+  }
 
-	const char *bufJSON = (const char*) mmap(NULL, fsize, PROT_READ,
-			MAP_PRIVATE, fd, 0);
-	if (bufJSON == MAP_FAILED ) {
-		const char *err = "json.mmap";
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
+  const char *bufJSON =
+      (const char *)mmap(NULL, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (bufJSON == MAP_FAILED) {
+    const char *err = "json.mmap";
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
 
-	Document document; // Default template parameter uses UTF8 and MemoryPoolAllocator.
-	auto & parsed = document.Parse(bufJSON);
-	if (parsed.HasParseError()) {
-		ParseResult ok = (ParseResult) parsed;
-		fprintf(stderr, "JSON parse error: %s (%lu)", RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
-		const char *err = "[PlanExecutor: ] Error parsing physical plan (JSON parsing error)";
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
+  Document document;  // Default template parameter uses UTF8 and
+                      // MemoryPoolAllocator.
+  auto &parsed = document.Parse(bufJSON);
+  if (parsed.HasParseError()) {
+    ParseResult ok = (ParseResult)parsed;
+    fprintf(stderr, "JSON parse error: %s (%lu)",
+            RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
+    const char *err =
+        "[PlanExecutor: ] Error parsing physical plan (JSON parsing error)";
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
 
-	/* Start plan traversal. */
-	printf("\nParsing physical plan:\n");
-	assert(document.IsObject());
+  /* Start plan traversal. */
+  printf("\nParsing physical plan:\n");
+  assert(document.IsObject());
 
-	assert(document.HasMember("operator"));
-	assert(document["operator"].IsString());
-	printf("operator = %s\n", document["operator"].GetString());
+  assert(document.HasMember("operator"));
+  assert(document["operator"].IsString());
+  printf("operator = %s\n", document["operator"].GetString());
 
-	parsePlan(document, false);
+  parsePlan(document, false);
 
-	// vector<Plugin*>::iterator pgIter = activePlugins.begin();
+  // vector<Plugin*>::iterator pgIter = activePlugins.begin();
 
-	// /* Cleanup */
-	// for(; pgIter != activePlugins.end(); pgIter++)	{
-	// 	Plugin *currPg = *pgIter;
-	// 	currPg->finish();
-	// }
+  // /* Cleanup */
+  // for(; pgIter != activePlugins.end(); pgIter++)    {
+  //     Plugin *currPg = *pgIter;
+  //     currPg->finish();
+  // }
 
-	return;
+  return;
 }
 
+void PlanExecutor::parsePlan(const rapidjson::Document &doc, bool execute) {
+  splitOps.clear();
+  RawOperator *planRootOp = parseOperator(doc);
 
-void PlanExecutor::parsePlan(const rapidjson::Document& doc, bool execute)	{
-	splitOps.clear();
-	RawOperator* planRootOp = parseOperator(doc);
+  planRootOp->produce();
 
-	planRootOp->produce();
+  // Run function
+  ctx->prepareFunction(ctx->getGlobalFunction());
 
-	//Run function
-	ctx->prepareFunction(ctx->getGlobalFunction());
-
-	if (execute){
-		RawCatalog& catalog = RawCatalog::getInstance();
-		/* XXX Remove when testing caches (?) */
-		catalog.clear();
-	}
+  if (execute) {
+    RawCatalog &catalog = RawCatalog::getInstance();
+    /* XXX Remove when testing caches (?) */
+    catalog.clear();
+  }
 }
 
-void PlanExecutor::cleanUp(){
-	RawCatalog& catalog = RawCatalog::getInstance();
-	/* XXX Remove when testing caches (?) */
-	catalog.clear();
+void PlanExecutor::cleanUp() {
+  RawCatalog &catalog = RawCatalog::getInstance();
+  /* XXX Remove when testing caches (?) */
+  catalog.clear();
 
-	vector<Plugin*>::iterator pgIter = activePlugins.begin();
+  vector<Plugin *>::iterator pgIter = activePlugins.begin();
 
-	/* Cleanup */
-	for(; pgIter != activePlugins.end(); pgIter++)	{
-		Plugin *currPg = *pgIter;
-		currPg->finish();
-	}
+  /* Cleanup */
+  for (; pgIter != activePlugins.end(); pgIter++) {
+    Plugin *currPg = *pgIter;
+    currPg->finish();
+  }
 }
 
-RawOperator* PlanExecutor::parseOperator(const rapidjson::Value& val)	{
+RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
+  const char *keyPg = "plugin";
+  const char *keyOp = "operator";
 
-	const char *keyPg = "plugin";
-	const char *keyOp = "operator";
+  assert(val.HasMember(keyOp));
+  assert(val[keyOp].IsString());
+  const char *opName = val["operator"].GetString();
 
-	assert(val.HasMember(keyOp));
-	assert(val[keyOp].IsString());
-	const char *opName = val["operator"].GetString();
+  RawOperator *newOp = NULL;
 
-	RawOperator *newOp = NULL;
+  if (strcmp(opName, "reduce") == 0) {
+    /* "Multi - reduce"! */
+    /* parse operator input */
+    RawOperator *childOp = parseOperator(val["input"]);
 
-	if (strcmp(opName, "reduce") == 0) {
-		/* "Multi - reduce"! */
-		/* parse operator input */
-		RawOperator* childOp = parseOperator(val["input"]);
+    /* get monoid(s) */
+    assert(val.HasMember("accumulator"));
+    assert(val["accumulator"].IsArray());
+    vector<Monoid> accs;
+    const rapidjson::Value &accsJSON = val["accumulator"];
+    for (SizeType i = 0; i < accsJSON.Size();
+         i++)  // rapidjson uses SizeType instead of size_t.
+    {
+      assert(accsJSON[i].IsString());
+      Monoid acc = parseAccumulator(accsJSON[i].GetString());
+      accs.push_back(acc);
+    }
 
-		/* get monoid(s) */
-		assert(val.HasMember("accumulator"));
-		assert(val["accumulator"].IsArray());
-		vector<Monoid> accs;
-		const rapidjson::Value& accsJSON = val["accumulator"];
-		for (SizeType i = 0; i < accsJSON.Size(); i++) // rapidjson uses SizeType instead of size_t.
-		{
-			assert(accsJSON[i].IsString());
-			Monoid acc = parseAccumulator(accsJSON[i].GetString());
-			accs.push_back(acc);
-		}
+    /*
+     * parse output expressions
+     * XXX Careful: Assuming numerous output expressions!
+     */
+    assert(val.HasMember("e"));
+    assert(val["e"].IsArray());
+    std::vector<expression_t> e;
+    e.reserve(val["e"].Size());
+    for (const auto &v : val["e"].GetArray()) {
+      e.emplace_back(parseExpression(v));
+    }
 
-		/*
-		 * parse output expressions
-		 * XXX Careful: Assuming numerous output expressions!
-		 */
-		assert(val.HasMember("e"));
-		assert(val["e"].IsArray());
-		std::vector<expression_t> e;
-		e.reserve(val["e"].Size());
-		for (const auto &v: val["e"].GetArray()) {
-			e.emplace_back(parseExpression(v));
-		}
+    /* parse filtering expression */
+    assert(val.HasMember("p"));
+    assert(val["p"].IsObject());
+    expression_t p = parseExpression(val["p"]);
 
-		/* parse filtering expression */
-		assert(val.HasMember("p"));
-		assert(val["p"].IsObject());
-		expression_t p = parseExpression(val["p"]);
-
-		/* 'Multi-reduce' used */
+    /* 'Multi-reduce' used */
 #ifndef NCUDA
-		if (val.HasMember("gpu") && val["gpu"].GetBool()){
-			assert(dynamic_cast<GpuRawContext *>(this->ctx));
-			newOp = new opt::GpuReduce(accs, e, p, childOp, dynamic_cast<GpuRawContext *>(this->ctx));
-		} else {
+    if (val.HasMember("gpu") && val["gpu"].GetBool()) {
+      assert(dynamic_cast<GpuRawContext *>(this->ctx));
+      newOp = new opt::GpuReduce(accs, e, p, childOp,
+                                 dynamic_cast<GpuRawContext *>(this->ctx));
+    } else {
 #endif
-			newOp = new opt::Reduce(accs, e, p, childOp, this->ctx, false, moduleName);
+      newOp =
+          new opt::Reduce(accs, e, p, childOp, this->ctx, false, moduleName);
 #ifndef NCUDA
-		}
+    }
 #endif
-		childOp->setParent(newOp);
-	} else if (strcmp(opName, "print") == 0) {
-		/* "Multi - reduce"! */
-		if (val.HasMember("plugin")){
-			assert(val["plugin"].IsObject());
-			parsePlugin(val["plugin"]);
-		}
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "print") == 0) {
+    /* "Multi - reduce"! */
+    if (val.HasMember("plugin")) {
+      assert(val["plugin"].IsObject());
+      parsePlugin(val["plugin"]);
+    }
 
-		/* parse operator input */
-		RawOperator* childOp = parseOperator(val["input"]);
+    /* parse operator input */
+    RawOperator *childOp = parseOperator(val["input"]);
 
-		/*
-		 * parse output expressions
-		 * XXX Careful: Assuming numerous output expressions!
-		 */
-		assert(val.HasMember("e"));
-		assert(val["e"].IsArray());
-		std::vector<expression_t> e;
-		e.reserve(val["e"].Size());
-		for (const auto &v: val["e"].GetArray()) {
-			e.emplace_back(parseExpression(v));
-			assert(e.back().isRegistered());
-		}
+    /*
+     * parse output expressions
+     * XXX Careful: Assuming numerous output expressions!
+     */
+    assert(val.HasMember("e"));
+    assert(val["e"].IsArray());
+    std::vector<expression_t> e;
+    e.reserve(val["e"].Size());
+    for (const auto &v : val["e"].GetArray()) {
+      e.emplace_back(parseExpression(v));
+      assert(e.back().isRegistered());
+    }
 
-		newOp = new Flush(e, childOp, this->ctx, moduleName);
-		childOp->setParent(newOp);
-	} else if (strcmp(opName, "sort") == 0) {
-		/* "Multi - reduce"! */
-		/* parse operator input */
-		RawOperator* childOp = parseOperator(val["input"]);
+    newOp = new Flush(e, childOp, this->ctx, moduleName);
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "sort") == 0) {
+    /* "Multi - reduce"! */
+    /* parse operator input */
+    RawOperator *childOp = parseOperator(val["input"]);
 
-		/*
-		 * parse output expressions
-		 * XXX Careful: Assuming numerous output expressions!
-		 */
-		assert(val.HasMember("e"));
-		assert(val["e"].IsArray());
-		vector<expression_t     > e;
-		vector<direction        > d;
-		vector<RecordAttribute *> recattr;
-		for (const auto &v: val["e"].GetArray()) {
-			assert(v.IsObject());
-			assert(v.HasMember("expression"));
-			assert(v["expression"].IsObject());
-			expression_t outExpr = parseExpression(v["expression"]);
-			e.emplace_back(outExpr);
-			assert(v.HasMember("direction"));
-			assert(v["direction"].IsString());
-			std::string dir = v["direction"].GetString();
-			if      (dir == "ASC" ) d.emplace_back(ASC );
-			else if (dir == "NONE") d.emplace_back(NONE);
-			else if (dir == "DESC") d.emplace_back(DESC);
-			else 					assert(false);
+    /*
+     * parse output expressions
+     * XXX Careful: Assuming numerous output expressions!
+     */
+    assert(val.HasMember("e"));
+    assert(val["e"].IsArray());
+    vector<expression_t> e;
+    vector<direction> d;
+    vector<RecordAttribute *> recattr;
+    for (const auto &v : val["e"].GetArray()) {
+      assert(v.IsObject());
+      assert(v.HasMember("expression"));
+      assert(v["expression"].IsObject());
+      expression_t outExpr = parseExpression(v["expression"]);
+      e.emplace_back(outExpr);
+      assert(v.HasMember("direction"));
+      assert(v["direction"].IsString());
+      std::string dir = v["direction"].GetString();
+      if (dir == "ASC")
+        d.emplace_back(ASC);
+      else if (dir == "NONE")
+        d.emplace_back(NONE);
+      else if (dir == "DESC")
+        d.emplace_back(DESC);
+      else
+        assert(false);
 
-			recattr.emplace_back(new RecordAttribute{outExpr.getRegisteredAs()});
-		}
+      recattr.emplace_back(new RecordAttribute{outExpr.getRegisteredAs()});
+    }
 
-		std::string relName = e[0].getRegisteredRelName();
+    std::string relName = e[0].getRegisteredRelName();
 
-		InputInfo * datasetInfo = (this->catalogParser).getOrCreateInputInfo(relName);
-		RecordType * rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfo->exprType)->getNestedType())};
-		RecordAttribute * reg_as = new RecordAttribute(relName, "__sorted", new RecordType(recattr)); 
-		std::cout << "Registered: " << reg_as->getRelationName() << "." << reg_as->getAttrName() << std::endl;
-		rec->appendAttribute(reg_as);
+    InputInfo *datasetInfo =
+        (this->catalogParser).getOrCreateInputInfo(relName);
+    RecordType *rec = new RecordType{dynamic_cast<const RecordType &>(
+        dynamic_cast<CollectionType *>(datasetInfo->exprType)
+            ->getNestedType())};
+    RecordAttribute *reg_as =
+        new RecordAttribute(relName, "__sorted", new RecordType(recattr));
+    std::cout << "Registered: " << reg_as->getRelationName() << "."
+              << reg_as->getAttrName() << std::endl;
+    rec->appendAttribute(reg_as);
 
-		datasetInfo->exprType = new BagType{*rec};
-
-#ifndef NCUDA
-		if (val.HasMember("gpu") && val["gpu"].GetBool()){
-			gran_t granularity = gran_t::GRID;
-
-			if (val.HasMember("granularity")){
-				assert(val["granularity"].IsString());
-				std::string gran = val["granularity"].GetString();
-				std::transform(gran.begin(), gran.end(), gran.begin(), [](unsigned char c){ return std::tolower(c); });
-				if      (gran == "grid"  ) granularity = gran_t::GRID;
-				else if (gran == "block" ) granularity = gran_t::BLOCK;
-				else if (gran == "thread") granularity = gran_t::THREAD;
-				else 	assert(false && "granularity must be one of GRID, BLOCK, THREAD");
-			}
-
-			assert(dynamic_cast<GpuRawContext *>(this->ctx));
-			newOp = new GpuSort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e, d, granularity);
-		} else {
-#endif
-			newOp = new Sort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e, d);
-#ifndef NCUDA
-		}
-#endif
-		childOp->setParent(newOp);
-	} else if (strcmp(opName, "project") == 0) {
-		/* "Multi - reduce"! */
-		/* parse operator input */
-		RawOperator* childOp = parseOperator(val["input"]);
-
-		/*
-		 * parse output expressions
-		 * XXX Careful: Assuming numerous output expressions!
-		 */
-		assert(val.HasMember("e"));
-		assert(val["e"].IsArray());
-		std::vector<expression_t> e;
-		for (const auto &v: val["e"].GetArray()) {
-			e.emplace_back(parseExpression(v));
-		}
-
-
-		assert(val.HasMember("relName"));
-		assert(val["relName"].IsString());
-
-		newOp = new Project(e, val["relName"].GetString(), childOp, this->ctx);
-		childOp->setParent(newOp);
-	} else if (strcmp(opName, "unnest") == 0) {
-
-		/* parse operator input */
-		RawOperator* childOp = parseOperator(val["input"]);
-
-		/* parse filtering expression */
-		assert(val.HasMember("p"));
-		assert(val["p"].IsObject());
-		expression_t p = parseExpression(val["p"]);
-
-		/* parse path expression */
-		assert(val.HasMember("path"));
-		assert(val["path"].IsObject());
-
-
-		assert(val["path"]["e"].IsObject());
-		auto exprToUnnest = parseExpression(val["path"]["e"]);
-		auto proj = dynamic_cast<const expressions::RecordProjection*>(exprToUnnest.getUnderlyingExpression());
-		if (proj == NULL) {
-			string error_msg = string(
-					"[Unnest: ] Cannot cast to record projection");
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(string(error_msg));
-		}
-		
-		string pathAlias;
-		if (exprToUnnest.isRegistered()){
-			pathAlias = exprToUnnest.getRegisteredAttrName();
-		} else {
-			assert(val["path"]["name"].IsString());
-			pathAlias = val["path"]["name"].GetString();
-		}
-
-		Path projPath{pathAlias, proj};
-
-		newOp = new Unnest(p, projPath, childOp);
-		childOp->setParent(newOp);
-	} else if (strcmp(opName, "outer_unnest") == 0) {
-
-		/* parse operator input */
-		RawOperator* childOp = parseOperator(val["input"]);
-
-		/* parse filtering expression */
-		assert(val.HasMember("p"));
-		assert(val["p"].IsObject());
-		auto p = parseExpression(val["p"]);
-
-		/* parse path expression */
-		assert(val.HasMember("path"));
-		assert(val["path"].IsObject());
-
-		assert(val["path"]["name"].IsString());
-		string pathAlias = val["path"]["name"].GetString();
-
-		assert(val["path"]["e"].IsObject());
-		auto exprToUnnest = parseExpression(val["path"]["e"]);
-		auto proj = dynamic_cast<const expressions::RecordProjection*>(exprToUnnest.getUnderlyingExpression());
-		if (proj == NULL) {
-			string error_msg = string(
-					"[Unnest: ] Cannot cast to record projection");
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(string(error_msg));
-		}
-
-		Path projPath{pathAlias, proj};
-
-		newOp = new OuterUnnest(p, projPath, childOp);
-		childOp->setParent(newOp);
-	} else if(strcmp(opName, "groupby") == 0 || strcmp(opName, "hashgroupby-chained") == 0)	{
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsObject());
-		RawOperator* child = parseOperator(val["input"]);
+    datasetInfo->exprType = new BagType{*rec};
 
 #ifndef NCUDA
-		// if (val.HasMember("gpu") && val["gpu"].GetBool()){
-			assert(val.HasMember("hash_bits"));
-			assert(val["hash_bits"].IsInt());
-			int hash_bits = val["hash_bits"].GetInt();
+    if (val.HasMember("gpu") && val["gpu"].GetBool()) {
+      gran_t granularity = gran_t::GRID;
 
-			// assert(val.HasMember("w"));
-			// assert(val["w"].IsArray());
-			// vector<size_t> widths;
+      if (val.HasMember("granularity")) {
+        assert(val["granularity"].IsString());
+        std::string gran = val["granularity"].GetString();
+        std::transform(gran.begin(), gran.end(), gran.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        if (gran == "grid")
+          granularity = gran_t::GRID;
+        else if (gran == "block")
+          granularity = gran_t::BLOCK;
+        else if (gran == "thread")
+          granularity = gran_t::THREAD;
+        else
+          assert(false && "granularity must be one of GRID, BLOCK, THREAD");
+      }
 
-			// const rapidjson::Value& wJSON = val["w"];
-			// for (SizeType i = 0; i < wJSON.Size(); i++){
-			// 	assert(wJSON[i].IsInt());
-			// 	widths.push_back(wJSON[i].GetInt());
-			// }
-
-			/*
-			 * parse output expressions
-			 * XXX Careful: Assuming numerous output expressions!
-			 */
-			assert(val.HasMember("e"));
-			assert(val["e"].IsArray());
-			std::vector<GpuAggrMatExpr> e;
-			for (const auto &v: val["e"].GetArray()) {
-				assert(v.HasMember("e"     ));
-				assert(v.HasMember("m"     ));
-				assert(v["m"].IsString()    );
-				assert(v.HasMember("packet"));
-				assert(v["packet"].IsInt()  );
-				assert(v.HasMember("offset"));
-				assert(v["offset"].IsInt()  );
-				auto outExpr = parseExpression(v["e"]);
-
-				e.emplace_back(outExpr, v["packet"].GetInt(), v["offset"].GetInt(), parseAccumulator(v["m"].GetString()));
-			}
-
-			assert(val.HasMember("k"));
-			assert(val["k"].IsArray());
-			vector<expression_t> key_expr;
-			for (const auto &k: val["k"].GetArray()) {
-				key_expr.emplace_back(parseExpression(k));
-			}
-
-			assert(val.HasMember("maxInputSize"));
-			assert(val["maxInputSize"].IsUint64());
-			
-			size_t maxInputSize = val["maxInputSize"].GetUint64();
-
-			assert(dynamic_cast<GpuRawContext *>(this->ctx));
-			// newOp = new GpuHashGroupByChained(e, widths, key_expr, child, hash_bits,
-			// 					dynamic_cast<GpuRawContext *>(this->ctx), maxInputSize);
-
-		if (val.HasMember("gpu") && val["gpu"].GetBool()){
-			newOp = new GpuHashGroupByChained(e, key_expr, child, hash_bits,
-								dynamic_cast<GpuRawContext *>(this->ctx), maxInputSize);
-		} else {
-			newOp = new HashGroupByChained(e, key_expr, child, hash_bits,
-								dynamic_cast<GpuRawContext *>(this->ctx), maxInputSize);
-		}
-		// } else {
+      assert(dynamic_cast<GpuRawContext *>(this->ctx));
+      newOp = new GpuSort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e,
+                          d, granularity);
+    } else {
 #endif
-	// 		assert(val.HasMember("hash_bits"));
-	// 		assert(val["hash_bits"].IsInt());
-	// 		int hash_bits = val["hash_bits"].GetInt();
-
-	// 		// assert(val.HasMember("w"));
-	// 		// assert(val["w"].IsArray());
-	// 		// vector<size_t> widths;
-
-	// 		// const rapidjson::Value& wJSON = val["w"];
-	// 		// for (SizeType i = 0; i < wJSON.Size(); i++){
-	// 		// 	assert(wJSON[i].IsInt());
-	// 		// 	widths.push_back(wJSON[i].GetInt());
-	// 		// }
-
-	// 		/*
-	// 		 * parse output expressions
-	// 		 * XXX Careful: Assuming numerous output expressions!
-	// 		 */
-	// 		assert(val.HasMember("e"));
-	// 		assert(val["e"].IsArray());
-	// 		// vector<GpuAggrMatExpr> e;
-	// 		const rapidjson::Value& aggrJSON = val["e"];
-	// 		vector<Monoid> accs;
-	// 		vector<string> aggrLabels;
-	// 		vector<expressions::Expression*> outputExprs;
-	// 		vector<expressions::Expression*> exprsToMat;
-	// 		vector<materialization_mode> outputModes;
-	// 		map<string, RecordAttribute*> mapOids;
-	// 		vector<RecordAttribute*> fieldsToMat;
-	// 		for (SizeType i = 0; i < aggrJSON.Size(); i++){
-	// 			assert(aggrJSON[i].HasMember("e"     ));
-	// 			assert(aggrJSON[i].HasMember("m"     ));
-	// 			assert(aggrJSON[i]["m"].IsString()    );
-	// 			assert(aggrJSON[i].HasMember("packet"));
-	// 			assert(aggrJSON[i]["packet"].IsInt()  );
-	// 			assert(aggrJSON[i].HasMember("offset"));
-	// 			assert(aggrJSON[i]["offset"].IsInt()  );
-	// 			expressions::Expression *outExpr = parseExpression(aggrJSON[i]["e"]);
-
-	// 			// e.emplace_back(outExpr, aggrJSON[i]["packet"].GetInt(), aggrJSON[i]["offset"].GetInt(), );
-
-	// 			aggrLabels.push_back(outExpr->getRegisteredAttrName());
-	// 			accs.push_back(parseAccumulator(aggrJSON[i]["m"].GetString()));
-
-	// 			outputExprs.push_back(outExpr);
-
-	// 			//XXX STRONG ASSUMPTION: Expression is actually a record projection!
-	// 			expressions::RecordProjection *proj =
-	// 					dynamic_cast<expressions::RecordProjection *>(outExpr);
-
-
-	// 			if (proj == NULL) {
-	// 				if (outExpr->getTypeID() != expressions::CONSTANT){
-	// 					string error_msg = string(
-	// 							"[Nest: ] Cannot cast to rec projection. Original: ")
-	// 							+ outExpr->getExpressionType()->getType();
-	// 					LOG(ERROR)<< error_msg;
-	// 					throw runtime_error(string(error_msg));
-	// 				}
-	// 			} else {
-	// 				exprsToMat.push_back(outExpr);
-	// 				outputModes.insert(outputModes.begin(), EAGER);
-
-	// 				//Added in 'wanted fields'
-	// 				RecordAttribute *recAttr = new RecordAttribute(proj->getAttribute());
-	// 				fieldsToMat.push_back(new RecordAttribute(outExpr->getRegisteredAs()));
-
-	// 				string relName = recAttr->getRelationName();
-	// 				if (mapOids.find(relName) == mapOids.end()) {
-	// 					InputInfo *datasetInfo =
-	// 							(this->catalogParser).getInputInfo(relName);
-	// 					RecordAttribute *oid =
-	// 							new RecordAttribute(recAttr->getRelationName(), activeLoop,
-	// 							datasetInfo->oidType);
-	// 					mapOids[relName] = oid;
-	// 					expressions::RecordProjection *oidProj =
-	// 							new expressions::RecordProjection(outExpr, *oid);
-	// 					//Added in 'wanted expressions'
-	// 					LOG(INFO)<< "[Plan Parser: ] Injecting OID for " << relName;
-	// 					std::cout << "[Plan Parser: ] Injecting OID for " << relName << std::endl;
-	// 					/* ORDER OF expression fields matters!! OIDs need to be placed first! */
-	// 					exprsToMat.insert(exprsToMat.begin(), oidProj);
-	// 					outputModes.insert(outputModes.begin(), EAGER);
-	// 				}
-	// 			}
-	// 		}
-
-	// 		/* Predicate */
-	// 		expressions::Expression * predExpr = new expressions::BoolConstant(true);
-
-	// 		assert(val.HasMember("k"));
-	// 		assert(val["k"].IsArray());
-	// 		vector<expressions::Expression *> key_expr;
-	// 		const rapidjson::Value& keyJSON = val["k"];
-	// 		for (SizeType i = 0; i < keyJSON.Size(); i++){
-	// 			key_expr.emplace_back(parseExpression(keyJSON[i]));
-	// 		}
-
-	// 		assert(val.HasMember("maxInputSize"));
-	// 		assert(val["maxInputSize"].IsUint64());
-			
-	// 		size_t maxInputSize = val["maxInputSize"].GetUint64();
-
-
-
-	// 		const char *keyGroup = "f";
-	// 		const char *keyNull  = "g";
-	// 		const char *keyPred  = "p";
-	// 		const char *keyExprs = "e";
-	// 		const char *keyAccum = "accumulator";
-	// 		/* Physical Level Info */
-	// 		const char *keyAggrNames = "aggrLabels";
-	// 		//Materializer
-	// 		const char *keyMat = "fields";
-
-	// 		/* Group By */
-	// 		// assert(key_expr.size() == 1);
-	// 		// expressions::Expression *groupByExpr = key_expr[0];
-
-	// 		for (const auto &e: key_expr){
-	// 			//XXX STRONG ASSUMPTION: Expression is actually a record projection!
-	// 			expressions::RecordProjection *proj =
-	// 					dynamic_cast<expressions::RecordProjection *>(e);
-
-	// 			if (proj == NULL) {
-	// 				if (e->getTypeID() != expressions::CONSTANT){
-	// 					string error_msg = string(
-	// 							"[Nest: ] Cannot cast to rec projection. Original: ")
-	// 							+ e->getExpressionType()->getType();
-	// 					LOG(ERROR)<< error_msg;
-	// 					throw runtime_error(string(error_msg));
-	// 				}
-	// 			} else {
-	// 				exprsToMat.push_back(e);
-	// 				outputModes.insert(outputModes.begin(), EAGER);
-
-	// 				//Added in 'wanted fields'
-	// 				RecordAttribute *recAttr = new RecordAttribute(proj->getAttribute());
-	// 				fieldsToMat.push_back(new RecordAttribute(e->getRegisteredAs()));
-
-	// 				string relName = recAttr->getRelationName();
-	// 				if (mapOids.find(relName) == mapOids.end()) {
-	// 					InputInfo *datasetInfo =
-	// 							(this->catalogParser).getInputInfo(relName);
-	// 					RecordAttribute *oid =
-	// 							new RecordAttribute(recAttr->getRelationName(), activeLoop,
-	// 							datasetInfo->oidType);
-	// 					std::cout << datasetInfo->oidType->getType() << std::endl;
-	// 					mapOids[relName] = oid;
-	// 					expressions::RecordProjection *oidProj =
-	// 							new expressions::RecordProjection(e, *oid);
-	// 					//Added in 'wanted expressions'
-	// 					LOG(INFO)<< "[Plan Parser: ] Injecting OID for " << relName;
-	// 					std::cout << "[Plan Parser: ] Injecting OID for " << relName << std::endl;
-	// 					/* ORDER OF expression fields matters!! OIDs need to be placed first! */
-	// 					exprsToMat.insert(exprsToMat.begin(), oidProj);
-	// 					outputModes.insert(outputModes.begin(), EAGER);
-	// 				}
-	// 			}
-	// 		}
-	// 		/* Null-to-zero Checks */
-	// 		//FIXME not used in radix nest yet!
-	// 		// assert(val.HasMember(keyNull));
-	// 		// assert(val[keyNull].IsObject());
-	// 		expressions::Expression *nullsToZerosExpr = NULL;//parseExpression(val[keyNull]);
-
-	// 		/* Output aggregate expression(s) */
-	// 		// assert(val.HasMember(keyExprs));
-	// 		// assert(val[keyExprs].IsArray());
-	// 		// vector<expressions::Expression*> outputExprs;
-	// 		// for (SizeType i = 0; i < val[keyExprs].Size(); i++) {
-	// 		// 	expressions::Expression *expr = parseExpression(val[keyExprs][i]);
-	// 		// }
-
-	// 		/*
-	// 		 * *** WHAT TO MATERIALIZE ***
-	// 		 * XXX v0: JSON file contains a list of **RecordProjections**
-	// 		 * EXPLICIT OIDs injected by PARSER (not in json file by default)
-	// 		 * XXX Eager materialization atm
-	// 		 *
-	// 		 * XXX Why am I not using minimal constructor for materializer yet, as use cases do?
-	// 		 * 	-> Because then I would have to encode the OID type in JSON -> can be messy
-	// 		 */
-	// 		vector<RecordAttribute*> oids;
-	// 		MapToVec(mapOids, oids);
-	// 		/* FIXME This constructor breaks nest use cases that trigger caching */
-	// 		/* Check similar hook in radix-nest.cpp */
-	// //		Materializer *mat =
-	// //				new Materializer(fieldsToMat, exprsToMat, oids, outputModes);
-	// 		// for (const auto &e: exprsToMat) {
-	// 		// 	std::cout << "mat: " << e->getRegisteredRelName() << " " << e->getRegisteredAttrName() << std::endl;
-	// 		// }
-	// 		Materializer* matCoarse = new Materializer(fieldsToMat, exprsToMat,
-	// 				oids, outputModes);
-
-	// 		//Put operator together
-	// 		auto opLabel = key_expr[0]->getRegisteredRelName();
-	// 		std::cout << "regRelNAme" << opLabel << std::endl;
-	// 		newOp = new radix::Nest(this->ctx, accs, outputExprs, aggrLabels, predExpr,
-	// 				key_expr, nullsToZerosExpr, child, opLabel, *matCoarse);
+      newOp = new Sort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e, d);
 #ifndef NCUDA
-		// }
+    }
 #endif
-		child->setParent(newOp);
-	} else if(strcmp(opName, "out-of-gpu-join") == 0) {
-		/* parse operator input */
-		assert(val.HasMember("probe_input"));
-		assert(val["probe_input"].IsObject());
-		RawOperator* probe_op = parseOperator(val["probe_input"]);
-
-		/* parse operator input */
-		assert(val.HasMember("build_input"));
-		assert(val["build_input"].IsObject());
-		RawOperator* build_op = parseOperator(val["build_input"]);
-
-		/*number of cpu partitions*/
-		assert(val.HasMember("numOfBuckets"));
-		assert(val["numOfBuckets"].IsInt());
-		int numOfBuckets = val["numOfBuckets"].GetInt();
-		/*number of cpu threads in partitioning*/
-		assert(val.HasMember("numPartitioners"));
-		assert(val["numPartitioners"].IsInt());
-		int numPartitioners = val["numPartitioners"].GetInt();
-		/*number of tasks running concurrently in join phase*/
-		assert(val.HasMember("numConcurrent"));
-		assert(val["numConcurrent"].IsInt());
-		int numConcurrent = val["numConcurrent"].GetInt();
-
-		/*parameters for join buffers*/
-		assert(val.HasMember("maxBuildInputSize"));
-		assert(val["maxBuildInputSize"].IsInt());
-		int maxBuildInputSize = val["maxBuildInputSize"].GetInt();
-
-		assert(val.HasMember("maxProbeInputSize"));
-		assert(val["maxProbeInputSize"].IsInt());
-		int maxProbeInputSize = val["maxProbeInputSize"].GetInt();
-
-		assert(val.HasMember("slack"));
-		assert(val["slack"].IsInt());
-		int slack = val["slack"].GetInt();
-
-		assert(val["build_e"].IsArray());
-		vector<RecordAttribute*> build_attr;
-		vector<RecordAttribute*> build_attr_block;
-		vector<expression_t> build_expr;
-		vector<RecordAttribute*> build_hashed_attr;
-		vector<RecordAttribute*> build_hashed_attr_block;
-		vector<expression_t> build_hashed_expr;
-		vector<expression_t> build_hashed_expr_block;
-		vector<expression_t> build_prejoin_expr;
-		vector<RecordAttribute*> build_join_attr;
-		vector<RecordAttribute*> build_join_attr_block;
-		vector<GpuMatExpr> build_join_expr;
-
-		for (SizeType i = 0; i < val["build_e"].Size(); i++)
-		{
-			assert(val["build_e"][i].IsObject());
-
-			assert(val["build_e"][i]["original"].IsObject());
-			auto outExpr = parseExpression(val["build_e"][i]["original"]);
-			build_expr.emplace_back(outExpr);
-
-			assert(val["build_e"][i]["original"]["attribute"].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val["build_e"][i]["original"]["attribute"]);
-			build_attr.push_back(recAttr);
-			build_attr_block.push_back(new RecordAttribute(*recAttr, true));
-
-			assert(val["build_e"][i]["hashed"].IsObject());
-			auto outHashedExpr = parseExpression(val["build_e"][i]["hashed"]);
-			build_hashed_expr.emplace_back(outHashedExpr);
-
-			assert(val["build_e"][i]["hashed-block"].IsObject());
-			auto outHashedBlockExpr = parseExpression(val["build_e"][i]["hashed-block"]);
-			build_hashed_expr_block.emplace_back(outHashedBlockExpr);
-
-			assert(val["build_e"][i]["hashed"]["attribute"].IsObject());
-			RecordAttribute *recHashedAttr = this->parseRecordAttr(val["build_e"][i]["hashed"]["register_as"]);
-			build_hashed_attr.push_back(recHashedAttr);
-			build_hashed_attr_block.push_back(new RecordAttribute(*recHashedAttr, true));
-
-			assert(val["build_e"][i]["join"].IsObject());
-			assert(val["build_e"][i]["join"].HasMember("e"));
-			assert(val["build_e"][i]["join"].HasMember("packet"));
-			assert(val["build_e"][i]["join"]["packet"].IsInt());
-			assert(val["build_e"][i]["join"].HasMember("offset"));
-			assert(val["build_e"][i]["join"]["offset"].IsInt());
-			auto outJoinExpr = parseExpression(val["build_e"][i]["join"]["e"]);
-			build_join_expr.emplace_back(
-								outJoinExpr, 
-								val["build_e"][i]["join"]["packet"].GetInt(), 
-								val["build_e"][i]["join"]["offset"].GetInt());
-
-			assert(val["build_e"][i]["join"]["e"]["attribute"].IsObject());
-			RecordAttribute *recJoinAttr = this->parseRecordAttr(val["build_e"][i]["join"]["e"]["attribute"]);
-			build_join_attr.push_back(recJoinAttr);
-			build_join_attr_block.push_back(new RecordAttribute(*recJoinAttr, true));
-			auto outPreJoinExpr = parseExpression(val["build_e"][i]["join"]["e"]);
-			outPreJoinExpr.registerAs(recJoinAttr);
-			build_prejoin_expr.push_back(outPreJoinExpr);
-		}
-
-		assert(val.HasMember("build_hash"));
-		RecordAttribute* build_hash_attr = this->parseRecordAttr(val["build_hash"]["attribute"]);
-
-
-		assert(val.HasMember("build_w"));
-		assert(val["build_w"].IsArray());
-		vector<size_t> build_widths;
-
-		const rapidjson::Value& build_wJSON = val["build_w"];
-		for (SizeType i = 0; i < build_wJSON.Size(); i++){
-			assert(build_wJSON[i].IsInt());
-			build_widths.push_back(build_wJSON[i].GetInt());
-		}
-
-		assert(val["probe_e"].IsArray());
-		vector<RecordAttribute*> probe_attr;
-		vector<RecordAttribute*> probe_attr_block;
-		vector<expression_t> probe_expr;
-		vector<RecordAttribute*> probe_hashed_attr;
-		vector<RecordAttribute*> probe_hashed_attr_block;
-		vector<expression_t> probe_hashed_expr;
-		vector<expression_t> probe_hashed_expr_block;
-		vector<expression_t> probe_prejoin_expr;
-		vector<RecordAttribute*> probe_join_attr;
-		vector<RecordAttribute*> probe_join_attr_block;
-		vector<GpuMatExpr> probe_join_expr;
-
-		for (SizeType i = 0; i < val["probe_e"].Size(); i++)
-		{
-			assert(val["probe_e"][i].IsObject());
-
-			assert(val["probe_e"][i]["original"].IsObject());
-			auto outExpr = parseExpression(val["probe_e"][i]["original"]);
-			probe_expr.emplace_back(outExpr);
-
-			assert(val["probe_e"][i]["original"]["attribute"].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val["probe_e"][i]["original"]["attribute"]);
-			probe_attr.push_back(recAttr);
-			probe_attr_block.push_back(new RecordAttribute(*recAttr, true));
-
-			assert(val["probe_e"][i]["hashed"].IsObject());
-			auto outHashedExpr = parseExpression(val["probe_e"][i]["hashed"]);
-			probe_hashed_expr.emplace_back(outHashedExpr);
-
-			assert(val["probe_e"][i]["hashed-block"].IsObject());
-			auto outHashedBlockExpr = parseExpression(val["probe_e"][i]["hashed-block"]);
-			probe_hashed_expr_block.emplace_back(outHashedBlockExpr);
-
-			assert(val["probe_e"][i]["hashed"]["attribute"].IsObject());
-			RecordAttribute *recHashedAttr = this->parseRecordAttr(val["probe_e"][i]["hashed"]["register_as"]);
-			probe_hashed_attr.push_back(recHashedAttr);
-			probe_hashed_attr_block.push_back(new RecordAttribute(*recHashedAttr, true));
-
-			assert(val["probe_e"][i]["join"].IsObject());
-			assert(val["probe_e"][i]["join"].HasMember("e"));
-			assert(val["probe_e"][i]["join"].HasMember("packet"));
-			assert(val["probe_e"][i]["join"]["packet"].IsInt());
-			assert(val["probe_e"][i]["join"].HasMember("offset"));
-			assert(val["probe_e"][i]["join"]["offset"].IsInt());
-			auto outJoinExpr = parseExpression(val["probe_e"][i]["join"]["e"]);
-			probe_join_expr.emplace_back(
-								outJoinExpr, 
-								val["probe_e"][i]["join"]["packet"].GetInt(), 
-								val["probe_e"][i]["join"]["offset"].GetInt());
-
-			assert(val["probe_e"][i]["join"]["e"]["attribute"].IsObject());
-			RecordAttribute *recJoinAttr = this->parseRecordAttr(val["probe_e"][i]["join"]["e"]["attribute"]);
-			probe_join_attr.push_back(recJoinAttr);
-			probe_join_attr_block.push_back(new RecordAttribute(*recJoinAttr, true));
-			auto outPreJoinExpr = parseExpression(val["probe_e"][i]["join"]["e"]);
-			outPreJoinExpr.registerAs(recJoinAttr);
-			probe_prejoin_expr.push_back(outPreJoinExpr);
-		}
-
-		assert(val.HasMember("probe_hash"));
-		RecordAttribute* probe_hash_attr = this->parseRecordAttr(val["probe_hash"]["attribute"]);
-
-
-		assert(val.HasMember("probe_w"));
-		assert(val["probe_w"].IsArray());
-		vector<size_t> probe_widths;
-
-		const rapidjson::Value& probe_wJSON = val["probe_w"];
-		for (SizeType i = 0; i < probe_wJSON.Size(); i++){
-			assert(probe_wJSON[i].IsInt());
-			probe_widths.push_back(probe_wJSON[i].GetInt());
-		}
-
-		
-
-		Exchange* xch_build      = new Exchange 	(build_op, (GpuRawContext *) ctx, numPartitioners, build_attr_block, slack, std::nullopt, false, true);
-		build_op->setParent(xch_build);
-		RawOperator* btt_build   = new BlockToTuples(xch_build, (GpuRawContext *) ctx, build_expr, false, gran_t::THREAD);
-		xch_build->setParent(btt_build);
-		RawOperator* part_build  = new HashRearrange(btt_build, (GpuRawContext *) ctx, numOfBuckets, build_expr, build_expr[0], build_hash_attr);
-		btt_build->setParent(part_build);
-		build_attr_block.push_back(build_hash_attr);
-		Exchange* xch_build2  	 = new Exchange 	(part_build, (GpuRawContext *) ctx, 1, build_attr_block, slack, std::nullopt, true, false, numPartitioners);
-		part_build->setParent(xch_build2);
-
-		Exchange* xch_probe      = new Exchange 	(probe_op, (GpuRawContext *) ctx, numPartitioners, probe_attr_block, slack, std::nullopt, false, true);
-		probe_op->setParent(xch_probe);
-		RawOperator* btt_probe   = new BlockToTuples(xch_probe, (GpuRawContext *) ctx, probe_expr, false, gran_t::THREAD);
-		xch_probe->setParent(btt_probe);
-		RawOperator* part_probe  = new HashRearrange(btt_probe, (GpuRawContext *) ctx, numOfBuckets, probe_expr, probe_expr[0], probe_hash_attr);
-		btt_probe->setParent(part_probe);
-		probe_attr_block.push_back(probe_hash_attr);
-		Exchange* xch_probe2  	 = new Exchange 	(part_probe, (GpuRawContext *) ctx, 1, probe_attr_block, slack, std::nullopt, true, false, numPartitioners);
-		part_probe->setParent(xch_probe2);
-
-		RecordAttribute* attr_ptr = new RecordAttribute(1, "coordinator", "ptr", new IntType(), true);
-		RecordAttribute* attr_target = new RecordAttribute(1, "coordinator", "target", new IntType(), false);
-		RecordAttribute* attr_target_block = new RecordAttribute(*attr_target, true);
-		RecordAttribute* attr_splitter = new RecordAttribute(2, "coordinator", "splitter", new IntType(), false);
-
-		InputInfo * datasetInfoCoord = catalogParser.getOrCreateInputInfo(attr_target->getRelationName());
-		RecordType * coord_rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfoCoord->exprType)->getNestedType())};
-		coord_rec->appendAttribute(attr_ptr);
-		coord_rec->appendAttribute(attr_target);
-		coord_rec->appendAttribute(attr_splitter);
-		datasetInfoCoord->exprType = new BagType{*coord_rec};
-
-		list<RecordAttribute*> f_atts_target;
-		f_atts_target.push_back(attr_ptr);
-		f_atts_target.push_back(attr_target);
-		f_atts_target.push_back(attr_splitter);
-		RecordType *recTypeTarget = new RecordType(f_atts_target);
-
-		list<RecordAttribute> f_atts_hash_d;
-		f_atts_hash_d.push_back(*attr_target);
-		expressions::InputArgument fHtarg{recTypeTarget, -1, f_atts_hash_d};
-		expressions::RecordProjection expr_target = expression_t{fHtarg}[*attr_target];
-
-		vector<RecordAttribute*> f_atts_target_v;
-		f_atts_target_v.push_back(attr_ptr);
-		f_atts_target_v.push_back(attr_target);
-		f_atts_target_v.push_back(attr_splitter);
-
-		ZipCollect* coord = new ZipCollect (attr_ptr, attr_splitter, attr_target, 
-										new RecordAttribute(*build_attr[0], true), new RecordAttribute(*probe_attr[0], true),
-										xch_build2, xch_probe2, (GpuRawContext *) ctx, numOfBuckets, 
-										build_hash_attr, build_hashed_expr_block,
-										probe_hash_attr, probe_hashed_expr_block, "coordinator");
-		xch_build2->setParent(coord);
-		xch_probe2->setParent(coord);
-
-		Exchange* xch_proc = new Exchange (coord, (GpuRawContext *) ctx, numConcurrent, f_atts_target_v, slack, expr_target, false);
-		coord->setParent(xch_proc);
-		ZipInitiate* initiator = new ZipInitiate (attr_ptr, attr_splitter, attr_target, xch_proc, (GpuRawContext *) ctx, numOfBuckets, 
-														coord->getStateLeft(), coord->getStateRight(), "launcher");
-		xch_proc->setParent(initiator);
-		RawPipelineGen** pip_rcv = initiator->pipeSocket();
-		
-		ZipForward* fwd_build = new ZipForward (attr_splitter, attr_target, new RecordAttribute(*build_attr[0], true), 
-														initiator, (GpuRawContext *) ctx, numOfBuckets, 
-														build_hashed_expr, "forwarder", coord->getStateLeft());
-		
-		RawOperator* mml_build  = new MemMoveLocalTo(fwd_build, (GpuRawContext *) ctx, build_hashed_attr_block, 4);
-		fwd_build->setParent(mml_build);
-		RawOperator* mmd_build  = new MemMoveDevice(mml_build, (GpuRawContext *) ctx, build_hashed_attr_block, 4, false);
-		mml_build->setParent(mmd_build);
-		RawOperator* ctg_build  = new CpuToGpu(mmd_build, (GpuRawContext *) ctx, build_hashed_attr_block);
-		mmd_build->setParent(ctg_build);
-		RawOperator* btt_build2 = new BlockToTuples(ctg_build, (GpuRawContext *) ctx, build_prejoin_expr, true, gran_t::GRID);
-		ctg_build->setParent(btt_build2);
-		HashPartitioner* hpart1 = new HashPartitioner(attr_target, build_join_expr, build_widths, build_prejoin_expr[0], 
-														btt_build2, (GpuRawContext *) ctx, maxBuildInputSize, 13, "partition_hash_1");
-		btt_build2->setParent(hpart1);
-
-		ZipForward* fwd_probe   = new ZipForward (attr_splitter, attr_target, new RecordAttribute(*probe_attr[0], true), 
-														initiator, (GpuRawContext *) ctx, numOfBuckets, 
-														probe_hashed_expr, "forwarder", coord->getStateRight());
-		
-		RawOperator* mml_probe  = new MemMoveLocalTo(fwd_probe, (GpuRawContext *) ctx, probe_hashed_attr_block, 4);
-		fwd_probe->setParent(mml_probe);
-		RawOperator* mmd_probe  = new MemMoveDevice(mml_probe, (GpuRawContext *) ctx, probe_hashed_attr_block, 4, false);
-		mml_probe->setParent(mmd_probe);
-		RawOperator* ctg_probe  = new CpuToGpu(mmd_probe, (GpuRawContext *) ctx, probe_hashed_attr_block);
-		mmd_probe->setParent(ctg_probe);
-		RawOperator* btt_probe2 = new BlockToTuples(ctg_probe, (GpuRawContext *) ctx, probe_prejoin_expr, true, gran_t::GRID);
-		ctg_probe->setParent(btt_probe2);
-		HashPartitioner* hpart2 = new HashPartitioner(attr_target, probe_join_expr, probe_widths, probe_prejoin_expr[0], 
-														btt_probe2, (GpuRawContext *) ctx, maxProbeInputSize, 13, "partition_hash_2");
-		btt_probe2->setParent(hpart2);
-
-		newOp       = new GpuPartitionedHashJoinChained(build_join_expr, build_widths, build_join_expr[0].expr, nullopt, hpart1, 
-														probe_join_expr, probe_widths, probe_join_expr[0].expr, nullopt, hpart2, 
-														hpart1->getState(), hpart2->getState(), maxBuildInputSize, maxProbeInputSize, 13, 
-														(GpuRawContext *) ctx, "hj_part", pip_rcv, NULL);
-		hpart1->setParent(newOp);
-		hpart2->setParent(newOp);
-	} else if(strcmp(opName, "partitioned-hashjoin-chained") == 0)	{
-		/* parse operator input */
-		assert(val.HasMember("probe_input"));
-		assert(val["probe_input"].IsObject());
-		RawOperator* probe_op = parseOperator(val["probe_input"]);
-		/* parse operator input */
-		assert(val.HasMember("build_input"));
-		assert(val["build_input"].IsObject());
-		RawOperator* build_op = parseOperator(val["build_input"]);
-
-		assert(val.HasMember("build_k"));
-		auto build_key_expr = parseExpression(val["build_k"]);
-
-		assert(val.HasMember("probe_k"));
-		auto probe_key_expr = parseExpression(val["probe_k"]);
-
-		std::optional<expression_t> build_minorkey_expr{(val.HasMember("build_k_minor"))? std::make_optional(parseExpression(val["build_k_minor"])) : nullopt};
-
-		std::optional<expression_t> probe_minorkey_expr{(val.HasMember("probe_k_minor"))? std::make_optional(parseExpression(val["probe_k_minor"])) : nullopt};
-
-// #ifndef NCUDA
-// 		if (val.HasMember("gpu") && val["gpu"].GetBool()){
-			assert(val.HasMember("hash_bits"));
-			assert(val["hash_bits"].IsInt());
-			int hash_bits = val["hash_bits"].GetInt();
-
-			assert(val.HasMember("build_w"));
-			assert(val["build_w"].IsArray());
-			vector<size_t> build_widths;
-
-			const rapidjson::Value& build_wJSON = val["build_w"];
-			for (SizeType i = 0; i < build_wJSON.Size(); i++){
-				assert(build_wJSON[i].IsInt());
-				build_widths.push_back(build_wJSON[i].GetInt());
-			}
-
-			/*
-			 * parse output expressions
-			 * XXX Careful: Assuming numerous output expressions!
-			 */
-			assert(val.HasMember("build_e"));
-			assert(val["build_e"].IsArray());
-			vector<GpuMatExpr> build_e;
-			const rapidjson::Value& build_exprsJSON = val["build_e"];
-			for (SizeType i = 0; i < build_exprsJSON.Size(); i++){
-				assert(build_exprsJSON[i].HasMember("e"     ));
-				assert(build_exprsJSON[i].HasMember("packet"));
-				assert(build_exprsJSON[i]["packet"].IsInt());
-				assert(build_exprsJSON[i].HasMember("offset"));
-				assert(build_exprsJSON[i]["offset"].IsInt());
-				auto outExpr = parseExpression(build_exprsJSON[i]["e"]);
-
-				build_e.emplace_back(outExpr, build_exprsJSON[i]["packet"].GetInt(), build_exprsJSON[i]["offset"].GetInt());
-			}
-
-			assert(val.HasMember("probe_w"));
-			assert(val["probe_w"].IsArray());
-			vector<size_t> probe_widths;
-
-			const rapidjson::Value& probe_wJSON = val["probe_w"];
-			for (SizeType i = 0; i < probe_wJSON.Size(); i++){
-				assert(probe_wJSON[i].IsInt());
-				probe_widths.push_back(probe_wJSON[i].GetInt());
-			}
-
-			/*
-			 * parse output expressions
-			 * XXX Careful: Assuming numerous output expressions!
-			 */
-			assert(val.HasMember("probe_e"));
-			assert(val["probe_e"].IsArray());
-			vector<GpuMatExpr> probe_e;
-			const rapidjson::Value& probe_exprsJSON = val["probe_e"];
-			for (SizeType i = 0; i < probe_exprsJSON.Size(); i++){
-				assert(probe_exprsJSON[i].HasMember("e"     ));
-				assert(probe_exprsJSON[i].HasMember("packet"));
-				assert(probe_exprsJSON[i]["packet"].IsInt());
-				assert(probe_exprsJSON[i].HasMember("offset"));
-				assert(probe_exprsJSON[i]["offset"].IsInt());
-				auto outExpr = parseExpression(probe_exprsJSON[i]["e"]);
-
-				probe_e.emplace_back(outExpr, probe_exprsJSON[i]["packet"].GetInt(), probe_exprsJSON[i]["offset"].GetInt());
-			}
-
-			assert(val.HasMember("maxBuildInputSize"));
-			assert(val["maxBuildInputSize"].IsUint64());
-			
-			size_t maxBuildInputSize = val["maxBuildInputSize"].GetUint64();
-
-			assert(val.HasMember("maxProbeInputSize"));
-			assert(val["maxProbeInputSize"].IsUint64());
-			
-			size_t maxProbeInputSize = val["maxProbeInputSize"].GetUint64();
-
-			assert(dynamic_cast<GpuRawContext *>(this->ctx));
-
-			int log_parts = 13;
-
-			HashPartitioner* part_left = new HashPartitioner (NULL, 
-									build_e, build_widths, build_key_expr, build_op,
-									dynamic_cast<GpuRawContext *>(this->ctx), 
-									maxBuildInputSize, log_parts, "part1");
-
-			HashPartitioner* part_right = new HashPartitioner (NULL, 
-									probe_e, probe_widths, probe_key_expr, probe_op,
-									dynamic_cast<GpuRawContext *>(this->ctx), 
-									maxProbeInputSize, log_parts, "part1");
-
-			newOp = new GpuPartitionedHashJoinChained(
-								build_e, build_widths, build_key_expr, build_minorkey_expr, part_left,
-								probe_e, probe_widths, probe_key_expr, probe_minorkey_expr, part_right,
-								part_left->getState(), part_right->getState(),
-								maxBuildInputSize, maxProbeInputSize,
-								log_parts, dynamic_cast<GpuRawContext *>(this->ctx),
- 								"phjc", NULL, NULL);
-
-			build_op->setParent(part_left);
-			probe_op->setParent(part_right);
-
-			build_op = part_left;
-			probe_op = part_right;
-
-			build_op->setParent(newOp);
-			probe_op->setParent(newOp);
-
-
-	} else if(strcmp(opName, "hashjoin-chained") == 0)	{
-		/* parse operator input */
-		assert(val.HasMember("probe_input"));
-		assert(val["probe_input"].IsObject());
-		RawOperator* probe_op = parseOperator(val["probe_input"]);
-		/* parse operator input */
-		assert(val.HasMember("build_input"));
-		assert(val["build_input"].IsObject());
-		RawOperator* build_op = parseOperator(val["build_input"]);
-
-		assert(val.HasMember("build_k"));
-		auto build_key_expr = parseExpression(val["build_k"]);
-
-		assert(val.HasMember("probe_k"));
-		auto probe_key_expr = parseExpression(val["probe_k"]);
-
-// #ifndef NCUDA
-// 		if (val.HasMember("gpu") && val["gpu"].GetBool()){
-			assert(val.HasMember("hash_bits"));
-			assert(val["hash_bits"].IsInt());
-			int hash_bits = val["hash_bits"].GetInt();
-
-			assert(val.HasMember("build_w"));
-			assert(val["build_w"].IsArray());
-			vector<size_t> build_widths;
-
-			const rapidjson::Value& build_wJSON = val["build_w"];
-			for (SizeType i = 0; i < build_wJSON.Size(); i++){
-				assert(build_wJSON[i].IsInt());
-				build_widths.push_back(build_wJSON[i].GetInt());
-			}
-
-			/*
-			 * parse output expressions
-			 * XXX Careful: Assuming numerous output expressions!
-			 */
-			assert(val.HasMember("build_e"));
-			assert(val["build_e"].IsArray());
-			vector<GpuMatExpr> build_e;
-			const rapidjson::Value& build_exprsJSON = val["build_e"];
-			for (SizeType i = 0; i < build_exprsJSON.Size(); i++){
-				assert(build_exprsJSON[i].HasMember("e"     ));
-				assert(build_exprsJSON[i].HasMember("packet"));
-				assert(build_exprsJSON[i]["packet"].IsInt());
-				assert(build_exprsJSON[i].HasMember("offset"));
-				assert(build_exprsJSON[i]["offset"].IsInt());
-				auto outExpr = parseExpression(build_exprsJSON[i]["e"]);
-
-				build_e.emplace_back(outExpr, build_exprsJSON[i]["packet"].GetInt(), build_exprsJSON[i]["offset"].GetInt());
-			}
-
-			assert(val.HasMember("probe_w"));
-			assert(val["probe_w"].IsArray());
-			vector<size_t> probe_widths;
-
-			const rapidjson::Value& probe_wJSON = val["probe_w"];
-			for (SizeType i = 0; i < probe_wJSON.Size(); i++){
-				assert(probe_wJSON[i].IsInt());
-				probe_widths.push_back(probe_wJSON[i].GetInt());
-			}
-
-			/*
-			 * parse output expressions
-			 * XXX Careful: Assuming numerous output expressions!
-			 */
-			assert(val.HasMember("probe_e"));
-			assert(val["probe_e"].IsArray());
-			vector<GpuMatExpr> probe_e;
-			const rapidjson::Value& probe_exprsJSON = val["probe_e"];
-			for (SizeType i = 0; i < probe_exprsJSON.Size(); i++){
-				assert(probe_exprsJSON[i].HasMember("e"     ));
-				assert(probe_exprsJSON[i].HasMember("packet"));
-				assert(probe_exprsJSON[i]["packet"].IsInt());
-				assert(probe_exprsJSON[i].HasMember("offset"));
-				assert(probe_exprsJSON[i]["offset"].IsInt());
-				auto outExpr = parseExpression(probe_exprsJSON[i]["e"]);
-
-				probe_e.emplace_back(outExpr, probe_exprsJSON[i]["packet"].GetInt(), probe_exprsJSON[i]["offset"].GetInt());
-			}
-
-			assert(val.HasMember("maxBuildInputSize"));
-			assert(val["maxBuildInputSize"].IsUint64());
-			
-			size_t maxBuildInputSize = val["maxBuildInputSize"].GetUint64();
-
-			assert(dynamic_cast<GpuRawContext *>(this->ctx));
-#ifndef NCUDA
-			if (val.HasMember("gpu") && val["gpu"].GetBool()){
-				newOp = new GpuHashJoinChained(build_e, build_widths, build_key_expr, build_op,
-								probe_e, probe_widths, probe_key_expr, probe_op, hash_bits,
-								dynamic_cast<GpuRawContext *>(this->ctx), maxBuildInputSize);
-			} else {
-#endif
-				newOp = new HashJoinChained(build_e, build_widths, build_key_expr, build_op,
-									probe_e, probe_widths, probe_key_expr, probe_op, hash_bits,
-									dynamic_cast<GpuRawContext *>(this->ctx), maxBuildInputSize);
-#ifndef NCUDA
-			}
-#endif
-// 		} else {
-// #endif
-// 			expressions::BinaryExpression *predExpr = new expressions::EqExpression(build_key_expr, probe_key_expr);
-
-// 			/*
-// 			 * *** WHAT TO MATERIALIZE ***
-// 			 * XXX v0: JSON file contains a list of **RecordProjections**
-// 			 * EXPLICIT OIDs injected by PARSER (not in json file by default)
-// 			 * XXX Eager materialization atm
-// 			 *
-// 			 * XXX Why am I not using minimal constructor for materializer yet, as use cases do?
-// 			 * 	-> Because then I would have to encode the OID type in JSON -> can be messy
-// 			 */
-
-// 			//LEFT SIDE
-
-// 			/*
-// 			 * parse output expressions
-// 			 * XXX Careful: Assuming numerous output expressions!
-// 			 */
-// 			assert(val.HasMember("build_e"));
-// 			assert(val["build_e"].IsArray());
-// 			vector<expressions::Expression *> exprBuild   ;
-// 			vector<RecordAttribute         *> fieldsBuild ;
-// 			map<string, RecordAttribute    *> mapOidsBuild;
-// 			vector<materialization_mode>      outputModesBuild;
-
-// 			{
-// 				exprBuild.emplace_back(build_key_expr);
-				
-// 				expressions::Expression * exprR = exprBuild.back();
-
-// 				outputModesBuild.insert(outputModesBuild.begin(), EAGER);
-
-// 				expressions::RecordProjection *projBuild =
-// 						dynamic_cast<expressions::RecordProjection *>(exprR);
-// 				if(projBuild == NULL)
-// 				{
-// 					string error_msg = string(
-// 							"[Join: ] Cannot cast to rec projection. Original: ")
-// 							+ exprR->getExpressionType()->getType();
-// 					LOG(ERROR)<< error_msg;
-// 					throw runtime_error(string(error_msg));
-// 				}
-
-// 				//Added in 'wanted fields'
-// 				RecordAttribute *recAttr = new RecordAttribute(projBuild->getAttribute());
-// 				fieldsBuild.push_back(new RecordAttribute(exprR->getRegisteredAs()));
-
-// 				string relName = recAttr->getRelationName();
-// 				if (mapOidsBuild.find(relName) == mapOidsBuild.end()) {
-// 					InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
-// 							relName);
-// 					RecordAttribute *oid = new RecordAttribute(
-// 							recAttr->getRelationName(), activeLoop,
-// 							datasetInfo->oidType);
-// 					mapOidsBuild[relName] = oid;
-// 					expressions::RecordProjection *oidR =
-// 							new expressions::RecordProjection(exprR, *oid);
-// 					// oidR->registerAs(exprR->getRegisteredRelName(), exprR->getRegisteredAttrName());
-// 					//Added in 'wanted expressions'
-// 					exprBuild.insert(exprBuild.begin(),oidR);
-// 					cout << "Injecting build OID for " << relName << endl;
-// 					outputModesBuild.insert(outputModesBuild.begin(), EAGER);
-// 				}
-// 			}
-
-// 			const rapidjson::Value& build_exprsJSON = val["build_e"];
-// 			for (SizeType i = 0; i < build_exprsJSON.Size(); i++){
-// 				assert(build_exprsJSON[i].HasMember("e"     ));
-// 				assert(build_exprsJSON[i].HasMember("packet"));
-// 				assert(build_exprsJSON[i]["packet"].IsInt());
-// 				assert(build_exprsJSON[i].HasMember("offset"));
-// 				assert(build_exprsJSON[i]["offset"].IsInt());
-// 				exprBuild.emplace_back(parseExpression(build_exprsJSON[i]["e"]));
-				
-// 				expressions::Expression * exprR = exprBuild.back();
-
-// 				outputModesBuild.insert(outputModesBuild.begin(), EAGER);
-
-// 				expressions::RecordProjection *projBuild =
-// 						dynamic_cast<expressions::RecordProjection *>(exprR);
-// 				if(projBuild == NULL)
-// 				{
-// 					string error_msg = string(
-// 							"[Join: ] Cannot cast to rec projection. Original: ")
-// 							+ exprR->getExpressionType()->getType();
-// 					LOG(ERROR)<< error_msg;
-// 					throw runtime_error(string(error_msg));
-// 				}
-
-// 				//Added in 'wanted fields'
-// 				RecordAttribute *recAttr = new RecordAttribute(projBuild->getAttribute());
-// 				fieldsBuild.push_back(new RecordAttribute(exprR->getRegisteredAs()));
-
-// 				string relName = recAttr->getRelationName();
-// 				if (mapOidsBuild.find(relName) == mapOidsBuild.end()) {
-// 					InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
-// 							relName);
-// 					RecordAttribute *oid = new RecordAttribute(
-// 							recAttr->getRelationName(), activeLoop,
-// 							datasetInfo->oidType);
-// 					mapOidsBuild[relName] = oid;
-// 					expressions::RecordProjection *oidR =
-// 							new expressions::RecordProjection(exprR, *oid);
-// 					// oidR->registerAs(exprR->getRegisteredRelName(), exprR->getRegisteredAttrName());
-// 					//Added in 'wanted expressions'
-// 					exprBuild.insert(exprBuild.begin(),oidR);
-// 					cout << "Injecting build OID for " << relName << endl;
-// 					outputModesBuild.insert(outputModesBuild.begin(), EAGER);
-// 				}
-// 			}
-// 			vector<RecordAttribute*> oidsBuild;
-// 			MapToVec(mapOidsBuild, oidsBuild);
-// 			Materializer* matBuild = new Materializer(fieldsBuild, exprBuild,
-// 					oidsBuild, outputModesBuild);
-
-// 			/*
-// 			 * parse output expressions
-// 			 * XXX Careful: Assuming numerous output expressions!
-// 			 */
-// 			assert(val.HasMember("probe_e"));
-// 			assert(val["probe_e"].IsArray());
-// 			vector<expressions::Expression *> exprProbe   ;
-// 			vector<RecordAttribute         *> fieldsProbe ;
-// 			map<string, RecordAttribute    *> mapOidsProbe;
-// 			vector<materialization_mode>      outputModesProbe;
-
-// 			{
-// 				exprProbe.emplace_back(probe_key_expr);
-				
-// 				expressions::Expression * exprR = exprProbe.back();
-
-// 				outputModesProbe.insert(outputModesProbe.begin(), EAGER);
-
-// 				expressions::RecordProjection *projProbe =
-// 						dynamic_cast<expressions::RecordProjection *>(exprR);
-// 				if(projProbe == NULL)
-// 				{
-// 					string error_msg = string(
-// 							"[Join: ] Cannot cast to rec projection. Original: ")
-// 							+ exprR->getExpressionType()->getType();
-// 					LOG(ERROR)<< error_msg;
-// 					throw runtime_error(string(error_msg));
-// 				}
-
-// 				//Added in 'wanted fields'
-// 				RecordAttribute *recAttr = new RecordAttribute(projProbe->getAttribute());
-// 				fieldsProbe.push_back(new RecordAttribute(exprR->getRegisteredAs()));
-
-// 				string relName = recAttr->getRelationName();
-// 				std::cout << "relName" << " " << relName << std::endl;
-// 				if (mapOidsProbe.find(relName) == mapOidsProbe.end()) {
-// 					InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
-// 							relName);
-// 					RecordAttribute *oid = new RecordAttribute(
-// 							recAttr->getRelationName(), activeLoop,
-// 							datasetInfo->oidType);
-// 					mapOidsProbe[relName] = oid;
-// 					expressions::RecordProjection *oidR =
-// 							new expressions::RecordProjection(exprR, *oid);
-// 					// oidR->registerAs(exprR->getRegisteredRelName(), exprR->getRegisteredAttrName());
-// 					//Added in 'wanted expressions'
-// 					exprProbe.insert(exprProbe.begin(),oidR);
-// 					cout << "Injecting probe OID for " << relName << endl;
-// 					outputModesProbe.insert(outputModesProbe.begin(), EAGER);
-// 				}
-// 			}
-
-// 			const rapidjson::Value& probe_exprsJSON = val["probe_e"];
-// 			for (SizeType i = 0; i < probe_exprsJSON.Size(); i++){
-// 				assert(probe_exprsJSON[i].HasMember("e"     ));
-// 				assert(probe_exprsJSON[i].HasMember("packet"));
-// 				assert(probe_exprsJSON[i]["packet"].IsInt());
-// 				assert(probe_exprsJSON[i].HasMember("offset"));
-// 				assert(probe_exprsJSON[i]["offset"].IsInt());
-// 				exprProbe.emplace_back(parseExpression(probe_exprsJSON[i]["e"]));
-				
-// 				expressions::Expression * exprR = exprProbe.back();
-
-// 				outputModesProbe.insert(outputModesProbe.begin(), EAGER);
-
-// 				expressions::RecordProjection *projProbe =
-// 						dynamic_cast<expressions::RecordProjection *>(exprR);
-// 				if(projProbe == NULL)
-// 				{
-// 					string error_msg = string(
-// 							"[Join: ] Cannot cast to rec projection. Original: ")
-// 							+ exprR->getExpressionType()->getType();
-// 					LOG(ERROR)<< error_msg;
-// 					throw runtime_error(string(error_msg));
-// 				}
-
-// 				//Added in 'wanted fields'
-// 				RecordAttribute *recAttr = new RecordAttribute(projProbe->getAttribute());
-// 				fieldsProbe.push_back(new RecordAttribute(exprR->getRegisteredAs()));
-
-// 				string relName = recAttr->getRelationName();
-// 				std::cout << "relName" << " " << relName << std::endl;
-// 				if (mapOidsProbe.find(relName) == mapOidsProbe.end()) {
-// 					InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
-// 							relName);
-// 					RecordAttribute *oid = new RecordAttribute(
-// 							recAttr->getRelationName(), activeLoop,
-// 							datasetInfo->oidType);
-// 					mapOidsProbe[relName] = oid;
-// 					expressions::RecordProjection *oidR =
-// 							new expressions::RecordProjection(exprR, *oid);
-// 					// oidR->registerAs(exprR->getRegisteredRelName(), exprR->getRegisteredAttrName());
-// 					//Added in 'wanted expressions'
-// 					exprProbe.insert(exprProbe.begin(),oidR);
-// 					cout << "Injecting probe OID for " << relName << endl;
-// 					outputModesProbe.insert(outputModesProbe.begin(), EAGER);
-// 				}
-// 			}
-// 			vector<RecordAttribute*> oidsProbe;
-// 			MapToVec(mapOidsProbe, oidsProbe);
-// 			Materializer* matProbe = new Materializer(fieldsProbe, exprProbe,
-// 					oidsProbe, outputModesProbe);
-
-// 			newOp = new RadixJoin(predExpr, build_op, probe_op, this->ctx, "radixHashJoin", *matBuild, *matProbe);
-// #ifndef NCUDA
-// 		}
-// #endif
-		build_op->setParent(newOp);
-		probe_op->setParent(newOp);
-	}
-	else if(strcmp(opName, "join") == 0)	{
-		assert(!(val.HasMember("gpu") && val["gpu"].GetBool()));
-		const char *keyMatLeft = "leftFields";
-		const char *keyMatRight = "rightFields";
-		const char *keyPred = "p";
-
-		/* parse operator input */
-		RawOperator* leftOp = parseOperator(val["leftInput"]);
-		RawOperator* rightOp = parseOperator(val["rightInput"]);
-
-		//Predicate
-		assert(val.HasMember(keyPred));
-		assert(val[keyPred].IsObject());
-
-		auto predExpr = parseExpression(val[keyPred]);
-		const expressions::BinaryExpression *pred =
-				dynamic_cast<const expressions::BinaryExpression*>(predExpr.getUnderlyingExpression());
-		if (pred == NULL) {
-			string error_msg = string(
-					"[JOIN: ] Cannot cast to binary predicate. Original: ")
-					+ predExpr.getExpressionType()->getType();
-			LOG(ERROR)<< error_msg;
-			throw runtime_error(string(error_msg));
-		}
-
-		/*
-		 * *** WHAT TO MATERIALIZE ***
-		 * XXX v0: JSON file contains a list of **RecordProjections**
-		 * EXPLICIT OIDs injected by PARSER (not in json file by default)
-		 * XXX Eager materialization atm
-		 *
-		 * XXX Why am I not using minimal constructor for materializer yet, as use cases do?
-		 * 	-> Because then I would have to encode the OID type in JSON -> can be messy
-		 */
-
-		//LEFT SIDE
-		assert(val.HasMember(keyMatLeft));
-		assert(val[keyMatLeft].IsArray());
-		vector<expression_t> exprsLeft;
-		map<string,RecordAttribute*> mapOidsLeft = map<string,RecordAttribute*>();
-		vector<RecordAttribute*> fieldsLeft = vector<RecordAttribute*>();
-		vector<materialization_mode> outputModesLeft;
-		for (SizeType i = 0; i < val[keyMatLeft].Size(); i++) {
-			auto exprL = parseExpression(val[keyMatLeft][i]);
-
-			exprsLeft.push_back(exprL);
-			outputModesLeft.insert(outputModesLeft.begin(), EAGER);
-
-			//XXX STRONG ASSUMPTION: Expression is actually a record projection!
-			const expressions::RecordProjection *projL =
-					dynamic_cast<const expressions::RecordProjection *>(exprL.getUnderlyingExpression());
-			if(projL == NULL)
-			{
-				string error_msg = string(
-						"[Join: ] Cannot cast to rec projection. Original: ")
-						+ exprL.getExpressionType()->getType();
-				LOG(ERROR)<< error_msg;
-				throw runtime_error(string(error_msg));
-			}
-			//Added in 'wanted fields'
-			RecordAttribute *recAttr = new RecordAttribute(projL->getAttribute());
-			fieldsLeft.push_back(recAttr);
-
-			string relName = recAttr->getRelationName();
-			if (mapOidsLeft.find(relName) == mapOidsLeft.end()) {
-				InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
-						relName);
-				RecordAttribute *oid = new RecordAttribute(
-						recAttr->getRelationName(), activeLoop,
-						datasetInfo->oidType);
-				mapOidsLeft[relName] = oid;
-				auto oidL = projL->getExpr()[*oid];
-				//Added in 'wanted expressions'
-				cout << "Injecting left OID for " << relName << endl;
-				exprsLeft.insert(exprsLeft.begin(),oidL);
-				outputModesLeft.insert(outputModesLeft.begin(), EAGER);
-			}
-		}
-		vector<RecordAttribute*> oidsLeft = vector<RecordAttribute*>();
-		MapToVec(mapOidsLeft,oidsLeft);
-		Materializer* matLeft = new Materializer(fieldsLeft, exprsLeft,
-					oidsLeft, outputModesLeft);
-
-		//RIGHT SIDE
-		assert(val.HasMember(keyMatRight));
-		assert(val[keyMatRight].IsArray());
-		vector<expression_t> exprsRight;
-		map<string, RecordAttribute*> mapOidsRight = map<string,
-				RecordAttribute*>();
-		vector<RecordAttribute*> fieldsRight = vector<RecordAttribute*>();
-		vector<materialization_mode> outputModesRight;
-		for (SizeType i = 0; i < val[keyMatRight].Size(); i++) {
-			auto exprR = parseExpression(val[keyMatRight][i]);
-
-			exprsRight.push_back(exprR);
-			outputModesRight.insert(outputModesRight.begin(), EAGER);
-
-			//XXX STRONG ASSUMPTION: Expression is actually a record projection!
-			auto projR = dynamic_cast<const expressions::RecordProjection *>(exprR.getUnderlyingExpression());
-			if (projR == NULL) {
-				string error_msg = string(
-						"[Join: ] Cannot cast to rec projection. Original: ")
-						+ exprR.getExpressionType()->getType();
-				LOG(ERROR)<< error_msg;
-				throw runtime_error(string(error_msg));
-			}
-
-			//Added in 'wanted fields'
-			RecordAttribute *recAttr = new RecordAttribute(
-					projR->getAttribute());
-			fieldsRight.push_back(recAttr);
-
-			string relName = recAttr->getRelationName();
-			if (mapOidsRight.find(relName) == mapOidsRight.end()) {
-				InputInfo *datasetInfo = (this->catalogParser).getInputInfo(
-						relName);
-				RecordAttribute *oid = new RecordAttribute(
-						recAttr->getRelationName(), activeLoop,
-						datasetInfo->oidType);
-				mapOidsRight[relName] = oid;
-				expressions::RecordProjection oidR = projR->getExpr()[*oid];
-				//Added in 'wanted expressions'
-				exprsRight.insert(exprsRight.begin(),oidR);
-				cout << "Injecting right OID for " << relName << endl;
-				outputModesRight.insert(outputModesRight.begin(), EAGER);
-			}
-		}
-		vector<RecordAttribute*> oidsRight = vector<RecordAttribute*>();
-		MapToVec(mapOidsRight, oidsRight);
-		Materializer* matRight = new Materializer(fieldsRight, exprsRight,
-				oidsRight, outputModesRight);
-
-		newOp = new RadixJoin(*pred,leftOp,rightOp,this->ctx,"radixHashJoin",*matLeft,*matRight);
-		leftOp->setParent(newOp);
-		rightOp->setParent(newOp);
-	}
-	else if (strcmp(opName, "nest") == 0) {
-
-		const char *keyGroup = "f";
-		const char *keyNull  = "g";
-		const char *keyPred  = "p";
-		const char *keyExprs = "e";
-		const char *keyAccum = "accumulator";
-		/* Physical Level Info */
-		const char *keyAggrNames = "aggrLabels";
-		//Materializer
-		const char *keyMat = "fields";
-
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsObject());
-		RawOperator* childOp = parseOperator(val["input"]);
-
-		/* get monoid(s) */
-		assert(val.HasMember(keyAccum));
-		assert(val[keyAccum].IsArray());
-		vector<Monoid> accs;
-		const rapidjson::Value& accsJSON = val[keyAccum];
-		for (SizeType i = 0; i < accsJSON.Size(); i++)
-		{
-			assert(accsJSON[i].IsString());
-			Monoid acc = parseAccumulator(accsJSON[i].GetString());
-			accs.push_back(acc);
-		}
-		/* get label for each of the aggregate values */
-		vector<string> aggrLabels;
-		assert(val.HasMember(keyAggrNames));
-		assert(val[keyAggrNames].IsArray());
-		const rapidjson::Value& labelsJSON = val[keyAggrNames];
-		for (SizeType i = 0; i < labelsJSON.Size(); i++) {
-			assert(labelsJSON[i].IsString());
-			aggrLabels.push_back(labelsJSON[i].GetString());
-		}
-
-		/* Predicate */
-		assert(val.HasMember(keyPred));
-		assert(val[keyPred].IsObject());
-		auto predExpr = parseExpression(val[keyPred]);
-
-		/* Group By */
-		assert(val.HasMember(keyGroup));
-		assert(val[keyGroup].IsObject());
-		auto groupByExpr = parseExpression(val[keyGroup]);
-
-		/* Null-to-zero Checks */
-		//FIXME not used in radix nest yet!
-		assert(val.HasMember(keyNull));
-		assert(val[keyNull].IsObject());
-		auto nullsToZerosExpr = parseExpression(val[keyNull]);
-
-		/* Output aggregate expression(s) */
-		assert(val.HasMember(keyExprs));
-		assert(val[keyExprs].IsArray());
-		vector<expression_t> outputExprs;
-		for (const auto &v: val[keyExprs].GetArray()) {
-			outputExprs.emplace_back(parseExpression(v));
-		}
-
-		/*
-		 * *** WHAT TO MATERIALIZE ***
-		 * XXX v0: JSON file contains a list of **RecordProjections**
-		 * EXPLICIT OIDs injected by PARSER (not in json file by default)
-		 * XXX Eager materialization atm
-		 *
-		 * XXX Why am I not using minimal constructor for materializer yet, as use cases do?
-		 * 	-> Because then I would have to encode the OID type in JSON -> can be messy
-		 */
-
-		assert(val.HasMember(keyMat));
-		assert(val[keyMat].IsArray());
-		vector<expression_t> exprsToMat;
-		map<string, RecordAttribute*> mapOids = map<string, RecordAttribute*>();
-		vector<RecordAttribute*> fieldsToMat = vector<RecordAttribute*>();
-		vector<materialization_mode> outputModes;
-		for (const auto &v: val[keyMat].GetArray()) {
-			auto expr = parseExpression(v);
-			exprsToMat.push_back(expr);
-			outputModes.insert(outputModes.begin(), EAGER);
-
-			//XXX STRONG ASSUMPTION: Expression is actually a record projection!
-			auto proj = dynamic_cast<const expressions::RecordProjection *>(expr.getUnderlyingExpression());
-			if (proj == NULL) {
-				string error_msg = string(
-						"[Nest: ] Cannot cast to rec projection. Original: ")
-						+ expr.getExpressionType()->getType();
-				LOG(ERROR)<< error_msg;
-				throw runtime_error(string(error_msg));
-			}
-			//Added in 'wanted fields'
-			RecordAttribute *recAttr =
-					new RecordAttribute(proj->getAttribute());
-			fieldsToMat.push_back(recAttr);
-
-			string relName = recAttr->getRelationName();
-			if (mapOids.find(relName) == mapOids.end()) {
-				InputInfo *datasetInfo =
-						(this->catalogParser).getInputInfo(relName);
-				RecordAttribute *oid =
-						new RecordAttribute(recAttr->getRelationName(), activeLoop,
-						datasetInfo->oidType);
-				mapOids[relName] = oid;
-				auto oidProj = proj->getExpr()[*oid];
-				//Added in 'wanted expressions'
-				LOG(INFO)<< "[Plan Parser: ] Injecting OID for " << relName;
-//				std::cout << "[Plan Parser: ] Injecting OID for " << relName << std::endl;
-				/* ORDER OF expression fields matters!! OIDs need to be placed first! */
-				exprsToMat.insert(exprsToMat.begin(), oidProj);
-				outputModes.insert(outputModes.begin(), EAGER);
-			}
-		}
-		vector<RecordAttribute*> oids = vector<RecordAttribute*>();
-		MapToVec(mapOids, oids);
-		/* FIXME This constructor breaks nest use cases that trigger caching */
-		/* Check similar hook in radix-nest.cpp */
-		Materializer *matCoarse =
-				new Materializer(fieldsToMat, exprsToMat, oids, outputModes);
-		
-		// Materializer* matCoarse = new Materializer(exprsToMat);
-
-		//Put operator together
-		newOp = new radix::Nest(this->ctx, accs, outputExprs, aggrLabels, predExpr,
-				std::vector<expression_t>{groupByExpr}, nullsToZerosExpr, childOp, "radixNest", *matCoarse);
-		childOp->setParent(newOp);
-	}
-	else if (strcmp(opName, "select") == 0) {
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsObject());
-		RawOperator* childOp = parseOperator(val["input"]);
-
-		/* parse filtering expression */
-		assert(val.HasMember("p"));
-		assert(val["p"].IsObject());
-		auto p = parseExpression(val["p"]);
-
-		newOp = new Select(p, childOp);
-		childOp->setParent(newOp);
-	}
-	else if(strcmp(opName,"scan") == 0)	{
-		assert(val.HasMember(keyPg));
-		assert(val[keyPg].IsObject());
-		Plugin *pg = this->parsePlugin(val[keyPg]);
-
-		newOp =  new Scan(this->ctx,*pg);
-	} else if(strcmp(opName, "dict-scan") == 0) {
-		assert(val.HasMember("relName"));
-		assert(val["relName"].IsString());
-		auto relName = val["relName"].GetString();
-
-		assert(val.HasMember("attrName"));
-		assert(val["attrName"].IsString());
-		auto attrName = val["attrName"].GetString();
-
-		assert(val.HasMember("regex"));
-		assert(val["regex"].IsString());
-		auto regex = val["regex"].GetString();
-
-		auto dictRelName = relName + std::string{"$dict$"} + attrName;
-
-		void * dict = StorageManager::getDictionaryOf(relName + std::string{"."} + attrName);
-
-		InputInfo * datasetInfo = (this->catalogParser).getOrCreateInputInfo(dictRelName);
-		RecordType * rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfo->exprType)->getNestedType())};
-		RecordAttribute * reg_as = new RecordAttribute(dictRelName, attrName, new DStringType(dict)); 
-		std::cout << "Registered: " << reg_as->getRelationName() << "." << reg_as->getAttrName() << std::endl;
-		rec->appendAttribute(reg_as);
-
-		datasetInfo->exprType = new BagType{*rec};
-
-		newOp =  new DictScan(this->ctx, RecordAttribute{relName, attrName, new DStringType(dict)}, regex, *reg_as);
-#ifndef NCUDA
-	} else if(strcmp(opName,"cpu-to-gpu") == 0)	{
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsObject());
-		RawOperator* childOp = parseOperator(val["input"]);
-
-		assert(val.HasMember("projections"));
-		assert(val["projections"].IsArray());
-
-		vector<RecordAttribute*> projections;
-		for (SizeType i = 0; i < val["projections"].Size(); i++)
-		{
-			assert(val["projections"][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
-			projections.push_back(recAttr);
-		}
-
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new CpuToGpu(childOp, ((GpuRawContext *) this->ctx), projections);
-		childOp->setParent(newOp);
-#endif
-	} else if(strcmp(opName,"block-to-tuples") == 0)	{
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsObject());
-		RawOperator* childOp = parseOperator(val["input"]);
-
-		assert(val.HasMember("projections"));
-		assert(val["projections"].IsArray());
-
-		gran_t granularity = gran_t::GRID;
-		bool gpu = true;
-		if (val.HasMember("gpu")){
-			assert(val["gpu"].IsBool());
-			gpu = val["gpu"].GetBool();
-			if (!gpu) granularity = gran_t::THREAD;
-		}
-
-		if (val.HasMember("granularity")){
-			assert(val["granularity"].IsString());
-			std::string gran = val["granularity"].GetString();
-			std::transform(gran.begin(), gran.end(), gran.begin(), [](unsigned char c){ return std::tolower(c); });
-			if      (gran == "grid"  ) granularity = gran_t::GRID;
-			else if (gran == "block" ) granularity = gran_t::BLOCK;
-			else if (gran == "thread") granularity = gran_t::THREAD;
-			else 	assert(false && "granularity must be one of GRID, BLOCK, THREAD");
-		}
-
-		vector<expression_t> projections;
-		for (const auto &v: val["projections"].GetArray()) {
-			projections.emplace_back(parseExpression(v));
-		}
-
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new BlockToTuples(childOp, ((GpuRawContext *) this->ctx), projections, gpu, granularity);
-		childOp->setParent(newOp);
-#ifndef NCUDA
-	} else if(strcmp(opName,"gpu-to-cpu") == 0)	{
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsObject());
-		RawOperator* childOp = parseOperator(val["input"]);
-
-		assert(val.HasMember("projections"));
-		assert(val["projections"].IsArray());
-
-		vector<RecordAttribute*> projections;
-		for (SizeType i = 0; i < val["projections"].Size(); i++)
-		{
-			assert(val["projections"][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
-			projections.push_back(recAttr);
-		}
-
-
-		assert(val.HasMember("queueSize"));
-		assert(val["queueSize"].IsInt());
-		int size = val["queueSize"].GetInt();
-
-		assert(val.HasMember("granularity"));
-		assert(val["granularity"].IsString());
-		std::string gran = val["granularity"].GetString();
-		std::transform(gran.begin(), gran.end(), gran.begin(), [](unsigned char c){ return std::tolower(c); });
-		gran_t g = gran_t::GRID;
-		if      (gran == "grid"  ) g = gran_t::GRID;
-		else if (gran == "block" ) g = gran_t::BLOCK;
-		else if (gran == "thread") g = gran_t::THREAD;
-		else 	assert(false && "granularity must be one of GRID, BLOCK, THREAD");
-
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new GpuToCpu(childOp, ((GpuRawContext *) this->ctx), projections, size, g);
-		childOp->setParent(newOp);
-#endif
-	} else if(strcmp(opName, "tuples-to-block") == 0) {
-		bool gpu = false;
-		if (val.HasMember("gpu")){
-			assert(val["gpu"].IsBool());
-			gpu = val["gpu"].GetBool();
-		}
-
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsObject());
-		RawOperator* childOp = parseOperator(val["input"]);
-
-		assert(val.HasMember("projections"));
-		assert(val["projections"].IsArray());
-
-		int numOfBuckets = 1;
-		expression_t hashExpr = expressions::IntConstant(0);
-
-		vector<expression_t> projections;
-		for (const auto &v: val["projections"].GetArray()){
-			projections.emplace_back(parseExpression(v));
-		}
-		
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-#ifndef NCUDA
-		if (gpu){
-
-			newOp =  new GpuHashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr);
-		} else {
-#endif
-			newOp =  new HashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr);
-#ifndef NCUDA
-		}
-#endif
-		childOp->setParent(newOp);
-	} else if(strcmp(opName,"hash-rearrange") == 0)	{
-		bool gpu = false;
-		if (val.HasMember("gpu")){
-			assert(val["gpu"].IsBool());
-			gpu = val["gpu"].GetBool();
-		}
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsObject());
-		RawOperator* childOp = parseOperator(val["input"]);
-
-		assert(val.HasMember("projections"));
-		assert(val["projections"].IsArray());
-
-		int numOfBuckets = 2;
-		if (val.HasMember("buckets")){
-			assert(val["buckets"].IsInt());
-			numOfBuckets = val["buckets"].GetInt();
-		}
-
-		RecordAttribute * hashAttr = NULL;
-		// register hash as an attribute
-		if (val.HasMember("hashProject")){
-			assert(val["hashProject"].IsObject());
-
-			hashAttr = parseRecordAttr(val["hashProject"]);
-
-			InputInfo * datasetInfo = (this->catalogParser).getInputInfo(hashAttr->getRelationName());
-			RecordType * rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfo->exprType)->getNestedType())};
-
-			rec->appendAttribute(hashAttr);
-
-			datasetInfo->exprType = new BagType{*rec};
-		}
-
-		assert(val.HasMember("e"));
-		assert(val["e"].IsObject());
-
-		auto hashExpr = parseExpression(val["e"]);
-
-		vector<expression_t> projections;
-		for (const auto &v: val["projections"].GetArray()){
-			projections.emplace_back(parseExpression(v));
-		}
-		
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "project") == 0) {
+    /* "Multi - reduce"! */
+    /* parse operator input */
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    /*
+     * parse output expressions
+     * XXX Careful: Assuming numerous output expressions!
+     */
+    assert(val.HasMember("e"));
+    assert(val["e"].IsArray());
+    std::vector<expression_t> e;
+    for (const auto &v : val["e"].GetArray()) {
+      e.emplace_back(parseExpression(v));
+    }
+
+    assert(val.HasMember("relName"));
+    assert(val["relName"].IsString());
+
+    newOp = new Project(e, val["relName"].GetString(), childOp, this->ctx);
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "unnest") == 0) {
+    /* parse operator input */
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    /* parse filtering expression */
+    assert(val.HasMember("p"));
+    assert(val["p"].IsObject());
+    expression_t p = parseExpression(val["p"]);
+
+    /* parse path expression */
+    assert(val.HasMember("path"));
+    assert(val["path"].IsObject());
+
+    assert(val["path"]["e"].IsObject());
+    auto exprToUnnest = parseExpression(val["path"]["e"]);
+    auto proj = dynamic_cast<const expressions::RecordProjection *>(
+        exprToUnnest.getUnderlyingExpression());
+    if (proj == NULL) {
+      string error_msg = string("[Unnest: ] Cannot cast to record projection");
+      LOG(ERROR) << error_msg;
+      throw runtime_error(string(error_msg));
+    }
+
+    string pathAlias;
+    if (exprToUnnest.isRegistered()) {
+      pathAlias = exprToUnnest.getRegisteredAttrName();
+    } else {
+      assert(val["path"]["name"].IsString());
+      pathAlias = val["path"]["name"].GetString();
+    }
+
+    Path projPath{pathAlias, proj};
+
+    newOp = new Unnest(p, projPath, childOp);
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "outer_unnest") == 0) {
+    /* parse operator input */
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    /* parse filtering expression */
+    assert(val.HasMember("p"));
+    assert(val["p"].IsObject());
+    auto p = parseExpression(val["p"]);
+
+    /* parse path expression */
+    assert(val.HasMember("path"));
+    assert(val["path"].IsObject());
+
+    assert(val["path"]["name"].IsString());
+    string pathAlias = val["path"]["name"].GetString();
+
+    assert(val["path"]["e"].IsObject());
+    auto exprToUnnest = parseExpression(val["path"]["e"]);
+    auto proj = dynamic_cast<const expressions::RecordProjection *>(
+        exprToUnnest.getUnderlyingExpression());
+    if (proj == NULL) {
+      string error_msg = string("[Unnest: ] Cannot cast to record projection");
+      LOG(ERROR) << error_msg;
+      throw runtime_error(string(error_msg));
+    }
+
+    Path projPath{pathAlias, proj};
+
+    newOp = new OuterUnnest(p, projPath, childOp);
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "groupby") == 0 ||
+             strcmp(opName, "hashgroupby-chained") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsObject());
+    RawOperator *child = parseOperator(val["input"]);
 
 #ifndef NCUDA
-		if (gpu){
-			newOp =  new GpuHashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
-		} else {
+    // if (val.HasMember("gpu") && val["gpu"].GetBool()){
+    assert(val.HasMember("hash_bits"));
+    assert(val["hash_bits"].IsInt());
+    int hash_bits = val["hash_bits"].GetInt();
+
+    // assert(val.HasMember("w"));
+    // assert(val["w"].IsArray());
+    // vector<size_t> widths;
+
+    // const rapidjson::Value& wJSON = val["w"];
+    // for (SizeType i = 0; i < wJSON.Size(); i++){
+    //     assert(wJSON[i].IsInt());
+    //     widths.push_back(wJSON[i].GetInt());
+    // }
+
+    /*
+     * parse output expressions
+     * XXX Careful: Assuming numerous output expressions!
+     */
+    assert(val.HasMember("e"));
+    assert(val["e"].IsArray());
+    std::vector<GpuAggrMatExpr> e;
+    for (const auto &v : val["e"].GetArray()) {
+      assert(v.HasMember("e"));
+      assert(v.HasMember("m"));
+      assert(v["m"].IsString());
+      assert(v.HasMember("packet"));
+      assert(v["packet"].IsInt());
+      assert(v.HasMember("offset"));
+      assert(v["offset"].IsInt());
+      auto outExpr = parseExpression(v["e"]);
+
+      e.emplace_back(outExpr, v["packet"].GetInt(), v["offset"].GetInt(),
+                     parseAccumulator(v["m"].GetString()));
+    }
+
+    assert(val.HasMember("k"));
+    assert(val["k"].IsArray());
+    vector<expression_t> key_expr;
+    for (const auto &k : val["k"].GetArray()) {
+      key_expr.emplace_back(parseExpression(k));
+    }
+
+    assert(val.HasMember("maxInputSize"));
+    assert(val["maxInputSize"].IsUint64());
+
+    size_t maxInputSize = val["maxInputSize"].GetUint64();
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    // newOp = new GpuHashGroupByChained(e, widths, key_expr, child, hash_bits,
+    //                     dynamic_cast<GpuRawContext *>(this->ctx),
+    //                     maxInputSize);
+
+    if (val.HasMember("gpu") && val["gpu"].GetBool()) {
+      newOp = new GpuHashGroupByChained(
+          e, key_expr, child, hash_bits,
+          dynamic_cast<GpuRawContext *>(this->ctx), maxInputSize);
+    } else {
+      newOp = new HashGroupByChained(e, key_expr, child, hash_bits,
+                                     dynamic_cast<GpuRawContext *>(this->ctx),
+                                     maxInputSize);
+    }
+    // } else {
 #endif
-			newOp =  new HashRearrange(childOp, ((GpuRawContext *) this->ctx), numOfBuckets, projections, hashExpr, hashAttr);
+    //         assert(val.HasMember("hash_bits"));
+    //         assert(val["hash_bits"].IsInt());
+    //         int hash_bits = val["hash_bits"].GetInt();
+
+    //         // assert(val.HasMember("w"));
+    //         // assert(val["w"].IsArray());
+    //         // vector<size_t> widths;
+
+    //         // const rapidjson::Value& wJSON = val["w"];
+    //         // for (SizeType i = 0; i < wJSON.Size(); i++){
+    //         //     assert(wJSON[i].IsInt());
+    //         //     widths.push_back(wJSON[i].GetInt());
+    //         // }
+
+    //         /*
+    //          * parse output expressions
+    //          * XXX Careful: Assuming numerous output expressions!
+    //          */
+    //         assert(val.HasMember("e"));
+    //         assert(val["e"].IsArray());
+    //         // vector<GpuAggrMatExpr> e;
+    //         const rapidjson::Value& aggrJSON = val["e"];
+    //         vector<Monoid> accs;
+    //         vector<string> aggrLabels;
+    //         vector<expressions::Expression*> outputExprs;
+    //         vector<expressions::Expression*> exprsToMat;
+    //         vector<materialization_mode> outputModes;
+    //         map<string, RecordAttribute*> mapOids;
+    //         vector<RecordAttribute*> fieldsToMat;
+    //         for (SizeType i = 0; i < aggrJSON.Size(); i++){
+    //             assert(aggrJSON[i].HasMember("e"     ));
+    //             assert(aggrJSON[i].HasMember("m"     ));
+    //             assert(aggrJSON[i]["m"].IsString()    );
+    //             assert(aggrJSON[i].HasMember("packet"));
+    //             assert(aggrJSON[i]["packet"].IsInt()  );
+    //             assert(aggrJSON[i].HasMember("offset"));
+    //             assert(aggrJSON[i]["offset"].IsInt()  );
+    //             expressions::Expression *outExpr =
+    //             parseExpression(aggrJSON[i]["e"]);
+
+    //             // e.emplace_back(outExpr, aggrJSON[i]["packet"].GetInt(),
+    //             aggrJSON[i]["offset"].GetInt(), );
+
+    //             aggrLabels.push_back(outExpr->getRegisteredAttrName());
+    //             accs.push_back(parseAccumulator(aggrJSON[i]["m"].GetString()));
+
+    //             outputExprs.push_back(outExpr);
+
+    //             //XXX STRONG ASSUMPTION: Expression is actually a record
+    //             projection! expressions::RecordProjection *proj =
+    //                     dynamic_cast<expressions::RecordProjection
+    //                     *>(outExpr);
+
+    //             if (proj == NULL) {
+    //                 if (outExpr->getTypeID() != expressions::CONSTANT){
+    //                     string error_msg = string(
+    //                             "[Nest: ] Cannot cast to rec projection.
+    //                             Original: ")
+    //                             + outExpr->getExpressionType()->getType();
+    //                     LOG(ERROR)<< error_msg;
+    //                     throw runtime_error(string(error_msg));
+    //                 }
+    //             } else {
+    //                 exprsToMat.push_back(outExpr);
+    //                 outputModes.insert(outputModes.begin(), EAGER);
+
+    //                 //Added in 'wanted fields'
+    //                 RecordAttribute *recAttr = new
+    //                 RecordAttribute(proj->getAttribute());
+    //                 fieldsToMat.push_back(new
+    //                 RecordAttribute(outExpr->getRegisteredAs()));
+
+    //                 string relName = recAttr->getRelationName();
+    //                 if (mapOids.find(relName) == mapOids.end()) {
+    //                     InputInfo *datasetInfo =
+    //                             (this->catalogParser).getInputInfo(relName);
+    //                     RecordAttribute *oid =
+    //                             new
+    //                             RecordAttribute(recAttr->getRelationName(),
+    //                             activeLoop, datasetInfo->oidType);
+    //                     mapOids[relName] = oid;
+    //                     expressions::RecordProjection *oidProj =
+    //                             new expressions::RecordProjection(outExpr,
+    //                             *oid);
+    //                     //Added in 'wanted expressions'
+    //                     LOG(INFO)<< "[Plan Parser: ] Injecting OID for " <<
+    //                     relName; std::cout << "[Plan Parser: ] Injecting OID
+    //                     for " << relName << std::endl;
+    //                     /* ORDER OF expression fields matters!! OIDs need to
+    //                     be placed first! */
+    //                     exprsToMat.insert(exprsToMat.begin(), oidProj);
+    //                     outputModes.insert(outputModes.begin(), EAGER);
+    //                 }
+    //             }
+    //         }
+
+    //         /* Predicate */
+    //         expressions::Expression * predExpr = new
+    //         expressions::BoolConstant(true);
+
+    //         assert(val.HasMember("k"));
+    //         assert(val["k"].IsArray());
+    //         vector<expressions::Expression *> key_expr;
+    //         const rapidjson::Value& keyJSON = val["k"];
+    //         for (SizeType i = 0; i < keyJSON.Size(); i++){
+    //             key_expr.emplace_back(parseExpression(keyJSON[i]));
+    //         }
+
+    //         assert(val.HasMember("maxInputSize"));
+    //         assert(val["maxInputSize"].IsUint64());
+
+    //         size_t maxInputSize = val["maxInputSize"].GetUint64();
+
+    //         const char *keyGroup = "f";
+    //         const char *keyNull  = "g";
+    //         const char *keyPred  = "p";
+    //         const char *keyExprs = "e";
+    //         const char *keyAccum = "accumulator";
+    //         /* Physical Level Info */
+    //         const char *keyAggrNames = "aggrLabels";
+    //         //Materializer
+    //         const char *keyMat = "fields";
+
+    //         /* Group By */
+    //         // assert(key_expr.size() == 1);
+    //         // expressions::Expression *groupByExpr = key_expr[0];
+
+    //         for (const auto &e: key_expr){
+    //             //XXX STRONG ASSUMPTION: Expression is actually a record
+    //             projection! expressions::RecordProjection *proj =
+    //                     dynamic_cast<expressions::RecordProjection *>(e);
+
+    //             if (proj == NULL) {
+    //                 if (e->getTypeID() != expressions::CONSTANT){
+    //                     string error_msg = string(
+    //                             "[Nest: ] Cannot cast to rec projection.
+    //                             Original: ")
+    //                             + e->getExpressionType()->getType();
+    //                     LOG(ERROR)<< error_msg;
+    //                     throw runtime_error(string(error_msg));
+    //                 }
+    //             } else {
+    //                 exprsToMat.push_back(e);
+    //                 outputModes.insert(outputModes.begin(), EAGER);
+
+    //                 //Added in 'wanted fields'
+    //                 RecordAttribute *recAttr = new
+    //                 RecordAttribute(proj->getAttribute());
+    //                 fieldsToMat.push_back(new
+    //                 RecordAttribute(e->getRegisteredAs()));
+
+    //                 string relName = recAttr->getRelationName();
+    //                 if (mapOids.find(relName) == mapOids.end()) {
+    //                     InputInfo *datasetInfo =
+    //                             (this->catalogParser).getInputInfo(relName);
+    //                     RecordAttribute *oid =
+    //                             new
+    //                             RecordAttribute(recAttr->getRelationName(),
+    //                             activeLoop, datasetInfo->oidType);
+    //                     std::cout << datasetInfo->oidType->getType() <<
+    //                     std::endl; mapOids[relName] = oid;
+    //                     expressions::RecordProjection *oidProj =
+    //                             new expressions::RecordProjection(e, *oid);
+    //                     //Added in 'wanted expressions'
+    //                     LOG(INFO)<< "[Plan Parser: ] Injecting OID for " <<
+    //                     relName; std::cout << "[Plan Parser: ] Injecting OID
+    //                     for " << relName << std::endl;
+    //                     /* ORDER OF expression fields matters!! OIDs need to
+    //                     be placed first! */
+    //                     exprsToMat.insert(exprsToMat.begin(), oidProj);
+    //                     outputModes.insert(outputModes.begin(), EAGER);
+    //                 }
+    //             }
+    //         }
+    //         /* Null-to-zero Checks */
+    //         //FIXME not used in radix nest yet!
+    //         // assert(val.HasMember(keyNull));
+    //         // assert(val[keyNull].IsObject());
+    //         expressions::Expression *nullsToZerosExpr =
+    //         NULL;//parseExpression(val[keyNull]);
+
+    //         /* Output aggregate expression(s) */
+    //         // assert(val.HasMember(keyExprs));
+    //         // assert(val[keyExprs].IsArray());
+    //         // vector<expressions::Expression*> outputExprs;
+    //         // for (SizeType i = 0; i < val[keyExprs].Size(); i++) {
+    //         //     expressions::Expression *expr =
+    //         parseExpression(val[keyExprs][i]);
+    //         // }
+
+    //         /*
+    //          * *** WHAT TO MATERIALIZE ***
+    //          * XXX v0: JSON file contains a list of **RecordProjections**
+    //          * EXPLICIT OIDs injected by PARSER (not in json file by default)
+    //          * XXX Eager materialization atm
+    //          *
+    //          * XXX Why am I not using minimal constructor for materializer
+    //          yet, as use cases do?
+    //          *     -> Because then I would have to encode the OID type in
+    //          JSON -> can be messy
+    //          */
+    //         vector<RecordAttribute*> oids;
+    //         MapToVec(mapOids, oids);
+    //         /* FIXME This constructor breaks nest use cases that trigger
+    //         caching */
+    //         /* Check similar hook in radix-nest.cpp */
+    // //        Materializer *mat =
+    // //                new Materializer(fieldsToMat, exprsToMat, oids,
+    // outputModes);
+    //         // for (const auto &e: exprsToMat) {
+    //         //     std::cout << "mat: " << e->getRegisteredRelName() << " "
+    //         << e->getRegisteredAttrName() << std::endl;
+    //         // }
+    //         Materializer* matCoarse = new Materializer(fieldsToMat,
+    //         exprsToMat,
+    //                 oids, outputModes);
+
+    //         //Put operator together
+    //         auto opLabel = key_expr[0]->getRegisteredRelName();
+    //         std::cout << "regRelNAme" << opLabel << std::endl;
+    //         newOp = new radix::Nest(this->ctx, accs, outputExprs, aggrLabels,
+    //         predExpr,
+    //                 key_expr, nullsToZerosExpr, child, opLabel, *matCoarse);
 #ifndef NCUDA
-		}
+    // }
 #endif
-		childOp->setParent(newOp);
-	} else if(strcmp(opName,"mem-move-device") == 0) {
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsObject());
-		RawOperator* childOp = parseOperator(val["input"]);
+    child->setParent(newOp);
+  } else if (strcmp(opName, "out-of-gpu-join") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("probe_input"));
+    assert(val["probe_input"].IsObject());
+    RawOperator *probe_op = parseOperator(val["probe_input"]);
 
-		assert(val.HasMember("projections"));
-		assert(val["projections"].IsArray());
+    /* parse operator input */
+    assert(val.HasMember("build_input"));
+    assert(val["build_input"].IsObject());
+    RawOperator *build_op = parseOperator(val["build_input"]);
 
-		vector<RecordAttribute*> projections;
-		for (SizeType i = 0; i < val["projections"].Size(); i++)
-		{
-			assert(val["projections"][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
-			projections.push_back(recAttr);
-		}
+    /*number of cpu partitions*/
+    assert(val.HasMember("numOfBuckets"));
+    assert(val["numOfBuckets"].IsInt());
+    int numOfBuckets = val["numOfBuckets"].GetInt();
+    /*number of cpu threads in partitioning*/
+    assert(val.HasMember("numPartitioners"));
+    assert(val["numPartitioners"].IsInt());
+    int numPartitioners = val["numPartitioners"].GetInt();
+    /*number of tasks running concurrently in join phase*/
+    assert(val.HasMember("numConcurrent"));
+    assert(val["numConcurrent"].IsInt());
+    int numConcurrent = val["numConcurrent"].GetInt();
 
-		bool to_cpu = false;
-		if (val.HasMember("to_cpu")){
-			assert(val["to_cpu"].IsBool());
-			to_cpu = val["to_cpu"].GetBool();
-		}
+    /*parameters for join buffers*/
+    assert(val.HasMember("maxBuildInputSize"));
+    assert(val["maxBuildInputSize"].IsInt());
+    int maxBuildInputSize = val["maxBuildInputSize"].GetInt();
 
-		int slack = 8;
-		if (val.HasMember("slack")){
-			assert(val["slack"].IsInt());
-			slack = val["slack"].GetInt();
-		}
+    assert(val.HasMember("maxProbeInputSize"));
+    assert(val["maxProbeInputSize"].IsInt());
+    int maxProbeInputSize = val["maxProbeInputSize"].GetInt();
 
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new MemMoveDevice(childOp, ((GpuRawContext *) this->ctx), projections, slack, to_cpu);
-		childOp->setParent(newOp);
-	} else if(strcmp(opName,"mem-broadcast-device") == 0) {
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsObject());
-		RawOperator* childOp = parseOperator(val["input"]);
+    assert(val.HasMember("slack"));
+    assert(val["slack"].IsInt());
+    int slack = val["slack"].GetInt();
 
-		assert(val.HasMember("projections"));
-		assert(val["projections"].IsArray());
+    assert(val["build_e"].IsArray());
+    vector<RecordAttribute *> build_attr;
+    vector<RecordAttribute *> build_attr_block;
+    vector<expression_t> build_expr;
+    vector<RecordAttribute *> build_hashed_attr;
+    vector<RecordAttribute *> build_hashed_attr_block;
+    vector<expression_t> build_hashed_expr;
+    vector<expression_t> build_hashed_expr_block;
+    vector<expression_t> build_prejoin_expr;
+    vector<RecordAttribute *> build_join_attr;
+    vector<RecordAttribute *> build_join_attr_block;
+    vector<GpuMatExpr> build_join_expr;
 
-		vector<RecordAttribute*> projections;
-		for (SizeType i = 0; i < val["projections"].Size(); i++)
-		{
-			assert(val["projections"][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
-			projections.push_back(recAttr);
-		}
+    for (SizeType i = 0; i < val["build_e"].Size(); i++) {
+      assert(val["build_e"][i].IsObject());
 
-		bool to_cpu = false;
-		if (val.HasMember("to_cpu")){
-			assert(val["to_cpu"].IsBool());
-			to_cpu = val["to_cpu"].GetBool();
-		}
+      assert(val["build_e"][i]["original"].IsObject());
+      auto outExpr = parseExpression(val["build_e"][i]["original"]);
+      build_expr.emplace_back(outExpr);
 
-		int num_of_targets = 1;
-		if (val.HasMember("num_of_targets")){
-			assert(val["num_of_targets"].IsInt());
-			num_of_targets = val["num_of_targets"].GetInt();
-		}
+      assert(val["build_e"][i]["original"]["attribute"].IsObject());
+      RecordAttribute *recAttr =
+          this->parseRecordAttr(val["build_e"][i]["original"]["attribute"]);
+      build_attr.push_back(recAttr);
+      build_attr_block.push_back(new RecordAttribute(*recAttr, true));
 
-		bool always_share = false;
-		if (val.HasMember("always_share")){
-			assert(val["always_share"].IsBool());
-			always_share = val["always_share"].GetBool();
-		}
+      assert(val["build_e"][i]["hashed"].IsObject());
+      auto outHashedExpr = parseExpression(val["build_e"][i]["hashed"]);
+      build_hashed_expr.emplace_back(outHashedExpr);
 
+      assert(val["build_e"][i]["hashed-block"].IsObject());
+      auto outHashedBlockExpr =
+          parseExpression(val["build_e"][i]["hashed-block"]);
+      build_hashed_expr_block.emplace_back(outHashedBlockExpr);
 
-		std::string relName = projections[0]->getRelationName();
+      assert(val["build_e"][i]["hashed"]["attribute"].IsObject());
+      RecordAttribute *recHashedAttr =
+          this->parseRecordAttr(val["build_e"][i]["hashed"]["register_as"]);
+      build_hashed_attr.push_back(recHashedAttr);
+      build_hashed_attr_block.push_back(
+          new RecordAttribute(*recHashedAttr, true));
 
-		InputInfo * datasetInfo = (this->catalogParser).getOrCreateInputInfo(relName);
-		RecordType * rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfo->exprType)->getNestedType())};
-		RecordAttribute * reg_as = new RecordAttribute(relName, "__broadcastTarget", new IntType()); 
-		std::cout << "Registered: " << reg_as->getRelationName() << "." << reg_as->getAttrName() << std::endl;
-		rec->appendAttribute(reg_as);
+      assert(val["build_e"][i]["join"].IsObject());
+      assert(val["build_e"][i]["join"].HasMember("e"));
+      assert(val["build_e"][i]["join"].HasMember("packet"));
+      assert(val["build_e"][i]["join"]["packet"].IsInt());
+      assert(val["build_e"][i]["join"].HasMember("offset"));
+      assert(val["build_e"][i]["join"]["offset"].IsInt());
+      auto outJoinExpr = parseExpression(val["build_e"][i]["join"]["e"]);
+      build_join_expr.emplace_back(
+          outJoinExpr, val["build_e"][i]["join"]["packet"].GetInt(),
+          val["build_e"][i]["join"]["offset"].GetInt());
 
-		datasetInfo->exprType = new BagType{*rec};
-		
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new MemBroadcastDevice(childOp, ((GpuRawContext *) this->ctx), projections, num_of_targets, to_cpu, always_share);
-		childOp->setParent(newOp);
-	} else if(strcmp(opName,"mem-move-local-to") == 0) {
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsObject());
-		RawOperator* childOp = parseOperator(val["input"]);
+      assert(val["build_e"][i]["join"]["e"]["attribute"].IsObject());
+      RecordAttribute *recJoinAttr =
+          this->parseRecordAttr(val["build_e"][i]["join"]["e"]["attribute"]);
+      build_join_attr.push_back(recJoinAttr);
+      build_join_attr_block.push_back(new RecordAttribute(*recJoinAttr, true));
+      auto outPreJoinExpr = parseExpression(val["build_e"][i]["join"]["e"]);
+      outPreJoinExpr.registerAs(recJoinAttr);
+      build_prejoin_expr.push_back(outPreJoinExpr);
+    }
 
-		assert(val.HasMember("projections"));
-		assert(val["projections"].IsArray());
+    assert(val.HasMember("build_hash"));
+    RecordAttribute *build_hash_attr =
+        this->parseRecordAttr(val["build_hash"]["attribute"]);
 
-		vector<RecordAttribute*> projections;
-		for (SizeType i = 0; i < val["projections"].Size(); i++)
-		{
-			assert(val["projections"][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
-			projections.push_back(recAttr);
-		}
+    assert(val.HasMember("build_w"));
+    assert(val["build_w"].IsArray());
+    vector<size_t> build_widths;
 
-		int slack = 8;
-		if (val.HasMember("slack")){
-			assert(val["slack"].IsInt());
-			slack = val["slack"].GetInt();
-		}
+    const rapidjson::Value &build_wJSON = val["build_w"];
+    for (SizeType i = 0; i < build_wJSON.Size(); i++) {
+      assert(build_wJSON[i].IsInt());
+      build_widths.push_back(build_wJSON[i].GetInt());
+    }
 
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new MemMoveLocalTo(childOp, ((GpuRawContext *) this->ctx), projections, slack);
-		childOp->setParent(newOp);
-	} else if(strcmp(opName,"exchange") == 0) {
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsObject());
-		RawOperator* childOp = parseOperator(val["input"]);
+    assert(val["probe_e"].IsArray());
+    vector<RecordAttribute *> probe_attr;
+    vector<RecordAttribute *> probe_attr_block;
+    vector<expression_t> probe_expr;
+    vector<RecordAttribute *> probe_hashed_attr;
+    vector<RecordAttribute *> probe_hashed_attr_block;
+    vector<expression_t> probe_hashed_expr;
+    vector<expression_t> probe_hashed_expr_block;
+    vector<expression_t> probe_prejoin_expr;
+    vector<RecordAttribute *> probe_join_attr;
+    vector<RecordAttribute *> probe_join_attr_block;
+    vector<GpuMatExpr> probe_join_expr;
 
-		assert(val.HasMember("projections"));
-		assert(val["projections"].IsArray());
+    for (SizeType i = 0; i < val["probe_e"].Size(); i++) {
+      assert(val["probe_e"][i].IsObject());
 
-		vector<RecordAttribute*> projections;
-		for (SizeType i = 0; i < val["projections"].Size(); i++)
-		{
-			assert(val["projections"][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
-			projections.push_back(recAttr);
-		}
+      assert(val["probe_e"][i]["original"].IsObject());
+      auto outExpr = parseExpression(val["probe_e"][i]["original"]);
+      probe_expr.emplace_back(outExpr);
 
-		assert(val.HasMember("numOfParents"));
-		assert(val["numOfParents"].IsInt());
-		int numOfParents = val["numOfParents"].GetInt();
+      assert(val["probe_e"][i]["original"]["attribute"].IsObject());
+      RecordAttribute *recAttr =
+          this->parseRecordAttr(val["probe_e"][i]["original"]["attribute"]);
+      probe_attr.push_back(recAttr);
+      probe_attr_block.push_back(new RecordAttribute(*recAttr, true));
 
-		int slack = 8;
-		if (val.HasMember("slack")){
-			assert(val["slack"].IsInt());
-			slack = val["slack"].GetInt();
-		}
+      assert(val["probe_e"][i]["hashed"].IsObject());
+      auto outHashedExpr = parseExpression(val["probe_e"][i]["hashed"]);
+      probe_hashed_expr.emplace_back(outHashedExpr);
 
-		int producers = 1;
-		if (val.HasMember("producers")){
-			assert(val["producers"].IsInt());
-			producers = val["producers"].GetInt();
-		}
+      assert(val["probe_e"][i]["hashed-block"].IsObject());
+      auto outHashedBlockExpr =
+          parseExpression(val["probe_e"][i]["hashed-block"]);
+      probe_hashed_expr_block.emplace_back(outHashedBlockExpr);
 
-		bool numa_local = true;
-		bool rand_local_cpu = false;
-		std::optional<expression_t> hash;
-		if (val.HasMember("target")){
-			assert(val["target"].IsObject());
-			hash = parseExpression(val["target"]);
-			numa_local = false;
-		}
+      assert(val["probe_e"][i]["hashed"]["attribute"].IsObject());
+      RecordAttribute *recHashedAttr =
+          this->parseRecordAttr(val["probe_e"][i]["hashed"]["register_as"]);
+      probe_hashed_attr.push_back(recHashedAttr);
+      probe_hashed_attr_block.push_back(
+          new RecordAttribute(*recHashedAttr, true));
 
-		if (val.HasMember("rand_local_cpu")){
-			assert(!hash.has_value() && "Can not have both flags set");
-			assert(val["rand_local_cpu"].IsBool());
-			rand_local_cpu = val["rand_local_cpu"].GetBool();
-			numa_local = false;
-		}
+      assert(val["probe_e"][i]["join"].IsObject());
+      assert(val["probe_e"][i]["join"].HasMember("e"));
+      assert(val["probe_e"][i]["join"].HasMember("packet"));
+      assert(val["probe_e"][i]["join"]["packet"].IsInt());
+      assert(val["probe_e"][i]["join"].HasMember("offset"));
+      assert(val["probe_e"][i]["join"]["offset"].IsInt());
+      auto outJoinExpr = parseExpression(val["probe_e"][i]["join"]["e"]);
+      probe_join_expr.emplace_back(
+          outJoinExpr, val["probe_e"][i]["join"]["packet"].GetInt(),
+          val["probe_e"][i]["join"]["offset"].GetInt());
 
-		if (val.HasMember("numa_local")){
-			assert(!hash.has_value() && "Can not have both flags set");
-			assert(!rand_local_cpu);
-			assert(numa_local);
-			assert(val["numa_local"].IsBool());
-			numa_local = val["numa_local"].GetBool();
-		}
+      assert(val["probe_e"][i]["join"]["e"]["attribute"].IsObject());
+      RecordAttribute *recJoinAttr =
+          this->parseRecordAttr(val["probe_e"][i]["join"]["e"]["attribute"]);
+      probe_join_attr.push_back(recJoinAttr);
+      probe_join_attr_block.push_back(new RecordAttribute(*recJoinAttr, true));
+      auto outPreJoinExpr = parseExpression(val["probe_e"][i]["join"]["e"]);
+      outPreJoinExpr.registerAs(recJoinAttr);
+      probe_prejoin_expr.push_back(outPreJoinExpr);
+    }
 
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new Exchange(childOp, ((GpuRawContext *) this->ctx), numOfParents, projections, slack, hash, numa_local, rand_local_cpu, producers);
-		childOp->setParent(newOp);
-	} else if(strcmp(opName,"union-all") == 0) {
-		/* parse operator input */
-		assert(val.HasMember("input"));
-		assert(val["input"].IsArray());
-		std::vector<RawOperator *> children;
-		for (SizeType i = 0; i < val["input"].Size(); ++i){
-			assert(val["input"][i].IsObject());
-			children.push_back(parseOperator(val["input"][i]));
-		}
+    assert(val.HasMember("probe_hash"));
+    RecordAttribute *probe_hash_attr =
+        this->parseRecordAttr(val["probe_hash"]["attribute"]);
 
-		assert(val.HasMember("projections"));
-		assert(val["projections"].IsArray());
+    assert(val.HasMember("probe_w"));
+    assert(val["probe_w"].IsArray());
+    vector<size_t> probe_widths;
 
-		vector<RecordAttribute*> projections;
-		for (SizeType i = 0; i < val["projections"].Size(); i++){
-			assert(val["projections"][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
-			projections.push_back(recAttr);
-		}
+    const rapidjson::Value &probe_wJSON = val["probe_w"];
+    for (SizeType i = 0; i < probe_wJSON.Size(); i++) {
+      assert(probe_wJSON[i].IsInt());
+      probe_widths.push_back(probe_wJSON[i].GetInt());
+    }
 
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
-		newOp =  new UnionAll(children, ((GpuRawContext *) this->ctx), projections);
-		for (const auto &childOp: children) childOp->setParent(newOp);
-	} else if(strcmp(opName,"split") == 0) {
-		assert(val.HasMember("split_id"));
-		assert(val["split_id"].IsInt());
-		size_t split_id = val["split_id"].GetInt();
+    Exchange *xch_build =
+        new Exchange(build_op, (GpuRawContext *)ctx, numPartitioners,
+                     build_attr_block, slack, std::nullopt, false, true);
+    build_op->setParent(xch_build);
+    RawOperator *btt_build = new BlockToTuples(
+        xch_build, (GpuRawContext *)ctx, build_expr, false, gran_t::THREAD);
+    xch_build->setParent(btt_build);
+    RawOperator *part_build =
+        new HashRearrange(btt_build, (GpuRawContext *)ctx, numOfBuckets,
+                          build_expr, build_expr[0], build_hash_attr);
+    btt_build->setParent(part_build);
+    build_attr_block.push_back(build_hash_attr);
+    Exchange *xch_build2 =
+        new Exchange(part_build, (GpuRawContext *)ctx, 1, build_attr_block,
+                     slack, std::nullopt, true, false, numPartitioners);
+    part_build->setParent(xch_build2);
 
-		if (splitOps.count(split_id) == 0){
-			/* parse operator input */
-			assert(val.HasMember("input"));
-			assert(val["input"].IsObject());
-			RawOperator* childOp = parseOperator(val["input"]);
+    Exchange *xch_probe =
+        new Exchange(probe_op, (GpuRawContext *)ctx, numPartitioners,
+                     probe_attr_block, slack, std::nullopt, false, true);
+    probe_op->setParent(xch_probe);
+    RawOperator *btt_probe = new BlockToTuples(
+        xch_probe, (GpuRawContext *)ctx, probe_expr, false, gran_t::THREAD);
+    xch_probe->setParent(btt_probe);
+    RawOperator *part_probe =
+        new HashRearrange(btt_probe, (GpuRawContext *)ctx, numOfBuckets,
+                          probe_expr, probe_expr[0], probe_hash_attr);
+    btt_probe->setParent(part_probe);
+    probe_attr_block.push_back(probe_hash_attr);
+    Exchange *xch_probe2 =
+        new Exchange(part_probe, (GpuRawContext *)ctx, 1, probe_attr_block,
+                     slack, std::nullopt, true, false, numPartitioners);
+    part_probe->setParent(xch_probe2);
 
-			assert(val.HasMember("numOfParents"));
-			assert(val["numOfParents"].IsInt());
-			int numOfParents = val["numOfParents"].GetInt();
+    RecordAttribute *attr_ptr =
+        new RecordAttribute(1, "coordinator", "ptr", new IntType(), true);
+    RecordAttribute *attr_target =
+        new RecordAttribute(1, "coordinator", "target", new IntType(), false);
+    RecordAttribute *attr_target_block =
+        new RecordAttribute(*attr_target, true);
+    RecordAttribute *attr_splitter =
+        new RecordAttribute(2, "coordinator", "splitter", new IntType(), false);
 
-			assert(val.HasMember("projections"));
-			assert(val["projections"].IsArray());
+    InputInfo *datasetInfoCoord =
+        catalogParser.getOrCreateInputInfo(attr_target->getRelationName());
+    RecordType *coord_rec = new RecordType{dynamic_cast<const RecordType &>(
+        dynamic_cast<CollectionType *>(datasetInfoCoord->exprType)
+            ->getNestedType())};
+    coord_rec->appendAttribute(attr_ptr);
+    coord_rec->appendAttribute(attr_target);
+    coord_rec->appendAttribute(attr_splitter);
+    datasetInfoCoord->exprType = new BagType{*coord_rec};
 
-			vector<RecordAttribute*> projections;
-			for (SizeType i = 0; i < val["projections"].Size(); i++){
-				assert(val["projections"][i].IsObject());
-				RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
-				projections.push_back(recAttr);
-			}
+    list<RecordAttribute *> f_atts_target;
+    f_atts_target.push_back(attr_ptr);
+    f_atts_target.push_back(attr_target);
+    f_atts_target.push_back(attr_splitter);
+    RecordType *recTypeTarget = new RecordType(f_atts_target);
 
-			int slack = 8;
-			if (val.HasMember("slack")){
-				assert(val["slack"].IsInt());
-				slack = val["slack"].GetInt();
-			}
+    list<RecordAttribute> f_atts_hash_d;
+    f_atts_hash_d.push_back(*attr_target);
+    expressions::InputArgument fHtarg{recTypeTarget, -1, f_atts_hash_d};
+    expressions::RecordProjection expr_target =
+        expression_t{fHtarg}[*attr_target];
 
-			//Does it make sense to have anything rather than rand local ?
-			bool numa_local = false; // = true;
-			bool rand_local_cpu = false;
-			std::optional<expression_t> hash;
-			if (val.HasMember("target")){
-				assert(val["target"].IsObject());
-				hash = parseExpression(val["target"]);
-				numa_local = false;
-			}
+    vector<RecordAttribute *> f_atts_target_v;
+    f_atts_target_v.push_back(attr_ptr);
+    f_atts_target_v.push_back(attr_target);
+    f_atts_target_v.push_back(attr_splitter);
 
-			if (val.HasMember("rand_local_cpu")){
-				assert(!hash.has_value() && "Can not have both flags set");
-				assert(val["rand_local_cpu"].IsBool());
-				rand_local_cpu = val["rand_local_cpu"].GetBool();
-				numa_local = false;
-			}
+    ZipCollect *coord =
+        new ZipCollect(attr_ptr, attr_splitter, attr_target,
+                       new RecordAttribute(*build_attr[0], true),
+                       new RecordAttribute(*probe_attr[0], true), xch_build2,
+                       xch_probe2, (GpuRawContext *)ctx, numOfBuckets,
+                       build_hash_attr, build_hashed_expr_block,
+                       probe_hash_attr, probe_hashed_expr_block, "coordinator");
+    xch_build2->setParent(coord);
+    xch_probe2->setParent(coord);
 
-			if (val.HasMember("numa_local")){
-				assert(!hash.has_value() && "Can not have both flags set");
-				assert(!rand_local_cpu);
-				assert(numa_local);
-				assert(val["numa_local"].IsBool());
-				numa_local = val["numa_local"].GetBool();
-			}
+    Exchange *xch_proc =
+        new Exchange(coord, (GpuRawContext *)ctx, numConcurrent,
+                     f_atts_target_v, slack, expr_target, false);
+    coord->setParent(xch_proc);
+    ZipInitiate *initiator = new ZipInitiate(
+        attr_ptr, attr_splitter, attr_target, xch_proc, (GpuRawContext *)ctx,
+        numOfBuckets, coord->getStateLeft(), coord->getStateRight(),
+        "launcher");
+    xch_proc->setParent(initiator);
+    RawPipelineGen **pip_rcv = initiator->pipeSocket();
 
-			assert(dynamic_cast<GpuRawContext *>(this->ctx));
-			newOp = new Split(childOp, ((GpuRawContext *) this->ctx), numOfParents, projections, slack, hash, numa_local, rand_local_cpu);
-			splitOps[split_id] = newOp;
-			childOp->setParent(newOp);
-		} else {
-			newOp = splitOps[split_id];
-		}
-	} else	{
-		string err = string("Unknown Operator: ") + opName;
-		LOG(ERROR) << err;
-		throw runtime_error(err);
-	}
+    ZipForward *fwd_build = new ZipForward(
+        attr_splitter, attr_target, new RecordAttribute(*build_attr[0], true),
+        initiator, (GpuRawContext *)ctx, numOfBuckets, build_hashed_expr,
+        "forwarder", coord->getStateLeft());
 
-	return newOp;
+    RawOperator *mml_build = new MemMoveLocalTo(fwd_build, (GpuRawContext *)ctx,
+                                                build_hashed_attr_block, 4);
+    fwd_build->setParent(mml_build);
+    RawOperator *mmd_build = new MemMoveDevice(
+        mml_build, (GpuRawContext *)ctx, build_hashed_attr_block, 4, false);
+    mml_build->setParent(mmd_build);
+    RawOperator *ctg_build =
+        new CpuToGpu(mmd_build, (GpuRawContext *)ctx, build_hashed_attr_block);
+    mmd_build->setParent(ctg_build);
+    RawOperator *btt_build2 =
+        new BlockToTuples(ctg_build, (GpuRawContext *)ctx, build_prejoin_expr,
+                          true, gran_t::GRID);
+    ctg_build->setParent(btt_build2);
+    HashPartitioner *hpart1 = new HashPartitioner(
+        attr_target, build_join_expr, build_widths, build_prejoin_expr[0],
+        btt_build2, (GpuRawContext *)ctx, maxBuildInputSize, 13,
+        "partition_hash_1");
+    btt_build2->setParent(hpart1);
+
+    ZipForward *fwd_probe = new ZipForward(
+        attr_splitter, attr_target, new RecordAttribute(*probe_attr[0], true),
+        initiator, (GpuRawContext *)ctx, numOfBuckets, probe_hashed_expr,
+        "forwarder", coord->getStateRight());
+
+    RawOperator *mml_probe = new MemMoveLocalTo(fwd_probe, (GpuRawContext *)ctx,
+                                                probe_hashed_attr_block, 4);
+    fwd_probe->setParent(mml_probe);
+    RawOperator *mmd_probe = new MemMoveDevice(
+        mml_probe, (GpuRawContext *)ctx, probe_hashed_attr_block, 4, false);
+    mml_probe->setParent(mmd_probe);
+    RawOperator *ctg_probe =
+        new CpuToGpu(mmd_probe, (GpuRawContext *)ctx, probe_hashed_attr_block);
+    mmd_probe->setParent(ctg_probe);
+    RawOperator *btt_probe2 =
+        new BlockToTuples(ctg_probe, (GpuRawContext *)ctx, probe_prejoin_expr,
+                          true, gran_t::GRID);
+    ctg_probe->setParent(btt_probe2);
+    HashPartitioner *hpart2 = new HashPartitioner(
+        attr_target, probe_join_expr, probe_widths, probe_prejoin_expr[0],
+        btt_probe2, (GpuRawContext *)ctx, maxProbeInputSize, 13,
+        "partition_hash_2");
+    btt_probe2->setParent(hpart2);
+
+    newOp = new GpuPartitionedHashJoinChained(
+        build_join_expr, build_widths, build_join_expr[0].expr, nullopt, hpart1,
+        probe_join_expr, probe_widths, probe_join_expr[0].expr, nullopt, hpart2,
+        hpart1->getState(), hpart2->getState(), maxBuildInputSize,
+        maxProbeInputSize, 13, (GpuRawContext *)ctx, "hj_part", pip_rcv, NULL);
+    hpart1->setParent(newOp);
+    hpart2->setParent(newOp);
+  } else if (strcmp(opName, "partitioned-hashjoin-chained") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("probe_input"));
+    assert(val["probe_input"].IsObject());
+    RawOperator *probe_op = parseOperator(val["probe_input"]);
+    /* parse operator input */
+    assert(val.HasMember("build_input"));
+    assert(val["build_input"].IsObject());
+    RawOperator *build_op = parseOperator(val["build_input"]);
+
+    assert(val.HasMember("build_k"));
+    auto build_key_expr = parseExpression(val["build_k"]);
+
+    assert(val.HasMember("probe_k"));
+    auto probe_key_expr = parseExpression(val["probe_k"]);
+
+    std::optional<expression_t> build_minorkey_expr{
+        (val.HasMember("build_k_minor"))
+            ? std::make_optional(parseExpression(val["build_k_minor"]))
+            : nullopt};
+
+    std::optional<expression_t> probe_minorkey_expr{
+        (val.HasMember("probe_k_minor"))
+            ? std::make_optional(parseExpression(val["probe_k_minor"]))
+            : nullopt};
+
+    // #ifndef NCUDA
+    //         if (val.HasMember("gpu") && val["gpu"].GetBool()){
+    assert(val.HasMember("hash_bits"));
+    assert(val["hash_bits"].IsInt());
+    int hash_bits = val["hash_bits"].GetInt();
+
+    assert(val.HasMember("build_w"));
+    assert(val["build_w"].IsArray());
+    vector<size_t> build_widths;
+
+    const rapidjson::Value &build_wJSON = val["build_w"];
+    for (SizeType i = 0; i < build_wJSON.Size(); i++) {
+      assert(build_wJSON[i].IsInt());
+      build_widths.push_back(build_wJSON[i].GetInt());
+    }
+
+    /*
+     * parse output expressions
+     * XXX Careful: Assuming numerous output expressions!
+     */
+    assert(val.HasMember("build_e"));
+    assert(val["build_e"].IsArray());
+    vector<GpuMatExpr> build_e;
+    const rapidjson::Value &build_exprsJSON = val["build_e"];
+    for (SizeType i = 0; i < build_exprsJSON.Size(); i++) {
+      assert(build_exprsJSON[i].HasMember("e"));
+      assert(build_exprsJSON[i].HasMember("packet"));
+      assert(build_exprsJSON[i]["packet"].IsInt());
+      assert(build_exprsJSON[i].HasMember("offset"));
+      assert(build_exprsJSON[i]["offset"].IsInt());
+      auto outExpr = parseExpression(build_exprsJSON[i]["e"]);
+
+      build_e.emplace_back(outExpr, build_exprsJSON[i]["packet"].GetInt(),
+                           build_exprsJSON[i]["offset"].GetInt());
+    }
+
+    assert(val.HasMember("probe_w"));
+    assert(val["probe_w"].IsArray());
+    vector<size_t> probe_widths;
+
+    const rapidjson::Value &probe_wJSON = val["probe_w"];
+    for (SizeType i = 0; i < probe_wJSON.Size(); i++) {
+      assert(probe_wJSON[i].IsInt());
+      probe_widths.push_back(probe_wJSON[i].GetInt());
+    }
+
+    /*
+     * parse output expressions
+     * XXX Careful: Assuming numerous output expressions!
+     */
+    assert(val.HasMember("probe_e"));
+    assert(val["probe_e"].IsArray());
+    vector<GpuMatExpr> probe_e;
+    const rapidjson::Value &probe_exprsJSON = val["probe_e"];
+    for (SizeType i = 0; i < probe_exprsJSON.Size(); i++) {
+      assert(probe_exprsJSON[i].HasMember("e"));
+      assert(probe_exprsJSON[i].HasMember("packet"));
+      assert(probe_exprsJSON[i]["packet"].IsInt());
+      assert(probe_exprsJSON[i].HasMember("offset"));
+      assert(probe_exprsJSON[i]["offset"].IsInt());
+      auto outExpr = parseExpression(probe_exprsJSON[i]["e"]);
+
+      probe_e.emplace_back(outExpr, probe_exprsJSON[i]["packet"].GetInt(),
+                           probe_exprsJSON[i]["offset"].GetInt());
+    }
+
+    assert(val.HasMember("maxBuildInputSize"));
+    assert(val["maxBuildInputSize"].IsUint64());
+
+    size_t maxBuildInputSize = val["maxBuildInputSize"].GetUint64();
+
+    assert(val.HasMember("maxProbeInputSize"));
+    assert(val["maxProbeInputSize"].IsUint64());
+
+    size_t maxProbeInputSize = val["maxProbeInputSize"].GetUint64();
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+
+    int log_parts = 13;
+
+    HashPartitioner *part_left =
+        new HashPartitioner(NULL, build_e, build_widths, build_key_expr,
+                            build_op, dynamic_cast<GpuRawContext *>(this->ctx),
+                            maxBuildInputSize, log_parts, "part1");
+
+    HashPartitioner *part_right =
+        new HashPartitioner(NULL, probe_e, probe_widths, probe_key_expr,
+                            probe_op, dynamic_cast<GpuRawContext *>(this->ctx),
+                            maxProbeInputSize, log_parts, "part1");
+
+    newOp = new GpuPartitionedHashJoinChained(
+        build_e, build_widths, build_key_expr, build_minorkey_expr, part_left,
+        probe_e, probe_widths, probe_key_expr, probe_minorkey_expr, part_right,
+        part_left->getState(), part_right->getState(), maxBuildInputSize,
+        maxProbeInputSize, log_parts, dynamic_cast<GpuRawContext *>(this->ctx),
+        "phjc", NULL, NULL);
+
+    build_op->setParent(part_left);
+    probe_op->setParent(part_right);
+
+    build_op = part_left;
+    probe_op = part_right;
+
+    build_op->setParent(newOp);
+    probe_op->setParent(newOp);
+
+  } else if (strcmp(opName, "hashjoin-chained") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("probe_input"));
+    assert(val["probe_input"].IsObject());
+    RawOperator *probe_op = parseOperator(val["probe_input"]);
+    /* parse operator input */
+    assert(val.HasMember("build_input"));
+    assert(val["build_input"].IsObject());
+    RawOperator *build_op = parseOperator(val["build_input"]);
+
+    assert(val.HasMember("build_k"));
+    auto build_key_expr = parseExpression(val["build_k"]);
+
+    assert(val.HasMember("probe_k"));
+    auto probe_key_expr = parseExpression(val["probe_k"]);
+
+    // #ifndef NCUDA
+    //         if (val.HasMember("gpu") && val["gpu"].GetBool()){
+    assert(val.HasMember("hash_bits"));
+    assert(val["hash_bits"].IsInt());
+    int hash_bits = val["hash_bits"].GetInt();
+
+    assert(val.HasMember("build_w"));
+    assert(val["build_w"].IsArray());
+    vector<size_t> build_widths;
+
+    const rapidjson::Value &build_wJSON = val["build_w"];
+    for (SizeType i = 0; i < build_wJSON.Size(); i++) {
+      assert(build_wJSON[i].IsInt());
+      build_widths.push_back(build_wJSON[i].GetInt());
+    }
+
+    /*
+     * parse output expressions
+     * XXX Careful: Assuming numerous output expressions!
+     */
+    assert(val.HasMember("build_e"));
+    assert(val["build_e"].IsArray());
+    vector<GpuMatExpr> build_e;
+    const rapidjson::Value &build_exprsJSON = val["build_e"];
+    for (SizeType i = 0; i < build_exprsJSON.Size(); i++) {
+      assert(build_exprsJSON[i].HasMember("e"));
+      assert(build_exprsJSON[i].HasMember("packet"));
+      assert(build_exprsJSON[i]["packet"].IsInt());
+      assert(build_exprsJSON[i].HasMember("offset"));
+      assert(build_exprsJSON[i]["offset"].IsInt());
+      auto outExpr = parseExpression(build_exprsJSON[i]["e"]);
+
+      build_e.emplace_back(outExpr, build_exprsJSON[i]["packet"].GetInt(),
+                           build_exprsJSON[i]["offset"].GetInt());
+    }
+
+    assert(val.HasMember("probe_w"));
+    assert(val["probe_w"].IsArray());
+    vector<size_t> probe_widths;
+
+    const rapidjson::Value &probe_wJSON = val["probe_w"];
+    for (SizeType i = 0; i < probe_wJSON.Size(); i++) {
+      assert(probe_wJSON[i].IsInt());
+      probe_widths.push_back(probe_wJSON[i].GetInt());
+    }
+
+    /*
+     * parse output expressions
+     * XXX Careful: Assuming numerous output expressions!
+     */
+    assert(val.HasMember("probe_e"));
+    assert(val["probe_e"].IsArray());
+    vector<GpuMatExpr> probe_e;
+    const rapidjson::Value &probe_exprsJSON = val["probe_e"];
+    for (SizeType i = 0; i < probe_exprsJSON.Size(); i++) {
+      assert(probe_exprsJSON[i].HasMember("e"));
+      assert(probe_exprsJSON[i].HasMember("packet"));
+      assert(probe_exprsJSON[i]["packet"].IsInt());
+      assert(probe_exprsJSON[i].HasMember("offset"));
+      assert(probe_exprsJSON[i]["offset"].IsInt());
+      auto outExpr = parseExpression(probe_exprsJSON[i]["e"]);
+
+      probe_e.emplace_back(outExpr, probe_exprsJSON[i]["packet"].GetInt(),
+                           probe_exprsJSON[i]["offset"].GetInt());
+    }
+
+    assert(val.HasMember("maxBuildInputSize"));
+    assert(val["maxBuildInputSize"].IsUint64());
+
+    size_t maxBuildInputSize = val["maxBuildInputSize"].GetUint64();
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+#ifndef NCUDA
+    if (val.HasMember("gpu") && val["gpu"].GetBool()) {
+      newOp = new GpuHashJoinChained(
+          build_e, build_widths, build_key_expr, build_op, probe_e,
+          probe_widths, probe_key_expr, probe_op, hash_bits,
+          dynamic_cast<GpuRawContext *>(this->ctx), maxBuildInputSize);
+    } else {
+#endif
+      newOp = new HashJoinChained(
+          build_e, build_widths, build_key_expr, build_op, probe_e,
+          probe_widths, probe_key_expr, probe_op, hash_bits,
+          dynamic_cast<GpuRawContext *>(this->ctx), maxBuildInputSize);
+#ifndef NCUDA
+    }
+#endif
+    //         } else {
+    // #endif
+    //             expressions::BinaryExpression *predExpr = new
+    //             expressions::EqExpression(build_key_expr, probe_key_expr);
+
+    //             /*
+    //              * *** WHAT TO MATERIALIZE ***
+    //              * XXX v0: JSON file contains a list of **RecordProjections**
+    //              * EXPLICIT OIDs injected by PARSER (not in json file by
+    //              default)
+    //              * XXX Eager materialization atm
+    //              *
+    //              * XXX Why am I not using minimal constructor for
+    //              materializer yet, as use cases do?
+    //              *     -> Because then I would have to encode the OID type in
+    //              JSON -> can be messy
+    //              */
+
+    //             //LEFT SIDE
+
+    //             /*
+    //              * parse output expressions
+    //              * XXX Careful: Assuming numerous output expressions!
+    //              */
+    //             assert(val.HasMember("build_e"));
+    //             assert(val["build_e"].IsArray());
+    //             vector<expressions::Expression *> exprBuild   ;
+    //             vector<RecordAttribute         *> fieldsBuild ;
+    //             map<string, RecordAttribute    *> mapOidsBuild;
+    //             vector<materialization_mode>      outputModesBuild;
+
+    //             {
+    //                 exprBuild.emplace_back(build_key_expr);
+
+    //                 expressions::Expression * exprR = exprBuild.back();
+
+    //                 outputModesBuild.insert(outputModesBuild.begin(), EAGER);
+
+    //                 expressions::RecordProjection *projBuild =
+    //                         dynamic_cast<expressions::RecordProjection
+    //                         *>(exprR);
+    //                 if(projBuild == NULL)
+    //                 {
+    //                     string error_msg = string(
+    //                             "[Join: ] Cannot cast to rec projection.
+    //                             Original: ")
+    //                             + exprR->getExpressionType()->getType();
+    //                     LOG(ERROR)<< error_msg;
+    //                     throw runtime_error(string(error_msg));
+    //                 }
+
+    //                 //Added in 'wanted fields'
+    //                 RecordAttribute *recAttr = new
+    //                 RecordAttribute(projBuild->getAttribute());
+    //                 fieldsBuild.push_back(new
+    //                 RecordAttribute(exprR->getRegisteredAs()));
+
+    //                 string relName = recAttr->getRelationName();
+    //                 if (mapOidsBuild.find(relName) == mapOidsBuild.end()) {
+    //                     InputInfo *datasetInfo =
+    //                     (this->catalogParser).getInputInfo(
+    //                             relName);
+    //                     RecordAttribute *oid = new RecordAttribute(
+    //                             recAttr->getRelationName(), activeLoop,
+    //                             datasetInfo->oidType);
+    //                     mapOidsBuild[relName] = oid;
+    //                     expressions::RecordProjection *oidR =
+    //                             new expressions::RecordProjection(exprR,
+    //                             *oid);
+    //                     // oidR->registerAs(exprR->getRegisteredRelName(),
+    //                     exprR->getRegisteredAttrName());
+    //                     //Added in 'wanted expressions'
+    //                     exprBuild.insert(exprBuild.begin(),oidR);
+    //                     cout << "Injecting build OID for " << relName <<
+    //                     endl;
+    //                     outputModesBuild.insert(outputModesBuild.begin(),
+    //                     EAGER);
+    //                 }
+    //             }
+
+    //             const rapidjson::Value& build_exprsJSON = val["build_e"];
+    //             for (SizeType i = 0; i < build_exprsJSON.Size(); i++){
+    //                 assert(build_exprsJSON[i].HasMember("e"     ));
+    //                 assert(build_exprsJSON[i].HasMember("packet"));
+    //                 assert(build_exprsJSON[i]["packet"].IsInt());
+    //                 assert(build_exprsJSON[i].HasMember("offset"));
+    //                 assert(build_exprsJSON[i]["offset"].IsInt());
+    //                 exprBuild.emplace_back(parseExpression(build_exprsJSON[i]["e"]));
+
+    //                 expressions::Expression * exprR = exprBuild.back();
+
+    //                 outputModesBuild.insert(outputModesBuild.begin(), EAGER);
+
+    //                 expressions::RecordProjection *projBuild =
+    //                         dynamic_cast<expressions::RecordProjection
+    //                         *>(exprR);
+    //                 if(projBuild == NULL)
+    //                 {
+    //                     string error_msg = string(
+    //                             "[Join: ] Cannot cast to rec projection.
+    //                             Original: ")
+    //                             + exprR->getExpressionType()->getType();
+    //                     LOG(ERROR)<< error_msg;
+    //                     throw runtime_error(string(error_msg));
+    //                 }
+
+    //                 //Added in 'wanted fields'
+    //                 RecordAttribute *recAttr = new
+    //                 RecordAttribute(projBuild->getAttribute());
+    //                 fieldsBuild.push_back(new
+    //                 RecordAttribute(exprR->getRegisteredAs()));
+
+    //                 string relName = recAttr->getRelationName();
+    //                 if (mapOidsBuild.find(relName) == mapOidsBuild.end()) {
+    //                     InputInfo *datasetInfo =
+    //                     (this->catalogParser).getInputInfo(
+    //                             relName);
+    //                     RecordAttribute *oid = new RecordAttribute(
+    //                             recAttr->getRelationName(), activeLoop,
+    //                             datasetInfo->oidType);
+    //                     mapOidsBuild[relName] = oid;
+    //                     expressions::RecordProjection *oidR =
+    //                             new expressions::RecordProjection(exprR,
+    //                             *oid);
+    //                     // oidR->registerAs(exprR->getRegisteredRelName(),
+    //                     exprR->getRegisteredAttrName());
+    //                     //Added in 'wanted expressions'
+    //                     exprBuild.insert(exprBuild.begin(),oidR);
+    //                     cout << "Injecting build OID for " << relName <<
+    //                     endl;
+    //                     outputModesBuild.insert(outputModesBuild.begin(),
+    //                     EAGER);
+    //                 }
+    //             }
+    //             vector<RecordAttribute*> oidsBuild;
+    //             MapToVec(mapOidsBuild, oidsBuild);
+    //             Materializer* matBuild = new Materializer(fieldsBuild,
+    //             exprBuild,
+    //                     oidsBuild, outputModesBuild);
+
+    //             /*
+    //              * parse output expressions
+    //              * XXX Careful: Assuming numerous output expressions!
+    //              */
+    //             assert(val.HasMember("probe_e"));
+    //             assert(val["probe_e"].IsArray());
+    //             vector<expressions::Expression *> exprProbe   ;
+    //             vector<RecordAttribute         *> fieldsProbe ;
+    //             map<string, RecordAttribute    *> mapOidsProbe;
+    //             vector<materialization_mode>      outputModesProbe;
+
+    //             {
+    //                 exprProbe.emplace_back(probe_key_expr);
+
+    //                 expressions::Expression * exprR = exprProbe.back();
+
+    //                 outputModesProbe.insert(outputModesProbe.begin(), EAGER);
+
+    //                 expressions::RecordProjection *projProbe =
+    //                         dynamic_cast<expressions::RecordProjection
+    //                         *>(exprR);
+    //                 if(projProbe == NULL)
+    //                 {
+    //                     string error_msg = string(
+    //                             "[Join: ] Cannot cast to rec projection.
+    //                             Original: ")
+    //                             + exprR->getExpressionType()->getType();
+    //                     LOG(ERROR)<< error_msg;
+    //                     throw runtime_error(string(error_msg));
+    //                 }
+
+    //                 //Added in 'wanted fields'
+    //                 RecordAttribute *recAttr = new
+    //                 RecordAttribute(projProbe->getAttribute());
+    //                 fieldsProbe.push_back(new
+    //                 RecordAttribute(exprR->getRegisteredAs()));
+
+    //                 string relName = recAttr->getRelationName();
+    //                 std::cout << "relName" << " " << relName << std::endl;
+    //                 if (mapOidsProbe.find(relName) == mapOidsProbe.end()) {
+    //                     InputInfo *datasetInfo =
+    //                     (this->catalogParser).getInputInfo(
+    //                             relName);
+    //                     RecordAttribute *oid = new RecordAttribute(
+    //                             recAttr->getRelationName(), activeLoop,
+    //                             datasetInfo->oidType);
+    //                     mapOidsProbe[relName] = oid;
+    //                     expressions::RecordProjection *oidR =
+    //                             new expressions::RecordProjection(exprR,
+    //                             *oid);
+    //                     // oidR->registerAs(exprR->getRegisteredRelName(),
+    //                     exprR->getRegisteredAttrName());
+    //                     //Added in 'wanted expressions'
+    //                     exprProbe.insert(exprProbe.begin(),oidR);
+    //                     cout << "Injecting probe OID for " << relName <<
+    //                     endl;
+    //                     outputModesProbe.insert(outputModesProbe.begin(),
+    //                     EAGER);
+    //                 }
+    //             }
+
+    //             const rapidjson::Value& probe_exprsJSON = val["probe_e"];
+    //             for (SizeType i = 0; i < probe_exprsJSON.Size(); i++){
+    //                 assert(probe_exprsJSON[i].HasMember("e"     ));
+    //                 assert(probe_exprsJSON[i].HasMember("packet"));
+    //                 assert(probe_exprsJSON[i]["packet"].IsInt());
+    //                 assert(probe_exprsJSON[i].HasMember("offset"));
+    //                 assert(probe_exprsJSON[i]["offset"].IsInt());
+    //                 exprProbe.emplace_back(parseExpression(probe_exprsJSON[i]["e"]));
+
+    //                 expressions::Expression * exprR = exprProbe.back();
+
+    //                 outputModesProbe.insert(outputModesProbe.begin(), EAGER);
+
+    //                 expressions::RecordProjection *projProbe =
+    //                         dynamic_cast<expressions::RecordProjection
+    //                         *>(exprR);
+    //                 if(projProbe == NULL)
+    //                 {
+    //                     string error_msg = string(
+    //                             "[Join: ] Cannot cast to rec projection.
+    //                             Original: ")
+    //                             + exprR->getExpressionType()->getType();
+    //                     LOG(ERROR)<< error_msg;
+    //                     throw runtime_error(string(error_msg));
+    //                 }
+
+    //                 //Added in 'wanted fields'
+    //                 RecordAttribute *recAttr = new
+    //                 RecordAttribute(projProbe->getAttribute());
+    //                 fieldsProbe.push_back(new
+    //                 RecordAttribute(exprR->getRegisteredAs()));
+
+    //                 string relName = recAttr->getRelationName();
+    //                 std::cout << "relName" << " " << relName << std::endl;
+    //                 if (mapOidsProbe.find(relName) == mapOidsProbe.end()) {
+    //                     InputInfo *datasetInfo =
+    //                     (this->catalogParser).getInputInfo(
+    //                             relName);
+    //                     RecordAttribute *oid = new RecordAttribute(
+    //                             recAttr->getRelationName(), activeLoop,
+    //                             datasetInfo->oidType);
+    //                     mapOidsProbe[relName] = oid;
+    //                     expressions::RecordProjection *oidR =
+    //                             new expressions::RecordProjection(exprR,
+    //                             *oid);
+    //                     // oidR->registerAs(exprR->getRegisteredRelName(),
+    //                     exprR->getRegisteredAttrName());
+    //                     //Added in 'wanted expressions'
+    //                     exprProbe.insert(exprProbe.begin(),oidR);
+    //                     cout << "Injecting probe OID for " << relName <<
+    //                     endl;
+    //                     outputModesProbe.insert(outputModesProbe.begin(),
+    //                     EAGER);
+    //                 }
+    //             }
+    //             vector<RecordAttribute*> oidsProbe;
+    //             MapToVec(mapOidsProbe, oidsProbe);
+    //             Materializer* matProbe = new Materializer(fieldsProbe,
+    //             exprProbe,
+    //                     oidsProbe, outputModesProbe);
+
+    //             newOp = new RadixJoin(predExpr, build_op, probe_op,
+    //             this->ctx, "radixHashJoin", *matBuild, *matProbe);
+    // #ifndef NCUDA
+    //         }
+    // #endif
+    build_op->setParent(newOp);
+    probe_op->setParent(newOp);
+  } else if (strcmp(opName, "join") == 0) {
+    assert(!(val.HasMember("gpu") && val["gpu"].GetBool()));
+    const char *keyMatLeft = "leftFields";
+    const char *keyMatRight = "rightFields";
+    const char *keyPred = "p";
+
+    /* parse operator input */
+    RawOperator *leftOp = parseOperator(val["leftInput"]);
+    RawOperator *rightOp = parseOperator(val["rightInput"]);
+
+    // Predicate
+    assert(val.HasMember(keyPred));
+    assert(val[keyPred].IsObject());
+
+    auto predExpr = parseExpression(val[keyPred]);
+    const expressions::BinaryExpression *pred =
+        dynamic_cast<const expressions::BinaryExpression *>(
+            predExpr.getUnderlyingExpression());
+    if (pred == NULL) {
+      string error_msg =
+          string("[JOIN: ] Cannot cast to binary predicate. Original: ") +
+          predExpr.getExpressionType()->getType();
+      LOG(ERROR) << error_msg;
+      throw runtime_error(string(error_msg));
+    }
+
+    /*
+     * *** WHAT TO MATERIALIZE ***
+     * XXX v0: JSON file contains a list of **RecordProjections**
+     * EXPLICIT OIDs injected by PARSER (not in json file by default)
+     * XXX Eager materialization atm
+     *
+     * XXX Why am I not using minimal constructor for materializer yet, as use
+     * cases do?
+     *     -> Because then I would have to encode the OID type in JSON -> can be
+     * messy
+     */
+
+    // LEFT SIDE
+    assert(val.HasMember(keyMatLeft));
+    assert(val[keyMatLeft].IsArray());
+    vector<expression_t> exprsLeft;
+    map<string, RecordAttribute *> mapOidsLeft =
+        map<string, RecordAttribute *>();
+    vector<RecordAttribute *> fieldsLeft = vector<RecordAttribute *>();
+    vector<materialization_mode> outputModesLeft;
+    for (SizeType i = 0; i < val[keyMatLeft].Size(); i++) {
+      auto exprL = parseExpression(val[keyMatLeft][i]);
+
+      exprsLeft.push_back(exprL);
+      outputModesLeft.insert(outputModesLeft.begin(), EAGER);
+
+      // XXX STRONG ASSUMPTION: Expression is actually a record projection!
+      const expressions::RecordProjection *projL =
+          dynamic_cast<const expressions::RecordProjection *>(
+              exprL.getUnderlyingExpression());
+      if (projL == NULL) {
+        string error_msg =
+            string("[Join: ] Cannot cast to rec projection. Original: ") +
+            exprL.getExpressionType()->getType();
+        LOG(ERROR) << error_msg;
+        throw runtime_error(string(error_msg));
+      }
+      // Added in 'wanted fields'
+      RecordAttribute *recAttr = new RecordAttribute(projL->getAttribute());
+      fieldsLeft.push_back(recAttr);
+
+      string relName = recAttr->getRelationName();
+      if (mapOidsLeft.find(relName) == mapOidsLeft.end()) {
+        InputInfo *datasetInfo = (this->catalogParser).getInputInfo(relName);
+        RecordAttribute *oid = new RecordAttribute(
+            recAttr->getRelationName(), activeLoop, datasetInfo->oidType);
+        mapOidsLeft[relName] = oid;
+        auto oidL = projL->getExpr()[*oid];
+        // Added in 'wanted expressions'
+        cout << "Injecting left OID for " << relName << endl;
+        exprsLeft.insert(exprsLeft.begin(), oidL);
+        outputModesLeft.insert(outputModesLeft.begin(), EAGER);
+      }
+    }
+    vector<RecordAttribute *> oidsLeft = vector<RecordAttribute *>();
+    MapToVec(mapOidsLeft, oidsLeft);
+    Materializer *matLeft =
+        new Materializer(fieldsLeft, exprsLeft, oidsLeft, outputModesLeft);
+
+    // RIGHT SIDE
+    assert(val.HasMember(keyMatRight));
+    assert(val[keyMatRight].IsArray());
+    vector<expression_t> exprsRight;
+    map<string, RecordAttribute *> mapOidsRight =
+        map<string, RecordAttribute *>();
+    vector<RecordAttribute *> fieldsRight = vector<RecordAttribute *>();
+    vector<materialization_mode> outputModesRight;
+    for (SizeType i = 0; i < val[keyMatRight].Size(); i++) {
+      auto exprR = parseExpression(val[keyMatRight][i]);
+
+      exprsRight.push_back(exprR);
+      outputModesRight.insert(outputModesRight.begin(), EAGER);
+
+      // XXX STRONG ASSUMPTION: Expression is actually a record projection!
+      auto projR = dynamic_cast<const expressions::RecordProjection *>(
+          exprR.getUnderlyingExpression());
+      if (projR == NULL) {
+        string error_msg =
+            string("[Join: ] Cannot cast to rec projection. Original: ") +
+            exprR.getExpressionType()->getType();
+        LOG(ERROR) << error_msg;
+        throw runtime_error(string(error_msg));
+      }
+
+      // Added in 'wanted fields'
+      RecordAttribute *recAttr = new RecordAttribute(projR->getAttribute());
+      fieldsRight.push_back(recAttr);
+
+      string relName = recAttr->getRelationName();
+      if (mapOidsRight.find(relName) == mapOidsRight.end()) {
+        InputInfo *datasetInfo = (this->catalogParser).getInputInfo(relName);
+        RecordAttribute *oid = new RecordAttribute(
+            recAttr->getRelationName(), activeLoop, datasetInfo->oidType);
+        mapOidsRight[relName] = oid;
+        expressions::RecordProjection oidR = projR->getExpr()[*oid];
+        // Added in 'wanted expressions'
+        exprsRight.insert(exprsRight.begin(), oidR);
+        cout << "Injecting right OID for " << relName << endl;
+        outputModesRight.insert(outputModesRight.begin(), EAGER);
+      }
+    }
+    vector<RecordAttribute *> oidsRight = vector<RecordAttribute *>();
+    MapToVec(mapOidsRight, oidsRight);
+    Materializer *matRight =
+        new Materializer(fieldsRight, exprsRight, oidsRight, outputModesRight);
+
+    newOp = new RadixJoin(*pred, leftOp, rightOp, this->ctx, "radixHashJoin",
+                          *matLeft, *matRight);
+    leftOp->setParent(newOp);
+    rightOp->setParent(newOp);
+  } else if (strcmp(opName, "nest") == 0) {
+    const char *keyGroup = "f";
+    const char *keyNull = "g";
+    const char *keyPred = "p";
+    const char *keyExprs = "e";
+    const char *keyAccum = "accumulator";
+    /* Physical Level Info */
+    const char *keyAggrNames = "aggrLabels";
+    // Materializer
+    const char *keyMat = "fields";
+
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsObject());
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    /* get monoid(s) */
+    assert(val.HasMember(keyAccum));
+    assert(val[keyAccum].IsArray());
+    vector<Monoid> accs;
+    const rapidjson::Value &accsJSON = val[keyAccum];
+    for (SizeType i = 0; i < accsJSON.Size(); i++) {
+      assert(accsJSON[i].IsString());
+      Monoid acc = parseAccumulator(accsJSON[i].GetString());
+      accs.push_back(acc);
+    }
+    /* get label for each of the aggregate values */
+    vector<string> aggrLabels;
+    assert(val.HasMember(keyAggrNames));
+    assert(val[keyAggrNames].IsArray());
+    const rapidjson::Value &labelsJSON = val[keyAggrNames];
+    for (SizeType i = 0; i < labelsJSON.Size(); i++) {
+      assert(labelsJSON[i].IsString());
+      aggrLabels.push_back(labelsJSON[i].GetString());
+    }
+
+    /* Predicate */
+    assert(val.HasMember(keyPred));
+    assert(val[keyPred].IsObject());
+    auto predExpr = parseExpression(val[keyPred]);
+
+    /* Group By */
+    assert(val.HasMember(keyGroup));
+    assert(val[keyGroup].IsObject());
+    auto groupByExpr = parseExpression(val[keyGroup]);
+
+    /* Null-to-zero Checks */
+    // FIXME not used in radix nest yet!
+    assert(val.HasMember(keyNull));
+    assert(val[keyNull].IsObject());
+    auto nullsToZerosExpr = parseExpression(val[keyNull]);
+
+    /* Output aggregate expression(s) */
+    assert(val.HasMember(keyExprs));
+    assert(val[keyExprs].IsArray());
+    vector<expression_t> outputExprs;
+    for (const auto &v : val[keyExprs].GetArray()) {
+      outputExprs.emplace_back(parseExpression(v));
+    }
+
+    /*
+     * *** WHAT TO MATERIALIZE ***
+     * XXX v0: JSON file contains a list of **RecordProjections**
+     * EXPLICIT OIDs injected by PARSER (not in json file by default)
+     * XXX Eager materialization atm
+     *
+     * XXX Why am I not using minimal constructor for materializer yet, as use
+     * cases do?
+     *     -> Because then I would have to encode the OID type in JSON -> can be
+     * messy
+     */
+
+    assert(val.HasMember(keyMat));
+    assert(val[keyMat].IsArray());
+    vector<expression_t> exprsToMat;
+    map<string, RecordAttribute *> mapOids = map<string, RecordAttribute *>();
+    vector<RecordAttribute *> fieldsToMat = vector<RecordAttribute *>();
+    vector<materialization_mode> outputModes;
+    for (const auto &v : val[keyMat].GetArray()) {
+      auto expr = parseExpression(v);
+      exprsToMat.push_back(expr);
+      outputModes.insert(outputModes.begin(), EAGER);
+
+      // XXX STRONG ASSUMPTION: Expression is actually a record projection!
+      auto proj = dynamic_cast<const expressions::RecordProjection *>(
+          expr.getUnderlyingExpression());
+      if (proj == NULL) {
+        string error_msg =
+            string("[Nest: ] Cannot cast to rec projection. Original: ") +
+            expr.getExpressionType()->getType();
+        LOG(ERROR) << error_msg;
+        throw runtime_error(string(error_msg));
+      }
+      // Added in 'wanted fields'
+      RecordAttribute *recAttr = new RecordAttribute(proj->getAttribute());
+      fieldsToMat.push_back(recAttr);
+
+      string relName = recAttr->getRelationName();
+      if (mapOids.find(relName) == mapOids.end()) {
+        InputInfo *datasetInfo = (this->catalogParser).getInputInfo(relName);
+        RecordAttribute *oid = new RecordAttribute(
+            recAttr->getRelationName(), activeLoop, datasetInfo->oidType);
+        mapOids[relName] = oid;
+        auto oidProj = proj->getExpr()[*oid];
+        // Added in 'wanted expressions'
+        LOG(INFO) << "[Plan Parser: ] Injecting OID for " << relName;
+        //                std::cout << "[Plan Parser: ] Injecting OID for " <<
+        //                relName << std::endl;
+        /* ORDER OF expression fields matters!! OIDs need to be placed first! */
+        exprsToMat.insert(exprsToMat.begin(), oidProj);
+        outputModes.insert(outputModes.begin(), EAGER);
+      }
+    }
+    vector<RecordAttribute *> oids = vector<RecordAttribute *>();
+    MapToVec(mapOids, oids);
+    /* FIXME This constructor breaks nest use cases that trigger caching */
+    /* Check similar hook in radix-nest.cpp */
+    Materializer *matCoarse =
+        new Materializer(fieldsToMat, exprsToMat, oids, outputModes);
+
+    // Materializer* matCoarse = new Materializer(exprsToMat);
+
+    // Put operator together
+    newOp = new radix::Nest(this->ctx, accs, outputExprs, aggrLabels, predExpr,
+                            std::vector<expression_t>{groupByExpr},
+                            nullsToZerosExpr, childOp, "radixNest", *matCoarse);
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "select") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsObject());
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    /* parse filtering expression */
+    assert(val.HasMember("p"));
+    assert(val["p"].IsObject());
+    auto p = parseExpression(val["p"]);
+
+    newOp = new Select(p, childOp);
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "scan") == 0) {
+    assert(val.HasMember(keyPg));
+    assert(val[keyPg].IsObject());
+    Plugin *pg = this->parsePlugin(val[keyPg]);
+
+    newOp = new Scan(this->ctx, *pg);
+  } else if (strcmp(opName, "dict-scan") == 0) {
+    assert(val.HasMember("relName"));
+    assert(val["relName"].IsString());
+    auto relName = val["relName"].GetString();
+
+    assert(val.HasMember("attrName"));
+    assert(val["attrName"].IsString());
+    auto attrName = val["attrName"].GetString();
+
+    assert(val.HasMember("regex"));
+    assert(val["regex"].IsString());
+    auto regex = val["regex"].GetString();
+
+    auto dictRelName = relName + std::string{"$dict$"} + attrName;
+
+    void *dict =
+        StorageManager::getDictionaryOf(relName + std::string{"."} + attrName);
+
+    InputInfo *datasetInfo =
+        (this->catalogParser).getOrCreateInputInfo(dictRelName);
+    RecordType *rec = new RecordType{dynamic_cast<const RecordType &>(
+        dynamic_cast<CollectionType *>(datasetInfo->exprType)
+            ->getNestedType())};
+    RecordAttribute *reg_as =
+        new RecordAttribute(dictRelName, attrName, new DStringType(dict));
+    std::cout << "Registered: " << reg_as->getRelationName() << "."
+              << reg_as->getAttrName() << std::endl;
+    rec->appendAttribute(reg_as);
+
+    datasetInfo->exprType = new BagType{*rec};
+
+    newOp = new DictScan(
+        this->ctx, RecordAttribute{relName, attrName, new DStringType(dict)},
+        regex, *reg_as);
+#ifndef NCUDA
+  } else if (strcmp(opName, "cpu-to-gpu") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsObject());
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    assert(val.HasMember("projections"));
+    assert(val["projections"].IsArray());
+
+    vector<RecordAttribute *> projections;
+    for (SizeType i = 0; i < val["projections"].Size(); i++) {
+      assert(val["projections"][i].IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+      projections.push_back(recAttr);
+    }
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    newOp = new CpuToGpu(childOp, ((GpuRawContext *)this->ctx), projections);
+    childOp->setParent(newOp);
+#endif
+  } else if (strcmp(opName, "block-to-tuples") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsObject());
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    assert(val.HasMember("projections"));
+    assert(val["projections"].IsArray());
+
+    gran_t granularity = gran_t::GRID;
+    bool gpu = true;
+    if (val.HasMember("gpu")) {
+      assert(val["gpu"].IsBool());
+      gpu = val["gpu"].GetBool();
+      if (!gpu) granularity = gran_t::THREAD;
+    }
+
+    if (val.HasMember("granularity")) {
+      assert(val["granularity"].IsString());
+      std::string gran = val["granularity"].GetString();
+      std::transform(gran.begin(), gran.end(), gran.begin(),
+                     [](unsigned char c) { return std::tolower(c); });
+      if (gran == "grid")
+        granularity = gran_t::GRID;
+      else if (gran == "block")
+        granularity = gran_t::BLOCK;
+      else if (gran == "thread")
+        granularity = gran_t::THREAD;
+      else
+        assert(false && "granularity must be one of GRID, BLOCK, THREAD");
+    }
+
+    vector<expression_t> projections;
+    for (const auto &v : val["projections"].GetArray()) {
+      projections.emplace_back(parseExpression(v));
+    }
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    newOp = new BlockToTuples(childOp, ((GpuRawContext *)this->ctx),
+                              projections, gpu, granularity);
+    childOp->setParent(newOp);
+#ifndef NCUDA
+  } else if (strcmp(opName, "gpu-to-cpu") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsObject());
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    assert(val.HasMember("projections"));
+    assert(val["projections"].IsArray());
+
+    vector<RecordAttribute *> projections;
+    for (SizeType i = 0; i < val["projections"].Size(); i++) {
+      assert(val["projections"][i].IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+      projections.push_back(recAttr);
+    }
+
+    assert(val.HasMember("queueSize"));
+    assert(val["queueSize"].IsInt());
+    int size = val["queueSize"].GetInt();
+
+    assert(val.HasMember("granularity"));
+    assert(val["granularity"].IsString());
+    std::string gran = val["granularity"].GetString();
+    std::transform(gran.begin(), gran.end(), gran.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    gran_t g = gran_t::GRID;
+    if (gran == "grid")
+      g = gran_t::GRID;
+    else if (gran == "block")
+      g = gran_t::BLOCK;
+    else if (gran == "thread")
+      g = gran_t::THREAD;
+    else
+      assert(false && "granularity must be one of GRID, BLOCK, THREAD");
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    newOp = new GpuToCpu(childOp, ((GpuRawContext *)this->ctx), projections,
+                         size, g);
+    childOp->setParent(newOp);
+#endif
+  } else if (strcmp(opName, "tuples-to-block") == 0) {
+    bool gpu = false;
+    if (val.HasMember("gpu")) {
+      assert(val["gpu"].IsBool());
+      gpu = val["gpu"].GetBool();
+    }
+
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsObject());
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    assert(val.HasMember("projections"));
+    assert(val["projections"].IsArray());
+
+    int numOfBuckets = 1;
+    expression_t hashExpr = expressions::IntConstant(0);
+
+    vector<expression_t> projections;
+    for (const auto &v : val["projections"].GetArray()) {
+      projections.emplace_back(parseExpression(v));
+    }
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+#ifndef NCUDA
+    if (gpu) {
+      newOp = new GpuHashRearrange(childOp, ((GpuRawContext *)this->ctx),
+                                   numOfBuckets, projections, hashExpr);
+    } else {
+#endif
+      newOp = new HashRearrange(childOp, ((GpuRawContext *)this->ctx),
+                                numOfBuckets, projections, hashExpr);
+#ifndef NCUDA
+    }
+#endif
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "hash-rearrange") == 0) {
+    bool gpu = false;
+    if (val.HasMember("gpu")) {
+      assert(val["gpu"].IsBool());
+      gpu = val["gpu"].GetBool();
+    }
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsObject());
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    assert(val.HasMember("projections"));
+    assert(val["projections"].IsArray());
+
+    int numOfBuckets = 2;
+    if (val.HasMember("buckets")) {
+      assert(val["buckets"].IsInt());
+      numOfBuckets = val["buckets"].GetInt();
+    }
+
+    RecordAttribute *hashAttr = NULL;
+    // register hash as an attribute
+    if (val.HasMember("hashProject")) {
+      assert(val["hashProject"].IsObject());
+
+      hashAttr = parseRecordAttr(val["hashProject"]);
+
+      InputInfo *datasetInfo =
+          (this->catalogParser).getInputInfo(hashAttr->getRelationName());
+      RecordType *rec = new RecordType{dynamic_cast<const RecordType &>(
+          dynamic_cast<CollectionType *>(datasetInfo->exprType)
+              ->getNestedType())};
+
+      rec->appendAttribute(hashAttr);
+
+      datasetInfo->exprType = new BagType{*rec};
+    }
+
+    assert(val.HasMember("e"));
+    assert(val["e"].IsObject());
+
+    auto hashExpr = parseExpression(val["e"]);
+
+    vector<expression_t> projections;
+    for (const auto &v : val["projections"].GetArray()) {
+      projections.emplace_back(parseExpression(v));
+    }
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+
+#ifndef NCUDA
+    if (gpu) {
+      newOp =
+          new GpuHashRearrange(childOp, ((GpuRawContext *)this->ctx),
+                               numOfBuckets, projections, hashExpr, hashAttr);
+    } else {
+#endif
+      newOp = new HashRearrange(childOp, ((GpuRawContext *)this->ctx),
+                                numOfBuckets, projections, hashExpr, hashAttr);
+#ifndef NCUDA
+    }
+#endif
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "mem-move-device") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsObject());
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    assert(val.HasMember("projections"));
+    assert(val["projections"].IsArray());
+
+    vector<RecordAttribute *> projections;
+    for (SizeType i = 0; i < val["projections"].Size(); i++) {
+      assert(val["projections"][i].IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+      projections.push_back(recAttr);
+    }
+
+    bool to_cpu = false;
+    if (val.HasMember("to_cpu")) {
+      assert(val["to_cpu"].IsBool());
+      to_cpu = val["to_cpu"].GetBool();
+    }
+
+    int slack = 8;
+    if (val.HasMember("slack")) {
+      assert(val["slack"].IsInt());
+      slack = val["slack"].GetInt();
+    }
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    newOp = new MemMoveDevice(childOp, ((GpuRawContext *)this->ctx),
+                              projections, slack, to_cpu);
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "mem-broadcast-device") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsObject());
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    assert(val.HasMember("projections"));
+    assert(val["projections"].IsArray());
+
+    vector<RecordAttribute *> projections;
+    for (SizeType i = 0; i < val["projections"].Size(); i++) {
+      assert(val["projections"][i].IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+      projections.push_back(recAttr);
+    }
+
+    bool to_cpu = false;
+    if (val.HasMember("to_cpu")) {
+      assert(val["to_cpu"].IsBool());
+      to_cpu = val["to_cpu"].GetBool();
+    }
+
+    int num_of_targets = 1;
+    if (val.HasMember("num_of_targets")) {
+      assert(val["num_of_targets"].IsInt());
+      num_of_targets = val["num_of_targets"].GetInt();
+    }
+
+    bool always_share = false;
+    if (val.HasMember("always_share")) {
+      assert(val["always_share"].IsBool());
+      always_share = val["always_share"].GetBool();
+    }
+
+    std::string relName = projections[0]->getRelationName();
+
+    InputInfo *datasetInfo =
+        (this->catalogParser).getOrCreateInputInfo(relName);
+    RecordType *rec = new RecordType{dynamic_cast<const RecordType &>(
+        dynamic_cast<CollectionType *>(datasetInfo->exprType)
+            ->getNestedType())};
+    RecordAttribute *reg_as =
+        new RecordAttribute(relName, "__broadcastTarget", new IntType());
+    std::cout << "Registered: " << reg_as->getRelationName() << "."
+              << reg_as->getAttrName() << std::endl;
+    rec->appendAttribute(reg_as);
+
+    datasetInfo->exprType = new BagType{*rec};
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    newOp = new MemBroadcastDevice(childOp, ((GpuRawContext *)this->ctx),
+                                   projections, num_of_targets, to_cpu,
+                                   always_share);
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "mem-move-local-to") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsObject());
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    assert(val.HasMember("projections"));
+    assert(val["projections"].IsArray());
+
+    vector<RecordAttribute *> projections;
+    for (SizeType i = 0; i < val["projections"].Size(); i++) {
+      assert(val["projections"][i].IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+      projections.push_back(recAttr);
+    }
+
+    int slack = 8;
+    if (val.HasMember("slack")) {
+      assert(val["slack"].IsInt());
+      slack = val["slack"].GetInt();
+    }
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    newOp = new MemMoveLocalTo(childOp, ((GpuRawContext *)this->ctx),
+                               projections, slack);
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "exchange") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsObject());
+    RawOperator *childOp = parseOperator(val["input"]);
+
+    assert(val.HasMember("projections"));
+    assert(val["projections"].IsArray());
+
+    vector<RecordAttribute *> projections;
+    for (SizeType i = 0; i < val["projections"].Size(); i++) {
+      assert(val["projections"][i].IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+      projections.push_back(recAttr);
+    }
+
+    assert(val.HasMember("numOfParents"));
+    assert(val["numOfParents"].IsInt());
+    int numOfParents = val["numOfParents"].GetInt();
+
+    int slack = 8;
+    if (val.HasMember("slack")) {
+      assert(val["slack"].IsInt());
+      slack = val["slack"].GetInt();
+    }
+
+    int producers = 1;
+    if (val.HasMember("producers")) {
+      assert(val["producers"].IsInt());
+      producers = val["producers"].GetInt();
+    }
+
+    bool numa_local = true;
+    bool rand_local_cpu = false;
+    std::optional<expression_t> hash;
+    if (val.HasMember("target")) {
+      assert(val["target"].IsObject());
+      hash = parseExpression(val["target"]);
+      numa_local = false;
+    }
+
+    if (val.HasMember("rand_local_cpu")) {
+      assert(!hash.has_value() && "Can not have both flags set");
+      assert(val["rand_local_cpu"].IsBool());
+      rand_local_cpu = val["rand_local_cpu"].GetBool();
+      numa_local = false;
+    }
+
+    if (val.HasMember("numa_local")) {
+      assert(!hash.has_value() && "Can not have both flags set");
+      assert(!rand_local_cpu);
+      assert(numa_local);
+      assert(val["numa_local"].IsBool());
+      numa_local = val["numa_local"].GetBool();
+    }
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    newOp = new Exchange(childOp, ((GpuRawContext *)this->ctx), numOfParents,
+                         projections, slack, hash, numa_local, rand_local_cpu,
+                         producers);
+    childOp->setParent(newOp);
+  } else if (strcmp(opName, "union-all") == 0) {
+    /* parse operator input */
+    assert(val.HasMember("input"));
+    assert(val["input"].IsArray());
+    std::vector<RawOperator *> children;
+    for (SizeType i = 0; i < val["input"].Size(); ++i) {
+      assert(val["input"][i].IsObject());
+      children.push_back(parseOperator(val["input"][i]));
+    }
+
+    assert(val.HasMember("projections"));
+    assert(val["projections"].IsArray());
+
+    vector<RecordAttribute *> projections;
+    for (SizeType i = 0; i < val["projections"].Size(); i++) {
+      assert(val["projections"][i].IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+      projections.push_back(recAttr);
+    }
+
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    newOp = new UnionAll(children, ((GpuRawContext *)this->ctx), projections);
+    for (const auto &childOp : children) childOp->setParent(newOp);
+  } else if (strcmp(opName, "split") == 0) {
+    assert(val.HasMember("split_id"));
+    assert(val["split_id"].IsInt());
+    size_t split_id = val["split_id"].GetInt();
+
+    if (splitOps.count(split_id) == 0) {
+      /* parse operator input */
+      assert(val.HasMember("input"));
+      assert(val["input"].IsObject());
+      RawOperator *childOp = parseOperator(val["input"]);
+
+      assert(val.HasMember("numOfParents"));
+      assert(val["numOfParents"].IsInt());
+      int numOfParents = val["numOfParents"].GetInt();
+
+      assert(val.HasMember("projections"));
+      assert(val["projections"].IsArray());
+
+      vector<RecordAttribute *> projections;
+      for (SizeType i = 0; i < val["projections"].Size(); i++) {
+        assert(val["projections"][i].IsObject());
+        RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+        projections.push_back(recAttr);
+      }
+
+      int slack = 8;
+      if (val.HasMember("slack")) {
+        assert(val["slack"].IsInt());
+        slack = val["slack"].GetInt();
+      }
+
+      // Does it make sense to have anything rather than rand local ?
+      bool numa_local = false;  // = true;
+      bool rand_local_cpu = false;
+      std::optional<expression_t> hash;
+      if (val.HasMember("target")) {
+        assert(val["target"].IsObject());
+        hash = parseExpression(val["target"]);
+        numa_local = false;
+      }
+
+      if (val.HasMember("rand_local_cpu")) {
+        assert(!hash.has_value() && "Can not have both flags set");
+        assert(val["rand_local_cpu"].IsBool());
+        rand_local_cpu = val["rand_local_cpu"].GetBool();
+        numa_local = false;
+      }
+
+      if (val.HasMember("numa_local")) {
+        assert(!hash.has_value() && "Can not have both flags set");
+        assert(!rand_local_cpu);
+        assert(numa_local);
+        assert(val["numa_local"].IsBool());
+        numa_local = val["numa_local"].GetBool();
+      }
+
+      assert(dynamic_cast<GpuRawContext *>(this->ctx));
+      newOp = new Split(childOp, ((GpuRawContext *)this->ctx), numOfParents,
+                        projections, slack, hash, numa_local, rand_local_cpu);
+      splitOps[split_id] = newOp;
+      childOp->setParent(newOp);
+    } else {
+      newOp = splitOps[split_id];
+    }
+  } else {
+    string err = string("Unknown Operator: ") + opName;
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
+
+  return newOp;
 }
 
-inline bool ends_with(std::string const &value, std::string const &ending){
-	if (ending.size() > value.size()) return false;
-	return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
+inline bool ends_with(std::string const &value, std::string const &ending) {
+  if (ending.size() > value.size()) return false;
+  return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
 }
 
+int lookupInDictionary(string s, const rapidjson::Value &val) {
+  assert(val.IsObject());
+  assert(val.HasMember("path"));
+  assert(val["path"].IsString());
 
-int lookupInDictionary(string s, const rapidjson::Value& val){
-	assert(val.IsObject());
-	assert(val.HasMember("path"));
-	assert(val["path"].IsString());
+  // Input Path
+  const char *nameJSON = val["path"].GetString();
+  if (ends_with(nameJSON, ".dict")) {
+    ifstream is(nameJSON);
+    string str;
+    string prefix = s + ":";
+    while (getline(is, str)) {
+      if (strncmp(str.c_str(), prefix.c_str(), prefix.size()) == 0) {
+        string encoding{str.c_str() + prefix.size()};
+        try {
+          size_t pos;
+          int enc = stoi(encoding, &pos);
+          if (pos + prefix.size() == str.size()) return enc;
+          const char *err = "encoded value has extra characters";
+          LOG(ERROR) << err;
+          throw runtime_error(err);
+        } catch (const std::invalid_argument &) {
+          const char *err = "invalid dict encoding";
+          LOG(ERROR) << err;
+          throw runtime_error(err);
+        } catch (const std::out_of_range &) {
+          const char *err = "out of range dict encoding";
+          LOG(ERROR) << err;
+          throw runtime_error(err);
+        }
+      }
+    }
+    return -1;  // FIXME: this is wrong, we need a binary search, otherwise it
+                // breaks ordering
+  } else {
+    // Prepare Input
+    struct stat statbuf;
+    stat(nameJSON, &statbuf);
+    size_t fsize = statbuf.st_size;
 
-	//Input Path
-	const char *nameJSON = val["path"].GetString();
-	if (ends_with(nameJSON, ".dict")){
-		ifstream is(nameJSON);
-		string str;
-		string prefix = s + ":";
-		while(getline(is, str)){
-			if (strncmp(str.c_str(), prefix.c_str(), prefix.size()) == 0){
-				string encoding{str.c_str() + prefix.size()};
-				try {
-					size_t pos;
-					int enc = stoi(encoding, &pos);
-					if (pos + prefix.size() == str.size()) return enc;
-					const char *err = "encoded value has extra characters";
-					LOG(ERROR)<< err;
-					throw runtime_error(err);
-				} catch (const std::invalid_argument &){
-					const char *err = "invalid dict encoding";
-					LOG(ERROR)<< err;
-					throw runtime_error(err);
-				} catch (const std::out_of_range &){
-					const char *err = "out of range dict encoding";
-					LOG(ERROR)<< err;
-					throw runtime_error(err);
-				}
-			}
-		}
-		return -1;// FIXME: this is wrong, we need a binary search, otherwise it breaks ordering
-	} else {
-		//Prepare Input
-		struct stat statbuf;
-		stat(nameJSON, &statbuf);
-		size_t fsize = statbuf.st_size;
+    int fd = open(nameJSON, O_RDONLY);
+    if (fd == -1) {
+      throw runtime_error(string("json.dict.open"));
+    }
 
-		int fd = open(nameJSON, O_RDONLY);
-		if (fd == -1) {
-			throw runtime_error(string("json.dict.open"));
-		}
+    const char *bufJSON =
+        (const char *)mmap(NULL, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (bufJSON == MAP_FAILED) {
+      const char *err = "json.dict.mmap";
+      LOG(ERROR) << err;
+      throw runtime_error(err);
+    }
 
-		const char *bufJSON = (const char*) mmap(NULL, fsize, PROT_READ,
-				MAP_PRIVATE, fd, 0);
-		if (bufJSON == MAP_FAILED ) {
-			const char *err = "json.dict.mmap";
-			LOG(ERROR)<< err;
-			throw runtime_error(err);
-		}
+    Document document;  // Default template parameter uses UTF8 and
+                        // MemoryPoolAllocator.
+    if (document.Parse(bufJSON).HasParseError()) {
+      const char *err = (string("[CatalogParser: ] Error parsing dictionary ") +
+                         string(val["path"].GetString()))
+                            .c_str();
+      LOG(ERROR) << err;
+      throw runtime_error(err);
+    }
 
-		Document document; // Default template parameter uses UTF8 and MemoryPoolAllocator.
-		if (document.Parse(bufJSON).HasParseError()) {
-			const char *err = (string("[CatalogParser: ] Error parsing dictionary ") + string(val["path"].GetString())).c_str();
-			LOG(ERROR)<< err;
-			throw runtime_error(err);
-		}
+    assert(document.IsObject());
 
-		assert(document.IsObject());
+    if (!document.HasMember(s.c_str()))
+      return -1;  // FIXME: this is wrong, we need a binary search, otherwise it
+                  // breaks ordering
 
-		if (!document.HasMember(s.c_str())) return -1;// FIXME: this is wrong, we need a binary search, otherwise it breaks ordering
-
-		assert(document[s.c_str()].IsInt());
-		return document[s.c_str()].GetInt();
-	}
+    assert(document[s.c_str()].IsInt());
+    return document[s.c_str()].GetInt();
+  }
 }
 
-
-
-expressions::extract_unit ExpressionParser::parseUnitRange(std::string range, RawContext * ctx) {
-	if (range == "YEAR" 		) return expressions::extract_unit::YEAR;
-	if (range == "MONTH" 		) return expressions::extract_unit::MONTH;
-	if (range == "DAY" 			) return expressions::extract_unit::DAYOFMONTH;
-	if (range == "HOUR" 		) return expressions::extract_unit::HOUR;
-	if (range == "MINUTE" 		) return expressions::extract_unit::MINUTE;
-	if (range == "SECOND" 		) return expressions::extract_unit::SECOND;
-	if (range == "QUARTER" 		) return expressions::extract_unit::QUARTER;
-	if (range == "WEEK" 		) return expressions::extract_unit::WEEK;
-	if (range == "MILLISECOND" 	) return expressions::extract_unit::MILLISECOND;
-	if (range == "DOW" 			) return expressions::extract_unit::DAYOFWEEK;
-	if (range == "DOY" 			) return expressions::extract_unit::DAYOFYEAR;
-	if (range == "DECADE" 		) return expressions::extract_unit::DECADE;
-	if (range == "CENTURY" 		) return expressions::extract_unit::CENTURY;
-	if (range == "MILLENNIUM" 	) return expressions::extract_unit::MILLENNIUM;
-	// case "YEAR_TO_MONTH" 	:
-	// case "DAY_TO_HOUR" 		:
-	// case "DAY_TO_MINUTE" 	:
-	// case "DAY_TO_SECOND" 	:
-	// case "HOUR_TO_MINUTE" 	:
-	// case "HOUR_TO_SECOND" 	:
-	// case "MINUTE_TO_SECOND" :
-	// case "EPOCH" 			:
-	// default:{
-	string err = string("Unsupoport TimeUnitRange: ") + range;
-	LOG(ERROR)<< err;
-	throw runtime_error(err);
-	// }
+expressions::extract_unit ExpressionParser::parseUnitRange(std::string range,
+                                                           RawContext *ctx) {
+  if (range == "YEAR") return expressions::extract_unit::YEAR;
+  if (range == "MONTH") return expressions::extract_unit::MONTH;
+  if (range == "DAY") return expressions::extract_unit::DAYOFMONTH;
+  if (range == "HOUR") return expressions::extract_unit::HOUR;
+  if (range == "MINUTE") return expressions::extract_unit::MINUTE;
+  if (range == "SECOND") return expressions::extract_unit::SECOND;
+  if (range == "QUARTER") return expressions::extract_unit::QUARTER;
+  if (range == "WEEK") return expressions::extract_unit::WEEK;
+  if (range == "MILLISECOND") return expressions::extract_unit::MILLISECOND;
+  if (range == "DOW") return expressions::extract_unit::DAYOFWEEK;
+  if (range == "DOY") return expressions::extract_unit::DAYOFYEAR;
+  if (range == "DECADE") return expressions::extract_unit::DECADE;
+  if (range == "CENTURY") return expressions::extract_unit::CENTURY;
+  if (range == "MILLENNIUM") return expressions::extract_unit::MILLENNIUM;
+  // case "YEAR_TO_MONTH"     :
+  // case "DAY_TO_HOUR"         :
+  // case "DAY_TO_MINUTE"     :
+  // case "DAY_TO_SECOND"     :
+  // case "HOUR_TO_MINUTE"     :
+  // case "HOUR_TO_SECOND"     :
+  // case "MINUTE_TO_SECOND" :
+  // case "EPOCH"             :
+  // default:{
+  string err = string("Unsupoport TimeUnitRange: ") + range;
+  LOG(ERROR) << err;
+  throw runtime_error(err);
+  // }
 }
 
+expression_t ExpressionParser::parseExpression(const rapidjson::Value &val,
+                                               RawContext *ctx) {
+  assert(val.IsObject());
+  expression_t ret = parseExpressionWithoutRegistering(val, ctx);
+  if (val.HasMember("register_as")) {
+    assert(val["register_as"].IsObject());
+    RecordAttribute *reg_as =
+        parseRecordAttr(val["register_as"], ret.getExpressionType());
+    assert(reg_as && "Error registering expression as attribute");
 
-expression_t ExpressionParser::parseExpression(const rapidjson::Value &val, RawContext * ctx) {
-	assert(val.IsObject());
-	expression_t ret = parseExpressionWithoutRegistering(val, ctx);
-	if (val.HasMember("register_as")){
-		assert(val["register_as"].IsObject());
-		RecordAttribute * reg_as = parseRecordAttr(val["register_as"], ret.getExpressionType());
-		assert(reg_as && "Error registering expression as attribute");
+    InputInfo *datasetInfo =
+        (this->catalogParser).getOrCreateInputInfo(reg_as->getRelationName());
+    RecordType *rec = new RecordType{dynamic_cast<const RecordType &>(
+        dynamic_cast<CollectionType *>(datasetInfo->exprType)
+            ->getNestedType())};
+    std::cout << "Registered: " << reg_as->getRelationName() << "."
+              << reg_as->getAttrName() << std::endl;
+    rec->appendAttribute(reg_as);
 
-		InputInfo * datasetInfo = (this->catalogParser).getOrCreateInputInfo(reg_as->getRelationName());
-		RecordType * rec = new RecordType{dynamic_cast<const RecordType &>(dynamic_cast<CollectionType *>(datasetInfo->exprType)->getNestedType())};
-		std::cout << "Registered: " << reg_as->getRelationName() << "." << reg_as->getAttrName() << std::endl;
-		rec->appendAttribute(reg_as);
+    datasetInfo->exprType = new BagType{*rec};
 
-		datasetInfo->exprType = new BagType{*rec};
-
-		ret.registerAs(reg_as);
-	}
-	return ret;
+    ret.registerAs(reg_as);
+  }
+  return ret;
 }
 
 /*
- *	enum ExpressionId	{ CONSTANT, ARGUMENT, RECORD_PROJECTION, RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE };
- *	FIXME / TODO No Merge yet!! Will be needed for parallelism!
- *	TODO Add NotExpression ?
+ *    enum ExpressionId    { CONSTANT, ARGUMENT, RECORD_PROJECTION,
+ * RECORD_CONSTRUCTION, IF_THEN_ELSE, BINARY, MERGE };
+ *    FIXME / TODO No Merge yet!! Will be needed for parallelism!
+ *    TODO Add NotExpression ?
  */
 
-expression_t ExpressionParser::parseExpressionWithoutRegistering(const rapidjson::Value& val, RawContext * ctx) {
-	assert(val.IsObject());
+expression_t ExpressionParser::parseExpressionWithoutRegistering(
+    const rapidjson::Value &val, RawContext *ctx) {
+  assert(val.IsObject());
 
-	const char *keyExpression = "expression";
-	const char *keyArgNo = "argNo";
-	const char *keyExprType = "type";
+  const char *keyExpression = "expression";
+  const char *keyArgNo = "argNo";
+  const char *keyExprType = "type";
 
-	/* Input Argument specifics */
-	const char *keyAtts = "attributes";
+  /* Input Argument specifics */
+  const char *keyAtts = "attributes";
 
-	/* Record Projection specifics */
-	const char *keyInnerExpr = "e";
-	const char *keyProjectedAttr = "attribute";
+  /* Record Projection specifics */
+  const char *keyInnerExpr = "e";
+  const char *keyProjectedAttr = "attribute";
 
-	/* Record Construction specifics */
-	const char *keyAttsConstruction = "attributes";
-	const char *keyAttrName = "name";
-	const char *keyAttrExpr = "e";
+  /* Record Construction specifics */
+  const char *keyAttsConstruction = "attributes";
+  const char *keyAttrName = "name";
+  const char *keyAttrExpr = "e";
 
-	/* If-else specifics */
-	const char *keyCond = "cond";
-	const char *keyThen = "then";
-	const char *keyElse = "else";
+  /* If-else specifics */
+  const char *keyCond = "cond";
+  const char *keyThen = "then";
+  const char *keyElse = "else";
 
-	/*Binary operator(s) specifics */
-	const char *leftArg = "left";
-	const char *rightArg = "right";
+  /*Binary operator(s) specifics */
+  const char *leftArg = "left";
+  const char *rightArg = "right";
 
-	assert(val.HasMember(keyExpression));
-	assert(val[keyExpression].IsString());
-	const char *valExpression = val[keyExpression].GetString();
+  assert(val.HasMember(keyExpression));
+  assert(val[keyExpression].IsString());
+  const char *valExpression = val[keyExpression].GetString();
 
-	expressions::Expression* retValue = NULL;
+  expressions::Expression *retValue = NULL;
 
-	assert(!val.HasMember("isNull") || val["isNull"].IsBool());
-	bool isNull = val.HasMember("isNull") && val["isNull"].GetBool();
+  assert(!val.HasMember("isNull") || val["isNull"].IsBool());
+  bool isNull = val.HasMember("isNull") && val["isNull"].GetBool();
 
-	const auto &createNull=[&](ExpressionType * b){
-		RawValue rv{
-			UndefValue::get(b->getLLVMType(ctx->getLLVMContext())),
-			ctx->createTrue()
-		};
+  const auto &createNull = [&](ExpressionType *b) {
+    RawValue rv{UndefValue::get(b->getLLVMType(ctx->getLLVMContext())),
+                ctx->createTrue()};
 
-		return new expressions::RawValueExpression(b, rv);
-	};
+    return new expressions::RawValueExpression(b, rv);
+  };
 
-	if (strcmp(valExpression, "bool") == 0) {
-		if (isNull) {
-			retValue = createNull(new BoolType());
-		} else {
-			assert(val.HasMember("v"));
-			assert(val["v"].IsBool());
-			retValue = new expressions::BoolConstant(val["v"].GetBool());
-		}
-	} else if (strcmp(valExpression, "int") == 0) {
-		if (isNull) {
-			retValue = createNull(new IntType());
-		} else {
-			assert(val.HasMember("v"));
-			assert(val["v"].IsInt());
-			retValue = new expressions::IntConstant(val["v"].GetInt());
-		}
-	} else if (strcmp(valExpression, "int64") == 0) {
-		if (isNull) {
-			retValue = createNull(new Int64Type());
-		} else {
-			assert(val.HasMember("v"));
-			assert(val["v"].IsInt64());
-			retValue = new expressions::Int64Constant(val["v"].GetInt64());
-		}
-	} else if (strcmp(valExpression, "float") == 0) {
-		if (isNull) {
-			retValue = createNull(new FloatType());
-		} else {
-			assert(val.HasMember("v"));
-			assert(val["v"].IsDouble());
-			retValue = new expressions::FloatConstant(val["v"].GetDouble());
-		}
-	} else if (strcmp(valExpression, "date") == 0) {
-		if (isNull) {
-			retValue = createNull(new DateType());
-		} else {
-			assert(val.HasMember("v"));
-			assert(val["v"].IsInt64());
-			retValue = new expressions::DateConstant(val["v"].GetInt64());
-		}
-	} else if (strcmp(valExpression, "string") == 0) {
-		if (isNull) {
-			retValue = createNull(new StringType());
-		} else {
-			assert(val.HasMember("v"));
-			assert(val["v"].IsString());
-			string *stringVal = new string(val["v"].GetString());
-			retValue = new expressions::StringConstant(*stringVal);
-		}
-	} else if (strcmp(valExpression, "dstring") == 0) { //FIMXE: do something better, include the dictionary
-		if (isNull) {
-			retValue = createNull(new DStringType());
-		} else {
-			assert(val.HasMember("v"));
-			if (val["v"].IsInt()){
-				retValue = new expressions::IntConstant(val["v"].GetInt());
-			} else {
-				assert(val["v"].IsString());
-				assert(val.HasMember("dict"));
+  if (strcmp(valExpression, "bool") == 0) {
+    if (isNull) {
+      retValue = createNull(new BoolType());
+    } else {
+      assert(val.HasMember("v"));
+      assert(val["v"].IsBool());
+      retValue = new expressions::BoolConstant(val["v"].GetBool());
+    }
+  } else if (strcmp(valExpression, "int") == 0) {
+    if (isNull) {
+      retValue = createNull(new IntType());
+    } else {
+      assert(val.HasMember("v"));
+      assert(val["v"].IsInt());
+      retValue = new expressions::IntConstant(val["v"].GetInt());
+    }
+  } else if (strcmp(valExpression, "int64") == 0) {
+    if (isNull) {
+      retValue = createNull(new Int64Type());
+    } else {
+      assert(val.HasMember("v"));
+      assert(val["v"].IsInt64());
+      retValue = new expressions::Int64Constant(val["v"].GetInt64());
+    }
+  } else if (strcmp(valExpression, "float") == 0) {
+    if (isNull) {
+      retValue = createNull(new FloatType());
+    } else {
+      assert(val.HasMember("v"));
+      assert(val["v"].IsDouble());
+      retValue = new expressions::FloatConstant(val["v"].GetDouble());
+    }
+  } else if (strcmp(valExpression, "date") == 0) {
+    if (isNull) {
+      retValue = createNull(new DateType());
+    } else {
+      assert(val.HasMember("v"));
+      assert(val["v"].IsInt64());
+      retValue = new expressions::DateConstant(val["v"].GetInt64());
+    }
+  } else if (strcmp(valExpression, "string") == 0) {
+    if (isNull) {
+      retValue = createNull(new StringType());
+    } else {
+      assert(val.HasMember("v"));
+      assert(val["v"].IsString());
+      string *stringVal = new string(val["v"].GetString());
+      retValue = new expressions::StringConstant(*stringVal);
+    }
+  } else if (strcmp(valExpression, "dstring") ==
+             0) {  // FIMXE: do something better, include the dictionary
+    if (isNull) {
+      retValue = createNull(new DStringType());
+    } else {
+      assert(val.HasMember("v"));
+      if (val["v"].IsInt()) {
+        retValue = new expressions::IntConstant(val["v"].GetInt());
+      } else {
+        assert(val["v"].IsString());
+        assert(val.HasMember("dict"));
 
-				int sVal = lookupInDictionary(val["v"].GetString(), val["dict"]);
-				retValue = new expressions::IntConstant(sVal);
-			}
-		}
-	} else if (strcmp(valExpression, "argument") == 0) {
-		assert(!isNull);
-		/* exprType */
-		assert(val.HasMember(keyExprType));
-		assert(val[keyExprType].IsObject());
-		ExpressionType *exprType = parseExpressionType(val[keyExprType]);
+        int sVal = lookupInDictionary(val["v"].GetString(), val["dict"]);
+        retValue = new expressions::IntConstant(sVal);
+      }
+    }
+  } else if (strcmp(valExpression, "argument") == 0) {
+    assert(!isNull);
+    /* exprType */
+    assert(val.HasMember(keyExprType));
+    assert(val[keyExprType].IsObject());
+    ExpressionType *exprType = parseExpressionType(val[keyExprType]);
 
-		/* argNo */
-		assert(val.HasMember(keyArgNo));
-		assert(val[keyArgNo].IsInt());
-		int argNo = val[keyArgNo].GetInt();
+    /* argNo */
+    assert(val.HasMember(keyArgNo));
+    assert(val[keyArgNo].IsInt());
+    int argNo = val[keyArgNo].GetInt();
 
-		/* 'projections' / attributes */
-		assert(val.HasMember(keyAtts));
-		assert(val[keyAtts].IsArray());
+    /* 'projections' / attributes */
+    assert(val.HasMember(keyAtts));
+    assert(val[keyAtts].IsArray());
 
-		list<RecordAttribute> atts;
-		for (const auto &v: val[keyAtts].GetArray()){
-			atts.emplace_back(*parseRecordAttr(v));
-		}
-		
-		return expression_t::make<expressions::InputArgument>(exprType, argNo, atts);
-	} else if (strcmp(valExpression, "recordProjection") == 0) {
-		assert(!isNull);
+    list<RecordAttribute> atts;
+    for (const auto &v : val[keyAtts].GetArray()) {
+      atts.emplace_back(*parseRecordAttr(v));
+    }
 
-		/* e: expression over which projection is calculated */
-		assert(val.HasMember(keyInnerExpr));
-		expression_t expr = parseExpression(val[keyInnerExpr], ctx);
+    return expression_t::make<expressions::InputArgument>(exprType, argNo,
+                                                          atts);
+  } else if (strcmp(valExpression, "recordProjection") == 0) {
+    assert(!isNull);
 
-		/* projected attribute */
-		assert(val.HasMember(keyProjectedAttr));
-		assert(val[keyProjectedAttr].IsObject());
-		RecordAttribute *recAttr = parseRecordAttr(val[keyProjectedAttr]);
+    /* e: expression over which projection is calculated */
+    assert(val.HasMember(keyInnerExpr));
+    expression_t expr = parseExpression(val[keyInnerExpr], ctx);
 
-		/* exprType */
-		if (val.HasMember(keyExprType)){
-			string err{"deprecated type in recordProjection ignored"};
-			LOG(WARNING)<< err;
-			std::cerr << err << endl;
-		}
+    /* projected attribute */
+    assert(val.HasMember(keyProjectedAttr));
+    assert(val[keyProjectedAttr].IsObject());
+    RecordAttribute *recAttr = parseRecordAttr(val[keyProjectedAttr]);
 
-		return expression_t::make<expressions::RecordProjection>(expr, *recAttr);
-	} else if (strcmp(valExpression, "recordConstruction") == 0) {
-		assert(!isNull);
-		/* exprType */
-		// assert(val.HasMember(keyExprType));
-		// assert(val[keyExprType].IsObject());
-		// ExpressionType *exprType = parseExpressionType(val[keyExprType]);
+    /* exprType */
+    if (val.HasMember(keyExprType)) {
+      string err{"deprecated type in recordProjection ignored"};
+      LOG(WARNING) << err;
+      std::cerr << err << endl;
+    }
 
-		/* attribute construction(s) */
-		assert(val.HasMember(keyAttsConstruction));
-		assert(val[keyAttsConstruction].IsArray());
+    return expression_t::make<expressions::RecordProjection>(expr, *recAttr);
+  } else if (strcmp(valExpression, "recordConstruction") == 0) {
+    assert(!isNull);
+    /* exprType */
+    // assert(val.HasMember(keyExprType));
+    // assert(val[keyExprType].IsObject());
+    // ExpressionType *exprType = parseExpressionType(val[keyExprType]);
 
-		list<expressions::AttributeConstruction> *newAtts = new list<expressions::AttributeConstruction>();
-		const rapidjson::Value& attributeConstructs = val[keyAttsConstruction]; // Using a reference for consecutive access is handy and faster.
-		for (SizeType i = 0; i < attributeConstructs.Size(); i++) // rapidjson uses SizeType instead of size_t.
-		{
-			assert(attributeConstructs[i].HasMember(keyAttrName));
-			assert(attributeConstructs[i][keyAttrName].IsString());
-			string newAttrName = attributeConstructs[i][keyAttrName].GetString();
+    /* attribute construction(s) */
+    assert(val.HasMember(keyAttsConstruction));
+    assert(val[keyAttsConstruction].IsArray());
 
-			assert(attributeConstructs[i].HasMember(keyAttrExpr));
-			expression_t newAttrExpr = parseExpression(attributeConstructs[i][keyAttrExpr], ctx);
+    list<expressions::AttributeConstruction> *newAtts =
+        new list<expressions::AttributeConstruction>();
+    const rapidjson::Value &attributeConstructs =
+        val[keyAttsConstruction];  // Using a reference for consecutive access
+                                   // is handy and faster.
+    for (SizeType i = 0; i < attributeConstructs.Size();
+         i++)  // rapidjson uses SizeType instead of size_t.
+    {
+      assert(attributeConstructs[i].HasMember(keyAttrName));
+      assert(attributeConstructs[i][keyAttrName].IsString());
+      string newAttrName = attributeConstructs[i][keyAttrName].GetString();
 
-			expressions::AttributeConstruction *newAttr =
-					new expressions::AttributeConstruction(newAttrName,newAttrExpr);
-			newAtts->push_back(*newAttr);
-		}
-		return expression_t::make<expressions::RecordConstruction>(*newAtts);
-	} else if (strcmp(valExpression, "extract") == 0) {
-		assert(val.HasMember("unitrange"));
-		assert(val["unitrange"].IsString());
+      assert(attributeConstructs[i].HasMember(keyAttrExpr));
+      expression_t newAttrExpr =
+          parseExpression(attributeConstructs[i][keyAttrExpr], ctx);
 
-		assert(val.HasMember(keyInnerExpr));
-		expression_t expr = parseExpression(val[keyInnerExpr], ctx);
+      expressions::AttributeConstruction *newAttr =
+          new expressions::AttributeConstruction(newAttrName, newAttrExpr);
+      newAtts->push_back(*newAttr);
+    }
+    return expression_t::make<expressions::RecordConstruction>(*newAtts);
+  } else if (strcmp(valExpression, "extract") == 0) {
+    assert(val.HasMember("unitrange"));
+    assert(val["unitrange"].IsString());
 
-		auto u = parseUnitRange(val["unitrange"].GetString(), ctx);
-		return expression_t::make<expressions::ExtractExpression>(expr, u);
-	} else if (strcmp(valExpression,"if") == 0)	{
-		assert(!isNull);
-		/* if cond */
-		assert(val.HasMember(keyCond));
-		expression_t condExpr = parseExpression(val[keyCond], ctx);
+    assert(val.HasMember(keyInnerExpr));
+    expression_t expr = parseExpression(val[keyInnerExpr], ctx);
 
-		/* then expression */
-		assert(val.HasMember(keyThen));
-		expression_t thenExpr = parseExpression(val[keyThen], ctx);
+    auto u = parseUnitRange(val["unitrange"].GetString(), ctx);
+    return expression_t::make<expressions::ExtractExpression>(expr, u);
+  } else if (strcmp(valExpression, "if") == 0) {
+    assert(!isNull);
+    /* if cond */
+    assert(val.HasMember(keyCond));
+    expression_t condExpr = parseExpression(val[keyCond], ctx);
 
-		/* else expression */
-		assert(val.HasMember(keyElse));
-		expression_t elseExpr = parseExpression(val[keyElse], ctx);
+    /* then expression */
+    assert(val.HasMember(keyThen));
+    expression_t thenExpr = parseExpression(val[keyThen], ctx);
 
-		return expression_t::make<expressions::IfThenElse>(condExpr,thenExpr,elseExpr);
-	}
-	/*
-	 * BINARY EXPRESSIONS
-	 */
-	else if (strcmp(valExpression, "eq") == 0) {
-		assert(!isNull);
-		/* left child */
-		assert(val.HasMember(leftArg));
-		expression_t leftExpr = parseExpression(val[leftArg], ctx);
+    /* else expression */
+    assert(val.HasMember(keyElse));
+    expression_t elseExpr = parseExpression(val[keyElse], ctx);
 
-		/* right child */
-		assert(val.HasMember(rightArg));
-		expression_t rightExpr = parseExpression(val[rightArg], ctx);
+    return expression_t::make<expressions::IfThenElse>(condExpr, thenExpr,
+                                                       elseExpr);
+  }
+  /*
+   * BINARY EXPRESSIONS
+   */
+  else if (strcmp(valExpression, "eq") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
 
-		return eq(leftExpr, rightExpr);
-	} else if (strcmp(valExpression, "neq") == 0) {
-		assert(!isNull);
-		/* left child */
-		assert(val.HasMember(leftArg));
-		expression_t leftExpr = parseExpression(val[leftArg], ctx);
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
 
-		/* right child */
-		assert(val.HasMember(rightArg));
-		expression_t rightExpr = parseExpression(val[rightArg], ctx);
+    return eq(leftExpr, rightExpr);
+  } else if (strcmp(valExpression, "neq") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
 
-		return ne(leftExpr, rightExpr);
-	} else if (strcmp(valExpression, "lt") == 0) {
-		assert(!isNull);
-		/* left child */
-		assert(val.HasMember(leftArg));
-		expression_t leftExpr = parseExpression(val[leftArg], ctx);
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
 
-		/* right child */
-		assert(val.HasMember(rightArg));
-		expression_t rightExpr = parseExpression(val[rightArg], ctx);
+    return ne(leftExpr, rightExpr);
+  } else if (strcmp(valExpression, "lt") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
 
-		return lt(leftExpr,rightExpr);
-	} else if (strcmp(valExpression, "le") == 0) {
-		assert(!isNull);
-		/* left child */
-		assert(val.HasMember(leftArg));
-		expression_t leftExpr = parseExpression(val[leftArg], ctx);
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
 
-		/* right child */
-		assert(val.HasMember(rightArg));
-		expression_t rightExpr = parseExpression(val[rightArg], ctx);
+    return lt(leftExpr, rightExpr);
+  } else if (strcmp(valExpression, "le") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
 
-		return le(leftExpr,rightExpr);
-	} else if (strcmp(valExpression, "gt") == 0) {
-		assert(!isNull);
-		/* left child */
-		assert(val.HasMember(leftArg));
-		expression_t leftExpr = parseExpression(val[leftArg], ctx);
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
 
-		/* right child */
-		assert(val.HasMember(rightArg));
-		expression_t rightExpr = parseExpression(val[rightArg], ctx);
+    return le(leftExpr, rightExpr);
+  } else if (strcmp(valExpression, "gt") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
 
-		return gt(leftExpr,rightExpr);
-	} else if (strcmp(valExpression, "ge") == 0) {
-		assert(!isNull);
-		/* left child */
-		assert(val.HasMember(leftArg));
-		expression_t leftExpr = parseExpression(val[leftArg], ctx);
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
 
-		/* right child */
-		assert(val.HasMember(rightArg));
-		expression_t rightExpr = parseExpression(val[rightArg], ctx);
+    return gt(leftExpr, rightExpr);
+  } else if (strcmp(valExpression, "ge") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
 
-		return ge(leftExpr,rightExpr);
-	} else if (strcmp(valExpression, "and") == 0) {
-		assert(!isNull);
-		/* left child */
-		assert(val.HasMember(leftArg));
-		expression_t leftExpr = parseExpression(val[leftArg], ctx);
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
 
-		/* right child */
-		assert(val.HasMember(rightArg));
-		expression_t rightExpr = parseExpression(val[rightArg], ctx);
+    return ge(leftExpr, rightExpr);
+  } else if (strcmp(valExpression, "and") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
 
-		return leftExpr & rightExpr;
-	} else if (strcmp(valExpression, "or") == 0) {
-		assert(!isNull);
-		/* left child */
-		assert(val.HasMember(leftArg));
-		expression_t leftExpr = parseExpression(val[leftArg], ctx);
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
 
-		/* right child */
-		assert(val.HasMember(rightArg));
-		expression_t rightExpr = parseExpression(val[rightArg], ctx);
+    return leftExpr & rightExpr;
+  } else if (strcmp(valExpression, "or") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
 
-		return leftExpr | rightExpr;
-	} else if (strcmp(valExpression, "add") == 0) {
-		assert(!isNull);
-		/* left child */
-		assert(val.HasMember(leftArg));
-		expression_t leftExpr = parseExpression(val[leftArg], ctx);
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
 
-		/* right child */
-		assert(val.HasMember(rightArg));
-		expression_t rightExpr = parseExpression(val[rightArg], ctx);
+    return leftExpr | rightExpr;
+  } else if (strcmp(valExpression, "add") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
 
-		// ExpressionType *exprType = const_cast<ExpressionType*>(leftExpr->getExpressionType());
-		return leftExpr + rightExpr;
-	} else if (strcmp(valExpression, "sub") == 0) {
-		assert(!isNull);
-		/* left child */
-		assert(val.HasMember(leftArg));
-		expression_t leftExpr = parseExpression(val[leftArg], ctx);
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
 
-		/* right child */
-		assert(val.HasMember(rightArg));
-		expression_t rightExpr = parseExpression(val[rightArg], ctx);
+    // ExpressionType *exprType =
+    // const_cast<ExpressionType*>(leftExpr->getExpressionType());
+    return leftExpr + rightExpr;
+  } else if (strcmp(valExpression, "sub") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
 
-		return leftExpr - rightExpr;
-	} else if (strcmp(valExpression, "neg") == 0) {
-		assert(!isNull);
-		/* right child */
-		assert(val.HasMember(keyInnerExpr));
-		return -parseExpression(val[keyInnerExpr], ctx);
-	} else if (strcmp(valExpression, "is_not_null") == 0) {
-		assert(!isNull);
-		/* right child */
-		assert(val.HasMember(keyInnerExpr));
-		expression_t expr = parseExpression(val[keyInnerExpr], ctx);
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
 
-		return expression_t::make<expressions::TestNullExpression>(expr, false);
-	} else if (strcmp(valExpression, "is_null") == 0) {
-		assert(!isNull);
-		/* right child */
-		assert(val.HasMember(keyInnerExpr));
-		expression_t expr = parseExpression(val[keyInnerExpr], ctx);
+    return leftExpr - rightExpr;
+  } else if (strcmp(valExpression, "neg") == 0) {
+    assert(!isNull);
+    /* right child */
+    assert(val.HasMember(keyInnerExpr));
+    return -parseExpression(val[keyInnerExpr], ctx);
+  } else if (strcmp(valExpression, "is_not_null") == 0) {
+    assert(!isNull);
+    /* right child */
+    assert(val.HasMember(keyInnerExpr));
+    expression_t expr = parseExpression(val[keyInnerExpr], ctx);
 
-		return expression_t::make<expressions::TestNullExpression>(expr, true);
-	} else if (strcmp(valExpression, "cast") == 0) {
-		assert(!isNull);
-		/* right child */
-		assert(val.HasMember(keyInnerExpr));
-		expression_t expr = parseExpression(val[keyInnerExpr], ctx);
+    return expression_t::make<expressions::TestNullExpression>(expr, false);
+  } else if (strcmp(valExpression, "is_null") == 0) {
+    assert(!isNull);
+    /* right child */
+    assert(val.HasMember(keyInnerExpr));
+    expression_t expr = parseExpression(val[keyInnerExpr], ctx);
 
-		assert(val.HasMember(keyExprType));
-		ExpressionType * t = parseExpressionType(val[keyExprType]);
+    return expression_t::make<expressions::TestNullExpression>(expr, true);
+  } else if (strcmp(valExpression, "cast") == 0) {
+    assert(!isNull);
+    /* right child */
+    assert(val.HasMember(keyInnerExpr));
+    expression_t expr = parseExpression(val[keyInnerExpr], ctx);
 
-		return expression_t::make<expressions::CastExpression>(t, expr);
-	} else if (strcmp(valExpression, "multiply") == 0) {
-		assert(!isNull);
-		/* left child */
-		assert(val.HasMember(leftArg));
-		expression_t leftExpr = parseExpression(val[leftArg], ctx);
+    assert(val.HasMember(keyExprType));
+    ExpressionType *t = parseExpressionType(val[keyExprType]);
 
-		/* right child */
-		assert(val.HasMember(rightArg));
-		expression_t rightExpr = parseExpression(val[rightArg], ctx);
+    return expression_t::make<expressions::CastExpression>(t, expr);
+  } else if (strcmp(valExpression, "multiply") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
 
-		return leftExpr * rightExpr;
-	} else if (strcmp(valExpression, "div") == 0) {
-		assert(!isNull);
-		/* left child */
-		assert(val.HasMember(leftArg));
-		expression_t leftExpr = parseExpression(val[leftArg], ctx);
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
 
-		/* right child */
-		assert(val.HasMember(rightArg));
-		expression_t rightExpr = parseExpression(val[rightArg], ctx);
+    return leftExpr * rightExpr;
+  } else if (strcmp(valExpression, "div") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
 
-		return leftExpr / rightExpr;
-	} else if (strcmp(valExpression, "merge") == 0) {
-		assert(!isNull);
-		string err = string("(Still) unsupported expression: ") + valExpression;
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	} else {
-		string err = string("Unknown expression: ") + valExpression;
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
 
-	return retValue;
+    return leftExpr / rightExpr;
+  } else if (strcmp(valExpression, "merge") == 0) {
+    assert(!isNull);
+    string err = string("(Still) unsupported expression: ") + valExpression;
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  } else {
+    string err = string("Unknown expression: ") + valExpression;
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
+
+  return retValue;
 }
-
 
 /*
- * enum typeID	{ BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, INT64, COMPOSITE };
+ * enum typeID    { BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, INT64,
+ * COMPOSITE };
  * FIXME / TODO: Do I need to cater for 'composite' types?
  * IIRC, they only occur as OIDs / complex caches
-*/
-ExpressionType* ExpressionParser::parseExpressionType(const rapidjson::Value& val) {
+ */
+ExpressionType *ExpressionParser::parseExpressionType(
+    const rapidjson::Value &val) {
+  /* upper-level keys */
+  const char *keyExprType = "type";
+  const char *keyCollectionType = "inner";
 
-	/* upper-level keys */
-	const char *keyExprType = "type";
-	const char *keyCollectionType = "inner";
+  /* Related to record types */
+  const char *keyRecordAttrs = "attributes";
 
-	/* Related to record types */
-	const char *keyRecordAttrs = "attributes";
+  assert(val.HasMember(keyExprType));
+  assert(val[keyExprType].IsString());
+  const char *valExprType = val[keyExprType].GetString();
 
-	assert(val.HasMember(keyExprType));
-	assert(val[keyExprType].IsString());
-	const char *valExprType = val[keyExprType].GetString();
+  if (strcmp(valExprType, "bool") == 0) {
+    return new BoolType();
+  } else if (strcmp(valExprType, "int") == 0) {
+    return new IntType();
+  } else if (strcmp(valExprType, "int64") == 0) {
+    return new Int64Type();
+  } else if (strcmp(valExprType, "float") == 0) {
+    return new FloatType();
+  } else if (strcmp(valExprType, "date") == 0) {
+    return new DateType();
+  } else if (strcmp(valExprType, "string") == 0) {
+    return new StringType();
+  } else if (strcmp(valExprType, "dstring") == 0) {
+    return new DStringType(NULL);
+  } else if (strcmp(valExprType, "set") == 0) {
+    assert(val.HasMember("inner"));
+    assert(val["inner"].IsObject());
+    ExpressionType *innerType = parseExpressionType(val["inner"]);
+    return new SetType(*innerType);
+  } else if (strcmp(valExprType, "bag") == 0) {
+    assert(val.HasMember("inner"));
+    assert(val["inner"].IsObject());
+    ExpressionType *innerType = parseExpressionType(val["inner"]);
+    return new BagType(*innerType);
+  } else if (strcmp(valExprType, "list") == 0) {
+    assert(val.HasMember("inner"));
+    assert(val["inner"].IsObject());
+    ExpressionType *innerType = parseExpressionType(val["inner"]);
+    return new ListType(*innerType);
+  } else if (strcmp(valExprType, "record") == 0) {
+    if (val.HasMember("attributes")) {
+      assert(val["attributes"].IsArray());
 
-	if (strcmp(valExprType, "bool") == 0) {
-		return new BoolType();
-	} else if (strcmp(valExprType, "int") == 0) {
-		return new IntType();
-	} else if (strcmp(valExprType, "int64") == 0) {
-		return new Int64Type();
-	} else if (strcmp(valExprType, "float") == 0) {
-		return new FloatType();
-	} else if (strcmp(valExprType, "date") == 0) {
-		return new DateType();
-	} else if (strcmp(valExprType, "string") == 0) {
-		return new StringType();
-	} else if (strcmp(valExprType, "dstring") == 0) {
-		return new DStringType(NULL);
-	} else if (strcmp(valExprType, "set") == 0) {
-		assert(val.HasMember("inner"));
-		assert(val["inner"].IsObject());
-		ExpressionType *innerType = parseExpressionType(val["inner"]);
-		return new SetType(*innerType);
-	} else if (strcmp(valExprType, "bag") == 0) {
-		assert(val.HasMember("inner"));
-		assert(val["inner"].IsObject());
-		ExpressionType *innerType = parseExpressionType(val["inner"]);
-		return new BagType(*innerType);
-	} else if (strcmp(valExprType, "list") == 0) {
-		assert(val.HasMember("inner"));
-		assert(val["inner"].IsObject());
-		ExpressionType *innerType = parseExpressionType(val["inner"]);
-		return new ListType(*innerType);
-	} else if (strcmp(valExprType, "record") == 0) {
-		if (val.HasMember("attributes")){
-			assert(val["attributes"].IsArray());
+      list<RecordAttribute *> atts = list<RecordAttribute *>();
+      const rapidjson::Value &attributes =
+          val["attributes"];  // Using a reference for consecutive access is
+                              // handy and faster.
+      for (SizeType i = 0; i < attributes.Size();
+           i++)  // rapidjson uses SizeType instead of size_t.
+      {
+        // Starting from 1
+        RecordAttribute *recAttr = parseRecordAttr(attributes[i]);
+        atts.push_back(recAttr);
+      }
+      return new RecordType(atts);
+    } else if (val.HasMember("relName")) {
+      assert(val["relName"].IsString());
 
-			list<RecordAttribute*> atts = list<RecordAttribute*>();
-			const rapidjson::Value& attributes = val["attributes"]; // Using a reference for consecutive access is handy and faster.
-			for (SizeType i = 0; i < attributes.Size(); i++) // rapidjson uses SizeType instead of size_t.
-			{
-				//Starting from 1
-				RecordAttribute *recAttr = parseRecordAttr(attributes[i]);
-				atts.push_back(recAttr);
-			}
-			return new RecordType(atts);
-		} else if (val.HasMember("relName")){
-			assert(val["relName"].IsString());
-
-			return getRecordType(val["relName"].GetString());
-		} else {
-			return new RecordType();
-		}
-	} else if (strcmp(valExprType, "composite") == 0) {
-		string err = string("(Still) Unsupported expression type: ")
-				+ valExprType;
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	} else {
-		string err = string("Unknown expression type: ") + valExprType;
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
-
+      return getRecordType(val["relName"].GetString());
+    } else {
+      return new RecordType();
+    }
+  } else if (strcmp(valExprType, "composite") == 0) {
+    string err = string("(Still) Unsupported expression type: ") + valExprType;
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  } else {
+    string err = string("Unknown expression type: ") + valExprType;
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
 }
 
-RecordType * ExpressionParser::getRecordType(string relName){
-	//Lookup in catalog based on name
-	InputInfo *datasetInfo = (this->catalogParser).getInputInfoIfKnown(relName);
-	if (datasetInfo == NULL) return NULL;
+RecordType *ExpressionParser::getRecordType(string relName) {
+  // Lookup in catalog based on name
+  InputInfo *datasetInfo = (this->catalogParser).getInputInfoIfKnown(relName);
+  if (datasetInfo == NULL) return NULL;
 
-	/* Retrieve RecordType */
-	/* Extract inner type of collection */
-	CollectionType *collType = dynamic_cast<CollectionType*>(datasetInfo->exprType);
-	if(collType == NULL)	{
-		string error_msg = string("[Type Parser: ] Cannot cast to collection type. Original intended type: ") + datasetInfo->exprType->getType();
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(string(error_msg));
-	}
-	/* For the current plugins, the expression type is unambiguously RecordType */
-	const ExpressionType& nestedType = collType->getNestedType();
-	const RecordType& recType_ = dynamic_cast<const RecordType&>(nestedType);
-	return new RecordType(recType_.getArgs());
+  /* Retrieve RecordType */
+  /* Extract inner type of collection */
+  CollectionType *collType =
+      dynamic_cast<CollectionType *>(datasetInfo->exprType);
+  if (collType == NULL) {
+    string error_msg = string(
+                           "[Type Parser: ] Cannot cast to collection type. "
+                           "Original intended type: ") +
+                       datasetInfo->exprType->getType();
+    LOG(ERROR) << error_msg;
+    throw runtime_error(string(error_msg));
+  }
+  /* For the current plugins, the expression type is unambiguously RecordType */
+  const ExpressionType &nestedType = collType->getNestedType();
+  const RecordType &recType_ = dynamic_cast<const RecordType &>(nestedType);
+  return new RecordType(recType_.getArgs());
 }
 
-const RecordAttribute * ExpressionParser::getAttribute(string relName, string attrName){
-	RecordType * recType = getRecordType(relName);
-	if (recType == NULL) return NULL;
+const RecordAttribute *ExpressionParser::getAttribute(string relName,
+                                                      string attrName) {
+  RecordType *recType = getRecordType(relName);
+  if (recType == NULL) return NULL;
 
-	return recType->getArg(attrName);
+  return recType->getArg(attrName);
 }
 
-RecordAttribute* ExpressionParser::parseRecordAttr(const rapidjson::Value& val, const ExpressionType * defaultType) {
+RecordAttribute *ExpressionParser::parseRecordAttr(
+    const rapidjson::Value &val, const ExpressionType *defaultType) {
+  const char *keyRecAttrType = "type";
+  const char *keyRelName = "relName";
+  const char *keyAttrName = "attrName";
+  const char *keyAttrNo = "attrNo";
 
-	const char *keyRecAttrType = "type";
-	const char *keyRelName = "relName";
-	const char *keyAttrName = "attrName";
-	const char *keyAttrNo = "attrNo";
+  assert(val.HasMember(keyRelName));
+  assert(val[keyRelName].IsString());
+  string relName = val[keyRelName].GetString();
 
-	assert(val.HasMember(keyRelName));
-	assert(val[keyRelName].IsString());
-	string relName = val[keyRelName].GetString();
+  assert(val.HasMember(keyAttrName));
+  assert(val[keyAttrName].IsString());
+  string attrName = val[keyAttrName].GetString();
 
-	assert(val.HasMember(keyAttrName));
-	assert(val[keyAttrName].IsString());
-	string attrName = val[keyAttrName].GetString();
+  const RecordAttribute *attr = getAttribute(relName, attrName);
 
-	const RecordAttribute * attr = getAttribute(relName, attrName);
+  int attrNo;
+  if (val.HasMember(keyAttrNo)) {
+    assert(val[keyAttrNo].IsInt());
+    attrNo = val[keyAttrNo].GetInt();
+  } else {
+    if (!attr)
+      attrNo = -1;
+    else
+      attrNo = attr->getAttrNo();
+  }
 
-	int attrNo;
-	if (val.HasMember(keyAttrNo)){
-		assert(val[keyAttrNo].IsInt());
-		attrNo = val[keyAttrNo].GetInt();
-	} else {
-		if (!attr) attrNo = -1;
-		else       attrNo = attr->getAttrNo();
-	}
+  const ExpressionType *recArgType;
+  if (val.HasMember(keyRecAttrType)) {
+    assert(val[keyRecAttrType].IsObject());
+    recArgType = parseExpressionType(val[keyRecAttrType]);
+  } else {
+    if (attr) {
+      recArgType = attr->getOriginalType();
+    } else {
+      if (defaultType)
+        recArgType = defaultType;
+      else
+        assert(false && "Attribute not found");
+    }
+  }
 
-	const ExpressionType* recArgType;
-	if (val.HasMember(keyRecAttrType)){
-		assert(val[keyRecAttrType].IsObject());
-		recArgType = parseExpressionType(val[keyRecAttrType]);
-	} else {
-		if (attr){
-			recArgType = attr->getOriginalType();
-		} else {
-			if (defaultType) recArgType = defaultType;
-			else             assert(false && "Attribute not found");
-		}
-	}
+  bool is_block = false;
+  if (val.HasMember("isBlock")) {
+    assert(val["isBlock"].IsBool());
+    is_block = val["isBlock"].GetBool();
+  }
 
-	bool is_block = false;
-	if (val.HasMember("isBlock")){
-		assert(val["isBlock"].IsBool());
-		is_block = val["isBlock"].GetBool();
-	}
-
-	return new RecordAttribute(attrNo, relName, attrName, recArgType, is_block);
+  return new RecordAttribute(attrNo, relName, attrName, recArgType, is_block);
 }
 
 Monoid ExpressionParser::parseAccumulator(const char *acc) {
-
-	if (strcmp(acc, "sum") == 0) {
-		return SUM;
-	} else if (strcmp(acc, "max") == 0) {
-		return MAX;
-	} else if (strcmp(acc, "multiply") == 0) {
-		return MULTIPLY;
-	} else if (strcmp(acc, "or") == 0) {
-		return OR;
-	} else if (strcmp(acc, "and") == 0) {
-		return AND;
-	} else if (strcmp(acc, "union") == 0) {
-		return UNION;
-	} else if (strcmp(acc, "bagunion") == 0) {
-		return BAGUNION;
-	} else if (strcmp(acc, "append") == 0) {
-		return APPEND;
-	} else {
-		string err = string("Unknown Monoid: ") + acc;
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
+  if (strcmp(acc, "sum") == 0) {
+    return SUM;
+  } else if (strcmp(acc, "max") == 0) {
+    return MAX;
+  } else if (strcmp(acc, "multiply") == 0) {
+    return MULTIPLY;
+  } else if (strcmp(acc, "or") == 0) {
+    return OR;
+  } else if (strcmp(acc, "and") == 0) {
+    return AND;
+  } else if (strcmp(acc, "union") == 0) {
+    return UNION;
+  } else if (strcmp(acc, "bagunion") == 0) {
+    return BAGUNION;
+  } else if (strcmp(acc, "append") == 0) {
+    return APPEND;
+  } else {
+    string err = string("Unknown Monoid: ") + acc;
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
 }
 
 /**
  * {"name": "foo", "type": "csv", ... }
  * FIXME / TODO If we introduce more plugins, this code must be extended
  */
-Plugin* PlanExecutor::parsePlugin(const rapidjson::Value& val)	{
+Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
+  Plugin *newPg = NULL;
 
-	Plugin *newPg = NULL;
+  const char *keyInputName = "name";
+  const char *keyPgType = "type";
 
-	const char *keyInputName = "name";
-	const char *keyPgType = "type";
+  /*
+   * CSV-specific
+   */
+  // which fields to project
+  const char *keyProjectionsCSV = "projections";
+  // pm policy
+  const char *keyPolicy = "policy";
+  // line hint
+  const char *keyLineHint = "lines";
+  // OPTIONAL: which delimiter to use
+  const char *keyDelimiter = "delimiter";
+  // OPTIONAL: are string values wrapped in brackets?
+  const char *keyBrackets = "brackets";
 
-	/*
-	 * CSV-specific
-	 */
-	//which fields to project
-	const char *keyProjectionsCSV = "projections";
-	//pm policy
-	const char *keyPolicy = "policy";
-	//line hint
-	const char *keyLineHint = "lines";
-	//OPTIONAL: which delimiter to use
-	const char *keyDelimiter = "delimiter";
-	//OPTIONAL: are string values wrapped in brackets?
-	const char *keyBrackets = "brackets";
+  /*
+   * BinRow
+   */
+  const char *keyProjectionsBinRow = "projections";
 
-	/*
-	 * BinRow
-	 */
-	const char *keyProjectionsBinRow = "projections";
+  /*
+   * GPU
+   */
+  const char *keyProjectionsGPU = "projections";
 
-	/*
-	 * GPU
-	 */
-	const char *keyProjectionsGPU = "projections";
+  /*
+   * BinCol
+   */
+  const char *keyProjectionsBinCol = "projections";
 
-	/*
-	 * BinCol
-	 */
-	const char *keyProjectionsBinCol = "projections";
+  assert(val.HasMember(keyInputName));
+  assert(val[keyInputName].IsString());
+  string datasetName = val[keyInputName].GetString();
 
-	assert(val.HasMember(keyInputName));
-	assert(val[keyInputName].IsString());
-	string datasetName = val[keyInputName].GetString();
+  assert(val.HasMember(keyPgType));
+  assert(val[keyPgType].IsString());
+  const char *pgType = val[keyPgType].GetString();
 
-	assert(val.HasMember(keyPgType));
-	assert(val[keyPgType].IsString());
-	const char *pgType = val[keyPgType].GetString();
+  // Lookup in catalog based on name
+  InputInfo *datasetInfo =
+      (this->catalogParser).getInputInfoIfKnown(datasetName);
+  bool pluginExisted = true;
 
-	//Lookup in catalog based on name
-	InputInfo *datasetInfo = (this->catalogParser).getInputInfoIfKnown(datasetName);
-	bool pluginExisted = true;
+  if (!datasetInfo) {
+    RecordType *rec = new RecordType();
 
-	if (!datasetInfo){
-		RecordType * rec = new RecordType();
+    if (val.HasMember("schema")) {
+      const auto &schema = val["schema"];
+      assert(schema.IsArray());
 
-		if (val.HasMember("schema")){
-			const auto &schema = val["schema"];
-			assert(schema.IsArray());
+      for (SizeType i = 0; i < schema.Size(); i++) {
+        assert(schema[i].IsObject());
+        RecordAttribute *recAttr = parseRecordAttr(schema[i]);
 
-			for (SizeType i = 0; i < schema.Size(); i++)
-			{
-				assert(schema[i].IsObject());
-				RecordAttribute *recAttr = parseRecordAttr(schema[i]);
-				
-				std::cout << "Plugin Registered: " << 
-					recAttr->getRelationName() << "." << 
-					recAttr->getAttrName() << std::endl;
-				
-				rec->appendAttribute(recAttr);
-			}
-		}
+        std::cout << "Plugin Registered: " << recAttr->getRelationName() << "."
+                  << recAttr->getAttrName() << std::endl;
 
-		datasetInfo            = new InputInfo()  ;
-		datasetInfo->exprType  = new BagType(*rec);
-		datasetInfo->path      = datasetName;
+        rec->appendAttribute(recAttr);
+      }
+    }
 
-		if (val.HasMember("schema")){
-			// Register it to make it visible to the plugin
-			datasetInfo->oidType = NULL;
-			(this->catalogParser).setInputInfo(datasetName, datasetInfo);
-		}
+    datasetInfo = new InputInfo();
+    datasetInfo->exprType = new BagType(*rec);
+    datasetInfo->path = datasetName;
 
-		pluginExisted = false;
-	}
+    if (val.HasMember("schema")) {
+      // Register it to make it visible to the plugin
+      datasetInfo->oidType = NULL;
+      (this->catalogParser).setInputInfo(datasetName, datasetInfo);
+    }
 
-	//Dynamic allocation because I have to pass reference later on
-	string *pathDynamicCopy = new string(datasetInfo->path);
+    pluginExisted = false;
+  }
 
-	/* Retrieve RecordType */
-	/* Extract inner type of collection */
-	CollectionType *collType = dynamic_cast<CollectionType*>(datasetInfo->exprType);
-	if(collType == NULL)	{
-		string error_msg = string("[Plugin Parser: ] Cannot cast to collection type. Original intended type: ") + datasetInfo->exprType->getType();
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(string(error_msg));
-	}
-	/* For the current plugins, the expression type is unambiguously RecordType */
-	const ExpressionType& nestedType = collType->getNestedType();
-	const RecordType& recType_ = dynamic_cast<const RecordType&>(nestedType);
-	//circumventing the presence of const
-	RecordType *recType = new RecordType(recType_.getArgs());
+  // Dynamic allocation because I have to pass reference later on
+  string *pathDynamicCopy = new string(datasetInfo->path);
 
-	if (strcmp(pgType, "csv") == 0) {
-//		cout<<"Original intended type: " << datasetInfo.exprType->getType()<<endl;
-//		cout<<"File path: " << datasetInfo.path<<endl;
+  /* Retrieve RecordType */
+  /* Extract inner type of collection */
+  CollectionType *collType =
+      dynamic_cast<CollectionType *>(datasetInfo->exprType);
+  if (collType == NULL) {
+    string error_msg = string(
+                           "[Plugin Parser: ] Cannot cast to collection "
+                           "type. Original intended type: ") +
+                       datasetInfo->exprType->getType();
+    LOG(ERROR) << error_msg;
+    throw runtime_error(string(error_msg));
+  }
+  /* For the current plugins, the expression type is unambiguously RecordType */
+  const ExpressionType &nestedType = collType->getNestedType();
+  const RecordType &recType_ = dynamic_cast<const RecordType &>(nestedType);
+  // circumventing the presence of const
+  RecordType *recType = new RecordType(recType_.getArgs());
 
-		/* Projections come in an array of Record Attributes */
-		assert(val.HasMember(keyProjectionsCSV));
-		assert(val[keyProjectionsCSV].IsArray());
+  if (strcmp(pgType, "csv") == 0) {
+    //        cout<<"Original intended type: " <<
+    //        datasetInfo.exprType->getType()<<endl; cout<<"File path: " <<
+    //        datasetInfo.path<<endl;
 
-		vector<RecordAttribute*> projections;
-		for (SizeType i = 0; i < val[keyProjectionsCSV].Size(); i++)
-		{
-			assert(val[keyProjectionsCSV][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val[keyProjectionsCSV][i]);
-			projections.push_back(recAttr);
-		}
+    /* Projections come in an array of Record Attributes */
+    assert(val.HasMember(keyProjectionsCSV));
+    assert(val[keyProjectionsCSV].IsArray());
 
-		assert(val.HasMember(keyLineHint));
-		assert(val[keyLineHint].IsInt());
-		int linehint = val[keyLineHint].GetInt();
+    vector<RecordAttribute *> projections;
+    for (SizeType i = 0; i < val[keyProjectionsCSV].Size(); i++) {
+      assert(val[keyProjectionsCSV][i].IsObject());
+      RecordAttribute *recAttr =
+          this->parseRecordAttr(val[keyProjectionsCSV][i]);
+      projections.push_back(recAttr);
+    }
 
-		assert(val.HasMember(keyPolicy));
-		assert(val[keyPolicy].IsInt());
-		int policy = val[keyPolicy].GetInt();
+    assert(val.HasMember(keyLineHint));
+    assert(val[keyLineHint].IsInt());
+    int linehint = val[keyLineHint].GetInt();
 
-		char delim = ',';
-		if (val.HasMember(keyDelimiter)) {
-			assert(val[keyDelimiter].IsString());
-			delim = (val[keyDelimiter].GetString())[0];
-		}
-		else
-		{
-			string err = string("WARNING - NO DELIMITER SPECIFIED. FALLING BACK TO DEFAULT");
-			LOG(WARNING)<< err;
-			cout << err << endl;
-		}
+    assert(val.HasMember(keyPolicy));
+    assert(val[keyPolicy].IsInt());
+    int policy = val[keyPolicy].GetInt();
 
-		bool stringBrackets = true;
-		if (val.HasMember(keyBrackets)) {
-			assert(val[keyBrackets].IsBool());
-			stringBrackets = val[keyBrackets].GetBool();
-		}
+    char delim = ',';
+    if (val.HasMember(keyDelimiter)) {
+      assert(val[keyDelimiter].IsString());
+      delim = (val[keyDelimiter].GetString())[0];
+    } else {
+      string err =
+          string("WARNING - NO DELIMITER SPECIFIED. FALLING BACK TO DEFAULT");
+      LOG(WARNING) << err;
+      cout << err << endl;
+    }
 
-		newPg = new pm::CSVPlugin(this->ctx, *pathDynamicCopy, *recType,
-				projections, delim, linehint, policy, stringBrackets);
-	} else if (strcmp(pgType, "json") == 0) {
-		assert(val.HasMember(keyLineHint));
-		assert(val[keyLineHint].IsInt());
-		int linehint = val[keyLineHint].GetInt();
+    bool stringBrackets = true;
+    if (val.HasMember(keyBrackets)) {
+      assert(val[keyBrackets].IsBool());
+      stringBrackets = val[keyBrackets].GetBool();
+    }
 
-		newPg = new jsonPipelined::JSONPlugin(this->ctx, *pathDynamicCopy, datasetInfo->exprType);
-	} else if (strcmp(pgType, "binrow") == 0) {
-		assert(val.HasMember(keyProjectionsBinRow));
-		assert(val[keyProjectionsBinRow].IsArray());
+    newPg =
+        new pm::CSVPlugin(this->ctx, *pathDynamicCopy, *recType, projections,
+                          delim, linehint, policy, stringBrackets);
+  } else if (strcmp(pgType, "json") == 0) {
+    assert(val.HasMember(keyLineHint));
+    assert(val[keyLineHint].IsInt());
+    int linehint = val[keyLineHint].GetInt();
 
-		vector<RecordAttribute*> *projections = new vector<RecordAttribute*>();
-		for (SizeType i = 0; i < val[keyProjectionsBinRow].Size(); i++) {
-			assert(val[keyProjectionsBinRow][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(
-					val[keyProjectionsBinRow][i]);
-			projections->push_back(recAttr);
-		}
+    newPg = new jsonPipelined::JSONPlugin(this->ctx, *pathDynamicCopy,
+                                          datasetInfo->exprType);
+  } else if (strcmp(pgType, "binrow") == 0) {
+    assert(val.HasMember(keyProjectionsBinRow));
+    assert(val[keyProjectionsBinRow].IsArray());
 
-		newPg = new BinaryRowPlugin(this->ctx, *pathDynamicCopy, *recType,
-				*projections);
-	} else if (strcmp(pgType, "bincol") == 0) {
-		assert(val.HasMember(keyProjectionsBinCol));
-		assert(val[keyProjectionsBinCol].IsArray());
+    vector<RecordAttribute *> *projections = new vector<RecordAttribute *>();
+    for (SizeType i = 0; i < val[keyProjectionsBinRow].Size(); i++) {
+      assert(val[keyProjectionsBinRow][i].IsObject());
+      RecordAttribute *recAttr =
+          this->parseRecordAttr(val[keyProjectionsBinRow][i]);
+      projections->push_back(recAttr);
+    }
 
-		vector<RecordAttribute*> *projections = new vector<RecordAttribute*>();
-		for (SizeType i = 0; i < val[keyProjectionsBinCol].Size(); i++) {
-			assert(val[keyProjectionsBinCol][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(
-					val[keyProjectionsBinCol][i]);
-			projections->push_back(recAttr);
-		}
+    newPg = new BinaryRowPlugin(this->ctx, *pathDynamicCopy, *recType,
+                                *projections);
+  } else if (strcmp(pgType, "bincol") == 0) {
+    assert(val.HasMember(keyProjectionsBinCol));
+    assert(val[keyProjectionsBinCol].IsArray());
 
-		bool sizeInFile = true;
-		if (val.HasMember("sizeInFile")){
-			assert(val["sizeInFile"].IsBool());
-			sizeInFile = val["sizeInFile"].GetBool();
-		}
-		newPg = new BinaryColPlugin(this->ctx, *pathDynamicCopy, *recType,
-				*projections, sizeInFile);
-	} else if (strcmp(pgType, "block") == 0) {
-		assert(val.HasMember(keyProjectionsGPU));
-		assert(val[keyProjectionsGPU].IsArray());
+    vector<RecordAttribute *> *projections = new vector<RecordAttribute *>();
+    for (SizeType i = 0; i < val[keyProjectionsBinCol].Size(); i++) {
+      assert(val[keyProjectionsBinCol][i].IsObject());
+      RecordAttribute *recAttr =
+          this->parseRecordAttr(val[keyProjectionsBinCol][i]);
+      projections->push_back(recAttr);
+    }
 
-		vector<RecordAttribute*> projections;
-		for (SizeType i = 0; i < val[keyProjectionsGPU].Size(); i++)
-		{
-			assert(val[keyProjectionsGPU][i].IsObject());
-			RecordAttribute *recAttr = this->parseRecordAttr(val[keyProjectionsGPU][i]);
-			projections.push_back(recAttr);
-		}
-		assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    bool sizeInFile = true;
+    if (val.HasMember("sizeInFile")) {
+      assert(val["sizeInFile"].IsBool());
+      sizeInFile = val["sizeInFile"].GetBool();
+    }
+    newPg = new BinaryColPlugin(this->ctx, *pathDynamicCopy, *recType,
+                                *projections, sizeInFile);
+  } else if (strcmp(pgType, "block") == 0) {
+    assert(val.HasMember(keyProjectionsGPU));
+    assert(val[keyProjectionsGPU].IsArray());
 
-		newPg = new ScanToBlockSMPlugin(dynamic_cast<GpuRawContext *>(this->ctx), *pathDynamicCopy, *recType, projections);
-	} else {
-		string err = string("Unknown Plugin Type: ") + pgType;
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
+    vector<RecordAttribute *> projections;
+    for (SizeType i = 0; i < val[keyProjectionsGPU].Size(); i++) {
+      assert(val[keyProjectionsGPU][i].IsObject());
+      RecordAttribute *recAttr =
+          this->parseRecordAttr(val[keyProjectionsGPU][i]);
+      projections.push_back(recAttr);
+    }
+    assert(dynamic_cast<GpuRawContext *>(this->ctx));
 
-	activePlugins.push_back(newPg);
-	RawCatalog& catalog = RawCatalog::getInstance();
-	catalog.registerPlugin(*pathDynamicCopy,newPg);
-	datasetInfo->oidType = newPg->getOIDType();
-	(this->catalogParser).setInputInfo(datasetName,datasetInfo);
-	return newPg;
+    newPg = new ScanToBlockSMPlugin(dynamic_cast<GpuRawContext *>(this->ctx),
+                                    *pathDynamicCopy, *recType, projections);
+  } else {
+    string err = string("Unknown Plugin Type: ") + pgType;
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
+
+  activePlugins.push_back(newPg);
+  RawCatalog &catalog = RawCatalog::getInstance();
+  catalog.registerPlugin(*pathDynamicCopy, newPg);
+  datasetInfo->oidType = newPg->getOIDType();
+  (this->catalogParser).setInputInfo(datasetName, datasetInfo);
+  return newPg;
 }
 
 #include <dirent.h>
 #include <stdlib.h>
 
-void CatalogParser::parseCatalogFile(std::string file){
-	//key aliases
-	const char *keyInputPath = "path";
-	const char *keyExprType =  "type";
+void CatalogParser::parseCatalogFile(std::string file) {
+  // key aliases
+  const char *keyInputPath = "path";
+  const char *keyExprType = "type";
 
-	//Prepare Input
-	struct stat statbuf;
-	stat(file.c_str(), &statbuf);
-	size_t fsize = statbuf.st_size;
+  // Prepare Input
+  struct stat statbuf;
+  stat(file.c_str(), &statbuf);
+  size_t fsize = statbuf.st_size;
 
-	int fd = open(file.c_str(), O_RDONLY);
-	if (fd < 0) {
-		std::string err = "failed to open file: " + file;
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
-	const char *bufJSON = (const char*) mmap(NULL, fsize, PROT_READ,
-			MAP_PRIVATE, fd, 0);
-	if (bufJSON == MAP_FAILED ) {
-		std::string err = "json.mmap";
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
+  int fd = open(file.c_str(), O_RDONLY);
+  if (fd < 0) {
+    std::string err = "failed to open file: " + file;
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
+  const char *bufJSON =
+      (const char *)mmap(NULL, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (bufJSON == MAP_FAILED) {
+    std::string err = "json.mmap";
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
 
-	Document document; // Default template parameter uses UTF8 and MemoryPoolAllocator.
-	auto & parsed = document.Parse(bufJSON);
-	if (parsed.HasParseError()) {
-		ParseResult ok = (ParseResult) parsed;
-		fprintf(stderr, "[CatalogParser: ] Error parsing physical plan: %s (%lu)", RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
-			const char *err = "[CatalogParser: ] Error parsing physical plan";
-		LOG(ERROR)<< err << ": " << RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()) << "(" << ok.Offset() << ")";
-		throw runtime_error(err);
-	}
+  Document document;  // Default template parameter uses UTF8 and
+                      // MemoryPoolAllocator.
+  auto &parsed = document.Parse(bufJSON);
+  if (parsed.HasParseError()) {
+    ParseResult ok = (ParseResult)parsed;
+    fprintf(stderr, "[CatalogParser: ] Error parsing physical plan: %s (%lu)",
+            RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
+    const char *err = "[CatalogParser: ] Error parsing physical plan";
+    LOG(ERROR) << err << ": "
+               << RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()) << "("
+               << ok.Offset() << ")";
+    throw runtime_error(err);
+  }
 
-	//Start plan traversal.
-	assert(document.IsObject());
+  // Start plan traversal.
+  assert(document.IsObject());
 
-	for (rapidjson::Value::ConstMemberIterator itr = document.MemberBegin();
-			itr != document.MemberEnd(); ++itr) {
-		// printf("Key of member is %s\n", itr->name.GetString());
+  for (rapidjson::Value::ConstMemberIterator itr = document.MemberBegin();
+       itr != document.MemberEnd(); ++itr) {
+    // printf("Key of member is %s\n", itr->name.GetString());
 
-		assert(itr->value.IsObject());
-		assert((itr->value)[keyInputPath].IsString());
-		string inputPath = ((itr->value)[keyInputPath]).GetString();
-		assert((itr->value)[keyExprType].IsObject());
-		ExpressionType *exprType = exprParser.parseExpressionType((itr->value)[keyExprType]);
-		InputInfo *info = new InputInfo();
-		info->exprType = exprType;
-		info->path = inputPath;
-		//Initialized by parsePlugin() later on
-		info->oidType = NULL;
-//			(this->inputs)[itr->name.GetString()] = info;
-		(this->inputs)[info->path] = info;
+    assert(itr->value.IsObject());
+    assert((itr->value)[keyInputPath].IsString());
+    string inputPath = ((itr->value)[keyInputPath]).GetString();
+    assert((itr->value)[keyExprType].IsObject());
+    ExpressionType *exprType =
+        exprParser.parseExpressionType((itr->value)[keyExprType]);
+    InputInfo *info = new InputInfo();
+    info->exprType = exprType;
+    info->path = inputPath;
+    // Initialized by parsePlugin() later on
+    info->oidType = NULL;
+    //            (this->inputs)[itr->name.GetString()] = info;
+    (this->inputs)[info->path] = info;
 
-		setInputInfo(info->path, info);
-	}
+    setInputInfo(info->path, info);
+  }
 }
 
-void CatalogParser::parseDir(std::string dir){
-	//FIXME: we can do that in a portable way with C++17, but for now because we
-	// are using libstdc++, upgrading to C++17 and using <filesystem> causes 
-	// linking problems in machines with old gcc version
-	DIR *d = opendir(dir.c_str());
-	if (!d) {
-		std::string err = "Failed to open dir: " + dir + " (" + strerror(errno) + ")";
-		LOG(ERROR)<< err;
-		throw runtime_error(err);
-	}
+void CatalogParser::parseDir(std::string dir) {
+  // FIXME: we can do that in a portable way with C++17, but for now because we
+  // are using libstdc++, upgrading to C++17 and using <filesystem> causes
+  // linking problems in machines with old gcc version
+  DIR *d = opendir(dir.c_str());
+  if (!d) {
+    std::string err =
+        "Failed to open dir: " + dir + " (" + strerror(errno) + ")";
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
 
-	dirent *entry;
-	while ((entry = readdir(d)) != NULL) {
-		std::string fname{entry->d_name};
+  dirent *entry;
+  while ((entry = readdir(d)) != NULL) {
+    std::string fname{entry->d_name};
 
-		if (strcmp(entry->d_name, "..") == 0) continue;
-		if (strcmp(entry->d_name, "." ) == 0) continue;
+    if (strcmp(entry->d_name, "..") == 0) continue;
+    if (strcmp(entry->d_name, ".") == 0) continue;
 
-		std::string origd{dir + "/" + fname};
-		//Use this to canonicalize paths:
-		// std::string pathd{realpath(origd.c_str(), NULL)};
-		std::string pathd{origd};
+    std::string origd{dir + "/" + fname};
+    // Use this to canonicalize paths:
+    // std::string pathd{realpath(origd.c_str(), NULL)};
+    std::string pathd{origd};
 
-		struct stat s;
-		stat(pathd.c_str(), &s);
+    struct stat s;
+    stat(pathd.c_str(), &s);
 
-		if (S_ISDIR(s.st_mode)) {
-			parseDir(pathd);
-		} else if (fname == "catalog.json" && S_ISREG(s.st_mode)){
-			parseCatalogFile(pathd);
-		} /* else skipping */
-	}
-	closedir(d);
+    if (S_ISDIR(s.st_mode)) {
+      parseDir(pathd);
+    } else if (fname == "catalog.json" && S_ISREG(s.st_mode)) {
+      parseCatalogFile(pathd);
+    } /* else skipping */
+  }
+  closedir(d);
 }
-
 
 /**
  * {"datasetname": {"path": "foo", "type": { ... } }
  */
-CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context): exprParser(*this), context(context) {
-	parseDir(catalogPath);
+CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context)
+    : exprParser(*this), context(context) {
+  parseDir(catalogPath);
 }
 
+InputInfo *CatalogParser::getOrCreateInputInfo(string inputName) {
+  InputInfo *ret = getInputInfoIfKnown(inputName);
 
-InputInfo *CatalogParser::getOrCreateInputInfo(string inputName){
-	InputInfo * ret = getInputInfoIfKnown(inputName);
-	
-	if (!ret){
-		RecordType * rec = new RecordType();
+  if (!ret) {
+    RecordType *rec = new RecordType();
 
-		ret            = new InputInfo()  ;
-		ret->exprType  = new BagType(*rec);
-		ret->path      = inputName;
+    ret = new InputInfo();
+    ret->exprType = new BagType(*rec);
+    ret->path = inputName;
 
-		RawCatalog& catalog = RawCatalog::getInstance();
-		
-		assert(context && "A GpuRawContext is required to register relationships on the fly");
-		vector<RecordAttribute *> projs;
-		Plugin * newPg = new pm::CSVPlugin(context, inputName, *rec, projs, ',', 10, 1, false);
-		catalog.registerPlugin(*(new string(inputName)), newPg);
-		ret->oidType   = newPg->getOIDType();
+    RawCatalog &catalog = RawCatalog::getInstance();
 
-		setInputInfo(inputName, ret);
-	}
+    assert(context &&
+           "A GpuRawContext is required to register relationships on the fly");
+    vector<RecordAttribute *> projs;
+    Plugin *newPg =
+        new pm::CSVPlugin(context, inputName, *rec, projs, ',', 10, 1, false);
+    catalog.registerPlugin(*(new string(inputName)), newPg);
+    ret->oidType = newPg->getOIDType();
 
-	return ret;
+    setInputInfo(inputName, ret);
+  }
+
+  return ret;
 }

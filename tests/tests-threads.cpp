@@ -21,7 +21,6 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-
 // Step 1. Include necessary header files such that the stuff your
 // test logic needs is declared.
 //
@@ -57,139 +56,139 @@
 //
 // </TechnicalDetails>
 
-#include "common/gpu/gpu-common.hpp"
 #include "common/common.hpp"
+#include "common/gpu/gpu-common.hpp"
+#include "plan/plan-parser.hpp"
+#include "storage/raw-storage-manager.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 #include "util/raw-functions.hpp"
-#include "util/raw-pipeline.hpp"
-#include "plan/plan-parser.hpp"
 #include "util/raw-memory-manager.hpp"
-#include "storage/raw-storage-manager.hpp"
+#include "util/raw-pipeline.hpp"
 // #include <cuda_profiler_api.h>
 #include "test-utils.hpp"
-#include "topology/topology.hpp"
 #include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
 
-#include <vector>
 #include <thread>
+#include <vector>
 
 using namespace llvm;
 
-::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+::testing::Environment *const pools_env =
+    ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
 
 class ThreadTest : public ::testing::Test {
-protected:
-    virtual void SetUp();
-    virtual void TearDown();
+ protected:
+  virtual void SetUp();
+  virtual void TearDown();
 
-    void runAndVerify(const char *testLabel, const char* planPath, bool unordered = false);
-    
-    bool flushResults = true;
-    const char * testPath = TEST_OUTPUTS "/tests-threads/";
+  void runAndVerify(const char *testLabel, const char *planPath,
+                    bool unordered = false);
 
-    const char * catalogJSON = "inputs";
-public:
+  bool flushResults = true;
+  const char *testPath = TEST_OUTPUTS "/tests-threads/";
+
+  const char *catalogJSON = "inputs";
+
+ public:
 };
 
-void ThreadTest::SetUp   (){
-    gpu_run(cudaSetDevice(0));
-}
+void ThreadTest::SetUp() { gpu_run(cudaSetDevice(0)); }
 
-void ThreadTest::TearDown(){
-    StorageManager::unloadAll();
-}
+void ThreadTest::TearDown() { StorageManager::unloadAll(); }
 
-void ThreadTest::runAndVerify(const char *testLabel, const char* planPath, bool unordered){
-    ::runAndVerify(testLabel, planPath, testPath, catalogJSON, unordered);
+void ThreadTest::runAndVerify(const char *testLabel, const char *planPath,
+                              bool unordered) {
+  ::runAndVerify(testLabel, planPath, testPath, catalogJSON, unordered);
 }
 
 TEST_F(ThreadTest, power9_getcpu) {
-    const auto &topo = topology::getInstance();
+  const auto &topo = topology::getInstance();
 
-    uint32_t target = std::min(topo.getCoreCount()/2 + 1, topo.getCoreCount());
+  uint32_t target = std::min(topo.getCoreCount() / 2 + 1, topo.getCoreCount());
 
-    cpu_set_t c;
+  cpu_set_t c;
 
-    CPU_ZERO(&c);
-    CPU_SET(target, &c);
+  CPU_ZERO(&c);
+  CPU_SET(target, &c);
 
-    int s = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &c);
-    EXPECT_EQ(s , 0);
+  int s = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &c);
+  EXPECT_EQ(s, 0);
 
-    int s2 = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &c);
-    EXPECT_EQ(s2, 0);
+  int s2 = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &c);
+  EXPECT_EQ(s2, 0);
 
-    for (size_t i = 0; i < topo.getCoreCount(); ++i) {
-        if (CPU_ISSET(i, &c)) std::cout << i << std::endl;
-    }
+  for (size_t i = 0; i < topo.getCoreCount(); ++i) {
+    if (CPU_ISSET(i, &c)) std::cout << i << std::endl;
+  }
 
-    std::this_thread::yield(); //btw, is this necessary?
+  std::this_thread::yield();  // btw, is this necessary?
 
-    // size_t s3 = 0;
-    // for (int i = 0 ; i < 12310391023910 ; ++i) s3 += std::pow(5, i);
-    // std::cout << s3 << std::endl;
+  // size_t s3 = 0;
+  // for (int i = 0 ; i < 12310391023910 ; ++i) s3 += std::pow(5, i);
+  // std::cout << s3 << std::endl;
 
-    std::cout << "sched:" << sched_getcpu() << std::endl;
-    EXPECT_NE(sched_getcpu(), 0);
-    EXPECT_EQ(sched_getcpu(), (long) target);
+  std::cout << "sched:" << sched_getcpu() << std::endl;
+  EXPECT_NE(sched_getcpu(), 0);
+  EXPECT_EQ(sched_getcpu(), (long)target);
 }
 
 TEST_F(ThreadTest, affinity) {
-    const auto &topo = topology::getInstance();
+  const auto &topo = topology::getInstance();
 
-    constexpr size_t spawned_threads = 1024;
+  constexpr size_t spawned_threads = 1024;
 
-    int tests[spawned_threads];
+  int tests[spawned_threads];
 
-    for (size_t i = 0 ; i < spawned_threads ; ++i) tests[i] = -1;
+  for (size_t i = 0; i < spawned_threads; ++i) tests[i] = -1;
 
-    std::vector<std::thread> threads;
-    const auto &cpus = topo.getCpuNumaNodes();
+  std::vector<std::thread> threads;
+  const auto &cpus = topo.getCpuNumaNodes();
 
-    for (size_t i = 0 ; i < spawned_threads ; ++i){
-        threads.emplace_back([&cpus, &tests, i]{
-            const auto &cpu = cpus[i % cpus.size()];
-            set_exec_location_on_scope el{cpu};
+  for (size_t i = 0; i < spawned_threads; ++i) {
+    threads.emplace_back([&cpus, &tests, i] {
+      const auto &cpu = cpus[i % cpus.size()];
+      set_exec_location_on_scope el{cpu};
 
-            tests[i] = sched_getcpu();
-        });
-    }
-    for (auto &t: threads) t.join();
+      tests[i] = sched_getcpu();
+    });
+  }
+  for (auto &t : threads) t.join();
 
-    for (size_t i = 0 ; i < spawned_threads ; ++i) {
-        const auto &cpu = cpus[i % cpus.size()];
-        EXPECT_TRUE(CPU_ISSET(tests[i], &(cpu.local_cpu_set)));
-    }
+  for (size_t i = 0; i < spawned_threads; ++i) {
+    const auto &cpu = cpus[i % cpus.size()];
+    EXPECT_TRUE(CPU_ISSET(tests[i], &(cpu.local_cpu_set)));
+  }
 }
 
 TEST_F(ThreadTest, local_memory_allocation) {
-    const auto &topo = topology::getInstance();
+  const auto &topo = topology::getInstance();
 
-    constexpr size_t spawned_threads = 1024;
+  constexpr size_t spawned_threads = 1024;
 
-    uint32_t tests[spawned_threads];
+  uint32_t tests[spawned_threads];
 
-    for (size_t i = 0 ; i < spawned_threads ; ++i) tests[i] = ~0;
+  for (size_t i = 0; i < spawned_threads; ++i) tests[i] = ~0;
 
-    std::vector<std::thread> threads;
-    const auto &cpus = topo.getCpuNumaNodes();
+  std::vector<std::thread> threads;
+  const auto &cpus = topo.getCpuNumaNodes();
 
-    for (size_t i = 0 ; i < spawned_threads ; ++i){
-        threads.emplace_back([&cpus, &tests, &topo, i]{
-            const auto &cpu = cpus[i % cpus.size()];
-            set_exec_location_on_scope el{cpu};
+  for (size_t i = 0; i < spawned_threads; ++i) {
+    threads.emplace_back([&cpus, &tests, &topo, i] {
+      const auto &cpu = cpus[i % cpus.size()];
+      set_exec_location_on_scope el{cpu};
 
-            void * mem = RawMemoryManager::mallocPinned(1024);
+      void *mem = RawMemoryManager::mallocPinned(1024);
 
-            tests[i] = (topo.getCpuNumaNodeAddressed(mem)->id);
+      tests[i] = (topo.getCpuNumaNodeAddressed(mem)->id);
 
-            RawMemoryManager::freePinned(mem);
-        });
-    }
-    for (auto &t: threads) t.join();
+      RawMemoryManager::freePinned(mem);
+    });
+  }
+  for (auto &t : threads) t.join();
 
-    for (size_t i = 0 ; i < spawned_threads ; ++i) {
-        const auto &cpu = cpus[i % cpus.size()];
-        EXPECT_EQ(tests[i], cpu.id);
-    }
+  for (size_t i = 0; i < spawned_threads; ++i) {
+    const auto &cpu = cpus[i % cpus.size()];
+    EXPECT_EQ(tests[i], cpu.id);
+  }
 }

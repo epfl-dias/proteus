@@ -23,10 +23,10 @@
 
 #include "test-utils.hpp"
 
-#include "util/raw-memory-manager.hpp"
 #include "storage/raw-storage-manager.hpp"
-#include "topology/topology.hpp"
 #include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
+#include "util/raw-memory-manager.hpp"
 
 #include "util/gpu/gpu-raw-context.hpp"
 #include "util/raw-functions.hpp"
@@ -35,222 +35,240 @@
 #include "plan/plan-parser.hpp"
 
 #include "rapidjson/error/en.h"
-#include "rapidjson/writer.h"
-#include "rapidjson/stringbuffer.h"
 #include "rapidjson/schema.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/writer.h"
 
-void RawTestEnvironment::SetUp(){
-    if (has_already_been_setup) {
-        is_noop = true;
-        return;
-    }
+void RawTestEnvironment::SetUp() {
+  if (has_already_been_setup) {
+    is_noop = true;
+    return;
+  }
 
-    setbuf(stdout, NULL);
+  setbuf(stdout, NULL);
 
-    google::InstallFailureSignalHandler();
-    // int devCount;
+  google::InstallFailureSignalHandler();
+  // int devCount;
 
-    // gpu_run(cuInit(0));
-    // gpu_run(cuDeviceGetCount(&devCount));
+  // gpu_run(cuInit(0));
+  // gpu_run(cuDeviceGetCount(&devCount));
 
-    // device  = new CUdevice [devCount];
-    // context = new CUcontext[devCount];
+  // device  = new CUdevice [devCount];
+  // context = new CUcontext[devCount];
 
-    // for (int i = 0 ; i < devCount ; ++i){
-    //     gpu_run(cuDeviceGet(device  + i, i));
-    //     gpu_run(cuCtxCreate(context + i, 0, device[i]));
-    // }
+  // for (int i = 0 ; i < devCount ; ++i){
+  //     gpu_run(cuDeviceGet(device  + i, i));
+  //     gpu_run(cuCtxCreate(context + i, 0, device[i]));
+  // }
 
-    // gpu_run(cudaSetDeviceFlags(cudaDeviceScheduleYield));
+  // gpu_run(cudaSetDeviceFlags(cudaDeviceScheduleYield));
 
-    // gpu_run(cudaDeviceSetLimit(cudaLimitStackSize, 40960));
+  // gpu_run(cudaDeviceSetLimit(cudaLimitStackSize, 40960));
 
-    std::vector<std::thread> thrds;
-    for (int i = 0 ; i < 32 ; ++i) thrds.emplace_back([]{});
-    for (auto &t: thrds) t.join();
+  std::vector<std::thread> thrds;
+  for (int i = 0; i < 32; ++i) thrds.emplace_back([] {});
+  for (auto &t : thrds) t.join();
 
-    // srand(time(0));
+  // srand(time(0));
 
-    RawPipelineGen::init();
-    RawMemoryManager::init();
+  RawPipelineGen::init();
+  RawMemoryManager::init();
 
-    gpu_run(cudaSetDevice(0));
+  gpu_run(cudaSetDevice(0));
 
-    has_already_been_setup = true;
+  has_already_been_setup = true;
 }
 
-void RawTestEnvironment::TearDown(){
-    if (!is_noop) RawMemoryManager::destroy();
+void RawTestEnvironment::TearDown() {
+  if (!is_noop) RawMemoryManager::destroy();
 }
 
+bool verifyTestResult(const char *testsPath, const char *testLabel,
+                      bool unordered) {
+  /* Compare with template answer */
+  /* correct */
+  struct stat statbuf;
+  string correctResult = string(testsPath) + testLabel;
+  if (stat(correctResult.c_str(), &statbuf)) {
+    fprintf(stderr, "FAILURE to stat test verification! (%s) (path: %s)\n",
+            std::strerror(errno), correctResult.c_str());
+    return false;
+  }
+  size_t fsize1 = statbuf.st_size;
+  int fd1 = open(correctResult.c_str(), O_RDONLY);
+  if (fd1 == -1) {
+    throw runtime_error(string(__func__) + string(".open (verification): ") +
+                        correctResult);
+  }
+  char *correctBuf =
+      (char *)mmap(NULL, fsize1, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd1, 0);
 
-bool verifyTestResult(const char *testsPath, const char *testLabel, bool unordered) {
-    /* Compare with template answer */
-    /* correct */
-    struct stat statbuf;
-    string correctResult = string(testsPath) + testLabel;
-    if (stat(correctResult.c_str(), &statbuf)) {
-        fprintf(stderr, "FAILURE to stat test verification! (%s) (path: %s)\n", std::strerror(errno), correctResult.c_str());
-        return false;
+  /* current */
+  // if (unordered){
+  //  std::system((std::string("sort ") + testLabel + " > " +
+  //  testLabel).c_str());
+  // }
+  int fd2 = shm_open(testLabel, O_RDONLY, S_IRWXU);
+  if (fd2 == -1) {
+    throw runtime_error(string(__func__) + string(".open (output): ") +
+                        testLabel);
+  }
+  if (fstat(fd2, &statbuf)) {
+    fprintf(stderr, "FAILURE to stat test results! (%s)\n",
+            std::strerror(errno));
+    return false;
+  }
+  size_t fsize2 = statbuf.st_size;
+  char *currResultBuf =
+      (char *)mmap(NULL, fsize2, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd2, 0);
+  bool areEqual = (fsize1 == fsize2);
+  if (areEqual) {
+    if (unordered) {
+      std::vector<std::string> lines;
+      std::stringstream ss(currResultBuf);
+      std::string str;
+      while (std::getline(ss, str)) lines.emplace_back(str);
+      std::sort(lines.begin(), lines.end());
+      ss.clear();
+      for (const auto &s : lines) ss << s << '\n';
+      areEqual =
+          (fsize1 == 0) || (memcmp(correctBuf, ss.str().c_str(), fsize1) == 0);
+    } else {
+      areEqual =
+          (fsize1 == 0) || (memcmp(correctBuf, currResultBuf, fsize1) == 0);
     }
-    size_t fsize1 = statbuf.st_size;
-    int fd1 = open(correctResult.c_str(), O_RDONLY);
-    if (fd1 == -1) {
-        throw runtime_error(string(__func__) + string(".open (verification): ")+correctResult);
-    }
-    char *correctBuf = (char*) mmap(NULL, fsize1, PROT_READ | PROT_WRITE,
-            MAP_PRIVATE, fd1, 0);
-
-    /* current */
-    // if (unordered){
-    //  std::system((std::string("sort ") + testLabel + " > " + testLabel).c_str());
-    // }
-    int fd2 = shm_open(testLabel, O_RDONLY, S_IRWXU);
-    if (fd2 == -1) {
-        throw runtime_error(string(__func__) + string(".open (output): ")+testLabel);
-    }
-    if (fstat(fd2, &statbuf)) {
-        fprintf(stderr, "FAILURE to stat test results! (%s)\n", std::strerror(errno));
-        return false;
-    }
-    size_t fsize2 = statbuf.st_size;
-    char *currResultBuf = (char*) mmap(NULL, fsize2, PROT_READ | PROT_WRITE,
-            MAP_PRIVATE, fd2, 0);
-    bool areEqual = (fsize1 == fsize2);
-    if (areEqual){
-        if (unordered){
-            std::vector<std::string> lines;
-            std::stringstream ss(currResultBuf);
-            std::string str;
-            while (std::getline(ss, str)) lines.emplace_back(str);
-            std::sort(lines.begin(), lines.end());
-            ss.clear();
-            for (const auto &s: lines) ss << s << '\n';
-            areEqual = (fsize1 == 0) || (memcmp(correctBuf, ss.str().c_str(), fsize1) == 0);
-        } else {
-            areEqual = (fsize1 == 0) || (memcmp(correctBuf, currResultBuf, fsize1) == 0);
-        }
-        // Document document; // Default template parameter uses UTF8 and MemoryPoolAllocator.
-        // auto & parsed = document.Parse(currResultBuf);
-        // if (parsed.HasParseError()) {
-        //     ParseResult ok = (ParseResult) parsed;
-        //     fprintf(stderr, "JSON parse error: %s (%lu)", RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
-        //     const char *err = "[PlanExecutor: ] Error parsing physical plan (JSON parsing error)";
-        //     LOG(ERROR)<< err;
-        //     throw runtime_error(err);
-        // }
-
-        // Document document2; // Default template parameter uses UTF8 and MemoryPoolAllocator.
-        // auto & parsed2 = document2.Parse(correctBuf);
-        // if (parsed2.HasParseError()) {
-        //     ParseResult ok = (ParseResult) parsed2;
-        //     fprintf(stderr, "JSON parse error: %s (%lu)", RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
-        //     const char *err = "[PlanExecutor: ] Error parsing physical plan (JSON parsing error)";
-        //     LOG(ERROR)<< err;
-        //     throw runtime_error(err);
-        // }
-
-        // // if (parsed2.IsArray() && parsed.IsArray() && unordered){
-        // //     std::sort(parsed2.Begin(), parsed2.End());
-        // //     std::sort(parsed.Begin(), parsed.End());
-        // // }
-
-        // areEqual = (parsed2 == parsed);
-    }
-    
-    if (!areEqual) {
-        fprintf(stderr, "######################################################################\n");
-        fprintf(stderr, "FAILURE:\n");
-        if (fsize1 > 0) fprintf(stderr, "* Expected (size: %zu):\n%s\n", fsize1, correctBuf);
-        else            fprintf(stderr, "* Expected empty file\n");
-        if (fsize2 > 0) fprintf(stderr, "* Obtained (size: %zu):\n%s\n", fsize2, currResultBuf);
-        else            fprintf(stderr, "* Obtained empty file\n");
-        fprintf(stderr, "######################################################################\n");
-    }
-
-    close(fd1);
-    munmap(correctBuf, fsize1);
-    // close(fd2);
-    shm_unlink(testLabel);
-    munmap(currResultBuf, fsize2);
-    // if (remove(testLabel) != 0) {
-    //  throw runtime_error(string("Error deleting file"));
+    // Document document; // Default template parameter uses UTF8 and
+    // MemoryPoolAllocator. auto & parsed = document.Parse(currResultBuf); if
+    // (parsed.HasParseError()) {
+    //     ParseResult ok = (ParseResult) parsed;
+    //     fprintf(stderr, "JSON parse error: %s (%lu)",
+    //     RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset()); const
+    //     char *err = "[PlanExecutor: ] Error parsing physical plan (JSON
+    //     parsing error)"; LOG(ERROR)<< err; throw runtime_error(err);
     // }
 
-    return areEqual;
+    // Document document2; // Default template parameter uses UTF8 and
+    // MemoryPoolAllocator. auto & parsed2 = document2.Parse(correctBuf); if
+    // (parsed2.HasParseError()) {
+    //     ParseResult ok = (ParseResult) parsed2;
+    //     fprintf(stderr, "JSON parse error: %s (%lu)",
+    //     RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset()); const
+    //     char *err = "[PlanExecutor: ] Error parsing physical plan (JSON
+    //     parsing error)"; LOG(ERROR)<< err; throw runtime_error(err);
+    // }
+
+    // // if (parsed2.IsArray() && parsed.IsArray() && unordered){
+    // //     std::sort(parsed2.Begin(), parsed2.End());
+    // //     std::sort(parsed.Begin(), parsed.End());
+    // // }
+
+    // areEqual = (parsed2 == parsed);
+  }
+
+  if (!areEqual) {
+    fprintf(stderr,
+            "##########################################################"
+            "############\n");
+    fprintf(stderr, "FAILURE:\n");
+    if (fsize1 > 0)
+      fprintf(stderr, "* Expected (size: %zu):\n%s\n", fsize1, correctBuf);
+    else
+      fprintf(stderr, "* Expected empty file\n");
+    if (fsize2 > 0)
+      fprintf(stderr, "* Obtained (size: %zu):\n%s\n", fsize2, currResultBuf);
+    else
+      fprintf(stderr, "* Obtained empty file\n");
+    fprintf(stderr,
+            "##########################################################"
+            "############\n");
+  }
+
+  close(fd1);
+  munmap(correctBuf, fsize1);
+  // close(fd2);
+  shm_unlink(testLabel);
+  munmap(currResultBuf, fsize2);
+  // if (remove(testLabel) != 0) {
+  //  throw runtime_error(string("Error deleting file"));
+  // }
+
+  return areEqual;
 }
 
-void runAndVerify(const char *testLabel, const char* planPath, const char * testPath, const char * catalogJSON, bool unordered){
-    uint32_t devices = topology::getInstance().getGpuCount();
-    for (uint32_t i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaProfilerStart());
-    }
-    __itt_resume();
+void runAndVerify(const char *testLabel, const char *planPath,
+                  const char *testPath, const char *catalogJSON,
+                  bool unordered) {
+  uint32_t devices = topology::getInstance().getGpuCount();
+  for (uint32_t i = 0; i < devices; ++i) {
+    gpu_run(cudaSetDevice(i));
+    gpu_run(cudaProfilerStart());
+  }
+  __itt_resume();
 
-    gpu_run(cudaSetDevice(0));
-    
-    GpuRawContext * ctx;
+  gpu_run(cudaSetDevice(0));
 
-    std::vector<RawPipeline *> pipelines;
+  GpuRawContext *ctx;
+
+  std::vector<RawPipeline *> pipelines;
+  {
+    time_block t("Tcodegen: ");
+
+    ctx = new GpuRawContext(testLabel, false);
+    CatalogParser catalog = CatalogParser(catalogJSON, ctx);
+    PlanExecutor exec = PlanExecutor(planPath, catalog, testLabel, ctx);
+
+    ctx->compileAndLoad();
+
+    pipelines = ctx->getPipelines();
+  }
+
+  // just to be sure...
+  for (uint32_t i = 0; i < devices; ++i) {
+    gpu_run(cudaSetDevice(i));
+    gpu_run(cudaDeviceSynchronize());
+  }
+
+  {
+    time_block t("Texecute w sync: ");
+
     {
-        time_block t("Tcodegen: ");
-        
-        ctx                   = new GpuRawContext(testLabel, false);
-        CatalogParser catalog = CatalogParser(catalogJSON, ctx);
-        PlanExecutor exec     = PlanExecutor(planPath, catalog, testLabel, ctx);
-        
-        ctx->compileAndLoad();
+      time_block t("Texecute       : ");
 
-        pipelines = ctx->getPipelines();
-    }
-
-    //just to be sure...
-    for (uint32_t i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaDeviceSynchronize());
-    }
-    
-    {
-        time_block     t("Texecute w sync: ");
-
+      for (RawPipeline *p : pipelines) {
+        nvtxRangePushA("pip");
         {
-            time_block t("Texecute       : ");
+          time_block t("T: ");
 
-            for (RawPipeline * p: pipelines) {
-                nvtxRangePushA("pip");
-                {
-                    time_block t("T: ");
+          p->open();
+          p->consume(0);
+          p->close();
 
-                    p->open();
-                    p->consume(0);
-                    p->close();
-
-                    std::cout << dec;
-                }
-                nvtxRangePop();
-            }
-
-            std::cout << dec;
+          std::cout << dec;
         }
+        nvtxRangePop();
+      }
 
-        //just to be sure...
-        for (uint32_t i = 0 ; i < devices ; ++i) {
-            gpu_run(cudaSetDevice(i));
-            gpu_run(cudaDeviceSynchronize());
-        }
+      std::cout << dec;
     }
 
-    __itt_pause();
-    for (uint32_t i = 0 ; i < devices ; ++i) {
-        gpu_run(cudaSetDevice(i));
-        gpu_run(cudaProfilerStop());
+    // just to be sure...
+    for (uint32_t i = 0; i < devices; ++i) {
+      gpu_run(cudaSetDevice(i));
+      gpu_run(cudaDeviceSynchronize());
     }
+  }
 
-    gpu_run(cudaSetDevice(0));
+  __itt_pause();
+  for (uint32_t i = 0; i < devices; ++i) {
+    gpu_run(cudaSetDevice(i));
+    gpu_run(cudaProfilerStop());
+  }
 
-    EXPECT_TRUE(verifyTestResult(testPath, testLabel, unordered)); //FIXME:!!!!!!!!!!!!!
-    shm_unlink(testLabel);
+  gpu_run(cudaSetDevice(0));
+
+  EXPECT_TRUE(
+      verifyTestResult(testPath, testLabel, unordered));  // FIXME:!!!!!!!!!!!!!
+  shm_unlink(testLabel);
 }
 
 bool RawTestEnvironment::has_already_been_setup = false;

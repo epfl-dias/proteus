@@ -25,75 +25,80 @@
 #define RAW_GPU_MEMORY_MANAGER_HPP_
 
 #include <mutex>
+#include <stack>
 #include <unordered_map>
 #include <unordered_set>
-#include <stack>
 
-class GpuMemAllocator{
-public:
-    static void * malloc(size_t bytes);
-    static void   free  (void * ptr  );
+class GpuMemAllocator {
+ public:
+  static void *malloc(size_t bytes);
+  static void free(void *ptr);
 };
 
-class NUMAPinnedMemAllocator{
-    static std::unordered_map<void *, size_t> sizes;
-public:
-    static void * malloc(size_t bytes);
-    static void   free  (void * ptr  );
+class NUMAPinnedMemAllocator {
+  static std::unordered_map<void *, size_t> sizes;
+
+ public:
+  static void *malloc(size_t bytes);
+  static void free(void *ptr);
 };
 
-constexpr size_t unit_capacity_gpu =  32*1024*1024;
-constexpr size_t unit_capacity_cpu = 1024*1024*1024;
+constexpr size_t unit_capacity_gpu = 32 * 1024 * 1024;
+constexpr size_t unit_capacity_cpu = 1024 * 1024 * 1024;
 
-template<typename allocator, size_t unit_cap = unit_capacity_gpu>
-class SingleDeviceMemoryManager{
-    struct alloc_unit_info{
-        void * base;
-        
-        size_t fill;
-        size_t sub_units;
+template <typename allocator, size_t unit_cap = unit_capacity_gpu>
+class SingleDeviceMemoryManager {
+  struct alloc_unit_info {
+    void *base;
 
-        alloc_unit_info(void * base): base(base), fill(0), sub_units(0){}
-    };
+    size_t fill;
+    size_t sub_units;
 
-    std::mutex m;
-    std::mutex m_big_units;
+    alloc_unit_info(void *base) : base(base), fill(0), sub_units(0) {}
+  };
 
-    std::unordered_set<void *                 > big_units  ;
+  std::mutex m;
+  std::mutex m_big_units;
 
-    std::unordered_map<void *, alloc_unit_info> units      ;
-    std::unordered_map<void *, void *         > mappings   ;
-    std::stack<void *>                          allocations;
+  std::unordered_set<void *> big_units;
 
-    std::stack<void *>                          free_cache ;
-protected:
-    SingleDeviceMemoryManager();
-    ~SingleDeviceMemoryManager();
+  std::unordered_map<void *, alloc_unit_info> units;
+  std::unordered_map<void *, void *> mappings;
+  std::stack<void *> allocations;
 
-    alloc_unit_info & create_allocation();
-    
-    void * malloc(size_t bytes);
-    void   free  (void * ptr  );
+  std::stack<void *> free_cache;
 
-    friend class RawMemoryManager;
+ protected:
+  SingleDeviceMemoryManager();
+  ~SingleDeviceMemoryManager();
+
+  alloc_unit_info &create_allocation();
+
+  void *malloc(size_t bytes);
+  void free(void *ptr);
+
+  friend class RawMemoryManager;
 };
 
-typedef SingleDeviceMemoryManager<GpuMemAllocator       , unit_capacity_gpu> SingleGpuMemoryManager;
-typedef SingleDeviceMemoryManager<NUMAPinnedMemAllocator, unit_capacity_cpu> SingleCpuMemoryManager;
+typedef SingleDeviceMemoryManager<GpuMemAllocator, unit_capacity_gpu>
+    SingleGpuMemoryManager;
+typedef SingleDeviceMemoryManager<NUMAPinnedMemAllocator, unit_capacity_cpu>
+    SingleCpuMemoryManager;
 
-class RawMemoryManager{
-public:
-    static SingleGpuMemoryManager ** gpu_managers;
-    static SingleCpuMemoryManager ** cpu_managers;
-    static void init   ();
-    static void destroy();
+class RawMemoryManager {
+ public:
+  static SingleGpuMemoryManager **gpu_managers;
+  static SingleCpuMemoryManager **cpu_managers;
+  static void init();
+  static void destroy();
 
-    static void * mallocGpu   (size_t bytes);
-    static void   freeGpu     (void * ptr)  ;
+  static void *mallocGpu(size_t bytes);
+  static void freeGpu(void *ptr);
 
-    static void * mallocPinned(size_t bytes);
-    static void   freePinned  (void * ptr)  ;
-private:
+  static void *mallocPinned(size_t bytes);
+  static void freePinned(void *ptr);
+
+ private:
 };
 
 #endif /* RAW_GPU_MEMORY_MANAGER_HPP_ */

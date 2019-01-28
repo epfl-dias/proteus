@@ -54,23 +54,28 @@
 // </TechnicalDetails>
 
 #if __has_include("ittnotify.h")
-#   include <ittnotify.h>
+#include <ittnotify.h>
 #else
-#   define __itt_resume() ((void) 0)
-#   define __itt_pause()  ((void) 0)
+#define __itt_resume() ((void)0)
+#define __itt_pause() ((void)0)
 #endif
 
 class RawTestEnvironment : public ::testing::Environment {
-    bool        is_noop                 ;
-    static bool has_already_been_setup  ;
-public:
-    virtual void SetUp   ();
-    virtual void TearDown();
+  bool is_noop;
+  static bool has_already_been_setup;
+
+ public:
+  virtual void SetUp();
+  virtual void TearDown();
 };
 
-// ::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+// ::testing::Environment *const pools_env =
+// ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
 
-bool verifyTestResult(const char *testsPath, const char *testLabel, bool unordered = false);
-void runAndVerify(const char *testLabel, const char* planPath, const char * testPath, const char * catalogJSON, bool unordered = false);
+bool verifyTestResult(const char *testsPath, const char *testLabel,
+                      bool unordered = false);
+void runAndVerify(const char *testLabel, const char *planPath,
+                  const char *testPath, const char *catalogJSON,
+                  bool unordered = false);
 
 #endif /* TEST_UTILS_HPP_ */

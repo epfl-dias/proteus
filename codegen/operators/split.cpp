@@ -22,40 +22,39 @@
 */
 
 #include "operators/split.hpp"
-#include "expressions/expressions-generator.hpp"
 #include <cstring>
+#include "expressions/expressions-generator.hpp"
 
 void Split::produce() {
-    UnaryRawOperator::setParent(parent[produce_calls]);
-    generate_catch();
+  UnaryRawOperator::setParent(parent[produce_calls]);
+  generate_catch();
 
-    catch_pip.push_back(context->operator->());
+  catch_pip.push_back(context->operator->());
 
-    std::cout << produce_calls << " " << numOfParents << " oaisdajdhakjsdhajsdh" << std::endl;
-    if (++produce_calls != numOfParents) return;
+  std::cout << produce_calls << " " << numOfParents << " oaisdajdhakjsdhajsdh"
+            << std::endl;
+  if (++produce_calls != numOfParents) return;
 
-    context->popPipeline();
+  context->popPipeline();
 
-    //push new pipeline for the throw part
-    context->pushPipeline();
+  // push new pipeline for the throw part
+  context->pushPipeline();
 
-    context->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    context->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+  context->registerOpen(this, [this](RawPipeline *pip) { this->open(pip); });
+  context->registerClose(this, [this](RawPipeline *pip) { this->close(pip); });
 
-    getChild()->produce();
+  getChild()->produce();
 }
 
-void Split::open (RawPipeline * pip){
-    // time_block t("Tinit_exchange: ");
+void Split::open(RawPipeline *pip) {
+  // time_block t("Tinit_exchange: ");
 
-    std::lock_guard<std::mutex> guard(init_mutex);
-    
-    if (firers.empty()){
-        remaining_producers = producers;
-        for (int i = 0 ; i < numOfParents ; ++i){
-            firers.emplace_back(&Split::fire, this, i, catch_pip[i]);
-        }
+  std::lock_guard<std::mutex> guard(init_mutex);
+
+  if (firers.empty()) {
+    remaining_producers = producers;
+    for (int i = 0; i < numOfParents; ++i) {
+      firers.emplace_back(&Split::fire, this, i, catch_pip[i]);
     }
+  }
 }
-
-

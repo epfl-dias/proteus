@@ -30,8 +30,8 @@ typedef int64_t value_t;
 
 /** Type definition for a tuple, depending on KEY_8B a tuple can be 16B or 8B */
 typedef struct tuple_t {
-	intkey_t key;
-	value_t payload;
+    intkey_t key;
+    value_t payload;
 } tuple_t;
 
 /**
@@ -39,8 +39,8 @@ typedef struct tuple_t {
  * It consists of an array of tuples and a size of the relation.
  */
 typedef struct relation_t {
-	tuple_t * tuples;
-	uint32_t num_tuples;
+    tuple_t * tuples;
+    uint32_t num_tuples;
 } relation_t;
 
 /** @} */

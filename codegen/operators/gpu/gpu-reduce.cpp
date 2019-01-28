@@ -26,175 +26,175 @@
 
 namespace opt {
 
-GpuReduce::GpuReduce(vector<Monoid>             accs,
-            vector<expression_t>                outputExprs,
-            expression_t                        pred, 
-            RawOperator* const                  child,
-            GpuRawContext*                      context)
-        : Reduce(accs, outputExprs, std::move(pred), child, context, false) {
-    for (const auto &expr: outputExprs){
-        if (!expr.getExpressionType()->isPrimitive()){
-            string error_msg("[GpuReduce: ] Currently only supports primitive types");
-            LOG(ERROR) << error_msg;
-            throw runtime_error(error_msg);
-        }
+GpuReduce::GpuReduce(vector<Monoid> accs, vector<expression_t> outputExprs,
+                     expression_t pred, RawOperator *const child,
+                     GpuRawContext *context)
+    : Reduce(accs, outputExprs, std::move(pred), child, context, false) {
+  for (const auto &expr : outputExprs) {
+    if (!expr.getExpressionType()->isPrimitive()) {
+      string error_msg("[GpuReduce: ] Currently only supports primitive types");
+      LOG(ERROR) << error_msg;
+      throw runtime_error(error_msg);
     }
+  }
 }
 
 void GpuReduce::produce() {
-    flushResults = flushResults && !getParent(); //TODO: is this the best way to do it ?
-    generate_flush();
+  flushResults =
+      flushResults && !getParent();  // TODO: is this the best way to do it ?
+  generate_flush();
 
-    ((GpuRawContext *) context)->popPipeline();
+  ((GpuRawContext *)context)->popPipeline();
 
-    auto flush_pip = ((GpuRawContext *) context)->removeLatestPipeline();
-    flush_fun = flush_pip->getKernel();
+  auto flush_pip = ((GpuRawContext *)context)->removeLatestPipeline();
+  flush_fun = flush_pip->getKernel();
 
-    ((GpuRawContext *) context)->pushPipeline(flush_pip);
+  ((GpuRawContext *)context)->pushPipeline(flush_pip);
 
-    assert(mem_accumulators.empty());
-    if (mem_accumulators.empty()){
-        vector<Monoid>::const_iterator itAcc;
-        vector<expression_t>::const_iterator itExpr;
-        itAcc = accs.begin();
-        itExpr = outputExprs.begin();
-
-        int aggsNo = accs.size();
-        /* Prepare accumulator FOREACH outputExpr */
-        for (; itAcc != accs.end(); itAcc++, itExpr++) {
-            Monoid acc = *itAcc;
-            bool flushDelim = (aggsNo > 1) && (itAcc != accs.end() - 1);
-            bool is_first   = (itAcc == accs.begin()  );
-            bool is_last    = (itAcc == accs.end() - 1);
-            size_t mem_accumulator = resetAccumulator(*itExpr, acc, flushDelim, is_first, is_last);
-            mem_accumulators.push_back(mem_accumulator);
-        }
-    }
-
-    getChild()->produce();
-}
-
-void GpuReduce::consume(RawContext* const context, const OperatorState& childState) {
-    consume((GpuRawContext *) context, childState);
-}
-
-void GpuReduce::consume(GpuRawContext* const context, const OperatorState& childState) {
-    IRBuilder<>* Builder = context->getBuilder();
-    LLVMContext& llvmContext = context->getLLVMContext();
-    Function *TheFunction = Builder->GetInsertBlock()->getParent();
+  assert(mem_accumulators.empty());
+  if (mem_accumulators.empty()) {
+    vector<Monoid>::const_iterator itAcc;
+    vector<expression_t>::const_iterator itExpr;
+    itAcc = accs.begin();
+    itExpr = outputExprs.begin();
 
     int aggsNo = accs.size();
-
-    //Generate condition
-    ExpressionGeneratorVisitor predExprGenerator{context, childState};
-    RawValue condition = pred.accept(predExprGenerator);
-    /**
-     * Predicate Evaluation:
-     */
-    BasicBlock* entryBlock = Builder->GetInsertBlock();
-    BasicBlock *endBlock = BasicBlock::Create(llvmContext, "reduceCondEnd",
-            TheFunction);
-    BasicBlock *ifBlock;
-    context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond",
-            &ifBlock, endBlock);
-
-    /**
-     * IF(pred) Block
-     */
-    RawValue val_output;
-    Builder->SetInsertPoint(entryBlock);
-
-    Builder->CreateCondBr(condition.value, ifBlock, endBlock);
-
-    Builder->SetInsertPoint(ifBlock);
-
-    /* Time to Compute Aggs */
-    auto itAcc  = accs.begin();
-    auto itExpr = outputExprs.begin();
-    auto itMem  = mem_accumulators.begin();
-
-    for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-        auto acc                    = *itAcc    ;
-        auto outputExpr             = *itExpr   ;
-        Value * mem_accumulating    = NULL      ;
-
-        switch (acc) {
-        case SUM:
-        case MULTIPLY:
-        case MAX:
-        case OR:
-        case AND:{
-            BasicBlock *cBB = Builder->GetInsertBlock();
-            Builder->SetInsertPoint(context->getCurrentEntryBlock());
-
-            mem_accumulating = context->getStateVar(*itMem);
-
-            Constant * acc_init = getIdentityElementIfSimple(
-                acc,
-                outputExpr.getExpressionType(),
-                context
-            );
-            Value * acc_mem  = context->CreateEntryBlockAlloca("acc", acc_init->getType());
-            Builder->CreateStore(acc_init, acc_mem);
-
-            Builder->SetInsertPoint(context->getEndingBlock());
-            generate(acc, outputExpr, context, childState, acc_mem, mem_accumulating);
-
-            Builder->SetInsertPoint(cBB);
-
-            ExpressionGeneratorVisitor outputExprGenerator{context, childState};
-
-            // Load accumulator -> acc_value
-            RawValue acc_value;
-            acc_value.value  = Builder->CreateLoad(acc_mem);
-            acc_value.isNull = context->createFalse();
-
-            // new_value = acc_value op outputExpr
-            expressions::RawValueExpression val{outputExpr.getExpressionType(), acc_value};
-            expression_t upd = toExpression(acc, val, outputExpr);
-            RawValue new_val = upd.accept(outputExprGenerator);
-
-            // store new_val to accumulator
-            Builder->CreateStore(new_val.value, acc_mem);
-            break;
-        }
-        case BAGUNION:
-        case APPEND:
-            //      generateAppend(context, childState);
-            //      break;
-        case UNION:
-        default: {
-            string error_msg = string(
-                    "[Reduce: ] Unknown / Still Unsupported accumulator");
-            LOG(ERROR)<< error_msg;
-            throw runtime_error(error_msg);
-        }
-        }
+    /* Prepare accumulator FOREACH outputExpr */
+    for (; itAcc != accs.end(); itAcc++, itExpr++) {
+      Monoid acc = *itAcc;
+      bool flushDelim = (aggsNo > 1) && (itAcc != accs.end() - 1);
+      bool is_first = (itAcc == accs.begin());
+      bool is_last = (itAcc == accs.end() - 1);
+      size_t mem_accumulator =
+          resetAccumulator(*itExpr, acc, flushDelim, is_first, is_last);
+      mem_accumulators.push_back(mem_accumulator);
     }
+  }
 
-    Builder->CreateBr(endBlock);
-
-    /**
-     * END Block
-     */
-    Builder->SetInsertPoint(endBlock);
-
-
-    // ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-    // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
-
+  getChild()->produce();
 }
 
+void GpuReduce::consume(RawContext *const context,
+                        const OperatorState &childState) {
+  consume((GpuRawContext *)context, childState);
+}
 
+void GpuReduce::consume(GpuRawContext *const context,
+                        const OperatorState &childState) {
+  IRBuilder<> *Builder = context->getBuilder();
+  LLVMContext &llvmContext = context->getLLVMContext();
+  Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
+  int aggsNo = accs.size();
 
+  // Generate condition
+  ExpressionGeneratorVisitor predExprGenerator{context, childState};
+  RawValue condition = pred.accept(predExprGenerator);
+  /**
+   * Predicate Evaluation:
+   */
+  BasicBlock *entryBlock = Builder->GetInsertBlock();
+  BasicBlock *endBlock =
+      BasicBlock::Create(llvmContext, "reduceCondEnd", TheFunction);
+  BasicBlock *ifBlock;
+  context->CreateIfBlock(context->getGlobalFunction(), "reduceIfCond", &ifBlock,
+                         endBlock);
 
-// void GpuReduce::consume(RawContext* const context, const OperatorState& childState) {
+  /**
+   * IF(pred) Block
+   */
+  RawValue val_output;
+  Builder->SetInsertPoint(entryBlock);
+
+  Builder->CreateCondBr(condition.value, ifBlock, endBlock);
+
+  Builder->SetInsertPoint(ifBlock);
+
+  /* Time to Compute Aggs */
+  auto itAcc = accs.begin();
+  auto itExpr = outputExprs.begin();
+  auto itMem = mem_accumulators.begin();
+
+  for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
+    auto acc = *itAcc;
+    auto outputExpr = *itExpr;
+    Value *mem_accumulating = NULL;
+
+    switch (acc) {
+      case SUM:
+      case MULTIPLY:
+      case MAX:
+      case OR:
+      case AND: {
+        BasicBlock *cBB = Builder->GetInsertBlock();
+        Builder->SetInsertPoint(context->getCurrentEntryBlock());
+
+        mem_accumulating = context->getStateVar(*itMem);
+
+        Constant *acc_init = getIdentityElementIfSimple(
+            acc, outputExpr.getExpressionType(), context);
+        Value *acc_mem =
+            context->CreateEntryBlockAlloca("acc", acc_init->getType());
+        Builder->CreateStore(acc_init, acc_mem);
+
+        Builder->SetInsertPoint(context->getEndingBlock());
+        generate(acc, outputExpr, context, childState, acc_mem,
+                 mem_accumulating);
+
+        Builder->SetInsertPoint(cBB);
+
+        ExpressionGeneratorVisitor outputExprGenerator{context, childState};
+
+        // Load accumulator -> acc_value
+        RawValue acc_value;
+        acc_value.value = Builder->CreateLoad(acc_mem);
+        acc_value.isNull = context->createFalse();
+
+        // new_value = acc_value op outputExpr
+        expressions::RawValueExpression val{outputExpr.getExpressionType(),
+                                            acc_value};
+        expression_t upd = toExpression(acc, val, outputExpr);
+        RawValue new_val = upd.accept(outputExprGenerator);
+
+        // store new_val to accumulator
+        Builder->CreateStore(new_val.value, acc_mem);
+        break;
+      }
+      case BAGUNION:
+      case APPEND:
+        //      generateAppend(context, childState);
+        //      break;
+      case UNION:
+      default: {
+        string error_msg =
+            string("[Reduce: ] Unknown / Still Unsupported accumulator");
+        LOG(ERROR) << error_msg;
+        throw runtime_error(error_msg);
+      }
+    }
+  }
+
+  Builder->CreateBr(endBlock);
+
+  /**
+   * END Block
+   */
+  Builder->SetInsertPoint(endBlock);
+
+  // ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline *
+  // pip){this->open (pip);});
+  // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline *
+  // pip){this->close(pip);});
+}
+
+// void GpuReduce::consume(RawContext* const context, const OperatorState&
+// childState) {
 //     Reduce::consume(context, childState);
 //     generate(context, childState);
 // }
 
-// void GpuReduce::generate(RawContext* const context, const OperatorState& childState) const{
+// void GpuReduce::generate(RawContext* const context, const OperatorState&
+// childState) const{
 //     vector<Monoid                   >::const_iterator itAcc    ;
 //     vector<expressions::Expression *>::const_iterator itExpr   ;
 //     vector<size_t                   >::const_iterator itMem    ;
@@ -206,18 +206,19 @@ void GpuReduce::consume(GpuRawContext* const context, const OperatorState& child
 //     itID        = out_ids.begin();
 
 //     IRBuilder<>* Builder        = context->getBuilder();
-    
+
 //     for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++, ++itID) {
 //         Monoid                      acc                     = *itAcc ;
 //         expressions::Expression *   outputExpr              = *itExpr;
 //         Value                   *   mem_accumulating        = NULL   ;
 
 //         BasicBlock* insBlock = Builder->GetInsertBlock();
-        
+
 //         BasicBlock* entryBlock = context->getCurrentEntryBlock();
 //         Builder->SetInsertPoint(entryBlock);
 
-//         Value * global_acc_ptr = ((const GpuRawContext *) context)->getStateVar(*itID);
+//         Value * global_acc_ptr = ((const GpuRawContext *)
+//         context)->getStateVar(*itID);
 
 //         Builder->SetInsertPoint(insBlock);
 
@@ -227,8 +228,8 @@ void GpuReduce::consume(GpuRawContext* const context, const OperatorState& child
 //         case OR:
 //         case AND:
 //             mem_accumulating = context->getStateVar(*itMem);
-//             generate(acc, outputExpr, (GpuRawContext * const) context, childState, mem_accumulating, global_acc_ptr);
-//             break;
+//             generate(acc, outputExpr, (GpuRawContext * const) context,
+//             childState, mem_accumulating, global_acc_ptr); break;
 //         case MULTIPLY:
 //         case BAGUNION:
 //         case APPEND:
@@ -242,55 +243,59 @@ void GpuReduce::consume(GpuRawContext* const context, const OperatorState& child
 //         }
 //     }
 
-//     ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-//     ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+//     ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline *
+//     pip){this->open (pip);});
+//     ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline *
+//     pip){this->close(pip);});
 // }
 
 void GpuReduce::generate(const Monoid &m, expression_t outputExpr,
-        GpuRawContext* const context, const OperatorState& state,
-        Value * mem_accumulating, Value *global_accumulator_ptr) const {
+                         GpuRawContext *const context,
+                         const OperatorState &state, Value *mem_accumulating,
+                         Value *global_accumulator_ptr) const {
+  IRBuilder<> *Builder = context->getBuilder();
+  LLVMContext &llvmContext = context->getLLVMContext();
+  Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-    IRBuilder<>* Builder        = context->getBuilder();
-    LLVMContext& llvmContext    = context->getLLVMContext();
-    Function *TheFunction       = Builder->GetInsertBlock()->getParent();
+  gpu::Monoid *gm = gpu::Monoid::get(m);
 
-    gpu::Monoid * gm = gpu::Monoid::get(m);
+  global_accumulator_ptr->setName("reduce_" + std::to_string(*gm) + "_ptr");
 
+  BasicBlock *entryBlock = Builder->GetInsertBlock();
 
+  BasicBlock *endBlock = context->getEndingBlock();
+  Builder->SetInsertPoint(endBlock);
 
-    global_accumulator_ptr->setName("reduce_" + std::to_string(*gm) + "_ptr");
+  Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-    BasicBlock* entryBlock = Builder->GetInsertBlock();
-    
-    BasicBlock* endBlock = context->getEndingBlock();
-    Builder->SetInsertPoint(endBlock);
+  // Warp aggregate
+  Value *aggr = gm->createWarpAggregateTo0(context, val_accumulating);
 
-    Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
+  // Store warp-aggregated final result (available to all threads of each warp)
+  Builder->CreateStore(aggr, mem_accumulating);
 
-    // Warp aggregate
-    Value * aggr = gm->createWarpAggregateTo0(context, val_accumulating);
+  // Write to global accumulator only from a single thread per warp
 
-    // Store warp-aggregated final result (available to all threads of each warp)
-    Builder->CreateStore(aggr, mem_accumulating);
+  BasicBlock *laneendBlock =
+      BasicBlock::Create(llvmContext, "reduceWriteEnd", TheFunction);
+  BasicBlock *laneifBlock =
+      context->CreateIfBlock(TheFunction, "reduceWriteIf", laneendBlock);
 
-    // Write to global accumulator only from a single thread per warp
+  Value *laneid = context->laneId();
+  Builder->CreateCondBr(
+      Builder->CreateICmpEQ(laneid, ConstantInt::get(laneid->getType(), 0),
+                            "is_pivot"),
+      laneifBlock, laneendBlock);
 
-    BasicBlock * laneendBlock   = BasicBlock::Create(llvmContext, "reduceWriteEnd", TheFunction);
-    BasicBlock * laneifBlock    = context->CreateIfBlock(TheFunction,
-                                                            "reduceWriteIf",
-                                                            laneendBlock);
+  Builder->SetInsertPoint(laneifBlock);
 
-    Value * laneid              = context->laneId();
-    Builder->CreateCondBr(Builder->CreateICmpEQ(laneid, ConstantInt::get(laneid->getType(), 0), "is_pivot"), laneifBlock, laneendBlock);
+  gm->createAtomicUpdate(context, global_accumulator_ptr, aggr,
+                         llvm::AtomicOrdering::Monotonic);
 
-    Builder->SetInsertPoint(laneifBlock);
+  Builder->CreateBr(laneendBlock);
+  context->setEndingBlock(laneendBlock);
 
-    gm->createAtomicUpdate(context, global_accumulator_ptr, aggr, llvm::AtomicOrdering::Monotonic);
-
-    Builder->CreateBr(laneendBlock);
-    context->setEndingBlock(laneendBlock);
-
-    Builder->SetInsertPoint(entryBlock);
+  Builder->SetInsertPoint(entryBlock);
 }
 
 // void GpuReduce::open(RawPipeline * pip) const{
@@ -298,12 +303,15 @@ void GpuReduce::generate(const Monoid &m, expression_t outputExpr,
 //     // cudaStream_t strm;
 //     // gpu_run(cudaStreamCreate(&strm));
 //     // for (size_t i = 0 ; i < mem_accumulators.size() ; ++i){
-//     //     Type * llvm_type = ((const PrimitiveType *) outputExprs[i]->getExpressionType())->getLLVMType(context->getLLVMContext());
+//     //     Type * llvm_type = ((const PrimitiveType *)
+//     outputExprs[i]->getExpressionType())->getLLVMType(context->getLLVMContext());
 
-//     //     size_t size_in_bytes = (llvm_type->getPrimitiveSizeInBits() + 7)/8;
+//     //     size_t size_in_bytes = (llvm_type->getPrimitiveSizeInBits() +
+//     7)/8;
 
 //     //     void * acc = pip->getStateVar<void *>(mem_accumulators[i]);
-//     //     gpu_run(cudaMemsetAsync( acc, 0, size_in_bytes, strm)); //FIXME: reset every type of (data, monoid)
+//     //     gpu_run(cudaMemsetAsync( acc, 0, size_in_bytes, strm)); //FIXME:
+//     reset every type of (data, monoid)
 
 //     //     // pip->setStateVar(mem_accumulators[i], acc);s
 //     // }
@@ -314,7 +322,8 @@ void GpuReduce::generate(const Monoid &m, expression_t outputExpr,
 // void GpuReduce::close(RawPipeline * pip) const{
 //     std::cout << "GpuReduce:close" << std::endl;
 //     // for (size_t i = 0 ; i < mem_accumulators.size() ; ++i){
-//     //     gpu_run(cudaFree(pip->getStateVar<uint32_t *>(context, mem_accumulators[i])));
+//     //     gpu_run(cudaFree(pip->getStateVar<uint32_t *>(context,
+//     mem_accumulators[i])));
 //     // }
 
 //     //create stream
@@ -322,132 +331,138 @@ void GpuReduce::generate(const Monoid &m, expression_t outputExpr,
 //     //sync
 
 //     // for (size_t i = 0 ; i < mem_accumulators.size() ; ++i){
-//     //     int32_t r; //NOTE: here we are assuming 32bits unsigned integer output, change for correct display!
-//     //     gpu_run(cudaMemcpy(&r, pip->getStateVar<void *>(mem_accumulators[i]), sizeof(uint32_t), cudaMemcpyDefault));
-//     //     std::cout << r << " " << pip->getStateVar<void *>(mem_accumulators[i]) << std::endl;
+//     //     int32_t r; //NOTE: here we are assuming 32bits unsigned integer
+//     output, change for correct display!
+//     //     gpu_run(cudaMemcpy(&r, pip->getStateVar<void
+//     *>(mem_accumulators[i]), sizeof(uint32_t), cudaMemcpyDefault));
+//     //     std::cout << r << " " << pip->getStateVar<void
+//     *>(mem_accumulators[i]) << std::endl;
 //     // }
 // }
 
-size_t GpuReduce::resetAccumulator(expression_t outputExpr,
-        Monoid acc, bool flushDelim, bool is_first, bool is_last) const {
-    size_t mem_accum_id = ~((size_t) 0);
+size_t GpuReduce::resetAccumulator(expression_t outputExpr, Monoid acc,
+                                   bool flushDelim, bool is_first,
+                                   bool is_last) const {
+  size_t mem_accum_id = ~((size_t)0);
 
-    //Deal with 'memory allocations' as per monoid type requested
-    switch (acc) {
-        case SUM:
-        case MULTIPLY:
-        case MAX:
-        case OR:
-        case AND: {
-            Type * t = outputExpr.getExpressionType()
-                                    ->getLLVMType(context->getLLVMContext());
+  // Deal with 'memory allocations' as per monoid type requested
+  switch (acc) {
+    case SUM:
+    case MULTIPLY:
+    case MAX:
+    case OR:
+    case AND: {
+      Type *t = outputExpr.getExpressionType()->getLLVMType(
+          context->getLLVMContext());
 
-            mem_accum_id = context->appendStateVar(
-                PointerType::getUnqual(t),
+      mem_accum_id = context->appendStateVar(
+          PointerType::getUnqual(t),
 
-                [=](llvm::Value *){
-                    IRBuilder<> * Builder = context->getBuilder();
+          [=](llvm::Value *) {
+            IRBuilder<> *Builder = context->getBuilder();
 
-                    Value * mem_acc = context->allocateStateVar(t);
+            Value *mem_acc = context->allocateStateVar(t);
 
-                    Constant * val_id = getIdentityElementIfSimple(
-                        acc,
-                        outputExpr.getExpressionType(),
-                        context
-                    );
+            Constant *val_id = getIdentityElementIfSimple(
+                acc, outputExpr.getExpressionType(), context);
 
-                    // FIXME: Assumes that we val_id is a byte to be repeated, not so general...
-                    // needs a memset to store...
-                    // Builder->CreateStore(val_id, mem_acc);
+            // FIXME: Assumes that we val_id is a byte to be repeated, not so
+            // general... needs a memset to store...
+            // Builder->CreateStore(val_id, mem_acc);
 
-                    // Even for floating points, 00000000 = 0.0, so cast to integer type of same length to avoid problems with initialization of floats
-                    Value * val = Builder->CreateBitCast(val_id, Type::getIntNTy(context->getLLVMContext(), context->getSizeOf(val_id) * 8));
-                    context->CodegenMemset(mem_acc, val, (t->getPrimitiveSizeInBits() + 7) / 8);
+            // Even for floating points, 00000000 = 0.0, so cast to integer type
+            // of same length to avoid problems with initialization of floats
+            Value *val = Builder->CreateBitCast(
+                val_id, Type::getIntNTy(context->getLLVMContext(),
+                                        context->getSizeOf(val_id) * 8));
+            context->CodegenMemset(mem_acc, val,
+                                   (t->getPrimitiveSizeInBits() + 7) / 8);
 
-                    return mem_acc;
-                },
+            return mem_acc;
+          },
 
-                [=](llvm::Value *, llvm::Value * s){
-                    // if (flushResults && is_first && accs.size() > 1) flusher->beginList();
+          [=](llvm::Value *, llvm::Value *s) {
+            // if (flushResults && is_first && accs.size() > 1)
+            // flusher->beginList();
 
-                    // Value* val_acc =  context->getBuilder()->CreateLoad(s);
+            // Value* val_acc =  context->getBuilder()->CreateLoad(s);
 
-                    // if (outputExpr.isRegistered()){
-                    //  map<RecordAttribute, RawValueMemory> binding{};
-                    //  AllocaInst * acc_alloca = context->CreateEntryBlockAlloca(outputExpr.getRegisteredAttrName(), val_acc->getType());
-                    //  context->getBuilder()->CreateStore(val_acc, acc_alloca);
-                    //  RawValueMemory acc_mem{acc_alloca, context->createFalse()};
-                    //  binding[outputExpr.getRegisteredAs()] = acc_mem;
-                    // }
+            // if (outputExpr.isRegistered()){
+            //  map<RecordAttribute, RawValueMemory> binding{};
+            //  AllocaInst * acc_alloca =
+            //  context->CreateEntryBlockAlloca(outputExpr.getRegisteredAttrName(),
+            //  val_acc->getType()); context->getBuilder()->CreateStore(val_acc,
+            //  acc_alloca); RawValueMemory acc_mem{acc_alloca,
+            //  context->createFalse()}; binding[outputExpr.getRegisteredAs()] =
+            //  acc_mem;
+            // }
 
-                    if (is_first){  
-                        auto itAcc  = accs.begin();
-                        auto itExpr = outputExprs.begin();
-                        auto itMem  = mem_accumulators.begin();
+            if (is_first) {
+              auto itAcc = accs.begin();
+              auto itExpr = outputExprs.begin();
+              auto itMem = mem_accumulators.begin();
 
-                        vector<Value *> args;
-                        for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-                            auto acc        = *itAcc    ;
-                            auto outputExpr = *itExpr   ;
-                            Value * mem_accumulating    = NULL      ;
+              vector<Value *> args;
+              for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
+                auto acc = *itAcc;
+                auto outputExpr = *itExpr;
+                Value *mem_accumulating = NULL;
 
-                            if (*itMem == ~((size_t) 0)) continue;
-                            
-                            args.emplace_back(context->getStateVar(*itMem));
-                        }
+                if (*itMem == ~((size_t)0)) continue;
 
-                        IRBuilder<> * Builder = context->getBuilder();
+                args.emplace_back(context->getStateVar(*itMem));
+              }
 
-                        Type  * charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
+              IRBuilder<> *Builder = context->getBuilder();
 
-                        Function * f        = context->getFunction("subpipeline_consume");
-                        FunctionType * f_t  = f->getFunctionType();
+              Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
 
-                        Type  * substate_t  = f_t->getParamType(f_t->getNumParams()-1);
+              Function *f = context->getFunction("subpipeline_consume");
+              FunctionType *f_t = f->getFunctionType();
 
-                        Value * substate    = Builder->CreateBitCast(((GpuRawContext *) context)->getSubStateVar(), substate_t);
-                        args.emplace_back(substate);
+              Type *substate_t = f_t->getParamType(f_t->getNumParams() - 1);
 
-                        Builder->CreateCall(f, args);
-                    }
+              Value *substate = Builder->CreateBitCast(
+                  ((GpuRawContext *)context)->getSubStateVar(), substate_t);
+              args.emplace_back(substate);
 
-                    // if (flushResults){
-                    //  flusher->flushValue(val_acc, outputExpr.getExpressionType()->getTypeID());
-                    //  if (flushDelim) flusher->flushDelim();
-                    // }
+              Builder->CreateCall(f, args);
+            }
 
-                    context->deallocateStateVar(s);
+            // if (flushResults){
+            //  flusher->flushValue(val_acc,
+            //  outputExpr.getExpressionType()->getTypeID()); if (flushDelim)
+            //  flusher->flushDelim();
+            // }
 
-                    // if (flushResults && is_last  && accs.size() > 1) flusher->endList();
+            context->deallocateStateVar(s);
 
-                    // if (flushResults && is_last  ) flusher->flushOutput();
-                }
-            );
-            break;
-        }
-        case UNION: {
-            string error_msg = string("[Reduce: ] Not implemented yet");
-            LOG(ERROR)<< error_msg;
-            throw runtime_error(error_msg);
-        }
-        case BAGUNION:
-        case APPEND: {
-            /*XXX Bags and Lists can be processed in streaming fashion -> No accumulator needed */
-            break;
-        }
-        default: {
-            string error_msg = string("[Reduce: ] Unknown accumulator");
-            LOG(ERROR)<< error_msg;
-            throw runtime_error(error_msg);
-        }
+            // if (flushResults && is_last  && accs.size() > 1)
+            // flusher->endList();
+
+            // if (flushResults && is_last  ) flusher->flushOutput();
+          });
+      break;
     }
+    case UNION: {
+      string error_msg = string("[Reduce: ] Not implemented yet");
+      LOG(ERROR) << error_msg;
+      throw runtime_error(error_msg);
+    }
+    case BAGUNION:
+    case APPEND: {
+      /*XXX Bags and Lists can be processed in streaming fashion -> No
+       * accumulator needed */
+      break;
+    }
+    default: {
+      string error_msg = string("[Reduce: ] Unknown accumulator");
+      LOG(ERROR) << error_msg;
+      throw runtime_error(error_msg);
+    }
+  }
 
-    return mem_accum_id;
+  return mem_accum_id;
 }
 
-
-
-
-}
-
-
+}  // namespace opt

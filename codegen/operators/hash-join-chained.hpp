@@ -24,74 +24,74 @@
 #ifndef HASH_JOIN_CHAINED_HPP_
 #define HASH_JOIN_CHAINED_HPP_
 
-#include "operators/gpu/gpu-materializer-expr.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "operators/operators.hpp"
 #include <unordered_map>
+#include "operators/gpu/gpu-materializer-expr.hpp"
+#include "operators/operators.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 
 class HashJoinChained : public BinaryRawOperator {
-public:
-    HashJoinChained(
-            const std::vector<GpuMatExpr>      &build_mat_exprs, 
-            const std::vector<size_t>          &build_packet_widths,
-            expression_t                        build_keyexpr,
-            RawOperator * const                 build_child,
-            const std::vector<GpuMatExpr>      &probe_mat_exprs, 
-            const std::vector<size_t>          &probe_mat_packet_widths,
-            expression_t                        probe_keyexpr,
-            RawOperator * const                 probe_child,
-            int                                 hash_bits,
-            GpuRawContext *                     context,
-            size_t                              maxBuildInputSize,
-            string                              opLabel = "hj_chained");
-    virtual ~HashJoinChained() { LOG(INFO)<< "Collapsing HashJoinChained operator";}
+ public:
+  HashJoinChained(const std::vector<GpuMatExpr> &build_mat_exprs,
+                  const std::vector<size_t> &build_packet_widths,
+                  expression_t build_keyexpr, RawOperator *const build_child,
+                  const std::vector<GpuMatExpr> &probe_mat_exprs,
+                  const std::vector<size_t> &probe_mat_packet_widths,
+                  expression_t probe_keyexpr, RawOperator *const probe_child,
+                  int hash_bits, GpuRawContext *context,
+                  size_t maxBuildInputSize, string opLabel = "hj_chained");
+  virtual ~HashJoinChained() {
+    LOG(INFO) << "Collapsing HashJoinChained operator";
+  }
 
-    virtual void produce();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
 
-    void open_probe (RawPipeline * pip);
-    void open_build (RawPipeline * pip);
-    void close_probe(RawPipeline * pip);
-    void close_build(RawPipeline * pip);
+  void open_probe(RawPipeline *pip);
+  void open_build(RawPipeline *pip);
+  void close_probe(RawPipeline *pip);
+  void close_build(RawPipeline *pip);
 
-    virtual bool isFiltering() const{
-        return true;
-    }
-private:
-    void generate_build(RawContext* const context, const OperatorState& childState);
-    void generate_probe(RawContext* const context, const OperatorState& childState);
-    void buildHashTableFormat();
-    void probeHashTableFormat();
+  virtual bool isFiltering() const { return true; }
 
-    llvm::Value * hash(expression_t exprs, RawContext* const context, const OperatorState& childState);
+ private:
+  void generate_build(RawContext *const context,
+                      const OperatorState &childState);
+  void generate_probe(RawContext *const context,
+                      const OperatorState &childState);
+  void buildHashTableFormat();
+  void probeHashTableFormat();
 
-    string                  opLabel;
+  llvm::Value *hash(expression_t exprs, RawContext *const context,
+                    const OperatorState &childState);
 
-    std::vector<GpuMatExpr> build_mat_exprs;
-    std::vector<GpuMatExpr> probe_mat_exprs;
-    std::vector<size_t>     build_packet_widths;
-    expression_t            build_keyexpr;
+  string opLabel;
 
-    expression_t            probe_keyexpr;
-    
-    std::vector<size_t>     packet_widths;
+  std::vector<GpuMatExpr> build_mat_exprs;
+  std::vector<GpuMatExpr> probe_mat_exprs;
+  std::vector<size_t> build_packet_widths;
+  expression_t build_keyexpr;
 
-    int                     head_param_id;
-    std::vector<int>        out_param_ids;
-    std::vector<int>        in_param_ids ;
-    int                     cnt_param_id ;
+  expression_t probe_keyexpr;
 
-    int                     probe_head_param_id;
+  std::vector<size_t> packet_widths;
 
-    int                     hash_bits  ;
-    size_t                  maxBuildInputSize;
+  int head_param_id;
+  std::vector<int> out_param_ids;
+  std::vector<int> in_param_ids;
+  int cnt_param_id;
 
-    // GpuExprMaterializer *   build_mat  ;
-    // GpuExprMaterializer *   probe_mat  ;
-    GpuRawContext *         context;
+  int probe_head_param_id;
 
-    // std::unordered_map<int32_t, std::vector<void *>> confs;
-    std::vector<void *> confs[128];
+  int hash_bits;
+  size_t maxBuildInputSize;
+
+  // GpuExprMaterializer *   build_mat  ;
+  // GpuExprMaterializer *   probe_mat  ;
+  GpuRawContext *context;
+
+  // std::unordered_map<int32_t, std::vector<void *>> confs;
+  std::vector<void *> confs[128];
 };
 
 #endif /* HASH_JOIN_CHAINED_HPP_ */

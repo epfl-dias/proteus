@@ -27,65 +27,68 @@
 #include "util/gpu/gpu-raw-context.hpp"
 
 class HashRearrangeBuffered : public UnaryRawOperator {
-public:
-    HashRearrangeBuffered(  RawOperator * const             child,
-                    GpuRawContext * const           context,
-                    int                             numOfBuckets,
-                    const vector<expressions::Expression *> &wantedFields,
-                    expression_t                    hashExpr,
-                    RecordAttribute                *hashProject = NULL) :
-                        UnaryRawOperator(child), 
-                        context(context), 
-                        numOfBuckets(numOfBuckets),
-                        wantedFields(wantedFields),
-                        hashExpr(std::move(hashExpr)),
-                        hashProject(hashProject),
-                        blockSize(h_vector_size * sizeof(int32_t)){
-    }//FIMXE: default blocksize...
+ public:
+  HashRearrangeBuffered(RawOperator *const child, GpuRawContext *const context,
+                        int numOfBuckets,
+                        const vector<expressions::Expression *> &wantedFields,
+                        expression_t hashExpr,
+                        RecordAttribute *hashProject = NULL)
+      : UnaryRawOperator(child),
+        context(context),
+        numOfBuckets(numOfBuckets),
+        wantedFields(wantedFields),
+        hashExpr(std::move(hashExpr)),
+        hashProject(hashProject),
+        blockSize(h_vector_size * sizeof(int32_t)) {
+  }  // FIMXE: default blocksize...
 
-    virtual ~HashRearrangeBuffered()                                             { LOG(INFO)<<"Collapsing HashRearrangeBuffered operator";}
+  virtual ~HashRearrangeBuffered() {
+    LOG(INFO) << "Collapsing HashRearrangeBuffered operator";
+  }
 
-    virtual void produce();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return false;}
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
+  virtual bool isFiltering() const { return false; }
 
-    llvm::Value * hash(llvm::Value * key, llvm::Value * old_seed = NULL);
-    llvm::Value * hash(const std::vector<expression_t> &exprs, RawContext* const context, const OperatorState& childState);
+  llvm::Value *hash(llvm::Value *key, llvm::Value *old_seed = NULL);
+  llvm::Value *hash(const std::vector<expression_t> &exprs,
+                    RawContext *const context, const OperatorState &childState);
 
-protected: 
-    virtual void consume_flush();
-    void consume_flush1();
+ protected:
+  virtual void consume_flush();
+  void consume_flush1();
 
-    virtual void open (RawPipeline * pip);
-    virtual void close(RawPipeline * pip);
+  virtual void open(RawPipeline *pip);
+  virtual void close(RawPipeline *pip);
 
-    const vector<expressions::Expression *> wantedFields;
-    const int                       numOfBuckets;
-    RecordAttribute               * hashProject ;
+  const vector<expressions::Expression *> wantedFields;
+  const int numOfBuckets;
+  RecordAttribute *hashProject;
 
-    expression_t                    hashExpr    ;
+  expression_t hashExpr;
 
-    // void *                          flushFunc   ;
+  // void *                          flushFunc   ;
 
-    size_t                          blkVar_id   ;
-    size_t                          cntVar_id   ;
-    size_t                          oidVar_id   ;
+  size_t blkVar_id;
+  size_t cntVar_id;
+  size_t oidVar_id;
 
-    size_t                          cache_Var_id;
-    size_t                          cache_cnt_Var_id;
+  size_t cache_Var_id;
+  size_t cache_cnt_Var_id;
 
-    size_t                          blockSize       ; //bytes
+  size_t blockSize;  // bytes
 
-    int64_t                         cap             ;
+  int64_t cap;
 
-    GpuRawContext * const           context     ;
+  GpuRawContext *const context;
 
-    RawPipelineGen                        * closingPip      ;
-    RawPipelineGen                        * closingPip1     ;
-    Function                              * flushingFunc1   ;
-    Function                              * flushingFunc2   ;
+  RawPipelineGen *closingPip;
+  RawPipelineGen *closingPip1;
+  Function *flushingFunc1;
+  Function *flushingFunc2;
 
-    std::vector<size_t>             wfSizes;
+  std::vector<size_t> wfSizes;
 };
 
 #endif /* HASH_REARRANGE_HPP_ */

@@ -24,30 +24,31 @@
 #ifndef RAW_MODULE_HPP_
 #define RAW_MODULE_HPP_
 
-#include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
 
 #include "util/raw-context.hpp"
 
 class RawModule {
-protected:
-    static llvm::IRBuilder<>  * TheBuilder  ;
+ protected:
+  static llvm::IRBuilder<> *TheBuilder;
 
-    llvm::Module              * TheModule   ;
-    const std::string           pipName     ;
-    const RawContext          * context     ;
-public:
-    RawModule(RawContext * context, std::string pipName = "pip");
-    virtual ~RawModule(){}
+  llvm::Module *TheModule;
+  const std::string pipName;
+  const RawContext *context;
 
-    virtual void compileAndLoad() = 0;
+ public:
+  RawModule(RawContext *context, std::string pipName = "pip");
+  virtual ~RawModule() {}
 
-    Module * getModule() const;
+  virtual void compileAndLoad() = 0;
 
-    virtual void * getCompiledFunction(Function * f) const = 0;
+  Module *getModule() const;
 
-protected:
-    static void init(LLVMContext &llvmContext);
+  virtual void *getCompiledFunction(Function *f) const = 0;
+
+ protected:
+  static void init(LLVMContext &llvmContext);
 };
 
 #endif /* RAW_MODULE_HPP_ */

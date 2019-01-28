@@ -13,11 +13,11 @@
 
 #include <stdint.h>
 
-typedef struct HT	{
-	int *bucket;
-	int *next;
-	uint32_t mask;
-	int count;
+typedef struct HT    {
+    int *bucket;
+    int *next;
+    uint32_t mask;
+    int count;
 } HT;
 
 #endif /* TYPES_H */

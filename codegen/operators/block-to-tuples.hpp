@@ -27,40 +27,43 @@
 #include "util/gpu/gpu-raw-context.hpp"
 
 class BlockToTuples : public UnaryRawOperator {
-public:
-    BlockToTuples(RawOperator * const           child,
-                GpuRawContext * const           context,
-                const vector<expression_t>     &wantedFields,
-                bool                            gpu = true,
-                gran_t                          granularity = gran_t::GRID) :
-                    UnaryRawOperator(child), 
-                    context(context), 
-                    wantedFields(wantedFields),
-                    gpu(gpu),
-                    granularity(granularity){
-                        assert((gpu || granularity == gran_t::THREAD) && "CPU can only have a THREAD-granularity block2tuples");
-                        assert(granularity != gran_t::BLOCK && "BLOCK granurality is not supported yet"); //TODO: support BLOCK granularity
-                    }
+ public:
+  BlockToTuples(RawOperator *const child, GpuRawContext *const context,
+                const vector<expression_t> &wantedFields, bool gpu = true,
+                gran_t granularity = gran_t::GRID)
+      : UnaryRawOperator(child),
+        context(context),
+        wantedFields(wantedFields),
+        gpu(gpu),
+        granularity(granularity) {
+    assert((gpu || granularity == gran_t::THREAD) &&
+           "CPU can only have a THREAD-granularity block2tuples");
+    assert(granularity != gran_t::BLOCK &&
+           "BLOCK granurality is not supported yet");  // TODO: support BLOCK
+                                                       // granularity
+  }
 
-    virtual ~BlockToTuples()                                             { LOG(INFO)<<"Collapsing BlockToTuples operator";}
+  virtual ~BlockToTuples() { LOG(INFO) << "Collapsing BlockToTuples operator"; }
 
-    virtual void produce();
-    virtual void consume(RawContext    * const context, const OperatorState& childState);
-    virtual void consume(GpuRawContext * const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return false;}
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
+  virtual void consume(GpuRawContext *const context,
+                       const OperatorState &childState);
+  virtual bool isFiltering() const { return false; }
 
-private:
-    void nextEntry();
-    virtual void open (RawPipeline * pip);
-    virtual void close(RawPipeline * pip);
+ private:
+  void nextEntry();
+  virtual void open(RawPipeline *pip);
+  virtual void close(RawPipeline *pip);
 
-    const vector<expression_t>      wantedFields;
-    std::vector<size_t>             old_buffs   ;
-    GpuRawContext * const           context     ;
-    AllocaInst                    * mem_itemCtr ;
-    gran_t                          granularity ;
+  const vector<expression_t> wantedFields;
+  std::vector<size_t> old_buffs;
+  GpuRawContext *const context;
+  AllocaInst *mem_itemCtr;
+  gran_t granularity;
 
-    bool                            gpu         ;
+  bool gpu;
 };
 
 #endif /* BLOCK_TO_TUPLES_HPP_ */

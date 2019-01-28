@@ -26,17 +26,17 @@
 
 #include "util/gpu/gpu-raw-context.hpp"
 
-namespace gpu_intrinsic{
+namespace gpu_intrinsic {
 
-Value * load_ca(GpuRawContext * const context, Value * address);
+Value *load_ca(GpuRawContext *const context, Value *address);
 
-Value * load_ca16(GpuRawContext * const context, Value * address);
+Value *load_ca16(GpuRawContext *const context, Value *address);
 
-Value * load_cs(GpuRawContext * const context, Value * address);
+Value *load_cs(GpuRawContext *const context, Value *address);
 
-void store_wb32(GpuRawContext * const context, Value * address, Value * value);
+void store_wb32(GpuRawContext *const context, Value *address, Value *value);
 
-void store_wb16(GpuRawContext * const context, Value * address, Value * value); 
+void store_wb16(GpuRawContext *const context, Value *address, Value *value);
 
 /**
  * @brief Creates a vote.all(i1) call
@@ -45,7 +45,7 @@ void store_wb16(GpuRawContext * const context, Value * address, Value * value);
  *
  * @return a Value pointing to the result of the call
  **/
-Value * all(GpuRawContext * const context, Value * val_in);
+Value *all(GpuRawContext *const context, Value *val_in);
 
 /**
  * @brief Creates a vote.any(i1) call
@@ -54,21 +54,16 @@ Value * all(GpuRawContext * const context, Value * val_in);
  *
  * @return a Value pointing to the result of the call
  **/
-Value * any(GpuRawContext * const context, Value * val_in);
+Value *any(GpuRawContext *const context, Value *val_in);
 
+Value *shfl_bfly(GpuRawContext *const context, Value *val_in, uint32_t vxor,
+                 Value *mask = NULL);
 
-Value * shfl_bfly(GpuRawContext * const context, 
-                    Value *             val_in, 
-                    uint32_t            vxor, 
-                    Value *             mask = NULL);
+Value *shfl_bfly(GpuRawContext *const context, Value *val_in, Value *vxor,
+                 Value *mask = NULL);
 
-Value * shfl_bfly(GpuRawContext * const context, 
-                    Value *             val_in, 
-                    Value *             vxor, 
-                    Value *             mask = NULL);
+Value *ballot(GpuRawContext *const context, Value *val_in);
 
-Value * ballot(GpuRawContext * const context, Value * val_in);
-
-}
+}  // namespace gpu_intrinsic
 
 #endif /* GPU_INTRINSICS_HPP_ */

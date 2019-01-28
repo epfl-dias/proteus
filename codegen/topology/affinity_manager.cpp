@@ -24,61 +24,57 @@
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 
-
 static thread_local cpu_set_t thread_core_affinity = cpu_set_t{1};
-static thread_local uint32_t  thread_cpu_numa_node_affinity = 0;
+static thread_local uint32_t thread_cpu_numa_node_affinity = 0;
 
-exec_location::exec_location(int gpu):
-    exec_location(topology::getInstance().getGpuByIndex(gpu)){
+exec_location::exec_location(int gpu)
+    : exec_location(topology::getInstance().getGpuByIndex(gpu)) {}
+
+int numa_node_of_gpu(int device) {
+  return topology::getInstance().getGpuByIndex(device).local_cpu;
 }
 
-int numa_node_of_gpu(int device){
-    return topology::getInstance().getGpuByIndex(device).local_cpu;
+exec_location::exec_location(const topology::gpunode &gpu)
+    : gpu_device(gpu.id),
+      cpu(topology::getInstance().getCpuNumaNodeById(gpu.local_cpu)),
+      cores(topology::getInstance()
+                .getCpuNumaNodeById(gpu.local_cpu)
+                .local_cpu_set) {}
+
+void affinity::set(const topology::cpunumanode &cpu) {
+  affinity_cpu_set::set(cpu, cpu.local_cpu_set);
 }
 
-exec_location::exec_location(const topology::gpunode &gpu):
-    gpu_device(gpu.id),
-    cpu(topology::getInstance().getCpuNumaNodeById(gpu.local_cpu)),
-    cores(topology::getInstance().getCpuNumaNodeById(gpu.local_cpu).local_cpu_set){
-}
-
-void affinity::set(const topology::cpunumanode &cpu){
-    affinity_cpu_set::set(cpu, cpu.local_cpu_set);
-}
-
-void affinity::set(const topology::core &core){
-    thread_cpu_numa_node_affinity = core.local_cpu;
-    CPU_ZERO(&thread_core_affinity);
-    CPU_SET(core.id, &thread_core_affinity);
+void affinity::set(const topology::core &core) {
+  thread_cpu_numa_node_affinity = core.local_cpu;
+  CPU_ZERO(&thread_core_affinity);
+  CPU_SET(core.id, &thread_core_affinity);
 
 #ifndef NDEBUG
-    int err =
+  int err =
 #endif
-    pthread_setaffinity_np(pthread_self(),
-                            sizeof(cpu_set_t),
-                            &(thread_core_affinity));
-    assert(!err);
+      pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
+                             &(thread_core_affinity));
+  assert(!err);
 }
 
-const topology::cpunumanode &affinity::get(){
-    const auto &topo = topology::getInstance();
-    return topo.getCpuNumaNodeById(thread_cpu_numa_node_affinity);
+const topology::cpunumanode &affinity::get() {
+  const auto &topo = topology::getInstance();
+  return topo.getCpuNumaNodeById(thread_cpu_numa_node_affinity);
 }
 
-void affinity_cpu_set::set(const topology::cpunumanode &cpu, cpu_set_t cores){
-    thread_core_affinity = cores;
-    thread_cpu_numa_node_affinity = cpu.id;
+void affinity_cpu_set::set(const topology::cpunumanode &cpu, cpu_set_t cores) {
+  thread_core_affinity = cores;
+  thread_cpu_numa_node_affinity = cpu.id;
 
 #ifndef NDEBUG
-    int err =
+  int err =
 #endif
-    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cores);
-    assert(!err);
+      pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cores);
+  assert(!err);
 }
 
-cpu_set_t affinity_cpu_set::get(){
-    return thread_core_affinity;
-}
+cpu_set_t affinity_cpu_set::get() { return thread_core_affinity; }
 
 // inline set_device_on_scope(const topology::gpunode &gpu):
 //         device(topology::getInstance().getActiveGpu()){

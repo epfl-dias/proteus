@@ -27,36 +27,26 @@
 #include "util/gpu/gpu-raw-context.hpp"
 
 class UnionAll : public Exchange {
-public:
-    UnionAll(   vector<RawOperator *          >   & children    ,
-                GpuRawContext * const               context     ,
-                const vector<RecordAttribute *>   & wantedFields):
-                    Exchange(   NULL,
-                                context,
-                                1,
-                                wantedFields,
-                                8,
-                                std::nullopt,
-                                false,
-                                false,
-                                children.size()),
-                    children(children){
-    }
+ public:
+  UnionAll(vector<RawOperator *> &children, GpuRawContext *const context,
+           const vector<RecordAttribute *> &wantedFields)
+      : Exchange(NULL, context, 1, wantedFields, 8, std::nullopt, false, false,
+                 children.size()),
+        children(children) {}
 
-    virtual ~UnionAll(){ LOG(INFO)<<"Collapsing UnionAll operator";}
+  virtual ~UnionAll() { LOG(INFO) << "Collapsing UnionAll operator"; }
 
-    virtual void produce();
-//     virtual void consume(   RawContext * const context, const OperatorState& childState);
-//     virtual void consume(GpuRawContext * const context, const OperatorState& childState);
-//     virtual bool isFiltering() const {return false;}
+  virtual void produce();
+  //     virtual void consume(   RawContext * const context, const
+  //     OperatorState& childState); virtual void consume(GpuRawContext * const
+  //     context, const OperatorState& childState); virtual bool isFiltering()
+  //     const {return false;}
 
-// protected:
-//     virtual void generate_catch();
+  // protected:
+  //     virtual void generate_catch();
 
-private:
-    vector<RawOperator *> children;
+ private:
+  vector<RawOperator *> children;
 };
 
 #endif /* UNIONALL_HPP_ */
-
-

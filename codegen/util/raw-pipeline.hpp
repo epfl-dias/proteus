@@ -29,248 +29,274 @@
 
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
-#include "common/gpu/gpu-common.hpp"
 #include <utility>
+#include "common/gpu/gpu-common.hpp"
 
 class RawPipeline;
 
-extern "C"{
-    void yield();
+extern "C" {
+void yield();
 }
 
-typedef void (opener_t)(RawPipeline *);
-typedef void (closer_t)(RawPipeline *);
+typedef void(opener_t)(RawPipeline *);
+typedef void(closer_t)(RawPipeline *);
 
-typedef llvm::Value * (  init_func_t)(llvm::Value *);
-typedef void          (deinit_func_t)(llvm::Value *, llvm::Value *);
+typedef llvm::Value *(init_func_t)(llvm::Value *);
+typedef void(deinit_func_t)(llvm::Value *, llvm::Value *);
 
 // __device__ void devprinti64(uint64_t x);
 
 class RawPipelineGen {
-protected:
-    //Last (current) basic block. This changes every time a new scan is triggered
-    BasicBlock* codeEnd;
-    //Current entry basic block. This changes every time a new scan is triggered
-    BasicBlock* currentCodeEntry;
+ protected:
+  // Last (current) basic block. This changes every time a new scan is triggered
+  BasicBlock *codeEnd;
+  // Current entry basic block. This changes every time a new scan is triggered
+  BasicBlock *currentCodeEntry;
 
-    std::vector<std::pair<std::function<  init_func_t>, size_t>> open_var;
-    Function *                  open__function      ;
+  std::vector<std::pair<std::function<init_func_t>, size_t>> open_var;
+  Function *open__function;
 
-    std::vector<std::pair<std::function<deinit_func_t>, size_t>> close_var;
-    Function *                  close_function      ;
+  std::vector<std::pair<std::function<deinit_func_t>, size_t>> close_var;
+  Function *close_function;
 
-    std::vector<llvm::Type *>   inputs              ;
-    std::vector<bool     >      inputs_noalias      ;
-    std::vector<bool     >      inputs_readonly     ;
+  std::vector<llvm::Type *> inputs;
+  std::vector<bool> inputs_noalias;
+  std::vector<bool> inputs_readonly;
 
-    std::vector<llvm::Type *>   state_vars          ;
-    std::vector<Argument *>     args                ;
+  std::vector<llvm::Type *> state_vars;
+  std::vector<Argument *> args;
 
-    std::vector<std::pair<const void *, std::function<opener_t>>> openers;
-    std::vector<std::pair<const void *, std::function<closer_t>>> closers;
+  std::vector<std::pair<const void *, std::function<opener_t>>> openers;
+  std::vector<std::pair<const void *, std::function<closer_t>>> closers;
 
-    std::string                 pipName             ;
-    RawContext                * context             ;
+  std::string pipName;
+  RawContext *context;
 
-    std::string                 func_name           ;
+  std::string func_name;
 
-    void                      * func                ;
+  void *func;
 
-    llvm::Value               * state               ;
-    llvm::StructType          * state_type          ;
+  llvm::Value *state;
+  llvm::StructType *state_type;
 
-    IRBuilder<>               * TheBuilder          ;
+  IRBuilder<> *TheBuilder;
 
-    RawPipelineGen            * copyStateFrom       ;
+  RawPipelineGen *copyStateFrom;
 
-    RawPipelineGen            * execute_after_close ;
+  RawPipelineGen *execute_after_close;
 
-//     //Used to include optimization passes
-//     legacy::FunctionPassManager * TheFPM        ;
-// #if MODULEPASS
-//     ModulePassManager           * TheMPM        ;
-// #endif
+  //     //Used to include optimization passes
+  //     legacy::FunctionPassManager * TheFPM        ;
+  // #if MODULEPASS
+  //     ModulePassManager           * TheMPM        ;
+  // #endif
 
-//     legacy::PassManager         * ThePM         ;
+  //     legacy::PassManager         * ThePM         ;
 
-    // ExecutionEngine             * TheExecutionEngine;
+  // ExecutionEngine             * TheExecutionEngine;
 
-    map<string, Function*>      availableFunctions  ;
+  map<string, Function *> availableFunctions;
 
-    unsigned int                maxBlockSize        ;
-    unsigned int                maxGridSize         ;
-public:
-    Function *                  F               ;
+  unsigned int maxBlockSize;
+  unsigned int maxGridSize;
 
-protected:
-    RawPipelineGen(RawContext * context, std::string pipName = "pip", RawPipelineGen * copyStateFrom = NULL);
-    
-    virtual ~RawPipelineGen(){}
+ public:
+  Function *F;
 
-public:
-    virtual size_t appendParameter(llvm::Type * ptype, bool noalias  = false, bool readonly = false);
-    virtual size_t appendStateVar (llvm::Type * ptype);
-    virtual size_t appendStateVar (llvm::Type * ptype, std::function<init_func_t> init, std::function<deinit_func_t> deinit);
+ protected:
+  RawPipelineGen(RawContext *context, std::string pipName = "pip",
+                 RawPipelineGen *copyStateFrom = NULL);
 
-    void callPipRegisteredOpen (size_t indx, RawPipeline * pip);
-    void callPipRegisteredClose(size_t indx, RawPipeline * pip);
+  virtual ~RawPipelineGen() {}
 
-    virtual llvm::Argument* getArgument(size_t id) const;
-    virtual llvm::Value   * getStateVar(size_t id) const;
-    virtual llvm::Value   * getStateVar()          const;
-    virtual llvm::Value   * getSubStateVar()       const;
+ public:
+  virtual size_t appendParameter(llvm::Type *ptype, bool noalias = false,
+                                 bool readonly = false);
+  virtual size_t appendStateVar(llvm::Type *ptype);
+  virtual size_t appendStateVar(llvm::Type *ptype,
+                                std::function<init_func_t> init,
+                                std::function<deinit_func_t> deinit);
 
-    virtual llvm::Value   * allocateStateVar  (llvm::Type  * t);
-    virtual void            deallocateStateVar(llvm::Value * v);
+  void callPipRegisteredOpen(size_t indx, RawPipeline *pip);
+  void callPipRegisteredClose(size_t indx, RawPipeline *pip);
 
-    virtual Function              * prepare();
-    virtual RawPipeline           * getPipeline(int group_id = 0);
-    virtual void                  * getKernel  () const;
+  virtual llvm::Argument *getArgument(size_t id) const;
+  virtual llvm::Value *getStateVar(size_t id) const;
+  virtual llvm::Value *getStateVar() const;
+  virtual llvm::Value *getSubStateVar() const;
 
-    virtual void                    setChainedPipeline(RawPipelineGen * next){
-        assert(!execute_after_close && "No support for multiple pipelines after a single one, create a chain");
-        execute_after_close = next;
-    }
+  virtual llvm::Value *allocateStateVar(llvm::Type *t);
+  virtual void deallocateStateVar(llvm::Value *v);
 
-    virtual void                  * getConsume() const{return getKernel();}
-    virtual Function              * getLLVMConsume() const {return F;}
+  virtual Function *prepare();
+  virtual RawPipeline *getPipeline(int group_id = 0);
+  virtual void *getKernel() const;
 
-    std::string                     getName() const{return pipName;}
+  virtual void setChainedPipeline(RawPipelineGen *next) {
+    assert(
+        !execute_after_close &&
+        "No support for multiple pipelines after a single one, create a chain");
+    execute_after_close = next;
+  }
 
-    virtual BasicBlock * getEndingBlock()                            {return codeEnd;}
-    virtual void         setEndingBlock(BasicBlock* codeEnd)         {this->codeEnd = codeEnd;}
-    virtual BasicBlock * getCurrentEntryBlock()                      {return currentCodeEntry;}
-    virtual void         setCurrentEntryBlock(BasicBlock* codeEntry) {this->currentCodeEntry = codeEntry;}
+  virtual void *getConsume() const { return getKernel(); }
+  virtual Function *getLLVMConsume() const { return F; }
 
-    virtual void                    setMaxWorkerSize(unsigned int maxBlock, unsigned int maxGrid){
-        maxBlockSize = std::min(maxBlockSize, maxBlock);
-        maxGridSize  = std::min(maxGridSize , maxGrid );
-    }
+  std::string getName() const { return pipName; }
 
-    virtual void compileAndLoad() = 0;
+  virtual BasicBlock *getEndingBlock() { return codeEnd; }
+  virtual void setEndingBlock(BasicBlock *codeEnd) { this->codeEnd = codeEnd; }
+  virtual BasicBlock *getCurrentEntryBlock() { return currentCodeEntry; }
+  virtual void setCurrentEntryBlock(BasicBlock *codeEntry) {
+    this->currentCodeEntry = codeEntry;
+  }
 
-    void registerOpen (const void * owner, std::function<void (RawPipeline * pip)> open );
-    void registerClose(const void * owner, std::function<void (RawPipeline * pip)> close);
+  virtual void setMaxWorkerSize(unsigned int maxBlock, unsigned int maxGrid) {
+    maxBlockSize = std::min(maxBlockSize, maxBlock);
+    maxGridSize = std::min(maxGridSize, maxGrid);
+  }
 
-    [[deprecated]] virtual Function              * getFunction() const;
+  virtual void compileAndLoad() = 0;
 
-    virtual Module                * getModule () const = 0;//{return TheModule ;}
-    virtual IRBuilder<>           * getBuilder() const {return TheBuilder;}
+  void registerOpen(const void *owner,
+                    std::function<void(RawPipeline *pip)> open);
+  void registerClose(const void *owner,
+                     std::function<void(RawPipeline *pip)> close);
 
-    virtual void registerFunction(const char *, Function *);
+  [[deprecated]] virtual Function *getFunction() const;
 
-    virtual Function * const getFunction(string funcName) const;
+  virtual Module *getModule() const = 0;  //{return TheModule ;}
+  virtual IRBuilder<> *getBuilder() const { return TheBuilder; }
 
-    virtual Function    * const createHelperFunction(string funcName, std::vector<llvm::Type *> ins, std::vector<bool> readonly, std::vector<bool> noalias) const;
-    virtual llvm::Value *       invokeHelperFunction(Function * f, std::vector<llvm::Value *> args) const;
+  virtual void registerFunction(const char *, Function *);
 
-    std::vector<llvm::Type *> getStateVars() const;
+  virtual Function *const getFunction(string funcName) const;
 
-    static void init();
+  virtual Function *const createHelperFunction(string funcName,
+                                               std::vector<llvm::Type *> ins,
+                                               std::vector<bool> readonly,
+                                               std::vector<bool> noalias) const;
+  virtual llvm::Value *invokeHelperFunction(
+      Function *f, std::vector<llvm::Value *> args) const;
 
-protected:
-    virtual void                    registerSubPipeline();
-    virtual size_t                  prepareStateArgument();
-    virtual llvm::Value           * getStateLLVMValue();
-    virtual void                    prepareFunction();
-    virtual void                    prepareInitDeinit();
-public:
-    virtual void                  * getCompiledFunction(Function * f) = 0;
-protected:
-    void registerFunctions();
+  std::vector<llvm::Type *> getStateVars() const;
+
+  static void init();
+
+ protected:
+  virtual void registerSubPipeline();
+  virtual size_t prepareStateArgument();
+  virtual llvm::Value *getStateLLVMValue();
+  virtual void prepareFunction();
+  virtual void prepareInitDeinit();
+
+ public:
+  virtual void *getCompiledFunction(Function *f) = 0;
+
+ protected:
+  void registerFunctions();
 };
 
-class RawPipeline{
-protected:
-    void              * cons      ;
-    llvm::StructType  * state_type;
-    const int32_t       group_id  ;
-    size_t              state_size;
-    const DataLayout  & layout    ;
+class RawPipeline {
+ protected:
+  void *cons;
+  llvm::StructType *state_type;
+  const int32_t group_id;
+  size_t state_size;
+  const DataLayout &layout;
 
-    std::vector<std::pair<const void *, std::function<opener_t>>> openers;
-    std::vector<std::pair<const void *, std::function<closer_t>>> closers;
+  std::vector<std::pair<const void *, std::function<opener_t>>> openers;
+  std::vector<std::pair<const void *, std::function<closer_t>>> closers;
 
-    void              * init_state;
-    void              * deinit_state;
+  void *init_state;
+  void *deinit_state;
 
-    RawPipeline       * execute_after_close;
+  RawPipeline *execute_after_close;
 
-    RawPipeline(void * cons, size_t state_size, RawPipelineGen * gen, llvm::StructType * state_type,
-        const std::vector<std::pair<const void *, std::function<opener_t>>> &openers,
-        const std::vector<std::pair<const void *, std::function<closer_t>>> &closers,
-        void *init_state,
-        void *deinit_state,
-        int32_t group_id = 0, //FIXME: group id should be handled to comply with the requirements!
-        RawPipeline * execute_after_close = NULL);
+  RawPipeline(
+      void *cons, size_t state_size, RawPipelineGen *gen,
+      llvm::StructType *state_type,
+      const std::vector<std::pair<const void *, std::function<opener_t>>>
+          &openers,
+      const std::vector<std::pair<const void *, std::function<closer_t>>>
+          &closers,
+      void *init_state, void *deinit_state,
+      int32_t group_id = 0,  // FIXME: group id should be handled to comply with
+                             // the requirements!
+      RawPipeline *execute_after_close = NULL);
 
-    // void copyStateFrom  (RawPipeline * p){
-    //     std::cout << p->state_size << std::endl;
-    //     memcpy(state, p->state, p->state_size);
-    //     std::cout << ((void **) state)[0] << std::endl;
-    //     std::cout << ((void **) state)[1] << std::endl;
-    //     std::cout << ((void **) state)[2] << std::endl;
-    //     std::cout << ((void **) p->state)[0] << std::endl;
-    //     std::cout << ((void **) p->state)[1] << std::endl;
-    //     std::cout << ((void **) p->state)[2] << std::endl;
-    // }
+  // void copyStateFrom  (RawPipeline * p){
+  //     std::cout << p->state_size << std::endl;
+  //     memcpy(state, p->state, p->state_size);
+  //     std::cout << ((void **) state)[0] << std::endl;
+  //     std::cout << ((void **) state)[1] << std::endl;
+  //     std::cout << ((void **) state)[2] << std::endl;
+  //     std::cout << ((void **) p->state)[0] << std::endl;
+  //     std::cout << ((void **) p->state)[1] << std::endl;
+  //     std::cout << ((void **) p->state)[2] << std::endl;
+  // }
 
-    // void copyStateBackTo(RawPipeline * p){
-    //     memcpy(p->state, state, p->state_size);
-    // }
+  // void copyStateBackTo(RawPipeline * p){
+  //     memcpy(p->state, state, p->state_size);
+  // }
 
-    friend class RawPipelineGen;
-    friend class RawGpuPipelineGen;
-    friend class RawCpuPipelineGen;
-public:
-    void     * state;
+  friend class RawPipelineGen;
+  friend class RawGpuPipelineGen;
+  friend class RawCpuPipelineGen;
 
-    virtual ~RawPipeline();
+ public:
+  void *state;
 
-    void * getState() const{
-        return state;
-    }
+  virtual ~RawPipeline();
 
-    size_t getSizeOf(llvm::Type * t) const;
+  void *getState() const { return state; }
 
-    template<typename T>
-    void setStateVar(size_t state_id, const T &value){
-        size_t offset = layout.getStructLayout(state_type)->getElementOffset(state_id);
+  size_t getSizeOf(llvm::Type *t) const;
 
-        *((T *) (((char *) state) + offset)) = value;
-    }
+  template <typename T>
+  void setStateVar(size_t state_id, const T &value) {
+    size_t offset =
+        layout.getStructLayout(state_type)->getElementOffset(state_id);
 
-    template<typename T>
-    T getStateVar(size_t state_id){
-        size_t offset = layout.getStructLayout(state_type)->getElementOffset(state_id);
+    *((T *)(((char *)state) + offset)) = value;
+  }
 
-        return *((T *) (((char *) state) + offset));
-    }
+  template <typename T>
+  T getStateVar(size_t state_id) {
+    size_t offset =
+        layout.getStructLayout(state_type)->getElementOffset(state_id);
 
-    int32_t getGroup() const;
+    return *((T *)(((char *)state) + offset));
+  }
 
-    virtual execution_conf getExecConfiguration() const{
-        return execution_conf{};
-    }
+  int32_t getGroup() const;
 
-    virtual void open();
-    
-    template<typename... Tin>
-    void consume(size_t N, const Tin * ... src){ //FIXME: cleanup + remove synchronization
-        // ((void (*)(const Tin * ..., size_t, void *)) cons)(src..., N, state);
-        ((void (*)(const Tin * ..., void *)) cons)(src..., state);
-    }//;// cnt_t N, vid_t v, cid_t c){
+  virtual execution_conf getExecConfiguration() const {
+    return execution_conf{};
+  }
 
-    virtual void close();
+  virtual void open();
+
+  template <typename... Tin>
+  void consume(size_t N,
+               const Tin *... src) {  // FIXME: cleanup + remove synchronization
+    // ((void (*)(const Tin * ..., size_t, void *)) cons)(src..., N, state);
+    ((void (*)(const Tin *..., void *))cons)(src..., state);
+  }  //;// cnt_t N, vid_t v, cid_t c){
+
+  virtual void close();
 };
 
-class RawPipelineGenFactory{
-protected:
-    RawPipelineGenFactory(){}
+class RawPipelineGenFactory {
+ protected:
+  RawPipelineGenFactory() {}
 
-    virtual ~RawPipelineGenFactory(){}
-public:
-    virtual RawPipelineGen * create(RawContext * context, std::string pipName = "pip", RawPipelineGen * copyStateFrom = NULL) = 0;
+  virtual ~RawPipelineGenFactory() {}
+
+ public:
+  virtual RawPipelineGen *create(RawContext *context,
+                                 std::string pipName = "pip",
+                                 RawPipelineGen *copyStateFrom = NULL) = 0;
 };
 
 #endif /* RAW_PIPELINE_HPP_ */

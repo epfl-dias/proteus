@@ -23,34 +23,32 @@
 #ifndef CPU_TO_GPU_HPP_
 #define CPU_TO_GPU_HPP_
 
+#include "operators/device-cross.hpp"
 #include "operators/operators.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
-#include "operators/device-cross.hpp"
 
 class CpuToGpu : public DeviceCross {
-public:
-    CpuToGpu(   RawOperator * const             child,
-                GpuRawContext * const           context,
-                const vector<RecordAttribute*> &wantedFields) :
-                    DeviceCross(child), 
-                    context(context), 
-                    wantedFields(wantedFields){}
+ public:
+  CpuToGpu(RawOperator *const child, GpuRawContext *const context,
+           const vector<RecordAttribute *> &wantedFields)
+      : DeviceCross(child), context(context), wantedFields(wantedFields) {}
 
-    virtual ~CpuToGpu()                                             { LOG(INFO)<<"Collapsing CpuToGpu operator";}
+  virtual ~CpuToGpu() { LOG(INFO) << "Collapsing CpuToGpu operator"; }
 
-    virtual void produce();
-    virtual void consume(GpuRawContext* const context, const OperatorState& childState);
+  virtual void produce();
+  virtual void consume(GpuRawContext *const context,
+                       const OperatorState &childState);
 
-    virtual void generateGpuSide();
+  virtual void generateGpuSide();
 
-private:
-    const vector<RecordAttribute *> wantedFields;
+ private:
+  const vector<RecordAttribute *> wantedFields;
 
-    GpuRawContext * const           context     ;
+  GpuRawContext *const context;
 
-    RawPipelineGen *                gpu_pip     ;
-    size_t                          childVar_id ;
-    size_t                          strmVar_id  ;
+  RawPipelineGen *gpu_pip;
+  size_t childVar_id;
+  size_t strmVar_id;
 };
 
 #endif /* CPU_TO_GPU_HPP_ */

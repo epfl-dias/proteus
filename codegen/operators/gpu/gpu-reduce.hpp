@@ -24,11 +24,11 @@
 #ifndef GPU_REDUCE_HPP_
 #define GPU_REDUCE_HPP_
 
+#include "expressions/expressions-flusher.hpp"
+#include "expressions/expressions-generator.hpp"
+#include "operators/monoids.hpp"
 #include "operators/operators.hpp"
 #include "operators/reduce-opt.hpp"
-#include "operators/monoids.hpp"
-#include "expressions/expressions-generator.hpp"
-#include "expressions/expressions-flusher.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 
 namespace opt {
@@ -37,33 +37,41 @@ namespace opt {
 //#endif
 
 /* MULTIPLE ACCUMULATORS SUPPORTED */
-class GpuReduce: public Reduce {
-public:
-//FIXME get read of parameter global_accumulator_ptr, it should be created inside this class and the materializer should be responsible to write it to the host
-    GpuReduce(vector<Monoid>                    accs,
-            vector<expression_t>                outputExprs,
-            expression_t                        pred,
-            RawOperator * const                 child,
-            GpuRawContext *                     context);
-    virtual ~GpuReduce() { LOG(INFO)<< "Collapsing GpuReduce operator";}
-    virtual void produce();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
-    virtual void consume(GpuRawContext* const context, const OperatorState& childState);
+class GpuReduce : public Reduce {
+ public:
+  // FIXME get read of parameter global_accumulator_ptr, it should be created
+  // inside this class and the materializer should be responsible to write it to
+  // the host
+  GpuReduce(vector<Monoid> accs, vector<expression_t> outputExprs,
+            expression_t pred, RawOperator *const child,
+            GpuRawContext *context);
+  virtual ~GpuReduce() { LOG(INFO) << "Collapsing GpuReduce operator"; }
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
+  virtual void consume(GpuRawContext *const context,
+                       const OperatorState &childState);
 
-    // virtual void open (RawPipeline * pip) const;
-    // virtual void close(RawPipeline * pip) const;
+  // virtual void open (RawPipeline * pip) const;
+  // virtual void close(RawPipeline * pip) const;
 
-protected:
-    virtual size_t resetAccumulator(expression_t outputExpr,
-        Monoid acc, bool flushDelim, bool is_first, bool is_last) const;
-private:
-    void generate(RawContext* const context, const OperatorState& childState) const;
-    void generate(const Monoid &m, expression_t outputExpr, GpuRawContext* const context, const OperatorState& childState, llvm::Value *mem_accumulating, llvm::Value *global_accumulator_ptr) const;
-    
-    std::vector<llvm::Value *> global_acc_ptr;
+ protected:
+  virtual size_t resetAccumulator(expression_t outputExpr, Monoid acc,
+                                  bool flushDelim, bool is_first,
+                                  bool is_last) const;
 
-    std::vector<int> out_ids;
+ private:
+  void generate(RawContext *const context,
+                const OperatorState &childState) const;
+  void generate(const Monoid &m, expression_t outputExpr,
+                GpuRawContext *const context, const OperatorState &childState,
+                llvm::Value *mem_accumulating,
+                llvm::Value *global_accumulator_ptr) const;
+
+  std::vector<llvm::Value *> global_acc_ptr;
+
+  std::vector<int> out_ids;
 };
-}
+}  // namespace opt
 
 #endif /* GPU_REDUCE_HPP_ */

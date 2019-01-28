@@ -29,60 +29,62 @@
 // #include "operators/gpu/gpu-materializer-expr.hpp"
 
 class GpuHashRearrange : public UnaryRawOperator {
-public:
-    GpuHashRearrange(RawOperator  * const                           child,
-                    GpuRawContext * const                           context,
-                    int                                             numOfBuckets,
-                    const std::vector<expression_t>               & matExpr,
-                    expression_t                                    hashExpr,
-                    RecordAttribute                               * hashProject = NULL) :
-                        UnaryRawOperator(child), 
-                        context(context), 
-                        numOfBuckets(numOfBuckets),
-                        matExpr(matExpr),
-                        hashExpr(std::move(hashExpr)),
-                        hashProject(hashProject),
-                        blockSize(h_vector_size * sizeof(int32_t)){
-                        // packet_widths(packet_widths){
-    }//FIMXE: default blocksize...
+ public:
+  GpuHashRearrange(RawOperator *const child, GpuRawContext *const context,
+                   int numOfBuckets, const std::vector<expression_t> &matExpr,
+                   expression_t hashExpr, RecordAttribute *hashProject = NULL)
+      : UnaryRawOperator(child),
+        context(context),
+        numOfBuckets(numOfBuckets),
+        matExpr(matExpr),
+        hashExpr(std::move(hashExpr)),
+        hashProject(hashProject),
+        blockSize(h_vector_size * sizeof(int32_t)) {
+    // packet_widths(packet_widths){
+  }  // FIMXE: default blocksize...
 
-    virtual ~GpuHashRearrange()                                             { LOG(INFO)<<"Collapsing GpuHashRearrange operator";}
+  virtual ~GpuHashRearrange() {
+    LOG(INFO) << "Collapsing GpuHashRearrange operator";
+  }
 
-    virtual void produce();
-    virtual void consume(RawContext    * const context, const OperatorState& childState);
-    virtual void consume(GpuRawContext * const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return false;}
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
+  virtual void consume(GpuRawContext *const context,
+                       const OperatorState &childState);
+  virtual bool isFiltering() const { return false; }
 
-protected:
-    virtual void consume_flush(llvm::IntegerType * target_type);
+ protected:
+  virtual void consume_flush(llvm::IntegerType *target_type);
 
-    virtual void open (RawPipeline * pip);
-    virtual void close(RawPipeline * pip);
+  virtual void open(RawPipeline *pip);
+  virtual void close(RawPipeline *pip);
 
-    llvm::Value * hash(const std::vector<expression_t> &exprs, RawContext* const context, const OperatorState& childState);
+  llvm::Value *hash(const std::vector<expression_t> &exprs,
+                    RawContext *const context, const OperatorState &childState);
 
-    std::vector<expression_t>               matExpr         ;
-    const int                               numOfBuckets    ;
-    RecordAttribute                       * hashProject     ;
+  std::vector<expression_t> matExpr;
+  const int numOfBuckets;
+  RecordAttribute *hashProject;
 
-    expression_t                            hashExpr        ;
-    expressions::RecordConstruction       * mexpr           ;
+  expression_t hashExpr;
+  expressions::RecordConstruction *mexpr;
 
-    RawPipelineGen                        * closingPip      ;
-    Function                              * flushingFunc    ;
+  RawPipelineGen *closingPip;
+  Function *flushingFunc;
 
-    std::vector<size_t>                     buffVar_id      ;
-    size_t                                  cntVar_id       ;
-    size_t                                  oidVar_id       ;
-    size_t                                  wcntVar_id      ;
+  std::vector<size_t> buffVar_id;
+  size_t cntVar_id;
+  size_t oidVar_id;
+  size_t wcntVar_id;
 
-    size_t                                  blockSize       ; //bytes
+  size_t blockSize;  // bytes
 
-    int64_t                                 cap             ;
+  int64_t cap;
 
-    GpuRawContext * const                   context         ;
+  GpuRawContext *const context;
 
-    // std::vector<size_t>                     packet_widths   ;
+  // std::vector<size_t>                     packet_widths   ;
 };
 
 #endif /* GPU_HASH_REARRANGE_HPP_ */

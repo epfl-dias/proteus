@@ -23,68 +23,71 @@
 #ifndef MEM_MOVE_LOCAL_TO_HPP_
 #define MEM_MOVE_LOCAL_TO_HPP_
 
-#include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/async_containers.hpp"
-#include <thread>
 #include <future>
+#include <thread>
+#include "operators/operators.hpp"
 #include "topology/affinity_manager.hpp"
+#include "util/async_containers.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 
-// void * make_mem_move_device(char * src, size_t bytes, int target_device, cudaStream_t strm);
+// void * make_mem_move_device(char * src, size_t bytes, int target_device,
+// cudaStream_t strm);
 
 class MemMoveLocalTo : public UnaryRawOperator {
-public:
-    struct workunit{
-        void      * data ;
-        cudaEvent_t event;
-    };
+ public:
+  struct workunit {
+    void *data;
+    cudaEvent_t event;
+  };
 
-    struct MemMoveConf{
-        AsyncStackSPSC<workunit *>  idle     ;
-        AsyncQueueSPSC<workunit *>  tran     ;
+  struct MemMoveConf {
+    AsyncStackSPSC<workunit *> idle;
+    AsyncQueueSPSC<workunit *> tran;
 
-        std::future<void>           worker   ;
-        cudaStream_t                strm     ;
-        cudaStream_t                strm2    ;
+    std::future<void> worker;
+    cudaStream_t strm;
+    cudaStream_t strm2;
 
-        size_t                      slack    ;
-        cudaEvent_t               * events   ;
-        void                     ** old_buffs;
-        size_t                      next_e   ;
-    };
+    size_t slack;
+    cudaEvent_t *events;
+    void **old_buffs;
+    size_t next_e;
+  };
 
-    MemMoveLocalTo(  RawOperator * const             child,
-                    GpuRawContext * const           context,
-                    const vector<RecordAttribute*> &wantedFields,
-                    size_t                          slack = 8) :
-                        UnaryRawOperator(child), 
-                        context(context), 
-                        wantedFields(wantedFields),
-                        slack(slack){}
+  MemMoveLocalTo(RawOperator *const child, GpuRawContext *const context,
+                 const vector<RecordAttribute *> &wantedFields,
+                 size_t slack = 8)
+      : UnaryRawOperator(child),
+        context(context),
+        wantedFields(wantedFields),
+        slack(slack) {}
 
-    virtual ~MemMoveLocalTo()                                             { LOG(INFO)<<"Collapsing MemMoveLocalTo operator";}
+  virtual ~MemMoveLocalTo() {
+    LOG(INFO) << "Collapsing MemMoveLocalTo operator";
+  }
 
-    virtual void produce();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return false;}
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
+  virtual bool isFiltering() const { return false; }
 
-private:
-    const vector<RecordAttribute *> wantedFields ;
-    size_t                          device_id_var;
-    size_t                          memmvconf_var;
+ private:
+  const vector<RecordAttribute *> wantedFields;
+  size_t device_id_var;
+  size_t memmvconf_var;
 
-    RawPipelineGen                * catch_pip    ;
-    llvm::Type                    * data_type    ;
+  RawPipelineGen *catch_pip;
+  llvm::Type *data_type;
 
+  size_t slack;
 
-    size_t                          slack        ;
+  GpuRawContext *const context;
 
-    GpuRawContext * const context;
+  void open(RawPipeline *pip);
+  void close(RawPipeline *pip);
 
-    void open (RawPipeline * pip);
-    void close(RawPipeline * pip);
-
-    void catcher(MemMoveConf * conf, int group_id, const exec_location &target_dev);
+  void catcher(MemMoveConf *conf, int group_id,
+               const exec_location &target_dev);
 };
 
 #endif /* MEM_MOVE_LOCAL_TO_HPP_ */

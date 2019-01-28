@@ -27,48 +27,45 @@
 #include "operators/operators.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 
-enum direction{
-    ASC,
-    NONE,
-    DESC
-};
+enum direction { ASC, NONE, DESC };
 
 class Sort : public UnaryRawOperator {
-public:
-    Sort(   RawOperator * const         child,
-            GpuRawContext * const       context,
-            const vector<expression_t> &orderByFields,
-            const vector<direction   > &dirs);
+ public:
+  Sort(RawOperator *const child, GpuRawContext *const context,
+       const vector<expression_t> &orderByFields,
+       const vector<direction> &dirs);
 
-    virtual ~Sort(){ LOG(INFO)<<"Collapsing Sort operator";}
+  virtual ~Sort() { LOG(INFO) << "Collapsing Sort operator"; }
 
-    virtual void produce();
-    virtual void consume(RawContext    * const context, const OperatorState& childState);
-    virtual void consume(GpuRawContext * const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return false;}
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
+  virtual void consume(GpuRawContext *const context,
+                       const OperatorState &childState);
+  virtual bool isFiltering() const { return false; }
 
-protected:
-    // virtual void open (RawPipeline * pip);
-    // virtual void close(RawPipeline * pip);
+ protected:
+  // virtual void open (RawPipeline * pip);
+  // virtual void close(RawPipeline * pip);
 
-    virtual void flush_sorted();
+  virtual void flush_sorted();
 
-    virtual void call_sort(llvm::Value * mem, llvm::Value * N);
+  virtual void call_sort(llvm::Value *mem, llvm::Value *N);
 
-    std::vector<expression_t> orderByFields;
-    const vector<direction  > dirs         ;
+  std::vector<expression_t> orderByFields;
+  const vector<direction> dirs;
 
-    expressions::RecordConstruction outputExpr  ;
-    std::string                     relName     ;
+  expressions::RecordConstruction outputExpr;
+  std::string relName;
 
-    // size_t                          width       ;
+  // size_t                          width       ;
 
-    size_t                          cntVar_id   ;
-    size_t                          memVar_id   ;
+  size_t cntVar_id;
+  size_t memVar_id;
 
-    llvm::Type                    * mem_type    ;
+  llvm::Type *mem_type;
 
-    GpuRawContext * const           context     ;
+  GpuRawContext *const context;
 };
 
 #endif /* SORT_HPP_ */

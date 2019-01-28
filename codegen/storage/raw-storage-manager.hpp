@@ -24,10 +24,10 @@
 #ifndef RAW_STORAGE_MANAGER_HPP_
 #define RAW_STORAGE_MANAGER_HPP_
 
-#include "common/gpu/gpu-common.hpp"
-#include "common/common.hpp"
 #include <map>
 #include <vector>
+#include "common/common.hpp"
+#include "common/gpu/gpu-common.hpp"
 
 // class StorageManager;
 
@@ -42,9 +42,9 @@
 // // private:
 // //     const RawFileDescription file_description;
 
-
 // // public:
-// //     RawStorageDescription(const RawFileDescription &desc): file_description(desc){}
+// //     RawStorageDescription(const RawFileDescription &desc):
+// file_description(desc){}
 // // };
 
 // class RawFile{
@@ -59,29 +59,32 @@
 // };
 
 struct mem_file {
-    const void * data;
-    size_t       size;
+  const void *data;
+  size_t size;
 };
 
-class StorageManager{
-private:
-    static std::map<std::string, std::vector<std::unique_ptr<mmap_file>>> files;
-    static std::map<std::string, std::map<int, std::string> *>            dicts;
-public:
-    // void load  (const RawStorageDescription &desc);
-    // void unload(const RawStorageDescription &desc);
-    static void load            (std::string name, size_t type_size, data_loc loc);
-    static void loadToGpus      (std::string name, size_t type_size);
-    static void loadToCpus      (std::string name, size_t type_size);
-    static void loadEverywhere  (std::string name, size_t type_size, int pref_gpu_weight = 1, int pref_cpu_weight = 1);
+class StorageManager {
+ private:
+  static std::map<std::string, std::vector<std::unique_ptr<mmap_file>>> files;
+  static std::map<std::string, std::map<int, std::string> *> dicts;
 
-    static void * getDictionaryOf(std::string name);
+ public:
+  // void load  (const RawStorageDescription &desc);
+  // void unload(const RawStorageDescription &desc);
+  static void load(std::string name, size_t type_size, data_loc loc);
+  static void loadToGpus(std::string name, size_t type_size);
+  static void loadToCpus(std::string name, size_t type_size);
+  static void loadEverywhere(std::string name, size_t type_size,
+                             int pref_gpu_weight = 1, int pref_cpu_weight = 1);
 
-    static void unloadAll();
-    // void unload(std::string name);
+  static void *getDictionaryOf(std::string name);
 
-    static std::vector<mem_file> getFile(std::string name);
-    static std::vector<mem_file> getOrLoadFile(std::string name, size_t type_size, data_loc loc = PINNED);
+  static void unloadAll();
+  // void unload(std::string name);
+
+  static std::vector<mem_file> getFile(std::string name);
+  static std::vector<mem_file> getOrLoadFile(std::string name, size_t type_size,
+                                             data_loc loc = PINNED);
 };
 
 #endif /* RAW_STORAGE_MANAGER_HPP_ */

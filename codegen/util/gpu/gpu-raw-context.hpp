@@ -27,120 +27,131 @@
 #include "util/raw-context.hpp"
 #include "util/raw-pipeline.hpp"
 
-class GpuRawContext: public RawContext {
-public:
+class GpuRawContext : public RawContext {
+ public:
+  GpuRawContext(const string &moduleName, bool gpu_root = false);
+  virtual ~GpuRawContext();
 
-    GpuRawContext(const string& moduleName, bool gpu_root = false);
-    virtual ~GpuRawContext();
+  virtual size_t appendParameter(llvm::Type *ptype, bool noalias = false,
+                                 bool readonly = false);
+  virtual size_t appendStateVar(llvm::Type *ptype, std::string name = "");
+  virtual size_t appendStateVar(llvm::Type *ptype,
+                                std::function<init_func_t> init,
+                                std::function<deinit_func_t> deinit,
+                                std::string name = "");
 
-    virtual size_t appendParameter(llvm::Type * ptype, bool noalias  = false, bool readonly = false);
-    virtual size_t appendStateVar (llvm::Type * ptype, std::string name = "");
-    virtual size_t appendStateVar (llvm::Type * ptype, std::function<init_func_t> init, std::function<deinit_func_t> deinit, std::string name = "");
+  virtual llvm::Argument *getArgument(size_t id) const;
+  virtual llvm::Value *getStateVar(size_t id) const;
+  virtual llvm::Value *getStateVar() const;
+  virtual llvm::Value *getSubStateVar() const;
+  virtual std::vector<llvm::Type *> getStateVars() const;
 
+  void registerOpen(const void *owner,
+                    std::function<void(RawPipeline *pip)> open);
+  void registerClose(const void *owner,
+                     std::function<void(RawPipeline *pip)> close);
 
-    virtual llvm::Argument * getArgument(size_t id) const;
-    virtual llvm::Value    * getStateVar(size_t id) const;
-    virtual llvm::Value    * getStateVar()          const;
-    virtual llvm::Value    * getSubStateVar()       const;
-    virtual std::vector<llvm::Type *> getStateVars()          const;
+  // void pushNewPipeline    (RawPipelineGen *copyStateFrom = NULL);
+  // void pushNewCpuPipeline (RawPipelineGen *copyStateFrom = NULL);
 
-    void registerOpen (const void * owner, std::function<void (RawPipeline * pip)> open );
-    void registerClose(const void * owner, std::function<void (RawPipeline * pip)> close);
+ private:
+  void pushDeviceProvider(RawPipelineGenFactory *factory);
 
-    // void pushNewPipeline    (RawPipelineGen *copyStateFrom = NULL);
-    // void pushNewCpuPipeline (RawPipelineGen *copyStateFrom = NULL);
+  template <typename T>
+  void pushDeviceProvider() {
+    pushDeviceProvider(&(T::getInstance()));
+  }
 
-private:
-    void pushDeviceProvider(RawPipelineGenFactory * factory);
-    
-    template<typename T>
-    void pushDeviceProvider(){
-        pushDeviceProvider(&(T::getInstance()));
-    }
+  void popDeviceProvider();
 
-    void popDeviceProvider();
+  friend class DeviceCross;
+  friend class CpuToGpu;
+  friend class GpuToCpu;
 
-    friend class DeviceCross;
-    friend class CpuToGpu;
-    friend class GpuToCpu;
-public:
-    void pushPipeline(RawPipelineGen * copyStateFrom = NULL);
-    void popPipeline();
+ public:
+  void pushPipeline(RawPipelineGen *copyStateFrom = NULL);
+  void popPipeline();
 
-    RawPipelineGen * removeLatestPipeline();
-    RawPipelineGen * getCurrentPipeline()  ;
-    void             setChainedPipeline(RawPipelineGen * next);
+  RawPipelineGen *removeLatestPipeline();
+  RawPipelineGen *getCurrentPipeline();
+  void setChainedPipeline(RawPipelineGen *next);
 
-    virtual Module      * getModule () const {
-        return generators.back()->getModule ();
-    }
-    
-    virtual IRBuilder<> * getBuilder() const {
-        return generators.back()->getBuilder();
-    }
+  virtual Module *getModule() const { return generators.back()->getModule(); }
 
-    Function * const getFunction(string funcName) const{
-        return generators.back()->getFunction(funcName);
-    }
+  virtual IRBuilder<> *getBuilder() const {
+    return generators.back()->getBuilder();
+  }
 
-    virtual void setGlobalFunction(bool leaf);
-    virtual void setGlobalFunction(Function *F = nullptr, bool leaf = false);
-    virtual void prepareFunction(Function *F){}
+  Function *const getFunction(string funcName) const {
+    return generators.back()->getFunction(funcName);
+  }
 
-    virtual llvm::Value * threadId ();
-    virtual llvm::Value * threadIdInBlock();
-    virtual llvm::Value * blockId  ();
-    virtual llvm::Value * blockDim ();
-    virtual llvm::Value * gridDim  ();
-    virtual llvm::Value * threadNum();
-    virtual llvm::Value * laneId   ();
-    virtual void          createMembar_gl();
+  virtual void setGlobalFunction(bool leaf);
+  virtual void setGlobalFunction(Function *F = nullptr, bool leaf = false);
+  virtual void prepareFunction(Function *F) {}
 
-    virtual BasicBlock* getEndingBlock()                            {return generators.back()->getEndingBlock();}
-    virtual void        setEndingBlock(BasicBlock* codeEnd)         {generators.back()->setEndingBlock(codeEnd);}
-    virtual BasicBlock* getCurrentEntryBlock()                      {return generators.back()->getCurrentEntryBlock();}
-    virtual void        setCurrentEntryBlock(BasicBlock* codeEntry) {generators.back()->setCurrentEntryBlock(codeEntry);}
+  virtual llvm::Value *threadId();
+  virtual llvm::Value *threadIdInBlock();
+  virtual llvm::Value *blockId();
+  virtual llvm::Value *blockDim();
+  virtual llvm::Value *gridDim();
+  virtual llvm::Value *threadNum();
+  virtual llvm::Value *laneId();
+  virtual void createMembar_gl();
 
-    virtual llvm::Value * allocateStateVar  (llvm::Type  *t);
-    virtual void          deallocateStateVar(llvm::Value *v);
+  virtual BasicBlock *getEndingBlock() {
+    return generators.back()->getEndingBlock();
+  }
+  virtual void setEndingBlock(BasicBlock *codeEnd) {
+    generators.back()->setEndingBlock(codeEnd);
+  }
+  virtual BasicBlock *getCurrentEntryBlock() {
+    return generators.back()->getCurrentEntryBlock();
+  }
+  virtual void setCurrentEntryBlock(BasicBlock *codeEntry) {
+    generators.back()->setCurrentEntryBlock(codeEntry);
+  }
 
-    // string emitPTX();
+  virtual llvm::Value *allocateStateVar(llvm::Type *t);
+  virtual void deallocateStateVar(llvm::Value *v);
 
-    void compileAndLoad();
+  // string emitPTX();
 
-    // std::vector<CUfunction> getKernel();
-    std::vector<RawPipeline *> getPipelines();
-    
-    //Provide support for some extern functions
-    virtual void registerFunction(const char* funcName, Function* func);
+  void compileAndLoad();
 
-    RawPipelineGen * operator->() const {return generators.back();}
+  // std::vector<CUfunction> getKernel();
+  std::vector<RawPipeline *> getPipelines();
 
-protected:
-    virtual void createJITEngine();
+  // Provide support for some extern functions
+  virtual void registerFunction(const char *funcName, Function *func);
 
-public:
-    std::unique_ptr<TargetMachine> TheTargetMachine;
-    ExecutionEngine * TheExecutionEngine;
-    ExecutionEngine * TheCPUExecutionEngine;
+  RawPipelineGen *operator->() const { return generators.back(); }
 
-    // CUmodule cudaModule;
+ protected:
+  virtual void createJITEngine();
 
-protected:
-    string                      kernelName;
-    size_t                      pip_cnt   ;
+ public:
+  std::unique_ptr<TargetMachine> TheTargetMachine;
+  ExecutionEngine *TheExecutionEngine;
+  ExecutionEngine *TheCPUExecutionEngine;
 
-    std::vector<RawPipelineGenFactory *> pipFactories;
+  // CUmodule cudaModule;
 
-    // Module * TheCPUModule;
+ protected:
+  string kernelName;
+  size_t pip_cnt;
 
-    std::vector<RawPipelineGen *> pipelines ;
+  std::vector<RawPipelineGenFactory *> pipFactories;
 
-    std::vector<RawPipelineGen *> generators;
+  // Module * TheCPUModule;
 
-    std::vector<bool            > leafpip   ;
+  std::vector<RawPipelineGen *> pipelines;
 
-    std::vector<bool            > leafgen   ;
+  std::vector<RawPipelineGen *> generators;
+
+  std::vector<bool> leafpip;
+
+  std::vector<bool> leafgen;
 };
 
 #endif /* GPU_RAW_CONTEXT_HPP_ */

@@ -1,26 +1,25 @@
 /*
-	RAW -- High-performance querying over raw, never-seen-before data.
+    RAW -- High-performance querying over raw, never-seen-before data.
 
-							Copyright (c) 2014
-		Data Intensive Applications and Systems Labaratory (DIAS)
-				École Polytechnique Fédérale de Lausanne
+                            Copyright (c) 2014
+        Data Intensive Applications and Systems Labaratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
 
-							All Rights Reserved.
+                            All Rights Reserved.
 
-	Permission to use, copy, modify and distribute this software and
-	its documentation is hereby granted, provided that both the
-	copyright notice and this permission notice appear in all copies of
-	the software, derivative works or modified versions, and any
-	portions thereof, and that both notices appear in supporting
-	documentation.
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
 
-	This code is distributed in the hope that it will be useful, but
-	WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
-	DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
-	RESULTING FROM THE USE OF THIS SOFTWARE.
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-
 
 // Step 1. Include necessary header files such that the stuff your
 // test logic needs is declared.
@@ -29,11 +28,11 @@
 #include "gtest/gtest.h"
 #include "test-utils.hpp"
 
-#include "plan/plan-parser.hpp"
 #include "common/common.hpp"
+#include "plan/plan-parser.hpp"
 
-#include "util/raw-memory-manager.hpp"
 #include "storage/raw-storage-manager.hpp"
+#include "util/raw-memory-manager.hpp"
 
 // Step 2. Use the TEST macro to define your tests.
 //
@@ -59,122 +58,123 @@
 //
 // </TechnicalDetails>
 
-::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+::testing::Environment *const pools_env =
+    ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
 
 class PlanTest : public ::testing::Test {
-protected:
-	virtual void SetUp() {
-		catalog = &RawCatalog::getInstance();
-		caches = &CachingService::getInstance();
-		catalog->clear();
-		caches->clear();
-	}
+ protected:
+  virtual void SetUp() {
+    catalog = &RawCatalog::getInstance();
+    caches = &CachingService::getInstance();
+    catalog->clear();
+    caches->clear();
+  }
 
-	virtual void TearDown() {
-		StorageManager::unloadAll();
-	}
+  virtual void TearDown() { StorageManager::unloadAll(); }
 
-	bool executePlan(const char * planPath, const char * testLabel, const char * catalogJSON) {
-		std::vector<RawPipeline *> pipelines;
-		{
-			time_block t("Tcodegen: ");
+  bool executePlan(const char *planPath, const char *testLabel,
+                   const char *catalogJSON) {
+    std::vector<RawPipeline *> pipelines;
+    {
+      time_block t("Tcodegen: ");
 
-			GpuRawContext * ctx   = new GpuRawContext(testLabel, false);
-			CatalogParser catalog = CatalogParser(catalogJSON, ctx);
-			PlanExecutor  exec    = PlanExecutor(planPath, catalog, testLabel, ctx);
+      GpuRawContext *ctx = new GpuRawContext(testLabel, false);
+      CatalogParser catalog = CatalogParser(catalogJSON, ctx);
+      PlanExecutor exec = PlanExecutor(planPath, catalog, testLabel, ctx);
 
-			ctx->compileAndLoad();
+      ctx->compileAndLoad();
 
-			pipelines = ctx->getPipelines();
-		}
+      pipelines = ctx->getPipelines();
+    }
 
-		{
-			time_block t("Texecute       : ");
+    {
+      time_block t("Texecute       : ");
 
-			for (RawPipeline * p: pipelines) {
-				{
-					time_block t("T: ");
+      for (RawPipeline *p : pipelines) {
+        {
+          time_block t("T: ");
 
-					p->open();
-					p->consume(0);
-					p->close();
-				}
-			}
-		}
+          p->open();
+          p->consume(0);
+          p->close();
+        }
+      }
+    }
 
-		bool res = verifyTestResult(testPath, testLabel, true);
-		shm_unlink(testLabel);
-		return res;
-	}
+    bool res = verifyTestResult(testPath, testLabel, true);
+    shm_unlink(testLabel);
+    return res;
+  }
 
-	bool executePlan(const char * planPath, const char * testLabel) {
-		return executePlan(planPath, testLabel, catalogJSON);
-	}
+  bool executePlan(const char *planPath, const char *testLabel) {
+    return executePlan(planPath, testLabel, catalogJSON);
+  }
 
-	bool flushResults = true;
-	const char * testPath = TEST_OUTPUTS "/tests-plan-parsing/";
-	const char * catalogJSON = "inputs";
+  bool flushResults = true;
+  const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
+  const char *catalogJSON = "inputs";
 
-private:
-	RawCatalog * catalog;
-	CachingService * caches;
+ private:
+  RawCatalog *catalog;
+  CachingService *caches;
 };
 
 /* SELECT COUNT(*) FROM SAILORS s; */
 TEST_F(PlanTest, Scan) {
-	const char* planPath = "inputs/plans/reduce-scan.json";
-	const char *testLabel = "reduce-scan-log.json";
+  const char *planPath = "inputs/plans/reduce-scan.json";
+  const char *testLabel = "reduce-scan-log.json";
 
-	EXPECT_TRUE(executePlan(planPath, testLabel));
+  EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /* SELECT COUNT(*) as cnt, MAX(age) as max_age FROM SAILORS s; */
 TEST_F(PlanTest, ScanTwoFields) {
-	const char* planPath = "inputs/plans/reduce-twofields-scan.json";
-	const char *testLabel = "reduce-twofields-scan-log.json";
+  const char *planPath = "inputs/plans/reduce-twofields-scan.json";
+  const char *testLabel = "reduce-twofields-scan-log.json";
 
-	EXPECT_TRUE(executePlan(planPath, testLabel));
+  EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /* SELECT COUNT(*) as cnt FROM employees e, unnest(e.children); */
 TEST_F(PlanTest, Unnest) {
-	const char* planPath = "inputs/plans/reduce-unnest-scan.json";
-	const char *testLabel = "reduce-unnest-scan-log.json";
+  const char *planPath = "inputs/plans/reduce-unnest-scan.json";
+  const char *testLabel = "reduce-unnest-scan-log.json";
 
-	EXPECT_TRUE(executePlan(planPath, testLabel));
+  EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /* SELECT COUNT(*) FROM SAILORS s JOIN RESERVES r ON s.sid = r.sid; */
 TEST_F(PlanTest, Join) {
-	const char* planPath = "inputs/plans/reduce-join.json";
-	const char *testLabel = "reduce-join-log.json";
+  const char *planPath = "inputs/plans/reduce-join.json";
+  const char *testLabel = "reduce-join-log.json";
 
-	EXPECT_TRUE(executePlan(planPath, testLabel));
+  EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /* SELECT COUNT(*) as count FROM RESERVES GROUP BY sid; */
 TEST_F(PlanTest, Nest) {
-	const char* planPath = "inputs/plans/reduce-nest.json";
-	const char *testLabel = "reduce-nest-log.json";
+  const char *planPath = "inputs/plans/reduce-nest.json";
+  const char *testLabel = "reduce-nest-log.json";
 
-	EXPECT_TRUE(executePlan(planPath, testLabel));
+  EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /* SELECT COUNT(*) FROM RESERVES WHERE sid = 22; */
 TEST_F(PlanTest, Select) {
-	const char* planPath = "inputs/plans/reduce-select.json";
-	const char *testLabel = "reduce-select-log.json";
+  const char *planPath = "inputs/plans/reduce-select.json";
+  const char *testLabel = "reduce-select-log.json";
 
-	EXPECT_TRUE(executePlan(planPath, testLabel));
+  EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /* Project out multiple cols:
- * SELECT COUNT(*) as outputCnt, MAX(bid) as outputMax FROM RESERVES GROUP BY sid; */
+ * SELECT COUNT(*) as outputCnt, MAX(bid) as outputMax FROM RESERVES GROUP BY
+ * sid; */
 TEST_F(PlanTest, MultiNest) {
-	const char* planPath = "inputs/plans/reduce-multinest.json";
-	const char *testLabel = "reduce-multinest-log.json";
+  const char *planPath = "inputs/plans/reduce-multinest.json";
+  const char *testLabel = "reduce-multinest-log.json";
 
-	EXPECT_TRUE(executePlan(planPath, testLabel));
+  EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /*
@@ -183,10 +183,10 @@ TEST_F(PlanTest, MultiNest) {
  * where A.A1 = B.B1 and A.A2 > 10 and B.B2 < 10;
  * */
 TEST_F(PlanTest, JoinRecord) {
-	const char* planPath = "inputs/plans/reduce-join-record.json";
-	const char *testLabel = "reduce-join-record-log.json";
+  const char *planPath = "inputs/plans/reduce-join-record.json";
+  const char *testLabel = "reduce-join-record-log.json";
 
-	EXPECT_TRUE(executePlan(planPath, testLabel));
+  EXPECT_TRUE(executePlan(planPath, testLabel));
 }
 
 /*
@@ -197,19 +197,19 @@ TEST_F(PlanTest, JoinRecord) {
  * [more results]
  * */
 TEST_F(PlanTest, JoinRecordBNonselective) {
-	//LSC: FIXME: Why this one alone uses other files? Can't we use the same
-	//            inputs, or add a specific file for that test there instead
-	//            of using a different catalog, and different test data?
-	const char* catalogJSON = "inputs/parser";
-	const char* planPath = "inputs/plans/reduce-join-record-nonselective.json";
-	const char *testLabel = "reduce-join-record-nonselective-log.json";
-	
-	EXPECT_TRUE(executePlan(planPath, testLabel, catalogJSON));
+  // LSC: FIXME: Why this one alone uses other files? Can't we use the same
+  //            inputs, or add a specific file for that test there instead
+  //            of using a different catalog, and different test data?
+  const char *catalogJSON = "inputs/parser";
+  const char *planPath = "inputs/plans/reduce-join-record-nonselective.json";
+  const char *testLabel = "reduce-join-record-nonselective-log.json";
+
+  EXPECT_TRUE(executePlan(planPath, testLabel, catalogJSON));
 }
 
 TEST_F(PlanTest, ScanBin) {
-	const char* planPath = "inputs/plans/reduce-scan-bin.json";
-	const char *testLabel = "reduce-scan-bin-log.json";
+  const char *planPath = "inputs/plans/reduce-scan-bin.json";
+  const char *testLabel = "reduce-scan-bin-log.json";
 
-	EXPECT_TRUE(executePlan(planPath, testLabel));
+  EXPECT_TRUE(executePlan(planPath, testLabel));
 }

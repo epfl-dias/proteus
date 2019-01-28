@@ -25,21 +25,18 @@
 
 using namespace llvm;
 
-IRBuilder<> * RawModule::TheBuilder = nullptr;
+IRBuilder<> *RawModule::TheBuilder = nullptr;
 
-RawModule::RawModule(RawContext * context, std::string pipName): 
-    TheModule(new Module(pipName, context->getLLVMContext())),
-    pipName(pipName), 
-    context(context){
-
-    if (TheBuilder == nullptr) init(context->getLLVMContext());
+RawModule::RawModule(RawContext *context, std::string pipName)
+    : TheModule(new Module(pipName, context->getLLVMContext())),
+      pipName(pipName),
+      context(context) {
+  if (TheBuilder == nullptr) init(context->getLLVMContext());
 }
 
-void RawModule::init(LLVMContext &llvmContext){
-    assert(TheBuilder == nullptr && "Module already initialized");
-    TheBuilder = new IRBuilder<>(llvmContext);
+void RawModule::init(LLVMContext &llvmContext) {
+  assert(TheBuilder == nullptr && "Module already initialized");
+  TheBuilder = new IRBuilder<>(llvmContext);
 }
 
-Module * RawModule::getModule() const{
-    return TheModule;
-}
+Module *RawModule::getModule() const { return TheModule; }

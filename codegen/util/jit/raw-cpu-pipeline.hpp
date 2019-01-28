@@ -24,41 +24,42 @@
 #ifndef RAW_CPU_PIPELINE_HPP_
 #define RAW_CPU_PIPELINE_HPP_
 
-#include "util/raw-pipeline.hpp"
 #include "util/jit/raw-cpu-module.hpp"
+#include "util/raw-pipeline.hpp"
 
-class RawCpuPipelineGen: public RawPipelineGen {
-protected:
-    RawCpuModule                                        module;
+class RawCpuPipelineGen : public RawPipelineGen {
+ protected:
+  RawCpuModule module;
 
-private:
-    RawCpuPipelineGen(  RawContext        * context                 , 
-                        std::string         pipName         = "pip" , 
-                        RawPipelineGen    * copyStateFrom   = NULL  );
+ private:
+  RawCpuPipelineGen(RawContext *context, std::string pipName = "pip",
+                    RawPipelineGen *copyStateFrom = NULL);
 
-    friend class RawCpuPipelineGenFactory;
-public:
-    virtual void compileAndLoad();
+  friend class RawCpuPipelineGenFactory;
 
-    virtual Module * getModule () const {return module.getModule();}
+ public:
+  virtual void compileAndLoad();
 
-public:
-    virtual void * getCompiledFunction(Function * f);
+  virtual Module *getModule() const { return module.getModule(); }
+
+ public:
+  virtual void *getCompiledFunction(Function *f);
 };
 
-class RawCpuPipelineGenFactory: public RawPipelineGenFactory {
-protected:
-    RawCpuPipelineGenFactory(){}
-public:
-    static RawPipelineGenFactory &getInstance(){
-        static RawCpuPipelineGenFactory instance;
-        return instance;
-    }
+class RawCpuPipelineGenFactory : public RawPipelineGenFactory {
+ protected:
+  RawCpuPipelineGenFactory() {}
 
+ public:
+  static RawPipelineGenFactory &getInstance() {
+    static RawCpuPipelineGenFactory instance;
+    return instance;
+  }
 
-    RawPipelineGen * create(RawContext * context, std::string pipName, RawPipelineGen * copyStateFrom){
-        return new RawCpuPipelineGen(context, pipName, copyStateFrom);
-    }
+  RawPipelineGen *create(RawContext *context, std::string pipName,
+                         RawPipelineGen *copyStateFrom) {
+    return new RawCpuPipelineGen(context, pipName, copyStateFrom);
+  }
 };
 
 #endif /* RAW_CPU_PIPELINE_HPP_ */

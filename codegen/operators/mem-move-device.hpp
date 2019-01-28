@@ -23,77 +23,78 @@
 #ifndef MEM_MOVE_DEVICE_HPP_
 #define MEM_MOVE_DEVICE_HPP_
 
-#include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/async_containers.hpp"
-#include <thread>
 #include <future>
+#include <thread>
+#include "operators/operators.hpp"
 #include "topology/affinity_manager.hpp"
+#include "util/async_containers.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 
-// void * make_mem_move_device(char * src, size_t bytes, int target_device, cudaStream_t strm);
+// void * make_mem_move_device(char * src, size_t bytes, int target_device,
+// cudaStream_t strm);
 
 class MemMoveDevice : public UnaryRawOperator {
-public:
-    struct workunit{
-        void      * data ;
-        cudaEvent_t event;
-        cudaStream_t strm;
-    };
+ public:
+  struct workunit {
+    void *data;
+    cudaEvent_t event;
+    cudaStream_t strm;
+  };
 
-    struct MemMoveConf{
-        AsyncQueueSPSC<workunit *>  idle     ; //_lockfree is slower and seems to have a bug
-        AsyncQueueSPSC<workunit *>  tran     ;
+  struct MemMoveConf {
+    AsyncQueueSPSC<workunit *>
+        idle;  //_lockfree is slower and seems to have a bug
+    AsyncQueueSPSC<workunit *> tran;
 
-        std::future<void>           worker   ;
-        // std::thread               * worker   ;
-        cudaStream_t                strm     ;
-        // cudaStream_t                strm2    ;
+    std::future<void> worker;
+    // std::thread               * worker   ;
+    cudaStream_t strm;
+    // cudaStream_t                strm2    ;
 
-        cudaEvent_t               * lastEvent;
+    cudaEvent_t *lastEvent;
 
-        size_t                      slack    ;
-        // cudaEvent_t               * events   ;
-        // void                     ** old_buffs;
-        size_t                      next_e   ;
+    size_t slack;
+    // cudaEvent_t               * events   ;
+    // void                     ** old_buffs;
+    size_t next_e;
 
-        void                      * data_buffs;
-        workunit                  * wus       ;
-    };
+    void *data_buffs;
+    workunit *wus;
+  };
 
-    MemMoveDevice(  RawOperator * const             child,
-                    GpuRawContext * const           context,
-                    const vector<RecordAttribute*> &wantedFields,
-                    size_t                          slack,
-                    bool                            to_cpu) :
-                        UnaryRawOperator(child), 
-                        context(context), 
-                        wantedFields(wantedFields),
-                        slack(slack), to_cpu(to_cpu){}
+  MemMoveDevice(RawOperator *const child, GpuRawContext *const context,
+                const vector<RecordAttribute *> &wantedFields, size_t slack,
+                bool to_cpu)
+      : UnaryRawOperator(child),
+        context(context),
+        wantedFields(wantedFields),
+        slack(slack),
+        to_cpu(to_cpu) {}
 
-    virtual ~MemMoveDevice()                                             { LOG(INFO)<<"Collapsing MemMoveDevice operator";}
+  virtual ~MemMoveDevice() { LOG(INFO) << "Collapsing MemMoveDevice operator"; }
 
-    virtual void produce();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return false;}
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
+  virtual bool isFiltering() const { return false; }
 
-private:
-    const vector<RecordAttribute *> wantedFields ;
-    size_t                          device_id_var;
-    size_t                          memmvconf_var;
+ private:
+  const vector<RecordAttribute *> wantedFields;
+  size_t device_id_var;
+  size_t memmvconf_var;
 
-    RawPipelineGen                * catch_pip    ;
-    llvm::Type                    * data_type    ;
+  RawPipelineGen *catch_pip;
+  llvm::Type *data_type;
 
+  size_t slack;
+  bool to_cpu;
 
-    size_t                          slack        ;
-    bool                            to_cpu       ;
+  GpuRawContext *const context;
 
-    GpuRawContext * const context;
+  void open(RawPipeline *pip);
+  void close(RawPipeline *pip);
 
-    void open (RawPipeline * pip);
-    void close(RawPipeline * pip);
-
-    void catcher(MemMoveConf * conf, int group_id, exec_location target_dev);
+  void catcher(MemMoveConf *conf, int group_id, exec_location target_dev);
 };
 
 #endif /* MEM_MOVE_DEVICE_HPP_ */

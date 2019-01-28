@@ -1,1295 +1,1250 @@
 /*
-	RAW -- High-performance querying over raw, never-seen-before data.
+    RAW -- High-performance querying over raw, never-seen-before data.
 
-							Copyright (c) 2014
-		Data Intensive Applications and Systems Labaratory (DIAS)
-				École Polytechnique Fédérale de Lausanne
+                            Copyright (c) 2014
+        Data Intensive Applications and Systems Labaratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
 
-							All Rights Reserved.
+                            All Rights Reserved.
 
-	Permission to use, copy, modify and distribute this software and
-	its documentation is hereby granted, provided that both the
-	copyright notice and this permission notice appear in all copies of
-	the software, derivative works or modified versions, and any
-	portions thereof, and that both notices appear in supporting
-	documentation.
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
 
-	This code is distributed in the hope that it will be useful, but
-	WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
-	DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
-	RESULTING FROM THE USE OF THIS SOFTWARE.
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-
 #include "common/common.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
-#include "operators/scan.hpp"
-#include "operators/select.hpp"
+#include "common/symantec-config.hpp"
+#include "expressions/binary-operators.hpp"
+#include "expressions/expressions-hasher.hpp"
+#include "expressions/expressions.hpp"
 #include "operators/join.hpp"
-#include "operators/radix-join.hpp"
-#include "operators/unnest.hpp"
+#include "operators/materializer-expr.hpp"
+#include "operators/nest-opt.hpp"
+#include "operators/nest.hpp"
 #include "operators/outer-unnest.hpp"
 #include "operators/print.hpp"
-#include "operators/root.hpp"
-#include "operators/reduce.hpp"
+#include "operators/radix-join.hpp"
+#include "operators/radix-nest.hpp"
 #include "operators/reduce-nopred.hpp"
 #include "operators/reduce-opt.hpp"
-#include "operators/nest.hpp"
-#include "operators/nest-opt.hpp"
-#include "operators/radix-nest.hpp"
-#include "operators/materializer-expr.hpp"
-#include "plugins/json-plugin.hpp"
-#include "plugins/binary-row-plugin.hpp"
+#include "operators/reduce.hpp"
+#include "operators/root.hpp"
+#include "operators/scan.hpp"
+#include "operators/select.hpp"
+#include "operators/unnest.hpp"
 #include "plugins/binary-col-plugin.hpp"
+#include "plugins/binary-row-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "values/expressionTypes.hpp"
-#include "expressions/binary-operators.hpp"
-#include "expressions/expressions.hpp"
-#include "expressions/expressions-hasher.hpp"
 #include "util/raw-caching.hpp"
-#include "common/symantec-config.hpp"
-#include "operators/materializer-expr.hpp"
+#include "util/raw-context.hpp"
+#include "util/raw-functions.hpp"
+#include "values/expressionTypes.hpp"
 
-void symantecJSONWarmup(map<string,dataset> datasetCatalog);
-void symantecBinJSON1(map<string,dataset> datasetCatalog);
-void symantecBinJSON2(map<string,dataset> datasetCatalog);
-void symantecBinJSON3(map<string,dataset> datasetCatalog);
-void symantecBinJSON4(map<string,dataset> datasetCatalog);
-void symantecBinJSON5(map<string,dataset> datasetCatalog);
+void symantecJSONWarmup(map<string, dataset> datasetCatalog);
+void symantecBinJSON1(map<string, dataset> datasetCatalog);
+void symantecBinJSON2(map<string, dataset> datasetCatalog);
+void symantecBinJSON3(map<string, dataset> datasetCatalog);
+void symantecBinJSON4(map<string, dataset> datasetCatalog);
+void symantecBinJSON5(map<string, dataset> datasetCatalog);
 
+int main() {
+  cout << "Execution" << endl;
+  map<string, dataset> datasetCatalog;
+  symantecBinSchema(datasetCatalog);
+  symantecCSVSchema(datasetCatalog);
 
-int main()	{
-	cout << "Execution" << endl;
-	map<string,dataset> datasetCatalog;
-	symantecBinSchema(datasetCatalog);
-	symantecCSVSchema(datasetCatalog);
-
-	symantecCoreIDDatesSchema(datasetCatalog);
-	symantecJSONWarmup(datasetCatalog);
-	cout << "SYMANTEC BIN-JSON 1" << endl;
-	symantecBinJSON1(datasetCatalog);
-	cout << "SYMANTEC BIN-JSON 2" << endl;
-	symantecBinJSON2(datasetCatalog);
-	cout << "SYMANTEC BIN-JSON 3" << endl;
-	symantecBinJSON3(datasetCatalog);
-	cout << "SYMANTEC BIN-JSON 4" << endl;
-	symantecBinJSON4(datasetCatalog);
-	cout << "SYMANTEC BIN-JSON 5" << endl;
-	symantecBinJSON5(datasetCatalog);
+  symantecCoreIDDatesSchema(datasetCatalog);
+  symantecJSONWarmup(datasetCatalog);
+  cout << "SYMANTEC BIN-JSON 1" << endl;
+  symantecBinJSON1(datasetCatalog);
+  cout << "SYMANTEC BIN-JSON 2" << endl;
+  symantecBinJSON2(datasetCatalog);
+  cout << "SYMANTEC BIN-JSON 3" << endl;
+  symantecBinJSON3(datasetCatalog);
+  cout << "SYMANTEC BIN-JSON 4" << endl;
+  symantecBinJSON4(datasetCatalog);
+  cout << "SYMANTEC BIN-JSON 5" << endl;
+  symantecBinJSON5(datasetCatalog);
 }
 
 void symantecBinJSON1(map<string, dataset> datasetCatalog) {
+  // bin
+  int idLow = 5000000;
+  int idHigh = 10000000;
+  int dimHigh = 3;
+  int clusterLow = 490;
+  int clusterHighIncl = 500;
+  // JSON
+  // id, again
 
-	//bin
-	int idLow = 5000000;
-	int idHigh = 10000000;
-	int dimHigh = 3;
-	int clusterLow = 490;
-	int clusterHighIncl = 500;
-	//JSON
-	//id, again
+  RawContext &ctx = *prepareContext("symantec-bin-JSON-1");
+  RawCatalog &rawCatalog = RawCatalog::getInstance();
 
-	RawContext& ctx = *prepareContext("symantec-bin-JSON-1");
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
+  string nameSymantecBin = string("symantecBin");
+  dataset symantecBin = datasetCatalog[nameSymantecBin];
+  map<string, RecordAttribute *> argsSymantecBin =
+      symantecBin.recType.getArgsMap();
 
-	string nameSymantecBin = string("symantecBin");
-	dataset symantecBin = datasetCatalog[nameSymantecBin];
-	map<string, RecordAttribute*> argsSymantecBin =
-			symantecBin.recType.getArgsMap();
+  string nameSymantecJSON = string("symantecIDDates");
+  dataset symantecJSON = datasetCatalog[nameSymantecJSON];
+  map<string, RecordAttribute *> argsSymantecJSON =
+      symantecJSON.recType.getArgsMap();
 
-	string nameSymantecJSON = string("symantecIDDates");
-	dataset symantecJSON = datasetCatalog[nameSymantecJSON];
-	map<string, RecordAttribute*> argsSymantecJSON =
-			symantecJSON.recType.getArgsMap();
+  /**
+   * SCAN BINARY FILE
+   */
+  BinaryColPlugin *pgBin;
+  Scan *scanBin;
+  RecordAttribute *idBin;
+  RecordAttribute *dim;
+  RecordAttribute *cluster;
+  RecordAttribute *mdc;
+  RecordType recBin = symantecBin.recType;
+  string fnamePrefixBin = symantecBin.path;
+  int linehintBin = symantecBin.linehint;
+  idBin = argsSymantecBin["id"];
+  cluster = argsSymantecBin["cluster"];
+  dim = argsSymantecBin["dim"];
+  mdc = argsSymantecBin["mdc"];
+  vector<RecordAttribute *> projectionsBin;
+  projectionsBin.push_back(idBin);
+  projectionsBin.push_back(cluster);
+  projectionsBin.push_back(dim);
+  projectionsBin.push_back(mdc);
 
-	/**
-	 * SCAN BINARY FILE
-	 */
-	BinaryColPlugin *pgBin;
-	Scan *scanBin;
-	RecordAttribute *idBin;
-	RecordAttribute *dim;
-	RecordAttribute *cluster;
-	RecordAttribute *mdc;
-	RecordType recBin = symantecBin.recType;
-	string fnamePrefixBin = symantecBin.path;
-	int linehintBin = symantecBin.linehint;
-	idBin = argsSymantecBin["id"];
-	cluster = argsSymantecBin["cluster"];
-	dim = argsSymantecBin["dim"];
-	mdc = argsSymantecBin["mdc"];
-	vector<RecordAttribute*> projectionsBin;
-	projectionsBin.push_back(idBin);
-	projectionsBin.push_back(cluster);
-	projectionsBin.push_back(dim);
-	projectionsBin.push_back(mdc);
+  pgBin = new BinaryColPlugin(&ctx, fnamePrefixBin, recBin, projectionsBin);
+  rawCatalog.registerPlugin(fnamePrefixBin, pgBin);
+  scanBin = new Scan(&ctx, *pgBin);
 
-	pgBin = new BinaryColPlugin(&ctx, fnamePrefixBin, recBin, projectionsBin);
-	rawCatalog.registerPlugin(fnamePrefixBin, pgBin);
-	scanBin = new Scan(&ctx, *pgBin);
+  /*
+   * SELECT BINARY
+   * id > 5000000 and id < 10000000 and dim < 3 AND cluster > 490 AND cluster <=
+   * 500
+   */
+  expressions::Expression *predicateBin;
+  {
+    list<RecordAttribute> argProjectionsBin;
+    argProjectionsBin.push_back(*idBin);
+    argProjectionsBin.push_back(*dim);
+    argProjectionsBin.push_back(*cluster);
+    expressions::Expression *arg =
+        new expressions::InputArgument(&recBin, 0, argProjectionsBin);
+    expressions::Expression *selID = new expressions::RecordProjection(
+        idBin->getOriginalType(), arg, *idBin);
+    expressions::Expression *selDim =
+        new expressions::RecordProjection(dim->getOriginalType(), arg, *dim);
+    expressions::Expression *selCluster = new expressions::RecordProjection(
+        cluster->getOriginalType(), arg, *cluster);
 
+    // id
+    expressions::Expression *predExpr1 = new expressions::IntConstant(idLow);
+    expressions::Expression *predExpr2 = new expressions::IntConstant(idHigh);
+    expressions::Expression *predicate1 =
+        new expressions::GtExpression(selID, predExpr1);
+    expressions::Expression *predicate2 =
+        new expressions::LtExpression(selID, predExpr2);
+    expressions::Expression *predicateAnd1 =
+        new expressions::AndExpression(predicate1, predicate2);
 
-	/*
-	 * SELECT BINARY
-	 * id > 5000000 and id < 10000000 and dim < 3 AND cluster > 490 AND cluster <= 500
-	 */
-	expressions::Expression* predicateBin;
-	{
-		list<RecordAttribute> argProjectionsBin;
-		argProjectionsBin.push_back(*idBin);
-		argProjectionsBin.push_back(*dim);
-		argProjectionsBin.push_back(*cluster);
-		expressions::Expression* arg = new expressions::InputArgument(&recBin,
-				0, argProjectionsBin);
-		expressions::Expression* selID = new expressions::RecordProjection(
-				idBin->getOriginalType(), arg, *idBin);
-		expressions::Expression* selDim = new expressions::RecordProjection(
-				dim->getOriginalType(), arg, *dim);
-		expressions::Expression* selCluster = new expressions::RecordProjection(
-				cluster->getOriginalType(), arg, *cluster);
+    expressions::Expression *predExpr3 = new expressions::IntConstant(dimHigh);
+    expressions::Expression *predExpr4 =
+        new expressions::IntConstant(clusterLow);
+    expressions::Expression *predExpr5 =
+        new expressions::IntConstant(clusterHighIncl);
 
-		//id
-		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				idLow);
-		expressions::Expression* predExpr2 = new expressions::IntConstant(
-				idHigh);
-		expressions::Expression* predicate1 = new expressions::GtExpression(
-				selID, predExpr1);
-		expressions::Expression* predicate2 = new expressions::LtExpression(
-				selID, predExpr2);
-		expressions::Expression* predicateAnd1 = new expressions::AndExpression(
-				predicate1, predicate2);
+    // dim
+    expressions::Expression *predicate3 =
+        new expressions::LtExpression(selDim, predExpr3);
+    // cluster
+    expressions::Expression *predicate4 =
+        new expressions::GtExpression(selCluster, predExpr4);
+    expressions::Expression *predicateAnd2 =
+        new expressions::AndExpression(predicate3, predicate4);
 
-		expressions::Expression* predExpr3 = new expressions::IntConstant(
-				dimHigh);
-		expressions::Expression* predExpr4 = new expressions::IntConstant(
-				clusterLow);
-		expressions::Expression* predExpr5 = new expressions::IntConstant(
-						clusterHighIncl);
+    expressions::Expression *predicate5 =
+        new expressions::LeExpression(selCluster, predExpr5);
 
-		//dim
-		expressions::Expression* predicate3 = new expressions::LtExpression(
-				selDim, predExpr3);
-		//cluster
-		expressions::Expression* predicate4 = new expressions::GtExpression(
-				selCluster, predExpr4);
-		expressions::Expression* predicateAnd2 = new expressions::AndExpression(
-				predicate3, predicate4);
+    expressions::Expression *predicateAnd3 =
+        new expressions::AndExpression(predicateAnd2, predicate5);
 
-		expressions::Expression* predicate5 = new expressions::LeExpression(
-				selCluster, predExpr5);
+    predicateBin = new expressions::AndExpression(predicateAnd1, predicateAnd3);
+  }
 
-		expressions::Expression* predicateAnd3 = new expressions::AndExpression(
-				predicateAnd2, predicate5);
+  Select *selBin = new Select(predicateBin, scanBin);
+  scanBin->setParent(selBin);
 
-		predicateBin = new expressions::AndExpression(
-				predicateAnd1, predicateAnd3);
-	}
+  /**
+   * SCAN JSON FILE
+   */
+  string fnameJSON = symantecJSON.path;
+  RecordType recJSON = symantecJSON.recType;
+  int linehintJSON = symantecJSON.linehint;
 
-	Select *selBin = new Select(predicateBin, scanBin);
-	scanBin->setParent(selBin);
+  RecordAttribute *idJSON = argsSymantecJSON["id"];
+  RecordAttribute *size = argsSymantecJSON["size"];
 
-	/**
-	 * SCAN JSON FILE
-	 */
-	string fnameJSON = symantecJSON.path;
-	RecordType recJSON = symantecJSON.recType;
-	int linehintJSON = symantecJSON.linehint;
+  vector<RecordAttribute *> projectionsJSON;
+  projectionsJSON.push_back(idJSON);
+  projectionsJSON.push_back(size);
 
-	RecordAttribute *idJSON = argsSymantecJSON["id"];
-	RecordAttribute *size = argsSymantecJSON["size"];
+  ListType *documentType = new ListType(recJSON);
+  jsonPipelined::JSONPlugin *pgJSON = new jsonPipelined::JSONPlugin(
+      &ctx, fnameJSON, documentType, linehintJSON);
+  rawCatalog.registerPlugin(fnameJSON, pgJSON);
+  Scan *scanJSON = new Scan(&ctx, *pgJSON);
 
-	vector<RecordAttribute*> projectionsJSON;
-	projectionsJSON.push_back(idJSON);
-	projectionsJSON.push_back(size);
+  /*
+   * SELECT JSON
+   * (data->>'id')::int > 5000000 and (data->>'id')::int < 10000000
+   */
+  expressions::Expression *predicateJSON;
+  {
+    list<RecordAttribute> argProjectionsJSON;
+    argProjectionsJSON.push_back(*idJSON);
+    expressions::Expression *arg =
+        new expressions::InputArgument(&recJSON, 0, argProjectionsJSON);
+    expressions::Expression *selID = new expressions::RecordProjection(
+        idJSON->getOriginalType(), arg, *idJSON);
 
-	ListType *documentType = new ListType(recJSON);
-	jsonPipelined::JSONPlugin *pgJSON = new jsonPipelined::JSONPlugin(&ctx,
-			fnameJSON, documentType, linehintJSON);
-	rawCatalog.registerPlugin(fnameJSON, pgJSON);
-	Scan *scanJSON = new Scan(&ctx, *pgJSON);
+    expressions::Expression *predExpr1 = new expressions::IntConstant(idLow);
+    expressions::Expression *predExpr2 = new expressions::IntConstant(idHigh);
+    expressions::Expression *predicate1 =
+        new expressions::GtExpression(selID, predExpr1);
+    expressions::Expression *predicate2 =
+        new expressions::LtExpression(selID, predExpr2);
+    predicateJSON = new expressions::AndExpression(predicate1, predicate2);
+  }
 
+  Select *selJSON = new Select(predicateJSON, scanJSON);
+  scanJSON->setParent(selJSON);
 
-	/*
-	 * SELECT JSON
-	 * (data->>'id')::int > 5000000 and (data->>'id')::int < 10000000
-	 */
-	expressions::Expression* predicateJSON;
-	{
-		list<RecordAttribute> argProjectionsJSON;
-		argProjectionsJSON.push_back(*idJSON);
-		expressions::Expression* arg = new expressions::InputArgument(&recJSON,
-				0, argProjectionsJSON);
-		expressions::Expression* selID = new expressions::RecordProjection(
-				idJSON->getOriginalType(), arg, *idJSON);
+  /*
+   * JOIN
+   * st.id = sj.id
+   */
 
-		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				idLow);
-		expressions::Expression* predExpr2 = new expressions::IntConstant(
-				idHigh);
-		expressions::Expression* predicate1 = new expressions::GtExpression(
-				selID, predExpr1);
-		expressions::Expression* predicate2 = new expressions::LtExpression(
-				selID, predExpr2);
-		predicateJSON = new expressions::AndExpression(
-				predicate1, predicate2);
-	}
+  // LEFT SIDE
+  list<RecordAttribute> argProjectionsLeft;
+  argProjectionsLeft.push_back(*idBin);
+  argProjectionsLeft.push_back(*mdc);
+  expressions::Expression *leftArg =
+      new expressions::InputArgument(&recBin, 0, argProjectionsLeft);
+  expressions::Expression *leftPred = new expressions::RecordProjection(
+      idBin->getOriginalType(), leftArg, *idBin);
 
-	Select *selJSON = new Select(predicateJSON, scanJSON);
-	scanJSON->setParent(selJSON);
+  // RIGHT SIDE
+  list<RecordAttribute> argProjectionsRight;
+  argProjectionsRight.push_back(*idJSON);
+  expressions::Expression *rightArg =
+      new expressions::InputArgument(&recJSON, 1, argProjectionsRight);
+  expressions::Expression *rightPred = new expressions::RecordProjection(
+      idJSON->getOriginalType(), rightArg, *idJSON);
 
-	/*
-	 * JOIN
-	 * st.id = sj.id
-	 */
+  /* join pred. */
+  expressions::BinaryExpression *joinPred =
+      new expressions::EqExpression(leftPred, rightPred);
 
-	//LEFT SIDE
-	list<RecordAttribute> argProjectionsLeft;
-	argProjectionsLeft.push_back(*idBin);
-	argProjectionsLeft.push_back(*mdc);
-	expressions::Expression* leftArg = new expressions::InputArgument(&recBin,
-			0, argProjectionsLeft);
-	expressions::Expression* leftPred = new expressions::RecordProjection(
-			idBin->getOriginalType(), leftArg, *idBin);
+  /* left materializer - dim needed */
+  vector<RecordAttribute *> fieldsLeft;
+  fieldsLeft.push_back(mdc);
+  vector<materialization_mode> outputModesLeft;
+  outputModesLeft.insert(outputModesLeft.begin(), EAGER);
 
-	//RIGHT SIDE
-	list<RecordAttribute> argProjectionsRight;
-	argProjectionsRight.push_back(*idJSON);
-	expressions::Expression* rightArg = new expressions::InputArgument(&recJSON,
-			1, argProjectionsRight);
-	expressions::Expression* rightPred = new expressions::RecordProjection(
-			idJSON->getOriginalType(), rightArg, *idJSON);
+  /* explicit mention to left OID */
+  RecordAttribute *projTupleL =
+      new RecordAttribute(fnamePrefixBin, activeLoop, pgBin->getOIDType());
+  vector<RecordAttribute *> OIDLeft;
+  OIDLeft.push_back(projTupleL);
+  expressions::Expression *exprLeftOID = new expressions::RecordProjection(
+      pgBin->getOIDType(), leftArg, *projTupleL);
+  expressions::Expression *exprLeftKey = new expressions::RecordProjection(
+      idBin->getOriginalType(), leftArg, *idBin);
+  vector<expression_t> expressionsLeft;
+  expressionsLeft.push_back(exprLeftOID);
+  expressionsLeft.push_back(exprLeftKey);
 
-	/* join pred. */
-	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			leftPred, rightPred);
+  Materializer *matLeft =
+      new Materializer(fieldsLeft, expressionsLeft, OIDLeft, outputModesLeft);
 
-	/* left materializer - dim needed */
-	vector<RecordAttribute*> fieldsLeft;
-	fieldsLeft.push_back(mdc);
-	vector<materialization_mode> outputModesLeft;
-	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
+  /* right materializer - no explicit field needed */
+  vector<RecordAttribute *> fieldsRight;
+  vector<materialization_mode> outputModesRight;
 
-	/* explicit mention to left OID */
-	RecordAttribute *projTupleL = new RecordAttribute(fnamePrefixBin,
-			activeLoop, pgBin->getOIDType());
-	vector<RecordAttribute*> OIDLeft;
-	OIDLeft.push_back(projTupleL);
-	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-			pgBin->getOIDType(), leftArg, *projTupleL);
-	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
-			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expression_t> expressionsLeft;
-	expressionsLeft.push_back(exprLeftOID);
-	expressionsLeft.push_back(exprLeftKey);
+  /* explicit mention to right OID */
+  RecordAttribute *projTupleR =
+      new RecordAttribute(fnameJSON, activeLoop, pgJSON->getOIDType());
+  vector<RecordAttribute *> OIDRight;
+  OIDRight.push_back(projTupleR);
+  expressions::Expression *exprRightOID = new expressions::RecordProjection(
+      pgJSON->getOIDType(), rightArg, *projTupleR);
+  vector<expression_t> expressionsRight;
+  expressionsRight.push_back(exprRightOID);
 
-	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
-			OIDLeft, outputModesLeft);
+  Materializer *matRight = new Materializer(fieldsRight, expressionsRight,
+                                            OIDRight, outputModesRight);
 
-	/* right materializer - no explicit field needed */
-	vector<RecordAttribute*> fieldsRight;
-	vector<materialization_mode> outputModesRight;
+  char joinLabel[] = "radixJoinBinJSON";
+  RadixJoin *join = new RadixJoin(*joinPred, selBin, selJSON, &ctx, joinLabel,
+                                  *matLeft, *matRight);
+  selBin->setParent(join);
+  selJSON->setParent(join);
 
-	/* explicit mention to right OID */
-	RecordAttribute *projTupleR = new RecordAttribute(fnameJSON, activeLoop,
-			pgJSON->getOIDType());
-	vector<RecordAttribute*> OIDRight;
-	OIDRight.push_back(projTupleR);
-	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expression_t> expressionsRight;
-	expressionsRight.push_back(exprRightOID);
+  /**
+   * REDUCE
+   * MAX(mdc), MAX(size)
+   */
+  list<RecordAttribute> argProjections;
+  argProjections.push_back(*mdc);
+  expressions::Expression *exprMDC =
+      new expressions::RecordProjection(mdc->getOriginalType(), leftArg, *mdc);
+  expressions::Expression *exprSize = new expressions::RecordProjection(
+      size->getOriginalType(), rightArg, *size);
+  /* Output: */
+  vector<Monoid> accs;
+  vector<expression_t> outputExprs;
 
-	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
-			OIDRight, outputModesRight);
+  accs.push_back(MAX);
+  expressions::Expression *outputExpr1 = exprMDC;
+  outputExprs.push_back(outputExpr1);
 
-	char joinLabel[] = "radixJoinBinJSON";
-	RadixJoin *join = new RadixJoin(*joinPred, selBin, selJSON, &ctx, joinLabel,
-			*matLeft, *matRight);
-	selBin->setParent(join);
-	selJSON->setParent(join);
+  accs.push_back(MAX);
+  expressions::Expression *outputExpr2 = exprSize;
+  outputExprs.push_back(outputExpr2);
 
-	/**
-	 * REDUCE
-	 * MAX(mdc), MAX(size)
-	 */
-	list<RecordAttribute> argProjections;
-	argProjections.push_back(*mdc);
-	expressions::Expression* exprMDC = new expressions::RecordProjection(
-			mdc->getOriginalType(), leftArg, *mdc);
-	expressions::Expression* exprSize = new expressions::RecordProjection(
-				size->getOriginalType(), rightArg, *size);
-	/* Output: */
-	vector<Monoid> accs;
-	vector<expression_t> outputExprs;
+  accs.push_back(SUM);
+  expressions::Expression *outputExpr3 = new expressions::IntConstant(1);
+  outputExprs.push_back(outputExpr3);
+  /* Pred: Redundant */
 
-	accs.push_back(MAX);
-	expressions::Expression* outputExpr1 = exprMDC;
-	outputExprs.push_back(outputExpr1);
+  expressions::Expression *lhsRed = new expressions::BoolConstant(true);
+  expressions::Expression *rhsRed = new expressions::BoolConstant(true);
+  expressions::Expression *predRed =
+      new expressions::EqExpression(lhsRed, rhsRed);
 
-	accs.push_back(MAX);
-	expressions::Expression* outputExpr2 = exprSize;
-	outputExprs.push_back(outputExpr2);
+  opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join, &ctx);
+  join->setParent(reduce);
 
-	accs.push_back(SUM);
-	expressions::Expression* outputExpr3 = new expressions::IntConstant(1);
-	outputExprs.push_back(outputExpr3);
-	/* Pred: Redundant */
+  // Run function
+  struct timespec t0, t1;
+  clock_gettime(CLOCK_REALTIME, &t0);
+  reduce->produce();
+  ctx.prepareFunction(ctx.getGlobalFunction());
+  clock_gettime(CLOCK_REALTIME, &t1);
+  printf("Execution took %f seconds\n", diff(t0, t1));
 
-	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
-	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
-	expressions::Expression* predRed = new expressions::EqExpression(
-			lhsRed, rhsRed);
-
-	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join,
-			&ctx);
-	join->setParent(reduce);
-
-	//Run function
-	struct timespec t0, t1;
-	clock_gettime(CLOCK_REALTIME, &t0);
-	reduce->produce();
-	ctx.prepareFunction(ctx.getGlobalFunction());
-	clock_gettime(CLOCK_REALTIME, &t1);
-	printf("Execution took %f seconds\n", diff(t0, t1));
-
-	//Close all open files & clear
-	pgBin->finish();
-	pgJSON->finish();
-	rawCatalog.clear();
+  // Close all open files & clear
+  pgBin->finish();
+  pgJSON->finish();
+  rawCatalog.clear();
 }
 
 void symantecBinJSON2(map<string, dataset> datasetCatalog) {
+  // bin
+  int idHigh = 5000000;
+  int dimHigh = 3;
+  int clusterLow = 490;
+  int clusterHighIncl = 500;
+  // JSON
+  // id, again
 
-	//bin
-	int idHigh = 5000000;
-	int dimHigh = 3;
-	int clusterLow = 490;
-	int clusterHighIncl = 500;
-	//JSON
-	//id, again
+  RawContext &ctx = *prepareContext("symantec-bin-JSON-2");
+  RawCatalog &rawCatalog = RawCatalog::getInstance();
 
-	RawContext& ctx = *prepareContext("symantec-bin-JSON-2");
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
+  string nameSymantecBin = string("symantecBin");
+  dataset symantecBin = datasetCatalog[nameSymantecBin];
+  map<string, RecordAttribute *> argsSymantecBin =
+      symantecBin.recType.getArgsMap();
 
-	string nameSymantecBin = string("symantecBin");
-	dataset symantecBin = datasetCatalog[nameSymantecBin];
-	map<string, RecordAttribute*> argsSymantecBin =
-			symantecBin.recType.getArgsMap();
+  string nameSymantecJSON = string("symantecIDDates");
+  dataset symantecJSON = datasetCatalog[nameSymantecJSON];
+  map<string, RecordAttribute *> argsSymantecJSON =
+      symantecJSON.recType.getArgsMap();
 
-	string nameSymantecJSON = string("symantecIDDates");
-	dataset symantecJSON = datasetCatalog[nameSymantecJSON];
-	map<string, RecordAttribute*> argsSymantecJSON =
-			symantecJSON.recType.getArgsMap();
+  /**
+   * SCAN BINARY FILE
+   */
+  BinaryColPlugin *pgBin;
+  Scan *scanBin;
+  RecordAttribute *idBin;
+  RecordAttribute *dim;
+  RecordAttribute *cluster;
+  RecordAttribute *mdc;
+  RecordType recBin = symantecBin.recType;
+  string fnamePrefixBin = symantecBin.path;
+  int linehintBin = symantecBin.linehint;
+  idBin = argsSymantecBin["id"];
+  cluster = argsSymantecBin["cluster"];
+  dim = argsSymantecBin["dim"];
+  mdc = argsSymantecBin["mdc"];
+  vector<RecordAttribute *> projectionsBin;
+  projectionsBin.push_back(idBin);
+  projectionsBin.push_back(cluster);
+  projectionsBin.push_back(dim);
+  projectionsBin.push_back(mdc);
 
-	/**
-	 * SCAN BINARY FILE
-	 */
-	BinaryColPlugin *pgBin;
-	Scan *scanBin;
-	RecordAttribute *idBin;
-	RecordAttribute *dim;
-	RecordAttribute *cluster;
-	RecordAttribute *mdc;
-	RecordType recBin = symantecBin.recType;
-	string fnamePrefixBin = symantecBin.path;
-	int linehintBin = symantecBin.linehint;
-	idBin = argsSymantecBin["id"];
-	cluster = argsSymantecBin["cluster"];
-	dim = argsSymantecBin["dim"];
-	mdc = argsSymantecBin["mdc"];
-	vector<RecordAttribute*> projectionsBin;
-	projectionsBin.push_back(idBin);
-	projectionsBin.push_back(cluster);
-	projectionsBin.push_back(dim);
-	projectionsBin.push_back(mdc);
+  pgBin = new BinaryColPlugin(&ctx, fnamePrefixBin, recBin, projectionsBin);
+  rawCatalog.registerPlugin(fnamePrefixBin, pgBin);
+  scanBin = new Scan(&ctx, *pgBin);
 
-	pgBin = new BinaryColPlugin(&ctx, fnamePrefixBin, recBin, projectionsBin);
-	rawCatalog.registerPlugin(fnamePrefixBin, pgBin);
-	scanBin = new Scan(&ctx, *pgBin);
+  /*
+   * SELECT BINARY
+   * id > 5000000 and id < 10000000 and dim < 3 AND cluster > 490 AND cluster <=
+   * 500
+   */
+  expressions::Expression *predicateBin;
+  {
+    list<RecordAttribute> argProjectionsBin;
+    argProjectionsBin.push_back(*idBin);
+    argProjectionsBin.push_back(*dim);
+    argProjectionsBin.push_back(*cluster);
+    expressions::Expression *arg =
+        new expressions::InputArgument(&recBin, 0, argProjectionsBin);
+    expressions::Expression *selID = new expressions::RecordProjection(
+        idBin->getOriginalType(), arg, *idBin);
+    expressions::Expression *selDim =
+        new expressions::RecordProjection(dim->getOriginalType(), arg, *dim);
+    expressions::Expression *selCluster = new expressions::RecordProjection(
+        cluster->getOriginalType(), arg, *cluster);
 
+    expressions::Expression *predExpr1 = new expressions::IntConstant(idHigh);
+    expressions::Expression *predicate1 =
+        new expressions::LtExpression(selID, predExpr1);
 
-	/*
-	 * SELECT BINARY
-	 * id > 5000000 and id < 10000000 and dim < 3 AND cluster > 490 AND cluster <= 500
-	 */
-	expressions::Expression* predicateBin;
-	{
-		list<RecordAttribute> argProjectionsBin;
-		argProjectionsBin.push_back(*idBin);
-		argProjectionsBin.push_back(*dim);
-		argProjectionsBin.push_back(*cluster);
-		expressions::Expression* arg = new expressions::InputArgument(&recBin,
-				0, argProjectionsBin);
-		expressions::Expression* selID = new expressions::RecordProjection(
-				idBin->getOriginalType(), arg, *idBin);
-		expressions::Expression* selDim = new expressions::RecordProjection(
-				dim->getOriginalType(), arg, *dim);
-		expressions::Expression* selCluster = new expressions::RecordProjection(
-				cluster->getOriginalType(), arg, *cluster);
+    expressions::Expression *predExpr3 = new expressions::IntConstant(dimHigh);
+    expressions::Expression *predExpr4 =
+        new expressions::IntConstant(clusterLow);
+    expressions::Expression *predExpr5 =
+        new expressions::IntConstant(clusterHighIncl);
 
-		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				idHigh);
-		expressions::Expression* predicate1 = new expressions::LtExpression(
-				selID, predExpr1);
+    expressions::Expression *predicate3 =
+        new expressions::LtExpression(selDim, predExpr3);
+    expressions::Expression *predicate4 =
+        new expressions::GtExpression(selCluster, predExpr4);
+    expressions::Expression *predicateAnd2 =
+        new expressions::AndExpression(predicate3, predicate4);
 
-		expressions::Expression* predExpr3 = new expressions::IntConstant(
-				dimHigh);
-		expressions::Expression* predExpr4 = new expressions::IntConstant(
-				clusterLow);
-		expressions::Expression* predExpr5 = new expressions::IntConstant(
-						clusterHighIncl);
+    expressions::Expression *predicate5 =
+        new expressions::LeExpression(selCluster, predExpr5);
 
-		expressions::Expression* predicate3 = new expressions::LtExpression(
-				selDim, predExpr3);
-		expressions::Expression* predicate4 = new expressions::GtExpression(
-				selCluster, predExpr4);
-		expressions::Expression* predicateAnd2 = new expressions::AndExpression(
-				predicate3, predicate4);
+    expressions::Expression *predicateAnd3 =
+        new expressions::AndExpression(predicateAnd2, predicate5);
 
-		expressions::Expression* predicate5 = new expressions::LeExpression(
-				selCluster, predExpr5);
+    predicateBin = new expressions::AndExpression(predicate1, predicateAnd3);
+  }
 
-		expressions::Expression* predicateAnd3 = new expressions::AndExpression(
-				predicateAnd2, predicate5);
+  Select *selBin = new Select(predicateBin, scanBin);
+  scanBin->setParent(selBin);
 
-		predicateBin = new expressions::AndExpression(
-				predicate1, predicateAnd3);
-	}
+  /**
+   * SCAN JSON FILE
+   */
+  string fnameJSON = symantecJSON.path;
+  RecordType recJSON = symantecJSON.recType;
+  int linehintJSON = symantecJSON.linehint;
 
-	Select *selBin = new Select(predicateBin, scanBin);
-	scanBin->setParent(selBin);
+  RecordAttribute *idJSON = argsSymantecJSON["id"];
+  RecordAttribute *size = argsSymantecJSON["size"];
 
-	/**
-	 * SCAN JSON FILE
-	 */
-	string fnameJSON = symantecJSON.path;
-	RecordType recJSON = symantecJSON.recType;
-	int linehintJSON = symantecJSON.linehint;
+  vector<RecordAttribute *> projectionsJSON;
+  projectionsJSON.push_back(idJSON);
+  projectionsJSON.push_back(size);
 
-	RecordAttribute *idJSON = argsSymantecJSON["id"];
-	RecordAttribute *size = argsSymantecJSON["size"];
+  ListType *documentType = new ListType(recJSON);
+  jsonPipelined::JSONPlugin *pgJSON = new jsonPipelined::JSONPlugin(
+      &ctx, fnameJSON, documentType, linehintJSON);
+  rawCatalog.registerPlugin(fnameJSON, pgJSON);
+  Scan *scanJSON = new Scan(&ctx, *pgJSON);
 
-	vector<RecordAttribute*> projectionsJSON;
-	projectionsJSON.push_back(idJSON);
-	projectionsJSON.push_back(size);
+  /*
+   * SELECT JSON
+   * (data->>'id')::int > 5000000 and (data->>'id')::int < 10000000
+   */
+  expressions::Expression *predicateJSON;
+  {
+    list<RecordAttribute> argProjectionsJSON;
+    argProjectionsJSON.push_back(*idJSON);
+    expressions::Expression *arg =
+        new expressions::InputArgument(&recJSON, 0, argProjectionsJSON);
+    expressions::Expression *selID = new expressions::RecordProjection(
+        idJSON->getOriginalType(), arg, *idJSON);
 
-	ListType *documentType = new ListType(recJSON);
-	jsonPipelined::JSONPlugin *pgJSON = new jsonPipelined::JSONPlugin(&ctx,
-			fnameJSON, documentType, linehintJSON);
-	rawCatalog.registerPlugin(fnameJSON, pgJSON);
-	Scan *scanJSON = new Scan(&ctx, *pgJSON);
+    expressions::Expression *predExpr1 = new expressions::IntConstant(idHigh);
+    predicateJSON = new expressions::LtExpression(selID, predExpr1);
+  }
 
+  Select *selJSON = new Select(predicateJSON, scanJSON);
+  scanJSON->setParent(selJSON);
 
-	/*
-	 * SELECT JSON
-	 * (data->>'id')::int > 5000000 and (data->>'id')::int < 10000000
-	 */
-	expressions::Expression* predicateJSON;
-	{
-		list<RecordAttribute> argProjectionsJSON;
-		argProjectionsJSON.push_back(*idJSON);
-		expressions::Expression* arg = new expressions::InputArgument(&recJSON,
-				0, argProjectionsJSON);
-		expressions::Expression* selID = new expressions::RecordProjection(
-				idJSON->getOriginalType(), arg, *idJSON);
+  /*
+   * JOIN
+   * st.id = sj.id
+   */
 
-		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				idHigh);
-		predicateJSON = new expressions::LtExpression(
-				selID, predExpr1);
-	}
+  // LEFT SIDE
+  list<RecordAttribute> argProjectionsLeft;
+  argProjectionsLeft.push_back(*idBin);
+  argProjectionsLeft.push_back(*mdc);
+  expressions::Expression *leftArg =
+      new expressions::InputArgument(&recBin, 0, argProjectionsLeft);
+  expressions::Expression *leftPred = new expressions::RecordProjection(
+      idBin->getOriginalType(), leftArg, *idBin);
 
-	Select *selJSON = new Select(predicateJSON, scanJSON);
-	scanJSON->setParent(selJSON);
+  // RIGHT SIDE
+  list<RecordAttribute> argProjectionsRight;
+  argProjectionsRight.push_back(*idJSON);
+  expressions::Expression *rightArg =
+      new expressions::InputArgument(&recJSON, 1, argProjectionsRight);
+  expressions::Expression *rightPred = new expressions::RecordProjection(
+      idJSON->getOriginalType(), rightArg, *idJSON);
 
-	/*
-	 * JOIN
-	 * st.id = sj.id
-	 */
+  /* join pred. */
+  expressions::BinaryExpression *joinPred =
+      new expressions::EqExpression(leftPred, rightPred);
 
-	//LEFT SIDE
-	list<RecordAttribute> argProjectionsLeft;
-	argProjectionsLeft.push_back(*idBin);
-	argProjectionsLeft.push_back(*mdc);
-	expressions::Expression* leftArg = new expressions::InputArgument(&recBin,
-			0, argProjectionsLeft);
-	expressions::Expression* leftPred = new expressions::RecordProjection(
-			idBin->getOriginalType(), leftArg, *idBin);
+  /* left materializer - dim needed */
+  vector<RecordAttribute *> fieldsLeft;
+  fieldsLeft.push_back(mdc);
+  vector<materialization_mode> outputModesLeft;
+  outputModesLeft.insert(outputModesLeft.begin(), EAGER);
 
-	//RIGHT SIDE
-	list<RecordAttribute> argProjectionsRight;
-	argProjectionsRight.push_back(*idJSON);
-	expressions::Expression* rightArg = new expressions::InputArgument(&recJSON,
-			1, argProjectionsRight);
-	expressions::Expression* rightPred = new expressions::RecordProjection(
-			idJSON->getOriginalType(), rightArg, *idJSON);
+  /* explicit mention to left OID */
+  RecordAttribute *projTupleL =
+      new RecordAttribute(fnamePrefixBin, activeLoop, pgBin->getOIDType());
+  vector<RecordAttribute *> OIDLeft;
+  OIDLeft.push_back(projTupleL);
+  expressions::Expression *exprLeftOID = new expressions::RecordProjection(
+      pgBin->getOIDType(), leftArg, *projTupleL);
+  expressions::Expression *exprLeftKey = new expressions::RecordProjection(
+      idBin->getOriginalType(), leftArg, *idBin);
+  vector<expression_t> expressionsLeft;
+  expressionsLeft.push_back(exprLeftOID);
+  expressionsLeft.push_back(exprLeftKey);
 
-	/* join pred. */
-	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			leftPred, rightPred);
+  Materializer *matLeft =
+      new Materializer(fieldsLeft, expressionsLeft, OIDLeft, outputModesLeft);
 
-	/* left materializer - dim needed */
-	vector<RecordAttribute*> fieldsLeft;
-	fieldsLeft.push_back(mdc);
-	vector<materialization_mode> outputModesLeft;
-	outputModesLeft.insert(outputModesLeft.begin(), EAGER);
+  /* right materializer - no explicit field needed */
+  vector<RecordAttribute *> fieldsRight;
+  vector<materialization_mode> outputModesRight;
 
-	/* explicit mention to left OID */
-	RecordAttribute *projTupleL = new RecordAttribute(fnamePrefixBin,
-			activeLoop, pgBin->getOIDType());
-	vector<RecordAttribute*> OIDLeft;
-	OIDLeft.push_back(projTupleL);
-	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-			pgBin->getOIDType(), leftArg, *projTupleL);
-	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
-			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expression_t> expressionsLeft;
-	expressionsLeft.push_back(exprLeftOID);
-	expressionsLeft.push_back(exprLeftKey);
+  /* explicit mention to right OID */
+  RecordAttribute *projTupleR =
+      new RecordAttribute(fnameJSON, activeLoop, pgJSON->getOIDType());
+  vector<RecordAttribute *> OIDRight;
+  OIDRight.push_back(projTupleR);
+  expressions::Expression *exprRightOID = new expressions::RecordProjection(
+      pgJSON->getOIDType(), rightArg, *projTupleR);
+  vector<expression_t> expressionsRight;
+  expressionsRight.push_back(exprRightOID);
 
-	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
-			OIDLeft, outputModesLeft);
+  Materializer *matRight = new Materializer(fieldsRight, expressionsRight,
+                                            OIDRight, outputModesRight);
 
-	/* right materializer - no explicit field needed */
-	vector<RecordAttribute*> fieldsRight;
-	vector<materialization_mode> outputModesRight;
+  char joinLabel[] = "radixJoinBinJSON";
+  RadixJoin *join = new RadixJoin(*joinPred, selBin, selJSON, &ctx, joinLabel,
+                                  *matLeft, *matRight);
+  selBin->setParent(join);
+  selJSON->setParent(join);
 
-	/* explicit mention to right OID */
-	RecordAttribute *projTupleR = new RecordAttribute(fnameJSON, activeLoop,
-			pgJSON->getOIDType());
-	vector<RecordAttribute*> OIDRight;
-	OIDRight.push_back(projTupleR);
-	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expression_t> expressionsRight;
-	expressionsRight.push_back(exprRightOID);
+  /**
+   * REDUCE
+   * MAX(mdc), MAX(size)
+   */
+  list<RecordAttribute> argProjections;
+  argProjections.push_back(*mdc);
+  expressions::Expression *exprMDC =
+      new expressions::RecordProjection(mdc->getOriginalType(), leftArg, *mdc);
+  expressions::Expression *exprSize = new expressions::RecordProjection(
+      size->getOriginalType(), rightArg, *size);
+  /* Output: */
+  vector<Monoid> accs;
+  vector<expression_t> outputExprs;
 
-	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
-			OIDRight, outputModesRight);
+  accs.push_back(MAX);
+  expressions::Expression *outputExpr1 = exprMDC;
+  outputExprs.push_back(outputExpr1);
 
-	char joinLabel[] = "radixJoinBinJSON";
-	RadixJoin *join = new RadixJoin(*joinPred, selBin, selJSON, &ctx, joinLabel,
-			*matLeft, *matRight);
-	selBin->setParent(join);
-	selJSON->setParent(join);
+  accs.push_back(MAX);
+  expressions::Expression *outputExpr2 = exprSize;
+  outputExprs.push_back(outputExpr2);
 
-	/**
-	 * REDUCE
-	 * MAX(mdc), MAX(size)
-	 */
-	list<RecordAttribute> argProjections;
-	argProjections.push_back(*mdc);
-	expressions::Expression* exprMDC = new expressions::RecordProjection(
-			mdc->getOriginalType(), leftArg, *mdc);
-	expressions::Expression* exprSize = new expressions::RecordProjection(
-				size->getOriginalType(), rightArg, *size);
-	/* Output: */
-	vector<Monoid> accs;
-	vector<expression_t> outputExprs;
+  accs.push_back(SUM);
+  expressions::Expression *outputExpr3 = new expressions::IntConstant(1);
+  outputExprs.push_back(outputExpr3);
 
-	accs.push_back(MAX);
-	expressions::Expression* outputExpr1 = exprMDC;
-	outputExprs.push_back(outputExpr1);
+  /* Pred: Redundant */
 
-	accs.push_back(MAX);
-	expressions::Expression* outputExpr2 = exprSize;
-	outputExprs.push_back(outputExpr2);
+  expressions::Expression *lhsRed = new expressions::BoolConstant(true);
+  expressions::Expression *rhsRed = new expressions::BoolConstant(true);
+  expressions::Expression *predRed =
+      new expressions::EqExpression(lhsRed, rhsRed);
 
-	accs.push_back(SUM);
-	expressions::Expression* outputExpr3 = new expressions::IntConstant(1);
-	outputExprs.push_back(outputExpr3);
+  opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join, &ctx);
+  join->setParent(reduce);
 
-	/* Pred: Redundant */
+  // Run function
+  struct timespec t0, t1;
+  clock_gettime(CLOCK_REALTIME, &t0);
+  reduce->produce();
+  ctx.prepareFunction(ctx.getGlobalFunction());
+  clock_gettime(CLOCK_REALTIME, &t1);
+  printf("Execution took %f seconds\n", diff(t0, t1));
 
-	expressions::Expression* lhsRed = new expressions::BoolConstant(true);
-	expressions::Expression* rhsRed = new expressions::BoolConstant(true);
-	expressions::Expression* predRed = new expressions::EqExpression(
-			lhsRed, rhsRed);
-
-	opt::Reduce *reduce = new opt::Reduce(accs, outputExprs, predRed, join,
-			&ctx);
-	join->setParent(reduce);
-
-	//Run function
-	struct timespec t0, t1;
-	clock_gettime(CLOCK_REALTIME, &t0);
-	reduce->produce();
-	ctx.prepareFunction(ctx.getGlobalFunction());
-	clock_gettime(CLOCK_REALTIME, &t1);
-	printf("Execution took %f seconds\n", diff(t0, t1));
-
-	//Close all open files & clear
-	pgBin->finish();
-	pgJSON->finish();
-	rawCatalog.clear();
+  // Close all open files & clear
+  pgBin->finish();
+  pgJSON->finish();
+  rawCatalog.clear();
 }
-
 
 void symantecBinJSON3(map<string, dataset> datasetCatalog) {
+  // bin: Nothing yet
+  // JSON
+  int idHigh = 1000000;
+  int sizeHigh = 1000;
+  string langName = "german";
 
-	//bin: Nothing yet
-	//JSON
-	int idHigh = 1000000;
-	int sizeHigh = 1000;
-	string langName = "german";
+  RawContext &ctx = *prepareContext("symantec-bin-JSON-3");
+  RawCatalog &rawCatalog = RawCatalog::getInstance();
 
-	RawContext& ctx = *prepareContext("symantec-bin-JSON-3");
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
+  string nameSymantecBin = string("symantecBin");
+  dataset symantecBin = datasetCatalog[nameSymantecBin];
+  map<string, RecordAttribute *> argsSymantecBin =
+      symantecBin.recType.getArgsMap();
 
-	string nameSymantecBin = string("symantecBin");
-	dataset symantecBin = datasetCatalog[nameSymantecBin];
-	map<string, RecordAttribute*> argsSymantecBin =
-			symantecBin.recType.getArgsMap();
+  string nameSymantecJSON = string("symantecIDDates");
+  dataset symantecJSON = datasetCatalog[nameSymantecJSON];
+  map<string, RecordAttribute *> argsSymantecJSON =
+      symantecJSON.recType.getArgsMap();
 
-	string nameSymantecJSON = string("symantecIDDates");
-	dataset symantecJSON = datasetCatalog[nameSymantecJSON];
-	map<string, RecordAttribute*> argsSymantecJSON =
-			symantecJSON.recType.getArgsMap();
+  /**
+   * SCAN BINARY FILE
+   */
+  BinaryColPlugin *pgBin;
+  Scan *scanBin;
+  RecordAttribute *idBin;
+  RecordType recBin = symantecBin.recType;
+  string fnamePrefixBin = symantecBin.path;
+  int linehintBin = symantecBin.linehint;
+  idBin = argsSymantecBin["id"];
+  vector<RecordAttribute *> projectionsBin;
+  projectionsBin.push_back(idBin);
 
-	/**
-	 * SCAN BINARY FILE
-	 */
-	BinaryColPlugin *pgBin;
-	Scan *scanBin;
-	RecordAttribute *idBin;
-	RecordType recBin = symantecBin.recType;
-	string fnamePrefixBin = symantecBin.path;
-	int linehintBin = symantecBin.linehint;
-	idBin = argsSymantecBin["id"];
-	vector<RecordAttribute*> projectionsBin;
-	projectionsBin.push_back(idBin);
+  pgBin = new BinaryColPlugin(&ctx, fnamePrefixBin, recBin, projectionsBin);
+  rawCatalog.registerPlugin(fnamePrefixBin, pgBin);
+  scanBin = new Scan(&ctx, *pgBin);
 
-	pgBin = new BinaryColPlugin(&ctx, fnamePrefixBin, recBin, projectionsBin);
-	rawCatalog.registerPlugin(fnamePrefixBin, pgBin);
-	scanBin = new Scan(&ctx, *pgBin);
+  /**
+   * SCAN JSON FILE
+   */
+  string fnameJSON = symantecJSON.path;
+  RecordType recJSON = symantecJSON.recType;
+  int linehintJSON = symantecJSON.linehint;
 
-	/**
-	 * SCAN JSON FILE
-	 */
-	string fnameJSON = symantecJSON.path;
-	RecordType recJSON = symantecJSON.recType;
-	int linehintJSON = symantecJSON.linehint;
+  RecordAttribute *idJSON = argsSymantecJSON["id"];
+  RecordAttribute *size = argsSymantecJSON["size"];
+  RecordAttribute *lang = argsSymantecJSON["lang"];
 
-	RecordAttribute *idJSON = argsSymantecJSON["id"];
-	RecordAttribute *size = argsSymantecJSON["size"];
-	RecordAttribute *lang = argsSymantecJSON["lang"];
+  vector<RecordAttribute *> projectionsJSON;
+  projectionsJSON.push_back(idJSON);
+  projectionsJSON.push_back(size);
+  projectionsJSON.push_back(lang);
 
-	vector<RecordAttribute*> projectionsJSON;
-	projectionsJSON.push_back(idJSON);
-	projectionsJSON.push_back(size);
-	projectionsJSON.push_back(lang);
+  ListType *documentType = new ListType(recJSON);
+  jsonPipelined::JSONPlugin *pgJSON = new jsonPipelined::JSONPlugin(
+      &ctx, fnameJSON, documentType, linehintJSON);
+  rawCatalog.registerPlugin(fnameJSON, pgJSON);
+  Scan *scanJSON = new Scan(&ctx, *pgJSON);
 
-	ListType *documentType = new ListType(recJSON);
-	jsonPipelined::JSONPlugin *pgJSON = new jsonPipelined::JSONPlugin(&ctx,
-			fnameJSON, documentType, linehintJSON);
-	rawCatalog.registerPlugin(fnameJSON, pgJSON);
-	Scan *scanJSON = new Scan(&ctx, *pgJSON);
+  /*
+   * SELECT JSON
+   * (data->>'id')::int < 1000000 and (data->>'size')::int < 1000 and
+   * (data->>'lang') = 'german'
+   */
+  Select *selJSON;
+  expressions::Expression *predicateJSON;
+  {
+    list<RecordAttribute> argProjectionsJSON;
+    argProjectionsJSON.push_back(*idJSON);
+    expressions::Expression *arg =
+        new expressions::InputArgument(&recJSON, 0, argProjectionsJSON);
+    expressions::Expression *selID = new expressions::RecordProjection(
+        idJSON->getOriginalType(), arg, *idJSON);
+    expressions::Expression *selSize =
+        new expressions::RecordProjection(size->getOriginalType(), arg, *size);
+    expressions::Expression *selLang =
+        new expressions::RecordProjection(lang->getOriginalType(), arg, *lang);
 
+    expressions::Expression *predExpr1 = new expressions::IntConstant(idHigh);
+    expressions::Expression *predicate1 =
+        new expressions::LtExpression(selID, predExpr1);
 
-	/*
-	 * SELECT JSON
-	 * (data->>'id')::int < 1000000 and (data->>'size')::int < 1000 and (data->>'lang') = 'german'
-	 */
-	Select *selJSON;
-	expressions::Expression* predicateJSON;
-	{
-		list<RecordAttribute> argProjectionsJSON;
-		argProjectionsJSON.push_back(*idJSON);
-		expressions::Expression* arg = new expressions::InputArgument(&recJSON,
-				0, argProjectionsJSON);
-		expressions::Expression* selID = new expressions::RecordProjection(
-				idJSON->getOriginalType(), arg, *idJSON);
-		expressions::Expression* selSize = new expressions::RecordProjection(
-						size->getOriginalType(), arg, *size);
-		expressions::Expression* selLang = new expressions::RecordProjection(
-								lang->getOriginalType(), arg, *lang);
+    expressions::Expression *predExpr2 = new expressions::IntConstant(sizeHigh);
+    expressions::Expression *predicate2 =
+        new expressions::LtExpression(selSize, predExpr2);
+    expressions::Expression *predicateNum =
+        new expressions::AndExpression(predicate1, predicate2);
 
-		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				idHigh);
-		expressions::Expression* predicate1 = new expressions::LtExpression(
-				selID, predExpr1);
+    expressions::Expression *predExpr3 =
+        new expressions::StringConstant(langName);
+    expressions::Expression *predicateStr =
+        new expressions::EqExpression(selLang, predExpr3);
+    Select *selNum = new Select(predicateNum, scanJSON);
+    scanJSON->setParent(selNum);
 
-		expressions::Expression* predExpr2 = new expressions::IntConstant(
-						sizeHigh);
-		expressions::Expression* predicate2 = new expressions::LtExpression(
-						selSize, predExpr2);
-		expressions::Expression* predicateNum = new expressions::AndExpression(
-								predicate1, predicate2);
+    selJSON = new Select(predicateStr, selNum);
+    selNum->setParent(selJSON);
+  }
 
-		expressions::Expression* predExpr3 = new expressions::StringConstant(
-								langName);
-				expressions::Expression* predicateStr = new expressions::EqExpression(
-								selLang, predExpr3);
-		Select *selNum = new Select(predicateNum, scanJSON);
-		scanJSON->setParent(selNum);
+  /*
+   * JOIN
+   * st.id = sj.id
+   */
 
-		selJSON = new Select(predicateStr, selNum);
-		selNum->setParent(selJSON);
-	}
+  // LEFT SIDE
+  list<RecordAttribute> argProjectionsLeft;
+  argProjectionsLeft.push_back(*idBin);
+  expressions::Expression *leftArg =
+      new expressions::InputArgument(&recBin, 0, argProjectionsLeft);
+  expressions::Expression *leftPred = new expressions::RecordProjection(
+      idBin->getOriginalType(), leftArg, *idBin);
 
-	/*
-	 * JOIN
-	 * st.id = sj.id
-	 */
+  // RIGHT SIDE
+  list<RecordAttribute> argProjectionsRight;
+  argProjectionsRight.push_back(*idJSON);
+  expressions::Expression *rightArg =
+      new expressions::InputArgument(&recJSON, 1, argProjectionsRight);
+  expressions::Expression *rightPred = new expressions::RecordProjection(
+      idJSON->getOriginalType(), rightArg, *idJSON);
 
-	//LEFT SIDE
-	list<RecordAttribute> argProjectionsLeft;
-	argProjectionsLeft.push_back(*idBin);
-	expressions::Expression* leftArg = new expressions::InputArgument(&recBin,
-			0, argProjectionsLeft);
-	expressions::Expression* leftPred = new expressions::RecordProjection(
-			idBin->getOriginalType(), leftArg, *idBin);
+  /* join pred. */
+  expressions::BinaryExpression *joinPred =
+      new expressions::EqExpression(leftPred, rightPred);
 
-	//RIGHT SIDE
-	list<RecordAttribute> argProjectionsRight;
-	argProjectionsRight.push_back(*idJSON);
-	expressions::Expression* rightArg = new expressions::InputArgument(&recJSON,
-			1, argProjectionsRight);
-	expressions::Expression* rightPred = new expressions::RecordProjection(
-			idJSON->getOriginalType(), rightArg, *idJSON);
+  /* left materializer - no fields needed */
+  vector<RecordAttribute *> fieldsLeft;
+  vector<materialization_mode> outputModesLeft;
 
-	/* join pred. */
-	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			leftPred, rightPred);
+  /* explicit mention to left OID */
+  RecordAttribute *projTupleL =
+      new RecordAttribute(fnamePrefixBin, activeLoop, pgBin->getOIDType());
+  vector<RecordAttribute *> OIDLeft;
+  OIDLeft.push_back(projTupleL);
+  expressions::Expression *exprLeftOID = new expressions::RecordProjection(
+      pgBin->getOIDType(), leftArg, *projTupleL);
+  expressions::Expression *exprLeftKey = new expressions::RecordProjection(
+      idBin->getOriginalType(), leftArg, *idBin);
+  vector<expression_t> expressionsLeft;
+  expressionsLeft.push_back(exprLeftOID);
+  expressionsLeft.push_back(exprLeftKey);
 
-	/* left materializer - no fields needed */
-	vector<RecordAttribute*> fieldsLeft;
-	vector<materialization_mode> outputModesLeft;
+  Materializer *matLeft =
+      new Materializer(fieldsLeft, expressionsLeft, OIDLeft, outputModesLeft);
 
-	/* explicit mention to left OID */
-	RecordAttribute *projTupleL = new RecordAttribute(fnamePrefixBin,
-			activeLoop, pgBin->getOIDType());
-	vector<RecordAttribute*> OIDLeft;
-	OIDLeft.push_back(projTupleL);
-	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-			pgBin->getOIDType(), leftArg, *projTupleL);
-	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
-			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expression_t> expressionsLeft;
-	expressionsLeft.push_back(exprLeftOID);
-	expressionsLeft.push_back(exprLeftKey);
+  /* right materializer - no explicit field needed */
+  vector<RecordAttribute *> fieldsRight;
+  vector<materialization_mode> outputModesRight;
 
-	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
-			OIDLeft, outputModesLeft);
+  /* explicit mention to right OID */
+  RecordAttribute *projTupleR =
+      new RecordAttribute(fnameJSON, activeLoop, pgJSON->getOIDType());
+  vector<RecordAttribute *> OIDRight;
+  OIDRight.push_back(projTupleR);
+  expressions::Expression *exprRightOID = new expressions::RecordProjection(
+      pgJSON->getOIDType(), rightArg, *projTupleR);
+  vector<expression_t> expressionsRight;
+  expressionsRight.push_back(exprRightOID);
 
-	/* right materializer - no explicit field needed */
-	vector<RecordAttribute*> fieldsRight;
-	vector<materialization_mode> outputModesRight;
+  Materializer *matRight = new Materializer(fieldsRight, expressionsRight,
+                                            OIDRight, outputModesRight);
 
-	/* explicit mention to right OID */
-	RecordAttribute *projTupleR = new RecordAttribute(fnameJSON, activeLoop,
-			pgJSON->getOIDType());
-	vector<RecordAttribute*> OIDRight;
-	OIDRight.push_back(projTupleR);
-	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expression_t> expressionsRight;
-	expressionsRight.push_back(exprRightOID);
+  char joinLabel[] = "radixJoinBinJSON";
+  RadixJoin *join = new RadixJoin(*joinPred, scanBin, selJSON, &ctx, joinLabel,
+                                  *matLeft, *matRight);
+  scanBin->setParent(join);
+  selJSON->setParent(join);
 
-	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
-			OIDRight, outputModesRight);
+  /**
+   * REDUCE
+   * COUNT(*)
+   */
+  list<RecordAttribute> argProjections;
 
-	char joinLabel[] = "radixJoinBinJSON";
-	RadixJoin *join = new RadixJoin(*joinPred, scanBin, selJSON, &ctx, joinLabel,
-			*matLeft, *matRight);
-	scanBin->setParent(join);
-	selJSON->setParent(join);
+  /* Output: */
+  vector<Monoid> accs;
+  vector<expression_t> outputExprs;
 
-	/**
-	 * REDUCE
-	 * COUNT(*)
-	 */
-	list<RecordAttribute> argProjections;
+  expressions::Expression *outputExpr1 = new expressions::IntConstant(1);
+  ReduceNoPred *reduce = new ReduceNoPred(SUM, outputExpr1, join, &ctx);
+  join->setParent(reduce);
 
-	/* Output: */
-	vector<Monoid> accs;
-	vector<expression_t> outputExprs;
+  // Run function
+  struct timespec t0, t1;
+  clock_gettime(CLOCK_REALTIME, &t0);
+  reduce->produce();
+  ctx.prepareFunction(ctx.getGlobalFunction());
+  clock_gettime(CLOCK_REALTIME, &t1);
+  printf("Execution took %f seconds\n", diff(t0, t1));
 
-	expressions::Expression* outputExpr1 = new expressions::IntConstant(1);
-	ReduceNoPred *reduce = new ReduceNoPred(SUM, outputExpr1, join,
-			&ctx);
-	join->setParent(reduce);
-
-	//Run function
-	struct timespec t0, t1;
-	clock_gettime(CLOCK_REALTIME, &t0);
-	reduce->produce();
-	ctx.prepareFunction(ctx.getGlobalFunction());
-	clock_gettime(CLOCK_REALTIME, &t1);
-	printf("Execution took %f seconds\n", diff(t0, t1));
-
-	//Close all open files & clear
-	pgBin->finish();
-	pgJSON->finish();
-	rawCatalog.clear();
+  // Close all open files & clear
+  pgBin->finish();
+  pgJSON->finish();
+  rawCatalog.clear();
 }
 
-
 void symantecBinJSON4(map<string, dataset> datasetCatalog) {
+  // bin
+  int dimNo = 7;
+  // JSON
+  int monthNo = 12;
 
-	//bin
-	int dimNo = 7;
-	//JSON
-	int monthNo = 12;
+  RawContext &ctx = *prepareContext("symantec-bin-JSON-4");
+  RawCatalog &rawCatalog = RawCatalog::getInstance();
 
-	RawContext& ctx = *prepareContext("symantec-bin-JSON-4");
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
+  string nameSymantecBin = string("symantecBin");
+  dataset symantecBin = datasetCatalog[nameSymantecBin];
+  map<string, RecordAttribute *> argsSymantecBin =
+      symantecBin.recType.getArgsMap();
 
-	string nameSymantecBin = string("symantecBin");
-	dataset symantecBin = datasetCatalog[nameSymantecBin];
-	map<string, RecordAttribute*> argsSymantecBin =
-			symantecBin.recType.getArgsMap();
+  string nameSymantecJSON = string("symantecIDDates");
+  dataset symantecJSON = datasetCatalog[nameSymantecJSON];
+  map<string, RecordAttribute *> argsSymantecJSON =
+      symantecJSON.recType.getArgsMap();
 
-	string nameSymantecJSON = string("symantecIDDates");
-	dataset symantecJSON = datasetCatalog[nameSymantecJSON];
-	map<string, RecordAttribute*> argsSymantecJSON =
-			symantecJSON.recType.getArgsMap();
+  /**
+   * SCAN BINARY FILE
+   */
+  BinaryColPlugin *pgBin;
+  Scan *scanBin;
+  RecordAttribute *idBin;
+  RecordAttribute *dim;
+  RecordType recBin = symantecBin.recType;
+  string fnamePrefixBin = symantecBin.path;
+  int linehintBin = symantecBin.linehint;
+  idBin = argsSymantecBin["id"];
+  dim = argsSymantecBin["dim"];
+  vector<RecordAttribute *> projectionsBin;
+  projectionsBin.push_back(idBin);
+  projectionsBin.push_back(dim);
 
-	/**
-	 * SCAN BINARY FILE
-	 */
-	BinaryColPlugin *pgBin;
-	Scan *scanBin;
-	RecordAttribute *idBin;
-	RecordAttribute *dim;
-	RecordType recBin = symantecBin.recType;
-	string fnamePrefixBin = symantecBin.path;
-	int linehintBin = symantecBin.linehint;
-	idBin = argsSymantecBin["id"];
-	dim = argsSymantecBin["dim"];
-	vector<RecordAttribute*> projectionsBin;
-	projectionsBin.push_back(idBin);
-	projectionsBin.push_back(dim);
+  pgBin = new BinaryColPlugin(&ctx, fnamePrefixBin, recBin, projectionsBin);
+  rawCatalog.registerPlugin(fnamePrefixBin, pgBin);
+  scanBin = new Scan(&ctx, *pgBin);
 
-	pgBin = new BinaryColPlugin(&ctx, fnamePrefixBin, recBin, projectionsBin);
-	rawCatalog.registerPlugin(fnamePrefixBin, pgBin);
-	scanBin = new Scan(&ctx, *pgBin);
+  /*
+   * SELECT BINARY
+   * dim = 7
+   */
+  expressions::Expression *predicateBin;
+  {
+    list<RecordAttribute> argProjectionsBin;
+    argProjectionsBin.push_back(*dim);
+    expressions::Expression *arg =
+        new expressions::InputArgument(&recBin, 0, argProjectionsBin);
+    expressions::Expression *selDim =
+        new expressions::RecordProjection(dim->getOriginalType(), arg, *dim);
 
+    expressions::Expression *predExpr1 = new expressions::IntConstant(dimNo);
+    predicateBin = new expressions::EqExpression(selDim, predExpr1);
+  }
 
-	/*
-	 * SELECT BINARY
-	 * dim = 7
-	 */
-	expressions::Expression* predicateBin;
-	{
-		list<RecordAttribute> argProjectionsBin;
-		argProjectionsBin.push_back(*dim);
-		expressions::Expression* arg = new expressions::InputArgument(&recBin,
-				0, argProjectionsBin);
-		expressions::Expression* selDim = new expressions::RecordProjection(
-				dim->getOriginalType(), arg, *dim);
+  Select *selBin = new Select(predicateBin, scanBin);
+  scanBin->setParent(selBin);
 
-		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				dimNo);
-		predicateBin = new expressions::EqExpression(
-				selDim, predExpr1);
-	}
+  /**
+   * SCAN JSON FILE
+   */
+  string fnameJSON = symantecJSON.path;
+  RecordType recJSON = symantecJSON.recType;
+  int linehintJSON = symantecJSON.linehint;
 
-	Select *selBin = new Select(predicateBin, scanBin);
-	scanBin->setParent(selBin);
+  RecordAttribute *idJSON = argsSymantecJSON["id"];
+  RecordAttribute *day = argsSymantecJSON["day"];
+  RecordAttribute *size = argsSymantecJSON["size"];
 
-	/**
-	 * SCAN JSON FILE
-	 */
-	string fnameJSON = symantecJSON.path;
-	RecordType recJSON = symantecJSON.recType;
-	int linehintJSON = symantecJSON.linehint;
+  vector<RecordAttribute *> projectionsJSON;
+  projectionsJSON.push_back(idJSON);
+  projectionsJSON.push_back(day);
+  projectionsJSON.push_back(size);
 
-	RecordAttribute *idJSON = argsSymantecJSON["id"];
-	RecordAttribute *day = argsSymantecJSON["day"];
-	RecordAttribute *size = argsSymantecJSON["size"];
+  ListType *documentType = new ListType(recJSON);
+  jsonPipelined::JSONPlugin *pgJSON = new jsonPipelined::JSONPlugin(
+      &ctx, fnameJSON, documentType, linehintJSON);
+  rawCatalog.registerPlugin(fnameJSON, pgJSON);
+  Scan *scanJSON = new Scan(&ctx, *pgJSON);
 
-	vector<RecordAttribute*> projectionsJSON;
-	projectionsJSON.push_back(idJSON);
-	projectionsJSON.push_back(day);
-	projectionsJSON.push_back(size);
+  /*
+   * SELECT JSON
+   * (data->'day'->>'month')::int = 12
+   */
+  expressions::Expression *predicateJSON;
+  {
+    list<RecordAttribute> argProjectionsJSON;
+    argProjectionsJSON.push_back(*day);
+    expressions::Expression *arg =
+        new expressions::InputArgument(&recJSON, 0, argProjectionsJSON);
+    expressions::Expression *selDay =
+        new expressions::RecordProjection(day->getOriginalType(), arg, *day);
+    IntType monthType = IntType();
+    RecordAttribute *month =
+        new RecordAttribute(2, fnameJSON, "month", &monthType);
+    expressions::Expression *selMonth =
+        new expressions::RecordProjection(&monthType, selDay, *month);
 
-	ListType *documentType = new ListType(recJSON);
-	jsonPipelined::JSONPlugin *pgJSON = new jsonPipelined::JSONPlugin(&ctx,
-			fnameJSON, documentType, linehintJSON);
-	rawCatalog.registerPlugin(fnameJSON, pgJSON);
-	Scan *scanJSON = new Scan(&ctx, *pgJSON);
+    expressions::Expression *predExpr1 = new expressions::IntConstant(monthNo);
+    predicateJSON = new expressions::EqExpression(selMonth, predExpr1);
+  }
 
+  Select *selJSON = new Select(predicateJSON, scanJSON);
+  scanJSON->setParent(selJSON);
 
-	/*
-	 * SELECT JSON
-	 * (data->'day'->>'month')::int = 12
-	 */
-	expressions::Expression* predicateJSON;
-	{
-		list<RecordAttribute> argProjectionsJSON;
-		argProjectionsJSON.push_back(*day);
-		expressions::Expression* arg = new expressions::InputArgument(&recJSON,
-				0, argProjectionsJSON);
-		expressions::Expression* selDay = new expressions::RecordProjection(
-				day->getOriginalType(), arg, *day);
-		IntType monthType = IntType();
-		RecordAttribute *month = new RecordAttribute(2, fnameJSON, "month",
-				&monthType);
-		expressions::Expression* selMonth = new expressions::RecordProjection(
-				&monthType, selDay, *month);
+  /*
+   * JOIN
+   * st.id = sj.id
+   */
 
-		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				monthNo);
-		predicateJSON = new expressions::EqExpression(selMonth,
-				predExpr1);
-	}
+  // LEFT SIDE
+  list<RecordAttribute> argProjectionsLeft;
+  argProjectionsLeft.push_back(*idBin);
+  expressions::Expression *leftArg =
+      new expressions::InputArgument(&recBin, 0, argProjectionsLeft);
+  expressions::Expression *leftPred = new expressions::RecordProjection(
+      idBin->getOriginalType(), leftArg, *idBin);
 
-	Select *selJSON = new Select(predicateJSON, scanJSON);
-	scanJSON->setParent(selJSON);
+  // RIGHT SIDE
+  list<RecordAttribute> argProjectionsRight;
+  argProjectionsRight.push_back(*idJSON);
+  expressions::Expression *rightArg =
+      new expressions::InputArgument(&recJSON, 1, argProjectionsRight);
+  expressions::Expression *rightPred = new expressions::RecordProjection(
+      idJSON->getOriginalType(), rightArg, *idJSON);
 
-	/*
-	 * JOIN
-	 * st.id = sj.id
-	 */
+  /* join pred. */
+  expressions::BinaryExpression *joinPred =
+      new expressions::EqExpression(leftPred, rightPred);
 
-	//LEFT SIDE
-	list<RecordAttribute> argProjectionsLeft;
-	argProjectionsLeft.push_back(*idBin);
-	expressions::Expression* leftArg = new expressions::InputArgument(&recBin,
-			0, argProjectionsLeft);
-	expressions::Expression* leftPred = new expressions::RecordProjection(
-			idBin->getOriginalType(), leftArg, *idBin);
+  /* left materializer - dim needed */
+  vector<RecordAttribute *> fieldsLeft;
+  vector<materialization_mode> outputModesLeft;
 
-	//RIGHT SIDE
-	list<RecordAttribute> argProjectionsRight;
-	argProjectionsRight.push_back(*idJSON);
-	expressions::Expression* rightArg = new expressions::InputArgument(&recJSON,
-			1, argProjectionsRight);
-	expressions::Expression* rightPred = new expressions::RecordProjection(
-			idJSON->getOriginalType(), rightArg, *idJSON);
+  /* explicit mention to left OID */
+  RecordAttribute *projTupleL =
+      new RecordAttribute(fnamePrefixBin, activeLoop, pgBin->getOIDType());
+  vector<RecordAttribute *> OIDLeft;
+  OIDLeft.push_back(projTupleL);
+  expressions::Expression *exprLeftOID = new expressions::RecordProjection(
+      pgBin->getOIDType(), leftArg, *projTupleL);
+  expressions::Expression *exprLeftKey = new expressions::RecordProjection(
+      idBin->getOriginalType(), leftArg, *idBin);
+  vector<expression_t> expressionsLeft;
+  expressionsLeft.push_back(exprLeftOID);
+  expressionsLeft.push_back(exprLeftKey);
 
-	/* join pred. */
-	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			leftPred, rightPred);
+  Materializer *matLeft =
+      new Materializer(fieldsLeft, expressionsLeft, OIDLeft, outputModesLeft);
 
-	/* left materializer - dim needed */
-	vector<RecordAttribute*> fieldsLeft;
-	vector<materialization_mode> outputModesLeft;
+  /* right materializer - no explicit field needed */
+  vector<RecordAttribute *> fieldsRight;
+  vector<materialization_mode> outputModesRight;
 
-	/* explicit mention to left OID */
-	RecordAttribute *projTupleL = new RecordAttribute(fnamePrefixBin,
-			activeLoop, pgBin->getOIDType());
-	vector<RecordAttribute*> OIDLeft;
-	OIDLeft.push_back(projTupleL);
-	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-			pgBin->getOIDType(), leftArg, *projTupleL);
-	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
-			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expression_t> expressionsLeft;
-	expressionsLeft.push_back(exprLeftOID);
-	expressionsLeft.push_back(exprLeftKey);
+  /* explicit mention to right OID */
+  RecordAttribute *projTupleR =
+      new RecordAttribute(fnameJSON, activeLoop, pgJSON->getOIDType());
+  vector<RecordAttribute *> OIDRight;
+  OIDRight.push_back(projTupleR);
+  expressions::Expression *exprRightOID = new expressions::RecordProjection(
+      pgJSON->getOIDType(), rightArg, *projTupleR);
+  vector<expression_t> expressionsRight;
+  expressionsRight.push_back(exprRightOID);
 
-	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
-			OIDLeft, outputModesLeft);
+  Materializer *matRight = new Materializer(fieldsRight, expressionsRight,
+                                            OIDRight, outputModesRight);
 
-	/* right materializer - no explicit field needed */
-	vector<RecordAttribute*> fieldsRight;
-	vector<materialization_mode> outputModesRight;
+  char joinLabel[] = "radixJoinBinJSON";
+  RadixJoin *join = new RadixJoin(*joinPred, selBin, selJSON, &ctx, joinLabel,
+                                  *matLeft, *matRight);
+  selBin->setParent(join);
+  selJSON->setParent(join);
 
-	/* explicit mention to right OID */
-	RecordAttribute *projTupleR = new RecordAttribute(fnameJSON, activeLoop,
-			pgJSON->getOIDType());
-	vector<RecordAttribute*> OIDRight;
-	OIDRight.push_back(projTupleR);
-	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expression_t> expressionsRight;
-	expressionsRight.push_back(exprRightOID);
+  /**
+   * REDUCE
+   * MAX(size)
+   */
+  list<RecordAttribute> argProjections;
+  argProjections.push_back(*size);
+  expressions::Expression *exprSize = new expressions::RecordProjection(
+      size->getOriginalType(), rightArg, *size);
 
-	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
-			OIDRight, outputModesRight);
+  ReduceNoPred *reduce = new ReduceNoPred(MAX, exprSize, join, &ctx);
+  join->setParent(reduce);
 
-	char joinLabel[] = "radixJoinBinJSON";
-	RadixJoin *join = new RadixJoin(*joinPred, selBin, selJSON, &ctx, joinLabel,
-			*matLeft, *matRight);
-	selBin->setParent(join);
-	selJSON->setParent(join);
+  // Run function
+  struct timespec t0, t1;
+  clock_gettime(CLOCK_REALTIME, &t0);
+  reduce->produce();
+  ctx.prepareFunction(ctx.getGlobalFunction());
+  clock_gettime(CLOCK_REALTIME, &t1);
+  printf("Execution took %f seconds\n", diff(t0, t1));
 
-	/**
-	 * REDUCE
-	 * MAX(size)
-	 */
-	list<RecordAttribute> argProjections;
-	argProjections.push_back(*size);
-	expressions::Expression* exprSize = new expressions::RecordProjection(
-			size->getOriginalType(), rightArg, *size);
-
-	ReduceNoPred *reduce = new ReduceNoPred(MAX, exprSize, join, &ctx);
-	join->setParent(reduce);
-
-	//Run function
-	struct timespec t0, t1;
-	clock_gettime(CLOCK_REALTIME, &t0);
-	reduce->produce();
-	ctx.prepareFunction(ctx.getGlobalFunction());
-	clock_gettime(CLOCK_REALTIME, &t1);
-	printf("Execution took %f seconds\n", diff(t0, t1));
-
-	//Close all open files & clear
-	pgBin->finish();
-	pgJSON->finish();
-	rawCatalog.clear();
+  // Close all open files & clear
+  pgBin->finish();
+  pgJSON->finish();
+  rawCatalog.clear();
 }
 
 void symantecBinJSON5(map<string, dataset> datasetCatalog) {
+  // bin
+  int sizeLow = 1000;
+  // JSON
+  int yearNo = 2010;
 
-	//bin
-	int sizeLow = 1000;
-	//JSON
-	int yearNo = 2010;
+  RawContext &ctx = *prepareContext("symantec-bin-JSON-5");
+  RawCatalog &rawCatalog = RawCatalog::getInstance();
 
-	RawContext& ctx = *prepareContext("symantec-bin-JSON-5");
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
+  string nameSymantecBin = string("symantecBin");
+  dataset symantecBin = datasetCatalog[nameSymantecBin];
+  map<string, RecordAttribute *> argsSymantecBin =
+      symantecBin.recType.getArgsMap();
 
-	string nameSymantecBin = string("symantecBin");
-	dataset symantecBin = datasetCatalog[nameSymantecBin];
-	map<string, RecordAttribute*> argsSymantecBin =
-			symantecBin.recType.getArgsMap();
+  string nameSymantecJSON = string("symantecIDDates");
+  dataset symantecJSON = datasetCatalog[nameSymantecJSON];
+  map<string, RecordAttribute *> argsSymantecJSON =
+      symantecJSON.recType.getArgsMap();
 
-	string nameSymantecJSON = string("symantecIDDates");
-	dataset symantecJSON = datasetCatalog[nameSymantecJSON];
-	map<string, RecordAttribute*> argsSymantecJSON =
-			symantecJSON.recType.getArgsMap();
+  /**
+   * SCAN BINARY FILE
+   */
+  BinaryColPlugin *pgBin;
+  Scan *scanBin;
+  RecordAttribute *idBin;
+  RecordAttribute *sizeBin;
+  RecordType recBin = symantecBin.recType;
+  string fnamePrefixBin = symantecBin.path;
+  int linehintBin = symantecBin.linehint;
+  idBin = argsSymantecBin["id"];
+  sizeBin = argsSymantecBin["size"];
+  vector<RecordAttribute *> projectionsBin;
+  projectionsBin.push_back(idBin);
+  projectionsBin.push_back(sizeBin);
 
-	/**
-	 * SCAN BINARY FILE
-	 */
-	BinaryColPlugin *pgBin;
-	Scan *scanBin;
-	RecordAttribute *idBin;
-	RecordAttribute *sizeBin;
-	RecordType recBin = symantecBin.recType;
-	string fnamePrefixBin = symantecBin.path;
-	int linehintBin = symantecBin.linehint;
-	idBin = argsSymantecBin["id"];
-	sizeBin = argsSymantecBin["size"];
-	vector<RecordAttribute*> projectionsBin;
-	projectionsBin.push_back(idBin);
-	projectionsBin.push_back(sizeBin);
+  pgBin = new BinaryColPlugin(&ctx, fnamePrefixBin, recBin, projectionsBin);
+  rawCatalog.registerPlugin(fnamePrefixBin, pgBin);
+  scanBin = new Scan(&ctx, *pgBin);
 
-	pgBin = new BinaryColPlugin(&ctx, fnamePrefixBin, recBin, projectionsBin);
-	rawCatalog.registerPlugin(fnamePrefixBin, pgBin);
-	scanBin = new Scan(&ctx, *pgBin);
+  /*
+   * SELECT BINARY
+   * size > 1000
+   */
+  expressions::Expression *predicateBin;
+  {
+    list<RecordAttribute> argProjectionsBin;
+    argProjectionsBin.push_back(*sizeBin);
+    expressions::Expression *arg =
+        new expressions::InputArgument(&recBin, 0, argProjectionsBin);
+    expressions::Expression *selSize = new expressions::RecordProjection(
+        sizeBin->getOriginalType(), arg, *sizeBin);
 
+    expressions::Expression *predExpr1 = new expressions::IntConstant(sizeLow);
+    predicateBin = new expressions::GtExpression(selSize, predExpr1);
+  }
 
-	/*
-	 * SELECT BINARY
-	 * size > 1000
-	 */
-	expressions::Expression* predicateBin;
-	{
-		list<RecordAttribute> argProjectionsBin;
-		argProjectionsBin.push_back(*sizeBin);
-		expressions::Expression* arg = new expressions::InputArgument(&recBin,
-				0, argProjectionsBin);
-		expressions::Expression* selSize = new expressions::RecordProjection(
-				sizeBin->getOriginalType(), arg, *sizeBin);
+  Select *selBin = new Select(predicateBin, scanBin);
+  scanBin->setParent(selBin);
 
-		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				sizeLow);
-		predicateBin = new expressions::GtExpression(
-				selSize, predExpr1);
-	}
+  /**
+   * SCAN JSON FILE
+   */
+  string fnameJSON = symantecJSON.path;
+  RecordType recJSON = symantecJSON.recType;
+  int linehintJSON = symantecJSON.linehint;
 
-	Select *selBin = new Select(predicateBin, scanBin);
-	scanBin->setParent(selBin);
+  RecordAttribute *idJSON = argsSymantecJSON["id"];
+  RecordAttribute *day = argsSymantecJSON["day"];
+  RecordAttribute *size = argsSymantecJSON["size"];
 
-	/**
-	 * SCAN JSON FILE
-	 */
-	string fnameJSON = symantecJSON.path;
-	RecordType recJSON = symantecJSON.recType;
-	int linehintJSON = symantecJSON.linehint;
+  vector<RecordAttribute *> projectionsJSON;
+  projectionsJSON.push_back(idJSON);
+  projectionsJSON.push_back(size);
 
-	RecordAttribute *idJSON = argsSymantecJSON["id"];
-	RecordAttribute *day = argsSymantecJSON["day"];
-	RecordAttribute *size = argsSymantecJSON["size"];
+  ListType *documentType = new ListType(recJSON);
+  jsonPipelined::JSONPlugin *pgJSON = new jsonPipelined::JSONPlugin(
+      &ctx, fnameJSON, documentType, linehintJSON);
+  rawCatalog.registerPlugin(fnameJSON, pgJSON);
+  Scan *scanJSON = new Scan(&ctx, *pgJSON);
 
-	vector<RecordAttribute*> projectionsJSON;
-	projectionsJSON.push_back(idJSON);
-	projectionsJSON.push_back(size);
+  /*
+   * SELECT JSON
+   * (data->'day'->>'year')::int = 2010
+   */
+  expressions::Expression *predicateJSON;
+  {
+    list<RecordAttribute> argProjectionsJSON;
+    argProjectionsJSON.push_back(*idJSON);
+    argProjectionsJSON.push_back(*day);
+    expressions::Expression *arg =
+        new expressions::InputArgument(&recJSON, 0, argProjectionsJSON);
+    expressions::Expression *selDay =
+        new expressions::RecordProjection(day->getOriginalType(), arg, *day);
+    IntType yearType = IntType();
+    RecordAttribute *year =
+        new RecordAttribute(2, fnameJSON, "year", &yearType);
+    expressions::Expression *selYear =
+        new expressions::RecordProjection(&yearType, selDay, *year);
 
-	ListType *documentType = new ListType(recJSON);
-	jsonPipelined::JSONPlugin *pgJSON = new jsonPipelined::JSONPlugin(&ctx,
-			fnameJSON, documentType, linehintJSON);
-	rawCatalog.registerPlugin(fnameJSON, pgJSON);
-	Scan *scanJSON = new Scan(&ctx, *pgJSON);
+    expressions::Expression *predExpr1 = new expressions::IntConstant(yearNo);
+    predicateJSON = new expressions::EqExpression(selYear, predExpr1);
+  }
 
+  Select *selJSON = new Select(predicateJSON, scanJSON);
+  scanJSON->setParent(selJSON);
 
-	/*
-	 * SELECT JSON
-	 * (data->'day'->>'year')::int = 2010
-	 */
-	expressions::Expression* predicateJSON;
-	{
-		list<RecordAttribute> argProjectionsJSON;
-		argProjectionsJSON.push_back(*idJSON);
-		argProjectionsJSON.push_back(*day);
-		expressions::Expression* arg = new expressions::InputArgument(&recJSON,
-				0, argProjectionsJSON);
-		expressions::Expression* selDay = new expressions::RecordProjection(
-				day->getOriginalType(), arg, *day);
-		IntType yearType = IntType();
-		RecordAttribute *year = new RecordAttribute(2, fnameJSON, "year",
-				&yearType);
-		expressions::Expression* selYear = new expressions::RecordProjection(
-				&yearType, selDay, *year);
+  /*
+   * JOIN
+   * st.id = sj.id
+   */
 
-		expressions::Expression* predExpr1 = new expressions::IntConstant(
-				yearNo);
-		predicateJSON = new expressions::EqExpression(selYear,
-				predExpr1);
-	}
+  // LEFT SIDE
+  list<RecordAttribute> argProjectionsLeft;
+  argProjectionsLeft.push_back(*idBin);
+  expressions::Expression *leftArg =
+      new expressions::InputArgument(&recBin, 0, argProjectionsLeft);
+  expressions::Expression *leftPred = new expressions::RecordProjection(
+      idBin->getOriginalType(), leftArg, *idBin);
 
-	Select *selJSON = new Select(predicateJSON, scanJSON);
-	scanJSON->setParent(selJSON);
+  // RIGHT SIDE
+  list<RecordAttribute> argProjectionsRight;
+  argProjectionsRight.push_back(*idJSON);
+  expressions::Expression *rightArg =
+      new expressions::InputArgument(&recJSON, 1, argProjectionsRight);
+  expressions::Expression *rightPred = new expressions::RecordProjection(
+      idJSON->getOriginalType(), rightArg, *idJSON);
 
-	/*
-	 * JOIN
-	 * st.id = sj.id
-	 */
+  /* join pred. */
+  expressions::BinaryExpression *joinPred =
+      new expressions::EqExpression(leftPred, rightPred);
 
-	//LEFT SIDE
-	list<RecordAttribute> argProjectionsLeft;
-	argProjectionsLeft.push_back(*idBin);
-	expressions::Expression* leftArg = new expressions::InputArgument(&recBin,
-			0, argProjectionsLeft);
-	expressions::Expression* leftPred = new expressions::RecordProjection(
-			idBin->getOriginalType(), leftArg, *idBin);
+  /* left materializer - dim needed */
+  vector<RecordAttribute *> fieldsLeft;
+  vector<materialization_mode> outputModesLeft;
 
-	//RIGHT SIDE
-	list<RecordAttribute> argProjectionsRight;
-	argProjectionsRight.push_back(*idJSON);
-	expressions::Expression* rightArg = new expressions::InputArgument(&recJSON,
-			1, argProjectionsRight);
-	expressions::Expression* rightPred = new expressions::RecordProjection(
-			idJSON->getOriginalType(), rightArg, *idJSON);
+  /* explicit mention to left OID */
+  RecordAttribute *projTupleL =
+      new RecordAttribute(fnamePrefixBin, activeLoop, pgBin->getOIDType());
+  vector<RecordAttribute *> OIDLeft;
+  OIDLeft.push_back(projTupleL);
+  expressions::Expression *exprLeftOID = new expressions::RecordProjection(
+      pgBin->getOIDType(), leftArg, *projTupleL);
+  expressions::Expression *exprLeftKey = new expressions::RecordProjection(
+      idBin->getOriginalType(), leftArg, *idBin);
+  vector<expression_t> expressionsLeft;
+  expressionsLeft.push_back(exprLeftOID);
+  expressionsLeft.push_back(exprLeftKey);
 
-	/* join pred. */
-	expressions::BinaryExpression* joinPred = new expressions::EqExpression(
-			leftPred, rightPred);
+  Materializer *matLeft =
+      new Materializer(fieldsLeft, expressionsLeft, OIDLeft, outputModesLeft);
 
-	/* left materializer - dim needed */
-	vector<RecordAttribute*> fieldsLeft;
-	vector<materialization_mode> outputModesLeft;
+  /* right materializer - no explicit field needed */
+  vector<RecordAttribute *> fieldsRight;
+  vector<materialization_mode> outputModesRight;
 
-	/* explicit mention to left OID */
-	RecordAttribute *projTupleL = new RecordAttribute(fnamePrefixBin,
-			activeLoop, pgBin->getOIDType());
-	vector<RecordAttribute*> OIDLeft;
-	OIDLeft.push_back(projTupleL);
-	expressions::Expression* exprLeftOID = new expressions::RecordProjection(
-			pgBin->getOIDType(), leftArg, *projTupleL);
-	expressions::Expression* exprLeftKey = new expressions::RecordProjection(
-			idBin->getOriginalType(), leftArg, *idBin);
-	vector<expression_t> expressionsLeft;
-	expressionsLeft.push_back(exprLeftOID);
-	expressionsLeft.push_back(exprLeftKey);
+  /* explicit mention to right OID */
+  RecordAttribute *projTupleR =
+      new RecordAttribute(fnameJSON, activeLoop, pgJSON->getOIDType());
+  vector<RecordAttribute *> OIDRight;
+  OIDRight.push_back(projTupleR);
+  expressions::Expression *exprRightOID = new expressions::RecordProjection(
+      pgJSON->getOIDType(), rightArg, *projTupleR);
+  vector<expression_t> expressionsRight;
+  expressionsRight.push_back(exprRightOID);
 
-	Materializer* matLeft = new Materializer(fieldsLeft, expressionsLeft,
-			OIDLeft, outputModesLeft);
+  Materializer *matRight = new Materializer(fieldsRight, expressionsRight,
+                                            OIDRight, outputModesRight);
 
-	/* right materializer - no explicit field needed */
-	vector<RecordAttribute*> fieldsRight;
-	vector<materialization_mode> outputModesRight;
+  char joinLabel[] = "radixJoinBinJSON";
+  RadixJoin *join = new RadixJoin(*joinPred, selBin, selJSON, &ctx, joinLabel,
+                                  *matLeft, *matRight);
+  selBin->setParent(join);
+  selJSON->setParent(join);
 
-	/* explicit mention to right OID */
-	RecordAttribute *projTupleR = new RecordAttribute(fnameJSON, activeLoop,
-			pgJSON->getOIDType());
-	vector<RecordAttribute*> OIDRight;
-	OIDRight.push_back(projTupleR);
-	expressions::Expression* exprRightOID = new expressions::RecordProjection(
-			pgJSON->getOIDType(), rightArg, *projTupleR);
-	vector<expression_t> expressionsRight;
-	expressionsRight.push_back(exprRightOID);
+  /**
+   * REDUCE
+   * MAX(size)
+   */
+  list<RecordAttribute> argProjections;
+  argProjections.push_back(*size);
+  expressions::Expression *exprSize = new expressions::RecordProjection(
+      size->getOriginalType(), rightArg, *size);
 
-	Materializer* matRight = new Materializer(fieldsRight, expressionsRight,
-			OIDRight, outputModesRight);
+  ReduceNoPred *reduce = new ReduceNoPred(MAX, exprSize, join, &ctx);
+  join->setParent(reduce);
 
-	char joinLabel[] = "radixJoinBinJSON";
-	RadixJoin *join = new RadixJoin(*joinPred, selBin, selJSON, &ctx, joinLabel,
-			*matLeft, *matRight);
-	selBin->setParent(join);
-	selJSON->setParent(join);
+  // Run function
+  struct timespec t0, t1;
+  clock_gettime(CLOCK_REALTIME, &t0);
+  reduce->produce();
+  ctx.prepareFunction(ctx.getGlobalFunction());
+  clock_gettime(CLOCK_REALTIME, &t1);
+  printf("Execution took %f seconds\n", diff(t0, t1));
 
-	/**
-	 * REDUCE
-	 * MAX(size)
-	 */
-	list<RecordAttribute> argProjections;
-	argProjections.push_back(*size);
-	expressions::Expression* exprSize = new expressions::RecordProjection(
-			size->getOriginalType(), rightArg, *size);
-
-	ReduceNoPred *reduce = new ReduceNoPred(MAX, exprSize, join, &ctx);
-	join->setParent(reduce);
-
-	//Run function
-	struct timespec t0, t1;
-	clock_gettime(CLOCK_REALTIME, &t0);
-	reduce->produce();
-	ctx.prepareFunction(ctx.getGlobalFunction());
-	clock_gettime(CLOCK_REALTIME, &t1);
-	printf("Execution took %f seconds\n", diff(t0, t1));
-
-	//Close all open files & clear
-	pgBin->finish();
-	pgJSON->finish();
-	rawCatalog.clear();
+  // Close all open files & clear
+  pgBin->finish();
+  pgJSON->finish();
+  rawCatalog.clear();
 }
 
-void symantecJSONWarmup(map<string,dataset> datasetCatalog)	{
+void symantecJSONWarmup(map<string, dataset> datasetCatalog) {
+  RawContext &ctx = *prepareContext("symantec-json-warmup");
+  RawCatalog &rawCatalog = RawCatalog::getInstance();
 
-	RawContext& ctx = *prepareContext("symantec-json-warmup");
-	RawCatalog& rawCatalog = RawCatalog::getInstance();
+  string nameSymantec = string("symantecIDDates");
+  dataset symantec = datasetCatalog[nameSymantec];
+  map<string, RecordAttribute *> argsSymantec = symantec.recType.getArgsMap();
 
-	string nameSymantec = string("symantecIDDates");
-	dataset symantec = datasetCatalog[nameSymantec];
-	map<string, RecordAttribute*> argsSymantec 	=
-			symantec.recType.getArgsMap();
+  /**
+   * SCAN
+   */
+  string fname = symantec.path;
+  RecordType rec = symantec.recType;
+  int linehint = symantec.linehint;
 
-	/**
-	 * SCAN
-	 */
-	string fname = symantec.path;
-	RecordType rec = symantec.recType;
-	int linehint = symantec.linehint;
+  ListType *documentType = new ListType(rec);
+  jsonPipelined::JSONPlugin *pg =
+      new jsonPipelined::JSONPlugin(&ctx, fname, documentType, linehint);
 
-	ListType *documentType = new ListType(rec);
-	jsonPipelined::JSONPlugin *pg = new jsonPipelined::JSONPlugin(&ctx, fname,
-			documentType,linehint);
+  rawCatalog.registerPlugin(fname, pg);
+  Scan *scan = new Scan(&ctx, *pg);
 
-	rawCatalog.registerPlugin(fname, pg);
-	Scan *scan = new Scan(&ctx, *pg);
+  /**
+   * REDUCE
+   * (SUM 1)
+   */
+  list<RecordAttribute> argProjections;
 
-	/**
-	 * REDUCE
-	 * (SUM 1)
-	 */
-	list<RecordAttribute> argProjections;
+  expressions::Expression *arg =
+      new expressions::InputArgument(&rec, 0, argProjections);
+  /* Output: */
+  expressions::Expression *outputExpr = new expressions::IntConstant(1);
 
-	expressions::Expression* arg 			=
-				new expressions::InputArgument(&rec,0,argProjections);
-	/* Output: */
-	expressions::Expression* outputExpr =
-			new expressions::IntConstant(1);
+  ReduceNoPred *reduce = new ReduceNoPred(SUM, outputExpr, scan, &ctx);
+  scan->setParent(reduce);
 
-	ReduceNoPred *reduce = new ReduceNoPred(SUM, outputExpr, scan, &ctx);
-	scan->setParent(reduce);
+  // Run function
+  struct timespec t0, t1;
+  clock_gettime(CLOCK_REALTIME, &t0);
+  reduce->produce();
+  ctx.prepareFunction(ctx.getGlobalFunction());
+  clock_gettime(CLOCK_REALTIME, &t1);
+  printf("Execution took %f seconds\n", diff(t0, t1));
 
-	//Run function
-	struct timespec t0, t1;
-	clock_gettime(CLOCK_REALTIME, &t0);
-	reduce->produce();
-	ctx.prepareFunction(ctx.getGlobalFunction());
-	clock_gettime(CLOCK_REALTIME, &t1);
-	printf("Execution took %f seconds\n", diff(t0, t1));
-
-	//Close all open files & clear
-	pg->finish();
-	rawCatalog.clear();
+  // Close all open files & clear
+  pg->finish();
+  rawCatalog.clear();
 }

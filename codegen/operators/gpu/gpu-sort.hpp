@@ -25,45 +25,45 @@
 #define GPU_SORT_HPP_
 
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 #include "operators/sort.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 
 class GpuSort : public UnaryRawOperator {
-public:
-    GpuSort(RawOperator  * const         child,
-            GpuRawContext * const        context,
-            const vector<expression_t>  &orderByFields,
-            const vector<direction   >  &dirs,
-            gran_t                       granularity = gran_t::GRID);
+ public:
+  GpuSort(RawOperator *const child, GpuRawContext *const context,
+          const vector<expression_t> &orderByFields,
+          const vector<direction> &dirs, gran_t granularity = gran_t::GRID);
 
-    virtual ~GpuSort(){ LOG(INFO)<<"Collapsing GpuSort operator";}
+  virtual ~GpuSort() { LOG(INFO) << "Collapsing GpuSort operator"; }
 
-    virtual void produce();
-    virtual void consume(RawContext    * const context, const OperatorState& childState);
-    virtual void consume(GpuRawContext * const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return false;}
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
+  virtual void consume(GpuRawContext *const context,
+                       const OperatorState &childState);
+  virtual bool isFiltering() const { return false; }
 
-protected:
-    virtual void flush_sorted();
+ protected:
+  virtual void flush_sorted();
 
-    virtual void call_sort(llvm::Value * mem, llvm::Value * N);
+  virtual void call_sort(llvm::Value *mem, llvm::Value *N);
 
-    std::vector<expression_t>       orderByFields;
-    const vector<direction  >       dirs         ;
+  std::vector<expression_t> orderByFields;
+  const vector<direction> dirs;
 
-    expressions::RecordConstruction outputExpr  ;
-    std::string                     relName     ;
+  expressions::RecordConstruction outputExpr;
+  std::string relName;
 
-    gran_t                          granularity ;
+  gran_t granularity;
 
-    size_t                          cntVar_id   ;
-    size_t                          memVar_id   ;
+  size_t cntVar_id;
+  size_t memVar_id;
 
-    llvm::Type                    * mem_type    ;
+  llvm::Type *mem_type;
 
-    GpuRawContext * const           context     ;
+  GpuRawContext *const context;
 
-    std::string                     suffix      ;
+  std::string suffix;
 };
 
 #endif /* GPU_SORT_HPP_ */

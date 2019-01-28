@@ -23,58 +23,55 @@
 #ifndef GPU_TO_CPU_HPP_
 #define GPU_TO_CPU_HPP_
 
-#include "operators/operators.hpp"
 #include "operators/device-cross.hpp"
+#include "operators/operators.hpp"
 #include "util/gpu/gpu-raw-context.hpp"
 
 class GpuToCpu : public DeviceCross {
-public:
-    GpuToCpu(   RawOperator   * const            child,
-                GpuRawContext * const            context,
-                const vector<RecordAttribute *> &wantedFields,
-                size_t                           size,
-                gran_t                           granularity = gran_t::GRID) :
-                    DeviceCross(child), 
-                    context(context), 
-                    wantedFields(wantedFields),
-                    size(size),
-                    granularity(granularity){}
+ public:
+  GpuToCpu(RawOperator *const child, GpuRawContext *const context,
+           const vector<RecordAttribute *> &wantedFields, size_t size,
+           gran_t granularity = gran_t::GRID)
+      : DeviceCross(child),
+        context(context),
+        wantedFields(wantedFields),
+        size(size),
+        granularity(granularity) {}
 
-    virtual ~GpuToCpu(){ LOG(INFO)<<"Collapsing GpuToCpu operator";}
+  virtual ~GpuToCpu() { LOG(INFO) << "Collapsing GpuToCpu operator"; }
 
-    virtual void produce();
-    virtual void consume(GpuRawContext * const context, const OperatorState& childState);
+  virtual void produce();
+  virtual void consume(GpuRawContext *const context,
+                       const OperatorState &childState);
 
-private:
-    void generate_catch();
+ private:
+  void generate_catch();
 
-    void open (RawPipeline * pip);
-    void close(RawPipeline * pip);
+  void open(RawPipeline *pip);
+  void close(RawPipeline *pip);
 
+  const vector<RecordAttribute *> wantedFields;
 
+  GpuRawContext *const context;
 
-    const vector<RecordAttribute *> wantedFields        ;
+  RawPipelineGen *cpu_pip;
 
-    GpuRawContext * const           context             ;
+  llvm::Type *params_type;
 
-    RawPipelineGen *                cpu_pip             ;
+  size_t lockVar_id;
+  size_t lastVar_id;
+  size_t flagsVar_id;
+  size_t storeVar_id;
+  size_t threadVar_id;
+  size_t eofVar_id;
 
-    llvm::Type                    * params_type         ;
+  size_t flagsVar_id_catch;
+  size_t storeVar_id_catch;
+  size_t eofVar_id_catch;
 
-    size_t                          lockVar_id          ;
-    size_t                          lastVar_id          ;
-    size_t                          flagsVar_id         ;
-    size_t                          storeVar_id         ;
-    size_t                          threadVar_id        ;
-    size_t                          eofVar_id           ;
+  size_t size;
 
-    size_t                          flagsVar_id_catch   ;
-    size_t                          storeVar_id_catch   ;
-    size_t                          eofVar_id_catch     ;
-
-    size_t                          size                ;
-
-    gran_t                          granularity         ;
+  gran_t granularity;
 };
 
 #endif /* GPU_TO_CPU_HPP_ */

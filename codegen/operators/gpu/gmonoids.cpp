@@ -27,290 +27,259 @@
 
 namespace gpu {
 
-void Monoid::createUpdate(RawContext* const context, 
-                                    Value * val_accumulating,
-                                    Value * val_in){
-
-    context->getBuilder()->CreateStore(
-                                    create(context, context->getBuilder()->CreateLoad(val_accumulating), val_in),
-                                    val_accumulating
-                                );
+void Monoid::createUpdate(RawContext *const context, Value *val_accumulating,
+                          Value *val_in) {
+  context->getBuilder()->CreateStore(
+      create(context, context->getBuilder()->CreateLoad(val_accumulating),
+             val_in),
+      val_accumulating);
 }
 
-Value * MaxMonoid::create(RawContext* const context, 
-                            Value * val_accumulating,
-                            Value * val_in){
+Value *MaxMonoid::create(RawContext *const context, Value *val_accumulating,
+                         Value *val_in) {
+  IRBuilder<> *Builder = context->getBuilder();
 
-    IRBuilder<>* Builder = context->getBuilder();
+  Value *maxCondition;
 
-    Value* maxCondition;
-    
-    if        (val_accumulating->getType()->isIntegerTy()       ){
-        maxCondition = Builder->CreateICmpSGT(val_in, val_accumulating);
-    } else if (val_accumulating->getType()->isFloatingPointTy() ){
-        maxCondition = Builder->CreateFCmpOGT(val_in, val_accumulating);
-    } else {
-        string error_msg = string("[MaxMonoid: ] Max operates on numerics");
-        LOG(ERROR)<< error_msg;
-        throw runtime_error(error_msg);
-    }
+  if (val_accumulating->getType()->isIntegerTy()) {
+    maxCondition = Builder->CreateICmpSGT(val_in, val_accumulating);
+  } else if (val_accumulating->getType()->isFloatingPointTy()) {
+    maxCondition = Builder->CreateFCmpOGT(val_in, val_accumulating);
+  } else {
+    string error_msg = string("[MaxMonoid: ] Max operates on numerics");
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
 
-    return Builder->CreateSelect(maxCondition, val_in, val_accumulating);
+  return Builder->CreateSelect(maxCondition, val_in, val_accumulating);
 }
 
-void MaxMonoid::createUpdate(RawContext* const context,
-                                Value * mem_accumulating,
-                                Value * val_in) {
+void MaxMonoid::createUpdate(RawContext *const context, Value *mem_accumulating,
+                             Value *val_in) {
+  IRBuilder<> *Builder = context->getBuilder();
 
-    IRBuilder<>* Builder = context->getBuilder();
+  BasicBlock *curBlock = Builder->GetInsertBlock();
 
-    BasicBlock *curBlock = Builder->GetInsertBlock();
+  Function *TheFunction = curBlock->getParent();
+  BasicBlock *endBlock =
+      BasicBlock::Create(context->getLLVMContext(), "maxEnd", TheFunction);
 
-    Function *TheFunction = curBlock->getParent();
-    BasicBlock *endBlock = BasicBlock::Create(context->getLLVMContext(), "maxEnd", TheFunction);
+  if (curBlock == context->getEndingBlock()) context->setEndingBlock(endBlock);
 
-    if (curBlock == context->getEndingBlock()) context->setEndingBlock(endBlock);
+  /**
+   * if(curr > max) max = curr;
+   */
+  BasicBlock *ifGtMaxBlock;
+  context->CreateIfBlock(context->getGlobalFunction(), "maxCond",
+                         &ifGtMaxBlock);
+  Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-    /**
-     * if(curr > max) max = curr;
-     */
-    BasicBlock* ifGtMaxBlock;
-    context->CreateIfBlock(context->getGlobalFunction(), "maxCond", &ifGtMaxBlock);
-    Value* val_accumulating = Builder->CreateLoad(mem_accumulating);
-    
-    Value* maxCondition;
-    
-    if        (val_accumulating->getType()->isIntegerTy()       ){
-        maxCondition = Builder->CreateICmpSGT(val_in, val_accumulating);
-    } else if (val_accumulating->getType()->isFloatingPointTy() ){
-        maxCondition = Builder->CreateFCmpOGT(val_in, val_accumulating);
-    } else {
-        string error_msg = string("[MaxMonoid: ] Max accumulator operates on numerics");
-        LOG(ERROR)<< error_msg;
-        throw runtime_error(error_msg);
-    }
+  Value *maxCondition;
 
-    Builder->CreateCondBr(maxCondition, ifGtMaxBlock, endBlock);
+  if (val_accumulating->getType()->isIntegerTy()) {
+    maxCondition = Builder->CreateICmpSGT(val_in, val_accumulating);
+  } else if (val_accumulating->getType()->isFloatingPointTy()) {
+    maxCondition = Builder->CreateFCmpOGT(val_in, val_accumulating);
+  } else {
+    string error_msg =
+        string("[MaxMonoid: ] Max accumulator operates on numerics");
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
 
-    Builder->SetInsertPoint(ifGtMaxBlock);
-    Builder->CreateStore(val_in, mem_accumulating);
-    Builder->CreateBr(endBlock);
+  Builder->CreateCondBr(maxCondition, ifGtMaxBlock, endBlock);
 
-    //Back to 'normal' flow
-    Builder->SetInsertPoint(endBlock);
+  Builder->SetInsertPoint(ifGtMaxBlock);
+  Builder->CreateStore(val_in, mem_accumulating);
+  Builder->CreateBr(endBlock);
+
+  // Back to 'normal' flow
+  Builder->SetInsertPoint(endBlock);
 }
 
-void MaxMonoid::createAtomicUpdate(RawContext* const context,
-                                    Value * accumulator_ptr,
-                                    Value * val_in,
-                                    llvm::AtomicOrdering order){
-
-    context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Max, 
-                                            accumulator_ptr,
-                                            val_in,
-                                            order);
-
+void MaxMonoid::createAtomicUpdate(RawContext *const context,
+                                   Value *accumulator_ptr, Value *val_in,
+                                   llvm::AtomicOrdering order) {
+  context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Max,
+                                         accumulator_ptr, val_in, order);
 }
 
-Value * SumMonoid::create(RawContext* const context, 
-                            Value * val_accumulating, 
-                            Value * val_in) {
-    if (val_in->getType()->isIntegerTy()){
-        return context->getBuilder()->CreateAdd(val_in, val_accumulating);
-    } else {
-        return context->getBuilder()->CreateFAdd(val_in, val_accumulating);
-    }
+Value *SumMonoid::create(RawContext *const context, Value *val_accumulating,
+                         Value *val_in) {
+  if (val_in->getType()->isIntegerTy()) {
+    return context->getBuilder()->CreateAdd(val_in, val_accumulating);
+  } else {
+    return context->getBuilder()->CreateFAdd(val_in, val_accumulating);
+  }
 }
 
-void SumMonoid::createAtomicUpdate(RawContext* const context,
-                                    Value * accumulator_ptr,
-                                    Value * val_in,
-                                    llvm::AtomicOrdering order){
-    if (val_in->getType()->isIntegerTy()){ //FIXME : llvm does not like non integer atomics
-        context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, 
-                                                accumulator_ptr,
-                                                val_in,
-                                                order);
-    } else if (val_in->getType()->isDoubleTy()){
-        Function * f = context->getFunction("atomicAdd_double");
-        context->getBuilder()->CreateCall(f, std::vector<llvm::Value *>{accumulator_ptr, val_in});
-    } else if (val_in->getType()->isFloatTy()){
-        Function * f = context->getFunction("atomicAdd_float");
-        context->getBuilder()->CreateCall(f, std::vector<llvm::Value *>{accumulator_ptr, val_in});
-    } else {
-        string error_msg = string("[gpu::SumMonoid: ] Unimplemented atomic update");
-        LOG(ERROR) << error_msg;
-        throw runtime_error(error_msg);
-    }
+void SumMonoid::createAtomicUpdate(RawContext *const context,
+                                   Value *accumulator_ptr, Value *val_in,
+                                   llvm::AtomicOrdering order) {
+  if (val_in->getType()
+          ->isIntegerTy()) {  // FIXME : llvm does not like non integer atomics
+    context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add,
+                                           accumulator_ptr, val_in, order);
+  } else if (val_in->getType()->isDoubleTy()) {
+    Function *f = context->getFunction("atomicAdd_double");
+    context->getBuilder()->CreateCall(
+        f, std::vector<llvm::Value *>{accumulator_ptr, val_in});
+  } else if (val_in->getType()->isFloatTy()) {
+    Function *f = context->getFunction("atomicAdd_float");
+    context->getBuilder()->CreateCall(
+        f, std::vector<llvm::Value *>{accumulator_ptr, val_in});
+  } else {
+    string error_msg = string("[gpu::SumMonoid: ] Unimplemented atomic update");
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
 }
 
-Value * LogOrMonoid::create(RawContext* const context, 
-                            Value * val_accumulating, 
-                            Value * val_in) {
-    return context->getBuilder()->CreateOr(val_in, val_accumulating);
+Value *LogOrMonoid::create(RawContext *const context, Value *val_accumulating,
+                           Value *val_in) {
+  return context->getBuilder()->CreateOr(val_in, val_accumulating);
 }
 
-void LogOrMonoid::createAtomicUpdate(RawContext* const context,
-                                    Value * accumulator_ptr,
-                                    Value * val_in,
-                                    llvm::AtomicOrdering order){
-    //no atomics for i1
-    //FIXME: check if there is a better way to do this + whether this is correct
-    IRBuilder<>* Builder = context->getBuilder();
+void LogOrMonoid::createAtomicUpdate(RawContext *const context,
+                                     Value *accumulator_ptr, Value *val_in,
+                                     llvm::AtomicOrdering order) {
+  // no atomics for i1
+  // FIXME: check if there is a better way to do this + whether this is correct
+  IRBuilder<> *Builder = context->getBuilder();
 
-    BasicBlock *curBlock = Builder->GetInsertBlock();
+  BasicBlock *curBlock = Builder->GetInsertBlock();
 
-    Function *TheFunction = curBlock->getParent();
-    BasicBlock *endBlock = BasicBlock::Create(context->getLLVMContext(),
-                                                "atomOrEnd",
-                                                TheFunction);
+  Function *TheFunction = curBlock->getParent();
+  BasicBlock *endBlock =
+      BasicBlock::Create(context->getLLVMContext(), "atomOrEnd", TheFunction);
 
-    if (curBlock == context->getEndingBlock())context->setEndingBlock(endBlock);
+  if (curBlock == context->getEndingBlock()) context->setEndingBlock(endBlock);
 
-    /**
-     * if(val_in) *accumulator_ptr = true;
-     */
-    BasicBlock* ifBlock;
-    context->CreateIfBlock(context->getGlobalFunction(),
-                            "atomOrCnd",
-                            &ifBlock);
-    
-    Builder->CreateCondBr(val_in, ifBlock, endBlock);
+  /**
+   * if(val_in) *accumulator_ptr = true;
+   */
+  BasicBlock *ifBlock;
+  context->CreateIfBlock(context->getGlobalFunction(), "atomOrCnd", &ifBlock);
 
-    Value * true_const = ConstantInt::getTrue(val_in->getType());
+  Builder->CreateCondBr(val_in, ifBlock, endBlock);
 
-    Builder->SetInsertPoint(ifBlock);
-    Builder->CreateStore(true_const, accumulator_ptr);
-    Builder->CreateBr(endBlock);
+  Value *true_const = ConstantInt::getTrue(val_in->getType());
 
-    //Back to 'normal' flow
-    Builder->SetInsertPoint(endBlock);
+  Builder->SetInsertPoint(ifBlock);
+  Builder->CreateStore(true_const, accumulator_ptr);
+  Builder->CreateBr(endBlock);
+
+  // Back to 'normal' flow
+  Builder->SetInsertPoint(endBlock);
 }
 
-Value * LogAndMonoid::create(RawContext* const context, 
-                            Value * val_accumulating, 
-                            Value * val_in) {
-    return context->getBuilder()->CreateAnd(val_in, val_accumulating);
+Value *LogAndMonoid::create(RawContext *const context, Value *val_accumulating,
+                            Value *val_in) {
+  return context->getBuilder()->CreateAnd(val_in, val_accumulating);
 }
 
-void LogAndMonoid::createAtomicUpdate(RawContext* const context,
-                                    Value * accumulator_ptr,
-                                    Value * val_in,
-                                    llvm::AtomicOrdering order){
-    //no atomics for i1
-    //FIXME: check if there is a better way to do this + whether this is correct
-    IRBuilder<>* Builder = context->getBuilder();
+void LogAndMonoid::createAtomicUpdate(RawContext *const context,
+                                      Value *accumulator_ptr, Value *val_in,
+                                      llvm::AtomicOrdering order) {
+  // no atomics for i1
+  // FIXME: check if there is a better way to do this + whether this is correct
+  IRBuilder<> *Builder = context->getBuilder();
 
-    BasicBlock *curBlock = Builder->GetInsertBlock();
+  BasicBlock *curBlock = Builder->GetInsertBlock();
 
-    Function *TheFunction = curBlock->getParent();
-    BasicBlock *endBlock = BasicBlock::Create(context->getLLVMContext(),
-                                                "atomLAndEnd",
-                                                TheFunction);
+  Function *TheFunction = curBlock->getParent();
+  BasicBlock *endBlock =
+      BasicBlock::Create(context->getLLVMContext(), "atomLAndEnd", TheFunction);
 
-    if (curBlock == context->getEndingBlock())context->setEndingBlock(endBlock);
+  if (curBlock == context->getEndingBlock()) context->setEndingBlock(endBlock);
 
-    /**
-     * if(!val_in) *accumulator_ptr = false;
-     */
-    BasicBlock* ifBlock;
-    context->CreateIfBlock(context->getGlobalFunction(),
-                            "atomlAndCond",
-                            &ifBlock);
-    
-    Builder->CreateCondBr(val_in, endBlock, ifBlock);
+  /**
+   * if(!val_in) *accumulator_ptr = false;
+   */
+  BasicBlock *ifBlock;
+  context->CreateIfBlock(context->getGlobalFunction(), "atomlAndCond",
+                         &ifBlock);
 
-    Value * false_const = ConstantInt::getFalse(val_in->getType());
+  Builder->CreateCondBr(val_in, endBlock, ifBlock);
 
-    Builder->SetInsertPoint(ifBlock);
-    Builder->CreateStore(false_const, accumulator_ptr);
-    Builder->CreateBr(endBlock);
+  Value *false_const = ConstantInt::getFalse(val_in->getType());
 
-    //Back to 'normal' flow
-    Builder->SetInsertPoint(endBlock);
+  Builder->SetInsertPoint(ifBlock);
+  Builder->CreateStore(false_const, accumulator_ptr);
+  Builder->CreateBr(endBlock);
+
+  // Back to 'normal' flow
+  Builder->SetInsertPoint(endBlock);
 }
 
-Value * BitOrMonoid::create(RawContext* const context, 
-                            Value * val_accumulating, 
-                            Value * val_in) {
-    return context->getBuilder()->CreateOr(val_in, val_accumulating);
+Value *BitOrMonoid::create(RawContext *const context, Value *val_accumulating,
+                           Value *val_in) {
+  return context->getBuilder()->CreateOr(val_in, val_accumulating);
 }
 
-Value * BitAndMonoid::create(RawContext* const context, 
-                            Value * val_accumulating, 
-                            Value * val_in) {
-    return context->getBuilder()->CreateAnd(val_in, val_accumulating);
+Value *BitAndMonoid::create(RawContext *const context, Value *val_accumulating,
+                            Value *val_in) {
+  return context->getBuilder()->CreateAnd(val_in, val_accumulating);
 }
 
-void BitOrMonoid::createAtomicUpdate(RawContext* const context,
-                                    Value * accumulator_ptr,
-                                    Value * val_in,
-                                    llvm::AtomicOrdering order){
-
-    context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Or, 
-                                            accumulator_ptr,
-                                            val_in,
-                                            order);
-
+void BitOrMonoid::createAtomicUpdate(RawContext *const context,
+                                     Value *accumulator_ptr, Value *val_in,
+                                     llvm::AtomicOrdering order) {
+  context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Or,
+                                         accumulator_ptr, val_in, order);
 }
 
-
-void BitAndMonoid::createAtomicUpdate(RawContext* const context,
-                                    Value * accumulator_ptr,
-                                    Value * val_in,
-                                    llvm::AtomicOrdering order){
-
-    context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::And, 
-                                            accumulator_ptr,
-                                            val_in,
-                                            order);
-
+void BitAndMonoid::createAtomicUpdate(RawContext *const context,
+                                      Value *accumulator_ptr, Value *val_in,
+                                      llvm::AtomicOrdering order) {
+  context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::And,
+                                         accumulator_ptr, val_in, order);
 }
 
-Monoid * Monoid::get(::Monoid m){
-    switch (m){
-        case MAX:
-            return new MaxMonoid;
-        case SUM:
-            return new SumMonoid;
-        case OR:
-            return new LogOrMonoid;
-        case AND:
-            return new LogAndMonoid;
-        default:
-            string error_msg = string("[gpu::Monoids: ] Unimplemented monoid for gpu");
-            LOG(ERROR) << error_msg;
-            throw runtime_error(error_msg);
-    }
+Monoid *Monoid::get(::Monoid m) {
+  switch (m) {
+    case MAX:
+      return new MaxMonoid;
+    case SUM:
+      return new SumMonoid;
+    case OR:
+      return new LogOrMonoid;
+    case AND:
+      return new LogAndMonoid;
+    default:
+      string error_msg =
+          string("[gpu::Monoids: ] Unimplemented monoid for gpu");
+      LOG(ERROR) << error_msg;
+      throw runtime_error(error_msg);
+  }
 }
 
-Value * Monoid::createWarpAggregateToAll(RawContext * const context, 
-                                            Value * val_in){
-    for (int i = 16 ; i > 0 ; i >>= 1){
-        //NOTE: only whole (32 threads) warps are supported!
-        Value * shfl_res = gpu_intrinsic::shfl_bfly((GpuRawContext * const) context, val_in, i);
-        shfl_res->setName("shfl_res_" + std::to_string(i));
-        
-        val_in      = create(context, val_in, shfl_res);
-    }
+Value *Monoid::createWarpAggregateToAll(RawContext *const context,
+                                        Value *val_in) {
+  for (int i = 16; i > 0; i >>= 1) {
+    // NOTE: only whole (32 threads) warps are supported!
+    Value *shfl_res =
+        gpu_intrinsic::shfl_bfly((GpuRawContext *const)context, val_in, i);
+    shfl_res->setName("shfl_res_" + std::to_string(i));
 
-    return val_in;
+    val_in = create(context, val_in, shfl_res);
+  }
+
+  return val_in;
 }
 
-Value * LogOrMonoid::createWarpAggregateToAll(RawContext * const context, 
-                                            Value * val_in){
-    return gpu_intrinsic::any((GpuRawContext * const) context, val_in);
+Value *LogOrMonoid::createWarpAggregateToAll(RawContext *const context,
+                                             Value *val_in) {
+  return gpu_intrinsic::any((GpuRawContext *const)context, val_in);
 }
 
-Value * LogAndMonoid::createWarpAggregateToAll(RawContext * const context, 
-                                            Value * val_in){
-    return gpu_intrinsic::all((GpuRawContext * const) context, val_in);
+Value *LogAndMonoid::createWarpAggregateToAll(RawContext *const context,
+                                              Value *val_in) {
+  return gpu_intrinsic::all((GpuRawContext *const)context, val_in);
 }
 
-} //namemspace gpu
+}  // namespace gpu
 
-namespace std{
-    string to_string(const gpu::Monoid &m){
-        return m.to_string();
-    }
-}
+namespace std {
+string to_string(const gpu::Monoid &m) { return m.to_string(); }
+}  // namespace std

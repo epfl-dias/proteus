@@ -24,20 +24,19 @@
 #include "operators/unionall.hpp"
 
 void UnionAll::produce() {
-    generate_catch();
+  generate_catch();
 
-    catch_pip = context->operator->();
+  catch_pip = context->operator->();
 
-    //push new pipeline for the throw part
-    for (const auto &child: children) {
-        context->popPipeline();
-        context->pushPipeline();
+  // push new pipeline for the throw part
+  for (const auto &child : children) {
+    context->popPipeline();
+    context->pushPipeline();
 
-        context->registerOpen (this, [this](RawPipeline * pip){this->open (pip);});
-        context->registerClose(this, [this](RawPipeline * pip){this->close(pip);});
+    context->registerOpen(this, [this](RawPipeline *pip) { this->open(pip); });
+    context->registerClose(this,
+                           [this](RawPipeline *pip) { this->close(pip); });
 
-        child->produce();
-    }
+    child->produce();
+  }
 }
-
-

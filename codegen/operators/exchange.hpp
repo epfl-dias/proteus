@@ -23,128 +23,125 @@
 #ifndef EXCHANGE_HPP_
 #define EXCHANGE_HPP_
 
-#include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include <queue>
-#include <mutex>
-#include <stack>
-#include <condition_variable>
 #include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <queue>
+#include <stack>
 #include <thread>
+#include "operators/operators.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/async_containers.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 
 class Exchange;
 
-extern "C"{
-    void * acquireBuffer    (int target, Exchange * xch);
-    void * try_acquireBuffer(int target, Exchange * xch);
-    void   releaseBuffer    (int target, Exchange * xch, void * buff);
-    void   freeBuffer       (int target, Exchange * xch, void * buff);
+extern "C" {
+void *acquireBuffer(int target, Exchange *xch);
+void *try_acquireBuffer(int target, Exchange *xch);
+void releaseBuffer(int target, Exchange *xch, void *buff);
+void freeBuffer(int target, Exchange *xch, void *buff);
 }
 
 class Exchange : public UnaryRawOperator {
-public:
-    Exchange(   RawOperator * const             child,
-                GpuRawContext * const           context,
-                int                             numOfParents,
-                const vector<RecordAttribute*> &wantedFields,
-                int                             slack,
-                std::optional<expression_t>     hash = std::nullopt,
-                bool                            numa_local = true,
-                bool                            rand_local_cpu = false,
-                int                             producers = 1) :
-                    UnaryRawOperator(child), 
-                    context(context), 
-                    numOfParents(numOfParents),
-                    wantedFields(wantedFields),
-                    slack(slack),
-                    hashExpr(std::move(hash)),
-                    numa_local(numa_local),
-                    rand_local_cpu(rand_local_cpu),
-                    producers(producers),
-                    remaining_producers(producers),
-                    need_cnt(false){
-        assert((!hash || !numa_local) && "Just to make it more clear that hash has precedence over numa_local");
-        
-        free_pool           = new std::stack<void *>     [numOfParents];
-        free_pool_mutex     = new std::mutex             [numOfParents];
-        free_pool_cv        = new std::condition_variable[numOfParents];
+ public:
+  Exchange(RawOperator *const child, GpuRawContext *const context,
+           int numOfParents, const vector<RecordAttribute *> &wantedFields,
+           int slack, std::optional<expression_t> hash = std::nullopt,
+           bool numa_local = true, bool rand_local_cpu = false,
+           int producers = 1)
+      : UnaryRawOperator(child),
+        context(context),
+        numOfParents(numOfParents),
+        wantedFields(wantedFields),
+        slack(slack),
+        hashExpr(std::move(hash)),
+        numa_local(numa_local),
+        rand_local_cpu(rand_local_cpu),
+        producers(producers),
+        remaining_producers(producers),
+        need_cnt(false) {
+    assert(
+        (!hash || !numa_local) &&
+        "Just to make it more clear that hash has precedence over numa_local");
 
-        // ready_pool          = new std::queue<void *>     [numOfParents];
-        // ready_pool_mutex    = new std::mutex             [numOfParents];
-        // ready_pool_cv       = new std::condition_variable[numOfParents];
+    free_pool = new std::stack<void *>[numOfParents];
+    free_pool_mutex = new std::mutex[numOfParents];
+    free_pool_cv = new std::condition_variable[numOfParents];
 
-        ready_fifo          = new AsyncQueueMPSC<void *> [numOfParents];
-        
-        const auto &vec = topology::getInstance().getGpus();
-        // const auto &vec = topology::getInstance().getCpuNumaNodes();
+    // ready_pool          = new std::queue<void *>     [numOfParents];
+    // ready_pool_mutex    = new std::mutex             [numOfParents];
+    // ready_pool_cv       = new std::condition_variable[numOfParents];
 
-        for (int i = 0 ; i < numOfParents ; ++i){
-            target_processors.emplace_back(vec[i % vec.size()]);
-        }
+    ready_fifo = new AsyncQueueMPSC<void *>[numOfParents];
+
+    const auto &vec = topology::getInstance().getGpus();
+    // const auto &vec = topology::getInstance().getCpuNumaNodes();
+
+    for (int i = 0; i < numOfParents; ++i) {
+      target_processors.emplace_back(vec[i % vec.size()]);
     }
+  }
 
-    virtual ~Exchange()                                             { LOG(INFO)<<"Collapsing Exchange operator";}
+  virtual ~Exchange() { LOG(INFO) << "Collapsing Exchange operator"; }
 
-    virtual void produce();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return false;}
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
+  virtual bool isFiltering() const { return false; }
 
-protected:
-    virtual void generate_catch();
+ protected:
+  virtual void generate_catch();
 
-    void   fire         (int target, RawPipelineGen * pipGen);
+  void fire(int target, RawPipelineGen *pipGen);
 
-private:
-    void * acquireBuffer(int target, bool polling = false);
-    void   releaseBuffer(int target, void * buff);
-    void   freeBuffer   (int target, void * buff);
-    bool   get_ready    (int target, void * &buff);
+ private:
+  void *acquireBuffer(int target, bool polling = false);
+  void releaseBuffer(int target, void *buff);
+  void freeBuffer(int target, void *buff);
+  bool get_ready(int target, void *&buff);
 
-    friend void * acquireBuffer    (int target, Exchange * xch);
-    friend void * try_acquireBuffer(int target, Exchange * xch);
-    friend void   releaseBuffer    (int target, Exchange * xch, void * buff);
-    friend void   freeBuffer       (int target, Exchange * xch, void * buff);
+  friend void *acquireBuffer(int target, Exchange *xch);
+  friend void *try_acquireBuffer(int target, Exchange *xch);
+  friend void releaseBuffer(int target, Exchange *xch, void *buff);
+  friend void freeBuffer(int target, Exchange *xch, void *buff);
 
-protected:
-    void open (RawPipeline * pip);
-    void close(RawPipeline * pip);
+ protected:
+  void open(RawPipeline *pip);
+  void close(RawPipeline *pip);
 
-    const vector<RecordAttribute *> wantedFields;
+  const vector<RecordAttribute *> wantedFields;
 
-    const int                       slack;
-    const int                       numOfParents;
-    int                             producers;
-    std::atomic<int>                remaining_producers;
-    GpuRawContext * const           context;
+  const int slack;
+  const int numOfParents;
+  int producers;
+  std::atomic<int> remaining_producers;
+  GpuRawContext *const context;
 
-    llvm::Type                    * params_type;
-    RawPipelineGen                * catch_pip  ;
+  llvm::Type *params_type;
+  RawPipelineGen *catch_pip;
 
-    std::vector<std::thread>        firers;
+  std::vector<std::thread> firers;
 
-    // std::queue<void *>            * ready_pool;
-    // std::mutex                    * ready_pool_mutex;
-    // std::condition_variable       * ready_pool_cv;
+  // std::queue<void *>            * ready_pool;
+  // std::mutex                    * ready_pool_mutex;
+  // std::condition_variable       * ready_pool_cv;
 
-    AsyncQueueMPSC<void *>        * ready_fifo;
+  AsyncQueueMPSC<void *> *ready_fifo;
 
-    std::stack<void *>            * free_pool;
-    std::mutex                    * free_pool_mutex;
-    std::condition_variable       * free_pool_cv;
+  std::stack<void *> *free_pool;
+  std::mutex *free_pool_mutex;
+  std::condition_variable *free_pool_cv;
 
-    std::mutex                      init_mutex;
+  std::mutex init_mutex;
 
-    std::vector<exec_location>      target_processors;
+  std::vector<exec_location> target_processors;
 
-    std::optional<expression_t>     hashExpr;
-    bool                            numa_local;
-    bool                            rand_local_cpu;
+  std::optional<expression_t> hashExpr;
+  bool numa_local;
+  bool rand_local_cpu;
 
-    bool                            need_cnt;
+  bool need_cnt;
 };
 
 #endif /* EXCHANGE_HPP_ */
-
-

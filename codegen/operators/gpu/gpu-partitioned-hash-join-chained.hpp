@@ -24,228 +24,216 @@
 #ifndef GPU_PHASH_JOIN_CHAINED_HPP_
 #define GPU_PHASH_JOIN_CHAINED_HPP_
 
-#include "operators/gpu/gpu-materializer-expr.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "operators/operators.hpp"
-#include <unordered_map>
 #include <optional>
+#include <unordered_map>
+#include "operators/gpu/gpu-materializer-expr.hpp"
+#include "operators/operators.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 
 struct PartitionMetadata {
-    int32_t  * keys;
-    int32_t  * payload;
-    uint32_t * chains;
-    uint32_t * bucket_info;
-    int32_t  * out_cnts;
-    uint32_t * buckets_used;
-    uint64_t * heads;
+  int32_t *keys;
+  int32_t *payload;
+  uint32_t *chains;
+  uint32_t *bucket_info;
+  int32_t *out_cnts;
+  uint32_t *buckets_used;
+  uint64_t *heads;
 };
 
 struct PartitionState {
-    int*                    atom_cnt[128];
-    char*                   allocas[128];
-    std::vector<void *>     cols[128];
-    PartitionMetadata       meta[128];
+  int *atom_cnt[128];
+  char *allocas[128];
+  std::vector<void *> cols[128];
+  PartitionMetadata meta[128];
 };
 
 class HashPartitioner : public UnaryRawOperator {
-public:
-    HashPartitioner (
-            RecordAttribute*                   targetAttr,
-            const std::vector<GpuMatExpr>      &parts_mat_exprs, 
-            const std::vector<size_t>          &parts_packet_widths,
-            expression_t                        parts_keyexpr,
-            RawOperator * const                 parts_child,
-            GpuRawContext *                     context,
-            size_t                              maxInputSize,
-            int                                 log_parts,
-            string                              opLabel);
+ public:
+  HashPartitioner(RecordAttribute *targetAttr,
+                  const std::vector<GpuMatExpr> &parts_mat_exprs,
+                  const std::vector<size_t> &parts_packet_widths,
+                  expression_t parts_keyexpr, RawOperator *const parts_child,
+                  GpuRawContext *context, size_t maxInputSize, int log_parts,
+                  string opLabel);
 
-    virtual ~HashPartitioner () {}
+  virtual ~HashPartitioner() {}
 
-    virtual void produce ();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
 
-    virtual bool isFiltering() const{
-        return true;
-    }
+  virtual bool isFiltering() const { return true; }
 
-    PartitionState& getState () { return state; }
+  PartitionState &getState() { return state; }
 
-    void open (RawPipeline * pip);
-    void close (RawPipeline * pip);
+  void open(RawPipeline *pip);
+  void close(RawPipeline *pip);
 
-    llvm::StructType* getPayloadType () { return payloadType; }
-private:
-    void matFormat();
+  llvm::StructType *getPayloadType() { return payloadType; }
 
-    size_t                  maxInputSize;
+ private:
+  void matFormat();
 
-    int                     log_parts;           
-    int                     log_parts1;
-    int                     log_parts2;
+  size_t maxInputSize;
 
-    OutputPlugin*           pg_out;
+  int log_parts;
+  int log_parts1;
+  int log_parts2;
 
-    llvm::StructType*       payloadType;
+  OutputPlugin *pg_out;
 
-    int32_t*                cnts_ptr[128];
+  llvm::StructType *payloadType;
 
-    PartitionState          state;
+  int32_t *cnts_ptr[128];
 
-    std::vector<GpuMatExpr> parts_mat_exprs;
-    std::vector<size_t>     parts_packet_widths;
-    expression_t            parts_keyexpr;
+  PartitionState state;
 
-    std::vector<int>        param_pipe_ids;
+  std::vector<GpuMatExpr> parts_mat_exprs;
+  std::vector<size_t> parts_packet_widths;
+  expression_t parts_keyexpr;
 
-    int                     cnt_pipe;
+  std::vector<int> param_pipe_ids;
 
+  int cnt_pipe;
 
-    GpuRawContext *         context;
+  GpuRawContext *context;
 
-    RecordAttribute*        targetAttr;
+  RecordAttribute *targetAttr;
 
-    string opLabel;
+  string opLabel;
 };
 
 class GpuPartitionedHashJoinChained : public BinaryRawOperator {
-public:
-    GpuPartitionedHashJoinChained(
-            const std::vector<GpuMatExpr>      &build_mat_exprs, 
-            const std::vector<size_t>          &build_packet_widths,
-            expression_t                        build_keyexpr,
-            std::optional<expression_t>         build_minor_keyexpr,
-            HashPartitioner * const             build_child,
+ public:
+  GpuPartitionedHashJoinChained(
+      const std::vector<GpuMatExpr> &build_mat_exprs,
+      const std::vector<size_t> &build_packet_widths,
+      expression_t build_keyexpr,
+      std::optional<expression_t> build_minor_keyexpr,
+      HashPartitioner *const build_child,
 
-            const std::vector<GpuMatExpr>      &probe_mat_exprs, 
-            const std::vector<size_t>          &probe_mat_packet_widths,
-            expression_t                        probe_keyexpr,
-            std::optional<expression_t>         probe_minor_keyexpr,
-            HashPartitioner * const             probe_child,
+      const std::vector<GpuMatExpr> &probe_mat_exprs,
+      const std::vector<size_t> &probe_mat_packet_widths,
+      expression_t probe_keyexpr,
+      std::optional<expression_t> probe_minor_keyexpr,
+      HashPartitioner *const probe_child,
 
-            PartitionState&                     state_left,
-            PartitionState&                     state_right,
+      PartitionState &state_left, PartitionState &state_right,
 
-            size_t                              maxBuildInputSize,
-            size_t                              maxProbeInputSize,
+      size_t maxBuildInputSize, size_t maxProbeInputSize,
 
-            int                                 log_parts,
-            GpuRawContext *                     context,
-            string                              opLabel = "hj_chained",
-            RawPipelineGen**                    caller  = NULL,
-            RawOperator * const                 unionop = NULL);
-    virtual ~GpuPartitionedHashJoinChained() { LOG(INFO)<< "Collapsing GpuOptJoin operator";}
+      int log_parts, GpuRawContext *context, string opLabel = "hj_chained",
+      RawPipelineGen **caller = NULL, RawOperator *const unionop = NULL);
+  virtual ~GpuPartitionedHashJoinChained() {
+    LOG(INFO) << "Collapsing GpuOptJoin operator";
+  }
 
-    virtual void produce();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
 
-    void open (RawPipeline * pip);
-    void close (RawPipeline * pip);
-    void allocate (RawPipeline * pip);
+  void open(RawPipeline *pip);
+  void close(RawPipeline *pip);
+  void allocate(RawPipeline *pip);
 
-    virtual bool isFiltering() const{
-        return true;
-    }
-private:
-    void generate_materialize_left(RawContext* const context, const OperatorState& childState);
-    void generate_materialize_right(RawContext* const context, const OperatorState& childState);
+  virtual bool isFiltering() const { return true; }
 
-    void generate_mock1(RawContext* const context);
-    void generate_joinloop(RawContext* const context);
-    void generate_build(RawContext* const context, map<string, llvm::Value*>& kernelBindings);
-    void generate_probe(RawContext* const context, map<string, llvm::Value*>& kernelBindings);
-    void generate(RawContext* const context);
-    void buildHashTableFormat();
-    void probeHashTableFormat();
-    void matLeftFormat();
-    void matRightFormat();
+ private:
+  void generate_materialize_left(RawContext *const context,
+                                 const OperatorState &childState);
+  void generate_materialize_right(RawContext *const context,
+                                  const OperatorState &childState);
 
-    llvm::Value * hash(llvm::Value * key);
+  void generate_mock1(RawContext *const context);
+  void generate_joinloop(RawContext *const context);
+  void generate_build(RawContext *const context,
+                      map<string, llvm::Value *> &kernelBindings);
+  void generate_probe(RawContext *const context,
+                      map<string, llvm::Value *> &kernelBindings);
+  void generate(RawContext *const context);
+  void buildHashTableFormat();
+  void probeHashTableFormat();
+  void matLeftFormat();
+  void matRightFormat();
 
-    
+  llvm::Value *hash(llvm::Value *key);
 
-    RawPipelineGen**        caller;
-    string                  opLabel;
+  RawPipelineGen **caller;
+  string opLabel;
 
-    llvm::StructType*       payloadType_left;
-    llvm::StructType*       payloadType_right;
+  llvm::StructType *payloadType_left;
+  llvm::StructType *payloadType_right;
 
+  std::vector<GpuMatExpr> build_mat_exprs;
+  std::vector<GpuMatExpr> probe_mat_exprs;
+  std::vector<size_t> build_packet_widths;
 
-    std::vector<GpuMatExpr> build_mat_exprs;
-    std::vector<GpuMatExpr> probe_mat_exprs;
-    std::vector<size_t>     build_packet_widths;
+  expression_t build_keyexpr;
+  expression_t probe_keyexpr;
 
-    expression_t            build_keyexpr;
-    expression_t            probe_keyexpr;
+  std::optional<expression_t> build_minor_keyexpr;
+  std::optional<expression_t> probe_minor_keyexpr;
 
-    std::optional<expression_t> build_minor_keyexpr;
-    std::optional<expression_t> probe_minor_keyexpr;
-    
-    std::vector<size_t>     packet_widths;
+  std::vector<size_t> packet_widths;
 
-    int                     head_id;
+  int head_id;
 
-    std::vector<int>        build_param_pipe_ids;
-    std::vector<int>        probe_param_pipe_ids;
+  std::vector<int> build_param_pipe_ids;
+  std::vector<int> probe_param_pipe_ids;
 
-    std::vector<int>        build_param_join_ids;
-    std::vector<int>        probe_param_join_ids;
+  std::vector<int> build_param_join_ids;
+  std::vector<int> probe_param_join_ids;
 
-    int                     cnt_left_pipe;
-    int                     cnt_right_pipe;
+  int cnt_left_pipe;
+  int cnt_right_pipe;
 
-    int                     cnt_left_join;
-    int                     cnt_right_join;
+  int cnt_left_join;
+  int cnt_right_join;
 
-    int                     chains_left_join;
-    int                     chains_right_join;
+  int chains_left_join;
+  int chains_right_join;
 
-    int                     keys_partitioned_probe_id;
-    int                     idxs_partitioned_probe_id;
+  int keys_partitioned_probe_id;
+  int idxs_partitioned_probe_id;
 
-    int                     keys_partitioned_build_id;
-    int                     idxs_partitioned_build_id;
+  int keys_partitioned_build_id;
+  int idxs_partitioned_build_id;
 
-    int                     keys_cache_id;
-    int                     next_cache_id;
-    int                     idxs_cache_id;
+  int keys_cache_id;
+  int next_cache_id;
+  int idxs_cache_id;
 
-    int32_t*                buffer[128];
-    int                     buffer_id;
+  int32_t *buffer[128];
+  int buffer_id;
 
+  BasicBlock *boot;
+  BasicBlock *start;
 
-    BasicBlock*             boot;
-    BasicBlock*             start;
+  int log_parts;
+  int log_parts1;
+  int log_parts2;
 
-    int                     log_parts;           
-    int                     log_parts1;
-    int                     log_parts2;
+  PartitionState &state_left;
+  PartitionState &state_right;
 
+  RawOperator *unionop;
 
-    PartitionState&         state_left;
-    PartitionState&         state_right;
+  int hash_bits;
+  size_t maxBuildInputSize;
+  size_t maxProbeInputSize;
 
-    RawOperator *           unionop;
+  cudaEvent_t jstart[128];
+  cudaEvent_t jstop[128];
 
-    int                     hash_bits  ;
-    size_t                  maxBuildInputSize;
-    size_t                  maxProbeInputSize;
+  int bucket_info_id;
+  int buckets_used_id;
 
-    cudaEvent_t jstart[128];
-    cudaEvent_t jstop[128];
- 
-    int bucket_info_id;
-    int buckets_used_id;
+  // OperatorState childState;
+  // OperatorState leftState;
 
-    //OperatorState childState;
-    //OperatorState leftState;
-
-    // GpuExprMaterializer *   build_mat  ;
-    // GpuExprMaterializer *   probe_mat  ;
-    GpuRawContext *         context;
-
-    
-
+  // GpuExprMaterializer *   build_mat  ;
+  // GpuExprMaterializer *   probe_mat  ;
+  GpuRawContext *context;
 };
 
 #endif /* GPU_HASH_JOIN_CHAINED_HPP_ */

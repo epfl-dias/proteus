@@ -24,35 +24,36 @@
 #ifndef RAW_GPU_MODULE_HPP_
 #define RAW_GPU_MODULE_HPP_
 
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Target/TargetMachine.h"
 
 #include "common/gpu/gpu-common.hpp"
 
 #include "util/jit/raw-module.hpp"
 
-class RawGpuModule: public RawModule {
-protected:
-    static llvm::LLVMTargetMachine                    * TheTargetMachine    ;
-    static llvm::legacy::PassManager                    Passes              ;
-    static llvm::PassManagerBuilder                     Builder             ;
-    // static std::unique_ptr<llvm::legacy::FunctionPassManager>   FPasses         ;
+class RawGpuModule : public RawModule {
+ protected:
+  static llvm::LLVMTargetMachine *TheTargetMachine;
+  static llvm::legacy::PassManager Passes;
+  static llvm::PassManagerBuilder Builder;
+  // static std::unique_ptr<llvm::legacy::FunctionPassManager>   FPasses ;
 
-protected:
-    // llvm::ExecutionEngine                             * TheExecutionEngine  ;
-    CUmodule                                          * cudaModule          ;
-public:
-    RawGpuModule(RawContext * context, std::string pipName = "pip");
+ protected:
+  // llvm::ExecutionEngine                             * TheExecutionEngine  ;
+  CUmodule *cudaModule;
 
-    static void init();
+ public:
+  RawGpuModule(RawContext *context, std::string pipName = "pip");
 
-    virtual void compileAndLoad();
+  static void init();
 
-    virtual void * getCompiledFunction(Function * f) const;
+  virtual void compileAndLoad();
 
-protected:
-    virtual void optimizeModule(Module * M);
+  virtual void *getCompiledFunction(Function *f) const;
+
+ protected:
+  virtual void optimizeModule(Module *M);
 };
 
 #endif /* RAW_GPU_MODULE_HPP_ */

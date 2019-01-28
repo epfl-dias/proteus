@@ -24,84 +24,92 @@
 #ifndef HASH_GROUP_BY_CHAINED_HPP_
 #define HASH_GROUP_BY_CHAINED_HPP_
 
-#include "util/gpu/gpu-raw-context.hpp"
+#include "expressions/expressions.hpp"
 #include "operators/monoids.hpp"
 #include "operators/operators.hpp"
-#include "expressions/expressions.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 #include "util/raw-pipeline.hpp"
 
-struct GpuAggrMatExpr{
-public:
-    expression_t expr     ;
-    size_t       packet   ;
-    size_t       bitoffset;
-    size_t       packind  ;
-    Monoid       m        ;
-    bool         is_m     ;
+struct GpuAggrMatExpr {
+ public:
+  expression_t expr;
+  size_t packet;
+  size_t bitoffset;
+  size_t packind;
+  Monoid m;
+  bool is_m;
 
-    GpuAggrMatExpr(expression_t expr, size_t packet, size_t bitoffset, Monoid m):
-        expr(expr), packet(packet), bitoffset(bitoffset), packind(-1), m(m), is_m(true){}
+  GpuAggrMatExpr(expression_t expr, size_t packet, size_t bitoffset, Monoid m)
+      : expr(expr),
+        packet(packet),
+        bitoffset(bitoffset),
+        packind(-1),
+        m(m),
+        is_m(true) {}
 
-    GpuAggrMatExpr(expression_t expr, size_t packet, size_t bitoffset):
-        expr(expr), packet(packet), bitoffset(bitoffset), packind(-1), m(SUM), is_m(false){}
+  GpuAggrMatExpr(expression_t expr, size_t packet, size_t bitoffset)
+      : expr(expr),
+        packet(packet),
+        bitoffset(bitoffset),
+        packind(-1),
+        m(SUM),
+        is_m(false) {}
 
-    bool is_aggregation(){
-        return is_m;
-    }
+  bool is_aggregation() { return is_m; }
 };
 
-
 class HashGroupByChained : public UnaryRawOperator {
-public:
-    HashGroupByChained(
-        const std::vector<GpuAggrMatExpr>              &agg_exprs, 
-        // const std::vector<size_t>                      &packet_widths,
-        const std::vector<expression_t>                 key_expr,
-        RawOperator * const                             child,
+ public:
+  HashGroupByChained(const std::vector<GpuAggrMatExpr> &agg_exprs,
+                     // const std::vector<size_t> &packet_widths,
+                     const std::vector<expression_t> key_expr,
+                     RawOperator *const child,
 
-        int                                             hash_bits,
+                     int hash_bits,
 
-        GpuRawContext *                                 context,
-        size_t                                          maxInputSize,
-        string                                          opLabel = "gb_chained");
-    virtual ~HashGroupByChained() { LOG(INFO)<< "Collapsing HashGroupByChained operator";}
+                     GpuRawContext *context, size_t maxInputSize,
+                     string opLabel = "gb_chained");
+  virtual ~HashGroupByChained() {
+    LOG(INFO) << "Collapsing HashGroupByChained operator";
+  }
 
-    virtual void produce();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
 
-    virtual bool isFiltering() const{
-        return true;
-    }
+  virtual bool isFiltering() const { return true; }
 
-    virtual void open (RawPipeline * pip);
-    virtual void close(RawPipeline * pip);
+  virtual void open(RawPipeline *pip);
+  virtual void close(RawPipeline *pip);
 
-private:
-    void prepareDescription();
-    void generate_build(RawContext* const context, const OperatorState& childState);
-    void generate_scan();
-    void buildHashTableFormat();
-    llvm::Value * hash(llvm::Value * key);
-    llvm::Value * hash(llvm::Value * old_seed, llvm::Value * key);
-    llvm::Value * hash(const std::vector<expression_t> &exprs, RawContext* const context, const OperatorState& childState);
+ private:
+  void prepareDescription();
+  void generate_build(RawContext *const context,
+                      const OperatorState &childState);
+  void generate_scan();
+  void buildHashTableFormat();
+  llvm::Value *hash(llvm::Value *key);
+  llvm::Value *hash(llvm::Value *old_seed, llvm::Value *key);
+  llvm::Value *hash(const std::vector<expression_t> &exprs,
+                    RawContext *const context, const OperatorState &childState);
 
-    string                                  opLabel         ;
+  string opLabel;
 
-    std::vector<GpuAggrMatExpr>             agg_exprs       ;
-    std::vector<size_t>                     packet_widths   ;
-    std::vector<expression_t>               key_expr        ;
-    std::vector<llvm::Type *>               ptr_types       ;
+  std::vector<GpuAggrMatExpr> agg_exprs;
+  std::vector<size_t> packet_widths;
+  std::vector<expression_t> key_expr;
+  std::vector<llvm::Type *> ptr_types;
 
-    int                                     head_param_id   ;
-    std::vector<int>                        out_param_ids   ;
-    int                                     cnt_param_id    ;
+  int head_param_id;
+  std::vector<int> out_param_ids;
+  int cnt_param_id;
 
-    int                                     hash_bits       ;
-    size_t                                  maxInputSize    ;
+  int hash_bits;
+  size_t maxInputSize;
 
-    GpuRawContext *                         context         ;
+  GpuRawContext *context;
 
-    RawPipelineGen *                        probe_gen       ;
+  RawPipelineGen *probe_gen;
 };
 
 #endif /* HASH_GROUP_BY_CHAINED_HPP_ */

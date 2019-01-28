@@ -27,58 +27,57 @@
 #include "util/gpu/gpu-raw-context.hpp"
 
 class HashRearrange : public UnaryRawOperator {
-public:
-    HashRearrange(  RawOperator * const             child,
-                    GpuRawContext * const           context,
-                    int                             numOfBuckets,
-                    const vector<expression_t>     &wantedFields,
-                    expression_t                    hashExpr,
-                    RecordAttribute                *hashProject = NULL) :
-                        UnaryRawOperator(child), 
-                        context(context), 
-                        numOfBuckets(numOfBuckets),
-                        wantedFields(wantedFields),
-                        hashExpr(std::move(hashExpr)),
-                        hashProject(hashProject),
-                        blockSize(h_vector_size * sizeof(int32_t)){
-    }//FIMXE: default blocksize...
+ public:
+  HashRearrange(RawOperator *const child, GpuRawContext *const context,
+                int numOfBuckets, const vector<expression_t> &wantedFields,
+                expression_t hashExpr, RecordAttribute *hashProject = NULL)
+      : UnaryRawOperator(child),
+        context(context),
+        numOfBuckets(numOfBuckets),
+        wantedFields(wantedFields),
+        hashExpr(std::move(hashExpr)),
+        hashProject(hashProject),
+        blockSize(h_vector_size * sizeof(int32_t)) {
+  }  // FIMXE: default blocksize...
 
-    virtual ~HashRearrange()                                             { LOG(INFO)<<"Collapsing HashRearrange operator";}
+  virtual ~HashRearrange() { LOG(INFO) << "Collapsing HashRearrange operator"; }
 
-    virtual void produce();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return false;}
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
+  virtual bool isFiltering() const { return false; }
 
-    llvm::Value * hash(const std::vector<expression_t> &exprs, RawContext* const context, const OperatorState& childState);
+  llvm::Value *hash(const std::vector<expression_t> &exprs,
+                    RawContext *const context, const OperatorState &childState);
 
-protected:
-    virtual void consume_flush();
+ protected:
+  virtual void consume_flush();
 
-    virtual void open (RawPipeline * pip);
-    virtual void close(RawPipeline * pip);
+  virtual void open(RawPipeline *pip);
+  virtual void close(RawPipeline *pip);
 
-    const vector<expression_t>      wantedFields;
-    const int                       numOfBuckets;
-    RecordAttribute               * hashProject ;
+  const vector<expression_t> wantedFields;
+  const int numOfBuckets;
+  RecordAttribute *hashProject;
 
-    expression_t                    hashExpr    ;
+  expression_t hashExpr;
 
-    // void *                          flushFunc   ;
+  // void *                          flushFunc   ;
 
-    size_t                          blkVar_id   ;
-    size_t                          cntVar_id   ;
-    size_t                          oidVar_id   ;
+  size_t blkVar_id;
+  size_t cntVar_id;
+  size_t oidVar_id;
 
-    size_t                          blockSize       ; //bytes
+  size_t blockSize;  // bytes
 
-    int64_t                         cap             ;
+  int64_t cap;
 
-    GpuRawContext * const           context     ;
+  GpuRawContext *const context;
 
-    RawPipelineGen                        * closingPip      ;
-    Function                              * flushingFunc    ;
+  RawPipelineGen *closingPip;
+  Function *flushingFunc;
 
-    std::vector<size_t>             wfSizes;
+  std::vector<size_t> wfSizes;
 };
 
 #endif /* HASH_REARRANGE_HPP_ */

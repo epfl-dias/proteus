@@ -28,47 +28,54 @@
 
 class DictMatchIter;
 
-class DictScan: public UnaryRawOperator {
-public:
-    DictScan(RawContext * const context, RecordAttribute attr,
-             std::string rex, RecordAttribute regAs):
-            UnaryRawOperator(NULL), 
-            context(dynamic_cast<GpuRawContext * const>(context)),
-            attr(attr),
-            regex(rex),
-            regAs(regAs) { 
-        assert(this->context && "Only GpuRawContext supported");
+class DictScan : public UnaryRawOperator {
+ public:
+  DictScan(RawContext *const context, RecordAttribute attr, std::string rex,
+           RecordAttribute regAs)
+      : UnaryRawOperator(NULL),
+        context(dynamic_cast<GpuRawContext *const>(context)),
+        attr(attr),
+        regex(rex),
+        regAs(regAs) {
+    assert(this->context && "Only GpuRawContext supported");
+  }
+  virtual ~DictScan() { LOG(INFO) << "Collapsing dictscan operator"; }
+  RawOperator *const getChild() const {
+    throw runtime_error(string("Dictscan operator has no children"));
+  }
+
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState) {
+    GpuRawContext *ctx = dynamic_cast<GpuRawContext *>(context);
+    if (!ctx) {
+      string error_msg =
+          "[DictScan: ] Operator only supports code generation "
+          "using the GpuRawContext";
+      LOG(ERROR) << error_msg;
+      throw runtime_error(error_msg);
     }
-    virtual ~DictScan()                                     { LOG(INFO)<<"Collapsing dictscan operator"; }
-    RawOperator* const  getChild() const                    { throw runtime_error(string("Dictscan operator has no children")); }
+    consume(ctx, childState);
+  }
 
-    virtual void produce();
-    virtual void consume(RawContext    * const context, const OperatorState& childState){
-        GpuRawContext * ctx = dynamic_cast<GpuRawContext *>(context);
-        if (!ctx){
-            string error_msg = "[DictScan: ] Operator only supports code generation using the GpuRawContext";
-            LOG(ERROR) << error_msg;
-            throw runtime_error(error_msg);
-        }
-        consume(ctx, childState);
-    }
+  virtual void consume(GpuRawContext *const context,
+                       const OperatorState &childState);
+  virtual bool isFiltering() const { return true; }
 
-    virtual void consume(GpuRawContext * const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return true;}
+  virtual DictMatchIter begin() const;
+  virtual DictMatchIter end() const;
 
-    virtual DictMatchIter begin() const;
-    virtual DictMatchIter end  () const;
+  const std::string &getRegex() const { return regex; }
 
-    const std::string     &getRegex() const{ return regex; }
-private:
-    const RecordAttribute &getAttr () const{ return attr ; }
-    
-    friend class DictMatchIter;
+ private:
+  const RecordAttribute &getAttr() const { return attr; }
 
-    GpuRawContext * const context;
-    const RecordAttribute attr;
-    const RecordAttribute regAs;
-    const std::string     regex;
+  friend class DictMatchIter;
+
+  GpuRawContext *const context;
+  const RecordAttribute attr;
+  const RecordAttribute regAs;
+  const std::string regex;
 };
 
 #endif /* DICTSCAN_HPP_ */

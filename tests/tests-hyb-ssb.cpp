@@ -21,7 +21,6 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-
 // Step 1. Include necessary header files such that the stuff your
 // test logic needs is declared.
 //
@@ -57,50 +56,49 @@
 //
 // </TechnicalDetails>
 
-#include "common/gpu/gpu-common.hpp"
 #include "common/common.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/raw-functions.hpp"
-#include "util/raw-pipeline.hpp"
+#include "common/gpu/gpu-common.hpp"
 #include "plan/plan-parser.hpp"
-#include "util/raw-memory-manager.hpp"
 #include "storage/raw-storage-manager.hpp"
 #include "test-utils.hpp"
 #include "topology/topology.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
+#include "util/raw-functions.hpp"
+#include "util/raw-memory-manager.hpp"
+#include "util/raw-pipeline.hpp"
 
-#include <vector>
 #include <thread>
+#include <vector>
 
 using namespace llvm;
 
-::testing::Environment *const pools_env = ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+::testing::Environment *const pools_env =
+    ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
 
 class HYBSSBTest : public ::testing::Test {
-protected:
-    virtual void SetUp();
-    virtual void TearDown();
+ protected:
+  virtual void SetUp();
+  virtual void TearDown();
 
-    void runAndVerify(const char *testLabel, const char* planPath, bool unordered = false);
-    
-    bool flushResults = true;
-    const char * testPath = TEST_OUTPUTS "/tests-hyb-ssb/";
+  void runAndVerify(const char *testLabel, const char *planPath,
+                    bool unordered = false);
 
-    const char * catalogJSON = "inputs";
-public:
+  bool flushResults = true;
+  const char *testPath = TEST_OUTPUTS "/tests-hyb-ssb/";
+
+  const char *catalogJSON = "inputs";
+
+ public:
 };
 
-void HYBSSBTest::SetUp   (){
-    gpu_run(cudaSetDevice(0));
-}
+void HYBSSBTest::SetUp() { gpu_run(cudaSetDevice(0)); }
 
-void HYBSSBTest::TearDown(){
-    StorageManager::unloadAll();
-}
+void HYBSSBTest::TearDown() { StorageManager::unloadAll(); }
 
-void HYBSSBTest::runAndVerify(const char *testLabel, const char* planPath, bool unordered){
-    ::runAndVerify(testLabel, planPath, testPath, catalogJSON, unordered);
+void HYBSSBTest::runAndVerify(const char *testLabel, const char *planPath,
+                              bool unordered) {
+  ::runAndVerify(testLabel, planPath, testPath, catalogJSON, unordered);
 }
-
 
 // Options during test generation:
 //     parallel    : True
@@ -114,22 +112,22 @@ void HYBSSBTest::runAndVerify(const char *testLabel, const char* planPath, bool 
 //      and lo_discount between 1 and 3
 //      and lo_quantity < 25;
 TEST_F(HYBSSBTest, ssb_q1_1_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/lineorder.csv.lo_quantity");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/lineorder.csv.lo_extendedprice");
-    load("inputs/ssbm100/date.csv.d_year");
-    load("inputs/ssbm100/lineorder.csv.lo_discount");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/lineorder.csv.lo_quantity");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/lineorder.csv.lo_extendedprice");
+  load("inputs/ssbm100/date.csv.d_year");
+  load("inputs/ssbm100/lineorder.csv.lo_discount");
 
-    const char *testLabel = "ssb_q1_1_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q1_1_par_cpy_plan.json";
+  const char *testLabel = "ssb_q1_1_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q1_1_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }
 
 // Options during test generation:
@@ -144,22 +142,22 @@ TEST_F(HYBSSBTest, ssb_q1_1_par_cpy) {
 //      and lo_discount between 4 and 6
 //      and lo_quantity between 26 and 35;
 TEST_F(HYBSSBTest, ssb_q1_2_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/lineorder.csv.lo_quantity");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/lineorder.csv.lo_extendedprice");
-    load("inputs/ssbm100/lineorder.csv.lo_discount");
-    load("inputs/ssbm100/date.csv.d_yearmonthnum");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/lineorder.csv.lo_quantity");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/lineorder.csv.lo_extendedprice");
+  load("inputs/ssbm100/lineorder.csv.lo_discount");
+  load("inputs/ssbm100/date.csv.d_yearmonthnum");
 
-    const char *testLabel = "ssb_q1_2_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q1_2_par_cpy_plan.json";
+  const char *testLabel = "ssb_q1_2_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q1_2_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }
 
 // Options during test generation:
@@ -175,23 +173,23 @@ TEST_F(HYBSSBTest, ssb_q1_2_par_cpy) {
 //      and lo_discount between 5 and 7
 //      and lo_quantity between 26 and 35;
 TEST_F(HYBSSBTest, ssb_q1_3_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/lineorder.csv.lo_quantity");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/lineorder.csv.lo_extendedprice");
-    load("inputs/ssbm100/date.csv.d_year");
-    load("inputs/ssbm100/date.csv.d_weeknuminyear");
-    load("inputs/ssbm100/lineorder.csv.lo_discount");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/lineorder.csv.lo_quantity");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/lineorder.csv.lo_extendedprice");
+  load("inputs/ssbm100/date.csv.d_year");
+  load("inputs/ssbm100/date.csv.d_weeknuminyear");
+  load("inputs/ssbm100/lineorder.csv.lo_discount");
 
-    const char *testLabel = "ssb_q1_3_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q1_3_par_cpy_plan.json";
+  const char *testLabel = "ssb_q1_3_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q1_3_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }
 
 // Options during test generation:
@@ -205,30 +203,30 @@ TEST_F(HYBSSBTest, ssb_q1_3_par_cpy) {
 //      and lo_partkey = p_partkey
 //      and lo_suppkey = s_suppkey
 //      and p_category = 'MFGR#12'
-//      and s_region = 'AMERICA' 
+//      and s_region = 'AMERICA'
 //     group by d_year, p_brand1;
 TEST_F(HYBSSBTest, ssb_q2_1_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/lineorder.csv.lo_revenue");
-    load("inputs/ssbm100/lineorder.csv.lo_partkey");
-    load("inputs/ssbm100/part.csv.p_partkey");
-    load("inputs/ssbm100/part.csv.p_category");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/date.csv.d_year");
-    load("inputs/ssbm100/supplier.csv.s_region");
-    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
-    load("inputs/ssbm100/part.csv.p_brand1");
-    load("inputs/ssbm100/supplier.csv.s_suppkey");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/lineorder.csv.lo_revenue");
+  load("inputs/ssbm100/lineorder.csv.lo_partkey");
+  load("inputs/ssbm100/part.csv.p_partkey");
+  load("inputs/ssbm100/part.csv.p_category");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/date.csv.d_year");
+  load("inputs/ssbm100/supplier.csv.s_region");
+  load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+  load("inputs/ssbm100/part.csv.p_brand1");
+  load("inputs/ssbm100/supplier.csv.s_suppkey");
 
-    const char *testLabel = "ssb_q2_1_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q2_1_par_cpy_plan.json";
+  const char *testLabel = "ssb_q2_1_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q2_1_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }
 
 // Options during test generation:
@@ -243,29 +241,29 @@ TEST_F(HYBSSBTest, ssb_q2_1_par_cpy) {
 //      and lo_suppkey = s_suppkey
 //      and p_brand1 between 'MFGR#2221'
 //      and 'MFGR#2228'
-//      and s_region = 'ASIA' 
+//      and s_region = 'ASIA'
 //     group by d_year, p_brand1;
 TEST_F(HYBSSBTest, ssb_q2_2_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/lineorder.csv.lo_revenue");
-    load("inputs/ssbm100/lineorder.csv.lo_partkey");
-    load("inputs/ssbm100/part.csv.p_partkey");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/date.csv.d_year");
-    load("inputs/ssbm100/supplier.csv.s_region");
-    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
-    load("inputs/ssbm100/part.csv.p_brand1");
-    load("inputs/ssbm100/supplier.csv.s_suppkey");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/lineorder.csv.lo_revenue");
+  load("inputs/ssbm100/lineorder.csv.lo_partkey");
+  load("inputs/ssbm100/part.csv.p_partkey");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/date.csv.d_year");
+  load("inputs/ssbm100/supplier.csv.s_region");
+  load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+  load("inputs/ssbm100/part.csv.p_brand1");
+  load("inputs/ssbm100/supplier.csv.s_suppkey");
 
-    const char *testLabel = "ssb_q2_2_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q2_2_par_cpy_plan.json";
+  const char *testLabel = "ssb_q2_2_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q2_2_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }
 
 // Options during test generation:
@@ -279,29 +277,29 @@ TEST_F(HYBSSBTest, ssb_q2_2_par_cpy) {
 //      and lo_partkey = p_partkey
 //      and lo_suppkey = s_suppkey
 //      and p_brand1 = 'MFGR#2239'
-//      and s_region = 'EUROPE' 
+//      and s_region = 'EUROPE'
 //     group by d_year, p_brand1;
 TEST_F(HYBSSBTest, ssb_q2_3_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/lineorder.csv.lo_revenue");
-    load("inputs/ssbm100/lineorder.csv.lo_partkey");
-    load("inputs/ssbm100/part.csv.p_partkey");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/date.csv.d_year");
-    load("inputs/ssbm100/supplier.csv.s_region");
-    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
-    load("inputs/ssbm100/part.csv.p_brand1");
-    load("inputs/ssbm100/supplier.csv.s_suppkey");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/lineorder.csv.lo_revenue");
+  load("inputs/ssbm100/lineorder.csv.lo_partkey");
+  load("inputs/ssbm100/part.csv.p_partkey");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/date.csv.d_year");
+  load("inputs/ssbm100/supplier.csv.s_region");
+  load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+  load("inputs/ssbm100/part.csv.p_brand1");
+  load("inputs/ssbm100/supplier.csv.s_suppkey");
 
-    const char *testLabel = "ssb_q2_3_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q2_3_par_cpy_plan.json";
+  const char *testLabel = "ssb_q2_3_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q2_3_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }
 
 // Options during test generation:
@@ -317,31 +315,31 @@ TEST_F(HYBSSBTest, ssb_q2_3_par_cpy) {
 //      and c_region = 'ASIA'
 //      and s_region = 'ASIA'
 //      and d_year >= 1992
-//      and d_year <= 1997 
+//      and d_year <= 1997
 //     group by c_nation, s_nation, d_year;
 TEST_F(HYBSSBTest, ssb_q3_1_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/customer.csv.c_custkey");
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/supplier.csv.s_nation");
-    load("inputs/ssbm100/customer.csv.c_region");
-    load("inputs/ssbm100/lineorder.csv.lo_revenue");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/date.csv.d_year");
-    load("inputs/ssbm100/customer.csv.c_nation");
-    load("inputs/ssbm100/supplier.csv.s_region");
-    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
-    load("inputs/ssbm100/lineorder.csv.lo_custkey");
-    load("inputs/ssbm100/supplier.csv.s_suppkey");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/customer.csv.c_custkey");
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/supplier.csv.s_nation");
+  load("inputs/ssbm100/customer.csv.c_region");
+  load("inputs/ssbm100/lineorder.csv.lo_revenue");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/date.csv.d_year");
+  load("inputs/ssbm100/customer.csv.c_nation");
+  load("inputs/ssbm100/supplier.csv.s_region");
+  load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+  load("inputs/ssbm100/lineorder.csv.lo_custkey");
+  load("inputs/ssbm100/supplier.csv.s_suppkey");
 
-    const char *testLabel = "ssb_q3_1_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q3_1_par_cpy_plan.json";
+  const char *testLabel = "ssb_q3_1_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q3_1_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }
 
 // Options during test generation:
@@ -357,31 +355,31 @@ TEST_F(HYBSSBTest, ssb_q3_1_par_cpy) {
 //      and c_nation = 'UNITED STATES'
 //      and s_nation = 'UNITED STATES'
 //      and d_year >= 1992
-//      and d_year <= 1997 
+//      and d_year <= 1997
 //     group by c_city, s_city, d_year;
 TEST_F(HYBSSBTest, ssb_q3_2_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/customer.csv.c_city");
-    load("inputs/ssbm100/customer.csv.c_custkey");
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/supplier.csv.s_nation");
-    load("inputs/ssbm100/lineorder.csv.lo_revenue");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/supplier.csv.s_city");
-    load("inputs/ssbm100/date.csv.d_year");
-    load("inputs/ssbm100/customer.csv.c_nation");
-    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
-    load("inputs/ssbm100/lineorder.csv.lo_custkey");
-    load("inputs/ssbm100/supplier.csv.s_suppkey");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/customer.csv.c_city");
+  load("inputs/ssbm100/customer.csv.c_custkey");
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/supplier.csv.s_nation");
+  load("inputs/ssbm100/lineorder.csv.lo_revenue");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/supplier.csv.s_city");
+  load("inputs/ssbm100/date.csv.d_year");
+  load("inputs/ssbm100/customer.csv.c_nation");
+  load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+  load("inputs/ssbm100/lineorder.csv.lo_custkey");
+  load("inputs/ssbm100/supplier.csv.s_suppkey");
 
-    const char *testLabel = "ssb_q3_2_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q3_2_par_cpy_plan.json";
+  const char *testLabel = "ssb_q3_2_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q3_2_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }
 
 // Options during test generation:
@@ -397,29 +395,29 @@ TEST_F(HYBSSBTest, ssb_q3_2_par_cpy) {
 //      and (c_city='UNITED KI1' or c_city='UNITED KI5')
 //      and (s_city='UNITED KI1' or s_city='UNITED KI5')
 //      and d_year >= 1992
-//      and d_year <= 1997 
+//      and d_year <= 1997
 //     group by c_city, s_city, d_year;
 TEST_F(HYBSSBTest, ssb_q3_3_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/customer.csv.c_city");
-    load("inputs/ssbm100/customer.csv.c_custkey");
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/lineorder.csv.lo_revenue");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/supplier.csv.s_city");
-    load("inputs/ssbm100/date.csv.d_year");
-    load("inputs/ssbm100/lineorder.csv.lo_custkey");
-    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
-    load("inputs/ssbm100/supplier.csv.s_suppkey");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/customer.csv.c_city");
+  load("inputs/ssbm100/customer.csv.c_custkey");
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/lineorder.csv.lo_revenue");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/supplier.csv.s_city");
+  load("inputs/ssbm100/date.csv.d_year");
+  load("inputs/ssbm100/lineorder.csv.lo_custkey");
+  load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+  load("inputs/ssbm100/supplier.csv.s_suppkey");
 
-    const char *testLabel = "ssb_q3_3_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q3_3_par_cpy_plan.json";
+  const char *testLabel = "ssb_q3_3_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q3_3_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }
 
 // Options during test generation:
@@ -434,30 +432,30 @@ TEST_F(HYBSSBTest, ssb_q3_3_par_cpy) {
 //      and lo_orderdate = d_datekey
 //      and (c_city='UNITED KI1' or c_city='UNITED KI5')
 //      and (s_city='UNITED KI1' or s_city='UNITED KI5')
-//      and d_yearmonth = 'Dec1997' 
+//      and d_yearmonth = 'Dec1997'
 //     group by c_city, s_city, d_year;
 TEST_F(HYBSSBTest, ssb_q3_4_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/customer.csv.c_city");
-    load("inputs/ssbm100/customer.csv.c_custkey");
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/lineorder.csv.lo_revenue");
-    load("inputs/ssbm100/date.csv.d_yearmonth");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/supplier.csv.s_city");
-    load("inputs/ssbm100/date.csv.d_year");
-    load("inputs/ssbm100/lineorder.csv.lo_custkey");
-    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
-    load("inputs/ssbm100/supplier.csv.s_suppkey");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/customer.csv.c_city");
+  load("inputs/ssbm100/customer.csv.c_custkey");
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/lineorder.csv.lo_revenue");
+  load("inputs/ssbm100/date.csv.d_yearmonth");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/supplier.csv.s_city");
+  load("inputs/ssbm100/date.csv.d_year");
+  load("inputs/ssbm100/lineorder.csv.lo_custkey");
+  load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+  load("inputs/ssbm100/supplier.csv.s_suppkey");
 
-    const char *testLabel = "ssb_q3_4_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q3_4_par_cpy_plan.json";
+  const char *testLabel = "ssb_q3_4_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q3_4_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }
 
 // Options during test generation:
@@ -473,34 +471,34 @@ TEST_F(HYBSSBTest, ssb_q3_4_par_cpy) {
 //      and lo_orderdate = d_datekey
 //      and c_region = 'AMERICA'
 //      and s_region = 'AMERICA'
-//      and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2') 
+//      and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2')
 //     group by d_year, c_nation;
 TEST_F(HYBSSBTest, ssb_q4_1_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/lineorder.csv.lo_supplycost");
-    load("inputs/ssbm100/customer.csv.c_custkey");
-    load("inputs/ssbm100/lineorder.csv.lo_custkey");
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/customer.csv.c_region");
-    load("inputs/ssbm100/lineorder.csv.lo_revenue");
-    load("inputs/ssbm100/lineorder.csv.lo_partkey");
-    load("inputs/ssbm100/part.csv.p_partkey");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/date.csv.d_year");
-    load("inputs/ssbm100/customer.csv.c_nation");
-    load("inputs/ssbm100/supplier.csv.s_region");
-    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
-    load("inputs/ssbm100/supplier.csv.s_suppkey");
-    load("inputs/ssbm100/part.csv.p_mfgr");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/lineorder.csv.lo_supplycost");
+  load("inputs/ssbm100/customer.csv.c_custkey");
+  load("inputs/ssbm100/lineorder.csv.lo_custkey");
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/customer.csv.c_region");
+  load("inputs/ssbm100/lineorder.csv.lo_revenue");
+  load("inputs/ssbm100/lineorder.csv.lo_partkey");
+  load("inputs/ssbm100/part.csv.p_partkey");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/date.csv.d_year");
+  load("inputs/ssbm100/customer.csv.c_nation");
+  load("inputs/ssbm100/supplier.csv.s_region");
+  load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+  load("inputs/ssbm100/supplier.csv.s_suppkey");
+  load("inputs/ssbm100/part.csv.p_mfgr");
 
-    const char *testLabel = "ssb_q4_1_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q4_1_par_cpy_plan.json";
+  const char *testLabel = "ssb_q4_1_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q4_1_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }
 
 // Options during test generation:
@@ -508,44 +506,44 @@ TEST_F(HYBSSBTest, ssb_q4_1_par_cpy) {
 //     memcpy      : True
 //     cpu_only    : False
 // Query:
-//     select d_year, s_nation, p_category, sum(lo_revenue - lo_supplycost) as profit
-//     from ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part, ssbm_lineorder
-//     where lo_custkey = c_custkey
+//     select d_year, s_nation, p_category, sum(lo_revenue - lo_supplycost) as
+//     profit from ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part,
+//     ssbm_lineorder where lo_custkey = c_custkey
 //      and lo_suppkey = s_suppkey
 //      and lo_partkey = p_partkey
 //      and lo_orderdate = d_datekey
 //      and c_region = 'AMERICA'
 //      and s_region = 'AMERICA'
 //      and (d_year = 1997 or d_year = 1998)
-//      and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2') 
+//      and (p_mfgr = 'MFGR#1' or p_mfgr = 'MFGR#2')
 //     group by d_year, s_nation, p_category;
 TEST_F(HYBSSBTest, ssb_q4_2_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/lineorder.csv.lo_supplycost");
-    load("inputs/ssbm100/customer.csv.c_custkey");
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/supplier.csv.s_nation");
-    load("inputs/ssbm100/customer.csv.c_region");
-    load("inputs/ssbm100/lineorder.csv.lo_revenue");
-    load("inputs/ssbm100/lineorder.csv.lo_partkey");
-    load("inputs/ssbm100/part.csv.p_partkey");
-    load("inputs/ssbm100/part.csv.p_category");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/date.csv.d_year");
-    load("inputs/ssbm100/lineorder.csv.lo_custkey");
-    load("inputs/ssbm100/supplier.csv.s_region");
-    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
-    load("inputs/ssbm100/supplier.csv.s_suppkey");
-    load("inputs/ssbm100/part.csv.p_mfgr");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/lineorder.csv.lo_supplycost");
+  load("inputs/ssbm100/customer.csv.c_custkey");
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/supplier.csv.s_nation");
+  load("inputs/ssbm100/customer.csv.c_region");
+  load("inputs/ssbm100/lineorder.csv.lo_revenue");
+  load("inputs/ssbm100/lineorder.csv.lo_partkey");
+  load("inputs/ssbm100/part.csv.p_partkey");
+  load("inputs/ssbm100/part.csv.p_category");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/date.csv.d_year");
+  load("inputs/ssbm100/lineorder.csv.lo_custkey");
+  load("inputs/ssbm100/supplier.csv.s_region");
+  load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+  load("inputs/ssbm100/supplier.csv.s_suppkey");
+  load("inputs/ssbm100/part.csv.p_mfgr");
 
-    const char *testLabel = "ssb_q4_2_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q4_2_par_cpy_plan.json";
+  const char *testLabel = "ssb_q4_2_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q4_2_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }
 
 // Options during test generation:
@@ -553,42 +551,42 @@ TEST_F(HYBSSBTest, ssb_q4_2_par_cpy) {
 //     memcpy      : True
 //     cpu_only    : False
 // Query:
-//     select d_year, s_city, p_brand1, sum(lo_revenue - lo_supplycost) as profit
-//     from ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part, ssbm_lineorder
-//     where lo_custkey = c_custkey
+//     select d_year, s_city, p_brand1, sum(lo_revenue - lo_supplycost) as
+//     profit from ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part,
+//     ssbm_lineorder where lo_custkey = c_custkey
 //      and lo_suppkey = s_suppkey
 //      and lo_partkey = p_partkey
 //      and lo_orderdate = d_datekey
 //      and c_region = 'AMERICA'
 //      and s_nation = 'UNITED STATES'
 //      and (d_year = 1997 or d_year = 1998)
-//      and p_category = 'MFGR#14' 
+//      and p_category = 'MFGR#14'
 //     group by d_year, s_city, p_brand1;
 TEST_F(HYBSSBTest, ssb_q4_3_par_cpy) {
-    if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
+  if (topology::getInstance().getGpuCount() < 2) GTEST_SKIP();
 
-    auto load = [](string filename){
-        StorageManager::loadToCpus(filename, sizeof(int32_t));
-    };
-    load("inputs/ssbm100/lineorder.csv.lo_supplycost");
-    load("inputs/ssbm100/customer.csv.c_custkey");
-    load("inputs/ssbm100/date.csv.d_datekey");
-    load("inputs/ssbm100/supplier.csv.s_nation");
-    load("inputs/ssbm100/customer.csv.c_region");
-    load("inputs/ssbm100/lineorder.csv.lo_revenue");
-    load("inputs/ssbm100/lineorder.csv.lo_partkey");
-    load("inputs/ssbm100/part.csv.p_partkey");
-    load("inputs/ssbm100/part.csv.p_category");
-    load("inputs/ssbm100/lineorder.csv.lo_orderdate");
-    load("inputs/ssbm100/supplier.csv.s_city");
-    load("inputs/ssbm100/date.csv.d_year");
-    load("inputs/ssbm100/lineorder.csv.lo_custkey");
-    load("inputs/ssbm100/lineorder.csv.lo_suppkey");
-    load("inputs/ssbm100/part.csv.p_brand1");
-    load("inputs/ssbm100/supplier.csv.s_suppkey");
+  auto load = [](string filename) {
+    StorageManager::loadToCpus(filename, sizeof(int32_t));
+  };
+  load("inputs/ssbm100/lineorder.csv.lo_supplycost");
+  load("inputs/ssbm100/customer.csv.c_custkey");
+  load("inputs/ssbm100/date.csv.d_datekey");
+  load("inputs/ssbm100/supplier.csv.s_nation");
+  load("inputs/ssbm100/customer.csv.c_region");
+  load("inputs/ssbm100/lineorder.csv.lo_revenue");
+  load("inputs/ssbm100/lineorder.csv.lo_partkey");
+  load("inputs/ssbm100/part.csv.p_partkey");
+  load("inputs/ssbm100/part.csv.p_category");
+  load("inputs/ssbm100/lineorder.csv.lo_orderdate");
+  load("inputs/ssbm100/supplier.csv.s_city");
+  load("inputs/ssbm100/date.csv.d_year");
+  load("inputs/ssbm100/lineorder.csv.lo_custkey");
+  load("inputs/ssbm100/lineorder.csv.lo_suppkey");
+  load("inputs/ssbm100/part.csv.p_brand1");
+  load("inputs/ssbm100/supplier.csv.s_suppkey");
 
-    const char *testLabel = "ssb_q4_3_par_cpy_hyb_plan";
-    const char *planPath  = "inputs/plans/hyb-ssb/ssb_q4_3_par_cpy_plan.json";
+  const char *testLabel = "ssb_q4_3_par_cpy_hyb_plan";
+  const char *planPath = "inputs/plans/hyb-ssb/ssb_q4_3_par_cpy_plan.json";
 
-    runAndVerify(testLabel, planPath);
+  runAndVerify(testLabel, planPath);
 }

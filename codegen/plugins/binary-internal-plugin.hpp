@@ -1,24 +1,24 @@
 /*
-	RAW -- High-performance querying over raw, never-seen-before data.
+    RAW -- High-performance querying over raw, never-seen-before data.
 
-							Copyright (c) 2014
-		Data Intensive Applications and Systems Labaratory (DIAS)
-				École Polytechnique Fédérale de Lausanne
+                            Copyright (c) 2014
+        Data Intensive Applications and Systems Labaratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
 
-							All Rights Reserved.
+                            All Rights Reserved.
 
-	Permission to use, copy, modify and distribute this software and
-	its documentation is hereby granted, provided that both the
-	copyright notice and this permission notice appear in all copies of
-	the software, derivative works or modified versions, and any
-	portions thereof, and that both notices appear in supporting
-	documentation.
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
 
-	This code is distributed in the hope that it will be useful, but
-	WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
-	DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
-	RESULTING FROM THE USE OF THIS SOFTWARE.
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
 #ifndef BINARY_INTERNAL_PLUGIN_HPP_
@@ -29,167 +29,180 @@
 
 //#define DEBUGBINCACHE
 
-class BinaryInternalPlugin	: public Plugin {
-public:
+class BinaryInternalPlugin : public Plugin {
+ public:
+  /**
+   * Plugin to be used for already serialized bindings.
+   * Example: After a nesting operator has taken place.
+   *
+   * Why not RecordType info?
+   * -> Because it requires declaring RecordAttributes
+   *    -> ..but RecordAttributes require an associated plugin
+   *         (chicken - egg prob.)
+   */
+  BinaryInternalPlugin(RawContext *const context, string structName);
+  /* Radix-related atm.
+   * Resembles BinaryRowPg */
+  BinaryInternalPlugin(RawContext *const context, RecordType rec,
+                       string structName, vector<RecordAttribute *> whichOIDs,
+                       vector<RecordAttribute *> whichFields, CacheInfo info);
+  ~BinaryInternalPlugin();
+  virtual string &getName() { return structName; }
+  void init();
+  void generate(const RawOperator &producer);
+  void finish();
+  virtual RawValueMemory readPath(string activeRelation, Bindings bindings,
+                                  const char *pathVar, RecordAttribute attr);
+  virtual RawValueMemory readValue(RawValueMemory mem_value,
+                                   const ExpressionType *type);
+  virtual RawValue readCachedValue(CacheInfo info,
+                                   const OperatorState &currState) {
+    string error_msg = "[BinaryInternalPlugin: ] No caching support applicable";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
+  virtual RawValue readCachedValue(
+      CacheInfo info, const map<RecordAttribute, RawValueMemory> &bindings) {
+    string error_msg = "[BinaryInternalPlugin: ] No caching support applicable";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
 
-	/**
-	 * Plugin to be used for already serialized bindings.
-	 * Example: After a nesting operator has taken place.
-	 *
-	 * Why not RecordType info?
-	 * -> Because it requires declaring RecordAttributes
-	 *    -> ..but RecordAttributes require an associated plugin
-	 *    	 (chicken - egg prob.)
-	 */
-	BinaryInternalPlugin(RawContext* const context, string structName);
-	/* Radix-related atm.
-	 * Resembles BinaryRowPg */
-	BinaryInternalPlugin(RawContext* const context, RecordType rec, string structName,
-			vector<RecordAttribute*> whichOIDs, vector<RecordAttribute*> whichFields, CacheInfo info);
-	~BinaryInternalPlugin();
-	virtual string& getName() { return structName; }
-	void init();
-	void generate(const RawOperator& producer);
-	void finish();
-	virtual RawValueMemory readPath(string activeRelation, Bindings bindings, const char* pathVar, RecordAttribute attr);
-	virtual RawValueMemory readValue(RawValueMemory mem_value, const ExpressionType* type);
-	virtual RawValue readCachedValue(CacheInfo info, const OperatorState& currState) {
-		string error_msg = "[BinaryInternalPlugin: ] No caching support applicable";
-		LOG(ERROR) << error_msg;
-		throw runtime_error(error_msg);
-	}
-	virtual RawValue readCachedValue(CacheInfo info,
-			const map<RecordAttribute, RawValueMemory>& bindings) {
-		string error_msg =
-				"[BinaryInternalPlugin: ] No caching support applicable";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
+  virtual RawValue hashValue(RawValueMemory mem_value,
+                             const ExpressionType *type);
+  virtual RawValue hashValueEager(RawValue value, const ExpressionType *type);
 
-	virtual RawValue hashValue(RawValueMemory mem_value, const ExpressionType* type);
-	virtual RawValue hashValueEager(RawValue value, const ExpressionType* type);
+  virtual void flushTuple(RawValueMemory mem_value, llvm::Value *fileName) {
+    string error_msg =
+        "[BinaryInternalPlugin: ] Functionality not supported yet";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
 
-	virtual void flushTuple(RawValueMemory mem_value, llvm::Value* fileName)	{
-		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
+  virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type,
+                          llvm::Value *fileName);
+  virtual void flushValueEager(RawValue value, const ExpressionType *type,
+                               llvm::Value *fileName);
 
-	virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type, llvm::Value* fileName);
-	virtual void flushValueEager(RawValue value, const ExpressionType *type, llvm::Value* fileName);
+  virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
+    string error_msg =
+        "[BinaryInternalPlugin: ] Functionality not supported yet";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
+  virtual RawValue collectionHasNext(RawValue val_parentObject,
+                                     RawValueMemory mem_currentChild) {
+    string error_msg =
+        "[BinaryInternalPlugin: ] Functionality not supported yet";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
+  virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) {
+    string error_msg =
+        "[BinaryInternalPlugin: ] Functionality not supported yet";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
 
-	virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
-		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
-	virtual RawValue collectionHasNext(RawValue val_parentObject,
-			RawValueMemory mem_currentChild) {
-		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
-	virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) {
-		string error_msg = "[BinaryInternalPlugin: ] Functionality not supported yet";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
+  virtual llvm::Value *getValueSize(RawValueMemory mem_value,
+                                    const ExpressionType *type);
 
-	virtual llvm::Value* getValueSize(RawValueMemory mem_value, const ExpressionType* type);
+  virtual ExpressionType *getOIDType() { return new IntType(); }
 
-	virtual ExpressionType *getOIDType() {
-		return new IntType();
-	}
+  virtual PluginType getPluginType() { return PGBINARY; }
 
-	virtual PluginType getPluginType() { return PGBINARY; }
+  virtual void flushBeginList(llvm::Value *fileName) {}
 
-	virtual void flushBeginList	(llvm::Value *fileName					) {}
+  virtual void flushBeginBag(llvm::Value *fileName) {
+    string error_msg =
+        "[BinaryInternalPlugin: ] Binary-internal files do not contain BAGs";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
 
-	virtual void flushBeginBag	(llvm::Value *fileName					) {
-		string error_msg = "[BinaryInternalPlugin: ] Binary-internal files do not contain BAGs";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
+  virtual void flushBeginSet(llvm::Value *fileName) {
+    string error_msg =
+        "[BinaryInternalPlugin: ] Binary-internal files do not contain SETs";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
 
-	virtual void flushBeginSet	(llvm::Value *fileName					) {
-		string error_msg = "[BinaryInternalPlugin: ] Binary-internal files do not contain SETs";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
+  virtual void flushEndList(llvm::Value *fileName) {}
 
-	virtual void flushEndList	(llvm::Value *fileName					) {}
+  virtual void flushEndBag(llvm::Value *fileName) {
+    string error_msg =
+        "[BinaryInternalPlugin: ] Binary-internal files do not contain BAGs";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
 
-	virtual void flushEndBag	(llvm::Value *fileName					) {
-		string error_msg = "[BinaryInternalPlugin: ] Binary-internal files do not contain BAGs";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
+  virtual void flushEndSet(llvm::Value *fileName) {
+    string error_msg =
+        "[BinaryInternalPlugin: ] Binary-internal files do not contain SETs";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
 
-	virtual void flushEndSet	(llvm::Value *fileName					) {
-		string error_msg = "[BinaryInternalPlugin: ] Binary-internal files do not contain SETs";
-		LOG(ERROR)<< error_msg;
-		throw runtime_error(error_msg);
-	}
+  virtual void flushDelim(llvm::Value *fileName, int depth) {
+    Function *flushFunc = context->getFunction("flushChar");
+    vector<llvm::Value *> ArgsV;
+    // XXX JSON-specific -> Serializer business to differentiate
+    ArgsV.push_back(context->createInt8((depth == 0) ? '\n' : ','));
+    ArgsV.push_back(fileName);
+    context->getBuilder()->CreateCall(flushFunc, ArgsV);
+  }
 
-	virtual void flushDelim		(llvm::Value *fileName					, int depth) {
-		Function *flushFunc = context->getFunction("flushChar");
-		vector<llvm::Value*> ArgsV;
-		//XXX JSON-specific -> Serializer business to differentiate
-		ArgsV.push_back(context->createInt8((depth == 0) ? '\n' : ','));
-		ArgsV.push_back(fileName);
-		context->getBuilder()->CreateCall(flushFunc, ArgsV);
-	}
+  virtual void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
+                          int depth) {
+    Function *flushFunc = context->getFunction("flushDelim");
+    vector<llvm::Value *> ArgsV;
+    ArgsV.push_back(resultCtr);
+    // XXX JSON-specific -> Serializer business to differentiate
+    ArgsV.push_back(context->createInt8((depth == 0) ? '\n' : ','));
+    ArgsV.push_back(fileName);
+    context->getBuilder()->CreateCall(flushFunc, ArgsV);
+  }
 
-	virtual void flushDelim		(llvm::Value *resultCtr, llvm::Value* fileName, int depth) {
-		Function *flushFunc = context->getFunction("flushDelim");
-		vector<llvm::Value*> ArgsV;
-		ArgsV.push_back(resultCtr);
-		//XXX JSON-specific -> Serializer business to differentiate
-		ArgsV.push_back(context->createInt8((depth == 0) ? '\n' : ','));
-		ArgsV.push_back(fileName);
-		context->getBuilder()->CreateCall(flushFunc, ArgsV);
-	}
+ private:
+  string structName;
 
-private:
-	string structName;
+  /**
+   * Code-generation-related
+   */
+  RawContext *const context;
+  /* Radix-related atm */
+  void scan(const RawOperator &producer);
+  void scanStruct(const RawOperator &producer);
+  //
+  RecordType rec;
+  // Number of entries, if applicable
+  llvm::Value *val_entriesNo;
+  /* Necessary if we are to iterate over the internal caches */
 
-	/**
-	 * Code-generation-related
-	 */
-	RawContext* const context;
-	/* Radix-related atm */
-	void scan(const RawOperator& producer);
-	void scanStruct(const RawOperator& producer);
-	//
-	RecordType rec;
-	//Number of entries, if applicable
-	llvm::Value *val_entriesNo;
-	/* Necessary if we are to iterate over the internal caches */
+  vector<RecordAttribute *> fields;
+  vector<RecordAttribute *> OIDs;
 
-	vector<RecordAttribute*> fields;
-	vector<RecordAttribute*> OIDs;
+  StructType *payloadType;
+  llvm::Value *mem_buffer;
+  llvm::Value *val_structBufferPtr;
+  /* Binary offset in file */
+  AllocaInst *mem_pos;
+  /* Tuple counter */
+  AllocaInst *mem_cnt;
 
-	StructType *payloadType;
-	llvm::Value *mem_buffer;
-	llvm::Value *val_structBufferPtr;
-	/* Binary offset in file */
-	AllocaInst *mem_pos;
-	/* Tuple counter */
-	AllocaInst *mem_cnt;
-
-	/* Since we allow looping over cache, we must also extract fields
-	 * while looping */
-	void skipLLVM(llvm::Value* offset);
-	void readAsIntLLVM(RecordAttribute attName,
-			map<RecordAttribute, RawValueMemory>& variables);
-	void readAsInt64LLVM(RecordAttribute attName,
-				map<RecordAttribute, RawValueMemory>& variables);
-	void readAsStringLLVM(RecordAttribute attName,
-			map<RecordAttribute, RawValueMemory>& variables);
-	void readAsFloatLLVM(RecordAttribute attName,
-			map<RecordAttribute, RawValueMemory>& variables);
-	void readAsBooleanLLVM(RecordAttribute attName,
-			map<RecordAttribute, RawValueMemory>& variables);
+  /* Since we allow looping over cache, we must also extract fields
+   * while looping */
+  void skipLLVM(llvm::Value *offset);
+  void readAsIntLLVM(RecordAttribute attName,
+                     map<RecordAttribute, RawValueMemory> &variables);
+  void readAsInt64LLVM(RecordAttribute attName,
+                       map<RecordAttribute, RawValueMemory> &variables);
+  void readAsStringLLVM(RecordAttribute attName,
+                        map<RecordAttribute, RawValueMemory> &variables);
+  void readAsFloatLLVM(RecordAttribute attName,
+                       map<RecordAttribute, RawValueMemory> &variables);
+  void readAsBooleanLLVM(RecordAttribute attName,
+                         map<RecordAttribute, RawValueMemory> &variables);
 };
 
 #endif

@@ -23,90 +23,94 @@
 #ifndef MEM_BROADCAST_DEVICE_HPP_
 #define MEM_BROADCAST_DEVICE_HPP_
 
-#include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/async_containers.hpp"
+#include <future>
 #include <thread>
 #include <unordered_map>
-#include <future>
+#include "operators/operators.hpp"
 #include "topology/affinity_manager.hpp"
+#include "util/async_containers.hpp"
+#include "util/gpu/gpu-raw-context.hpp"
 
-// void * make_mem_move_device(char * src, size_t bytes, int target_device, cudaStream_t strm);
+// void * make_mem_move_device(char * src, size_t bytes, int target_device,
+// cudaStream_t strm);
 
 class MemBroadcastDevice : public UnaryRawOperator {
-public:
-    struct workunit{
-        void      * data ;
-        cudaEvent_t event;
-        // cudaStream_t strm;
-    };
+ public:
+  struct workunit {
+    void *data;
+    cudaEvent_t event;
+    // cudaStream_t strm;
+  };
 
-    struct MemMoveConf{
-        AsyncQueueSPSC<workunit *>              idle     ;
-        AsyncQueueSPSC<workunit *>              tran     ;
+  struct MemMoveConf {
+    AsyncQueueSPSC<workunit *> idle;
+    AsyncQueueSPSC<workunit *> tran;
 
-        std::future<void>                       worker   ;
-        std::unordered_map<int, cudaStream_t>   strm     ;
+    std::future<void> worker;
+    std::unordered_map<int, cudaStream_t> strm;
 
-        int                                     num_of_targets;
-        bool                                    to_cpu;
-        bool                                    always_share;
+    int num_of_targets;
+    bool to_cpu;
+    bool always_share;
 
-        void                                  * targetbuffer[16];
+    void *targetbuffer[16];
 
-        // cudaStream_t                strm2    ;
+    // cudaStream_t                strm2    ;
 
-        // cudaEvent_t               * lastEvent;
+    // cudaEvent_t               * lastEvent;
 
-        // size_t                      slack    ;
-        // // cudaEvent_t               * events   ;
-        // void                     ** old_buffs;
-        // size_t                      next_e   ;
-    };
+    // size_t                      slack    ;
+    // // cudaEvent_t               * events   ;
+    // void                     ** old_buffs;
+    // size_t                      next_e   ;
+  };
 
-    MemBroadcastDevice(  RawOperator * const             child,
-                    GpuRawContext * const           context,
-                    const vector<RecordAttribute*> &wantedFields,
-                    int                             num_of_targets,
-                    bool                            to_cpu,
-                    bool                            always_share = false) :
-                        UnaryRawOperator(child), 
-                        context(context), 
-                        wantedFields(wantedFields),
-                        slack(8*num_of_targets),
-                        to_cpu(to_cpu),
-                        always_share(always_share){
-        for (int i = 0 ; i < num_of_targets ; ++i){
-            targets.push_back(always_share ? 0 : i); //FIXME: this is not correct, only to be used for SSB-broadcast benchmark!!!!!!!!!
-        }
+  MemBroadcastDevice(RawOperator *const child, GpuRawContext *const context,
+                     const vector<RecordAttribute *> &wantedFields,
+                     int num_of_targets, bool to_cpu, bool always_share = false)
+      : UnaryRawOperator(child),
+        context(context),
+        wantedFields(wantedFields),
+        slack(8 * num_of_targets),
+        to_cpu(to_cpu),
+        always_share(always_share) {
+    for (int i = 0; i < num_of_targets; ++i) {
+      targets.push_back(
+          always_share ? 0 : i);  // FIXME: this is not correct, only to be used
+                                  // for SSB-broadcast benchmark!!!!!!!!!
     }
+  }
 
-    virtual ~MemBroadcastDevice()                                             { LOG(INFO)<<"Collapsing MemBroadcastDevice operator";}
+  virtual ~MemBroadcastDevice() {
+    LOG(INFO) << "Collapsing MemBroadcastDevice operator";
+  }
 
-    virtual void produce();
-    virtual void consume(RawContext* const context, const OperatorState& childState);
-    virtual bool isFiltering() const {return false;}
+  virtual void produce();
+  virtual void consume(RawContext *const context,
+                       const OperatorState &childState);
+  virtual bool isFiltering() const { return false; }
 
-private:
-    const vector<RecordAttribute *> wantedFields ;
-    size_t                          device_id_var;
-    size_t                          memmvconf_var;
+ private:
+  const vector<RecordAttribute *> wantedFields;
+  size_t device_id_var;
+  size_t memmvconf_var;
 
-    RawPipelineGen                * catch_pip    ;
-    llvm::Type                    * data_type    ;
+  RawPipelineGen *catch_pip;
+  llvm::Type *data_type;
 
-    std::vector<int>                targets      ;
+  std::vector<int> targets;
 
-    size_t                          slack        ;
-    bool                            to_cpu       ;
-    bool                            always_share ;
+  size_t slack;
+  bool to_cpu;
+  bool always_share;
 
-    GpuRawContext * const context;
+  GpuRawContext *const context;
 
-    void open (RawPipeline * pip);
-    void close(RawPipeline * pip);
+  void open(RawPipeline *pip);
+  void close(RawPipeline *pip);
 
-    void catcher(MemMoveConf * conf, int group_id, const exec_location &target_dev);
+  void catcher(MemMoveConf *conf, int group_id,
+               const exec_location &target_dev);
 };
 
 #endif /* MEM_BROADCAST_DEVICE_HPP_ */

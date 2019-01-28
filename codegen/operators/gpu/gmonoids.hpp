@@ -24,150 +24,113 @@
 #ifndef GMONOIDS_HPP_
 #define GMONOIDS_HPP_
 
-#include "util/raw-context.hpp"
 #include "operators/monoids.hpp"
+#include "util/raw-context.hpp"
 
 namespace gpu {
-    class Monoid {
-    public:
-        virtual ~Monoid(){}
-    
-        virtual Value * create(RawContext * const context, 
-                                Value * val_accumulating,
-                                Value * val_in) = 0;
+class Monoid {
+ public:
+  virtual ~Monoid() {}
 
-        virtual void createUpdate(RawContext * const context, 
-                                    Value * val_accumulating,
-                                    Value * val_in);
+  virtual Value *create(RawContext *const context, Value *val_accumulating,
+                        Value *val_in) = 0;
 
-        virtual void createAtomicUpdate(RawContext * const context, 
-                                        Value * accumulator_ptr, 
-                                        Value * val_in, 
-                                        llvm::AtomicOrdering order = 
-                                            llvm::AtomicOrdering::Monotonic)=0;
+  virtual void createUpdate(RawContext *const context, Value *val_accumulating,
+                            Value *val_in);
 
-        virtual Value * createWarpAggregateToAll(RawContext * const context, 
-                                            Value * val_in);
+  virtual void createAtomicUpdate(
+      RawContext *const context, Value *accumulator_ptr, Value *val_in,
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic) = 0;
 
-        virtual Value * createWarpAggregateTo0(RawContext * const context, 
-                                            Value * val_in){
-            return createWarpAggregateToAll(context, val_in);
-        }
+  virtual Value *createWarpAggregateToAll(RawContext *const context,
+                                          Value *val_in);
 
-        virtual inline std::string to_string() const = 0;
+  virtual Value *createWarpAggregateTo0(RawContext *const context,
+                                        Value *val_in) {
+    return createWarpAggregateToAll(context, val_in);
+  }
 
-        static Monoid * get(::Monoid m);
-    };
+  virtual inline std::string to_string() const = 0;
 
-    class MaxMonoid : public Monoid{
-        Value * create(RawContext * const context, 
-                        Value * val_accumulating,
-                        Value * val_in);
+  static Monoid *get(::Monoid m);
+};
 
-        void createUpdate(RawContext * const context, 
-                            Value * val_accumulating,
-                            Value * val_in);
+class MaxMonoid : public Monoid {
+  Value *create(RawContext *const context, Value *val_accumulating,
+                Value *val_in);
 
-        void createAtomicUpdate(RawContext * const context, 
-                                Value * accumulator_ptr, 
-                                Value * val_in, 
-                                llvm::AtomicOrdering order = 
-                                            llvm::AtomicOrdering::Monotonic);
+  void createUpdate(RawContext *const context, Value *val_accumulating,
+                    Value *val_in);
 
-        inline std::string to_string() const{
-            return "max";
-        }
-    };
+  void createAtomicUpdate(
+      RawContext *const context, Value *accumulator_ptr, Value *val_in,
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
 
-    class SumMonoid : public Monoid{
-        Value * create(RawContext * const context, 
-                        Value * val_accumulating,
-                        Value * val_in);
+  inline std::string to_string() const { return "max"; }
+};
 
-        void createAtomicUpdate(RawContext * const context, 
-                                Value * accumulator_ptr, 
-                                Value * val_in, 
-                                llvm::AtomicOrdering order = 
-                                            llvm::AtomicOrdering::Monotonic);
+class SumMonoid : public Monoid {
+  Value *create(RawContext *const context, Value *val_accumulating,
+                Value *val_in);
 
-        inline std::string to_string() const{
-            return "sum";
-        }
-    };
+  void createAtomicUpdate(
+      RawContext *const context, Value *accumulator_ptr, Value *val_in,
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
 
-    class LogOrMonoid : public Monoid{
-        Value * create(RawContext * const context, 
-                        Value * val_accumulating,
-                        Value * val_in);
+  inline std::string to_string() const { return "sum"; }
+};
 
-        void createAtomicUpdate(RawContext * const context, 
-                                Value * accumulator_ptr, 
-                                Value * val_in, 
-                                llvm::AtomicOrdering order = 
-                                            llvm::AtomicOrdering::Monotonic);
+class LogOrMonoid : public Monoid {
+  Value *create(RawContext *const context, Value *val_accumulating,
+                Value *val_in);
 
-        Value * createWarpAggregateToAll(RawContext * const context, 
-                                            Value * val_in);
+  void createAtomicUpdate(
+      RawContext *const context, Value *accumulator_ptr, Value *val_in,
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
 
-        inline std::string to_string() const{
-            return "lor";
-        }
-    };
+  Value *createWarpAggregateToAll(RawContext *const context, Value *val_in);
 
-    class LogAndMonoid : public Monoid{
-        Value * create(RawContext * const context, 
-                        Value * val_accumulating,
-                        Value * val_in);
+  inline std::string to_string() const { return "lor"; }
+};
 
-        void createAtomicUpdate(RawContext * const context, 
-                                Value *accumulator_ptr, 
-                                Value * val_in, 
-                                llvm::AtomicOrdering order = 
-                                            llvm::AtomicOrdering::Monotonic);
-        
-        Value * createWarpAggregateToAll(RawContext * const context, 
-                                            Value * val_in);
+class LogAndMonoid : public Monoid {
+  Value *create(RawContext *const context, Value *val_accumulating,
+                Value *val_in);
 
-        inline std::string to_string() const{
-            return "land";
-        }
-    };
+  void createAtomicUpdate(
+      RawContext *const context, Value *accumulator_ptr, Value *val_in,
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
 
-    class BitOrMonoid : public Monoid{
-        Value * create(RawContext * const context, 
-                        Value * val_accumulating,
-                        Value * val_in);
+  Value *createWarpAggregateToAll(RawContext *const context, Value *val_in);
 
-        void createAtomicUpdate(RawContext * const context, 
-                                Value * accumulator_ptr, 
-                                Value * val_in, 
-                                llvm::AtomicOrdering order = 
-                                            llvm::AtomicOrdering::Monotonic);
+  inline std::string to_string() const { return "land"; }
+};
 
-        inline std::string to_string() const{
-            return "bor";
-        }
-    };
+class BitOrMonoid : public Monoid {
+  Value *create(RawContext *const context, Value *val_accumulating,
+                Value *val_in);
 
-    class BitAndMonoid : public Monoid{
-        Value * create(RawContext * const context, 
-                        Value * al_accumulating,
-                        Value * val_in);
+  void createAtomicUpdate(
+      RawContext *const context, Value *accumulator_ptr, Value *val_in,
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
 
-        void createAtomicUpdate(RawContext * const context, 
-                                Value * accumulator_ptr, 
-                                Value * val_in, 
-                                llvm::AtomicOrdering order = 
-                                            llvm::AtomicOrdering::Monotonic);
+  inline std::string to_string() const { return "bor"; }
+};
 
-        inline std::string to_string() const{
-            return "band";
-        }
-    };
+class BitAndMonoid : public Monoid {
+  Value *create(RawContext *const context, Value *al_accumulating,
+                Value *val_in);
 
-}
+  void createAtomicUpdate(
+      RawContext *const context, Value *accumulator_ptr, Value *val_in,
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
 
-namespace std{
-    string to_string(const gpu::Monoid &m);
+  inline std::string to_string() const { return "band"; }
+};
+
+}  // namespace gpu
+
+namespace std {
+string to_string(const gpu::Monoid &m);
 }
 #endif /* GMONOIDS_HPP_ */

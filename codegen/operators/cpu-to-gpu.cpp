@@ -25,215 +25,238 @@
 #include "util/jit/raw-cpu-pipeline.hpp"
 
 void CpuToGpu::produce() {
-    generateGpuSide();
+  generateGpuSide();
 
-    context->popPipeline();
+  context->popPipeline();
 
-    gpu_pip                     = context->removeLatestPipeline();
+  gpu_pip = context->removeLatestPipeline();
 
-    context->pushDeviceProvider<RawCpuPipelineGenFactory>();
-    context->pushPipeline      (gpu_pip);
+  context->pushDeviceProvider<RawCpuPipelineGenFactory>();
+  context->pushPipeline(gpu_pip);
 
-    context->registerOpen (this, [this](RawPipeline * pip){
-        rawlogger.log(this, log_op::CPU2GPU_OPEN_START);
-        std::cout << "Cpu2Gpu:open" << std::endl;
-        cudaStream_t strm;
-        gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
-        pip->setStateVar<void       *>(this->childVar_id, gpu_pip->getKernel());
-        pip->setStateVar<cudaStream_t>(this->strmVar_id , strm                );
-        rawlogger.log(this, log_op::CPU2GPU_OPEN_END);
-    });
+  context->registerOpen(this, [this](RawPipeline *pip) {
+    rawlogger.log(this, log_op::CPU2GPU_OPEN_START);
+    std::cout << "Cpu2Gpu:open" << std::endl;
+    cudaStream_t strm;
+    gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+    pip->setStateVar<void *>(this->childVar_id, gpu_pip->getKernel());
+    pip->setStateVar<cudaStream_t>(this->strmVar_id, strm);
+    rawlogger.log(this, log_op::CPU2GPU_OPEN_END);
+  });
 
-    context->registerClose(this, [this](RawPipeline * pip){
-        rawlogger.log(this, log_op::CPU2GPU_CLOSE_START);
-        std::cout << "Cpu2Gpu:close" << std::endl;
-        cudaStream_t strm = pip->getStateVar<cudaStream_t>(this->strmVar_id   );
-        gpu_run(cudaStreamSynchronize(strm));
-        gpu_run(cudaStreamDestroy    (strm));
-        rawlogger.log(this, log_op::CPU2GPU_CLOSE_END);
-    });
-    
-    LLVMContext & llvmContext   = context->getLLVMContext();
-    Type  * charPtrType         = Type::getInt8PtrTy(llvmContext);
+  context->registerClose(this, [this](RawPipeline *pip) {
+    rawlogger.log(this, log_op::CPU2GPU_CLOSE_START);
+    std::cout << "Cpu2Gpu:close" << std::endl;
+    cudaStream_t strm = pip->getStateVar<cudaStream_t>(this->strmVar_id);
+    gpu_run(cudaStreamSynchronize(strm));
+    gpu_run(cudaStreamDestroy(strm));
+    rawlogger.log(this, log_op::CPU2GPU_CLOSE_END);
+  });
 
-    childVar_id = context->appendStateVar(charPtrType);
-    strmVar_id  = context->appendStateVar(charPtrType);
+  LLVMContext &llvmContext = context->getLLVMContext();
+  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
 
-    getChild()->produce();
+  childVar_id = context->appendStateVar(charPtrType);
+  strmVar_id = context->appendStateVar(charPtrType);
 
-    context->popDeviceProvider();
+  getChild()->produce();
+
+  context->popDeviceProvider();
 }
 
-void CpuToGpu::generateGpuSide(){
-    LLVMContext & llvmContext   = context->getLLVMContext();
+void CpuToGpu::generateGpuSide() {
+  LLVMContext &llvmContext = context->getLLVMContext();
 
-    std::vector<size_t> wantedFieldsArg_id;
-    for (const auto &tin: wantedFields){
-        Type * t = tin->getOriginalType()->getLLVMType(llvmContext);
+  std::vector<size_t> wantedFieldsArg_id;
+  for (const auto &tin : wantedFields) {
+    Type *t = tin->getOriginalType()->getLLVMType(llvmContext);
 
-        wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
-    }
+    wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
+  }
 
-    Type * size_type;
-    if      (sizeof(size_t) == 4) size_type = Type::getInt32Ty(llvmContext);
-    else if (sizeof(size_t) == 8) size_type = Type::getInt64Ty(llvmContext);
-    else                          assert(false);
+  Type *size_type;
+  if (sizeof(size_t) == 4)
+    size_type = Type::getInt32Ty(llvmContext);
+  else if (sizeof(size_t) == 8)
+    size_type = Type::getInt64Ty(llvmContext);
+  else
+    assert(false);
 
-    Plugin * pg       = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
-    IntegerType * oid_type     = (IntegerType *) pg->getOIDType()->getLLVMType(llvmContext);
-    size_t tupleOIDArg_id = context->appendParameter(oid_type, false, false);
-    size_t tupleCntArg_id = context->appendParameter(oid_type, false, false);
+  Plugin *pg =
+      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+  IntegerType *oid_type =
+      (IntegerType *)pg->getOIDType()->getLLVMType(llvmContext);
+  size_t tupleOIDArg_id = context->appendParameter(oid_type, false, false);
+  size_t tupleCntArg_id = context->appendParameter(oid_type, false, false);
 
-    context->setGlobalFunction();
+  context->setGlobalFunction();
 
-    IRBuilder<> * Builder       = context->getBuilder    ();
-    BasicBlock  * insBB         = Builder->GetInsertBlock();
-    Function    * F             = insBB->getParent();
+  IRBuilder<> *Builder = context->getBuilder();
+  BasicBlock *insBB = Builder->GetInsertBlock();
+  Function *F = insBB->getParent();
 
-    BasicBlock * AfterBB = BasicBlock::Create(llvmContext, "end" , F);
-    BasicBlock * MainBB  = BasicBlock::Create(llvmContext, "main", F);
+  BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "end", F);
+  BasicBlock *MainBB = BasicBlock::Create(llvmContext, "main", F);
 
-    context->setCurrentEntryBlock(Builder->GetInsertBlock());
-    context->setEndingBlock(AfterBB);
+  context->setCurrentEntryBlock(Builder->GetInsertBlock());
+  context->setEndingBlock(AfterBB);
 
-    map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, RawValueMemory> variableBindings;
 
-    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        Value      * arg = context->getArgument(wantedFieldsArg_id[i]);
-        arg->setName(wantedFields[i]->getAttrName());
-        AllocaInst * mem = context->CreateEntryBlockAlloca(F, wantedFields[i]->getAttrName() + "_ptr", arg->getType());
-        Builder->CreateStore(arg, mem);
+  for (size_t i = 0; i < wantedFields.size(); ++i) {
+    Value *arg = context->getArgument(wantedFieldsArg_id[i]);
+    arg->setName(wantedFields[i]->getAttrName());
+    AllocaInst *mem = context->CreateEntryBlockAlloca(
+        F, wantedFields[i]->getAttrName() + "_ptr", arg->getType());
+    Builder->CreateStore(arg, mem);
 
-        RawValueMemory tmp;
-        tmp.mem     = mem;
-        tmp.isNull  = context->createFalse();
+    RawValueMemory tmp;
+    tmp.mem = mem;
+    tmp.isNull = context->createFalse();
 
-        variableBindings[*(wantedFields[i])] = tmp;
-    }
-    
-    {
-        RecordAttribute tupleOID = RecordAttribute(wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType()); //FIXME: OID type for blocks ?
+    variableBindings[*(wantedFields[i])] = tmp;
+  }
 
-        Value      * oid = context->getArgument(tupleOIDArg_id);
-        oid->setName("oid");
-        AllocaInst * mem = context->CreateEntryBlockAlloca(F, "activeLoop_ptr", oid->getType());
-        Builder->CreateStore(oid, mem);
+  {
+    RecordAttribute tupleOID =
+        RecordAttribute(wantedFields[0]->getRelationName(), activeLoop,
+                        pg->getOIDType());  // FIXME: OID type for blocks ?
 
-        RawValueMemory tmp;
-        tmp.mem     = mem;
-        tmp.isNull  = context->createFalse();
+    Value *oid = context->getArgument(tupleOIDArg_id);
+    oid->setName("oid");
+    AllocaInst *mem =
+        context->CreateEntryBlockAlloca(F, "activeLoop_ptr", oid->getType());
+    Builder->CreateStore(oid, mem);
 
-        variableBindings[tupleOID] = tmp;
-    }
+    RawValueMemory tmp;
+    tmp.mem = mem;
+    tmp.isNull = context->createFalse();
 
-    {
-        RecordAttribute tupleCnt = RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
+    variableBindings[tupleOID] = tmp;
+  }
 
-        Value      * N   = context->getArgument(tupleCntArg_id);
-        N->setName("cnt");
-        AllocaInst * mem = context->CreateEntryBlockAlloca(F, "activeCnt_ptr", N->getType());
-        Builder->CreateStore(N, mem);
+  {
+    RecordAttribute tupleCnt =
+        RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
+                        pg->getOIDType());  // FIXME: OID type for blocks ?
 
-        // Function * printi = context->getFunction("printi64");
-        // Builder->CreateCall(printi, std::vector<Value *>{N});
+    Value *N = context->getArgument(tupleCntArg_id);
+    N->setName("cnt");
+    AllocaInst *mem =
+        context->CreateEntryBlockAlloca(F, "activeCnt_ptr", N->getType());
+    Builder->CreateStore(N, mem);
 
-        RawValueMemory tmp;
-        tmp.mem     = mem;
-        tmp.isNull  = context->createFalse();
+    // Function * printi = context->getFunction("printi64");
+    // Builder->CreateCall(printi, std::vector<Value *>{N});
 
-        variableBindings[tupleCnt] = tmp;
-    }
+    RawValueMemory tmp;
+    tmp.mem = mem;
+    tmp.isNull = context->createFalse();
 
-    Builder->SetInsertPoint(MainBB);
-    OperatorState state{*this, variableBindings};
-    getParent()->consume(context, state);
+    variableBindings[tupleCnt] = tmp;
+  }
 
-    // Insert an explicit fall through from the current (body) block to AfterBB.
-    Builder->CreateBr(AfterBB);
+  Builder->SetInsertPoint(MainBB);
+  OperatorState state{*this, variableBindings};
+  getParent()->consume(context, state);
 
-    Builder->SetInsertPoint(context->getCurrentEntryBlock());
-    // Insert an explicit fall through from the current (entry) block to the CondBB.
-    Builder->CreateBr(MainBB);
+  // Insert an explicit fall through from the current (body) block to AfterBB.
+  Builder->CreateBr(AfterBB);
 
-    //  Finish up with end (the AfterLoop)
-    //  Any new code will be inserted in AfterBB.
-    Builder->SetInsertPoint(context->getEndingBlock());
+  Builder->SetInsertPoint(context->getCurrentEntryBlock());
+  // Insert an explicit fall through from the current (entry) block to the
+  // CondBB.
+  Builder->CreateBr(MainBB);
+
+  //  Finish up with end (the AfterLoop)
+  //  Any new code will be inserted in AfterBB.
+  Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-void CpuToGpu::consume(GpuRawContext * const context, const OperatorState& childState) {
-    //Prepare
-    LLVMContext & llvmContext   = context->getLLVMContext();
-    IRBuilder<> * Builder       = context->getBuilder    ();
-    BasicBlock  * insBB         = Builder->GetInsertBlock();
-    Function    * F             = insBB->getParent();
+void CpuToGpu::consume(GpuRawContext *const context,
+                       const OperatorState &childState) {
+  // Prepare
+  LLVMContext &llvmContext = context->getLLVMContext();
+  IRBuilder<> *Builder = context->getBuilder();
+  BasicBlock *insBB = Builder->GetInsertBlock();
+  Function *F = insBB->getParent();
 
-    Builder->SetInsertPoint(context->getCurrentEntryBlock());
+  Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
-    Type  * charPtrType         = Type::getInt8PtrTy(llvmContext);
-    Type  * int64Type           = Type::getInt64Ty  (llvmContext);
-    Type  * ptr_t               = PointerType::get(charPtrType, 0);
+  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
+  Type *int64Type = Type::getInt64Ty(llvmContext);
+  Type *ptr_t = PointerType::get(charPtrType, 0);
 
-    const map<RecordAttribute, RawValueMemory>& activeVars = childState.getBindings();
+  const map<RecordAttribute, RawValueMemory> &activeVars =
+      childState.getBindings();
 
-    Type * kernel_params_type = ArrayType::get(charPtrType, wantedFields.size() + 3); //input + N + oid + state
+  Type *kernel_params_type = ArrayType::get(
+      charPtrType, wantedFields.size() + 3);  // input + N + oid + state
 
-    Value * kernel_params      = UndefValue::get(kernel_params_type);
-    Value * kernel_params_addr = context->CreateEntryBlockAlloca(F, "gpu_params", kernel_params_type);
+  Value *kernel_params = UndefValue::get(kernel_params_type);
+  Value *kernel_params_addr =
+      context->CreateEntryBlockAlloca(F, "gpu_params", kernel_params_type);
 
-    for (size_t i = 0 ; i < wantedFields.size() ; ++i){
-        auto it = activeVars.find(*(wantedFields[i]));
-        assert(it != activeVars.end());
-        RawValueMemory mem_valWrapper = it->second;
-
-        kernel_params = Builder->CreateInsertValue( kernel_params, 
-                                                    Builder->CreateBitCast(
-                                                        mem_valWrapper.mem, 
-                                                        charPtrType
-                                                    ), 
-                                                    i);
-    }
-    
-    Plugin* pg = RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
-    
-    RecordAttribute tupleOID = RecordAttribute(wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType()); //FIXME: OID type for blocks ?
-
-    auto it = activeVars.find(tupleOID);
+  for (size_t i = 0; i < wantedFields.size(); ++i) {
+    auto it = activeVars.find(*(wantedFields[i]));
     assert(it != activeVars.end());
+    RawValueMemory mem_valWrapper = it->second;
 
-    RawValueMemory mem_oidWrapper = it->second;
+    kernel_params = Builder->CreateInsertValue(
+        kernel_params, Builder->CreateBitCast(mem_valWrapper.mem, charPtrType),
+        i);
+  }
 
-    kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(mem_oidWrapper.mem, charPtrType), wantedFields.size()    );
+  Plugin *pg =
+      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
 
-    RecordAttribute tupleCnt = RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt", pg->getOIDType()); //FIXME: OID type for blocks ?
+  RecordAttribute tupleOID =
+      RecordAttribute(wantedFields[0]->getRelationName(), activeLoop,
+                      pg->getOIDType());  // FIXME: OID type for blocks ?
 
-    it = activeVars.find(tupleCnt);
-    assert(it != activeVars.end());
+  auto it = activeVars.find(tupleOID);
+  assert(it != activeVars.end());
 
-    RawValueMemory mem_cntWrapper = it->second;
+  RawValueMemory mem_oidWrapper = it->second;
 
-    kernel_params = Builder->CreateInsertValue(kernel_params, Builder->CreateBitCast(mem_cntWrapper.mem, charPtrType), wantedFields.size() + 1);
+  kernel_params = Builder->CreateInsertValue(
+      kernel_params, Builder->CreateBitCast(mem_oidWrapper.mem, charPtrType),
+      wantedFields.size());
 
-    Value * subState    = context->getSubStateVar();
+  RecordAttribute tupleCnt =
+      RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
+                      pg->getOIDType());  // FIXME: OID type for blocks ?
 
-    kernel_params = Builder->CreateInsertValue(kernel_params, subState, wantedFields.size() + 2);
+  it = activeVars.find(tupleCnt);
+  assert(it != activeVars.end());
 
-    Builder->CreateStore(kernel_params, kernel_params_addr);
+  RawValueMemory mem_cntWrapper = it->second;
 
-    Value * entry       = context->getStateVar(childVar_id);
-    Value * strm        = context->getStateVar(strmVar_id );
+  kernel_params = Builder->CreateInsertValue(
+      kernel_params, Builder->CreateBitCast(mem_cntWrapper.mem, charPtrType),
+      wantedFields.size() + 1);
 
-    // Value * entryPtr = ConstantInt::get(llvmContext, APInt(64, ((uint64_t) entry_point)));
-    // Value * entry    = Builder->CreateIntToPtr(entryPtr, charPtrType);
+  Value *subState = context->getSubStateVar();
 
-    vector<Value *> kernel_args{entry, 
-                                Builder->CreateBitCast(kernel_params_addr, ptr_t),
-                                strm
-                                };
-    
-    Function * launchk = context->getFunction("launch_kernel_strm");
+  kernel_params = Builder->CreateInsertValue(kernel_params, subState,
+                                             wantedFields.size() + 2);
 
-    Builder->SetInsertPoint(insBB);
+  Builder->CreateStore(kernel_params, kernel_params_addr);
 
-    // Launch GPU kernel
-    Builder->CreateCall(launchk, kernel_args);
+  Value *entry = context->getStateVar(childVar_id);
+  Value *strm = context->getStateVar(strmVar_id);
+
+  // Value * entryPtr = ConstantInt::get(llvmContext, APInt(64, ((uint64_t)
+  // entry_point))); Value * entry    = Builder->CreateIntToPtr(entryPtr,
+  // charPtrType);
+
+  vector<Value *> kernel_args{
+      entry, Builder->CreateBitCast(kernel_params_addr, ptr_t), strm};
+
+  Function *launchk = context->getFunction("launch_kernel_strm");
+
+  Builder->SetInsertPoint(insBB);
+
+  // Launch GPU kernel
+  Builder->CreateCall(launchk, kernel_args);
 }

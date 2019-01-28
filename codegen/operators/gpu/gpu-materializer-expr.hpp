@@ -26,15 +26,15 @@
 
 #include "expressions/expressions.hpp"
 
-struct GpuMatExpr{
-public:
-    expression_t    expr     ;
-    size_t          packet   ;
-    size_t          bitoffset;
-    size_t          packind  ;
+struct GpuMatExpr {
+ public:
+  expression_t expr;
+  size_t packet;
+  size_t bitoffset;
+  size_t packind;
 
-    GpuMatExpr(expression_t expr, size_t packet, size_t bitoffset):
-        expr(expr), packet(packet), bitoffset(bitoffset), packind(-1){}
+  GpuMatExpr(expression_t expr, size_t packet, size_t bitoffset)
+      : expr(expr), packet(packet), bitoffset(bitoffset), packind(-1) {}
 };
 
 #endif /* GPU_MATERIALIZER_EXPR_HPP_ */

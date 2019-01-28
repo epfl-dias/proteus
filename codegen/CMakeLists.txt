@@ -67,7 +67,6 @@ set(codegen_cxx
 	util/jit/raw-module.cpp
 	util/jit/raw-cpu-pipeline.cpp
 	util/jit/raw-gpu-pipeline.cpp
-	util/jsmn/jsmn.cpp
 	util/radix/aggregations/radix-aggr.cpp
 	util/radix/joins/radix-join.cpp
 	util/raw-caching.cpp
