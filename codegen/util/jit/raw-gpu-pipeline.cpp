@@ -753,6 +753,20 @@ Function *const RawGpuPipelineGen::getFunction(string funcName) const {
   return RawPipelineGen::getFunction(funcName);
 }
 
+Value *RawGpuPipelineGen::workerScopedAtomicAdd(Value *ptr, Value *inc) {
+  IRBuilder<> *Builder = context->getBuilder();
+  Value *old = Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, ptr,
+                                        inc, llvm::AtomicOrdering::Monotonic);
+  return old;
+}
+
+Value *RawGpuPipelineGen::workerScopedAtomicXchg(Value *ptr, Value *val) {
+  IRBuilder<> *Builder = context->getBuilder();
+  Value *old = Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg, ptr,
+                                        val, llvm::AtomicOrdering::Monotonic);
+  return old;
+}
+
 extern "C" {
 void *getPipKernel(RawPipelineGen *pip) { return pip->getKernel(); };
 

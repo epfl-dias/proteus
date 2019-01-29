@@ -511,6 +511,22 @@ RawPipeline *RawPipelineGen::getPipeline(int group_id) {
       execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);
 }
 
+llvm::Value *RawPipelineGen::workerScopedAtomicAdd(llvm::Value *ptr,
+                                                   llvm::Value *inc) {
+  IRBuilder<> *Builder = context->getBuilder();
+  Value *old = Builder->CreateLoad(ptr);
+  Builder->CreateStore(Builder->CreateAdd(old, inc), ptr);
+  return old;
+}
+
+llvm::Value *RawPipelineGen::workerScopedAtomicXchg(llvm::Value *ptr,
+                                                    llvm::Value *val) {
+  IRBuilder<> *Builder = context->getBuilder();
+  Value *old = Builder->CreateLoad(ptr);
+  Builder->CreateStore(val, ptr);
+  return old;
+}
+
 RawPipeline::RawPipeline(
     void *f, size_t state_size, RawPipelineGen *gen, StructType *state_type,
     const std::vector<std::pair<const void *, std::function<opener_t>>>

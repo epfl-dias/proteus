@@ -112,6 +112,11 @@ class GpuRawContext : public RawContext {
     generators.back()->setCurrentEntryBlock(codeEntry);
   }
 
+  virtual llvm::Value *workerScopedAtomicAdd(llvm::Value *ptr,
+                                             llvm::Value *inc);
+  virtual llvm::Value *workerScopedAtomicXchg(llvm::Value *ptr,
+                                              llvm::Value *val);
+
   virtual llvm::Value *allocateStateVar(llvm::Type *t);
   virtual void deallocateStateVar(llvm::Value *v);
 

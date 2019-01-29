@@ -183,6 +183,11 @@ class RawPipelineGen {
 
   static void init();
 
+  virtual llvm::Value *workerScopedAtomicAdd(llvm::Value *ptr,
+                                             llvm::Value *inc);
+  virtual llvm::Value *workerScopedAtomicXchg(llvm::Value *ptr,
+                                              llvm::Value *val);
+
  protected:
   virtual void registerSubPipeline();
   virtual size_t prepareStateArgument();

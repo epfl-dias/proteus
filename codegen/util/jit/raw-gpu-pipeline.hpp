@@ -74,6 +74,11 @@ class RawGpuPipelineGen : public RawPipelineGen {
                                                std::vector<bool> readonly,
                                                std::vector<bool> noalias) const;
 
+  virtual llvm::Value *workerScopedAtomicAdd(llvm::Value *ptr,
+                                             llvm::Value *inc);
+  virtual llvm::Value *workerScopedAtomicXchg(llvm::Value *ptr,
+                                              llvm::Value *val);
+
  protected:
   virtual size_t prepareStateArgument();
   virtual llvm::Value *getStateLLVMValue();

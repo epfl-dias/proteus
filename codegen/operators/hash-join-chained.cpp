@@ -26,51 +26,39 @@
 #include "operators/gpu/gmonoids.hpp"
 #include "util/raw-memory-manager.hpp"
 
-HashJoinChained::HashJoinChained(
-    const std::vector<GpuMatExpr> &build_mat_exprs,
-    const std::vector<size_t> &build_packet_widths, expression_t build_keyexpr,
-    RawOperator *const build_child,
+HashJoinChained::HashJoinChained(const std::vector<GpuMatExpr> &build_mat_exprs,
+                                 const std::vector<size_t> &build_packet_widths,
+                                 expression_t build_keyexpr,
+                                 RawOperator *const build_child,
 
-    const std::vector<GpuMatExpr> &probe_mat_exprs,
-    const std::vector<size_t> &probe_mat_packet_widths,
-    expression_t probe_keyexpr, RawOperator *const probe_child,
+                                 const std::vector<GpuMatExpr> &probe_mat_exprs,
+                                 const std::vector<size_t> &probe_packet_widths,
+                                 expression_t probe_keyexpr,
+                                 RawOperator *const probe_child,
 
-    int hash_bits,
+                                 int hash_bits,
 
-    GpuRawContext *context, size_t maxBuildInputSize, string opLabel)
-    : build_mat_exprs(build_mat_exprs),
+                                 GpuRawContext *context,
+                                 size_t maxBuildInputSize, string opLabel)
+    : BinaryRawOperator(build_child, probe_child),
+      build_mat_exprs(build_mat_exprs),
       probe_mat_exprs(probe_mat_exprs),
       build_packet_widths(build_packet_widths),
       build_keyexpr(std::move(build_keyexpr)),
       probe_keyexpr(std::move(probe_keyexpr)),
       hash_bits(hash_bits),
-      BinaryRawOperator(build_child, probe_child),
-      context(context),
       maxBuildInputSize(maxBuildInputSize),
-      opLabel(opLabel) {
-  // build_mat = new GpuExprMaterializer(build_mat_exprs,
-  //                                     build_packet_widths,
-  //                                     build_child,
-  //                                     context,
-  //                                     "join_build");
-
-  // probe_mat = new GpuExprMaterializer(probe_mat_exprs,
-  //                                     probe_mat_packet_widths,
-  //                                     probe_child,
-  //                                     context,
-  //                                     "join_probe");
-}
+      context(context),
+      opLabel(opLabel) {}
 
 void HashJoinChained::produce() {
   context->pushPipeline();  // FIXME: find a better way to do this
   buildHashTableFormat();
 
-  ((GpuRawContext *)context)->registerOpen(this, [this](RawPipeline *pip) {
-    this->open_build(pip);
-  });
-  ((GpuRawContext *)context)->registerClose(this, [this](RawPipeline *pip) {
-    this->close_build(pip);
-  });
+  context->registerOpen(this,
+                        [this](RawPipeline *pip) { this->open_build(pip); });
+  context->registerClose(this,
+                         [this](RawPipeline *pip) { this->close_build(pip); });
   getLeftChild()->produce();
 
   // context->compileAndLoad(); //FIXME: Remove!!!! causes an extra compilation!
@@ -80,16 +68,21 @@ void HashJoinChained::produce() {
 
   probeHashTableFormat();
 
-  ((GpuRawContext *)context)->registerOpen(this, [this](RawPipeline *pip) {
-    this->open_probe(pip);
-  });
-  ((GpuRawContext *)context)->registerClose(this, [this](RawPipeline *pip) {
-    this->close_probe(pip);
-  });
+  context->registerOpen(this,
+                        [this](RawPipeline *pip) { this->open_probe(pip); });
+  context->registerClose(this,
+                         [this](RawPipeline *pip) { this->close_probe(pip); });
   getRightChild()->produce();
 }
 
 void HashJoinChained::consume(RawContext *const context,
+                              const OperatorState &childState) {
+  GpuRawContext *const ctx = dynamic_cast<GpuRawContext *const>(context);
+  assert(ctx);
+  consume(ctx, childState);
+}
+
+void HashJoinChained::consume(GpuRawContext *const context,
                               const OperatorState &childState) {
   const RawOperator &caller = childState.getProducer();
 
@@ -129,8 +122,7 @@ void HashJoinChained::probeHashTableFormat() {
         ++packind;
       }
 
-      const ExpressionType *out_type =
-          build_mat_exprs[i].expr.getExpressionType();
+      auto out_type = build_mat_exprs[i].expr.getExpressionType();
 
       Type *llvm_type = out_type->getLLVMType(context->getLLVMContext());
 
@@ -244,62 +236,35 @@ Value *HashJoinChained::hash(expression_t exprs, RawContext *const context,
   return context->getBuilder()->CreateURem(hash, size);
 }
 
-void HashJoinChained::generate_build(RawContext *const context,
+void HashJoinChained::generate_build(GpuRawContext *context,
                                      const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-  // PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
-  // Type *int8_type = Type::getInt8Ty(llvmContext);
-  // PointerType *void_ptr_type = PointerType::get(int8_type, 0);
-  // Type *int64_type = Type::getInt64Ty(llvmContext);
-  // Type *int32_type = Type::getInt32Ty(llvmContext);
-
-  Value *out_cnt = ((const GpuRawContext *)context)->getStateVar(cnt_param_id);
+  Value *out_cnt = context->getStateVar(cnt_param_id);
   out_cnt->setName(opLabel + "_cnt_ptr");
 
-  Value *head_ptr =
-      ((const GpuRawContext *)context)->getStateVar(head_param_id);
+  Value *head_ptr = context->getStateVar(head_param_id);
   head_ptr->setName(opLabel + "_head_ptr");
 
   Value *hash = HashJoinChained::hash(build_keyexpr, context, childState);
 
   // TODO: consider using just the object id as the index, instead of the atomic
   // index
-  // Value * old_cnt  =
-  // Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add,
-  //                                             out_cnt,
-  //                                             ConstantInt::get(out_cnt->getType()->getPointerElementType(),
-  //                                             1),
-  //                                             llvm::AtomicOrdering::Monotonic);
-  Value *old_cnt = Builder->CreateLoad(out_cnt);
-  Builder->CreateStore(
-      Builder->CreateAdd(
-          old_cnt,
-          ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1)),
-      out_cnt);
-
+  Value *old_cnt = context->workerScopedAtomicAdd(
+      out_cnt,
+      ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1));
   old_cnt->setName("index");
 
   // old_head = head[index]
-  // Value * old_head =
-  // Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg,
-  //                                             Builder->CreateInBoundsGEP(head_ptr,
-  //                                             hash), old_cnt,
-  //                                             llvm::AtomicOrdering::Monotonic);
-  Value *old_head =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(head_ptr, hash));
-  Builder->CreateStore(old_cnt, Builder->CreateInBoundsGEP(head_ptr, hash));
-
+  Value *old_head = context->workerScopedAtomicXchg(
+      Builder->CreateInBoundsGEP(head_ptr, hash), old_cnt);
   old_head->setName("old_head");
 
   std::vector<Value *> out_ptrs;
   std::vector<Value *> out_vals;
 
   for (size_t i = 0; i < out_param_ids.size(); ++i) {
-    Value *out_ptr =
-        ((const GpuRawContext *)context)->getStateVar(out_param_ids[i]);
+    Value *out_ptr = context->getStateVar(out_param_ids[i]);
     if (out_param_ids.size() != 1) {
       out_ptr->setName(opLabel + "_data" + std::to_string(i) + "_ptr");
     } else {
@@ -326,14 +291,14 @@ void HashJoinChained::generate_build(RawContext *const context,
   }
 
   for (size_t i = 0; i < out_ptrs.size(); ++i) {
-    // Builder->CreateStore(out_vals[i], out_ptrs[i]);
-    std::cout << build_packet_widths[i] << std::endl;
-    Builder->CreateAlignedStore(out_vals[i], out_ptrs[i],
-                                build_packet_widths[i] / 8);
+    Builder->CreateStore(out_vals[i], out_ptrs[i]);
+
+    // Builder->CreateAlignedStore(out_vals[i], out_ptrs[i],
+    //                             build_packet_widths[i] / 8);
   }
 }
 
-void HashJoinChained::generate_probe(RawContext *const context,
+void HashJoinChained::generate_probe(GpuRawContext *context,
                                      const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -348,32 +313,22 @@ void HashJoinChained::generate_probe(RawContext *const context,
   BasicBlock *insBB = Builder->GetInsertBlock();
 
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
-  Value *head_ptr =
-      ((const GpuRawContext *)context)->getStateVar(probe_head_param_id);
+  Value *head_ptr = context->getStateVar(probe_head_param_id);
   head_ptr->setName(opLabel + "_head_ptr");
-
-  std::vector<Value *> in_data_ptr;
-  for (size_t i = 0; i < in_param_ids.size(); ++i) {
-    Value *in_ptr =
-        ((const GpuRawContext *)context)->getStateVar(in_param_ids[i]);
-    if (in_param_ids.size() != 1) {
-      in_ptr->setName(opLabel + "_data" + std::to_string(i) + "_ptr");
-    } else {
-      in_ptr->setName(opLabel + "_data_ptr");
-    }
-    // in_ptrs.push_back(in_ptr);
-
-    in_data_ptr.push_back(in_ptr);
-  }
 
   Builder->SetInsertPoint(insBB);
 
+  ExpressionGeneratorVisitor exprGenerator(context, childState);
+  RawValue keyWrapper = probe_keyexpr.accept(exprGenerator);
   Value *hash = HashJoinChained::hash(probe_keyexpr, context, childState);
 
   // current = head[hash(key)]
-  Value *current = Builder->CreateAlignedLoad(
-      Builder->CreateInBoundsGEP(head_ptr, hash),
-      context->getSizeOf(head_ptr->getType()->getPointerElementType()));
+  size_t s = context->getSizeOf(head_ptr->getType()->getPointerElementType());
+  // Value * current =
+  // Builder->CreateAlignedLoad(Builder->CreateInBoundsGEP(head_ptr, hash), s &
+  // -s);
+  Value *current =
+      Builder->CreateLoad(Builder->CreateInBoundsGEP(head_ptr, hash));
   current->setName("current");
 
   AllocaInst *mem_current = context->CreateEntryBlockAlloca(
@@ -388,9 +343,6 @@ void HashJoinChained::generate_probe(RawContext *const context,
   BasicBlock *ThenBB =
       BasicBlock::Create(llvmContext, "chainFollow", TheFunction);
   BasicBlock *MergeBB = BasicBlock::Create(llvmContext, "cont", TheFunction);
-
-  ExpressionGeneratorVisitor exprGenerator(context, childState);
-  RawValue keyWrapper = probe_keyexpr.accept(exprGenerator);
 
   Builder->CreateBr(CondBB);
 
@@ -410,12 +362,20 @@ void HashJoinChained::generate_probe(RawContext *const context,
   std::vector<Value *> in_ptrs;
   std::vector<Value *> in_vals;
   for (size_t i = 0; i < in_param_ids.size(); ++i) {
-    in_ptrs.push_back(Builder->CreateInBoundsGEP(
-        in_data_ptr[i], Builder->CreateLoad(mem_current)));
-    in_vals.push_back(Builder->CreateAlignedLoad(
-        in_ptrs.back(),
-        context->getSizeOf(
-            in_ptrs.back()->getType()->getPointerElementType())));
+    Value *in_ptr = context->getStateVar(in_param_ids[i]);
+    if (in_param_ids.size() != 1) {
+      in_ptr->setName(opLabel + "_data" + std::to_string(i) + "_ptr");
+    } else {
+      in_ptr->setName(opLabel + "_data_ptr");
+    }
+    // in_ptrs.push_back(in_ptr);
+
+    in_ptrs.push_back(
+        Builder->CreateInBoundsGEP(in_ptr, Builder->CreateLoad(mem_current)));
+    size_t s =
+        context->getSizeOf(in_ptrs.back()->getType()->getPointerElementType());
+    // in_vals.push_back(Builder->CreateAlignedLoad(in_ptrs.back(), s & -s));
+    in_vals.push_back(Builder->CreateLoad(in_ptrs.back()));
   }
 
   Value *next = Builder->CreateExtractValue(in_vals[0], 0);
@@ -423,8 +383,6 @@ void HashJoinChained::generate_probe(RawContext *const context,
 
   Builder->CreateStore(next, mem_current);
 
-  // Value * match_condition = Builder->CreateICmpEQ(keyWrapper.value,
-  // build_key); //FIXME replace with EQ expression to support multiple types!
   ExpressionGeneratorVisitor eqGenerator{context, childState};
   expressions::RawValueExpression build_expr{
       probe_keyexpr.getExpressionType(),
@@ -452,8 +410,33 @@ void HashJoinChained::generate_probe(RawContext *const context,
 
     RawValueMemory mem_valWrapper;
     mem_valWrapper.mem = mem_arg;
-    mem_valWrapper.isNull = keyWrapper.isNull;
+    mem_valWrapper.isNull = context->createFalse();  // FIMXE: is this correct ?
     (*allJoinBindings)[probe_keyexpr.getRegisteredAs()] = mem_valWrapper;
+  }
+
+  if (probe_keyexpr.getExpressionType()->getTypeID() == RECORD) {
+    auto rc = dynamic_cast<const expressions::RecordConstruction *>(
+        probe_keyexpr.getUnderlyingExpression());
+
+    size_t i = 0;
+    for (const auto &a : rc->getAtts()) {
+      auto e = a.getExpression();
+      if (e.isRegistered()) {
+        Value *d = Builder->CreateExtractValue(keyWrapper.value, i);
+
+        AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
+            TheFunction, "mem_" + e.getRegisteredAttrName(), d->getType());
+
+        Builder->CreateStore(d, mem_arg);
+
+        RawValueMemory mem_valWrapper;
+        mem_valWrapper.mem = mem_arg;
+        mem_valWrapper.isNull =
+            context->createFalse();  // FIMXE: is this correct ?
+        (*allJoinBindings)[e.getRegisteredAs()] = mem_valWrapper;
+      }
+      ++i;
+    }
   }
 
   if (build_keyexpr.isRegistered()) {
@@ -467,6 +450,31 @@ void HashJoinChained::generate_probe(RawContext *const context,
     mem_valWrapper.mem = mem_arg;
     mem_valWrapper.isNull = context->createFalse();  // FIMXE: is this correct ?
     (*allJoinBindings)[build_keyexpr.getRegisteredAs()] = mem_valWrapper;
+  }
+
+  if (build_keyexpr.getExpressionType()->getTypeID() == RECORD) {
+    auto rc = dynamic_cast<const expressions::RecordConstruction *>(
+        build_keyexpr.getUnderlyingExpression());
+
+    size_t i = 0;
+    for (const auto &a : rc->getAtts()) {
+      auto e = a.getExpression();
+      if (e.isRegistered()) {
+        Value *d = Builder->CreateExtractValue(build_key, i);
+
+        AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
+            TheFunction, "mem_" + e.getRegisteredAttrName(), d->getType());
+
+        Builder->CreateStore(d, mem_arg);
+
+        RawValueMemory mem_valWrapper;
+        mem_valWrapper.mem = mem_arg;
+        mem_valWrapper.isNull =
+            context->createFalse();  // FIMXE: is this correct ?
+        (*allJoinBindings)[e.getRegisteredAs()] = mem_valWrapper;
+      }
+      ++i;
+    }
   }
 
   // //from probe side
@@ -595,49 +603,9 @@ void HashJoinChained::generate_probe(RawContext *const context,
 
   // TheFunction->getBasicBlockList().push_back(MergeBB);
   Builder->SetInsertPoint(MergeBB);
-
-  // ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline *
-  // pip){this->open_probe (pip);});
-  // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline *
-  // pip){this->close_probe(pip);});
 }
 
-// void HashJoinChained::open_build(RawPipeline * pip){
-//     std::cout << "HashJoinChained::open::build_" << pip->getGroup() <<
-//     std::endl; std::vector<void *> next_w_values;
-
-//     uint32_t * head = (uint32_t *)
-//     RawMemoryManager::mallocGpu(sizeof(uint32_t) * (1 << hash_bits) +
-//     sizeof(int32_t)); int32_t  * cnt  = (int32_t *) (head + (1 <<
-//     hash_bits));
-
-//     cudaStream_t strm;
-//     gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
-//     gpu_run(cudaMemsetAsync(head, -1, sizeof(uint32_t) * (1 << hash_bits),
-//     strm)); gpu_run(cudaMemsetAsync( cnt,  0, sizeof( int32_t) , strm));
-
-//     for (const auto &w: build_packet_widths){
-//         next_w_values.emplace_back(RawMemoryManager::mallocGpu((w/8) *
-//         maxBuildInputSize));
-//     }
-
-//     pip->setStateVar(head_param_id, head);
-//     pip->setStateVar(cnt_param_id , cnt );
-
-//     for (size_t i = 0 ; i < build_packet_widths.size() ; ++i){
-//         pip->setStateVar(out_param_ids[i], next_w_values[i]);
-//     }
-
-//     next_w_values.emplace_back(head);
-//     confs.emplace(pip->getGroup(), next_w_values);
-
-//     gpu_run(cudaStreamSynchronize(strm));
-//     gpu_run(cudaStreamDestroy(strm));
-//     std::cout << "HashJoinChained::open::build2" << std::endl;
-// }
-
 void HashJoinChained::open_build(RawPipeline *pip) {
-  std::cout << "HashJoinChained::open::build_" << pip->getGroup() << std::endl;
   std::vector<void *> next_w_values;
 
   uint32_t *head =
@@ -665,11 +633,9 @@ void HashJoinChained::open_build(RawPipeline *pip) {
 
   // gpu_run(cudaStreamSynchronize(strm));
   // gpu_run(cudaStreamDestroy(strm));
-  std::cout << "HashJoinChained::open::build2" << std::endl;
 }
 
 void HashJoinChained::open_probe(RawPipeline *pip) {
-  std::cout << "HashJoinChained::open::build_" << pip->getGroup() << std::endl;
   std::vector<void *> next_w_values = confs[pip->getGroup()];
   uint32_t *head = (uint32_t *)next_w_values.back();
 
@@ -680,21 +646,15 @@ void HashJoinChained::open_probe(RawPipeline *pip) {
   for (size_t i = 0; i < build_packet_widths.size(); ++i) {
     pip->setStateVar(in_param_ids[i], next_w_values[i]);
   }
-  std::cout << "HashJoinChained::open::probe2" << std::endl;
 }
 
 void HashJoinChained::close_build(RawPipeline *pip) {
-  std::cout << "HashJoinChained::close::build_" << pip->getGroup() << std::endl;
   int32_t h_cnt;
   memcpy(&h_cnt, pip->getStateVar<int32_t *>(cnt_param_id), sizeof(int32_t));
   assert(((size_t)h_cnt) <= maxBuildInputSize &&
          "Build input sized exceeded given parameter");
-  std::cout << "HashJoinChained::close::build2" << std::endl;
 }
 
 void HashJoinChained::close_probe(RawPipeline *pip) {
-  std::cout << "HashJoinChained::close::probe_" << pip->getGroup() << std::endl;
-
   for (const auto &p : confs[pip->getGroup()]) free(p);
-  std::cout << "HashJoinChained::close::probe2" << std::endl;
 }

@@ -480,3 +480,13 @@ llvm::Value *GpuRawContext::allocateStateVar(llvm::Type *t) {
 void GpuRawContext::deallocateStateVar(llvm::Value *v) {
   return generators.back()->deallocateStateVar(v);
 }
+
+llvm::Value *GpuRawContext::workerScopedAtomicAdd(llvm::Value *ptr,
+                                                  llvm::Value *inc) {
+  return generators.back()->workerScopedAtomicAdd(ptr, inc);
+}
+
+llvm::Value *GpuRawContext::workerScopedAtomicXchg(llvm::Value *ptr,
+                                                   llvm::Value *val) {
+  return generators.back()->workerScopedAtomicXchg(ptr, val);
+}
