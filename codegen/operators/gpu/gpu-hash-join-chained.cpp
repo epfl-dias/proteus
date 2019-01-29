@@ -30,13 +30,9 @@ GpuHashJoinChained::GpuHashJoinChained(
     const std::vector<GpuMatExpr> &build_mat_exprs,
     const std::vector<size_t> &build_packet_widths, expression_t build_keyexpr,
     RawOperator *const build_child,
-
     const std::vector<GpuMatExpr> &probe_mat_exprs,
     const std::vector<size_t> &probe_mat_packet_widths,
-    expression_t probe_keyexpr, RawOperator *const probe_child,
-
-    int hash_bits,
-
+    expression_t probe_keyexpr, RawOperator *const probe_child, int hash_bits,
     GpuRawContext *context, size_t maxBuildInputSize, string opLabel)
     : build_mat_exprs(build_mat_exprs),
       probe_mat_exprs(probe_mat_exprs),
@@ -65,12 +61,10 @@ void GpuHashJoinChained::produce() {
   context->pushPipeline();  // FIXME: find a better way to do this
   buildHashTableFormat();
 
-  ((GpuRawContext *)context)->registerOpen(this, [this](RawPipeline *pip) {
-    this->open_build(pip);
-  });
-  ((GpuRawContext *)context)->registerClose(this, [this](RawPipeline *pip) {
-    this->close_build(pip);
-  });
+  context->registerOpen(this,
+                        [this](RawPipeline *pip) { this->open_build(pip); });
+  context->registerClose(this,
+                         [this](RawPipeline *pip) { this->close_build(pip); });
   getLeftChild()->produce();
 
   // context->compileAndLoad(); //FIXME: Remove!!!! causes an extra compilation!
@@ -80,12 +74,10 @@ void GpuHashJoinChained::produce() {
 
   probeHashTableFormat();
 
-  ((GpuRawContext *)context)->registerOpen(this, [this](RawPipeline *pip) {
-    this->open_probe(pip);
-  });
-  ((GpuRawContext *)context)->registerClose(this, [this](RawPipeline *pip) {
-    this->close_probe(pip);
-  });
+  context->registerOpen(this,
+                        [this](RawPipeline *pip) { this->open_probe(pip); });
+  context->registerClose(this,
+                         [this](RawPipeline *pip) { this->close_probe(pip); });
   getRightChild()->produce();
 }
 
@@ -128,8 +120,7 @@ void GpuHashJoinChained::probeHashTableFormat() {
         ++packind;
       }
 
-      const ExpressionType *out_type =
-          build_mat_exprs[i].expr.getExpressionType();
+      auto out_type = build_mat_exprs[i].expr.getExpressionType();
 
       Type *llvm_type = out_type->getLLVMType(context->getLLVMContext());
 

@@ -225,16 +225,10 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
   uint32_t cores = topo.getCoreCount();
 
   {
-    // FIXME: Generalize
-    uint32_t cpu_numa_nodes = topo.getCpuNumaNodeCount();
     uint32_t max_numa_id = 0;
     for (const auto &n : topo.getCpuNumaNodes()) {
       max_numa_id = std::max(max_numa_id, n.id);
     }
-
-    // std::cout << "CPU numa nodes : " << cpu_numa_nodes << std::endl;
-    // std::cout << "CPU cores      : " << cores << std::endl;
-    // std::cout << "GPU devices    : " << devices << std::endl;
 
     terminating = false;
     device_buffs_mutex = new mutex[devices];
@@ -259,112 +253,6 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
 
     buffer_cache.clear();
   }
-
-  // gpu_run(cudaMallocHost(&tmp, device_buff_size*sizeof(buffer_t *)*devices));
-  // for (int i = 0 ; i < devices ; ++i) {
-  // device_buff[i] = tmp + device_buff_size*sizeof(buffer_t *)*i;
-  // }
-
-  // gpu_run(nvmlInit());
-  // unsigned int device_count = 0;
-  // gpu_run(nvmlDeviceGetCount(&device_count));
-  // assert(device_count == devices && "NMVL disagrees with cuda about the
-  // number of GPUs");
-
-  // gpu_affinity       = new cpu_set_t[devices];
-  // cpu_numa_affinity  = new cpu_set_t[cpu_numa_nodes];
-  // gpu_numa_node      = new int      [devices];
-
-  // for (int j = 0 ; j < devices        ; ++j) CPU_ZERO(&gpu_affinity[j]);
-  // for (int j = 0 ; j < cpu_numa_nodes ; ++j) CPU_ZERO(&cpu_numa_affinity[j]);
-
-  // for (int j = 0 ; j < devices        ; ++j) std::cout << gpu_affinity[j] <<
-  // std::endl; for (int j = 0 ; j < cpu_numa_nodes ; ++j) std::cout <<
-  // cpu_numa_affinity[j] << std::endl;
-
-  // diascld36
-  // //FIXME: Generalize
-  // for (int i = 0 ; i < 48 ; i += 2) CPU_SET(i, &gpu_affinity[0]);
-  // for (int i = 1 ; i < 48 ; i += 2) CPU_SET(i, &gpu_affinity[1]);
-
-  // //FIXME: Generalize
-  // cpu_numa_affinity  = new cpu_set_t[cpu_numa_nodes];
-  // for (int i = 0 ; i < 48 ; i += 2) CPU_SET(i, &cpu_numa_affinity[0]);
-  // for (int i = 1 ; i < 48 ; i += 2) CPU_SET(i, &cpu_numa_affinity[1]);
-
-  //     for (int j = 0 ; j < devices ; ++j){
-  // #ifndef NCUDA
-  //         int sets = ((cores + 63) / 64);
-  //         uint64_t cpuSet[sets];
-  //         for (int i = 0 ; i < sets ; ++i) cpuSet[i] = 0;
-  //         nvmlDevice_t device;
-
-  //         nvmlDeviceGetHandleByIndex(j, &device);
-  //         nvmlDeviceGetCpuAffinity(device, sets, cpuSet);
-  //         for (int i = 0 ; i < sets ; ++i){
-  //             for (int k = 0 ; k < 64 ; ++k){
-  //                 if ((cpuSet[i] >> k) & 1){
-  //                     std::cout << "d" << j << " " << (64 * i + k) <<
-  //                     std::endl; CPU_SET(64 * i + k, &gpu_affinity[j]);
-  //                 }
-  //             }
-  //         }
-  // #else
-  //         assert(false);
-  // #endif
-  //     }
-
-  // for (int j = 0 ; j < devices        ; ++j) std::cout << gpu_affinity[j] <<
-  // std::endl; for (int j = 0 ; j < cpu_numa_nodes ; ++j) std::cout <<
-  // cpu_numa_affinity[j] << std::endl;
-
-  // num_of_gpus = devices;
-  // num_of_cpus = 0;
-
-  // std::cout << devices << std::endl;
-  // std::cout << cores   << std::endl;
-
-  // for (int j = 0 ; j < cores ; ++j){
-  //     std::cout << j << " " << numa_node_of_cpu(j) << std::endl;
-  //     CPU_SET(j, &cpu_numa_affinity[numa_node_of_cpu(j)]);
-  // }
-
-  // for (int j = 0 ; j < cpu_numa_nodes ; ++j){
-  //     std::cout << cpu_numa_affinity[j] << std::endl;
-  //     if (CPU_COUNT(&cpu_numa_affinity[j]) > 0) ++num_of_cpus;
-  // }
-
-  // numa_node_of_cpu must be set prior to this
-  // for (int j = 0 ; j < devices        ; ++j) gpu_numa_node[j] =
-  // calc_numa_node_of_gpu(j);
-
-  // for (int i = 0 ; i < cores ; ++i){
-  //     std::cout << "CPU " << i << " local to GPU ";
-  //     for (int j = 0 ; j < devices ; ++j){
-  //         if (CPU_ISSET(i, &gpu_affinity[j])) std::cout << j;
-  //     }
-  //     std::cout << std::endl;
-  // }
-
-  // for (int i = 0 ; i < cores ; ++i){
-  //     std::cout << "CPU " << i << " local to NUMA ";
-  //     for (int j = 0 ; j < cpu_numa_nodes ; ++j){
-  //         if (CPU_ISSET(i, &cpu_numa_affinity[j])) std::cout << j;
-  //     }
-  //     std::cout << std::endl;
-  // }
-
-  // // diascld37
-  // //FIXME: Generalize
-  // for (int i = 0  ; i < 14 ; ++i) CPU_SET(i, &gpu_affinity[0]);
-  // for (int i = 0  ; i < 14 ; ++i) CPU_SET(i, &gpu_affinity[1]);
-  // for (int i = 14 ; i < 28 ; ++i) CPU_SET(i, &gpu_affinity[2]);
-  // for (int i = 14 ; i < 28 ; ++i) CPU_SET(i, &gpu_affinity[3]);
-
-  // FIXME: Generalize
-  // cpu_numa_affinity  = new cpu_set_t[cpu_numa_nodes];
-  // for (int i = 0  ; i < 14 ; ++i) CPU_SET(i, &cpu_numa_affinity[0]);
-  // for (int i = 14 ; i < 28 ; ++i) CPU_SET(i, &cpu_numa_affinity[1]);
 
   mutex buff_cache;
 
@@ -569,8 +457,6 @@ __host__ void buffer_manager<T>::destroy() {
     assert(false);
 #endif
   }
-
-  size_t h_size = buffer_manager<T>::h_size;
 
   for (const auto &cpu : topo.getCpuNumaNodes()) {
     buffer_pool_constrs.emplace_back([cpu] {

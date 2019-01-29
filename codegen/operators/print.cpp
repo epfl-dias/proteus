@@ -28,63 +28,15 @@ void Print::produce() { getChild()->produce(); }
 void Print::consume(RawContext *const context,
                     const OperatorState &childState) {
   IRBuilder<> *TheBuilder = context->getBuilder();
-  vector<Value *> ArgsV;
-
-  const map<RecordAttribute, RawValueMemory> &activeVars =
-      childState.getBindings();
-  LOG(INFO) << "[Print:] Printing variable " << arg->getProjectionName();
-  //    cout << "[Print:] Printing variable " << arg->getRelationName() << "."
-  //    << arg->getProjectionName();
-
-  map<RecordAttribute, RawValueMemory>::const_iterator it = activeVars.begin();
-
-#ifdef DEBUG
-  for (; it != activeVars.end(); it++) {
-    RecordAttribute attr = it->first;
-    cout << "Original relname: " << attr.getOriginalRelationName() << endl;
-    cout << "Current relname: " << attr.getRelationName() << endl;
-    cout << "Attribute name: " << attr.getAttrName() << endl;
-    cout << "---" << endl;
-  }
-#endif
-
-  // Load argument of print
-  //    AllocaInst* mem_value = NULL;
-  //    {
-  //        string relName = arg->getOriginalRelationName();
-  //        /*Active Tuple not always of same type
-  //          => Deprecated Constructor            */
-  //        RecordAttribute attr = RecordAttribute(relName,activeLoop);
-  //
-  //        map<RecordAttribute, RawValueMemory>::const_iterator it;
-  //        it = activeVars.find(attr);
-  //        if(it == activeVars.end())    {
-  //            string error_msg = string("[PrintOp: ] Wrong handling of active
-  //            tuple"); LOG(ERROR) << error_msg; throw
-  //            runtime_error(error_msg);
-  //        }
-  //        mem_value = (it->second).mem;
-  //    }
-
-#ifdef DEBUG
-//        Value* value = TheBuilder->CreateLoad(mem_value);
-//        ArgsV.push_back(value);
-//        Function* debugInt = context->getFunction("printi64");
-//        TheBuilder->CreateCall(debugInt, ArgsV);
-#endif
 
   // Generate condition
-  ExpressionGeneratorVisitor exprGenerator =
-      ExpressionGeneratorVisitor(context, childState);
+  ExpressionGeneratorVisitor exprGenerator{context, childState};
   RawValue toPrint = arg->accept(exprGenerator);
 
   // Call print
-
-  ArgsV.clear();
-  ArgsV.push_back(toPrint.value);
-  TheBuilder->CreateCall(print, ArgsV);
+  TheBuilder->CreateCall(print, toPrint.value);
 
   // Trigger parent
-  OperatorState *newState = new OperatorState(*this, childState.getBindings());
-  getParent()->consume(context, *newState);
+  OperatorState newState{*this, childState.getBindings()};
+  getParent()->consume(context, newState);
 }
