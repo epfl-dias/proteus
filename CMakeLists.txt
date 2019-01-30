@@ -178,10 +178,53 @@ execute_process(COMMAND ${CMAKE_INSTALL_PREFIX}/bin/llvm-config --libs ${LLVM_CO
 # CUDA
 find_program(HAS_NVCC nvcc)
 if(HAS_NVCC)
+	# Detect and setup the NVCC architectures
+	execute_process(COMMAND nvidia-smi --query-gpu=index,gpu_name --format=csv OUTPUT_VARIABLE _NVIDIA_SMI OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+	# Transform the multiline string into a list
+	string(REGEX REPLACE "[\n]" ";" _NVIDIA_SMI "${_NVIDIA_SMI}")
+
+	# Remove the table header from the list
+	string(REGEX REPLACE [[[^;]*name[^;]*;]] ";" _NVIDIA_SMI "${_NVIDIA_SMI}")
+
+	# Create list of GPUs names
+	foreach(line ${_NVIDIA_SMI})
+		string(REGEX REPLACE [[^[^,]*, ]] "" line "${line}")
+		list(APPEND _NVCC_GPUS ${line})
+	endforeach(line)
+
+	# Create list of unique architetures
+	# See https://developer.nvidia.com/cuda-gpus for a reference table
+	foreach(line ${_NVCC_GPUS})
+		set(tmp "${line}")
+		string(REGEX REPLACE [[GeForce GTX 980]] "52" tmp "${tmp}")
+		string(REGEX REPLACE [[GeForce GTX 1080]] "61" tmp "${tmp}")
+		#string(REGEX REPLACE [[Tesla V100-SXM2-32GB]] "70" line "${tmp}")
+
+		# If no match for the replace is found, tmp equals line.
+		# When this the case, tmp does not contain a GPU architecture code.
+		if("${tmp}" STREQUAL "${line}")
+			message(FATAL_ERROR "Unsupported GPU detected: ${line}")
+		endif()
+
+		list(APPEND _NVCC_ARCHS ${tmp})
+	endforeach(line)
+
+	list(REMOVE_DUPLICATES _NVCC_ARCHS)
+
+	# Create arguments for nvcc and clang
+	foreach(line ${_NVCC_ARCHS})
+		list(APPEND CUDA_CXX_ARCHS "--cuda-gpu-arch=sm_${line}")
+		list(APPEND CUDA_CU_ARCHS -gencode arch=compute_${line},\\"code=sm_${line},compute_${line}\\")
+	endforeach(line)
+
 	# C++ & CUDA hybrid files
 	string(STRIP "${CUDA_CXXFLAGS} -Wno-format-pedantic" CUDA_CXXFLAGS)
 	string(STRIP "${CUDA_CXXFLAGS} -x cuda" CUDA_CXXFLAGS)
-	string(STRIP "${CUDA_CXXFLAGS} --cuda-gpu-arch=sm_61" CUDA_CXXFLAGS)
+
+	# Convert the list to a string
+	string(REGEX REPLACE [[;]] " " CUDA_CXX_ARCHS "${CUDA_CXX_ARCHS}")
+	string(STRIP "${CUDA_CXXFLAGS} ${CUDA_CXX_ARCHS}" CUDA_CXXFLAGS)
 
 	# Because of how the "command" function works, we have to use a
 	# CMAKE list, and not a string for CUDA_CUFLAGS
@@ -190,7 +233,8 @@ if(HAS_NVCC)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${CMAKE_INSTALL_PREFIX}/include)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR})
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR}/codegen)
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -arch=sm_61 --std=c++11)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} ${CUDA_CU_ARCHS})
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --std=c++11)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -Xcompiler -fPIC)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --expt-relaxed-constexpr)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -O3)

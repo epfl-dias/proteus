@@ -117,7 +117,7 @@ set(CUDA_WORKDIR ${CMAKE_CURRENT_BINARY_DIR})
 
 if(NOT (${CUDA} STREQUAL "CUDA-NOTFOUND"))
     set(codegen_cu_objs
-        "buffer_manager.cubin.o"
+        "buffer-manager.fatbin.o"
         "sort-util.o"
     )
 endif()
@@ -132,23 +132,24 @@ add_custom_command(OUTPUT sort-util.o
     COMMENT "Building CUDA object ${CUDA_WORKDIR}/sort-util.o"
 )
 
-add_custom_command(OUTPUT buffer_manager.cubin
+add_custom_command(OUTPUT buffer-manager.fatbin
     COMMAND nvcc ${CUDA_CUFLAGS}
-        -dc --cubin ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
-        -o buffer_manager.cubin
+        --keep -rdc true -fatbin
+        ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
+        -o buffer-manager.fatbin
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
     IMPLICIT_DEPENDS CXX ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
     WORKING_DIRECTORY ${CUDA_WORKDIR}
-    COMMENT "Building CUDA object ${CUDA_WORKDIR}/buffer_manager.cubin"
+    COMMENT "Building CUDA object ${CUDA_WORKDIR}/buffer-manager.o"
 )
 
-add_custom_command(OUTPUT buffer_manager.cubin.o
+add_custom_command(OUTPUT buffer-manager.fatbin.o
     COMMAND ld -r -b binary
-        buffer_manager.cubin
-        -o buffer_manager.cubin.o
-    DEPENDS buffer_manager.cubin
+        buffer-manager.*.cubin
+        -o buffer-manager.fatbin.o
+    DEPENDS buffer-manager.fatbin
     WORKING_DIRECTORY ${CUDA_WORKDIR}
-    COMMENT "Linking CUDA object ${CUDA_WORKDIR}/buffer_manager.cubin.o"
+    COMMENT "Linking CUDA object ${CUDA_WORKDIR}/buffer-manager.cubin.o"
 )
 #-----------------------------------------------------------------------------
 

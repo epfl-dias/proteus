@@ -20,7 +20,8 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#include "util/jit/gpu-module.hpp"
+#include <dlfcn.h>
+
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
@@ -29,6 +30,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "topology/affinity_manager.hpp"
+#include "util/jit/gpu-module.hpp"
 
 void initializeModule(CUmodule &cudaModule);
 
@@ -191,11 +193,8 @@ void GpuModule::optimizeModule(llvm::Module *M) {
 // &_binary_device_funcs_cubin_size extern char
 // _binary_device_funcs_cubin_start[];
 
-extern char _binary_buffer_manager_cubin_end[];
-extern char
-    _binary_buffer_manager_cubin_size;  // size = (size_t)
-                                        // &_binary_buffer_manager_cubin_size
-extern char _binary_buffer_manager_cubin_start[];
+char *_binary_buffer_manager_cubin_start;
+char *_binary_buffer_manager_cubin_end;
 
 constexpr size_t BUFFER_SIZE = 8192;
 char error_log[BUFFER_SIZE];
@@ -305,6 +304,54 @@ void GpuModule::compileAndLoad() {
     values[4] = (void *)info_log;
     options[5] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
     values[5] = (void *)BUFFER_SIZE;
+
+    {  // Compute symbol name for one of the GPU architecture, and use that to
+      // retrieve the corresponding binary blob.
+      // FIXME: We assume compute and arch are equal!
+      // FIXME: Add error handling, we are generating a symbol name and
+      //        assuming it is going to be available...
+      int dev;
+      gpu_run(cudaGetDevice(&dev));
+      cudaDeviceProp deviceProp;
+      gpu_run(cudaGetDeviceProperties(&deviceProp, dev));
+      auto sm_code = std::to_string(deviceProp.major * 10 + deviceProp.minor);
+
+      auto sim_prefix = "_binary_buffer_manager_compute_" + sm_code + "_sm_" +
+                        sm_code + "_cubin_";
+      auto sim_start = sim_prefix + "start";
+      auto sim_end = sim_prefix + "end";
+
+      void *handle = dlopen(nullptr, RTLD_LAZY | RTLD_GLOBAL);
+      assert(handle);
+
+      _binary_buffer_manager_cubin_start =
+          (char *)dlsym(handle, sim_start.c_str());
+      _binary_buffer_manager_cubin_end = (char *)dlsym(handle, sim_end.c_str());
+
+      if (!_binary_buffer_manager_cubin_start) {
+        assert(!_binary_buffer_manager_cubin_start &&
+               "Only one of the symbols found!");
+        // CUDA 8.0 in RHEL does not include the compute_XX part of the
+        // string
+        auto sim_prefix = "_binary_buffer_manager_sm_" + sm_code + "_cubin_";
+        sim_start = sim_prefix + "start";
+        sim_end = sim_prefix + "end";
+
+        _binary_buffer_manager_cubin_start =
+            (char *)dlsym(handle, sim_start.c_str());
+        _binary_buffer_manager_cubin_end =
+            (char *)dlsym(handle, sim_end.c_str());
+      }
+      assert(_binary_buffer_manager_cubin_start &&
+             "cubin start symbol not found!");
+      assert(_binary_buffer_manager_cubin_end && "cubin end symbol not found!");
+
+      LOG(INFO) << "[Load CUBIN blob: ] sim_start: " << sim_start
+                << ", sim_end: " << sim_end;
+      LOG(INFO) << "[Load CUBIN blob: ] start: "
+                << (void *)_binary_buffer_manager_cubin_start
+                << ", end: " << (void *)_binary_buffer_manager_cubin_end;
+    }
 
     // size_t size = _binary_device_funcs_cubin_end -
     // _binary_device_funcs_cubin_start;
