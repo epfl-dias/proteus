@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(raw)
+project(proteus)
 
 #-----------------------------------------------------------------------
 # Which binaries to build:
@@ -261,14 +261,14 @@ set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
 
 #-----------------------------------------------------------------------
 # Define path to installed resources
-add_definitions(-DTEST_INPUTS="${CMAKE_INSTALL_PREFIX}/raw/inputs")
-add_definitions(-DTEST_OUTPUTS="${CMAKE_INSTALL_PREFIX}/raw/outputs")
+add_definitions(-DTEST_INPUTS="${CMAKE_INSTALL_PREFIX}/pelago/inputs")
+add_definitions(-DTEST_OUTPUTS="${CMAKE_INSTALL_PREFIX}/pelago/outputs")
 
 #-----------------------------------------------------------------------
 # Copy data files too in the destination folder
 #-----------------------------------------------------------------------
-install(DIRECTORY "inputs" DESTINATION ${CMAKE_INSTALL_PREFIX}/raw)			# Creates <..>/raw/inputs
-install(DIRECTORY "testResults/" DESTINATION ${CMAKE_INSTALL_PREFIX}/raw/outputs)	# Creates <..>/raw/outputs
+install(DIRECTORY "inputs" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago)			# Creates <..>/pelago/inputs
+install(DIRECTORY "testResults/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/outputs)	# Creates <..>/pelago/outputs
 
 #-----------------------------------------------------------------------
 # Build our libraries
@@ -284,10 +284,10 @@ add_subdirectory(codegen)
 # Build our executables
 #-----------------------------------------------------------------------
 foreach(target ${MAINS})
-	add_executable(raw${target} ${target}.cpp)
-	target_link_libraries(raw${target} ${default_libs})
-	install(TARGETS raw${target}
-		RUNTIME DESTINATION raw
+	add_executable(proteus${target} ${target}.cpp)
+	target_link_libraries(proteus${target} ${default_libs})
+	install(TARGETS proteus${target}
+		RUNTIME DESTINATION proteus
 		LIBRARY DESTINATION lib
 		ARCHIVE DESTINATION lib
 		)
