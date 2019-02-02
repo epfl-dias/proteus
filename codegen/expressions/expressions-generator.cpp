@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,63 +24,68 @@
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"
 
+using namespace llvm;
+
 #pragma push_macro("DEBUG")  // FIXME: REMOVE!!! used to disable prints, as they
                              // are currently undefined for the gpu side
 #undef DEBUG  // FIXME: REMOVE!!! used to disable prints, as they are currently
               // undefined for the gpu side
 
-RawValue ExpressionGeneratorVisitor::visit(const expressions::IntConstant *e) {
-  RawValue valWrapper;
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::IntConstant *e) {
+  ProteusValue valWrapper;
   valWrapper.value =
       ConstantInt::get(context->getLLVMContext(), APInt(32, e->getVal()));
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::Int64Constant *e) {
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value =
       ConstantInt::get(context->getLLVMContext(), APInt(64, e->getVal()));
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(const expressions::DateConstant *e) {
-  RawValue valWrapper;
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::DateConstant *e) {
+  ProteusValue valWrapper;
   valWrapper.value =
       ConstantInt::get(context->getLLVMContext(), APInt(64, e->getVal()));
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::FloatConstant *e) {
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value =
       ConstantFP::get(context->getLLVMContext(), APFloat(e->getVal()));
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(const expressions::BoolConstant *e) {
-  RawValue valWrapper;
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::BoolConstant *e) {
+  ProteusValue valWrapper;
   valWrapper.value =
       ConstantInt::get(context->getLLVMContext(), APInt(1, e->getVal()));
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::DStringConstant *e) {
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value =
       ConstantInt::get(context->getLLVMContext(), APInt(32, e->getVal()));
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::StringConstant *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
 
@@ -110,25 +115,25 @@ RawValue ExpressionGeneratorVisitor::visit(
                           structPtr);
 
   Value *val_strObj = TheBuilder->CreateLoad(mem_strObj);
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = val_strObj;
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::InputArgument *e) {
   IRBuilder<> *const Builder = context->getBuilder();
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   AllocaInst *argMem = NULL;
   Value *isNull;
 
   /* No caching logic here, because InputArgument generally
    * does not result in materializing / converting / etc. actions! */
   {
-    const map<RecordAttribute, RawValueMemory> &activeVars =
+    const map<RecordAttribute, ProteusValueMemory> &activeVars =
         currState.getBindings();
-    map<RecordAttribute, RawValueMemory>::const_iterator it;
+    map<RecordAttribute, ProteusValueMemory>::const_iterator it;
 
     // A previous visitor has indicated which relation is relevant
     if (activeRelation != "") {
@@ -143,7 +148,7 @@ RawValue ExpressionGeneratorVisitor::visit(
                            activeRelation + "." +
                            e->getProjections().front().getName();
         cout << activeVars.size() << endl;
-        map<RecordAttribute, RawValueMemory>::const_iterator it =
+        map<RecordAttribute, ProteusValueMemory>::const_iterator it =
             activeVars.begin();
         for (; it != activeVars.end(); it++) {
           cout << it->first.getRelationName() << "-" << it->first.getAttrName()
@@ -167,7 +172,7 @@ RawValue ExpressionGeneratorVisitor::visit(
       for (; it != projections.end(); it++) {
         /* OID info */
         if (it->getAttrName() == activeLoop) {
-          map<RecordAttribute, RawValueMemory>::const_iterator itBindings;
+          map<RecordAttribute, ProteusValueMemory>::const_iterator itBindings;
           for (itBindings = activeVars.begin(); itBindings != activeVars.end();
                itBindings++) {
             RecordAttribute currAttr = itBindings->first;
@@ -178,7 +183,7 @@ RawValue ExpressionGeneratorVisitor::visit(
               //                            cout << currAttr.getRelationName()
               //                            << "_" << currAttr.getAttrName() <<
               //                            endl;
-              RawValueMemory mem_activeTuple = itBindings->second;
+              ProteusValueMemory mem_activeTuple = itBindings->second;
               argMem = mem_activeTuple.mem;
               isNull = mem_activeTuple.isNull;
             }
@@ -215,7 +220,7 @@ RawValue ExpressionGeneratorVisitor::visit(
 
   assert(argMem && "Argument not found");
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   /* XXX Should this load be removed?? Will an optimization pass realize it is
    * not needed? */
   valWrapper.value = Builder->CreateLoad(argMem);
@@ -224,9 +229,9 @@ RawValue ExpressionGeneratorVisitor::visit(
   return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::RecordProjection *e) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   IRBuilder<> *const Builder = context->getBuilder();
   activeRelation = e->getOriginalRelationName();
   string projName = e->getProjectionName();
@@ -241,7 +246,7 @@ RawValue ExpressionGeneratorVisitor::visit(
 
     /* Must also make sure that no explicit binding exists => No duplicate work
      */
-    map<RecordAttribute, RawValueMemory>::const_iterator it =
+    map<RecordAttribute, ProteusValueMemory>::const_iterator it =
         currState.getBindings().find(e->getAttribute());
 #ifdef DEBUGCACHING
     if (it != currState.getBindings().end()) {
@@ -271,7 +276,7 @@ RawValue ExpressionGeneratorVisitor::visit(
     //}
   }
 
-  RawValue record = e->getExpr().accept(*this);
+  ProteusValue record = e->getExpr().accept(*this);
 
   // Resetting activeRelation here would break nested-record-projections
   if (plugin == NULL) {
@@ -280,8 +285,8 @@ RawValue ExpressionGeneratorVisitor::visit(
     throw runtime_error(error_msg);
   } else {
     Bindings bindings = {&currState, record};
-    RawValueMemory mem_path;
-    RawValueMemory mem_val;
+    ProteusValueMemory mem_path;
+    ProteusValueMemory mem_val;
     // cout << "Active RelationProj: " << activeRelation << "_" <<
     // e->getProjectionName() << endl;
     if (e->getProjectionName() != activeLoop) {
@@ -291,7 +296,7 @@ RawValue ExpressionGeneratorVisitor::visit(
         RecordAttribute attr = e->getAttribute();
         Value *val = exprType->projectArg(record.value, &attr, Builder);
         if (val) {
-          RawValue valWrapper;
+          ProteusValue valWrapper;
           valWrapper.value = val;
           valWrapper.isNull =
               record.isNull;  // FIXME: what if only one attribute is NULL?
@@ -310,7 +315,7 @@ RawValue ExpressionGeneratorVisitor::visit(
       Plugin *pg = catalog.getPlugin(activeRelation);
       RecordAttribute tupleIdentifier =
           RecordAttribute(activeRelation, activeLoop, pg->getOIDType());
-      map<RecordAttribute, RawValueMemory>::const_iterator it =
+      map<RecordAttribute, ProteusValueMemory>::const_iterator it =
           currState.getBindings().find(tupleIdentifier);
       if (it == currState.getBindings().end()) {
         string error_msg =
@@ -322,14 +327,14 @@ RawValue ExpressionGeneratorVisitor::visit(
     }
     mem_val = plugin->readValue(mem_path, e->getExpressionType());
     Value *val = Builder->CreateLoad(mem_val.mem);
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.value = val;
     valWrapper.isNull = mem_val.isNull;
     return valWrapper;
   }
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::RecordConstruction *e) {
   IRBuilder<> *const Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
@@ -341,17 +346,17 @@ RawValue ExpressionGeneratorVisitor::visit(
   recType->dump();
   int i = 0;
   for (const auto &attr : e->getAtts()) {
-    RawValue val = attr.getExpression().accept(*this);
+    ProteusValue val = attr.getExpression().accept(*this);
     val.value->dump();
     context->updateStructElem(val.value, mem_struct, i++);
   }
 
-  return RawValue{Builder->CreateLoad(mem_struct), context->createFalse()};
+  return ProteusValue{Builder->CreateLoad(mem_struct), context->createFalse()};
 }
 
-// RawValue ExpressionGeneratorVisitor::visit(const
+// ProteusValue ExpressionGeneratorVisitor::visit(const
 // expressions::RecordProjection *e) {
-//    RawCatalog& catalog             = RawCatalog::getInstance();
+//    Catalog& catalog             = Catalog::getInstance();
 //    IRBuilder<>* const Builder        = context->getBuilder();
 //    activeRelation                     = e->getOriginalRelationName();
 //    string projName                 = e->getProjectionName();
@@ -389,7 +394,7 @@ RawValue ExpressionGeneratorVisitor::visit(
 //        //}
 //    }
 //
-//    RawValue record                    = e->getExpr()->accept(*this);
+//    ProteusValue record                    = e->getExpr()->accept(*this);
 //    //Resetting activeRelation here would break nested-record-projections
 //    //activeRelation = "";
 //    if(plugin == NULL)    {
@@ -397,8 +402,8 @@ RawValue ExpressionGeneratorVisitor::visit(
 //        provided"); LOG(ERROR) << error_msg; throw runtime_error(error_msg);
 //    }    else    {
 //        Bindings bindings = { &currState, record };
-//        RawValueMemory mem_path;
-//        RawValueMemory mem_val;
+//        ProteusValueMemory mem_path;
+//        ProteusValueMemory mem_val;
 //        //cout << "Active RelationProj: " << activeRelation << "_" <<
 //        e->getProjectionName() << endl; if (e->getProjectionName() !=
 //        activeLoop) {
@@ -412,7 +417,7 @@ RawValue ExpressionGeneratorVisitor::visit(
 //            Plugin* pg = catalog.getPlugin(activeRelation);
 //            RecordAttribute tupleIdentifier = RecordAttribute(activeRelation,
 //                    activeLoop,pg->getOIDType());
-//            map<RecordAttribute, RawValueMemory>::const_iterator it =
+//            map<RecordAttribute, ProteusValueMemory>::const_iterator it =
 //                    currState.getBindings().find(tupleIdentifier);
 //            if (it == currState.getBindings().end()) {
 //                string error_msg =
@@ -434,7 +439,7 @@ RawValue ExpressionGeneratorVisitor::visit(
 ////                cout << "C2! " << endl;
 //            if (e->getProjectionName() == "dim") {
 //                cout << "dim! " << endl;
-//                map<RecordAttribute, RawValueMemory>::const_iterator it =
+//                map<RecordAttribute, ProteusValueMemory>::const_iterator it =
 //                        currState.getBindings().begin();
 //                for (; it != currState.getBindings().end(); it++) {
 //                    string relname = it->first.getRelationName();
@@ -457,19 +462,20 @@ RawValue ExpressionGeneratorVisitor::visit(
 //            }
 //        }
 //#endif
-//        RawValue valWrapper;
+//        ProteusValue valWrapper;
 //        valWrapper.value = val;
 //        valWrapper.isNull = mem_val.isNull;
 //        return valWrapper;
 //    }
 //}
 
-RawValue ExpressionGeneratorVisitor::visit(const expressions::IfThenElse *e) {
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::IfThenElse *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *F = TheBuilder->GetInsertBlock()->getParent();
 
-  RawValue ifCond = e->getIfCond().accept(*this);
+  ProteusValue ifCond = e->getIfCond().accept(*this);
 
   // Prepare result
   //    AllocaInst* mem_result = context->CreateEntryBlockAlloca(F,
@@ -491,7 +497,7 @@ RawValue ExpressionGeneratorVisitor::visit(const expressions::IfThenElse *e) {
 
   // then
   TheBuilder->SetInsertPoint(ThenBB);
-  RawValue ifResult = e->getIfResult().accept(*this);
+  ProteusValue ifResult = e->getIfResult().accept(*this);
   mem_result = context->CreateEntryBlockAlloca(F, "ifElseResult",
                                                (ifResult.value)->getType());
   mem_result_isNull = context->CreateEntryBlockAlloca(
@@ -503,30 +509,31 @@ RawValue ExpressionGeneratorVisitor::visit(const expressions::IfThenElse *e) {
 
   // else
   TheBuilder->SetInsertPoint(ElseBB);
-  RawValue elseResult = e->getElseResult().accept(*this);
+  ProteusValue elseResult = e->getElseResult().accept(*this);
   TheBuilder->CreateStore(elseResult.value, mem_result);
   TheBuilder->CreateStore(elseResult.isNull, mem_result_isNull);
   TheBuilder->CreateBr(MergeBB);
 
   // cont.
   TheBuilder->SetInsertPoint(MergeBB);
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = TheBuilder->CreateLoad(mem_result);
   valWrapper.isNull = TheBuilder->CreateLoad(mem_result_isNull);
 
   return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(const expressions::EqExpression *e) {
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::EqExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
 
-  RawValue left = e->getLeftOperand().accept(*this);
-  RawValue right = e->getRightOperand().accept(*this);
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
 
   typeID id = childType->getTypeID();
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.isNull = context->createFalse();
   switch (id) {
     case DSTRING:
@@ -565,19 +572,19 @@ RawValue ExpressionGeneratorVisitor::visit(const expressions::EqExpression *e) {
       auto it_ar = ar.begin();
       assert(al.size() == ar.size() && al.size() > 0);
       for (size_t i = 0; i < al.size(); ++i, ++it_al, ++it_ar) {
-        expressions::RawValueExpression e_l{
+        expressions::ProteusValueExpression e_l{
             (*it_al)->getOriginalType(),
-            RawValue{TheBuilder->CreateExtractValue(left.value, i),
-                     context->createFalse()}};
-        expressions::RawValueExpression e_r{
+            ProteusValue{TheBuilder->CreateExtractValue(left.value, i),
+                         context->createFalse()}};
+        expressions::ProteusValueExpression e_r{
             (*it_ar)->getOriginalType(),
-            RawValue{TheBuilder->CreateExtractValue(right.value, i),
-                     context->createFalse()}};
+            ProteusValue{TheBuilder->CreateExtractValue(right.value, i),
+                         context->createFalse()}};
         auto r = eq(e_l, e_r).accept(*this);
         res = TheBuilder->CreateAnd(res, r.value);
       }
 
-      return RawValue{res, context->createFalse()};
+      return ProteusValue{res, context->createFalse()};
     }
       //        case STRING: {
       //            //{ i8*, i32 }
@@ -901,7 +908,7 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
     void_40->setAlignment(8);
     LoadInst *int32_41 = new LoadInst(ptr_n1_addr, "", false, label_for_inc);
     int32_41->setAlignment(4);
-    BinaryOperator *int32_dec = BinaryOperator::Create(
+    auto int32_dec = llvm::BinaryOperator::Create(
         Instruction::Add, int32_41, const_int32_5, "dec", label_for_inc);
     StoreInst *void_42 =
         new StoreInst(int32_dec, ptr_n1_addr, false, label_for_inc);
@@ -943,8 +950,8 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
 }
 
 /* returns 0/1/-1 */
-RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
-                                               Value *int32_n) {
+ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
+                                                   Value *int32_n) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *F = Builder->GetInsertBlock()->getParent();
@@ -1096,7 +1103,7 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   void_36->setAlignment(8);
   LoadInst *int32_37 = new LoadInst(ptr_n_addr, "", false, label_for_inc);
   int32_37->setAlignment(4);
-  BinaryOperator *int32_dec = BinaryOperator::Create(
+  auto int32_dec = llvm::BinaryOperator::Create(
       Instruction::Add, int32_37, const_int32_7, "dec", label_for_inc);
   StoreInst *void_38 =
       new StoreInst(int32_dec, ptr_n_addr, false, label_for_inc);
@@ -1122,7 +1129,7 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   int32_44->setAlignment(4);
 
   /* OUTPUT */
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.isNull = context->createFalse();
   valWrapper.value = int32_44;
 
@@ -1131,9 +1138,9 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
-                                               Value *int32_n1,
-                                               Value *int32_n2) {
+ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
+                                                   Value *int32_n1,
+                                                   Value *int32_n2) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *F = Builder->GetInsertBlock()->getParent();
@@ -1306,7 +1313,7 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   void_36->setAlignment(8);
   LoadInst *int32_37 = new LoadInst(ptr_n_addr, "", false, label_for_inc);
   int32_37->setAlignment(4);
-  BinaryOperator *int32_dec = BinaryOperator::Create(
+  llvm::BinaryOperator *int32_dec = llvm::BinaryOperator::Create(
       Instruction::Add, int32_37, const_int32_7, "dec", label_for_inc);
   StoreInst *void_38 =
       new StoreInst(int32_dec, ptr_n_addr, false, label_for_inc);
@@ -1334,7 +1341,7 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   int32_44->setAlignment(4);
 
   /* OUTPUT */
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.isNull = context->createFalse();
   valWrapper.value = int32_44;
 
@@ -1345,15 +1352,16 @@ RawValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 
 /* returns true / false!!*/
 
-RawValue ExpressionGeneratorVisitor::visit(const expressions::NeExpression *e) {
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::NeExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
-  RawValue left = e->getLeftOperand().accept(*this);
-  RawValue right = e->getRightOperand().accept(*this);
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -1396,15 +1404,16 @@ RawValue ExpressionGeneratorVisitor::visit(const expressions::NeExpression *e) {
              "expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(const expressions::GeExpression *e) {
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::GeExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
-  RawValue left = e->getLeftOperand().accept(*this);
-  RawValue right = e->getRightOperand().accept(*this);
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -1447,15 +1456,16 @@ RawValue ExpressionGeneratorVisitor::visit(const expressions::GeExpression *e) {
              "expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(const expressions::GtExpression *e) {
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::GtExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
-  RawValue left = e->getLeftOperand().accept(*this);
-  RawValue right = e->getRightOperand().accept(*this);
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -1507,15 +1517,16 @@ RawValue ExpressionGeneratorVisitor::visit(const expressions::GtExpression *e) {
              "expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(const expressions::LeExpression *e) {
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::LeExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
-  RawValue left = e->getLeftOperand().accept(*this);
-  RawValue right = e->getRightOperand().accept(*this);
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -1558,15 +1569,16 @@ RawValue ExpressionGeneratorVisitor::visit(const expressions::LeExpression *e) {
              "expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(const expressions::LtExpression *e) {
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::LtExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
-  RawValue left = e->getLeftOperand().accept(*this);
-  RawValue right = e->getRightOperand().accept(*this);
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -1627,16 +1639,16 @@ RawValue ExpressionGeneratorVisitor::visit(const expressions::LtExpression *e) {
              "expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::AddExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
-  RawValue left = e->getLeftOperand().accept(*this);
-  RawValue right = e->getRightOperand().accept(*this);
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -1678,16 +1690,16 @@ RawValue ExpressionGeneratorVisitor::visit(
              "expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::SubExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
-  RawValue left = e->getLeftOperand().accept(*this);
-  RawValue right = e->getRightOperand().accept(*this);
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -1729,16 +1741,16 @@ RawValue ExpressionGeneratorVisitor::visit(
              "expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::MultExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
-  RawValue left = e->getLeftOperand().accept(*this);
-  RawValue right = e->getRightOperand().accept(*this);
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -1779,16 +1791,16 @@ RawValue ExpressionGeneratorVisitor::visit(
              "expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::DivExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
-  RawValue left = e->getLeftOperand().accept(*this);
-  RawValue right = e->getRightOperand().accept(*this);
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -1829,51 +1841,52 @@ RawValue ExpressionGeneratorVisitor::visit(
              "expression can only be primitive"));
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::AndExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
-  RawValue left = e->getLeftOperand().accept(*this);
-  RawValue right = e->getRightOperand().accept(*this);
-  RawValue valWrapper;
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
+  ProteusValue valWrapper;
   valWrapper.isNull = context->createFalse();
   valWrapper.value = TheBuilder->CreateAnd(left.value, right.value);
   return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(const expressions::OrExpression *e) {
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::OrExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
-  RawValue left = e->getLeftOperand().accept(*this);
-  RawValue right = e->getRightOperand().accept(*this);
-  RawValue valWrapper;
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
+  ProteusValue valWrapper;
   valWrapper.isNull = context->createFalse();
   valWrapper.value = TheBuilder->CreateOr(left.value, right.value);
   return valWrapper;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
-    const expressions::RawValueExpression *e) {
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::ProteusValueExpression *e) {
   return e->getValue();
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::MaxExpression *e) {
   return e->getCond()->accept(*this);
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::MinExpression *e) {
   return e->getCond()->accept(*this);
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::HashExpression *e) {
   ExpressionHasherVisitor h(context, currState);
   return e->getExpr().accept(h);
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::NegExpression *e) {
-  RawValue v = e->getExpr().accept(*this);
+  ProteusValue v = e->getExpr().accept(*this);
   if (v.value->getType()->isFloatingPointTy()) {
     v.value = context->getBuilder()->CreateFNeg(v.value);
   } else {
@@ -1931,7 +1944,7 @@ int getYearAbsOffset(expressions::extract_unit unit) {
  * )
  */
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::ExtractExpression *e) {
   /**
    * Mimic Calcite's julianExtract
@@ -2181,23 +2194,23 @@ RawValue ExpressionGeneratorVisitor::visit(
   return v;
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::TestNullExpression *e) {
-  RawValue v = e->getExpr().accept(*this);
+  ProteusValue v = e->getExpr().accept(*this);
   Value *result;
   if (e->isNullTest())
     result = v.isNull;
   else
     result = context->getBuilder()->CreateNot(v.isNull);
-  return RawValue{result, context->createFalse()};
+  return ProteusValue{result, context->createFalse()};
 }
 
-RawValue ExpressionGeneratorVisitor::visit(
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::CastExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
 
-  RawValue v = e->getExpr().accept(*this);
+  ProteusValue v = e->getExpr().accept(*this);
 
   const ExpressionType *etype_to = e->getExpressionType();
   llvm::Type *ltype_to = etype_to->getLLVMType(llvmContext);

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,22 +24,22 @@
 #ifndef GPU_SORT_HPP_
 #define GPU_SORT_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "operators/operators.hpp"
 #include "operators/sort.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
-class GpuSort : public UnaryRawOperator {
+class GpuSort : public UnaryOperator {
  public:
-  GpuSort(RawOperator *const child, GpuRawContext *const context,
-          const vector<expression_t> &orderByFields,
-          const vector<direction> &dirs, gran_t granularity = gran_t::GRID);
+  GpuSort(Operator *const child, ParallelContext *const context,
+          const std::vector<expression_t> &orderByFields,
+          const std::vector<direction> &dirs,
+          gran_t granularity = gran_t::GRID);
 
   virtual ~GpuSort() { LOG(INFO) << "Collapsing GpuSort operator"; }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
-  virtual void consume(GpuRawContext *const context,
+  virtual void consume(Context *const context, const OperatorState &childState);
+  virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
@@ -49,7 +49,7 @@ class GpuSort : public UnaryRawOperator {
   virtual void call_sort(llvm::Value *mem, llvm::Value *N);
 
   std::vector<expression_t> orderByFields;
-  const vector<direction> dirs;
+  const std::vector<direction> dirs;
 
   expressions::RecordConstruction outputExpr;
   std::string relName;
@@ -61,7 +61,7 @@ class GpuSort : public UnaryRawOperator {
 
   llvm::Type *mem_type;
 
-  GpuRawContext *const context;
+  ParallelContext *const context;
 
   std::string suffix;
 };

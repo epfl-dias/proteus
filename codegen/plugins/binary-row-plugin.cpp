@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,7 +23,9 @@
 
 #include "plugins/binary-row-plugin.hpp"
 
-BinaryRowPlugin::BinaryRowPlugin(RawContext *const context, string &fname,
+using namespace llvm;
+
+BinaryRowPlugin::BinaryRowPlugin(Context *const context, string &fname,
                                  RecordType &rec,
                                  vector<RecordAttribute *> &whichFields)
     : fname(fname),
@@ -89,24 +91,25 @@ void BinaryRowPlugin::init() {
   NamedValuesBinaryRow[bufVar] = bufMem;
 };
 
-void BinaryRowPlugin::generate(const RawOperator &producer) {
+void BinaryRowPlugin::generate(const ::Operator &producer) {
   return scan(producer, context->getGlobalFunction());
 }
 
 /**
  * The work of readPath() and readValue() has been taken care of scanCSV()
  */
-RawValueMemory BinaryRowPlugin::readPath(string activeRelation,
-                                         Bindings bindings, const char *pathVar,
-                                         RecordAttribute attr) {
-  RawValueMemory mem_projection;
+ProteusValueMemory BinaryRowPlugin::readPath(string activeRelation,
+                                             Bindings bindings,
+                                             const char *pathVar,
+                                             RecordAttribute attr) {
+  ProteusValueMemory mem_projection;
   {
     const OperatorState *state = bindings.state;
-    const map<RecordAttribute, RawValueMemory> &binProjections =
+    const map<RecordAttribute, ProteusValueMemory> &binProjections =
         state->getBindings();
     RecordAttribute tmpKey =
         RecordAttribute(fname, pathVar, this->getOIDType());
-    map<RecordAttribute, RawValueMemory>::const_iterator it;
+    map<RecordAttribute, ProteusValueMemory>::const_iterator it;
     it = binProjections.find(tmpKey);
     if (it == binProjections.end()) {
       string error_msg =
@@ -120,29 +123,29 @@ RawValueMemory BinaryRowPlugin::readPath(string activeRelation,
   return mem_projection;
 }
 
-RawValueMemory BinaryRowPlugin::readValue(RawValueMemory mem_value,
-                                          const ExpressionType *type) {
+ProteusValueMemory BinaryRowPlugin::readValue(ProteusValueMemory mem_value,
+                                              const ExpressionType *type) {
   return mem_value;
 }
 
-RawValue BinaryRowPlugin::hashValue(RawValueMemory mem_value,
-                                    const ExpressionType *type) {
+ProteusValue BinaryRowPlugin::hashValue(ProteusValueMemory mem_value,
+                                        const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
-  RawValue value;
+  ProteusValue value;
   value.isNull = mem_value.isNull;
   value.value = Builder->CreateLoad(mem_value.mem);
   return value;
 }
 
-RawValue BinaryRowPlugin::hashValueEager(RawValue valWrapper,
-                                         const ExpressionType *type) {
+ProteusValue BinaryRowPlugin::hashValueEager(ProteusValue valWrapper,
+                                             const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
   Value *tmp = valWrapper.value;
   AllocaInst *mem_tmp =
       context->CreateEntryBlockAlloca(F, "mem_cachedToHash", tmp->getType());
   Builder->CreateStore(tmp, mem_tmp);
-  RawValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
+  ProteusValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
   return hashValue(mem_tmpWrapper, type);
 }
 
@@ -151,7 +154,7 @@ void BinaryRowPlugin::finish() {
   munmap(buf, fsize);
 }
 
-Value *BinaryRowPlugin::getValueSize(RawValueMemory mem_value,
+Value *BinaryRowPlugin::getValueSize(ProteusValueMemory mem_value,
                                      const ExpressionType *type) {
   switch (type->getTypeID()) {
     case BOOL:
@@ -220,7 +223,8 @@ void BinaryRowPlugin::skipLLVM(Value *offset) {
 }
 
 void BinaryRowPlugin::readAsIntLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -262,14 +266,15 @@ void BinaryRowPlugin::readAsIntLLVM(
   Builder->CreateStore(parsedInt, mem_currResult);
   LOG(INFO) << "[BINARYROW - READ INT: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
 void BinaryRowPlugin::readAsStringLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -326,14 +331,15 @@ void BinaryRowPlugin::readAsStringLLVM(
 
   LOG(INFO) << "[BINARYROW - READ STRING: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_strObj;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
 void BinaryRowPlugin::readAsBooleanLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int1Type = Type::getInt1Ty(llvmContext);
@@ -373,14 +379,15 @@ void BinaryRowPlugin::readAsBooleanLLVM(
   Builder->CreateStore(parsedInt, currResult);
   LOG(INFO) << "[BINARYROW - READ BOOL: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
 void BinaryRowPlugin::readAsFloatLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *doubleType = Type::getDoubleTy(llvmContext);
@@ -420,13 +427,13 @@ void BinaryRowPlugin::readAsFloatLLVM(
   Builder->CreateStore(parsedInt, currResult);
   LOG(INFO) << "[BINARYROW - READ FLOAT: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
-void BinaryRowPlugin::scan(const RawOperator &producer, Function *f) {
+void BinaryRowPlugin::scan(const ::Operator &producer, Function *f) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -434,8 +441,8 @@ void BinaryRowPlugin::scan(const RawOperator &producer, Function *f) {
   IRBuilder<> *Builder = context->getBuilder();
 
   // Container for the variable bindings
-  map<RecordAttribute, RawValueMemory> *variableBindings =
-      new map<RecordAttribute, RawValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> *variableBindings =
+      new map<RecordAttribute, ProteusValueMemory>();
 
   // Fetch value from symbol table
   AllocaInst *pos;
@@ -497,7 +504,7 @@ void BinaryRowPlugin::scan(const RawOperator &producer, Function *f) {
   ExpressionType *oidType = new IntType();
   RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop, oidType);
 
-  RawValueMemory mem_posWrapper;
+  ProteusValueMemory mem_posWrapper;
   mem_posWrapper.mem = pos;
   mem_posWrapper.isNull = context->createFalse();
   (*variableBindings)[tupleIdentifier] = mem_posWrapper;
@@ -650,7 +657,7 @@ void BinaryRowPlugin::scan(const RawOperator &producer, Function *f) {
 
   // Triggering parent
   OperatorState *state = new OperatorState(producer, *variableBindings);
-  RawOperator *const opParent = producer.getParent();
+  ::Operator *const opParent = producer.getParent();
   opParent->consume(context, *state);
 
   Builder->CreateBr(CondBB);

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,17 +23,17 @@
 #ifndef HASH_REARRANGE_BUFFERED_HPP_
 #define HASH_REARRANGE_BUFFERED_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
-class HashRearrangeBuffered : public UnaryRawOperator {
+class HashRearrangeBuffered : public UnaryOperator {
  public:
-  HashRearrangeBuffered(RawOperator *const child, GpuRawContext *const context,
+  HashRearrangeBuffered(Operator *const child, ParallelContext *const context,
                         int numOfBuckets,
                         const vector<expressions::Expression *> &wantedFields,
                         expression_t hashExpr,
                         RecordAttribute *hashProject = NULL)
-      : UnaryRawOperator(child),
+      : UnaryOperator(child),
         context(context),
         numOfBuckets(numOfBuckets),
         wantedFields(wantedFields),
@@ -47,20 +47,19 @@ class HashRearrangeBuffered : public UnaryRawOperator {
   }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
   llvm::Value *hash(llvm::Value *key, llvm::Value *old_seed = NULL);
   llvm::Value *hash(const std::vector<expression_t> &exprs,
-                    RawContext *const context, const OperatorState &childState);
+                    Context *const context, const OperatorState &childState);
 
  protected:
   virtual void consume_flush();
   void consume_flush1();
 
-  virtual void open(RawPipeline *pip);
-  virtual void close(RawPipeline *pip);
+  virtual void open(Pipeline *pip);
+  virtual void close(Pipeline *pip);
 
   const vector<expressions::Expression *> wantedFields;
   const int numOfBuckets;
@@ -81,12 +80,12 @@ class HashRearrangeBuffered : public UnaryRawOperator {
 
   int64_t cap;
 
-  GpuRawContext *const context;
+  ParallelContext *const context;
 
-  RawPipelineGen *closingPip;
-  RawPipelineGen *closingPip1;
-  Function *flushingFunc1;
-  Function *flushingFunc2;
+  PipelineGen *closingPip;
+  PipelineGen *closingPip1;
+  llvm::Function *flushingFunc1;
+  llvm::Function *flushingFunc2;
 
   std::vector<size_t> wfSizes;
 };

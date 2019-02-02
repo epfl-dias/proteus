@@ -46,9 +46,9 @@
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 /*
@@ -57,8 +57,8 @@
  * of matches (i.e., both hashKey and key checked) */
 
 TEST(JSMN, String) {
-  RawContext &ctx = *prepareContext("jsmnStringIngestion");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("jsmnStringIngestion");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/json/jsmn-string.json");
 
@@ -105,7 +105,7 @@ TEST(JSMN, String) {
   /**
    * PRINT
    */
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::RecordProjection *proj =
       new expressions::RecordProjection(&intType, lhsArg, field2);
   Print printOp = Print(debugInt, proj, &sel);
@@ -126,8 +126,8 @@ TEST(JSMN, String) {
 }
 
 TEST(JSON, String) {
-  RawContext &ctx = *prepareContext("jsonStringIngestion");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("jsonStringIngestion");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/json/json-string.json");
 
@@ -175,7 +175,7 @@ TEST(JSON, String) {
   /**
    * PRINT
    */
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::RecordProjection *proj =
       new expressions::RecordProjection(&intType, lhsArg, field2);
   Print printOp = Print(debugInt, proj, &sel);
@@ -196,8 +196,8 @@ TEST(JSON, String) {
 }
 
 TEST(CSV, String) {
-  RawContext &ctx = *prepareContext("csvStringIngestion");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("csvStringIngestion");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/csv/csv-string.csv");
 
@@ -247,7 +247,7 @@ TEST(CSV, String) {
   /**
    * PRINT
    */
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::RecordProjection *proj =
       new expressions::RecordProjection(&intType, lhsArg, field2);
   Print printOp = Print(debugInt, proj, &sel);

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,11 +24,13 @@
 #include "operators/gpu/gpu-reduce.hpp"
 #include "operators/gpu/gmonoids.hpp"
 
+using namespace llvm;
+
 namespace opt {
 
 GpuReduce::GpuReduce(vector<Monoid> accs, vector<expression_t> outputExprs,
-                     expression_t pred, RawOperator *const child,
-                     GpuRawContext *context)
+                     expression_t pred, Operator *const child,
+                     ParallelContext *context)
     : Reduce(accs, outputExprs, std::move(pred), child, context, false) {
   for (const auto &expr : outputExprs) {
     if (!expr.getExpressionType()->isPrimitive()) {
@@ -44,12 +46,12 @@ void GpuReduce::produce() {
       flushResults && !getParent();  // TODO: is this the best way to do it ?
   generate_flush();
 
-  ((GpuRawContext *)context)->popPipeline();
+  ((ParallelContext *)context)->popPipeline();
 
-  auto flush_pip = ((GpuRawContext *)context)->removeLatestPipeline();
+  auto flush_pip = ((ParallelContext *)context)->removeLatestPipeline();
   flush_fun = flush_pip->getKernel();
 
-  ((GpuRawContext *)context)->pushPipeline(flush_pip);
+  ((ParallelContext *)context)->pushPipeline(flush_pip);
 
   assert(mem_accumulators.empty());
   if (mem_accumulators.empty()) {
@@ -74,12 +76,12 @@ void GpuReduce::produce() {
   getChild()->produce();
 }
 
-void GpuReduce::consume(RawContext *const context,
+void GpuReduce::consume(Context *const context,
                         const OperatorState &childState) {
-  consume((GpuRawContext *)context, childState);
+  consume((ParallelContext *)context, childState);
 }
 
-void GpuReduce::consume(GpuRawContext *const context,
+void GpuReduce::consume(ParallelContext *const context,
                         const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -89,7 +91,7 @@ void GpuReduce::consume(GpuRawContext *const context,
 
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator{context, childState};
-  RawValue condition = pred.accept(predExprGenerator);
+  ProteusValue condition = pred.accept(predExprGenerator);
   /**
    * Predicate Evaluation:
    */
@@ -103,7 +105,7 @@ void GpuReduce::consume(GpuRawContext *const context,
   /**
    * IF(pred) Block
    */
-  RawValue val_output;
+  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
 
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
@@ -146,15 +148,15 @@ void GpuReduce::consume(GpuRawContext *const context,
         ExpressionGeneratorVisitor outputExprGenerator{context, childState};
 
         // Load accumulator -> acc_value
-        RawValue acc_value;
+        ProteusValue acc_value;
         acc_value.value = Builder->CreateLoad(acc_mem);
         acc_value.isNull = context->createFalse();
 
         // new_value = acc_value op outputExpr
-        expressions::RawValueExpression val{outputExpr.getExpressionType(),
-                                            acc_value};
+        expressions::ProteusValueExpression val{outputExpr.getExpressionType(),
+                                                acc_value};
         expression_t upd = toExpression(acc, val, outputExpr);
-        RawValue new_val = upd.accept(outputExprGenerator);
+        ProteusValue new_val = upd.accept(outputExprGenerator);
 
         // store new_val to accumulator
         Builder->CreateStore(new_val.value, acc_mem);
@@ -181,19 +183,19 @@ void GpuReduce::consume(GpuRawContext *const context,
    */
   Builder->SetInsertPoint(endBlock);
 
-  // ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline *
+  // ((ParallelContext *) context)->registerOpen (this, [this](Pipeline *
   // pip){this->open (pip);});
-  // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline *
+  // ((ParallelContext *) context)->registerClose(this, [this](Pipeline *
   // pip){this->close(pip);});
 }
 
-// void GpuReduce::consume(RawContext* const context, const OperatorState&
+// void GpuReduce::consume(Context* const context, const OperatorState&
 // childState) {
 //     Reduce::consume(context, childState);
 //     generate(context, childState);
 // }
 
-// void GpuReduce::generate(RawContext* const context, const OperatorState&
+// void GpuReduce::generate(Context* const context, const OperatorState&
 // childState) const{
 //     vector<Monoid                   >::const_iterator itAcc    ;
 //     vector<expressions::Expression *>::const_iterator itExpr   ;
@@ -217,7 +219,7 @@ void GpuReduce::consume(GpuRawContext *const context,
 //         BasicBlock* entryBlock = context->getCurrentEntryBlock();
 //         Builder->SetInsertPoint(entryBlock);
 
-//         Value * global_acc_ptr = ((const GpuRawContext *)
+//         Value * global_acc_ptr = ((const ParallelContext *)
 //         context)->getStateVar(*itID);
 
 //         Builder->SetInsertPoint(insBlock);
@@ -228,7 +230,7 @@ void GpuReduce::consume(GpuRawContext *const context,
 //         case OR:
 //         case AND:
 //             mem_accumulating = context->getStateVar(*itMem);
-//             generate(acc, outputExpr, (GpuRawContext * const) context,
+//             generate(acc, outputExpr, (ParallelContext * const) context,
 //             childState, mem_accumulating, global_acc_ptr); break;
 //         case MULTIPLY:
 //         case BAGUNION:
@@ -243,14 +245,14 @@ void GpuReduce::consume(GpuRawContext *const context,
 //         }
 //     }
 
-//     ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline *
+//     ((ParallelContext *) context)->registerOpen (this, [this](Pipeline *
 //     pip){this->open (pip);});
-//     ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline *
+//     ((ParallelContext *) context)->registerClose(this, [this](Pipeline *
 //     pip){this->close(pip);});
 // }
 
 void GpuReduce::generate(const Monoid &m, expression_t outputExpr,
-                         GpuRawContext *const context,
+                         ParallelContext *const context,
                          const OperatorState &state, Value *mem_accumulating,
                          Value *global_accumulator_ptr) const {
   IRBuilder<> *Builder = context->getBuilder();
@@ -298,7 +300,7 @@ void GpuReduce::generate(const Monoid &m, expression_t outputExpr,
   Builder->SetInsertPoint(entryBlock);
 }
 
-// void GpuReduce::open(RawPipeline * pip) const{
+// void GpuReduce::open(Pipeline * pip) const{
 //     std::cout << "GpuReduce:open" << std::endl;
 //     // cudaStream_t strm;
 //     // gpu_run(cudaStreamCreate(&strm));
@@ -319,7 +321,7 @@ void GpuReduce::generate(const Monoid &m, expression_t outputExpr,
 //     // gpu_run(cudaStreamDestroy(strm));
 // }
 
-// void GpuReduce::close(RawPipeline * pip) const{
+// void GpuReduce::close(Pipeline * pip) const{
 //     std::cout << "GpuReduce:close" << std::endl;
 //     // for (size_t i = 0 ; i < mem_accumulators.size() ; ++i){
 //     //     gpu_run(cudaFree(pip->getStateVar<uint32_t *>(context,
@@ -388,11 +390,11 @@ size_t GpuReduce::resetAccumulator(expression_t outputExpr, Monoid acc,
             // Value* val_acc =  context->getBuilder()->CreateLoad(s);
 
             // if (outputExpr.isRegistered()){
-            //  map<RecordAttribute, RawValueMemory> binding{};
+            //  map<RecordAttribute, ProteusValueMemory> binding{};
             //  AllocaInst * acc_alloca =
             //  context->CreateEntryBlockAlloca(outputExpr.getRegisteredAttrName(),
             //  val_acc->getType()); context->getBuilder()->CreateStore(val_acc,
-            //  acc_alloca); RawValueMemory acc_mem{acc_alloca,
+            //  acc_alloca); ProteusValueMemory acc_mem{acc_alloca,
             //  context->createFalse()}; binding[outputExpr.getRegisteredAs()] =
             //  acc_mem;
             // }
@@ -423,7 +425,7 @@ size_t GpuReduce::resetAccumulator(expression_t outputExpr, Monoid acc,
               Type *substate_t = f_t->getParamType(f_t->getNumParams() - 1);
 
               Value *substate = Builder->CreateBitCast(
-                  ((GpuRawContext *)context)->getSubStateVar(), substate_t);
+                  ((ParallelContext *)context)->getSubStateVar(), substate_t);
               args.emplace_back(substate);
 
               Builder->CreateCall(f, args);

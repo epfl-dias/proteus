@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -134,7 +134,7 @@ class flush_log {
 flush_log global_exchange_flush_lock;
 #endif
 
-thread_local logger rawlogger;
+thread_local logger eventlogger;
 
 #ifndef NLOG
 logger::logger() { data = global_exchange_flush_lock.create_logger(); }

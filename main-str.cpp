@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -44,10 +44,12 @@
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
+
+using namespace llvm;
 
 void JsmnString();
 void JsonString();
@@ -63,8 +65,8 @@ int main() {
 }
 
 void JsmnString() {
-  RawContext &ctx = *prepareContext("jsmnStringIngestion");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("jsmnStringIngestion");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/json/jsmn-string.json");
 
@@ -132,8 +134,8 @@ void JsmnString() {
 }
 
 void JsonString() {
-  RawContext &ctx = *prepareContext("jsonStringIngestion");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("jsonStringIngestion");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/json/json-string.json");
 
@@ -202,8 +204,8 @@ void JsonString() {
 }
 
 void CsvString() {
-  RawContext &ctx = *prepareContext("csvStringIngestion");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("csvStringIngestion");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/csv/csv-string.csv");
 
@@ -274,8 +276,8 @@ void CsvString() {
 }
 
 void nestRadixString() {
-  RawContext &ctx = *prepareContext("testFunction-nestRadixJSON");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-nestRadixJSON");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/employees-more.json");
 

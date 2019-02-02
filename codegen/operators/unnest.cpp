@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,29 +25,26 @@
 
 void Unnest::produce() { getChild()->produce(); }
 
-void Unnest::consume(RawContext *const context,
-                     const OperatorState &childState) {
+void Unnest::consume(Context *const context, const OperatorState &childState) {
   generate(context, childState);
 }
 
-void Unnest::generate(RawContext *const context,
+void Unnest::generate(Context *const context,
                       const OperatorState &childState) const {
-  IRBuilder<> *Builder = context->getBuilder();
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Function *TheFunction = Builder->GetInsertBlock()->getParent();
+  auto Builder = context->getBuilder();
 
   // Generate path. Value returned must be a collection
   ExpressionGeneratorVisitor pathExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
   const expressions::RecordProjection *pathProj = path.get();
-  RawValue nestedValueAll = pathProj->accept(pathExprGenerator);
+  ProteusValue nestedValueAll = pathProj->accept(pathExprGenerator);
 
   /**
    * foreach val in nestedValue:
    *         if(condition)
    *             ...
    */
-  BasicBlock *loopCond, *loopBody, *loopInc, *loopEnd;
+  llvm::BasicBlock *loopCond, *loopBody, *loopInc, *loopEnd;
   context->CreateForLoop("unnestChildLoopCond", "unnestChildLoopBody",
                          "unnestChildLoopInc", "unnestChildLoopEnd", &loopCond,
                          &loopBody, &loopInc, &loopEnd);
@@ -56,20 +53,19 @@ void Unnest::generate(RawContext *const context,
    * init the vars used by the plugin
    */
   Plugin *pg = path.getRelevantPlugin();
-  RawValueMemory mem_currentObjId = pg->initCollectionUnnest(nestedValueAll);
+  ProteusValueMemory mem_currentObjId =
+      pg->initCollectionUnnest(nestedValueAll);
   Builder->CreateBr(loopCond);
 
   Builder->SetInsertPoint(loopCond);
-  RawValue endCond = pg->collectionHasNext(nestedValueAll, mem_currentObjId);
-  Value *val_hasNext = endCond.value;
+  ProteusValue endCond =
+      pg->collectionHasNext(nestedValueAll, mem_currentObjId);
+  auto val_hasNext = endCond.value;
 #ifdef DEBUGUNNEST
   {
     // Printing the active token that will be forwarded
-    vector<Value *> ArgsV;
-    ArgsV.clear();
-    ArgsV.push_back(val_hasNext);
-    Function *debugBoolean = context->getFunction("printBoolean");
-    Builder->CreateCall(debugBoolean, ArgsV);
+    llvm::Function *debugBoolean = context->getFunction("printBoolean");
+    Builder->CreateCall(debugBoolean, {val_hasNext});
   }
 #endif
   Builder->CreateCondBr(val_hasNext, loopBody, loopEnd);
@@ -85,34 +81,27 @@ void Unnest::generate(RawContext *const context,
 //    Builder->CreateCall(debugInt, ArgsV);
 //    }
 #endif
-  RawValueMemory nestedValueItem = pg->collectionGetNext(mem_currentObjId);
+  ProteusValueMemory nestedValueItem = pg->collectionGetNext(mem_currentObjId);
   // #ifdef DEBUGUNNEST
   {
-    Function *debugInt = context->getFunction("printi64");
+    auto debugInt = context->getFunction("printi64");
 
-    Value *val_currentTokenId = Builder->CreateLoad(nestedValueItem.mem);
-    Value *val_offset = context->getStructElem(nestedValueItem.mem, 0);
-    Value *val_rowId = context->getStructElem(nestedValueItem.mem, 1);
-    Value *val_currentTokenNo = context->getStructElem(nestedValueItem.mem, 2);
+    auto val_offset = context->getStructElem(nestedValueItem.mem, 0);
+    auto val_rowId = context->getStructElem(nestedValueItem.mem, 1);
+    auto val_currentTokenNo = context->getStructElem(nestedValueItem.mem, 2);
     // Printing the active token that will be forwarded
-    vector<Value *> ArgsV;
-    ArgsV.clear();
-    ArgsV.push_back(val_offset);
-    Builder->CreateCall(debugInt, ArgsV);
+    Builder->CreateCall(debugInt, {val_offset});
 
-    ArgsV.clear();
-    ArgsV.push_back(val_rowId);
-    Builder->CreateCall(debugInt, ArgsV);
+    Builder->CreateCall(debugInt, {val_rowId});
 
-    ArgsV.clear();
-    ArgsV.push_back(val_currentTokenNo);
-    Builder->CreateCall(debugInt, ArgsV);
+    Builder->CreateCall(debugInt, {val_currentTokenNo});
   }
   // #endif
 
   // Preparing call to parent
-  map<RecordAttribute, RawValueMemory> unnestBindings{childState.getBindings()};
-  RawCatalog &catalog = RawCatalog::getInstance();
+  std::map<RecordAttribute, ProteusValueMemory> unnestBindings{
+      childState.getBindings()};
+  Catalog &catalog = Catalog::getInstance();
   LOG(INFO) << "[Unnest: ] Registering plugin of " << path.toString();
   std::cout << "[Unnest: ] Registering plugin of " << path.toString()
             << std::endl;
@@ -128,14 +117,14 @@ void Unnest::generate(RawContext *const context,
   /**
    * Predicate Evaluation:
    */
-  BasicBlock *ifBlock, *elseBlock;
+  llvm::BasicBlock *ifBlock, *elseBlock;
   context->CreateIfElseBlocks(context->getGlobalFunction(), "ifUnnestCond",
                               "elseUnnestCond", &ifBlock, &elseBlock, loopInc);
 
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, newState);
-  RawValue condition = pred.accept(predExprGenerator);
+  ProteusValue condition = pred.accept(predExprGenerator);
   Builder->CreateCondBr(condition.value, ifBlock, elseBlock);
 
   /*
@@ -161,11 +150,8 @@ void Unnest::generate(RawContext *const context,
 #ifdef DEBUGUNNEST
   {
     // Printing the active token that will be forwarded
-    vector<Value *> ArgsV;
-    ArgsV.clear();
-    ArgsV.push_back(context->createInt64(222));
-    Function *debugInt = context->getFunction("printi64");
-    Builder->CreateCall(debugInt, ArgsV);
+    llvm::Function *debugInt = context->getFunction("printi64");
+    Builder->CreateCall(debugInt, {context->createInt64(222)});
   }
 #endif
 }

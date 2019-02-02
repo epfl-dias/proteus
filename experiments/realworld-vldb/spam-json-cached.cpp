@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -28,8 +28,8 @@ void symantecJSON1(map<string, dataset> datasetCatalog) {
   string charsetType = "iso-8859-1";
   string cteType = "7bit";
 
-  RawContext &ctx = *prepareContext("symantec-json-1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -121,8 +121,8 @@ void symantecJSON1Caching(map<string, dataset> datasetCatalog) {
   string charsetType = "iso-8859-1";
   string cteType = "7bit";
 
-  RawContext &ctx = *prepareContext("symantec-json-1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -263,8 +263,8 @@ void symantecJSON2(map<string, dataset> datasetCatalog) {
   int sizeHigh = 1000;
   string langType = "german";
 
-  RawContext &ctx = *prepareContext("symantec-json-2");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-2");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -359,8 +359,8 @@ void symantecJSON2v1(map<string, dataset> datasetCatalog) {
   int sizeHigh = 1000;
   string langType = "german";
 
-  RawContext &ctx = *prepareContext("symantec-json-2");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-2");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -481,8 +481,8 @@ void symantecJSON3(map<string, dataset> datasetCatalog) {
   string country_codeType = "GR";
   string cityType = "Athens";
 
-  RawContext &ctx = *prepareContext("symantec-json-3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -585,8 +585,8 @@ void symantecJSON3v1(map<string, dataset> datasetCatalog) {
   string country_codeType = "US";
   //    string cityType = "Athens";
 
-  RawContext &ctx = *prepareContext("symantec-json-3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -704,8 +704,8 @@ void symantecJSON4(map<string, dataset> datasetCatalog) {
   int idHigh = 60000000;
   int idLow = 20000000;
 
-  RawContext &ctx = *prepareContext("symantec-json-4");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-4");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -781,8 +781,8 @@ void symantecJSON4v1(map<string, dataset> datasetCatalog) {
   int idHigh = 60000000;
   int idLow = 20000000;
 
-  RawContext &ctx = *prepareContext("symantec-json-4");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-4");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -886,8 +886,8 @@ void symantecJSON4v1(map<string, dataset> datasetCatalog) {
 void symantecJSON5(map<string, dataset> datasetCatalog) {
   int idHigh = 20000000;
 
-  RawContext &ctx = *prepareContext("symantec-json-5");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-5");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -1004,8 +1004,8 @@ void symantecJSON5(map<string, dataset> datasetCatalog) {
 void symantecJSON5v1(map<string, dataset> datasetCatalog) {
   int idHigh = 20000000;
 
-  RawContext &ctx = *prepareContext("symantec-json-5");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-5");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -1141,8 +1141,8 @@ void symantecJSON5v1(map<string, dataset> datasetCatalog) {
 void symantecJSON6(map<string, dataset> datasetCatalog) {
   string cityType = "Athens";
 
-  RawContext &ctx = *prepareContext("symantec-json-6");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-6");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -1259,8 +1259,8 @@ void symantecJSON6v1(map<string, dataset> datasetCatalog) {
   //    string cityType = "Athens";
   string country_codeType = "RU";
 
-  RawContext &ctx = *prepareContext("symantec-json-6");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-6");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -1404,8 +1404,8 @@ void symantecJSON6v1(map<string, dataset> datasetCatalog) {
 void symantecJSON7(map<string, dataset> datasetCatalog) {
   int idHigh = 40000000;
 
-  RawContext &ctx = *prepareContext("symantec-json-7");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-7");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -1521,8 +1521,8 @@ void symantecJSON7(map<string, dataset> datasetCatalog) {
 void symantecJSON7v1(map<string, dataset> datasetCatalog) {
   int idHigh = 40000000;
 
-  RawContext &ctx = *prepareContext("symantec-json-7");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-7");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -1662,8 +1662,8 @@ void symantecJSON8(map<string, dataset> datasetCatalog) {
   //    string botName = "GRUM";
   string langName = "german";
 
-  RawContext &ctx = *prepareContext("symantec-json-8");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-8");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -1784,8 +1784,8 @@ void symantecJSON8(map<string, dataset> datasetCatalog) {
 void symantecJSON9(map<string, dataset> datasetCatalog) {
   int yearNo = 2010;
 
-  RawContext &ctx = *prepareContext("symantec-json-9");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-9");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -1864,8 +1864,8 @@ void symantecJSON9(map<string, dataset> datasetCatalog) {
 void symantecJSON9v1(map<string, dataset> datasetCatalog) {
   int yearNo = 2010;
 
-  RawContext &ctx = *prepareContext("symantec-json-9");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-9");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -1967,8 +1967,8 @@ void symantecJSON9v1(map<string, dataset> datasetCatalog) {
 void symantecJSON10(map<string, dataset> datasetCatalog) {
   int monthNo = 12;
 
-  RawContext &ctx = *prepareContext("symantec-json-10");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-10");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -2042,8 +2042,8 @@ void symantecJSON10(map<string, dataset> datasetCatalog) {
 void symantecJSON10v1(map<string, dataset> datasetCatalog) {
   int monthNo = 12;
 
-  RawContext &ctx = *prepareContext("symantec-json-10");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-10");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -2141,8 +2141,8 @@ void symantecJSON11(map<string, dataset> datasetCatalog) {
   int idLow = 20000000;
   int idHigh = 60000000;
 
-  RawContext &ctx = *prepareContext("symantec-json-11");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-11");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -2255,11 +2255,11 @@ void symantecJSON11(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   IntType intType = IntType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =
@@ -2288,8 +2288,8 @@ void symantecJSON11v1(map<string, dataset> datasetCatalog) {
   int idLow = 20000000;
   int idHigh = 60000000;
 
-  RawContext &ctx = *prepareContext("symantec-json-11");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-11");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantecJSON = datasetCatalog[nameSymantec];
@@ -2408,11 +2408,11 @@ void symantecJSON11v1(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   IntType intType = IntType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =
@@ -2446,8 +2446,8 @@ void symantecJSON11v1(map<string, dataset> datasetCatalog) {
 }
 
 void symantecJSONWarmup(map<string, dataset> datasetCatalog) {
-  RawContext &ctx = *prepareContext("symantec-json-warmup");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-warmup");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantec = datasetCatalog[nameSymantec];

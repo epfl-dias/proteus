@@ -78,7 +78,7 @@ typedef struct {
 } jsmntok_t;
 #endif
 
-/* NOTE: Changes affect RawContext::CreateJSMNStruct() */
+/* NOTE: Changes affect Context::CreateJSMNStruct() */
 #ifdef JSON_TIGHT
 typedef struct {
 	char type;

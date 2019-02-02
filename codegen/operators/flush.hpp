@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2018
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,24 +24,23 @@
 #ifndef FLUSH_HPP_
 #define FLUSH_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "operators/monoids.hpp"
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
-class Flush : public UnaryRawOperator {
+class Flush : public UnaryOperator {
  public:
-  Flush(vector<expression_t> outputExprs, RawOperator *const child,
-        RawContext *context, const char *outPath = "out.json");
+  Flush(vector<expression_t> outputExprs, Operator *const child,
+        Context *context, const char *outPath = "out.json");
   virtual ~Flush() { LOG(INFO) << "Collapsing Flush operator"; }
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return getChild()->isFiltering(); }
 
  protected:
-  RawContext *context;
+  Context *context;
   size_t result_cnt_id;
 
   expression_t outputExpr;
@@ -51,8 +50,7 @@ class Flush : public UnaryRawOperator {
   std::string relName;
 
  private:
-  void generate(RawContext *const context,
-                const OperatorState &childState) const;
+  void generate(Context *const context, const OperatorState &childState) const;
 };
 
 #endif /* FLUSH_HPP_ */

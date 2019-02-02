@@ -46,9 +46,9 @@
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 /*
@@ -57,8 +57,8 @@
  * of matches (i.e., both hashKey and key checked) */
 
 TEST(JSON, Nest) {
-  RawContext &ctx = *prepareContext("nestRadixJSON");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("nestRadixJSON");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/employees-more.json");
 
@@ -202,7 +202,7 @@ TEST(JSON, Nest) {
   unnestOp.setParent(&nestOp);
 
   // PRINT Field 1 (Max)
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   RecordAttribute toOutput1 =
       RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =
@@ -231,8 +231,8 @@ TEST(JSON, Nest) {
 }
 
 TEST(JSON, NestTwoKeys) {
-  RawContext &ctx = *prepareContext("nestRadixJSON-TwoKeys");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("nestRadixJSON-TwoKeys");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/employees-more.json");
 
@@ -393,7 +393,7 @@ TEST(JSON, NestTwoKeys) {
   unnestOp.setParent(&nestOp);
 
   // PRINT Field 1 (Max)
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   RecordAttribute toOutput1 =
       RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =

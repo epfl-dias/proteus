@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,14 +23,16 @@
 
 #include "operators/null-filter.hpp"
 
+using namespace llvm;
+
 void NullFilter::produce() { getChild()->produce(); }
 
-void NullFilter::consume(RawContext *const context,
+void NullFilter::consume(Context *const context,
                          const OperatorState &childState) {
   generate(context, childState);
 }
 
-void NullFilter::generate(RawContext *const context,
+void NullFilter::generate(Context *const context,
                           const OperatorState &childState) const {
   IRBuilder<> *TheBuilder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -38,7 +40,7 @@ void NullFilter::generate(RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue condition = this->expr->accept(exprGenerator);
+  ProteusValue condition = this->expr->accept(exprGenerator);
   Value *isNotNull = TheBuilder->CreateNot(condition.isNull);
 
   // Get entry point

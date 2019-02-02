@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -26,7 +26,7 @@
 #include "expressions/expressions-generator.hpp"
 
 void Split::produce() {
-  UnaryRawOperator::setParent(parent[produce_calls]);
+  UnaryOperator::setParent(parent[produce_calls]);
   generate_catch();
 
   catch_pip.push_back(context->operator->());
@@ -40,13 +40,13 @@ void Split::produce() {
   // push new pipeline for the throw part
   context->pushPipeline();
 
-  context->registerOpen(this, [this](RawPipeline *pip) { this->open(pip); });
-  context->registerClose(this, [this](RawPipeline *pip) { this->close(pip); });
+  context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
+  context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
   getChild()->produce();
 }
 
-void Split::open(RawPipeline *pip) {
+void Split::open(Pipeline *pip) {
   // time_block t("Tinit_exchange: ");
 
   std::lock_guard<std::mutex> guard(init_mutex);

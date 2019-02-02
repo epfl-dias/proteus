@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,21 +24,20 @@
 #include "expressions/expressions-generator.hpp"
 #include "operators/operators.hpp"
 
-class Print : public UnaryRawOperator {
+class Print : public UnaryOperator {
  public:
-  Print(Function *debug, expressions::RecordProjection *arg,
-        RawOperator *const child)
-      : UnaryRawOperator(child), arg(arg), print(debug) {}
+  Print(llvm::Function *debug, expressions::RecordProjection *arg,
+        Operator *const child)
+      : UnaryOperator(child), arg(arg), print(debug) {}
   virtual ~Print() { LOG(INFO) << "Collapsing print operator"; }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return getChild()->isFiltering(); }
 
  private:
   expressions::RecordProjection *arg;
-  Function *print;
+  llvm::Function *print;
 
   OperatorState *generate(const OperatorState &childState);
 };

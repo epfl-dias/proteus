@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -26,15 +26,15 @@
 #include <future>
 #include <thread>
 #include <unordered_map>
+#include "codegen/util/parallel-context.hpp"
 #include "operators/operators.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/async_containers.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
 // void * make_mem_move_device(char * src, size_t bytes, int target_device,
 // cudaStream_t strm);
 
-class MemBroadcastDevice : public UnaryRawOperator {
+class MemBroadcastDevice : public UnaryOperator {
  public:
   struct workunit {
     void *data;
@@ -65,10 +65,10 @@ class MemBroadcastDevice : public UnaryRawOperator {
     // size_t                      next_e   ;
   };
 
-  MemBroadcastDevice(RawOperator *const child, GpuRawContext *const context,
+  MemBroadcastDevice(Operator *const child, ParallelContext *const context,
                      const vector<RecordAttribute *> &wantedFields,
                      int num_of_targets, bool to_cpu, bool always_share = false)
-      : UnaryRawOperator(child),
+      : UnaryOperator(child),
         context(context),
         wantedFields(wantedFields),
         slack(8 * num_of_targets),
@@ -86,8 +86,7 @@ class MemBroadcastDevice : public UnaryRawOperator {
   }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
  private:
@@ -95,7 +94,7 @@ class MemBroadcastDevice : public UnaryRawOperator {
   size_t device_id_var;
   size_t memmvconf_var;
 
-  RawPipelineGen *catch_pip;
+  PipelineGen *catch_pip;
   llvm::Type *data_type;
 
   std::vector<int> targets;
@@ -104,10 +103,10 @@ class MemBroadcastDevice : public UnaryRawOperator {
   bool to_cpu;
   bool always_share;
 
-  GpuRawContext *const context;
+  ParallelContext *const context;
 
-  void open(RawPipeline *pip);
-  void close(RawPipeline *pip);
+  void open(Pipeline *pip);
+  void close(Pipeline *pip);
 
   void catcher(MemMoveConf *conf, int group_id,
                const exec_location &target_dev);

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,7 +21,6 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-// #include "buffer_manager.cuh"
 #include <cinttypes>
 #include <cstdint>
 #include <cstdio>
@@ -36,9 +35,9 @@
 
 #include "common/gpu/gpu-common.hpp"
 
-#include "multigpu/buffer_manager.cuh"
+#include "buffer-manager.cuh"
+#include "codegen/memory/memory-manager.hpp"
 #include "topology/affinity_manager.hpp"
-#include "util/raw-memory-manager.hpp"
 
 #include <thread>
 // #include <utmpx.h>
@@ -231,10 +230,10 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
     }
 
     terminating = false;
-    device_buffs_mutex = new mutex[devices];
-    device_buffs_cv = new condition_variable[devices];
-    device_buffs_thrds = new thread *[devices];
-    device_buffs_pool = new vector<T *>[devices];
+    device_buffs_mutex = new std::mutex[devices];
+    device_buffs_cv = new std::condition_variable[devices];
+    device_buffs_thrds = new std::thread *[devices];
+    device_buffs_pool = new std::vector<T *>[devices];
     release_streams = new cudaStream_t[devices];
 
     h_pool = new h_pool_t *[cores];
@@ -254,9 +253,9 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
     buffer_cache.clear();
   }
 
-  mutex buff_cache;
+  std::mutex buff_cache;
 
-  vector<thread> buffer_pool_constrs;
+  std::vector<std::thread> buffer_pool_constrs;
   for (const auto &gpu : topo.getGpus()) {
     buffer_pool_constrs.emplace_back([gpu, size, &buff_cache] {
       uint32_t j = gpu.id;
@@ -279,7 +278,7 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
         assert(topology::getInstance().getGpuAddressed(m)->id == j);
       }
       {  // FIXME: why are we including device buffers in the cache?
-        lock_guard<mutex> guard(buff_cache);
+        std::lock_guard<std::mutex> guard(buff_cache);
         for (const auto b : buffs) buffer_cache[b] = 0;
       }
 
@@ -306,7 +305,7 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
           &bf, std::max(device_buff_size, keep_threshold) * sizeof(T *)));
       device_buff[j] = bf;
 
-      device_buffs_thrds[j] = new thread(dev_buff_manager, j);
+      device_buffs_thrds[j] = new std::thread(dev_buff_manager, j);
     });
   }
 
@@ -316,7 +315,7 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
       const auto &topo = topology::getInstance();
 
       size_t bytes = h_vector_size * sizeof(T) * h_size;
-      T *mem = (T *)RawMemoryManager::mallocPinned(bytes);
+      T *mem = (T *)MemoryManager::mallocPinned(bytes);
       assert(mem);
 
       // T * mem;
@@ -342,7 +341,7 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
       }
 
       {
-        lock_guard<mutex> guard(buff_cache);
+        std::lock_guard<std::mutex> guard(buff_cache);
         for (const auto b : buffs) buffer_cache[b] = 0;
       }
 
@@ -387,7 +386,7 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
 
   for (auto &t : buffer_pool_constrs) t.join();
 
-  buffer_logger = new thread{buffer_manager<T>::log_buffers};
+  buffer_logger = new std::thread{buffer_manager<T>::log_buffers};
 }
 
 template <typename T>
@@ -420,7 +419,7 @@ __host__ void buffer_manager<T>::destroy() {
 
   const auto &topo = topology::getInstance();
 
-  vector<thread> buffer_pool_constrs;
+  std::vector<std::thread> buffer_pool_constrs;
   for (const auto &gpu : topo.getGpus()) {
 #ifndef NCUDA
     buffer_pool_constrs.emplace_back([gpu] {
@@ -461,7 +460,7 @@ __host__ void buffer_manager<T>::destroy() {
   for (const auto &cpu : topo.getCpuNumaNodes()) {
     buffer_pool_constrs.emplace_back([cpu] {
       set_exec_location_on_scope cu{cpu};
-      RawMemoryManager::freePinned(h_h_buff_start[cpu.id]);
+      MemoryManager::freePinned(h_h_buff_start[cpu.id]);
       delete h_pool_numa[cpu.id];
     });
   }
@@ -512,7 +511,7 @@ void buffer_manager<T>::dev_buff_manager(int dev) {
     bool sleep = false;
     int added = 0;
     {
-      std::unique_lock<mutex> lk(device_buffs_mutex[dev]);
+      std::unique_lock<std::mutex> lk(device_buffs_mutex[dev]);
 
       device_buffs_cv[dev].wait(
           lk, [dev] { return device_buffs_pool[dev].empty() || terminating; });
@@ -557,7 +556,7 @@ __host__ void buffer_manager<T>::log_buffers() {
   uint32_t devices = topo.getGpuCount();
   if (devices <= 0) return;
 
-  ostream &out = std::cerr;
+  std::ostream &out = std::cerr;
 
   uint32_t cnts[devices];
   cudaStream_t strs[devices];

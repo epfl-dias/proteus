@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -27,12 +27,12 @@ bool recordComparator(RecordAttribute *x, RecordAttribute *y) {
   return (x->getAttrNo() < y->getAttrNo());
 }
 
-Value *RecordType::projectArg(Value *record, RecordAttribute *attr,
-                              IRBuilder<> *const Builder) const {
+llvm::Value *RecordType::projectArg(llvm::Value *record, RecordAttribute *attr,
+                                    llvm::IRBuilder<> *const Builder) const {
   if (!(record->getType()->isStructTy())) return NULL;
-  if (!(((StructType *)record->getType())
+  if (!(((llvm::StructType *)record->getType())
             ->isLayoutIdentical(
-                (StructType *)getLLVMType(record->getContext()))))
+                (llvm::StructType *)getLLVMType(record->getContext()))))
     return NULL;
   int index = getIndex(attr);
   if (index < 0) return NULL;

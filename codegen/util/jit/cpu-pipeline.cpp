@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,16 +21,17 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "raw-cpu-pipeline.hpp"
+#include "cpu-pipeline.hpp"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
 
-RawCpuPipelineGen::RawCpuPipelineGen(RawContext *context, std::string pipName,
-                                     RawPipelineGen *copyStateFrom)
-    : RawPipelineGen(context, pipName, copyStateFrom),
-      module(context, pipName) {
+using namespace llvm;
+
+CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
+                               PipelineGen *copyStateFrom)
+    : PipelineGen(context, pipName, copyStateFrom), module(context, pipName) {
   registerSubPipeline();
   //     /* OPTIMIZER PIPELINE, function passes */
   //     TheFPM = new legacy::FunctionPassManager(getModule());
@@ -401,11 +402,11 @@ RawCpuPipelineGen::RawCpuPipelineGen(RawContext *context, std::string pipName,
   registerFunctions();  // FIXME: do we have to register them every time ?
 }
 
-void *RawCpuPipelineGen::getCompiledFunction(Function *f) {
+void *CpuPipelineGen::getCompiledFunction(Function *f) {
   return module.getCompiledFunction(f);
 }
 
-void RawCpuPipelineGen::compileAndLoad() {
+void CpuPipelineGen::compileAndLoad() {
   module.compileAndLoad();
   func = getCompiledFunction(F);
 }

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "storage/raw-storage-manager.hpp"
+#include "storage/storage-manager.hpp"
 #include <algorithm>
 #include <fstream>
 #include "topology/affinity_manager.hpp"

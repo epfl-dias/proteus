@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -27,7 +27,7 @@
 #include "plugins/plugins.hpp"
 //#include "util/raw-catalog.hpp"
 
-class RawContext;
+class Context;
 // TODO Refactor into multiple materializers
 /**
  * What to do with each attribute contained in the payload of a materializing
@@ -49,15 +49,15 @@ class Materializer {
    * FIXME There is DEFINITELY a better way to do this.
    */
  public:
-  Materializer(vector<RecordAttribute *> whichFields,
-               vector<expression_t> wantedExpressions,
-               vector<RecordAttribute *> whichOIDs,
-               vector<materialization_mode> outputMode_);
+  Materializer(std::vector<RecordAttribute *> whichFields,
+               std::vector<expression_t> wantedExpressions,
+               std::vector<RecordAttribute *> whichOIDs,
+               std::vector<materialization_mode> outputMode_);
 
   /* FIXME TODO
    * Unfortunately, too many of the experiments rely on this constructor */
-  Materializer(vector<RecordAttribute *> whichFields,
-               vector<materialization_mode> outputMode_)
+  Materializer(std::vector<RecordAttribute *> whichFields,
+               std::vector<materialization_mode> outputMode_)
       __attribute__((deprecated));
 
   /*
@@ -66,21 +66,22 @@ class Materializer {
    *
    * XXX ORDER OF expression fields matters!! OIDs need to be placed first!
    */
-  Materializer(vector<expression_t> wantedExpressions);
+  Materializer(std::vector<expression_t> wantedExpressions);
 
   ~Materializer() {}
 
-  const vector<RecordAttribute *> &getWantedFields() const {
+  const std::vector<RecordAttribute *> &getWantedFields() const {
     return wantedFields;
   }
-  const vector<RecordAttribute *> &getWantedOIDs() {
+  const std::vector<RecordAttribute *> &getWantedOIDs() {
     if (oidsProvided) {
       return wantedOIDs;
     } else {
       /* HACK to avoid crashes in deprecated test cases!
        * FIXME This is deprecated and should NOT be used.
        * For example, it still breaks 3way joins */
-      vector<RecordAttribute *> *newOIDs = new vector<RecordAttribute *>();
+      std::vector<RecordAttribute *> *newOIDs =
+          new std::vector<RecordAttribute *>();
       set<RecordAttribute>::iterator it = tupleIdentifiers.begin();
       for (; it != tupleIdentifiers.end(); it++) {
         RecordAttribute *attr = new RecordAttribute(
@@ -90,10 +91,10 @@ class Materializer {
       return *newOIDs;  // wantedOIDs;
     }
   }
-  const vector<expression_t> &getWantedExpressions() const {
+  const std::vector<expression_t> &getWantedExpressions() const {
     return wantedExpressions;
   }
-  const vector<materialization_mode> &getOutputMode() const {
+  const std::vector<materialization_mode> &getOutputMode() const {
     return outputMode;
   }
 
@@ -112,21 +113,21 @@ class Materializer {
    *  wantedExpressions include activeTuple.
    *  wantedFields do not!
    */
-  vector<expression_t> wantedExpressions;
+  std::vector<expression_t> wantedExpressions;
 
-  vector<RecordAttribute *> wantedFields;
-  vector<RecordAttribute *> wantedOIDs;
-  vector<materialization_mode> outputMode;
+  std::vector<RecordAttribute *> wantedFields;
+  std::vector<RecordAttribute *> wantedOIDs;
+  std::vector<materialization_mode> outputMode;
   // int tupleIdentifiers;
-  set<RecordAttribute> tupleIdentifiers;
+  std::set<RecordAttribute> tupleIdentifiers;
 
   bool oidsProvided;
 };
 
 class OutputPlugin {
  public:
-  OutputPlugin(RawContext *const context, Materializer &materializer,
-               const map<RecordAttribute, RawValueMemory> *bindings);
+  OutputPlugin(Context *const context, Materializer &materializer,
+               const map<RecordAttribute, ProteusValueMemory> *bindings);
   ~OutputPlugin() {}
 
   llvm::StructType *getPayloadType() { return payloadType; }
@@ -140,26 +141,29 @@ class OutputPlugin {
    * To be used when we consider eagerly materializing
    * collections, strings, etc.
    */
-  Value *getRuntimePayloadTypeSize();
+  llvm::Value *getRuntimePayloadTypeSize();
 
-  void setBindings(const map<RecordAttribute, RawValueMemory> *bindings) {
+  void setBindings(const map<RecordAttribute, ProteusValueMemory> *bindings) {
     currentBindings = bindings;
   }
-  const map<RecordAttribute, RawValueMemory> &getBindings() const {
+  const map<RecordAttribute, ProteusValueMemory> &getBindings() const {
     return *currentBindings;
   }
-  vector<Type *> *getMaterializedTypes() { return materializedTypes; }
-  Value *convert(Type *currType, Type *materializedType, Value *val);
+  std::vector<llvm::Type *> *getMaterializedTypes() {
+    return materializedTypes;
+  }
+  llvm::Value *convert(llvm::Type *currType, llvm::Type *materializedType,
+                       llvm::Value *val);
 
  private:
   // Schema info provided
   const Materializer &materializer;
 
   // Code-generation-related
-  RawContext *const context;
-  const map<RecordAttribute, RawValueMemory> *currentBindings;
+  Context *const context;
+  const map<RecordAttribute, ProteusValueMemory> *currentBindings;
   llvm::StructType *payloadType;
-  vector<Type *> *materializedTypes;
+  std::vector<llvm::Type *> *materializedTypes;
 
   /* Report whether payload comprises only scalars (or not) */
   bool isComplex;
@@ -167,11 +171,11 @@ class OutputPlugin {
   int identifiersTypeSize;
   /* Static computation of size in case of late materialization */
   /* Size per-binding, and total size */
-  vector<int> fieldSizes;
+  std::vector<int> fieldSizes;
   int payloadTypeSize;
 
-  Type *chooseType(const ExpressionType *exprType, Type *currType,
-                   materialization_mode mode);
+  llvm::Type *chooseType(const ExpressionType *exprType, llvm::Type *currType,
+                         materialization_mode mode);
 };
 
 #endif /* PLUGINS_OUTPUT_HPP_ */

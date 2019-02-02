@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,11 +24,11 @@
 #ifndef HASH_GROUP_BY_CHAINED_HPP_
 #define HASH_GROUP_BY_CHAINED_HPP_
 
+#include "codegen/util/jit/pipeline.hpp"
+#include "codegen/util/parallel-context.hpp"
 #include "expressions/expressions.hpp"
 #include "operators/monoids.hpp"
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/raw-pipeline.hpp"
 
 struct GpuAggrMatExpr {
  public:
@@ -58,42 +58,37 @@ struct GpuAggrMatExpr {
   bool is_aggregation() { return is_m; }
 };
 
-class HashGroupByChained : public UnaryRawOperator {
+class HashGroupByChained : public UnaryOperator {
  public:
   HashGroupByChained(const std::vector<GpuAggrMatExpr> &agg_exprs,
-                     // const std::vector<size_t> &packet_widths,
                      const std::vector<expression_t> key_expr,
-                     RawOperator *const child,
+                     Operator *const child,
 
                      int hash_bits,
 
-                     GpuRawContext *context, size_t maxInputSize,
+                     ParallelContext *context, size_t maxInputSize,
                      string opLabel = "gb_chained");
   virtual ~HashGroupByChained() {
     LOG(INFO) << "Collapsing HashGroupByChained operator";
   }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
 
   virtual bool isFiltering() const { return true; }
 
-  virtual void open(RawPipeline *pip);
-  virtual void close(RawPipeline *pip);
+  virtual void open(Pipeline *pip);
+  virtual void close(Pipeline *pip);
 
- private:
+ protected:
   void prepareDescription();
-  void generate_build(RawContext *const context,
-                      const OperatorState &childState);
-  void generate_scan();
-  void buildHashTableFormat();
-  llvm::Value *hash(llvm::Value *key);
-  llvm::Value *hash(llvm::Value *old_seed, llvm::Value *key);
-  llvm::Value *hash(const std::vector<expression_t> &exprs,
-                    RawContext *const context, const OperatorState &childState);
-
-  string opLabel;
+  virtual void generate_build(ParallelContext *const context,
+                              const OperatorState &childState);
+  virtual void generate_scan();
+  virtual void buildHashTableFormat();
+  virtual llvm::Value *hash(const std::vector<expression_t> &exprs,
+                            Context *const context,
+                            const OperatorState &childState);
 
   std::vector<GpuAggrMatExpr> agg_exprs;
   std::vector<size_t> packet_widths;
@@ -107,9 +102,10 @@ class HashGroupByChained : public UnaryRawOperator {
   int hash_bits;
   size_t maxInputSize;
 
-  GpuRawContext *context;
+  PipelineGen *probe_gen;
 
-  RawPipelineGen *probe_gen;
+  ParallelContext *context;
+  string opLabel;
 };
 
 #endif /* HASH_GROUP_BY_CHAINED_HPP_ */

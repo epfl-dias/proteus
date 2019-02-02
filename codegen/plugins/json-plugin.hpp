@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -26,8 +26,8 @@
 
 #include "plugins/plugins.hpp"
 #include "util/atois.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-catalog.hpp"
+#include "util/caching.hpp"
+#include "util/catalog.hpp"
 
 //#define DEBUGJSON
 
@@ -87,35 +87,37 @@ class JSONPlugin : public Plugin {
    * implemented for lines
    * XXX Assume linehint is NECESSARY to be provided */
   /* Deprecated */
-  //    JSONPlugin(RawContext* const context, string& fname, ExpressionType*
+  //    JSONPlugin(Context* const context, string& fname, ExpressionType*
   //    schema);
-  JSONPlugin(RawContext *const context, string fname, ExpressionType *schema,
+  JSONPlugin(Context *const context, string fname, ExpressionType *schema,
              size_t linehint = 1000, bool staticSchema = false);
-  JSONPlugin(RawContext *const context, string fname, ExpressionType *schema,
+  JSONPlugin(Context *const context, string fname, ExpressionType *schema,
              size_t linehint, jsmntok_t **tokens);
   ~JSONPlugin();
   void init();
-  void generate(const RawOperator &producer);
+  void generate(const Operator &producer);
   void finish();
   string &getName() { return fname; }
 
   // 1-1 correspondence with 'RecordProjection' expression
-  virtual RawValueMemory readPath(string activeRelation,
-                                  Bindings wrappedBindings, const char *pathVar,
-                                  RecordAttribute attr);
-  virtual RawValueMemory readPredefinedPath(string activeRelation,
-                                            Bindings wrappedBindings,
-                                            RecordAttribute attr);
-  virtual RawValueMemory readValue(RawValueMemory mem_value,
-                                   const ExpressionType *type);
-  virtual RawValue readCachedValue(CacheInfo info,
-                                   const OperatorState &currState);
-  virtual RawValue readCachedValue(
-      CacheInfo info, const map<RecordAttribute, RawValueMemory> &bindings);
+  virtual ProteusValueMemory readPath(string activeRelation,
+                                      Bindings wrappedBindings,
+                                      const char *pathVar,
+                                      RecordAttribute attr);
+  virtual ProteusValueMemory readPredefinedPath(string activeRelation,
+                                                Bindings wrappedBindings,
+                                                RecordAttribute attr);
+  virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
+                                       const ExpressionType *type);
+  virtual ProteusValue readCachedValue(CacheInfo info,
+                                       const OperatorState &currState);
+  virtual ProteusValue readCachedValue(
+      CacheInfo info, const map<RecordAttribute, ProteusValueMemory> &bindings);
 
-  virtual RawValue hashValue(RawValueMemory mem_value,
-                             const ExpressionType *type);
-  virtual RawValue hashValueEager(RawValue value, const ExpressionType *type);
+  virtual ProteusValue hashValue(ProteusValueMemory mem_value,
+                                 const ExpressionType *type);
+  virtual ProteusValue hashValueEager(ProteusValue value,
+                                      const ExpressionType *type);
 
   /**
    * XXX VERY strong JSON-specific assumption (pretty much hard-coding) that we
@@ -124,30 +126,32 @@ class JSONPlugin : public Plugin {
    *
    * Both also assume that input is an OID (complex one)
    */
-  virtual void flushTuple(RawValueMemory mem_value, Value *fileName) {
+  virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
     flushChunk(mem_value, fileName);
   }
-  virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type,
-                          Value *fileName) {
+  virtual void flushValue(ProteusValueMemory mem_value,
+                          const ExpressionType *type, llvm::Value *fileName) {
     if (type->getTypeID() != DSTRING)
       flushChunk(mem_value, fileName);
     else
       flushDString(mem_value, type, fileName);
   }
-  virtual void flushValueEager(RawValue value, const ExpressionType *type,
-                               Value *fileName);
-  void flushChunk(RawValueMemory mem_value, Value *fileName);
+  virtual void flushValueEager(ProteusValue value, const ExpressionType *type,
+                               llvm::Value *fileName);
+  void flushChunk(ProteusValueMemory mem_value, llvm::Value *fileName);
 
-  virtual Value *getValueSize(RawValueMemory mem_value,
-                              const ExpressionType *type);
+  virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
+                                    const ExpressionType *type);
 
   // Used by unnest
-  virtual RawValueMemory initCollectionUnnest(RawValue val_parentTokenNo);
-  virtual RawValue collectionHasNext(RawValue parentTokenId,
-                                     RawValueMemory mem_currentTokenId);
-  virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentToken);
+  virtual ProteusValueMemory initCollectionUnnest(
+      ProteusValue val_parentTokenNo);
+  virtual ProteusValue collectionHasNext(ProteusValue parentTokenId,
+                                         ProteusValueMemory mem_currentTokenId);
+  virtual ProteusValueMemory collectionGetNext(
+      ProteusValueMemory mem_currentToken);
 
-  void scanObjects(const RawOperator &producer, Function *debug);
+  void scanObjects(const Operator &producer, llvm::Function *debug);
 
   //    virtual typeID getOIDSize() { return INT; }
   virtual ExpressionType *getOIDType() {
@@ -179,64 +183,53 @@ class JSONPlugin : public Plugin {
   //        free(tokens);
   //    }
 
-  virtual void flushBeginList(Value *fileName) {
-    Function *flushFunc = context->getFunction("flushChar");
-    vector<Value *> ArgsV;
-    // Start 'array'
-    ArgsV.push_back(context->createInt8('['));
-    ArgsV.push_back(fileName);
+  virtual void flushBeginList(llvm::Value *fileName) {
+    auto flushFunc = context->getFunction("flushChar");
+    vector<llvm::Value *> ArgsV{context->createInt8('['), fileName};
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
-  virtual void flushBeginBag(Value *fileName) {
+  virtual void flushBeginBag(llvm::Value *fileName) {
     string error_msg = string("[JSONPlugin]: Not implemented yet");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginSet(Value *fileName) {
+  virtual void flushBeginSet(llvm::Value *fileName) {
     string error_msg = string("[JSONPlugin]: Not implemented yet");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndList(Value *fileName) {
-    Function *flushFunc = context->getFunction("flushChar");
-    vector<Value *> ArgsV;
-    // Start 'array'
-    ArgsV.push_back(context->createInt8(']'));
-    ArgsV.push_back(fileName);
+  virtual void flushEndList(llvm::Value *fileName) {
+    auto flushFunc = context->getFunction("flushChar");
+    vector<llvm::Value *> ArgsV{context->createInt8(']'), fileName};
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
-  virtual void flushEndBag(Value *fileName) {
+  virtual void flushEndBag(llvm::Value *fileName) {
     string error_msg = string("[JSONPlugin]: Not implemented yet");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndSet(Value *fileName) {
+  virtual void flushEndSet(llvm::Value *fileName) {
     string error_msg = string("[JSONPlugin]: Not implemented yet");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushDelim(Value *fileName, int depth) {
-    Function *flushFunc = context->getFunction("flushChar");
-    vector<Value *> ArgsV;
+  virtual void flushDelim(llvm::Value *fileName, int depth) {
+    auto flushFunc = context->getFunction("flushChar");
+    vector<llvm::Value *> ArgsV{context->createInt8(','), fileName};
+    context->getBuilder()->CreateCall(flushFunc, ArgsV);
+  }
+
+  virtual void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
+                          int depth) {
+    auto flushFunc = context->getFunction("flushDelim");
     // XXX JSON-specific -> Serializer business to differentiate
-    ArgsV.push_back(context->createInt8(','));
-    ArgsV.push_back(fileName);
-    context->getBuilder()->CreateCall(flushFunc, ArgsV);
-  }
-
-  virtual void flushDelim(Value *resultCtr, Value *fileName, int depth) {
-    Function *flushFunc = context->getFunction("flushDelim");
-    vector<Value *> ArgsV;
-    ArgsV.push_back(resultCtr);
-    // XXX JSON-specific -> Serializer business to differentiate
-    ArgsV.push_back(context->createInt8(','));
-    ArgsV.push_back(fileName);
+    vector<llvm::Value *> ArgsV{resultCtr, context->createInt8(','), fileName};
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
@@ -247,7 +240,7 @@ class JSONPlugin : public Plugin {
   const char *buf;
   bool staticSchema;
 
-  StructType *tokenType;
+  llvm::StructType *tokenType;
 
   /* Specify whether the tokens array will be provided to the PG */
   bool cache;
@@ -258,8 +251,8 @@ class JSONPlugin : public Plugin {
   jsmntok_t **tokens;
   char *tokenBuf;
   size_t *newLines;
-  AllocaInst *mem_tokenArray;
-  AllocaInst *mem_newlineArray;
+  llvm::AllocaInst *mem_tokenArray;
+  llvm::AllocaInst *mem_newlineArray;
 
   /* Start with token value - increase when needed */
   size_t lines;
@@ -267,21 +260,21 @@ class JSONPlugin : public Plugin {
   // Code-generation-related
   // Used to store memory positions of offset, buf and filesize in the generated
   // code
-  map<string, AllocaInst *> NamedValuesJSON;
-  RawContext *const context;
+  map<string, llvm::AllocaInst *> NamedValuesJSON;
+  Context *const context;
 
   // Assumption (1) applies here
   ExpressionType *__attribute__((unused)) schema;
 
   /* Remember: token != OID */
-  StructType *getOIDLLVMType() {
-    LLVMContext &llvmContext = context->getLLVMContext();
-    Type *int64Type = Type::getInt64Ty(llvmContext);
-    vector<Type *> tokenIdMembers;
+  llvm::StructType *getOIDLLVMType() {
+    llvm::LLVMContext &llvmContext = context->getLLVMContext();
+    llvm::Type *int64Type = llvm::Type::getInt64Ty(llvmContext);
+    vector<llvm::Type *> tokenIdMembers;
     tokenIdMembers.push_back(int64Type);
     tokenIdMembers.push_back(int64Type);
     tokenIdMembers.push_back(int64Type);
-    return StructType::get(context->getLLVMContext(), tokenIdMembers);
+    return llvm::StructType::get(context->getLLVMContext(), tokenIdMembers);
   }
 
   // Cannot implement such a function. Arrays have non-fixed number of values.
@@ -296,8 +289,8 @@ class JSONPlugin : public Plugin {
   const char *var_tokenOffset;
   const char *var_tokenOffsetHash;  // Needed to guide hashing process
   void skipToEnd();
-  RawValueMemory readPathInternal(RawValueMemory mem_parentTokenId,
-                                  const char *pathVar);
+  ProteusValueMemory readPathInternal(ProteusValueMemory mem_parentTokenId,
+                                      const char *pathVar);
 
   void constructPlugin();
   void createPM();
@@ -305,8 +298,8 @@ class JSONPlugin : public Plugin {
   void initPM();
   void loadPMfromDisk(const char *pmPath, struct stat &pmStatBuffer);
 
-  virtual void flushDString(RawValueMemory mem_value,
-                            const ExpressionType *type, Value *fileName);
+  virtual void flushDString(ProteusValueMemory mem_value,
+                            const ExpressionType *type, llvm::Value *fileName);
 };
 
 }  // namespace jsonPipelined

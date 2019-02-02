@@ -41,8 +41,8 @@
 #include "operators/unnest.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 // Step 2. Use the TEST macro to define your tests.
@@ -76,8 +76,8 @@ inline void my_hash_combine(std::size_t &seed, const T &v) {
 }
 
 TEST(Hashing, IntegerNotGenerated) {
-  RawContext &ctx = *prepareContext("HashInt");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("HashInt");
+  Catalog &catalog = Catalog::getInstance();
 
   std::hash<int> hasher;
   size_t seed = 0;
@@ -110,11 +110,11 @@ TEST(Hashing, IntegerNotGenerated) {
 }
 
 TEST(Hashing, Constants) {
-  RawContext &ctx = *prepareContext("HashConstants");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("HashConstants");
+  Catalog &catalog = Catalog::getInstance();
 
   Root rootOp = Root(NULL);
-  map<RecordAttribute, RawValueMemory> varPlaceholder;
+  map<RecordAttribute, ProteusValueMemory> varPlaceholder;
   OperatorState statePlaceholder = OperatorState(rootOp, varPlaceholder);
   ExpressionHasherVisitor hasher =
       ExpressionHasherVisitor(&ctx, statePlaceholder);
@@ -154,11 +154,11 @@ TEST(Hashing, Constants) {
 }
 
 TEST(Hashing, BinaryExpressions) {
-  RawContext &ctx = *prepareContext("HashBinaryExpressions");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("HashBinaryExpressions");
+  Catalog &catalog = Catalog::getInstance();
 
   Root rootOp = Root(NULL);
-  map<RecordAttribute, RawValueMemory> varPlaceholder;
+  map<RecordAttribute, ProteusValueMemory> varPlaceholder;
   OperatorState statePlaceholder = OperatorState(rootOp, varPlaceholder);
   ExpressionHasherVisitor hasher =
       ExpressionHasherVisitor(&ctx, statePlaceholder);
@@ -207,11 +207,11 @@ TEST(Hashing, BinaryExpressions) {
 }
 
 TEST(Hashing, IfThenElse) {
-  RawContext &ctx = *prepareContext("HashIfThenElse");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("HashIfThenElse");
+  Catalog &catalog = Catalog::getInstance();
 
   Root rootOp = Root(NULL);
-  map<RecordAttribute, RawValueMemory> varPlaceholder;
+  map<RecordAttribute, ProteusValueMemory> varPlaceholder;
   OperatorState statePlaceholder = OperatorState(rootOp, varPlaceholder);
   ExpressionHasherVisitor hasher =
       ExpressionHasherVisitor(&ctx, statePlaceholder);

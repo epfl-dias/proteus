@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -29,132 +29,138 @@ class BinaryRowPlugin : public Plugin {
   /**
    * Plugin for binary files, organized in tabular format
    */
-  BinaryRowPlugin(RawContext *const context, string &fname, RecordType &rec_,
+  BinaryRowPlugin(Context *const context, string &fname, RecordType &rec_,
                   vector<RecordAttribute *> &whichFields);
   ~BinaryRowPlugin();
   virtual string &getName() { return fname; }
   void init();
-  void generate(const RawOperator &producer);
+  void generate(const Operator &producer);
   void finish();
-  virtual RawValueMemory readPath(string activeRelation, Bindings bindings,
-                                  const char *pathVar, RecordAttribute attr);
-  virtual RawValueMemory readValue(RawValueMemory mem_value,
-                                   const ExpressionType *type);
-  virtual RawValue readCachedValue(CacheInfo info,
-                                   const OperatorState &currState) {
+  virtual ProteusValueMemory readPath(string activeRelation, Bindings bindings,
+                                      const char *pathVar,
+                                      RecordAttribute attr);
+  virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
+                                       const ExpressionType *type);
+  virtual ProteusValue readCachedValue(CacheInfo info,
+                                       const OperatorState &currState) {
     string error_msg =
         "[BinaryRowPlugin: ] No caching support should be needed";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual RawValue readCachedValue(
-      CacheInfo info, const map<RecordAttribute, RawValueMemory> &bindings) {
+  virtual ProteusValue readCachedValue(
+      CacheInfo info,
+      const map<RecordAttribute, ProteusValueMemory> &bindings) {
     string error_msg =
         "[BinaryRowPlugin: ] No caching support should be needed";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual RawValue hashValue(RawValueMemory mem_value,
-                             const ExpressionType *type);
-  virtual RawValue hashValueEager(RawValue value, const ExpressionType *type);
+  virtual ProteusValue hashValue(ProteusValueMemory mem_value,
+                                 const ExpressionType *type);
+  virtual ProteusValue hashValueEager(ProteusValue value,
+                                      const ExpressionType *type);
 
-  virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
+  virtual ProteusValueMemory initCollectionUnnest(
+      ProteusValue val_parentObject) {
     string error_msg =
         "[BinaryRowPlugin: ] Binary row files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual RawValue collectionHasNext(RawValue val_parentObject,
-                                     RawValueMemory mem_currentChild) {
+  virtual ProteusValue collectionHasNext(ProteusValue val_parentObject,
+                                         ProteusValueMemory mem_currentChild) {
     string error_msg =
         "[BinaryRowPlugin: ] Binary row files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) {
+  virtual ProteusValueMemory collectionGetNext(
+      ProteusValueMemory mem_currentChild) {
     string error_msg =
         "[BinaryRowPlugin: ] Binary row files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushTuple(RawValueMemory mem_value, Value *fileName) {
+  virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type,
-                          Value *fileName) {
+  virtual void flushValue(ProteusValueMemory mem_value,
+                          const ExpressionType *type, llvm::Value *fileName) {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushValueEager(RawValue value, const ExpressionType *type,
-                               Value *fileName) {
+  virtual void flushValueEager(ProteusValue value, const ExpressionType *type,
+                               llvm::Value *fileName) {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushChunk(RawValueMemory mem_value, Value *fileName) {
+  virtual void flushChunk(ProteusValueMemory mem_value, llvm::Value *fileName) {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginList(Value *fileName) {
+  virtual void flushBeginList(llvm::Value *fileName) {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginBag(Value *fileName) {
+  virtual void flushBeginBag(llvm::Value *fileName) {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginSet(Value *fileName) {
+  virtual void flushBeginSet(llvm::Value *fileName) {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndList(Value *fileName) {
+  virtual void flushEndList(llvm::Value *fileName) {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndBag(Value *fileName) {
+  virtual void flushEndBag(llvm::Value *fileName) {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndSet(Value *fileName) {
+  virtual void flushEndSet(llvm::Value *fileName) {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushDelim(Value *fileName, int depth) {
+  virtual void flushDelim(llvm::Value *fileName, int depth) {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushDelim(Value *resultCtr, Value *fileName, int depth) {
+  virtual void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
+                          int depth) {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual Value *getValueSize(RawValueMemory mem_value,
-                              const ExpressionType *type);
+  virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
+                                    const ExpressionType *type);
   //    virtual typeID getOIDSize() { return INT; }
 
   virtual ExpressionType *getOIDType() { return new IntType(); }
@@ -169,31 +175,34 @@ class BinaryRowPlugin : public Plugin {
 
   // Schema info provided
   RecordType rec;
-  vector<RecordAttribute *> wantedFields;
+  std::vector<RecordAttribute *> wantedFields;
 
   /**
    * Code-generation-related
    */
   // Used to store memory positions of offset, buf and filesize in the generated
   // code
-  map<string, AllocaInst *> NamedValuesBinaryRow;
-  RawContext *const context;
+  std::map<std::string, llvm::AllocaInst *> NamedValuesBinaryRow;
+  Context *const context;
 
   const char *posVar;    // = "offset";
   const char *bufVar;    // = "fileBuffer";
   const char *fsizeVar;  // = "fileSize";
 
   // Used to generate code
-  void skipLLVM(Value *offset);
+  void skipLLVM(llvm::Value *offset);
   void readAsIntLLVM(RecordAttribute attName,
-                     map<RecordAttribute, RawValueMemory> &variables);
-  void readAsStringLLVM(RecordAttribute attName,
-                        map<RecordAttribute, RawValueMemory> &variables);
-  void readAsFloatLLVM(RecordAttribute attName,
-                       map<RecordAttribute, RawValueMemory> &variables);
-  void readAsBooleanLLVM(RecordAttribute attName,
-                         map<RecordAttribute, RawValueMemory> &variables);
+                     std::map<RecordAttribute, ProteusValueMemory> &variables);
+  void readAsStringLLVM(
+      RecordAttribute attName,
+      std::map<RecordAttribute, ProteusValueMemory> &variables);
+  void readAsFloatLLVM(
+      RecordAttribute attName,
+      std::map<RecordAttribute, ProteusValueMemory> &variables);
+  void readAsBooleanLLVM(
+      RecordAttribute attName,
+      std::map<RecordAttribute, ProteusValueMemory> &variables);
 
   // Generates a for loop that performs the file scan
-  void scan(const RawOperator &producer, Function *f);
+  void scan(const Operator &producer, llvm::Function *f);
 };

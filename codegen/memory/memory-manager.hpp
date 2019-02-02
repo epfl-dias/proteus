@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,8 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef RAW_GPU_MEMORY_MANAGER_HPP_
-#define RAW_GPU_MEMORY_MANAGER_HPP_
+#ifndef MEMORY_MANAGER_HPP_
+#define MEMORY_MANAGER_HPP_
 
 #include <mutex>
 #include <stack>
@@ -77,7 +77,7 @@ class SingleDeviceMemoryManager {
   void *malloc(size_t bytes);
   void free(void *ptr);
 
-  friend class RawMemoryManager;
+  friend class MemoryManager;
 };
 
 typedef SingleDeviceMemoryManager<GpuMemAllocator, unit_capacity_gpu>
@@ -85,7 +85,7 @@ typedef SingleDeviceMemoryManager<GpuMemAllocator, unit_capacity_gpu>
 typedef SingleDeviceMemoryManager<NUMAPinnedMemAllocator, unit_capacity_cpu>
     SingleCpuMemoryManager;
 
-class RawMemoryManager {
+class MemoryManager {
  public:
   static SingleGpuMemoryManager **gpu_managers;
   static SingleCpuMemoryManager **cpu_managers;
@@ -101,4 +101,4 @@ class RawMemoryManager {
  private:
 };
 
-#endif /* RAW_GPU_MEMORY_MANAGER_HPP_ */
+#endif /* MEMORY_MANAGER_HPP_ */

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,19 +24,17 @@
 #include "expressions/expressions-generator.hpp"
 #include "operators/operators.hpp"
 
-class Select : public UnaryRawOperator {
+class Select : public UnaryOperator {
  public:
-  Select(expression_t expr, RawOperator *const child)
-      : UnaryRawOperator(child), expr(std::move(expr)) {}
+  Select(expression_t expr, Operator *const child)
+      : UnaryOperator(child), expr(std::move(expr)) {}
   virtual ~Select() { LOG(INFO) << "Collapsing selection operator"; }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 
  private:
   expression_t expr;
-  void generate(RawContext *const context,
-                const OperatorState &childState) const;
+  void generate(Context *const context, const OperatorState &childState) const;
 };

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -27,16 +27,16 @@
 #include "common/common.hpp"
 #include "expressions/expressions.hpp"
 #include "operators/operators.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-catalog.hpp"
-#include "util/raw-context.hpp"
+#include "util/caching.hpp"
+#include "util/catalog.hpp"
+#include "util/context.hpp"
 #include "values/expressionTypes.hpp"
 
 /* Leads to incomplete type */
 class OperatorState;
-class RawOperator;
-// class RawValueMemory;
-// class RawValue;
+class Operator;
+// class ProteusValueMemory;
+// class ProteusValue;
 
 // Used by all plugins
 static const string activeLoop = "activeTuple";
@@ -48,7 +48,7 @@ static const string activeLoop = "activeTuple";
  */
 typedef struct Bindings {
   const OperatorState *state;
-  const RawValue record;
+  const ProteusValue record;
 } Bindings;
 
 enum PluginType { PGCSV, PGJSON, PGBINARY };
@@ -61,7 +61,7 @@ class Plugin {
   virtual string &getName() = 0;
   virtual void init() = 0;
   virtual void finish() = 0;
-  virtual void generate(const RawOperator &producer) = 0;
+  virtual void generate(const Operator &producer) = 0;
   /**
    * @param activeRelation Which relation's activeTuple is to be processed.
    *                          Does not have to be a native one
@@ -70,23 +70,25 @@ class Plugin {
    * yield ... Active tuple at some point will be the one of
    * "employees.children"
    */
-  virtual RawValueMemory readPath(string activeRelation,
-                                  Bindings wrappedBindings, const char *pathVar,
-                                  RecordAttribute attr) = 0;
-  virtual RawValueMemory readValue(RawValueMemory mem_value,
-                                   const ExpressionType *type) = 0;
-  virtual RawValue readCachedValue(CacheInfo info,
-                                   const OperatorState &currState) = 0;
-  virtual RawValue readCachedValue(
-      CacheInfo info, const map<RecordAttribute, RawValueMemory> &bindings) = 0;
+  virtual ProteusValueMemory readPath(string activeRelation,
+                                      Bindings wrappedBindings,
+                                      const char *pathVar,
+                                      RecordAttribute attr) = 0;
+  virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
+                                       const ExpressionType *type) = 0;
+  virtual ProteusValue readCachedValue(CacheInfo info,
+                                       const OperatorState &currState) = 0;
+  virtual ProteusValue readCachedValue(
+      CacheInfo info,
+      const map<RecordAttribute, ProteusValueMemory> &bindings) = 0;
 
   // Relevant for hashing visitors
-  virtual RawValue hashValue(RawValueMemory mem_value,
-                             const ExpressionType *type) = 0;
+  virtual ProteusValue hashValue(ProteusValueMemory mem_value,
+                                 const ExpressionType *type) = 0;
   /* Hash without re-interpreting. Mostly relevant if some value is cached
    * Meant for primitive values! */
-  virtual RawValue hashValueEager(RawValue value,
-                                  const ExpressionType *type) = 0;
+  virtual ProteusValue hashValueEager(ProteusValue value,
+                                      const ExpressionType *type) = 0;
 
   /**
    * Not entirely sure which is the correct granularity for 'stuff to flush'
@@ -106,19 +108,23 @@ class Plugin {
    * (i.e., all vs. JSON atm)
    * XXX 'Eager' flushing not tested
    */
-  virtual void flushTuple(RawValueMemory mem_value, Value *fileName) = 0;
-  virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type,
-                          Value *fileName) = 0;
-  virtual void flushValueEager(RawValue value, const ExpressionType *type,
-                               Value *fileName) = 0;
+  virtual void flushTuple(ProteusValueMemory mem_value,
+                          llvm::Value *fileName) = 0;
+  virtual void flushValue(ProteusValueMemory mem_value,
+                          const ExpressionType *type,
+                          llvm::Value *fileName) = 0;
+  virtual void flushValueEager(ProteusValue value, const ExpressionType *type,
+                               llvm::Value *fileName) = 0;
 
   /**
    * Relevant for collections' unnesting
    */
-  virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) = 0;
-  virtual RawValue collectionHasNext(RawValue val_parentObject,
-                                     RawValueMemory mem_currentChild) = 0;
-  virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) = 0;
+  virtual ProteusValueMemory initCollectionUnnest(
+      ProteusValue val_parentObject) = 0;
+  virtual ProteusValue collectionHasNext(
+      ProteusValue val_parentObject, ProteusValueMemory mem_currentChild) = 0;
+  virtual ProteusValueMemory collectionGetNext(
+      ProteusValueMemory mem_currentChild) = 0;
 
   /**
    * Relevant when needed to materialize EAGERLY.
@@ -126,22 +132,23 @@ class Plugin {
    *
    * (i.e., not used that often)
    */
-  virtual Value *getValueSize(RawValueMemory mem_value,
-                              const ExpressionType *type) = 0;
+  virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
+                                    const ExpressionType *type) = 0;
 
   //    virtual typeID getOIDSize() = 0;
   virtual ExpressionType *getOIDType() = 0;
   virtual PluginType getPluginType() = 0;
 
-  virtual void flushBeginList(Value *fileName) = 0;
-  virtual void flushBeginBag(Value *fileName) = 0;
-  virtual void flushBeginSet(Value *fileName) = 0;
+  virtual void flushBeginList(llvm::Value *fileName) = 0;
+  virtual void flushBeginBag(llvm::Value *fileName) = 0;
+  virtual void flushBeginSet(llvm::Value *fileName) = 0;
 
-  virtual void flushEndList(Value *fileName) = 0;
-  virtual void flushEndBag(Value *fileName) = 0;
-  virtual void flushEndSet(Value *fileName) = 0;
+  virtual void flushEndList(llvm::Value *fileName) = 0;
+  virtual void flushEndBag(llvm::Value *fileName) = 0;
+  virtual void flushEndSet(llvm::Value *fileName) = 0;
 
-  virtual void flushDelim(Value *fileName, int depth = 0) = 0;
-  virtual void flushDelim(Value *resultCtr, Value *fileName, int depth = 0) = 0;
+  virtual void flushDelim(llvm::Value *fileName, int depth = 0) = 0;
+  virtual void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
+                          int depth = 0) = 0;
 };
 #endif /* PLUGINS_LLVM_HPP_ */

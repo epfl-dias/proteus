@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -42,10 +42,10 @@
 #include "plugins/binary-col-plugin.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 
-// RawContext prepareContextVLDB(string moduleName);
+// Context prepareContextVLDB(string moduleName);
 
 #endif /* EXPERIMENTS_VLDB_INIT_HPP_ */

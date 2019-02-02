@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -47,9 +47,9 @@
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 void tpchSchema(map<string, dataset> &datasetCatalog) {
@@ -78,7 +78,7 @@ void tpchUnnestCachingPred(map<string, dataset> datasetCatalog, int predicate,
 /* XXX Must define JSON_TPCH_WIDE before executing!!! */
 int main() {
   CachingService &cache = CachingService::getInstance();
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Catalog &rawCatalog = Catalog::getInstance();
 
   map<string, dataset> datasetCatalog;
   tpchSchema(datasetCatalog);
@@ -182,8 +182,8 @@ int main() {
 
 void tpchUnnestCachingPred(map<string, dataset> datasetCatalog, int predicate,
                            bool exploitSchema) {
-  RawContext &ctx = *prepareContext("tpch-json/unnest-cachingPred");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-json/unnest-cachingPred");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameOrdersLineitems = string("ordersLineitems");
   dataset ordersLineitems = datasetCatalog[nameOrdersLineitems];
@@ -270,8 +270,8 @@ void tpchUnnestCachingPred(map<string, dataset> datasetCatalog, int predicate,
 
 void tpchUnnest(map<string, dataset> datasetCatalog, int predicate,
                 bool exploitSchema) {
-  RawContext &ctx = *prepareContext("tpch-json/unnest");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-json/unnest");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameOrdersLineitems = string("ordersLineitems");
   dataset ordersLineitems = datasetCatalog[nameOrdersLineitems];

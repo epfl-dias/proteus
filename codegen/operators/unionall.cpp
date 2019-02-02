@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -33,9 +33,8 @@ void UnionAll::produce() {
     context->popPipeline();
     context->pushPipeline();
 
-    context->registerOpen(this, [this](RawPipeline *pip) { this->open(pip); });
-    context->registerClose(this,
-                           [this](RawPipeline *pip) { this->close(pip); });
+    context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
+    context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
     child->produce();
   }

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,8 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef RAW_STORAGE_MANAGER_HPP_
-#define RAW_STORAGE_MANAGER_HPP_
+#ifndef STORAGE_MANAGER_HPP_
+#define STORAGE_MANAGER_HPP_
 
 #include <map>
 #include <vector>
@@ -87,4 +87,4 @@ class StorageManager {
                                              data_loc loc = PINNED);
 };
 
-#endif /* RAW_STORAGE_MANAGER_HPP_ */
+#endif /* STORAGE_MANAGER_HPP_ */

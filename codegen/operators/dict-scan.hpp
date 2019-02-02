@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,42 +23,42 @@
 #ifndef DICTSCAN_HPP_
 #define DICTSCAN_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
 class DictMatchIter;
 
-class DictScan : public UnaryRawOperator {
+class DictScan : public UnaryOperator {
  public:
-  DictScan(RawContext *const context, RecordAttribute attr, std::string rex,
+  DictScan(Context *const context, RecordAttribute attr, std::string rex,
            RecordAttribute regAs)
-      : UnaryRawOperator(NULL),
-        context(dynamic_cast<GpuRawContext *const>(context)),
+      : UnaryOperator(NULL),
+        context(dynamic_cast<ParallelContext *const>(context)),
         attr(attr),
         regex(rex),
         regAs(regAs) {
-    assert(this->context && "Only GpuRawContext supported");
+    assert(this->context && "Only ParallelContext supported");
   }
   virtual ~DictScan() { LOG(INFO) << "Collapsing dictscan operator"; }
-  RawOperator *const getChild() const {
+  Operator *const getChild() const {
     throw runtime_error(string("Dictscan operator has no children"));
   }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
+  virtual void consume(Context *const context,
                        const OperatorState &childState) {
-    GpuRawContext *ctx = dynamic_cast<GpuRawContext *>(context);
+    ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
     if (!ctx) {
       string error_msg =
           "[DictScan: ] Operator only supports code generation "
-          "using the GpuRawContext";
+          "using the ParallelContext";
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
     }
     consume(ctx, childState);
   }
 
-  virtual void consume(GpuRawContext *const context,
+  virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 
@@ -72,7 +72,7 @@ class DictScan : public UnaryRawOperator {
 
   friend class DictMatchIter;
 
-  GpuRawContext *const context;
+  ParallelContext *const context;
   const RecordAttribute attr;
   const RecordAttribute regAs;
   const std::string regex;

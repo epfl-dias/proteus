@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,56 +21,56 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef RAW_PIPELINE_HPP_
-#define RAW_PIPELINE_HPP_
+#ifndef PIPELINE_HPP_
+#define PIPELINE_HPP_
 
 #include <vector>
-#include "util/raw-context.hpp"
+#include "util/context.hpp"
 
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
 #include <utility>
 #include "common/gpu/gpu-common.hpp"
 
-class RawPipeline;
+class Pipeline;
 
 extern "C" {
 void yield();
 }
 
-typedef void(opener_t)(RawPipeline *);
-typedef void(closer_t)(RawPipeline *);
+typedef void(opener_t)(Pipeline *);
+typedef void(closer_t)(Pipeline *);
 
 typedef llvm::Value *(init_func_t)(llvm::Value *);
 typedef void(deinit_func_t)(llvm::Value *, llvm::Value *);
 
 // __device__ void devprinti64(uint64_t x);
 
-class RawPipelineGen {
+class PipelineGen {
  protected:
   // Last (current) basic block. This changes every time a new scan is triggered
-  BasicBlock *codeEnd;
+  llvm::BasicBlock *codeEnd;
   // Current entry basic block. This changes every time a new scan is triggered
-  BasicBlock *currentCodeEntry;
+  llvm::BasicBlock *currentCodeEntry;
 
   std::vector<std::pair<std::function<init_func_t>, size_t>> open_var;
-  Function *open__function;
+  llvm::Function *open__function;
 
   std::vector<std::pair<std::function<deinit_func_t>, size_t>> close_var;
-  Function *close_function;
+  llvm::Function *close_function;
 
   std::vector<llvm::Type *> inputs;
   std::vector<bool> inputs_noalias;
   std::vector<bool> inputs_readonly;
 
   std::vector<llvm::Type *> state_vars;
-  std::vector<Argument *> args;
+  std::vector<llvm::Argument *> args;
 
   std::vector<std::pair<const void *, std::function<opener_t>>> openers;
   std::vector<std::pair<const void *, std::function<closer_t>>> closers;
 
   std::string pipName;
-  RawContext *context;
+  Context *context;
 
   std::string func_name;
 
@@ -79,11 +79,11 @@ class RawPipelineGen {
   llvm::Value *state;
   llvm::StructType *state_type;
 
-  IRBuilder<> *TheBuilder;
+  llvm::IRBuilder<> *TheBuilder;
 
-  RawPipelineGen *copyStateFrom;
+  PipelineGen *copyStateFrom;
 
-  RawPipelineGen *execute_after_close;
+  PipelineGen *execute_after_close;
 
   //     //Used to include optimization passes
   //     legacy::FunctionPassManager * TheFPM        ;
@@ -95,19 +95,19 @@ class RawPipelineGen {
 
   // ExecutionEngine             * TheExecutionEngine;
 
-  map<string, Function *> availableFunctions;
+  map<string, llvm::Function *> availableFunctions;
 
   unsigned int maxBlockSize;
   unsigned int maxGridSize;
 
  public:
-  Function *F;
+  llvm::Function *F;
 
  protected:
-  RawPipelineGen(RawContext *context, std::string pipName = "pip",
-                 RawPipelineGen *copyStateFrom = NULL);
+  PipelineGen(Context *context, std::string pipName = "pip",
+              PipelineGen *copyStateFrom = NULL);
 
-  virtual ~RawPipelineGen() {}
+  virtual ~PipelineGen() {}
 
  public:
   virtual size_t appendParameter(llvm::Type *ptype, bool noalias = false,
@@ -117,8 +117,8 @@ class RawPipelineGen {
                                 std::function<init_func_t> init,
                                 std::function<deinit_func_t> deinit);
 
-  void callPipRegisteredOpen(size_t indx, RawPipeline *pip);
-  void callPipRegisteredClose(size_t indx, RawPipeline *pip);
+  void callPipRegisteredOpen(size_t indx, Pipeline *pip);
+  void callPipRegisteredClose(size_t indx, Pipeline *pip);
 
   virtual llvm::Argument *getArgument(size_t id) const;
   virtual llvm::Value *getStateVar(size_t id) const;
@@ -128,11 +128,11 @@ class RawPipelineGen {
   virtual llvm::Value *allocateStateVar(llvm::Type *t);
   virtual void deallocateStateVar(llvm::Value *v);
 
-  virtual Function *prepare();
-  virtual RawPipeline *getPipeline(int group_id = 0);
+  virtual llvm::Function *prepare();
+  virtual Pipeline *getPipeline(int group_id = 0);
   virtual void *getKernel() const;
 
-  virtual void setChainedPipeline(RawPipelineGen *next) {
+  virtual void setChainedPipeline(PipelineGen *next) {
     assert(
         !execute_after_close &&
         "No support for multiple pipelines after a single one, create a chain");
@@ -140,14 +140,16 @@ class RawPipelineGen {
   }
 
   virtual void *getConsume() const { return getKernel(); }
-  virtual Function *getLLVMConsume() const { return F; }
+  virtual llvm::Function *getLLVMConsume() const { return F; }
 
   std::string getName() const { return pipName; }
 
-  virtual BasicBlock *getEndingBlock() { return codeEnd; }
-  virtual void setEndingBlock(BasicBlock *codeEnd) { this->codeEnd = codeEnd; }
-  virtual BasicBlock *getCurrentEntryBlock() { return currentCodeEntry; }
-  virtual void setCurrentEntryBlock(BasicBlock *codeEntry) {
+  virtual llvm::BasicBlock *getEndingBlock() { return codeEnd; }
+  virtual void setEndingBlock(llvm::BasicBlock *codeEnd) {
+    this->codeEnd = codeEnd;
+  }
+  virtual llvm::BasicBlock *getCurrentEntryBlock() { return currentCodeEntry; }
+  virtual void setCurrentEntryBlock(llvm::BasicBlock *codeEntry) {
     this->currentCodeEntry = codeEntry;
   }
 
@@ -158,26 +160,24 @@ class RawPipelineGen {
 
   virtual void compileAndLoad() = 0;
 
-  void registerOpen(const void *owner,
-                    std::function<void(RawPipeline *pip)> open);
+  void registerOpen(const void *owner, std::function<void(Pipeline *pip)> open);
   void registerClose(const void *owner,
-                     std::function<void(RawPipeline *pip)> close);
+                     std::function<void(Pipeline *pip)> close);
 
-  [[deprecated]] virtual Function *getFunction() const;
+  [[deprecated]] virtual llvm::Function *getFunction() const;
 
-  virtual Module *getModule() const = 0;  //{return TheModule ;}
-  virtual IRBuilder<> *getBuilder() const { return TheBuilder; }
+  virtual llvm::Module *getModule() const = 0;  //{return TheModule ;}
+  virtual llvm::IRBuilder<> *getBuilder() const { return TheBuilder; }
 
-  virtual void registerFunction(const char *, Function *);
+  virtual void registerFunction(const char *, llvm::Function *);
 
-  virtual Function *const getFunction(string funcName) const;
+  virtual llvm::Function *const getFunction(string funcName) const;
 
-  virtual Function *const createHelperFunction(string funcName,
-                                               std::vector<llvm::Type *> ins,
-                                               std::vector<bool> readonly,
-                                               std::vector<bool> noalias) const;
+  virtual llvm::Function *const createHelperFunction(
+      string funcName, std::vector<llvm::Type *> ins,
+      std::vector<bool> readonly, std::vector<bool> noalias) const;
   virtual llvm::Value *invokeHelperFunction(
-      Function *f, std::vector<llvm::Value *> args) const;
+      llvm::Function *f, std::vector<llvm::Value *> args) const;
 
   std::vector<llvm::Type *> getStateVars() const;
 
@@ -188,6 +188,8 @@ class RawPipelineGen {
   virtual llvm::Value *workerScopedAtomicXchg(llvm::Value *ptr,
                                               llvm::Value *val);
 
+  virtual void workerScopedMembar();
+
  protected:
   virtual void registerSubPipeline();
   virtual size_t prepareStateArgument();
@@ -196,19 +198,19 @@ class RawPipelineGen {
   virtual void prepareInitDeinit();
 
  public:
-  virtual void *getCompiledFunction(Function *f) = 0;
+  virtual void *getCompiledFunction(llvm::Function *f) = 0;
 
  protected:
   void registerFunctions();
 };
 
-class RawPipeline {
+class Pipeline {
  protected:
   void *cons;
   llvm::StructType *state_type;
   const int32_t group_id;
   size_t state_size;
-  const DataLayout &layout;
+  const llvm::DataLayout &layout;
 
   std::vector<std::pair<const void *, std::function<opener_t>>> openers;
   std::vector<std::pair<const void *, std::function<closer_t>>> closers;
@@ -216,21 +218,20 @@ class RawPipeline {
   void *init_state;
   void *deinit_state;
 
-  RawPipeline *execute_after_close;
+  Pipeline *execute_after_close;
 
-  RawPipeline(
-      void *cons, size_t state_size, RawPipelineGen *gen,
-      llvm::StructType *state_type,
-      const std::vector<std::pair<const void *, std::function<opener_t>>>
-          &openers,
-      const std::vector<std::pair<const void *, std::function<closer_t>>>
-          &closers,
-      void *init_state, void *deinit_state,
-      int32_t group_id = 0,  // FIXME: group id should be handled to comply with
-                             // the requirements!
-      RawPipeline *execute_after_close = NULL);
+  Pipeline(void *cons, size_t state_size, PipelineGen *gen,
+           llvm::StructType *state_type,
+           const std::vector<std::pair<const void *, std::function<opener_t>>>
+               &openers,
+           const std::vector<std::pair<const void *, std::function<closer_t>>>
+               &closers,
+           void *init_state, void *deinit_state,
+           int32_t group_id = 0,  // FIXME: group id should be handled to comply
+                                  // with the requirements!
+           Pipeline *execute_after_close = NULL);
 
-  // void copyStateFrom  (RawPipeline * p){
+  // void copyStateFrom  (Pipeline * p){
   //     std::cout << p->state_size << std::endl;
   //     memcpy(state, p->state, p->state_size);
   //     std::cout << ((void **) state)[0] << std::endl;
@@ -241,18 +242,18 @@ class RawPipeline {
   //     std::cout << ((void **) p->state)[2] << std::endl;
   // }
 
-  // void copyStateBackTo(RawPipeline * p){
+  // void copyStateBackTo(Pipeline * p){
   //     memcpy(p->state, state, p->state_size);
   // }
 
-  friend class RawPipelineGen;
-  friend class RawGpuPipelineGen;
-  friend class RawCpuPipelineGen;
+  friend class PipelineGen;
+  friend class GpuPipelineGen;
+  friend class CpuPipelineGen;
 
  public:
   void *state;
 
-  virtual ~RawPipeline();
+  virtual ~Pipeline();
 
   void *getState() const { return state; }
 
@@ -292,16 +293,15 @@ class RawPipeline {
   virtual void close();
 };
 
-class RawPipelineGenFactory {
+class PipelineGenFactory {
  protected:
-  RawPipelineGenFactory() {}
+  PipelineGenFactory() {}
 
-  virtual ~RawPipelineGenFactory() {}
+  virtual ~PipelineGenFactory() {}
 
  public:
-  virtual RawPipelineGen *create(RawContext *context,
-                                 std::string pipName = "pip",
-                                 RawPipelineGen *copyStateFrom = NULL) = 0;
+  virtual PipelineGen *create(Context *context, std::string pipName = "pip",
+                              PipelineGen *copyStateFrom = NULL) = 0;
 };
 
-#endif /* RAW_PIPELINE_HPP_ */
+#endif /* PIPELINE_HPP_ */

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -46,9 +46,9 @@
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 // int main()    {
@@ -82,8 +82,8 @@ void symantecBin1(map<string, dataset> datasetCatalog) {
   //    int idHigh = 60000000;
   int dim1 = 4;
   int dim2 = 7;
-  RawContext &ctx = *prepareContext("symantec-bin-1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantec];
@@ -172,8 +172,8 @@ void symantecBin2(map<string, dataset> datasetCatalog) {
   int idHigh = 60000000;
   int dimHigh = 3;
 
-  RawContext &ctx = *prepareContext("symantec-bin-2");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-2");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantec];
@@ -307,8 +307,8 @@ void symantecBin3(map<string, dataset> datasetCatalog) {
   //    int idHigh = 63000000;
   int dimHigh = 3;
   int clusterNo = 500;
-  RawContext &ctx = *prepareContext("symantec-bin-3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantec];
@@ -412,8 +412,8 @@ void symantecBin4(map<string, dataset> datasetCatalog) {
   double valueLow = 0.5;
   int clusterNo = 400;
 
-  RawContext &ctx = *prepareContext("symantec-bin-4");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-4");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantec];
@@ -535,8 +535,8 @@ void symantecBin4v1(map<string, dataset> datasetCatalog) {
   double valueLow = 0.5;
   int clusterNo = 400;
 
-  RawContext &ctx = *prepareContext("symantec-bin-4");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-4");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantec];
@@ -665,8 +665,8 @@ void symantecBin5(map<string, dataset> datasetCatalog) {
   int idLow = 380000000;
   int idHigh = 450000000;
   int sliceIdNo = 150;
-  RawContext &ctx = *prepareContext("symantec-bin-5");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-5");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantec];
@@ -755,8 +755,8 @@ void symantecBin6(map<string, dataset> datasetCatalog) {
   //    int idLow = 380000000;
   //    int idHigh = 450000000;
   int clusterHigh = 10;
-  RawContext &ctx = *prepareContext("symantec-bin-6(agg)");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-6(agg)");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantec];
@@ -877,13 +877,13 @@ void symantecBin6(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   // Function* debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   // FloatType floatType = FloatType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =
@@ -920,8 +920,8 @@ void symantecBin6v2(map<string, dataset> datasetCatalog) {
   //    int idLow = 1;
   //    int idHigh = 450000000;
   int clusterHigh = 10;
-  RawContext &ctx = *prepareContext("symantec-bin-6(agg)");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-6(agg)");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantec];
@@ -1036,13 +1036,13 @@ void symantecBin6v2(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   // Function* debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   // FloatType floatType = FloatType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =
@@ -1081,8 +1081,8 @@ void symantecBin7(map<string, dataset> datasetCatalog) {
   int dimHigh = 3;
   int clusterLow = 490;
   int clusterHigh = 500;
-  RawContext &ctx = *prepareContext("symantec-bin-7(agg)");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-7(agg)");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantec];
@@ -1220,13 +1220,13 @@ void symantecBin7(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   // Function* debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   // FloatType floatType = FloatType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =
@@ -1263,8 +1263,8 @@ void symantecBin7v2(map<string, dataset> datasetCatalog) {
   int dimHigh = 3;
   int clusterLow = 490;
   int clusterHigh = 500;
-  RawContext &ctx = *prepareContext("symantec-bin-7(agg)");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-7(agg)");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantec];
@@ -1387,13 +1387,13 @@ void symantecBin7v2(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   // Function* debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   // FloatType floatType = FloatType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =
@@ -1433,8 +1433,8 @@ void symantecBin8(map<string, dataset> datasetCatalog) {
   double valueLow = 0.5;
   int clusterLow = 395;
   int clusterHigh = 405;
-  RawContext &ctx = *prepareContext("symantec-bin-8(agg)");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-8(agg)");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantec];
@@ -1587,13 +1587,13 @@ void symantecBin8(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   // Function* debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   // FloatType floatType = FloatType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =

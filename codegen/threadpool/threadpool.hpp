@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -59,7 +59,7 @@ class ThreadPool {
 
   void addThread() {
     workers.emplace_back([this] {
-      rawlogger.log(this, log_op::THREADPOOL_THREAD_START);
+      eventlogger.log(this, log_op::THREADPOOL_THREAD_START);
       while (true) {
         std::function<void()> task;
 
@@ -75,7 +75,7 @@ class ThreadPool {
 
         task();
       }
-      rawlogger.log(this, log_op::THREADPOOL_THREAD_END);
+      eventlogger.log(this, log_op::THREADPOOL_THREAD_END);
     });
   }
 

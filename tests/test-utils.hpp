@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -60,7 +60,7 @@
 #define __itt_pause() ((void)0)
 #endif
 
-class RawTestEnvironment : public ::testing::Environment {
+class TestEnvironment : public ::testing::Environment {
   bool is_noop;
   static bool has_already_been_setup;
 
@@ -70,7 +70,7 @@ class RawTestEnvironment : public ::testing::Environment {
 };
 
 // ::testing::Environment *const pools_env =
-// ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+// ::testing::AddGlobalTestEnvironment(new TestEnvironment);
 
 bool verifyTestResult(const char *testsPath, const char *testLabel,
                       bool unordered = false);

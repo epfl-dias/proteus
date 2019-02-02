@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -26,7 +26,7 @@
 
 #include "common/common.hpp"
 #include "plugins/plugins.hpp"
-#include "util/raw-catalog.hpp"
+#include "util/catalog.hpp"
 
 class Path {
  public:
@@ -34,7 +34,7 @@ class Path {
       : desugarizedPath(desugarizedPath),
         nestedName(nestedName),
         val_parentColl(NULL) {
-    RawCatalog &catalog = RawCatalog::getInstance();
+    Catalog &catalog = Catalog::getInstance();
     string originalRelation = desugarizedPath->getOriginalRelationName();
     pg = catalog.getPlugin(originalRelation);
   }

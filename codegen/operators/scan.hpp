@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,26 +25,25 @@
 
 #include "operators/operators.hpp"
 
-class Scan : public UnaryRawOperator {
+class Scan : public UnaryOperator {
  public:
-  Scan(RawContext *const context, Plugin &pg)
-      : UnaryRawOperator(NULL), context(context), pg(pg) {}
-  //    Scan(RawContext* const context, Plugin& pg, RawOperator* parent) :
-  //            UnaryRawOperator(NULL), context(context), pg(pg) {
+  Scan(Context *const context, Plugin &pg)
+      : UnaryOperator(NULL), context(context), pg(pg) {}
+  //    Scan(Context* const context, Plugin& pg, Operator* parent) :
+  //            UnaryOperator(NULL), context(context), pg(pg) {
   //        this->setParent(parent);
   //    }
   virtual ~Scan() { LOG(INFO) << "Collapsing scan operator"; }
-  RawOperator *const getChild() const {
+  Operator *const getChild() const {
     throw runtime_error(string("Scan operator has no children"));
   }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
  private:
-  RawContext *const __attribute__((unused)) context;
+  Context *const __attribute__((unused)) context;
   Plugin &pg;
 };
 

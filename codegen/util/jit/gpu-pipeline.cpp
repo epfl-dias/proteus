@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,20 +21,22 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "raw-gpu-pipeline.hpp"
+#include "gpu-pipeline.hpp"
+#include "codegen/util/parallel-context.hpp"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include "util/gpu/gpu-raw-context.hpp"
 // #include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/Passes/PassBuilder.h"
 
-#include "util/jit/raw-cpu-pipeline.hpp"
+#include "util/jit/cpu-pipeline.hpp"
 
-RawGpuPipelineGen::RawGpuPipelineGen(RawContext *context, std::string pipName,
-                                     RawPipelineGen *copyStateFrom)
-    : RawPipelineGen(context, pipName, copyStateFrom),
+using namespace llvm;
+
+GpuPipelineGen::GpuPipelineGen(Context *context, std::string pipName,
+                               PipelineGen *copyStateFrom)
+    : PipelineGen(context, pipName, copyStateFrom),
       module(context, pipName),
       wrapper_module(context, pipName + "_wrapper"),
       wrapperModuleActive(false) {
@@ -198,8 +200,8 @@ RawGpuPipelineGen::RawGpuPipelineGen(RawContext *context, std::string pipName,
   registerFunction("release_buffers", intr_prelease_buffers);
 }
 
-void RawGpuPipelineGen::registerFunctions() {
-  RawPipelineGen::registerFunctions();
+void GpuPipelineGen::registerFunctions() {
+  PipelineGen::registerFunctions();
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
   Type *int64_type = Type::getInt64Ty(context->getLLVMContext());
   Type *void_type = Type::getVoidTy(context->getLLVMContext());
@@ -375,7 +377,7 @@ void RawGpuPipelineGen::registerFunctions() {
   registerFunction("qsort_llllllllll", intr_pqsort_llllllllll);
 }
 
-size_t RawGpuPipelineGen::prepareStateArgument() {
+size_t GpuPipelineGen::prepareStateArgument() {
   // if (state_vars.empty()) {
   //     LLVMContext &   llvmContext = context->getLLVMContext();
   //     Type        *   int32Type   = Type::getInt32Ty(llvmContext);
@@ -390,7 +392,7 @@ size_t RawGpuPipelineGen::prepareStateArgument() {
   return state_id;
 }
 
-Value *RawGpuPipelineGen::getStateVar() const {
+Value *GpuPipelineGen::getStateVar() const {
   assert(state);
   if (!wrapperModuleActive) {
     Function *Fcurrent = getBuilder()->GetInsertBlock()->getParent();
@@ -401,11 +403,11 @@ Value *RawGpuPipelineGen::getStateVar() const {
   return state;  // getArgument(args.size() - 1);
 }
 
-Value *RawGpuPipelineGen::getStateLLVMValue() {
+Value *GpuPipelineGen::getStateLLVMValue() {
   return getArgument(args.size() - 1);
 }
 
-Function *RawGpuPipelineGen::prepareConsumeWrapper() {
+Function *GpuPipelineGen::prepareConsumeWrapper() {
   IRBuilder<> *Builder = getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   BasicBlock *BB = Builder->GetInsertBlock();
@@ -498,7 +500,7 @@ Function *RawGpuPipelineGen::prepareConsumeWrapper() {
   return cons;
 }
 
-void RawGpuPipelineGen::prepareInitDeinit() {
+void GpuPipelineGen::prepareInitDeinit() {
   wrapperModuleActive = true;
 
   Type *void_type = Type::getVoidTy(context->getLLVMContext());
@@ -590,13 +592,13 @@ void RawGpuPipelineGen::prepareInitDeinit() {
   Function *tmpF = F;
   F = prepareConsumeWrapper();
 
-  RawPipelineGen::prepareInitDeinit();
+  PipelineGen::prepareInitDeinit();
 
   F = tmpF;
   wrapperModuleActive = false;
 }
 
-void RawGpuPipelineGen::markAsKernel(Function *F) const {
+void GpuPipelineGen::markAsKernel(Function *F) const {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Type *int32Type = Type::getInt32Ty(llvmContext);
@@ -617,7 +619,7 @@ void RawGpuPipelineGen::markAsKernel(Function *F) const {
   annot->addOperand(mdNode);
 }
 
-Function *const RawGpuPipelineGen::createHelperFunction(
+Function *const GpuPipelineGen::createHelperFunction(
     string funcName, std::vector<Type *> ins, std::vector<bool> readonly,
     std::vector<bool> noalias) const {
   assert(readonly.size() == noalias.size());
@@ -659,27 +661,27 @@ Function *const RawGpuPipelineGen::createHelperFunction(
   return helper;
 }
 
-Function *RawGpuPipelineGen::prepare() {
+Function *GpuPipelineGen::prepare() {
   assert(!F);
-  RawPipelineGen::prepare();
+  PipelineGen::prepare();
 
   markAsKernel(F);
 
   return F;
 }
 
-void *RawGpuPipelineGen::getConsume() const {
+void *GpuPipelineGen::getConsume() const {
   return wrapper_module.getCompiledFunction(Fconsume);
 }
 
-void *RawGpuPipelineGen::getKernel() const {
+void *GpuPipelineGen::getKernel() const {
   assert(F);
   auto k = module.getCompiledFunction(F);
   assert(k);
   return k;
 }
 
-RawPipeline *RawGpuPipelineGen::getPipeline(int group_id) {
+Pipeline *GpuPipelineGen::getPipeline(int group_id) {
   void *func = getConsume();
 
   std::vector<std::pair<const void *, std::function<opener_t>>>
@@ -688,29 +690,26 @@ RawPipeline *RawGpuPipelineGen::getPipeline(int group_id) {
       closers{};  // this->closers};
 
   if (copyStateFrom) {
-    RawPipeline *copyFrom = copyStateFrom->getPipeline(group_id);
+    Pipeline *copyFrom = copyStateFrom->getPipeline(group_id);
 
     openers.insert(openers.begin(),
-                   std::make_pair(this, [copyFrom](RawPipeline *pip) {
+                   std::make_pair(this, [copyFrom](Pipeline *pip) {
                      copyFrom->open();
                      pip->setStateVar(0, copyFrom->state);
                    }));
-    // closers.emplace_back([copyFrom](RawPipeline *
+    // closers.emplace_back([copyFrom](Pipeline *
     // pip){pip->copyStateBackTo(copyFrom);});
-    closers.insert(closers.begin(),
-                   std::make_pair(this, [copyFrom](RawPipeline *pip) {
-                     copyFrom->close();
-                   }));
+    closers.insert(
+        closers.begin(),
+        std::make_pair(this, [copyFrom](Pipeline *pip) { copyFrom->close(); }));
   } else {
-    openers.insert(openers.begin(),
-                   std::make_pair(this, [](RawPipeline *pip) {}));
-    // closers.emplace_back([copyFrom](RawPipeline *
+    openers.insert(openers.begin(), std::make_pair(this, [](Pipeline *pip) {}));
+    // closers.emplace_back([copyFrom](Pipeline *
     // pip){pip->copyStateBackTo(copyFrom);});
-    closers.insert(closers.begin(),
-                   std::make_pair(this, [](RawPipeline *pip) {}));
+    closers.insert(closers.begin(), std::make_pair(this, [](Pipeline *pip) {}));
   }
 
-  return new RawPipeline(
+  return new Pipeline(
       func, getModule()->getDataLayout().getTypeAllocSize(state_type), this,
       state_type, openers, closers,
       wrapper_module.getCompiledFunction(open__function),
@@ -718,27 +717,27 @@ RawPipeline *RawGpuPipelineGen::getPipeline(int group_id) {
       execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);
 }
 
-void *RawGpuPipelineGen::getCompiledFunction(Function *f) {
+void *GpuPipelineGen::getCompiledFunction(Function *f) {
   // FIXME: should handle cpu functins (open/close)
   if (wrapperModuleActive) return wrapper_module.getCompiledFunction(f);
   return module.getCompiledFunction(f);
 }
 
-void RawGpuPipelineGen::compileAndLoad() {
+void GpuPipelineGen::compileAndLoad() {
   wrapper_module.compileAndLoad();
   module.compileAndLoad();
   func = getCompiledFunction(F);
 }
 
-void RawGpuPipelineGen::registerFunction(const char *funcName, Function *f) {
+void GpuPipelineGen::registerFunction(const char *funcName, Function *f) {
   if (wrapperModuleActive) {
     availableWrapperFunctions[funcName] = f;
   } else {
-    RawPipelineGen::registerFunction(funcName, f);
+    PipelineGen::registerFunction(funcName, f);
   }
 }
 
-Function *const RawGpuPipelineGen::getFunction(string funcName) const {
+Function *const GpuPipelineGen::getFunction(string funcName) const {
   if (wrapperModuleActive) {
     map<string, Function *>::const_iterator it;
     it = availableWrapperFunctions.find(funcName);
@@ -750,25 +749,30 @@ Function *const RawGpuPipelineGen::getFunction(string funcName) const {
     }
     return it->second;
   }
-  return RawPipelineGen::getFunction(funcName);
+  return PipelineGen::getFunction(funcName);
 }
 
-Value *RawGpuPipelineGen::workerScopedAtomicAdd(Value *ptr, Value *inc) {
+Value *GpuPipelineGen::workerScopedAtomicAdd(Value *ptr, Value *inc) {
   IRBuilder<> *Builder = context->getBuilder();
   Value *old = Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, ptr,
                                         inc, llvm::AtomicOrdering::Monotonic);
   return old;
 }
 
-Value *RawGpuPipelineGen::workerScopedAtomicXchg(Value *ptr, Value *val) {
+Value *GpuPipelineGen::workerScopedAtomicXchg(Value *ptr, Value *val) {
   IRBuilder<> *Builder = context->getBuilder();
   Value *old = Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg, ptr,
                                         val, llvm::AtomicOrdering::Monotonic);
   return old;
 }
 
+void GpuPipelineGen::workerScopedMembar() {
+  Function *membar_fun = getFunction("llvm.nvvm.membar.gl");
+  getBuilder()->CreateCall(membar_fun, {});
+}
+
 extern "C" {
-void *getPipKernel(RawPipelineGen *pip) { return pip->getKernel(); };
+void *getPipKernel(PipelineGen *pip) { return pip->getKernel(); };
 
 cudaStream_t createCudaStream() {
 #ifndef NCUDA

@@ -43,8 +43,8 @@
 #include "operators/unnest.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 // Step 2. Use the TEST macro to define your tests.
@@ -111,8 +111,8 @@ void verifyResult_(const char *testLabel) {
 TEST(Output, ReduceNumeric) {
   const char *testLabel = "reduceNumeric.json";
   bool flushResults = true;
-  RawContext &ctx = *prepareContext(testLabel);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext(testLabel);
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -189,8 +189,8 @@ TEST(Output, ReduceNumeric) {
 TEST(Output, MultiReduceNumeric) {
   const char *testLabel = "multiReduceNumeric.json";
   bool flushResults = true;
-  RawContext &ctx = *prepareContext(testLabel);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext(testLabel);
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -269,8 +269,8 @@ TEST(Output, MultiReduceNumeric) {
 TEST(Output, ReduceBag) {
   const char *testLabel = "reduceBag.json";
   bool flushResults = true;
-  RawContext &ctx = *prepareContext(testLabel);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext(testLabel);
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -349,8 +349,8 @@ TEST(Output, ReduceBag) {
 TEST(Output, ReduceBagRecord) {
   const char *testLabel = "reduceBagRecord.json";
   bool flushResults = true;
-  RawContext &ctx = *prepareContext(testLabel);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext(testLabel);
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -448,8 +448,8 @@ TEST(Output, NestBagTPCH) {
   const char *testLabel = "nestBagTPCH.json";
   bool flushResults = true;
   /* Bookkeeping */
-  RawContext &ctx = *prepareContext(testLabel);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext(testLabel);
+  Catalog &catalog = Catalog::getInstance();
   PrimitiveType *intType = new IntType();
   PrimitiveType *floatType = new FloatType();
 
@@ -635,8 +635,8 @@ TEST(Output, NestBagTPCH) {
 TEST(Output, JoinLeft3) {
   const char *testLabel = "3wayJoin.json";
   bool flushResults = true;
-  RawContext &ctx = *prepareContext(testLabel);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext(testLabel);
+  Catalog &catalog = Catalog::getInstance();
 
   /**
    * SCAN1

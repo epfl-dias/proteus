@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,13 +23,12 @@
 
 #include "operators/materializer-expr.hpp"
 
+using namespace llvm;
+
 ExprMaterializer::ExprMaterializer(expressions::Expression *toMat,
-                                   RawOperator *const child,
-                                   RawContext *const context, char *opLabel)
-    : UnaryRawOperator(child),
-      toMat(toMat),
-      context(context),
-      opLabel(opLabel) {
+                                   Operator *const child,
+                                   Context *const context, char *opLabel)
+    : UnaryOperator(child), toMat(toMat), context(context), opLabel(opLabel) {
   Function *F = context->getGlobalFunction();
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -77,12 +76,9 @@ ExprMaterializer::ExprMaterializer(expressions::Expression *toMat,
 }
 
 ExprMaterializer::ExprMaterializer(expressions::Expression *toMat, int linehint,
-                                   RawOperator *const child,
-                                   RawContext *const context, char *opLabel)
-    : UnaryRawOperator(child),
-      toMat(toMat),
-      context(context),
-      opLabel(opLabel) {
+                                   Operator *const child,
+                                   Context *const context, char *opLabel)
+    : UnaryOperator(child), toMat(toMat), context(context), opLabel(opLabel) {
   Function *F = context->getGlobalFunction();
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -177,7 +173,7 @@ ExprMaterializer::~ExprMaterializer() {
 void ExprMaterializer::freeArenas() const {
   /* Prepare codegen utils */
   LLVMContext &llvmContext = context->getLLVMContext();
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
   Function *debugInt = context->getFunction("printi");
@@ -222,11 +218,11 @@ void ExprMaterializer::updateRelationPointers() const {
   Builder->CreateStore(val_rawBuffer, val_ptrRawBuffer);
 }
 
-void ExprMaterializer::consume(RawContext *const context,
+void ExprMaterializer::consume(Context *const context,
                                const OperatorState &childState) {
   /* Prepare codegen utils */
   LLVMContext &llvmContext = context->getLLVMContext();
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
   Function *debugInt = context->getFunction("printi");
@@ -238,12 +234,12 @@ void ExprMaterializer::consume(RawContext *const context,
   Type *int64_type = Type::getInt64Ty(llvmContext);
   Type *int32_type = Type::getInt32Ty(llvmContext);
 
-  const map<RecordAttribute, RawValueMemory> &bindings =
+  const map<RecordAttribute, ProteusValueMemory> &bindings =
       childState.getBindings();
 
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue valWrapper = toMat->accept(exprGenerator);
+  ProteusValue valWrapper = toMat->accept(exprGenerator);
   Value *val_toMat = valWrapper.value;
 
   /* Creating the 'payload' type */

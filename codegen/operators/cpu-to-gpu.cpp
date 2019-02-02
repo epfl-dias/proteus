@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -22,7 +22,9 @@
 */
 
 #include "operators/cpu-to-gpu.hpp"
-#include "util/jit/raw-cpu-pipeline.hpp"
+#include "util/jit/cpu-pipeline.hpp"
+
+using namespace llvm;
 
 void CpuToGpu::produce() {
   generateGpuSide();
@@ -31,26 +33,26 @@ void CpuToGpu::produce() {
 
   gpu_pip = context->removeLatestPipeline();
 
-  context->pushDeviceProvider<RawCpuPipelineGenFactory>();
+  context->pushDeviceProvider<CpuPipelineGenFactory>();
   context->pushPipeline(gpu_pip);
 
-  context->registerOpen(this, [this](RawPipeline *pip) {
-    rawlogger.log(this, log_op::CPU2GPU_OPEN_START);
+  context->registerOpen(this, [this](Pipeline *pip) {
+    eventlogger.log(this, log_op::CPU2GPU_OPEN_START);
     std::cout << "Cpu2Gpu:open" << std::endl;
     cudaStream_t strm;
     gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
     pip->setStateVar<void *>(this->childVar_id, gpu_pip->getKernel());
     pip->setStateVar<cudaStream_t>(this->strmVar_id, strm);
-    rawlogger.log(this, log_op::CPU2GPU_OPEN_END);
+    eventlogger.log(this, log_op::CPU2GPU_OPEN_END);
   });
 
-  context->registerClose(this, [this](RawPipeline *pip) {
-    rawlogger.log(this, log_op::CPU2GPU_CLOSE_START);
+  context->registerClose(this, [this](Pipeline *pip) {
+    eventlogger.log(this, log_op::CPU2GPU_CLOSE_START);
     std::cout << "Cpu2Gpu:close" << std::endl;
     cudaStream_t strm = pip->getStateVar<cudaStream_t>(this->strmVar_id);
     gpu_run(cudaStreamSynchronize(strm));
     gpu_run(cudaStreamDestroy(strm));
-    rawlogger.log(this, log_op::CPU2GPU_CLOSE_END);
+    eventlogger.log(this, log_op::CPU2GPU_CLOSE_END);
   });
 
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -83,7 +85,7 @@ void CpuToGpu::generateGpuSide() {
     assert(false);
 
   Plugin *pg =
-      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+      Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
   IntegerType *oid_type =
       (IntegerType *)pg->getOIDType()->getLLVMType(llvmContext);
   size_t tupleOIDArg_id = context->appendParameter(oid_type, false, false);
@@ -101,7 +103,7 @@ void CpuToGpu::generateGpuSide() {
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
   context->setEndingBlock(AfterBB);
 
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     Value *arg = context->getArgument(wantedFieldsArg_id[i]);
@@ -110,7 +112,7 @@ void CpuToGpu::generateGpuSide() {
         F, wantedFields[i]->getAttrName() + "_ptr", arg->getType());
     Builder->CreateStore(arg, mem);
 
-    RawValueMemory tmp;
+    ProteusValueMemory tmp;
     tmp.mem = mem;
     tmp.isNull = context->createFalse();
 
@@ -128,7 +130,7 @@ void CpuToGpu::generateGpuSide() {
         context->CreateEntryBlockAlloca(F, "activeLoop_ptr", oid->getType());
     Builder->CreateStore(oid, mem);
 
-    RawValueMemory tmp;
+    ProteusValueMemory tmp;
     tmp.mem = mem;
     tmp.isNull = context->createFalse();
 
@@ -149,7 +151,7 @@ void CpuToGpu::generateGpuSide() {
     // Function * printi = context->getFunction("printi64");
     // Builder->CreateCall(printi, std::vector<Value *>{N});
 
-    RawValueMemory tmp;
+    ProteusValueMemory tmp;
     tmp.mem = mem;
     tmp.isNull = context->createFalse();
 
@@ -173,7 +175,7 @@ void CpuToGpu::generateGpuSide() {
   Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-void CpuToGpu::consume(GpuRawContext *const context,
+void CpuToGpu::consume(ParallelContext *const context,
                        const OperatorState &childState) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -187,7 +189,7 @@ void CpuToGpu::consume(GpuRawContext *const context,
   Type *int64Type = Type::getInt64Ty(llvmContext);
   Type *ptr_t = PointerType::get(charPtrType, 0);
 
-  const map<RecordAttribute, RawValueMemory> &activeVars =
+  const map<RecordAttribute, ProteusValueMemory> &activeVars =
       childState.getBindings();
 
   Type *kernel_params_type = ArrayType::get(
@@ -200,7 +202,7 @@ void CpuToGpu::consume(GpuRawContext *const context,
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     auto it = activeVars.find(*(wantedFields[i]));
     assert(it != activeVars.end());
-    RawValueMemory mem_valWrapper = it->second;
+    ProteusValueMemory mem_valWrapper = it->second;
 
     kernel_params = Builder->CreateInsertValue(
         kernel_params, Builder->CreateBitCast(mem_valWrapper.mem, charPtrType),
@@ -208,7 +210,7 @@ void CpuToGpu::consume(GpuRawContext *const context,
   }
 
   Plugin *pg =
-      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+      Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
 
   RecordAttribute tupleOID =
       RecordAttribute(wantedFields[0]->getRelationName(), activeLoop,
@@ -217,7 +219,7 @@ void CpuToGpu::consume(GpuRawContext *const context,
   auto it = activeVars.find(tupleOID);
   assert(it != activeVars.end());
 
-  RawValueMemory mem_oidWrapper = it->second;
+  ProteusValueMemory mem_oidWrapper = it->second;
 
   kernel_params = Builder->CreateInsertValue(
       kernel_params, Builder->CreateBitCast(mem_oidWrapper.mem, charPtrType),
@@ -230,7 +232,7 @@ void CpuToGpu::consume(GpuRawContext *const context,
   it = activeVars.find(tupleCnt);
   assert(it != activeVars.end());
 
-  RawValueMemory mem_cntWrapper = it->second;
+  ProteusValueMemory mem_cntWrapper = it->second;
 
   kernel_params = Builder->CreateInsertValue(
       kernel_params, Builder->CreateBitCast(mem_cntWrapper.mem, charPtrType),

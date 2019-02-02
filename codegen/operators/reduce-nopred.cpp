@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,12 +23,11 @@
 
 #include "operators/reduce-nopred.hpp"
 
+using namespace llvm;
+
 ReduceNoPred::ReduceNoPred(Monoid acc, expressions::Expression *outputExpr,
-                           RawOperator *const child, RawContext *context)
-    : UnaryRawOperator(child),
-      acc(acc),
-      outputExpr(outputExpr),
-      context(context) {
+                           Operator *const child, Context *context)
+    : UnaryOperator(child), acc(acc), outputExpr(outputExpr), context(context) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *f = Builder->GetInsertBlock()->getParent();
@@ -175,7 +174,7 @@ ReduceNoPred::ReduceNoPred(Monoid acc, expressions::Expression *outputExpr,
 
 void ReduceNoPred::produce() { getChild()->produce(); }
 
-void ReduceNoPred::consume(RawContext *const context,
+void ReduceNoPred::consume(Context *const context,
                            const OperatorState &childState) {
   generate(context, childState);
   // flushResult();
@@ -216,7 +215,7 @@ void ReduceNoPred::flushResult() {
   //    cout << s.GetString() << endl;
 }
 
-void ReduceNoPred::generate(RawContext *const context,
+void ReduceNoPred::generate(Context *const context,
                             const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -255,7 +254,7 @@ void ReduceNoPred::generate(RawContext *const context,
   }
 }
 
-void ReduceNoPred::generateSum(RawContext *const context,
+void ReduceNoPred::generateSum(Context *const context,
                                const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -264,7 +263,7 @@ void ReduceNoPred::generateSum(RawContext *const context,
   BasicBlock *entryBlock = Builder->GetInsertBlock();
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue val_output = outputExpr->accept(outputExprGenerator);
+  ProteusValue val_output = outputExpr->accept(outputExprGenerator);
 
   Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
   switch (outputExpr->getExpressionType()->getTypeID()) {
@@ -312,7 +311,7 @@ void ReduceNoPred::generateSum(RawContext *const context,
   }
 }
 
-void ReduceNoPred::generateMul(RawContext *const context,
+void ReduceNoPred::generateMul(Context *const context,
                                const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -321,7 +320,7 @@ void ReduceNoPred::generateMul(RawContext *const context,
   BasicBlock *entryBlock = Builder->GetInsertBlock();
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue val_output = outputExpr->accept(outputExprGenerator);
+  ProteusValue val_output = outputExpr->accept(outputExprGenerator);
   Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
   switch (outputExpr->getExpressionType()->getTypeID()) {
     case INT: {
@@ -367,7 +366,7 @@ void ReduceNoPred::generateMul(RawContext *const context,
   }
 }
 
-void ReduceNoPred::generateMax(RawContext *const context,
+void ReduceNoPred::generateMax(Context *const context,
                                const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -378,7 +377,7 @@ void ReduceNoPred::generateMax(RawContext *const context,
       BasicBlock::Create(llvmContext, "reduceEnd", TheFunction);
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue val_output = outputExpr->accept(outputExprGenerator);
+  ProteusValue val_output = outputExpr->accept(outputExprGenerator);
 
   switch (outputExpr->getExpressionType()->getTypeID()) {
     case INT: {
@@ -457,7 +456,7 @@ void ReduceNoPred::generateMax(RawContext *const context,
   Builder->SetInsertPoint(endBlock);
 }
 
-void ReduceNoPred::generateOr(RawContext *const context,
+void ReduceNoPred::generateOr(Context *const context,
                               const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -468,13 +467,13 @@ void ReduceNoPred::generateOr(RawContext *const context,
       BasicBlock::Create(llvmContext, "reduceCondEnd", TheFunction);
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue val_output = outputExpr->accept(outputExprGenerator);
+  ProteusValue val_output = outputExpr->accept(outputExprGenerator);
 
   switch (outputExpr->getExpressionType()->getTypeID()) {
     case BOOL: {
       Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-      RawValue val_output = outputExpr->accept(outputExprGenerator);
+      ProteusValue val_output = outputExpr->accept(outputExprGenerator);
       Value *val_new = Builder->CreateOr(val_accumulating, val_output.value);
       Builder->CreateStore(val_new, mem_accumulating);
 
@@ -505,7 +504,7 @@ void ReduceNoPred::generateOr(RawContext *const context,
   Builder->SetInsertPoint(endBlock);
 }
 
-void ReduceNoPred::generateAnd(RawContext *const context,
+void ReduceNoPred::generateAnd(Context *const context,
                                const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -516,13 +515,13 @@ void ReduceNoPred::generateAnd(RawContext *const context,
       BasicBlock::Create(llvmContext, "reduceCondEnd", TheFunction);
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue val_output = outputExpr->accept(outputExprGenerator);
+  ProteusValue val_output = outputExpr->accept(outputExprGenerator);
 
   switch (outputExpr->getExpressionType()->getTypeID()) {
     case BOOL: {
       Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-      RawValue val_output = outputExpr->accept(outputExprGenerator);
+      ProteusValue val_output = outputExpr->accept(outputExprGenerator);
       Value *val_new = Builder->CreateAnd(val_accumulating, val_output.value);
       Builder->CreateStore(val_new, mem_accumulating);
 
@@ -555,7 +554,7 @@ void ReduceNoPred::generateAnd(RawContext *const context,
 
 /* Although we are using more blocks than strictly necessary,
  * the optimization passes coalesce them */
-void ReduceNoPred::generateUnion(RawContext *const context,
+void ReduceNoPred::generateUnion(Context *const context,
                                  const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -622,7 +621,7 @@ void ReduceNoPred::generateUnion(RawContext *const context,
 
 // Flush out whatever you received
 // FIXME Need 'output plugin' / 'serializer'
-void ReduceNoPred::generateBagUnion(RawContext *const context,
+void ReduceNoPred::generateBagUnion(Context *const context,
                                     const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -689,5 +688,5 @@ void ReduceNoPred::generateBagUnion(RawContext *const context,
 
 // Materializes collection (in HT?)
 // Use the catalog for the materialization
-void ReduceNoPred::generateAppend(RawContext *const context,
+void ReduceNoPred::generateAppend(Context *const context,
                                   const OperatorState &childState) const {}

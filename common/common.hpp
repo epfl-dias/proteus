@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -126,8 +126,6 @@ using std::string;
 using std::stringstream;
 using std::vector;
 
-using namespace llvm;
-
 double diff(struct timespec st, struct timespec end);
 
 void fatal(const char *err);
@@ -140,15 +138,15 @@ void exception(const char *err);
  * LLVM's interpretation of 'NULL' for primitive types is not sufficient
  * (e.g., lvvm_null(int) = 0
  */
-typedef struct RawValueMemory {
-  AllocaInst *mem;
-  Value *isNull;
-} RawValueMemory;
+struct ProteusValueMemory {
+  llvm::AllocaInst *mem;
+  llvm::Value *isNull;
+};
 
-typedef struct RawValue {
-  Value *value;
-  Value *isNull;
-} RawValue;
+struct ProteusValue {
+  llvm::Value *value;
+  llvm::Value *isNull;
+};
 
 /*
  * Util Methods
@@ -305,6 +303,6 @@ class logger {
 };
 #endif
 
-extern thread_local logger rawlogger;
+extern thread_local logger eventlogger;
 
 #endif /* COMMON_HPP_ */

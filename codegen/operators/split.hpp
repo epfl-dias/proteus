@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -27,10 +27,10 @@
 
 class Split : public Exchange {
  public:
-  Split(RawOperator *const child, GpuRawContext *const context,
-        int numOfParents, const vector<RecordAttribute *> &wantedFields,
-        int slack, std::optional<expression_t> hash = std::nullopt,
-        bool numa_local = true, bool rand_local_cpu = false)
+  Split(Operator *const child, ParallelContext *const context, int numOfParents,
+        const vector<RecordAttribute *> &wantedFields, int slack,
+        std::optional<expression_t> hash = std::nullopt, bool numa_local = true,
+        bool rand_local_cpu = false)
       : Exchange(child, context, numOfParents, wantedFields, slack, hash,
                  numa_local, rand_local_cpu, 1),
         produce_calls(0) {
@@ -43,19 +43,19 @@ class Split : public Exchange {
 
   virtual void produce();
 
-  virtual void setParent(RawOperator *parent) {
-    UnaryRawOperator::setParent(parent);
+  virtual void setParent(Operator *parent) {
+    UnaryOperator::setParent(parent);
 
     this->parent.emplace_back(parent);
   }
 
  protected:
-  void open(RawPipeline *pip);
+  void open(Pipeline *pip);
 
  private:
   size_t produce_calls;
-  std::vector<RawPipelineGen *> catch_pip;
-  std::vector<RawOperator *> parent;
+  std::vector<PipelineGen *> catch_pip;
+  std::vector<Operator *> parent;
 };
 
 #endif /* SPLIT_HPP_ */

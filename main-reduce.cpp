@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -45,10 +45,12 @@
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
+
+using namespace llvm;
 
 /* Sanity check: Previous reduce() */
 void reduceNumeric();
@@ -61,8 +63,8 @@ int main() {
 }
 
 void reduceMultipleNumeric() {
-  RawContext &ctx = *prepareContext("reduceNumeric");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("reduceNumeric");
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -138,8 +140,8 @@ void reduceMultipleNumeric() {
 }
 
 void reduceNumeric() {
-  RawContext &ctx = *prepareContext("reduceNumeric");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("reduceNumeric");
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filename = string("inputs/sailors.csv");

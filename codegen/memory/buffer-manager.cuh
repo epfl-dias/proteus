@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -32,10 +32,8 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
-#include "threadsafe_device_stack.cuh"
-#include "threadsafe_stack.cuh"
-
-using namespace std;
+#include "util/threadsafe_device_stack.cuh"
+#include "util/threadsafe_stack.cuh"
 
 #ifndef NCUDA
 __device__ __constant__
@@ -74,10 +72,10 @@ class buffer_manager {
   typedef threadsafe_stack<T *, (T *)NULL> h_pool_t;
 
   static bool terminating;
-  static mutex *device_buffs_mutex;
-  static condition_variable *device_buffs_cv;
-  static thread **device_buffs_thrds;
-  static vector<T *> *device_buffs_pool;
+  static std::mutex *device_buffs_mutex;
+  static std::condition_variable *device_buffs_cv;
+  static std::thread **device_buffs_thrds;
+  static std::vector<T *> *device_buffs_pool;
   static T ***device_buff;
   static size_t device_buff_size;
   static size_t keep_threshold;
@@ -93,7 +91,7 @@ class buffer_manager {
   static threadsafe_stack<T *, (T *)NULL> **h_pool;
   static threadsafe_stack<T *, (T *)NULL> **h_pool_numa;
 
-  static unordered_map<T *, std::atomic<int>> buffer_cache;
+  static std::unordered_map<T *, std::atomic<int>> buffer_cache;
 
   static std::thread *buffer_logger;
 
@@ -331,16 +329,16 @@ template <typename T>
 threadsafe_stack<T *, (T *)NULL> **buffer_manager<T>::h_pool_numa;
 
 template <typename T>
-unordered_map<T *, atomic<int>> buffer_manager<T>::buffer_cache;
+std::unordered_map<T *, std::atomic<int>> buffer_manager<T>::buffer_cache;
 
 template <typename T>
-mutex *buffer_manager<T>::device_buffs_mutex;
+std::mutex *buffer_manager<T>::device_buffs_mutex;
 
 template <typename T>
-thread **buffer_manager<T>::device_buffs_thrds;
+std::thread **buffer_manager<T>::device_buffs_thrds;
 
 template <typename T>
-condition_variable *buffer_manager<T>::device_buffs_cv;
+std::condition_variable *buffer_manager<T>::device_buffs_cv;
 
 template <typename T>
 bool buffer_manager<T>::terminating;

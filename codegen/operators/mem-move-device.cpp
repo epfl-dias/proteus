@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,9 +25,9 @@
 // #include "common/gpu/gpu-common.hpp"
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
-#include "multigpu/buffer_manager.cuh"
+#include "codegen/memory/buffer-manager.cuh"
+#include "codegen/memory/memory-manager.hpp"
 #include "threadpool/threadpool.hpp"
-#include "util/raw-memory-manager.hpp"
 
 struct buff_pair {
   char *new_buff;
@@ -64,16 +64,16 @@ buff_pair make_mem_move_device(char *src, size_t bytes, int target_device,
   //     void * old_ptr = mmc->old_buffs[curr_e];
   //     // mmc->old_buffs[curr_e] = NULL;
 
-  //     if (old_ptr) buffer_manager<int32_t>::release_buffer((int32_t *)
+  //     if (old_ptr) buffer-manager<int32_t>::release_buffer((int32_t *)
   //     old_ptr); //FIXME: cannot release it yet!
   //     gpu_run(cudaEventSynchronize(e));
   //     mmc->next_e = (curr_e + 1) % mmc->slack;
 
   //     char * interbuff = (char *)
-  //     buffer_manager<int32_t>::get_buffer_numa(numa_target);
+  //     buffer-manager<int32_t>::get_buffer_numa(numa_target);
   //     mmc->old_buffs[curr_e] = src;
 
-  //     buffer_manager<int32_t>::overwrite_bytes(interbuff, src, bytes,
+  //     buffer-manager<int32_t>::overwrite_bytes(interbuff, src, bytes,
   //     mmc->strm2, false); gpu_run(cudaEventRecord(e, mmc->strm2)); src =
   //     interbuff;
 
@@ -92,27 +92,26 @@ buff_pair make_mem_move_device(char *src, size_t bytes, int target_device,
   // std::cout << "alloc" << (void *) buff2 << std::endl;
 
   // gpu_run(cudaMemcpy(buff, src, bytes, cudaMemcpyDefault));
-  // buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, wu->strm,
-  // false); buffer_manager<int32_t>::overwrite_bytes(buff2, buff, bytes,
+  // buffer-manager<int32_t>::overwrite_bytes(buff, src, bytes, wu->strm,
+  // false); buffer-manager<int32_t>::overwrite_bytes(buff2, buff, bytes,
   // wu->strm, false); gpu_run(cudaStreamSynchronize(mmc->strm));
   // gpu_run(cudaStreamSynchronize(wu->strm));
-  // buffer_manager<int32_t>::release_buffer ((int32_t *) src );
+  // buffer-manager<int32_t>::release_buffer ((int32_t *) src );
 
   return buff_pair{buff, src};
 }
 }
 
 void MemMoveDevice::produce() {
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Type *bool_type = Type::getInt1Ty(context->getLLVMContext());
-  Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
-  Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
+  auto &llvmContext = context->getLLVMContext();
+  auto int32_type = llvm::Type::getInt32Ty(context->getLLVMContext());
+  auto charPtrType = llvm::Type::getInt8PtrTy(context->getLLVMContext());
 
-  Plugin *pg =
-      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
-  Type *oidType = pg->getOIDType()->getLLVMType(llvmContext);
+  auto pg =
+      Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+  auto oidType = pg->getOIDType()->getLLVMType(llvmContext);
 
-  std::vector<Type *> tr_types;
+  std::vector<llvm::Type *> tr_types;
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     tr_types.push_back(wantedFields[i]->getLLVMType(llvmContext));
     tr_types.push_back(wantedFields[i]->getLLVMType(
@@ -121,7 +120,7 @@ void MemMoveDevice::produce() {
   tr_types.push_back(oidType);  // cnt
   tr_types.push_back(oidType);  // oid
 
-  data_type = StructType::get(llvmContext, tr_types);
+  data_type = llvm::StructType::get(llvmContext, tr_types);
 
   RecordAttribute tupleCnt =
       RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
@@ -130,28 +129,29 @@ void MemMoveDevice::produce() {
       wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType());
 
   // Generate catch code
-  int p = context->appendParameter(PointerType::get(data_type, 0), true, true);
+  int p = context->appendParameter(llvm::PointerType::get(data_type, 0), true,
+                                   true);
   context->setGlobalFunction();
 
-  IRBuilder<> *Builder = context->getBuilder();
-  BasicBlock *entryBB = Builder->GetInsertBlock();
-  Function *F = entryBB->getParent();
+  auto *Builder = context->getBuilder();
+  auto *entryBB = Builder->GetInsertBlock();
+  auto *F = entryBB->getParent();
 
-  BasicBlock *mainBB = BasicBlock::Create(llvmContext, "main", F);
+  auto *mainBB = llvm::BasicBlock::Create(llvmContext, "main", F);
 
-  BasicBlock *endBB = BasicBlock::Create(llvmContext, "end", F);
+  auto *endBB = llvm::BasicBlock::Create(llvmContext, "end", F);
   context->setEndingBlock(endBB);
 
   Builder->SetInsertPoint(entryBB);
 
-  Value *params = Builder->CreateLoad(context->getArgument(p));
+  auto params = Builder->CreateLoad(context->getArgument(p));
 
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
-  Function *release = context->getFunction("release_buffer");
+  auto release = context->getFunction("release_buffer");
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
 
     mem_valWrapper.mem = context->CreateEntryBlockAlloca(
         F, wantedFields[i]->getAttrName() + "_ptr",
@@ -160,14 +160,14 @@ void MemMoveDevice::produce() {
         context->createFalse();  // FIMXE: should we alse transfer this
                                  // information ?
 
-    Value *param = Builder->CreateExtractValue(params, 2 * i);
+    auto param = Builder->CreateExtractValue(params, 2 * i);
 
-    Value *src = Builder->CreateExtractValue(params, 2 * i + 1);
+    auto src = Builder->CreateExtractValue(params, 2 * i + 1);
 
-    BasicBlock *relBB = BasicBlock::Create(llvmContext, "rel", F);
-    BasicBlock *merBB = BasicBlock::Create(llvmContext, "mer", F);
+    auto relBB = llvm::BasicBlock::Create(llvmContext, "rel", F);
+    auto merBB = llvm::BasicBlock::Create(llvmContext, "mer", F);
 
-    Value *do_rel = Builder->CreateICmpEQ(param, src);
+    auto do_rel = Builder->CreateICmpEQ(param, src);
     Builder->CreateCondBr(do_rel, merBB, relBB);
 
     Builder->SetInsertPoint(relBB);
@@ -183,24 +183,24 @@ void MemMoveDevice::produce() {
     variableBindings[*(wantedFields[i])] = mem_valWrapper;
   }
 
-  RawValueMemory mem_cntWrapper;
+  ProteusValueMemory mem_cntWrapper;
   mem_cntWrapper.mem = context->CreateEntryBlockAlloca(F, "activeCnt", oidType);
   mem_cntWrapper.isNull =
       context
           ->createFalse();  // FIMXE: should we alse transfer this information ?
 
-  Value *cnt = Builder->CreateExtractValue(params, 2 * wantedFields.size());
+  auto cnt = Builder->CreateExtractValue(params, 2 * wantedFields.size());
   Builder->CreateStore(cnt, mem_cntWrapper.mem);
 
   variableBindings[tupleCnt] = mem_cntWrapper;
 
-  RawValueMemory mem_oidWrapper;
+  ProteusValueMemory mem_oidWrapper;
   mem_oidWrapper.mem = context->CreateEntryBlockAlloca(F, activeLoop, oidType);
   mem_oidWrapper.isNull =
       context
           ->createFalse();  // FIMXE: should we alse transfer this information ?
 
-  Value *oid = Builder->CreateExtractValue(params, 2 * wantedFields.size() + 1);
+  auto oid = Builder->CreateExtractValue(params, 2 * wantedFields.size() + 1);
   Builder->CreateStore(oid, mem_oidWrapper.mem);
 
   variableBindings[tupleIdentifier] = mem_oidWrapper;
@@ -233,34 +233,35 @@ void MemMoveDevice::produce() {
   // cu_stream_var       = context->appendStateVar(charPtrType);
   memmvconf_var = context->appendStateVar(charPtrType);
 
-  ((GpuRawContext *)context)->registerOpen(this, [this](RawPipeline *pip) {
+  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open(pip);
   });
-  ((GpuRawContext *)context)->registerClose(this, [this](RawPipeline *pip) {
+  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close(pip);
   });
 
   getChild()->produce();
 }
 
-void MemMoveDevice::consume(RawContext *const context,
+void MemMoveDevice::consume(Context *const context,
                             const OperatorState &childState) {
   // Prepare
-  LLVMContext &llvmContext = context->getLLVMContext();
-  IRBuilder<> *Builder = context->getBuilder();
-  BasicBlock *insBB = Builder->GetInsertBlock();
-  Function *F = insBB->getParent();
+  auto &llvmContext = context->getLLVMContext();
+  auto Builder = context->getBuilder();
+  auto insBB = Builder->GetInsertBlock();
+  auto F = insBB->getParent();
 
-  Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
+  auto charPtrType = llvm::Type::getInt8PtrTy(context->getLLVMContext());
 
-  Type *workunit_type = StructType::get(
-      llvmContext, std::vector<Type *>{charPtrType, charPtrType});
+  auto workunit_type = llvm::StructType::get(
+      llvmContext, std::vector<llvm::Type *>{charPtrType, charPtrType});
 
-  map<RecordAttribute, RawValueMemory> old_bindings{childState.getBindings()};
+  map<RecordAttribute, ProteusValueMemory> old_bindings{
+      childState.getBindings()};
 
   // Find block size
   Plugin *pg =
-      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+      Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
   RecordAttribute tupleCnt =
       RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
                       pg->getOIDType());  // FIXME: OID type for blocks ?
@@ -268,55 +269,55 @@ void MemMoveDevice::consume(RawContext *const context,
   auto it = old_bindings.find(tupleCnt);
   assert(it != old_bindings.end());
 
-  RawValueMemory mem_cntWrapper = it->second;
+  ProteusValueMemory mem_cntWrapper = it->second;
 
-  Function *make_mem_move = context->getFunction("make_mem_move_device");
+  auto make_mem_move = context->getFunction("make_mem_move_device");
 
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
-  Value *device_id = ((GpuRawContext *)context)->getStateVar(device_id_var);
-  // Value * cu_stream       = ((GpuRawContext *)
+  auto device_id = ((ParallelContext *)context)->getStateVar(device_id_var);
+  // Value * cu_stream       = ((ParallelContext *)
   // context)->getStateVar(cu_stream_var);
 
   Builder->SetInsertPoint(insBB);
-  Value *N = Builder->CreateLoad(mem_cntWrapper.mem);
+  auto N = Builder->CreateLoad(mem_cntWrapper.mem);
 
-  RecordAttribute tupleIdentifier = RecordAttribute(
-      wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType());
+  RecordAttribute tupleIdentifier{wantedFields[0]->getRelationName(),
+                                  activeLoop, pg->getOIDType()};
   it = old_bindings.find(tupleIdentifier);
   assert(it != old_bindings.end());
-  RawValueMemory mem_oidWrapper = it->second;
-  Value *oid = Builder->CreateLoad(mem_oidWrapper.mem);
+  ProteusValueMemory mem_oidWrapper = it->second;
+  llvm::Value *oid = Builder->CreateLoad(mem_oidWrapper.mem);
 
-  Value *memmv = ((GpuRawContext *)context)->getStateVar(memmvconf_var);
+  llvm::Value *memmv = ((ParallelContext *)context)->getStateVar(memmvconf_var);
 
-  std::vector<Value *> pushed;
-  Value *is_noop = context->createTrue();
+  std::vector<llvm::Value *> pushed;
+  llvm::Value *is_noop = context->createTrue();
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     RecordAttribute block_attr(*(wantedFields[i]), true);
 
     auto it = old_bindings.find(block_attr);
     assert(it != old_bindings.end());
-    RawValueMemory mem_valWrapper = it->second;
+    ProteusValueMemory mem_valWrapper = it->second;
 
-    Value *mv = Builder->CreateBitCast(Builder->CreateLoad(mem_valWrapper.mem),
-                                       charPtrType);
+    auto mv = Builder->CreateBitCast(Builder->CreateLoad(mem_valWrapper.mem),
+                                     charPtrType);
 
-    Type *mv_block_type = mem_valWrapper.mem->getType()
-                              ->getPointerElementType()
-                              ->getPointerElementType();
+    auto mv_block_type = mem_valWrapper.mem->getType()
+                             ->getPointerElementType()
+                             ->getPointerElementType();
 
-    Value *size = ConstantInt::get(
-        llvmContext, APInt(64, context->getSizeOf(mv_block_type)));
-    Value *Nloc = Builder->CreateZExtOrBitCast(N, size->getType());
+    llvm::Value *size = llvm::ConstantInt::get(
+        llvmContext, llvm::APInt(64, context->getSizeOf(mv_block_type)));
+    auto Nloc = Builder->CreateZExtOrBitCast(N, size->getType());
     size = Builder->CreateMul(size, Nloc);
 
-    vector<Value *> mv_args{mv, size, device_id, memmv};
+    vector<llvm::Value *> mv_args{mv, size, device_id, memmv};
 
     // Do actual mem move
-    Value *moved_buffpair = Builder->CreateCall(make_mem_move, mv_args);
-    Value *moved = Builder->CreateExtractValue(moved_buffpair, 0);
-    Value *to_release = Builder->CreateExtractValue(moved_buffpair, 1);
+    auto moved_buffpair = Builder->CreateCall(make_mem_move, mv_args);
+    auto moved = Builder->CreateExtractValue(moved_buffpair, 0);
+    auto to_release = Builder->CreateExtractValue(moved_buffpair, 1);
 
     pushed.push_back(Builder->CreateBitCast(
         moved, mem_valWrapper.mem->getType()->getPointerElementType()));
@@ -329,31 +330,32 @@ void MemMoveDevice::consume(RawContext *const context,
   pushed.push_back(N);
   pushed.push_back(oid);
 
-  Value *d = UndefValue::get(data_type);
+  llvm::Value *d = llvm::UndefValue::get(data_type);
   for (size_t i = 0; i < pushed.size(); ++i) {
     d = Builder->CreateInsertValue(d, pushed[i], i);
   }
 
-  Function *acquire = context->getFunction("acquireWorkUnit");
+  auto acquire = context->getFunction("acquireWorkUnit");
 
-  Value *workunit_ptr8 = Builder->CreateCall(acquire, memmv);
-  Value *workunit_ptr = Builder->CreateBitCast(
-      workunit_ptr8, PointerType::getUnqual(workunit_type));
+  auto workunit_ptr8 = Builder->CreateCall(acquire, memmv);
+  auto workunit_ptr = Builder->CreateBitCast(
+      workunit_ptr8, llvm::PointerType::getUnqual(workunit_type));
 
-  Value *workunit_dat = Builder->CreateLoad(workunit_ptr);
-  Value *d_ptr = Builder->CreateExtractValue(workunit_dat, 0);
-  d_ptr = Builder->CreateBitCast(d_ptr, PointerType::getUnqual(data_type));
+  auto workunit_dat = Builder->CreateLoad(workunit_ptr);
+  auto d_ptr = Builder->CreateExtractValue(workunit_dat, 0);
+  d_ptr =
+      Builder->CreateBitCast(d_ptr, llvm::PointerType::getUnqual(data_type));
   Builder->CreateStore(d, d_ptr);
 
-  Function *propagate = context->getFunction("propagateWorkUnit");
-  Builder->CreateCall(propagate,
-                      std::vector<Value *>{memmv, workunit_ptr8, is_noop});
+  auto propagate = context->getFunction("propagateWorkUnit");
+  Builder->CreateCall(
+      propagate, std::vector<llvm::Value *>{memmv, workunit_ptr8, is_noop});
 }
 
-void MemMoveDevice::open(RawPipeline *pip) {
+void MemMoveDevice::open(Pipeline *pip) {
   std::cout << "MemMoveDevice:open" << std::endl;
   workunit *wu =
-      (workunit *)RawMemoryManager::mallocPinned(sizeof(workunit) * slack);
+      (workunit *)MemoryManager::mallocPinned(sizeof(workunit) * slack);
 
   // nvtxRangePushA("memmove::open");
   cudaStream_t strm;
@@ -362,13 +364,13 @@ void MemMoveDevice::open(RawPipeline *pip) {
   // cudaStream_t strm2;
   // gpu_run(cudaStreamCreateWithFlags(&strm2, cudaStreamNonBlocking));
 
-  rawlogger.log(this, log_op::MEMMOVE_OPEN_START);
+  eventlogger.log(this, log_op::MEMMOVE_OPEN_START);
   size_t data_size = (pip->getSizeOf(data_type) + 16 - 1) & ~((size_t)0xF);
 
-  void *pmmc = RawMemoryManager::mallocPinned(sizeof(MemMoveConf));
+  void *pmmc = MemoryManager::mallocPinned(sizeof(MemMoveConf));
   MemMoveConf *mmc = new (pmmc) MemMoveConf;
 
-  rawlogger.log(this, log_op::MEMMOVE_OPEN_END);
+  eventlogger.log(this, log_op::MEMMOVE_OPEN_END);
 #ifndef NCUDA
   mmc->strm = strm;
   // mmc->strm2          = strm2;
@@ -377,9 +379,9 @@ void MemMoveDevice::open(RawPipeline *pip) {
   mmc->next_e = 0;
   // mmc->events         = new cudaEvent_t[slack];
   // mmc->old_buffs      = new void      *[slack];
-  mmc->data_buffs = RawMemoryManager::mallocPinned(data_size * slack);
+  mmc->data_buffs = MemoryManager::mallocPinned(data_size * slack);
   char *data_buff = (char *)mmc->data_buffs;
-  rawlogger.log(this, log_op::MEMMOVE_OPEN_START);
+  eventlogger.log(this, log_op::MEMMOVE_OPEN_START);
   for (size_t i = 0; i < slack; ++i) {
     wu[i].data = ((void *)(data_buff + i * data_size));
     // // gpu_run(cudaEventCreateWithFlags(&(wu[i].event),
@@ -393,7 +395,7 @@ void MemMoveDevice::open(RawPipeline *pip) {
     // | cudaEventBlockingSync)); gpu_run(cudaEventCreate(mmc->events + i));
     // mmc->old_buffs[i] = NULL;
   }
-  rawlogger.log(this, log_op::MEMMOVE_OPEN_END);
+  eventlogger.log(this, log_op::MEMMOVE_OPEN_END);
   // nvtxRangePushA("memmove::open2");
   for (size_t i = 0; i < slack; ++i) {
     gpu_run(cudaEventCreateWithFlags(
@@ -409,12 +411,12 @@ void MemMoveDevice::open(RawPipeline *pip) {
   }
   // nvtxRangePop();
 
-  rawlogger.log(this, log_op::MEMMOVE_OPEN_START);
+  eventlogger.log(this, log_op::MEMMOVE_OPEN_START);
   mmc->worker = ThreadPool::getInstance().enqueue(
       &MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
   // mmc->worker = new thread(&MemMoveDevice::catcher, this, mmc,
   // pip->getGroup(), exec_location{});
-  rawlogger.log(this, log_op::MEMMOVE_OPEN_END);
+  eventlogger.log(this, log_op::MEMMOVE_OPEN_END);
 
   int device = -1;
   if (!to_cpu) device = topology::getInstance().getActiveGpu().id;
@@ -425,8 +427,8 @@ void MemMoveDevice::open(RawPipeline *pip) {
   // nvtxRangePop();
 }
 
-void MemMoveDevice::close(RawPipeline *pip) {
-  rawlogger.log(this, log_op::MEMMOVE_CLOSE_START);
+void MemMoveDevice::close(Pipeline *pip) {
+  eventlogger.log(this, log_op::MEMMOVE_CLOSE_START);
   std::cout << "MemMoveDevice:close" << std::endl;
   // int device = get_device();
   // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
@@ -439,16 +441,16 @@ void MemMoveDevice::close(RawPipeline *pip) {
   mmc->worker.get();
   // mmc->worker->join();
 
-  rawlogger.log(this, log_op::MEMMOVE_CLOSE_END);
+  eventlogger.log(this, log_op::MEMMOVE_CLOSE_END);
 
-  rawlogger.log(this, log_op::MEMMOVE_CLOSE_CLEAN_UP_START);
+  eventlogger.log(this, log_op::MEMMOVE_CLOSE_CLEAN_UP_START);
   // gpu_run(cudaStreamSynchronize(g_strm));
 
   // int32_t h_s;
   // gpu_run(cudaMemcpy(&h_s, s, sizeof(int32_t), cudaMemcpyDefault));
   // std::cout << "rrr" << h_s << std::endl;
 
-  // RawMemoryManager::freeGpu(s);
+  // MemoryManager::freeGpu(s);
   std::cout << "MemMoveDevice:close4" << std::endl;
 
   gpu_run(cudaStreamSynchronize(mmc->strm));
@@ -466,7 +468,7 @@ void MemMoveDevice::close(RawPipeline *pip) {
   for (size_t i = 0; i < slack; ++i) {
     workunit *wu = mmc->idle.pop_unsafe();
 
-    // if (mmc->old_buffs[i]) buffer_manager<int32_t>::release_buffer((int32_t
+    // if (mmc->old_buffs[i]) buffer-manager<int32_t>::release_buffer((int32_t
     // *) mmc->old_buffs[i]);
 
     gpu_run(cudaEventDestroy(wu->event));
@@ -479,12 +481,12 @@ void MemMoveDevice::close(RawPipeline *pip) {
   nvtxRangePop();
   nvtxRangePop();
 
-  RawMemoryManager::freePinned(mmc->data_buffs);
+  MemoryManager::freePinned(mmc->data_buffs);
   // assert(mmc->tran.empty_unsafe());
   // assert(mmc->idle.empty_unsafe());
   // free(start_wu_data);
   // delete[] start_wu;
-  RawMemoryManager::freePinned(start_wu);
+  MemoryManager::freePinned(start_wu);
   // delete[] mmc->events   ;
   // delete[] mmc->old_buffs;
 
@@ -494,8 +496,8 @@ void MemMoveDevice::close(RawPipeline *pip) {
   // delete mmc->worker;
   // delete mmc;
   mmc->~MemMoveConf();
-  RawMemoryManager::freePinned(mmc);
-  rawlogger.log(this, log_op::MEMMOVE_CLOSE_CLEAN_UP_END);
+  MemoryManager::freePinned(mmc);
+  eventlogger.log(this, log_op::MEMMOVE_CLOSE_CLEAN_UP_END);
 }
 
 extern "C" {
@@ -572,7 +574,7 @@ void MemMoveDevice::catcher(MemMoveConf *mmc, int group_id,
 
   nvtxRangePushA("memmove::catch");
 
-  RawPipeline *pip = catch_pip->getPipeline(group_id);
+  Pipeline *pip = catch_pip->getPipeline(group_id);
 
   nvtxRangePushA("memmove::catch_open");
   pip->open();
@@ -581,9 +583,9 @@ void MemMoveDevice::catcher(MemMoveConf *mmc, int group_id,
   {
     do {
       MemMoveDevice::workunit *p = nullptr;
-      // rawlogger.log(this, log_op::MEMMOVE_CONSUME_WAIT_START);
+      // eventlogger.log(this, log_op::MEMMOVE_CONSUME_WAIT_START);
       if (!acquirePendingWorkUnit(mmc, &p)) break;
-      // rawlogger.log(this, log_op::MEMMOVE_CONSUME_WAIT_END  );
+      // eventlogger.log(this, log_op::MEMMOVE_CONSUME_WAIT_END  );
       // ++cnt;
       // std::cout << (void *) p->event << " " << (void *) mmc->strm <<
       // std::endl; gpu_run(cudaStreamSynchronize(mmc->strm));
@@ -598,9 +600,9 @@ void MemMoveDevice::catcher(MemMoveConf *mmc, int group_id,
       // }
       // sum2 += k;
       // std::cout << "s" << ((int32_t **) p->data)[0] << " " << k << std::endl;
-      rawlogger.log(this, log_op::MEMMOVE_CONSUME_START);
+      eventlogger.log(this, log_op::MEMMOVE_CONSUME_START);
       pip->consume(0, p->data);
-      rawlogger.log(this, log_op::MEMMOVE_CONSUME_END);
+      eventlogger.log(this, log_op::MEMMOVE_CONSUME_END);
       // // size_t x = ((int64_t *) p->data)[2];
       // for (size_t i = 0 ; i < x ; ++i){
       //     sum += ((int32_t **) p->data)[1][i];

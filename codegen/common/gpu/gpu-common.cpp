@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,9 +24,9 @@
 #include "common/gpu/gpu-common.hpp"
 #include <cassert>
 #include <cstdlib>
+#include "codegen/memory/memory-manager.hpp"
 #include "common/common.hpp"
 #include "topology/topology.hpp"
-#include "util/raw-memory-manager.hpp"
 
 void launch_kernel(CUfunction function, void **args, dim3 gridDim,
                    dim3 blockDim, cudaStream_t strm) {
@@ -99,7 +99,7 @@ mmap_file::mmap_file(std::string name, data_loc loc) : loc(loc) {
 
   // gpu_run(cudaHostRegister(data, filesize, 0));
   if (loc == PINNED) {
-    void *data2 = RawMemoryManager::mallocPinned(filesize);
+    void *data2 = MemoryManager::mallocPinned(filesize);
     // void * data2 = cudaMallocHost_local_to_cpu(filesize);
 
     memcpy(data2, data, filesize);
@@ -160,7 +160,7 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
       //     // assert(mem);
       // }
       // gpu_run(cudaHostRegister(data2, filesize, 0));
-      data2 = RawMemoryManager::mallocPinned(filesize);
+      data2 = MemoryManager::mallocPinned(filesize);
       // gpu_run(cudaMallocHost(&data2, filesize));
     }
     memcpy(data2, data, filesize);
@@ -236,7 +236,7 @@ mmap_file::~mmap_file() {
 
   // gpu_run(cudaHostUnregister(data));
   // if (loc == PINNED)       gpu_run(cudaFreeHost(data));
-  if (loc == PINNED) RawMemoryManager::freePinned(data);
+  if (loc == PINNED) MemoryManager::freePinned(data);
 
   if (loc == PAGEABLE) {
     munmap(data, filesize);

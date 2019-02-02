@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -29,10 +29,12 @@
  */
 
 #include "util/atois.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
+#include "parallel-context.hpp"
+
+using namespace llvm;
 
 /* (buf[0] - '0') */
-void atoi1(Value *buf, AllocaInst *mem_result, RawContext *const context) {
+void atoi1(Value *buf, AllocaInst *mem_result, Context *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int32Type = Type::getInt32Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
@@ -58,7 +60,7 @@ void atoi1(Value *buf, AllocaInst *mem_result, RawContext *const context) {
 
 /* ((buf[0] - '0') * 10) + \
     (buf[1] - '0'); */
-void atoi2(Value *buf, AllocaInst *mem_result, RawContext *const context) {
+void atoi2(Value *buf, AllocaInst *mem_result, Context *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int32Type = Type::getInt32Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
@@ -99,7 +101,7 @@ void atoi2(Value *buf, AllocaInst *mem_result, RawContext *const context) {
 /*    ((buf[0] - '0') * 100) + \
     ((buf[1] - '0') * 10) + \
     (buf[2] - '0'); */
-void atoi3(Value *buf, AllocaInst *mem_result, RawContext *const context) {
+void atoi3(Value *buf, AllocaInst *mem_result, Context *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int32Type = Type::getInt32Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
@@ -149,7 +151,7 @@ void atoi3(Value *buf, AllocaInst *mem_result, RawContext *const context) {
     ((buf[1] - '0') * 100) + \
     ((buf[2] - '0') * 10) + \
     (buf[3] - '0')*/
-void atoi4(Value *buf, AllocaInst *mem_result, RawContext *const context) {
+void atoi4(Value *buf, AllocaInst *mem_result, Context *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int32Type = Type::getInt32Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
@@ -208,7 +210,7 @@ void atoi4(Value *buf, AllocaInst *mem_result, RawContext *const context) {
     ((buf[2] - '0') * 100) + \
     ((buf[3] - '0') * 10) + \
     (buf[4] - '0')*/
-void atoi5(Value *buf, AllocaInst *mem_result, RawContext *const context) {
+void atoi5(Value *buf, AllocaInst *mem_result, Context *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int32Type = Type::getInt32Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
@@ -276,7 +278,7 @@ void atoi5(Value *buf, AllocaInst *mem_result, RawContext *const context) {
     ((buf[3] - '0') * 100) + \
     ((buf[4] - '0') * 10) + \
     (buf[5] - '0')*/
-void atoi6(Value *buf, AllocaInst *mem_result, RawContext *const context) {
+void atoi6(Value *buf, AllocaInst *mem_result, Context *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int32Type = Type::getInt32Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
@@ -353,7 +355,7 @@ void atoi6(Value *buf, AllocaInst *mem_result, RawContext *const context) {
     ((buf[4] - '0') * 100) + \
     ((buf[5] - '0') * 10) + \
     (buf[6] - '0')*/
-void atoi7(Value *buf, AllocaInst *mem_result, RawContext *const context) {
+void atoi7(Value *buf, AllocaInst *mem_result, Context *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int32Type = Type::getInt32Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
@@ -439,7 +441,7 @@ void atoi7(Value *buf, AllocaInst *mem_result, RawContext *const context) {
     ((buf[5] - '0') * 100) + \
     ((buf[6] - '0') * 10) + \
     (buf[7] - '0')*/
-void atoi8(Value *buf, AllocaInst *mem_result, RawContext *const context) {
+void atoi8(Value *buf, AllocaInst *mem_result, Context *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int32Type = Type::getInt32Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
@@ -534,7 +536,7 @@ void atoi8(Value *buf, AllocaInst *mem_result, RawContext *const context) {
     ((buf[6] - '0') * 100) + \
     ((buf[7] - '0') * 10) + \
     (buf[8] - '0');*/
-void atoi9(Value *buf, AllocaInst *mem_result, RawContext *const context) {
+void atoi9(Value *buf, AllocaInst *mem_result, Context *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int32Type = Type::getInt32Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
@@ -638,7 +640,7 @@ void atoi9(Value *buf, AllocaInst *mem_result, RawContext *const context) {
     ((buf[7] - '0') * 100) + \
     ((buf[8] - '0') * 10) + \
     (buf[9] - '0')*/
-void atoi10(Value *buf, AllocaInst *mem_result, RawContext *const context) {
+void atoi10(Value *buf, AllocaInst *mem_result, Context *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int32Type = Type::getInt32Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
@@ -740,8 +742,7 @@ void atoi10(Value *buf, AllocaInst *mem_result, RawContext *const context) {
   Builder->CreateStore(val_res, mem_result);
 }
 
-void atois(Value *buf, Value *len, AllocaInst *mem_result,
-           RawContext *const context) {
+void atois(Value *buf, Value *len, AllocaInst *mem_result, Context *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
@@ -841,7 +842,7 @@ void atois(Value *buf, Value *len, AllocaInst *mem_result,
     Builder->CreateCall(debugInt, ArgsV);
   }
 #endif
-  if (dynamic_cast<GpuRawContext *>(context)) {
+  if (dynamic_cast<ParallelContext *>(context)) {
     Builder->CreateCall(
         Intrinsic::getDeclaration(context->getModule(), Intrinsic::trap));
     Builder->CreateUnreachable();

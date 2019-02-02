@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,6 +24,7 @@
 #ifndef PLAN_PARSER_HPP_
 #define PLAN_PARSER_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "common/common.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions-hasher.hpp"
@@ -34,9 +35,8 @@
 #include "plugins/binary-row-plugin.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 #include "rapidjson/document.h"
@@ -61,7 +61,7 @@ class ExpressionParser {
  public:
   ExpressionParser(CatalogParser &catalogParser)
       : catalogParser(catalogParser){};
-  expression_t parseExpression(const rapidjson::Value &val, RawContext *ctx);
+  expression_t parseExpression(const rapidjson::Value &val, Context *ctx);
   ExpressionType *parseExpressionType(const rapidjson::Value &val);
   RecordAttribute *parseRecordAttr(const rapidjson::Value &val,
                                    const ExpressionType *defaultType = NULL);
@@ -69,17 +69,17 @@ class ExpressionParser {
 
  private:
   expression_t parseExpressionWithoutRegistering(const rapidjson::Value &val,
-                                                 RawContext *ctx);
-  expressions::extract_unit parseUnitRange(std::string range, RawContext *ctx);
+                                                 Context *ctx);
+  expressions::extract_unit parseUnitRange(std::string range, Context *ctx);
   RecordType *getRecordType(string relName);
   const RecordAttribute *getAttribute(string relName, string attrName);
 };
 
 class CatalogParser {
-  GpuRawContext *context;
+  ParallelContext *context;
 
  public:
-  CatalogParser(const char *catalogPath, GpuRawContext *context = NULL);
+  CatalogParser(const char *catalogPath, ParallelContext *context = NULL);
 
   InputInfo *getInputInfoIfKnown(string inputName) {
     map<string, InputInfo *>::iterator it;
@@ -116,7 +116,7 @@ class PlanExecutor {
   PlanExecutor(const char *planPath, CatalogParser &cat,
                const char *moduleName = "llvmModule");
   PlanExecutor(const char *planPath, CatalogParser &cat, const char *moduleName,
-               RawContext *ctx);
+               Context *ctx);
 
  private:
   ExpressionParser exprParser;
@@ -124,12 +124,12 @@ class PlanExecutor {
   const char *moduleName;
   CatalogParser &catalogParser;
   vector<Plugin *> activePlugins;
-  std::map<size_t, RawOperator *> splitOps;
+  std::map<size_t, Operator *> splitOps;
 
-  RawContext *ctx;
+  Context *ctx;
   void parsePlan(const rapidjson::Document &doc, bool execute = false);
   /* When processing tree root, parent will be NULL */
-  RawOperator *parseOperator(const rapidjson::Value &val);
+  Operator *parseOperator(const rapidjson::Value &val);
   expression_t parseExpression(const rapidjson::Value &val) {
     return exprParser.parseExpression(val, ctx);
   }

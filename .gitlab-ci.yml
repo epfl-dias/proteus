@@ -40,9 +40,9 @@ stages:
 
 .before_script:
  - cp -p -t . ${cache_path}/.*done || true
- # TODO: we should probably remove the next lines and fix that in raw-jit-executor
- - ln -s /data/ssbm-100 src/raw-jit-executor/inputs/ssbm100
- - ln -s /data/tpch-1 src/raw-jit-executor/inputs/tpch1
+ # TODO: we should probably remove the next lines and fix that in executor
+ - ln -s /data/ssbm-100 src/executor/inputs/ssbm100
+ - ln -s /data/tpch-1 src/executor/inputs/tpch1
 
 .after_script:
  # we have to recalculate cache_path here

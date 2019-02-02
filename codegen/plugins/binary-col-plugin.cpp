@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -22,22 +22,24 @@
 */
 
 #include "plugins/binary-col-plugin.hpp"
-#include "storage/raw-storage-manager.hpp"
+#include "storage/storage-manager.hpp"
 
-BinaryColPlugin::BinaryColPlugin(RawContext *const context, string fnamePrefix,
+using namespace llvm;
+
+BinaryColPlugin::BinaryColPlugin(Context *const context, string fnamePrefix,
                                  RecordType rec,
                                  vector<RecordAttribute *> &whichFields,
                                  bool sizeInFile)
-    : fnamePrefix(fnamePrefix),
-      rec(rec),
+    : rec(rec),
       wantedFields(whichFields),
+      fnamePrefix(fnamePrefix),
       context(context),
+      sizeInFile(sizeInFile),
       posVar("offset"),
       bufVar("buf"),
       fsizeVar("fileSize"),
       sizeVar("size"),
-      itemCtrVar("itemCtr"),
-      sizeInFile(sizeInFile) {
+      itemCtrVar("itemCtr") {
   isCached = false;
   val_size = NULL;
   int fieldsNumber = wantedFields.size();
@@ -102,7 +104,7 @@ BinaryColPlugin::BinaryColPlugin(RawContext *const context, string fnamePrefix,
 }
 
 /* No STRING yet in this mode */
-// BinaryColPlugin::BinaryColPlugin(RawContext* const context,
+// BinaryColPlugin::BinaryColPlugin(Context* const context,
 // vector<RecordAttribute*>& whichFields, vector<CacheInfo> whichCaches)
 //    : rec(rec), wantedFields(whichFields), whichCaches(whichCaches),
 //    context(context), fnamePrefix(""),
@@ -334,25 +336,26 @@ void BinaryColPlugin::init() {
   NamedValuesBinaryCol[itemCtrVar] = mem_itemCtr;
 }
 
-void BinaryColPlugin::generate(const RawOperator &producer) {
+void BinaryColPlugin::generate(const ::Operator &producer) {
   return scan(producer);
 }
 
 /**
  * The work of readPath() and readValue() has been taken care of scanCSV()
  */
-RawValueMemory BinaryColPlugin::readPath(string activeRelation,
-                                         Bindings bindings, const char *pathVar,
-                                         RecordAttribute attr) {
-  RawValueMemory mem_projection;
+ProteusValueMemory BinaryColPlugin::readPath(string activeRelation,
+                                             Bindings bindings,
+                                             const char *pathVar,
+                                             RecordAttribute attr) {
+  ProteusValueMemory mem_projection;
   {
-    const OperatorState *state = bindings.state;
-    const map<RecordAttribute, RawValueMemory> &binProjections =
+    const ::OperatorState *state = bindings.state;
+    const map<RecordAttribute, ProteusValueMemory> &binProjections =
         state->getBindings();
     // XXX Make sure that using fnamePrefix in this search does not cause issues
     RecordAttribute tmpKey =
         RecordAttribute(fnamePrefix, pathVar, this->getOIDType());
-    map<RecordAttribute, RawValueMemory>::const_iterator it;
+    map<RecordAttribute, ProteusValueMemory>::const_iterator it;
     it = binProjections.find(tmpKey);
     if (it == binProjections.end()) {
       string error_msg =
@@ -377,25 +380,25 @@ RawValueMemory BinaryColPlugin::readPath(string activeRelation,
 
 /* FIXME Differentiate between operations that need the code and the ones
  * needing the materialized string */
-RawValueMemory BinaryColPlugin::readValue(RawValueMemory mem_value,
-                                          const ExpressionType *type) {
+ProteusValueMemory BinaryColPlugin::readValue(ProteusValueMemory mem_value,
+                                              const ExpressionType *type) {
   return mem_value;
 }
 
-RawValue BinaryColPlugin::readCachedValue(CacheInfo info,
-                                          const OperatorState &currState) {
+ProteusValue BinaryColPlugin::readCachedValue(
+    CacheInfo info, const ::OperatorState &currState) {
   return readCachedValue(info, currState.getBindings());
 }
 
-RawValue BinaryColPlugin::readCachedValue(
-    CacheInfo info, const map<RecordAttribute, RawValueMemory> &bindings) {
+ProteusValue BinaryColPlugin::readCachedValue(
+    CacheInfo info, const map<RecordAttribute, ProteusValueMemory> &bindings) {
   IRBuilder<> *const Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
 
   /* Need OID to retrieve corresponding value from bin. cache */
   RecordAttribute tupleIdentifier =
       RecordAttribute(fnamePrefix, activeLoop, getOIDType());
-  map<RecordAttribute, RawValueMemory>::const_iterator it =
+  map<RecordAttribute, ProteusValueMemory>::const_iterator it =
       bindings.find(tupleIdentifier);
   if (it == bindings.end()) {
     string error_msg =
@@ -403,7 +406,7 @@ RawValue BinaryColPlugin::readCachedValue(
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  RawValueMemory mem_oidWrapper = it->second;
+  ProteusValueMemory mem_oidWrapper = it->second;
   /* OID is a plain integer - starts from 1!!! */
   Value *val_oid = Builder->CreateLoad(mem_oidWrapper.mem);
   val_oid = Builder->CreateSub(val_oid, context->createInt64(1));
@@ -436,7 +439,7 @@ RawValue BinaryColPlugin::readCachedValue(
       context->CreateEntryBlockAlloca(F, "tmpCachedField", fieldType);
   Builder->CreateStore(val_cachedField, mem_cachedField);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateLoad(mem_cachedField);
   valWrapper.isNull = context->createFalse();
 #ifdef DEBUG
@@ -451,16 +454,16 @@ RawValue BinaryColPlugin::readCachedValue(
   return valWrapper;
 }
 
-// RawValue BinaryColPlugin::hashValue(RawValueMemory mem_value, const
+// ProteusValue BinaryColPlugin::hashValue(ProteusValueMemory mem_value, const
 // ExpressionType* type)    {
 //    IRBuilder<>* Builder = context->getBuilder();
-//    RawValue value;
+//    ProteusValue value;
 //    value.isNull = mem_value.isNull;
 //    value.value = Builder->CreateLoad(mem_value.mem);
 //    return value;
 //}
-RawValue BinaryColPlugin::hashValue(RawValueMemory mem_value,
-                                    const ExpressionType *type) {
+ProteusValue BinaryColPlugin::hashValue(ProteusValueMemory mem_value,
+                                        const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
   switch (type->getTypeID()) {
     case BOOL: {
@@ -470,7 +473,7 @@ RawValue BinaryColPlugin::hashValue(RawValueMemory mem_value,
       Value *hashResult =
           context->getBuilder()->CreateCall(hashBoolean, ArgsV, "hashBoolean");
 
-      RawValue valWrapper;
+      ProteusValue valWrapper;
       valWrapper.value = hashResult;
       valWrapper.isNull = context->createFalse();
       return valWrapper;
@@ -487,7 +490,7 @@ RawValue BinaryColPlugin::hashValue(RawValueMemory mem_value,
       Value *hashResult =
           context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
 
-      RawValue valWrapper;
+      ProteusValue valWrapper;
       valWrapper.value = hashResult;
       valWrapper.isNull = context->createFalse();
       return valWrapper;
@@ -499,7 +502,7 @@ RawValue BinaryColPlugin::hashValue(RawValueMemory mem_value,
       Value *hashResult =
           context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
 
-      RawValue valWrapper;
+      ProteusValue valWrapper;
       valWrapper.value = hashResult;
       valWrapper.isNull = context->createFalse();
       return valWrapper;
@@ -521,15 +524,15 @@ RawValue BinaryColPlugin::hashValue(RawValueMemory mem_value,
   }
 }
 
-RawValue BinaryColPlugin::hashValueEager(RawValue valWrapper,
-                                         const ExpressionType *type) {
+ProteusValue BinaryColPlugin::hashValueEager(ProteusValue valWrapper,
+                                             const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
   Value *tmp = valWrapper.value;
   AllocaInst *mem_tmp =
       context->CreateEntryBlockAlloca(F, "mem_cachedToHash", tmp->getType());
   Builder->CreateStore(tmp, mem_tmp);
-  RawValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
+  ProteusValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
   return hashValue(mem_tmpWrapper, type);
 }
 
@@ -549,7 +552,7 @@ void BinaryColPlugin::finish() {
   }
 }
 
-Value *BinaryColPlugin::getValueSize(RawValueMemory mem_value,
+Value *BinaryColPlugin::getValueSize(ProteusValueMemory mem_value,
                                      const ExpressionType *type) {
   switch (type->getTypeID()) {
     case BOOL:
@@ -638,7 +641,8 @@ void BinaryColPlugin::nextEntry() {
 
 /* Operates over int*! */
 void BinaryColPlugin::readAsIntLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -684,7 +688,7 @@ void BinaryColPlugin::readAsIntLLVM(
   Builder->CreateStore(parsedInt, mem_currResult);
   LOG(INFO) << "[BINARYCOL - READ INT: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
@@ -700,7 +704,8 @@ void BinaryColPlugin::readAsIntLLVM(
 
 /* Operates over char*! */
 void BinaryColPlugin::readAsInt64LLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -746,7 +751,7 @@ void BinaryColPlugin::readAsInt64LLVM(
   Builder->CreateStore(parsedInt, mem_currResult);
   LOG(INFO) << "[BINARYCOL - READ INT64: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
@@ -803,12 +808,14 @@ Value *BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName) {
  * I think forwarding the dict. code (int32) is sufficient here.
  */
 void BinaryColPlugin::readAsStringLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   readAsIntLLVM(attName, variables);
 }
 
 void BinaryColPlugin::readAsBooleanLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int1Type = Type::getInt1Ty(llvmContext);
@@ -852,14 +859,15 @@ void BinaryColPlugin::readAsBooleanLLVM(
   Builder->CreateStore(parsedInt, currResult);
   LOG(INFO) << "[BINARYCOL - READ BOOL: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
 void BinaryColPlugin::readAsFloatLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *doubleType = Type::getDoubleTy(llvmContext);
@@ -903,7 +911,7 @@ void BinaryColPlugin::readAsFloatLLVM(
   Builder->CreateStore(parsedFloat, currResult);
   LOG(INFO) << "[BINARYCOL - READ FLOAT: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
@@ -1019,7 +1027,7 @@ void BinaryColPlugin::prepareArray(RecordAttribute attName) {
   }
 }
 
-void BinaryColPlugin::scan(const RawOperator &producer) {
+void BinaryColPlugin::scan(const ::Operator &producer) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -1029,8 +1037,8 @@ void BinaryColPlugin::scan(const RawOperator &producer) {
   Type *int64Type = Type::getInt64Ty(llvmContext);
 
   // Container for the variable bindings
-  map<RecordAttribute, RawValueMemory> *variableBindings =
-      new map<RecordAttribute, RawValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> *variableBindings =
+      new map<RecordAttribute, ProteusValueMemory>();
 
   // Get the ENTRY BLOCK
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
@@ -1070,7 +1078,7 @@ void BinaryColPlugin::scan(const RawOperator &producer) {
   RecordAttribute tupleIdentifier =
       RecordAttribute(fnamePrefix, activeLoop, this->getOIDType());
 
-  RawValueMemory mem_posWrapper;
+  ProteusValueMemory mem_posWrapper;
   mem_posWrapper.mem = mem_itemCtr;
   mem_posWrapper.isNull = context->createFalse();
   (*variableBindings)[tupleIdentifier] = mem_posWrapper;
@@ -1140,8 +1148,8 @@ void BinaryColPlugin::scan(const RawOperator &producer) {
   Builder->SetInsertPoint(IncBB);
 
   // Triggering parent
-  OperatorState *state = new OperatorState(producer, *variableBindings);
-  RawOperator *const opParent = producer.getParent();
+  ::OperatorState *state = new ::OperatorState(producer, *variableBindings);
+  ::Operator *const opParent = producer.getParent();
   opParent->consume(context, *state);
 
   Builder->CreateBr(CondBB);

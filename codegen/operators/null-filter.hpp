@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -28,19 +28,17 @@
  * Minimal operator. Performs subset of Nest's functionality
  * Used to filter out NULL bindings w/o going through a heavy nesting operation
  */
-class NullFilter : public UnaryRawOperator {
+class NullFilter : public UnaryOperator {
  public:
-  NullFilter(expressions::InputArgument *expr, RawOperator *const child)
-      : UnaryRawOperator(child), expr(expr) {}
+  NullFilter(expressions::InputArgument *expr, Operator *const child)
+      : UnaryOperator(child), expr(expr) {}
   virtual ~NullFilter() { LOG(INFO) << "Collapsing null_filter operator"; }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 
  private:
   expressions::InputArgument *expr;
-  void generate(RawContext *const context,
-                const OperatorState &childState) const;
+  void generate(Context *const context, const OperatorState &childState) const;
 };

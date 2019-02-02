@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -27,13 +27,12 @@
  * Placeholder Operator, used as root of the query plan for debug purposes.
  * Once infrastructure is complete, only Reduce operator will be topmost
  */
-class Root : public UnaryRawOperator {
+class Root : public UnaryOperator {
  public:
-  Root(RawOperator *const child) : UnaryRawOperator(child) {}
+  Root(Operator *const child) : UnaryOperator(child) {}
   virtual ~Root() { LOG(INFO) << "Collapsing root operator"; }
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return getChild()->isFiltering(); }
 
  private:

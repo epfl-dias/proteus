@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -56,14 +56,14 @@
 //
 // </TechnicalDetails>
 
-#include "common/common.hpp"
-#include "common/gpu/gpu-common.hpp"
+// #include "codegen/util/parallel-context.hpp"
+// #include "common/common.hpp"
+// #include "common/gpu/gpu-common.hpp"
+// #include "memory/memory-manager.hpp"
 #include "plan/plan-parser.hpp"
-#include "storage/raw-storage-manager.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/raw-functions.hpp"
-#include "util/raw-memory-manager.hpp"
-#include "util/raw-pipeline.hpp"
+#include "storage/storage-manager.hpp"
+// #include "util/functions.hpp"
+// #include "util/jit/pipeline.hpp"
 // #include <cuda_profiler_api.h>
 #include "test-utils.hpp"
 
@@ -73,7 +73,7 @@
 using namespace llvm;
 
 ::testing::Environment *const pools_env =
-    ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
 
 class CPUSSBTest : public ::testing::Test {
  protected:

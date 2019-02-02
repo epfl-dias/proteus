@@ -1,4 +1,4 @@
-RAW: Just-In-Time Executor
+Proteus: Just-In-Time Executor
 ================
 
-The executor of RAW, a prototype in situ DBMS employing Just-In-Time operators.
+The executor of Pelago, a prototype in situ DBMS employing Just-In-Time operators.

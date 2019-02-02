@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,8 +24,10 @@
 #include "expressions/expressions-dot-evaluator.hpp"
 #include "expressions/expressions-generator.hpp"
 
-RawValue ExpressionDotVisitor::visit(const expressions::IntConstant *e1,
-                                     const expressions::IntConstant *e2) {
+using namespace llvm;
+
+ProteusValue ExpressionDotVisitor::visit(const expressions::IntConstant *e1,
+                                         const expressions::IntConstant *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   Value *val_int1 =
       ConstantInt::get(context->getLLVMContext(), APInt(32, e1->getVal()));
@@ -33,14 +35,15 @@ RawValue ExpressionDotVisitor::visit(const expressions::IntConstant *e1,
       ConstantInt::get(context->getLLVMContext(), APInt(32, e2->getVal()));
 
   Value *val_result = Builder->CreateICmpEQ(val_int1, val_int2);
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = val_result;
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::DStringConstant *e1,
-                                     const expressions::DStringConstant *e2) {
+ProteusValue ExpressionDotVisitor::visit(
+    const expressions::DStringConstant *e1,
+    const expressions::DStringConstant *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   Value *val_int1 =
       ConstantInt::get(context->getLLVMContext(), APInt(32, e1->getVal()));
@@ -48,14 +51,14 @@ RawValue ExpressionDotVisitor::visit(const expressions::DStringConstant *e1,
       ConstantInt::get(context->getLLVMContext(), APInt(32, e2->getVal()));
 
   Value *val_result = Builder->CreateICmpEQ(val_int1, val_int2);
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = val_result;
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::Int64Constant *e1,
-                                     const expressions::Int64Constant *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::Int64Constant *e1,
+                                         const expressions::Int64Constant *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   Value *val_int1 =
       ConstantInt::get(context->getLLVMContext(), APInt(64, e1->getVal()));
@@ -63,14 +66,14 @@ RawValue ExpressionDotVisitor::visit(const expressions::Int64Constant *e1,
       ConstantInt::get(context->getLLVMContext(), APInt(64, e2->getVal()));
 
   Value *val_result = Builder->CreateICmpEQ(val_int1, val_int2);
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = val_result;
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::DateConstant *e1,
-                                     const expressions::DateConstant *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::DateConstant *e1,
+                                         const expressions::DateConstant *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   Value *val_int1 =
       ConstantInt::get(context->getLLVMContext(), APInt(64, e1->getVal()));
@@ -78,14 +81,14 @@ RawValue ExpressionDotVisitor::visit(const expressions::DateConstant *e1,
       ConstantInt::get(context->getLLVMContext(), APInt(64, e2->getVal()));
 
   Value *val_result = Builder->CreateICmpEQ(val_int1, val_int2);
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = val_result;
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::FloatConstant *e1,
-                                     const expressions::FloatConstant *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::FloatConstant *e1,
+                                         const expressions::FloatConstant *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   Value *val_double1 =
       ConstantFP::get(context->getLLVMContext(), APFloat(e1->getVal()));
@@ -93,14 +96,14 @@ RawValue ExpressionDotVisitor::visit(const expressions::FloatConstant *e1,
       ConstantFP::get(context->getLLVMContext(), APFloat(e2->getVal()));
 
   Value *val_result = Builder->CreateFCmpOEQ(val_double1, val_double2);
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = val_result;
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::BoolConstant *e1,
-                                     const expressions::BoolConstant *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::BoolConstant *e1,
+                                         const expressions::BoolConstant *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   Value *val_int1 =
       ConstantInt::get(context->getLLVMContext(), APInt(8, e1->getVal()));
@@ -108,26 +111,27 @@ RawValue ExpressionDotVisitor::visit(const expressions::BoolConstant *e1,
       ConstantInt::get(context->getLLVMContext(), APInt(8, e2->getVal()));
 
   Value *val_result = Builder->CreateICmpEQ(val_int1, val_int2);
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = val_result;
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::StringConstant *e1,
-                                     const expressions::StringConstant *e2) {
+ProteusValue ExpressionDotVisitor::visit(
+    const expressions::StringConstant *e1,
+    const expressions::StringConstant *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   vector<Value *> ArgsV;
   ArgsV.push_back(left.value);
   ArgsV.push_back(right.value);
@@ -138,173 +142,173 @@ RawValue ExpressionDotVisitor::visit(const expressions::StringConstant *e1,
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::EqExpression *e1,
-                                     const expressions::EqExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::EqExpression *e1,
+                                         const expressions::EqExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::NeExpression *e1,
-                                     const expressions::NeExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::NeExpression *e1,
+                                         const expressions::NeExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::GeExpression *e1,
-                                     const expressions::GeExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::GeExpression *e1,
+                                         const expressions::GeExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::GtExpression *e1,
-                                     const expressions::GtExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::GtExpression *e1,
+                                         const expressions::GtExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::LeExpression *e1,
-                                     const expressions::LeExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::LeExpression *e1,
+                                         const expressions::LeExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::LtExpression *e1,
-                                     const expressions::LtExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::LtExpression *e1,
+                                         const expressions::LtExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::AndExpression *e1,
-                                     const expressions::AndExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::AndExpression *e1,
+                                         const expressions::AndExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::OrExpression *e1,
-                                     const expressions::OrExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::OrExpression *e1,
+                                         const expressions::OrExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::AddExpression *e1,
-                                     const expressions::AddExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::AddExpression *e1,
+                                         const expressions::AddExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
   typeID id = e1->getExpressionType()->getTypeID();
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.isNull = context->createFalse();
 
   switch (id) {
@@ -326,21 +330,21 @@ RawValue ExpressionDotVisitor::visit(const expressions::AddExpression *e1,
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::SubExpression *e1,
-                                     const expressions::SubExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::SubExpression *e1,
+                                         const expressions::SubExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
   typeID id = e1->getExpressionType()->getTypeID();
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.isNull = context->createFalse();
 
   switch (id) {
@@ -362,21 +366,22 @@ RawValue ExpressionDotVisitor::visit(const expressions::SubExpression *e1,
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::MultExpression *e1,
-                                     const expressions::MultExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(
+    const expressions::MultExpression *e1,
+    const expressions::MultExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
   typeID id = e1->getExpressionType()->getTypeID();
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.isNull = context->createFalse();
 
   switch (id) {
@@ -398,21 +403,21 @@ RawValue ExpressionDotVisitor::visit(const expressions::MultExpression *e1,
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::DivExpression *e1,
-                                     const expressions::DivExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::DivExpression *e1,
+                                         const expressions::DivExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
   typeID id = e1->getExpressionType()->getTypeID();
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.isNull = context->createFalse();
 
   switch (id) {
@@ -435,7 +440,7 @@ RawValue ExpressionDotVisitor::visit(const expressions::DivExpression *e1,
 }
 
 // XXX Careful here
-RawValue ExpressionDotVisitor::visit(
+ProteusValue ExpressionDotVisitor::visit(
     const expressions::RecordConstruction *e1,
     const expressions::RecordConstruction *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
@@ -451,23 +456,24 @@ RawValue ExpressionDotVisitor::visit(
     auto expr1 = it1->getExpression();
     auto expr2 = it2->getExpression();
 
-    RawValue val_partialWrapper = expr1.acceptTandem(*this, expr2);
+    ProteusValue val_partialWrapper = expr1.acceptTandem(*this, expr2);
     val_result = Builder->CreateAnd(val_result, val_partialWrapper.value);
   }
-  RawValue val_resultWrapper;
+  ProteusValue val_resultWrapper;
   val_resultWrapper.value = val_result;
   val_resultWrapper.isNull = context->createFalse();
   return val_resultWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::HashExpression *e1,
-                                     const expressions::HashExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(
+    const expressions::HashExpression *e1,
+    const expressions::HashExpression *e2) {
   assert(false && "This does not really make sense");
   return e1->getExpr().acceptTandem(*this, e2->getExpr());
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::InputArgument *e1,
-                                     const expressions::InputArgument *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::InputArgument *e1,
+                                         const expressions::InputArgument *e2) {
   /* What would be needed is a per-pg 'dotCmp' method
    * -> compare piece by piece at this level, don't reconstruct here*/
   string error_msg =
@@ -476,18 +482,19 @@ RawValue ExpressionDotVisitor::visit(const expressions::InputArgument *e1,
   throw runtime_error(error_msg);
 }
 
-RawValue ExpressionDotVisitor::visit(
-    const expressions::RawValueExpression *e1,
-    const expressions::RawValueExpression *e2) {
-  // left or right should not matter for RawValueExpressions, as
+ProteusValue ExpressionDotVisitor::visit(
+    const expressions::ProteusValueExpression *e1,
+    const expressions::ProteusValueExpression *e2) {
+  // left or right should not matter for ProteusValueExpressions, as
   // the bindings will not be used
   ExpressionGeneratorVisitor visitor{context, currStateLeft};
   return eq(*e1, *e2).accept(visitor);
 }
 
 /* Probably insufficient for complex datatypes */
-RawValue ExpressionDotVisitor::visit(const expressions::RecordProjection *e1,
-                                     const expressions::RecordProjection *e2) {
+ProteusValue ExpressionDotVisitor::visit(
+    const expressions::RecordProjection *e1,
+    const expressions::RecordProjection *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
 
   typeID id = e1->getExpressionType()->getTypeID();
@@ -497,14 +504,14 @@ RawValue ExpressionDotVisitor::visit(const expressions::RecordProjection *e1,
     const OperatorState &currState1 = currStateLeft;
     ExpressionGeneratorVisitor exprGenerator1 =
         ExpressionGeneratorVisitor(context, currState1);
-    RawValue left = e1->accept(exprGenerator1);
+    ProteusValue left = e1->accept(exprGenerator1);
 
     const OperatorState &currState2 = currStateRight;
     ExpressionGeneratorVisitor exprGenerator2 =
         ExpressionGeneratorVisitor(context, currState2);
-    RawValue right = e2->accept(exprGenerator2);
+    ProteusValue right = e2->accept(exprGenerator2);
 
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
     switch (id) {
       case INT:
@@ -560,34 +567,34 @@ RawValue ExpressionDotVisitor::visit(const expressions::RecordProjection *e1,
     const OperatorState &currState1 = currStateLeft;
     ExpressionHasherVisitor aggrExprGenerator1 =
         ExpressionHasherVisitor(context, currState1);
-    RawValue hashLeft = e1->accept(aggrExprGenerator1);
+    ProteusValue hashLeft = e1->accept(aggrExprGenerator1);
 
     const OperatorState &currState2 = currStateRight;
     ExpressionHasherVisitor aggrExprGenerator2 =
         ExpressionHasherVisitor(context, currState2);
-    RawValue hashRight = e2->accept(aggrExprGenerator2);
-    RawValue valWrapper;
+    ProteusValue hashRight = e2->accept(aggrExprGenerator2);
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
     valWrapper.value = Builder->CreateICmpEQ(hashLeft.value, hashRight.value);
     return valWrapper;
   }
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::IfThenElse *e1,
-                                     const expressions::IfThenElse *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::IfThenElse *e1,
+                                         const expressions::IfThenElse *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
   typeID id = e1->getExpressionType()->getTypeID();
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.isNull = context->createFalse();
   switch (id) {
     case INT:
@@ -618,31 +625,31 @@ RawValue ExpressionDotVisitor::visit(const expressions::IfThenElse *e1,
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::MaxExpression *e1,
-                                     const expressions::MaxExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::MaxExpression *e1,
+                                         const expressions::MaxExpression *e2) {
   return e1->getCond()->acceptTandem(*this, e2->getCond());
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::MinExpression *e1,
-                                     const expressions::MinExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::MinExpression *e1,
+                                         const expressions::MinExpression *e2) {
   return e1->getCond()->acceptTandem(*this, e2->getCond());
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::NegExpression *e1,
-                                     const expressions::NegExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(const expressions::NegExpression *e1,
+                                         const expressions::NegExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1 =
       ExpressionGeneratorVisitor(context, currState1);
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2 =
       ExpressionGeneratorVisitor(context, currState2);
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
   typeID id = e1->getExpressionType()->getTypeID();
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.isNull = context->createFalse();
 
   switch (id) {
@@ -665,19 +672,20 @@ RawValue ExpressionDotVisitor::visit(const expressions::NegExpression *e1,
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::ExtractExpression *e1,
-                                     const expressions::ExtractExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(
+    const expressions::ExtractExpression *e1,
+    const expressions::ExtractExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1{context, currState1};
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2{context, currState2};
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
   typeID id = e1->getExpressionType()->getTypeID();
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.isNull = context->createFalse();
 
   switch (id) {
@@ -700,26 +708,27 @@ RawValue ExpressionDotVisitor::visit(const expressions::ExtractExpression *e1,
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(
+ProteusValue ExpressionDotVisitor::visit(
     const expressions::TestNullExpression *e1,
     const expressions::TestNullExpression *e2) {
   IRBuilder<> *const Builder = context->getBuilder();
   const OperatorState &currState1 = currStateLeft;
   ExpressionGeneratorVisitor exprGenerator1{context, currState1};
-  RawValue left = e1->accept(exprGenerator1);
+  ProteusValue left = e1->accept(exprGenerator1);
 
   const OperatorState &currState2 = currStateRight;
   ExpressionGeneratorVisitor exprGenerator2{context, currState2};
-  RawValue right = e2->accept(exprGenerator2);
+  ProteusValue right = e2->accept(exprGenerator2);
 
   typeID id = e1->getExpressionType()->getTypeID();
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
   valWrapper.isNull = context->createFalse();
   return valWrapper;
 }
 
-RawValue ExpressionDotVisitor::visit(const expressions::CastExpression *e1,
-                                     const expressions::CastExpression *e2) {
+ProteusValue ExpressionDotVisitor::visit(
+    const expressions::CastExpression *e1,
+    const expressions::CastExpression *e2) {
   return e1->getExpr().acceptTandem(*this, e2->getExpr());
 }

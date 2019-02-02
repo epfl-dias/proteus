@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,8 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef RAW_CACHING_HPP_
-#define RAW_CACHING_HPP_
+#ifndef CACHING_HPP_
+#define CACHING_HPP_
 
 #include "common/common.hpp"
 #include "expressions/expressions.hpp"
@@ -173,4 +173,4 @@ class CachingService {
   CachingService(CachingService const &);  // Don't Implement.
   void operator=(CachingService const &);  // Don't implement.
 };
-#endif /* RAW_CACHING_HPP_ */
+#endif /* CACHING_HPP_ */

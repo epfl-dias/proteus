@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,23 +23,21 @@
 
 #include "test-utils.hpp"
 
-#include "storage/raw-storage-manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#include "util/raw-memory-manager.hpp"
-
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/raw-functions.hpp"
-#include "util/raw-pipeline.hpp"
-
-#include "plan/plan-parser.hpp"
-
 #include "rapidjson/error/en.h"
 #include "rapidjson/schema.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 
-void RawTestEnvironment::SetUp() {
+#include "codegen/util/parallel-context.hpp"
+#include "memory/memory-manager.hpp"
+#include "plan/plan-parser.hpp"
+#include "storage/storage-manager.hpp"
+#include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
+#include "util/functions.hpp"
+#include "util/jit/pipeline.hpp"
+
+void TestEnvironment::SetUp() {
   if (has_already_been_setup) {
     is_noop = true;
     return;
@@ -71,16 +69,16 @@ void RawTestEnvironment::SetUp() {
 
   // srand(time(0));
 
-  RawPipelineGen::init();
-  RawMemoryManager::init();
+  PipelineGen::init();
+  MemoryManager::init();
 
   gpu_run(cudaSetDevice(0));
 
   has_already_been_setup = true;
 }
 
-void RawTestEnvironment::TearDown() {
-  if (!is_noop) RawMemoryManager::destroy();
+void TestEnvironment::TearDown() {
+  if (!is_noop) MemoryManager::destroy();
 }
 
 bool verifyTestResult(const char *testsPath, const char *testLabel,
@@ -207,13 +205,13 @@ void runAndVerify(const char *testLabel, const char *planPath,
 
   gpu_run(cudaSetDevice(0));
 
-  GpuRawContext *ctx;
+  ParallelContext *ctx;
 
-  std::vector<RawPipeline *> pipelines;
+  std::vector<Pipeline *> pipelines;
   {
     time_block t("Tcodegen: ");
 
-    ctx = new GpuRawContext(testLabel, false);
+    ctx = new ParallelContext(testLabel, false);
     CatalogParser catalog = CatalogParser(catalogJSON, ctx);
     PlanExecutor exec = PlanExecutor(planPath, catalog, testLabel, ctx);
 
@@ -234,7 +232,7 @@ void runAndVerify(const char *testLabel, const char *planPath,
     {
       time_block t("Texecute       : ");
 
-      for (RawPipeline *p : pipelines) {
+      for (Pipeline *p : pipelines) {
         nvtxRangePushA("pip");
         {
           time_block t("T: ");
@@ -271,4 +269,4 @@ void runAndVerify(const char *testLabel, const char *planPath,
   shm_unlink(testLabel);
 }
 
-bool RawTestEnvironment::has_already_been_setup = false;
+bool TestEnvironment::has_already_been_setup = false;

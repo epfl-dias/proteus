@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -26,6 +26,8 @@
 // Definitely not enough as a solution
 //#define MAXTOKENS 1000
 
+using namespace llvm;
+
 namespace jsmn {
 
 #define TOKEN_PRINT(t)                                                   \
@@ -36,7 +38,7 @@ namespace jsmn {
   (strncmp(js + (t).start, s, (t).end - (t).start) == 0 && \
    strlen(s) == (size_t)((t).end - (t).start))
 
-JSONPlugin::JSONPlugin(RawContext *const context, string &fname,
+JSONPlugin::JSONPlugin(Context *const context, string &fname,
                        ExpressionType *schema)
     : context(context),
       fname(fname),
@@ -62,7 +64,7 @@ JSONPlugin::JSONPlugin(RawContext *const context, string &fname,
   }
 
   // Retrieving schema - not needed yet
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   catalog.registerFileJSON(fname, schema);
 
   // Tokenizing
@@ -123,7 +125,8 @@ JSONPlugin::JSONPlugin(RawContext *const context, string &fname,
   NamedValuesJSON[var_tokenOffset] = mem_tokenOffset;
 }
 
-RawValueMemory JSONPlugin::initCollectionUnnest(RawValue val_parentTokenNo) {
+ProteusValueMemory JSONPlugin::initCollectionUnnest(
+    ProteusValue val_parentTokenNo) {
   Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -144,7 +147,7 @@ RawValueMemory JSONPlugin::initCollectionUnnest(RawValue val_parentTokenNo) {
 //    ArgsV.push_back(val_currentToken);
 //    Builder->CreateCall(debugInt, ArgsV);
 #endif
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_currentToken;
   mem_valWrapper.isNull = val_parentTokenNo.isNull;
   return mem_valWrapper;
@@ -153,8 +156,8 @@ RawValueMemory JSONPlugin::initCollectionUnnest(RawValue val_parentTokenNo) {
 /**
  * tokens[i].end <= tokens[parentToken].end && tokens[i].end != 0
  */
-RawValue JSONPlugin::collectionHasNext(RawValue val_parentTokenNo,
-                                       RawValueMemory mem_currentTokenNo) {
+ProteusValue JSONPlugin::collectionHasNext(
+    ProteusValue val_parentTokenNo, ProteusValueMemory mem_currentTokenNo) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
@@ -184,7 +187,7 @@ RawValue JSONPlugin::collectionHasNext(RawValue val_parentTokenNo,
   Value *endCond = Builder->CreateAnd(endCond1, endCond2);
   Value *endCond_isNull = context->createFalse();
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = endCond;
 #ifdef DEBUG
   vector<Value *> ArgsV;
@@ -197,7 +200,8 @@ RawValue JSONPlugin::collectionHasNext(RawValue val_parentTokenNo,
   return valWrapper;
 }
 
-RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentToken) {
+ProteusValueMemory JSONPlugin::collectionGetNext(
+    ProteusValueMemory mem_currentToken) {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
   Type *int64Type = Type::getInt64Ty(llvmContext);
@@ -304,7 +308,7 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentToken) {
   val_i_contents = Builder->CreateLoad(mem_i_contents);
   Builder->CreateStore(val_i_contents, mem_currentToken.mem);
 
-  RawValueMemory mem_wrapperVal;
+  ProteusValueMemory mem_wrapperVal;
   mem_wrapperVal.mem = mem_tokenToReturn;
   mem_wrapperVal.isNull = tokenToReturn_isNull;
 #ifdef DEBUG
@@ -319,7 +323,7 @@ RawValueMemory JSONPlugin::collectionGetNext(RawValueMemory mem_currentToken) {
   return mem_wrapperVal;
 }
 
-void JSONPlugin::scanObjects(const RawOperator &producer, Function *debug) {
+void JSONPlugin::scanObjects(const ::Operator &producer, Function *debug) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -334,8 +338,8 @@ void JSONPlugin::scanObjects(const RawOperator &producer, Function *debug) {
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
   // Container for the variable bindings
-  map<RecordAttribute, RawValueMemory> *variableBindings =
-      new map<RecordAttribute, RawValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> *variableBindings =
+      new map<RecordAttribute, ProteusValueMemory>();
 
   /**
    * Loop through results (if any)
@@ -397,7 +401,7 @@ void JSONPlugin::scanObjects(const RawOperator &producer, Function *debug) {
   // Triggering parent
   RecordAttribute tupleIdentifier =
       RecordAttribute(fname, activeLoop, this->getOIDType());
-  RawValueMemory mem_tokenWrapper;
+  ProteusValueMemory mem_tokenWrapper;
   mem_tokenWrapper.mem = mem_tokenOffset;
   mem_tokenWrapper.isNull = context->createFalse();
   (*variableBindings)[tupleIdentifier] = mem_tokenWrapper;
@@ -409,7 +413,7 @@ void JSONPlugin::scanObjects(const RawOperator &producer, Function *debug) {
 //    ArgsV.clear();
 #endif
   OperatorState *state = new OperatorState(producer, *variableBindings);
-  RawOperator *const opParent = producer.getParent();
+  ::Operator *const opParent = producer.getParent();
   opParent->consume(context, *state);
 
   // readPath(val_offset,"b");
@@ -539,9 +543,10 @@ void JSONPlugin::skipToEnd() {
   LOG(INFO) << "[Scan - JSON: ] End of skiptoEnd()";
 }
 
-RawValueMemory JSONPlugin::readPath(string activeRelation,
-                                    Bindings wrappedBindings, const char *path,
-                                    RecordAttribute attr) {
+ProteusValueMemory JSONPlugin::readPath(string activeRelation,
+                                        Bindings wrappedBindings,
+                                        const char *path,
+                                        RecordAttribute attr) {
   /**
    * FIXME Add an extra (generated) check here
    * Only objects are relevant to path expressions
@@ -567,15 +572,16 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
   RecordAttribute tupleIdentifier =
       RecordAttribute(activeRelation, activeLoop, oidType);
   //    RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
-  const map<RecordAttribute, RawValueMemory> &bindings = state.getBindings();
-  map<RecordAttribute, RawValueMemory>::const_iterator it =
+  const map<RecordAttribute, ProteusValueMemory> &bindings =
+      state.getBindings();
+  map<RecordAttribute, ProteusValueMemory>::const_iterator it =
       bindings.find(tupleIdentifier);
   if (it == bindings.end()) {
     string error_msg = "[JSONPlugin - jsmn: ] Current tuple binding not found";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  RawValueMemory mem_parentTokenNo = it->second;
+  ProteusValueMemory mem_parentTokenNo = it->second;
   Value *parentTokenNo =
       Builder->CreateLoad(mem_parentTokenNo.mem, "parentTokenNo");
 
@@ -729,14 +735,14 @@ RawValueMemory JSONPlugin::readPath(string activeRelation,
   Builder->SetInsertPoint(tokenSkipEnd);
   LOG(INFO) << "[Scan - JSON: ] End of readPath()";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_return;
   mem_valWrapper.isNull = context->createFalse();
   return mem_valWrapper;
 }
 
-RawValueMemory JSONPlugin::readPathInternal(RawValueMemory mem_parentTokenNo,
-                                            const char *path) {
+ProteusValueMemory JSONPlugin::readPathInternal(
+    ProteusValueMemory mem_parentTokenNo, const char *path) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
@@ -897,14 +903,14 @@ RawValueMemory JSONPlugin::readPathInternal(RawValueMemory mem_parentTokenNo,
   Builder->SetInsertPoint(tokenSkipEnd);
   LOG(INFO) << "[Scan - JSON: ] End of readPathInternal()";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_return;
   mem_valWrapper.isNull = context->createFalse();
   return mem_valWrapper;
 }
 
-RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
-                                     const ExpressionType *type) {
+ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
+                                         const ExpressionType *type) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
@@ -1122,7 +1128,7 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
 
   Builder->SetInsertPoint(endBlock);
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_convertedValue;
   mem_valWrapper.isNull = Builder->CreateLoad(mem_convertedValue_isNull);
 #ifdef DEBUG  // Invalid / NULL!
@@ -1134,8 +1140,8 @@ RawValueMemory JSONPlugin::readValue(RawValueMemory mem_value,
   return mem_valWrapper;
 }
 
-RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
-                               const ExpressionType *type) {
+ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
+                                   const ExpressionType *type) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
@@ -1233,7 +1239,7 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
           F, std::string("hashSeed"), int64Type);
       Builder->CreateStore(context->createInt64(0), mem_seed);
 
-      RawValueMemory recordElem;
+      ProteusValueMemory recordElem;
       recordElem.mem = mem_value.mem;
       recordElem.isNull = context->createFalse();
 
@@ -1248,13 +1254,13 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
       // be visited in a generic way
       for (; it != args.end(); it++) {
         RecordAttribute *attr = *it;
-        RawValueMemory mem_path =
+        ProteusValueMemory mem_path =
             readPathInternal(recordElem, attr->getAttrName().c_str());
         NamedValuesJSON[var_tokenOffsetHash] = mem_path.mem;
 
         // CAREFUL: It's generated code that has to be stitched
         hashedValue = Builder->CreateLoad(mem_hashedValue);
-        RawValue partialHash = hashValue(mem_path, attr->getOriginalType());
+        ProteusValue partialHash = hashValue(mem_path, attr->getOriginalType());
         ArgsV.clear();
         ArgsV.push_back(hashedValue);
         ArgsV.push_back(partialHash.value);
@@ -1319,13 +1325,13 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
        */
       Builder->SetInsertPoint(unrollBody);
 
-      RawValueMemory listElem;
+      ProteusValueMemory listElem;
       listElem.mem = mem_tokenCnt;
       listElem.isNull = context->createFalse();
 
       // CAREFUL: It's generated code that has to be stitched
       // XXX in the general case, nested type may vary between elements..
-      RawValue partialHash = hashValue(listElem, &nestedType);
+      ProteusValue partialHash = hashValue(listElem, &nestedType);
 
       ArgsV.clear();
       ArgsV.push_back(hashedValue);
@@ -1457,7 +1463,7 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 
   Builder->SetInsertPoint(endBlock);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateLoad(mem_hashedValue);
   valWrapper.isNull = Builder->CreateLoad(mem_hashedValue_isNull);
   return valWrapper;
@@ -1469,7 +1475,7 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
  * Isn't hashing the string enough?
  * Answer: In the general case, NO! FIELDS MIGHT BE PERMUTED
  */
-// RawValue JSONPlugin::hashValue(RawValueMemory mem_value, const
+// ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value, const
 // ExpressionType* type)    {
 //    LLVMContext& llvmContext = context->getLLVMContext();
 //    Type* charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -1577,12 +1583,12 @@ RawValue JSONPlugin::hashValue(RawValueMemory mem_value,
 //
 //    Builder->SetInsertPoint(endBlock);
 //
-//    RawValue valWrapper;
+//    ProteusValue valWrapper;
 //    valWrapper.value = Builder->CreateLoad(mem_hashedValue);
 //    valWrapper.isNull = Builder->CreateLoad(mem_hashedValue_isNull);
 //    return valWrapper;
 //}
-void JSONPlugin::flushChunk(RawValueMemory mem_value, Value *fileName) {
+void JSONPlugin::flushChunk(ProteusValueMemory mem_value, Value *fileName) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
@@ -1643,7 +1649,7 @@ void JSONPlugin::flushChunk(RawValueMemory mem_value, Value *fileName) {
   Builder->CreateCall(flushFunc, ArgsV);
 }
 
-void JSONPlugin::generate(const RawOperator &producer) {
+void JSONPlugin::generate(const ::Operator &producer) {
   return scanObjects(producer, context->getGlobalFunction());
 }
 
@@ -1652,7 +1658,7 @@ void JSONPlugin::finish() {
   munmap((void *)buf, fsize);
 }
 
-Value *JSONPlugin::getValueSize(RawValueMemory mem_value,
+Value *JSONPlugin::getValueSize(ProteusValueMemory mem_value,
                                 const ExpressionType *type) {
   switch (type->getTypeID()) {
     case BOOL:

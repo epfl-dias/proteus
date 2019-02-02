@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -28,19 +28,17 @@
 #include "expressions/path.hpp"
 #include "operators/operators.hpp"
 
-class OuterUnnest : public UnaryRawOperator {
+class OuterUnnest : public UnaryOperator {
  public:
-  OuterUnnest(expression_t pred, Path path, RawOperator *const child)
-      : UnaryRawOperator(child), path(std::move(path)), pred(std::move(pred)) {}
+  OuterUnnest(expression_t pred, Path path, Operator *const child)
+      : UnaryOperator(child), path(std::move(path)), pred(std::move(pred)) {}
   virtual ~OuterUnnest() { LOG(INFO) << "Collapsing Outer Unnest operator"; }
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 
  private:
-  void generate(RawContext *const context,
-                const OperatorState &childState) const;
+  void generate(Context *const context, const OperatorState &childState) const;
   expression_t pred;
   Path path;
 };

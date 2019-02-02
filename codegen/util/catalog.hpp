@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,8 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef RAW_CATALOG_HPP_
-#define RAW_CATALOG_HPP_
+#ifndef CATALOG_HPP_
+#define CATALOG_HPP_
 
 #include "common/common.hpp"
 #include "plugins/plugins.hpp"
@@ -31,12 +31,12 @@
 // Forward Declaration
 class Plugin;
 
-using namespace llvm;
+// using namespace llvm;
 
 // FIXME no need to be a singleton (I think)
-class RawCatalog {
+class Catalog {
  public:
-  static RawCatalog &getInstance();
+  static Catalog &getInstance();
 
   // TODO REPLACE ONCE REMOVED FROM JOIN
   // TODO NEED a more elegant way to group hashtables together - array?
@@ -75,7 +75,7 @@ class RawCatalog {
     }
   }
 
-  Type *getType(string tableName) {
+  llvm::Type *getType(string tableName) {
     map<string, int>::iterator it;
     it = resultTypes.find(tableName);
     if (it == resultTypes.end()) {
@@ -101,9 +101,9 @@ class RawCatalog {
     }
   }
 
-  Type *getTypeInternal(int idx) { return tableTypes[idx]; }
+  llvm::Type *getTypeInternal(int idx) { return tableTypes[idx]; }
 
-  void insertTableInfo(string tableName, Type *type) {
+  void insertTableInfo(string tableName, llvm::Type *type) {
     int idx = resultTypes[tableName];
     if (idx == 0) {
       idx = getUniqueId();
@@ -127,7 +127,7 @@ class RawCatalog {
   }
 
   void registerFileJSON(string fileName, ExpressionType *type) {
-    map<string, ExpressionType *>::iterator it = jsonTypeCatalog.find(fileName);
+    auto it = jsonTypeCatalog.find(fileName);
     if (it != jsonTypeCatalog.end()) {
       LOG(WARNING) << "Catalog already contains the type of " << fileName;
     }
@@ -135,7 +135,7 @@ class RawCatalog {
   }
 
   ExpressionType *getTypeJSON(string fileName) {
-    map<string, ExpressionType *>::iterator it = jsonTypeCatalog.find(fileName);
+    auto it = jsonTypeCatalog.find(fileName);
     if (it == jsonTypeCatalog.end()) {
       LOG(ERROR) << "Catalog does not contain the type of " << fileName;
       throw runtime_error(string("Catalog does not contain the type of ") +
@@ -145,7 +145,7 @@ class RawCatalog {
   }
 
   void registerPlugin(string fileName, Plugin *pg) {
-    map<string, Plugin *>::iterator it = this->plugins.find(fileName);
+    auto it = this->plugins.find(fileName);
     if (it != this->plugins.end()) {
       LOG(WARNING) << "Catalog already contains the plugin of " << fileName;
     }
@@ -153,7 +153,7 @@ class RawCatalog {
   }
 
   Plugin *getPlugin(string fileName) {
-    map<string, Plugin *>::iterator it = this->plugins.find(fileName);
+    auto it = this->plugins.find(fileName);
     if (it == this->plugins.end()) {
       string error_msg =
           string("Catalog does not contain the plugin of ") + fileName;
@@ -163,7 +163,7 @@ class RawCatalog {
     return it->second;
   }
 
-  map<int, Value *> *getReduceHT() {
+  map<int, llvm::Value *> *getReduceHT() {
     if (reduceSetHT == NULL) {
       string error_msg =
           string("[Catalog: ] HT to be used in Reduce not initialized");
@@ -173,7 +173,7 @@ class RawCatalog {
     return reduceSetHT;
   }
 
-  void setReduceHT(map<int, Value *> *reduceSetHT) {
+  void setReduceHT(map<int, llvm::Value *> *reduceSetHT) {
     this->reduceSetHT = reduceSetHT;
   }
 
@@ -228,7 +228,7 @@ class RawCatalog {
   //    map<string, Writer<StringBuffer>>         jsonFlushers;
   map<string, stringstream *> serializers;
   // Initialized by Reduce() if accumulator type is set
-  map<int, Value *> *reduceSetHT;
+  map<int, llvm::Value *> *reduceSetHT;
 
   /**
    * Reason for this: The hashtables we populate (intHTs etc) are created a
@@ -244,20 +244,20 @@ class RawCatalog {
 
   // Position 0 not used, so that we can use it to perform containment checks
   // when using tableTypes
-  Type **tableTypes;
+  llvm::Type **tableTypes;
   // Is maxTables enough????
-  RawCatalog() : uniqueTableId(1), maxTables(1000), reduceSetHT(NULL) {
-    tableTypes = new Type *[maxTables];
+  Catalog() : uniqueTableId(1), maxTables(1000), reduceSetHT(NULL) {
+    tableTypes = new llvm::Type *[maxTables];
   }
-  ~RawCatalog() {
+  ~Catalog() {
     if (reduceSetHT != NULL) {
       delete reduceSetHT;
     }
   }
 
-  // Not implementing; RawCatalog is a singleton
-  RawCatalog(RawCatalog const &);      // Don't Implement.
-  void operator=(RawCatalog const &);  // Don't implement
+  // Not implementing; Catalog is a singleton
+  Catalog(Catalog const &);         // Don't Implement.
+  void operator=(Catalog const &);  // Don't implement
 };
 
-#endif /* RAW_CATALOG_HPP_ */
+#endif /* CATALOG_HPP_ */

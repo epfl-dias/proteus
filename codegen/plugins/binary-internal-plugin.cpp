@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,7 +23,9 @@
 
 #include "plugins/binary-internal-plugin.hpp"
 
-BinaryInternalPlugin::BinaryInternalPlugin(RawContext *const context,
+using namespace llvm;
+
+BinaryInternalPlugin::BinaryInternalPlugin(Context *const context,
                                            string structName)
     : context(context), structName(structName) {
   val_entriesNo = context->createInt64(0);
@@ -35,7 +37,7 @@ BinaryInternalPlugin::BinaryInternalPlugin(RawContext *const context,
 }
 
 BinaryInternalPlugin::BinaryInternalPlugin(
-    RawContext *const context, RecordType rec, string structName,
+    Context *const context, RecordType rec, string structName,
     vector<RecordAttribute *> wantedOIDs,
     vector<RecordAttribute *> wantedFields, CacheInfo info)
     : rec(rec),
@@ -82,7 +84,7 @@ BinaryInternalPlugin::~BinaryInternalPlugin() {}
 
 void BinaryInternalPlugin::init(){};
 
-void BinaryInternalPlugin::generate(const RawOperator &producer) {
+void BinaryInternalPlugin::generate(const ::Operator &producer) {
   if (mem_pos == NULL || mem_buffer == NULL) {
     /* XXX Later on, populate this function to simplify Nest */
     string error_msg = string("[BinaryInternalPlugin: ] Unexpected use of pg.");
@@ -94,7 +96,7 @@ void BinaryInternalPlugin::generate(const RawOperator &producer) {
   }
 }
 
-void BinaryInternalPlugin::scanStruct(const RawOperator &producer) {
+void BinaryInternalPlugin::scanStruct(const ::Operator &producer) {
   // cout << "Internal Binary PG scan (struct)" << endl;
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -103,8 +105,8 @@ void BinaryInternalPlugin::scanStruct(const RawOperator &producer) {
   IRBuilder<> *Builder = context->getBuilder();
 
   // Container for the variable bindings
-  map<RecordAttribute, RawValueMemory> *variableBindings =
-      new map<RecordAttribute, RawValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> *variableBindings =
+      new map<RecordAttribute, ProteusValueMemory>();
 
   // Get the ENTRY BLOCK
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -152,7 +154,7 @@ void BinaryInternalPlugin::scanStruct(const RawOperator &producer) {
     AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(
         TheFunction, "currOID", val_cachedField->getType());
     Builder->CreateStore(val_cachedField, mem_currResult);
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = mem_currResult;
     mem_valWrapper.isNull = context->createFalse();
     (*variableBindings)[attr] = mem_valWrapper;
@@ -185,7 +187,7 @@ void BinaryInternalPlugin::scanStruct(const RawOperator &producer) {
     AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(
         TheFunction, "currResult", val_cachedField->getType());
     Builder->CreateStore(val_cachedField, mem_currResult);
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = mem_currResult;
     mem_valWrapper.isNull = context->createFalse();
     (*variableBindings)[attr] = mem_valWrapper;
@@ -214,8 +216,8 @@ void BinaryInternalPlugin::scanStruct(const RawOperator &producer) {
   Builder->CreateStore(val_cnt, mem_cnt);
 
   // Triggering parent
-  OperatorState *state = new OperatorState(producer, *variableBindings);
-  RawOperator *const opParent = producer.getParent();
+  ::OperatorState *state = new ::OperatorState(producer, *variableBindings);
+  ::Operator *const opParent = producer.getParent();
   opParent->consume(context, *state);
 
   Builder->CreateBr(CondBB);
@@ -225,7 +227,7 @@ void BinaryInternalPlugin::scanStruct(const RawOperator &producer) {
   Builder->SetInsertPoint(AfterBB);
 }
 
-void BinaryInternalPlugin::scan(const RawOperator &producer) {
+void BinaryInternalPlugin::scan(const ::Operator &producer) {
   cout << "Internal Binary PG scan" << endl;
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -234,8 +236,8 @@ void BinaryInternalPlugin::scan(const RawOperator &producer) {
   IRBuilder<> *Builder = context->getBuilder();
 
   // Container for the variable bindings
-  map<RecordAttribute, RawValueMemory> *variableBindings =
-      new map<RecordAttribute, RawValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> *variableBindings =
+      new map<RecordAttribute, ProteusValueMemory>();
 
   // Get the ENTRY BLOCK
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -287,7 +289,7 @@ void BinaryInternalPlugin::scan(const RawOperator &producer) {
   //    RecordAttribute tupleIdentifier =
   //    RecordAttribute(structName,activeLoop,oidType);
   //
-  //    RawValueMemory mem_posWrapper;
+  //    ProteusValueMemory mem_posWrapper;
   //    mem_posWrapper.mem = mem_pos;
   //    mem_posWrapper.isNull = context->createFalse();
   //    (*variableBindings)[tupleIdentifier] = mem_posWrapper;
@@ -419,8 +421,8 @@ void BinaryInternalPlugin::scan(const RawOperator &producer) {
   Builder->CreateStore(val_cnt, mem_cnt);
 
   // Triggering parent
-  OperatorState *state = new OperatorState(producer, *variableBindings);
-  RawOperator *const opParent = producer.getParent();
+  ::OperatorState *state = new ::OperatorState(producer, *variableBindings);
+  ::Operator *const opParent = producer.getParent();
   opParent->consume(context, *state);
 
   Builder->CreateBr(CondBB);
@@ -430,18 +432,18 @@ void BinaryInternalPlugin::scan(const RawOperator &producer) {
   Builder->SetInsertPoint(AfterBB);
 }
 
-RawValueMemory BinaryInternalPlugin::readPath(string activeRelation,
-                                              Bindings bindings,
-                                              const char *pathVar,
-                                              RecordAttribute attr) {
-  RawValueMemory mem_valWrapper;
+ProteusValueMemory BinaryInternalPlugin::readPath(string activeRelation,
+                                                  Bindings bindings,
+                                                  const char *pathVar,
+                                                  RecordAttribute attr) {
+  ProteusValueMemory mem_valWrapper;
   {
-    const OperatorState *state = bindings.state;
-    const map<RecordAttribute, RawValueMemory> &binProjections =
+    const ::OperatorState *state = bindings.state;
+    const map<RecordAttribute, ProteusValueMemory> &binProjections =
         state->getBindings();
     RecordAttribute tmpKey =
         RecordAttribute(structName, pathVar, this->getOIDType());
-    map<RecordAttribute, RawValueMemory>::const_iterator it;
+    map<RecordAttribute, ProteusValueMemory>::const_iterator it;
     it = binProjections.find(tmpKey);
     if (it == binProjections.end()) {
       string error_msg =
@@ -455,13 +457,13 @@ RawValueMemory BinaryInternalPlugin::readPath(string activeRelation,
   return mem_valWrapper;
 }
 
-RawValueMemory BinaryInternalPlugin::readValue(RawValueMemory mem_value,
-                                               const ExpressionType *type) {
+ProteusValueMemory BinaryInternalPlugin::readValue(ProteusValueMemory mem_value,
+                                                   const ExpressionType *type) {
   return mem_value;
 }
 
-RawValue BinaryInternalPlugin::hashValue(RawValueMemory mem_value,
-                                         const ExpressionType *type) {
+ProteusValue BinaryInternalPlugin::hashValue(ProteusValueMemory mem_value,
+                                             const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
   switch (type->getTypeID()) {
     case BOOL: {
@@ -471,7 +473,7 @@ RawValue BinaryInternalPlugin::hashValue(RawValueMemory mem_value,
       Value *hashResult =
           context->getBuilder()->CreateCall(hashBoolean, ArgsV, "hashBoolean");
 
-      RawValue valWrapper;
+      ProteusValue valWrapper;
       valWrapper.value = hashResult;
       valWrapper.isNull = context->createFalse();
       return valWrapper;
@@ -489,7 +491,7 @@ RawValue BinaryInternalPlugin::hashValue(RawValueMemory mem_value,
       Value *hashResult =
           context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
 
-      RawValue valWrapper;
+      ProteusValue valWrapper;
       valWrapper.value = hashResult;
       valWrapper.isNull = context->createFalse();
       return valWrapper;
@@ -501,7 +503,7 @@ RawValue BinaryInternalPlugin::hashValue(RawValueMemory mem_value,
       Value *hashResult =
           context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
 
-      RawValue valWrapper;
+      ProteusValue valWrapper;
       valWrapper.value = hashResult;
       valWrapper.isNull = context->createFalse();
       return valWrapper;
@@ -528,19 +530,19 @@ RawValue BinaryInternalPlugin::hashValue(RawValueMemory mem_value,
   }
 }
 
-RawValue BinaryInternalPlugin::hashValueEager(RawValue valWrapper,
-                                              const ExpressionType *type) {
+ProteusValue BinaryInternalPlugin::hashValueEager(ProteusValue valWrapper,
+                                                  const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
   Value *tmp = valWrapper.value;
   AllocaInst *mem_tmp =
       context->CreateEntryBlockAlloca(F, "mem_cachedToHash", tmp->getType());
   Builder->CreateStore(tmp, mem_tmp);
-  RawValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
+  ProteusValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
   return hashValue(mem_tmpWrapper, type);
 }
 
-void BinaryInternalPlugin::flushValue(RawValueMemory mem_value,
+void BinaryInternalPlugin::flushValue(ProteusValueMemory mem_value,
                                       const ExpressionType *type,
                                       Value *fileName) {
   IRBuilder<> *Builder = context->getBuilder();
@@ -599,7 +601,7 @@ void BinaryInternalPlugin::flushValue(RawValueMemory mem_value,
   }
 }
 
-void BinaryInternalPlugin::flushValueEager(RawValue valWrapper,
+void BinaryInternalPlugin::flushValueEager(ProteusValue valWrapper,
                                            const ExpressionType *type,
                                            Value *fileName) {
   IRBuilder<> *Builder = context->getBuilder();
@@ -608,13 +610,13 @@ void BinaryInternalPlugin::flushValueEager(RawValue valWrapper,
   AllocaInst *mem_tmp =
       context->CreateEntryBlockAlloca(F, "mem_cachedToFlush", tmp->getType());
   Builder->CreateStore(tmp, mem_tmp);
-  RawValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
+  ProteusValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
   return flushValue(mem_tmpWrapper, type, fileName);
 }
 
 void BinaryInternalPlugin::finish() {}
 
-Value *BinaryInternalPlugin::getValueSize(RawValueMemory mem_value,
+Value *BinaryInternalPlugin::getValueSize(ProteusValueMemory mem_value,
                                           const ExpressionType *type) {
   switch (type->getTypeID()) {
     case BOOL:
@@ -667,7 +669,8 @@ void BinaryInternalPlugin::skipLLVM(Value *offset) {
 }
 
 void BinaryInternalPlugin::readAsIntLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -697,14 +700,15 @@ void BinaryInternalPlugin::readAsIntLLVM(
     Builder->CreateCall(debugInt, ArgsV);
   }
 #endif
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
 void BinaryInternalPlugin::readAsInt64LLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -732,14 +736,15 @@ void BinaryInternalPlugin::readAsInt64LLVM(
   Builder->CreateStore(parsedInt, mem_currResult);
   LOG(INFO) << "[BINARYCACHE - READ INT64: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
 void BinaryInternalPlugin::readAsStringLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -776,14 +781,15 @@ void BinaryInternalPlugin::readAsStringLLVM(
 
   LOG(INFO) << "[BINARYCACHE - READ STRING: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_strObj;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
 void BinaryInternalPlugin::readAsBooleanLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int1Type = Type::getInt1Ty(llvmContext);
@@ -803,14 +809,15 @@ void BinaryInternalPlugin::readAsBooleanLLVM(
   Builder->CreateStore(parsedInt, currResult);
   LOG(INFO) << "[BINARYCACHE - READ BOOL: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
 void BinaryInternalPlugin::readAsFloatLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *doubleType = Type::getDoubleTy(llvmContext);
@@ -830,7 +837,7 @@ void BinaryInternalPlugin::readAsFloatLLVM(
   Builder->CreateStore(parsedInt, currResult);
   LOG(INFO) << "[BINARYCACHE - READ FLOAT: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,10 +23,12 @@
 
 #include "operators/reduce.hpp"
 
+using namespace llvm;
+
 Reduce::Reduce(Monoid acc, expressions::Expression *outputExpr,
-               expressions::Expression *pred, RawOperator *const child,
-               RawContext *context)
-    : UnaryRawOperator(child),
+               expressions::Expression *pred, Operator *const child,
+               Context *context)
+    : UnaryOperator(child),
       acc(acc),
       outputExpr(outputExpr),
       pred(pred),
@@ -175,8 +177,7 @@ Reduce::Reduce(Monoid acc, expressions::Expression *outputExpr,
 
 void Reduce::produce() { getChild()->produce(); }
 
-void Reduce::consume(RawContext *const context,
-                     const OperatorState &childState) {
+void Reduce::consume(Context *const context, const OperatorState &childState) {
   generate(context, childState);
   // flushResult();
 }
@@ -216,7 +217,7 @@ void Reduce::flushResult() {
   //    cout << s.GetString() << endl;
 }
 
-void Reduce::generate(RawContext *const context,
+void Reduce::generate(Context *const context,
                       const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -255,7 +256,7 @@ void Reduce::generate(RawContext *const context,
   }
 }
 
-void Reduce::generateSum(RawContext *const context,
+void Reduce::generateSum(Context *const context,
                          const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -264,7 +265,7 @@ void Reduce::generateSum(RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue condition = pred->accept(predExprGenerator);
+  ProteusValue condition = pred->accept(predExprGenerator);
   /**
    * Predicate Evaluation:
    */
@@ -280,7 +281,7 @@ void Reduce::generateSum(RawContext *const context,
    */
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue val_output;
+  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
@@ -344,7 +345,7 @@ void Reduce::generateSum(RawContext *const context,
   Builder->SetInsertPoint(endBlock);
 }
 
-void Reduce::generateMul(RawContext *const context,
+void Reduce::generateMul(Context *const context,
                          const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -353,7 +354,7 @@ void Reduce::generateMul(RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue condition = pred->accept(predExprGenerator);
+  ProteusValue condition = pred->accept(predExprGenerator);
   /**
    * Predicate Evaluation:
    */
@@ -369,7 +370,7 @@ void Reduce::generateMul(RawContext *const context,
    */
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue val_output;
+  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
@@ -427,7 +428,7 @@ void Reduce::generateMul(RawContext *const context,
   Builder->SetInsertPoint(endBlock);
 }
 
-void Reduce::generateMax(RawContext *const context,
+void Reduce::generateMax(Context *const context,
                          const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -436,7 +437,7 @@ void Reduce::generateMax(RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue condition = pred->accept(predExprGenerator);
+  ProteusValue condition = pred->accept(predExprGenerator);
 
   /**
    * Predicate Evaluation:
@@ -453,7 +454,7 @@ void Reduce::generateMax(RawContext *const context,
    */
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue val_output;
+  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
   Builder->SetInsertPoint(ifBlock);
@@ -535,7 +536,7 @@ void Reduce::generateMax(RawContext *const context,
   Builder->SetInsertPoint(endBlock);
 }
 
-void Reduce::generateOr(RawContext *const context,
+void Reduce::generateOr(Context *const context,
                         const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -544,7 +545,7 @@ void Reduce::generateOr(RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue condition = pred->accept(predExprGenerator);
+  ProteusValue condition = pred->accept(predExprGenerator);
 
   /**
    * Predicate Evaluation:
@@ -561,7 +562,7 @@ void Reduce::generateOr(RawContext *const context,
    */
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue val_output;
+  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
   Builder->SetInsertPoint(ifBlock);
@@ -571,7 +572,7 @@ void Reduce::generateOr(RawContext *const context,
     case BOOL: {
       Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-      RawValue val_output = outputExpr->accept(outputExprGenerator);
+      ProteusValue val_output = outputExpr->accept(outputExprGenerator);
       Value *val_new = Builder->CreateOr(val_accumulating, val_output.value);
       Builder->CreateStore(val_new, mem_accumulating);
 
@@ -602,7 +603,7 @@ void Reduce::generateOr(RawContext *const context,
   Builder->SetInsertPoint(endBlock);
 }
 
-void Reduce::generateAnd(RawContext *const context,
+void Reduce::generateAnd(Context *const context,
                          const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -611,7 +612,7 @@ void Reduce::generateAnd(RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue condition = pred->accept(predExprGenerator);
+  ProteusValue condition = pred->accept(predExprGenerator);
 
   /**
    * Predicate Evaluation:
@@ -628,7 +629,7 @@ void Reduce::generateAnd(RawContext *const context,
    */
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue val_output;
+  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
   Builder->SetInsertPoint(ifBlock);
@@ -638,7 +639,7 @@ void Reduce::generateAnd(RawContext *const context,
     case BOOL: {
       Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-      RawValue val_output = outputExpr->accept(outputExprGenerator);
+      ProteusValue val_output = outputExpr->accept(outputExprGenerator);
       Value *val_new = Builder->CreateAnd(val_accumulating, val_output.value);
       Builder->CreateStore(val_new, mem_accumulating);
 
@@ -671,7 +672,7 @@ void Reduce::generateAnd(RawContext *const context,
 
 // Flush out whatever you received
 // FIXME Need 'output plugin' / 'serializer'
-void Reduce::generateUnion(RawContext *const context,
+void Reduce::generateUnion(Context *const context,
                            const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -695,7 +696,7 @@ void Reduce::generateUnion(RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue condition = pred->accept(predExprGenerator);
+  ProteusValue condition = pred->accept(predExprGenerator);
 
   /**
    * Predicate Evaluation:
@@ -743,7 +744,7 @@ void Reduce::generateUnion(RawContext *const context,
 
 // Flush out whatever you received
 // FIXME Need 'output plugin' / 'serializer'
-void Reduce::generateBagUnion(RawContext *const context,
+void Reduce::generateBagUnion(Context *const context,
                               const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -766,7 +767,7 @@ void Reduce::generateBagUnion(RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  RawValue condition = pred->accept(predExprGenerator);
+  ProteusValue condition = pred->accept(predExprGenerator);
 
   /**
    * Predicate Evaluation:
@@ -814,5 +815,5 @@ void Reduce::generateBagUnion(RawContext *const context,
 
 // Materializes collection (in HT?)
 // Use the catalog for the materialization
-void Reduce::generateAppend(RawContext *const context,
+void Reduce::generateAppend(Context *const context,
                             const OperatorState &childState) const {}

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,19 +23,19 @@
 #ifndef BLOCK_TO_TUPLES_HPP_
 #define BLOCK_TO_TUPLES_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
-class BlockToTuples : public UnaryRawOperator {
+class BlockToTuples : public UnaryOperator {
  public:
-  BlockToTuples(RawOperator *const child, GpuRawContext *const context,
-                const vector<expression_t> &wantedFields, bool gpu = true,
+  BlockToTuples(Operator *const child, ParallelContext *const context,
+                const std::vector<expression_t> &wantedFields, bool gpu = true,
                 gran_t granularity = gran_t::GRID)
-      : UnaryRawOperator(child),
-        context(context),
+      : UnaryOperator(child),
         wantedFields(wantedFields),
-        gpu(gpu),
-        granularity(granularity) {
+        context(context),
+        granularity(granularity),
+        gpu(gpu) {
     assert((gpu || granularity == gran_t::THREAD) &&
            "CPU can only have a THREAD-granularity block2tuples");
     assert(granularity != gran_t::BLOCK &&
@@ -46,21 +46,20 @@ class BlockToTuples : public UnaryRawOperator {
   virtual ~BlockToTuples() { LOG(INFO) << "Collapsing BlockToTuples operator"; }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
-  virtual void consume(GpuRawContext *const context,
+  virtual void consume(Context *const context, const OperatorState &childState);
+  virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
  private:
   void nextEntry();
-  virtual void open(RawPipeline *pip);
-  virtual void close(RawPipeline *pip);
+  virtual void open(Pipeline *pip);
+  virtual void close(Pipeline *pip);
 
-  const vector<expression_t> wantedFields;
+  const std::vector<expression_t> wantedFields;
   std::vector<size_t> old_buffs;
-  GpuRawContext *const context;
-  AllocaInst *mem_itemCtr;
+  ParallelContext *const context;
+  llvm::AllocaInst *mem_itemCtr;
   gran_t granularity;
 
   bool gpu;

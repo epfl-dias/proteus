@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,7 +23,7 @@
 
 #include "plugins/plugins.hpp"
 #include "util/atois.hpp"
-#include "util/raw-caching.hpp"
+#include "util/caching.hpp"
 
 #define DEBUGPM
 #undef DEBUGPM
@@ -43,68 +43,72 @@ class CSVPlugin : public Plugin {
    *
    * XXX IMPORTANT: FIELDS MUST BE IN ORDER!!!
    */
-  CSVPlugin(RawContext *const context, string &fname, RecordType &rec,
+  CSVPlugin(Context *const context, string &fname, RecordType &rec,
             vector<RecordAttribute *> whichFields, int lineHint, int policy,
             bool stringBrackets = true);
-  CSVPlugin(RawContext *const context, string &fname, RecordType &rec,
+  CSVPlugin(Context *const context, string &fname, RecordType &rec,
             vector<RecordAttribute *> whichFields, char delimInner,
             int lineHint, int policy, bool stringBrackets = true);
   /* PM Ready */
-  CSVPlugin(RawContext *const context, string &fname, RecordType &rec,
+  CSVPlugin(Context *const context, string &fname, RecordType &rec,
             vector<RecordAttribute *> whichFields, int lineHint, int policy,
             size_t *newlines, short **offsets, bool stringBrackets = true);
-  CSVPlugin(RawContext *const context, string &fname, RecordType &rec,
+  CSVPlugin(Context *const context, string &fname, RecordType &rec,
             vector<RecordAttribute *> whichFields, char delimInner,
             int lineHint, int policy, size_t *newlines, short **offsets,
             bool stringBrackets = true);
   ~CSVPlugin();
   virtual string &getName() { return fname; }
   void init();
-  void generate(const RawOperator &producer);
+  void generate(const ::Operator &producer);
   void finish();
-  virtual RawValueMemory readPath(string activeRelation, Bindings bindings,
-                                  const char *pathVar, RecordAttribute attr);
-  virtual RawValueMemory readValue(RawValueMemory mem_value,
-                                   const ExpressionType *type);
-  virtual RawValue readCachedValue(CacheInfo info,
-                                   const OperatorState &currState);
-  virtual RawValue readCachedValue(
-      CacheInfo info, const map<RecordAttribute, RawValueMemory> &bindings);
+  virtual ProteusValueMemory readPath(string activeRelation, Bindings bindings,
+                                      const char *pathVar,
+                                      RecordAttribute attr);
+  virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
+                                       const ExpressionType *type);
+  virtual ProteusValue readCachedValue(CacheInfo info,
+                                       const OperatorState &currState);
+  virtual ProteusValue readCachedValue(
+      CacheInfo info, const map<RecordAttribute, ProteusValueMemory> &bindings);
 
-  virtual RawValue hashValue(RawValueMemory mem_value,
-                             const ExpressionType *type);
-  virtual RawValue hashValueEager(RawValue value, const ExpressionType *type);
+  virtual ProteusValue hashValue(ProteusValueMemory mem_value,
+                                 const ExpressionType *type);
+  virtual ProteusValue hashValueEager(ProteusValue value,
+                                      const ExpressionType *type);
 
-  virtual void flushTuple(RawValueMemory mem_value, Value *fileName) {
+  virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
     string error_msg = "[CSVPlugin: ] Functionality not supported yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type,
-                          Value *fileName);
-  virtual void flushValueEager(RawValue value, const ExpressionType *type,
-                               Value *fileName);
+  virtual void flushValue(ProteusValueMemory mem_value,
+                          const ExpressionType *type, llvm::Value *fileName);
+  virtual void flushValueEager(ProteusValue value, const ExpressionType *type,
+                               llvm::Value *fileName);
 
-  virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
+  virtual ProteusValueMemory initCollectionUnnest(
+      ProteusValue val_parentObject) {
     string error_msg = "[CSVPlugin: ] CSV files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual RawValue collectionHasNext(RawValue val_parentObject,
-                                     RawValueMemory mem_currentChild) {
+  virtual ProteusValue collectionHasNext(ProteusValue val_parentObject,
+                                         ProteusValueMemory mem_currentChild) {
     string error_msg = "[CSVPlugin: ] CSV files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) {
+  virtual ProteusValueMemory collectionGetNext(
+      ProteusValueMemory mem_currentChild) {
     string error_msg = "[CSVPlugin: ] CSV files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual Value *getValueSize(RawValueMemory mem_value,
-                              const ExpressionType *type);
+  virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
+                                    const ExpressionType *type);
 
   /* Export PM */
   /* XXX I think it's the 'Caching Service' that should
@@ -118,46 +122,47 @@ class CSVPlugin : public Plugin {
 
   virtual PluginType getPluginType() { return PGCSV; }
 
-  virtual void flushBeginList(Value *fileName) {}
+  virtual void flushBeginList(llvm::Value *fileName) {}
 
-  virtual void flushBeginBag(Value *fileName) {
+  virtual void flushBeginBag(llvm::Value *fileName) {
     string error_msg = "[CSVPlugin: ] CSV files do not contain BAGs";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginSet(Value *fileName) {
+  virtual void flushBeginSet(llvm::Value *fileName) {
     string error_msg = "[CSVPlugin: ] CSV files do not contain SETs";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndList(Value *fileName) {}
+  virtual void flushEndList(llvm::Value *fileName) {}
 
-  virtual void flushEndBag(Value *fileName) {
+  virtual void flushEndBag(llvm::Value *fileName) {
     string error_msg = "[CSVPlugin: ] CSV files do not contain BAGs";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndSet(Value *fileName) {
+  virtual void flushEndSet(llvm::Value *fileName) {
     string error_msg = "[CSVPlugin: ] CSV files do not contain SETs";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushDelim(Value *fileName, int depth) {
-    Function *flushFunc = context->getFunction("flushChar");
-    vector<Value *> ArgsV;
+  virtual void flushDelim(llvm::Value *fileName, int depth) {
+    llvm::Function *flushFunc = context->getFunction("flushChar");
+    vector<llvm::Value *> ArgsV;
     // XXX JSON-specific -> Serializer business to differentiate
     ArgsV.push_back(context->createInt8((depth == 0) ? '\n' : ','));
     ArgsV.push_back(fileName);
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
-  virtual void flushDelim(Value *resultCtr, Value *fileName, int depth) {
-    Function *flushFunc = context->getFunction("flushDelim");
-    vector<Value *> ArgsV;
+  virtual void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
+                          int depth) {
+    llvm::Function *flushFunc = context->getFunction("flushDelim");
+    vector<llvm::Value *> ArgsV;
     ArgsV.push_back(resultCtr);
     // XXX JSON-specific -> Serializer business to differentiate
     ArgsV.push_back(context->createInt8((depth == 0) ? '\n' : ','));
@@ -188,52 +193,57 @@ class CSVPlugin : public Plugin {
   /* All pm entries are relevant to linesStart!!! */
   short **pm;
 
-  AllocaInst *mem_newlines;
-  AllocaInst *mem_pm;
-  AllocaInst *mem_lineCtr;
+  llvm::AllocaInst *mem_newlines;
+  llvm::AllocaInst *mem_pm;
+  llvm::AllocaInst *mem_lineCtr;
 
   /**
    * Code-generation-related
    */
   // Used to store memory positions of offset, buf and filesize in the generated
   // code
-  map<string, AllocaInst *> NamedValuesCSV;
-  RawContext *const context;
+  map<string, llvm::AllocaInst *> NamedValuesCSV;
+  Context *const context;
 
   const char *posVar;    // = "offset";
   const char *bufVar;    // = "fileBuffer";
   const char *fsizeVar;  // = "fileSize";
 
   // Used to generate code
-  void skipDelimLLVM(Value *delim, Function *debugChar, Function *debugInt);
-  void skipDelimLLVM(Value *delim);
-  void skipDelimBackwardsLLVM(Value *delim);
+  void skipDelimLLVM(llvm::Value *delim, llvm::Function *debugChar,
+                     llvm::Function *debugInt);
+  void skipDelimLLVM(llvm::Value *delim);
+  void skipDelimBackwardsLLVM(llvm::Value *delim);
   void skipLLVM();
   void skipToEndLLVM();
   void getFieldEndLLVM();
   void readField(typeID id, RecordAttribute attName,
-                 map<RecordAttribute, RawValueMemory> &variables);
+                 std::map<RecordAttribute, ProteusValueMemory> &variables);
   void readAsIntLLVM(RecordAttribute attName,
-                     map<RecordAttribute, RawValueMemory> &variables,
-                     Function *atoi_, Function *debugChar, Function *debugInt);
+                     std::map<RecordAttribute, ProteusValueMemory> &variables,
+                     llvm::Function *atoi_, llvm::Function *debugChar,
+                     llvm::Function *debugInt);
   void readAsIntLLVM(RecordAttribute attName,
-                     map<RecordAttribute, RawValueMemory> &variables);
+                     std::map<RecordAttribute, ProteusValueMemory> &variables);
   void readAsFloatLLVM(RecordAttribute attName,
-                       map<RecordAttribute, RawValueMemory> &variables,
-                       Function *atof_, Function *debugChar,
-                       Function *debugFloat);
-  void readAsFloatLLVM(RecordAttribute attName,
-                       map<RecordAttribute, RawValueMemory> &variables);
-  void readAsBooleanLLVM(RecordAttribute attName,
-                         map<RecordAttribute, RawValueMemory> &variables);
+                       std::map<RecordAttribute, ProteusValueMemory> &variables,
+                       llvm::Function *atof_, llvm::Function *debugChar,
+                       llvm::Function *debugFloat);
+  void readAsFloatLLVM(
+      RecordAttribute attName,
+      std::map<RecordAttribute, ProteusValueMemory> &variables);
+  void readAsBooleanLLVM(
+      RecordAttribute attName,
+      std::map<RecordAttribute, ProteusValueMemory> &variables);
   /* Assumption: String comes bracketted */
-  void readAsStringLLVM(RecordAttribute attName,
-                        map<RecordAttribute, RawValueMemory> &variables);
+  void readAsStringLLVM(
+      RecordAttribute attName,
+      std::map<RecordAttribute, ProteusValueMemory> &variables);
 
   // Generates a for loop that performs the file scan
   // No assumption on auxiliary structures yet
-  void scanAndPopulatePM(const RawOperator &producer);
-  void scanPM(const RawOperator &producer);
+  void scanAndPopulatePM(const ::Operator &producer);
+  void scanPM(const ::Operator &producer);
 };
 
 }  // namespace pm

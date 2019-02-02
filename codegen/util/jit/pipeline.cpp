@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,17 +21,19 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "util/raw-pipeline.hpp"
+#include "pipeline.hpp"
 #include <thread>
+#include "codegen/memory/memory-manager.hpp"
+#include "codegen/util/parallel-context.hpp"
 #include "common/gpu/gpu-common.hpp"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/TargetSelect.h"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/raw-memory-manager.hpp"
 
-size_t RawPipelineGen::appendParameter(llvm::Type *ptype, bool noalias,
-                                       bool readonly) {
+using namespace llvm;
+
+size_t PipelineGen::appendParameter(llvm::Type *ptype, bool noalias,
+                                    bool readonly) {
   inputs.push_back(ptype);
   inputs_noalias.push_back(noalias);
   inputs_readonly.push_back(readonly);
@@ -39,15 +41,15 @@ size_t RawPipelineGen::appendParameter(llvm::Type *ptype, bool noalias,
   return inputs.size() - 1;
 }
 
-size_t RawPipelineGen::appendStateVar(llvm::Type *ptype) {
+size_t PipelineGen::appendStateVar(llvm::Type *ptype) {
   return appendStateVar(ptype,
                         [ptype](Value *) { return UndefValue::get(ptype); },
                         [](Value *, Value *) {});
 }
 
-size_t RawPipelineGen::appendStateVar(llvm::Type *ptype,
-                                      std::function<init_func_t> init,
-                                      std::function<deinit_func_t> deinit) {
+size_t PipelineGen::appendStateVar(llvm::Type *ptype,
+                                   std::function<init_func_t> init,
+                                   std::function<deinit_func_t> deinit) {
   state_vars.push_back(ptype);
   size_t var_id = state_vars.size() - 1;
   open_var.emplace_back(init, var_id);
@@ -55,8 +57,8 @@ size_t RawPipelineGen::appendStateVar(llvm::Type *ptype,
   return var_id;
 }
 
-void RawPipelineGen::registerOpen(const void *owner,
-                                  std::function<void(RawPipeline *pip)> open) {
+void PipelineGen::registerOpen(const void *owner,
+                               std::function<void(Pipeline *pip)> open) {
   openers.emplace_back(owner, open);
   size_t indx = openers.size() - 1;
   open_var.emplace_back(
@@ -73,8 +75,8 @@ void RawPipelineGen::registerOpen(const void *owner,
       ~((size_t)0));
 }
 
-void RawPipelineGen::registerClose(
-    const void *owner, std::function<void(RawPipeline *pip)> close) {
+void PipelineGen::registerClose(const void *owner,
+                                std::function<void(Pipeline *pip)> close) {
   closers.emplace_back(owner, close);
   size_t indx = closers.size() - 1;
   close_var.emplace_back(
@@ -90,46 +92,44 @@ void RawPipelineGen::registerClose(
       ~((size_t)0));
 }
 
-void RawPipelineGen::callPipRegisteredOpen(size_t indx, RawPipeline *pip) {
+void PipelineGen::callPipRegisteredOpen(size_t indx, Pipeline *pip) {
   (openers[indx].second)(pip);
 }
 
-void RawPipelineGen::callPipRegisteredClose(size_t indx, RawPipeline *pip) {
+void PipelineGen::callPipRegisteredClose(size_t indx, Pipeline *pip) {
   (closers[indx].second)(pip);
 }
 
 extern "C" {
-void callPipRegisteredOpen(RawPipelineGen *pipgen, size_t indx,
-                           RawPipeline *pip) {
+void callPipRegisteredOpen(PipelineGen *pipgen, size_t indx, Pipeline *pip) {
   pipgen->callPipRegisteredOpen(indx, pip);
 }
 
-void callPipRegisteredClose(RawPipelineGen *pipgen, size_t indx,
-                            RawPipeline *pip) {
+void callPipRegisteredClose(PipelineGen *pipgen, size_t indx, Pipeline *pip) {
   pipgen->callPipRegisteredClose(indx, pip);
 }
 }
 
-std::vector<llvm::Type *> RawPipelineGen::getStateVars() const {
+std::vector<llvm::Type *> PipelineGen::getStateVars() const {
   return state_vars;
 }
 
 extern "C" {
 void *allocate_pinned(size_t bytes) {
-  return RawMemoryManager::mallocPinned(bytes);  // FIXME: create releases
+  return MemoryManager::mallocPinned(bytes);  // FIXME: create releases
 }
 void *allocate_gpu(size_t bytes) {
-  return RawMemoryManager::mallocGpu(bytes);  // FIXME: create releases
+  return MemoryManager::mallocGpu(bytes);  // FIXME: create releases
 }
 void deallocate_pinned(void *x) {
-  return RawMemoryManager::freePinned(x);  // FIXME: create releases
+  return MemoryManager::freePinned(x);  // FIXME: create releases
 }
 void deallocate_gpu(void *x) {
-  return RawMemoryManager::freeGpu(x);  // FIXME: create releases
+  return MemoryManager::freeGpu(x);  // FIXME: create releases
 }
 }
 
-llvm::Value *RawPipelineGen::allocateStateVar(llvm::Type *t) {
+llvm::Value *PipelineGen::allocateStateVar(llvm::Type *t) {
   Function *alloc = getFunction("allocate");
   ConstantInt *s = context->createSizeT(context->getSizeOf(t));
 
@@ -137,7 +137,7 @@ llvm::Value *RawPipelineGen::allocateStateVar(llvm::Type *t) {
   return getBuilder()->CreateBitCast(ptr, PointerType::getUnqual(t));
 }
 
-void RawPipelineGen::deallocateStateVar(llvm::Value *p) {
+void PipelineGen::deallocateStateVar(llvm::Value *p) {
   Function *dealloc = getFunction("deallocate");
   Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
   Value *ptr = getBuilder()->CreateBitCast(p, charPtrType);
@@ -145,12 +145,12 @@ void RawPipelineGen::deallocateStateVar(llvm::Value *p) {
   getBuilder()->CreateCall(dealloc, ptr);
 }
 
-Argument *RawPipelineGen::getArgument(size_t id) const {
+Argument *PipelineGen::getArgument(size_t id) const {
   assert(id < args.size());
   return args[id];
 }
 
-Value *RawPipelineGen::getStateVar() const {
+Value *PipelineGen::getStateVar() const {
   assert(state);
   Function *Fcurrent = getBuilder()->GetInsertBlock()->getParent();
   if (Fcurrent == close_function) return state;
@@ -161,20 +161,20 @@ Value *RawPipelineGen::getStateVar() const {
   return state;  // getArgument(args.size() - 1);
 }
 
-Value *RawPipelineGen::getStateVar(size_t id) const {
+Value *PipelineGen::getStateVar(size_t id) const {
   Value *arg = getStateVar();
   assert(id < state_vars.size());
   return context->getBuilder()->CreateExtractValue(arg, id);
 }
 
-Value *RawPipelineGen::getSubStateVar() const {
+Value *PipelineGen::getSubStateVar() const {
   assert(copyStateFrom);
   Value *subState = getStateVar(0);
   subState->setName("subState");
   return subState;
 }
 
-Function *const RawPipelineGen::createHelperFunction(
+Function *const PipelineGen::createHelperFunction(
     string funcName, std::vector<Type *> ins, std::vector<bool> readonly,
     std::vector<bool> noalias) const {
   assert(readonly.size() == noalias.size());
@@ -214,8 +214,8 @@ Function *const RawPipelineGen::createHelperFunction(
   return helper;
 }
 
-Value *RawPipelineGen::invokeHelperFunction(Function *f,
-                                            std::vector<Value *> args) const {
+Value *PipelineGen::invokeHelperFunction(Function *f,
+                                         std::vector<Value *> args) const {
   args.push_back(getStateVar());
   return getBuilder()->CreateCall(F, args);
 }
@@ -224,7 +224,7 @@ extern "C" {
 void yield() { std::this_thread::yield(); }
 }
 
-void RawPipelineGen::init() {
+void PipelineGen::init() {
   InitializeAllTargetInfos();
   InitializeAllTargets();
   InitializeAllTargetMCs();
@@ -262,8 +262,8 @@ void RawPipelineGen::init() {
   initializeExpandReductionsPass(Registry);
 }
 
-RawPipelineGen::RawPipelineGen(RawContext *context, std::string pipName,
-                               RawPipelineGen *copyStateFrom)
+PipelineGen::PipelineGen(Context *context, std::string pipName,
+                         PipelineGen *copyStateFrom)
     : F(nullptr),
       pipName(pipName),
       context(context),
@@ -283,13 +283,13 @@ RawPipelineGen::RawPipelineGen(RawContext *context, std::string pipName,
   }
   // ThePM = new legacy::PassManager();
   // {
-  //     auto &LTM = static_cast<LLVMTargetMachine &>(*(((GpuRawContext *)
+  //     auto &LTM = static_cast<LLVMTargetMachine &>(*(((ParallelContext *)
   //     context)->TheTargetMachine)); Pass *TPC = (Pass *)
   //     LTM.createPassConfig(*ThePM); ThePM->add(TPC);
   // }
 };
 
-void RawPipelineGen::registerSubPipeline() {
+void PipelineGen::registerSubPipeline() {
   if (copyStateFrom) {
     FunctionType *f_t = copyStateFrom->getLLVMConsume()->getFunctionType();
     Function *f = Function::Create(f_t, Function::ExternalLinkage,
@@ -305,11 +305,11 @@ void RawPipelineGen::registerSubPipeline() {
   }
 }
 
-void RawPipelineGen::registerFunction(const char *funcName, Function *func) {
+void PipelineGen::registerFunction(const char *funcName, Function *func) {
   availableFunctions[funcName] = func;
 }
 
-Function *const RawPipelineGen::getFunction(string funcName) const {
+Function *const PipelineGen::getFunction(string funcName) const {
   map<string, Function *>::const_iterator it;
   it = availableFunctions.find(funcName);
   if (it == availableFunctions.end()) {
@@ -320,7 +320,7 @@ Function *const RawPipelineGen::getFunction(string funcName) const {
   return it->second;
 }
 
-size_t RawPipelineGen::prepareStateArgument() {
+size_t PipelineGen::prepareStateArgument() {
   LLVMContext &TheContext = context->getLLVMContext();
 
   Type *int32Type = Type::getInt32Ty(TheContext);
@@ -336,7 +336,7 @@ size_t RawPipelineGen::prepareStateArgument() {
   return state_id;
 }
 
-void RawPipelineGen::prepareInitDeinit() {
+void PipelineGen::prepareInitDeinit() {
   // create open and close functions
   BasicBlock *BB = getBuilder()->GetInsertBlock();
 
@@ -410,7 +410,7 @@ void RawPipelineGen::prepareInitDeinit() {
   getBuilder()->SetInsertPoint(BB);
 }
 
-void RawPipelineGen::prepareFunction() {
+void PipelineGen::prepareFunction() {
   FunctionType *ftype = FunctionType::get(
       Type::getVoidTy(context->getLLVMContext()), inputs, false);
   // use f_num to overcome an llvm bu with keeping dots in function names when
@@ -437,11 +437,11 @@ void RawPipelineGen::prepareFunction() {
   getBuilder()->SetInsertPoint(BB);
 }
 
-Value *RawPipelineGen::getStateLLVMValue() {
+Value *PipelineGen::getStateLLVMValue() {
   return getBuilder()->CreateLoad(getArgument(args.size() - 1));
 }
 
-Function *RawPipelineGen::prepare() {
+Function *PipelineGen::prepare() {
   assert(!F);
   std::cout << pipName << " prepare" << std::endl;
 
@@ -463,18 +463,18 @@ Function *RawPipelineGen::prepare() {
   return F;
 }
 
-Function *RawPipelineGen::getFunction() const {
+Function *PipelineGen::getFunction() const {
   assert(F);
   return F;
 }
 
-void *RawPipelineGen::getKernel() const {
+void *PipelineGen::getKernel() const {
   assert(func != nullptr);
   // assert(!F);
   return (void *)func;
 }
 
-RawPipeline *RawPipelineGen::getPipeline(int group_id) {
+Pipeline *PipelineGen::getPipeline(int group_id) {
   void *func = getKernel();
 
   std::vector<std::pair<const void *, std::function<opener_t>>>
@@ -483,58 +483,59 @@ RawPipeline *RawPipelineGen::getPipeline(int group_id) {
       closers{};  // this->closers};
 
   if (copyStateFrom) {
-    RawPipeline *copyFrom = copyStateFrom->getPipeline(group_id);
+    Pipeline *copyFrom = copyStateFrom->getPipeline(group_id);
 
     openers.insert(openers.begin(),
-                   std::make_pair(this, [copyFrom](RawPipeline *pip) {
+                   std::make_pair(this, [copyFrom](Pipeline *pip) {
                      copyFrom->open();
                      pip->setStateVar(0, copyFrom->state);
                    }));
-    // closers.emplace_back([copyFrom](RawPipeline *
+    // closers.emplace_back([copyFrom](Pipeline *
     // pip){pip->copyStateBackTo(copyFrom);});
-    closers.insert(closers.begin(),
-                   std::make_pair(this, [copyFrom](RawPipeline *pip) {
-                     copyFrom->close();
-                   }));
+    closers.insert(
+        closers.begin(),
+        std::make_pair(this, [copyFrom](Pipeline *pip) { copyFrom->close(); }));
   } else {
-    openers.insert(openers.begin(),
-                   std::make_pair(this, [](RawPipeline *pip) {}));
-    // closers.emplace_back([copyFrom](RawPipeline *
+    openers.insert(openers.begin(), std::make_pair(this, [](Pipeline *pip) {}));
+    // closers.emplace_back([copyFrom](Pipeline *
     // pip){pip->copyStateBackTo(copyFrom);});
-    closers.insert(closers.begin(),
-                   std::make_pair(this, [](RawPipeline *pip) {}));
+    closers.insert(closers.begin(), std::make_pair(this, [](Pipeline *pip) {}));
   }
-  return new RawPipeline(
+  return new Pipeline(
       func, getModule()->getDataLayout().getTypeAllocSize(state_type), this,
       state_type, openers, closers, getCompiledFunction(open__function),
       getCompiledFunction(close_function), group_id,
       execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);
 }
 
-llvm::Value *RawPipelineGen::workerScopedAtomicAdd(llvm::Value *ptr,
-                                                   llvm::Value *inc) {
+llvm::Value *PipelineGen::workerScopedAtomicAdd(llvm::Value *ptr,
+                                                llvm::Value *inc) {
   IRBuilder<> *Builder = context->getBuilder();
   Value *old = Builder->CreateLoad(ptr);
   Builder->CreateStore(Builder->CreateAdd(old, inc), ptr);
   return old;
 }
 
-llvm::Value *RawPipelineGen::workerScopedAtomicXchg(llvm::Value *ptr,
-                                                    llvm::Value *val) {
+llvm::Value *PipelineGen::workerScopedAtomicXchg(llvm::Value *ptr,
+                                                 llvm::Value *val) {
   IRBuilder<> *Builder = context->getBuilder();
   Value *old = Builder->CreateLoad(ptr);
   Builder->CreateStore(val, ptr);
   return old;
 }
 
-RawPipeline::RawPipeline(
-    void *f, size_t state_size, RawPipelineGen *gen, StructType *state_type,
+void PipelineGen::workerScopedMembar() {
+  // No-op for single-threaded workers
+}
+
+Pipeline::Pipeline(
+    void *f, size_t state_size, PipelineGen *gen, StructType *state_type,
     const std::vector<std::pair<const void *, std::function<opener_t>>>
         &openers,
     const std::vector<std::pair<const void *, std::function<closer_t>>>
         &closers,
     void *init_state, void *deinit_state, int32_t group_id,
-    RawPipeline *execute_after_close)
+    Pipeline *execute_after_close)
     : cons(f),
       state_type(state_type),
       openers(openers),
@@ -556,24 +557,24 @@ RawPipeline::RawPipeline(
   assert(state);
 }
 
-// GpuRawPipeline::GpuRawPipeline(void * f, size_t state_size, RawPipelineGen *
+// GpuRawPipeline::GpuRawPipeline(void * f, size_t state_size, PipelineGen *
 // gen, StructType * state_type,
-//         const std::vector<std::function<void (RawPipeline * pip)>> &openers,
-//         const std::vector<std::function<void (RawPipeline * pip)>> &closers,
+//         const std::vector<std::function<void (Pipeline * pip)>> &openers,
+//         const std::vector<std::function<void (Pipeline * pip)>> &closers,
 //         int32_t group_id):
-//             RawPipeline(f, state_size, gen, state_type, openers, closers,
+//             Pipeline(f, state_size, gen, state_type, openers, closers,
 //             group_id){}
 
-RawPipeline::~RawPipeline() { free(state); }
+Pipeline::~Pipeline() { free(state); }
 
 // bytes
-size_t RawPipeline::getSizeOf(llvm::Type *t) const {
+size_t Pipeline::getSizeOf(llvm::Type *t) const {
   return layout.getTypeAllocSize(t);
 }
 
-int32_t RawPipeline::getGroup() const { return group_id; }
+int32_t Pipeline::getGroup() const { return group_id; }
 
-void RawPipeline::open() {
+void Pipeline::open() {
   // TODO: for sure it can be done in at least N log N by sorting...
   // for (size_t i = openers.size() ; i > 0 ; --i) {
   //     bool is_last = true;
@@ -590,7 +591,7 @@ void RawPipeline::open() {
   (openers[0].second)(this);
 
   assert(init_state);
-  ((void (*)(RawPipeline *, void *))init_state)(this, state);
+  ((void (*)(Pipeline *, void *))init_state)(this, state);
 
   // for (size_t i = 1 ; i < openers.size() ; ++i) {
   //     bool is_first = true;
@@ -609,7 +610,7 @@ void RawPipeline::open() {
   // for (const auto &opener: openers) opener(this);
 }
 
-void RawPipeline::close() {
+void Pipeline::close() {
   // TODO: for sure it can be done in at least N log N by sorting...
   // for (size_t i = 0 ; i < closers.size() ; ++i) {
   //     bool is_first = true;
@@ -639,7 +640,7 @@ void RawPipeline::close() {
   // }
 
   assert(deinit_state);
-  ((void (*)(RawPipeline *, void *))deinit_state)(this, state);
+  ((void (*)(Pipeline *, void *))deinit_state)(this, state);
 
   assert(!closers.empty());
   (closers[0].second)(this);
@@ -653,11 +654,11 @@ void RawPipeline::close() {
 }
 
 /*
- * For now, copied  from util/raw-functions.cpp and transformed for RawPipeline
+ * For now, copied  from util/raw-functions.cpp and transformed for Pipeline
  *
  * TODO: deduplicate code...
  */
-void RawPipelineGen::registerFunctions() {
+void PipelineGen::registerFunctions() {
   LLVMContext &ctx = context->getLLVMContext();
   Module *TheModule = getModule();
   assert(TheModule != nullptr);

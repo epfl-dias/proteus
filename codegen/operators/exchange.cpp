@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,6 +25,8 @@
 #include <cstring>
 #include "expressions/expressions-generator.hpp"
 
+using namespace llvm;
+
 void Exchange::produce() {
   generate_catch();
 
@@ -35,10 +37,10 @@ void Exchange::produce() {
   // push new pipeline for the throw part
   context->pushPipeline();
 
-  ((GpuRawContext *)context)->registerOpen(this, [this](RawPipeline *pip) {
+  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open(pip);
   });
-  ((GpuRawContext *)context)->registerClose(this, [this](RawPipeline *pip) {
+  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close(pip);
   });
 
@@ -53,7 +55,7 @@ void Exchange::generate_catch() {
 
   // Builder->SetInsertPoint(context->getCurrentEntryBlock());
   Plugin *pg =
-      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+      Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
 
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
@@ -63,7 +65,7 @@ void Exchange::generate_catch() {
 
   Type *oidType = ptoid->getLLVMType(llvmContext);
 
-  // Value * subState   = ((GpuRawContext *) context)->getSubStateVar();
+  // Value * subState   = ((ParallelContext *) context)->getSubStateVar();
   // Value * subStatePtr = context->CreateEntryBlockAlloca(F, "subStatePtr",
   // subState->getType());
 
@@ -121,10 +123,10 @@ void Exchange::generate_catch() {
 
   Value *params = Builder->CreateLoad(context->getArgument(p));
 
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
 
     Type *wtype = wantedFields[i]->getLLVMType(llvmContext);
     if (wtype == NULL)
@@ -143,7 +145,7 @@ void Exchange::generate_catch() {
     variableBindings[*(wantedFields[i])] = mem_valWrapper;
   }
 
-  RawValueMemory mem_oidWrapper;
+  ProteusValueMemory mem_oidWrapper;
   mem_oidWrapper.mem = context->CreateEntryBlockAlloca(F, activeLoop, oidType);
   mem_oidWrapper.isNull =
       context
@@ -155,7 +157,7 @@ void Exchange::generate_catch() {
   variableBindings[tupleIdentifier] = mem_oidWrapper;
 
   if (need_cnt) {
-    RawValueMemory mem_cntWrapper;
+    ProteusValueMemory mem_cntWrapper;
     mem_cntWrapper.mem =
         context->CreateEntryBlockAlloca(F, "activeCnt", oidType);
     mem_cntWrapper.isNull =
@@ -202,10 +204,10 @@ void *Exchange::acquireBuffer(int target, bool polling) {
     }
     nvtxRangePushA("cv_buff");
     // std::cout << "Blocking" << std::endl;
-    rawlogger.log(this, log_op::EXCHANGE_PRODUCER_WAIT_START);
+    eventlogger.log(this, log_op::EXCHANGE_PRODUCER_WAIT_START);
     free_pool_cv[target].wait(
         lock, [this, target]() { return !free_pool[target].empty(); });
-    rawlogger.log(this, log_op::EXCHANGE_PRODUCER_WAIT_END);
+    eventlogger.log(this, log_op::EXCHANGE_PRODUCER_WAIT_END);
     nvtxRangePop();
   }
 
@@ -220,16 +222,16 @@ void *Exchange::acquireBuffer(int target, bool polling) {
 }
 
 void Exchange::releaseBuffer(int target, void *buff) {
-  rawlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_START);
+  eventlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_START);
   nvtxRangePop();
   // std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
-  // rawlogger.log(this, log_op::EXCHANGE_PRODUCE);
+  // eventlogger.log(this, log_op::EXCHANGE_PRODUCE);
   // ready_pool[target].emplace(buff);
   // ready_pool_cv[target].notify_one();
   // lock.unlock();
   ready_fifo[target].push(buff);
   nvtxRangePop();
-  rawlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_END);
+  eventlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_END);
 }
 
 void Exchange::freeBuffer(int target, void *buff) {
@@ -247,10 +249,10 @@ bool Exchange::get_ready(int target, void *&buff) {
   // std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
 
   // if (ready_pool[target].empty()){
-  //     rawlogger.log(this, log_op::EXCHANGE_CONSUMER_WAIT_START);
+  //     eventlogger.log(this, log_op::EXCHANGE_CONSUMER_WAIT_START);
   //     ready_pool_cv[target].wait(lock, [this, target](){return
   //     !ready_pool[target].empty() || (ready_pool[target].empty() &&
-  //     remaining_producers <= 0);}); rawlogger.log(this,
+  //     remaining_producers <= 0);}); eventlogger.log(this,
   //     log_op::EXCHANGE_CONSUMER_WAIT_END  );
   // }
 
@@ -269,17 +271,17 @@ bool Exchange::get_ready(int target, void *&buff) {
   return ready_fifo[target].pop(buff);
 }
 
-void Exchange::fire(int target, RawPipelineGen *pipGen) {
+void Exchange::fire(int target, PipelineGen *pipGen) {
   nvtxRangePushA((pipGen->getName() + ":" + std::to_string(target)).c_str());
 
-  rawlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_START);
+  eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_START);
 
   // size_t packets = 0;
   // time_block t("Xchange pipeline (target=" + std::to_string(target) + "): ");
 
-  rawlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_END);
+  eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_END);
   set_exec_location_on_scope d(target_processors[target]);
-  RawPipeline *pip = pipGen->getPipeline(target);
+  Pipeline *pip = pipGen->getPipeline(target);
   std::this_thread::yield();  // if we remove that, following opens may allocate
                               // memory to wrong socket!
 
@@ -287,9 +289,9 @@ void Exchange::fire(int target, RawPipelineGen *pipGen) {
       (pipGen->getName() + ":" + std::to_string(target) + "open").c_str());
   pip->open();
   nvtxRangePop();
-  rawlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_START);
+  eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_START);
 
-  rawlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_END);
+  eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_END);
 
   {
     time_block t("Texchange consume (target=" + std::to_string(target) + "): ");
@@ -318,7 +320,7 @@ void Exchange::fire(int target, RawPipelineGen *pipGen) {
     } while (true);
   }
 
-  rawlogger.log(this, log_op::EXCHANGE_CONSUME_CLOSE_START);
+  eventlogger.log(this, log_op::EXCHANGE_CONSUME_CLOSE_START);
 
   nvtxRangePushA(
       (pipGen->getName() + ":" + std::to_string(target) + "close").c_str());
@@ -330,7 +332,7 @@ void Exchange::fire(int target, RawPipelineGen *pipGen) {
 
   nvtxRangePop();
 
-  rawlogger.log(this, log_op::EXCHANGE_CONSUME_CLOSE_END);
+  eventlogger.log(this, log_op::EXCHANGE_CONSUME_CLOSE_END);
 }
 
 extern "C" {
@@ -351,7 +353,7 @@ void freeBuffer(int target, Exchange *xch, void *buff) {
 }
 }
 
-void Exchange::consume(RawContext *const context,
+void Exchange::consume(Context *const context,
                        const OperatorState &childState) {
   // Generate throw code
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -361,18 +363,18 @@ void Exchange::consume(RawContext *const context,
 
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
 
-  const map<RecordAttribute, RawValueMemory> &activeVars =
+  const map<RecordAttribute, ProteusValueMemory> &activeVars =
       childState.getBindings();
 
   Value *params = UndefValue::get(params_type);
 
   Plugin *pg =
-      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+      Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     auto it = activeVars.find(*(wantedFields[i]));
     assert(it != activeVars.end());
-    RawValueMemory mem_valWrapper = it->second;
+    ProteusValueMemory mem_valWrapper = it->second;
 
     params = Builder->CreateInsertValue(
         params, Builder->CreateLoad(mem_valWrapper.mem), i);
@@ -425,7 +427,7 @@ void Exchange::consume(RawContext *const context,
   auto it = activeVars.find(tupleIdentifier);
   assert(it != activeVars.end());
 
-  RawValueMemory mem_oidWrapper = it->second;
+  ProteusValueMemory mem_oidWrapper = it->second;
   params = Builder->CreateInsertValue(
       params, Builder->CreateLoad(mem_oidWrapper.mem), wantedFields.size());
 
@@ -436,7 +438,7 @@ void Exchange::consume(RawContext *const context,
     it = activeVars.find(tupleCnt);
     assert(it != activeVars.end());
 
-    RawValueMemory mem_cntWrapper = it->second;
+    ProteusValueMemory mem_cntWrapper = it->second;
     params = Builder->CreateInsertValue(params,
                                         Builder->CreateLoad(mem_cntWrapper.mem),
                                         wantedFields.size() + 1);
@@ -476,22 +478,22 @@ void Exchange::consume(RawContext *const context,
   Builder->CreateCall(releaseBuffer, kernel_args);
 }
 
-void Exchange::open(RawPipeline *pip) {
+void Exchange::open(Pipeline *pip) {
   // time_block t("Tinit_exchange: ");
 
   std::lock_guard<std::mutex> guard(init_mutex);
 
   if (firers.empty()) {
-    rawlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
+    eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
     remaining_producers = producers;
     for (int i = 0; i < numOfParents; ++i) {
       firers.emplace_back(&Exchange::fire, this, i, catch_pip);
     }
-    rawlogger.log(this, log_op::EXCHANGE_INIT_CONS_END);
+    eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_END);
   }
 }
 
-void Exchange::close(RawPipeline *pip) {
+void Exchange::close(Pipeline *pip) {
   // time_block t("Tterm_exchange: ");
 
   int rem = --remaining_producers;
@@ -502,11 +504,11 @@ void Exchange::close(RawPipeline *pip) {
   if (rem == 0) {
     for (int i = 0; i < numOfParents; ++i) ready_fifo[i].close();
 
-    rawlogger.log(this, log_op::EXCHANGE_JOIN_START);
+    eventlogger.log(this, log_op::EXCHANGE_JOIN_START);
     nvtxRangePushA("Exchange_waiting_to_close");
     for (auto &t : firers) t.join();
     nvtxRangePop();
-    rawlogger.log(this, log_op::EXCHANGE_JOIN_END);
+    eventlogger.log(this, log_op::EXCHANGE_JOIN_END);
     firers.clear();
   }
 }

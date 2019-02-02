@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -28,14 +28,16 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
 
-#include "util/jit/raw-cpu-module.hpp"
+#include "util/jit/cpu-module.hpp"
 
-LLVMTargetMachine *RawCpuModule::TheTargetMachine = nullptr;
-legacy::PassManager RawCpuModule::Passes;
-PassManagerBuilder RawCpuModule::Builder;
+using namespace llvm;
 
-RawCpuModule::RawCpuModule(RawContext *context, std::string pipName)
-    : RawModule(context, pipName) {
+LLVMTargetMachine *CpuModule::TheTargetMachine = nullptr;
+legacy::PassManager CpuModule::Passes;
+PassManagerBuilder CpuModule::Builder;
+
+CpuModule::CpuModule(Context *context, std::string pipName)
+    : JITModule(context, pipName) {
   if (TheTargetMachine == nullptr) init();
 
   // Inform the module about the current configuration
@@ -68,7 +70,7 @@ RawCpuModule::RawCpuModule(RawContext *context, std::string pipName)
   // }
 }
 
-void RawCpuModule::init() {
+void CpuModule::init() {
   // Get the triplet for current CPU
   auto TargetTriple = sys::getDefaultTargetTriple();
 
@@ -148,7 +150,7 @@ void RawCpuModule::init() {
   Builder.populateModulePassManager(Passes);
 }
 
-void RawCpuModule::optimizeModule(Module *M) {
+void CpuModule::optimizeModule(Module *M) {
   time_block t("Optimization time: ");
 
   llvm::legacy::FunctionPassManager FPasses{M};
@@ -166,7 +168,7 @@ void RawCpuModule::optimizeModule(Module *M) {
   Passes.run(*M);
 }
 
-void RawCpuModule::compileAndLoad() {
+void CpuModule::compileAndLoad() {
   LOG(INFO) << "[Prepare Function: ] Exit";  // and dump code so far";
   time_block t(pipName + " C: ");
   // std::cout << pipName << " C" << std::endl;
@@ -237,6 +239,6 @@ void RawCpuModule::compileAndLoad() {
   // F = NULL;
 }
 
-void *RawCpuModule::getCompiledFunction(Function *f) const {
+void *CpuModule::getCompiledFunction(Function *f) const {
   return TheExecutionEngine->getPointerToFunction(f);
 }

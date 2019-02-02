@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -22,14 +22,14 @@
 */
 
 #include "operators/gpu/gpu-hash-join-chained.hpp"
+#include "codegen/memory/memory-manager.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "operators/gpu/gmonoids.hpp"
-#include "util/raw-memory-manager.hpp"
 
-void GpuHashJoinChained::open_build(RawPipeline *pip) {
+void GpuHashJoinChained::open_build(Pipeline *pip) {
   std::vector<void *> next_w_values;
 
-  uint32_t *head = (uint32_t *)RawMemoryManager::mallocGpu(
+  uint32_t *head = (uint32_t *)MemoryManager::mallocGpu(
       sizeof(uint32_t) * (1 << hash_bits) + sizeof(int32_t));
   int32_t *cnt = (int32_t *)(head + (1 << hash_bits));
 
@@ -40,7 +40,7 @@ void GpuHashJoinChained::open_build(RawPipeline *pip) {
 
   for (const auto &w : build_packet_widths) {
     next_w_values.emplace_back(
-        RawMemoryManager::mallocGpu((w / 8) * maxBuildInputSize));
+        MemoryManager::mallocGpu((w / 8) * maxBuildInputSize));
   }
 
   pip->setStateVar(head_param_id, head);
@@ -57,7 +57,7 @@ void GpuHashJoinChained::open_build(RawPipeline *pip) {
   gpu_run(cudaStreamDestroy(strm));
 }
 
-void GpuHashJoinChained::close_build(RawPipeline *pip) {
+void GpuHashJoinChained::close_build(Pipeline *pip) {
   int32_t h_cnt;
   gpu_run(cudaMemcpy(&h_cnt, pip->getStateVar<int32_t *>(cnt_param_id),
                      sizeof(int32_t), cudaMemcpyDefault));
@@ -65,6 +65,6 @@ void GpuHashJoinChained::close_build(RawPipeline *pip) {
          "Build input sized exceeded given parameter");
 }
 
-void GpuHashJoinChained::close_probe(RawPipeline *pip) {
-  for (const auto &p : confs[pip->getGroup()]) RawMemoryManager::freeGpu(p);
+void GpuHashJoinChained::close_probe(Pipeline *pip) {
+  for (const auto &p : confs[pip->getGroup()]) MemoryManager::freeGpu(p);
 }

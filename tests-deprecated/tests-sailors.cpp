@@ -36,8 +36,8 @@
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "plugins/csv-plugin.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 // Step 2. Use the TEST macro to define your tests.
@@ -66,8 +66,8 @@
 
 /* Still use previous join implementation! */
 TEST(Sailors, Scan) {
-  RawContext &ctx = *prepareContext("Sailors-Scan");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("Sailors-Scan");
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -112,8 +112,8 @@ TEST(Sailors, Scan) {
 }
 
 TEST(Sailors, Select) {
-  RawContext &ctx = *prepareContext("Sailors-Select");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("Sailors-Select");
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -165,7 +165,7 @@ TEST(Sailors, Select) {
   /**
    * PRINT
    */
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::RecordProjection *argProj =
       new expressions::RecordProjection(new IntType(), lhsArg, *sid);
   Print printOpProj = Print(debugInt, argProj, &sel);
@@ -185,8 +185,8 @@ TEST(Sailors, Select) {
 }
 
 TEST(Sailors, ScanBoats) {
-  RawContext &ctx = *prepareContext("Sailors-ScanBoats");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("Sailors-ScanBoats");
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filenameBoats = string("inputs/boats.csv");
@@ -228,8 +228,8 @@ TEST(Sailors, ScanBoats) {
 }
 
 TEST(Sailors, JoinLeft3) {
-  RawContext &ctx = *prepareContext("Sailors-JoinLeft3");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("Sailors-JoinLeft3");
+  Catalog &catalog = Catalog::getInstance();
 
   /**
    * SCAN1
@@ -383,7 +383,7 @@ TEST(Sailors, JoinLeft3) {
   scanBoats.setParent(&join2);
 
   // PRINT
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::RecordProjection *argProj =
       new expressions::RecordProjection(new IntType(), leftArg2, *bidBoats);
   Print printOpProj = Print(debugInt, argProj, &join2);
@@ -408,8 +408,8 @@ TEST(Sailors, JoinLeft3) {
 
 // Just like previous one, but with permuted operators
 TEST(Sailors, JoinRight3) {
-  RawContext &ctx = *prepareContext("Sailors-JoinRight3");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("Sailors-JoinRight3");
+  Catalog &catalog = Catalog::getInstance();
 
   PrimitiveType *intType = new IntType();
   PrimitiveType *floatType = new FloatType();
@@ -553,7 +553,7 @@ TEST(Sailors, JoinRight3) {
   join2.setParent(&join);
 
   // PRINT
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::RecordProjection *argProj =
       new expressions::RecordProjection(new IntType(), leftArg2, *bidBoats);
   Print printOpProj = Print(debugInt, argProj, &join);
@@ -576,8 +576,8 @@ TEST(Sailors, JoinRight3) {
 }
 
 TEST(Sailors, Join) {
-  RawContext &ctx = *prepareContext("Sailors-Join");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("Sailors-Join");
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -671,7 +671,7 @@ TEST(Sailors, Join) {
   scanReserves.setParent(&join);
 
   // PRINT
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::RecordProjection *argProj =
       new expressions::RecordProjection(new IntType(), leftArg, *sid);
   Print printOpProj = Print(debugInt, argProj, &join);

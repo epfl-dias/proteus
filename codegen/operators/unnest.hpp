@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -27,29 +27,27 @@
 #include "expressions/expressions-generator.hpp"
 #include "expressions/path.hpp"
 #include "operators/operators.hpp"
-#include "util/raw-catalog.hpp"
+#include "util/catalog.hpp"
 
 //#define DEBUGUNNEST
 /**
  * XXX Paper comment: 'Very few ways of evaluating unnest operator -> lamdaDB
  * only provides a nested-loop variation'
  */
-class Unnest : public UnaryRawOperator {
+class Unnest : public UnaryOperator {
  public:
-  Unnest(expression_t pred, Path path, RawOperator *const child)
-      : UnaryRawOperator(child), path(path), pred(std::move(pred)) {
-    RawCatalog &catalog = RawCatalog::getInstance();
+  Unnest(expression_t pred, Path path, Operator *const child)
+      : UnaryOperator(child), path(path), pred(std::move(pred)) {
+    Catalog &catalog = Catalog::getInstance();
     catalog.registerPlugin(path.toString(), path.getRelevantPlugin());
   }
   virtual ~Unnest() { LOG(INFO) << "Collapsing Unnest operator"; }
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 
  private:
-  void generate(RawContext *const context,
-                const OperatorState &childState) const;
+  void generate(Context *const context, const OperatorState &childState) const;
   expression_t pred;
   Path path;
 };

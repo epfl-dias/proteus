@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -46,9 +46,9 @@
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 void tpchSchema(map<string, dataset> &datasetCatalog) {
@@ -141,7 +141,7 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate);
 //    cout << "[tpch-bin-joins: ] Clean internal caches & Warmup" << endl;
 //    cout << "-> tpchJoinWarmupAll" << endl;
 //    /* Clean */
-//    RawCatalog& rawCatalog = RawCatalog::getInstance();
+//    Catalog& rawCatalog = Catalog::getInstance();
 //    rawCatalog.clear();
 //    CachingService& cache = CachingService::getInstance();
 //    cache.clear();
@@ -177,7 +177,7 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate);
 //    cout << "[tpch-bin-joins: ] Clean internal caches & Warmup" << endl;
 //    cout << "-> tpchJoinWarmupAll" << endl;
 //    /* Clean */
-//    RawCatalog& rawCatalog = RawCatalog::getInstance();
+//    Catalog& rawCatalog = Catalog::getInstance();
 //    rawCatalog.clear();
 //    CachingService& cache = CachingService::getInstance();
 //    cache.clear();
@@ -211,7 +211,7 @@ int main() {
   int predicateMax = O_ORDERKEY_MAX;
 
   CachingService &cache = CachingService::getInstance();
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Catalog &rawCatalog = Catalog::getInstance();
   tpchJoinWarmupAll(datasetCatalog);
   for (int i = 0; i < runs; i++) {
     cout << "[tpch-bin-joins: ] Run " << i + 1 << endl;
@@ -320,8 +320,8 @@ int main() {
 }
 
 void tpchJoinWarmupKeys(map<string, dataset> datasetCatalog) {
-  RawContext &ctx = *prepareContext("tpch-csv-join1a");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-join1a");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -462,8 +462,8 @@ void tpchJoinWarmupKeys(map<string, dataset> datasetCatalog) {
 }
 
 void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
-  RawContext &ctx = *prepareContext("tpch-csv-join1a");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-join1a");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -609,8 +609,8 @@ void tpchJoin1a(map<string, dataset> datasetCatalog, int predicate) {
 }
 
 void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
-  RawContext &ctx = *prepareContext("tpch-csv-join1b");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-join1b");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -757,8 +757,8 @@ void tpchJoin1b(map<string, dataset> datasetCatalog, int predicate) {
 }
 
 void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
-  RawContext &ctx = *prepareContext("tpch-csv-join2a");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-join2a");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -905,8 +905,8 @@ void tpchJoin2a(map<string, dataset> datasetCatalog, int predicate) {
 }
 
 void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
-  RawContext &ctx = *prepareContext("tpch-csv-join2b");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-join2b");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -1080,8 +1080,8 @@ void tpchJoin2b(map<string, dataset> datasetCatalog, int predicate) {
 }
 
 void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
-  RawContext &ctx = *prepareContext("tpch-csv-join3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-join3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -1241,8 +1241,8 @@ void tpchJoin3(map<string, dataset> datasetCatalog, int predicate) {
 }
 
 void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
-  RawContext &ctx = *prepareContext("tpch-csv-join4");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-join4");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -1421,8 +1421,8 @@ void tpchJoin4(map<string, dataset> datasetCatalog, int predicate) {
 }
 
 void tpchJoinWarmupAll(map<string, dataset> datasetCatalog) {
-  RawContext &ctx = *prepareContext("tpch-csv-join1a");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-join1a");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];

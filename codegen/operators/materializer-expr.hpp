@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -26,48 +26,47 @@
 
 #include "expressions/expressions-generator.hpp"
 #include "operators/operators.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/functions.hpp"
 
 struct matBuf {
   /* Mem layout:
    * Consecutive <payload> chunks - payload type defined at runtime
    */
-  AllocaInst *mem_buffer;
+  llvm::AllocaInst *mem_buffer;
   /* Size in bytes */
-  AllocaInst *mem_tuplesNo;
+  llvm::AllocaInst *mem_tuplesNo;
   /* Size in bytes */
-  AllocaInst *mem_size;
+  llvm::AllocaInst *mem_size;
   /* (Current) Offset in bytes */
-  AllocaInst *mem_offset;
+  llvm::AllocaInst *mem_offset;
 };
 
 /**
  * Issue when attempting realloc() on server
  */
-class ExprMaterializer : public UnaryRawOperator {
+class ExprMaterializer : public UnaryOperator {
  public:
-  ExprMaterializer(expressions::Expression *expr, RawOperator *const child,
-                   RawContext *const context, char *opLabel);
+  ExprMaterializer(expressions::Expression *expr, Operator *const child,
+                   Context *const context, char *opLabel);
   ExprMaterializer(expressions::Expression *expr, int linehint,
-                   RawOperator *const child, RawContext *const context,
+                   Operator *const child, Context *const context,
                    char *opLabel);
   virtual ~ExprMaterializer();
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
  private:
   void freeArenas() const;
   void updateRelationPointers() const;
 
-  StructType *toMatType;
+  llvm::StructType *toMatType;
   struct matBuf opBuffer;
   char *rawBuffer;
   char **ptr_rawBuffer;
 
-  RawContext *const context;
+  Context *const context;
   expressions::Expression *toMat;
   string opLabel;
 };

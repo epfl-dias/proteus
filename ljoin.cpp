@@ -21,9 +21,9 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include "codegen/util/parallel-context.hpp"
 #include "plan/plan-parser.hpp"
 #include "storage/raw-storage-manager.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 #include "util/raw-memory-manager.hpp"
 #include "util/raw-pipeline.hpp"
 
@@ -57,7 +57,7 @@ void Query() {
     caches->clear();
   }
 
-  GpuRawContext *ctx = new GpuRawContext("Out_of_GPU", false);
+  ParallelContext *ctx = new ParallelContext("Out_of_GPU", false);
   CatalogParser catalog = CatalogParser("inputs/plans/catalog.json", ctx);
 
   RawCatalog &rawcatalog = RawCatalog::getInstance();
@@ -357,7 +357,7 @@ void Query2() {
     caches->clear();
   }
 
-  GpuRawContext *ctx = new GpuRawContext("Out_of_GPU", false);
+  ParallelContext *ctx = new ParallelContext("Out_of_GPU", false);
   CatalogParser catalog = CatalogParser("inputs/plans/catalog.json", ctx);
 
   RawCatalog &rawcatalog = RawCatalog::getInstance();
@@ -1200,7 +1200,7 @@ void Query2() {
         caches->clear();
     }
 
-    GpuRawContext * ctx   = new GpuRawContext("Out_of_GPU", false);
+    ParallelContext * ctx   = new ParallelContext("Out_of_GPU", false);
     CatalogParser catalog = CatalogParser("inputs/plans/catalog.json", ctx);
 
     RawCatalog& rawcatalog = RawCatalog::getInstance();

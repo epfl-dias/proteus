@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -27,19 +27,20 @@
 
 namespace gpu {
 
-void Monoid::createUpdate(RawContext *const context, Value *val_accumulating,
-                          Value *val_in) {
+void Monoid::createUpdate(Context *const context, llvm::Value *val_accumulating,
+                          llvm::Value *val_in) {
   context->getBuilder()->CreateStore(
       create(context, context->getBuilder()->CreateLoad(val_accumulating),
              val_in),
       val_accumulating);
 }
 
-Value *MaxMonoid::create(RawContext *const context, Value *val_accumulating,
-                         Value *val_in) {
-  IRBuilder<> *Builder = context->getBuilder();
+llvm::Value *MaxMonoid::create(Context *const context,
+                               llvm::Value *val_accumulating,
+                               llvm::Value *val_in) {
+  auto Builder = context->getBuilder();
 
-  Value *maxCondition;
+  llvm::Value *maxCondition;
 
   if (val_accumulating->getType()->isIntegerTy()) {
     maxCondition = Builder->CreateICmpSGT(val_in, val_accumulating);
@@ -54,27 +55,28 @@ Value *MaxMonoid::create(RawContext *const context, Value *val_accumulating,
   return Builder->CreateSelect(maxCondition, val_in, val_accumulating);
 }
 
-void MaxMonoid::createUpdate(RawContext *const context, Value *mem_accumulating,
-                             Value *val_in) {
-  IRBuilder<> *Builder = context->getBuilder();
+void MaxMonoid::createUpdate(Context *const context,
+                             llvm::Value *mem_accumulating,
+                             llvm::Value *val_in) {
+  auto Builder = context->getBuilder();
 
-  BasicBlock *curBlock = Builder->GetInsertBlock();
+  llvm::BasicBlock *curBlock = Builder->GetInsertBlock();
 
-  Function *TheFunction = curBlock->getParent();
-  BasicBlock *endBlock =
-      BasicBlock::Create(context->getLLVMContext(), "maxEnd", TheFunction);
+  llvm::Function *TheFunction = curBlock->getParent();
+  llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(
+      context->getLLVMContext(), "maxEnd", TheFunction);
 
   if (curBlock == context->getEndingBlock()) context->setEndingBlock(endBlock);
 
   /**
    * if(curr > max) max = curr;
    */
-  BasicBlock *ifGtMaxBlock;
+  llvm::BasicBlock *ifGtMaxBlock;
   context->CreateIfBlock(context->getGlobalFunction(), "maxCond",
                          &ifGtMaxBlock);
-  Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
+  llvm::Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-  Value *maxCondition;
+  llvm::Value *maxCondition;
 
   if (val_accumulating->getType()->isIntegerTy()) {
     maxCondition = Builder->CreateICmpSGT(val_in, val_accumulating);
@@ -97,15 +99,17 @@ void MaxMonoid::createUpdate(RawContext *const context, Value *mem_accumulating,
   Builder->SetInsertPoint(endBlock);
 }
 
-void MaxMonoid::createAtomicUpdate(RawContext *const context,
-                                   Value *accumulator_ptr, Value *val_in,
+void MaxMonoid::createAtomicUpdate(Context *const context,
+                                   llvm::Value *accumulator_ptr,
+                                   llvm::Value *val_in,
                                    llvm::AtomicOrdering order) {
   context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Max,
                                          accumulator_ptr, val_in, order);
 }
 
-Value *SumMonoid::create(RawContext *const context, Value *val_accumulating,
-                         Value *val_in) {
+llvm::Value *SumMonoid::create(Context *const context,
+                               llvm::Value *val_accumulating,
+                               llvm::Value *val_in) {
   if (val_in->getType()->isIntegerTy()) {
     return context->getBuilder()->CreateAdd(val_in, val_accumulating);
   } else {
@@ -113,19 +117,20 @@ Value *SumMonoid::create(RawContext *const context, Value *val_accumulating,
   }
 }
 
-void SumMonoid::createAtomicUpdate(RawContext *const context,
-                                   Value *accumulator_ptr, Value *val_in,
+void SumMonoid::createAtomicUpdate(Context *const context,
+                                   llvm::Value *accumulator_ptr,
+                                   llvm::Value *val_in,
                                    llvm::AtomicOrdering order) {
   if (val_in->getType()
           ->isIntegerTy()) {  // FIXME : llvm does not like non integer atomics
     context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add,
                                            accumulator_ptr, val_in, order);
   } else if (val_in->getType()->isDoubleTy()) {
-    Function *f = context->getFunction("atomicAdd_double");
+    llvm::Function *f = context->getFunction("atomicAdd_double");
     context->getBuilder()->CreateCall(
         f, std::vector<llvm::Value *>{accumulator_ptr, val_in});
   } else if (val_in->getType()->isFloatTy()) {
-    Function *f = context->getFunction("atomicAdd_float");
+    llvm::Function *f = context->getFunction("atomicAdd_float");
     context->getBuilder()->CreateCall(
         f, std::vector<llvm::Value *>{accumulator_ptr, val_in});
   } else {
@@ -135,35 +140,37 @@ void SumMonoid::createAtomicUpdate(RawContext *const context,
   }
 }
 
-Value *LogOrMonoid::create(RawContext *const context, Value *val_accumulating,
-                           Value *val_in) {
+llvm::Value *LogOrMonoid::create(Context *const context,
+                                 llvm::Value *val_accumulating,
+                                 llvm::Value *val_in) {
   return context->getBuilder()->CreateOr(val_in, val_accumulating);
 }
 
-void LogOrMonoid::createAtomicUpdate(RawContext *const context,
-                                     Value *accumulator_ptr, Value *val_in,
+void LogOrMonoid::createAtomicUpdate(Context *const context,
+                                     llvm::Value *accumulator_ptr,
+                                     llvm::Value *val_in,
                                      llvm::AtomicOrdering order) {
   // no atomics for i1
   // FIXME: check if there is a better way to do this + whether this is correct
-  IRBuilder<> *Builder = context->getBuilder();
+  auto Builder = context->getBuilder();
 
-  BasicBlock *curBlock = Builder->GetInsertBlock();
+  llvm::BasicBlock *curBlock = Builder->GetInsertBlock();
 
-  Function *TheFunction = curBlock->getParent();
-  BasicBlock *endBlock =
-      BasicBlock::Create(context->getLLVMContext(), "atomOrEnd", TheFunction);
+  llvm::Function *TheFunction = curBlock->getParent();
+  llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(
+      context->getLLVMContext(), "atomOrEnd", TheFunction);
 
   if (curBlock == context->getEndingBlock()) context->setEndingBlock(endBlock);
 
   /**
    * if(val_in) *accumulator_ptr = true;
    */
-  BasicBlock *ifBlock;
+  llvm::BasicBlock *ifBlock;
   context->CreateIfBlock(context->getGlobalFunction(), "atomOrCnd", &ifBlock);
 
   Builder->CreateCondBr(val_in, ifBlock, endBlock);
 
-  Value *true_const = ConstantInt::getTrue(val_in->getType());
+  llvm::Value *true_const = llvm::ConstantInt::getTrue(val_in->getType());
 
   Builder->SetInsertPoint(ifBlock);
   Builder->CreateStore(true_const, accumulator_ptr);
@@ -173,36 +180,38 @@ void LogOrMonoid::createAtomicUpdate(RawContext *const context,
   Builder->SetInsertPoint(endBlock);
 }
 
-Value *LogAndMonoid::create(RawContext *const context, Value *val_accumulating,
-                            Value *val_in) {
+llvm::Value *LogAndMonoid::create(Context *const context,
+                                  llvm::Value *val_accumulating,
+                                  llvm::Value *val_in) {
   return context->getBuilder()->CreateAnd(val_in, val_accumulating);
 }
 
-void LogAndMonoid::createAtomicUpdate(RawContext *const context,
-                                      Value *accumulator_ptr, Value *val_in,
+void LogAndMonoid::createAtomicUpdate(Context *const context,
+                                      llvm::Value *accumulator_ptr,
+                                      llvm::Value *val_in,
                                       llvm::AtomicOrdering order) {
   // no atomics for i1
   // FIXME: check if there is a better way to do this + whether this is correct
-  IRBuilder<> *Builder = context->getBuilder();
+  auto Builder = context->getBuilder();
 
-  BasicBlock *curBlock = Builder->GetInsertBlock();
+  llvm::BasicBlock *curBlock = Builder->GetInsertBlock();
 
-  Function *TheFunction = curBlock->getParent();
-  BasicBlock *endBlock =
-      BasicBlock::Create(context->getLLVMContext(), "atomLAndEnd", TheFunction);
+  llvm::Function *TheFunction = curBlock->getParent();
+  llvm::BasicBlock *endBlock = llvm::BasicBlock::Create(
+      context->getLLVMContext(), "atomLAndEnd", TheFunction);
 
   if (curBlock == context->getEndingBlock()) context->setEndingBlock(endBlock);
 
   /**
    * if(!val_in) *accumulator_ptr = false;
    */
-  BasicBlock *ifBlock;
+  llvm::BasicBlock *ifBlock;
   context->CreateIfBlock(context->getGlobalFunction(), "atomlAndCond",
                          &ifBlock);
 
   Builder->CreateCondBr(val_in, endBlock, ifBlock);
 
-  Value *false_const = ConstantInt::getFalse(val_in->getType());
+  llvm::Value *false_const = llvm::ConstantInt::getFalse(val_in->getType());
 
   Builder->SetInsertPoint(ifBlock);
   Builder->CreateStore(false_const, accumulator_ptr);
@@ -212,25 +221,29 @@ void LogAndMonoid::createAtomicUpdate(RawContext *const context,
   Builder->SetInsertPoint(endBlock);
 }
 
-Value *BitOrMonoid::create(RawContext *const context, Value *val_accumulating,
-                           Value *val_in) {
+llvm::Value *BitOrMonoid::create(Context *const context,
+                                 llvm::Value *val_accumulating,
+                                 llvm::Value *val_in) {
   return context->getBuilder()->CreateOr(val_in, val_accumulating);
 }
 
-Value *BitAndMonoid::create(RawContext *const context, Value *val_accumulating,
-                            Value *val_in) {
+llvm::Value *BitAndMonoid::create(Context *const context,
+                                  llvm::Value *val_accumulating,
+                                  llvm::Value *val_in) {
   return context->getBuilder()->CreateAnd(val_in, val_accumulating);
 }
 
-void BitOrMonoid::createAtomicUpdate(RawContext *const context,
-                                     Value *accumulator_ptr, Value *val_in,
+void BitOrMonoid::createAtomicUpdate(Context *const context,
+                                     llvm::Value *accumulator_ptr,
+                                     llvm::Value *val_in,
                                      llvm::AtomicOrdering order) {
   context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Or,
                                          accumulator_ptr, val_in, order);
 }
 
-void BitAndMonoid::createAtomicUpdate(RawContext *const context,
-                                      Value *accumulator_ptr, Value *val_in,
+void BitAndMonoid::createAtomicUpdate(Context *const context,
+                                      llvm::Value *accumulator_ptr,
+                                      llvm::Value *val_in,
                                       llvm::AtomicOrdering order) {
   context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::And,
                                          accumulator_ptr, val_in, order);
@@ -254,12 +267,12 @@ Monoid *Monoid::get(::Monoid m) {
   }
 }
 
-Value *Monoid::createWarpAggregateToAll(RawContext *const context,
-                                        Value *val_in) {
+llvm::Value *Monoid::createWarpAggregateToAll(Context *const context,
+                                              llvm::Value *val_in) {
   for (int i = 16; i > 0; i >>= 1) {
     // NOTE: only whole (32 threads) warps are supported!
-    Value *shfl_res =
-        gpu_intrinsic::shfl_bfly((GpuRawContext *const)context, val_in, i);
+    llvm::Value *shfl_res =
+        gpu_intrinsic::shfl_bfly((ParallelContext *const)context, val_in, i);
     shfl_res->setName("shfl_res_" + std::to_string(i));
 
     val_in = create(context, val_in, shfl_res);
@@ -268,14 +281,14 @@ Value *Monoid::createWarpAggregateToAll(RawContext *const context,
   return val_in;
 }
 
-Value *LogOrMonoid::createWarpAggregateToAll(RawContext *const context,
-                                             Value *val_in) {
-  return gpu_intrinsic::any((GpuRawContext *const)context, val_in);
+llvm::Value *LogOrMonoid::createWarpAggregateToAll(Context *const context,
+                                                   llvm::Value *val_in) {
+  return gpu_intrinsic::any((ParallelContext *const)context, val_in);
 }
 
-Value *LogAndMonoid::createWarpAggregateToAll(RawContext *const context,
-                                              Value *val_in) {
-  return gpu_intrinsic::all((GpuRawContext *const)context, val_in);
+llvm::Value *LogAndMonoid::createWarpAggregateToAll(Context *const context,
+                                                    llvm::Value *val_in) {
+  return gpu_intrinsic::all((ParallelContext *const)context, val_in);
 }
 
 }  // namespace gpu

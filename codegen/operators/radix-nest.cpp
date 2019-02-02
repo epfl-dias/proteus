@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,6 +24,8 @@
 #include "operators/radix-nest.hpp"
 #include "expressions/expressions-flusher.hpp"
 #include "plugins/csv-plugin-pm.hpp"
+
+using namespace llvm;
 
 namespace radix {
 
@@ -50,10 +52,10 @@ expression_t getGrouping(const std::vector<expression_t> &f_grouping) {
   }
 }
 
-Nest::Nest(RawContext *const context, vector<Monoid> accs,
+Nest::Nest(Context *const context, vector<Monoid> accs,
            vector<expression_t> outputExprs, vector<string> aggrLabels,
            expression_t pred, expression_t f_grouping,
-           expression_t g_nullToZero, RawOperator *const child,
+           expression_t g_nullToZero, Operator *const child,
            const std::string &opLabel, Materializer &mat)
     : Nest(context, accs, outputExprs, aggrLabels, pred,
            std::vector<expression_t>{f_grouping}, g_nullToZero, child, opLabel,
@@ -67,12 +69,12 @@ Nest::Nest(RawContext *const context, vector<Monoid> accs,
  * FIXME do the null check for expression g!!
  * Previous nest version performs it
  */
-Nest::Nest(RawContext *const context, vector<Monoid> accs,
+Nest::Nest(Context *const context, vector<Monoid> accs,
            vector<expression_t> outputExprs, vector<string> aggrLabels,
            expression_t pred, std::vector<expression_t> f_grouping_v,
-           expression_t g_nullToZero, RawOperator *const child,
+           expression_t g_nullToZero, Operator *const child,
            const std::string &opLabel, Materializer &mat)
-    : UnaryRawOperator(child),
+    : UnaryOperator(child),
       accs(accs),
       outputExprs(outputExprs),
       aggregateLabels(aggrLabels),
@@ -80,7 +82,7 @@ Nest::Nest(RawContext *const context, vector<Monoid> accs,
       g_nullToZero(g_nullToZero),
       mat(mat),
       htName(opLabel),
-      context((GpuRawContext *const)context),
+      context((ParallelContext *const)context),
       f_grouping(getGrouping(f_grouping_v)) {
   if (accs.size() != outputExprs.size() || accs.size() != aggrLabels.size()) {
     string error_msg = string("[NEST: ] Erroneous constructor args");
@@ -88,7 +90,7 @@ Nest::Nest(RawContext *const context, vector<Monoid> accs,
     throw runtime_error(error_msg);
   }
 
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
 
   Plugin *htPlugin;
   {
@@ -104,7 +106,7 @@ Nest::Nest(RawContext *const context, vector<Monoid> accs,
   // Plugin *htPlugin = new BinaryInternalPlugin(context, htName);
   // catalog.registerPlugin(htName, htPlugin);
 
-  assert(dynamic_cast<GpuRawContext *const>(context) &&
+  assert(dynamic_cast<ParallelContext *const>(context) &&
          "Should update caller to use the new context!");
   LLVMContext &llvmContext = context->getLLVMContext();
 
@@ -201,7 +203,7 @@ void Nest::produce() {
   //     }
   // );
 
-  RawOperator *child = getChild();
+  Operator *child = getChild();
   child->setParent(build);
   build->setParent(this);
   setChild(build);
@@ -217,16 +219,16 @@ void Nest::produce() {
   // updateRelationPointers();
 }
 
-void Nest::consume(RawContext *const context, const OperatorState &childState) {
+void Nest::consume(Context *const context, const OperatorState &childState) {
   assert(false &&
          "Function should not be called! Is RadixJoinBuilders "
          "correctly set as child of this operator?");
 }
 
-map<RecordAttribute, RawValueMemory> *Nest::reconstructResults(
+map<RecordAttribute, ProteusValueMemory> *Nest::reconstructResults(
     Value *htBuffer, Value *idx, size_t relR_mem_relation_id) const {
   LLVMContext &llvmContext = context->getLLVMContext();
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
   /*************************************/
@@ -235,8 +237,8 @@ map<RecordAttribute, RawValueMemory> *Nest::reconstructResults(
    * -> Need to do this at this point to check key equality
    */
   Value *htRshiftedPtr_hit = Builder->CreateInBoundsGEP(htBuffer, idx);
-  map<RecordAttribute, RawValueMemory> *allGroupBindings =
-      new map<RecordAttribute, RawValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> *allGroupBindings =
+      new map<RecordAttribute, ProteusValueMemory>();
 
   /* Payloads (Relative Offsets): size_t */
   /* Must be added to relR accordingly */
@@ -281,7 +283,7 @@ map<RecordAttribute, RawValueMemory> *Nest::reconstructResults(
     //                     mem_activeTuple);
     //             store_activeTuple->setAlignment(8);
 
-    //             RawValueMemory mem_valWrapper;
+    //             ProteusValueMemory mem_valWrapper;
     //             mem_valWrapper.mem = mem_activeTuple;
     //             mem_valWrapper.isNull = context->createFalse();
     //             (*allGroupBindings)[*attr] = mem_valWrapper;
@@ -311,7 +313,7 @@ map<RecordAttribute, RawValueMemory> *Nest::reconstructResults(
       Value *val_field = Builder->CreateLoad(elem_ptr);
       Builder->CreateStore(val_field, mem_field);
 
-      RawValueMemory mem_valWrapper;
+      ProteusValueMemory mem_valWrapper;
       mem_valWrapper.mem = mem_field;
       mem_valWrapper.isNull = context->createFalse();
 
@@ -328,7 +330,7 @@ map<RecordAttribute, RawValueMemory> *Nest::reconstructResults(
 void Nest::probeHT() const {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
 
   Type *int64_type = Type::getInt64Ty(llvmContext);
   Type *int32_type = Type::getInt32Ty(llvmContext);
@@ -607,10 +609,10 @@ void Nest::probeHT() const {
       val_idx = Builder->CreateAShr(val_idx, val_num_radix_bits64);
 
       /* Also getting value to reassemble ACTUAL KEY when needed */
-      map<RecordAttribute, RawValueMemory> *currKeyBindings =
+      map<RecordAttribute, ProteusValueMemory> *currKeyBindings =
           reconstructResults(htRshiftedPtr, val_j, relR_mem_relation_id);
       OperatorState *currKeyState = new OperatorState(*this, *currKeyBindings);
-      map<RecordAttribute, RawValueMemory> *retrievedBindings;
+      map<RecordAttribute, ProteusValueMemory> *retrievedBindings;
 
       /**
        * Checking actual hits (when applicable)
@@ -679,13 +681,13 @@ void Nest::probeHT() const {
             // auto &t: currKeyState->getBindings()) std::cout <<
             // t.first.getRelationName() << " " << t.first.getAttrName()
             // <<std::endl;
-            RawValueMemory currKeyMem =
+            ProteusValueMemory currKeyMem =
                 currKeyState->getBindings().at(k.getRegisteredAs());
             Value *currKey = Builder->CreateLoad(currKeyMem.mem);
-            RawValueMemory retrKeyMem =
+            ProteusValueMemory retrKeyMem =
                 retrievedState->getBindings().at(k.getRegisteredAs());
             Value *retrKey = Builder->CreateLoad(retrKeyMem.mem);
-            //                expressions::RawValueExpression
+            //                expressions::ProteusValueExpression
             //                currKey{f_grouping->getExpressionType(), };
 
             //                RecordAttribute
@@ -701,22 +703,25 @@ void Nest::probeHT() const {
             // std::endl; std::cout << "=3?" <<
             // k->getRegisteredAs().getAttrName() << std::endl; std::cout <<
             // "=4?" << k->getRegisteredAs().getType() << std::endl;
-            // // RawValue val_condWrapper = key.acceptTandem(dotVisitor, &key);
-            // if (k->getRegisteredAs().getOriginalType()->getTypeID() ==
+            // // ProteusValue val_condWrapper = key.acceptTandem(dotVisitor,
+            // &key); if (k->getRegisteredAs().getOriginalType()->getTypeID() ==
             // DSTRING){
             //     // ExpressionFlusherVisitor fl{context, *currKeyState,
             //     "tmp.txt"};
-            //     // RawValue v{currKey, context->createFalse()};
-            //     // expressions::RawValueExpression{k->getExpressionType(),
+            //     // ProteusValue v{currKey, context->createFalse()};
+            //     //
+            //     expressions::ProteusValueExpression{k->getExpressionType(),
             //     v}.accept(fl); Function *f = context->getFunction("printi");
             //     Builder->CreateCall(f, currKey);
             // }
 
-            expressions::RawValueExpression curre{
-                k.getExpressionType(), RawValue{currKey, currKeyMem.isNull}};
-            expressions::RawValueExpression retre{
-                k.getExpressionType(), RawValue{retrKey, retrKeyMem.isNull}};
-            RawValue eq = curre.acceptTandem(dotVisitor, &retre);
+            expressions::ProteusValueExpression curre{
+                k.getExpressionType(),
+                ProteusValue{currKey, currKeyMem.isNull}};
+            expressions::ProteusValueExpression retre{
+                k.getExpressionType(),
+                ProteusValue{retrKey, retrKeyMem.isNull}};
+            ProteusValue eq = curre.acceptTandem(dotVisitor, &retre);
             val_cond = Builder->CreateAnd(val_cond, eq.value);
           }
           // Value *val_cond = context->createTrue();
@@ -748,7 +753,7 @@ void Nest::probeHT() const {
           // Generate condition
           ExpressionGeneratorVisitor predExprGenerator{context,
                                                        *retrievedState};
-          RawValue condition = pred.accept(predExprGenerator);
+          ProteusValue condition = pred.accept(predExprGenerator);
           /**
            * Predicate Evaluation:
            */
@@ -761,7 +766,7 @@ void Nest::probeHT() const {
           /**
            * IF(pred) Block
            */
-          RawValue val_output;
+          ProteusValue val_output;
           Builder->SetInsertPoint(entryBlock);
 
           Builder->CreateCondBr(condition.value, ifBlock, hitLoopInc);
@@ -792,17 +797,17 @@ void Nest::probeHT() const {
                                                                *retrievedState};
 
                 // Load accumulator -> acc_value
-                RawValue acc_value;
+                ProteusValue acc_value;
                 acc_value.value = Builder->CreateLoad(mem_accumulating);
                 acc_value.isNull = context->createFalse();
 
-                RawValue acc_value2;
+                ProteusValue acc_value2;
                 bool val_unset = true;
                 if (outputExpr.isRegistered()) {
                   const auto &f = retrievedState->getBindings().find(
                       outputExpr.getRegisteredAs());
                   if (f != retrievedState->getBindings().end()) {
-                    RawValueMemory mem_val = f->second;
+                    ProteusValueMemory mem_val = f->second;
                     acc_value2.value = Builder->CreateLoad(mem_val.mem);
                     acc_value2.isNull = mem_val.isNull;
                     // itExpr++;
@@ -814,12 +819,12 @@ void Nest::probeHT() const {
                   acc_value2 = outputExpr.accept(outputExprGenerator);
 
                 // new_value = acc_value op outputExpr
-                expressions::RawValueExpression val{
+                expressions::ProteusValueExpression val{
                     outputExpr.getExpressionType(), acc_value};
-                expressions::RawValueExpression val2{
+                expressions::ProteusValueExpression val2{
                     outputExpr.getExpressionType(), acc_value2};
                 expression_t upd = toExpression(acc, val, val2);
-                RawValue new_val = upd.accept(outputExprGenerator);
+                ProteusValue new_val = upd.accept(outputExprGenerator);
 
                 // store new_val to accumulator
                 Builder->CreateStore(new_val.value, mem_accumulating);
@@ -845,7 +850,7 @@ void Nest::probeHT() const {
             RecordAttribute attr_aggr = RecordAttribute(
                 htName, aggregateName, outputExpr.getExpressionType());
             // cout << "Registering custom pg for " << htName << endl;
-            RawValueMemory mem_aggrWrapper;
+            ProteusValueMemory mem_aggrWrapper;
             mem_aggrWrapper.mem = mem_accumulating;
             mem_aggrWrapper.isNull = context->createFalse();
             (*retrievedBindings)[attr_aggr] = mem_aggrWrapper;
@@ -885,7 +890,7 @@ void Nest::probeHT() const {
        * while(marked[j] == true) j++;
        */
       /* Explicit OID (i.e., groupNo) materialization */
-      RawValueMemory mem_oidWrapper;
+      ProteusValueMemory mem_oidWrapper;
       mem_oidWrapper.mem = mem_groupCnt;
       mem_oidWrapper.isNull = context->createFalse();
       ExpressionType *oidType = new IntType();

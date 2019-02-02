@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -557,7 +557,7 @@ int main() {
 //    symantecCSVSchema(datasetCatalog);
 //    symantecCoreIDDatesSchema(datasetCatalog);
 //
-//    RawCatalog& rawCatalog = RawCatalog::getInstance();
+//    Catalog& rawCatalog = Catalog::getInstance();
 //    CachingService& cache = CachingService::getInstance();
 //
 ////    cout << "SYMANTEC BIN 4v1" << endl;

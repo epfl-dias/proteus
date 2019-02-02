@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -42,7 +42,7 @@
 class ExpressionFlusherVisitor : public ExprVisitor {
  public:
   // TODO: should we remove this constructor ?
-  ExpressionFlusherVisitor(RawContext *const context,
+  ExpressionFlusherVisitor(Context *const context,
                            const OperatorState &currState,
                            const char *outputFile)
       : context(context),
@@ -56,7 +56,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
     outputFileLLVM = NULL;
     pg = new jsonPipelined::JSONPlugin(context, outputFile, NULL);
   }
-  ExpressionFlusherVisitor(RawContext *const context,
+  ExpressionFlusherVisitor(Context *const context,
                            const OperatorState &currState,
                            const char *outputFile, string activeRelation)
       : context(context),
@@ -66,40 +66,40 @@ class ExpressionFlusherVisitor : public ExprVisitor {
     placeholder.isNull = context->createTrue();
     placeholder.value = NULL;
     outputFileLLVM = NULL;
-    pg = RawCatalog::getInstance().getPlugin(activeRelation);
+    pg = Catalog::getInstance().getPlugin(activeRelation);
   }
-  RawValue visit(const expressions::IntConstant *e);
-  RawValue visit(const expressions::Int64Constant *e);
-  RawValue visit(const expressions::DateConstant *e);
-  RawValue visit(const expressions::FloatConstant *e);
-  RawValue visit(const expressions::BoolConstant *e);
-  RawValue visit(const expressions::StringConstant *e);
-  RawValue visit(const expressions::DStringConstant *e);
-  RawValue visit(const expressions::InputArgument *e);
-  RawValue visit(const expressions::RecordProjection *e);
-  RawValue visit(const expressions::IfThenElse *e);
+  ProteusValue visit(const expressions::IntConstant *e);
+  ProteusValue visit(const expressions::Int64Constant *e);
+  ProteusValue visit(const expressions::DateConstant *e);
+  ProteusValue visit(const expressions::FloatConstant *e);
+  ProteusValue visit(const expressions::BoolConstant *e);
+  ProteusValue visit(const expressions::StringConstant *e);
+  ProteusValue visit(const expressions::DStringConstant *e);
+  ProteusValue visit(const expressions::InputArgument *e);
+  ProteusValue visit(const expressions::RecordProjection *e);
+  ProteusValue visit(const expressions::IfThenElse *e);
   // XXX Do binary operators require explicit handling of NULL?
-  RawValue visit(const expressions::EqExpression *e);
-  RawValue visit(const expressions::NeExpression *e);
-  RawValue visit(const expressions::GeExpression *e);
-  RawValue visit(const expressions::GtExpression *e);
-  RawValue visit(const expressions::LeExpression *e);
-  RawValue visit(const expressions::LtExpression *e);
-  RawValue visit(const expressions::AddExpression *e);
-  RawValue visit(const expressions::SubExpression *e);
-  RawValue visit(const expressions::MultExpression *e);
-  RawValue visit(const expressions::DivExpression *e);
-  RawValue visit(const expressions::AndExpression *e);
-  RawValue visit(const expressions::OrExpression *e);
-  RawValue visit(const expressions::RecordConstruction *e);
-  RawValue visit(const expressions::RawValueExpression *e);
-  RawValue visit(const expressions::MinExpression *e);
-  RawValue visit(const expressions::MaxExpression *e);
-  RawValue visit(const expressions::HashExpression *e);
-  RawValue visit(const expressions::NegExpression *e);
-  RawValue visit(const expressions::ExtractExpression *e);
-  RawValue visit(const expressions::TestNullExpression *e);
-  RawValue visit(const expressions::CastExpression *e);
+  ProteusValue visit(const expressions::EqExpression *e);
+  ProteusValue visit(const expressions::NeExpression *e);
+  ProteusValue visit(const expressions::GeExpression *e);
+  ProteusValue visit(const expressions::GtExpression *e);
+  ProteusValue visit(const expressions::LeExpression *e);
+  ProteusValue visit(const expressions::LtExpression *e);
+  ProteusValue visit(const expressions::AddExpression *e);
+  ProteusValue visit(const expressions::SubExpression *e);
+  ProteusValue visit(const expressions::MultExpression *e);
+  ProteusValue visit(const expressions::DivExpression *e);
+  ProteusValue visit(const expressions::AndExpression *e);
+  ProteusValue visit(const expressions::OrExpression *e);
+  ProteusValue visit(const expressions::RecordConstruction *e);
+  ProteusValue visit(const expressions::ProteusValueExpression *e);
+  ProteusValue visit(const expressions::MinExpression *e);
+  ProteusValue visit(const expressions::MaxExpression *e);
+  ProteusValue visit(const expressions::HashExpression *e);
+  ProteusValue visit(const expressions::NegExpression *e);
+  ProteusValue visit(const expressions::ExtractExpression *e);
+  ProteusValue visit(const expressions::TestNullExpression *e);
+  ProteusValue visit(const expressions::CastExpression *e);
   /* Reduce produces accumulated value internally.
    * It makes no sense to probe a plugin in order to flush this value out */
   void flushValue(llvm::Value *val, typeID val_type);
@@ -107,9 +107,9 @@ class ExpressionFlusherVisitor : public ExprVisitor {
   void setActiveRelation(string relName) {
     activeRelation = relName;
     if (relName != "") {
-      pg = RawCatalog::getInstance().getPlugin(activeRelation);
+      pg = Catalog::getInstance().getPlugin(activeRelation);
     } else {
-      pg = RawCatalog::getInstance().getPlugin(outputFile);
+      pg = Catalog::getInstance().getPlugin(outputFile);
     }
   }
   string getActiveRelation(string relName) { return activeRelation; }
@@ -122,7 +122,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
     outputFileLLVM = context->CreateGlobalString(this->outputFile);
     if (!pg) {
       // TODO: remove. deprecated exectuion path
-      Function *flushFunc = context->getFunction("flushChar");
+      llvm::Function *flushFunc = context->getFunction("flushChar");
       vector<llvm::Value *> ArgsV;
       // Start 'array'
       ArgsV.push_back(context->createInt8('['));
@@ -144,7 +144,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
     outputFileLLVM = context->CreateGlobalString(this->outputFile);
     if (!pg) {
       // TODO: remove. deprecated exectuion path
-      Function *flushFunc = context->getFunction("flushChar");
+      llvm::Function *flushFunc = context->getFunction("flushChar");
       vector<llvm::Value *> ArgsV;
       // Start 'array'
       ArgsV.push_back(context->createInt8(']'));
@@ -164,7 +164,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
   }
   void flushOutput() {
     outputFileLLVM = context->CreateGlobalString(this->outputFile);
-    Function *flushFunc = context->getFunction("flushOutput");
+    llvm::Function *flushFunc = context->getFunction("flushOutput");
     vector<llvm::Value *> ArgsV;
     // Start 'array'
     ArgsV.push_back(outputFileLLVM);
@@ -174,7 +174,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
     outputFileLLVM = context->CreateGlobalString(this->outputFile);
     if (!pg) {
       // TODO: remove. deprecated exectuion path
-      Function *flushFunc = context->getFunction("flushDelim");
+      llvm::Function *flushFunc = context->getFunction("flushDelim");
       vector<llvm::Value *> ArgsV;
       ArgsV.push_back(resultCtr);
       // XXX JSON-specific -> Serializer business to differentiate
@@ -189,7 +189,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
     outputFileLLVM = context->CreateGlobalString(this->outputFile);
     if (!pg) {
       // TODO: remove. deprecated exectuion path
-      Function *flushFunc = context->getFunction("flushChar");
+      llvm::Function *flushFunc = context->getFunction("flushChar");
       vector<llvm::Value *> ArgsV;
       // XXX JSON-specific -> Serializer business to differentiate
       ArgsV.push_back(context->createInt8(','));
@@ -201,12 +201,12 @@ class ExpressionFlusherVisitor : public ExprVisitor {
   }
 
  private:
-  RawContext *const context;
+  Context *const context;
   const OperatorState &currState;
   const char *outputFile;
   llvm::Value *outputFileLLVM;
 
-  RawValue placeholder;
+  ProteusValue placeholder;
   string activeRelation;
   Plugin *pg;
 };

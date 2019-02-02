@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,7 +23,10 @@
 
 #include "expressions/expressions-flusher.hpp"
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::IntConstant *e) {
+using namespace llvm;
+
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::IntConstant *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   Function *flushInt = context->getFunction("flushInt");
   vector<Value *> ArgsV;
@@ -35,7 +38,8 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::IntConstant *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::Int64Constant *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::Int64Constant *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   Function *flushInt = context->getFunction("flushInt64");
   vector<Value *> ArgsV;
@@ -47,7 +51,8 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::Int64Constant *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::DateConstant *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::DateConstant *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   Function *flushInt = context->getFunction("flushDate");
   vector<Value *> ArgsV;
@@ -59,7 +64,8 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::DateConstant *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::FloatConstant *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::FloatConstant *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   Function *flushDouble = context->getFunction("flushDouble");
   vector<Value *> ArgsV;
@@ -71,7 +77,8 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::FloatConstant *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::BoolConstant *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::BoolConstant *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   Function *flushBoolean = context->getFunction("flushBoolean");
   vector<Value *> ArgsV;
@@ -83,7 +90,7 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::BoolConstant *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(
+ProteusValue ExpressionFlusherVisitor::visit(
     const expressions::DStringConstant *e) {
   string error_msg = string(
       "[Expression Flusher: ] No support for flushing DString constants");
@@ -91,7 +98,8 @@ RawValue ExpressionFlusherVisitor::visit(
   throw runtime_error(error_msg);
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::StringConstant *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::StringConstant *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   Function *flushStringC = context->getFunction("flushStringC");
 
@@ -116,13 +124,14 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::StringConstant *e) {
  * Reason: This visitor does not actually recurse -
  * for any recursion, the ExpressionGeneratorVisitor is used
  */
-RawValue ExpressionFlusherVisitor::visit(const expressions::InputArgument *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::InputArgument *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
 
   std::vector<Value *> ArgsV;
 
-  const map<RecordAttribute, RawValueMemory> &activeVars =
+  const map<RecordAttribute, ProteusValueMemory> &activeVars =
       currState.getBindings();
   list<RecordAttribute> projections = e->getProjections();
   list<RecordAttribute>::iterator it = projections.begin();
@@ -132,14 +141,14 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::InputArgument *e) {
   // in some value that I have already hashed?
   for (; it != projections.end(); it++) {
     if (it->getAttrName() == activeLoop) {
-      map<RecordAttribute, RawValueMemory>::const_iterator itBindings;
+      map<RecordAttribute, ProteusValueMemory>::const_iterator itBindings;
       for (itBindings = activeVars.begin(); itBindings != activeVars.end();
            itBindings++) {
         RecordAttribute currAttr = itBindings->first;
         if (currAttr.getRelationName() == it->getRelationName() &&
             currAttr.getAttrName() == activeLoop) {
           // Flush value now
-          RawValueMemory mem_activeTuple = itBindings->second;
+          ProteusValueMemory mem_activeTuple = itBindings->second;
 
           Plugin *plugin = catalog.getPlugin(currAttr.getRelationName());
           if (plugin == NULL) {
@@ -157,10 +166,10 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::InputArgument *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(
-    const expressions::RawValueExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::ProteusValueExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
 
   Plugin *plugin = catalog.getPlugin(activeRelation);
 
@@ -177,10 +186,10 @@ RawValue ExpressionFlusherVisitor::visit(
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(
+ProteusValue ExpressionFlusherVisitor::visit(
     const expressions::RecordProjection *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   activeRelation = e->getOriginalRelationName();
 
   /**
@@ -189,7 +198,7 @@ RawValue ExpressionFlusherVisitor::visit(
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState, activeRelation);
 
-  RawValue record = e->getExpr().accept(exprGenerator);
+  ProteusValue record = e->getExpr().accept(exprGenerator);
   Plugin *plugin = catalog.getPlugin(activeRelation);
   {
     // if (plugin->getPluginType() != PGBINARY) {
@@ -201,7 +210,7 @@ RawValue ExpressionFlusherVisitor::visit(
     CacheInfo info = cache.getCache(e);
     /* Must also make sure that no explicit binding exists => No duplicate work
      */
-    map<RecordAttribute, RawValueMemory>::const_iterator it =
+    map<RecordAttribute, ProteusValueMemory>::const_iterator it =
         currState.getBindings().find(e->getAttribute());
     if (info.structFieldNo != -1 && it == currState.getBindings().end()) {
 #ifdef DEBUGCACHING
@@ -214,13 +223,13 @@ RawValue ExpressionFlusherVisitor::visit(
         cout << "...but is not useable " << endl;
 #endif
       } else {
-        RawValue tmpWrapper = plugin->readCachedValue(info, currState);
+        ProteusValue tmpWrapper = plugin->readCachedValue(info, currState);
         //                Value *tmp = tmpWrapper.value;
         //                AllocaInst *mem_tmp =
         //                context->CreateEntryBlockAlloca(F,
         //                "mem_cachedToFlush", tmp->getType());
         //                TheBuilder->CreateStore(tmp,mem_tmp);
-        //                RawValueMemory mem_tmpWrapper = { mem_tmp,
+        //                ProteusValueMemory mem_tmpWrapper = { mem_tmp,
         //                tmpWrapper.isNull };
         //                plugin->flushValue(mem_tmpWrapper,
         //                e->getExpressionType(),outputFileLLVM);
@@ -244,7 +253,7 @@ RawValue ExpressionFlusherVisitor::visit(
     throw runtime_error(error_msg);
   } else {
     Bindings bindings = {&currState, record};
-    RawValueMemory mem_path;
+    ProteusValueMemory mem_path;
     // cout << "Active Relation: " << e->getProjectionName() << endl;
     if (e->getProjectionName() != activeLoop) {
       const RecordType *exprType =
@@ -254,7 +263,7 @@ RawValue ExpressionFlusherVisitor::visit(
         Value *val =
             exprType->projectArg(record.value, &attr, context->getBuilder());
         if (val) {
-          RawValue valWrapper;
+          ProteusValue valWrapper;
           valWrapper.value = val;
           valWrapper.isNull =
               record.isNull;  // FIXME: what if only one attribute is NULL?
@@ -274,7 +283,7 @@ RawValue ExpressionFlusherVisitor::visit(
       Plugin *pg = catalog.getPlugin(activeRelation);
       RecordAttribute tupleIdentifier =
           RecordAttribute(activeRelation, activeLoop, pg->getOIDType());
-      map<RecordAttribute, RawValueMemory>::const_iterator it =
+      map<RecordAttribute, ProteusValueMemory>::const_iterator it =
           currState.getBindings().find(tupleIdentifier);
       if (it == currState.getBindings().end()) {
         string error_msg =
@@ -290,7 +299,7 @@ RawValue ExpressionFlusherVisitor::visit(
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::IfThenElse *e) {
+ProteusValue ExpressionFlusherVisitor::visit(const expressions::IfThenElse *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   IRBuilder<> *const TheBuilder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -299,7 +308,7 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::IfThenElse *e) {
   // Need to evaluate, not hash!
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
-  RawValue ifCond = e->getIfCond().accept(exprGenerator);
+  ProteusValue ifCond = e->getIfCond().accept(exprGenerator);
 
   // Prepare blocks
   BasicBlock *ThenBB;
@@ -327,12 +336,13 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::IfThenElse *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::EqExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::EqExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
 
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
   Function *flushFunc = context->getFunction("flushBoolean");
   vector<Value *> ArgsV;
   ArgsV.push_back(exprResult.value);
@@ -340,12 +350,13 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::EqExpression *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::NeExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::NeExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
 
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
   Function *flushFunc = context->getFunction("flushBoolean");
   vector<Value *> ArgsV;
   ArgsV.push_back(exprResult.value);
@@ -353,12 +364,13 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::NeExpression *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::GeExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::GeExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
 
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
   Function *flushFunc = context->getFunction("flushBoolean");
   vector<Value *> ArgsV;
   ArgsV.push_back(exprResult.value);
@@ -366,12 +378,13 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::GeExpression *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::GtExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::GtExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
 
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
   Function *flushFunc = context->getFunction("flushBoolean");
   vector<Value *> ArgsV;
   ArgsV.push_back(exprResult.value);
@@ -379,12 +392,13 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::GtExpression *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::LeExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::LeExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
 
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
   Function *flushFunc = context->getFunction("flushBoolean");
   vector<Value *> ArgsV;
   ArgsV.push_back(exprResult.value);
@@ -392,12 +406,13 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::LeExpression *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::LtExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::LtExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
 
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
   Function *flushFunc = context->getFunction("flushBoolean");
   vector<Value *> ArgsV;
   ArgsV.push_back(exprResult.value);
@@ -405,12 +420,13 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::LtExpression *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::AndExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::AndExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
 
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
   Function *flushFunc = context->getFunction("flushBoolean");
   vector<Value *> ArgsV;
   ArgsV.push_back(exprResult.value);
@@ -418,12 +434,13 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::AndExpression *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::OrExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::OrExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
 
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
   Function *flushFunc = context->getFunction("flushBoolean");
   vector<Value *> ArgsV;
   ArgsV.push_back(exprResult.value);
@@ -431,11 +448,12 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::OrExpression *e) {
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::AddExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::AddExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   Function *flushFunc = NULL;
@@ -443,7 +461,7 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::AddExpression *e) {
 
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -491,11 +509,12 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::AddExpression *e) {
              "expression can only be primitive"));
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::SubExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::SubExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   Function *flushFunc = NULL;
@@ -503,7 +522,7 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::SubExpression *e) {
 
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -551,11 +570,12 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::SubExpression *e) {
              "expression can only be primitive"));
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::MultExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::MultExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   Function *flushFunc = NULL;
@@ -563,7 +583,7 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::MultExpression *e) {
 
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -611,11 +631,12 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::MultExpression *e) {
              "expression can only be primitive"));
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::DivExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::DivExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   Function *flushFunc = NULL;
@@ -623,7 +644,7 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::DivExpression *e) {
 
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -671,7 +692,7 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::DivExpression *e) {
 // #include "plugins/json-plugin.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 
-RawValue ExpressionFlusherVisitor::visit(
+ProteusValue ExpressionFlusherVisitor::visit(
     const expressions::RecordConstruction *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   // char delim = ',';
@@ -704,7 +725,7 @@ RawValue ExpressionFlusherVisitor::visit(
 
   //     //value
   //     expressions::Expression* expr = (*it).getExpression();
-  //     RawValue partialFlush = expr->accept(*this);
+  //     ProteusValue partialFlush = expr->accept(*this);
 
   //     //comma, if needed
   //     it++;
@@ -726,24 +747,27 @@ RawValue ExpressionFlusherVisitor::visit(
   RecordType recType = *((const RecordType *)e->getExpressionType());
 
   ExpressionGeneratorVisitor exprGen(context, currState);
-  RawValue recValue = e->accept(exprGen);
+  ProteusValue recValue = e->accept(exprGen);
   pg->flushValueEager(recValue, e->getExpressionType(), outputFileLLVM);
 
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::MaxExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::MaxExpression *e) {
   return e->getCond()->accept(*this);
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::MinExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::MinExpression *e) {
   return e->getCond()->accept(*this);
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::HashExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::HashExpression *e) {
   ExpressionGeneratorVisitor v(context, currState);
-  RawValue rv = e->accept(v);
-  expressions::RawValueExpression rve(e->getExpressionType(), rv);
+  ProteusValue rv = e->accept(v);
+  expressions::ProteusValueExpression rve(e->getExpressionType(), rv);
   return rve.accept(*this);
 }
 
@@ -812,11 +836,12 @@ void ExpressionFlusherVisitor::flushValue(Value *val, typeID val_type) {
   }
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::NegExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::NegExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getExpr().getExpressionType();
   Function *flushFunc = NULL;
@@ -824,7 +849,7 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::NegExpression *e) {
 
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -872,11 +897,11 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::NegExpression *e) {
              "expression can only be primitive"));
 }
 
-RawValue ExpressionFlusherVisitor::visit(
+ProteusValue ExpressionFlusherVisitor::visit(
     const expressions::ExtractExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator{context, currState};
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *type = e->getExpressionType();
   Function *flushFunc = NULL;
@@ -884,7 +909,7 @@ RawValue ExpressionFlusherVisitor::visit(
 
   if (type->isPrimitive()) {
     typeID id = type->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {
@@ -932,11 +957,11 @@ RawValue ExpressionFlusherVisitor::visit(
              "expression can only be primitive"));
 }
 
-RawValue ExpressionFlusherVisitor::visit(
+ProteusValue ExpressionFlusherVisitor::visit(
     const expressions::TestNullExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator{context, currState};
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
 
   Function *flushFunc = context->getFunction("flushBoolean");
   vector<Value *> ArgsV;
@@ -946,11 +971,12 @@ RawValue ExpressionFlusherVisitor::visit(
   return placeholder;
 }
 
-RawValue ExpressionFlusherVisitor::visit(const expressions::CastExpression *e) {
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::CastExpression *e) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
-  RawValue exprResult = e->accept(exprGenerator);
+  ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getExpr().getExpressionType();
   Function *flushFunc = NULL;
@@ -958,7 +984,7 @@ RawValue ExpressionFlusherVisitor::visit(const expressions::CastExpression *e) {
 
   if (childType->isPrimitive()) {
     typeID id = childType->getTypeID();
-    RawValue valWrapper;
+    ProteusValue valWrapper;
     valWrapper.isNull = context->createFalse();
 
     switch (id) {

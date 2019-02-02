@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -33,8 +33,8 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
   // csv
   int classaHigh = 19;
 
-  RawContext &ctx = *prepareContext("symantec-bin-csv-1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-csv-1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];
@@ -315,8 +315,8 @@ void symantecBinCSV2(map<string, dataset> datasetCatalog) {
   // csv
   int classaHigh = 19;
 
-  RawContext &ctx = *prepareContext("symantec-bin-csv-2");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-csv-2");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];
@@ -592,8 +592,8 @@ void symantecBinCSV3(map<string, dataset> datasetCatalog) {
   // csv
   string botName = "UNCLASSIFIED";
 
-  RawContext &ctx = *prepareContext("symantec-bin-csv-3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-csv-3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];
@@ -831,8 +831,8 @@ void symantecBinCSV4(map<string, dataset> datasetCatalog) {
   string botName = "UNCLASSIFIED";
   string countryCodeName = "RU";
 
-  RawContext &ctx = *prepareContext("symantec-bin-csv-4");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-csv-4");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];
@@ -1082,8 +1082,8 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
   string countryCodeName = "IN";
   int classaHigh = 20;
 
-  RawContext &ctx = *prepareContext("symantec-bin-csv-5");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-csv-5");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];
@@ -1357,13 +1357,13 @@ void symantecBinCSV5(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, join, nestLabel, *mat);
   join->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
-  Function *debugFloat = ctx.getFunction("printFloat");
+  llvm::Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   FloatType floatType = FloatType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &floatType);
   expressions::RecordProjection *nestOutput1 =

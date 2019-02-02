@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -36,8 +36,8 @@
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "plugins/csv-plugin-pm.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 // Step 2. Use the TEST macro to define your tests.
@@ -65,12 +65,12 @@
 // </TechnicalDetails>
 
 ::testing::Environment *const pools_env =
-    ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
 
 class SailorsTest : public ::testing::Test {
  protected:
   virtual void SetUp() {
-    catalog = &RawCatalog::getInstance();
+    catalog = &Catalog::getInstance();
     caches = &CachingService::getInstance();
     catalog->clear();
     caches->clear();
@@ -78,10 +78,9 @@ class SailorsTest : public ::testing::Test {
 
   virtual void TearDown() {}
 
-  pm::CSVPlugin *openCSV(RawContext *const context, string &fname,
-                         RecordType &rec, vector<RecordAttribute *> whichFields,
-                         char delimInner, int lineHint, int policy,
-                         bool stringBrackets = true) {
+  pm::CSVPlugin *openCSV(Context *const context, string &fname, RecordType &rec,
+                         vector<RecordAttribute *> whichFields, char delimInner,
+                         int lineHint, int policy, bool stringBrackets = true) {
     pm::CSVPlugin *plugin =
         new pm::CSVPlugin(context, fname, rec, whichFields, delimInner,
                           lineHint, policy, stringBrackets);
@@ -93,13 +92,13 @@ class SailorsTest : public ::testing::Test {
   const char *testPath = TEST_OUTPUTS "/tests-sailors/";
 
  private:
-  RawCatalog *catalog;
+  Catalog *catalog;
   CachingService *caches;
 };
 
 TEST_F(SailorsTest, Scan) {
   const char *testLabel = "sailorsScan.json";
-  RawContext &ctx = *prepareContext(testLabel);
+  Context &ctx = *prepareContext(testLabel);
 
   /**
    * SCAN1
@@ -159,7 +158,7 @@ TEST_F(SailorsTest, Scan) {
 
 TEST_F(SailorsTest, Select) {
   const char *testLabel = "sailorsSel.json";
-  RawContext &ctx = *prepareContext(testLabel);
+  Context &ctx = *prepareContext(testLabel);
 
   /**
    * SCAN1
@@ -246,7 +245,7 @@ TEST_F(SailorsTest, Select) {
 
 TEST_F(SailorsTest, ScanBoats) {
   const char *testLabel = "sailorsScanBoats.json";
-  RawContext &ctx = *prepareContext(testLabel);
+  Context &ctx = *prepareContext(testLabel);
 
   PrimitiveType *intType = new IntType();
   PrimitiveType *floatType = new FloatType();
@@ -315,7 +314,7 @@ TEST_F(SailorsTest, ScanBoats) {
 
 TEST_F(SailorsTest, JoinLeft3) {
   const char *testLabel = "sailorsJoinLeft3.json";
-  RawContext &ctx = *prepareContext(testLabel);
+  Context &ctx = *prepareContext(testLabel);
 
   /**
    * SCAN1
@@ -539,7 +538,7 @@ TEST_F(SailorsTest, JoinLeft3) {
 
 TEST_F(SailorsTest, JoinRight3) {
   const char *testLabel = "sailorsJoinRight3.json";
-  RawContext &ctx = *prepareContext(testLabel);
+  Context &ctx = *prepareContext(testLabel);
 
   PrimitiveType *intType = new IntType();
   PrimitiveType *floatType = new FloatType();

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -22,26 +22,27 @@
 */
 
 #include "operators/hash-group-by-chained.hpp"
+#include "codegen/memory/memory-manager.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "operators/gpu/gmonoids.hpp"
-#include "util/raw-memory-manager.hpp"
+
+using namespace llvm;
 
 HashGroupByChained::HashGroupByChained(
     const std::vector<GpuAggrMatExpr> &agg_exprs,
     // const std::vector<size_t>                      &packet_widths,
-    const std::vector<expression_t> key_expr, RawOperator *const child,
+    const std::vector<expression_t> key_expr, Operator *const child,
 
     int hash_bits,
 
-    GpuRawContext *context, size_t maxInputSize, string opLabel)
-    : agg_exprs(agg_exprs),
-      // packet_widths(packet_widths),
+    ParallelContext *context, size_t maxInputSize, string opLabel)
+    : UnaryOperator(child),
+      agg_exprs(agg_exprs),
       key_expr(key_expr),
       hash_bits(hash_bits),
-      UnaryRawOperator(child),
-      context(context),
       maxInputSize(maxInputSize),
+      context(context),
       opLabel(opLabel) {}
 
 void HashGroupByChained::produce() {
@@ -56,18 +57,18 @@ void HashGroupByChained::produce() {
 
   buildHashTableFormat();
 
-  ((GpuRawContext *)context)->registerOpen(this, [this](RawPipeline *pip) {
+  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open(pip);
   });
-  // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline *
+  // ((ParallelContext *) context)->registerClose(this, [this](Pipeline *
   // pip){this->close(pip);});
 
   getChild()->produce();
 }
 
-void HashGroupByChained::consume(RawContext *const context,
+void HashGroupByChained::consume(Context *const context,
                                  const OperatorState &childState) {
-  generate_build(context, childState);
+  generate_build((ParallelContext *const)context, childState);
 }
 
 void HashGroupByChained::prepareDescription() {
@@ -200,7 +201,7 @@ void HashGroupByChained::buildHashTableFormat() {
         Type *substate_t = f_t->getParamType(f_t->getNumParams() - 1);
 
         Value *substate = Builder->CreateBitCast(
-            ((GpuRawContext *)context)->getSubStateVar(), substate_t);
+            ((ParallelContext *)context)->getSubStateVar(), substate_t);
         args.emplace_back(substate);
 
         for (const auto &t : args) t->getType()->dump();
@@ -210,7 +211,7 @@ void HashGroupByChained::buildHashTableFormat() {
 }
 
 Value *HashGroupByChained::hash(const std::vector<expression_t> &exprs,
-                                RawContext *const context,
+                                Context *const context,
                                 const OperatorState &childState) {
   Value *hash;
   if (exprs.size() == 1) {
@@ -228,7 +229,7 @@ Value *HashGroupByChained::hash(const std::vector<expression_t> &exprs,
   return context->getBuilder()->CreateURem(hash, size);
 }
 
-void HashGroupByChained::generate_build(RawContext *const context,
+void HashGroupByChained::generate_build(ParallelContext *const context,
                                         const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -242,23 +243,11 @@ void HashGroupByChained::generate_build(RawContext *const context,
   Value *v_true = ConstantInt::getTrue(llvmContext);
   Value *v_false = ConstantInt::getFalse(llvmContext);
 
-  Value *out_cnt = ((const GpuRawContext *)context)->getStateVar(cnt_param_id);
+  Value *out_cnt = context->getStateVar(cnt_param_id);
   out_cnt->setName(opLabel + "_cnt_ptr");
 
-  Value *head_ptr =
-      ((const GpuRawContext *)context)->getStateVar(head_param_id);
+  Value *head_ptr = context->getStateVar(head_param_id);
   head_ptr->setName(opLabel + "_head_ptr");
-
-  // expression_t kexpr;
-  // if (key_expr.size() == 1) {
-  //     kexpr = key_expr[0];
-  // } else {
-  //     auto attrs = new list<expressions::AttributeConstruction>;
-  //     for (const auto &k: key_expr){
-  //         attrs->emplace_back(k->getRegisteredAttrName(), k);
-  //     }
-  //     kexpr = new expressions::RecordConstruction(*attrs);
-  // }
 
   // ExpressionHasherVisitor exphasher{context, childState};
   // Value * hash = kexpr.accept(exphasher).value;
@@ -304,8 +293,7 @@ void HashGroupByChained::generate_build(RawContext *const context,
   std::vector<Value *> out_vals;
 
   for (size_t i = 0; i < out_param_ids.size(); ++i) {
-    Value *out_ptr =
-        ((const GpuRawContext *)context)->getStateVar(out_param_ids[i]);
+    Value *out_ptr = context->getStateVar(out_param_ids[i]);
     out_ptr->setName(opLabel + "_data" + std::to_string(i) + "_ptr");
     // out_ptrs.push_back(out_ptr);
 
@@ -321,7 +309,7 @@ void HashGroupByChained::generate_build(RawContext *const context,
 
   for (const GpuAggrMatExpr &mexpr : agg_exprs) {
     ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue valWrapper = mexpr.expr.accept(exprGenerator);
+    ProteusValue valWrapper = mexpr.expr.accept(exprGenerator);
 
     out_vals[mexpr.packet] = Builder->CreateInsertValue(
         out_vals[mexpr.packet], valWrapper.value, mexpr.packind);
@@ -347,38 +335,24 @@ void HashGroupByChained::generate_build(RawContext *const context,
   Builder->SetInsertPoint(InitThenBB);
 
   // index
-  // Value * old_cnt  =
-  // Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add,
-  //                                             out_cnt,
-  //                                             ConstantInt::get(out_cnt->getType()->getPointerElementType(),
-  //                                             1),
-  //                                             llvm::AtomicOrdering::Monotonic);
-  Value *old_cnt = Builder->CreateLoad(out_cnt);
-  Builder->CreateStore(
-      Builder->CreateAdd(
-          old_cnt,
-          ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1)),
-      out_cnt);
-
+  Value *old_cnt = context->workerScopedAtomicAdd(
+      out_cnt,
+      ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1));
   old_cnt->setName("index");
   Builder->CreateStore(old_cnt, mem_idx);
 
   // next[idx].sum  = val;
   // next[idx].key  = key;
   // next[idx].next =  -1;
-  // Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg,
-  //     Builder->CreateBitCast(Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]),
-  //     old_cnt), PointerType::getInt32PtrTy(llvmContext)), eochain,
-  //     llvm::AtomicOrdering::Monotonic);
-  Builder->CreateStore(eochain,
-                       Builder->CreateBitCast(
-                           Builder->CreateInBoundsGEP(
-                               context->getStateVar(out_param_ids[0]), old_cnt),
-                           PointerType::getInt32PtrTy(llvmContext)));
+  context->workerScopedAtomicXchg(
+      Builder->CreateBitCast(
+          Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]),
+                                     old_cnt),
+          PointerType::getInt32PtrTy(llvmContext)),
+      eochain);
 
   for (size_t i = 1; i < out_param_ids.size(); ++i) {
-    Value *out_ptr =
-        ((const GpuRawContext *)context)->getStateVar(out_param_ids[i]);
+    Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
     Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
     Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
@@ -388,7 +362,7 @@ void HashGroupByChained::generate_build(RawContext *const context,
   // written = true;
   Builder->CreateStore(v_true, mem_written);
 
-  // ((GpuRawContext *) context)->createMembar_gl();
+  context->workerScopedMembar();
 
   // current = atomicCAS(&(first[bucket]), -1, idx);
   Value *old_current = Builder->CreateAtomicCmpXchg(
@@ -415,19 +389,20 @@ void HashGroupByChained::generate_build(RawContext *const context,
   Builder->SetInsertPoint(ThenBB);
   current = Builder->CreateLoad(mem_current);
 
-  // ((GpuRawContext *) context)->createMembar_gl();
+  context->workerScopedMembar();
 
   // Keys
   Value *next_bucket_ptr = Builder->CreateInBoundsGEP(
-      ((const GpuRawContext *)context)->getStateVar(out_param_ids[1]), current);
+      context->getStateVar(out_param_ids[1]), current);
   Value *next_bucket = Builder->CreateAlignedLoad(
       next_bucket_ptr, packet_widths[1] / 8, true, "next_bucket");
 
-  // ((GpuRawContext *) context)->createMembar_gl();
+  context->workerScopedMembar();
 
   // Value * next =
   // Builder->CreateExtractValue(Builder->CreateAtomicCmpXchg(Builder->CreateInBoundsGEP(((const
-  // GpuRawContext *) context)->getStateVar(out_param_ids[0]), std::vector<Value
+  // ParallelContext *) context)->getStateVar(out_param_ids[0]),
+  // std::vector<Value
   // *>{current, context->createInt32(0)}),
   //                                             eochain,
   //                                             eochain,
@@ -435,7 +410,7 @@ void HashGroupByChained::generate_build(RawContext *const context,
   //                                             llvm::AtomicOrdering::Monotonic),
   //                                             0);
   Value *next = Builder->CreateLoad(Builder->CreateInBoundsGEP(
-      ((const GpuRawContext *)context)->getStateVar(out_param_ids[0]),
+      context->getStateVar(out_param_ids[0]),
       std::vector<Value *>{current, context->createInt32(0)}));
 
   // next_bucket_next->setName("next_bucket_next");
@@ -451,16 +426,17 @@ void HashGroupByChained::generate_build(RawContext *const context,
   Value *bucket_cond = v_true;
   for (size_t i = 0; i < key_expr.size(); ++i) {
     ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue keyWrapper = key_expr[i].accept(exprGenerator);
+    ProteusValue keyWrapper = key_expr[i].accept(exprGenerator);
 
     Value *key = Builder->CreateExtractValue(next_bucket, i);
 
-    expressions::RawValueExpression kexpr{key_expr[i].getExpressionType(),
-                                          keyWrapper};
-    expressions::RawValueExpression kbuck{
-        key_expr[i].getExpressionType(), RawValue{key, context->createFalse()}};
+    expressions::ProteusValueExpression kexpr{key_expr[i].getExpressionType(),
+                                              keyWrapper};
+    expressions::ProteusValueExpression kbuck{
+        key_expr[i].getExpressionType(),
+        ProteusValue{key, context->createFalse()}};
 
-    RawValue eq_v = eq(kexpr, kbuck).accept(exprGenerator);
+    ProteusValue eq_v = eq(kexpr, kbuck).accept(exprGenerator);
     bucket_cond = Builder->CreateAnd(bucket_cond, eq_v.value);
   }
   // if (next[current].key == key) {
@@ -482,9 +458,7 @@ void HashGroupByChained::generate_build(RawContext *const context,
                                                 agg_exprs[i].packind);
 
       Value *gl_accum = Builder->CreateInBoundsGEP(
-          ((const GpuRawContext *)context)
-              ->getStateVar(out_param_ids[agg_exprs[i].packet]),
-          tmp);
+          context->getStateVar(out_param_ids[agg_exprs[i].packet]), tmp);
 
       gm->createUpdate(context, gl_accum, aggr);
     }
@@ -496,19 +470,15 @@ void HashGroupByChained::generate_build(RawContext *const context,
   // break;
   Builder->SetInsertPoint(InvalidateEntryBB);
 
-  // Value * str = UndefValue::get(((const GpuRawContext *)
+  // Value * str = UndefValue::get(((const ParallelContext *)
   // context)->getStateVar(out_param_ids[0])->getType()->getPointerElementType());
   // str = Builder->CreateInsertValue(str, Builder->CreateLoad(mem_idx), 0);
   Value *inv_ptr = Builder->CreateInBoundsGEP(
-      ((const GpuRawContext *)context)->getStateVar(out_param_ids[0]),
+      context->getStateVar(out_param_ids[0]),
       std::vector<Value *>{Builder->CreateLoad(mem_idx),
                            context->createInt32(0)});
 
-  // Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg,
-  //                                             inv_ptr,
-  //                                             Builder->CreateLoad(mem_idx),
-  //                                             llvm::AtomicOrdering::Monotonic);
-  Builder->CreateStore(Builder->CreateLoad(mem_idx), inv_ptr);
+  context->workerScopedAtomicXchg(inv_ptr, Builder->CreateLoad(mem_idx));
   // Builder->CreateAlignedStore(str, , packet_widths[0]/8);
 
   Builder->CreateBr(MergeBB);
@@ -538,18 +508,9 @@ void HashGroupByChained::generate_build(RawContext *const context,
   Builder->SetInsertPoint(CreateBucketBB);
 
   // index
-
-  old_cnt = Builder->CreateLoad(out_cnt);
-  Builder->CreateStore(
-      Builder->CreateAdd(
-          old_cnt,
-          ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1)),
-      out_cnt);
-  // old_cnt  = Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add,
-  //                                             out_cnt,
-  //                                             ConstantInt::get(out_cnt->getType()->getPointerElementType(),
-  //                                             1),
-  //                                             llvm::AtomicOrdering::Monotonic);
+  old_cnt = context->workerScopedAtomicAdd(
+      out_cnt,
+      ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1));
   Builder->CreateStore(old_cnt, mem_idx);
 
   // next[idx].sum  = val;
@@ -578,14 +539,14 @@ void HashGroupByChained::generate_build(RawContext *const context,
 
   // __threadfence();
   // }
-  // ((GpuRawContext *) context)->createMembar_gl();
+  context->workerScopedMembar();
   Builder->CreateBr(ContLinkingBB);
 
   Builder->SetInsertPoint(ContLinkingBB);
   // new_next = atomicCAS(&(next[current].next), -1, idx);
   std::vector<Value *> tmp{current, context->createInt32(0)};
-  Value *n_ptr = Builder->CreateInBoundsGEP(
-      ((const GpuRawContext *)context)->getStateVar(out_param_ids[0]), tmp);
+  Value *n_ptr =
+      Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]), tmp);
   Value *new_next = Builder->CreateLoad(n_ptr);
   // Value * new_next = Builder->CreateAtomicCmpXchg(n_ptr,
   //                                             eochain,
@@ -593,11 +554,11 @@ void HashGroupByChained::generate_build(RawContext *const context,
   //                                             llvm::AtomicOrdering::Monotonic,
   //                                             llvm::AtomicOrdering::Monotonic);
 
-  context->gen_if(RawValue{Builder->CreateICmpEQ(new_next, eochain),
-                           context->createFalse()})(
+  context->gen_if(ProteusValue{Builder->CreateICmpEQ(new_next, eochain),
+                               context->createFalse()})(
       [=]() { Builder->CreateStore(Builder->CreateLoad(mem_idx), n_ptr); });
 
-  // ((GpuRawContext *) context)->createMembar_gl();
+  context->workerScopedMembar();
   // current = new_next;
   Builder->CreateStore(new_next, mem_current);
   // if (new_next == ((uint32_t) -1))
@@ -617,7 +578,7 @@ void HashGroupByChained::generate_scan() {
   Type *int32_type = Type::getInt32Ty(llvmContext);
 
   // Container for the variable bindings
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   Type *t_cnt = PointerType::get(int32_type, /* address space */ 0);
   size_t cnt_ptr_param = context->appendParameter(t_cnt, true, true);
@@ -663,7 +624,7 @@ void HashGroupByChained::generate_scan() {
   // Builder->CreateBr      (CondBB);
 
   std::string relName = agg_exprs[0].expr.getRegisteredRelName();
-  Plugin *pg = RawCatalog::getInstance().getPlugin(relName);
+  Plugin *pg = Catalog::getInstance().getPlugin(relName);
 
   AllocaInst *mem_itemCtr = context->CreateEntryBlockAlloca(
       F, "i_ptr", pg->getOIDType()->getLLVMType(llvmContext));
@@ -679,7 +640,7 @@ void HashGroupByChained::generate_scan() {
       context->CreateEntryBlockAlloca(F, "cnt_mem", cnt->getType());
   Builder->CreateStore(cnt, mem_cnt);
 
-  RawValueMemory mem_cntWrapper;
+  ProteusValueMemory mem_cntWrapper;
   mem_cntWrapper.mem = mem_cnt;
   mem_cntWrapper.isNull = context->createFalse();
   variableBindings[tupleCnt] = mem_cntWrapper;
@@ -738,7 +699,7 @@ void HashGroupByChained::generate_scan() {
   // FIXME This action corresponds to materializing the oid. Do we want this?
   RecordAttribute tupleIdentifier{relName, activeLoop, pg->getOIDType()};
 
-  RawValueMemory mem_posWrapper;
+  ProteusValueMemory mem_posWrapper;
   mem_posWrapper.mem = mem_itemCtr;
   mem_posWrapper.isNull = context->createFalse();
   variableBindings[tupleIdentifier] = mem_posWrapper;
@@ -771,7 +732,7 @@ void HashGroupByChained::generate_scan() {
         mexpr.expr.getRegisteredAttrName(), v->getType());
     Builder->CreateStore(v, v_mem);
 
-    RawValueMemory val_mem;
+    ProteusValueMemory val_mem;
     val_mem.mem = v_mem;
     val_mem.isNull = context->createFalse();
 
@@ -808,20 +769,20 @@ void HashGroupByChained::generate_scan() {
   //  Any new code will be inserted in AfterBB.
   Builder->SetInsertPoint(context->getEndingBlock());
 
-  // ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline *
+  // ((ParallelContext *) context)->registerOpen (this, [this](Pipeline *
   // pip){this->open (pip);});
-  // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline *
+  // ((ParallelContext *) context)->registerClose(this, [this](Pipeline *
   // pip){this->close(pip);});
 }
 
-void HashGroupByChained::open(RawPipeline *pip) {
-  int32_t *cnt = (int32_t *)RawMemoryManager::mallocPinned(sizeof(int32_t));
-  // int32_t * first = (int32_t *) RawMemoryManager::mallocPinned(sizeof(int32_t
+void HashGroupByChained::open(Pipeline *pip) {
+  int32_t *cnt = (int32_t *)MemoryManager::mallocPinned(sizeof(int32_t));
+  // int32_t * first = (int32_t *) MemoryManager::mallocPinned(sizeof(int32_t
   // ) * (1 << hash_bits));
   std::vector<void *> next;
 
   for (const auto &w : packet_widths) {
-    next.emplace_back(RawMemoryManager::mallocPinned((w / 8) * maxInputSize));
+    next.emplace_back(MemoryManager::mallocPinned((w / 8) * maxInputSize));
   }
   // gpu_run(cudaMemset(next[0], -1, (packet_widths[0]/8) * maxInputSize));
 
@@ -854,7 +815,7 @@ struct entry {
 //     // int32_t gb;
 // };
 
-void HashGroupByChained::close(RawPipeline *pip) {
+void HashGroupByChained::close(Pipeline *pip) {
   // int32_t * cnt_ptr = pip->getStateVar<int32_t  *>(cnt_param_id);
   // entry * h_next;
   // int32_t * h_first;
@@ -915,7 +876,7 @@ void HashGroupByChained::close(RawPipeline *pip) {
   // void   ** buffs = pip->getStateVar<void   **>(buffVar_id[0]);
   // int32_t * cnts  = pip->getStateVar<int32_t *>(cntVar_id    );
 
-  RawPipeline *probe_pip = probe_gen->getPipeline(pip->getGroup());
+  Pipeline *probe_pip = probe_gen->getPipeline(pip->getGroup());
   probe_pip->open();
 
   std::vector<void *> args;
@@ -936,10 +897,10 @@ void HashGroupByChained::close(RawPipeline *pip) {
 
   probe_pip->close();
 
-  RawMemoryManager::freePinned(pip->getStateVar<int32_t *>(cnt_param_id));
-  RawMemoryManager::freePinned(pip->getStateVar<int32_t *>(head_param_id));
+  MemoryManager::freePinned(pip->getStateVar<int32_t *>(cnt_param_id));
+  MemoryManager::freePinned(pip->getStateVar<int32_t *>(head_param_id));
 
   for (size_t i = 0; i < out_param_ids.size(); ++i) {
-    RawMemoryManager::freePinned(pip->getStateVar<void *>(out_param_ids[i]));
+    MemoryManager::freePinned(pip->getStateVar<void *>(out_param_ids[i]));
   }
 }

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,9 +23,11 @@
 
 #include "operators/dict-scan.hpp"
 #include "llvm/IR/TypeBuilder.h"
-#include "storage/raw-storage-manager.hpp"
+#include "storage/storage-manager.hpp"
 
 #include <regex>
+
+using namespace llvm;
 
 class DictMatchIter {
   typedef std::map<int, std::string> dict_t;
@@ -141,7 +143,7 @@ void DictScan::produce() {
 
   auto t = context->CastPtrToLlvmPtr(charPtrType, this);
 
-  Plugin *pg = RawCatalog::getInstance().getPlugin(regAs.getRelationName());
+  Plugin *pg = Catalog::getInstance().getPlugin(regAs.getRelationName());
   Type *oid_type = pg->getOIDType()->getLLVMType(llvmContext);
 
   AllocaInst *curr = context->CreateEntryBlockAlloca(F, "curr", iter_type);
@@ -176,9 +178,9 @@ void DictScan::produce() {
   Builder->CreateStore(v, enc);
 
   {
-    std::map<RecordAttribute, RawValueMemory> vars;
-    vars[oidRA] = RawValueMemory{oid, context->createFalse()};
-    vars[regAs] = RawValueMemory{enc, context->createFalse()};
+    std::map<RecordAttribute, ProteusValueMemory> vars;
+    vars[oidRA] = ProteusValueMemory{oid, context->createFalse()};
+    vars[regAs] = ProteusValueMemory{enc, context->createFalse()};
     OperatorState state{*this, vars};
     getParent()->consume(context, state);
   }
@@ -199,7 +201,7 @@ void DictScan::produce() {
   Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-void DictScan::consume(GpuRawContext *const context,
+void DictScan::consume(ParallelContext *const context,
                        const OperatorState &childState) {
   throw runtime_error(
       string("unexpected call to DistScan::consume (DictScan "

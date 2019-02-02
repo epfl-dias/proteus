@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -41,9 +41,9 @@
 #include "operators/unnest.hpp"
 #include "plugins/binary-col-plugin.hpp"
 #include "plugins/csv-plugin-pm.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 void tpchSchema(map<string, dataset> &datasetCatalog) {
@@ -94,7 +94,7 @@ int main() {
       cout << "---" << endl;
     }
 
-    RawCatalog &rawCatalog = RawCatalog::getInstance();
+    Catalog &rawCatalog = Catalog::getInstance();
     rawCatalog.clear();
     CachingService &cache = CachingService::getInstance();
     cache.clear();
@@ -132,8 +132,8 @@ void tpchLineitemProjection3(map<string, dataset> datasetCatalog,
   if (aggregatesNo <= 0 || aggregatesNo > 4) {
     throw runtime_error(string("Invalid aggregate no. requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-projection3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-projection3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -291,8 +291,8 @@ void tpchLineitemProjection3CachingPred(map<string, dataset> datasetCatalog,
   if (aggregatesNo <= 0 || aggregatesNo > 4) {
     throw runtime_error(string("Invalid aggregate no. requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-projection3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-projection3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -463,8 +463,8 @@ void tpchLineitemProjection3CachingAgg(map<string, dataset> datasetCatalog,
   if (aggregatesNo <= 0 || aggregatesNo > 4) {
     throw runtime_error(string("Invalid aggregate no. requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-projection3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-projection3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -647,8 +647,8 @@ void tpchLineitemProjection3CachingPredAgg(map<string, dataset> datasetCatalog,
   if (aggregatesNo <= 0 || aggregatesNo > 4) {
     throw runtime_error(string("Invalid aggregate no. requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-projection3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-projection3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,19 +21,19 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef RAW_FUNCTIONS_HPP_
-#define RAW_FUNCTIONS_HPP_
+#ifndef FUNCTIONS_HPP_
+#define FUNCTIONS_HPP_
 
-#include "util/gpu/gpu-raw-context.hpp"
+#include "parallel-context.hpp"
+#include "util/catalog.hpp"
+#include "util/context.hpp"
 #include "util/radix/aggregations/radix-aggr.hpp"
 #include "util/radix/joins/radix-join.hpp"
-#include "util/raw-catalog.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-timing.hpp"
+#include "util/timing.hpp"
 
-class RawContext;
+class Context;
 
-GpuRawContext *prepareContext(string moduleName);
+ParallelContext *prepareContext(string moduleName);
 //===----------------------------------------------------------------------===//
 // "Library" functions that can be "extern'd" from user code.
 //===----------------------------------------------------------------------===//
@@ -174,4 +174,4 @@ extern "C" void resetTime();
 
 extern "C" void calculateTime();
 
-#endif /* RAW_FUNCTIONS_HPP_ */
+#endif /* FUNCTIONS_HPP_ */

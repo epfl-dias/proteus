@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -46,9 +46,9 @@
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 void tpchSchema(map<string, dataset> &datasetCatalog) {
@@ -110,8 +110,8 @@ int main() {
 
 void tpchLineitemProjection1(map<string, dataset> datasetCatalog,
                              int predicateVal) {
-  RawContext &ctx = *prepareContext("tpch-csv-projection1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-projection1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -186,8 +186,8 @@ void tpchLineitemProjection1(map<string, dataset> datasetCatalog,
  */
 void tpchLineitemProjection2(map<string, dataset> datasetCatalog,
                              int predicateVal) {
-  RawContext &ctx = *prepareContext("tpch-csv-projection2");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-projection2");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -262,8 +262,8 @@ void tpchLineitemProjection3(map<string, dataset> datasetCatalog,
   if (aggregatesNo <= 0 || aggregatesNo > 4) {
     throw runtime_error(string("Invalid aggregate no. requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-projection3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-projection3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];

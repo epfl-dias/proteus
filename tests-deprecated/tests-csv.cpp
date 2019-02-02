@@ -37,13 +37,13 @@
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 TEST(CSV, ScanCsvPM) {
-  RawContext &ctx = *prepareContext("ScanCsvPM");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("ScanCsvPM");
+  Catalog &catalog = Catalog::getInstance();
 
   /**
    * SCAN
@@ -95,8 +95,8 @@ TEST(CSV, ScanCsvPM) {
 }
 
 TEST(CSV, ScanCsvWideBuildPM) {
-  RawContext &ctx = *prepareContext("ScanCsvWidePM");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("ScanCsvWidePM");
+  Catalog &catalog = Catalog::getInstance();
 
   /**
    * SCAN
@@ -162,8 +162,8 @@ TEST(CSV, ScanCsvWideBuildPM) {
 }
 
 void scanCsvWideUsePM_(size_t *newline, short **offsets) {
-  RawContext &ctx = *prepareContext("ScanCsvWideUsePM");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("ScanCsvWideUsePM");
+  Catalog &catalog = Catalog::getInstance();
 
   /**
    * SCAN
@@ -229,8 +229,8 @@ void scanCsvWideUsePM_(size_t *newline, short **offsets) {
 }
 
 TEST(CSV, scanCsvWideUsePM) {
-  RawContext &ctx = *prepareContext("ScanCsvWideBuildPM");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("ScanCsvWideBuildPM");
+  Catalog &catalog = Catalog::getInstance();
 
   /**
    * SCAN
@@ -301,8 +301,8 @@ TEST(CSV, scanCsvWideUsePM) {
 }
 
 TEST(CSV, atoiCSV) {
-  RawContext &ctx = *prepareContext("AtoiCSV");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("AtoiCSV");
+  Catalog &catalog = Catalog::getInstance();
 
   /**
    * SCAN

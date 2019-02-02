@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,24 +24,24 @@
 #ifndef DEVICE_CROSS_HPP_
 #define DEVICE_CROSS_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
-class DeviceCross : public UnaryRawOperator {
+class DeviceCross : public UnaryOperator {
  protected:
-  DeviceCross(RawOperator *const child) : UnaryRawOperator(child) {}
+  DeviceCross(Operator *const child) : UnaryOperator(child) {}
 
  public:
-  virtual void consume(GpuRawContext *const context,
+  virtual void consume(ParallelContext *const context,
                        const OperatorState &childState) = 0;
 
-  virtual void consume(RawContext *const context,
+  virtual void consume(Context *const context,
                        const OperatorState &childState) {
-    GpuRawContext *ctx = dynamic_cast<GpuRawContext *>(context);
+    ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
     if (!ctx) {
       string error_msg =
           "[DeviceCross: ] Operator only supports code "
-          "generation using the GpuRawContext";
+          "generation using the ParallelContext";
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
     }

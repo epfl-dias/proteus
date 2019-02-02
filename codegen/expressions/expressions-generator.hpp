@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -26,59 +26,59 @@
 
 #include "common/common.hpp"
 #include "plugins/plugins.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-catalog.hpp"
+#include "util/caching.hpp"
+#include "util/catalog.hpp"
 //===---------------------------------------------------------------------------===//
 // "Visitor(s)" responsible for generating the appropriate code per Expression
 // 'node'
 //===---------------------------------------------------------------------------===//
 class ExpressionGeneratorVisitor : public ExprVisitor {
  public:
-  ExpressionGeneratorVisitor(RawContext *const context,
+  ExpressionGeneratorVisitor(Context *const context,
                              const OperatorState &currState)
       : context(context), currState(currState), activeRelation("") {}
-  ExpressionGeneratorVisitor(RawContext *const context,
+  ExpressionGeneratorVisitor(Context *const context,
                              const OperatorState &currState,
                              string activeRelation)
       : context(context),
         currState(currState),
         activeRelation(activeRelation) {}
-  RawValue visit(const expressions::IntConstant *e);
-  RawValue visit(const expressions::Int64Constant *e);
-  RawValue visit(const expressions::DateConstant *e);
-  RawValue visit(const expressions::FloatConstant *e);
-  RawValue visit(const expressions::BoolConstant *e);
-  RawValue visit(const expressions::StringConstant *e);
-  RawValue visit(const expressions::DStringConstant *e);
-  RawValue visit(const expressions::InputArgument *e);
-  RawValue visit(const expressions::RecordProjection *e);
+  ProteusValue visit(const expressions::IntConstant *e);
+  ProteusValue visit(const expressions::Int64Constant *e);
+  ProteusValue visit(const expressions::DateConstant *e);
+  ProteusValue visit(const expressions::FloatConstant *e);
+  ProteusValue visit(const expressions::BoolConstant *e);
+  ProteusValue visit(const expressions::StringConstant *e);
+  ProteusValue visit(const expressions::DStringConstant *e);
+  ProteusValue visit(const expressions::InputArgument *e);
+  ProteusValue visit(const expressions::RecordProjection *e);
   /*
    * XXX How is NULL propagated? What if one of the attributes is NULL;
    * XXX Did not have to test it yet -> Applicable to output only
    */
-  RawValue visit(const expressions::RecordConstruction *e);
-  RawValue visit(const expressions::IfThenElse *e);
+  ProteusValue visit(const expressions::RecordConstruction *e);
+  ProteusValue visit(const expressions::IfThenElse *e);
   // XXX Do binary operators require explicit handling of NULL?
-  RawValue visit(const expressions::EqExpression *e);
-  RawValue visit(const expressions::NeExpression *e);
-  RawValue visit(const expressions::GeExpression *e);
-  RawValue visit(const expressions::GtExpression *e);
-  RawValue visit(const expressions::LeExpression *e);
-  RawValue visit(const expressions::LtExpression *e);
-  RawValue visit(const expressions::AddExpression *e);
-  RawValue visit(const expressions::SubExpression *e);
-  RawValue visit(const expressions::MultExpression *e);
-  RawValue visit(const expressions::DivExpression *e);
-  RawValue visit(const expressions::AndExpression *e);
-  RawValue visit(const expressions::OrExpression *e);
-  RawValue visit(const expressions::RawValueExpression *e);
-  RawValue visit(const expressions::MinExpression *e);
-  RawValue visit(const expressions::MaxExpression *e);
-  RawValue visit(const expressions::HashExpression *e);
-  RawValue visit(const expressions::NegExpression *e);
-  RawValue visit(const expressions::ExtractExpression *e);
-  RawValue visit(const expressions::TestNullExpression *e);
-  RawValue visit(const expressions::CastExpression *e);
+  ProteusValue visit(const expressions::EqExpression *e);
+  ProteusValue visit(const expressions::NeExpression *e);
+  ProteusValue visit(const expressions::GeExpression *e);
+  ProteusValue visit(const expressions::GtExpression *e);
+  ProteusValue visit(const expressions::LeExpression *e);
+  ProteusValue visit(const expressions::LtExpression *e);
+  ProteusValue visit(const expressions::AddExpression *e);
+  ProteusValue visit(const expressions::SubExpression *e);
+  ProteusValue visit(const expressions::MultExpression *e);
+  ProteusValue visit(const expressions::DivExpression *e);
+  ProteusValue visit(const expressions::AndExpression *e);
+  ProteusValue visit(const expressions::OrExpression *e);
+  ProteusValue visit(const expressions::ProteusValueExpression *e);
+  ProteusValue visit(const expressions::MinExpression *e);
+  ProteusValue visit(const expressions::MaxExpression *e);
+  ProteusValue visit(const expressions::HashExpression *e);
+  ProteusValue visit(const expressions::NegExpression *e);
+  ProteusValue visit(const expressions::ExtractExpression *e);
+  ProteusValue visit(const expressions::TestNullExpression *e);
+  ProteusValue visit(const expressions::CastExpression *e);
   /**
    *
    */
@@ -87,18 +87,19 @@ class ExpressionGeneratorVisitor : public ExprVisitor {
   string getActiveRelation(string relName) { return activeRelation; }
 
  private:
-  RawContext *const context;
+  Context *const context;
   const OperatorState &currState;
 
   string activeRelation;
 
-  RawValue mystrncmp(Value *s1, Value *s2, Value *n);
-  RawValue mystrncmp(Value *s1, Value *s2, Value *n1, Value *n2);
+  ProteusValue mystrncmp(llvm::Value *s1, llvm::Value *s2, llvm::Value *n);
+  ProteusValue mystrncmp(llvm::Value *s1, llvm::Value *s2, llvm::Value *n1,
+                         llvm::Value *n2);
 
   void declareLLVMFunc();
 
   /* Plugins are responsible for this action */
-  // RawValue retrieveValue(CacheInfo info, Plugin *pg);
+  // ProteusValue retrieveValue(CacheInfo info, Plugin *pg);
 };
 
 #endif /* EXPRESSIONS_VISITOR_HPP_ */

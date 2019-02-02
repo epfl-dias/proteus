@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -44,10 +44,12 @@
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
+
+using namespace llvm;
 
 /* XXX Due to a different aggr. key,
  * the non-radix variations return one extra group */
@@ -78,8 +80,8 @@ int main() {
  * I don't think such a physical plan can occur through rewrites
  */
 void nest() {
-  RawContext &ctx = *prepareContext("testFunction-nestJSON");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-nestJSON");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/employees-more.json");
 
@@ -216,8 +218,8 @@ void nest() {
 }
 
 void nestMultipleAggs() {
-  RawContext &ctx = *prepareContext("testFunction-nestJSON");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-nestJSON");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/employees-more.json");
 
@@ -379,8 +381,8 @@ void nestMultipleAggs() {
 }
 
 void nestRadixMultipleAggs() {
-  RawContext &ctx = *prepareContext("testFunction-nestRadixJSON");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-nestRadixJSON");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/employees-more.json");
 
@@ -549,8 +551,8 @@ void nestRadixMultipleAggs() {
 }
 
 void nestRadixFull() {
-  RawContext &ctx = *prepareContext("testFunction-nestRadixJSON");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-nestRadixJSON");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/employees-more.json");
 
@@ -724,8 +726,8 @@ void nestRadixFull() {
 }
 
 void nestRadixTwoKeys() {
-  RawContext &ctx = *prepareContext("testFunction-nestRadixJSONTwoKeys");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-nestRadixJSONTwoKeys");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/employees-more.json");
 

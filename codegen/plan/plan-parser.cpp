@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -120,13 +120,12 @@ struct PlanHandler {
 
 PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
                            const char *moduleName)
-    : planPath(planPath),
+    : exprParser(cat),
+      planPath(planPath),
       moduleName(moduleName),
-      catalogParser(cat),
-      exprParser(cat) {
+      catalogParser(cat) {
   /* Init LLVM Context and catalog */
   ctx = prepareContext(this->moduleName);
-  RawCatalog &catalog = RawCatalog::getInstance();
 
   // Input Path
   const char *nameJSON = planPath;
@@ -150,8 +149,13 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
 
   Document document;  // Default template parameter uses UTF8 and
                       // MemoryPoolAllocator.
-  if (document.Parse(bufJSON).HasParseError()) {
-    const char *err = "[PlanExecutor: ] Error parsing physical plan";
+  auto &parsed = document.Parse(bufJSON);
+  if (parsed.HasParseError()) {
+    ParseResult ok = (ParseResult)parsed;
+    fprintf(stderr, "JSON parse error: %s (%lu)",
+            RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
+    const char *err =
+        "[PlanExecutor: ] Error parsing physical plan (JSON parsing error)";
     LOG(ERROR) << err;
     throw runtime_error(err);
   }
@@ -178,14 +182,12 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
 }
 
 PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
-                           const char *moduleName, RawContext *ctx)
-    : planPath(planPath),
+                           const char *moduleName, Context *ctx)
+    : exprParser(cat),
+      planPath(planPath),
       moduleName(moduleName),
       catalogParser(cat),
-      ctx(ctx),
-      exprParser(cat) {
-  RawCatalog &catalog = RawCatalog::getInstance();
-
+      ctx(ctx) {
   // Input Path
   const char *nameJSON = planPath;
   // Prepare Input
@@ -242,7 +244,7 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
 
 void PlanExecutor::parsePlan(const rapidjson::Document &doc, bool execute) {
   splitOps.clear();
-  RawOperator *planRootOp = parseOperator(doc);
+  Operator *planRootOp = parseOperator(doc);
 
   planRootOp->produce();
 
@@ -250,14 +252,14 @@ void PlanExecutor::parsePlan(const rapidjson::Document &doc, bool execute) {
   ctx->prepareFunction(ctx->getGlobalFunction());
 
   if (execute) {
-    RawCatalog &catalog = RawCatalog::getInstance();
+    Catalog &catalog = Catalog::getInstance();
     /* XXX Remove when testing caches (?) */
     catalog.clear();
   }
 }
 
 void PlanExecutor::cleanUp() {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   /* XXX Remove when testing caches (?) */
   catalog.clear();
 
@@ -270,7 +272,7 @@ void PlanExecutor::cleanUp() {
   }
 }
 
-RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
+Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
   const char *keyPg = "plugin";
   const char *keyOp = "operator";
 
@@ -278,12 +280,12 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
   assert(val[keyOp].IsString());
   const char *opName = val["operator"].GetString();
 
-  RawOperator *newOp = NULL;
+  Operator *newOp = NULL;
 
   if (strcmp(opName, "reduce") == 0) {
     /* "Multi - reduce"! */
     /* parse operator input */
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     /* get monoid(s) */
     assert(val.HasMember("accumulator"));
@@ -318,9 +320,9 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* 'Multi-reduce' used */
 #ifndef NCUDA
     if (val.HasMember("gpu") && val["gpu"].GetBool()) {
-      assert(dynamic_cast<GpuRawContext *>(this->ctx));
+      assert(dynamic_cast<ParallelContext *>(this->ctx));
       newOp = new opt::GpuReduce(accs, e, p, childOp,
-                                 dynamic_cast<GpuRawContext *>(this->ctx));
+                                 dynamic_cast<ParallelContext *>(this->ctx));
     } else {
 #endif
       newOp =
@@ -337,7 +339,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     }
 
     /* parse operator input */
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     /*
      * parse output expressions
@@ -357,7 +359,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
   } else if (strcmp(opName, "sort") == 0) {
     /* "Multi - reduce"! */
     /* parse operator input */
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     /*
      * parse output expressions
@@ -423,12 +425,13 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
           assert(false && "granularity must be one of GRID, BLOCK, THREAD");
       }
 
-      assert(dynamic_cast<GpuRawContext *>(this->ctx));
-      newOp = new GpuSort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e,
-                          d, granularity);
+      assert(dynamic_cast<ParallelContext *>(this->ctx));
+      newOp = new GpuSort(childOp, dynamic_cast<ParallelContext *>(this->ctx),
+                          e, d, granularity);
     } else {
 #endif
-      newOp = new Sort(childOp, dynamic_cast<GpuRawContext *>(this->ctx), e, d);
+      newOp =
+          new Sort(childOp, dynamic_cast<ParallelContext *>(this->ctx), e, d);
 #ifndef NCUDA
     }
 #endif
@@ -436,7 +439,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
   } else if (strcmp(opName, "project") == 0) {
     /* "Multi - reduce"! */
     /* parse operator input */
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     /*
      * parse output expressions
@@ -456,7 +459,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     childOp->setParent(newOp);
   } else if (strcmp(opName, "unnest") == 0) {
     /* parse operator input */
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     /* parse filtering expression */
     assert(val.HasMember("p"));
@@ -491,7 +494,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     childOp->setParent(newOp);
   } else if (strcmp(opName, "outer_unnest") == 0) {
     /* parse operator input */
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     /* parse filtering expression */
     assert(val.HasMember("p"));
@@ -524,7 +527,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    RawOperator *child = parseOperator(val["input"]);
+    Operator *child = parseOperator(val["input"]);
 
 #ifndef NCUDA
     // if (val.HasMember("gpu") && val["gpu"].GetBool()){
@@ -575,18 +578,18 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     size_t maxInputSize = val["maxInputSize"].GetUint64();
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
     // newOp = new GpuHashGroupByChained(e, widths, key_expr, child, hash_bits,
-    //                     dynamic_cast<GpuRawContext *>(this->ctx),
+    //                     dynamic_cast<ParallelContext *>(this->ctx),
     //                     maxInputSize);
 
     if (val.HasMember("gpu") && val["gpu"].GetBool()) {
       newOp = new GpuHashGroupByChained(
           e, key_expr, child, hash_bits,
-          dynamic_cast<GpuRawContext *>(this->ctx), maxInputSize);
+          dynamic_cast<ParallelContext *>(this->ctx), maxInputSize);
     } else {
       newOp = new HashGroupByChained(e, key_expr, child, hash_bits,
-                                     dynamic_cast<GpuRawContext *>(this->ctx),
+                                     dynamic_cast<ParallelContext *>(this->ctx),
                                      maxInputSize);
     }
     // } else {
@@ -822,12 +825,12 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("probe_input"));
     assert(val["probe_input"].IsObject());
-    RawOperator *probe_op = parseOperator(val["probe_input"]);
+    Operator *probe_op = parseOperator(val["probe_input"]);
 
     /* parse operator input */
     assert(val.HasMember("build_input"));
     assert(val["build_input"].IsObject());
-    RawOperator *build_op = parseOperator(val["build_input"]);
+    Operator *build_op = parseOperator(val["build_input"]);
 
     /*number of cpu partitions*/
     assert(val.HasMember("numOfBuckets"));
@@ -1010,36 +1013,36 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     }
 
     Exchange *xch_build =
-        new Exchange(build_op, (GpuRawContext *)ctx, numPartitioners,
+        new Exchange(build_op, (ParallelContext *)ctx, numPartitioners,
                      build_attr_block, slack, std::nullopt, false, true);
     build_op->setParent(xch_build);
-    RawOperator *btt_build = new BlockToTuples(
-        xch_build, (GpuRawContext *)ctx, build_expr, false, gran_t::THREAD);
+    Operator *btt_build = new BlockToTuples(xch_build, (ParallelContext *)ctx,
+                                            build_expr, false, gran_t::THREAD);
     xch_build->setParent(btt_build);
-    RawOperator *part_build =
-        new HashRearrange(btt_build, (GpuRawContext *)ctx, numOfBuckets,
+    Operator *part_build =
+        new HashRearrange(btt_build, (ParallelContext *)ctx, numOfBuckets,
                           build_expr, build_expr[0], build_hash_attr);
     btt_build->setParent(part_build);
     build_attr_block.push_back(build_hash_attr);
     Exchange *xch_build2 =
-        new Exchange(part_build, (GpuRawContext *)ctx, 1, build_attr_block,
+        new Exchange(part_build, (ParallelContext *)ctx, 1, build_attr_block,
                      slack, std::nullopt, true, false, numPartitioners);
     part_build->setParent(xch_build2);
 
     Exchange *xch_probe =
-        new Exchange(probe_op, (GpuRawContext *)ctx, numPartitioners,
+        new Exchange(probe_op, (ParallelContext *)ctx, numPartitioners,
                      probe_attr_block, slack, std::nullopt, false, true);
     probe_op->setParent(xch_probe);
-    RawOperator *btt_probe = new BlockToTuples(
-        xch_probe, (GpuRawContext *)ctx, probe_expr, false, gran_t::THREAD);
+    Operator *btt_probe = new BlockToTuples(xch_probe, (ParallelContext *)ctx,
+                                            probe_expr, false, gran_t::THREAD);
     xch_probe->setParent(btt_probe);
-    RawOperator *part_probe =
-        new HashRearrange(btt_probe, (GpuRawContext *)ctx, numOfBuckets,
+    Operator *part_probe =
+        new HashRearrange(btt_probe, (ParallelContext *)ctx, numOfBuckets,
                           probe_expr, probe_expr[0], probe_hash_attr);
     btt_probe->setParent(part_probe);
     probe_attr_block.push_back(probe_hash_attr);
     Exchange *xch_probe2 =
-        new Exchange(part_probe, (GpuRawContext *)ctx, 1, probe_attr_block,
+        new Exchange(part_probe, (ParallelContext *)ctx, 1, probe_attr_block,
                      slack, std::nullopt, true, false, numPartitioners);
     part_probe->setParent(xch_probe2);
 
@@ -1083,68 +1086,68 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
         new ZipCollect(attr_ptr, attr_splitter, attr_target,
                        new RecordAttribute(*build_attr[0], true),
                        new RecordAttribute(*probe_attr[0], true), xch_build2,
-                       xch_probe2, (GpuRawContext *)ctx, numOfBuckets,
+                       xch_probe2, (ParallelContext *)ctx, numOfBuckets,
                        build_hash_attr, build_hashed_expr_block,
                        probe_hash_attr, probe_hashed_expr_block, "coordinator");
     xch_build2->setParent(coord);
     xch_probe2->setParent(coord);
 
     Exchange *xch_proc =
-        new Exchange(coord, (GpuRawContext *)ctx, numConcurrent,
+        new Exchange(coord, (ParallelContext *)ctx, numConcurrent,
                      f_atts_target_v, slack, expr_target, false);
     coord->setParent(xch_proc);
     ZipInitiate *initiator = new ZipInitiate(
-        attr_ptr, attr_splitter, attr_target, xch_proc, (GpuRawContext *)ctx,
+        attr_ptr, attr_splitter, attr_target, xch_proc, (ParallelContext *)ctx,
         numOfBuckets, coord->getStateLeft(), coord->getStateRight(),
         "launcher");
     xch_proc->setParent(initiator);
-    RawPipelineGen **pip_rcv = initiator->pipeSocket();
+    PipelineGen **pip_rcv = initiator->pipeSocket();
 
     ZipForward *fwd_build = new ZipForward(
         attr_splitter, attr_target, new RecordAttribute(*build_attr[0], true),
-        initiator, (GpuRawContext *)ctx, numOfBuckets, build_hashed_expr,
+        initiator, (ParallelContext *)ctx, numOfBuckets, build_hashed_expr,
         "forwarder", coord->getStateLeft());
 
-    RawOperator *mml_build = new MemMoveLocalTo(fwd_build, (GpuRawContext *)ctx,
-                                                build_hashed_attr_block, 4);
+    Operator *mml_build = new MemMoveLocalTo(fwd_build, (ParallelContext *)ctx,
+                                             build_hashed_attr_block, 4);
     fwd_build->setParent(mml_build);
-    RawOperator *mmd_build = new MemMoveDevice(
-        mml_build, (GpuRawContext *)ctx, build_hashed_attr_block, 4, false);
+    Operator *mmd_build = new MemMoveDevice(mml_build, (ParallelContext *)ctx,
+                                            build_hashed_attr_block, 4, false);
     mml_build->setParent(mmd_build);
-    RawOperator *ctg_build =
-        new CpuToGpu(mmd_build, (GpuRawContext *)ctx, build_hashed_attr_block);
+    Operator *ctg_build = new CpuToGpu(mmd_build, (ParallelContext *)ctx,
+                                       build_hashed_attr_block);
     mmd_build->setParent(ctg_build);
-    RawOperator *btt_build2 =
-        new BlockToTuples(ctg_build, (GpuRawContext *)ctx, build_prejoin_expr,
+    Operator *btt_build2 =
+        new BlockToTuples(ctg_build, (ParallelContext *)ctx, build_prejoin_expr,
                           true, gran_t::GRID);
     ctg_build->setParent(btt_build2);
     HashPartitioner *hpart1 = new HashPartitioner(
         attr_target, build_join_expr, build_widths, build_prejoin_expr[0],
-        btt_build2, (GpuRawContext *)ctx, maxBuildInputSize, 13,
+        btt_build2, (ParallelContext *)ctx, maxBuildInputSize, 13,
         "partition_hash_1");
     btt_build2->setParent(hpart1);
 
     ZipForward *fwd_probe = new ZipForward(
         attr_splitter, attr_target, new RecordAttribute(*probe_attr[0], true),
-        initiator, (GpuRawContext *)ctx, numOfBuckets, probe_hashed_expr,
+        initiator, (ParallelContext *)ctx, numOfBuckets, probe_hashed_expr,
         "forwarder", coord->getStateRight());
 
-    RawOperator *mml_probe = new MemMoveLocalTo(fwd_probe, (GpuRawContext *)ctx,
-                                                probe_hashed_attr_block, 4);
+    Operator *mml_probe = new MemMoveLocalTo(fwd_probe, (ParallelContext *)ctx,
+                                             probe_hashed_attr_block, 4);
     fwd_probe->setParent(mml_probe);
-    RawOperator *mmd_probe = new MemMoveDevice(
-        mml_probe, (GpuRawContext *)ctx, probe_hashed_attr_block, 4, false);
+    Operator *mmd_probe = new MemMoveDevice(mml_probe, (ParallelContext *)ctx,
+                                            probe_hashed_attr_block, 4, false);
     mml_probe->setParent(mmd_probe);
-    RawOperator *ctg_probe =
-        new CpuToGpu(mmd_probe, (GpuRawContext *)ctx, probe_hashed_attr_block);
+    Operator *ctg_probe = new CpuToGpu(mmd_probe, (ParallelContext *)ctx,
+                                       probe_hashed_attr_block);
     mmd_probe->setParent(ctg_probe);
-    RawOperator *btt_probe2 =
-        new BlockToTuples(ctg_probe, (GpuRawContext *)ctx, probe_prejoin_expr,
+    Operator *btt_probe2 =
+        new BlockToTuples(ctg_probe, (ParallelContext *)ctx, probe_prejoin_expr,
                           true, gran_t::GRID);
     ctg_probe->setParent(btt_probe2);
     HashPartitioner *hpart2 = new HashPartitioner(
         attr_target, probe_join_expr, probe_widths, probe_prejoin_expr[0],
-        btt_probe2, (GpuRawContext *)ctx, maxProbeInputSize, 13,
+        btt_probe2, (ParallelContext *)ctx, maxProbeInputSize, 13,
         "partition_hash_2");
     btt_probe2->setParent(hpart2);
 
@@ -1152,18 +1155,19 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
         build_join_expr, build_widths, build_join_expr[0].expr, nullopt, hpart1,
         probe_join_expr, probe_widths, probe_join_expr[0].expr, nullopt, hpart2,
         hpart1->getState(), hpart2->getState(), maxBuildInputSize,
-        maxProbeInputSize, 13, (GpuRawContext *)ctx, "hj_part", pip_rcv, NULL);
+        maxProbeInputSize, 13, (ParallelContext *)ctx, "hj_part", pip_rcv,
+        NULL);
     hpart1->setParent(newOp);
     hpart2->setParent(newOp);
   } else if (strcmp(opName, "partitioned-hashjoin-chained") == 0) {
     /* parse operator input */
     assert(val.HasMember("probe_input"));
     assert(val["probe_input"].IsObject());
-    RawOperator *probe_op = parseOperator(val["probe_input"]);
+    Operator *probe_op = parseOperator(val["probe_input"]);
     /* parse operator input */
     assert(val.HasMember("build_input"));
     assert(val["build_input"].IsObject());
-    RawOperator *build_op = parseOperator(val["build_input"]);
+    Operator *build_op = parseOperator(val["build_input"]);
 
     assert(val.HasMember("build_k"));
     auto build_key_expr = parseExpression(val["build_k"]);
@@ -1257,26 +1261,26 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     size_t maxProbeInputSize = val["maxProbeInputSize"].GetUint64();
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
 
     int log_parts = 13;
 
-    HashPartitioner *part_left =
-        new HashPartitioner(NULL, build_e, build_widths, build_key_expr,
-                            build_op, dynamic_cast<GpuRawContext *>(this->ctx),
-                            maxBuildInputSize, log_parts, "part1");
+    HashPartitioner *part_left = new HashPartitioner(
+        NULL, build_e, build_widths, build_key_expr, build_op,
+        dynamic_cast<ParallelContext *>(this->ctx), maxBuildInputSize,
+        log_parts, "part1");
 
-    HashPartitioner *part_right =
-        new HashPartitioner(NULL, probe_e, probe_widths, probe_key_expr,
-                            probe_op, dynamic_cast<GpuRawContext *>(this->ctx),
-                            maxProbeInputSize, log_parts, "part1");
+    HashPartitioner *part_right = new HashPartitioner(
+        NULL, probe_e, probe_widths, probe_key_expr, probe_op,
+        dynamic_cast<ParallelContext *>(this->ctx), maxProbeInputSize,
+        log_parts, "part1");
 
     newOp = new GpuPartitionedHashJoinChained(
         build_e, build_widths, build_key_expr, build_minorkey_expr, part_left,
         probe_e, probe_widths, probe_key_expr, probe_minorkey_expr, part_right,
         part_left->getState(), part_right->getState(), maxBuildInputSize,
-        maxProbeInputSize, log_parts, dynamic_cast<GpuRawContext *>(this->ctx),
-        "phjc", NULL, NULL);
+        maxProbeInputSize, log_parts,
+        dynamic_cast<ParallelContext *>(this->ctx), "phjc", NULL, NULL);
 
     build_op->setParent(part_left);
     probe_op->setParent(part_right);
@@ -1291,11 +1295,11 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("probe_input"));
     assert(val["probe_input"].IsObject());
-    RawOperator *probe_op = parseOperator(val["probe_input"]);
+    Operator *probe_op = parseOperator(val["probe_input"]);
     /* parse operator input */
     assert(val.HasMember("build_input"));
     assert(val["build_input"].IsObject());
-    RawOperator *build_op = parseOperator(val["build_input"]);
+    Operator *build_op = parseOperator(val["build_input"]);
 
     assert(val.HasMember("build_k"));
     auto build_key_expr = parseExpression(val["build_k"]);
@@ -1374,19 +1378,19 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     size_t maxBuildInputSize = val["maxBuildInputSize"].GetUint64();
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
 #ifndef NCUDA
     if (val.HasMember("gpu") && val["gpu"].GetBool()) {
       newOp = new GpuHashJoinChained(
           build_e, build_widths, build_key_expr, build_op, probe_e,
           probe_widths, probe_key_expr, probe_op, hash_bits,
-          dynamic_cast<GpuRawContext *>(this->ctx), maxBuildInputSize);
+          dynamic_cast<ParallelContext *>(this->ctx), maxBuildInputSize);
     } else {
 #endif
       newOp = new HashJoinChained(
           build_e, build_widths, build_key_expr, build_op, probe_e,
           probe_widths, probe_key_expr, probe_op, hash_bits,
-          dynamic_cast<GpuRawContext *>(this->ctx), maxBuildInputSize);
+          dynamic_cast<ParallelContext *>(this->ctx), maxBuildInputSize);
 #ifndef NCUDA
     }
 #endif
@@ -1666,8 +1670,8 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     const char *keyPred = "p";
 
     /* parse operator input */
-    RawOperator *leftOp = parseOperator(val["leftInput"]);
-    RawOperator *rightOp = parseOperator(val["rightInput"]);
+    Operator *leftOp = parseOperator(val["leftInput"]);
+    Operator *rightOp = parseOperator(val["rightInput"]);
 
     // Predicate
     assert(val.HasMember(keyPred));
@@ -1809,7 +1813,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     /* get monoid(s) */
     assert(val.HasMember(keyAccum));
@@ -1926,7 +1930,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     /* parse filtering expression */
     assert(val.HasMember("p"));
@@ -1980,7 +1984,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     assert(val.HasMember("projections"));
     assert(val["projections"].IsArray());
@@ -1992,15 +1996,15 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       projections.push_back(recAttr);
     }
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
-    newOp = new CpuToGpu(childOp, ((GpuRawContext *)this->ctx), projections);
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
+    newOp = new CpuToGpu(childOp, ((ParallelContext *)this->ctx), projections);
     childOp->setParent(newOp);
 #endif
   } else if (strcmp(opName, "block-to-tuples") == 0) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     assert(val.HasMember("projections"));
     assert(val["projections"].IsArray());
@@ -2033,8 +2037,8 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       projections.emplace_back(parseExpression(v));
     }
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
-    newOp = new BlockToTuples(childOp, ((GpuRawContext *)this->ctx),
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
+    newOp = new BlockToTuples(childOp, ((ParallelContext *)this->ctx),
                               projections, gpu, granularity);
     childOp->setParent(newOp);
 #ifndef NCUDA
@@ -2042,7 +2046,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     assert(val.HasMember("projections"));
     assert(val["projections"].IsArray());
@@ -2073,8 +2077,8 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     else
       assert(false && "granularity must be one of GRID, BLOCK, THREAD");
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
-    newOp = new GpuToCpu(childOp, ((GpuRawContext *)this->ctx), projections,
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
+    newOp = new GpuToCpu(childOp, ((ParallelContext *)this->ctx), projections,
                          size, g);
     childOp->setParent(newOp);
 #endif
@@ -2088,7 +2092,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     assert(val.HasMember("projections"));
     assert(val["projections"].IsArray());
@@ -2101,14 +2105,14 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       projections.emplace_back(parseExpression(v));
     }
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
 #ifndef NCUDA
     if (gpu) {
-      newOp = new GpuHashRearrange(childOp, ((GpuRawContext *)this->ctx),
+      newOp = new GpuHashRearrange(childOp, ((ParallelContext *)this->ctx),
                                    numOfBuckets, projections, hashExpr);
     } else {
 #endif
-      newOp = new HashRearrange(childOp, ((GpuRawContext *)this->ctx),
+      newOp = new HashRearrange(childOp, ((ParallelContext *)this->ctx),
                                 numOfBuckets, projections, hashExpr);
 #ifndef NCUDA
     }
@@ -2123,7 +2127,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     assert(val.HasMember("projections"));
     assert(val["projections"].IsArray());
@@ -2162,16 +2166,16 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       projections.emplace_back(parseExpression(v));
     }
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
 
 #ifndef NCUDA
     if (gpu) {
       newOp =
-          new GpuHashRearrange(childOp, ((GpuRawContext *)this->ctx),
+          new GpuHashRearrange(childOp, ((ParallelContext *)this->ctx),
                                numOfBuckets, projections, hashExpr, hashAttr);
     } else {
 #endif
-      newOp = new HashRearrange(childOp, ((GpuRawContext *)this->ctx),
+      newOp = new HashRearrange(childOp, ((ParallelContext *)this->ctx),
                                 numOfBuckets, projections, hashExpr, hashAttr);
 #ifndef NCUDA
     }
@@ -2181,7 +2185,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     assert(val.HasMember("projections"));
     assert(val["projections"].IsArray());
@@ -2205,15 +2209,15 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       slack = val["slack"].GetInt();
     }
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
-    newOp = new MemMoveDevice(childOp, ((GpuRawContext *)this->ctx),
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
+    newOp = new MemMoveDevice(childOp, ((ParallelContext *)this->ctx),
                               projections, slack, to_cpu);
     childOp->setParent(newOp);
   } else if (strcmp(opName, "mem-broadcast-device") == 0) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     assert(val.HasMember("projections"));
     assert(val["projections"].IsArray());
@@ -2258,8 +2262,8 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     datasetInfo->exprType = new BagType{*rec};
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
-    newOp = new MemBroadcastDevice(childOp, ((GpuRawContext *)this->ctx),
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
+    newOp = new MemBroadcastDevice(childOp, ((ParallelContext *)this->ctx),
                                    projections, num_of_targets, to_cpu,
                                    always_share);
     childOp->setParent(newOp);
@@ -2267,7 +2271,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     assert(val.HasMember("projections"));
     assert(val["projections"].IsArray());
@@ -2285,15 +2289,15 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       slack = val["slack"].GetInt();
     }
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
-    newOp = new MemMoveLocalTo(childOp, ((GpuRawContext *)this->ctx),
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
+    newOp = new MemMoveLocalTo(childOp, ((ParallelContext *)this->ctx),
                                projections, slack);
     childOp->setParent(newOp);
   } else if (strcmp(opName, "exchange") == 0) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    RawOperator *childOp = parseOperator(val["input"]);
+    Operator *childOp = parseOperator(val["input"]);
 
     assert(val.HasMember("projections"));
     assert(val["projections"].IsArray());
@@ -2345,8 +2349,8 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       numa_local = val["numa_local"].GetBool();
     }
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
-    newOp = new Exchange(childOp, ((GpuRawContext *)this->ctx), numOfParents,
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
+    newOp = new Exchange(childOp, ((ParallelContext *)this->ctx), numOfParents,
                          projections, slack, hash, numa_local, rand_local_cpu,
                          producers);
     childOp->setParent(newOp);
@@ -2354,7 +2358,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsArray());
-    std::vector<RawOperator *> children;
+    std::vector<Operator *> children;
     for (SizeType i = 0; i < val["input"].Size(); ++i) {
       assert(val["input"][i].IsObject());
       children.push_back(parseOperator(val["input"][i]));
@@ -2370,8 +2374,8 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       projections.push_back(recAttr);
     }
 
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
-    newOp = new UnionAll(children, ((GpuRawContext *)this->ctx), projections);
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
+    newOp = new UnionAll(children, ((ParallelContext *)this->ctx), projections);
     for (const auto &childOp : children) childOp->setParent(newOp);
   } else if (strcmp(opName, "split") == 0) {
     assert(val.HasMember("split_id"));
@@ -2382,7 +2386,7 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       /* parse operator input */
       assert(val.HasMember("input"));
       assert(val["input"].IsObject());
-      RawOperator *childOp = parseOperator(val["input"]);
+      Operator *childOp = parseOperator(val["input"]);
 
       assert(val.HasMember("numOfParents"));
       assert(val["numOfParents"].IsInt());
@@ -2429,8 +2433,8 @@ RawOperator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
         numa_local = val["numa_local"].GetBool();
       }
 
-      assert(dynamic_cast<GpuRawContext *>(this->ctx));
-      newOp = new Split(childOp, ((GpuRawContext *)this->ctx), numOfParents,
+      assert(dynamic_cast<ParallelContext *>(this->ctx));
+      newOp = new Split(childOp, ((ParallelContext *)this->ctx), numOfParents,
                         projections, slack, hash, numa_local, rand_local_cpu);
       splitOps[split_id] = newOp;
       childOp->setParent(newOp);
@@ -2526,7 +2530,7 @@ int lookupInDictionary(string s, const rapidjson::Value &val) {
 }
 
 expressions::extract_unit ExpressionParser::parseUnitRange(std::string range,
-                                                           RawContext *ctx) {
+                                                           Context *ctx) {
   if (range == "YEAR") return expressions::extract_unit::YEAR;
   if (range == "MONTH") return expressions::extract_unit::MONTH;
   if (range == "DAY") return expressions::extract_unit::DAYOFMONTH;
@@ -2557,7 +2561,7 @@ expressions::extract_unit ExpressionParser::parseUnitRange(std::string range,
 }
 
 expression_t ExpressionParser::parseExpression(const rapidjson::Value &val,
-                                               RawContext *ctx) {
+                                               Context *ctx) {
   assert(val.IsObject());
   expression_t ret = parseExpressionWithoutRegistering(val, ctx);
   if (val.HasMember("register_as")) {
@@ -2590,7 +2594,7 @@ expression_t ExpressionParser::parseExpression(const rapidjson::Value &val,
  */
 
 expression_t ExpressionParser::parseExpressionWithoutRegistering(
-    const rapidjson::Value &val, RawContext *ctx) {
+    const rapidjson::Value &val, Context *ctx) {
   assert(val.IsObject());
 
   const char *keyExpression = "expression";
@@ -2628,10 +2632,11 @@ expression_t ExpressionParser::parseExpressionWithoutRegistering(
   bool isNull = val.HasMember("isNull") && val["isNull"].GetBool();
 
   const auto &createNull = [&](ExpressionType *b) {
-    RawValue rv{UndefValue::get(b->getLLVMType(ctx->getLLVMContext())),
-                ctx->createTrue()};
+    ProteusValue rv{
+        llvm::UndefValue::get(b->getLLVMType(ctx->getLLVMContext())),
+        ctx->createTrue()};
 
-    return new expressions::RawValueExpression(b, rv);
+    return new expressions::ProteusValueExpression(b, rv);
   };
 
   if (strcmp(valExpression, "bool") == 0) {
@@ -3369,9 +3374,9 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
           this->parseRecordAttr(val[keyProjectionsGPU][i]);
       projections.push_back(recAttr);
     }
-    assert(dynamic_cast<GpuRawContext *>(this->ctx));
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
 
-    newPg = new ScanToBlockSMPlugin(dynamic_cast<GpuRawContext *>(this->ctx),
+    newPg = new ScanToBlockSMPlugin(dynamic_cast<ParallelContext *>(this->ctx),
                                     *pathDynamicCopy, *recType, projections);
   } else {
     string err = string("Unknown Plugin Type: ") + pgType;
@@ -3380,7 +3385,7 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
   }
 
   activePlugins.push_back(newPg);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   catalog.registerPlugin(*pathDynamicCopy, newPg);
   datasetInfo->oidType = newPg->getOIDType();
   (this->catalogParser).setInputInfo(datasetName, datasetInfo);
@@ -3492,7 +3497,7 @@ void CatalogParser::parseDir(std::string dir) {
 /**
  * {"datasetname": {"path": "foo", "type": { ... } }
  */
-CatalogParser::CatalogParser(const char *catalogPath, GpuRawContext *context)
+CatalogParser::CatalogParser(const char *catalogPath, ParallelContext *context)
     : exprParser(*this), context(context) {
   parseDir(catalogPath);
 }
@@ -3507,10 +3512,11 @@ InputInfo *CatalogParser::getOrCreateInputInfo(string inputName) {
     ret->exprType = new BagType(*rec);
     ret->path = inputName;
 
-    RawCatalog &catalog = RawCatalog::getInstance();
+    Catalog &catalog = Catalog::getInstance();
 
-    assert(context &&
-           "A GpuRawContext is required to register relationships on the fly");
+    assert(
+        context &&
+        "A ParallelContext is required to register relationships on the fly");
     vector<RecordAttribute *> projs;
     Plugin *newPg =
         new pm::CSVPlugin(context, inputName, *rec, projs, ',', 10, 1, false);

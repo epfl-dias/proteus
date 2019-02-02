@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -56,14 +56,12 @@
 //
 // </TechnicalDetails>
 
+#include "codegen/util/parallel-context.hpp"
 #include "common/common.hpp"
 #include "common/gpu/gpu-common.hpp"
+#include "memory/memory-manager.hpp"
 #include "plan/plan-parser.hpp"
-#include "storage/raw-storage-manager.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/raw-functions.hpp"
-#include "util/raw-memory-manager.hpp"
-#include "util/raw-pipeline.hpp"
+#include "storage/storage-manager.hpp"
 // #include <cuda_profiler_api.h>
 #include "test-utils.hpp"
 #include "topology/affinity_manager.hpp"
@@ -75,7 +73,7 @@
 using namespace llvm;
 
 ::testing::Environment *const pools_env =
-    ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
 
 class ThreadTest : public ::testing::Test {
  protected:
@@ -178,11 +176,11 @@ TEST_F(ThreadTest, local_memory_allocation) {
       const auto &cpu = cpus[i % cpus.size()];
       set_exec_location_on_scope el{cpu};
 
-      void *mem = RawMemoryManager::mallocPinned(1024);
+      void *mem = MemoryManager::mallocPinned(1024);
 
       tests[i] = (topo.getCpuNumaNodeAddressed(mem)->id);
 
-      RawMemoryManager::freePinned(mem);
+      MemoryManager::freePinned(mem);
     });
   }
   for (auto &t : threads) t.join();

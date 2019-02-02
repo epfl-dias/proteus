@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -26,30 +26,29 @@
 
 #include <condition_variable>
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <mutex>
 #include <vector>
 
-using namespace std;
-
-template <typename T, T invalid_value = numeric_limits<T>::max()>
+template <typename T, T invalid_value = std::numeric_limits<T>::max()>
 class threadsafe_stack {
  private:
-  vector<T> data;
-  mutex m;
-  condition_variable cv;
+  std::vector<T> data;
+  std::mutex m;
+  std::condition_variable cv;
   size_t size;
 
  public:
-  __host__ threadsafe_stack(size_t size, vector<T> fill) : size(size) {
+  __host__ threadsafe_stack(size_t size, std::vector<T> fill) : size(size) {
     data.reserve(size);
     for (const auto &t : fill) data.push_back(t);
   }
 
   __host__ ~threadsafe_stack() {
-    cout << "=========================================================>host_"
-            "stack: "
-         << data.size() << " " << size << endl;
+    std::cout << "=======================================================>"
+                 "host_stack: "
+              << data.size() << " " << size << std::endl;
     // assert(data.size() == size);
   }
 

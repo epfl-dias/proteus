@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -22,6 +22,8 @@
 */
 
 #include "operators/nest-opt.hpp"
+
+using namespace llvm;
 
 namespace opt {
 
@@ -48,8 +50,8 @@ Nest::Nest(vector<Monoid> accs, vector<expression_t> outputExprs,
            vector<string> aggrLabels, expression_t pred,
            const list<expressions::InputArgument> &f_grouping,
            const list<expressions::InputArgument> &g_nullToZero,
-           RawOperator *const child, char *opLabel, Materializer &mat)
-    : UnaryRawOperator(child),
+           Operator *const child, char *opLabel, Materializer &mat)
+    : UnaryOperator(child),
       accs(accs),
       outputExprs(outputExprs),
       aggregateLabels(aggrLabels),
@@ -72,7 +74,7 @@ void Nest::produce() {
   generateProbe(this->context);
 }
 
-void Nest::consume(RawContext *const context, const OperatorState &childState) {
+void Nest::consume(Context *const context, const OperatorState &childState) {
   generateInsert(context, childState);
 }
 
@@ -80,14 +82,13 @@ void Nest::consume(RawContext *const context, const OperatorState &childState) {
  * This function will be launched twice, since both outer unnest + join
  * cause two code paths to be generated.
  */
-void Nest::generateInsert(RawContext *context,
-                          const OperatorState &childState) {
+void Nest::generateInsert(Context *context, const OperatorState &childState) {
   this->context = context;
 
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   vector<Value *> ArgsV;
   Function *debugInt = context->getFunction("printi");
 
@@ -115,11 +116,11 @@ void Nest::generateInsert(RawContext *context,
    */
   ExpressionHasherVisitor aggrExprGenerator =
       ExpressionHasherVisitor(context, childState);
-  RawValue groupKey = f_grouping.accept(aggrExprGenerator);
+  ProteusValue groupKey = f_grouping.accept(aggrExprGenerator);
 
   // 2. Create 'payload' --> What is to be inserted in the bucket
   LOG(INFO) << "[NEST: ] Creating payload";
-  const map<RecordAttribute, RawValueMemory> &bindings =
+  const map<RecordAttribute, ProteusValueMemory> &bindings =
       childState.getBindings();
   OutputPlugin *pg = new OutputPlugin(context, mat, &bindings);
 
@@ -139,9 +140,9 @@ void Nest::generateInsert(RawContext *context,
 
   // Storing values in struct to be materialized in HT. Two steps
   // 2a. Materializing all 'activeTuples' (i.e. positional indices) met so far
-  RawValueMemory mem_activeTuple;
+  ProteusValueMemory mem_activeTuple;
   {
-    map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+    map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch;
     for (memSearch = bindings.begin(); memSearch != bindings.end();
          memSearch++) {
       RecordAttribute currAttr = memSearch->first;
@@ -165,12 +166,12 @@ void Nest::generateInsert(RawContext *context,
   const vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
   for (vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
        it != wantedFields.end(); ++it) {
-    map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+    map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch =
         bindings.find(*(*it));
 
     Value *llvmCurrVal = NULL;
     if (memSearch != bindings.end()) {
-      RawValueMemory currValMem = memSearch->second;
+      ProteusValueMemory currValMem = memSearch->second;
       llvmCurrVal = Builder->CreateLoad(currValMem.mem);
     } else {
       //            /* Not in bindings yet => must actively materialize
@@ -182,9 +183,9 @@ void Nest::generateInsert(RawContext *context,
       //            expression_t currExpr =
       //            wantedExpressions.at(offsetInWanted);
       //            ExpressionGeneratorVisitor exprGenerator =
-      //            ExpressionGeneratorVisitor(context, childState); RawValue
-      //            currVal = currExpr->accept(exprGenerator); llvmCurrVal =
-      //            currVal.value;
+      //            ExpressionGeneratorVisitor(context, childState);
+      //            ProteusValue currVal = currExpr->accept(exprGenerator);
+      //            llvmCurrVal = currVal.value;
 
       string error_msg =
           string("[NEST: ] Binding not found") + (*it)->getAttrName();
@@ -228,11 +229,11 @@ void Nest::generateInsert(RawContext *context,
 #endif
 }
 
-void Nest::generateProbe(RawContext *const context) const {
+void Nest::generateProbe(Context *const context) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   vector<Value *> ArgsV;
   Value *globalStr = context->CreateGlobalString(htName);
   Type *int64_type = IntegerType::get(llvmContext, 64);
@@ -360,9 +361,9 @@ void Nest::generateProbe(RawContext *const context) const {
   Value *currValue = context->getArrayElem(voidHTBindings, valuesCounter);
 
   // Result (payload) type and appropriate casts
-  int typeIdx = RawCatalog::getInstance().getTypeIndex(string(this->htName));
+  int typeIdx = Catalog::getInstance().getTypeIndex(string(this->htName));
   Value *idx = context->createInt32(typeIdx);
-  Type *structType = RawCatalog::getInstance().getTypeInternal(typeIdx);
+  Type *structType = Catalog::getInstance().getTypeInternal(typeIdx);
   PointerType *structPtrType = context->getPointerType(structType);
   StructType *str = (llvm::StructType *)structType;
 
@@ -373,8 +374,8 @@ void Nest::generateProbe(RawContext *const context) const {
   Builder->CreateStore(currValueCasted, mem_currValueCasted);
 
   unsigned elemNo = str->getNumElements();
-  map<RecordAttribute, RawValueMemory> *allBucketBindings =
-      new map<RecordAttribute, RawValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> *allBucketBindings =
+      new map<RecordAttribute, ProteusValueMemory>();
   int i = 0;
   // Retrieving activeTuple(s) from HT
   AllocaInst *mem_activeTuple = NULL;
@@ -391,7 +392,7 @@ void Nest::generateProbe(RawContext *const context) const {
     activeTuple = context->getStructElem(currValueCasted, i);
     Builder->CreateStore(activeTuple, mem_activeTuple);
 
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = mem_activeTuple;
     mem_valWrapper.isNull = context->createFalse();
     (*allBucketBindings)[*attr] = mem_valWrapper;
@@ -410,7 +411,7 @@ void Nest::generateProbe(RawContext *const context) const {
     Builder->CreateStore(field, mem_field);
     i++;
 
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = mem_field;
     mem_valWrapper.isNull = context->createFalse();
     (*allBucketBindings)[*(*it)] = mem_valWrapper;
@@ -467,7 +468,7 @@ void Nest::generateProbe(RawContext *const context) const {
         RecordAttribute(htName, aggregateName, outputExpr.getExpressionType());
     catalog.registerPlugin(htName, htPlugin);
     // cout << "Registering custom pg for " << htName << endl;
-    RawValueMemory mem_aggrWrapper;
+    ProteusValueMemory mem_aggrWrapper;
     mem_aggrWrapper.mem = mem_accumulating;
     mem_aggrWrapper.isNull = context->createFalse();
     (*allBucketBindings)[attr_aggr] = mem_aggrWrapper;
@@ -493,7 +494,7 @@ void Nest::generateProbe(RawContext *const context) const {
   Builder->SetInsertPoint(loopEndBucket);
 
   /* Explicit oid (i.e., bucketNo) materialization */
-  RawValueMemory mem_oidWrapper;
+  ProteusValueMemory mem_oidWrapper;
   mem_oidWrapper.mem = mem_bucketCounter;
   mem_oidWrapper.isNull = context->createFalse();
   ExpressionType *oidType = new IntType();
@@ -530,7 +531,7 @@ void Nest::generateProbe(RawContext *const context) const {
   Builder->SetInsertPoint(loopEndHT);
 }
 
-void Nest::generateSum(expression_t outputExpr, RawContext *const context,
+void Nest::generateSum(expression_t outputExpr, Context *const context,
                        const OperatorState &state,
                        AllocaInst *mem_accumulating) const {
   IRBuilder<> *Builder = context->getBuilder();
@@ -540,7 +541,7 @@ void Nest::generateSum(expression_t outputExpr, RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, state);
-  RawValue condition = pred.accept(predExprGenerator);
+  ProteusValue condition = pred.accept(predExprGenerator);
   /**
    * Predicate Evaluation:
    */
@@ -556,7 +557,7 @@ void Nest::generateSum(expression_t outputExpr, RawContext *const context,
    */
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, state);
-  RawValue val_output;
+  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
@@ -607,7 +608,7 @@ void Nest::generateSum(expression_t outputExpr, RawContext *const context,
   Builder->SetInsertPoint(endBlock);
 }
 
-void Nest::generateMul(expression_t outputExpr, RawContext *const context,
+void Nest::generateMul(expression_t outputExpr, Context *const context,
                        const OperatorState &state,
                        AllocaInst *mem_accumulating) const {
   IRBuilder<> *Builder = context->getBuilder();
@@ -617,7 +618,7 @@ void Nest::generateMul(expression_t outputExpr, RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, state);
-  RawValue condition = pred.accept(predExprGenerator);
+  ProteusValue condition = pred.accept(predExprGenerator);
   /**
    * Predicate Evaluation:
    */
@@ -633,7 +634,7 @@ void Nest::generateMul(expression_t outputExpr, RawContext *const context,
    */
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, state);
-  RawValue val_output;
+  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
@@ -684,7 +685,7 @@ void Nest::generateMul(expression_t outputExpr, RawContext *const context,
   Builder->SetInsertPoint(endBlock);
 }
 
-void Nest::generateMax(expression_t outputExpr, RawContext *const context,
+void Nest::generateMax(expression_t outputExpr, Context *const context,
                        const OperatorState &state,
                        AllocaInst *mem_accumulating) const {
   IRBuilder<> *Builder = context->getBuilder();
@@ -694,7 +695,7 @@ void Nest::generateMax(expression_t outputExpr, RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, state);
-  RawValue condition = pred.accept(predExprGenerator);
+  ProteusValue condition = pred.accept(predExprGenerator);
   /**
    * Predicate Evaluation:
    */
@@ -710,7 +711,7 @@ void Nest::generateMax(expression_t outputExpr, RawContext *const context,
    */
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, state);
-  RawValue val_output;
+  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
@@ -793,7 +794,7 @@ void Nest::generateMax(expression_t outputExpr, RawContext *const context,
   Builder->SetInsertPoint(endBlock);
 }
 
-void Nest::generateOr(expression_t outputExpr, RawContext *const context,
+void Nest::generateOr(expression_t outputExpr, Context *const context,
                       const OperatorState &state,
                       AllocaInst *mem_accumulating) const {
   IRBuilder<> *Builder = context->getBuilder();
@@ -803,7 +804,7 @@ void Nest::generateOr(expression_t outputExpr, RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, state);
-  RawValue condition = pred.accept(predExprGenerator);
+  ProteusValue condition = pred.accept(predExprGenerator);
   /**
    * Predicate Evaluation:
    */
@@ -819,7 +820,7 @@ void Nest::generateOr(expression_t outputExpr, RawContext *const context,
    */
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, state);
-  RawValue val_output;
+  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
@@ -831,7 +832,7 @@ void Nest::generateOr(expression_t outputExpr, RawContext *const context,
     case BOOL: {
       Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-      RawValue val_output = outputExpr.accept(outputExprGenerator);
+      ProteusValue val_output = outputExpr.accept(outputExprGenerator);
       Value *val_new = Builder->CreateOr(val_accumulating, val_output.value);
       Builder->CreateStore(val_new, mem_accumulating);
 
@@ -862,7 +863,7 @@ void Nest::generateOr(expression_t outputExpr, RawContext *const context,
   Builder->SetInsertPoint(endBlock);
 }
 
-void Nest::generateAnd(expression_t outputExpr, RawContext *const context,
+void Nest::generateAnd(expression_t outputExpr, Context *const context,
                        const OperatorState &state,
                        AllocaInst *mem_accumulating) const {
   IRBuilder<> *Builder = context->getBuilder();
@@ -872,7 +873,7 @@ void Nest::generateAnd(expression_t outputExpr, RawContext *const context,
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator =
       ExpressionGeneratorVisitor(context, state);
-  RawValue condition = pred.accept(predExprGenerator);
+  ProteusValue condition = pred.accept(predExprGenerator);
   /**
    * Predicate Evaluation:
    */
@@ -888,7 +889,7 @@ void Nest::generateAnd(expression_t outputExpr, RawContext *const context,
    */
   ExpressionGeneratorVisitor outputExprGenerator =
       ExpressionGeneratorVisitor(context, state);
-  RawValue val_output;
+  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
@@ -900,7 +901,7 @@ void Nest::generateAnd(expression_t outputExpr, RawContext *const context,
     case BOOL: {
       Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
 
-      RawValue val_output = outputExpr.accept(outputExprGenerator);
+      ProteusValue val_output = outputExpr.accept(outputExprGenerator);
       Value *val_new = Builder->CreateAnd(val_accumulating, val_output.value);
       Builder->CreateStore(val_new, mem_accumulating);
 

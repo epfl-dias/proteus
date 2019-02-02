@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -51,130 +51,135 @@ class BinaryColPlugin : public Plugin {
    * => Looping does not depend on fsize: it depends on this 'size/length'
    */
 
-  BinaryColPlugin(RawContext *const context, string fnamePrefix, RecordType rec,
+  BinaryColPlugin(Context *const context, string fnamePrefix, RecordType rec,
                   vector<RecordAttribute *> &whichFields,
                   bool sizeInFile = true);
-  //    BinaryColPlugin(RawContext* const context, vector<RecordAttribute*>&
+  //    BinaryColPlugin(Context* const context, vector<RecordAttribute*>&
   //    whichFields, vector<CacheInfo> whichCaches);
   ~BinaryColPlugin();
   virtual string &getName() { return fnamePrefix; }
   void init();
   //    void initCached();
-  void generate(const RawOperator &producer);
+  void generate(const Operator &producer);
   void finish();
-  virtual RawValueMemory readPath(string activeRelation, Bindings bindings,
-                                  const char *pathVar, RecordAttribute attr);
-  virtual RawValueMemory readValue(RawValueMemory mem_value,
-                                   const ExpressionType *type);
-  virtual RawValue readCachedValue(CacheInfo info,
-                                   const OperatorState &currState);
+  virtual ProteusValueMemory readPath(string activeRelation, Bindings bindings,
+                                      const char *pathVar,
+                                      RecordAttribute attr);
+  virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
+                                       const ExpressionType *type);
+  virtual ProteusValue readCachedValue(CacheInfo info,
+                                       const OperatorState &currState);
   //    {
   //        string error_msg = "[BinaryColPlugin: ] No caching support should be
   //        needed"; LOG(ERROR) << error_msg; throw runtime_error(error_msg);
   //    }
-  virtual RawValue readCachedValue(
-      CacheInfo info, const map<RecordAttribute, RawValueMemory> &bindings);
+  virtual ProteusValue readCachedValue(
+      CacheInfo info, const map<RecordAttribute, ProteusValueMemory> &bindings);
 
-  virtual RawValue hashValue(RawValueMemory mem_value,
-                             const ExpressionType *type);
-  virtual RawValue hashValueEager(RawValue value, const ExpressionType *type);
+  virtual ProteusValue hashValue(ProteusValueMemory mem_value,
+                                 const ExpressionType *type);
+  virtual ProteusValue hashValueEager(ProteusValue value,
+                                      const ExpressionType *type);
 
-  virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
+  virtual ProteusValueMemory initCollectionUnnest(
+      ProteusValue val_parentObject) {
     string error_msg =
         "[BinaryColPlugin: ] Binary col. files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual RawValue collectionHasNext(RawValue val_parentObject,
-                                     RawValueMemory mem_currentChild) {
+  virtual ProteusValue collectionHasNext(ProteusValue val_parentObject,
+                                         ProteusValueMemory mem_currentChild) {
     string error_msg =
         "[BinaryColPlugin: ] Binary col. files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) {
+  virtual ProteusValueMemory collectionGetNext(
+      ProteusValueMemory mem_currentChild) {
     string error_msg =
         "[BinaryColPlugin: ] Binary col. files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushTuple(RawValueMemory mem_value, Value *fileName) {
+  virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
     string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type,
-                          Value *fileName) {
+  virtual void flushValue(ProteusValueMemory mem_value,
+                          const ExpressionType *type, llvm::Value *fileName) {
     string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushValueEager(RawValue value, const ExpressionType *type,
-                               Value *fileName) {
+  virtual void flushValueEager(ProteusValue value, const ExpressionType *type,
+                               llvm::Value *fileName) {
     string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushChunk(RawValueMemory mem_value, Value *fileName) {
+  virtual void flushChunk(ProteusValueMemory mem_value, llvm::Value *fileName) {
     string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual Value *getValueSize(RawValueMemory mem_value,
-                              const ExpressionType *type);
+  virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
+                                    const ExpressionType *type);
 
   virtual ExpressionType *getOIDType() { return new Int64Type(); }
 
   virtual PluginType getPluginType() { return PGBINARY; }
 
-  virtual void flushBeginList(Value *fileName) {
+  virtual void flushBeginList(llvm::Value *fileName) {
     string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginBag(Value *fileName) {
+  virtual void flushBeginBag(llvm::Value *fileName) {
     string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginSet(Value *fileName) {
+  virtual void flushBeginSet(llvm::Value *fileName) {
     string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndList(Value *fileName) {
+  virtual void flushEndList(llvm::Value *fileName) {
     string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndBag(Value *fileName) {
+  virtual void flushEndBag(llvm::Value *fileName) {
     string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndSet(Value *fileName) {
+  virtual void flushEndSet(llvm::Value *fileName) {
     string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushDelim(Value *fileName, int depth) {
+  virtual void flushDelim(llvm::Value *fileName, int depth) {
     string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushDelim(Value *resultCtr, Value *fileName, int depth) {
+  virtual void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
+                          int depth) {
     string error_msg = "[BinaryColPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -208,10 +213,10 @@ class BinaryColPlugin : public Plugin {
    */
   // Used to store memory positions of offset, buf and filesize in the generated
   // code
-  map<string, AllocaInst *> NamedValuesBinaryCol;
-  RawContext *const context;
+  map<string, llvm::AllocaInst *> NamedValuesBinaryCol;
+  Context *const context;
   // To be initialized by init(). Dictates # of loops
-  Value *val_size;
+  llvm::Value *val_size;
 
   bool sizeInFile;
 
@@ -222,27 +227,27 @@ class BinaryColPlugin : public Plugin {
   const char *itemCtrVar;                        // = "itemCtr";
 
   // Used to generate code
-  void skipLLVM(RecordAttribute attName, Value *offset);
+  void skipLLVM(RecordAttribute attName, llvm::Value *offset);
   void prepareArray(RecordAttribute attName);
 
   void nextEntry();
   /* Operate over char* */
   void readAsInt64LLVM(RecordAttribute attName,
-                       map<RecordAttribute, RawValueMemory> &variables);
-  Value *readAsInt64LLVM(RecordAttribute attName);
+                       map<RecordAttribute, ProteusValueMemory> &variables);
+  llvm::Value *readAsInt64LLVM(RecordAttribute attName);
   /* Operates over int* */
   void readAsIntLLVM(RecordAttribute attName,
-                     map<RecordAttribute, RawValueMemory> &variables);
+                     map<RecordAttribute, ProteusValueMemory> &variables);
   /* Operates over float* */
   void readAsFloatLLVM(RecordAttribute attName,
-                       map<RecordAttribute, RawValueMemory> &variables);
+                       map<RecordAttribute, ProteusValueMemory> &variables);
   /* Operates over bool* */
   void readAsBooleanLLVM(RecordAttribute attName,
-                         map<RecordAttribute, RawValueMemory> &variables);
+                         map<RecordAttribute, ProteusValueMemory> &variables);
   /* Not (fully) supported yet. Dictionary-based */
   void readAsStringLLVM(RecordAttribute attName,
-                        map<RecordAttribute, RawValueMemory> &variables);
+                        map<RecordAttribute, ProteusValueMemory> &variables);
 
   // Generates a for loop that performs the file scan
-  void scan(const RawOperator &producer);
+  void scan(const Operator &producer);
 };

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,12 +24,12 @@
 #ifndef GPU_REDUCE_HPP_
 #define GPU_REDUCE_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "operators/monoids.hpp"
 #include "operators/operators.hpp"
 #include "operators/reduce-opt.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
 namespace opt {
 //#ifdef DEBUG
@@ -43,17 +43,15 @@ class GpuReduce : public Reduce {
   // inside this class and the materializer should be responsible to write it to
   // the host
   GpuReduce(vector<Monoid> accs, vector<expression_t> outputExprs,
-            expression_t pred, RawOperator *const child,
-            GpuRawContext *context);
+            expression_t pred, Operator *const child, ParallelContext *context);
   virtual ~GpuReduce() { LOG(INFO) << "Collapsing GpuReduce operator"; }
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
-  virtual void consume(GpuRawContext *const context,
+  virtual void consume(Context *const context, const OperatorState &childState);
+  virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
 
-  // virtual void open (RawPipeline * pip) const;
-  // virtual void close(RawPipeline * pip) const;
+  // virtual void open (Pipeline * pip) const;
+  // virtual void close(Pipeline * pip) const;
 
  protected:
   virtual size_t resetAccumulator(expression_t outputExpr, Monoid acc,
@@ -61,10 +59,9 @@ class GpuReduce : public Reduce {
                                   bool is_last) const;
 
  private:
-  void generate(RawContext *const context,
-                const OperatorState &childState) const;
+  void generate(Context *const context, const OperatorState &childState) const;
   void generate(const Monoid &m, expression_t outputExpr,
-                GpuRawContext *const context, const OperatorState &childState,
+                ParallelContext *const context, const OperatorState &childState,
                 llvm::Value *mem_accumulating,
                 llvm::Value *global_accumulator_ptr) const;
 

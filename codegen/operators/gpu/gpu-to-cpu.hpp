@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,13 +23,13 @@
 #ifndef GPU_TO_CPU_HPP_
 #define GPU_TO_CPU_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "operators/device-cross.hpp"
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
 class GpuToCpu : public DeviceCross {
  public:
-  GpuToCpu(RawOperator *const child, GpuRawContext *const context,
+  GpuToCpu(Operator *const child, ParallelContext *const context,
            const vector<RecordAttribute *> &wantedFields, size_t size,
            gran_t granularity = gran_t::GRID)
       : DeviceCross(child),
@@ -41,20 +41,20 @@ class GpuToCpu : public DeviceCross {
   virtual ~GpuToCpu() { LOG(INFO) << "Collapsing GpuToCpu operator"; }
 
   virtual void produce();
-  virtual void consume(GpuRawContext *const context,
+  virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
 
  private:
   void generate_catch();
 
-  void open(RawPipeline *pip);
-  void close(RawPipeline *pip);
+  void open(Pipeline *pip);
+  void close(Pipeline *pip);
 
   const vector<RecordAttribute *> wantedFields;
 
-  GpuRawContext *const context;
+  ParallelContext *const context;
 
-  RawPipelineGen *cpu_pip;
+  PipelineGen *cpu_pip;
 
   llvm::Type *params_type;
 

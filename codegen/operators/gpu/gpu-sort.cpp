@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,8 +25,10 @@
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
 
+using namespace llvm;
+
 expressions::RecordConstruction buildSortOutputExpression(
-    GpuRawContext *const context, const vector<expression_t> &orderByFields,
+    ParallelContext *const context, const vector<expression_t> &orderByFields,
     const vector<direction> &dirs) {
   size_t i = 0;
 
@@ -44,7 +46,7 @@ expressions::RecordConstruction buildSortOutputExpression(
   return {attrs};
 }
 
-std::string computeSuffix(GpuRawContext *const context,
+std::string computeSuffix(ParallelContext *const context,
                           const vector<expression_t> &orderByFields) {
   std::string suffix = "";
   for (auto expr : orderByFields) {
@@ -64,10 +66,10 @@ std::string computeSuffix(GpuRawContext *const context,
   return suffix;
 }
 
-GpuSort::GpuSort(RawOperator *const child, GpuRawContext *const context,
+GpuSort::GpuSort(Operator *const child, ParallelContext *const context,
                  const vector<expression_t> &orderByFields,
                  const vector<direction> &dirs, gran_t granularity)
-    : UnaryRawOperator(child),
+    : UnaryOperator(child),
       context(context),
       orderByFields(orderByFields),
       dirs(dirs),
@@ -79,11 +81,10 @@ GpuSort::GpuSort(RawOperator *const child, GpuRawContext *const context,
 }
 
 void GpuSort::produce() {
-  LLVMContext &llvmContext = context->getLLVMContext();
+  auto &llvmContext = context->getLLVMContext();
 
-  Plugin *pg = RawCatalog::getInstance().getPlugin(relName);
-  IntegerType *oid_type =
-      (IntegerType *)pg->getOIDType()->getLLVMType(llvmContext);
+  auto pg = Catalog::getInstance().getPlugin(relName);
+  auto oid_type = (IntegerType *)pg->getOIDType()->getLLVMType(llvmContext);
   // Type   * cnt_type   = PointerType::getUnqual(ArrayType::get(oid_type,
   // numOfBuckets)); cntVar_id           = context->appendStateVar(cnt_type);
 
@@ -103,7 +104,7 @@ void GpuSort::produce() {
   // context->appendStateVar(PointerType::getUnqual(ArrayType::get(block_stuct,
   // numOfBuckets)));
 
-  Type *elemPointer = outputExpr.getExpressionType()->getLLVMType(llvmContext);
+  auto elemPointer = outputExpr.getExpressionType()->getLLVMType(llvmContext);
   mem_type = ArrayType::get(elemPointer, h_vector_size * sizeof(int32_t) /
                                              context->getSizeOf(elemPointer));
 
@@ -117,12 +118,13 @@ void GpuSort::produce() {
   context->pushPipeline(flush_pip);
 
   memVar_id = context->appendStateVar(
-      PointerType::getUnqual(mem_type),
+      llvm::PointerType::getUnqual(mem_type),
       [=](llvm::Value *) {
-        Function *gb = context->getFunction("get_dev_buffer");
-        IRBuilder<> *Builder = context->getBuilder();
-        Value *mem = Builder->CreateCall(gb);
-        mem = Builder->CreateBitCast(mem, PointerType::getUnqual(mem_type));
+        auto Builder = context->getBuilder();
+        auto gb = context->getFunction("get_dev_buffer");
+        llvm::Value *mem = Builder->CreateCall(gb);
+        mem =
+            Builder->CreateBitCast(mem, llvm::PointerType::getUnqual(mem_type));
         return mem;  // context->allocateStateVar(mem_type);
       },
 
@@ -131,52 +133,50 @@ void GpuSort::produce() {
       });
 
   cntVar_id = context->appendStateVar(
-      PointerType::getUnqual(oid_type),
+      llvm::PointerType::getUnqual(oid_type),
       [=](llvm::Value *) {
-        IRBuilder<> *Builder = context->getBuilder();
-
-        Value *mem_acc = context->allocateStateVar(oid_type);
+        auto mem_acc = context->allocateStateVar(oid_type);
 
         // Builder->CreateStore(ConstantInt::get(oid_type, 0), mem_acc);
-        context->CodegenMemset(mem_acc, ConstantInt::get(oid_type, 0),
+        context->CodegenMemset(mem_acc, llvm::ConstantInt::get(oid_type, 0),
                                context->getSizeOf(oid_type));
 
         // OperatorState childState{*this, map<RecordAttribute,
-        // RawValueMemory>{}}; ExpressionFlusherVisitor flusher{context,
+        // ProteusValueMemory>{}}; ExpressionFlusherVisitor flusher{context,
         // childState, outPath.c_str(), relName}; flusher.beginList();
 
         return mem_acc;
       },
 
       [=](llvm::Value *, llvm::Value *s) {
-        IRBuilder<> *Builder = context->getBuilder();
+        auto Builder = context->getBuilder();
 
-        Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
+        auto charPtrType = llvm::Type::getInt8PtrTy(context->getLLVMContext());
 
-        Function *f = context->getFunction("subpipeline_consume");
-        FunctionType *f_t = f->getFunctionType();
+        auto f = context->getFunction("subpipeline_consume");
+        auto f_t = f->getFunctionType();
 
-        Type *substate_t = f_t->getParamType(f_t->getNumParams() - 1);
+        auto substate_t = f_t->getParamType(f_t->getNumParams() - 1);
 
-        Type *size_type = s->getType()->getPointerElementType();
+        auto size_type = s->getType()->getPointerElementType();
 
-        Function *F = Builder->GetInsertBlock()->getParent();
-        Value *size_mem =
+        auto F = Builder->GetInsertBlock()->getParent();
+        auto size_mem =
             context->CreateEntryBlockAlloca(F, "size_mem", size_type);
         context->CodegenMemcpy(size_mem, s, context->getSizeOf(size_type));
-        Value *size = Builder->CreateLoad(size_mem);
-        vector<Value *> args{context->getStateVar(memVar_id), size};
+        auto size = Builder->CreateLoad(size_mem);
+        vector<llvm::Value *> args{context->getStateVar(memVar_id), size};
 
         this->call_sort(args[0], args[1]);
 
-        Value *substate =
+        auto substate =
             Builder->CreateBitCast(context->getSubStateVar(), substate_t);
         args.emplace_back(substate);
 
         Builder->CreateCall(f, args);
 
         // OperatorState childState{*this, map<RecordAttribute,
-        // RawValueMemory>{}}; ExpressionFlusherVisitor flusher{context,
+        // ProteusValueMemory>{}}; ExpressionFlusherVisitor flusher{context,
         // childState, outPath.c_str(), relName}; flusher.endList();
         // flusher.flushOutput();
         context->deallocateStateVar(s);
@@ -185,23 +185,22 @@ void GpuSort::produce() {
   getChild()->produce();
 }
 
-void GpuSort::consume(RawContext *const context,
-                      const OperatorState &childState) {
-  GpuRawContext *const ctx = dynamic_cast<GpuRawContext *const>(context);
+void GpuSort::consume(Context *const context, const OperatorState &childState) {
+  ParallelContext *const ctx = dynamic_cast<ParallelContext *const>(context);
   assert(ctx);
   consume(ctx, childState);
 }
 
-void GpuSort::consume(GpuRawContext *const context,
+void GpuSort::consume(ParallelContext *const context,
                       const OperatorState &childState) {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
   BasicBlock *insBB = Builder->GetInsertBlock();
   Function *F = insBB->getParent();
 
-  map<RecordAttribute, RawValueMemory> bindings{childState.getBindings()};
+  map<RecordAttribute, ProteusValueMemory> bindings{childState.getBindings()};
 
-  Plugin *pg = RawCatalog::getInstance().getPlugin(relName);
+  Plugin *pg = Catalog::getInstance().getPlugin(relName);
   IntegerType *oid_type =
       (IntegerType *)pg->getOIDType()->getLLVMType(llvmContext);
 
@@ -238,7 +237,7 @@ void GpuSort::consume(GpuRawContext *const context,
 
   Builder->SetInsertPoint(insBB);
 
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   // vector<Type *> members;
   // for (size_t i = 0 ; i < orderByFields.size() ; ++i){
@@ -258,7 +257,7 @@ void GpuSort::consume(GpuRawContext *const context,
       mem_ptr, std::vector<Value *>{context->createInt64(0), indx});
 
   ExpressionGeneratorVisitor exprGenerator(context, childState);
-  RawValue valWrapper = outputExpr.accept(exprGenerator);
+  ProteusValue valWrapper = outputExpr.accept(exprGenerator);
   Value *el = valWrapper.value;
 
   Builder->CreateStore(el, el_ptr);
@@ -269,21 +268,21 @@ void GpuSort::consume(GpuRawContext *const context,
   // RecordAttribute tupCnt  = RecordAttribute(relName, "activeCnt",
   // pg->getOIDType()); //FIXME: OID type for blocks ?
 
-  // RawValueMemory mem_cntWrapper;
+  // ProteusValueMemory mem_cntWrapper;
   // mem_cntWrapper.mem      = blockN_ptr;
   // mem_cntWrapper.isNull   = context->createFalse();
   // variableBindings[tupCnt] = mem_cntWrapper;
 
-  // ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline *
+  // ((ParallelContext *) context)->registerOpen (this, [this](Pipeline *
   // pip){this->open (pip);});
-  // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline *
+  // ((ParallelContext *) context)->registerClose(this, [this](Pipeline *
   // pip){this->close(pip);});
 }
 
 void GpuSort::flush_sorted() {
   LLVMContext &llvmContext = context->getLLVMContext();
 
-  Plugin *pg = RawCatalog::getInstance().getPlugin(relName);
+  Plugin *pg = Catalog::getInstance().getPlugin(relName);
   IntegerType *oid_type =
       (IntegerType *)pg->getOIDType()->getLLVMType(llvmContext);
 
@@ -376,14 +375,14 @@ void GpuSort::flush_sorted() {
   // Start insertion in LoopBB.
   Builder->SetInsertPoint(LoopBB);
 
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   // Value * rec_ptr = Builder->CreateInBoundsGEP(mem_ptr, std::vector<Value
   // *>{context->createInt64(0), indx});
 
   // Value * rec     = Builder->CreateLoad(rec_ptr);
-  // RawValue v{rec, context->createFalse()};
-  // expressions::RawValueExpression r{outputExpr.getExpressionType(), v};
+  // ProteusValue v{rec, context->createFalse()};
+  // expressions::ProteusValueExpression r{outputExpr.getExpressionType(), v};
 
   // OperatorState state{*this, variableBindings};
   // ExpressionFlusherVisitor flusher{context, state, outPath.c_str(), relName};
@@ -399,7 +398,7 @@ void GpuSort::flush_sorted() {
   //     RecordAttribute attr = e->getRegisteredAs();
   //     Value         * p    = t->projectArg(rec, &attr, Builder);
 
-  //     RawValueMemory mem;
+  //     ProteusValueMemory mem;
   //     mem.mem    = context->CreateEntryBlockAlloca(F, attr.getAttrName(),
   //     p->getType()); mem.isNull = context->createFalse();
 
@@ -421,13 +420,14 @@ void GpuSort::flush_sorted() {
   // Builder->CreateCall(p, Builder->CreateBitCast(mem_ptr,
   // Type::getInt8PtrTy(llvmContext)));
 
-  variableBindings[brec] = RawValueMemory{mem_mem_ptr, context->createFalse()};
+  variableBindings[brec] =
+      ProteusValueMemory{mem_mem_ptr, context->createFalse()};
 
   AllocaInst *cnt_mem =
       context->CreateEntryBlockAlloca(F, "activeCnt_mem", oid_type);
   RecordAttribute bcnt{relName, "activeCnt", pg->getOIDType()};
   Builder->CreateStore(cnt, cnt_mem);
-  variableBindings[bcnt] = RawValueMemory{cnt_mem, context->createFalse()};
+  variableBindings[bcnt] = ProteusValueMemory{cnt_mem, context->createFalse()};
   // Function * p = context->getFunction("printptr");
   // cnt->getType()->dump();
   // Builder->CreateCall(p, Builder->CreateBitCast(mem_ptr,
@@ -438,7 +438,8 @@ void GpuSort::flush_sorted() {
   AllocaInst *blockN_ptr = context->CreateEntryBlockAlloca(F, "i", oid_type);
   RecordAttribute oid{relName, activeLoop, pg->getOIDType()};
   Builder->CreateStore(ConstantInt::get(oid_type, 0), blockN_ptr);
-  variableBindings[oid] = RawValueMemory{blockN_ptr, context->createFalse()};
+  variableBindings[oid] =
+      ProteusValueMemory{blockN_ptr, context->createFalse()};
 
   OperatorState state{*this, variableBindings};
   getParent()->consume(context, state);
@@ -459,7 +460,7 @@ void GpuSort::flush_sorted() {
   Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-// void GpuSort::open (RawPipeline * pip){
+// void GpuSort::open (Pipeline * pip){
 //     size_t * cnts = (size_t *) malloc(sizeof(size_t) * (numOfBuckets + 1));
 //     //FIXME: is it always size_t the correct type ?
 
@@ -482,7 +483,7 @@ void GpuSort::flush_sorted() {
 //     pip->setStateVar<size_t *>(oidVar_id, cnts + numOfBuckets);
 // }
 
-// void GpuSort::close(RawPipeline * pip){
+// void GpuSort::close(Pipeline * pip){
 //     // ((void (*)(void *)) this->flushFunc)(pip->getState());
 //     ((void (*)(void *))
 //     closingPip->getCompiledFunction(flushingFunc))(pip->getState());

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -30,8 +30,8 @@ void symantecBinJSON3v1(map<string, dataset> datasetCatalog) {
   int sizeHigh = 1000;
   //    string langName = "german";
 
-  RawContext &ctx = *prepareContext("symantec-bin-JSON-3v1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-JSON-3v1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];
@@ -234,8 +234,8 @@ void symantecBinJSON3v2(map<string, dataset> datasetCatalog) {
   int sizeHigh = 1000;
   //    string langName = "german";
 
-  RawContext &ctx = *prepareContext("symantec-bin-JSON-3v2");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-JSON-3v2");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];
@@ -477,8 +477,8 @@ void symantecBinJSON5v1(map<string, dataset> datasetCatalog) {
   // JSON
   int yearNo = 2010;
 
-  RawContext &ctx = *prepareContext("symantec-bin-JSON-5");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-JSON-5");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];

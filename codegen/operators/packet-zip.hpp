@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,10 +25,10 @@
 #define PACKET_ZIP_HPP_
 
 #include <unordered_map>
+#include "codegen/util/parallel-context.hpp"
 #include "expressions/expressions.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
 struct ZipParam {
   int heads_id;
@@ -47,12 +47,12 @@ struct ZipState {
   int32_t *blocks_head[128];
 };
 
-class ZipCollect : public BinaryRawOperator {
+class ZipCollect : public BinaryOperator {
  public:
   ZipCollect(RecordAttribute *ptrAttr, RecordAttribute *splitter,
              RecordAttribute *targetAttr, RecordAttribute *inputLeft,
-             RecordAttribute *inputRight, RawOperator *const leftChild,
-             RawOperator *const rightChild, GpuRawContext *const context,
+             RecordAttribute *inputRight, Operator *const leftChild,
+             Operator *const rightChild, ParallelContext *const context,
              int numOfBuckets, RecordAttribute *hash_key_left,
              const vector<expression_t> &wantedFieldsLeft,
              RecordAttribute *hash_key_right,
@@ -61,23 +61,22 @@ class ZipCollect : public BinaryRawOperator {
   virtual ~ZipCollect() { LOG(INFO) << "Collapsing PacketZip operator"; }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
 
-  void generate_cache_left(RawContext *const context,
+  void generate_cache_left(Context *const context,
                            const OperatorState &childState);
-  void generate_cache_right(RawContext *const context,
+  void generate_cache_right(Context *const context,
                             const OperatorState &childState);
 
-  void open_cache_left(RawPipeline *pip);
-  void close_cache_left(RawPipeline *pip);
+  void open_cache_left(Pipeline *pip);
+  void close_cache_left(Pipeline *pip);
 
-  void open_cache_right(RawPipeline *pip);
-  void close_cache_right(RawPipeline *pip);
+  void open_cache_right(Pipeline *pip);
+  void close_cache_right(Pipeline *pip);
 
-  void open_pipe(RawPipeline *pip);
-  void close_pipe(RawPipeline *pip);
-  void ctrl(RawPipeline *pip);
+  void open_pipe(Pipeline *pip);
+  void close_pipe(Pipeline *pip);
+  void ctrl(Pipeline *pip);
 
   ZipState &getStateLeft() { return state_left; }
   ZipState &getStateRight() { return state_right; }
@@ -93,7 +92,7 @@ class ZipCollect : public BinaryRawOperator {
 
   int *partition_ptr[128];
 
-  GpuRawContext *context;
+  ParallelContext *context;
   string opLabel;
   vector<expression_t> wantedFieldsLeft;
   vector<expression_t> wantedFieldsRight;
@@ -121,34 +120,33 @@ class ZipCollect : public BinaryRawOperator {
   ZipParam pipe_right_p;
 };
 
-class ZipInitiate : public UnaryRawOperator {
+class ZipInitiate : public UnaryOperator {
  public:
   ZipInitiate(RecordAttribute *ptrAttr, RecordAttribute *splitter,
-              RecordAttribute *targetAttr, RawOperator *const child,
-              GpuRawContext *const context, int numOfBuckets, ZipState &state1,
-              ZipState &state2, string opLabel);
+              RecordAttribute *targetAttr, Operator *const child,
+              ParallelContext *const context, int numOfBuckets,
+              ZipState &state1, ZipState &state2, string opLabel);
 
   virtual ~ZipInitiate() {}
 
   virtual void produce();
 
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
 
   virtual bool isFiltering() const { return false; }
 
-  RawPipelineGen **pipeSocket() { return &join_pip; }
+  PipelineGen **pipeSocket() { return &join_pip; }
 
-  void open_fwd(RawPipeline *pip);
-  void close_fwd(RawPipeline *pip);
-  void open_cache(RawPipeline *pip);
-  void close_cache(RawPipeline *pip);
-  void ctrl(RawPipeline *pip);
+  void open_fwd(Pipeline *pip);
+  void close_fwd(Pipeline *pip);
+  void open_cache(Pipeline *pip);
+  void close_cache(Pipeline *pip);
+  void ctrl(Pipeline *pip);
 
  private:
   void generate_send();
 
-  GpuRawContext *context;
+  ParallelContext *context;
   string opLabel;
   RecordAttribute *targetAttr;
   RecordAttribute *ptrAttr;
@@ -171,32 +169,31 @@ class ZipInitiate : public UnaryRawOperator {
   ZipState &state1;
   ZipState &state2;
 
-  RawPipelineGen *join_pip;
-  std::vector<RawPipelineGen *> launch;
+  PipelineGen *join_pip;
+  std::vector<PipelineGen *> launch;
 };
 
-class ZipForward : public UnaryRawOperator {
+class ZipForward : public UnaryOperator {
  public:
   ZipForward(RecordAttribute *splitter, RecordAttribute *targetAttr,
-             RecordAttribute *inputAttr, RawOperator *const child,
-             GpuRawContext *const context, int numOfBuckets,
+             RecordAttribute *inputAttr, Operator *const child,
+             ParallelContext *const context, int numOfBuckets,
              const vector<expression_t> &wantedFields, string opLabel,
              ZipState &state);
 
   virtual ~ZipForward() {}
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
-  void open(RawPipeline *pip);
-  void close(RawPipeline *pip);
+  void open(Pipeline *pip);
+  void close(Pipeline *pip);
 
  private:
   void cacheFormat();
 
-  GpuRawContext *context;
+  ParallelContext *context;
   string opLabel;
   vector<expression_t> wantedFields;
   RecordAttribute *inputAttr;

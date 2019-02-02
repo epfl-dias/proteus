@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -29,11 +29,13 @@ extern "C" {
 void *get_buffer(size_t bytes);
 }
 
+using namespace llvm;
+
 void HashRearrange::produce() {
   LLVMContext &llvmContext = context->getLLVMContext();
 
-  Plugin *pg = RawCatalog::getInstance().getPlugin(
-      wantedFields[0].getRegisteredRelName());
+  Plugin *pg =
+      Catalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
   Type *oid_type = pg->getOIDType()->getLLVMType(llvmContext);
   Type *cnt_type =
       PointerType::getUnqual(ArrayType::get(oid_type, numOfBuckets));
@@ -55,10 +57,10 @@ void HashRearrange::produce() {
   blkVar_id = context->appendStateVar(
       PointerType::getUnqual(ArrayType::get(block_stuct, numOfBuckets)));
 
-  ((GpuRawContext *)context)->registerOpen(this, [this](RawPipeline *pip) {
+  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open(pip);
   });
-  ((GpuRawContext *)context)->registerClose(this, [this](RawPipeline *pip) {
+  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close(pip);
   });
 
@@ -66,7 +68,7 @@ void HashRearrange::produce() {
 }
 
 Value *HashRearrange::hash(const std::vector<expression_t> &exprs,
-                           RawContext *const context,
+                           Context *const context,
                            const OperatorState &childState) {
   if (exprs.size() == 1) {
     ExpressionHasherVisitor hasher{context, childState};
@@ -81,17 +83,17 @@ Value *HashRearrange::hash(const std::vector<expression_t> &exprs,
   }
 }
 
-void HashRearrange::consume(RawContext *const context,
+void HashRearrange::consume(Context *const context,
                             const OperatorState &childState) {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
   BasicBlock *insBB = Builder->GetInsertBlock();
   Function *F = insBB->getParent();
 
-  map<RecordAttribute, RawValueMemory> bindings{childState.getBindings()};
+  map<RecordAttribute, ProteusValueMemory> bindings{childState.getBindings()};
 
-  Plugin *pg = RawCatalog::getInstance().getPlugin(
-      wantedFields[0].getRegisteredRelName());
+  Plugin *pg =
+      Catalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
   IntegerType *oid_type =
       (IntegerType *)pg->getOIDType()->getLLVMType(llvmContext);
 
@@ -127,8 +129,8 @@ void HashRearrange::consume(RawContext *const context,
 
   Builder->SetInsertPoint(insBB);
 
-  map<RecordAttribute, RawValueMemory> *variableBindings =
-      new map<RecordAttribute, RawValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> *variableBindings =
+      new map<RecordAttribute, ProteusValueMemory>();
   // Generate target
   ExpressionGeneratorVisitor exprGenerator{context, childState};
   Value *target = HashRearrange::hash({hashExpr}, context, childState);
@@ -142,7 +144,7 @@ void HashRearrange::consume(RawContext *const context,
 
     Builder->CreateStore(target, hash_ptr);
 
-    RawValueMemory mem_hashWrapper;
+    ProteusValueMemory mem_hashWrapper;
     mem_hashWrapper.mem = hash_ptr;
     mem_hashWrapper.isNull = context->createFalse();
     (*variableBindings)[*hashProject] = mem_hashWrapper;
@@ -164,19 +166,19 @@ void HashRearrange::consume(RawContext *const context,
   Value *ready = context->CreateEntryBlockAlloca(
       F, "complete_partitions", ArrayType::get(partition, 1024));
 
-  // Value * indexes = Builder->CreateLoad(((GpuRawContext *)
+  // Value * indexes = Builder->CreateLoad(((ParallelContext *)
   // context)->getStateVar(cntVar_id), "indexes");
 
   // indexes->dump();
   // indexes->getType()->dump();
-  // ((GpuRawContext *) context)->getStateVar(cntVar_id)->getType()->dump();
+  // ((ParallelContext *) context)->getStateVar(cntVar_id)->getType()->dump();
   Value *indx_addr = Builder->CreateInBoundsGEP(
-      ((GpuRawContext *)context)->getStateVar(cntVar_id),
+      ((ParallelContext *)context)->getStateVar(cntVar_id),
       std::vector<Value *>{context->createInt32(0), target});
   Value *indx = Builder->CreateLoad(indx_addr);
   // Value * indx      = Builder->Load(indx_addr);
 
-  Value *blocks = ((GpuRawContext *)context)->getStateVar(blkVar_id);
+  Value *blocks = ((ParallelContext *)context)->getStateVar(blkVar_id);
   Value *curblk = Builder->CreateInBoundsGEP(
       blocks, std::vector<Value *>{context->createInt32(0), target});
 
@@ -189,7 +191,7 @@ void HashRearrange::consume(RawContext *const context,
     Value *el_ptr = Builder->CreateInBoundsGEP(block, indx);
 
     ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue valWrapper = wantedFields[i].accept(exprGenerator);
+    ProteusValue valWrapper = wantedFields[i].accept(exprGenerator);
     Value *el = valWrapper.value;
 
     Builder->CreateStore(el, el_ptr);
@@ -211,15 +213,15 @@ void HashRearrange::consume(RawContext *const context,
       RecordAttribute(wantedFields[0].getRegisteredRelName(), "activeCnt",
                       pg->getOIDType());  // FIXME: OID type for blocks ?
 
-  RawValueMemory mem_cntWrapper;
+  ProteusValueMemory mem_cntWrapper;
   mem_cntWrapper.mem = blockN_ptr;
   mem_cntWrapper.isNull = context->createFalse();
   (*variableBindings)[tupCnt] = mem_cntWrapper;
 
   Value *new_oid = Builder->CreateLoad(
-      ((GpuRawContext *)context)->getStateVar(oidVar_id), "oid");
+      ((ParallelContext *)context)->getStateVar(oidVar_id), "oid");
   Builder->CreateStore(Builder->CreateAdd(new_oid, capacity),
-                       ((GpuRawContext *)context)->getStateVar(oidVar_id));
+                       ((ParallelContext *)context)->getStateVar(oidVar_id));
 
   AllocaInst *new_oid_ptr =
       context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
@@ -228,7 +230,7 @@ void HashRearrange::consume(RawContext *const context,
   RecordAttribute tupleIdentifier = RecordAttribute(
       wantedFields[0].getRegisteredRelName(), activeLoop, pg->getOIDType());
 
-  RawValueMemory mem_oidWrapper;
+  ProteusValueMemory mem_oidWrapper;
   mem_oidWrapper.mem = new_oid_ptr;
   mem_oidWrapper.isNull = context->createFalse();
   (*variableBindings)[tupleIdentifier] = mem_oidWrapper;
@@ -242,7 +244,7 @@ void HashRearrange::consume(RawContext *const context,
 
     Builder->CreateStore(els[i], tblock_ptr);
 
-    RawValueMemory memWrapper;
+    ProteusValueMemory memWrapper;
     memWrapper.mem = tblock_ptr;
     memWrapper.isNull = context->createFalse();
     (*variableBindings)[tblock] = memWrapper;
@@ -312,8 +314,8 @@ void HashRearrange::consume_flush() {
 
   // LLVMContext & llvmContext   = context->getLLVMContext();
 
-  Plugin *pg = RawCatalog::getInstance().getPlugin(
-      wantedFields[0].getRegisteredRelName());
+  Plugin *pg =
+      Catalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
   Type *oid_type = pg->getOIDType()->getLLVMType(llvmContext);
 
   IntegerType *int32_type = Type::getInt32Ty(llvmContext);
@@ -377,7 +379,7 @@ void HashRearrange::consume_flush() {
   // Start insertion in LoopBB.
   Builder->SetInsertPoint(LoopBB);
 
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   if (hashProject) {
     // Save hash in bindings
@@ -386,20 +388,20 @@ void HashRearrange::consume_flush() {
 
     Builder->CreateStore(target, hash_ptr);
 
-    RawValueMemory mem_hashWrapper;
+    ProteusValueMemory mem_hashWrapper;
     mem_hashWrapper.mem = hash_ptr;
     mem_hashWrapper.isNull = context->createFalse();
     variableBindings[*hashProject] = mem_hashWrapper;
   }
 
   Value *indx_addr = Builder->CreateInBoundsGEP(
-      ((GpuRawContext *)context)->getStateVar(cntVar_id),
+      ((ParallelContext *)context)->getStateVar(cntVar_id),
       std::vector<Value *>{context->createInt32(0), target});
   Value *indx = Builder->CreateLoad(indx_addr);
 
   Builder->CreateStore(indx, blockN_ptr);
 
-  Value *blocks = ((GpuRawContext *)context)->getStateVar(blkVar_id);
+  Value *blocks = ((ParallelContext *)context)->getStateVar(blkVar_id);
   Value *curblk = Builder->CreateInBoundsGEP(
       blocks, std::vector<Value *>{context->createInt32(0), target});
 
@@ -414,7 +416,7 @@ void HashRearrange::consume_flush() {
   RecordAttribute tupCnt{wantedFields[0].getRegisteredRelName(), "activeCnt",
                          pg->getOIDType()};  // FIXME: OID type for blocks ?
 
-  RawValueMemory mem_cntWrapper;
+  ProteusValueMemory mem_cntWrapper;
   mem_cntWrapper.mem = blockN_ptr;
   mem_cntWrapper.isNull = context->createFalse();
   variableBindings[tupCnt] = mem_cntWrapper;
@@ -430,7 +432,7 @@ void HashRearrange::consume_flush() {
   RecordAttribute tupleIdentifier = RecordAttribute(
       wantedFields[0].getRegisteredRelName(), activeLoop, pg->getOIDType());
 
-  RawValueMemory mem_oidWrapper;
+  ProteusValueMemory mem_oidWrapper;
   mem_oidWrapper.mem = new_oid_ptr;
   mem_oidWrapper.isNull = context->createFalse();
   variableBindings[tupleIdentifier] = mem_oidWrapper;
@@ -444,7 +446,7 @@ void HashRearrange::consume_flush() {
 
     Builder->CreateStore(block_ptr_addrs[i], tblock_ptr);
 
-    RawValueMemory memWrapper;
+    ProteusValueMemory memWrapper;
     memWrapper.mem = tblock_ptr;
     memWrapper.isNull = context->createFalse();
     variableBindings[tblock] = memWrapper;
@@ -481,11 +483,11 @@ void HashRearrange::consume_flush() {
 
   // context->popNewPipeline();
 
-  // RawPipelineGen * closingPip = context->removeLatestPipeline();
+  // PipelineGen * closingPip = context->removeLatestPipeline();
   // flushFunc                   = closingPip->getKernel();
 }
 
-void HashRearrange::open(RawPipeline *pip) {
+void HashRearrange::open(Pipeline *pip) {
   size_t *cnts = (size_t *)malloc(
       sizeof(size_t) *
       (numOfBuckets + 1));  // FIXME: is it always size_t the correct type ?
@@ -508,7 +510,7 @@ void HashRearrange::open(RawPipeline *pip) {
   pip->setStateVar<size_t *>(oidVar_id, cnts + numOfBuckets);
 }
 
-void HashRearrange::close(RawPipeline *pip) {
+void HashRearrange::close(Pipeline *pip) {
   // ((void (*)(void *)) this->flushFunc)(pip->getState());
   ((void (*)(void *))closingPip->getCompiledFunction(flushingFunc))(
       pip->getState());

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -51,7 +51,7 @@ class ExpressionType {
   virtual typeID getTypeID() const = 0;
   virtual ~ExpressionType() {}
   virtual bool isPrimitive() const = 0;
-  virtual Type *getLLVMType(LLVMContext &ctx) const {
+  virtual llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
     string error_msg =
         string("Type " + getType() + " is not mapped into an LLVM-type.");
     LOG(INFO) << error_msg;
@@ -62,10 +62,9 @@ class ExpressionType {
 
 class PrimitiveType : public ExpressionType {
  public:
-  virtual Type *getLLVMType(LLVMContext &ctx) const = 0;
-  virtual size_t getSizeInBits(LLVMContext &ctx) const {
-    Type *llvm_type = getLLVMType(ctx);
-    return llvm_type->getPrimitiveSizeInBits();
+  virtual llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const = 0;
+  virtual size_t getSizeInBits(llvm::LLVMContext &ctx) const {
+    return getLLVMType(ctx)->getPrimitiveSizeInBits();
   }
 };
 
@@ -74,7 +73,9 @@ class BoolType : public PrimitiveType {
   string getType() const { return string("Bool"); }
   typeID getTypeID() const { return BOOL; }
   bool isPrimitive() const { return true; }
-  Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt1Ty(ctx); }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
+    return llvm::Type::getInt1Ty(ctx);
+  }
 };
 
 class StringType : public PrimitiveType {
@@ -82,7 +83,9 @@ class StringType : public PrimitiveType {
   string getType() const { return string("String"); }
   typeID getTypeID() const { return STRING; }
   bool isPrimitive() const { return true; }
-  Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt8PtrTy(ctx); }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
+    return llvm::Type::getInt8PtrTy(ctx);
+  }
 };
 
 class DStringType : public PrimitiveType {
@@ -91,7 +94,9 @@ class DStringType : public PrimitiveType {
   string getType() const { return string("DString"); }
   typeID getTypeID() const { return DSTRING; }
   bool isPrimitive() const { return true; }
-  Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt32Ty(ctx); }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
+    return llvm::Type::getInt32Ty(ctx);
+  }
 
   void *getDictionary() const {
     assert(dictionary);
@@ -112,7 +117,9 @@ class FloatType : public PrimitiveType {
   string getType() const { return string("Float"); }
   typeID getTypeID() const { return FLOAT; }
   bool isPrimitive() const { return true; }
-  Type *getLLVMType(LLVMContext &ctx) const { return Type::getDoubleTy(ctx); }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
+    return llvm::Type::getDoubleTy(ctx);
+  }
 };
 
 class IntType : public PrimitiveType {
@@ -120,7 +127,9 @@ class IntType : public PrimitiveType {
   string getType() const { return string("Int"); }
   typeID getTypeID() const { return INT; }
   bool isPrimitive() const { return true; }
-  Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt32Ty(ctx); }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
+    return llvm::Type::getInt32Ty(ctx);
+  }
 };
 
 class Int64Type : public PrimitiveType {
@@ -128,7 +137,9 @@ class Int64Type : public PrimitiveType {
   string getType() const { return string("Int64"); }
   typeID getTypeID() const { return INT64; }
   bool isPrimitive() const { return true; }
-  Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt64Ty(ctx); }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
+    return llvm::Type::getInt64Ty(ctx);
+  }
 };
 
 /**
@@ -142,7 +153,9 @@ class DateType : public PrimitiveType {
   string getType() const { return string("Date"); }
   typeID getTypeID() const { return DATE; }
   bool isPrimitive() const { return true; }
-  Type *getLLVMType(LLVMContext &ctx) const { return Type::getInt64Ty(ctx); }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
+    return llvm::Type::getInt64Ty(ctx);
+  }
 };
 
 class CollectionType : public ExpressionType {
@@ -169,8 +182,8 @@ class BlockType : public CollectionType {
   typeID getTypeID() const { return BLOCK; }
   bool isPrimitive() const { return false; }
   ~BlockType() {}
-  Type *getLLVMType(LLVMContext &ctx) const {
-    return PointerType::get(getNestedType().getLLVMType(ctx), 0);
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
+    return llvm::PointerType::get(getNestedType().getLLVMType(ctx), 0);
   }
 };
 
@@ -210,16 +223,16 @@ class SetType : public CollectionType {
 class RecordAttribute {
  public:
   RecordAttribute()
-      : attrNo(-1), projected(false), type(NULL), relName(""), attrName("") {
+      : relName(""), attrName(""), type(NULL), attrNo(-1), projected(false) {
     cout << "ANONYMOUS CONSTRUCTOR!!" << endl;
   }
   RecordAttribute(int no, string relName, string attrName,
                   const ExpressionType *type, bool make_block = false)
-      : attrNo(no),
-        relName(relName),
-        originalRelName(relName),
+      : relName(relName),
         attrName(attrName),
+        originalRelName(relName),
         type(make_block ? new BlockType(*type) : type),
+        attrNo(no),
         projected(false) {
     if (relName == "") {
       string error_msg =
@@ -231,10 +244,10 @@ class RecordAttribute {
 
   RecordAttribute(int no, string relName, const char *attrName,
                   const ExpressionType *type)
-      : attrNo(no),
-        relName(relName),
+      : relName(relName),
         originalRelName(relName),
         type(type),
+        attrNo(no),
         projected(false) {
     this->attrName = string(attrName);
     if (relName == "") {
@@ -247,11 +260,11 @@ class RecordAttribute {
 
   RecordAttribute(int no, string originalRelName, string relName,
                   string attrName, const ExpressionType *type)
-      : attrNo(no),
-        relName(relName),
-        originalRelName(originalRelName),
+      : relName(relName),
         attrName(attrName),
+        originalRelName(originalRelName),
         type(type),
+        attrNo(no),
         projected(false) {
     if (relName == "") {
       string error_msg =
@@ -275,11 +288,11 @@ class RecordAttribute {
   /* OID Type needed so that we know what we materialize
    * => Subsequent functions / programs use info to parse caches */
   RecordAttribute(string relName, string attrName, const ExpressionType *type)
-      : attrNo(-1),
-        relName(relName),
-        originalRelName(relName),
+      : relName(relName),
         attrName(attrName),
+        originalRelName(relName),
         type(type),
+        attrNo(-1),
         projected(false) {
     // cout << "RELNAME:[" << relName << "]" << endl;
     if (relName == "") {
@@ -309,7 +322,7 @@ class RecordAttribute {
 
   string getType() const { return attrName + " " + type->getType(); }
   const ExpressionType *getOriginalType() const { return type; }
-  Type *getLLVMType(LLVMContext &ctx) const {
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
     return getOriginalType()->getLLVMType(ctx);
   }
   string getName() const { return attrName; }
@@ -373,10 +386,10 @@ class RecordType : public ExpressionType {
     return ss.str();
   }
 
-  virtual Type *getLLVMType(LLVMContext &ctx) const {
-    std::vector<Type *> body;
+  virtual llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
+    std::vector<llvm::Type *> body;
     for (const auto &attr : args) body.push_back(attr->getLLVMType(ctx));
-    return StructType::get(ctx, body);
+    return llvm::StructType::get(ctx, body);
   }
 
   typeID getTypeID() const { return RECORD; }
@@ -405,8 +418,8 @@ class RecordType : public ExpressionType {
     return r->second;
   }
 
-  Value *projectArg(Value *record, RecordAttribute *attr,
-                    IRBuilder<> *const Builder) const;
+  llvm::Value *projectArg(llvm::Value *record, RecordAttribute *attr,
+                          llvm::IRBuilder<> *const Builder) const;
 
  private:
   list<RecordAttribute *> args;

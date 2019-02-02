@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -44,35 +44,34 @@
  * results?
  * XXX  Hashing keys is not enough - also need to compare the actual keys
  */
-class Nest : public UnaryRawOperator {
+class Nest : public UnaryOperator {
  public:
   Nest(Monoid acc, expressions::Expression *outputExpr,
        expressions::Expression *pred,
        const list<expressions::InputArgument> &f_grouping,
        const list<expressions::InputArgument> &g_nullToZero,
-       RawOperator *const child, char *opLabel, Materializer &mat);
+       Operator *const child, char *opLabel, Materializer &mat);
   virtual ~Nest() { LOG(INFO) << "Collapsing Nest operator"; }
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   Materializer &getMaterializer() { return mat; }
   virtual bool isFiltering() const { return true; }
 
  private:
-  void generateInsert(RawContext *context, const OperatorState &childState);
+  void generateInsert(Context *context, const OperatorState &childState);
   /**
    * Once HT has been fully materialized, it is time to resume execution.
    * Note: generateProbe (should) not require any info reg. the previous op that
    * was called. Any info needed is (should be) in the HT that will now be
    * probed.
    */
-  void generateProbe(RawContext *const context) const;
-  void generateSum(RawContext *const context, const OperatorState &state,
-                   AllocaInst *mem_accumulating) const;
+  void generateProbe(Context *const context) const;
+  void generateSum(Context *const context, const OperatorState &state,
+                   llvm::AllocaInst *mem_accumulating) const;
   /**
    * We need a new accumulator for every resulting bucket of the HT
    */
-  AllocaInst *resetAccumulator() const;
+  llvm::AllocaInst *resetAccumulator() const;
 
   Monoid acc;
   expressions::Expression *outputExpr;
@@ -81,12 +80,12 @@ class Nest : public UnaryRawOperator {
   const list<expressions::InputArgument> &__attribute__((unused)) g_nullToZero;
 
   // Check TODO on naming above
-  string aggregateName;
+  std::string aggregateName;
 
   char *htName;
   Materializer &mat;
 
-  RawContext *context;
+  Context *context;
 };
 
 #endif /* NEST_HPP_ */

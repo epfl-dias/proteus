@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -35,15 +35,14 @@ namespace opt {
 //#endif
 
 /* MULTIPLE ACCUMULATORS SUPPORTED */
-class Reduce : public UnaryRawOperator {
+class Reduce : public UnaryOperator {
  public:
-  Reduce(vector<Monoid> accs, vector<expression_t> outputExprs,
-         expression_t pred, RawOperator *const child, RawContext *context,
+  Reduce(std::vector<Monoid> accs, std::vector<expression_t> outputExprs,
+         expression_t pred, Operator *const child, Context *context,
          bool flushResults = false, const char *outPath = "out.json");
   virtual ~Reduce() { LOG(INFO) << "Collapsing Reduce operator"; }
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 
   llvm::Value *getAccumulator(int index) {
@@ -51,19 +50,19 @@ class Reduce : public UnaryRawOperator {
   }
 
  protected:
-  RawContext *context;
+  Context *context;
 
-  vector<Monoid> accs;
-  vector<expression_t> outputExprs;
+  std::vector<Monoid> accs;
+  std::vector<expression_t> outputExprs;
   expression_t pred;
-  vector<size_t> mem_accumulators;
+  std::vector<size_t> mem_accumulators;
 
   const char *outPath;
   bool flushResults;
 
   void *flush_fun;
 
-  // RawPipelineGen *                flush_pip;
+  // PipelineGen *                flush_pip;
 
   virtual void generate_flush();
 
@@ -73,14 +72,13 @@ class Reduce : public UnaryRawOperator {
                                   bool is_last = false) const;
 
  private:
-  void generate(RawContext *const context,
-                const OperatorState &childState) const;
+  void generate(Context *const context, const OperatorState &childState) const;
   // Used to enable chaining with subsequent operators
-  void generateBagUnion(expression_t outputExpr, RawContext *const context,
+  void generateBagUnion(expression_t outputExpr, Context *const context,
                         const OperatorState &state, llvm::Value *cnt_mem) const;
-  void generateAppend(expression_t outputExpr, RawContext *const context,
+  void generateAppend(expression_t outputExpr, Context *const context,
                       const OperatorState &state,
-                      AllocaInst *mem_accumulating) const;
+                      llvm::AllocaInst *mem_accumulating) const;
 
   void flushResult();
 };

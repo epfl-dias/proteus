@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,19 +25,19 @@
 #include "expressions/expressions-generator.hpp"
 
 Materializer::Materializer(
-    vector<RecordAttribute *> wantedFields,
-    //        const vector<expression_t>& wantedExpressions,
-    vector<materialization_mode> outputMode)
+    std::vector<RecordAttribute *> wantedFields,
+    //        const std::vector<expression_t>& wantedExpressions,
+    std::vector<materialization_mode> outputMode)
     :  //        wantedExpressions(wantedExpressions),
       wantedFields(wantedFields),
       outputMode(outputMode) {
   oidsProvided = false;
 }
 
-Materializer::Materializer(vector<RecordAttribute *> whichFields,
-                           vector<expression_t> wantedExpressions,
-                           vector<RecordAttribute *> whichOIDs,
-                           vector<materialization_mode> outputMode)
+Materializer::Materializer(std::vector<RecordAttribute *> whichFields,
+                           std::vector<expression_t> wantedExpressions,
+                           std::vector<RecordAttribute *> whichOIDs,
+                           std::vector<materialization_mode> outputMode)
     : wantedExpressions(wantedExpressions),
       wantedOIDs(whichOIDs),
       wantedFields(whichFields),
@@ -45,9 +45,9 @@ Materializer::Materializer(vector<RecordAttribute *> whichFields,
   oidsProvided = true;
 }
 
-Materializer::Materializer(vector<expression_t> wantedExpressions) {
+Materializer::Materializer(std::vector<expression_t> wantedExpressions) {
   oidsProvided = true;
-  vector<expression_t>::const_iterator it = wantedExpressions.begin();
+  std::vector<expression_t>::const_iterator it = wantedExpressions.begin();
   for (; it != wantedExpressions.end(); it++) {
     auto proj = dynamic_cast<const expressions::RecordProjection *>(
         it->getUnderlyingExpression());
@@ -67,19 +67,19 @@ Materializer::Materializer(vector<expression_t> wantedExpressions) {
   }
 }
 
-OutputPlugin::OutputPlugin(RawContext *const context,
-                           Materializer &materializer,
-                           const map<RecordAttribute, RawValueMemory> *bindings)
+OutputPlugin::OutputPlugin(
+    Context *const context, Materializer &materializer,
+    const map<RecordAttribute, ProteusValueMemory> *bindings)
     : context(context), materializer(materializer), currentBindings(bindings) {
   /**
    * TODO
    * PAYLOAD SIZE IS NOT A DECISION TO BE MADE BY THE PLUGIN
    * THE OUTPUT PLUGIN SHOULD BE THE ONE ENFORCING THE DECISION
    */
-  const vector<RecordAttribute *> &wantedFields =
+  const std::vector<RecordAttribute *> &wantedFields =
       materializer.getWantedFields();
   // Declare our result (value) type
-  materializedTypes = new vector<Type *>();
+  materializedTypes = new std::vector<llvm::Type *>();
   int payload_type_size = 0;
   identifiersTypeSize = 0;
   int tupleIdentifiers = 0;
@@ -97,7 +97,7 @@ OutputPlugin::OutputPlugin(RawContext *const context,
       // if (currAttr.getAttrName() == activeLoop) {
       cout << "HINT - OID MAT'D: " << oid->getOriginalRelationName() << " -- "
            << oid->getRelationName() << "_" << oid->getName() << endl;
-      Type *currType = oid->getOriginalType()->getLLVMType(
+      llvm::Type *currType = oid->getOriginalType()->getLLVMType(
           context
               ->getLLVMContext());  // currentBindings.find(*oid)->second.mem->getAllocatedType();
       currType->dump();
@@ -118,9 +118,9 @@ OutputPlugin::OutputPlugin(RawContext *const context,
    * Atm, that's always the case when dealing with e.g. JSON that is lazily
    * materialized
    */
-  for (vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
+  for (std::vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
        it != wantedFields.end(); it++) {
-    // map<RecordAttribute, RawValueMemory>::const_iterator itSearch =
+    // map<RecordAttribute, ProteusValueMemory>::const_iterator itSearch =
     // currentBindings.find(*(*it));
 
     CachingService &cache = CachingService::getInstance();
@@ -150,7 +150,7 @@ OutputPlugin::OutputPlugin(RawContext *const context,
                 << (*it)->getAttrName();
       materialization_mode mode = (materializer.getOutputMode()).at(attrNo++);
       // gather datatypes: caches can only have int32 or float!!!
-      Type *requestedType = (*it)->getLLVMType(context->getLLVMContext());
+      llvm::Type *requestedType = (*it)->getLLVMType(context->getLLVMContext());
       isComplex = false;
       materializedTypes->push_back(requestedType);
       int fieldSize = requestedType->getPrimitiveSizeInBits() / 8;
@@ -163,14 +163,14 @@ OutputPlugin::OutputPlugin(RawContext *const context,
 
       materialization_mode mode = (materializer.getOutputMode()).at(attrNo++);
       // gather datatypes
-      Type *currType;
+      llvm::Type *currType;
       // if (itSearch != bindings.end()){
       //     currType =
       //     itSearch->second.mem->getType()->getPointerElementType();//(*it)->getLLVMType(context->getLLVMContext());//->getAllocatedType();
       // } else {
       currType = (*it)->getLLVMType(context->getLLVMContext());
       // }
-      Type *requestedType =
+      llvm::Type *requestedType =
           chooseType((*it)->getOriginalType(), currType, mode);
       requestedType->dump();
       materializedTypes->push_back(requestedType);
@@ -192,7 +192,7 @@ OutputPlugin::OutputPlugin(RawContext *const context,
     // else {
     //     string error_msg = string("[OUTPUT PG: ] INPUT ERROR AT OPERATOR -
     //     UNKNOWN WANTED FIELD ") + (*it)->getAttrName(); map<RecordAttribute,
-    //     RawValueMemory>::const_iterator memSearch;
+    //     ProteusValueMemory>::const_iterator memSearch;
 
     //     for (memSearch = currentBindings.begin();
     //             memSearch != currentBindings.end(); memSearch++) {
@@ -226,26 +226,25 @@ OutputPlugin::OutputPlugin(RawContext *const context,
   //    cout << "Payload Size "<< payloadTypeSize << endl;
 }
 
-Value *OutputPlugin::getRuntimePayloadTypeSize() {
-  RawCatalog &catalog = RawCatalog::getInstance();
-  Value *val_size = context->createInt32(0);
-  IRBuilder<> *Builder = context->getBuilder();
-  RawValueMemory mem_activeTuple;
+llvm::Value *OutputPlugin::getRuntimePayloadTypeSize() {
+  Catalog &catalog = Catalog::getInstance();
+  llvm::Value *val_size = context->createInt32(0);
+  auto Builder = context->getBuilder();
 
   // Pre-computed 'activeLoop' variables
   val_size = context->createInt32(identifiersTypeSize);
 
   int attrNo = 0;
-  const vector<RecordAttribute *> &wantedFields =
+  const std::vector<RecordAttribute *> &wantedFields =
       materializer.getWantedFields();
-  vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
+  std::vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
   for (; it != wantedFields.end(); it++) {
-    map<RecordAttribute, RawValueMemory>::const_iterator itSearch =
+    map<RecordAttribute, ProteusValueMemory>::const_iterator itSearch =
         currentBindings->find(*(*it));
     // Field needed
     if (itSearch != currentBindings->end()) {
       materialization_mode mode = (materializer.getOutputMode()).at(attrNo);
-      Value *val_attr_size = NULL;
+      llvm::Value *val_attr_size = NULL;
       if (mode == EAGER) {
         RecordAttribute currAttr = itSearch->first;
         Plugin *inputPg = catalog.getPlugin(currAttr.getOriginalRelationName());
@@ -270,8 +269,9 @@ Value *OutputPlugin::getRuntimePayloadTypeSize() {
 
 // TODO Many more cases to cater for
 // Current most relevant example: JSONObject
-Type *OutputPlugin::chooseType(const ExpressionType *exprType, Type *currType,
-                               materialization_mode mode) {
+llvm::Type *OutputPlugin::chooseType(const ExpressionType *exprType,
+                                     llvm::Type *currType,
+                                     materialization_mode mode) {
   switch (exprType->getTypeID()) {
     case BAG:
     case SET:
@@ -328,8 +328,9 @@ Type *OutputPlugin::chooseType(const ExpressionType *exprType, Type *currType,
 }
 
 // TODO Must add functionality - currently only thin shell exists
-Value *OutputPlugin::convert(Type *currType, Type *materializedType,
-                             Value *val) {
+llvm::Value *OutputPlugin::convert(llvm::Type *currType,
+                                   llvm::Type *materializedType,
+                                   llvm::Value *val) {
   if (currType == materializedType) {
     return val;
   }

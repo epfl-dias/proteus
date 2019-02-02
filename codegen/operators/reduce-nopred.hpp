@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -40,40 +40,38 @@
  * This simplified operator implementation does not perform
  * whether p is true
  */
-class ReduceNoPred : public UnaryRawOperator {
+class ReduceNoPred : public UnaryOperator {
  public:
   ReduceNoPred(Monoid acc, expressions::Expression *outputExpr,
-               RawOperator *const child, RawContext *context);
+               Operator *const child, Context *context);
   virtual ~ReduceNoPred() { LOG(INFO) << "Collapsing Reduce operator"; }
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return getChild()->isFiltering(); }
 
  private:
-  RawContext *__attribute__((unused)) context;
+  Context *__attribute__((unused)) context;
 
   Monoid acc;
   expressions::Expression *outputExpr;
-  AllocaInst *mem_accumulating;
+  llvm::AllocaInst *mem_accumulating;
 
-  void generate(RawContext *const context,
-                const OperatorState &childState) const;
-  void generateSum(RawContext *const context,
+  void generate(Context *const context, const OperatorState &childState) const;
+  void generateSum(Context *const context,
                    const OperatorState &childState) const;
-  void generateMul(RawContext *const context,
+  void generateMul(Context *const context,
                    const OperatorState &childState) const;
-  void generateMax(RawContext *const context,
+  void generateMax(Context *const context,
                    const OperatorState &childState) const;
-  void generateAnd(RawContext *const context,
+  void generateAnd(Context *const context,
                    const OperatorState &childState) const;
-  void generateOr(RawContext *const context,
+  void generateOr(Context *const context,
                   const OperatorState &childState) const;
-  void generateUnion(RawContext *const context,
+  void generateUnion(Context *const context,
                      const OperatorState &childState) const;
-  void generateBagUnion(RawContext *const context,
+  void generateBagUnion(Context *const context,
                         const OperatorState &childState) const;
-  void generateAppend(RawContext *const context,
+  void generateAppend(Context *const context,
                       const OperatorState &childState) const;
 
   void flushResult();

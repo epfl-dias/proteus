@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -46,9 +46,9 @@
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 void tpchSchema(map<string, dataset> &datasetCatalog) {
@@ -135,8 +135,8 @@ void tpchOrderSelection1(map<string, dataset> datasetCatalog,
   if (predicatesNo <= 0 || predicatesNo > 4) {
     throw runtime_error(string("Invalid no. of predicates requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-selection1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-selection1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -166,7 +166,7 @@ void tpchOrderSelection1(map<string, dataset> datasetCatalog,
    *
    * Lots of repetition..
    */
-  RawOperator *lastSelectOp = nullptr;
+  Operator *lastSelectOp = nullptr;
   list<RecordAttribute> argProjections;
   if (predicatesNo == 1) {
     argProjections.push_back(*orderkey);
@@ -317,8 +317,8 @@ void tpchOrderSelection2(map<string, dataset> datasetCatalog,
   if (predicatesNo != 4) {
     throw runtime_error(string("Invalid no. of predicates requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-selection2");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-selection2");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -344,7 +344,7 @@ void tpchOrderSelection2(map<string, dataset> datasetCatalog,
   /**
    * SELECT(S)
    */
-  RawOperator *lastSelectOp;
+  Operator *lastSelectOp;
   list<RecordAttribute> argProjections;
   argProjections.push_back(*orderkey);
   argProjections.push_back(*linenumber);
@@ -421,8 +421,8 @@ void tpchOrderSelection3(map<string, dataset> datasetCatalog,
   if (predicatesNo != 4) {
     throw runtime_error(string("Invalid no. of predicates requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-selection3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-selection3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -449,7 +449,7 @@ void tpchOrderSelection3(map<string, dataset> datasetCatalog,
   /**
    * SELECT(S)
    */
-  RawOperator *lastSelectOp;
+  Operator *lastSelectOp;
   list<RecordAttribute> argProjections;
   argProjections.push_back(*orderkey);
   argProjections.push_back(*linenumber);
@@ -523,8 +523,8 @@ void tpchOrderSelection4(map<string, dataset> datasetCatalog,
   if (predicatesNo != 4) {
     throw runtime_error(string("Invalid no. of predicates requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-selection4");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-selection4");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -551,7 +551,7 @@ void tpchOrderSelection4(map<string, dataset> datasetCatalog,
   /**
    * SELECT(S)
    */
-  RawOperator *lastSelectOp;
+  Operator *lastSelectOp;
   list<RecordAttribute> argProjections;
   argProjections.push_back(*orderkey);
   argProjections.push_back(*linenumber);

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -28,169 +28,172 @@
 
 namespace gpu_intrinsic {
 
-Value *load_ca(GpuRawContext *const context, Value *address) {
-  IRBuilder<> *Builder = context->getBuilder();
+llvm::Value *load_ca(ParallelContext *const context, llvm::Value *address) {
+  auto Builder = context->getBuilder();
 
-  FunctionType *lca_sig =
-      FunctionType::get(address->getType()->getPointerElementType(),
-                        std::vector<Type *>{address->getType()}, false);
+  auto lca_sig = llvm::FunctionType::get(
+      address->getType()->getPointerElementType(),
+      std::vector<llvm::Type *>{address->getType()}, false);
 
-  InlineAsm *lca_fun =
-      InlineAsm::get(lca_sig, "ld.ca.u32 $0, $1;", "=r,m", true);
+  auto lca_fun =
+      llvm::InlineAsm::get(lca_sig, "ld.ca.u32 $0, $1;", "=r,m", true);
 
-  Value *lval =
-      Builder->CreateCall(lca_fun, std::vector<Value *>{address}, "ld.ca.u32");
-
-  return lval;
-}
-
-Value *load_ca16(GpuRawContext *const context, Value *address) {
-  IRBuilder<> *Builder = context->getBuilder();
-
-  FunctionType *lca_sig =
-      FunctionType::get(address->getType()->getPointerElementType(),
-                        std::vector<Type *>{address->getType()}, false);
-
-  InlineAsm *lca_fun =
-      InlineAsm::get(lca_sig, "ld.ca.u16 $0, $1;", "=r,m", true);
-
-  Value *lval =
-      Builder->CreateCall(lca_fun, std::vector<Value *>{address}, "ld.ca.u16");
+  llvm::Value *lval = Builder->CreateCall(lca_fun, {address}, "ld.ca.u32");
 
   return lval;
 }
 
-Value *load_cs(GpuRawContext *const context, Value *address) {
-  IRBuilder<> *Builder = context->getBuilder();
+llvm::Value *load_ca16(ParallelContext *const context, llvm::Value *address) {
+  auto Builder = context->getBuilder();
 
-  FunctionType *lcs_sig =
-      FunctionType::get(address->getType()->getPointerElementType(),
-                        std::vector<Type *>{address->getType()}, false);
+  auto lca_sig = llvm::FunctionType::get(
+      address->getType()->getPointerElementType(),
+      std::vector<llvm::Type *>{address->getType()}, false);
 
-  InlineAsm *lcs_fun =
-      InlineAsm::get(lcs_sig, "ld.cg.u32 $0, $1;", "=r,m", true);
+  auto lca_fun =
+      llvm::InlineAsm::get(lca_sig, "ld.ca.u16 $0, $1;", "=r,m", true);
 
-  Value *lval =
-      Builder->CreateCall(lcs_fun, std::vector<Value *>{address}, "ld.cg.u32");
+  llvm::Value *lval = Builder->CreateCall(lca_fun, {address}, "ld.ca.u16");
 
   return lval;
 }
 
-void store_wb32(GpuRawContext *const context, Value *address, Value *value) {
-  LLVMContext &ctx = context->getLLVMContext();
-  IRBuilder<> *Builder = context->getBuilder();
+llvm::Value *load_cs(ParallelContext *const context, llvm::Value *address) {
+  auto Builder = context->getBuilder();
 
-  Type *void_type = Type::getVoidTy(ctx);
+  auto lcs_sig = llvm::FunctionType::get(
+      address->getType()->getPointerElementType(),
+      std::vector<llvm::Type *>{address->getType()}, false);
 
-  FunctionType *stw_sig = FunctionType::get(
+  auto lcs_fun =
+      llvm::InlineAsm::get(lcs_sig, "ld.cg.u32 $0, $1;", "=r,m", true);
+
+  llvm::Value *lval = Builder->CreateCall(
+      lcs_fun, std::vector<llvm::Value *>{address}, "ld.cg.u32");
+
+  return lval;
+}
+
+void store_wb32(ParallelContext *const context, llvm::Value *address,
+                llvm::Value *value) {
+  auto &ctx = context->getLLVMContext();
+  auto Builder = context->getBuilder();
+
+  auto void_type = llvm::Type::getVoidTy(ctx);
+
+  auto stw_sig = llvm::FunctionType::get(
       void_type,
-      std::vector<Type *>{address->getType(),
-                          address->getType()->getPointerElementType()},
+      std::vector<llvm::Type *>{address->getType(),
+                                address->getType()->getPointerElementType()},
       false);
 
-  InlineAsm *stw_fun =
-      InlineAsm::get(stw_sig, "st.wb.u32 $0, $1;", "m,r", true);
+  auto stw_fun =
+      llvm::InlineAsm::get(stw_sig, "st.wb.u32 $0, $1;", "m,r", true);
 
-  Builder->CreateCall(stw_fun, std::vector<Value *>{address, value});
+  Builder->CreateCall(stw_fun, std::vector<llvm::Value *>{address, value});
 
   return;
 }
 
-void store_wb16(GpuRawContext *const context, Value *address, Value *value) {
-  LLVMContext &ctx = context->getLLVMContext();
-  IRBuilder<> *Builder = context->getBuilder();
+void store_wb16(ParallelContext *const context, llvm::Value *address,
+                llvm::Value *value) {
+  auto &ctx = context->getLLVMContext();
+  auto Builder = context->getBuilder();
 
-  Type *void_type = Type::getVoidTy(ctx);
+  llvm::Type *void_type = llvm::Type::getVoidTy(ctx);
 
-  FunctionType *stw_sig = FunctionType::get(
+  auto stw_sig = llvm::FunctionType::get(
       void_type,
-      std::vector<Type *>{address->getType(),
-                          address->getType()->getPointerElementType()},
+      std::vector<llvm::Type *>{address->getType(),
+                                address->getType()->getPointerElementType()},
       false);
 
-  InlineAsm *stw_fun =
-      InlineAsm::get(stw_sig, "st.wb.u16 $0, $1;", "m,r", true);
+  auto stw_fun =
+      llvm::InlineAsm::get(stw_sig, "st.wb.u16 $0, $1;", "m,r", true);
 
-  Builder->CreateCall(stw_fun, std::vector<Value *>{address, value});
+  Builder->CreateCall(stw_fun, std::vector<llvm::Value *>{address, value});
 
   return;
 }
 
-[[deprecated]] Value *all(GpuRawContext *const context, Value *val_in) {
-  IRBuilder<> *Builder = context->getBuilder();
+[[deprecated]] llvm::Value *all(ParallelContext *const context,
+                                llvm::Value *val_in) {
+  auto Builder = context->getBuilder();
 
-  FunctionType *all_sig = FunctionType::get(
-      val_in->getType(), std::vector<Type *>{val_in->getType()}, false);
+  auto all_sig = llvm::FunctionType::get(
+      val_in->getType(), std::vector<llvm::Type *>{val_in->getType()}, false);
 
-  InlineAsm *all_fun =
-      InlineAsm::get(all_sig, "vote.all.pred $0, $1;", "=b,b", true);
+  auto all_fun =
+      llvm::InlineAsm::get(all_sig, "vote.all.pred $0, $1;", "=b,b", true);
 
-  Value *all =
-      Builder->CreateCall(all_fun, std::vector<Value *>{val_in}, "all");
+  llvm::Value *all =
+      Builder->CreateCall(all_fun, std::vector<llvm::Value *>{val_in}, "all");
 
   return all;
 }
 
-[[deprecated]] Value *any(GpuRawContext *const context, Value *val_in) {
-  IRBuilder<> *Builder = context->getBuilder();
+[[deprecated]] llvm::Value *any(ParallelContext *const context,
+                                llvm::Value *val_in) {
+  auto Builder = context->getBuilder();
 
-  FunctionType *any_sig = FunctionType::get(
-      val_in->getType(), std::vector<Type *>{val_in->getType()}, false);
+  auto any_sig = llvm::FunctionType::get(
+      val_in->getType(), std::vector<llvm::Type *>{val_in->getType()}, false);
 
-  InlineAsm *any_fun =
-      InlineAsm::get(any_sig, "vote.any.pred $0, $1;", "=b,b", true);
+  auto any_fun =
+      llvm::InlineAsm::get(any_sig, "vote.any.pred $0, $1;", "=b,b", true);
 
-  Value *any =
-      Builder->CreateCall(any_fun, std::vector<Value *>{val_in}, "any");
+  llvm::Value *any =
+      Builder->CreateCall(any_fun, std::vector<llvm::Value *>{val_in}, "any");
 
   return any;
 }
 
-[[deprecated]] Value *ballot(GpuRawContext *const context, Value *val_in) {
-  IRBuilder<> *Builder = context->getBuilder();
-  LLVMContext &llvmContext = context->getLLVMContext();
-  IntegerType *int32_type = Type::getInt32Ty(llvmContext);
+[[deprecated]] llvm::Value *ballot(ParallelContext *const context,
+                                   llvm::Value *val_in) {
+  auto Builder = context->getBuilder();
+  auto &llvmContext = context->getLLVMContext();
+  auto int32_type = llvm::Type::getInt32Ty(llvmContext);
 
-  FunctionType *ballot_sig = FunctionType::get(
-      int32_type, std::vector<Type *>{val_in->getType()}, false);
+  auto ballot_sig = llvm::FunctionType::get(
+      int32_type, std::vector<llvm::Type *>{val_in->getType()}, false);
 
-  InlineAsm *ballot_fun =
-      InlineAsm::get(ballot_sig, "vote.ballot.b32 $0, $1;", "=r,b", true);
+  auto ballot_fun =
+      llvm::InlineAsm::get(ballot_sig, "vote.ballot.b32 $0, $1;", "=r,b", true);
 
-  Value *ballot =
-      Builder->CreateCall(ballot_fun, std::vector<Value *>{val_in}, "ballot");
+  llvm::Value *ballot = Builder->CreateCall(
+      ballot_fun, std::vector<llvm::Value *>{val_in}, "ballot");
 
   return ballot;
 }
 
-Value *shfl_bfly(GpuRawContext *const context, Value *val_in, uint32_t vxor,
-                 Value *mask) {
+llvm::Value *shfl_bfly(ParallelContext *const context, llvm::Value *val_in,
+                       uint32_t vxor, llvm::Value *mask) {
   return shfl_bfly(context, val_in, context->createInt32(vxor), mask);
 }
 
-Value *shfl_bfly(GpuRawContext *const context, Value *val_in, Value *vxor,
-                 Value *mask) {
-  IRBuilder<> *Builder = context->getBuilder();
-  Module *mod = context->getModule();
-  LLVMContext &llvmContext = context->getLLVMContext();
-  IntegerType *int32_type = Type::getInt32Ty(llvmContext);
-  IntegerType *int1_type = Type::getInt1Ty(llvmContext);
+llvm::Value *shfl_bfly(ParallelContext *const context, llvm::Value *val_in,
+                       llvm::Value *vxor, llvm::Value *mask) {
+  auto Builder = context->getBuilder();
+  auto mod = context->getModule();
+  auto &llvmContext = context->getLLVMContext();
+  auto int32_type = llvm::Type::getInt32Ty(llvmContext);
+  auto int1_type = llvm::Type::getInt1Ty(llvmContext);
 
   // Aggregate internally to each warp
-  Function *shfl_bfly = context->getFunction("llvm.nvvm.shfl.sync.bfly.i32");
+  auto shfl_bfly = context->getFunction("llvm.nvvm.shfl.sync.bfly.i32");
   assert(shfl_bfly);
 
   unsigned int bits = 0;
 
   if (!mask) mask = context->createInt32(warp_size - 1);
 
-  Type *initial_type = val_in->getType();
+  llvm::Type *initial_type = val_in->getType();
 
   if (!val_in->getType()->isIntegerTy()) {
     if (val_in->getType()->isFloatingPointTy()) {
-      const fltSemantics &flt = val_in->getType()->getFltSemantics();
+      const llvm::fltSemantics &flt = val_in->getType()->getFltSemantics();
 
-      bits = APFloat::semanticsSizeInBits(flt);
+      bits = llvm::APFloat::semanticsSizeInBits(flt);
     } else {  // TODO: do something for vectors as well...
       string error_msg =
           string("[GpuIntrinsics: ] Still unsupported argument type for shfl");
@@ -203,18 +206,18 @@ Value *shfl_bfly(GpuRawContext *const context, Value *val_in, Value *vxor,
 
   unsigned int elems = ((bits + 31) / 32);
 
-  Type *inttype = IntegerType::get(llvmContext, 32 * elems);
+  llvm::Type *inttype = llvm::IntegerType::get(llvmContext, 32 * elems);
   if (bits % 32) val_in = Builder->CreateZExtOrBitCast(val_in, inttype);
 
-  Type *packtype = VectorType::get(int32_type, elems);
+  llvm::Type *packtype = llvm::VectorType::get(int32_type, elems);
 
-  Type *intcast = VectorType::get(val_in->getType(), 1);
+  llvm::Type *intcast = llvm::VectorType::get(val_in->getType(), 1);
 
   val_in = Builder->CreateZExtOrBitCast(val_in, intcast, "interm");
 
-  Value *val_shfl = Builder->CreateBitCast(val_in, packtype, "pack");
+  llvm::Value *val_shfl = Builder->CreateBitCast(val_in, packtype, "pack");
 
-  std::vector<Value *> ArgsV;
+  std::vector<llvm::Value *> ArgsV;
   // For whatever reason, LLVM has the membermask first,
   // instead of last, as in PTX...
   ArgsV.push_back(context->createInt32(~0));
@@ -222,14 +225,14 @@ Value *shfl_bfly(GpuRawContext *const context, Value *val_in, Value *vxor,
   ArgsV.push_back(vxor);
   ArgsV.push_back(mask);
 
-  Value *val_out = UndefValue::get(
+  llvm::Value *val_out = llvm::UndefValue::get(
       packtype);  // ConstantVector::getSplat(elems, context->createInt32(0));
 
   for (unsigned int i = 0; i < elems; ++i) {
     // ArgsV[0]    = Builder->CreateExtractElement(val_shfl, i);
     ArgsV[1] = Builder->CreateExtractElement(val_shfl, i);
 
-    Value *tmp =
+    llvm::Value *tmp =
         Builder->CreateCall(shfl_bfly, ArgsV, "shfl_res_" + std::to_string(i));
 
     val_out = Builder->CreateInsertElement(val_out, tmp, i);

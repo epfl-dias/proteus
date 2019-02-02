@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -29,10 +29,10 @@
 #include <queue>
 #include <stack>
 #include <thread>
+#include "codegen/util/parallel-context.hpp"
 #include "operators/operators.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/async_containers.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
 class Exchange;
 
@@ -43,14 +43,14 @@ void releaseBuffer(int target, Exchange *xch, void *buff);
 void freeBuffer(int target, Exchange *xch, void *buff);
 }
 
-class Exchange : public UnaryRawOperator {
+class Exchange : public UnaryOperator {
  public:
-  Exchange(RawOperator *const child, GpuRawContext *const context,
+  Exchange(Operator *const child, ParallelContext *const context,
            int numOfParents, const vector<RecordAttribute *> &wantedFields,
            int slack, std::optional<expression_t> hash = std::nullopt,
            bool numa_local = true, bool rand_local_cpu = false,
            int producers = 1)
-      : UnaryRawOperator(child),
+      : UnaryOperator(child),
         context(context),
         numOfParents(numOfParents),
         wantedFields(wantedFields),
@@ -86,14 +86,13 @@ class Exchange : public UnaryRawOperator {
   virtual ~Exchange() { LOG(INFO) << "Collapsing Exchange operator"; }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
  protected:
   virtual void generate_catch();
 
-  void fire(int target, RawPipelineGen *pipGen);
+  void fire(int target, PipelineGen *pipGen);
 
  private:
   void *acquireBuffer(int target, bool polling = false);
@@ -107,8 +106,8 @@ class Exchange : public UnaryRawOperator {
   friend void freeBuffer(int target, Exchange *xch, void *buff);
 
  protected:
-  void open(RawPipeline *pip);
-  void close(RawPipeline *pip);
+  void open(Pipeline *pip);
+  void close(Pipeline *pip);
 
   const vector<RecordAttribute *> wantedFields;
 
@@ -116,10 +115,10 @@ class Exchange : public UnaryRawOperator {
   const int numOfParents;
   int producers;
   std::atomic<int> remaining_producers;
-  GpuRawContext *const context;
+  ParallelContext *const context;
 
   llvm::Type *params_type;
-  RawPipelineGen *catch_pip;
+  PipelineGen *catch_pip;
 
   std::vector<std::thread> firers;
 

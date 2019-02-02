@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,14 +24,14 @@
 #ifndef _RADIX_JOIN_HPP_
 #define _RADIX_JOIN_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "operators/operators.hpp"
 #include "operators/scan.hpp"
 #include "plugins/binary-internal-plugin.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
+#include "util/caching.hpp"
+#include "util/functions.hpp"
 #include "util/radix/joins/radix-join.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-functions.hpp"
 
 //#define DEBUGRADIX
 
@@ -86,11 +86,11 @@ struct kvBuf {
   size_t mem_offset_id;
 };
 
-class RadixJoinBuild : public UnaryRawOperator {
+class RadixJoinBuild : public UnaryOperator {
  public:
-  RadixJoinBuild(expression_t keyExpr, RawOperator *child,
-                 GpuRawContext *const context, string opLabel,
-                 Materializer &mat, StructType *htEntryType,
+  RadixJoinBuild(expression_t keyExpr, Operator *child,
+                 ParallelContext *const context, string opLabel,
+                 Materializer &mat, llvm::StructType *htEntryType,
                  size_t size
 #ifdef LOCAL_EXEC
                  = 15000,
@@ -107,24 +107,23 @@ class RadixJoinBuild : public UnaryRawOperator {
   virtual ~RadixJoinBuild();
   virtual void produce();
   //  void produceNoCache() ;
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
-  virtual void consume(GpuRawContext *const context,
+  virtual void consume(Context *const context, const OperatorState &childState);
+  virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
   Materializer &getMaterializer() { return mat; }
   virtual bool isFiltering() const { return true; }
 
-  virtual int32_t *getClusterCounts(RawPipeline *pip);
-  virtual void registerClusterCounts(RawPipeline *pip, int32_t *cnts);
-  virtual void *getHTMemKV(RawPipeline *pip);
-  virtual void registerHTMemKV(RawPipeline *pip, void *mem_kv);
-  virtual void *getRelationMem(RawPipeline *pip);
-  virtual void registerRelationMem(RawPipeline *pip, void *rel_mem);
+  virtual int32_t *getClusterCounts(Pipeline *pip);
+  virtual void registerClusterCounts(Pipeline *pip, int32_t *cnts);
+  virtual void *getHTMemKV(Pipeline *pip);
+  virtual void registerHTMemKV(Pipeline *pip, void *mem_kv);
+  virtual void *getRelationMem(Pipeline *pip);
+  virtual void registerRelationMem(Pipeline *pip, void *rel_mem);
 
-  virtual StructType *getPayloadType() { return payloadType; }
+  virtual llvm::StructType *getPayloadType() { return payloadType; }
 
  private:
-  //     OperatorState* generate(RawOperator* op, OperatorState* childState);
+  //     OperatorState* generate(Operator* op, OperatorState* childState);
 
   //     void runRadix() const;
   //     Value *radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht)
@@ -148,14 +147,14 @@ class RadixJoinBuild : public UnaryRawOperator {
   bool is_agg;
 
   string htLabel;
-  GpuRawContext *const context;
+  ParallelContext *const context;
   expression_t keyExpr;
 
   OutputPlugin *pg;
 
   Materializer &mat;
-  StructType *htEntryType;
-  StructType *payloadType;
+  llvm::StructType *htEntryType;
+  llvm::StructType *payloadType;
 
   int32_t *clusterCounts[128];
   void *ht_mem_kv[128];
@@ -166,17 +165,15 @@ class RadixJoinBuild : public UnaryRawOperator {
   // std::map<int32_t, void    *>    relation_mem    ;
 };
 
-class RadixJoin : public BinaryRawOperator {
+class RadixJoin : public BinaryOperator {
  public:
-  RadixJoin(const expressions::BinaryExpression &predicate,
-            RawOperator *leftChild, RawOperator *rightChild,
-            RawContext *const context, const char *opLabel,
+  RadixJoin(const expressions::BinaryExpression &predicate, Operator *leftChild,
+            Operator *rightChild, Context *const context, const char *opLabel,
             Materializer &matLeft, Materializer &matRight);
   virtual ~RadixJoin();
   virtual void produce();
   //    void produceNoCache() ;
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   Materializer &getMaterializerLeft() const {
     return buildR->getMaterializer();
   }
@@ -207,7 +204,7 @@ class RadixJoin : public BinaryRawOperator {
   /* XXX int32 FOR NOW   */
   /* If it is not int32 to begin with, hash it to make it so */
   llvm::Type *keyType;
-  StructType *htEntryType;
+  llvm::StructType *htEntryType;
 
   RadixJoinBuild *buildR;
   RadixJoinBuild *buildS;
@@ -222,7 +219,7 @@ class RadixJoin : public BinaryRawOperator {
   // struct kvBuf htS;
 
   // HT *HT_per_cluster;
-  StructType *htClusterType;
+  llvm::StructType *htClusterType;
 
   // char *relationR;
   // char *relationS;
@@ -232,7 +229,7 @@ class RadixJoin : public BinaryRawOperator {
   // char *kvS;
 
   string htLabel;
-  GpuRawContext *const context;
+  ParallelContext *const context;
   void *flush_fun;
 
   // /* Cache- related */

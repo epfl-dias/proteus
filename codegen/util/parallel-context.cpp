@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "util/gpu/gpu-raw-context.hpp"
+#include "parallel-context.hpp"
 #include "common/gpu/gpu-common.hpp"
 
 // #include "llvm/CodeGen/CommandFlags.h"
@@ -30,19 +30,19 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
 // #include "llvm/Target/TargetSubtargetInfo.h"
-#include "util/jit/raw-cpu-pipeline.hpp"
-#include "util/jit/raw-gpu-pipeline.hpp"
+#include "util/jit/cpu-pipeline.hpp"
+#include "util/jit/gpu-pipeline.hpp"
 
 #define DEBUGCTX
 
-void GpuRawContext::createJITEngine() {
+void ParallelContext::createJITEngine() {
   //     LLVMLinkInMCJIT();
   //     LLVMInitializeNativeTarget();
   //     LLVMInitializeNativeAsmPrinter();
   //     LLVMInitializeNativeAsmParser();
 
   //     // Create the JIT.  This takes ownership of the module.
-  //     string ErrStr;
+  //     std::string ErrStr;
   //     TheCPUExecutionEngine =
   //         EngineBuilder(std::unique_ptr<Module>(TheModule)).setErrorStr(&ErrStr).create();
   //     if (TheCPUExecutionEngine == nullptr) {
@@ -95,7 +95,7 @@ void GpuRawContext::createJITEngine() {
   // //LinkLibdeviceIfNecessary(module, compute_capability, libdevice_dir_path)
 
   //     // Create the JIT.  This takes ownership of the module.
-  //     // string ErrStr;
+  //     // std::string ErrStr;
   //     // const auto &eng_bld =
   //     EngineBuilder(std::unique_ptr<Module>(TheModule)).setErrorStr(&ErrStr);
 
@@ -120,39 +120,39 @@ void GpuRawContext::createJITEngine() {
   //     }
 }
 
-size_t GpuRawContext::appendParameter(llvm::Type *ptype, bool noalias,
-                                      bool readonly) {
+size_t ParallelContext::appendParameter(llvm::Type *ptype, bool noalias,
+                                        bool readonly) {
   return generators.back()->appendParameter(ptype, noalias, readonly);
 }
 
-size_t GpuRawContext::appendStateVar(llvm::Type *ptype, std::string name) {
+size_t ParallelContext::appendStateVar(llvm::Type *ptype, std::string name) {
   return generators.back()->appendStateVar(ptype);
 }
 
-size_t GpuRawContext::appendStateVar(llvm::Type *ptype,
-                                     std::function<init_func_t> init,
-                                     std::function<deinit_func_t> deinit,
-                                     std::string name) {
+size_t ParallelContext::appendStateVar(llvm::Type *ptype,
+                                       std::function<init_func_t> init,
+                                       std::function<deinit_func_t> deinit,
+                                       std::string name) {
   return generators.back()->appendStateVar(ptype, init, deinit);
 }
 
-Argument *GpuRawContext::getArgument(size_t id) const {
+llvm::Argument *ParallelContext::getArgument(size_t id) const {
   return generators.back()->getArgument(id);
 }
 
-Value *GpuRawContext::getStateVar(size_t id) const {
+llvm::Value *ParallelContext::getStateVar(size_t id) const {
   return generators.back()->getStateVar(id);
 }
 
-Value *GpuRawContext::getStateVar() const {
+llvm::Value *ParallelContext::getStateVar() const {
   return generators.back()->getStateVar();
 }
 
-std::vector<llvm::Type *> GpuRawContext::getStateVars() const {
+std::vector<llvm::Type *> ParallelContext::getStateVars() const {
   return generators.back()->getStateVars();
 }
 
-Value *GpuRawContext::getSubStateVar() const {
+llvm::Value *ParallelContext::getSubStateVar() const {
   return generators.back()->getSubStateVar();
 }
 
@@ -192,21 +192,21 @@ Value *GpuRawContext::getSubStateVar() const {
 //     TheFPM->add(createSLPVectorizerPass());
 // }
 
-GpuRawContext::GpuRawContext(const string &moduleName, bool gpu_root)
-    : RawContext(moduleName, false), kernelName(moduleName), pip_cnt(0) {
+ParallelContext::ParallelContext(const std::string &moduleName, bool gpu_root)
+    : Context(moduleName, false), kernelName(moduleName), pip_cnt(0) {
   createJITEngine();
   if (gpu_root)
-    pushDeviceProvider(&(RawGpuPipelineGenFactory::getInstance()));
+    pushDeviceProvider(&(GpuPipelineGenFactory::getInstance()));
   else
-    pushDeviceProvider(&(RawCpuPipelineGenFactory::getInstance()));
+    pushDeviceProvider(&(CpuPipelineGenFactory::getInstance()));
 
   pushPipeline();
 }
 
-GpuRawContext::~GpuRawContext() {
+ParallelContext::~ParallelContext() {
   popDeviceProvider();
   assert(pipFactories.empty() && "someone forgot to pop a device provider");
-  LOG(WARNING) << "[GpuRawContext: ] Destructor";
+  LOG(WARNING) << "[ParallelContext: ] Destructor";
   // XXX Has to be done in an appropriate sequence - segfaults otherwise
   //      delete Builder;
   //          delete TheFPM;
@@ -220,14 +220,14 @@ GpuRawContext::~GpuRawContext() {
   // FIMXE: free pipelines
 }
 
-void GpuRawContext::setGlobalFunction(bool leaf) {
+void ParallelContext::setGlobalFunction(bool leaf) {
   setGlobalFunction(NULL, leaf);
 }
 
-void GpuRawContext::setGlobalFunction(Function *F, bool leaf) {
+void ParallelContext::setGlobalFunction(llvm::Function *F, bool leaf) {
   if (F) {
-    string error_msg(
-        "[GpuRawContext: ] Should not set global function for GPU context!");
+    std::string error_msg(
+        "[ParallelContext: ] Should not set global function for GPU context!");
     std::cout << error_msg << std::endl;
     throw runtime_error(error_msg);
   }
@@ -235,37 +235,37 @@ void GpuRawContext::setGlobalFunction(Function *F, bool leaf) {
   TheFunction = generators.back()->prepare();
   leafgen.push_back(leaf);
 
-  // RawContext::setGlobalFunction(generators.back()->prepare());
+  // Context::setGlobalFunction(generators.back()->prepare());
 }
 
-// void GpuRawContext::pushNewPipeline   (RawPipelineGen * copyStateFrom){
+// void ParallelContext::pushNewPipeline   (PipelineGen * copyStateFrom){
 //     time_block t("TregpipsG: ");
 //     TheFunction = nullptr;
-//     generators.emplace_back(new RawGpuPipelineGen(this, kernelName + "_pip" +
-//     std::to_string(pip_cnt++), copyStateFrom));
+//     generators.emplace_back(new GpuPipelineGen(this, kernelName + "_pip" +
+//     std::to_std::string(pip_cnt++), copyStateFrom));
 // }
 
-// void GpuRawContext::pushNewCpuPipeline(RawPipelineGen * copyStateFrom){
+// void ParallelContext::pushNewCpuPipeline(PipelineGen * copyStateFrom){
 //     time_block t("TregpipsC: ");
 //     TheFunction = nullptr;
-//     generators.emplace_back(new RawCpuPipelineGen(this, kernelName + "_pip" +
-//     std::to_string(pip_cnt++), copyStateFrom));
+//     generators.emplace_back(new CpuPipelineGen(this, kernelName + "_pip" +
+//     std::to_std::string(pip_cnt++), copyStateFrom));
 // }
 
-void GpuRawContext::pushDeviceProvider(RawPipelineGenFactory *factory) {
+void ParallelContext::pushDeviceProvider(PipelineGenFactory *factory) {
   pipFactories.emplace_back(factory);
 }
 
-void GpuRawContext::popDeviceProvider() { pipFactories.pop_back(); }
+void ParallelContext::popDeviceProvider() { pipFactories.pop_back(); }
 
-void GpuRawContext::pushPipeline(RawPipelineGen *copyStateFrom) {
+void ParallelContext::pushPipeline(PipelineGen *copyStateFrom) {
   time_block t("Tregpips: ");
   TheFunction = nullptr;
   generators.emplace_back(pipFactories.back()->create(
       this, kernelName + "_pip" + std::to_string(pip_cnt++), copyStateFrom));
 }
 
-void GpuRawContext::popPipeline() {
+void ParallelContext::popPipeline() {
   getBuilder()->CreateRetVoid();
 
   pipelines.push_back(generators.back());
@@ -277,29 +277,27 @@ void GpuRawContext::popPipeline() {
   TheFunction = (generators.size() != 0) ? generators.back()->F : nullptr;
 }
 
-RawPipelineGen *GpuRawContext::removeLatestPipeline() {
+PipelineGen *ParallelContext::removeLatestPipeline() {
   assert(!pipelines.empty());
-  RawPipelineGen *p = pipelines.back();
+  PipelineGen *p = pipelines.back();
   pipelines.pop_back();
   leafpip.pop_back();
   return p;
 }
 
-RawPipelineGen *GpuRawContext::getCurrentPipeline() {
-  return generators.back();
-}
+PipelineGen *ParallelContext::getCurrentPipeline() { return generators.back(); }
 
-void GpuRawContext::setChainedPipeline(RawPipelineGen *next) {
+void ParallelContext::setChainedPipeline(PipelineGen *next) {
   generators.back()->setChainedPipeline(next);
 }
 
-void GpuRawContext::compileAndLoad() {
+void ParallelContext::compileAndLoad() {
   popPipeline();
   assert(generators.size() == 0 && "Leftover pipelines!");
 }
 
-std::vector<RawPipeline *> GpuRawContext::getPipelines() {
-  std::vector<RawPipeline *> pips;
+std::vector<Pipeline *> ParallelContext::getPipelines() {
+  std::vector<Pipeline *> pips;
 
   assert(pipelines.size() == leafpip.size());
   for (size_t i = 0; i < pipelines.size(); ++i) {
@@ -310,183 +308,196 @@ std::vector<RawPipeline *> GpuRawContext::getPipelines() {
   return pips;
 }
 
-void GpuRawContext::registerOpen(const void *owner,
-                                 std::function<void(RawPipeline *pip)> open) {
+void ParallelContext::registerOpen(const void *owner,
+                                   std::function<void(Pipeline *pip)> open) {
   generators.back()->registerOpen(owner, open);
 }
 
-void GpuRawContext::registerClose(const void *owner,
-                                  std::function<void(RawPipeline *pip)> close) {
+void ParallelContext::registerClose(const void *owner,
+                                    std::function<void(Pipeline *pip)> close) {
   generators.back()->registerClose(owner, close);
 }
 
-Value *GpuRawContext::threadIdInBlock() {
-  IntegerType *int64_type = Type::getInt64Ty(getLLVMContext());
+llvm::Value *ParallelContext::threadIdInBlock() {
+  auto int64_type = llvm::Type::getInt64Ty(getLLVMContext());
 
-  if (dynamic_cast<RawGpuPipelineGen *>(generators.back())) {
-    Function *fx = getFunction("llvm.nvvm.read.ptx.sreg.tid.x");
+  if (dynamic_cast<GpuPipelineGen *>(generators.back())) {
+    llvm::Function *fx = getFunction("llvm.nvvm.read.ptx.sreg.tid.x");
 
-    std::vector<Value *> v{};
+    std::vector<llvm::Value *> v{};
 
-    Value *threadID_x = getBuilder()->CreateCall(fx, v, "threadID_x");
+    llvm::Value *threadID_x = getBuilder()->CreateCall(fx, v, "threadID_x");
 
     // llvm does not provide i32 x i32 => i64, so we cast them to i64
-    Value *tid_x =
+    llvm::Value *tid_x =
         getBuilder()->CreateZExt(threadID_x, int64_type, "thread_id_in_block");
 
     return tid_x;
   } else {
-    return ConstantInt::get(int64_type, 0);
+    return llvm::ConstantInt::get(int64_type, 0);
   }
 }
 
-Value *GpuRawContext::blockId() {
-  IntegerType *int64_type = Type::getInt64Ty(getLLVMContext());
+llvm::Value *ParallelContext::blockId() {
+  auto int64_type = llvm::Type::getInt64Ty(getLLVMContext());
 
-  if (dynamic_cast<RawGpuPipelineGen *>(generators.back())) {
-    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
-    // Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x" );
-    Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
+  if (dynamic_cast<GpuPipelineGen *>(generators.back())) {
+    // llvm::Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
+    // llvm::Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x" );
+    llvm::Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
 
-    std::vector<Value *> v{};
+    std::vector<llvm::Value *> v{};
 
-    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
-    // Value * blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
-    Value *blockID_x = getBuilder()->CreateCall(fbx, v, "blockID_x");
+    // llvm::Value * threadID_x = getBuilder()->CreateCall(fx , v,
+    // "threadID_x"); llvm::Value * blockDim_x = getBuilder()->CreateCall(fnx,
+    // v, "blockDim_x");
+    llvm::Value *blockID_x = getBuilder()->CreateCall(fbx, v, "blockID_x");
 
     // llvm does not provide i32 x i32 => i64, so we cast them to i64
-    // Value * tid_x      = getBuilder()->CreateZExt(threadID_x, int64_type);
-    // Value * bd_x       = getBuilder()->CreateZExt(blockDim_x, int64_type);
-    Value *bid_x = getBuilder()->CreateZExt(blockID_x, int64_type, "block_id");
+    // llvm::Value * tid_x      = getBuilder()->CreateZExt(threadID_x,
+    // int64_type); llvm::Value * bd_x       =
+    // getBuilder()->CreateZExt(blockDim_x, int64_type);
+    llvm::Value *bid_x =
+        getBuilder()->CreateZExt(blockID_x, int64_type, "block_id");
     return bid_x;
   } else {
-    return ConstantInt::get(int64_type, 0);
+    return llvm::ConstantInt::get(int64_type, 0);
   }
 }
 
-Value *GpuRawContext::blockDim() {
-  IntegerType *int64_type = Type::getInt64Ty(getLLVMContext());
+llvm::Value *ParallelContext::blockDim() {
+  auto int64_type = llvm::Type::getInt64Ty(getLLVMContext());
 
-  if (dynamic_cast<RawGpuPipelineGen *>(generators.back())) {
-    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
-    Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
-    // Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
+  if (dynamic_cast<GpuPipelineGen *>(generators.back())) {
+    // llvm::Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
+    llvm::Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
+    // llvm::Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
 
-    std::vector<Value *> v{};
+    std::vector<llvm::Value *> v{};
 
-    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
-    Value *blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
-    Value *bd_x = getBuilder()->CreateZExt(blockDim_x, int64_type);
+    // llvm::Value * threadID_x = getBuilder()->CreateCall(fx , v,
+    // "threadID_x");
+    llvm::Value *blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
+    llvm::Value *bd_x = getBuilder()->CreateZExt(blockDim_x, int64_type);
     return bd_x;
   } else {
-    return ConstantInt::get(int64_type, 0);
+    return llvm::ConstantInt::get(int64_type, 0);
   }
 }
 
-Value *GpuRawContext::gridDim() {
-  IntegerType *int64_type = Type::getInt64Ty(getLLVMContext());
+llvm::Value *ParallelContext::gridDim() {
+  auto int64_type = llvm::Type::getInt64Ty(getLLVMContext());
 
-  if (dynamic_cast<RawGpuPipelineGen *>(generators.back())) {
-    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
-    Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.nctaid.x");
-    // Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
+  if (dynamic_cast<GpuPipelineGen *>(generators.back())) {
+    // llvm::Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
+    llvm::Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.nctaid.x");
+    // llvm::Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
 
-    std::vector<Value *> v{};
+    std::vector<llvm::Value *> v{};
 
-    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
-    Value *gridDim_x = getBuilder()->CreateCall(fnx, v, "gridDim_x");
-    Value *bd_x = getBuilder()->CreateZExt(gridDim_x, int64_type);
+    // llvm::Value * threadID_x = getBuilder()->CreateCall(fx , v,
+    // "threadID_x");
+    llvm::Value *gridDim_x = getBuilder()->CreateCall(fnx, v, "gridDim_x");
+    llvm::Value *bd_x = getBuilder()->CreateZExt(gridDim_x, int64_type);
     return bd_x;
   } else {
-    return ConstantInt::get(int64_type, 0);
+    return llvm::ConstantInt::get(int64_type, 0);
   }
 }
 
-Value *GpuRawContext::threadId() {
-  IntegerType *int64_type = Type::getInt64Ty(getLLVMContext());
+llvm::Value *ParallelContext::threadId() {
+  auto int64_type = llvm::Type::getInt64Ty(getLLVMContext());
 
-  if (dynamic_cast<RawGpuPipelineGen *>(generators.back())) {
-    // Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
-    Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
-    // Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
+  if (dynamic_cast<GpuPipelineGen *>(generators.back())) {
+    // llvm::Function *fx  = getFunction("llvm.nvvm.read.ptx.sreg.tid.x"  );
+    llvm::Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
+    // llvm::Function *fbx = getFunction("llvm.nvvm.read.ptx.sreg.ctaid.x");
 
-    std::vector<Value *> v{};
+    std::vector<llvm::Value *> v{};
 
-    // Value * threadID_x = getBuilder()->CreateCall(fx , v, "threadID_x");
-    Value *blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
-    // Value * blockID_x  = getBuilder()->CreateCall(fbx, v, "blockID_x" );
+    // llvm::Value * threadID_x = getBuilder()->CreateCall(fx , v,
+    // "threadID_x");
+    llvm::Value *blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
+    // llvm::Value * blockID_x  = getBuilder()->CreateCall(fbx, v, "blockID_x"
+    // );
 
     // llvm does not provide i32 x i32 => i64, so we cast them to i64
-    Value *tid_x = threadIdInBlock();
-    Value *bd_x = getBuilder()->CreateZExt(blockDim_x, int64_type);
-    Value *bid_x = blockId();
+    llvm::Value *tid_x = threadIdInBlock();
+    llvm::Value *bd_x = getBuilder()->CreateZExt(blockDim_x, int64_type);
+    llvm::Value *bid_x = blockId();
 
-    Value *rowid = getBuilder()->CreateMul(bid_x, bd_x, "rowid");
+    llvm::Value *rowid = getBuilder()->CreateMul(bid_x, bd_x, "rowid");
     return getBuilder()->CreateAdd(tid_x, rowid, "thread_id");
   } else {
-    return ConstantInt::get(int64_type, 0);
+    return llvm::ConstantInt::get(int64_type, 0);
   }
 }
 
-Value *GpuRawContext::threadNum() {
-  IntegerType *int64_type = Type::getInt64Ty(getLLVMContext());
+llvm::Value *ParallelContext::threadNum() {
+  auto int64_type = llvm::Type::getInt64Ty(getLLVMContext());
 
-  if (dynamic_cast<RawGpuPipelineGen *>(generators.back())) {
-    Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
-    Function *fnbx = getFunction("llvm.nvvm.read.ptx.sreg.nctaid.x");
+  if (dynamic_cast<GpuPipelineGen *>(generators.back())) {
+    llvm::Function *fnx = getFunction("llvm.nvvm.read.ptx.sreg.ntid.x");
+    llvm::Function *fnbx = getFunction("llvm.nvvm.read.ptx.sreg.nctaid.x");
 
-    std::vector<Value *> v{};
+    std::vector<llvm::Value *> v{};
 
-    Value *blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
-    Value *gridDim_x = getBuilder()->CreateCall(fnbx, v, "gridDim_x");
+    llvm::Value *blockDim_x = getBuilder()->CreateCall(fnx, v, "blockDim_x");
+    llvm::Value *gridDim_x = getBuilder()->CreateCall(fnbx, v, "gridDim_x");
 
     // llvm does not provide i32 x i32 => i64, so we cast them to i64
-    Value *bd_x = getBuilder()->CreateZExt(blockDim_x, int64_type);
-    Value *gd_x = getBuilder()->CreateZExt(gridDim_x, int64_type);
+    llvm::Value *bd_x = getBuilder()->CreateZExt(blockDim_x, int64_type);
+    llvm::Value *gd_x = getBuilder()->CreateZExt(gridDim_x, int64_type);
 
     return getBuilder()->CreateMul(bd_x, gd_x);
   } else {
-    return ConstantInt::get(int64_type, 1);
+    return llvm::ConstantInt::get(int64_type, 1);
   }
 }
 
-Value *GpuRawContext::laneId() {
-  IntegerType *int64_type = Type::getInt64Ty(getLLVMContext());
+llvm::Value *ParallelContext::laneId() {
+  auto int64_type = llvm::Type::getInt64Ty(getLLVMContext());
 
-  if (dynamic_cast<RawGpuPipelineGen *>(generators.back())) {
-    Function *laneid_fun = getFunction("llvm.nvvm.read.ptx.sreg.laneid");
-    return getBuilder()->CreateCall(laneid_fun, std::vector<Value *>{},
+  if (dynamic_cast<GpuPipelineGen *>(generators.back())) {
+    llvm::Function *laneid_fun = getFunction("llvm.nvvm.read.ptx.sreg.laneid");
+    return getBuilder()->CreateCall(laneid_fun, std::vector<llvm::Value *>{},
                                     "laneid");
   } else {
-    return ConstantInt::get(int64_type, 0);
+    return llvm::ConstantInt::get(int64_type, 0);
   }
 }
 
-void GpuRawContext::createMembar_gl() {
-  assert(dynamic_cast<RawGpuPipelineGen *>(generators.back()));
-  Function *membar_fun = getFunction("llvm.nvvm.membar.gl");
-  getBuilder()->CreateCall(membar_fun, std::vector<Value *>{});
+[[deprecated]] void ParallelContext::createMembar_gl() {
+  assert(dynamic_cast<GpuPipelineGen *>(generators.back()) &&
+         "Unimplemented for CPU");
+  llvm::Function *membar_fun = getFunction("llvm.nvvm.membar.gl");
+  getBuilder()->CreateCall(membar_fun, std::vector<llvm::Value *>{});
+}
+
+void ParallelContext::workerScopedMembar() {
+  generators.back()->workerScopedMembar();
 }
 
 // Provide support for some extern functions
-void GpuRawContext::registerFunction(const char *funcName, Function *func) {
+void ParallelContext::registerFunction(const char *funcName,
+                                       llvm::Function *func) {
   generators.back()->registerFunction(funcName, func);
 }
 
-llvm::Value *GpuRawContext::allocateStateVar(llvm::Type *t) {
+llvm::Value *ParallelContext::allocateStateVar(llvm::Type *t) {
   return generators.back()->allocateStateVar(t);
 }
 
-void GpuRawContext::deallocateStateVar(llvm::Value *v) {
+void ParallelContext::deallocateStateVar(llvm::Value *v) {
   return generators.back()->deallocateStateVar(v);
 }
 
-llvm::Value *GpuRawContext::workerScopedAtomicAdd(llvm::Value *ptr,
-                                                  llvm::Value *inc) {
+llvm::Value *ParallelContext::workerScopedAtomicAdd(llvm::Value *ptr,
+                                                    llvm::Value *inc) {
   return generators.back()->workerScopedAtomicAdd(ptr, inc);
 }
 
-llvm::Value *GpuRawContext::workerScopedAtomicXchg(llvm::Value *ptr,
-                                                   llvm::Value *val) {
+llvm::Value *ParallelContext::workerScopedAtomicXchg(llvm::Value *ptr,
+                                                     llvm::Value *val) {
   return generators.back()->workerScopedAtomicXchg(ptr, val);
 }

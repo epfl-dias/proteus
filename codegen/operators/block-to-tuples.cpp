@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -22,12 +22,14 @@
 */
 
 #include "operators/block-to-tuples.hpp"
-#include "multigpu/buffer_manager.cuh"
-#include "util/raw-memory-manager.hpp"
+#include "codegen/memory/buffer-manager.cuh"
+#include "codegen/memory/memory-manager.hpp"
+
+using namespace llvm;
 
 void BlockToTuples::produce() {
-  context->registerOpen(this, [this](RawPipeline *pip) { this->open(pip); });
-  context->registerClose(this, [this](RawPipeline *pip) { this->close(pip); });
+  context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
+  context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     old_buffs.push_back(context->appendStateVar(PointerType::getUnqual(
@@ -40,9 +42,6 @@ void BlockToTuples::produce() {
 
 void BlockToTuples::nextEntry() {
   // Prepare
-  LLVMContext &llvmContext = context->getLLVMContext();
-  // Type* charPtrType = Type::getInt8PtrTy(llvmContext);
-  // Type* int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
 
   // Increment and store back
@@ -61,20 +60,20 @@ void BlockToTuples::nextEntry() {
   Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
 }
 
-void BlockToTuples::consume(RawContext *const context,
+void BlockToTuples::consume(Context *const context,
                             const OperatorState &childState) {
-  GpuRawContext *ctx = dynamic_cast<GpuRawContext *>(context);
+  ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
   if (!ctx) {
     string error_msg =
         "[BlockToTuples: ] Operator only supports code "
-        "generation using the GpuRawContext";
+        "generation using the ParallelContext";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
   consume(ctx, childState);
 }
 
-void BlockToTuples::consume(GpuRawContext *const context,
+void BlockToTuples::consume(ParallelContext *const context,
                             const OperatorState &childState) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -85,8 +84,9 @@ void BlockToTuples::consume(GpuRawContext *const context,
   // Type* int64Type = Type::getInt64Ty(llvmContext);
 
   // Container for the variable bindings
-  map<RecordAttribute, RawValueMemory> oldBindings{childState.getBindings()};
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> oldBindings{
+      childState.getBindings()};
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   // Create the "AFTER LOOP" block and insert it.
   BasicBlock *releaseBB = BasicBlock::Create(llvmContext, "releaseIf", F);
@@ -142,8 +142,8 @@ void BlockToTuples::consume(GpuRawContext *const context,
 
   // Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
-  Plugin *pg = RawCatalog::getInstance().getPlugin(
-      wantedFields[0].getRegisteredRelName());
+  Plugin *pg =
+      Catalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
 
   RecordAttribute tupleCnt{wantedFields[0].getRegisteredRelName(), "activeCnt",
                            pg->getOIDType()};  // FIXME: OID type for blocks ?
@@ -209,7 +209,7 @@ void BlockToTuples::consume(GpuRawContext *const context,
   RecordAttribute tupleIdentifier{wantedFields[0].getRegisteredRelName(),
                                   activeLoop, pg->getOIDType()};
 
-  RawValueMemory mem_posWrapper;
+  ProteusValueMemory mem_posWrapper;
   mem_posWrapper.mem = mem_itemCtr;
   mem_posWrapper.isNull = context->createFalse();
   variableBindings[tupleIdentifier] = mem_posWrapper;
@@ -275,7 +275,7 @@ void BlockToTuples::consume(GpuRawContext *const context,
         context->CreateEntryBlockAlloca(F, currBufVar, parsed->getType());
     Builder->CreateStore(parsed, mem_currResult);
 
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = mem_currResult;
     mem_valWrapper.isNull = context->createFalse();
     variableBindings[wantedFields[i].getRegisteredAs()] = mem_valWrapper;
@@ -304,8 +304,8 @@ void BlockToTuples::consume(GpuRawContext *const context,
   Builder->SetInsertPoint(AfterBB);
 }
 
-void BlockToTuples::open(RawPipeline *pip) {
-  rawlogger.log(this, log_op::BLOCK2TUPLES_OPEN_START);
+void BlockToTuples::open(Pipeline *pip) {
+  eventlogger.log(this, log_op::BLOCK2TUPLES_OPEN_START);
 
   execution_conf ec = pip->getExecConfiguration();
 
@@ -314,8 +314,8 @@ void BlockToTuples::open(RawPipeline *pip) {
   void **buffs;
 
   if (gpu) {
-    buffs = (void **)RawMemoryManager::mallocGpu(sizeof(void *) *
-                                                 wantedFields.size());
+    buffs =
+        (void **)MemoryManager::mallocGpu(sizeof(void *) * wantedFields.size());
     cudaStream_t strm;
     gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
     gpu_run(
@@ -323,18 +323,18 @@ void BlockToTuples::open(RawPipeline *pip) {
     gpu_run(cudaStreamSynchronize(strm));
     gpu_run(cudaStreamDestroy(strm));
   } else {
-    buffs = (void **)RawMemoryManager::mallocPinned(sizeof(void *) *
-                                                    wantedFields.size());
+    buffs = (void **)MemoryManager::mallocPinned(sizeof(void *) *
+                                                 wantedFields.size());
     memset(buffs, 0, sizeof(void *) * wantedFields.size());
   }
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     pip->setStateVar<void *>(old_buffs[i], buffs + i);
   }
-  rawlogger.log(this, log_op::BLOCK2TUPLES_OPEN_END);
+  eventlogger.log(this, log_op::BLOCK2TUPLES_OPEN_END);
 }
 
-void BlockToTuples::close(RawPipeline *pip) {
+void BlockToTuples::close(Pipeline *pip) {
   void **h_buffs;
   void **buffs = pip->getStateVar<void **>(old_buffs[0]);
 
@@ -356,9 +356,9 @@ void BlockToTuples::close(RawPipeline *pip) {
   }
 
   if (gpu)
-    RawMemoryManager::freeGpu(buffs);
+    MemoryManager::freeGpu(buffs);
   else
-    RawMemoryManager::freePinned(buffs);
+    MemoryManager::freePinned(buffs);
 
   if (gpu) free(h_buffs);
 }

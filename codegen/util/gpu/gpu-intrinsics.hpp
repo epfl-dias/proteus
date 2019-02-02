@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,19 +24,21 @@
 #ifndef GPU_INTRINSICS_HPP_
 #define GPU_INTRINSICS_HPP_
 
-#include "util/gpu/gpu-raw-context.hpp"
+#include "codegen/util/parallel-context.hpp"
 
 namespace gpu_intrinsic {
 
-Value *load_ca(GpuRawContext *const context, Value *address);
+llvm::Value *load_ca(ParallelContext *const context, llvm::Value *address);
 
-Value *load_ca16(GpuRawContext *const context, Value *address);
+llvm::Value *load_ca16(ParallelContext *const context, llvm::Value *address);
 
-Value *load_cs(GpuRawContext *const context, Value *address);
+llvm::Value *load_cs(ParallelContext *const context, llvm::Value *address);
 
-void store_wb32(GpuRawContext *const context, Value *address, Value *value);
+void store_wb32(ParallelContext *const context, llvm::Value *address,
+                llvm::Value *value);
 
-void store_wb16(GpuRawContext *const context, Value *address, Value *value);
+void store_wb16(ParallelContext *const context, llvm::Value *address,
+                llvm::Value *value);
 
 /**
  * @brief Creates a vote.all(i1) call
@@ -45,7 +47,7 @@ void store_wb16(GpuRawContext *const context, Value *address, Value *value);
  *
  * @return a Value pointing to the result of the call
  **/
-Value *all(GpuRawContext *const context, Value *val_in);
+llvm::Value *all(ParallelContext *const context, llvm::Value *val_in);
 
 /**
  * @brief Creates a vote.any(i1) call
@@ -54,15 +56,15 @@ Value *all(GpuRawContext *const context, Value *val_in);
  *
  * @return a Value pointing to the result of the call
  **/
-Value *any(GpuRawContext *const context, Value *val_in);
+llvm::Value *any(ParallelContext *const context, llvm::Value *val_in);
 
-Value *shfl_bfly(GpuRawContext *const context, Value *val_in, uint32_t vxor,
-                 Value *mask = NULL);
+llvm::Value *shfl_bfly(ParallelContext *const context, llvm::Value *val_in,
+                       uint32_t vxor, llvm::Value *mask = NULL);
 
-Value *shfl_bfly(GpuRawContext *const context, Value *val_in, Value *vxor,
-                 Value *mask = NULL);
+llvm::Value *shfl_bfly(ParallelContext *const context, llvm::Value *val_in,
+                       llvm::Value *vxor, llvm::Value *mask = NULL);
 
-Value *ballot(GpuRawContext *const context, Value *val_in);
+llvm::Value *ballot(ParallelContext *const context, llvm::Value *val_in);
 
 }  // namespace gpu_intrinsic
 

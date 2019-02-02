@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,60 +24,60 @@
 #ifndef RAW_GPU_PIPELINE_HPP_
 #define RAW_GPU_PIPELINE_HPP_
 
-#include "util/jit/raw-cpu-module.hpp"
-#include "util/jit/raw-gpu-module.hpp"
-#include "util/raw-pipeline.hpp"
+#include "pipeline.hpp"
+#include "util/jit/cpu-module.hpp"
+#include "util/jit/gpu-module.hpp"
 
-class RawGpuPipelineGen : public RawPipelineGen {
+class GpuPipelineGen : public PipelineGen {
  protected:
-  RawGpuModule module;
-  RawCpuModule wrapper_module;
+  GpuModule module;
+  CpuModule wrapper_module;
 
   bool wrapperModuleActive;
   size_t kernel_id;
   size_t strm_id;
 
-  Function *Fconsume;
-  Function *subpipelineSync;
-  map<string, Function *> availableWrapperFunctions;
+  llvm::Function *Fconsume;
+  std::map<std::string, llvm::Function *> availableWrapperFunctions;
 
  protected:
-  RawGpuPipelineGen(RawContext *context, std::string pipName = "pip",
-                    RawPipelineGen *copyStateFrom = NULL);
+  GpuPipelineGen(Context *context, std::string pipName = "pip",
+                 PipelineGen *copyStateFrom = NULL);
 
-  friend class RawGpuPipelineGenFactory;
+  friend class GpuPipelineGenFactory;
 
  public:
   virtual void compileAndLoad();
 
-  virtual Function *prepare();
+  virtual llvm::Function *prepare();
 
-  virtual RawPipeline *getPipeline(int group_id = 0);
+  virtual Pipeline *getPipeline(int group_id = 0);
   virtual void *getKernel() const;
 
   // virtual size_t appendStateVar (llvm::Type * ptype);
   // virtual size_t appendStateVar (llvm::Type * ptype,
   // std::function<init_func_t> init, std::function<deinit_func_t> deinit);
-  virtual Module *getModule() const {
+  virtual llvm::Module *getModule() const {
     if (wrapperModuleActive) return wrapper_module.getModule();
     return module.getModule();
   }
 
   virtual void *getConsume() const;
-  virtual Function *getLLVMConsume() const { return Fconsume; }
+  virtual llvm::Function *getLLVMConsume() const { return Fconsume; }
 
-  virtual void registerFunction(const char *, Function *);
-  virtual Function *const getFunction(string funcName) const;
+  virtual void registerFunction(const char *, llvm::Function *);
+  virtual llvm::Function *const getFunction(std::string funcName) const;
 
-  virtual Function *const createHelperFunction(string funcName,
-                                               std::vector<llvm::Type *> ins,
-                                               std::vector<bool> readonly,
-                                               std::vector<bool> noalias) const;
+  virtual llvm::Function *const createHelperFunction(
+      std::string funcName, std::vector<llvm::Type *> ins,
+      std::vector<bool> readonly, std::vector<bool> noalias) const;
 
   virtual llvm::Value *workerScopedAtomicAdd(llvm::Value *ptr,
                                              llvm::Value *inc);
   virtual llvm::Value *workerScopedAtomicXchg(llvm::Value *ptr,
                                               llvm::Value *val);
+
+  virtual void workerScopedMembar();
 
  protected:
   virtual size_t prepareStateArgument();
@@ -87,32 +87,32 @@ class RawGpuPipelineGen : public RawPipelineGen {
   virtual void prepareInitDeinit();
 
  public:
-  virtual void *getCompiledFunction(Function *f);
+  virtual void *getCompiledFunction(llvm::Function *f);
 
  protected:
   virtual void registerFunctions();
-  virtual Function *prepareConsumeWrapper();
-  virtual void markAsKernel(Function *F) const;
+  virtual llvm::Function *prepareConsumeWrapper();
+  virtual void markAsKernel(llvm::Function *F) const;
 };
 
-class RawGpuPipelineGenFactory : public RawPipelineGenFactory {
+class GpuPipelineGenFactory : public PipelineGenFactory {
  protected:
-  RawGpuPipelineGenFactory() {}
+  GpuPipelineGenFactory() {}
 
  public:
-  static RawPipelineGenFactory &getInstance() {
-    static RawGpuPipelineGenFactory instance;
+  static PipelineGenFactory &getInstance() {
+    static GpuPipelineGenFactory instance;
     return instance;
   }
 
-  RawPipelineGen *create(RawContext *context, std::string pipName,
-                         RawPipelineGen *copyStateFrom) {
-    return new RawGpuPipelineGen(context, pipName, copyStateFrom);
+  PipelineGen *create(Context *context, std::string pipName,
+                      PipelineGen *copyStateFrom) {
+    return new GpuPipelineGen(context, pipName, copyStateFrom);
   }
 };
 
 extern "C" {
-void *getPipKernel(RawPipelineGen *pip);
+void *getPipKernel(PipelineGen *pip);
 
 cudaStream_t createCudaStream();
 

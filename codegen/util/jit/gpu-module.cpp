@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -20,7 +20,7 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#include "util/jit/raw-gpu-module.hpp"
+#include "util/jit/gpu-module.hpp"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
@@ -32,12 +32,14 @@
 
 void initializeModule(CUmodule &cudaModule);
 
-LLVMTargetMachine *RawGpuModule::TheTargetMachine = nullptr;
-legacy::PassManager RawGpuModule::Passes;
-PassManagerBuilder RawGpuModule::Builder;
+using namespace llvm;
 
-RawGpuModule::RawGpuModule(RawContext *context, std::string pipName)
-    : RawModule(context, pipName) {
+LLVMTargetMachine *GpuModule::TheTargetMachine = nullptr;
+legacy::PassManager GpuModule::Passes;
+PassManagerBuilder GpuModule::Builder;
+
+GpuModule::GpuModule(Context *context, std::string pipName)
+    : JITModule(context, pipName) {
   uint32_t gpu_cnt = topology::getInstance().getGpuCount();
   cudaModule = (CUmodule *)malloc(gpu_cnt * sizeof(CUmodule));
 
@@ -73,7 +75,7 @@ RawGpuModule::RawGpuModule(RawContext *context, std::string pipName)
   // }
 }
 
-void RawGpuModule::init() {
+void GpuModule::init() {
   // Get the triplet for GPU
   std::string TargetTriple("nvptx64-nvidia-cuda");
 
@@ -103,7 +105,7 @@ void RawGpuModule::init() {
   // std::cout << GPU.str()            << std::endl;
   // std::cout << Features.getString() << std::endl;
 
-  TargetOptions opt;
+  llvm::TargetOptions opt;
   opt.DisableIntegratedAS = 1;
   opt.MCOptions.ShowMCEncoding = 1;
   opt.MCOptions.MCUseDwarfDirectory = 1;
@@ -112,13 +114,14 @@ void RawGpuModule::init() {
 
   std::cout << GPU << std::endl;
 
-  auto RM = Optional<Reloc::Model>();
-  TheTargetMachine = (LLVMTargetMachine *)Target->createTargetMachine(
+  auto RM = llvm::Optional<llvm::Reloc::Model>();
+  TheTargetMachine = (llvm::LLVMTargetMachine *)Target->createTargetMachine(
       TargetTriple, GPU,
       "+ptx60,+satom",  // PTX 6.0 + Scoped Atomics
       //"+ptx60,+satom", //for V100
-      opt, RM, Optional<CodeModel::Model>{},  // CodeModel::Model::Default,
-      CodeGenOpt::Aggressive);
+      opt, RM,
+      llvm::Optional<llvm::CodeModel::Model>{},  // CodeModel::Model::Default,
+      llvm::CodeGenOpt::Aggressive);
 
   // // Override function attributes based on CPUStr, FeaturesStr, and command
   // line
@@ -128,19 +131,19 @@ void RawGpuModule::init() {
   // TheTargetMachine->setDataLayout("e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-"
   //                        "i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-"
   //                        "v64:64:64-v128:128:128-n16:32:64");
-  Triple ModuleTriple(TargetTriple);
-  TargetLibraryInfoImpl TLII(ModuleTriple);
+  llvm::Triple ModuleTriple(TargetTriple);
+  llvm::TargetLibraryInfoImpl TLII(ModuleTriple);
 
-  Passes.add(new TargetLibraryInfoWrapperPass(TLII));
+  Passes.add(new llvm::TargetLibraryInfoWrapperPass(TLII));
 
   // Add internal analysis passes from the target machine.
   Passes.add(createTargetTransformInfoWrapperPass(
       TheTargetMachine->getTargetIRAnalysis()));
 
-  // FPasses.reset(new legacy::FunctionPassManager(getModule()));
+  // FPasses.reset(new llvm::legacy::FunctionPassManager(getModule()));
   // FPasses->add(createTargetTransformInfoWrapperPass(TheTargetMachine->getTargetIRAnalysis()));
 
-  Pass *TPC = TheTargetMachine->createPassConfig(Passes);
+  llvm::Pass *TPC = TheTargetMachine->createPassConfig(Passes);
   Passes.add(TPC);
 
   // if (!NoVerify || VerifyEach)
@@ -149,7 +152,7 @@ void RawGpuModule::init() {
   Builder.OptLevel = 3;
   Builder.SizeLevel = 0;
 
-  Builder.Inliner = createFunctionInliningPass(3, 0, false);
+  Builder.Inliner = llvm::createFunctionInliningPass(3, 0, false);
 
   Builder.DisableUnrollLoops = false;
   Builder.LoopVectorize = true;
@@ -166,7 +169,7 @@ void RawGpuModule::init() {
   Builder.populateModulePassManager(Passes);
 }
 
-void RawGpuModule::optimizeModule(Module *M) {
+void GpuModule::optimizeModule(llvm::Module *M) {
   time_block t("Optimization time: ");
 
   llvm::legacy::FunctionPassManager FPasses{M};
@@ -176,7 +179,7 @@ void RawGpuModule::optimizeModule(Module *M) {
   Builder.populateFunctionPassManager(FPasses);
 
   FPasses.doInitialization();
-  for (Function &F : *M) FPasses.run(F);
+  for (llvm::Function &F : *M) FPasses.run(F);
   FPasses.doFinalization();
 
   // Now that we have all of the passes ready, run them.
@@ -198,7 +201,7 @@ constexpr size_t BUFFER_SIZE = 8192;
 char error_log[BUFFER_SIZE];
 char info_log[BUFFER_SIZE];
 
-void RawGpuModule::compileAndLoad() {
+void GpuModule::compileAndLoad() {
 #ifndef NCUDA
   LOG(INFO) << "[Prepare Function: ] Exit";  // and dump code so far";
   time_block t(pipName + " G: ");
@@ -208,7 +211,7 @@ void RawGpuModule::compileAndLoad() {
 
   if (print_generated_code) {
     std::error_code EC;
-    raw_fd_ostream out(
+    llvm::raw_fd_ostream out(
         "generated_code/" + pipName + ".ll", EC,
         (llvm::sys::fs::OpenFlags)0);  // FIXME:
                                        // llvm::sys::fs::OpenFlags::F_NONE is
@@ -227,7 +230,7 @@ void RawGpuModule::compileAndLoad() {
 
   if (print_generated_code) {
     std::error_code EC;
-    raw_fd_ostream out(
+    llvm::raw_fd_ostream out(
         "generated_code/" + pipName + "_opt.ll", EC,
         (llvm::sys::fs::OpenFlags)0);  // FIXME:
                                        // llvm::sys::fs::OpenFlags::F_NONE is
@@ -240,10 +243,10 @@ void RawGpuModule::compileAndLoad() {
 
   string ptx;
   {
-    raw_string_ostream stream(ptx);
-    buffer_ostream ostream(stream);
+    llvm::raw_string_ostream stream(ptx);
+    llvm::buffer_ostream ostream(stream);
 
-    legacy::PassManager PM;
+    llvm::legacy::PassManager PM;
 
     // Ask the target to add backend passes as necessary.
     TheTargetMachine->addPassesToEmitFile(
@@ -324,7 +327,7 @@ void RawGpuModule::compileAndLoad() {
     // auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN,
     // "/home/chrysoge/Documents/pelago/build/raw-jit-executor/codegen/multigpu/CMakeFiles/multigpu.dir/multigpu_generated_buffer_manager.cu.o.cubin.txt",
     // 0, NULL, NULL)); auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN,
-    // "/home/chrysoge/Documents/pelago/opt/res/buffer_manager.cubin", 0, NULL,
+    // "/home/chrysoge/Documents/pelago/opt/res/buffer-manager.cubin", 0, NULL,
     // NULL)); libmultigpu.a", 0, NULL, NULL));
     if (x != CUDA_SUCCESS) {
       // If you get an error message similar to "no kernel image is available
@@ -372,7 +375,7 @@ void RawGpuModule::compileAndLoad() {
 #endif
 }
 
-void *RawGpuModule::getCompiledFunction(Function *f) const {
+void *GpuModule::getCompiledFunction(Function *f) const {
 #ifndef NCUDA
   CUfunction func;
   gpu_run(cuModuleGetFunction(

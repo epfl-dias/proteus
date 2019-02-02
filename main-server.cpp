@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,12 +21,12 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include "codegen/memory/memory-manager.hpp"
+#include "codegen/util/jit/pipeline.hpp"
+#include "codegen/util/parallel-context.hpp"
 #include "plan/plan-parser.hpp"
-#include "storage/raw-storage-manager.hpp"
+#include "storage/storage-manager.hpp"
 #include "topology/topology.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/raw-memory-manager.hpp"
-#include "util/raw-pipeline.hpp"
 #if __has_include("ittnotify.h")
 #include <ittnotify.h>
 #else
@@ -57,7 +57,7 @@ void executePlan(const char *label, const char *planPath,
                  const char *catalogJSON) {
   uint32_t devices = topology::getInstance().getGpuCount();
   {
-    RawCatalog *catalog = &RawCatalog::getInstance();
+    Catalog *catalog = &Catalog::getInstance();
     CachingService *caches = &CachingService::getInstance();
     catalog->clear();
     caches->clear();
@@ -65,11 +65,11 @@ void executePlan(const char *label, const char *planPath,
 
   // gpu_run(cudaSetDevice(0));
 
-  std::vector<RawPipeline *> pipelines;
+  std::vector<Pipeline *> pipelines;
   {
     time_block t("Tcodegen: ");
 
-    GpuRawContext *ctx = new GpuRawContext(label, false);
+    ParallelContext *ctx = new ParallelContext(label, false);
     CatalogParser catalog = CatalogParser(catalogJSON, ctx);
     PlanExecutor exec = PlanExecutor(planPath, catalog, label, ctx);
 
@@ -98,7 +98,7 @@ void executePlan(const char *label, const char *planPath,
     {
       time_block t("Texecute       : ");
 
-      for (RawPipeline *p : pipelines) {
+      for (Pipeline *p : pipelines) {
         nvtxRangePushA("pip");
         {
           time_block t("T: ");
@@ -285,10 +285,10 @@ int main(int argc, char *argv[]) {
 
   LOG(INFO) << "Initializing codegen...";
 
-  RawPipelineGen::init();
+  PipelineGen::init();
 
   LOG(INFO) << "Initializing memory manager...";
-  RawMemoryManager::init();
+  MemoryManager::init();
 
   gpu_run(cudaSetDevice(0));
   LOG(INFO) << "Eagerly loading files in memory...";
@@ -395,7 +395,7 @@ int main(int argc, char *argv[]) {
   StorageManager::unloadAll();
 
   LOG(INFO) << "Shuting down memory manager...";
-  RawMemoryManager::destroy();
+  MemoryManager::destroy();
 
   LOG(INFO) << "Shut down finished";
   return 0;

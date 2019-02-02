@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,12 +25,11 @@
 
 void Select::produce() { getChild()->produce(); }
 
-void Select::consume(RawContext *const context,
-                     const OperatorState &childState) {
+void Select::consume(Context *const context, const OperatorState &childState) {
   generate(context, childState);
 }
 
-void Select::generate(RawContext *const context,
+void Select::generate(Context *const context,
                       const OperatorState &childState) const {
   context->gen_if(expr, childState)([&] {
     // Triggering parent

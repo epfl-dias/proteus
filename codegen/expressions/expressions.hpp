@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -26,7 +26,7 @@
 
 #include "expressions/binary-operators.hpp"
 #include "operators/monoids.hpp"
-#include "util/raw-context.hpp"
+#include "util/context.hpp"
 #include "values/expressionTypes.hpp"
 
 class ExprVisitor;        // Forward declaration
@@ -59,9 +59,9 @@ class Expression {
   virtual ~Expression() = default;
 
   const ExpressionType *getExpressionType() const { return type; }
-  virtual RawValue accept(ExprVisitor &v) const = 0;
-  virtual RawValue acceptTandem(ExprTandemVisitor &v,
-                                const expressions::Expression *) const = 0;
+  virtual ProteusValue accept(ExprVisitor &v) const = 0;
+  virtual ProteusValue acceptTandem(ExprTandemVisitor &v,
+                                    const expressions::Expression *) const = 0;
   virtual ExpressionId getTypeID() const = 0;
 
   virtual inline bool operator<(const expressions::Expression &r) const {
@@ -192,16 +192,16 @@ class expression_t final : public expressions::Expression {
   expression_t(double v);
   expression_t(std::string v);
 
-  inline RawValue accept(ExprVisitor &v) const override {
+  inline ProteusValue accept(ExprVisitor &v) const override {
     return data->accept(v);
   }
 
-  inline RawValue acceptTandem(ExprTandemVisitor &v,
-                               const expression_t &e) const {
+  inline ProteusValue acceptTandem(ExprTandemVisitor &v,
+                                   const expression_t &e) const {
     return data->acceptTandem(v, e.data.get());
   }
 
-  [[deprecated]] inline RawValue acceptTandem(
+  [[deprecated]] inline ProteusValue acceptTandem(
       ExprTandemVisitor &v, const expressions::Expression *e) const override {
     return data->acceptTandem(v, e);
   }
@@ -252,9 +252,9 @@ class TConstant : public Constant {
 
   T getVal() const { return val; }
 
-  RawValue accept(ExprVisitor &v) const = 0;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const = 0;
+  ProteusValue accept(ExprVisitor &v) const = 0;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const = 0;
 
   ExpressionId getTypeID() const { return CONSTANT; }
 
@@ -280,27 +280,27 @@ class IntConstant
     : public TConstant<int, IntType, Constant::ConstantType::INT> {
  public:
   using TConstant::TConstant;
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class StringConstant : public TConstant<std::string, StringType,
                                         Constant::ConstantType::STRING> {
  public:
   using TConstant::TConstant;
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class Int64Constant
     : public TConstant<int64_t, Int64Type, Constant::ConstantType::INT64> {
  public:
   using TConstant::TConstant;
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class DateConstant
@@ -309,27 +309,27 @@ class DateConstant
 
  public:
   using TConstant::TConstant;
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class BoolConstant
     : public TConstant<bool, BoolType, Constant::ConstantType::BOOL> {
  public:
   using TConstant::TConstant;
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class FloatConstant
     : public TConstant<double, FloatType, Constant::ConstantType::FLOAT> {
  public:
   using TConstant::TConstant;
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class DStringConstant
@@ -339,9 +339,9 @@ class DStringConstant
       : TConstant(val, new DStringType(dictionary)) {}
   ~DStringConstant() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 /*
@@ -363,9 +363,9 @@ class InputArgument : public Expression {
 
   int getArgNo() const { return argNo; }
   list<RecordAttribute> getProjections() const { return projections; }
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return ARGUMENT; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -455,9 +455,9 @@ class RecordProjection : public Expression {
   string getRelationName() const { return attribute.getRelationName(); }
   string getProjectionName() const { return attribute.getAttrName(); }
   RecordAttribute getAttribute() const { return attribute; }
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return RECORD_PROJECTION; }
   inline bool operator<(const expressions::Expression &r) const {
     //        if (this->getTypeID() == r.getTypeID()) {
@@ -529,9 +529,9 @@ class HashExpression : public Expression {
   ~HashExpression() {}
 
   expression_t getExpr() const { return expr; }
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return EXPRESSION_HASHER; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -546,21 +546,21 @@ class HashExpression : public Expression {
   expression_t expr;
 };
 
-class RawValueExpression : public Expression {
+class ProteusValueExpression : public Expression {
  public:
-  RawValueExpression(const ExpressionType *type, RawValue expr)
+  ProteusValueExpression(const ExpressionType *type, ProteusValue expr)
       : Expression(type), expr(expr) {}
-  ~RawValueExpression() {}
+  ~ProteusValueExpression() {}
 
-  RawValue getValue() const { return expr; }
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue getValue() const { return expr; }
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return RAWVALUE; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const RawValueExpression &rProj =
-          dynamic_cast<const RawValueExpression &>(r);
+      const ProteusValueExpression &rProj =
+          dynamic_cast<const ProteusValueExpression &>(r);
       return (expr.value == NULL && rProj.expr.value == NULL)
                  ? (expr.isNull < rProj.expr.isNull)
                  : (expr.value < rProj.expr.value);
@@ -570,7 +570,7 @@ class RawValueExpression : public Expression {
   }
 
  private:
-  RawValue expr;
+  ProteusValue expr;
 };
 
 class AttributeConstruction {
@@ -602,9 +602,9 @@ class RecordConstruction : public Expression {
       : Expression(constructRecordType(atts)), atts(atts) {}
   ~RecordConstruction() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return RECORD_CONSTRUCTION; }
   const list<AttributeConstruction> &getAtts() const { return atts; }
   inline bool operator<(const expressions::Expression &r) const {
@@ -663,9 +663,9 @@ class IfThenElse : public Expression {
   }
   ~IfThenElse() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return IF_THEN_ELSE; }
   expression_t getIfCond() const { return expr1; }
   expression_t getIfResult() const { return expr2; }
@@ -725,9 +725,9 @@ class BinaryExpression : public Expression {
   virtual expression_t getRightOperand() const { return rhs; }
   expressions::BinaryOperator *getOp() const { return op; }
 
-  virtual RawValue accept(ExprVisitor &v) const = 0;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const = 0;
+  virtual ProteusValue accept(ExprVisitor &v) const = 0;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const = 0;
   virtual ExpressionId getTypeID() const { return BINARY; }
   ~BinaryExpression() = 0;
   virtual inline bool operator<(const expressions::Expression &r) const {
@@ -762,9 +762,9 @@ class TBinaryExpression : public BinaryExpression {
  public:
   ~TBinaryExpression() {}
 
-  RawValue accept(ExprVisitor &v) const = 0;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const = 0;
+  ProteusValue accept(ExprVisitor &v) const = 0;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const = 0;
   ExpressionId getTypeID() const { return BINARY; }
 
   inline bool operator<(const expressions::Expression &r) const {
@@ -808,9 +808,9 @@ class EqExpression : public TBinaryExpression<Eq> {
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~EqExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class NeExpression : public TBinaryExpression<Neq> {
@@ -819,9 +819,9 @@ class NeExpression : public TBinaryExpression<Neq> {
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~NeExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class GeExpression : public TBinaryExpression<Ge> {
@@ -830,9 +830,9 @@ class GeExpression : public TBinaryExpression<Ge> {
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~GeExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class GtExpression : public TBinaryExpression<Gt> {
@@ -841,9 +841,9 @@ class GtExpression : public TBinaryExpression<Gt> {
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~GtExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class LeExpression : public TBinaryExpression<Le> {
@@ -852,9 +852,9 @@ class LeExpression : public TBinaryExpression<Le> {
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~LeExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class LtExpression : public TBinaryExpression<Lt> {
@@ -863,9 +863,9 @@ class LtExpression : public TBinaryExpression<Lt> {
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~LtExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class AddExpression : public TBinaryExpression<Add> {
@@ -875,9 +875,9 @@ class AddExpression : public TBinaryExpression<Add> {
 
   ~AddExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class SubExpression : public TBinaryExpression<Sub> {
@@ -886,9 +886,9 @@ class SubExpression : public TBinaryExpression<Sub> {
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
   ~SubExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class MultExpression : public TBinaryExpression<Mult> {
@@ -897,9 +897,9 @@ class MultExpression : public TBinaryExpression<Mult> {
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
   ~MultExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class DivExpression : public TBinaryExpression<Div> {
@@ -908,9 +908,9 @@ class DivExpression : public TBinaryExpression<Div> {
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
   ~DivExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class AndExpression : public TBinaryExpression<And> {
@@ -919,9 +919,9 @@ class AndExpression : public TBinaryExpression<And> {
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
   ~AndExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class OrExpression : public TBinaryExpression<Or> {
@@ -930,9 +930,9 @@ class OrExpression : public TBinaryExpression<Or> {
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
   ~OrExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
 };
 
 class MaxExpression : public BinaryExpression {
@@ -942,9 +942,9 @@ class MaxExpression : public BinaryExpression {
         cond(expression_t::make<GtExpression>(lhs, rhs), lhs, rhs) {}
   ~MaxExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
   const IfThenElse *getCond() const { return &cond; };
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -970,9 +970,9 @@ class MinExpression : public BinaryExpression {
         cond(expression_t::make<LtExpression>(lhs, rhs), lhs, rhs) {}
   ~MinExpression() {}
 
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
   const IfThenElse *getCond() const { return &cond; };
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -999,9 +999,9 @@ class NegExpression : public Expression {
   ~NegExpression() {}
 
   expression_t getExpr() const { return expr; }
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return NEG_EXPRESSION; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -1025,9 +1025,9 @@ class TestNullExpression : public Expression {
 
   bool isNullTest() const { return nullTest; }
   expression_t getExpr() const { return expr; }
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return TESTNULL_EXPRESSION; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -1074,9 +1074,9 @@ class ExtractExpression : public Expression {
 
   extract_unit getExtractUnit() const { return unit; }
   expression_t getExpr() const { return expr; }
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return EXTRACT; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -1103,9 +1103,9 @@ class CastExpression : public Expression {
   ~CastExpression() {}
 
   expression_t getExpr() const { return expr; }
-  RawValue accept(ExprVisitor &v) const;
-  RawValue acceptTandem(ExprTandemVisitor &v,
-                        const expressions::Expression *) const;
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return CAST_EXPRESSION; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -1198,112 +1198,113 @@ inline bool operator<(const expressions::BinaryExpression &l,
 //===----------------------------------------------------------------------===//
 class ExprVisitor {
  public:
-  virtual RawValue visit(const expressions::IntConstant *e) = 0;
-  virtual RawValue visit(const expressions::Int64Constant *e) = 0;
-  virtual RawValue visit(const expressions::DateConstant *e) = 0;
-  virtual RawValue visit(const expressions::FloatConstant *e) = 0;
-  virtual RawValue visit(const expressions::BoolConstant *e) = 0;
-  virtual RawValue visit(const expressions::StringConstant *e) = 0;
-  virtual RawValue visit(const expressions::DStringConstant *e) = 0;
-  virtual RawValue visit(const expressions::InputArgument *e) = 0;
-  virtual RawValue visit(const expressions::RecordProjection *e) = 0;
-  virtual RawValue visit(const expressions::RecordConstruction *e) = 0;
-  virtual RawValue visit(const expressions::IfThenElse *e) = 0;
-  virtual RawValue visit(const expressions::EqExpression *e) = 0;
-  virtual RawValue visit(const expressions::NeExpression *e) = 0;
-  virtual RawValue visit(const expressions::GeExpression *e) = 0;
-  virtual RawValue visit(const expressions::GtExpression *e) = 0;
-  virtual RawValue visit(const expressions::LeExpression *e) = 0;
-  virtual RawValue visit(const expressions::LtExpression *e) = 0;
-  virtual RawValue visit(const expressions::AddExpression *e) = 0;
-  virtual RawValue visit(const expressions::SubExpression *e) = 0;
-  virtual RawValue visit(const expressions::MultExpression *e) = 0;
-  virtual RawValue visit(const expressions::DivExpression *e) = 0;
-  virtual RawValue visit(const expressions::AndExpression *e) = 0;
-  virtual RawValue visit(const expressions::OrExpression *e) = 0;
-  virtual RawValue visit(const expressions::RawValueExpression *e) = 0;
-  virtual RawValue visit(const expressions::MinExpression *e) = 0;
-  virtual RawValue visit(const expressions::MaxExpression *e) = 0;
-  virtual RawValue visit(const expressions::HashExpression *e) = 0;
-  virtual RawValue visit(const expressions::TestNullExpression *e) = 0;
-  virtual RawValue visit(const expressions::NegExpression *e) = 0;
-  virtual RawValue visit(const expressions::ExtractExpression *e) = 0;
-  virtual RawValue visit(const expressions::CastExpression *e1) = 0;
-  //    virtual RawValue visit(const expressions::MergeExpression *e)      = 0;
+  virtual ProteusValue visit(const expressions::IntConstant *e) = 0;
+  virtual ProteusValue visit(const expressions::Int64Constant *e) = 0;
+  virtual ProteusValue visit(const expressions::DateConstant *e) = 0;
+  virtual ProteusValue visit(const expressions::FloatConstant *e) = 0;
+  virtual ProteusValue visit(const expressions::BoolConstant *e) = 0;
+  virtual ProteusValue visit(const expressions::StringConstant *e) = 0;
+  virtual ProteusValue visit(const expressions::DStringConstant *e) = 0;
+  virtual ProteusValue visit(const expressions::InputArgument *e) = 0;
+  virtual ProteusValue visit(const expressions::RecordProjection *e) = 0;
+  virtual ProteusValue visit(const expressions::RecordConstruction *e) = 0;
+  virtual ProteusValue visit(const expressions::IfThenElse *e) = 0;
+  virtual ProteusValue visit(const expressions::EqExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::NeExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::GeExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::GtExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::LeExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::LtExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::AddExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::SubExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::MultExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::DivExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::AndExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::OrExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::ProteusValueExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::MinExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::MaxExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::HashExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::TestNullExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::NegExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::ExtractExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::CastExpression *e1) = 0;
+  //    virtual ProteusValue visit(const expressions::MergeExpression *e)      =
+  //    0;
   virtual ~ExprVisitor() {}
 };
 
 class ExprTandemVisitor {
  public:
-  virtual RawValue visit(const expressions::IntConstant *e1,
-                         const expressions::IntConstant *e2) = 0;
-  virtual RawValue visit(const expressions::Int64Constant *e1,
-                         const expressions::Int64Constant *e2) = 0;
-  virtual RawValue visit(const expressions::DateConstant *e1,
-                         const expressions::DateConstant *e2) = 0;
-  virtual RawValue visit(const expressions::FloatConstant *e1,
-                         const expressions::FloatConstant *e2) = 0;
-  virtual RawValue visit(const expressions::BoolConstant *e1,
-                         const expressions::BoolConstant *e2) = 0;
-  virtual RawValue visit(const expressions::StringConstant *e1,
-                         const expressions::StringConstant *e2) = 0;
-  virtual RawValue visit(const expressions::DStringConstant *e1,
-                         const expressions::DStringConstant *e2) = 0;
-  virtual RawValue visit(const expressions::InputArgument *e1,
-                         const expressions::InputArgument *e2) = 0;
-  virtual RawValue visit(const expressions::RecordProjection *e1,
-                         const expressions::RecordProjection *e2) = 0;
-  virtual RawValue visit(const expressions::RecordConstruction *e1,
-                         const expressions::RecordConstruction *e2) = 0;
-  virtual RawValue visit(const expressions::IfThenElse *e1,
-                         const expressions::IfThenElse *e2) = 0;
-  virtual RawValue visit(const expressions::EqExpression *e1,
-                         const expressions::EqExpression *e2) = 0;
-  virtual RawValue visit(const expressions::NeExpression *e1,
-                         const expressions::NeExpression *e2) = 0;
-  virtual RawValue visit(const expressions::GeExpression *e1,
-                         const expressions::GeExpression *e2) = 0;
-  virtual RawValue visit(const expressions::GtExpression *e1,
-                         const expressions::GtExpression *e2) = 0;
-  virtual RawValue visit(const expressions::LeExpression *e1,
-                         const expressions::LeExpression *e2) = 0;
-  virtual RawValue visit(const expressions::LtExpression *e1,
-                         const expressions::LtExpression *e2) = 0;
-  virtual RawValue visit(const expressions::AddExpression *e1,
-                         const expressions::AddExpression *e2) = 0;
-  virtual RawValue visit(const expressions::SubExpression *e1,
-                         const expressions::SubExpression *e2) = 0;
-  virtual RawValue visit(const expressions::MultExpression *e1,
-                         const expressions::MultExpression *e2) = 0;
-  virtual RawValue visit(const expressions::DivExpression *e1,
-                         const expressions::DivExpression *e2) = 0;
-  virtual RawValue visit(const expressions::AndExpression *e1,
-                         const expressions::AndExpression *e2) = 0;
-  virtual RawValue visit(const expressions::OrExpression *e1,
-                         const expressions::OrExpression *e2) = 0;
-  virtual RawValue visit(const expressions::RawValueExpression *e1,
-                         const expressions::RawValueExpression *e2) = 0;
-  virtual RawValue visit(const expressions::MinExpression *e1,
-                         const expressions::MinExpression *e2) = 0;
-  virtual RawValue visit(const expressions::MaxExpression *e1,
-                         const expressions::MaxExpression *e2) = 0;
-  virtual RawValue visit(const expressions::HashExpression *e1,
-                         const expressions::HashExpression *e2) = 0;
-  virtual RawValue visit(const expressions::NegExpression *e1,
-                         const expressions::NegExpression *e2) = 0;
-  virtual RawValue visit(const expressions::ExtractExpression *e1,
-                         const expressions::ExtractExpression *e2) = 0;
-  virtual RawValue visit(const expressions::TestNullExpression *e1,
-                         const expressions::TestNullExpression *e2) = 0;
-  virtual RawValue visit(const expressions::CastExpression *e1,
-                         const expressions::CastExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::IntConstant *e1,
+                             const expressions::IntConstant *e2) = 0;
+  virtual ProteusValue visit(const expressions::Int64Constant *e1,
+                             const expressions::Int64Constant *e2) = 0;
+  virtual ProteusValue visit(const expressions::DateConstant *e1,
+                             const expressions::DateConstant *e2) = 0;
+  virtual ProteusValue visit(const expressions::FloatConstant *e1,
+                             const expressions::FloatConstant *e2) = 0;
+  virtual ProteusValue visit(const expressions::BoolConstant *e1,
+                             const expressions::BoolConstant *e2) = 0;
+  virtual ProteusValue visit(const expressions::StringConstant *e1,
+                             const expressions::StringConstant *e2) = 0;
+  virtual ProteusValue visit(const expressions::DStringConstant *e1,
+                             const expressions::DStringConstant *e2) = 0;
+  virtual ProteusValue visit(const expressions::InputArgument *e1,
+                             const expressions::InputArgument *e2) = 0;
+  virtual ProteusValue visit(const expressions::RecordProjection *e1,
+                             const expressions::RecordProjection *e2) = 0;
+  virtual ProteusValue visit(const expressions::RecordConstruction *e1,
+                             const expressions::RecordConstruction *e2) = 0;
+  virtual ProteusValue visit(const expressions::IfThenElse *e1,
+                             const expressions::IfThenElse *e2) = 0;
+  virtual ProteusValue visit(const expressions::EqExpression *e1,
+                             const expressions::EqExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::NeExpression *e1,
+                             const expressions::NeExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::GeExpression *e1,
+                             const expressions::GeExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::GtExpression *e1,
+                             const expressions::GtExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::LeExpression *e1,
+                             const expressions::LeExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::LtExpression *e1,
+                             const expressions::LtExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::AddExpression *e1,
+                             const expressions::AddExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::SubExpression *e1,
+                             const expressions::SubExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::MultExpression *e1,
+                             const expressions::MultExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::DivExpression *e1,
+                             const expressions::DivExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::AndExpression *e1,
+                             const expressions::AndExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::OrExpression *e1,
+                             const expressions::OrExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::ProteusValueExpression *e1,
+                             const expressions::ProteusValueExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::MinExpression *e1,
+                             const expressions::MinExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::MaxExpression *e1,
+                             const expressions::MaxExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::HashExpression *e1,
+                             const expressions::HashExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::NegExpression *e1,
+                             const expressions::NegExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::ExtractExpression *e1,
+                             const expressions::ExtractExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::TestNullExpression *e1,
+                             const expressions::TestNullExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::CastExpression *e1,
+                             const expressions::CastExpression *e2) = 0;
   virtual ~ExprTandemVisitor() {}
 };
 
 expression_t toExpression(Monoid m, expression_t lhs, expression_t rhs);
 
 llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
-                                           RawContext *context);
+                                           Context *context);
 
 inline expression_t eq(const expression_t &lhs, const expression_t &rhs) {
   return expression_t::make<expressions::EqExpression>(lhs, rhs);

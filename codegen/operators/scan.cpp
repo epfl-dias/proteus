@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -30,7 +30,7 @@ void Scan::produce() {
   LOG(INFO) << "[Scan:] End";
 }
 
-void Scan::consume(RawContext *const context, const OperatorState &childState) {
+void Scan::consume(Context *const context, const OperatorState &childState) {
   // throw runtime_error(string("Scan operator cannot consume"));     //FIXME:
   // this should in general be true, but not for the block2tuple scan
 }

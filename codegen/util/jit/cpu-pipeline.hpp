@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,41 +24,41 @@
 #ifndef RAW_CPU_PIPELINE_HPP_
 #define RAW_CPU_PIPELINE_HPP_
 
-#include "util/jit/raw-cpu-module.hpp"
-#include "util/raw-pipeline.hpp"
+#include "pipeline.hpp"
+#include "util/jit/cpu-module.hpp"
 
-class RawCpuPipelineGen : public RawPipelineGen {
+class CpuPipelineGen : public PipelineGen {
  protected:
-  RawCpuModule module;
+  CpuModule module;
 
  private:
-  RawCpuPipelineGen(RawContext *context, std::string pipName = "pip",
-                    RawPipelineGen *copyStateFrom = NULL);
+  CpuPipelineGen(Context *context, std::string pipName = "pip",
+                 PipelineGen *copyStateFrom = NULL);
 
-  friend class RawCpuPipelineGenFactory;
+  friend class CpuPipelineGenFactory;
 
  public:
   virtual void compileAndLoad();
 
-  virtual Module *getModule() const { return module.getModule(); }
+  virtual llvm::Module *getModule() const { return module.getModule(); }
 
  public:
-  virtual void *getCompiledFunction(Function *f);
+  virtual void *getCompiledFunction(llvm::Function *f);
 };
 
-class RawCpuPipelineGenFactory : public RawPipelineGenFactory {
+class CpuPipelineGenFactory : public PipelineGenFactory {
  protected:
-  RawCpuPipelineGenFactory() {}
+  CpuPipelineGenFactory() {}
 
  public:
-  static RawPipelineGenFactory &getInstance() {
-    static RawCpuPipelineGenFactory instance;
+  static PipelineGenFactory &getInstance() {
+    static CpuPipelineGenFactory instance;
     return instance;
   }
 
-  RawPipelineGen *create(RawContext *context, std::string pipName,
-                         RawPipelineGen *copyStateFrom) {
-    return new RawCpuPipelineGen(context, pipName, copyStateFrom);
+  PipelineGen *create(Context *context, std::string pipName,
+                      PipelineGen *copyStateFrom) {
+    return new CpuPipelineGen(context, pipName, copyStateFrom);
   }
 };
 

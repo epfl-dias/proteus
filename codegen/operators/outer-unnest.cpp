@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,9 +23,11 @@
 
 #include "operators/outer-unnest.hpp"
 
+using namespace llvm;
+
 void OuterUnnest::produce() { getChild()->produce(); }
 
-void OuterUnnest::consume(RawContext *const context,
+void OuterUnnest::consume(Context *const context,
                           const OperatorState &childState) {
   generate(context, childState);
 }
@@ -36,7 +38,7 @@ void OuterUnnest::consume(RawContext *const context,
  *                       then [NULL]
  *                       else { w' | w' <- path(v), p(v,w') }
  */
-void OuterUnnest::generate(RawContext *const context,
+void OuterUnnest::generate(Context *const context,
                            const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -62,7 +64,7 @@ void OuterUnnest::generate(RawContext *const context,
     // Evaluating v
     ExpressionGeneratorVisitor vGenerator = ExpressionGeneratorVisitor(
         context, childState, pathProj->getOriginalRelationName());
-    RawValue val_v = expr_v.accept(vGenerator);
+    ProteusValue val_v = expr_v.accept(vGenerator);
     Value *val_v_isNull = val_v.isNull;
 
     Value *nullCond =
@@ -77,7 +79,7 @@ void OuterUnnest::generate(RawContext *const context,
    */
   BasicBlock *loopCond, *loopBody, *loopInc, *loopEnd;
   AllocaInst *mem_accumulating = NULL;
-  RawValueMemory nestedValueItem;
+  ProteusValueMemory nestedValueItem;
   Plugin *pg = path.getRelevantPlugin();
   {
     Builder->SetInsertPoint(IfNotNull);
@@ -87,7 +89,7 @@ void OuterUnnest::generate(RawContext *const context,
         ExpressionGeneratorVisitor(context, childState);
     auto pathProj = path.get();
 
-    RawValue nestedValueAll = pathProj->accept(pathExprGenerator);
+    ProteusValue nestedValueAll = pathProj->accept(pathExprGenerator);
 #ifdef DEBUG  // pred condition printout
 //    vector<Value*> ArgsV;
 //    Function* debugBoolean = context->getFunction("printBoolean");
@@ -113,12 +115,14 @@ void OuterUnnest::generate(RawContext *const context,
                            &loopBody, &loopInc, &loopEnd);
 
     // ENTRY: init the vars used by the plugin
-    RawValueMemory mem_currentObjId = pg->initCollectionUnnest(nestedValueAll);
+    ProteusValueMemory mem_currentObjId =
+        pg->initCollectionUnnest(nestedValueAll);
     Builder->CreateBr(loopCond);
 
     Builder->SetInsertPoint(loopCond);
     Value *isNotNullCond = Builder->CreateNot(nestedValueAll.isNull);
-    RawValue hasNext = pg->collectionHasNext(nestedValueAll, mem_currentObjId);
+    ProteusValue hasNext =
+        pg->collectionHasNext(nestedValueAll, mem_currentObjId);
     // FIXME Can (..should?) break in two checks: if(!isNull) { if(hasNext) ...
     // }
     Value *endCond = Builder->CreateAnd(isNotNullCond, hasNext.value);
@@ -129,9 +133,9 @@ void OuterUnnest::generate(RawContext *const context,
     nestedValueItem = pg->collectionGetNext(mem_currentObjId);
     type_w = (nestedValueItem.mem)->getAllocatedType();
 
-    map<RecordAttribute, RawValueMemory> *unnestBindings =
-        new map<RecordAttribute, RawValueMemory>(childState.getBindings());
-    RawCatalog &catalog = RawCatalog::getInstance();
+    map<RecordAttribute, ProteusValueMemory> *unnestBindings =
+        new map<RecordAttribute, ProteusValueMemory>(childState.getBindings());
+    Catalog &catalog = Catalog::getInstance();
     LOG(INFO) << "[Outer Unnest: ] Registering plugin of " << path.toString();
     catalog.registerPlugin(path.toString(), pg);
 
@@ -145,7 +149,7 @@ void OuterUnnest::generate(RawContext *const context,
     // Predicate Evaluation: Generate condition
     ExpressionGeneratorVisitor predExprGenerator =
         ExpressionGeneratorVisitor(context, *newState);
-    RawValue condition = pred.accept(predExprGenerator);
+    ProteusValue condition = pred.accept(predExprGenerator);
     Value *invert_condition = Builder->CreateNot(condition.value);
     Value *val_acc_current = Builder->CreateLoad(mem_accumulating);
     Value *val_acc_new = Builder->CreateAnd(invert_condition, val_acc_current);
@@ -186,13 +190,13 @@ void OuterUnnest::generate(RawContext *const context,
   // attrNo does not make a difference
   RecordAttribute unnestedAttr = RecordAttribute(
       2, path.toString(), activeLoop, path.get()->getExpressionType());
-  map<RecordAttribute, RawValueMemory> *unnestBindings =
-      new map<RecordAttribute, RawValueMemory>(childState.getBindings());
+  map<RecordAttribute, ProteusValueMemory> *unnestBindings =
+      new map<RecordAttribute, ProteusValueMemory>(childState.getBindings());
   //'if' --> NULL
   {
     Builder->SetInsertPoint(ifOuterNull);
     Value *undefValue = Constant::getNullValue(type_w);
-    RawValueMemory valWrapper;
+    ProteusValueMemory valWrapper;
     AllocaInst *mem_undefValue =
         context->CreateEntryBlockAlloca(TheFunction, "val_undef", type_w);
     Builder->CreateStore(undefValue, mem_undefValue);
@@ -232,22 +236,25 @@ void OuterUnnest::generate(RawContext *const context,
      */
     ExpressionGeneratorVisitor pathExprGenerator =
         ExpressionGeneratorVisitor(context, childState);
-    RawValue nestedValueAll = path.get()->accept(pathExprGenerator);
-    RawValueMemory mem_currentObjId2 = pg->initCollectionUnnest(nestedValueAll);
+    ProteusValue nestedValueAll = path.get()->accept(pathExprGenerator);
+    ProteusValueMemory mem_currentObjId2 =
+        pg->initCollectionUnnest(nestedValueAll);
     Builder->CreateBr(loopCond2);
 
     Builder->SetInsertPoint(loopCond2);
-    RawValue endCond = pg->collectionHasNext(nestedValueAll, mem_currentObjId2);
+    ProteusValue endCond =
+        pg->collectionHasNext(nestedValueAll, mem_currentObjId2);
     Builder->CreateCondBr(endCond.value, loopBody2, loopEnd2);
 
     // body
     {
       Builder->SetInsertPoint(loopBody2);
-      RawValueMemory nestedValueItem2 =
+      ProteusValueMemory nestedValueItem2 =
           pg->collectionGetNext(mem_currentObjId2);
       // Preparing call to parent
-      map<RecordAttribute, RawValueMemory> *unnestBindings2 =
-          new map<RecordAttribute, RawValueMemory>(childState.getBindings());
+      map<RecordAttribute, ProteusValueMemory> *unnestBindings2 =
+          new map<RecordAttribute, ProteusValueMemory>(
+              childState.getBindings());
 
       (*unnestBindings2)[unnestedAttr] = nestedValueItem2;
       //            cout << "In outer unnest: " <<
@@ -267,7 +274,7 @@ void OuterUnnest::generate(RawContext *const context,
       // Generate condition
       ExpressionGeneratorVisitor predExprGenerator =
           ExpressionGeneratorVisitor(context, *newState2);
-      RawValue condition2 = pred.accept(predExprGenerator);
+      ProteusValue condition2 = pred.accept(predExprGenerator);
       Builder->CreateCondBr(condition2.value, ifBlock, elseBlock);
 
       /*

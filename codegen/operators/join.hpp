@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,24 +24,23 @@
 #include "expressions/expressions-generator.hpp"
 #include "operators/operators.hpp"
 
-class Join : public BinaryRawOperator {
+class Join : public BinaryOperator {
  public:
-  Join(expressions::BinaryExpression *predicate, RawOperator *leftChild,
-       RawOperator *rightChild, char *opLabel, Materializer &mat)
-      : BinaryRawOperator(leftChild, rightChild),
+  Join(expressions::BinaryExpression *predicate, Operator *leftChild,
+       Operator *rightChild, char *opLabel, Materializer &mat)
+      : BinaryOperator(leftChild, rightChild),
         pred(predicate),
         htName(opLabel),
         mat(mat) {}
   virtual ~Join() { LOG(INFO) << "Collapsing Join operator"; }
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   Materializer &getMaterializer() { return mat; }
   virtual bool isFiltering() const { return true; }
 
  private:
   char *htName;
-  OperatorState *generate(RawOperator *op, OperatorState *childState);
+  OperatorState *generate(Operator *op, OperatorState *childState);
   expressions::BinaryExpression *pred;
   Materializer &mat;
 };

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,6 +24,7 @@
 #ifndef _NEST_RADIX_HPP_
 #define _NEST_RADIX_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "expressions/expressions-dot-evaluator.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"
@@ -32,7 +33,6 @@
 #include "operators/monoids.hpp"
 #include "operators/operators.hpp"
 #include "operators/radix-join.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 #include "util/radix/aggregations/radix-aggr.hpp"
 
 #define DEBUGRADIX_NEST
@@ -62,50 +62,49 @@ struct relationBuf {
   /* Mem layout:
    * Consecutive <payload> chunks - payload type defined at runtime
    */
-  AllocaInst *mem_relation;
+  llvm::AllocaInst *mem_relation;
   /* Size in bytes */
-  AllocaInst *mem_tuplesNo;
+  llvm::AllocaInst *mem_tuplesNo;
   /* Size in bytes */
-  AllocaInst *mem_size;
+  llvm::AllocaInst *mem_size;
   /* (Current) Offset in bytes */
-  AllocaInst *mem_offset;
+  llvm::AllocaInst *mem_offset;
 };
 
 struct kvBuf {
   /* Mem layout:
    * Pairs of (size_t key, size_t payloadPtr)
    */
-  AllocaInst *mem_kv;
+  llvm::AllocaInst *mem_kv;
   /* Size in bytes */
-  AllocaInst *mem_tuplesNo;
+  llvm::AllocaInst *mem_tuplesNo;
   /* Size in bytes */
-  AllocaInst *mem_size;
+  llvm::AllocaInst *mem_size;
   /* (Current) Offset in bytes */
-  AllocaInst *mem_offset;
+  llvm::AllocaInst *mem_offset;
 };
 
-class Nest : public UnaryRawOperator {
+class Nest : public UnaryOperator {
  public:
-  Nest(RawContext *const context, vector<Monoid> accs,
-       vector<expression_t> outputExprs, vector<string> aggrLabels,
+  Nest(Context *const context, std::vector<Monoid> accs,
+       std::vector<expression_t> outputExprs, std::vector<string> aggrLabels,
        expression_t pred, std::vector<expression_t> f_grouping,
-       expression_t g_nullToZero, RawOperator *const child,
+       expression_t g_nullToZero, Operator *const child,
        const std::string &opLabel, Materializer &mat);
-  Nest(RawContext *const context, vector<Monoid> accs,
-       vector<expression_t> outputExprs, vector<string> aggrLabels,
+  Nest(Context *const context, std::vector<Monoid> accs,
+       std::vector<expression_t> outputExprs, std::vector<string> aggrLabels,
        expression_t pred, expression_t f_grouping, expression_t g_nullToZero,
-       RawOperator *const child, const std::string &opLabel, Materializer &mat);
+       Operator *const child, const std::string &opLabel, Materializer &mat);
   virtual ~Nest() { LOG(INFO) << "Collapsing Nest operator"; }
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   Materializer &getMaterializer() { return mat; }
   virtual bool isFiltering() const { return true; }
 
  private:
-  // void generateInsert(RawContext* context, const OperatorState& childState);
+  // void generateInsert(Context* context, const OperatorState& childState);
   /* Very similar to radix join building phase! */
-  // void buildHT(RawContext* context, const OperatorState& childState);
+  // void buildHT(Context* context, const OperatorState& childState);
   void probeHT() const;
   // Value* radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht)
   // const;
@@ -115,29 +114,29 @@ class Nest : public UnaryRawOperator {
    * was called. Any info needed is (should be) in the HT that will now be
    * probed.
    */
-  void generateProbe(RawContext *const context) const;
+  void generateProbe(Context *const context) const;
 
-  map<RecordAttribute, RawValueMemory> *reconstructResults(
+  std::map<RecordAttribute, ProteusValueMemory> *reconstructResults(
       llvm::Value *htBuffer, llvm::Value *idx,
       size_t relR_mem_relation_id) const;
   /**
    * We need a new accumulator for every resulting bucket of the HT
    */
-  AllocaInst *resetAccumulator(expression_t outputExpr, Monoid acc) const;
+  llvm::AllocaInst *resetAccumulator(expression_t outputExpr, Monoid acc) const;
   // void updateRelationPointers() const;
 
-  vector<Monoid> accs;
-  vector<expression_t> outputExprs;
+  std::vector<Monoid> accs;
+  std::vector<expression_t> outputExprs;
   expression_t pred;
   expression_t f_grouping;
   expression_t __attribute__((unused)) g_nullToZero;
-  vector<expression_t> f_grouping_vec;
+  std::vector<expression_t> f_grouping_vec;
 
-  vector<string> aggregateLabels;
+  std::vector<string> aggregateLabels;
 
   std::string htName;
   Materializer mat;
-  GpuRawContext *context;
+  ParallelContext *context;
   RadixJoinBuild *build;
 
   /**
@@ -146,13 +145,13 @@ class Nest : public UnaryRawOperator {
   /* What the keyType is */
   /* XXX int32 FOR NOW   */
   /* If it is not int32 to begin with, hash it to make it so */
-  StructType *payloadType;
+  llvm::StructType *payloadType;
   llvm::Type *keyType;
-  StructType *htEntryType;
+  llvm::StructType *htEntryType;
   // struct relationBuf relR;
   // struct kvBuf htR;
   HT *HT_per_cluster;
-  StructType *htClusterType;
+  llvm::StructType *htClusterType;
   // Raw Buffers
   char *relationR;
   char **ptr_relationR;

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -22,25 +22,27 @@
 */
 
 #include "operators/hash-join-chained.hpp"
+#include "codegen/memory/memory-manager.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "operators/gpu/gmonoids.hpp"
-#include "util/raw-memory-manager.hpp"
+
+using namespace llvm;
 
 HashJoinChained::HashJoinChained(const std::vector<GpuMatExpr> &build_mat_exprs,
                                  const std::vector<size_t> &build_packet_widths,
                                  expression_t build_keyexpr,
-                                 RawOperator *const build_child,
+                                 Operator *const build_child,
 
                                  const std::vector<GpuMatExpr> &probe_mat_exprs,
                                  const std::vector<size_t> &probe_packet_widths,
                                  expression_t probe_keyexpr,
-                                 RawOperator *const probe_child,
+                                 Operator *const probe_child,
 
                                  int hash_bits,
 
-                                 GpuRawContext *context,
+                                 ParallelContext *context,
                                  size_t maxBuildInputSize, string opLabel)
-    : BinaryRawOperator(build_child, probe_child),
+    : BinaryOperator(build_child, probe_child),
       build_mat_exprs(build_mat_exprs),
       probe_mat_exprs(probe_mat_exprs),
       build_packet_widths(build_packet_widths),
@@ -55,10 +57,9 @@ void HashJoinChained::produce() {
   context->pushPipeline();  // FIXME: find a better way to do this
   buildHashTableFormat();
 
-  context->registerOpen(this,
-                        [this](RawPipeline *pip) { this->open_build(pip); });
+  context->registerOpen(this, [this](Pipeline *pip) { this->open_build(pip); });
   context->registerClose(this,
-                         [this](RawPipeline *pip) { this->close_build(pip); });
+                         [this](Pipeline *pip) { this->close_build(pip); });
   getLeftChild()->produce();
 
   // context->compileAndLoad(); //FIXME: Remove!!!! causes an extra compilation!
@@ -68,23 +69,22 @@ void HashJoinChained::produce() {
 
   probeHashTableFormat();
 
-  context->registerOpen(this,
-                        [this](RawPipeline *pip) { this->open_probe(pip); });
+  context->registerOpen(this, [this](Pipeline *pip) { this->open_probe(pip); });
   context->registerClose(this,
-                         [this](RawPipeline *pip) { this->close_probe(pip); });
+                         [this](Pipeline *pip) { this->close_probe(pip); });
   getRightChild()->produce();
 }
 
-void HashJoinChained::consume(RawContext *const context,
+void HashJoinChained::consume(Context *const context,
                               const OperatorState &childState) {
-  GpuRawContext *const ctx = dynamic_cast<GpuRawContext *const>(context);
+  ParallelContext *const ctx = dynamic_cast<ParallelContext *const>(context);
   assert(ctx);
   consume(ctx, childState);
 }
 
-void HashJoinChained::consume(GpuRawContext *const context,
+void HashJoinChained::consume(ParallelContext *const context,
                               const OperatorState &childState) {
-  const RawOperator &caller = childState.getProducer();
+  const Operator &caller = childState.getProducer();
 
   if (caller == *(getLeftChild())) {
     generate_build(context, childState);
@@ -228,7 +228,7 @@ void HashJoinChained::buildHashTableFormat() {
   cnt_param_id = context->appendStateVar(t_cnt);     //, true, false);
 }
 
-Value *HashJoinChained::hash(expression_t exprs, RawContext *const context,
+Value *HashJoinChained::hash(expression_t exprs, Context *const context,
                              const OperatorState &childState) {
   ExpressionHasherVisitor hasher{context, childState};
   Value *hash = exprs.accept(hasher).value;
@@ -236,7 +236,7 @@ Value *HashJoinChained::hash(expression_t exprs, RawContext *const context,
   return context->getBuilder()->CreateURem(hash, size);
 }
 
-void HashJoinChained::generate_build(GpuRawContext *context,
+void HashJoinChained::generate_build(ParallelContext *context,
                                      const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
 
@@ -284,7 +284,7 @@ void HashJoinChained::generate_build(GpuRawContext *context,
 
   for (const GpuMatExpr &mexpr : build_mat_exprs) {
     ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue valWrapper = mexpr.expr.accept(exprGenerator);
+    ProteusValue valWrapper = mexpr.expr.accept(exprGenerator);
 
     out_vals[mexpr.packet] = Builder->CreateInsertValue(
         out_vals[mexpr.packet], valWrapper.value, mexpr.packind);
@@ -298,7 +298,7 @@ void HashJoinChained::generate_build(GpuRawContext *context,
   }
 }
 
-void HashJoinChained::generate_probe(GpuRawContext *context,
+void HashJoinChained::generate_probe(ParallelContext *context,
                                      const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -319,7 +319,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
   Builder->SetInsertPoint(insBB);
 
   ExpressionGeneratorVisitor exprGenerator(context, childState);
-  RawValue keyWrapper = probe_keyexpr.accept(exprGenerator);
+  ProteusValue keyWrapper = probe_keyexpr.accept(exprGenerator);
   Value *hash = HashJoinChained::hash(probe_keyexpr, context, childState);
 
   // current = head[hash(key)]
@@ -384,9 +384,9 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
   Builder->CreateStore(next, mem_current);
 
   ExpressionGeneratorVisitor eqGenerator{context, childState};
-  expressions::RawValueExpression build_expr{
+  expressions::ProteusValueExpression build_expr{
       probe_keyexpr.getExpressionType(),
-      RawValue{build_key, context->createFalse()}};
+      ProteusValue{build_key, context->createFalse()}};
   Value *match_condition =
       eq(probe_keyexpr, build_expr).accept(eqGenerator).value;
 
@@ -398,8 +398,8 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
   Builder->SetInsertPoint(MatchThenBB);
 
   // Reconstruct tuples
-  map<RecordAttribute, RawValueMemory> *allJoinBindings =
-      new map<RecordAttribute, RawValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> *allJoinBindings =
+      new map<RecordAttribute, ProteusValueMemory>();
 
   if (probe_keyexpr.isRegistered()) {
     AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
@@ -408,7 +408,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
 
     Builder->CreateStore(keyWrapper.value, mem_arg);
 
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = mem_arg;
     mem_valWrapper.isNull = context->createFalse();  // FIMXE: is this correct ?
     (*allJoinBindings)[probe_keyexpr.getRegisteredAs()] = mem_valWrapper;
@@ -429,7 +429,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
 
         Builder->CreateStore(d, mem_arg);
 
-        RawValueMemory mem_valWrapper;
+        ProteusValueMemory mem_valWrapper;
         mem_valWrapper.mem = mem_arg;
         mem_valWrapper.isNull =
             context->createFalse();  // FIMXE: is this correct ?
@@ -446,7 +446,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
 
     Builder->CreateStore(build_key, mem_arg);
 
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = mem_arg;
     mem_valWrapper.isNull = context->createFalse();  // FIMXE: is this correct ?
     (*allJoinBindings)[build_keyexpr.getRegisteredAs()] = mem_valWrapper;
@@ -467,7 +467,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
 
         Builder->CreateStore(d, mem_arg);
 
-        RawValueMemory mem_valWrapper;
+        ProteusValueMemory mem_valWrapper;
         mem_valWrapper.mem = mem_arg;
         mem_valWrapper.isNull =
             context->createFalse();  // FIMXE: is this correct ?
@@ -490,7 +490,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
 
     // set activeLoop for build rel if not set (may be multiple ones!)
     {  // NOTE: Is there a better way ?
-      RawCatalog &catalog = RawCatalog::getInstance();
+      Catalog &catalog = Catalog::getInstance();
       string probeRel = mexpr.expr.getRegisteredRelName();
       Plugin *pg = catalog.getPlugin(probeRel);
       assert(pg);
@@ -513,7 +513,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
 
       Builder->CreateStore(UndefValue::get(llvm_oid_type), mem_arg);
 
-      RawValueMemory mem_valWrapper;
+      ProteusValueMemory mem_valWrapper;
       mem_valWrapper.mem = mem_arg;
       mem_valWrapper.isNull = context->createFalse();
 
@@ -524,7 +524,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
 
     ExpressionGeneratorVisitor exprGenerator(context, childState);
 
-    RawValue val = mexpr.expr.accept(exprGenerator);
+    ProteusValue val = mexpr.expr.accept(exprGenerator);
 
     AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
         TheFunction, "mem_" + mexpr.expr.getRegisteredAttrName(),
@@ -532,7 +532,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
 
     Builder->CreateStore(val.value, mem_arg);
 
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = mem_arg;
     mem_valWrapper.isNull = context->createFalse();
 
@@ -545,7 +545,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
 
     // set activeLoop for build rel if not set (may be multiple ones!)
     {  // NOTE: Is there a better way ?
-      RawCatalog &catalog = RawCatalog::getInstance();
+      Catalog &catalog = Catalog::getInstance();
       string buildRel = mexpr.expr.getRegisteredRelName();
       Plugin *pg = catalog.getPlugin(buildRel);
       assert(pg);
@@ -568,7 +568,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
 
       Builder->CreateStore(UndefValue::get(llvm_oid_type), mem_arg);
 
-      RawValueMemory mem_valWrapper;
+      ProteusValueMemory mem_valWrapper;
       mem_valWrapper.mem = mem_arg;
       mem_valWrapper.isNull = context->createFalse();
 
@@ -588,7 +588,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
 
     Builder->CreateStore(val, mem_arg);
 
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = mem_arg;
     mem_valWrapper.isNull = context->createFalse();
 
@@ -605,7 +605,7 @@ void HashJoinChained::generate_probe(GpuRawContext *context,
   Builder->SetInsertPoint(MergeBB);
 }
 
-void HashJoinChained::open_build(RawPipeline *pip) {
+void HashJoinChained::open_build(Pipeline *pip) {
   std::vector<void *> next_w_values;
 
   uint32_t *head =
@@ -635,7 +635,7 @@ void HashJoinChained::open_build(RawPipeline *pip) {
   // gpu_run(cudaStreamDestroy(strm));
 }
 
-void HashJoinChained::open_probe(RawPipeline *pip) {
+void HashJoinChained::open_probe(Pipeline *pip) {
   std::vector<void *> next_w_values = confs[pip->getGroup()];
   uint32_t *head = (uint32_t *)next_w_values.back();
 
@@ -648,13 +648,13 @@ void HashJoinChained::open_probe(RawPipeline *pip) {
   }
 }
 
-void HashJoinChained::close_build(RawPipeline *pip) {
+void HashJoinChained::close_build(Pipeline *pip) {
   int32_t h_cnt;
   memcpy(&h_cnt, pip->getStateVar<int32_t *>(cnt_param_id), sizeof(int32_t));
   assert(((size_t)h_cnt) <= maxBuildInputSize &&
          "Build input sized exceeded given parameter");
 }
 
-void HashJoinChained::close_probe(RawPipeline *pip) {
+void HashJoinChained::close_probe(Pipeline *pip) {
   for (const auto &p : confs[pip->getGroup()]) free(p);
 }

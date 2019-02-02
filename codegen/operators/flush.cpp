@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2018
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -22,8 +22,10 @@
 */
 
 #include "operators/flush.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/raw-memory-manager.hpp"
+#include "codegen/memory/memory-manager.hpp"
+#include "codegen/util/parallel-context.hpp"
+
+using namespace llvm;
 
 expression_t buildOutputExpression(const vector<expression_t> &outputExprs) {
   list<expressions::AttributeConstruction> attrs;
@@ -40,9 +42,9 @@ expression_t buildOutputExpression(const vector<expression_t> &outputExprs) {
       new RecordType(recattr), attrs);
 }
 
-Flush::Flush(vector<expression_t> outputExprs_v, RawOperator *const child,
-             RawContext *context, const char *outPath)
-    : UnaryRawOperator(child),
+Flush::Flush(vector<expression_t> outputExprs_v, Operator *const child,
+             Context *context, const char *outPath)
+    : UnaryOperator(child),
       context(context),
       outPath(outPath),
       outputExpr(buildOutputExpression(outputExprs_v)),
@@ -60,7 +62,8 @@ void Flush::produce() {
 
         Builder->CreateStore(context->createInt64(0), mem_acc);
 
-        OperatorState childState{*this, map<RecordAttribute, RawValueMemory>{}};
+        OperatorState childState{*this,
+                                 map<RecordAttribute, ProteusValueMemory>{}};
         ExpressionFlusherVisitor flusher{context, childState, outPath, relName};
         flusher.beginList();
 
@@ -68,7 +71,8 @@ void Flush::produce() {
       },
 
       [=](llvm::Value *, llvm::Value *s) {
-        OperatorState childState{*this, map<RecordAttribute, RawValueMemory>{}};
+        OperatorState childState{*this,
+                                 map<RecordAttribute, ProteusValueMemory>{}};
         ExpressionFlusherVisitor flusher{context, childState, outPath, relName};
         flusher.endList();
         flusher.flushOutput();
@@ -78,12 +82,11 @@ void Flush::produce() {
   getChild()->produce();
 }
 
-void Flush::consume(RawContext *const context,
-                    const OperatorState &childState) {
+void Flush::consume(Context *const context, const OperatorState &childState) {
   generate(context, childState);
 }
 
-void Flush::generate(RawContext *const context,
+void Flush::generate(Context *const context,
                      const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();

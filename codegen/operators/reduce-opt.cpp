@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -22,14 +22,16 @@
 */
 
 #include "operators/reduce-opt.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/raw-memory-manager.hpp"
+#include "codegen/memory/memory-manager.hpp"
+#include "codegen/util/parallel-context.hpp"
+
+using namespace llvm;
 
 namespace opt {
 Reduce::Reduce(vector<Monoid> accs, vector<expression_t> outputExprs,
-               expression_t pred, RawOperator *const child, RawContext *context,
+               expression_t pred, Operator *const child, Context *context,
                bool flushResults, const char *outPath)
-    : UnaryRawOperator(child),
+    : UnaryOperator(child),
       accs(accs),
       outputExprs(outputExprs),
       pred(std::move(pred)),
@@ -48,12 +50,12 @@ void Reduce::produce() {
       flushResults && !getParent();  // TODO: is this the best way to do it ?
   generate_flush();
 
-  ((GpuRawContext *)context)->popPipeline();
+  ((ParallelContext *)context)->popPipeline();
 
-  auto flush_pip = ((GpuRawContext *)context)->removeLatestPipeline();
+  auto flush_pip = ((ParallelContext *)context)->removeLatestPipeline();
   flush_fun = flush_pip->getKernel();
 
-  ((GpuRawContext *)context)->pushPipeline(flush_pip);
+  ((ParallelContext *)context)->pushPipeline(flush_pip);
 
   assert(mem_accumulators.empty());
   if (mem_accumulators.empty()) {
@@ -79,8 +81,7 @@ void Reduce::produce() {
   getChild()->produce();
 }
 
-void Reduce::consume(RawContext *const context,
-                     const OperatorState &childState) {
+void Reduce::consume(Context *const context, const OperatorState &childState) {
   generate(context, childState);
   // flushResult();
 }
@@ -120,7 +121,7 @@ void Reduce::flushResult() {
   //    cout << s.GetString() << endl;
 }
 
-void Reduce::generate(RawContext *const context,
+void Reduce::generate(Context *const context,
                       const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -130,7 +131,7 @@ void Reduce::generate(RawContext *const context,
 
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator{context, childState};
-  RawValue condition = pred.accept(predExprGenerator);
+  ProteusValue condition = pred.accept(predExprGenerator);
   /**
    * Predicate Evaluation:
    */
@@ -144,7 +145,7 @@ void Reduce::generate(RawContext *const context,
   /**
    * IF(pred) Block
    */
-  RawValue val_output;
+  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
 
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
@@ -184,15 +185,15 @@ void Reduce::generate(RawContext *const context,
         ExpressionGeneratorVisitor outputExprGenerator{context, childState};
 
         // Load accumulator -> acc_value
-        RawValue acc_value;
+        ProteusValue acc_value;
         acc_value.value = Builder->CreateLoad(acc_mem);
         acc_value.isNull = context->createFalse();
 
         // new_value = acc_value op outputExpr
-        expressions::RawValueExpression val{outputExpr.getExpressionType(),
-                                            acc_value};
+        expressions::ProteusValueExpression val{outputExpr.getExpressionType(),
+                                                acc_value};
         auto upd = toExpression(acc, val, outputExpr);
-        RawValue new_val = upd.accept(outputExprGenerator);
+        ProteusValue new_val = upd.accept(outputExprGenerator);
 
         // store new_val to accumulator
         Builder->CreateStore(new_val.value, acc_mem);
@@ -225,8 +226,7 @@ void Reduce::generate(RawContext *const context,
 
 // Flush out whatever you received
 // FIXME Need 'output plugin' / 'serializer'
-void Reduce::generateBagUnion(expression_t outputExpr,
-                              RawContext *const context,
+void Reduce::generateBagUnion(expression_t outputExpr, Context *const context,
                               const OperatorState &state,
                               Value *cnt_mem) const {
   IRBuilder<> *Builder = context->getBuilder();
@@ -273,24 +273,24 @@ void Reduce::generateBagUnion(expression_t outputExpr,
    */
   Builder->SetInsertPoint(currBlock);
 
-  // ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline * pip){
+  // ((ParallelContext *) context)->registerOpen (this, [this](Pipeline * pip){
   // });
 
-  // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline * pip){
+  // ((ParallelContext *) context)->registerClose(this, [this](Pipeline * pip){
   //     ((void (*)()) gpu_pip->getKernel(pip->get))();
   // });
 }
 
 // Materializes collection (in HT?)
 // Use the catalog for the materialization
-void Reduce::generateAppend(expression_t outputExpr, RawContext *const context,
+void Reduce::generateAppend(expression_t outputExpr, Context *const context,
                             const OperatorState &state,
                             AllocaInst *mem_accumulating) const {}
 
 void Reduce::generate_flush() {
   LLVMContext &llvmContext = context->getLLVMContext();
 
-  (*((GpuRawContext *)context))->setMaxWorkerSize(1, 1);
+  (*((ParallelContext *)context))->setMaxWorkerSize(1, 1);
 
   vector<size_t> params;
 
@@ -305,7 +305,7 @@ void Reduce::generate_flush() {
       case OR:
       case AND: {
         params.emplace_back(
-            ((GpuRawContext *)context)
+            ((ParallelContext *)context)
                 ->appendParameter(
                     PointerType::getUnqual(
                         (*itExpr).getExpressionType()->getLLVMType(
@@ -341,7 +341,7 @@ void Reduce::generate_flush() {
 
   Builder->SetInsertPoint(MainBB);
 
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   std::string rel_name;
   bool found = false;
@@ -354,7 +354,7 @@ void Reduce::generate_flush() {
   }
 
   if (found) {
-    Plugin *pg = RawCatalog::getInstance().getPlugin(rel_name);
+    Plugin *pg = Catalog::getInstance().getPlugin(rel_name);
 
     {
       RecordAttribute tupleOID =
@@ -368,7 +368,7 @@ void Reduce::generate_flush() {
           context->CreateEntryBlockAlloca(F, "activeLoop_ptr", oid->getType());
       Builder->CreateStore(oid, mem);
 
-      RawValueMemory tmp;
+      ProteusValueMemory tmp;
       tmp.mem = mem;
       tmp.isNull = context->createFalse();
 
@@ -386,7 +386,7 @@ void Reduce::generate_flush() {
           context->CreateEntryBlockAlloca(F, "activeCnt_ptr", N->getType());
       Builder->CreateStore(N, mem);
 
-      RawValueMemory tmp;
+      ProteusValueMemory tmp;
       tmp.mem = mem;
       tmp.isNull = context->createFalse();
 
@@ -418,7 +418,7 @@ void Reduce::generate_flush() {
         throw runtime_error(error_msg);
       }
 
-      Value *val_mem = ((GpuRawContext *)context)->getArgument(*itMem);
+      Value *val_mem = ((ParallelContext *)context)->getArgument(*itMem);
       val_mem->setName(outputExpr.getRegisteredAttrName() + "_ptr");
       Value *val_acc = Builder->CreateLoad(val_mem);
       AllocaInst *acc_alloca = context->CreateEntryBlockAlloca(
@@ -426,7 +426,7 @@ void Reduce::generate_flush() {
 
       context->getBuilder()->CreateStore(val_acc, acc_alloca);
 
-      RawValueMemory acc_mem{acc_alloca, context->createFalse()};
+      ProteusValueMemory acc_mem{acc_alloca, context->createFalse()};
       variableBindings[outputExpr.getRegisteredAs()] = acc_mem;
     }
   }
@@ -449,7 +449,7 @@ void Reduce::generate_flush() {
 
       if (*itMem == ~((size_t)0) || acc == BAGUNION) continue;
 
-      Value *val_mem = ((GpuRawContext *)context)->getArgument(*itMem);
+      Value *val_mem = ((ParallelContext *)context)->getArgument(*itMem);
       Value *val_acc = Builder->CreateLoad(val_mem);
 
       flusher.flushValue(val_acc, outputExpr.getExpressionType()->getTypeID());
@@ -515,12 +515,13 @@ size_t Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
             // Value* val_acc =  context->getBuilder()->CreateLoad(s);
 
             // if (outputExpr.isRegistered()){
-            //     map<RecordAttribute, RawValueMemory> binding{};
+            //     map<RecordAttribute, ProteusValueMemory> binding{};
             //     AllocaInst * acc_alloca =
             //     context->CreateEntryBlockAlloca(outputExpr.getRegisteredAttrName(),
             //     val_acc->getType());
             //     context->getBuilder()->CreateStore(val_acc, acc_alloca);
-            //     RawValueMemory acc_mem{acc_alloca, context->createFalse()};
+            //     ProteusValueMemory acc_mem{acc_alloca,
+            //     context->createFalse()};
             //     binding[outputExpr.getRegisteredAs()] = acc_mem;
             // }
 
@@ -550,7 +551,7 @@ size_t Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
               Type *substate_t = f_t->getParamType(f_t->getNumParams() - 1);
 
               Value *substate = Builder->CreateBitCast(
-                  ((GpuRawContext *)context)->getSubStateVar(), substate_t);
+                  ((ParallelContext *)context)->getSubStateVar(), substate_t);
               args.emplace_back(substate);
 
               Builder->CreateCall(f, args);

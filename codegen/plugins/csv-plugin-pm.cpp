@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,9 +24,11 @@
 #include "plugins/csv-plugin-pm.hpp"
 #include "expressions/expressions-hasher.hpp"
 
+using namespace llvm;
+
 namespace pm {
 
-CSVPlugin::CSVPlugin(RawContext *const context, string &fname, RecordType &rec,
+CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
                      vector<RecordAttribute *> whichFields, int lineHint,
                      int policy, bool stringBrackets)
     : fname(fname),
@@ -111,7 +113,7 @@ CSVPlugin::CSVPlugin(RawContext *const context, string &fname, RecordType &rec,
   }
 }
 
-CSVPlugin::CSVPlugin(RawContext *const context, string &fname, RecordType &rec,
+CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
                      vector<RecordAttribute *> whichFields, char delimInner,
                      int lineHint, int policy, bool stringBrackets)
     : fname(fname),
@@ -197,7 +199,7 @@ CSVPlugin::CSVPlugin(RawContext *const context, string &fname, RecordType &rec,
   }
 }
 
-CSVPlugin::CSVPlugin(RawContext *const context, string &fname, RecordType &rec,
+CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
                      vector<RecordAttribute *> whichFields, int lineHint,
                      int policy, size_t *newlines, short **offsets,
                      bool stringBrackets)
@@ -238,7 +240,7 @@ CSVPlugin::CSVPlugin(RawContext *const context, string &fname, RecordType &rec,
   this->delimEnd = '\n';
 }
 
-CSVPlugin::CSVPlugin(RawContext *const context, string &fname, RecordType &rec,
+CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
                      vector<RecordAttribute *> whichFields, char delimInner,
                      int lineHint, int policy, size_t *newlines,
                      short **offsets, bool stringBrackets)
@@ -347,7 +349,7 @@ void CSVPlugin::init() {
   NamedValuesCSV[bufVar] = bufMem;
 };
 
-void CSVPlugin::generate(const RawOperator &producer) {
+void CSVPlugin::generate(const ::Operator &producer) {
   if (!hasPM) {
     return scanAndPopulatePM(producer);
   } else {
@@ -358,16 +360,17 @@ void CSVPlugin::generate(const RawOperator &producer) {
 /**
  * The work of readPath() and readValue() has been taken care of scanCSV()
  */
-RawValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings,
-                                   const char *pathVar, RecordAttribute attr) {
-  RawValueMemory mem_valWrapper;
+ProteusValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings,
+                                       const char *pathVar,
+                                       RecordAttribute attr) {
+  ProteusValueMemory mem_valWrapper;
   {
     const OperatorState *state = bindings.state;
-    const map<RecordAttribute, RawValueMemory> &csvProjections =
+    const map<RecordAttribute, ProteusValueMemory> &csvProjections =
         state->getBindings();
     RecordAttribute tmpKey =
         RecordAttribute(fname, pathVar, this->getOIDType());
-    map<RecordAttribute, RawValueMemory>::const_iterator it;
+    map<RecordAttribute, ProteusValueMemory>::const_iterator it;
     it = csvProjections.find(tmpKey);
     if (it == csvProjections.end()) {
       string error_msg =
@@ -387,25 +390,25 @@ RawValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings,
   return mem_valWrapper;
 }
 
-RawValueMemory CSVPlugin::readValue(RawValueMemory mem_value,
-                                    const ExpressionType *type) {
+ProteusValueMemory CSVPlugin::readValue(ProteusValueMemory mem_value,
+                                        const ExpressionType *type) {
   return mem_value;
 }
 
-RawValue CSVPlugin::readCachedValue(CacheInfo info,
-                                    const OperatorState &currState) {
+ProteusValue CSVPlugin::readCachedValue(CacheInfo info,
+                                        const OperatorState &currState) {
   return readCachedValue(info, currState.getBindings());
 }
 
-RawValue CSVPlugin::readCachedValue(
-    CacheInfo info, const map<RecordAttribute, RawValueMemory> &bindings) {
+ProteusValue CSVPlugin::readCachedValue(
+    CacheInfo info, const map<RecordAttribute, ProteusValueMemory> &bindings) {
   IRBuilder<> *const Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
 
   /* Need OID to retrieve corresponding value from bin. cache */
   RecordAttribute tupleIdentifier =
       RecordAttribute(fname, activeLoop, getOIDType());
-  map<RecordAttribute, RawValueMemory>::const_iterator it =
+  map<RecordAttribute, ProteusValueMemory>::const_iterator it =
       bindings.find(tupleIdentifier);
   if (it == bindings.end()) {
     string error_msg =
@@ -413,7 +416,7 @@ RawValue CSVPlugin::readCachedValue(
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  RawValueMemory mem_oidWrapper = it->second;
+  ProteusValueMemory mem_oidWrapper = it->second;
   /* OID is a plain integer - starts from 0!!*/
   Value *val_oid = Builder->CreateLoad(mem_oidWrapper.mem);
 
@@ -436,7 +439,7 @@ RawValue CSVPlugin::readCachedValue(
       context->CreateEntryBlockAlloca(F, "tmpCachedField", fieldType);
   Builder->CreateStore(val_cachedField, mem_cachedField);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateLoad(mem_cachedField);
   valWrapper.isNull = context->createFalse();
 #ifdef DEBUG
@@ -452,27 +455,27 @@ RawValue CSVPlugin::readCachedValue(
   return valWrapper;
 }
 
-RawValue CSVPlugin::hashValue(RawValueMemory mem_value,
-                              const ExpressionType *type) {
+ProteusValue CSVPlugin::hashValue(ProteusValueMemory mem_value,
+                                  const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
-  RawValue v{Builder->CreateLoad(mem_value.mem), mem_value.isNull};
+  ProteusValue v{Builder->CreateLoad(mem_value.mem), mem_value.isNull};
   return hashPrimitive(v, type->getTypeID(), context);
 }
 
-RawValue CSVPlugin::hashValueEager(RawValue valWrapper,
-                                   const ExpressionType *type) {
+ProteusValue CSVPlugin::hashValueEager(ProteusValue valWrapper,
+                                       const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
   Value *tmp = valWrapper.value;
   AllocaInst *mem_tmp =
       context->CreateEntryBlockAlloca(F, "mem_cachedToHash", tmp->getType());
   Builder->CreateStore(tmp, mem_tmp);
-  RawValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
+  ProteusValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
   return hashValue(mem_tmpWrapper, type);
 }
 
-void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
-                           Value *fileName) {
+void CSVPlugin::flushValue(ProteusValueMemory mem_value,
+                           const ExpressionType *type, Value *fileName) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *flushFunc;
   Value *val_attr = Builder->CreateLoad(mem_value.mem);
@@ -559,7 +562,7 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
       size_t i = 0;
       for (const auto &attr : attrs) {
         // value
-        RawValue partialFlush;
+        ProteusValue partialFlush;
         partialFlush.value = Builder->CreateExtractValue(val_attr, i);
         partialFlush.isNull = mem_value.isNull;
         flushValueEager(partialFlush, attr->getOriginalType(), fileName);
@@ -579,15 +582,15 @@ void CSVPlugin::flushValue(RawValueMemory mem_value, const ExpressionType *type,
   }
 }
 
-void CSVPlugin::flushValueEager(RawValue valWrapper, const ExpressionType *type,
-                                Value *fileName) {
+void CSVPlugin::flushValueEager(ProteusValue valWrapper,
+                                const ExpressionType *type, Value *fileName) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
   Value *tmp = valWrapper.value;
   AllocaInst *mem_tmp =
       context->CreateEntryBlockAlloca(F, "mem_cachedToFlush", tmp->getType());
   Builder->CreateStore(tmp, mem_tmp);
-  RawValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
+  ProteusValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
   return flushValue(mem_tmpWrapper, type, fileName);
 }
 
@@ -596,7 +599,7 @@ void CSVPlugin::finish() {
   munmap(buf, fsize);
 }
 
-Value *CSVPlugin::getValueSize(RawValueMemory mem_value,
+Value *CSVPlugin::getValueSize(ProteusValueMemory mem_value,
                                const ExpressionType *type) {
   switch (type->getTypeID()) {
     case BOOL:
@@ -1070,7 +1073,7 @@ void CSVPlugin::getFieldEndLLVM() {
 }
 
 void CSVPlugin::readField(typeID id, RecordAttribute attName,
-                          map<RecordAttribute, RawValueMemory> &variables) {
+                          map<RecordAttribute, ProteusValueMemory> &variables) {
   cout << "READ (RAW) FIELD " << attName.getAttrName() << endl;
   switch (id) {
     case BOOL: {
@@ -1110,10 +1113,10 @@ void CSVPlugin::readField(typeID id, RecordAttribute attName,
   }
 }
 
-void CSVPlugin::readAsIntLLVM(RecordAttribute attName,
-                              map<RecordAttribute, RawValueMemory> &variables,
-                              Function *atoi_, Function *debugChar,
-                              Function *debugInt) {
+void CSVPlugin::readAsIntLLVM(
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables, Function *atoi_,
+    Function *debugChar, Function *debugInt) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -1167,14 +1170,15 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName,
       context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
   Builder->CreateStore(parsedInt, currResult);
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
-void CSVPlugin::readAsIntLLVM(RecordAttribute attName,
-                              map<RecordAttribute, RawValueMemory> &variables) {
+void CSVPlugin::readAsIntLLVM(
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -1221,7 +1225,7 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName,
       TheFunction, "mem_currIntResult", int32Type);
   atois(bufShiftedPtr, len_32, mem_result, context);
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_result;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
@@ -1242,7 +1246,8 @@ void CSVPlugin::readAsIntLLVM(RecordAttribute attName,
 }
 
 void CSVPlugin::readAsStringLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -1303,7 +1308,7 @@ void CSVPlugin::readAsStringLLVM(
   Value *mem_len = context->getStructElemMem(mem_convertedValue, 1);
   Builder->CreateStore(len_32, mem_len);
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_convertedValue;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
@@ -1312,7 +1317,8 @@ void CSVPlugin::readAsStringLLVM(
 }
 
 void CSVPlugin::readAsBooleanLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -1361,16 +1367,16 @@ void CSVPlugin::readAsBooleanLLVM(
       context->CreateEntryBlockAlloca(TheFunction, "currResult", int1Type);
   Builder->CreateStore(convertedValue, mem_convertedValue);
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_convertedValue;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
-void CSVPlugin::readAsFloatLLVM(RecordAttribute attName,
-                                map<RecordAttribute, RawValueMemory> &variables,
-                                Function *atof_, Function *debugChar,
-                                Function *debugFloat) {
+void CSVPlugin::readAsFloatLLVM(
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables, Function *atof_,
+    Function *debugChar, Function *debugFloat) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -1421,14 +1427,15 @@ void CSVPlugin::readAsFloatLLVM(RecordAttribute attName,
     Builder->CreateCall(debugFloat, ArgsV, "printf");
   }
 #endif
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
 void CSVPlugin::readAsFloatLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -1491,14 +1498,14 @@ void CSVPlugin::readAsFloatLLVM(
     Builder->CreateCall(debugFloat, ArgsV, "printf");
   }
 #endif
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
 /* Scans Input File and Populates PM */
-void CSVPlugin::scanAndPopulatePM(const RawOperator &producer) {
+void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -1507,8 +1514,8 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator &producer) {
   IRBuilder<> *Builder = context->getBuilder();
 
   // Container for the variable bindings
-  map<RecordAttribute, RawValueMemory> *variableBindings =
-      new map<RecordAttribute, RawValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> *variableBindings =
+      new map<RecordAttribute, ProteusValueMemory>();
 
   // Fetch value from symbol table
   AllocaInst *pos;
@@ -1576,7 +1583,7 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator &producer) {
   ExpressionType *oidType = new IntType();
   RecordAttribute tupleIdentifier = RecordAttribute(fname, activeLoop, oidType);
 
-  RawValueMemory mem_posWrapper;
+  ProteusValueMemory mem_posWrapper;
   // mem_posWrapper.mem = pos;
   mem_posWrapper.mem = mem_lineCtr;
   mem_posWrapper.isNull = context->createFalse();
@@ -1724,7 +1731,7 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator &producer) {
 
   // Triggering parent
   OperatorState *state = new OperatorState(producer, *variableBindings);
-  RawOperator *const opParent = producer.getParent();
+  ::Operator *const opParent = producer.getParent();
   //    cout << "Forwarding " << (*variableBindings).size() << endl;
   opParent->consume(context, *state);
   Value *val_1 = context->createInt32(1);
@@ -1742,7 +1749,7 @@ void CSVPlugin::scanAndPopulatePM(const RawOperator &producer) {
   //     Any new code will be inserted in AfterBB.
   Builder->SetInsertPoint(context->getEndingBlock());
 }
-void CSVPlugin::scanPM(const RawOperator &producer) {
+void CSVPlugin::scanPM(const ::Operator &producer) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -1757,8 +1764,8 @@ void CSVPlugin::scanPM(const RawOperator &producer) {
   Value *delimEnd = ConstantInt::get(llvmContext, APInt(8, this->delimEnd));
 
   // Container for the variable bindings
-  map<RecordAttribute, RawValueMemory> *variableBindings =
-      new map<RecordAttribute, RawValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> *variableBindings =
+      new map<RecordAttribute, ProteusValueMemory>();
 
   // Fetch value from symbol table
   AllocaInst *mem_pos;
@@ -1784,7 +1791,7 @@ void CSVPlugin::scanPM(const RawOperator &producer) {
   RecordAttribute tupleIdentifier =
       RecordAttribute(fname, activeLoop, this->getOIDType());
 
-  RawValueMemory mem_posWrapper;
+  ProteusValueMemory mem_posWrapper;
   mem_posWrapper.mem = mem_lineCtr;
   mem_posWrapper.isNull = context->createFalse();
   (*variableBindings)[tupleIdentifier] = mem_posWrapper;
@@ -1898,7 +1905,7 @@ void CSVPlugin::scanPM(const RawOperator &producer) {
                 context->CreateEntryBlockAlloca(F, "tmpCachedField", fieldType);
             Builder->CreateStore(val_cachedField, mem_cachedField);
 
-            RawValueMemory mem_valWrapper;
+            ProteusValueMemory mem_valWrapper;
             mem_valWrapper.mem = mem_cachedField;
             mem_valWrapper.isNull = context->createFalse();
             RecordAttribute attr = *(*it);
@@ -2047,7 +2054,7 @@ void CSVPlugin::scanPM(const RawOperator &producer) {
   Builder->SetInsertPoint(pmScanInc);
   //    cout << "Forwarding " << (*variableBindings).size() << endl;
   OperatorState *state = new OperatorState(producer, *variableBindings);
-  RawOperator *const opParent = producer.getParent();
+  ::Operator *const opParent = producer.getParent();
   opParent->consume(context, *state);
   Value *val_1 = context->createInt32(1);
   val_lineCtr = Builder->CreateLoad(mem_lineCtr);

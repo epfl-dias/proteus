@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -44,9 +44,9 @@
 #include "plugins/binary-col-plugin.hpp"
 #include "plugins/binary-row-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 void symantecJSONWarmup(map<string, dataset> datasetCatalog);
@@ -86,8 +86,8 @@ void symantecBinJSON1(map<string, dataset> datasetCatalog) {
   // JSON
   // id, again
 
-  RawContext &ctx = *prepareContext("symantec-bin-JSON-1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-JSON-1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];
@@ -356,8 +356,8 @@ void symantecBinJSON2(map<string, dataset> datasetCatalog) {
   // JSON
   // id, again
 
-  RawContext &ctx = *prepareContext("symantec-bin-JSON-2");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-JSON-2");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];
@@ -612,8 +612,8 @@ void symantecBinJSON3(map<string, dataset> datasetCatalog) {
   int sizeHigh = 1000;
   string langName = "german";
 
-  RawContext &ctx = *prepareContext("symantec-bin-JSON-3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-JSON-3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];
@@ -806,8 +806,8 @@ void symantecBinJSON4(map<string, dataset> datasetCatalog) {
   // JSON
   int monthNo = 12;
 
-  RawContext &ctx = *prepareContext("symantec-bin-JSON-4");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-JSON-4");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];
@@ -1006,8 +1006,8 @@ void symantecBinJSON5(map<string, dataset> datasetCatalog) {
   // JSON
   int yearNo = 2010;
 
-  RawContext &ctx = *prepareContext("symantec-bin-JSON-5");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-bin-JSON-5");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecBin = string("symantecBin");
   dataset symantecBin = datasetCatalog[nameSymantecBin];
@@ -1201,8 +1201,8 @@ void symantecBinJSON5(map<string, dataset> datasetCatalog) {
 }
 
 void symantecJSONWarmup(map<string, dataset> datasetCatalog) {
-  RawContext &ctx = *prepareContext("symantec-json-warmup");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-json-warmup");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecIDDates");
   dataset symantec = datasetCatalog[nameSymantec];

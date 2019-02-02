@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,7 +24,9 @@
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
 #include "expressions/expressions-hasher.hpp"
 
-ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext *const context,
+using namespace llvm;
+
+ScanToBlockSMPlugin::ScanToBlockSMPlugin(ParallelContext *const context,
                                          string fnamePrefix, RecordType rec,
                                          vector<RecordAttribute *> &whichFields)
     : fnamePrefix(fnamePrefix),
@@ -87,7 +89,7 @@ ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext *const context,
   parts_arrays_type = StructType::get(llvmContext, parts_array);
 }
 
-ScanToBlockSMPlugin::ScanToBlockSMPlugin(GpuRawContext *const context,
+ScanToBlockSMPlugin::ScanToBlockSMPlugin(ParallelContext *const context,
                                          string fnamePrefix, RecordType rec)
     : fnamePrefix(fnamePrefix),
       rec(rec),
@@ -104,26 +106,26 @@ ScanToBlockSMPlugin::~ScanToBlockSMPlugin() {
 
 void ScanToBlockSMPlugin::init() {}
 
-void ScanToBlockSMPlugin::generate(const RawOperator &producer) {
+void ScanToBlockSMPlugin::generate(const ::Operator &producer) {
   return scan(producer);
 }
 
 /**
  * The work of readPath() and readValue() has been taken care of scanCSV()
  */
-RawValueMemory ScanToBlockSMPlugin::readPath(string activeRelation,
-                                             Bindings bindings,
-                                             const char *pathVar,
-                                             RecordAttribute attr) {
-  RawValueMemory mem_projection;
+ProteusValueMemory ScanToBlockSMPlugin::readPath(string activeRelation,
+                                                 Bindings bindings,
+                                                 const char *pathVar,
+                                                 RecordAttribute attr) {
+  ProteusValueMemory mem_projection;
   {
     const OperatorState *state = bindings.state;
-    const map<RecordAttribute, RawValueMemory> &binProjections =
+    const map<RecordAttribute, ProteusValueMemory> &binProjections =
         state->getBindings();
     // XXX Make sure that using fnamePrefix in this search does not cause issues
     RecordAttribute tmpKey =
         RecordAttribute(fnamePrefix, pathVar, this->getOIDType());
-    map<RecordAttribute, RawValueMemory>::const_iterator it;
+    map<RecordAttribute, ProteusValueMemory>::const_iterator it;
     it = binProjections.find(tmpKey);
     if (it == binProjections.end()) {
       string error_msg =
@@ -144,25 +146,25 @@ RawValueMemory ScanToBlockSMPlugin::readPath(string activeRelation,
 
 /* FIXME Differentiate between operations that need the code and the ones
  * needing the materialized string */
-RawValueMemory ScanToBlockSMPlugin::readValue(RawValueMemory mem_value,
-                                              const ExpressionType *type) {
+ProteusValueMemory ScanToBlockSMPlugin::readValue(ProteusValueMemory mem_value,
+                                                  const ExpressionType *type) {
   return mem_value;
 }
 
-RawValue ScanToBlockSMPlugin::readCachedValue(CacheInfo info,
-                                              const OperatorState &currState) {
+ProteusValue ScanToBlockSMPlugin::readCachedValue(
+    CacheInfo info, const OperatorState &currState) {
   return readCachedValue(info, currState.getBindings());
 }
 
-RawValue ScanToBlockSMPlugin::readCachedValue(
-    CacheInfo info, const map<RecordAttribute, RawValueMemory> &bindings) {
+ProteusValue ScanToBlockSMPlugin::readCachedValue(
+    CacheInfo info, const map<RecordAttribute, ProteusValueMemory> &bindings) {
   IRBuilder<> *const Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
 
   /* Need OID to retrieve corresponding value from bin. cache */
   RecordAttribute tupleIdentifier =
       RecordAttribute(fnamePrefix, activeLoop, getOIDType());
-  map<RecordAttribute, RawValueMemory>::const_iterator it =
+  map<RecordAttribute, ProteusValueMemory>::const_iterator it =
       bindings.find(tupleIdentifier);
   if (it == bindings.end()) {
     string error_msg =
@@ -170,7 +172,7 @@ RawValue ScanToBlockSMPlugin::readCachedValue(
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  RawValueMemory mem_oidWrapper = it->second;
+  ProteusValueMemory mem_oidWrapper = it->second;
   /* OID is a plain integer - starts from 1!!! */
   Value *val_oid = Builder->CreateLoad(mem_oidWrapper.mem);
   val_oid = Builder->CreateSub(val_oid, context->createInt64(1));
@@ -203,7 +205,7 @@ RawValue ScanToBlockSMPlugin::readCachedValue(
       context->CreateEntryBlockAlloca(F, "tmpCachedField", fieldType);
   Builder->CreateStore(val_cachedField, mem_cachedField);
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = Builder->CreateLoad(mem_cachedField);
   valWrapper.isNull = context->createFalse();
 #ifdef DEBUG
@@ -218,22 +220,22 @@ RawValue ScanToBlockSMPlugin::readCachedValue(
   return valWrapper;
 }
 
-RawValue ScanToBlockSMPlugin::hashValue(RawValueMemory mem_value,
-                                        const ExpressionType *type) {
+ProteusValue ScanToBlockSMPlugin::hashValue(ProteusValueMemory mem_value,
+                                            const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
-  RawValue v{Builder->CreateLoad(mem_value.mem), mem_value.isNull};
+  ProteusValue v{Builder->CreateLoad(mem_value.mem), mem_value.isNull};
   return hashPrimitive(v, type->getTypeID(), context);
 }
 
-RawValue ScanToBlockSMPlugin::hashValueEager(RawValue valWrapper,
-                                             const ExpressionType *type) {
+ProteusValue ScanToBlockSMPlugin::hashValueEager(ProteusValue valWrapper,
+                                                 const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
   Value *tmp = valWrapper.value;
   AllocaInst *mem_tmp =
       context->CreateEntryBlockAlloca(F, "mem_cachedToHash", tmp->getType());
   Builder->CreateStore(tmp, mem_tmp);
-  RawValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
+  ProteusValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
   return hashValue(mem_tmpWrapper, type);
 }
 
@@ -253,7 +255,7 @@ void ScanToBlockSMPlugin::finish() {
   }
 }
 
-Value *ScanToBlockSMPlugin::getValueSize(RawValueMemory mem_value,
+Value *ScanToBlockSMPlugin::getValueSize(ProteusValueMemory mem_value,
                                          const ExpressionType *type) {
   switch (type->getTypeID()) {
     case BOOL:
@@ -398,7 +400,8 @@ void ScanToBlockSMPlugin::nextEntry() {
 
 /* Operates over int*! */
 void ScanToBlockSMPlugin::readAsIntLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -444,7 +447,7 @@ void ScanToBlockSMPlugin::readAsIntLLVM(
   Builder->CreateStore(parsedInt, mem_currResult);
   LOG(INFO) << "[BINARYCOL - READ INT: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
@@ -460,7 +463,8 @@ void ScanToBlockSMPlugin::readAsIntLLVM(
 
 /* Operates over char*! */
 void ScanToBlockSMPlugin::readAsInt64LLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -506,7 +510,7 @@ void ScanToBlockSMPlugin::readAsInt64LLVM(
   Builder->CreateStore(parsedInt, mem_currResult);
   LOG(INFO) << "[BINARYCOL - READ INT64: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
@@ -563,12 +567,14 @@ Value *ScanToBlockSMPlugin::readAsInt64LLVM(RecordAttribute attName) {
  * I think forwarding the dict. code (int32) is sufficient here.
  */
 void ScanToBlockSMPlugin::readAsStringLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   readAsIntLLVM(attName, variables);
 }
 
 void ScanToBlockSMPlugin::readAsBooleanLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int1Type = Type::getInt1Ty(llvmContext);
@@ -612,14 +618,15 @@ void ScanToBlockSMPlugin::readAsBooleanLLVM(
   Builder->CreateStore(parsedInt, currResult);
   LOG(INFO) << "[BINARYCOL - READ BOOL: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
 }
 
 void ScanToBlockSMPlugin::readAsFloatLLVM(
-    RecordAttribute attName, map<RecordAttribute, RawValueMemory> &variables) {
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *doubleType = Type::getDoubleTy(llvmContext);
@@ -663,7 +670,7 @@ void ScanToBlockSMPlugin::readAsFloatLLVM(
   Builder->CreateStore(parsedFloat, currResult);
   LOG(INFO) << "[BINARYCOL - READ FLOAT: ] Read Successful";
 
-  RawValueMemory mem_valWrapper;
+  ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
@@ -774,7 +781,7 @@ void ScanToBlockSMPlugin::prepareArray(RecordAttribute attName) {
   }
 }
 
-void ScanToBlockSMPlugin::scan(const RawOperator &producer) {
+void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   context->setGlobalFunction(true);
@@ -795,7 +802,7 @@ void ScanToBlockSMPlugin::scan(const RawOperator &producer) {
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
 
   // Container for the variable bindings
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   // Get the ENTRY BLOCK
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
@@ -960,7 +967,7 @@ void ScanToBlockSMPlugin::scan(const RawOperator &producer) {
       RecordAttribute(fnamePrefix, activeLoop,
                       this->getOIDType());  // FIXME: OID type for blocks ?
 
-  RawValueMemory mem_posWrapper;
+  ProteusValueMemory mem_posWrapper;
   mem_posWrapper.mem = mem_itemCtr;
   mem_posWrapper.isNull = context->createFalse();
   variableBindings[tupleIdentifier] = mem_posWrapper;
@@ -987,7 +994,7 @@ void ScanToBlockSMPlugin::scan(const RawOperator &producer) {
         context->CreateEntryBlockAlloca(F, currBufVar, ptr_t);
     Builder->CreateStore(val_bufPtr, mem_currResult);
 
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = mem_currResult;
     mem_valWrapper.isNull = context->createFalse();
     variableBindings[block_attr] = mem_valWrapper;
@@ -1005,7 +1012,7 @@ void ScanToBlockSMPlugin::scan(const RawOperator &producer) {
       RecordAttribute(fnamePrefix, "activeCnt",
                       this->getOIDType());  // FIXME: OID type for blocks ?
 
-  RawValueMemory mem_cntWrapper;
+  ProteusValueMemory mem_cntWrapper;
   mem_cntWrapper.mem = blockN_ptr;
   mem_cntWrapper.isNull = context->createFalse();
   variableBindings[tupCnt] = mem_cntWrapper;

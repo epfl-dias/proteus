@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -22,11 +22,13 @@
 */
 
 #include "operators/gpu/gpu-to-cpu.hpp"
+#include "codegen/memory/memory-manager.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"
-#include "util/jit/raw-gpu-pipeline.hpp"
-#include "util/raw-memory-manager.hpp"
+#include "util/jit/gpu-pipeline.hpp"
+
+using namespace llvm;
 
 void GpuToCpu::produce() {
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -34,7 +36,7 @@ void GpuToCpu::produce() {
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
 
   Plugin *pg =
-      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+      Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
   vector<Type *> child_params;
   for (const auto t : wantedFields) {
     child_params.emplace_back(t->getOriginalType()->getLLVMType(llvmContext));
@@ -54,7 +56,7 @@ void GpuToCpu::produce() {
 
   cpu_pip = context->removeLatestPipeline();
 
-  context->pushDeviceProvider<RawGpuPipelineGenFactory>();
+  context->pushDeviceProvider<GpuPipelineGenFactory>();
   context->pushPipeline();
 
   lockVar_id = context->appendStateVar(PointerType::get(int32_type, 0));
@@ -64,14 +66,14 @@ void GpuToCpu::produce() {
   threadVar_id = context->appendStateVar(charPtrType);
   eofVar_id = context->appendStateVar(PointerType::get(int32_type, 0));
 
-  context->registerOpen(this, [this](RawPipeline *pip) { this->open(pip); });
-  context->registerClose(this, [this](RawPipeline *pip) { this->close(pip); });
+  context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
+  context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
   getChild()->produce();
   context->popDeviceProvider();
 }
 
-void GpuToCpu::consume(GpuRawContext *const context,
+void GpuToCpu::consume(ParallelContext *const context,
                        const OperatorState &childState) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -86,7 +88,7 @@ void GpuToCpu::consume(GpuRawContext *const context,
   Type *int32_type = Type::getInt32Ty(llvmContext);
   Type *ptr_t = PointerType::get(charPtrType, 0);
 
-  const map<RecordAttribute, RawValueMemory> &activeVars =
+  const map<RecordAttribute, ProteusValueMemory> &activeVars =
       childState.getBindings();
 
   Value *kernel_params = UndefValue::get(params_type);
@@ -102,7 +104,7 @@ void GpuToCpu::consume(GpuRawContext *const context,
   }
 
   Plugin *pg =
-      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+      Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
   RecordAttribute tupleCnt =
       RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
                       pg->getOIDType());  // FIXME: OID type for blocks ?
@@ -116,7 +118,7 @@ void GpuToCpu::consume(GpuRawContext *const context,
   }
   assert(it != activeVars.end());
 
-  RawValueMemory mem_cntWrapper = it->second;
+  ProteusValueMemory mem_cntWrapper = it->second;
 
   kernel_params = Builder->CreateInsertValue(
       kernel_params, Builder->CreateLoad(mem_cntWrapper.mem),
@@ -129,13 +131,13 @@ void GpuToCpu::consume(GpuRawContext *const context,
   it = activeVars.find(tupleOID);
   assert(it != activeVars.end());
 
-  RawValueMemory mem_oidWrapper = it->second;
+  ProteusValueMemory mem_oidWrapper = it->second;
 
   kernel_params = Builder->CreateInsertValue(
       kernel_params, Builder->CreateLoad(mem_oidWrapper.mem),
       wantedFields.size());
 
-  // Value * subState   = ((GpuRawContext *) context)->getSubStateVar();
+  // Value * subState   = ((ParallelContext *) context)->getSubStateVar();
 
   // kernel_params = Builder->CreateInsertValue(kernel_params, subState,
   // wantedFields.size() + 1);
@@ -448,10 +450,10 @@ void GpuToCpu::generate_catch() {
 
   Builder->CreateStore(new_front, front_ptr);
 
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   Plugin *pg =
-      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+      Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     Value *val = Builder->CreateExtractValue(packet, i);
@@ -461,7 +463,7 @@ void GpuToCpu::generate_catch() {
 
     Builder->CreateStore(val, valPtr);
 
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = valPtr;
     mem_valWrapper.isNull = context->createFalse();
 
@@ -478,7 +480,7 @@ void GpuToCpu::generate_catch() {
     RecordAttribute tupleCnt{wantedFields[0]->getRelationName(), "activeCnt",
                              pg->getOIDType()};
 
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = valPtr;
     mem_valWrapper.isNull = context->createFalse();
 
@@ -495,7 +497,7 @@ void GpuToCpu::generate_catch() {
     RecordAttribute tupleIOD{wantedFields[0]->getRelationName(), activeLoop,
                              pg->getOIDType()};
 
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = valPtr;
     mem_valWrapper.isNull = context->createFalse();
 
@@ -521,7 +523,7 @@ void GpuToCpu::generate_catch() {
   Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-void kick_start(RawPipeline *cpip, int device) {
+void kick_start(Pipeline *cpip, int device) {
   set_exec_location_on_scope d(topology::getInstance().getGpus()[device]);
 
   nvtxRangePushA("gpu2cpu_reads");
@@ -537,7 +539,7 @@ void kick_start(RawPipeline *cpip, int device) {
   nvtxRangePop();
 }
 
-void GpuToCpu::open(RawPipeline *pip) {
+void GpuToCpu::open(Pipeline *pip) {
   std::cout << "Gpu2Cpu:open" << std::endl;
   int64_t *store;  // volatile
   int32_t *flags;  // volatile
@@ -548,16 +550,15 @@ void GpuToCpu::open(RawPipeline *pip) {
   int device;
   gpu_run(cudaGetDevice(&device));
 
-  store = (int64_t *)RawMemoryManager::mallocPinned(
-      pip->getSizeOf(params_type) * size);
+  store = (int64_t *)MemoryManager::mallocPinned(pip->getSizeOf(params_type) *
+                                                 size);
 
-  flags =
-      (int32_t *)RawMemoryManager::mallocPinned(sizeof(int32_t) * (size + 1));
+  flags = (int32_t *)MemoryManager::mallocPinned(sizeof(int32_t) * (size + 1));
 
   for (size_t i = 0; i <= size; ++i) flags[i] = 0;
   eof = flags + size;
 
-  lock = (int32_t *)RawMemoryManager::mallocGpu(sizeof(int32_t) * 2);
+  lock = (int32_t *)MemoryManager::mallocGpu(sizeof(int32_t) * 2);
 
   cudaStream_t strm;
   gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
@@ -574,7 +575,7 @@ void GpuToCpu::open(RawPipeline *pip) {
   pip->setStateVar<int32_t *>(eofVar_id, (int32_t *)eof);
 
   nvtxRangePushA("gpu2cpu_get_pipeline");
-  RawPipeline *cpip = cpu_pip->getPipeline(pip->getGroup());
+  Pipeline *cpip = cpu_pip->getPipeline(pip->getGroup());
   nvtxRangePop();
 
   cpip->setStateVar<int32_t *>(flagsVar_id_catch, (int32_t *)flags);
@@ -596,7 +597,7 @@ void GpuToCpu::open(RawPipeline *pip) {
 //     __threadfence_system();
 // }
 
-void GpuToCpu::close(RawPipeline *pip) {
+void GpuToCpu::close(Pipeline *pip) {
   std::cout << "Gpu2Cpu:close" << pip << std::endl;
   volatile int32_t *eof = pip->getStateVar<volatile int32_t *>(eofVar_id);
   assert(*eof == 0);
@@ -617,9 +618,9 @@ void GpuToCpu::close(RawPipeline *pip) {
 
   nvtxRangePop();
 
-  RawMemoryManager::freePinned(pip->getStateVar<int64_t *>(storeVar_id));
-  RawMemoryManager::freePinned(pip->getStateVar<int32_t *>(flagsVar_id));
-  RawMemoryManager::freeGpu(pip->getStateVar<int32_t *>(lockVar_id));
+  MemoryManager::freePinned(pip->getStateVar<int64_t *>(storeVar_id));
+  MemoryManager::freePinned(pip->getStateVar<int32_t *>(flagsVar_id));
+  MemoryManager::freeGpu(pip->getStateVar<int32_t *>(lockVar_id));
 
   // for (size_t i = 0 ; i < size ; ++i) std::cout << "=====> " << i << " " <<
   // fg[i] << " " << st[i * 6 + 5] << std::endl;

@@ -37,13 +37,13 @@
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 TEST(JSON, ScanJSON) {
-  RawContext &ctx = *prepareContext("ScanJSON-flat");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("ScanJSON-flat");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/json/jsmn-flat.json");
 
@@ -79,8 +79,8 @@ TEST(JSON, ScanJSON) {
 }
 
 TEST(JSON, SelectJSON) {
-  RawContext &ctx = *prepareContext("SelectJSON-flat");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("SelectJSON-flat");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/json/jsmn-flat.json");
 
@@ -127,7 +127,7 @@ TEST(JSON, SelectJSON) {
   /**
    * PRINT
    */
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::RecordProjection *proj =
       new expressions::RecordProjection(&attrType, lhsArg, attr);
   Print printOp = Print(debugInt, proj, &sel);
@@ -148,8 +148,8 @@ TEST(JSON, SelectJSON) {
 }
 
 TEST(JSON, unnestJSON) {
-  RawContext &ctx = *prepareContext("unnestJSONFlat");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("unnestJSONFlat");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/json/employees-flat.json");
 
@@ -223,7 +223,7 @@ TEST(JSON, unnestJSON) {
   // aliases
   projections.push_back(recPrev);
   projections.push_back(recUnnested);
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::Expression *nestedArg =
       new expressions::InputArgument(&unnestedType, 0, projections);
 
@@ -249,8 +249,8 @@ TEST(JSON, unnestJSON) {
 
 /* json plugin seems broken if linehint not provided */
 TEST(JSON, reduceListObjectFlat) {
-  RawContext &ctx = *prepareContext("Reduce-FlushListObject");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("Reduce-FlushListObject");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/json/jsmnDeeper-flat.json");
 
@@ -320,8 +320,8 @@ TEST(JSON, reduceListObjectFlat) {
 
 void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
                              jsmntok_t **tokens) {
-  RawContext &ctx = *prepareContext("Reduce-JSONMax");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("Reduce-JSONMax");
+  Catalog &catalog = Catalog::getInstance();
 
   cout << "Input: " << fname << endl;
 
@@ -392,8 +392,8 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 /* SELECT MAX(obj.b) FROM jsonFile obj WHERE obj.b  > 43 */ TEST(JSON,
                                                                  reduceMax) {
   bool longRun = false;
-  RawContext &ctx = *prepareContext("Reduce-JSONMax");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("Reduce-JSONMax");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname;
   size_t lineHint;
@@ -490,8 +490,8 @@ void reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 /* SELECT MAX(obj.c.c2) FROM jsonFile obj WHERE obj.b  > 43 */ TEST(
     JSON, reduceDeeperMax) {
   bool longRun = false;
-  RawContext &ctx = *prepareContext("Reduce-DeeperJSONMax");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("Reduce-DeeperJSONMax");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname;
   size_t lineHint;

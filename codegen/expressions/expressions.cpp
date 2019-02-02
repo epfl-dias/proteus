@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -27,84 +27,132 @@ namespace expressions {
 
 BinaryExpression::~BinaryExpression() {}
 
-RawValue IntConstant::accept(ExprVisitor &v) const { return v.visit(this); }
+ProteusValue IntConstant::accept(ExprVisitor &v) const { return v.visit(this); }
 
-RawValue Int64Constant::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue DateConstant::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue FloatConstant::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue BoolConstant::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue StringConstant::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue DStringConstant::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue InputArgument::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue RecordProjection::accept(ExprVisitor &v) const {
+ProteusValue Int64Constant::accept(ExprVisitor &v) const {
   return v.visit(this);
 }
 
-RawValue IfThenElse::accept(ExprVisitor &v) const { return v.visit(this); }
+ProteusValue DateConstant::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
 
-RawValue RecordConstruction::accept(ExprVisitor &v) const {
+ProteusValue FloatConstant::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue BoolConstant::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue StringConstant::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue DStringConstant::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue InputArgument::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue RecordProjection::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue IfThenElse::accept(ExprVisitor &v) const { return v.visit(this); }
+
+ProteusValue RecordConstruction::accept(ExprVisitor &v) const {
   return v.visit(this);
 }
 
 /**
  * The binary expressions
  */
-RawValue EqExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue NeExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue GeExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue GtExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue LeExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue LtExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue AddExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue SubExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue MultExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue DivExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue AndExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue OrExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue RawValueExpression::accept(ExprVisitor &v) const {
+ProteusValue EqExpression::accept(ExprVisitor &v) const {
   return v.visit(this);
 }
 
-RawValue MaxExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue MinExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue HashExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue NegExpression::accept(ExprVisitor &v) const { return v.visit(this); }
-
-RawValue ExtractExpression::accept(ExprVisitor &v) const {
+ProteusValue NeExpression::accept(ExprVisitor &v) const {
   return v.visit(this);
 }
 
-RawValue TestNullExpression::accept(ExprVisitor &v) const {
+ProteusValue GeExpression::accept(ExprVisitor &v) const {
   return v.visit(this);
 }
 
-RawValue CastExpression::accept(ExprVisitor &v) const { return v.visit(this); }
+ProteusValue GtExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue LeExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue LtExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue AddExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue SubExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue MultExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue DivExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue AndExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue OrExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue ProteusValueExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue MaxExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue MinExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue HashExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue NegExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue ExtractExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue TestNullExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
+ProteusValue CastExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
 
 /*XXX My responsibility to provide appropriate (i.e., compatible) input */
-RawValue IntConstant::acceptTandem(ExprTandemVisitor &v,
-                                   const expressions::Expression *expr) const {
+ProteusValue IntConstant::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rConst = dynamic_cast<const Constant *>(expr);
     if (rConst->getConstantType() == INT) {
@@ -118,7 +166,7 @@ RawValue IntConstant::acceptTandem(ExprTandemVisitor &v,
 }
 
 /*XXX My responsibility to provide appropriate (i.e., compatible) input */
-RawValue Int64Constant::acceptTandem(
+ProteusValue Int64Constant::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rConst = dynamic_cast<const Constant *>(expr);
@@ -133,8 +181,8 @@ RawValue Int64Constant::acceptTandem(
 }
 
 /*XXX My responsibility to provide appropriate (i.e., compatible) input */
-RawValue DateConstant::acceptTandem(ExprTandemVisitor &v,
-                                    const expressions::Expression *expr) const {
+ProteusValue DateConstant::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rConst = dynamic_cast<const Constant *>(expr);
     if (rConst->getConstantType() == DATE) {
@@ -147,7 +195,7 @@ RawValue DateConstant::acceptTandem(ExprTandemVisitor &v,
   throw runtime_error(string(error_msg));
 }
 
-RawValue FloatConstant::acceptTandem(
+ProteusValue FloatConstant::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rConst = dynamic_cast<const Constant *>(expr);
@@ -161,8 +209,8 @@ RawValue FloatConstant::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue BoolConstant::acceptTandem(ExprTandemVisitor &v,
-                                    const expressions::Expression *expr) const {
+ProteusValue BoolConstant::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rConst = dynamic_cast<const Constant *>(expr);
     if (rConst->getConstantType() == BOOL) {
@@ -175,7 +223,7 @@ RawValue BoolConstant::acceptTandem(ExprTandemVisitor &v,
   throw runtime_error(string(error_msg));
 }
 
-RawValue StringConstant::acceptTandem(
+ProteusValue StringConstant::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rConst = dynamic_cast<const Constant *>(expr);
@@ -189,7 +237,7 @@ RawValue StringConstant::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue DStringConstant::acceptTandem(
+ProteusValue DStringConstant::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rConst = dynamic_cast<const Constant *>(expr);
@@ -203,7 +251,7 @@ RawValue DStringConstant::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue InputArgument::acceptTandem(
+ProteusValue InputArgument::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rInputArg = dynamic_cast<const InputArgument *>(expr);
@@ -214,7 +262,7 @@ RawValue InputArgument::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue RecordProjection::acceptTandem(
+ProteusValue RecordProjection::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rRecordProjection = dynamic_cast<const RecordProjection *>(expr);
@@ -225,8 +273,8 @@ RawValue RecordProjection::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue IfThenElse::acceptTandem(ExprTandemVisitor &v,
-                                  const expressions::Expression *expr) const {
+ProteusValue IfThenElse::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rIfThenElse = dynamic_cast<const IfThenElse *>(expr);
     return v.visit(this, rIfThenElse);
@@ -236,7 +284,7 @@ RawValue IfThenElse::acceptTandem(ExprTandemVisitor &v,
   throw runtime_error(string(error_msg));
 }
 
-RawValue RecordConstruction::acceptTandem(
+ProteusValue RecordConstruction::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rRecordConstruction = dynamic_cast<const RecordConstruction *>(expr);
@@ -247,10 +295,10 @@ RawValue RecordConstruction::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue RawValueExpression::acceptTandem(
+ProteusValue ProteusValueExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
-    auto rVariable = dynamic_cast<const RawValueExpression *>(expr);
+    auto rVariable = dynamic_cast<const ProteusValueExpression *>(expr);
     return v.visit(this, rVariable);
   }
   string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
@@ -262,8 +310,8 @@ RawValue RawValueExpression::acceptTandem(
  * The binary expressions
  */
 
-RawValue EqExpression::acceptTandem(ExprTandemVisitor &v,
-                                    const expressions::Expression *expr) const {
+ProteusValue EqExpression::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rEqExpression = dynamic_cast<const EqExpression *>(expr);
     return v.visit(this, rEqExpression);
@@ -273,8 +321,8 @@ RawValue EqExpression::acceptTandem(ExprTandemVisitor &v,
   throw runtime_error(string(error_msg));
 }
 
-RawValue NeExpression::acceptTandem(ExprTandemVisitor &v,
-                                    const expressions::Expression *expr) const {
+ProteusValue NeExpression::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rNeExpression = dynamic_cast<const NeExpression *>(expr);
     return v.visit(this, rNeExpression);
@@ -284,8 +332,8 @@ RawValue NeExpression::acceptTandem(ExprTandemVisitor &v,
   throw runtime_error(string(error_msg));
 }
 
-RawValue GtExpression::acceptTandem(ExprTandemVisitor &v,
-                                    const expressions::Expression *expr) const {
+ProteusValue GtExpression::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rGtExpression = dynamic_cast<const GtExpression *>(expr);
     return v.visit(this, rGtExpression);
@@ -295,8 +343,8 @@ RawValue GtExpression::acceptTandem(ExprTandemVisitor &v,
   throw runtime_error(string(error_msg));
 }
 
-RawValue GeExpression::acceptTandem(ExprTandemVisitor &v,
-                                    const expressions::Expression *expr) const {
+ProteusValue GeExpression::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rGeExpression = dynamic_cast<const GeExpression *>(expr);
     return v.visit(this, rGeExpression);
@@ -306,8 +354,8 @@ RawValue GeExpression::acceptTandem(ExprTandemVisitor &v,
   throw runtime_error(string(error_msg));
 }
 
-RawValue LeExpression::acceptTandem(ExprTandemVisitor &v,
-                                    const expressions::Expression *expr) const {
+ProteusValue LeExpression::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rLeExpression = dynamic_cast<decltype(this)>(expr);
     return v.visit(this, rLeExpression);
@@ -317,8 +365,8 @@ RawValue LeExpression::acceptTandem(ExprTandemVisitor &v,
   throw runtime_error(string(error_msg));
 }
 
-RawValue LtExpression::acceptTandem(ExprTandemVisitor &v,
-                                    const expressions::Expression *expr) const {
+ProteusValue LtExpression::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rLtExpression = dynamic_cast<decltype(this)>(expr);
     return v.visit(this, rLtExpression);
@@ -328,7 +376,7 @@ RawValue LtExpression::acceptTandem(ExprTandemVisitor &v,
   throw runtime_error(string(error_msg));
 }
 
-RawValue AddExpression::acceptTandem(
+ProteusValue AddExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rAddExpression = dynamic_cast<decltype(this)>(expr);
@@ -339,7 +387,7 @@ RawValue AddExpression::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue SubExpression::acceptTandem(
+ProteusValue SubExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rSubExpression = dynamic_cast<decltype(this)>(expr);
@@ -350,7 +398,7 @@ RawValue SubExpression::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue MultExpression::acceptTandem(
+ProteusValue MultExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rMultExpression = dynamic_cast<decltype(this)>(expr);
@@ -361,7 +409,7 @@ RawValue MultExpression::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue DivExpression::acceptTandem(
+ProteusValue DivExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rDivExpression = dynamic_cast<decltype(this)>(expr);
@@ -372,7 +420,7 @@ RawValue DivExpression::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue AndExpression::acceptTandem(
+ProteusValue AndExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rAndExpression = dynamic_cast<decltype(this)>(expr);
@@ -383,8 +431,8 @@ RawValue AndExpression::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue OrExpression::acceptTandem(ExprTandemVisitor &v,
-                                    const expressions::Expression *expr) const {
+ProteusValue OrExpression::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto rOrExpression = dynamic_cast<decltype(this)>(expr);
     return v.visit(this, rOrExpression);
@@ -394,7 +442,7 @@ RawValue OrExpression::acceptTandem(ExprTandemVisitor &v,
   throw runtime_error(string(error_msg));
 }
 
-RawValue MaxExpression::acceptTandem(
+ProteusValue MaxExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto r = dynamic_cast<decltype(this)>(expr);
@@ -405,7 +453,7 @@ RawValue MaxExpression::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue MinExpression::acceptTandem(
+ProteusValue MinExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto r = dynamic_cast<decltype(this)>(expr);
@@ -416,7 +464,7 @@ RawValue MinExpression::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue HashExpression::acceptTandem(
+ProteusValue HashExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto r = dynamic_cast<decltype(this)>(expr);
@@ -427,7 +475,7 @@ RawValue HashExpression::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue NegExpression::acceptTandem(
+ProteusValue NegExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto r = dynamic_cast<decltype(this)>(expr);
@@ -438,7 +486,7 @@ RawValue NegExpression::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue ExtractExpression::acceptTandem(
+ProteusValue ExtractExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto r = dynamic_cast<decltype(this)>(expr);
@@ -449,7 +497,7 @@ RawValue ExtractExpression::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue TestNullExpression::acceptTandem(
+ProteusValue TestNullExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto r = dynamic_cast<decltype(this)>(expr);
@@ -460,7 +508,7 @@ RawValue TestNullExpression::acceptTandem(
   throw runtime_error(string(error_msg));
 }
 
-RawValue CastExpression::acceptTandem(
+ProteusValue CastExpression::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
   if (this->getTypeID() == expr->getTypeID()) {
     auto r = dynamic_cast<decltype(this)>(expr);
@@ -493,8 +541,8 @@ expression_t toExpression(Monoid m, expression_t lhs, expression_t rhs) {
 }
 
 llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
-                                           RawContext *context) {
-  Type *llvmType = type->getLLVMType(context->getLLVMContext());
+                                           Context *context) {
+  llvm::Type *llvmType = type->getLLVMType(context->getLLVMContext());
   typeID outputType = type->getTypeID();
   switch (m) {
     case SUM: {
@@ -502,10 +550,10 @@ llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
         case DATE:
         case INT64:
         case INT: {
-          return ConstantInt::get((IntegerType *)llvmType, 0);
+          return llvm::ConstantInt::get((llvm::IntegerType *)llvmType, 0);
         }
         case FLOAT: {
-          return ConstantFP::get(llvmType, 0.0);
+          return llvm::ConstantFP::get(llvmType, 0.0);
         }
         default: {
           string error_msg =
@@ -519,10 +567,10 @@ llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
       switch (outputType) {
         case INT64:
         case INT: {
-          return ConstantInt::get((IntegerType *)llvmType, 1);
+          return llvm::ConstantInt::get((llvm::IntegerType *)llvmType, 1);
         }
         case FLOAT: {
-          return ConstantFP::get(llvmType, 1.0);
+          return llvm::ConstantFP::get(llvmType, 1.0);
         }
         default: {
           string error_msg =
@@ -536,15 +584,15 @@ llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
       switch (outputType) {
         case DATE:
         case INT64: {
-          return ConstantInt::get((IntegerType *)llvmType,
-                                  std::numeric_limits<int64_t>::min());
+          return llvm::ConstantInt::get((llvm::IntegerType *)llvmType,
+                                        std::numeric_limits<int64_t>::min());
         }
         case INT: {
-          return ConstantInt::get((IntegerType *)llvmType,
-                                  std::numeric_limits<int32_t>::min());
+          return llvm::ConstantInt::get((llvm::IntegerType *)llvmType,
+                                        std::numeric_limits<int32_t>::min());
         }
         case FLOAT: {
-          return ConstantFP::getInfinity(llvmType, true);
+          return llvm::ConstantFP::getInfinity(llvmType, true);
         }
         default: {
           string error_msg =
@@ -557,7 +605,7 @@ llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
     case OR: {
       switch (outputType) {
         case BOOL: {
-          return ConstantInt::getFalse(context->getLLVMContext());
+          return llvm::ConstantInt::getFalse(context->getLLVMContext());
         }
         default: {
           string error_msg = string("[Monoid: ] Or/And operate on booleans");
@@ -569,7 +617,7 @@ llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
     case AND: {
       switch (outputType) {
         case BOOL: {
-          return ConstantInt::getTrue(context->getLLVMContext());
+          return llvm::ConstantInt::getTrue(context->getLLVMContext());
         }
         default: {
           string error_msg = string("[Monoid: ] Or/And operate on booleans");

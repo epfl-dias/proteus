@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -28,8 +28,8 @@
  *      Author: manolee
  */
 
-#ifndef RAW_TIMING_HPP_
-#define RAW_TIMING_HPP_
+#ifndef TIMING_HPP_
+#define TIMING_HPP_
 
 #include "common/common.hpp"
 
@@ -76,4 +76,4 @@ class stopwatch_t {
   void reset() { mark = now(); }
 };
 
-#endif /* RAW_TIMING_HPP_ */
+#endif /* TIMING_HPP_ */

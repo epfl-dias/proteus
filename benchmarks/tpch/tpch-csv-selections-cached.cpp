@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -47,9 +47,9 @@
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 void tpchSchema(map<string, dataset> &datasetCatalog) {
@@ -118,7 +118,7 @@ int main() {
     }
 
     /* Clean */
-    RawCatalog &rawCatalog = RawCatalog::getInstance();
+    Catalog &rawCatalog = Catalog::getInstance();
     rawCatalog.clear();
     CachingService &cache = CachingService::getInstance();
     cache.clear();
@@ -180,8 +180,8 @@ void tpchOrderSelection1(map<string, dataset> datasetCatalog,
   if (predicatesNo <= 0 || predicatesNo > 4) {
     throw runtime_error(string("Invalid no. of predicates requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-selection1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-selection1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -226,7 +226,7 @@ void tpchOrderSelection1(map<string, dataset> datasetCatalog,
    *
    * Lots of repetition..
    */
-  RawOperator *lastSelectOp = nullptr;
+  Operator *lastSelectOp = nullptr;
   list<RecordAttribute> argProjections;
   if (predicatesNo == 1) {
     argProjections.push_back(*l_orderkey);
@@ -377,8 +377,8 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
   if (predicatesNo <= 0 || predicatesNo > 4) {
     throw runtime_error(string("Invalid no. of predicates requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-selection1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-selection1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -457,7 +457,7 @@ void tpchOrderSelection1CachingPred(map<string, dataset> datasetCatalog,
    *
    * Lots of repetition..
    */
-  RawOperator *lastSelectOp = nullptr;
+  Operator *lastSelectOp = nullptr;
 
   if (predicatesNo == 1) {
     expressions::Expression *lhs1 = new expressions::RecordProjection(
@@ -586,8 +586,8 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
   if (predicatesNo <= 0 || predicatesNo > 4) {
     throw runtime_error(string("Invalid no. of predicates requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-selection1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-selection1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -678,7 +678,7 @@ void tpchOrderSelection1CachingFloats(map<string, dataset> datasetCatalog,
    *
    * Lots of repetition..
    */
-  RawOperator *lastSelectOp = nullptr;
+  Operator *lastSelectOp = nullptr;
 
   if (predicatesNo == 1) {
     expressions::Expression *lhs1 = new expressions::RecordProjection(
@@ -807,8 +807,8 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
   if (predicatesNo <= 0 || predicatesNo > 4) {
     throw runtime_error(string("Invalid no. of predicates requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-selection1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-selection1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -911,7 +911,7 @@ void tpchOrderSelection1CachingPredFloats(map<string, dataset> datasetCatalog,
    *
    * Lots of repetition..
    */
-  RawOperator *lastSelectOp = nullptr;
+  Operator *lastSelectOp = nullptr;
 
   if (predicatesNo == 1) {
     expressions::Expression *lhs1 = new expressions::RecordProjection(

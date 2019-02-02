@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -33,90 +33,90 @@
 class Plugin;
 class OperatorState;
 
-class RawOperator {
+class Operator {
  public:
-  RawOperator() : parent(NULL) {}
-  virtual ~RawOperator() { LOG(INFO) << "Collapsing operator"; }
-  virtual void setParent(RawOperator *parent) { this->parent = parent; }
-  RawOperator *const getParent() const { return parent; }
+  Operator() : parent(NULL) {}
+  virtual ~Operator() { LOG(INFO) << "Collapsing operator"; }
+  virtual void setParent(Operator *parent) { this->parent = parent; }
+  Operator *const getParent() const { return parent; }
   // Overloaded operator used in checks for children of Join op. More complex
   // cases may require different handling
   bool operator==(
-      const RawOperator &i) const { /*if(this != &i) LOG(INFO) << "NOT EQUAL
+      const Operator &i) const { /*if(this != &i) LOG(INFO) << "NOT EQUAL
                                        OPERATORS"<<this<<" vs "<<&i;*/
     return this == &i;
   }
   virtual void produce() = 0;
   /**
    * Consume is not a const method because Nest does need to keep some state
-   * info. RawContext needs to be passed from the consuming to the producing
+   * info. Context needs to be passed from the consuming to the producing
    * side to kickstart execution once an HT has been built
    */
-  virtual void consume(RawContext *const context,
+  virtual void consume(Context *const context,
                        const OperatorState &childState) = 0;
   /* Used by caching service. Aim is finding whether data to be cached has been
    * filtered by some of the children operators of the plan */
   virtual bool isFiltering() const = 0;
 
  private:
-  RawOperator *parent;
+  Operator *parent;
 };
 
-class UnaryRawOperator : public RawOperator {
+class UnaryOperator : public Operator {
  public:
-  UnaryRawOperator(RawOperator *const child) : RawOperator(), child(child) {}
-  virtual ~UnaryRawOperator() { LOG(INFO) << "Collapsing unary operator"; }
+  UnaryOperator(Operator *const child) : Operator(), child(child) {}
+  virtual ~UnaryOperator() { LOG(INFO) << "Collapsing unary operator"; }
 
-  RawOperator *const getChild() const { return child; }
-  void setChild(RawOperator *const child) { this->child = child; }
+  Operator *const getChild() const { return child; }
+  void setChild(Operator *const child) { this->child = child; }
 
  private:
-  RawOperator *child;
+  Operator *child;
 };
 
-class BinaryRawOperator : public RawOperator {
+class BinaryOperator : public Operator {
  public:
-  BinaryRawOperator(RawOperator *leftChild, RawOperator *rightChild)
-      : RawOperator(), leftChild(leftChild), rightChild(rightChild) {}
-  BinaryRawOperator(RawOperator *leftChild, RawOperator *rightChild,
-                    Plugin *const leftPlugin, Plugin *const rightPlugin)
-      : RawOperator(), leftChild(leftChild), rightChild(rightChild) {}
-  virtual ~BinaryRawOperator() { LOG(INFO) << "Collapsing binary operator"; }
-  RawOperator *getLeftChild() { return leftChild; }
-  RawOperator *getRightChild() { return rightChild; }
-  void setLeftChild(RawOperator *leftChild) { this->leftChild = leftChild; }
-  void setRightChild(RawOperator *rightChild) { this->rightChild = rightChild; }
+  BinaryOperator(Operator *leftChild, Operator *rightChild)
+      : Operator(), leftChild(leftChild), rightChild(rightChild) {}
+  BinaryOperator(Operator *leftChild, Operator *rightChild,
+                 Plugin *const leftPlugin, Plugin *const rightPlugin)
+      : Operator(), leftChild(leftChild), rightChild(rightChild) {}
+  virtual ~BinaryOperator() { LOG(INFO) << "Collapsing binary operator"; }
+  Operator *getLeftChild() { return leftChild; }
+  Operator *getRightChild() { return rightChild; }
+  void setLeftChild(Operator *leftChild) { this->leftChild = leftChild; }
+  void setRightChild(Operator *rightChild) { this->rightChild = rightChild; }
 
  protected:
-  RawOperator *leftChild;
-  RawOperator *rightChild;
+  Operator *leftChild;
+  Operator *rightChild;
 };
 
 class OperatorState {
  public:
-  OperatorState(const RawOperator &producer,
-                const map<RecordAttribute, RawValueMemory> &vars)
+  OperatorState(const Operator &producer,
+                const map<RecordAttribute, ProteusValueMemory> &vars)
       : producer(producer), activeVariables(vars) {}
   OperatorState(const OperatorState &opState)
       : producer(opState.producer), activeVariables(opState.activeVariables) {
     LOG(INFO) << "[Operator State: ] Copy Constructor";
   }
 
-  [[deprecated]] const map<RecordAttribute, RawValueMemory> &getBindings()
+  [[deprecated]] const map<RecordAttribute, ProteusValueMemory> &getBindings()
       const {
     return activeVariables;
   }
-  const RawOperator &getProducer() const { return producer; }
+  const Operator &getProducer() const { return producer; }
 
-  const RawValueMemory &operator[](const RecordAttribute &key) const {
+  const ProteusValueMemory &operator[](const RecordAttribute &key) const {
     return activeVariables.at(key);
   }
 
  private:
-  const RawOperator &producer;
+  const Operator &producer;
   // Variable bindings produced by operator and provided to its parent
   // const map<string, AllocaInst*>& activeVariables;
-  const map<RecordAttribute, RawValueMemory> &activeVariables;
+  const map<RecordAttribute, ProteusValueMemory> &activeVariables;
 };
 
 #endif /* OPERATORS_HPP_ */

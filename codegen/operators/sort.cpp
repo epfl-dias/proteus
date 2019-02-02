@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,8 +25,10 @@
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
 
+using namespace llvm;
+
 expressions::RecordConstruction buildSortOutputExpression(
-    GpuRawContext *const context, const vector<expression_t> &orderByFields) {
+    ParallelContext *const context, const vector<expression_t> &orderByFields) {
   size_t i = 0;
 
   list<expressions::AttributeConstruction> attrs;
@@ -40,10 +42,10 @@ expressions::RecordConstruction buildSortOutputExpression(
   return {attrs};
 }
 
-Sort::Sort(RawOperator *const child, GpuRawContext *const context,
+Sort::Sort(Operator *const child, ParallelContext *const context,
            const vector<expression_t> &orderByFields,
            const vector<direction> &dirs)
-    : UnaryRawOperator(child),
+    : UnaryOperator(child),
       context(context),
       orderByFields(orderByFields),
       dirs(dirs),
@@ -53,7 +55,7 @@ Sort::Sort(RawOperator *const child, GpuRawContext *const context,
 void Sort::produce() {
   LLVMContext &llvmContext = context->getLLVMContext();
 
-  Plugin *pg = RawCatalog::getInstance().getPlugin(relName);
+  Plugin *pg = Catalog::getInstance().getPlugin(relName);
   IntegerType *oid_type =
       (IntegerType *)pg->getOIDType()->getLLVMType(llvmContext);
   // Type   * cnt_type   = PointerType::getUnqual(ArrayType::get(oid_type,
@@ -119,7 +121,7 @@ void Sort::produce() {
         Builder->CreateStore(ConstantInt::get(oid_type, 0), mem_acc);
 
         // OperatorState childState{*this, map<RecordAttribute,
-        // RawValueMemory>{}}; ExpressionFlusherVisitor flusher{context,
+        // ProteusValueMemory>{}}; ExpressionFlusherVisitor flusher{context,
         // childState, outPath.c_str(), relName}; flusher.beginList();
 
         return mem_acc;
@@ -147,7 +149,7 @@ void Sort::produce() {
         Builder->CreateCall(f, args);
 
         // OperatorState childState{*this, map<RecordAttribute,
-        // RawValueMemory>{}}; ExpressionFlusherVisitor flusher{context,
+        // ProteusValueMemory>{}}; ExpressionFlusherVisitor flusher{context,
         // childState, outPath.c_str(), relName}; flusher.endList();
         // flusher.flushOutput();
         context->deallocateStateVar(s);
@@ -156,22 +158,22 @@ void Sort::produce() {
   getChild()->produce();
 }
 
-void Sort::consume(RawContext *const context, const OperatorState &childState) {
-  GpuRawContext *const ctx = dynamic_cast<GpuRawContext *const>(context);
+void Sort::consume(Context *const context, const OperatorState &childState) {
+  ParallelContext *const ctx = dynamic_cast<ParallelContext *const>(context);
   assert(ctx);
   consume(ctx, childState);
 }
 
-void Sort::consume(GpuRawContext *const context,
+void Sort::consume(ParallelContext *const context,
                    const OperatorState &childState) {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
   BasicBlock *insBB = Builder->GetInsertBlock();
   Function *F = insBB->getParent();
 
-  map<RecordAttribute, RawValueMemory> bindings{childState.getBindings()};
+  map<RecordAttribute, ProteusValueMemory> bindings{childState.getBindings()};
 
-  Plugin *pg = RawCatalog::getInstance().getPlugin(relName);
+  Plugin *pg = Catalog::getInstance().getPlugin(relName);
   IntegerType *oid_type =
       (IntegerType *)pg->getOIDType()->getLLVMType(llvmContext);
 
@@ -209,7 +211,7 @@ void Sort::consume(GpuRawContext *const context,
 
   Builder->SetInsertPoint(insBB);
 
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   // vector<Type *> members;
   // for (size_t i = 0 ; i < orderByFields.size() ; ++i){
@@ -225,7 +227,7 @@ void Sort::consume(GpuRawContext *const context,
       mem_ptr, std::vector<Value *>{context->createInt64(0), indx});
 
   ExpressionGeneratorVisitor exprGenerator(context, childState);
-  RawValue valWrapper = outputExpr.accept(exprGenerator);
+  ProteusValue valWrapper = outputExpr.accept(exprGenerator);
   Value *el = valWrapper.value;
 
   Builder->CreateStore(el, el_ptr);
@@ -237,21 +239,21 @@ void Sort::consume(GpuRawContext *const context,
   // RecordAttribute tupCnt  = RecordAttribute(relName, "activeCnt",
   // pg->getOIDType()); //FIXME: OID type for blocks ?
 
-  // RawValueMemory mem_cntWrapper;
+  // ProteusValueMemory mem_cntWrapper;
   // mem_cntWrapper.mem      = blockN_ptr;
   // mem_cntWrapper.isNull   = context->createFalse();
   // variableBindings[tupCnt] = mem_cntWrapper;
 
-  // ((GpuRawContext *) context)->registerOpen (this, [this](RawPipeline *
+  // ((ParallelContext *) context)->registerOpen (this, [this](Pipeline *
   // pip){this->open (pip);});
-  // ((GpuRawContext *) context)->registerClose(this, [this](RawPipeline *
+  // ((ParallelContext *) context)->registerClose(this, [this](Pipeline *
   // pip){this->close(pip);});
 }
 
 // void Sort::flush_sorted(){
 //     LLVMContext &llvmContext    = context->getLLVMContext();
 
-//     Plugin * pg       = RawCatalog::getInstance().getPlugin(relName);
+//     Plugin * pg       = Catalog::getInstance().getPlugin(relName);
 //     IntegerType * oid_type = (IntegerType *)
 //     pg->getOIDType()->getLLVMType(llvmContext);
 
@@ -343,14 +345,15 @@ void Sort::consume(GpuRawContext *const context,
 //     // Start insertion in LoopBB.
 //     Builder->SetInsertPoint(LoopBB);
 
-//     map<RecordAttribute, RawValueMemory> variableBindings;
+//     map<RecordAttribute, ProteusValueMemory> variableBindings;
 
 //     Value * rec_ptr = Builder->CreateInBoundsGEP(mem_ptr, std::vector<Value
 //     *>{context->createInt64(0), indx});
 
 //     Value * rec     = Builder->CreateLoad(rec_ptr);
-//     // RawValue v{rec, context->createFalse()};
-//     // expressions::RawValueExpression r{outputExpr.getExpressionType(), v};
+//     // ProteusValue v{rec, context->createFalse()};
+//     // expressions::ProteusValueExpression r{outputExpr.getExpressionType(),
+//     v};
 
 //     // OperatorState state{*this, variableBindings};
 //     // ExpressionFlusherVisitor flusher{context, state, outPath.c_str(),
@@ -366,7 +369,7 @@ void Sort::consume(GpuRawContext *const context,
 //         RecordAttribute attr = e->getRegisteredAs();
 //         Value         * p    = t->projectArg(rec, &attr, Builder);
 
-//         RawValueMemory mem;
+//         ProteusValueMemory mem;
 //         mem.mem    = context->CreateEntryBlockAlloca(F, attr.getAttrName(),
 //         p->getType()); mem.isNull = context->createFalse();
 
@@ -376,7 +379,7 @@ void Sort::consume(GpuRawContext *const context,
 //     }
 
 //     RecordAttribute oid{relName, activeLoop, pg->getOIDType()};
-//     variableBindings[oid] = RawValueMemory{blockN_ptr,
+//     variableBindings[oid] = ProteusValueMemory{blockN_ptr,
 //     context->createFalse()};
 
 //     OperatorState state{*this, variableBindings};
@@ -401,7 +404,7 @@ void Sort::consume(GpuRawContext *const context,
 void Sort::flush_sorted() {
   LLVMContext &llvmContext = context->getLLVMContext();
 
-  Plugin *pg = RawCatalog::getInstance().getPlugin(relName);
+  Plugin *pg = Catalog::getInstance().getPlugin(relName);
   IntegerType *oid_type =
       (IntegerType *)pg->getOIDType()->getLLVMType(llvmContext);
 
@@ -491,14 +494,14 @@ void Sort::flush_sorted() {
   // Start insertion in LoopBB.
   Builder->SetInsertPoint(LoopBB);
 
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   // Value * rec_ptr = Builder->CreateInBoundsGEP(mem_ptr, std::vector<Value
   // *>{context->createInt64(0), indx});
 
   // Value * rec     = Builder->CreateLoad(rec_ptr);
-  // RawValue v{rec, context->createFalse()};
-  // expressions::RawValueExpression r{outputExpr.getExpressionType(), v};
+  // ProteusValue v{rec, context->createFalse()};
+  // expressions::ProteusValueExpression r{outputExpr.getExpressionType(), v};
 
   // OperatorState state{*this, variableBindings};
   // ExpressionFlusherVisitor flusher{context, state, outPath.c_str(), relName};
@@ -514,7 +517,7 @@ void Sort::flush_sorted() {
   //     RecordAttribute attr = e->getRegisteredAs();
   //     Value         * p    = t->projectArg(rec, &attr, Builder);
 
-  //     RawValueMemory mem;
+  //     ProteusValueMemory mem;
   //     mem.mem    = context->CreateEntryBlockAlloca(F, attr.getAttrName(),
   //     p->getType()); mem.isNull = context->createFalse();
 
@@ -536,13 +539,14 @@ void Sort::flush_sorted() {
   // Builder->CreateCall(p, Builder->CreateBitCast(mem_ptr,
   // Type::getInt8PtrTy(llvmContext)));
 
-  variableBindings[brec] = RawValueMemory{mem_mem_ptr, context->createFalse()};
+  variableBindings[brec] =
+      ProteusValueMemory{mem_mem_ptr, context->createFalse()};
 
   AllocaInst *cnt_mem =
       context->CreateEntryBlockAlloca(F, "activeCnt_mem", oid_type);
   RecordAttribute bcnt{relName, "activeCnt", pg->getOIDType()};
   Builder->CreateStore(cnt, cnt_mem);
-  variableBindings[bcnt] = RawValueMemory{cnt_mem, context->createFalse()};
+  variableBindings[bcnt] = ProteusValueMemory{cnt_mem, context->createFalse()};
   // Function * p = context->getFunction("printptr");
   // cnt->getType()->dump();
   // Builder->CreateCall(p, Builder->CreateBitCast(mem_ptr,
@@ -553,7 +557,8 @@ void Sort::flush_sorted() {
   AllocaInst *blockN_ptr = context->CreateEntryBlockAlloca(F, "i", oid_type);
   RecordAttribute oid{relName, activeLoop, pg->getOIDType()};
   Builder->CreateStore(ConstantInt::get(oid_type, 0), blockN_ptr);
-  variableBindings[oid] = RawValueMemory{blockN_ptr, context->createFalse()};
+  variableBindings[oid] =
+      ProteusValueMemory{blockN_ptr, context->createFalse()};
 
   OperatorState state{*this, variableBindings};
   getParent()->consume(context, state);
@@ -574,7 +579,7 @@ void Sort::flush_sorted() {
   Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-// void Sort::open (RawPipeline * pip){
+// void Sort::open (Pipeline * pip){
 //     size_t * cnts = (size_t *) malloc(sizeof(size_t) * (numOfBuckets + 1));
 //     //FIXME: is it always size_t the correct type ?
 
@@ -597,7 +602,7 @@ void Sort::flush_sorted() {
 //     pip->setStateVar<size_t *>(oidVar_id, cnts + numOfBuckets);
 // }
 
-// void Sort::close(RawPipeline * pip){
+// void Sort::close(Pipeline * pip){
 //     // ((void (*)(void *)) this->flushFunc)(pip->getState());
 //     ((void (*)(void *))
 //     closingPip->getCompiledFunction(flushingFunc))(pip->getState());
@@ -668,7 +673,7 @@ void Sort::call_sort(Value *mem, Value *N) {
 
     auto args = cmp->args().begin();
 
-    map<RecordAttribute, RawValueMemory> bindings[2];
+    map<RecordAttribute, ProteusValueMemory> bindings[2];
     Value *recs[2]{
         Builder->CreateLoad(Builder->CreateBitCast(args++, entry_pointer)),
         Builder->CreateLoad(Builder->CreateBitCast(args++, entry_pointer))};
@@ -680,7 +685,7 @@ void Sort::call_sort(Value *mem, Value *N) {
         Value *p = t->projectArg(recs[i], &attr, Builder);
         assert(p);
 
-        RawValueMemory mem;
+        ProteusValueMemory mem;
         mem.mem = context->CreateEntryBlockAlloca(F, attr.getAttrName(),
                                                   p->getType());
         mem.isNull = context->createFalse();

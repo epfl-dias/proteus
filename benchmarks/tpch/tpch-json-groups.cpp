@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -37,9 +37,9 @@
 #include "operators/unnest.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 void tpchSchema(map<string, dataset> &datasetCatalog) {
@@ -89,7 +89,7 @@ int main() {
   int predicateMax = O_ORDERKEY_MAX;
 
   CachingService &cache = CachingService::getInstance();
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Catalog &rawCatalog = Catalog::getInstance();
   cout << "Query 0 (OS caches Warmup + PM)" << endl;
   tpchGroup(datasetCatalog, predicateMax, 4);
   rawCatalog.clear();
@@ -132,8 +132,8 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate,
   if (aggregatesNo < 1 || aggregatesNo > 4) {
     throw runtime_error(string("Invalid no. of aggregates requested: "));
   }
-  RawContext &ctx = *prepareContext("tpch-csv-selection1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("tpch-csv-selection1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameLineitem = string("lineitem");
   dataset lineitem = datasetCatalog[nameLineitem];
@@ -334,12 +334,12 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate,
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
-  Function *debugFloat = ctx.getFunction("printFloat");
+  llvm::Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   FloatType floatType = FloatType();
 
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =

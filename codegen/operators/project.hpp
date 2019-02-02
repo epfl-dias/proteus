@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2018
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,24 +24,23 @@
 #ifndef PROJECT_HPP_
 #define PROJECT_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "operators/monoids.hpp"
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
-class Project : public UnaryRawOperator {
+class Project : public UnaryOperator {
  public:
   Project(vector<expression_t> outputExprs, string relName,
-          RawOperator *const child, RawContext *context);
+          Operator *const child, Context *context);
   virtual ~Project() { LOG(INFO) << "Collapsing Project operator"; }
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return getChild()->isFiltering(); }
 
  protected:
-  RawContext *context;
+  Context *context;
   size_t oid_id;
   string relName;
 
@@ -50,11 +49,7 @@ class Project : public UnaryRawOperator {
   const char *outPath;
 
  private:
-  void generate(RawContext *const context,
-                const OperatorState &childState) const;
-
-  void open(RawPipeline *pip) const;
-  void close(RawPipeline *pip) const;
+  void generate(Context *const context, const OperatorState &childState) const;
 };
 
 #endif /* PROJECT_HPP_ */

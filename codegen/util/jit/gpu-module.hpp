@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,8 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef RAW_GPU_MODULE_HPP_
-#define RAW_GPU_MODULE_HPP_
+#ifndef GPU_MODULE_HPP_
+#define GPU_MODULE_HPP_
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -30,9 +30,9 @@
 
 #include "common/gpu/gpu-common.hpp"
 
-#include "util/jit/raw-module.hpp"
+#include "util/jit/jit-module.hpp"
 
-class RawGpuModule : public RawModule {
+class GpuModule : public JITModule {
  protected:
   static llvm::LLVMTargetMachine *TheTargetMachine;
   static llvm::legacy::PassManager Passes;
@@ -44,16 +44,16 @@ class RawGpuModule : public RawModule {
   CUmodule *cudaModule;
 
  public:
-  RawGpuModule(RawContext *context, std::string pipName = "pip");
+  GpuModule(Context *context, std::string pipName = "pip");
 
   static void init();
 
   virtual void compileAndLoad();
 
-  virtual void *getCompiledFunction(Function *f) const;
+  virtual void *getCompiledFunction(llvm::Function *f) const;
 
  protected:
-  virtual void optimizeModule(Module *M);
+  virtual void optimizeModule(llvm::Module *M);
 };
 
-#endif /* RAW_GPU_MODULE_HPP_ */
+#endif /* GPU_MODULE_HPP_ */

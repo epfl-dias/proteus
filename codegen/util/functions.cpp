@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,8 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "util/raw-functions.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
+#include "util/functions.hpp"
+#include "parallel-context.hpp"
 // #include <ext/stdio_filebuf.h>
 #include <chrono>
 #include <ctime>
@@ -119,7 +119,7 @@ void calculateTime() {
 //}
 
 void insertToHT(char *HTname, size_t key, void *value, int type_size) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   // still, one unneeded indirection..... is there a quicker way?
   multimap<size_t, void *> *HT = catalog.getHashTable(string(HTname));
 
@@ -137,7 +137,7 @@ void insertToHT(char *HTname, size_t key, void *value, int type_size) {
 
 void **probeHT(char *HTname, size_t key) {
   string name = string(HTname);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
 
   // same indirection here as above.
   multimap<size_t, void *> *HT = catalog.getHashTable(name);
@@ -179,7 +179,7 @@ void **probeHT(char *HTname, size_t key) {
  */
 HashtableBucketMetadata *getMetadataHT(char *HTname) {
   string name = string(HTname);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
 
   // same indirection here as above.
   multimap<size_t, void *> *HT = catalog.getHashTable(name);
@@ -205,7 +205,7 @@ HashtableBucketMetadata *getMetadataHT(char *HTname) {
 
 /* Deprecated */
 void insertIntKeyToHT(int htIdentifier, int key, void *value, int type_size) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   // still, one unneeded indirection..... is there a quicker way?
   multimap<int, void *> *HT = catalog.getIntHashTable(htIdentifier);
 
@@ -227,7 +227,7 @@ void insertIntKeyToHT(int htIdentifier, int key, void *value, int type_size) {
 /* Deprecated */
 void **probeIntHT(int htIdentifier, int key, int typeIndex) {
   //    string name = string(HTname);
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
 
   // same indirection here as above.
   multimap<int, void *> *HT = catalog.getIntHashTable(htIdentifier);
@@ -453,28 +453,28 @@ int *partitionAggHTLLVM(size_t num_tuples, agg::tuple_t *inTuples) {
  * without having to first deserialize them
  */
 // void flushInt(int toFlush, char* fileName)    {
-//    RawCatalog& catalog = RawCatalog::getInstance();
+//    Catalog& catalog = Catalog::getInstance();
 //    string name = string(fileName);
 //    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
 //    w.Uint(toFlush);
 //}
 //
 // void flushDouble(double toFlush, char* fileName)    {
-//    RawCatalog& catalog = RawCatalog::getInstance();
+//    Catalog& catalog = Catalog::getInstance();
 //    string name = string(fileName);
 //    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
 //    w.Double(toFlush);
 //}
 //
 // void flushBoolean(bool toFlush, char* fileName)    {
-//    RawCatalog& catalog = RawCatalog::getInstance();
+//    Catalog& catalog = Catalog::getInstance();
 //    string name = string(fileName);
 //    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
 //    w.Bool(toFlush);
 //}
 //
 // void flushStringC(char* toFlush, size_t start, size_t end, char* fileName) {
-//    RawCatalog& catalog = RawCatalog::getInstance();
+//    Catalog& catalog = Catalog::getInstance();
 //    string name = string(fileName);
 //    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
 //    char tmp = toFlush[end + 1 - start];
@@ -490,35 +490,35 @@ int *partitionAggHTLLVM(size_t num_tuples, agg::tuple_t *inTuples) {
 // * before actual 'query' execution
 // */
 // void flushString(string toFlush, char* fileName)    {
-//    RawCatalog& catalog = RawCatalog::getInstance();
+//    Catalog& catalog = Catalog::getInstance();
 //    string name = string(fileName);
 //    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
 //    w.String(toFlush.c_str());
 //}
 //
 // void flushObjectStart(char* fileName)    {
-//    RawCatalog& catalog = RawCatalog::getInstance();
+//    Catalog& catalog = Catalog::getInstance();
 //    string name = string(fileName);
 //    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
 //    w.StartObject();
 //}
 //
 // void flushArrayStart(char* fileName)    {
-//    RawCatalog& catalog = RawCatalog::getInstance();
+//    Catalog& catalog = Catalog::getInstance();
 //    string name = string(fileName);
 //    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
 //    w.StartArray();
 //}
 //
 // void flushObjectEnd(char* fileName)    {
-//    RawCatalog& catalog = RawCatalog::getInstance();
+//    Catalog& catalog = Catalog::getInstance();
 //    string name = string(fileName);
 //    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
 //    w.EndObject();
 //}
 //
 // void flushArrayEnd(char* fileName)    {
-//    RawCatalog& catalog = RawCatalog::getInstance();
+//    Catalog& catalog = Catalog::getInstance();
 //    string name = string(fileName);
 //    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
 //    w.EndArray();
@@ -527,28 +527,28 @@ int *partitionAggHTLLVM(size_t num_tuples, agg::tuple_t *inTuples) {
 void flushDString(int toFlush, void *dict, char *fileName) {
   assert(dict && "Dictionary should not be null!");
   map<int, std::string> *actual_dict{(map<int, std::string> *)dict};
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << '"' << actual_dict->at(toFlush) << '"';
 }
 
 void flushInt(int toFlush, char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << toFlush;
 }
 
 void flushInt64(size_t toFlush, char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << toFlush;
 }
 
 void flushDate(int64_t toFlush, char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   time_t t = toFlush;
@@ -556,14 +556,14 @@ void flushDate(int64_t toFlush, char *fileName) {
 }
 
 void flushDouble(double toFlush, char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << toFlush;
 }
 
 void flushBoolean(bool toFlush, char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << toFlush;
@@ -571,7 +571,7 @@ void flushBoolean(bool toFlush, char *fileName) {
 
 // FIXME Bug here
 void flushStringC(char *toFlush, size_t start, size_t end, char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   char tmp = toFlush[end];
@@ -581,7 +581,7 @@ void flushStringC(char *toFlush, size_t start, size_t end, char *fileName) {
 }
 
 void flushStringReady(char *toFlush, char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << "\"";
@@ -593,7 +593,7 @@ void flushStringObject(StringObject obj, char *fileName) {
   char tmp = obj.start[obj.len + 1];
   obj.start[obj.len + 1] = '\0';
 
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << "\"";
@@ -604,35 +604,35 @@ void flushStringObject(StringObject obj, char *fileName) {
 }
 
 void flushObjectStart(char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << "{";
 }
 
 void flushArrayStart(char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << "}";
 }
 
 void flushObjectEnd(char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << "[";
 }
 
 void flushArrayEnd(char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << "]";
 }
 
 void flushChar(char whichChar, char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << whichChar;
@@ -647,7 +647,7 @@ void flushDelim(size_t resultCtr, char whichDelim, char *fileName) {
 #include <fstream>
 
 void flushOutput(char *fileName) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   // cout << "Flushing to " << fileName << endl;
@@ -947,8 +947,8 @@ int atois(const char *buf, int len) {
   }
 }
 
-GpuRawContext *prepareContext(string moduleName) {
-  GpuRawContext *ctx = new GpuRawContext(moduleName);
+ParallelContext *prepareContext(string moduleName) {
+  ParallelContext *ctx = new ParallelContext(moduleName);
   // registerFunctions(ctx);
   return ctx;
 }

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,12 +23,15 @@
 
 #include "expressions/expressions-hasher.hpp"
 
-RawValue ExpressionHasherVisitor::hashInt32(const expressions::Expression *e) {
+using namespace llvm;
+
+ProteusValue ExpressionHasherVisitor::hashInt32(
+    const expressions::Expression *e) {
   ExpressionGeneratorVisitor exprGenerator{context, currState};
   return ::hashInt32(e->accept(exprGenerator), context);
 }
 
-RawValue hashInt32(RawValue v, RawContext *context) {
+ProteusValue hashInt32(ProteusValue v, Context *context) {
   IRBuilder<> *Builder = context->getBuilder();
 
   // FIXME: hash-function (single step murmur) is designed for 32bit inputs
@@ -48,10 +51,10 @@ RawValue hashInt32(RawValue v, RawContext *context) {
   hash = Builder->CreateMul(hash, context->createInt64(0xc2b2ae35));
   hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
 
-  return RawValue{hash, v.isNull};
+  return ProteusValue{hash, v.isNull};
 }
 
-RawValue ExpressionHasherVisitor::hashPrimitive(
+ProteusValue ExpressionHasherVisitor::hashPrimitive(
     const expressions::Expression *e) {
   auto type = e->getExpressionType();
 
@@ -63,7 +66,7 @@ RawValue ExpressionHasherVisitor::hashPrimitive(
   return ::hashPrimitive(e->accept(exprGenerator), type->getTypeID(), context);
 }
 
-RawValue hashPrimitive(RawValue v, typeID type, RawContext *context) {
+ProteusValue hashPrimitive(ProteusValue v, typeID type, Context *context) {
   std::string instructionLabel;
 
   switch (type) {
@@ -87,7 +90,7 @@ RawValue hashPrimitive(RawValue v, typeID type, RawContext *context) {
 
       Value *hashResult = Builder->CreateCall(hashStringObj, v.value);
 
-      return RawValue{hashResult, context->createFalse()};
+      return ProteusValue{hashResult, context->createFalse()};
     }
     case BAG:
     case LIST:
@@ -107,40 +110,46 @@ RawValue hashPrimitive(RawValue v, typeID type, RawContext *context) {
   Function *hashFunc = context->getFunction(instructionLabel);
   Value *hashResult = TheBuilder->CreateCall(hashFunc, v.value);
 
-  return RawValue{hashResult, v.isNull};
+  return ProteusValue{hashResult, v.isNull};
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::IntConstant *e) {
+ProteusValue ExpressionHasherVisitor::visit(const expressions::IntConstant *e) {
   return hashInt32(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::DStringConstant *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::DStringConstant *e) {
   return hashInt32(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::Int64Constant *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::Int64Constant *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::DateConstant *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::DateConstant *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::FloatConstant *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::FloatConstant *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::BoolConstant *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::BoolConstant *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::StringConstant *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::StringConstant *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
   size_t hashResultC = hashString(e->getVal());
   Value *hashResult =
       ConstantInt::get(context->getLLVMContext(), APInt(64, hashResultC));
 
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = hashResult;
   valWrapper.isNull = context->createFalse();
 #ifdef DEBUG_HASH
@@ -153,8 +162,9 @@ RawValue ExpressionHasherVisitor::visit(const expressions::StringConstant *e) {
   return valWrapper;
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::InputArgument *e) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::InputArgument *e) {
+  Catalog &catalog = Catalog::getInstance();
   Function *const F = context->getGlobalFunction();
   IRBuilder<> *const TheBuilder = context->getBuilder();
   Type *int64Type = Type::getInt64Ty(context->getLLVMContext());
@@ -163,7 +173,7 @@ RawValue ExpressionHasherVisitor::visit(const expressions::InputArgument *e) {
   Value *hashedValue = context->createInt64(0);
   vector<Value *> ArgsV;
 
-  const map<RecordAttribute, RawValueMemory> &activeVars =
+  const map<RecordAttribute, ProteusValueMemory> &activeVars =
       currState.getBindings();
 
   list<RecordAttribute> projections = e->getProjections();
@@ -181,14 +191,14 @@ RawValue ExpressionHasherVisitor::visit(const expressions::InputArgument *e) {
   for (; it != projections.end(); it++) {
     /* Explicitly looking for OID!!! */
     if (it->getAttrName() == activeLoop) {
-      map<RecordAttribute, RawValueMemory>::const_iterator itBindings;
+      map<RecordAttribute, ProteusValueMemory>::const_iterator itBindings;
       for (itBindings = activeVars.begin(); itBindings != activeVars.end();
            itBindings++) {
         RecordAttribute currAttr = itBindings->first;
         if (currAttr.getRelationName() == it->getRelationName() &&
             currAttr.getAttrName() == activeLoop) {
           // Hash value now
-          RawValueMemory mem_activeTuple = itBindings->second;
+          ProteusValueMemory mem_activeTuple = itBindings->second;
 
           Plugin *plugin = catalog.getPlugin(currAttr.getRelationName());
           if (plugin == NULL) {
@@ -202,7 +212,7 @@ RawValue ExpressionHasherVisitor::visit(const expressions::InputArgument *e) {
           // Does order matter?
           // Does result of retrieving tuple1->tuple2 differ from
           // tuple2->tuple1??? (Probably should)
-          RawValue partialHash =
+          ProteusValue partialHash =
               plugin->hashValue(mem_activeTuple, e->getExpressionType());
           ArgsV.clear();
           ArgsV.push_back(hashedValue);
@@ -217,17 +227,17 @@ RawValue ExpressionHasherVisitor::visit(const expressions::InputArgument *e) {
     }
   }
 
-  RawValue hashValWrapper;
+  ProteusValue hashValWrapper;
   hashValWrapper.value = TheBuilder->CreateLoad(mem_hashedValue);
   hashValWrapper.isNull = context->createFalse();
   return hashValWrapper;
 }
 
-RawValue ExpressionHasherVisitor::visit(
-    const expressions::RawValueExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::ProteusValueExpression *e) {
   if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
 
   Plugin *plugin = catalog.getPlugin(activeRelation);
 
@@ -242,9 +252,9 @@ RawValue ExpressionHasherVisitor::visit(
   }
 }
 
-RawValue ExpressionHasherVisitor::visit(
+ProteusValue ExpressionHasherVisitor::visit(
     const expressions::RecordProjection *e) {
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   activeRelation = e->getOriginalRelationName();
 
   ExpressionGeneratorVisitor exprGenerator =
@@ -252,7 +262,7 @@ RawValue ExpressionHasherVisitor::visit(
   /* Need this 'hint' before launching generator,
    * otherwise (potential) InputArg visitor will crash */
   exprGenerator.setActiveRelation(activeRelation);
-  RawValue record = e->getExpr().accept(exprGenerator);
+  ProteusValue record = e->getExpr().accept(exprGenerator);
   Plugin *plugin = catalog.getPlugin(activeRelation);
 
   {
@@ -265,7 +275,7 @@ RawValue ExpressionHasherVisitor::visit(
     CacheInfo info = cache.getCache(e);
     /* Must also make sure that no explicit binding exists => No duplicate work
      */
-    map<RecordAttribute, RawValueMemory>::const_iterator it =
+    map<RecordAttribute, ProteusValueMemory>::const_iterator it =
         currState.getBindings().find(e->getAttribute());
     if (info.structFieldNo != -1 && it == currState.getBindings().end()) {
 #ifdef DEBUGCACHING
@@ -277,16 +287,16 @@ RawValue ExpressionHasherVisitor::visit(
         cout << "...but is not useable " << endl;
 #endif
       } else {
-        RawValue tmpWrapper = plugin->readCachedValue(info, currState);
+        ProteusValue tmpWrapper = plugin->readCachedValue(info, currState);
         //                Value *tmp = tmpWrapper.value;
         //                AllocaInst *mem_tmp =
         //                context->CreateEntryBlockAlloca(F, "mem_cachedToHash",
         //                tmp->getType()); TheBuilder->CreateStore(tmp,mem_tmp);
-        //                RawValueMemory mem_tmpWrapper = { mem_tmp,
-        //                tmpWrapper.isNull }; RawValue mem_val =
+        //                ProteusValueMemory mem_tmpWrapper = { mem_tmp,
+        //                tmpWrapper.isNull }; ProteusValue mem_val =
         //                plugin->hashValue(mem_tmpWrapper,
         //                e->getExpressionType());
-        RawValue mem_val =
+        ProteusValue mem_val =
             plugin->hashValueEager(tmpWrapper, e->getExpressionType());
         return mem_val;
       }
@@ -307,7 +317,7 @@ RawValue ExpressionHasherVisitor::visit(
     throw runtime_error(error_msg);
   } else {
     Bindings bindings = {&currState, record};
-    RawValueMemory mem_path;
+    ProteusValueMemory mem_path;
     // cout << "Active Relation: " << e->getProjectionName() << endl;
     if (e->getProjectionName() != activeLoop) {
       const RecordType *exprType =
@@ -317,7 +327,7 @@ RawValue ExpressionHasherVisitor::visit(
         Value *val =
             exprType->projectArg(record.value, &attr, context->getBuilder());
         if (val) {
-          RawValue valWrapper;
+          ProteusValue valWrapper;
           valWrapper.value = val;
           valWrapper.isNull =
               record.isNull;  // FIXME: what if only one attribute is NULL?
@@ -336,7 +346,7 @@ RawValue ExpressionHasherVisitor::visit(
       Plugin *pg = catalog.getPlugin(activeRelation);
       RecordAttribute tupleIdentifier =
           RecordAttribute(activeRelation, activeLoop, pg->getOIDType());
-      map<RecordAttribute, RawValueMemory>::const_iterator it =
+      map<RecordAttribute, ProteusValueMemory>::const_iterator it =
           currState.getBindings().find(tupleIdentifier);
       if (it == currState.getBindings().end()) {
         string error_msg =
@@ -350,20 +360,20 @@ RawValue ExpressionHasherVisitor::visit(
   }
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::IfThenElse *e) {
+ProteusValue ExpressionHasherVisitor::visit(const expressions::IfThenElse *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *F = TheBuilder->GetInsertBlock()->getParent();
   Type *int64Type = Type::getInt64Ty(llvmContext);
 
-  RawValue hashResult;
+  ProteusValue hashResult;
   AllocaInst *mem_hashResult =
       context->CreateEntryBlockAlloca(F, "hashResult", int64Type);
 
   // Need to evaluate, not hash!
   ExpressionGeneratorVisitor exprGenerator =
       ExpressionGeneratorVisitor(context, currState);
-  RawValue ifCond = e->getIfCond().accept(exprGenerator);
+  ProteusValue ifCond = e->getIfCond().accept(exprGenerator);
 
   // Prepare blocks
   BasicBlock *ThenBB;
@@ -390,74 +400,86 @@ RawValue ExpressionHasherVisitor::visit(const expressions::IfThenElse *e) {
 
   // cont.
   TheBuilder->SetInsertPoint(MergeBB);
-  RawValue valWrapper;
+  ProteusValue valWrapper;
   valWrapper.value = TheBuilder->CreateLoad(mem_hashResult);
   valWrapper.isNull = context->createFalse();
 
   return valWrapper;
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::EqExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::EqExpression *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::NeExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::NeExpression *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::GeExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::GeExpression *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::GtExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::GtExpression *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::LeExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::LeExpression *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::LtExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::LtExpression *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::AndExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::AndExpression *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::OrExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::OrExpression *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::AddExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::AddExpression *e) {
   if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
   throw runtime_error(
       string("[ExpressionHasherVisitor]: input of binary "
              "expression can only be primitive"));
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::SubExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::SubExpression *e) {
   if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
   throw runtime_error(
       string("[ExpressionHasherVisitor]: input of binary "
              "expression can only be primitive"));
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::MultExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::MultExpression *e) {
   if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
   throw runtime_error(
       string("[ExpressionHasherVisitor]: input of binary "
              "expression can only be primitive"));
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::DivExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::DivExpression *e) {
   if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
   throw runtime_error(
       string("[ExpressionHasherVisitor]: input of binary "
              "expression can only be primitive"));
 }
 
-RawValue ExpressionHasherVisitor::visit(
+ProteusValue ExpressionHasherVisitor::visit(
     const expressions::RecordConstruction *e) {
   IRBuilder<> *const Builder = context->getBuilder();
   Type *int64Type = Type::getInt64Ty(context->getLLVMContext());
@@ -477,30 +499,34 @@ RawValue ExpressionHasherVisitor::visit(
     seed = hv;
   }
 
-  return RawValue{seed, context->createFalse()};
+  return ProteusValue{seed, context->createFalse()};
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::MaxExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::MaxExpression *e) {
   return e->getCond()->accept(*this);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::MinExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::MinExpression *e) {
   return e->getCond()->accept(*this);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::HashExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::HashExpression *e) {
   assert(false && "This does not really make sense... Why to hash a hash?");
   return e->getExpr().accept(*this);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::NegExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::NegExpression *e) {
   if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
   throw runtime_error(
       string("[ExpressionHasherVisitor]: input of negate "
              "expression can only be primitive"));
 }
 
-RawValue ExpressionHasherVisitor::visit(
+ProteusValue ExpressionHasherVisitor::visit(
     const expressions::ExtractExpression *e) {
   if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
   throw runtime_error(
@@ -508,12 +534,13 @@ RawValue ExpressionHasherVisitor::visit(
              "expression can only be primitive"));
 }
 
-RawValue ExpressionHasherVisitor::visit(
+ProteusValue ExpressionHasherVisitor::visit(
     const expressions::TestNullExpression *e) {
   return hashPrimitive(e);
 }
 
-RawValue ExpressionHasherVisitor::visit(const expressions::CastExpression *e) {
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::CastExpression *e) {
   // do not _just_ cast the inner expression, as hash may be different
   // between the casted and non-casted expressions
   // instead, hash the casted expression

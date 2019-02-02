@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,12 +23,14 @@
 
 #include "operators/radix-join.hpp"
 
-RadixJoinBuild::RadixJoinBuild(expression_t keyExpr, RawOperator *child,
-                               GpuRawContext *const context, string opLabel,
+using namespace llvm;
+
+RadixJoinBuild::RadixJoinBuild(expression_t keyExpr, Operator *child,
+                               ParallelContext *const context, string opLabel,
                                Materializer &mat, StructType *htEntryType,
                                size_t /* bytes */ size,
                                size_t /* bytes */ kvSize, bool is_agg)
-    : UnaryRawOperator(child),
+    : UnaryOperator(child),
       keyExpr(std::move(keyExpr)),
       context(context),
       mat(mat),
@@ -55,7 +57,7 @@ RadixJoinBuild::~RadixJoinBuild() {
 void RadixJoinBuild::produce() {
   initializeState();
 
-  RawOperator *newChild = NULL;
+  Operator *newChild = NULL;
 
   // TODO: enable cache
   // if (!this->child->isFiltering()) {
@@ -209,26 +211,26 @@ void RadixJoinBuild::initializeState() {
   // TODO: (ht.mem_kv)->setAlignment(8);
 }
 
-void RadixJoinBuild::consume(RawContext *const context,
+void RadixJoinBuild::consume(Context *const context,
                              const OperatorState &childState) {
-  GpuRawContext *ctx = dynamic_cast<GpuRawContext *>(context);
+  ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
   assert(ctx && "Update caller to new API");
   consume(ctx, childState);
 }
 
-void RadixJoinBuild::consume(GpuRawContext *const context,
+void RadixJoinBuild::consume(ParallelContext *const context,
                              const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *F = context->getGlobalFunction();
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
 
   Type *int8_type = Type::getInt8Ty(llvmContext);
   Type *int64_type = Type::getInt64Ty(llvmContext);
   PointerType *void_ptr_type = PointerType::get(int8_type, 0);
 
   if (!cached) {
-    const map<RecordAttribute, RawValueMemory> &bindings =
+    const map<RecordAttribute, ProteusValueMemory> &bindings =
         childState.getBindings();
 
     pg->setBindings(&bindings);
@@ -319,10 +321,10 @@ void RadixJoinBuild::consume(GpuRawContext *const context,
     // Storing all activeTuples met so far
     int offsetInStruct =
         0;  // offset inside the struct (+current field manipulated)
-    // RawValueMemory mem_activeTuple;
+    // ProteusValueMemory mem_activeTuple;
     // {
     // cout << "ORDER OF LEFT FIELDS MATERIALIZED"<<endl;
-    // map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+    // map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch;
     // for (memSearch = bindings.begin(); memSearch != bindings.end();
     //         memSearch++) {
     //     RecordAttribute currAttr = memSearch->first;
@@ -380,10 +382,10 @@ void RadixJoinBuild::consume(GpuRawContext *const context,
         Plugin *plugin = catalog.getPlugin(activeRelation);
         valToMaterialize = (plugin->readCachedValue(info, bindings)).value;
       } else {
-        map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+        map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch =
             bindings.find(we.getRegisteredAs());
         if (memSearch != bindings.end()) {
-          RawValueMemory currValMem = memSearch->second;
+          ProteusValueMemory currValMem = memSearch->second;
           /* FIX THE NECESSARY CONVERSIONS HERE */
           Value *currVal = Builder->CreateLoad(currValMem.mem);
           valToMaterialize =
@@ -391,7 +393,7 @@ void RadixJoinBuild::consume(GpuRawContext *const context,
                           materializedTypes->at(offsetInWanted), currVal);
         } else {
           ExpressionGeneratorVisitor exprGen{context, childState};
-          RawValue currVal = we.accept(exprGen);
+          ProteusValue currVal = we.accept(exprGen);
           /* FIX THE NECESSARY CONVERSIONS HERE */
           valToMaterialize = currVal.value;
         }
@@ -415,9 +417,9 @@ void RadixJoinBuild::consume(GpuRawContext *const context,
     //                  wantedFields.begin(); it != wantedFields.end(); ++it) {
     //              //cout << (*it)->getRelationName() << "_" <<
     //              (*it)->getAttrName() << endl; map<RecordAttribute,
-    //              RawValueMemory>::const_iterator memSearch =
+    //              ProteusValueMemory>::const_iterator memSearch =
     //                      bindings.find(*(*it));
-    //              RawValueMemory currValMem = memSearch->second;
+    //              ProteusValueMemory currValMem = memSearch->second;
     //              /* FIX THE NECESSARY CONVERSIONS HERE */
     //              Value* currVal = Builder->CreateLoad(currValMem.mem);
     //              Value* valToMaterialize = pg->convert(currVal->getType(),
@@ -442,7 +444,7 @@ void RadixJoinBuild::consume(GpuRawContext *const context,
     /* Prepare key */
     ExpressionGeneratorVisitor exprGenerator{context, childState};
 
-    RawValue key = keyExpr.accept(exprGenerator);
+    ProteusValue key = keyExpr.accept(exprGenerator);
 
     PointerType *htEntryPtrType = PointerType::get(htEntryType, 0);
 
@@ -539,13 +541,13 @@ void RadixJoinBuild::consume(GpuRawContext *const context,
 }
 
 RadixJoin::RadixJoin(const expressions::BinaryExpression &predicate,
-                     RawOperator *leftChild, RawOperator *rightChild,
-                     RawContext *const context, const char *opLabel,
+                     Operator *leftChild, Operator *rightChild,
+                     Context *const context, const char *opLabel,
                      Materializer &matLeft, Materializer &matRight)
-    : BinaryRawOperator(leftChild, rightChild),
-      context((GpuRawContext *const)context),
+    : BinaryOperator(leftChild, rightChild),
+      context((ParallelContext *const)context),
       htLabel(opLabel) {
-  assert(dynamic_cast<GpuRawContext *const>(context) &&
+  assert(dynamic_cast<ParallelContext *const>(context) &&
          "Should update caller to use the new context!");
 
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -615,40 +617,40 @@ RadixJoin::~RadixJoin() {
   //  Can't do garbage collection here, need to do it from codegen
 }
 
-int32_t *RadixJoinBuild::getClusterCounts(RawPipeline *pip) {
+int32_t *RadixJoinBuild::getClusterCounts(Pipeline *pip) {
   assert(pip->getGroup() < 128);
   int32_t *cnts = clusterCounts[pip->getGroup()];
   assert(cnts);
   return cnts;
 }
 
-void RadixJoinBuild::registerClusterCounts(RawPipeline *pip, int32_t *cnts) {
+void RadixJoinBuild::registerClusterCounts(Pipeline *pip, int32_t *cnts) {
   assert(pip->getGroup() < 128);
   assert(cnts);
   clusterCounts[pip->getGroup()] = cnts;
 }
 
-void *RadixJoinBuild::getHTMemKV(RawPipeline *pip) {
+void *RadixJoinBuild::getHTMemKV(Pipeline *pip) {
   assert(pip->getGroup() < 128);
   void *mem_kv = ht_mem_kv[pip->getGroup()];
   assert(mem_kv);
   return mem_kv;
 }
 
-void RadixJoinBuild::registerHTMemKV(RawPipeline *pip, void *mem_kv) {
+void RadixJoinBuild::registerHTMemKV(Pipeline *pip, void *mem_kv) {
   assert(pip->getGroup() < 128);
   assert(mem_kv);
   ht_mem_kv[pip->getGroup()] = mem_kv;
 }
 
-void *RadixJoinBuild::getRelationMem(RawPipeline *pip) {
+void *RadixJoinBuild::getRelationMem(Pipeline *pip) {
   assert(pip->getGroup() < 128);
   void *rel_mem = relation_mem[pip->getGroup()];
   assert(rel_mem);
   return rel_mem;
 }
 
-void RadixJoinBuild::registerRelationMem(RawPipeline *pip, void *rel_mem) {
+void RadixJoinBuild::registerRelationMem(Pipeline *pip, void *rel_mem) {
   assert(pip->getGroup() < 128);
   assert(rel_mem);
   relation_mem[pip->getGroup()] = rel_mem;
@@ -656,27 +658,27 @@ void RadixJoinBuild::registerRelationMem(RawPipeline *pip, void *rel_mem) {
 
 extern "C" {
 
-int32_t *getClusterCounts(RawPipeline *pip, RadixJoinBuild *b) {
+int32_t *getClusterCounts(Pipeline *pip, RadixJoinBuild *b) {
   return b->getClusterCounts(pip);
 }
 
-void registerClusterCounts(RawPipeline *pip, int32_t *cnts, RadixJoinBuild *b) {
+void registerClusterCounts(Pipeline *pip, int32_t *cnts, RadixJoinBuild *b) {
   return b->registerClusterCounts(pip, cnts);
 }
 
-void *getHTMemKV(RawPipeline *pip, RadixJoinBuild *b) {
+void *getHTMemKV(Pipeline *pip, RadixJoinBuild *b) {
   return b->getHTMemKV(pip);
 }
 
-void registerHTMemKV(RawPipeline *pip, void *mem_kv, RadixJoinBuild *b) {
+void registerHTMemKV(Pipeline *pip, void *mem_kv, RadixJoinBuild *b) {
   return b->registerHTMemKV(pip, mem_kv);
 }
 
-void *getRelationMem(RawPipeline *pip, RadixJoinBuild *b) {
+void *getRelationMem(Pipeline *pip, RadixJoinBuild *b) {
   return b->getRelationMem(pip);
 }
 
-void registerRelationMem(RawPipeline *pip, void *rel_mem, RadixJoinBuild *b) {
+void registerRelationMem(Pipeline *pip, void *rel_mem, RadixJoinBuild *b) {
   return b->registerRelationMem(pip, rel_mem);
 }
 }
@@ -691,7 +693,7 @@ void RadixJoin::produce() {
 
   context->pushPipeline();
 
-  RawOperator *leftChild = getLeftChild();
+  Operator *leftChild = getLeftChild();
   leftChild->setParent(buildR);
   buildR->setParent(this);
   setLeftChild(buildR);
@@ -714,7 +716,7 @@ void RadixJoin::produce() {
   // auto radix_pip = context->getCurrentPipeline();
   context->pushPipeline();
 
-  RawOperator *rightChild = getRightChild();
+  Operator *rightChild = getRightChild();
   rightChild->setParent(buildS);
   buildS->setParent(this);
   setRightChild(buildS);
@@ -750,7 +752,7 @@ void RadixJoin::produce() {
   buildS->produce();
 }
 
-void RadixJoin::consume(RawContext *const context,
+void RadixJoin::consume(Context *const context,
                         const OperatorState &childState) {
   assert(false &&
          "Function should not be called! Are RadixJoinBuilders "
@@ -766,7 +768,7 @@ void RadixJoin::consume(RawContext *const context,
 Value *RadixJoinBuild::radix_cluster_nopadding(Value *mem_tuplesNo,
                                                Value *mem_kv_id) const {
   LLVMContext &llvmContext = context->getLLVMContext();
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
 
@@ -784,7 +786,7 @@ Value *RadixJoinBuild::radix_cluster_nopadding(Value *mem_tuplesNo,
 void RadixJoin::runRadix() const {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
 
   Type *int64_type = Type::getInt64Ty(llvmContext);
   Type *int32_type = Type::getInt32Ty(llvmContext);
@@ -934,7 +936,7 @@ void RadixJoin::runRadix() const {
                             .getWantedExpressions()
                             .back()
                             .getRegisteredRelName();
-  Plugin *pg = RawCatalog::getInstance().getPlugin(relName);
+  Plugin *pg = Catalog::getInstance().getPlugin(relName);
   ExpressionType *oid_type = pg->getOIDType();
   IntegerType *llvm_oid_type =
       (IntegerType *)oid_type->getLLVMType(llvmContext);
@@ -1171,8 +1173,8 @@ void RadixJoin::runRadix() const {
            * -> RECONSTRUCT RESULTS
            * -> CALL PARENT
            */
-          map<RecordAttribute, RawValueMemory> *allJoinBindings =
-              new map<RecordAttribute, RawValueMemory>();
+          map<RecordAttribute, ProteusValueMemory> *allJoinBindings =
+              new map<RecordAttribute, ProteusValueMemory>();
 
           /* Payloads (Relative Offsets): size_t */
           /* Must be added to relR / relS accordingly */
@@ -1239,7 +1241,7 @@ void RadixJoin::runRadix() const {
             //                                     mem_activeTuple);
             //                             store_activeTuple->setAlignment(8);
 
-            //                             RawValueMemory mem_valWrapper;
+            //                             ProteusValueMemory mem_valWrapper;
             //                             mem_valWrapper.mem = mem_activeTuple;
             //                             mem_valWrapper.isNull =
             //                             context->createFalse();
@@ -1260,7 +1262,7 @@ void RadixJoin::runRadix() const {
               Value *val_field = Builder->CreateLoad(elem_ptr);
               Builder->CreateStore(val_field, mem_field);
 
-              RawValueMemory mem_valWrapper;
+              ProteusValueMemory mem_valWrapper;
               mem_valWrapper.mem = mem_field;
               mem_valWrapper.isNull = context->createFalse();
 
@@ -1312,7 +1314,7 @@ void RadixJoin::runRadix() const {
             //                                     mem_activeTuple);
             //                             store_activeTuple->setAlignment(8);
 
-            //                             RawValueMemory mem_valWrapper;
+            //                             ProteusValueMemory mem_valWrapper;
             //                             mem_valWrapper.mem = mem_activeTuple;
             //                             mem_valWrapper.isNull =
             //                             context->createFalse();
@@ -1342,7 +1344,7 @@ void RadixJoin::runRadix() const {
               Value *val_field = Builder->CreateLoad(elem_ptr);
               Builder->CreateStore(val_field, mem_field);
 
-              RawValueMemory mem_valWrapper;
+              ProteusValueMemory mem_valWrapper;
               mem_valWrapper.mem = mem_field;
               mem_valWrapper.isNull = context->createFalse();
 #ifdef DEBUGRADIX
@@ -1359,7 +1361,7 @@ void RadixJoin::runRadix() const {
           }
 
           RecordAttribute oid{-1, relName, activeLoop, oid_type};
-          RawValueMemory oid_mem;
+          ProteusValueMemory oid_mem;
           oid_mem.mem = mem_outCount;
           oid_mem.isNull = context->createFalse();
           (*allJoinBindings)[oid] = oid_mem;

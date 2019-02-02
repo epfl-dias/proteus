@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -31,9 +31,9 @@ class GpuHashJoinChained : public HashJoinChained {
   // inherit constructor
   using HashJoinChained::HashJoinChained;
 
-  void open_build(RawPipeline *pip);
-  void close_probe(RawPipeline *pip);
-  void close_build(RawPipeline *pip);
+  void open_build(Pipeline *pip);
+  void close_probe(Pipeline *pip);
+  void close_build(Pipeline *pip);
 };
 
 #endif /* GPU_HASH_JOIN_CHAINED_HPP_ */

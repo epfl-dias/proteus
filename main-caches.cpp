@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -43,10 +43,12 @@
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
+
+using namespace llvm;
 
 /* Expression matching microbenchmarks */
 void expressionMap();
@@ -190,8 +192,8 @@ void expressionMapVertical() {
 }
 
 void joinQueryRelationalRadixCache() {
-  RawContext &ctx = *prepareContext("testFunction-RadixJoinCSV");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-RadixJoinCSV");
+  Catalog &catalog = Catalog::getInstance();
 
   /**
    * SCAN1
@@ -353,8 +355,8 @@ void joinQueryRelationalRadixCache() {
 }
 
 void materializer() {
-  RawContext &ctx = *prepareContext("materializer");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("materializer");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/json/jsmn-flat.json");
 
@@ -429,8 +431,8 @@ void materializer() {
 }
 
 void selectionJSONFlat() {
-  RawContext &ctx = *prepareContext("testFunction-SelectJSON-flat");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-SelectJSON-flat");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/json/jsmn-flat.json");
 

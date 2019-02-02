@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "util/raw-memory-manager.hpp"
+#include "memory-manager.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 
@@ -30,7 +30,7 @@ constexpr size_t freed_cache_cap = 16;
 void buffer_manager_init(size_t gpu_buffs, size_t cpu_buffs);
 void buffer_manager_destroy();
 
-void RawMemoryManager::init() {
+void MemoryManager::init() {
   const topology &topo = topology::getInstance();
   std::cout << topo << std::endl;
 
@@ -72,7 +72,7 @@ void RawMemoryManager::init() {
   buffer_manager_init(4 * 256, 1024 * 16);  // (*4*4, *4*4)
 }
 
-void RawMemoryManager::destroy() {
+void MemoryManager::destroy() {
   buffer_manager_destroy();
   const auto &topo = topology::getInstance();
   for (const auto &gpu : topo.getGpus()) {
@@ -89,19 +89,19 @@ void RawMemoryManager::destroy() {
 
 constexpr inline size_t fixSize(size_t bytes) { return (bytes + 0xF) & ~0xF; }
 
-void *RawMemoryManager::mallocGpu(size_t bytes) {
-  rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_GPU_START);
+void *MemoryManager::mallocGpu(size_t bytes) {
+  eventlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_GPU_START);
   nvtxRangePushA("mallocGpu");
   bytes = fixSize(bytes);
   const auto &dev = topology::getInstance().getActiveGpu();
   void *ptr = gpu_managers[dev.id]->malloc(bytes);
   assert(ptr);
   nvtxRangePop();
-  rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_GPU_END);
+  eventlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_GPU_END);
   return ptr;
 }
 
-void RawMemoryManager::freeGpu(void *ptr) {
+void MemoryManager::freeGpu(void *ptr) {
   nvtxRangePushA("freeGpu");
   const auto *dev = topology::getInstance().getGpuAddressed(ptr);
   assert(dev);
@@ -110,9 +110,9 @@ void RawMemoryManager::freeGpu(void *ptr) {
   nvtxRangePop();
 }
 
-void *RawMemoryManager::mallocPinned(size_t bytes) {
+void *MemoryManager::mallocPinned(size_t bytes) {
   const auto &topo = topology::getInstance();
-  rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_START);
+  eventlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_START);
   nvtxRangePushA("mallocPinned");
   bytes = fixSize(bytes);
   const auto &cpu = affinity::get();
@@ -120,13 +120,13 @@ void *RawMemoryManager::mallocPinned(size_t bytes) {
   void *ptr = cpu_managers[node]->malloc(bytes);
   assert(ptr);
   nvtxRangePop();
-  rawlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_END);
+  eventlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_END);
   // std::cout << "Alloc: " << node << " " << ptr << " " << bytes << " " <<
   // topo.getCpuNumaNodeAddressed(ptr)->id; //std::endl;
   return ptr;
 }
 
-void RawMemoryManager::freePinned(void *ptr) {
+void MemoryManager::freePinned(void *ptr) {
   nvtxRangePushA("freePinned");
   const auto *dev = topology::getInstance().getCpuNumaNodeAddressed(ptr);
   assert(dev);
@@ -296,7 +296,7 @@ void SingleDeviceMemoryManager<allocator, unit_cap>::free(void *ptr) {
   }
 }
 
-SingleGpuMemoryManager **RawMemoryManager::gpu_managers;
-SingleCpuMemoryManager **RawMemoryManager::cpu_managers;
+SingleGpuMemoryManager **MemoryManager::gpu_managers;
+SingleCpuMemoryManager **MemoryManager::cpu_managers;
 
 std::unordered_map<void *, size_t> NUMAPinnedMemAllocator::sizes;

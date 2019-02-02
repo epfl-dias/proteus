@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,22 +21,34 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "util/jit/raw-module.hpp"
+#ifndef MODULE_HPP_
+#define MODULE_HPP_
 
-using namespace llvm;
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
 
-IRBuilder<> *RawModule::TheBuilder = nullptr;
+#include "util/context.hpp"
 
-RawModule::RawModule(RawContext *context, std::string pipName)
-    : TheModule(new Module(pipName, context->getLLVMContext())),
-      pipName(pipName),
-      context(context) {
-  if (TheBuilder == nullptr) init(context->getLLVMContext());
-}
+class JITModule {
+ protected:
+  static llvm::IRBuilder<> *TheBuilder;
 
-void RawModule::init(LLVMContext &llvmContext) {
-  assert(TheBuilder == nullptr && "Module already initialized");
-  TheBuilder = new IRBuilder<>(llvmContext);
-}
+  llvm::Module *TheModule;
+  const std::string pipName;
+  const Context *context;
 
-Module *RawModule::getModule() const { return TheModule; }
+ public:
+  JITModule(Context *context, std::string pipName = "pip");
+  virtual ~JITModule() {}
+
+  virtual void compileAndLoad() = 0;
+
+  llvm::Module *getModule() const;
+
+  virtual void *getCompiledFunction(llvm::Function *f) const = 0;
+
+ protected:
+  static void init(llvm::LLVMContext &llvmContext);
+};
+
+#endif /* MODULE_HPP_ */

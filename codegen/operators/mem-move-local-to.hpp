@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,15 +25,15 @@
 
 #include <future>
 #include <thread>
+#include "codegen/util/parallel-context.hpp"
 #include "operators/operators.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/async_containers.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
 // void * make_mem_move_device(char * src, size_t bytes, int target_device,
 // cudaStream_t strm);
 
-class MemMoveLocalTo : public UnaryRawOperator {
+class MemMoveLocalTo : public UnaryOperator {
  public:
   struct workunit {
     void *data;
@@ -54,10 +54,10 @@ class MemMoveLocalTo : public UnaryRawOperator {
     size_t next_e;
   };
 
-  MemMoveLocalTo(RawOperator *const child, GpuRawContext *const context,
+  MemMoveLocalTo(Operator *const child, ParallelContext *const context,
                  const vector<RecordAttribute *> &wantedFields,
                  size_t slack = 8)
-      : UnaryRawOperator(child),
+      : UnaryOperator(child),
         context(context),
         wantedFields(wantedFields),
         slack(slack) {}
@@ -67,8 +67,7 @@ class MemMoveLocalTo : public UnaryRawOperator {
   }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
  private:
@@ -76,15 +75,15 @@ class MemMoveLocalTo : public UnaryRawOperator {
   size_t device_id_var;
   size_t memmvconf_var;
 
-  RawPipelineGen *catch_pip;
+  PipelineGen *catch_pip;
   llvm::Type *data_type;
 
   size_t slack;
 
-  GpuRawContext *const context;
+  ParallelContext *const context;
 
-  void open(RawPipeline *pip);
-  void close(RawPipeline *pip);
+  void open(Pipeline *pip);
+  void close(Pipeline *pip);
 
   void catcher(MemMoveConf *conf, int group_id,
                const exec_location &target_dev);

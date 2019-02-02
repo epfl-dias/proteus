@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,6 +23,8 @@
 
 #include "operators/join.hpp"
 
+using namespace llvm;
+
 void Join::produce() {
   getLeftChild()->produce();
   getRightChild()->produce();
@@ -31,10 +33,10 @@ void Join::produce() {
 // TODO For now, materializing in a struct
 // Note: Pointer manipulation for this struct is not the same as char*
 // manipulation
-void Join::consume(RawContext *const context, const OperatorState &childState) {
+void Join::consume(Context *const context, const OperatorState &childState) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Catalog &catalog = Catalog::getInstance();
   Function *TheFunction = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
 
@@ -48,12 +50,12 @@ void Join::consume(RawContext *const context, const OperatorState &childState) {
   Function *debugInt = context->getFunction("printi");
   Function *debugInt64 = context->getFunction("printi64");
 
-  const RawOperator &caller = childState.getProducer();
+  const Operator &caller = childState.getProducer();
   if (caller == *(getLeftChild())) {
 #ifdef DEBUG
     LOG(INFO) << "[JOIN: ] Building side";
 #endif
-    const map<RecordAttribute, RawValueMemory> &bindings =
+    const map<RecordAttribute, ProteusValueMemory> &bindings =
         childState.getBindings();
     OutputPlugin *pg = new OutputPlugin(context, mat, &bindings);
 
@@ -72,9 +74,9 @@ void Join::consume(RawContext *const context, const OperatorState &childState) {
     std::vector<Type *> *materializedTypes = pg->getMaterializedTypes();
 
     // Materializing all activeTuples met so far
-    RawValueMemory mem_activeTuple;
+    ProteusValueMemory mem_activeTuple;
     {
-      map<RecordAttribute, RawValueMemory>::const_iterator memSearch;
+      map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch;
       for (memSearch = bindings.begin(); memSearch != bindings.end();
            memSearch++) {
         RecordAttribute currAttr = memSearch->first;
@@ -97,9 +99,9 @@ void Join::consume(RawContext *const context, const OperatorState &childState) {
     const vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
     for (vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
          it != wantedFields.end(); ++it) {
-      map<RecordAttribute, RawValueMemory>::const_iterator memSearch =
+      map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch =
           bindings.find(*(*it));
-      RawValueMemory currValMem = memSearch->second;
+      ProteusValueMemory currValMem = memSearch->second;
       // FIXME FIX THE NECESSARY CONVERSIONS HERE
       Value *currVal = Builder->CreateLoad(currValMem.mem);
       Value *valToMaterialize = pg->convert(
@@ -118,7 +120,7 @@ void Join::consume(RawContext *const context, const OperatorState &childState) {
     const expressions::Expression *leftKeyExpr = this->pred->getLeftOperand();
     ExpressionGeneratorVisitor exprGenerator =
         ExpressionGeneratorVisitor(context, childState);
-    RawValue leftKey = leftKeyExpr->accept(exprGenerator);
+    ProteusValue leftKey = leftKeyExpr->accept(exprGenerator);
 
     // INSERT VALUES IN HT
     // Not sure whether I need to store these args in memory as well
@@ -162,8 +164,8 @@ void Join::consume(RawContext *const context, const OperatorState &childState) {
     const expressions::Expression *rightKeyExpr = this->pred->getRightOperand();
     ExpressionGeneratorVisitor exprGenerator =
         ExpressionGeneratorVisitor(context, childState);
-    RawValue rightKey = rightKeyExpr->accept(exprGenerator);
-    int typeIdx = RawCatalog::getInstance().getTypeIndex(string(this->htName));
+    ProteusValue rightKey = rightKeyExpr->accept(exprGenerator);
+    int typeIdx = Catalog::getInstance().getTypeIndex(string(this->htName));
     Value *idx = context->createInt32(typeIdx);
 
     // Prepare hash_probe_function arguments
@@ -248,7 +250,7 @@ void Join::consume(RawContext *const context, const OperatorState &childState) {
     arrayShiftedBody->setAlignment(8);
 
     // Result (payload) type and appropriate casts
-    Type *structType = RawCatalog::getInstance().getTypeInternal(typeIdx);
+    Type *structType = Catalog::getInstance().getTypeInternal(typeIdx);
     PointerType *structPtrType = context->getPointerType(structType);
 
     CastInst *result_cast =
@@ -265,8 +267,8 @@ void Join::consume(RawContext *const context, const OperatorState &childState) {
     // str->dump();
     unsigned elemNo = str->getNumElements();
     LOG(INFO) << "[JOIN: ] Elements in result struct: " << elemNo;
-    map<RecordAttribute, RawValueMemory> *allJoinBindings =
-        new map<RecordAttribute, RawValueMemory>();
+    map<RecordAttribute, ProteusValueMemory> *allJoinBindings =
+        new map<RecordAttribute, ProteusValueMemory>();
 
     int i = 0;
     // Retrieving activeTuple(s) from HT
@@ -288,10 +290,9 @@ void Join::consume(RawContext *const context, const OperatorState &childState) {
       ss << activeLoop;
       ss << i;
       LoadInst *field = new LoadInst(elem_ptr, ss.str(), false, loopBody);
-      StoreInst *store_field =
-          new StoreInst(field, mem_activeTuple, false, loopBody);
+      new StoreInst(field, mem_activeTuple, false, loopBody);
 
-      RawValueMemory mem_valWrapper;
+      ProteusValueMemory mem_valWrapper;
       mem_valWrapper.mem = mem_activeTuple;
       mem_valWrapper.isNull = context->createFalse();
       (*allJoinBindings)[*attr] = mem_valWrapper;
@@ -311,11 +312,10 @@ void Join::consume(RawContext *const context, const OperatorState &childState) {
           GetElementPtrInst::Create(str->getElementType(i), result_cast,
                                     idxList, currField + "ptr", loopBody);
       LoadInst *field = new LoadInst(elem_ptr, currField, false, loopBody);
-      StoreInst *store_field =
-          new StoreInst(field, memForField, false, loopBody);
+      new StoreInst(field, memForField, false, loopBody);
       i++;
 
-      RawValueMemory mem_valWrapper;
+      ProteusValueMemory mem_valWrapper;
       mem_valWrapper.mem = memForField;
       mem_valWrapper.isNull = context->createFalse();
       (*allJoinBindings)[*(*it)] = mem_valWrapper;
@@ -325,9 +325,9 @@ void Join::consume(RawContext *const context, const OperatorState &childState) {
 #endif
     }
     // Forwarding/pipelining bindings of rhs too
-    const map<RecordAttribute, RawValueMemory> &rhsBindings =
+    const map<RecordAttribute, ProteusValueMemory> &rhsBindings =
         childState.getBindings();
-    for (map<RecordAttribute, RawValueMemory>::const_iterator it =
+    for (map<RecordAttribute, ProteusValueMemory>::const_iterator it =
              rhsBindings.begin();
          it != rhsBindings.end(); ++it) {
 #ifdef DEBUG
@@ -351,7 +351,7 @@ void Join::consume(RawContext *const context, const OperatorState &childState) {
     // Block for.inc (label_for_inc)
     LoadInst *cnt_curr = new LoadInst(ptr_i, "", false, loopInc);
     cnt_curr->setAlignment(4);
-    BinaryOperator *cnt_inc1 = BinaryOperator::Create(
+    auto cnt_inc1 = llvm::BinaryOperator::Create(
         Instruction::Add, cnt_curr, context->createInt32(1), "i_inc", loopInc);
     StoreInst *store_cnt = new StoreInst(cnt_inc1, ptr_i, false, loopInc);
     store_cnt->setAlignment(4);

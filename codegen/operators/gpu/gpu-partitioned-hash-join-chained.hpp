@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -26,9 +26,9 @@
 
 #include <optional>
 #include <unordered_map>
+#include "codegen/util/parallel-context.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
 struct PartitionMetadata {
   int32_t *keys;
@@ -47,27 +47,26 @@ struct PartitionState {
   PartitionMetadata meta[128];
 };
 
-class HashPartitioner : public UnaryRawOperator {
+class HashPartitioner : public UnaryOperator {
  public:
   HashPartitioner(RecordAttribute *targetAttr,
                   const std::vector<GpuMatExpr> &parts_mat_exprs,
                   const std::vector<size_t> &parts_packet_widths,
-                  expression_t parts_keyexpr, RawOperator *const parts_child,
-                  GpuRawContext *context, size_t maxInputSize, int log_parts,
-                  string opLabel);
+                  expression_t parts_keyexpr, Operator *const parts_child,
+                  ParallelContext *context, size_t maxInputSize, int log_parts,
+                  std::string opLabel);
 
   virtual ~HashPartitioner() {}
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
 
   virtual bool isFiltering() const { return true; }
 
   PartitionState &getState() { return state; }
 
-  void open(RawPipeline *pip);
-  void close(RawPipeline *pip);
+  void open(Pipeline *pip);
+  void close(Pipeline *pip);
 
   llvm::StructType *getPayloadType() { return payloadType; }
 
@@ -96,14 +95,14 @@ class HashPartitioner : public UnaryRawOperator {
 
   int cnt_pipe;
 
-  GpuRawContext *context;
+  ParallelContext *context;
 
   RecordAttribute *targetAttr;
 
-  string opLabel;
+  std::string opLabel;
 };
 
-class GpuPartitionedHashJoinChained : public BinaryRawOperator {
+class GpuPartitionedHashJoinChained : public BinaryOperator {
  public:
   GpuPartitionedHashJoinChained(
       const std::vector<GpuMatExpr> &build_mat_exprs,
@@ -122,35 +121,35 @@ class GpuPartitionedHashJoinChained : public BinaryRawOperator {
 
       size_t maxBuildInputSize, size_t maxProbeInputSize,
 
-      int log_parts, GpuRawContext *context, string opLabel = "hj_chained",
-      RawPipelineGen **caller = NULL, RawOperator *const unionop = NULL);
+      int log_parts, ParallelContext *context,
+      std::string opLabel = "hj_chained", PipelineGen **caller = NULL,
+      Operator *const unionop = NULL);
   virtual ~GpuPartitionedHashJoinChained() {
     LOG(INFO) << "Collapsing GpuOptJoin operator";
   }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
 
-  void open(RawPipeline *pip);
-  void close(RawPipeline *pip);
-  void allocate(RawPipeline *pip);
+  void open(Pipeline *pip);
+  void close(Pipeline *pip);
+  void allocate(Pipeline *pip);
 
   virtual bool isFiltering() const { return true; }
 
  private:
-  void generate_materialize_left(RawContext *const context,
+  void generate_materialize_left(Context *const context,
                                  const OperatorState &childState);
-  void generate_materialize_right(RawContext *const context,
+  void generate_materialize_right(Context *const context,
                                   const OperatorState &childState);
 
-  void generate_mock1(RawContext *const context);
-  void generate_joinloop(RawContext *const context);
-  void generate_build(RawContext *const context,
-                      map<string, llvm::Value *> &kernelBindings);
-  void generate_probe(RawContext *const context,
-                      map<string, llvm::Value *> &kernelBindings);
-  void generate(RawContext *const context);
+  void generate_mock1(Context *const context);
+  void generate_joinloop(Context *const context);
+  void generate_build(Context *const context,
+                      std::map<std::string, llvm::Value *> &kernelBindings);
+  void generate_probe(Context *const context,
+                      std::map<std::string, llvm::Value *> &kernelBindings);
+  void generate(Context *const context);
   void buildHashTableFormat();
   void probeHashTableFormat();
   void matLeftFormat();
@@ -158,8 +157,8 @@ class GpuPartitionedHashJoinChained : public BinaryRawOperator {
 
   llvm::Value *hash(llvm::Value *key);
 
-  RawPipelineGen **caller;
-  string opLabel;
+  PipelineGen **caller;
+  std::string opLabel;
 
   llvm::StructType *payloadType_left;
   llvm::StructType *payloadType_right;
@@ -206,8 +205,8 @@ class GpuPartitionedHashJoinChained : public BinaryRawOperator {
   int32_t *buffer[128];
   int buffer_id;
 
-  BasicBlock *boot;
-  BasicBlock *start;
+  llvm::BasicBlock *boot;
+  llvm::BasicBlock *start;
 
   int log_parts;
   int log_parts1;
@@ -216,7 +215,7 @@ class GpuPartitionedHashJoinChained : public BinaryRawOperator {
   PartitionState &state_left;
   PartitionState &state_right;
 
-  RawOperator *unionop;
+  Operator *unionop;
 
   int hash_bits;
   size_t maxBuildInputSize;
@@ -233,7 +232,7 @@ class GpuPartitionedHashJoinChained : public BinaryRawOperator {
 
   // GpuExprMaterializer *   build_mat  ;
   // GpuExprMaterializer *   probe_mat  ;
-  GpuRawContext *context;
+  ParallelContext *context;
 };
 
 #endif /* GPU_HASH_JOIN_CHAINED_HPP_ */

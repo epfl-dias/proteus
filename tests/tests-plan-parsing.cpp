@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -31,8 +31,8 @@
 #include "common/common.hpp"
 #include "plan/plan-parser.hpp"
 
-#include "storage/raw-storage-manager.hpp"
-#include "util/raw-memory-manager.hpp"
+#include "memory/memory-manager.hpp"
+#include "storage/storage-manager.hpp"
 
 // Step 2. Use the TEST macro to define your tests.
 //
@@ -59,12 +59,12 @@
 // </TechnicalDetails>
 
 ::testing::Environment *const pools_env =
-    ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
 
 class PlanTest : public ::testing::Test {
  protected:
   virtual void SetUp() {
-    catalog = &RawCatalog::getInstance();
+    catalog = &Catalog::getInstance();
     caches = &CachingService::getInstance();
     catalog->clear();
     caches->clear();
@@ -74,11 +74,11 @@ class PlanTest : public ::testing::Test {
 
   bool executePlan(const char *planPath, const char *testLabel,
                    const char *catalogJSON) {
-    std::vector<RawPipeline *> pipelines;
+    std::vector<Pipeline *> pipelines;
     {
       time_block t("Tcodegen: ");
 
-      GpuRawContext *ctx = new GpuRawContext(testLabel, false);
+      ParallelContext *ctx = new ParallelContext(testLabel, false);
       CatalogParser catalog = CatalogParser(catalogJSON, ctx);
       PlanExecutor exec = PlanExecutor(planPath, catalog, testLabel, ctx);
 
@@ -90,7 +90,7 @@ class PlanTest : public ::testing::Test {
     {
       time_block t("Texecute       : ");
 
-      for (RawPipeline *p : pipelines) {
+      for (Pipeline *p : pipelines) {
         {
           time_block t("T: ");
 
@@ -115,7 +115,7 @@ class PlanTest : public ::testing::Test {
   const char *catalogJSON = "inputs";
 
  private:
-  RawCatalog *catalog;
+  Catalog *catalog;
   CachingService *caches;
 };
 

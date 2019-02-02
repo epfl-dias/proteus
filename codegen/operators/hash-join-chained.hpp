@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,44 +25,45 @@
 #define HASH_JOIN_CHAINED_HPP_
 
 #include <unordered_map>
+#include "codegen/util/parallel-context.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
-class HashJoinChained : public BinaryRawOperator {
+class HashJoinChained : public BinaryOperator {
  public:
   HashJoinChained(const std::vector<GpuMatExpr> &build_mat_exprs,
                   const std::vector<size_t> &build_packet_widths,
-                  expression_t build_keyexpr, RawOperator *const build_child,
+                  expression_t build_keyexpr, Operator *const build_child,
                   const std::vector<GpuMatExpr> &probe_mat_exprs,
                   const std::vector<size_t> &probe_packet_widths,
-                  expression_t probe_keyexpr, RawOperator *const probe_child,
-                  int hash_bits, GpuRawContext *context,
+                  expression_t probe_keyexpr, Operator *const probe_child,
+                  int hash_bits, ParallelContext *context,
                   size_t maxBuildInputSize, string opLabel = "hj_chained");
   virtual ~HashJoinChained() {
     LOG(INFO) << "Collapsing HashJoinChained operator";
   }
 
   virtual void produce();
-  virtual void consume(GpuRawContext *const context,
+  virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
+  virtual void consume(Context *const context, const OperatorState &childState);
 
-  virtual void open_probe(RawPipeline *pip);
-  virtual void open_build(RawPipeline *pip);
-  virtual void close_probe(RawPipeline *pip);
-  virtual void close_build(RawPipeline *pip);
+  virtual void open_probe(Pipeline *pip);
+  virtual void open_build(Pipeline *pip);
+  virtual void close_probe(Pipeline *pip);
+  virtual void close_build(Pipeline *pip);
 
   virtual bool isFiltering() const { return true; }
 
  protected:
-  void generate_build(GpuRawContext *context, const OperatorState &childState);
-  void generate_probe(GpuRawContext *context, const OperatorState &childState);
+  void generate_build(ParallelContext *context,
+                      const OperatorState &childState);
+  void generate_probe(ParallelContext *context,
+                      const OperatorState &childState);
   void buildHashTableFormat();
   void probeHashTableFormat();
 
-  llvm::Value *hash(expression_t exprs, RawContext *const context,
+  llvm::Value *hash(expression_t exprs, Context *const context,
                     const OperatorState &childState);
 
   std::vector<GpuMatExpr> build_mat_exprs;
@@ -86,7 +87,7 @@ class HashJoinChained : public BinaryRawOperator {
 
   // GpuExprMaterializer *   build_mat  ;
   // GpuExprMaterializer *   probe_mat  ;
-  GpuRawContext *context;
+  ParallelContext *context;
 
   string opLabel;
 

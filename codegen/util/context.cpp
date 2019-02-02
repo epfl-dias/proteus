@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "util/raw-context.hpp"
+#include "util/context.hpp"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/IR/Verifier.h"
@@ -30,14 +30,16 @@
 
 bool print_generated_code = true;
 
+using namespace llvm;
+
 if_branch::if_branch(const expression_t &expr, const OperatorState &state,
-                     RawContext *context)
+                     Context *context)
     : context(context) {
   ExpressionGeneratorVisitor egv{context, state};
   condition = expr.accept(egv);
 }
 
-void RawContext::createJITEngine() {
+void Context::createJITEngine() {
   LLVMLinkInMCJIT();
   LLVMInitializeNativeTarget();
   LLVMInitializeNativeAsmPrinter();
@@ -90,9 +92,9 @@ addOptimizerPipelineVectorization(legacy::FunctionPassManager *TheFPM) {
   TheFPM->add(createSLPVectorizerPass());
 }
 
-const char *RawContext::getName() { return TheModule->getName().str().c_str(); }
+const char *Context::getName() { return TheModule->getName().str().c_str(); }
 
-RawContext::RawContext(const string &moduleName, bool setGlobFunction) {
+Context::Context(const string &moduleName, bool setGlobFunction) {
   TheModule = new Module(moduleName, getLLVMContext());
   TheBuilder = new IRBuilder<>(getLLVMContext());
 
@@ -132,11 +134,9 @@ RawContext::RawContext(const string &moduleName, bool setGlobFunction) {
   }
 }
 
-void RawContext::setGlobalFunction(bool leaf) {
-  setGlobalFunction(nullptr, leaf);
-}
+void Context::setGlobalFunction(bool leaf) { setGlobalFunction(nullptr, leaf); }
 
-void RawContext::setGlobalFunction(Function *F, bool leaf) {
+void Context::setGlobalFunction(Function *F, bool leaf) {
   if (TheFunction) {
     assert(F == nullptr &&
            "Should only be called if global function has not be set.");
@@ -161,7 +161,7 @@ void RawContext::setGlobalFunction(Function *F, bool leaf) {
   createJITEngine();
 }
 
-void RawContext::prepareFunction(Function *F) {
+void Context::prepareFunction(Function *F) {
   endStateVars();
 
   // FIXME Have a (tmp) return value for now at this point
@@ -204,7 +204,7 @@ void RawContext::prepareFunction(Function *F) {
 #endif
 }
 
-Function *const RawContext::getFunction(string funcName) const {
+Function *const Context::getFunction(string funcName) const {
   map<string, Function *>::const_iterator it;
   it = availableFunctions.find(funcName);
   if (it == availableFunctions.end()) {
@@ -214,21 +214,21 @@ Function *const RawContext::getFunction(string funcName) const {
 }
 
 // bytes
-size_t RawContext::getSizeOf(llvm::Type *type) const {
+size_t Context::getSizeOf(llvm::Type *type) const {
   return getModule()->getDataLayout().getTypeAllocSize(type);
 }
 
-size_t RawContext::getSizeOf(llvm::Value *val) const {
+size_t Context::getSizeOf(llvm::Value *val) const {
   return getSizeOf(val->getType());
 }
 
-void RawContext::CodegenMemcpy(Value *dst, Value *src, int size) {
+void Context::CodegenMemcpy(Value *dst, Value *src, int size) {
   LLVMContext &ctx = getLLVMContext();
 
   CodegenMemcpy(dst, src, createSizeT(size));
 }
 
-void RawContext::CodegenMemcpy(Value *dst, Value *src, Value *size) {
+void Context::CodegenMemcpy(Value *dst, Value *src, Value *size) {
   LLVMContext &ctx = getLLVMContext();
   // Cast src/dst to int8_t*.  If they already are, this will get optimized away
   //  DCHECK(PointerType::classof(dst->getType()));
@@ -257,13 +257,13 @@ void RawContext::CodegenMemcpy(Value *dst, Value *src, Value *size) {
   getBuilder()->CreateCall(memcpy_fn, args);
 }
 
-void RawContext::CodegenMemset(Value *dst, Value *byte, int size) {
+void Context::CodegenMemset(Value *dst, Value *byte, int size) {
   LLVMContext &ctx = getLLVMContext();
 
   CodegenMemset(dst, byte, createSizeT(size));
 }
 
-void RawContext::CodegenMemset(Value *dst, Value *bytes, Value *size) {
+void Context::CodegenMemset(Value *dst, Value *bytes, Value *size) {
   LLVMContext &ctx = getLLVMContext();
   // Cast src/dst to int8_t*.  If they already are, this will get optimized away
   //  DCHECK(PointerType::classof(dst->getType()));
@@ -301,71 +301,71 @@ void RawContext::CodegenMemset(Value *dst, Value *bytes, Value *size) {
   getBuilder()->CreateCall(memset_fn, args);
 }
 
-ConstantInt *RawContext::createInt8(char val) {
+ConstantInt *Context::createInt8(char val) {
   return ConstantInt::get(getLLVMContext(), APInt(8, val));
 }
 
-ConstantInt *RawContext::createInt32(int val) {
+ConstantInt *Context::createInt32(int val) {
   return ConstantInt::get(getLLVMContext(), APInt(32, val));
 }
 
-ConstantInt *RawContext::createInt64(int val) {
+ConstantInt *Context::createInt64(int val) {
   return ConstantInt::get(getLLVMContext(), APInt(64, val));
 }
 
-ConstantInt *RawContext::createInt64(unsigned int val) {
+ConstantInt *Context::createInt64(unsigned int val) {
   return ConstantInt::get(getLLVMContext(), APInt(64, val));
 }
 
-ConstantInt *RawContext::createInt64(size_t val) {
+ConstantInt *Context::createInt64(size_t val) {
   return ConstantInt::get(getLLVMContext(), APInt(64, val));
 }
 
-ConstantInt *RawContext::createInt64(int64_t val) {
+ConstantInt *Context::createInt64(int64_t val) {
   return ConstantInt::get(getLLVMContext(), APInt(64, val));
 }
 
-ConstantInt *RawContext::createSizeT(size_t val) {
+ConstantInt *Context::createSizeT(size_t val) {
   return ConstantInt::get(createSizeType(), val);
 }
 
-IntegerType *RawContext::createSizeType() {
+IntegerType *Context::createSizeType() {
   return Type::getIntNTy(getLLVMContext(), sizeof(size_t) * 8);
 }
 
-ConstantInt *RawContext::createTrue() {
+ConstantInt *Context::createTrue() {
   return ConstantInt::get(getLLVMContext(), APInt(1, 1));
 }
 
-ConstantInt *RawContext::createFalse() {
+ConstantInt *Context::createFalse() {
   return ConstantInt::get(getLLVMContext(), APInt(1, 0));
 }
 
-Value *RawContext::CastPtrToLlvmPtr(PointerType *type, const void *ptr) {
+Value *Context::CastPtrToLlvmPtr(PointerType *type, const void *ptr) {
   Constant *const_int = createInt64((uint64_t)ptr);
   Value *llvmPtr = ConstantExpr::getIntToPtr(const_int, type);
   return llvmPtr;
 }
 
-Value *RawContext::getArrayElem(AllocaInst *mem_ptr, Value *offset) {
+Value *Context::getArrayElem(AllocaInst *mem_ptr, Value *offset) {
   Value *val_ptr = getBuilder()->CreateLoad(mem_ptr, "mem_ptr");
   Value *shiftedPtr = getBuilder()->CreateInBoundsGEP(val_ptr, offset);
   Value *val_shifted = getBuilder()->CreateLoad(shiftedPtr, "val_shifted");
   return val_shifted;
 }
 
-Value *RawContext::getArrayElem(Value *val_ptr, Value *offset) {
+Value *Context::getArrayElem(Value *val_ptr, Value *offset) {
   Value *shiftedPtr = getBuilder()->CreateInBoundsGEP(val_ptr, offset);
   Value *val_shifted = getBuilder()->CreateLoad(shiftedPtr, "val_shifted");
   return val_shifted;
 }
 
-Value *RawContext::getArrayElemMem(Value *val_ptr, Value *offset) {
+Value *Context::getArrayElemMem(Value *val_ptr, Value *offset) {
   Value *shiftedPtr = getBuilder()->CreateInBoundsGEP(val_ptr, offset);
   return shiftedPtr;
 }
 
-Value *RawContext::getStructElem(Value *mem_struct, int elemNo) {
+Value *Context::getStructElem(Value *mem_struct, int elemNo) {
   vector<Value *> idxList = vector<Value *>();
   idxList.push_back(createInt32(0));
   idxList.push_back(createInt32(elemNo));
@@ -375,7 +375,7 @@ Value *RawContext::getStructElem(Value *mem_struct, int elemNo) {
   return val_struct_shifted;
 }
 
-Value *RawContext::getStructElemMem(Value *mem_struct, int elemNo) {
+Value *Context::getStructElemMem(Value *mem_struct, int elemNo) {
   vector<Value *> idxList = vector<Value *>();
   idxList.push_back(createInt32(0));
   idxList.push_back(createInt32(elemNo));
@@ -384,7 +384,7 @@ Value *RawContext::getStructElemMem(Value *mem_struct, int elemNo) {
   return mem_struct_shifted;
 }
 
-Value *RawContext::getStructElem(AllocaInst *mem_struct, int elemNo) {
+Value *Context::getStructElem(AllocaInst *mem_struct, int elemNo) {
   vector<Value *> idxList = vector<Value *>();
   idxList.push_back(createInt32(0));
   idxList.push_back(createInt32(elemNo));
@@ -394,8 +394,7 @@ Value *RawContext::getStructElem(AllocaInst *mem_struct, int elemNo) {
   return val_struct_shifted;
 }
 
-void RawContext::updateStructElem(Value *toStore, Value *mem_struct,
-                                  int elemNo) {
+void Context::updateStructElem(Value *toStore, Value *mem_struct, int elemNo) {
   vector<Value *> idxList = vector<Value *>();
   idxList.push_back(createInt32(0));
   idxList.push_back(createInt32(elemNo));
@@ -404,11 +403,11 @@ void RawContext::updateStructElem(Value *toStore, Value *mem_struct,
   getBuilder()->CreateStore(toStore, structPtr);
 }
 
-void RawContext::CreateForLoop(const string &cond, const string &body,
-                               const string &inc, const string &end,
-                               BasicBlock **cond_block, BasicBlock **body_block,
-                               BasicBlock **inc_block, BasicBlock **end_block,
-                               BasicBlock *insert_before) {
+void Context::CreateForLoop(const string &cond, const string &body,
+                            const string &inc, const string &end,
+                            BasicBlock **cond_block, BasicBlock **body_block,
+                            BasicBlock **inc_block, BasicBlock **end_block,
+                            BasicBlock *insert_before) {
   Function *fn = TheFunction;
   LLVMContext &ctx = getLLVMContext();
   *cond_block = BasicBlock::Create(ctx, string(cond), fn, insert_before);
@@ -417,50 +416,46 @@ void RawContext::CreateForLoop(const string &cond, const string &body,
   *end_block = BasicBlock::Create(ctx, string(end), fn, insert_before);
 }
 
-void RawContext::CreateIfElseBlocks(Function *fn, const string &if_label,
-                                    const string &else_label,
-                                    BasicBlock **if_block,
-                                    BasicBlock **else_block,
-                                    BasicBlock *insert_before) {
+void Context::CreateIfElseBlocks(Function *fn, const string &if_label,
+                                 const string &else_label,
+                                 BasicBlock **if_block, BasicBlock **else_block,
+                                 BasicBlock *insert_before) {
   LLVMContext &ctx = getLLVMContext();
   *if_block = BasicBlock::Create(ctx, if_label, fn, insert_before);
   *else_block = BasicBlock::Create(ctx, else_label, fn, insert_before);
 }
 
-BasicBlock *RawContext::CreateIfBlock(Function *fn, const string &if_label,
-                                      BasicBlock *insert_before) {
+BasicBlock *Context::CreateIfBlock(Function *fn, const string &if_label,
+                                   BasicBlock *insert_before) {
   return BasicBlock::Create(getLLVMContext(), if_label, fn, insert_before);
 }
 
-void RawContext::CreateIfBlock(Function *fn, const string &if_label,
-                               BasicBlock **if_block,
-                               BasicBlock *insert_before) {
+void Context::CreateIfBlock(Function *fn, const string &if_label,
+                            BasicBlock **if_block, BasicBlock *insert_before) {
   *if_block = CreateIfBlock(fn, if_label, insert_before);
 }
 
-AllocaInst *RawContext::CreateEntryBlockAlloca(Function *TheFunction,
-                                               const string &VarName,
-                                               Type *varType,
-                                               Value *arraySize) {
+AllocaInst *Context::CreateEntryBlockAlloca(Function *TheFunction,
+                                            const string &VarName,
+                                            Type *varType, Value *arraySize) {
   IRBuilder<> TmpBuilder(&TheFunction->getEntryBlock(),
                          TheFunction->getEntryBlock().begin());
   return TmpBuilder.CreateAlloca(varType, arraySize, VarName.c_str());
 }
 
-AllocaInst *RawContext::CreateEntryBlockAlloca(const string &VarName,
-                                               Type *varType,
-                                               Value *arraySize) {
+AllocaInst *Context::CreateEntryBlockAlloca(const string &VarName,
+                                            Type *varType, Value *arraySize) {
   Function *F = getBuilder()->GetInsertBlock()->getParent();
   return CreateEntryBlockAlloca(F, VarName, varType, arraySize);
 }
 
-AllocaInst *RawContext::createAlloca(BasicBlock *InsertAtBB,
-                                     const string &VarName, Type *varType) {
+AllocaInst *Context::createAlloca(BasicBlock *InsertAtBB, const string &VarName,
+                                  Type *varType) {
   IRBuilder<> TmpBuilder(InsertAtBB, InsertAtBB->begin());
   return TmpBuilder.CreateAlloca(varType, 0, VarName.c_str());
 }
 
-Value *RawContext::CreateGlobalString(char *str) {
+Value *Context::CreateGlobalString(char *str) {
   LLVMContext &ctx = getLLVMContext();
   ArrayType *ArrayTy_0 =
       ArrayType::get(IntegerType::get(ctx, 8), strlen(str) + 1);
@@ -491,7 +486,7 @@ Value *RawContext::CreateGlobalString(char *str) {
   return globalStr;
 }
 
-Value *RawContext::CreateGlobalString(const char *str) {
+Value *Context::CreateGlobalString(const char *str) {
   LLVMContext &ctx = getLLVMContext();
   ArrayType *ArrayTy_0 =
       ArrayType::get(IntegerType::get(ctx, 8), strlen(str) + 1);
@@ -522,17 +517,17 @@ Value *RawContext::CreateGlobalString(const char *str) {
   return globalStr;
 }
 
-PointerType *RawContext::getPointerType(Type *type) {
+PointerType *Context::getPointerType(Type *type) {
   return PointerType::get(type, 0);
 }
 
-StructType *RawContext::CreateCustomStruct(vector<Type *> innerTypes) {
+StructType *Context::CreateCustomStruct(vector<Type *> innerTypes) {
   llvm::StructType *valueType =
       llvm::StructType::get(getLLVMContext(), innerTypes);
   return valueType;
 }
 
-StructType *RawContext::ReproduceCustomStruct(list<typeID> innerTypes) {
+StructType *Context::ReproduceCustomStruct(list<typeID> innerTypes) {
   LLVMContext &ctx = getLLVMContext();
   vector<Type *> llvmTypes;
   list<typeID>::iterator it;
@@ -575,7 +570,7 @@ StructType *RawContext::ReproduceCustomStruct(list<typeID> innerTypes) {
   return valueType;
 }
 
-StructType *RawContext::CreateJSONPosStruct() {
+StructType *Context::CreateJSONPosStruct() {
   llvm::Type *int64_type = Type::getInt64Ty(getLLVMContext());
   vector<Type *> json_pos_types;
   json_pos_types.push_back(int64_type);
@@ -583,13 +578,13 @@ StructType *RawContext::CreateJSONPosStruct() {
   return CreateCustomStruct(json_pos_types);
 }
 
-PointerType *RawContext::CreateJSMNStructPtr() {
+PointerType *Context::CreateJSMNStructPtr() {
   Type *jsmnStructType = CreateJSMNStruct();
   PointerType *ptr_jsmnStructType = PointerType::get(jsmnStructType, 0);
   return ptr_jsmnStructType;
 }
 
-StructType *RawContext::CreateJSMNStruct() {
+StructType *Context::CreateJSMNStruct() {
   LLVMContext &ctx = getLLVMContext();
   vector<Type *> jsmn_pos_types;
 #ifndef JSON_TIGHT
@@ -610,7 +605,7 @@ StructType *RawContext::CreateJSMNStruct() {
   return CreateCustomStruct(jsmn_pos_types);
 }
 
-StructType *RawContext::CreateStringStruct() {
+StructType *Context::CreateStringStruct() {
   LLVMContext &ctx = getLLVMContext();
   llvm::Type *int32_type = Type::getInt32Ty(ctx);
   llvm::Type *char_type = Type::getInt8Ty(ctx);
@@ -623,26 +618,26 @@ StructType *RawContext::CreateStringStruct() {
 }
 
 // Provide support for some extern functions
-void RawContext::registerFunction(const char *funcName, Function *func) {
+void Context::registerFunction(const char *funcName, Function *func) {
   availableFunctions[funcName] = func;
 }
 
-size_t RawContext::appendStateVar(llvm::Type *ptype, std::string name) {
+size_t Context::appendStateVar(llvm::Type *ptype, std::string name) {
   return appendStateVar(
       ptype, [ptype](llvm::Value *) { return UndefValue::get(ptype); },
       [](llvm::Value *, llvm::Value *) {}, name);
 }
 
-llvm::Value *RawContext::getStateVar(size_t id) const {
+llvm::Value *Context::getStateVar(size_t id) const {
   assert(state_vars.size() > id &&
          "Has the function been created? Is it a valid ID?");
   return state_vars[id];
 }
 
-size_t RawContext::appendStateVar(llvm::Type *ptype,
-                                  std::function<init_func_t> init,
-                                  std::function<deinit_func_t> deinit,
-                                  std::string name) {
+size_t Context::appendStateVar(llvm::Type *ptype,
+                               std::function<init_func_t> init,
+                               std::function<deinit_func_t> deinit,
+                               std::string name) {
   size_t id = to_prepare_state_vars.size();
 
   if (getGlobalFunction()) {
@@ -672,13 +667,13 @@ size_t RawContext::appendStateVar(llvm::Type *ptype,
   return id;
 }
 
-llvm::Value *RawContext::allocateStateVar(llvm::Type *t) {
+llvm::Value *Context::allocateStateVar(llvm::Type *t) {
   return CreateEntryBlockAlloca("", t);
 }
 
-void RawContext::deallocateStateVar(llvm::Value *t) {}
+void Context::deallocateStateVar(llvm::Value *t) {}
 
-void RawContext::prepareStateVars() {
+void Context::prepareStateVars() {
   assert(state_vars.size() == 0);
   // //save current block
   // BasicBlock *currBlock = getBuilder()->GetInsertBlock();
@@ -721,7 +716,7 @@ void RawContext::prepareStateVars() {
   // return id;
 }
 
-void RawContext::endStateVars() {
+void Context::endStateVars() {
   // //save current block
   // BasicBlock *currBlock = getBuilder()->GetInsertBlock();
   // //go to entry block

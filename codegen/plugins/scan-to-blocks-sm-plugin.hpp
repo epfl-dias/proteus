@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,9 +25,9 @@
 #define SCAN_TO_BLOCKS_SM_PLUGIN_HPP_
 
 #include <memory>
+#include "codegen/util/parallel-context.hpp"
 #include "plugins/plugins.hpp"
-#include "storage/raw-storage-manager.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
+#include "storage/storage-manager.hpp"
 
 class ScanToBlockSMPlugin : public Plugin {
  public:
@@ -46,82 +46,87 @@ class ScanToBlockSMPlugin : public Plugin {
    * -> dates require more sophisticated serialization (boost?)
    */
 
-  ScanToBlockSMPlugin(GpuRawContext *const context, string fnamePrefix,
-                      RecordType rec, vector<RecordAttribute *> &whichFields);
-  ScanToBlockSMPlugin(GpuRawContext *const context, string fnamePrefix,
+  ScanToBlockSMPlugin(ParallelContext *const context, string fnamePrefix,
+                      RecordType rec,
+                      std::vector<RecordAttribute *> &whichFields);
+  ScanToBlockSMPlugin(ParallelContext *const context, string fnamePrefix,
                       RecordType rec);
-  //  ScanToBlockSMPlugin(GpuRawContext* const context,
+  //  ScanToBlockSMPlugin(ParallelContext* const context,
   //  vector<RecordAttribute*>& whichFields, vector<CacheInfo> whichCaches);
   ~ScanToBlockSMPlugin();
   virtual string &getName() { return fnamePrefix; }
   void init();
   //  void initCached();
-  void generate(const RawOperator &producer);
+  void generate(const Operator &producer);
   void finish();
-  virtual RawValueMemory readPath(string activeRelation, Bindings bindings,
-                                  const char *pathVar, RecordAttribute attr);
-  virtual RawValueMemory readValue(RawValueMemory mem_value,
-                                   const ExpressionType *type);
-  virtual RawValue readCachedValue(CacheInfo info,
-                                   const OperatorState &currState);
+  virtual ProteusValueMemory readPath(string activeRelation, Bindings bindings,
+                                      const char *pathVar,
+                                      RecordAttribute attr);
+  virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
+                                       const ExpressionType *type);
+  virtual ProteusValue readCachedValue(CacheInfo info,
+                                       const OperatorState &currState);
   //  {
   //      string error_msg = "[ScanToBlockSMPlugin: ] No caching support should
   //      be needed"; LOG(ERROR) << error_msg; throw runtime_error(error_msg);
   //  }
-  virtual RawValue readCachedValue(
-      CacheInfo info, const map<RecordAttribute, RawValueMemory> &bindings);
+  virtual ProteusValue readCachedValue(
+      CacheInfo info, const map<RecordAttribute, ProteusValueMemory> &bindings);
 
-  virtual RawValue hashValue(RawValueMemory mem_value,
-                             const ExpressionType *type);
-  virtual RawValue hashValueEager(RawValue value, const ExpressionType *type);
+  virtual ProteusValue hashValue(ProteusValueMemory mem_value,
+                                 const ExpressionType *type);
+  virtual ProteusValue hashValueEager(ProteusValue value,
+                                      const ExpressionType *type);
 
-  virtual RawValueMemory initCollectionUnnest(RawValue val_parentObject) {
+  virtual ProteusValueMemory initCollectionUnnest(
+      ProteusValue val_parentObject) {
     string error_msg =
         "[ScanToBlockSMPlugin: ] Binary col. files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual RawValue collectionHasNext(RawValue val_parentObject,
-                                     RawValueMemory mem_currentChild) {
+  virtual ProteusValue collectionHasNext(ProteusValue val_parentObject,
+                                         ProteusValueMemory mem_currentChild) {
     string error_msg =
         "[ScanToBlockSMPlugin: ] Binary col. files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual RawValueMemory collectionGetNext(RawValueMemory mem_currentChild) {
+  virtual ProteusValueMemory collectionGetNext(
+      ProteusValueMemory mem_currentChild) {
     string error_msg =
         "[ScanToBlockSMPlugin: ] Binary col. files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushTuple(RawValueMemory mem_value, llvm::Value *fileName) {
+  virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
     string error_msg = "[ScanToBlockSMPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushValue(RawValueMemory mem_value, const ExpressionType *type,
-                          llvm::Value *fileName) {
+  virtual void flushValue(ProteusValueMemory mem_value,
+                          const ExpressionType *type, llvm::Value *fileName) {
     string error_msg = "[ScanToBlockSMPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushValueEager(RawValue value, const ExpressionType *type,
+  virtual void flushValueEager(ProteusValue value, const ExpressionType *type,
                                llvm::Value *fileName) {
     string error_msg = "[ScanToBlockSMPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushChunk(RawValueMemory mem_value, llvm::Value *fileName) {
+  virtual void flushChunk(ProteusValueMemory mem_value, llvm::Value *fileName) {
     string error_msg = "[ScanToBlockSMPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual llvm::Value *getValueSize(RawValueMemory mem_value,
+  virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
                                     const ExpressionType *type);
 
   virtual ExpressionType *getOIDType() { return new Int64Type(); }
@@ -180,13 +185,13 @@ class ScanToBlockSMPlugin : public Plugin {
  private:
   // Schema info provided
   RecordType rec;
-  vector<RecordAttribute *> wantedFields;
-  vector<int> wantedFieldsArg_id;
+  std::vector<RecordAttribute *> wantedFields;
+  std::vector<int> wantedFieldsArg_id;
   // llvm::Value *               tupleCnt;
   llvm::Value *blockSize;
 
-  vector<std::vector<mem_file>> wantedFieldsFiles;
-  vector<size_t> wantedFieldsWidth;
+  std::vector<std::vector<mem_file>> wantedFieldsFiles;
+  std::vector<size_t> wantedFieldsWidth;
 
   std::vector<llvm::Type *> parts_array;
   llvm::StructType *parts_arrays_type;
@@ -194,7 +199,7 @@ class ScanToBlockSMPlugin : public Plugin {
   size_t Nparts;
 
   /* Used when we treat the col. files as internal caches! */
-  vector<CacheInfo> whichCaches;
+  std::vector<CacheInfo> whichCaches;
 
   string fnamePrefix;
   off_t *colFilesize;  // Size of each column
@@ -205,19 +210,19 @@ class ScanToBlockSMPlugin : public Plugin {
   //  -> file descriptor of its dictionary
   //  -> file size of its dictionary
   //  -> mapped input of its dictionary
-  map<int, int> dictionaries;
-  map<int, off_t> dictionaryFilesizes;
+  std::map<int, int> dictionaries;
+  std::map<int, off_t> dictionaryFilesizes;
   // Note: char* buf can be cast to appropriate struct
   // Struct will probably look like { implicit_oid, len, char* }
-  map<int, char *> dictionariesBuf;
+  std::map<int, char *> dictionariesBuf;
 
   /**
    * Code-generation-related
    */
   // Used to store memory positions of offset, buf and filesize in the generated
   // code
-  map<string, AllocaInst *> NamedValuesBinaryCol;
-  GpuRawContext *const context;
+  std::map<string, llvm::AllocaInst *> NamedValuesBinaryCol;
+  ParallelContext *const context;
 
   const char *posVar;      // = "offset";
   const char *bufVar;      // = "fileBuffer";
@@ -229,24 +234,28 @@ class ScanToBlockSMPlugin : public Plugin {
 
   void nextEntry();
   /* Operate over char* */
-  void readAsInt64LLVM(RecordAttribute attName,
-                       map<RecordAttribute, RawValueMemory> &variables);
+  void readAsInt64LLVM(
+      RecordAttribute attName,
+      std::map<RecordAttribute, ProteusValueMemory> &variables);
   llvm::Value *readAsInt64LLVM(RecordAttribute attName);
   /* Operates over int* */
   void readAsIntLLVM(RecordAttribute attName,
-                     map<RecordAttribute, RawValueMemory> &variables);
+                     std::map<RecordAttribute, ProteusValueMemory> &variables);
   /* Operates over float* */
-  void readAsFloatLLVM(RecordAttribute attName,
-                       map<RecordAttribute, RawValueMemory> &variables);
+  void readAsFloatLLVM(
+      RecordAttribute attName,
+      std::map<RecordAttribute, ProteusValueMemory> &variables);
   /* Operates over bool* */
-  void readAsBooleanLLVM(RecordAttribute attName,
-                         map<RecordAttribute, RawValueMemory> &variables);
+  void readAsBooleanLLVM(
+      RecordAttribute attName,
+      std::map<RecordAttribute, ProteusValueMemory> &variables);
   /* Not (fully) supported yet. Dictionary-based */
-  void readAsStringLLVM(RecordAttribute attName,
-                        map<RecordAttribute, RawValueMemory> &variables);
+  void readAsStringLLVM(
+      RecordAttribute attName,
+      std::map<RecordAttribute, ProteusValueMemory> &variables);
 
   // Generates a for loop that performs the file scan
-  void scan(const RawOperator &producer);
+  void scan(const Operator &producer);
 };
 
 #endif /* SCAN_TO_BLOCKS_SM_PLUGIN_HPP_ */

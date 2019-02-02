@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -32,8 +32,8 @@ void symantecCSVJSON1(map<string, dataset> datasetCatalog) {
   // JSON
   // id, again
 
-  RawContext &ctx = *prepareContext("symantec-CSV-JSON-1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-CSV-JSON-1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecCSV = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantecCSV];
@@ -291,8 +291,8 @@ void symantecCSVJSON2(map<string, dataset> datasetCatalog) {
   // id, again
   int sizeLow = 1000;
 
-  RawContext &ctx = *prepareContext("symantec-CSV-JSON-2");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-CSV-JSON-2");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecCSV = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantecCSV];
@@ -560,8 +560,8 @@ void symantecCSVJSON3(map<string, dataset> datasetCatalog) {
   // id, again
   int yearNo = 2012;
 
-  RawContext &ctx = *prepareContext("symantec-CSV-JSON-3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-CSV-JSON-3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecCSV = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantecCSV];
@@ -835,8 +835,8 @@ void symantecCSVJSON4(map<string, dataset> datasetCatalog) {
   // id, again
   int yearNo = 2012;
 
-  RawContext &ctx = *prepareContext("symantec-CSV-JSON-3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-CSV-JSON-3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecCSV = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantecCSV];
@@ -1124,13 +1124,13 @@ void symantecCSVJSON4(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, join, nestLabel, *mat);
   join->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
-  Function *debugFloat = ctx.getFunction("printFloat");
+  llvm::Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   FloatType floatType = FloatType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &floatType);
   expressions::RecordProjection *nestOutput1 =
@@ -1169,8 +1169,8 @@ void symantecCSVJSON5(map<string, dataset> datasetCatalog) {
   // JSON
   // id, again
 
-  RawContext &ctx = *prepareContext("symantec-CSV-JSON-5");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-CSV-JSON-5");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecCSV = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantecCSV];
@@ -1436,8 +1436,8 @@ void symantecCSVJSON5v1(map<string, dataset> datasetCatalog) {
   // id, again
   int sizeLow = 5000;
 
-  RawContext &ctx = *prepareContext("symantec-CSV-JSON-5");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-CSV-JSON-5");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantecCSV = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantecCSV];

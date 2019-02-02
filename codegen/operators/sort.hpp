@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -24,29 +24,28 @@
 #ifndef SORT_HPP_
 #define SORT_HPP_
 
+#include "codegen/util/parallel-context.hpp"
 #include "operators/operators.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
 
 enum direction { ASC, NONE, DESC };
 
-class Sort : public UnaryRawOperator {
+class Sort : public UnaryOperator {
  public:
-  Sort(RawOperator *const child, GpuRawContext *const context,
+  Sort(Operator *const child, ParallelContext *const context,
        const vector<expression_t> &orderByFields,
        const vector<direction> &dirs);
 
   virtual ~Sort() { LOG(INFO) << "Collapsing Sort operator"; }
 
   virtual void produce();
-  virtual void consume(RawContext *const context,
-                       const OperatorState &childState);
-  virtual void consume(GpuRawContext *const context,
+  virtual void consume(Context *const context, const OperatorState &childState);
+  virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
  protected:
-  // virtual void open (RawPipeline * pip);
-  // virtual void close(RawPipeline * pip);
+  // virtual void open (Pipeline * pip);
+  // virtual void close(Pipeline * pip);
 
   virtual void flush_sorted();
 
@@ -65,7 +64,7 @@ class Sort : public UnaryRawOperator {
 
   llvm::Type *mem_type;
 
-  GpuRawContext *const context;
+  ParallelContext *const context;
 };
 
 #endif /* SORT_HPP_ */

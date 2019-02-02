@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,16 +21,16 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef RAW_CPU_MODULE_HPP_
-#define RAW_CPU_MODULE_HPP_
+#ifndef CPU_MODULE_HPP_
+#define CPU_MODULE_HPP_
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Target/TargetMachine.h"
 
-#include "util/jit/raw-module.hpp"
+#include "util/jit/jit-module.hpp"
 
-class RawCpuModule : public RawModule {
+class CpuModule : public JITModule {
  protected:
   static llvm::LLVMTargetMachine *TheTargetMachine;
   static llvm::legacy::PassManager Passes;
@@ -41,16 +41,16 @@ class RawCpuModule : public RawModule {
   llvm::ExecutionEngine *TheExecutionEngine;
 
  public:
-  RawCpuModule(RawContext *context, std::string pipName = "pip");
+  CpuModule(Context *context, std::string pipName = "pip");
 
   static void init();
 
   virtual void compileAndLoad();
 
-  virtual void *getCompiledFunction(Function *f) const;
+  virtual void *getCompiledFunction(llvm::Function *f) const;
 
  protected:
-  virtual void optimizeModule(Module *M);
+  virtual void optimizeModule(llvm::Module *M);
 };
 
-#endif /* RAW_CPU_MODULE_HPP_ */
+#endif /* CPU_MODULE_HPP_ */

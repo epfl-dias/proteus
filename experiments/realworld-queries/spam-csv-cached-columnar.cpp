@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -28,8 +28,8 @@ void symantecCSV3v1(map<string, dataset> datasetCatalog) {
   int idLow = 100000000;
   int idHigh = 200000000;
 
-  RawContext &ctx = *prepareContext("symantec-csv-3v1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-3v1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -128,8 +128,8 @@ void symantecCSV4v1(map<string, dataset> datasetCatalog) {
   int idLow = 40000000;
   int idHigh = 50000000;
   //    string botName = "Bobax";
-  RawContext &ctx = *prepareContext("symantec-csv-4(agg)");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-4(agg)");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -273,13 +273,13 @@ void symantecCSV4v1(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
-  Function *debugFloat = ctx.getFunction("printFloat");
+  llvm::Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   FloatType floatType = FloatType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =
@@ -328,8 +328,8 @@ void symantecCSV4v2(map<string, dataset> datasetCatalog) {
   int classaLow = 105;
   int classaHigh = 125;
   string botName = "Lethic";
-  RawContext &ctx = *prepareContext("symantec-csv-4(agg)");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-4(agg)");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -489,13 +489,13 @@ void symantecCSV4v2(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
-  Function *debugFloat = ctx.getFunction("printFloat");
+  llvm::Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   FloatType floatType = FloatType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   //    RecordAttribute *toOutput1 = new RecordAttribute(1, aggrLabel,
   //    aggrField1,
   //            &intType);
@@ -538,8 +538,8 @@ void symantecCSV4v2(map<string, dataset> datasetCatalog) {
 }
 
 void symantecCSVWarmup(map<string, dataset> datasetCatalog) {
-  RawContext &ctx = *prepareContext("symantec-csv-warmup");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-warmup");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantec = datasetCatalog[nameSymantec];

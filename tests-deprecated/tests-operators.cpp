@@ -40,8 +40,8 @@
 #include "operators/unnest.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 // Step 2. Use the TEST macro to define your tests.
@@ -69,8 +69,8 @@
 // </TechnicalDetails>
 
 TEST(Relational, Scan) {
-  RawContext &ctx = *prepareContext("RelationalScan");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("RelationalScan");
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filename = string("inputs/input.csv");
@@ -109,8 +109,8 @@ TEST(Relational, Scan) {
 }
 
 TEST(Relational, SPJ) {
-  RawContext &ctx = *prepareContext("RelationalSPJ");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("RelationalSPJ");
+  Catalog &catalog = Catalog::getInstance();
 
   /**
    * SCAN1
@@ -216,7 +216,7 @@ TEST(Relational, SPJ) {
   scan2.setParent(&join);
 
   // PRINT
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   // To be 100% correct, this proj should be over a new InputArg that only
   // exposes the new bindings
   expressions::RecordProjection *proj =
@@ -240,8 +240,8 @@ TEST(Relational, SPJ) {
 }
 
 TEST(Hierarchical, TwoProjections) {
-  RawContext &ctx = *prepareContext("testFunction-ScanJSON-TwoProjections");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-ScanJSON-TwoProjections");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/jsmnDeeper.json");
 
@@ -300,7 +300,7 @@ TEST(Hierarchical, TwoProjections) {
   scan.setParent(&sel);
 
   // PRINT
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::RecordProjection *proj =
       new expressions::RecordProjection(&intType, lhsArg, attr);
   Print printOp = Print(debugInt, proj, &sel);
@@ -321,8 +321,8 @@ TEST(Hierarchical, TwoProjections) {
 }
 
 TEST(Hierarchical, Unnest) {
-  RawContext &ctx = *prepareContext("testFunction-unnestJSON");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-unnestJSON");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/employees.json");
 
@@ -395,7 +395,7 @@ TEST(Hierarchical, Unnest) {
   // aliases
   projections.push_back(recPrev);
   projections.push_back(recUnnested);
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::Expression *nestedArg =
       new expressions::InputArgument(&unnestedType, 0, projections);
 
@@ -422,8 +422,8 @@ TEST(Hierarchical, Unnest) {
 }
 
 TEST(Hierarchical, UnnestDeeper) {
-  RawContext &ctx = *prepareContext("testFunction-unnestJSONDeeper");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-unnestJSONDeeper");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/employeesDeeper.json");
 
@@ -500,7 +500,7 @@ TEST(Hierarchical, UnnestDeeper) {
   RecordType unnestedType = RecordType(attsUnnested);
 
   // PRINT
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   projections.push_back(recPrev);
   projections.push_back(recUnnested);
   expressions::Expression *nestedArg =
@@ -529,8 +529,8 @@ TEST(Hierarchical, UnnestDeeper) {
 }
 
 TEST(Hierarchical, UnnestFiltering) {
-  RawContext &ctx = *prepareContext("testFunction-unnestJSONFiltering");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-unnestJSONFiltering");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/employees.json");
 
@@ -607,7 +607,7 @@ TEST(Hierarchical, UnnestFiltering) {
   scan.setParent(&unnestOp);
 
   // PRINT
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   projections.push_back(recPrev);
   projections.push_back(recUnnested);
   expressions::Expression *finalArg =
@@ -632,8 +632,8 @@ TEST(Hierarchical, UnnestFiltering) {
 }
 
 TEST(Generic, ReduceNumeric) {
-  RawContext &ctx = *prepareContext("reduceNumeric");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("reduceNumeric");
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -700,8 +700,8 @@ TEST(Generic, ReduceNumeric) {
 }
 
 TEST(Generic, ReduceBoolean) {
-  RawContext &ctx = *prepareContext("reduceBoolean");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("reduceBoolean");
+  Catalog &catalog = Catalog::getInstance();
 
   /**
    * SCAN
@@ -763,8 +763,8 @@ TEST(Generic, ReduceBoolean) {
 }
 
 TEST(Generic, IfThenElse) {
-  RawContext &ctx = *prepareContext("ifThenElseExpr");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("ifThenElseExpr");
+  Catalog &catalog = Catalog::getInstance();
 
   // SCAN1
   string filename = string("inputs/bills.csv");
@@ -828,8 +828,8 @@ TEST(Generic, IfThenElse) {
 }
 
 TEST(Hierarchical, OuterUnnest1) {
-  RawContext &ctx = *prepareContext("testFunction-outerUnnestJSON");
-  RawCatalog &catalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("testFunction-outerUnnestJSON");
+  Catalog &catalog = Catalog::getInstance();
 
   string fname = string("inputs/employees.json");
 
@@ -902,7 +902,7 @@ TEST(Hierarchical, OuterUnnest1) {
   // aliases
   projections.push_back(recPrev);
   projections.push_back(recUnnested);
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::Expression *nestedArg =
       new expressions::InputArgument(&unnestedType, 0, projections);
 

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -28,8 +28,9 @@
 #include "gtest/gtest.h"
 #include "test-utils.hpp"
 
-#include "storage/raw-storage-manager.hpp"
+#include "storage/storage-manager.hpp"
 
+#include "codegen/util/parallel-context.hpp"
 #include "common/common.hpp"
 #include "common/tpch-config.hpp"
 #include "expressions/binary-operators.hpp"
@@ -47,8 +48,7 @@
 #include "operators/unnest.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
-#include "util/gpu/gpu-raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 // Step 2. Use the TEST macro to define your tests.
@@ -76,17 +76,16 @@
 // </TechnicalDetails>
 
 ::testing::Environment *const pools_env =
-    ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
 
 class OutputTest : public ::testing::Test {
  protected:
   virtual void SetUp();
   virtual void TearDown();
 
-  pm::CSVPlugin *openCSV(RawContext *const context, string &fname,
-                         RecordType &rec, vector<RecordAttribute *> whichFields,
-                         char delimInner, int lineHint, int policy,
-                         bool stringBrackets = true) {
+  pm::CSVPlugin *openCSV(Context *const context, string &fname, RecordType &rec,
+                         vector<RecordAttribute *> whichFields, char delimInner,
+                         int lineHint, int policy, bool stringBrackets = true) {
     pm::CSVPlugin *plugin =
         new pm::CSVPlugin(context, fname, rec, whichFields, delimInner,
                           lineHint, policy, stringBrackets);
@@ -97,7 +96,7 @@ class OutputTest : public ::testing::Test {
   bool flushResults = true;
   const char *testPath = TEST_OUTPUTS "/tests-output/";
 
-  bool executePlan(GpuRawContext &ctx, const char *testLabel,
+  bool executePlan(ParallelContext &ctx, const char *testLabel,
                    std::vector<Plugin *> pgs) {
     ctx.compileAndLoad();
     auto pipelines = ctx.getPipelines();
@@ -105,7 +104,7 @@ class OutputTest : public ::testing::Test {
     {
       time_block t("Texecute       : ");
 
-      for (RawPipeline *p : pipelines) {
+      for (Pipeline *p : pipelines) {
         {
           time_block t("T: ");
 
@@ -124,14 +123,14 @@ class OutputTest : public ::testing::Test {
   }
 
  private:
-  RawCatalog *catalog;
+  Catalog *catalog;
   CachingService *caches;
 };
 
 void OutputTest::SetUp() {
   gpu_run(cudaSetDevice(0));
 
-  catalog = &RawCatalog::getInstance();
+  catalog = &Catalog::getInstance();
   caches = &CachingService::getInstance();
   catalog->clear();
   caches->clear();
@@ -143,7 +142,7 @@ void OutputTest::TearDown() { StorageManager::unloadAll(); }
 // select max(sid) from sailors where age > 40 ;
 TEST_F(OutputTest, ReduceNumeric) {
   const char *testLabel = "reduceNumeric.json";
-  GpuRawContext &ctx = *prepareContext(testLabel);
+  ParallelContext &ctx = *prepareContext(testLabel);
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -207,7 +206,7 @@ TEST_F(OutputTest, ReduceNumeric) {
 // select sum(sid), max(sid) from sailors where age > 40 ;
 TEST_F(OutputTest, MultiReduceNumeric) {
   const char *testLabel = "multiReduceNumeric.json";
-  GpuRawContext &ctx = *prepareContext(testLabel);
+  ParallelContext &ctx = *prepareContext(testLabel);
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -279,7 +278,7 @@ TEST_F(OutputTest, MultiReduceNumeric) {
 // select sid from sailors where age > 40 ;
 TEST_F(OutputTest, ReduceBag) {
   const char *testLabel = "reduceBag.json";
-  GpuRawContext &ctx = *prepareContext(testLabel);
+  ParallelContext &ctx = *prepareContext(testLabel);
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -344,7 +343,7 @@ TEST_F(OutputTest, ReduceBag) {
 // select sid as id, age as age from sailors where age > 40 ;
 TEST_F(OutputTest, ReduceBagRecord) {
   const char *testLabel = "reduceBagRecord.json";
-  GpuRawContext &ctx = *prepareContext(testLabel);
+  ParallelContext &ctx = *prepareContext(testLabel);
 
   // SCAN1
   string filename = string("inputs/sailors.csv");
@@ -421,7 +420,7 @@ TEST_F(OutputTest, ReduceBagRecord) {
 // table not in catalog/repo
 TEST_F(OutputTest, NestBagTPCH) {
   const char *testLabel = "nestBagTPCH.json";
-  GpuRawContext &ctx = *prepareContext(testLabel);
+  ParallelContext &ctx = *prepareContext(testLabel);
 
   PrimitiveType *intType = new IntType();
   PrimitiveType *floatType = new FloatType();
@@ -609,7 +608,7 @@ TEST_F(OutputTest, NestBagTPCH) {
 
 TEST_F(OutputTest, JoinLeft3) {
   const char *testLabel = "3wayJoin.json";
-  GpuRawContext &ctx = *prepareContext(testLabel);
+  ParallelContext &ctx = *prepareContext(testLabel);
 
   /**
    * SCAN1
@@ -805,7 +804,7 @@ TEST_F(OutputTest, JoinLeft3) {
 /* Corresponds to plan parser tests */
 TEST_F(OutputTest, NestReserves) {
   const char *testLabel = "nestReserves.json";
-  GpuRawContext &ctx = *prepareContext(testLabel);
+  ParallelContext &ctx = *prepareContext(testLabel);
 
   PrimitiveType *intType = new IntType();
   PrimitiveType *floatType = new FloatType();
@@ -925,7 +924,7 @@ TEST_F(OutputTest, NestReserves) {
 
 TEST_F(OutputTest, MultiNestReservesStaticAlloc) {
   const char *testLabel = "multinestReserves.json";
-  GpuRawContext &ctx = *prepareContext(testLabel);
+  ParallelContext &ctx = *prepareContext(testLabel);
 
   PrimitiveType *intType = new IntType();
   PrimitiveType *floatType = new FloatType();
@@ -1076,7 +1075,7 @@ TEST_F(OutputTest, MultiNestReservesStaticAlloc) {
 
 TEST_F(OutputTest, MultiNestReservesDynAlloc) {
   const char *testLabel = "multinestReserves.json";
-  GpuRawContext &ctx = *prepareContext(testLabel);
+  ParallelContext &ctx = *prepareContext(testLabel);
 
   PrimitiveType *intType = new IntType();
   PrimitiveType *floatType = new FloatType();

@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -26,7 +26,7 @@
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
 #include <future>
-#include "multigpu/buffer_manager.cuh"
+#include "codegen/memory/buffer-manager.cuh"
 #include "threadpool/threadpool.hpp"
 #include "topology/affinity_manager.hpp"
 
@@ -34,6 +34,8 @@ struct buff_pair {
   char *new_buff;
   char *old_buff;
 };
+
+using namespace llvm;
 
 extern "C" {
 buff_pair make_mem_move_local_to(char *src, size_t bytes, int target_device,
@@ -54,23 +56,22 @@ buff_pair make_mem_move_local_to(char *src, size_t bytes, int target_device,
       numa_node_of_gpu(target_device));
 
   buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm, false);
-  // buffer_manager<int32_t>::release_buffer ((int32_t *) src );
+  // buffer-manager<int32_t>::release_buffer ((int32_t *) src );
 
   return buff_pair{buff, src};
 }
 }
 
 void MemMoveLocalTo::produce() {
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Type *bool_type = Type::getInt1Ty(context->getLLVMContext());
-  Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
-  Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
+  auto &llvmContext = context->getLLVMContext();
+  auto int32_type = Type::getInt32Ty(context->getLLVMContext());
+  auto charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
 
-  Plugin *pg =
-      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
-  Type *oidType = pg->getOIDType()->getLLVMType(llvmContext);
+  auto pg =
+      Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+  auto oidType = pg->getOIDType()->getLLVMType(llvmContext);
 
-  std::vector<Type *> tr_types;
+  std::vector<llvm::Type *> tr_types;
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     tr_types.push_back(wantedFields[i]->getLLVMType(llvmContext));
     tr_types.push_back(wantedFields[i]->getLLVMType(
@@ -91,25 +92,25 @@ void MemMoveLocalTo::produce() {
   int p = context->appendParameter(PointerType::get(data_type, 0), true, true);
   context->setGlobalFunction();
 
-  IRBuilder<> *Builder = context->getBuilder();
-  BasicBlock *entryBB = Builder->GetInsertBlock();
-  Function *F = entryBB->getParent();
+  auto Builder = context->getBuilder();
+  auto entryBB = Builder->GetInsertBlock();
+  auto F = entryBB->getParent();
 
-  BasicBlock *mainBB = BasicBlock::Create(llvmContext, "main", F);
+  auto mainBB = BasicBlock::Create(llvmContext, "main", F);
 
-  BasicBlock *endBB = BasicBlock::Create(llvmContext, "end", F);
+  auto endBB = BasicBlock::Create(llvmContext, "end", F);
   context->setEndingBlock(endBB);
 
   Builder->SetInsertPoint(entryBB);
 
-  Value *params = Builder->CreateLoad(context->getArgument(p));
+  auto params = Builder->CreateLoad(context->getArgument(p));
 
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
-  Function *release = context->getFunction("release_buffer");
+  auto release = context->getFunction("release_buffer");
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
 
     mem_valWrapper.mem = context->CreateEntryBlockAlloca(
         F, wantedFields[i]->getAttrName() + "_ptr",
@@ -118,14 +119,14 @@ void MemMoveLocalTo::produce() {
         context->createFalse();  // FIMXE: should we alse transfer this
                                  // information ?
 
-    Value *param = Builder->CreateExtractValue(params, 2 * i);
+    auto param = Builder->CreateExtractValue(params, 2 * i);
 
-    Value *src = Builder->CreateExtractValue(params, 2 * i + 1);
+    auto src = Builder->CreateExtractValue(params, 2 * i + 1);
 
-    BasicBlock *relBB = BasicBlock::Create(llvmContext, "rel", F);
-    BasicBlock *merBB = BasicBlock::Create(llvmContext, "mer", F);
+    auto relBB = BasicBlock::Create(llvmContext, "rel", F);
+    auto merBB = BasicBlock::Create(llvmContext, "mer", F);
 
-    Value *do_rel = Builder->CreateICmpEQ(param, src);
+    auto do_rel = Builder->CreateICmpEQ(param, src);
     Builder->CreateCondBr(do_rel, merBB, relBB);
 
     Builder->SetInsertPoint(relBB);
@@ -141,7 +142,7 @@ void MemMoveLocalTo::produce() {
     variableBindings[*(wantedFields[i])] = mem_valWrapper;
   }
 
-  RawValueMemory mem_cntWrapper;
+  ProteusValueMemory mem_cntWrapper;
   mem_cntWrapper.mem = context->CreateEntryBlockAlloca(F, "activeCnt", oidType);
   mem_cntWrapper.isNull =
       context
@@ -152,7 +153,7 @@ void MemMoveLocalTo::produce() {
 
   variableBindings[tupleCnt] = mem_cntWrapper;
 
-  RawValueMemory mem_oidWrapper;
+  ProteusValueMemory mem_oidWrapper;
   mem_oidWrapper.mem = context->CreateEntryBlockAlloca(F, activeLoop, oidType);
   mem_oidWrapper.isNull =
       context
@@ -191,34 +192,30 @@ void MemMoveLocalTo::produce() {
   // cu_stream_var       = context->appendStateVar(charPtrType);
   memmvconf_var = context->appendStateVar(charPtrType);
 
-  ((GpuRawContext *)context)->registerOpen(this, [this](RawPipeline *pip) {
-    this->open(pip);
-  });
-  ((GpuRawContext *)context)->registerClose(this, [this](RawPipeline *pip) {
-    this->close(pip);
-  });
+  context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
+  context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
   getChild()->produce();
 }
 
-void MemMoveLocalTo::consume(RawContext *const context,
+void MemMoveLocalTo::consume(Context *const context,
                              const OperatorState &childState) {
   // Prepare
-  LLVMContext &llvmContext = context->getLLVMContext();
-  IRBuilder<> *Builder = context->getBuilder();
-  BasicBlock *insBB = Builder->GetInsertBlock();
-  Function *F = insBB->getParent();
+  auto &llvmContext = context->getLLVMContext();
+  auto Builder = context->getBuilder();
+  auto insBB = Builder->GetInsertBlock();
 
-  Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
+  auto charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
 
-  Type *workunit_type = StructType::get(
+  auto workunit_type = StructType::get(
       llvmContext, std::vector<Type *>{charPtrType, charPtrType});
 
-  map<RecordAttribute, RawValueMemory> old_bindings{childState.getBindings()};
+  map<RecordAttribute, ProteusValueMemory> old_bindings{
+      childState.getBindings()};
 
   // Find block size
-  Plugin *pg =
-      RawCatalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+  auto pg =
+      Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
   RecordAttribute tupleCnt =
       RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
                       pg->getOIDType());  // FIXME: OID type for blocks ?
@@ -226,55 +223,55 @@ void MemMoveLocalTo::consume(RawContext *const context,
   auto it = old_bindings.find(tupleCnt);
   assert(it != old_bindings.end());
 
-  RawValueMemory mem_cntWrapper = it->second;
+  ProteusValueMemory mem_cntWrapper = it->second;
 
-  Function *make_mem_move = context->getFunction("make_mem_move_local_to");
+  auto make_mem_move = context->getFunction("make_mem_move_local_to");
 
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
-  Value *device_id = ((GpuRawContext *)context)->getStateVar(device_id_var);
-  // Value * cu_stream       = ((GpuRawContext *)
+  auto device_id = ((ParallelContext *)context)->getStateVar(device_id_var);
+  // Value * cu_stream       = ((ParallelContext *)
   // context)->getStateVar(cu_stream_var);
 
   Builder->SetInsertPoint(insBB);
-  Value *N = Builder->CreateLoad(mem_cntWrapper.mem);
+  auto N = Builder->CreateLoad(mem_cntWrapper.mem);
 
   RecordAttribute tupleIdentifier = RecordAttribute(
       wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType());
   it = old_bindings.find(tupleIdentifier);
   assert(it != old_bindings.end());
-  RawValueMemory mem_oidWrapper = it->second;
-  Value *oid = Builder->CreateLoad(mem_oidWrapper.mem);
+  ProteusValueMemory mem_oidWrapper = it->second;
+  auto oid = Builder->CreateLoad(mem_oidWrapper.mem);
 
-  Value *memmv = ((GpuRawContext *)context)->getStateVar(memmvconf_var);
+  auto memmv = ((ParallelContext *)context)->getStateVar(memmvconf_var);
 
-  std::vector<Value *> pushed;
-  Value *is_noop = context->createTrue();
+  std::vector<llvm::Value *> pushed;
+  llvm::Value *is_noop = context->createTrue();
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     RecordAttribute block_attr(*(wantedFields[i]), true);
 
     auto it = old_bindings.find(block_attr);
     assert(it != old_bindings.end());
-    RawValueMemory mem_valWrapper = it->second;
+    ProteusValueMemory mem_valWrapper = it->second;
 
-    Value *mv = Builder->CreateBitCast(Builder->CreateLoad(mem_valWrapper.mem),
-                                       charPtrType);
+    auto mv = Builder->CreateBitCast(Builder->CreateLoad(mem_valWrapper.mem),
+                                     charPtrType);
 
-    Type *mv_block_type = mem_valWrapper.mem->getType()
-                              ->getPointerElementType()
-                              ->getPointerElementType();
+    auto mv_block_type = mem_valWrapper.mem->getType()
+                             ->getPointerElementType()
+                             ->getPointerElementType();
 
-    Value *size = ConstantInt::get(
+    llvm::Value *size = ConstantInt::get(
         llvmContext, APInt(64, context->getSizeOf(mv_block_type)));
-    Value *Nloc = Builder->CreateZExtOrBitCast(N, size->getType());
+    auto Nloc = Builder->CreateZExtOrBitCast(N, size->getType());
     size = Builder->CreateMul(size, Nloc);
 
-    vector<Value *> mv_args{mv, size, device_id, memmv};
+    vector<llvm::Value *> mv_args{mv, size, device_id, memmv};
 
     // Do actual mem move
-    Value *moved_buffpair = Builder->CreateCall(make_mem_move, mv_args);
-    Value *moved = Builder->CreateExtractValue(moved_buffpair, 0);
-    Value *to_release = Builder->CreateExtractValue(moved_buffpair, 1);
+    auto moved_buffpair = Builder->CreateCall(make_mem_move, mv_args);
+    auto moved = Builder->CreateExtractValue(moved_buffpair, 0);
+    auto to_release = Builder->CreateExtractValue(moved_buffpair, 1);
 
     pushed.push_back(Builder->CreateBitCast(
         moved, mem_valWrapper.mem->getType()->getPointerElementType()));
@@ -287,29 +284,28 @@ void MemMoveLocalTo::consume(RawContext *const context,
   pushed.push_back(N);
   pushed.push_back(oid);
 
-  Value *d = UndefValue::get(data_type);
+  llvm::Value *d = UndefValue::get(data_type);
   for (size_t i = 0; i < pushed.size(); ++i) {
     d = Builder->CreateInsertValue(d, pushed[i], i);
   }
 
-  Function *acquire = context->getFunction("mem_move_local_to_acquireWorkUnit");
+  auto acquire = context->getFunction("mem_move_local_to_acquireWorkUnit");
 
-  Value *workunit_ptr8 = Builder->CreateCall(acquire, memmv);
-  Value *workunit_ptr = Builder->CreateBitCast(
+  auto workunit_ptr8 = Builder->CreateCall(acquire, memmv);
+  auto workunit_ptr = Builder->CreateBitCast(
       workunit_ptr8, PointerType::getUnqual(workunit_type));
 
-  Value *workunit_dat = Builder->CreateLoad(workunit_ptr);
-  Value *d_ptr = Builder->CreateExtractValue(workunit_dat, 0);
+  auto workunit_dat = Builder->CreateLoad(workunit_ptr);
+  auto d_ptr = Builder->CreateExtractValue(workunit_dat, 0);
   d_ptr = Builder->CreateBitCast(d_ptr, PointerType::getUnqual(data_type));
   Builder->CreateStore(d, d_ptr);
 
-  Function *propagate =
-      context->getFunction("mem_move_local_to_propagateWorkUnit");
+  auto propagate = context->getFunction("mem_move_local_to_propagateWorkUnit");
   Builder->CreateCall(propagate,
                       std::vector<Value *>{memmv, workunit_ptr8, is_noop});
 }
 
-void MemMoveLocalTo::open(RawPipeline *pip) {
+void MemMoveLocalTo::open(Pipeline *pip) {
   int device = topology::getInstance().getActiveGpu().id;
 
   std::cout << "MemMoveLocalTo::Open" << std::endl;
@@ -357,10 +353,10 @@ void MemMoveLocalTo::open(RawPipeline *pip) {
   pip->setStateVar<void *>(memmvconf_var, mmc);
 }
 
-void MemMoveLocalTo::close(RawPipeline *pip) {
+void MemMoveLocalTo::close(Pipeline *pip) {
   std::cout << "MemMoveLocalTo::Close" << std::endl;
 
-  int device = topology::getInstance().getActiveGpu().id;
+  // int device = topology::getInstance().getActiveGpu().id;
   // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
   MemMoveConf *mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
 
@@ -440,7 +436,7 @@ void MemMoveLocalTo::catcher(MemMoveConf *mmc, int group_id,
                              const exec_location &target_dev) {
   set_exec_location_on_scope d(target_dev);
 
-  RawPipeline *pip = catch_pip->getPipeline(group_id);
+  Pipeline *pip = catch_pip->getPipeline(group_id);
   nvtxRangePushA("MemMoveLocalTo::catch");
 
   nvtxRangePushA("MemMoveLocalTo::catch_open");

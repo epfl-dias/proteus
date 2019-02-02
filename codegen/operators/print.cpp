@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -25,16 +25,13 @@
 
 void Print::produce() { getChild()->produce(); }
 
-void Print::consume(RawContext *const context,
-                    const OperatorState &childState) {
-  IRBuilder<> *TheBuilder = context->getBuilder();
-
+void Print::consume(Context *const context, const OperatorState &childState) {
   // Generate condition
   ExpressionGeneratorVisitor exprGenerator{context, childState};
-  RawValue toPrint = arg->accept(exprGenerator);
+  ProteusValue toPrint = arg->accept(exprGenerator);
 
   // Call print
-  TheBuilder->CreateCall(print, toPrint.value);
+  context->getBuilder()->CreateCall(print, toPrint.value);
 
   // Trigger parent
   OperatorState newState{*this, childState.getBindings()};

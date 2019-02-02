@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -46,9 +46,9 @@
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-caching.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 void symantecCSV1Caching(map<string, dataset> datasetCatalog);
@@ -123,8 +123,8 @@ int main() {
 void symantecCSV1Caching(map<string, dataset> datasetCatalog) {
   int idLow = 100000000;
   int idHigh = 200000000;
-  RawContext &ctx = *prepareContext("symantec-csv-1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -254,8 +254,8 @@ void symantecCSV1Caching(map<string, dataset> datasetCatalog) {
 void symantecCSV1CachingB(map<string, dataset> datasetCatalog) {
   int idLow = 100000000;
   int idHigh = 200000000;
-  RawContext &ctx = *prepareContext("symantec-csv-1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -385,8 +385,8 @@ void symantecCSV1CachingB(map<string, dataset> datasetCatalog) {
 void symantecCSV1(map<string, dataset> datasetCatalog) {
   int idLow = 100000000;
   int idHigh = 200000000;
-  RawContext &ctx = *prepareContext("symantec-csv-1");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-1");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -476,8 +476,8 @@ void symantecCSV1(map<string, dataset> datasetCatalog) {
 void symantecCSV2Caching(map<string, dataset> datasetCatalog) {
   int classNo = 195;
 
-  RawContext &ctx = *prepareContext("symantec-csv-2");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-2");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -584,8 +584,8 @@ void symantecCSV2Caching(map<string, dataset> datasetCatalog) {
 void symantecCSV2(map<string, dataset> datasetCatalog) {
   int classNo = 195;
 
-  RawContext &ctx = *prepareContext("symantec-csv-2");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-2");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -683,8 +683,8 @@ void symantecCSV2(map<string, dataset> datasetCatalog) {
 void symantecCSV3(map<string, dataset> datasetCatalog) {
   string botName = "DARKMAILER3";
 
-  RawContext &ctx = *prepareContext("symantec-csv-3");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-3");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -761,8 +761,8 @@ void symantecCSV4(map<string, dataset> datasetCatalog) {
   int idLow = 40000000;
   int idHigh = 50000000;
   string botName = "Bobax";
-  RawContext &ctx = *prepareContext("symantec-csv-4(agg)");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-4(agg)");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -904,13 +904,13 @@ void symantecCSV4(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
-  Function *debugFloat = ctx.getFunction("printFloat");
+  llvm::Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   FloatType floatType = FloatType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =
@@ -963,8 +963,8 @@ void symantecCSV5(map<string, dataset> datasetCatalog) {
   string countryCode2 = "RU";
   string countryCode3 = "IN";
 
-  RawContext &ctx = *prepareContext("symantec-csv-5(agg)");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-5(agg)");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -1143,13 +1143,13 @@ void symantecCSV5(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
-  Function *debugFloat = ctx.getFunction("printFloat");
+  llvm::Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   FloatType floatType = FloatType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =
@@ -1199,8 +1199,8 @@ void symantecCSV6(map<string, dataset> datasetCatalog) {
   int idLow = 100000000;
   int idHigh = 200000000;
   int classHigh = 10;
-  RawContext &ctx = *prepareContext("symantec-csv-6(agg)");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-6(agg)");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -1330,13 +1330,13 @@ void symantecCSV6(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
-  Function *debugFloat = ctx.getFunction("printFloat");
+  llvm::Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugFloat = ctx.getFunction("printFloat");
   IntType intType = IntType();
   FloatType floatType = FloatType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =
@@ -1381,8 +1381,8 @@ void symantecCSV7(map<string, dataset> datasetCatalog) {
   int classLow = 50;
   int classHigh = 60;
   int sizeHigh = 1500;
-  RawContext &ctx = *prepareContext("symantec-csv-7(agg)");
-  RawCatalog &rawCatalog = RawCatalog::getInstance();
+  Context &ctx = *prepareContext("symantec-csv-7(agg)");
+  Catalog &rawCatalog = Catalog::getInstance();
 
   string nameSymantec = string("symantecCSV");
   dataset symantecCSV = datasetCatalog[nameSymantec];
@@ -1530,11 +1530,11 @@ void symantecCSV7(map<string, dataset> datasetCatalog) {
                                         predNest, f, f, sel, nestLabel, *mat);
   sel->setParent(nestOp);
 
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   IntType intType = IntType();
 
   /* OUTPUT */
-  RawOperator *lastPrintOp;
+  Operator *lastPrintOp;
   RecordAttribute *toOutput1 =
       new RecordAttribute(1, aggrLabel, aggrField1, &intType);
   expressions::RecordProjection *nestOutput1 =

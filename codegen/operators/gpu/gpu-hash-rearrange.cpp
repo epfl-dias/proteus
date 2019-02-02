@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -23,12 +23,14 @@
 
 #include "operators/gpu/gpu-hash-rearrange.hpp"
 #include <algorithm>
+#include "codegen/memory/buffer-manager.cuh"
+#include "codegen/memory/memory-manager.hpp"
 #include "common/gpu/gpu-common.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"
-#include "multigpu/buffer_manager.cuh"
 #include "util/gpu/gpu-intrinsics.hpp"
-#include "util/raw-memory-manager.hpp"
+
+using namespace llvm;
 
 void GpuHashRearrange::produce() {
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -43,7 +45,7 @@ void GpuHashRearrange::produce() {
   }
 
   Plugin *pg =
-      RawCatalog::getInstance().getPlugin(matExpr[0].getRegisteredRelName());
+      Catalog::getInstance().getPlugin(matExpr[0].getRegisteredRelName());
   Type *oid_type = pg->getOIDType()->getLLVMType(llvmContext);
 
   cntVar_id = context->appendStateVar(
@@ -52,23 +54,23 @@ void GpuHashRearrange::produce() {
       PointerType::getUnqual(ArrayType::get(idx_type, numOfBuckets)));
   oidVar_id = context->appendStateVar(PointerType::getUnqual(oid_type));
 
-  ((GpuRawContext *)context)->registerOpen(this, [this](RawPipeline *pip) {
+  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open(pip);
   });
-  ((GpuRawContext *)context)->registerClose(this, [this](RawPipeline *pip) {
+  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close(pip);
   });
 
   getChild()->produce();
 }
 
-void GpuHashRearrange::consume(RawContext *const context,
+void GpuHashRearrange::consume(Context *const context,
                                const OperatorState &childState) {
-  GpuRawContext *ctx = dynamic_cast<GpuRawContext *>(context);
+  ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
   if (!ctx) {
     string error_msg =
         "[GpuToCpu: ] Operator only supports code generation "
-        "using the GpuRawContext";
+        "using the ParallelContext";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
@@ -76,7 +78,7 @@ void GpuHashRearrange::consume(RawContext *const context,
 }
 
 Value *GpuHashRearrange::hash(const std::vector<expression_t> &exprs,
-                              RawContext *const context,
+                              Context *const context,
                               const OperatorState &childState) {
   if (exprs.size() == 1) {
     ExpressionHasherVisitor hasher{context, childState};
@@ -91,17 +93,17 @@ Value *GpuHashRearrange::hash(const std::vector<expression_t> &exprs,
   }
 }
 
-void GpuHashRearrange::consume(GpuRawContext *const context,
+void GpuHashRearrange::consume(ParallelContext *const context,
                                const OperatorState &childState) {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
   BasicBlock *insBB = Builder->GetInsertBlock();
   Function *F = insBB->getParent();
 
-  map<RecordAttribute, RawValueMemory> bindings{childState.getBindings()};
+  map<RecordAttribute, ProteusValueMemory> bindings{childState.getBindings()};
 
   Plugin *pg =
-      RawCatalog::getInstance().getPlugin(matExpr[0].getRegisteredRelName());
+      Catalog::getInstance().getPlugin(matExpr[0].getRegisteredRelName());
   Type *oid_type = pg->getOIDType()->getLLVMType(llvmContext);
 
   IntegerType *int32_type = Type::getInt32Ty(llvmContext);
@@ -347,7 +349,7 @@ void GpuHashRearrange::consume(GpuRawContext *const context,
   target = Builder->CreateURem(target, numOfBucketsV);
   target->setName("target");
 
-  map<RecordAttribute, RawValueMemory> variableBindings;
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
   AllocaInst *not_done_ptr =
       context->CreateEntryBlockAlloca(F, "not_done_ptr", bool_type);
   Builder->CreateStore(context->createTrue(), not_done_ptr);
@@ -358,7 +360,7 @@ void GpuHashRearrange::consume(GpuRawContext *const context,
         context->CreateEntryBlockAlloca(F, "hash_ptr", target_type);
     Builder->CreateStore(target, hash_ptr);
 
-    RawValueMemory mem_hashWrapper;
+    ProteusValueMemory mem_hashWrapper;
     mem_hashWrapper.mem = hash_ptr;
     mem_hashWrapper.isNull = context->createFalse();
     variableBindings[*hashProject] = mem_hashWrapper;
@@ -489,13 +491,13 @@ void GpuHashRearrange::consume(GpuRawContext *const context,
     Value *out_ptr = Builder->CreateInBoundsGEP(buff_ptrs.back(), idx_g);
 
     ExpressionGeneratorVisitor exprGenerator(context, childState);
-    RawValue valWrapper = matExpr[i].accept(exprGenerator);
+    ProteusValue valWrapper = matExpr[i].accept(exprGenerator);
     Builder->CreateStore(valWrapper.value, out_ptr);
   }
 
   // for (const GpuMatExpr &mexpr: matExpr){
   //     ExpressionGeneratorVisitor exprGenerator(context, childState);
-  //     RawValue valWrapper = mexpr.expr->accept(exprGenerator);
+  //     ProteusValue valWrapper = mexpr.expr->accept(exprGenerator);
 
   //     out_vals[mexpr.packet] =
   //     Builder->CreateInsertValue(out_vals[mexpr.packet], valWrapper.value,
@@ -549,14 +551,14 @@ void GpuHashRearrange::consume(GpuRawContext *const context,
       context->CreateEntryBlockAlloca(F, "blockN_ptr", oid_type);
   Builder->CreateStore(ConstantInt::get(oid_type, cap), blockN_ptr);
 
-  RawValueMemory mem_cntWrapper;
+  ProteusValueMemory mem_cntWrapper;
   mem_cntWrapper.mem = blockN_ptr;
   mem_cntWrapper.isNull = context->createFalse();
   variableBindings[tupCnt] = mem_cntWrapper;
 
   Value *new_oid = Builder->CreateAtomicRMW(
       AtomicRMWInst::BinOp::Add,
-      ((GpuRawContext *)context)->getStateVar(oidVar_id),
+      ((ParallelContext *)context)->getStateVar(oidVar_id),
       ConstantInt::get(oid_type, cap), AtomicOrdering::Monotonic);
   new_oid->setName("oid");
 
@@ -567,7 +569,7 @@ void GpuHashRearrange::consume(GpuRawContext *const context,
   RecordAttribute tupleIdentifier = RecordAttribute(
       matExpr[0].getRegisteredRelName(), activeLoop, pg->getOIDType());
 
-  RawValueMemory mem_oidWrapper;
+  ProteusValueMemory mem_oidWrapper;
   mem_oidWrapper.mem = new_oid_ptr;
   mem_oidWrapper.isNull = context->createFalse();
   variableBindings[tupleIdentifier] = mem_oidWrapper;
@@ -579,7 +581,7 @@ void GpuHashRearrange::consume(GpuRawContext *const context,
 
     Builder->CreateStore(buff_ptrs[i], mem_arg);
 
-    RawValueMemory mem_valWrapper;
+    ProteusValueMemory mem_valWrapper;
     mem_valWrapper.mem = mem_arg;
     mem_valWrapper.isNull = context->createFalse();
 
@@ -667,7 +669,7 @@ void GpuHashRearrange::consume_flush(IntegerType *target_type) {
     context->setEndingBlock(endIBB);
 
     Plugin *pg =
-        RawCatalog::getInstance().getPlugin(matExpr[0].getRegisteredRelName());
+        Catalog::getInstance().getPlugin(matExpr[0].getRegisteredRelName());
     Type *oid_type = pg->getOIDType()->getLLVMType(llvmContext);
 
     IntegerType *int32_type = Type::getInt32Ty(llvmContext);
@@ -742,7 +744,7 @@ void GpuHashRearrange::consume_flush(IntegerType *target_type) {
     Builder->SetInsertPoint(non_emptyBB);
 
     // call parent
-    map<RecordAttribute, RawValueMemory> variableBindings;
+    map<RecordAttribute, ProteusValueMemory> variableBindings;
 
     RecordAttribute tupCnt =
         RecordAttribute(matExpr[0].getRegisteredRelName(), "activeCnt",
@@ -757,7 +759,7 @@ void GpuHashRearrange::consume_flush(IntegerType *target_type) {
           context->CreateEntryBlockAlloca(F, "hash_ptr", target_type);
       Builder->CreateStore(target, hash_ptr);
 
-      RawValueMemory mem_hashWrapper;
+      ProteusValueMemory mem_hashWrapper;
       mem_hashWrapper.mem = hash_ptr;
       mem_hashWrapper.isNull = context->createFalse();
       variableBindings[*hashProject] = mem_hashWrapper;
@@ -767,14 +769,14 @@ void GpuHashRearrange::consume_flush(IntegerType *target_type) {
 
     Builder->CreateStore(cnt, blockN_ptr);
 
-    RawValueMemory mem_cntWrapper;
+    ProteusValueMemory mem_cntWrapper;
     mem_cntWrapper.mem = blockN_ptr;
     mem_cntWrapper.isNull = context->createFalse();
     variableBindings[tupCnt] = mem_cntWrapper;
 
     Value *new_oid = Builder->CreateAtomicRMW(
         AtomicRMWInst::BinOp::Add,
-        ((GpuRawContext *)context)->getStateVar(oidVar_id), cnt,
+        ((ParallelContext *)context)->getStateVar(oidVar_id), cnt,
         AtomicOrdering::Monotonic);
     new_oid->setName("oid");
 
@@ -785,7 +787,7 @@ void GpuHashRearrange::consume_flush(IntegerType *target_type) {
     RecordAttribute tupleIdentifier = RecordAttribute(
         matExpr[0].getRegisteredRelName(), activeLoop, pg->getOIDType());
 
-    RawValueMemory mem_oidWrapper;
+    ProteusValueMemory mem_oidWrapper;
     mem_oidWrapper.mem = new_oid_ptr;
     mem_oidWrapper.isNull = context->createFalse();
     variableBindings[tupleIdentifier] = mem_oidWrapper;
@@ -797,7 +799,7 @@ void GpuHashRearrange::consume_flush(IntegerType *target_type) {
 
       Builder->CreateStore(buff_ptrs[i], mem_arg);
 
-      RawValueMemory mem_valWrapper;
+      ProteusValueMemory mem_valWrapper;
       mem_valWrapper.mem = mem_arg;
       mem_valWrapper.isNull = context->createFalse();
 
@@ -821,7 +823,7 @@ void GpuHashRearrange::consume_flush(IntegerType *target_type) {
 
 __global__ void GpuHashRearrange_acq_buffs(void **buffs);
 
-void GpuHashRearrange::open(RawPipeline *pip) {
+void GpuHashRearrange::open(Pipeline *pip) {
   // int device = get_device();
 
   std::cout << "GpuHashRearrange:open_start" << std::endl;
@@ -838,8 +840,8 @@ void GpuHashRearrange::open(RawPipeline *pip) {
       ~((size_t)0xF);
   size_t oid_bytes = ((sizeof(size_t)) + 16 - 1) & ~((size_t)0xF);
 
-  void **buffs = (void **)RawMemoryManager::mallocGpu(buffs_bytes + cnts_bytes +
-                                                      oid_bytes);
+  void **buffs =
+      (void **)MemoryManager::mallocGpu(buffs_bytes + cnts_bytes + oid_bytes);
   int32_t *cnts = (int32_t *)(((char *)buffs) + buffs_bytes);
   size_t *oid = (size_t *)(((char *)cnts) + cnts_bytes);
 
@@ -862,7 +864,7 @@ void GpuHashRearrange::open(RawPipeline *pip) {
   // }
 
   // for (size_t i = 0 ; i < numOfBuckets * buffVar_id.size() * grid_size; ++i){
-  //     h_buffs[i] = buffer_manager<int32_t>::h_get_buffer(device); // FIMXE:
+  //     h_buffs[i] = buffer-manager<int32_t>::h_get_buffer(device); // FIMXE:
   //     assumes that all buffers need at most a h_vector_size * sizeof(int32_t)
   //     size
   // }
@@ -927,7 +929,7 @@ __global__ void GpuHashRearrange_pack(mv_description *desc) {
 }
 #endif
 
-void GpuHashRearrange::close(RawPipeline *pip) {
+void GpuHashRearrange::close(Pipeline *pip) {
   // ((void (*)(void *)) this->flushFunc)(pip->getState());
   cudaStream_t strm;
   gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
@@ -957,7 +959,7 @@ void GpuHashRearrange::close(RawPipeline *pip) {
   // gpu_run(cudaMallocHost ((void **) &h_buffs, h_buffs_bytes + h_cnts_bytes +
   // mv_descs_bytes));
   h_buffs = (void **)malloc(h_buffs_bytes + h_cnts_bytes);
-  mv_descs = (mv_description *)RawMemoryManager::mallocPinned(mv_descs_bytes);
+  mv_descs = (mv_description *)MemoryManager::mallocPinned(mv_descs_bytes);
   gpu_run(cudaMemcpyAsync(h_buffs, buffs, h_buffs_bytes + h_cnts_bytes,
                           cudaMemcpyDefault, strm));
   gpu_run(cudaStreamSynchronize(strm));
@@ -1001,8 +1003,8 @@ void GpuHashRearrange::close(RawPipeline *pip) {
 
   nvtxRangePushA("waiting_to_release");
 
-  size_t *attr_size = (size_t *)RawMemoryManager::mallocPinned(
-      buffVar_id.size() * sizeof(size_t));
+  size_t *attr_size =
+      (size_t *)MemoryManager::mallocPinned(buffVar_id.size() * sizeof(size_t));
   for (size_t attr_i = 0; attr_i < buffVar_id.size(); ++attr_i) {
     attr_size[attr_i] =
         pip->getSizeOf(matExpr[attr_i].getExpressionType()->getLLVMType(
@@ -1072,7 +1074,7 @@ void GpuHashRearrange::close(RawPipeline *pip) {
     // GpuHashRearrange_pack<<<mv_descs_i, 1024, 0, strm>>>(mv_descs);
   }
 
-  RawMemoryManager::freePinned(attr_size);
+  MemoryManager::freePinned(attr_size);
 
   nvtxRangePop();
 
@@ -1084,11 +1086,11 @@ void GpuHashRearrange::close(RawPipeline *pip) {
 
   // gpu_run(cudaFreeHost(h_buffs));
   free(h_buffs);
-  RawMemoryManager::freePinned(mv_descs);
+  MemoryManager::freePinned(mv_descs);
 
-  // RawMemoryManager::freeGpu(pip->getStateVar<size_t *> (cntVar_id    ));
-  // RawMemoryManager::freeGpu(pip->getStateVar<size_t *> (oidVar_id    ));
-  RawMemoryManager::freeGpu(pip->getStateVar<void **>(buffVar_id[0]));
+  // MemoryManager::freeGpu(pip->getStateVar<size_t *> (cntVar_id    ));
+  // MemoryManager::freeGpu(pip->getStateVar<size_t *> (oidVar_id    ));
+  MemoryManager::freeGpu(pip->getStateVar<void **>(buffVar_id[0]));
   // wcntVar_id is part of cntVar, so they are freed together
   // rest of mem for buffers is part of buffVar_id
 }

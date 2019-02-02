@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -33,11 +33,6 @@
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 
-using namespace std;
-
-template <typename T>
-class buffer_manager;
-
 /**
  * Based on a combination of :
  * * https://github.com/memsql/lockfree-bench/blob/master/stack/lockfree.h
@@ -46,7 +41,7 @@ class buffer_manager;
  * * http://www.boost.org/doc/libs/1_60_0/boost/lockfree/detail/freelist.hpp
  * * http://blog.memsql.com/common-pitfalls-in-writing-lock-free-algorithms/
  */
-template <typename T, T invalid_value = numeric_limits<T>::max()>
+template <typename T, T invalid_value = std::numeric_limits<T>::max()>
 class threadsafe_device_stack {  // FIXME: must have a bug
  private:
   volatile uint32_t cnt;
@@ -85,8 +80,8 @@ class threadsafe_device_stack {  // FIXME: must have a bug
     gpu_run(cudaFree(const_cast<T *>(data)));
 
     int dev = topology::getInstance().getActiveGpu().id;
-    cout << "--------------------------------------------------------->dev"
-         << dev << "_stack: " << cnt << " " << size << endl;
+    std::cout << "------------------------------------------------------->dev"
+              << dev << "_stack: " << cnt << " " << size << std::endl;
     // assert(cnt == size);
   }
 

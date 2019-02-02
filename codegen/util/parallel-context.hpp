@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -21,16 +21,16 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef GPU_RAW_CONTEXT_HPP_
-#define GPU_RAW_CONTEXT_HPP_
+#ifndef PARALLEL_CONTEXT_HPP_
+#define PARALLEL_CONTEXT_HPP_
 
-#include "util/raw-context.hpp"
-#include "util/raw-pipeline.hpp"
+#include "codegen/util/jit/pipeline.hpp"
+#include "util/context.hpp"
 
-class GpuRawContext : public RawContext {
+class ParallelContext : public Context {
  public:
-  GpuRawContext(const string &moduleName, bool gpu_root = false);
-  virtual ~GpuRawContext();
+  ParallelContext(const string &moduleName, bool gpu_root = false);
+  virtual ~ParallelContext();
 
   virtual size_t appendParameter(llvm::Type *ptype, bool noalias = false,
                                  bool readonly = false);
@@ -46,16 +46,15 @@ class GpuRawContext : public RawContext {
   virtual llvm::Value *getSubStateVar() const;
   virtual std::vector<llvm::Type *> getStateVars() const;
 
-  void registerOpen(const void *owner,
-                    std::function<void(RawPipeline *pip)> open);
+  void registerOpen(const void *owner, std::function<void(Pipeline *pip)> open);
   void registerClose(const void *owner,
-                     std::function<void(RawPipeline *pip)> close);
+                     std::function<void(Pipeline *pip)> close);
 
-  // void pushNewPipeline    (RawPipelineGen *copyStateFrom = NULL);
-  // void pushNewCpuPipeline (RawPipelineGen *copyStateFrom = NULL);
+  // void pushNewPipeline    (PipelineGen *copyStateFrom = NULL);
+  // void pushNewCpuPipeline (PipelineGen *copyStateFrom = NULL);
 
  private:
-  void pushDeviceProvider(RawPipelineGenFactory *factory);
+  void pushDeviceProvider(PipelineGenFactory *factory);
 
   template <typename T>
   void pushDeviceProvider() {
@@ -69,26 +68,29 @@ class GpuRawContext : public RawContext {
   friend class GpuToCpu;
 
  public:
-  void pushPipeline(RawPipelineGen *copyStateFrom = NULL);
+  void pushPipeline(PipelineGen *copyStateFrom = NULL);
   void popPipeline();
 
-  RawPipelineGen *removeLatestPipeline();
-  RawPipelineGen *getCurrentPipeline();
-  void setChainedPipeline(RawPipelineGen *next);
+  PipelineGen *removeLatestPipeline();
+  PipelineGen *getCurrentPipeline();
+  void setChainedPipeline(PipelineGen *next);
 
-  virtual Module *getModule() const { return generators.back()->getModule(); }
+  virtual llvm::Module *getModule() const {
+    return generators.back()->getModule();
+  }
 
-  virtual IRBuilder<> *getBuilder() const {
+  virtual llvm::IRBuilder<> *getBuilder() const {
     return generators.back()->getBuilder();
   }
 
-  Function *const getFunction(string funcName) const {
+  llvm::Function *const getFunction(string funcName) const {
     return generators.back()->getFunction(funcName);
   }
 
   virtual void setGlobalFunction(bool leaf);
-  virtual void setGlobalFunction(Function *F = nullptr, bool leaf = false);
-  virtual void prepareFunction(Function *F) {}
+  virtual void setGlobalFunction(llvm::Function *F = nullptr,
+                                 bool leaf = false);
+  virtual void prepareFunction(llvm::Function *F) {}
 
   virtual llvm::Value *threadId();
   virtual llvm::Value *threadIdInBlock();
@@ -98,17 +100,18 @@ class GpuRawContext : public RawContext {
   virtual llvm::Value *threadNum();
   virtual llvm::Value *laneId();
   virtual void createMembar_gl();
+  virtual void workerScopedMembar();
 
-  virtual BasicBlock *getEndingBlock() {
+  virtual llvm::BasicBlock *getEndingBlock() {
     return generators.back()->getEndingBlock();
   }
-  virtual void setEndingBlock(BasicBlock *codeEnd) {
+  virtual void setEndingBlock(llvm::BasicBlock *codeEnd) {
     generators.back()->setEndingBlock(codeEnd);
   }
-  virtual BasicBlock *getCurrentEntryBlock() {
+  virtual llvm::BasicBlock *getCurrentEntryBlock() {
     return generators.back()->getCurrentEntryBlock();
   }
-  virtual void setCurrentEntryBlock(BasicBlock *codeEntry) {
+  virtual void setCurrentEntryBlock(llvm::BasicBlock *codeEntry) {
     generators.back()->setCurrentEntryBlock(codeEntry);
   }
 
@@ -125,20 +128,20 @@ class GpuRawContext : public RawContext {
   void compileAndLoad();
 
   // std::vector<CUfunction> getKernel();
-  std::vector<RawPipeline *> getPipelines();
+  std::vector<Pipeline *> getPipelines();
 
   // Provide support for some extern functions
-  virtual void registerFunction(const char *funcName, Function *func);
+  virtual void registerFunction(const char *funcName, llvm::Function *func);
 
-  RawPipelineGen *operator->() const { return generators.back(); }
+  PipelineGen *operator->() const { return generators.back(); }
 
  protected:
   virtual void createJITEngine();
 
  public:
-  std::unique_ptr<TargetMachine> TheTargetMachine;
-  ExecutionEngine *TheExecutionEngine;
-  ExecutionEngine *TheCPUExecutionEngine;
+  std::unique_ptr<llvm::TargetMachine> TheTargetMachine;
+  llvm::ExecutionEngine *TheExecutionEngine;
+  llvm::ExecutionEngine *TheCPUExecutionEngine;
 
   // CUmodule cudaModule;
 
@@ -146,17 +149,17 @@ class GpuRawContext : public RawContext {
   string kernelName;
   size_t pip_cnt;
 
-  std::vector<RawPipelineGenFactory *> pipFactories;
+  std::vector<PipelineGenFactory *> pipFactories;
 
   // Module * TheCPUModule;
 
-  std::vector<RawPipelineGen *> pipelines;
+  std::vector<PipelineGen *> pipelines;
 
-  std::vector<RawPipelineGen *> generators;
+  std::vector<PipelineGen *> generators;
 
   std::vector<bool> leafpip;
 
   std::vector<bool> leafgen;
 };
 
-#endif /* GPU_RAW_CONTEXT_HPP_ */
+#endif /* PARALLEL_CONTEXT_HPP_ */

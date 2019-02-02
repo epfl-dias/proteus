@@ -1,5 +1,5 @@
 /*
-    RAW -- High-performance querying over raw, never-seen-before data.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2014
         Data Intensive Applications and Systems Labaratory (DIAS)
@@ -39,17 +39,17 @@
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/raw-context.hpp"
-#include "util/raw-functions.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 ::testing::Environment *const pools_env =
-    ::testing::AddGlobalTestEnvironment(new RawTestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
 
 class JSONTest : public ::testing::Test {
  protected:
   virtual void SetUp() {
-    catalog = &RawCatalog::getInstance();
+    catalog = &Catalog::getInstance();
     caches = &CachingService::getInstance();
     catalog->clear();
     caches->clear();
@@ -57,7 +57,7 @@ class JSONTest : public ::testing::Test {
 
   virtual void TearDown() {}
 
-  jsonPipelined::JSONPlugin *openJSON(RawContext *const context, string &fname,
+  jsonPipelined::JSONPlugin *openJSON(Context *const context, string &fname,
                                       ExpressionType *schema,
                                       size_t linehint = 1000) {
     jsonPipelined::JSONPlugin *plugin =
@@ -67,7 +67,7 @@ class JSONTest : public ::testing::Test {
     return plugin;
   }
 
-  jsonPipelined::JSONPlugin *openJSON(RawContext *const context, string &fname,
+  jsonPipelined::JSONPlugin *openJSON(Context *const context, string &fname,
                                       ExpressionType *schema, size_t linehint,
                                       jsmntok_t **tokens) {
     jsonPipelined::JSONPlugin *plugin =
@@ -83,12 +83,12 @@ class JSONTest : public ::testing::Test {
   const char *testPath = TEST_OUTPUTS "/tests-json/";
 
  private:
-  RawCatalog *catalog;
+  Catalog *catalog;
   CachingService *caches;
 };
 
 TEST_F(JSONTest, String) {
-  RawContext &ctx = *prepareContext("jsonStringIngestion");
+  Context &ctx = *prepareContext("jsonStringIngestion");
 
   string fname = string("inputs/json/json-string.json");
 
@@ -136,7 +136,7 @@ TEST_F(JSONTest, String) {
   /**
    * PRINT
    */
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::RecordProjection *proj =
       new expressions::RecordProjection(&intType, lhsArg, field2);
   Print printOp = Print(debugInt, proj, &sel);
@@ -159,7 +159,7 @@ TEST_F(JSONTest, String) {
 
 TEST_F(JSONTest, ScanJSON) {
   const char *testLabel = "scanJSON.json";
-  RawContext &ctx = *prepareContext(testLabel);
+  Context &ctx = *prepareContext(testLabel);
 
   string fname = string("inputs/json/jsmn-flat.json");
 
@@ -211,7 +211,7 @@ TEST_F(JSONTest, ScanJSON) {
 
 TEST_F(JSONTest, SelectJSON) {
   const char *testLabel = "selectJSON.json";
-  RawContext &ctx = *prepareContext(testLabel);
+  Context &ctx = *prepareContext(testLabel);
 
   string fname = string("inputs/json/jsmn-flat.json");
 
@@ -277,7 +277,7 @@ TEST_F(JSONTest, SelectJSON) {
 
 TEST_F(JSONTest, unnestJSON) {
   const char *testLabel = "unnestJSONEmployees.json";
-  RawContext &ctx = *prepareContext(testLabel);
+  Context &ctx = *prepareContext(testLabel);
 
   string fname = string("inputs/json/employees-flat.json");
 
@@ -348,7 +348,7 @@ TEST_F(JSONTest, unnestJSON) {
   // aliases
   projections.push_back(recPrev);
   projections.push_back(recUnnested);
-  Function *debugInt = ctx.getFunction("printi");
+  llvm::Function *debugInt = ctx.getFunction("printi");
   expressions::Expression *nestedArg =
       new expressions::InputArgument(&unnestedType, 0, projections);
 
@@ -387,7 +387,7 @@ TEST_F(JSONTest, unnestJSON) {
 /* json plugin seems broken if linehint not provided */
 TEST_F(JSONTest, reduceListObjectFlat) {
   const char *testLabel = "jsonFlushList.json";
-  RawContext &ctx = *prepareContext(testLabel);
+  Context &ctx = *prepareContext(testLabel);
 
   string fname = string("inputs/json/jsmnDeeper-flat.json");
 
@@ -465,7 +465,7 @@ TEST_F(JSONTest, reduceListObjectFlat) {
 bool JSONTest::reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
                                        jsmntok_t **tokens) {
   const char *testLabel = "reduceJSONCached.json";
-  RawContext &ctx = *prepareContext("Reduce-JSONMax");
+  Context &ctx = *prepareContext("Reduce-JSONMax");
 
   cout << "Input: " << fname << endl;
 
@@ -542,7 +542,7 @@ bool JSONTest::reduceJSONMaxFlatCached(bool longRun, int lineHint, string fname,
 /* SELECT MAX(obj.b) FROM jsonFile obj WHERE obj.b  > 43 */
 TEST_F(JSONTest, reduceMax) {
   bool longRun = false;
-  RawContext &ctx = *prepareContext("Reduce-JSONMax");
+  Context &ctx = *prepareContext("Reduce-JSONMax");
 
   string fname;
   size_t lineHint;
@@ -646,7 +646,7 @@ TEST_F(JSONTest, reduceMax) {
 TEST_F(JSONTest, reduceDeeperMax) {
   bool longRun = false;
   const char *testLabel = "reduceDeeperMax.json";
-  RawContext &ctx = *prepareContext(testLabel);
+  Context &ctx = *prepareContext(testLabel);
 
   string fname;
   size_t lineHint;
