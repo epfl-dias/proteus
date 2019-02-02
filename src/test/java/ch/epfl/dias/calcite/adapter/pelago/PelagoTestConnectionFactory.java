@@ -11,7 +11,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
-  private static final String schemaPath = "../raw-jit-executor/inputs/plans/schema.json";
+  private static final String schemaPath = "../executor/inputs/plans/schema.json";
 //  private static final String schemaPath = "inputs/plans/schema.json";
 
   private static PelagoTestConnectionFactory instance = null;
