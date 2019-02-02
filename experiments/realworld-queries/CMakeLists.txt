@@ -3,7 +3,7 @@ file(GLOB spam_workload *.cpp)
 add_executable(spam-workload ${spam_workload})
 target_link_libraries(spam-workload ${default_libs})
 install(TARGETS spam-workload
-	RUNTIME DESTINATION raw
+	RUNTIME DESTINATION pelago
 	LIBRARY DESTINATION lib
 	ARCHIVE DESTINATION lib
 	)

@@ -16,7 +16,7 @@ foreach(target ${gtest_src})
 	add_executable(unit-${target_name} ${target} test-utils.cpp)
 	target_link_libraries(unit-${target_name} ${gtest_libs})
 	install(TARGETS unit-${target_name}
-		RUNTIME DESTINATION raw
+		RUNTIME DESTINATION pelago
 		LIBRARY DESTINATION lib
 		ARCHIVE DESTINATION lib
 		)
@@ -26,7 +26,7 @@ endforeach(target)
 add_executable(unit-tests ${gtest_src} test-utils.cpp)
 target_link_libraries(unit-tests ${gtest_libs})
 install(TARGETS unit-tests
-	RUNTIME DESTINATION raw
+	RUNTIME DESTINATION pelago
 	LIBRARY DESTINATION lib
 	ARCHIVE DESTINATION lib
 	)

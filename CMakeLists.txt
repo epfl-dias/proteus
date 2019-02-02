@@ -287,7 +287,7 @@ foreach(target ${MAINS})
 	add_executable(proteus${target} ${target}.cpp)
 	target_link_libraries(proteus${target} ${default_libs})
 	install(TARGETS proteus${target}
-		RUNTIME DESTINATION proteus
+		RUNTIME DESTINATION pelago
 		LIBRARY DESTINATION lib
 		ARCHIVE DESTINATION lib
 		)

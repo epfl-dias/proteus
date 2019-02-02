@@ -13,7 +13,7 @@ foreach(target
 	add_executable(dunit-${target} ${target}.cpp)
 	target_link_libraries(dunit-${target} ${gtest_libs})
 	install(TARGETS dunit-${target}
-		RUNTIME DESTINATION raw
+		RUNTIME DESTINATION pelago
 		LIBRARY DESTINATION lib
 		ARCHIVE DESTINATION lib
 		)
@@ -24,7 +24,7 @@ file(GLOB gtest_src *.cpp)
 add_executable(dunit-tests ${gtest_src})
 target_link_libraries(dunit-tests ${gtest_libs})
 install(TARGETS dunit-tests
-	RUNTIME DESTINATION raw
+	RUNTIME DESTINATION pelago
 	LIBRARY DESTINATION lib
 	ARCHIVE DESTINATION lib
 	)

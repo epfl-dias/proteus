@@ -26,7 +26,7 @@ foreach(target
 	add_executable(${target} ${target}.cpp)
 	target_link_libraries(${target} ${default_libs})
 	install(TARGETS ${target}
-		RUNTIME DESTINATION raw
+		RUNTIME DESTINATION pelago
 		LIBRARY DESTINATION lib
 		ARCHIVE DESTINATION lib
 		)
