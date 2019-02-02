@@ -165,6 +165,6 @@ install(TARGETS codegen
 	ARCHIVE DESTINATION lib
 	)
 
-install(DIRECTORY DESTINATION raw/generated_code)
+install(DIRECTORY DESTINATION pelago/generated_code)
 #enable_testing()
 #add_test(UT codegen-tests) # Add codegen-specific tests?
