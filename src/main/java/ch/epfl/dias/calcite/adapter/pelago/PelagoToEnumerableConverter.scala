@@ -155,6 +155,10 @@ object PelagoToEnumerableConverter {
 
       stdinWriter.println("execute plan from file " + Repl.planfile)
 
+      var tdataload: Long = 0
+      var tcodeopt: Long = 0
+      var tcodeoptnload: Long = 0
+
       while ({line = stdoutReader.readLine(); line != null} && !line.startsWith("result in file")) {
         System.out.println("pelago: " + line)
 
@@ -166,6 +170,22 @@ object PelagoToEnumerableConverter {
         if(line.contains("Tcodegen: ")){
           val tcodegen = java.lang.Long.parseLong("(\\d+)".r.findFirstIn(line).get)
           TimeKeeper.INSTANCE.addTcodegen(tcodegen)
+        }
+
+        if(line.startsWith("Topen (") && line.contains("):") && !line.contains(",")){
+          val m = "(\\d+)ms$".r.findFirstIn(line).get
+          val t = m.slice(0, m.length - 2)
+          tdataload = tdataload + java.lang.Long.parseLong(t)
+        }
+
+        if(line.contains("Optimization time: ")){
+          tcodeopt = tcodeopt + java.lang.Long.parseLong("(\\d+)".r.findFirstIn(line).get)
+        }
+
+        if(line.contains(" C: ") || line.contains(" G: ")){
+          val m = "(\\d+)ms$".r.findFirstIn(line).get
+          val t = m.slice(0, m.length - 2)
+          tcodeoptnload = tcodeoptnload + java.lang.Long.parseLong(t)
         }
       }
 
@@ -181,6 +201,9 @@ object PelagoToEnumerableConverter {
 
       executorTimer.stop()
       TimeKeeper.INSTANCE.addTexecutorTime(executorTimer)
+      TimeKeeper.INSTANCE.addTdataload(tdataload)
+      TimeKeeper.INSTANCE.addTcodeopt(tcodeopt)
+      TimeKeeper.INSTANCE.addTcodeoptnload(tcodeoptnload)
       
       if (Repl.timings) {
         // print the times

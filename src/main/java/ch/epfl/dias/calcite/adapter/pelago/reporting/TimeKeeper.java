@@ -11,6 +11,9 @@ public class TimeKeeper {
     private long tPlanning;
     private long tExecutor;
     private long tCodegen;
+    private long tDataLoad;
+    private long tCodeOpt;
+    private long tCodeOptAndLoad;
     private long tExec;
 
     private Timestamp lastTimestamp;
@@ -23,6 +26,18 @@ public class TimeKeeper {
 
     public void addTcodegen(long time_ms) {
         tCodegen = time_ms;
+    }
+
+    public void addTdataload(long time_ms) {
+        tDataLoad = time_ms;
+    }
+
+    public void addTcodeopt(long time_ms) {
+        tCodeOpt = time_ms;
+    }
+
+    public void addTcodeoptnload(long time_ms) {
+        tCodeOptAndLoad = time_ms;
     }
 
     public void addTplan2json(long time_ms) {
@@ -42,7 +57,7 @@ public class TimeKeeper {
     }
 
     public void refreshTable() {
-        TimeKeeperTable.addTimings(tExecutor + tPlanning + tPlanToJson, tPlanning, tPlanToJson, tExecutor, tCodegen, tExec, lastTimestamp);
+        TimeKeeperTable.addTimings(tExecutor + tPlanning + tPlanToJson, tPlanning, tPlanToJson, tExecutor, tCodegen, tDataLoad, tCodeOpt, tCodeOptAndLoad, tExec, lastTimestamp);
     }
 
 
@@ -50,16 +65,19 @@ public class TimeKeeper {
     public String toString() {
         String format;
         if (Repl.timingscsv()) {
-            format = "Timings,%d,%d,%d,%d,%d,%d";
+            format = "Timings,%d,%d,%d,%d,%d,%d,%d,%d,%d";
         } else {
             format = "Total time: %dms, "
                     + "Planning time: %dms, "
                     + "Flush plan time: %dms, "
                     + "Total executor time: %dms, "
                     + "Codegen time: %dms, "
+                    + "Data Load time: %dms, "
+                    + "Code opt time: %dms, "
+                    + "Code opt'n'load time: %dms, "
                     + "Execution time: %dms";
         }
         return String.format(format, tExecutor + tPlanning + tPlanToJson, tPlanning, tPlanToJson, tExecutor,
-                                tCodegen, tExec, lastTimestamp);
+                                tCodegen, tDataLoad, tCodeOpt, tCodeOptAndLoad, tExec, lastTimestamp);
     }
 }

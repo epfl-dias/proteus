@@ -33,6 +33,9 @@ public class TimeKeeperTable extends SqlCreateTable.MutableArrayTable {
         sb.add("plan2json_time", SqlTypeName.BIGINT);
         sb.add("executor_time", SqlTypeName.BIGINT);
         sb.add("codegen_time", SqlTypeName.BIGINT);
+        sb.add("dataload_time", SqlTypeName.BIGINT);
+        sb.add("code_opt_time", SqlTypeName.BIGINT);
+        sb.add("code_optnload_time", SqlTypeName.BIGINT);
         sb.add("execution_time", SqlTypeName.BIGINT);
         sb.add("timestamp", SqlTypeName.VARCHAR);
 
@@ -41,9 +44,12 @@ public class TimeKeeperTable extends SqlCreateTable.MutableArrayTable {
         return new TimeKeeperTable("Timings", RelDataTypeImpl.proto(sb.build()), RelDataTypeImpl.proto(sb.build()), ief);
     }
 
-    public static void addTimings(long ttotal_ms, long tplanning_ms, long tplan2json_ms, long texecutor_ms,
-            long tcodegen_ms, long texecution_ms, Timestamp timestamp){
-        Object[] arr = {ttotal_ms, tplanning_ms, tplan2json_ms, texecutor_ms, tcodegen_ms, texecution_ms, timestamp.toString()};
+    public static void addTimings(long ttotal_ms, long tplanning_ms,
+            long tplan2json_ms, long texecutor_ms, long tcodegen_ms,
+            long tdataload_ms,
+            long tcode_opt_time_ms, long tcode_optnload_time_ms,
+            long texecution_ms, Timestamp timestamp){
+        Object[] arr = {ttotal_ms, tplanning_ms, tplan2json_ms, texecutor_ms, tcodegen_ms, tdataload_ms, tcode_opt_time_ms, tcode_optnload_time_ms, texecution_ms, timestamp.toString()};
         INSTANCE.rows.add(arr);
     }
 }
