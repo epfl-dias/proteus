@@ -96,12 +96,10 @@ stages:
 # Execution restrictions templates
 .restrict_precommit: &restrict_precommit
  except:
-  - master
   - tags
 
 .restrict_postcommit: &restrict_postcommit
  only:
-  - master
   - tags
 
 .restrict_latest: &restrict_latest
