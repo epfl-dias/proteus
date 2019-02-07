@@ -8,7 +8,7 @@ header = r"""/\*(
     [^\n]+
 )?
                             Copyright \(c\) (\d+)
-        Data Intensive Applications and Systems Labaratory \(DIAS\)
+        Data Intensive Applications and Systems Laboratory \(DIAS\)
                 École Polytechnique Fédérale de Lausanne
 
                             All Rights Reserved.
