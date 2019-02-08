@@ -1,0 +1,267 @@
+#############################################################################
+# gitlab-runner:docker executor options
+image: chapeiro/pelago-build:latest
+
+#############################################################################
+variables:
+ GIT_SUBMODULE_STRATEGY: recursive
+
+#############################################################################
+stages:
+ - Configure            # Environment configuration
+
+ - Check Out            # When extra steps are needed to checkout the sources
+
+ - Build Tools          # When extra tools are required
+
+ - Build Libraries      # When extra libraries are required 
+
+ - Code quality         # Environment configuration
+
+ - Build                # Build the project
+
+ - Install              # Install the software so it can be run for tests
+
+ - Test                 # Functional tests
+
+ - Benchmark            # Performance tests (need to be tagged in order to be
+                        # run on a noise-free system)
+
+ - Package              # Create archives to be installed
+
+ - Publish              # Publish the packages
+
+ - Build Profile        # Build the project with profiling information
+
+ - Profile              # Profile using known workload
+
+#############################################################################
+# Helper Templates
+
+.before_script:
+ - cp -p -t . ${cache_path}/.*done || true
+ # TODO: we should probably remove the next lines and fix that in executor
+ #- ln -s /data/ssbm-100 src/executor/inputs/ssbm100
+ #- ln -s /data/tpch-1 src/executor/inputs/tpch1
+
+.after_script:
+ # we have to recalculate cache_path here
+ - cp -p -t ${cache_path} .*done || true
+
+#----------------------------------------------------------------------------
+# Caching policies templates
+
+.cache: &cache
+ tags:
+  - pelago
+ cache:
+  key: "${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}"
+#  paths:
+#   - src/panorama
+#   - src/planner
+#   - src/SQLPlanner
+
+.cache: &cache_profile
+ cache:
+  key: "${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}-profile"
+#  paths:
+#   - src/panorama
+#   - src/planner
+#   - src/SQLPlanner
+
+#----------------------------------------------------------------------------
+# Execution restrictions templates
+.restrict_precommit: &restrict_precommit
+ except:
+  - tags
+
+.restrict_postcommit: &restrict_postcommit
+ only:
+  - master
+  - tags
+
+.restrict_latest: &restrict_latest
+ except:
+  - tags
+ only:
+  - master
+
+.restrict_release: &restrict_release
+ only:
+  - tags
+
+#----------------------------------------------------------------------------
+# Job templates
+.test: &test
+ stage: Test
+ cache:
+  policy: pull
+ <<: *cache
+ <<: *restrict_precommit
+
+.benchmark: &benchmark
+ stage: Benchmark
+ cache:
+  policy: pull
+ <<: *cache
+
+#############################################################################
+# Example jobs
+#----------------------------------------------------------------------------
+
+# Workaround until we replace the docker image
+.configure-packages:
+ stage: Configure
+ script:
+  - echo "Configure... done"
+ <<: *cache
+ <<: *restrict_precommit
+
+# Check-out environment
+.check-out-submodules:
+ stage: Check Out
+ script:
+  - echo "Check Out... done"
+ <<: *cache
+ <<: *restrict_precommit
+
+#----------------------------------------------------------------------------
+# Setup build environment
+.build-tools:
+ stage: Build Tools
+ script:
+  - echo "Building tools... done"
+ <<: *cache
+ <<: *restrict_precommit
+
+.build-libraries:
+ stage: Build Libraries
+ script:
+  - echo "Building external libs... done"
+ <<: *cache
+ <<: *restrict_precommit
+
+#----------------------------------------------------------------------------
+
+codestyle:
+ stage: Code quality
+ script:
+  # clang-format-7 comes from the llvm repo: https://apt.llvm.org/
+  # remember to update it every time we pop the LLVM version!
+  # if grep returns an error, it didn't find a match, which is OK for us
+  - find . \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' \) | xargs -n1 clang-format-7 -output-replacements-xml --style=file | grep "replacement " || exit 0
+  # otherwise, print message and exist with error code
+  - echo "Non conforming format"
+  - exit 1
+ <<: *cache
+ <<: *restrict_precommit
+
+licenses:
+ stage: Code quality
+ script:
+  - ./tools/check_licenses.py
+ <<: *cache
+ <<: *restrict_precommit
+
+#----------------------------------------------------------------------------
+# Setup test environment
+.build:
+ stage: Build
+ script:
+  - echo "Building... done"
+ <<: *cache
+ <<: *restrict_precommit
+
+.install:
+ stage: Install
+ script:
+  - echo "Installing... done"
+ <<: *cache
+ <<: *restrict_precommit
+
+#----------------------------------------------------------------------------
+# Functional Tests
+.0/0 test:
+ <<: *test
+ script:
+  - echo "Test... done"
+
+#----------------------------------------------------------------------------
+# Performance Tests
+# unhide the jobs by removing the leading '.'
+.bench:
+ stage: Benchmark
+ script:
+  - echo "Bench... done"
+ <<: *cache
+ <<: *restrict_precommit
+
+#----------------------------------------------------------------------------
+# Execution Profiling 
+# unhide the jobs by removing the leading '.'
+.build profile:
+ stage: Build Profile
+ script:
+  - echo "Building Dependencies... done"
+  - echo "Building... done"
+  - echo "Installing... done"
+ when: manual
+ <<: *cache_profile
+ <<: *restrict_precommit
+
+.1/2 profile:
+ stage: Profile
+ script:
+  - echo "Running workload 1... done"
+  - echo "Extracting profiling statistics"
+ when: manual
+ cache:
+  policy: pull
+ <<: *cache_profile
+ <<: *restrict_precommit
+
+.2/2 profile:
+ stage: Profile
+ script:
+  - echo "Running workload 2... done"
+  - echo "Extracting profiling statistics"
+ when: manual
+ cache:
+  policy: pull
+ <<: *cache_profile
+ <<: *restrict_precommit
+
+#----------------------------------------------------------------------------
+# Packaging & distribution
+.tar:
+ stage: Package
+ script:
+  - echo "Generating tar... done"
+ <<: *cache
+ <<: *restrict_postcommit
+
+.tar:latest:
+ stage: Publish
+ script:
+  - echo "Publishing HEAD... done"
+ artifacts:
+  name: "$CI_PROJECT_NAME-g$CI_COMMIT_SHA"
+  paths:
+   - pkg/
+ cache:
+  policy: pull
+ <<: *cache
+ <<: *restrict_latest
+
+.tar:release:
+ stage: Publish
+ script:
+  - echo "Publishing release... done"
+ artifacts:
+  name: "$CI_PROJECT_NAME-$CI_COMMIT_TAG"
+  paths:
+   - pkg/
+ cache:
+  policy: pull
+ <<: *cache
+ <<: *restrict_release
