@@ -124,7 +124,7 @@ object PelagoToEnumerableConverter {
   private var pt      : PelagoResultTable = null
   private var rowType : RelDataType       = null
 
-  var builder = if(Repl.isMockRun) null else new ProcessBuilder("./rawmain-server")
+  var builder = if(Repl.isMockRun) null else new ProcessBuilder("./proteusmain-server")
   var process = if(Repl.isMockRun) null else builder.start()
 
   var stdinWriter  = if(Repl.isMockRun) null else new java.io.PrintWriter  ((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true)
@@ -139,7 +139,7 @@ object PelagoToEnumerableConverter {
       pt.scan(root)
     } else {
       if (process == null || !process.isAlive){
-        builder = new ProcessBuilder("./rawmain-server")
+        builder = new ProcessBuilder("./proteusmain-server")
         process = builder.start()
 
         stdinWriter  = new java.io.PrintWriter((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true)

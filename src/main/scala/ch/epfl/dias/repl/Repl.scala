@@ -70,7 +70,7 @@ object Repl extends App {
     }
   }
 
-  val topology = Process("./rawmain-server --query-topology").!!
+  val topology = Process("./proteusmain-server --query-topology").!!
   val gpudop_regex = """gpu  count: (\d+)""".r.unanchored
   val detected_gpudop = topology match {
     case gpudop_regex(g) => g.toInt
