@@ -2,6 +2,7 @@ package ch.epfl.dias.calcite.adapter.pelago
 
 import java.util
 
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
 import ch.epfl.dias.emitter.Binding
 import org.apache.calcite.plan._
 import org.apache.calcite.rel._
@@ -10,7 +11,6 @@ import org.apache.calcite.rel.core.TableScan
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.json4s.JsonDSL._
 import org.json4s._
-
 import ch.epfl.dias.emitter.PlanToJSON._
 
 /**
@@ -47,6 +47,10 @@ class PelagoDictTableScan protected (cluster: RelOptCluster, traitSet: RelTraitS
   }
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    mq.getNonCumulativeCost(this)
+  }
+
+  override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     super.computeSelfCost(planner, mq).multiplyBy(10*(10000 + 2D) / (table.getRowType.getFieldCount.toDouble + 2D))
   }
 
@@ -74,9 +78,12 @@ class PelagoDictTableScan protected (cluster: RelOptCluster, traitSet: RelTraitS
 
 object PelagoDictTableScan {
   def create(cluster: RelOptCluster, table: RelOptTable, regex: String, attrIndex: Int) = {
+    val mq = cluster.getMetadataQuery
     val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
       .replaceIf(RelDistributionTraitDef.INSTANCE, () => RelDistributions.SINGLETON)
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
+      .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => RelHetDistribution.SINGLETON)
+      .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(RelDeviceType.X86_64))
       .replaceIf(RelPackingTraitDef.INSTANCE, () => RelPacking.UnPckd);
     new PelagoDictTableScan(cluster, traitSet, table, regex, attrIndex)
   }

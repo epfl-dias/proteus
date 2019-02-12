@@ -1,5 +1,6 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
 import org.apache.calcite.plan._
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.Exchange
@@ -28,18 +29,24 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
   override def copy(traitSet: RelTraitSet, input: RelNode, distribution: RelDistribution) = PelagoRouter.create(input, distribution)
 
   override def estimateRowCount(mq: RelMetadataQuery): Double = {
-    var rc = super.estimateRowCount(mq)
+    val rc = mq.getRowCount(getInput)
 //    if      (getDistribution eq RelDistributions.BROADCAST_DISTRIBUTED) rc = rc * 4.0
 //    else if (getDistribution eq RelDistributions.RANDOM_DISTRIBUTED   ) rc = rc / 4.0 //TODO: Does this hold even when input is already distributed ?
     rc
   }
 
+
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    mq.getNonCumulativeCost(this)
+  }
+
+  override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     //    if (traitSet.containsIfApplicable(RelPacking.UnPckd)) return planner.getCostFactory.makeHugeCost()
     val rf = 1e-6 * (if (distribution == RelDistributions.BROADCAST_DISTRIBUTED) 10 else 1)
+    val rf2 = 1e-6 * (if (getTraitSet.containsIfApplicable(RelPacking.UnPckd)) 1e6 else 1)
     var base = super.computeSelfCost(planner, mq)
     //    if (getDistribution.getType eq RelDistribution.Type.HASH_DISTRIBUTED) base = base.multiplyBy(80)
-    planner.getCostFactory.makeCost(base.getRows, base.getCpu * rf, base.getIo)
+    planner.getCostFactory.makeCost(base.getRows, base.getCpu * rf * rf2, base.getIo)
     //    planner.getCostFactory.makeZeroCost()
   }
 
@@ -162,7 +169,8 @@ object PelagoRouter{
   def create(input: RelNode, distribution: RelDistribution): PelagoRouter = {
     val cluster  = input.getCluster
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(distribution)
-      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64);
+      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
+      .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input, false))
     new PelagoRouter(input.getCluster, traitSet, input, distribution)
   }
 }

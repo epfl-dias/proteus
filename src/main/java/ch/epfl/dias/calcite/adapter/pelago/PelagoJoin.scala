@@ -18,6 +18,7 @@ import org.json4s._
 import scala.collection.JavaConverters._
 import java.util
 
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMetadataQuery}
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.sql.SqlKind
@@ -39,7 +40,11 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     PelagoJoin.create(left, right, conditionExpr, getVariablesSet, joinType)
   }
 
-  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Pelago does not support cross products
+  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    mq.getNonCumulativeCost(this)
+  }
+
+  override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     if (condition.isAlwaysTrue) return planner.getCostFactory.makeHugeCost
     //    if (!getCondition.isA(SqlKind.EQUALS)) return planner.getCostFactory.makeHugeCost
 
@@ -54,6 +59,13 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       }
     }
 
+    val rf2 = {
+      if (getTraitSet.containsIfApplicable(RelHetDistribution.SINGLETON)) {
+        1e8
+      } else {
+        1e-5
+      }
+    }
     //    if (getLeft.getRowType.getFieldCount > 1) return planner.getCostFactory.makeHugeCost
     //    if (traitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX))) return planner.getCostFactory.makeTinyCost
     //    var devFactor = if (traitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == RelDeviceType.NVPTX) 0.1 else 1
@@ -89,7 +101,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       //TODO: Cost should change for radix-HJ
     }
     rc1 += rc2 * right.getRowType.getFieldCount
-    planner.getCostFactory.makeCost(rowCount, rc1 * 10000 * rf, 0)
+    planner.getCostFactory.makeCost(rowCount * rf2, rc1 * 10000 * rf * rf2, 0)
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("build", left.getRowType.toString).item("lcount", Util.nLogN(left.estimateRowCount(left.getCluster.getMetadataQuery) * left.getRowType.getFieldCount)).item("rcount", right.estimateRowCount(right.getCluster.getMetadataQuery)).item("buildcountrow", left.estimateRowCount(left.getCluster.getMetadataQuery)).item("probecountrow", right.estimateRowCount(right.getCluster.getMetadataQuery))
@@ -248,7 +260,9 @@ object PelagoJoin {
 
     val cluster = right.getCluster
     val mq = cluster.getMetadataQuery
+    val dev = ImmutableList.of(left, right).stream().map[RelComputeDevice]((e) => mq.asInstanceOf[PelagoRelMetadataQuery].computeType(e))
     val traitSet = right.getTraitSet.replace(PelagoRel.CONVENTION)
+      .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(ImmutableList.of(RelComputeDevice.from(dev), RelComputeDevice.from(left), RelComputeDevice.from(right)).stream()))
 
     assert(right.getTraitSet.containsIfApplicable(RelPacking.UnPckd))
     assert(left.getTraitSet.containsIfApplicable(RelPacking.UnPckd))

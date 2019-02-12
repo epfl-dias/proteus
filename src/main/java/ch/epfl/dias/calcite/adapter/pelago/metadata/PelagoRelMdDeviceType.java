@@ -1,5 +1,6 @@
 package ch.epfl.dias.calcite.adapter.pelago.metadata;
 
+import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.hep.HepRelVertex;
 import org.apache.calcite.rel.BiRel;
 import org.apache.calcite.rel.RelDistribution;
@@ -7,8 +8,10 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.Exchange;
+import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.SetOp;
+import org.apache.calcite.rel.core.Sort;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.metadata.BuiltInMetadata;
@@ -25,6 +28,7 @@ import org.apache.calcite.util.BuiltInMethod;
 import com.google.common.collect.ImmutableList;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoTable;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
@@ -35,15 +39,15 @@ import java.util.List;
 public class PelagoRelMdDeviceType implements MetadataHandler<DeviceType> {
   private static final PelagoRelMdDeviceType INSTANCE = new PelagoRelMdDeviceType();
 
-  public static final RelMetadataProvider SOURCE =
-      ChainedRelMetadataProvider.of(
-          ImmutableList.of(
-              ReflectiveRelMetadataProvider.reflectiveSource(
-                  DeviceType.method, PelagoRelMdDeviceType.INSTANCE),
-              RelMdDeviceType.SOURCE));
+  public static final RelMetadataProvider SOURCE = ReflectiveRelMetadataProvider.reflectiveSource(
+                  DeviceType.method, PelagoRelMdDeviceType.INSTANCE);
 
   public MetadataDef<DeviceType> getDef() {
     return DeviceType.DEF;
+  }
+
+  public RelDeviceType deviceType(TableScan scan, RelMetadataQuery mq) {
+    return table(scan.getTable());
   }
 
   public RelDeviceType deviceType(PelagoTableScan scan, RelMetadataQuery mq) {
@@ -106,6 +110,11 @@ public class PelagoRelMdDeviceType implements MetadataHandler<DeviceType> {
     return ((PelagoRelMetadataQuery) mq).deviceType(input);
   }
 
+  /** Helper method to determine a
+   * {@link Filter}'s deviceType. */
+  public static RelDeviceType filter(RelMetadataQuery mq, RelNode input) {
+    return ((PelagoRelMetadataQuery) mq).deviceType(input);
+  }
 
   /** Helper method to determine a {@link Project}'s collation. */
   public static RelDeviceType project(RelMetadataQuery mq, RelNode input,
@@ -115,5 +124,25 @@ public class PelagoRelMdDeviceType implements MetadataHandler<DeviceType> {
 //        Project.getPartialMapping(input.getRowType().getFieldCount(),
 //            projects);
     return inputdeviceType; //.apply(mapping); // TODO: Should we do something here ?
+  }
+
+  // Helper methods
+
+  /** Helper method to determine a
+   * {@link Sort}'s deviceType. */
+  public static RelDeviceType sort(RelMetadataQuery mq, RelNode input) {
+    return ((PelagoRelMetadataQuery) mq).deviceType(input);
+  }
+
+  /** Helper method to determine a
+   * {@link TableScan}'s deviceType. */
+  public static RelDeviceType table(RelOptTable table) {
+    return RelDeviceType.X86_64;
+  }
+
+  /** Helper method to determine a
+   * {@link TableScan}'s deviceType. */
+  public static RelDeviceType table(PelagoTable table) {
+    return table.getDeviceType();
   }
 }

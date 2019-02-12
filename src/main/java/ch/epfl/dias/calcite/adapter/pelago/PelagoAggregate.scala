@@ -16,10 +16,9 @@ import org.json4s._
 import scala.collection.JavaConverters._
 import java.util
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMdDeviceType
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdHetDistribution, PelagoRelMetadataQuery}
 import ch.epfl.dias.emitter.PlanConversionException
 import org.apache.calcite.sql.SqlKind
-
 import ch.epfl.dias.emitter.Binding
 import ch.epfl.dias.emitter.PlanToJSON._
 
@@ -36,6 +35,10 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
   }
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    mq.getNonCumulativeCost(this)
+  }
+
+  override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     for (agg <- getAggCallList().asScala){
         if (agg.getAggregation().getKind() == SqlKind.AVG) return getCluster.getPlanner.getCostFactory.makeHugeCost();
     }
@@ -45,13 +48,18 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
       else 1e6
     }
 
+    val rf2 = {
+      if (getTraitSet.containsIfApplicable(RelHetDistribution.SPLIT)) 1e-9
+      else 1
+    }
+
     var base = super.computeSelfCost(planner, mq)
 
-    val cpuCost = (if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) 1e-2 else 1e4) *
-      rf *
+    val cpuCost = (if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) 1e-2 else (1e-2 + 1e-1 * mq.getRowCount(getInput))) *
+      rf * rf2 *
       Math.log(getInput.getRowType.getFieldCount + 10) *
       mq.getRowCount(getInput) *
-      1e5
+      1e10
 
     planner.getCostFactory.makeCost(base.getRows, cpuCost, base.getIo)
   }
@@ -157,11 +165,14 @@ object PelagoAggregate{
   def create(input: RelNode, indicator: Boolean, groupSet: ImmutableBitSet, groupSets: util.List[ImmutableBitSet], aggCalls: util.List[AggregateCall], isGlobalAgg: Boolean): PelagoAggregate = {
     val cluster = input.getCluster
     val mq = cluster.getMetadataQuery
+    val dev = PelagoRelMdDeviceType.aggregate(mq, input)
     val traitSet = cluster.traitSet
       .replace(PelagoRel.CONVENTION)
 //      .replace(RelDistributions.SINGLETON)
       .replaceIf(RelDistributionTraitDef.INSTANCE, () => mq.distribution(input))
-      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => PelagoRelMdDeviceType.aggregate(mq, input));
+      .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].hetDistribution(input))
+      .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
+      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);
     new PelagoAggregate(cluster, traitSet, input, indicator, groupSet, groupSets, aggCalls, isGlobalAgg)
   }
 }

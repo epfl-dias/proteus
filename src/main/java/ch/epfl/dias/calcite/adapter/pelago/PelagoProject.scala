@@ -17,7 +17,7 @@ import org.json4s.JsonAST
 import scala.collection.JavaConverters._
 import java.util
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution}
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution, PelagoRelMetadataQuery}
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, getFields}
 
 /**
@@ -32,16 +32,26 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
     PelagoProject.create(input, projects, rowType)
   }
 
+
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    mq.getNonCumulativeCost(this)
+  }
+
+  override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     val rf = if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
       0.0001
     } else {
       0.01
     }
+    val rf2 = if (getTraitSet.containsIfApplicable(RelHetDistribution.SINGLETON)) {
+      1e5
+    } else {
+      1
+    }
     val s = super.computeSelfCost(planner, mq)
     planner.getCostFactory.makeCost(
-      s.getRows,
-      s.getCpu * rf,
+      s.getRows * rf2,
+      s.getCpu * rf * rf2,
       s.getIo
     )
   }
@@ -78,9 +88,11 @@ object PelagoProject{
   def create(input: RelNode, projects: util.List[_ <: RexNode], rowType: RelDataType): PelagoProject = {
     val cluster  = input.getCluster
     val mq       = cluster.getMetadataQuery
+    val dev      = PelagoRelMdDeviceType.project(mq, input, projects)
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
       .replaceIf(RelDistributionTraitDef.INSTANCE, () => PelagoRelMdDistribution.project(mq, input, projects))
-      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => PelagoRelMdDeviceType.project(mq, input, projects));
+      .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
+      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);
     assert(traitSet.containsIfApplicable(RelPacking.UnPckd))
     new PelagoProject(cluster, traitSet, input, projects, rowType)
   }

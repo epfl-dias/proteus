@@ -1,4 +1,4 @@
-name := "SQLPlanner"
+name := "clotho"
 
 version := "0.1"
 

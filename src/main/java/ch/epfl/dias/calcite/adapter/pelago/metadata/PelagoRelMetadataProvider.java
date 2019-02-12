@@ -23,11 +23,13 @@ public class PelagoRelMetadataProvider extends ChainedRelMetadataProvider {
     super(
         ImmutableList.of(
             PelagoRelMdDeviceType       .SOURCE,
+            PelagoRelMdComputeDevice    .SOURCE,
             PelagoRelMdDistribution     .SOURCE,
+            PelagoRelMdHetDistribution  .SOURCE,
             PelagoRelMdPacking          .SOURCE,
             PelagoRelMdRowCount         .SOURCE,
             PelagoRelMdExpressionLineage.SOURCE,
-            RelMdDeviceType             .SOURCE,
+            PelagoRelMdSelfCost         .SOURCE(),
             DefaultRelMetadataProvider  .INSTANCE));
   }
 }

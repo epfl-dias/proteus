@@ -5,6 +5,9 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
+import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
+import ch.epfl.dias.calcite.adapter.pelago.RelHetDistributionTraitDef;
+
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
@@ -41,13 +44,13 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
 //        System.out.println(inp.getTraitSet());
 
         RelTraitSet traitSet = rel.getTraitSet().replace(PelagoRel.CONVENTION)
-                .replaceIf(RelDistributionTraitDef.INSTANCE, () -> RelDistributions.SINGLETON)
-                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64);
+            .replaceIf(RelDistributionTraitDef.INSTANCE, () -> RelDistributions.SINGLETON)
+            .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64);
 
 //        RelNode inp = rel;//convert(convert(rel, RelDistributions.SINGLETON), RelDeviceType.X86_64); //Convert to sequential
         RelNode inp = convert(rel, traitSet);
 
-        RelNode tmp = PelagoToEnumerableConverter.create(inp);
+        RelNode tmp = PelagoToEnumerableConverter.create(convert(inp, RelHetDistribution.SINGLETON));
         return tmp;
     }
 
@@ -55,6 +58,7 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
 //        return true;
 //        if (!call.rel(0).getTraitSet().satisfies(RelTraitSet.createEmpty().plus(RelDistributions.SINGLETON))) return false;
 //        if (!call.rel(0).getTraitSet().contains(RelDeviceType.X86_64)) return false;
-        return true;
+//        if (call.rel(0).getTraitSet().containsIfApplicable(PelagoRel.CONVENTION)) return false;
+        return call.rel(0).getTraitSet().containsIfApplicable(RelHetDistribution.SINGLETON);
     }
 }

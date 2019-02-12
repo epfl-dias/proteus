@@ -206,5 +206,3 @@ public class PelagoRelMdPacking
     return RelPacking.Packed;
   }
 }
-
-// End RelMdDeviceType.java

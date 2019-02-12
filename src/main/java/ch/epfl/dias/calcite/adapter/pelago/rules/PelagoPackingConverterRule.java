@@ -39,6 +39,6 @@ public class PelagoPackingConverterRule extends ConverterRule {
 
     public boolean matches(RelOptRuleCall call) {
         if (call.rel(0).getConvention() != PelagoRel.CONVENTION) return false;
-        return true;
+        return !call.rel(0).getTraitSet().containsIfApplicable(target_packing);
     }
 }

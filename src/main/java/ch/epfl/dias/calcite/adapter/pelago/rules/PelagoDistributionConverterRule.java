@@ -5,6 +5,7 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelDistributions;
 
 import com.google.common.base.Predicates;
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
@@ -29,12 +30,16 @@ public class PelagoDistributionConverterRule extends ConverterRule {
         new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , RelDistributions.RANDOM_DISTRIBUTED            , PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule BRDCST_INSTANCE3 =
         new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , RelDistributions.SINGLETON                     , PelagoRelFactories.PELAGO_BUILDER);
+    public static final ConverterRule BRDCST_INSTANCE4 =
+        new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , PelagoRelDistributions.BRDCSPLIT               , PelagoRelFactories.PELAGO_BUILDER);
 //    public static final ConverterRule SEQNTL_INSTANCE =
 //            new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.RANDOM_DISTRIBUTED   , PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule SEQNTL_INSTANCE2 =
         new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.RANDOM_DISTRIBUTED   , PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule RANDOM_INSTANCE =
             new PelagoDistributionConverterRule(RelDistributions.RANDOM_DISTRIBUTED   , RelDistributions.SINGLETON            , PelagoRelFactories.PELAGO_BUILDER);
+    public static final ConverterRule RANDOM_INSTANCE2 =
+        new PelagoDistributionConverterRule(RelDistributions.RANDOM_DISTRIBUTED   , PelagoRelDistributions.SPLIT        , PelagoRelFactories.PELAGO_BUILDER);
 
     private final RelDistribution distribution;
 
@@ -63,8 +68,8 @@ public class PelagoDistributionConverterRule extends ConverterRule {
 
     public boolean matches(RelOptRuleCall call) {
 //        if (call.rel(0).getConvention() != PelagoRel.CONVENTION) return false;
-        return true;
-//        return !call.rel(0).getTraitSet().satisfies(RelTraitSet.createEmpty().plus(distribution));
+        return !call.rel(0).getTraitSet().containsIfApplicable(distribution);
+//        return !(call.rel(0).getTraitSet().getTrait(RelDistributionTraitDef.INSTANCE) instanceof PelagoRelDistributions);
     }
 
 }

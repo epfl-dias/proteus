@@ -1,6 +1,5 @@
 package org.apache.calcite.prepare;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -24,7 +23,6 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
-import org.apache.calcite.rel.core.Calc;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -57,7 +55,9 @@ import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.Util;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
+import ch.epfl.dias.calcite.adapter.pelago.RelComputeDeviceTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
+import ch.epfl.dias.calcite.adapter.pelago.RelHetDistributionTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelPackingTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
@@ -96,9 +96,11 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             RelOptCostFactory costFactory) {
         RelOptCostFactory cFactory = (costFactory == null) ? PelagoCostFactory.INSTANCE : costFactory;
         RelOptPlanner planner = super.createPlanner(prepareContext, externalContext, cFactory);
-        planner.addRelTraitDef(RelDistributionTraitDef.INSTANCE);
-        planner.addRelTraitDef(RelDeviceTypeTraitDef  .INSTANCE);
-        planner.addRelTraitDef(RelPackingTraitDef     .INSTANCE);
+        planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE);
+        planner.addRelTraitDef(RelDistributionTraitDef   .INSTANCE);
+        planner.addRelTraitDef(RelDeviceTypeTraitDef     .INSTANCE);
+        planner.addRelTraitDef(RelPackingTraitDef        .INSTANCE);
+        planner.addRelTraitDef(RelComputeDeviceTraitDef  .INSTANCE);
 //        planner.addRelTraitDef(RelDataLocalityTraitDef.INSTANCE);
 
 //        COMMUTE
@@ -153,9 +155,9 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         /*push filter into the children of a join*/
         rules.add(FilterTableScanRule.INSTANCE);
         // push and merge projection rules
-        rules.add(new ProjectRemoveRule(PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(new ProjectJoinTransposeRule(PushProjector.ExprCondition.TRUE, PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(JoinProjectTransposeRule.BOTH_PROJECT);
+        rules.add(ProjectRemoveRule.INSTANCE);
+        rules.add(ProjectJoinTransposeRule.INSTANCE);//new ProjectJoinTransposeRule(PushProjector.ExprCondition.TRUE, PelagoRelFactories.PELAGO_BUILDER));
+//        rules.add(JoinProjectTransposeRule.BOTH_PROJECT);
         rules.add(ProjectFilterTransposeRule.INSTANCE); //XXX causes non-termination
         /*it is better to use filter first an then project*/
         rules.add(ProjectTableScanRule.INSTANCE);
@@ -187,11 +189,9 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         rules.add(ReduceExpressionsRule.JOIN_INSTANCE);
 
         // prune empty results rules
-        rules.add(new PruneEmptyRules.RemoveEmptySingleRule(Filter.class, "PruneEmptyFilter"));
-        rules.add(new PruneEmptyRules.RemoveEmptySingleRule(Project.class, Predicates.<Project>alwaysTrue(),
-            PelagoRelFactories.PELAGO_BUILDER, "PruneEmptyProject"));
-        rules.add(new PruneEmptyRules.RemoveEmptySingleRule(Aggregate.class, Aggregate.IS_NOT_GRAND_TOTAL,
-            PelagoRelFactories.PELAGO_BUILDER, "PruneEmptyAggregate"));
+        rules.add(PruneEmptyRules.FILTER_INSTANCE);
+        rules.add(PruneEmptyRules.PROJECT_INSTANCE);
+        rules.add(PruneEmptyRules.AGGREGATE_INSTANCE);
         rules.add(PruneEmptyRules.JOIN_LEFT_INSTANCE);
         rules.add(PruneEmptyRules.JOIN_RIGHT_INSTANCE);
         rules.add(ProjectTableScanRule.INSTANCE);

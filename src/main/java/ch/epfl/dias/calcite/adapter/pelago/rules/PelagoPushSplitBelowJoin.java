@@ -2,25 +2,21 @@ package ch.epfl.dias.calcite.adapter.pelago.rules;
 
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
-import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoJoin;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoSplit;
-import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
-import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
+import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
 
-public class PelagoPushRouterBelowJoin extends RelOptRule {
-  public static final PelagoPushRouterBelowJoin INSTANCE = new PelagoPushRouterBelowJoin();
+public class PelagoPushSplitBelowJoin extends RelOptRule {
+  public static final PelagoPushSplitBelowJoin INSTANCE = new PelagoPushSplitBelowJoin();
 
-  protected PelagoPushRouterBelowJoin() {
+  protected PelagoPushSplitBelowJoin() {
     super(
       operand(
-        PelagoRouter.class,
+        PelagoSplit.class,
         operand(
           PelagoJoin.class,
 //          any()
@@ -32,7 +28,7 @@ public class PelagoPushRouterBelowJoin extends RelOptRule {
   }
 
   public boolean matches(RelOptRuleCall call) {
-    return ((PelagoRouter) call.rel(0)).getDistribution() == RelDistributions.RANDOM_DISTRIBUTED;
+    return ((PelagoSplit) call.rel(0)).hetdistribution() == RelHetDistribution.SPLIT;
   }
 
   public void onMatch(RelOptRuleCall call) {
@@ -58,9 +54,9 @@ public class PelagoPushRouterBelowJoin extends RelOptRule {
     RelNode      build  = call.rel(2);
     RelNode      probe  = call.rel(3);
 
-    RelNode new_build = convert(build, RelDistributions.BROADCAST_DISTRIBUTED);
+    RelNode new_build = convert(build, RelHetDistribution.SPLIT_BRDCST);
 
-    RelNode new_probe = convert(probe, RelDistributions.RANDOM_DISTRIBUTED);
+    RelNode new_probe = convert(probe, RelHetDistribution.SPLIT);
 
 
     call.transformTo(

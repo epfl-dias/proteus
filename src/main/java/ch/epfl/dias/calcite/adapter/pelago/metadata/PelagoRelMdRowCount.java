@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableList;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoPack;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoSplit;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoUnion;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoUnnest;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoUnpack;
 import ch.epfl.dias.calcite.adapter.pelago.RelPacking;
@@ -46,11 +48,11 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
   }
 
   public Double getRowCount(PelagoRouter rel, RelMetadataQuery mq) {
-    return rel.estimateRowCount(mq);
+    return mq.getRowCount(rel.getInput());
   }
 
   public Double getRowCount(PelagoPack rel, RelMetadataQuery mq) {
-    return rel.estimateRowCount(mq);
+    return Math.ceil(mq.getRowCount(rel.getInput()) / (1024));
   }
 
   public Double getRowCount(Aggregate rel, RelMetadataQuery mq) {
@@ -59,11 +61,19 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
   }
 
   public Double getRowCount(PelagoUnpack rel, RelMetadataQuery mq) {
-    return rel.estimateRowCount(mq);
+    return mq.getRowCount(rel.getInput()) * (1024);
+  }
+
+  public Double getRowCount(PelagoSplit rel, RelMetadataQuery mq) {
+    return mq.getRowCount(rel.getInput()) / 2;
+  }
+
+  public Double getRowCount(PelagoUnion rel, RelMetadataQuery mq) {
+    return mq.getRowCount(rel.getInput(0)) + mq.getRowCount(rel.getInput(1));
   }
 
   public Double getRowCount(PelagoDeviceCross rel, RelMetadataQuery mq) {
-    return rel.estimateRowCount(mq);
+    return mq.getRowCount(rel.getInput());
   }
 
   public Double getRowCount(PelagoTableScan rel, RelMetadataQuery mq) {

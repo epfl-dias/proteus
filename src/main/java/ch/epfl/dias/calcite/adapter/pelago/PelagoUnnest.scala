@@ -2,6 +2,7 @@ package ch.epfl.dias.calcite.adapter.pelago
 
 import java.util
 
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
 import ch.epfl.dias.emitter.Binding
 import ch.epfl.dias.emitter.PlanToJSON._
 import org.apache.calcite.plan.{RelOptCluster, RelOptCost, RelOptPlanner, RelTraitSet}
@@ -51,7 +52,12 @@ class PelagoUnnest protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
 
   override def estimateRowCount(mq: RelMetadataQuery): Double = input.estimateRowCount(mq) * 8
 
+
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    mq.getNonCumulativeCost(this)
+  }
+
+  override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
       super.computeSelfCost(planner, mq).multiplyBy(100)
     } else {
@@ -156,6 +162,7 @@ object PelagoUnnest{
   def create(input: RelNode, correlationId: CorrelationId, namedProjections: List[Pair[RexNode, String]], rowType: RelDataType): PelagoUnnest = {
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
+      .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
 
     new PelagoUnnest(input.getCluster, traitSet, input, correlationId, rowType, namedProjections)
   }

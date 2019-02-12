@@ -3,7 +3,7 @@ package ch.epfl.dias.calcite.adapter.pelago
 import java.util
 import java.util.List
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution}
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution, PelagoRelMetadataQuery}
 import org.apache.calcite.rel.metadata.RelMdDistribution
 import org.apache.calcite.rel.{RelDistribution, RelDistributionTraitDef, RelDistributions}
 
@@ -43,8 +43,12 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
 
   def copy(traitSet: RelTraitSet, input: RelNode, deviceType: RelDeviceType) = PelagoDeviceCross.create(input, deviceType)
 
-  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Higher cost if rows are wider discourages pushing a project through an
-    if (traitSet.containsIfApplicable(RelPacking.UnPckd) && (getDeviceType eq RelDeviceType.NVPTX)) return planner.getCostFactory.makeHugeCost()
+  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    mq.getNonCumulativeCost(this)
+  }
+
+  override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Higher cost if rows are wider discourages pushing a project through an
+//    if (traitSet.containsIfApplicable(RelPacking.UnPckd) && (getDeviceType eq RelDeviceType.NVPTX)) return planner.getCostFactory.makeHugeCost()
     // exchange.
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
@@ -103,6 +107,8 @@ object PelagoDeviceCross {
     val cluster = input.getCluster
     val mq = cluster.getMetadataQuery
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(toDevice)
+      .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input, false))
+      .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].hetDistribution(input))
     new PelagoDeviceCross(input.getCluster, traitSet, input, toDevice)
   }
 }

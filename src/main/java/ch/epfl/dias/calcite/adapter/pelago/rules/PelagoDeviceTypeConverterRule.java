@@ -54,7 +54,7 @@ public class PelagoDeviceTypeConverterRule extends ConverterRule {
 
     public boolean matches(RelOptRuleCall call) {
         if (call.rel(0).getConvention() != PelagoRel.CONVENTION) return false;
-        return true;
+        return !call.rel(0).getTraitSet().containsIfApplicable(target_device);
 //        return !call.rel(0).getTraitSet().satisfies(RelTraitSet.createEmpty().plus(target_device));
     }
 }

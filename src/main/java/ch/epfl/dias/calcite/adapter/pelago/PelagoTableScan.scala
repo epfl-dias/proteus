@@ -11,9 +11,9 @@ import org.json4s.JsonDSL._
 import org.json4s._
 
 import scala.collection.JavaConverters._
-
 import java.util
 
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
 import ch.epfl.dias.emitter.PlanToJSON._
 
 /**
@@ -51,7 +51,12 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     //    planner.addRule(PelagoProjectTableScanRule.INSTANCE);
   }
 
+
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    mq.getNonCumulativeCost(this)
+  }
+
+  override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     // Multiply the cost by a factor that makes a scan more attractive if it
     // has significantly fewer fields than the original scan.
     val s = super.computeSelfCost(planner, mq)
@@ -158,7 +163,8 @@ object PelagoTableScan {
       val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
         .replaceIf(RelDistributionTraitDef.INSTANCE, () => pelagoTable.getDistribution)
         .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => pelagoTable.getDeviceType)
-        .replaceIf(RelPackingTraitDef.INSTANCE, () => pelagoTable.getPacking);
+        .replaceIf(RelPackingTraitDef.INSTANCE, () => pelagoTable.getPacking)
+        .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => if (pelagoTable.getPacking == RelPacking.UnPckd) RelComputeDevice.NONE else RelComputeDevice.from(pelagoTable.getDeviceType));
     new PelagoTableScan(cluster, traitSet, table, pelagoTable, fields)
   }
 }

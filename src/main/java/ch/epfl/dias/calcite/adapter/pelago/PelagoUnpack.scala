@@ -2,6 +2,7 @@ package ch.epfl.dias.calcite.adapter.pelago
 
 import java.util
 
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, getFields}
 import org.apache.calcite.rel.{RelDistribution, RelDistributions}
 import org.apache.calcite.rex.RexInputRef
@@ -39,7 +40,13 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
 
   def copy(traitSet: RelTraitSet, input: RelNode, packing: RelPacking) = PelagoUnpack.create(input, packing)
 
-  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Higher cost if rows are wider discourages pushing a project through an
+
+  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    mq.getNonCumulativeCost(this)
+  }
+
+  override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    // Higher cost if rows are wider discourages pushing a project through an
     val rf = {
       if (!getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
         if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.0001
@@ -58,8 +65,6 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
 //    if (input.getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == toDevice) planner.getCostFactory.makeHugeCost()
 //    else planner.getCostFactory.makeTinyCost
   }
-
-  override def estimateRowCount(mq: RelMetadataQuery): Double = input.estimateRowCount(mq) * (1024)
 
   override def implement(target: RelDeviceType): (Binding, JValue) = {
     val op = ("operator", "block-to-tuples")
@@ -93,6 +98,8 @@ object PelagoUnpack {
     val cluster = input.getCluster
     val mq = cluster.getMetadataQuery
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(toPacking)
+      .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
+      .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].hetDistribution(input))
     new PelagoUnpack(input.getCluster, traitSet, input, toPacking)
   }
 }

@@ -14,8 +14,7 @@ import org.apache.calcite.rex.{RexInputRef, RexNode}
 import org.json4s.JsonAST
 
 import scala.collection.JavaConverters._
-
-import ch.epfl.dias.calcite.adapter.pelago.metadata.RelMdDeviceType
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMetadataQuery}
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, getFields}
 
 /**
@@ -30,7 +29,12 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
     PelagoSort.create(input, collation, offset, fetch)
   }
 
+
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    mq.getNonCumulativeCost(this)
+  }
+
+  override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     if (getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) != null && getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == RelDeviceType.NVPTX) {
       super.computeSelfCost(planner, mq).multiplyBy(0.001)
     } else {
@@ -162,7 +166,8 @@ object PelagoSort{
     val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
       .replace(RelCollationTraitDef.INSTANCE.canonize(collation))
       .replaceIf(RelDistributionTraitDef.INSTANCE, () => RelMdDistribution.sort(mq, input))
-      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelMdDeviceType.sort(mq, input));
+      .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => PelagoRelMdDeviceType.sort(mq, input))
+      .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
     new PelagoSort(cluster, traitSet, input, collation, offset, fetch)
   }
 }

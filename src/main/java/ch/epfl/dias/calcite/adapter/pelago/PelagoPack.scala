@@ -2,6 +2,7 @@ package ch.epfl.dias.calcite.adapter.pelago
 
 import java.util
 
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMetadataQuery}
 import ch.epfl.dias.emitter.Binding
 import ch.epfl.dias.emitter.PlanToJSON._
 import org.apache.calcite.plan._
@@ -36,7 +37,11 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
 
   def copy(traitSet: RelTraitSet, input: RelNode, packing: RelPacking) = PelagoPack.create(input, packing)
 
-  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Higher cost if rows are wider discourages pushing a project through an
+  override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    mq.getNonCumulativeCost(this)
+  }
+
+  override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     // exchange.
     val rf = {
       if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 10
@@ -50,8 +55,6 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
 //    else planner.getCostFactory.makeTinyCost
 //    planner.getCostFactory.makeZeroCost
   }
-
-  override def estimateRowCount(mq: RelMetadataQuery): Double = Math.ceil(mq.getRowCount(input) / (1024))
 
   override def implement(target: RelDeviceType): (Binding, JValue) = {
     val op = ("operator" , "tuples-to-block")
@@ -81,8 +84,8 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
 object PelagoPack {
   def create(input: RelNode, toPacking: RelPacking): PelagoPack = {
     val cluster = input.getCluster
-    val mq = cluster.getMetadataQuery
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(toPacking)
+      .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
     new PelagoPack(input.getCluster, traitSet, input, toPacking)
   }
 }
