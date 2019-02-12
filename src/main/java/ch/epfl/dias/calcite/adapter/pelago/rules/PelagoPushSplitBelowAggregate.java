@@ -174,7 +174,7 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
 //    );
 
 
-    PelagoUnion union = PelagoUnion.create(List.of(cpuSide, gpuSide), true);
+    PelagoUnion union = PelagoUnion.create(ImmutableList.of(cpuSide, gpuSide), true);
 
     PelagoAggregate agg = PelagoAggregate.create(
         union,
