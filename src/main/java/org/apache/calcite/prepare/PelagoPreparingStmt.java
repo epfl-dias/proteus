@@ -43,6 +43,7 @@ import org.apache.calcite.util.Holder;
 import org.apache.calcite.util.Pair;
 
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
+import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.LikeToJoinRule;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPackTransfers;
@@ -135,7 +136,7 @@ public class                                                                    
             .replace(this.resultConvention)
 //            .replace(PelagoRel.CONVENTION) //this.resultConvention)
             .replace(root.collation)
-            .replace(RelDistributions.ANY)
+            .replace(RelHomDistribution.SINGLE)
             .replace(RelDeviceType.X86_64)
             .simplify();
 //        return root.rel.getTraitSet().replace(this.resultConvention).replace(root.collation).replace(RelDeviceType.X86_64).simplify();

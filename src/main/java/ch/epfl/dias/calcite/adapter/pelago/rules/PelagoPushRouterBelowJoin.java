@@ -15,6 +15,7 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoSplit;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
+import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
 
 public class PelagoPushRouterBelowJoin extends RelOptRule {
   public static final PelagoPushRouterBelowJoin INSTANCE = new PelagoPushRouterBelowJoin();
@@ -32,7 +33,7 @@ public class PelagoPushRouterBelowJoin extends RelOptRule {
   }
 
   public boolean matches(RelOptRuleCall call) {
-    return ((PelagoRouter) call.rel(0)).getDistribution() == RelDistributions.RANDOM_DISTRIBUTED;
+    return ((PelagoRouter) call.rel(0)).getHomDistribution() == RelHomDistribution.RANDOM;
   }
 
   public void onMatch(RelOptRuleCall call) {
@@ -42,12 +43,12 @@ public class PelagoPushRouterBelowJoin extends RelOptRule {
 
     RelNode new_build = PelagoRouter.create(
       convert(build, RelDeviceType.X86_64),
-      RelDistributions.BROADCAST_DISTRIBUTED
+      RelHomDistribution.BRDCST
     );
 
     RelNode new_probe = PelagoRouter.create(
       convert(probe, RelDeviceType.X86_64),
-      RelDistributions.RANDOM_DISTRIBUTED
+      RelHomDistribution.RANDOM
     );
 
     call.getPlanner().ensureRegistered(new_build, build);

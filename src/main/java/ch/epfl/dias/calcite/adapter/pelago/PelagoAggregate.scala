@@ -44,7 +44,7 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
     }
 
     val rf = {
-      if (getTraitSet.containsIfApplicable(RelDistributions.RANDOM_DISTRIBUTED)) 1e3
+      if (getTraitSet.containsIfApplicable(RelHomDistribution.RANDOM)) 1e3
       else 1e6
     }
 
@@ -168,7 +168,7 @@ object PelagoAggregate{
     val dev = PelagoRelMdDeviceType.aggregate(mq, input)
     val traitSet = cluster.traitSet
       .replace(PelagoRel.CONVENTION)
-      .replace(mq.distribution(input))
+      .replace(mq.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
       .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].hetDistribution(input))
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);

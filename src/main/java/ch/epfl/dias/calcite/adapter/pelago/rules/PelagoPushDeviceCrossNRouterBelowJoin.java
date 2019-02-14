@@ -14,6 +14,7 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoSplit;
 import ch.epfl.dias.calcite.adapter.pelago.RelComputeDevice;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
+import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
 
 public class PelagoPushDeviceCrossNRouterBelowJoin extends RelOptRule {
   public static final PelagoPushDeviceCrossNRouterBelowJoin INSTANCE = new PelagoPushDeviceCrossNRouterBelowJoin();
@@ -46,12 +47,12 @@ public class PelagoPushDeviceCrossNRouterBelowJoin extends RelOptRule {
 
     RelNode build_new = convert(
         convert(build, RelDeviceType.X86_64),
-        RelDistributions.BROADCAST_DISTRIBUTED
+        RelHomDistribution.BRDCST
     );
 
     RelNode probe_new = convert(
         convert(probe, RelDeviceType.X86_64),
-        RelDistributions.RANDOM_DISTRIBUTED
+        RelHomDistribution.RANDOM
     );
 
     call.getPlanner().ensureRegistered(build_new, build);

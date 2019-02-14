@@ -51,7 +51,7 @@ public class PelagoPushDeviceCrossNRouterDown extends RelOptRule {
 
     RelNode inp_new = convert(
         convert(inp, RelDeviceType.X86_64),
-        router.getDistribution()
+        router.getHomDistribution()
     );
 
     call.getPlanner().ensureRegistered(inp_new, inp);

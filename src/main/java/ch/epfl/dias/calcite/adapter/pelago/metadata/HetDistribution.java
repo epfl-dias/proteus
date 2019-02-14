@@ -7,7 +7,6 @@ import org.apache.calcite.rel.metadata.MetadataDef;
 import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 
-import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
 
 import java.lang.reflect.Method;
@@ -24,7 +23,7 @@ import java.lang.reflect.Method;
  * among nodes, but it may be partitioned among threads running on the same
  * node. */
 public interface HetDistribution extends Metadata {
-  public static final Method method = Types.lookupMethod(HetDistribution.class, "hetDistribution");
+  Method method = Types.lookupMethod(HetDistribution.class, "hetDistribution");
   MetadataDef<HetDistribution> DEF = MetadataDef.of(HetDistribution.class,
       HetDistribution.Handler.class, method);
 

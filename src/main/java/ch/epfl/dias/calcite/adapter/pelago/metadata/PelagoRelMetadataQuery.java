@@ -1,6 +1,7 @@
 package ch.epfl.dias.calcite.adapter.pelago.metadata;
 
 import org.apache.calcite.plan.RelOptCost;
+import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.JaninoRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
@@ -10,6 +11,7 @@ import com.google.common.base.Preconditions;
 import ch.epfl.dias.calcite.adapter.pelago.RelComputeDevice;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
+import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
 import ch.epfl.dias.calcite.adapter.pelago.RelPacking;
 
 public class PelagoRelMetadataQuery extends RelMetadataQuery {
@@ -17,6 +19,7 @@ public class PelagoRelMetadataQuery extends RelMetadataQuery {
   private Packing.Handler         packingHandler;
 //  private SelfCost.Handler        selfCostHandler;
   private HetDistribution.Handler hetDistrHandler;
+  private HomDistribution.Handler homDistrHandler;
   private ComputeDevice.Handler   computeTypeHandler;
 
   protected PelagoRelMetadataQuery(JaninoRelMetadataProvider metadataProvider,
@@ -26,6 +29,7 @@ public class PelagoRelMetadataQuery extends RelMetadataQuery {
     packingHandler     = initialHandler(Packing   .Handler.class);
 //    selfCostHandler    = initialHandler(SelfCost  .Handler.class);
     hetDistrHandler    = initialHandler(HetDistribution.Handler.class);
+    homDistrHandler    = initialHandler(HomDistribution.Handler.class);
     computeTypeHandler = initialHandler(ComputeDevice  .Handler.class);
   }
 
@@ -64,6 +68,21 @@ public class PelagoRelMetadataQuery extends RelMetadataQuery {
         hetDistrHandler = revise(e.relClass, HetDistribution.DEF);
       }
     }
+  }
+
+  public RelHomDistribution homDistribution(RelNode rel) {
+    for (;;) {
+      try {
+        return homDistrHandler.homDistribution(rel, this);
+      } catch (JaninoRelMetadataProvider.NoHandler e) {
+        homDistrHandler = revise(e.relClass, HomDistribution.DEF);
+      }
+    }
+  }
+
+  public RelDistribution distribution(RelNode rel) {
+    assert(false);
+    return null;
   }
 
   /**

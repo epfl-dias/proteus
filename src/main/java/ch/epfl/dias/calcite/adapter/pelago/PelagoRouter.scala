@@ -20,13 +20,13 @@ import scala.collection.JavaConverters._
 import ch.epfl.dias.repl.Repl
 import org.apache.calcite.rel.convert.Converter
 
-class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, distribution: RelDistribution)
-    extends Exchange(cluster, traitSet, input, distribution) with PelagoRel with Converter {
+class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, val homdistribution: RelHomDistribution)
+    extends Exchange(cluster, traitSet, input, homdistribution.getDistribution()) with PelagoRel with Converter {
   assert(getConvention eq PelagoRel.CONVENTION)
   assert(getConvention eq input.getConvention)
   protected var inTraits: RelTraitSet = input.getTraitSet
 
-  override def copy(traitSet: RelTraitSet, input: RelNode, distribution: RelDistribution) = PelagoRouter.create(input, distribution)
+  override def copy(traitSet: RelTraitSet, input: RelNode, distribution: RelDistribution) = PelagoRouter.create(input, RelHomDistribution.from(distribution))
 
   override def estimateRowCount(mq: RelMetadataQuery): Double = {
     val rc = mq.getRowCount(getInput)
@@ -35,14 +35,13 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
     rc
   }
 
-
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     mq.getNonCumulativeCost(this)
   }
 
   override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     //    if (traitSet.containsIfApplicable(RelPacking.UnPckd)) return planner.getCostFactory.makeHugeCost()
-    val rf = 1e-6 * (if (distribution == RelDistributions.BROADCAST_DISTRIBUTED) 10 else 1)
+    val rf = 1e-6 * (if (distribution == RelHomDistribution.BRDCST) 10 else 1)
     val rf2 = 1e-6 * (if (getTraitSet.containsIfApplicable(RelPacking.UnPckd)) 1e6 else 1)
     var base = super.computeSelfCost(planner, mq)
     //    if (getDistribution.getType eq RelDistribution.Type.HASH_DISTRIBUTED) base = base.multiplyBy(80)
@@ -51,6 +50,10 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
+
+  override def getDistribution: RelDistribution = homdistribution.getDistribution
+
+  def getHomDistribution: RelHomDistribution = homdistribution
 
   override def implement(target: RelDeviceType): (Binding, JValue) = {
 //    assert(getTraitSet.containsIfApplicable(RelPacking.UnPckd) || (target != null))
@@ -166,7 +169,7 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
 }
 
 object PelagoRouter{
-  def create(input: RelNode, distribution: RelDistribution): PelagoRouter = {
+  def create(input: RelNode, distribution: RelHomDistribution): PelagoRouter = {
     val cluster  = input.getCluster
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(distribution)
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)

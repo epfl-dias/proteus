@@ -29,43 +29,15 @@ public class PelagoRelMdDistribution implements MetadataHandler<BuiltInMetadata.
   private static final PelagoRelMdDistribution INSTANCE = new PelagoRelMdDistribution();
 
   public static final RelMetadataProvider SOURCE =
-      ChainedRelMetadataProvider.of(
-          ImmutableList.of(
               ReflectiveRelMetadataProvider.reflectiveSource(
-                  BuiltInMethod.DISTRIBUTION.method, PelagoRelMdDistribution.INSTANCE),
-              RelMdDistribution.SOURCE));
+                  BuiltInMethod.DISTRIBUTION.method, PelagoRelMdDistribution.INSTANCE);
 
   public MetadataDef<BuiltInMetadata.Distribution> getDef() {
     return BuiltInMetadata.Distribution.DEF;
   }
 
   public RelDistribution distribution(RelNode rel, RelMetadataQuery mq) {
-    RelDistribution dtype = rel.getTraitSet().getTrait(RelDistributionTraitDef.INSTANCE); //TODO: is this safe ? or can it cause an inf loop?
-    if (dtype != null) return dtype;
-    return RelDistributions.SINGLETON;
+    assert(false);
+    return null;
   }
-
-  public RelDistribution distribution(BiRel rel, RelMetadataQuery mq) {
-    return mq.distribution(rel.getRight());
-  }
-
-  public RelDistribution distribution(PelagoTableScan scan, RelMetadataQuery mq){
-//    System.out.println(scan.getDistribution());
-    return scan.getDistribution();
-  }
-
-  public RelDistribution distribution(PelagoDeviceCross devcross, RelMetadataQuery mq) {
-//    System.out.println("asdasd");
-    return mq.distribution(devcross.getInput());
-  }
-
-  public static RelDistribution project(RelMetadataQuery mq, RelNode input, List<? extends RexNode> projects) {
-//    return mq.distribution(input);
-//    Mappings.TargetMapping mapping = Project.getPartialMapping(input.getRowType().getFieldCount(), projects);
-//    return inputDistribution.apply(mapping);
-    RelDistribution inputDistribution = mq.distribution(input);
-    Mappings.TargetMapping mapping = Project.getPartialMapping(input.getRowType().getFieldCount(), projects);
-    return inputDistribution.apply(mapping);
-  }
-
 }

@@ -14,7 +14,7 @@ import org.apache.calcite.rex.{RexInputRef, RexNode}
 import org.json4s.JsonAST
 
 import scala.collection.JavaConverters._
-import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMetadataQuery}
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdHomDistribution, PelagoRelMetadataQuery}
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, getFields}
 
 /**
@@ -163,9 +163,8 @@ object PelagoSort{
   def create(input: RelNode, collation: RelCollation, offset: RexNode, fetch: RexNode): PelagoSort = {
     val cluster  = input.getCluster
     val mq       = cluster.getMetadataQuery
-    val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
+    val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
       .replace(RelCollationTraitDef.INSTANCE.canonize(collation))
-      .replace(RelMdDistribution.sort(mq, input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => PelagoRelMdDeviceType.sort(mq, input))
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
     new PelagoSort(cluster, traitSet, input, collation, offset, fetch)

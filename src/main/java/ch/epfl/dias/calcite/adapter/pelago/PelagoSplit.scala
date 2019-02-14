@@ -6,7 +6,7 @@ import org.apache.calcite.rel.convert.Converter
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 
 class PelagoSplit protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, val hetdistribution: RelHetDistribution)
-    extends PelagoRouter(cluster, traitSet, input, input.getTraitSet.getTrait(RelDistributionTraitDef.INSTANCE)) with Converter {
+    extends PelagoRouter(cluster, traitSet, input, input.getTraitSet.getTrait(RelHomDistributionTraitDef.INSTANCE)) with Converter {
   assert(getConvention eq PelagoRel.CONVENTION)
   assert(getConvention eq input.getConvention)
 

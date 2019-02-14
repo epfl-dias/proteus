@@ -7,11 +7,12 @@ import org.apache.calcite.rel.metadata.MetadataDef;
 import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 
-import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
+import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
+import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
 
 import java.lang.reflect.Method;
 
-/** Metadata about how a relational expression is distributed.
+/** Metadata about how a relational expression is distributed to heterogeneous hardware.
  *
  * <p>If you are an operator consuming a relational expression, which subset
  * of the rows are you seeing? You might be seeing all of them (BROADCAST
@@ -22,16 +23,16 @@ import java.lang.reflect.Method;
  * <p>When a relational expression is partitioned, it is often partitioned
  * among nodes, but it may be partitioned among threads running on the same
  * node. */
-public interface DeviceType extends Metadata {
-  Method method = Types.lookupMethod(DeviceType.class, "deviceType");
-  MetadataDef<DeviceType> DEF = MetadataDef.of(DeviceType.class,
-      DeviceType.Handler.class, method);
+public interface HomDistribution extends Metadata {
+  Method method = Types.lookupMethod(HomDistribution.class, "homDistribution");
+  MetadataDef<HomDistribution> DEF = MetadataDef.of(HomDistribution.class,
+      HomDistribution.Handler.class, method);
 
-  /** Determines how the rows are distributed. */
-  RelDeviceType deviceType();
+  /** Determines how the rows are distributed across devices. */
+  RelHomDistribution homDistribution();
 
   /** Handler API. */
-  interface Handler extends MetadataHandler<DeviceType> {
-    RelDeviceType deviceType(RelNode r, RelMetadataQuery mq);
+  interface Handler extends MetadataHandler<HomDistribution> {
+    RelHomDistribution homDistribution(RelNode r, RelMetadataQuery mq);
   }
 }

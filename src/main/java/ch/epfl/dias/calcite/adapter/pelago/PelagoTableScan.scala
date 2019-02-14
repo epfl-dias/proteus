@@ -147,8 +147,8 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     ret
   }
 
-  def getDistribution: RelDistribution = {
-    pelagoTable.getDistribution
+  def getHomDistribution: RelHomDistribution = {
+    pelagoTable.getHomDistribution
   }
 
   def getDeviceType: RelDeviceType = {
@@ -161,7 +161,7 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
 object PelagoTableScan {
   def create(cluster: RelOptCluster, table: RelOptTable, pelagoTable: PelagoTable, fields: Array[Int]) = {
       val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
-        .replace(pelagoTable.getDistribution)
+        .replace(pelagoTable.getHomDistribution)
         .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => pelagoTable.getDeviceType)
         .replaceIf(RelPackingTraitDef.INSTANCE, () => pelagoTable.getPacking)
         .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => if (pelagoTable.getPacking == RelPacking.UnPckd) RelComputeDevice.NONE else RelComputeDevice.from(pelagoTable.getDeviceType));

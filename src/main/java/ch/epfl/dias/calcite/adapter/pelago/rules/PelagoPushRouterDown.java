@@ -22,11 +22,11 @@ import java.util.List;
 public class PelagoPushRouterDown extends RelOptRule {
 
   public static final RelOptRule[] RULES = new RelOptRule[]{
-    PelagoDistributionConverterRule.BRDCST_INSTANCE2,
-    PelagoDistributionConverterRule.BRDCST_INSTANCE3,
-//    PelagoDistributionConverterRule.BRDCST_INSTANCE4,
-    PelagoDistributionConverterRule.SEQNTL_INSTANCE2,
-    PelagoDistributionConverterRule.RANDOM_INSTANCE ,
+//    PelagoDistributionConverterRule.BRDCST_INSTANCE2,
+//    PelagoDistributionConverterRule.BRDCST_INSTANCE3,
+////    PelagoDistributionConverterRule.BRDCST_INSTANCE4,
+//    PelagoDistributionConverterRule.SEQNTL_INSTANCE2,
+//    PelagoDistributionConverterRule.RANDOM_INSTANCE ,
 //    PelagoDistributionConverterRule.RANDOM_INSTANCE2,
 //    new PelagoPushRouterDown(PelagoAggregate.class),
     new PelagoPushRouterDown(PelagoFilter.class),
@@ -61,7 +61,7 @@ public class PelagoPushRouterDown extends RelOptRule {
             input,
             RelDeviceType.X86_64
           ),
-          router.getDistribution()
+          router.getHomDistribution()
         )
 //        PelagoRouter.create(
 //          convert(input, RelDeviceType.X86_64),

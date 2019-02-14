@@ -24,8 +24,8 @@ import java.lang.reflect.Method;
  * among nodes, but it may be partitioned among threads running on the same
  * node. */
 public interface Packing extends Metadata {
-  public static final Method method = Types.lookupMethod(Packing.class, "packing");
-  MetadataDef<Packing>      DEF     = MetadataDef.of    (Packing.class, Packing.Handler.class, method);
+  Method method = Types.lookupMethod(Packing.class, "packing");
+  MetadataDef<Packing> DEF = MetadataDef.of(Packing.class, Packing.Handler.class, method);
 
   /** Determines how the rows are distributed. */
   RelPacking packing();

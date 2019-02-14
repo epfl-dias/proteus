@@ -58,6 +58,7 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.RelComputeDeviceTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelHetDistributionTraitDef;
+import ch.epfl.dias.calcite.adapter.pelago.RelHomDistributionTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelPackingTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
@@ -96,7 +97,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             RelOptCostFactory costFactory) {
         RelOptCostFactory cFactory = (costFactory == null) ? PelagoCostFactory.INSTANCE : costFactory;
         RelOptPlanner planner = super.createPlanner(prepareContext, externalContext, cFactory);
-        planner.addRelTraitDef(RelDistributionTraitDef   .INSTANCE);
+        planner.addRelTraitDef(RelHomDistributionTraitDef.INSTANCE);
         planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE);
         planner.addRelTraitDef(RelDeviceTypeTraitDef     .INSTANCE);
         planner.addRelTraitDef(RelPackingTraitDef        .INSTANCE);

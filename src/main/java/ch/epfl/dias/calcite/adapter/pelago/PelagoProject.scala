@@ -17,7 +17,7 @@ import org.json4s.JsonAST
 import scala.collection.JavaConverters._
 import java.util
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution, PelagoRelMetadataQuery}
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution, PelagoRelMdHomDistribution, PelagoRelMetadataQuery}
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, getFields}
 
 /**
@@ -90,7 +90,7 @@ object PelagoProject{
     val mq       = cluster.getMetadataQuery
     val dev      = PelagoRelMdDeviceType.project(mq, input, projects)
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
-      .replace(PelagoRelMdDistribution.project(mq, input, projects))
+      .replace(PelagoRelMdHomDistribution.project(mq, input, projects))
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);
     assert(traitSet.containsIfApplicable(RelPacking.UnPckd))

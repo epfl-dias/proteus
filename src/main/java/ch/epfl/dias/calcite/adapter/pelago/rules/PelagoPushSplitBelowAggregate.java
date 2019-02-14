@@ -18,6 +18,7 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoUnion;
 import ch.epfl.dias.calcite.adapter.pelago.RelComputeDevice;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
+import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,7 +33,7 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
 
   public boolean matches(RelOptRuleCall call){
     PelagoAggregate rel    = call.rel(0);
-    return rel.getTraitSet().containsIfApplicable(RelDistributions.SINGLETON) &&
+    return rel.getTraitSet().containsIfApplicable(RelHomDistribution.SINGLE) &&
 //        (rel.getGroupCount() == 0) &&
         (!rel.isGlobalAgg());
   }
@@ -115,7 +116,7 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
             convert(
                 convert(
                     split,
-                    RelDistributions.SINGLETON //RANDOM_DISTRIBUTED //rel.getDistribution()
+                    RelHomDistribution.SINGLE //RANDOM_DISTRIBUTED //rel.getDistribution()
                 ),
                 RelDeviceType.X86_64
             ),
@@ -126,7 +127,7 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
 
     RelNode cpuSide = convert(
         cpuSideAgg,
-        cpuSideAgg.getTraitSet().replace(RelDeviceType.X86_64).replace(RelDistributions.SINGLETON).replace(RelComputeDevice.X86_64).replace(RelHetDistribution.SPLIT)
+        cpuSideAgg.getTraitSet().replace(RelDeviceType.X86_64).replace(RelHomDistribution.SINGLE).replace(RelComputeDevice.X86_64).replace(RelHetDistribution.SPLIT)
     );
 
     RelNode gpuSideAgg = rel.copy(
@@ -136,7 +137,7 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
             convert(
                 convert(
                     split,
-                    RelDistributions.SINGLETON //RANDOM_DISTRIBUTED //rel.getDistribution()
+                    RelHomDistribution.SINGLE //RANDOM_DISTRIBUTED //rel.getDistribution()
                 ),
                 RelDeviceType.NVPTX
             ),
@@ -147,7 +148,7 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
 
     RelNode gpuSide = convert(
         gpuSideAgg,
-        gpuSideAgg.getTraitSet().replace(RelDeviceType.X86_64).replace(RelDistributions.SINGLETON).replace(RelComputeDevice.NVPTX).replace(RelHetDistribution.SPLIT)
+        gpuSideAgg.getTraitSet().replace(RelDeviceType.X86_64).replace(RelHomDistribution.SINGLE).replace(RelComputeDevice.NVPTX).replace(RelHetDistribution.SPLIT)
     );
 
 

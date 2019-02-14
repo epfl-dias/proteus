@@ -55,7 +55,7 @@ object PelagoFilter{
     val dev      = PelagoRelMdDeviceType.filter(mq, input)
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
-      .replace(mq.getDistribution(input))
+      .replace(mq.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);
     assert(traitSet.containsIfApplicable(RelPacking.UnPckd))

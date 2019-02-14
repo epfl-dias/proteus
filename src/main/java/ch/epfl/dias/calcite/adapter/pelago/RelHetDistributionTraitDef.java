@@ -21,7 +21,7 @@ public class RelHetDistributionTraitDef extends RelTraitDef<RelHetDistribution> 
 
   @Override public RelNode convert(RelOptPlanner planner, RelNode rel, RelHetDistribution distribution,
                                    boolean allowInfiniteCostConverters) {
-    if (!rel.getTraitSet().containsIfApplicable(RelDistributions.SINGLETON) ||
+    if (!rel.getTraitSet().containsIfApplicable(RelHomDistribution.SINGLE) ||
         !rel.getTraitSet().containsIfApplicable(RelDeviceType.X86_64) ||
         rel.getConvention() != PelagoRel.CONVENTION){
       return null;

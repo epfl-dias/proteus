@@ -8,7 +8,6 @@ import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 
 import ch.epfl.dias.calcite.adapter.pelago.RelComputeDevice;
-import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
 
 import java.lang.reflect.Method;
 
@@ -24,7 +23,7 @@ import java.lang.reflect.Method;
  * among nodes, but it may be partitioned among threads running on the same
  * node. */
 public interface ComputeDevice extends Metadata {
-  public static final Method method = Types.lookupMethod(ComputeDevice.class, "computeType");
+  Method method = Types.lookupMethod(ComputeDevice.class, "computeType");
   MetadataDef<ComputeDevice> DEF = MetadataDef.of(ComputeDevice.class,
       ComputeDevice.Handler.class, method);
 

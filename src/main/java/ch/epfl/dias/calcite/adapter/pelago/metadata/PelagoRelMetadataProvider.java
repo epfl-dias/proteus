@@ -26,6 +26,7 @@ public class PelagoRelMetadataProvider extends ChainedRelMetadataProvider {
             PelagoRelMdComputeDevice    .SOURCE,
             PelagoRelMdDistribution     .SOURCE,
             PelagoRelMdHetDistribution  .SOURCE,
+            PelagoRelMdHomDistribution  .SOURCE,
             PelagoRelMdPacking          .SOURCE,
             PelagoRelMdRowCount         .SOURCE,
             PelagoRelMdExpressionLineage.SOURCE,

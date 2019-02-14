@@ -67,8 +67,8 @@ class PelagoDictTableScan protected (cluster: RelOptCluster, traitSet: RelTraitS
     ret
   }
 
-  def getDistribution: RelDistribution = {
-    RelDistributions.SINGLETON
+  def getHomDistribution: RelHomDistribution = {
+    RelHomDistribution.SINGLE
   }
 
   def getDeviceType: RelDeviceType = {
@@ -80,7 +80,7 @@ object PelagoDictTableScan {
   def create(cluster: RelOptCluster, table: RelOptTable, regex: String, attrIndex: Int) = {
     val mq = cluster.getMetadataQuery
     val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
-      .replace(RelDistributions.SINGLETON)
+      .replace(RelHomDistribution.SINGLE)
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
       .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => RelHetDistribution.SINGLETON)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(RelDeviceType.X86_64))

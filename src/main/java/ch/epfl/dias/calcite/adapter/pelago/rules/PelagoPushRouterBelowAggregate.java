@@ -23,6 +23,7 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoAggregate;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
+import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,7 +38,7 @@ public class PelagoPushRouterBelowAggregate extends RelOptRule {
 
   public boolean matches(RelOptRuleCall call){
     PelagoAggregate rel    = call.rel(0);
-    return rel.getTraitSet().containsIfApplicable(RelDistributions.SINGLETON) &&
+    return rel.getTraitSet().containsIfApplicable(RelHomDistribution.SINGLE) &&
 //        (rel.getGroupCount() == 0) &&
         (!rel.isGlobalAgg());
   }
@@ -97,7 +98,7 @@ public class PelagoPushRouterBelowAggregate extends RelOptRule {
             convert(
                 rel.getInput(),
                 rel.getInput().getTraitSet()
-                    .replace(RelDistributions.RANDOM_DISTRIBUTED)
+                    .replace(RelHomDistribution.RANDOM)
                     .replace(rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE))
             )
         )
@@ -108,7 +109,7 @@ public class PelagoPushRouterBelowAggregate extends RelOptRule {
           convert(
               locagg,
               locagg.getTraitSet()
-                  .replace(RelDistributions.SINGLETON)
+                  .replace(RelHomDistribution.SINGLE)
                   .replace(rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE))
           ),
           rel.indicator,

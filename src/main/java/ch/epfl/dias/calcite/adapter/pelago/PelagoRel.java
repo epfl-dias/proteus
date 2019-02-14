@@ -39,6 +39,7 @@ public interface PelagoRel extends RelNode {
                     if (pair.left instanceof RelDeviceType     ) continue;
                     if (pair.left instanceof RelPacking        ) continue;
                     if (pair.left instanceof RelHetDistribution) continue;
+                    if (pair.left instanceof RelHomDistribution) continue;
                     return false;
                 }
             }

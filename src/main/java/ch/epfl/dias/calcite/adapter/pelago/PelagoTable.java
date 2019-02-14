@@ -201,8 +201,8 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         return RelDeviceType.X86_64;
     }
 
-    public RelDistribution getDistribution(){
-        return RelDistributions.SINGLETON;
+    public RelHomDistribution getHomDistribution(){
+        return RelHomDistribution.SINGLE;
     }
 
 
