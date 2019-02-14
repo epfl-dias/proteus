@@ -121,6 +121,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
 
   def getCompositeKeyExpr(operands: ImmutableList[RexNode], arg: Int, bindings: List[Binding], alias: String):  (JObject, RexInputRef, Int)={
     var size = 0
+    var maxsize = 0
     (
       ("expression", "recordConstruction") ~ ("type", ("type", "record")) ~ ("attributes",
         operands.asScala.zipWithIndex.map(p => {
@@ -132,7 +133,9 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
             val ro = op_other.asInstanceOf[RexInputRef].getIndex
             if ((arg == 0) != (rt < ro)) op = op_other
           }
-          size += getTypeSize(op.getType)
+          val s = getTypeSize(op.getType)
+          size += s
+          maxsize = Math.max(maxsize, s)
           val name = if (op.isInstanceOf[RexInputRef]) op.asInstanceOf[RexInputRef].getName else p._2.toString
           val je = emitExpression(op, bindings).asInstanceOf[JsonAST.JObject]
           (
@@ -142,7 +145,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
         }).toList
       ),
       new RexInputRef(bindings.map(e => e.fields.length).sum + arg, getCluster.getTypeFactory.createSqlType(SqlTypeName.INTEGER)),
-      size
+      maxsize * ((size + maxsize - 1)/maxsize)
     )
   }
 
