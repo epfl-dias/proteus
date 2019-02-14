@@ -62,6 +62,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     val rf2 = {
       if (getTraitSet.containsIfApplicable(RelHetDistribution.SINGLETON)) {
         1e8
+//        return planner.getCostFactory.makeHugeCost()
       } else {
         1e-5
       }

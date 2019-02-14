@@ -30,8 +30,9 @@ public class RelDeviceTypeTraitDef extends RelTraitDef<RelDeviceType> {
   @Override public RelNode convert(RelOptPlanner planner, RelNode rel, RelDeviceType toDevice,
                                    boolean allowInfiniteCostConverters) {
     if (toDevice == RelDeviceType.ANY) {
-      return null;
+      return rel;
     }
+//    toDevice =
 
     final PelagoDeviceCross crossDev = PelagoDeviceCross.create(rel, toDevice);
     RelNode newRel = planner.register(crossDev, rel);
@@ -40,11 +41,14 @@ public class RelDeviceTypeTraitDef extends RelTraitDef<RelDeviceType> {
       newRel = planner.changeTraits(newRel, newTraitSet);
     }
     return newRel;
+
+
+//    return PelagoDeviceCross.create(planner.changeTraits(rel, PelagoRel.CONVENTION), toDevice);
   }
 
   @Override public boolean canConvert(RelOptPlanner planner, RelDeviceType fromTrait,
                                       RelDeviceType toDevice) {
-    return toDevice != RelDeviceType.ANY;
+    return true;
   }
 
   @Override public RelDeviceType getDefault() {

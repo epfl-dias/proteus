@@ -7,7 +7,7 @@ import org.apache.calcite.plan.RelTraitDef;
 /**
  * Description of the target device of a relational expression.
  */
-public class RelDeviceType implements RelTrait {
+public class RelDeviceType implements PelagoTrait {
   public static final RelDeviceType X86_64 = new RelDeviceType("X86_64");
   public static final RelDeviceType NVPTX  = new RelDeviceType("NVPTX");
   public static final RelDeviceType ANY    = new RelDeviceType("anydev");
@@ -27,7 +27,7 @@ public class RelDeviceType implements RelTrait {
   }
 
   @Override public boolean satisfies(RelTrait trait) {
-    return (trait == ANY) || (trait == this);
+    return (this == ANY) || (trait == this);
 //    return (trait == this) || (trait == ANY); //(this == ANY) ||
   }
 

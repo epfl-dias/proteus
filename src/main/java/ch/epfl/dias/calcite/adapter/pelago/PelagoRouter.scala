@@ -53,7 +53,7 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
   override def implement(target: RelDeviceType): (Binding, JValue) = {
-    assert(getTraitSet.containsIfApplicable(RelPacking.UnPckd) || (target != null))
+//    assert(getTraitSet.containsIfApplicable(RelPacking.UnPckd) || (target != null))
     val child = getInput.asInstanceOf[PelagoRel].implement(null)
     val childBinding: Binding = child._1
     var childOp = child._2

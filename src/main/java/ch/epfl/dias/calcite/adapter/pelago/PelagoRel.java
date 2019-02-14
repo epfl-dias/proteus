@@ -6,19 +6,44 @@ import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.plan.RelTrait;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.util.Pair;
 
 import org.json4s.JsonAST;
 import scala.Tuple2;
 
 public interface PelagoRel extends RelNode {
     /** Calling convention for relational operations that occur in Pelago. */
-    Convention CONVENTION = new Convention.Impl("Pelago", PelagoRel.class);
+    Convention CONVENTION = PelagoConvention.INSTANCE;
 
     public Tuple2<Binding, JsonAST.JValue> implement(RelDeviceType target);
 
     RelOptCost computeBaseSelfCost(RelOptPlanner planner, RelMetadataQuery mq);
+
+    class PelagoConvention extends Convention.Impl{
+        public static final PelagoConvention INSTANCE = new PelagoConvention("Pelago", PelagoRel.class);
+
+        private PelagoConvention(final String name, final Class<? extends RelNode> relClass) {
+            super(name, relClass);
+        }
+
+        public boolean useAbstractConvertersForConversion(RelTraitSet fromTraits, RelTraitSet toTraits) {
+            if (!toTraits.containsIfApplicable(CONVENTION)) return false;
+
+            for (Pair<RelTrait, RelTrait> pair : Pair.zip(fromTraits, toTraits)) {
+                if (!pair.left.satisfies(pair.right)) {
+                    if (pair.left instanceof RelDeviceType     ) continue;
+                    if (pair.left instanceof RelPacking        ) continue;
+                    if (pair.left instanceof RelHetDistribution) continue;
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
 }
 

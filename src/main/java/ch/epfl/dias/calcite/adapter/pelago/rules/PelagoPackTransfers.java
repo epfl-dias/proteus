@@ -25,8 +25,8 @@ import java.util.List;
 public class PelagoPackTransfers extends RelOptRule {
 
   public static final RelOptRule[] RULES = new RelOptRule[]{
-    PelagoPackingConverterRule.TO_PACKED_INSTANCE,
-    PelagoPackingConverterRule.TO_UNPCKD_INSTANCE,
+//    PelagoPackingConverterRule.TO_PACKED_INSTANCE,
+//    PelagoPackingConverterRule.TO_UNPCKD_INSTANCE,
     PelagoPackUnion.INSTANCE,
 //    PelagoDataLocalityConverterRule.INSTANCE,
 //    new PelagoPushRouterDown(PelagoAggregate.class),
@@ -42,19 +42,19 @@ public class PelagoPackTransfers extends RelOptRule {
 //  private final Class op;
 
   protected PelagoPackTransfers(Class<? extends SingleRel> op) {
-    super(operand(op, operand(RelNode.class, any())), "PPT" + op.getName());
+    super(operand(op, any()), "PPT" + op.getName());
 //    this.op = op;
   }
 
   public void onMatch(RelOptRuleCall call) {
 //    Pelago router  = call.rel(0);
     SingleRel    rel     = call.rel(0);
-    RelNode      input   = call.rel(1);//              call.rel(2);
+//    RelNode      input   = call.rel(1);//              call.rel(2);
 
     call.transformTo(
       rel.copy(null, Arrays.asList(
         convert(
-          input,
+          rel.getInput(),
           RelPacking.Packed
         )
 //        PelagoRouter.create(
@@ -69,18 +69,19 @@ public class PelagoPackTransfers extends RelOptRule {
     public final static PelagoPackUnion INSTANCE = new PelagoPackUnion(PelagoUnion.class);
 
     protected PelagoPackUnion(Class<? extends RelNode> op) {
-      super(operand(op, operand(PelagoUnpack.class, operand(RelNode.class, any())), operand(PelagoUnpack.class, operand(RelNode.class, any()))), "PPS" + op.getName());
+      super(operand(op, operand(PelagoUnpack.class, any()), operand(PelagoUnpack.class, any())), "PPS" + op.getName());
 //    this.op = op;
     }
 
     public void onMatch(RelOptRuleCall call) {
       RelNode      rel   = call.rel(0);
-      PelagoUnpack input = call.rel(1);
+      PelagoUnpack left  = call.rel(1);
+      PelagoUnpack right = call.rel(2);
 
       call.transformTo(
           convert(
-              rel.copy(null, ImmutableList.of(call.rel(2), call.rel(4))),
-              RelPacking.UnPckd
+              rel.copy(null, ImmutableList.of(left, right)),
+              RelPacking.Packed
           )
       );
     }

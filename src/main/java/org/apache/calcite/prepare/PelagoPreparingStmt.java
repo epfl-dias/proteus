@@ -15,6 +15,7 @@ import org.apache.calcite.linq4j.function.Function2;
 import org.apache.calcite.plan.*;
 import org.apache.calcite.plan.hep.HepPlanner;
 import org.apache.calcite.plan.hep.HepProgram;
+import org.apache.calcite.plan.volcano.AbstractConverter;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
@@ -46,6 +47,7 @@ import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.LikeToJoinRule;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPackTransfers;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossDown;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossNRouterDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossNSplitDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushRouterDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushSplitDown;
@@ -262,12 +264,15 @@ public class                                                                    
         ImmutableList.Builder<RelOptRule> hetRuleBuilder = ImmutableList.builder();
 
         if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossDown.RULES);
-//        if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossNSplitDown.RULES);
+        if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossNSplitDown.RULES);
 
+        if (!(cpu_only && cpudop == 1)) hetRuleBuilder.add(PelagoPushDeviceCrossNRouterDown.RULES);
         if (!(cpu_only && cpudop == 1)) hetRuleBuilder.add(PelagoPushRouterDown.RULES);
-//        if (!(cpu_only && cpudop == 1)) hetRuleBuilder.add(PelagoPushSplitDown.RULES);
+        if (!(cpu_only && cpudop == 1)) hetRuleBuilder.add(PelagoPushSplitDown.RULES);
 
         hetRuleBuilder.add(PelagoPackTransfers.RULES);
+
+        hetRuleBuilder.add(AbstractConverter.ExpandConversionRule.INSTANCE);
 
         return Programs.sequence(timedSequence("Calcite time: ",
 //                new PelagoProjectRootProgram(),

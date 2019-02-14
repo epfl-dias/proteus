@@ -19,8 +19,8 @@ import java.util.List;
 public class PelagoPushDeviceCrossDown extends RelOptRule {
 
   public static final RelOptRule[] RULES = {
-    PelagoDeviceTypeConverterRule.TO_NVPTX_INSTANCE ,
-    PelagoDeviceTypeConverterRule.TO_x86_64_INSTANCE,
+//    PelagoDeviceTypeConverterRule.TO_NVPTX_INSTANCE ,
+//    PelagoDeviceTypeConverterRule.TO_x86_64_INSTANCE,
     new PelagoPushDeviceCrossDown(PelagoAggregate.class),
     new PelagoPushDeviceCrossDown(PelagoFilter   .class),
     new PelagoPushDeviceCrossDown(PelagoProject  .class),

@@ -3,24 +3,14 @@ package ch.epfl.dias.calcite.adapter.pelago.rules;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
-import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelDistributions;
 
-import com.google.common.base.Predicates;
-import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.plan.RelOptRuleCall;
-import org.apache.calcite.plan.RelTrait;
-import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelDistribution;
-import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.convert.ConverterRule;
-import org.apache.calcite.rel.core.Exchange;
-import org.apache.calcite.rel.core.RelFactories;
-import org.apache.calcite.rel.logical.LogicalExchange;
 import org.apache.calcite.tools.RelBuilderFactory;
 
 public class PelagoDistributionConverterRule extends ConverterRule {
@@ -30,16 +20,16 @@ public class PelagoDistributionConverterRule extends ConverterRule {
         new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , RelDistributions.RANDOM_DISTRIBUTED            , PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule BRDCST_INSTANCE3 =
         new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , RelDistributions.SINGLETON                     , PelagoRelFactories.PELAGO_BUILDER);
-    public static final ConverterRule BRDCST_INSTANCE4 =
-        new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , PelagoRelDistributions.BRDCSPLIT               , PelagoRelFactories.PELAGO_BUILDER);
+//    public static final ConverterRule BRDCST_INSTANCE4 =
+//        new PelagoDistributionConverterRule(RelDistributions.BROADCAST_DISTRIBUTED    , PelagoRelDistributions.BRDCSPLIT               , PelagoRelFactories.PELAGO_BUILDER);
 //    public static final ConverterRule SEQNTL_INSTANCE =
 //            new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.RANDOM_DISTRIBUTED   , PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule SEQNTL_INSTANCE2 =
         new PelagoDistributionConverterRule(RelDistributions.SINGLETON            , RelDistributions.RANDOM_DISTRIBUTED   , PelagoRelFactories.PELAGO_BUILDER);
     public static final ConverterRule RANDOM_INSTANCE =
             new PelagoDistributionConverterRule(RelDistributions.RANDOM_DISTRIBUTED   , RelDistributions.SINGLETON            , PelagoRelFactories.PELAGO_BUILDER);
-    public static final ConverterRule RANDOM_INSTANCE2 =
-        new PelagoDistributionConverterRule(RelDistributions.RANDOM_DISTRIBUTED   , PelagoRelDistributions.SPLIT        , PelagoRelFactories.PELAGO_BUILDER);
+//    public static final ConverterRule RANDOM_INSTANCE2 =
+//        new PelagoDistributionConverterRule(RelDistributions.RANDOM_DISTRIBUTED   , PelagoRelDistributions.SPLIT        , PelagoRelFactories.PELAGO_BUILDER);
 
     private final RelDistribution distribution;
 
@@ -69,7 +59,7 @@ public class PelagoDistributionConverterRule extends ConverterRule {
     public boolean matches(RelOptRuleCall call) {
 //        if (call.rel(0).getConvention() != PelagoRel.CONVENTION) return false;
         return !call.rel(0).getTraitSet().containsIfApplicable(distribution);
-//        return !(call.rel(0).getTraitSet().getTrait(RelDistributionTraitDef.INSTANCE) instanceof PelagoRelDistributions);
+//        return !(call.rel(0).getTraitSet().getTrait(RelDistributionTraitDef.INSTANCE) instanceof RelDistributions);
     }
 
 }

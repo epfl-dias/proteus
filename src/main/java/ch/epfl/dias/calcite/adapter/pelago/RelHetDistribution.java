@@ -7,7 +7,7 @@ import org.apache.calcite.plan.RelTraitDef;
 /**
  * Description of the distribution across device types of an input stream.
  */
-public class RelHetDistribution implements RelTrait {
+public class RelHetDistribution implements PelagoTrait {
   public static final RelHetDistribution SPLIT        = new RelHetDistribution("hetSplit");
   public static final RelHetDistribution SPLIT_BRDCST = new RelHetDistribution("hetBrdcst");
   public static final RelHetDistribution SINGLETON    = new RelHetDistribution("hetSingle");

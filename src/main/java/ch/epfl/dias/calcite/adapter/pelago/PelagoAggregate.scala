@@ -168,8 +168,7 @@ object PelagoAggregate{
     val dev = PelagoRelMdDeviceType.aggregate(mq, input)
     val traitSet = cluster.traitSet
       .replace(PelagoRel.CONVENTION)
-//      .replace(RelDistributions.SINGLETON)
-      .replaceIf(RelDistributionTraitDef.INSTANCE, () => mq.distribution(input))
+      .replace(mq.distribution(input))
       .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].hetDistribution(input))
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);

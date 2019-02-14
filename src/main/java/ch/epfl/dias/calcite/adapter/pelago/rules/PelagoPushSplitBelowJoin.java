@@ -19,9 +19,7 @@ public class PelagoPushSplitBelowJoin extends RelOptRule {
         PelagoSplit.class,
         operand(
           PelagoJoin.class,
-//          any()
-          operand(RelNode.class, any()),
-          operand(RelNode.class, any())
+          any()
         )
       )
     );
@@ -51,8 +49,8 @@ public class PelagoPushSplitBelowJoin extends RelOptRule {
 //      new_probe = PelagoDeviceCross.create(new_probe, probe.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE));
 //    }
 
-    RelNode      build  = call.rel(2);
-    RelNode      probe  = call.rel(3);
+    RelNode      build  = join.getLeft();
+    RelNode      probe  = join.getRight();
 
     RelNode new_build = convert(build, RelHetDistribution.SPLIT_BRDCST);
 

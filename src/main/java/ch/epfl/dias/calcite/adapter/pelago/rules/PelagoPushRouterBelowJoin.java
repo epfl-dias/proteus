@@ -7,6 +7,8 @@ import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 
+import com.google.common.collect.ImmutableMap;
+
 import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoJoin;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
@@ -23,9 +25,7 @@ public class PelagoPushRouterBelowJoin extends RelOptRule {
         PelagoRouter.class,
         operand(
           PelagoJoin.class,
-//          any()
-          operand(RelNode.class, any()),
-          operand(RelNode.class, any())
+          any()
         )
       )
     );
@@ -36,39 +36,29 @@ public class PelagoPushRouterBelowJoin extends RelOptRule {
   }
 
   public void onMatch(RelOptRuleCall call) {
-//    PelagoRouter router = (PelagoRouter) call.rel(0);
     PelagoJoin   join   = call.rel(1);
-//    RelNode      build  = join.getLeft ();//               call.rel(2);
-//    RelNode      probe  = join.getRight();//               call.rel(3);
+    RelNode      build  = join.getLeft();
+    RelNode      probe  = join.getRight();
 
-//    RelTraitSet btrait = build.getTraitSet().replace(RelDeviceType.X86_64).replace(RelDistributions.BROADCAST_DISTRIBUTED);
-//    RelTraitSet ptrait = probe.getTraitSet().replace(RelDeviceType.X86_64).replace(RelDistributions.RANDOM_DISTRIBUTED);
+    RelNode new_build = PelagoRouter.create(
+      convert(build, RelDeviceType.X86_64),
+      RelDistributions.BROADCAST_DISTRIBUTED
+    );
 
-//    RelNode new_build = convert(build, btrait);
-//    RelNode new_probe = convert(probe, ptrait);
+    RelNode new_probe = PelagoRouter.create(
+      convert(probe, RelDeviceType.X86_64),
+      RelDistributions.RANDOM_DISTRIBUTED
+    );
 
-//    if (!build.getTraitSet().containsIfApplicable(RelDeviceType.X86_64)){
-//      new_build = PelagoDeviceCross.create(new_build, build.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE));
-//    }
-//
-//    if (!probe.getTraitSet().containsIfApplicable(RelDeviceType.X86_64)){
-//      new_probe = PelagoDeviceCross.create(new_probe, probe.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE));
-//    }
-
-    RelNode      build  = call.rel(2);
-    RelNode      probe  = call.rel(3);
-
-    RelNode new_build = convert(build, RelDistributions.BROADCAST_DISTRIBUTED);
-
-    RelNode new_probe = convert(probe, RelDistributions.RANDOM_DISTRIBUTED);
-
+    call.getPlanner().ensureRegistered(new_build, build);
+    call.getPlanner().ensureRegistered(new_probe, probe);
 
     call.transformTo(
       join.copy(
         null,
         join.getCondition(),
-        new_build,
-        new_probe,
+        convert(new_build, join.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE)),
+        convert(new_probe, join.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE)),
         join.getJoinType(),
         join.isSemiJoinDone()
       )

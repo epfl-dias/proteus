@@ -6,7 +6,6 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
-import ch.epfl.dias.calcite.adapter.pelago.RelHetDistributionTraitDef;
 
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.plan.RelOptRuleCall;
@@ -44,7 +43,7 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
 //        System.out.println(inp.getTraitSet());
 
         RelTraitSet traitSet = rel.getTraitSet().replace(PelagoRel.CONVENTION)
-            .replaceIf(RelDistributionTraitDef.INSTANCE, () -> RelDistributions.SINGLETON)
+            .replace(RelDistributions.SINGLETON)
             .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64);
 
 //        RelNode inp = rel;//convert(convert(rel, RelDistributions.SINGLETON), RelDeviceType.X86_64); //Convert to sequential

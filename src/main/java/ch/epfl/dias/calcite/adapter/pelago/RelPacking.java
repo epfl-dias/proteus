@@ -7,7 +7,7 @@ import org.apache.calcite.plan.RelTraitDef;
 /**
  * Description of the target device of a relational expression.
  */
-public class RelPacking implements RelTrait {
+public class RelPacking implements PelagoTrait {
   public static final RelPacking Packed = new RelPacking("packed");
   public static final RelPacking UnPckd = new RelPacking("unpckd");
 

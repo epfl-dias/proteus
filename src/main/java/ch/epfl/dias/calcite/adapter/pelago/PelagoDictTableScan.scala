@@ -80,7 +80,7 @@ object PelagoDictTableScan {
   def create(cluster: RelOptCluster, table: RelOptTable, regex: String, attrIndex: Int) = {
     val mq = cluster.getMetadataQuery
     val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
-      .replaceIf(RelDistributionTraitDef.INSTANCE, () => RelDistributions.SINGLETON)
+      .replace(RelDistributions.SINGLETON)
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
       .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => RelHetDistribution.SINGLETON)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(RelDeviceType.X86_64))

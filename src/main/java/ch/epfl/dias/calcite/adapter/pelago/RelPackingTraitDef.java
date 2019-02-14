@@ -17,6 +17,7 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
 import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
@@ -45,6 +46,7 @@ public class RelPackingTraitDef extends RelTraitDef<RelPacking> {
 
   @Override public RelNode convert(RelOptPlanner planner, RelNode rel, RelPacking to_packing,
                                    boolean allowInfiniteCostConverters) {
+    if (rel.getConvention() != PelagoRel.CONVENTION) return null;
     RelNode p;
     if (to_packing == RelPacking.Packed) {
       p = PelagoPack  .create(rel, to_packing);
@@ -59,8 +61,8 @@ public class RelPackingTraitDef extends RelTraitDef<RelPacking> {
     return newRel;
   }
 
-  @Override public boolean canConvert(RelOptPlanner planner, RelPacking fromTrait, RelPacking toDevice) {
-    return true;
+  @Override public boolean canConvert(RelOptPlanner planner, RelPacking fromTrait, RelPacking toTrait) {
+    return fromTrait != toTrait;
   }
 
   @Override public RelPacking getDefault() {

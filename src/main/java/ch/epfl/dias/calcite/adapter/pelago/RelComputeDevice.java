@@ -15,7 +15,7 @@ import java.util.stream.Stream;
 /**
  * TODO: should we convert it into a RelMultipleTrait ? Does a RelMultipleTrait has *ANY* of the values or all?
  */
-public class RelComputeDevice implements RelTrait {
+public class RelComputeDevice implements PelagoTrait {
   public static final RelComputeDevice NONE        = new RelComputeDevice("none");
   public static final RelComputeDevice X86_64      = new RelComputeDevice("cX86_64");
   public static final RelComputeDevice NVPTX       = new RelComputeDevice("cNVPTX");

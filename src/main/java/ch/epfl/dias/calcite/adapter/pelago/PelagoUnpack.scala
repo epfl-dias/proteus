@@ -56,6 +56,13 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
       } else {
         0.1
       }
+    } * {
+      if (!getTraitSet.containsIfApplicable(RelHetDistribution.SINGLETON)) {
+        1
+      } else {
+        1e12
+//        return planner.getCostFactory.makeHugeCost()
+      }
     }
     // exchange.
     val rowCount = mq.getRowCount(this)

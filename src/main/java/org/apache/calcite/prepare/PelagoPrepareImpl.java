@@ -96,8 +96,8 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             RelOptCostFactory costFactory) {
         RelOptCostFactory cFactory = (costFactory == null) ? PelagoCostFactory.INSTANCE : costFactory;
         RelOptPlanner planner = super.createPlanner(prepareContext, externalContext, cFactory);
-        planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE);
         planner.addRelTraitDef(RelDistributionTraitDef   .INSTANCE);
+        planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE);
         planner.addRelTraitDef(RelDeviceTypeTraitDef     .INSTANCE);
         planner.addRelTraitDef(RelPackingTraitDef        .INSTANCE);
         planner.addRelTraitDef(RelComputeDeviceTraitDef  .INSTANCE);

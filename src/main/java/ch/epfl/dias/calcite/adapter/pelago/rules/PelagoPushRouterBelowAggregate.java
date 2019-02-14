@@ -91,25 +91,25 @@ public class PelagoPushRouterBelowAggregate extends RelOptRule {
 
     ImmutableBitSet topGroupSet = ImmutableBitSet.builder().set(0, rel.getGroupCount()).build();
 
+    RelNode locagg = rel.copy(
+        null,
+        Arrays.asList(
+            convert(
+                rel.getInput(),
+                rel.getInput().getTraitSet()
+                    .replace(RelDistributions.RANDOM_DISTRIBUTED)
+                    .replace(rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE))
+            )
+        )
+    );
+
     call.transformTo(
       PelagoAggregate.create(
-          PelagoRouter.create(
-              convert(
-                  rel.copy(
-                      null,
-                      Arrays.asList(
-                          convert(
-                              convert(
-                                  rel.getInput(),
-                                  RelDistributions.RANDOM_DISTRIBUTED //rel.getDistribution()
-                              ),
-                              rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE)
-                          )
-                      )
-                  ),
-                  RelDeviceType.X86_64
-              ),
-              RelDistributions.SINGLETON
+          convert(
+              locagg,
+              locagg.getTraitSet()
+                  .replace(RelDistributions.SINGLETON)
+                  .replace(rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE))
           ),
           rel.indicator,
           topGroupSet,

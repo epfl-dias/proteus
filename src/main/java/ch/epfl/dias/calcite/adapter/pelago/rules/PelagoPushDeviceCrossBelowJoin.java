@@ -18,8 +18,7 @@ public class PelagoPushDeviceCrossBelowJoin extends RelOptRule {
         PelagoDeviceCross.class,
         operand(
           PelagoJoin.class,
-          operand(RelNode.class, any()),
-          operand(RelNode.class, any())
+          any()
         )
       )
     );
@@ -32,8 +31,8 @@ public class PelagoPushDeviceCrossBelowJoin extends RelOptRule {
   public void onMatch(RelOptRuleCall call) {
     PelagoDeviceCross dcross = (PelagoDeviceCross) call.rel(0);
     PelagoJoin        join   = (PelagoJoin       ) call.rel(1);
-    RelNode           build  =                     call.rel(2);
-    RelNode           probe  =                     call.rel(3);
+    RelNode           build  =                     join.getLeft();
+    RelNode           probe  =                     join.getRight();
 
     call.transformTo(
       join.copy(

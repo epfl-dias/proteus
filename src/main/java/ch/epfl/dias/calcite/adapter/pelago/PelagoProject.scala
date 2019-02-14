@@ -90,7 +90,7 @@ object PelagoProject{
     val mq       = cluster.getMetadataQuery
     val dev      = PelagoRelMdDeviceType.project(mq, input, projects)
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
-      .replaceIf(RelDistributionTraitDef.INSTANCE, () => PelagoRelMdDistribution.project(mq, input, projects))
+      .replace(PelagoRelMdDistribution.project(mq, input, projects))
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);
     assert(traitSet.containsIfApplicable(RelPacking.UnPckd))

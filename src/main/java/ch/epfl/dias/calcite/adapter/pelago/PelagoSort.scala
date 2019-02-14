@@ -165,7 +165,7 @@ object PelagoSort{
     val mq       = cluster.getMetadataQuery
     val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
       .replace(RelCollationTraitDef.INSTANCE.canonize(collation))
-      .replaceIf(RelDistributionTraitDef.INSTANCE, () => RelMdDistribution.sort(mq, input))
+      .replace(RelMdDistribution.sort(mq, input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => PelagoRelMdDeviceType.sort(mq, input))
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
     new PelagoSort(cluster, traitSet, input, collation, offset, fetch)
