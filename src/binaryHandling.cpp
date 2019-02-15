@@ -1,5 +1,7 @@
 // don't forget to use appropriate sourceCpp("path/to/file.cpp") from R to add a function to working environment
 #include <Rcpp.h>
+#include <R.h>
+#include <Rinternals.h>
 
 using namespace Rcpp;
 
@@ -51,6 +53,18 @@ DataFrame readFromXptr(XPtr<std::vector<int> > vec_ptr) {
   // Still researching the option to directly point to values in memory
   // it seems that this is a fundamental limitation
 
+  //std::vector<int> iv =
+
+  IntegerVector iv(vec_ptr->begin(), vec_ptr->end());
+
+  return DataFrame::create(_["a"]= iv);
+  //return 1;
+}
+
+// [[Rcpp::export]]
+DataFrame readTest(int size) {
+  XPtr<std::vector<int> > vec_ptr = initVector(size);
+  Rcpp::Rcout << vec_ptr->at(50);
 
   IntegerVector iv(vec_ptr->begin(), vec_ptr->end());
 
@@ -63,12 +77,34 @@ DataFrame readFromArr(int size) {
   int* arr = initArr(size);
 
   Rcpp:Rcout << arr[20];
-  SEXP iv = coerceVector(arr, INTSXP);
 
-  //Rcpp:Rcout << typeid(iv).name();
+  //Rcpp:Rcout << sizeof(INTEGER);
 
   //return DataFrame::create(_["a"]= iv);
   return 1;
+}
+
+// [[Rcpp::export]]
+DataFrame test(int size) {
+  // This is in theory what should be working
+  // We create a c++ vector from the shm
+  // R will create a copy and we then deallocate
+  std::vector<int> *v = new std::vector<int>();
+
+  for(int i=0; i<size; i++){
+    v->push_back(1234);
+  }
+
+  //NumericVector xx(y.begin(), y.end());
+
+  //Rcpp:Rcout << sizeof(xx) << ", " << sizeof(y);
+
+  DataFrame df = DataFrame::create(_["a"]=*v);
+
+  v->clear();
+  v = new std::vector<int>();
+
+  return df;
 }
 
 // [[Rcpp::export]]

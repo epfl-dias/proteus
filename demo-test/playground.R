@@ -225,3 +225,22 @@ hist_data = inner_join(lineorder, customer, by=c("lo_custkey"="c_custkey")) %>%
 end<-Sys.time()
 
 
+
+library(Rcpp)
+sourceCpp("src/binaryHandling.cpp")
+
+a<-test(200000000)
+
+
+
+library(mixtools)
+
+data(faithful)
+attach(faithful)
+
+set.seed(100)
+
+out<-normalmixEM(waiting, arbvar = FALSE, epsilon = 1e-03)
+
+
+
