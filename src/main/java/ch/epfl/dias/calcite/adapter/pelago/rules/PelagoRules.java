@@ -668,7 +668,7 @@ public class PelagoRules {
 //            final RelNode  swapped = (swap) ? convert(JoinCommuteRule.swap(join, false), PelagoRel.CONVENTION) : join;
             RelNode  swapped = (swap) ? JoinCommuteRule.swap(join, false) : join;
             if (swapped == null) return null;
-            if (swapped instanceof LogicalProject) swapped = PelagoProject.create(((LogicalProject) swapped).getInput(), ((LogicalProject) swapped).getProjects(), swapped.getRowType());
+            swapped = convert(swapped, PelagoRel.CONVENTION);
 
 //            rel.getCluster().getPlanner().setImportance(rel, 0);
             if (rest.isEmpty()) return swapped;
