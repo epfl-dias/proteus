@@ -17,7 +17,6 @@ import org.apache.calcite.plan.hep.HepPlanner;
 import org.apache.calcite.plan.hep.HepProgram;
 import org.apache.calcite.plan.volcano.AbstractConverter;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.RelFactories;
@@ -261,9 +260,9 @@ public class                                                                    
 
         PelagoTimeInterval tm = new PelagoTimeInterval();
 
-        boolean cpu_only = Repl.cpuonly();
+        boolean cpu_only = Repl.isCpuonly();
         int     cpudop   = Repl.cpudop();
-        boolean hybrid   = Repl.hybrid();
+        boolean hybrid   = Repl.isHybrid();
 
         ImmutableList.Builder<RelOptRule> hetRuleBuilder = ImmutableList.builder();
 

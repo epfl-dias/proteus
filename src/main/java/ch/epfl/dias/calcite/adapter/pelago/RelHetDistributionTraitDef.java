@@ -30,6 +30,7 @@ public class RelHetDistributionTraitDef extends RelTraitDef<RelHetDistribution> 
     RelNode input = rel;
     if (!rel.getTraitSet().equals(inptraitSet)) {
       input = planner.register(planner.changeTraits(rel, inptraitSet), rel);
+      return null;
     }
 
     final PelagoSplit router = PelagoSplit.create(input, distribution);
@@ -44,7 +45,7 @@ public class RelHetDistributionTraitDef extends RelTraitDef<RelHetDistribution> 
 
   @Override public boolean canConvert(RelOptPlanner planner, RelHetDistribution fromTrait,
       RelHetDistribution toTrait) {
-    return toTrait != RelHetDistribution.SINGLETON;
+    return toTrait != RelHetDistribution.SINGLETON && fromTrait == RelHetDistribution.SINGLETON;
   }
 
   @Override public RelHetDistribution getDefault() {

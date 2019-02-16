@@ -20,7 +20,6 @@ import org.apache.calcite.plan.volcano.AbstractConverter;
 import org.apache.calcite.plan.volcano.PelagoCostFactory;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.Filter;
@@ -101,7 +100,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         planner.addRelTraitDef(RelDeviceTypeTraitDef     .INSTANCE);
         planner.addRelTraitDef(RelHomDistributionTraitDef.INSTANCE);
         planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE);
-        if (Repl.hybrid() || Repl.cpuonly()) planner.addRelTraitDef(RelComputeDeviceTraitDef  .INSTANCE);
+        if (Repl.isHybrid() || Repl.isCpuonly()) planner.addRelTraitDef(RelComputeDeviceTraitDef  .INSTANCE);
 
 //        planner.addRelTraitDef(RelDataLocalityTraitDef.INSTANCE);
 
@@ -525,17 +524,17 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
                         switch(option){
                             case "cpu":
                             case "cpuonly":{
-                                Repl.set_cpuonly();
+                                Repl.setCpuonly();
                                 return;
                             }
                             case "gpu":
                             case "gpuonly":{
-                                Repl.set_gpuonly();
+                                Repl.setGpuonly();
                                 return;
                             }
                             case "all":
                             case "hybrid":{
-                                Repl.set_hybrid();
+                                Repl.setHybrid();
                                 return;
                             }
                             default:

@@ -32,6 +32,7 @@ public class RelHomDistributionTraitDef extends RelTraitDef<RelHomDistribution> 
     RelNode input = rel;
     if (!rel.getTraitSet().equals(inptraitSet)) {
       input = planner.register(planner.changeTraits(rel, inptraitSet), rel);
+      return null;
     }
 
     final PelagoRouter router = PelagoRouter.create(input, distribution);

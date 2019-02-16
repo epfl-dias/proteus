@@ -2,28 +2,20 @@ package ch.epfl.dias.calcite.adapter.pelago.rules;
 
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
-import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.SqlAggFunction;
-import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlSplittableAggFunction;
-import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.ImmutableBitSet;
 
 import com.google.common.collect.ImmutableList;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoAggregate;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
+import ch.epfl.dias.repl.Repl;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -92,6 +84,8 @@ public class PelagoPushRouterBelowAggregate extends RelOptRule {
 
     ImmutableBitSet topGroupSet = ImmutableBitSet.builder().set(0, rel.getGroupCount()).build();
 
+    RelDeviceType dev = rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE);
+
     RelNode locagg = rel.copy(
         null,
         Arrays.asList(
@@ -99,7 +93,8 @@ public class PelagoPushRouterBelowAggregate extends RelOptRule {
                 rel.getInput(),
                 rel.getInput().getTraitSet()
                     .replace(RelHomDistribution.RANDOM)
-                    .replace(rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE))
+                    // For the GPU-only case, ask to move to the GPU
+                    .replace(Repl.isGpuonly() ? RelDeviceType.NVPTX : dev)
             )
         )
     );
@@ -110,7 +105,7 @@ public class PelagoPushRouterBelowAggregate extends RelOptRule {
               locagg,
               locagg.getTraitSet()
                   .replace(RelHomDistribution.SINGLE)
-                  .replace(rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE))
+                  .replace(dev)
           ),
           rel.indicator,
           topGroupSet,

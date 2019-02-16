@@ -41,10 +41,6 @@ class PelagoUnion protected
     val right_childBinding: Binding = right_child._1
     val right_childOp = right_child._2
     val rowType = emitSchema(left_childBinding.rel, getRowType, false, getTraitSet.containsIfApplicable(RelPacking.Packed))
-//    val cond = emitExpression(getCondition, List(childBinding))
-
-    println(left_childOp)
-    println(right_childOp)
 
     val json : JValue = op ~
       ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~

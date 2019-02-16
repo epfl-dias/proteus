@@ -6,10 +6,10 @@ import org.apache.calcite.rel.RelNode;
 import com.google.common.collect.ImmutableList;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoAggregate;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
+import ch.epfl.dias.repl.Repl;
 
 public class PelagoPushRouterBelowAggregateNoPartial extends PelagoPushRouterBelowAggregate {
   public static final PelagoPushRouterBelowAggregateNoPartial INSTANCE = new PelagoPushRouterBelowAggregateNoPartial();
@@ -26,9 +26,14 @@ public class PelagoPushRouterBelowAggregateNoPartial extends PelagoPushRouterBel
       return;
     }
 
+    RelDeviceType dev = rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE);
+
     RelNode locagg = convert(
-      convert(rel.getInput(), rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE)),
-      RelHomDistribution.RANDOM
+      rel.getInput(),
+      rel.getInput().getTraitSet()
+        .replace(RelHomDistribution.RANDOM)
+        // For the GPU-only case, ask to move to the GPU
+        .replace(Repl.isGpuonly() ? RelDeviceType.NVPTX : dev)
     );
 
     RelNode agg = rel.copy(null, ImmutableList.of(
@@ -36,14 +41,14 @@ public class PelagoPushRouterBelowAggregateNoPartial extends PelagoPushRouterBel
             locagg,
             locagg.getTraitSet()
                 .replace(RelHomDistribution.SINGLE)
-                .replace(rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE))
+                .replace(dev)
         )
     ));
 
     call.getPlanner().ensureRegistered(agg, rel);
 
     call.transformTo(
-        convert(agg, rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE))
+        convert(agg, dev)
     );
   }
 }

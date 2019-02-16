@@ -107,24 +107,24 @@ object Repl extends App {
   var gpudop      = options('gpudop     ).asInstanceOf[Int    ]
 
   //default to hybrid execution
-  set_hybrid()
+  setHybrid()
   //check if the user requested cpuonly execution (or no GPUs are available)
-  if (options('cpuonly).asInstanceOf[Boolean]) set_cpuonly()
+  if (options('cpuonly).asInstanceOf[Boolean]) setCpuonly()
 
-  def hybrid() = cpus_on && gpus_on
-  def set_hybrid(): Unit = {
+  def isHybrid() = cpus_on && gpus_on
+  def setHybrid(): Unit = {
     cpus_on = true
     gpus_on = true
   }
 
-  def cpuonly() = cpus_on && !gpus_on
-  def set_cpuonly(): Unit = {
+  def isCpuonly() = cpus_on && !gpus_on
+  def setCpuonly(): Unit = {
     cpus_on = true
     gpus_on = false
   }
 
-  def gpuonly() = !cpus_on && gpus_on
-  def set_gpuonly(): Unit = {
+  def isGpuonly() = !cpus_on && gpus_on
+  def setGpuonly(): Unit = {
     cpus_on = false
     gpus_on = true
   }
