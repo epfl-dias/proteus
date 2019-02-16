@@ -18,6 +18,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.mapping.Mappings;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoSplit;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoUnion;
@@ -66,6 +67,11 @@ public class PelagoRelMdHomDistribution implements MetadataHandler<HomDistributi
     RelHomDistribution dtype = rel.getTraitSet().getTrait(RelHomDistributionTraitDef.INSTANCE); //TODO: is this safe ? or can it cause an inf loop?
     if (dtype != null) return dtype;
     return RelHomDistribution.SINGLE;
+  }
+
+  public RelHomDistribution homDistribution(PelagoRouter router, RelMetadataQuery mq){
+//    System.out.println(scan.getDistribution());
+    return router.getHomDistribution();
   }
 
   public RelHomDistribution homDistribution(PelagoTableScan scan, RelMetadataQuery mq){

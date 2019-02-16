@@ -59,9 +59,8 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
   //almost 0 cost in Pelago
-  override def implement(target: RelDeviceType): (Binding, JsonAST.JValue) = {
+  override def implement(target: RelDeviceType, alias: String): (Binding, JsonAST.JValue) = {
     val op      = ("operator" , "project")
-    val alias   = "projection" + getId
     val rowType = emitSchema(alias, getRowType)
     val child   = getInput.asInstanceOf[PelagoRel].implement(target)
     val childBinding: Binding = child._1

@@ -48,7 +48,7 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
   override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     // Higher cost if rows are wider discourages pushing a project through an
     val rf = {
-      if (!getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
+      if (!getTraitSet.containsIfApplicable(RelHomDistribution.SINGLE)) {
         if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.0001
         else 0.001
       } else if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
@@ -73,12 +73,13 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
 //    else planner.getCostFactory.makeTinyCost
   }
 
-  override def implement(target: RelDeviceType): (Binding, JValue) = {
+  override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
     val op = ("operator", "block-to-tuples")
-    val child = getInput.asInstanceOf[PelagoRel].implement(getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE))
+    val child = getInput.asInstanceOf[PelagoRel].implement(getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE), alias)
     val childBinding: Binding = child._1
     val childOp = child._2
-    val alias   = childBinding.rel  //"unpack" + getId
+//    val alias   = childBinding.rel  //"unpack" + getId
+//    assert(alias == childBinding.rel);
 
     val projs = getRowType.getFieldList.asScala.zipWithIndex.map {
       f => {
@@ -90,7 +91,7 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
       ("projections", projs                                                 ) ~
       ("input"      , childOp                                               )
 
-    val binding: Binding = Binding(alias, getFields(getRowType))
+    val binding: Binding = Binding(childBinding.rel, getFields(getRowType))
     val ret: (Binding, JValue) = (binding, json)
     ret
   }

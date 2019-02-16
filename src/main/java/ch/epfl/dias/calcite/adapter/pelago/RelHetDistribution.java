@@ -18,6 +18,10 @@ public class RelHetDistribution implements PelagoTrait {
     this.distr = distr;
   }
 
+  public int getNumOfDeviceTypes(){
+    return (this == SINGLETON) ? 1 : 2;
+  }
+
   @Override public String toString() {
     return distr;
   }

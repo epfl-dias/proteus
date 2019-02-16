@@ -79,10 +79,16 @@ public class PelagoPackTransfers extends RelOptRule {
       PelagoUnpack right = call.rel(2);
 
       call.transformTo(
-          convert(
-              rel.copy(null, ImmutableList.of(left, right)),
-              RelPacking.Packed
-          )
+        convert(
+          rel.copy(
+            null,
+            ImmutableList.of(
+              left.getInput(),
+              right.getInput()
+            )
+          ),
+          RelPacking.Packed
+        )
       );
     }
   }

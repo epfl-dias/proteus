@@ -22,13 +22,6 @@ import java.util.List;
 public class PelagoPushRouterDown extends RelOptRule {
 
   public static final RelOptRule[] RULES = new RelOptRule[]{
-//    PelagoDistributionConverterRule.BRDCST_INSTANCE2,
-//    PelagoDistributionConverterRule.BRDCST_INSTANCE3,
-////    PelagoDistributionConverterRule.BRDCST_INSTANCE4,
-//    PelagoDistributionConverterRule.SEQNTL_INSTANCE2,
-//    PelagoDistributionConverterRule.RANDOM_INSTANCE ,
-//    PelagoDistributionConverterRule.RANDOM_INSTANCE2,
-//    new PelagoPushRouterDown(PelagoAggregate.class),
     new PelagoPushRouterDown(PelagoFilter.class),
     new PelagoPushRouterDown(PelagoProject.class),
     new PelagoPushRouterDown(PelagoPack.class),
@@ -36,10 +29,9 @@ public class PelagoPushRouterDown extends RelOptRule {
     new PelagoPushRouterDown(PelagoDeviceCross.class),
 //    new PelagoPushRouterDown(PelagoSort.class),
 //    new PelagoPushRouterDown(PelagoUnnest.class), //We only have a CPU-unnest for now
-//    PelagoJoinPushBelowRouter.INSTANCE,
     PelagoPushRouterBelowJoin.INSTANCE,
-    PelagoPushRouterBelowAggregate.INSTANCE,
-      PelagoPushDeviceCrossNRouterBelowJoin.INSTANCE
+    PelagoPushRouterBelowAggregateNoPartial.INSTANCE, //NoPartial
+    PelagoPushDeviceCrossNRouterBelowJoin.INSTANCE
   };
 
 //  private final Class op;

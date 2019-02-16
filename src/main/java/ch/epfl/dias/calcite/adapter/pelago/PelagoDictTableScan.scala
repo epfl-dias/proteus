@@ -54,7 +54,12 @@ class PelagoDictTableScan protected (cluster: RelOptCluster, traitSet: RelTraitS
     super.computeSelfCost(planner, mq).multiplyBy(10*(10000 + 2D) / (table.getRowType.getFieldCount.toDouble + 2D))
   }
 
-  def implement(target: RelDeviceType): (Binding, JValue) = {
+  override def implement(target: RelDeviceType): (Binding, JValue) = {
+    return implement(target, null)
+  }
+
+  def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
+//    assert(alias == null);//this operator does not provide arbitrary projections
     val dictPath = table.unwrap(classOf[PelagoTable]).getPelagoRelName
     val fieldName = table.getRowType.getFieldList.get(attrIndex).getName
     val op = ("operator", "dict-scan" ) ~

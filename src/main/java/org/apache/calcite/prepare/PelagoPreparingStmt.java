@@ -42,6 +42,7 @@ import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
 import org.apache.calcite.util.Pair;
 
+import ch.epfl.dias.calcite.adapter.pelago.RelComputeDevice;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
@@ -138,6 +139,7 @@ public class                                                                    
             .replace(root.collation)
             .replace(RelHomDistribution.SINGLE)
             .replace(RelDeviceType.X86_64)
+            .replace(RelComputeDevice.X86_64NVPTX)
             .simplify();
 //        return root.rel.getTraitSet().replace(this.resultConvention).replace(root.collation).replace(RelDeviceType.X86_64).simplify();
     }
@@ -261,15 +263,16 @@ public class                                                                    
 
         boolean cpu_only = Repl.cpuonly();
         int     cpudop   = Repl.cpudop();
+        boolean hybrid   = true;
 
         ImmutableList.Builder<RelOptRule> hetRuleBuilder = ImmutableList.builder();
 
         if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossDown.RULES);
-        if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossNSplitDown.RULES);
+        if (hybrid) hetRuleBuilder.add(PelagoPushDeviceCrossNSplitDown.RULES);
 
         if (!(cpu_only && cpudop == 1)) hetRuleBuilder.add(PelagoPushDeviceCrossNRouterDown.RULES);
         if (!(cpu_only && cpudop == 1)) hetRuleBuilder.add(PelagoPushRouterDown.RULES);
-        if (!(cpu_only && cpudop == 1)) hetRuleBuilder.add(PelagoPushSplitDown.RULES);
+        if (hybrid) hetRuleBuilder.add(PelagoPushSplitDown.RULES);
 
         hetRuleBuilder.add(PelagoPackTransfers.RULES);
 

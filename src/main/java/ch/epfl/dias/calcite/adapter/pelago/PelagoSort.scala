@@ -44,9 +44,8 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
-  override def implement(target: RelDeviceType): (Binding, JsonAST.JValue) = {
+  override def implement(target: RelDeviceType, alias: String): (Binding, JsonAST.JValue) = {
     val op = ("operator", "project")
-    val alias = "sort" + getId
     val rowType = emitSchema(alias, getRowType)
     val child = implementUnpack
     val childBinding: Binding = child._1

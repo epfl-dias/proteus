@@ -49,13 +49,13 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     //    if (!getCondition.isA(SqlKind.EQUALS)) return planner.getCostFactory.makeHugeCost
 
     val rf = {
-      if (!getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
+      if (!getTraitSet.containsIfApplicable(RelHomDistribution.SINGLE)) {
         if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.000001
         else 100//0.1
       } else if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
-        10000.0 //0.01
+        1e6 //0.01
       } else {
-        1000000.0
+        1e8
       }
     }
 
@@ -87,8 +87,8 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     //        }
     // Cheaper if the smaller number of rows is coming from the LHS.
     // Model this by adding L log L to the cost.]
-    val rightRowCount = right.estimateRowCount(mq)
-    val leftRowCount = left.estimateRowCount(mq)
+    val rightRowCount = getCluster.getMetadataQuery.getRowCount(getRight)
+    val leftRowCount = getCluster.getMetadataQuery.getRowCount(getLeft)
 
     if (leftRowCount.isInfinite) rc1 = leftRowCount
     else rc1 += Util.nLogN(leftRowCount * left.getRowType.getFieldCount)
@@ -102,10 +102,10 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       //TODO: Cost should change for radix-HJ
     }
     rc1 += rc2 * right.getRowType.getFieldCount
-    planner.getCostFactory.makeCost(rowCount * rf2, rc1 * 10000 * rf * rf2, 0)
+    planner.getCostFactory.makeCost(rowCount * rf2 * rf, rc1 * 10000 * rf * rf2, 0)
   }
 
-  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("build", left.getRowType.toString).item("lcount", Util.nLogN(left.estimateRowCount(left.getCluster.getMetadataQuery) * left.getRowType.getFieldCount)).item("rcount", right.estimateRowCount(right.getCluster.getMetadataQuery)).item("buildcountrow", left.estimateRowCount(left.getCluster.getMetadataQuery)).item("probecountrow", right.estimateRowCount(right.getCluster.getMetadataQuery))
+  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("build", left.getRowType.toString).item("lcount", Util.nLogN(getCluster.getMetadataQuery.getRowCount(getLeft) * left.getRowType.getFieldCount)).item("rcount", getCluster.getMetadataQuery.getRowCount(getRight)).item("buildcountrow", getCluster.getMetadataQuery.getRowCount(getLeft)).item("probecountrow", getCluster.getMetadataQuery.getRowCount(getRight))
 
 //  override def estimateRowCount(mq: RelMetadataQuery): Double = mq.getRowCount(getRight) * mq.getPercentageOriginalRows(getLeft);//Math.max(mq.getRowCount(getLeft), mq.getRowCount(getRight))
 
@@ -169,7 +169,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     }
   }
 
-  override def implement(target: RelDeviceType): (Binding, JValue) = {
+  override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
     val op = ("operator" , "hashjoin-chained")
     val build = getLeft.asInstanceOf[PelagoRel].implement(target)
     val build_binding: Binding = build._1
@@ -177,8 +177,6 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     val probe = getRight.asInstanceOf[PelagoRel].implement(target)
     val probe_binding: Binding = probe._1
     val probe_child = probe._2
-
-    val alias   = "join" + getId
 
     //FIXME: joinCondOperands does not always belong to the probe side
 //    val cond = emitExpression(getCondition, List(leftBinding,rightBinding))
@@ -230,11 +228,11 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       }
     }.zipWithIndex.map{e => ("e", e._1) ~ ("packet", e._2 + 1) ~ ("offset", 0)} //FIXME: using different packets for each of them is the worst performance-wise
 
-    val rowEst = Math.min(getLeft.estimateRowCount(getCluster.getMetadataQuery), 512*1024*1024)
+    val rowEst = getCluster.getMetadataQuery.getRowCount(getLeft)
     val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getLeft  )
     val maxEst = if (maxrow != null) Math.min(maxrow, 64*1024*1024) else 64*1024*1024
 
-    val hash_bits = Math.min(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 20)
+    val hash_bits = Math.min(2 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 23)
 
     val json = op ~
 //      ("tupleType"        , rowType     ) ~

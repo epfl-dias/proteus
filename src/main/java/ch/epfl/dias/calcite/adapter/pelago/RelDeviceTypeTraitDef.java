@@ -32,13 +32,12 @@ public class RelDeviceTypeTraitDef extends RelTraitDef<RelDeviceType> {
     if (toDevice == RelDeviceType.ANY) {
       return rel;
     }
-//    toDevice =
 
     final PelagoDeviceCross crossDev = PelagoDeviceCross.create(rel, toDevice);
     RelNode newRel = planner.register(crossDev, rel);
     final RelTraitSet newTraitSet = rel.getTraitSet().replace(toDevice);
     if (!newRel.getTraitSet().equals(newTraitSet)) {
-      newRel = planner.changeTraits(newRel, newTraitSet);
+      newRel = planner.register(planner.changeTraits(newRel, newTraitSet), rel);
     }
     return newRel;
 

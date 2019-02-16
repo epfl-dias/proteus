@@ -55,7 +55,7 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
 
     var base = super.computeSelfCost(planner, mq)
 
-    val cpuCost = (if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) 1e-2 else (1e-2 + 1e-1 * mq.getRowCount(getInput))) *
+    val cpuCost = (if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) 1e-2 else 1e8*(1e-2 + 1e-1 * mq.getRowCount(getInput))) *
       rf * rf2 *
       Math.log(getInput.getRowType.getFieldCount + 10) *
       mq.getRowCount(getInput) *
@@ -68,13 +68,11 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
     super.explainTerms(pw).item("trait", getTraitSet.toString)
   }
 
-  override def implement(target: RelDeviceType): (Binding, JValue) = {
+  override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
     val op = ("operator", if (getGroupCount == 0) "reduce" else "groupby")
     val child = getInput.asInstanceOf[PelagoRel].implement(target)
     val childBinding: Binding = child._1
     val childOp = child._2
-
-    val alias = "agg" + getId
 
     val aggs: List[AggregateCall] = getAggCallList.asScala.toList
 
@@ -137,8 +135,8 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
       }
 
       //FIXME: reconsider these upper limits
-      val rowEst = Math.min(getInput.estimateRowCount(getCluster.getMetadataQuery), 1*1024*1024) //1 vs 128 vs 64
-      val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getInput  )
+      val rowEst = Math.min(getCluster.getMetadataQuery.getRowCount(getInput), 1*1024*1024) //1 vs 128 vs 64
+      val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getInput)
       val maxEst = if (maxrow != null) Math.min(maxrow, 32*1024*1024) else 32*1024*1024 //1 vs 128 vs 64
 
       val hash_bits = Math.min(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 15)

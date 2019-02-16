@@ -21,17 +21,23 @@ import ch.epfl.dias.repl.Repl
 import org.apache.calcite.rel.convert.Converter
 
 class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, val homdistribution: RelHomDistribution)
-    extends Exchange(cluster, traitSet, input, homdistribution.getDistribution()) with PelagoRel with Converter {
+    extends SingleRel(cluster, traitSet, input) with PelagoRel with Converter {
   assert(getConvention eq PelagoRel.CONVENTION)
   assert(getConvention eq input.getConvention)
   protected var inTraits: RelTraitSet = input.getTraitSet
 
-  override def copy(traitSet: RelTraitSet, input: RelNode, distribution: RelDistribution) = PelagoRouter.create(input, RelHomDistribution.from(distribution))
+  override def copy(traitSet: RelTraitSet, inputs: java.util.List[RelNode]) = {
+    assert(inputs.size() == 1)
+    copy(traitSet, inputs.get(0))
+  }
+
+  def copy(traitSet: RelTraitSet, input: RelNode) = PelagoRouter.create(input, homdistribution)
 
   override def estimateRowCount(mq: RelMetadataQuery): Double = {
-    val rc = mq.getRowCount(getInput)
-//    if      (getDistribution eq RelDistributions.BROADCAST_DISTRIBUTED) rc = rc * 4.0
-//    else if (getDistribution eq RelDistributions.RANDOM_DISTRIBUTED   ) rc = rc / 4.0 //TODO: Does this hold even when input is already distributed ?
+    var rc = mq.getRowCount(getInput)
+    if      (getHomDistribution eq RelHomDistribution.BRDCST) rc = rc
+    else if (getHomDistribution eq RelHomDistribution.RANDOM) rc = rc / 2.0 //TODO: Does this hold even when input is already distributed ?
+    else if (getHomDistribution eq RelHomDistribution.SINGLE) rc = rc * 2.0 //TODO: Does this hold even when input is already distributed ?
     rc
   }
 
@@ -40,49 +46,36 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
   }
 
   override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-    //    if (traitSet.containsIfApplicable(RelPacking.UnPckd)) return planner.getCostFactory.makeHugeCost()
-    val rf = 1e-6 * (if (distribution == RelHomDistribution.BRDCST) 10 else 1)
-    val rf2 = 1e-6 * (if (getTraitSet.containsIfApplicable(RelPacking.UnPckd)) 1e6 else 1)
+//    if (traitSet.containsIfApplicable(RelPacking.UnPckd)) return planner.getCostFactory.makeInfiniteCost()
+    val rf = 1
+    val rf2 = 1 * (if (getTraitSet.containsIfApplicable(RelPacking.UnPckd)) 1e6 else 1)
     var base = super.computeSelfCost(planner, mq)
     //    if (getDistribution.getType eq RelDistribution.Type.HASH_DISTRIBUTED) base = base.multiplyBy(80)
-    planner.getCostFactory.makeCost(base.getRows, base.getCpu * rf * rf2, base.getIo)
+    planner.getCostFactory.makeCost(base.getRows * rf2, base.getCpu * rf * rf2, base.getIo)
     //    planner.getCostFactory.makeZeroCost()
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
-  override def getDistribution: RelDistribution = homdistribution.getDistribution
+  def getDistribution: RelDistribution = homdistribution.getDistribution
 
   def getHomDistribution: RelHomDistribution = homdistribution
 
-  override def implement(target: RelDeviceType): (Binding, JValue) = {
+  override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
 //    assert(getTraitSet.containsIfApplicable(RelPacking.UnPckd) || (target != null))
-    val child = getInput.asInstanceOf[PelagoRel].implement(null)
+    val child = getInput.asInstanceOf[PelagoRel].implement(target, alias)
     val childBinding: Binding = child._1
     var childOp = child._2
     val rowType = emitSchema(childBinding.rel, getRowType, false, getTraitSet.containsIfApplicable(RelPacking.Packed))
 
-    var out_dop = Repl.gpudop // if (target == RelDeviceType.NVPTX) Repl.gpudop else Repl.cpudop
-    if (getDistribution.getType eq RelDistribution.Type.SINGLETON) {
+    var out_dop = if (target == RelDeviceType.NVPTX) Repl.gpudop else Repl.cpudop
+    if (homdistribution.satisfies(RelHomDistribution.SINGLE)) {
       out_dop = 1
     }
 
-    var in_dop = Repl.gpudop // if (target == RelDeviceType.NVPTX) Repl.gpudop else Repl.cpudop //FIXME: this is wrong... we should detect where it came from!
-    if (input.getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
+    var in_dop = if (input.getTraitSet.containsIfApplicable(RelComputeDevice.NVPTX) || input.getTraitSet.containsIfApplicable(RelComputeDevice.NVPTX)) Repl.gpudop else Repl.cpudop //FIXME: this is wrong... we should detect where it came from!
+    if (input.getTraitSet.containsIfApplicable(RelHomDistribution.SINGLE)) {
       in_dop = 1
-    }
-
-    val op = {
-      if (getDistribution.getType eq RelDistribution.Type.BROADCAST_DISTRIBUTED) {
-        ("operator", "broadcast")
-      } else if (getDistribution.getType eq RelDistribution.Type.SINGLETON) {
-        ("operator", "unionall")
-      } else if (getDistribution.getType eq RelDistribution.Type.RANDOM_DISTRIBUTED) {
-        ("operator", "split")
-      } else {
-        ("operator", "shuffle")
-//        assert(false, "translation not implemented")
-      }
     }
 
     val projs = getRowType.getFieldList.asScala.zipWithIndex.map{

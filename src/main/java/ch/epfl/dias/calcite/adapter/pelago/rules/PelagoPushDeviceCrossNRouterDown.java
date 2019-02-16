@@ -22,17 +22,17 @@ import java.util.Arrays;
 public class PelagoPushDeviceCrossNRouterDown extends RelOptRule {
 
   public static final RelOptRule[] RULES = {
-//    PelagoDeviceTypeConverterRule.TO_NVPTX_INSTANCE ,
-//    PelagoDeviceTypeConverterRule.TO_x86_64_INSTANCE,
-//    new PelagoPushDeviceCrossNSplitDown(PelagoAggregate.class),
-    new PelagoPushDeviceCrossNRouterDown(PelagoFilter   .class),
-    new PelagoPushDeviceCrossNRouterDown(PelagoProject  .class),
-    new PelagoPushDeviceCrossNRouterDown(PelagoPack     .class),
-    new PelagoPushDeviceCrossNRouterDown(PelagoUnpack   .class),
-    new PelagoPushDeviceCrossNRouterDown(PelagoSort     .class),
-//    new PelagoPushDeviceCrossDown(PelagoUnnest   .class), //We only have a CPU-unnest for now
-//    PelagoJoinPushBelowDeviceCross.INSTANCE,
-    PelagoPushDeviceCrossNSplitBelowJoin.INSTANCE
+////    PelagoDeviceTypeConverterRule.TO_NVPTX_INSTANCE ,
+////    PelagoDeviceTypeConverterRule.TO_x86_64_INSTANCE,
+////    new PelagoPushDeviceCrossNSplitDown(PelagoAggregate.class),
+//    new PelagoPushDeviceCrossNRouterDown(PelagoFilter   .class),
+//    new PelagoPushDeviceCrossNRouterDown(PelagoProject  .class),
+//    new PelagoPushDeviceCrossNRouterDown(PelagoPack     .class),
+//    new PelagoPushDeviceCrossNRouterDown(PelagoUnpack   .class),
+//    new PelagoPushDeviceCrossNRouterDown(PelagoSort     .class),
+////    new PelagoPushDeviceCrossDown(PelagoUnnest   .class), //We only have a CPU-unnest for now
+////    PelagoJoinPushBelowDeviceCross.INSTANCE,
+//    PelagoPushDeviceCrossNSplitBelowJoin.INSTANCE
   };
 
 //  private final Class op;

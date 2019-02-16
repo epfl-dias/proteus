@@ -3,6 +3,7 @@ package ch.epfl.dias.calcite.adapter.pelago.rules;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRel;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
+import ch.epfl.dias.calcite.adapter.pelago.RelComputeDevice;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
@@ -45,13 +46,11 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
 
         RelTraitSet traitSet = rel.getTraitSet().replace(PelagoRel.CONVENTION)
             .replace(RelHomDistribution.SINGLE)
-            .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64);
+            .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64)
+            .replace(RelComputeDevice.X86_64NVPTX)
+            .replace(RelHetDistribution.SINGLETON);
 
-//        RelNode inp = rel;//convert(convert(rel, RelDistributions.SINGLETON), RelDeviceType.X86_64); //Convert to sequential
-        RelNode inp = convert(rel, traitSet);
-
-        RelNode tmp = PelagoToEnumerableConverter.create(convert(inp, RelHetDistribution.SINGLETON));
-        return tmp;
+        return PelagoToEnumerableConverter.create(convert(rel, traitSet));
     }
 
     public boolean matches(RelOptRuleCall call) {

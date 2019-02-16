@@ -20,7 +20,11 @@ public interface PelagoRel extends RelNode {
     /** Calling convention for relational operations that occur in Pelago. */
     Convention CONVENTION = PelagoConvention.INSTANCE;
 
-    public Tuple2<Binding, JsonAST.JValue> implement(RelDeviceType target);
+    default Tuple2<Binding, JsonAST.JValue> implement(RelDeviceType target){
+        return implement(target, "subset" + getDigest());
+    }
+
+    Tuple2<Binding, JsonAST.JValue> implement(RelDeviceType target, String alias);
 
     RelOptCost computeBaseSelfCost(RelOptPlanner planner, RelMetadataQuery mq);
 
@@ -32,7 +36,7 @@ public interface PelagoRel extends RelNode {
         }
 
         public boolean useAbstractConvertersForConversion(RelTraitSet fromTraits, RelTraitSet toTraits) {
-            if (!toTraits.containsIfApplicable(CONVENTION)) return false;
+            if (!fromTraits.containsIfApplicable(CONVENTION)) return false;
 
             for (Pair<RelTrait, RelTrait> pair : Pair.zip(fromTraits, toTraits)) {
                 if (!pair.left.satisfies(pair.right)) {

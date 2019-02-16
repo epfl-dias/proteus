@@ -67,9 +67,8 @@ class PelagoUnnest protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
-  override def implement(target: RelDeviceType): (Binding, JValue) = {
+  override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
     val op    = ("operator" , "project")
-    val alias = "unnest" + getId
 
     val unnest = implementUnnest
     val inputBinding: Binding = unnest._1

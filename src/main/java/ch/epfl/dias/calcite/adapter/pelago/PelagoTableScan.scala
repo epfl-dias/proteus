@@ -110,7 +110,12 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
 //    ret
 //  }
 
-  def implement(target: RelDeviceType): (Binding, JValue) = {
+  override def implement(target: RelDeviceType): (Binding, JValue) = {
+    return implement(target, null)
+  }
+
+  def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
+//    assert(alias == null);//this operator does not provide arbitrary projections
     val op = ("operator" , "scan")
     //TODO Cross-check: 0: schemaName, 1: tableName (?)
     val srcName  = getPelagoRelName //s.getTable.getQualifiedName.get(1)

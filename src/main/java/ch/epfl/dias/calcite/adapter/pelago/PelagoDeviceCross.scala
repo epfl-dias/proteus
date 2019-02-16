@@ -48,11 +48,14 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
   }
 
   override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = { // Higher cost if rows are wider discourages pushing a project through an
-    if (traitSet.containsIfApplicable(RelPacking.UnPckd) && (getDeviceType eq RelDeviceType.NVPTX)) return planner.getCostFactory.makeHugeCost()
+//    if (traitSet.containsIfApplicable(RelPacking.UnPckd) && (getDeviceType eq RelDeviceType.NVPTX)) return planner.getCostFactory.makeInfiniteCost()
     // exchange.
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
-    planner.getCostFactory.makeCost(rowCount, rowCount * bytesPerRow * 10240, 0)
+    planner.getCostFactory.makeCost(rowCount, rowCount * bytesPerRow * 10240, 0).multiplyBy(
+      if (traitSet.containsIfApplicable(RelPacking.UnPckd) && (getDeviceType eq RelDeviceType.NVPTX)) 1e10
+      else 1
+    )
 
 //    planner.getCostFactory.makeZeroCost()
 //    if (input.getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == toDevice) planner.getCostFactory.makeHugeCost()
@@ -62,14 +65,16 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
 
   override def estimateRowCount(mq: RelMetadataQuery): Double = input.estimateRowCount(mq)
 
-  override def implement(target: RelDeviceType): (Binding, JValue) = {
+  override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
     val op = ("operator" ,
       if (getDeviceType eq RelDeviceType.NVPTX) "cpu-to-gpu"
       else "gpu-to-cpu"
     )
-    val child = getInput.asInstanceOf[PelagoRel].implement(if (getDeviceType() == RelDeviceType.X86_64) null else target)
+    val child = getInput.asInstanceOf[PelagoRel].implement(getDeviceType, alias)
     val childBinding = child._1
     var childOp = child._2
+//    assert(childBinding.rel == alias)
+
     val rowType = emitSchema(childBinding.rel, getRowType, false, getTraitSet.containsIfApplicable(RelPacking.Packed))
 //
 //    if (target != null && getDeviceType() == RelDeviceType.NVPTX && getTraitSet.containsIfApplicable(RelPacking.Packed) && !getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {

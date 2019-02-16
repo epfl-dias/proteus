@@ -23,16 +23,22 @@ class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
   }
 
   override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-    val rf = if (getTraitSet.containsIfApplicable(RelHetDistribution.SINGLETON)) 1e5 else 1
-    if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) super.computeSelfCost(planner, mq).multiplyBy(0.001 * rf)
-    else super.computeSelfCost(planner, mq).multiplyBy(10 * rf)
+    var rf = if (getTraitSet.containsIfApplicable(RelHetDistribution.SINGLETON)) 1e8 else 1
+//    val rf = 1
+    if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
+      if (getTraitSet.containsIfApplicable(RelHomDistribution.SINGLE)) rf = 1e10//return planner.getCostFactory.makeInfiniteCost()
+      super.computeSelfCost(planner, mq).multiplyBy(0.001 * rf)
+    } else {
+      if (getTraitSet.containsIfApplicable(RelHomDistribution.SINGLE)) rf = 1e10
+      super.computeSelfCost(planner, mq).multiplyBy(10 * rf)
+    }
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("isS", getTraitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX)).toString)
 
-  override def implement(target: RelDeviceType): (Binding, JValue) = {
+  override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
     val op = ("operator" , "select")
-    val child = getInput.asInstanceOf[PelagoRel].implement(target)
+    val child = getInput.asInstanceOf[PelagoRel].implement(target, alias)
     val childBinding: Binding = child._1
     val childOp = child._2
     val rowType = emitSchema(childBinding.rel, getRowType)
@@ -56,7 +62,6 @@ object PelagoFilter{
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
       .replace(mq.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
-      .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);
     assert(traitSet.containsIfApplicable(RelPacking.UnPckd))
     new PelagoFilter(input.getCluster, traitSet, input, condition)

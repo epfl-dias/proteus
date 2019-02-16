@@ -44,21 +44,21 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
   override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     // exchange.
     val rf = {
-      if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 10
-      else 10000
+      if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 1e3
+      else 1e4
     }
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
-    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(rf * 100)
+    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(rf * 1e5)
 
 //    if (input.getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == toDevice) planner.getCostFactory.makeHugeCost()
 //    else planner.getCostFactory.makeTinyCost
 //    planner.getCostFactory.makeZeroCost
   }
 
-  override def implement(target: RelDeviceType): (Binding, JValue) = {
+  override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
     val op = ("operator" , "tuples-to-block")
-    val child = getInput.asInstanceOf[PelagoRel].implement(target)
+    val child = getInput.asInstanceOf[PelagoRel].implement(target, alias)
     val childBinding = child._1
     val childOp = child._2
     val rowType = emitSchema(childBinding.rel, getRowType)

@@ -31,20 +31,27 @@ class PelagoUnion protected
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("isS", getTraitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX)).toString)
 
-  override def implement(target: RelDeviceType): (Binding, JValue) = {
+  override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
     assert(all)
     val op = ("operator" , "union-all")
-    val child = getInput(0).asInstanceOf[PelagoRel].implement(target)
-    val childBinding: Binding = child._1
-    val childOp = child._2
-    val rowType = emitSchema(childBinding.rel, getRowType)
+    val left_child = getInput(0).asInstanceOf[PelagoRel].implement(null, alias)
+    val left_childBinding: Binding = left_child._1
+    val left_childOp = left_child._2
+    val right_child = getInput(1).asInstanceOf[PelagoRel].implement(null, alias)
+    val right_childBinding: Binding = right_child._1
+    val right_childOp = right_child._2
+    val rowType = emitSchema(left_childBinding.rel, getRowType, false, getTraitSet.containsIfApplicable(RelPacking.Packed))
 //    val cond = emitExpression(getCondition, List(childBinding))
 
-    val json : JValue = op ~
-      ("gpu"      , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
-      ("input"    , childOp                                               )
+    println(left_childOp)
+    println(right_childOp)
 
-    val ret: (Binding, JValue) = (childBinding, json)
+    val json : JValue = op ~
+      ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
+      ("projections", rowType                                               ) ~
+      ("input"      , List(left_childOp, right_childOp)                     )
+
+    val ret: (Binding, JValue) = (left_childBinding, json)
     ret
   }
 }

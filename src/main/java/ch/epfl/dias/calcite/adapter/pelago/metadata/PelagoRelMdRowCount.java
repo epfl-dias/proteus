@@ -47,10 +47,6 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
     return rel.estimateRowCount(mq);
   }
 
-  public Double getRowCount(PelagoRouter rel, RelMetadataQuery mq) {
-    return mq.getRowCount(rel.getInput());
-  }
-
   public Double getRowCount(PelagoPack rel, RelMetadataQuery mq) {
     return Math.ceil(mq.getRowCount(rel.getInput()) / (1024));
   }
@@ -64,8 +60,8 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
     return mq.getRowCount(rel.getInput()) * (1024);
   }
 
-  public Double getRowCount(PelagoSplit rel, RelMetadataQuery mq) {
-    return mq.getRowCount(rel.getInput()) / 2;
+  public Double getRowCount(PelagoRouter rel, RelMetadataQuery mq) {
+    return rel.estimateRowCount(mq);//mq.getRowCount(rel.getInput()) / 2;
   }
 
   public Double getRowCount(PelagoUnion rel, RelMetadataQuery mq) {

@@ -21,21 +21,25 @@ public class RelHetDistributionTraitDef extends RelTraitDef<RelHetDistribution> 
 
   @Override public RelNode convert(RelOptPlanner planner, RelNode rel, RelHetDistribution distribution,
                                    boolean allowInfiniteCostConverters) {
-    if (!rel.getTraitSet().containsIfApplicable(RelHomDistribution.SINGLE) ||
-        !rel.getTraitSet().containsIfApplicable(RelDeviceType.X86_64) ||
-        rel.getConvention() != PelagoRel.CONVENTION){
+    if (rel.getConvention() != PelagoRel.CONVENTION){
       return null;
     }
 
-    final PelagoSplit split = PelagoSplit.create(rel, distribution);
-
-    RelNode newRel = planner.register(split, rel);
+    RelTraitSet inptraitSet = rel.getTraitSet().replace(RelDeviceType.X86_64).replace(RelHomDistribution.SINGLE);
     RelTraitSet traitSet = rel.getTraitSet().replace(distribution);
-    if (!newRel.getTraitSet().equals(traitSet)) {
-      newRel = planner.changeTraits(newRel, traitSet);
+    RelNode input = rel;
+    if (!rel.getTraitSet().equals(inptraitSet)) {
+      input = planner.register(planner.changeTraits(rel, inptraitSet), rel);
     }
-    return newRel;
 
+    final PelagoSplit router = PelagoSplit.create(input, distribution);
+
+    RelNode newRel = planner.register(router, rel);
+    if (!newRel.getTraitSet().equals(traitSet)) {
+      newRel = planner.register(planner.changeTraits(newRel, traitSet), rel);
+    }
+
+    return newRel;
   }
 
   @Override public boolean canConvert(RelOptPlanner planner, RelHetDistribution fromTrait,
