@@ -56,10 +56,35 @@ public class PelagoQueryTest {
   }
 
   @TestFactory
-  Stream<DynamicNode> tests() throws IOException {
+  Stream<DynamicNode> tests_cpu() throws IOException {
     return testsFromFileTree(
-        Paths.get(PelagoQueryTest.class.getResource("/tests").getPath()),
-        (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> testQueryOrdered(sql, resultFile))
+      Paths.get(PelagoQueryTest.class.getResource("/tests").getPath()),
+      (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
+        Repl.setCpuonly();
+        testQueryOrdered(sql, resultFile);
+      })
+    );
+  }
+
+  @TestFactory
+  Stream<DynamicNode> tests_gpu() throws IOException {
+    return testsFromFileTree(
+      Paths.get(PelagoQueryTest.class.getResource("/tests").getPath()),
+      (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
+        Repl.setGpuonly();
+        testQueryOrdered(sql, resultFile);
+      })
+    );
+  }
+
+  @TestFactory
+  Stream<DynamicNode> tests_hyb() throws IOException {
+    return testsFromFileTree(
+      Paths.get(PelagoQueryTest.class.getResource("/tests").getPath()),
+      (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
+        Repl.setHybrid();
+        testQueryOrdered(sql, resultFile);
+      })
     );
   }
 
