@@ -56,9 +56,11 @@ class PelagoSplit protected(cluster: RelOptCluster, traitSet: RelTraitSet, input
 
     val header = ("operator", "split") ~ ("split_id", splitId)
 
-    val binding = PelagoSplit.bindings(splitId)
-    if (binding != null){
-      return (binding, header)
+    val binding = PelagoSplit.bindings.remove(splitId)
+    if (binding.isDefined){
+      // TODO: if we increase the number of device types to more than two,
+      //  we should user a count instead of null/not null
+      return (binding.get, header)
     }
 
     val child = getInput.asInstanceOf[PelagoRel].implement(null, alias)
@@ -144,7 +146,6 @@ object PelagoSplit{
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.NONE)
     val splitId = split_cnt
-    bindings(splitId) = null
     split_cnt = splitId + 1
     new PelagoSplit(input.getCluster, traitSet, input, distribution, splitId)
   }

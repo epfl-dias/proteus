@@ -81,6 +81,10 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
     new PrintWriter(Repl.planfile) { write(pretty(render(plan))); close }
     if (Files.exists(Paths.get("../../src/panorama/public/assets"))) {new PrintWriter(new FileOutputStream("../../src/panorama/public/assets/flare.json", false)) { write(pretty(render(plan))); close } }
 
+    if (PelagoSplit.bindings.size > 0){
+      throw new RuntimeException("Unmatched split operators (maybe the cost models didn't allow for even push down?)");
+    }
+
     if (mock == true) {
       PelagoToEnumerableConverter.pt = new PelagoResultTable(Sources.of(new File(Repl.mockfile)), getRowType, mock) //TODO: fix path
     } else {
