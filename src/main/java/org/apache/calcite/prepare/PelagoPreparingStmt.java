@@ -48,7 +48,6 @@ import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.LikeToJoinRule;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPackTransfers;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossDown;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossNRouterDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossNSplitDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushRouterDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushSplitDown;
@@ -269,7 +268,6 @@ public class                                                                    
         if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossDown.RULES);
         if (hybrid) hetRuleBuilder.add(PelagoPushDeviceCrossNSplitDown.RULES);
 
-        if (!(cpu_only && cpudop == 1)) hetRuleBuilder.add(PelagoPushDeviceCrossNRouterDown.RULES);
         if (!(cpu_only && cpudop == 1)) hetRuleBuilder.add(PelagoPushRouterDown.RULES);
         if (hybrid) hetRuleBuilder.add(PelagoPushSplitDown.RULES);
 

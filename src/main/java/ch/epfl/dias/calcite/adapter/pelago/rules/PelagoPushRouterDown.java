@@ -32,7 +32,6 @@ public class PelagoPushRouterDown extends RelOptRule {
     PelagoPushRouterBelowJoin.INSTANCE,
 //    PelagoPushRouterBelowAggregate.INSTANCE, //NoPartial
     PelagoPushRouterBelowAggregateNoPartial.INSTANCE, //NoPartial
-    PelagoPushDeviceCrossNRouterBelowJoin.INSTANCE
   };
 
 //  private final Class op;
@@ -50,10 +49,7 @@ public class PelagoPushRouterDown extends RelOptRule {
     call.transformTo(
       rel.copy(null, Arrays.asList(
         convert(
-          convert(
-            input,
-            RelDeviceType.X86_64
-          ),
+          input,
           router.getHomDistribution()
         )
 //        PelagoRouter.create(
