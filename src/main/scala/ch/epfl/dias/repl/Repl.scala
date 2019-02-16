@@ -100,10 +100,34 @@ object Repl extends App {
   var timingscsv  = options('timingscsv ).asInstanceOf[Boolean]
   var timings     = options('timings    ).asInstanceOf[Boolean]
 
-  var cpuonly     = options('cpuonly    ).asInstanceOf[Boolean]
+
+  var cpus_on     = true //options('cpuonly    ).asInstanceOf[Boolean]
+  var gpus_on     = true
   var cpudop      = options('cpudop     ).asInstanceOf[Int    ]
   var gpudop      = options('gpudop     ).asInstanceOf[Int    ]
 
+  //default to hybrid execution
+  set_hybrid()
+  //check if the user requested cpuonly execution (or no GPUs are available)
+  if (options('cpuonly).asInstanceOf[Boolean]) set_cpuonly()
+
+  def hybrid() = cpus_on && gpus_on
+  def set_hybrid(): Unit = {
+    cpus_on = true
+    gpus_on = true
+  }
+
+  def cpuonly() = cpus_on && !gpus_on
+  def set_cpuonly(): Unit = {
+    cpus_on = true
+    gpus_on = false
+  }
+
+  def gpuonly() = !cpus_on && gpus_on
+  def set_gpuonly(): Unit = {
+    cpus_on = false
+    gpus_on = true
+  }
 
   /*
   //Getting the actual model doesn't do us any good, unless we put it together progtln("Unknown option " + option)         println("Usage: [--server [--port]] [--echo-results] [--planfile <path-to-write-plan>] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]")         System.exit(1)rammatically on our own

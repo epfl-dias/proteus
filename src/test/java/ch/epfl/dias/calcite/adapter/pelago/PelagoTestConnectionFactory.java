@@ -22,6 +22,10 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
     Properties info = new Properties();
     connection = DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
 
+//    Repl.cpuonly_$eq(false);
+    Repl.set_hybrid();
+
+
     Repl.planfile_$eq ("plan.json");
 
     Repl.mockfile_$eq ("src/main/resources/mock.csv");

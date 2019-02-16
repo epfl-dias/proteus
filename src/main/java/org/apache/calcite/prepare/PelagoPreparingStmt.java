@@ -263,7 +263,7 @@ public class                                                                    
 
         boolean cpu_only = Repl.cpuonly();
         int     cpudop   = Repl.cpudop();
-        boolean hybrid   = true;
+        boolean hybrid   = Repl.hybrid();
 
         ImmutableList.Builder<RelOptRule> hetRuleBuilder = ImmutableList.builder();
 

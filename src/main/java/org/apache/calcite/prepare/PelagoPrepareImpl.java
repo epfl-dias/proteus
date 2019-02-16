@@ -101,7 +101,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         planner.addRelTraitDef(RelDeviceTypeTraitDef     .INSTANCE);
         planner.addRelTraitDef(RelHomDistributionTraitDef.INSTANCE);
         planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE);
-        planner.addRelTraitDef(RelComputeDeviceTraitDef  .INSTANCE);
+        if (Repl.hybrid() || Repl.cpuonly()) planner.addRelTraitDef(RelComputeDeviceTraitDef  .INSTANCE);
 
 //        planner.addRelTraitDef(RelDataLocalityTraitDef.INSTANCE);
 
@@ -506,14 +506,40 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             if (node instanceof SqlSetOption){
                 SqlSetOption setOption = (SqlSetOption) node;
                 switch (setOption.getName().names.get(0)){
-                    case "cpuonly": {
+                    case "compute_units":
+                    case "compute":
+                    case "hwmode":
+                    case "cu": {
                         SqlNode value = setOption.getValue();
-                        if (value instanceof SqlLiteral) {
+                        String option;
+                        if (value instanceof SqlIdentifier) {
+                            SqlIdentifier id = (SqlIdentifier) value;
+                            option = id.toString();
+                        } else if (value instanceof SqlLiteral) {
                             SqlLiteral lit = (SqlLiteral) value;
-                            Repl.cpuonly_$eq(lit.booleanValue());
-                            return;
+                            option = lit.toValue();
                         } else {
                             throw new UnsupportedOperationException();
+                        }
+                        option = option.toLowerCase();
+                        switch(option){
+                            case "cpu":
+                            case "cpuonly":{
+                                Repl.set_cpuonly();
+                                return;
+                            }
+                            case "gpu":
+                            case "gpuonly":{
+                                Repl.set_gpuonly();
+                                return;
+                            }
+                            case "all":
+                            case "hybrid":{
+                                Repl.set_hybrid();
+                                return;
+                            }
+                            default:
+                                throw new UnsupportedOperationException();
                         }
                     }
                     case "cpudop": {
