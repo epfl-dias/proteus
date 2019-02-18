@@ -115,7 +115,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         //this may as well be disabling some rules...
         ((VolcanoPlanner) planner).registerAbstractRelationalRules();
 
-        planner.addRule(AbstractConverter.ExpandConversionRule.INSTANCE);
+//        planner.addRule(AbstractConverter.ExpandConversionRule.INSTANCE);
 //        System.out.println(planner.getRules());
         for (RelOptRule rule: PelagoRules.RULES) {
             planner.addRule(rule);
