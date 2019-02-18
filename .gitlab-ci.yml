@@ -194,7 +194,9 @@ test - queries (mock engine):
   # For now return success for failures because of missing catalog/schema
   # Propagate to Pelago the full testing
   # FIXME: but at some point we should fix that...
-  - 'sbt -no-share test | tee tmp.txt || grep "java.io.FileNotFoundException: ../executor/inputs/plans/schema.json" tmp.txt'
+  - ln -s /data/ssbm-100 inputs/ssbm100
+  - ln -s /data/tpch-1   inputs/tpch1
+  - sbt -no-share test
 
 #----------------------------------------------------------------------------
 # Performance Tests
