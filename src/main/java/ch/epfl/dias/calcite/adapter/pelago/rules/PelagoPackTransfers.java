@@ -25,18 +25,10 @@ import java.util.List;
 public class PelagoPackTransfers extends RelOptRule {
 
   public static final RelOptRule[] RULES = new RelOptRule[]{
-//    PelagoPackingConverterRule.TO_PACKED_INSTANCE,
-//    PelagoPackingConverterRule.TO_UNPCKD_INSTANCE,
     PelagoPackUnion.INSTANCE,
-//    PelagoDataLocalityConverterRule.INSTANCE,
-//    new PelagoPushRouterDown(PelagoAggregate.class),
     new PelagoPackTransfers(PelagoRouter.class),
     new PelagoPackTransfers(PelagoSplit.class),
-    new PelagoPackTransfers(PelagoDeviceCross.class),
-//    new PelagoPushRouterDown(PelagoSort.class),
-//    new PelagoPackTransfers(PelagoUnnest.class), //We only have a CPU-unnest for now
-//    PelagoJoinPushBelowRouter.INSTANCE,
-//    PelagoPushRouterBelowJoin.INSTANCE,
+    new PelagoPackTransfers(PelagoDeviceCross.class)
   };
 
 //  private final Class op;

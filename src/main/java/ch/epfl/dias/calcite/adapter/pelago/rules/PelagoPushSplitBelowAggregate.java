@@ -1,5 +1,6 @@
 package ch.epfl.dias.calcite.adapter.pelago.rules;
 
+import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.rel.RelDistributions;
@@ -39,12 +40,7 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
   }
 
   public void onMatch(RelOptRuleCall call) {
-//    PelagoRouter    router = call.rel(0);
     PelagoAggregate rel    = call.rel(0);
-
-//    call.getPlanner().setImportance(rel, 0);
-
-//    rel.getGroupSet().
 
     List<AggregateCall> aggCalls = new ArrayList<AggregateCall>();
 
@@ -85,31 +81,11 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
 
     ImmutableBitSet topGroupSet = ImmutableBitSet.builder().set(0, rel.getGroupCount()).build();
 
+    RelOptPlanner planner = call.getPlanner();
+
     RelNode split = convert(rel.getInput(), RelHetDistribution.SPLIT);
 
-//    RelNode cpuSide = convert(
-//      PelagoRouter.create(
-//        convert(
-//          rel.copy(
-//            null,
-//            Arrays.asList(
-//              convert(
-//                convert(
-//                  split,
-//                  RelDistributions.RANDOM_DISTRIBUTED //rel.getDistribution()
-//                ),
-//                RelDeviceType.X86_64
-//              )
-//            )
-//          ),
-//          RelDeviceType.X86_64
-//        ),
-//        RelDistributions.SINGLETON
-//      ),
-//      RelComputeDevice.X86_64
-//    );
-
-    RelNode cpuSideAgg = rel.copy(
+    RelNode cpuSideAgg = planner.register(rel.copy(
         null,
         Arrays.asList(
           convert(
@@ -123,14 +99,14 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
             RelComputeDevice.X86_64
           )
         )
-    );
+    ), null);
 
-    RelNode cpuSide = convert(
+    RelNode cpuSide = planner.register(convert(
         cpuSideAgg,
         cpuSideAgg.getTraitSet().replace(RelDeviceType.X86_64).replace(RelHomDistribution.SINGLE).replace(RelComputeDevice.X86_64).replace(RelHetDistribution.SPLIT)
-    );
+    ), cpuSideAgg);
 
-    RelNode gpuSideAgg = rel.copy(
+    RelNode gpuSideAgg = planner.register(rel.copy(
         null,
         Arrays.asList(
           convert(
@@ -144,38 +120,15 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
             RelComputeDevice.NVPTX
           )
         )
-    );
+    ), cpuSide);
 
-    RelNode gpuSide = convert(
+    RelNode gpuSide = planner.register(convert(
         gpuSideAgg,
         gpuSideAgg.getTraitSet().replace(RelDeviceType.X86_64).replace(RelHomDistribution.SINGLE).replace(RelComputeDevice.NVPTX).replace(RelHetDistribution.SPLIT)
-    );
+    ), gpuSideAgg);
 
 
-//    RelNode gpuSide = convert(
-//      PelagoRouter.create(
-//        convert(
-//          rel.copy(
-//            null,
-//            Arrays.asList(
-//              convert(
-//                convert(
-//                  split,
-//                  RelDistributions.RANDOM_DISTRIBUTED //rel.getDistribution()
-//                ),
-//                RelDeviceType.NVPTX
-//              )
-//            )
-//          ),
-//          RelDeviceType.X86_64
-//        ),
-//        RelDistributions.SINGLETON
-//      ),
-//      RelComputeDevice.NVPTX
-//    );
-
-
-    PelagoUnion union = PelagoUnion.create(ImmutableList.of(cpuSide, gpuSide), true);
+    RelNode union = planner.register(PelagoUnion.create(ImmutableList.of(cpuSide, gpuSide), true), gpuSide);
 
     PelagoAggregate agg = PelagoAggregate.create(
         union,
@@ -187,20 +140,5 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
     );
 
     call.transformTo(agg);
-
-
-
-//    call.transformTo(
-//        rel.copy(null, Arrays.asList(
-//            convert(
-//                input,
-//                input.getTraitSet().replace(RelDeviceType.X86_64).replace(router.getDistribution())
-//            )
-////        PelagoRouter.create(
-////          convert(input, RelDeviceType.X86_64),
-////          router.getDistribution()
-////        )
-//        ))
-//    );
   }
 }
