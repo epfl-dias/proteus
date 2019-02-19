@@ -8,3 +8,5 @@ target
 current.json
 plan.json
 src/main/resources/ssb_schema/catalog.json
+/inputs
+/Test Results - *
