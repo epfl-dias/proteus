@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
 public class PelagoQueryTest {
   private static final Logger logger = LoggerFactory.getLogger(PelagoQueryTest.class);
-  static final boolean isDebug = ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp")>=0;
 
   @BeforeAll
   public static void init() throws SQLException {
@@ -118,7 +117,7 @@ public class PelagoQueryTest {
             // create the test
             return (DynamicNode) dynamicTest(file.getFileName().toString(),
               () -> assertTimeoutPreemptively(
-                  ofSeconds((isDebug) ? Long.MAX_VALUE/1000 : 200),
+                  ofSeconds((PelagoTestConnectionFactory.isDebug) ? Long.MAX_VALUE/1000 : 200),
                   () -> test.accept(q, resultFile)
               ));
           } catch (IOException e) {

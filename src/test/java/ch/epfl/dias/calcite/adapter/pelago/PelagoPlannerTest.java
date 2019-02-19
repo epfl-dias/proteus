@@ -15,7 +15,6 @@ public class PelagoPlannerTest {
   private static final String queries[] = {
     "select d_year, d_year*8 "
       + "from ssbm_date",
-
     "select sum(lo_revenue), d_year, p_brand1 "
       + "from ssbm_date, ssbm_lineorder, ssbm_part, ssbm_supplier "
       + "where lo_orderdate = d_datekey "
@@ -156,13 +155,15 @@ public class PelagoPlannerTest {
   @ParameterizedTest
   @MethodSource("data")
   public void testParse(String sql) {
-    Assertions.assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
-      CalciteAssert.that()
-        .with(PelagoTestConnectionFactory.get())
-        .query(sql)
-        .explainContains("PLAN=PelagoToEnumerableConverter")
-        .runs()
-      ;
+    Assertions.assertTimeoutPreemptively(Duration.ofSeconds(
+        (PelagoTestConnectionFactory.isDebug) ? (Long.MAX_VALUE / 1000) : 10),
+      () -> {
+        CalciteAssert.that()
+          .with(PelagoTestConnectionFactory.get())
+          .query(sql)
+          .explainContains("PLAN=PelagoToEnumerableConverter")
+          .runs()
+        ;
     });
   }
 

@@ -5,12 +5,14 @@ import org.apache.calcite.test.CalciteAssert;
 import ch.epfl.dias.repl.Repl;
 import ch.epfl.dias.repl.Repl$;
 
+import java.lang.management.ManagementFactory;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
 class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
+  static final boolean isDebug = ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp")>=0;
   private static final String schemaPath = "inputs/plans/schema.json";
 //  private static final String schemaPath = "inputs/plans/schema.json";
 
