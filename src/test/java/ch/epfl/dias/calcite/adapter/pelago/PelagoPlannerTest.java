@@ -1,5 +1,6 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
+import ch.epfl.dias.repl.Repl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -171,6 +172,8 @@ public class PelagoPlannerTest {
   public static void init() throws SQLException {
     // warm-up connection and load classes
     PelagoTestConnectionFactory.get();
+
+    Repl.setHybrid();
   }
 
   public static Stream<String> data() {
