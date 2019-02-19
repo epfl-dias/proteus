@@ -3,12 +3,8 @@ package org.apache.calcite.prepare;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
-import org.apache.calcite.adapter.enumerable.EnumerableInterpretable;
 import org.apache.calcite.adapter.enumerable.EnumerableRel;
-import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.config.CalciteConnectionConfig;
-import org.apache.calcite.interpreter.BindableConvention;
-import org.apache.calcite.interpreter.Interpreters;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.linq4j.function.Function2;
@@ -16,21 +12,12 @@ import org.apache.calcite.plan.*;
 import org.apache.calcite.plan.hep.HepPlanner;
 import org.apache.calcite.plan.hep.HepProgram;
 import org.apache.calcite.plan.volcano.AbstractConverter;
-import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.RelFactories;
-import org.apache.calcite.rel.logical.LogicalProject;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rex.RexBuilder;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.runtime.Bindable;
 import org.apache.calcite.runtime.Hook;
-import org.apache.calcite.runtime.Typed;
 import org.apache.calcite.sql.SqlExplainLevel;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.RelDecorrelator;
 import org.apache.calcite.sql2rel.RelFieldTrimmer;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
@@ -39,7 +26,6 @@ import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.Programs;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
-import org.apache.calcite.util.Pair;
 
 import ch.epfl.dias.calcite.adapter.pelago.RelComputeDevice;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
@@ -53,15 +39,13 @@ import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushRouterDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushSplitDown;
 import ch.epfl.dias.repl.Repl;
 
-import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import ch.epfl.dias.calcite.adapter.pelago.reporting.PelagoTimeInterval;
 import ch.epfl.dias.calcite.adapter.pelago.reporting.TimeKeeper;
 
-public class                                                                                                                                                                                                                                        PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt {
+public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt {
     private final EnumerableRel.Prefer prefer;
     private final Map<String, Object> internalParameters =
             Maps.newLinkedHashMap();
@@ -172,10 +156,6 @@ public class                                                                    
         private PelagoTimeInterval tm;
         private String message;
 
-        public PelagoTimer(PelagoTimeInterval tm) {
-            this(tm, "");
-        }
-
         public PelagoTimer(PelagoTimeInterval tm, String message) {
             this.tm = tm;
             this.message = message;
@@ -203,10 +183,6 @@ public class                                                                    
         private final ImmutableList<Program> programs;
         private final PelagoTimeInterval timer;
 
-        PelagoTimedSequence(Program... programs) {
-            this("", programs);
-        }
-
         PelagoTimedSequence(String message, Program... programs) {
             timer = new PelagoTimeInterval();
 
@@ -227,26 +203,8 @@ public class                                                                    
         }
     }
 
-    /**  */
-    private Program timedSequence(Program... programs) {
-        return new PelagoTimedSequence(programs);
-    }
-
-    /** */
     private Program timedSequence(String message, Program... programs) {
         return new PelagoTimedSequence(message, programs);
-    }
-
-
-    @Override
-    protected SqlToRelConverter getSqlToRelConverter(
-        SqlValidator validator,
-        CatalogReader catalogReader,
-        SqlToRelConverter.Config config) {
-//        SqlToRelConverter.Config hijacked_config = SqlToRelConverter.configBuilder().withConfig(config).withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER).build();
-        final RelOptCluster cluster = prepare.createCluster(planner, rexBuilder);
-        return new SqlToRelConverter(this, validator, catalogReader, cluster,
-            convertletTable, config);
     }
 
     protected Program getProgram() {
@@ -276,7 +234,6 @@ public class                                                                    
         hetRuleBuilder.add(AbstractConverter.ExpandConversionRule.INSTANCE);
 
         return Programs.sequence(timedSequence("Calcite time: ",
-//                new PelagoProjectRootProgram(),
                 Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
                 new DecorrelateProgram(),
                 new TrimFieldsProgram(),
@@ -286,90 +243,7 @@ public class                                                                    
                 Programs.heuristicJoinOrder(planner.getRules(), false, 2),
                 new PelagoProgram(),
                 Programs.ofRules(hetRuleBuilder.build()),
-//                Programs.ofRules(PelagoPushDeviceCrossDown.RULES),
-//                new PelagoProgram(),
-//                Programs.ofRules(PelagoPushRouterDown.RULES),
                 new PelagoProgram()
                 ));
-
-        // Second planner pass to do physical "tweaks". This the first time that
-                // EnumerableCalcRel is introduced.
-//                calc(metadataProvider)
     }
-
-
-    @Override protected PreparedResult implement(RelRoot root) {
-        RelDataType resultType = root.rel.getRowType();
-        boolean isDml = root.kind.belongsTo(SqlKind.DML);
-        final Bindable bindable;
-        if (resultConvention == BindableConvention.INSTANCE) {
-            bindable = Interpreters.bindable(root.rel);
-        } else {
-            EnumerableRel enumerable = (EnumerableRel) root.rel;
-//            if (!root.isRefTrivial()) {
-//                final List<RexNode> projects = new ArrayList<>();
-//                final RexBuilder rexBuilder = enumerable.getCluster().getRexBuilder();
-//                for (int field : Pair.left(root.fields)) {
-//                    projects.add(rexBuilder.makeInputRef(enumerable, field));
-//                }
-//                RexProgram program = RexProgram.create(enumerable.getRowType(),
-//                        projects, null, root.validatedRowType, rexBuilder);
-//                enumerable = EnumerableCalc.create(enumerable, program);
-//            }
-
-            try {
-                CatalogReader.THREAD_LOCAL.set(catalogReader);
-                bindable = EnumerableInterpretable.toBindable(internalParameters,
-                        context.spark(), enumerable, prefer);
-            } finally {
-                CatalogReader.THREAD_LOCAL.remove();
-            }
-        }
-
-        if (timingTracer != null) {
-            timingTracer.traceTime("end codegen");
-        }
-
-        if (timingTracer != null) {
-            timingTracer.traceTime("end compilation");
-        }
-
-        return new PreparedResultImpl(
-                resultType,
-                parameterRowType,
-                fieldOrigins,
-                root.collation.getFieldCollations().isEmpty()
-                        ? ImmutableList.<RelCollation>of()
-                        : ImmutableList.of(root.collation),
-                root.rel,
-                mapTableModOp(isDml, root.kind),
-                isDml) {
-            public String getCode() {
-                throw new UnsupportedOperationException();
-            }
-
-            public Bindable getBindable(Meta.CursorFactory cursorFactory) {
-                return bindable;
-            }
-
-            public Type getElementType() {
-                return ((Typed) bindable).getElementType();
-            }
-        };
-    }
-
-    protected RelRoot optimize(RelRoot root,
-        final List<Materialization> materializations,
-        final List<CalciteSchema.LatticeEntry> lattices) {
-        if (!root.isRefTrivial()) {
-            final List<RexNode> projects = new ArrayList<>();
-            final RexBuilder rexBuilder = root.rel.getCluster().getRexBuilder();
-            for (int field : Pair.left(root.fields)) {
-                projects.add(rexBuilder.makeInputRef(root.rel, field));
-            }
-            root = root.withRel(LogicalProject.create(root.rel, projects, root.validatedRowType));
-        }
-        return super.optimize(root, materializations, lattices);
-    }
-
 }
