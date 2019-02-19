@@ -156,7 +156,7 @@ public class PelagoPlannerTest {
   @MethodSource("data")
   public void testParse(String sql) {
     Assertions.assertTimeoutPreemptively(Duration.ofSeconds(
-        (PelagoTestConnectionFactory.isDebug) ? (Long.MAX_VALUE / 1000) : 10),
+        (PelagoTestConnectionFactory.isDebug) ? (Long.MAX_VALUE / 1000) : 60),
       () -> {
         CalciteAssert.that()
           .with(PelagoTestConnectionFactory.get())
