@@ -30,6 +30,7 @@ public class PelagoRelMetadataProvider extends ChainedRelMetadataProvider {
             PelagoRelMdPacking          .SOURCE,
             PelagoRelMdRowCount         .SOURCE,
             PelagoRelMdExpressionLineage.SOURCE,
+            PelagoRelMdTableReferences  .SOURCE,
             PelagoRelMdSelfCost         .SOURCE(),
             DefaultRelMetadataProvider  .INSTANCE));
   }
