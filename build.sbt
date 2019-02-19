@@ -54,7 +54,7 @@ test in assembly := {}
 //baseDirectory in Test := file("/cloud_store/periklis/pelago_cidr2/opt/raw")
 
 resolvers += Resolver.jcenterRepo
-testOptions += Tests.Argument(TestFrameworks.JUnit, "-q")
+testOptions += Tests.Argument(jupiterTestFramework, "-q")
 
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", "services", xs @ _*) => MergeStrategy.first
