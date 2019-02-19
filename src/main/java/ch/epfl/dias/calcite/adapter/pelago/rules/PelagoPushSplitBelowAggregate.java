@@ -127,8 +127,10 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
         gpuSideAgg.getTraitSet().replace(RelDeviceType.X86_64).replace(RelHomDistribution.SINGLE).replace(RelComputeDevice.NVPTX).replace(RelHetDistribution.SPLIT)
     ), gpuSideAgg);
 
-
-    RelNode union = planner.register(PelagoUnion.create(ImmutableList.of(cpuSide, gpuSide), true), gpuSide);
+    RelNode union = PelagoUnion.create(ImmutableList.of(cpuSide, gpuSide), true);
+    // Do not register the union as equivalent to the partial aggregates,
+    // otherwise we loose the final aggregation.
+    // So, is PelagoUnion a converter or not ?
 
     PelagoAggregate agg = PelagoAggregate.create(
         union,
