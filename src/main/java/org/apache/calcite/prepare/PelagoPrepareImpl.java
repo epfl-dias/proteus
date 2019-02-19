@@ -1,5 +1,6 @@
 package org.apache.calcite.prepare;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -26,6 +27,7 @@ import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Project;
+import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.core.Sort;
 import org.apache.calcite.rel.rules.*;
 import org.apache.calcite.rel.type.RelDataType;
@@ -53,6 +55,7 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.Util;
 
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRelBuilder;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.RelComputeDeviceTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
@@ -60,6 +63,7 @@ import ch.epfl.dias.calcite.adapter.pelago.RelHetDistributionTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelHomDistributionTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelPackingTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectMergeRule;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
 import ch.epfl.dias.repl.Repl;
 
@@ -102,15 +106,8 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE);
         if (Repl.isHybrid() || Repl.isCpuonly()) planner.addRelTraitDef(RelComputeDeviceTraitDef  .INSTANCE);
 
-//        planner.addRelTraitDef(RelDataLocalityTraitDef.INSTANCE);
+        planner.clear();
 
-//        COMMUTE
-//                ? JoinAssociateRule.INSTANCE
-//                : ProjectMergeRule.INSTANCE,
-//        planner.removeRule(JoinAssociateRule.INSTANCE);
-        for (RelOptRule r: planner.getRules()){
-            planner.removeRule(r);
-        }
         //FIXME: not so certain any more about which RelFactory we should use and which rules should be applied to the core RelNodes oand which ones to the Logical ones.\
         //this may as well be disabling some rules...
         ((VolcanoPlanner) planner).registerAbstractRelationalRules();
@@ -127,17 +124,8 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         rules.add(new FilterAggregateTransposeRule(Filter.class, PelagoRelFactories.PELAGO_BUILDER, Aggregate.class));
 //        rules.add(new FilterProjectTransposeRule  (Filter.class, Project.class, true, true, PelagoRelFactories.PELAGO_BUILDER));
 //        rules.add(new FilterMergeRule(PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(new FilterJoinRule.FilterIntoJoinRule(true, PelagoRelFactories.PELAGO_BUILDER,
-            new FilterJoinRule.Predicate() {
-                public boolean apply(Join join, JoinRelType joinType, RexNode exp) {
-                    return true;
-                }
-            }));
-        rules.add(new FilterJoinRule.JoinConditionPushRule(PelagoRelFactories.PELAGO_BUILDER,  new FilterJoinRule.Predicate() {
-            public boolean apply(Join join, JoinRelType joinType, RexNode exp) {
-                return true;
-            }
-        }));
+        rules.add(FilterJoinRule.FILTER_ON_JOIN);
+        rules.add(FilterJoinRule.JOIN);
 //      rules.add(new FilterJoinRule.FilterIntoJoinRule(true, RelFactories.LOGICAL_BUILDER, //PelagoRelFactories.PELAGO_BUILDER,
 //          new FilterJoinRule.Predicate() {
 //            public boolean apply(Join join, JoinRelType joinType, RexNode exp) {
@@ -162,7 +150,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         rules.add(ProjectFilterTransposeRule.INSTANCE); //XXX causes non-termination
         /*it is better to use filter first an then project*/
         rules.add(ProjectTableScanRule.INSTANCE);
-        rules.add(ProjectMergeRule.INSTANCE);//new ProjectMergeRule(true, PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(PelagoProjectMergeRule.INSTANCE);//new ProjectMergeRule(true, PelagoRelFactories.PELAGO_BUILDER));
         //aggregate rules
         rules.add(AggregateRemoveRule.INSTANCE);
 //        rules.add(AggregateReduceFunctionsRule.INSTANCE);

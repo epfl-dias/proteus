@@ -664,23 +664,12 @@ public class PelagoRules {
                 join.getJoinType()
             );
 
-
-//            final RelNode  swapped = (swap) ? convert(JoinCommuteRule.swap(join, false), PelagoRel.CONVENTION) : join;
             RelNode  swapped = (swap) ? JoinCommuteRule.swap(join, false) : join;
             if (swapped == null) return null;
             swapped = convert(swapped, PelagoRel.CONVENTION);
 
-//            rel.getCluster().getPlanner().setImportance(rel, 0);
             if (rest.isEmpty()) return swapped;
 
-//            RexNode cond = RexUtil.composeConjunction(join.getCluster().getRexBuilder(), rest, false);
-//            cond = RexUtil.toDnf(join.getCluster().getRexBuilder(), join.getCondition());
-//            cond = RexUtil.flatten(join.getCluster().getRexBuilder(), cond);
-//            if (swapped instanceof PelagoRel) return PelagoFilter.create(swapped, cond);//RexUtil.composeConjunction(join.getCluster().getRexBuilder(), rest, false));
-//            return PelagoRelFactories.PELAGO_FILTER_FACTORY.createFilter(
-//                swapped,
-//                aboveCond
-//            );
 
             RelNode root = PelagoFilter.create(
                 swapped,
@@ -689,73 +678,6 @@ public class PelagoRules {
 
             rel.getCluster().getPlanner().ensureRegistered(root, join);
             return root;
-        }
-    }
-
-    private static class PelagoJoinRule3 extends PelagoConverterRule {
-        private static final PelagoJoinRule3 INSTANCE = new PelagoJoinRule3();
-
-        private PelagoJoinRule3(){
-            this("PelagoJoinRule3");
-        }
-
-        protected PelagoJoinRule3(String description) {
-            super(LogicalJoin.class, description);
-        }
-
-        @Override
-        public boolean matches(RelOptRuleCall call) {
-            final LogicalJoin join = (LogicalJoin) call.rel(0);
-            RexNode condition = join.getCondition();
-
-            if (condition.isAlwaysTrue()) return false;
-
-            List<RexNode> disjunctions = RelOptUtil.disjunctions(condition);
-            if (disjunctions.size() != 1)  return false;
-
-            // Check that all conjunctions are equalities (only hashjoin supported)
-            condition = disjunctions.get(0);
-
-            for (RexNode predicate : RelOptUtil.conjunctions(condition)) {
-                if (!predicate.isA(SqlKind.EQUALS)) return false;
-            }
-
-            return true;
-        }
-
-        public RelNode convert(RelNode rel) {
-            final LogicalJoin join = (LogicalJoin) rel;
-
-            JoinInfo inf = join.analyzeCondition();
-            assert inf.isEqui();
-
-            RexNode condition = join.getCondition();
-            List<RexNode> disjunctions = RelOptUtil.disjunctions(condition);
-
-            condition = disjunctions.get(0);
-
-//            RelDistribution rdl = RelDistributions.hash(inf.leftKeys );
-//            RelDistribution rdr = RelDistributions.hash(inf.rightKeys);
-
-//                .replaceIf(RelPackingTraitDef     .INSTANCE, new Supplier<RelPacking     >() {
-//                public RelPacking get() {
-//                    return RelPacking.UnPckd;
-//                }
-//            })
-//            RelNode left  = convert(convert(join.getLeft (), out), rdl);//RelDistributionTraitDef.INSTANCE.convert(rel.getCluster().getPlanner(), join.getLeft (), rdl, true);
-            RelNode left  = convert(convert(join.getLeft (), out), RelHomDistribution.BRDCST);//RelDistributionTraitDef.INSTANCE.convert(rel.getCluster().getPlanner(), join.getLeft (), rdl, true);
-//            RelNode right = convert(convert(join.getRight(), out), rdr);//RelDistributionTraitDef.INSTANCE.convert(rel.getCluster().getPlanner(), join.getRight(), rdr, true);
-            RelNode right = convert(convert(join.getRight(), out), RelHomDistribution.RANDOM);//RelDistributionTraitDef.INSTANCE.convert(rel.getCluster().getPlanner(), join.getRight(), rdr, true);
-
-//            final RelTraitSet traitSet = join.getTraitSet(); //Both rdl and rdr, can we propagate this information ?
-
-            return PelagoJoin.create(
-                    left                  ,
-                    right                 ,
-                    condition             ,
-                    join.getVariablesSet(),
-                    join.getJoinType()
-            );
         }
     }
 }
