@@ -43,7 +43,7 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
     } else {
       0.01
     }
-    val rf2 = if (getTraitSet.containsIfApplicable(RelHetDistribution.SINGLETON)) {
+    val rf2 = if (getTraitSet.containsIfApplicable(RelHetDistribution.SINGLETON) || getTraitSet.containsIfApplicable(RelHomDistribution.SINGLE)) {
       1e5
     } else {
       1
