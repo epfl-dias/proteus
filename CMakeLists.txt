@@ -304,8 +304,8 @@ set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
 
 #-----------------------------------------------------------------------
 # Define path to installed resources
-add_definitions(-DTEST_INPUTS="${CMAKE_INSTALL_PREFIX}/pelago/inputs")
-add_definitions(-DTEST_OUTPUTS="${CMAKE_INSTALL_PREFIX}/pelago/outputs")
+add_definitions(-DTEST_INPUTS="inputs")
+add_definitions(-DTEST_OUTPUTS="outputs")
 
 #-----------------------------------------------------------------------
 # Copy data files too in the destination folder
