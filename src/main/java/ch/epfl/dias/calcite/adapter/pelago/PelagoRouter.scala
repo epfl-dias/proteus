@@ -115,7 +115,7 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
         )
       } else if (getDistribution.getType eq RelDistribution.Type.SINGLETON) {
         if (getTraitSet.containsIfApplicable(RelPacking.Packed)) {
-          ("operator", "exchange") //just leave the default policy
+          JObject() //just leave the default policy
         } else {
           ("numa_local", false)
         }
@@ -136,7 +136,7 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
       }
     }
 
-    var json = ("operator", "exchange") ~
+    var json = ("operator", "router") ~
       ("gpu"           , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
       ("projections", rowType) ~
       ("numOfParents", out_dop) ~

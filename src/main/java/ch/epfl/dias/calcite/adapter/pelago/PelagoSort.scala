@@ -83,7 +83,7 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
   }
 
   def implementUnpack: (Binding, JsonAST.JValue) = {
-    val op = ("operator", "block-to-tuples")
+    val op = ("operator", "unpack")
     val alias = "__sort_unpack" + getId
     val child = implementSort
     val childOp = child._2

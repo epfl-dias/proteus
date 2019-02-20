@@ -57,7 +57,7 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
   }
 
   override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
-    val op = ("operator" , "tuples-to-block")
+    val op = ("operator" , "pack")
     val child = getInput.asInstanceOf[PelagoRel].implement(target, alias)
     val childBinding = child._1
     val childOp = child._2
