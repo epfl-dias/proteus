@@ -142,6 +142,7 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
       ("numOfParents", out_dop) ~
       ("producers", in_dop) ~
       ("slack", 8) ~
+      ("cpu_targets", target != RelDeviceType.NVPTX) ~
       policy ~
       ("input", childOp)
 
