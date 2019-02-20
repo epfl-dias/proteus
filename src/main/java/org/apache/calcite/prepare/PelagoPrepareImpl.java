@@ -14,6 +14,7 @@ import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.interpreter.BindableConvention;
 import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.plan.*;
@@ -647,11 +648,12 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
                 executeDdl(context, sqlNode);
 
                 return new CalciteSignature<>(query.sql,
-                        ImmutableList.<AvaticaParameter>of(),
-                        ImmutableMap.<String, Object>of(), null,
-                        ImmutableList.<ColumnMetaData>of(), Meta.CursorFactory.OBJECT,
-                        null, ImmutableList.<RelCollation>of(), -1, null,
-                        Meta.StatementType.OTHER_DDL);
+                    ImmutableList.of(),
+                    ImmutableMap.of(), null,
+                    ImmutableList.of(), Meta.CursorFactory.OBJECT,
+                    null, ImmutableList.of(), -1,
+                    dataContext -> Linq4j.emptyEnumerable(),
+                    Meta.StatementType.OTHER_DDL);
             }
 
             final SqlValidator validator =
