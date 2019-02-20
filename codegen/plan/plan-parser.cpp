@@ -2000,7 +2000,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     newOp = new CpuToGpu(childOp, ((ParallelContext *)this->ctx), projections);
     childOp->setParent(newOp);
 #endif
-  } else if (strcmp(opName, "block-to-tuples") == 0) {
+  } else if (strcmp(opName, "block-to-tuples") == 0 ||
+             strcmp(opName, "unpack") == 0) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
@@ -2082,7 +2083,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
                          size, g);
     childOp->setParent(newOp);
 #endif
-  } else if (strcmp(opName, "tuples-to-block") == 0) {
+  } else if (strcmp(opName, "tuples-to-block") == 0 ||
+             strcmp(opName, "pack") == 0) {
     bool gpu = false;
     if (val.HasMember("gpu")) {
       assert(val["gpu"].IsBool());
@@ -2118,7 +2120,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     }
 #endif
     childOp->setParent(newOp);
-  } else if (strcmp(opName, "hash-rearrange") == 0) {
+  } else if (strcmp(opName, "hash-rearrange") == 0 ||
+             strcmp(opName, "hash-pack") == 0) {
     bool gpu = false;
     if (val.HasMember("gpu")) {
       assert(val["gpu"].IsBool());
@@ -2293,7 +2296,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     newOp = new MemMoveLocalTo(childOp, ((ParallelContext *)this->ctx),
                                projections, slack);
     childOp->setParent(newOp);
-  } else if (strcmp(opName, "exchange") == 0) {
+  } else if (strcmp(opName, "exchange") == 0 || strcmp(opName, "router") == 0) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
@@ -3134,10 +3137,12 @@ RecordAttribute *ExpressionParser::parseRecordAttr(
     if (attr) {
       recArgType = attr->getOriginalType();
     } else {
-      if (defaultType)
+      if (defaultType) {
         recArgType = defaultType;
-      else
+      } else {
+        std::cerr << relName << "." << attrName << std::endl;
         assert(false && "Attribute not found");
+      }
     }
   }
 
