@@ -2352,10 +2352,16 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       numa_local = val["numa_local"].GetBool();
     }
 
+    bool cpu_targets = false;
+    if (val.HasMember("cpu_targets")) {
+      assert(val["cpu_targets"].IsBool());
+      cpu_targets = val["cpu_targets"].GetBool();
+    }
+
     assert(dynamic_cast<ParallelContext *>(this->ctx));
     newOp = new Exchange(childOp, ((ParallelContext *)this->ctx), numOfParents,
                          projections, slack, hash, numa_local, rand_local_cpu,
-                         producers);
+                         producers, cpu_targets);
     childOp->setParent(newOp);
   } else if (strcmp(opName, "union-all") == 0) {
     /* parse operator input */

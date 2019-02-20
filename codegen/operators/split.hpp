@@ -32,7 +32,7 @@ class Split : public Exchange {
         std::optional<expression_t> hash = std::nullopt, bool numa_local = true,
         bool rand_local_cpu = false)
       : Exchange(child, context, numOfParents, wantedFields, slack, hash,
-                 numa_local, rand_local_cpu, 1),
+                 numa_local, rand_local_cpu, 1, true),
         produce_calls(0) {
     assert(
         (!hash || !numa_local) &&

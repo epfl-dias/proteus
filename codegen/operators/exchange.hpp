@@ -49,7 +49,7 @@ class Exchange : public UnaryOperator {
            int numOfParents, const vector<RecordAttribute *> &wantedFields,
            int slack, std::optional<expression_t> hash = std::nullopt,
            bool numa_local = true, bool rand_local_cpu = false,
-           int producers = 1)
+           int producers = 1, bool cpu_targets = false)
       : UnaryOperator(child),
         context(context),
         numOfParents(numOfParents),
@@ -75,11 +75,18 @@ class Exchange : public UnaryOperator {
 
     ready_fifo = new AsyncQueueMPSC<void *>[numOfParents];
 
-    const auto &vec = topology::getInstance().getGpus();
-    // const auto &vec = topology::getInstance().getCpuNumaNodes();
+    if (cpu_targets) {
+      const auto &vec = topology::getInstance().getCpuNumaNodes();
 
-    for (int i = 0; i < numOfParents; ++i) {
-      target_processors.emplace_back(vec[i % vec.size()]);
+      for (int i = 0; i < numOfParents; ++i) {
+        target_processors.emplace_back(vec[i % vec.size()]);
+      }
+    } else {
+      const auto &vec = topology::getInstance().getGpus();
+
+      for (int i = 0; i < numOfParents; ++i) {
+        target_processors.emplace_back(vec[i % vec.size()]);
+      }
     }
   }
 
