@@ -19,29 +19,39 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "storage/memory_manager.hpp"
-#include <numa.h>
-#include <numaif.h>
+#ifndef CC_HPP_
+#define CC_HPP_
+
 #include <iostream>
+#include <mutex>
+#include "transactions/txn_utils.hpp"
 
-namespace storage {
+namespace txn {
 
-void MemoryManager::init() {
-  std::cout << "[MemoryManager::init] --BEGIN--" << std::endl;
-  std::cout << "[MemoryManager::init] --END--" << std::endl;
-}
-void MemoryManager::destroy() {
-  std::cout << "[MemoryManager::destroy] --BEGIN--" << std::endl;
-  std::cout << "[MemoryManager::destroy] --END--" << std::endl;
-}
-void* MemoryManager::alloc(size_t bytes, int numa_memset_id) {
-  std::cout << "[MemoryManager::alloc] --BEGIN--" << std::endl;
-  return numa_alloc_onnode(bytes, numa_memset_id);
-}
-void MemoryManager::free(void* mem, size_t bytes) {
-  std::cout << "[MemoryManager::free] --BEGIN--" << std::endl;
-  numa_free(mem, bytes);
-  std::cout << "[MemoryManager::free] --END--" << std::endl;
-}
+class CC_MV2PL;
+class CC_GlobalLock;
 
-};  // namespace storage
+class CC_GlobalLock {
+ public:
+  struct PRIMARY_INDEX_VAL {
+    uint64_t VID;
+  };
+
+  bool execute_txn(void *stmts, uint64_t xid);
+
+  CC_GlobalLock() { std::cout << "CC Protocol: GlobalLock" << std::endl; }
+
+ private:
+  std::mutex global_lock;
+};
+
+class CC_TupleLock {};
+
+template <class MV_PROTOCOL = CC_MV2PL>
+class CC_MVCC {};
+
+class CC_MV2PL {};
+
+}  // namespace txn
+
+#endif /* CC_HPP_ */

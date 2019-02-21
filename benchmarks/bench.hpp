@@ -19,29 +19,32 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "storage/memory_manager.hpp"
-#include <numa.h>
-#include <numaif.h>
+#ifndef BENCH_HPP_
+#define BENCH_HPP_
+
 #include <iostream>
+#include <string>
 
-namespace storage {
+namespace bench {
 
-void MemoryManager::init() {
-  std::cout << "[MemoryManager::init] --BEGIN--" << std::endl;
-  std::cout << "[MemoryManager::init] --END--" << std::endl;
-}
-void MemoryManager::destroy() {
-  std::cout << "[MemoryManager::destroy] --BEGIN--" << std::endl;
-  std::cout << "[MemoryManager::destroy] --END--" << std::endl;
-}
-void* MemoryManager::alloc(size_t bytes, int numa_memset_id) {
-  std::cout << "[MemoryManager::alloc] --BEGIN--" << std::endl;
-  return numa_alloc_onnode(bytes, numa_memset_id);
-}
-void MemoryManager::free(void* mem, size_t bytes) {
-  std::cout << "[MemoryManager::free] --BEGIN--" << std::endl;
-  numa_free(mem, bytes);
-  std::cout << "[MemoryManager::free] --END--" << std::endl;
-}
+// enum OP_TYPE { OPTYPE_LOOKUP, OPTYPE_UPDATE }; done in txn_manager
 
-};  // namespace storage
+class Benchmark {
+ public:
+  virtual void init() {
+  }  // who will init the bench? the main session or in worker's init?
+  virtual void load_data() {}
+  virtual void *gen_txn(int wid) { return nullptr; }
+  virtual void exec_txn(void *) {}
+
+  std::string name;
+
+  // private:
+  Benchmark(std::string name = "DUMMY") : name(name){};
+
+  virtual ~Benchmark() { std::cout << "destructor of Benchmark" << std::endl; }
+};
+
+}  // namespace bench
+
+#endif /* BENCH_HPP_ */

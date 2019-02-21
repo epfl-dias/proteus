@@ -19,29 +19,44 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "storage/memory_manager.hpp"
-#include <numa.h>
-#include <numaif.h>
+#ifndef UTILS_HPP_
+#define UTILS_HPP_
+
+#include <unistd.h>
+#include <functional>
 #include <iostream>
+#include <tuple>
 
-namespace storage {
+#include "transactions/transaction_manager.hpp"
 
-void MemoryManager::init() {
-  std::cout << "[MemoryManager::init] --BEGIN--" << std::endl;
-  std::cout << "[MemoryManager::init] --END--" << std::endl;
-}
-void MemoryManager::destroy() {
-  std::cout << "[MemoryManager::destroy] --BEGIN--" << std::endl;
-  std::cout << "[MemoryManager::destroy] --END--" << std::endl;
-}
-void* MemoryManager::alloc(size_t bytes, int numa_memset_id) {
-  std::cout << "[MemoryManager::alloc] --BEGIN--" << std::endl;
-  return numa_alloc_onnode(bytes, numa_memset_id);
-}
-void MemoryManager::free(void* mem, size_t bytes) {
-  std::cout << "[MemoryManager::free] --BEGIN--" << std::endl;
-  numa_free(mem, bytes);
-  std::cout << "[MemoryManager::free] --END--" << std::endl;
+std::ostream& operator<<(std::ostream& o, const struct txn::TXN& a) {
+  o << "---TXN---\n";
+  for (int i = 0; i < a.n_ops; i++) {
+    o << "\tTXN[" << i << "]";
+    o << "\t\tOP: ";
+    switch (a.ops[i].op_type) {
+      case txn::OPTYPE_LOOKUP:
+        o << " LOOKUP";
+        break;
+      case txn::OPTYPE_INSERT:
+        o << " INSERT";
+        break;
+      case txn::OPTYPE_UPDATE:
+        o << " UPDATE";
+        break;
+      case txn::OP_TYPE_DELETE:
+        o << " DELETE";
+        break;
+      default:
+        o << " UNKNOWN";
+        break;
+    }
+    o << ", key: " << a.ops[i].key << std::endl;
+    ;
+  }
+
+  o << "---------\n";
+  return o;
 }
 
-};  // namespace storage
+#endif /* UTILS_HPP_ */

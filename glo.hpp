@@ -19,29 +19,25 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "storage/memory_manager.hpp"
-#include <numa.h>
-#include <numaif.h>
-#include <iostream>
+#ifndef GLO_HPP_
+#define GLO_HPP_
 
-namespace storage {
+#include "indexes/hash_index.hpp"
+#include "transactions/cc.hpp"
 
-void MemoryManager::init() {
-  std::cout << "[MemoryManager::init] --BEGIN--" << std::endl;
-  std::cout << "[MemoryManager::init] --END--" << std::endl;
-}
-void MemoryManager::destroy() {
-  std::cout << "[MemoryManager::destroy] --BEGIN--" << std::endl;
-  std::cout << "[MemoryManager::destroy] --END--" << std::endl;
-}
-void* MemoryManager::alloc(size_t bytes, int numa_memset_id) {
-  std::cout << "[MemoryManager::alloc] --BEGIN--" << std::endl;
-  return numa_alloc_onnode(bytes, numa_memset_id);
-}
-void MemoryManager::free(void* mem, size_t bytes) {
-  std::cout << "[MemoryManager::free] --BEGIN--" << std::endl;
-  numa_free(mem, bytes);
-  std::cout << "[MemoryManager::free] --END--" << std::endl;
-}
+// typedef cuckoohash_map<std::string, std::string> HashIndex;
 
-};  // namespace storage
+// template <class hash_val, class key = uint64_t>
+// using HashIndex = cuckoohash_map<key, hash_val>;
+
+namespace global_conf {
+
+using ConcurrencyControl = txn::CC_GlobalLock;
+using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;
+
+template <class T_KEY>
+using PrimaryIndex = indexes::HashIndex<T_KEY, IndexVal>;
+
+}  // namespace global_conf
+
+#endif /* GLO_HPP_ */

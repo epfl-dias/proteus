@@ -19,29 +19,19 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "storage/memory_manager.hpp"
-#include <numa.h>
-#include <numaif.h>
-#include <iostream>
+#ifndef BENCH_UTILS_HPP_
+#define BENCH_UTILS_HPP_
 
-namespace storage {
+namespace bench {
 
-void MemoryManager::init() {
-  std::cout << "[MemoryManager::init] --BEGIN--" << std::endl;
-  std::cout << "[MemoryManager::init] --END--" << std::endl;
-}
-void MemoryManager::destroy() {
-  std::cout << "[MemoryManager::destroy] --BEGIN--" << std::endl;
-  std::cout << "[MemoryManager::destroy] --END--" << std::endl;
-}
-void* MemoryManager::alloc(size_t bytes, int numa_memset_id) {
-  std::cout << "[MemoryManager::alloc] --BEGIN--" << std::endl;
-  return numa_alloc_onnode(bytes, numa_memset_id);
-}
-void MemoryManager::free(void* mem, size_t bytes) {
-  std::cout << "[MemoryManager::free] --BEGIN--" << std::endl;
-  numa_free(mem, bytes);
-  std::cout << "[MemoryManager::free] --END--" << std::endl;
-}
+class bench_utils {
+  static double zeta(uint64_t n, double theta) {
+    double sum = 0;
+    for (uint64_t i = 1; i <= n; i++) sum += pow(1.0 / i, theta);
+    return sum;
+  }
+};
 
-};  // namespace storage
+}  // namespace bench
+
+#endif /* BENCH_UTILS_HPP_ */

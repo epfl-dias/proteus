@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(aeolus)
 
+set(PROTEUS_SOURCE_DIR "/cloud_store/raza/htap/src/executor")
 #-----------------------------------------------------------------------
 # Which binaries to build:
 #-----------------------------------------------------------------------
@@ -11,10 +12,22 @@ set(MAINS server) # Interface to the executor
 # Tests
 # not too sure if we should build "main", it looks like it has the same
 # test cases as the gtests
-set(UNIT_TESTS TRUE)
+set(UNIT_TESTS FALSE)
 
 # Benchmarks
-set(TPCH TRUE)
+set(TPCH FALSE)
+
+
+# C++ Source files
+set(SOURCES
+    scheduler/worker.cpp
+    scheduler/topology.cpp
+    storage/memory_manager.cpp
+    storage/table.cpp
+    transactions/transaction_manager.cpp
+    transactions/cc.cpp
+    server.cpp
+    )
 
 #-----------------------------------------------------------------------
 # Setup environment for the project
@@ -90,6 +103,46 @@ string(STRIP "${WARNING_FLAGS} -Wno-attributes" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-documentation-deprecated-sync" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-documentation" WARNING_FLAGS)
 
+# Our code generates the following warnigns
+string(STRIP "${WARNING_FLAGS} -Wno-unused-command-line-argument" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat-pedantic" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat" WARNING_FLAGS)
+
+# Copied from PROTEUS to make shared codegen work
+string(STRIP "${WARNING_FLAGS} -Wno-unused-variable" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unused-private-field" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-reorder"  WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-ignored-qualifiers" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-deprecated" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-cast-qual" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-sign-compare" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-sign-conversion" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-vla-extension" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unused-command-line-argument" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat-pedantic" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-assign-enum" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-reserved-id-macro" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-shorten-64-to-32" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-zero-as-null-pointer-constant" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-header-hygiene" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-exit-time-destructors" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-global-constructors" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-missing-prototypes" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unreachable-code" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unreachable-code-return" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-conditional-uninitialized" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-covered-switch-default" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-double-promotion" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-cast-align" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-shadow-field" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-used-but-marked-unused" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unreachable-code-break" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-implicit-fallthrough" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unused-macros" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-vla" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-tautological-compare" WARNING_FLAGS)
+
 #-----------------------------------------------------------------------
 # Add the compiler flags
 string(STRIP "${CMAKE_CXX_FLAGS} ${COMPILER_FLAGS}" CMAKE_CXX_FLAGS)
@@ -101,7 +154,14 @@ string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
 
 include_directories(
 	"${PROJECT_SOURCE_DIR}"
-	"${PROJECT_SOURCE_DIR}/codegen"
+	)
+
+include_directories(
+	"${PROTEUS_SOURCE_DIR}"
+	"${PROTEUS_SOURCE_DIR}/codegen"
+	#"${PROJECT_SOURCE_DIR}"
+
+	# Let's see if we pull in headers which requires this, if not let's drop the whole block
 	# FIXME: system libraries should not be included with quotes...
 	# Add local (for use with ""-style includes) path to the sysroot
 	"${CMAKE_INSTALL_PREFIX}/include"
@@ -130,15 +190,93 @@ execute_process(COMMAND ${CMAKE_INSTALL_PREFIX}/bin/llvm-config --libs ${LLVM_CO
 #-----------------------------------------------------------------------
 # Various dependencies
 #-----------------------------------------------------------------------
-include_directories(
-	"${PROTEUS_SOURCE_DIR}/codegen"
+# CUDA
+find_program(HAS_NVCC nvcc)
+if(HAS_NVCC)
+	# Detect and setup the NVCC architectures
+	execute_process(COMMAND nvidia-smi --query-gpu=index,gpu_name --format=csv OUTPUT_VARIABLE _NVIDIA_SMI OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-	# Let's see if we pull in headers which requires this, if not let's drop the whole block
-	# FIXME: system libraries should not be included with quotes...
-	# Add local (for use with ""-style includes) path to the sysroot
-	#"${CMAKE_INSTALL_PREFIX}/include"
-	)
+	# Transform the multiline string into a list
+	string(REGEX REPLACE "[\n]" ";" _NVIDIA_SMI "${_NVIDIA_SMI}")
 
+	# Remove the table header from the list
+	string(REGEX REPLACE [[[^;]*name[^;]*;]] ";" _NVIDIA_SMI "${_NVIDIA_SMI}")
+
+	# Create list of GPUs names
+	foreach(line ${_NVIDIA_SMI})
+		string(REGEX REPLACE [[^[^,]*, ]] "" line "${line}")
+		list(APPEND _NVCC_GPUS ${line})
+	endforeach(line)
+
+	# Create list of unique architetures
+	# See https://developer.nvidia.com/cuda-gpus for a reference table
+	foreach(line ${_NVCC_GPUS})
+		set(tmp "${line}")
+		string(REGEX REPLACE [[GeForce GTX 980]] "52" tmp "${tmp}")
+		string(REGEX REPLACE [[GeForce GTX 1080]] "61" tmp "${tmp}")
+		#string(REGEX REPLACE [[Tesla V100-SXM2-32GB]] "70" line "${tmp}")
+
+		# If no match for the replace is found, tmp equals line.
+		# When this the case, tmp does not contain a GPU architecture code.
+		if("${tmp}" STREQUAL "${line}")
+			message(FATAL_ERROR "Unsupported GPU detected: ${line}")
+		endif()
+
+		list(APPEND _NVCC_ARCHS ${tmp})
+	endforeach(line)
+
+	list(REMOVE_DUPLICATES _NVCC_ARCHS)
+
+	# Create arguments for nvcc and clang
+	foreach(line ${_NVCC_ARCHS})
+		list(APPEND CUDA_CXX_ARCHS "--cuda-gpu-arch=sm_${line}")
+		list(APPEND CUDA_CU_ARCHS -gencode arch=compute_${line},\\"code=sm_${line},compute_${line}\\")
+	endforeach(line)
+
+	# C++ & CUDA hybrid files
+	string(STRIP "${CUDA_CXXFLAGS} -Wno-format-pedantic" CUDA_CXXFLAGS)
+	string(STRIP "${CUDA_CXXFLAGS} -x cuda" CUDA_CXXFLAGS)
+
+	# Convert the list to a string
+	string(REGEX REPLACE [[;]] " " CUDA_CXX_ARCHS "${CUDA_CXX_ARCHS}")
+	string(STRIP "${CUDA_CXXFLAGS} ${CUDA_CXX_ARCHS}" CUDA_CXXFLAGS)
+
+	# Because of how the "command" function works, we have to use a
+	# CMAKE list, and not a string for CUDA_CUFLAGS
+
+	# CUDA-only flags, used with nvcc
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${CMAKE_INSTALL_PREFIX}/include)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR})
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR}/codegen)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} ${CUDA_CU_ARCHS})
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --std=c++11)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -Xcompiler -fPIC)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --expt-relaxed-constexpr)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -O3)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --generate-line-info -line-info)
+
+	set(CUDA_LIBS -lnvToolsExt -lcuda -lcudart -lnvidia-ml -lcudadevrt -lnvvm)
+
+	include_directories(
+		"/usr/local/cuda/include"
+		)
+
+	link_directories(
+		"/usr/local/cuda/lib64"
+		"/usr/local/cuda/lib64/stubs"
+		"/usr/local/cuda/nvvm/lib64"
+		)
+
+	set(CUDA "CUDA-FOUND")
+else()
+	message("Warning: Building without support for GPUs (nvcc not detected)")
+
+	set(CUDA_CXXFLAGS -x c++ -DNCUDA)
+	set(CUDA_CUFLAGS "")
+	set(CUDA_LIBS "")
+
+	set(CUDA "CUDA-NOTFOUND")
+endif()
 
 #-----------------------------------------------------------------------
 # GoogleLog
@@ -175,8 +313,9 @@ endif()
 # `codegen` needs to be unquoted to be replaced, as CMake controls the build of
 # that library
 set(default_libs ${default_libs} codegen )
+set(default_libs ${default_libs} -lnuma )
 set(default_libs ${default_libs} ${LLVM_LIBS} -lLLVMSupport)
-#set(default_libs ${default_libs} ${CUDA_LIBS})
+set(default_libs ${default_libs} ${CUDA_LIBS})
 set(default_libs ${default_libs} ${GLOG})
 set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
 
@@ -193,13 +332,25 @@ set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
 # Build our libraries
 #-----------------------------------------------------------------------
 
+
+# Hash library
+# https://github.com/preshing/junction.git
+# https://github.com/preshing/turf.git
+#add_subdirectory(lib/libcuckoo/libcuckoo)
+
+#-----------------------------------------------------------------------
+# Source Files
+#----------------------------a-------------------------------------------
+#file(GLOB_RECURSE SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "[^.]*.cpp")
+
+
 #-----------------------------------------------------------------------
 # Build our executables
 #-----------------------------------------------------------------------
 foreach(target ${MAINS})
-	add_executable(aeolus-${target} ${target}.cpp)
+	add_executable(aeolus-${target} ${SOURCES})
 	target_link_libraries(aeolus-${target} ${default_libs})
-	install(TARGETS proteus${target}
+	install(TARGETS aeolus-${target}
 		RUNTIME DESTINATION aeolus
 		LIBRARY DESTINATION lib
 		ARCHIVE DESTINATION lib
