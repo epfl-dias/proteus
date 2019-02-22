@@ -48,6 +48,7 @@ class TransactionManager {
   static void init() { std::cout << "TXN Manager Init" << std::endl; }
 
   bool execute_txn(void *stmts) {
+    // std::cout << "\tTXN EXECUTE-START" << std::endl;
     if (executor.execute_txn(stmts, get_next_xid())) {
       n_txns++;
       n_commits++;

@@ -84,15 +84,39 @@ class YCSB : public Benchmark {
     ycsb_tbl = schema.create_table("ycsb_tbl", storage::COLUMN_STORE, columns);
 
     /* Load data into tables*/
-    int key_gen = 0;
+    uint64_t key_gen = 0;
     for (int i = 0; i < num_records; i++) {
-      std::vector<int> tmp(num_fields, key_gen++);
-      ycsb_tbl->insertRecord(&tmp);
+      std::vector<uint64_t> tmp(num_fields, key_gen++);
+      // ycsb_tbl->insertRecord(&tmp);
+
+      txn::TransactionManager *txnManager =
+          &txn::TransactionManager::getInstance();
+      struct txn::TXN insert_txn = gen_insert_txn(key_gen, &tmp);
+      txnManager->execute_txn(&insert_txn);
+      std::cout << "inserted record: " << i << std::endl;
+
+      // free the txn ops pointers
     };
 
     // Set init flag to true
     initialized = true;
   };
+
+  struct txn::TXN gen_insert_txn(uint64_t key, void *rec) {
+    struct txn::TXN txn;
+
+    txn.ops = new txn::TXN_OP[1];
+    assert(txn.ops != NULL);
+
+    txn.ops[0].op_type = txn::OPTYPE_INSERT;
+    txn.ops[0].data_table = ycsb_tbl;
+    txn.ops[0].key = key;
+    txn.ops[0].rec = rec;
+    txn.n_ops = 1;
+    return txn;
+  }
+
+  /* FIXME: Possible memory leak because we dont clear the TXN memory*/
   void *gen_txn(int wid) {
     /* TODO: too many pointer indirections, it should be something static so
      * that we reduce random memory access while generating queries */
@@ -117,6 +141,7 @@ class YCSB : public Benchmark {
     bool is_duplicate = false;
     for (int i = 0; i < num_ops_per_txn; i++) {
       txn->ops[i].op_type = op;
+      txn->ops[i].data_table = ycsb_tbl;
 
       do {
         // make op
@@ -130,9 +155,10 @@ class YCSB : public Benchmark {
           }
         }
       } while (is_duplicate == true);
-      txn->n_ops++;
+      // txn->n_ops++; // THIS IS FUCKING BUG HERE
     }
-
+    std::cout << "\tTXN GENERATED" << std::endl;
+    txn->n_ops = num_ops_per_txn;  // THIS IS FUCKING BUG HERE
     return txn;
   }
 
@@ -143,8 +169,8 @@ class YCSB : public Benchmark {
   // private:
   YCSB(std::string name = "YCSB")
       : Benchmark(name),
-        num_fields(10),
-        num_records(1000000),
+        num_fields(1),
+        num_records(100),
         theta(0.5),
         num_iterations_per_worker(1000000),
         num_ops_per_txn(2),

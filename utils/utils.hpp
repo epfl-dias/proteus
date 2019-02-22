@@ -22,8 +22,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define UTILS_HPP_
 
 #include <unistd.h>
+#include <chrono>
 #include <functional>
+#include <future>
 #include <iostream>
+#include <thread>
 #include <tuple>
 
 #include "transactions/transaction_manager.hpp"
@@ -57,5 +60,57 @@ std::ostream& operator<<(std::ostream& o, const struct txn::TXN& a) {
   o << "---------\n";
   return o;
 }
+
+/*
+  Calls a function every x(ms) intervals
+
+*/
+
+class timed_func {
+  static bool terminate;
+  static int num_active_runners;
+
+  static void init() { terminate = false; }
+  static void terminate_all_timed() { terminate = true; }
+
+  static void interval_runner(std::function<void(void)> func,
+                              unsigned int interval) {
+    std::thread([func, interval]() {
+      while (true) {
+        if (terminate) break;
+        auto x = std::chrono::steady_clock::now() +
+                 std::chrono::milliseconds(interval);
+        func();
+        std::this_thread::sleep_until(x);
+      }
+    }).detach();
+    num_active_runners++;
+  }
+
+  template <class F, class... Args>
+  static void interval_runner(F&& f, Args&&... args, unsigned int interval) {
+    using packaged_task_t =
+        std::packaged_task<typename std::result_of<F(Args...)>::type()>;
+
+    packaged_task_t task(new packaged_task_t(
+        std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
+
+    auto res = task->get_future();
+
+    std::thread([task, interval]() {
+      while (true) {
+        if (terminate) break;
+        auto x = std::chrono::steady_clock::now() +
+                 std::chrono::milliseconds(interval);
+        task();
+        std::this_thread::sleep_until(x);
+      }
+    }).detach();
+    num_active_runners++;
+  }
+};
+
+bool timed_func::terminate = true;
+int timed_func::num_active_runners = 0;
 
 #endif /* UTILS_HPP_ */

@@ -76,7 +76,7 @@ class Schema {
 class Table {
  public:
   // virtual void deleteAllTuples() = 0;
-  virtual void insertRecord(void* rec) = 0;
+  virtual uint64_t insertRecord(void* rec) = 0;
   virtual void updateRecord(void* key, void* data) = 0;
   virtual void deleteRecord(void* key) = 0;
   virtual std::vector<std::tuple<const void*, data_type>> getRecordByKey(
@@ -95,6 +95,7 @@ class Table {
  protected:
   std::string name;
   int num_columns;
+  std::atomic<uint64_t> vid;
 
   // int primary_index_col_idx;
 
@@ -114,7 +115,7 @@ class Row {
 
 class rowStore : public Table {
  public:
-  void insertRecord(void* rec) {}
+  uint64_t insertRecord(void* rec) { return -1; }
   void updateRecord(void* key, void* data) {}
   void deleteRecord(void* key) {}
 
@@ -128,7 +129,7 @@ class ColumnStore : public Table {
  public:
   ColumnStore(std::string name,
               std::vector<std::tuple<std::string, data_type, size_t>> columns);
-  void insertRecord(void* rec);
+  uint64_t insertRecord(void* rec);
   void updateRecord(void* key, void* data);
   void deleteRecord(void* key);
   std::vector<std::tuple<const void*, data_type>> getRecordByKey(
@@ -171,9 +172,9 @@ class Column {
 
    }*/
 
-  inline void insertElem(int64_t offset, void* elem);
-  inline void updateElem(int64_t offset, void* elem);
-  inline void deleteElem(int64_t offset);
+  void insertElem(uint64_t offset, void* elem);
+  void updateElem(uint64_t offset, void* elem);
+  void deleteElem(uint64_t offset);
 
  private:
   std::string name;

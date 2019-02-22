@@ -34,6 +34,7 @@ class CC_GlobalLock {
  public:
   struct PRIMARY_INDEX_VAL {
     uint64_t VID;
+    PRIMARY_INDEX_VAL(uint64_t vid) : VID(vid) {}
   };
 
   bool execute_txn(void *stmts, uint64_t xid);

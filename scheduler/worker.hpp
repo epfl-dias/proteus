@@ -116,19 +116,20 @@ class WorkerPool {
     std::cout << "[WorkerPool] TEST TXN" << std::endl;
   }
 
-  void shutdown(bool print_stats = false) {
-    if (print_stats) {
-      std::cout << "------------ WORKER STATS ------------" << std::endl;
-      for (auto it = workers.begin(); it != workers.end(); ++it) {
-        // std::cout << " " << it->first << ":" << it->second;
-        std::cout << "Worker-" << it->first << std::endl;
-        Worker *tmp = it->second.second;
-        std::cout << "\t# of txns\t" << tmp->num_txns << std::endl;
-        ;
-      }
-
-      std::cout << "------------ END WORKER STATS ------------" << std::endl;
+  void print_worker_stats() {
+    std::cout << "------------ WORKER STATS ------------" << std::endl;
+    for (auto it = workers.begin(); it != workers.end(); ++it) {
+      // std::cout << " " << it->first << ":" << it->second;
+      std::cout << "Worker-" << it->first << std::endl;
+      Worker *tmp = it->second.second;
+      std::cout << "\t# of txns\t" << tmp->num_txns << std::endl;
     }
+
+    std::cout << "------------ END WORKER STATS ------------" << std::endl;
+  }
+
+  void shutdown(bool print_stats = false) {
+    if (print_stats) print_worker_stats();
     this->~WorkerPool();
   }
 
@@ -167,12 +168,14 @@ class WorkerPool {
   std::mutex m;
   std::condition_variable cv;
   ~WorkerPool() {
+    std::cout << "[destructor] shutting down workers" << std::endl;
     terminate = true;
     cv.notify_all();
     for (auto &worker : workers) {
       worker.second.second->terminate = true;
       worker.second.first->join();
     }
+
     workers.clear();
   }
   friend class Worker;

@@ -33,12 +33,15 @@ struct TXN_OP {
   uint64_t key;
   OP_TYPE op_type;
   void* data_table;
+  void* rec;
 };
 
 struct TXN {
   struct TXN_OP* ops;
   short n_ops;
   enum QUERY_STATE state;
+
+  ~TXN() { delete ops; }
 };
 }  // namespace txn
 

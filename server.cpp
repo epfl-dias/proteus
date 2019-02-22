@@ -64,9 +64,7 @@ int main() {
 
   std::cout << "------------------------------------" << std::endl;
 
-  // txn::TransactionManager::getInstance().init();
-
-  return 0;
+  txn::TransactionManager::getInstance().init();
 
   /* ------------------------------------ */
 
@@ -81,6 +79,7 @@ int main() {
 
   // init benchmark
   bench::YCSB* ycsb_bench = new bench::YCSB();
+  ycsb_bench->load_data();
   /* As soon as worker starts, they start transactions. so make sure you setup
    * everything needed for benchmark transactions before hand.
    */
@@ -98,14 +97,14 @@ int main() {
    * executing certain number of txns/iterations. */
 
   usleep(RUNTIME);
-  scheduler::WorkerPool::getInstance().shutdown(true);
 
   /* TODO: gather stats about every thread or something*/
 
-  std::cout << "Tead Down Inititated" << std::endl;
-
+  std::cout << "Tear Down Inititated" << std::endl;
+  // scheduler::WorkerPool::getInstance().shutdown(true);
   std::cout << "\tShutting  down memory manager" << std::endl;
-  storage::MemoryManager::destroy();
+
+  // storage::MemoryManager::destroy();
 
   return 0;
 }

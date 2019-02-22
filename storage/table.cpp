@@ -94,6 +94,7 @@ ColumnStore::ColumnStore(
   }
   this->num_columns = columns.size();
   this->name = name;
+  this->vid = 0;
 
   // build index over the first column
 
@@ -102,7 +103,20 @@ ColumnStore::ColumnStore(
   this->columns.at(0)->buildIndex();
 }
 
-void ColumnStore::insertRecord(void* rec) {}
+/* Following function assumes that the  void* rec has columns in the same order
+ * as the actual columns
+ */
+uint64_t ColumnStore::insertRecord(void* rec) {
+  // std::vector<uint64_t> tmp(num_fields, key_gen++);
+  // ycsb_tbl->insertRecord(&tmp);
+  char* rec_ptr = (char*)rec;
+  for (auto& col : columns) {
+    col->insertElem(vid, rec_ptr);
+    rec_ptr += col->elem_size;
+  }
+  return this->vid++;
+}
+
 void ColumnStore::updateRecord(void* key, void* data) {}
 void ColumnStore::deleteRecord(void* key) {}
 
@@ -164,10 +178,23 @@ void* Column::getElem(uint64_t vid) {
   for (const auto& chunk : data_ptr) {
     if (chunk->size <= (data_idx + elem_size)) {
       return ((char*)chunk->data) + data_idx - elem_size;
-      ;
     }
   }
-  assert(false);
+  return nullptr;
+}
+void Column::insertElem(uint64_t offset, void* elem) {
+  uint64_t data_idx = offset * this->elem_size;
+  for (const auto& chunk : data_ptr) {
+    if (chunk->size >= (data_idx + elem_size)) {
+      // insert elem here
+      void* dst = (void*)(((char*)chunk->data) + data_idx);
+      std::memcpy(dst, elem, this->elem_size);
+      return;
+    } else {
+      std::cout << "FUCK. ALLOCATE MOTE MEMORY" << std::endl;
+      exit(-1);
+    }
+  }
 }
 
 Column::~Column() {

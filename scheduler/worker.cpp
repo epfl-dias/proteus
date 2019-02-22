@@ -64,6 +64,8 @@ void Worker::run() {
       }
     }
     if (has_task) {
+      std::cout << "[WORKER] Worker (TID:" << (int)(this->id) << ") Got a Task!"
+                << std::endl;
       /* FIXME: how to keep track of abort/commit and results of the tasks
        * (transactions submitted through frontend interface)
        */
@@ -74,10 +76,15 @@ void Worker::run() {
        */
 
       // pool->txn_bench->exec_txn(pool->txn_bench->gen_txn(this->id));
-      if (txnManager->execute_txn(pool->txn_bench->gen_txn(this->id)))
+      std::cout << "[Worker-" << (int)(this->id) << "]TXN:" << num_txns
+                << std::endl;
+      void* c = pool->txn_bench->gen_txn(this->id);
+      if (txnManager->execute_txn(c))
         num_commits++;
       else
         num_aborts++;
+
+      delete (struct txn::TXN*)c;
     }
     num_txns++;
   }
