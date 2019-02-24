@@ -36,13 +36,75 @@ class AffinityManager {
   AffinityManager(AffinityManager const &) = delete;  // Don't Implement
   void operator=(AffinityManager const &) = delete;   // Don't implement
 
-  void set(core *core_id) {}
-  void set(cpunumanode *core_id) {}
-  void get() {}
+  void set(const core *core);
+  void set(const cpunumanode *cpu);
 
  private:
   AffinityManager() {}
 };
+
+/*
+class affinity_cpu_set {
+ private:
+  static void set(const cpunumanode &cpu, cpu_set_t cores);
+  static cpu_set_t get();
+
+  friend class exec_location;
+  friend class affinity;
+};
+
+class affinity {
+ private:
+  static void set(const cpunumanode &cpu);
+  static void set(const core &core);
+
+  static const cpunumanode &get();
+
+  friend class exec_location;
+  friend class MemoryManager;
+  friend class NUMAPinnedMemAllocator;
+};
+
+class exec_location {
+ private:
+  const cpunumanode &cpu;
+  const cpu_set_t cores;
+
+ public:
+  exec_location(const core &core)
+      : cpu(Topology::getInstance().getCpuNumaNodeById(core.local_cpu)),
+        cores(core) {}
+
+  exec_location(const cpunumanode &cpu) : cpu(cpu), cores(cpu.local_cpu_set) {}
+
+ public:
+  void activate() const { affinity_cpu_set::set(cpu, cores); }
+};
+
+class set_exec_location_on_scope {
+ private:
+  exec_location old;
+
+ public:
+  inline set_exec_location_on_scope(cpu_set_t cpus) {
+    exec_location{cpus}.activate();
+  }
+
+  inline set_exec_location_on_scope(const exec_location &loc) {
+    loc.activate();
+  }
+
+  inline set_exec_location_on_scope(const cpunumanode &cpu) {
+    exec_location{cpu}.activate();
+  }
+
+  inline set_exec_location_on_scope(const core &core) {
+    exec_location{core}.activate();
+  }
+
+  inline ~set_exec_location_on_scope() { old.activate(); }
+};*/
+
 }  // namespace scheduler
 
 #endif /* AFFINITY_MANAGER_HPP_ */

@@ -22,18 +22,16 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <functional>
 #include <iostream>
 #include <tuple>
-#include "storage/memory_manager.hpp"
-#include "storage/table.hpp"
-
+#include "benchmarks/ycsb.hpp"
+#include "indexes/hash_index.hpp"
 #include "scheduler/topology.hpp"
 #include "scheduler/worker.hpp"
-
-#include "benchmarks/ycsb.hpp"
+#include "storage/memory_manager.hpp"
+#include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
-
-#include "indexes/hash_index.hpp"
-
 #include "utils/utils.hpp"
+
+#include "lib/cxxopts.hpp"
 
 #define RUNTIME 5000000
 
@@ -55,7 +53,24 @@ std::ostream& operator<<(std::ostream& os, uint64_t i) {
   return os;
 }*/
 
-int main() {
+int main(int argc, char** argv) {
+  int num_workers = 1;
+
+  cxxopts::Options options("AEOLUS", "Column-major, Elastic OLTP Engine");
+
+  options.add_options()("d,debug", "Enable debugging")(
+      "w,workers", "Number of Workers", cxxopts::value<uint>());
+
+  auto result = options.parse(argc, argv);
+  // result.count("option")
+  // result["opt"].as<type>()
+  // cxxopts::value<std::string>()->default_value("value")
+  // cxxopts::value<std::string>()->implicit_value("implicit")
+
+  if (result.count("w") > 0) {
+    num_workers = result["w"].as<uint>();
+  }
+
   // INIT
   std::cout << "Initializing..." << std::endl;
   std::cout << "\tInitializing memory manager..." << std::endl;
@@ -89,7 +104,7 @@ int main() {
    */
 
   scheduler::WorkerPool::getInstance().init(ycsb_bench);
-  scheduler::WorkerPool::getInstance().start_workers(1);
+  scheduler::WorkerPool::getInstance().start_workers(num_workers);
 
   /* This shouldnt be a sleep, but this thread should sleep until all workers
    * finished required number of txns. but dilemma here is that either the

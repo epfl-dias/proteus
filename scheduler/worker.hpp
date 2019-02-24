@@ -102,69 +102,13 @@ class WorkerPool {
   WorkerPool(WorkerPool &&) = delete;
   WorkerPool &operator=(WorkerPool &&) = delete;
 
-  void init(bench::Benchmark *txn_bench = nullptr) {
-    std::cout << "[WorkerPool] Init" << std::endl;
-
-    if (txn_bench == nullptr) {
-      this->txn_bench = new bench::Benchmark();
-    } else {
-      this->txn_bench = txn_bench;
-    }
-    std::cout << "[WorkerPool] TXN Bench: " << this->txn_bench->name
-              << std::endl;
-    // txn_bench->exec_txn(txn_bench->gen_txn(0));
-    // std::cout << "[WorkerPool] TEST TXN" << std::endl;
-  }
-
-  void print_worker_stats() {
-    std::cout << "------------ WORKER STATS ------------" << std::endl;
-    double tps = 0;
-    double num_commits = 0;
-    double num_aborts = 0;
-    double num_txns = 0;
-    for (auto it = workers.begin(); it != workers.end(); ++it) {
-      // std::cout << " " << it->first << ":" << it->second;
-      std::cout << "Worker-" << (int)(it->first)
-                << "(core_id: " << it->second.second->exec_core->id << ")"
-                << std::endl;
-      Worker *tmp = it->second.second;
-      std::cout << "\t# of txns\t" << (tmp->num_txns / 1000000.0) << " M"
-                << std::endl;
-      std::cout << "\t# of commits\t" << (tmp->num_commits / 1000000.0) << " M"
-                << std::endl;
-      std::cout << "\t# of aborts\t" << (tmp->num_aborts / 1000000.0) << " M"
-                << std::endl;
-
-      std::chrono::duration<double> diff =
-          std::chrono::system_clock::now() - tmp->txn_start_time;
-      std::cout << "\tTPS\t" << (tmp->num_txns / 1000000.0) / diff.count()
-                << " mTPS" << std::endl;
-      tps += (tmp->num_txns / 1000000.0) / diff.count();
-      num_commits += (tmp->num_commits / 1000000.0);
-      num_aborts += (tmp->num_aborts / 1000000.0);
-      num_txns += (tmp->num_txns / 1000000.0);
-    }
-
-    std::cout << "---- GLOBAL ----" << std::endl;
-    std::cout << "\t# of txns\t" << num_txns << " M" << std::endl;
-    std::cout << "\t# of commits\t" << num_commits << " M" << std::endl;
-    std::cout << "\t# of aborts\t" << num_aborts << " M" << std::endl;
-    std::cout << "\tTPS\t" << tps << " mTPS" << std::endl;
-
-    std::cout << "------------ END WORKER STATS ------------" << std::endl;
-  }
-
-  void shutdown(bool print_stats = false) {
-    if (print_stats) print_worker_stats();
-    this->~WorkerPool();
-  }
-
-  // void start_workers(int num_workers = -1);  // default case should be
-  // (topology.get_total_cores - 2)
+  void init(bench::Benchmark *txn_bench = nullptr);
+  void shutdown(bool print_stats = false) { this->~WorkerPool(); }
 
   void start_workers(int num_workers = 1);
   void add_worker(core *exec_location);
   void remove_worker(core *exec_location);
+  void print_worker_stats();
 
   template <class F, class... Args>
   std::future<typename std::result_of<F(Args...)>::type> enqueueTask(
