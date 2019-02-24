@@ -76,8 +76,6 @@ void Worker::run() {
        */
 
       // pool->txn_bench->exec_txn(pool->txn_bench->gen_txn(this->id));
-      std::cout << "[Worker-" << (int)(this->id) << "]TXN:" << num_txns
-                << std::endl;
       void* c = pool->txn_bench->gen_txn(this->id);
       if (txnManager->execute_txn(c))
         num_commits++;

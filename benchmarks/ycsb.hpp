@@ -93,7 +93,8 @@ class YCSB : public Benchmark {
           &txn::TransactionManager::getInstance();
       struct txn::TXN insert_txn = gen_insert_txn(key_gen, &tmp);
       txnManager->execute_txn(&insert_txn);
-      std::cout << "inserted record: " << i << std::endl;
+      if (i % 100000 == 0)
+        std::cout << "[YCSB] inserted records: " << i << std::endl;
 
       // free the txn ops pointers
     };
@@ -132,16 +133,23 @@ class YCSB : public Benchmark {
     // std::cout << "wid :" << wid
     //          << "| c= " << ((int)(write_threshold * (double)num_workers))
     //          << std::endl;
-    if (wid <= ((int)(write_threshold * (double)num_workers))) {
-      op = txn::OPTYPE_LOOKUP;
-    } else {
-      op = txn::OPTYPE_UPDATE;
-    }
+
+    /* if (wid <= ((int)(write_threshold * (double)num_workers))) {
+       op = txn::OPTYPE_LOOKUP;
+     } else {
+       op = txn::OPTYPE_UPDATE;
+       std::cout << "upd" << std::endl;
+     }*/
+
+    // op = txn::OPTYPE_UPDATE;
+
+    op = txn::OPTYPE_LOOKUP;
 
     bool is_duplicate = false;
     for (int i = 0; i < num_ops_per_txn; i++) {
       txn->ops[i].op_type = op;
       txn->ops[i].data_table = ycsb_tbl;
+      txn->ops[i].rec = nullptr;
 
       do {
         // make op
@@ -157,7 +165,6 @@ class YCSB : public Benchmark {
       } while (is_duplicate == true);
       // txn->n_ops++; // THIS IS FUCKING BUG HERE
     }
-    std::cout << "\tTXN GENERATED" << std::endl;
     txn->n_ops = num_ops_per_txn;  // THIS IS FUCKING BUG HERE
     return txn;
   }
@@ -169,8 +176,8 @@ class YCSB : public Benchmark {
   // private:
   YCSB(std::string name = "YCSB")
       : Benchmark(name),
-        num_fields(1),
-        num_records(100),
+        num_fields(2),
+        num_records(1000000),
         theta(0.5),
         num_iterations_per_worker(1000000),
         num_ops_per_txn(2),

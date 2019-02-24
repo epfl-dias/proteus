@@ -34,7 +34,7 @@ void MemoryManager::destroy() {
   std::cout << "[MemoryManager::destroy] --END--" << std::endl;
 }
 void* MemoryManager::alloc(size_t bytes, int numa_memset_id) {
-  std::cout << "[MemoryManager::alloc] --BEGIN--" << std::endl;
+  // std::cout << "[MemoryManager::alloc] --BEGIN--" << std::endl;
   return numa_alloc_onnode(bytes, numa_memset_id);
 }
 void MemoryManager::free(void* mem, size_t bytes) {

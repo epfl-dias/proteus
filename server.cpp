@@ -99,6 +99,7 @@ int main() {
   usleep(RUNTIME);
 
   /* TODO: gather stats about every thread or something*/
+  // scheduler::WorkerPool::getInstance().print_worker_stats();
 
   std::cout << "Tear Down Inititated" << std::endl;
   // scheduler::WorkerPool::getInstance().shutdown(true);

@@ -112,18 +112,44 @@ class WorkerPool {
     }
     std::cout << "[WorkerPool] TXN Bench: " << this->txn_bench->name
               << std::endl;
-    txn_bench->exec_txn(txn_bench->gen_txn(0));
-    std::cout << "[WorkerPool] TEST TXN" << std::endl;
+    // txn_bench->exec_txn(txn_bench->gen_txn(0));
+    // std::cout << "[WorkerPool] TEST TXN" << std::endl;
   }
 
   void print_worker_stats() {
     std::cout << "------------ WORKER STATS ------------" << std::endl;
+    double tps = 0;
+    double num_commits = 0;
+    double num_aborts = 0;
+    double num_txns = 0;
     for (auto it = workers.begin(); it != workers.end(); ++it) {
       // std::cout << " " << it->first << ":" << it->second;
-      std::cout << "Worker-" << it->first << std::endl;
+      std::cout << "Worker-" << (int)(it->first)
+                << "(core_id: " << it->second.second->exec_core->id << ")"
+                << std::endl;
       Worker *tmp = it->second.second;
-      std::cout << "\t# of txns\t" << tmp->num_txns << std::endl;
+      std::cout << "\t# of txns\t" << (tmp->num_txns / 1000000.0) << " M"
+                << std::endl;
+      std::cout << "\t# of commits\t" << (tmp->num_commits / 1000000.0) << " M"
+                << std::endl;
+      std::cout << "\t# of aborts\t" << (tmp->num_aborts / 1000000.0) << " M"
+                << std::endl;
+
+      std::chrono::duration<double> diff =
+          std::chrono::system_clock::now() - tmp->txn_start_time;
+      std::cout << "\tTPS\t" << (tmp->num_txns / 1000000.0) / diff.count()
+                << " mTPS" << std::endl;
+      tps += (tmp->num_txns / 1000000.0) / diff.count();
+      num_commits += (tmp->num_commits / 1000000.0);
+      num_aborts += (tmp->num_aborts / 1000000.0);
+      num_txns += (tmp->num_txns / 1000000.0);
     }
+
+    std::cout << "---- GLOBAL ----" << std::endl;
+    std::cout << "\t# of txns\t" << num_txns << " M" << std::endl;
+    std::cout << "\t# of commits\t" << num_commits << " M" << std::endl;
+    std::cout << "\t# of aborts\t" << num_aborts << " M" << std::endl;
+    std::cout << "\tTPS\t" << tps << " mTPS" << std::endl;
 
     std::cout << "------------ END WORKER STATS ------------" << std::endl;
   }
@@ -175,7 +201,7 @@ class WorkerPool {
       worker.second.second->terminate = true;
       worker.second.first->join();
     }
-
+    print_worker_stats();
     workers.clear();
   }
   friend class Worker;

@@ -58,3 +58,9 @@ cmake-build-debug
 
 #Temp files
 ._*
+Makefile
+TODO.txt
+
+#TextEditor
+aeolus.sublime-project
+aeolus.sublime-workspace

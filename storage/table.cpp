@@ -117,8 +117,7 @@ uint64_t ColumnStore::insertRecord(void* rec) {
   return this->vid++;
 }
 
-void ColumnStore::updateRecord(void* key, void* data) {}
-void ColumnStore::deleteRecord(void* key) {}
+void ColumnStore::deleteRecord(uint64_t vid) {}
 
 std::vector<std::tuple<const void*, data_type>> ColumnStore::getRecordByKey(
     uint64_t vid, std::vector<int>* col_idx) {
@@ -141,6 +140,17 @@ std::vector<std::tuple<const void*, data_type>> ColumnStore::getRecordByKey(
   return record;
 }
 
+void ColumnStore::updateRecord(uint64_t vid, void* rec) {
+  char* cursor = (char*)rec;
+  for (auto& col : columns) {
+    // skip indexed or let says primary column to update
+    if (!col->is_indexed) {
+      col->insertElem(vid, (rec == nullptr ? nullptr : (void*)cursor));
+    }
+    cursor += col->elem_size;
+  }
+}
+
 void Column::buildIndex() {
   // TODO: build column index here.
 
@@ -158,7 +168,7 @@ Column::Column(std::string name, data_type type, size_t unit_size,
 
   // TODO: Allocating memory in the current socket.
   // size: initial_num_recs * unit_size
-  std::cout << "INITIAL NUM REC: " << initial_num_records << std::endl;
+  // std::cout << "INITIAL NUM REC: " << initial_num_records << std::endl;
   int numa_id = 0;
   size_t size = initial_num_records * unit_size;
   void* mem = MemoryManager::alloc(size, numa_id);
@@ -182,19 +192,26 @@ void* Column::getElem(uint64_t vid) {
   }
   return nullptr;
 }
+
 void Column::insertElem(uint64_t offset, void* elem) {
   uint64_t data_idx = offset * this->elem_size;
   for (const auto& chunk : data_ptr) {
     if (chunk->size >= (data_idx + elem_size)) {
       // insert elem here
       void* dst = (void*)(((char*)chunk->data) + data_idx);
-      std::memcpy(dst, elem, this->elem_size);
+      if (elem == nullptr) {
+        uint64_t* tptr = (uint64_t*)dst;
+        (*tptr)++;
+      } else {
+        std::memcpy(dst, elem, this->elem_size);
+      }
+
       return;
-    } else {
-      std::cout << "FUCK. ALLOCATE MOTE MEMORY" << std::endl;
-      exit(-1);
     }
   }
+
+  std::cout << "FUCK. ALLOCATE MOTE MEMORY" << std::endl;
+  // exit(-1);
 }
 
 Column::~Column() {

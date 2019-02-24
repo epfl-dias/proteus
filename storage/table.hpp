@@ -77,8 +77,8 @@ class Table {
  public:
   // virtual void deleteAllTuples() = 0;
   virtual uint64_t insertRecord(void* rec) = 0;
-  virtual void updateRecord(void* key, void* data) = 0;
-  virtual void deleteRecord(void* key) = 0;
+  virtual void updateRecord(uint64_t vid, void* data) = 0;
+  virtual void deleteRecord(uint64_t vid) = 0;
   virtual std::vector<std::tuple<const void*, data_type>> getRecordByKey(
       uint64_t vid, std::vector<int>* col_idx = nullptr) = 0;
 
@@ -116,8 +116,8 @@ class Row {
 class rowStore : public Table {
  public:
   uint64_t insertRecord(void* rec) { return -1; }
-  void updateRecord(void* key, void* data) {}
-  void deleteRecord(void* key) {}
+  void updateRecord(uint64_t vid, void* data) {}
+  void deleteRecord(uint64_t vid) {}
 
  private:
 };
@@ -130,8 +130,8 @@ class ColumnStore : public Table {
   ColumnStore(std::string name,
               std::vector<std::tuple<std::string, data_type, size_t>> columns);
   uint64_t insertRecord(void* rec);
-  void updateRecord(void* key, void* data);
-  void deleteRecord(void* key);
+  void updateRecord(uint64_t vid, void* data);
+  void deleteRecord(uint64_t vid);
   std::vector<std::tuple<const void*, data_type>> getRecordByKey(
       uint64_t vid, std::vector<int>* col_idx = nullptr);
 
