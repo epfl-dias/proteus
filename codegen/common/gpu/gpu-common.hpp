@@ -97,10 +97,10 @@ enum class gran_t { GRID, BLOCK, THREAD };
 
 #ifndef NCUDA
 #define gpu_run(ans)                               \
-  {                                                \
+  do {                                             \
     if (topology::getInstance().getGpuCount() > 0) \
       gpuAssert((ans), __FILE__, __LINE__);        \
-  }
+  } while(0)
 
 __host__ __device__ inline void gpuAssert(cudaError_t code, const char *file,
                                           int line, bool doAbort = true) {
