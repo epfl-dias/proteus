@@ -127,6 +127,7 @@ string(STRIP "${WARNING_FLAGS} -Wno-extra-semi" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-undefined-func-template" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-weak-vtables" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-attributes" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unused-template" WARNING_FLAGS)
 
 # CUDA Code generates the following warnings
 string(STRIP "${WARNING_FLAGS} -Wno-documentation-deprecated-sync" WARNING_FLAGS)
