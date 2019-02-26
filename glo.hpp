@@ -31,7 +31,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 namespace global_conf {
 
-using ConcurrencyControl = txn::CC_GlobalLock;
+using ConcurrencyControl = txn::CC_MV2PL;
 using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;
 
 template <class T_KEY>

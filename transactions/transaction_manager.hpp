@@ -24,8 +24,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <atomic>
 #include <iostream>
 
+#include "glo.hpp"
 #include "transactions/cc.hpp"
 #include "transactions/txn_utils.hpp"
+
+#define DEBUG_STAT false
 
 namespace txn {
 
@@ -49,18 +52,23 @@ class TransactionManager {
 
   bool execute_txn(void *stmts) {
     // std::cout << "\tTXN EXECUTE-START" << std::endl;
-    if (executor.execute_txn(stmts, get_next_xid())) {
-      n_txns++;
-      n_commits++;
-      return true;
+
+    if (DEBUG_STAT) {
+      if (executor.execute_txn(stmts, get_next_xid())) {
+        n_txns++;
+        n_commits++;
+        return true;
+      } else {
+        n_txns++;
+        n_aborts++;
+        return false;
+      }
     } else {
-      n_txns++;
-      n_aborts++;
-      return false;
+      return executor.execute_txn(stmts, get_next_xid());
     }
   }
 
-  CC_GlobalLock executor;
+  global_conf::ConcurrencyControl executor;
 
  private:
   std::atomic<uint64_t> g_xid;

@@ -23,6 +23,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <iostream>
 #include <mutex>
+#include <vector>
 #include "transactions/txn_utils.hpp"
 
 namespace txn {
@@ -45,12 +46,34 @@ class CC_GlobalLock {
   std::mutex global_lock;
 };
 
-class CC_TupleLock {};
+class CC_MV2PL {
+ public:
+  struct PRIMARY_INDEX_VAL {
+    uint64_t t_min;  // transaction id that inserted the record
+    uint64_t t_max;  // transaction id that deleted the row
+    uint64_t VID;    // VID of the record in memory
+    std::atomic<bool> write_lck;
+    std::atomic<int> read_cnt;
+    // some ptr to list of versions
 
-template <class MV_PROTOCOL = CC_MV2PL>
-class CC_MVCC {};
+    PRIMARY_INDEX_VAL();
+    PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid)
+        : t_min(tid), t_max(0), VID(vid) {
+      write_lck = 0;
+      read_cnt = 0;
+    }
+  };
 
-class CC_MV2PL {};
+  CC_MV2PL() { std::cout << "CC Protocol: MV2PL" << std::endl; }
+  bool execute_txn(void *stmts, uint64_t xid);
+  inline bool is_record_visible(struct PRIMARY_INDEX_VAL *rec,
+                                uint64_t tid_self);
+
+  void gc() { modified_vids.clear(); }
+
+ private:
+  std::vector<uint64_t> modified_vids;
+};
 
 }  // namespace txn
 

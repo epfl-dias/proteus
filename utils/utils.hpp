@@ -70,6 +70,7 @@ class timed_func {
   static bool terminate;
   static int num_active_runners;
 
+ public:
   static void init() { terminate = false; }
   static void terminate_all_timed() { terminate = true; }
 
@@ -87,30 +88,31 @@ class timed_func {
     num_active_runners++;
   }
 
-  template <class F, class... Args>
+  /*template <class F, class... Args>
   static void interval_runner(F&& f, Args&&... args, unsigned int interval) {
-    using packaged_task_t =
-        std::packaged_task<typename std::result_of<F(Args...)>::type()>;
+    // using packaged_task_t =
+    //   std::packaged_task<typename std::result_of<F(Args...)>::type()>;
 
-    packaged_task_t task(new packaged_task_t(
-        std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
+    // packaged_task_t task(new packaged_task_t(
+    //   std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
 
-    auto res = task->get_future();
+    // auto res = task.get_future();
 
-    std::thread([task, interval]() {
+    std::thread([f, args, interval]() {
       while (true) {
         if (terminate) break;
         auto x = std::chrono::steady_clock::now() +
                  std::chrono::milliseconds(interval);
-        task();
+        // task();
+        f(args);
         std::this_thread::sleep_until(x);
       }
     }).detach();
     num_active_runners++;
-  }
+  }*/
 };
 
-bool timed_func::terminate = true;
+bool timed_func::terminate = false;
 int timed_func::num_active_runners = 0;
 
 #endif /* UTILS_HPP_ */

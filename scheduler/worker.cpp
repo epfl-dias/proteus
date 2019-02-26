@@ -201,4 +201,13 @@ std::future<typename std::result_of<F(Args...)>::type> WorkerPool::enqueueTask(
   return res;
 }
 
+/*
+<< operator for Worker pool to print stats of worker pool.
+format:
+*/
+std::ostream& operator<<(std::ostream& out, const WorkerPool& topo) {
+  out << "NOT IMPLEMENTED\n";
+  return out;
+}
+
 }  // namespace scheduler

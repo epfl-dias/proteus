@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(aeolus)
 
-set(PROTEUS_SOURCE_DIR "/cloud_store/raza/htap/src/executor")
+#set(PROTEUS_SOURCE_DIR "/cloud_store/raza/htap/src/executor")
 #-----------------------------------------------------------------------
 # Which binaries to build:
 #-----------------------------------------------------------------------
@@ -22,6 +22,7 @@ set(TPCH FALSE)
 set(SOURCES
     scheduler/worker.cpp
     scheduler/topology.cpp
+    scheduler/affinity_manager.cpp
     storage/memory_manager.cpp
     storage/table.cpp
     transactions/transaction_manager.cpp
@@ -157,8 +158,8 @@ include_directories(
 	)
 
 include_directories(
-	"${PROTEUS_SOURCE_DIR}"
-	"${PROTEUS_SOURCE_DIR}/codegen"
+	#"${PROTEUS_SOURCE_DIR}"
+	#"${PROTEUS_SOURCE_DIR}/codegen"
 	#"${PROJECT_SOURCE_DIR}"
 
 	# Let's see if we pull in headers which requires this, if not let's drop the whole block
@@ -312,7 +313,7 @@ endif()
 
 # `codegen` needs to be unquoted to be replaced, as CMake controls the build of
 # that library
-set(default_libs ${default_libs} codegen )
+#set(default_libs ${default_libs} codegen )
 set(default_libs ${default_libs} -lnuma )
 set(default_libs ${default_libs} ${LLVM_LIBS} -lLLVMSupport)
 set(default_libs ${default_libs} ${CUDA_LIBS})

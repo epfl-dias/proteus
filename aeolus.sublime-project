@@ -1,0 +1,63 @@
+{
+    "folders":
+    [
+        {
+            "path": "."
+        }
+    ],
+    "settings":
+    {
+        "folder_exclude_patterns": [
+            "opt",
+            "external",
+            "build",
+            ".git"
+        ],
+        "index_exclude_patterns" : [
+            "external",
+            "build",
+            ".git"
+        ],
+        "ensure_newline_at_eof_on_save": true,
+        "ClangFormat":
+        {
+            "binary": "clang-format",
+            "format_on_save": true,
+            "style": "file",
+            "languages":
+            [
+                "C",
+                "C++11",
+                "C++17",
+                "C++",
+                "JavaScript",
+                "Objective-C",
+                "Objective-C++",
+                "CUDA C++"
+            ]
+        },
+        "ecc_common_flags":
+        [
+            "-pedantic",
+            "-Wall",
+            "-std=c++17",
+            "-I/usr/local/cuda-9.2/targets/x86_64-linux/include/",
+            "-I$project_path/src/executor/codegen",
+            "-I$project_path/src/executor",
+            "-I$project_path/src/rapidjson/include",
+            "-I/usr/include/hwloc"
+        ],
+        "ecc_hide_default_completions": true,
+        "ecc_triggers":
+        [
+            ".",
+            "->",
+            "::",
+            " ",
+            "\t",
+            "(",
+            "[",
+            "{"
+        ]
+    }
+}

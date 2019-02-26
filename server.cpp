@@ -106,6 +106,11 @@ int main(int argc, char** argv) {
   scheduler::WorkerPool::getInstance().init(ycsb_bench);
   scheduler::WorkerPool::getInstance().start_workers(num_workers);
 
+  /* Report stats every 1 sec */
+  // timed_func::interval_runner(
+  //    [] { scheduler::WorkerPool::getInstance().print_worker_stats(); },
+  //    1000);
+
   /* This shouldnt be a sleep, but this thread should sleep until all workers
    * finished required number of txns. but dilemma here is that either the
    * worker executes transaction forever (using a benchmark) or finished after
