@@ -23,78 +23,83 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 
 namespace txn {
-bool e_false = false;
+const bool e_false = false;
 
 bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid) {
   struct TXN *txn_stmts = (struct TXN *)stmts;
   short n = txn_stmts->n_ops;
-  /* Question: for MV2PL, we acquire locks for all the statements in a TXN OR
-   * execute the statements and then rollback if some statement get aborted
+  /* Acquire all the locks for write in the start, if cant, abort. while
+     traversing do the lookups too.
+       - Acquire write locks and do the lookups also.
+       - update the shit
+       - release locks
    */
-  {
-    for (short i = 0; i < n; i++) {
-      struct TXN_OP op = txn_stmts->ops[i];
-      // storage::Table *tbl_ptr = (storage::Table *)op.data_table;
-      switch (op.op_type) {
-        case OPTYPE_LOOKUP: {
-          // get the hash val. if readable, get the actual rec by VID
-          // if not readable, traverse the linked-list
-          break;
-        }
 
-        case OPTYPE_UPDATE: {
-          // basically delete the last version and insert new version
-          // additionally keep track of updated records for GC?
-
-          // modified_vids.emplace_back(VID);
-          break;
-        }
-        case OPTYPE_INSERT: {
-          /* insert a record with t_min as current txn_id, t_max = 0*/
-          // uint64_t vid = tbl_ptr->insertRecord(op.rec);
-          // struct PRIMARY_INDEX_VAL hashval(xid, vid);
-          // tbl_ptr->p_index->insert(vid, hashval);
-          break;
-        }
-        case OP_TYPE_DELETE: {
-          /* set tmax of record to curre txn id*/
-
-          /*try {
-            // auto &val = tbl_ptr->p_index->find(op.key);
-
-              bool success = tbl_ptr->p_index->
-              //update_fn(op.key, [hasval] {});
-
-              if (is_record_visible(&val, xid) &&
-                  val.write_lck.compare_exchange_strong(e_false, true)) {
-                // write lock acquired.
-                // update the hash value actually with released lock
-
-              } else {
-                return false;
+  /* Lookups/ inserts/ & Acquire locks for updates*/
+  for (short i = 0; i < n; i++) {
+    struct TXN_OP op = txn_stmts->ops[i];
+    storage::Table *tbl_ptr = (storage::Table *)op.data_table;
+    switch (op.op_type) {
+      case OPTYPE_LOOKUP: {
+        struct PRIMARY_INDEX_VAL val;
+        if (tbl_ptr->p_index->find(op.key, val)) {
+          if (CC_MV2PL::is_readable(val.t_min, val.t_max, xid)) {
+            tbl_ptr->getRecordByKey(val.VID, val.last_master_ver);
+          } else {
+            VERSION_LIST vlst;
+            if (tbl_ptr->getVersions(val.VID, this->curr_master, vlst)) {
+              if (vlst.get_readable_ver(xid) == nullptr) {
+                std::cout << "NO SUITABLE VERSION FOUND !!" << std::endl;
               }
 
-            } catch (const std::out_of_range &e) {
-              return false;
-            }*/
+            } else {
+              std::cout << "FUCKKKK" << std::endl;
+            }
+          }
+        } else {
+          std::cout << "REC NOT FOUND: " << op.key << std::endl;
         }
-
-        default:
-          std::cout << "FUCK IT:" << op.op_type << std::endl;
-          break;
+        break;
       }
+
+      case OPTYPE_UPDATE: {
+        break;
+      }
+      case OPTYPE_INSERT: {
+        uint64_t vid = tbl_ptr->insertRecord(op.rec, this->curr_master);
+        struct PRIMARY_INDEX_VAL hashval(xid, vid, this->curr_master);
+        tbl_ptr->p_index->insert(vid, hashval);
+        break;
+      }
+      case OP_TYPE_DELETE:
+        std::cout << "[CC_MV2PL] OP: Delete not implemented" << std::endl;
+        break;
+      default:
+        std::cout << "[CC_MV2PL] Unknown OP: " << op.op_type << std::endl;
+        break;
     }
   }
+
+  /* perform updates
+  for (short i = 0; i < n; i++) {
+    struct TXN_OP op = txn_stmts->ops[i];
+    storage::Table *tbl_ptr = (storage::Table *)op.data_table;
+    switch (op.op_type) {
+      case OPTYPE_UPDATE: {
+        break;
+      }
+      case OPTYPE_INSERT:
+      case OPTYPE_LOOKUP:
+      case OP_TYPE_DELETE:
+      default:
+        break;
+    }
+  }*/
+
   return true;
-}
+}  // namespace txn
 
 void acquire_lock(struct PRIMARY_INDEX_VAL &rec) {}
-
-inline bool CC_MV2PL::is_record_visible(struct PRIMARY_INDEX_VAL *rec,
-                                        uint64_t tid_self) {
-  if ((tid_self >= rec->t_min) && tid_self < rec->t_max) return true;
-  return false;
-}
 
 // bool CC_GlobalLock::execute_txn(void *stmts, uint64_t xid) {
 //   struct TXN *txn_stmts = (struct TXN *)stmts;

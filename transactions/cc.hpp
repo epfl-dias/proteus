@@ -54,26 +54,75 @@ class CC_MV2PL {
     uint64_t VID;    // VID of the record in memory
     std::atomic<bool> write_lck;
     std::atomic<int> read_cnt;
+    short last_master_ver;
     // some ptr to list of versions
 
     PRIMARY_INDEX_VAL();
-    PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid)
-        : t_min(tid), t_max(0), VID(vid) {
+    PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid, short master_ver)
+        : t_min(tid), t_max(0), VID(vid), last_master_ver(master_ver) {
       write_lck = 0;
       read_cnt = 0;
     }
   };
 
-  CC_MV2PL() { std::cout << "CC Protocol: MV2PL" << std::endl; }
+  struct VERSION {
+    uint64_t t_min;
+    uint64_t t_max;
+    void *data;
+    VERSION *next;
+    VERSION(uint64_t t_min, uint64_t t_max, void *data)
+        : t_min(t_min), t_max(t_max), data(data), next(nullptr) {}
+  };
+
+  struct VERSION_LIST {
+    VERSION *head;
+
+    VERSION_LIST() { head = nullptr; }
+
+    void insert(VERSION *val) {
+      val->next = head;
+      head = val;
+    }
+
+    void *get_readable_ver(uint64_t tid_self) {
+      VERSION *tmp = head;
+      while (tmp != nullptr) {
+        if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
+          return tmp;
+        } else {
+          tmp = tmp->next;
+        }
+      }
+      return nullptr;
+    }
+  };
+
+  CC_MV2PL() {
+    std::cout << "CC Protocol: MV2PL" << std::endl;
+    curr_master = 0;
+    modified_vids.clear();
+  }
   bool execute_txn(void *stmts, uint64_t xid);
-  inline bool is_record_visible(struct PRIMARY_INDEX_VAL *rec,
-                                uint64_t tid_self);
+
+  inline void switch_master(short master_id) { curr_master = master_id; }
+
+  static inline bool is_readable(uint64_t tmin, uint64_t tmax, uint64_t tid) {
+    if ((tid >= tmin) && tid < tmax) {
+      return true;
+    } else {
+      return false;
+    }
+  }
 
   void gc() { modified_vids.clear(); }
 
+  static inline bool is_mv() { return true; }
+
  private:
   std::vector<uint64_t> modified_vids;
-};
+  std::atomic<short> curr_master;
+
+};  // namespace txn
 
 }  // namespace txn
 
