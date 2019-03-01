@@ -25,16 +25,15 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 //#include "stdlib.h"
 //}
 
-#include <cstdlib>
-#include "benchmarks/bench.hpp"
-#include "storage/table.hpp"
-
-#include "scheduler/topology.hpp"
-
-#include "transactions/transaction_manager.hpp"
-
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
+#include <iostream>
+#include <thread>
+#include "benchmarks/bench.hpp"
+#include "scheduler/topology.hpp"
+#include "storage/table.hpp"
+#include "transactions/transaction_manager.hpp"
 //#include <thread
 
 namespace bench {
@@ -75,23 +74,23 @@ class YCSB : public Benchmark {
 
   void load_data() {
     /* CREATE YCSB Tables*/
+    std::cout << "LOAD_DATA" << std::endl;
     std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
     for (int i = 0; i < num_fields; i++) {
       columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
           "col_" + std::to_string(i + 1), storage::INTEGER, sizeof(uint64_t)));
     }
-
     ycsb_tbl = schema.create_table("ycsb_tbl", storage::COLUMN_STORE, columns);
 
     /* Load data into tables*/
     uint64_t key_gen = 0;
     for (int i = 0; i < num_records; i++) {
-      std::vector<uint64_t> tmp(num_fields, key_gen++);
+      std::vector<uint64_t> tmp(num_fields, key_gen);
       // ycsb_tbl->insertRecord(&tmp);
 
       txn::TransactionManager *txnManager =
           &txn::TransactionManager::getInstance();
-      struct txn::TXN insert_txn = gen_insert_txn(key_gen, &tmp);
+      struct txn::TXN insert_txn = gen_insert_txn(key_gen++, &tmp);
       txnManager->execute_txn(&insert_txn);
       if (i % 100000 == 0)
         std::cout << "[YCSB] inserted records: " << i << std::endl;
@@ -134,16 +133,14 @@ class YCSB : public Benchmark {
     //          << "| c= " << ((int)(write_threshold * (double)num_workers))
     //          << std::endl;
 
-    /* if (wid <= ((int)(write_threshold * (double)num_workers))) {
-       op = txn::OPTYPE_LOOKUP;
-     } else {
-       op = txn::OPTYPE_UPDATE;
-       std::cout << "upd" << std::endl;
-     }*/
+    if (wid <= (write_threshold * (double)num_workers)) {
+      op = txn::OPTYPE_LOOKUP;
+    } else {
+      op = txn::OPTYPE_UPDATE;
+    }
 
     // op = txn::OPTYPE_UPDATE;
-
-    op = txn::OPTYPE_LOOKUP;
+    // op = txn::OPTYPE_LOOKUP;
 
     bool is_duplicate = false;
     for (int i = 0; i < num_ops_per_txn; i++) {
@@ -184,7 +181,8 @@ class YCSB : public Benchmark {
         write_threshold(0.5),
         schema(name) {
     initialized = false;
-    num_workers = scheduler::Topology::getInstance().get_num_worker_cores();
+    // num_workers = scheduler::Topology::getInstance().get_num_worker_cores();
+    num_workers = std::thread::hardware_concurrency();
 
     init();
   };

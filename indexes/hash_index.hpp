@@ -31,21 +31,29 @@ namespace indexes {
 // template <class key, class hash_val>
 // using HashIndex = cuckoohash_map<key, hash_val>;
 
-template <class key, class hash_val>
-class HashIndex : public cuckoohash_map<key, hash_val> {
-  template <key, hash_val>
-  bool delete_fn(const K &key, F fn) {
-    const hash_value hv = hashed_key(key);
-    const auto b = snapshot_and_lock_two<normal_mode>(hv);
-    const table_position pos = cuckoo_find(key, hv.partial, b.i1, b.i2);
-    if (pos.status == ok) {
-      fn(buckets_[pos.index].mapped(pos.slot));
-      return true;
-    } else {
-      return false;
-    }
-  }
-};
+template <class K, class V = void*>
+class HashIndex : public cuckoohash_map<K, V> {};
+
+// template <class K>
+// class HashIndex : public cuckoohash_map<K, void*> {
+// p_index->find(op.key, val
+
+// void* find(const K &key){
+
+//}
+
+/*template <key, hash_val>
+bool delete_fn(const K &key, F fn) {
+  const hash_value hv = hashed_key(key);
+  const auto b = snapshot_and_lock_two<normal_mode>(hv);
+  const table_position pos = cuckoo_find(key, hv.partial, b.i1, b.i2);
+  if (pos.status == ok) {
+    fn(buckets_[pos.index].mapped(pos.slot));
+    return true;
+  } else {
+    return false;
+  }*/
+//};
 
 };  // namespace indexes
 

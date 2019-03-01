@@ -31,6 +31,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
+#include "storage/delta_storage.hpp"
 #include "storage/memory_manager.hpp"
 
 namespace storage {
@@ -45,7 +46,7 @@ class DeltaStore;
 
 enum layout_type { ROW_STORE, COLUMN_STORE };
 
-enum data_type { INTEGER };
+enum data_type { META, INTEGER };
 
 class Schema {
  public:
@@ -77,7 +78,10 @@ class Schema {
 class Table {
  public:
   // virtual void deleteAllTuples() = 0;
+
   virtual uint64_t insertRecord(void* rec, short master_ver) = 0;
+  virtual void* insertRecord(void* rec, uint64_t xid, short master_ver) = 0;
+
   virtual void updateRecord(uint64_t vid, void* data, short ins_master_ver,
                             short prev_master_ver, uint64_t tmin,
                             uint64_t tmax) = 0;
@@ -86,8 +90,8 @@ class Table {
       uint64_t vid, short master_ver, std::vector<int>* col_idx = nullptr) = 0;
 
   void clearDelta(short ver);
-  virtual bool getVersions(uint64_t vid, short master_ver,
-                           global_conf::mv_version_list& vlst) = 0;
+  virtual global_conf::mv_version_list* getVersions(uint64_t vid,
+                                                    short master_ver) = 0;
 
   void printDetails() {
     std::cout << "Number of Columns:\t" << num_columns << std::endl;
@@ -123,14 +127,17 @@ class Row {
 
 class rowStore : public Table {
  public:
-  uint64_t insertRecord(void* rec, short master_ver) { return -1; }
+  uint64_t insertRecord(void* rec, short master_ver) { return -1; };
+  void* insertRecord(void* rec, uint64_t xid, short master_ver) {
+    return nullptr;
+  };
+
   void updateRecord(uint64_t vid, void* data, short ins_master_ver,
                     short prev_master_ver, uint64_t tmin, uint64_t tmax) {}
   void deleteRecord(uint64_t vid, short master_ver) {}
   void clearDelta(short ver) {}
-  bool getVersions(uint64_t vid, short master_ver,
-                   global_conf::mv_version_list& vlst) {
-    return false;
+  global_conf::mv_version_list* getVersions(uint64_t vid, short master_ver) {
+    return nullptr;
   }
 
  private:
@@ -139,126 +146,20 @@ class rowStore : public Table {
 /*  DATA LAYOUT -- COLUMN STORE
  */
 
-/* Currently DeltaStore is not resizeable*/
-class DeltaStore {
- public:
-  DeltaStore(size_t rec_size, uint64_t initial_num_objs) {
-    size_t mem_req = (rec_size * initial_num_objs) +
-                     (rec_size * sizeof(global_conf::mv_version));
-    int numa_id = 0;
-    void* mem = MemoryManager::alloc(mem_req, numa_id);
-
-    // warm-up mem
-    int* pt = (int*)mem;
-    for (int i = 0; i < initial_num_objs; i++) pt[i] = 0;
-
-    // init object vars
-    // this->data_ptr.emplace_back(new mem_chunk(mem, mem_req, numa_id));
-    data_ptr = new mem_chunk(mem, mem_req, numa_id);
-    this->rec_size = rec_size;
-    this->cursor = (char*)mem;
-    this->total_rec_capacity = initial_num_objs;
-    this->used_recs_capacity = 0;
-
-    vid_version_map.reserve(initial_num_objs);
-  }
-  ~DeltaStore();
-
-  void insert_version(uint64_t vid, void* rec, uint64_t tmin, uint64_t tmax) {
-    assert(used_recs_capacity < total_rec_capacity);
-    global_conf::mv_version* val = (global_conf::mv_version*)getVersionChunk();
-    val->t_min = tmin;
-    val->t_max = tmax;
-    val->data = getDataChunk();
-    memcpy(val->data, rec, rec_size);
-    used_recs_capacity++;
-
-    // template <typename K> bool find(const K &key, mapped_type &val)
-    global_conf::mv_version_list vlst;
-    vid_version_map.find(vid, vlst);
-    vlst.insert(val);
-    vid_version_map.insert_or_assign(vid, vlst);
-  }
-
-  void* insert_version(uint64_t vid, uint64_t tmin, uint64_t tmax) {
-    assert(used_recs_capacity < total_rec_capacity);
-    global_conf::mv_version* val = (global_conf::mv_version*)getVersionChunk();
-    val->t_min = tmin;
-    val->t_max = tmax;
-    val->data = getDataChunk();
-    used_recs_capacity++;
-
-    // template <typename K> bool find(const K &key, mapped_type &val)
-    global_conf::mv_version_list vlst;
-    vid_version_map.find(vid, vlst);
-    vlst.insert(val);
-    vid_version_map.insert_or_assign(vid, vlst);
-
-    return val->data;
-  }
-
-  bool getVersionList(uint64_t vid, global_conf::mv_version_list& vlst) {
-    if (vid_version_map.find(vid, vlst))
-      return true;
-    else
-      return false;
-  }
-
-  double getUtilPercentage() {
-    return ((double)used_recs_capacity.load() / (double)total_rec_capacity) *
-           100;
-  };
-  void reset() {
-    std::unique_lock<std::mutex> lock(this->m);
-    vid_version_map.clear();
-    cursor = (char*)data_ptr->data;
-    used_recs_capacity = 0;
-  }
-
- private:
-  inline void* getVersionChunk() {
-    void* tmp = nullptr;
-    {
-      std::unique_lock<std::mutex> lock(this->m);
-      tmp = (void*)cursor;
-      cursor += sizeof(global_conf::mv_version);
-    }
-    return tmp;
-  }
-
-  inline void* getDataChunk() {
-    void* tmp = nullptr;
-    {
-      std::unique_lock<std::mutex> lock(this->m);
-      tmp = (void*)cursor;
-      cursor += rec_size;
-    }
-    return tmp;
-  }
-
-  std::mutex m;
-  char* cursor;
-  size_t rec_size;
-  mem_chunk* data_ptr;
-  uint64_t total_rec_capacity;
-  std::atomic<uint64_t> used_recs_capacity;
-
-  indexes::HashIndex<uint64_t, global_conf::mv_version_list> vid_version_map;
-
-  /* VID -> List Mapping*/
-};
-
 class ColumnStore : public Table {
  public:
   ColumnStore(std::string name,
               std::vector<std::tuple<std::string, data_type, size_t>> columns,
               uint64_t initial_num_records = 10000000);
   uint64_t insertRecord(void* rec, short master_ver);
+  void* insertRecord(void* rec, uint64_t xid, short master_ver);
   void updateRecord(uint64_t vid, void* data, short ins_master_ver,
                     short prev_master_ver, uint64_t tmin, uint64_t tmax);
   void deleteRecord(uint64_t vid, short master_ver);
   std::vector<std::tuple<const void*, data_type>> getRecordByKey(
       uint64_t vid, short master_ver, std::vector<int>* col_idx = nullptr);
+
+  global_conf::mv_version_list* getVersions(uint64_t vid, short master_ver);
 
   /*
     No secondary indexes supported as of yet so dont need the following
@@ -272,6 +173,7 @@ class ColumnStore : public Table {
 
  private:
   std::vector<Column*> columns;
+  Column* meta_column;
 };
 
 class Column {
@@ -296,7 +198,7 @@ class Column {
 
    }*/
 
-  void insertElem(uint64_t offset, void* elem, short master_ver);
+  void* insertElem(uint64_t offset, void* elem, short master_ver);
   void updateElem(uint64_t offset, void* elem, short master_ver);
   void deleteElem(uint64_t offset, short master_ver);
 

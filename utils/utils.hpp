@@ -46,9 +46,9 @@ std::ostream& operator<<(std::ostream& o, const struct txn::TXN& a) {
       case txn::OPTYPE_UPDATE:
         o << " UPDATE";
         break;
-      case txn::OP_TYPE_DELETE:
+      /*case txn::OP_TYPE_DELETE:
         o << " DELETE";
-        break;
+        break;*/
       default:
         o << " UNKNOWN";
         break;

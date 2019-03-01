@@ -25,6 +25,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
+#include "storage/delta_storage.hpp"
 
 //#include <codegen/memory/memory-manager.hpp>
 
@@ -71,6 +72,7 @@ void Schema::drop_table(std::string name) {
 
   if (index != -1) this->drop_table(index);
 }
+
 void Schema::drop_table(int idx) {
   std::cout << "[Schema][drop_table] Not Implemented" << std::endl;
 }
@@ -86,8 +88,10 @@ ColumnStore::ColumnStore(
      considered as key and will be indexed.
   */
 
-  // assert column type for zeroth column should ne int64 as we only support
-  // int64 index for now.
+  // create meta_data column.
+  std::cout << "Create meta-column" << std::endl;
+  meta_column = new Column("meta", initial_num_records, META,
+                           sizeof(global_conf::IndexVal));
 
   // create columns
   for (const auto& t : columns) {
@@ -97,7 +101,6 @@ ColumnStore::ColumnStore(
   this->num_columns = columns.size();
   this->name = name;
   this->vid = 0;
-
   // build index over the first column
   this->p_index = new global_conf::PrimaryIndex<uint64_t>();
   this->columns.at(0)->buildIndex();
@@ -106,22 +109,40 @@ ColumnStore::ColumnStore(
   size_t rec_size = 0;
   for (auto& co : this->columns) rec_size += co->elem_size;
   for (int i = 0; i < global_conf::num_master_versions; i++) {
+    std::cout << "Create Delta -" << i << std::endl;
     deltaStore[i] = new DeltaStore(rec_size, initial_num_records);
   }
+  std::cout << "DONE" << std::endl;
 }
+
+// void* ColumnStore::insertMeta(uint64_t vid, global_conf::IndexVal& hash_val)
+// {}
 
 /* Following function assumes that the  void* rec has columns in the same order
  * as the actual columns
  */
-uint64_t ColumnStore::insertRecord(void* rec, short master_ver) {
-  // std::vector<uint64_t> tmp(num_fields, key_gen++);
-  // ycsb_tbl->insertRecord(&tmp);
+void* ColumnStore::insertRecord(void* rec, uint64_t xid, short master_ver) {
+  uint64_t curr_vid = vid.fetch_add(1);
+  global_conf::IndexVal hash_val(xid, curr_vid, master_ver);
+  void* hash_ptr =
+      this->meta_column->insertElem(curr_vid, &hash_val, master_ver);
+
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
     col->insertElem(vid, rec_ptr, master_ver);
     rec_ptr += col->elem_size;
   }
-  return this->vid++;
+  return hash_ptr;
+}
+
+uint64_t ColumnStore::insertRecord(void* rec, short master_ver) {
+  uint64_t curr_vid = vid.fetch_add(1);
+  char* rec_ptr = (char*)rec;
+  for (auto& col : columns) {
+    col->insertElem(vid, rec_ptr, master_ver);
+    rec_ptr += col->elem_size;
+  }
+  return curr_vid;
 }
 
 void ColumnStore::deleteRecord(uint64_t vid, short master_ver) {}
@@ -147,27 +168,31 @@ std::vector<std::tuple<const void*, data_type>> ColumnStore::getRecordByKey(
   return record;
 }
 
-bool ColumnStore::getVersions(uint64_t vid, short master_ver,
-                              global_conf::mv_version_list& vlst) {
-  return this->deltaStore[master_ver]->getVersionList(vid, vlst);
+global_conf::mv_version_list* ColumnStore::getVersions(uint64_t vid,
+                                                       short master_ver) {
+  return this->deltaStore[master_ver]->getVersionList(vid);
 }
 
 void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
                                short prev_master_ver, uint64_t tmin,
                                uint64_t tmax) {
-  // char* cursor = (char*)rec;
-
   // if(ins_master_ver == prev_master_ver) need version ELSE update the master
   // one.
   if (ins_master_ver == prev_master_ver) {
+    // std::cout << "same master, create ver" << std::endl;
     // create_version
     char* ver = (char*)this->deltaStore[ins_master_ver]->insert_version(
         vid, tmin, tmax);
+    assert(ver != nullptr);
+    // std::cout << "inserted into delta" << std::endl;
     for (auto& col : columns) {
       size_t elem_size = col->elem_size;
+      // std::cout << "attempting memcpy" << std::endl;
+      // void* tcc = col->getElem(vid, prev_master_ver);
       memcpy((void*)ver, col->getElem(vid, prev_master_ver), elem_size);
       ver += elem_size;
     }
+    // std::cout << "updated column" << std::endl;
   }
 
   char* cursor = (char*)rec;
@@ -218,17 +243,22 @@ void* Column::getElem(uint64_t vid, short master_ver) {
   // master_versions[master_ver];
 
   assert(master_versions[master_ver].size() != 0);
-
+  // std::cout << "getElem -> " << vid << " | master:" << master_ver <<
+  // std::endl;
   int data_idx = vid * elem_size;
   for (const auto& chunk : master_versions[master_ver]) {
-    if (chunk->size <= (data_idx + elem_size)) {
+    // std::cout << "chunk_sz: " << chunk->size << "| " << (data_idx +
+    // elem_size)
+    //         << std::endl;
+    if (chunk->size >= ((size_t)data_idx + elem_size)) {
+      // std::cout << "true" << std::endl;
       return ((char*)chunk->data) + data_idx - elem_size;
     }
   }
   return nullptr;
 }
 
-void Column::insertElem(uint64_t offset, void* elem, short master_ver) {
+void* Column::insertElem(uint64_t offset, void* elem, short master_ver) {
   uint64_t data_idx = offset * this->elem_size;
   for (const auto& chunk : master_versions[master_ver]) {
     if (chunk->size >= (data_idx + elem_size)) {
@@ -241,11 +271,12 @@ void Column::insertElem(uint64_t offset, void* elem, short master_ver) {
         std::memcpy(dst, elem, this->elem_size);
       }
 
-      return;
+      return dst;
     }
   }
 
   std::cout << "FUCK. ALLOCATE MOTE MEMORY" << std::endl;
+  return nullptr;
   // exit(-1);
 }
 

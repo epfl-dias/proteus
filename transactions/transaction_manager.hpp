@@ -46,7 +46,7 @@ class TransactionManager {
 
   // array of active txns -- do we really need it?
 
-  inline int64_t get_next_xid() { return g_xid++; }
+  inline int64_t get_next_xid() { return ++g_xid; }
 
   static void init() { std::cout << "TXN Manager Init" << std::endl; }
 

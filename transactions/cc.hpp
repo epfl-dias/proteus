@@ -76,12 +76,17 @@ class CC_MV2PL {
 
   struct VERSION_LIST {
     VERSION *head;
+    // uint num_ver;
 
-    VERSION_LIST() { head = nullptr; }
+    VERSION_LIST() {
+      head = nullptr;
+      // num_ver = 0;
+    }
 
     void insert(VERSION *val) {
       val->next = head;
       head = val;
+      // num_ver++;
     }
 
     void *get_readable_ver(uint64_t tid_self) {
@@ -107,7 +112,7 @@ class CC_MV2PL {
   inline void switch_master(short master_id) { curr_master = master_id; }
 
   static inline bool is_readable(uint64_t tmin, uint64_t tmax, uint64_t tid) {
-    if ((tid >= tmin) && tid < tmax) {
+    if ((tid >= tmin) && (tmax == 0 || tid < tmax)) {
       return true;
     } else {
       return false;

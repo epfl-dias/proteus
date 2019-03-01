@@ -34,12 +34,12 @@ namespace global_conf {
 using ConcurrencyControl = txn::CC_MV2PL;
 using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;
 
-bool cc_multiversion = ConcurrencyControl::is_mv();
+// bool cc_multiversion = ConcurrencyControl::is_mv();
 using mv_version_list = ConcurrencyControl::VERSION_LIST;
 using mv_version = ConcurrencyControl::VERSION;
 
 template <class T_KEY>
-using PrimaryIndex = indexes::HashIndex<T_KEY, IndexVal>;
+using PrimaryIndex = indexes::HashIndex<T_KEY>;
 
 /* # of Snapshots*/
 const short num_master_versions = 2;

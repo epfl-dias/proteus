@@ -23,8 +23,17 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 
 namespace txn {
-const bool e_false = false;
+bool e_false = false;
+bool e_true = false;
 
+void release_locks(
+    std::vector<CC_MV2PL::PRIMARY_INDEX_VAL *> &hash_ptrs_lock_acquired) {
+  for (auto c : hash_ptrs_lock_acquired) {
+    c->write_lck = false;
+  }
+}
+
+// MV2PL principle : Fail bloody fast :P
 bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid) {
   struct TXN *txn_stmts = (struct TXN *)stmts;
   short n = txn_stmts->n_ops;
@@ -35,71 +44,92 @@ bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid) {
        - release locks
    */
 
-  /* Lookups/ inserts/ & Acquire locks for updates*/
+  /* Acquire locks for updates*/
+
+  std::vector<PRIMARY_INDEX_VAL *> hash_ptrs_lock_acquired;
+  for (short i = 0; i < n; i++) {
+    struct TXN_OP op = txn_stmts->ops[i];
+    storage::Table *tbl_ptr = (storage::Table *)op.data_table;
+    switch (op.op_type) {
+      case OPTYPE_UPDATE: {
+        void *tmp;
+        if (!tbl_ptr->p_index->find(op.key, tmp)) {
+          std::cout << "BC KEY NOT FOUND" << std::endl;
+        }
+        PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
+        if (hash_ptr->write_lck.compare_exchange_strong(e_false, true)) {
+          hash_ptrs_lock_acquired.emplace_back(hash_ptr);
+        } else {
+          // std::cout << "ABORT" << std::endl;
+          release_locks(hash_ptrs_lock_acquired);
+          return false;
+        }
+        // hash_ptr->write_lck // acquire lock or abort
+        break;
+      }
+      case OPTYPE_LOOKUP:
+      case OPTYPE_INSERT:
+      default:
+        break;
+    }
+  }
+
+  // perform updates / inserts
   for (short i = 0; i < n; i++) {
     struct TXN_OP op = txn_stmts->ops[i];
     storage::Table *tbl_ptr = (storage::Table *)op.data_table;
     switch (op.op_type) {
       case OPTYPE_LOOKUP: {
-        struct PRIMARY_INDEX_VAL val;
-        if (tbl_ptr->p_index->find(op.key, val)) {
-          if (CC_MV2PL::is_readable(val.t_min, val.t_max, xid)) {
-            tbl_ptr->getRecordByKey(val.VID, val.last_master_ver);
-          } else {
-            VERSION_LIST vlst;
-            if (tbl_ptr->getVersions(val.VID, this->curr_master, vlst)) {
-              if (vlst.get_readable_ver(xid) == nullptr) {
-                std::cout << "NO SUITABLE VERSION FOUND !!" << std::endl;
-              }
-
-            } else {
-              std::cout << "FUCKKKK" << std::endl;
-            }
-          }
+        void *tmp;
+        if (!tbl_ptr->p_index->find(op.key, tmp)) {
+          std::cout << "BLOODY KEY NOT FOUND: " << op.key << std::endl;
+          break;
+        }
+        PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
+        /*std::cout << "XID: " << xid << "\t t_min:" << hash_ptr->t_min
+                  << "\tt_max: " << hash_ptr->t_max << std::endl;*/
+        if (CC_MV2PL::is_readable(hash_ptr->t_min, hash_ptr->t_max, xid)) {
+          tbl_ptr->getRecordByKey(hash_ptr->VID, hash_ptr->last_master_ver);
         } else {
-          std::cout << "REC NOT FOUND: " << op.key << std::endl;
+          VERSION_LIST *vlst =
+              tbl_ptr->getVersions(hash_ptr->VID, this->curr_master);
+          if (vlst == nullptr || vlst->get_readable_ver(xid) == nullptr) {
+            std::cout << "NO SUITABLE VERSION FOUND !!" << std::endl;
+          }
         }
         break;
       }
 
       case OPTYPE_UPDATE: {
+        void *tmp;
+        if (!tbl_ptr->p_index->find(op.key, tmp)) {
+          std::cout << "BC KEY NOT FOUND" << std::endl;
+        }
+
+        PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
+        // std::cout << "HASH: " << hash_ptr->VID << std::endl;
+        // std::cout << "updating rec: " << op.key << std::endl;
+        tbl_ptr->updateRecord(hash_ptr->VID, op.rec, this->curr_master,
+                              hash_ptr->last_master_ver, xid, 0);
+        // std::cout << "updating meta: " << op.key << std::endl;
+        hash_ptr->t_min = xid;
+        hash_ptr->last_master_ver = this->curr_master;
+        // std::cout << "update done: " << op.key << std::endl;
         break;
       }
       case OPTYPE_INSERT: {
-        uint64_t vid = tbl_ptr->insertRecord(op.rec, this->curr_master);
-        struct PRIMARY_INDEX_VAL hashval(xid, vid, this->curr_master);
-        tbl_ptr->p_index->insert(vid, hashval);
+        void *hash_ptr = tbl_ptr->insertRecord(op.rec, xid, this->curr_master);
+        tbl_ptr->p_index->insert(op.key, hash_ptr);
         break;
       }
-      case OP_TYPE_DELETE:
-        std::cout << "[CC_MV2PL] OP: Delete not implemented" << std::endl;
-        break;
       default:
-        std::cout << "[CC_MV2PL] Unknown OP: " << op.op_type << std::endl;
         break;
     }
   }
-
-  /* perform updates
-  for (short i = 0; i < n; i++) {
-    struct TXN_OP op = txn_stmts->ops[i];
-    storage::Table *tbl_ptr = (storage::Table *)op.data_table;
-    switch (op.op_type) {
-      case OPTYPE_UPDATE: {
-        break;
-      }
-      case OPTYPE_INSERT:
-      case OPTYPE_LOOKUP:
-      case OP_TYPE_DELETE:
-      default:
-        break;
-    }
-  }*/
+  release_locks(hash_ptrs_lock_acquired);
 
   return true;
 }  // namespace txn
-
-void acquire_lock(struct PRIMARY_INDEX_VAL &rec) {}
 
 // bool CC_GlobalLock::execute_txn(void *stmts, uint64_t xid) {
 //   struct TXN *txn_stmts = (struct TXN *)stmts;
