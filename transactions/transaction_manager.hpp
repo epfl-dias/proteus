@@ -28,8 +28,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "transactions/cc.hpp"
 #include "transactions/txn_utils.hpp"
 
-#define DEBUG_STAT false
-
 namespace txn {
 
 // template <class CC = CC_GlobalLock>
@@ -48,24 +46,12 @@ class TransactionManager {
 
   inline int64_t get_next_xid() { return ++g_xid; }
 
-  static void init() { std::cout << "TXN Manager Init" << std::endl; }
+  static void init() {
+    std::cout << "Initializing Txn Manager..." << std::endl;
+  }
 
   bool execute_txn(void *stmts) {
-    // std::cout << "\tTXN EXECUTE-START" << std::endl;
-
-    if (DEBUG_STAT) {
-      if (executor.execute_txn(stmts, get_next_xid())) {
-        n_txns++;
-        n_commits++;
-        return true;
-      } else {
-        n_txns++;
-        n_aborts++;
-        return false;
-      }
-    } else {
-      return executor.execute_txn(stmts, get_next_xid());
-    }
+    return executor.execute_txn(stmts, get_next_xid());
   }
 
   global_conf::ConcurrencyControl executor;
@@ -74,14 +60,7 @@ class TransactionManager {
   std::atomic<uint64_t> g_xid;
   // std::vector<uint64_t> active_txns;
 
-  // stats
-  std::atomic<uint64_t> n_txns;
-  std::atomic<uint64_t> n_aborts;
-  std::atomic<uint64_t> n_commits;
-
-  TransactionManager() {
-    std::cout << "TransactionManager constructor\n" << std::endl;
-  }
+  TransactionManager() {}
 };
 
 /*

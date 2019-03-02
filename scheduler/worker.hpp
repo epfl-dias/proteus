@@ -50,7 +50,7 @@ namespace scheduler {
 
 class Worker {
   uint8_t id;
-  std::atomic<bool> terminate;
+  volatile bool terminate;
   core *exec_core;
   // WORKER_TYPE type;
   // core *exec_core;
@@ -120,6 +120,7 @@ class WorkerPool {
   WorkerPool() { worker_id = 0; }
 
   volatile uint8_t worker_id;
+  // volatile bool terminate;
   std::atomic<bool> terminate;
   std::unordered_map<uint8_t, std::pair<std::thread *, Worker *> > workers;
   bench::Benchmark *txn_bench;
@@ -140,7 +141,7 @@ class WorkerPool {
   ~WorkerPool() {
     std::cout << "[destructor] shutting down workers" << std::endl;
     terminate = true;
-    cv.notify_all();
+    // cv.notify_all();
     for (auto &worker : workers) {
       worker.second.second->terminate = true;
       worker.second.first->join();

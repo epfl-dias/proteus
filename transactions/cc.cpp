@@ -37,12 +37,7 @@ void release_locks(
 bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid) {
   struct TXN *txn_stmts = (struct TXN *)stmts;
   short n = txn_stmts->n_ops;
-  /* Acquire all the locks for write in the start, if cant, abort. while
-     traversing do the lookups too.
-       - Acquire write locks and do the lookups also.
-       - update the shit
-       - release locks
-   */
+  short txn_master_ver = this->curr_master;
 
   /* Acquire locks for updates*/
 
@@ -92,7 +87,7 @@ bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid) {
           tbl_ptr->getRecordByKey(hash_ptr->VID, hash_ptr->last_master_ver);
         } else {
           VERSION_LIST *vlst =
-              tbl_ptr->getVersions(hash_ptr->VID, this->curr_master);
+              tbl_ptr->getVersions(hash_ptr->VID, txn_master_ver);
           if (vlst == nullptr || vlst->get_readable_ver(xid) == nullptr) {
             std::cout << "NO SUITABLE VERSION FOUND !!" << std::endl;
           }
@@ -109,16 +104,16 @@ bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid) {
         PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
         // std::cout << "HASH: " << hash_ptr->VID << std::endl;
         // std::cout << "updating rec: " << op.key << std::endl;
-        tbl_ptr->updateRecord(hash_ptr->VID, op.rec, this->curr_master,
+        tbl_ptr->updateRecord(hash_ptr->VID, op.rec, txn_master_ver,
                               hash_ptr->last_master_ver, xid, 0);
         // std::cout << "updating meta: " << op.key << std::endl;
         hash_ptr->t_min = xid;
-        hash_ptr->last_master_ver = this->curr_master;
+        hash_ptr->last_master_ver = txn_master_ver;
         // std::cout << "update done: " << op.key << std::endl;
         break;
       }
       case OPTYPE_INSERT: {
-        void *hash_ptr = tbl_ptr->insertRecord(op.rec, xid, this->curr_master);
+        void *hash_ptr = tbl_ptr->insertRecord(op.rec, xid, txn_master_ver);
         tbl_ptr->p_index->insert(op.key, hash_ptr);
         break;
       }

@@ -40,7 +40,7 @@ namespace storage {
 class DeltaStore {
  public:
   DeltaStore(size_t rec_size, uint64_t initial_num_objs) {
-    initial_num_objs *= 100;
+    initial_num_objs *= 50;
 
     size_t mem_req = (rec_size * initial_num_objs) +
                      (rec_size * sizeof(global_conf::mv_version)) +

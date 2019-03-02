@@ -51,12 +51,8 @@ enum data_type { META, INTEGER };
 class Schema {
  public:
   Schema(std::string name) : name(name) {
-    std::cout << "Schema Constructor\n";
-  };
-
-  /*
-        some functionality to start the transaction.
-  */
+    std::cout << "Create Schema:\t" << name << std::endl;
+  }
 
   Table* getTable(int idx);
   Table* getTable(std::string name);
@@ -77,8 +73,6 @@ class Schema {
 
 class Table {
  public:
-  // virtual void deleteAllTuples() = 0;
-
   virtual uint64_t insertRecord(void* rec, short master_ver) = 0;
   virtual void* insertRecord(void* rec, uint64_t xid, short master_ver) = 0;
 
@@ -96,8 +90,8 @@ class Table {
   void printDetails() {
     std::cout << "Number of Columns:\t" << num_columns << std::endl;
   }
-  Table() { std::cout << "TABLE CONSTRUCTOR CALLED!" << std::endl; }
-  virtual ~Table() { std::cout << "TABLE DESSTRUCTOR SCALLED!" << std::endl; };
+  Table() {}
+  virtual ~Table(){};
 
   global_conf::PrimaryIndex<uint64_t>* p_index;
 
@@ -184,19 +178,7 @@ class Column {
 
   void buildIndex();
   void* getRange(uint64_t start_idx, uint64_t end_idx, short master_ver);
-  void* getElem(uint64_t idx, short master_ver); /*{
-
-           assert(data_ptr != NULL);
-
-           int data_loc = idx * elem_size;
-
-           for (const auto &chunk : data_ptr) {
-                   if(chunk->size <= (data_loc+elem_size) ){
-                           return chunk->data+data_loc;
-                   }
-           }
-
-   }*/
+  void* getElem(uint64_t idx, short master_ver);
 
   void* insertElem(uint64_t offset, void* elem, short master_ver);
   void updateElem(uint64_t offset, void* elem, short master_ver);

@@ -56,7 +56,8 @@ class YCSB : public Benchmark {
   const int num_iterations_per_worker;
   const int num_ops_per_txn;
   const double write_threshold;
-  int num_workers;
+  int num_max_workers;
+  int num_active_workers;
 
   storage::Schema schema;
   storage::Table *ycsb_tbl;
@@ -73,8 +74,7 @@ class YCSB : public Benchmark {
     void operator=(YCSB const &) = delete;  // Don't implement */
 
   void load_data() {
-    /* CREATE YCSB Tables*/
-    std::cout << "LOAD_DATA" << std::endl;
+    std::cout << "[YCSB] Loading data.." << std::endl;
     std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
     for (int i = 0; i < num_fields; i++) {
       columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
@@ -128,15 +128,17 @@ class YCSB : public Benchmark {
     //(struct txn::TXN_OP **)malloc(sizeof(txn::TXN_OP) * num_ops_per_txn);
     assert(txn->ops != NULL);
     txn::OP_TYPE op;
-    wid = wid % num_workers;
+    wid = wid % num_active_workers;
     // std::cout << "wid :" << wid
     //          << "| c= " << ((int)(write_threshold * (double)num_workers))
     //          << std::endl;
 
-    if (wid <= (write_threshold * (double)num_workers)) {
+    if (wid <= (write_threshold * (double)num_active_workers)) {
       op = txn::OPTYPE_LOOKUP;
+      // std::cout << "L ";
     } else {
       op = txn::OPTYPE_UPDATE;
+      // std::cout << "U ";
     }
 
     // op = txn::OPTYPE_UPDATE;
@@ -168,21 +170,30 @@ class YCSB : public Benchmark {
 
   void exec_txn(void *stmts) { return; }
 
+  // TODO: clean-up
   ~YCSB() { std::cout << "destructor of YCSB" << std::endl; }
 
   // private:
-  YCSB(std::string name = "YCSB")
+  YCSB(std::string name = "YCSB", int num_fields = 2, int num_records = 1000000,
+       double theta = 0.5, int num_iterations_per_worker = 1000000,
+       int num_ops_per_txn = 2, double write_threshold = 0.5,
+       int num_active_workers = -1, int num_max_workers = -1)
       : Benchmark(name),
-        num_fields(2),
-        num_records(1000000),
-        theta(0.5),
-        num_iterations_per_worker(1000000),
-        num_ops_per_txn(2),
-        write_threshold(0.5),
-        schema(name) {
+        num_fields(num_fields),
+        num_records(num_records),
+        theta(theta),
+        num_iterations_per_worker(num_iterations_per_worker),
+        num_ops_per_txn(num_ops_per_txn),
+        write_threshold(write_threshold),
+        schema(name),
+        num_max_workers(num_max_workers),
+        num_active_workers(num_active_workers) {
     initialized = false;
     // num_workers = scheduler::Topology::getInstance().get_num_worker_cores();
-    num_workers = std::thread::hardware_concurrency();
+    if (num_max_workers == -1)
+      num_max_workers = std::thread::hardware_concurrency();
+    if (num_active_workers == -1)
+      num_active_workers = std::thread::hardware_concurrency();
 
     init();
   };
@@ -195,10 +206,10 @@ class YCSB : public Benchmark {
 
   void init() {
     printf("Initializing zipf\n");
-    rand_buffer =
-        (struct drand48_data *)calloc(num_workers, sizeof(struct drand48_data));
+    rand_buffer = (struct drand48_data *)calloc(num_max_workers,
+                                                sizeof(struct drand48_data));
 
-    for (int i = 0; i < num_workers; i++) {
+    for (int i = 0; i < num_max_workers; i++) {
       srand48_r(i + 1, &rand_buffer[i]);
     }
 
@@ -233,11 +244,11 @@ class YCSB : public Benchmark {
     }
 
     // get the server id for the key
-    int tserver = op->key % num_workers;
+    int tserver = op->key % num_max_workers;
     // get the key count for the key
-    uint64_t key_cnt = op->key / num_workers;
+    uint64_t key_cnt = op->key / num_max_workers;
 
-    uint64_t recs_per_server = num_records / num_workers;
+    uint64_t recs_per_server = num_records / num_max_workers;
     op->key = tserver * recs_per_server + key_cnt;
 
     assert(op->key < num_records);

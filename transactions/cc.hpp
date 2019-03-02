@@ -26,6 +26,15 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <vector>
 #include "transactions/txn_utils.hpp"
 
+/*
+GC Notes:
+
+Either maintain minimum active txn_id or maybe a mask of fewer significant bits
+so you will end up updting the number less frequently. idk at the moment what
+and how to do it.
+
+*/
+
 namespace txn {
 
 class CC_MV2PL;
@@ -53,7 +62,7 @@ class CC_MV2PL {
     uint64_t t_max;  // transaction id that deleted the row
     uint64_t VID;    // VID of the record in memory
     std::atomic<bool> write_lck;
-    std::atomic<int> read_cnt;
+    // std::atomic<int> read_cnt;
     short last_master_ver;
     // some ptr to list of versions
 
@@ -61,7 +70,7 @@ class CC_MV2PL {
     PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid, short master_ver)
         : t_min(tid), t_max(0), VID(vid), last_master_ver(master_ver) {
       write_lck = 0;
-      read_cnt = 0;
+      // read_cnt = 0;
     }
   };
 
@@ -125,7 +134,7 @@ class CC_MV2PL {
 
  private:
   std::vector<uint64_t> modified_vids;
-  std::atomic<short> curr_master;
+  volatile short curr_master;
 
 };  // namespace txn
 

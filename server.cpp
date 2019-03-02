@@ -33,7 +33,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "lib/cxxopts.hpp"
 
-#define RUNTIME 5000000
+#define RUNTIME 10000000
 
 // From PROTEUS
 //#include <codegen/memory/memory-manager.hpp>
@@ -93,8 +93,18 @@ int main(int argc, char** argv) {
   // set_exec_location_on_scope d(exec_node);
 
   // init benchmark
-  bench::YCSB* ycsb_bench = new bench::YCSB();
+  int num_fields = 2;
+  int num_records = 1000000;
+  double theta = 0.5;
+  int num_iterations_per_worker = 1000000;
+  int num_ops_per_txn = 2;
+  double write_threshold = 0.5;
+
+  bench::YCSB* ycsb_bench = new bench::YCSB(
+      "YCSB", num_fields, num_records, theta, num_iterations_per_worker,
+      num_ops_per_txn, write_threshold, num_workers, num_workers);
   ycsb_bench->load_data();
+
   /* As soon as worker starts, they start transactions. so make sure you setup
    * everything needed for benchmark transactions before hand.
    */

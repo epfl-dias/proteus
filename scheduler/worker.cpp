@@ -37,8 +37,8 @@ namespace scheduler {
 // reference to a thread
 
 void Worker::run() {
-  std::cout << "[WORKER] Worker (TID:" << (int)(this->id)
-            << "): Assigining Core ID:" << this->exec_core->id << std::endl;
+  // std::cout << "[WORKER] Worker (TID:" << (int)(this->id)
+  //          << "): Assigining Core ID:" << this->exec_core->id << std::endl;
 
   AffinityManager::getInstance().set(this->exec_core);
 
@@ -46,13 +46,16 @@ void Worker::run() {
   txn::TransactionManager* txnManager = &txn::TransactionManager::getInstance();
 
   while (true) {
-    if (this->terminate) break;
+    if (terminate) {
+      // std::cout << "break" << std::endl;
+      break;
+    }
     // std::this_thread::sleep_for (std::chrono::seconds(1));
     // std::cout << "[WORKER] Worker --" << (int)(this->id) << std::endl;
 
     std::function<void()> task;
     bool has_task = false;
-    {
+    /*{
       std::unique_lock<std::mutex> lock(pool->m);
       if (!pool->tasks.empty()) {
         //    NO-WAIT -> If task in queue, exec ELSE gen/exec txn
@@ -63,7 +66,7 @@ void Worker::run() {
         pool->tasks.pop();
         has_task = true;
       }
-    }
+    }*/
     if (has_task) {
       std::cout << "[WORKER] Worker (TID:" << (int)(this->id) << ") Got a Task!"
                 << std::endl;
@@ -77,7 +80,7 @@ void Worker::run() {
        */
 
       // pool->txn_bench->exec_txn(pool->txn_bench->gen_txn(this->id));
-      void* c = pool->txn_bench->gen_txn(this->id);
+      void* c = pool->txn_bench->gen_txn((int)this->id);
       if (txnManager->execute_txn(c))
         num_commits++;
       else
@@ -86,6 +89,7 @@ void Worker::run() {
       delete (struct txn::TXN*)c;
     }
     num_txns++;
+    // std::cout << ".";
   }
 }
 
@@ -110,7 +114,7 @@ void WorkerPool::print_worker_stats() {
 
     std::chrono::duration<double> diff =
         std::chrono::system_clock::now() - tmp->txn_start_time;
-    std::cout << "\tTPS\t" << (tmp->num_txns / 1000000.0) / diff.count()
+    std::cout << "\tTPS\t\t" << (tmp->num_txns / 1000000.0) / diff.count()
               << " mTPS" << std::endl;
     tps += (tmp->num_txns / 1000000.0) / diff.count();
     num_commits += (tmp->num_commits / 1000000.0);
@@ -122,7 +126,7 @@ void WorkerPool::print_worker_stats() {
   std::cout << "\t# of txns\t" << num_txns << " M" << std::endl;
   std::cout << "\t# of commits\t" << num_commits << " M" << std::endl;
   std::cout << "\t# of aborts\t" << num_aborts << " M" << std::endl;
-  std::cout << "\tTPS\t" << tps << " mTPS" << std::endl;
+  std::cout << "\tTPS\t\t" << tps << " mTPS" << std::endl;
 
   std::cout << "------------ END WORKER STATS ------------" << std::endl;
 }
