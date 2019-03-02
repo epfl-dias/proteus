@@ -353,7 +353,6 @@ void MemMoveDevice::consume(Context *const context,
 }
 
 void MemMoveDevice::open(Pipeline *pip) {
-  std::cout << "MemMoveDevice:open" << std::endl;
   workunit *wu =
       (workunit *)MemoryManager::mallocPinned(sizeof(workunit) * slack);
 
@@ -429,13 +428,11 @@ void MemMoveDevice::open(Pipeline *pip) {
 
 void MemMoveDevice::close(Pipeline *pip) {
   eventlogger.log(this, log_op::MEMMOVE_CLOSE_START);
-  std::cout << "MemMoveDevice:close" << std::endl;
   // int device = get_device();
   // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
   MemMoveConf *mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
 
   mmc->tran.close();
-  std::cout << "MemMoveDevice:close3" << std::endl;
 
   nvtxRangePop();
   mmc->worker.get();
@@ -451,10 +448,7 @@ void MemMoveDevice::close(Pipeline *pip) {
   // std::cout << "rrr" << h_s << std::endl;
 
   // MemoryManager::freeGpu(s);
-  std::cout << "MemMoveDevice:close4" << std::endl;
-
   gpu_run(cudaStreamSynchronize(mmc->strm));
-  std::cout << "MemMoveDevice:close2" << std::endl;
   gpu_run(cudaStreamDestroy(mmc->strm));
   // gpu_run(cudaStreamSynchronize(mmc->strm2));
   // gpu_run(cudaStreamDestroy    (mmc->strm2));
@@ -491,7 +485,6 @@ void MemMoveDevice::close(Pipeline *pip) {
   // delete[] mmc->old_buffs;
 
   mmc->idle.close();  // false);
-  std::cout << "MemMoveDevice:close1" << std::endl;
 
   // delete mmc->worker;
   // delete mmc;
@@ -600,9 +593,9 @@ void MemMoveDevice::catcher(MemMoveConf *mmc, int group_id,
       // }
       // sum2 += k;
       // std::cout << "s" << ((int32_t **) p->data)[0] << " " << k << std::endl;
-      eventlogger.log(this, log_op::MEMMOVE_CONSUME_START);
+      // eventlogger.log(this, log_op::MEMMOVE_CONSUME_START);
       pip->consume(0, p->data);
-      eventlogger.log(this, log_op::MEMMOVE_CONSUME_END);
+      // eventlogger.log(this, log_op::MEMMOVE_CONSUME_END);
       // // size_t x = ((int64_t *) p->data)[2];
       // for (size_t i = 0 ; i < x ; ++i){
       //     sum += ((int32_t **) p->data)[1][i];

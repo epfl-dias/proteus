@@ -59,7 +59,7 @@ class ThreadPool {
 
   void addThread() {
     workers.emplace_back([this] {
-      eventlogger.log(this, log_op::THREADPOOL_THREAD_START);
+      // eventlogger.log(this, log_op::THREADPOOL_THREAD_START);
       while (true) {
         std::function<void()> task;
 
@@ -75,7 +75,7 @@ class ThreadPool {
 
         task();
       }
-      eventlogger.log(this, log_op::THREADPOOL_THREAD_END);
+      // eventlogger.log(this, log_op::THREADPOOL_THREAD_END);
     });
   }
 

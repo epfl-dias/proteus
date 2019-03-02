@@ -475,13 +475,11 @@ void MemBroadcastDevice::open(Pipeline *pip) {
 }
 
 void MemBroadcastDevice::close(Pipeline *pip) {
-  std::cout << "MemBroadcastDevice:close" << std::endl;
   // int device = get_device();
   // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
   MemMoveConf *mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
 
   mmc->tran.close();
-  std::cout << "MemBroadcastDevice:close3" << std::endl;
 
   nvtxRangePop();
   mmc->worker.get();
@@ -493,7 +491,6 @@ void MemBroadcastDevice::close(Pipeline *pip) {
   // std::cout << "rrr" << h_s << std::endl;
 
   // MemoryManager::freeGpu(s);
-  std::cout << "MemBroadcastDevice:close4" << std::endl;
 
   if (!always_share) {
     for (const auto &t : targets) {
@@ -504,7 +501,6 @@ void MemBroadcastDevice::close(Pipeline *pip) {
     gpu_run(cudaStreamSynchronize(mmc->strm[0]));
   }
 
-  std::cout << "MemBroadcastDevice:close2" << std::endl;
   // gpu_run(cudaStreamSynchronize(mmc->strm2));
   // gpu_run(cudaStreamDestroy    (mmc->strm2));
 
