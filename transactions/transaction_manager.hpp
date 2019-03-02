@@ -63,24 +63,6 @@ class TransactionManager {
   TransactionManager() {}
 };
 
-/*
-class Transaction {
-  int64_t xid;
-  struct TXN *stmts;
-  // array of rollback actions
-
-  Transaction(struct TXN *stmts) {
-    this->xid = TransactionManager::get_next_xid();
-    this->stmts = stmts;
-  }
-
-  void execute() {
-
-  }
-
-  bool record_is_visible(int xmin) { return false; }
-}; */
-
 };  // namespace txn
 
 #endif /* TRANSACTION_MANAGER_HPP_ */

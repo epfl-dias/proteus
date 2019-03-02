@@ -21,6 +21,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef SPIN_LOCK_HPP_
 #define SPIN_LOCK_HPP_
 
+#include <sched.h>
+
 namespace lock {
 
 struct Spinlock {

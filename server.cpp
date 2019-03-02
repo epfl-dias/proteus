@@ -23,6 +23,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <iostream>
 #include <tuple>
 #include "benchmarks/ycsb.hpp"
+#include "glo.hpp"
 #include "indexes/hash_index.hpp"
 #include "scheduler/topology.hpp"
 #include "scheduler/worker.hpp"
@@ -54,12 +55,13 @@ std::ostream& operator<<(std::ostream& os, uint64_t i) {
 }*/
 
 int main(int argc, char** argv) {
-  int num_workers = 1;
-
   cxxopts::Options options("AEOLUS", "Column-major, Elastic OLTP Engine");
 
   options.add_options()("d,debug", "Enable debugging")(
-      "w,workers", "Number of Workers", cxxopts::value<uint>());
+      "w,workers", "Number of Workers", cxxopts::value<uint>())(
+      "r,write_ratio", "Reader to writer ratio", cxxopts::value<double>())(
+      "t,theta", "Zipf theta", cxxopts::value<double>())(
+      "g,gc_mode", "GC Mode: 1-Snapshot, 2-TupleGC", cxxopts::value<uint>());
 
   auto result = options.parse(argc, argv);
   // result.count("option")
@@ -67,8 +69,30 @@ int main(int argc, char** argv) {
   // cxxopts::value<std::string>()->default_value("value")
   // cxxopts::value<std::string>()->implicit_value("implicit")
 
+  // conf
+  int num_workers = 1;
+  uint gc_mode = 1;
+
+  // ycsb vars
+  int num_fields = 2;
+  int num_records = 1000000;
+  double theta = 0.5;
+  int num_iterations_per_worker = 1000000;
+  int num_ops_per_txn = 2;
+  double write_threshold = 0.5;
+
   if (result.count("w") > 0) {
     num_workers = result["w"].as<uint>();
+  }
+
+  if (result.count("r") > 0) {
+    write_threshold = result["r"].as<double>();
+  }
+  if (result.count("t") > 0) {
+    theta = result["t"].as<double>();
+  }
+  if (result.count("g") > 0) {
+    gc_mode = result["g"].as<uint>();
   }
 
   // INIT
@@ -93,13 +117,6 @@ int main(int argc, char** argv) {
   // set_exec_location_on_scope d(exec_node);
 
   // init benchmark
-  int num_fields = 2;
-  int num_records = 1000000;
-  double theta = 0.5;
-  int num_iterations_per_worker = 1000000;
-  int num_ops_per_txn = 2;
-  double write_threshold = 0.5;
-
   bench::YCSB* ycsb_bench = new bench::YCSB(
       "YCSB", num_fields, num_records, theta, num_iterations_per_worker,
       num_ops_per_txn, write_threshold, num_workers, num_workers);
