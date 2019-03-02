@@ -30,7 +30,7 @@ constexpr size_t freed_cache_cap = 16;
 void buffer_manager_init(size_t gpu_buffs, size_t cpu_buffs);
 void buffer_manager_destroy();
 
-void MemoryManager::init() {
+void MemoryManager::init(size_t gpu_buffers, size_t cpu_buffers) {
   const topology &topo = topology::getInstance();
   std::cout << topo << std::endl;
 
@@ -67,9 +67,7 @@ void MemoryManager::init() {
     }
   }
 
-  buffer_manager_init(2 * 256, 1024 * 16);  // (*4*4, *4*4)
-  // might need it for out of gpu
-  // buffer_manager_init(4 * 256, 1024 * 16);  // (*4*4, *4*4)
+  buffer_manager_init(gpu_buffers, cpu_buffers);
 }
 
 void MemoryManager::destroy() {

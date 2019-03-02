@@ -89,7 +89,7 @@ class MemoryManager {
  public:
   static SingleGpuMemoryManager **gpu_managers;
   static SingleCpuMemoryManager **cpu_managers;
-  static void init();
+  static void init(size_t gpu_buffers = 512, size_t cpu_buffers = 1024);
   static void destroy();
 
   static void *mallocGpu(size_t bytes);

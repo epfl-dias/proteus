@@ -255,6 +255,11 @@ int main(int argc, char *argv[]) {
     std::cout << topology::getInstance() << std::endl;
     return 0;
   }
+  size_t cpu_buffers = 1024;
+  size_t gpu_buffers = 512;
+  if (argc >= 3 && strcmp(argv[1], "--cpu-buffers") == 0) {
+    cpu_buffers = std::atol(argv[2]);
+  }
 
   // Initialize Google's logging library.
   google::InitGoogleLogging(argv[0]);
@@ -288,7 +293,7 @@ int main(int argc, char *argv[]) {
   PipelineGen::init();
 
   LOG(INFO) << "Initializing memory manager...";
-  MemoryManager::init();
+  MemoryManager::init(gpu_buffers, cpu_buffers);
 
   gpu_run(cudaSetDevice(0));
   LOG(INFO) << "Eagerly loading files in memory...";
@@ -311,7 +316,7 @@ int main(int argc, char *argv[]) {
 
   if (argc >= 2) {
     unlink_upon_exit uue;
-    runPlanFile(argv[1], uue, true);
+    runPlanFile(argv[argc - 1], uue, true);
   } else {
     unlink_upon_exit uue;
     while (std::getline(std::cin, line)) {
