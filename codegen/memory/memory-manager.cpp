@@ -67,7 +67,7 @@ void MemoryManager::init() {
     }
   }
 
-  buffer_manager_init(4*256, 1024); // (*4*4, *4*4)
+  buffer_manager_init(2 * 256, 1024 * 16);  // (*4*4, *4*4)
   // might need it for out of gpu
   // buffer_manager_init(4 * 256, 1024 * 16);  // (*4*4, *4*4)
 }
