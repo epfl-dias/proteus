@@ -60,6 +60,7 @@ cmake-build-debug
 ._*
 Makefile
 TODO.txt
+tests/results
 
 #TextEditor
 aeolus.sublime-project
