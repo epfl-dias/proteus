@@ -124,56 +124,60 @@ bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid) {
   release_locks(hash_ptrs_lock_acquired);
 
   return true;
-}  // namespace txn
+}
 
-// bool CC_GlobalLock::execute_txn(void *stmts, uint64_t xid) {
-//   struct TXN *txn_stmts = (struct TXN *)stmts;
-//   short n = txn_stmts->n_ops;
-//   {
-//     std::unique_lock<std::mutex> lock(global_lock);
-//     for (short i = 0; i < n; i++) {
-//       struct TXN_OP op = txn_stmts->ops[i];
-//       storage::Table *tbl_ptr = (storage::Table *)op.data_table;
-//       switch (op.op_type) {
-//         case OPTYPE_LOOKUP: {
-//           /* basically, lookup just touches everything. */
-//           /* FIXME: there should be someway to recognize the query, project
-//           the
-//            * appropriate columns and then return the result. maybe a class
-//            * ResultParser and Result which knows the data type of returning
-//            * query. for now, lets hardcode to touching the columns only.
-//            * However, TPC-C will need this because it works on basis of
-//            values,
-//            * YCSB only touches stuff in lookup */
-//           struct PRIMARY_INDEX_VAL val(-1);
-//           if (tbl_ptr->p_index->find(op.key, val)) {
-//             tbl_ptr->getRecordByKey(val.VID,
-//                                     nullptr);  // get all columns basically
-//           }
+// Following implementation using global locks is wrong as it doesnt care about
+// seriazability
+bool CC_GlobalLock::execute_txn(void *stmts, uint64_t xid) {
+  struct TXN *txn_stmts = (struct TXN *)stmts;
+  short txn_master_ver = this->curr_master;
+  short n = txn_stmts->n_ops;
+  {
+    std::unique_lock<std::mutex> lock(global_lock);
+    for (short i = 0; i < n; i++) {
+      struct TXN_OP op = txn_stmts->ops[i];
+      storage::Table *tbl_ptr = (storage::Table *)op.data_table;
+      switch (op.op_type) {
+        case OPTYPE_LOOKUP: {
+          /* basically, lookup just touches everything. */
+          /* FIXME: there should be someway to recognize the query, project
+          the
+           * appropriate columns and then return the result. maybe a class
+           * ResultParser and Result which knows the data type of returning
+           * query. for now, lets hardcode to touching the columns only.
+           * However, TPC-C will need this because it works on basis of
+           values,
+           * YCSB only touches stuff in lookup */
 
-//           break;
-//         }
+          void *tmp;
+          if (tbl_ptr->p_index->find(op.key, tmp)) {
+            PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
+            tbl_ptr->getRecordByKey(hash_ptr->VID, hash_ptr->last_master_ver);
+          }
+          break;
+        }
 
-//         case OPTYPE_UPDATE: {
-//           struct PRIMARY_INDEX_VAL val(-1);
-//           if (tbl_ptr->p_index->find(op.key, val)) {
-//             tbl_ptr->updateRecord(val.VID, op.rec);
-//           }
-//           break;
-//         }
-//         case OPTYPE_INSERT: {
-//           // uint64_t vid = tbl_ptr->p_index->insert(K &&key, Args
-//           &&val...); uint64_t vid = tbl_ptr->insertRecord(op.rec); struct
-//           PRIMARY_INDEX_VAL hashval(vid); tbl_ptr->p_index->insert(vid,
-//           hashval); break;
-//         }
+        case OPTYPE_UPDATE: {
+          void *tmp;
+          if (tbl_ptr->p_index->find(op.key, tmp)) {
+            PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
+            // tbl_ptr->updateRecord(val.VID, op.rec);
+            tbl_ptr->updateRecord(hash_ptr->VID, op.rec, txn_master_ver,
+                                  hash_ptr->last_master_ver, xid, curr_master);
+          }
+          break;
+        }
+        case OPTYPE_INSERT: {
+          void *hash_ptr = tbl_ptr->insertRecord(op.rec, xid, txn_master_ver);
+          tbl_ptr->p_index->insert(op.key, hash_ptr);
+          break;
+        }
 
-//         default:
-//           std::cout << "FUCK IT:" << op.op_type << std::endl;
-//           break;
-//       }
-//     }
-//   }
-//   return true;
-// }
+        default:
+          break;
+      }
+    }
+  }
+  return true;
+}
 }  // namespace txn

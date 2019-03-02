@@ -31,12 +31,13 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 namespace global_conf {
 
-using ConcurrencyControl = txn::CC_MV2PL;
+using ConcurrencyControl = txn::CC_MV2PL;  // CC_GlobalLock;
 using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;
 
-// bool cc_multiversion = ConcurrencyControl::is_mv();
-using mv_version_list = ConcurrencyControl::VERSION_LIST;
-using mv_version = ConcurrencyControl::VERSION;
+const bool cc_ismv = ConcurrencyControl::is_mv();
+
+using mv_version_list = txn::VERSION_LIST;
+using mv_version = txn::VERSION;
 
 template <class T_KEY>
 using PrimaryIndex = indexes::HashIndex<T_KEY>;

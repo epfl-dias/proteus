@@ -76,7 +76,10 @@ void Schema::drop_table(std::string name) {
 void Schema::drop_table(int idx) {
   std::cout << "[Schema][drop_table] Not Implemented" << std::endl;
 }
-void Table::clearDelta(short ver) { deltaStore[ver]->reset(); };
+void Table::clearDelta(short ver) {
+  assert(global_conf::cc_ismv);
+  deltaStore[ver]->reset();
+};
 
 ColumnStore::ColumnStore(
     std::string name,
@@ -105,14 +108,15 @@ ColumnStore::ColumnStore(
   this->p_index = new global_conf::PrimaryIndex<uint64_t>();
   this->columns.at(0)->buildIndex();
 
-  // init delta store
-  size_t rec_size = 0;
-  for (auto& co : this->columns) rec_size += co->elem_size;
-  for (int i = 0; i < global_conf::num_master_versions; i++) {
-    std::cout << "Create Delta -" << i << std::endl;
-    deltaStore[i] = new DeltaStore(rec_size, initial_num_records);
+  if (global_conf::cc_ismv) {
+    // init delta store
+    size_t rec_size = 0;
+    for (auto& co : this->columns) rec_size += co->elem_size;
+    for (int i = 0; i < global_conf::num_master_versions; i++) {
+      std::cout << "Create Delta -" << i << std::endl;
+      deltaStore[i] = new DeltaStore(rec_size, initial_num_records);
+    }
   }
-  std::cout << "DONE" << std::endl;
 }
 
 // void* ColumnStore::insertMeta(uint64_t vid, global_conf::IndexVal& hash_val)
@@ -170,6 +174,7 @@ std::vector<std::tuple<const void*, data_type>> ColumnStore::getRecordByKey(
 
 global_conf::mv_version_list* ColumnStore::getVersions(uint64_t vid,
                                                        short master_ver) {
+  assert(global_conf::cc_ismv);
   return this->deltaStore[master_ver]->getVersionList(vid);
 }
 
@@ -178,7 +183,7 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
                                uint64_t tmax) {
   // if(ins_master_ver == prev_master_ver) need version ELSE update the master
   // one.
-  if (ins_master_ver == prev_master_ver) {
+  if (global_conf::cc_ismv && ins_master_ver == prev_master_ver) {
     // std::cout << "same master, create ver" << std::endl;
     // create_version
     char* ver = (char*)this->deltaStore[ins_master_ver]->insert_version(

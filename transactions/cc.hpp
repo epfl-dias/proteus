@@ -44,15 +44,25 @@ class CC_GlobalLock {
  public:
   struct PRIMARY_INDEX_VAL {
     uint64_t VID;
-    PRIMARY_INDEX_VAL(uint64_t vid) : VID(vid) {}
+    short last_master_ver;
+    PRIMARY_INDEX_VAL(uint64_t vid) : VID(vid), last_master_ver(0) {}
+    PRIMARY_INDEX_VAL(uint64_t vid, short master_ver)
+        : VID(vid), last_master_ver(master_ver) {}
+    PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid, short master_ver)
+        : VID(vid), last_master_ver(master_ver) {}
   };
 
   bool execute_txn(void *stmts, uint64_t xid);
 
-  CC_GlobalLock() { std::cout << "CC Protocol: GlobalLock" << std::endl; }
+  CC_GlobalLock() {
+    std::cout << "CC Protocol: GlobalLock" << std::endl;
+    curr_master = 0;
+  }
+  static bool is_mv() { return false; }
 
  private:
   std::mutex global_lock;
+  volatile short curr_master;
 };
 
 class CC_MV2PL {
@@ -71,43 +81,6 @@ class CC_MV2PL {
         : t_min(tid), t_max(0), VID(vid), last_master_ver(master_ver) {
       write_lck = 0;
       // read_cnt = 0;
-    }
-  };
-
-  struct VERSION {
-    uint64_t t_min;
-    uint64_t t_max;
-    void *data;
-    VERSION *next;
-    VERSION(uint64_t t_min, uint64_t t_max, void *data)
-        : t_min(t_min), t_max(t_max), data(data), next(nullptr) {}
-  };
-
-  struct VERSION_LIST {
-    VERSION *head;
-    // uint num_ver;
-
-    VERSION_LIST() {
-      head = nullptr;
-      // num_ver = 0;
-    }
-
-    void insert(VERSION *val) {
-      val->next = head;
-      head = val;
-      // num_ver++;
-    }
-
-    void *get_readable_ver(uint64_t tid_self) {
-      VERSION *tmp = head;
-      while (tmp != nullptr) {
-        if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
-          return tmp;
-        } else {
-          tmp = tmp->next;
-        }
-      }
-      return nullptr;
     }
   };
 
@@ -130,13 +103,50 @@ class CC_MV2PL {
 
   void gc() { modified_vids.clear(); }
 
-  static inline bool is_mv() { return true; }
+  static bool is_mv() { return true; }
 
  private:
   std::vector<uint64_t> modified_vids;
   volatile short curr_master;
 
 };  // namespace txn
+
+struct VERSION {
+  uint64_t t_min;
+  uint64_t t_max;
+  void *data;
+  VERSION *next;
+  VERSION(uint64_t t_min, uint64_t t_max, void *data)
+      : t_min(t_min), t_max(t_max), data(data), next(nullptr) {}
+};
+
+struct VERSION_LIST {
+  VERSION *head;
+  // uint num_ver;
+
+  VERSION_LIST() {
+    head = nullptr;
+    // num_ver = 0;
+  }
+
+  void insert(VERSION *val) {
+    val->next = head;
+    head = val;
+    // num_ver++;
+  }
+
+  void *get_readable_ver(uint64_t tid_self) {
+    VERSION *tmp = head;
+    while (tmp != nullptr) {
+      if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
+        return tmp;
+      } else {
+        tmp = tmp->next;
+      }
+    }
+    return nullptr;
+  }
+};
 
 }  // namespace txn
 
