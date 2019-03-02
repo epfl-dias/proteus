@@ -294,7 +294,8 @@ void Exchange::fire(int target, PipelineGen *pipGen) {
   eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_END);
 
   {
-    // time_block t("Texchange consume (target=" + std::to_string(target) + "): ");
+    // time_block t("Texchange consume (target=" + std::to_string(target) + "):
+    // ");
     do {
       void *p;
       if (!get_ready(target, p)) break;
