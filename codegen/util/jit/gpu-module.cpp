@@ -119,7 +119,7 @@ void GpuModule::init() {
   auto RM = llvm::Optional<llvm::Reloc::Model>();
   TheTargetMachine = (llvm::LLVMTargetMachine *)Target->createTargetMachine(
       TargetTriple, GPU,
-      "+ptx60,+satom",  // PTX 6.0 + Scoped Atomics
+      "+ptx60",  // PTX 6.0 + Scoped Atomics
       //"+ptx60,+satom", //for V100
       opt, RM,
       llvm::Optional<llvm::CodeModel::Model>{},  // CodeModel::Model::Default,
