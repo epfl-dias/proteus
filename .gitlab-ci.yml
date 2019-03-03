@@ -8,15 +8,9 @@ variables:
 
 #############################################################################
 stages:
- - Configure            # Environment configuration
-
- - Check Out            # When extra steps are needed to checkout the sources
-
- - Build Tools          # When extra tools are required
-
- - Build Libraries      # When extra libraries are required 
-
  - Code quality         # Environment configuration
+
+ - Configure            # Environment configuration
 
  - Build                # Build the project
 
@@ -38,15 +32,19 @@ stages:
 #############################################################################
 # Helper Templates
 
-.before_script:
- - cp -p -t . ${cache_path}/.*done || true
+before_script:
+ - cache_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}
+ - mkdir -p ${cache_path}/cmake-build-debug
+ - mv ${cache_path}/cmake-build-debug .
  # TODO: we should probably remove the next lines and fix that in executor
- - ln -s /data/ssbm-100 src/executor/inputs/ssbm100
- - ln -s /data/tpch-1 src/executor/inputs/tpch1
+ - ln -s /data/ssbm-100 inputs/ssbm100
+ - ln -s /data/tpch-1 inputs/tpch1
 
-.after_script:
+after_script:
+ - cache_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}
  # we have to recalculate cache_path here
- - cp -p -t ${cache_path} .*done || true
+ - mv cmake-build-debug ${cache_path}/
+
 
 #----------------------------------------------------------------------------
 # Caching policies templates
@@ -109,83 +107,133 @@ stages:
 # Example jobs
 #----------------------------------------------------------------------------
 
-# Workaround until we replace the docker image
-.configure-packages:
- stage: Configure
- script:
-  - echo "Configure... done"
- <<: *cache
- <<: *restrict_precommit
-
-# Check-out environment
-.check-out-submodules:
- stage: Check Out
- script:
-  - echo "Check Out... done"
- <<: *cache
- <<: *restrict_precommit
-
-#----------------------------------------------------------------------------
-# Setup build environment
-.build-tools:
- stage: Build Tools
- script:
-  - echo "Building tools... done"
- <<: *cache
- <<: *restrict_precommit
-
-.build-libraries:
- stage: Build Libraries
- script:
-  - echo "Building external libs... done"
- <<: *cache
- <<: *restrict_precommit
-
 #----------------------------------------------------------------------------
 
 codestyle:
  stage: Code quality
  script:
-  # clang-format-7 comes from the llvm repo: https://apt.llvm.org/
-  # remember to update it every time we pop the LLVM version!
-  # if grep returns an error, it didn't find a match, which is OK for us
-  - find . \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' \) | xargs -n1 clang-format-7 -output-replacements-xml --style=file | grep "replacement " || exit 0
-  # otherwise, print message and exist with error code
-  - echo "Non conforming format"
-  - exit 1
+ # clang-format-7 comes from the llvm repo: https://apt.llvm.org/
+ # remember to update it every time we pop the LLVM version!
+ # if grep returns an error, it didn't find a match, which is OK for us
+ - find . \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' \) | xargs -n1 clang-format-7 -output-replacements-xml --style=file | grep "replacement " || exit 0
+ # otherwise, print message and exist with error code
+ - echo "Non conforming format"
+ - exit 1
  <<: *cache
  <<: *restrict_precommit
 
 licenses:
  stage: Code quality
  script:
-  - python check_licenses.py
+ - python check_licenses.py
  <<: *cache
  <<: *restrict_precommit
 
+configure:
+ stage: Configure
+ script:
+  - cd cmake-build-debug &&
+   cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=opt -DLLVM_VERSION_SUFFIX=7 -G "CodeBlocks - Unix Makefiles" ..
+  - echo "Configure... done"
+ <<: *cache
+ <<: *restrict_precommit
+
+
 #----------------------------------------------------------------------------
 # Setup test environment
-.build:
+build:
  stage: Build
  script:
-  - make
+  - cmake --build cmake-build-debug --target all
   - echo "Building... done"
  <<: *cache
  <<: *restrict_precommit
 
-.install:
+install:
  stage: Install
  script:
+  - cmake --build cmake-build-debug --target install
   - echo "Installing... done"
  <<: *cache
  <<: *restrict_precommit
 
 #----------------------------------------------------------------------------
 # Functional Tests
-.0/0 test:
+1/8 test - Threads:
  <<: *test
  script:
-  - echo "Test... done"
+ - cmake --build cmake-build-debug --target install
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-threads --gtest_output="xml:report-threads.xml"
+ artifacts:
+  reports:
+   junit: cmake-build-debug/opt/pelago/report-threads.xml
+
+2/8 test - Plan Parsing:
+ <<: *test
+ script:
+ - cmake --build cmake-build-debug --target install
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-plan-parsing --gtest_output="xml:report-plan-parsing.xml"
+ allow_failure: true
+ artifacts:
+  reports:
+   junit: cmake-build-debug/opt/pelago/report-plan-parsing.xml
+
+3/8 test - JSON:
+ <<: *test
+ script:
+ - cmake --build cmake-build-debug --target install
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-json --gtest_output="xml:report-json.xml"
+ allow_failure: true
+ artifacts:
+  reports:
+   junit: cmake-build-debug/opt/pelago/report-json.xml
+
+4/8 test - Joins:
+ <<: *test
+ script:
+ - cmake --build cmake-build-debug --target install
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-joins --gtest_output="xml:report-joins.xml"
+ allow_failure: true
+ artifacts:
+  reports:
+   junit: cmake-build-debug/opt/pelago/report-joins.xml
+
+5/8 test - Output:
+ <<: *test
+ script:
+ - cmake --build cmake-build-debug --target install
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-output --gtest_output="xml:report-output.xml"
+ allow_failure: true
+ artifacts:
+  reports:
+   junit: cmake-build-debug/opt/pelago/report-output.xml
+
+6/8 test - GPU SSB SF100:
+ <<: *test
+ script:
+ - cmake --build cmake-build-debug --target install
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-gpu-ssb --gtest_output="xml:report-gpu.xml"
+ artifacts:
+  reports:
+   junit: cmake-build-debug/opt/pelago/report-gpu.xml
+
+7/8 test - CPU SSB SF100:
+ <<: *test
+ script:
+ - cmake --build cmake-build-debug --target install
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-cpu-ssb --gtest_output="xml:report-cpu.xml"
+ artifacts:
+  reports:
+   junit: cmake-build-debug/opt/pelago/report-cpu.xml
+
+8/8 test - Hybrid SSB SF100:
+ <<: *test
+ script:
+ - cmake --build cmake-build-debug --target install
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-hyb-ssb --gtest_output="xml:report-hyb.xml"
+ artifacts:
+  reports:
+   junit: cmake-build-debug/opt/pelago/report-hyb.xml
 
 #----------------------------------------------------------------------------
 # Performance Tests

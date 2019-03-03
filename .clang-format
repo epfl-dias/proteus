@@ -2,6 +2,6 @@
 # clang-format -i --style=file <file>
 # 
 # Run manually to reformat all files:
-# find . \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' \) -exec clang-format-6.0 -i --style=file '{}' \;
+# find . \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' \) -exec clang-format-7 -i --style=file '{}' \;
 Language: Cpp
 BasedOnStyle: Google

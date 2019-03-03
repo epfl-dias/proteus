@@ -1,6 +1,7 @@
 # Pure, regular C++ files
 set(codegen_cxx
     common/common.cpp
+    common/llvm-dump.cpp
     common/gpu/gpu-common.cpp
     common/symantec-config.cpp
     expressions/binary-operators.cpp
@@ -113,17 +114,18 @@ endforeach()
 #-----------------------------------------------------------------------------
 # LSC: Hopefully we will soon be able to remove this section, where we call
 #      straight to NVCC
-set(CUDA_WORKDIR ${CMAKE_CURRENT_BINARY_DIR})
+set(CUDA_WORKDIR ${CMAKE_CURRENT_BINARY_DIR}/cubin)
+file(MAKE_DIRECTORY ${CUDA_WORKDIR})
 
-if(NOT (${CUDA} STREQUAL "CUDA-NOTFOUND"))
+if(CUDA_FOUND)
     set(codegen_cu_objs
-        "buffer-manager.fatbin.o"
-        "sort-util.o"
+        "${CUDA_WORKDIR}/buffer-manager.fatbin.o"
+        "${CUDA_WORKDIR}/sort-util.o"
     )
 endif()
 
-add_custom_command(OUTPUT sort-util.o
-    COMMAND nvcc ${CUDA_CUFLAGS}
+add_custom_command(OUTPUT ${CUDA_WORKDIR}/sort-util.o
+    COMMAND ${CUDA_NVCC_EXECUTABLE} ${CUDA_CUFLAGS}
         -c ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cu
         -o sort-util.o
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cu
@@ -132,22 +134,22 @@ add_custom_command(OUTPUT sort-util.o
     COMMENT "Building CUDA object ${CUDA_WORKDIR}/sort-util.o"
 )
 
-add_custom_command(OUTPUT buffer-manager.fatbin
-    COMMAND nvcc ${CUDA_CUFLAGS}
-        --keep -rdc true -fatbin
+add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.fatbin
+    COMMAND ${CUDA_NVCC_EXECUTABLE} ${CUDA_CUFLAGS}
+        --keep --keep-dir ${CUDA_WORKDIR} -rdc true -fatbin
         ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
-        -o buffer-manager.fatbin
+        -o ${CUDA_WORKDIR}/buffer-manager.fatbin
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
     IMPLICIT_DEPENDS CXX ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
     WORKING_DIRECTORY ${CUDA_WORKDIR}
     COMMENT "Building CUDA object ${CUDA_WORKDIR}/buffer-manager.o"
 )
 
-add_custom_command(OUTPUT buffer-manager.fatbin.o
+add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.fatbin.o
     COMMAND ld -r -b binary
-        buffer-manager.*.cubin
-        -o buffer-manager.fatbin.o
-    DEPENDS buffer-manager.fatbin
+        ${CUDA_WORKDIR}/buffer-manager*.cubin
+        -o ${CUDA_WORKDIR}/buffer-manager.fatbin.o
+    DEPENDS ${CUDA_WORKDIR}/buffer-manager.fatbin
     WORKING_DIRECTORY ${CUDA_WORKDIR}
     COMMENT "Linking CUDA object ${CUDA_WORKDIR}/buffer-manager.cubin.o"
 )

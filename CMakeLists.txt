@@ -1,5 +1,39 @@
 cmake_minimum_required(VERSION 2.8)
-project(proteus)
+
+option(STANDALONE "If ON, installs required subprojects. Otherwise the parent project should provide them" ON)
+
+# Start by looking for the compilers.
+# This should be done before any project(.) or enable_language(.) calls
+
+# Set LLVM suffix for systems with multiple LLVM installed to request
+# a specific version
+#set(LLVM_VERSION_SUFFIX 7)
+
+#-----------------------------------------------------------------------
+# Look for LLVM related compilation flags in a slightly complicated way,
+# the Ubuntu cmake module file is incorrect for our use case.
+
+if (DEFINED LLVM_VERSION_SUFFIX)
+	set(LLVM_VERSION_SUFFIX "-${LLVM_VERSION_SUFFIX}")
+endif()
+
+# NOTE: If we find llvm-config, we assume clang and clang++ are visible
+#       in the PATH
+find_program(LLVM_CONFIG "llvm-config${LLVM_VERSION_SUFFIX}")
+if(${LLVM_CONFIG} STREQUAL "LLVM_CONFIG-NOTFOUND")
+	message(FATAL_ERROR "LLVM not found")
+endif()
+
+find_program(CLANG_CXX_COMPILER "clang++${LLVM_VERSION_SUFFIX}")
+set(CMAKE_CXX_COMPILER "${CLANG_CXX_COMPILER}")
+find_program(CLANG_C_COMPILER "clang${LLVM_VERSION_SUFFIX}")
+set(CMAKE_C_COMPILER "${CLANG_C_COMPILER}")
+
+if (POLICY CMP0048)
+	cmake_policy(SET CMP0048 NEW)
+endif (POLICY CMP0048)
+
+project(proteus VERSION 2.0)
 
 #-----------------------------------------------------------------------
 # Which binaries to build:
@@ -11,12 +45,13 @@ set(MAINS main-server) # Interface to the executor
 # Tests
 # not too sure if we should build "main", it looks like it has the same
 # test cases as the gtests
-set(MAINS ${MAINS} main main-caches main-nest main-str main-reduce)
+#set(MAINS ${MAINS} main main-caches main-nest main-str main-reduce)
 set(UNIT_TESTS TRUE)
+set(DUNIT_TESTS FALSE)
 
 # Benchmarks
-set(TPCH TRUE)
-set(REALWORLD_EXPERIMENTS TRUE)
+set(TPCH FALSE)
+set(REALWORLD_EXPERIMENTS FALSE)
 
 #-----------------------------------------------------------------------
 # Setup environment for the project
@@ -49,9 +84,6 @@ set(VTUNE_ENABLE TRUE)
 
 # Setup Compilation and link flags
 #-----------------------------------------------------------------------
-# Turn on maximum code compliance and all the warnings
-string(STRIP "${COMPILER_FLAGS} -pedantic -Weverything" COMPILER_FLAGS)
-
 # Place each function and data in its own section
 string(STRIP "${COMPILER_FLAGS} -ffunction-sections -fdata-sections" COMPILER_FLAGS)
 
@@ -66,6 +98,9 @@ string(STRIP "${COMPILER_FLAGS} -g" COMPILER_FLAGS)
 
 # Currently our code fails to link for -O0, -O1
 string(STRIP "${COMPILER_FLAGS} -O2" COMPILER_FLAGS)
+
+# Turn on maximum code compliance and all the warnings
+string(STRIP "${WARNING_FLAGS} -pedantic -Weverything" WARNING_FLAGS)
 
 # Turn warnings into errors
 string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
@@ -91,6 +126,10 @@ string(STRIP "${WARNING_FLAGS} -Wno-extra-semi" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-undefined-func-template" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-weak-vtables" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-attributes" WARNING_FLAGS)
+
+## GTEST generates the following warnings
+#string(STRIP "${GTEST_WARNING_FLAGS} -Wno-disabled-macro-expansion" GTEST_WARNING_FLAGS)
+#string(STRIP "${GTEST_WARNING_FLAGS} -Wno-unused-member-function" GTEST_WARNING_FLAGS)
 
 # CUDA Code generates the following warnings
 string(STRIP "${WARNING_FLAGS} -Wno-documentation-deprecated-sync" WARNING_FLAGS)
@@ -139,87 +178,51 @@ string(STRIP "${WARNING_FLAGS} -Wno-shift-sign-overflow" WARNING_FLAGS)
 string(STRIP "${CMAKE_CXX_FLAGS} ${COMPILER_FLAGS}" CMAKE_CXX_FLAGS)
 string(STRIP "${CMAKE_C_FLAGS} ${COMPILER_FLAGS}" CMAKE_C_FLAGS)
 
-# Add the warning flags
-string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)
-string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
-
-include_directories(
-	"${PROJECT_SOURCE_DIR}"
-	"${PROJECT_SOURCE_DIR}/codegen"
-	# FIXME: system libraries should not be included with quotes...
-	# Add local (for use with ""-style includes) path to the sysroot
-	"${CMAKE_INSTALL_PREFIX}/include"
-	)
-
-#-----------------------------------------------------------------------
-# Look for LLVM related compilation flags in a slightly complicated way,
-# the Ubuntu cmake module file is incorrect for our use case.
-# NOTE: If we find llvm-config, we assume clang and clang++ are visible
-#       in the PATH
-find_program(LLVM_CONFIG "llvm-config")
-if(${LLVM_CONFIG} STREQUAL "LLVM_CONFIG-NOTFOUND")
-    message(FATAL_ERROR "LLVM not found")
-endif()
-
-find_program(CLANG_CXX_COMPILER "clang++")
-set(CMAKE_CXX_COMPILER "${CLANG_CXX_COMPILER}")
-find_program(CLANG_C_COMPILER "clang")
-set(CMAKE_C_COMPILER "${CLANG_C_COMPILER}")
-
 # LLVM APIs we use
 set(LLVM_COMPONENTS "aggressiveinstcombine all all-targets analysis asmparser asmprinter binaryformat bitreader bitwriter codegen core coroutines coverage debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb demangle dlltooldriver engine executionengine fuzzmutate globalisel instcombine instrumentation inteljitevents interpreter ipo irreader libdriver lineeditor linker lto mc mcdisassembler mcjit mcparser mirparser native nativecodegen nvptx nvptxasmprinter nvptxcodegen nvptxdesc nvptxinfo objcarcopts object objectyaml option orcjit passes profiledata runtimedyld scalaropts selectiondag support symbolize tablegen target transformutils vectorize windowsmanifest x86 x86asmparser x86asmprinter x86codegen x86desc x86disassembler x86info x86utils")
 set(LLVM_COMPONENTS "")
-execute_process(COMMAND ${CMAKE_INSTALL_PREFIX}/bin/llvm-config --libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE LLVM_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${LLVM_CONFIG} --libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE LLVM_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+execute_process(COMMAND ${LLVM_CONFIG} --includedir ${LLVM_COMPONENTS} OUTPUT_VARIABLE LLVM_INCLUDEDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${LLVM_CONFIG} --libdir ${LLVM_COMPONENTS} OUTPUT_VARIABLE LLVM_LINKDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+include_directories(
+	${LLVM_INCLUDEDIR}
+)
+
+link_directories(
+	${LLVM_LINKDIR}
+)
 
 #-----------------------------------------------------------------------
 # Various dependencies
 #-----------------------------------------------------------------------
 # CUDA
-find_program(HAS_NVCC nvcc)
-if(HAS_NVCC)
-	# Detect and setup the NVCC architectures
-	execute_process(COMMAND nvidia-smi --query-gpu=index,gpu_name --format=csv OUTPUT_VARIABLE _NVIDIA_SMI OUTPUT_STRIP_TRAILING_WHITESPACE)
+find_package(CUDA)
+if(CUDA_FOUND)
+	# TODO: the CUDA package has been deprecated and replaced by native support for the language.
+	# 		We should consider replacing it with the correct usage of enable_language(CUDA),
+	# 		CMAKE_CUDA_COMPILER, CMAKE_CUDA_FLAGS etc
+	if(_NVCC_ARCHS)
+		list(REMOVE_DUPLICATES _NVCC_ARCHS)
 
-	# Transform the multiline string into a list
-	string(REGEX REPLACE "[\n]" ";" _NVIDIA_SMI "${_NVIDIA_SMI}")
-
-	# Remove the table header from the list
-	string(REGEX REPLACE [[[^;]*name[^;]*;]] ";" _NVIDIA_SMI "${_NVIDIA_SMI}")
-
-	# Create list of GPUs names
-	foreach(line ${_NVIDIA_SMI})
-		string(REGEX REPLACE [[^[^,]*, ]] "" line "${line}")
-		list(APPEND _NVCC_GPUS ${line})
-	endforeach(line)
-
-	# Create list of unique architetures
-	# See https://developer.nvidia.com/cuda-gpus for a reference table
-	foreach(line ${_NVCC_GPUS})
-		set(tmp "${line}")
-		string(REGEX REPLACE [[GeForce GTX 980]] "52" tmp "${tmp}")
-		string(REGEX REPLACE [[GeForce GTX 1080]] "61" tmp "${tmp}")
-		#string(REGEX REPLACE [[Tesla V100-SXM2-32GB]] "70" line "${tmp}")
-
-		# If no match for the replace is found, tmp equals line.
-		# When this the case, tmp does not contain a GPU architecture code.
-		if("${tmp}" STREQUAL "${line}")
-			message(FATAL_ERROR "Unsupported GPU detected: ${line}")
-		endif()
-
-		list(APPEND _NVCC_ARCHS ${tmp})
-	endforeach(line)
-
-	list(REMOVE_DUPLICATES _NVCC_ARCHS)
+		CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_CU_ARCHS ${_NVCC_ARCHS})
+	else(_NVCC_ARCHS)
+		CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_CU_ARCHS Auto)
+	endif(_NVCC_ARCHS)
 
 	# Create arguments for nvcc and clang
-	foreach(line ${_NVCC_ARCHS})
-		list(APPEND CUDA_CXX_ARCHS "--cuda-gpu-arch=sm_${line}")
-		list(APPEND CUDA_CU_ARCHS -gencode arch=compute_${line},\\"code=sm_${line},compute_${line}\\")
+	string(REGEX REPLACE " " [[;]] CUDA_CU_ARCHS_readable "${CUDA_CU_ARCHS_readable}")
+	foreach(line ${CUDA_CU_ARCHS_readable})
+		list(APPEND CUDA_CXX_ARCHS "--cuda-gpu-arch=${line}")
 	endforeach(line)
 
 	# C++ & CUDA hybrid files
 	string(STRIP "${CUDA_CXXFLAGS} -Wno-format-pedantic" CUDA_CXXFLAGS)
 	string(STRIP "${CUDA_CXXFLAGS} -x cuda" CUDA_CXXFLAGS)
+	string(STRIP "${CUDA_CXXFLAGS} --cuda-path=${CUDA_TOOLKIT_ROOT_DIR}" CUDA_CXXFLAGS)
+	# Enable llvm::*->dump()
+	string(STRIP "${CUDA_CXXFLAGS} -DLLVM_ENABLE_DUMP" CUDA_CXXFLAGS)
 
 	# Convert the list to a string
 	string(REGEX REPLACE [[;]] " " CUDA_CXX_ARCHS "${CUDA_CXX_ARCHS}")
@@ -230,6 +233,7 @@ if(HAS_NVCC)
 
 	# CUDA-only flags, used with nvcc
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${CMAKE_INSTALL_PREFIX}/include)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${LLVM_INCLUDEDIR})
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR})
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR}/codegen)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} ${CUDA_CU_ARCHS})
@@ -242,13 +246,13 @@ if(HAS_NVCC)
 	set(CUDA_LIBS -lnvToolsExt -lcuda -lcudart -lnvidia-ml -lcudadevrt -lnvvm)
 
 	include_directories(
-		"/usr/local/cuda/include"
+		${CUDA_INCLUDE_DIRS}
 		)
 
 	link_directories(
-		"/usr/local/cuda/lib64"
-		"/usr/local/cuda/lib64/stubs"
-		"/usr/local/cuda/nvvm/lib64"
+		"${CUDA_TOOLKIT_ROOT_DIR}/lib64"
+		"${CUDA_TOOLKIT_ROOT_DIR}/lib64/stubs"
+		"${CUDA_TOOLKIT_ROOT_DIR}/nvvm/lib64"
 		)
 
 	set(CUDA "CUDA-FOUND")
@@ -271,14 +275,41 @@ endif()
 
 #-----------------------------------------------------------------------
 # GoogleTest
-find_library(GTEST NAMES gtest)
-if(${GTEST} STREQUAL "GTEST-NOTFOUND")
-	message(FATAL_ERROR "GoogleTest not found!")
-endif()
+if (STANDALONE)
+	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
+	configure_file(CMakeLists.txt.gtest.in googletest-download/CMakeLists.txt)
+	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+		RESULT_VARIABLE result
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
+	if(result)
+		message(FATAL_ERROR "CMake step for googletest failed: ${result}")
+	endif()
 
-find_library(GTEST_MAIN NAMES gtest_main)
-if(${GTEST_MAIN} STREQUAL "GTEST_MAIN-NOTFOUND")
-	message(FATAL_ERROR "GoogleTest main not found!")
+	execute_process(COMMAND ${CMAKE_COMMAND} --build .
+		RESULT_VARIABLE result
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
+	if(result)
+		message(FATAL_ERROR "Build step for googletest failed: ${result}")
+	endif()
+
+	# Add googletest directly to our build. This defines
+	# the gtest and gtest_main targets.
+	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
+		${CMAKE_CURRENT_BINARY_DIR}/googletest-build
+		EXCLUDE_FROM_ALL)
+
+	set(GTEST gtest)
+	set(GTEST_MAIN gtest_main)
+else()
+	find_library(GTEST NAMES gtest)
+	if(${GTEST} STREQUAL "GTEST-NOTFOUND")
+		message(FATAL_ERROR "GoogleTest not found!")
+	endif()
+
+	find_library(GTEST_MAIN NAMES gtest_main)
+	if(${GTEST_MAIN} STREQUAL "GTEST_MAIN-NOTFOUND")
+		message(FATAL_ERROR "GoogleTest main not found!")
+	endif()
 endif()
 
 #-----------------------------------------------------------------------
@@ -297,7 +328,7 @@ endif()
 # `codegen` needs to be unquoted to be replaced, as CMake controls the build of
 # that library
 set(default_libs ${default_libs} codegen )
-set(default_libs ${default_libs} ${LLVM_LIBS} -lLLVMSupport)
+set(default_libs ${default_libs} ${LLVM_LIBS} -lLLVMSupport -lLLVMPasses)
 set(default_libs ${default_libs} ${CUDA_LIBS})
 set(default_libs ${default_libs} ${GLOG})
 set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
@@ -316,6 +347,18 @@ install(DIRECTORY "testResults/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/outp
 #-----------------------------------------------------------------------
 # Build our libraries
 #-----------------------------------------------------------------------
+
+include_directories(
+		"${PROJECT_SOURCE_DIR}"
+		"${PROJECT_SOURCE_DIR}/codegen"
+		# FIXME: system libraries should not be included with quotes...
+		# Add local (for use with ""-style includes) path to the sysroot
+		"${CMAKE_INSTALL_PREFIX}/include"
+)
+
+# Add the warning flags
+string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)
+string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
 
 # build libjsmn
 add_subdirectory(jsmn)
@@ -339,6 +382,10 @@ endforeach(target)
 # Unit-tests
 if(UNIT_TESTS)
 	add_subdirectory(tests)
+endif()
+
+# Deprecated unit-tests
+if(DUNIT_TESTS)
 	add_subdirectory(tests-deprecated)
 endif()
 
