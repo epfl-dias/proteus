@@ -48,36 +48,6 @@
 #include <cstddef>
 #include <cstdlib>
 
-// #include "rapidjson/reader.h"
-// #include "rapidjson/document.h"
-// #include "rapidjson/stringbuffer.h"
-
-// LLVM Includes
-// #include "llvm/Analysis/BasicAliasAnalysis.h"
-// #include "llvm/Analysis/Passes.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-// #include "llvm/IR/BasicBlock.h"
-// #include "llvm/IR/Constants.h"
-// #include "llvm/IR/DataLayout.h"
-// #include "llvm/IR/DerivedTypes.h"
-// #include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
-// #include "llvm/IR/Instructions.h"
-// #include "llvm/IR/IntrinsicInst.h"
-// #include "llvm/IR/Intrinsics.h"
-// #include "llvm/IR/LLVMContext.h"
-// #include "llvm/IR/MDBuilder.h"
-// #include "llvm/IR/Module.h"
-// #include "llvm/IR/PassManager.h"
-// #include "llvm/IR/Verifier.h"
-//#include "llvm/LinkAllPasses.h"
-// #include "llvm/Support/TargetSelect.h"
-// #include "llvm/Transforms/IPO.h"
-// #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-// #include "llvm/Transforms/Scalar.h"
-// #include "llvm/Transforms/Scalar/GVN.h"
-// #include "llvm/Transforms/Vectorize.h"
-
 //#JSON
 #define JSMN_STRICT
 //
@@ -104,9 +74,6 @@
 //#undef DEBUG
 #undef LOCAL_EXEC
 
-#define KB 1024
-#define MB (1024 * KB)
-
 #define likely(x) __builtin_expect((x), 1)
 #define unlikely(x) __builtin_expect((x), 0)
 
@@ -131,6 +98,12 @@ double diff(struct timespec st, struct timespec end);
 void fatal(const char *err);
 
 void exception(const char *err);
+
+namespace llvm {
+// forward declaration to avoid including the whole header
+class AllocaInst;
+class Value;
+}  // namespace llvm
 
 /**
  * Wrappers for LLVM Value and Alloca.

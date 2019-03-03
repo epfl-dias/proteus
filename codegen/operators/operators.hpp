@@ -26,6 +26,7 @@
 
 #include "common/common.hpp"
 #include "expressions/expressions.hpp"
+#include "llvm/IR/IRBuilder.h"
 #include "plugins/output/plugins-output.hpp"
 #include "plugins/plugins.hpp"
 

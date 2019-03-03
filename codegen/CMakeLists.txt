@@ -77,16 +77,17 @@ set(codegen_cxx
     util/radix/aggregations/radix-aggr.cpp
     util/radix/joins/radix-join.cpp
     values/expressionTypes.cpp
+    operators/mem-broadcast-device.cpp
+    operators/mem-move-device.cpp
+    operators/mem-move-local-to.cpp
+    operators/block-to-tuples.cpp
+    operators/gpu/gpu-hash-rearrange.cpp
+    operators/gpu/gpu-partitioned-hash-join-chained.cpp
     )
 
 # C++ files requiring CUDA headers
 set(codegen_cxx_cu
-    operators/block-to-tuples.cpp
-    operators/gpu/gpu-hash-rearrange.cpp
-    operators/gpu/gpu-partitioned-hash-join-chained.cpp
-    operators/mem-broadcast-device.cpp
-    operators/mem-move-device.cpp
-    operators/mem-move-local-to.cpp
+    operators/gpu/gpu-partitioned-hash-join-chained-helpers.cpp
     )
 
 # Pure CUDA files

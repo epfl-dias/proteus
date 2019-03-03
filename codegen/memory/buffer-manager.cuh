@@ -32,21 +32,11 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
-#include "util/threadsafe_device_stack.cuh"
+#include "topology/affinity_manager.hpp"
 #include "util/threadsafe_stack.cuh"
 
-#ifndef NCUDA
-__device__ __constant__
-    threadsafe_device_stack<int32_t *, (int32_t *)NULL> *pool;
-__device__ __constant__ int deviceId;
-__device__ __constant__ void *buff_start;
-__device__ __constant__ void *buff_end;
-#else
-constexpr threadsafe_device_stack<int32_t *, (int32_t *)NULL> *pool = nullptr;
-constexpr int deviceId = 0;
-constexpr void *buff_start = nullptr;
-constexpr void *buff_end = nullptr;
-#endif
+template <typename T, T invalid_value>
+class threadsafe_device_stack;
 
 extern int num_of_gpus;
 extern int num_of_cpus;
@@ -144,75 +134,8 @@ class buffer_manager {
   static __host__ T *h_get_buffer(int dev);
 
  private:
-  static __device__ __forceinline__ void __release_buffer_device(T *buff) {
-    if (!buff) return;
-    // assert(strm == 0); //FIXME: something better ?
-    // if (buff->device == deviceId) { //FIXME: remote device!
-    // buff->clean();
-    // __threadfence();
-    if (buff >= buff_start && buff < buff_end) pool->push(buff);
-    // else printf("Throwing buffer: %p\n", buff);
-    // } else                          assert(false); //FIXME: IMPORTANT free
-    // buffer of another device (or host)!
-  }
-
-  static __host__ __forceinline__ void __release_buffer_host(T *buff) {
-    if (!buff) return;
-    nvtxRangePushA("release_buffer_host");
-    const auto *gpu = topology::getInstance().getGpuAddressed(buff);
-    if (gpu) {
-#ifndef NCUDA
-      if (buff < h_buff_start[gpu->id] || buff >= h_buff_end[gpu->id]) return;
-
-      nvtxRangePushA("release_buffer_host_devbuffer");
-      set_device_on_scope d(*gpu);
-      std::unique_lock<std::mutex> lock(device_buffs_mutex[gpu->id]);
-      device_buffs_pool[gpu->id].push_back(buff);
-      size_t size = device_buffs_pool[gpu->id].size();
-      if (size > keep_threshold) {
-        uint32_t devid = gpu->id;
-        nvtxRangePushA("release_buffer_host_devbuffer_overflow");
-        for (size_t i = 0; i < device_buff_size; ++i)
-          device_buff[devid][i] = device_buffs_pool[devid][size - i - 1];
-        device_buffs_pool[devid].erase(
-            device_buffs_pool[devid].end() - device_buff_size,
-            device_buffs_pool[devid].end());
-        release_buffer_host<<<1, 1, 0, release_streams[devid]>>>(
-            (void **)device_buff[devid], device_buff_size);
-        gpu_run(cudaStreamSynchronize(release_streams[devid]));
-        // gpu_run(cudaPeekAtLastError()  );
-        // gpu_run(cudaDeviceSynchronize());
-        nvtxRangePop();
-      }
-      device_buffs_cv[gpu->id].notify_all();
-      nvtxRangePop();
-#else
-      assert(false);
-#endif
-    } else {
-      nvtxRangePushA("release_buffer_host_hostbuffer");
-      const auto &it = buffer_cache.find(buff);
-      if (it == buffer_cache.end()) {
-        nvtxRangePop(); /* release_buffer_host_hostbuffer */
-        nvtxRangePop(); /* release_buffer_host */
-        return;
-      }
-      nvtxRangePushA("release_buffer_host_actual_release");
-      int occ = (it->second)--;
-      if (occ == 1) {
-        // assert(buff->device < 0);
-        // assert(get_device(buff->data) < 0);
-
-        const auto &topo = topology::getInstance();
-        uint32_t node = topo.getCpuNumaNodeAddressed(buff)->id;
-        h_pool_numa[node]->push(buff);
-        // printf("%d %p %d\n", buff->device, buff->data, status[0]);
-      }
-      nvtxRangePop();
-      nvtxRangePop();
-    }
-    nvtxRangePop();
-  }
+  static __device__ void __release_buffer_device(T *buff);
+  static __host__ void __release_buffer_host(T *buff);
 
  public:
   static __host__ __forceinline__ bool share_host_buffer(T *buff) {

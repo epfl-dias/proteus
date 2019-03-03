@@ -24,6 +24,8 @@
 #ifndef EXPRESSIONTYPES_HPP_
 #define EXPRESSIONTYPES_HPP_
 
+#include "llvm/IR/IRBuilder.h"
+
 #include "common/common.hpp"
 
 /* Original.*/

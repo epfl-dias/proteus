@@ -371,4 +371,7 @@ int get_ptr_device_or_rand_for_host(const void *p);
 int get_rand_core_local_to_ptr(const void *p);
 }
 
+cudaStream_t createNonBlockingStream();
+void syncAndDestroyStream(cudaStream_t strm);
+
 #endif /* GPU_COMMON_HPP_ */

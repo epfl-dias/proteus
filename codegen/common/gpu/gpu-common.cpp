@@ -113,7 +113,7 @@ mmap_file::mmap_file(std::string name, data_loc loc) : loc(loc) {
   if (loc == GPU_RESIDENT) {
     std::cout << "Dataset on device: "
               << topology::getInstance().getActiveGpu().id << std::endl;
-    gpu_run(cudaMalloc(&gpu_data, filesize));
+    gpu_data = MemoryManager::mallocGpu(filesize);
     gpu_run(cudaMemcpy(gpu_data, data, filesize, cudaMemcpyDefault));
     munmap(data, filesize);
     close(fd);
@@ -174,7 +174,7 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
   if (loc == GPU_RESIDENT) {
     std::cout << "Dataset on device: "
               << topology::getInstance().getActiveGpu().id << std::endl;
-    gpu_run(cudaMalloc(&gpu_data, filesize));
+    gpu_data = MemoryManager::mallocGpu(filesize);
     gpu_run(cudaMemcpy(gpu_data, data, filesize, cudaMemcpyDefault));
     munmap(data, filesize);
     close(fd);
@@ -280,4 +280,15 @@ void memcpy_gpu(void *dst, const void *src, size_t size, bool is_volatile) {
   memcpy(dst, src, size);
 #endif
 }
+}
+
+cudaStream_t createNonBlockingStream() {
+  cudaStream_t strm = nullptr;
+  gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+  return strm;
+}
+
+void syncAndDestroyStream(cudaStream_t strm) {
+  gpu_run(cudaStreamSynchronize(strm));
+  gpu_run(cudaStreamDestroy(strm));
 }

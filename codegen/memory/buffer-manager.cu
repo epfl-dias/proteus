@@ -38,13 +38,99 @@
 #include "buffer-manager.cuh"
 #include "codegen/memory/memory-manager.hpp"
 #include "topology/affinity_manager.hpp"
+#include "util/threadsafe_device_stack.cuh"
 
 #include <thread>
 // #include <utmpx.h>
 // #include <unistd.h>
 
+#ifndef NCUDA
+__device__ __constant__
+    threadsafe_device_stack<int32_t *, (int32_t *)NULL> *pool;
+__device__ __constant__ int deviceId;
+__device__ __constant__ void *buff_start;
+__device__ __constant__ void *buff_end;
+#else
+constexpr threadsafe_device_stack<int32_t *, (int32_t *)NULL> *pool = nullptr;
+constexpr int deviceId = 0;
+constexpr void *buff_start = nullptr;
+constexpr void *buff_end = nullptr;
+#endif
+
 void buffer_manager_init(size_t gpu_buffs, size_t cpu_buffs) {
   buffer_manager<int32_t>::init(gpu_buffs, cpu_buffs, 256, 512);
+}
+
+template <typename T>
+__device__ void buffer_manager<T>::__release_buffer_device(T *buff) {
+  if (!buff) return;
+  // assert(strm == 0); //FIXME: something better ?
+  // if (buff->device == deviceId) { //FIXME: remote device!
+  // buff->clean();
+  // __threadfence();
+  if (buff >= buff_start && buff < buff_end) pool->push(buff);
+  // else printf("Throwing buffer: %p\n", buff);
+  // } else                          assert(false); //FIXME: IMPORTANT free
+  // buffer of another device (or host)!
+}
+
+template <typename T>
+__host__ void buffer_manager<T>::__release_buffer_host(T *buff) {
+  if (!buff) return;
+  nvtxRangePushA("release_buffer_host");
+  const auto *gpu = topology::getInstance().getGpuAddressed(buff);
+  if (gpu) {
+#ifndef NCUDA
+    if (buff < h_buff_start[gpu->id] || buff >= h_buff_end[gpu->id]) return;
+
+    nvtxRangePushA("release_buffer_host_devbuffer");
+    set_device_on_scope d(*gpu);
+    std::unique_lock<std::mutex> lock(device_buffs_mutex[gpu->id]);
+    device_buffs_pool[gpu->id].push_back(buff);
+    size_t size = device_buffs_pool[gpu->id].size();
+    if (size > keep_threshold) {
+      uint32_t devid = gpu->id;
+      nvtxRangePushA("release_buffer_host_devbuffer_overflow");
+      for (size_t i = 0; i < device_buff_size; ++i)
+        device_buff[devid][i] = device_buffs_pool[devid][size - i - 1];
+      device_buffs_pool[devid].erase(
+          device_buffs_pool[devid].end() - device_buff_size,
+          device_buffs_pool[devid].end());
+      release_buffer_host<<<1, 1, 0, release_streams[devid]>>>(
+          (void **)device_buff[devid], device_buff_size);
+      gpu_run(cudaStreamSynchronize(release_streams[devid]));
+      // gpu_run(cudaPeekAtLastError()  );
+      // gpu_run(cudaDeviceSynchronize());
+      nvtxRangePop();
+    }
+    device_buffs_cv[gpu->id].notify_all();
+    nvtxRangePop();
+#else
+    assert(false);
+#endif
+  } else {
+    nvtxRangePushA("release_buffer_host_hostbuffer");
+    const auto &it = buffer_cache.find(buff);
+    if (it == buffer_cache.end()) {
+      nvtxRangePop(); /* release_buffer_host_hostbuffer */
+      nvtxRangePop(); /* release_buffer_host */
+      return;
+    }
+    nvtxRangePushA("release_buffer_host_actual_release");
+    int occ = (it->second)--;
+    if (occ == 1) {
+      // assert(buff->device < 0);
+      // assert(get_device(buff->data) < 0);
+
+      const auto &topo = topology::getInstance();
+      uint32_t node = topo.getCpuNumaNodeAddressed(buff)->id;
+      h_pool_numa[node]->push(buff);
+      // printf("%d %p %d\n", buff->device, buff->data, status[0]);
+    }
+    nvtxRangePop();
+    nvtxRangePop();
+  }
+  nvtxRangePop();
 }
 
 void buffer_manager_destroy() { buffer_manager<int32_t>::destroy(); }
@@ -53,8 +139,7 @@ template <typename T, typename... Args>
 __host__ T *cuda_new(const topology::gpunode &gpu, Args... args) {
   set_device_on_scope d{gpu};
   T *tmp = new T(args...);
-  T *res;
-  gpu_run(cudaMalloc((void **)&res, sizeof(T)));
+  T *res = (T *)MemoryManager::mallocGpu(sizeof(T));
   gpu_run(cudaMemcpy(res, tmp, sizeof(T), cudaMemcpyDefault));
   gpu_run(cudaDeviceSynchronize());
   free(tmp);  // NOTE: bad practice ? we want to allocate tmp by new to
@@ -643,6 +728,16 @@ __global__ void GpuHashRearrange_acq_buffs(void **buffs) {
   buffs[blockIdx.x] = get_buffers();
 }
 #endif
+
+void call_GpuHashRearrange_acq_buffs(size_t cnt, cudaStream_t strm,
+                                     void **buffs) {
+#ifndef NCUDA
+  GpuHashRearrange_acq_buffs<<<cnt, 1, 0, strm>>>(
+      buffs);  // TODO: wrap it in a nicer way, using the code-gen context
+#else
+  assert(false);
+#endif
+}
 
 extern "C" {
 void gpu_memset(void *dst, int32_t val, size_t size) {

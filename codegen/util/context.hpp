@@ -36,6 +36,7 @@
 #include "memory/memory-allocator.hpp"
 #include "values/expressionTypes.hpp"
 
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Transforms/IPO.h"

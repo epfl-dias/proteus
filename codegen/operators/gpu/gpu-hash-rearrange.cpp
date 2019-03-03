@@ -28,6 +28,7 @@
 #include "common/gpu/gpu-common.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"
+#include "topology/topology.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"
 
 using namespace llvm;
@@ -821,7 +822,8 @@ void GpuHashRearrange::consume_flush(IntegerType *target_type) {
   }
 }
 
-__global__ void GpuHashRearrange_acq_buffs(void **buffs);
+void call_GpuHashRearrange_acq_buffs(size_t cnt, cudaStream_t strm,
+                                     void **buffs);
 
 void GpuHashRearrange::open(Pipeline *pip) {
   // int device = get_device();
@@ -845,8 +847,7 @@ void GpuHashRearrange::open(Pipeline *pip) {
   int32_t *cnts = (int32_t *)(((char *)buffs) + buffs_bytes);
   size_t *oid = (size_t *)(((char *)cnts) + cnts_bytes);
 
-  cudaStream_t strm;
-  gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+  cudaStream_t strm = createNonBlockingStream();
   gpu_run(cudaMemsetAsync(cnts, 0, cnts_bytes + oid_bytes, strm));
   // for (int i = 0 ; i < numOfBuckets * 2; ++i) cnts[i] = 0;
   // *oid = 0;
@@ -868,11 +869,10 @@ void GpuHashRearrange::open(Pipeline *pip) {
   //     assumes that all buffers need at most a h_vector_size * sizeof(int32_t)
   //     size
   // }
-#ifndef NCUDA
-  GpuHashRearrange_acq_buffs<<<numOfBuckets * buffVar_id.size() * grid_size, 1,
-                               0, strm>>>(
-      buffs);  // TODO: wrap it in a nicer way, using the code-gen context
-#endif
+
+  call_GpuHashRearrange_acq_buffs(numOfBuckets * buffVar_id.size() * grid_size,
+                                  strm, buffs);
+
   // gpu_run(cudaMemcpy(buffs, h_buffs, buffs_bytes, cudaMemcpyDefault));
 
   // free(h_buffs);
@@ -881,8 +881,7 @@ void GpuHashRearrange::open(Pipeline *pip) {
     pip->setStateVar<void **>(buffVar_id[i],
                               buffs + numOfBuckets * i * grid_size);
   }
-  gpu_run(cudaStreamSynchronize(strm));
-  gpu_run(cudaStreamDestroy(strm));
+  syncAndDestroyStream(strm);
 
   std::cout << "GpuHashRearrange:open_end" << std::endl;
 }
@@ -895,39 +894,39 @@ struct mv_description {
   char *__restrict__ to;  //[16];
 };
 
-#ifndef NCUDA
-__device__ void GpuHashRearrange_copy(int4 *__restrict__ to,
-                                      const int4 *__restrict__ from) {
-  *to = *from;
-}
-
-__global__ void GpuHashRearrange_pack(mv_description *desc) {
-  mv_description d = desc[blockIdx.x];
-
-  const int4 *from = (const int4 *)d.from;
-  int4 *to = (int4 *)(((((uint64_t)d.to) + 16 - 1) / 16) * 16);
-  size_t offset = ((char *)to) - d.to;
-
-  size_t packs = (d.bytes - offset) / 16;
-  size_t rem = (d.bytes - offset) % 16;
-
-#pragma unroll 2
-  for (size_t i = threadIdx.x; i < packs; i += blockDim.x) {
-    GpuHashRearrange_copy(to + i, from + i);
-  }
-
-  if (threadIdx.x < offset) {
-    d.to[threadIdx.x] = d.from[packs * 16 + threadIdx.x];
-  }
-
-  if (threadIdx.x < rem) {
-    d.to[d.bytes - rem + threadIdx.x] =
-        d.from[packs * 16 + offset + threadIdx.x];
-  }
-
-  // if (threadIdx.x == 0) release_buffer(from);
-}
-#endif
+//#ifndef NCUDA
+//__device__ void GpuHashRearrange_copy(int4 *__restrict__ to,
+//                                      const int4 *__restrict__ from) {
+//  *to = *from;
+//}
+//
+//__global__ void GpuHashRearrange_pack(mv_description *desc) {
+//  mv_description d = desc[blockIdx.x];
+//
+//  const int4 *from = (const int4 *)d.from;
+//  int4 *to = (int4 *)(((((uint64_t)d.to) + 16 - 1) / 16) * 16);
+//  size_t offset = ((char *)to) - d.to;
+//
+//  size_t packs = (d.bytes - offset) / 16;
+//  size_t rem = (d.bytes - offset) % 16;
+//
+//#pragma unroll 2
+//  for (size_t i = threadIdx.x; i < packs; i += blockDim.x) {
+//    GpuHashRearrange_copy(to + i, from + i);
+//  }
+//
+//  if (threadIdx.x < offset) {
+//    d.to[threadIdx.x] = d.from[packs * 16 + threadIdx.x];
+//  }
+//
+//  if (threadIdx.x < rem) {
+//    d.to[d.bytes - rem + threadIdx.x] =
+//        d.from[packs * 16 + offset + threadIdx.x];
+//  }
+//
+//  // if (threadIdx.x == 0) release_buffer(from);
+//}
+//#endif
 
 void GpuHashRearrange::close(Pipeline *pip) {
   // ((void (*)(void *)) this->flushFunc)(pip->getState());

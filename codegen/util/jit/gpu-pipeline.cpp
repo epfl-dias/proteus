@@ -30,6 +30,7 @@
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/Passes/PassBuilder.h"
 
+#include "topology/topology.hpp"
 #include "util/jit/cpu-pipeline.hpp"
 
 using namespace llvm;
@@ -774,21 +775,9 @@ void GpuPipelineGen::workerScopedMembar() {
 extern "C" {
 void *getPipKernel(PipelineGen *pip) { return pip->getKernel(); };
 
-cudaStream_t createCudaStream() {
-#ifndef NCUDA
-  cudaStream_t strm;
-  gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
-  return strm;
-#else
-  assert(false);
-  return NULL;
-#endif
-}
+cudaStream_t createCudaStream() { return createNonBlockingStream(); }
 
 void sync_strm(cudaStream_t strm) { gpu_run(cudaStreamSynchronize(strm)); }
 
-void destroyCudaStream(cudaStream_t strm) {
-  gpu_run(cudaStreamSynchronize(strm));
-  gpu_run(cudaStreamDestroy(strm));
-}
+void destroyCudaStream(cudaStream_t strm) { syncAndDestroyStream(strm); }
 }
