@@ -40,7 +40,7 @@ namespace storage {
 class DeltaStore {
  public:
   DeltaStore(size_t rec_size, uint64_t initial_num_objs) {
-    initial_num_objs *= 50;
+    initial_num_objs *= 200;
 
     size_t mem_req = (rec_size * initial_num_objs) +
                      (rec_size * sizeof(global_conf::mv_version)) +
@@ -61,7 +61,7 @@ class DeltaStore {
     this->cursor = (char*)mem;
     this->total_rec_capacity = initial_num_objs;
     this->used_recs_capacity = 0;
-
+    std::cout << "Rec size: " << rec_size << std::endl;
     vid_version_map.reserve(initial_num_objs);
   }
 
@@ -86,12 +86,16 @@ class DeltaStore {
 
   void* insert_version(uint64_t vid, uint64_t tmin, uint64_t tmax) {
     assert(used_recs_capacity < total_rec_capacity);
+    // std::cout << used_recs_capacity << "\\" << total_rec_capacity <<
+    // std::endl;
     used_recs_capacity++;
-    global_conf::mv_version* val = (global_conf::mv_version*)getVersionChunk();
+    void* cnk = getVersionDataChunk();
+    global_conf::mv_version* val =
+        (global_conf::mv_version*)cnk;  // getVersionChunk();
     val->t_min = tmin;
     val->t_max = tmax;
-    val->data = getDataChunk();
-
+    // val->data = getDataChunk();
+    val->data = (char*)cnk + sizeof(global_conf::mv_version);
     // template <typename K> bool find(const K &key, mapped_type &val)
     global_conf::mv_version_list* vlst = nullptr;
     if (vid_version_map.find(vid, vlst))
@@ -150,6 +154,15 @@ class DeltaStore {
     }
     return tmp;
   }
+  inline void* getVersionDataChunk() {
+    void* tmp = nullptr;
+    {
+      std::unique_lock<std::mutex> lock(this->m);
+      tmp = (void*)cursor;
+      cursor += rec_size + sizeof(global_conf::mv_version);
+    }
+    return tmp;
+  }
   inline void* getListChunk() {
     void* tmp = nullptr;
     {
@@ -160,9 +173,9 @@ class DeltaStore {
     return tmp;
   }
 
-  std::mutex m;
-  char* cursor;
   size_t rec_size;
+  char* cursor;
+  std::mutex m;
   mem_chunk* data_ptr;
   uint64_t total_rec_capacity;
   std::atomic<uint64_t> used_recs_capacity;

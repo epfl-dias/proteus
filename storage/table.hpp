@@ -173,7 +173,7 @@ class ColumnStore : public Table {
 class Column {
  public:
   Column(std::string name, int initial_num_records, data_type type = INTEGER,
-         size_t unit_size = sizeof(int), bool build_index = false);
+         size_t unit_size = sizeof(uint64_t), bool build_index = false);
   ~Column();
 
   void buildIndex();

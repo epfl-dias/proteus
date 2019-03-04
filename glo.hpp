@@ -43,7 +43,7 @@ template <class T_KEY>
 using PrimaryIndex = indexes::HashIndex<T_KEY>;
 
 /* # of Snapshots*/
-const short num_master_versions = 2;
+const short num_master_versions = 1;
 
 }  // namespace global_conf
 

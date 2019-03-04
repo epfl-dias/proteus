@@ -7,9 +7,9 @@ import os
 result_dir = "./results"
 aeoulus_exe = "./../../../opt/aeolus/aeolus-server"
 
-worker_range = [12, 12]
-theta_range = [0.5, 0.5]
-write_thresh_range = [0.5, 0.5]
+worker_range = [1, 24]
+theta_range = [0.0, 1.0]
+write_thresh_range = [0.0, 1.0]
 
 debug = False
 
@@ -18,13 +18,13 @@ def main():
     for w in xrange(worker_range[0], worker_range[1]+1, 1):
         exe = aeoulus_exe + " " + "-w " + str(w)
         for r in xrange(int(write_thresh_range[0]*10),
-                        int((write_thresh_range[1]*10)+1), 1):
+                        int((write_thresh_range[1]*10)+1), 2):
             r_i = 0.0
             if(r != 0):
                 r_i = float(r) / 10
             r_exe = exe + " -r " + str(r_i)
             for t in xrange(int(theta_range[0]*10),
-                            int((theta_range[1]*10)+1), 1):
+                            int((theta_range[1]*10)+1), 2):
                 t_i = 0.0
                 if(t != 0):
                     t_i = float(t) / 10

@@ -101,7 +101,7 @@ void WorkerPool::print_worker_stats() {
   double num_txns = 0;
   for (auto it = workers.begin(); it != workers.end(); ++it) {
     // std::cout << " " << it->first << ":" << it->second;
-    std::cout << "Worker-" << (int)(it->first)
+    std::cout << "Worker-" << (int)(it->second.second->id)
               << "(core_id: " << it->second.second->exec_core->id << ")"
               << std::endl;
     Worker* tmp = it->second.second;
@@ -176,7 +176,7 @@ void WorkerPool::start_workers(int num_workers) {
 
   int i = 0;
   for (auto& exec_core : *worker_cores) {
-    Worker* wrkr = new Worker(++worker_id, &exec_core);
+    Worker* wrkr = new Worker(worker_id++, &exec_core);
     std::thread* thd = new std::thread(&Worker::run, wrkr);
 
     workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));

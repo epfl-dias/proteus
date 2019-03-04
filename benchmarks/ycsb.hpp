@@ -133,7 +133,7 @@ class YCSB : public Benchmark {
     //          << "| c= " << ((int)(write_threshold * (double)num_workers))
     //          << std::endl;
 
-    if (wid <= (write_threshold * (double)num_active_workers)) {
+    if (wid >= (write_threshold * (double)num_active_workers)) {
       op = txn::OPTYPE_LOOKUP;
       // std::cout << "L ";
     } else {
@@ -196,6 +196,18 @@ class YCSB : public Benchmark {
       num_active_workers = std::thread::hardware_concurrency();
 
     init();
+
+    std::cout << "W_THRESH: " << write_threshold << std::endl;
+
+    for (int i = 0; i < num_active_workers; i++) {
+      std::cout << "WID: " << i;
+      if (i >= (write_threshold * (double)num_active_workers)) {
+        std::cout << " L ";
+      } else {
+        std::cout << " U ";
+      }
+      std::cout << std::endl;
+    }
   };
 
   struct drand48_data *rand_buffer;

@@ -111,7 +111,11 @@ ColumnStore::ColumnStore(
   if (global_conf::cc_ismv) {
     // init delta store
     size_t rec_size = 0;
-    for (auto& co : this->columns) rec_size += co->elem_size;
+    for (auto& co : this->columns) {
+      rec_size += co->elem_size;
+      std::cout << "r:" << co->elem_size << std::endl;
+    }
+    std::cout << "rr:" << rec_size << std::endl;
     for (int i = 0; i < global_conf::num_master_versions; i++) {
       std::cout << "Create Delta -" << i << std::endl;
       deltaStore[i] = new DeltaStore(rec_size, initial_num_records);
@@ -183,6 +187,7 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
                                uint64_t tmax) {
   // if(ins_master_ver == prev_master_ver) need version ELSE update the master
   // one.
+  // uint64_t c = 4;
   if (global_conf::cc_ismv && ins_master_ver == prev_master_ver) {
     // std::cout << "same master, create ver" << std::endl;
     // create_version
@@ -194,8 +199,16 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
       size_t elem_size = col->elem_size;
       // std::cout << "attempting memcpy" << std::endl;
       // void* tcc = col->getElem(vid, prev_master_ver);
+      assert(ver != nullptr);
+
       memcpy((void*)ver, col->getElem(vid, prev_master_ver), elem_size);
-      ver += elem_size;
+      // std::cout << "vid:" << vid << std::endl;
+      // std::cout << "ptr:" << ((uint64_t*)col->getElem(vid, prev_master_ver))
+      //          << std::endl;
+      // std::cout << "val:" << *((uint64_t*)col->getElem(vid, prev_master_ver))
+      //          << std::endl;
+      // memcpy((void*)ver, &c, elem_size);
+      ver += (int)elem_size;
     }
     // std::cout << "updated column" << std::endl;
   }
@@ -257,7 +270,7 @@ void* Column::getElem(uint64_t vid, short master_ver) {
     //         << std::endl;
     if (chunk->size >= ((size_t)data_idx + elem_size)) {
       // std::cout << "true" << std::endl;
-      return ((char*)chunk->data) + data_idx - elem_size;
+      return ((char*)chunk->data) + data_idx;
     }
   }
   return nullptr;
@@ -272,6 +285,8 @@ void* Column::insertElem(uint64_t offset, void* elem, short master_ver) {
       if (elem == nullptr) {
         uint64_t* tptr = (uint64_t*)dst;
         (*tptr)++;
+        // std::cout << "old:" << *((uint64_t*)dst) << "|new:" << *tptr
+        //         << std::endl;
       } else {
         std::memcpy(dst, elem, this->elem_size);
       }

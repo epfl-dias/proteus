@@ -21,6 +21,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <unistd.h>
 #include <functional>
 #include <iostream>
+#include <thread>
 #include <tuple>
 #include "benchmarks/ycsb.hpp"
 #include "glo.hpp"
@@ -70,7 +71,7 @@ int main(int argc, char** argv) {
   // cxxopts::value<std::string>()->implicit_value("implicit")
 
   // conf
-  int num_workers = 1;
+  int num_workers = std::thread::hardware_concurrency();
   uint gc_mode = 1;
 
   // ycsb vars
