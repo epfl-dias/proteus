@@ -168,9 +168,7 @@ void *NUMAPinnedMemAllocator::reg(void *ptr, size_t bytes) {
   assert(ptr && "Registering NULL ptr!");
   // Do not remove below line, it forces allocation of first 4bytes (and its
   // page)
-  char c = 0;
-  for (size_t i = 0; i < bytes; i += 4096) c += ((char *)ptr)[i];
-  std::cout << "Registering: " << ptr << " " << ((int)c) << '\n';
+  //  std::cout << "Registering: " << ptr << " " << ((char *)ptr)[0] << '\n';
   gpu_run(cudaHostRegister(ptr, bytes, 0));
   return ptr;
 }
