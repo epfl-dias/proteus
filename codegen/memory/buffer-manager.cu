@@ -385,7 +385,7 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
       gpu_run(cudaStreamCreateWithPriority(&(release_streams[j]),
                                            cudaStreamNonBlocking, lowest));
 
-      T **bf;
+      T **bf = nullptr;
       gpu_run(cudaMallocHost(
           &bf, std::max(device_buff_size, keep_threshold) * sizeof(T *)));
       device_buff[j] = bf;
@@ -525,11 +525,11 @@ __host__ void buffer_manager<T>::destroy() {
           (void **)device_buff[j], size);
       gpu_run(cudaStreamSynchronize(release_streams[j]));
 
-      pool_t *tmp;
+      pool_t *tmp = nullptr;
       gpu_run(cudaMemcpyFromSymbol(&tmp, pool, sizeof(pool_t *)));
       cuda_delete(tmp);
 
-      T *mem;
+      T *mem = nullptr;
       gpu_run(cudaMemcpyFromSymbol(&mem, buff_start, sizeof(void *)));
       gpu_run(cudaFree(mem));
 
@@ -727,6 +727,7 @@ template class buffer_manager<int32_t>;
 __global__ void GpuHashRearrange_acq_buffs(void **buffs) {
   buffs[blockIdx.x] = get_buffers();
 }
+
 #endif
 
 void call_GpuHashRearrange_acq_buffs(size_t cnt, cudaStream_t strm,

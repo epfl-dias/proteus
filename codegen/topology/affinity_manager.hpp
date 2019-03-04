@@ -50,6 +50,7 @@ class affinity {
 
   friend class exec_location;
   friend class MemoryManager;
+  friend class NUMAMemAllocator;
   friend class NUMAPinnedMemAllocator;
   friend class buffer_manager<int32_t>;
 };

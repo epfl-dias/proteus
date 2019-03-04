@@ -58,7 +58,14 @@ void topology::cpunumanode::free(void *mem, size_t bytes) {
 }
 
 topology::topology() {
-  gpu_run(nvmlInit());
+  unsigned int gpus = 0;
+  auto nvml_res = nvmlInit();
+  if (nvml_res == NVML_SUCCESS) {
+    // We can not use gpu_run(...) before we set gpu_cnt, call gpuAssert
+    // directly.
+    gpuAssert(cudaGetDeviceCount((int *)&gpus), __FILE__, __LINE__);
+  }
+  gpu_cnt = gpus;
 
   // Creating gpunodes requires that we know the number of cores,
   // so start by reading the CPU configuration
@@ -98,10 +105,6 @@ topology::topology() {
 
   assert(core_info.size() == core_cnt);
 
-  unsigned int gpus = 0;
-  gpu_run(cudaGetDeviceCount((int *)&gpus));
-  gpu_cnt = gpus;
-
   // Now create the GPU nodes
   for (uint32_t i = 0; i < gpu_cnt; ++i) {
     gpu_info.emplace_back(i, i);
@@ -122,7 +125,7 @@ topology::topology() {
     set_device_on_scope d(gpu.id);
     for (const auto &gpu2 : gpu_info) {
       if (gpu2.id != gpu.id) {
-        int t;
+        int t = 0;
         gpu_run(cudaDeviceCanAccessPeer(&t, gpu.id, gpu2.id));
         if (t) {
           gpu_run(cudaDeviceEnablePeerAccess(gpu2.id, 0));
@@ -195,7 +198,7 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
   out << '\n';
 
   for (const auto &gpu : topo.getGpus()) {
-    unsigned int nvml_ind;
+    unsigned int nvml_ind = 0;
     gpu_run(nvmlDeviceGetIndex(gpu.handle, &nvml_ind));
     out << "gpu : " << std::setw(2) << gpu.id;
     out << std::setw(4) << ("(" + std::to_string(nvml_ind) + ")") << " | ";

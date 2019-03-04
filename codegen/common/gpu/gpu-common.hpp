@@ -96,8 +96,11 @@ constexpr cnt_t h_vector_size = DEFAULT_BUFF_CAP;
 enum class gran_t { GRID, BLOCK, THREAD };
 
 #ifndef NCUDA
-#define gpu_run(ans) \
-  { gpuAssert((ans), __FILE__, __LINE__); }
+#define gpu_run(ans)                               \
+  {                                                \
+    if (topology::getInstance().getGpuCount() > 0) \
+      gpuAssert((ans), __FILE__, __LINE__);        \
+  }
 
 __host__ __device__ inline void gpuAssert(cudaError_t code, const char *file,
                                           int line, bool doAbort = true) {

@@ -357,8 +357,7 @@ void MemMoveDevice::open(Pipeline *pip) {
       (workunit *)MemoryManager::mallocPinned(sizeof(workunit) * slack);
 
   // nvtxRangePushA("memmove::open");
-  cudaStream_t strm;
-  gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+  cudaStream_t strm = createNonBlockingStream();
 
   // cudaStream_t strm2;
   // gpu_run(cudaStreamCreateWithFlags(&strm2, cudaStreamNonBlocking));
@@ -448,8 +447,7 @@ void MemMoveDevice::close(Pipeline *pip) {
   // std::cout << "rrr" << h_s << std::endl;
 
   // MemoryManager::freeGpu(s);
-  gpu_run(cudaStreamSynchronize(mmc->strm));
-  gpu_run(cudaStreamDestroy(mmc->strm));
+  syncAndDestroyStream(mmc->strm);
   // gpu_run(cudaStreamSynchronize(mmc->strm2));
   // gpu_run(cudaStreamDestroy    (mmc->strm2));
 

@@ -283,7 +283,7 @@ void GpuModule::compileAndLoad() {
     void *cubin;
     size_t cubinSize;
 
-    CUlinkState linkState;
+    CUlinkState linkState = nullptr;
 
     constexpr size_t opt_size = 6;
     CUjit_option options[opt_size];
@@ -456,7 +456,7 @@ void GpuModule::compileAndLoad() {
 
 void *GpuModule::getCompiledFunction(Function *f) const {
 #ifndef NCUDA
-  CUfunction func;
+  CUfunction func = nullptr;
   gpu_run(cuModuleGetFunction(
       &func, cudaModule[topology::getInstance().getActiveGpu().id],
       f->getName().str().c_str()));

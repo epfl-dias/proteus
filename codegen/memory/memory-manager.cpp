@@ -137,7 +137,7 @@ void MemoryManager::freePinned(void *ptr) {
 
 void *GpuMemAllocator::malloc(size_t bytes) {
 #ifndef NCUDA
-  void *ptr;
+  void *ptr = nullptr;
   gpu_run(cudaMalloc(&ptr, bytes));
   return ptr;
 #else
@@ -148,26 +148,50 @@ void *GpuMemAllocator::malloc(size_t bytes) {
 
 void GpuMemAllocator::free(void *ptr) { gpu_run(cudaFree(ptr)); }
 
-void *NUMAPinnedMemAllocator::malloc(size_t bytes) {
+void *NUMAMemAllocator::malloc(size_t bytes) {
   void *ptr = affinity::get().alloc(bytes);
   assert(ptr && "Memory allocation failed!");
-  assert(bytes > 4);
-  ((int *)ptr)[0] = 0;  // force allocation of first 4bytes
-  // NOTE: do we want to force allocation of all pages? If yes, use:
-  // memset(mem, 0, bytes);
-  gpu_run(cudaHostRegister(ptr, bytes, 0));
   sizes.emplace(ptr, bytes);
   return ptr;
 }
 
-void NUMAPinnedMemAllocator::free(void *ptr) {
-  gpu_run(cudaHostUnregister(ptr));
+void NUMAMemAllocator::free(void *ptr) {
   auto it = sizes.find(ptr);
   assert(
       it != sizes.end() &&
       "Memory did not originate from this allocator (or is already released)!");
   topology::cpunumanode::free(ptr, it->second);
   sizes.erase(it);
+}
+
+void *NUMAPinnedMemAllocator::reg(void *ptr, size_t bytes) {
+  assert(ptr && "Registering NULL ptr!");
+  // Do not remove below line, it forces allocation of first 4bytes (and its
+  // page)
+  char c = 0;
+  for (size_t i = 0; i < bytes; i += 4096) c += ((char *)ptr)[i];
+  std::cout << "Registering: " << ptr << " " << ((int)c) << '\n';
+  gpu_run(cudaHostRegister(ptr, bytes, 0));
+  return ptr;
+}
+
+void NUMAPinnedMemAllocator::unreg(void *ptr) {
+  gpu_run(cudaHostUnregister(ptr));
+}
+
+void *NUMAPinnedMemAllocator::malloc(size_t bytes) {
+  void *ptr = NUMAMemAllocator::malloc(bytes);
+  assert(ptr && "Memory allocation failed!");
+  assert(bytes > 4);
+  ((int *)ptr)[0] = 0;  // force allocation of first 4bytes
+  // NOTE: do we want to force allocation of all pages? If yes, use:
+  // memset(mem, 0, bytes);
+  return reg(ptr, bytes);
+}
+
+void NUMAPinnedMemAllocator::free(void *ptr) {
+  unreg(ptr);
+  NUMAMemAllocator::free(ptr);
 }
 
 template <typename allocator, size_t unit_cap>
@@ -297,4 +321,4 @@ void SingleDeviceMemoryManager<allocator, unit_cap>::free(void *ptr) {
 SingleGpuMemoryManager **MemoryManager::gpu_managers;
 SingleCpuMemoryManager **MemoryManager::cpu_managers;
 
-std::unordered_map<void *, size_t> NUMAPinnedMemAllocator::sizes;
+std::unordered_map<void *, size_t> NUMAMemAllocator::sizes;

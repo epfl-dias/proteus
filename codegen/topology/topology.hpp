@@ -147,7 +147,7 @@ class topology {
   }
 
   inline const gpunode &getActiveGpu() const {
-    int device;
+    int device = -1;
     gpu_run(cudaGetDevice(&device));
     return gpu_info[device];
   }

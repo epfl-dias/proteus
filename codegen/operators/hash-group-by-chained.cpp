@@ -867,8 +867,7 @@ void HashGroupByChained::close(Pipeline *pip) {
   // << std::endl; std::cout << "---------------------------> " << cnt <<
   // std::endl;
 
-  cudaStream_t strm;
-  gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+  cudaStream_t strm = createNonBlockingStream();
 
   execution_conf ec = pip->getExecConfiguration();
   size_t grid_size = ec.gridSize();
@@ -892,8 +891,7 @@ void HashGroupByChained::close(Pipeline *pip) {
   kp.push_back((void **)probe_pip->getState());
 
   launch_kernel((CUfunction)probe_gen->getKernel(), (void **)kp.data(), strm);
-  gpu_run(cudaStreamSynchronize(strm));
-  gpu_run(cudaStreamDestroy(strm));
+  syncAndDestroyStream(strm);
 
   probe_pip->close();
 

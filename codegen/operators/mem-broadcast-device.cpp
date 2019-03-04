@@ -423,12 +423,8 @@ void MemBroadcastDevice::open(Pipeline *pip) {
 
   MemMoveConf *mmc = new MemMoveConf;
 #ifndef NCUDA
-  for (const auto &t : targets) {
-    cudaStream_t strm;
-    gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
-    mmc->strm[t] = strm;
-  }
-  // mmc->strm2          = strm2;
+  for (const auto &t : targets) mmc->strm[t] = createNonBlockingStream();
+    // mmc->strm2          = strm2;
 #endif
 
   mmc->num_of_targets = targets.size();

@@ -26,6 +26,7 @@
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "operators/gpu/gmonoids.hpp"
+#include "topology/topology.hpp"
 
 using namespace llvm;
 
@@ -387,8 +388,7 @@ void GpuHashGroupByChained::open(Pipeline *pip) {
     next.emplace_back(MemoryManager::mallocGpu((w / 8) * maxInputSize));
   }
 
-  cudaStream_t strm;
-  gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+  cudaStream_t strm = createNonBlockingStream();
   gpu_run(cudaMemsetAsync(cnt, 0, sizeof(int32_t), strm));
   gpu_run(cudaMemsetAsync(first, -1, (1 << hash_bits) * sizeof(int32_t), strm));
   // gpu_run(cudaMemset(next[0], -1, (packet_widths[0]/8) * maxInputSize));
@@ -400,8 +400,7 @@ void GpuHashGroupByChained::open(Pipeline *pip) {
     pip->setStateVar<void *>(out_param_ids[i], next[i]);
   }
 
-  gpu_run(cudaStreamSynchronize(strm));
-  gpu_run(cudaStreamDestroy(strm));
+  syncAndDestroyStream(strm);
 
   // std::cout << cnt << " " << get_device(cnt) << std::endl;
   // std::cout << first << " " << get_device(first) << std::endl;
@@ -474,8 +473,7 @@ void GpuHashGroupByChained::close(Pipeline *pip) {
   // << std::endl; std::cout << "---------------------------> " << cnt <<
   // std::endl;
 
-  cudaStream_t strm;
-  gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+  cudaStream_t strm = createNonBlockingStream();
 
   execution_conf ec = pip->getExecConfiguration();
   size_t grid_size = ec.gridSize();
@@ -499,8 +497,7 @@ void GpuHashGroupByChained::close(Pipeline *pip) {
   kp.push_back((void **)probe_pip->getState());
 
   launch_kernel((CUfunction)probe_gen->getKernel(), (void **)kp.data(), strm);
-  gpu_run(cudaStreamSynchronize(strm));
-  gpu_run(cudaStreamDestroy(strm));
+  syncAndDestroyStream(strm);
 
   probe_pip->close();
 

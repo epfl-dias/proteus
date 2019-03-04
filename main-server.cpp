@@ -22,6 +22,7 @@
 */
 
 #include "codegen/memory/memory-manager.hpp"
+#include "codegen/topology/affinity_manager.hpp"
 #include "codegen/util/jit/pipeline.hpp"
 #include "codegen/util/parallel-context.hpp"
 #include "plan/plan-parser.hpp"
@@ -55,7 +56,7 @@ const char *catalogJSON = "inputs";
 
 void executePlan(const char *label, const char *planPath,
                  const char *catalogJSON) {
-  uint32_t devices = topology::getInstance().getGpuCount();
+  auto &topo = topology::getInstance();
   {
     Catalog *catalog = &Catalog::getInstance();
     CachingService *caches = &CachingService::getInstance();
@@ -79,18 +80,23 @@ void executePlan(const char *label, const char *planPath,
   }
 
   // just to be sure...
-  for (uint32_t i = 0; i < devices; ++i) {
-    gpu_run(cudaSetDevice(i));
+  for (const auto &gpu : topo.getGpus()) {
+    set_exec_location_on_scope d{gpu};
     gpu_run(cudaDeviceSynchronize());
   }
 
-  for (uint32_t i = 0; i < devices; ++i) {
-    gpu_run(cudaSetDevice(i));
+  for (const auto &gpu : topo.getGpus()) {
+    set_exec_location_on_scope d{gpu};
     gpu_run(cudaProfilerStart());
   }
   __itt_resume();
 
-  gpu_run(cudaSetDevice(0));
+  // Make affinity deterministic
+  if (topo.getGpuCount() > 0) {
+    exec_location{topo.getGpus()[0]}.activate();
+  } else {
+    exec_location{topo.getCpuNumaNodes()[0]}.activate();
+  }
 
   {
     time_block t("Texecute w sync: ");
@@ -114,19 +120,24 @@ void executePlan(const char *label, const char *planPath,
     }
 
     // just to be sure...
-    for (uint32_t i = 0; i < devices; ++i) {
-      gpu_run(cudaSetDevice(i));
+    for (const auto &gpu : topo.getGpus()) {
+      set_exec_location_on_scope d{gpu};
       gpu_run(cudaDeviceSynchronize());
     }
   }
 
   __itt_pause();
-  for (uint32_t i = 0; i < devices; ++i) {
-    gpu_run(cudaSetDevice(i));
+  for (const auto &gpu : topo.getGpus()) {
+    set_exec_location_on_scope d{gpu};
     gpu_run(cudaProfilerStop());
   }
 
-  gpu_run(cudaSetDevice(0));
+  // Make affinity deterministic
+  if (topo.getGpuCount() > 0) {
+    exec_location{topo.getGpus()[0]}.activate();
+  } else {
+    exec_location{topo.getCpuNumaNodes()[0]}.activate();
+  }
 }
 
 void executePlan(const char *label, const char *planPath) {
@@ -271,8 +282,8 @@ int main(int argc, char *argv[]) {
 
   LOG(INFO) << "Warming up GPUs...";
   uint32_t devices = topology::getInstance().getGpuCount();
-  for (uint32_t i = 0; i < devices; ++i) {
-    gpu_run(cudaSetDevice(i));
+  for (const auto &gpu : topology::getInstance().getGpus()) {
+    set_exec_location_on_scope d{gpu};
     gpu_run(cudaFree(0));
   }
 
@@ -295,7 +306,14 @@ int main(int argc, char *argv[]) {
   LOG(INFO) << "Initializing memory manager...";
   MemoryManager::init(gpu_buffers, cpu_buffers);
 
-  gpu_run(cudaSetDevice(0));
+  // Make affinity deterministic
+  auto &topo = topology::getInstance();
+  if (topo.getGpuCount() > 0) {
+    exec_location{topo.getGpus()[0]}.activate();
+  } else {
+    exec_location{topo.getCpuNumaNodes()[0]}.activate();
+  }
+
   LOG(INFO) << "Eagerly loading files in memory...";
 
   // FIXME: remove, we should be loading files lazily
@@ -308,7 +326,6 @@ int main(int argc, char *argv[]) {
   //
   // }
 
-  gpu_run(cudaSetDevice(0));
   LOG(INFO) << "Finished initialization";
   std::cout << "ready" << std::endl;
   std::string line;

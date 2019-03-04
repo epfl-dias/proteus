@@ -22,6 +22,7 @@
 */
 
 #include "operators/cpu-to-gpu.hpp"
+#include "topology/topology.hpp"
 #include "util/jit/cpu-pipeline.hpp"
 
 using namespace llvm;
@@ -38,20 +39,15 @@ void CpuToGpu::produce() {
 
   context->registerOpen(this, [this](Pipeline *pip) {
     eventlogger.log(this, log_op::CPU2GPU_OPEN_START);
-    std::cout << "Cpu2Gpu:open" << std::endl;
-    cudaStream_t strm;
-    gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+    auto strm = createNonBlockingStream();
     pip->setStateVar<void *>(this->childVar_id, gpu_pip->getKernel());
-    pip->setStateVar<cudaStream_t>(this->strmVar_id, strm);
+    pip->setStateVar<decltype(strm)>(this->strmVar_id, strm);
     eventlogger.log(this, log_op::CPU2GPU_OPEN_END);
   });
 
   context->registerClose(this, [this](Pipeline *pip) {
     eventlogger.log(this, log_op::CPU2GPU_CLOSE_START);
-    std::cout << "Cpu2Gpu:close" << std::endl;
-    cudaStream_t strm = pip->getStateVar<cudaStream_t>(this->strmVar_id);
-    gpu_run(cudaStreamSynchronize(strm));
-    gpu_run(cudaStreamDestroy(strm));
+    syncAndDestroyStream(pip->getStateVar<cudaStream_t>(this->strmVar_id));
     eventlogger.log(this, log_op::CPU2GPU_CLOSE_END);
   });
 

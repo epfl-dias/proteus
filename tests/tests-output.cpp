@@ -48,6 +48,8 @@
 #include "operators/unnest.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
+#include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
 #include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
@@ -128,7 +130,12 @@ class OutputTest : public ::testing::Test {
 };
 
 void OutputTest::SetUp() {
-  gpu_run(cudaSetDevice(0));
+  auto &topo = topology::getInstance();
+  if (topo.getGpuCount() > 0) {
+    exec_location{topo.getGpus()[0]}.activate();
+  } else {
+    exec_location{topo.getCpuNumaNodes()[0]}.activate();
+  }
 
   catalog = &Catalog::getInstance();
   caches = &CachingService::getInstance();

@@ -312,11 +312,9 @@ void MemMoveLocalTo::open(Pipeline *pip) {
 
   // set_device_on_scope d(1-device);
 
-  cudaStream_t strm;
-  gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+  cudaStream_t strm = createNonBlockingStream();
 
-  cudaStream_t strm2;
-  gpu_run(cudaStreamCreateWithFlags(&strm2, cudaStreamNonBlocking));
+  cudaStream_t strm2 = createNonBlockingStream();
 
   MemMoveConf *mmc = new MemMoveConf;
 #ifndef NCUDA

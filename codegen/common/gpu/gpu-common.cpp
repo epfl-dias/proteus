@@ -81,44 +81,8 @@ std::ostream &operator<<(std::ostream &out, const cpu_set_t &cpus) {
   return out;
 }
 
-mmap_file::mmap_file(std::string name, data_loc loc) : loc(loc) {
-  time_block t("Topen (" + name + "): ");
-
-  filesize = ::getFileSize(name.c_str());
-  fd = open(name.c_str(), O_RDONLY, 0);
-
-  if (fd == -1) {
-    string msg("[Storage: ] Failed to open input file " + name);
-    LOG(ERROR) << msg;
-    throw runtime_error(msg);
-  }
-
-  // Execute mmap
-  data = mmap(NULL, filesize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, 0);
-  assert(data != MAP_FAILED);
-
-  // gpu_run(cudaHostRegister(data, filesize, 0));
-  if (loc == PINNED) {
-    void *data2 = MemoryManager::mallocPinned(filesize);
-    // void * data2 = cudaMallocHost_local_to_cpu(filesize);
-
-    memcpy(data2, data, filesize);
-    munmap(data, filesize);
-    close(fd);
-    data = data2;
-  }
-
-  gpu_data = data;
-
-  if (loc == GPU_RESIDENT) {
-    std::cout << "Dataset on device: "
-              << topology::getInstance().getActiveGpu().id << std::endl;
-    gpu_data = MemoryManager::mallocGpu(filesize);
-    gpu_run(cudaMemcpy(gpu_data, data, filesize, cudaMemcpyDefault));
-    munmap(data, filesize);
-    close(fd);
-  }
-}
+mmap_file::mmap_file(std::string name, data_loc loc)
+    : mmap_file(name, loc, ::getFileSize(name.c_str()), 0) {}
 
 mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
                      size_t offset = 0)
@@ -180,56 +144,6 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
     close(fd);
   }
 }
-// mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes, size_t
-// offset = 0): loc(loc), filesize(bytes){
-//     time_block t("Topen (" + name + ", " + std::to_string(offset) + ":" +
-//     std::to_string(offset + filesize) + "): ");
-
-//     size_t real_filesize = ::getFileSize(name.c_str());
-//     assert(offset + filesize <= real_filesize);
-//     fd       = open(name.c_str(), O_RDONLY, 0);
-
-//     if (fd == -1){
-//         string msg("[Storage: ] Failed to open input file " + name);
-//         LOG(ERROR) << msg;
-//         throw runtime_error(msg);
-//     }
-
-//     // gpu_run(cudaHostRegister(data, filesize, 0));
-//     if (loc == PINNED){
-//         void * data2 = cudaMallocHost_local_to_cpu(filesize);
-
-//         lseek(fd, offset, SEEK_SET);
-
-//         char * data3 = (char *) data2;
-//         void * fptr = ((char *) data2) + filesize;
-//         size_t rem  = filesize;
-//         while (data3 < fptr){
-//             ssize_t rc = read(fd, data3, rem);
-//             std::cout << SSIZE_MAX << " " << rc << " " << filesize << " " <<
-//             rem << std::endl; assert(rc > 0); data3 += rc; rem   -= rc;
-//         }
-
-//         // memcpy(data2, data, filesize);
-//         // munmap(data, filesize);
-//         close (fd  );
-//         data = data2;
-//     } else {
-//         //Execute mmap
-//         data     = mmap(NULL, filesize, PROT_READ, MAP_PRIVATE |
-//         MAP_POPULATE, fd, offset); assert(data != MAP_FAILED);
-//     }
-
-//     gpu_data = data;
-
-//     if (loc == GPU_RESIDENT){
-//         std::cout << "Dataset on device: " << get_device() << std::endl;
-//         gpu_run(cudaMalloc(&gpu_data,       filesize                   ));
-//         gpu_run(cudaMemcpy( gpu_data, data, filesize, cudaMemcpyDefault));
-//         munmap(data, filesize);
-//         close (fd  );
-//     }
-// }
 
 mmap_file::~mmap_file() {
   if (loc == GPU_RESIDENT) gpu_run(cudaFree(gpu_data));

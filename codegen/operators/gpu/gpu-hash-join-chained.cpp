@@ -25,6 +25,7 @@
 #include "codegen/memory/memory-manager.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "operators/gpu/gmonoids.hpp"
+#include "topology/topology.hpp"
 
 void GpuHashJoinChained::open_build(Pipeline *pip) {
   std::vector<void *> next_w_values;
@@ -33,8 +34,7 @@ void GpuHashJoinChained::open_build(Pipeline *pip) {
       sizeof(uint32_t) * (1 << hash_bits) + sizeof(int32_t));
   int32_t *cnt = (int32_t *)(head + (1 << hash_bits));
 
-  cudaStream_t strm;
-  gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+  cudaStream_t strm = createNonBlockingStream();
   gpu_run(cudaMemsetAsync(head, -1, sizeof(uint32_t) * (1 << hash_bits), strm));
   gpu_run(cudaMemsetAsync(cnt, 0, sizeof(int32_t), strm));
 
@@ -53,12 +53,11 @@ void GpuHashJoinChained::open_build(Pipeline *pip) {
   next_w_values.emplace_back(head);
   confs[pip->getGroup()] = next_w_values;
 
-  gpu_run(cudaStreamSynchronize(strm));
-  gpu_run(cudaStreamDestroy(strm));
+  syncAndDestroyStream(strm);
 }
 
 void GpuHashJoinChained::close_build(Pipeline *pip) {
-  int32_t h_cnt;
+  int32_t h_cnt = -1;
   gpu_run(cudaMemcpy(&h_cnt, pip->getStateVar<int32_t *>(cnt_param_id),
                      sizeof(int32_t), cudaMemcpyDefault));
   assert(((size_t)h_cnt) <= maxBuildInputSize &&

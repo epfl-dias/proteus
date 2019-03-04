@@ -62,6 +62,8 @@
 // #include "memory/memory-manager.hpp"
 #include "plan/plan-parser.hpp"
 #include "storage/storage-manager.hpp"
+#include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
 // #include "util/functions.hpp"
 // #include "util/jit/pipeline.hpp"
 // #include <cuda_profiler_api.h>
@@ -91,7 +93,14 @@ class CPUSSBTest : public ::testing::Test {
  public:
 };
 
-void CPUSSBTest::SetUp() { gpu_run(cudaSetDevice(0)); }
+void CPUSSBTest::SetUp() {
+  auto &topo = topology::getInstance();
+  if (topo.getGpuCount() > 0) {
+    exec_location{topo.getGpus()[0]}.activate();
+  } else {
+    exec_location{topo.getCpuNumaNodes()[0]}.activate();
+  }
+}
 
 void CPUSSBTest::TearDown() { StorageManager::unloadAll(); }
 

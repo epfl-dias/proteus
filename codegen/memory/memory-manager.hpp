@@ -35,12 +35,24 @@ class GpuMemAllocator {
   static void free(void *ptr);
 };
 
-class NUMAPinnedMemAllocator {
+class NUMAMemAllocator {
   static std::unordered_map<void *, size_t> sizes;
 
  public:
   static void *malloc(size_t bytes);
   static void free(void *ptr);
+};
+
+class NUMAPinnedMemAllocator {
+  //  static std::unordered_map<void *, bool> sizes;
+
+  //  static void *reg(void *mem, size_t bytes, bool allocated);
+
+ public:
+  static void *reg(void *mem, size_t bytes);
+  static void *malloc(size_t bytes);
+  static void free(void *ptr);
+  static void unreg(void *mem);
 };
 
 constexpr size_t unit_capacity_gpu = 128 * 1024 * 1024;
