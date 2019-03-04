@@ -148,7 +148,7 @@ add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.fatbin
 
 add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.fatbin.o
     COMMAND ld -r -b binary
-        ${CUDA_WORKDIR}/buffer-manager*.cubin
+        buffer-manager*.cubin
         -o ${CUDA_WORKDIR}/buffer-manager.fatbin.o
     DEPENDS ${CUDA_WORKDIR}/buffer-manager.fatbin
     WORKING_DIRECTORY ${CUDA_WORKDIR}

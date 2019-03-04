@@ -347,7 +347,8 @@ void GpuModule::compileAndLoad() {
                  "Only one of the symbols found!");
           // CUDA 8.0 in RHEL does not include the compute_XX part of the
           // string
-          std::string sim_prefix = "_binary_buffer_manager_cubin_";
+          auto sim_prefix =
+              "_binary_buffer_manager_compute_" + sm_code + "_cubin_";
           sim_start = sim_prefix + "start";
           sim_end = sim_prefix + "end";
 
