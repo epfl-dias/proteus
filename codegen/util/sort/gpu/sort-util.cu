@@ -141,7 +141,9 @@ struct qsort_unaligned_t {
     return (r == other.r) ? (curr() < other.curr()) : (r < other.r);
   }
 
-  __host__ __device__ T curr() const { return a[(sizeof(qsort_helper_t<Trest...>) / sizeof(T))]; }
+  __host__ __device__ T curr() const {
+    return a[(sizeof(qsort_helper_t<Trest...>) / sizeof(T))];
+  }
 };
 
 template <typename T>

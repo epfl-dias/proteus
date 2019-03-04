@@ -329,7 +329,7 @@ void GpuModule::compileAndLoad() {
       _binary_buffer_manager_cubin_end = (char *)dlsym(handle, sim_end.c_str());
 
       if (!_binary_buffer_manager_cubin_start) {
-        assert(!_binary_buffer_manager_cubin_start &&
+        assert(!_binary_buffer_manager_cubin_end &&
                "Only one of the symbols found!");
         // CUDA 8.0 in RHEL does not include the compute_XX part of the
         // string
@@ -341,6 +341,21 @@ void GpuModule::compileAndLoad() {
             (char *)dlsym(handle, sim_start.c_str());
         _binary_buffer_manager_cubin_end =
             (char *)dlsym(handle, sim_end.c_str());
+
+        if (!_binary_buffer_manager_cubin_start) {
+          assert(!_binary_buffer_manager_cubin_end &&
+                 "Only one of the symbols found!");
+          // CUDA 8.0 in RHEL does not include the compute_XX part of the
+          // string
+          std::string sim_prefix = "_binary_buffer_manager_cubin_";
+          sim_start = sim_prefix + "start";
+          sim_end = sim_prefix + "end";
+
+          _binary_buffer_manager_cubin_start =
+              (char *)dlsym(handle, sim_start.c_str());
+          _binary_buffer_manager_cubin_end =
+              (char *)dlsym(handle, sim_end.c_str());
+        }
       }
       assert(_binary_buffer_manager_cubin_start &&
              "cubin start symbol not found!");
