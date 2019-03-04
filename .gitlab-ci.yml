@@ -166,9 +166,7 @@ install:
  - cmake --build cmake-build-debug --target install
  - export CWD=$(pwd)
  - echo gtest_output="xml:$CWD/report-threads.xml"
- - cd cmake-build-debug/opt/pelago && ./unit-tests-threads --gtest_output="xml:$CWD/report-threads.xml"
- - pwd
- - ls -lah
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-threads --gtest_output=xml:report-threads.xml && ls -lah
  - cd $CWD
  - ls -lah
  - ls -lah cmake-build-debug

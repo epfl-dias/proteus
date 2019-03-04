@@ -1,15 +1,15 @@
 cmake_minimum_required(VERSION 2.8)
 
+# Set LLVM suffix for systems with multiple LLVM installed to request
+# a specific version using -DLLVM_VERSION_SUFFIX=7
+
+# Flag to control whether we should build the dependencies
 option(STANDALONE "If ON, installs required subprojects. Otherwise the parent project should provide them" ON)
 
+#-----------------------------------------------------------------------
 # Start by looking for the compilers.
 # This should be done before any project(.) or enable_language(.) calls
 
-# Set LLVM suffix for systems with multiple LLVM installed to request
-# a specific version
-#set(LLVM_VERSION_SUFFIX 7)
-
-#-----------------------------------------------------------------------
 # Look for LLVM related compilation flags in a slightly complicated way,
 # the Ubuntu cmake module file is incorrect for our use case.
 
@@ -33,6 +33,7 @@ if (POLICY CMP0048)
 	cmake_policy(SET CMP0048 NEW)
 endif (POLICY CMP0048)
 
+# Now that the compilers are set, define project name and version
 project(proteus VERSION 2.0)
 
 #-----------------------------------------------------------------------
@@ -45,13 +46,13 @@ set(MAINS main-server) # Interface to the executor
 # Tests
 # not too sure if we should build "main", it looks like it has the same
 # test cases as the gtests
-#set(MAINS ${MAINS} main main-caches main-nest main-str main-reduce)
+set(MAINS ${MAINS} main main-caches main-nest main-str main-reduce)
 set(UNIT_TESTS TRUE)
-set(DUNIT_TESTS FALSE)
+set(DUNIT_TESTS TRUE)
 
 # Benchmarks
-set(TPCH FALSE)
-set(REALWORLD_EXPERIMENTS FALSE)
+set(TPCH TRUE)
+set(REALWORLD_EXPERIMENTS TRUE)
 
 #-----------------------------------------------------------------------
 # Setup environment for the project
@@ -126,10 +127,6 @@ string(STRIP "${WARNING_FLAGS} -Wno-extra-semi" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-undefined-func-template" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-weak-vtables" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-attributes" WARNING_FLAGS)
-
-## GTEST generates the following warnings
-#string(STRIP "${GTEST_WARNING_FLAGS} -Wno-disabled-macro-expansion" GTEST_WARNING_FLAGS)
-#string(STRIP "${GTEST_WARNING_FLAGS} -Wno-unused-member-function" GTEST_WARNING_FLAGS)
 
 # CUDA Code generates the following warnings
 string(STRIP "${WARNING_FLAGS} -Wno-documentation-deprecated-sync" WARNING_FLAGS)
@@ -328,7 +325,7 @@ endif()
 # `codegen` needs to be unquoted to be replaced, as CMake controls the build of
 # that library
 set(default_libs ${default_libs} codegen )
-set(default_libs ${default_libs} ${LLVM_LIBS} -lLLVMSupport -lLLVMPasses)
+set(default_libs ${default_libs} ${LLVM_LIBS} -lLLVMSupport -lLLVMPasses) # FIXME: use LLVM_LIBS instead
 set(default_libs ${default_libs} ${CUDA_LIBS})
 set(default_libs ${default_libs} ${GLOG})
 set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
