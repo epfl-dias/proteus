@@ -163,77 +163,85 @@ install:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
- - cd cmake-build-debug/opt/pelago && ./unit-tests-threads --gtest_output="xml:report-threads.xml"
+ - export CWD=$(pwd)
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-threads --gtest_output="xml:$CWD/report-threads.xml"
  artifacts:
   reports:
-   junit: cmake-build-debug/opt/pelago/report-threads.xml
+   junit: report-threads.xml
 
 2/8 test - Plan Parsing:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
- - cd cmake-build-debug/opt/pelago && ./unit-tests-plan-parsing --gtest_output="xml:report-plan-parsing.xml"
+ - export CWD=$(pwd)
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-plan-parsing --gtest_output="xml:$CWD/report-plan-parsing.xml"
  allow_failure: true
  artifacts:
   reports:
-   junit: cmake-build-debug/opt/pelago/report-plan-parsing.xml
+   junit: report-plan-parsing.xml
 
 3/8 test - JSON:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
- - cd cmake-build-debug/opt/pelago && ./unit-tests-json --gtest_output="xml:report-json.xml"
+ - export CWD=$(pwd)
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-json --gtest_output="xml:$CWD/report-json.xml"
  allow_failure: true
  artifacts:
   reports:
-   junit: cmake-build-debug/opt/pelago/report-json.xml
+   junit: report-json.xml
 
 4/8 test - Joins:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
- - cd cmake-build-debug/opt/pelago && ./unit-tests-joins --gtest_output="xml:report-joins.xml"
+ - export CWD=$(pwd)
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-joins --gtest_output="xml:$CWD/report-joins.xml"
  allow_failure: true
  artifacts:
   reports:
-   junit: cmake-build-debug/opt/pelago/report-joins.xml
+   junit: report-joins.xml
 
 5/8 test - Output:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
- - cd cmake-build-debug/opt/pelago && ./unit-tests-output --gtest_output="xml:report-output.xml"
+ - export CWD=$(pwd)
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-output --gtest_output="xml:$CWD/report-output.xml"
  allow_failure: true
  artifacts:
   reports:
-   junit: cmake-build-debug/opt/pelago/report-output.xml
+   junit: report-output.xml
 
 6/8 test - GPU SSB SF100:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
- - cd cmake-build-debug/opt/pelago && ./unit-tests-gpu-ssb --gtest_output="xml:report-gpu.xml"
+ - export CWD=$(pwd)
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-gpu-ssb --gtest_output="xml:$CWD/report-gpu.xml"
  artifacts:
   reports:
-   junit: cmake-build-debug/opt/pelago/report-gpu.xml
+   junit: report-gpu.xml
 
 7/8 test - CPU SSB SF100:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
- - cd cmake-build-debug/opt/pelago && ./unit-tests-cpu-ssb --gtest_output="xml:report-cpu.xml"
+ - export CWD=$(pwd)
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-cpu-ssb --gtest_output="xml:$CWD/report-cpu.xml"
  artifacts:
   reports:
-   junit: cmake-build-debug/opt/pelago/report-cpu.xml
+   junit: report-cpu.xml
 
 8/8 test - Hybrid SSB SF100:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
- - cd cmake-build-debug/opt/pelago && ./unit-tests-hyb-ssb --gtest_output="xml:report-hyb.xml"
+ - export CWD=$(pwd)
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-hyb-ssb --gtest_output="xml:$CWD/report-hyb.xml"
  artifacts:
   reports:
-   junit: cmake-build-debug/opt/pelago/report-hyb.xml
+   junit: report-hyb.xml
 
 #----------------------------------------------------------------------------
 # Performance Tests
