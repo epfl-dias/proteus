@@ -175,6 +175,8 @@ struct mmap_file {
   void *gpu_data;
   data_loc loc;
 
+  bool readonly;
+
  public:
   mmap_file(std::string name, data_loc loc = GPU_RESIDENT);
   mmap_file(std::string name, data_loc loc, size_t bytes, size_t offset);
