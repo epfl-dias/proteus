@@ -193,9 +193,6 @@ void GpuModule::optimizeModule(llvm::Module *M) {
 // &_binary_device_funcs_cubin_size extern char
 // _binary_device_funcs_cubin_start[];
 
-char *_binary_buffer_manager_cubin_start;
-char *_binary_buffer_manager_cubin_end;
-
 constexpr size_t BUFFER_SIZE = 8192;
 char error_log[BUFFER_SIZE];
 char info_log[BUFFER_SIZE];
@@ -305,6 +302,10 @@ void GpuModule::compileAndLoad() {
     options[5] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
     values[5] = (void *)BUFFER_SIZE;
 
+    char *_binary_buffer_manager_cubin_start;
+    char *_binary_buffer_manager_cubin_end;
+    // FIXME: should use a loop instead of nested ifs... also, we should cache
+    // the result per sm
     {  // Compute symbol name for one of the GPU architecture, and use that to
       // retrieve the corresponding binary blob.
       // FIXME: We assume compute and arch are equal!
@@ -356,6 +357,21 @@ void GpuModule::compileAndLoad() {
               (char *)dlsym(handle, sim_start.c_str());
           _binary_buffer_manager_cubin_end =
               (char *)dlsym(handle, sim_end.c_str());
+
+          if (!_binary_buffer_manager_cubin_start) {
+            assert(!_binary_buffer_manager_cubin_end &&
+                   "Only one of the symbols found!");
+            // CUDA 8.0 in RHEL does not include the compute_XX part of the
+            // string
+            std::string sim_prefix = "_binary_buffer_manager_cubin_";
+            sim_start = sim_prefix + "start";
+            sim_end = sim_prefix + "end";
+
+            _binary_buffer_manager_cubin_start =
+                (char *)dlsym(handle, sim_start.c_str());
+            _binary_buffer_manager_cubin_end =
+                (char *)dlsym(handle, sim_end.c_str());
+          }
         }
       }
       assert(_binary_buffer_manager_cubin_start &&
