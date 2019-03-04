@@ -162,9 +162,14 @@ install:
 1/8 test - Threads:
  <<: *test
  script:
+ - pwd
  - cmake --build cmake-build-debug --target install
  - export CWD=$(pwd)
  - cd cmake-build-debug/opt/pelago && ./unit-tests-threads --gtest_output="xml:$CWD/report-threads.xml"
+ - pwd
+ - ls -lah
+ - cd $CWD
+ - ls -lah
  artifacts:
   reports:
    junit: report-threads.xml
