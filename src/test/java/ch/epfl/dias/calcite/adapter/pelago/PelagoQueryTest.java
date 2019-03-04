@@ -1,8 +1,12 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
+import org.apache.calcite.rel.core.Calc;
 import org.apache.calcite.test.CalciteAssert;
 
+import com.google.common.collect.ImmutableList;
+
 import ch.epfl.dias.repl.Repl;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DynamicNode;
@@ -15,9 +19,12 @@ import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.time.Duration.ofSeconds;
@@ -34,23 +41,69 @@ public class PelagoQueryTest {
     PelagoTestConnectionFactory.get();
   }
 
+  @AfterAll
+  public static void deinit() throws SQLException {
+    // Print timing results
+    ResultSet rs = PelagoTestConnectionFactory.get()
+      .createConnection()
+      .createStatement()
+      .executeQuery("SELECT * FROM SessionTimings");
+
+    ResultSetMetaData rsmd = rs.getMetaData();
+    int columnsN = rsmd.getColumnCount();
+    while (rs.next()){
+      // Keep lines in a string and print whole lines each time,
+      // otherwise in junit prints each part a separate info line.
+      ImmutableList.Builder builder = ImmutableList.<String>builder();
+      for (int i = 1 ; i <= columnsN ; ++i){
+        String columnValue = rs.getString(i);
+        builder.add(rsmd.getColumnName(i) + "=" + columnValue);
+      }
+      System.out.println(String.join("; ", builder.build()));
+    }
+  }
+
   private CalciteAssert.AssertQuery testParseAndExecute(String sql) throws SQLException {
     return CalciteAssert.that()
       .with(PelagoTestConnectionFactory.get())
       .query(sql)
       .explainContains("PLAN=PelagoToEnumerableConverter")
-      .runs()
       ;
   }
 
+  public static String getModeAsString(){
+    if (Repl.isHybrid()) return "hyb";
+    if (Repl.isGpuonly()) return "gpu";
+    if (Repl.isCpuonly()) return "cpu";
+    assert(false);
+    return "";
+  }
+
   public void testQueryOrdered(String sql, Path resultFile) throws SQLException, IOException {
+    CalciteAssert.AssertQuery q = testParseAndExecute(sql);
+
+    String explainContains = "PLAN=PelagoToEnumerableConverter";
+    if (resultFile != null && false) {
+      final String suffix = ".resultset";
+      assert(resultFile.endsWith(suffix));
+      String filename = resultFile.toString();
+      filename = filename.substring(0, filename.length() - suffix.length());
+      Path p = Paths.get(filename + "." + getModeAsString() + ".plan");
+      if (Files.exists(p) && Files.isRegularFile(p)){
+        String plan = new String(Files.readAllBytes(p)).trim();
+        plan = plan.replaceAll("\\s*--[^\n]*", "");
+        explainContains = plan;
+      }
+    }
+    assert(explainContains.startsWith("PLAN=PelagoToEnumerableConverter"));
+    q = q.explainMatches("EXCLUDING ATTRIBUTES ", CalciteAssert.checkResultContains(explainContains));
+
     if (resultFile != null && !Repl.isMockRun()){
       List<String> lines = Files.readAllLines(resultFile);
-      testParseAndExecute(sql)
-        .returnsOrdered(lines.toArray(new String[lines.size()]));
+      q.returnsOrdered(lines.toArray(new String[lines.size()]));
     } else {
       if (resultFile != null) logger.debug("Result set not verified (reason: running in mock mode)");
-      testParseAndExecute(sql);
+      q.runs(); // => flush json and return fake results
     }
   }
 
@@ -100,7 +153,7 @@ public class PelagoQueryTest {
     return Stream.concat(
       Files.list(path)  // we want to control the order of traversal, otherwise we would use the Files.walk function
         .filter(Files::isRegularFile)
-        .filter((x) -> !(x.getFileName().endsWith(".resultset")))
+        .filter((x) -> x.getFileName().toString().endsWith(".sql"))
         .sorted()       // sorted in order to guarantee the order between different invocations
         .map((file) -> {
           try {
@@ -117,7 +170,7 @@ public class PelagoQueryTest {
             // create the test
             return (DynamicNode) dynamicTest(file.getFileName().toString(),
               () -> assertTimeoutPreemptively(
-                  ofSeconds((PelagoTestConnectionFactory.isDebug) ? Long.MAX_VALUE/1000 : 200),
+                  ofSeconds((PelagoTestConnectionFactory.isDebug) ? Long.MAX_VALUE/1000 : 2000),
                   () -> test.accept(q, resultFile)
               ));
           } catch (IOException e) {

@@ -7,9 +7,7 @@ import org.apache.calcite.linq4j._
 import org.apache.calcite.linq4j.tree._
 import org.apache.calcite.plan._
 import org.apache.calcite.prepare.RelOptTableImpl
-import org.apache.calcite.rel.RelDistributionTraitDef
-import org.apache.calcite.rel.RelNode
-import org.apache.calcite.rel.RelWriter
+import org.apache.calcite.rel.{RelDistributionTraitDef, RelNode, RelVisitor, RelWriter}
 import org.apache.calcite.rel.convert.ConverterImpl
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.`type`._
@@ -129,8 +127,8 @@ object PelagoToEnumerableConverter {
   private var pt      : PelagoResultTable = null
   private var rowType : RelDataType       = null
 
-  var builder = if(Repl.isMockRun) null else new ProcessBuilder("./proteusmain-server")
-  var process = if(Repl.isMockRun) null else builder.start()
+  var builder = if(Repl.isMockRun) null else new ProcessBuilder(Repl.executor_server)
+  var process = if(Repl.isMockRun || builder == null) null else builder.start()
 
   var stdinWriter  = if(Repl.isMockRun) null else new java.io.PrintWriter  ((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true)
   var stdoutReader = if(Repl.isMockRun) null else new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))
@@ -144,7 +142,7 @@ object PelagoToEnumerableConverter {
       pt.scan(root)
     } else {
       if (process == null || !process.isAlive){
-        builder = new ProcessBuilder("./proteusmain-server")
+        builder = new ProcessBuilder(Repl.executor_server)
         process = builder.start()
 
         stdinWriter  = new java.io.PrintWriter((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true)
@@ -158,6 +156,7 @@ object PelagoToEnumerableConverter {
       val executorTimer = new PelagoTimeInterval
       executorTimer.start()
 
+      stdinWriter.println("unloadall")
       stdinWriter.println("execute plan from file " + Repl.planfile)
 
       var tdataload: Long = 0

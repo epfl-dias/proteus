@@ -7,8 +7,6 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.JoinRelType;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
@@ -17,32 +15,17 @@ import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexTableInputRef;
-import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
-import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.RelBuilder;
-import org.apache.calcite.tools.RelBuilderFactory;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.NlsString;
 
 import com.google.common.collect.ImmutableList;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoDictTableScan;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRelBuilder;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRelOptTable;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoSchema;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoSchemaFactory;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoTable;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoTableFactory;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan;
-import ch.epfl.dias.emitter.PlanToJSON;
 
 import java.util.Set;
 

@@ -45,7 +45,7 @@ public interface PelagoRel extends RelNode {
                     // Do not count device crossing as extra conversion
                     if (pair.left instanceof RelDeviceType     ) continue;
 
-                    if (foundOne) return false;
+//                    if (foundOne) return false;
                     foundOne = true;
 
                     if (pair.left instanceof RelPacking        ) continue;

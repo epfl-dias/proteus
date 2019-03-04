@@ -15,6 +15,7 @@ import com.google.common.collect.ImmutableList;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoPack;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoUnpack;
 
 import java.util.Set;
@@ -45,6 +46,10 @@ public class PelagoRelMdTableReferences
   }
 
   public Set<RexTableInputRef.RelTableRef> getTableReferences(PelagoDeviceCross rel, RelMetadataQuery mq) {
+    return mq.getTableReferences(rel.getInput());
+  }
+
+  public Set<RexTableInputRef.RelTableRef> getTableReferences(PelagoRouter rel, RelMetadataQuery mq) {
     return mq.getTableReferences(rel.getInput());
   }
 }

@@ -3,7 +3,10 @@ package ch.epfl.dias.calcite.adapter.pelago;
 import ch.epfl.dias.calcite.adapter.pelago.types.PelagoTypeParser;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+
 import org.apache.calcite.DataContext;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
@@ -20,18 +23,27 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.RelReferentialConstraintImpl;
 import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.metadata.RelMdUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelProtoDataType;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexLiteral;
+import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.schema.*;
 import org.apache.calcite.schema.impl.AbstractTable;
+import org.apache.calcite.sql.SqlCharStringLiteral;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.NumberUtil;
+import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Source;
 import org.apache.calcite.util.mapping.IntPair;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +63,12 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     protected List<Map<String, ?>>      constraints ;
 
     protected Map<String, Table>        knownTables ;
+
+    protected Statistic                             stats = null;
+    protected ImmutableMap<ImmutableBitSet, Double> dCnt  = null;
+    protected ImmutableMap<ImmutableBitSet, Pair<Object, Object>> ranges  = null;
+    // This map IS mutable, it should be updated periodically
+//    protected Map<ImmutableBitSet, > dCnt  = null;
 
     private PelagoTable(Source source, RelProtoDataType protoRowType, Map<String, ?> plugin, long linehint, List<Map<String, ?>> constraints) {
         this.source         = source    ;
@@ -104,9 +122,11 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         knownTables = t;
     }
 
-    public Statistic getStatistic() {
+    protected void initStatistics() {
         double rc = linehint;
         final List<ImmutableBitSet> keys = Lists.newArrayList();
+        ImmutableMap.Builder dCntBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder rangesBuilder = ImmutableMap.builder();
 //	  final Content content = supplier.get();
 //	  for (Ord<Column> ord : Ord.zip(content.columns)) {
 //	    if (ord.e.cardinality == content.size) {
@@ -130,6 +150,29 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
                     k.set(getColumnIndex(col));
                 }
                 keys.add(k.build());
+                break;
+            }
+            case "distinct_cnt": {
+                List<String> columns = ((List<String>) c.get("columns"));
+                assert (columns.size() > 0);
+
+                ImmutableBitSet.Builder k = ImmutableBitSet.builder();
+                for (String col : columns) {
+                    k.set(getColumnIndex(col));
+                }
+                dCntBuilder.put(k.build(), ((Number) c.get("values")).doubleValue());
+                break;
+            }
+            case "range": {
+                String column = ((String) c.get("column"));
+
+                int index = getColumnIndex(column);
+                ImmutableBitSet col = ImmutableBitSet.of(index);
+
+                Object litmin = c.getOrDefault("min", null);
+                Object litmax = c.getOrDefault("max", null);
+
+                rangesBuilder.put(col, Pair.of(litmin, litmax));
                 break;
             }
             case "foreign_key": {
@@ -159,11 +202,22 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
                 );
                 break;
             }
-            default:
-                assert(false);
+            default: {
+                System.err.println("Unknown statistic: " + type);
+                break;
+            }
             }
         }
-        return Statistics.of(rc, keys, constr.build(), ImmutableList.of());
+
+        dCnt = dCntBuilder.build();
+        ranges = rangesBuilder.build();
+        stats = Statistics.of(rc, keys, constr.build(), ImmutableList.of());
+    }
+
+
+    public Statistic getStatistic() {
+        if (stats == null) initStatistics();
+        return stats;
     }
 
     /** Returns an array of integers {0, ..., n - 1}. */
@@ -241,5 +295,54 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     public RelPacking getPacking() {
         if (plugin.get("type").toString().equalsIgnoreCase("block")) return RelPacking.Packed;
         return RelPacking.UnPckd;
+    }
+
+    public Double getDistrinctValues(ImmutableBitSet cols) {
+        if (dCnt == null) initStatistics();
+        return dCnt.getOrDefault(cols, null);
+    }
+
+    public static BigInteger stringToNum(String x, int chars){
+        BigInteger ret = BigInteger.valueOf(0);
+        int len = Math.min(chars, x.length());
+        for (int i = 0 ; i < len ; ++i) ret = ret.multiply(BigInteger.valueOf(256)).add(BigInteger.valueOf(Math.min(x.charAt(i), 255)));
+
+        ret = ret.multiply(BigInteger.valueOf(256).pow(Math.max(x.length() - len, 0)));
+
+        return ret;
+    }
+
+
+
+    public static double getPercentile(String start, String end, String q){
+        if (q.compareTo(start) < 0) return 0;
+        if (q.compareTo(end  ) > 0) return 1;
+        if (end.equals(start)     ) return 1;
+
+        int len = Math.max(Math.max(start.length(), end.length()), q.length());
+
+        BigInteger max = stringToNum(end  , len);
+        BigInteger min = stringToNum(start, len);
+        BigInteger val = stringToNum(q    , len);
+
+        return (val.subtract(min)).doubleValue() / (max.subtract(min)).doubleValue();
+    }
+
+    public Double getPercentile(final ImmutableBitSet col, final RexLiteral val, final RexBuilder rexBuilder) {
+        Double dist = getDistrinctValues(col);
+        if (dist == null) return null;
+        if (val.getTypeName() == SqlTypeName.CHAR || val.getTypeName() == SqlTypeName.VARCHAR){
+            Pair r = ranges.getOrDefault(col, null);
+            if (r != null && r.left != null && r.right != null) {
+                // While currently we only support VARCHAR literals for ranges, keep the extra step through RexLiteral here to allow for easier generalization
+                RexLiteral rmin = (RexLiteral) rexBuilder.makeLiteral(r.left , val.getType(), true);
+                RexLiteral rmax = (RexLiteral) rexBuilder.makeLiteral(r.right, val.getType(), true);
+
+                String min = rmin.getValueAs(String.class);
+                String max = rmax.getValueAs(String.class);
+                return getPercentile(min, max, val.getValueAs(String.class));
+            }
+        }
+        return RelMdUtil.numDistinctVals(dist, dist * 0.5)/dist;
     }
 }

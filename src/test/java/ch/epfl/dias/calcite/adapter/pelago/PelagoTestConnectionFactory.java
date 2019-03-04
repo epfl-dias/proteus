@@ -2,6 +2,8 @@ package ch.epfl.dias.calcite.adapter.pelago;
 
 import org.apache.calcite.test.CalciteAssert;
 
+import com.google.common.collect.ImmutableList;
+
 import ch.epfl.dias.repl.Repl;
 
 import java.lang.management.ManagementFactory;

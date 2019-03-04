@@ -42,15 +42,15 @@ import org.apache.calcite.util.BuiltInMethod
 /**
   * RelNodes supply a function {@link RelNode#computeSelfCost(RelOptPlanner, RelMetadataQuery)} to compute selfCost
   */
-object PelagoRelMdSelfCost {
+object PelagoRelMdNonCumulativeCost {
   val SOURCE: RelMetadataProvider =
         ReflectiveRelMetadataProvider.reflectiveSource(
           BuiltInMethod.NON_CUMULATIVE_COST.method,
-          new PelagoRelMdSelfCost
+          new PelagoRelMdNonCumulativeCost
         )
 }
 
-class PelagoRelMdSelfCost protected() extends MetadataHandler[BuiltInMetadata.NonCumulativeCost] {
+class PelagoRelMdNonCumulativeCost protected() extends MetadataHandler[BuiltInMetadata.NonCumulativeCost] {
   override def getDef: MetadataDef[BuiltInMetadata.NonCumulativeCost] = BuiltInMetadata.NonCumulativeCost.DEF
 
   /** Fallback method to deduce selfCost for any relational expression not

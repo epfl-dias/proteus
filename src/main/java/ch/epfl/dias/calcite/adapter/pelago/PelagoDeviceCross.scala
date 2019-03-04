@@ -53,7 +53,8 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
     planner.getCostFactory.makeCost(rowCount, rowCount * bytesPerRow * 10240, 0).multiplyBy(
-      if (traitSet.containsIfApplicable(RelPacking.UnPckd) && (getDeviceType eq RelDeviceType.NVPTX)) 1e10
+      if (traitSet.containsIfApplicable(RelPacking.UnPckd) && (getDeviceType eq RelDeviceType.NVPTX)) return planner.getCostFactory.makeHugeCost()
+      else if (traitSet.containsIfApplicable(RelPacking.UnPckd)) 1e8
       else 1
     )
 

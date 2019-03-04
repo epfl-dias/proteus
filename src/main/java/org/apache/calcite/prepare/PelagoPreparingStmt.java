@@ -145,8 +145,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             RelTraitSet requiredOutputTraits,
             List<RelOptMaterialization> materializations,
             List<RelOptLattice> lattices) {
-            System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.ALL_ATTRIBUTES));
-
+            System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES));
             return rel;
         }
     }
@@ -233,15 +232,15 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 
         hetRuleBuilder.add(AbstractConverter.ExpandConversionRule.INSTANCE);
 
-        return Programs.sequence(timedSequence("Calcite time: ",
+        return Programs.sequence(timedSequence("Optimization time: ",
                 Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
                 new DecorrelateProgram(),
                 new TrimFieldsProgram(),
-                new PelagoProgram(),
+//                new PelagoProgram(),
                 new DeLikeProgram(),
-                new PelagoProgram(),
+//                new PelagoProgram(),
                 Programs.heuristicJoinOrder(planner.getRules(), false, 2),
-                new PelagoProgram(),
+//                new PelagoProgram(),
                 Programs.ofRules(hetRuleBuilder.build()),
                 new PelagoProgram()
                 ));

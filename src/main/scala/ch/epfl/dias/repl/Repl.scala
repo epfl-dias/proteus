@@ -50,6 +50,8 @@ object Repl extends App {
         nextOption(map ++ Map('port -> value.toInt), tail)
       case "--cpuonly" :: value :: tail =>
         nextOption(map ++ Map('cpuonly -> true), tail)
+      case "--onlyinit" :: value :: tail =>
+        nextOption(map ++ Map('onlyinit -> true), tail)
       case "--timings-csv" :: value :: tail =>
         nextOption(map ++ Map('timingscsv -> true), tail)
       case "--mockfile" :: value :: tail =>
@@ -70,7 +72,9 @@ object Repl extends App {
     }
   }
 
-  val topology = Process("./proteusmain-server --query-topology").!!
+  var executor_server = "./proteusmain-server"
+
+  val topology = Process(executor_server + " --query-topology").!!
   val gpudop_regex = """gpu  count: (\d+)""".r.unanchored
   val detected_gpudop = topology match {
     case gpudop_regex(g) => g.toInt
@@ -88,7 +92,8 @@ object Repl extends App {
                                 'server -> false, 'port -> 8081, 'cpudop -> detected_cpudop, 'gpudop -> detected_gpudop,
                                 'echoResults -> false, 'mock -> false, 'timings -> true, 'timingscsv -> false,
                                 'mockfile -> defaultMock,
-                                'cpuonly -> (detected_gpudop <= 0), 'planfile -> "plan.json", 'schema -> defaultSchema
+                                'cpuonly -> (detected_gpudop <= 0), 'planfile -> "plan.json", 'schema -> defaultSchema,
+                                'onlyinit -> false
                               ), arglist)
 
   System.out.println(options);
@@ -141,7 +146,9 @@ object Repl extends App {
   //TODO Not the cleanest way to provide this path, but sbt crashes otherwise. Incompatible with assembly jar
   val schemaPath: String = options.get('schema).get.asInstanceOf[String]
 
-  if (options.get('server).get.asInstanceOf[Boolean]) {
+  if (options.get('onlyinit).get.asInstanceOf[Boolean]) {
+    // Done, return from object initialization
+  } else if (options.get('server).get.asInstanceOf[Boolean]) {
     val meta = new JdbcMeta("jdbc:pelago:model=" + schemaPath)
     val service = new LocalService(meta)
     val server = new HttpServer.Builder().withHandler(service, Serialization.PROTOBUF).withPort(options.get('port).get.asInstanceOf[Int]).build();

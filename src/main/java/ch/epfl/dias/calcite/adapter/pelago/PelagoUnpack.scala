@@ -60,7 +60,7 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
       if (!getTraitSet.containsIfApplicable(RelHetDistribution.SINGLETON)) {
         1
       } else {
-        1e12
+        1e2
 //        return planner.getCostFactory.makeHugeCost()
       }
     }

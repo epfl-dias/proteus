@@ -137,9 +137,9 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
       //FIXME: reconsider these upper limits
       val rowEst = Math.min(getCluster.getMetadataQuery.getRowCount(getInput), 1*1024*1024) //1 vs 128 vs 64
       val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getInput)
-      val maxEst = if (maxrow != null) Math.min(maxrow, 32*1024*1024) else 32*1024*1024 //1 vs 128 vs 64
+      val maxEst = 131072 //if (maxrow != null) Math.min(maxrow, 32*1024*1024) else 32*1024*1024 //1 vs 128 vs 64
 
-      val hash_bits = Math.min(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 15)
+      val hash_bits = 10 //Math.min(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 10)
 
       val json = op ~
         ("gpu"          , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~

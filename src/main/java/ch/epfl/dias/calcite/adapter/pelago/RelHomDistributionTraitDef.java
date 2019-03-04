@@ -31,7 +31,7 @@ public class RelHomDistributionTraitDef extends RelTraitDef<RelHomDistribution> 
     RelTraitSet traitSet = rel.getTraitSet().replace(distribution);
     RelNode input = rel;
     if (!rel.getTraitSet().equals(inptraitSet)) {
-      input = planner.register(planner.changeTraits(rel, inptraitSet), rel);
+//      input = planner.register(planner.changeTraits(rel, inptraitSet), rel);
       return null;
     }
 

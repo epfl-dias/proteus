@@ -31,7 +31,7 @@ public class PelagoPushRouterDown extends RelOptRule {
 //    new PelagoPushRouterDown(PelagoUnnest.class), //We only have a CPU-unnest for now
     PelagoPushRouterBelowJoin.INSTANCE,
 //    PelagoPushRouterBelowAggregate.INSTANCE, //NoPartial
-    PelagoPushRouterBelowAggregateNoPartial.INSTANCE, //NoPartial
+    PelagoPushRouterBelowAggregate.INSTANCE, //NoPartial
   };
 
 //  private final Class op;

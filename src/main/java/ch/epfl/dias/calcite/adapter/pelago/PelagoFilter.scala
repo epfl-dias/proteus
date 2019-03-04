@@ -23,14 +23,14 @@ class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
   }
 
   override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-    var rf = if (getTraitSet.containsIfApplicable(RelHetDistribution.SINGLETON)) 1e8 else 1
+    var rf = if (getTraitSet.containsIfApplicable(RelHetDistribution.SINGLETON)) 1e0 else 1
 //    val rf = 1
     if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
       if (getTraitSet.containsIfApplicable(RelHomDistribution.SINGLE)) rf = 1e10//return planner.getCostFactory.makeInfiniteCost()
-      super.computeSelfCost(planner, mq).multiplyBy(0.001 * rf)
+      super.computeSelfCost(planner, mq).multiplyBy(0.001 * rf * 1e5)
     } else {
       if (getTraitSet.containsIfApplicable(RelHomDistribution.SINGLE)) rf = 1e10
-      super.computeSelfCost(planner, mq).multiplyBy(10 * rf)
+      super.computeSelfCost(planner, mq).multiplyBy(10 * rf * 1e5)
     }
   }
 

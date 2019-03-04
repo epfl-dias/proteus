@@ -105,7 +105,21 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     planner.getCostFactory.makeCost(rowCount * rf2 * rf, rc1 * 10000 * rf * rf2, 0)
   }
 
-  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("build", left.getRowType.toString).item("lcount", Util.nLogN(getCluster.getMetadataQuery.getRowCount(getLeft) * left.getRowType.getFieldCount)).item("rcount", getCluster.getMetadataQuery.getRowCount(getRight)).item("buildcountrow", getCluster.getMetadataQuery.getRowCount(getLeft)).item("probecountrow", getCluster.getMetadataQuery.getRowCount(getRight))
+  override def explainTerms(pw: RelWriter): RelWriter = {
+    val rowEst = getCluster.getMetadataQuery.getRowCount(getLeft)
+    val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getLeft  )
+    val maxEst = if (maxrow != null) Math.min(maxrow, 64*1024*1024) else 64*1024*1024
+
+    val hash_bits = Math.min(2 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 28)
+    super.explainTerms(pw)
+      //.item("trait", getTraitSet.toString)
+      .item("rowcnt", rowEst)
+      .item("maxrow", maxrow)
+      .item("maxEst", maxEst)
+      .item("h_bits", hash_bits)
+      .item("build", left.getRowType.toString)
+      .item("lcount", Util.nLogN(getCluster.getMetadataQuery.getRowCount(getLeft) * left.getRowType.getFieldCount)).item("rcount", getCluster.getMetadataQuery.getRowCount(getRight)).item("buildcountrow", getCluster.getMetadataQuery.getRowCount(getLeft)).item("probecountrow", getCluster.getMetadataQuery.getRowCount(getRight))
+  }
 
 //  override def estimateRowCount(mq: RelMetadataQuery): Double = mq.getRowCount(getRight) * mq.getPercentageOriginalRows(getLeft);//Math.max(mq.getRowCount(getLeft), mq.getRowCount(getRight))
 
@@ -232,7 +246,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getLeft  )
     val maxEst = if (maxrow != null) Math.min(maxrow, 64*1024*1024) else 64*1024*1024
 
-    val hash_bits = Math.min(2 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 23)
+    val hash_bits = Math.min(2 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 28)
 
     val json = op ~
 //      ("tupleType"        , rowType     ) ~
