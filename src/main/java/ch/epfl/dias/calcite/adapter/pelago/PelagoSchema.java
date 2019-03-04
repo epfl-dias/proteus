@@ -61,23 +61,20 @@ public class PelagoSchema extends AbstractSchema {
       Map<String, ?> fileEntry = (Map<String, ?>) description.get("type");
       String fileType = (String) fileEntry.getOrDefault("type", null);
       if (!fileType.equals("bag")) {
-        System.err.println("Error in catalog: relation type is expected to be \"bag\", but \"" + fileType + "\" found");
-        System.out.println("Ignoring table: " + e.getKey());
+        System.err.println("Error in catalog: relation type is expected to be \"bag\", but \"" + fileType + "\" found. Ignoring table: " + e.getKey());
         continue;
       }
       Map<String, ?> lineType = (Map<String, ?>) fileEntry.getOrDefault("inner", null);
       if (lineType != null && !lineType.getOrDefault("type", null).equals("record")) lineType = null;
       if (lineType == null) {
-        System.err.println("Error in catalog: \"bag\" expected to contain records");
-        System.out.println("Ignoring table: " + e.getKey());
+        System.err.println("Error in catalog: \"bag\" expected to contain records. Ignoring table: " + e.getKey());
         continue;
       }
       Source source = Sources.of(new File((String) description.get("path")));
 
       Map<String, ?> plugin = (Map<String, ?>) description.getOrDefault("plugin", null);
       if (plugin == null) {
-        System.err.println("Error in catalog: plugin information not found for table");
-        System.out.println("Ignoring table: " + e.getKey());
+        System.err.println("Error in catalog: plugin information not found for table. Ignoring table: " + e.getKey());
         continue;
       }
 
@@ -89,8 +86,8 @@ public class PelagoSchema extends AbstractSchema {
 //        System.out.println("Table: " + e.getKey());
         builder.put(e.getKey(), table); //.toUpperCase(Locale.getDefault())
       } catch (MalformedPlugin malformedPlugin) {
-        System.out.println("Error in catalog: " + malformedPlugin.getMessage  ());
-        System.out.println("Ignoring table  : " + malformedPlugin.getTableName());
+        System.err.println("Error in catalog: " + malformedPlugin.getMessage  ());
+        System.err.println("Ignoring table  : " + malformedPlugin.getTableName());
         continue;
       }
     }
