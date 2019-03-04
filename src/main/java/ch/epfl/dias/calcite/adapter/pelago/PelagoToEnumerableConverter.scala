@@ -71,6 +71,23 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
   override def implement(implementor: EnumerableRelImplementor, pref: EnumerableRel.Prefer): EnumerableRel.Result = {
     val mock = Repl.isMockRun //TODO: change!!!
 
+    def visit(node: RelNode): Set[String] = {
+      if (node.isInstanceOf[PelagoDictTableScan]) {
+        return Set() // Otherwise the reduce above has a problem
+        // The actual column will be scanned on the other side
+      } else if (node.isInstanceOf[PelagoTableScan]){
+        val scan = node.asInstanceOf[PelagoTableScan]
+        if (scan.pelagoTable.getLineHint <= 1024*1024*1024/8) return Set()
+        val relName = scan.pelagoTable.getPelagoRelName
+        // FIXME: Should ask the plugin for the list of files
+        scan.getRowType.getFieldNames.asScala.map(e => relName + "." + e).toSet
+      } else {
+        node.getInputs.asScala.map(e => visit(e)).reduce((a, b) => a ++ b)
+      }
+    }
+
+    PelagoToEnumerableConverter.files = visit(getInput)
+
     val planTimer = new PelagoTimeInterval
     planTimer.start()
 
@@ -123,9 +140,11 @@ object PelagoToEnumerableConverter {
     new PelagoToEnumerableConverter(input.getCluster, traitSet, input)
   }
 
-  //    private static RelProtoDataType rproto;
-  private var pt      : PelagoResultTable = null
-  private var rowType : RelDataType       = null
+  // FIXME: This variables may be unsafe, what happens with prepared statements?
+  private var pt          : PelagoResultTable = null
+  private var rowType     : RelDataType       = null
+  private var files       : Set[String]       = null
+  private var loadedfiles : Set[String]       = null
 
   var builder = if(Repl.isMockRun) null else new ProcessBuilder(Repl.executor_server)
   var process = if(Repl.isMockRun || builder == null) null else builder.start()
@@ -144,6 +163,7 @@ object PelagoToEnumerableConverter {
       if (process == null || !process.isAlive){
         builder = new ProcessBuilder(Repl.executor_server)
         process = builder.start()
+        loadedfiles = null
 
         stdinWriter  = new java.io.PrintWriter((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true)
         stdoutReader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))
@@ -156,7 +176,11 @@ object PelagoToEnumerableConverter {
       val executorTimer = new PelagoTimeInterval
       executorTimer.start()
 
-      stdinWriter.println("unloadall")
+      // If current files are a subset of loaded files, do not unload!
+      if (loadedfiles == null || files == null || !files.subsetOf(loadedfiles)) {
+        stdinWriter.println("unloadall")
+        loadedfiles = files
+      }
       stdinWriter.println("execute plan from file " + Repl.planfile)
 
       var tdataload: Long = 0
