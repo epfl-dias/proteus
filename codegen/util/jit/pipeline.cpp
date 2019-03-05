@@ -42,9 +42,9 @@ size_t PipelineGen::appendParameter(llvm::Type *ptype, bool noalias,
 }
 
 size_t PipelineGen::appendStateVar(llvm::Type *ptype) {
-  return appendStateVar(ptype,
-                        [ptype](Value *) { return UndefValue::get(ptype); },
-                        [](Value *, Value *) {});
+  return appendStateVar(
+      ptype, [ptype](Value *) { return UndefValue::get(ptype); },
+      [](Value *, Value *) {});
 }
 
 size_t PipelineGen::appendStateVar(llvm::Type *ptype,

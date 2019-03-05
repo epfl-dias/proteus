@@ -75,16 +75,16 @@ GpuPipelineGen::GpuPipelineGen(Context *context, std::string pipName,
         return getBuilder()->CreateCall(f, pip);
       },
       [=](Value *, Value *) {});
-  strm_id =
-      appendStateVar(charPtrType,
-                     [=](Value *) {
-                       Function *f = this->getFunction("createCudaStream");
-                       return getBuilder()->CreateCall(f);
-                     },
-                     [=](Value *, Value *strm) {
-                       Function *f = this->getFunction("destroyCudaStream");
-                       getBuilder()->CreateCall(f, strm);
-                     });
+  strm_id = appendStateVar(
+      charPtrType,
+      [=](Value *) {
+        Function *f = this->getFunction("createCudaStream");
+        return getBuilder()->CreateCall(f);
+      },
+      [=](Value *, Value *strm) {
+        Function *f = this->getFunction("destroyCudaStream");
+        getBuilder()->CreateCall(f, strm);
+      });
 
   registerFunction(
       "atomicAdd_double",
