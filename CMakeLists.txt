@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.10.2)
 
 # Set LLVM suffix for systems with multiple LLVM installed to request
 # a specific version using -DLLVM_VERSION_SUFFIX=7
