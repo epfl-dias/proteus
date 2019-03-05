@@ -81,6 +81,9 @@ std::ostream &operator<<(std::ostream &out, const cpu_set_t &cpus) {
   return out;
 }
 
+// Disable by default, as, active, it does not guarantee NUMA locality!
+bool allow_readwrite = false;
+
 mmap_file::mmap_file(std::string name, data_loc loc)
     : mmap_file(name, loc, ::getFileSize(name.c_str()), 0) {}
 
@@ -93,7 +96,9 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
 
   size_t real_filesize = ::getFileSize(name.c_str());
   assert(offset + filesize <= real_filesize);
-  fd = open(name.c_str(), O_RDWR, 0);
+
+  fd = -1;
+  if (allow_readwrite) fd = open(name.c_str(), O_RDWR, 0);
 
   if (fd == -1) {
     fd = open(name.c_str(), O_RDONLY, 0);
