@@ -228,7 +228,7 @@ def prepare_attr(relName, attrName, attrIndex, type, relPathName, delim="'|'"):
             "values": int(line_cnt),
             "type": "distinct_cnt"
         })
-        encode_cmd = r"""awk -F: 'FNR==NR {dict[$1]=$2; next} {$1=($1 in dict) ? dict[$1] : $1}1' """ + columnFileDict + r""" """ + columnFileTxt + r""" | perl -pe '$_=pack"l",$_' > """ + columnFileBin
+       	parse_cmd = r"""awk -F: 'FNR==NR {dict[$1]=$2; next} {$1=($1 in dict) ? dict[$1] : $1}1' """ + columnFileDict + r""" """ + columnFileTxt + r""" | perl -pe '$_=pack"l",$_' > """ + columnFileBin
         run(parse_cmd)
         clean_up(columnFileTxt)
         pelago_type = "dstring"
@@ -343,7 +343,7 @@ if __name__ == '__main__':
     schemaName = args.schema_name
     
     namespace  = ddl[args.ddl]
-    do_execute = args.dry_run
+    do_execute = not args.dry_run
     
     catalog    = {}
     # delim      = r"""$'\t'"""

@@ -1288,7 +1288,7 @@
                           "input" : {
                             "operator" : "hashjoin-chained",
                             "hash_bits" : 26,
-                            "maxBuildInputSize" : 90000000,
+                            "maxBuildInputSize" : 80000000,
                             "gpu" : true,
                             "build_k" : {
                               "expression" : "recordConstruction",

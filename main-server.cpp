@@ -268,8 +268,9 @@ int main(int argc, char *argv[]) {
   }
   size_t cpu_buffers = 1024;
   size_t gpu_buffers = 512;
-  if (argc >= 3 && strcmp(argv[1], "--cpu-buffers") == 0) {
-    cpu_buffers = std::atol(argv[2]);
+  if (argc >= 2 && strcmp(argv[1], "--inc-buffers") == 0) {
+    cpu_buffers = 16 * 1024;
+    gpu_buffers = 1024;
   }
 
   // Initialize Google's logging library.
