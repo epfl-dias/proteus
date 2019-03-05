@@ -22,7 +22,6 @@
 */
 
 #include "operators/dict-scan.hpp"
-#include "llvm/IR/TypeBuilder.h"
 #include "storage/storage-manager.hpp"
 
 #include <regex>
