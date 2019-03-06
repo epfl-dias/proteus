@@ -211,7 +211,16 @@ if(CUDA_FOUND)
 	# Create arguments for nvcc and clang
 	string(REGEX REPLACE " " [[;]] CUDA_CU_ARCHS_readable "${CUDA_CU_ARCHS_readable}")
 	foreach(line ${CUDA_CU_ARCHS_readable})
-		list(APPEND CUDA_CXX_ARCHS "--cuda-gpu-arch=${line}")
+		# Clang always includes PTX in the generated library for forward compatibility.
+		# On the other hand, in nvcc it's optional.
+		# So, if CUDA_CU_ARCHS contains a directive to include the PTX we should ignore it,
+		# otherwise, clang complains.
+		# DO NOT remove them from nvcc's flags!
+
+		# Architecture names that start with "compute_" are nvcc directives to generate PTX
+		if (NOT ${line} MATCHES "compute_*")
+			list(APPEND CUDA_CXX_ARCHS "--cuda-gpu-arch=${line}")
+		endif()
 	endforeach(line)
 
 	# C++ & CUDA hybrid files
