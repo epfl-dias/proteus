@@ -166,58 +166,6 @@ class buffer_manager {
   }
 #endif
 
-  //     static __host__ __device__ void release_buffer(buffer_t * buff){
-  // #ifdef __CUDA_ARCH__
-  //         release_buffer(buff, 0);
-  // #else
-  //         cudaStream_t strm = 0;
-  //         int dev = get_device(buff);
-  //         if (dev >= 0){
-  //             set_device_on_score d(dev);
-
-  //             gpu_run(cudaStreamCreateWithFlags(&strm,
-  //             cudaStreamNonBlocking));
-  //         }
-  //         release_buffer(buff, strm);
-  //         if (dev >= 0) gpu_run(cudaStreamDestroy(strm));
-  // #endif
-  //     }
-
-  // static __device__ inline bool acquire_buffer_blocked_to(buffer_t** volatile
-  // ret, buffer_t** replaced){
-  //     assert(__ballot(1) == 1);
-  //     buffer_t * outbuff = *ret;
-  //     if (replaced) *replaced = NULL;
-  //     while (!outbuff->may_write()){
-  //         buffer_t * tmp;
-  //         if (pool->try_pop(&tmp)){ //NOTE: we can not get the current buffer
-  //         as answer, as it is not released yet
-  //             // assert(tmp->cnt == 0);
-  //             tmp->clean();
-  //             __threadfence();
-  //             // if (tmp == outbuff) {
-  //             //     if (*ret != outbuff) release_buffer(tmp);
-  //             //     // else assert(false);
-  //             //     // assert(*ret != outbuff); //FIXME: Should hold! but
-  //             does not!!!
-  //             //     // release_buffer(tmp);
-  //             // } else {
-  //                 // assert(tmp != outbuff); //NOTE: we can... it may have
-  //                 been released buffer_t * oldb = atomicCAS(ret, outbuff,
-  //                 tmp); //FIXME: ABA problem if (oldb != outbuff)
-  //                 release_buffer(tmp); else                {
-  //                     // atomicSub((uint32_t *) &available_buffers, 1);
-  //                     if (replaced) *replaced = outbuff;
-  //                     return true;
-  //                 }
-  //             // }
-  //         } //else if (!producers && !available_buffers) return false;
-  //         outbuff = *ret;
-  //     }
-
-  static __host__ void overwrite(T *buff, const T *data, uint32_t N,
-                                 cudaStream_t strm, bool blocking = true);
-
   static __host__ void overwrite_bytes(void *buff, const void *data,
                                        size_t bytes, cudaStream_t strm,
                                        bool blocking = true);

@@ -698,27 +698,20 @@ __host__ inline T *buffer_manager<T>::h_get_buffer(int dev) {
 }
 
 template <typename T>
-__host__ void buffer_manager<T>::overwrite(T *buff, const T *data, uint32_t N,
-                                           cudaStream_t strm, bool blocking) {
-#ifndef NCUDA
-  gpu_run(cudaMemcpyAsync(buff, data, N * sizeof(T), cudaMemcpyDefault, strm));
-  if (blocking) gpu_run(cudaStreamSynchronize(strm));
-#else
-  memcpy(buff, data, N * sizeof(T));
-#endif
-}
-
-template <typename T>
 __host__ void buffer_manager<T>::overwrite_bytes(void *buff, const void *data,
                                                  size_t bytes,
                                                  cudaStream_t strm,
                                                  bool blocking) {
 #ifndef NCUDA
-  gpu_run(cudaMemcpyAsync(buff, data, bytes, cudaMemcpyDefault, strm));
-  if (blocking) gpu_run(cudaStreamSynchronize(strm));
-#else
-  memcpy(buff, data, bytes);
+  if (topology::getInstance().getGpuCount() > 0) {
+    gpu_run(cudaMemcpyAsync(buff, data, bytes, cudaMemcpyDefault, strm));
+    if (blocking) gpu_run(cudaStreamSynchronize(strm));
+    return;
+  }
 #endif
+  // We have to wait here! As otherwise memcpy will be executed immediately!
+  gpu_run(cudaStreamSynchronize(strm));
+  memcpy(buff, data, bytes);
 }
 
 template class buffer_manager<int32_t>;
