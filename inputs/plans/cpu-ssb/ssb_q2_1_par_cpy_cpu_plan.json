@@ -1122,7 +1122,9 @@
                                                         ]
                                                     }
                                                 ], 
-                                                "operator": "exchange", 
+                                                "operator": "exchange",
+                                                "to_cpu": true,
+                                                "cpu_targets": true,
                                                 "slack": 16, 
                                                 "partitioning": {
                                                     "attrName": "partition_hash_join5085", 
@@ -1641,7 +1643,9 @@
                                                                                     "relName": "inputs/ssbm100/lineorder.csv"
                                                                                 }
                                                                             ], 
-                                                                            "operator": "exchange", 
+                                                                            "operator": "exchange",
+                                                                            "to_cpu": true,
+                                                                            "cpu_targets": true,
                                                                             "slack": 2, 
                                                                             "partitioning": {
                                                                                 "attrName": "lo_revenue", 
@@ -2017,6 +2021,7 @@
                                                                             ], 
                                                                             "operator": "exchange", 
                                                                             "to_cpu": true, 
+                                                                            "cpu_targets": true, 
                                                                             "slack": 8, 
                                                                             "partitioning": {
                                                                                 "attrName": "d_datekey", 
@@ -2362,6 +2367,7 @@
                                                                         ], 
                                                                         "operator": "exchange", 
                                                                         "to_cpu": true, 
+                                                                        "cpu_targets": true, 
                                                                         "slack": 8, 
                                                                         "partitioning": {
                                                                             "attrName": "s_suppkey", 
@@ -2603,7 +2609,9 @@
                                                                                                         "relName": "inputs/ssbm100/supplier.csv"
                                                                                                     }
                                                                                                 ], 
-                                                                                                "operator": "exchange", 
+                                                                                                "operator": "exchange",
+                                                                                                "to_cpu": true,
+                                                                                                "cpu_targets": true,
                                                                                                 "input": {
                                                                                                     "partitioning": [], 
                                                                                                     "plugin": {
@@ -2986,6 +2994,7 @@
                                                                     ], 
                                                                     "operator": "exchange", 
                                                                     "to_cpu": true, 
+                                                                    "cpu_targets": true, 
                                                                     "slack": 8, 
                                                                     "partitioning": {
                                                                         "attrName": "record_p_partkey_p_brand1", 
@@ -3330,7 +3339,9 @@
                                                                                                     "relName": "inputs/ssbm100/part.csv"
                                                                                                 }
                                                                                             ], 
-                                                                                            "operator": "exchange", 
+                                                                                            "operator": "exchange",
+                                                                                            "to_cpu": true,
+                                                                                            "cpu_targets": true,
                                                                                             "input": {
                                                                                                 "partitioning": [], 
                                                                                                 "plugin": {
@@ -3555,7 +3566,9 @@
                                 }, 
                                 "dop": 24
                             }, 
-                            "operator": "exchange", 
+                            "operator": "exchange",
+                            "to_cpu": true,
+                            "cpu_targets": true,
                             "numa_local": false, 
                             "partitioning": {
                                 "attrName": "record_d_year_p_brand1_EXPR$0", 

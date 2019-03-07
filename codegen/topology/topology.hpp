@@ -161,6 +161,7 @@ class topology {
   template <typename T>
   const gpunode *getGpuAddressed(const T *p) const {
 #ifndef NCUDA
+    if (getGpuCount() == 0) return NULL;
     cudaPointerAttributes attrs;
     cudaError_t error = cudaPointerGetAttributes(&attrs, p);
     if (error == cudaErrorInvalidValue) return NULL;

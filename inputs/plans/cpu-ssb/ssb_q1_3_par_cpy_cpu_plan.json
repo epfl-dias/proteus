@@ -688,7 +688,9 @@
                                                 "relName": "inputs/ssbm100/lineorder.csv"
                                             }
                                         ], 
-                                        "operator": "exchange", 
+                                        "operator": "exchange",
+                                        "to_cpu": true,
+                                        "cpu_targets": true,
                                         "input": {
                                             "partitioning": [], 
                                             "plugin": {
@@ -935,6 +937,7 @@
                                 ], 
                                 "operator": "exchange", 
                                 "to_cpu": true, 
+                                "cpu_targets": true, 
                                 "slack": 8, 
                                 "partitioning": {
                                     "attrName": "d_datekey", 
@@ -1312,7 +1315,9 @@
                                                                     "relName": "inputs/ssbm100/date.csv"
                                                                 }
                                                             ], 
-                                                            "operator": "exchange", 
+                                                            "operator": "exchange",
+                                                            "to_cpu": true,
+                                                            "cpu_targets": true,
                                                             "input": {
                                                                 "partitioning": [], 
                                                                 "plugin": {
@@ -1435,7 +1440,9 @@
                 }, 
                 "dop": 24
             }, 
-            "operator": "exchange", 
+            "operator": "exchange",
+            "to_cpu": true,
+            "cpu_targets": true,
             "numa_local": false, 
             "partitioning": {
                 "attrName": "revenue", 

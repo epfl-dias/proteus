@@ -82,6 +82,8 @@ class Exchange : public UnaryOperator {
         target_processors.emplace_back(vec[i % vec.size()]);
       }
     } else {
+      assert(topology::getInstance().getGpuCount() > 0 &&
+             "Are you using an outdated plan?");
       const auto &vec = topology::getInstance().getGpus();
 
       for (int i = 0; i < numOfParents; ++i) {

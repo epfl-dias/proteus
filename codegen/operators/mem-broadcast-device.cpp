@@ -71,11 +71,12 @@ buff_pair_brdcst make_mem_move_broadcast_device(
                                                mmc->strm[target_device], false);
 
     return buff_pair_brdcst{buff, src};
-  } else {
+  } else { /* CPU targets! */
+    const auto &cpus = topo.getCpuNumaNodes();
     const auto &gpus = topo.getGpus();
-    uint32_t numa_id = gpus[target_device % gpus.size()].local_cpu;
+    const auto &numa = cpus[target_device % cpus.size()];
     if (topo.getGpuAddressed(src)) {
-      char *buff = (char *)buffer_manager<int32_t>::get_buffer_numa(numa_id);
+      char *buff = (char *)buffer_manager<int32_t>::get_buffer_numa(numa);
       assert(target_device >= 0);
       if (bytes > 0)
         buffer_manager<int32_t>::overwrite_bytes(
@@ -83,36 +84,35 @@ buff_pair_brdcst make_mem_move_broadcast_device(
 
       return buff_pair_brdcst{buff, src};
     } else {
-      int node = topo.getCpuNumaNodeAddressed(src)->id;
+      int node_index = topo.getCpuNumaNodeAddressed(src)->index_in_topo;
 
-      int target_node = mmc->always_share ? 0 : numa_id;
-      if (mmc->always_share || node == target_node) {
+      int target_node_index = mmc->always_share ? 0 : numa.index_in_topo;
+      if (mmc->always_share || node_index == target_node_index) {
         if (!disable_noop) {
-          mmc->targetbuffer[target_node] = src;
+          mmc->targetbuffer[target_node_index] = src;
           return buff_pair_brdcst{src, NULL};
         }
         if (buffer_manager<int32_t>::share_host_buffer((int32_t *)src)) {
-          mmc->targetbuffer[target_node] = src;
+          mmc->targetbuffer[target_node_index] = src;
           return buff_pair_brdcst{src, src};
         }
       } else {
-        char *dst = (char *)mmc->targetbuffer[target_node];
+        char *dst = (char *)mmc->targetbuffer[target_node_index];
         if (dst) {
           if (buffer_manager<int32_t>::share_host_buffer((int32_t *)dst)) {
-            mmc->targetbuffer[target_node] = dst;
+            mmc->targetbuffer[target_node_index] = dst;
             return buff_pair_brdcst{dst, dst};
           }
         }
       }
 
-      char *buff =
-          (char *)buffer_manager<int32_t>::get_buffer_numa(target_node);
+      char *buff = (char *)buffer_manager<int32_t>::get_buffer_numa(numa);
       assert(target_device >= 0);
       if (bytes > 0)
         buffer_manager<int32_t>::overwrite_bytes(
             buff, src, bytes, mmc->strm[target_device], false);
 
-      mmc->targetbuffer[target_node] = buff;
+      mmc->targetbuffer[target_node_index] = buff;
       return buff_pair_brdcst{buff, src};
     }
   }
