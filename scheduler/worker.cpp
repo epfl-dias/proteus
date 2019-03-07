@@ -93,7 +93,7 @@ void Worker::run() {
   }
 }
 
-void WorkerPool::print_worker_stats() {
+void WorkerPool::print_worker_stats(bool global_only) {
   std::cout << "------------ WORKER STATS ------------" << std::endl;
   double tps = 0;
   double num_commits = 0;
@@ -101,21 +101,23 @@ void WorkerPool::print_worker_stats() {
   double num_txns = 0;
   for (auto it = workers.begin(); it != workers.end(); ++it) {
     // std::cout << " " << it->first << ":" << it->second;
-    std::cout << "Worker-" << (int)(it->second.second->id)
-              << "(core_id: " << it->second.second->exec_core->id << ")"
-              << std::endl;
     Worker* tmp = it->second.second;
-    std::cout << "\t# of txns\t" << (tmp->num_txns / 1000000.0) << " M"
-              << std::endl;
-    std::cout << "\t# of commits\t" << (tmp->num_commits / 1000000.0) << " M"
-              << std::endl;
-    std::cout << "\t# of aborts\t" << (tmp->num_aborts / 1000000.0) << " M"
-              << std::endl;
-
     std::chrono::duration<double> diff =
         std::chrono::system_clock::now() - tmp->txn_start_time;
-    std::cout << "\tTPS\t\t" << (tmp->num_txns / 1000000.0) / diff.count()
-              << " mTPS" << std::endl;
+
+    if (!global_only) {
+      std::cout << "Worker-" << (int)(tmp->id)
+                << "(core_id: " << tmp->exec_core->id << ")" << std::endl;
+      std::cout << "\t# of txns\t" << (tmp->num_txns / 1000000.0) << " M"
+                << std::endl;
+      std::cout << "\t# of commits\t" << (tmp->num_commits / 1000000.0) << " M"
+                << std::endl;
+      std::cout << "\t# of aborts\t" << (tmp->num_aborts / 1000000.0) << " M"
+                << std::endl;
+      std::cout << "\tTPS\t\t" << (tmp->num_txns / 1000000.0) / diff.count()
+                << " mTPS" << std::endl;
+    }
+
     tps += (tmp->num_txns / 1000000.0) / diff.count();
     num_commits += (tmp->num_commits / 1000000.0);
     num_aborts += (tmp->num_aborts / 1000000.0);

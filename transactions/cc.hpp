@@ -25,6 +25,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <mutex>
 #include <vector>
 #include "transactions/txn_utils.hpp"
+#include "utils/spinlock.h"
 
 /*
 GC Notes:
@@ -45,6 +46,7 @@ class CC_GlobalLock {
   struct PRIMARY_INDEX_VAL {
     uint64_t VID;
     short last_master_ver;
+    lock::Spinlock latch;
     PRIMARY_INDEX_VAL(uint64_t vid) : VID(vid), last_master_ver(0) {}
     PRIMARY_INDEX_VAL(uint64_t vid, short master_ver)
         : VID(vid), last_master_ver(master_ver) {}
@@ -74,7 +76,8 @@ class CC_MV2PL {
     std::atomic<bool> write_lck;
     // std::atomic<int> read_cnt;
     short last_master_ver;
-    // some ptr to list of versions
+    lock::Spinlock latch;
+    // std::mutex latch;
 
     PRIMARY_INDEX_VAL();
     PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid, short master_ver)
@@ -122,29 +125,45 @@ struct VERSION {
 
 struct VERSION_LIST {
   VERSION *head;
-  // uint num_ver;
+  // std::atomic<VERSION *> head;
+  // std::mutex m;
 
-  VERSION_LIST() {
-    head = nullptr;
-    // num_ver = 0;
-  }
+  VERSION_LIST() { head = nullptr; }
 
   void insert(VERSION *val) {
-    val->next = head;
-    head = val;
-    // num_ver++;
+    {
+      // std::unique_lock<std::mutex> lock(this->m);
+      val->next = head;
+      // if (!head.compare_exchange_strong(val->next, val)) {
+      //  std::cout << "FUCKKKKKK" << std::endl;
+      //}
+      head = val;
+    }
   }
 
   void *get_readable_ver(uint64_t tid_self) {
-    VERSION *tmp = head;
-    while (tmp != nullptr) {
-      if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
-        return tmp;
-      } else {
-        tmp = tmp->next;
+    VERSION *tmp = nullptr;
+    {
+      // std::unique_lock<std::mutex> lock(this->m);
+      tmp = head;
+
+      while (tmp != nullptr) {
+        if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
+          return tmp;
+        } else {
+          tmp = tmp->next;
+        }
       }
     }
     return nullptr;
+  }
+
+  void print_list(uint64_t print) {
+    VERSION *tmp = head;
+    while (tmp != nullptr) {
+      std::cout << "[" << print << "] xmin:" << tmp->t_min << std::endl;
+      tmp = tmp->next;
+    }
   }
 };
 

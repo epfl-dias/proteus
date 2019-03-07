@@ -108,7 +108,7 @@ class WorkerPool {
   void start_workers(int num_workers = 1);
   void add_worker(core *exec_location);
   void remove_worker(core *exec_location);
-  void print_worker_stats();
+  void print_worker_stats(bool global_only = true);
 
   template <class F, class... Args>
   std::future<typename std::result_of<F(Args...)>::type> enqueueTask(

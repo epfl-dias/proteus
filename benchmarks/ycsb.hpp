@@ -63,6 +63,7 @@ class YCSB : public Benchmark {
   storage::Table *ycsb_tbl;
 
   std::atomic<bool> initialized;  // so that nobody calls load twice
+                                  // std::atomic<uint64_t> key_gen;
 
  public:
   /*  // Singleton
@@ -73,33 +74,44 @@ class YCSB : public Benchmark {
     YCSB(YCSB const &) = delete;            // Don't Implement
     void operator=(YCSB const &) = delete;  // Don't implement */
 
-  void load_data() {
+  void load_data(int num_threads = 1) {
     std::cout << "[YCSB] Loading data.." << std::endl;
     std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
     for (int i = 0; i < num_fields; i++) {
       columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
           "col_" + std::to_string(i + 1), storage::INTEGER, sizeof(uint64_t)));
     }
-    ycsb_tbl = schema.create_table("ycsb_tbl", storage::COLUMN_STORE, columns);
+    ycsb_tbl = schema.create_table("ycsb_tbl", storage::COLUMN_STORE, columns,
+                                   num_records);
 
     /* Load data into tables*/
-    uint64_t key_gen = 0;
+    txn::TransactionManager *txnManager =
+        &txn::TransactionManager::getInstance();
+
     for (int i = 0; i < num_records; i++) {
-      std::vector<uint64_t> tmp(num_fields, key_gen);
+      std::vector<uint64_t> tmp(num_fields, i);
       // ycsb_tbl->insertRecord(&tmp);
-
-      txn::TransactionManager *txnManager =
-          &txn::TransactionManager::getInstance();
-      struct txn::TXN insert_txn = gen_insert_txn(key_gen++, &tmp);
+      struct txn::TXN insert_txn = gen_insert_txn(i, &tmp);
       txnManager->execute_txn(&insert_txn);
-      if (i % 100000 == 0)
+      if (i % 1000000 == 0)
         std::cout << "[YCSB] inserted records: " << i << std::endl;
-
+      // key_gen++;
       // free the txn ops pointers
     };
-
+    std::cout << "[YCSB] inserted records: " << num_records << std::endl;
     // Set init flag to true
     initialized = true;
+
+    /*for (int i = 0; i < num_records; i++) {
+      std::vector<uint64_t> tmp(num_fields, i);
+      // ycsb_tbl->insertRecord(&tmp);
+      struct txn::TXN insert_txn = gen_upd_txn(i, &tmp);
+      txnManager->execute_txn(&insert_txn);
+      if (i % 1000000 == 0)
+        std::cout << "[YCSB] updated records: " << i << std::endl;
+      // key_gen++;
+      // free the txn ops pointers
+    };*/
   };
 
   struct txn::TXN gen_insert_txn(uint64_t key, void *rec) {
@@ -109,6 +121,19 @@ class YCSB : public Benchmark {
     assert(txn.ops != NULL);
 
     txn.ops[0].op_type = txn::OPTYPE_INSERT;
+    txn.ops[0].data_table = ycsb_tbl;
+    txn.ops[0].key = key;
+    txn.ops[0].rec = rec;
+    txn.n_ops = 1;
+    return txn;
+  }
+  struct txn::TXN gen_upd_txn(uint64_t key, void *rec) {
+    struct txn::TXN txn;
+
+    txn.ops = new txn::TXN_OP[1];
+    assert(txn.ops != NULL);
+
+    txn.ops[0].op_type = txn::OPTYPE_UPDATE;
     txn.ops[0].data_table = ycsb_tbl;
     txn.ops[0].key = key;
     txn.ops[0].rec = rec;
@@ -194,7 +219,7 @@ class YCSB : public Benchmark {
       num_max_workers = std::thread::hardware_concurrency();
     if (num_active_workers == -1)
       num_active_workers = std::thread::hardware_concurrency();
-
+    // key_gen = 0;
     init();
 
     std::cout << "W_THRESH: " << write_threshold << std::endl;

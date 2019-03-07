@@ -32,7 +32,7 @@ class Benchmark {
  public:
   virtual void init() {
   }  // who will init the bench? the main session or in worker's init?
-  virtual void load_data() {}
+  virtual void load_data(int num_threads = 1) {}
   virtual void *gen_txn(int wid) { return nullptr; }
   virtual void exec_txn(void *) {}
 

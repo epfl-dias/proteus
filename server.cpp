@@ -37,6 +37,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #define RUNTIME 10000000
 
+// TODO: a race condition exists in acquiring write lock and updating the
+// version, a read might read at the same time as readers are not blocked in any
+// manner. for this, read andy pavlos paper on MVCC and see how to do it
+// otherwise use a spinlock when actually modifying the index val.
+
 // From PROTEUS
 //#include <codegen/memory/memory-manager.hpp>
 //#include <codegen/topology/affinity_manager.hpp>
@@ -74,12 +79,14 @@ int main(int argc, char** argv) {
   int num_workers = std::thread::hardware_concurrency();
   uint gc_mode = 1;
 
-  // ycsb vars
-  int num_fields = 2;
+  // ycsb vars  // (10-G * (1024^3))/(8*10-num_field)
+  int num_fields = 10;  // 2;
+  // int num_records = 134217728;  // 10GB
+  // int num_records = 268435456; // 20GB
   int num_records = 1000000;
   double theta = 0.5;
   int num_iterations_per_worker = 1000000;
-  int num_ops_per_txn = 2;
+  int num_ops_per_txn = 16;
   double write_threshold = 0.5;
 
   if (result.count("w") > 0) {
@@ -121,7 +128,7 @@ int main(int argc, char** argv) {
   bench::YCSB* ycsb_bench = new bench::YCSB(
       "YCSB", num_fields, num_records, theta, num_iterations_per_worker,
       num_ops_per_txn, write_threshold, num_workers, num_workers);
-  ycsb_bench->load_data();
+  ycsb_bench->load_data(num_workers);
 
   /* As soon as worker starts, they start transactions. so make sure you setup
    * everything needed for benchmark transactions before hand.

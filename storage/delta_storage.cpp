@@ -18,48 +18,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef MEMORY_MANAGER_HPP_
-#define MEMORY_MANAGER_HPP_
-
-#include <map>
-#include <vector>
+#include "storage/delta_storage.hpp"
 
 namespace storage {
 
-struct mem_chunk {
-  void* data;
-  size_t size;
-  int numa_id;
+std::mutex DeltaStore::list_lock;
+std::mutex DeltaStore::data_lock;
 
-  // latching or locking here?
-  mem_chunk() : data(nullptr), size(0), numa_id(-1){};
-  mem_chunk(void* data, size_t size, int numa_id)
-      : data(data), size(size), numa_id(numa_id){};
-};
-
-class MemoryManager {
- public:
-  static void init();
-  static void destroy();
-
-  // Allocation should be managed  and linked with affinities and topology
-  static void* alloc(size_t bytes, int numa_memset_id);
-  static void free(void* mem, size_t bytes);
-};
-
-/*class MemoryManager {
- public:
-  static void init();
-  static void destory();
-
-  static mem_chunk* malloc(size_t bytes);
-  static void free(mem_chunk* chunk);
-};
-
-class NUMAPinnedMemAllocator {};
-
-}  // namespace storage*/
-
-};  // namespace storage
-
-#endif /* MEMORY_MANAGER_HPP_ */
+}  // namespace storage

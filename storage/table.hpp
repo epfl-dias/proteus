@@ -60,7 +60,8 @@ class Schema {
   /* returns pointer to the table */
   Table* create_table(
       std::string name, layout_type layout,
-      std::vector<std::tuple<std::string, data_type, size_t>> columns);
+      std::vector<std::tuple<std::string, data_type, size_t>> columns,
+      uint64_t initial_num_records = 10000000);
 
   void drop_table(std::string name);
   void drop_table(int idx);
@@ -98,7 +99,7 @@ class Table {
  protected:
   std::string name;
   int num_columns;
-  std::atomic<uint64_t> vid;
+  volatile std::atomic<uint64_t> vid;
 
   // MultiVersioning
   DeltaStore* deltaStore[global_conf::num_master_versions];
@@ -168,12 +169,14 @@ class ColumnStore : public Table {
  private:
   std::vector<Column*> columns;
   Column* meta_column;
+  size_t rec_size;
 };
 
 class Column {
  public:
-  Column(std::string name, int initial_num_records, data_type type = INTEGER,
-         size_t unit_size = sizeof(uint64_t), bool build_index = false);
+  Column(std::string name, uint64_t initial_num_records,
+         data_type type = INTEGER, size_t unit_size = sizeof(uint64_t),
+         bool build_index = false);
   ~Column();
 
   void buildIndex();

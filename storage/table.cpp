@@ -46,11 +46,12 @@ Table* Schema::getTable(std::string name) {
 /* returns pointer to the table */
 Table* Schema::create_table(
     std::string name, layout_type layout,
-    std::vector<std::tuple<std::string, data_type, size_t>> columns) {
+    std::vector<std::tuple<std::string, data_type, size_t>> columns,
+    uint64_t initial_num_records) {
   Table* tbl = nullptr;
 
   if (layout == COLUMN_STORE) {
-    tbl = new ColumnStore(name, columns);
+    tbl = new ColumnStore(name, columns, initial_num_records);
 
   } else if (layout == ROW_STORE) {
     throw new std::runtime_error("ROW STORE NOT IMPLEMENTED");
@@ -99,7 +100,9 @@ ColumnStore::ColumnStore(
   // create columns
   for (const auto& t : columns) {
     std::cout << "Creating Column: " << std::get<0>(t) << std::endl;
-    this->columns.emplace_back(new Column(std::get<0>(t), initial_num_records));
+    this->columns.emplace_back(new Column(std::get<0>(t), initial_num_records,
+                                          std::get<1>(t), std::get<2>(t),
+                                          false));
   }
   this->num_columns = columns.size();
   this->name = name;
@@ -113,11 +116,11 @@ ColumnStore::ColumnStore(
     size_t rec_size = 0;
     for (auto& co : this->columns) {
       rec_size += co->elem_size;
-      std::cout << "r:" << co->elem_size << std::endl;
     }
-    std::cout << "rr:" << rec_size << std::endl;
+    this->rec_size = rec_size;
+    std::cout << "record size:" << rec_size << std::endl;
     for (int i = 0; i < global_conf::num_master_versions; i++) {
-      std::cout << "Create Delta -" << i << std::endl;
+      std::cout << "Create Delta # " << i << std::endl;
       deltaStore[i] = new DeltaStore(rec_size, initial_num_records);
     }
   }
@@ -137,7 +140,7 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, short master_ver) {
 
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
-    col->insertElem(vid, rec_ptr, master_ver);
+    col->insertElem(curr_vid, rec_ptr, master_ver);
     rec_ptr += col->elem_size;
   }
   return hash_ptr;
@@ -147,7 +150,7 @@ uint64_t ColumnStore::insertRecord(void* rec, short master_ver) {
   uint64_t curr_vid = vid.fetch_add(1);
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
-    col->insertElem(vid, rec_ptr, master_ver);
+    col->insertElem(curr_vid, rec_ptr, master_ver);
     rec_ptr += col->elem_size;
   }
   return curr_vid;
@@ -195,8 +198,10 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
         vid, tmin, tmax);
     assert(ver != nullptr);
     // std::cout << "inserted into delta" << std::endl;
+    size_t total_rec_size = 0;
     for (auto& col : columns) {
       size_t elem_size = col->elem_size;
+      total_rec_size += elem_size;
       // std::cout << "attempting memcpy" << std::endl;
       // void* tcc = col->getElem(vid, prev_master_ver);
       assert(ver != nullptr);
@@ -210,7 +215,10 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
       // memcpy((void*)ver, &c, elem_size);
       ver += (int)elem_size;
     }
+    assert(this->rec_size == total_rec_size);
     // std::cout << "updated column" << std::endl;
+  } else {
+    assert(false);
   }
 
   char* cursor = (char*)rec;
@@ -230,7 +238,7 @@ void Column::buildIndex() {
   this->is_indexed = true;
 }
 
-Column::Column(std::string name, int initial_num_records, data_type type,
+Column::Column(std::string name, uint64_t initial_num_records, data_type type,
                size_t unit_size, bool build_index)
     : name(name), elem_size(unit_size), type(type) {
   /*
@@ -242,12 +250,15 @@ Column::Column(std::string name, int initial_num_records, data_type type,
   // TODO: Allocating memory in the current socket.
   // size: initial_num_recs * unit_size
   // std::cout << "INITIAL NUM REC: " << initial_num_records << std::endl;
-  int numa_id = 0;
+  int numa_id = global_conf::master_col_numa_id;
   size_t size = initial_num_records * unit_size;
+
+  // std::cout << "Column--" << name << "| size: " << size
+  //          << "| num_r: " << initial_num_records << std::endl;
 
   for (short i = 0; i < global_conf::num_master_versions; i++) {
     void* mem = MemoryManager::alloc(size, numa_id);
-    int* pt = (int*)mem;
+    uint64_t* pt = (uint64_t*)mem;
     for (int i = 0; i < initial_num_records; i++) pt[i] = 0;
     master_versions[i].emplace_back(new mem_chunk(mem, size, numa_id));
   }
