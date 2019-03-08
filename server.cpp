@@ -81,13 +81,13 @@ int main(int argc, char** argv) {
 
   // ycsb vars  // (10-G * (1024^3))/(8*10-num_field)
   int num_fields = 10;  // 2;
-  // int num_records = 134217728;  // 10GB
+                        // int num_records = 134217728;  // 10GB
   // int num_records = 268435456; // 20GB
   int num_records = 1000000;
   double theta = 0.5;
   int num_iterations_per_worker = 1000000;
   int num_ops_per_txn = 16;
-  double write_threshold = 0.5;
+  double write_threshold = 0.25;
 
   if (result.count("w") > 0) {
     num_workers = result["w"].as<uint>();

@@ -47,11 +47,11 @@ set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 # which point to directories outside the build tree to the install RPATH
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-set(CMAKE_CXX_STANDARD 11)
+#set(CMAKE_CXX_STANDARD 11)
 # Otherwise the -std=gnu++XX is used instead of the -std=c++XX, as one
 # would expect from the property above
-set(CMAKE_CXX_EXTENSIONS FALSE)
-set(CXX_STANDARD_REQUIRED TRUE)
+#set(CMAKE_CXX_EXTENSIONS FALSE)
+#set(CXX_STANDARD_REQUIRED TRUE)
 
 # Whether to enable or not VTune support, if available
 set(VTUNE_ENABLE TRUE)
@@ -63,7 +63,7 @@ set(VTUNE_ENABLE TRUE)
 # Setup Compilation and link flags
 #-----------------------------------------------------------------------
 # Turn on maximum code compliance and all the warnings
-string(STRIP "${COMPILER_FLAGS} -pedantic -Weverything" COMPILER_FLAGS)
+string(STRIP "${COMPILER_FLAGS} --std=c++17 -pedantic -Weverything" COMPILER_FLAGS)
 
 # Place each function and data in its own section
 string(STRIP "${COMPILER_FLAGS} -ffunction-sections -fdata-sections" COMPILER_FLAGS)

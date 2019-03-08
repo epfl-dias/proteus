@@ -1,4 +1,7 @@
-/*                             Copyright (c) 2019-2019
+/*
+                  AEOLUS - In-Memory HTAP-Ready OLTP Engine
+
+                              Copyright (c) 2019-2019
            Data Intensive Applications and Systems Laboratory (DIAS)
                    Ecole Polytechnique Federale de Lausanne
 
@@ -179,21 +182,23 @@ class DeltaStore {
  private:
   void* getVersionDataChunk() {
     void* tmp = nullptr;
-    {
-      std::lock_guard<std::mutex> lock(this->data_lock);
-      tmp = (void*)ver_data_cursor;
-      ver_data_cursor += rec_size + sizeof(global_conf::mv_version);
-    }
+    // {
+    //  std::lock_guard<std::mutex> lock(this->data_lock);
+    //  tmp = (void*)ver_data_cursor;
+    // ver_data_cursor += rec_size + sizeof(global_conf::mv_version);
+    //}
+    tmp = ver_data_cursor.fetch_sub(rec_size + sizeof(global_conf::mv_version));
     assert(tmp != nullptr);
     return tmp;
   }
   void* getListChunk() {
     void* tmp = nullptr;
-    {
-      std::lock_guard<std::mutex> lock(this->list_lock);
-      tmp = (void*)ver_list_cursor;
-      ver_list_cursor += sizeof(global_conf::mv_version_list);
-    }
+    //{
+    // std::lock_guard<std::mutex> lock(this->list_lock);
+    //  tmp = (void*)ver_list_cursor;
+    //  ver_list_cursor += sizeof(global_conf::mv_version_list);
+    //}
+    tmp = ver_list_cursor.fetch_sub(sizeof(global_conf::mv_version_list));
     assert(tmp != nullptr);
     return tmp;
   }
@@ -210,10 +215,10 @@ class DeltaStore {
   // Currently the delta storage is not extendable so mem_chunk is a object
   // instead of vector.
 
-  char* ver_list_cursor;
+  std::atomic<char*> ver_list_cursor;
   mem_chunk ver_list_data;
 
-  char* ver_data_cursor;
+  std::atomic<char*> ver_data_cursor;
   mem_chunk ver_data_ptr;
 
   // making them static as we know inserts will be only on the active version
