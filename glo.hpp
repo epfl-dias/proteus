@@ -47,8 +47,8 @@ using PrimaryIndex = indexes::HashIndex<T_KEY>;
 /* # of Snapshots*/
 const short num_master_versions = 1;
 const uint64_t max_ver_factor = 300;
-const int delta_list_numa_id = 1;
-const int delta_ver_numa_id = 1;
+const int delta_list_numa_id = 0;
+const int delta_ver_numa_id = 0;
 const int master_col_numa_id = 0;
 
 }  // namespace global_conf

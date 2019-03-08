@@ -28,6 +28,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "benchmarks/ycsb.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
+#include "scheduler/affinity_manager.hpp"
 #include "scheduler/topology.hpp"
 #include "scheduler/worker.hpp"
 #include "storage/memory_manager.hpp"
@@ -62,6 +63,8 @@ std::ostream& operator<<(std::ostream& os, uint64_t i) {
   return os;
 }*/
 
+// TODO: Add warm-code!!
+
 int main(int argc, char** argv) {
   cxxopts::Options options("AEOLUS", "Column-major, Elastic OLTP Engine");
 
@@ -83,13 +86,13 @@ int main(int argc, char** argv) {
 
   // ycsb vars  // (10-G * (1024^3))/(8*10-num_field)
   int num_fields = 10;  // 2;
-                        // int num_records = 134217728;  // 10GB
-  // int num_records = 268435456; // 20GB
+  // int num_records = 134217728;  // 10GB
+  // int num_records = 268435456;  // 20GB
   int num_records = 1000000;
   double theta = 0.5;
   int num_iterations_per_worker = 1000000;
   int num_ops_per_txn = 16;
-  double write_threshold = 0.25;
+  double write_threshold = 0.50;
 
   if (result.count("w") > 0) {
     num_workers = result["w"].as<uint>();
@@ -118,6 +121,9 @@ int main(int argc, char** argv) {
   /* ------------------------------------ */
 
   // TODO: set affinity for the master server thread.
+
+  scheduler::AffinityManager::getInstance().set(
+      &scheduler::Topology::getInstance().get_worker_cores()->front());
 
   // std::cout << "hardcoding execution location to NUMA node ID: 0" <<
   // std::endl; topology::getInstance().getCpuNumaNodes()[0] const auto

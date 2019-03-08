@@ -23,6 +23,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef DELTA_STORAGE_HPP_
 #define DELTA_STORAGE_HPP_
 
+#include <cstdlib>
 #include <iostream>
 #include "glo.hpp"
 //#include "indexes/hash_index.hpp"
@@ -56,8 +57,12 @@ class DeltaStore {
 
     int list_numa_id = global_conf::delta_list_numa_id;
     int data_numa_id = global_conf::delta_ver_numa_id;
+
     void* mem_list = MemoryManager::alloc(ver_list_mem_req, list_numa_id);
     void* mem_data = MemoryManager::alloc(ver_data_mem_req, data_numa_id);
+
+    // void* mem_data = malloc(ver_data_mem_req);
+    // void* mem_list = malloc(ver_list_mem_req);
 
     assert(mem_list != nullptr);
     assert(mem_data != nullptr);
@@ -66,14 +71,20 @@ class DeltaStore {
     this->ver_data_cursor = (char*)mem_data;
 
     // warm-up mem-list
-    int* pt = (int*)mem_list;
-    int warmup_size = ver_list_mem_req / sizeof(int);
-    for (int i = 0; i < warmup_size; i++) pt[i] = 0;
+    std::cout << "\t warming up delta storage" << std::endl;
+    uint64_t* pt = (uint64_t*)mem_list;
+    int warmup_size = ver_list_mem_req / sizeof(uint64_t);
+    std::cout << "warming: list memory - size "
+              << (ver_list_mem_req / (1024 * 1024 * 1024)) << std::endl;
+    for (int i = 0; i < warmup_size; i++) pt[i] = i * 2;
 
     // warm-up mem-data
-    pt = (int*)mem_data;
-    warmup_size = ver_data_mem_req / sizeof(int);
-    for (int i = 0; i < warmup_size; i++) pt[i] = 0;
+    pt = (uint64_t*)mem_data;
+    warmup_size = ver_data_mem_req / sizeof(uint64_t);
+    std::cout << "warming: data memory - size "
+              << (ver_data_mem_req / (1024 * 1024 * 1024)) << std::endl;
+    pt[0] = 1;
+    for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
 
     std::cout << "\tDelta size: "
               << ((double)(ver_list_mem_req + ver_data_mem_req) /
@@ -187,7 +198,7 @@ class DeltaStore {
     //  tmp = (void*)ver_data_cursor;
     // ver_data_cursor += rec_size + sizeof(global_conf::mv_version);
     //}
-    tmp = ver_data_cursor.fetch_sub(rec_size + sizeof(global_conf::mv_version));
+    tmp = ver_data_cursor.fetch_add(rec_size + sizeof(global_conf::mv_version));
     assert(tmp != nullptr);
     return tmp;
   }
@@ -198,7 +209,7 @@ class DeltaStore {
     //  tmp = (void*)ver_list_cursor;
     //  ver_list_cursor += sizeof(global_conf::mv_version_list);
     //}
-    tmp = ver_list_cursor.fetch_sub(sizeof(global_conf::mv_version_list));
+    tmp = ver_list_cursor.fetch_add(sizeof(global_conf::mv_version_list));
     assert(tmp != nullptr);
     return tmp;
   }
