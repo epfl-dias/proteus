@@ -1,19 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package org.apache.calcite.sql.ddl;
 
 import ch.epfl.dias.calcite.adapter.pelago.MalformedPlugin;
@@ -43,10 +27,8 @@ import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.schema.impl.AbstractTableQueryable;
 import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.schema.impl.ViewTableMacro;
-import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.InitializerExpressionFactory;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
@@ -62,10 +44,12 @@ import java.util.*;
 
 import static org.apache.calcite.util.Static.RESOURCE;
 
+import org.apache.calcite.sql.*;
+
 /**
  * Parse tree for {@code CREATE TABLE} statement.
  */
-public class SqlCreateTable extends SqlCreate
+public class SqlCreatePelagoTable extends SqlCreate
     implements SqlExecutableStatement {
   private final SqlIdentifier name;
   private final SqlNodeList columnList;
@@ -77,9 +61,9 @@ public class SqlCreateTable extends SqlCreate
       new SqlSpecialOperator("CREATE TABLE", SqlKind.CREATE_TABLE);
 
   /** Creates a SqlCreateTable. */
-  SqlCreateTable(SqlParserPos pos, boolean replace, boolean ifNotExists,
-                 SqlIdentifier name, SqlNodeList columnList,
-                 SqlNode query, String jsonPlugin, String jsonTable) {
+  SqlCreatePelagoTable(SqlParserPos pos, boolean replace, boolean ifNotExists,
+                       SqlIdentifier name, SqlNodeList columnList,
+                       SqlNode query, String jsonPlugin, String jsonTable) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Preconditions.checkNotNull(name);
     this.columnList = columnList; // may be null
@@ -121,7 +105,7 @@ public class SqlCreateTable extends SqlCreate
 
   public void execute(CalcitePrepare.Context context) {
     final Pair<CalciteSchema, String> pair =
-        SqlDdlNodes.schema(context, true, name);
+        SqlDdlPelagoNodes.schema(context, true, name);
     final JavaTypeFactory typeFactory = new JavaTypeFactoryImpl();
     final RelDataType queryRowType;
     if (query != null) {
@@ -248,7 +232,7 @@ public class SqlCreateTable extends SqlCreate
     }
 
     if (query != null) {
-      SqlDdlNodes.populate(name, query, context);
+      SqlDdlPelagoNodes.populate(name, query, context);
     }
   }
 

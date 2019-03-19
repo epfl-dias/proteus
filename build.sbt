@@ -53,16 +53,47 @@ test in assembly := {}
 //fork in Test := true
 //baseDirectory in Test := file("/cloud_store/periklis/pelago_cidr2/opt/raw")
 
+// generate with fmpp: fmpp -C src/main/codegen/config.fmpp -O target/generated-sources/fmpp/ -S src/main/codegen/templates/
+lazy val fmpp = taskKey[Unit]("Generates the syntax file from templates.")
+fmpp := {
+  val logger = streams.value.log
+  Process(List(
+    "./lib/fmpp/bin/fmpp",
+    "-C src/main/codegen/config.fmpp",
+    "-O target/generated-sources/fmpp/",
+    "-S src/main/codegen/templates/"
+  ).mkString(" ")) !!
+}
+
+// generate with javacc: javacc -STATIC=false -LOOKAHEAD=2 -OUTPUT_DIRECTORY=target/generated-sources/javacc target/generated-sources/fmpp/javacc/Parser.jj
+lazy val javacc = taskKey[Unit]("Generates the source file from the syntax file.")
+javacc := {
+  val logger = streams.value.log
+  Process(List(
+    "java -cp lib/javacc.jar javacc",
+    "-STATIC=false",
+    "-LOOKAHEAD=2",
+    "-OUTPUT_DIRECTORY=target/generated-sources/javacc",
+    "target/generated-sources/fmpp/javacc/Parser.jj"
+  ).mkString(" ")) !!
+}
+
+// add additional source folders with generated code
+unmanagedSourceDirectories in Compile += baseDirectory.value / "target" / "generated-sources" / "javacc"
+unmanagedSourceDirectories in Test += baseDirectory.value / "target" / "generated-sources" / "javacc"
+
 resolvers += Resolver.jcenterRepo
 testOptions += Tests.Argument(jupiterTestFramework, "-q")
 
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", "services", xs @ _*) => MergeStrategy.first
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+  case PathList("target", "generated-sources", "javacc", xs @ _*) => MergeStrategy.first
+  //case PathList("main", "java", "org", "apache", "calcite", "sql", "ddl", xs @ _*) => MergeStrategy.first
   // FIXME: when issue #4 is resolved, replace with commented portion
-  case x => MergeStrategy.first
-  // case x =>
-  //   val oldStrategy = (assemblyMergeStrategy in assembly).value
-  //   oldStrategy(x)
+  // case x => MergeStrategy.first
+  case x =>
+    val oldStrategy = (assemblyMergeStrategy in assembly).value
+    oldStrategy(x)
 }
 

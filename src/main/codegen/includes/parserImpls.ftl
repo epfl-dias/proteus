@@ -41,7 +41,7 @@ SqlCreate SqlCreateSchema(Span s, boolean replace) :
 {
     <SCHEMA> ifNotExists = IfNotExistsOpt() id = CompoundIdentifier()
     {
-        return SqlDdlNodes.createSchema(s.end(this), replace, ifNotExists, id);
+        return SqlDdlPelagoNodes.createSchema(s.end(this), replace, ifNotExists, id);
     }
 }
 
@@ -62,7 +62,7 @@ SqlCreate SqlCreateForeignSchema(Span s, boolean replace) :
     )
     [ optionList = Options() ]
     {
-        return SqlDdlNodes.createForeignSchema(s.end(this), replace,
+        return SqlDdlPelagoNodes.createForeignSchema(s.end(this), replace,
             ifNotExists, id, type, library, optionList);
     }
 }
@@ -70,7 +70,7 @@ SqlCreate SqlCreateForeignSchema(Span s, boolean replace) :
 SqlNodeList Options() :
 {
     final Span s;
-    final List<SqlNode> list = Lists.newArrayList();
+    final List<SqlNode> list = new ArrayList<SqlNode>();
 }
 {
     <OPTIONS> { s = span(); } <LPAREN>
@@ -102,7 +102,7 @@ void Option(List<SqlNode> list) :
 SqlNodeList TableElementList() :
 {
     final Span s;
-    final List<SqlNode> list = Lists.newArrayList();
+    final List<SqlNode> list = new ArrayList<SqlNode>();
 }
 {
     <LPAREN> { s = span(); }
@@ -161,7 +161,7 @@ void TableElement(List<SqlNode> list) :
         )
         {
             list.add(
-                SqlDdlNodes.column(s.add(id).end(this), id,
+                SqlDdlPelagoNodes.column(s.add(id).end(this), id,
                     type.withNullable(nullable), e, strategy));
         }
     |
@@ -176,22 +176,85 @@ void TableElement(List<SqlNode> list) :
     (
         <CHECK> { s.add(this); } <LPAREN>
         e = Expression(ExprContext.ACCEPT_SUB_QUERY) <RPAREN> {
-            list.add(SqlDdlNodes.check(s.end(this), name, e));
+            list.add(SqlDdlPelagoNodes.check(s.end(this), name, e));
         }
     |
         <UNIQUE> { s.add(this); }
         columnList = ParenthesizedSimpleIdentifierList() {
-            list.add(SqlDdlNodes.unique(s.end(columnList), name, columnList));
+            list.add(SqlDdlPelagoNodes.unique(s.end(columnList), name, columnList));
         }
     |
         <PRIMARY>  { s.add(this); } <KEY>
         columnList = ParenthesizedSimpleIdentifierList() {
-            list.add(SqlDdlNodes.primary(s.end(columnList), name, columnList));
+            list.add(SqlDdlPelagoNodes.primary(s.end(columnList), name, columnList));
         }
     )
 }
 
-SqlCreate SqlCreateTable(Span s, boolean replace) :
+SqlNodeList AttributeDefList() :
+{
+    final Span s;
+    final List<SqlNode> list = new ArrayList<SqlNode>();
+}
+{
+    <LPAREN> { s = span(); }
+    AttributeDef(list)
+    (
+        <COMMA> AttributeDef(list)
+    )*
+    <RPAREN> {
+        return new SqlNodeList(list, s.end(this));
+    }
+}
+
+void AttributeDef(List<SqlNode> list) :
+{
+    final SqlIdentifier id;
+    final SqlDataTypeSpec type;
+    final boolean nullable;
+    SqlNode e = null;
+    final Span s = Span.of();
+}
+{
+    id = SimpleIdentifier()
+    (
+        type = DataType()
+        (
+            <NULL> { nullable = true; }
+        |
+            <NOT> <NULL> { nullable = false; }
+        |
+            { nullable = true; }
+        )
+    )
+    [ <DEFAULT_> e = Expression(ExprContext.ACCEPT_SUB_QUERY) ]
+    {
+        list.add(SqlDdlPelagoNodes.attribute(s.add(id).end(this), id,
+            type.withNullable(nullable), e, null));
+    }
+}
+
+SqlCreate SqlCreateType(Span s, boolean replace) :
+{
+    final SqlIdentifier id;
+    SqlNodeList attributeDefList = null;
+    SqlDataTypeSpec type = null;
+}
+{
+    <TYPE>
+    id = CompoundIdentifier()
+    <AS>
+    (
+        attributeDefList = AttributeDefList()
+    |
+        type = DataType()
+    )
+    {
+        return SqlDdlPelagoNodes.createType(s.end(this), replace, id, attributeDefList, type);
+    }
+}
+
+SqlCreate SqlCreatePelagoTable(Span s, boolean replace) :
 {
     final boolean ifNotExists;
     final SqlIdentifier id;
@@ -207,7 +270,7 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     [ <JPLUGIN> jsonPlugin = CustomIdentifier() ]
     [ <FROM_JSON> jsonTable = CustomIdentifier() ]
     {
-        return SqlDdlNodes.createTable(s.end(this), replace, ifNotExists, id,
+        return SqlDdlPelagoNodes.createPelagoTable(s.end(this), replace, ifNotExists, id,
             tableElementList, query, jsonPlugin, jsonTable);
     }
 }
@@ -222,7 +285,7 @@ SqlCreate SqlCreateView(Span s, boolean replace) :
     <VIEW> id = CompoundIdentifier()
     [ columnList = ParenthesizedSimpleIdentifierList() ]
     <AS> query = OrderedQueryOrExpr(ExprContext.ACCEPT_QUERY) {
-        return SqlDdlNodes.createView(s.end(this), replace, id, columnList,
+        return SqlDdlPelagoNodes.createView(s.end(this), replace, id, columnList,
             query);
     }
 }
@@ -239,8 +302,55 @@ SqlCreate SqlCreateMaterializedView(Span s, boolean replace) :
     id = CompoundIdentifier()
     [ columnList = ParenthesizedSimpleIdentifierList() ]
     <AS> query = OrderedQueryOrExpr(ExprContext.ACCEPT_QUERY) {
-        return SqlDdlNodes.createMaterializedView(s.end(this), replace,
+        return SqlDdlPelagoNodes.createMaterializedView(s.end(this), replace,
             ifNotExists, id, columnList, query);
+    }
+}
+
+private void FunctionJarDef(SqlNodeList usingList) :
+{
+    final SqlDdlPelagoNodes.FileType fileType;
+    final SqlNode uri;
+}
+{
+    (
+        <ARCHIVE> { fileType = SqlDdlPelagoNodes.FileType.ARCHIVE; }
+    |
+        <FILE> { fileType = SqlDdlPelagoNodes.FileType.FILE; }
+    |
+        <JAR> { fileType = SqlDdlPelagoNodes.FileType.JAR; }
+    ) {
+        usingList.add(SqlLiteral.createSymbol(fileType, getPos()));
+    }
+    uri = StringLiteral() {
+        usingList.add(uri);
+    }
+}
+
+SqlCreate SqlCreateFunction(Span s, boolean replace) :
+{
+    final boolean ifNotExists;
+    final SqlIdentifier id;
+    final SqlNode className;
+    SqlNodeList usingList = SqlNodeList.EMPTY;
+}
+{
+    <FUNCTION> ifNotExists = IfNotExistsOpt()
+    id = CompoundIdentifier()
+    <AS>
+    className = StringLiteral()
+    [
+        <USING> {
+            usingList = new SqlNodeList(getPos());
+        }
+        FunctionJarDef(usingList)
+        (
+            <COMMA>
+            FunctionJarDef(usingList)
+        )*
+    ] {
+        return SqlDdlPelagoNodes.createFunction(s.end(this), replace, ifNotExists,
+            id, className, usingList);
     }
 }
 
@@ -257,7 +367,18 @@ SqlDrop SqlDropSchema(Span s, boolean replace) :
         { foreign = false; }
     )
     <SCHEMA> ifExists = IfExistsOpt() id = CompoundIdentifier() {
-        return SqlDdlNodes.dropSchema(s.end(this), foreign, ifExists, id);
+        return SqlDdlPelagoNodes.dropSchema(s.end(this), foreign, ifExists, id);
+    }
+}
+
+SqlDrop SqlDropType(Span s, boolean replace) :
+{
+    final boolean ifExists;
+    final SqlIdentifier id;
+}
+{
+    <TYPE> ifExists = IfExistsOpt() id = CompoundIdentifier() {
+        return SqlDdlPelagoNodes.dropType(s.end(this), ifExists, id);
     }
 }
 
@@ -268,7 +389,7 @@ SqlDrop SqlDropTable(Span s, boolean replace) :
 }
 {
     <TABLE> ifExists = IfExistsOpt() id = CompoundIdentifier() {
-        return SqlDdlNodes.dropTable(s.end(this), ifExists, id);
+        return SqlDdlPelagoNodes.dropTable(s.end(this), ifExists, id);
     }
 }
 
@@ -279,7 +400,7 @@ SqlDrop SqlDropView(Span s, boolean replace) :
 }
 {
     <VIEW> ifExists = IfExistsOpt() id = CompoundIdentifier() {
-        return SqlDdlNodes.dropView(s.end(this), ifExists, id);
+        return SqlDdlPelagoNodes.dropView(s.end(this), ifExists, id);
     }
 }
 
@@ -290,9 +411,22 @@ SqlDrop SqlDropMaterializedView(Span s, boolean replace) :
 }
 {
     <MATERIALIZED> <VIEW> ifExists = IfExistsOpt() id = CompoundIdentifier() {
-        return SqlDdlNodes.dropMaterializedView(s.end(this), ifExists, id);
+        return SqlDdlPelagoNodes.dropMaterializedView(s.end(this), ifExists, id);
     }
 }
+
+SqlDrop SqlDropFunction(Span s, boolean replace) :
+{
+    final boolean ifExists;
+    final SqlIdentifier id;
+}
+{
+    <FUNCTION> ifExists = IfExistsOpt()
+    id = CompoundIdentifier() {
+        return SqlDdlPelagoNodes.dropFunction(s.end(this), ifExists, id);
+    }
+}
+
 
 /**
  * Parses a custom identifier as a string.

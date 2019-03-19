@@ -31,5 +31,4 @@
 package org.apache.calcite.sql.ddl;
 
 import org.apache.calcite.avatica.util.PackageMarker;
-
 // End package-info.java

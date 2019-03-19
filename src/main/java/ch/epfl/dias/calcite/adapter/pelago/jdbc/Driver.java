@@ -45,7 +45,7 @@ public class Driver extends org.apache.calcite.jdbc.Driver {
 
     public Connection connect(String url, java.util.Properties info) throws SQLException{
         info.put("lex", "JAVA");//Lex.JAVA);
-        info.put("parserFactory", "org.apache.calcite.sql.parser.ddl.SqlDdlParserImpl#FACTORY");
+        info.put("parserFactory", "ch.epfl.dias.calcite.sql.parser.ddl.SqlDdlParserImpl#FACTORY");
         return super.connect(url, info);
     }
 }

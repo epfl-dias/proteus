@@ -1,19 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package org.apache.calcite.sql.ddl;
 
 import com.google.common.collect.ImmutableList;
@@ -37,11 +21,12 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
 
+
 /**
  * Utilities concerning {@link SqlNode} for DDL.
  */
-public class SqlDdlNodes {
-  private SqlDdlNodes() {}
+public class SqlDdlPelagoNodes {
+  private SqlDdlPelagoNodes() {}
 
   /** Creates a CREATE SCHEMA. */
   public static SqlCreateSchema createSchema(SqlParserPos pos, boolean replace,
@@ -54,15 +39,22 @@ public class SqlDdlNodes {
                                                            boolean replace, boolean ifNotExists, SqlIdentifier name, SqlNode type,
                                                            SqlNode library, SqlNodeList optionList) {
     return new SqlCreateForeignSchema(pos, replace, ifNotExists, name, type,
-        library, optionList);
+            library, optionList);
+  }
+
+  /** Creates a CREATE TYPE. */
+  public static SqlCreateType createType(SqlParserPos pos, boolean replace,
+                                         SqlIdentifier name, SqlNodeList attributeList,
+                                         SqlDataTypeSpec dataTypeSpec) {
+    return new SqlCreateType(pos, replace, name, attributeList, dataTypeSpec);
   }
 
   /** Creates a CREATE TABLE. */
-  public static SqlCreateTable createTable(SqlParserPos pos, boolean replace,
-                                           boolean ifNotExists, SqlIdentifier name, SqlNodeList columnList,
-                                           SqlNode query, String jsonPlugin, String jsonTable) {
-    return new SqlCreateTable(pos, replace, ifNotExists, name, columnList,
-        query, jsonPlugin, jsonTable);
+  public static SqlCreatePelagoTable createPelagoTable(SqlParserPos pos, boolean replace,
+                                                 boolean ifNotExists, SqlIdentifier name, SqlNodeList columnList,
+                                                 SqlNode query, String jsonPlugin, String jsonTable) {
+    return new SqlCreatePelagoTable(pos, replace, ifNotExists, name, columnList,
+            query, jsonPlugin, jsonTable);
   }
 
   /** Creates a CREATE VIEW. */
@@ -76,13 +68,27 @@ public class SqlDdlNodes {
           SqlParserPos pos, boolean replace, boolean ifNotExists,
           SqlIdentifier name, SqlNodeList columnList, SqlNode query) {
     return new SqlCreateMaterializedView(pos, replace, ifNotExists, name,
-        columnList, query);
+            columnList, query);
+  }
+
+  /** Creates a CREATE FUNCTION. */
+  public static SqlCreateFunction createFunction(
+          SqlParserPos pos, boolean replace, boolean ifNotExists,
+          SqlIdentifier name, SqlNode className, SqlNodeList usingList) {
+    return new SqlCreateFunction(pos, replace, ifNotExists, name,
+            className, usingList);
   }
 
   /** Creates a DROP [ FOREIGN ] SCHEMA. */
   public static SqlDropSchema dropSchema(SqlParserPos pos, boolean foreign,
                                          boolean ifExists, SqlIdentifier name) {
     return new SqlDropSchema(pos, foreign, ifExists, name);
+  }
+
+  /** Creates a DROP TYPE. */
+  public static SqlDropType dropType(SqlParserPos pos, boolean ifExists,
+                                     SqlIdentifier name) {
+    return new SqlDropType(pos, ifExists, name);
   }
 
   /** Creates a DROP TABLE. */
@@ -103,10 +109,22 @@ public class SqlDdlNodes {
     return new SqlDropMaterializedView(pos, ifExists, name);
   }
 
+  /** Creates a DROP FUNCTION. */
+  public static SqlDrop dropFunction(SqlParserPos pos,
+                                     boolean ifExists, SqlIdentifier name) {
+    return new SqlDropFunction(pos, ifExists, name);
+  }
+
   /** Creates a column declaration. */
   public static SqlNode column(SqlParserPos pos, SqlIdentifier name,
                                SqlDataTypeSpec dataType, SqlNode expression, ColumnStrategy strategy) {
     return new SqlColumnDeclaration(pos, name, dataType, expression, strategy);
+  }
+
+  /** Creates a attribute definition. */
+  public static SqlNode attribute(SqlParserPos pos, SqlIdentifier name,
+                                  SqlDataTypeSpec dataType, SqlNode expression, SqlCollation collation) {
+    return new SqlAttributeDefinition(pos, name, dataType, expression, collation);
   }
 
   /** Creates a CHECK constraint. */
@@ -144,7 +162,7 @@ public class SqlDdlNodes {
       name = Util.last(id.names);
     }
     CalciteSchema schema = mutable ? context.getMutableRootSchema()
-        : context.getRootSchema();
+            : context.getRootSchema();
     for (String p : path) {
       schema = schema.getSubSchema(p, true);
     }
@@ -159,16 +177,16 @@ public class SqlDdlNodes {
     }
     final SqlParserPos p = query.getParserPosition();
     final SqlNodeList selectList =
-        new SqlNodeList(ImmutableList.<SqlNode>of(SqlIdentifier.star(p)), p);
+            new SqlNodeList(ImmutableList.<SqlNode>of(SqlIdentifier.star(p)), p);
     final SqlCall from =
-        SqlStdOperatorTable.AS.createCall(p,
-            ImmutableList.<SqlNode>builder()
-                .add(query)
-                .add(new SqlIdentifier("_", p))
-                .addAll(columnList)
-                .build());
+            SqlStdOperatorTable.AS.createCall(p,
+                    ImmutableList.<SqlNode>builder()
+                            .add(query)
+                            .add(new SqlIdentifier("_", p))
+                            .addAll(columnList)
+                            .build());
     return new SqlSelect(p, null, selectList, from, null, null, null, null,
-        null, null, null);
+            null, null, null);
   }
 
   /** Populates the table called {@code name} by executing {@code query}. */
@@ -178,14 +196,14 @@ public class SqlDdlNodes {
     // (It's a bit inefficient that we convert from SqlNode to SQL and back
     // again.)
     final FrameworkConfig config = Frameworks.newConfigBuilder()
-        .defaultSchema(context.getRootSchema().plus())
-        .build();
+            .defaultSchema(context.getRootSchema().plus())
+            .build();
     final Planner planner = Frameworks.getPlanner(config);
     try {
       final StringWriter sw = new StringWriter();
       final PrintWriter pw = new PrintWriter(sw);
       final SqlPrettyWriter w =
-          new SqlPrettyWriter(CalciteSqlDialect.DEFAULT, false, pw);
+              new SqlPrettyWriter(CalciteSqlDialect.DEFAULT, false, pw);
       pw.print("INSERT INTO ");
       name.unparse(w, 0, 0);
       pw.print(" ");
@@ -200,9 +218,16 @@ public class SqlDdlNodes {
       Util.discard(rowCount);
       prepare.close();
     } catch (SqlParseException | ValidationException
-        | RelConversionException | SQLException e) {
+            | RelConversionException | SQLException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /** File type for CREATE FUNCTION. */
+  public enum FileType {
+    FILE,
+    JAR,
+    ARCHIVE
   }
 }
 

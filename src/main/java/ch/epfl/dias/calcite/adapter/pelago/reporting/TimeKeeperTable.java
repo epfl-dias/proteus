@@ -5,7 +5,7 @@ import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelProtoDataType;
-import org.apache.calcite.sql.ddl.SqlCreateTable;
+import org.apache.calcite.sql.ddl.SqlCreatePelagoTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql2rel.InitializerExpressionFactory;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
@@ -14,7 +14,7 @@ import java.sql.Timestamp;
 
 
 
-public class TimeKeeperTable extends SqlCreateTable.MutableArrayTable {
+public class TimeKeeperTable extends SqlCreatePelagoTable.MutableArrayTable {
 
     public static TimeKeeperTable INSTANCE = init();
 
