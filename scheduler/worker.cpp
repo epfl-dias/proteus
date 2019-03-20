@@ -35,8 +35,29 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 namespace scheduler {
 
-// NOTE: There might be a problem because I am passing a local variable
-// reference to a thread
+// TODO: check the reader lock on master and fall back thingy
+inline ushort __attribute__((always_inline))
+calculate_master_ver(uint64_t txn_id, uint64_t start_time) {
+  // global_conf::time_master_switch_ms;
+  // assuming start time is nanosec  so convert to millisec
+  // start_time = start_time / 1000000;
+  // uint di = start_time / global_conf::time_master_switch_ms;
+  // uint mod = start_time % global_conf::time_master_switch_ms;
+
+  // txn_id = ((txn_id << 8) >> 8);  // remove the worker_id
+
+  uint64_t duration = ((txn_id & 0x00FFFFFF) - (start_time & 0x00FFFFFF)) /
+                      1000000000;  // nanosec
+
+  // ushort curr_master = (duration / global_conf::num_master_versions) %
+  //                     global_conf::num_master_versions;
+
+  // check which master should it be in. then check if there is a lock
+  // on that master version
+
+  // return curr_master;
+  return (duration / global_conf::num_master_versions);
+}
 
 void Worker::run() {
   // std::cout << "[WORKER] Worker (TID:" << (int)(this->id)
@@ -47,7 +68,11 @@ void Worker::run() {
   WorkerPool* pool = &WorkerPool::getInstance();
   txn::TransactionManager* txnManager = &txn::TransactionManager::getInstance();
 
+  txn_start_time =
+      std::chrono::system_clock::now();  // txnManager->txn_start_time;
+
   while (true) {
+    // std::cout << "T:" << calculate_master_ver(xid, start_time) << std::endl;
     if (terminate) {
       // std::cout << "break" << std::endl;
       break;
@@ -55,9 +80,55 @@ void Worker::run() {
     // std::this_thread::sleep_for (std::chrono::seconds(1));
     // std::cout << "[WORKER] Worker --" << (int)(this->id) << std::endl;
 
-    std::function<void()> task;
-    bool has_task = false;
-    /*{
+    // check which master i should be on.
+    this->curr_txn = txnManager->get_next_xid(this->id);
+    this->prev_master = this->curr_master;
+    this->curr_master =
+        calculate_master_ver(this->curr_txn, txnManager->txn_start_time) -
+        txnManager->master_switch_delta;
+
+    /* CASES
+       1- Switched and I am the last one to switch with no active one on prev.
+       (switch_master) 2- Switched and rotated back to the old one with someone
+       active from    (GC) newer epoch. 3- Switched and rotated back to the old
+       one with everyone on new epoch. 3- Switched and rotated back to old one
+       and am the first one here. ( as per (1) it should be clean already) 4-
+       Epoch changed but master remain the same due to delta -- read_lock
+
+    */
+
+    if (prev_master != curr_master) {
+      // switched
+
+      if (check_am_i_last) {
+      } else {
+        if ((prev_master % global_conf::num_master_versions) ==
+            (curr_master % global_conf::num_master_versions)) {
+          // rotated back
+        } else {
+          // absolutely new master
+        }
+      }
+
+    } else {
+      // didnt switch
+    }
+
+    if (prev_master == curr_master) {
+      // do nothing, regular txn within master boundaries.
+      ;
+    } else if ((prev_master % global_conf::num_master_versions) ==
+               (curr_master % global_conf::num_master_versions)) {
+      // switched but rotated back to the old one
+    } else if (prev_master != curr_master) {
+      // switched
+
+      // I guess store in some data structure that I am operational on this one.
+      // also remove yourself from the previous one.
+    }
+
+    if (this->id == 0) {
+      std::function<bool(uint64_t)> task;
       std::unique_lock<std::mutex> lock(pool->m);
       if (!pool->tasks.empty()) {
         //    NO-WAIT -> If task in queue, exec ELSE gen/exec txn
@@ -66,33 +137,38 @@ void Worker::run() {
         //    !pool->tasks.empty(); });
         task = std::move(pool->tasks.front());
         pool->tasks.pop();
-        has_task = true;
+        std::cout << "[WORKER] Worker (TID:" << (int)(this->id)
+                  << ") Got a Task!" << std::endl;
+        if (task(this->curr_txn))
+          num_commits++;
+        else
+          num_aborts++;
       }
-    }*/
-    if (has_task) {
-      std::cout << "[WORKER] Worker (TID:" << (int)(this->id) << ") Got a Task!"
-                << std::endl;
-      /* FIXME: how to keep track of abort/commit and results of the tasks
-       * (transactions submitted through frontend interface)
-       */
-      task();
-    } else {
-      /* Do we really need per worker stats? becuase this if/else is gonna slow
-       * things down when each worker needs to scale to millions of txns/sec
-       */
-
-      // pool->txn_bench->exec_txn(pool->txn_bench->gen_txn(this->id));
-      void* c = pool->txn_bench->gen_txn((int)this->id);
-      if (txnManager->execute_txn(c))
-        num_commits++;
-      else
-        num_aborts++;
-
-      delete (struct txn::TXN*)c;
     }
+
+    void* c = pool->txn_bench->gen_txn((int)this->id);
+
+    if (txnManager->executor.execute_txn(
+            c, this->curr_txn,
+            this->curr_master % global_conf::num_master_versions))
+      num_commits++;
+    else
+      num_aborts++;
+
+    delete (struct txn::TXN*)c;
+
     num_txns++;
-    // std::cout << ".";
   }
+}
+
+std::vector<uint64_t> WorkerPool::get_active_txns() {
+  std::vector<uint64_t> ret = std::vector<uint64_t>(this->size());
+
+  for (auto& wr : workers) {
+    ret.push_back(wr.second.second->curr_txn);
+  }
+
+  return ret;
 }
 
 void WorkerPool::print_worker_stats(bool global_only) {
@@ -151,7 +227,7 @@ void WorkerPool::init(bench::Benchmark* txn_bench) {
 // Hot Plug
 void WorkerPool::add_worker(core* exec_location) {
   assert(workers.find(exec_location->id) == workers.end());
-  Worker* wrkr = new Worker(worker_id++, exec_location);
+  Worker* wrkr = new Worker(worker_counter++, exec_location);
   std::thread* thd = new std::thread(&Worker::run, wrkr);
 
   workers.emplace(std::make_pair(exec_location->id, std::make_pair(thd, wrkr)));
@@ -180,7 +256,7 @@ void WorkerPool::start_workers(int num_workers) {
 
   int i = 0;
   for (auto& exec_core : *worker_cores) {
-    Worker* wrkr = new Worker(worker_id++, &exec_core);
+    Worker* wrkr = new Worker(worker_counter++, &exec_core);
     std::thread* thd = new std::thread(&Worker::run, wrkr);
 
     workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));

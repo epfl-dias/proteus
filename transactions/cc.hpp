@@ -43,62 +43,33 @@ namespace txn {
 class CC_MV2PL;
 class CC_GlobalLock;
 
-class CC_GlobalLock {
- public:
-  struct PRIMARY_INDEX_VAL {
-    uint64_t VID;
-    short last_master_ver;
-    lock::Spinlock latch;
-    PRIMARY_INDEX_VAL(uint64_t vid) : VID(vid), last_master_ver(0) {}
-    PRIMARY_INDEX_VAL(uint64_t vid, short master_ver)
-        : VID(vid), last_master_ver(master_ver) {}
-    PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid, short master_ver)
-        : VID(vid), last_master_ver(master_ver) {}
-  };
-
-  bool execute_txn(void *stmts, uint64_t xid);
-
-  CC_GlobalLock() {
-    std::cout << "CC Protocol: GlobalLock" << std::endl;
-    curr_master = 0;
-  }
-  static bool is_mv() { return false; }
-
- private:
-  std::mutex global_lock;
-  volatile short curr_master;
-};
-
 class CC_MV2PL {
  public:
   struct PRIMARY_INDEX_VAL {
     uint64_t t_min;  // transaction id that inserted the record
-    uint64_t t_max;  // transaction id that deleted the row
     uint64_t VID;    // VID of the record in memory
     std::atomic<bool> write_lck;
-    // std::atomic<int> read_cnt;
-    short last_master_ver;
+    ushort last_master_ver;
     lock::Spinlock latch;
-    // std::mutex latch;
+    uint64_t t_max;  // transaction id that deleted the row
 
     PRIMARY_INDEX_VAL();
-    PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid, short master_ver)
-        : t_min(tid), t_max(0), VID(vid), last_master_ver(master_ver) {
+    PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid, ushort master_ver)
+        : t_min(tid), VID(vid), last_master_ver(master_ver), t_max(0) {
       write_lck = 0;
-      // read_cnt = 0;
     }
-  };
+  } __attribute__((aligned(64)));
 
   CC_MV2PL() {
     std::cout << "CC Protocol: MV2PL" << std::endl;
-    curr_master = 0;
-    modified_vids.clear();
+    // modified_vids.clear();
   }
-  bool execute_txn(void *stmts, uint64_t xid);
+  bool execute_txn(void *stmts, uint64_t xid, ushort curr_master);
 
-  inline void switch_master(short master_id) { curr_master = master_id; }
-
+  // TODO: this needs to be modified as we changed the format of TIDs
   static inline bool is_readable(uint64_t tmin, uint64_t tmax, uint64_t tid) {
+    // TXN ID= ((txn_id << 8) >> 8) ?? cant we just AND to clear top bits?
+    // WORKER_ID = (txn_id >> 56)
     if ((tid >= tmin) && (tmax == 0 || tid < tmax)) {
       return true;
     } else {
@@ -106,15 +77,10 @@ class CC_MV2PL {
     }
   }
 
-  void gc() { modified_vids.clear(); }
-
   static bool is_mv() { return true; }
 
  private:
-  std::vector<uint64_t> modified_vids;
-  volatile short curr_master;
-
-};  // namespace txn
+};
 
 struct VERSION {
   uint64_t t_min;
@@ -127,18 +93,13 @@ struct VERSION {
 
 struct VERSION_LIST {
   VERSION *head;
-  // std::atomic<VERSION *> head;
-  // std::mutex m;
+  short master_version;
 
   VERSION_LIST() { head = nullptr; }
 
   void insert(VERSION *val) {
     {
-      // std::unique_lock<std::mutex> lock(this->m);
       val->next = head;
-      // if (!head.compare_exchange_strong(val->next, val)) {
-      //  std::cout << "FUCKKKKKK" << std::endl;
-      //}
       head = val;
     }
   }
@@ -146,9 +107,7 @@ struct VERSION_LIST {
   void *get_readable_ver(uint64_t tid_self) {
     VERSION *tmp = nullptr;
     {
-      // std::unique_lock<std::mutex> lock(this->m);
       tmp = head;
-
       while (tmp != nullptr) {
         if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
           return tmp;
@@ -160,13 +119,39 @@ struct VERSION_LIST {
     return nullptr;
   }
 
-  void print_list(uint64_t print) {
-    VERSION *tmp = head;
-    while (tmp != nullptr) {
-      std::cout << "[" << print << "] xmin:" << tmp->t_min << std::endl;
-      tmp = tmp->next;
-    }
+  // void print_list(uint64_t print) {
+  //   VERSION *tmp = head;
+  //   while (tmp != nullptr) {
+  //     std::cout << "[" << print << "] xmin:" << tmp->t_min << std::endl;
+  //     tmp = tmp->next;
+  //   }
+  // }
+} __attribute__((aligned(64)));
+
+class CC_GlobalLock {
+ public:
+  struct PRIMARY_INDEX_VAL {
+    uint64_t VID;
+    short last_master_ver;
+    lock::Spinlock latch;
+    PRIMARY_INDEX_VAL(uint64_t vid) : VID(vid), last_master_ver(0) {}
+    PRIMARY_INDEX_VAL(uint64_t vid, short master_ver)
+        : VID(vid), last_master_ver(master_ver) {}
+    PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid, short master_ver)
+        : VID(vid), last_master_ver(master_ver) {}
+  } __attribute__((aligned(64)));
+
+  bool execute_txn(void *stmts, uint64_t xid);
+
+  CC_GlobalLock() {
+    std::cout << "CC Protocol: GlobalLock" << std::endl;
+    curr_master = 0;
   }
+  static bool is_mv() { return false; }
+
+ private:
+  std::mutex global_lock;
+  volatile short curr_master;
 };
 
 }  // namespace txn

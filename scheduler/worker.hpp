@@ -34,6 +34,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "scheduler/topology.hpp"
 
 #include "benchmarks/bench.hpp"
+#include "glo.hpp"
 
 namespace scheduler {
 
@@ -53,20 +54,22 @@ namespace scheduler {
 class Worker {
   uint8_t id;
   volatile bool terminate;
+
+  int curr_master;
+  int prev_master;
+
   core *exec_core;
-  // WORKER_TYPE type;
-  // core *exec_core;
-  // void *payload;
 
-  // std::function<void*(void)> gen_txn;
-  // std::function<void(void*)> exec_txn;
+  uint64_t curr_txn;
 
-  // for stats MAYBE
+  // STATS
   uint64_t num_txns;
   uint64_t num_commits;
   uint64_t num_aborts;
 
-  std::chrono::time_point<std::chrono::system_clock> txn_start_time;
+  // std::chrono::time_point<std::chrono::system_clock> txn_start_time;
+  std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
+      txn_start_time;
 
  public:
   Worker(uint8_t id, core *exec_core)
@@ -75,16 +78,9 @@ class Worker {
         exec_core(exec_core),
         num_txns(0),
         num_commits(0),
-        num_aborts(0) {
-    txn_start_time = std::chrono::system_clock::now();
-  }
-  // Worker(uint8_t id, core *exec_core, std::function<void*(void)> gen_txn,
-  // std::function<void(void*)> exec_txn)
-  //    : id(id), terminate(false), exec_core(exec_core), gen_txn(gen_txn),
-  //    exec_txn(exec_txn) {}
+        num_aborts(0) {}
 
   void run();
-
   friend class WorkerPool;
 };
 
@@ -110,7 +106,8 @@ class WorkerPool {
   void start_workers(int num_workers = 1);
   void add_worker(core *exec_location);
   void remove_worker(core *exec_location);
-  void print_worker_stats(bool global_only = true);
+  void print_worker_stats(bool global_only = false);
+  std::vector<uint64_t> get_active_txns();
 
   template <class F, class... Args>
   std::future<typename std::result_of<F(Args...)>::type> enqueueTask(
@@ -119,27 +116,23 @@ class WorkerPool {
   uint8_t size() { return workers.size(); }
 
  private:
-  WorkerPool() { worker_id = 0; }
+  WorkerPool() { worker_counter = 0; }
 
-  volatile uint8_t worker_id;
-  // volatile bool terminate;
+  volatile uint8_t worker_counter;
   std::atomic<bool> terminate;
   std::unordered_map<uint8_t, std::pair<std::thread *, Worker *> > workers;
+
+  // TXN benchmark
   bench::Benchmark *txn_bench;
 
-  /*
-  OPTMIZATION:
-  Currently, its a single large global queue. we can
-  have one queue per socket and then some how map the tasks to the queues
-  dependent on data locality. this way we can ensure local NUMA access.
-  but the main question here is how we would know that the data of the given
-  task is local to which socket without actually touching the data. maybe key
-  partioning, we can but that wont be shared-everything concept anymore?
-
-*/
-  std::queue<std::function<void()> > tasks;
+  // External TXN Queue
+  std::queue<std::function<bool(uint64_t)> > tasks;
   std::mutex m;
   std::condition_variable cv;
+
+  // Global Snapshotting
+  std::vector<std::vector<int> > active_worker_per_master;
+
   ~WorkerPool() {
     std::cout << "[destructor] shutting down workers" << std::endl;
     terminate = true;

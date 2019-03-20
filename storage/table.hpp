@@ -80,8 +80,8 @@ class Table {
   virtual void* insertRecord(void* rec, uint64_t xid, short master_ver) = 0;
 
   virtual void updateRecord(uint64_t vid, void* data, short ins_master_ver,
-                            short prev_master_ver, uint64_t tmin,
-                            uint64_t tmax) = 0;
+                            short prev_master_ver, uint64_t tmin, uint64_t tmax,
+                            int pid) = 0;
   virtual void deleteRecord(uint64_t vid, short master_ver) = 0;
   virtual std::vector<std::tuple<const void*, data_type>> getRecordByKey(
       uint64_t vid, short master_ver, std::vector<int>* col_idx = nullptr) = 0;
@@ -130,7 +130,8 @@ class rowStore : public Table {
   };
 
   void updateRecord(uint64_t vid, void* data, short ins_master_ver,
-                    short prev_master_ver, uint64_t tmin, uint64_t tmax) {}
+                    short prev_master_ver, uint64_t tmin, uint64_t tmax,
+                    int pid) {}
   void deleteRecord(uint64_t vid, short master_ver) {}
   void clearDelta(short ver) {}
   global_conf::mv_version_list* getVersions(uint64_t vid, short master_ver) {
@@ -151,7 +152,8 @@ class ColumnStore : public Table {
   uint64_t insertRecord(void* rec, short master_ver);
   void* insertRecord(void* rec, uint64_t xid, short master_ver);
   void updateRecord(uint64_t vid, void* data, short ins_master_ver,
-                    short prev_master_ver, uint64_t tmin, uint64_t tmax);
+                    short prev_master_ver, uint64_t tmin, uint64_t tmax,
+                    int pid);
   void deleteRecord(uint64_t vid, short master_ver);
   std::vector<std::tuple<const void*, data_type>> getRecordByKey(
       uint64_t vid, short master_ver, std::vector<int>* col_idx = nullptr);

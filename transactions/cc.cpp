@@ -31,11 +31,10 @@ void release_locks(
   for (auto c : hash_ptrs_lock_acquired) c->write_lck = false;
 }
 
-// MV2PL principle : Fail bloody fast :P
-bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid) {
+// MV2PL principle : Fail bloody fast
+bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid, ushort txn_master_ver) {
   struct TXN *txn_stmts = (struct TXN *)stmts;
   int n = txn_stmts->n_ops;
-  int txn_master_ver = this->curr_master;
 
   /* Acquire locks for updates*/
 
@@ -120,7 +119,7 @@ bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid) {
         hash_ptr->latch.acquire();
         tbl_ptr->updateRecord(hash_ptr->VID, op.rec, txn_master_ver,
                               hash_ptr->last_master_ver, hash_ptr->t_min,
-                              hash_ptr->t_max);
+                              hash_ptr->t_max, (xid >> 56) % 4);
         hash_ptr->t_min = xid;
         hash_ptr->last_master_ver = txn_master_ver;
         hash_ptr->latch.release();
@@ -145,7 +144,7 @@ bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid) {
 // seriazability
 bool CC_GlobalLock::execute_txn(void *stmts, uint64_t xid) {
   struct TXN *txn_stmts = (struct TXN *)stmts;
-  int txn_master_ver = this->curr_master;
+  short txn_master_ver = this->curr_master;
   int n = txn_stmts->n_ops;
   {
     std::unique_lock<std::mutex> lock(global_lock);
@@ -178,7 +177,8 @@ bool CC_GlobalLock::execute_txn(void *stmts, uint64_t xid) {
             PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
             // tbl_ptr->updateRecord(val.VID, op.rec);
             tbl_ptr->updateRecord(hash_ptr->VID, op.rec, txn_master_ver,
-                                  hash_ptr->last_master_ver, xid, curr_master);
+                                  hash_ptr->last_master_ver, xid, curr_master,
+                                  xid >> 56);
           }
           break;
         }

@@ -31,42 +31,48 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <thread>
 #include <tuple>
 
-#include "transactions/transaction_manager.hpp"
+//#include "transactions/transaction_manager.hpp"
 
-std::ostream& operator<<(std::ostream& o, const struct txn::TXN& a) {
-  o << "---TXN---\n";
-  for (int i = 0; i < a.n_ops; i++) {
-    o << "\tTXN[" << i << "]";
-    o << "\t\tOP: ";
-    switch (a.ops[i].op_type) {
-      case txn::OPTYPE_LOOKUP:
-        o << " LOOKUP";
-        break;
-      case txn::OPTYPE_INSERT:
-        o << " INSERT";
-        break;
-      case txn::OPTYPE_UPDATE:
-        o << " UPDATE";
-        break;
-      /*case txn::OP_TYPE_DELETE:
-        o << " DELETE";
-        break;*/
-      default:
-        o << " UNKNOWN";
-        break;
-    }
-    o << ", key: " << a.ops[i].key << std::endl;
-    ;
-  }
+// std::ostream& operator<<(std::ostream& o, const struct txn::TXN& a) {
+//   o << "---TXN---\n";
+//   for (int i = 0; i < a.n_ops; i++) {
+//     o << "\tTXN[" << i << "]";
+//     o << "\t\tOP: ";
+//     switch (a.ops[i].op_type) {
+//       case txn::OPTYPE_LOOKUP:
+//         o << " LOOKUP";
+//         break;
+//       case txn::OPTYPE_INSERT:
+//         o << " INSERT";
+//         break;
+//       case txn::OPTYPE_UPDATE:
+//         o << " UPDATE";
+//         break;
+//       /*case txn::OP_TYPE_DELETE:
+//         o << " DELETE";
+//         break;*/
+//       default:
+//         o << " UNKNOWN";
+//         break;
+//     }
+//     o << ", key: " << a.ops[i].key << std::endl;
+//     ;
+//   }
 
-  o << "---------\n";
-  return o;
-}
+//   o << "---------\n";
+//   return o;
+// }
 
 /*
   Calls a function every x(ms) intervals
 
 */
+
+template <class Duration>
+using sys_time = std::chrono::time_point<std::chrono::system_clock, Duration>;
+using sys_nanoseconds = sys_time<std::chrono::nanoseconds>;
+
+sys_nanoseconds now = std::chrono::system_clock::now();
 
 class timed_func {
   static bool terminate;

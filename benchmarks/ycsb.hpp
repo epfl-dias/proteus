@@ -94,7 +94,9 @@ class YCSB : public Benchmark {
       std::vector<uint64_t> tmp(num_fields, i);
       // ycsb_tbl->insertRecord(&tmp);
       struct txn::TXN insert_txn = gen_insert_txn(i, &tmp);
-      txnManager->execute_txn(&insert_txn);
+      txnManager->executor.execute_txn(&insert_txn, 0,
+                                       0);  // txn_id = 0; master= 0;
+      // txnManager->get_next_xid(0),txnManager->curr_master);
       if (i % 1000000 == 0)
         std::cout << "[YCSB] inserted records: " << i << std::endl;
       // key_gen++;

@@ -23,6 +23,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef DELTA_STORAGE_HPP_
 #define DELTA_STORAGE_HPP_
 
+#include <sys/mman.h>
 #include <cstdlib>
 #include <iostream>
 #include "glo.hpp"
@@ -42,11 +43,15 @@ namespace storage {
 /* Currently DeltaStore is not resizeable*/
 class DeltaStore {
  public:
-  DeltaStore(size_t rec_size, uint64_t initial_num_objs) {
-    // std::unique_lock<std::mutex> lock(this->glbl_lck);
+  DeltaStore(size_t rec_size, uint64_t initial_num_objs,
+             int num_partitions = -1) {
+    if (num_partitions == -1) {
+      num_partitions = 4;  // std::thread::hardware_concurrency();
+    }
 
-    total_ver_capacity = initial_num_objs * global_conf::max_ver_factor;
-    total_tuple_capacity = initial_num_objs;
+    uint64_t total_ver_capacity =
+        initial_num_objs * global_conf::max_ver_factor_per_thread;
+    uint64_t total_tuple_capacity = initial_num_objs;
 
     size_t ver_list_mem_req =
         sizeof(global_conf::mv_version_list) * total_tuple_capacity;
@@ -58,93 +63,77 @@ class DeltaStore {
     int list_numa_id = global_conf::delta_list_numa_id;
     int data_numa_id = global_conf::delta_ver_numa_id;
 
-    void* mem_list = MemoryManager::alloc(ver_list_mem_req, list_numa_id);
-    void* mem_data = MemoryManager::alloc(ver_data_mem_req, data_numa_id);
+    for (int i = 0; i < num_partitions; i++) {
+      /* TODO: if numa memset is undefined, then allocate memory on the local
+               node.
+        if(list_numa_id == -1 ){}
+        if(data_numa_id == -1 ){}
+      */
+
+      // THIS IS PURE HACKED FOR DIAS33
+
+      list_numa_id = i % 4;
+      data_numa_id = i % 4;
+
+      std::cout << "PID-" << i << " - memset: " << data_numa_id << std::endl;
+
+      void* mem_list = MemoryManager::alloc(ver_list_mem_req, list_numa_id);
+      void* mem_data = MemoryManager::alloc(ver_data_mem_req, data_numa_id);
+
+      // assert(mlock(mem_list, ver_list_mem_req));
+      // assert(mlock(mem_data, ver_data_mem_req));
+
+      assert(mem_list != nullptr);
+      assert(mem_data != nullptr);
+
+      partitions.push_back(new DeltaPartition(
+          (char*)mem_list, mem_chunk(mem_list, ver_list_mem_req, list_numa_id),
+          (char*)mem_data, mem_chunk(mem_data, ver_data_mem_req, data_numa_id),
+          rec_size, i));
+    }
 
     // void* mem_data = malloc(ver_data_mem_req);
     // void* mem_list = malloc(ver_list_mem_req);
 
-    assert(mem_list != nullptr);
-    assert(mem_data != nullptr);
+    // // warm-up mem-list
+    // std::cout << "\t warming up delta storage" << std::endl;
+    // uint64_t* pt = (uint64_t*)mem_list;
+    // int warmup_size = ver_list_mem_req / sizeof(uint64_t);
+    // for (int i = 0; i < warmup_size; i++) pt[i] = i * 2;
 
-    this->ver_list_cursor = (char*)mem_list;
-    this->ver_data_cursor = (char*)mem_data;
-
-    // warm-up mem-list
-    std::cout << "\t warming up delta storage" << std::endl;
-    uint64_t* pt = (uint64_t*)mem_list;
-    int warmup_size = ver_list_mem_req / sizeof(uint64_t);
-    std::cout << "warming: list memory - size "
-              << (ver_list_mem_req / (1024 * 1024 * 1024)) << std::endl;
-    for (int i = 0; i < warmup_size; i++) pt[i] = i * 2;
-
-    // warm-up mem-data
-    pt = (uint64_t*)mem_data;
-    warmup_size = ver_data_mem_req / sizeof(uint64_t);
-    std::cout << "warming: data memory - size "
-              << (ver_data_mem_req / (1024 * 1024 * 1024)) << std::endl;
-    pt[0] = 1;
-    for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
+    // // warm-up mem-data
+    // pt = (uint64_t*)mem_data;
+    // warmup_size = ver_data_mem_req / sizeof(uint64_t);
+    // pt[0] = 1;
+    // for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
 
     std::cout << "\tDelta size: "
               << ((double)(ver_list_mem_req + ver_data_mem_req) /
                   (1024 * 1024 * 1024))
-              << " GB" << std::endl;
-
-    ver_list_data = mem_chunk(mem_list, ver_list_mem_req, list_numa_id);
-
-    ver_data_ptr = mem_chunk(mem_data, ver_data_mem_req, data_numa_id);
+              << " GB * " << num_partitions << " Partitions" << std::endl;
 
     this->rec_size = rec_size;
-
-    used_ver_capacity = 0;
-    used_tuple_capacity = 0;
 
     // std::cout << "Rec size: " << rec_size << std::endl;
 
     // reserve hash-capacity before hand
-    vid_version_map.reserve(total_tuple_capacity);
+    vid_version_map.reserve(total_tuple_capacity * num_partitions);
   }
 
-  // TODO: clear out all the memory
-  ~DeltaStore() {
-    MemoryManager::free(ver_list_data.data, ver_list_data.size);
-    MemoryManager::free(ver_data_ptr.data, ver_data_ptr.size);
-  }
-
-  /*void insert_version(uint64_t vid, void* rec, uint64_t tmin, uint64_t tmax) {
-    std::unique_lock<std::mutex> lock(this->glbl_lck);
-    assert(used_recs_capacity < total_rec_capacity);
-    used_recs_capacity++;
-    global_conf::mv_version* val = (global_conf::mv_version*)getVersionChunk();
-    val->t_min = tmin;
-    val->t_max = tmax;
-    val->data = getDataChunk();
-    memcpy(val->data, rec, rec_size);
-
-    // template <typename K> bool find(const K &key, mapped_type &val)
-    {
-      std::unique_lock<std::mutex> lock(this->hash_lck);
-      global_conf::mv_version_list* vlst;
-      vid_version_map.find(vid, vlst);
-      vlst->insert(val);
-      vid_version_map.insert(vid, vlst);
-    }
-  }*/
-
-  void* insert_version(uint64_t vid, uint64_t tmin, uint64_t tmax) {
-    void* cnk = getVersionDataChunk();
+  void* insert_version(uint64_t vid, uint64_t tmin, uint64_t tmax, int pid) {
+    // void* cnk = getVersionDataChunk();
+    char* cnk = (char*)partitions[pid]->getVersionDataChunk();
     global_conf::mv_version* val = (global_conf::mv_version*)cnk;
     val->t_min = tmin;
     val->t_max = tmax;
-    val->data = (char*)cnk + sizeof(global_conf::mv_version);
+    val->data = cnk + sizeof(global_conf::mv_version);
 
     global_conf::mv_version_list* vlst = nullptr;
 
     if (vid_version_map.find(vid, vlst))
       vlst->insert(val);
     else {
-      vlst = (global_conf::mv_version_list*)getListChunk();
+      vlst = (global_conf::mv_version_list*)partitions[pid]->getListChunk();
       vlst->insert(val);
       vid_version_map.insert(vid, vlst);
     }
@@ -167,75 +156,93 @@ class DeltaStore {
     return vlst;
   }
 
-  double getUtilPercentage() {
-    // TODO: implement
-
-    // return ((double)used_recs_capacity.load() / (double)total_rec_capacity) *
-    //       100;
-
-    return 0.0;
-  };
-
   void reset() {
-    // THIS IS DANGEROUS AREA BECAUSE THIS ASSUMES THAT NO THREAD IS
-    // PERFORMING ANY INSERTS WHEN THIS RESET HAPPENS.
-
-    // std::unique_lock<std::mutex> lock1(this->data_lock, std::defer_lock);
-    // std::unique_lock<std::mutex> lock2(this->list_lock, std::defer_lock);
-    // std::lock(lock1, lock2);
     vid_version_map.clear();
-    ver_list_cursor = (char*)ver_list_data.data;
-    ver_data_cursor = (char*)ver_data_ptr.data;
-    used_ver_capacity = 0;
-    used_tuple_capacity = 0;
+    for (auto& p : partitions) {
+      p->reset();
+    }
   }
 
  private:
-  void* getVersionDataChunk() {
-    void* tmp = nullptr;
-    // {
-    //  std::lock_guard<std::mutex> lock(this->data_lock);
-    //  tmp = (void*)ver_data_cursor;
-    // ver_data_cursor += rec_size + sizeof(global_conf::mv_version);
-    //}
-    tmp = ver_data_cursor.fetch_add(rec_size + sizeof(global_conf::mv_version));
-    assert(tmp != nullptr);
-    return tmp;
-  }
-  void* getListChunk() {
-    void* tmp = nullptr;
-    //{
-    // std::lock_guard<std::mutex> lock(this->list_lock);
-    //  tmp = (void*)ver_list_cursor;
-    //  ver_list_cursor += sizeof(global_conf::mv_version_list);
-    //}
-    tmp = ver_list_cursor.fetch_add(sizeof(global_conf::mv_version_list));
-    assert(tmp != nullptr);
-    return tmp;
-  }
-
   size_t rec_size;
-  uint64_t total_ver_capacity;
-  uint64_t total_tuple_capacity;
-  std::atomic<uint64_t> used_ver_capacity;
-  std::atomic<uint64_t> used_tuple_capacity;
-
   indexes::HashIndex<uint64_t, global_conf::mv_version_list*> vid_version_map;
 
-  /* Memory Manger*/
-  // Currently the delta storage is not extendable so mem_chunk is a object
-  // instead of vector.
+  class DeltaPartition {
+    mem_chunk ver_list_mem;
+    mem_chunk ver_data_mem;
+    std::atomic<char*> ver_list_cursor;
+    std::atomic<char*> ver_data_cursor;
 
-  std::atomic<char*> ver_list_cursor;
-  mem_chunk ver_list_data;
+    size_t rec_size;
+    int pid;
 
-  std::atomic<char*> ver_data_cursor;
-  mem_chunk ver_data_ptr;
+   public:
+    DeltaPartition(char* ver_list_cursor, mem_chunk ver_list_mem,
+                   char* ver_data_cursor, mem_chunk ver_data_mem,
+                   size_t rec_size, int pid)
+        : ver_list_mem(ver_list_mem),
+          ver_data_mem(ver_data_mem),
+          ver_list_cursor(ver_list_cursor),
+          ver_data_cursor(ver_data_cursor),
+          rec_size(rec_size),
+          pid(pid) {
+      // WARMUP MAYBE?
 
-  // making them static as we know inserts will be only on the active version
-  // plus I was getting more throughput on static. maybe due to bad alignment
-  static std::mutex list_lock;
-  static std::mutex data_lock;
+      // // warm-up mem-list
+      std::cout << "\t warming up delta storage P" << pid << std::endl;
+      uint64_t* pt = (uint64_t*)ver_list_cursor;
+      int warmup_size = ver_list_mem.size / sizeof(uint64_t);
+      pt[0] = 3;
+      for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
+
+      // warm-up mem-data
+      pt = (uint64_t*)ver_data_cursor;
+      warmup_size = ver_data_mem.size / sizeof(uint64_t);
+      pt[0] = 1;
+      for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
+    }
+
+    ~DeltaPartition() {
+      std::cout << "Clearing Delta Parition-" << pid << std::endl;
+      // int munlock(const void *addr, size_t len);
+      MemoryManager::free(ver_list_mem.data, ver_list_mem.size);
+      MemoryManager::free(ver_data_mem.data, ver_data_mem.size);
+    }
+
+    void reset() {
+      ver_list_cursor = (char*)ver_list_mem.data;
+      ver_data_cursor = (char*)ver_data_mem.data;
+    }
+    void* getListChunk() {
+      // void* tmp = nullptr;
+      // tmp =
+      // ver_list_cursor//.fetch_add(sizeof(global_conf::mv_version_list));
+      // --
+      // void* tmp = (void*)ver_list_cursor;
+      // ver_list_cursor += sizeof(global_conf::mv_version_list);
+      void* tmp = (void*)ver_list_cursor.fetch_add(
+          sizeof(global_conf::mv_version_list));
+
+      return tmp;
+    }
+
+    void* getVersionDataChunk() {
+      // void* tmp = nullptr;
+      // tmp = ver_data_cursor.fetch_add(rec_size +
+      // sizeof(global_conf::mv_version));
+
+      // void* tmp = (void*)ver_data_cursor;
+      // ver_data_cursor += rec_size + sizeof(global_conf::mv_version);
+
+      void* tmp = (void*)ver_list_cursor.fetch_add(
+          rec_size + sizeof(global_conf::mv_version));
+      return tmp;
+    }
+
+    friend class DeltaStore;
+  };
+
+  std::vector<DeltaPartition*> partitions;
 };
 
 };  // namespace storage

@@ -34,11 +34,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
-#include "utils/utils.hpp"
+//#include "utils/utils.hpp"
 
 #include "lib/cxxopts.hpp"
 
-#define RUNTIME 10000000
+#define RUNTIME 120000000
 
 // TODO: a race condition exists in acquiring write lock and updating the
 // version, a read might read at the same time as readers are not blocked in any
@@ -85,14 +85,14 @@ int main(int argc, char** argv) {
   uint gc_mode = 1;
 
   // ycsb vars  // (10-G * (1024^3))/(8*10-num_field)
-  int num_fields = 10;  // 2;
+  int num_fields = 1;  // 2;
   // int num_records = 134217728;  // 10GB
   // int num_records = 268435456;  // 20GB
-  int num_records = 1000000;
+  int num_records = 72000000;
   double theta = 0.5;
   int num_iterations_per_worker = 1000000;
-  int num_ops_per_txn = 16;
-  double write_threshold = 0.50;
+  int num_ops_per_txn = 10;
+  double write_threshold = 0.0;
 
   if (result.count("w") > 0) {
     num_workers = result["w"].as<uint>();
@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
 
   std::cout << "------------------------------------" << std::endl;
 
-  txn::TransactionManager::getInstance().init();
+  // txn::TransactionManager::getInstance().init();
 
   /* ------------------------------------ */
 

@@ -24,7 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 namespace storage {
 
-std::mutex DeltaStore::list_lock;
-std::mutex DeltaStore::data_lock;
+// std::mutex DeltaStore::list_lock;
+// std::mutex DeltaStore::data_lock;
 
 }  // namespace storage

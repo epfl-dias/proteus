@@ -44,9 +44,13 @@ using mv_version = txn::VERSION;
 template <class T_KEY>
 using PrimaryIndex = indexes::HashIndex<T_KEY>;
 
+const uint time_master_switch_ms = 200;
+
 /* # of Snapshots*/
 const short num_master_versions = 1;
-const uint64_t max_ver_factor = 300;
+const short num_delta_storages = 1;
+// const uint64_t max_ver_factor = 200;
+const uint64_t max_ver_factor_per_thread = 20;
 const int delta_list_numa_id = 0;
 const int delta_ver_numa_id = 0;
 const int master_col_numa_id = 0;

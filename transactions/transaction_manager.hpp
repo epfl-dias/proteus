@@ -24,11 +24,13 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define TRANSACTION_MANAGER_HPP_
 
 #include <atomic>
+#include <chrono>
 #include <iostream>
 
 #include "glo.hpp"
 #include "transactions/cc.hpp"
 #include "transactions/txn_utils.hpp"
+//#include "utils/utils.hpp"
 
 namespace txn {
 
@@ -44,25 +46,66 @@ class TransactionManager {
   TransactionManager(TransactionManager const &) = delete;  // Don't Implement
   void operator=(TransactionManager const &) = delete;      // Don't implement
 
-  // array of active txns -- do we really need it?
+  static inline uint64_t __attribute__((always_inline)) read_tsc(uint8_t wid) {
+    uint32_t a, d;
+    __asm __volatile("rdtsc" : "=a"(a), "=d"(d));
 
-  inline int64_t get_next_xid() { return ++g_xid; }
+    return (((uint64_t)((d & 0x00FFFFFF) | (((uint32_t)wid) << 24))) << 32) |
+           ((uint64_t)a);
+  }
+  inline uint64_t __attribute__((always_inline)) get_next_xid(uint8_t wid) {
+    // Global Atomic
+    // return ++g_xid;
 
-  static void init() {
-    std::cout << "Initializing Txn Manager..." << std::endl;
+    // WorkerID + timestamp
+    // thread_local std::chrono::time_point<std::chrono::system_clock,
+    //                                     std::chrono::nanoseconds>
+    //    curr;
+
+    // curr = std::chrono::system_clock::now().time_since_epoch().count();
+
+    // uint64_t now = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    //                   std::chrono::system_clock::now().time_since_epoch())
+    //                   .count();
+    // uint64_t cc = ((now << 8) >> 8) + (((uint64_t)wid) << 56);
+    // uint64_t cc = (now & 0x00FFFFFFFFFFFFFF) + (((uint64_t)wid) << 56);
+
+    uint64_t now = read_tsc(wid);
+    // uint64_t cc = now + (((uint64_t)wid) << 56);
+
+    // std::cout << "NOW:" << now << "|cc:" << cc << std::endl;
+    return now;
+
+    // return 0;
   }
 
-  bool execute_txn(void *stmts) {
-    return executor.execute_txn(stmts, get_next_xid());
-  }
+  // void init();
+
+  // bool execute_txn(void *stmts, uint64_t xid) {
+  //   return executor.execute_txn(stmts, xid);
+  //   // ,std::chrono::duration_cast<std::chrono::nanoseconds>(
+  //   //     txn_start_time.time_since_epoch())
+  //   //     .count());
+  // }
+
+  // void switch_master();
+  // void gc();
 
   global_conf::ConcurrencyControl executor;
+  // std::atomic<ushort> curr_master;
+  // const std::chrono::time_point<std::chrono::system_clock,
+  //                             std::chrono::nanoseconds>
+  uint64_t txn_start_time;
+  int master_switch_delta;
 
  private:
-  std::atomic<uint64_t> g_xid;
-  // std::vector<uint64_t> active_txns;
-
-  TransactionManager() {}
+  TransactionManager()
+      : txn_start_time(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                           std::chrono::system_clock::now().time_since_epoch())
+                           .count()) {
+    // curr_master = 0;
+    master_switch_delta = 0;
+  }
 };
 
 };  // namespace txn

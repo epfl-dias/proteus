@@ -189,15 +189,17 @@ global_conf::mv_version_list* ColumnStore::getVersions(uint64_t vid,
 
 void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
                                short prev_master_ver, uint64_t tmin,
-                               uint64_t tmax) {
+                               uint64_t tmax, int pid) {
   // if(ins_master_ver == prev_master_ver) need version ELSE update the master
   // one.
   // uint64_t c = 4;
+
+  // TODO: WRONG
   if (global_conf::cc_ismv && ins_master_ver == prev_master_ver) {
     // std::cout << "same master, create ver" << std::endl;
     // create_version
     char* ver = (char*)this->deltaStore[ins_master_ver]->insert_version(
-        vid, tmin, tmax);
+        vid, tmin, tmax, pid);
     assert(ver != nullptr);
     // std::cout << "inserted into delta" << std::endl;
     size_t total_rec_size = 0;
@@ -219,8 +221,6 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
     }
     assert(this->rec_size == total_rec_size);
     // std::cout << "updated column" << std::endl;
-  } else {
-    assert(false);
   }
 
   char* cursor = (char*)rec;
