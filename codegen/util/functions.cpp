@@ -30,7 +30,9 @@
 #include <iostream>
 #include <ostream>
 
+#ifdef __AVX2__
 #include <immintrin.h>
+#endif
 
 // Remember to add these functions as extern in .hpp too!
 extern "C" double putchari(int X) {
@@ -41,11 +43,12 @@ extern "C" double putchari(int X) {
 #define CACHE_CAP 1024
 
 void nonTemporalCopy(char *out, char *in, int n) {
-  //__m256i* out_m;
-  //__m256i* in_m;
+  // TODO: use more portable code for non temporal copy and/or bigger registers
   for (int i = 0; i < n * CACHE_CAP; i += 32) {
-    _mm256_stream_si256((__m256i *)(out + i), *((__m256i *)(in + i)));
-    // out[i] = in[i];
+    typedef int __v4di_aligned __attribute__((__vector_size__(32)))
+    __attribute__((aligned(32)));
+    __builtin_nontemporal_store(*((__v4di_aligned *)(out + i)),
+                                (__v4di_aligned *)(in + i));
   }
 }
 
