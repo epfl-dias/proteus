@@ -60,8 +60,9 @@ void HashGroupByChained::produce() {
   ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open(pip);
   });
-  // ((ParallelContext *) context)->registerClose(this, [this](Pipeline *
-  // pip){this->close(pip);});
+  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
+    this->close(pip);
+  });
 
   getChild()->produce();
 }
@@ -867,16 +868,16 @@ void HashGroupByChained::close(Pipeline *pip) {
   // << std::endl; std::cout << "---------------------------> " << cnt <<
   // std::endl;
 
-  cudaStream_t strm = createNonBlockingStream();
+  // cudaStream_t strm = createNonBlockingStream();
 
-  execution_conf ec = pip->getExecConfiguration();
-  size_t grid_size = ec.gridSize();
+  // execution_conf ec = pip->getExecConfiguration();
+  // size_t grid_size = ec.gridSize();
 
   // void   ** buffs = pip->getStateVar<void   **>(buffVar_id[0]);
   // int32_t * cnts  = pip->getStateVar<int32_t *>(cntVar_id    );
 
-  Pipeline *probe_pip = probe_gen->getPipeline(pip->getGroup());
-  probe_pip->open();
+  // Pipeline *probe_pip = probe_gen->getPipeline(pip->getGroup());
+  // probe_pip->open();
 
   std::vector<void *> args;
   args.push_back(pip->getStateVar<int32_t *>(cnt_param_id));
@@ -884,20 +885,21 @@ void HashGroupByChained::close(Pipeline *pip) {
     args.push_back(pip->getStateVar<void *>(params));
   }
 
-  std::vector<void **> kp;
-  for (size_t i = 0; i < args.size(); ++i) {
-    kp.push_back(args.data() + i);
-  }
-  kp.push_back((void **)probe_pip->getState());
+  // std::vector<void **> kp;
+  // for (size_t i = 0; i < args.size(); ++i) {
+  //   kp.push_back(args.data() + i);
+  // }
+  // kp.push_back((void **)probe_pip->getState());
 
-  launch_kernel((CUfunction)probe_gen->getKernel(), (void **)kp.data(), strm);
-  syncAndDestroyStream(strm);
+  // launch_kernel((CUfunction)probe_gen->getKernel(), (void **)kp.data(),
+  // strm); syncAndDestroyStream(strm);
 
-  probe_pip->close();
+  // probe_pip->close();
 
   MemoryManager::freePinned(pip->getStateVar<int32_t *>(cnt_param_id));
   MemoryManager::freePinned(pip->getStateVar<int32_t *>(head_param_id));
 
+  assert(out_param_ids.size() == packet_widths.size());
   for (size_t i = 0; i < out_param_ids.size(); ++i) {
     MemoryManager::freePinned(pip->getStateVar<void *>(out_param_ids[i]));
   }
