@@ -48,13 +48,17 @@ class DeltaStore;
 
 enum layout_type { ROW_STORE, COLUMN_STORE };
 
-enum data_type { META, INTEGER };
+enum data_type { META, INTEGER, STRING, FLOAT, VARCHAR, DATE };
 
 class Schema {
  public:
-  Schema(std::string name) : name(name) {
-    std::cout << "Create Schema:\t" << name << std::endl;
+  // Singleton
+  static inline Schema& getInstance() {
+    static Schema instance;
+    return instance;
   }
+  Schema(Schema const&) = delete;          // Don't Implement
+  void operator=(Schema const&) = delete;  // Don't implement
 
   Table* getTable(int idx);
   Table* getTable(std::string name);
@@ -68,10 +72,18 @@ class Schema {
   void drop_table(std::string name);
   void drop_table(int idx);
 
+  void initiate_gc(ushort ver);
+  void add_active_txn(ushort ver);
+  void remove_active_txn(ushort ver);
+  void switch_delta(ushort prev, ushort curr);
+
+  void teardown();
+
  private:
-  std::string name;
   int num_tables;
   std::vector<Table*> tables;
+
+  Schema() {}
 };
 
 class Table {
@@ -80,10 +92,10 @@ class Table {
   virtual void* insertRecord(void* rec, uint64_t xid, short master_ver) = 0;
 
   virtual void updateRecord(uint64_t vid, void* data, short ins_master_ver,
-                            short prev_master_ver, uint64_t tmin, uint64_t tmax,
-                            int pid) = 0;
+                            short prev_master_ver, short delta_ver,
+                            uint64_t tmin, uint64_t tmax, int pid) = 0;
   virtual void deleteRecord(uint64_t vid, short master_ver) = 0;
-  virtual std::vector<std::tuple<const void*, data_type>> getRecordByKey(
+  virtual std::vector<const void*> getRecordByKey(
       uint64_t vid, short master_ver, std::vector<int>* col_idx = nullptr) = 0;
 
   void clearDelta(short ver);
@@ -94,7 +106,7 @@ class Table {
     std::cout << "Number of Columns:\t" << num_columns << std::endl;
   }
   Table() {}
-  virtual ~Table(){};
+  virtual ~Table();
 
   global_conf::PrimaryIndex<uint64_t>* p_index;
 
@@ -104,7 +116,7 @@ class Table {
   volatile std::atomic<uint64_t> vid;
 
   // MultiVersioning
-  DeltaStore* deltaStore[global_conf::num_master_versions];
+  DeltaStore* deltaStore[global_conf::num_delta_storages];
 
   // int primary_index_col_idx;
 
@@ -115,8 +127,11 @@ class Table {
  */
 
 class Row {
+  std::string name;
   size_t elem_size;
-  std::vector<mem_chunk*> data_ptr;
+  bool is_indexed;
+  data_type type;
+  std::vector<mem_chunk*> master_versions[global_conf::num_master_versions];
 
   void* getRow(int idx);
   void* getRange(int start_idx, int end_idx);
@@ -130,8 +145,8 @@ class rowStore : public Table {
   };
 
   void updateRecord(uint64_t vid, void* data, short ins_master_ver,
-                    short prev_master_ver, uint64_t tmin, uint64_t tmax,
-                    int pid) {}
+                    short prev_master_ver, short delta_ver, uint64_t tmin,
+                    uint64_t tmax, int pid) {}
   void deleteRecord(uint64_t vid, short master_ver) {}
   void clearDelta(short ver) {}
   global_conf::mv_version_list* getVersions(uint64_t vid, short master_ver) {
@@ -152,11 +167,11 @@ class ColumnStore : public Table {
   uint64_t insertRecord(void* rec, short master_ver);
   void* insertRecord(void* rec, uint64_t xid, short master_ver);
   void updateRecord(uint64_t vid, void* data, short ins_master_ver,
-                    short prev_master_ver, uint64_t tmin, uint64_t tmax,
-                    int pid);
+                    short prev_master_ver, short delta_ver, uint64_t tmin,
+                    uint64_t tmax, int pid);
   void deleteRecord(uint64_t vid, short master_ver);
-  std::vector<std::tuple<const void*, data_type>> getRecordByKey(
-      uint64_t vid, short master_ver, std::vector<int>* col_idx = nullptr);
+  std::vector<const void*> getRecordByKey(uint64_t vid, short master_ver,
+                                          std::vector<int>* col_idx = nullptr);
 
   global_conf::mv_version_list* getVersions(uint64_t vid, short master_ver);
 
@@ -166,9 +181,7 @@ class ColumnStore : public Table {
     void createIndex(std::string col_name);
   */
 
-  ~ColumnStore() {
-    std::cout << "COLUMNSTORE DESSTRUCTOR SCALLED!" << std::endl;
-  }
+  ~ColumnStore();
 
  private:
   std::vector<Column*> columns;

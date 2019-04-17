@@ -47,15 +47,15 @@ class CC_MV2PL {
  public:
   struct PRIMARY_INDEX_VAL {
     uint64_t t_min;  // transaction id that inserted the record
+    uint64_t t_max;  // transaction id that deleted the row
     uint64_t VID;    // VID of the record in memory
-    std::atomic<bool> write_lck;
     ushort last_master_ver;
     lock::Spinlock latch;
-    uint64_t t_max;  // transaction id that deleted the row
+    std::atomic<bool> write_lck;
 
     PRIMARY_INDEX_VAL();
     PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid, ushort master_ver)
-        : t_min(tid), VID(vid), last_master_ver(master_ver), t_max(0) {
+        : t_min(tid), t_max(0), VID(vid), last_master_ver(master_ver) {
       write_lck = 0;
     }
   } __attribute__((aligned(64)));
@@ -64,10 +64,12 @@ class CC_MV2PL {
     std::cout << "CC Protocol: MV2PL" << std::endl;
     // modified_vids.clear();
   }
-  bool execute_txn(void *stmts, uint64_t xid, ushort curr_master);
+  bool execute_txn(void *stmts, uint64_t xid, ushort curr_master,
+                   ushort delta_ver);
 
   // TODO: this needs to be modified as we changed the format of TIDs
-  static inline bool is_readable(uint64_t tmin, uint64_t tmax, uint64_t tid) {
+  static inline bool __attribute__((always_inline))
+  is_readable(uint64_t tmin, uint64_t tmax, uint64_t tid) {
     // TXN ID= ((txn_id << 8) >> 8) ?? cant we just AND to clear top bits?
     // WORKER_ID = (txn_id >> 56)
     if ((tid >= tmin) && (tmax == 0 || tid < tmax)) {

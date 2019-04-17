@@ -33,6 +33,37 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 namespace storage {
 
+void Schema::initiate_gc(ushort ver) {
+  for (auto& tbl : tables) {
+    // std::cout << ":" << std::endl;
+    tbl->clearDelta(ver);
+  }
+}
+
+void Schema::add_active_txn(ushort ver) {
+  for (auto& tbl : tables) {
+    tbl->deltaStore[ver]->increment_reader();
+  }
+}
+
+void Schema::switch_delta(ushort prev, ushort curr) {
+  for (auto& tbl : tables) {
+    tbl->deltaStore[prev]->decrement_reader();
+    tbl->deltaStore[curr]->increment_reader();
+  }
+}
+void Schema::remove_active_txn(ushort ver) {
+  for (auto& tbl : tables) {
+    tbl->deltaStore[ver]->decrement_reader();
+  }
+}
+
+void Schema::teardown() {
+  for (auto& tbl : tables) {
+    tbl->~Table();
+  }
+}
+
 Table* Schema::getTable(const int idx) { return tables.at(idx); }
 
 Table* Schema::getTable(std::string name) {
@@ -60,7 +91,7 @@ Table* Schema::create_table(
   } else {
     throw new std::runtime_error("Unknown layout type");
   }
-
+  tables.push_back(tbl);
   this->num_tables++;
   return tbl;
 }
@@ -79,10 +110,24 @@ void Schema::drop_table(std::string name) {
 void Schema::drop_table(int idx) {
   std::cout << "[Schema][drop_table] Not Implemented" << std::endl;
 }
+
+Table::~Table() {
+  for (auto& ds : deltaStore) {
+    delete ds;
+  }
+};
 void Table::clearDelta(short ver) {
   assert(global_conf::cc_ismv);
-  deltaStore[ver]->reset();
+  // std::cout << "+" << std::endl;
+  deltaStore[ver]->try_reset_gc();
 };
+
+ColumnStore::~ColumnStore() {
+  for (auto& col : columns) {
+    delete col;
+  }
+  delete meta_column;
+}
 
 ColumnStore::ColumnStore(
     std::string name,
@@ -96,6 +141,8 @@ ColumnStore::ColumnStore(
 
   // create meta_data column.
   std::cout << "Create meta-column" << std::endl;
+  std::cout << "size of hash_val: " << sizeof(global_conf::IndexVal)
+            << std::endl;
   meta_column = new Column("meta", initial_num_records, META,
                            sizeof(global_conf::IndexVal));
 
@@ -120,8 +167,8 @@ ColumnStore::ColumnStore(
       rec_size += co->elem_size;
     }
     this->rec_size = rec_size;
-    std::cout << "record size:" << rec_size << std::endl;
-    for (int i = 0; i < global_conf::num_master_versions; i++) {
+    std::cout << "record size: " << rec_size << " bytes" << std::endl;
+    for (int i = 0; i < global_conf::num_delta_storages; i++) {
       std::cout << "Create Delta # " << i << std::endl;
       deltaStore[i] = new DeltaStore(rec_size, initial_num_records);
     }
@@ -160,46 +207,61 @@ uint64_t ColumnStore::insertRecord(void* rec, short master_ver) {
 
 void ColumnStore::deleteRecord(uint64_t vid, short master_ver) {}
 
-std::vector<std::tuple<const void*, data_type>> ColumnStore::getRecordByKey(
+std::vector<const void*> ColumnStore::getRecordByKey(
     uint64_t vid, short master_ver, std::vector<int>* col_idx) {
-  std::vector<std::tuple<const void*, data_type>> record;
+  // std::vector<std::tuple<const void*, data_type>>
+  // std::vector<std::tuple<const void*, data_type>> record;
 
-  // int num_cols = col_idx->size();
-  // TODO: return col_name too maybe for projections?
+  // // int num_cols = col_idx->size();
+  // // TODO: return col_name too maybe for projections?
+  // if (col_idx == nullptr) {
+  //   for (auto& col : columns) {
+  //     record.push_back(std::tuple<const void*, data_type>(
+  //         (const void*)(col->getElem(vid, master_ver)), col->type));
+  //   }
+  // } else {
+  //   for (auto& c_idx : *col_idx) {
+  //     Column* col = columns.at(c_idx);
+  //     record.push_back(std::tuple<const void*, data_type>(
+  //         (const void*)(col->getElem(vid, master_ver)), col->type));
+  //   }
+  // }
+  // return record;
+
   if (col_idx == nullptr) {
+    std::vector<const void*> record(columns.size());
     for (auto& col : columns) {
-      record.push_back(std::tuple<const void*, data_type>(
-          (const void*)(col->getElem(vid, master_ver)), col->type));
+      record.push_back((const void*)(col->getElem(vid, master_ver)));
     }
+    return record;
   } else {
+    std::vector<const void*> record(col_idx->size());
     for (auto& c_idx : *col_idx) {
       Column* col = columns.at(c_idx);
-      record.push_back(std::tuple<const void*, data_type>(
-          (const void*)(col->getElem(vid, master_ver)), col->type));
+      record.push_back((const void*)(col->getElem(vid, master_ver)));
     }
+    return record;
   }
-  return record;
 }
 
 global_conf::mv_version_list* ColumnStore::getVersions(uint64_t vid,
-                                                       short master_ver) {
+                                                       short delta_ver) {
   assert(global_conf::cc_ismv);
-  return this->deltaStore[master_ver]->getVersionList(vid);
+  return this->deltaStore[delta_ver]->getVersionList(vid);
 }
 
 void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
-                               short prev_master_ver, uint64_t tmin,
-                               uint64_t tmax, int pid) {
+                               short prev_master_ver, short delta_ver,
+                               uint64_t tmin, uint64_t tmax, int pid) {
   // if(ins_master_ver == prev_master_ver) need version ELSE update the master
   // one.
   // uint64_t c = 4;
 
-  // TODO: WRONG
-  if (global_conf::cc_ismv && ins_master_ver == prev_master_ver) {
+  if (global_conf::cc_ismv) {
     // std::cout << "same master, create ver" << std::endl;
     // create_version
-    char* ver = (char*)this->deltaStore[ins_master_ver]->insert_version(
-        vid, tmin, tmax, pid);
+    char* ver = (char*)this->deltaStore[delta_ver]->insert_version(vid, tmin,
+                                                                   tmax, pid);
     assert(ver != nullptr);
     // std::cout << "inserted into delta" << std::endl;
     size_t total_rec_size = 0;
@@ -262,6 +324,7 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
     void* mem = MemoryManager::alloc(size, numa_id);
     uint64_t* pt = (uint64_t*)mem;
     for (int i = 0; i < initial_num_records; i++) pt[i] = 0;
+    std::cout << "create master: " << i << "| " << name << std::endl;
     master_versions[i].emplace_back(new mem_chunk(mem, size, numa_id));
   }
 
@@ -272,7 +335,6 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
 
 void* Column::getElem(uint64_t vid, short master_ver) {
   // master_versions[master_ver];
-
   assert(master_versions[master_ver].size() != 0);
   // std::cout << "getElem -> " << vid << " | master:" << master_ver <<
   // std::endl;

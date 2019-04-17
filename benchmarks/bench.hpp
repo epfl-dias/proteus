@@ -35,8 +35,9 @@ class Benchmark {
   virtual void init() {
   }  // who will init the bench? the main session or in worker's init?
   virtual void load_data(int num_threads = 1) {}
-  virtual void *gen_txn(int wid) { return nullptr; }
+  virtual void *gen_txn(int wid, void *txn_ptr) { return nullptr; }
   virtual void exec_txn(void *) {}
+  virtual void *get_query_struct_ptr() { return nullptr; }
 
   std::string name;
 

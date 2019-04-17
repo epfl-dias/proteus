@@ -41,9 +41,9 @@ void* MemoryManager::alloc(size_t bytes, int numa_memset_id) {
   return numa_alloc_onnode(bytes, numa_memset_id);
 }
 void MemoryManager::free(void* mem, size_t bytes) {
-  std::cout << "[MemoryManager::free] --BEGIN--" << std::endl;
+  // std::cout << "[MemoryManager::free] --BEGIN--" << std::endl;
   numa_free(mem, bytes);
-  std::cout << "[MemoryManager::free] --END--" << std::endl;
+  // std::cout << "[MemoryManager::free] --END--" << std::endl;
 }
 
 };  // namespace storage

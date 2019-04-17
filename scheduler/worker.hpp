@@ -23,6 +23,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef WORKER_POOL_HPP_
 #define WORKER_POOL_HPP_
 
+#include <atomic>
 #include <chrono>
 #include <future>
 #include <iostream>
@@ -31,6 +32,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <thread>
 #include <unordered_map>
 //#include "scheduler/affinity_manager.hpp"
+
 #include "scheduler/topology.hpp"
 
 #include "benchmarks/bench.hpp"
@@ -55,11 +57,10 @@ class Worker {
   uint8_t id;
   volatile bool terminate;
 
-  int curr_master;
-  int prev_master;
-
   core *exec_core;
 
+  uint64_t curr_delta;
+  uint64_t prev_delta;
   uint64_t curr_txn;
 
   // STATS
@@ -70,6 +71,9 @@ class Worker {
   // std::chrono::time_point<std::chrono::system_clock> txn_start_time;
   std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
       txn_start_time;
+
+  std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
+      txn_end_time;
 
  public:
   Worker(uint8_t id, core *exec_core)
@@ -118,7 +122,7 @@ class WorkerPool {
  private:
   WorkerPool() { worker_counter = 0; }
 
-  volatile uint8_t worker_counter;
+  int worker_counter;
   std::atomic<bool> terminate;
   std::unordered_map<uint8_t, std::pair<std::thread *, Worker *> > workers;
 
@@ -131,9 +135,10 @@ class WorkerPool {
   std::condition_variable cv;
 
   // Global Snapshotting
-  std::vector<std::vector<int> > active_worker_per_master;
+  // std::vector<std::vector<int> > active_worker_per_master;
 
   ~WorkerPool() {
+    if (terminate) return;
     std::cout << "[destructor] shutting down workers" << std::endl;
     terminate = true;
     // cv.notify_all();

@@ -34,6 +34,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <thread>
 #include "benchmarks/bench.hpp"
 #include "scheduler/topology.hpp"
+#include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 //#include <thread
@@ -61,7 +62,7 @@ class YCSB : public Benchmark {
   int num_max_workers;
   int num_active_workers;
 
-  storage::Schema schema;
+  storage::Schema *schema;
   storage::Table *ycsb_tbl;
 
   std::atomic<bool> initialized;  // so that nobody calls load twice
@@ -76,6 +77,23 @@ class YCSB : public Benchmark {
     YCSB(YCSB const &) = delete;            // Don't Implement
     void operator=(YCSB const &) = delete;  // Don't implement */
 
+  // void load_data_thread(void *args) {
+  //   uint64_t start = *(uint64_t *)args;
+  //   uint64_t end = *((uint64_t *)args + 1);
+
+  //   txn::TransactionManager *txnManager =
+  //       &txn::TransactionManager::getInstance();
+
+  //   for (int i = start; i <= end; i++) {
+  //     std::vector<uint64_t> tmp(num_fields, i);
+  //     // ycsb_tbl->insertRecord(&tmp);
+  //     struct txn::TXN insert_txn = gen_insert_txn(i, &tmp);
+  //     txnManager->executor.execute_txn(
+  //         &insert_txn, 0, 0,
+  //         0);  // txn_id = 0; master= 0; delta_ver = 0;
+  //   };
+  // }
+
   void load_data(int num_threads = 1) {
     std::cout << "[YCSB] Loading data.." << std::endl;
     std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
@@ -83,10 +101,43 @@ class YCSB : public Benchmark {
       columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
           "col_" + std::to_string(i + 1), storage::INTEGER, sizeof(uint64_t)));
     }
-    ycsb_tbl = schema.create_table("ycsb_tbl", storage::COLUMN_STORE, columns,
-                                   num_records);
+    ycsb_tbl = schema->create_table("ycsb_tbl", storage::COLUMN_STORE, columns,
+                                    num_records);
 
     /* Load data into tables*/
+
+    // multi-thread is broken
+    /*uint64_t block_size = num_records / num_threads;
+    std::cout << "-------------" << std::endl;
+    std::cout << "------YCSB LOAD-------" << std::endl;
+    std::cout << "Total Records: " << num_records << std::endl;
+    std::cout << "Total Threads: " << num_threads << std::endl;
+    std::cout << "Block size: " << block_size << std::endl;
+
+    std::thread *thd_arr[num_threads];
+
+    for (int i = 0; i < num_threads; i++) {
+      uint64_t start = block_size * i;
+      uint64_t end = (block_size * (i + 1)) - 1;
+
+      uint64_t args[3];
+      args[0] = start;
+      args[1] = end;
+
+      if (end > num_records) {
+        end = num_records;
+      }
+      std::cout << "Block-" << i << " | start: " << start << ", end: " << end
+                << std::endl;
+
+      thd_arr[i] = new std::thread(&YCSB::load_data_thread, this, &args);
+    }
+
+    for (int i = 0; i < num_threads; i++) {
+      thd_arr[i]->join();
+      delete thd_arr[i];
+    }*/
+
     txn::TransactionManager *txnManager =
         &txn::TransactionManager::getInstance();
 
@@ -94,14 +145,15 @@ class YCSB : public Benchmark {
       std::vector<uint64_t> tmp(num_fields, i);
       // ycsb_tbl->insertRecord(&tmp);
       struct txn::TXN insert_txn = gen_insert_txn(i, &tmp);
-      txnManager->executor.execute_txn(&insert_txn, 0,
-                                       0);  // txn_id = 0; master= 0;
+      txnManager->executor.execute_txn(
+          &insert_txn, 0, 0,
+          0);  // txn_id = 0; master= 0; delta_ver = 0;
       // txnManager->get_next_xid(0),txnManager->curr_master);
       if (i % 1000000 == 0)
         std::cout << "[YCSB] inserted records: " << i << std::endl;
       // key_gen++;
       // free the txn ops pointers
-    };
+    }
     std::cout << "[YCSB] inserted records: " << num_records << std::endl;
     // Set init flag to true
     initialized = true;
@@ -145,17 +197,25 @@ class YCSB : public Benchmark {
     return txn;
   }
 
+  void *get_query_struct_ptr() {
+    struct txn::TXN *txn = (struct txn::TXN *)malloc(sizeof(struct txn::TXN));
+    txn->ops = (struct txn::TXN_OP *)calloc(num_ops_per_txn,
+                                            sizeof(struct txn::TXN_OP));
+    // new txn::TXN_OP[num_ops_per_txn];
+    return txn;
+  }
+
   /* FIXME: Possible memory leak because we dont clear the TXN memory*/
-  void *gen_txn(int wid) {
+  void *gen_txn(int wid, void *txn_ptr) {
     /* TODO: too many pointer indirections, it should be something static so
      * that we reduce random memory access while generating queries */
-    struct txn::TXN *txn = (struct txn::TXN *)malloc(sizeof(struct txn::TXN));
+    struct txn::TXN *txn =
+        (struct txn::TXN *)txn_ptr;  // malloc(sizeof(struct txn::TXN));
 
-    assert(txn != NULL);
+    // assert(txn != NULL);
+    // txn->ops = new txn::TXN_OP[num_ops_per_txn];
+    // assert(txn->ops != NULL);
 
-    txn->ops = new txn::TXN_OP[num_ops_per_txn];
-    //(struct txn::TXN_OP **)malloc(sizeof(txn::TXN_OP) * num_ops_per_txn);
-    assert(txn->ops != NULL);
     txn::OP_TYPE op;
     wid = wid % num_active_workers;
     // std::cout << "wid :" << wid
@@ -214,7 +274,6 @@ class YCSB : public Benchmark {
         num_iterations_per_worker(num_iterations_per_worker),
         num_ops_per_txn(num_ops_per_txn),
         write_threshold(write_threshold),
-        schema(name),
         num_max_workers(num_max_workers),
         num_active_workers(num_active_workers) {
     initialized = false;
@@ -237,9 +296,12 @@ class YCSB : public Benchmark {
       }
       std::cout << std::endl;
     }
+
+    this->schema = &storage::Schema::getInstance();
   };
 
   struct drand48_data *rand_buffer;
+  // struct drand48_data **rand_buffer_sock_local;
   double g_zetan;
   double g_zeta2;
   double g_eta;
@@ -254,6 +316,15 @@ class YCSB : public Benchmark {
       srand48_r(i + 1, &rand_buffer[i]);
     }
 
+    // TODO: make the rand buffer local to the socket so for every txn, it
+    // doesnt have to access over QPI. rand_buffer_sock_local = new struct
+    // drand48_data[num_max_workers]; for (int i = 0; i < num_max_workers; i++)
+    // {
+    //   rand_buffer_sock_local[i] = storage::MemoryManager::alloc(
+    //       sizeof(struct drand48_data), num_max_workers / 18);
+    //   srand48_r(i + 1, rand_buffer_sock_local[i]);
+    // }
+
     uint64_t n = num_records - 1;
     g_zetan = zeta(n, theta);
     g_zeta2 = zeta(2, theta);
@@ -264,7 +335,7 @@ class YCSB : public Benchmark {
     printf("theta = %.2f\n", theta);
   }
 
-  void zipf_val(int wid, struct txn::TXN_OP *op) {
+  inline void zipf_val(int wid, struct txn::TXN_OP *op) {
     uint64_t n = num_records - 1;
 
     // elasticity hack when we will increase num_server on runtime
@@ -295,7 +366,7 @@ class YCSB : public Benchmark {
     assert(op->key < num_records);
   }
 
-  double zeta(uint64_t n, double theta) {
+  inline double zeta(uint64_t n, double theta) {
     double sum = 0;
     for (uint64_t i = 1; i <= n; i++) sum += std::pow(1.0 / i, theta);
     return sum;

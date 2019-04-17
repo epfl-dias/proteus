@@ -26,13 +26,14 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 namespace txn {
 
-void release_locks(
+inline void __attribute__((always_inline)) release_locks(
     std::vector<CC_MV2PL::PRIMARY_INDEX_VAL *> &hash_ptrs_lock_acquired) {
   for (auto c : hash_ptrs_lock_acquired) c->write_lck = false;
 }
 
 // MV2PL principle : Fail bloody fast
-bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid, ushort txn_master_ver) {
+bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid, ushort master_ver,
+                           ushort delta_ver) {
   struct TXN *txn_stmts = (struct TXN *)stmts;
   int n = txn_stmts->n_ops;
 
@@ -41,9 +42,10 @@ bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid, ushort txn_master_ver) {
   std::vector<PRIMARY_INDEX_VAL *> hash_ptrs_lock_acquired;
   for (int i = 0; i < n; i++) {
     struct TXN_OP op = txn_stmts->ops[i];
-    storage::Table *tbl_ptr = (storage::Table *)op.data_table;
+
     switch (op.op_type) {
       case OPTYPE_UPDATE: {
+        storage::Table *tbl_ptr = (storage::Table *)op.data_table;
         void *tmp;
         if (!tbl_ptr->p_index->find(op.key, tmp)) {
           std::cout << "BC KEY NOT FOUND" << std::endl;
@@ -87,20 +89,22 @@ bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid, ushort txn_master_ver) {
         PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
         //{
         // std::unique_lock<std::mutex> lock(hash_ptr->latch);
+
         hash_ptr->latch.acquire();
         if (CC_MV2PL::is_readable(hash_ptr->t_min, hash_ptr->t_max, xid)) {
-          hash_ptr->latch.release();
           tbl_ptr->getRecordByKey(hash_ptr->VID, hash_ptr->last_master_ver);
+          //;
         } else {
-          hash_ptr->latch.release();
-          VERSION_LIST *vlst =
-              tbl_ptr->getVersions(hash_ptr->VID, txn_master_ver);
-          if (vlst == nullptr || vlst->get_readable_ver(xid) == nullptr) {
-            std::cout << "NO SUITABLE VERSION FOUND: " << hash_ptr->VID
-                      << std::endl;
-            assert(false);
-          }
+          void *v = tbl_ptr->getVersions(hash_ptr->VID, delta_ver)
+                        ->get_readable_ver(xid);
+          assert(v != nullptr);
+          // if (v == nullptr) {
+          //   std::cout << "NO SUITABLE VERSION FOUND: " << hash_ptr->VID
+          //             << std::endl;
+          //   assert(false);
+          // }
         }
+        hash_ptr->latch.release();
 
         //}
         break;
@@ -117,17 +121,18 @@ bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid, ushort txn_master_ver) {
         //{
         // std::unique_lock<std::mutex> lock(hash_ptr->latch);
         hash_ptr->latch.acquire();
-        tbl_ptr->updateRecord(hash_ptr->VID, op.rec, txn_master_ver,
-                              hash_ptr->last_master_ver, hash_ptr->t_min,
-                              hash_ptr->t_max, (xid >> 56) % 4);
+        tbl_ptr->updateRecord(
+            hash_ptr->VID, op.rec, master_ver, hash_ptr->last_master_ver,
+            delta_ver, hash_ptr->t_min, hash_ptr->t_max,
+            (xid >> 56) % 4);  // this is the number of sockets
         hash_ptr->t_min = xid;
-        hash_ptr->last_master_ver = txn_master_ver;
+        hash_ptr->last_master_ver = master_ver;
         hash_ptr->latch.release();
         // }
         break;
       }
       case OPTYPE_INSERT: {
-        void *hash_ptr = tbl_ptr->insertRecord(op.rec, xid, txn_master_ver);
+        void *hash_ptr = tbl_ptr->insertRecord(op.rec, xid, master_ver);
         tbl_ptr->p_index->insert(op.key, hash_ptr);
         break;
       }
@@ -135,6 +140,7 @@ bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid, ushort txn_master_ver) {
         break;
     }
   }
+
   release_locks(hash_ptrs_lock_acquired);
 
   return true;
@@ -177,8 +183,8 @@ bool CC_GlobalLock::execute_txn(void *stmts, uint64_t xid) {
             PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
             // tbl_ptr->updateRecord(val.VID, op.rec);
             tbl_ptr->updateRecord(hash_ptr->VID, op.rec, txn_master_ver,
-                                  hash_ptr->last_master_ver, xid, curr_master,
-                                  xid >> 56);
+                                  hash_ptr->last_master_ver, 0, xid,
+                                  curr_master, xid >> 56);
           }
           break;
         }

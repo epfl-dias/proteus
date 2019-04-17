@@ -31,13 +31,14 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <queue>
 #include <thread>
 #include "scheduler/affinity_manager.hpp"
+#include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 
 namespace scheduler {
 
 // TODO: check the reader lock on master and fall back thingy
-inline ushort __attribute__((always_inline))
-calculate_master_ver(uint64_t txn_id, uint64_t start_time) {
+inline uint64_t __attribute__((always_inline))
+calculate_delta_ver(uint64_t txn_id, uint64_t start_time) {
   // global_conf::time_master_switch_ms;
   // assuming start time is nanosec  so convert to millisec
   // start_time = start_time / 1000000;
@@ -46,8 +47,9 @@ calculate_master_ver(uint64_t txn_id, uint64_t start_time) {
 
   // txn_id = ((txn_id << 8) >> 8);  // remove the worker_id
 
-  uint64_t duration = ((txn_id & 0x00FFFFFF) - (start_time & 0x00FFFFFF)) /
-                      1000000000;  // nanosec
+  uint64_t duration = ((txn_id & 0x00FFFFFF) -
+                       (start_time & 0x00FFFFFF));  ///
+                                                    // 1000000000;  // nanosec
 
   // ushort curr_master = (duration / global_conf::num_master_versions) %
   //                     global_conf::num_master_versions;
@@ -56,7 +58,8 @@ calculate_master_ver(uint64_t txn_id, uint64_t start_time) {
   // on that master version
 
   // return curr_master;
-  return (duration / global_conf::num_master_versions);
+  // std::cout << duration << std::endl;
+  return duration >> 6;  //(duration / global_conf::num_delta_storages);
 }
 
 void Worker::run() {
@@ -67,98 +70,94 @@ void Worker::run() {
 
   WorkerPool* pool = &WorkerPool::getInstance();
   txn::TransactionManager* txnManager = &txn::TransactionManager::getInstance();
+  storage::Schema* schema = &storage::Schema::getInstance();
 
+  curr_delta = 0;
+  prev_delta = 0;
   txn_start_time =
       std::chrono::system_clock::now();  // txnManager->txn_start_time;
+  uint64_t tx_st = txnManager->txn_start_time;
+  schema->add_active_txn(curr_delta);
 
-  while (true) {
-    // std::cout << "T:" << calculate_master_ver(xid, start_time) << std::endl;
-    if (terminate) {
-      // std::cout << "break" << std::endl;
-      break;
-    }
+  // std::cout << "t1: "
+  //           << std::chrono::duration_cast<std::chrono::nanoseconds>(
+  //                  std::chrono::system_clock::now().time_since_epoch())
+  //                  .count()
+  //           << std::endl;
+
+  void* txn_mem = pool->txn_bench->get_query_struct_ptr();
+
+  while (!terminate) {
     // std::this_thread::sleep_for (std::chrono::seconds(1));
     // std::cout << "[WORKER] Worker --" << (int)(this->id) << std::endl;
 
     // check which master i should be on.
     this->curr_txn = txnManager->get_next_xid(this->id);
-    this->prev_master = this->curr_master;
-    this->curr_master =
-        calculate_master_ver(this->curr_txn, txnManager->txn_start_time) -
-        txnManager->master_switch_delta;
+    this->prev_delta = this->curr_delta;
+    this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
 
-    /* CASES
-       1- Switched and I am the last one to switch with no active one on prev.
-       (switch_master) 2- Switched and rotated back to the old one with someone
-       active from    (GC) newer epoch. 3- Switched and rotated back to the old
-       one with everyone on new epoch. 3- Switched and rotated back to old one
-       and am the first one here. ( as per (1) it should be clean already) 4-
-       Epoch changed but master remain the same due to delta -- read_lock
+    ushort curr_delta_id = curr_delta % global_conf::num_delta_storages;
 
-    */
+    // std::cout << curr_delta << std::endl;
 
-    if (prev_master != curr_master) {
+    if (prev_delta != curr_delta) {
       // switched
 
-      if (check_am_i_last) {
-      } else {
-        if ((prev_master % global_conf::num_master_versions) ==
-            (curr_master % global_conf::num_master_versions)) {
-          // rotated back
-        } else {
-          // absolutely new master
-        }
-      }
+      // std::cout << "t2: "
+      //           << std::chrono::duration_cast<std::chrono::nanoseconds>(
+      //                  std::chrono::system_clock::now().time_since_epoch())
+      //                  .count()
+      //           << std::endl;
+      // simple: keep a read_ctr per delta, if read_ctr of delta is zero, just
+      // reset.
+      // std::cout << "gc" << std::endl;
+      // std::cout << "delta_ver:"
+      //           << this->prev_delta % global_conf::num_delta_storages
+      //           << "| curr: "
+      //           << this->curr_delta % global_conf::num_delta_storages
+      //           << std::endl;
+      ushort prev_delta_id = prev_delta % global_conf::num_delta_storages;
+      // schema->remove_active_txn(prev_delta_id);
+      // schema->initiate_gc(prev_delta_id);
+      // schema->add_active_txn(curr_delta_id);
 
-    } else {
-      // didnt switch
-    }
+      schema->switch_delta(prev_delta_id, curr_delta_id);
 
-    if (prev_master == curr_master) {
-      // do nothing, regular txn within master boundaries.
-      ;
-    } else if ((prev_master % global_conf::num_master_versions) ==
-               (curr_master % global_conf::num_master_versions)) {
-      // switched but rotated back to the old one
-    } else if (prev_master != curr_master) {
-      // switched
+    }  // else didnt switch.
 
-      // I guess store in some data structure that I am operational on this one.
-      // also remove yourself from the previous one.
-    }
+    // custom query coming in.
+    // if (this->id == 0) {
+    //   std::function<bool(uint64_t)> task;
+    //   std::unique_lock<std::mutex> lock(pool->m);
+    //   if (!pool->tasks.empty()) {
+    //     //    NO-WAIT -> If task in queue, exec ELSE gen/exec txn
+    //     //    pool->cv.wait(
+    //     //    lock, [this, pool] { return this->terminate ||
+    //     //    !pool->tasks.empty(); });
+    //     task = std::move(pool->tasks.front());
+    //     pool->tasks.pop();
+    //     std::cout << "[WORKER] Worker (TID:" << (int)(this->id)
+    //               << ") Got a Task!" << std::endl;
+    //     if (task(this->curr_txn))
+    //       num_commits++;
+    //     else
+    //       num_aborts++;
+    //   }
+    // }
 
-    if (this->id == 0) {
-      std::function<bool(uint64_t)> task;
-      std::unique_lock<std::mutex> lock(pool->m);
-      if (!pool->tasks.empty()) {
-        //    NO-WAIT -> If task in queue, exec ELSE gen/exec txn
-        //    pool->cv.wait(
-        //    lock, [this, pool] { return this->terminate ||
-        //    !pool->tasks.empty(); });
-        task = std::move(pool->tasks.front());
-        pool->tasks.pop();
-        std::cout << "[WORKER] Worker (TID:" << (int)(this->id)
-                  << ") Got a Task!" << std::endl;
-        if (task(this->curr_txn))
-          num_commits++;
-        else
-          num_aborts++;
-      }
-    }
-
-    void* c = pool->txn_bench->gen_txn((int)this->id);
+    void* c = pool->txn_bench->gen_txn((uint)this->id, txn_mem);
 
     if (txnManager->executor.execute_txn(
-            c, this->curr_txn,
-            this->curr_master % global_conf::num_master_versions))
+            c, curr_txn, txnManager->current_master, curr_delta_id))
       num_commits++;
     else
       num_aborts++;
 
-    delete (struct txn::TXN*)c;
+    // delete (struct txn::TXN*)c;
 
     num_txns++;
   }
+  txn_end_time = std::chrono::system_clock::now();
 }
 
 std::vector<uint64_t> WorkerPool::get_active_txns() {
@@ -177,11 +176,17 @@ void WorkerPool::print_worker_stats(bool global_only) {
   double num_commits = 0;
   double num_aborts = 0;
   double num_txns = 0;
+
+  double socket_1_tps = 0.0;
+  double socket_2_tps = 0.0;
+  double socket_3_tps = 0.0;
+  double socket_4_tps = 0.0;
+
   for (auto it = workers.begin(); it != workers.end(); ++it) {
     // std::cout << " " << it->first << ":" << it->second;
     Worker* tmp = it->second.second;
     std::chrono::duration<double> diff =
-        std::chrono::system_clock::now() - tmp->txn_start_time;
+        tmp->txn_end_time - tmp->txn_start_time;
 
     if (!global_only) {
       std::cout << "Worker-" << (int)(tmp->id)
@@ -195,12 +200,27 @@ void WorkerPool::print_worker_stats(bool global_only) {
       std::cout << "\tTPS\t\t" << (tmp->num_txns / 1000000.0) / diff.count()
                 << " mTPS" << std::endl;
     }
+    if (tmp->id < 18) {
+      socket_1_tps += (tmp->num_txns / 1000000.0) / diff.count();
+    } else if (tmp->id < 36) {
+      socket_2_tps += (tmp->num_txns / 1000000.0) / diff.count();
+    } else if (tmp->id < 54) {
+      socket_3_tps += (tmp->num_txns / 1000000.0) / diff.count();
+    } else {
+      socket_4_tps += (tmp->num_txns / 1000000.0) / diff.count();
+    }
 
     tps += (tmp->num_txns / 1000000.0) / diff.count();
     num_commits += (tmp->num_commits / 1000000.0);
     num_aborts += (tmp->num_aborts / 1000000.0);
     num_txns += (tmp->num_txns / 1000000.0);
   }
+
+  std::cout << "---- SOCKET ----" << std::endl;
+  std::cout << "\tSocket-1: TPS\t\t" << socket_1_tps << " mTPS" << std::endl;
+  std::cout << "\tSocket-2: TPS\t\t" << socket_2_tps << " mTPS" << std::endl;
+  std::cout << "\tSocket-3: TPS\t\t" << socket_3_tps << " mTPS" << std::endl;
+  std::cout << "\tSocket-4: TPS\t\t" << socket_4_tps << " mTPS" << std::endl;
 
   std::cout << "---- GLOBAL ----" << std::endl;
   std::cout << "\t# of txns\t" << num_txns << " M" << std::endl;

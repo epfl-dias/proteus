@@ -26,6 +26,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <sys/mman.h>
 #include <cstdlib>
 #include <iostream>
+#include <mutex>
 #include "glo.hpp"
 //#include "indexes/hash_index.hpp"
 #include "storage/memory_manager.hpp"
@@ -43,8 +44,28 @@ namespace storage {
 /* Currently DeltaStore is not resizeable*/
 class DeltaStore {
  public:
+  void print_info() {
+    static int i = 0;
+    std::cout << "[DeltaStore # " << i
+              << "] Number of GC Requests: " << this->gc_requests.load()
+              << std::endl;
+
+    std::cout << "[DeltaStore # " << i << "] Number of Successful GC Resets: "
+              << this->gc_reset_success.load() << std::endl;
+    std::cout << "[DeltaStore # " << i
+              << "] Number of Operations: " << this->ops.load() << std::endl;
+
+    for (auto& p : partitions) {
+      p->report();
+    }
+    i++;
+    if (i >= partitions.size()) i = 0;
+  }
+  ~DeltaStore() { print_info(); }
+
   DeltaStore(size_t rec_size, uint64_t initial_num_objs,
-             int num_partitions = -1) {
+             int num_partitions = -1)
+      : touched(false) {
     if (num_partitions == -1) {
       num_partitions = 4;  // std::thread::hardware_concurrency();
     }
@@ -79,6 +100,8 @@ class DeltaStore {
 
       void* mem_list = MemoryManager::alloc(ver_list_mem_req, list_numa_id);
       void* mem_data = MemoryManager::alloc(ver_data_mem_req, data_numa_id);
+      assert(mem_list != NULL);
+      assert(mem_data != NULL);
 
       // assert(mlock(mem_list, ver_list_mem_req));
       // assert(mlock(mem_data, ver_data_mem_req));
@@ -117,7 +140,12 @@ class DeltaStore {
     // std::cout << "Rec size: " << rec_size << std::endl;
 
     // reserve hash-capacity before hand
-    vid_version_map.reserve(total_tuple_capacity * num_partitions);
+    // vid_version_map.reserve(total_tuple_capacity * num_partitions);
+    this->readers.store(0);
+    this->gc_reset_success.store(0);
+    this->gc_requests.store(0);
+    this->ops.store(0);
+    this->gc_lock.store(0);
   }
 
   void* insert_version(uint64_t vid, uint64_t tmin, uint64_t tmax, int pid) {
@@ -137,7 +165,8 @@ class DeltaStore {
       vlst->insert(val);
       vid_version_map.insert(vid, vlst);
     }
-
+    ops++;
+    touched = true;
     return val->data;
   }
 
@@ -163,6 +192,122 @@ class DeltaStore {
     }
   }
 
+  inline void __attribute__((always_inline)) increment_reader() {
+    // for (int tries = 0; true; ++tries) {
+    //   if (gc_lock == 0) break;
+    //   if (tries == 1000) {
+    //     tries = 0;
+    //     sched_yield();
+    //   }
+
+    // }
+
+    while (gc_lock != 0)
+      ;
+    this->readers++;
+  }
+  inline void __attribute__((always_inline)) decrement_reader() {
+    // this->readers--;
+
+    if (readers.fetch_sub(1) == 1 && touched) {
+      hard_gc();
+    }
+  }
+
+  // bool try_reset_gc() {
+  //   // std::cout << "." << std::endl;
+  //   short e = 0;
+  //   if (gc_lock.compare_exchange_strong(e, 1)) {
+  //     gc_requests++;
+  //     if (this->readers.load() == 0) {
+  //       // print_info();
+  //       vid_version_map.clear();
+  //       for (auto& p : partitions) {
+  //         p->reset();
+  //       }
+  //       // gc_lock.unlock();
+  //       gc_lock.store(0);
+  //       gc_reset_success++;
+  //       return true;
+  //     } else {
+  //       // gc_lock.unlock();
+  //       gc_lock.store(0);
+  //       return false;
+  //     }
+  //   } else {
+  //     return false;
+  //   }
+  // }
+
+  // bool try_reset_gc() {
+  //   // std::cout << "." << std::endl;
+  //   short e = 0;
+  //   gc_requests++;
+  //   if (this->readers.load() == 0 && gc_lock.compare_exchange_strong(e, 1)) {
+  //     // if (this->readers.load() == 0) {
+  //     // print_info();
+  //     vid_version_map.clear();
+  //     for (auto& p : partitions) {
+  //       p->reset();
+  //     }
+  //     // gc_lock.unlock();
+  //     gc_lock.store(0);
+  //     gc_reset_success++;
+  //     return true;
+  //     // } else {
+  //     //   // gc_lock.unlock();
+  //     //   gc_lock.store(0);
+  //     //   return false;
+  //     // }
+  //   } else {
+  //     return false;
+  //   }
+  // }
+
+  void try_reset_gc() {
+    // std::cout << "." << std::endl;
+    short e = 0;
+    gc_requests++;
+    if (this->readers.load() == 0 && gc_lock.compare_exchange_strong(e, 1)) {
+      // if (this->readers.load() == 0) {
+      // print_info();
+      vid_version_map.clear();
+      for (auto& p : partitions) {
+        p->reset();
+      }
+      // gc_lock.unlock();
+      gc_lock.store(0);
+      gc_reset_success++;
+      // } else {
+      //   // gc_lock.unlock();
+      //   gc_lock.store(0);
+      //   return false;
+      // }
+    }
+  }
+
+  void hard_gc() {
+    // std::cout << "." << std::endl;
+    short e = 0;
+    if (gc_lock.compare_exchange_strong(e, 1)) {
+      gc_requests++;
+      if (this->readers == 0) {
+        // print_info();
+        vid_version_map.clear();
+        for (auto& p : partitions) {
+          p->reset();
+        }
+        // gc_lock.unlock();
+        gc_lock.store(0);
+        touched = false;
+        gc_reset_success++;
+      } else {
+        // gc_lock.unlock();
+        gc_lock.store(0);
+      }
+    }
+  }
+
  private:
   size_t rec_size;
   indexes::HashIndex<uint64_t, global_conf::mv_version_list*> vid_version_map;
@@ -172,6 +317,7 @@ class DeltaStore {
     mem_chunk ver_data_mem;
     std::atomic<char*> ver_list_cursor;
     std::atomic<char*> ver_data_cursor;
+    bool touched;
 
     size_t rec_size;
     int pid;
@@ -184,6 +330,7 @@ class DeltaStore {
           ver_data_mem(ver_data_mem),
           ver_list_cursor(ver_list_cursor),
           ver_data_cursor(ver_data_cursor),
+          touched(false),
           rec_size(rec_size),
           pid(pid) {
       // WARMUP MAYBE?
@@ -205,13 +352,15 @@ class DeltaStore {
     ~DeltaPartition() {
       std::cout << "Clearing Delta Parition-" << pid << std::endl;
       // int munlock(const void *addr, size_t len);
-      MemoryManager::free(ver_list_mem.data, ver_list_mem.size);
-      MemoryManager::free(ver_data_mem.data, ver_data_mem.size);
+      // MemoryManager::free(ver_list_mem.data, ver_list_mem.size);
+      // MemoryManager::free(ver_data_mem.data, ver_data_mem.size);
     }
 
     void reset() {
-      ver_list_cursor = (char*)ver_list_mem.data;
-      ver_data_cursor = (char*)ver_data_mem.data;
+      if (touched) {
+        ver_list_cursor = (char*)ver_list_mem.data;
+        ver_data_cursor = (char*)ver_data_mem.data;
+      }
     }
     void* getListChunk() {
       // void* tmp = nullptr;
@@ -222,7 +371,7 @@ class DeltaStore {
       // ver_list_cursor += sizeof(global_conf::mv_version_list);
       void* tmp = (void*)ver_list_cursor.fetch_add(
           sizeof(global_conf::mv_version_list));
-
+      if (!touched) touched = true;
       return tmp;
     }
 
@@ -234,15 +383,41 @@ class DeltaStore {
       // void* tmp = (void*)ver_data_cursor;
       // ver_data_cursor += rec_size + sizeof(global_conf::mv_version);
 
-      void* tmp = (void*)ver_list_cursor.fetch_add(
+      void* tmp = (void*)ver_data_cursor.fetch_add(
           rec_size + sizeof(global_conf::mv_version));
+      if (!touched) touched = true;
       return tmp;
+    }
+
+    void report() {
+      /* data memory only */
+      char* curr_ptr = (char*)ver_data_cursor.load();
+      char* start_ptr = (char*)ver_data_mem.data;
+
+      int diff = curr_ptr - start_ptr;
+      double percent = ((double)diff / ver_data_mem.size) * 100;
+      std::cout.precision(2);
+      std::cout << "\tMemory Consumption: "
+                << ((double)diff) / (1024 * 1024 * 1024) << "GB/"
+                << (double)ver_data_mem.size / (1024 * 1024 * 1024)
+                << "GB  --  " << (diff / rec_size) / 1000000 << "M/"
+                << (ver_data_mem.size / rec_size) / 1000000
+                << "M elements  --  " << percent << "%%" << std::endl;
     }
 
     friend class DeltaStore;
   };
 
   std::vector<DeltaPartition*> partitions;
+  std::atomic<uint> readers;
+  // std::mutex gc_lock;
+
+  std::atomic<short> gc_lock;
+  bool touched;
+
+  std::atomic<uint> gc_reset_success;
+  std::atomic<uint> gc_requests;
+  std::atomic<uint> ops;
 };
 
 };  // namespace storage

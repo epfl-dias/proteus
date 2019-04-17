@@ -43,6 +43,7 @@
             "-std=c++17",
             "-I/usr/local/cuda-9.2/targets/x86_64-linux/include/",
             "-I$project_path/src/executor/codegen",
+            "-I$project_path",
             "-I$project_path/src/executor",
             "-I$project_path/src/rapidjson/include",
             "-I/usr/include/hwloc"

@@ -96,7 +96,7 @@ class TransactionManager {
   // const std::chrono::time_point<std::chrono::system_clock,
   //                             std::chrono::nanoseconds>
   uint64_t txn_start_time;
-  int master_switch_delta;
+  std::atomic<int> current_master;
 
  private:
   TransactionManager()
@@ -104,7 +104,8 @@ class TransactionManager {
                            std::chrono::system_clock::now().time_since_epoch())
                            .count()) {
     // curr_master = 0;
-    master_switch_delta = 0;
+    current_master = 0;
+    txn_start_time = read_tsc(0);
   }
 };
 

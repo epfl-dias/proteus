@@ -38,7 +38,14 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "lib/cxxopts.hpp"
 
-#define RUNTIME 120000000
+#if __has_include("ittnotify.h")
+#include <ittnotify.h>
+#else
+#define __itt_resume() ((void)0)
+#define __itt_pause() ((void)0)
+#endif
+
+#define RUNTIME 60  // seconds
 
 // TODO: a race condition exists in acquiring write lock and updating the
 // version, a read might read at the same time as readers are not blocked in any
@@ -72,7 +79,8 @@ int main(int argc, char** argv) {
       "w,workers", "Number of Workers", cxxopts::value<uint>())(
       "r,write_ratio", "Reader to writer ratio", cxxopts::value<double>())(
       "t,theta", "Zipf theta", cxxopts::value<double>())(
-      "g,gc_mode", "GC Mode: 1-Snapshot, 2-TupleGC", cxxopts::value<uint>());
+      "g,gc_mode", "GC Mode: 1-Snapshot, 2-TupleGC", cxxopts::value<uint>())(
+      "c,num_cols", "Number of Columns", cxxopts::value<uint>());
 
   auto result = options.parse(argc, argv);
   // result.count("option")
@@ -89,6 +97,7 @@ int main(int argc, char** argv) {
   // int num_records = 134217728;  // 10GB
   // int num_records = 268435456;  // 20GB
   int num_records = 72000000;
+  // int num_records = 1000000;
   double theta = 0.5;
   int num_iterations_per_worker = 1000000;
   int num_ops_per_txn = 10;
@@ -107,6 +116,15 @@ int main(int argc, char** argv) {
   if (result.count("g") > 0) {
     gc_mode = result["g"].as<uint>();
   }
+  if (result.count("c") > 0) {
+    num_fields = result["c"].as<uint>();
+  }
+
+  std::cout << "------- AELOUS ------" << std::endl;
+  std::cout << "Write Threshold: " << write_threshold << std::endl;
+  std::cout << "Theta: " << theta << std::endl;
+  std::cout << "# Workers: " << num_workers << std::endl;
+  std::cout << "---------------------" << std::endl;
 
   // INIT
   std::cout << "Initializing..." << std::endl;
@@ -147,6 +165,7 @@ int main(int argc, char** argv) {
    */
 
   scheduler::WorkerPool::getInstance().init(ycsb_bench);
+  __itt_resume();
   scheduler::WorkerPool::getInstance().start_workers(num_workers);
 
   /* Report stats every 1 sec */
@@ -159,14 +178,18 @@ int main(int argc, char** argv) {
    * worker executes transaction forever (using a benchmark) or finished after
    * executing certain number of txns/iterations. */
 
-  usleep(RUNTIME);
-
+  usleep(RUNTIME * 1000000);
+  __itt_pause();
   /* TODO: gather stats about every thread or something*/
   // scheduler::WorkerPool::getInstance().print_worker_stats();
 
   std::cout << "Tear Down Inititated" << std::endl;
-  // scheduler::WorkerPool::getInstance().shutdown(true);
+  scheduler::WorkerPool::getInstance().shutdown(true);
   std::cout << "\tShutting  down memory manager" << std::endl;
+
+  std::cout << "----" << std::endl;
+  storage::Schema::getInstance().teardown();
+  std::cout << "----" << std::endl;
 
   // storage::MemoryManager::destroy();
 
