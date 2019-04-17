@@ -27,6 +27,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "indexes/hash_index.hpp"
 #include "transactions/cc.hpp"
 
+#define NUM_SOCKETS 4
+
 // typedef cuckoohash_map<std::string, std::string> HashIndex;
 
 // template <class hash_val, class key = uint64_t>

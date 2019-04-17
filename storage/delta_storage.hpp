@@ -67,7 +67,7 @@ class DeltaStore {
              int num_partitions = -1)
       : touched(false) {
     if (num_partitions == -1) {
-      num_partitions = 4;  // std::thread::hardware_concurrency();
+      num_partitions = NUM_SOCKETS;  // std::thread::hardware_concurrency();
     }
 
     uint64_t total_ver_capacity =

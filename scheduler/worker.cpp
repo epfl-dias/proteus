@@ -98,32 +98,11 @@ void Worker::run() {
 
     ushort curr_delta_id = curr_delta % global_conf::num_delta_storages;
 
-    // std::cout << curr_delta << std::endl;
+    // if (prev_delta != curr_delta) {
+    //   ushort prev_delta_id = prev_delta % global_conf::num_delta_storages;
+    //   schema->switch_delta(prev_delta_id, curr_delta_id);
 
-    if (prev_delta != curr_delta) {
-      // switched
-
-      // std::cout << "t2: "
-      //           << std::chrono::duration_cast<std::chrono::nanoseconds>(
-      //                  std::chrono::system_clock::now().time_since_epoch())
-      //                  .count()
-      //           << std::endl;
-      // simple: keep a read_ctr per delta, if read_ctr of delta is zero, just
-      // reset.
-      // std::cout << "gc" << std::endl;
-      // std::cout << "delta_ver:"
-      //           << this->prev_delta % global_conf::num_delta_storages
-      //           << "| curr: "
-      //           << this->curr_delta % global_conf::num_delta_storages
-      //           << std::endl;
-      ushort prev_delta_id = prev_delta % global_conf::num_delta_storages;
-      // schema->remove_active_txn(prev_delta_id);
-      // schema->initiate_gc(prev_delta_id);
-      // schema->add_active_txn(curr_delta_id);
-
-      schema->switch_delta(prev_delta_id, curr_delta_id);
-
-    }  // else didnt switch.
+    // }  // else didnt switch.
 
     // custom query coming in.
     // if (this->id == 0) {
@@ -147,8 +126,10 @@ void Worker::run() {
 
     void* c = pool->txn_bench->gen_txn((uint)this->id, txn_mem);
 
-    if (txnManager->executor.execute_txn(
-            c, curr_txn, txnManager->current_master, curr_delta_id))
+    // if (txnManager->executor.execute_txn(
+    //         c, curr_txn, txnManager->current_master, curr_delta_id))
+    if (pool->txn_bench->exec_txn(c, curr_txn, txnManager->current_master,
+                                  curr_delta_id))
       num_commits++;
     else
       num_aborts++;

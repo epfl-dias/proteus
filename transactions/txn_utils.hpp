@@ -36,7 +36,7 @@ struct TXN_OP {
   OP_TYPE op_type;
   void* data_table;
   void* rec;
-};
+} __attribute__((aligned(64)));
 
 struct TXN {
   struct TXN_OP* ops;
@@ -44,7 +44,7 @@ struct TXN {
   enum QUERY_STATE state;
 
   ~TXN() { delete ops; }
-};
+} __attribute__((aligned(64)));
 }  // namespace txn
 
 #endif /* TXN_UTILS_HPP_ */

@@ -363,9 +363,9 @@ class TPCC : public Benchmark {
   // struct txn::TXN gen_insert_txn(uint64_t key, void *rec) {}
   // struct txn::TXN gen_upd_txn(uint64_t key, void *rec) {}
 
-  void *gen_txn(int wid) {}
+  // void *gen_txn(int wid) {}
 
-  void exec_txn(void *stmts) { return; }
+  // void exec_txn(void *stmts) { return; }
 
   // TODO: clean-up
   ~TPCC() {}

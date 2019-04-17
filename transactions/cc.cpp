@@ -22,126 +22,116 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "transactions/cc.hpp"
 
+#include <limits>
 #include "storage/table.hpp"
 
 namespace txn {
 
-inline void __attribute__((always_inline)) release_locks(
-    std::vector<CC_MV2PL::PRIMARY_INDEX_VAL *> &hash_ptrs_lock_acquired) {
-  for (auto c : hash_ptrs_lock_acquired) c->write_lck = false;
-}
-
 // MV2PL principle : Fail bloody fast
 bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid, ushort master_ver,
                            ushort delta_ver) {
-  struct TXN *txn_stmts = (struct TXN *)stmts;
-  int n = txn_stmts->n_ops;
+  // TODO: Generic query executor
 
-  /* Acquire locks for updates*/
+  // struct TXN *txn_stmts = (struct TXN *)stmts;
+  // int n = txn_stmts->n_ops;
 
-  std::vector<PRIMARY_INDEX_VAL *> hash_ptrs_lock_acquired;
-  for (int i = 0; i < n; i++) {
-    struct TXN_OP op = txn_stmts->ops[i];
+  // /* Acquire locks for updates*/
 
-    switch (op.op_type) {
-      case OPTYPE_UPDATE: {
-        storage::Table *tbl_ptr = (storage::Table *)op.data_table;
-        void *tmp;
-        if (!tbl_ptr->p_index->find(op.key, tmp)) {
-          std::cout << "BC KEY NOT FOUND" << std::endl;
-        }
-        PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
-        //{
-        // std::unique_lock<std::mutex> lock(hash_ptr->latch);
-        // hash_ptr->latch.acquire();
-        bool e_false = false;
-        if (hash_ptr->write_lck.compare_exchange_strong(e_false, true)) {
-          // assert(hash_ptr->write_lck == true);
-          hash_ptrs_lock_acquired.emplace_back(hash_ptr);
-        } else {
-          // std::cout << "ABORT" << std::endl;
-          release_locks(hash_ptrs_lock_acquired);
-          hash_ptr->latch.release();
-          return false;
-        }
-        // hash_ptr->latch.release();
-        //}
-        break;
-      }
-      case OPTYPE_LOOKUP:
-      case OPTYPE_INSERT:
-      default:
-        break;
-    }
-  }
+  // std::vector<PRIMARY_INDEX_VAL *> hash_ptrs_lock_acquired;
+  // for (int i = 0; i < n; i++) {
+  //   struct TXN_OP op = txn_stmts->ops[i];
 
-  // perform lookups/ updates / inserts
-  for (int i = 0; i < n; i++) {
-    struct TXN_OP op = txn_stmts->ops[i];
-    storage::Table *tbl_ptr = (storage::Table *)op.data_table;
-    switch (op.op_type) {
-      case OPTYPE_LOOKUP: {
-        void *tmp;
-        if (!tbl_ptr->p_index->find(op.key, tmp)) {
-          std::cout << "KEY NOT FOUND: " << op.key << std::endl;
-          break;
-        }
-        PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
-        //{
-        // std::unique_lock<std::mutex> lock(hash_ptr->latch);
+  //   switch (op.op_type) {
+  //     case OPTYPE_UPDATE: {
+  //       storage::Table *tbl_ptr = (storage::Table *)op.data_table;
+  //       void *tmp;
+  //       if (!tbl_ptr->p_index->find(op.key, tmp)) {
+  //         std::cout << "BC KEY NOT FOUND" << std::endl;
+  //       }
+  //       PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
+  //       //{
+  //       // std::unique_lock<std::mutex> lock(hash_ptr->latch);
+  //       // hash_ptr->latch.acquire();
+  //       bool e_false = false;
+  //       if (hash_ptr->write_lck.compare_exchange_strong(e_false, true)) {
+  //         // assert(hash_ptr->write_lck == true);
+  //         hash_ptrs_lock_acquired.emplace_back(hash_ptr);
+  //       } else {
+  //         // std::cout << "ABORT" << std::endl;
+  //         release_locks(hash_ptrs_lock_acquired);
+  //         // hash_ptr->latch.release();
+  //         return false;
+  //       }
+  //       // hash_ptr->latch.release();
+  //       //}
+  //       break;
+  //     }
+  //     case OPTYPE_LOOKUP:
+  //     case OPTYPE_INSERT:
+  //     default:
+  //       break;
+  //   }
+  // }
 
-        hash_ptr->latch.acquire();
-        if (CC_MV2PL::is_readable(hash_ptr->t_min, hash_ptr->t_max, xid)) {
-          tbl_ptr->getRecordByKey(hash_ptr->VID, hash_ptr->last_master_ver);
-          //;
-        } else {
-          void *v = tbl_ptr->getVersions(hash_ptr->VID, delta_ver)
-                        ->get_readable_ver(xid);
-          assert(v != nullptr);
-          // if (v == nullptr) {
-          //   std::cout << "NO SUITABLE VERSION FOUND: " << hash_ptr->VID
-          //             << std::endl;
-          //   assert(false);
-          // }
-        }
-        hash_ptr->latch.release();
+  // // perform lookups/ updates / inserts
+  // for (int i = 0; i < n; i++) {
+  //   struct TXN_OP op = txn_stmts->ops[i];
+  //   storage::Table *tbl_ptr = (storage::Table *)op.data_table;
+  //   switch (op.op_type) {
+  //     case OPTYPE_LOOKUP: {
+  //       void *tmp;
+  //       if (!tbl_ptr->p_index->find(op.key, tmp)) {
+  //         std::cout << "KEY NOT FOUND: " << op.key << std::endl;
+  //         break;
+  //       }
+  //       PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
 
-        //}
-        break;
-      }
+  //       hash_ptr->latch.acquire();
+  //       if (CC_MV2PL::is_readable(hash_ptr->t_min, hash_ptr->t_max, xid)) {
+  //         tbl_ptr->getRecordByKey(hash_ptr->VID, hash_ptr->last_master_ver);
+  //         //;
+  //       } else {
+  //         void *v = tbl_ptr->getVersions(hash_ptr->VID, delta_ver)
+  //                       ->get_readable_ver(xid);
+  //         assert(v != nullptr);
+  //       }
+  //       hash_ptr->latch.release();
 
-      case OPTYPE_UPDATE: {
-        /*
-          void *tmp = nullptr
-          if (!tbl_ptr->p_index->find(op.key, tmp)) {
-            std::cout << "BC KEY NOT FOUND" << std::endl;
-        }*/
-        void *tmp = tbl_ptr->p_index->find(op.key);
-        PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
-        //{
-        // std::unique_lock<std::mutex> lock(hash_ptr->latch);
-        hash_ptr->latch.acquire();
-        tbl_ptr->updateRecord(
-            hash_ptr->VID, op.rec, master_ver, hash_ptr->last_master_ver,
-            delta_ver, hash_ptr->t_min, hash_ptr->t_max,
-            (xid >> 56) % 4);  // this is the number of sockets
-        hash_ptr->t_min = xid;
-        hash_ptr->last_master_ver = master_ver;
-        hash_ptr->latch.release();
-        // }
-        break;
-      }
-      case OPTYPE_INSERT: {
-        void *hash_ptr = tbl_ptr->insertRecord(op.rec, xid, master_ver);
-        tbl_ptr->p_index->insert(op.key, hash_ptr);
-        break;
-      }
-      default:
-        break;
-    }
-  }
+  //       break;
+  //     }
 
-  release_locks(hash_ptrs_lock_acquired);
+  //     case OPTYPE_UPDATE: {
+  //       /*
+  //         void *tmp = nullptr
+  //         if (!tbl_ptr->p_index->find(op.key, tmp)) {
+  //           std::cout << "BC KEY NOT FOUND" << std::endl;
+  //       }*/
+  //       void *tmp = tbl_ptr->p_index->find(op.key);
+  //       PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
+  //       //{
+  //       // std::unique_lock<std::mutex> lock(hash_ptr->latch);
+  //       hash_ptr->latch.acquire();
+  //       tbl_ptr->updateRecord(
+  //           hash_ptr->VID, op.rec, master_ver, hash_ptr->last_master_ver,
+  //           delta_ver, hash_ptr->t_min, hash_ptr->t_max,
+  //           (xid >> 56) % NUM_SOCKETS);  // this is the number of sockets
+  //       hash_ptr->t_min = xid;
+  //       hash_ptr->last_master_ver = master_ver;
+  //       hash_ptr->latch.release();
+  //       // }
+  //       break;
+  //     }
+  //     case OPTYPE_INSERT: {
+  //       void *hash_ptr = tbl_ptr->insertRecord(op.rec, xid, master_ver);
+  //       tbl_ptr->p_index->insert(op.key, hash_ptr);
+  //       break;
+  //     }
+  //     default:
+  //       break;
+  //   }
+  // }
+
+  // release_locks(hash_ptrs_lock_acquired);
 
   return true;
 }

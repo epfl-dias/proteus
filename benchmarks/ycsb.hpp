@@ -68,32 +68,20 @@ class YCSB : public Benchmark {
   std::atomic<bool> initialized;  // so that nobody calls load twice
                                   // std::atomic<uint64_t> key_gen;
 
+  struct YCSB_TXN_OP {
+    uint64_t key;
+    txn::OP_TYPE op_type;
+    void *rec;
+  };  // __attribute__((aligned(64)));
+
+  struct YCSB_TXN {
+    struct YCSB_TXN_OP *ops;
+    short n_ops;
+
+    ~YCSB_TXN() { delete ops; }
+  };  // __attribute__((aligned(64)));
+
  public:
-  /*  // Singleton
-    static inline YCSB &getInstance() {
-      static YCSB instance("YCSB");
-      return instance;
-    }
-    YCSB(YCSB const &) = delete;            // Don't Implement
-    void operator=(YCSB const &) = delete;  // Don't implement */
-
-  // void load_data_thread(void *args) {
-  //   uint64_t start = *(uint64_t *)args;
-  //   uint64_t end = *((uint64_t *)args + 1);
-
-  //   txn::TransactionManager *txnManager =
-  //       &txn::TransactionManager::getInstance();
-
-  //   for (int i = start; i <= end; i++) {
-  //     std::vector<uint64_t> tmp(num_fields, i);
-  //     // ycsb_tbl->insertRecord(&tmp);
-  //     struct txn::TXN insert_txn = gen_insert_txn(i, &tmp);
-  //     txnManager->executor.execute_txn(
-  //         &insert_txn, 0, 0,
-  //         0);  // txn_id = 0; master= 0; delta_ver = 0;
-  //   };
-  // }
-
   void load_data(int num_threads = 1) {
     std::cout << "[YCSB] Loading data.." << std::endl;
     std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
@@ -138,59 +126,45 @@ class YCSB : public Benchmark {
       delete thd_arr[i];
     }*/
 
-    txn::TransactionManager *txnManager =
-        &txn::TransactionManager::getInstance();
+    // txn::TransactionManager *txnManager =
+    //    &txn::TransactionManager::getInstance();
 
     for (int i = 0; i < num_records; i++) {
       std::vector<uint64_t> tmp(num_fields, i);
-      // ycsb_tbl->insertRecord(&tmp);
-      struct txn::TXN insert_txn = gen_insert_txn(i, &tmp);
-      txnManager->executor.execute_txn(
-          &insert_txn, 0, 0,
-          0);  // txn_id = 0; master= 0; delta_ver = 0;
+
+      struct YCSB_TXN insert_txn = gen_insert_txn(i, &tmp);
+      // txnManager->executor.execute_txn(
+      this->exec_txn(&insert_txn, 0, 0,
+                     0);  // txn_id = 0; master= 0; delta_ver = 0;
       // txnManager->get_next_xid(0),txnManager->curr_master);
       if (i % 1000000 == 0)
         std::cout << "[YCSB] inserted records: " << i << std::endl;
-      // key_gen++;
-      // free the txn ops pointers
     }
     std::cout << "[YCSB] inserted records: " << num_records << std::endl;
-    // Set init flag to true
     initialized = true;
-
-    /*for (int i = 0; i < num_records; i++) {
-      std::vector<uint64_t> tmp(num_fields, i);
-      // ycsb_tbl->insertRecord(&tmp);
-      struct txn::TXN insert_txn = gen_upd_txn(i, &tmp);
-      txnManager->execute_txn(&insert_txn);
-      if (i % 1000000 == 0)
-        std::cout << "[YCSB] updated records: " << i << std::endl;
-      // key_gen++;
-      // free the txn ops pointers
-    };*/
   };
 
-  struct txn::TXN gen_insert_txn(uint64_t key, void *rec) {
-    struct txn::TXN txn;
+  struct YCSB_TXN gen_insert_txn(uint64_t key, void *rec) {
+    struct YCSB_TXN txn;
 
-    txn.ops = new txn::TXN_OP[1];
+    txn.ops = new YCSB_TXN_OP[1];
     assert(txn.ops != NULL);
 
     txn.ops[0].op_type = txn::OPTYPE_INSERT;
-    txn.ops[0].data_table = ycsb_tbl;
+    // txn.ops[0].data_table = ycsb_tbl;
     txn.ops[0].key = key;
     txn.ops[0].rec = rec;
     txn.n_ops = 1;
     return txn;
   }
-  struct txn::TXN gen_upd_txn(uint64_t key, void *rec) {
-    struct txn::TXN txn;
+  struct YCSB_TXN gen_upd_txn(uint64_t key, void *rec) {
+    struct YCSB_TXN txn;
 
-    txn.ops = new txn::TXN_OP[1];
+    txn.ops = new YCSB_TXN_OP[1];
     assert(txn.ops != NULL);
 
     txn.ops[0].op_type = txn::OPTYPE_UPDATE;
-    txn.ops[0].data_table = ycsb_tbl;
+    // txn.ops[0].data_table = ycsb_tbl;
     txn.ops[0].key = key;
     txn.ops[0].rec = rec;
     txn.n_ops = 1;
@@ -198,23 +172,19 @@ class YCSB : public Benchmark {
   }
 
   void *get_query_struct_ptr() {
-    struct txn::TXN *txn = (struct txn::TXN *)malloc(sizeof(struct txn::TXN));
-    txn->ops = (struct txn::TXN_OP *)calloc(num_ops_per_txn,
-                                            sizeof(struct txn::TXN_OP));
-    // new txn::TXN_OP[num_ops_per_txn];
+    struct YCSB_TXN *txn = new struct YCSB_TXN;
+    txn->ops = new struct YCSB_TXN_OP[num_ops_per_txn];
+
+    // struct YCSB_TXN *txn = (struct YCSB_TXN *)malloc(sizeof(struct
+    // YCSB_TXN)); txn->ops = (struct YCSB_TXN_OP *)calloc(num_ops_per_txn,
+    //                                         sizeof(struct YCSB_TXN_OP));
+    // new YCSB_TXN_OP[num_ops_per_txn];
     return txn;
   }
 
   /* FIXME: Possible memory leak because we dont clear the TXN memory*/
   void *gen_txn(int wid, void *txn_ptr) {
-    /* TODO: too many pointer indirections, it should be something static so
-     * that we reduce random memory access while generating queries */
-    struct txn::TXN *txn =
-        (struct txn::TXN *)txn_ptr;  // malloc(sizeof(struct txn::TXN));
-
-    // assert(txn != NULL);
-    // txn->ops = new txn::TXN_OP[num_ops_per_txn];
-    // assert(txn->ops != NULL);
+    struct YCSB_TXN *txn = (struct YCSB_TXN *)txn_ptr;
 
     txn::OP_TYPE op;
     wid = wid % num_active_workers;
@@ -236,7 +206,7 @@ class YCSB : public Benchmark {
     bool is_duplicate = false;
     for (int i = 0; i < num_ops_per_txn; i++) {
       txn->ops[i].op_type = op;
-      txn->ops[i].data_table = ycsb_tbl;
+      // txn->ops[i].data_table = ycsb_tbl;
       txn->ops[i].rec = nullptr;
 
       do {
@@ -251,13 +221,91 @@ class YCSB : public Benchmark {
           }
         }
       } while (is_duplicate == true);
-      // txn->n_ops++; // THIS IS FUCKING BUG HERE
     }
-    txn->n_ops = num_ops_per_txn;  // THIS IS FUCKING BUG HERE
+    txn->n_ops = num_ops_per_txn;
     return txn;
   }
 
-  void exec_txn(void *stmts) { return; }
+  bool exec_txn(void *stmts, uint64_t xid, ushort master_ver,
+                ushort delta_ver) {
+    struct YCSB_TXN *txn_stmts = (struct YCSB_TXN *)stmts;
+    int n = txn_stmts->n_ops;
+
+    /* Acquire locks for updates*/
+
+    std::vector<global_conf::IndexVal *> hash_ptrs_lock_acquired;
+    for (int i = 0; i < n; i++) {
+      struct YCSB_TXN_OP op = txn_stmts->ops[i];
+
+      switch (op.op_type) {
+        case txn::OPTYPE_UPDATE: {
+          global_conf::IndexVal *hash_ptr =
+              (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
+
+          bool e_false = false;
+          if (hash_ptr->write_lck.compare_exchange_strong(e_false, true)) {
+            hash_ptrs_lock_acquired.emplace_back(hash_ptr);
+          } else {
+            txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
+            return false;
+          }
+          break;
+        }
+        case txn::OPTYPE_LOOKUP:
+        case txn::OPTYPE_INSERT:
+        default:
+          break;
+      }
+    }
+
+    // perform lookups/ updates / inserts
+    for (int i = 0; i < n; i++) {
+      struct YCSB_TXN_OP op = txn_stmts->ops[i];
+      switch (op.op_type) {
+        case txn::OPTYPE_LOOKUP: {
+          global_conf::IndexVal *hash_ptr =
+              (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
+
+          hash_ptr->latch.acquire();
+          if (txn::CC_MV2PL::is_readable(hash_ptr->t_min, hash_ptr->t_max,
+                                         xid)) {
+            ycsb_tbl->getRecordByKey(hash_ptr->VID, hash_ptr->last_master_ver);
+          } else {
+            void *v = ycsb_tbl->getVersions(hash_ptr->VID, delta_ver)
+                          ->get_readable_ver(xid);
+          }
+          hash_ptr->latch.release();
+          break;
+        }
+
+        case txn::OPTYPE_UPDATE: {
+          global_conf::IndexVal *hash_ptr =
+              (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
+
+          hash_ptr->latch.acquire();
+          ycsb_tbl->updateRecord(
+              hash_ptr->VID, op.rec, master_ver, hash_ptr->last_master_ver,
+              delta_ver, hash_ptr->t_min, hash_ptr->t_max,
+              (xid >> 56) % NUM_SOCKETS);  // this is the number of sockets
+          hash_ptr->t_min = xid;
+          hash_ptr->last_master_ver = master_ver;
+          hash_ptr->latch.release();
+          break;
+        }
+        case txn::OPTYPE_INSERT: {
+          void *hash_ptr = ycsb_tbl->insertRecord(op.rec, xid, master_ver);
+          ycsb_tbl->p_index->insert(op.key, hash_ptr);
+          break;
+        }
+        default:
+          break;
+      }
+    }
+
+    txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
+
+    return true;
+  }
 
   // TODO: clean-up
   ~YCSB() { std::cout << "destructor of YCSB" << std::endl; }
@@ -301,7 +349,6 @@ class YCSB : public Benchmark {
   };
 
   struct drand48_data *rand_buffer;
-  // struct drand48_data **rand_buffer_sock_local;
   double g_zetan;
   double g_zeta2;
   double g_eta;
@@ -316,15 +363,6 @@ class YCSB : public Benchmark {
       srand48_r(i + 1, &rand_buffer[i]);
     }
 
-    // TODO: make the rand buffer local to the socket so for every txn, it
-    // doesnt have to access over QPI. rand_buffer_sock_local = new struct
-    // drand48_data[num_max_workers]; for (int i = 0; i < num_max_workers; i++)
-    // {
-    //   rand_buffer_sock_local[i] = storage::MemoryManager::alloc(
-    //       sizeof(struct drand48_data), num_max_workers / 18);
-    //   srand48_r(i + 1, rand_buffer_sock_local[i]);
-    // }
-
     uint64_t n = num_records - 1;
     g_zetan = zeta(n, theta);
     g_zeta2 = zeta(2, theta);
@@ -335,7 +373,7 @@ class YCSB : public Benchmark {
     printf("theta = %.2f\n", theta);
   }
 
-  inline void zipf_val(int wid, struct txn::TXN_OP *op) {
+  inline void zipf_val(int wid, struct YCSB_TXN_OP *op) {
     uint64_t n = num_records - 1;
 
     // elasticity hack when we will increase num_server on runtime

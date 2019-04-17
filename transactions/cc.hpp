@@ -70,6 +70,11 @@ class CC_MV2PL {
   // TODO: this needs to be modified as we changed the format of TIDs
   static inline bool __attribute__((always_inline))
   is_readable(uint64_t tmin, uint64_t tmax, uint64_t tid) {
+    // FIXME: the following is wrong as we have encoded the worker_id in the
+    // txn_id. the comparision should be of the xid only and if same then idk
+    // because two threads can read_tsc at the same time. it doesnt mean thread
+    // with lesser ID comes first.
+
     // TXN ID= ((txn_id << 8) >> 8) ?? cant we just AND to clear top bits?
     // WORKER_ID = (txn_id >> 56)
     if ((tid >= tmin) && (tmax == 0 || tid < tmax)) {
@@ -80,6 +85,10 @@ class CC_MV2PL {
   }
 
   static bool is_mv() { return true; }
+  static inline void __attribute__((always_inline)) release_locks(
+      std::vector<CC_MV2PL::PRIMARY_INDEX_VAL *> &hash_ptrs_lock_acquired) {
+    for (auto c : hash_ptrs_lock_acquired) c->write_lck = false;
+  }
 
  private:
 };
