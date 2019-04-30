@@ -160,6 +160,12 @@ ColumnStore::ColumnStore(
   this->p_index = new global_conf::PrimaryIndex<uint64_t>();
   this->columns.at(0)->buildIndex();
 
+  // Secondary Indexes
+  //this->s_index = new global_conf::PrimaryIndex<uint64_t>()[num_secondary_indexes];
+
+
+  //secondary_index_vals
+
   if (global_conf::cc_ismv) {
     // init delta store
     size_t rec_size = 0;
@@ -207,27 +213,31 @@ uint64_t ColumnStore::insertRecord(void* rec, short master_ver) {
 
 void ColumnStore::deleteRecord(uint64_t vid, short master_ver) {}
 
+void ColumnStore::touchRecordByKey(uint64_t vid, short master_ver) {
+  for (auto& col : columns) {
+    col->touchElem(vid, master_ver);
+  }
+}
+
+void ColumnStore::getRecordByKey(uint64_t vid, short master_ver,
+                                 std::vector<int>* col_idx, void* loc) {
+  char* write_loc = (char*)loc;
+  if (col_idx == nullptr) {
+    for (auto& col : columns) {
+      col->getElem(vid, master_ver, write_loc);
+      write_loc += col->elem_size;
+    }
+  } else {
+    for (auto& c_idx : *col_idx) {
+      Column* col = columns.at(c_idx);
+      col->getElem(vid, master_ver, write_loc);
+      write_loc += col->elem_size;
+    }
+  }
+}
+
 std::vector<const void*> ColumnStore::getRecordByKey(
     uint64_t vid, short master_ver, std::vector<int>* col_idx) {
-  // std::vector<std::tuple<const void*, data_type>>
-  // std::vector<std::tuple<const void*, data_type>> record;
-
-  // // int num_cols = col_idx->size();
-  // // TODO: return col_name too maybe for projections?
-  // if (col_idx == nullptr) {
-  //   for (auto& col : columns) {
-  //     record.push_back(std::tuple<const void*, data_type>(
-  //         (const void*)(col->getElem(vid, master_ver)), col->type));
-  //   }
-  // } else {
-  //   for (auto& c_idx : *col_idx) {
-  //     Column* col = columns.at(c_idx);
-  //     record.push_back(std::tuple<const void*, data_type>(
-  //         (const void*)(col->getElem(vid, master_ver)), col->type));
-  //   }
-  // }
-  // return record;
-
   if (col_idx == nullptr) {
     std::vector<const void*> record(columns.size());
     for (auto& col : columns) {
@@ -340,15 +350,41 @@ void* Column::getElem(uint64_t vid, short master_ver) {
   // std::endl;
   int data_idx = vid * elem_size;
   for (const auto& chunk : master_versions[master_ver]) {
-    // std::cout << "chunk_sz: " << chunk->size << "| " << (data_idx +
-    // elem_size)
-    //         << std::endl;
     if (chunk->size >= ((size_t)data_idx + elem_size)) {
-      // std::cout << "true" << std::endl;
       return ((char*)chunk->data) + data_idx;
     }
   }
   return nullptr;
+}
+void Column::touchElem(uint64_t vid, short master_ver) {
+  // master_versions[master_ver];
+  assert(master_versions[master_ver].size() != 0);
+  // std::cout << "getElem -> " << vid << " | master:" << master_ver <<
+  // std::endl;
+  int data_idx = vid * elem_size;
+  for (const auto& chunk : master_versions[master_ver]) {
+    if (chunk->size >= ((size_t)data_idx + elem_size)) {
+      char* loc = ((char*)chunk->data) + data_idx;
+      volatile char tmp = 'a';
+      for (int i = 0; i < elem_size; i++) {
+        tmp += *loc;
+      }
+    }
+  }
+}
+
+void Column::getElem(uint64_t vid, short master_ver, void* copy_location) {
+  // master_versions[master_ver];
+  assert(master_versions[master_ver].size() != 0);
+  int data_idx = vid * elem_size;
+  for (const auto& chunk : master_versions[master_ver]) {
+    if (chunk->size >= ((size_t)data_idx + elem_size)) {
+      std::memcpy(copy_location, ((char*)chunk->data) + data_idx,
+                  this->elem_size);
+      return;
+    }
+  }
+  assert(false);  // as control should never reach here.
 }
 
 void* Column::insertElem(uint64_t offset, void* elem, short master_ver) {

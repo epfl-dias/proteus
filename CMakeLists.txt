@@ -20,6 +20,7 @@ set(TPCH FALSE)
 
 # C++ Source files
 set(SOURCES
+	benchmarks/tpcc.cpp
     scheduler/worker.cpp
     scheduler/topology.cpp
     scheduler/affinity_manager.cpp

@@ -269,7 +269,8 @@ class YCSB : public Benchmark {
           hash_ptr->latch.acquire();
           if (txn::CC_MV2PL::is_readable(hash_ptr->t_min, hash_ptr->t_max,
                                          xid)) {
-            ycsb_tbl->getRecordByKey(hash_ptr->VID, hash_ptr->last_master_ver);
+            ycsb_tbl->touchRecordByKey(hash_ptr->VID,
+                                       hash_ptr->last_master_ver);
           } else {
             void *v = ycsb_tbl->getVersions(hash_ptr->VID, delta_ver)
                           ->get_readable_ver(xid);

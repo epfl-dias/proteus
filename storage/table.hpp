@@ -98,6 +98,10 @@ class Table {
   virtual std::vector<const void*> getRecordByKey(
       uint64_t vid, short master_ver, std::vector<int>* col_idx = nullptr) = 0;
 
+  virtual void getRecordByKey(uint64_t vid, short master_ver,
+                              std::vector<int>* col_idx, void* loc) = 0;
+  virtual void touchRecordByKey(uint64_t vid, short master_ver) = 0;
+
   void clearDelta(short ver);
   virtual global_conf::mv_version_list* getVersions(uint64_t vid,
                                                     short master_ver) = 0;
@@ -109,6 +113,7 @@ class Table {
   virtual ~Table();
 
   global_conf::PrimaryIndex<uint64_t>* p_index;
+  global_conf::PrimaryIndex<uint64_t>** s_index;
 
  protected:
   std::string name;
@@ -173,6 +178,10 @@ class ColumnStore : public Table {
   std::vector<const void*> getRecordByKey(uint64_t vid, short master_ver,
                                           std::vector<int>* col_idx = nullptr);
 
+  void getRecordByKey(uint64_t vid, short master_ver, std::vector<int>* col_idx,
+                      void* loc);
+  void touchRecordByKey(uint64_t vid, short master_ver);
+
   global_conf::mv_version_list* getVersions(uint64_t vid, short master_ver);
 
   /*
@@ -186,6 +195,7 @@ class ColumnStore : public Table {
  private:
   std::vector<Column*> columns;
   Column* meta_column;
+  Column** secondary_index_vals;
   size_t rec_size;
 };
 
@@ -199,6 +209,8 @@ class Column {
   void buildIndex();
   void* getRange(uint64_t start_idx, uint64_t end_idx, short master_ver);
   void* getElem(uint64_t idx, short master_ver);
+  void touchElem(uint64_t idx, short master_ver);
+  void getElem(uint64_t vid, short master_ver, void* copy_location);
 
   void* insertElem(uint64_t offset, void* elem, short master_ver);
   void updateElem(uint64_t offset, void* elem, short master_ver);
