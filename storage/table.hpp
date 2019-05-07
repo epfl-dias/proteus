@@ -78,12 +78,17 @@ class Schema {
   void switch_delta(ushort prev, ushort curr);
 
   void teardown();
+  uint64_t total_mem_reserved;
+  uint64_t total_delta_mem_reserved;
 
  private:
   int num_tables;
   std::vector<Table*> tables;
 
-  Schema() {}
+  Schema() {
+    total_mem_reserved = 0;
+    total_delta_mem_reserved = 0;
+  }
 };
 
 class Table {
@@ -94,6 +99,10 @@ class Table {
   virtual void updateRecord(uint64_t vid, void* data, short ins_master_ver,
                             short prev_master_ver, short delta_ver,
                             uint64_t tmin, uint64_t tmax, int pid) = 0;
+  virtual void updateRecord(uint64_t vid, void* rec, short ins_master_ver,
+                            short prev_master_ver, short delta_ver,
+                            uint64_t tmin, uint64_t tmax, int pid,
+                            std::vector<int>* col_idx) = 0;
   virtual void deleteRecord(uint64_t vid, short master_ver) = 0;
   virtual std::vector<const void*> getRecordByKey(
       uint64_t vid, short master_ver, std::vector<int>* col_idx = nullptr) = 0;
@@ -114,6 +123,8 @@ class Table {
 
   global_conf::PrimaryIndex<uint64_t>* p_index;
   global_conf::PrimaryIndex<uint64_t>** s_index;
+  uint64_t total_mem_reserved;
+  uint64_t total_delta_mem_reserved;
 
  protected:
   std::string name;
@@ -152,6 +163,9 @@ class rowStore : public Table {
   void updateRecord(uint64_t vid, void* data, short ins_master_ver,
                     short prev_master_ver, short delta_ver, uint64_t tmin,
                     uint64_t tmax, int pid) {}
+  void updateRecord(uint64_t vid, void* rec, short ins_master_ver,
+                    short prev_master_ver, short delta_ver, uint64_t tmin,
+                    uint64_t tmax, int pid, std::vector<int>* col_idx) {}
   void deleteRecord(uint64_t vid, short master_ver) {}
   void clearDelta(short ver) {}
   global_conf::mv_version_list* getVersions(uint64_t vid, short master_ver) {
@@ -174,6 +188,9 @@ class ColumnStore : public Table {
   void updateRecord(uint64_t vid, void* data, short ins_master_ver,
                     short prev_master_ver, short delta_ver, uint64_t tmin,
                     uint64_t tmax, int pid);
+  void updateRecord(uint64_t vid, void* rec, short ins_master_ver,
+                    short prev_master_ver, short delta_ver, uint64_t tmin,
+                    uint64_t tmax, int pid, std::vector<int>* col_idx);
   void deleteRecord(uint64_t vid, short master_ver);
   std::vector<const void*> getRecordByKey(uint64_t vid, short master_ver,
                                           std::vector<int>* col_idx = nullptr);
@@ -218,6 +235,7 @@ class Column {
 
  private:
   std::string name;
+  size_t total_mem_reserved;
   size_t elem_size;
   bool is_indexed;
   data_type type;

@@ -121,7 +121,7 @@ struct VERSION_LIST {
       tmp = head;
       while (tmp != nullptr) {
         if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
-          return tmp;
+          return tmp->data;
         } else {
           tmp = tmp->next;
         }

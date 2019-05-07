@@ -25,6 +25,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <iostream>
 #include <thread>
 #include <tuple>
+#include "benchmarks/bench.hpp"
+#include "benchmarks/tpcc.hpp"
 #include "benchmarks/ycsb.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
@@ -80,7 +82,8 @@ int main(int argc, char** argv) {
       "r,write_ratio", "Reader to writer ratio", cxxopts::value<double>())(
       "t,theta", "Zipf theta", cxxopts::value<double>())(
       "g,gc_mode", "GC Mode: 1-Snapshot, 2-TupleGC", cxxopts::value<uint>())(
-      "c,num_cols", "Number of Columns", cxxopts::value<uint>());
+      "b,benchmark", "Benchmark: 0:YCSB, 1:TPC-C", cxxopts::value<uint>())(
+      "c,ycsb_num_cols", "Number of YCSB Columns", cxxopts::value<uint>());
 
   auto result = options.parse(argc, argv);
   // result.count("option")
@@ -89,10 +92,15 @@ int main(int argc, char** argv) {
   // cxxopts::value<std::string>()->implicit_value("implicit")
 
   // conf
-  int num_workers = std::thread::hardware_concurrency();
+  int num_workers =
+      2;  // NUM_SOCKETS * 18;  // std::thread::hardware_concurrency();
   uint gc_mode = 1;
+  uint bechnmark = 1;  // default: YCSB
 
-  // ycsb vars  // (10-G * (1024^3))/(8*10-num_field)
+  // TPC-C vars
+
+  // ycsb vars
+  // (10-G * (1024^3))/(8*10-num_field)
   int num_fields = 1;  // 2;
   // int num_records = 134217728;  // 10GB
   // int num_records = 268435456;  // 20GB
@@ -105,6 +113,9 @@ int main(int argc, char** argv) {
 
   if (result.count("w") > 0) {
     num_workers = result["w"].as<uint>();
+  }
+  if (result.count("b") > 0) {
+    bechnmark = result["b"].as<uint>();
   }
 
   if (result.count("r") > 0) {
@@ -151,10 +162,15 @@ int main(int argc, char** argv) {
   // set_exec_location_on_scope d(exec_node);
 
   // init benchmark
-  bench::YCSB* ycsb_bench = new bench::YCSB(
-      "YCSB", num_fields, num_records, theta, num_iterations_per_worker,
-      num_ops_per_txn, write_threshold, num_workers, num_workers);
-  ycsb_bench->load_data(num_workers);
+  bench::Benchmark* bench = nullptr;
+  if (bechnmark == 1) {
+    bench = new bench::TPCC("TPCC", num_workers);
+  } else {  // Defult YCSB
+    bench = new bench::YCSB("YCSB", num_fields, num_records, theta,
+                            num_iterations_per_worker, num_ops_per_txn,
+                            write_threshold, num_workers, num_workers);
+  }
+  bench->load_data(num_workers);
 
   /* As soon as worker starts, they start transactions. so make sure you setup
    * everything needed for benchmark transactions before hand.
@@ -164,7 +180,7 @@ int main(int argc, char** argv) {
    * the queue has nothing, it will get and execute a txn from the benchmark
    */
 
-  scheduler::WorkerPool::getInstance().init(ycsb_bench);
+  scheduler::WorkerPool::getInstance().init(bench);
   __itt_resume();
   scheduler::WorkerPool::getInstance().start_workers(num_workers);
 

@@ -59,7 +59,9 @@ calculate_delta_ver(uint64_t txn_id, uint64_t start_time) {
 
   // return curr_master;
   // std::cout << duration << std::endl;
-  return duration >> 6;  //(duration / global_conf::num_delta_storages);
+  // return duration >> 6;  //(duration / global_conf::num_delta_storages);
+
+  return duration >> 10;  // 1000000L;
 }
 
 void Worker::run() {
@@ -98,11 +100,11 @@ void Worker::run() {
 
     ushort curr_delta_id = curr_delta % global_conf::num_delta_storages;
 
-    // if (prev_delta != curr_delta) {
-    //   ushort prev_delta_id = prev_delta % global_conf::num_delta_storages;
-    //   schema->switch_delta(prev_delta_id, curr_delta_id);
+    if (prev_delta != curr_delta) {
+      ushort prev_delta_id = prev_delta % global_conf::num_delta_storages;
+      schema->switch_delta(prev_delta_id, curr_delta_id);
 
-    // }  // else didnt switch.
+    }  // else didnt switch.
 
     // custom query coming in.
     // if (this->id == 0) {
@@ -124,11 +126,11 @@ void Worker::run() {
     //   }
     // }
 
-    void* c = pool->txn_bench->gen_txn((uint)this->id, txn_mem);
+    pool->txn_bench->gen_txn((uint)this->id, txn_mem);
 
     // if (txnManager->executor.execute_txn(
     //         c, curr_txn, txnManager->current_master, curr_delta_id))
-    if (pool->txn_bench->exec_txn(c, curr_txn, txnManager->current_master,
+    if (pool->txn_bench->exec_txn(txn_mem, curr_txn, txnManager->current_master,
                                   curr_delta_id))
       num_commits++;
     else

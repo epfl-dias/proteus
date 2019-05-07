@@ -182,8 +182,7 @@ class YCSB : public Benchmark {
     return txn;
   }
 
-  /* FIXME: Possible memory leak because we dont clear the TXN memory*/
-  void *gen_txn(int wid, void *txn_ptr) {
+  void gen_txn(int wid, void *txn_ptr) {
     struct YCSB_TXN *txn = (struct YCSB_TXN *)txn_ptr;
 
     txn::OP_TYPE op;
@@ -223,7 +222,6 @@ class YCSB : public Benchmark {
       } while (is_duplicate == true);
     }
     txn->n_ops = num_ops_per_txn;
-    return txn;
   }
 
   bool exec_txn(void *stmts, uint64_t xid, ushort master_ver,
@@ -287,7 +285,8 @@ class YCSB : public Benchmark {
           ycsb_tbl->updateRecord(
               hash_ptr->VID, op.rec, master_ver, hash_ptr->last_master_ver,
               delta_ver, hash_ptr->t_min, hash_ptr->t_max,
-              (xid >> 56) % NUM_SOCKETS);  // this is the number of sockets
+              (xid >> 56) %
+                  NUM_CORE_PER_SOCKET);  // this is the number of sockets
           hash_ptr->t_min = xid;
           hash_ptr->last_master_ver = master_ver;
           hash_ptr->latch.release();

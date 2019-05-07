@@ -29,32 +29,53 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <iostream>
 #include <thread>
 #include "benchmarks/bench.hpp"
-#include "benchmarks/bench_utils.hpp"
+//#include "benchmarks/bench_utils.hpp"
 #include "indexes/hash_index.hpp"
 #include "scheduler/topology.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 //#include <thread
 
+#define NO_MIX 45
+#define P_MIX 43
+#define OS_MIX 4
+#define D_MIX 4
+#define SL_MIX 4
+#define MIX_COUNT 100
+
 #define FIRST_NAME_MIN_LEN 8
 #define FIRST_NAME_LEN 16
 #define LAST_NAME_LEN 16
-#define TPCC_MAX_ITEMS 100000
-#define TPCC_NDIST_PER_WH 10
-#define TPCC_NCUST_PER_DIST 3000
 #define TPCC_MAX_OL_PER_ORDER 15
 
+// From TPCC-SPEC
+#define TPCC_MAX_ITEMS 100000
+#define TPCC_NCUST_PER_DIST 3000
+#define TPCC_NDIST_PER_WH 10
+#define TPCC_ORD_PER_DIST 3000
+
+#define MAKE_STOCK_KEY(w, s) (w * TPCC_MAX_ITEMS + s)
 #define MAKE_DIST_KEY(w, d) (w * TPCC_NDIST_PER_WH + d)
 #define MAKE_CUST_KEY(w, d, c) (MAKE_DIST_KEY(w, d) * TPCC_NCUST_PER_DIST + c)
+
+#define MAKE_ORDER_KEY(w, d, o) (MAKE_DIST_KEY(w, d) * TPCC_ORD_PER_DIST + o)
 #define MAKE_OL_KEY(w, d, o, ol) \
-  (MAKE_CUST_KEY(w, d, o) * TPCC_MAX_OL_PER_ORDER + ol)
+  (MAKE_ORDER_KEY(w, d, o) * TPCC_MAX_OL_PER_ORDER + ol)
 //#define MAKE_STOCK_KEY(w,s) (w * TPCC_MAX_ITEMS + s)
 
 namespace bench {
 
 /*
-        Benchmark: TPC-C
+  Benchmark: TPC-C
+  Spec: http://www.tpc.org/tpc_documents_current_versions/pdf/tpc-c_v5.11.0.pdf
 */
+enum TPCC_QUERY_TYPE {
+  NEW_ORDER,
+  PAYMENT,
+  ORDER_STATUS,
+  DELIVERY,
+  STOCK_LEVEL
+};
 
 class TPCC : public Benchmark {
  private:
@@ -70,7 +91,9 @@ class TPCC : public Benchmark {
   storage::Table *table_stock;
 
   int num_warehouse;
+  int g_dist_threshold;
   unsigned int seed;
+  TPCC_QUERY_TYPE sequence[MIX_COUNT];
 
  public:
   struct tpcc_stock {
@@ -184,9 +207,37 @@ class TPCC : public Benchmark {
 #define NDEFAULT_RIDS 16
   };
 
+  struct item {
+    int ol_i_id;
+    int ol_supply_w_id;
+    int ol_quantity;
+  };
+
+  // neworder tpcc query
+  struct tpcc_query {
+    TPCC_QUERY_TYPE query_type;
+    int w_id;
+    int d_id;
+    int c_id;
+    int threshold;
+    int o_carrier_id;
+    int d_w_id;
+    int c_w_id;
+    int c_d_id;
+    char c_last[LAST_NAME_LEN];
+    double h_amount;
+    char by_last_name;
+    struct item item[TPCC_MAX_OL_PER_ORDER];
+    char rbk;
+    char remote;
+    int ol_cnt;
+    int o_entry_d;
+  };
+
   // fucking shortcut
   indexes::HashIndex<uint64_t, struct secondary_record> *cust_sec_index;
 
+  void init_tpcc_seq_array();
   void create_tbl_warehouse(uint64_t num_warehouses);
   void create_tbl_district(uint64_t num_districts);
   void create_tbl_customer(uint64_t num_cust);
@@ -199,16 +250,26 @@ class TPCC : public Benchmark {
 
   void load_data(int num_threads = 1);
   void load_stock(int w_id);
-  void load_item(int w_id);
+  void load_item();
   void load_warehouse(int w_id);
   void load_district(int w_id);
   void load_history(int w_id);
   void load_order(int w_id);
   void load_customer(int w_id);
 
+  void *get_query_struct_ptr() { return new struct tpcc_query; }
+
   // cust_utils
   uint64_t cust_derive_key(char *c_last, int c_d_id, int c_w_id);
   int set_last_name(int num, char *name);
+  void print_tpcc_query(void *arg);
+
+  // get queries
+  void tpcc_get_next_payment_query(int wid, void *arg);
+  void tpcc_get_next_neworder_query(int wid, void *arg);
+  void tpcc_get_next_orderstatus_query(int wid, void *arg);
+  void tpcc_get_next_delivery_query(int wid, void *arg);
+  void tpcc_get_next_stocklevel_query(int wid, void *arg);
 
   // struct txn::TXN gen_insert_txn(uint64_t key, void *rec) {}
   // struct txn::TXN gen_upd_txn(uint64_t key, void *rec) {}
@@ -216,10 +277,24 @@ class TPCC : public Benchmark {
   // void *gen_txn(int wid) {}
 
   // void exec_txn(void *stmts) { return; }
+  bool exec_txn(void *stmts, uint64_t xid, ushort master_ver, ushort delta_ver);
+  void gen_txn(int wid, void *txn_ptr);
+
+  bool exec_neworder_txn(struct tpcc_query *stmts, uint64_t xid,
+                         ushort master_ver, ushort delta_ver);
+  bool exec_payment_txn(struct tpcc_query *stmts, uint64_t xid,
+                        ushort master_ver, ushort delta_ver);
+  bool exec_orderstatus_txn(struct tpcc_query *stmts, uint64_t xid,
+                            ushort master_ver, ushort delta_ver);
+  bool exec_delivery_txn(struct tpcc_query *stmts, uint64_t xid,
+                         ushort master_ver, ushort delta_ver);
+  bool exec_stocklevel_txn(struct tpcc_query *stmts, uint64_t xid,
+                           ushort master_ver, ushort delta_ver);
 
   // TODO: clean-up
   ~TPCC() {}
-  TPCC(std::string name = "TPCC", int num_warehouses = 1);
+  TPCC(std::string name = "TPCC", int num_warehouses = 1,
+       int g_dist_threshold = 0);
 };
 
 }  // namespace bench

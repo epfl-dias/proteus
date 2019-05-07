@@ -27,7 +27,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "indexes/hash_index.hpp"
 #include "transactions/cc.hpp"
 
-#define NUM_SOCKETS 4
+#define NUM_SOCKETS 1
+#define NUM_CORE_PER_SOCKET 18
 
 // typedef cuckoohash_map<std::string, std::string> HashIndex;
 

@@ -110,7 +110,7 @@ class WorkerPool {
   void start_workers(int num_workers = 1);
   void add_worker(core *exec_location);
   void remove_worker(core *exec_location);
-  void print_worker_stats(bool global_only = false);
+  void print_worker_stats(bool global_only = true);
   std::vector<uint64_t> get_active_txns();
 
   template <class F, class... Args>

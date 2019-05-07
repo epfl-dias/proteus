@@ -93,6 +93,9 @@ Table* Schema::create_table(
   }
   tables.push_back(tbl);
   this->num_tables++;
+  this->total_mem_reserved += tbl->total_mem_reserved;
+  this->total_delta_mem_reserved += tbl->total_delta_mem_reserved;
+
   return tbl;
 }
 
@@ -139,20 +142,26 @@ ColumnStore::ColumnStore(
      considered as key and will be indexed.
   */
 
+  this->total_mem_reserved = 0;
+  this->total_delta_mem_reserved = 0;
+
   // create meta_data column.
-  std::cout << "Create meta-column" << std::endl;
-  std::cout << "size of hash_val: " << sizeof(global_conf::IndexVal)
-            << std::endl;
+  // std::cout << "Create meta-column" << std::endl;
+  // std::cout << "size of hash_val: " << sizeof(global_conf::IndexVal)
+  //         << std::endl;
   meta_column = new Column("meta", initial_num_records, META,
                            sizeof(global_conf::IndexVal));
-
   // create columns
   for (const auto& t : columns) {
-    std::cout << "Creating Column: " << std::get<0>(t) << std::endl;
+    // std::cout << "Creating Column: " << std::get<0>(t) << std::endl;
     this->columns.emplace_back(new Column(std::get<0>(t), initial_num_records,
                                           std::get<1>(t), std::get<2>(t),
                                           false));
   }
+  for (const auto& t : this->columns) {
+    total_mem_reserved += t->total_mem_reserved;
+  }
+
   this->num_columns = columns.size();
   this->name = name;
   this->vid = 0;
@@ -161,24 +170,32 @@ ColumnStore::ColumnStore(
   this->columns.at(0)->buildIndex();
 
   // Secondary Indexes
-  //this->s_index = new global_conf::PrimaryIndex<uint64_t>()[num_secondary_indexes];
-
-
-  //secondary_index_vals
+  // this->s_index = new
+  // global_conf::PrimaryIndex<uint64_t>()[num_secondary_indexes];
+  size_t rec_size = 0;
+  for (auto& co : this->columns) {
+    rec_size += co->elem_size;
+  }
+  this->rec_size = rec_size;
 
   if (global_conf::cc_ismv) {
     // init delta store
-    size_t rec_size = 0;
-    for (auto& co : this->columns) {
-      rec_size += co->elem_size;
-    }
-    this->rec_size = rec_size;
-    std::cout << "record size: " << rec_size << " bytes" << std::endl;
+
     for (int i = 0; i < global_conf::num_delta_storages; i++) {
-      std::cout << "Create Delta # " << i << std::endl;
       deltaStore[i] = new DeltaStore(rec_size, initial_num_records);
+      this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;
     }
   }
+  std::cout << "Table: " << name << std::endl;
+  std::cout << "\trecord size: " << rec_size << " bytes" << std::endl;
+  std::cout << "\tnum_records: " << initial_num_records << std::endl;
+  total_mem_reserved += meta_column->total_mem_reserved;
+  std::cout << "\tMem reserved: "
+            << (double)total_mem_reserved / (1024 * 1024 * 1024) << "GB"
+            << std::endl;
+  std::cout << "\tDelta mem reserved: "
+            << (double)this->total_delta_mem_reserved / (1024 * 1024 * 1024)
+            << "GB" << std::endl;
 }
 
 // void* ColumnStore::insertMeta(uint64_t vid, global_conf::IndexVal& hash_val)
@@ -230,6 +247,7 @@ void ColumnStore::getRecordByKey(uint64_t vid, short master_ver,
   } else {
     for (auto& c_idx : *col_idx) {
       Column* col = columns.at(c_idx);
+      // std::cout << "\t Reading col: " << col->name << std::endl;
       col->getElem(vid, master_ver, write_loc);
       write_loc += col->elem_size;
     }
@@ -306,6 +324,37 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
   }
 }
 
+void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
+                               short prev_master_ver, short delta_ver,
+                               uint64_t tmin, uint64_t tmax, int pid,
+                               std::vector<int>* col_idx) {
+  if (global_conf::cc_ismv) {
+    // create_version
+    // std::cout << "UPD TBL: " << this->name << std::endl;
+    char* ver = (char*)this->deltaStore[delta_ver]->insert_version(vid, tmin,
+                                                                   tmax, pid);
+    assert(ver != nullptr);
+    size_t total_rec_size = 0;
+    for (auto& col : columns) {
+      size_t elem_size = col->elem_size;
+      total_rec_size += elem_size;
+      assert(ver != nullptr);
+      memcpy((void*)ver, col->getElem(vid, prev_master_ver), elem_size);
+      ver += (int)elem_size;
+    }
+    assert(this->rec_size == total_rec_size);
+    // std::cout << "updated column" << std::endl;
+  }
+
+  char* cursor = (char*)rec;
+  for (auto& c_idx : *col_idx) {
+    Column* col = columns.at(c_idx);
+    col->insertElem(vid, (rec == nullptr ? nullptr : (void*)cursor),
+                    ins_master_ver);
+    cursor += col->elem_size;
+  }
+}
+
 void Column::buildIndex() {
   // TODO: build column index here.
 
@@ -326,6 +375,7 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   // std::cout << "INITIAL NUM REC: " << initial_num_records << std::endl;
   int numa_id = global_conf::master_col_numa_id;
   size_t size = initial_num_records * unit_size;
+  this->total_mem_reserved = size * global_conf::num_master_versions;
 
   // std::cout << "Column--" << name << "| size: " << size
   //          << "| num_r: " << initial_num_records << std::endl;
@@ -333,8 +383,8 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   for (short i = 0; i < global_conf::num_master_versions; i++) {
     void* mem = MemoryManager::alloc(size, numa_id);
     uint64_t* pt = (uint64_t*)mem;
-    for (int i = 0; i < initial_num_records; i++) pt[i] = 0;
-    std::cout << "create master: " << i << "| " << name << std::endl;
+    int warmup_max = size / sizeof(uint64_t);
+    for (int i = 0; i < warmup_max; i++) pt[i] = 0;
     master_versions[i].emplace_back(new mem_chunk(mem, size, numa_id));
   }
 
@@ -377,6 +427,7 @@ void Column::getElem(uint64_t vid, short master_ver, void* copy_location) {
   // master_versions[master_ver];
   assert(master_versions[master_ver].size() != 0);
   int data_idx = vid * elem_size;
+  // std::cout << "GetElem-" << this->name << std::endl;
   for (const auto& chunk : master_versions[master_ver]) {
     if (chunk->size >= ((size_t)data_idx + elem_size)) {
       std::memcpy(copy_location, ((char*)chunk->data) + data_idx,
@@ -406,7 +457,7 @@ void* Column::insertElem(uint64_t offset, void* elem, short master_ver) {
     }
   }
 
-  std::cout << "FUCK. ALLOCATE MOTE MEMORY" << std::endl;
+  std::cout << "FUCK. ALLOCATE MOTE MEMORY:\t" << this->name << std::endl;
   return nullptr;
   // exit(-1);
 }

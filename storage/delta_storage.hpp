@@ -31,6 +31,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 //#include "indexes/hash_index.hpp"
 #include "storage/memory_manager.hpp"
 //#include "transactions/transaction_manager.hpp"
+
+#define DELTA_DEBUG 0
 namespace storage {
 /*
     TODO:
@@ -96,7 +98,7 @@ class DeltaStore {
       list_numa_id = i % 4;
       data_numa_id = i % 4;
 
-      std::cout << "PID-" << i << " - memset: " << data_numa_id << std::endl;
+      // std::cout << "PID-" << i << " - memset: " << data_numa_id << std::endl;
 
       void* mem_list = MemoryManager::alloc(ver_list_mem_req, list_numa_id);
       void* mem_data = MemoryManager::alloc(ver_data_mem_req, data_numa_id);
@@ -130,11 +132,18 @@ class DeltaStore {
     // pt[0] = 1;
     // for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
 
-    std::cout << "\tDelta size: "
-              << ((double)(ver_list_mem_req + ver_data_mem_req) /
-                  (1024 * 1024 * 1024))
-              << " GB * " << num_partitions << " Partitions" << std::endl;
-
+    if (DELTA_DEBUG) {
+      std::cout << "\tDelta size: "
+                << ((double)(ver_list_mem_req + ver_data_mem_req) /
+                    (1024 * 1024 * 1024))
+                << " GB * " << num_partitions << " Partitions" << std::endl;
+      std::cout << "\tDelta size: "
+                << ((double)(ver_list_mem_req + ver_data_mem_req) *
+                    num_partitions / (1024 * 1024 * 1024))
+                << " GB" << std::endl;
+    }
+    this->total_mem_reserved =
+        (ver_list_mem_req + ver_data_mem_req) * num_partitions;
     this->rec_size = rec_size;
 
     // std::cout << "Rec size: " << rec_size << std::endl;
@@ -165,8 +174,8 @@ class DeltaStore {
       vlst->insert(val);
       vid_version_map.insert(vid, vlst);
     }
-    ops++;
-    touched = true;
+    // ops++;
+    if (!touched) touched = true;
     return val->data;
   }
 
@@ -333,10 +342,10 @@ class DeltaStore {
           touched(false),
           rec_size(rec_size),
           pid(pid) {
-      // WARMUP MAYBE?
+      // warm-up mem-list
+      if (DELTA_DEBUG)
+        std::cout << "\t warming up delta storage P" << pid << std::endl;
 
-      // // warm-up mem-list
-      std::cout << "\t warming up delta storage P" << pid << std::endl;
       uint64_t* pt = (uint64_t*)ver_list_cursor;
       int warmup_size = ver_list_mem.size / sizeof(uint64_t);
       pt[0] = 3;
@@ -350,7 +359,8 @@ class DeltaStore {
     }
 
     ~DeltaPartition() {
-      std::cout << "Clearing Delta Parition-" << pid << std::endl;
+      if (DELTA_DEBUG)
+        std::cout << "Clearing Delta Parition-" << pid << std::endl;
       // int munlock(const void *addr, size_t len);
       // MemoryManager::free(ver_list_mem.data, ver_list_mem.size);
       // MemoryManager::free(ver_data_mem.data, ver_data_mem.size);
@@ -385,6 +395,10 @@ class DeltaStore {
 
       void* tmp = (void*)ver_data_cursor.fetch_add(
           rec_size + sizeof(global_conf::mv_version));
+
+      assert((((int*)tmp - (int*)this->ver_data_mem.data) * sizeof(int)) <=
+             this->ver_data_mem.size);
+
       if (!touched) touched = true;
       return tmp;
     }
@@ -418,6 +432,9 @@ class DeltaStore {
   std::atomic<uint> gc_reset_success;
   std::atomic<uint> gc_requests;
   std::atomic<uint> ops;
+
+ public:
+  uint64_t total_mem_reserved;
 };
 
 };  // namespace storage
