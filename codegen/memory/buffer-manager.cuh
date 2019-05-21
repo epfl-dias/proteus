@@ -38,11 +38,9 @@
 template <typename T, T invalid_value>
 class threadsafe_device_stack;
 
-extern int num_of_gpus;
-extern int num_of_cpus;
+[[deprecated("Use topology")]] inline int get_gpu_count();
 
-inline int get_gpu_count();
-inline int get_cpu_numa_node_count();
+[[deprecated("Use topology")]] inline int get_cpu_numa_node_count();
 
 template <typename T>
 class buffer_manager;
@@ -53,13 +51,15 @@ __global__ void get_buffer_host(void **buff, int buffs = 1);
 void initializeModule(CUmodule &cudaModule);
 
 template <typename T = int32_t>
-class buffer_manager {
+class [[deprecated("Access through BlockManager")]] buffer_manager {
   static_assert(std::is_same<T, int32_t>::value, "Not implemented yet");
 
  public:
   typedef T *buffer_t;
   typedef threadsafe_device_stack<T *, (T *)NULL> pool_t;
   typedef threadsafe_stack<T *, (T *)NULL> h_pool_t;
+
+  static constexpr size_t buffer_size = h_vector_size * sizeof(T);
 
   static bool terminating;
   static std::mutex *device_buffs_mutex;
@@ -134,11 +134,11 @@ class buffer_manager {
   static __host__ T *h_get_buffer(int dev);
 
  private:
-  static __device__ void __release_buffer_device(T *buff);
-  static __host__ void __release_buffer_host(T *buff);
+  static __device__ void __release_buffer_device(T * buff);
+  static __host__ void __release_buffer_host(T * buff);
 
  public:
-  static __host__ __forceinline__ bool share_host_buffer(T *buff) {
+  static __host__ __forceinline__ bool share_host_buffer(T * buff) {
     const auto &it = buffer_cache.find(buff);
     if (it == buffer_cache.end()) return true;
     (it->second)++;
@@ -146,18 +146,15 @@ class buffer_manager {
   }
 
 #if defined(__clang__) && defined(__CUDA__)
-  static __device__ __forceinline__ void release_buffer(
-      T *buff) {  //, cudaStream_t strm){
+  static __device__ __forceinline__ void release_buffer(T * buff) {
     __release_buffer_device(buff);
   }
 
-  static __host__ __forceinline__ void release_buffer(
-      T *buff) {  //, cudaStream_t strm){
+  static __host__ __forceinline__ void release_buffer(T * buff) {
     __release_buffer_host(buff);
   }
 #else
-  static __host__ __device__ __forceinline__ void release_buffer(
-      T *buff) {  //, cudaStream_t strm){
+  static __host__ __device__ __forceinline__ void release_buffer(T * buff) {
 #ifdef __CUDA_ARCH__
     __release_buffer_device(buff);
 #else
@@ -191,9 +188,6 @@ __device__ void release_buffers(int32_t *buff);
 }
 
 template <typename T>
-typename buffer_manager<T>::pool_t **buffer_manager<T>::h_d_pool;
-
-template <typename T>
 threadsafe_stack<T *, (T *)NULL> **buffer_manager<T>::h_pool;
 
 template <typename T>
@@ -202,44 +196,4 @@ threadsafe_stack<T *, (T *)NULL> **buffer_manager<T>::h_pool_numa;
 template <typename T>
 std::unordered_map<T *, std::atomic<int>> buffer_manager<T>::buffer_cache;
 
-template <typename T>
-std::mutex *buffer_manager<T>::device_buffs_mutex;
-
-template <typename T>
-std::thread **buffer_manager<T>::device_buffs_thrds;
-
-template <typename T>
-std::condition_variable *buffer_manager<T>::device_buffs_cv;
-
-template <typename T>
-bool buffer_manager<T>::terminating;
-
-template <typename T>
-vector<T *> *buffer_manager<T>::device_buffs_pool;
-
-template <typename T>
-T ***buffer_manager<T>::device_buff;
-
-template <typename T>
-size_t buffer_manager<T>::device_buff_size;
-
-template <typename T>
-size_t buffer_manager<T>::keep_threshold;
-
-template <typename T>
-cudaStream_t *buffer_manager<T>::release_streams;
-
-template <typename T>
-void **buffer_manager<T>::h_buff_start;
-template <typename T>
-void **buffer_manager<T>::h_buff_end;
-
-template <typename T>
-void **buffer_manager<T>::h_h_buff_start;
-
-template <typename T>
-size_t buffer_manager<T>::h_size;
-
-template <typename T>
-std::thread *buffer_manager<T>::buffer_logger;
 #endif /* BUFFER_MANAGER_CUH_ */

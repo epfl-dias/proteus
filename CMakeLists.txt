@@ -273,6 +273,31 @@ else()
 	set(CUDA "CUDA-NOTFOUND")
 endif()
 
+# GFlags
+if (TRUE)
+	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
+	configure_file(CMakeLists.txt.gflags.in gflags-download/CMakeLists.txt)
+	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+		RESULT_VARIABLE result
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gflags-download )
+	if(result)
+		message(FATAL_ERROR "CMake step for gflags failed: ${result}")
+	endif()
+
+	execute_process(COMMAND ${CMAKE_COMMAND} --build .
+		RESULT_VARIABLE result
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gflags-download )
+	if(result)
+		message(FATAL_ERROR "Build step for gflags failed: ${result}")
+	endif()
+
+	# Add gflags directly to our build. This defines
+	# the gtest and gtest_main targets.
+	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/gflags-src
+		${CMAKE_CURRENT_BINARY_DIR}/gflags-build
+		EXCLUDE_FROM_ALL)
+endif()
+
 #-----------------------------------------------------------------------
 # GoogleLog
 find_library(GLOG NAMES glog)
@@ -337,7 +362,7 @@ endif()
 set(default_libs ${default_libs} codegen )
 set(default_libs ${default_libs} ${LLVM_LIBS} -lLLVMSupport -lLLVMPasses) # FIXME: use LLVM_LIBS instead
 set(default_libs ${default_libs} ${CUDA_LIBS})
-set(default_libs ${default_libs} ${GLOG})
+set(default_libs ${default_libs} gflags::gflags ${GLOG} gflags::gflags)
 set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
 
 #-----------------------------------------------------------------------

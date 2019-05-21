@@ -46,6 +46,9 @@ void TestEnvironment::SetUp() {
   setbuf(stdout, NULL);
 
   google::InstallFailureSignalHandler();
+
+  set_trace_allocations(true, true);
+
   // int devCount;
 
   // gpu_run(cuInit(0));

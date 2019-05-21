@@ -155,7 +155,7 @@ __host__ void cuda_delete(T *obj, Args... args) {
     T *tmp = (T *)malloc(sizeof(T));
     gpu_run(cudaDeviceSynchronize());
     gpu_run(cudaMemcpy(tmp, obj, sizeof(T), cudaMemcpyDefault));
-    gpu_run(cudaFree(obj));
+    MemoryManager::freeGpu(obj);
     delete tmp;
   } else {
     T *tmp = (T *)malloc(sizeof(T));
@@ -543,11 +543,11 @@ __host__ void buffer_manager<T>::destroy() {
   }
 
   for (const auto &cpu : topo.getCpuNumaNodes()) {
-    buffer_pool_constrs.emplace_back([cpu] {
-      set_exec_location_on_scope cu{cpu};
-      MemoryManager::freePinned(h_h_buff_start[cpu.id]);
-      delete h_pool_numa[cpu.id];
-    });
+    //    buffer_pool_constrs.emplace_back([cpu] {
+    set_exec_location_on_scope cu{cpu};
+    MemoryManager::freePinned(h_h_buff_start[cpu.id]);
+    delete h_pool_numa[cpu.id];
+    //    });
   }
 
   for (auto &t : buffer_pool_constrs) t.join();
@@ -742,3 +742,47 @@ void gpu_memset(void *dst, int32_t val, size_t size) {
   gpu_run(cudaStreamDestroy(strm));
 }
 }
+
+template <typename T>
+typename buffer_manager<T>::pool_t **buffer_manager<T>::h_d_pool;
+
+template <typename T>
+std::mutex *buffer_manager<T>::device_buffs_mutex;
+
+template <typename T>
+std::thread **buffer_manager<T>::device_buffs_thrds;
+
+template <typename T>
+std::condition_variable *buffer_manager<T>::device_buffs_cv;
+
+template <typename T>
+bool buffer_manager<T>::terminating;
+
+template <typename T>
+vector<T *> *buffer_manager<T>::device_buffs_pool;
+
+template <typename T>
+T ***buffer_manager<T>::device_buff;
+
+template <typename T>
+size_t buffer_manager<T>::device_buff_size;
+
+template <typename T>
+size_t buffer_manager<T>::keep_threshold;
+
+template <typename T>
+cudaStream_t *buffer_manager<T>::release_streams;
+
+template <typename T>
+void **buffer_manager<T>::h_buff_start;
+template <typename T>
+void **buffer_manager<T>::h_buff_end;
+
+template <typename T>
+void **buffer_manager<T>::h_h_buff_start;
+
+template <typename T>
+size_t buffer_manager<T>::h_size;
+
+template <typename T>
+std::thread *buffer_manager<T>::buffer_logger;

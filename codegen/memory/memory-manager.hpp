@@ -29,6 +29,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
+void set_trace_allocations(bool val = true, bool silent_set_fail = false);
+
 class GpuMemAllocator {
  public:
   static void *malloc(size_t bytes);
@@ -69,6 +71,24 @@ class SingleDeviceMemoryManager {
     alloc_unit_info(void *base) : base(base), fill(0), sub_units(0) {}
   };
 
+  struct allocation_t {
+    static constexpr size_t backtrace_limit =
+#ifndef NDEBUG
+        32;
+#else
+        0;
+#endif
+
+    void *ptr;
+
+    void *backtrace[backtrace_limit];
+    int backtrace_size;
+
+    inline allocation_t(void *ptr) : ptr(ptr) {}
+
+    operator void *() const { return ptr; }
+  };
+
   std::mutex m;
   std::mutex m_big_units;
 
@@ -76,7 +96,7 @@ class SingleDeviceMemoryManager {
 
   std::unordered_map<void *, alloc_unit_info> units;
   std::unordered_map<void *, void *> mappings;
-  std::stack<void *> allocations;
+  std::stack<allocation_t> allocations;
 
   std::stack<void *> free_cache;
 

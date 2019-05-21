@@ -25,6 +25,28 @@
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 
+#ifndef NDEBUG
+#include <execinfo.h>
+#endif
+
+#ifndef NDEBUG
+static bool trace_allocations;
+#else
+constexpr bool trace_allocations = false;
+#endif
+
+void set_trace_allocations(bool val, bool silent_set_fail) {
+#ifndef NDEBUG
+  trace_allocations = val;
+#else
+  if ((!silent_set_fail) && val) {
+    auto msg = "Can not enable memory & leak tracing in a NDEBUG build";
+    LOG(FATAL) << msg;
+    throw runtime_error(msg);
+  }
+#endif
+}
+
 constexpr size_t freed_cache_cap = 16;
 
 void buffer_manager_init(size_t gpu_buffs, size_t cpu_buffs);
@@ -201,11 +223,28 @@ SingleDeviceMemoryManager<allocator, unit_cap>::~SingleDeviceMemoryManager() {
     allocator::free(free_cache.top());
     free_cache.pop();
   }
-  // assert(allocations.empty());
-  // assert(mappings   .empty());
-  // assert(units      .empty());
-  // assert(big_units  .empty());
-  // assert(free_cache .empty());
+
+#ifndef NDEBUG
+  // If not trace_allocations, then we do not have the necessary info to proceed
+  if (trace_allocations && !allocations.empty()) {
+    while (!allocations.empty()) {
+      auto alloc = allocations.top();
+      char **trace = backtrace_symbols(alloc.backtrace, alloc.backtrace_size);
+      std::cout << "Detected memory leak created from: " << std::endl;
+      for (size_t i = 0; i < alloc.backtrace_size; ++i) {
+        std::cout << trace[i] << std::endl;
+      }
+      allocations.pop();
+    }
+    assert(false);
+  }
+#endif
+
+  assert(allocations.empty());
+  assert(mappings.empty());
+  assert(units.empty());
+  assert(big_units.empty());
+  assert(free_cache.empty());
   exit(0);
 }
 
@@ -219,7 +258,13 @@ SingleDeviceMemoryManager<allocator, unit_cap>::create_allocation() {
     ptr = free_cache.top();
     free_cache.pop();
   }
-  allocations.emplace(ptr);
+
+  auto &al = allocations.emplace(ptr);
+
+  if (trace_allocations) {
+    al.backtrace_size = backtrace(al.backtrace, allocation_t::backtrace_limit);
+  }
+
   return units.emplace(ptr, ptr).first->second;
 }
 
@@ -281,8 +326,9 @@ void SingleDeviceMemoryManager<allocator, unit_cap>::free(void *ptr) {
     std::lock_guard<std::mutex> lock(m);
     auto f = mappings.find(ptr);
     if (f == mappings.end()) {
-      for (auto &t : mappings)
+      for (auto &t : mappings) {
         std::cout << t.first << " " << t.second << std::endl;
+      }
     }
     assert(f != mappings.end() && "Mapping does not exist!");
 

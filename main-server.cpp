@@ -21,6 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include "codegen/memory/block-manager.hpp"
 #include "codegen/memory/memory-manager.hpp"
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/util/jit/pipeline.hpp"
@@ -34,6 +35,8 @@
 #define __itt_resume() ((void)0)
 #define __itt_pause() ((void)0)
 #endif
+
+#include <gflags/gflags.h>
 
 // https://stackoverflow.com/a/25829178/1237824
 std::string trim(const std::string &str) {
@@ -207,6 +210,11 @@ std::string runPlanFile(std::string plan, unlink_upon_exit &uue,
 
 void thread_warm_up() {}
 
+DEFINE_bool(query_topology, false, "Print the system topology and exit");
+DEFINE_bool(trace_allocations, false,
+            "Trace memory allocation and leaks (requires a build with "
+            "undefined NDEBUG)");
+DEFINE_bool(inc_buffers, false, "Use bigger block pools");
 /**
  * Protocol:
  *
@@ -262,24 +270,32 @@ void thread_warm_up() {}
  *                  The following line/lines are results printed into stdout
  */
 int main(int argc, char *argv[]) {
-  if (argc >= 2 && strcmp(argv[1], "--query-topology") == 0) {
+  gflags::SetUsageMessage("Simple command line interface for proteus");
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  google::InitGoogleLogging(argv[0]);
+  FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
+
+  google::InstallFailureSignalHandler();
+
+  if (FLAGS_query_topology) {
     std::cout << topology::getInstance() << std::endl;
     return 0;
   }
+
+  set_trace_allocations(FLAGS_trace_allocations);
+
   size_t cpu_buffers = 1024;
   size_t gpu_buffers = 512;
-  if (argc >= 2 && strcmp(argv[1], "--inc-buffers") == 0) {
+  if (FLAGS_inc_buffers) {
     cpu_buffers = 16 * 1024;
     gpu_buffers = 1024;
   }
 
   // Initialize Google's logging library.
-  google::InitGoogleLogging(argv[0]);
   LOG(INFO) << "Starting up server...";
 
   bool echo = false;
-
-  google::InstallFailureSignalHandler();
 
   LOG(INFO) << "Warming up GPUs...";
   uint32_t devices = topology::getInstance().getGpuCount();
