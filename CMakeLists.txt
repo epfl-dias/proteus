@@ -201,13 +201,13 @@ if(CUDA_FOUND)
 	# TODO: the CUDA package has been deprecated and replaced by native support for the language.
 	# 		We should consider replacing it with the correct usage of enable_language(CUDA),
 	# 		CMAKE_CUDA_COMPILER, CMAKE_CUDA_FLAGS etc
-	if(_NVCC_ARCHS)
+	if(DEFINED _NVCC_ARCHS)
 		list(REMOVE_DUPLICATES _NVCC_ARCHS)
 
 		CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_CU_ARCHS ${_NVCC_ARCHS})
-	else(_NVCC_ARCHS)
+	else(DEFINED _NVCC_ARCHS)
 		CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_CU_ARCHS Auto)
-	endif(_NVCC_ARCHS)
+	endif(DEFINED _NVCC_ARCHS)
 
 	# Create arguments for nvcc and clang
 	string(REGEX REPLACE " " [[;]] CUDA_CU_ARCHS_readable "${CUDA_CU_ARCHS_readable}")
