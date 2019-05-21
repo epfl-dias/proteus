@@ -1,0 +1,60 @@
+{
+    "folders":
+    [
+        {
+            "path": ".",
+            "folder_exclude_patterns": [
+                ".idea",
+                "cmake-build-debug",
+                ".git"
+            ],
+            "index_exclude_patterns": [
+                ".idea",
+                "cmake-build-debug",
+                ".git"
+            ]
+        }
+    ],
+    "settings":
+    {
+        "ClangFormat":
+        {
+            "binary": "clang-format-8",
+            "format_on_save": true,
+            "languages":
+            [
+                "C",
+                "C++",
+                "C++11",
+                "JavaScript",
+                "Objective-C",
+                "Objective-C++",
+                "CUDA C++"
+            ],
+            "style": "file"
+        },
+        "ecc_clang_binary": "clang++-8",
+        "ecc_common_flags":
+        [
+            "-pedantic",
+            "-Wall",
+            "-std=c++17",
+            "-I/usr/local/cuda-9.2/targets/x86_64-linux/include/",
+            "-I$project_path/src/executor/codegen",
+            "-I$project_path/src/executor/"
+        ],
+        "ecc_hide_default_completions": true,
+        "ecc_triggers":
+        [
+            ".",
+            "->",
+            "::",
+            " ",
+            "\t",
+            "(",
+            "[",
+            "{"
+        ],
+        "ensure_newline_at_eof_on_save": true
+    }
+}
