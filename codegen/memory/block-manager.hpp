@@ -26,6 +26,6 @@
 
 #include "buffer-manager.cuh"
 
-typedef buffer_manager<int32_t> BlockManager;
+class BlockManager : public buffer_manager<int32_t> {};
 
 #endif /* BLOCK_MANAGER_HPP */
