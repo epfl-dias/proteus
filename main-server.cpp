@@ -273,6 +273,8 @@ int main(int argc, char *argv[]) {
   gflags::SetUsageMessage("Simple command line interface for proteus");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
+  srand(time(NULL));
+
   google::InitGoogleLogging(argv[0]);
   FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
 
