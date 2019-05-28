@@ -91,6 +91,8 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
     val planTimer = new PelagoTimeInterval
     planTimer.start()
 
+    PelagoSplit.bindings.clear
+
     val plan = getPlan
 
     new PrintWriter(Repl.planfile) { write(pretty(render(plan))); close }
