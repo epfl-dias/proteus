@@ -27,8 +27,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "indexes/hash_index.hpp"
 #include "transactions/cc.hpp"
 
-#define NUM_SOCKETS 1
+#define NUM_SOCKETS 4
 #define NUM_CORE_PER_SOCKET 18
+#define MAX_WORKERS 72
+#define DELTA_SIZE 5  // 2G // 6442450944 6G
 
 // typedef cuckoohash_map<std::string, std::string> HashIndex;
 
@@ -54,10 +56,7 @@ const uint time_master_switch_ms = 200;
 /* # of Snapshots*/
 const short num_master_versions = 1;
 const short num_delta_storages = 2;
-// const uint64_t max_ver_factor = 200;
-const uint64_t max_ver_factor_per_thread = 1;
-const int delta_list_numa_id = 0;
-const int delta_ver_numa_id = 0;
+
 const int master_col_numa_id = 0;
 
 }  // namespace global_conf

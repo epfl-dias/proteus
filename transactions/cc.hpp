@@ -50,6 +50,7 @@ class CC_MV2PL {
     uint64_t t_max;  // transaction id that deleted the row
     uint64_t VID;    // VID of the record in memory
     ushort last_master_ver;
+    ushort delta_id;
     lock::Spinlock latch;
     std::atomic<bool> write_lck;
 
@@ -77,11 +78,22 @@ class CC_MV2PL {
 
     // TXN ID= ((txn_id << 8) >> 8) ?? cant we just AND to clear top bits?
     // WORKER_ID = (txn_id >> 56)
-    if ((tid >= tmin) && (tmax == 0 || tid < tmax)) {
+
+    uint64_t w_tid = tid & 0x00FFFFFFFFFFFFFF;
+    uint64_t w_tmin = tmin & 0x00FFFFFFFFFFFFFF;
+    uint64_t w_tmax = tmax & 0x00FFFFFFFFFFFFFF;
+
+    if ((w_tid >= w_tmin) && (w_tmax == 0 || w_tid < w_tmax)) {
       return true;
     } else {
       return false;
     }
+
+    // if ((tid >= tmin) && (tmax == 0 || tid < tmax)) {
+    //   return true;
+    // } else {
+    //   return false;
+    // }
   }
 
   static bool is_mv() { return true; }

@@ -67,7 +67,7 @@ class Worker {
   uint64_t num_txns;
   uint64_t num_commits;
   uint64_t num_aborts;
-
+  uint64_t txn_start_tsc;
   // std::chrono::time_point<std::chrono::system_clock> txn_start_time;
   std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
       txn_start_time;
@@ -111,7 +111,9 @@ class WorkerPool {
   void add_worker(core *exec_location);
   void remove_worker(core *exec_location);
   void print_worker_stats(bool global_only = true);
+
   std::vector<uint64_t> get_active_txns();
+  uint64_t get_min_active_txn();
 
   template <class F, class... Args>
   std::future<typename std::result_of<F(Args...)>::type> enqueueTask(

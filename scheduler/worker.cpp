@@ -27,6 +27,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <deque>
 #include <functional>
 #include <future>
+#include <limits>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -47,9 +48,10 @@ calculate_delta_ver(uint64_t txn_id, uint64_t start_time) {
 
   // txn_id = ((txn_id << 8) >> 8);  // remove the worker_id
 
-  uint64_t duration = ((txn_id & 0x00FFFFFF) -
-                       (start_time & 0x00FFFFFF));  ///
-                                                    // 1000000000;  // nanosec
+  uint64_t duration =
+      ((txn_id & 0x00FFFFFFFFFFFFFF) -
+       (start_time & 0x00FFFFFFFFFFFFFF));  ///
+                                            // 1000000000;  // nanosec
 
   // ushort curr_master = (duration / global_conf::num_master_versions) %
   //                     global_conf::num_master_versions;
@@ -61,7 +63,7 @@ calculate_delta_ver(uint64_t txn_id, uint64_t start_time) {
   // std::cout << duration << std::endl;
   // return duration >> 6;  //(duration / global_conf::num_delta_storages);
 
-  return duration >> 10;  // 1000000L;
+  return duration >> 20;  // 1000000L;
 }
 
 void Worker::run() {
@@ -73,21 +75,27 @@ void Worker::run() {
   WorkerPool* pool = &WorkerPool::getInstance();
   txn::TransactionManager* txnManager = &txn::TransactionManager::getInstance();
   storage::Schema* schema = &storage::Schema::getInstance();
+  void* txn_mem = pool->txn_bench->get_query_struct_ptr();
 
   curr_delta = 0;
   prev_delta = 0;
-  txn_start_time =
+  this->txn_start_time =
       std::chrono::system_clock::now();  // txnManager->txn_start_time;
+
+  this->txn_start_tsc = txnManager->get_next_xid(this->id);
   uint64_t tx_st = txnManager->txn_start_time;
-  schema->add_active_txn(curr_delta);
+
+  this->curr_txn = txnManager->get_next_xid(this->id);
+  this->prev_delta = this->curr_delta;
+  this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
+  schema->add_active_txn(curr_delta % global_conf::num_delta_storages,
+                         this->curr_delta, this->id);
 
   // std::cout << "t1: "
   //           << std::chrono::duration_cast<std::chrono::nanoseconds>(
   //                  std::chrono::system_clock::now().time_since_epoch())
   //                  .count()
   //           << std::endl;
-
-  void* txn_mem = pool->txn_bench->get_query_struct_ptr();
 
   while (!terminate) {
     // std::this_thread::sleep_for (std::chrono::seconds(1));
@@ -99,10 +107,10 @@ void Worker::run() {
     this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
 
     ushort curr_delta_id = curr_delta % global_conf::num_delta_storages;
+    ushort prev_delta_id = prev_delta % global_conf::num_delta_storages;
 
-    if (prev_delta != curr_delta) {
-      ushort prev_delta_id = prev_delta % global_conf::num_delta_storages;
-      schema->switch_delta(prev_delta_id, curr_delta_id);
+    if (prev_delta != curr_delta) {  // && curr_delta_id != prev_delta_id
+      schema->switch_delta(prev_delta_id, curr_delta_id, curr_delta, this->id);
 
     }  // else didnt switch.
 
@@ -151,6 +159,18 @@ std::vector<uint64_t> WorkerPool::get_active_txns() {
   }
 
   return ret;
+}
+
+uint64_t WorkerPool::get_min_active_txn() {
+  uint64_t min_epoch = std::numeric_limits<uint64_t>::max();
+
+  for (auto& wr : workers) {
+    if (wr.second.second->curr_delta < min_epoch) {
+      min_epoch = wr.second.second->curr_delta;
+    }
+  }
+
+  return min_epoch;
 }
 
 void WorkerPool::print_worker_stats(bool global_only) {

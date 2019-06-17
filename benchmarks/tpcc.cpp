@@ -53,14 +53,16 @@ void TPCC::gen_txn(int wid, void *q) {
   }
 }
 
-inline bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
-                                    ushort master_ver, ushort delta_ver) {
+bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
+                             ushort master_ver, ushort delta_ver) {
   char remote = q->remote;
   uint w_id = q->w_id;
   int d_id = q->d_id;
   int c_id = q->c_id;
   int ol_cnt = q->ol_cnt;
   int o_entry_d = q->o_entry_d;
+
+  // print_tpcc_query(q);
 
   std::vector<global_conf::IndexVal *>
       hash_ptrs_lock_acquired;  // reserve space
@@ -89,6 +91,7 @@ inline bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
     // No need to free locks as until this point, this was the first
     // attempt to acquire a write lock
     // txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
+    // std::cout << "Abort-1-" << w_id << std::endl;
     return false;
   }
 
@@ -152,13 +155,26 @@ inline bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
         (global_conf::IndexVal *)table_stock->p_index->find(stock_key);
     assert(st_idx_ptr != NULL || st_idx_ptr != nullptr);
     st_idx_ptr->latch.acquire();
+
     if (txn::CC_MV2PL::is_readable(st_idx_ptr->t_min, st_idx_ptr->t_max, xid)) {
       table_stock->getRecordByKey(st_idx_ptr->VID, st_idx_ptr->last_master_ver,
                                   &st_col, &st_rec);
     } else {
-      struct tpcc_stock *s_r = (struct tpcc_stock *)table_stock
-                                   ->getVersions(st_idx_ptr->VID, delta_ver)
-                                   ->get_readable_ver(xid);
+      // std::cout << "not readable 1" << std::endl;
+      // std::cout << "t_min: " << st_idx_ptr->t_min << std::endl;
+      // std::cout << "t_max: " << st_idx_ptr->t_max << std::endl;
+      // std::cout << "xid: " << xid << std::endl;
+
+      // std::cout << "------" << std::endl;
+      // std::cout << "t_min: " << (st_idx_ptr->t_min & 0x00FFFFFFFFFFFFFF)
+      //           << std::endl;
+
+      // std::cout << "xid: " << (xid & 0x00FFFFFFFFFFFFFF) << std::endl;
+
+      struct tpcc_stock *s_r =
+          (struct tpcc_stock *)table_stock
+              ->getVersions(st_idx_ptr->VID, st_idx_ptr->delta_id)
+              ->get_readable_ver(xid);
 
       st_rec.s_quantity = s_r->s_quantity;
       st_rec.s_ytd = s_r->s_ytd;
@@ -194,13 +210,14 @@ inline bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
 
     st_rec.s_quantity = quantity;
 
-    st_idx_ptr->t_min = xid;
-    st_idx_ptr->last_master_ver = master_ver;
-
     table_stock->updateRecord(st_idx_ptr->VID, &st_rec, master_ver,
                               st_idx_ptr->last_master_ver, delta_ver,
                               st_idx_ptr->t_min, st_idx_ptr->t_max,
-                              (xid >> 56) % NUM_CORE_PER_SOCKET, &st_col);
+                              (xid >> 56) / NUM_CORE_PER_SOCKET, &st_col);
+
+    st_idx_ptr->t_min = xid;
+    st_idx_ptr->last_master_ver = master_ver;
+    st_idx_ptr->delta_id = delta_ver;
 
     st_idx_ptr->latch.release();
   }
@@ -222,9 +239,22 @@ inline bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
     table_district->getRecordByKey(d_idx_ptr->VID, d_idx_ptr->last_master_ver,
                                    &dist_col_scan, &dist_no_read);
   } else {
-    struct tpcc_district *d_r = (struct tpcc_district *)table_district
-                                    ->getVersions(d_idx_ptr->VID, delta_ver)
-                                    ->get_readable_ver(xid);
+    // std::cout << "not readable 2" << std::endl;
+
+    // std::cout << "t_min: " << d_idx_ptr->t_min << std::endl;
+    // std::cout << "t_max: " << d_idx_ptr->t_max << std::endl;
+    // std::cout << "xid: " << xid << std::endl;
+
+    // std::cout << "------" << std::endl;
+    // std::cout << "t_min: " << (d_idx_ptr->t_min & 0x00FFFFFFFFFFFFFF)
+    //           << std::endl;
+
+    // std::cout << "xid: " << (xid & 0x00FFFFFFFFFFFFFF) << std::endl;
+
+    struct tpcc_district *d_r =
+        (struct tpcc_district *)table_district
+            ->getVersions(d_idx_ptr->VID, d_idx_ptr->delta_id)
+            ->get_readable_ver(xid);
 
     dist_no_read.d_tax = d_r->d_tax;
     dist_no_read.d_next_o_id = d_r->d_next_o_id;
@@ -235,10 +265,11 @@ inline bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
   table_district->updateRecord(
       d_idx_ptr->VID, &d_next_o_id_upd, master_ver, d_idx_ptr->last_master_ver,
       delta_ver, d_idx_ptr->t_min, d_idx_ptr->t_max,
-      (xid >> 56) % NUM_CORE_PER_SOCKET, &dist_col_upd);
+      (xid >> 56) / NUM_CORE_PER_SOCKET, &dist_col_upd);
 
   d_idx_ptr->t_min = xid;
   d_idx_ptr->last_master_ver = master_ver;
+  d_idx_ptr->delta_id = delta_ver;
 
   d_idx_ptr->latch.release();
 
@@ -268,9 +299,11 @@ inline bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
     table_warehouse->getRecordByKey(w_idx_ptr->VID, w_idx_ptr->last_master_ver,
                                     &w_col_scan, &w_tax);
   } else {
-    struct tpcc_warehouse *w_r = (struct tpcc_warehouse *)table_warehouse
-                                     ->getVersions(w_idx_ptr->VID, delta_ver)
-                                     ->get_readable_ver(xid);
+    std::cout << "not readable 3" << std::endl;
+    struct tpcc_warehouse *w_r =
+        (struct tpcc_warehouse *)table_warehouse
+            ->getVersions(w_idx_ptr->VID, w_idx_ptr->delta_id)
+            ->get_readable_ver(xid);
     w_tax = w_r->w_tax;
   }
   w_idx_ptr->latch.release();
@@ -302,9 +335,11 @@ inline bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
                                    &cust_col_scan, &cust_no_read);
 
   } else {
-    struct tpcc_customer *c_r = (struct tpcc_customer *)table_customer
-                                    ->getVersions(c_idx_ptr->VID, delta_ver)
-                                    ->get_readable_ver(xid);
+    std::cout << "not readable 4" << std::endl;
+    struct tpcc_customer *c_r =
+        (struct tpcc_customer *)table_customer
+            ->getVersions(c_idx_ptr->VID, c_idx_ptr->delta_id)
+            ->get_readable_ver(xid);
 
     memcpy(cust_no_read.c_last, c_r->c_last, LAST_NAME_LEN + 1);
     memcpy(cust_no_read.c_credit, c_r->c_credit, 2);
@@ -373,9 +408,11 @@ inline bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
                                  item_idx_ptr->last_master_ver, &i_col_scan,
                                  &i_price);
     } else {
-      struct tpcc_item *i_r = (struct tpcc_item *)table_item
-                                  ->getVersions(item_idx_ptr->VID, delta_ver)
-                                  ->get_readable_ver(xid);
+      std::cout << "not readable 5" << std::endl;
+      struct tpcc_item *i_r =
+          (struct tpcc_item *)table_item
+              ->getVersions(item_idx_ptr->VID, item_idx_ptr->delta_id)
+              ->get_readable_ver(xid);
       i_price = i_r->i_price;
     }
     item_idx_ptr->latch.release();
@@ -486,7 +523,7 @@ inline void TPCC::tpcc_get_next_payment_query(int wid, void *arg) {
   }
 }
 
-inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
+void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
   int ol_cnt, dup;
   struct tpcc_query *q = (struct tpcc_query *)arg;
   // std::cout << "WID IN GET: " << wid << std::endl;
@@ -641,7 +678,7 @@ TPCC::TPCC(std::string name, int num_warehouses, int g_dist_threshold)
 
   uint64_t total_districts = TPCC_NDIST_PER_WH * this->num_warehouse;
   uint64_t max_customers = TPCC_NCUST_PER_DIST * total_districts;
-  uint64_t max_orders = 10000000;
+  uint64_t max_orders = TPCC_MAX_ORDER_INITIAL_CAP;
   uint64_t max_order_line = TPCC_MAX_OL_PER_ORDER * max_orders;
   uint64_t max_stock = TPCC_MAX_ITEMS * this->num_warehouse;
 

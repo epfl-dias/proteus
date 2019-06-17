@@ -73,22 +73,43 @@ class Schema {
   void drop_table(int idx);
 
   void initiate_gc(ushort ver);
-  void add_active_txn(ushort ver);
-  void remove_active_txn(ushort ver);
-  void switch_delta(ushort prev, ushort curr);
+  void add_active_txn(ushort ver, uint64_t epoch, uint8_t worker_id);
+  void remove_active_txn(ushort ver, uint64_t epoch, uint8_t worker_id);
+  void switch_delta(ushort prev, ushort curr, uint64_t epoch,
+                    uint8_t worker_id);
 
   void teardown();
   uint64_t total_mem_reserved;
   uint64_t total_delta_mem_reserved;
 
+  DeltaStore* deltaStore[global_conf::num_delta_storages];
+
+  volatile std::atomic<uint64_t> rid;
+  inline uint64_t __attribute__((always_inline)) get_next_rid() {
+    return rid.fetch_add(1);
+  }
+
  private:
-  int num_tables;
+  uint8_t num_tables;
   std::vector<Table*> tables;
+
+  // MultiVersioning
 
   Schema() {
     total_mem_reserved = 0;
     total_delta_mem_reserved = 0;
+    rid = 0;
+
+    if (global_conf::cc_ismv) {
+      // init delta store
+
+      for (int i = 0; i < global_conf::num_delta_storages; i++) {
+        deltaStore[i] = new DeltaStore(i);
+        this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;
+      }
+    }
   }
+  friend class Table;
 };
 
 class Table {
@@ -111,7 +132,6 @@ class Table {
                               std::vector<int>* col_idx, void* loc) = 0;
   virtual void touchRecordByKey(uint64_t vid, short master_ver) = 0;
 
-  void clearDelta(short ver);
   virtual global_conf::mv_version_list* getVersions(uint64_t vid,
                                                     short master_ver) = 0;
 
@@ -124,16 +144,13 @@ class Table {
   global_conf::PrimaryIndex<uint64_t>* p_index;
   global_conf::PrimaryIndex<uint64_t>** s_index;
   uint64_t total_mem_reserved;
-  uint64_t total_delta_mem_reserved;
+  volatile std::atomic<uint64_t> vid;
 
  protected:
   std::string name;
   int num_columns;
-  volatile std::atomic<uint64_t> vid;
-
-  // MultiVersioning
-  DeltaStore* deltaStore[global_conf::num_delta_storages];
-
+  DeltaStore** deltaStore;
+  uint8_t table_id;
   // int primary_index_col_idx;
 
   friend class Schema;
@@ -167,7 +184,7 @@ class rowStore : public Table {
                     short prev_master_ver, short delta_ver, uint64_t tmin,
                     uint64_t tmax, int pid, std::vector<int>* col_idx) {}
   void deleteRecord(uint64_t vid, short master_ver) {}
-  void clearDelta(short ver) {}
+
   global_conf::mv_version_list* getVersions(uint64_t vid, short master_ver) {
     return nullptr;
   }
@@ -180,7 +197,7 @@ class rowStore : public Table {
 
 class ColumnStore : public Table {
  public:
-  ColumnStore(std::string name,
+  ColumnStore(uint8_t table_id, std::string name,
               std::vector<std::tuple<std::string, data_type, size_t>> columns,
               uint64_t initial_num_records = 10000000);
   uint64_t insertRecord(void* rec, short master_ver);

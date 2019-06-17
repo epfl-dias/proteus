@@ -33,34 +33,35 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 namespace storage {
 
-void Schema::initiate_gc(ushort ver) {
-  for (auto& tbl : tables) {
-    // std::cout << ":" << std::endl;
-    tbl->clearDelta(ver);
-  }
+void Schema::initiate_gc(ushort ver) {  // deltaStore[ver]->try_reset_gc();
 }
 
-void Schema::add_active_txn(ushort ver) {
-  for (auto& tbl : tables) {
-    tbl->deltaStore[ver]->increment_reader();
-  }
+void Schema::add_active_txn(ushort ver, uint64_t epoch, uint8_t worker_id) {
+  deltaStore[ver]->increment_reader(epoch, worker_id);
 }
 
-void Schema::switch_delta(ushort prev, ushort curr) {
-  for (auto& tbl : tables) {
-    tbl->deltaStore[prev]->decrement_reader();
-    tbl->deltaStore[curr]->increment_reader();
-  }
+void Schema::remove_active_txn(ushort ver, uint64_t epoch, uint8_t worker_id) {
+  deltaStore[ver]->decrement_reader(epoch, worker_id);
 }
-void Schema::remove_active_txn(ushort ver) {
-  for (auto& tbl : tables) {
-    tbl->deltaStore[ver]->decrement_reader();
-  }
+
+void Schema::switch_delta(ushort prev, ushort curr, uint64_t epoch,
+                          uint8_t worker_id) {
+  deltaStore[prev]->decrement_reader(epoch, worker_id);
+  // either add a barrier here or inside delta storage.
+
+  deltaStore[curr]->increment_reader(epoch, worker_id);
 }
 
 void Schema::teardown() {
   for (auto& tbl : tables) {
     tbl->~Table();
+  }
+  if (global_conf::cc_ismv) {
+    // init delta store
+
+    for (int i = 0; i < global_conf::num_delta_storages; i++) {
+      deltaStore[i]->~DeltaStore();
+    }
   }
 }
 
@@ -84,7 +85,8 @@ Table* Schema::create_table(
   Table* tbl = nullptr;
 
   if (layout == COLUMN_STORE) {
-    tbl = new ColumnStore(name, columns, initial_num_records);
+    tbl = new ColumnStore((this->num_tables + 1), name, columns,
+                          initial_num_records);
 
   } else if (layout == ROW_STORE) {
     throw new std::runtime_error("ROW STORE NOT IMPLEMENTED");
@@ -94,7 +96,6 @@ Table* Schema::create_table(
   tables.push_back(tbl);
   this->num_tables++;
   this->total_mem_reserved += tbl->total_mem_reserved;
-  this->total_delta_mem_reserved += tbl->total_delta_mem_reserved;
 
   return tbl;
 }
@@ -114,16 +115,7 @@ void Schema::drop_table(int idx) {
   std::cout << "[Schema][drop_table] Not Implemented" << std::endl;
 }
 
-Table::~Table() {
-  for (auto& ds : deltaStore) {
-    delete ds;
-  }
-};
-void Table::clearDelta(short ver) {
-  assert(global_conf::cc_ismv);
-  // std::cout << "+" << std::endl;
-  deltaStore[ver]->try_reset_gc();
-};
+Table::~Table() {}
 
 ColumnStore::~ColumnStore() {
   for (auto& col : columns) {
@@ -133,7 +125,7 @@ ColumnStore::~ColumnStore() {
 }
 
 ColumnStore::ColumnStore(
-    std::string name,
+    uint8_t table_id, std::string name,
     std::vector<std::tuple<std::string, data_type, size_t>> columns,
     uint64_t initial_num_records) {
   /*
@@ -141,9 +133,9 @@ ColumnStore::ColumnStore(
      for the indexed columns. Currently, by default, the first column would be
      considered as key and will be indexed.
   */
-
+  this->table_id = table_id;
   this->total_mem_reserved = 0;
-  this->total_delta_mem_reserved = 0;
+  this->deltaStore = storage::Schema::getInstance().deltaStore;
 
   // create meta_data column.
   // std::cout << "Create meta-column" << std::endl;
@@ -164,7 +156,6 @@ ColumnStore::ColumnStore(
 
   this->num_columns = columns.size();
   this->name = name;
-  this->vid = 0;
   // build index over the first column
   this->p_index = new global_conf::PrimaryIndex<uint64_t>();
   this->columns.at(0)->buildIndex();
@@ -178,14 +169,6 @@ ColumnStore::ColumnStore(
   }
   this->rec_size = rec_size;
 
-  if (global_conf::cc_ismv) {
-    // init delta store
-
-    for (int i = 0; i < global_conf::num_delta_storages; i++) {
-      deltaStore[i] = new DeltaStore(rec_size, initial_num_records);
-      this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;
-    }
-  }
   std::cout << "Table: " << name << std::endl;
   std::cout << "\trecord size: " << rec_size << " bytes" << std::endl;
   std::cout << "\tnum_records: " << initial_num_records << std::endl;
@@ -193,9 +176,6 @@ ColumnStore::ColumnStore(
   std::cout << "\tMem reserved: "
             << (double)total_mem_reserved / (1024 * 1024 * 1024) << "GB"
             << std::endl;
-  std::cout << "\tDelta mem reserved: "
-            << (double)this->total_delta_mem_reserved / (1024 * 1024 * 1024)
-            << "GB" << std::endl;
 }
 
 // void* ColumnStore::insertMeta(uint64_t vid, global_conf::IndexVal& hash_val)
@@ -206,6 +186,8 @@ ColumnStore::ColumnStore(
  */
 void* ColumnStore::insertRecord(void* rec, uint64_t xid, short master_ver) {
   uint64_t curr_vid = vid.fetch_add(1);
+  // Schema::getInstance().get_next_vid();  //
+
   global_conf::IndexVal hash_val(xid, curr_vid, master_ver);
   void* hash_ptr =
       this->meta_column->insertElem(curr_vid, &hash_val, master_ver);
@@ -220,6 +202,7 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, short master_ver) {
 
 uint64_t ColumnStore::insertRecord(void* rec, short master_ver) {
   uint64_t curr_vid = vid.fetch_add(1);
+  // Schema::getInstance().get_next_vid();  //
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
     col->insertElem(curr_vid, rec_ptr, master_ver);
@@ -272,10 +255,16 @@ std::vector<const void*> ColumnStore::getRecordByKey(
   }
 }
 
+inline uint64_t __attribute__((always_inline))
+vid_to_uuid(uint8_t tbl_id, uint64_t vid) {
+  return (vid & 0x00FFFFFFFFFFFFFF) | (tbl_id < 56);
+}
+
 global_conf::mv_version_list* ColumnStore::getVersions(uint64_t vid,
                                                        short delta_ver) {
   assert(global_conf::cc_ismv);
-  return this->deltaStore[delta_ver]->getVersionList(vid);
+  return this->deltaStore[delta_ver]->getVersionList(
+      vid_to_uuid(this->table_id, vid));
 }
 
 void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
@@ -288,8 +277,8 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
   if (global_conf::cc_ismv) {
     // std::cout << "same master, create ver" << std::endl;
     // create_version
-    char* ver = (char*)this->deltaStore[delta_ver]->insert_version(vid, tmin,
-                                                                   tmax, pid);
+    char* ver = (char*)this->deltaStore[delta_ver]->insert_version(
+        vid_to_uuid(this->table_id, vid), tmin, tmax, this->rec_size, pid);
     assert(ver != nullptr);
     // std::cout << "inserted into delta" << std::endl;
     size_t total_rec_size = 0;
@@ -331,8 +320,8 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
   if (global_conf::cc_ismv) {
     // create_version
     // std::cout << "UPD TBL: " << this->name << std::endl;
-    char* ver = (char*)this->deltaStore[delta_ver]->insert_version(vid, tmin,
-                                                                   tmax, pid);
+    char* ver = (char*)this->deltaStore[delta_ver]->insert_version(
+        vid_to_uuid(this->table_id, vid), tmin, tmax, this->rec_size, pid);
     assert(ver != nullptr);
     size_t total_rec_size = 0;
     for (auto& col : columns) {

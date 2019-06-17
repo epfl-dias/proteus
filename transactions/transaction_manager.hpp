@@ -50,8 +50,11 @@ class TransactionManager {
     uint32_t a, d;
     __asm __volatile("rdtsc" : "=a"(a), "=d"(d));
 
-    return (((uint64_t)((d & 0x00FFFFFF) | (((uint32_t)wid) << 24))) << 32) |
-           ((uint64_t)a);
+    return ((((uint64_t)a) | (((uint64_t)d) << 32)) & 0x00FFFFFFFFFFFFFF) |
+           (((uint64_t)wid) << 56);
+
+    // return (((uint64_t)((d & 0x00FFFFFF) | (((uint32_t)wid) << 24))) << 32) |
+    //       ((uint64_t)a);
   }
   inline uint64_t __attribute__((always_inline)) get_next_xid(uint8_t wid) {
     // Global Atomic

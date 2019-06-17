@@ -270,7 +270,7 @@ class YCSB : public Benchmark {
             ycsb_tbl->touchRecordByKey(hash_ptr->VID,
                                        hash_ptr->last_master_ver);
           } else {
-            void *v = ycsb_tbl->getVersions(hash_ptr->VID, delta_ver)
+            void *v = ycsb_tbl->getVersions(hash_ptr->VID, hash_ptr->delta_id)
                           ->get_readable_ver(xid);
           }
           hash_ptr->latch.release();
@@ -285,10 +285,11 @@ class YCSB : public Benchmark {
           ycsb_tbl->updateRecord(
               hash_ptr->VID, op.rec, master_ver, hash_ptr->last_master_ver,
               delta_ver, hash_ptr->t_min, hash_ptr->t_max,
-              (xid >> 56) %
+              (xid >> 56) /
                   NUM_CORE_PER_SOCKET);  // this is the number of sockets
           hash_ptr->t_min = xid;
           hash_ptr->last_master_ver = master_ver;
+          hash_ptr->delta_id = delta_ver;
           hash_ptr->latch.release();
           break;
         }

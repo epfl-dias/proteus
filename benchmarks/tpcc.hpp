@@ -36,6 +36,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "transactions/transaction_manager.hpp"
 //#include <thread
 
+#define TPCC_MAX_ORDER_INITIAL_CAP 100000000
+
 #define NO_MIX 45
 #define P_MIX 43
 #define OS_MIX 4

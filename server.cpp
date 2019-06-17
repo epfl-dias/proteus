@@ -47,7 +47,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define __itt_pause() ((void)0)
 #endif
 
-#define RUNTIME 60  // seconds
+#define RUNTIME 120  // seconds
 
 // TODO: a race condition exists in acquiring write lock and updating the
 // version, a read might read at the same time as readers are not blocked in any
@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
       "w,workers", "Number of Workers", cxxopts::value<uint>())(
       "r,write_ratio", "Reader to writer ratio", cxxopts::value<double>())(
       "t,theta", "Zipf theta", cxxopts::value<double>())(
-      "g,gc_mode", "GC Mode: 1-Snapshot, 2-TupleGC", cxxopts::value<uint>())(
+      //"g,gc_mode", "GC Mode: 1-Snapshot, 2-TupleGC", cxxopts::value<uint>())(
       "b,benchmark", "Benchmark: 0:YCSB, 1:TPC-C", cxxopts::value<uint>())(
       "c,ycsb_num_cols", "Number of YCSB Columns", cxxopts::value<uint>());
 
@@ -93,9 +93,9 @@ int main(int argc, char** argv) {
 
   // conf
   int num_workers =
-      2;  // NUM_SOCKETS * 18;  // std::thread::hardware_concurrency();
+      72;  // NUM_SOCKETS * 18;  // std::thread::hardware_concurrency();
   uint gc_mode = 1;
-  uint bechnmark = 1;  // default: YCSB
+  uint bechnmark = 0;  // default: YCSB
 
   // TPC-C vars
 
@@ -109,7 +109,7 @@ int main(int argc, char** argv) {
   double theta = 0.5;
   int num_iterations_per_worker = 1000000;
   int num_ops_per_txn = 10;
-  double write_threshold = 0.0;
+  double write_threshold = 0.5;
 
   if (result.count("w") > 0) {
     num_workers = result["w"].as<uint>();
