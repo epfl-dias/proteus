@@ -64,7 +64,7 @@ set(VTUNE_ENABLE TRUE)
 # Setup Compilation and link flags
 #-----------------------------------------------------------------------
 # Turn on maximum code compliance and all the warnings
-string(STRIP "${COMPILER_FLAGS} --std=c++17 -pedantic -Weverything" COMPILER_FLAGS)
+string(STRIP "${COMPILER_FLAGS} --std=c++17 -pedantic -g3 -Weverything" COMPILER_FLAGS)
 
 # Place each function and data in its own section
 string(STRIP "${COMPILER_FLAGS} -ffunction-sections -fdata-sections" COMPILER_FLAGS)

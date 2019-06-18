@@ -556,19 +556,22 @@ void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
     } while (dup);
 
     int x = URand(&this->seed, 0, 100);
-    if (g_dist_threshold == 100) x = 2;
+    // if (g_dist_threshold == 100) x = 2;
 
-    if (x > 1 || num_warehouse == 1) {
-      // if (1) {
-      i->ol_supply_w_id = wid;
-      ;
-    } else {
-      while ((i->ol_supply_w_id = URand(&this->seed, 0, num_warehouse - 1)) ==
-             q->w_id)
-        ;
+    i->ol_supply_w_id = wid;
 
-      q->remote = 1;
-    }
+    // if (x > 1 || num_warehouse == 1) {
+    //   // if (1) {
+    //   i->ol_supply_w_id = wid;
+    //   ;
+    // } else {
+    //   while ((i->ol_supply_w_id = URand(&this->seed, 0, num_warehouse - 1))
+    //   ==
+    //          q->w_id)
+    //     ;
+
+    //   q->remote = 1;
+    // }
     assert(i->ol_supply_w_id < num_warehouse);
 
     i->ol_quantity = URand(&this->seed, 1, 10);

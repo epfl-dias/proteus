@@ -47,7 +47,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define __itt_pause() ((void)0)
 #endif
 
-#define RUNTIME 120  // seconds
+#define RUNTIME 60  // seconds
 
 // TODO: a race condition exists in acquiring write lock and updating the
 // version, a read might read at the same time as readers are not blocked in any
@@ -195,13 +195,15 @@ int main(int argc, char** argv) {
    * executing certain number of txns/iterations. */
 
   usleep(RUNTIME * 1000000);
-  __itt_pause();
+
   /* TODO: gather stats about every thread or something*/
   // scheduler::WorkerPool::getInstance().print_worker_stats();
 
   std::cout << "Tear Down Inititated" << std::endl;
   scheduler::WorkerPool::getInstance().shutdown(true);
   std::cout << "\tShutting  down memory manager" << std::endl;
+
+  __itt_pause();
 
   std::cout << "----" << std::endl;
   storage::Schema::getInstance().teardown();

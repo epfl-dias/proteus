@@ -108,7 +108,7 @@ class DeltaStore {
     }
 
     // reserve hash-capacity before hand
-    // vid_version_map.reserve(total_tuple_capacity * num_partitions);
+    vid_version_map.reserve(10000000);
     this->readers.store(0);
     this->gc_reset_success.store(0);
     this->gc_requests.store(0);
