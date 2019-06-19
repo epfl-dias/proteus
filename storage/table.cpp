@@ -135,6 +135,7 @@ ColumnStore::ColumnStore(
   */
   this->table_id = table_id;
   this->total_mem_reserved = 0;
+  this->vid = 0;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
 
   // create meta_data column.

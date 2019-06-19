@@ -39,6 +39,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "transactions/transaction_manager.hpp"
 //#include <thread
 
+#define YCSB_MIXED_OPS 1
+
 namespace bench {
 
 /*
@@ -48,6 +50,13 @@ namespace bench {
         Description:
 
         Tunable Parameters:
+
+          - num_fields
+          - num_records
+          - zipf_theta
+          - num_ops_per_txn
+          - write_threshold
+          - num_workers ( for zipf )
 
 */
 
@@ -185,26 +194,40 @@ class YCSB : public Benchmark {
   void gen_txn(int wid, void *txn_ptr) {
     struct YCSB_TXN *txn = (struct YCSB_TXN *)txn_ptr;
 
-    txn::OP_TYPE op;
-    wid = wid % num_active_workers;
-    // std::cout << "wid :" << wid
-    //          << "| c= " << ((int)(write_threshold * (double)num_workers))
-    //          << std::endl;
+#if YCSB_MIXED_OPS
 
-    if (wid >= (write_threshold * (double)num_active_workers)) {
+    uint num_w_ops = write_threshold * num_ops_per_txn;
+
+#else
+
+    txn::OP_TYPE op;
+    wid_n = wid % num_active_workers;
+
+    if (wid_n >= (write_threshold * (double)num_active_workers)) {
       op = txn::OPTYPE_LOOKUP;
-      // std::cout << "L ";
     } else {
       op = txn::OPTYPE_UPDATE;
-      // std::cout << "U ";
     }
 
+#endif
     // op = txn::OPTYPE_UPDATE;
     // op = txn::OPTYPE_LOOKUP;
 
     bool is_duplicate = false;
     for (int i = 0; i < num_ops_per_txn; i++) {
+#if YCSB_MIXED_OPS
+
+      if (i < num_w_ops) {
+        txn->ops[i].op_type = txn::OPTYPE_UPDATE;
+      } else {
+        txn->ops[i].op_type = txn::OPTYPE_LOOKUP;
+      }
+
+#else
       txn->ops[i].op_type = op;
+
+#endif
+
       // txn->ops[i].data_table = ycsb_tbl;
       txn->ops[i].rec = nullptr;
 
@@ -336,15 +359,15 @@ class YCSB : public Benchmark {
 
     std::cout << "W_THRESH: " << write_threshold << std::endl;
 
-    for (int i = 0; i < num_active_workers; i++) {
-      std::cout << "WID: " << i;
-      if (i >= (write_threshold * (double)num_active_workers)) {
-        std::cout << " L ";
-      } else {
-        std::cout << " U ";
-      }
-      std::cout << std::endl;
-    }
+    // for (int i = 0; i < num_active_workers; i++) {
+    //   std::cout << "WID: " << i;
+    //   if (i >= (write_threshold * (double)num_active_workers)) {
+    //     std::cout << " L ";
+    //   } else {
+    //     std::cout << " U ";
+    //   }
+    //   std::cout << std::endl;
+    // }
 
     this->schema = &storage::Schema::getInstance();
   };

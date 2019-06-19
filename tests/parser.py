@@ -5,6 +5,7 @@ import sys
 import datetime
 import subprocess
 import shlex
+import time
 
 # Google
 # from __future__ import print_function
@@ -19,6 +20,7 @@ gsheet_creds = None
 gsheet_service = None
 
 expr_time = str(datetime.datetime.now())
+expr_time_epoch = str(int(time.time()))
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -34,11 +36,16 @@ result_dir = "./results"
 
 repeat_expr_times = 5
 
-# YCSB
-YCSB_SPREADSHEET = '1OtICMs90trphneA7rFLWx3S3XVyzzp_Z9QGXuA8UqDs'
+AEOLUS_SPREADSHEET = '1OtICMs90trphneA7rFLWx3S3XVyzzp_Z9QGXuA8UqDs'
+
+ycsb_range = 'ycsb!A1:R1'
+tpcc_range = 'tpcc!A1:U1'
+
 workers = [1, 2, 4, 8, 16, 18, 36, 54, 72]
 # zipf Theta
 
+
+# YCSB
 # theta_range = [0, 1]
 theta_range = [0.5, 0.5]
 theta_step = 0.25
@@ -50,6 +57,7 @@ write_thresh_step = 0.5
 # Columns
 num_cols_range = [0, 12]
 num_cols_step = 4
+# --------------
 
 
 def gsheet_init2(default_token_file="/home/raza/gtoken.pickle"):
@@ -85,18 +93,18 @@ def gsheet_init(default_token_file="/home/raza/gtoken.pickle"):
 
 
 # expects values formatted according to the sheet
-def append_to_gsheet(values, spreadsheet_id=YCSB_SPREADSHEET, range="perf!A1:AB1", valueInputOption="USER_ENTERED"):
+def append_to_gsheet(values, spreadsheet_id=AEOLUS_SPREADSHEET, range="perf!A1:AB1", valueInputOption="USER_ENTERED"):
     body = {
         'values': [values]
     }
     result = gsheet_service.spreadsheets().values().append(
-        spreadsheetId=spreadsheet_id, range='ycsb!A1:R1',
+        spreadsheetId=spreadsheet_id, range=range,
         valueInputOption="USER_ENTERED", body=body).execute()
     # print('{0} cells
     # appended.'.format(result.get('updates').get('updatedCells')))
 
 
-def format_ycsb_gsheet(out, err):
+def format_metrics_gsheet(out, err):
 
     # Gloal Stats
     glbl_st = out.find("---- GLOBAL ----") + len("---- GLOBAL ----")
@@ -240,9 +248,9 @@ def test_ycsb(comments="", runtime=60):
                                            r), "YCSB", col, comments,
                                        runtime]
                                 gsheet_init2()
-                                val += format_ycsb_gsheet(output, err)
+                                val += format_metrics_gsheet(output, err)
                                 append_to_gsheet(
-                                    val, spreadsheet_id=YCSB_SPREADSHEET)
+                                    val, spreadsheet_id=AEOLUS_SPREADSHEET, range=ycsb_range)
                             if STDOUT:
                                 print "---------------stdout------------"
                                 print output
@@ -251,7 +259,7 @@ def test_ycsb(comments="", runtime=60):
                                     print err
                             if FILE:
                                 out_file_path = os.path.join(
-                                    result_dir, "ycsb_" + str(col) + "_" +
+                                    result_dir, expr_time_epoch + "_ycsb_" + str(col) + "_" +
                                     str(w) + "_" + str(r) + "_" + str(t) + "_"
                                     + str(num_exp))
                                 out_file = open(out_file_path, 'w')
@@ -267,12 +275,55 @@ def test_ycsb(comments="", runtime=60):
     print "Total Experiements completed:", exp_counter
 
 
+def test_tpcc(comments="", runtime=60):
+    exp_counter = 0
+    for num_exp in xrange(0, repeat_expr_times):
+        for w in workers:
+            exe = aeoulus_exe + " -b 1 " + "-w " + str(w)
+            print num_exp, "--", exe
+            if not DEBUG:
+                args = shlex.split(exe)
+                proc = subprocess.Popen(
+                    args, stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE)
+                output, err = proc.communicate()
+                if GSHEET:
+                    val = [expr_time, "-", "-",
+                           str(w), "TPCC", comments, runtime]
+                    gsheet_init2()
+                    val += format_metrics_gsheet(output, err)
+                    append_to_gsheet(
+                        val, spreadsheet_id=AEOLUS_SPREADSHEET,
+                        range=tpcc_range)
+                if STDOUT:
+                    print "---------------stdout------------"
+                    print output
+                    if err and len(err) > 0:
+                        print "---------------stderr------------"
+                        print err
+                if FILE:
+                    out_file_path = os.path.join(
+                        result_dir, expr_time_epoch + "_tpcc_" + str(w) + "_" + str(num_exp))
+                    out_file = open(out_file_path, 'w')
+                    out_file.write(
+                        "---------------stdout------------")
+                    out_file.write(output)
+                    if err and len(err) > 0:
+                        out_file.write(
+                            "---------------stderr------------")
+                        out_file.write(err)
+                    out_file.close()
+            exp_counter += 1
+    print "Total Experiements completed:", exp_counter
+
+
 def test():
     path = os.path.join("./results.o", "ycsb_1_1_0_5")
     inn = open(path, 'r')
-    print format_ycsb_gsheet(inn.read(), "")
+    print format_metrics_gsheet(inn.read(), "")
 
 
 if __name__ == "__main__":
     gsheet_init2()
-    test_ycsb(comments="delta switch on", runtime=60)
+    # test_ycsb(comments="delta switch on", runtime=60)
+    test_tpcc(comments="new order", runtime=60)
