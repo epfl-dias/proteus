@@ -83,6 +83,7 @@ string(STRIP "${COMPILER_FLAGS} -fvisibility-inlines-hidden" COMPILER_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
 
 # LLVM Code generates the following warnings
+string(STRIP "${WARNING_FLAGS} -Wno-c++2a-compat -Wno-atomic-implicit-seq-cst -Wno-extra-semi-stmt" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-unused-parameter" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-padded" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-missing-noreturn" WARNING_FLAGS)
