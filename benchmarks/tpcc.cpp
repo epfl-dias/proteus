@@ -1,6 +1,15 @@
 #include "benchmarks/tpcc.hpp"
 #include "benchmarks/bench_utils.hpp"
 
+#include <algorithm>
+#include <cctype>
+#include <fstream>
+#include <functional>
+#include <iostream>
+#include <locale>
+#include <string>
+#include <thread>
+
 namespace bench {
 
 bool TPCC::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
@@ -672,10 +681,13 @@ void TPCC::init_tpcc_seq_array() {
   }
 }
 
-TPCC::TPCC(std::string name, int num_warehouses, int g_dist_threshold)
+TPCC::TPCC(std::string name, int num_warehouses, int g_dist_threshold, std::string csv_path,
+       bool is_ch_benchmark)
     : Benchmark(name),
       num_warehouse(num_warehouses),
-      g_dist_threshold(g_dist_threshold) {
+      g_dist_threshold(g_dist_threshold),
+      csv_path(csv_path),
+      is_ch_benchmark(is_ch_benchmark)  {
   this->schema = &storage::Schema::getInstance();
   this->seed = rand();
 
@@ -1439,28 +1451,1052 @@ void TPCC::load_customer(int w_id) {
 }
 
 void TPCC::load_data(int num_threads) {
-  // TODO: make it multi-threaded
-  std::cout << "[TPCC] Load data" << std::endl;
-  std::cout << "[TPCC] Loading Items: " << TPCC_MAX_ITEMS << std::endl;
-  load_item();
+  
+  if (this->csv_path.size() > 1) {
+      std::cout << "[TPCC] Load data from CSV: " << csv_path << std::endl;
 
-  for (int w_id = 0; w_id < num_warehouse; w_id++) {
-    std::cout << "[TPCC] Warehouse #" << w_id << " loading data..."
-              << std::endl;
+      std::vector<std::thread> loaders;
 
-    load_warehouse(w_id);
-    std::cout << "\t loading district..." << std::endl;
-    load_district(w_id);
-    std::cout << "\t loading stock..." << std::endl;
-    load_stock(w_id);
+      loaders.emplace_back([this]() { this->load_warehouse_csv(); });
+      loaders.emplace_back([this]() { this->load_district_csv(); });
+      loaders.emplace_back([this]() { this->load_stock_csv(); });
+      loaders.emplace_back([this]() { this->load_customer_csv(); });
+      loaders.emplace_back([this]() { this->load_history_csv(); });
+      loaders.emplace_back([this]() { this->load_order_csv(); });
+      loaders.emplace_back([this]() { this->load_neworder_csv(); });
+      loaders.emplace_back([this]() { this->load_orderline_csv(); });
+      loaders.emplace_back([this]() { this->load_supplier_csv(); });
+      loaders.emplace_back([this]() { this->load_nation_csv(); });
+      loaders.emplace_back([this]() { this->load_region_csv(); });
+      loaders.emplace_back([this]() { this->load_item_csv(); });
 
-    std::cout << "\t loading history..." << std::endl;
-    load_history(w_id);
-    std::cout << "\t loading customer..." << std::endl;
-    load_customer(w_id);
-    std::cout << "\t loading order..." << std::endl;
-    load_order(w_id);
+      int i = 0;
+      for (auto &th : loaders) {
+        th.join();
+      }
+
+  } else{
+
+    std::cout << "[TPCC] Load data" << std::endl;
+    std::cout << "[TPCC] Loading Items: " << TPCC_MAX_ITEMS << std::endl;
+    load_item();
+
+    for (int w_id = 0; w_id < num_warehouse; w_id++) {
+      std::cout << "[TPCC] Warehouse #" << w_id << " loading data..."
+                << std::endl;
+
+      load_warehouse(w_id);
+      std::cout << "\t loading district..." << std::endl;
+      load_district(w_id);
+      std::cout << "\t loading stock..." << std::endl;
+      load_stock(w_id);
+
+      std::cout << "\t loading history..." << std::endl;
+      load_history(w_id);
+      std::cout << "\t loading customer..." << std::endl;
+      load_customer(w_id);
+      std::cout << "\t loading order..." << std::endl;
+      load_order(w_id);
+    }
   }
+}
+
+
+static std::string concat_path(const std::string &first, const std::string &second) {
+  std::string ret = first;
+
+  if (ret.back() != '/') {
+    ret += "/";
+  }
+  ret += second;
+
+  return ret;
+}
+// trim from start (in place)
+static inline void ltrim(std::string &s) {
+  s.erase(s.begin(), std::find_if(s.begin(), s.end(),
+                                  [](int ch) { return !std::isspace(ch); }));
+}
+
+// trim from end (in place)
+static inline void rtrim(std::string &s) {
+  s.erase(std::find_if(s.rbegin(), s.rend(),
+                       [](int ch) { return !std::isspace(ch); })
+              .base(),
+          s.end());
+}
+
+// trim from both ends (in place)
+static inline void trim(std::string &s) {
+  ltrim(s);
+  rtrim(s);
+}
+
+
+// CSV Loaders
+
+void TPCC::load_warehouse_csv(std::string filename, char delim) {
+  /*
+      path = ${csv_path}/WAREHOUSE.tbl
+      csv schema:
+      W_ID
+      W_NAME
+      W_STREET_1
+      W_STREET_2
+      W_CITY
+      W_STATE
+      W_ZIP
+      W_TAX
+      W_YTD
+  */
+
+  std::ifstream w_csv(concat_path(this->csv_path, filename).c_str());
+
+  if (!w_csv.is_open()) {
+    assert(false);
+  }
+
+  std::string line;
+  uint64_t n_records = 0;
+  const uint num_fields = 9;
+
+  uint field_cursor = 0;
+  struct tpcc_warehouse w_temp;
+
+  while (std::getline(w_csv, line, delim)) {
+    trim(line);
+    if (line.length() == 0) continue;
+
+    field_cursor++;
+    // std::cout << "-line-" << line << "-field#-" << field_cursor << std::endl;
+    if (field_cursor == 1) {  // W_ID
+      // std::cout << "--" << line << "--" << std::endl;
+      w_temp.w_id = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 2) {  // W_NAME
+
+      strncpy(w_temp.w_name, line.c_str(), line.length());
+      w_temp.w_name[line.length()] = '\0';
+
+    } else if (field_cursor == 3) {  // W_STREET_1
+      strncpy(w_temp.w_street[0], line.c_str(), line.length());
+      w_temp.w_street[0][line.length()] = '\0';
+
+    } else if (field_cursor == 4) {  // W_STREET_2
+      strncpy(w_temp.w_street[1], line.c_str(), line.length());
+      w_temp.w_street[1][line.length()] = '\0';
+
+    } else if (field_cursor == 5) {  // W_CITY
+      strncpy(w_temp.w_city, line.c_str(), line.length());
+      w_temp.w_city[line.length()] = '\0';
+
+    } else if (field_cursor == 6) {  // W_STATE (fixed-length)
+      strncpy(w_temp.w_state, line.c_str(), line.length());
+
+    } else if (field_cursor == 7) {  // W_ZIP (fixed-length)
+      strncpy(w_temp.w_zip, line.c_str(), line.length());
+
+    } else if (field_cursor == 8) {  // W_TAX
+
+      w_temp.w_tax = std::stof(line, nullptr);
+
+    } else if (field_cursor == 9) {  // W_YTD
+
+      w_temp.w_ytd = std::stof(line, nullptr);
+
+      //(field_cusor == num_fields)
+      // insert record
+      void *hash_ptr = table_warehouse->insertRecord(&w_temp, 0, 0);
+      this->table_warehouse->p_index->insert(w_temp.w_id, hash_ptr);
+
+      // reset cursor
+      field_cursor = 0;
+      n_records++;
+    }
+
+    //   struct tpcc_warehouse {
+    //   short w_id;
+    //   char w_name[11];
+    //   char w_street[2][21];
+    //   char w_city[21];
+    //   char w_state[2];
+    //   char w_zip[9];
+    //   float w_tax;
+    //   float w_ytd;
+    // };
+  }
+  std::cout << "\t loaded warehouse: " << n_records << std::endl;
+
+  w_csv.close();
+}
+
+void TPCC::load_stock_csv(std::string filename, char delim) {
+  /*
+      csv schema:
+        S_I_ID
+        S_W_ID
+        S_QUANTITY
+        S_DIST_01.  4
+        S_DIST_02
+        S_DIST_03
+        S_DIST_04
+        S_DIST_05
+        S_DIST_06
+        S_DIST_07
+        S_DIST_08
+        S_DIST_09
+        S_DIST_10.  13
+        S_YTD
+        S_ORDER_CNT
+        S_REMOTE_CNT
+        S_DATA
+        S_SU_SUPPKEY - no TPC-C/CH-benCHmark spec
+  */
+
+  std::ifstream csv(concat_path(this->csv_path, filename).c_str());
+
+  if (!csv.is_open()) {
+    assert(false);
+  }
+
+  std::string line;
+  uint64_t n_records = 0;
+
+  uint field_cursor = 0;
+  struct tpcc_stock temp;
+
+  while (std::getline(csv, line, delim)) {
+    trim(line);
+    if (line.length() == 0) continue;
+
+    field_cursor++;
+
+    if (field_cursor == 1) {  // S_I_ID
+      temp.s_i_id = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 2) {  // S_W_ID
+
+      temp.s_w_id = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 3) {  // S_QUANTITY
+
+      temp.s_quantity = (short)std::stoi(line, nullptr);
+
+    } else if (field_cursor >= 4 &&
+               field_cursor <= 13) {  // S_DIST_01 - S_DIST_10
+
+      strncpy(temp.s_dist[field_cursor - 4], line.c_str(),
+              line.length());  // fixed text, size 23
+
+    } else if (field_cursor == 14) {  // S_YTD
+
+      temp.s_ytd = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 15) {  // S_ORDER_CNT
+
+      temp.s_order_cnt = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 16) {  // S_REMOTE_CNT
+
+      temp.s_remote_cnt = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 17) {  // S_DATA
+
+      strncpy(temp.s_data, line.c_str(), line.length());
+      temp.s_data[line.length()] = '\0';
+
+    } else if (field_cursor == 18) {
+      // S_SU_SUPPKEY - no TPC-C/CH-benCHmark spec
+      temp.s_su_suppkey = std::stoi(line, nullptr);
+    }
+
+    if ((!is_ch_benchmark && field_cursor == 17) ||
+        (is_ch_benchmark && field_cursor == 18)) {
+      // insert record
+      void *hash_ptr = table_stock->insertRecord(&temp, 0, 0);
+      this->table_stock->p_index->insert(
+          MAKE_STOCK_KEY(temp.s_w_id, temp.s_i_id), hash_ptr);
+
+      // reset cursor
+      field_cursor = 0;
+      n_records++;
+    }
+  }
+  std::cout << "\t loaded stock: " << n_records << std::endl;
+
+  csv.close();
+}
+void TPCC::load_item_csv(std::string filename, char delim) {
+  /*
+        csv schema:
+          uint32_t i_id;
+          uint32_t i_im_id;
+          char i_name[25];
+          float i_price;
+          char i_data[51];
+    */
+
+  std::ifstream csv(concat_path(this->csv_path, filename).c_str());
+
+  if (!csv.is_open()) {
+    assert(false);
+  }
+
+  std::string line;
+  uint64_t n_records = 0;
+
+  uint field_cursor = 0;
+  struct tpcc_item temp;
+
+  while (std::getline(csv, line, delim)) {
+    trim(line);
+    if (line.length() == 0) continue;
+
+    field_cursor++;
+
+    if (field_cursor == 1) {  // I_ID
+      temp.i_id = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 2) {  // I_IM_ID
+
+      temp.i_im_id = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 3) {  // I_NAME
+
+      strncpy(temp.i_name, line.c_str(), line.length());
+
+    } else if (field_cursor == 4) {  // I_PRICE
+
+      temp.i_price = std::stof(line, nullptr);
+
+    } else if (field_cursor == 5) {  // I_DATA
+
+      strncpy(temp.i_data, line.c_str(), line.length());
+      temp.i_data[line.length()] = '\0';
+
+      // insert record
+      void *hash_ptr = table_item->insertRecord(&temp, 0, 0);
+      this->table_item->p_index->insert(temp.i_id, hash_ptr);
+
+      // reset cursor
+      field_cursor = 0;
+      n_records++;
+    }
+  }
+  std::cout << "\t loaded items: " << n_records << std::endl;
+
+  csv.close();
+}
+void TPCC::load_district_csv(std::string filename, char delim) {
+  /*
+        csv schema:
+          ushort d_id;
+          ushort d_w_id;
+          char d_name[11];
+          char d_street[2][21];
+          char d_city[21];
+          char d_state[2];
+          char d_zip[9];
+          float d_tax;
+          float d_ytd;
+          uint64_t d_next_o_id;
+    */
+
+  std::ifstream csv(concat_path(this->csv_path, filename).c_str());
+
+  if (!csv.is_open()) {
+    assert(false);
+  }
+
+  std::string line;
+  uint64_t n_records = 0;
+
+  uint field_cursor = 0;
+  struct tpcc_district temp;
+
+  while (std::getline(csv, line, delim)) {
+    trim(line);
+    if (line.length() == 0) continue;
+
+    field_cursor++;
+
+    if (field_cursor == 1) {  // D_ID
+      temp.d_id = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 2) {
+      temp.d_w_id = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 3) {
+      strncpy(temp.d_name, line.c_str(), line.length());
+      temp.d_name[line.length()] = '\0';
+
+    } else if (field_cursor == 4) {
+      strncpy(temp.d_street[0], line.c_str(), line.length());
+      temp.d_street[0][line.length()] = '\0';
+
+    } else if (field_cursor == 5) {
+      strncpy(temp.d_street[1], line.c_str(), line.length());
+      temp.d_street[1][line.length()] = '\0';
+
+    } else if (field_cursor == 6) {
+      strncpy(temp.d_city, line.c_str(), line.length());
+      temp.d_city[line.length()] = '\0';
+
+    } else if (field_cursor == 7) {
+      strncpy(temp.d_state, line.c_str(), line.length());
+
+    } else if (field_cursor == 8) {
+      strncpy(temp.d_zip, line.c_str(), line.length());
+
+    } else if (field_cursor == 9) {
+      temp.d_tax = std::stof(line, nullptr);
+
+    } else if (field_cursor == 10) {
+      temp.d_ytd = std::stof(line, nullptr);
+
+    } else if (field_cursor == 11) {
+      temp.d_next_o_id = std::stoi(line, nullptr);
+
+      // insert record
+      void *hash_ptr = table_district->insertRecord(&temp, 0, 0);
+      bool done = this->table_district->p_index->insert(
+          MAKE_DIST_KEY(temp.d_w_id, temp.d_id), hash_ptr);
+
+      assert(done);
+
+      // reset cursor
+      field_cursor = 0;
+      n_records++;
+    }
+  }
+  std::cout << "\t loaded districts: " << n_records << std::endl;
+
+  csv.close();
+}
+void TPCC::load_nation_csv(std::string filename, char delim) {
+  /*
+        csv schema:
+          ushort n_nationkey;
+          char n_name[16];  // var
+          ushort n_regionkey;
+          char n_comment[115];  // var
+    */
+
+  std::ifstream csv(concat_path(this->csv_path, filename).c_str());
+
+  if (!csv.is_open()) {
+    assert(false);
+  }
+
+  std::string line;
+  uint64_t n_records = 0;
+
+  uint field_cursor = 0;
+  struct ch_nation temp;
+
+  while (std::getline(csv, line, delim)) {
+    trim(line);
+    if (line.length() == 0) continue;
+
+    field_cursor++;
+
+    if (field_cursor == 1) {
+      temp.n_nationkey = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 2) {
+      strncpy(temp.n_name, line.c_str(), line.length());
+      temp.n_name[line.length()] = '\0';
+
+    } else if (field_cursor == 3) {
+      temp.n_regionkey = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 4) {
+      strncpy(temp.n_comment, line.c_str(), line.length());
+      temp.n_comment[line.length()] = '\0';
+
+      // insert record
+      void *hash_ptr = table_nation->insertRecord(&temp, 0, 0);
+      this->table_nation->p_index->insert(temp.n_nationkey, hash_ptr);
+
+      // reset cursor
+      field_cursor = 0;
+      n_records++;
+    }
+  }
+  std::cout << "\t loaded nations: " << n_records << std::endl;
+
+  csv.close();
+}
+void TPCC::load_region_csv(std::string filename, char delim) {
+  /*
+        csv schema:
+         ushort r_regionkey;
+    char r_name[12];      // var
+    char r_comment[115];  // var
+    */
+
+  std::ifstream csv(concat_path(this->csv_path, filename).c_str());
+
+  if (!csv.is_open()) {
+    assert(false);
+  }
+
+  std::string line;
+  uint64_t n_records = 0;
+
+  uint field_cursor = 0;
+  struct ch_region temp;
+
+  while (std::getline(csv, line, delim)) {
+    trim(line);
+    if (line.length() == 0) continue;
+
+    field_cursor++;
+
+    if (field_cursor == 1) {
+      temp.r_regionkey = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 2) {
+      strncpy(temp.r_name, line.c_str(), line.length());
+      temp.r_name[line.length()] = '\0';
+
+    } else if (field_cursor == 3) {
+      strncpy(temp.r_comment, line.c_str(), line.length());
+      temp.r_comment[line.length()] = '\0';
+
+      // insert record
+      void *hash_ptr = table_region->insertRecord(&temp, 0, 0);
+      this->table_region->p_index->insert(temp.r_regionkey, hash_ptr);
+
+      // reset cursor
+      field_cursor = 0;
+      n_records++;
+    }
+  }
+  std::cout << "\t loaded regions: " << n_records << std::endl;
+
+  csv.close();
+}
+
+void TPCC::load_supplier_csv(std::string filename, char delim) {
+  /*
+     csv schema:
+       uint32_t suppkey;
+       char s_name[18];     // fix
+       char s_address[41];  // var
+       ushort s_nationkey;
+       char s_phone[15];  // fix
+       float s_acctbal;
+       char s_comment[101];  // var
+ */
+
+  std::ifstream csv(concat_path(this->csv_path, filename).c_str());
+
+  if (!csv.is_open()) {
+    assert(false);
+  }
+
+  std::string line;
+  uint64_t n_records = 0;
+
+  uint field_cursor = 0;
+  struct ch_supplier temp;
+
+  while (std::getline(csv, line, delim)) {
+    trim(line);
+    if (line.length() == 0) continue;
+
+    field_cursor++;
+
+    if (field_cursor == 1) {
+      temp.suppkey = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 2) {
+      strncpy(temp.s_name, line.c_str(), line.length());
+
+    } else if (field_cursor == 3) {
+      strncpy(temp.s_address, line.c_str(), line.length());
+      temp.s_address[line.length()] = '\0';
+
+    } else if (field_cursor == 4) {
+      temp.s_nationkey = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 5) {
+      strncpy(temp.s_phone, line.c_str(), line.length());
+
+    } else if (field_cursor == 6) {
+      temp.s_acctbal = std::stof(line, nullptr);
+
+    } else if (field_cursor == 7) {
+      strncpy(temp.s_comment, line.c_str(), line.length());
+      temp.s_comment[line.length()] = '\0';
+
+      // insert record
+      void *hash_ptr = table_supplier->insertRecord(&temp, 0, 0);
+      this->table_supplier->p_index->insert(temp.suppkey, hash_ptr);
+
+      // reset cursor
+      field_cursor = 0;
+      n_records++;
+    }
+  }
+  std::cout << "\t loaded supplier: " << n_records << std::endl;
+
+  csv.close();
+}
+
+void TPCC::load_neworder_csv(std::string filename, char delim) {
+  /*
+    uint64_t no_o_id;
+    ushort no_d_id;
+    ushort no_w_id;
+    uint64_t order_key = MAKE_CUST_KEY(w_id, d_id, dist_no_read.d_next_o_id);
+  */
+
+  std::ifstream csv(concat_path(this->csv_path, filename).c_str());
+
+  if (!csv.is_open()) {
+    assert(false);
+  }
+
+  std::string line;
+  uint64_t n_records = 0;
+
+  uint field_cursor = 0;
+  struct tpcc_new_order temp;
+
+  while (std::getline(csv, line, delim)) {
+    trim(line);
+    if (line.length() == 0) continue;
+
+    field_cursor++;
+
+    if (field_cursor == 1) {
+      temp.no_o_id = std::stoull(line, nullptr);
+
+    } else if (field_cursor == 2) {
+      temp.no_d_id = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 3) {
+      temp.no_w_id = (ushort)std::stoi(line, nullptr);
+
+      // insert record
+      void *hash_ptr = table_new_order->insertRecord(&temp, 0, 0);
+      this->table_new_order->p_index->insert(
+          MAKE_CUST_KEY(temp.no_w_id, temp.no_d_id, temp.no_o_id), hash_ptr);
+
+      // reset cursor
+      field_cursor = 0;
+      n_records++;
+    }
+  }
+  std::cout << "\t loaded new orders: " << n_records << std::endl;
+
+  csv.close();
+}
+void TPCC::load_history_csv(std::string filename, char delim) {
+  /*
+   uint32_t h_c_id;
+    ushort h_c_d_id;
+    ushort h_c_w_id;
+    ushort h_d_id;
+    ushort h_w_id;
+    uint32_t h_date;
+    float h_amount;
+    char h_data[25];
+  */
+
+  std::ifstream csv(concat_path(this->csv_path, filename).c_str());
+
+  if (!csv.is_open()) {
+    assert(false);
+  }
+
+  std::string line;
+  uint64_t n_records = 0;
+
+  uint field_cursor = 0;
+  struct tpcc_history temp;
+
+  while (std::getline(csv, line, delim)) {
+    trim(line);
+    if (line.length() == 0) continue;
+
+    field_cursor++;
+
+    if (field_cursor == 1) {
+      temp.h_c_id = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 2) {
+      temp.h_c_d_id = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 3) {
+      temp.h_c_w_id = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 4) {
+      temp.h_d_id = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 5) {
+      temp.h_w_id = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 6) {
+      temp.h_date = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 7) {
+      temp.h_amount = std::stof(line, nullptr);
+
+    } else if (field_cursor == 8) {
+      strncpy(temp.h_data, line.c_str(), line.length());
+      temp.h_data[line.length()] = '\0';
+
+      // insert record
+      void *hash_ptr = table_history->insertRecord(&temp, 0, 0);
+      this->table_history->p_index->insert(
+          MAKE_CUST_KEY(temp.h_w_id, temp.h_d_id, temp.h_c_id), hash_ptr);
+
+      // reset cursor
+      field_cursor = 0;
+      n_records++;
+    }
+  }
+  std::cout << "\t loaded history: " << n_records << std::endl;
+
+  csv.close();
+}
+void TPCC::load_order_csv(std::string filename, char delim) {
+  /*
+   uint64_t o_id;
+    ushort o_d_id;
+    ushort o_w_id;
+    uint32_t o_c_id;
+    uint32_t o_entry_d;
+    short o_carrier_id;
+    ushort o_ol_cnt;
+    ushort o_all_local;
+  */
+
+  std::ifstream csv(concat_path(this->csv_path, filename).c_str());
+
+  if (!csv.is_open()) {
+    assert(false);
+  }
+
+  std::string line;
+  uint64_t n_records = 0;
+
+  uint field_cursor = 0;
+  struct tpcc_order temp;
+
+  while (std::getline(csv, line, delim)) {
+    trim(line);
+    if (line.length() == 0) continue;
+
+    field_cursor++;
+
+    if (field_cursor == 1) {
+      temp.o_id = std::stoull(line, nullptr);
+
+    } else if (field_cursor == 2) {
+      temp.o_d_id = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 3) {
+      temp.o_w_id = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 4) {
+      temp.o_c_id = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 5) {
+      temp.o_entry_d = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 6) {
+      temp.o_carrier_id = (short)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 7) {
+      temp.o_ol_cnt = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 8) {
+      temp.o_all_local = (ushort)std::stoi(line, nullptr);
+
+      // insert record
+      void *hash_ptr = table_order->insertRecord(&temp, 0, 0);
+      this->table_order->p_index->insert(
+          MAKE_ORDER_KEY(temp.o_w_id, temp.o_d_id, temp.o_id), hash_ptr);
+
+      // reset cursor
+      field_cursor = 0;
+      n_records++;
+    }
+  }
+  std::cout << "\t loaded orders: " << n_records << std::endl;
+
+  csv.close();
+}
+void TPCC::load_orderline_csv(std::string filename, char delim) {
+  /*
+  uint64_t ol_o_id;
+    ushort ol_d_id;
+    ushort ol_w_id;
+    ushort ol_number;
+    ushort ol_i_id;
+    ushort ol_supply_w_id;
+    uint32_t ol_delivery_d;
+    ushort ol_quantity;
+    float ol_amount;
+    char ol_dist_info[24];
+  */
+
+  std::ifstream csv(concat_path(this->csv_path, filename).c_str());
+
+  if (!csv.is_open()) {
+    assert(false);
+  }
+
+  std::string line;
+  uint64_t n_records = 0;
+
+  uint field_cursor = 0;
+  struct tpcc_order_line temp;
+
+  while (std::getline(csv, line, delim)) {
+    try {
+      // trim(line);
+      // if (line.length() == 0) continue;
+      if (line == "\n" || line == "\r\n") continue;
+
+      field_cursor++;
+      // std::cout << "line--" << line << "--cursor--" << field_cursor << "-"
+      //         << n_records << std::endl;
+
+      if (field_cursor == 1) {
+        temp.ol_o_id = std::stoull(line, nullptr);
+
+      } else if (field_cursor == 2) {
+        temp.ol_d_id = (ushort)std::stoi(line, nullptr);
+
+      } else if (field_cursor == 3) {
+        temp.ol_w_id = (ushort)std::stoi(line, nullptr);
+
+      } else if (field_cursor == 4) {
+        temp.ol_number = (ushort)std::stoi(line, nullptr);
+
+      } else if (field_cursor == 5) {
+        temp.ol_i_id = (ushort)std::stoi(line, nullptr);
+
+      } else if (field_cursor == 6) {
+        temp.ol_supply_w_id = (ushort)std::stoi(line, nullptr);
+
+      } else if (field_cursor == 7) {
+        if (line.length() != 0) {
+          temp.ol_delivery_d = std::stoi(line, nullptr);
+        } else {
+          temp.ol_delivery_d = 0;
+        }
+
+      } else if (field_cursor == 8) {
+        temp.ol_quantity = (short)std::stoi(line, nullptr);
+
+      } else if (field_cursor == 9) {
+        temp.ol_amount = std::stof(line, nullptr);
+
+      } else if (field_cursor == 10) {
+        strncpy(temp.ol_dist_info, line.c_str(), line.length());
+
+        // insert record
+        void *hash_ptr = table_order_line->insertRecord(&temp, 0, 0);
+        this->table_order_line->p_index->insert(
+            MAKE_OL_KEY(temp.ol_w_id, temp.ol_d_id, temp.ol_o_id,
+                        temp.ol_number),
+            hash_ptr);
+
+        // reset cursor
+        field_cursor = 0;
+        n_records++;
+      }
+    /* */ } catch (...) {
+      /* */
+      std::cout << "Expception in line--" << line << "--field-cursor-"
+                << field_cursor << "--nrec--" << n_records << std::endl;
+      exit(1);
+    }
+  }
+  std::cout << "\t loaded orderline: " << n_records << std::endl;
+
+  csv.close();
+}
+void TPCC::load_customer_csv(std::string filename, char delim) {
+  /*
+  uint32_t c_id;
+    ushort c_d_id;
+    ushort c_w_id;
+    char c_first[FIRST_NAME_LEN + 1];
+    char c_middle[2];
+    char c_last[LAST_NAME_LEN + 1];
+    char c_street[2][21];
+    char c_city[21];
+    char c_state[2];
+    char c_zip[9];
+    char c_phone[16];
+    uint32_t c_since;
+    char c_credit[2];
+    float c_credit_lim;
+    float c_discount;
+    float c_balance;
+    float c_ytd_payment;
+    ushort c_payment_cnt;
+    ushort c_delivery_cnt;
+    char c_data[501];
+
+    secondary index too
+    */
+
+  std::ifstream csv(concat_path(this->csv_path, filename).c_str());
+
+  if (!csv.is_open()) {
+    assert(false);
+  }
+
+  std::string line;
+  uint64_t n_records = 0;
+
+  uint field_cursor = 0;
+  struct tpcc_customer temp;
+
+  while (std::getline(csv, line, delim)) {
+    trim(line);
+    if (line.length() == 0) continue;
+
+    field_cursor++;
+    // std::cout << "LINE:-" << line << "--" << field_cursor << std::endl;
+
+    if (field_cursor == 1) {
+      temp.c_id = std::stoi(line, nullptr);
+
+    } else if (field_cursor == 2) {
+      temp.c_d_id = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 3) {
+      temp.c_w_id = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 4) {
+      strncpy(temp.c_first, line.c_str(), line.length());
+      temp.c_first[line.length()] = '\0';
+
+    } else if (field_cursor == 5) {
+      strncpy(temp.c_middle, line.c_str(), line.length());
+
+    } else if (field_cursor == 6) {
+      strncpy(temp.c_last, line.c_str(), line.length());
+      temp.c_last[line.length()] = '\0';
+
+    } else if (field_cursor == 7) {
+      strncpy(temp.c_street[0], line.c_str(), line.length());
+      temp.c_street[0][line.length()] = '\0';
+
+    } else if (field_cursor == 8) {
+      strncpy(temp.c_street[1], line.c_str(), line.length());
+      temp.c_street[1][line.length()] = '\0';
+
+    } else if (field_cursor == 9) {
+      strncpy(temp.c_city, line.c_str(), line.length());
+      temp.c_city[line.length()] = '\0';
+
+    } else if (field_cursor == 10) {
+      strncpy(temp.c_state, line.c_str(), line.length());
+
+    } else if (field_cursor == 11) {
+      strncpy(temp.c_zip, line.c_str(), line.length());
+
+    } else if (field_cursor == 12) {
+      strncpy(temp.c_phone, line.c_str(), line.length());
+
+    } else if (field_cursor == 13) {
+      temp.c_since = 123456789;  //(uint32_t)std::stoull(line, nullptr);
+
+    } else if (field_cursor == 14) {
+      strncpy(temp.c_credit, line.c_str(), line.length());
+
+    } else if (field_cursor == 15) {
+      temp.c_credit_lim = std::stof(line, nullptr);
+
+    } else if (field_cursor == 16) {
+      temp.c_discount = std::stof(line, nullptr);
+
+    } else if (field_cursor == 17) {
+      temp.c_balance = std::stof(line, nullptr);
+
+    } else if (field_cursor == 18) {
+      temp.c_ytd_payment = std::stof(line, nullptr);
+
+    } else if (field_cursor == 19) {
+      temp.c_payment_cnt = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 20) {
+      temp.c_delivery_cnt = (ushort)std::stoi(line, nullptr);
+
+    } else if (field_cursor == 21) {
+      strncpy(temp.c_data, line.c_str(), line.length());
+      temp.c_data[line.length()] = '\0';
+
+    } else if (field_cursor == 22) {
+      temp.c_n_nationkey = (ushort)std::stoi(line, nullptr);
+
+      // insert record
+      void *hash_ptr = table_customer->insertRecord(&temp, 0, 0);
+      this->table_customer->p_index->insert(
+          MAKE_CUST_KEY(temp.c_w_id, temp.c_d_id, temp.c_id), hash_ptr);
+
+      load_customer_secondary_index(temp);
+
+      // reset cursor
+      field_cursor = 0;
+      n_records++;
+    }
+  }
+  std::cout << "\t loaded customers: " << n_records << std::endl;
+
+  csv.close();
+}
+
+void TPCC::load_customer_secondary_index(struct tpcc_customer &r) {
+  uint64_t sr_dkey = cust_derive_key(r.c_last, r.c_d_id, r.c_w_id);
+
+  // pull up the record if its already there
+  struct secondary_record sr;
+  int sr_idx, sr_nids;
+  if (cust_sec_index->find(sr_dkey, sr)) {
+    sr_idx = sr.sr_idx;
+    sr_nids = sr.sr_nids;
+  } else {
+    // sie = hash_insert(p, sr_key, sizeof(struct secondary_record),
+    // NULL); assert(sie);
+
+    // sr = (struct secondary_record *)sie->value;
+
+    /* XXX: memory leak possibility - if this record is ever freed
+     * this malloc wont be released
+     */
+    sr.sr_rids = (uint32_t *)malloc(sizeof(uint64_t) * NDEFAULT_RIDS);
+    assert(sr.sr_rids);
+    sr.sr_idx = sr_idx = 0;
+    sr.sr_nids = sr_nids = NDEFAULT_RIDS;
+    cust_sec_index->insert(sr_dkey, sr);
+  }
+
+  assert(sr_idx < sr_nids);
+
+  /* add this record to the index */
+  sr.sr_rids[sr_idx] = sr_dkey;
+  if (++sr_idx == sr_nids) {
+    // reallocate the record array
+    sr_nids *= 2;
+    sr.sr_rids = (uint32_t *)realloc(sr.sr_rids, sizeof(uint64_t) * sr_nids);
+    assert(sr.sr_rids);
+  }
+
+  sr.sr_idx = sr_idx;
+  sr.sr_nids = sr_nids;
+
+  cust_sec_index->update(sr_dkey, sr);
 }
 
 }  // namespace bench

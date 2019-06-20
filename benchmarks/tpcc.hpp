@@ -92,12 +92,42 @@ class TPCC : public Benchmark {
   storage::Table *table_item;
   storage::Table *table_stock;
 
+  storage::Table *table_region;
+  storage::Table *table_nation;
+  storage::Table *table_supplier;
+
   int num_warehouse;
   int g_dist_threshold;
   unsigned int seed;
   TPCC_QUERY_TYPE sequence[MIX_COUNT];
+  std::string csv_path;
+  bool is_ch_benchmark;
 
  public:
+
+  struct ch_nation {
+    ushort n_nationkey;
+    char n_name[16];  // var
+    ushort n_regionkey;
+    char n_comment[115];  // var
+  };
+
+  struct ch_region {
+    ushort r_regionkey;
+    char r_name[12];      // var
+    char r_comment[115];  // var
+  };
+
+  struct ch_supplier {
+    uint32_t suppkey;
+    char s_name[18];     // fix
+    char s_address[41];  // var
+    ushort s_nationkey;
+    char s_phone[15];  // fix
+    float s_acctbal;
+    char s_comment[101];  // var
+  };
+
   struct tpcc_stock {
     uint32_t s_i_id;
     ushort s_w_id;
@@ -107,6 +137,7 @@ class TPCC : public Benchmark {
     ushort s_order_cnt;
     ushort s_remote_cnt;
     char s_data[51];
+    uint32_t s_su_suppkey;  // ch-specific
   };
 
   struct tpcc_item {
@@ -171,6 +202,7 @@ class TPCC : public Benchmark {
     ushort c_payment_cnt;
     ushort c_delivery_cnt;
     char c_data[501];
+    ushort c_n_nationkey;
   };
 
   struct tpcc_order {
@@ -259,6 +291,29 @@ class TPCC : public Benchmark {
   void load_order(int w_id);
   void load_customer(int w_id);
 
+
+  //CSV Loaders
+
+  void load_stock_csv(std::string filename = "STOCK.tbl", char delim = '|');
+  void load_item_csv(std::string filename = "ITEM.tbl", char delim = '|');
+  void load_warehouse_csv(std::string filename = "WAREHOUSE.tbl",
+                          char delim = '|');
+  void load_district_csv(std::string filename = "DISTRICT.tbl",
+                         char delim = '|');
+  void load_history_csv(std::string filename = "HISTORY.tbl", char delim = '|');
+  void load_order_csv(std::string filename = "ORDER.tbl", char delim = '|');
+  void load_customer_csv(std::string filename = "CUSTOMER.tbl",
+                         char delim = '|');
+  void load_nation_csv(std::string filename = "NATION.tbl", char delim = '|');
+  void load_neworder_csv(std::string filename = "NEWORDER.tbl",
+                         char delim = '|');
+  void load_orderline_csv(std::string filename = "ORDERLINE.tbl",
+                          char delim = '|');
+  void load_region_csv(std::string filename = "REGION.tbl", char delim = '|');
+  void load_supplier_csv(std::string filename = "SUPPLIER.tbl",
+                         char delim = '|');
+  void load_customer_secondary_index(struct tpcc_customer &r);
+
   void *get_query_struct_ptr() { return new struct tpcc_query; }
 
   // cust_utils
@@ -296,7 +351,8 @@ class TPCC : public Benchmark {
   // TODO: clean-up
   ~TPCC() {}
   TPCC(std::string name = "TPCC", int num_warehouses = 1,
-       int g_dist_threshold = 0);
+       int g_dist_threshold = 0, std::string csv_path = "",
+       bool is_ch_benchmark = true);
 };
 
 }  // namespace bench
