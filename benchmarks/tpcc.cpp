@@ -691,11 +691,11 @@ TPCC::TPCC(std::string name, int num_warehouses, int g_dist_threshold, std::stri
   this->schema = &storage::Schema::getInstance();
   this->seed = rand();
 
-  uint64_t total_districts = TPCC_NDIST_PER_WH * this->num_warehouse;
+  uint64_t total_districts = TPCC_NDIST_PER_WH * (this->num_warehouse + 5);
   uint64_t max_customers = TPCC_NCUST_PER_DIST * total_districts;
   uint64_t max_orders = TPCC_MAX_ORDER_INITIAL_CAP;
   uint64_t max_order_line = TPCC_MAX_OL_PER_ORDER * max_orders;
-  uint64_t max_stock = TPCC_MAX_ITEMS * this->num_warehouse;
+  uint64_t max_stock = TPCC_MAX_ITEMS * (this->num_warehouse + 10);
 
   this->create_tbl_warehouse(this->num_warehouse);
 
@@ -714,6 +714,14 @@ TPCC::TPCC(std::string name, int num_warehouses, int g_dist_threshold, std::stri
   this->create_tbl_item(TPCC_MAX_ITEMS);
 
   this->create_tbl_stock(max_stock);
+
+  if(is_ch_benchmark){
+    this->create_tbl_supplier(10000);
+    this->create_tbl_nation(150);
+    this->create_tbl_region(5);
+    
+
+  }
 
   std::cout << "Total Memory Reserved for Tables: "
             << (double)this->schema->total_mem_reserved / (1024 * 1024 * 1024)
@@ -849,6 +857,8 @@ void TPCC::create_tbl_stock(uint64_t num_stock) {
       "s_remote_cnt", storage::INTEGER, sizeof(ushort)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "s_data", storage::VARCHAR, 51));
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "s_su_suppkey", storage::INTEGER, sizeof(uint32_t)));
 
   table_stock = schema->create_table("tpcc_stock", storage::COLUMN_STORE,
                                      columns, num_stock);
@@ -936,6 +946,8 @@ void TPCC::create_tbl_customer(uint64_t num_cust) {
       "c_delivery_cnt", storage::INTEGER, sizeof(ushort)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "c_data", storage::VARCHAR, 501));
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "c_n_nationkey", storage::INTEGER, sizeof(ushort)));
   table_customer = schema->create_table("tpcc_customer", storage::COLUMN_STORE,
                                         columns, num_cust);
 }
@@ -1016,6 +1028,85 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
 
   table_order_line = schema->create_table(
       "tpcc_order_line", storage::COLUMN_STORE, columns, num_order_line);
+}
+
+void TPCC::create_tbl_supplier(uint64_t num_supp) {
+  // Primary Key: suppkey
+  /*
+     uint32_t suppkey;
+    char s_name[18];     // fix
+    char s_address[41];  // var
+    ushort s_nationkey;
+    char s_phone[15];  // fix
+    float s_acctbal;
+    char s_comment[101];  // var
+  */
+  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "suppkey", storage::INTEGER, sizeof(uint32_t)));
+
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "s_name", storage::STRING, 18));
+
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "s_address", storage::VARCHAR, 41));
+
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "s_nationkey", storage::INTEGER, sizeof(ushort)));
+
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "s_phone", storage::STRING, 15));
+
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "s_acctbal", storage::FLOAT, sizeof(float)));
+
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "s_comment", storage::VARCHAR, 101));
+
+  table_supplier = schema->create_table("ch_supplier", storage::COLUMN_STORE,
+                                        columns, num_supp);
+}
+void TPCC::create_tbl_region(uint64_t num_region) {
+  // Primary Key: r_regionkey
+  /*
+     ushort r_regionkey;
+      char r_name[12];      // var
+      char r_comment[115];  // var
+  */
+  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "r_regionkey", storage::INTEGER, sizeof(ushort)));
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "r_name", storage::VARCHAR, 12));
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "r_comment", storage::VARCHAR, 115));
+
+  table_region = schema->create_table("ch_region", storage::COLUMN_STORE,
+                                      columns, num_region);
+}
+void TPCC::create_tbl_nation(uint64_t num_nation) {
+  // Primary Key: n_nationkey
+  /*
+      ushort n_nationkey;
+     char n_name[16];  // var
+     ushort n_regionkey;
+     char n_comment[115];  // var
+  */
+  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "n_nationkey", storage::INTEGER, sizeof(ushort)));
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "n_name", storage::VARCHAR, 16));
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "n_regionkey", storage::INTEGER, sizeof(ushort)));
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "n_comment", storage::VARCHAR, 115));
+
+  table_nation = schema->create_table("ch_nation", storage::COLUMN_STORE,
+                                      columns, num_nation);
 }
 
 /* A/C TPCC Specs*/
@@ -1455,6 +1546,23 @@ void TPCC::load_data(int num_threads) {
   if (this->csv_path.size() > 1) {
       std::cout << "[TPCC] Load data from CSV: " << csv_path << std::endl;
 
+
+      // load_district_csv();
+      // load_nation_csv();
+      
+      // load_order_csv();
+      // load_warehouse_csv();
+      
+      // load_stock_csv();
+      // load_customer_csv();
+      // load_history_csv();
+      
+      // load_neworder_csv();
+      // load_orderline_csv();
+      // load_item_csv();
+      // load_supplier_csv();
+      
+      // load_region_csv();
       std::vector<std::thread> loaders;
 
       loaders.emplace_back([this]() { this->load_warehouse_csv(); });
@@ -1465,10 +1573,11 @@ void TPCC::load_data(int num_threads) {
       loaders.emplace_back([this]() { this->load_order_csv(); });
       loaders.emplace_back([this]() { this->load_neworder_csv(); });
       loaders.emplace_back([this]() { this->load_orderline_csv(); });
+      loaders.emplace_back([this]() { this->load_item_csv(); });
+
       loaders.emplace_back([this]() { this->load_supplier_csv(); });
       loaders.emplace_back([this]() { this->load_nation_csv(); });
       loaders.emplace_back([this]() { this->load_region_csv(); });
-      loaders.emplace_back([this]() { this->load_item_csv(); });
 
       int i = 0;
       for (auto &th : loaders) {
@@ -1571,7 +1680,7 @@ void TPCC::load_warehouse_csv(std::string filename, char delim) {
     // std::cout << "-line-" << line << "-field#-" << field_cursor << std::endl;
     if (field_cursor == 1) {  // W_ID
       // std::cout << "--" << line << "--" << std::endl;
-      w_temp.w_id = std::stoi(line, nullptr);
+      w_temp.w_id = std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 2) {  // W_NAME
 
@@ -1607,7 +1716,7 @@ void TPCC::load_warehouse_csv(std::string filename, char delim) {
       //(field_cusor == num_fields)
       // insert record
       void *hash_ptr = table_warehouse->insertRecord(&w_temp, 0, 0);
-      this->table_warehouse->p_index->insert(w_temp.w_id, hash_ptr);
+      assert(this->table_warehouse->p_index->insert(w_temp.w_id, hash_ptr));
 
       // reset cursor
       field_cursor = 0;
@@ -1672,11 +1781,11 @@ void TPCC::load_stock_csv(std::string filename, char delim) {
     field_cursor++;
 
     if (field_cursor == 1) {  // S_I_ID
-      temp.s_i_id = std::stoi(line, nullptr);
+      temp.s_i_id = std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 2) {  // S_W_ID
 
-      temp.s_w_id = std::stoi(line, nullptr);
+      temp.s_w_id = std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 3) {  // S_QUANTITY
 
@@ -1694,11 +1803,11 @@ void TPCC::load_stock_csv(std::string filename, char delim) {
 
     } else if (field_cursor == 15) {  // S_ORDER_CNT
 
-      temp.s_order_cnt = (ushort)std::stoi(line, nullptr);
+      temp.s_order_cnt = (ushort)std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 16) {  // S_REMOTE_CNT
 
-      temp.s_remote_cnt = (ushort)std::stoi(line, nullptr);
+      temp.s_remote_cnt = (ushort)std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 17) {  // S_DATA
 
@@ -1714,8 +1823,8 @@ void TPCC::load_stock_csv(std::string filename, char delim) {
         (is_ch_benchmark && field_cursor == 18)) {
       // insert record
       void *hash_ptr = table_stock->insertRecord(&temp, 0, 0);
-      this->table_stock->p_index->insert(
-          MAKE_STOCK_KEY(temp.s_w_id, temp.s_i_id), hash_ptr);
+      assert(this->table_stock->p_index->insert(
+          MAKE_STOCK_KEY(temp.s_w_id, temp.s_i_id), hash_ptr));
 
       // reset cursor
       field_cursor = 0;
@@ -1755,11 +1864,11 @@ void TPCC::load_item_csv(std::string filename, char delim) {
     field_cursor++;
 
     if (field_cursor == 1) {  // I_ID
-      temp.i_id = std::stoi(line, nullptr);
+      temp.i_id = std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 2) {  // I_IM_ID
 
-      temp.i_im_id = std::stoi(line, nullptr);
+      temp.i_im_id = std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 3) {  // I_NAME
 
@@ -1776,7 +1885,7 @@ void TPCC::load_item_csv(std::string filename, char delim) {
 
       // insert record
       void *hash_ptr = table_item->insertRecord(&temp, 0, 0);
-      this->table_item->p_index->insert(temp.i_id, hash_ptr);
+      assert(this->table_item->p_index->insert(temp.i_id, hash_ptr));
 
       // reset cursor
       field_cursor = 0;
@@ -1821,10 +1930,10 @@ void TPCC::load_district_csv(std::string filename, char delim) {
     field_cursor++;
 
     if (field_cursor == 1) {  // D_ID
-      temp.d_id = std::stoi(line, nullptr);
+      temp.d_id = std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 2) {
-      temp.d_w_id = std::stoi(line, nullptr);
+      temp.d_w_id = std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 3) {
       strncpy(temp.d_name, line.c_str(), line.length());
@@ -1855,14 +1964,16 @@ void TPCC::load_district_csv(std::string filename, char delim) {
       temp.d_ytd = std::stof(line, nullptr);
 
     } else if (field_cursor == 11) {
-      temp.d_next_o_id = std::stoi(line, nullptr);
+      temp.d_next_o_id = std::stoi(line, nullptr)-1;
 
       // insert record
       void *hash_ptr = table_district->insertRecord(&temp, 0, 0);
-      bool done = this->table_district->p_index->insert(
-          MAKE_DIST_KEY(temp.d_w_id, temp.d_id), hash_ptr);
+      if(!this->table_district->p_index->insert(
+          MAKE_DIST_KEY(temp.d_w_id, temp.d_id), hash_ptr)  ){
+        std::cout << "d_w_id: " << temp.d_w_id << std::endl;
+      std::cout << "d_id: " << temp.d_id << std::endl;
 
-      assert(done);
+      }
 
       // reset cursor
       field_cursor = 0;
@@ -1916,7 +2027,13 @@ void TPCC::load_nation_csv(std::string filename, char delim) {
 
       // insert record
       void *hash_ptr = table_nation->insertRecord(&temp, 0, 0);
-      this->table_nation->p_index->insert(temp.n_nationkey, hash_ptr);
+      if(!this->table_nation->p_index->insert(temp.n_nationkey, hash_ptr)){
+
+        std::cout << "n_nationkey: "<< temp.n_nationkey<<std::endl;
+        std::cout << "n_name: "<< temp.n_name<<std::endl;
+        std::cout << "n_regionkey: "<< temp.n_regionkey<<std::endl;
+        std::cout << "n_comment: "<< temp.n_comment<<std::endl;
+      }
 
       // reset cursor
       field_cursor = 0;
@@ -1966,7 +2083,7 @@ void TPCC::load_region_csv(std::string filename, char delim) {
 
       // insert record
       void *hash_ptr = table_region->insertRecord(&temp, 0, 0);
-      this->table_region->p_index->insert(temp.r_regionkey, hash_ptr);
+      assert(this->table_region->p_index->insert(temp.r_regionkey, hash_ptr));
 
       // reset cursor
       field_cursor = 0;
@@ -2033,7 +2150,7 @@ void TPCC::load_supplier_csv(std::string filename, char delim) {
 
       // insert record
       void *hash_ptr = table_supplier->insertRecord(&temp, 0, 0);
-      this->table_supplier->p_index->insert(temp.suppkey, hash_ptr);
+      assert(this->table_supplier->p_index->insert(temp.suppkey, hash_ptr));
 
       // reset cursor
       field_cursor = 0;
@@ -2072,18 +2189,18 @@ void TPCC::load_neworder_csv(std::string filename, char delim) {
     field_cursor++;
 
     if (field_cursor == 1) {
-      temp.no_o_id = std::stoull(line, nullptr);
+      temp.no_o_id = std::stoull(line, nullptr)-1;
 
     } else if (field_cursor == 2) {
-      temp.no_d_id = (ushort)std::stoi(line, nullptr);
+      temp.no_d_id = (ushort)std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 3) {
-      temp.no_w_id = (ushort)std::stoi(line, nullptr);
+      temp.no_w_id = (ushort)std::stoi(line, nullptr)-1;
 
       // insert record
       void *hash_ptr = table_new_order->insertRecord(&temp, 0, 0);
-      this->table_new_order->p_index->insert(
-          MAKE_CUST_KEY(temp.no_w_id, temp.no_d_id, temp.no_o_id), hash_ptr);
+      assert(this->table_new_order->p_index->insert(
+          MAKE_CUST_KEY(temp.no_w_id, temp.no_d_id, temp.no_o_id), hash_ptr));
 
       // reset cursor
       field_cursor = 0;
@@ -2125,22 +2242,22 @@ void TPCC::load_history_csv(std::string filename, char delim) {
     field_cursor++;
 
     if (field_cursor == 1) {
-      temp.h_c_id = std::stoi(line, nullptr);
+      temp.h_c_id = std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 2) {
-      temp.h_c_d_id = (ushort)std::stoi(line, nullptr);
+      temp.h_c_d_id = (ushort)std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 3) {
-      temp.h_c_w_id = (ushort)std::stoi(line, nullptr);
+      temp.h_c_w_id = (ushort)std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 4) {
-      temp.h_d_id = (ushort)std::stoi(line, nullptr);
+      temp.h_d_id = (ushort)std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 5) {
-      temp.h_w_id = (ushort)std::stoi(line, nullptr);
+      temp.h_w_id = (ushort)std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 6) {
-      temp.h_date = std::stoi(line, nullptr);
+      temp.h_date = 12345657;//std::stoi(line, nullptr);
 
     } else if (field_cursor == 7) {
       temp.h_amount = std::stof(line, nullptr);
@@ -2151,8 +2268,8 @@ void TPCC::load_history_csv(std::string filename, char delim) {
 
       // insert record
       void *hash_ptr = table_history->insertRecord(&temp, 0, 0);
-      this->table_history->p_index->insert(
-          MAKE_CUST_KEY(temp.h_w_id, temp.h_d_id, temp.h_c_id), hash_ptr);
+      assert(this->table_history->p_index->insert(
+          MAKE_CUST_KEY(temp.h_w_id, temp.h_d_id, temp.h_c_id), hash_ptr));
 
       // reset cursor
       field_cursor = 0;
@@ -2188,28 +2305,37 @@ void TPCC::load_order_csv(std::string filename, char delim) {
   struct tpcc_order temp;
 
   while (std::getline(csv, line, delim)) {
-    trim(line);
-    if (line.length() == 0) continue;
+    //trim(line);
+    //if (line.length() == 0) continue;
+    if (line == "\n" || line == "\r\n") continue;
 
     field_cursor++;
 
     if (field_cursor == 1) {
-      temp.o_id = std::stoull(line, nullptr);
+      //std::cout << "o_i_id:" << line << std::endl;
+      temp.o_id = std::stoull(line, nullptr)-1;
 
     } else if (field_cursor == 2) {
-      temp.o_d_id = (ushort)std::stoi(line, nullptr);
+      //std::cout << "o_d_id:" << line << std::endl;
+      temp.o_d_id = (ushort)std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 3) {
-      temp.o_w_id = (ushort)std::stoi(line, nullptr);
+      //std::cout << "order_id:" << line << std::endl;
+      temp.o_w_id = (ushort)std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 4) {
-      temp.o_c_id = std::stoi(line, nullptr);
+      temp.o_c_id = std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 5) {
-      temp.o_entry_d = std::stoi(line, nullptr);
+      temp.o_entry_d =123456789; //std::stoi(line, nullptr);
 
     } else if (field_cursor == 6) {
-      temp.o_carrier_id = (short)std::stoi(line, nullptr);
+      if (line.length() != 0) {
+          temp.o_carrier_id = (short)std::stoi(line, nullptr);
+        } else {
+          temp.o_carrier_id = 0;
+        }
+      
 
     } else if (field_cursor == 7) {
       temp.o_ol_cnt = (ushort)std::stoi(line, nullptr);
@@ -2219,9 +2345,16 @@ void TPCC::load_order_csv(std::string filename, char delim) {
 
       // insert record
       void *hash_ptr = table_order->insertRecord(&temp, 0, 0);
-      this->table_order->p_index->insert(
-          MAKE_ORDER_KEY(temp.o_w_id, temp.o_d_id, temp.o_id), hash_ptr);
+      if(!this->table_order->p_index->insert(
+          MAKE_ORDER_KEY(temp.o_w_id, temp.o_d_id, temp.o_id), hash_ptr)) {
+      
+        std::cout << "n_rec: "<< n_records << std::endl;
+        std::cout << "o_w_id: "<< temp.o_w_id << std::endl;
+        std::cout << "o_d_id: "<< temp.o_d_id << std::endl;
+        std::cout << "o_id: "<< temp.o_id << std::endl;
+        assert(false);
 
+      }
       // reset cursor
       field_cursor = 0;
       n_records++;
@@ -2268,26 +2401,26 @@ void TPCC::load_orderline_csv(std::string filename, char delim) {
       //         << n_records << std::endl;
 
       if (field_cursor == 1) {
-        temp.ol_o_id = std::stoull(line, nullptr);
+        temp.ol_o_id = std::stoull(line, nullptr)-1;
 
       } else if (field_cursor == 2) {
-        temp.ol_d_id = (ushort)std::stoi(line, nullptr);
+        temp.ol_d_id = (ushort)std::stoi(line, nullptr)-1;
 
       } else if (field_cursor == 3) {
-        temp.ol_w_id = (ushort)std::stoi(line, nullptr);
+        temp.ol_w_id = (ushort)std::stoi(line, nullptr)-1;
 
       } else if (field_cursor == 4) {
-        temp.ol_number = (ushort)std::stoi(line, nullptr);
+        temp.ol_number = (ushort)std::stoi(line, nullptr)-1;
 
       } else if (field_cursor == 5) {
-        temp.ol_i_id = (ushort)std::stoi(line, nullptr);
+        temp.ol_i_id = (ushort)std::stoi(line, nullptr)-1;
 
       } else if (field_cursor == 6) {
-        temp.ol_supply_w_id = (ushort)std::stoi(line, nullptr);
+        temp.ol_supply_w_id = (ushort)std::stoi(line, nullptr)-1;
 
       } else if (field_cursor == 7) {
         if (line.length() != 0) {
-          temp.ol_delivery_d = std::stoi(line, nullptr);
+          temp.ol_delivery_d = 12345678;//std::stoi(line, nullptr);
         } else {
           temp.ol_delivery_d = 0;
         }
@@ -2303,10 +2436,10 @@ void TPCC::load_orderline_csv(std::string filename, char delim) {
 
         // insert record
         void *hash_ptr = table_order_line->insertRecord(&temp, 0, 0);
-        this->table_order_line->p_index->insert(
+        assert(this->table_order_line->p_index->insert(
             MAKE_OL_KEY(temp.ol_w_id, temp.ol_d_id, temp.ol_o_id,
                         temp.ol_number),
-            hash_ptr);
+            hash_ptr));
 
         // reset cursor
         field_cursor = 0;
@@ -2369,13 +2502,13 @@ void TPCC::load_customer_csv(std::string filename, char delim) {
     // std::cout << "LINE:-" << line << "--" << field_cursor << std::endl;
 
     if (field_cursor == 1) {
-      temp.c_id = std::stoi(line, nullptr);
+      temp.c_id = std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 2) {
-      temp.c_d_id = (ushort)std::stoi(line, nullptr);
+      temp.c_d_id = (ushort)std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 3) {
-      temp.c_w_id = (ushort)std::stoi(line, nullptr);
+      temp.c_w_id = (ushort)std::stoi(line, nullptr)-1;
 
     } else if (field_cursor == 4) {
       strncpy(temp.c_first, line.c_str(), line.length());
@@ -2442,8 +2575,8 @@ void TPCC::load_customer_csv(std::string filename, char delim) {
 
       // insert record
       void *hash_ptr = table_customer->insertRecord(&temp, 0, 0);
-      this->table_customer->p_index->insert(
-          MAKE_CUST_KEY(temp.c_w_id, temp.c_d_id, temp.c_id), hash_ptr);
+      assert(this->table_customer->p_index->insert(
+          MAKE_CUST_KEY(temp.c_w_id, temp.c_d_id, temp.c_id), hash_ptr));
 
       load_customer_secondary_index(temp);
 

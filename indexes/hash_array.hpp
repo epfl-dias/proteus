@@ -46,15 +46,17 @@ class HashArray {
   V find(K key) {
     // find(op.key, tmp)
 
-    assert(key < capacity);
+    assert(key <= capacity);
 
     return (void *)arr[key];
   }
   inline bool find(K key, V &value) {
     // find(op.key, tmp)
 
-    if (key >= capacity)
+    if (key >= capacity){
+      assert(false);
       return false;
+    }
     else {
       value = (void *)arr[key];
       return true;
@@ -63,8 +65,10 @@ class HashArray {
 
   inline bool insert(K key, V &value) {
     // insert(op.key, hash_ptr)
-    if (key >= capacity)
+    if (key >= capacity){
+      //assert(false);
       return false;
+    }
     else {
       arr[key] = (char *)value;
       return true;

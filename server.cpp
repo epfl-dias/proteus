@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
       "r,write_ratio", "Reader to writer ratio", cxxopts::value<double>())(
       "t,theta", "Zipf theta", cxxopts::value<double>())(
       //"g,gc_mode", "GC Mode: 1-Snapshot, 2-TupleGC", cxxopts::value<uint>())(
-      "b,benchmark", "Benchmark: 0:YCSB, 1:TPC-C", cxxopts::value<uint>())(
+      "b,benchmark", "Benchmark: 0:YCSB, 1:TPC-C (gen),  2:TPC-C (csv)", cxxopts::value<uint>())(
       "c,ycsb_num_cols", "Number of YCSB Columns", cxxopts::value<uint>());
 
   auto result = options.parse(argc, argv);
@@ -132,8 +132,6 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "------- AELOUS ------" << std::endl;
-  std::cout << "Write Threshold: " << write_threshold << std::endl;
-  std::cout << "Theta: " << theta << std::endl;
   std::cout << "# Workers: " << num_workers << std::endl;
   std::cout << "---------------------" << std::endl;
 
@@ -151,8 +149,7 @@ int main(int argc, char** argv) {
 
   // TODO: set affinity for the master server thread.
 
-  scheduler::AffinityManager::getInstance().set(
-      &scheduler::Topology::getInstance().get_worker_cores()->front());
+  
 
   // std::cout << "hardcoding execution location to NUMA node ID: 0" <<
   // std::endl; topology::getInstance().getCpuNumaNodes()[0] const auto
@@ -165,7 +162,14 @@ int main(int argc, char** argv) {
   bench::Benchmark* bench = nullptr;
   if (bechnmark == 1) {
     bench = new bench::TPCC("TPCC", num_workers);
+    
+  } else if (bechnmark == 2) {
+    bench = new bench::TPCC("TPCC", num_workers, 0,
+                            "/home/raza/local/chBenchmark_1_0/w72");
   } else {  // Defult YCSB
+
+    std::cout << "Write Threshold: " << write_threshold << std::endl;
+    std::cout << "Theta: " << theta << std::endl;
     bench = new bench::YCSB("YCSB", num_fields, num_records, theta,
                             num_iterations_per_worker, num_ops_per_txn,
                             write_threshold, num_workers, num_workers);
@@ -180,6 +184,8 @@ int main(int argc, char** argv) {
    * the queue has nothing, it will get and execute a txn from the benchmark
    */
 
+  scheduler::AffinityManager::getInstance().set(
+      &scheduler::Topology::getInstance().get_worker_cores()->front());
   scheduler::WorkerPool::getInstance().init(bench);
   __itt_resume();
   scheduler::WorkerPool::getInstance().start_workers(num_workers);

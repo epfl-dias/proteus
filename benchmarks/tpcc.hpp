@@ -36,7 +36,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "transactions/transaction_manager.hpp"
 //#include <thread
 
-#define TPCC_MAX_ORDER_INITIAL_CAP 100000000
+#define TPCC_MAX_ORDER_INITIAL_CAP 50000000
 
 #define NO_MIX 45
 #define P_MIX 43
@@ -281,6 +281,11 @@ class TPCC : public Benchmark {
   void create_tbl_order_line(uint64_t num_order_line);
   void create_tbl_item(uint64_t num_item);
   void create_tbl_stock(uint64_t num_stock);
+
+  // ch-tables
+  void create_tbl_supplier(uint64_t num_supp);
+  void create_tbl_region(uint64_t num_region);
+  void create_tbl_nation(uint64_t num_nation);
 
   void load_data(int num_threads = 1);
   void load_stock(int w_id);

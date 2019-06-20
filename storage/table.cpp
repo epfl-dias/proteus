@@ -158,7 +158,7 @@ ColumnStore::ColumnStore(
   this->num_columns = columns.size();
   this->name = name;
   // build index over the first column
-  this->p_index = new global_conf::PrimaryIndex<uint64_t>();
+  this->p_index = new global_conf::PrimaryIndex<uint64_t>(initial_num_records+1);
   this->columns.at(0)->buildIndex();
 
   // Secondary Indexes

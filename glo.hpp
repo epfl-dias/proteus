@@ -30,7 +30,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define NUM_SOCKETS 4
 #define NUM_CORE_PER_SOCKET 18
 #define MAX_WORKERS 72
-#define DELTA_SIZE 5  // 2G // 6442450944 6G
+#define DELTA_SIZE 4  // 2G // 6442450944 6G
 
 // typedef cuckoohash_map<std::string, std::string> HashIndex;
 
