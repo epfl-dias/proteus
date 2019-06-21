@@ -29,7 +29,12 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "indexes/hash_index.hpp"
 #include "storage/delta_storage.hpp"
 
-//#include <codegen/memory/memory-manager.hpp>
+/*
+
+  TODO:
+    - resizeable columns
+    - partitionable columns
+*/
 
 namespace storage {
 

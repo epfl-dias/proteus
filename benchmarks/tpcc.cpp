@@ -10,6 +10,16 @@
 #include <string>
 #include <thread>
 
+/*
+
+  Note: There are aborts when reading from CSV, there is something wrong 
+  there for sure. the issue intially was that every ID was starting 
+  from 1 for the chBenchmark generator.
+
+
+  Optimize data types, sometimes it is uint and sometimes it is short.
+*/
+
 namespace bench {
 
 bool TPCC::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
@@ -101,6 +111,7 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
     // attempt to acquire a write lock
     // txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
     // std::cout << "Abort-1-" << w_id << std::endl;
+    
     return false;
   }
 
@@ -121,6 +132,7 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
       hash_ptrs_lock_acquired.emplace_back(st_idx_ptr);
     } else {
       // ABORT
+      
       txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
       return false;
     }
@@ -536,6 +548,7 @@ void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
   int ol_cnt, dup;
   struct tpcc_query *q = (struct tpcc_query *)arg;
   // std::cout << "WID IN GET: " << wid << std::endl;
+  q->query_type = NEW_ORDER;
   q->w_id = wid;
 
   // q->w_id = URand(&p->seed, 1, g_nservers);

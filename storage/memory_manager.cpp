@@ -26,7 +26,16 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <iostream>
 #include "scheduler/topology.hpp"
 
+/*
+  TODO:
+    malloc option
+    shared memory option but still allowing pinning
+    not own allocator but requesting a third-party allocator over UNIX mqueues.
+
+*/
+
 namespace storage {
+
 
 void MemoryManager::init() {
   std::cout << "[MemoryManager::init] --BEGIN--" << std::endl;
