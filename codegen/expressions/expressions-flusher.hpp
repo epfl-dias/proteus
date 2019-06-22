@@ -89,6 +89,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::SubExpression *e);
   ProteusValue visit(const expressions::MultExpression *e);
   ProteusValue visit(const expressions::DivExpression *e);
+  ProteusValue visit(const expressions::ModExpression *e);
   ProteusValue visit(const expressions::AndExpression *e);
   ProteusValue visit(const expressions::OrExpression *e);
   ProteusValue visit(const expressions::RecordConstruction *e);

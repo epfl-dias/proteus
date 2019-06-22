@@ -110,6 +110,10 @@ ProteusValue DivExpression::accept(ExprVisitor &v) const {
   return v.visit(this);
 }
 
+ProteusValue ModExpression::accept(ExprVisitor &v) const {
+  return v.visit(this);
+}
+
 ProteusValue AndExpression::accept(ExprVisitor &v) const {
   return v.visit(this);
 }
@@ -414,6 +418,17 @@ ProteusValue DivExpression::acceptTandem(
   if (this->getTypeID() == expr->getTypeID()) {
     auto rDivExpression = dynamic_cast<decltype(this)>(expr);
     return v.visit(this, rDivExpression);
+  }
+  string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
+  LOG(ERROR) << error_msg;
+  throw runtime_error(string(error_msg));
+}
+
+ProteusValue ModExpression::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
+  if (this->getTypeID() == expr->getTypeID()) {
+    auto rModExpression = dynamic_cast<decltype(this)>(expr);
+    return v.visit(this, rModExpression);
   }
   string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
   LOG(ERROR) << error_msg;

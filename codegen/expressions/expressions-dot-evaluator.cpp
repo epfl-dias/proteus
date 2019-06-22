@@ -439,6 +439,42 @@ ProteusValue ExpressionDotVisitor::visit(const expressions::DivExpression *e1,
   return valWrapper;
 }
 
+ProteusValue ExpressionDotVisitor::visit(const expressions::ModExpression *e1,
+                                         const expressions::ModExpression *e2) {
+  IRBuilder<> *const Builder = context->getBuilder();
+  const OperatorState &currState1 = currStateLeft;
+  ExpressionGeneratorVisitor exprGenerator1 =
+      ExpressionGeneratorVisitor(context, currState1);
+  ProteusValue left = e1->accept(exprGenerator1);
+
+  const OperatorState &currState2 = currStateRight;
+  ExpressionGeneratorVisitor exprGenerator2 =
+      ExpressionGeneratorVisitor(context, currState2);
+  ProteusValue right = e2->accept(exprGenerator2);
+
+  typeID id = e1->getExpressionType()->getTypeID();
+  ProteusValue valWrapper;
+  valWrapper.isNull = context->createFalse();
+
+  switch (id) {
+    case INT:
+      valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
+      return valWrapper;
+    case FLOAT:
+      valWrapper.value = Builder->CreateFCmpOEQ(left.value, right.value);
+      return valWrapper;
+    case BOOL:
+      valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
+      return valWrapper;
+    default:
+      LOG(ERROR) << "[ExpressionDotVisitor]: Invalid Input";
+      throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
+  }
+
+  valWrapper.isNull = context->createFalse();
+  return valWrapper;
+}
+
 // XXX Careful here
 ProteusValue ExpressionDotVisitor::visit(
     const expressions::RecordConstruction *e1,

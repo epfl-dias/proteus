@@ -28,7 +28,23 @@ namespace expressions {
 
 class BinaryOperator {
  public:
-  enum opID { EQ, NEQ, GE, GT, LE, LT, ADD, SUB, MULT, DIV, AND, OR, MAX, MIN };
+  enum opID {
+    EQ,
+    NEQ,
+    GE,
+    GT,
+    LE,
+    LT,
+    ADD,
+    SUB,
+    MULT,
+    DIV,
+    AND,
+    OR,
+    MAX,
+    MIN,
+    MOD
+  };
   virtual opID getID() = 0;
   virtual ~BinaryOperator() = 0;
 };
@@ -62,6 +78,9 @@ class Mult : public BinaryOperator {
 };
 class Div : public BinaryOperator {
   opID getID() { return DIV; }
+};
+class Mod : public BinaryOperator {
+  opID getID() { return MOD; }
 };
 class And : public BinaryOperator {
   opID getID() { return AND; }

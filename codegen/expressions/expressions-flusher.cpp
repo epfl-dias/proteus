@@ -689,6 +689,64 @@ ProteusValue ExpressionFlusherVisitor::visit(
              "expression can only be primitive"));
 }
 
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::ModExpression *e) {
+  outputFileLLVM = context->CreateGlobalString(this->outputFile);
+  ExpressionGeneratorVisitor exprGenerator =
+      ExpressionGeneratorVisitor(context, currState);
+  ProteusValue exprResult = e->accept(exprGenerator);
+
+  const ExpressionType *childType = e->getLeftOperand().getExpressionType();
+  Function *flushFunc = NULL;
+  string instructionLabel;
+
+  if (childType->isPrimitive()) {
+    typeID id = childType->getTypeID();
+    ProteusValue valWrapper;
+    valWrapper.isNull = context->createFalse();
+
+    switch (id) {
+      case INT:
+        instructionLabel = string("flushInt");
+        break;
+      case FLOAT:
+        instructionLabel = string("flushDouble");
+        break;
+      case BOOL:
+        instructionLabel = string("flushBoolean");
+        break;
+      case STRING:
+        LOG(ERROR) << "[ExpressionFlusherVisitor]: string operations not "
+                      "supported yet";
+        throw runtime_error(string(
+            "[ExpressionFlusherVisitor]: string operations not supported yet"));
+      case BAG:
+      case LIST:
+      case SET:
+        LOG(ERROR) << "[ExpressionFlusherVisitor]: invalid expression type";
+        throw runtime_error(
+            string("[ExpressionFlusherVisitor]: invalid expression type"));
+      case RECORD:
+        LOG(ERROR) << "[ExpressionFlusherVisitor]: invalid expression type";
+        throw runtime_error(
+            string("[ExpressionFlusherVisitor]: invalid expression type"));
+      default:
+        LOG(ERROR) << "[ExpressionFlusherVisitor]: Unknown Input";
+        throw runtime_error(
+            string("[ExpressionFlusherVisitor]: Unknown Input"));
+    }
+    flushFunc = context->getFunction(instructionLabel);
+    vector<Value *> ArgsV;
+    ArgsV.push_back(exprResult.value);
+    ArgsV.push_back(outputFileLLVM);
+    context->getBuilder()->CreateCall(flushFunc, ArgsV);
+    return placeholder;
+  }
+  throw runtime_error(
+      string("[ExpressionFlusherVisitor]: input of binary "
+             "expression can only be primitive"));
+}
+
 // #include "plugins/json-plugin.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 

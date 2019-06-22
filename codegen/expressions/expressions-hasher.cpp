@@ -480,6 +480,14 @@ ProteusValue ExpressionHasherVisitor::visit(
 }
 
 ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::ModExpression *e) {
+  if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
+  throw runtime_error(
+      string("[ExpressionHasherVisitor]: input of binary "
+             "expression can only be primitive"));
+}
+
+ProteusValue ExpressionHasherVisitor::visit(
     const expressions::RecordConstruction *e) {
   IRBuilder<> *const Builder = context->getBuilder();
   Type *int64Type = Type::getInt64Ty(context->getLLVMContext());

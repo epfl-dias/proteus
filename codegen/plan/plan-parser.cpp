@@ -2941,6 +2941,19 @@ expression_t ExpressionParser::parseExpressionWithoutRegistering(
     expression_t expr = parseExpression(val[keyInnerExpr], ctx);
 
     return expression_t::make<expressions::TestNullExpression>(expr, false);
+  } else if (strcmp(valExpression, "mod") == 0) {
+    assert(!isNull);
+    /* left child */
+    assert(val.HasMember(leftArg));
+    expression_t leftExpr = parseExpression(val[leftArg], ctx);
+
+    /* right child */
+    assert(val.HasMember(rightArg));
+    expression_t rightExpr = parseExpression(val[rightArg], ctx);
+
+    // ExpressionType *exprType =
+    // const_cast<ExpressionType*>(leftExpr->getExpressionType());
+    return leftExpr % rightExpr;
   } else if (strcmp(valExpression, "is_null") == 0) {
     assert(!isNull);
     /* right child */

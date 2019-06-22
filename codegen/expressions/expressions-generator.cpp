@@ -1842,6 +1842,54 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 }
 
 ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::ModExpression *e) {
+  IRBuilder<> *const TheBuilder = context->getBuilder();
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
+
+  const ExpressionType *childType = e->getLeftOperand().getExpressionType();
+  if (childType->isPrimitive()) {
+    typeID id = childType->getTypeID();
+    ProteusValue valWrapper;
+    valWrapper.isNull = context->createFalse();
+
+    switch (id) {
+      case INT64:
+      case INT:
+      case BOOL:
+        valWrapper.value = TheBuilder->CreateSRem(left.value, right.value);
+        return valWrapper;
+      case FLOAT:
+        valWrapper.value = TheBuilder->CreateFRem(left.value, right.value);
+        return valWrapper;
+      case STRING:
+        LOG(ERROR) << "[ExpressionGeneratorVisitor]: string operations not "
+                      "supported yet";
+        throw runtime_error(
+            string("[ExpressionGeneratorVisitor]: string operations not "
+                   "supported yet"));
+      case BAG:
+      case LIST:
+      case SET:
+        LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
+        throw runtime_error(
+            string("[ExpressionGeneratorVisitor]: invalid expression type"));
+      case RECORD:
+        LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
+        throw runtime_error(
+            string("[ExpressionGeneratorVisitor]: invalid expression type"));
+      default:
+        LOG(ERROR) << "[ExpressionGeneratorVisitor]: Unknown Input";
+        throw runtime_error(
+            string("[ExpressionGeneratorVisitor]: Unknown Input"));
+    }
+  }
+  throw runtime_error(
+      string("[ExpressionGeneratorVisitor]: input of binary "
+             "expression can only be primitive"));
+}
+
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::AndExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
   ProteusValue left = e->getLeftOperand().accept(*this);

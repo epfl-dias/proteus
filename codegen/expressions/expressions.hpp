@@ -355,8 +355,8 @@ class DStringConstant
  */
 class InputArgument : public Expression {
  public:
-  InputArgument(const ExpressionType *type, int argNo,
-                list<RecordAttribute> projections)
+  InputArgument(const ExpressionType *type, int argNo = 0,
+                list<RecordAttribute> projections = {})
       : Expression(type), argNo(argNo), projections(projections) {}
 
   ~InputArgument() {}
@@ -913,6 +913,18 @@ class DivExpression : public TBinaryExpression<Div> {
                             const expressions::Expression *) const;
 };
 
+class ModExpression : public TBinaryExpression<Mod> {
+ public:
+  ModExpression(expression_t lhs, expression_t rhs)
+      : TBinaryExpression(rhs.getExpressionType(), lhs, rhs) {}
+
+  ~ModExpression() {}
+
+  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const;
+};
+
 class AndExpression : public TBinaryExpression<And> {
  public:
   AndExpression(expression_t lhs, expression_t rhs)
@@ -1219,6 +1231,7 @@ class ExprVisitor {
   virtual ProteusValue visit(const expressions::SubExpression *e) = 0;
   virtual ProteusValue visit(const expressions::MultExpression *e) = 0;
   virtual ProteusValue visit(const expressions::DivExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::ModExpression *e) = 0;
   virtual ProteusValue visit(const expressions::AndExpression *e) = 0;
   virtual ProteusValue visit(const expressions::OrExpression *e) = 0;
   virtual ProteusValue visit(const expressions::ProteusValueExpression *e) = 0;
@@ -1278,6 +1291,8 @@ class ExprTandemVisitor {
                              const expressions::MultExpression *e2) = 0;
   virtual ProteusValue visit(const expressions::DivExpression *e1,
                              const expressions::DivExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::ModExpression *e1,
+                             const expressions::ModExpression *e2) = 0;
   virtual ProteusValue visit(const expressions::AndExpression *e1,
                              const expressions::AndExpression *e2) = 0;
   virtual ProteusValue visit(const expressions::OrExpression *e1,
@@ -1362,6 +1377,11 @@ inline expression_t operator*(const expression_t &lhs,
 inline expression_t operator/(const expression_t &lhs,
                               const expression_t &rhs) {
   return expression_t::make<expressions::DivExpression>(lhs, rhs);
+}
+
+inline expression_t operator%(const expression_t &lhs,
+                              const expression_t &rhs) {
+  return expression_t::make<expressions::ModExpression>(lhs, rhs);
 }
 
 inline expressions::RecordProjection expression_t::operator[](

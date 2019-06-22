@@ -88,6 +88,8 @@ class ExpressionDotVisitor : public ExprTandemVisitor {
                      const expressions::MultExpression *e2);
   ProteusValue visit(const expressions::DivExpression *e1,
                      const expressions::DivExpression *e2);
+  ProteusValue visit(const expressions::ModExpression *e1,
+                     const expressions::ModExpression *e2);
   ProteusValue visit(const expressions::AndExpression *e1,
                      const expressions::AndExpression *e2);
   ProteusValue visit(const expressions::OrExpression *e1,
