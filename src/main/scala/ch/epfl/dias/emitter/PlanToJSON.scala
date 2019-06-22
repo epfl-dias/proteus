@@ -303,6 +303,41 @@ object PlanToJSON {
 
   def emitFunc(func: SqlFunction, args: ImmutableList[RexNode], retType: JValue, f: List[Binding]) : JValue =  {
     val json = func.getKind match  {
+      case SqlKind.MOD => {
+        assert(args.size == 2)
+        // TODO: Return type SHOULD be the same as divisor (2nd operand)
+        // SQL2003 Part2 Section 6.27, Syntax Rules 9
+        var left : JValue = null;
+        var right: JValue = null;
+
+        //the following casting may also be necessary in the non-binary case, but its probably safer not to do it
+        //as long as we do not have examples invoking it
+        val ltype = args.get(0).getType
+        val rtype = args.get(1).getType
+
+        val notnums = !SqlTypeUtil.isNumeric(ltype) || !SqlTypeUtil.isNumeric(rtype)
+
+        //Binary operations containing string only operate on strings, so its safe to pass null as other
+
+        val l_isInt   = SqlTypeUtil.isIntType(ltype)
+        val r_isInt   = SqlTypeUtil.isIntType(rtype)
+        if (notnums || SqlTypeUtil.sameNamedType(ltype, rtype)) {
+          left  = emitExpression(args.get(0), f, args.get(1))
+          right = emitExpression(args.get(1), f, args.get(0))
+        } else {
+          //        assert(SqlTypeUtil.comparePrecision(ltype.getPrecision, rtype.getPrecision) != 0) //FIXME: !!! have to be similar, but from proteus side!
+          if (castLeft(ltype, rtype)){
+            System.out.println("Cast: " + ltype + "->" + rtype)
+            left  = emitCast      (args.get(0), emitType(rtype, f), f)
+            right = emitExpression(args.get(1), f, args.get(0))
+          } else {
+            System.out.println("Cast: " + rtype + "->" + ltype)
+            left  = emitExpression(args.get(0), f, args.get(1))
+            right = emitCast      (args.get(1), emitType(ltype, f), f)
+          }
+        }
+        ("expression", "mod") ~ ("left", left) ~ ("right", right)
+      }
       case SqlKind.CAST => {
         assert(args.size == 1)
         emitCast(args.get(0), retType, f)
