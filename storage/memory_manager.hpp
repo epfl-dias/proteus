@@ -26,6 +26,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <map>
 #include <vector>
 
+
 namespace storage {
 
 struct mem_chunk {
@@ -45,6 +46,9 @@ class MemoryManager {
   static void destroy();
 
   // Allocation should be managed  and linked with affinities and topology
+  static void* alloc_shm(const std::string &key, const size_t size_bytes, const int numa_memset_id);
+  static void remove_shm(const std::string &key);
+
   static void* alloc(size_t bytes, int numa_memset_id);
   static void free(void* mem, size_t bytes);
 };

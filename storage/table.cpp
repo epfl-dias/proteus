@@ -376,7 +376,9 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   //          << "| num_r: " << initial_num_records << std::endl;
 
   for (short i = 0; i < global_conf::num_master_versions; i++) {
-    void* mem = MemoryManager::alloc(size, numa_id);
+    //void* mem = MemoryManager::alloc(size, numa_id);
+    void* mem = MemoryManager::alloc_shm(std::to_string(i)+"__" +name,size,numa_id);
+
     uint64_t* pt = (uint64_t*)mem;
     int warmup_max = size / sizeof(uint64_t);
     for (int i = 0; i < warmup_max; i++) pt[i] = 0;

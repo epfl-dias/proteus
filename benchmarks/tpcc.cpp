@@ -1005,7 +1005,7 @@ void TPCC::create_tbl_order(uint64_t num_order) {
       "o_ol_cnt", storage::INTEGER, sizeof(ushort)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "o_all_local", storage::INTEGER, sizeof(ushort)));
-  table_order = schema->create_table("tpcc_order", storage::COLUMN_STORE,
+  table_order = schema->create_table("tpcc_orders", storage::COLUMN_STORE,
                                      columns, num_order);
 }
 
@@ -1057,25 +1057,25 @@ void TPCC::create_tbl_supplier(uint64_t num_supp) {
   std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "suppkey", storage::INTEGER, sizeof(uint32_t)));
+      "su_suppkey", storage::INTEGER, sizeof(uint32_t)));
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_name", storage::STRING, 18));
+      "su_name", storage::STRING, 18));
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_address", storage::VARCHAR, 41));
+      "su_address", storage::VARCHAR, 41));
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_nationkey", storage::INTEGER, sizeof(ushort)));
+      "su_nationkey", storage::INTEGER, sizeof(ushort)));
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_phone", storage::STRING, 15));
+      "su_phone", storage::STRING, 15));
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_acctbal", storage::FLOAT, sizeof(float)));
+      "su_acctbal", storage::FLOAT, sizeof(float)));
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_comment", storage::VARCHAR, 101));
+      "su_comment", storage::VARCHAR, 101));
 
   table_supplier = schema->create_table("ch_supplier", storage::COLUMN_STORE,
                                         columns, num_supp);
