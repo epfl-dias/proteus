@@ -24,56 +24,19 @@
 #ifndef REDUCE_HPP_
 #define REDUCE_HPP_
 
-#include "expressions/expressions-flusher.hpp"
-#include "expressions/expressions-generator.hpp"
-#include "operators/monoids.hpp"
-#include "operators/operators.hpp"
+#include "operators/reduce-opt.hpp"
 
 //#ifdef DEBUG
 #define DEBUGREDUCE
 //#endif
 
-/**
- * TODO ADD MATERIALIZER / OUTPUT PLUGIN FOR REDUCE OPERATOR
- * ADD 'SERIALIZER' SUPPORT IN ALL CASES, NOT ONLY LIST/BAG AS NOW
- */
-class Reduce : public UnaryOperator {
- public:
-  Reduce(Monoid acc, expressions::Expression *outputExpr,
-         expressions::Expression *pred, Operator *const child,
-         Context *context);
-  virtual ~Reduce() { LOG(INFO) << "Collapsing Reduce operator"; }
-  virtual void produce();
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return true; }
+class [[deprecated("Use opt::Reduce")]] Reduce : public opt::Reduce{
+  public :
 
- private:
-  Context *__attribute__((unused)) context;
-
-  Monoid acc;
-  expressions::Expression *outputExpr;
-  expressions::Expression *pred;
-  llvm::AllocaInst *mem_accumulating;
-
-  void generate(Context *const context, const OperatorState &childState) const;
-  void generateSum(Context *const context,
-                   const OperatorState &childState) const;
-  void generateMul(Context *const context,
-                   const OperatorState &childState) const;
-  void generateMax(Context *const context,
-                   const OperatorState &childState) const;
-  void generateAnd(Context *const context,
-                   const OperatorState &childState) const;
-  void generateOr(Context *const context,
-                  const OperatorState &childState) const;
-  void generateUnion(Context *const context,
-                     const OperatorState &childState) const;
-  void generateBagUnion(Context *const context,
-                        const OperatorState &childState) const;
-  void generateAppend(Context *const context,
-                      const OperatorState &childState) const;
-
-  void flushResult();
+      Reduce(Monoid acc, expressions::Expression *outputExpr,
+             expressions::Expression *pred, Operator *const child,
+             Context *context) :
+          opt::Reduce({acc}, {outputExpr}, pred, child, context, true){}
 };
 
 #endif /* REDUCE_HPP_ */

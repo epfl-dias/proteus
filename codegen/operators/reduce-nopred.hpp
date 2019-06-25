@@ -24,10 +24,7 @@
 #ifndef REDUCENOPRED_HPP_
 #define REDUCENOPRED_HPP_
 
-#include "expressions/expressions-flusher.hpp"
-#include "expressions/expressions-generator.hpp"
-#include "operators/monoids.hpp"
-#include "operators/operators.hpp"
+#include "operators/reduce-opt.hpp"
 
 //#ifdef DEBUG
 #define DEBUGREDUCENOPRED
@@ -40,41 +37,12 @@
  * This simplified operator implementation does not perform
  * whether p is true
  */
-class ReduceNoPred : public UnaryOperator {
- public:
-  ReduceNoPred(Monoid acc, expressions::Expression *outputExpr,
-               Operator *const child, Context *context);
-  virtual ~ReduceNoPred() { LOG(INFO) << "Collapsing Reduce operator"; }
-  virtual void produce();
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return getChild()->isFiltering(); }
+class [[deprecated("Use opt::Reduce")]] ReduceNoPred : public opt::Reduce{
+  public :
 
- private:
-  Context *__attribute__((unused)) context;
-
-  Monoid acc;
-  expressions::Expression *outputExpr;
-  llvm::AllocaInst *mem_accumulating;
-
-  void generate(Context *const context, const OperatorState &childState) const;
-  void generateSum(Context *const context,
-                   const OperatorState &childState) const;
-  void generateMul(Context *const context,
-                   const OperatorState &childState) const;
-  void generateMax(Context *const context,
-                   const OperatorState &childState) const;
-  void generateAnd(Context *const context,
-                   const OperatorState &childState) const;
-  void generateOr(Context *const context,
-                  const OperatorState &childState) const;
-  void generateUnion(Context *const context,
-                     const OperatorState &childState) const;
-  void generateBagUnion(Context *const context,
-                        const OperatorState &childState) const;
-  void generateAppend(Context *const context,
-                      const OperatorState &childState) const;
-
-  void flushResult();
+      ReduceNoPred(Monoid acc, expressions::Expression *outputExpr,
+                   Operator *const child, Context *context) :
+          opt::Reduce({acc}, {outputExpr}, true, child, context, true){}
 };
 
 #endif /* REDUCENOPRED_HPP_ */

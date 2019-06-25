@@ -38,9 +38,7 @@ set(codegen_cxx
     operators/project.cpp
     operators/radix-join.cpp
     operators/radix-nest.cpp
-    operators/reduce-nopred.cpp
     operators/reduce-opt.cpp
-    operators/reduce.cpp
     operators/root.cpp
     operators/scan.cpp
     operators/select.cpp
